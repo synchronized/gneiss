@@ -2,8 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "tooling/asset_import/asset_writer.hpp"
+#include "engine/resource/scene/scene_description.hpp"
 
-#include "engine/asset/mesh_binary.hpp"
+#include "engine/resource/mesh/mesh_binary.hpp"
 
 #include <fstream>
 #include <iomanip>
@@ -12,7 +13,7 @@
 #include <sstream>
 #include <system_error>
 
-namespace gneiss::tooling::asset_import {
+namespace gneiss::tooling {
 namespace {
 
 void configure(std::ostream& stream) {
@@ -40,33 +41,32 @@ void configure(std::ostream& stream) {
 
 [[nodiscard]] bool write_mesh(const import_ir_primitive& primitive,
                               const std::filesystem::path& path) {
-  asset_internal::mesh_binary_data data;
+  gneiss::engine::mesh_binary_data data;
   data.vertices.reserve(primitive.vertices.size());
   data.tangents.reserve(primitive.vertices.size());
   data.indices = primitive.indices;
   for (const auto& source : primitive.vertices) {
-    data.tangents.push_back(source.tangent);
+    data.tangents.push_back(
+        {source.tangent[0], source.tangent[1], source.tangent[2], source.tangent[3]});
     if (primitive.has_uv1)
-      data.uv1.push_back(source.uv1);
+      data.uv1.push_back({source.uv1[0], source.uv1[1]});
     if (primitive.has_color)
-      data.colors.push_back(source.color);
+      data.colors.push_back({source.color[0], source.color[1], source.color[2], source.color[3]});
     data.vertices.push_back(
         {.position = {source.position[0], source.position[1], source.position[2]},
          .texcoord = {source.texcoord[0], source.texcoord[1]},
          .normal = {source.normal[0], source.normal[1], source.normal[2]}});
   }
-  std::vector<std::byte> bytes;
-  asset_internal::mesh_binary_diagnostic diagnostic;
-  if (asset_internal::encode_mesh_binary(data, bytes, diagnostic) !=
-      asset_internal::mesh_binary_result::success) {
+  auto bytes = gneiss::engine::encode_mesh_binary(data);
+  if (!bytes) {
     return false;
   }
   std::ofstream stream(path, std::ios::binary | std::ios::trunc);
   if (!stream) {
     return false;
   }
-  stream.write(reinterpret_cast<const char*>(bytes.data()),
-               static_cast<std::streamsize>(bytes.size()));
+  stream.write(reinterpret_cast<const char*>(bytes->data()),
+               static_cast<std::streamsize>(bytes->size()));
   return stream.good();
 }
 
@@ -78,53 +78,47 @@ void configure(std::ostream& stream) {
     return false;
   }
   configure(stream);
-  stream << "{\n  \"format\": \"gneiss.material\",\n  \"version\": 5,\n  \"color\": ["
+  // 离线 SDK 不链接 Engine；输出与原生材质描述一致的 v6 结构。
+  stream << R"({"format":"gneiss.material","version":6,"parameters":{"color":[)"
          << material.base_color[0] << ',' << material.base_color[1] << ',' << material.base_color[2]
-         << ',' << material.base_color[3] << ']';
-  stream << ",\n  \"base_color_texture\": ";
-  if (material.base_color_image_index)
-    stream << '"' << asset_uri_prefix << "textures/image-" << *material.base_color_image_index
-           << ".texture.json\"";
-  else
-    stream << "null";
-  stream << ",\n  \"metallic\": " << material.metallic
-         << ",\n  \"roughness\": " << material.roughness;
-  constexpr std::array names{"base_color_texture", "metallic_roughness_texture", "normal_texture",
-                             "occlusion_texture", "emissive_texture"};
+         << ',' << material.base_color[3] << ']' << R"(,"metallic":)" << material.metallic
+         << R"(,"roughness":)" << material.roughness << R"(,"normal_scale":)"
+         << material.normal_scale << R"(,"occlusion_strength":)" << material.occlusion_strength
+         << R"(,"emissive":[)" << material.emissive[0] << ',' << material.emissive[1] << ','
+         << material.emissive[2] << R"(],"alpha_mode":)"
+         << static_cast<std::uint32_t>(material.alpha_mode) << R"(,"double_sided":)"
+         << (material.double_sided ? "true" : "false") << R"(,"alpha_cutoff":)"
+         << material.alpha_cutoff << R"(,"sampling":[)";
+  for (std::size_t slot = 0; slot < material.sampling.size(); ++slot) {
+    const auto& v = material.sampling[slot];
+    if (slot)
+      stream << ',';
+    stream << R"({"uv_set":)" << v.uv_set << R"(,"mag_filter":)"
+           << static_cast<std::uint32_t>(v.mag_filter) << R"(,"min_filter":)"
+           << static_cast<std::uint32_t>(v.min_filter) << R"(,"mip_filter":)"
+           << static_cast<std::uint32_t>(v.mip_filter) << R"(,"address_u":)"
+           << static_cast<std::uint32_t>(v.address_u) << R"(,"address_v":)"
+           << static_cast<std::uint32_t>(v.address_v) << '}';
+  }
+  stream << R"(]},"texture_uris":[)";
   constexpr std::array variants{0U, 1U, 2U, 1U, 0U};
   const auto images = material.texture_indices();
-  for (std::size_t slot = 1; slot < images.size(); ++slot) {
-    stream << ",\n  \"" << names[slot] << "\": ";
-    if (images[slot]) {
-      stream << '"' << asset_uri_prefix << "textures/image-" << *images[slot]
-             << image_variant_suffixes[variants[slot]] << ".texture.json\"";
-    } else {
-      stream << "null";
-    }
-  }
-  stream << ",\n  \"normal_scale\": " << material.normal_scale
-         << ",\n  \"occlusion_strength\": " << material.occlusion_strength << ",\n  \"emissive\": ["
-         << material.emissive[0] << ',' << material.emissive[1] << ',' << material.emissive[2]
-         << "],\n  \"alpha_mode\": \""
-         << (material.alpha_mode == GNEISS_MATERIAL_ALPHA_BLEND
-                 ? "BLEND"
-                 : (material.alpha_mode == GNEISS_MATERIAL_ALPHA_MASK ? "MASK" : "OPAQUE"))
-         << "\",\n  \"double_sided\": " << (material.double_sided != 0U ? "true" : "false")
-         << ",\n  \"alpha_cutoff\": " << material.alpha_cutoff << ",\n  \"sampling\": [";
-  for (std::size_t slot = 0; slot < material.sampling.size(); ++slot) {
-    const auto& s = material.sampling[slot];
-    if (slot != 0U)
+  for (std::size_t slot = 0; slot < images.size(); ++slot) {
+    if (slot)
       stream << ',';
-    stream << "{\"uv_set\":" << s.uv_set << ",\"mag_filter\":" << s.mag_filter
-           << ",\"min_filter\":" << s.min_filter << ",\"mip_filter\":" << s.mip_filter
-           << ",\"address_u\":" << s.address_u << ",\"address_v\":" << s.address_v << '}';
+    stream << '"';
+    if (images[slot])
+      stream << asset_uri_prefix << "textures/image-" << *images[slot]
+             << image_variant_suffixes[variants[slot]] << ".texture.json";
+    stream << '"';
   }
-  stream << "]\n}\n";
+  stream << "]}\n";
   return stream.good();
 }
 
-void write_transform(std::ostream& stream, const std::array<float, 3>& translation,
-                     const std::array<float, 4>& rotation, const std::array<float, 3>& scale) {
+void write_transform(std::ostream& stream, const gneiss::engine::math::vector3& translation,
+                     const gneiss::engine::math::quaternion& rotation,
+                     const gneiss::engine::math::vector3& scale) {
   stream << R"("transform": {"translation": [)" << translation[0] << ',' << translation[1] << ','
          << translation[2] << R"(], "rotation": [)" << rotation[0] << ',' << rotation[1] << ','
          << rotation[2] << ',' << rotation[3] << R"(], "scale": [)" << scale[0] << ',' << scale[1]
@@ -133,9 +127,18 @@ void write_transform(std::ostream& stream, const std::array<float, 3>& translati
 
 void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t primitive_index,
                     const import_ir_primitive& primitive, std::string_view asset_uri_prefix) {
-  stream << R"("mesh_renderer": {"mesh": ")" << asset_uri_prefix << "models/"
+  stream << R"({"$type_guid": ")";
+  // 仅使用 constexpr 身份值；离线 SDK 不依赖引擎 DLL 的注册表或 GUID 函数。
+  constexpr auto bytes = gneiss::engine::mesh_renderer_description::type_guid.bytes();
+  constexpr char hex[] = "0123456789abcdef";
+  for (std::size_t index = 0; index < bytes.size(); ++index) {
+    if (index == 4 || index == 6 || index == 8 || index == 10)
+      stream << '-';
+    stream << hex[bytes[index] >> 4] << hex[bytes[index] & 15];
+  }
+  stream << R"(", "$content": {"mesh": ")" << asset_uri_prefix << "models/"
          << mesh_name(mesh_index, primitive_index) << R"(", "material": ")" << asset_uri_prefix
-         << "materials/" << material_name(primitive) << R"("})";
+         << "materials/" << material_name(primitive) << R"("}})";
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): 输出顺序直接对应稳定 Scene Schema。
@@ -152,7 +155,7 @@ void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t pr
     return false;
   }
   configure(stream);
-  stream << "{\n  \"format\": \"gneiss.scene\",\n  \"version\": 4,\n"
+  stream << "{\n  \"format\": \"gneiss.scene\",\n  \"version\": 5,\n"
             "  \"scene_uuid\": \"00000000-0000-4000-8000-000000000000\",\n"
             "  \"objects\": [\n";
   std::size_t synthetic_count = 0;
@@ -173,17 +176,17 @@ void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t pr
     }
     stream << ", ";
     write_transform(stream, node.translation, node.rotation, node.scale);
-    stream << R"(, "components": {)";
+    stream << R"(, "components": [)";
     if (node.mesh_index && data.meshes[*node.mesh_index].primitives.size() == 1U) {
       write_renderer(stream, *node.mesh_index, 0U, data.meshes[*node.mesh_index].primitives[0],
                      asset_uri_prefix);
     }
-    stream << "}}" << (++emitted == total_count ? "\n" : ",\n");
+    stream << "]}" << (++emitted == total_count ? "\n" : ",\n");
   }
   std::size_t synthetic_index = 0;
-  constexpr std::array<float, 3> identity_translation{};
-  constexpr std::array<float, 4> identity_rotation{0.0F, 0.0F, 0.0F, 1.0F};
-  constexpr std::array<float, 3> identity_scale{1.0F, 1.0F, 1.0F};
+  const gneiss::engine::math::vector3 identity_translation{};
+  const gneiss::engine::math::quaternion identity_rotation{1.0F, 0.0F, 0.0F, 0.0F};
+  const gneiss::engine::math::vector3 identity_scale{1.0F};
   for (std::size_t node_index = 0; node_index < data.nodes.size(); ++node_index) {
     const auto& node = data.nodes[node_index];
     if (!node.mesh_index || data.meshes[*node.mesh_index].primitives.size() <= 1U) {
@@ -194,13 +197,13 @@ void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t pr
       stream << R"(    {"uuid": ")" << uuid_for(data.nodes.size() + synthetic_index++)
              << R"(", "parent": ")" << uuid_for(node_index) << R"(", )";
       write_transform(stream, identity_translation, identity_rotation, identity_scale);
-      stream << R"(, "components": {)";
+      stream << R"(, "components": [)";
       write_renderer(stream, *node.mesh_index, primitive_index, primitives[primitive_index],
                      asset_uri_prefix);
-      stream << "}}" << (++emitted == total_count ? "\n" : ",\n");
+      stream << "]}" << (++emitted == total_count ? "\n" : ",\n");
     }
   }
-  stream << "  ],\n  \"prefab_instances\": []\n}\n";
+  stream << "  ]\n}\n";
   return stream.good();
 }
 
@@ -303,12 +306,10 @@ write_report write_assets_in_place(const import_ir& data,
                     static_cast<std::streamsize>(data.images[index].bytes.size()));
         std::ofstream texture(output_directory / "textures" / (base + ".texture.json"),
                               std::ios::binary | std::ios::trunc);
-        texture << "{\n  \"format\": \"gneiss.texture\",\n  \"version\": "
-                << (variant == 2U ? 2 : 1) << ",\n  \"source\": \"" << asset_uri_prefix
-                << "textures/" << base << ".png\",\n  \"color_space\": \""
-                << (variant == 0U ? "srgb" : "linear") << '"';
-        if (variant == 2U)
-          texture << ",\n  \"usage\": \"normal\"";
+        texture << "{\n  \"format\": \"gneiss.texture\",\n  \"version\": " << 2
+                << ",\n  \"source\": \"" << asset_uri_prefix << "textures/" << base
+                << ".png\",\n  \"color_space\": \"" << (variant == 0U ? "srgb" : "linear") << '"';
+        texture << ",\n  \"usage\": \"" << (variant == 2U ? "normal" : "default") << '"';
         texture << "\n}\n";
         if (!image.good() || !texture.good())
           return {.success = false, .diagnostic = "写出 Texture 失败"};
@@ -390,4 +391,4 @@ write_report write_assets(const import_ir& data, const std::filesystem::path& ou
   }
 }
 
-} // namespace gneiss::tooling::asset_import
+} // namespace gneiss::tooling

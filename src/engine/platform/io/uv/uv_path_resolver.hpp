@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/core/error.hpp"
 
 #include <atomic>
 #include <cstddef>
@@ -11,7 +11,7 @@
 #include <string>
 #include <string_view>
 
-namespace gneiss::io_internal {
+namespace gneiss::engine {
 class uv_loop_executor;
 
 /** 异步解析结果；单消费者轮询。销毁仅放弃结果，不等待磁盘或执行器。
@@ -21,7 +21,7 @@ public:
   ~uv_path_operation();
   uv_path_operation(const uv_path_operation&) = delete;
   uv_path_operation& operator=(const uv_path_operation&) = delete;
-  [[nodiscard]] result poll(std::string& output) noexcept;
+  [[nodiscard]] error poll(std::string& output) noexcept;
 
 private:
   friend class uv_path_resolver;
@@ -37,12 +37,12 @@ private:
 class uv_path_resolver final {
 public:
   explicit uv_path_resolver(uv_loop_executor& executor, std::size_t capacity = 64U);
-  [[nodiscard]] result begin(std::string_view path,
-                             std::unique_ptr<uv_path_operation>& output) const noexcept;
+  [[nodiscard]] error begin(std::string_view path,
+                            std::unique_ptr<uv_path_operation>& output) const noexcept;
 
 private:
   uv_loop_executor& executor_;
   std::shared_ptr<std::atomic_size_t> active_;
   std::size_t capacity_;
 };
-} // namespace gneiss::io_internal
+} // namespace gneiss::engine

@@ -1,6 +1,6 @@
 {
   "format": "gneiss.scene",
-  "version": 4,
+  "version": 5,
   "scene_uuid": "30000000-0000-4000-8000-000000000010",
   "objects": [
     {
@@ -8,32 +8,65 @@
       "name": "Anchor",
       "parent": null,
       "transform": {
-        "translation": [0, 0, 0],
-        "rotation": [0, 0, 0, 1],
-        "scale": [1, 1, 1]
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "components": {}
-    }
-  ],
-  "prefab_instances": [
+      "components": []
+    },
     {
-      "instance_uuid": "30000000-0000-4000-8000-000000000012",
       "name": "Lamp Instance",
       "parent": "30000000-0000-4000-8000-000000000011",
-      "prefab": "asset://prefabs/test.prefab.json",
-      "transform": {
-        "translation": [10, 0, 0],
-        "rotation": [0, 0, 0, 1],
-        "scale": [1, 1, 1]
+      "prefab": {
+        "uri": "asset://prefabs/test.prefab.json",
+        "overrides": [
+          {
+            "source_node_uuid": "30000000-0000-4000-8000-000000000002",
+            "type_guid": "69644f20b2d24e488c7491f4f952ec2d",
+            "property_id": 1,
+            "value": {
+              "kind": "vec3",
+              "value": [
+                3,
+                0,
+                0
+              ]
+            }
+          }
+        ]
       },
-      "overrides": [
-        {
-          "source_node_uuid": "30000000-0000-4000-8000-000000000002",
-          "type_id": "69644f20b2d24e488c7491f4f952ec2d",
-          "field_id": 1,
-          "value": {"kind": "vec3", "value": [3, 0, 0]}
-        }
-      ]
+      "transform": {
+        "translation": [
+          10,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "uuid": "30000000-0000-4000-8000-000000000012"
     }
   ]
 }

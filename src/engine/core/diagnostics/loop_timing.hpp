@@ -13,7 +13,7 @@
 #include <ostream>
 #include <utility>
 
-namespace gneiss::diagnostics {
+namespace gneiss::engine {
 
 // 仅用于所属线程的可选观测。嵌套阶段是包含关系，不能重复相加。
 enum class loop_stage : std::uint8_t {
@@ -47,15 +47,7 @@ enum class loop_stage : std::uint8_t {
   task_submit_notify,
   idle_lock,
   idle_condition,
-  scene_verify,
-  scene_builder_create,
-  scene_asset_service_reset,
   scene_build,
-  scene_description_move,
-  scene_instance_allocate,
-  scene_instance_initialize,
-  scene_node_index_reserve,
-  scene_verify_submit_body,
   task_callback_create,
   task_submit_dispatch,
   count,
@@ -91,15 +83,7 @@ inline constexpr std::array loop_stage_names{
     "task_submit_notify",
     "idle_lock",
     "idle_condition",
-    "scene_verify",
-    "scene_builder_create",
-    "scene_asset_service_reset",
     "scene_build",
-    "scene_description_move",
-    "scene_instance_allocate",
-    "scene_instance_initialize",
-    "scene_node_index_reserve",
-    "scene_verify_submit_body",
     "task_callback_create",
     "task_submit_dispatch",
 };
@@ -278,6 +262,6 @@ private:
   timing_clock::time_point started_;
   std::optional<loop_record> record_;
 };
-} // namespace gneiss::diagnostics
+} // namespace gneiss::engine
 
 #endif

@@ -1,29 +1,100 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset_scene_commands.hpp"
+#include "../support/scene_query.hpp"
+#include "../support/value_result.hpp"
+#include "commands/editor_asset_edit.hpp"
+#include "commands/editor_prefab_edit.hpp"
+#include "documents/editor_scene_loader.hpp"
+#include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
+#include "engine/core/rid.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
+#include <chrono>
+#include <cstdio>
+#include <thread>
 
-#include <gneiss/engine/application.hpp>
+#include "engine/core/math/transform.hpp"
 
+#include <stdexcept>
 #include <string>
 
 int main() try {
   using namespace gneiss;
   using namespace gneiss::editor;
   const std::string assets = GNEISS_EDITOR_TEST_ASSET_ROOT;
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.asset_root = assets.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(assets.size());
-  application app;
-  gneiss_world world = GNEISS_NULL_WORLD;
-  editor_session session;
-  editor_command_history history;
-  if (application::create_native(desc, app).failed() || app.get_world(world).failed() ||
-      session.open(app.get(), world, "asset://scenes/triangle.scene.json").failed()) {
+  gneiss::runtime::application_configuration desc;
+  desc.asset_root = assets;
+  engine::task_scheduler scheduler({.mode = engine::execution_mode::cooperative});
+  std::shared_ptr<gneiss::runtime::application> app;
+  gneiss::engine::world* world = nullptr;
+  document_editing editing;
+  auto& session = editing.document();
+  auto& history = editing.history();
+  editor_camera camera;
+  editor_scene_loader loader;
+  if (gneiss::engine::error{gneiss::runtime::application::create(desc, app)}.failed() ||
+      (world = app->native_world()) == nullptr || app->attach_task_executor(scheduler).failed() ||
+      camera.initialize().failed() ||
+      loader.request(*app, editing, "asset://scenes/triangle.scene.json").failed()) {
     return 1;
   }
-  const auto initial_count = session.nodes().size();
-  const auto parent = session.nodes().front().node;
+  const auto wait = [&](auto pending, auto advance) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (pending()) {
+      if (std::chrono::steady_clock::now() >= deadline)
+        throw std::runtime_error("异步编辑超时");
+      (void)scheduler.run_ready();
+      app->advance_scene_load();
+      advance();
+      std::this_thread::yield();
+    }
+  };
+  wait([&] { return loader.active() || app->visual_assets_loading(); },
+       [&] {
+         bool changed{};
+         if (loader.advance(*app, editing, world, camera, changed).failed())
+           throw std::runtime_error("场景加载失败");
+       });
+  if (loader.operation().failed())
+    return 1;
+  const auto add_mesh_asset = [&](scene_document& document, editor_command_history& commands,
+                                  std::string_view name, mesh_asset_reference refs) {
+    editor_asset_edit operation;
+    auto status = operation.request_add(*app, document, commands, name, refs);
+    if (status.failed())
+      return status;
+    wait([&] { return operation.active(); }, [&] { operation.advance(*app, document, commands); });
+    return operation.operation();
+  };
+  const auto replace_mesh_assets = [&](scene_document& document, editor_command_history& commands,
+                                       gneiss::engine::guid uuid, mesh_asset_reference refs) {
+    editor_asset_edit operation;
+    auto status = operation.request(*app, document, commands, uuid, refs);
+    if (status.failed())
+      return status;
+    wait([&] { return operation.active(); }, [&] { operation.advance(*app, document, commands); });
+    return operation.operation();
+  };
+  const auto add_prefab_asset = [&](scene_document& document, editor_command_history& commands,
+                                    std::string_view name, std::string_view uri,
+                                    scene_node_id parent) {
+    editor_prefab_edit operation;
+    auto status = operation.request(*app, scheduler, document, commands, name, uri, parent);
+    if (status.failed())
+      return status;
+    wait([&] { return operation.active(); }, [&] { operation.advance(); });
+    return operation.operation();
+  };
+  const auto run_history = [&](bool undo) {
+    auto status = undo ? history.undo() : history.redo();
+    wait([&] { return history.is_pending(); }, [&] { status = history.advance_pending(); });
+    return status;
+  };
+  const auto initial_count = gneiss::test_support::scene_query(session).nodes.size();
+  const auto parent = gneiss::test_support::scene_query(session).nodes.front().node;
   constexpr auto mesh = "asset://models/triangle.mesh.json";
   constexpr auto material = "asset://materials/triangle.material.json";
   constexpr auto prefab = "asset://prefabs/test.prefab.json";
@@ -34,28 +105,33 @@ int main() try {
     return add_mesh_asset(session, history, name,
                           {.mesh_uri = mesh_uri, .material_uri = material_uri});
   };
-  if (add_temporary_mesh().failed() || session.nodes().size() != initial_count + 1U ||
+  if (add_temporary_mesh().failed() ||
+      gneiss::test_support::scene_query(session).nodes.size() != initial_count + 1U ||
       !session.is_dirty() || history.size() != 1U) {
     return 2;
   }
   const auto uuid = session.selected_node()->uuid;
-  if (session.select(parent).failed() || history.undo().failed() ||
-      session.find_node(uuid) != nullptr || history.redo().failed() ||
-      session.find_node(uuid) == nullptr || session.find_node(uuid)->display_name != "Mesh") {
+  if (session.select(parent).failed() || run_history(true).failed() ||
+      session.find_node(uuid).ok() || run_history(false).failed() ||
+      session.find_node(uuid).failed() || session.find_node(uuid)->display_name != "Mesh") {
     return 3;
   }
   if (replace_mesh_assets(
           session, history, uuid,
           {.mesh_uri = mesh, .material_uri = "asset://materials/missing.material.json"})
           .ok() ||
-      history.size() != 1U || session.find_node(uuid)->material_uri != material ||
-      replace_mesh_assets(session, history, "missing",
-                          {.mesh_uri = mesh, .material_uri = material}) != result::not_found) {
+      history.size() != 1U ||
+      session.find_node(uuid)
+              ->components.get<gneiss::engine::mesh_renderer_description>()
+              ->material_uri != material ||
+      replace_mesh_assets(
+          session, history, *gneiss::engine::guid::parse("ffffffff-ffff-4fff-8fff-ffffffffffff"),
+          {.mesh_uri = mesh, .material_uri = material}) != gneiss::engine::error::not_found) {
     return 4;
   }
   if (replace_mesh_assets(session, history, uuid, {.mesh_uri = mesh, .material_uri = material})
           .failed() ||
-      history.size() != 2U || history.undo().failed() || history.redo().failed()) {
+      history.size() != 1U || run_history(true).failed() || run_history(false).failed()) {
     return 5;
   }
   const auto add_temporary_prefab = [&] {
@@ -63,33 +139,139 @@ int main() try {
     const std::string uri = prefab;
     return add_prefab_asset(session, history, name, uri, parent);
   };
-  if (add_temporary_prefab().failed() || session.selected_prefab_node() == nullptr) {
+  if (add_temporary_prefab().failed() || session.selected_prefab_node().failed()) {
     return 6;
   }
   const auto prefab_uuid = session.selected_prefab_node()->instance_uuid;
-  if (history.undo().failed() || session.find_prefab_root(prefab_uuid) != nullptr ||
-      history.redo().failed() || session.find_prefab_root(prefab_uuid) == nullptr ||
+  if (run_history(true).failed() || session.find_prefab_root(prefab_uuid).ok() ||
+      run_history(false).failed() || session.find_prefab_root(prefab_uuid).failed() ||
       session.find_prefab_root(prefab_uuid)->parent != parent) {
     return 7;
   }
   // 容量耗尽时撤回刚创建的节点/实例，且不能把干净文档标脏。
   editor_command_history full{0U};
   session.clear_dirty();
-  const auto nodes = session.nodes().size();
-  const auto prefabs = session.prefab_nodes().size();
-  if (add_mesh_asset(session, full, "Rollback Mesh",
-                     {.mesh_uri = mesh, .material_uri = material}) != result::invalid_argument ||
-      session.nodes().size() != nodes || session.is_dirty() ||
-      add_prefab_asset(session, full, "Rollback Prefab", prefab, parent) !=
-          result::invalid_argument ||
-      session.prefab_nodes().size() != prefabs || session.is_dirty() || full.can_undo()) {
+  const auto nodes = gneiss::test_support::scene_query(session).nodes.size();
+  const auto prefabs = gneiss::test_support::scene_query(session).prefab_nodes.size();
+  const auto mesh_failed =
+      add_mesh_asset(session, full, "Rollback Mesh", {.mesh_uri = mesh, .material_uri = material});
+  if (mesh_failed != engine::error::invalid_argument ||
+      gneiss::test_support::scene_query(session).nodes.size() != nodes || session.is_dirty()) {
+    std::fprintf(stderr, "网格回滚：结果=%d 节点=%zu/%zu 脏状态=%d\n", mesh_failed.code(),
+                 gneiss::test_support::scene_query(session).nodes.size(), nodes,
+                 session.is_dirty());
     return 8;
   }
+  const auto prefab_failed = add_prefab_asset(session, full, "Rollback Prefab", prefab, parent);
+  if (prefab_failed != engine::error::invalid_argument ||
+      gneiss::test_support::scene_query(session).prefab_nodes.size() != prefabs ||
+      session.is_dirty() || full.can_undo()) {
+    std::fprintf(stderr, "Prefab 回滚：结果=%d 节点=%zu/%zu 脏状态=%d\n", prefab_failed.code(),
+                 gneiss::test_support::scene_query(session).prefab_nodes.size(), prefabs,
+                 session.is_dirty());
+    return 8;
+  }
+  // 相同资源是无操作，不消耗历史容量，也不把文档标脏。
   if (replace_mesh_assets(session, full, uuid, {.mesh_uri = mesh, .material_uri = material}) !=
-          result::invalid_argument ||
-      session.is_dirty() || session.find_node(uuid)->material_uri != material) {
+          gneiss::engine::error::success ||
+      session.is_dirty() ||
+      session.find_node(uuid)
+              ->components.get<gneiss::engine::mesh_renderer_description>()
+              ->material_uri != material) {
     return 9;
   }
+  editor_asset_edit removal;
+  engine::scene_mesh_binding removed_binding, restored_binding;
+  if (gneiss::test_support::take_value(session.capture_mesh_binding(session.find_node(uuid)->node),
+                                       removed_binding)
+          .failed() ||
+      removal.request_remove(session, history, uuid).failed() ||
+      session.find_node(uuid)->components.get<gneiss::engine::mesh_renderer_description>() !=
+          nullptr ||
+      run_history(true).failed() ||
+      gneiss::test_support::take_value(session.capture_mesh_binding(session.find_node(uuid)->node),
+                                       restored_binding)
+          .failed() ||
+      session.find_node(uuid)->components.get<gneiss::engine::mesh_renderer_description>() ==
+          nullptr ||
+      removed_binding.mesh != restored_binding.mesh ||
+      removed_binding.material != restored_binding.material || run_history(false).failed() ||
+      run_history(true).failed())
+    return 12;
+  history.clear();
+  engine::scene_mesh_binding before, after;
+  scene_subtree_snapshot snapshot;
+  scene_node_id restored;
+  if (gneiss::test_support::take_value(session.capture_mesh_binding(session.find_node(uuid)->node),
+                                       before)
+          .failed() ||
+      session.destroy_subtree(session.find_node(uuid)->node, snapshot).failed() ||
+      snapshot.resources.size() != 1U || session.restore_subtree(snapshot, restored).failed() ||
+      gneiss::test_support::take_value(session.capture_mesh_binding(restored), after).failed() ||
+      before.mesh != after.mesh || before.material != after.material)
+    return 11;
+  // Prefab 来源网格移除保留实际资源；历史清空后恢复来源走异步准备。
+  auto mesh_prefab = std::make_shared<engine::prefab_description>();
+  mesh_prefab->uuid = engine::guid::from_bytes({88, 1});
+  mesh_prefab->root_uuid = engine::guid::from_bytes({88, 2});
+  engine::object_description mesh_root;
+  mesh_root.uuid = mesh_prefab->root_uuid;
+  mesh_root.components.set(engine::mesh_renderer_description{mesh, material});
+  mesh_prefab->objects.push_back(mesh_root);
+  engine::object_description mesh_instance;
+  mesh_instance.uuid = engine::guid::from_bytes({88, 3});
+  mesh_instance.prefab.emplace();
+  mesh_instance.prefab->uri = "asset://prefabs/memory.prefab.json";
+  scene_node_id mesh_node;
+  const std::array mesh_bindings{before};
+  if (gneiss::test_support::take_value(
+          app->scenes()->instantiate_prefab_ready(session.scene_handle(), mesh_instance,
+                                                  engine::prefab_asset_ref{mesh_prefab},
+                                                  mesh_bindings, false),
+          mesh_node)
+          .failed() ||
+      session.validate_selection().failed())
+    return 20;
+  component_edit_target mesh_target{.instance_uuid = mesh_instance.uuid,
+                                    .source_uuid = mesh_root.uuid,
+                                    .component_type = engine::mesh_renderer_description::type_guid};
+  if (edit_prefab_component_structure(session, history, mesh_target,
+                                      prefab_component_action::remove)
+          .failed() ||
+      history.undo().failed())
+    return 21;
+  engine::scene_mesh_binding restored_source;
+  if (gneiss::test_support::take_value(session.capture_mesh_binding(mesh_node), restored_source)
+          .failed() ||
+      restored_source.mesh != before.mesh || restored_source.material != before.material)
+    return 22;
+  if (history.redo().failed() || history.clear().failed())
+    return 23;
+  editor_asset_edit restore_source;
+  if (restore_source.request_restore_source(*app, session, history, mesh_target).failed())
+    return 24;
+  wait([&] { return restore_source.active(); },
+       [&] { restore_source.advance(*app, session, history); });
+  // 文档恢复会重建实例；历史重放后必须按作者身份重新取节点句柄。
+  const auto restored_node = [&] {
+    const auto node =
+        session.find_prefab_source(mesh_target.instance_uuid, mesh_target.source_uuid);
+    return node ? node->node : scene_node_id{};
+  };
+  if (restore_source.operation().failed())
+    return 25;
+  auto restored_state =
+      session.capture_component_override(restored_node(), mesh_target.component_type);
+  auto restored_components = session.components(restored_node());
+  if (!restored_state || !restored_components || restored_state->removed ||
+      !restored_components->find(mesh_target.component_type))
+    return 25;
+  if (history.undo().failed())
+    return 26;
+  restored_components = session.components(restored_node());
+  if (!restored_components || restored_components->find(mesh_target.component_type) ||
+      history.redo().failed())
+    return 26;
   history.clear();
   session.close();
   return 0;

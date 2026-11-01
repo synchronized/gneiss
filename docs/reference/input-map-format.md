@@ -3,7 +3,7 @@
 
 # 输入动作映射格式 v1
 
-动作映射是 UTF-8 严格 JSON 文档，通过 VFS 逻辑 URI 读取。根对象只能包含 `format`、`version` 和
+动作映射是 UTF-8 严格 JSON 文档，通过文件服务的逻辑 URI 读取。根对象只能包含 `format`、`version` 和
 `actions`：
 
 ```json
@@ -27,9 +27,13 @@
 非零有限数。
 
 未知字段、未知格式或版本、空动作列表、重复名称、空绑定及非法数值均返回
-`GNEISS_ERROR_INVALID_ARGUMENT`。解析采用事务语义：失败不会修改调用方已有映射。
+`error::invalid_argument`。解析采用事务语义：失败不会修改调用方已有映射。
 
-使用 `gneiss_application_load_action_map` 从逻辑 URI 同步替换映射，再通过
-`gneiss_application_find_action` 缓存动作句柄，并用 `gneiss_application_get_action_state` 查询当帧
-状态。成功替换映射后旧句柄失效；失败时旧映射和句柄保持有效。动作句柄不可跨 Application 使用，
+使用原生 Application 的 `begin_action_map` 从逻辑 URI 异步加载映射；
+`action_map_status` 返回成功后，通过 `find_action` 缓存动作句柄，使用 `get_action_state` 查询当帧状态。
+请求被接受不代表已经应用，主循环负责推进。成功替换映射后旧句柄失效；失败时旧映射和句柄保持有效。动作句柄不可跨 Application 使用，
 也不可序列化。
+
+原生 `action_map`、`action_definition`、`action_binding` 的字段通过反射编解码；
+文件 `key` 对应 `physical_key`。默认表初始化后，可调用 `encode_action_map` 保存新建描述，
+无需原始 JSON。编码和解码均限制为 1 MiB，并拒绝重复字段。

@@ -3,7 +3,7 @@
 
 #include "tooling/asset_build/runtime_texture_probe.hpp"
 
-#include "engine/asset/texture_binary.hpp"
+#include "engine/resource/texture/texture_binary.hpp"
 #include "tooling/asset_build/sha256.hpp"
 
 #include <granit/renderer/texture_asset.hpp>
@@ -14,7 +14,7 @@
 #include <string_view>
 #include <utility>
 
-namespace gneiss::tooling::asset_build {
+namespace gneiss::tooling {
 namespace {
 
 std::string_view format_name(granit::texture_format format) noexcept {
@@ -39,13 +39,13 @@ bool inspect_runtime_texture(std::span<const std::byte> bytes, std::string& summ
   summary.clear();
   diagnostic.clear();
   try {
-    asset_internal::texture_binary_view binary;
-    if (asset_internal::decode_texture_binary(bytes, binary, diagnostic) !=
-        asset_internal::texture_binary_result::success) {
+    auto binary = gneiss::engine::decode_texture_binary(bytes);
+    if (!binary) {
+      diagnostic = std::move(binary.error().message);
       return false;
     }
     granit::texture_asset_info info;
-    if (granit::inspect_texture_asset(binary.manifest, info).failed() ||
+    if (granit::inspect_texture_asset(binary->manifest, info).failed() ||
         info.dimension != granit::texture_dimension::two_dimensional || info.depth != 1U ||
         info.array_layers != 1U || info.variants.empty() ||
         std::cmp_not_equal(info.mip_levels, std::bit_width(std::max(info.width, info.height)))) {
@@ -65,20 +65,20 @@ bool inspect_runtime_texture(std::span<const std::byte> bytes, std::string& summ
     }
     std::ostringstream output;
     output << "Texture Binary v1 " << info.width << 'x' << info.height << " Mip=" << info.mip_levels
-           << " Variants=" << info.variants.size() << " ManifestBytes=" << binary.manifest.size()
-           << " PayloadBytes=" << binary.payload.size() << '\n';
+           << " Variants=" << info.variants.size() << " ManifestBytes=" << binary->manifest.size()
+           << " PayloadBytes=" << binary->payload.size() << '\n';
     for (std::size_t index = 0; index < info.variants.size(); ++index) {
       const auto& variant = info.variants[index];
       const auto preferred =
           srgb ? granit::texture_format::bc7_rgba_srgb : granit::texture_format::bc7_rgba_unorm;
       if ((variant.format != fallback && variant.format != preferred) ||
-          variant.payload_offset > binary.payload.size() ||
-          variant.payload_size > binary.payload.size() - variant.payload_offset) {
+          variant.payload_offset > binary->payload.size() ||
+          variant.payload_size > binary->payload.size() - variant.payload_offset) {
         diagnostic = "变体格式、颜色空间或负载边界无效";
         return false;
       }
-      const auto payload = binary.payload.subspan(static_cast<std::size_t>(variant.payload_offset),
-                                                  static_cast<std::size_t>(variant.payload_size));
+      const auto payload = binary->payload.subspan(static_cast<std::size_t>(variant.payload_offset),
+                                                   static_cast<std::size_t>(variant.payload_size));
       if (sha256(payload) != variant.payload_digest) {
         diagnostic = "变体 " + std::to_string(index) + " 负载 SHA-256 不匹配";
         return false;
@@ -100,4 +100,4 @@ bool inspect_runtime_texture(std::span<const std::byte> bytes, std::string& summ
   }
 }
 
-} // namespace gneiss::tooling::asset_build
+} // namespace gneiss::tooling

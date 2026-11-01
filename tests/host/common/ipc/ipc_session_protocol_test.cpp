@@ -1,0 +1,135 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include "engine/core/error.hpp"
+#include "ipc_session_protocol.hpp"
+
+#include <array>
+
+using namespace gneiss::host;
+
+namespace {
+
+[[nodiscard]] bool test_hello_and_negotiation() {
+  const gneiss::host::ipc_session_hello request{
+      .token = "secret",
+      .domains = {{.domain = gneiss::engine::ipc_domain::control, .version = 2U},
+                  {.domain = gneiss::engine::ipc_domain::property, .version = 1U}}};
+  gneiss::engine::ipc_envelope envelope;
+  if (gneiss::host::encode_ipc_session_hello(request, false, 7U, envelope) !=
+      gneiss::engine::error::success) {
+    return false;
+  }
+  gneiss::host::ipc_session_hello decoded;
+  if (gneiss::host::decode_ipc_session_hello(envelope, decoded) != gneiss::engine::error::success ||
+      decoded.token != request.token || decoded.domains.size() != 2U) {
+    return false;
+  }
+  constexpr std::array supported{gneiss::engine::ipc_domain_capability{
+                                     .domain = gneiss::engine::ipc_domain::control, .version = 1U},
+                                 gneiss::engine::ipc_domain_capability{
+                                     .domain = gneiss::engine::ipc_domain::log, .version = 1U}};
+  gneiss::host::ipc_session_hello acknowledgment;
+  if (gneiss::host::negotiate_ipc_session_hello(decoded, "secret", supported, acknowledgment) !=
+          gneiss::engine::error::success ||
+      acknowledgment.domains.size() != 1U || acknowledgment.domains[0].version != 1U ||
+      gneiss::host::encode_ipc_session_hello(acknowledgment, true, envelope.request_id, envelope) !=
+          gneiss::engine::error::success) {
+    return false;
+  }
+  gneiss::host::ipc_session_hello accepted;
+  return gneiss::host::decode_ipc_session_hello(envelope, accepted) ==
+             gneiss::engine::error::success &&
+         accepted.token.empty() && accepted.domains == acknowledgment.domains;
+}
+
+[[nodiscard]] bool test_session_messages() {
+  gneiss::engine::ipc_envelope envelope;
+  const gneiss::host::ipc_session_heartbeat heartbeat{.nonce = 42U};
+  if (gneiss::host::encode_ipc_session_heartbeat(heartbeat, false, 8U, envelope) !=
+      gneiss::engine::error::success) {
+    return false;
+  }
+  gneiss::host::ipc_session_heartbeat decoded_heartbeat;
+  if (gneiss::host::decode_ipc_session_heartbeat(envelope, decoded_heartbeat) !=
+          gneiss::engine::error::success ||
+      decoded_heartbeat.nonce != heartbeat.nonce) {
+    return false;
+  }
+  const gneiss::host::ipc_session_error error{.code = -8, .message = "状态错误"};
+  if (gneiss::host::encode_ipc_session_error(error, 8U, envelope) !=
+      gneiss::engine::error::success) {
+    return false;
+  }
+  gneiss::host::ipc_session_error decoded_error;
+  if (gneiss::host::decode_ipc_session_error(envelope, decoded_error) !=
+          gneiss::engine::error::success ||
+      decoded_error.code != error.code || decoded_error.message != error.message) {
+    return false;
+  }
+  const gneiss::host::ipc_session_shutdown shutdown{.exit_code = 3};
+  if (gneiss::host::encode_ipc_session_shutdown(shutdown, envelope) !=
+      gneiss::engine::error::success) {
+    return false;
+  }
+  gneiss::host::ipc_session_shutdown decoded_shutdown;
+  return gneiss::host::decode_ipc_session_shutdown(envelope, decoded_shutdown) ==
+             gneiss::engine::error::success &&
+         decoded_shutdown.exit_code == shutdown.exit_code;
+}
+
+[[nodiscard]] bool test_rejections() {
+  gneiss::host::ipc_session_hello request{
+      .token = "secret",
+      .domains = {{.domain = gneiss::engine::ipc_domain::control, .version = 1U}}};
+  gneiss::host::ipc_session_hello output;
+  constexpr std::array supported{gneiss::engine::ipc_domain_capability{
+      .domain = gneiss::engine::ipc_domain::control, .version = 1U}};
+  if (gneiss::host::negotiate_ipc_session_hello(request, "wrong", supported, output) !=
+      gneiss::engine::error::invalid_argument) {
+    return false;
+  }
+  request.domains.push_back(request.domains.front());
+  if (gneiss::host::negotiate_ipc_session_hello(request, "secret", supported, output) !=
+      gneiss::engine::error::invalid_argument) {
+    return false;
+  }
+  gneiss::engine::ipc_envelope envelope;
+  return gneiss::host::encode_ipc_session_hello(request, false, 0U, envelope) ==
+         gneiss::engine::error::invalid_argument;
+}
+
+[[nodiscard]] bool test_direction_rules() {
+  const auto operations = gneiss::host::ipc_session_operations();
+  return operations.size() == 4U &&
+         operations[0].runtime_to_editor_kinds ==
+             gneiss::engine::ipc_kind_mask(gneiss::engine::ipc_message_kind::request) &&
+         operations[0].editor_to_runtime_kinds ==
+             gneiss::engine::ipc_kind_mask(gneiss::engine::ipc_message_kind::response) &&
+         operations[3].editor_to_runtime_kinds == 0U;
+}
+
+[[nodiscard]] bool test_timeout_tracker() {
+  using namespace std::chrono_literals;
+  const auto start = gneiss::host::ipc_timeout_tracker::clock::time_point{};
+  gneiss::host::ipc_timeout_tracker tracker(3s);
+  tracker.reset(start);
+  return !tracker.expired(start + 2999ms) && tracker.expired(start + 3s) &&
+         gneiss::host::ipc_timeout_tracker(0s).expired(start);
+}
+
+} // namespace
+
+int main() {
+  try {
+    if (!test_hello_and_negotiation()) {
+      return 1;
+    }
+    if (!test_session_messages()) {
+      return 2;
+    }
+    return test_rejections() && test_direction_rules() && test_timeout_tracker() ? 0 : 3;
+  } catch (...) {
+    return 1;
+  }
+}

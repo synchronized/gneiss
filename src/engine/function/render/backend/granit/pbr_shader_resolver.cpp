@@ -6,10 +6,8 @@
 #include <granit/renderer/shader_library.h>
 
 #include <cstdint>
-#include <fstream>
-#include <limits>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine {
 namespace {
 
 constexpr std::uint8_t shader_library_bytes[] = {
@@ -30,25 +28,10 @@ granit_result pbr_shader_resolver::validate() noexcept {
   return GRANIT_SUCCESS;
 }
 
-granit_result
-pbr_shader_resolver::initialize(const std::filesystem::path& asset_directory) noexcept {
+granit_result pbr_shader_resolver::initialize(std::span<const std::byte> bytes) noexcept {
   reset();
   try {
-    std::ifstream stream(asset_directory / "pbr_standard.grshlib",
-                         std::ios::binary | std::ios::ate);
-    if (!stream) {
-      return GRANIT_ERROR_INITIALIZATION_FAILED;
-    }
-    const auto end = stream.tellg();
-    if (end <= 0 || static_cast<std::uint64_t>(end) > std::numeric_limits<std::size_t>::max()) {
-      return GRANIT_ERROR_INITIALIZATION_FAILED;
-    }
-    archive_.resize(static_cast<std::size_t>(end));
-    stream.seekg(0);
-    if (!stream.read(reinterpret_cast<char*>(archive_.data()), end)) {
-      reset();
-      return GRANIT_ERROR_INITIALIZATION_FAILED;
-    }
+    archive_.assign(bytes.begin(), bytes.end());
     return validate();
   } catch (...) {
     reset();
@@ -78,4 +61,4 @@ std::span<const std::byte> pbr_shader_resolver::material_archive() noexcept {
   return std::as_bytes(std::span{material_archive_bytes});
 }
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine

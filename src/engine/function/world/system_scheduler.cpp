@@ -2,36 +2,37 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/world/system_scheduler.hpp"
+#include "engine/core/error.hpp"
 
 #include <algorithm>
 #include <new>
 
-namespace gneiss::world_internal {
+namespace gneiss::engine {
 
-gneiss_result system_scheduler::add(system_id id, system_callback callback,
+engine::error system_scheduler::add(system_id id, system_callback callback,
                                     void* user_data) noexcept {
   if (id == 0U || callback == nullptr ||
       std::ranges::any_of(systems_, [id](const entry& value) { return value.id == id; })) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return engine::error::invalid_argument;
   }
   try {
     systems_.push_back({.id = id, .callback = callback, .user_data = user_data});
-    return GNEISS_SUCCESS;
+    return engine::error::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return engine::error::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return engine::error::internal;
   }
 }
 
-gneiss_result system_scheduler::run(world_state& world) noexcept {
+engine::error system_scheduler::run(world_state& world) noexcept {
   for (const auto& system : systems_) {
     const auto result = system.callback(world, system.user_data);
-    if (result != GNEISS_SUCCESS) {
+    if (result != engine::error::success) {
       return result;
     }
   }
-  return GNEISS_SUCCESS;
+  return engine::error::success;
 }
 
-} // namespace gneiss::world_internal
+} // namespace gneiss::engine

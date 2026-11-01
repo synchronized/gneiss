@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/reflection/type_registry.hpp"
-
 #include "engine/function/scene/prefab_property_override.hpp"
+#include "engine/core/error.hpp"
+#include "engine/core/meta/serialization.hpp"
+#include "engine/core/utf8.hpp"
+#include "engine/function/scene/scene_object.hpp"
+#include "engine/function/world/world_reflection.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -13,75 +16,12 @@
 
 namespace {
 
-using namespace gneiss::scene_internal;
+using namespace gneiss::engine;
 
-[[nodiscard]] bool is_zero_type_id(gneiss_type_id value) noexcept {
-  return std::ranges::all_of(value.bytes, [](std::uint8_t byte) { return byte == 0U; });
-}
-
-[[nodiscard]] bool is_canonical_uuid_impl(std::string_view value) noexcept {
-  if (value.size() != 36U) {
+[[nodiscard]] bool valid_value(const gneiss::engine::value& value) noexcept {
+  if (value.payload.valueless_by_exception()) {
     return false;
   }
-  for (std::size_t index = 0U; index < value.size(); ++index) {
-    if (index == 8U || index == 13U || index == 18U || index == 23U) {
-      if (value[index] != '-') {
-        return false;
-      }
-    } else if ((value[index] < '0' || value[index] > '9') &&
-               (value[index] < 'a' || value[index] > 'f')) {
-      return false;
-    }
-  }
-  return true;
-}
-
-[[nodiscard]] bool valid_utf8(std::string_view text) noexcept {
-  std::size_t index = 0U;
-  while (index < text.size()) {
-    const auto first = static_cast<unsigned char>(text[index]);
-    if (first == 0U) {
-      return false;
-    }
-    if (first < 0x80U) {
-      ++index;
-      continue;
-    }
-    std::size_t continuation_count = 0U;
-    std::uint32_t code_point = 0U;
-    if (first >= 0xC2U && first <= 0xDFU) {
-      continuation_count = 1U;
-      code_point = first & 0x1FU;
-    } else if (first >= 0xE0U && first <= 0xEFU) {
-      continuation_count = 2U;
-      code_point = first & 0x0FU;
-    } else if (first >= 0xF0U && first <= 0xF4U) {
-      continuation_count = 3U;
-      code_point = first & 0x07U;
-    } else {
-      return false;
-    }
-    if (index + continuation_count >= text.size()) {
-      return false;
-    }
-    for (std::size_t offset = 1U; offset <= continuation_count; ++offset) {
-      const auto next = static_cast<unsigned char>(text[index + offset]);
-      if ((next & 0xC0U) != 0x80U) {
-        return false;
-      }
-      code_point = (code_point << 6U) | (next & 0x3FU);
-    }
-    if ((continuation_count == 2U && code_point < 0x800U) ||
-        (continuation_count == 3U && code_point < 0x10000U) || code_point > 0x10FFFFU ||
-        (code_point >= 0xD800U && code_point <= 0xDFFFU)) {
-      return false;
-    }
-    index += continuation_count + 1U;
-  }
-  return true;
-}
-
-[[nodiscard]] bool valid_value(const prefab_property_value& value) noexcept {
   return std::visit(
       [](const auto& payload) noexcept {
         using value_type = std::decay_t<decltype(payload)>;
@@ -91,12 +31,15 @@ using namespace gneiss::scene_internal;
                              std::is_same_v<value_type, double>) {
           return std::isfinite(payload);
         } else if constexpr (std::is_same_v<value_type, std::string>) {
-          return valid_utf8(payload);
-        } else if constexpr (std::is_same_v<value_type, std::array<std::uint8_t, 16>>) {
-          return std::ranges::any_of(payload, [](std::uint8_t byte) { return byte != 0U; });
-        } else if constexpr (std::is_same_v<value_type, std::array<float, 3>> ||
-                             std::is_same_v<value_type, std::array<float, 4>>) {
-          return std::ranges::all_of(payload, [](float item) { return std::isfinite(item); });
+          return payload.find('\0') == std::string_view::npos && utf8::is_valid(payload);
+        } else if constexpr (std::is_same_v<value_type, gneiss::engine::guid>) {
+          return static_cast<bool>(payload);
+        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector2> ||
+                             std::is_same_v<value_type, gneiss::engine::math::vector4> ||
+                             std::is_same_v<value_type, gneiss::engine::math::vector3> ||
+                             std::is_same_v<value_type, gneiss::engine::math::quaternion>) {
+          return std::ranges::all_of(gneiss::engine::math::components(payload),
+                                     [](float item) { return std::isfinite(item); });
         } else {
           return true;
         }
@@ -104,7 +47,7 @@ using namespace gneiss::scene_internal;
       value.payload);
 }
 
-void normalize_zero(prefab_property_value& value) noexcept {
+void normalize_zero(gneiss::engine::value& value) noexcept {
   std::visit(
       [](auto& payload) noexcept {
         using value_type = std::decay_t<decltype(payload)>;
@@ -112,9 +55,11 @@ void normalize_zero(prefab_property_value& value) noexcept {
           if (payload == 0) {
             payload = 0;
           }
-        } else if constexpr (std::is_same_v<value_type, std::array<float, 3>> ||
-                             std::is_same_v<value_type, std::array<float, 4>>) {
-          for (auto& item : payload) {
+        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector2> ||
+                             std::is_same_v<value_type, gneiss::engine::math::vector4> ||
+                             std::is_same_v<value_type, gneiss::engine::math::vector3> ||
+                             std::is_same_v<value_type, gneiss::engine::math::quaternion>) {
+          for (auto& item : gneiss::engine::math::components(payload)) {
             if (item == 0.0F) {
               item = 0.0F;
             }
@@ -126,101 +71,56 @@ void normalize_zero(prefab_property_value& value) noexcept {
 
 } // namespace
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine {
 
-bool is_canonical_prefab_uuid(std::string_view value) noexcept {
-  return is_canonical_uuid_impl(value);
-}
-
-bool is_valid_prefab_author_address(const prefab_author_address& address) noexcept {
-  return is_canonical_prefab_uuid(address.instance_uuid) &&
-         is_canonical_prefab_uuid(address.source_node_uuid);
-}
-
-bool prefab_property_override_key_less(const prefab_property_override_key& left,
-                                       const prefab_property_override_key& right) noexcept {
-  if (left.node.instance_uuid != right.node.instance_uuid) {
-    return left.node.instance_uuid < right.node.instance_uuid;
+error validate_prefab_property_override(const prefab_property_override& value) noexcept try {
+  if (!value.key.source_node_uuid || !value.key.type_guid || !value.key.property_id.is_valid() ||
+      !valid_value(value.value)) {
+    return error::invalid_argument;
   }
-  if (left.node.source_node_uuid != right.node.source_node_uuid) {
-    return left.node.source_node_uuid < right.node.source_node_uuid;
+  auto field = meta::describe_property(value.key.type_guid, value.key.property_id);
+  if (!field)
+    return field.error();
+  if (!has_flags(field->capabilities, meta::property_capabilities::writable) ||
+      value.key.path.size() > 64)
+    return error::invalid_argument;
+  auto type = field->type;
+  for (const auto& step : value.key.path) {
+    if (const auto* property = std::get_if<meta::property_id>(&step)) {
+      auto properties = type.properties();
+      if (!properties)
+        return properties.error();
+      auto found = std::ranges::find(*properties, *property, &meta::property_info::id);
+      if (found == properties->end())
+        return error::not_found;
+      if (!has_flags(found->capabilities, meta::property_capabilities::writable))
+        return error::invalid_argument;
+      type = found->type;
+    } else {
+      if (type.kind() != meta::type_kind::sequence)
+        return error::invalid_argument;
+      auto element = type.element_type();
+      if (!element)
+        return element.error();
+      type = *element;
+    }
   }
-  if (!std::ranges::equal(left.type_id.bytes, right.type_id.bytes)) {
-    return std::lexicographical_compare(
-        std::begin(left.type_id.bytes), std::end(left.type_id.bytes),
-        std::begin(right.type_id.bytes), std::end(right.type_id.bytes));
-  }
-  return left.field_id < right.field_id;
-}
-
-bool prefab_property_override_key::operator==(
-    const prefab_property_override_key& other) const noexcept {
-  return node == other.node && field_id == other.field_id &&
-         std::ranges::equal(type_id.bytes, other.type_id.bytes);
-}
-
-gneiss_property_kind prefab_property_value_kind(const prefab_property_value& value) noexcept {
-  return std::visit(
-      [](const auto& payload) noexcept -> gneiss_property_kind {
-        using value_type = std::decay_t<decltype(payload)>;
-        if constexpr (std::is_same_v<value_type, bool>) {
-          return GNEISS_PROPERTY_KIND_BOOL;
-        } else if constexpr (std::is_same_v<value_type, std::int64_t>) {
-          return GNEISS_PROPERTY_KIND_INT64;
-        } else if constexpr (std::is_same_v<value_type, std::uint64_t>) {
-          return GNEISS_PROPERTY_KIND_UINT64;
-        } else if constexpr (std::is_same_v<value_type, float>) {
-          return GNEISS_PROPERTY_KIND_FLOAT32;
-        } else if constexpr (std::is_same_v<value_type, double>) {
-          return GNEISS_PROPERTY_KIND_FLOAT64;
-        } else if constexpr (std::is_same_v<value_type, std::string>) {
-          return GNEISS_PROPERTY_KIND_STRING;
-        } else if constexpr (std::is_same_v<value_type, std::array<std::uint8_t, 16>>) {
-          return GNEISS_PROPERTY_KIND_TYPE_ID;
-        } else if constexpr (std::is_same_v<value_type, std::array<float, 3>>) {
-          return GNEISS_PROPERTY_KIND_VEC3;
-        } else if constexpr (std::is_same_v<value_type, std::array<float, 4>>) {
-          return GNEISS_PROPERTY_KIND_QUATERNION;
-        } else {
-          return GNEISS_PROPERTY_KIND_INVALID;
-        }
-      },
-      value.payload);
-}
-
-gneiss_result validate_prefab_property_override(gneiss_type_registry registry,
-                                                const prefab_property_override& value) noexcept
-    try {
-  if (!is_valid_prefab_author_address(value.key.node) || is_zero_type_id(value.key.type_id) ||
-      value.key.field_id == GNEISS_NULL_FIELD_ID || !valid_value(value.value)) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
-  }
-  gneiss_field_info field = GNEISS_FIELD_INFO_INIT;
-  const auto found = gneiss::reflection_internal::find_field(
-      gneiss::reflection_internal::resolve(registry), value.key.type_id, value.key.field_id, field);
-  if (found != GNEISS_SUCCESS) {
-    return found;
-  }
-  if (field.property_kind != prefab_property_value_kind(value.value) ||
-      (field.property_capabilities & GNEISS_PROPERTY_CAPABILITY_WRITABLE) == 0U) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
-  }
-  return GNEISS_SUCCESS;
+  if (type.scalar_kind() != value.value.kind())
+    return error::invalid_argument;
+  return error::success;
 } catch (...) {
-  return GNEISS_ERROR_INTERNAL;
+  return error::internal;
 }
 
-gneiss_result set_prefab_property_override(gneiss_type_registry registry,
-                                           std::vector<prefab_property_override>& overrides,
-                                           prefab_property_override candidate,
-                                           prefab_property_value source_value) noexcept {
-  auto operation = validate_prefab_property_override(registry, candidate);
-  if (operation != GNEISS_SUCCESS) {
+error set_prefab_property_override(std::vector<prefab_property_override>& overrides,
+                                   prefab_property_override candidate,
+                                   engine::value source_value) noexcept {
+  auto operation = validate_prefab_property_override(candidate);
+  if (operation != error::success) {
     return operation;
   }
-  if (!valid_value(source_value) ||
-      prefab_property_value_kind(source_value) != prefab_property_value_kind(candidate.value)) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+  if (!valid_value(source_value) || source_value.kind() != candidate.value.kind()) {
+    return error::invalid_argument;
   }
   normalize_zero(candidate.value);
   normalize_zero(source_value);
@@ -230,22 +130,221 @@ gneiss_result set_prefab_property_override(gneiss_type_registry registry,
       if (found != overrides.end()) {
         overrides.erase(found);
       }
-      return GNEISS_SUCCESS;
+      return error::success;
     }
     if (found != overrides.end()) {
       found->value = std::move(candidate.value);
     } else {
       overrides.push_back(std::move(candidate));
       std::ranges::sort(overrides, [](const auto& left, const auto& right) {
-        return prefab_property_override_key_less(left.key, right.key);
+        return engine::prefab_property_override_key_less(left.key, right.key);
       });
     }
-    return GNEISS_SUCCESS;
+    return error::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return error::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return error::internal;
   }
 }
 
-} // namespace gneiss::scene_internal
+namespace {
+engine::error apply_candidate_object(const prefab_property_override& value,
+                                     const engine::value& native, object_description& object) {
+  auto result = engine::error::success;
+  const auto is_type = [&](guid type) { return value.key.type_guid == type; };
+  if (is_type(transform_component_type)) {
+    auto transform = object.transform;
+    result = meta::write_property(value.key.type_guid, value.key.property_id, &transform, native);
+    if (result != engine::error::success) {
+      return result;
+    }
+    object.transform = transform;
+  } else {
+    if (!value.key.path.empty())
+      return error::unsupported;
+    return edit_component(object.components, value.key.type_guid, value.key.property_id, native);
+  }
+  return engine::error::success;
+}
+}
+
+error prepare_prefab_reference(const prefab_description& source,
+                               const prefab_reference_description& reference,
+                               prefab_description& output, scene_diagnostic* diagnostic) noexcept
+    try {
+  if (diagnostic)
+    *diagnostic = {};
+  const auto fail = [&](error status, guid object, guid type, std::string suffix,
+                        const char* message) {
+    if (diagnostic)
+      *diagnostic = {.error = status,
+                     .path =
+                         "/objects/" + object.string() + "/components/" + type.string() + suffix,
+                     .message = message};
+    return status;
+  };
+  auto candidate = source;
+  std::vector<std::pair<guid, guid>> keys;
+  auto types = component_editor_types();
+  if (!types)
+    return types.error();
+  for (const auto& change : reference.component_overrides) {
+    auto key = std::pair{change.source_node_uuid, change.type_guid};
+    if (!key.first || !key.second || std::ranges::find(keys, key) != keys.end())
+      return fail(error::invalid_argument, key.first, key.second, {}, "组件覆盖键无效或重复");
+    if (std::ranges::none_of(*types, [&](const auto& type) { return type.type == key.second; }))
+      return fail(error::unsupported, key.first, key.second, {}, "组件类型没有运行适配器");
+    keys.push_back(key);
+    auto target = std::ranges::find(candidate.objects, key.first, &object_description::uuid);
+    if (target == candidate.objects.end())
+      return fail(error::not_found, key.first, key.second, {}, "覆盖目标对象已不存在");
+    if (std::ranges::any_of(reference.overrides, [&](const auto& v) {
+          return v.key.source_node_uuid == key.first &&
+                 component_description_type(v.key.type_guid) == key.second;
+        }))
+      return fail(error::invalid_argument, key.first, key.second, {}, "结构覆盖与属性覆盖矛盾");
+    if (change.added) {
+      if (change.added->guid() != key.second)
+        return fail(error::invalid_argument, key.first, key.second, {}, "新增描述类型不匹配");
+      if (target->components.find(key.second))
+        return fail(error::invalid_state, key.first, key.second, {},
+                    "来源已存在实例新增的同类型组件");
+      target->components.set(*change.added);
+    } else
+      target->components.erase(key.second);
+  }
+  // 提前定位每条属性覆盖；成组应用仍在下一步统一校验跨字段约束。
+  std::vector<prefab_property_override_key> property_keys;
+  for (const auto& entry : reference.overrides) {
+    const auto& key = entry.key;
+    if (std::ranges::find(property_keys, key) != property_keys.end())
+      return fail(error::invalid_argument, key.source_node_uuid, key.type_guid, {},
+                  "属性覆盖键重复");
+    property_keys.push_back(key);
+    std::string path = "/properties/" + std::to_string(key.property_id.get());
+    for (const auto& step : key.path)
+      path += std::holds_alternative<meta::property_id>(step)
+                  ? "/properties/" + std::to_string(std::get<meta::property_id>(step).get())
+                  : "/indices/" + std::to_string(std::get<std::size_t>(step));
+    auto object =
+        std::ranges::find(candidate.objects, key.source_node_uuid, &object_description::uuid);
+    auto status = validate_prefab_property_override(entry);
+    if (status.failed() || object == candidate.objects.end())
+      return fail(status.failed() ? status : error{error::not_found}, key.source_node_uuid,
+                  key.type_guid, path, "属性覆盖目标不存在或类型不匹配");
+    if (key.type_guid != transform_component_type) {
+      auto* component = object->components.find(component_description_type(key.type_guid));
+      if (!component)
+        return fail(error::not_found, key.source_node_uuid, key.type_guid, path,
+                    "属性覆盖对应的来源组件已不存在");
+      if (key.type_guid == component->guid()) {
+        auto root = component->view();
+        auto first = root ? root->property(key.property_id) : result<meta::instance>{root.error()};
+        auto leaf =
+            first ? meta::resolve_path(*first, key.path) : result<meta::instance>{first.error()};
+        if (!leaf)
+          return fail(leaf.error(), key.source_node_uuid, key.type_guid, path,
+                      "属性覆盖路径已失效");
+      }
+    }
+  }
+  auto status = prepare_prefab_description(candidate, reference.overrides, output);
+  if (status.failed() && diagnostic)
+    *diagnostic = {.error = status, .message = "Prefab 覆盖后的组件校验失败"};
+  return status;
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+
+engine::error prepare_prefab_description(const prefab_description& source,
+                                         std::span<const prefab_property_override> overrides,
+                                         prefab_description& output) noexcept try {
+  auto candidate = source;
+  for (const auto& value : overrides) {
+    const auto validation = validate_prefab_property_override(value);
+    if (validation != engine::error::success) {
+      return validation;
+    }
+    auto found =
+        std::ranges::find(candidate.objects, value.key.source_node_uuid, &object_description::uuid);
+    if (found == candidate.objects.end()) {
+      return engine::error::not_found;
+    }
+    if (found->uuid == candidate.root_uuid && value.key.type_guid == transform_component_type)
+      return error::invalid_argument;
+    // 描述类型的全部叶覆盖在同一副本中应用，再检查跨字段约束。
+    if (found->components.find(value.key.type_guid))
+      continue;
+    const auto result = apply_candidate_object(value, value.value, *found);
+    if (result != engine::error::success) {
+      return result;
+    }
+  }
+  for (auto& object : candidate.objects) {
+    for (const auto& component : object.components) {
+      const auto matches = [&](const prefab_property_override& entry) {
+        return entry.key.source_node_uuid == object.uuid && entry.key.type_guid == component.guid();
+      };
+      if (!std::ranges::any_of(overrides, matches))
+        continue;
+      auto changed = modify_component(component, [&](meta::mutable_instance root) -> error {
+        for (const auto& entry : overrides) {
+          if (!matches(entry))
+            continue;
+          auto first = root.property(entry.key.property_id);
+          if (!first)
+            return first.error();
+          auto target = meta::resolve_path(*first, entry.key.path);
+          if (!target)
+            return target.error();
+          auto status = target->write_value(entry.value);
+          if (status.failed())
+            return status;
+        }
+        return error::success;
+      });
+      if (!changed)
+        return changed.error();
+      object.components.set(std::move(*changed));
+    }
+    auto status = validate_scene_components(object);
+    if (status.failed())
+      return status;
+  }
+  output = std::move(candidate);
+  return engine::error::success;
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
+
+result<std::vector<prefab_property_override>>
+prepare_mesh_renderer_overrides(guid source_node, const mesh_renderer_description& original,
+                                const mesh_renderer_description& replacement,
+                                std::span<const prefab_property_override> existing) noexcept try {
+  std::vector<prefab_property_override> pending(existing.begin(), existing.end());
+  const std::array originals{original.mesh_uri, original.material_uri};
+  const std::array replacements{replacement.mesh_uri, replacement.material_uri};
+  for (std::size_t i = 0; i < originals.size(); ++i) {
+    auto status = set_prefab_property_override(
+        pending,
+        {.key = {.source_node_uuid = source_node,
+                 .type_guid = mesh_renderer_description::type_guid,
+                 .property_id = meta::property_id{static_cast<std::uint32_t>(i + 1)}},
+         .value = engine::value{replacements[i]}},
+        engine::value{originals[i]});
+    if (status.failed())
+      return status;
+  }
+  return pending;
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+
+} // namespace gneiss::engine

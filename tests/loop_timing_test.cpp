@@ -17,7 +17,7 @@ void check(bool condition) {
 }
 }
 int main() try {
-  using namespace gneiss::diagnostics;
+  using namespace gneiss::engine;
   loop_timing summary;
   for (unsigned index = 1U; index <= 200U; ++index) {
     summary.add({.frame = index, .total_ms = static_cast<double>(index)});
@@ -35,12 +35,12 @@ int main() try {
   check(active_loop_times == nullptr);
   // 单个短循环的阶段峰值不应被长时间等待循环挤掉。
   loop_record brief{.frame = 202U, .total_ms = 1.0};
-  brief.stages[static_cast<std::size_t>(loop_stage::scene_builder_create)] = 0.5;
+  brief.stages[static_cast<std::size_t>(loop_stage::scene_build)] = 0.5;
   summary.add(brief);
   std::ostringstream peaks;
   summary.write(peaks);
   check(peaks.str().find("sample,202,") == std::string::npos);
-  check(peaks.str().find("peak:scene_builder_create,202,") != std::string::npos);
+  check(peaks.str().find("peak:scene_build,202,") != std::string::npos);
   loop_timing outer;
   const auto origin = timing_clock::now();
   {

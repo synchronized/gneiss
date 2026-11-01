@@ -3,7 +3,9 @@
 
 #pragma once
 
-#include <gneiss/engine/render.h>
+#include "engine/core/math/types.hpp"
+#include "engine/resource/material/material_description.hpp"
+#include "engine/resource/texture/texture_description.hpp"
 
 #include <array>
 #include <cstddef>
@@ -12,7 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::tooling::asset_import {
+namespace gneiss::tooling {
 
 struct import_ir_summary {
   std::size_t scene_count{};
@@ -27,9 +29,9 @@ struct import_ir_node {
   std::string name;
   std::optional<std::size_t> mesh_index;
   std::vector<std::size_t> children;
-  std::array<float, 3> translation{};
-  std::array<float, 4> rotation{0.0F, 0.0F, 0.0F, 1.0F};
-  std::array<float, 3> scale{1.0F, 1.0F, 1.0F};
+  gneiss::engine::math::vector3 translation{};
+  gneiss::engine::math::quaternion rotation{1.0F, 0.0F, 0.0F, 0.0F};
+  gneiss::engine::math::vector3 scale{1.0F};
 };
 
 struct import_ir_primitive {
@@ -72,12 +74,10 @@ struct import_ir_material {
   float normal_scale{1.0F};
   float occlusion_strength{1.0F};
   std::array<float, 3> emissive{};
-  gneiss_material_alpha_mode alpha_mode{GNEISS_MATERIAL_ALPHA_OPAQUE};
+  gneiss::engine::material_alpha_mode alpha_mode{gneiss::engine::material_alpha_mode::opaque};
   std::uint32_t double_sided{};
   float alpha_cutoff{0.5F};
-  std::array<gneiss_texture_sampling, 5> sampling{
-      {GNEISS_TEXTURE_SAMPLING_INIT, GNEISS_TEXTURE_SAMPLING_INIT, GNEISS_TEXTURE_SAMPLING_INIT,
-       GNEISS_TEXTURE_SAMPLING_INIT, GNEISS_TEXTURE_SAMPLING_INIT}};
+  std::array<gneiss::engine::texture_sampling, 5> sampling{};
 
   [[nodiscard]] std::array<std::optional<std::size_t>, 5> texture_indices() const {
     return {base_color_image_index, metallic_roughness_image_index, normal_image_index,
@@ -117,4 +117,4 @@ struct import_ir {
 
 inline constexpr std::array image_variant_suffixes{"", "-linear", "-normal"};
 
-} // namespace gneiss::tooling::asset_import
+} // namespace gneiss::tooling

@@ -3,14 +3,14 @@
 
 add_library(
   gneiss_asset_import_sdk STATIC
-  "${PROJECT_SOURCE_DIR}/src/engine/asset/mesh_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/asset/mesh_binary.hpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_ktx2.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_ktx2.hpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_binary.hpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/asset/png_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/asset/png_decoder.hpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.hpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.hpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.hpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.hpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_index.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_index.hpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_import_sdk.cpp"
@@ -38,10 +38,11 @@ add_library(
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/sha256.hpp"
 )
 target_include_directories(
-  gneiss_asset_import_sdk PUBLIC "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include"
+  gneiss_asset_import_sdk PRIVATE "${PROJECT_SOURCE_DIR}/src"
 )
 target_link_libraries(
   gneiss_asset_import_sdk
+  PUBLIC gneiss_tooling_interface
   PRIVATE fastgltf::fastgltf gneiss_mikktspace gneiss_bc7enc gneiss_yyjson gneiss_png granit::granit granit::asset_tools
 )
 target_compile_features(gneiss_asset_import_sdk PRIVATE cxx_std_20)

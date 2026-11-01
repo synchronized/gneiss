@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "log_dispatcher.hpp"
+#include "engine/core/error.hpp"
+#include "log.hpp"
 
 #include <chrono>
 #include <functional>
@@ -28,7 +30,7 @@ thread_local bool is_in_log_callback = false;
 
 } // namespace
 
-namespace gneiss::log_internal {
+namespace gneiss::engine {
 
 log_dispatcher::log_dispatcher(event_sink callback, std::size_t capacity)
     : callback_(std::move(callback)), capacity_(capacity) {
@@ -49,9 +51,12 @@ log_dispatcher::~log_dispatcher() noexcept {
   }
 }
 
-gneiss_result log_dispatcher::submit(const message_view& message) noexcept {
+engine::error log_dispatcher::submit(const message_view& message) noexcept {
   if (is_in_log_callback) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return engine::error::invalid_state;
+  }
+  if (validate_message(message).failed()) {
+    return engine::error::invalid_argument;
   }
   try {
     owned_event event;
@@ -66,21 +71,21 @@ gneiss_result log_dispatcher::submit(const message_view& message) noexcept {
     {
       const std::scoped_lock lock(mutex_);
       if (is_stopping_) {
-        return GNEISS_ERROR_INVALID_STATE;
+        return engine::error::invalid_state;
       }
       if (queue_.size() >= capacity_) {
         ++dropped_count_;
-        return GNEISS_SUCCESS;
+        return engine::error::success;
       }
       event.sequence = next_sequence_++;
       queue_.push_back(std::move(event));
     }
     ready_.notify_one();
-    return GNEISS_SUCCESS;
+    return engine::error::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return engine::error::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return engine::error::internal;
   }
 }
 
@@ -146,14 +151,14 @@ void log_dispatcher::deliver(const owned_event& event) noexcept {
 log_dispatcher::owned_event log_dispatcher::make_drop_event(std::uint64_t count) noexcept {
   owned_event event;
   try {
-    event.severity = GNEISS_LOG_WARNING;
+    event.severity = level::warning;
     event.sequence = next_sequence_++;
     event.timestamp_ns = current_time_ns();
     event.thread_id = current_thread_id();
     event.source = "engine.log";
     event.category = "backpressure";
     event.message = "日志队列已满，丢弃 " + std::to_string(count) + " 个事件";
-    event.result = GNEISS_ERROR_NOT_READY;
+    event.result = engine::error::not_ready;
   } catch (...) {
     event.source.clear();
     event.category.clear();
@@ -162,4 +167,4 @@ log_dispatcher::owned_event log_dispatcher::make_drop_event(std::uint64_t count)
   return event;
 }
 
-} // namespace gneiss::log_internal
+} // namespace gneiss::engine

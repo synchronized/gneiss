@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "transform_gizmo_view.hpp"
+#include "engine/core/error.hpp"
+#include "engine/core/rid.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
+#include "viewport/transform_gizmo_view.hpp"
 
-#include <gneiss/engine/application.hpp>
+#include "engine/core/error.hpp"
+#include "engine/core/math/transform.hpp"
 
 #include <imgui.h>
 
@@ -12,29 +17,29 @@
 int main() try {
   using namespace gneiss;
   using namespace gneiss::editor;
-  application app;
-  gneiss_world world_handle = GNEISS_NULL_WORLD;
-  editor_session session;
+  std::shared_ptr<gneiss::runtime::application> app;
+  gneiss::engine::world* world_handle = nullptr;
+  scene_document session;
   editor_command_history history;
   transform_gizmo_drag drag;
   scene_node_id first;
   scene_node_id second;
-  const gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  if (application::create_native(desc, app).failed() || app.get_world(world_handle).failed() ||
-      session.create_empty(app.get(), world_handle).failed() ||
+  gneiss::runtime::application_configuration desc;
+  if (gneiss::engine::error{gneiss::runtime::application::create(desc, app)}.failed() ||
+      (world_handle = app->native_world()) == nullptr ||
+      session.create_empty(*app, world_handle).failed() ||
       session.create_node("First", {}, first).failed() ||
       session.create_node("Second", {}, second).failed() || session.select(first).failed()) {
     return 1;
   }
   bool wait_release = false;
-  result error = result::success;
-  transform camera = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::error error = gneiss::engine::error::success;
+  gneiss::engine::math::transform camera = {};
   camera.translation[2] = 5.0F;
   const transform_gizmo_context context{
       .session = session,
       .history = history,
       .drag = drag,
-      .world = world_ref{world_handle},
       .camera = camera,
       .operation = transform_gizmo_operation::translate,
       .wait_release = wait_release,
@@ -64,11 +69,11 @@ int main() try {
     ImGui::DestroyContext();
     return 2;
   }
-  transform moved = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::math::transform moved = {};
   moved.translation[0] = 2.0F;
   gizmo_matrix matrix{};
   if (transform_to_gizmo_matrix(moved, matrix).failed() || drag.begin(session).failed() ||
-      drag.preview(session, world_handle, matrix).failed() || session.select(second).failed()) {
+      drag.preview(session, matrix).failed() || session.select(second).failed()) {
     ImGui::DestroyContext();
     return 3;
   }
@@ -78,10 +83,10 @@ int main() try {
     ImGui::DestroyContext();
     return 4;
   }
-  transform actual = GNEISS_TRANSFORM_IDENTITY;
-  if (context.world.get_world_transform(first, actual).failed() ||
+  gneiss::engine::math::transform actual = {};
+  if (session.get_world_transform(first, actual).failed() ||
       std::abs(actual.translation[0]) > 0.0001F || session.select(first).failed() ||
-      drag.begin(session).failed() || drag.preview(session, world_handle, matrix).failed()) {
+      drag.begin(session).failed() || drag.preview(session, matrix).failed()) {
     ImGui::DestroyContext();
     return 5;
   }

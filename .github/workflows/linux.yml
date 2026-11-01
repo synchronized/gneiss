@@ -91,7 +91,23 @@ jobs:
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build --preset "${{ steps.preset.outputs.name }}"
-          ctest --preset "${{ steps.preset.outputs.name }}"
+          # 核心构建也包含原生图形示例，必须提供显示服务，而非依赖宿主桌面。
+          export XDG_RUNTIME_DIR="$RUNNER_TEMP/gneiss-wayland-core"
+          install -d -m 700 "$XDG_RUNTIME_DIR"
+          export WAYLAND_DISPLAY=gneiss-wayland
+          weston --backend=headless-backend.so --socket="$WAYLAND_DISPLAY" --idle-time=0 \
+            >"$RUNNER_TEMP/gneiss-weston-core.log" 2>&1 &
+          weston_pid=$!
+          trap 'kill "$weston_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..50}; do
+            [[ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]] && break
+            sleep 0.1
+          done
+          [[ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]] || {
+            cat "$RUNNER_TEMP/gneiss-weston-core.log"
+            exit 1
+          }
+          xvfb-run -a ctest --preset "${{ steps.preset.outputs.name }}" --timeout 180
           python3 -B scripts/performance/test_prepare_sponza.py
           python3 -B scripts/performance/test_validate_runtime_loop.py
       - name: 输出编译缓存统计
@@ -139,7 +155,6 @@ jobs:
         run: |
           ccache --zero-stats
           cmake --preset "${{ steps.preset.outputs.name }}" \
-            -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
             -DGNEISS_BUILD_EDITOR=ON \
             -DGNEISS_BUILD_RUNTIME=ON \
             -DGNEISS_GRANIT_PROVIDER=FETCH \
@@ -222,15 +237,14 @@ jobs:
         shell: bash
         run: |
           cmake --preset linux-gcc-debug \
-            -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
             -DGNEISS_BUILD_EDITOR=OFF \
             -DGNEISS_BUILD_TOOLS=OFF \
             -DGNEISS_ENABLE_SANITIZERS=ON \
             -DGNEISS_GRANIT_PROVIDER=FETCH
           cmake --build --preset linux-gcc-debug \
-            --target gneiss_stable_runtime_example gneiss_scene_instance_test gneiss_c_application_test \
+            --target gneiss_stable_runtime_example gneiss_scene_instance_test gneiss_native_application_test \
               gneiss_scene_load_application_test gneiss_scene_load_preparation_test \
-              gneiss_scene_load_builder_test gneiss_source_revision_test \
+              gneiss_scene_instantiation_test \
               gneiss_texture_load_service_test gneiss_render_asset_loader_test gneiss_prefab_runtime_instance_test
       - name: 检查内存错误与退出泄漏
         shell: bash
@@ -264,7 +278,7 @@ jobs:
           [[ "$device_failure_status" -ne 0 ]]
           grep -F '阶段=创建 Application，结果=-5' <<<"$device_failure_output"
           ctest --preset linux-gcc-debug \
-            -R '^gneiss\.(c_application|scene_instance|scene-load-application|scene-load-preparation|scene-load-builder|source-revision|texture-load-service|render_asset_loader|prefab_runtime_instance)$'
+            -R '^gneiss\.(native-application|scene_instance|scene-load-application|scene-load-preparation|scene-instantiation|texture-load-service|render_asset_loader|prefab_binding)$'
           ASAN_OPTIONS=detect_leaks=0:halt_on_error=1:strict_string_checks=1 \
             xvfb-run -a ctest --preset linux-gcc-debug \
             -R '^gneiss\.stable_runtime_example$'

@@ -38,11 +38,9 @@ namespace {
 
 } // namespace
 
-editor_import_report
-reimport_source_asset_controlled(const std::filesystem::path& project_root,
-                                 const std::filesystem::path& asset_root,
-                                 const std::filesystem::path& source_path,
-                                 const tooling::asset_import::import_control& control) {
+editor_import_report reimport_source_asset_controlled(
+    const std::filesystem::path& project_root, const std::filesystem::path& asset_root,
+    const std::filesystem::path& source_path, const gneiss::tooling::import_control& control) {
   if (project_root.empty() || asset_root.empty() || source_path.empty()) {
     return failure(editor_import_result::invalid_argument, "工程、资产和源文件路径不能为空");
   }
@@ -60,10 +58,10 @@ reimport_source_asset_controlled(const std::filesystem::path& project_root,
     }
     editor_import_report report;
     report.source_path = source;
-    report.import = gneiss::tooling::asset_import::import_project_asset_and_update_index(
+    report.import = gneiss::tooling::import_project_asset_and_update_index(
         {.source_root = source_root, .imported_root = assets / "imported", .source_path = source},
         project / ".gneiss" / "asset-index.json", control);
-    if (report.import.result != gneiss::tooling::asset_import::import_asset_result::success) {
+    if (report.import.result != gneiss::tooling::import_asset_result::success) {
       report.result = editor_import_result::import_failed;
       report.diagnostic = report.import.diagnostic;
       return report;
@@ -76,11 +74,9 @@ reimport_source_asset_controlled(const std::filesystem::path& project_root,
   }
 }
 
-editor_import_report
-import_external_asset_controlled(const std::filesystem::path& project_root,
-                                 const std::filesystem::path& asset_root,
-                                 const std::filesystem::path& external_source,
-                                 const tooling::asset_import::import_control& control) {
+editor_import_report import_external_asset_controlled(
+    const std::filesystem::path& project_root, const std::filesystem::path& asset_root,
+    const std::filesystem::path& external_source, const gneiss::tooling::import_control& control) {
   if (project_root.empty() || asset_root.empty() || external_source.empty()) {
     return failure(editor_import_result::invalid_argument, "工程、资产和外部源路径不能为空");
   }

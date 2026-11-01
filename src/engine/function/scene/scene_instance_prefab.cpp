@@ -1,0 +1,147 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include "engine/core/error.hpp"
+#include "engine/core/rid.hpp"
+#include "engine/function/scene/scene_types.hpp"
+#include "engine/function/scene/scene_instance.hpp"
+#include "engine/function/scene/structural_diff.hpp"
+#include <algorithm>
+#include <new>
+#include <type_traits>
+#include <utility>
+
+namespace gneiss::engine {
+result<prefab_header_snapshot>
+scene_instance::capture_prefab_instance_header(guid uuid) const noexcept try {
+  const auto found = std::ranges::find_if(
+      prefab_instances_, [&](const auto& value) { return value->instance_uuid_ == uuid; });
+  if (found == prefab_instances_.end())
+    return error::not_found;
+  const auto index = static_cast<std::size_t>(found - prefab_instances_.begin());
+  auto captured = capture_scene_object(native_world_, (*found)->root(), false);
+  if (!captured)
+    return captured.error();
+  auto copy = std::move(*captured);
+  copy.prefab = (*found)->reference_;
+  return prefab_header_snapshot{std::move(copy), prefab_instances_[index]->prefab_lease()};
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+
+result<scene_mesh_binding>
+scene_instance::capture_prefab_instance_binding(guid uuid, std::size_t index) const noexcept {
+  const auto found = std::ranges::find_if(
+      prefab_instances_, [&](const auto& value) { return value->instance_uuid_ == uuid; });
+  if (found == prefab_instances_.end()) {
+    return error::not_found;
+  }
+  if (index >= (*found)->nodes_.size()) {
+    return error::not_found;
+  }
+  const auto& node = (*found)->nodes_[index];
+  auto renderer = native_world_.node_mesh_renderer(node.node);
+  if (!renderer) {
+    return renderer.error() == error::not_found ? result<scene_mesh_binding>{scene_mesh_binding{}}
+                                                : result<scene_mesh_binding>{renderer.error()};
+  }
+  return scene_mesh_binding{renderer->mesh, renderer->material};
+}
+
+result<scene_node_id>
+scene_instance::instantiate_prefab_ready(const object_description& author, prefab_asset_ref prefab,
+                                         std::span<const scene_mesh_binding> bindings,
+                                         bool replacing) noexcept try {
+  if (!author.prefab || !author.components.empty() || !prefab ||
+      bindings.size() != prefab.get()->objects.size() || !author.uuid ||
+      (!replacing && find_node(author.uuid)))
+    return error::invalid_argument;
+  const auto previous = std::ranges::find_if(
+      prefab_instances_, [&](const auto& value) { return value->instance_uuid_ == author.uuid; });
+  if (replacing ? previous == prefab_instances_.end() : previous != prefab_instances_.end())
+    return error::invalid_argument;
+  const auto parent = author.parent_uuid ? find_node(*author.parent_uuid) : scene_node_id{};
+  if (author.parent_uuid && !parent)
+    return error::invalid_handle;
+  // 自有子对象不属于模板；刷新时保留其身份和局部变换。
+  std::vector<scene_node_id> attached;
+  if (replacing) {
+    for (std::size_t index = 0; index < objects_.size(); ++index) {
+      if (!objects_[index].persistent)
+        continue;
+      scene_node_id actual_parent;
+      const auto status = native_world_.node_get_parent(objects_[index].node, actual_parent);
+      if (status.failed())
+        return status;
+      if (actual_parent == (*previous)->root())
+        attached.push_back(objects_[index].node);
+    }
+    for (const auto node : attached) {
+      const auto detached = reparent_node(node, parent);
+      if (detached.failed())
+        return detached;
+    }
+  }
+  // 失败不恢复旧实例；已分离的自有子对象保留在原实例的父节点下。
+  if (replacing) {
+    const auto removed = remove_prefab_instance(author.uuid);
+    if (removed.failed())
+      return removed;
+  }
+  auto reference = *author.prefab;
+  prefab_description effective;
+  auto status = prepare_prefab_reference(*prefab.get(), *author.prefab, effective);
+  if (status.failed())
+    return status;
+  structural_diff order;
+  status = build_structural_diff({}, effective.objects, order);
+  if (status.failed())
+    return status;
+  prefab_instances_.reserve(prefab_instances_.size() + 1U);
+  auto runtime =
+      std::make_unique<prefab_binding>(native_world_, loader_, std::move(prefab), author.uuid);
+  status = runtime->create_root(parent, author.transform);
+  if (status.failed())
+    return status;
+  scene_subtree_guard guard(native_world_, runtime->root());
+  status = native_world_.node_set_identity(runtime->root(), {author.uuid, author.name});
+  if (status.failed())
+    return status;
+  for (const auto& entry : order.added) {
+    const auto index = entry.new_index;
+    const auto& source = effective.objects[index];
+    const auto node_parent =
+        source.parent_uuid ? runtime->find_node(*source.parent_uuid) : runtime->root();
+    auto binding = bindings[index];
+    status = runtime->create_node(index, source, node_parent, binding.mesh, binding.material);
+    if (status.failed())
+      return status;
+  }
+  const auto root = runtime->root();
+  objects_.reserve(objects_.size() + runtime->node_count() + 1U);
+  const auto member_index = objects_.size();
+  objects_.push_back({root});
+  append_staged_prefab(std::move(runtime), std::move(reference), member_index);
+  guard.release();
+  for (const auto node : attached) {
+    const auto restored = reparent_node(node, root);
+    if (restored.failed())
+      return restored;
+  }
+  return root;
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+
+error scene_instance::remove_prefab_instance(gneiss::engine::guid uuid) noexcept {
+  const auto found = std::ranges::find_if(
+      prefab_instances_, [&](const auto& value) { return value->instance_uuid_ == uuid; });
+  if (found == prefab_instances_.end())
+    return error::not_found;
+  return destroy_subtree((*found)->root());
+}
+} // namespace gneiss::engine

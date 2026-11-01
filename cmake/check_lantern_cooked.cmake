@@ -43,7 +43,7 @@ set(log "${GNEISS_OUTPUT}/texture-upload.log")
 file(WRITE "${log}" "")
 execute_process(COMMAND "${GNEISS_RUNTIME}" --smoke --project "${GNEISS_OUTPUT}"
   --log-file "${log}" RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error
-  # 0.44 会在候选发布前复验源文件版本；Debug 构建可能在验证阶段超过 30 秒。
+  # Debug 场景加载包含资产解析与 GPU 初始化，保留完整运行时超时预算。
   TIMEOUT 90)
 if(NOT result EQUAL 0)
   message(FATAL_ERROR "Cooked Lantern 运行失败：${output}\n${error}")
@@ -70,10 +70,10 @@ execute_process(COMMAND "${GNEISS_RUNTIME}" --smoke --project "${GNEISS_OUTPUT}"
   TIMEOUT 90)
 file(COPY_FILE "${backup}" "${texture}")
 file(READ "${failure_log}" events)
-# 纹理候选在读取/摘要校验或上传阶段失败；--smoke 返回场景加载错误（4）。
-if(NOT result EQUAL 4 OR
-   (NOT events MATCHES "stage=write variant=" AND
-    NOT events MATCHES "stage=scene_load result=-[0-9]+.*选中纹理变体读取或摘要校验失败") OR
-   NOT events MATCHES "level=ERROR" OR events MATCHES "stage=ready")
-  message(FATAL_ERROR "损坏负载必须报告上传失败并返回场景加载错误（4）：${result}\n${events}\n${error}")
+# 视觉资源失败不撤回合法场景；正常退出，同时保留明确的资源错误诊断。
+if(NOT result EQUAL 0 OR
+   NOT events MATCHES "source=\"scene.assets\"" OR
+   NOT events MATCHES "level=ERROR" OR
+   NOT events MATCHES "场景已激活")
+  message(FATAL_ERROR "损坏负载须报告资源失败且场景保持激活：${result}\n${events}\n${error}")
 endif()

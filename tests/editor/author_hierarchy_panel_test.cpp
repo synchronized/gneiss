@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "author_hierarchy_panel.hpp"
+#include "engine/core/guid.hpp"
+#include "panels/author_hierarchy_panel.hpp"
 
 #include <imgui.h>
 
@@ -11,10 +12,10 @@ int main() try {
   using namespace gneiss::editor;
   std::array<scene_node_record, 2> nodes;
   nodes[0].node = gneiss::scene_node_id{1U};
-  nodes[0].uuid = "node-a";
+  nodes[0].uuid = *gneiss::engine::guid::parse("2b10c37c-4b8f-5008-8c93-9af49a7a8c23");
   nodes[0].display_name = "First";
   nodes[1].node = gneiss::scene_node_id{2U};
-  nodes[1].uuid = "node-b";
+  nodes[1].uuid = *gneiss::engine::guid::parse("40d434b6-1126-562c-af15-1722f9e1a8c9");
   nodes[1].display_name = "Second";
   const author_hierarchy_view view{
       .nodes = nodes,
@@ -63,14 +64,18 @@ int main() try {
   io.AddMouseButtonEvent(0, false);
   const auto request = draw();
   // UI 只复制身份并返回请求，递归绘制时没有修改父子关系。
-  if (request.action != author_hierarchy_action::reparent || request.uuid != "node-a" ||
-      request.parent_uuid != "node-b" || nodes[0].parent.is_valid() || nodes[1].parent.is_valid()) {
+  if (request.action != author_hierarchy_action::reparent ||
+      request.uuid != *gneiss::engine::guid::parse("2b10c37c-4b8f-5008-8c93-9af49a7a8c23") ||
+      request.parent_uuid != *gneiss::engine::guid::parse("40d434b6-1126-562c-af15-1722f9e1a8c9") ||
+      nodes[0].parent.is_valid() || nodes[1].parent.is_valid()) {
     ImGui::DestroyContext();
     return 3;
   }
-  nodes[0].uuid.clear();
-  nodes[1].uuid.clear();
-  const bool owned = request.uuid == "node-a" && request.parent_uuid == "node-b";
+  nodes[0].uuid = {};
+  nodes[1].uuid = {};
+  const bool owned =
+      request.uuid == *gneiss::engine::guid::parse("2b10c37c-4b8f-5008-8c93-9af49a7a8c23") &&
+      request.parent_uuid == *gneiss::engine::guid::parse("40d434b6-1126-562c-af15-1722f9e1a8c9");
   ImGui::DestroyContext();
   return owned ? 0 : 4;
 } catch (...) {

@@ -1,0 +1,361 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Gneiss contributors -->
+
+# PLAN-051：统一异步文件服务
+
+## 状态
+
+实现中。服务核心与内存后端已迁入 platform/files，来源标记已通用化；
+Platform 不再依赖旧 VFS 或资产层。独立 libuv 桌面后端已实现读、范围读、写、stat/list/flush。
+Windows 本地服务契约、桌面后端和资产管理小范围测试通过；Application 已直接装配 file_service 与 libuv 后端。
+asset_manager 的旧 VFS 构造、files() 和 load_sync/load_sync_erased 已删除，统一注入文件服务。
+旧 VFS、纹理文件容器、同步准备器及迁移适配器已删除；资产 URI 校验位于 resource/asset_uri。
+测试通过内存 Platform 后端装配文件服务；来源身份、路由、范围读和生命周期由现有服务测试覆盖。
+asset_manager 已提供 find_loaded；普通 CPU、Mesh/Texture 异步加载已使用文件服务。
+宿主已统一分发文件完成，Manager、Scene 和 Texture Loader 不再隐式驱动共享服务。
+服务已增加在途及待分发字节缓冲的总预算；已知长度文件支持按需单块读取，无隐式预读。
+Fetch 与 MEMFS/IDBFS 后端已实现，Emscripten 5.0.6 编译及本地 Edge 小型持久化/范围读取测试通过。
+Application 的浏览器分支按 asset_root 装配后端：单斜线开头的绝对路径借用 Emscripten FS 已有目录，
+HTTP(S) 地址作为 Fetch URL 基址；已有目录不由后端卸载。浏览器后端的借用生命周期、缺失路径和符号链接
+拒绝，以及原有 IDBFS/Fetch 小型测试通过；Emscripten 下 Engine/Application 编译通过，
+预加载资产宿主的加载、重载失败保留、取消及分阶段关闭在 Node/Wasm 环境通过。
+Edge 小型测试已覆盖 IDBFS 写入/恢复、注入持久化失败后的重试与内存保留。
+未知长度流已实现私有 JS Fetch/BYOB 桥接，按消费者请求读取，JS/Wasm 块缓冲共同计入预算。
+真实配额耗尽、跨域部署及浏览器内部网络缓存峰值尚未验证。
+输入映射已删除同步 load_input/load_action_map，示例和测试改用异步请求。
+Scene/Prefab 准备层已删除同步 prepare_scene_description/prepare_prefab_description，
+统一使用 scene_description_request 加载输入和 prepare_loaded_scene 纯内存准备。
+四个场景示例已改用异步请求及显式激活；属性检查示例的加载、保存、重新加载小闭环通过。
+异步纹理解码直接消费描述/负载字节，不再建立临时 VFS；旧同步准备器已删除。
+Application::reload_render_assets 和 render_asset_loader::reload_assets 已删除，
+重载调用方统一使用 request_assets/poll_assets 或 texture_load_service；acquire 已改为纯缓存查询。
+资产管理器已支持请求停止和非阻塞收尾；运行中解码、迟到 I/O 及停止后拒绝加载的小型测试通过。
+Application 已新增分阶段关闭入口，串联 Scene、资产管理器和文件服务；
+空闲、场景读取中、资源读取中的线程池/协作模式小型关闭测试通过。
+Runtime/Editor 正常事件循环退出已接入分阶段关闭；Editor 先释放文档/UI 借用，再收尾文件与 CPU 任务。
+环境贴图 I/O 延后到全部初始化成功后提交，初始化失败不再遗留该读取。
+Render 最终销毁和未按协议关闭的析构仍有同步兜底。
+Runtime 的 Scene/Prefab 结构重载已改用异步描述/依赖准备，完成后原位更新节点；IPC 仅在完成后更新修订。
+结构重载的 Scene/Prefab 实例代码只查询已准备资源，不同步读盘；成功、依赖缺失、节点身份与 IPC 失败语义的小型测试通过。
+编辑器文件监听已改为请求异步场景加载，成功后才通知 Runtime 并确认指纹；加载期间保留后续事件。
+编辑器作者文档历史已持有修改前后的内存快照和资源强引用，通过内置 codec 解析变更，
+撤销/重做不再重新读盘；作者文件保存已使用共享 file_service 的异步单文件写入。
+编辑器复制 Prefab 已使用异步编辑入口，旧 asset_scene_commands 同步命令已删除；
+子树删除/复制与 Mesh Renderer 移除的撤销持有资源强引用，恢复只消费内存或查询缓存。
+Scene 首次同步 load、Document 同步 open 及其同步准备实现已删除；测试通过专用宿主驱动异步请求，
+场景域测试直接消费已准备描述和资源引用。Prefab 旧同步创建、恢复、刷新及刷新 token/事务表已删除，
+测试改用异步编辑命令及持有资源的历史快照，创建、覆盖保留、删除与撤销重做的小型测试通过。
+Render acquire_* 已收敛为纯缓存查询，缺失不再同步准备或读盘；导入节点测试与历史改走异步编辑命令。
+异步渲染加载回执保留解析错误路径和字节偏移。
+环境贴图启动读取已改用文件服务：先使用内置环境，读取完成后由渲染执行器采用字节；
+读取失败在宿主推进时报告，解析失败继续使用内置环境。此 GPU 更新路径已编译，尚未运行画面验证。
+Render 的 prepare_render_assets 同步入口已删除；准备器测试临时通过测试宿主异步加载材质。
+asset_preparation 分步状态机、prepare_assets/prepare_texture 同步入口及纹理文件来源引用已删除。
+解码器只消费内存，相关测试改为内存解码契约；读取、取消及关闭由文件/加载服务测试验证。
+浏览器与大文件能力的完整验收仍待完成。
+不将 Platform 搬迁或桌面后端实现等同于整份计划完成；大场景和 CI 仍留待统一验收。
+架构决策见 [ADR-084](../decisions/ADR-084-async-file-service.md)。
+
+## 文件命名空间收敛
+
+文件系统迁入 `gneiss::engine::files`：service、backend、read_stream、request_id、bytes、
+completion/callback、source_domain 及读写/目录类型统一归属；后端为 native_backend、
+memory_backend、browser_backend、fetch_backend。调用方直接使用新名称，不保留兼容别名。
+共享执行器、result 和资源层不迁入 files；头文件路径保持原位置。
+Windows Clang Debug 完整编译和 11 项小型测试通过：files.service/native、assets.application/manager、
+asset_uri、render_asset_loader、texture-load-service、editor.ui-layout/author-file-save/
+author-asset-service/author-asset-monitor。Emscripten 三个浏览器实现及浏览器专项源码语法检查通过；
+格式、Core 分层及 git diff --check 通过。未运行浏览器交互、大场景或完整 CI。
+
+## 当前五项收尾进度
+
+- Runtime/Editor 事件循环正常退出已采用分阶段关闭；启动失败和析构兜底尚待收敛。
+- Scene/Prefab 结构重载、编辑器文件监听、作者历史恢复已迁移；首次同步 load/open 和旧 Prefab 编辑辅助 API 已删除；Mesh 编辑辅助 API 尚待收敛。
+- Render 首次 acquire 的同步准备回退已删除；缓存缺失统一由异步请求处理。
+- Application 已直接装配 Platform 后端并删除 asset_files；Manager 同步入口和 VFS 构造已删除。
+  同步准备器、旧 VFS 及测试迁移适配器已删除。
+- 当前改动已通过 Windows 编译、相关小型测试及 Core 分层检查；完整计划验收尚未开始。
+
+## 已确认的作者保存边界
+
+- 创建 Prefab：先单独安全保存来源文件，再替换内存场景并标记 dirty；撤销恢复内存子树，不删除来源文件。
+- 解包：只修改内存场景，撤销/重做不访问磁盘；之后显式保存父场景。
+- 应用实例覆盖：显式保存共享来源，成功后清除内存场景的对应覆盖；父场景仍 dirty。
+  来源保存形成历史边界，清空此前历史，普通撤销不回写共享来源。
+- 操作输入使用当前内存场景，不因场景 dirty 拒绝操作，也不重新读取磁盘场景覆盖尚未保存的编辑。
+- 单文件保存失败不采用内存修改；来源已保存但场景采用失败时保留来源，不执行跨文件回滚。
+
+本轮四项收尾已完成：删除旧事务、补齐安全写入、迁移编辑器异步调用、更新相关测试与文档。
+Windows Clang Debug 编译及 9 项文件服务/编辑器小型测试通过；浏览器后端编译与 Edge 专项通过，
+覆盖临时文件短写失败保留原文件和持久化重试。未运行大场景、完整 CI 或编辑器手动交互验收。
+整体 PLAN-051 的剩余项仍见下节，完成范围按调用用途确定，不要求迁移所有宿主文件访问。
+
+- 本阶段先调整语义。安全替换与来源读取的异步化、旧日志实现/测试清理分别核对，不以行为调整冒充全量迁移完成。
+
+## 生产调用链核对与剩余实现
+
+2026-10-27 核对：Asset/Scene 的旧 load_sync/open_read 入口已删除；
+PBR Shader resolver 改为只消费内存字节，生产启动使用内嵌归档，文件读取只留在测试夹具。
+顺序流取消打开后，迟到成功返回的来源由服务在所属线程显式关闭，即使后端仍持有引用也不会遗留活动来源。
+
+以下区分已落地的编辑器链路与剩余实现缺口：
+
+- 编辑器指纹内容读取已接入 Application 共享 file_service；等待 I/O 不提交 CPU 任务，
+  完成后计算哈希，保存确认仍使用保存时的原始内容。已删除 monitor 的同步 fingerprint/acknowledge 读盘入口。
+  同路径在途事件触发补扫，保存使旧读取失效；停止等待自身文件回执，析构迟到回调只持有独立回执。
+  Windows 编译、线程池/协作模式的服务测试与 monitor 测试通过，包括在途取消和提前销毁。
+  目录扫描已改用共享服务的分页 list，复用条目类型递归扫描，无需额外 stat；
+  monitor 只保存指纹，删除原生目录迭代器和根路径查询。已知 URI 每轮仍探测，保留删除检测。
+  初始化仅注入含 asset:// 挂载的服务；列举错误结束本轮扫描，可显式补扫重试。
+- 编辑器来源读取、来源保存和普通场景保存已改用共享 file_service；删除原生跨文件提交、恢复日志、
+  内存事务参考模型和磁盘反向变更协议。Prefab 测试改为内存快照撤销，验证父场景文件未改、来源保留。
+  宿主等待回执期间暂停编辑和文档切换，重复提交被拒绝；完成后续接打开、退出和运行。
+  场景保存回执不借用文档，接收时核对场景与内容；保存失败或之后发生的修改不会误清 dirty。
+  桌面写入通过 libuv 完成同目录临时文件、fsync、关闭和 rename/link；创建新文件不覆盖已有目标。
+  浏览器先在内存 FS 写临时文件再 rename，持久化仍需显式 flush。没有跨文件原子性、跨进程 CAS
+  或目录崩溃耐久性承诺；硬链接不受支持时 create_new 返回错误。
+- 布局内容已通过 Application 的 user:// 挂载异步读写；启动先显示默认工作区，完成后采用配置，
+  Reset 使迟到读取失效。退出期间等待保存回执，失败记录日志并继续退出。
+  配置目录仍由宿主启动引导准备；不能把布局迁移表述为整个工程启动已后台化。
+- Application 正常退出已有分阶段关闭；Render 最终销毁、初始化失败及误用析构的同步兜底仍存在。
+
+真实配额、跨域部署、大文件峰值属于验证缺口；公共 JS Promise、字节缓存和流送系统属于按需扩展，
+不作为本轮清理的前置条件。不宣称所有生产文件访问均已统一，也不再将其作为本计划目标。
+
+## 剩余文件访问审计与最终验收清单
+
+2026-10-27 按生产源码核对后的范围修订：不以清空 fstream、stdio 或 filesystem 为完成条件。
+统一的是运行时资产与跨平台异步访问契约，桌面宿主和工具按执行位置保留同步能力。
+
+| 范围与源码 | 当前行为及本轮调整 | 验收或后续边界 |
+| --- | --- | --- |
+| `editor_ui.cpp`、`editor_application.cpp` | 布局保留 user:// 异步读写；删除失败后的重试/放弃退出交互 | 缺失用默认，Reset 抵御迟到读取；保存失败记日志并退出，仍收尾已接受请求 |
+| `project_workspace.cpp` | 最近工程保留同步实现；替换不再先删除旧文件，写入显式检查关闭结果 | Windows 替换失败保留旧配置并清理临时文件；不保证跨进程写入仲裁 |
+| `project_manager.cpp`、`project_description.cpp` | 创建/打开/最近工程选择及保存记录已移至单工作线程调度器；输入结果独立拥有 | UI 不等待复制；任务期间拒绝重复提交；关闭等待任务完成；无中途取消，不冒充可立即退出 |
+| 工程启动及最近列表读取 | 启动引导仍同步，最近列表会校验工程；原生目录选择仍模态 | 允许保留；网络路径或大量校验若导致启动迟滞，另行将启动扫描后台化 |
+| `runtime_process.cpp`、`runtime_application.cpp` | 原生会话目录及 stop 文件回退保留 | 属于宿主进程控制；保持超时停止与清理，不要求接入资产服务 |
+| `asset_background_worker.cpp`、`asset_import_controller.cpp`、`tooling/asset_import/*` | 现有后台导入保留同步 I/O；已有停止检查和提交阶段边界 | 继续复用调度器及主线程结果消费，不改写为逐文件回调链 |
+| `tooling/asset_build/*`、`host/assetc/*`、`package_archive.cpp` | 离线构建和打包保留同步文件 API；Editor 使用打包子进程 | 宿主退出等待进程，保持失败产物清理；不承诺打包中途取消 |
+| `runtime_log.cpp`、Application 帧追踪 | 原生输出和 flush 保留 | 日志性能单独规划；协议输出不能统一取消 flush，不声称主循环零阻塞 |
+| `scene_document.cpp`、`asset_file_watcher.cpp` | 本地路径归属校验、原生监听和目录发现保留 | 不删除真实路径校验；路径辅助提取、扫描优化按实际需求实施 |
+
+关闭边界：
+
+- Editor 正常退出先停止生产者，再收尾布局、编辑/加载和后台工作，之后关闭共享文件服务和执行器。
+- Project Manager 正常关闭仍推进窗口循环等待工程任务；异常离开循环显式 close_scope 兜底。
+  任务不访问 UI，不为安全收尾创建第二套文件服务。
+- 既有 Runtime 子进程停止超时与 Application 分阶段关闭保留。
+- Render 最终 executor.flush/GPU 等待、异常退出兜底仍存在；异步渲染关闭为独立生命周期任务，
+  不再作为本计划完成的前置条件，不将当前实现描述为完全异步退出。
+
+验收分组：
+
+- **必须异步且已落地**：运行时资产、远程读取、浏览器持久化、运行中的场景/作者文件保存。
+- **允许保留同步**：后台导入/打包/工程复制、独立工具、小型本地启动配置与宿主目录操作。
+- **本轮验证通过**：Windows Clang Debug 编译；5 项专项测试（ui-layout、project-workspace、
+  author-file-save、runtime-stop-failure、asset-background-worker），包括新增替换失败保留旧配置用例；
+  修改文件格式、Core 分层和 git diff --check 检查通过。
+- **待统一验证**：真实窗口响应与关闭交互、完整平台矩阵、浏览器配额/CORS/大文件峰值。
+- **另行规划**：日志性能、Render 异步关闭；字节缓存、公共 JS Promise、流送按真实需求扩展。
+
+## 本轮确认范围（待实施）
+
+本轮将文件抽象整体收敛到 `engine/platform/files`，由它完整替换旧 VFS。
+file_service 与运行时资产加载只提供异步入口，不保留同步回退或阻塞等待包装。
+桌面配置、后台工具的同步操作按上文范围修订保留。
+纯内存解析、序列化、缓存查询和已准备数据的场景实例化仍可同步执行。
+本节描述完整目标；核心已迁入 Platform，原 resource/files 的适配器已移出生产树；其他迁移状态见上节。
+
+### 对象与依赖方向
+
+- Application 统一装配文件服务、平台 I/O 执行器、CPU 任务执行器与资产管理器。
+- file_service 管理挂载、读取回退链、唯一写入后端、请求、取消及所属线程完成分发。
+- file_backend 只处理路径和字节；桌面、浏览器与内存实现不理解资产或反射。
+- asset_manager 管理解码器、在途加载去重、资源引用与唯一缓存；必要的依赖编排仍由资源 Loader 负责。
+- 宿主统一调用 dispatch_completions；asset_manager 不再隐式驱动共享文件服务。
+- Scene 在必要 CPU 数据准备好后同步创建实例，不恢复跨帧构建、候选发布或跨资源事务。
+- Render 生命周期和加载成功语义沿用 [PLAN-054](PLAN-054-render-resource-model.md)：
+  加载只承诺本次请求的 CPU 内容就绪，不等待 GPU 上传，不将上传进度加入文件请求。
+
+依赖方向为 Resource → Platform → Core。Platform 不得包含 Resource、Meta codec、Scene 或 Render。
+现有边界检查保持严格，不通过放宽规则允许反向依赖。
+
+### Platform 迁移前置条件
+
+迁移前 file_service 导入 virtual_file_system 挂载并使用 Resource 的 asset_source_domain。
+来源标记已通用化，原 Resource 适配函数与测试过渡夹具已删除。
+
+文件层已定义不透明的 `file_source_domain` 挂载来源标记，由挂载表创建并持有。
+`resolve_source` 只解析来源，不执行 I/O；Resource 的 asset_identity 引用该标记，
+URI、类型与缓存规则仍由 Resource 解释。该标记不是持久 AssetId、内容版本或文件后端所有者。
+不同来源不能因 URI 相同命中同一资产，持有标记也不应延长后端或 GPU 生命周期。
+删除旧 asset_source_domain 定义，避免为同一挂载维护两套身份；迁移期身份转换仅存在于上层适配中。
+
+旧 VFS 导入构造和适配器在调用方迁完后删除，不随文件服务下沉到 Platform。
+通用路径校验迁入文件层；仅适用于 asset:// 的校验继续留在 Resource，不把资源协议限制扩散到所有文件挂载。
+
+### 目标目录（规划）
+
+```text
+src/engine/
+  platform/
+    files/
+      file_service.hpp/.cpp
+      file_backend.hpp
+      file_types.hpp
+      file_path.hpp
+      memory_file_backend.hpp/.cpp
+      native_file_backend.hpp/.cpp
+      browser/
+        fetch_file_backend.hpp/.cpp
+        browser_file_backend.hpp/.cpp
+    io/uv/                         # 复用平台执行器等设施
+  resource/
+    asset_manager.hpp/.cpp
+    asset_request.hpp
+    asset_ref.hpp
+    asset_uri.hpp/.cpp              # 资源专用 URI 规则
+    cache/
+    loaders/
+    types/
+```
+
+类型仍位于 `gneiss::engine`，目录不增加命名空间层级。服务及平台后端通过 PImpl 隐藏第三方类型。
+后端由宿主装配；服务核心不依赖具体后端。同步更新 CMake 源文件、头文件可见性和测试包含路径。
+最终删除 resource/files、resource/vfs 和 async_read_file_backend；平台底层回执仅在确有内部调用时保留，
+不再向资源调用方暴露旧 open/read/close 协议。
+
+### 资产 API（规划示意）
+
+```cpp
+template<class T>
+result load(std::string_view uri, asset_request<T>& request, bool reload = false);
+
+template<class T>
+result find_loaded(std::string_view uri, asset_ref<const T>& output);
+```
+
+复用现有 asset_request<T>；take() 只检查并领取结果，未完成返回 not_ready，不驱动队列、不等待 I/O。
+find_loaded 只查询已完成缓存，未命中返回 not_found，失败保持输出；不读盘、不解码、不注册加载任务。
+保留显式 decoder 优先、Meta codec 回退、纯内存 store 和资源强引用规则，不强制所有资源注册属性反射。
+取消资产请求仍表示放弃本观察者，不影响共享加载的其他观察者。
+
+删除 load_sync、load_sync_erased、同步 load_input、旧 VFS 构造、files() 旧访问器、legacy_sync 与同步回退。
+普通文件回调不得内联调用用户代码；缓存查询是明确的同步内存 API，与异步 load 分开。
+场景打开、Prefab 依赖、编辑器保存和重载均迁移到完成后继续的流程；
+保存完成后更新保存状态，持久化承诺依赖 flush。命令行工具调用异步服务时由最外层驱动事件循环；独立原生工具内部允许同步 I/O。
+
+### 宿主关闭（规划）
+
+停止业务提交 → 资产管理器停止接收并取消/收尾任务 → 文件服务 shutdown →
+宿主持续分发文件完成并收尾 CPU 任务 → 文件关闭回调完成 → 停止平台执行器。
+资产关闭不能阻塞所属线程等待依赖该线程分发的任务。解码执行器须存活至最后一个解码任务结束。
+共享服务仅由宿主关闭；析构不能替代正常关闭协议，迟到回调不得访问失效业务对象。
+
+## 背景与目标
+
+迁移前 virtual_file_system 只支持 asset://、只读后端和轮询回执，asset_source 编排打开、分块、关闭，
+并允许同步回退。目标是统一桌面/浏览器异步文件调用，资源层只处理字节解码和资源缓存。
+文件服务吸收挂载路由、请求生命周期、取消、回调分发；整套通用文件能力归 Platform，资源语义留在 Resource。
+
+## 非目标
+
+不重引入 CAORS、资源版本事务、通用 Service 基类、新线程池或公共 C ABI。
+浏览器不用 libuv 模拟文件系统，不依赖 Fetch destinationPath 落 IDBFS，不依赖 std::filesystem。
+不以 IDBFS 承诺任意大文件低内存存储，不提供主线程阻塞等待，不增加公共 JS Promise API 或多级缓存。
+
+## 已确认决策
+
+- 文件类型位于 gneiss::engine::files，service 使用 PImpl，平台类型不进入服务头文件。
+- 读、区间读、写、元数据、分页列举、flush 均异步提交；返回值只表示是否接受请求。
+- 提交失败不回调；接受后在正常服务生命周期内恰好一次终态回调，缓存命中也禁止内联回调。
+- 所属线程提交、取消、配置和分发；后台仅提交完成数据。回调可提交/取消请求，不允许递归分发。
+- URI 在提交时复制；请求拥有读结果和写缓冲；回调不得依赖过期对象，业务对象使用弱引用。
+- 请求 ID 防止跨服务混用和旧 ID 重用；丢弃 ID 不取消操作。
+- 取消与完成只选一个终态，取消不能撤销已发生的写入；关闭时拒绝新请求，等待实际后端收尾。
+- 析构不阻塞也不调用用户回调；正常关闭必须持续分发到 shutdown 回调。
+- 初始化阶段配置挂载，首次接受请求后冻结；最长前缀选挂载，读取链仅 not_found 自动回退。
+- 写入只路由到一个后端，失败不改投；写后需要立即可见时，可写后端必须排在读取链前端。
+- stat/list 遵循读取覆盖顺序，不合并多个目录；分页不承诺快照，HTTP 列举需 manifest 或服务器支持。
+- 能力不足返回 unsupported；长度未知用 optional，零长度不能代表未知。
+- flush 针对挂载持久化域，覆盖此前已完成写入；写入完成不等于持久化完成。
+- 文件缓存保存原始字节，asset_manager 缓存对象；缓存需要容量、失效策略，写成功使对应字节缓存失效。
+- 普通整读有上限；范围读限制长度；流式采用异步 read_next 和有界预读，不无限积压块。
+- 路径采用规范化 URI 和相对路径，拒绝 ..、反斜杠、NUL 与重复分隔符，避免后端各自解释路径。
+
+## API 方向（规划）
+
+```cpp
+result read(uri, read_options, file_callback<file_bytes>, file_request_id&);
+result read_range(uri, file_range, file_callback<file_bytes>, file_request_id&);
+result write(uri, file_bytes, write_options, completion_callback, file_request_id&);
+result stat(uri, file_callback<file_info>, file_request_id&);
+result list(uri, list_options, file_callback<directory_page>, file_request_id&);
+result flush(mount_point, completion_callback, file_request_id&);
+result cancel(file_request_id);
+result dispatch_completions(size_t max_callbacks);
+result shutdown(completion_callback);
+```
+
+具体实现签名以源码为准。后端接收相对路径和类型明确的回调；可立即完成或后台完成，
+用户回调仅由服务统一分发。已有轮询型 libuv 回执通过内部非阻塞推进适配，禁止同步回退。
+服务限制作业数量、每次整读/写入大小及字节缓冲总预算；流式背压在对应阶段补齐。
+
+## 实施顺序
+
+1. **已有核心复用**：保留服务核心与内存后端，审计请求、错误、取消、来源身份和关闭契约。
+2. **独立桌面后端**：直接接入平台 libuv 执行器，补齐读、范围读、写、stat、list、flush，
+   不经过旧 file_system，不依赖 std::filesystem，不新增线程池。
+3. **调用方迁移**：迁移宿主挂载与完成分发、asset_manager、Scene/Prefab、编辑器资产链路、示例和测试；
+   增加 find_loaded，移除同步加载及工作线程等待；内存解码不再创建临时 VFS。
+4. **关闭与分层收敛**：完成异步关闭，来源身份通用化，搬入 platform/files，删除 VFS 和过渡适配器。
+   若分步实施需要临时桥接，桥接只允许在 Resource/宿主侧，不让 Platform 反向依赖旧 VFS。
+5. **浏览器闭环**：Fetch 远程读取；FS 内存操作；IDBFS 恢复完成才 ready；
+   写入后显式持久化，同域串行同步；错误统一映射 result。
+6. **大文件闭环**：严格校验范围响应，补齐有界流式读取、背压与总缓冲预算，验证复制峰值；
+   不把范围读取等同于 mip/LOD 流送，也不承诺 IDBFS 任意大文件低内存存储。
+7. **按需扩展**：字节缓存及 JS Promise 仅在实际调用方需要时增加，不作为删除 VFS 的前置条件。
+
+阶段 1—4 完成代表桌面 VFS 替换完成；浏览器和大文件核心范围仍属本计划，不能提前标记整份计划完成。
+
+## 未知长度流式下载
+
+当前 SDK 的 Emscripten Fetch 在流式模式下循环读取 ReadableStream 并调用 onprogress，
+C++ 完成回调不能暂停或恢复网络读取。因此它的流式回调不等于按消费者需求读取，
+仅给缓存设上限会导致慢消费者下载失败，不能作为背压验收通过。
+
+用户已确认采用后端私有 JS Fetch + ReadableStream BYOB，现已实现；
+普通整读与范围读继续使用 Emscripten Fetch，上层保持 C++ 回调。
+Windows 服务契约及 Edge 小型测试通过，覆盖未知长度、空响应、暂停不预读、取消、
+关闭、BYOB 不支持、来源回退和缓冲预算；安装后 CMake 消费者链接通过。
+具体行为与限制见[文件服务参考](../reference/file-service.md)。
+
+## 测试与验收
+
+- 源码、构建与活跃测试无旧 VFS、同步资产加载、迁移适配器入口；历史记录不改写。
+- Platform 不包含 Resource，Resource 通过唯一文件服务访问存储；来源身份及缓存隔离正确。
+- 场景准备缺失依赖时等待异步加载，实例化不临时读盘；不恢复版本发布或跨帧实例构建。
+- 宿主正常退出等待文件和 CPU 任务收尾，最后才停止执行器；调用方销毁后没有失效访问。
+
+- 统一后端测试：空文件、范围边界、上限、短读、缺失、拒绝写、元数据和分页；支持/不支持能力明确。
+- 路由测试：最长前缀、not_found 回退、io/unsupported 不回退、唯一写入、写后读取优先级。
+- 生命周期测试：不内联、预算分发、重入、跨服务 ID、取消竞态、迟到完成、关闭清理、后台完成线程。
+- 桌面：file_service 后端操作不在提交/分发线程执行阻塞文件 I/O；正常/失败路径都等待关闭收尾。
+- 浏览器：初始化恢复顺序、flush 失败、容量不足、Range 不支持、CORS、缓存失效、关闭期间回调。
+- 大文件：应用缓冲和 JS/Wasm 复制峰值纳入预算，消费者慢时不会无限堆积；IDBFS 限制单独说明。
+- 已执行的小型测试可报告实测结果；大场景、耗时 CI 和未运行的平台场景仍留待统一验收。
+
+## 风险与取舍
+
+统一接口不代表各后端能力相同。HTTP stat 可能缺少长度，list 需要清单；不会伪造元数据。
+FS 的同步内存操作仍有复制开销，包装回调不等于后台执行；大操作需要 Worker 或分块。
+IDBFS 依赖内存文件系统，持久化并不保证无限容量或永久免于浏览器清理。
+现有资产同步接口与任务执行器需要集中迁移，避免 worker 等待 owner 回调形成死锁。
+取消后端 I/O 属尽力而为；已接受但无法中止的请求须继续保活至实际完成。
+
+## 参考资料
+
+- [Emscripten FS 与 IDBFS](https://emscripten.org/docs/api_reference/Filesystem-API.html)
+- [Emscripten Fetch 配置](https://emscripten.org/docs/tools_reference/settings_reference.html#fetch-streaming)
+- [异步 JS 互操作](https://emscripten.org/docs/porting/asyncify.html)
+- [libuv 文件 API](https://docs.libuv.org/en/v1.x/fs.html)

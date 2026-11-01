@@ -1,0 +1,61 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#ifndef GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_SESSION_H_
+#define GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_SESSION_H_
+
+#include "editor_ipc_event.hpp"
+#include "engine/core/error.hpp"
+
+#include "ipc_transport.hpp"
+
+#include <chrono>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
+
+namespace gneiss::host {
+
+/** 管理 Editor 端 IPC Server、握手、心跳和命令发送。 */
+class editor_ipc_session final {
+public:
+  editor_ipc_session();
+  ~editor_ipc_session();
+
+  editor_ipc_session(const editor_ipc_session&) = delete;
+  editor_ipc_session& operator=(const editor_ipc_session&) = delete;
+
+  [[nodiscard]] gneiss::engine::error start() noexcept;
+  [[nodiscard]] gneiss::engine::error stop() noexcept;
+  [[nodiscard]] gneiss::engine::error update(bool is_peer_running,
+                                             std::vector<runtime_ipc_event>& output) noexcept;
+
+  [[nodiscard]] gneiss::engine::error request_stop() noexcept;
+  [[nodiscard]] gneiss::engine::error request_pause() noexcept;
+  [[nodiscard]] gneiss::engine::error request_resume() noexcept;
+  [[nodiscard]] gneiss::engine::error request_inspection_resync() noexcept;
+  [[nodiscard]] gneiss::engine::error
+  send_property_write(const ipc_property_write& command) noexcept;
+  [[nodiscard]] gneiss::engine::error send_asset_cancel(std::uint64_t session,
+                                                        std::uint64_t revision) noexcept;
+  [[nodiscard]] gneiss::engine::error send_scene_request(const ipc_scene_request& value,
+                                                         bool cancel) noexcept;
+  [[nodiscard]] bool supports_scene_loading() const noexcept;
+  [[nodiscard]] gneiss::engine::error send_asset_reload(const ipc_asset_reload_request& command,
+                                                        ipc_asset_operation operation) noexcept;
+
+  [[nodiscard]] bool is_authenticated() const noexcept;
+  [[nodiscard]] bool supports_property_editing() const noexcept;
+  [[nodiscard]] bool supports_asset_reload() const noexcept;
+  [[nodiscard]] gneiss::engine::ipc_endpoint endpoint() const noexcept;
+  [[nodiscard]] const std::string& token() const noexcept;
+
+private:
+  struct implementation;
+  std::unique_ptr<implementation> implementation_;
+};
+
+} // namespace gneiss::host
+
+#endif

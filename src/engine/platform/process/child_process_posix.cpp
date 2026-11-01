@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "child_process.hpp"
+#include "engine/core/error.hpp"
 
 #include <cerrno>
 #include <csignal>
@@ -13,7 +14,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-namespace gneiss {
+namespace gneiss::engine {
 namespace {
 
 constexpr std::size_t maximum_output_size = 256U * 1024U;
@@ -86,16 +87,16 @@ child_process::~child_process() {
   implementation_->close_process();
 }
 
-result child_process::start(const child_process_start_info& info) noexcept {
+error child_process::start(const child_process_start_info& info) noexcept {
   if (!implementation_ || is_running() || info.executable.empty()) {
-    return result::invalid_state;
+    return error::invalid_state;
   }
   try {
     std::error_code error;
     if (!std::filesystem::is_regular_file(info.executable, error) || error ||
         (!info.working_directory.empty() &&
          (!std::filesystem::is_directory(info.working_directory, error) || error))) {
-      return result::not_found;
+      return error::not_found;
     }
     implementation_->close_process();
     implementation_->output.clear();
@@ -104,13 +105,13 @@ result child_process::start(const child_process_start_info& info) noexcept {
 
     int output_pipe[2]{-1, -1};
     if (::pipe(output_pipe) != 0) {
-      return result::initialization_failed;
+      return error::initialization_failed;
     }
     const auto flags = ::fcntl(output_pipe[0], F_GETFL, 0);
     if (flags < 0 || ::fcntl(output_pipe[0], F_SETFL, flags | O_NONBLOCK) != 0) {
       close_descriptor(output_pipe[0]);
       close_descriptor(output_pipe[1]);
-      return result::initialization_failed;
+      return error::initialization_failed;
     }
 
     const auto executable = info.executable.string();
@@ -144,24 +145,24 @@ result child_process::start(const child_process_start_info& info) noexcept {
     close_descriptor(output_pipe[1]);
     if (child < 0) {
       close_descriptor(output_pipe[0]);
-      return result::initialization_failed;
+      return error::initialization_failed;
     }
     implementation_->process = child;
     implementation_->output_read = output_pipe[0];
     implementation_->has_started = true;
-    return result::success;
+    return error::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return error::out_of_memory;
   } catch (...) {
-    return result::io;
+    return error::io;
   }
 }
 
-result child_process::terminate() noexcept {
+error child_process::terminate() noexcept {
   if (!implementation_ || !is_running()) {
-    return result::not_ready;
+    return error::not_ready;
   }
-  return ::kill(implementation_->process, SIGKILL) == 0 ? result::success : result::io;
+  return ::kill(implementation_->process, SIGKILL) == 0 ? error::success : error::io;
 }
 
 void child_process::update() noexcept {
@@ -224,4 +225,4 @@ void child_process::append_output(std::string_view text) noexcept {
   }
 }
 
-} // namespace gneiss
+} // namespace gneiss::engine

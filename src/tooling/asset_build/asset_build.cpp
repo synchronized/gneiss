@@ -2,14 +2,15 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "tooling/asset_build/asset_build.hpp"
+#include "engine/core/error.hpp"
 #include "tooling/asset_build/texture_mip_generator.hpp"
 
 #include "tooling/asset_build/ktx2_probe.hpp"
 #include "tooling/asset_build/runtime_texture_builder.hpp"
 
-#include "engine/asset/mesh_binary.hpp"
-#include "engine/asset/png_decoder.hpp"
-#include "engine/asset/texture_ktx2.hpp"
+#include "engine/resource/mesh/mesh_binary.hpp"
+#include "engine/resource/texture/png_decoder.hpp"
+#include "engine/resource/texture/texture_ktx2.hpp"
 
 #include <yyjson.h>
 
@@ -28,7 +29,7 @@
 #include <system_error>
 #include <utility>
 
-namespace gneiss::tooling::asset_build {
+namespace gneiss::tooling {
 namespace {
 
 struct source_node final {
@@ -37,7 +38,7 @@ struct source_node final {
   const processor_description* processor{};
   std::vector<std::string> dependencies;
   std::string cache_key;
-  std::optional<asset_internal::texture_transfer> texture_transfer;
+  std::optional<gneiss::engine::texture_transfer> texture_transfer;
   std::optional<bool> normal_map{};
 };
 
@@ -142,10 +143,7 @@ struct source_node final {
   }
   if (node.processor->id == "gneiss.mesh" && extension == ".gneiss-mesh") {
     const auto bytes = read_bytes(node.absolute_path);
-    asset_internal::mesh_binary_data output;
-    asset_internal::mesh_binary_diagnostic diagnostic;
-    return asset_internal::decode_mesh_binary(bytes, output, diagnostic) ==
-           asset_internal::mesh_binary_result::success;
+    return gneiss::engine::decode_mesh_binary(bytes).ok();
   }
   if ((node.processor->id == "gneiss.mesh" || node.processor->id == "gneiss.material" ||
        node.processor->id == "gneiss.document") &&
@@ -190,7 +188,7 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
   hash_bytes(hash, request.profile == build_profile::shipping ? "shipping" : "development");
   hash_bytes(hash, node.normal_map.value_or(false) ? "normal" : "color-or-data");
   if (node.texture_transfer) {
-    hash_bytes(hash, *node.texture_transfer == asset_internal::texture_transfer::srgb ? "srgb"
+    hash_bytes(hash, *node.texture_transfer == gneiss::engine::texture_transfer::srgb ? "srgb"
                                                                                       : "linear");
   }
   std::ostringstream text;
@@ -230,12 +228,14 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
 [[nodiscard]] bool cook_png(const source_node& node, std::vector<std::byte>& output,
                             std::string& diagnostic) {
   const auto bytes = read_bytes(node.absolute_path);
-  asset_internal::decoded_png decoded;
-  if (asset_internal::decode_png(bytes, decoded, diagnostic) != GNEISS_SUCCESS) {
+  auto image = gneiss::engine::decode_png(bytes);
+  if (!image) {
+    diagnostic = std::move(image).error().message;
     return false;
   }
-  asset_internal::texture_ktx2 texture{
-      .transfer = node.texture_transfer.value_or(asset_internal::texture_transfer::srgb),
+  auto decoded = std::move(*image);
+  gneiss::engine::texture_ktx2 texture{
+      .transfer = node.texture_transfer.value_or(gneiss::engine::texture_transfer::srgb),
       .levels = {
           {.width = decoded.width, .height = decoded.height, .pixels = std::move(decoded.pixels)}}};
   while (texture.levels.back().width != 1U || texture.levels.back().height != 1U) {
@@ -298,7 +298,7 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
 }
 
 [[nodiscard]] bool read_texture_settings(const source_node& node, std::string& source,
-                                         asset_internal::texture_transfer& transfer,
+                                         gneiss::engine::texture_transfer& transfer,
                                          bool& normal_map) {
   if (!std::string_view(node.relative_path).ends_with(".texture.json")) {
     return false;
@@ -322,17 +322,17 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
       yyjson_is_str(usage_value) && std::string_view{yyjson_get_str(usage_value)} == "normal";
   const bool valid = yyjson_is_str(source_value) && yyjson_is_str(format_value) &&
                      std::string_view{yyjson_get_str(format_value)} == "gneiss.texture" &&
-                     yyjson_is_uint(version_value) && (version == 1U || version == 2U) &&
-                     (color == "linear" || color == "srgb") &&
-                     ((version == 1U && usage_value == nullptr) ||
-                      (version == 2U && normal_map && color == "linear"));
+                     yyjson_is_uint(version_value) && version == 2U &&
+                     (color == "linear" || color == "srgb") && yyjson_is_str(usage_value) &&
+                     (std::string_view{yyjson_get_str(usage_value)} == "default" ||
+                      (normal_map && color == "linear"));
   if (valid) {
     const std::string_view uri{yyjson_get_str(source_value), yyjson_get_len(source_value)};
     constexpr std::string_view prefix = "asset://";
     if (uri.starts_with(prefix)) {
       source.assign(uri.substr(prefix.size()));
-      transfer = color == "linear" ? asset_internal::texture_transfer::linear
-                                   : asset_internal::texture_transfer::srgb;
+      transfer = color == "linear" ? gneiss::engine::texture_transfer::linear
+                                   : gneiss::engine::texture_transfer::srgb;
     }
   }
   yyjson_doc_free(document);
@@ -385,9 +385,9 @@ const processor_description* processor_registry::find(std::string_view path) con
 processor_registry make_default_registry() {
   processor_registry registry;
   static_cast<void>(registry.register_processor(
-      {.id = "gneiss.texture", .version = 5U, .suffixes = {".png", ".jpg", ".jpeg", ".ktx2"}}));
+      {.id = "gneiss.texture", .version = 6U, .suffixes = {".png", ".jpg", ".jpeg", ".ktx2"}}));
   static_cast<void>(registry.register_processor(
-      {.id = "gneiss.mesh", .version = 2U, .suffixes = {".gneiss-mesh", ".mesh.json"}}));
+      {.id = "gneiss.mesh", .version = 3U, .suffixes = {".gneiss-mesh", ".mesh.json"}}));
   static_cast<void>(registry.register_processor(
       {.id = "gneiss.material", .version = 2U, .suffixes = {".material.json", ".grmat"}}));
   static_cast<void>(
@@ -445,7 +445,7 @@ build_report build_assets(const build_request& request, const processor_registry
     for (const auto& [relative, node] : nodes) {
       static_cast<void>(relative);
       std::string image_source;
-      asset_internal::texture_transfer transfer{};
+      gneiss::engine::texture_transfer transfer{};
       bool normal_map{};
       if (!read_texture_settings(node, image_source, transfer, normal_map)) {
         if (std::string_view(node.relative_path).ends_with(".texture.json")) {
@@ -638,4 +638,4 @@ build_report build_assets(const build_request& request, const processor_registry
   }
 }
 
-} // namespace gneiss::tooling::asset_build
+} // namespace gneiss::tooling

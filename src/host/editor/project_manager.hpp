@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#ifndef GNEISS_APPS_EDITOR_PROJECT_MANAGER_H_
+#define GNEISS_APPS_EDITOR_PROJECT_MANAGER_H_
+
+#include "editor_project.hpp"
+#include "engine/core/error.hpp"
+
+namespace gneiss::host {
+
+/** 运行独立工程选择窗口；关闭窗口但未选择工程时返回 not_ready。 */
+[[nodiscard]] gneiss::engine::error run_project_manager(bool smoke,
+                                                        editor_project& output) noexcept;
+
+} // namespace gneiss::host
+
+#endif

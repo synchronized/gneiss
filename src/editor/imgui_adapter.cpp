@@ -2,6 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "imgui_adapter.hpp"
+#include "engine/core/error.hpp"
+#include "engine/function/resource/asset_manager.hpp"
+#include "engine/resource/texture/texture_view.hpp"
+#include "runtime/application.hpp"
 
 #include "editor_theme.hpp"
 
@@ -25,63 +29,63 @@ constexpr std::uint32_t premultiply_color(std::uint32_t color) noexcept {
 static_assert(premultiply_color(0x80ffffffU) == 0x80808080U);
 
 ImGuiKey map_key(std::uint32_t key) noexcept {
-  if (key >= GNEISS_PHYSICAL_KEY_A && key <= GNEISS_PHYSICAL_KEY_Z) {
-    return static_cast<ImGuiKey>(ImGuiKey_A + key - GNEISS_PHYSICAL_KEY_A);
+  if (key >= gneiss::engine::physical_key_a && key <= gneiss::engine::physical_key_z) {
+    return static_cast<ImGuiKey>(ImGuiKey_A + key - gneiss::engine::physical_key_a);
   }
-  if (key >= GNEISS_PHYSICAL_KEY_1 && key <= GNEISS_PHYSICAL_KEY_9) {
-    return static_cast<ImGuiKey>(ImGuiKey_1 + key - GNEISS_PHYSICAL_KEY_1);
+  if (key >= gneiss::engine::physical_key_1 && key <= gneiss::engine::physical_key_9) {
+    return static_cast<ImGuiKey>(ImGuiKey_1 + key - gneiss::engine::physical_key_1);
   }
-  if (key >= GNEISS_PHYSICAL_KEY_F1 && key <= GNEISS_PHYSICAL_KEY_F12) {
-    return static_cast<ImGuiKey>(ImGuiKey_F1 + key - GNEISS_PHYSICAL_KEY_F1);
+  if (key >= gneiss::engine::physical_key_f1 && key <= gneiss::engine::physical_key_f12) {
+    return static_cast<ImGuiKey>(ImGuiKey_F1 + key - gneiss::engine::physical_key_f1);
   }
   switch (key) {
-  case GNEISS_PHYSICAL_KEY_0:
+  case gneiss::engine::physical_key_0:
     return ImGuiKey_0;
-  case GNEISS_PHYSICAL_KEY_ENTER:
+  case gneiss::engine::physical_key_enter:
     return ImGuiKey_Enter;
-  case GNEISS_PHYSICAL_KEY_ESCAPE:
+  case gneiss::engine::physical_key_escape:
     return ImGuiKey_Escape;
-  case GNEISS_PHYSICAL_KEY_BACKSPACE:
+  case gneiss::engine::physical_key_backspace:
     return ImGuiKey_Backspace;
-  case GNEISS_PHYSICAL_KEY_TAB:
+  case gneiss::engine::physical_key_tab:
     return ImGuiKey_Tab;
-  case GNEISS_PHYSICAL_KEY_SPACE:
+  case gneiss::engine::physical_key_space:
     return ImGuiKey_Space;
-  case GNEISS_PHYSICAL_KEY_INSERT:
+  case gneiss::engine::physical_key_insert:
     return ImGuiKey_Insert;
-  case GNEISS_PHYSICAL_KEY_HOME:
+  case gneiss::engine::physical_key_home:
     return ImGuiKey_Home;
-  case GNEISS_PHYSICAL_KEY_PAGE_UP:
+  case gneiss::engine::physical_key_page_up:
     return ImGuiKey_PageUp;
-  case GNEISS_PHYSICAL_KEY_DELETE:
+  case gneiss::engine::physical_key_delete:
     return ImGuiKey_Delete;
-  case GNEISS_PHYSICAL_KEY_END:
+  case gneiss::engine::physical_key_end:
     return ImGuiKey_End;
-  case GNEISS_PHYSICAL_KEY_PAGE_DOWN:
+  case gneiss::engine::physical_key_page_down:
     return ImGuiKey_PageDown;
-  case GNEISS_PHYSICAL_KEY_RIGHT:
+  case gneiss::engine::physical_key_right:
     return ImGuiKey_RightArrow;
-  case GNEISS_PHYSICAL_KEY_LEFT:
+  case gneiss::engine::physical_key_left:
     return ImGuiKey_LeftArrow;
-  case GNEISS_PHYSICAL_KEY_DOWN:
+  case gneiss::engine::physical_key_down:
     return ImGuiKey_DownArrow;
-  case GNEISS_PHYSICAL_KEY_UP:
+  case gneiss::engine::physical_key_up:
     return ImGuiKey_UpArrow;
-  case GNEISS_PHYSICAL_KEY_LEFT_CONTROL:
+  case gneiss::engine::physical_key_left_control:
     return ImGuiKey_LeftCtrl;
-  case GNEISS_PHYSICAL_KEY_LEFT_SHIFT:
+  case gneiss::engine::physical_key_left_shift:
     return ImGuiKey_LeftShift;
-  case GNEISS_PHYSICAL_KEY_LEFT_ALT:
+  case gneiss::engine::physical_key_left_alt:
     return ImGuiKey_LeftAlt;
-  case GNEISS_PHYSICAL_KEY_LEFT_SUPER:
+  case gneiss::engine::physical_key_left_super:
     return ImGuiKey_LeftSuper;
-  case GNEISS_PHYSICAL_KEY_RIGHT_CONTROL:
+  case gneiss::engine::physical_key_right_control:
     return ImGuiKey_RightCtrl;
-  case GNEISS_PHYSICAL_KEY_RIGHT_SHIFT:
+  case gneiss::engine::physical_key_right_shift:
     return ImGuiKey_RightShift;
-  case GNEISS_PHYSICAL_KEY_RIGHT_ALT:
+  case gneiss::engine::physical_key_right_alt:
     return ImGuiKey_RightAlt;
-  case GNEISS_PHYSICAL_KEY_RIGHT_SUPER:
+  case gneiss::engine::physical_key_right_super:
     return ImGuiKey_RightSuper;
   default:
     return ImGuiKey_None;
@@ -89,40 +93,36 @@ ImGuiKey map_key(std::uint32_t key) noexcept {
 }
 
 void update_modifiers(ImGuiIO& io, std::uint32_t modifiers) noexcept {
-  io.AddKeyEvent(ImGuiMod_Ctrl, (modifiers & (GNEISS_MODIFIER_LEFT_CONTROL_BIT |
-                                              GNEISS_MODIFIER_RIGHT_CONTROL_BIT)) != 0U);
-  io.AddKeyEvent(ImGuiMod_Shift, (modifiers & (GNEISS_MODIFIER_LEFT_SHIFT_BIT |
-                                               GNEISS_MODIFIER_RIGHT_SHIFT_BIT)) != 0U);
-  io.AddKeyEvent(ImGuiMod_Alt, (modifiers & (GNEISS_MODIFIER_LEFT_ALT_BIT |
-                                             GNEISS_MODIFIER_RIGHT_ALT_BIT)) != 0U);
-  io.AddKeyEvent(ImGuiMod_Super, (modifiers & (GNEISS_MODIFIER_LEFT_SUPER_BIT |
-                                               GNEISS_MODIFIER_RIGHT_SUPER_BIT)) != 0U);
+  io.AddKeyEvent(ImGuiMod_Ctrl, (modifiers & (gneiss::engine::modifier_left_control_bit |
+                                              gneiss::engine::modifier_right_control_bit)) != 0U);
+  io.AddKeyEvent(ImGuiMod_Shift, (modifiers & (gneiss::engine::modifier_left_shift_bit |
+                                               gneiss::engine::modifier_right_shift_bit)) != 0U);
+  io.AddKeyEvent(ImGuiMod_Alt, (modifiers & (gneiss::engine::modifier_left_alt_bit |
+                                             gneiss::engine::modifier_right_alt_bit)) != 0U);
+  io.AddKeyEvent(ImGuiMod_Super, (modifiers & (gneiss::engine::modifier_left_super_bit |
+                                               gneiss::engine::modifier_right_super_bit)) != 0U);
 }
 
 int map_mouse_button(std::uint32_t button) noexcept {
   switch (button) {
-  case GNEISS_POINTER_PRIMARY_BIT:
+  case gneiss::engine::pointer_primary_bit:
     return ImGuiMouseButton_Left;
-  case GNEISS_POINTER_SECONDARY_BIT:
+  case gneiss::engine::pointer_secondary_bit:
     return ImGuiMouseButton_Right;
-  case GNEISS_POINTER_MIDDLE_BIT:
+  case gneiss::engine::pointer_middle_bit:
     return ImGuiMouseButton_Middle;
-  case GNEISS_POINTER_X1_BIT:
+  case gneiss::engine::pointer_x1_bit:
     return 3;
-  case GNEISS_POINTER_X2_BIT:
+  case gneiss::engine::pointer_x2_bit:
     return 4;
   default:
     return -1;
   }
 }
 
-gneiss_result synchronize_input_state(gneiss_application application) noexcept {
+gneiss::engine::error synchronize_input_state(runtime::application& application) noexcept {
   auto& io = ImGui::GetIO();
-  gneiss_keyboard_state keyboard = GNEISS_KEYBOARD_STATE_INIT;
-  auto result = gneiss_application_get_keyboard_state(application, &keyboard);
-  if (result != GNEISS_SUCCESS) {
-    return result;
-  }
+  const auto& keyboard = application.keyboard_state();
   update_modifiers(io, keyboard.modifiers);
   for (std::uint32_t physical_key = 0U; physical_key < 256U; ++physical_key) {
     const auto key = map_key(physical_key);
@@ -134,24 +134,21 @@ gneiss_result synchronize_input_state(gneiss_application application) noexcept {
     io.AddKeyEvent(key, is_down);
   }
 
-  gneiss_pointer_state pointer = GNEISS_POINTER_STATE_INIT;
-  result = gneiss_application_get_pointer_state(application, &pointer);
-  if (result != GNEISS_SUCCESS) {
-    return result;
-  }
+  const auto& pointer = application.pointer_state();
   if (pointer.is_inside != 0U) {
     io.AddMousePosEvent(pointer.x, pointer.y);
   } else {
     io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
   }
   constexpr std::uint32_t pointer_buttons[] = {
-      GNEISS_POINTER_PRIMARY_BIT, GNEISS_POINTER_SECONDARY_BIT, GNEISS_POINTER_MIDDLE_BIT,
-      GNEISS_POINTER_X1_BIT,      GNEISS_POINTER_X2_BIT,
+      gneiss::engine::pointer_primary_bit, gneiss::engine::pointer_secondary_bit,
+      gneiss::engine::pointer_middle_bit,  gneiss::engine::pointer_x1_bit,
+      gneiss::engine::pointer_x2_bit,
   };
   for (const auto button : pointer_buttons) {
     io.AddMouseButtonEvent(map_mouse_button(button), (pointer.buttons & button) != 0U);
   }
-  return GNEISS_SUCCESS;
+  return gneiss::engine::error::success;
 }
 
 } // namespace
@@ -162,13 +159,16 @@ imgui_adapter::~imgui_adapter() noexcept {
   }
 }
 
-gneiss_result imgui_adapter::initialize(gneiss_application application) {
-  if (application == GNEISS_NULL_APPLICATION || context_ != nullptr) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+gneiss::engine::error imgui_adapter::initialize(runtime::application& application) {
+  if (!application.is_owner_thread() || !application.accepts_requests()) {
+    return gneiss::engine::error::invalid_state;
+  }
+  if (context_ != nullptr) {
+    return gneiss::engine::error::invalid_argument;
   }
   context_ = ImGui::CreateContext();
   if (context_ == nullptr) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::error::out_of_memory;
   }
   ImGui::SetCurrentContext(context_);
   apply_gneiss_mocha_theme();
@@ -190,7 +190,7 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
     io.FontDefault = io.Fonts->AddFontDefault(&font_config);
   }
   if (io.FontDefault == nullptr) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::error::out_of_memory;
   }
 
   ImFontConfig cjk_font_config{};
@@ -203,7 +203,7 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
   constexpr float cjk_font_size = 18.0F;
   if (io.Fonts->AddFontFromFileTTF(GNEISS_EDITOR_CJK_FONT_PATH, cjk_font_size, &cjk_font_config,
                                    io.Fonts->GetGlyphRangesChineseSimplifiedCommon()) == nullptr) {
-    return GNEISS_ERROR_INITIALIZATION_FAILED;
+    return gneiss::engine::error::initialization_failed;
   }
 
   unsigned char* atlas_pixels = nullptr;
@@ -211,12 +211,12 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
   int atlas_height = 0;
   io.Fonts->GetTexDataAsRGBA32(&atlas_pixels, &atlas_width, &atlas_height);
   if (atlas_pixels == nullptr || atlas_width <= 0 || atlas_height <= 0) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::error::invalid_state;
   }
   auto* baked_font = io.FontDefault->GetFontBaked(font_config.SizePixels);
   if (baked_font == nullptr ||
       baked_font->FindGlyphNoFallback(static_cast<ImWchar>(u'中')) == nullptr) {
-    return GNEISS_ERROR_INITIALIZATION_FAILED;
+    return gneiss::engine::error::initialization_failed;
   }
   const auto pixel_count =
       static_cast<std::size_t>(atlas_width) * static_cast<std::size_t>(atlas_height);
@@ -229,60 +229,61 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
       value = static_cast<std::uint8_t>((static_cast<std::uint32_t>(value) * alpha + 127U) / 255U);
     }
   }
-  gneiss_texture_desc texture_desc = GNEISS_TEXTURE_DESC_INIT;
-  texture_desc.color_space = GNEISS_TEXTURE_COLOR_SPACE_LINEAR;
+  gneiss::engine::texture_view texture_desc;
+  texture_desc.color_space = gneiss::engine::texture_color_space::linear;
   texture_desc.width = static_cast<std::uint32_t>(atlas_width);
   texture_desc.height = static_cast<std::uint32_t>(atlas_height);
   texture_desc.row_stride_bytes = texture_desc.width * 4U;
-  texture_desc.pixel_data_size = static_cast<std::uint64_t>(premultiplied.size());
-  texture_desc.pixels = premultiplied.data();
-  const auto result = gneiss_texture_create(application, &texture_desc, &font_texture_);
-  if (result != GNEISS_SUCCESS) {
-    return result;
-  }
-  io.Fonts->SetTexID(static_cast<ImTextureID>(font_texture_));
+  texture_desc.pixels = premultiplied;
+  auto created = application.resources().create_texture(texture_desc);
+  if (!created)
+    return created.error();
+  font_texture_ = std::move(*created);
+  io.Fonts->SetTexID(static_cast<ImTextureID>(gneiss::engine::resource_handle(font_texture_)));
   io.Fonts->TexRef._TexData->SetStatus(ImTextureStatus_OK);
-  return GNEISS_SUCCESS;
+  return gneiss::engine::error::success;
 }
 
-void imgui_adapter::shutdown(gneiss_application application) noexcept {
-  ImGui::SetCurrentContext(context_);
-  if (font_texture_ != GNEISS_NULL_TEXTURE && application != GNEISS_NULL_APPLICATION) {
-    (void)gneiss_texture_destroy(application, font_texture_);
-    font_texture_ = GNEISS_NULL_TEXTURE;
+void imgui_adapter::shutdown(runtime::application& application) noexcept {
+  if (!application.is_owner_thread() || !application.accepts_requests()) {
+    return;
   }
+  ImGui::SetCurrentContext(context_);
+  font_texture_.reset();
   if (context_ != nullptr) {
     ImGui::DestroyContext(context_);
     context_ = nullptr;
   }
 }
 
-gneiss_result imgui_adapter::begin_frame(gneiss_application application,
-                                         const gneiss_frame_time& time) {
+gneiss::engine::error imgui_adapter::begin_frame(runtime::application& application,
+                                                 const gneiss::engine::frame_time& time) {
+  if (!application.is_owner_thread() || !application.accepts_requests()) {
+    return gneiss::engine::error::invalid_state;
+  }
   if (context_ == nullptr) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::error::invalid_state;
   }
   ImGui::SetCurrentContext(context_);
-  gneiss_input_event event = GNEISS_INPUT_EVENT_INIT;
-  auto poll_result = gneiss_application_poll_input(application, &event);
-  while (poll_result == GNEISS_SUCCESS) {
+  gneiss::engine::input_event event;
+  auto poll_result = application.poll_input(event);
+  while (poll_result == gneiss::engine::error::success) {
     process_input(event);
-    event = GNEISS_INPUT_EVENT_INIT;
-    poll_result = gneiss_application_poll_input(application, &event);
+    event = {};
+    poll_result = application.poll_input(event);
   }
-  if (poll_result != GNEISS_ERROR_NOT_READY) {
+  if (poll_result != gneiss::engine::error::not_ready) {
     return poll_result;
   }
   const auto synchronize_result = synchronize_input_state(application);
-  if (synchronize_result != GNEISS_SUCCESS) {
+  if (synchronize_result != gneiss::engine::error::success) {
     return synchronize_result;
   }
   auto& io = ImGui::GetIO();
   std::uint32_t window_width = 0U;
   std::uint32_t window_height = 0U;
-  const auto window_result =
-      gneiss_application_get_window_size(application, &window_width, &window_height);
-  if (window_result != GNEISS_SUCCESS) {
+  const auto window_result = application.get_window_size(window_width, window_height);
+  if (window_result != gneiss::engine::error::success) {
     return window_result;
   }
   // 窗口创建、最小化或交换链调整期间，尺寸可能短暂为零；这不是致命错误。
@@ -296,30 +297,30 @@ gneiss_result imgui_adapter::begin_frame(gneiss_application application,
           ? default_delta_seconds
           : static_cast<float>(static_cast<double>(time.delta_ns) / nanoseconds_per_second);
   ImGui::NewFrame();
-  return GNEISS_SUCCESS;
+  return gneiss::engine::error::success;
 }
 
-void imgui_adapter::process_input(const gneiss_input_event& event) {
+void imgui_adapter::process_input(const gneiss::engine::input_event& event) {
   auto& io = ImGui::GetIO();
   switch (event.type) {
-  case GNEISS_INPUT_EVENT_KEY: {
+  case gneiss::engine::event_type::key: {
     update_modifiers(io, event.data.key.modifiers);
     const auto key = map_key(event.data.key.physical_key);
-    if (key != ImGuiKey_None && event.data.key.action != GNEISS_KEY_REPEATED) {
-      io.AddKeyEvent(key, event.data.key.action == GNEISS_KEY_PRESSED);
+    if (key != ImGuiKey_None && event.data.key.action != gneiss::engine::key_action::repeated) {
+      io.AddKeyEvent(key, event.data.key.action == gneiss::engine::key_action::pressed);
     }
     break;
   }
-  case GNEISS_INPUT_EVENT_TEXT: {
-    const auto length = std::min<std::size_t>(event.data.text.length, GNEISS_INPUT_TEXT_CAPACITY);
+  case gneiss::engine::event_type::text: {
+    const auto length = std::min<std::size_t>(event.data.text.length, sizeof(event.data.text.utf8));
     const std::string utf8{event.data.text.utf8, length};
     io.AddInputCharactersUTF8(utf8.c_str());
     break;
   }
-  case GNEISS_INPUT_EVENT_POINTER_MOVED:
+  case gneiss::engine::event_type::pointer_moved:
     io.AddMousePosEvent(event.data.pointer_moved.x, event.data.pointer_moved.y);
     break;
-  case GNEISS_INPUT_EVENT_POINTER_BUTTON: {
+  case gneiss::engine::event_type::pointer_button: {
     io.AddMousePosEvent(event.data.pointer_button.x, event.data.pointer_button.y);
     const auto button = map_mouse_button(event.data.pointer_button.button);
     if (button >= 0) {
@@ -327,11 +328,11 @@ void imgui_adapter::process_input(const gneiss_input_event& event) {
     }
     break;
   }
-  case GNEISS_INPUT_EVENT_POINTER_WHEEL:
+  case gneiss::engine::event_type::pointer_wheel:
     io.AddMousePosEvent(event.data.pointer_wheel.x, event.data.pointer_wheel.y);
     io.AddMouseWheelEvent(event.data.pointer_wheel.delta_x, event.data.pointer_wheel.delta_y);
     break;
-  case GNEISS_INPUT_EVENT_POINTER_LEFT:
+  case gneiss::engine::event_type::pointer_left:
     io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
     break;
   default:
@@ -339,15 +340,15 @@ void imgui_adapter::process_input(const gneiss_input_event& event) {
   }
 }
 
-gneiss_result imgui_adapter::submit(gneiss_application application) {
+gneiss::engine::error imgui_adapter::submit(runtime::application& application) {
   if (context_ == nullptr) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::error::invalid_state;
   }
   ImGui::SetCurrentContext(context_);
   ImGui::Render();
   const auto* draw_data = ImGui::GetDrawData();
   if (draw_data == nullptr) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::error::invalid_state;
   }
   vertices_.clear();
   indices_.clear();
@@ -373,9 +374,9 @@ gneiss_result imgui_adapter::submit(gneiss_application application) {
           command.ClipRect.x >= command.ClipRect.z || command.ClipRect.y >= command.ClipRect.w) {
         continue;
       }
-      const auto texture = static_cast<gneiss_texture>(command.GetTexID());
-      gneiss_ui_draw_command converted{};
-      converted.texture = texture;
+      const auto texture = static_cast<gneiss::engine::rid>(command.GetTexID());
+      gneiss::engine::ui_draw_command converted{};
+      converted.texture = application.resources().find_texture(texture);
       converted.clip_min[0] = command.ClipRect.x - draw_data->DisplayPos.x;
       converted.clip_min[1] = command.ClipRect.y - draw_data->DisplayPos.y;
       converted.clip_max[0] = command.ClipRect.z - draw_data->DisplayPos.x;
@@ -389,18 +390,17 @@ gneiss_result imgui_adapter::submit(gneiss_application application) {
     index_base += static_cast<std::uint32_t>(source->IdxBuffer.Size);
   }
 
-  gneiss_ui_draw_list_desc desc = GNEISS_UI_DRAW_LIST_DESC_INIT;
+  gneiss::engine::ui_draw_view desc;
   desc.display_width = draw_data->DisplaySize.x;
   desc.display_height = draw_data->DisplaySize.y;
   desc.framebuffer_scale_x = draw_data->FramebufferScale.x;
   desc.framebuffer_scale_y = draw_data->FramebufferScale.y;
-  desc.vertex_count = static_cast<std::uint32_t>(vertices_.size());
-  desc.vertices = vertices_.data();
-  desc.index_count = static_cast<std::uint32_t>(indices_.size());
-  desc.indices = indices_.data();
-  desc.command_count = static_cast<std::uint32_t>(commands_.size());
-  desc.commands = commands_.data();
-  return gneiss_application_submit_ui_draw_list(application, &desc);
+  desc.vertices = vertices_;
+  desc.indices = indices_;
+  desc.commands = commands_;
+  if (!application.is_owner_thread())
+    return gneiss::engine::error::invalid_state;
+  return application.submit_ui_draw_list(desc);
 }
 
 } // namespace gneiss::editor

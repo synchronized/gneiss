@@ -3,10 +3,14 @@
 
 #pragma once
 
+#include "engine/core/guid.hpp"
+#include "engine/resource/scene/component_description.hpp"
 #include "runtime_object_id.hpp"
 
-#include <gneiss/engine/core/result.hpp>
-#include <gneiss/engine/scene.h>
+#include "engine/core/error.hpp"
+#include "engine/core/math/camera.hpp"
+#include "engine/core/math/transform.hpp"
+#include "engine/core/rid.hpp"
 
 #include <string>
 #include <vector>
@@ -30,7 +34,8 @@ enum class runtime_scene_sequence_result : std::uint8_t {
 /** Editor 侧检查消息顺序跟踪器；发现缺口后由上层请求完整快照。 */
 class runtime_scene_sequence_tracker final {
 public:
-  [[nodiscard]] result begin(std::uint64_t session_id, std::uint64_t first_sequence = 1U) noexcept;
+  [[nodiscard]] gneiss::engine::error begin(std::uint64_t session_id,
+                                            std::uint64_t first_sequence = 1U) noexcept;
   void reset() noexcept;
   [[nodiscard]] runtime_scene_sequence_result observe(runtime_scene_stamp stamp) noexcept;
   [[nodiscard]] std::uint64_t session_id() const noexcept { return session_id_; }
@@ -46,15 +51,12 @@ enum class runtime_scene_change_type : std::uint8_t { upsert, remove };
 struct runtime_scene_node final {
   runtime_object_id id;
   runtime_object_id parent;
-  std::string uuid;
-  std::string prefab_instance_uuid;
-  std::string prefab_source_node_uuid;
+  gneiss::engine::guid uuid;
+  gneiss::engine::guid prefab_instance_uuid;
+  gneiss::engine::guid prefab_source_node_uuid;
   std::string name;
-  gneiss_transform local_transform = GNEISS_TRANSFORM_IDENTITY;
-  std::uint32_t component_flags = 0U;
-  gneiss_camera_desc camera = GNEISS_CAMERA_DESC_INIT;
-  std::string mesh_uri;
-  std::string material_uri;
+  gneiss::engine::math::transform local_transform;
+  gneiss::engine::component_descriptions components{};
 };
 
 struct runtime_scene_change final {

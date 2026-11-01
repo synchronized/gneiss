@@ -1,19 +1,346 @@
 {
   "format": "gneiss.scene",
-  "version": 4,
+  "version": 5,
   "scene_uuid": "20000000-0000-4000-8000-000000000000",
   "objects": [
-    {"uuid":"20000000-0000-4000-8000-000000000040","parent":null,"name":"Lantern Pivot","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{}},
-    {"uuid":"20000000-0000-4000-8000-000000000001","parent":null,"name":"Gallery Camera","transform":{"translation":[0,3.2,8],"rotation":[-0.189108,0,0,0.981956],"scale":[1,1,1]},"components":{"camera":{"vertical_field_of_view_radians":1.04719755,"near_plane":0.1,"far_plane":100,"is_primary":true}}},
-    {"uuid":"20000000-0000-4000-8000-000000000002","parent":null,"name":"Stone Floor","transform":{"translation":[0,-0.2,0],"rotation":[0,0,0,1],"scale":[10,0.35,7]},"components":{"mesh_renderer":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json"}}},
-    {"uuid":"20000000-0000-4000-8000-000000000003","parent":null,"name":"Northwest Pillar","transform":{"translation":[-4,1.1,-2.4],"rotation":[0,0,0,1],"scale":[0.55,2.5,0.55]},"components":{"mesh_renderer":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json"}}},
-    {"uuid":"20000000-0000-4000-8000-000000000004","parent":null,"name":"Northeast Pillar","transform":{"translation":[4,1.1,-2.4],"rotation":[0,0,0,1],"scale":[0.55,2.5,0.55]},"components":{"mesh_renderer":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json"}}},
-    {"uuid":"20000000-0000-4000-8000-000000000005","parent":null,"name":"Southwest Pillar","transform":{"translation":[-4,1.1,2.4],"rotation":[0,0,0,1],"scale":[0.55,2.5,0.55]},"components":{"mesh_renderer":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json"}}},
-    {"uuid":"20000000-0000-4000-8000-000000000006","parent":null,"name":"Southeast Pillar","transform":{"translation":[4,1.1,2.4],"rotation":[0,0,0,1],"scale":[0.55,2.5,0.55]},"components":{"mesh_renderer":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json"}}}
-  ],
-  "prefab_instances": [
-    {"instance_uuid":"20000000-0000-4000-8000-000000000010","parent":"20000000-0000-4000-8000-000000000040","name":"Left Lantern","prefab":"asset://prefabs/lantern.prefab.json","transform":{"translation":[-3,0,0],"rotation":[0,1,0,0],"scale":[0.08,0.08,0.08]},"overrides":[{"source_node_uuid":"21000000-0000-4000-8000-000000000002","type_id":"69644f20b2d24e488c7491f4f952ec2d","field_id":1,"value":{"kind":"vec3","value":[-5,13.0160303,0]}}]},
-    {"instance_uuid":"20000000-0000-4000-8000-000000000020","parent":"20000000-0000-4000-8000-000000000040","name":"Center Lantern","prefab":"asset://prefabs/lantern.prefab.json","transform":{"translation":[0,0,-0.8],"rotation":[0,1,0,0],"scale":[0.09,0.09,0.09]},"overrides":[{"source_node_uuid":"21000000-0000-4000-8000-000000000003","type_id":"69644f20b2d24e488c7491f4f952ec2d","field_id":3,"value":{"kind":"vec3","value":[1.15,1.15,1.15]}}]},
-    {"instance_uuid":"20000000-0000-4000-8000-000000000030","parent":"20000000-0000-4000-8000-000000000040","name":"Right Lantern","prefab":"asset://prefabs/lantern.prefab.json","transform":{"translation":[3,0,0],"rotation":[0,1,0,0],"scale":[0.08,0.08,0.08]},"overrides":[{"source_node_uuid":"21000000-0000-4000-8000-000000000004","type_id":"69644f20b2d24e488c7491f4f952ec2d","field_id":1,"value":{"kind":"vec3","value":[-9.58200741,20,0]}}]}
+    {
+      "uuid": "20000000-0000-4000-8000-000000000040",
+      "parent": null,
+      "name": "Lantern Pivot",
+      "transform": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": []
+    },
+    {
+      "uuid": "20000000-0000-4000-8000-000000000001",
+      "parent": null,
+      "name": "Gallery Camera",
+      "transform": {
+        "translation": [
+          0,
+          3.2,
+          8
+        ],
+        "rotation": [
+          -0.189108,
+          0,
+          0,
+          0.981956
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101",
+          "$content": {
+            "settings": {"fov": 1.04719755, "near": 0.1, "far": 100},
+            "is_primary": true
+          }
+        }
+      ]
+    },
+    {
+      "uuid": "20000000-0000-4000-8000-000000000002",
+      "parent": null,
+      "name": "Stone Floor",
+      "transform": {
+        "translation": [
+          0,
+          -0.2,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          10,
+          0.35,
+          7
+        ]
+      },
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/gallery-box.mesh.json",
+            "material": "asset://materials/gallery-stone.material.json"
+          }
+        }
+      ]
+    },
+    {
+      "uuid": "20000000-0000-4000-8000-000000000003",
+      "parent": null,
+      "name": "Northwest Pillar",
+      "transform": {
+        "translation": [
+          -4,
+          1.1,
+          -2.4
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          0.55,
+          2.5,
+          0.55
+        ]
+      },
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/gallery-box.mesh.json",
+            "material": "asset://materials/gallery-stone.material.json"
+          }
+        }
+      ]
+    },
+    {
+      "uuid": "20000000-0000-4000-8000-000000000004",
+      "parent": null,
+      "name": "Northeast Pillar",
+      "transform": {
+        "translation": [
+          4,
+          1.1,
+          -2.4
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          0.55,
+          2.5,
+          0.55
+        ]
+      },
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/gallery-box.mesh.json",
+            "material": "asset://materials/gallery-stone.material.json"
+          }
+        }
+      ]
+    },
+    {
+      "uuid": "20000000-0000-4000-8000-000000000005",
+      "parent": null,
+      "name": "Southwest Pillar",
+      "transform": {
+        "translation": [
+          -4,
+          1.1,
+          2.4
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          0.55,
+          2.5,
+          0.55
+        ]
+      },
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/gallery-box.mesh.json",
+            "material": "asset://materials/gallery-stone.material.json"
+          }
+        }
+      ]
+    },
+    {
+      "uuid": "20000000-0000-4000-8000-000000000006",
+      "parent": null,
+      "name": "Southeast Pillar",
+      "transform": {
+        "translation": [
+          4,
+          1.1,
+          2.4
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          0.55,
+          2.5,
+          0.55
+        ]
+      },
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/gallery-box.mesh.json",
+            "material": "asset://materials/gallery-stone.material.json"
+          }
+        }
+      ]
+    },
+    {
+      "parent": "20000000-0000-4000-8000-000000000040",
+      "name": "Left Lantern",
+      "prefab": {
+        "uri": "asset://prefabs/lantern.prefab.json",
+        "overrides": [
+          {
+            "source_node_uuid": "21000000-0000-4000-8000-000000000002",
+            "type_guid": "69644f20b2d24e488c7491f4f952ec2d",
+            "property_id": 1,
+            "value": {
+              "kind": "vec3",
+              "value": [
+                -5,
+                13.0160303,
+                0
+              ]
+            }
+          }
+        ]
+      },
+      "transform": {
+        "translation": [
+          -3,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scale": [
+          0.08,
+          0.08,
+          0.08
+        ]
+      },
+      "uuid": "20000000-0000-4000-8000-000000000010"
+    },
+    {
+      "parent": "20000000-0000-4000-8000-000000000040",
+      "name": "Center Lantern",
+      "prefab": {
+        "uri": "asset://prefabs/lantern.prefab.json",
+        "overrides": [
+          {
+            "source_node_uuid": "21000000-0000-4000-8000-000000000003",
+            "type_guid": "69644f20b2d24e488c7491f4f952ec2d",
+            "property_id": 3,
+            "value": {
+              "kind": "vec3",
+              "value": [
+                1.15,
+                1.15,
+                1.15
+              ]
+            }
+          }
+        ]
+      },
+      "transform": {
+        "translation": [
+          0,
+          0,
+          -0.8
+        ],
+        "rotation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scale": [
+          0.09,
+          0.09,
+          0.09
+        ]
+      },
+      "uuid": "20000000-0000-4000-8000-000000000020"
+    },
+    {
+      "parent": "20000000-0000-4000-8000-000000000040",
+      "name": "Right Lantern",
+      "prefab": {
+        "uri": "asset://prefabs/lantern.prefab.json",
+        "overrides": [
+          {
+            "source_node_uuid": "21000000-0000-4000-8000-000000000004",
+            "type_guid": "69644f20b2d24e488c7491f4f952ec2d",
+            "property_id": 1,
+            "value": {
+              "kind": "vec3",
+              "value": [
+                -9.58200741,
+                20,
+                0
+              ]
+            }
+          }
+        ]
+      },
+      "transform": {
+        "translation": [
+          3,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scale": [
+          0.08,
+          0.08,
+          0.08
+        ]
+      },
+      "uuid": "20000000-0000-4000-8000-000000000030"
+    }
   ]
 }

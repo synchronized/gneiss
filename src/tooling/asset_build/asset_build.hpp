@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/error.hpp"
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -10,7 +11,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::tooling::asset_build {
+namespace gneiss::tooling {
 
 enum class build_profile : std::uint8_t { development, shipping };
 
@@ -94,4 +95,4 @@ struct build_report final {
 [[nodiscard]] build_report build_assets(const build_request& request,
                                         const processor_registry& registry);
 
-} // namespace gneiss::tooling::asset_build
+} // namespace gneiss::tooling

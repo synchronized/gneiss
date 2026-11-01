@@ -5,15 +5,18 @@
 #define GNEISS_RENDER_RENDER_EXECUTOR_HPP_
 
 #include "engine/core/progress_notification.hpp"
+#include "engine/core/result.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
+#include "engine/function/render/render_statistics.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <utility>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine {
 
 enum class render_frame_policy : std::uint8_t { replaceable, required };
 
@@ -43,7 +46,7 @@ struct render_execution_result final {
 
 struct render_frame_completion final {
   std::uint64_t sequence{};
-  gneiss_result status{GNEISS_ERROR_UNKNOWN};
+  error status{error::unknown};
   render_execution_result execution;
   bool dropped{};
   render_frame_policy policy{render_frame_policy::replaceable};
@@ -60,7 +63,7 @@ struct render_command_progress final {
 
 struct render_command_completion final {
   std::uint64_t sequence{};
-  gneiss_result status{GNEISS_ERROR_UNKNOWN};
+  error status{error::unknown};
   render_command_progress progress;
   double execution_ms{};
 };
@@ -83,52 +86,17 @@ private:
   std::function<void(render_command_stage, std::uint64_t, std::uint64_t)> publish_;
 };
 
-struct render_queue_stats final {
-  std::size_t pending_tasks{};
-  std::size_t pending_frames{};
-  std::size_t pending_commands{};
-  std::size_t pending_high_watermark{};
-  std::uint64_t submitted_frames{};
-  std::uint64_t executed_frames{};
-  std::uint64_t presented_frames{};
-  double latest_frame_interval_ms{};
-  double maximum_frame_interval_ms{};
-  std::uint64_t replaced_frames{};
-  std::uint64_t submitted_required_frames{};
-  std::uint64_t executed_required_frames{};
-  std::uint64_t rejected_required_frames{};
-  std::uint64_t skipped_frame_builds{};
-  std::uint64_t submitted_commands{};
-  std::uint64_t executed_commands{};
-  std::uint64_t rejected_commands{};
-  float latest_frame_queue_wait_ms{};
-  float maximum_frame_queue_wait_ms{};
-  float latest_frame_capture_ms{};
-  std::size_t latest_copied_payload_bytes{};
-  bool gpu_timing_supported{};
-  bool latest_gpu_timing_valid{};
-  std::uint64_t latest_gpu_timing_sample_sequence{};
-  std::uint64_t gpu_timing_sample_count{};
-  std::uint64_t gpu_timing_unavailable_count{};
-  float latest_gpu_frame_ms{};
-  float latest_gpu_shadow_ms{};
-  float latest_gpu_opaque_ms{};
-  float latest_gpu_tone_mapping_ms{};
-  bool environment_asset_requested{};
-  bool environment_fallback{};
-  float environment_intensity{1.0F};
-  float environment_rotation_radians{};
-};
-
 using render_frame_callback =
-    std::function<gneiss_result(render_frame_packet&, render_execution_result&)>;
-using render_command_callback = std::function<gneiss_result(const render_command_reporter&)>;
+    std::function<engine::error(render_frame_packet&, render_execution_result&)>;
+using render_command_callback = std::function<engine::error(const render_command_reporter&)>;
+
+enum class render_command_policy : std::uint8_t { once, resumable };
 
 class inline_render_executor final {
 public:
   explicit inline_render_executor(render_frame_callback callback);
-  [[nodiscard]] gneiss_result submit(render_frame_packet packet, render_execution_result& output);
-  [[nodiscard]] gneiss_result flush() const noexcept { return GNEISS_SUCCESS; }
+  [[nodiscard]] error submit(render_frame_packet packet, render_execution_result& output);
+  [[nodiscard]] error flush() const noexcept { return error::success; }
 
 private:
   render_frame_callback callback_;
@@ -142,21 +110,25 @@ public:
   threaded_render_executor(const threaded_render_executor&) = delete;
   threaded_render_executor& operator=(const threaded_render_executor&) = delete;
 
-  [[nodiscard]] gneiss_result initialize(render_frame_callback callback,
-                                         std::size_t maximum_pending_frames = 3U) noexcept;
-  [[nodiscard]] gneiss_result
-  submit_frame(render_frame_packet packet, std::uint64_t& out_sequence,
+  [[nodiscard]] error initialize(render_frame_callback callback,
+                                 std::size_t maximum_pending_frames = 3U) noexcept;
+  [[nodiscard]] result<std::uint64_t>
+  submit_frame(render_frame_packet packet,
                render_frame_policy policy = render_frame_policy::replaceable) noexcept;
-  [[nodiscard]] gneiss_result submit_command(render_command_callback command,
-                                             std::uint64_t& out_sequence) noexcept;
-  [[nodiscard]] bool try_take_frame_completion(render_frame_completion& output) noexcept;
-  [[nodiscard]] bool try_take_command_completion(render_command_completion& output) noexcept;
-  [[nodiscard]] bool query_command_status(render_command_status& output) const noexcept;
+  /** resumable 命令返回 NOT_READY 时保留同一序号排到队尾，后续帧和命令可先执行。
+   * 回调须自行保存进度并最终返回终态；flush/stop 会等它结束，不强制销毁在途资源。
+   * once 的 NOT_READY 仍是一次完成结果。 */
+  [[nodiscard]] result<std::uint64_t>
+  submit_command(render_command_callback command,
+                 render_command_policy policy = render_command_policy::once) noexcept;
+  /** 线程安全领取；空队列返回空值，执行错误保存在完成记录的 status 中。 */
+  [[nodiscard]] std::optional<render_frame_completion> try_take_frame_completion() noexcept;
+  [[nodiscard]] std::optional<render_command_completion> try_take_command_completion() noexcept;
+  [[nodiscard]] std::optional<render_command_status> query_command_status() const noexcept;
   [[nodiscard]] render_queue_stats query_stats() const noexcept;
   void record_skipped_frame_build() noexcept;
-  void
-  set_completion_notification(std::shared_ptr<core::progress_notification> notification) noexcept;
-  [[nodiscard]] gneiss_result flush() noexcept;
+  void set_completion_notification(std::shared_ptr<progress_notification> notification) noexcept;
+  [[nodiscard]] error flush() noexcept;
   void stop() noexcept;
   [[nodiscard]] bool is_running() const noexcept;
 
@@ -165,6 +137,6 @@ private:
   std::unique_ptr<state> state_;
 };
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine
 
 #endif

@@ -1,0 +1,261 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include "../../support/async_document.hpp"
+#include "../../support/scene_query.hpp"
+#include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
+#include "engine/core/rid.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
+#include "viewport/transform_gizmo_drag.hpp"
+
+#include "engine/core/error.hpp"
+
+#include <cmath>
+#include <cstdio>
+#include <limits>
+
+using namespace gneiss;
+
+namespace {
+
+bool near(const gneiss::engine::math::transform& left,
+          const gneiss::engine::math::transform& right) {
+  for (std::size_t index = 0; index < 3U; ++index) {
+    if (std::abs(left.translation[index] - right.translation[index]) > 1.0e-4F ||
+        std::abs(left.scale[index] - right.scale[index]) > 1.0e-4F) {
+      return false;
+    }
+  }
+  float dot = 0.0F;
+  for (std::size_t index = 0; index < 4U; ++index) {
+    dot += left.rotation[index] * right.rotation[index];
+  }
+  return std::abs(std::abs(dot) - 1.0F) < 1.0e-4F;
+}
+
+} // namespace
+
+int main() try {
+  using gneiss::engine::error;
+  gneiss::runtime::application_configuration desc;
+  const std::string root = GNEISS_EDITOR_TEST_ASSET_ROOT;
+  desc.asset_root = root;
+  std::shared_ptr<gneiss::runtime::application> application;
+  gneiss::engine::world* world = nullptr;
+  gneiss::editor::scene_document session;
+  if (gneiss::engine::error{gneiss::runtime::application::create(desc, application)} !=
+          gneiss::engine::error::success ||
+      (world = application->native_world()) == nullptr ||
+      gneiss::test_support::open_document(session, *application, world,
+                                          "asset://scenes/triangle.scene.json") !=
+          gneiss::engine::error::success) {
+    return 1;
+  }
+  const auto parent = gneiss::test_support::scene_query(session).nodes[0].node;
+  const auto child = gneiss::test_support::scene_query(session).nodes[1].node;
+  auto parent_transform = gneiss::test_support::scene_query(session).nodes[0].local_transform;
+  parent_transform.rotation[2] = 0.70710678F;
+  parent_transform.rotation[3] = 0.70710678F;
+  parent_transform.scale[0] = 2.0F;
+  parent_transform.scale[1] = 3.0F;
+  parent_transform.scale[2] = 4.0F;
+  if (session.set_local_transform(parent, parent_transform) != gneiss::engine::error::success) {
+    return 2;
+  }
+  // 同一生产拖动事务覆盖根节点、父子节点及三种操作；每种操作模拟多帧预览。
+  for (const auto target : {child, parent}) {
+    for (int mode = 0; mode < 3; ++mode) {
+      gneiss::editor::editor_command_history history;
+      gneiss::editor::transform_gizmo_drag drag;
+      if (session.select(target) != gneiss::engine::error::success) {
+        return 3;
+      }
+      const auto before = session.selected_node()->local_transform;
+      if (drag.begin(session) != gneiss::engine::error::success) {
+        return 4;
+      }
+      gneiss::engine::math::transform desired{};
+      if (application->native_world()->node_get_world_transform(
+              gneiss::scene_node_id{target.get()}, desired) != gneiss::engine::error::success) {
+        return 5;
+      }
+      for (int frame = 0; frame < 4; ++frame) {
+        if (mode == 0) {
+          desired.translation[0] += 1.0F;
+        } else if (mode == 1) {
+          const auto angle = 0.15F * static_cast<float>(frame + 1);
+          desired.rotation[0] = 0.0F;
+          desired.rotation[1] = std::sin(angle);
+          desired.rotation[2] = 0.0F;
+          desired.rotation[3] = std::cos(angle);
+        } else {
+          desired.scale[1] += 0.5F;
+        }
+        gneiss::editor::gizmo_matrix matrix{};
+        gneiss::engine::math::transform actual{};
+        if (gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
+                gneiss::engine::error::success ||
+            drag.preview(session, matrix) != gneiss::engine::error::success ||
+            application->native_world()->node_get_world_transform(
+                gneiss::scene_node_id{target.get()}, actual) != gneiss::engine::error::success ||
+            !near(actual, desired) || history.size() != 0U) {
+          return 6;
+        }
+      }
+      const auto after = session.selected_node()->local_transform;
+      // 选择变化后预览必须被拒绝，但收尾仍记录原目标而非新选择。
+      if (session.select(target == child ? parent : child) != gneiss::engine::error::success ||
+          drag.matches_selection(session) ||
+          drag.preview(session, {}) != gneiss::engine::error::invalid_state ||
+          drag.finish(session, history) != gneiss::engine::error::success || history.size() != 1U ||
+          drag.finish(session, history) != gneiss::engine::error::success || history.size() != 1U ||
+          history.undo() != gneiss::engine::error::success ||
+          session.select(target) != gneiss::engine::error::success ||
+          !near(session.selected_node()->local_transform, before) ||
+          history.redo() != gneiss::engine::error::success ||
+          !near(session.selected_node()->local_transform, after)) {
+        return 7;
+      }
+    }
+  }
+  gneiss::editor::transform_gizmo_drag drag;
+  gneiss::editor::editor_command_history unavailable_history(0U);
+  session.clear_dirty();
+  const auto before = session.selected_node()->local_transform;
+  gneiss::engine::math::transform desired = before;
+  desired.translation[2] += 2.0F;
+  gneiss::editor::gizmo_matrix matrix{};
+  if (drag.begin(session) != gneiss::engine::error::success ||
+      gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
+          gneiss::engine::error::success ||
+      drag.preview(session, matrix) != gneiss::engine::error::success ||
+      drag.finish(session, unavailable_history) != gneiss::engine::error::invalid_argument ||
+      !near(session.selected_node()->local_transform, before) || session.is_dirty()) {
+    return 8;
+  }
+  if (drag.begin(session) != gneiss::engine::error::success) {
+    return 9;
+  }
+  matrix[0] = std::numeric_limits<float>::quiet_NaN();
+  gneiss::editor::editor_command_history history;
+  if (drag.preview(session, matrix) != gneiss::engine::error::invalid_argument ||
+      drag.finish(session, history) != gneiss::engine::error::success || history.size() != 0U ||
+      session.is_dirty()) {
+    return 10;
+  }
+  if (drag.begin(session) != gneiss::engine::error::success) {
+    return 11;
+  }
+  session.close();
+  if (drag.finish(session, history) != gneiss::engine::error::not_found || drag.is_active() ||
+      history.size() != 0U) {
+    return 12;
+  }
+  if (gneiss::test_support::open_document(session, *application, world,
+                                          "asset://scenes/prefab.scene.json") !=
+          gneiss::engine::error::success ||
+      session.select(gneiss::test_support::scene_query(session).prefab_nodes[1].node) !=
+          gneiss::engine::error::success) {
+    return 13;
+  }
+  const auto prefab_id = session.selection();
+  const auto prefab_before = session.selected_prefab_node()->local_transform;
+  if (application->native_world()->node_get_world_transform(
+          gneiss::scene_node_id{prefab_id.get()}, desired) != gneiss::engine::error::success) {
+    return 14;
+  }
+  desired.translation[0] += 3.0F;
+  if (drag.begin(session) != gneiss::engine::error::success ||
+      gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
+          gneiss::engine::error::success ||
+      drag.preview(session, matrix) != gneiss::engine::error::success ||
+      session.select({}) != gneiss::engine::error::success || drag.matches_selection(session) ||
+      drag.finish(session, history) != gneiss::engine::error::success || history.size() != 1U ||
+      history.undo() != gneiss::engine::error::success ||
+      session.select(prefab_id) != gneiss::engine::error::success ||
+      !near(session.selected_prefab_node()->local_transform, prefab_before) ||
+      history.redo() != gneiss::engine::error::success ||
+      near(session.selected_prefab_node()->local_transform, prefab_before)) {
+    return 15;
+  }
+  history.clear();
+  if (gneiss::test_support::open_document(session, *application, world,
+                                          "asset://scenes/triangle.scene.json") !=
+          gneiss::engine::error::success ||
+      session.select(gneiss::test_support::scene_query(session).nodes[1].node) !=
+          gneiss::engine::error::success) {
+    return 16;
+  }
+  const auto uuid = session.selected_node()->uuid;
+  const auto deletion_before = session.selected_node()->local_transform;
+  if (application->native_world()->node_get_world_transform(
+          gneiss::scene_node_id{session.selection().get()}, desired) !=
+      gneiss::engine::error::success) {
+    return 17;
+  }
+  desired.translation[0] += 2.0F;
+  if (drag.begin(session) != gneiss::engine::error::success ||
+      gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
+          gneiss::engine::error::success ||
+      drag.preview(session, matrix) != gneiss::engine::error::success ||
+      drag.finish(session, history) != gneiss::engine::error::success) {
+    return 18;
+  }
+  // Delete 在拖动收尾后创建独立命令；恢复节点的新句柄仍可通过 UUID 撤销此前拖动。
+  gneiss::editor::scene_subtree_snapshot snapshot;
+  if (session.destroy_subtree(session.selection(), snapshot) != gneiss::engine::error::success ||
+      history.record({
+          .label = "删除测试节点",
+          .undo =
+              [&session, snapshot] {
+                gneiss::scene_node_id restored;
+                const auto operation = session.restore_subtree(snapshot, restored);
+                if (operation != gneiss::engine::error::success) {
+                  std::printf("restore result=%d snapshot=%s\n", (operation).code(),
+                              snapshot.root_uuid.string().c_str());
+                }
+                return operation;
+              },
+          .redo =
+              [&session, uuid] {
+                const auto current = session.find_node(uuid);
+                if (!current) {
+                  return gneiss::engine::error::not_found;
+                }
+                gneiss::editor::scene_subtree_snapshot discarded;
+                return session.destroy_subtree(current->node, discarded);
+              },
+          .merge_key = {},
+      }) != gneiss::engine::error::success) {
+    return 19;
+  }
+  if (history.size() != 2U) {
+    return 20;
+  }
+  if (history.undo() != gneiss::engine::error::success) {
+    return 21;
+  }
+  if (history.undo() != gneiss::engine::error::success) {
+    return 22;
+  }
+  if (session.find_node(uuid).failed() ||
+      !near(session.find_node(uuid)->local_transform, deletion_before)) {
+    return 23;
+  }
+  if (history.redo() != gneiss::engine::error::success) {
+    return 24;
+  }
+  if (history.redo() != gneiss::engine::error::success) {
+    return 25;
+  }
+  if (session.find_node(uuid).ok()) {
+    return 26;
+  }
+  std::puts(
+      "Gizmo: root/parent TRS, multi-frame, selection, undo/redo and failure recovery passed");
+  return 0;
+} catch (...) {
+  return 99;
+}

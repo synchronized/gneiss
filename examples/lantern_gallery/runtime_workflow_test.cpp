@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/guid.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "runtime_process.hpp"
 
-#include <gneiss/engine/world.h>
+#include "engine/core/rid.hpp"
 
 #include <algorithm>
 #include <array>
@@ -29,7 +31,7 @@ struct temporary_directory final {
   ~temporary_directory() { std::filesystem::remove_all(path); }
 };
 
-std::uint64_t latest_progress(const gneiss::editor::runtime_process& process,
+std::uint64_t latest_progress(const gneiss::host::runtime_process& process,
                               std::uint64_t session_id) {
   // Console 是有界环形历史；满载后条数不再增长，使用记录身份判断是否收到新日志。
   for (auto entry = process.console().entries().rbegin();
@@ -45,7 +47,7 @@ std::uint64_t latest_progress(const gneiss::editor::runtime_process& process,
 }
 
 template <typename Predicate>
-bool pump_until(gneiss::editor::runtime_process& process, std::chrono::milliseconds timeout,
+bool pump_until(gneiss::host::runtime_process& process, std::chrono::milliseconds timeout,
                 Predicate&& predicate,
                 std::source_location location = std::source_location::current()) {
   const auto start = std::chrono::steady_clock::now();
@@ -83,26 +85,25 @@ bool pump_until(gneiss::editor::runtime_process& process, std::chrono::milliseco
   return completed;
 }
 
-bool stop_session(gneiss::editor::runtime_process& process) {
-  if (process.request_stop() != gneiss::result::success) {
+bool stop_session(gneiss::host::runtime_process& process) {
+  if (process.request_stop() != gneiss::engine::error::success) {
     return false;
   }
   return pump_until(process, 5s, [&] { return !process.is_running(); }) &&
          process.exit_code() == 0 && process.received_shutdown_complete();
 }
 
-std::optional<std::array<float, 4>> root_rotation(const gneiss::editor::runtime_process& process) {
+std::optional<std::array<float, 4>> root_rotation(const gneiss::host::runtime_process& process) {
   const auto& nodes = process.scene_mirror().nodes();
   const auto root =
       std::ranges::find_if(nodes, [](const auto& node) { return !node.parent.is_valid(); });
   if (root == nodes.end()) {
     return std::nullopt;
   }
-  return std::to_array(root->local_transform.rotation);
+  return root->local_transform.rotation;
 }
 
-const gneiss::editor::runtime_scene_node*
-root_node(const gneiss::editor::runtime_process& process) {
+const gneiss::editor::runtime_scene_node* root_node(const gneiss::host::runtime_process& process) {
   const auto& nodes = process.scene_mirror().nodes();
   const auto root =
       std::ranges::find_if(nodes, [](const auto& node) { return !node.parent.is_valid(); });
@@ -110,8 +111,8 @@ root_node(const gneiss::editor::runtime_process& process) {
 }
 
 const gneiss::editor::runtime_scene_node*
-prefab_source(const gneiss::editor::runtime_process& process, std::string_view instance_uuid,
-              std::string_view source_uuid) {
+prefab_source(const gneiss::host::runtime_process& process, gneiss::engine::guid instance_uuid,
+              gneiss::engine::guid source_uuid) {
   const auto& nodes = process.scene_mirror().nodes();
   const auto found = std::ranges::find_if(nodes, [&](const auto& node) {
     return node.prefab_instance_uuid == instance_uuid &&
@@ -121,15 +122,15 @@ prefab_source(const gneiss::editor::runtime_process& process, std::string_view i
 }
 
 gneiss::editor::runtime_property_key transform_key(const gneiss::editor::runtime_scene_node& node,
-                                                   gneiss_field_id field_id) {
+                                                   std::uint32_t field_id) {
   gneiss::editor::runtime_property_key key{
       .object = {node.id.value, node.id.generation}, .type_id = {}, .field_id = field_id};
-  const auto type_id = gneiss_transform_type_id();
-  std::ranges::copy(type_id.bytes, key.type_id.begin());
+  const auto type_id = gneiss::engine::transform_component_type;
+  std::ranges::copy(type_id.bytes(), key.type_id.begin());
   return key;
 }
 
-bool wait_for_applied(gneiss::editor::runtime_process& process,
+bool wait_for_applied(gneiss::host::runtime_process& process,
                       const gneiss::editor::runtime_property_key& key) {
   return pump_until(process, 3s, [&] {
     const auto* edit = process.property_edit(key);
@@ -169,12 +170,12 @@ bool rotation_changed(const std::array<float, 4>& left,
   return true;
 }
 
-[[nodiscard]] bool wait_for_asset_state(gneiss::editor::runtime_process& process,
-                                        gneiss::editor::runtime_asset_reload_state expected) {
+[[nodiscard]] bool wait_for_asset_state(gneiss::host::runtime_process& process,
+                                        gneiss::host::runtime_asset_reload_state expected) {
   return pump_until(process, 3s, [&] { return process.asset_reload_status().state == expected; });
 }
 
-int report_failure(const gneiss::editor::runtime_process& process, int code,
+int report_failure(const gneiss::host::runtime_process& process, int code,
                    std::source_location location = std::source_location::current()) {
   std::fprintf(
       stderr,
@@ -204,16 +205,16 @@ int main() try {
   const temporary_directory cleanup{temporary_project};
   std::filesystem::copy(std::filesystem::path{GNEISS_LANTERN_PROJECT}, temporary_project,
                         std::filesystem::copy_options::recursive);
-  gneiss::editor::runtime_process process;
+  gneiss::host::runtime_process process;
   const gneiss::editor::runtime_launch_request request{temporary_project};
   const std::filesystem::path runtime{GNEISS_LANTERN_RUNTIME};
 
   const auto start_result = process.start(runtime, request);
-  if (start_result != gneiss::result::success || !pump_until(process, 5s, [&] {
-        return process.control_state() == gneiss::editor::runtime_control_state::running;
+  if (start_result != gneiss::engine::error::success || !pump_until(process, 5s, [&] {
+        return process.control_state() == gneiss::host::runtime_control_state::running;
       })) {
     std::fprintf(stderr, "Runtime 启动失败：result=%d state=%d running=%d exit_code=%d\n",
-                 static_cast<int>(start_result), static_cast<int>(process.control_state()),
+                 start_result.code(), static_cast<int>(process.control_state()),
                  process.is_running() ? 1 : 0, process.exit_code());
     for (const auto& entry : process.console().entries()) {
       if (entry.kind == gneiss::editor::console_entry_kind::raw) {
@@ -233,29 +234,38 @@ int main() try {
       })) {
     std::fprintf(stderr, "未在时限内收到首个 Runtime 场景与进度快照\n");
     for (const auto& node : process.scene_mirror().nodes()) {
-      std::fprintf(stderr, "node=%s instance=%s source=%s\n", node.uuid.c_str(),
-                   node.prefab_instance_uuid.c_str(), node.prefab_source_node_uuid.c_str());
+      std::fprintf(stderr, "node=%s instance=%s source=%s\n", node.uuid.string().c_str(),
+                   node.prefab_instance_uuid.string().c_str(),
+                   node.prefab_source_node_uuid.string().c_str());
     }
     return report_failure(process, 2);
   }
   const auto initial_rotation = *root_rotation(process);
   if (!pump_until(process, 3s, [&] {
-        return prefab_source(process, "20000000-0000-4000-8000-000000000010",
-                             "21000000-0000-4000-8000-000000000002") != nullptr &&
-               prefab_source(process, "20000000-0000-4000-8000-000000000020",
-                             "21000000-0000-4000-8000-000000000003") != nullptr &&
-               prefab_source(process, "20000000-0000-4000-8000-000000000030",
-                             "21000000-0000-4000-8000-000000000004") != nullptr;
+        return prefab_source(
+                   process, *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000010"),
+                   *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000002")) !=
+                   nullptr &&
+               prefab_source(
+                   process, *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000020"),
+                   *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000003")) !=
+                   nullptr &&
+               prefab_source(
+                   process, *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000030"),
+                   *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000004")) != nullptr;
       })) {
     std::fprintf(stderr, "未在时限内收到三个 Prefab 来源节点\n");
     return report_failure(process, 2);
   }
-  const auto* left_body = prefab_source(process, "20000000-0000-4000-8000-000000000010",
-                                        "21000000-0000-4000-8000-000000000002");
-  const auto* center_frame = prefab_source(process, "20000000-0000-4000-8000-000000000020",
-                                           "21000000-0000-4000-8000-000000000003");
-  const auto* right_glass = prefab_source(process, "20000000-0000-4000-8000-000000000030",
-                                          "21000000-0000-4000-8000-000000000004");
+  const auto* left_body =
+      prefab_source(process, *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000010"),
+                    *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000002"));
+  const auto* center_frame =
+      prefab_source(process, *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000020"),
+                    *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000003"));
+  const auto* right_glass =
+      prefab_source(process, *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000030"),
+                    *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000004"));
   if (left_body == nullptr || center_frame == nullptr || right_glass == nullptr ||
       left_body->local_transform.translation[0] != -5.0F ||
       center_frame->local_transform.scale[0] != 1.15F ||
@@ -275,8 +285,8 @@ int main() try {
     return report_failure(process, 2);
   }
   const std::array<std::string, 1U> scene_revision{"asset://scenes/gallery.scene.json"};
-  if (process.publish_asset_revision(scene_revision) != gneiss::result::success ||
-      !wait_for_asset_state(process, gneiss::editor::runtime_asset_reload_state::applied) ||
+  if (process.publish_asset_revision(scene_revision) != gneiss::engine::error::success ||
+      !wait_for_asset_state(process, gneiss::host::runtime_asset_reload_state::applied) ||
       !pump_until(process, 3s, [&] {
         const auto* root = root_node(process);
         return root != nullptr && root->name == "Lantern Pivot Reloaded" &&
@@ -293,27 +303,29 @@ int main() try {
     return report_failure(process, 2);
   }
   const std::array<std::string, 1U> prefab_revision{"asset://prefabs/lantern.prefab.json"};
-  if (process.publish_asset_revision(prefab_revision) != gneiss::result::success ||
-      !wait_for_asset_state(process, gneiss::editor::runtime_asset_reload_state::applied) ||
+  if (process.publish_asset_revision(prefab_revision) != gneiss::engine::error::success ||
+      !wait_for_asset_state(process, gneiss::host::runtime_asset_reload_state::applied) ||
       !pump_until(process, 3s, [&] {
-        const auto* glass = prefab_source(process, "20000000-0000-4000-8000-000000000030",
-                                          "21000000-0000-4000-8000-000000000004");
+        const auto* glass = prefab_source(
+            process, *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000030"),
+            *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000004"));
         return glass != nullptr && glass->name == "Lantern Glass Reloaded" &&
                glass->id == glass_identity && glass->local_transform.translation[1] == 20.0F;
       })) {
     return report_failure(process, 2);
   }
   if (!write_text(prefab_path, "{invalid") ||
-      process.publish_asset_revision(prefab_revision) != gneiss::result::success ||
-      !wait_for_asset_state(process, gneiss::editor::runtime_asset_reload_state::failed)) {
+      process.publish_asset_revision(prefab_revision) != gneiss::engine::error::success ||
+      !wait_for_asset_state(process, gneiss::host::runtime_asset_reload_state::failed)) {
     return report_failure(process, 2);
   }
-  const auto* preserved_glass = prefab_source(process, "20000000-0000-4000-8000-000000000030",
-                                              "21000000-0000-4000-8000-000000000004");
+  const auto* preserved_glass =
+      prefab_source(process, *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000030"),
+                    *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000004"));
   if (preserved_glass == nullptr || preserved_glass->name != "Lantern Glass Reloaded" ||
       preserved_glass->id != glass_identity || !write_text(prefab_path, valid_prefab) ||
-      process.publish_asset_revision(prefab_revision) != gneiss::result::success ||
-      !wait_for_asset_state(process, gneiss::editor::runtime_asset_reload_state::applied)) {
+      process.publish_asset_revision(prefab_revision) != gneiss::engine::error::success ||
+      !wait_for_asset_state(process, gneiss::host::runtime_asset_reload_state::applied)) {
     return report_failure(process, 2);
   }
   if (!process.supports_property_editing() || !pump_until(process, 3s, [&] {
@@ -326,15 +338,17 @@ int main() try {
   if (running_root == nullptr) {
     return report_failure(process, 2);
   }
-  const auto running_edit_key = transform_key(*running_root, GNEISS_TRANSFORM_FIELD_TRANSLATION);
-  const auto rotation_edit_key = transform_key(*running_root, GNEISS_TRANSFORM_FIELD_ROTATION);
+  const auto running_edit_key =
+      transform_key(*running_root, gneiss::engine::transform_translation_field.get());
+  const auto rotation_edit_key =
+      transform_key(*running_root, gneiss::engine::transform_rotation_field.get());
   if (process.request_property_write(running_edit_key, 1U,
                                      {std::array<float, 3>{0.5F, 0.25F, -0.5F}}) !=
-          gneiss::result::success ||
+          gneiss::engine::error::success ||
       !wait_for_applied(process, running_edit_key) ||
       process.request_property_write(rotation_edit_key, 1U,
                                      {std::array<float, 4>{0.0F, 0.0F, 0.0F, 1.0F}}) !=
-          gneiss::result::success ||
+          gneiss::engine::error::success ||
       !wait_for_applied(process, rotation_edit_key) ||
       !pump_until(process, 3s,
                   [&] {
@@ -342,8 +356,8 @@ int main() try {
                     return current.has_value() &&
                            rotation_changed(std::array<float, 4>{0.0F, 0.0F, 0.0F, 1.0F}, *current);
                   }) ||
-      process.request_pause() != gneiss::result::success || !pump_until(process, 3s, [&] {
-        return process.control_state() == gneiss::editor::runtime_control_state::paused;
+      process.request_pause() != gneiss::engine::error::success || !pump_until(process, 3s, [&] {
+        return process.control_state() == gneiss::host::runtime_control_state::paused;
       })) {
     return report_failure(process, 2);
   }
@@ -360,10 +374,11 @@ int main() try {
   if (paused_root == nullptr) {
     return report_failure(process, 3);
   }
-  const auto paused_edit_key = transform_key(*paused_root, GNEISS_TRANSFORM_FIELD_SCALE);
+  const auto paused_edit_key =
+      transform_key(*paused_root, gneiss::engine::transform_scale_field.get());
   if (process.request_property_write(paused_edit_key, 1U,
                                      {std::array<float, 3>{1.1F, 1.1F, 1.1F}}) !=
-          gneiss::result::success ||
+          gneiss::engine::error::success ||
       !wait_for_applied(process, paused_edit_key) || !pump_until(process, 3s, [&] {
         const auto* root = root_node(process);
         return root != nullptr && root->local_transform.scale[0] == 1.1F;
@@ -392,11 +407,11 @@ int main() try {
     return report_failure(process, 3);
   }
   const auto paused_progress = latest_progress(process, first_session);
-  if (process.request_resume() != gneiss::result::success ||
+  if (process.request_resume() != gneiss::engine::error::success ||
       !pump_until(process, 3s,
                   [&] {
                     return process.control_state() ==
-                               gneiss::editor::runtime_control_state::running &&
+                               gneiss::host::runtime_control_state::running &&
                            latest_progress(process, first_session) > paused_progress &&
                            process.statistics().fixed_update_count > paused_fixed_updates;
                   }) ||
@@ -410,9 +425,10 @@ int main() try {
   }
 
   // running 只代表主循环已启动；场景提交后游戏模块才开始产生进度日志。
-  if (process.start(runtime, request) != gneiss::result::success || !pump_until(process, 5s, [&] {
-        return process.control_state() == gneiss::editor::runtime_control_state::running &&
-               process.scene_load_status().phase == gneiss::ipc_scene_phase::applied;
+  if (process.start(runtime, request) != gneiss::engine::error::success ||
+      !pump_until(process, 5s, [&] {
+        return process.control_state() == gneiss::host::runtime_control_state::running &&
+               process.scene_load_status().phase == gneiss::host::ipc_scene_phase::applied;
       })) {
     return report_failure(process, 4);
   }

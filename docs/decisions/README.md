@@ -70,3 +70,42 @@ Reference 和实现为准。
 - [ADR-060：可选 CPU 性能采集](ADR-060-optional-cpu-profiler.md)
 
 - [ADR-061：资产文件 I/O 优先复用 libuv](ADR-061-libuv-asset-io.md)
+
+- [ADR-070：删除公共 C++ 对象 SDK](ADR-070-remove-public-object-sdk.md)
+- [ADR-071：以 Granit 示例资产管理模型替换 CAORS](ADR-071-example-asset-manager.md)
+- [ADR-072：普通渲染资产默认逐步就绪](ADR-072-progressive-render-assets.md)
+- [ADR-073：场景结构、视觉加载与作者数据的所有权](ADR-073-scene-responsibility-ownership.md)
+- [ADR-074：内部统一使用原生结果对象](ADR-074-native-result.md)
+
+- [ADR-075：普通资源加载不再强制来源复验](ADR-075-remove-source-revalidation.md)
+
+- [ADR-084：统一回调式文件服务](ADR-084-async-file-service.md)
+- [ADR-085：渲染资产分阶段读取与纯内存解码](ADR-085-render-asset-loading.md)
+
+- [ADR-086：场景对象身份与资源 RID 分离](ADR-086-scene-object-identities.md)
+
+- [ADR-087：类型化渲染资源与服务生命周期](ADR-087-render-resource-model.md)
+- [ADR-088：Prefab 直接实例化与非原子替换](ADR-088-prefab-direct-instantiation.md)
+
+- [ADR-089：固定 Granit 后端依赖](ADR-089-required-granit-backend.md)
+
+- [ADR-090：场景对象运行时状态收敛](ADR-090-scene-object-storage.md)
+
+- [ADR-091：Prefab 作为普通对象的来源元数据](ADR-091-prefab-object-metadata.md)
+- [ADR-092：共享默认 Meta 注册表](ADR-092-default-meta-registry.md)
+- [ADR-093：场景与 Prefab 使用类型化组件描述列表](ADR-093-component-descriptions.md)
+- [ADR-094：内存对象身份使用 guid](ADR-094-guid-object-identity.md)
+
+- [ADR-095：场景当前状态以编辑 World 为准](ADR-095-scene-data-authority.md)
+
+- [ADR-096：Function 层注册描述与运行组件的转换](ADR-096-scene-component-adapters.md)
+
+- [ADR-097：Prefab 组件结构覆盖与冲突边界](ADR-097-prefab-component-overrides.md)
+
+- [ADR-098：共享对象引用统一到 Core](ADR-098-object-reference-ownership.md)
+
+- [ADR-099：统一 CPU 加载协议与缓存生命周期](ADR-099-unified-cpu-loading.md)
+
+- [ADR-100：加载保护边界](ADR-100-loading-limits.md)
+
+- [ADR-101：通用组件检查](ADR-101-component-inspection.md)

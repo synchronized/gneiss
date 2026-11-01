@@ -22,6 +22,8 @@
 
 ## 操作指南
 
+- [从 0.50 迁移到 0.51 开发版](guides/migrating-0.50-to-0.51.md)
+
 - [从 0.46 迁移到 0.47](guides/migrating-0.46-to-0.47.md)
 
 - [构建、测试与运行示例](guides/building.md)
@@ -32,14 +34,19 @@
 - [从 0.10.0 迁移到 0.11.0](guides/migrating-0.10-to-0.11.md)
 - [C/C++ 代码风格与语言标准](guides/coding-style.md)
 - [在 Editor 中导入资产](guides/editor-assets.md)
+- [编辑材质参数](guides/material-editor.md)
 - [Editor 选择、变换与窗口交互](guides/editor-interaction.md)
 - [宿主任务调度与异步纹理加载](guides/task-scheduling.md)
 
 ## API 参考
 
+- [异步文件服务](reference/file-service.md)
+
 - [API 稳定级别与兼容策略](reference/compatibility.md)
-- [C++ SDK 的类型与借用边界](reference/cpp-sdk.md)
+- [C++ 调用边界与共享值类型](reference/cpp-sdk.md)
 - [Core 版本与结果接口](reference/core.md)
+- [引擎通用值](reference/value.md)
+- [内部数学类型与边界转换](reference/math.md)
 - [RID 有效性与 Service 生命周期](reference/rid.md)
 - [World、Entity 与内部 ECS 边界](reference/world.md)
 - [Scene Tree、Entity 映射与 Transform](reference/scene-tree.md)
@@ -55,7 +62,7 @@
 - [场景加载、实例与卸载](reference/scene-instance.md)
 - [工程文件格式](reference/project-format.md)
 - [发布包清单格式 v1](reference/package-format.md)
-- [Game Module ABI 与生命周期](reference/game-module.md)
+- [游戏逻辑接入状态](reference/game-module.md)
 - [Mesh Binary、JSON Mesh 与 Material 资产格式](reference/render-asset-formats.md)
 - [Editor 资产索引格式 v1](reference/asset-index-format.md)
 
@@ -78,11 +85,36 @@
 
 ## 路线图与开发计划
 
+- [统一异步文件服务](plans/PLAN-051-async-file-service.md)
+- [网格与纹理异步加载](plans/PLAN-052-async-render-assets.md)
+- [场景对象身份与资源 RID 分离](plans/PLAN-053-scene-object-identities.md)
+- [渲染资源对象模型与生命周期收敛](plans/PLAN-054-render-resource-model.md)
+- [删除 Prefab 发布组与隐藏候选](plans/PLAN-055-prefab-direct-instantiation.md)
+- [场景对象运行时状态收敛](plans/PLAN-057-scene-object-storage.md)
+- [对象与 Prefab 来源关系统一（计划）](plans/PLAN-058-prefab-object-metadata.md)
+- [默认 Meta 注册表与统一启动](plans/PLAN-059-default-meta-registry.md)
+
+- [移除 CAORS、采用 Granit 示例资产管理模型：迁移与八项问题分析](plans/PLAN-051-asset-manager-replacement.md)
+- [统一资源强引用与生命周期规则](plans/PLAN-051-asset-references.md)
+- [统一资产资源索引](plans/PLAN-051-unified-asset-index.md)
+- [收缩公共 SDK，保留游戏模块边界](plans/PLAN-051-minimal-game-module-api.md)
+- [PLAN-051：内部命名空间按层收敛](plans/PLAN-051-flat-namespaces.md)
+- [渲染资产逐步就绪与加载结构简化（计划）](plans/PLAN-051-progressive-render-assets.md)
+- [Application 接入 CAORS 输入资源：边界与实施方案](plans/PLAN-051-caors-application-integration.md)
+- [第三方源码获取与共享缓存实施计划](plans/PLAN-051-dependency-source-cache.md)
+- [CAORS 共享材质接入：边界与实施方案](plans/PLAN-051-caors-shared-material.md)
+
+- [C51-08～10：CAORS VFS 缓存一致性、分块读取与快照成本研究](plans/UPSTREAM-051-caors-vfs-followups.md)
+- [C51-07：CAORS 统一 VFS 与异步读取实施方案](plans/UPSTREAM-051-caors-async-vfs.md)
+- [UPSTREAM-051：CAORS 接入约束与上游改进建议](plans/UPSTREAM-051-caors-integration-contracts.md)
 - [UPSTREAM-050：窗口事件等待与跨线程唤醒](plans/UPSTREAM-050-granit-window-wait.md)
 - [VER-050：0.50.0 后台加载主线程延迟](plans/VER-050-0.50.0-main-loop-latency.md)
 - [DEV-050：后台加载主线程延迟开发计划](plans/DEV-050-main-loop-latency.md)
-- [VER-051：0.51.0 大型场景视口性能](plans/VER-051-0.51.0-editor-render-performance.md)
-- [DEV-051：大型场景视口性能开发计划](plans/DEV-051-editor-render-performance.md)
+- [VER-051：0.51.0 源码架构与模块边界收敛](plans/VER-051-0.51.0-architecture-boundaries.md)
+- [DEV-051：源码架构与模块边界开发计划](plans/DEV-051-architecture-boundaries.md)
+- [共享资产与场景实例实施设计](plans/asset-scene-ownership.md)
+- [大型场景视口性能：未排期事项](plans/editor-render-performance-backlog.md)
+- [大型场景视口性能：候选调查步骤](plans/editor-render-performance-investigation.md)
 - [VER-049：0.49.0 大场景加载响应性与生命周期稳定性](plans/VER-049-0.49.0-loading-stability.md)
 - [DEV-049：大场景加载响应性与生命周期稳定性开发计划](plans/DEV-049-loading-stability.md)
 
@@ -99,6 +131,15 @@
 - [VER-045：0.45.0 内部 C++ 分层与完整 SDK 包装](plans/VER-045-0.45.0-cpp-boundaries.md)
 - [DEV-045：分层重构与包装实施计划](plans/DEV-045-cpp-boundaries.md)
 
+- [场景域所有权收敛验收](records/2026-10-21-scene-domain-ownership.md)
+- [Resource 分类与 Runtime 迁移验收](records/2026-10-21-runtime-resource-layout.md)
+- [resource 目录合并验收](records/2026-10-21-resource-directory.md)
+- [渲染缓存与资产管理器所有权分离](records/2026-10-21-render-cache-ownership.md)
+- [渲染上传通道与资产管理器分离](records/2026-10-21-render-channel-boundary.md)
+- [Scene/Prefab 作者描述与运行时覆盖编辑分离](records/2026-10-21-scene-resource-descriptions.md)
+- [CPU 资源职责盘点与输入资源迁移](records/2026-10-21-cpu-resource-boundaries.md)
+- [资源版本准备与应用修改边界验收](records/2026-10-21-resource-adoption-boundary.md)
+- [0.51：模块职责、文件布局与对象所有权收敛](plans/PLAN-051-module-layout.md)
 - [Gneiss 开发路线图](roadmap.md)
 - [VER-001：0.1.0 最小运行时闭环](plans/VER-001-0.1.0-runtime-slice.md)
 - [VER-002：0.2.0 资源与场景闭环](plans/VER-002-0.2.0-resource-scene-slice.md)
@@ -173,6 +214,17 @@
 
 ## 架构决策
 
+- [ADR-087：类型化渲染资源与服务生命周期](decisions/ADR-087-render-resource-model.md)
+
+- [ADR-084：统一回调式文件服务](decisions/ADR-084-async-file-service.md)
+- [ADR-085：渲染资产分阶段读取与纯内存解码](decisions/ADR-085-render-asset-loading.md)
+
+- [ADR-069：资源模块与运行时组装边界](decisions/ADR-069-resource-runtime-boundaries.md)
+
+- [CAORS 单资源接入验证边界](decisions/ADR-068-caors-resource-probe.md)
+- [以 Granit 示例资产管理模型替换 CAORS](decisions/ADR-071-example-asset-manager.md)
+- [普通渲染资产默认逐步就绪（尚未实施）](decisions/ADR-072-progressive-render-assets.md)
+
 - [ADR-057：资产准备的显式分步执行](decisions/ADR-057-incremental-asset-preparation.md)
 - [ADR-058：场景取消终态与资源清理](decisions/ADR-058-scene-cancellation-cleanup.md)
 
@@ -224,9 +276,31 @@
 - [ADR-053：内部 C++ 实现与 C ABI、C++ SDK 分层](decisions/ADR-053-cpp-core-and-c-abi.md)
 - [ADR-054：精简源码布局与宿主边界](decisions/ADR-054-source-layout-and-host-boundaries.md)
 - [ADR-052：纹理驻留与加载预算](decisions/ADR-052-texture-residency-and-budgets.md)
+- [ADR-062：内部 C++ 与外部 SDK 边界](decisions/ADR-062-internal-cpp-and-sdk-boundaries.md)
+- [ADR-063：场景生命周期协调归属](decisions/ADR-063-scene-lifecycle-coordination.md)
+- [ADR-064：共享资产与场景实例分离](decisions/ADR-064-shared-assets-and-scene-instances.md)
+- [ADR-065：分帧结构事务使用 World 发布组](decisions/ADR-065-world-publication-groups.md)
+- [ADR-066：候选属性写入与发布后通知分离](decisions/ADR-066-candidate-properties-and-notifications.md)
+- [ADR-067：编辑器视口相机与运行时主相机分离](decisions/ADR-067-editor-viewport-camera.md)
+- [ADR-076：删除独立 CPU 文档缓存](decisions/ADR-076-remove-cpu-document-cache.md)
+- [ADR-077：统一资源强引用入口](decisions/ADR-077-asset-references.md)
+- [ADR-078：资源管理器唯一持有资产索引](decisions/ADR-078-unified-asset-index.md)
+- [ADR-079：内部命名空间按架构层组织](decisions/ADR-079-flat-namespaces.md)
+- [ADR-080：撤销完整公共 SDK，保留游戏模块协议](decisions/ADR-080-minimal-game-module-api.md)
 
 ## 实施与验收记录
 
+- [CAORS 输入资源加载到 InputService 生效闭环](records/2026-10-20-caors-input-application.md)
+
+- [CAORS 私有适配模块与强类型输入映射验证](records/2026-10-20-caors-private-adapter.md)
+
+- [CAORS VFS 异步打开接入验证](records/2026-10-20-caors-vfs-open.md)
+
+- [CAORS async_file 与 libuv 范围读取、关闭验证](records/2026-10-20-caors-async-file.md)
+
+- [CAORS 单资源加载接入验证](records/2026-10-20-caors-resource-probe.md)
+
+- [Granit 0.67.0 升级验收](records/2026-10-19-granit-0.67-upgrade.md)
 - [M-306：0.47.0 原生 C++ SDK 验收](records/M-306-native-cpp-sdk-validation.md)
 - [M-305：旧转发头移除](records/M-305-remove-forwarding-headers.md)
 
@@ -456,10 +530,105 @@
 - [M-323：编辑器异步场景加载接入](records/M-323-editor-async-scene-loading.md)
 
 - [M-324：Editor 持续渲染与排队延迟](records/M-324-editor-render-latency.md)
+- [M-329：架构审计记录](records/M-329-architecture-audit.md)
+- [M-329：资产身份、版本与租约审计](records/M-329-asset-identity-audit.md)
+- [M-331：场景生命周期协调首批迁移](records/M-331-scene-session-extraction.md)
+- [M-331：资产运行期来源身份](records/M-331-asset-source-identity.md)
+- [M-331：来源身份与固定版本缓存条目](records/M-331-version-cache.md)
+- [M-331：来源复验身份传递与摘要查询](records/M-331-source-revision-identity.md)
+- [M-331：准备结果携带来源摘要](records/M-331-prepared-source-revisions.md)
+- [M-331：准备产物版本键](records/M-331-prepared-version-keys.md)
+- [M-331：固定版本候选 RID 与原子发布](records/M-331-fixed-version-publication.md)
+- [M-331：异步资产固定版本模式](records/M-331-fixed-version-async.md)
+- [M-331：场景构建消费选定租约](records/M-331-scene-lease-bindings.md)
+- [M-331：场景资源引用批量切换](records/M-331-scene-version-switch.md)
+- [M-331：宿主异步重载切换场景版本](records/M-331-host-version-reload.md)
+- [M-331：异步新场景启用固定版本](records/M-331-scene-fixed-loading.md)
+- [M-331：节点编辑保留未改变的资产版本](records/M-331-scene-edit-version.md)
+- [M-331：已采用版本选择索引](records/M-331-adopted-version-index.md)
+- [M-331：同步入口审计与 Runtime 回退移除](records/M-331-sync-entry-audit.md)
+- [M-331：版本采用的使用者提交边界](records/M-331-adoption-transaction.md)
+- [M-331：宿主重载采用与就绪查询](records/M-331-host-adoption.md)
+- [M-331：新场景初始版本采用](records/M-331-scene-initial-adoption.md)
+- [M-331：Editor 模态资产替换](records/M-331-editor-modal-asset-edit.md)
+- [M-331：Editor 模态网格节点创建](records/M-331-editor-modal-mesh-create.md)
+- [M-331：Prefab 候选分步清理](records/M-331-prefab-staged-cancel.md)
+- [M-331：分帧历史操作基础](records/M-331-history-operation.md)
+- [M-331：World 候选实体可见性](records/M-331-world-publication.md)
+- [M-331：Scene Tree 与 ECS 共用发布门](records/M-331-scene-publication.md)
+- [M-331：World 候选对象服务入口](records/M-331-world-staged-service.md)
+- [M-331：候选属性写入边界](records/M-331-candidate-properties.md)
+- [M-331：内置组件与 Prefab 候选属性覆盖](records/M-331-prefab-candidate-overrides.md)
+- [M-331：编辑器视口相机分离](records/M-331-editor-viewport-camera.md)
+- [M-331：Prefab 异步放置与历史恢复](records/M-331-prefab-async-placement.md)
+- [M-331：独立 Prefab 删除与历史快照](records/M-331-prefab-async-removal.md)
+- [M-331：同源 Prefab 异步刷新与历史恢复](records/M-331-prefab-async-refresh.md)
+- [M-331：场景激活时提交版本选择](records/M-331-deferred-version-adoption.md)
+- [M-331：准备好的 Prefab 描述使用不可变版本](records/M-331-prefab-description-versions.md)
+
+- [M-332：属性与头文件边界收尾](records/M-332-property-header-boundaries.md)
+- [M-332：Scene / World 契约收敛](records/M-332-scene-world-contracts.md)
+
+- [CAORS 替换与 Granit 示例资产管理器接入验收](records/2026-10-22-asset-manager-replacement.md)
+- [渲染资产渐进加载首批审计与契约验证](records/2026-10-22-progressive-assets-audit.md)
+- [候选纹理异步上传接入](records/2026-10-22-async-texture-upload.md)
 
 ## 文档维护
+
 
 
 - [项目文档规范](../DOCUMENTATION_GUIDE.md)
 
 其他教程、API 参考、ADR 和实施记录将在出现真实内容后加入本页。尚未实现的设计不是当前公共能力。
+
+- [公共 C++ 对象 SDK 删除验收](records/M-332-public-object-sdk-removal.md)
+
+- [撤销动态 Game Module 计划](plans/PLAN-051-remove-game-module.md)
+- [ADR-082：撤销动态游戏模块](decisions/ADR-082-remove-dynamic-game-module.md)
+
+- [C++ 类型注册简化计划](plans/PLAN-051-reflection-builder.md)
+
+- [资源类型与反射序列化计划](plans/PLAN-051-resource-serialization.md)
+
+- [后端材质状态收敛](plans/PLAN-051-backend-material.md)
+
+
+- [场景对象身份迁移实施记录](records/scene-object-identities-2026-10-26.md)
+- [类型化组件描述列表](plans/PLAN-060-component-descriptions.md)
+- [对象身份统一为 guid](plans/PLAN-061-guid-object-identity.md)
+- [Prefab 显式根对象](plans/PLAN-062-prefab-explicit-root.md)
+- [Scene / Prefab 对象树校验与编解码收敛](plans/PLAN-063-scene-prefab-codec.md)
+- [描述类型的反射 JSON 序列化](plans/PLAN-064-reflected-json.md)
+- [嵌套值对象反射](plans/PLAN-065-nested-reflection.md)
+- [统一 Meta 实例视图](plans/PLAN-066-meta-instance.md)
+- [PLAN-067：反射容器视图与 JSON](plans/PLAN-067-meta-containers.md)
+- [反射容器视图](reference/reflection-containers.md)
+- [资源描述复用反射 JSON](plans/PLAN-068-resource-reflected-json.md)
+- [PLAN-069：业务反射入口统一默认注册表](plans/PLAN-069-default-meta-entrypoints.md)
+- [PLAN-070：ActionMap 反射编解码与新建描述保存](plans/PLAN-070-action-map-and-new-description-save.md)
+- [PLAN-071：材质反射编辑闭环](plans/PLAN-071-material-editor.md)
+- [PLAN-072：共用属性面板与对象替换](plans/PLAN-072-reflected-property-editor.md)
+
+- [PLAN-073：C++ 枚举类型注册](plans/PLAN-073-cpp-enum-registration.md)
+
+- [编辑 Camera 组件描述](guides/component-editor.md)
+- [PLAN-074：Camera 描述编辑闭环](plans/PLAN-074-camera-description-editor.md)
+
+- [PLAN-075：统一 Transform 属性编辑](plans/PLAN-075-transform-description-editor.md)
+
+- [Prefab 组件结构覆盖计划](plans/PLAN-086-prefab-component-overrides.md)
+- [统一 Prefab Apply 与 Unpack](plans/PLAN-087-prefab-apply-unpack.md)
+- [Prefab 覆盖查看与恢复](plans/PLAN-088-prefab-override-inspector.md)
+- [异步恢复操作与入口收敛](plans/PLAN-089-prefab-restore-operation.md)
+- [组件身份与编辑策略收敛](plans/PLAN-090-component-editor-policy.md)
+- [Prefab 组件结构覆盖决策](decisions/ADR-097-prefab-component-overrides.md)
+
+- [PLAN-091：对象强引用入口统一](plans/PLAN-091-object-reference-ownership.md)
+
+- [反射引用属性访问](plans/PLAN-092-reflection-reference-properties.md)
+
+- [引用持久化与编辑器共享操作](plans/PLAN-093-reference-persistence.md)
+
+- [统一 CPU 资源加载](plans/PLAN-094-unified-asset-loading.md)
+
+- [简化资源加载额度](plans/PLAN-095-loading-limits.md)

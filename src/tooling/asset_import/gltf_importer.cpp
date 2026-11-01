@@ -3,7 +3,7 @@
 
 #include "tooling/asset_import/gltf_importer.hpp"
 
-#include "engine/asset/mesh_tangent.hpp"
+#include "engine/resource/mesh/mesh_data.hpp"
 #include "tooling/asset_import/tangent_generation.hpp"
 
 #include <fastgltf/core.hpp>
@@ -20,7 +20,7 @@
 #include <string>
 #include <string_view>
 
-namespace gneiss::tooling::asset_import {
+namespace gneiss::tooling {
 namespace {
 
 [[nodiscard]] inspect_report failure(inspect_result result, std::string diagnostic) {
@@ -252,39 +252,40 @@ void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image
   return std::nullopt;
 }
 
-void populate_sampler(const fastgltf::Sampler& sampler, gneiss_texture_sampling& sampling) {
+void populate_sampler(const fastgltf::Sampler& sampler,
+                      gneiss::engine::texture_sampling& sampling) {
   const auto address = [](fastgltf::Wrap wrap) {
     switch (wrap) {
     case fastgltf::Wrap::ClampToEdge:
-      return GNEISS_TEXTURE_ADDRESS_CLAMP;
+      return gneiss::engine::texture_address::clamp;
     case fastgltf::Wrap::MirroredRepeat:
-      return GNEISS_TEXTURE_ADDRESS_MIRROR;
+      return gneiss::engine::texture_address::mirror;
     default:
-      return GNEISS_TEXTURE_ADDRESS_REPEAT;
+      return gneiss::engine::texture_address::repeat;
     }
   };
   sampling.address_u = address(sampler.wrapS);
   sampling.address_v = address(sampler.wrapT);
   sampling.mag_filter = sampler.magFilter == fastgltf::Filter::Nearest
-                            ? GNEISS_TEXTURE_FILTER_NEAREST
-                            : GNEISS_TEXTURE_FILTER_LINEAR;
+                            ? gneiss::engine::texture_filter::nearest
+                            : gneiss::engine::texture_filter::linear;
   const auto filter = sampler.minFilter.value_or(fastgltf::Filter::LinearMipMapLinear);
   sampling.min_filter =
       (filter == fastgltf::Filter::Nearest || filter == fastgltf::Filter::NearestMipMapNearest ||
        filter == fastgltf::Filter::NearestMipMapLinear)
-          ? GNEISS_TEXTURE_FILTER_NEAREST
-          : GNEISS_TEXTURE_FILTER_LINEAR;
+          ? gneiss::engine::texture_filter::nearest
+          : gneiss::engine::texture_filter::linear;
   switch (filter) {
   case fastgltf::Filter::Nearest:
   case fastgltf::Filter::Linear:
-    sampling.mip_filter = GNEISS_TEXTURE_MIP_NONE;
+    sampling.mip_filter = gneiss::engine::texture_mip_filter::none;
     break;
   case fastgltf::Filter::NearestMipMapNearest:
   case fastgltf::Filter::LinearMipMapNearest:
-    sampling.mip_filter = GNEISS_TEXTURE_MIP_NEAREST;
+    sampling.mip_filter = gneiss::engine::texture_mip_filter::nearest;
     break;
   default:
-    sampling.mip_filter = GNEISS_TEXTURE_MIP_LINEAR;
+    sampling.mip_filter = gneiss::engine::texture_mip_filter::linear;
     break;
   }
 }
@@ -293,13 +294,13 @@ void populate_material_state(const fastgltf::Asset& asset, const fastgltf::Mater
                              import_ir_material& target) {
   switch (source.alphaMode) {
   case fastgltf::AlphaMode::Blend:
-    target.alpha_mode = GNEISS_MATERIAL_ALPHA_BLEND;
+    target.alpha_mode = gneiss::engine::material_alpha_mode::blend;
     break;
   case fastgltf::AlphaMode::Mask:
-    target.alpha_mode = GNEISS_MATERIAL_ALPHA_MASK;
+    target.alpha_mode = gneiss::engine::material_alpha_mode::mask;
     break;
   default:
-    target.alpha_mode = GNEISS_MATERIAL_ALPHA_OPAQUE;
+    target.alpha_mode = gneiss::engine::material_alpha_mode::opaque;
     break;
   }
   target.double_sided = source.doubleSided ? 1U : 0U;
@@ -555,7 +556,8 @@ populate_optional_attributes(const fastgltf::Asset& asset, const fastgltf::Primi
     for (std::size_t axis = 0; axis < 3U; ++axis) {
       tangent[axis] = static_cast<float>(t[axis] / length);
     }
-    if (!asset_internal::valid_mesh_tangent(tangent, {normal[0], normal[1], normal[2]})) {
+    if (!gneiss::engine::valid_mesh_tangent({tangent[0], tangent[1], tangent[2], tangent[3]},
+                                            {normal[0], normal[1], normal[2]})) {
       return "TANGENT 必须是正交单位切线且手性为正负一";
     }
   }
@@ -739,4 +741,4 @@ inspect_report inspect_gltf(const std::filesystem::path& source_path) {
   }
 }
 
-} // namespace gneiss::tooling::asset_import
+} // namespace gneiss::tooling

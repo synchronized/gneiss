@@ -1,28 +1,21 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-
 #include "scene_update.hpp"
-
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
 namespace example {
-
-gneiss::result update(gneiss::application_ref app, const gneiss::frame_time& /*time*/,
-                      void* user_data) noexcept {
-  auto& state = *static_cast<scene_state*>(user_data);
-  gneiss::world_ref world;
-  if (const auto status = app.get_world(world); status.failed()) {
+gneiss::engine::error update(gneiss::runtime::application& app, scene_state& state) noexcept {
+  auto* world = app.native_world();
+  gneiss::engine::math::transform transform;
+  auto status = world->entity_get_local_transform(state.entity, transform);
+  if (status.failed())
     return status;
-  }
-  gneiss::transform transform;
-  if (const auto status = world.get_local_transform(state.entity, transform); status.failed()) {
-    return status;
-  }
-  // 固定步长便于观察示例结果；真实动画通常应使用 frame_time 的 delta_ns。
   transform.translation[0] += 1.0F;
-  if (const auto status = world.set_local_transform(state.entity, transform); status.failed()) {
+  status = world->entity_set_local_transform(state.entity, transform);
+  if (status.failed())
     return status;
-  }
-  ++state.updates;
-  return state.updates == 3 ? app.request_exit() : gneiss::result::success;
+  if (++state.updates == 3)
+    app.request_exit();
+  return gneiss::engine::error::success;
 }
-
-} // namespace example
+}

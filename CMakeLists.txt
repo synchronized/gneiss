@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.23)
 
 project(
   gneiss
-  VERSION 0.50.0
+  VERSION 0.51.0
   DESCRIPTION "基于 Granit 构建的现代 C++20 游戏引擎"
   LANGUAGES C CXX
 )
@@ -17,24 +17,12 @@ option(GNEISS_BUILD_EXAMPLES "构建 Gneiss 示例" ${PROJECT_IS_TOP_LEVEL})
 option(GNEISS_BUILD_TOOLS "构建 Gneiss 离线工具" ${PROJECT_IS_TOP_LEVEL})
 option(GNEISS_BUILD_EDITOR "构建 Gneiss Editor" OFF)
 option(GNEISS_BUILD_RUNTIME "构建 Gneiss Runtime 宿主" OFF)
-option(GNEISS_ENABLE_GRANIT_PLATFORM "启用 Granit Window 平台适配" OFF)
-
-if(GNEISS_BUILD_EDITOR AND NOT GNEISS_ENABLE_GRANIT_PLATFORM)
-  message(FATAL_ERROR "GNEISS_BUILD_EDITOR=ON 需要 GNEISS_ENABLE_GRANIT_PLATFORM=ON")
-endif()
-if(GNEISS_BUILD_RUNTIME AND NOT GNEISS_ENABLE_GRANIT_PLATFORM)
-  message(FATAL_ERROR "GNEISS_BUILD_RUNTIME=ON 需要 GNEISS_ENABLE_GRANIT_PLATFORM=ON")
-endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(gneiss_utility)
 include(profiling)
-if(GNEISS_ENABLE_GRANIT_PLATFORM OR GNEISS_BUILD_TOOLS OR GNEISS_BUILD_TESTING)
-  include(granit)
-endif()
-if(GNEISS_ENABLE_GRANIT_PLATFORM)
-  gneiss_resolve_granit_runtime()
-endif()
+include(granit)
+gneiss_resolve_granit_runtime()
 if(GNEISS_BUILD_TOOLS OR GNEISS_BUILD_TESTING)
   gneiss_resolve_granit_tools()
 endif()
@@ -45,7 +33,17 @@ if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME OR (GNEISS_TASK_THREADS AND NOT E
   include(libuv)
   gneiss_resolve_libuv()
 endif()
+include(glm)
+include(internal_interfaces)
 add_subdirectory(src)
+target_sources(gneiss_engine PRIVATE
+  src/runtime/loading/action_map_application.cpp)
+if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
+  add_subdirectory(tests/integration/assets)
+endif()
+install(FILES "${PROJECT_SOURCE_DIR}/3rd/granit-example-assets-LICENSE"
+              "${PROJECT_SOURCE_DIR}/3rd/caors-core-values-LICENSE"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses")
 if(GNEISS_BUILD_TOOLS)
   include(bc7enc)
   gneiss_resolve_bc7enc()
@@ -60,10 +58,10 @@ if(GNEISS_BUILD_TOOLS)
   endif()
 endif()
 if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME)
-  add_subdirectory(apps/common)
+  add_subdirectory(src/host/common)
 endif()
 if(GNEISS_BUILD_RUNTIME)
-  add_subdirectory(apps/runtime)
+  add_subdirectory(src/host/runtime)
 endif()
 if(GNEISS_BUILD_EDITOR)
   include(editor_fonts)
@@ -73,11 +71,18 @@ if(GNEISS_BUILD_EDITOR)
   include(imguizmo)
   gneiss_resolve_imguizmo()
   add_subdirectory(src/editor)
-  add_subdirectory(apps/editor)
+  add_subdirectory(src/host/editor)
 endif()
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
+if(EMSCRIPTEN)
+  install(FILES "${PROJECT_SOURCE_DIR}/src/engine/platform/files/browser/fetch_stream.js"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/js")
+  target_link_options(gneiss_engine INTERFACE
+    "$<INSTALL_INTERFACE:SHELL:--js-library \"$<INSTALL_PREFIX>/${CMAKE_INSTALL_DATADIR}/gneiss/js/fetch_stream.js\">")
+endif()
+
 
 if(DEFINED GNEISS_LIBUV_SOURCE_DIR)
   install(
@@ -102,23 +107,19 @@ write_basic_package_version_file(
 install(
   TARGETS gneiss_engine
   EXPORT gneissTargets
-  FILE_SET HEADERS DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-  INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
-if(GNEISS_ENABLE_GRANIT_PLATFORM)
-  install(
-    FILES
-      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries/pbr_standard.grshlib"
-    DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/libraries"
-  )
-  install(
-    FILES "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/materials/pbr_standard.grmat"
-    DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/materials"
-  )
-endif()
+install(
+  FILES
+    "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries/pbr_standard.grshlib"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/libraries"
+)
+install(
+  FILES "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/materials/pbr_standard.grmat"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/materials"
+)
 if(TARGET gneiss_runtime)
   install(
     TARGETS gneiss_runtime
@@ -180,3 +181,5 @@ endif()
 if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   add_subdirectory(tests)
 endif()
+
+install(FILES "${GNEISS_GLM_SOURCE_DIR}/copying.txt" DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses" RENAME GLM-LICENSE)

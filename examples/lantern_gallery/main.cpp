@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/application.hpp>
-#include <gneiss/engine/input.hpp>
-#include <gneiss/engine/scene.h>
+#include "../support/scope_exit.hpp"
+#include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -19,35 +23,35 @@
 namespace {
 
 struct example_state {
-  gneiss_world world = GNEISS_NULL_WORLD;
-  gneiss_scene_node_id camera_node = GNEISS_NULL_SCENE_NODE_ID;
-  gneiss::action_id orbit{};
-  gneiss::action_id quit{};
+  gneiss::scene_node_id camera_node{};
+  gneiss::engine::action_id orbit{};
+  gneiss::engine::action_id quit{};
   double angle = 0.0;
 };
 
-gneiss_result update_gallery(gneiss_application application, const gneiss_frame_time* time,
-                             void* user_data) {
-  if (time == nullptr || user_data == nullptr) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+gneiss::engine::error update_gallery(gneiss::runtime::application& application,
+                                     const gneiss::engine::frame_time& time, void* user_data) {
+  if (user_data == nullptr) {
+    return gneiss::engine::error::invalid_argument;
   }
   auto* state = static_cast<example_state*>(user_data);
-  gneiss::action_state orbit{};
-  gneiss::action_state quit{};
-  if (gneiss::get_action_state(application, state->orbit, orbit).failed() ||
-      gneiss::get_action_state(application, state->quit, quit).failed()) {
-    return GNEISS_ERROR_INVALID_STATE;
+  gneiss::engine::action_state orbit{};
+  gneiss::engine::action_state quit{};
+  if (application.get_action_state(state->orbit, orbit).failed() ||
+      application.get_action_state(state->quit, quit).failed()) {
+    return gneiss::engine::error::invalid_state;
   }
   if (quit.pressed) {
-    return gneiss_application_request_exit(application);
+    application.request_exit();
+    return gneiss::engine::error::success;
   }
   constexpr double nanoseconds_per_second = 1'000'000'000.0;
-  state->angle += static_cast<double>(time->delta_ns) / nanoseconds_per_second * orbit.value;
+  state->angle += static_cast<double>(time.delta_ns) / nanoseconds_per_second * orbit.value;
   constexpr double radius = 8.0;
   constexpr double height = 3.2;
   const auto yaw_half = state->angle * 0.5;
   const auto pitch_half = std::atan2(-height, radius) * 0.5;
-  gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::math::transform transform{};
   transform.translation[0] = static_cast<float>(std::sin(state->angle) * radius);
   transform.translation[1] = static_cast<float>(height);
   transform.translation[2] = static_cast<float>(std::cos(state->angle) * radius);
@@ -55,7 +59,7 @@ gneiss_result update_gallery(gneiss_application application, const gneiss_frame_
   transform.rotation[1] = static_cast<float>(std::sin(yaw_half) * std::cos(pitch_half));
   transform.rotation[2] = static_cast<float>(-std::sin(yaw_half) * std::sin(pitch_half));
   transform.rotation[3] = static_cast<float>(std::cos(yaw_half) * std::cos(pitch_half));
-  return gneiss_scene_node_set_local_transform(state->world, state->camera_node, &transform);
+  return application.native_world()->node_set_local_transform(state->camera_node, transform);
 }
 
 } // namespace
@@ -74,7 +78,7 @@ int run_example(int argc, char** argv) {
   constexpr std::string_view title = "Gneiss Lantern Gallery";
   constexpr std::string_view scene_uri = "asset://scenes/gallery.scene.json";
   constexpr std::string_view input_map_uri = "asset://input/default.input-map.json";
-  constexpr std::string_view camera_uuid = "20000000-0000-4000-8000-000000000001";
+  const auto camera_uuid = *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000001");
   std::error_code path_error;
   const auto executable = std::filesystem::absolute(argv[0], path_error);
   const auto installed_asset_root =
@@ -84,36 +88,73 @@ int run_example(int argc, char** argv) {
   const auto asset_root = has_installed_assets && !path_error
                               ? installed_asset_root.string()
                               : std::string{GNEISS_LANTERN_GALLERY_ASSET_ROOT};
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.user_data = &state;
-  desc.update = update_gallery;
-  desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
-  desc.window_title = title.data();
-  desc.window_title_length = static_cast<std::uint32_t>(title.size());
-  desc.asset_root = asset_root.c_str();
-  desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
-
-  gneiss::application application;
-  if (gneiss::application::create_native(desc, application) != gneiss::result::success ||
-      application.get_world(state.world) != gneiss::result::success) {
+  gneiss::engine::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});
+  bool can_update = false;
+  std::shared_ptr<gneiss::runtime::application> native_application;
+  gneiss::runtime::application_configuration config;
+  config.enable_window = true;
+  config.window.title = title;
+  config.asset_root = asset_root;
+  config.callbacks.update = [&](const auto& time) {
+    (void)scheduler.run_ready();
+    if (!can_update)
+      return gneiss::engine::error::success;
+    return update_gallery(*native_application, time, &state);
+  };
+  example::scope_exit close{[&] {
+    if (native_application && native_application->accepts_requests())
+      (void)native_application->shutdown();
+  }};
+  auto create_result = gneiss::runtime::application::create(config, native_application);
+  if (create_result.failed()) {
     return 1;
   }
   const auto application_ready = clock::now();
-  gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
-  if (gneiss_scene_instance_load(application.get(), scene_uri.data(), scene_uri.size(), &scene) !=
-      GNEISS_SUCCESS) {
+  if (native_application->attach_task_executor(scheduler).failed() ||
+      native_application->begin_action_map(input_map_uri).failed())
     return 2;
+  std::uint64_t scene_request{};
+  if (native_application->request_scene(scene_uri, 1, 1, scene_request).failed())
+    return 2;
+  gneiss::scene_instance_id scene{};
+  gneiss::runtime::scene_load_completion completion;
+  // 启动阶段继续处理窗口事件和文件完成；不调用同步场景加载。
+  while (!scene || native_application->action_map_status() == gneiss::engine::error::not_ready) {
+    (void)scheduler.run_ready();
+    if (native_application->run(1).failed())
+      return 2;
+    if (!scene) {
+      bool finished = false;
+      if (native_application->poll_scene(completion, finished).failed() ||
+          (finished && completion.result.failed()))
+        return 2;
+      gneiss::runtime::scene_load_progress progress;
+      if (native_application->scene_progress(progress) &&
+          progress.phase == gneiss::runtime::scene_load_phase::ready &&
+          native_application->can_activate_scene()) {
+        if (native_application->activate_scene(scene_request, completion).failed())
+          return 2;
+        scene = completion.scene;
+      }
+    }
   }
+  if (native_application->action_map_status().failed())
+    return 2;
   const auto scene_ready = clock::now();
-  if (gneiss::load_action_map(application.get(), input_map_uri) != gneiss::result::success ||
-      application.find_action("move_horizontal", state.orbit) != gneiss::result::success ||
-      application.find_action("quit", state.quit) != gneiss::result::success ||
-      gneiss_scene_instance_find_node(application.get(), scene, camera_uuid.data(),
-                                      camera_uuid.size(), &state.camera_node) != GNEISS_SUCCESS) {
+  if (native_application->action_map_status() != gneiss::engine::error::success ||
+      native_application->find_action("move_horizontal", state.orbit) !=
+          gneiss::engine::error::success ||
+      native_application->find_action("quit", state.quit) != gneiss::engine::error::success) {
     return 2;
   }
   const auto input_ready = clock::now();
-  if (application.run(smoke ? 3U : 0U) != gneiss::result::success) {
+  auto camera = native_application->scenes()->find_node(scene, camera_uuid);
+  if (!camera)
+    return 2;
+  state.camera_node = *camera;
+  can_update = true;
+  if (native_application->run(smoke ? 3U : 0U) != gneiss::engine::error::success) {
     return 3;
   }
   const auto run_finished = clock::now();
@@ -126,7 +167,7 @@ int run_example(int argc, char** argv) {
               << "输入初始化：" << milliseconds(scene_ready, input_ready) << " ms\n"
               << "运行阶段：" << milliseconds(input_ready, run_finished) << " ms\n";
   }
-  return gneiss_scene_instance_unload(application.get(), scene) == GNEISS_SUCCESS ? 0 : 4;
+  return native_application->scenes()->unload(scene) == gneiss::engine::error::success ? 0 : 4;
 }
 
 int main(int argc, char** argv) {

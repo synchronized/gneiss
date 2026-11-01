@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_panels.hpp"
+#include "engine/core/guid.hpp"
+#include "panels/runtime_panels.hpp"
 
 #include <imgui.h>
 
@@ -21,7 +22,7 @@ int main() try {
   runtime_scene_change change;
   change.id = {.value = 7U, .generation = 2U};
   change.node.id = change.id;
-  change.node.uuid = "root";
+  change.node.uuid = *gneiss::engine::guid::parse("21470280-22a3-5087-9443-62d27dfc4bbf");
   const runtime_scene_batch batch{
       .stamp = {.session_id = 3U, .sequence = 1U}, .is_full = true, .changes = {change}};
   if (mirror.apply(batch).failed()) {
@@ -57,14 +58,16 @@ int main() try {
           [](void* context, const runtime_property_key&, std::uint64_t,
              [[maybe_unused]] runtime_property_value value) {
             ++static_cast<observations*>(context)->mutations;
-            return gneiss::result::success;
+            return gneiss::engine::error::success;
           },
       .apply_to_author =
           [](void* context, const runtime_scene_node&) {
             ++static_cast<observations*>(context)->mutations;
           },
-      .report_result = [](void* context,
-                          gneiss::result) { ++static_cast<observations*>(context)->mutations; }};
+      .report_result =
+          [](void* context, gneiss::engine::error) {
+            ++static_cast<observations*>(context)->mutations;
+          }};
   ImGui::CreateContext();
   auto& io = ImGui::GetIO();
   io.IniFilename = nullptr;

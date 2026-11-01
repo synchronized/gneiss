@@ -2,13 +2,13 @@
 # Copyright (c) 2026 Gneiss contributors
 
 add_executable(gneiss_version_example version.cpp)
-target_link_libraries(gneiss_version_example PRIVATE gneiss::engine)
+target_link_libraries(gneiss_version_example PRIVATE gneiss::engine gneiss_value_interface)
 gneiss_target_compile_warnings(gneiss_version_example)
 gneiss_target_output_directories(gneiss_version_example)
 
 add_executable(gneiss_application_world_example
   application_world/main.cpp application_world/scene_update.cpp)
-target_link_libraries(gneiss_application_world_example PRIVATE gneiss::engine)
+target_link_libraries(gneiss_application_world_example PRIVATE gneiss::engine gneiss_native_interface)
 gneiss_target_compile_warnings(gneiss_application_world_example)
 gneiss_target_output_directories(gneiss_application_world_example)
 if(BUILD_TESTING)
@@ -21,7 +21,7 @@ install(
 )
 
 add_executable(gneiss_property_inspector_example property_inspector/main.cpp)
-target_link_libraries(gneiss_property_inspector_example PRIVATE gneiss::engine)
+target_link_libraries(gneiss_property_inspector_example PRIVATE gneiss::engine gneiss_native_interface gneiss_tasks)
 target_compile_definitions(
   gneiss_property_inspector_example
   PRIVATE
@@ -38,43 +38,40 @@ if(BUILD_TESTING)
   add_test(NAME gneiss.property_inspector_example COMMAND gneiss_property_inspector_example)
 endif()
 
-if(GNEISS_ENABLE_GRANIT_PLATFORM)
-  add_executable(gneiss_stable_runtime_example stable_runtime/main.cpp)
-  target_link_libraries(gneiss_stable_runtime_example PRIVATE gneiss::engine)
-  target_compile_definitions(
-    gneiss_stable_runtime_example
-    PRIVATE GNEISS_STABLE_RUNTIME_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/temple/assets"
-  )
-  gneiss_target_compile_warnings(gneiss_stable_runtime_example)
-  gneiss_target_output_directories(gneiss_stable_runtime_example)
-  install(TARGETS gneiss_stable_runtime_example RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
-  install(
-    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/temple/assets/"
-    DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/examples/stable-runtime/assets"
-  )
-  if(BUILD_TESTING)
-    add_test(NAME gneiss.stable_runtime_example COMMAND gneiss_stable_runtime_example --smoke)
-  endif()
-
-  add_executable(gneiss_temple_example temple/main.cpp)
-  target_link_libraries(gneiss_temple_example PRIVATE gneiss::engine)
-  target_compile_definitions(
-    gneiss_temple_example
-    PRIVATE GNEISS_TEMPLE_SOURCE_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/temple/assets"
-  )
-  gneiss_target_compile_warnings(gneiss_temple_example)
-  gneiss_target_output_directories(gneiss_temple_example)
-  install(TARGETS gneiss_temple_example RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
-  install(
-    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/temple/assets/"
-    DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/examples/temple/assets"
-  )
-  if(BUILD_TESTING)
-    add_test(NAME gneiss.temple_example COMMAND gneiss_temple_example --smoke)
-  endif()
+add_executable(gneiss_stable_runtime_example stable_runtime/main.cpp)
+target_link_libraries(gneiss_stable_runtime_example PRIVATE gneiss::engine gneiss_native_interface gneiss_tasks)
+target_compile_definitions(
+  gneiss_stable_runtime_example
+  PRIVATE GNEISS_STABLE_RUNTIME_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/temple/assets"
+)
+gneiss_target_compile_warnings(gneiss_stable_runtime_example)
+gneiss_target_output_directories(gneiss_stable_runtime_example)
+install(TARGETS gneiss_stable_runtime_example RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(
+  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/temple/assets/"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/examples/stable-runtime/assets"
+)
+if(BUILD_TESTING)
+  add_test(NAME gneiss.stable_runtime_example COMMAND gneiss_stable_runtime_example --smoke)
+endif()
+add_executable(gneiss_temple_example temple/main.cpp)
+target_link_libraries(gneiss_temple_example PRIVATE gneiss::engine gneiss_native_interface gneiss_tasks)
+target_compile_definitions(
+  gneiss_temple_example
+  PRIVATE GNEISS_TEMPLE_SOURCE_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/temple/assets"
+)
+gneiss_target_compile_warnings(gneiss_temple_example)
+gneiss_target_output_directories(gneiss_temple_example)
+install(TARGETS gneiss_temple_example RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(
+  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/temple/assets/"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/examples/temple/assets"
+)
+if(BUILD_TESTING)
+  add_test(NAME gneiss.temple_example COMMAND gneiss_temple_example --smoke)
 endif()
 
-if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
+if(TARGET gneiss_assetc)
   set(lantern_gallery_source_root "${CMAKE_CURRENT_SOURCE_DIR}/lantern_gallery/assets")
   set(lantern_gallery_project_root "${CMAKE_CURRENT_BINARY_DIR}/lantern_gallery")
   set(lantern_gallery_asset_root "${lantern_gallery_project_root}/assets")
@@ -113,26 +110,9 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
     VERBATIM
   )
   add_custom_target(gneiss_lantern_gallery_assets ALL DEPENDS "${lantern_gallery_stamp}")
-  if(BUILD_SHARED_LIBS)
-    add_library(gneiss_lantern_gallery_game MODULE lantern_gallery/game_module.cpp)
-    add_dependencies(gneiss_lantern_gallery_game gneiss_lantern_gallery_assets)
-    target_link_libraries(gneiss_lantern_gallery_game PRIVATE gneiss::engine)
-    target_compile_definitions(gneiss_lantern_gallery_game PRIVATE GNEISS_BUILDING_GAME_MODULE)
-    target_compile_features(gneiss_lantern_gallery_game PRIVATE cxx_std_20)
-    set_target_properties(
-      gneiss_lantern_gallery_game
-      PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY "$<1:${lantern_gallery_project_root}/modules>"
-        LIBRARY_OUTPUT_DIRECTORY "$<1:${lantern_gallery_project_root}/modules>"
-    )
-    if(WIN32)
-      set_target_properties(gneiss_lantern_gallery_game PROPERTIES PREFIX "")
-    endif()
-    gneiss_target_compile_warnings(gneiss_lantern_gallery_game)
-  endif()
   add_executable(gneiss_lantern_gallery_example lantern_gallery/main.cpp)
   add_dependencies(gneiss_lantern_gallery_example gneiss_lantern_gallery_assets)
-  target_link_libraries(gneiss_lantern_gallery_example PRIVATE gneiss::engine)
+  target_link_libraries(gneiss_lantern_gallery_example PRIVATE gneiss::engine gneiss_native_interface gneiss_tasks)
   target_compile_definitions(
     gneiss_lantern_gallery_example
     PRIVATE GNEISS_LANTERN_GALLERY_ASSET_ROOT="${lantern_gallery_asset_root}"
@@ -144,19 +124,9 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
     DIRECTORY "${lantern_gallery_asset_root}/"
     DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/examples/lantern-gallery/assets"
   )
-  if(TARGET gneiss_lantern_gallery_game)
-    install(
-      TARGETS gneiss_lantern_gallery_game
-      RUNTIME DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/examples/lantern-gallery/modules"
-      LIBRARY DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/examples/lantern-gallery/modules"
-    )
-  endif()
   install(
     FILES
       "${CMAKE_CURRENT_SOURCE_DIR}/lantern_gallery/gneiss.project.json"
-      "${CMAKE_CURRENT_SOURCE_DIR}/lantern_gallery/CMakeLists.txt"
-      "${CMAKE_CURRENT_SOURCE_DIR}/lantern_gallery/CMakePresets.json"
-      "${CMAKE_CURRENT_SOURCE_DIR}/lantern_gallery/game_module.cpp"
       "${lantern_gallery_source_root}/ASSET_ORIGINS.md"
       "${lantern_gallery_source_root}/source/LICENSE.md"
     DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/examples/lantern-gallery"
@@ -195,7 +165,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
       )
       add_executable(
         gneiss_editor_lantern_workflow_test
-        "${PROJECT_SOURCE_DIR}/apps/editor/tests/lantern_workflow_test.cpp"
+        "${PROJECT_SOURCE_DIR}/tests/host/editor/lantern_workflow_test.cpp"
       )
       target_link_libraries(
         gneiss_editor_lantern_workflow_test
@@ -207,13 +177,14 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
           GNEISS_EDITOR_LANTERN_PROJECT="${lantern_gallery_project_root}"
           GNEISS_EDITOR_LANTERN_SOURCE="${lantern_gallery_source_root}/source/Lantern.glb"
       )
+      target_include_directories(gneiss_editor_lantern_workflow_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
       add_dependencies(gneiss_editor_lantern_workflow_test gneiss_lantern_gallery_assets)
       gneiss_target_compile_warnings(gneiss_editor_lantern_workflow_test)
       gneiss_target_output_directories(gneiss_editor_lantern_workflow_test)
       add_test(NAME gneiss.editor.lantern-workflow COMMAND gneiss_editor_lantern_workflow_test)
       add_executable(
         gneiss_editor_lantern_prefab_authoring_workflow_test
-        "${PROJECT_SOURCE_DIR}/apps/editor/tests/lantern_prefab_authoring_workflow_test.cpp"
+        "${PROJECT_SOURCE_DIR}/tests/host/editor/lantern_prefab_authoring_workflow_test.cpp"
       )
       target_link_libraries(
         gneiss_editor_lantern_prefab_authoring_workflow_test PRIVATE gneiss_editor_host
@@ -260,6 +231,14 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
       endif()
     endif()
   endif()
-elseif(GNEISS_ENABLE_GRANIT_PLATFORM)
+else()
   message(STATUS "GNEISS_BUILD_TOOLS=OFF，跳过需要离线导入的 Lantern 示例")
 endif()
+
+# 异步场景测试由宿主驱动任务，不使用生产同步加载入口。
+foreach(test IN ITEMS gneiss_editor_lantern_workflow_test gneiss_editor_lantern_prefab_authoring_workflow_test)
+  if(TARGET ${test})
+    target_link_libraries(${test} PRIVATE gneiss_tasks)
+    target_include_directories(${test} PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  endif()
+endforeach()

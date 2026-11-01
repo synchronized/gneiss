@@ -32,25 +32,24 @@ def fixture(root):
     def write(path, value):
         (root / path).write_text(json.dumps(value), encoding="utf-8")
     write("materials/test.material.json", {
-        "format": "gneiss.material", "version": 3, "color": [1, 1, 1, 1],
-        "base_color_texture": "asset://textures/test.texture.json", "metallic": 0, "roughness": 1})
+        "format": "gneiss.material", "version": 6,
+        "parameters": {"color": [1, 1, 1, 1], "metallic": 0, "roughness": 1},
+        "texture_uris": ["asset://textures/test.texture.json", "", "", "", ""]})
     write("models/test.mesh.json", {
         "format": "gneiss.mesh", "version": 3, "topology": "triangle_list",
         "vertices": [[-.8, -.7, 0], [.8, -.7, 0], [0, .8, 0]],
         "uvs": [[0, 0], [1, 0], [.5, 1]], "normals": [[0, 0, 1]] * 3})
     write("scenes/test.scene.json", {
-        "format": "gneiss.scene", "version": 4,
+        "format": "gneiss.scene", "version": 5,
         "scene_uuid": "00000000-0000-4000-8000-000000000001",
         "objects": [
             {"uuid": "00000000-0000-4000-8000-000000000002", "name": "Camera", "parent": None,
              "transform": {"translation": [0, 0, 2], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1]},
-             "components": {"camera": {"vertical_field_of_view_radians": 1.04719755,
-                                        "near_plane": .1, "far_plane": 100, "is_primary": True}}},
+             "components": [{"$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101", "$content": {"settings": {"fov": 1.04719755, "near": .1, "far": 100}, "is_primary": True}}]},
             {"uuid": "00000000-0000-4000-8000-000000000003", "name": "Triangle", "parent": None,
              "transform": {"translation": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1]},
-             "components": {"mesh_renderer": {"mesh": "asset://models/test.mesh.json",
-                                                "material": "asset://materials/test.material.json"}}}],
-        "prefab_instances": []})
+             "components": [{"$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102", "$content": {"mesh": "asset://models/test.mesh.json",
+                                                "material": "asset://materials/test.material.json"}}]}]})
 
 
 def main():

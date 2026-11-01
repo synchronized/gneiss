@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
+#include "engine/core/error.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_tree.hpp"
 
 #include <algorithm>
@@ -26,19 +29,21 @@ std::array<float, 3> rotate(const float* quaternion, std::array<float, 3> point)
   return point;
 }
 
-gneiss_transform reference_combine(const gneiss_transform& parent,
-                                   const gneiss_transform& local) noexcept {
-  gneiss_transform result = GNEISS_TRANSFORM_IDENTITY;
+gneiss::engine::math::transform
+reference_combine(const gneiss::engine::math::transform& parent,
+                  const gneiss::engine::math::transform& local) noexcept {
+  gneiss::engine::math::transform result = gneiss::engine::math::transform{};
   std::array scaled_translation{local.translation[0] * parent.scale[0],
                                 local.translation[1] * parent.scale[1],
                                 local.translation[2] * parent.scale[2]};
-  scaled_translation = rotate(parent.rotation, scaled_translation);
+  scaled_translation =
+      rotate(gneiss::engine::math::components(parent.rotation).data(), scaled_translation);
   for (std::size_t index = 0; index < scaled_translation.size(); ++index) {
     result.translation[index] = parent.translation[index] + scaled_translation[index];
     result.scale[index] = parent.scale[index] * local.scale[index];
   }
-  const auto* left = parent.rotation;
-  const auto* right = local.rotation;
+  const auto& left = parent.rotation;
+  const auto& right = local.rotation;
   result.rotation[0] =
       (left[3] * right[0]) + (left[0] * right[3]) + (left[1] * right[2]) - (left[2] * right[1]);
   result.rotation[1] =
@@ -50,37 +55,46 @@ gneiss_transform reference_combine(const gneiss_transform& parent,
   return result;
 }
 
-bool approximately_equal(const gneiss_transform& left, const gneiss_transform& right) noexcept {
+bool approximately_equal(const gneiss::engine::math::transform& left,
+                         const gneiss::engine::math::transform& right) noexcept {
   const auto close = [](float first, float second) { return std::abs(first - second) < 1.0e-5F; };
-  return std::equal(std::begin(left.translation), std::end(left.translation),
-                    std::begin(right.translation), close) &&
-         std::equal(std::begin(left.rotation), std::end(left.rotation), std::begin(right.rotation),
-                    close) &&
-         std::equal(std::begin(left.scale), std::end(left.scale), std::begin(right.scale), close);
+  return std::equal(gneiss::engine::math::components(left.translation).begin(),
+                    gneiss::engine::math::components(left.translation).end(),
+                    gneiss::engine::math::components(right.translation).begin(), close) &&
+         std::equal(gneiss::engine::math::components(left.rotation).begin(),
+                    gneiss::engine::math::components(left.rotation).end(),
+                    gneiss::engine::math::components(right.rotation).begin(), close) &&
+         std::equal(gneiss::engine::math::components(left.scale).begin(),
+                    gneiss::engine::math::components(left.scale).end(),
+                    gneiss::engine::math::components(right.scale).begin(), close);
 }
 
 int run_tests() {
-  gneiss::scene_internal::scene_tree tree{17};
-  gneiss_scene_node_id root{};
-  gneiss_scene_node_id child{};
-  gneiss_scene_node_id grandchild{};
-  gneiss_scene_node_id other_root{};
-  constexpr gneiss_entity_id entity = 42;
-  if (tree.create({}, {}, &root) != GNEISS_SUCCESS ||
-      tree.create(root, {}, &child) != GNEISS_SUCCESS ||
-      tree.create(child, entity, &grandchild) != GNEISS_SUCCESS ||
-      tree.create({}, {}, &other_root) != GNEISS_SUCCESS) {
+  gneiss::engine::scene_tree tree{17};
+  gneiss::scene_node_id root{};
+  gneiss::scene_node_id child{};
+  gneiss::scene_node_id grandchild{};
+  gneiss::scene_node_id other_root{};
+  constexpr std::uint64_t entity = 42;
+  if (gneiss::test_support::assign_value(tree.create({}, {}), root) !=
+          gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(tree.create(root, {}), child) !=
+          gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(tree.create(child, entity), grandchild) !=
+          gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(tree.create({}, {}), other_root) !=
+          gneiss::engine::error::success) {
     return 1;
   }
 
-  gneiss_transform root_transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::math::transform root_transform = gneiss::engine::math::transform{};
   root_transform.translation[0] = 10.0F;
   root_transform.rotation[2] = half_sqrt_two;
   root_transform.rotation[3] = half_sqrt_two;
   root_transform.scale[0] = 2.0F;
   root_transform.scale[1] = 3.0F;
   root_transform.scale[2] = 4.0F;
-  gneiss_transform child_transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::math::transform child_transform = gneiss::engine::math::transform{};
   child_transform.translation[0] = 1.0F;
   child_transform.translation[1] = 2.0F;
   child_transform.translation[2] = 3.0F;
@@ -88,7 +102,7 @@ int run_tests() {
   child_transform.rotation[3] = half_sqrt_two;
   child_transform.scale[0] = 0.5F;
   child_transform.scale[1] = 2.0F;
-  gneiss_transform grandchild_transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::math::transform grandchild_transform = gneiss::engine::math::transform{};
   grandchild_transform.translation[0] = -2.0F;
   grandchild_transform.translation[1] = 1.0F;
   grandchild_transform.translation[2] = 0.5F;
@@ -96,26 +110,28 @@ int run_tests() {
   grandchild_transform.rotation[3] = half_sqrt_two;
   grandchild_transform.scale[1] = 0.25F;
   grandchild_transform.scale[2] = 2.0F;
-  if (tree.set_local(root, root_transform) != GNEISS_SUCCESS ||
-      tree.set_local(child, child_transform) != GNEISS_SUCCESS ||
-      tree.set_local(grandchild, grandchild_transform) != GNEISS_SUCCESS) {
+  if (tree.set_local(root, root_transform) != gneiss::engine::error::success ||
+      tree.set_local(child, child_transform) != gneiss::engine::error::success ||
+      tree.set_local(grandchild, grandchild_transform) != gneiss::engine::error::success) {
     return 2;
   }
   const auto expected =
       reference_combine(root_transform, reference_combine(child_transform, grandchild_transform));
-  gneiss_transform actual = GNEISS_TRANSFORM_IDENTITY;
-  if (tree.get_world(grandchild, &actual) != GNEISS_SUCCESS ||
+  gneiss::engine::math::transform actual = gneiss::engine::math::transform{};
+  if (gneiss::test_support::assign_value(tree.get_world(grandchild), actual) !=
+          gneiss::engine::error::success ||
       !approximately_equal(actual, expected) || tree.get_entity(grandchild) != entity) {
     return 3;
   }
 
-  gneiss_transform other_transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::math::transform other_transform = gneiss::engine::math::transform{};
   other_transform.translation[2] = -5.0F;
   other_transform.rotation[1] = -half_sqrt_two;
   other_transform.rotation[3] = half_sqrt_two;
-  if (tree.set_local(other_root, other_transform) != GNEISS_SUCCESS ||
-      tree.reparent(grandchild, other_root) != GNEISS_SUCCESS ||
-      tree.get_world(grandchild, &actual) != GNEISS_SUCCESS ||
+  if (tree.set_local(other_root, other_transform) != gneiss::engine::error::success ||
+      tree.reparent(grandchild, other_root) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(tree.get_world(grandchild), actual) !=
+          gneiss::engine::error::success ||
       !approximately_equal(actual, reference_combine(other_transform, grandchild_transform)) ||
       tree.get_entity(grandchild) != entity) {
     return 4;
@@ -123,18 +139,19 @@ int run_tests() {
 
   auto invalid = grandchild_transform;
   invalid.translation[0] = std::numeric_limits<float>::infinity();
-  if (tree.set_local(grandchild, invalid) != GNEISS_ERROR_INVALID_ARGUMENT) {
+  if (tree.set_local(grandchild, invalid) != gneiss::engine::error::invalid_argument) {
     return 5;
   }
   invalid = grandchild_transform;
   invalid.scale[1] = 0.0F;
-  if (tree.set_local(grandchild, invalid) != GNEISS_ERROR_INVALID_ARGUMENT) {
+  if (tree.set_local(grandchild, invalid) != gneiss::engine::error::invalid_argument) {
     return 6;
   }
   invalid = grandchild_transform;
   invalid.rotation[3] = 2.0F;
-  if (tree.set_local(grandchild, invalid) != GNEISS_ERROR_INVALID_ARGUMENT ||
-      tree.get_world(grandchild, &actual) != GNEISS_SUCCESS ||
+  if (tree.set_local(grandchild, invalid) != gneiss::engine::error::invalid_argument ||
+      gneiss::test_support::assign_value(tree.get_world(grandchild), actual) !=
+          gneiss::engine::error::success ||
       !approximately_equal(actual, reference_combine(other_transform, grandchild_transform))) {
     return 7;
   }

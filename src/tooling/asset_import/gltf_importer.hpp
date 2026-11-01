@@ -3,12 +3,13 @@
 
 #pragma once
 
+#include "engine/core/error.hpp"
 #include "tooling/asset_import/import_ir.hpp"
 
 #include <filesystem>
 #include <string>
 
-namespace gneiss::tooling::asset_import {
+namespace gneiss::tooling {
 
 enum class inspect_result {
   success,
@@ -27,4 +28,4 @@ struct inspect_report {
 
 [[nodiscard]] inspect_report inspect_gltf(const std::filesystem::path& source_path);
 
-} // namespace gneiss::tooling::asset_import
+} // namespace gneiss::tooling

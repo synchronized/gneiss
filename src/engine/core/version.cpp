@@ -3,8 +3,10 @@
 
 #include "engine/core/version.hpp"
 
-#include <gneiss/engine/core/version.h>
+#include "engine/core/build_version.h"
 
-gneiss::core::version gneiss::core::library_version() noexcept {
+gneiss::engine::version gneiss::engine::library_version() noexcept {
   return {GNEISS_VERSION_MAJOR, GNEISS_VERSION_MINOR, GNEISS_VERSION_PATCH};
 }
+
+const char* gneiss::engine::library_version_string() noexcept { return GNEISS_VERSION_STRING; }

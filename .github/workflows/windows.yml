@@ -19,7 +19,7 @@ env:
   SCCACHE_GHA_ENABLED: "true"
 
 jobs:
-  installed-consumer:
+  core-build:
     if: ${{ inputs.scope != 'editor' }}
     runs-on: windows-2022
     strategy:
@@ -36,16 +36,13 @@ jobs:
         run: |
           $suffix = if ('${{ matrix.linkage }}' -eq 'static') { '-static' } else { '' }
           "name=windows-vs2022${suffix}-release" >> $env:GITHUB_OUTPUT
-      - name: 验证安装后 C/C++ Consumer
+      - name: 验证共享与静态核心构建
         shell: pwsh
         run: |
           cmake --preset '${{ steps.preset.outputs.name }}' `
             -DGNEISS_BUILD_EXAMPLES=OFF
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build --preset '${{ steps.preset.outputs.name }}'
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ctest --preset '${{ steps.preset.outputs.name }}' `
-            -R '^gneiss\.installed_consumer$'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -B scripts/performance/test_prepare_sponza.py
           python -B scripts/performance/test_validate_runtime_loop.py
@@ -72,7 +69,6 @@ jobs:
         shell: pwsh
         run: |
           cmake --preset '${{ steps.preset.outputs.name }}' `
-            -DGNEISS_ENABLE_GRANIT_PLATFORM=ON `
             -DGNEISS_BUILD_RUNTIME=ON `
             -DGNEISS_BUILD_EDITOR=ON `
             -DGNEISS_GRANIT_PROVIDER=FETCH `
@@ -84,4 +80,4 @@ jobs:
           # 托管 Windows Runner 没有 Vulkan ICD；Linux 矩阵负责真实窗口与图形示例 smoke test。
           # Editor 全量编译；仅排除创建真实图形设备的工作流，CPU 模型与 ImGui 交互仍执行。
           ctest --preset '${{ steps.preset.outputs.name }}' `
-            -E '^gneiss\.(asset-pixel|pbr-negative-scale|main-loop-response|granit_platform_smoke|stable_runtime_example|temple_example|lantern_gallery_example|installed_stable_runtime_consumer|editor\.(native-window-interaction|runtime-process|runtime-scene-loading|asset-workflow|smoke|project-manager-smoke|lantern-gallery-project|lantern-runtime-workflow)|runtime\.(project-game-module|smoke|installed-smoke|stop-protocol|lantern-gallery|lantern-cooked-textures))$'
+            -E '^gneiss\.(asset-pixel|pbr-negative-scale|main-loop-response|granit_platform_smoke|stable_runtime_example|temple_example|lantern_gallery_example|installed_stable_runtime_consumer|editor\.(native-window-interaction|runtime-process|runtime-scene-loading|asset-workflow|smoke|project-manager-smoke|lantern-gallery-project|lantern-runtime-workflow)|runtime\.(project-game-module|smoke|installed-smoke|stop-protocol|async-input-startup|lantern-gallery|lantern-cooked-textures))$'

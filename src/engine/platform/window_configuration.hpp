@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace gneiss::platform {
+namespace gneiss::engine {
 
 /** 已校验的窗口配置；title 仅在初始化调用期间借用，不包含 Application 生命周期或 ABI 字段。 */
 struct window_configuration final {
@@ -18,4 +18,4 @@ struct window_configuration final {
   bool high_dpi = true;
 };
 
-} // namespace gneiss::platform
+} // namespace gneiss::engine
