@@ -306,10 +306,11 @@ void run() {
       return gneiss::engine::error::success;
     }()
                        .ok());
-    std::vector<gneiss::engine::scene_mesh_binding> bindings(source.get()->objects.size());
-    for (std::size_t i = 0; i < bindings.size(); ++i)
+    std::vector<gneiss::engine::scene_mesh_binding> prefab_bindings(source.get()->objects.size());
+    for (std::size_t i = 0; i < prefab_bindings.size(); ++i)
       check(gneiss::test_support::assign_value(
-                candidate->scenes()->capture_prefab_binding(new_scene, author.uuid, i), bindings[i])
+                candidate->scenes()->capture_prefab_binding(new_scene, author.uuid, i),
+                prefab_bindings[i])
                 .ok());
     author.uuid = *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000077");
     const auto reads_before = files->reads;
@@ -319,24 +320,25 @@ void run() {
     gneiss::scene_node_id root;
     gneiss::engine::error foreign;
     std::thread worker([&] {
-      foreign = gneiss::test_support::take_value(
-          candidate->scenes()->instantiate_prefab_ready(new_scene, author, source, bindings, false),
-          root);
+      foreign =
+          gneiss::test_support::take_value(candidate->scenes()->instantiate_prefab_ready(
+                                               new_scene, author, source, prefab_bindings, false),
+                                           root);
     });
     worker.join();
     check(foreign == gneiss::engine::error::invalid_state && !root);
     check(gneiss::test_support::take_value(candidate->scenes()->instantiate_prefab_ready(
-                                               old_scene, author, source, bindings, false),
+                                               old_scene, author, source, prefab_bindings, false),
                                            root) == gneiss::engine::error::invalid_handle);
     check(gneiss::test_support::take_value(candidate->scenes()->instantiate_prefab_ready(
-                                               new_scene, author, source, bindings, false),
+                                               new_scene, author, source, prefab_bindings, false),
                                            root)
               .ok());
     const auto previous_root = root;
     gneiss::engine::math::transform queried;
     check(candidate->native_world()->node_get_local_transform(root, queried).ok());
     check(gneiss::test_support::take_value(candidate->scenes()->instantiate_prefab_ready(
-                                               new_scene, author, source, bindings, true),
+                                               new_scene, author, source, prefab_bindings, true),
                                            root)
               .ok());
     check(root != previous_root);
@@ -346,7 +348,7 @@ void run() {
     // 根变换非法使创建在旧实例已删除后失败。
     author.transform.scale = {0, 1, 1};
     check(gneiss::test_support::take_value(candidate->scenes()->instantiate_prefab_ready(
-                                               new_scene, author, source, bindings, true),
+                                               new_scene, author, source, prefab_bindings, true),
                                            root)
               .failed());
     check(!root && candidate->native_world()->node_get_local_transform(replaced_root, queried) ==
@@ -445,7 +447,7 @@ void run() {
   {
     using binding = gneiss::engine::scene_mesh_binding;
     binding before;
-    const auto reads = files->reads;
+    const auto binding_reads = files->reads;
     check(gneiss::test_support::assign_value(
               candidate->scenes()->capture_mesh_binding(new_scene, ordinary.node), before) ==
           gneiss::engine::error::success);
@@ -496,7 +498,7 @@ void run() {
           !created.is_valid());
     check(candidate->scenes()->destroy_node(new_scene, gneiss::scene_node_id{created_node}) ==
           gneiss::engine::error::success);
-    check(files->reads == reads);
+    check(files->reads == binding_reads);
   }
   check(candidate->scenes()->remove_mesh_renderer(new_scene, ordinary.node) ==
         gneiss::engine::error::success);
@@ -525,11 +527,11 @@ void run() {
   check(candidate->initialize(candidate_render) == gneiss::engine::error::success);
   // 空绑定表仍可复用资源服务内的已有资源；使用真正缺失的 URI 验证失败回收。
   bool missing_dependency = false;
-  for (auto& object : prepared.description.objects) {
-    if (auto* renderer = object.components.get<gneiss::engine::mesh_renderer_description>()) {
+  for (auto& description : prepared.description.objects) {
+    if (auto* renderer = description.components.get<gneiss::engine::mesh_renderer_description>()) {
       auto missing = *renderer;
       missing.mesh_uri = "asset://missing-for-instantiation.mesh";
-      object.components.set(std::move(missing));
+      description.components.set(std::move(missing));
       missing_dependency = true;
       break;
     }

@@ -1097,9 +1097,9 @@ void draw_component_descriptions(editor_state& state) {
     identity.instance_uuid = node->instance_uuid;
     identity.source_uuid = node->source_node_uuid;
     node_id = node->node;
-  } else if (const auto node = state.editing.document().selected_node()) {
-    identity.object_uuid = node->uuid;
-    node_id = node->node;
+  } else if (const auto selected = state.editing.document().selected_node()) {
+    identity.object_uuid = selected->uuid;
+    node_id = selected->node;
   } else
     return;
   prefab_asset_ref source_asset;
@@ -1215,11 +1215,11 @@ void draw_component_descriptions(editor_state& state) {
     std::optional<meta::instance> original;
     if (source_object) {
       if (const auto* source = source_object->components.find(component.guid())) {
-        auto source_view = source->view();
-        if (source_view)
-          original = *source_view;
+        auto original_view = source->view();
+        if (original_view)
+          original = *original_view;
         else
-          state.inspector_error = source_view.error();
+          state.inspector_error = original_view.error();
       }
     }
     auto editor = component_editor(component.guid());
@@ -1391,8 +1391,8 @@ void execute_asset_browser_request(editor_state& state,
     if (const auto node = state.editing.document().selected_prefab_node()) {
       target.instance_uuid = node->instance_uuid;
       target.source_uuid = node->source_node_uuid;
-    } else if (const auto node = state.editing.document().selected_node())
-      target.object_uuid = node->uuid;
+    } else if (const auto selected = state.editing.document().selected_node())
+      target.object_uuid = selected->uuid;
     if ((target.object_uuid || target.instance_uuid) && entry != state.assets.entries().end() &&
         (is_mesh_asset(*entry) || is_material_asset(*entry))) {
       gneiss::editor::property_edit edit;
@@ -1506,8 +1506,8 @@ void draw_asset_browser(editor_state& state) {
   gneiss::scene_node_id selected_node;
   if (const auto node = state.editing.document().selected_prefab_node())
     selected_node = node->node;
-  else if (const auto node = state.editing.document().selected_node())
-    selected_node = node->node;
+  else if (const auto ordinary_node = state.editing.document().selected_node())
+    selected_node = ordinary_node->node;
   const bool has_renderer =
       selected_node && state.world->node_mesh_renderer(selected_node).has_value();
   if (selected != state.assets.entries().end()) {

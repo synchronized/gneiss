@@ -12,6 +12,10 @@ namespace gneiss::engine::files {
  * 不使用 std::filesystem，适用于桌面/浏览器和一致性测试。 */
 class memory_backend final : public backend {
 public:
+  GNEISS_API memory_backend();
+  GNEISS_API ~memory_backend() override;
+  memory_backend(const memory_backend&) = delete;
+  memory_backend& operator=(const memory_backend&) = delete;
   GNEISS_API error read(std::string_view path, read_options options,
                         files::callback<files::bytes> callback) override;
   GNEISS_API error read_range(std::string_view path, range range,

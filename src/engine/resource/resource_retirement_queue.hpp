@@ -40,13 +40,13 @@ class resource_retirement_queue final {
   template <typename T, typename Finalize> struct allocation final : node {
     template <typename Factory>
     allocation(Finalize finalizer, Factory&& factory)
-        : finalize(std::move(finalizer)), value(factory()) {
-      this->destroy = [](node* entry, void* owner) noexcept {
-        auto* self = static_cast<allocation*>(entry);
-        self->finalize(self->value, owner);
-        delete self;
-      };
-    }
+        : node{nullptr,
+               [](node* entry, void* owner) noexcept {
+                 auto* self = static_cast<allocation*>(entry);
+                 self->finalize(self->value, owner);
+                 delete self;
+               }},
+          finalize(std::move(finalizer)), value(factory()) {}
     Finalize finalize;
     T value;
   };

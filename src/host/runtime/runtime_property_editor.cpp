@@ -23,17 +23,19 @@ gneiss::engine::error to_native_value(const gneiss::host::ipc_property_value& so
         using T = std::decay_t<decltype(payload)>;
         if constexpr (std::is_same_v<T, std::monostate>) {
           return gneiss::engine::error::invalid_argument;
-        } else if constexpr (std::is_same_v<T, std::array<std::uint8_t, 16>>) {
-          output.payload = gneiss::engine::guid::from_bytes(payload);
-        } else if constexpr (std::is_same_v<T, std::array<float, 3>>) {
-          output.payload = gneiss::engine::math::vector3{payload[0], payload[1], payload[2]};
-        } else if constexpr (std::is_same_v<T, std::array<float, 4>>) {
-          output.payload =
-              gneiss::engine::math::quaternion_xyzw(payload[0], payload[1], payload[2], payload[3]);
         } else {
-          output.payload = payload;
+          if constexpr (std::is_same_v<T, std::array<std::uint8_t, 16>>) {
+            output.payload = gneiss::engine::guid::from_bytes(payload);
+          } else if constexpr (std::is_same_v<T, std::array<float, 3>>) {
+            output.payload = gneiss::engine::math::vector3{payload[0], payload[1], payload[2]};
+          } else if constexpr (std::is_same_v<T, std::array<float, 4>>) {
+            output.payload = gneiss::engine::math::quaternion_xyzw(payload[0], payload[1],
+                                                                   payload[2], payload[3]);
+          } else {
+            output.payload = payload;
+          }
+          return gneiss::engine::error::success;
         }
-        return gneiss::engine::error::success;
       },
       source.payload);
 } catch (const std::bad_alloc&) {
@@ -47,22 +49,23 @@ gneiss::engine::error from_native_value(const gneiss::engine::value& source,
   return std::visit(
       [&](const auto& payload) -> gneiss::engine::error {
         using T = std::decay_t<decltype(payload)>;
-        if constexpr (std::is_same_v<T, std::monostate>) {
-          return gneiss::engine::error::unsupported;
-        } else if constexpr (std::is_same_v<T, gneiss::engine::math::vector4> ||
-                             std::is_same_v<T, gneiss::engine::math::vector2>) {
+        if constexpr (std::is_same_v<T, std::monostate> ||
+                      std::is_same_v<T, gneiss::engine::math::vector4> ||
+                      std::is_same_v<T, gneiss::engine::math::vector2>) {
           // 当前 IPC 未定义二维向量，四分量只表示旋转；不能误用现有载荷。
           return gneiss::engine::error::unsupported;
-        } else if constexpr (std::is_same_v<T, gneiss::engine::guid>) {
-          output.payload = payload.bytes();
-        } else if constexpr (std::is_same_v<T, gneiss::engine::math::vector3>) {
-          output.payload = std::array{payload.x, payload.y, payload.z};
-        } else if constexpr (std::is_same_v<T, gneiss::engine::math::quaternion>) {
-          output.payload = std::array{payload.x, payload.y, payload.z, payload.w};
         } else {
-          output.payload = payload;
+          if constexpr (std::is_same_v<T, gneiss::engine::guid>) {
+            output.payload = payload.bytes();
+          } else if constexpr (std::is_same_v<T, gneiss::engine::math::vector3>) {
+            output.payload = std::array{payload.x, payload.y, payload.z};
+          } else if constexpr (std::is_same_v<T, gneiss::engine::math::quaternion>) {
+            output.payload = std::array{payload.x, payload.y, payload.z, payload.w};
+          } else {
+            output.payload = payload;
+          }
+          return gneiss::engine::error::success;
         }
-        return gneiss::engine::error::success;
       },
       source.payload);
 } catch (const std::bad_alloc&) {

@@ -54,6 +54,8 @@ e::result<child, m::serialization_diagnostic> decode_custom(std::span<const std:
   return child{42};
 }
 template <unsigned Depth> struct chain {
+  // 逐层默认构造，避免 MSVC 对 65 层聚合初始化的编译器深度限制。
+  chain() {}
   static constexpr std::string_view type_name = "chain";
   static constexpr e::guid type_guid =
       e::guid::from_bytes({92, static_cast<std::uint8_t>(Depth + 1)});

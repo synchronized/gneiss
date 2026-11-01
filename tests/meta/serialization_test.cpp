@@ -59,6 +59,11 @@ int main() {
           .commit() != e::error::invalid_argument)
     return 4;
   if (gneiss::engine::meta::type_builder<probe>{registry}
+          .serialization<static_cast<decltype(&bad_encode)>(nullptr),
+                         static_cast<decltype(&bad_decode)>(nullptr)>()
+          .commit() != e::error::invalid_argument)
+    return 25;
+  if (gneiss::engine::meta::type_builder<probe>{registry}
           .serialization<&bad_encode, &bad_decode>()
           .serialization<&bad_encode, &bad_decode>()
           .commit() != e::error::invalid_argument)

@@ -98,21 +98,21 @@ int main() try {
             .failed());
   check(output.kind() == render_resource_kind::material);
   for (const auto version : {1, 3}) {
-    const auto text = std::string{R"({"format":"gneiss.texture","version":)"} +
-                      std::to_string(version) +
-                      R"(,"source":"asset://a.png","color_space":"srgb","usage":"default"})";
-    check(gneiss::test_support::assign_decoded(detail::parse_texture(bytes(text)), parsed,
+    const auto source_text = std::string{R"({"format":"gneiss.texture","version":)"} +
+                             std::to_string(version) +
+                             R"(,"source":"asset://a.png","color_space":"srgb","usage":"default"})";
+    check(gneiss::test_support::assign_decoded(detail::parse_texture(bytes(source_text)), parsed,
                                                diagnostic) == error::unsupported);
     check(diagnostic.path == "/version");
   }
   for (const auto usage : {std::string_view{}, std::string_view{",\"usage\":\"unknown\""},
                            std::string_view{",\"usage\":\"normal\""}}) {
     diagnostic = {};
-    const auto text =
+    const auto source_text =
         std::string{
             R"({"format":"gneiss.texture","version":2,"source":"asset://a.png","color_space":"srgb")"} +
         std::string{usage} + "}";
-    check(gneiss::test_support::assign_decoded(detail::parse_texture(bytes(text)), parsed,
+    check(gneiss::test_support::assign_decoded(detail::parse_texture(bytes(source_text)), parsed,
                                                diagnostic) == error::invalid_argument);
     check(diagnostic.path == "/usage");
   }

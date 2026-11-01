@@ -9,6 +9,8 @@
 #include <utility>
 
 namespace gneiss::engine::files {
+memory_backend::memory_backend() = default;
+memory_backend::~memory_backend() = default;
 namespace {
 std::string directory_prefix(std::string_view path) {
   std::string prefix(path);

@@ -467,7 +467,6 @@ template <class T>
       fail(diagnostic, error::invalid_argument, location, "组件覆盖重复或与属性覆盖矛盾");
       return false;
     }
-    prefab_component_override change{.source_node_uuid = *id, .type_guid = *tid};
     if (auto* content = yyjson_obj_get(item, "$content")) {
       if (!yyjson_is_obj(content)) {
         fail(diagnostic, error::invalid_argument, location, "新增组件内容必须为对象");
@@ -487,9 +486,12 @@ template <class T>
              "新增组件解码失败");
         return false;
       }
-      change.added = std::move(*decoded);
+      output.component_overrides.push_back(
+          {.source_node_uuid = *id, .type_guid = *tid, .added = std::move(*decoded)});
+    } else {
+      output.component_overrides.push_back(
+          {.source_node_uuid = *id, .type_guid = *tid, .added = std::nullopt});
     }
-    output.component_overrides.push_back(std::move(change));
   }
   return true;
 }

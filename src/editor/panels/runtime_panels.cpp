@@ -223,19 +223,21 @@ void draw_runtime_inspector(const runtime_scene_node& node,
           supported = std::visit(
               [&](const auto& payload) {
                 using T = std::decay_t<decltype(payload)>;
-                if constexpr (std::is_same_v<T, engine::guid>)
-                  observed.payload = payload.bytes();
-                else if constexpr (std::is_same_v<T, engine::math::vector3>)
-                  observed.payload = std::array{payload.x, payload.y, payload.z};
-                else if constexpr (std::is_same_v<T, engine::math::quaternion>)
-                  observed.payload = std::array{payload.x, payload.y, payload.z, payload.w};
-                else if constexpr (std::is_same_v<T, engine::math::vector2> ||
-                                   std::is_same_v<T, engine::math::vector4> ||
-                                   std::is_same_v<T, std::monostate>)
+                if constexpr (std::is_same_v<T, engine::math::vector2> ||
+                              std::is_same_v<T, engine::math::vector4> ||
+                              std::is_same_v<T, std::monostate>) {
                   return false;
-                else
-                  observed.payload = payload;
-                return true;
+                } else {
+                  if constexpr (std::is_same_v<T, engine::guid>)
+                    observed.payload = payload.bytes();
+                  else if constexpr (std::is_same_v<T, engine::math::vector3>)
+                    observed.payload = std::array{payload.x, payload.y, payload.z};
+                  else if constexpr (std::is_same_v<T, engine::math::quaternion>)
+                    observed.payload = std::array{payload.x, payload.y, payload.z, payload.w};
+                  else
+                    observed.payload = payload;
+                  return true;
+                }
               },
               value->payload);
         }

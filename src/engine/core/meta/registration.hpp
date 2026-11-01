@@ -223,35 +223,39 @@ public:
       return *this;
     }
     has_serialization_ = true;
-    if constexpr (Encode == nullptr && Decode == nullptr) {
-      status_ = error::invalid_argument;
-      return *this;
-    }
-    if constexpr (Encode != nullptr)
-      codec_.encode =
-          []([[maybe_unused]] const registry_ref& registry,
-             const void* object) -> result<std::vector<std::byte>, serialization_diagnostic> {
-        if constexpr (std::is_invocable_v<decltype(Encode), const registry_ref&,
-                                          const object_type&>)
-          return std::invoke(Encode, registry, *static_cast<const object_type*>(object));
-        else
-          return std::invoke(Encode, *static_cast<const object_type*>(object));
-      };
-    if constexpr (Decode != nullptr)
-      codec_.decode =
-          []([[maybe_unused]] const registry_ref& registry,
-             std::span<const std::byte> bytes) -> result<ref<void>, serialization_diagnostic> {
-        auto decoded = [&] {
-          if constexpr (std::is_invocable_v<decltype(Decode), const registry_ref&,
-                                            std::span<const std::byte>>)
-            return std::invoke(Decode, registry, bytes);
+    if constexpr (!std::is_null_pointer_v<decltype(Encode)>) {
+      auto encode = Encode;
+      if (encode)
+        codec_.encode =
+            []([[maybe_unused]] const registry_ref& registry,
+               const void* object) -> result<std::vector<std::byte>, serialization_diagnostic> {
+          if constexpr (std::is_invocable_v<decltype(Encode), const registry_ref&,
+                                            const object_type&>)
+            return std::invoke(Encode, registry, *static_cast<const object_type*>(object));
           else
-            return std::invoke(Decode, bytes);
-        }();
-        if (!decoded)
-          return std::move(decoded).error();
-        return ref<void>{std::make_shared<object_type>(std::move(*decoded))};
-      };
+            return std::invoke(Encode, *static_cast<const object_type*>(object));
+        };
+    }
+    if constexpr (!std::is_null_pointer_v<decltype(Decode)>) {
+      auto decode = Decode;
+      if (decode)
+        codec_.decode =
+            []([[maybe_unused]] const registry_ref& registry,
+               std::span<const std::byte> bytes) -> result<ref<void>, serialization_diagnostic> {
+          auto decoded = [&] {
+            if constexpr (std::is_invocable_v<decltype(Decode), const registry_ref&,
+                                              std::span<const std::byte>>)
+              return std::invoke(Decode, registry, bytes);
+            else
+              return std::invoke(Decode, bytes);
+          }();
+          if (!decoded)
+            return std::move(decoded).error();
+          return ref<void>{std::make_shared<object_type>(std::move(*decoded))};
+        };
+    }
+    if (!codec_.encode && !codec_.decode)
+      status_ = error::invalid_argument;
     return *this;
   }
   [[nodiscard]] error commit() noexcept {
