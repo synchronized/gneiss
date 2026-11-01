@@ -417,3 +417,9 @@ kind/category/object_type/enum_type/choices/type_guid。属性保留 id、name�
 跨静态类型、已检测到的控制块别名不支持。调用方不得将成员别名作为独立持久化对象。
 自定义 codec 自行调用序列化时建立自己的上下文，尚不支持跨 codec 共享身份；
 外部 URI 引用和 Inspector 引用选择控件仍待 PLAN-093 后续阶段接入。
+
+### 跨进程组件描述
+
+Meta 注册表仅属于当前进程。通过 IPC 接收场景组件描述的宿主，也必须在解码前完成
+`initialize_meta`；启动的 Runtime 子进程初始化不能替代 Editor 接收端初始化。
+独立运行的 IPC 集成测试同样需要遵循此启动约定。协议解码本身不隐式初始化或冻结注册表。
