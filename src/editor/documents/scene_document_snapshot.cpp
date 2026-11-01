@@ -4,9 +4,10 @@
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/meta/serialization.hpp"
 #include "runtime/application.hpp"
+#include "runtime/loading/scene_service.hpp"
 namespace gneiss::editor {
-engine::error capture_scene_document(runtime::application& app, const scene_document& document,
-                                     scene_document_snapshot& output) noexcept try {
+engine::result<scene_document_snapshot>
+capture_scene_document(runtime::application& app, const scene_document& document) noexcept try {
   if (!document.is_open() || !app.is_owner_thread() || !app.accepts_requests())
     return engine::error::invalid_state;
   scene_document_snapshot next;
@@ -17,21 +18,16 @@ engine::error capture_scene_document(runtime::application& app, const scene_docu
   next.description = std::move(status_value->description);
   next.assets = std::move(status_value->assets);
 
-  output = std::move(next);
-  return engine::error::success;
+  return next;
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
 } catch (...) {
   return engine::error::internal;
 }
 
-engine::error prepare_scene_document(const scene_document_snapshot& before,
-                                     std::span<const author_document_change> changes,
-                                     scene_document_snapshot& output,
-                                     std::vector<engine::render_resource_source>* missing) noexcept
-    try {
-  if (missing)
-    missing->clear();
+engine::result<prepared_scene_document>
+prepare_scene_document(const scene_document_snapshot& before,
+                       std::span<const author_document_change> changes) noexcept try {
   std::vector<engine::render_resource_source> pending;
   auto scene = std::make_shared<engine::scene_description>(before.description.description);
   engine::scene_preparation_inputs inputs;
@@ -76,17 +72,12 @@ engine::error prepare_scene_document(const scene_document_snapshot& before,
   for (const auto& asset : next.description.assets) {
     const auto found = before.assets.find(asset.uri);
     if (found == before.assets.end() || engine::resource_kind(found->second) != asset.type) {
-      if (!missing)
-        return engine::error::not_ready;
       pending.push_back(asset);
       continue;
     }
     next.assets.emplace(asset.uri, found->second);
   }
-  output = std::move(next);
-  if (missing)
-    *missing = std::move(pending);
-  return engine::error::success;
+  return prepared_scene_document{std::move(next), std::move(pending)};
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
 } catch (...) {
@@ -113,8 +104,10 @@ engine::error restore_scene_document(runtime::application& app, scene_document& 
   return engine::error::internal;
 }
 engine::error scene_document_edit::finish(engine::error status) noexcept {
-  requests_.clear();
-  missing_.clear();
+  if (request_ && application_) {
+    (void)application_->scene_loading_service().discard_prepared_assets(request_);
+    request_ = 0;
+  }
   before_.reset();
   after_.reset();
   selection_ = {};
@@ -133,14 +126,14 @@ engine::error scene_document_edit::begin(runtime::application& app, scene_docume
   if (status_ == error::not_ready)
     return error::not_ready;
   (void)finish(error::invalid_state);
-  before_ = std::make_shared<scene_document_snapshot>();
-  after_ = std::make_shared<scene_document_snapshot>();
-  auto status = capture_scene_document(app, document, *before_);
-  if (status.failed())
-    return finish(status);
-  status = prepare_scene_document(*before_, changes, *after_, &missing_);
-  if (status.failed())
-    return finish(status);
+  auto captured = capture_scene_document(app, document);
+  if (!captured)
+    return finish(captured.error());
+  before_ = std::make_shared<scene_document_snapshot>(std::move(*captured));
+  auto prepared = prepare_scene_document(*before_, changes);
+  if (!prepared)
+    return finish(prepared.error());
+  after_ = std::make_shared<scene_document_snapshot>(std::move(prepared->snapshot));
   scene_ = document.scene_handle();
   auto serialize_result = app.scenes()->serialize(scene_);
   if (!serialize_result)
@@ -148,13 +141,15 @@ engine::error scene_document_edit::begin(runtime::application& app, scene_docume
 
   baseline_ = std::move(*serialize_result);
 
-  for (const auto& asset : missing_) {
-    auto request = app.resources().load(asset);
-    if (!request)
-      return finish(request.error());
-    requests_.push_back(std::move(*request));
-  }
   application_ = &app;
+  if (!prepared->missing.empty()) {
+    auto loading = app.scene_loading_service().prepare_assets(prepared->missing, 1);
+    if (!loading)
+      return finish(loading.error());
+    request_ = loading->request;
+    for (auto& asset : loading->assets)
+      after_->assets.insert_or_assign(std::string(engine::resource_uri(asset)), std::move(asset));
+  }
   document_ = &document;
   label_ = std::move(label);
   selection_ = std::move(selection);
@@ -182,19 +177,19 @@ engine::error scene_document_edit::advance(runtime::application& app, scene_docu
   auto status = gneiss::engine::error::success;
   if (current != baseline_ || history.is_pending())
     return finish(error::invalid_state);
-  bool waiting = false;
-  for (std::size_t i = 0; i < requests_.size(); ++i) {
-    status = requests_[i].status();
-    if (status == error::not_ready) {
-      waiting = true;
-      continue;
+  if (request_) {
+    auto completed = app.scene_loading_service().poll_prepared_assets(request_);
+    if (!completed) {
+      if (completed.error() == error::not_ready)
+        return error::not_ready;
+      return finish(completed.error());
     }
-    if (status.failed())
-      return finish(status);
-    after_->assets.insert_or_assign(missing_[i].uri, requests_[i].resource());
+    request_ = 0;
+    if (completed->result.failed())
+      return finish(completed->result);
+    for (auto& asset : completed->assets)
+      after_->assets.insert_or_assign(std::string(engine::resource_uri(asset)), std::move(asset));
   }
-  if (waiting)
-    return error::not_ready;
   const auto apply = [&app, &document, selection = selection_](
                          const std::shared_ptr<scene_document_snapshot>& snapshot, bool undo) {
     auto result = restore_scene_document(app, document, *snapshot);

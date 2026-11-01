@@ -436,6 +436,6 @@ void editor_asset_edit::cancel(runtime::application& application) {
     return;
   }
   // 上传已开始时继续推进至安全终态，回执到达后丢弃候选，不提交编辑。
-  (void)application.cancel_assets();
+  (void)application.cancel_assets(request_);
 }
 }

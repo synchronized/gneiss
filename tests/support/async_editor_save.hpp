@@ -65,9 +65,14 @@ struct author_scene {
     return text;
   }
   bool apply(const std::vector<editor::author_document_change>& changes, bool save_source) {
-    if (editor::capture_scene_document(*application, document, before).failed() ||
-        editor::prepare_scene_document(before, changes, after).failed())
+    auto captured = editor::capture_scene_document(*application, document);
+    if (!captured)
       return false;
+    auto prepared = editor::prepare_scene_document(*captured, changes);
+    if (!prepared || !prepared->missing.empty())
+      return false;
+    before = std::move(*captured);
+    after = std::move(prepared->snapshot);
     if (save_source) {
       for (const auto& change : changes) {
         if ("asset://" + change.path == document.uri())

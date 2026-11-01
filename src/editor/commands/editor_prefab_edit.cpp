@@ -427,7 +427,7 @@ void editor_prefab_edit::cancel() {
     value.preparation->cancel();
   }
   if (value.asset_pending) {
-    (void)value.application.cancel_assets();
+    (void)value.application.cancel_assets(value.request);
   }
   if (value.operation) {
     value.operation->cancel();

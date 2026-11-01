@@ -39,6 +39,11 @@ public:
   [[nodiscard]] GNEISS_API engine::result<asset_load_completion>
   prepare_assets(std::span<const engine::render_resource_source> sources, std::uint64_t revision,
                  bool reload = false);
+  /** 只推进资源请求，不驱动文件 I/O；未完成返回 not_ready，编号不匹配返回 invalid_handle。 */
+  [[nodiscard]] GNEISS_API engine::result<asset_load_completion>
+  poll_prepared_assets(std::uint64_t request);
+  /** 放弃指定请求及其回执，立即释放加载槽位；不会取消其他编号的请求。 */
+  [[nodiscard]] GNEISS_API engine::error discard_prepared_assets(std::uint64_t request) noexcept;
   [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::resource_service& resources);
   [[nodiscard]] gneiss::engine::error
   attach_executor(gneiss::engine::task_executor& executor, gneiss::engine::render_service& renderer,

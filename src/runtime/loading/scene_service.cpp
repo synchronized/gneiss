@@ -171,6 +171,29 @@ scene_service::prepare_assets(std::span<const engine::render_resource_source> so
                                           !reload_ && !loading() && !visual_loading() && !retired_);
 }
 
+engine::result<asset_load_completion>
+scene_service::poll_prepared_assets(std::uint64_t request) try {
+  if (std::this_thread::get_id() != owner_ || stopping_)
+    return engine::error::invalid_state;
+  if (!loading_ || !loading_->owns(request))
+    return engine::error::invalid_handle;
+  loading_->advance();
+  asset_load_completion completion;
+  if (!loading_->take(completion))
+    return engine::error::not_ready;
+  return completion;
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
+engine::error scene_service::discard_prepared_assets(std::uint64_t request) noexcept {
+  if (std::this_thread::get_id() != owner_)
+    return engine::error::invalid_state;
+  return loading_ && loading_->discard(request) ? engine::error::success
+                                                : engine::error::invalid_handle;
+}
+
 gneiss::engine::error
 scene_service::request_assets(std::span<const gneiss::engine::render_resource_source> sources,
                               std::uint64_t session, std::uint64_t revision, std::uint64_t& request,

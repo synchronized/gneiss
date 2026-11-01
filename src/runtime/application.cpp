@@ -1174,12 +1174,12 @@ bool application::asset_progress(gneiss::runtime::asset_load_progress& progress)
   return service && service->progress(progress);
 }
 
-gneiss::engine::error application::cancel_assets() noexcept {
+gneiss::engine::error application::cancel_assets(std::uint64_t request) noexcept {
   if (!is_owner_thread() || !accepts_requests())
     return gneiss::engine::error::invalid_state;
   auto* service = loading_assets();
-  return service && service->cancel() ? gneiss::engine::error::success
-                                      : gneiss::engine::error::not_ready;
+  return service && service->cancel(request) ? gneiss::engine::error::success
+                                             : gneiss::engine::error::not_ready;
 }
 
 gneiss::engine::error application::advance_resource_io() {

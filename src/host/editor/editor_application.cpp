@@ -485,14 +485,19 @@ record_author_documents(editor_state& state, std::string label,
     };
     return gneiss::engine::error::not_ready;
   }
-  auto before = std::make_shared<gneiss::editor::scene_document_snapshot>();
-  auto after = std::make_shared<gneiss::editor::scene_document_snapshot>();
-  auto status =
-      gneiss::editor::capture_scene_document(*state.application, state.editing.document(), *before);
-  if (status.ok())
-    status = gneiss::editor::prepare_scene_document(*before, changes, *after);
-  if (status.failed())
-    return status;
+  auto captured =
+      gneiss::editor::capture_scene_document(*state.application, state.editing.document());
+  if (!captured)
+    return captured.error();
+  auto prepared = gneiss::editor::prepare_scene_document(*captured, changes);
+  if (!prepared)
+    return prepared.error();
+  if (!prepared->missing.empty())
+    return gneiss::engine::error::not_ready;
+  auto before = std::make_shared<gneiss::editor::scene_document_snapshot>(std::move(*captured));
+  auto after =
+      std::make_shared<gneiss::editor::scene_document_snapshot>(std::move(prepared->snapshot));
+  auto status = gneiss::engine::error{gneiss::engine::error::success};
   if (save_source) {
     // 规划器只允许一个来源；父场景变更仅用于准备内存快照。
     const gneiss::editor::author_document_change* source = nullptr;

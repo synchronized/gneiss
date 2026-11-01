@@ -261,3 +261,15 @@ Prefab 覆盖捕获、恢复及有效描述准备共用此查询，相机身份�
 
 普通资源选择中 URI 未改变的部分直接保留旧强引用，不重新查询缓存。弱缓存清理由应用正常资源
 推进承担，命令完成时只释放自身引用。文档不维护额外资源缓存。
+
+文档恢复 `scene_document_edit` 同样使用此入口，快照原有引用保持不变，只准备缺失项。
+`capture_scene_document` 返回 `result<scene_document_snapshot>`；`prepare_scene_document` 返回
+`result<prepared_scene_document>`，其中包含 `snapshot` 和 `missing`。同步操作在 `missing`
+非空时拒绝采用；异步恢复补齐资源后才提交历史。
+
+`poll_prepared_assets(request)` 限所属线程，仅推进对应资源请求，不驱动文件 I/O；未完成返回
+`not_ready`，不存在或过期编号返回 `invalid_handle`。`discard_prepared_assets(request)` 释放
+该请求的观察权及回执槽位，关闭期间也可清理，绝不影响其他编号；底层在途 I/O 由资源服务回收。
+文档恢复取消、失败或析构都会放弃自己的编号，Application 必须覆盖该操作的完整寿命。
+旧的 `cancel_assets(request)` 保留取消回执，供资产与 Prefab 命令后续消费；不传编号的宿主入口
+仍表示取消当前请求。

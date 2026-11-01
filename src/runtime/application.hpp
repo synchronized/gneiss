@@ -80,7 +80,7 @@ public:
   [[nodiscard]] gneiss::engine::error
   poll_assets(gneiss::runtime::asset_load_completion& completion, bool& ready);
   [[nodiscard]] bool asset_progress(gneiss::runtime::asset_load_progress& progress) const noexcept;
-  [[nodiscard]] gneiss::engine::error cancel_assets() noexcept;
+  [[nodiscard]] gneiss::engine::error cancel_assets(std::uint64_t request = 0) noexcept;
   void advance_scene_load();
   [[nodiscard]] bool visual_assets_loading() const noexcept;
   [[nodiscard]] bool can_activate_scene() const noexcept;

@@ -72,6 +72,12 @@ void run(gneiss::engine::execution_mode mode) {
       .uri = "asset://a.texture.json", .type = gneiss::engine::render_resource_kind::texture}};
   std::uint64_t request{};
   check(app->request_assets(uris, 2U, 1U, request, false) == gneiss::engine::error::success);
+  // 错误编号不能轮询、取消或丢弃当前请求。
+  check(app->cancel_assets(request + 1) == engine::error::not_ready);
+  auto mismatched = app->scene_loading_service().poll_prepared_assets(request + 1);
+  check(!mismatched && mismatched.error() == engine::error::invalid_handle);
+  check(app->scene_loading_service().discard_prepared_assets(request + 1) ==
+        engine::error::invalid_handle);
   gneiss::runtime::asset_load_completion completion;
   bool ready{};
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -240,7 +246,16 @@ void run(gneiss::engine::execution_mode mode) {
   completion = {}; // 所有租约必须先于 Application 销毁。
   check(app->request_assets(uris, 2U, 2U, request, true) == gneiss::engine::error::success);
   check(app->cancel_assets() == gneiss::engine::error::success);
-  // app 析构完成取消与作用域回收；注入的宿主池仍然有效。
+  check(app->scene_loading_service().discard_prepared_assets(request).ok());
+  const auto discarded = request;
+  check(app->request_assets(uris, 2U, 9U, request, true).ok());
+  check(request != discarded);
+  check(app->scene_loading_service().discard_prepared_assets(discarded) ==
+        engine::error::invalid_handle);
+  check(app->cancel_assets(discarded) == engine::error::not_ready);
+  wait();
+  check(completion.request == request && completion.result.ok());
+  // app 析构完成作用域回收；注入的宿主池仍然有效。
 }
 }
 int main() try {

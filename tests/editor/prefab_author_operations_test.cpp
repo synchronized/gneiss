@@ -192,23 +192,26 @@ int main() try {
   author_scene editing;
   check(editing.open(directory, "asset://scenes/main.scene.json"));
   ed::scene_document_snapshot before, after;
-  check(ed::capture_scene_document(*editing.application, editing.document, before).ok());
-  // 缺少来源网格时仅返回依赖清单；默认快照准备仍拒绝，现有场景不变。
+  {
+    auto captured = ed::capture_scene_document(*editing.application, editing.document);
+    check(bool(captured));
+    before = std::move(*captured);
+  }
+  // 缺少来源网格时仅返回依赖清单；调用方补齐后才能采用，现有场景不变。
   auto needs_assets = before;
   auto mesh_source = std::make_shared<e::prefab_description>(source);
   mesh_source->objects[0].components.set(e::mesh_renderer_description{
       "asset://meshes/missing.gneiss-mesh", "asset://materials/missing.material.json"});
   needs_assets.description.prefabs.at(first.prefab->uri).resource =
       e::prefab_asset_ref{mesh_source};
-  ed::scene_document_snapshot missing_snapshot;
-  check(ed::prepare_scene_document(needs_assets, *restore_all, missing_snapshot) ==
-        e::error::not_ready);
-  std::vector<e::render_resource_source> missing_assets;
-  check(ed::prepare_scene_document(needs_assets, *restore_all, missing_snapshot, &missing_assets)
-            .ok());
-  check(missing_assets.size() == 2 && missing_snapshot.assets.empty());
+  auto unresolved = ed::prepare_scene_document(needs_assets, *restore_all);
+  check(unresolved && unresolved->missing.size() == 2 && unresolved->snapshot.assets.empty());
   check(bool(editing.document.find_prefab_root(first.uuid)));
-  check(ed::prepare_scene_document(before, changes, after).ok());
+  {
+    auto prepared = ed::prepare_scene_document(before, changes);
+    check(prepared && prepared->missing.empty());
+    after = std::move(prepared->snapshot);
+  }
   ed::editor_command_history history;
   check(history
             .execute({.label = "解包",
@@ -244,8 +247,16 @@ int main() try {
   // 整个实例恢复复用场景快照，撤销保留覆盖，重做及保存恢复来源组件。
   write(directory / "scenes/main.scene.json", scene_json);
   check(editing.open(directory, "asset://scenes/main.scene.json"));
-  check(ed::capture_scene_document(*editing.application, editing.document, before).ok());
-  check(ed::prepare_scene_document(before, *restore_all, after).ok());
+  {
+    auto captured = ed::capture_scene_document(*editing.application, editing.document);
+    check(bool(captured));
+    before = std::move(*captured);
+  }
+  {
+    auto prepared = ed::prepare_scene_document(before, *restore_all);
+    check(prepared && prepared->missing.empty());
+    after = std::move(prepared->snapshot);
+  }
   check(history
             .execute({.label = "恢复实例覆盖",
                       .undo =

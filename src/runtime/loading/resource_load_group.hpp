@@ -151,8 +151,20 @@ public:
     completion_.reset();
     return true;
   }
+  bool owns(std::uint64_t request) const noexcept {
+    return request != 0 && completion_ && completion_->request == request;
+  }
+  bool discard(std::uint64_t request) noexcept {
+    if (!owns(request))
+      return false;
+    current_.cancel();
+    completion_.reset();
+    return true;
+  }
   bool busy() const noexcept { return completion_.has_value(); }
-  bool cancel() {
+  bool cancel(std::uint64_t request = 0) {
+    if (request && !owns(request))
+      return false;
     if (!completion_ || completion_->state != runtime::asset_load_state::preparing)
       return false;
     current_.cancel();

@@ -4,6 +4,7 @@
 #include "commands/prefab_authoring.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/resource/scene/prefab_codec.hpp"
+#include "runtime/loading/scene_service.hpp"
 #include <cstdio>
 #include <fstream>
 #include <source_location>
@@ -93,6 +94,9 @@ void run(scenario mode) {
   if (mode == scenario::closed || mode == scenario::switched)
     editing.document.close();
   if (mode == scenario::switched) {
+    // 关闭文档后推进操作释放自身槽位，再启动新场景加载。
+    check(operation.advance(*editing.application, editing.document, history) ==
+          e::error::invalid_state);
     gneiss::scene_instance_id replacement;
     check(load_scene(*editing.application, "asset://scene.json", &replacement).ok());
     check(editing.document
@@ -140,6 +144,22 @@ void run(scenario mode) {
     }
   }
   check(history.clear().ok());
+  // 取消、失败和成功都必须释放槽位；析构未完成操作也不残留请求。
+  if (mode == scenario::cancelled) {
+    {
+      ed::scene_document_edit abandoned;
+      check(abandoned.begin(*editing.application, editing.document, *changes, "放弃恢复").ok());
+    }
+    ed::scene_document_edit retry;
+    check(retry.begin(*editing.application, editing.document, *changes, "重试恢复").ok());
+    retry.cancel();
+  }
+  const e::render_resource_source source_asset{"asset://material.json",
+                                               e::render_resource_kind::material};
+  auto retry =
+      editing.application->scene_loading_service().prepare_assets({&source_asset, 1}, 7, true);
+  check(retry && retry->request != 0);
+  check(editing.application->scene_loading_service().discard_prepared_assets(retry->request).ok());
   editing.document.close();
 }
 int main() try {

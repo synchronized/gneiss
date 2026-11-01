@@ -117,8 +117,9 @@ void run(gneiss::engine::execution_mode mode) {
     check(std::chrono::steady_clock::now() < visual_deadline);
     tick();
   }
-  editor::scene_document_snapshot before;
-  check(editor::capture_scene_document(*app, session, before).ok());
+  auto captured = editor::capture_scene_document(*app, session);
+  check(bool(captured));
+  auto before = std::move(*captured);
   auto changed_description = before.description.description;
   const auto original_name = changed_description.objects.front().name;
   changed_description.objects.front().name = "Snapshot edit";
@@ -134,8 +135,9 @@ void run(gneiss::engine::execution_mode mode) {
   check(encode().ok());
   const editor::author_document_change change{
       .path = "scenes/prefab.scene.json", .baseline = {}, .replacement = replacement};
-  editor::scene_document_snapshot after;
-  check(editor::prepare_scene_document(before, std::span(&change, 1), after).ok());
+  auto prepared = editor::prepare_scene_document(before, std::span(&change, 1));
+  check(prepared && prepared->missing.empty());
+  auto after = std::move(prepared->snapshot);
   check(editor::restore_scene_document(*app, session, after).ok());
   check(app->native_world() == world &&
         gneiss::test_support::scene_query(session).nodes.front().display_name == "Snapshot edit" &&
@@ -143,15 +145,15 @@ void run(gneiss::engine::execution_mode mode) {
   check(editor::restore_scene_document(*app, session, before).ok());
   check(gneiss::test_support::scene_query(session).nodes.front().display_name == original_name &&
         gneiss::test_support::scene_query(session).prefab_nodes.size() == 2U);
-  // 引入未准备依赖时失败，保留输出与当前实例，不触发加载。
+  // 引入未准备依赖时返回清单，保留原快照与当前实例，不触发加载。
   changed_description.objects.front().components.set(engine::mesh_renderer_description{
       .mesh_uri = "asset://missing.mesh.json", .material_uri = "asset://missing.material.json"});
   check(encode().ok());
   const editor::author_document_change missing{
       .path = "scenes/prefab.scene.json", .baseline = {}, .replacement = replacement};
   const auto stable_scene = session.scene_handle();
-  check(editor::prepare_scene_document(before, std::span(&missing, 1), after) ==
-        engine::error::not_ready);
+  auto unresolved = editor::prepare_scene_document(before, std::span(&missing, 1));
+  check(unresolved && unresolved->missing.size() == 2);
   check(session.scene_handle() == stable_scene &&
         after.description.description.objects.front().name == "Snapshot edit");
   // 无效场景的原生查询拒绝，不影响活动场景。
