@@ -14,6 +14,7 @@
 #include <windows.h>
 #endif
 #include <stdexcept>
+#include <string_view>
 #include <thread>
 namespace {
 void check(bool value, const char* message) {
@@ -234,6 +235,12 @@ void run(const char* assets, bool cooperative) {
 }
 int main(int argc, char** argv) {
   try {
+#ifdef GNEISS_TEST_NATIVE_WINDOW
+    if (argc == 3 && std::string_view{argv[2]} == "--native-window") {
+      close_pending_window(argv[1]);
+      return 0;
+    }
+#endif
     if (argc != 2)
       return 2;
     const auto* root = argv[1];
@@ -241,9 +248,6 @@ int main(int argc, char** argv) {
     run(root, false);
 #endif
     run(root, true);
-#ifdef GNEISS_TEST_NATIVE_WINDOW
-    close_pending_window(argv[1]);
-#endif
     return 0;
   } catch (const std::exception& error) {
     std::fprintf(stderr, "%s\n", error.what());

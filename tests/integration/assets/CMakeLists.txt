@@ -15,6 +15,10 @@ set_tests_properties(gneiss.assets.application PROPERTIES TIMEOUT 30)
 if(WIN32 AND GNEISS_TASK_THREADS)
   target_compile_definitions(gneiss_asset_application_test PRIVATE GNEISS_TEST_NATIVE_WINDOW)
   target_link_libraries(gneiss_asset_application_test PRIVATE user32)
+  # 原生窗口关闭需要真实图形设备，与 CPU 加载契约独立验收。
+  add_test(NAME gneiss.assets.application-native-window
+    COMMAND gneiss_asset_application_test "${input_test_root}" --native-window)
+  set_tests_properties(gneiss.assets.application-native-window PROPERTIES TIMEOUT 30 LABELS gpu)
 endif()
 
 target_compile_definitions(gneiss_asset_application_test PRIVATE
