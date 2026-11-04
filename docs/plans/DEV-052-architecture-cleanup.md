@@ -135,3 +135,17 @@ GUID nil 的 JSON 表达调整已完成，见[验收记录](../records/2026-11-0
 
 Windows Clang Debug 全目标构建及 26 项相关测试通过，见
 [验收记录](../records/2026-11-04-inline-polymorphic-references.md)。本批完成不表示整个 0.52 版本完成。
+
+### 组件数组 DOM 入口收敛
+
+已将 Scene 与 IPC 的组件数组读写统一到 description_codec 的内部适配入口。
+Meta 负责临时 vector<component_description> 的数组及多态内容，业务层校验非空和类型唯一后
+生成 component_descriptions。IPC 不再经过 JSON 字节中转；普通组件不再拆解重建类型信封。
+Prefab 组件覆盖仍含业务定位字段，保留提取信封的适配。
+
+object_description 全字段反射仍未完成：components 需要校验后整项替换的访问接口，
+prefab 需要明确可空引用及覆盖指令适配。目前不开放内部 vector 的可写访问，也不重新引入
+optional 反射。后续先评估受约束集合的读写绑定，再迁移这两个字段；普通基础字段保持现有反射。
+
+本批仅完成共享入口及字段约束核查，验收见
+[记录](../records/2026-11-04-component-dom-codec.md)。

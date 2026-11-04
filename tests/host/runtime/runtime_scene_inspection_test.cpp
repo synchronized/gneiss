@@ -241,6 +241,15 @@ bool test_registered_component_inspection() {
   invalid.assign(json.begin(), json.end());
   if (gneiss::host::decode_ipc_inspection_batch(invalid, decoded).ok())
     return false;
+  // 组件数组包含空引用时也必须失败，不能发布先前已解码的部分列表。
+  std::string null_json(bytes.begin(), bytes.end());
+  const auto components_position = null_json.find("\"components\":[");
+  if (components_position == std::string::npos)
+    return false;
+  null_json.insert(components_position + 14, "null,");
+  invalid.assign(null_json.begin(), null_json.end());
+  if (gneiss::host::decode_ipc_inspection_batch(invalid, decoded).ok())
+    return false;
   const auto& received = decoded.changes.front().node.components;
   if (!received.get<movement_description>() || received.get<movement_description>()->speed != 3 ||
       !received.get<e::mesh_renderer_description>() ||

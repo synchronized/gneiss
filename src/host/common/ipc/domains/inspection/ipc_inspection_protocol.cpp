@@ -3,6 +3,7 @@
 
 #include "ipc_inspection_protocol.hpp"
 #include "engine/core/error.hpp"
+#include "engine/resource/scene/detail/description_codec.hpp"
 
 #include <yyjson.h>
 
@@ -104,52 +105,17 @@ bool parse_uuid(yyjson_val* value, bool optional, gneiss::engine::guid& output) 
   return true;
 }
 
-// IPC 仅包装组件身份，字段编解码由已有反射序列化负责。
+// Scene 和 IPC 共用组件数组反射编解码与业务校验。
 bool add_components(yyjson_mut_doc* doc, yyjson_mut_val* node,
                     const gneiss::engine::component_descriptions& components) {
-  auto* array = yyjson_mut_arr(doc);
-  if (!array)
-    return false;
-  for (const auto& component : components) {
-    auto bytes = gneiss::engine::meta::serialize(component);
-    if (!bytes)
-      return false;
-    document_ptr parsed(yyjson_read(reinterpret_cast<const char*>(bytes->data()), bytes->size(), 0),
-                        &yyjson_doc_free);
-    if (!parsed || !yyjson_is_obj(yyjson_doc_get_root(parsed.get())))
-      return false;
-    auto* entry = yyjson_val_mut_copy(doc, yyjson_doc_get_root(parsed.get()));
-    if (!entry || !yyjson_mut_arr_add_val(array, entry))
-      return false;
-  }
-  return yyjson_mut_obj_add_val(doc, node, "components", array);
+  auto array = gneiss::engine::detail::write_components(doc, components);
+  return array && yyjson_mut_obj_add_val(doc, node, "components", *array);
 }
 bool parse_components(yyjson_val* node, gneiss::engine::component_descriptions& output) {
-  auto* array = yyjson_obj_get(node, "components");
-  if (!yyjson_is_arr(array))
+  auto decoded = gneiss::engine::detail::read_components(yyjson_obj_get(node, "components"));
+  if (!decoded)
     return false;
-  gneiss::engine::component_descriptions result;
-  for (std::size_t i = 0; i < yyjson_arr_size(array); ++i) {
-    auto* entry = yyjson_arr_get(array, i);
-    if (!yyjson_is_obj(entry))
-      return false;
-    gneiss::engine::guid type;
-    auto* content = yyjson_obj_get(entry, "$content");
-    if (!parse_uuid(yyjson_obj_get(entry, "$type_guid"), false, type) || !yyjson_is_obj(content) ||
-        result.find(type))
-      return false;
-    std::size_t length{};
-    std::unique_ptr<char, decltype(&std::free)> text(yyjson_val_write(entry, 0, &length),
-                                                     &std::free);
-    if (!text)
-      return false;
-    auto decoded = gneiss::engine::meta::deserialize<gneiss::engine::component_description>(
-        std::as_bytes(std::span{text.get(), length}));
-    if (!decoded)
-      return false;
-    result.set(std::move(*decoded));
-  }
-  output = std::move(result);
+  output = std::move(*decoded);
   return true;
 }
 

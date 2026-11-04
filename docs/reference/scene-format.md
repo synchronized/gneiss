@@ -158,6 +158,8 @@ World 保持不变。旧顶层 `prefab_instances` 也被明确拒绝，不作为
 
 `object_description::components` 使用 `component_descriptions`，内部保存 `ref<const component_description_base>`。具体描述继承基类并注册 Meta 继承关系，
 通用引用序列化负责 `$type_guid` / `$content`，列表负责每种组件至多一项。
+Scene 与 IPC 共用组件数组 DOM 适配，先反射解码临时数组，再检查非空和类型唯一；失败不发布部分列表。
+多态信封仅允许 `$type_guid` 和 `$content`，类型 GUID 使用规范小写形式。
 `get<T>()` 借用只读指针，错误类型返回 nullptr；`set(T)` 替换对应类型，`erase<T>()` 删除，
 `update<T>(callback)` 在副本上修改后替换。借用指针不得跨对应条目替换或列表销毁。
 复制列表共享不可变内容；修改副本不改变模板、其他实例或编辑器撤销快照。

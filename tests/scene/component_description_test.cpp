@@ -115,6 +115,16 @@ int main() try {
       bytes(scene("[" + entry(custom_description::type_guid, R"({"enabled":null})") + "]")));
   if (invalid || invalid.error().path != "/objects/0/components/0/$content/enabled")
     return 7;
+  auto null_component = e::decode_scene(bytes(scene("[null]")));
+  if (null_component || null_component.error().path != "/objects/0/components/0")
+    return 33;
+  auto null_after_valid = e::decode_scene(bytes(scene("[" + custom + ",null]")));
+  if (null_after_valid || null_after_valid.error().path != "/objects/0/components/1")
+    return 34;
+  auto extra_envelope = custom;
+  extra_envelope.insert(1, "\"extra\":true,");
+  if (e::decode_scene(bytes(scene("[" + extra_envelope + "]"))))
+    return 35;
   if (e::decode_scene(bytes(scene("{}"))))
     return 8;
   auto owner = e::create_native();

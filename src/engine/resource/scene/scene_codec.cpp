@@ -184,40 +184,13 @@ read_component(gneiss::engine::guid type, yyjson_val* content) {
 [[nodiscard]] bool parse_components(yyjson_val* value, std::string_view path,
                                     gneiss::engine::object_description& output,
                                     scene_diagnostic& diagnostic) {
-  using namespace gneiss::engine;
-  if (!yyjson_is_arr(value)) {
-    fail(diagnostic, error::invalid_argument, path, "components 必须是数组");
+  auto decoded = gneiss::engine::detail::read_components(value);
+  if (!decoded) {
+    fail(diagnostic, decoded.error().error, std::string(path) + decoded.error().path,
+         decoded.error().message);
     return false;
   }
-  std::size_t index, count;
-  yyjson_val* entry;
-  yyjson_arr_foreach(value, index, count, entry) {
-    const auto location = std::string(path) + "/" + std::to_string(index);
-    auto* type = yyjson_obj_get(entry, "$type_guid");
-    auto* content = yyjson_obj_get(entry, "$content");
-    auto id = yyjson_is_str(type) ? guid::parse(json_string(type)) : std::nullopt;
-    if (!yyjson_is_obj(entry) || !id || !*id || !is_canonical_uuid(json_string(type))) {
-      fail(diagnostic, error::invalid_argument, location + "/$type_guid",
-           "组件类型必须是规范 GUID");
-      return false;
-    }
-    if (output.components.find(*id)) {
-      fail(diagnostic, error::invalid_argument, location + "/$type_guid", "重复组件描述类型");
-      return false;
-    }
-    if (!yyjson_is_obj(content)) {
-      fail(diagnostic, error::invalid_argument, location + "/$content", "组件内容必须是对象");
-      return false;
-    }
-    auto decoded = read_component(*id, content);
-    if (!decoded) {
-      fail(diagnostic, decoded.error().error, location + decoded.error().path,
-           decoded.error().message.empty() ? "组件类型未注册或内容无法解码"
-                                           : decoded.error().message);
-      return false;
-    }
-    output.components.set(std::move(*decoded));
-  }
+  output.components = std::move(*decoded);
   return true;
 }
 
@@ -445,27 +418,6 @@ read_component(gneiss::engine::guid type, yyjson_val* content) {
 }
 
 [[nodiscard]] gneiss::engine::result<yyjson_mut_val*>
-make_components(yyjson_mut_doc* document, const gneiss::engine::component_descriptions& values) {
-  auto* array = yyjson_mut_arr(document);
-  if (!array)
-    return gneiss::engine::error::out_of_memory;
-  for (const auto& value : values) {
-    auto registry = gneiss::engine::meta::default_registry();
-    if (!registry)
-      return registry.error();
-    auto view = gneiss::engine::meta::instance::from(*registry, value);
-    if (!view)
-      return view.error();
-    auto entry = gneiss::engine::meta::detail::write_instance(document, *registry, *view);
-    if (!entry)
-      return entry.error().error;
-    if (!yyjson_mut_arr_add_val(array, *entry))
-      return gneiss::engine::error::out_of_memory;
-  }
-  return array;
-}
-
-[[nodiscard]] gneiss::engine::result<yyjson_mut_val*>
 make_component_overrides(yyjson_mut_doc* document,
                          const gneiss::engine::prefab_reference_description& reference) {
   using namespace gneiss::engine;
@@ -485,9 +437,9 @@ make_component_overrides(yyjson_mut_doc* document,
     if (value.added) {
       if (!*value.added || (*value.added)->guid() != value.type_guid)
         return error::invalid_argument;
-      auto encoded = make_components(document, {*value.added});
+      auto encoded = detail::write_components(document, {*value.added});
       if (!encoded)
-        return encoded.error();
+        return encoded.error().error;
       entry = yyjson_mut_arr_remove_first(*encoded);
     } else {
       entry = yyjson_mut_obj(document);
@@ -610,9 +562,9 @@ encode_object(const object_description& source) {
         !put_value(doc.get(), root, "prefab", reference))
       return meta::serialization_diagnostic{.error = error::out_of_memory};
   } else {
-    auto components = make_components(doc.get(), source.components);
+    auto components = gneiss::engine::detail::write_components(doc.get(), source.components);
     if (!components)
-      return meta::serialization_diagnostic{.error = components.error()};
+      return std::move(components).error();
     if (!put_value(doc.get(), root, "components", *components))
       return meta::serialization_diagnostic{.error = error::out_of_memory};
   }
@@ -935,5 +887,51 @@ error register_component_descriptions() noexcept {
       .serialization()
       .validate<&check_mesh_renderer>()
       .commit();
+}
+}
+
+namespace gneiss::engine::detail {
+result<component_descriptions, meta::serialization_diagnostic>
+read_components(yyjson_val* input) noexcept try {
+  auto registry = meta::default_registry();
+  if (!registry)
+    return meta::serialization_diagnostic{.error = registry.error()};
+  std::vector<component_description> decoded;
+  auto view = meta::mutable_instance::from(*registry, decoded);
+  if (!view)
+    return meta::serialization_diagnostic{.error = view.error()};
+  auto status = meta::detail::read_instance(input, *registry, *view);
+  if (status.error.failed())
+    return status;
+  component_descriptions result;
+  for (std::size_t i = 0; i < decoded.size(); ++i) {
+    auto& component = decoded[i];
+    if (!component || result.find(component->guid()))
+      return meta::serialization_diagnostic{
+          .path = "/" + std::to_string(i) + (component ? "/$type_guid" : ""),
+          .message = component ? "重复组件描述类型" : "组件描述不能为空",
+          .error = error::invalid_argument};
+    result.set(std::move(component));
+  }
+  return result;
+} catch (const std::bad_alloc&) {
+  return meta::serialization_diagnostic{.error = error::out_of_memory};
+} catch (...) {
+  return meta::serialization_diagnostic{.error = error::internal};
+}
+result<yyjson_mut_val*, meta::serialization_diagnostic>
+write_components(yyjson_mut_doc* document, const component_descriptions& components) noexcept try {
+  auto registry = meta::default_registry();
+  if (!registry)
+    return meta::serialization_diagnostic{.error = registry.error()};
+  const std::vector<component_description> values(components.begin(), components.end());
+  auto view = meta::instance::from(*registry, values);
+  if (!view)
+    return meta::serialization_diagnostic{.error = view.error()};
+  return meta::detail::write_instance(document, *registry, *view);
+} catch (const std::bad_alloc&) {
+  return meta::serialization_diagnostic{.error = error::out_of_memory};
+} catch (...) {
+  return meta::serialization_diagnostic{.error = error::internal};
 }
 }

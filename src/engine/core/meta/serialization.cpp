@@ -562,7 +562,8 @@ serialization_diagnostic decode_view(serialization_context& ctx, const registry_
           !yyjson_is_obj(content))
         return failure(error::invalid_argument, "", "多态引用需要类型和内容");
       auto guid = engine::guid::parse({yyjson_get_str(tag), yyjson_get_len(tag)});
-      if (!guid || !*guid)
+      if (!guid || !*guid ||
+          guid->string() != std::string_view{yyjson_get_str(tag), yyjson_get_len(tag)})
         return failure(error::invalid_argument, "/$type_guid");
       auto type = describe_type(registry, *guid);
       if (!type)
