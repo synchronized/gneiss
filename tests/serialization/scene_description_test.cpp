@@ -365,14 +365,17 @@ int main() try {
     return 4;
   }
 
-  constexpr std::array<std::string_view, 8> other_values{
+  constexpr std::array<std::string_view, 11> other_values{
       R"("kind":"bool","value":true)",
       R"("kind":"int64","value":-5)",
       R"("kind":"uint64","value":5)",
       R"("kind":"float32","value":1.25)",
       R"("kind":"float64","value":2.5)",
       R"("kind":"string","value":"text")",
-      R"("kind":"type_id","value":"69644f20b2d24e488c7491f4f952ec2d")",
+      R"("kind":"guid","value":"69644f20-b2d2-4e48-8c74-91f4f952ec2d")",
+      R"("kind":"guid","value":null)",
+      R"("kind":"vec2","value":[1,2])",
+      R"("kind":"vec4","value":[1,2,3,4])",
       R"("kind":"quaternion","value":[0.1,0.2,0.3,0.9])",
   };
   for (const auto value : other_values) {

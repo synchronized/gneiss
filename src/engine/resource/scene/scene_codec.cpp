@@ -3,6 +3,7 @@
 
 #include "engine/resource/scene/scene_codec.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/detail/json_value_codec.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/resource/scene/detail/description_codec.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
@@ -248,81 +249,11 @@ yyjson_mut_val* make_uuid(yyjson_mut_doc* doc, gneiss::engine::guid value) {
   return true;
 }
 
-template <class T>
-[[nodiscard]] bool parse_override_float_array(yyjson_val* value, T& output) noexcept {
-  auto components = gneiss::engine::math::components(output);
-  const auto size = components.size();
-  if (!yyjson_is_arr(value) || yyjson_arr_size(value) != size) {
-    return false;
-  }
-  for (std::size_t index = 0U; index < size; ++index) {
-    auto* item = yyjson_arr_get(value, index);
-    const auto number = yyjson_get_num(item);
-    if (!yyjson_is_num(item) || !std::isfinite(number) ||
-        std::abs(number) > std::numeric_limits<float>::max()) {
-      return false;
-    }
-    components[index] = static_cast<float>(number);
-  }
-  return true;
-}
-
 [[nodiscard]] bool parse_override_value(yyjson_val* object, gneiss::engine::value& output) {
-  if (!yyjson_is_obj(object)) {
+  auto decoded = gneiss::engine::meta::detail::read_tagged_value(object);
+  if (!decoded)
     return false;
-  }
-  auto* kind_value = yyjson_obj_get(object, "kind");
-  auto* value = yyjson_obj_get(object, "value");
-  if (!yyjson_is_str(kind_value)) {
-    return false;
-  }
-  const auto kind = json_string(kind_value);
-  gneiss::engine::value parsed;
-  if (kind == "bool" && yyjson_is_bool(value)) {
-    parsed.payload = yyjson_get_bool(value);
-  } else if (kind == "int64" && yyjson_is_sint(value)) {
-    parsed.payload = yyjson_get_sint(value);
-  } else if (kind == "uint64" && yyjson_is_uint(value)) {
-    parsed.payload = yyjson_get_uint(value);
-  } else if (kind == "float32" && yyjson_is_num(value) && std::isfinite(yyjson_get_num(value)) &&
-             std::abs(yyjson_get_num(value)) <= std::numeric_limits<float>::max()) {
-    parsed.payload = static_cast<float>(yyjson_get_num(value));
-  } else if (kind == "float64" && yyjson_is_num(value) && std::isfinite(yyjson_get_num(value))) {
-    parsed.payload = yyjson_get_num(value);
-  } else if (kind == "string" && yyjson_is_str(value)) {
-    parsed.payload = std::string(json_string(value));
-  } else if (kind == "type_id") {
-    gneiss::engine::guid id{};
-    if (!parse_type_id(value, id)) {
-      return false;
-    }
-    parsed.payload = id;
-  } else if (kind == "vec2") {
-    gneiss::engine::math::vector2 numbers{};
-    if (!parse_override_float_array(value, numbers))
-      return false;
-    parsed.payload = numbers;
-  } else if (kind == "vec4") {
-    gneiss::engine::math::vector4 numbers{};
-    if (!parse_override_float_array(value, numbers))
-      return false;
-    parsed.payload = numbers;
-  } else if (kind == "vec3") {
-    gneiss::engine::math::vector3 numbers{};
-    if (!parse_override_float_array(value, numbers)) {
-      return false;
-    }
-    parsed.payload = numbers;
-  } else if (kind == "quaternion") {
-    gneiss::engine::math::quaternion numbers{};
-    if (!parse_override_float_array(value, numbers)) {
-      return false;
-    }
-    parsed.payload = numbers;
-  } else {
-    return false;
-  }
-  output = std::move(parsed);
+  output = std::move(*decoded);
   return true;
 }
 
@@ -521,22 +452,6 @@ template <class T>
   return true;
 }
 
-template <class Values>
-[[nodiscard]] yyjson_mut_val* make_float_array(yyjson_mut_doc* document,
-                                               const Values& source_values) {
-  const auto values = gneiss::engine::math::components(source_values);
-  yyjson_mut_val* array = yyjson_mut_arr(document);
-  if (array == nullptr) {
-    return nullptr;
-  }
-  for (const float value : values) {
-    if (!yyjson_mut_arr_add_real(document, array, value)) {
-      return nullptr;
-    }
-  }
-  return array;
-}
-
 [[nodiscard]] bool put_value(yyjson_mut_doc* document, yyjson_mut_val* object, const char* name,
                              yyjson_mut_val* value) {
   return object != nullptr && value != nullptr &&
@@ -607,29 +522,6 @@ make_component_overrides(yyjson_mut_doc* document,
 }
 
 // 从当前描述生成已注册字段。
-gneiss::engine::error write_object_fields(yyjson_mut_doc* doc, yyjson_mut_val* target,
-                                          const gneiss::engine::object_description& source) {
-  using namespace gneiss::engine;
-  auto encoded = meta::serialize_reflected(source);
-  if (!encoded)
-    return encoded.error().error;
-  std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> parsed(
-      yyjson_read(reinterpret_cast<const char*>(encoded->data()), encoded->size(), 0),
-      &yyjson_doc_free);
-  if (!parsed)
-    return error::out_of_memory;
-  auto it = yyjson_obj_iter_with(yyjson_doc_get_root(parsed.get()));
-  while (auto* key = yyjson_obj_iter_next(&it)) {
-    auto* value = yyjson_obj_iter_get_val(key);
-    const auto* name = yyjson_get_str(key);
-    if (!put_value(doc, target, name, yyjson_val_mut_copy(doc, value)))
-      return error::out_of_memory;
-  }
-  if (source.name.empty())
-    (void)yyjson_mut_obj_remove_key(target, "name");
-  return error::success;
-}
-
 [[nodiscard]] std::string type_id_text(gneiss::engine::guid id) {
   std::string text(32U, '0');
   for (std::size_t index = 0U; index < 16U; ++index) {
@@ -641,56 +533,8 @@ gneiss::engine::error write_object_fields(yyjson_mut_doc* doc, yyjson_mut_val* t
 
 [[nodiscard]] yyjson_mut_val* make_override_value(yyjson_mut_doc* document,
                                                   const gneiss::engine::value& source) {
-  auto* object = yyjson_mut_obj(document);
-  if (object == nullptr) {
-    return nullptr;
-  }
-  const auto added = std::visit(
-      [&](const auto& payload) {
-        using value_type = std::decay_t<decltype(payload)>;
-        if constexpr (std::is_same_v<value_type, std::monostate>) {
-          return false;
-        } else if constexpr (std::is_same_v<value_type, bool>) {
-          return yyjson_mut_obj_add_str(document, object, "kind", "bool") &&
-                 yyjson_mut_obj_add_bool(document, object, "value", payload);
-        } else if constexpr (std::is_same_v<value_type, std::int64_t>) {
-          return yyjson_mut_obj_add_str(document, object, "kind", "int64") &&
-                 yyjson_mut_obj_add_sint(document, object, "value", payload);
-        } else if constexpr (std::is_same_v<value_type, std::uint64_t>) {
-          return yyjson_mut_obj_add_str(document, object, "kind", "uint64") &&
-                 yyjson_mut_obj_add_uint(document, object, "value", payload);
-        } else if constexpr (std::is_same_v<value_type, float>) {
-          return yyjson_mut_obj_add_str(document, object, "kind", "float32") &&
-                 yyjson_mut_obj_add_real(document, object, "value", payload);
-        } else if constexpr (std::is_same_v<value_type, double>) {
-          return yyjson_mut_obj_add_str(document, object, "kind", "float64") &&
-                 yyjson_mut_obj_add_real(document, object, "value", payload);
-        } else if constexpr (std::is_same_v<value_type, std::string>) {
-          return yyjson_mut_obj_add_str(document, object, "kind", "string") &&
-                 yyjson_mut_obj_add_strncpy(document, object, "value", payload.data(),
-                                            payload.size());
-        } else if constexpr (std::is_same_v<value_type, gneiss::engine::guid>) {
-          const auto& id = payload;
-          const auto text = type_id_text(id);
-          return yyjson_mut_obj_add_str(document, object, "kind", "type_id") &&
-                 yyjson_mut_obj_add_strncpy(document, object, "value", text.data(), text.size());
-        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector2>) {
-          return yyjson_mut_obj_add_str(document, object, "kind", "vec2") &&
-                 put_value(document, object, "value", make_float_array(document, payload));
-        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector4>) {
-          return yyjson_mut_obj_add_str(document, object, "kind", "vec4") &&
-                 put_value(document, object, "value", make_float_array(document, payload));
-        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector3>) {
-          return yyjson_mut_obj_add_str(document, object, "kind", "vec3") &&
-                 put_value(document, object, "value", make_float_array(document, payload));
-        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::quaternion>) {
-          return yyjson_mut_obj_add_str(document, object, "kind", "quaternion") &&
-                 put_value(document, object, "value", make_float_array(document, payload));
-        } else
-          return false;
-      },
-      source.payload);
-  return added ? object : nullptr;
+  auto encoded = gneiss::engine::meta::detail::write_tagged_value(document, source);
+  return encoded ? *encoded : nullptr;
 }
 
 [[nodiscard]] yyjson_mut_val*
@@ -965,25 +809,7 @@ detail::serialize_object_document(guid uuid, std::optional<guid> root_uuid,
         if (const auto* property = std::get_if<meta::property_id>(&step);
             property && !property->is_valid())
           return error::invalid_argument;
-      const bool valid = std::visit(
-          [](const auto& item) {
-            using T = std::decay_t<decltype(item)>;
-            if constexpr (std::is_same_v<T, std::monostate>)
-              return false;
-            else if constexpr (std::is_same_v<T, guid>)
-              return !item.is_nil();
-            else if constexpr (std::is_floating_point_v<T>)
-              return std::isfinite(item);
-            else if constexpr (std::is_same_v<T, math::vector2> ||
-                               std::is_same_v<T, math::vector4> ||
-                               std::is_same_v<T, math::vector3> ||
-                               std::is_same_v<T, math::quaternion>)
-              return std::ranges::all_of(math::components(item),
-                                         [](float value) { return std::isfinite(value); });
-            else
-              return true;
-          },
-          entry.value.payload);
+      const bool valid = meta::valid_scalar(entry.value);
       if (!valid)
         return error::invalid_argument;
     }
@@ -1011,39 +837,17 @@ detail::serialize_object_document(guid uuid, std::optional<guid> root_uuid,
   if (!put_value(mutable_document.get(), root, "objects", objects))
     return error::out_of_memory;
   for (const auto& source : object_list) {
-    auto* object = yyjson_mut_obj(mutable_document.get());
+    auto encoded = encode_object(source);
+    if (!encoded)
+      return encoded.error().error;
+    std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> parsed(
+        yyjson_read(reinterpret_cast<const char*>(encoded->data()), encoded->size(), 0),
+        &yyjson_doc_free);
+    if (!parsed)
+      return error::out_of_memory;
+    auto* object = yyjson_val_mut_copy(mutable_document.get(), yyjson_doc_get_root(parsed.get()));
     if (!object || !yyjson_mut_arr_add_val(objects, object))
       return error::out_of_memory;
-    const auto status = write_object_fields(mutable_document.get(), object, source);
-    if (status.failed())
-      return status;
-    if (source.prefab) {
-      if (!source.components.empty())
-        return engine::error::invalid_argument;
-      auto changes = make_component_overrides(mutable_document.get(), *source.prefab);
-      if (!changes)
-        return changes.error();
-      auto* prefab = yyjson_mut_obj_get(object, "prefab");
-      if (!prefab)
-        prefab = yyjson_mut_obj(mutable_document.get());
-      if (!yyjson_mut_is_obj(prefab) ||
-          !put_value(mutable_document.get(), prefab, "uri",
-                     yyjson_mut_strncpy(mutable_document.get(), source.prefab->uri.data(),
-                                        source.prefab->uri.size())) ||
-          !put_value(mutable_document.get(), prefab, "overrides",
-                     make_prefab_overrides(mutable_document.get(), source.prefab->overrides)) ||
-          !put_value(mutable_document.get(), prefab, "component_overrides", *changes) ||
-          !put_value(mutable_document.get(), object, "prefab", prefab))
-        return engine::error::out_of_memory;
-      (void)yyjson_mut_obj_remove_key(object, "components");
-      continue;
-    }
-    (void)yyjson_mut_obj_remove_key(object, "prefab");
-    auto components = make_components(mutable_document.get(), source.components);
-    if (!components)
-      return components.error();
-    if (!put_value(mutable_document.get(), object, "components", *components))
-      return engine::error::out_of_memory;
   }
   std::size_t output_length = 0;
   using text_ptr = std::unique_ptr<char, decltype(&std::free)>;

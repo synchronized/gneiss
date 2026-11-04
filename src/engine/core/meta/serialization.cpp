@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/serialization.hpp"
+#include "engine/core/meta/detail/json_value_codec.hpp"
 #include "engine/core/meta/detail/reference_view_access.hpp"
 #include "engine/core/meta/instance.hpp"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <limits>
@@ -831,6 +833,54 @@ deserialize_reflected_object(const registry_ref& registry, type_id id,
       return status;
   }
   return std::move(*decoded);
+} catch (const std::bad_alloc&) {
+  return failure(error::out_of_memory);
+} catch (...) {
+  return failure(error::internal);
+}
+}
+
+namespace gneiss::engine::meta::detail {
+namespace {
+constexpr std::array<std::string_view, 12> value_names{"",        "bool",       "int64",  "uint64",
+                                                       "float32", "float64",    "string", "guid",
+                                                       "vec3",    "quaternion", "vec4",   "vec2"};
+}
+result<value, serialization_diagnostic> read_tagged_value(yyjson_val* input) noexcept try {
+  if (!yyjson_is_obj(input) || yyjson_obj_size(input) != 2)
+    return failure(error::invalid_argument);
+  auto* tag = yyjson_obj_get(input, "kind");
+  auto* content = yyjson_obj_get(input, "value");
+  if (!yyjson_is_str(tag) || !content)
+    return failure(error::invalid_argument);
+  const std::string_view name{yyjson_get_str(tag), yyjson_get_len(tag)};
+  const auto found = std::ranges::find(value_names, name);
+  if (found == value_names.end() || found == value_names.begin())
+    return failure(error::unsupported);
+  auto decoded =
+      read_value(content, static_cast<value_kind>(found - value_names.begin()), "/value");
+  if (decoded && !valid_scalar(*decoded))
+    return failure(error::invalid_argument, "/value");
+  return decoded;
+} catch (const std::bad_alloc&) {
+  return failure(error::out_of_memory);
+} catch (...) {
+  return failure(error::internal);
+}
+result<yyjson_mut_val*, serialization_diagnostic> write_tagged_value(yyjson_mut_doc* doc,
+                                                                     const value& input) noexcept
+    try {
+  if (!doc || !valid_scalar(input))
+    return failure(error::invalid_argument);
+  auto content = write_value(doc, input, "/value");
+  if (!content)
+    return std::move(content).error();
+  auto* object = yyjson_mut_obj(doc);
+  const auto name = value_names[static_cast<std::size_t>(input.kind())];
+  if (!object || !yyjson_mut_obj_add_strncpy(doc, object, "kind", name.data(), name.size()) ||
+      !yyjson_mut_obj_add_val(doc, object, "value", *content))
+    return failure(error::out_of_memory);
+  return object;
 } catch (const std::bad_alloc&) {
   return failure(error::out_of_memory);
 } catch (...) {
