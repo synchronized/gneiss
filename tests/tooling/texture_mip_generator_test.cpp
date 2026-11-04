@@ -6,9 +6,9 @@
 #include <array>
 
 int main() {
-  using gneiss::asset_internal::texture_mip;
-  using gneiss::asset_internal::texture_transfer;
-  using gneiss::tooling::asset_build::generate_texture_mip;
+  using gneiss::engine::texture_mip;
+  using gneiss::engine::texture_transfer;
+  using gneiss::tooling::generate_texture_mip;
   texture_mip source{.width = 2U,
                      .height = 1U,
                      .pixels = {std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0},

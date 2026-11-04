@@ -4,28 +4,35 @@
 #ifndef GNEISS_RENDER_RENDER_SNAPSHOT_HPP_
 #define GNEISS_RENDER_RENDER_SNAPSHOT_HPP_
 
-#include "engine/function/render/camera_math.hpp"
+#include "engine/core/math/camera.hpp"
+#include "engine/resource/material/material_resource.hpp"
+#include "engine/resource/mesh/mesh_resource.hpp"
 #include <cstdint>
-#include <gneiss/engine/render.h>
-#include <gneiss/engine/scene.h>
+
 #include <vector>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine {
 
-/** Render 输入快照；只含值与 RID，不依赖 World、ECS 或场景节点状态。 */
+/** 由视口持有的相机输入；不引用 World 或场景实体。 */
+struct view_camera {
+  math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
+  math::transform transform{};
+};
+
+/** Render 输入快照；包含值与资源强引用，不依赖 World、ECS 或场景节点状态。 */
 struct render_camera_snapshot {
-  gneiss_camera camera;
-  gneiss_transform transform;
-  render_internal::matrix4 view;
-  render_internal::matrix4 projection;
+  math::camera_settings camera;
+  math::transform transform;
+  math::matrix4 view;
+  math::matrix4 projection;
   std::uint32_t viewport_width{};
   std::uint32_t viewport_height{};
 };
 
 struct render_instance_snapshot {
-  gneiss_mesh mesh;
-  gneiss_material material;
-  gneiss_transform transform;
+  engine::mesh mesh;
+  engine::material material;
+  math::transform transform;
 };
 
 struct render_snapshot {
@@ -34,6 +41,6 @@ struct render_snapshot {
   std::vector<render_instance_snapshot> instances;
 };
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine
 
 #endif

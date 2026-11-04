@@ -16,7 +16,7 @@
 #include <sstream>
 #include <string_view>
 
-namespace gneiss::tooling::asset_import {
+namespace gneiss::tooling {
 namespace {
 
 [[nodiscard]] bool is_within(const std::filesystem::path& root,
@@ -355,4 +355,4 @@ asset_index_report rebuild_asset_index(const std::filesystem::path& source_root,
   }
 }
 
-} // namespace gneiss::tooling::asset_import
+} // namespace gneiss::tooling

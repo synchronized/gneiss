@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_RUNTIME_SCENE_MIRROR_H_
 #define GNEISS_APPS_EDITOR_RUNTIME_SCENE_MIRROR_H_
 
+#include "engine/core/error.hpp"
 #include "runtime_scene_data.hpp"
 
 #include <cstdint>
@@ -16,7 +17,7 @@ namespace gneiss::editor {
 /** Editor 主线程拥有的 Runtime 只读场景镜像。 */
 class runtime_scene_mirror final {
 public:
-  [[nodiscard]] result apply(const runtime_scene_batch& batch) noexcept;
+  [[nodiscard]] gneiss::engine::error apply(const runtime_scene_batch& batch) noexcept;
   void invalidate() noexcept;
   void reset() noexcept;
 
@@ -25,7 +26,7 @@ public:
   [[nodiscard]] const std::vector<runtime_scene_node>& nodes() const noexcept { return nodes_; }
 
 private:
-  [[nodiscard]] result apply_complete(const runtime_scene_batch& batch) noexcept;
+  [[nodiscard]] gneiss::engine::error apply_complete(const runtime_scene_batch& batch) noexcept;
   void rebuild_nodes();
 
   runtime_scene_sequence_tracker sequence_;

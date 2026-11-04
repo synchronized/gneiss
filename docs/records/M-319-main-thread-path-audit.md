@@ -50,7 +50,7 @@ loop-progress、task-scheduler、loop_timing 与 main-loop-response 四项测试
 
 ## 48.52 ms 循环等待所覆盖的工作
 
-[loop_progress::wait](../../src/engine/core/loop_progress.hpp) 先获取通知 mutex，再调用
+[loop_progress::wait（现 main_loop_wakeup::wait）](../../src/runtime/main_loop_wakeup.hpp) 先获取通知 mutex，再调用
 带谓词的 condition_variable::wait_for。传入 4 ms 是该条件等待请求的期限，
 **不是整个函数的耗时上限**；初次取锁也在原 idle_wait 计时内。
 条件等待返回还包含重新取锁和线程获得执行机会的时间。

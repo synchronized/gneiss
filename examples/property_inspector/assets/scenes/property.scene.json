@@ -1,25 +1,38 @@
 {
   "format": "gneiss.scene",
-  "version": 4,
+  "version": 5,
   "scene_uuid": "d9c807f1-26cc-4c50-aef5-a82ca3f2f4ac",
   "objects": [
     {
       "uuid": "37cff772-2e8d-4bc7-9ed2-f94435926d4e",
       "parent": null,
       "transform": {
-        "translation": [0, 0, 3],
-        "rotation": [0, 0, 0, 1],
-        "scale": [1, 1, 1]
+        "translation": [
+          0,
+          0,
+          3
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
-      "components": {
-        "camera": {
-          "vertical_field_of_view_radians": 1.0471976,
-          "near_plane": 0.1,
-          "far_plane": 100,
-          "is_primary": true
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101",
+          "$content": {
+            "settings": {"fov": 1.0471976, "near": 0.1, "far": 100},
+            "is_primary": true
+          }
         }
-      }
+      ]
     }
-  ],
-  "prefab_instances": []
+  ]
 }

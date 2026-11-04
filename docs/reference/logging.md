@@ -5,9 +5,8 @@
 
 ## 当前范围
 
-`gneiss_log_message` 是日志生产者提交给 Engine 的 Experimental 消息描述。Application 可通过
-`gneiss_application_log` 提交，并由创建描述中的可选 `log` 回调在消费线程接收 Engine 补全后的
-`gneiss_log_event`。Game Context、队列、基础 Sink、Runtime 传输协议与 Editor Console 已接入。
+内部宿主使用原生 `application::submit_log`。消费线程通过 `log` 回调接收 `event_view`。
+日志队列、基础 Sink、Runtime 传输协议与 Editor Console 保留；日志 C API 已撤销。
 
 ## 字段与所有权
 
@@ -15,29 +14,22 @@
 - `category` 是非空 UTF-8 筛选键；建议使用短小稳定的 ASCII 名称，例如 `game` 或 `asset`。
 - `message` 是 UTF-8 正文，可以为空。
 - `result` 可携带相关 Gneiss 结果码；没有相关操作时使用 `GNEISS_SUCCESS`。
-- `flags` 和 `reserved` 当前必须为零。
-- 字符串使用指针与长度，不要求 NUL 结尾。校验和提交接口均不取得调用方内存所有权。
+- 字符串使用 string_view 借用，不要求 NUL 结尾。校验和提交接口均不取得调用方内存所有权。
 
-时间戳、线程标识、进程与可信来源不由生产者填写。Engine 接收消息后生成这些元数据，Game Module
-也不能借此伪造 Engine 或 Runtime 来源。
+时间戳、线程标识和事件序号由投递器生成，来源由内部调用方填写。
 
 ## 提交与接收
 
-- `gneiss_application_log` 可从任意线程调用，并在返回前完成字符串复制和入队，不等待 Sink。
+- 原生 `application::submit_log` 可从任意线程调用，并在返回前完成字符串复制和入队，不等待 Sink。
 - 同一 Application 的回调在专用消费线程串行执行；事件序号按入队顺序从一开始递增。
 - 队列有固定上限；已满时丢弃新事件并在恢复后生成包含丢弃数量的 `backpressure` 告警。
 - 回调内的事件和字符串均为借用值，只在该次回调期间有效。
 - 回调不得重入日志提交；Application 仍有效时重入返回 `GNEISS_ERROR_INVALID_STATE`。
-  关闭排空期间传入的 Application 句柄可能已失效，接收方只应消费事件。
+  关闭排空期间接收方只应消费事件，不再向正在关闭的父对象提交。
 - 没有设置回调时，有效消息返回成功但不会写入文件或标准流。
 - Application 销毁不能与日志提交并发；宿主应先停止生产者，再销毁 Application。
-- C++ `application::log` 遵循同一契约；工作线程提交期间不能移动或重置同一个拥有者。
-  `reset()` 关闭前排空已接收事件，回调及 `user_data` 必须存活至关闭返回。
-
-Application 入口的可信来源固定为 `application`。Game Module 使用
-`gneiss_game_context_log` 提交，Runtime 在模块查询成功后把经过校验的模块 ID 绑定为可信来源；模块
-不能直接指定该字段。日志入口可以从模块工作线程调用，但 Context 必须仍有效；其他 Game Context
-访问仍限定生命周期回调线程。
+- 原生 `application::submit_log` 允许工作线程提交；调用方必须先停止并等待提交线程，再关闭或释放 Application。
+  最后一个原生引用释放前排空已接收事件，回调捕获的数据 必须存活至关闭返回。
 
 独立 Runtime 已将 Application 日志回调接入标准流和单文件轮转 Sink。日志文件保持人类可读文本，
 标准输出则使用 `@gneiss-log-v1 ` 前缀加单行 JSON。协议字段包含版本、单调时间、序号、级别、来源、
@@ -59,29 +51,31 @@ Application 已识别的运行时诊断会在调用原有诊断回调后转换�
 
 ## 校验
 
-`gneiss_log_message_validate` 检查结构版本、严重级别、字符串边界、UTF-8 编码和保留字段。该函数
-线程安全，不保存传入结构或字符串。它只验证消息描述，不提交、排队或写出日志。
+原生 `engine::validate_message` 校验严重级别、字符串边界和 UTF-8 编码；模块日志入口
+另外校验结构版本、指针长度和保留字段。校验不保存消息或字符串，不提交、排队或写出日志。
+日志校验 C 导出已删除，原生提交入口负责消息语义校验。
 
-## C++ 日志提交
+## 原生 C++ 日志提交
 
-`gneiss::log_message` 是独立 C++ 描述，包含 severity、category、message 和 operation；默认级别
-为 info、结果为 success。分类必须非空，消息允许为空。字符串通过 string_view 借用到同步提交
-返回，不因复制描述而延长寿命。提交成功后 Engine 已复制文本，调用方可释放原字符串。
+内部只使用 `gneiss::engine::message_view` 和 `event_view`，值定义位于 `core/log/log_types.hpp`。
+Runtime 文件输出、IPC 编码与 Editor 控制台不依赖 C 日志事件布局；编码时复制借用文本，
+不保留事件视图。消息默认级别为 info、结果为 success；
+分类必须非空，消息允许为空。字符串通过 string_view 借用到同步提交返回；投递器复制文本后入队。
+原生 Application 无日志回调时仍校验消息，合法消息直接返回成功，不创建投递队列。
 
 ```cpp
-gneiss::log_message message{
-    .severity = gneiss::log_severity::warning,
-    .category = "assets",
+const auto status = application.submit_log({
+    .severity = gneiss::engine::level::warning,
+    .source = "assets",
+    .category = "loading",
     .message = "资源尚未就绪",
-    .operation = gneiss::result::not_ready,
-};
-auto status = app.log(message);
+    .result = gneiss::engine::error::not_ready,
+});
 ```
 
-其中 app 是已创建的 Application；Game Context 的 log 方法使用同一描述。
-`make_log_message` 也返回该 C++ 类型；`validate_log_message` 复用 C 校验，非法枚举、空分类或非法
-UTF-8 返回 invalid_argument。包装隐藏 struct_size、flags 和保留字段，不增加运行时日志状态。
+其中 application 是有效的原生 Application 对象，内部调用方填写来源。
+消息级别和 UTF-8 规则集中在 `engine::validate_message`，不经过 C API。
+旧 `log_message`、`log_event`、`log_severity` 包装和构造/转换辅助已删除，不安装公共 C++ 日志头。
 
-仅在需要显式 C ABI 互操作时调用 `to_native(message)`；得到的 C 描述仍借用相同字符串，不可在
-文本失效后使用。C++ 校验和提交不再接受 C 描述兼容重载；原 C 函数继续接受 C 描述。
-日志接收回调和事件仍使用 C ABI，本次仅迁移生产者描述，不代表原生 Application 回调已经完成。
+原生 `shutdown` 关闭运行服务；日志投递器在 Application 释放时排空并等待消费线程结束。
+关闭期间的内部诊断仍可入队，因此须在释放 Application 前保持接收回调捕获的对象有效。

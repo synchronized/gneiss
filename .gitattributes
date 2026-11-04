@@ -1,4 +1,10 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
+# 自有文本在索引和工作区均使用 LF；不依赖个人 core.autocrlf 设置。
+* text=auto eol=lf
+
+# 第三方源码保留上游格式，不参与自动换行转换。
+3rd/** -text !eol
+
 *.glb binary

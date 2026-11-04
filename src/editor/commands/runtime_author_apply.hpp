@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#ifndef GNEISS_APPS_EDITOR_RUNTIME_AUTHOR_APPLY_H_
+#define GNEISS_APPS_EDITOR_RUNTIME_AUTHOR_APPLY_H_
+
+#include "commands/editor_command_history.hpp"
+#include "documents/scene_document.hpp"
+#include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
+#include <string_view>
+
+namespace gneiss::editor {
+
+/** 调用期间借用身份字符串；成功记录的撤销命令持有自己的副本。 */
+struct runtime_author_transform final {
+  gneiss::engine::guid uuid;
+  gneiss::engine::guid prefab_instance_uuid;
+  gneiss::engine::guid prefab_source_node_uuid;
+  gneiss::engine::math::transform local_transform = {};
+};
+
+/** 将具有持久化 UUID 映射的 Runtime Transform 作为可撤销命令应用到作者场景。 */
+[[nodiscard]] gneiss::engine::error
+apply_runtime_transform_to_author(scene_document& session, editor_command_history& history,
+                                  const runtime_author_transform& runtime_node) noexcept;
+
+} // namespace gneiss::editor
+
+#endif

@@ -1,61 +1,17 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 Gneiss contributors -->
 
-# API 稳定级别与兼容策略
+# 当前兼容性边界
 
-## 当前状态
+Gneiss 当前处于开发期，不提供完整公共 C/C++ SDK，也不提供动态 Game Module 协议。
+旧 SDK 函数、对象包装和模块入口已删除；原消费者不能按旧协议链接或加载。
+同源码构建的 Engine、Runtime、Editor、工具与示例使用 src 原生接口，升级时须一起重建。
+为共享库链接而导出的内部 C++ 符号不构成稳定 ABI。
 
-Gneiss 仍处于 0.x 阶段，公共 API、ABI 和构建契约尚未冻结；当前导出符号基线只
-用于发现意外变化，不代表所有符号已经稳定。未来 1.0.0 发布候选才会冻结首份 Stable 清单。
+公共 include 目录已删除，不再安装 SDK 头。共享库导出宏仅在 src 内部使用。
+工程与资产文件的格式规则分别见对应 Reference；旧 game_module 工程字段被拒绝，返回 unsupported。
+Editor–Runtime IPC 仍是同版本宿主协议，不属于对外扩展 SDK。
 
-## 稳定级别
-
-| 级别 | 含义 | 1.x 兼容承诺 |
-| --- | --- | --- |
-| Stable | 经过代表性样例和跨版本测试的运行时契约 | C ABI 二进制兼容；C++ 包装源码兼容 |
-| Experimental | 可公开试用但仍可能演进 | 提供迁移说明，不承诺 ABI 或源码兼容 |
-| Internal | 仅供同版本仓库内部实现与宿主使用 | 无兼容承诺，不安装为公共 API |
-
-仅安装头文件或导出符号不等于 Stable。逐符号的机器可读分类以
-[`abi/api-stability.txt`](../../abi/api-stability.txt) 为准；声明上的 `GNEISS_EXPERIMENTAL` 便于
-调用方识别仍可能演进的接口，该标记不表示弃用，也不改变调用约定。
-
-## 1.x Stable 规则
-
-- 已发布 C 符号、结果码和常量值不删除、不重命名、不改变含义。
-- 已发布结构字段不重排或改型；可扩展结构只在尾部追加字段，并接受旧 `struct_size`。
-- 不改变字符串、数组、回调、句柄及资源的所有权和有效期。
-- 不让异常、C++ 类型、第三方类型或平台宽度不固定的类型穿过 C ABI。
-- C++20 包装保持调用源码兼容，但调用方更换编译器、运行库或标准库后必须重新构建。
-- 弃用至少跨一个次版本保留；移除 Stable 能力只能发生在新的主版本。
-
-## 持久格式
-
-场景、工程、动作映射、资产索引和 Mesh Binary 各自携带格式版本。库版本升级不会自动改变这些格式
-的兼容范围；读取、迁移和拒绝规则以对应格式 Reference 为准。
-
-## 当前候选范围
-
-M-65 审计将以下能力作为 Stable 候选，而不是已冻结承诺：
-
-- Core 版本、结果码、实体 ID 与 RID 值语义。
-- Application 生命周期、回调及不泄漏后端类型的 Granit 平台选择、World 与基础 Entity 生命周期。
-- 输入快照和动作映射运行时查询。
-- Scene Tree、Transform、场景运行时加载与查询。
-- 场景格式驱动的 Camera、Mesh Renderer 与渲染资产加载路径。
-- 资产 URI 校验和安装后的 `gneiss::engine` CMake target。0.10.0 使用的 `gneiss::gneiss` 已在
-  0.11.0 更名，迁移方式见[升级指南](../guides/migrating-0.10-to-0.11.md)。
-
-以下能力保持 Experimental：Type Registry 与属性访问、场景作者修改与序列化、直接创建
-Mesh/Texture/Material 的低层资源接口、UI/Debug Draw、Editor、`gneiss_assetc` 及其工具 SDK。
-代表性样例或审计可以缩小候选范围；扩大 Stable 范围必须补齐同等级跨版本测试。
-
-0.10.0 之后新增的 Game Module、Game Context、结构化日志、窗口尺寸查询和 Prefab 作者接口同样
-保持 Experimental。Editor–Runtime IPC、渲染执行器及 Granit 异步 GPU 对象属于 Internal，不安装为
-公共接口，也不进入 1.x 候选 ABI。为支持共享库构建，部分 `application_internal` C++ 符号供同版本
-Runtime、Editor 和测试链接；它们不属于公共 C ABI，升级时宿主与引擎须一同重建。当前公共 C 清单共
-包含 102 个导出符号，其中 46 个 Stable 候选、56 个
-Experimental；增量审计见 [M-193](../records/M-193-public-api-delta-audit.md)。
-
-决策依据见 [ADR-023](../decisions/ADR-023-public-api-stability.md)，本次审计结果见
-[M-65 公共 API 审计记录](../records/M-65-public-api-audit.md)。
+客户 system 注册、脚本接入和独立游戏代码分发留待后续设计。
+历史版本的兼容审计属于历史记录，不代表当前承诺。
+决策见 [ADR-082](../decisions/ADR-082-remove-dynamic-game-module.md)。

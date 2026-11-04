@@ -56,15 +56,13 @@ int main() {
                static_cast<std::streamsize>(bytes.size()));
   stream.close();
 
-  const auto report = gneiss::tooling::asset_build::inspect_ktx2(path);
-  if (report.result != gneiss::tooling::asset_build::ktx2_probe_result::success ||
+  const auto report = gneiss::tooling::inspect_ktx2(path);
+  if (report.result != gneiss::tooling::ktx2_probe_result::success ||
       report.information.width != 2U || report.information.height != 2U ||
       report.information.level_count != 2U ||
-      report.information.transfer_function !=
-          gneiss::tooling::asset_build::ktx2_transfer_function::srgb ||
+      report.information.transfer_function != gneiss::tooling::ktx2_transfer_function::srgb ||
       !report.information.has_alpha ||
-      report.information.supercompression !=
-          gneiss::tooling::asset_build::ktx2_supercompression::none) {
+      report.information.supercompression != gneiss::tooling::ktx2_supercompression::none) {
     return 1;
   }
   bytes[0] = 0U;
@@ -72,8 +70,8 @@ int main() {
   invalid.write(reinterpret_cast<const char*>(bytes.data()),
                 static_cast<std::streamsize>(bytes.size()));
   invalid.close();
-  if (gneiss::tooling::asset_build::inspect_ktx2(path).result !=
-      gneiss::tooling::asset_build::ktx2_probe_result::invalid_container) {
+  if (gneiss::tooling::inspect_ktx2(path).result !=
+      gneiss::tooling::ktx2_probe_result::invalid_container) {
     return 2;
   }
   std::error_code error;

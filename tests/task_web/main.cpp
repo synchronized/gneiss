@@ -2,12 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../core/cooperative_scheduler_contract.h"
+#include "engine/core/tasks/task_scheduler.hpp"
 
 #include <cstdio>
 #include <emscripten.h>
 
 namespace {
-using namespace gneiss::tasks;
+using namespace gneiss::engine;
 struct browser_host {
   task_scheduler scheduler{{.mode = execution_mode::cooperative}};
   task_scope scope{scheduler.make_scope()};

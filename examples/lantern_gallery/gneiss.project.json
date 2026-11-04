@@ -1,6 +1,6 @@
 {
   "format": "gneiss.project",
-  "version": 3,
+  "version": 5,
   "name": "Gneiss Lantern Gallery",
   "asset_root": "assets",
   "startup_scene": "asset://scenes/gallery.scene.json",
@@ -9,11 +9,7 @@
     "intensity": 0.85,
     "rotation_degrees": 20.0
   },
-  "game_module": {
-    "name": "gneiss_lantern_gallery_game",
-    "directory": "modules",
-    "configure_preset": "game-debug-configure",
-    "build_preset": "game-debug",
-    "build_target": "gneiss_lantern_gallery_game"
+  "asset_build": {
+    "retain": []
   }
 }

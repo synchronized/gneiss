@@ -30,14 +30,14 @@ namespace {
 
 [[nodiscard]] asset_browser_status
 source_status(const std::filesystem::path& source, const std::filesystem::path& asset_root,
-              const gneiss::tooling::asset_import::asset_index_entry& indexed) {
+              const gneiss::tooling::asset_index_entry& indexed) {
   std::string hash;
-  if (gneiss::tooling::asset_import::hash_source_file(source, hash).result !=
-      gneiss::tooling::asset_import::asset_index_result::success) {
+  if (gneiss::tooling::hash_source_file(source, hash).result !=
+      gneiss::tooling::asset_index_result::success) {
     return asset_browser_status::missing;
   }
   if (hash != indexed.content_hash || indexed.importer_id != "gneiss.gltf" ||
-      indexed.importer_version != gneiss::tooling::asset_import::gltf_importer_version) {
+      indexed.importer_version != gneiss::tooling::gltf_importer_version) {
     return asset_browser_status::stale;
   }
   constexpr std::string_view scheme = "asset://";
@@ -67,15 +67,15 @@ asset_browser_result asset_browser_model::refresh(const std::filesystem::path& p
       return asset_browser_result::invalid_argument;
     }
 
-    gneiss::tooling::asset_import::asset_index index;
-    const auto loaded = gneiss::tooling::asset_import::load_asset_index(
+    gneiss::tooling::asset_index index;
+    const auto loaded = gneiss::tooling::load_asset_index(
         canonical_project / ".gneiss" / "asset-index.json", index);
-    if (loaded.result != gneiss::tooling::asset_import::asset_index_result::success &&
-        loaded.result != gneiss::tooling::asset_import::asset_index_result::not_found) {
+    if (loaded.result != gneiss::tooling::asset_index_result::success &&
+        loaded.result != gneiss::tooling::asset_index_result::not_found) {
       diagnostic_ = loaded.diagnostic;
       return asset_browser_result::invalid_index;
     }
-    std::map<std::string, const gneiss::tooling::asset_import::asset_index_entry*> indexed_sources;
+    std::map<std::string, const gneiss::tooling::asset_index_entry*> indexed_sources;
     for (const auto& entry : index.entries) {
       indexed_sources.emplace(entry.source_path, &entry);
     }

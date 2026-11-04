@@ -4,22 +4,23 @@
 #ifndef GNEISS_SRC_IO_UV_UV_LOOP_ACCESS_HPP_
 #define GNEISS_SRC_IO_UV_UV_LOOP_ACCESS_HPP_
 
+#include "engine/core/error.hpp"
 #include "uv_loop_executor.hpp"
 
 #include <uv.h>
 
 #include <functional>
 
-namespace gneiss::io_internal {
+namespace gneiss::engine {
 
 /** 仅供 I/O 后端 `.cpp` 使用；不得进入普通接口或业务头文件。 */
 class uv_loop_access final {
 public:
   using task = std::function<void(uv_loop_t*)>;
 
-  [[nodiscard]] static result post(uv_loop_executor& executor, task operation) noexcept;
+  [[nodiscard]] static error post(uv_loop_executor& executor, task operation) noexcept;
 };
 
-} // namespace gneiss::io_internal
+} // namespace gneiss::engine
 
 #endif

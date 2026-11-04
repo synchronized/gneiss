@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-namespace gneiss::tooling::asset_build {
+namespace gneiss::tooling {
 namespace {
 
 constexpr std::array<std::uint8_t, 12U> identifier = {0xABU, 0x4BU, 0x54U, 0x58U, 0x20U, 0x32U,
@@ -117,4 +117,4 @@ ktx2_probe_report inspect_ktx2(const std::filesystem::path& path) {
   return {.result = ktx2_probe_result::success, .information = information, .diagnostic = {}};
 }
 
-} // namespace gneiss::tooling::asset_build
+} // namespace gneiss::tooling

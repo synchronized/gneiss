@@ -1,0 +1,817 @@
+{
+  "environment": {
+    "os": "Windows 10 10.0.19045",
+    "cpu": "Intel i5-8600K",
+    "ram_kib": 33392096,
+    "gpu": "Intel UHD Graphics 630",
+    "driver": "31.0.101.2140",
+    "compiler": "Clang 23.1.1",
+    "profiling": false
+  },
+  "metadata": {
+    "commit": "901838cc061adf06926efb33f404482c8c46e729",
+    "build": "Windows Clang Release, Granit ON, CAORS input OFF",
+    "assets": "D:\\sunday\\workspace\\asset-cache\\intel-sponza\\0.43-daily-assets-2",
+    "nodes": 553,
+    "renderers": 405,
+    "material_documents": 28,
+    "material_source_bytes": 26846,
+    "binaries": {
+      "on": {
+        "gneiss_engine.dll": "a46b587db51908f37407e979113fb4cbe4f5bfb7dd1a63fc36a44d012dd63bac",
+        "gneiss_scene_load_baseline.exe": "41f3d871b63a596e99a6a1fa6e4f6289edc0c3e6f0d467ab60aa691cf17560d8",
+        "granit.dll": "abe06fedc46c0b0a12a06345accb2945744fc6b0260c9b2f7d4bcfc48e2fef0f",
+        "granit_render_pipeline.dll": "e0797ac68d3f983ab4ad20f88b307011ddd0c59f3e48bb7ba9985cca4780b39c",
+        "granit_window.dll": "ee3e9459f985503962f3351f938761f7592d4deb8a003ca7cdeac7859d3bcb30"
+      },
+      "off": {
+        "gneiss_engine.dll": "26ef8d07ab39967dcef270b645ef7e90527c585be7c22b35b6bbf9162c6821ae",
+        "gneiss_scene_load_baseline.exe": "bf5714753ec4fd719672870fe43caa1a5dcc867107c72805edfa9617d537719a",
+        "granit.dll": "abe06fedc46c0b0a12a06345accb2945744fc6b0260c9b2f7d4bcfc48e2fef0f",
+        "granit_render_pipeline.dll": "e0797ac68d3f983ab4ad20f88b307011ddd0c59f3e48bb7ba9985cca4780b39c",
+        "granit_window.dll": "ee3e9459f985503962f3351f938761f7592d4deb8a003ca7cdeac7859d3bcb30"
+      }
+    },
+    "asset_file_count": 580,
+    "asset_total_bytes": 322327631,
+    "asset_manifest_sha256": "68f6d3080cf87dde40e87480db94c072352af400b4fe7e738441307150b3951a"
+  },
+  "runs": [
+    {
+      "mode": "on",
+      "command": [
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\caors-material-comparison\\on\\gneiss_scene_load_baseline.exe",
+        "D:\\sunday\\workspace\\asset-cache\\intel-sponza\\0.43-daily-assets-2",
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\caors-material-comparison\\on-1",
+        "thread",
+        "initial"
+      ],
+      "exit_code": 0,
+      "process_seconds": 75.33215550007299,
+      "report": {
+        "loop_trace_enabled": false,
+        "event_interval_count": 4735,
+        "event_interval_p50_ms": 15.4679,
+        "event_interval_p99_ms": 18.0744,
+        "event_interval_exceedances": [
+          {
+            "threshold_ms": 16.7,
+            "count": 106,
+            "ratio": 0.02238648363
+          },
+          {
+            "threshold_ms": 33.3,
+            "count": 0,
+            "ratio": 0
+          },
+          {
+            "threshold_ms": 50,
+            "count": 0,
+            "ratio": 0
+          },
+          {
+            "threshold_ms": 100,
+            "count": 0,
+            "ratio": 0
+          }
+        ],
+        "load_ms": 73634.1527,
+        "mode": "thread",
+        "scenario": "initial",
+        "load_and_drain_ms": 73879.4094,
+        "verified_capture_ms": 74821.4456,
+        "completed_switches": 1,
+        "maximum_activation_ms": 0.6758,
+        "maximum_retirement_ms": 0.3543,
+        "retirement_ms": 0.3543,
+        "live_resources": 505,
+        "old_resources": 0,
+        "cancel_ms": 0,
+        "cancel_cleanup_ms": 0,
+        "observed_cleanup_pending": false,
+        "retried": false,
+        "retry_ms": 0,
+        "resizes": 0,
+        "restored": 0,
+        "minimized": 0,
+        "minimized_at_ms": 0,
+        "prepare_ms": 7.4828,
+        "asset_prepare_ms": 8472.638,
+        "verify_ms": 2079.9501,
+        "verify_maximum_step_ms": 61.9532,
+        "verify_maximum_open_ms": 0.187,
+        "verify_maximum_read_ms": 16.4355,
+        "verify_maximum_hash_ms": 53.708,
+        "upload_ms": 640.9769,
+        "maximum_advance_ms": 1.9133,
+        "activation_ms": 0.6758,
+        "cleanup_ms": 0.0,
+        "cleanup_complete": false,
+        "upload_reserved_bytes": 0,
+        "candidate_resident_bytes": 464453832,
+        "candidate_cpu_data_bytes": 464453832,
+        "candidate_texture_payload_bytes": 301989888,
+        "peak_upload_bytes": 8388608,
+        "application_logical_bytes": 464453832,
+        "application_cpu_data_bytes": 464453832,
+        "available_bytes": 3830513464,
+        "event_interval_p95_ms": 16.2535,
+        "event_interval_max_ms": 32.4116,
+        "minimized_event_count": 0,
+        "minimized_event_max_ms": 0,
+        "phase_maximum_event_interval_ms": {
+          "preparing": 16.4108,
+          "assets": 32.4116,
+          "verifying": 32.3536,
+          "instantiating": 17.0261,
+          "ready": 0,
+          "applied": 0,
+          "failed": 0,
+          "cancelled": 0
+        },
+        "render_60_ticks_ms": 788.2956,
+        "capture_ms": 153.7406,
+        "nodes": 553,
+        "presented_frames": 4391,
+        "peak_resident_bytes": 1443581952
+      },
+      "included": false,
+      "exclusion_reason": "预热；资产身份清单哈希与该轮 I/O 短暂重叠"
+    },
+    {
+      "mode": "off",
+      "command": [
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\caors-material-comparison\\off\\gneiss_scene_load_baseline.exe",
+        "D:\\sunday\\workspace\\asset-cache\\intel-sponza\\0.43-daily-assets-2",
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\caors-material-comparison\\off-2",
+        "thread",
+        "initial"
+      ],
+      "exit_code": 0,
+      "process_seconds": 63.378107400028966,
+      "report": {
+        "loop_trace_enabled": false,
+        "event_interval_count": 3956,
+        "event_interval_p50_ms": 15.4913,
+        "event_interval_p99_ms": 17.1828,
+        "event_interval_exceedances": [
+          {
+            "threshold_ms": 16.7,
+            "count": 63,
+            "ratio": 0.01592517695
+          },
+          {
+            "threshold_ms": 33.3,
+            "count": 6,
+            "ratio": 0.001516683519
+          },
+          {
+            "threshold_ms": 50,
+            "count": 1,
+            "ratio": 0.0002527805865
+          },
+          {
+            "threshold_ms": 100,
+            "count": 0,
+            "ratio": 0
+          }
+        ],
+        "load_ms": 61668.8344,
+        "mode": "thread",
+        "scenario": "initial",
+        "load_and_drain_ms": 61810.0882,
+        "verified_capture_ms": 62837.8278,
+        "completed_switches": 1,
+        "maximum_activation_ms": 0.3572,
+        "maximum_retirement_ms": 0.2675,
+        "retirement_ms": 0.2675,
+        "live_resources": 505,
+        "old_resources": 0,
+        "cancel_ms": 0,
+        "cancel_cleanup_ms": 0,
+        "observed_cleanup_pending": false,
+        "retried": false,
+        "retry_ms": 0,
+        "resizes": 0,
+        "restored": 0,
+        "minimized": 0,
+        "minimized_at_ms": 0,
+        "prepare_ms": 9.9205,
+        "asset_prepare_ms": 5689.0842,
+        "verify_ms": 2003.0678,
+        "verify_maximum_step_ms": 31.779,
+        "verify_maximum_open_ms": 0.155,
+        "verify_maximum_read_ms": 7.3165,
+        "verify_maximum_hash_ms": 27.8464,
+        "upload_ms": 669.4491,
+        "maximum_advance_ms": 1.4534,
+        "activation_ms": 0.3572,
+        "cleanup_ms": 0.0,
+        "cleanup_complete": false,
+        "upload_reserved_bytes": 0,
+        "candidate_resident_bytes": 464453832,
+        "candidate_cpu_data_bytes": 464453832,
+        "candidate_texture_payload_bytes": 301989888,
+        "peak_upload_bytes": 8388608,
+        "application_logical_bytes": 464453832,
+        "application_cpu_data_bytes": 464453832,
+        "available_bytes": 3830513464,
+        "event_interval_p95_ms": 16.2295,
+        "event_interval_max_ms": 64.1264,
+        "minimized_event_count": 0,
+        "minimized_event_max_ms": 0,
+        "phase_maximum_event_interval_ms": {
+          "preparing": 16.0222,
+          "assets": 64.1264,
+          "verifying": 19.8326,
+          "instantiating": 16.0288,
+          "ready": 0,
+          "applied": 0,
+          "failed": 0,
+          "cancelled": 0
+        },
+        "render_60_ticks_ms": 863.4686,
+        "capture_ms": 164.271,
+        "nodes": 553,
+        "presented_frames": 3678,
+        "peak_resident_bytes": 1434558464
+      },
+      "included": true
+    },
+    {
+      "mode": "off",
+      "command": [
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\caors-material-comparison\\off\\gneiss_scene_load_baseline.exe",
+        "D:\\sunday\\workspace\\asset-cache\\intel-sponza\\0.43-daily-assets-2",
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\caors-material-comparison\\off-3",
+        "thread",
+        "initial"
+      ],
+      "exit_code": 0,
+      "process_seconds": 66.61418090004008,
+      "report": {
+        "loop_trace_enabled": false,
+        "event_interval_count": 4055,
+        "event_interval_p50_ms": 15.4963,
+        "event_interval_p99_ms": 35.8849,
+        "event_interval_exceedances": [
+          {
+            "threshold_ms": 16.7,
+            "count": 198,
+            "ratio": 0.04882860666
+          },
+          {
+            "threshold_ms": 33.3,
+            "count": 50,
+            "ratio": 0.01233045623
+          },
+          {
+            "threshold_ms": 50,
+            "count": 19,
+            "ratio": 0.004685573366
+          },
+          {
+            "threshold_ms": 100,
+            "count": 0,
+            "ratio": 0
+          }
+        ],
+        "load_ms": 65040.2484,
+        "mode": "thread",
+        "scenario": "initial",
+        "load_and_drain_ms": 65195.9059,
+        "verified_capture_ms": 66168.1313,
+        "completed_switches": 1,
+        "maximum_activation_ms": 0.4248,
+        "maximum_retirement_ms": 0.2561,
+        "retirement_ms": 0.2561,
+        "live_resources": 505,
+        "old_resources": 0,
+        "cancel_ms": 0,
+        "cancel_cleanup_ms": 0,
+        "observed_cleanup_pending": false,
+        "retried": false,
+        "retry_ms": 0,
+        "resizes": 0,
+        "restored": 0,
+        "minimized": 0,
+        "minimized_at_ms": 0,
+        "prepare_ms": 7.9197,
+        "asset_prepare_ms": 5748.6155,
+        "verify_ms": 2541.1215,
+        "verify_maximum_step_ms": 100.6758,
+        "verify_maximum_open_ms": 0.9974,
+        "verify_maximum_read_ms": 18.9119,
+        "verify_maximum_hash_ms": 91.7609,
+        "upload_ms": 597.0036,
+        "maximum_advance_ms": 6.1102,
+        "activation_ms": 0.4248,
+        "cleanup_ms": 0.0,
+        "cleanup_complete": false,
+        "upload_reserved_bytes": 0,
+        "candidate_resident_bytes": 464453832,
+        "candidate_cpu_data_bytes": 464453832,
+        "candidate_texture_payload_bytes": 301989888,
+        "peak_upload_bytes": 8388608,
+        "application_logical_bytes": 464453832,
+        "application_cpu_data_bytes": 464453832,
+        "available_bytes": 3830513464,
+        "event_interval_p95_ms": 16.6587,
+        "event_interval_max_ms": 87.8804,
+        "minimized_event_count": 0,
+        "minimized_event_max_ms": 0,
+        "phase_maximum_event_interval_ms": {
+          "preparing": 15.1006,
+          "assets": 41.7963,
+          "verifying": 87.8804,
+          "instantiating": 16.2101,
+          "ready": 0,
+          "applied": 0,
+          "failed": 0,
+          "cancelled": 0
+        },
+        "render_60_ticks_ms": 809.9991,
+        "capture_ms": 162.2263,
+        "nodes": 553,
+        "presented_frames": 3698,
+        "peak_resident_bytes": 1435054080
+      },
+      "included": true
+    },
+    {
+      "mode": "on",
+      "command": [
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\caors-material-comparison\\on\\gneiss_scene_load_baseline.exe",
+        "D:\\sunday\\workspace\\asset-cache\\intel-sponza\\0.43-daily-assets-2",
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\caors-material-comparison\\on-4",
+        "thread",
+        "initial"
+      ],
+      "exit_code": 0,
+      "process_seconds": 63.60730859998148,
+      "report": {
+        "loop_trace_enabled": false,
+        "event_interval_count": 3943,
+        "event_interval_p50_ms": 15.5784,
+        "event_interval_p99_ms": 24.3512,
+        "event_interval_exceedances": [
+          {
+            "threshold_ms": 16.7,
+            "count": 131,
+            "ratio": 0.03322343393
+          },
+          {
+            "threshold_ms": 33.3,
+            "count": 20,
+            "ratio": 0.00507227999
+          },
+          {
+            "threshold_ms": 50,
+            "count": 1,
+            "ratio": 0.0002536139995
+          },
+          {
+            "threshold_ms": 100,
+            "count": 0,
+            "ratio": 0
+          }
+        ],
+        "load_ms": 61953.1472,
+        "mode": "thread",
+        "scenario": "initial",
+        "load_and_drain_ms": 62090.1938,
+        "verified_capture_ms": 63031.9613,
+        "completed_switches": 1,
+        "maximum_activation_ms": 0.3878,
+        "maximum_retirement_ms": 0.2402,
+        "retirement_ms": 0.2402,
+        "live_resources": 505,
+        "old_resources": 0,
+        "cancel_ms": 0,
+        "cancel_cleanup_ms": 0,
+        "observed_cleanup_pending": false,
+        "retried": false,
+        "retry_ms": 0,
+        "resizes": 0,
+        "restored": 0,
+        "minimized": 0,
+        "minimized_at_ms": 0,
+        "prepare_ms": 7.0999,
+        "asset_prepare_ms": 5719.8307,
+        "verify_ms": 1627.6063,
+        "verify_maximum_step_ms": 18.402,
+        "verify_maximum_open_ms": 0.0709,
+        "verify_maximum_read_ms": 15.125,
+        "verify_maximum_hash_ms": 16.4877,
+        "upload_ms": 596.1616,
+        "maximum_advance_ms": 11.1115,
+        "activation_ms": 0.3878,
+        "cleanup_ms": 0.0,
+        "cleanup_complete": false,
+        "upload_reserved_bytes": 0,
+        "candidate_resident_bytes": 464453832,
+        "candidate_cpu_data_bytes": 464453832,
+        "candidate_texture_payload_bytes": 301989888,
+        "peak_upload_bytes": 8388608,
+        "application_logical_bytes": 464453832,
+        "application_cpu_data_bytes": 464453832,
+        "available_bytes": 3830513464,
+        "event_interval_p95_ms": 16.378,
+        "event_interval_max_ms": 59.7065,
+        "minimized_event_count": 0,
+        "minimized_event_max_ms": 0,
+        "phase_maximum_event_interval_ms": {
+          "preparing": 17.2572,
+          "assets": 59.7065,
+          "verifying": 47.0774,
+          "instantiating": 16.0995,
+          "ready": 0,
+          "applied": 0,
+          "failed": 0,
+          "cancelled": 0
+        },
+        "render_60_ticks_ms": 806.9298,
+        "capture_ms": 134.8377,
+        "nodes": 553,
+        "presented_frames": 3632,
+        "peak_resident_bytes": 1435217920
+      },
+      "included": true
+    },
+    {
+      "mode": "on",
+      "command": [
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\caors-material-comparison\\on\\gneiss_scene_load_baseline.exe",
+        "D:\\sunday\\workspace\\asset-cache\\intel-sponza\\0.43-daily-assets-2",
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\caors-material-comparison\\on-5",
+        "thread",
+        "initial"
+      ],
+      "exit_code": 0,
+      "process_seconds": 62.728200200013816,
+      "report": {
+        "loop_trace_enabled": false,
+        "event_interval_count": 3934,
+        "event_interval_p50_ms": 15.4838,
+        "event_interval_p99_ms": 17.0254,
+        "event_interval_exceedances": [
+          {
+            "threshold_ms": 16.7,
+            "count": 59,
+            "ratio": 0.01499745806
+          },
+          {
+            "threshold_ms": 33.3,
+            "count": 1,
+            "ratio": 0.0002541942044
+          },
+          {
+            "threshold_ms": 50,
+            "count": 0,
+            "ratio": 0
+          },
+          {
+            "threshold_ms": 100,
+            "count": 0,
+            "ratio": 0
+          }
+        ],
+        "load_ms": 61236.2856,
+        "mode": "thread",
+        "scenario": "initial",
+        "load_and_drain_ms": 61373.2941,
+        "verified_capture_ms": 62296.3171,
+        "completed_switches": 1,
+        "maximum_activation_ms": 0.9743,
+        "maximum_retirement_ms": 0.4654,
+        "retirement_ms": 0.4654,
+        "live_resources": 505,
+        "old_resources": 0,
+        "cancel_ms": 0,
+        "cancel_cleanup_ms": 0,
+        "observed_cleanup_pending": false,
+        "retried": false,
+        "retry_ms": 0,
+        "resizes": 0,
+        "restored": 0,
+        "minimized": 0,
+        "minimized_at_ms": 0,
+        "prepare_ms": 7.7242,
+        "asset_prepare_ms": 5443.3084,
+        "verify_ms": 1755.6405,
+        "verify_maximum_step_ms": 32.3955,
+        "verify_maximum_open_ms": 0.1108,
+        "verify_maximum_read_ms": 4.5137,
+        "verify_maximum_hash_ms": 28.7677,
+        "upload_ms": 575.8503,
+        "maximum_advance_ms": 2.3194,
+        "activation_ms": 0.9743,
+        "cleanup_ms": 0.0,
+        "cleanup_complete": false,
+        "upload_reserved_bytes": 0,
+        "candidate_resident_bytes": 464453832,
+        "candidate_cpu_data_bytes": 464453832,
+        "candidate_texture_payload_bytes": 301989888,
+        "peak_upload_bytes": 8388608,
+        "application_logical_bytes": 464453832,
+        "application_cpu_data_bytes": 464453832,
+        "available_bytes": 3830513464,
+        "event_interval_p95_ms": 16.2583,
+        "event_interval_max_ms": 40.6532,
+        "minimized_event_count": 0,
+        "minimized_event_max_ms": 0,
+        "phase_maximum_event_interval_ms": {
+          "preparing": 15.5242,
+          "assets": 31.9897,
+          "verifying": 40.6532,
+          "instantiating": 17.5961,
+          "ready": 0,
+          "applied": 0,
+          "failed": 0,
+          "cancelled": 0
+        },
+        "render_60_ticks_ms": 789.5035,
+        "capture_ms": 133.5195,
+        "nodes": 553,
+        "presented_frames": 3654,
+        "peak_resident_bytes": 1434914816
+      },
+      "included": true
+    },
+    {
+      "mode": "off",
+      "command": [
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\caors-material-comparison\\off\\gneiss_scene_load_baseline.exe",
+        "D:\\sunday\\workspace\\asset-cache\\intel-sponza\\0.43-daily-assets-2",
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\caors-material-comparison\\off-6",
+        "thread",
+        "initial"
+      ],
+      "exit_code": 0,
+      "process_seconds": 63.46050899999682,
+      "report": {
+        "loop_trace_enabled": false,
+        "event_interval_count": 3963,
+        "event_interval_p50_ms": 15.45,
+        "event_interval_p99_ms": 17.0035,
+        "event_interval_exceedances": [
+          {
+            "threshold_ms": 16.7,
+            "count": 57,
+            "ratio": 0.01438304315
+          },
+          {
+            "threshold_ms": 33.3,
+            "count": 2,
+            "ratio": 0.0005046681807
+          },
+          {
+            "threshold_ms": 50,
+            "count": 2,
+            "ratio": 0.0005046681807
+          },
+          {
+            "threshold_ms": 100,
+            "count": 0,
+            "ratio": 0
+          }
+        ],
+        "load_ms": 61637.2309,
+        "mode": "thread",
+        "scenario": "initial",
+        "load_and_drain_ms": 61784.9189,
+        "verified_capture_ms": 62805.4487,
+        "completed_switches": 1,
+        "maximum_activation_ms": 0.528,
+        "maximum_retirement_ms": 0.2362,
+        "retirement_ms": 0.2362,
+        "live_resources": 505,
+        "old_resources": 0,
+        "cancel_ms": 0,
+        "cancel_cleanup_ms": 0,
+        "observed_cleanup_pending": false,
+        "retried": false,
+        "retry_ms": 0,
+        "resizes": 0,
+        "restored": 0,
+        "minimized": 0,
+        "minimized_at_ms": 0,
+        "prepare_ms": 7.9524,
+        "asset_prepare_ms": 5650.6687,
+        "verify_ms": 2086.8347,
+        "verify_maximum_step_ms": 37.1881,
+        "verify_maximum_open_ms": 0.1336,
+        "verify_maximum_read_ms": 4.5666,
+        "verify_maximum_hash_ms": 33.0225,
+        "upload_ms": 636.1715,
+        "maximum_advance_ms": 1.9389,
+        "activation_ms": 0.528,
+        "cleanup_ms": 0.0,
+        "cleanup_complete": false,
+        "upload_reserved_bytes": 0,
+        "candidate_resident_bytes": 464453832,
+        "candidate_cpu_data_bytes": 464453832,
+        "candidate_texture_payload_bytes": 301989888,
+        "peak_upload_bytes": 8388608,
+        "application_logical_bytes": 464453832,
+        "application_cpu_data_bytes": 464453832,
+        "available_bytes": 3830513464,
+        "event_interval_p95_ms": 16.2046,
+        "event_interval_max_ms": 67.5342,
+        "minimized_event_count": 0,
+        "minimized_event_max_ms": 0,
+        "phase_maximum_event_interval_ms": {
+          "preparing": 14.9676,
+          "assets": 67.5342,
+          "verifying": 19.5335,
+          "instantiating": 15.7378,
+          "ready": 0,
+          "applied": 0,
+          "failed": 0,
+          "cancelled": 0
+        },
+        "render_60_ticks_ms": 868.2306,
+        "capture_ms": 152.2992,
+        "nodes": 553,
+        "presented_frames": 3685,
+        "peak_resident_bytes": 1434415104
+      },
+      "included": true
+    },
+    {
+      "mode": "on",
+      "command": [
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\caors-material-comparison\\on\\gneiss_scene_load_baseline.exe",
+        "D:/sunday/workspace/asset-cache/intel-sponza/0.43-daily-assets-2",
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\caors-material-comparison\\on-7",
+        "thread",
+        "initial"
+      ],
+      "exit_code": 0,
+      "process_seconds": 69.98529410001356,
+      "report": {
+        "loop_trace_enabled": false,
+        "event_interval_count": 4112,
+        "event_interval_p50_ms": 15.648,
+        "event_interval_p99_ms": 48.8057,
+        "event_interval_exceedances": [
+          {
+            "threshold_ms": 16.7,
+            "count": 245,
+            "ratio": 0.05958171206
+          },
+          {
+            "threshold_ms": 33.3,
+            "count": 121,
+            "ratio": 0.02942607004
+          },
+          {
+            "threshold_ms": 50,
+            "count": 40,
+            "ratio": 0.009727626459
+          },
+          {
+            "threshold_ms": 100,
+            "count": 1,
+            "ratio": 0.0002431906615
+          }
+        ],
+        "load_ms": 68421.816,
+        "mode": "thread",
+        "scenario": "initial",
+        "load_and_drain_ms": 68571.7378,
+        "verified_capture_ms": 69517.3497,
+        "completed_switches": 1,
+        "maximum_activation_ms": 0.4591,
+        "maximum_retirement_ms": 0.274,
+        "retirement_ms": 0.274,
+        "live_resources": 505,
+        "old_resources": 0,
+        "cancel_ms": 0,
+        "cancel_cleanup_ms": 0,
+        "observed_cleanup_pending": false,
+        "retried": false,
+        "retry_ms": 0,
+        "resizes": 0,
+        "restored": 0,
+        "minimized": 0,
+        "minimized_at_ms": 0,
+        "prepare_ms": 8.3628,
+        "asset_prepare_ms": 6404.6282,
+        "verify_ms": 1605.444,
+        "verify_maximum_step_ms": 19.0159,
+        "verify_maximum_open_ms": 0.1444,
+        "verify_maximum_read_ms": 5.1238,
+        "verify_maximum_hash_ms": 16.8047,
+        "upload_ms": 790.1149,
+        "maximum_advance_ms": 2.9264,
+        "activation_ms": 0.4591,
+        "cleanup_ms": 0.0,
+        "cleanup_complete": false,
+        "upload_reserved_bytes": 0,
+        "candidate_resident_bytes": 464453832,
+        "candidate_cpu_data_bytes": 464453832,
+        "candidate_texture_payload_bytes": 301989888,
+        "peak_upload_bytes": 8388608,
+        "application_logical_bytes": 464453832,
+        "application_cpu_data_bytes": 464453832,
+        "available_bytes": 3830513464,
+        "event_interval_p95_ms": 17.9703,
+        "event_interval_max_ms": 112.7875,
+        "minimized_event_count": 0,
+        "minimized_event_max_ms": 0,
+        "phase_maximum_event_interval_ms": {
+          "preparing": 14.9385,
+          "assets": 112.7875,
+          "verifying": 40.7015,
+          "instantiating": 16.2732,
+          "ready": 0,
+          "applied": 0,
+          "failed": 0,
+          "cancelled": 0
+        },
+        "render_60_ticks_ms": 800.6993,
+        "capture_ms": 144.9126,
+        "nodes": 553,
+        "presented_frames": 3600,
+        "peak_resident_bytes": 1434472448
+      },
+      "included": true
+    }
+  ],
+  "summary": {
+    "off": {
+      "load_ms": {
+        "median": 61668.8344,
+        "min": 61637.2309,
+        "max": 65040.2484
+      },
+      "asset_prepare_ms": {
+        "median": 5689.0842,
+        "min": 5650.6687,
+        "max": 5748.6155
+      },
+      "verify_ms": {
+        "median": 2086.8347,
+        "min": 2003.0678,
+        "max": 2541.1215
+      },
+      "event_interval_p95_ms": {
+        "median": 16.2295,
+        "min": 16.2046,
+        "max": 16.6587
+      },
+      "event_interval_max_ms": {
+        "median": 67.5342,
+        "min": 64.1264,
+        "max": 87.8804
+      },
+      "peak_resident_bytes": {
+        "median": 1434558464,
+        "min": 1434415104,
+        "max": 1435054080
+      }
+    },
+    "on": {
+      "load_ms": {
+        "median": 61953.1472,
+        "min": 61236.2856,
+        "max": 68421.816
+      },
+      "asset_prepare_ms": {
+        "median": 5719.8307,
+        "min": 5443.3084,
+        "max": 6404.6282
+      },
+      "verify_ms": {
+        "median": 1627.6063,
+        "min": 1605.444,
+        "max": 1755.6405
+      },
+      "event_interval_p95_ms": {
+        "median": 16.378,
+        "min": 16.2583,
+        "max": 17.9703
+      },
+      "event_interval_max_ms": {
+        "median": 59.7065,
+        "min": 40.6532,
+        "max": 112.7875
+      },
+      "peak_resident_bytes": {
+        "median": 1434914816,
+        "min": 1434472448,
+        "max": 1435217920
+      }
+    }
+  },
+  "image_sha256": {
+    "off-2.ppm": "e994ae7d16438a84388dd9720f7f96a84b0a247df9838a9e469d00e917aaf401",
+    "off-3.ppm": "e994ae7d16438a84388dd9720f7f96a84b0a247df9838a9e469d00e917aaf401",
+    "off-6.ppm": "e994ae7d16438a84388dd9720f7f96a84b0a247df9838a9e469d00e917aaf401",
+    "on-1.ppm": "e994ae7d16438a84388dd9720f7f96a84b0a247df9838a9e469d00e917aaf401",
+    "on-4.ppm": "e994ae7d16438a84388dd9720f7f96a84b0a247df9838a9e469d00e917aaf401",
+    "on-5.ppm": "e994ae7d16438a84388dd9720f7f96a84b0a247df9838a9e469d00e917aaf401",
+    "on-7.ppm": "e994ae7d16438a84388dd9720f7f96a84b0a247df9838a9e469d00e917aaf401"
+  }
+}

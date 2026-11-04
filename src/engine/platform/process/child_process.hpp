@@ -4,7 +4,7 @@
 #ifndef GNEISS_SRC_PROCESS_CHILD_PROCESS_HPP_
 #define GNEISS_SRC_PROCESS_CHILD_PROCESS_HPP_
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/core/error.hpp"
 
 #include <filesystem>
 #include <memory>
@@ -12,7 +12,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss {
+namespace gneiss::engine {
 
 struct child_process_start_info final {
   std::filesystem::path executable;
@@ -29,8 +29,8 @@ public:
   child_process(const child_process&) = delete;
   child_process& operator=(const child_process&) = delete;
 
-  [[nodiscard]] result start(const child_process_start_info& info) noexcept;
-  [[nodiscard]] result terminate() noexcept;
+  [[nodiscard]] error start(const child_process_start_info& info) noexcept;
+  [[nodiscard]] error terminate() noexcept;
   void update() noexcept;
 
   [[nodiscard]] bool is_running() const noexcept;
@@ -47,6 +47,6 @@ private:
   std::unique_ptr<implementation> implementation_;
 };
 
-} // namespace gneiss
+} // namespace gneiss::engine
 
 #endif

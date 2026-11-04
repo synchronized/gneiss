@@ -6,7 +6,7 @@
 
 #include "ipc_envelope.hpp"
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/core/error.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss {
+namespace gneiss::engine {
 
 struct ipc_endpoint final {
   std::string address;
@@ -40,7 +40,7 @@ enum class ipc_transport_event_type : std::uint8_t {
 
 struct ipc_transport_event final {
   ipc_transport_event_type type = ipc_transport_event_type::error;
-  result operation = result::success;
+  error operation = error::success;
   ipc_envelope envelope;
 };
 
@@ -55,10 +55,10 @@ public:
   ipc_transport(const ipc_transport&) = delete;
   ipc_transport& operator=(const ipc_transport&) = delete;
 
-  [[nodiscard]] result start_server() noexcept;
-  [[nodiscard]] result start_client(const ipc_endpoint& endpoint) noexcept;
-  [[nodiscard]] result send(const ipc_envelope& envelope) noexcept;
-  [[nodiscard]] result stop() noexcept;
+  [[nodiscard]] error start_server() noexcept;
+  [[nodiscard]] error start_client(const ipc_endpoint& endpoint) noexcept;
+  [[nodiscard]] error send(const ipc_envelope& envelope) noexcept;
+  [[nodiscard]] error stop() noexcept;
 
   [[nodiscard]] std::size_t poll_events(std::vector<ipc_transport_event>& output,
                                         std::size_t max_count = 64U) noexcept;
@@ -72,6 +72,6 @@ private:
   std::unique_ptr<implementation> implementation_;
 };
 
-} // namespace gneiss
+} // namespace gneiss::engine
 
 #endif

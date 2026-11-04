@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/error.hpp"
 #include "tooling/asset_import/import_ir.hpp"
 
 #include <filesystem>
@@ -10,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::tooling::asset_import {
+namespace gneiss::tooling {
 
 enum class import_asset_result {
   success,
@@ -55,4 +56,4 @@ import_project_asset_and_update_index(const import_asset_request& request,
                                       const std::filesystem::path& index_path,
                                       const import_control& control = {});
 
-} // namespace gneiss::tooling::asset_import
+} // namespace gneiss::tooling

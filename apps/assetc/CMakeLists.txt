@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
-add_executable(gneiss_assetc main.cpp)
-target_include_directories(gneiss_assetc PRIVATE "${PROJECT_SOURCE_DIR}/src")
+add_executable(gneiss_assetc main.cpp "${PROJECT_SOURCE_DIR}/src/host/assetc/assetc_application.cpp")
+target_include_directories(gneiss_assetc PRIVATE "${PROJECT_SOURCE_DIR}/src/host/assetc")
+target_link_libraries(gneiss_assetc PRIVATE gneiss_tooling_interface)
 target_link_libraries(gneiss_assetc PRIVATE gneiss_asset_import_sdk)
 target_compile_features(gneiss_assetc PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_assetc)

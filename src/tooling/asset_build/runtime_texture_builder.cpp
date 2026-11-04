@@ -5,7 +5,7 @@
 
 #include "tooling/asset_build/bc7_encoder.hpp"
 
-#include "engine/asset/texture_binary.hpp"
+#include "engine/resource/texture/texture_binary.hpp"
 
 #include <granit/asset_tools/texture_builder.hpp>
 
@@ -19,7 +19,7 @@
 #include <string_view>
 #include <utility>
 
-namespace gneiss::tooling::asset_build {
+namespace gneiss::tooling {
 namespace {
 
 constexpr granit::texture_usage texture_usage =
@@ -39,7 +39,7 @@ constexpr granit::texture_usage texture_usage =
 
 } // namespace
 
-runtime_texture_build_result build_runtime_texture(const asset_internal::texture_ktx2& source,
+runtime_texture_build_result build_runtime_texture(const gneiss::engine::texture_ktx2& source,
                                                    std::vector<std::byte>& output,
                                                    std::string& diagnostic) noexcept {
   output.clear();
@@ -77,11 +77,11 @@ runtime_texture_build_result build_runtime_texture(const asset_internal::texture
         return fail(runtime_texture_build_result::invalid_argument, "运行纹理 Mip 布局无效",
                     diagnostic);
       }
-      tooling_internal::bc7_image encoded;
-      if (tooling_internal::encode_bc7_rgba8(
+      gneiss::tooling::bc7_image encoded;
+      if (gneiss::tooling::encode_bc7_rgba8(
               level.width, level.height, level.pixels,
-              source.transfer == asset_internal::texture_transfer::srgb, encoded,
-              diagnostic) != tooling_internal::bc7_encode_result::success) {
+              source.transfer == gneiss::engine::texture_transfer::srgb, encoded,
+              diagnostic) != gneiss::tooling::bc7_encode_result::success) {
         return runtime_texture_build_result::encode_failed;
       }
       const auto offset = bc7_payload.size();
@@ -112,7 +112,7 @@ runtime_texture_build_result build_runtime_texture(const asset_internal::texture
     const auto layouts = std::span{subresources};
     const std::array variants{
         granit::asset_tools::texture::variant_desc{
-            .format = source.transfer == asset_internal::texture_transfer::srgb
+            .format = source.transfer == gneiss::engine::texture_transfer::srgb
                           ? granit::texture_format::bc7_rgba_srgb
                           : granit::texture_format::bc7_rgba_unorm,
             .usage = texture_usage,
@@ -120,7 +120,7 @@ runtime_texture_build_result build_runtime_texture(const asset_internal::texture
             .subresources = layouts.first(rgba_first_subresource),
         },
         granit::asset_tools::texture::variant_desc{
-            .format = source.transfer == asset_internal::texture_transfer::srgb
+            .format = source.transfer == gneiss::engine::texture_transfer::srgb
                           ? granit::texture_format::rgba8_srgb
                           : granit::texture_format::rgba8_unorm,
             .usage = texture_usage,
@@ -142,11 +142,14 @@ runtime_texture_build_result build_runtime_texture(const asset_internal::texture
       return fail(runtime_texture_build_result::encode_failed,
                   "Granit Texture Asset Manifest 构建失败", diagnostic);
     }
-    if (asset_internal::encode_texture_binary(built.manifest(), built.payload(), output,
-                                              diagnostic) !=
-        asset_internal::texture_binary_result::success) {
-      return runtime_texture_build_result::encode_failed;
+    auto encoded = gneiss::engine::encode_texture_binary(built.manifest(), built.payload());
+    if (!encoded) {
+      diagnostic = std::move(encoded.error().message);
+      return encoded.error().error == gneiss::engine::texture_binary_error::out_of_memory
+                 ? runtime_texture_build_result::out_of_memory
+                 : runtime_texture_build_result::encode_failed;
     }
+    output = std::move(*encoded);
     return runtime_texture_build_result::success;
   } catch (const std::bad_alloc&) {
     output.clear();
@@ -157,4 +160,4 @@ runtime_texture_build_result build_runtime_texture(const asset_internal::texture
   }
 }
 
-} // namespace gneiss::tooling::asset_build
+} // namespace gneiss::tooling

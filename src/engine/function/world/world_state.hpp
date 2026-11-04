@@ -4,8 +4,9 @@
 #ifndef GNEISS_WORLD_WORLD_STATE_HPP_
 #define GNEISS_WORLD_WORLD_STATE_HPP_
 
-#include <gneiss/engine/core/entity.h>
-#include <gneiss/engine/render.h>
+#include "engine/core/error.hpp"
+#include "engine/core/rid.hpp"
+#include "engine/function/world/world_components.hpp"
 
 #include "engine/function/scene/scene_tree.hpp"
 
@@ -14,18 +15,15 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <memory>
+#include <span>
+#include <stdexcept>
 #include <thread>
+#include <type_traits>
 #include <utility>
 
-namespace gneiss::world_internal {
-
-struct camera_component {
-  gneiss_camera value;
-};
-
-struct mesh_renderer_component {
-  gneiss_mesh_renderer value;
-};
+namespace gneiss::engine {
 
 class world_state final {
 public:
@@ -41,116 +39,142 @@ public:
     return owner_thread_ == std::this_thread::get_id();
   }
 
-  [[nodiscard]] gneiss_entity_id create_entity() {
+  [[nodiscard]] std::uint64_t create_entity() {
     const auto entity = registry_.create();
     ++entity_count_;
     return encode(entity);
   }
 
-  [[nodiscard]] bool destroy_entity(gneiss_entity_id entity) {
+  [[nodiscard]] bool destroy_entity(std::uint64_t entity) {
+    if (!is_alive(entity)) {
+      return false;
+    }
     const auto native = decode(entity);
     if (native == entt::null || !registry_.valid(native)) {
       return false;
     }
     scene_.detach_entity(entity);
+
     registry_.destroy(native);
     if (active_camera_ == entity) {
-      active_camera_ = GNEISS_NULL_ENTITY_ID;
+      active_camera_ = UINT64_C(0);
     }
     --entity_count_;
     return true;
   }
 
-  [[nodiscard]] bool is_alive(gneiss_entity_id entity) const noexcept {
+  [[nodiscard]] bool is_alive(std::uint64_t entity) const noexcept {
     const auto native = decode(entity);
-    return native != entt::null && registry_.valid(native);
+    if (native == entt::null || !registry_.valid(native)) {
+      return false;
+    }
+    return true;
   }
 
   [[nodiscard]] std::size_t entity_count() const noexcept { return entity_count_; }
 
   template <typename Component, typename... Args>
-  Component& emplace(gneiss_entity_id entity, Args&&... args) {
+  Component& emplace(std::uint64_t entity, Args&&... args) {
+    if (!is_alive(entity)) {
+      throw std::invalid_argument{"实体已失效"};
+    }
     return registry_.emplace<Component>(decode(entity), std::forward<Args>(args)...);
   }
 
   template <typename Component, typename... Args>
-  Component& emplace_or_replace(gneiss_entity_id entity, Args&&... args) {
+  Component& emplace_or_replace(std::uint64_t entity, Args&&... args) {
+    if (!is_alive(entity)) {
+      throw std::invalid_argument{"实体已失效"};
+    }
     return registry_.emplace_or_replace<Component>(decode(entity), std::forward<Args>(args)...);
   }
 
-  template <typename Component> [[nodiscard]] Component* get(gneiss_entity_id entity) noexcept {
+  template <typename Component> [[nodiscard]] Component* get(std::uint64_t entity) noexcept {
     const auto native = decode(entity);
-    return native == entt::null ? nullptr : registry_.try_get<Component>(native);
+    return !is_alive(entity) ? nullptr : registry_.try_get<Component>(native);
   }
 
-  [[nodiscard]] gneiss_result set_active_camera(gneiss_entity_id entity) noexcept {
+  template <class Component> error remove(std::uint64_t entity) {
+    if (!is_owner_thread())
+      return error::invalid_state;
+    if (!is_alive(entity))
+      return error::invalid_handle;
+    return registry_.remove<Component>(decode(entity)) ? error::success : error::not_found;
+  }
+
+  [[nodiscard]] error set_active_camera(std::uint64_t entity) noexcept {
     if (!is_alive(entity)) {
-      return GNEISS_ERROR_INVALID_HANDLE;
+      return error::invalid_handle;
     }
     if (get<camera_component>(entity) == nullptr) {
-      return GNEISS_ERROR_NOT_READY;
+      return error::not_ready;
     }
-    each<camera_component>(
-        [](camera_component& component) { component.value.is_primary = UINT8_C(0); });
-    get<camera_component>(entity)->value.is_primary = UINT8_C(1);
     active_camera_ = entity;
-    return GNEISS_SUCCESS;
+    return error::success;
   }
 
-  [[nodiscard]] gneiss_result clear_camera(gneiss_entity_id entity) noexcept {
+  [[nodiscard]] error clear_camera(std::uint64_t entity) noexcept {
+    if (!is_alive(entity)) {
+      return error::invalid_handle;
+    }
     const auto native = decode(entity);
     if (native == entt::null || !registry_.valid(native)) {
-      return GNEISS_ERROR_INVALID_HANDLE;
+      return error::invalid_handle;
     }
     if (registry_.remove<camera_component>(native) == 0U) {
-      return GNEISS_ERROR_NOT_FOUND;
+      return error::not_found;
     }
     if (active_camera_ == entity) {
-      active_camera_ = GNEISS_NULL_ENTITY_ID;
+      active_camera_ = UINT64_C(0);
     }
-    return GNEISS_SUCCESS;
+    return error::success;
   }
 
-  [[nodiscard]] gneiss_result clear_mesh_renderer(gneiss_entity_id entity) noexcept {
+  [[nodiscard]] error clear_mesh_renderer(std::uint64_t entity) noexcept {
+    if (!is_alive(entity)) {
+      return error::invalid_handle;
+    }
     const auto native = decode(entity);
     if (native == entt::null || !registry_.valid(native)) {
-      return GNEISS_ERROR_INVALID_HANDLE;
+      return error::invalid_handle;
     }
-    return registry_.remove<mesh_renderer_component>(native) == 0U ? GNEISS_ERROR_NOT_FOUND
-                                                                   : GNEISS_SUCCESS;
+    return registry_.remove<mesh_renderer_component>(native) == 0U ? error::not_found
+                                                                   : error::success;
   }
 
-  void clear_active_camera(gneiss_entity_id entity) noexcept {
+  void clear_active_camera(std::uint64_t entity) noexcept {
     if (active_camera_ != entity) {
       return;
     }
-    if (auto* component = get<camera_component>(entity); component != nullptr) {
-      component->value.is_primary = UINT8_C(0);
-    }
-    active_camera_ = GNEISS_NULL_ENTITY_ID;
+    active_camera_ = UINT64_C(0);
   }
 
-  [[nodiscard]] gneiss_entity_id active_camera() const noexcept { return active_camera_; }
+  [[nodiscard]] std::uint64_t active_camera() const noexcept { return active_camera_; }
 
   template <typename... Component, typename Function> void each(Function&& function) {
-    registry_.view<Component...>().each(std::forward<Function>(function));
+    registry_.view<Component...>().each([&](entt::entity entity, auto&... components) {
+      if constexpr (std::is_invocable_v<Function&, entt::entity, decltype(components)...>) {
+        std::invoke(function, entity, components...);
+      } else {
+        std::invoke(function, components...);
+      }
+    });
   }
 
-  [[nodiscard]] scene_internal::scene_tree& scene() noexcept { return scene_; }
-  [[nodiscard]] const scene_internal::scene_tree& scene() const noexcept { return scene_; }
-  [[nodiscard]] gneiss_entity_id encode_entity(entt::entity entity) const noexcept {
+  [[nodiscard]] scene_tree& scene() noexcept { return scene_; }
+  [[nodiscard]] const scene_tree& scene() const noexcept { return scene_; }
+  [[nodiscard]] std::uint64_t encode_entity(entt::entity entity) const noexcept {
     return encode(entity);
   }
 
 private:
-  [[nodiscard]] gneiss_entity_id encode(entt::entity entity) const noexcept {
+  [[nodiscard]] std::uint64_t encode(entt::entity entity) const noexcept {
     const auto native = static_cast<std::uint32_t>(entt::to_integral(entity));
-    return (static_cast<gneiss_entity_id>(domain_) << 32U) |
-           (static_cast<gneiss_entity_id>(native) + 1U);
+    return (static_cast<std::uint64_t>(domain_) << 32U) | (static_cast<std::uint64_t>(native) + 1U);
   }
 
-  [[nodiscard]] entt::entity decode(gneiss_entity_id entity) const noexcept {
-    if (entity == GNEISS_NULL_ENTITY_ID || static_cast<std::uint32_t>(entity >> 32U) != domain_) {
+  [[nodiscard]] entt::entity decode(std::uint64_t entity) const noexcept {
+    if (entity == UINT64_C(0) || static_cast<std::uint32_t>(entity >> 32U) != domain_) {
       return entt::null;
     }
     const auto encoded_native = static_cast<std::uint32_t>(entity);
@@ -161,13 +185,13 @@ private:
   }
 
   entt::registry registry_;
-  scene_internal::scene_tree scene_;
+  scene_tree scene_;
   std::uint32_t domain_;
   std::thread::id owner_thread_;
   std::size_t entity_count_ = 0;
-  gneiss_entity_id active_camera_ = GNEISS_NULL_ENTITY_ID;
+  std::uint64_t active_camera_ = UINT64_C(0);
 };
 
-} // namespace gneiss::world_internal
+} // namespace gneiss::engine
 
 #endif

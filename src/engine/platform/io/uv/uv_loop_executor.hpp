@@ -4,13 +4,13 @@
 #ifndef GNEISS_SRC_IO_UV_UV_LOOP_EXECUTOR_HPP_
 #define GNEISS_SRC_IO_UV_UV_LOOP_EXECUTOR_HPP_
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/core/error.hpp"
 
 #include <cstddef>
 #include <functional>
 #include <memory>
 
-namespace gneiss::io_internal {
+namespace gneiss::engine {
 
 class uv_loop_access;
 
@@ -29,9 +29,9 @@ public:
   uv_loop_executor(const uv_loop_executor&) = delete;
   uv_loop_executor& operator=(const uv_loop_executor&) = delete;
 
-  [[nodiscard]] result start() noexcept;
-  [[nodiscard]] result post(task operation) noexcept;
-  [[nodiscard]] result stop() noexcept;
+  [[nodiscard]] error start() noexcept;
+  [[nodiscard]] error post(task operation) noexcept;
+  [[nodiscard]] error stop() noexcept;
 
   [[nodiscard]] bool is_running() const noexcept;
   [[nodiscard]] std::size_t failed_task_count() const noexcept;
@@ -42,6 +42,6 @@ private:
   std::unique_ptr<implementation> implementation_;
 };
 
-} // namespace gneiss::io_internal
+} // namespace gneiss::engine
 
 #endif

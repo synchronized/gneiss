@@ -13,7 +13,7 @@
 #include <vector>
 
 int main() { // NOLINT(bugprone-exception-escape)
-  using namespace gneiss::tooling_internal;
+  using namespace gneiss::tooling;
   constexpr std::uint32_t width = 5U;
   constexpr std::uint32_t height = 3U;
   std::vector<std::byte> source(width * height * 4U);

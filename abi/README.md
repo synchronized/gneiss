@@ -1,17 +1,9 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 Gneiss contributors -->
 
-# ABI 基线
+# 接口边界检查
 
-本目录保存 Gneiss Stable C ABI 的可机器比较基线。`baseline/gneiss-1.0.0-c.txt` 当前记录 1.0.0
-开发起点的全部 C 导出符号，用于发现意外删除；在发布候选冻结 Stable 清单前，它不代表兼容承诺。
-
-基线文件按符号名升序排列，一行一个符号。自动比较、结构布局和常量值验证由 M-67 接入。
-
-`api-stability.txt` 为每个当前导出符号记录 `stable` 或 `experimental`。测试要求清单与基线集合完全
-一致，拒绝未知级别、重复、遗漏和基线外符号。
-
-## 当前 C++ 映射清单
-
-`cpp-api-inventory.json` 和 `cpp-type-inventory.json` 随当前公共头维护，供覆盖检查使用。
-0.45 发布时的原始清单仍保留在 `docs/records/artifacts/`，不随目录整理回写历史证据。
+完整 C SDK、动态 Game Module 与公共 include 目录均已撤销，当前没有公共 C 操作函数或 SDK 头。
+旧符号基线、稳定级别及类型映射清单均已删除。
+cmake/check_public_api.cmake 检查公共接口残留；以后新增接口时应按实际需求更新设计与检查。
+历史 ABI 证据保留在 docs/records，不代表当前兼容承诺。

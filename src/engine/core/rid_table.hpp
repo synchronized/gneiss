@@ -4,30 +4,27 @@
 #ifndef GNEISS_CORE_RID_TABLE_HPP_
 #define GNEISS_CORE_RID_TABLE_HPP_
 
-#include <gneiss/engine/core/result.h>
-#include <gneiss/engine/core/rid.h>
+#include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <new>
 #include <optional>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
-namespace gneiss::core {
+namespace gneiss::engine {
 
 enum class resource_type : std::uint8_t {
   invalid = 0,
   test_resource = 1,
   mesh = 2,
   material = 3,
-  world = 4,
-  application = 5,
   scene_instance = 6,
   texture = 7,
-  type_registry = 8,
-  game_context = 9,
 };
 
 namespace detail {
@@ -46,14 +43,14 @@ struct rid_parts {
   std::uint16_t domain;
 };
 
-[[nodiscard]] constexpr gneiss_rid encode_rid(rid_parts parts) noexcept {
-  return static_cast<gneiss_rid>(parts.slot + 1U) |
-         (static_cast<gneiss_rid>(parts.generation) << generation_shift) |
-         (static_cast<gneiss_rid>(parts.type) << type_shift) |
-         (static_cast<gneiss_rid>(parts.domain) << domain_shift);
+[[nodiscard]] constexpr rid encode_rid(rid_parts parts) noexcept {
+  return static_cast<rid>(parts.slot + 1U) |
+         (static_cast<rid>(parts.generation) << generation_shift) |
+         (static_cast<rid>(parts.type) << type_shift) |
+         (static_cast<rid>(parts.domain) << domain_shift);
 }
 
-[[nodiscard]] constexpr rid_parts decode_rid(gneiss_rid value) noexcept {
+[[nodiscard]] constexpr rid_parts decode_rid(rid value) noexcept {
   const auto encoded_slot = static_cast<std::uint32_t>(value & slot_mask);
   return {
       encoded_slot == 0U ? std::numeric_limits<std::uint32_t>::max() : encoded_slot - 1U,
@@ -65,8 +62,9 @@ struct rid_parts {
 
 } // namespace detail
 
-/** 单个 Service 拥有的资源表；调用方负责外部同步。 */
-template <typename Resource> class rid_table final {
+/** 所有者持有的代次槽位表；默认使用资源 RID，也可指定独立强类型标识。
+ * 调用方负责外部同步；不同 Identifier 的接口不能互传句柄。 */
+template <typename Resource, typename Identifier = rid> class rid_table final {
 public:
   explicit rid_table(std::uint16_t domain) noexcept : domain_(domain) {}
 
@@ -76,12 +74,10 @@ public:
   rid_table& operator=(rid_table&&) = delete;
 
   template <typename Value>
-  [[nodiscard]] gneiss_result create(resource_type type, Value&& value,
-                                     gneiss_rid* out_rid) noexcept {
-    if (out_rid == nullptr || domain_ == 0U || type == resource_type::invalid) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+  [[nodiscard]] result<Identifier> create(resource_type type, Value&& value) noexcept {
+    if (domain_ == 0U || type == resource_type::invalid) {
+      return error::invalid_argument;
     }
-    *out_rid = GNEISS_NULL_RID;
 
     try {
       std::size_t index = 0;
@@ -92,7 +88,7 @@ public:
       }
       if (index == slots_.size()) {
         if (slots_.size() >= detail::slot_mask) {
-          return GNEISS_ERROR_OUT_OF_MEMORY;
+          return error::out_of_memory;
         }
         slots_.emplace_back();
       }
@@ -100,36 +96,35 @@ public:
       auto& slot = slots_[index];
       slot.value.emplace(std::forward<Value>(value));
       slot.type = type;
-      *out_rid =
-          detail::encode_rid({static_cast<std::uint32_t>(index), slot.generation, type, domain_});
-      return GNEISS_SUCCESS;
+      return Identifier{
+          detail::encode_rid({static_cast<std::uint32_t>(index), slot.generation, type, domain_})};
     } catch (const std::bad_alloc&) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return error::out_of_memory;
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return error::internal;
     }
   }
 
-  [[nodiscard]] Resource* get(gneiss_rid value, resource_type expected_type) noexcept {
-    const auto parts = detail::decode_rid(value);
+  [[nodiscard]] Resource* get(Identifier value, resource_type expected_type) noexcept {
+    const auto parts = detail::decode_rid(raw(value));
     if (!is_valid(parts, expected_type)) {
       return nullptr;
     }
     return &*slots_[parts.slot].value;
   }
 
-  [[nodiscard]] const Resource* get(gneiss_rid value, resource_type expected_type) const noexcept {
-    const auto parts = detail::decode_rid(value);
+  [[nodiscard]] const Resource* get(Identifier value, resource_type expected_type) const noexcept {
+    const auto parts = detail::decode_rid(raw(value));
     if (!is_valid(parts, expected_type)) {
       return nullptr;
     }
     return &*slots_[parts.slot].value;
   }
 
-  [[nodiscard]] gneiss_result destroy(gneiss_rid value, resource_type expected_type) noexcept {
-    const auto parts = detail::decode_rid(value);
+  [[nodiscard]] error destroy(Identifier value, resource_type expected_type) noexcept {
+    const auto parts = detail::decode_rid(raw(value));
     if (!is_valid(parts, expected_type)) {
-      return GNEISS_ERROR_INVALID_HANDLE;
+      return error::invalid_handle;
     }
 
     auto& slot = slots_[parts.slot];
@@ -141,7 +136,22 @@ public:
     } else {
       ++slot.generation;
     }
-    return GNEISS_SUCCESS;
+    return error::success;
+  }
+
+  /** 仅遍历存活且类型匹配的值；回调不得创建或销毁本表槽位。 */
+  template <typename Visitor> void for_each(resource_type type, Visitor&& visitor) {
+    for (auto& slot : slots_) {
+      if (slot.type == type && slot.value) {
+        visitor(*slot.value);
+      }
+    }
+  }
+
+  /** 永久关闭槽位表；使全部旧句柄失效并拒绝后续创建。 */
+  void close() noexcept {
+    domain_ = 0U;
+    slots_.clear();
   }
 
   [[nodiscard]] std::size_t live_count() const noexcept {
@@ -153,6 +163,12 @@ public:
   }
 
 private:
+  static rid raw(Identifier value) noexcept {
+    if constexpr (std::is_same_v<Identifier, rid>)
+      return value;
+    else
+      return value.get();
+  }
   struct slot {
     std::optional<Resource> value;
     std::uint16_t generation = 1U;
@@ -173,6 +189,6 @@ private:
   std::vector<slot> slots_;
 };
 
-} // namespace gneiss::core
+} // namespace gneiss::engine
 
 #endif

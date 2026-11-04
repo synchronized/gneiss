@@ -1,4 +1,4 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/core/entity.hpp>
+#include "engine/core/entity_id.hpp"

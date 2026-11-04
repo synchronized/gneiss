@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "child_process.hpp"
+#include "engine/core/error.hpp"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -13,7 +14,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss {
+namespace gneiss::engine {
 namespace {
 
 constexpr std::size_t maximum_output_size = 256U * 1024U;
@@ -112,16 +113,16 @@ child_process::~child_process() {
   implementation_->close_process();
 }
 
-result child_process::start(const child_process_start_info& info) noexcept {
+engine::error child_process::start(const child_process_start_info& info) noexcept {
   if (!implementation_ || is_running() || info.executable.empty()) {
-    return result::invalid_state;
+    return engine::error::invalid_state;
   }
   try {
     std::error_code error;
     if (!std::filesystem::is_regular_file(info.executable, error) || error ||
         (!info.working_directory.empty() &&
          (!std::filesystem::is_directory(info.working_directory, error) || error))) {
-      return result::not_found;
+      return engine::error::not_found;
     }
     implementation_->close_process();
     implementation_->output.clear();
@@ -134,7 +135,7 @@ result child_process::start(const child_process_start_info& info) noexcept {
         SetHandleInformation(implementation_->output_read, HANDLE_FLAG_INHERIT, 0U) == 0) {
       close_handle(output_write);
       implementation_->close_process();
-      return result::initialization_failed;
+      return engine::error::initialization_failed;
     }
 
     STARTUPINFOW startup{};
@@ -159,24 +160,25 @@ result child_process::start(const child_process_start_info& info) noexcept {
     close_handle(output_write);
     if (created == 0) {
       implementation_->close_process();
-      return result::initialization_failed;
+      return engine::error::initialization_failed;
     }
     implementation_->process = process.hProcess;
     implementation_->thread = process.hThread;
     implementation_->has_started = true;
-    return result::success;
+    return engine::error::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return engine::error::out_of_memory;
   } catch (...) {
-    return result::io;
+    return engine::error::io;
   }
 }
 
-result child_process::terminate() noexcept {
+engine::error child_process::terminate() noexcept {
   if (!implementation_ || !is_running()) {
-    return result::not_ready;
+    return engine::error::not_ready;
   }
-  return TerminateProcess(implementation_->process, 70U) != 0 ? result::success : result::io;
+  return TerminateProcess(implementation_->process, 70U) != 0 ? engine::error::success
+                                                              : engine::error::io;
 }
 
 void child_process::update() noexcept {
@@ -232,4 +234,4 @@ void child_process::append_output(std::string_view text) noexcept {
   }
 }
 
-} // namespace gneiss
+} // namespace gneiss::engine

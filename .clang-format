@@ -5,6 +5,7 @@
 Language: Cpp
 BasedOnStyle: LLVM
 Standard: c++20
+LineEnding: LF
 ColumnLimit: 100
 IndentWidth: 2
 DerivePointerAlignment: false

@@ -12,7 +12,7 @@
 #include <new>
 #include <utility>
 
-namespace gneiss::tooling_internal {
+namespace gneiss::tooling {
 namespace {
 
 constexpr std::uint64_t rgba_stride = 4U;
@@ -93,4 +93,4 @@ bc7_encode_result encode_bc7_rgba8(std::uint32_t width, std::uint32_t height,
   }
 }
 
-} // namespace gneiss::tooling_internal
+} // namespace gneiss::tooling

@@ -14,7 +14,7 @@
 
 1. 固定资产哈希、Cook 参数、设备、构建类型和视角，分开测量原始 PNG、Cook BC7 与 RGBA8 回退。
    每条可完成路径至少三次采样；预算失败同样记录阶段、峰值和清理结果，不混合统计成功与失败样本。
-2. 审计 `render_asset_loader.cpp`、`render_resource_service.h`、`texture_binary.*`、
+2. 审计 `render_asset_loader.cpp`、`render_service.hpp`、`texture_binary.*`、
    `granit_render_service.cpp`、`texture_load_service.*` 与 `scene_load_service.*`。
    为文件缓冲、解码结果、变体负载、帧快照、GPU 上传暂存列出所有者、复制点与释放时机。
 3. 同步采集进程 RSS、服务实际分配字节、预算预留、峰值重叠和阶段耗时；GPU 逻辑资源估算与

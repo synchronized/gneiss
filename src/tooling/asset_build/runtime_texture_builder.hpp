@@ -3,14 +3,14 @@
 
 #pragma once
 
-#include "engine/asset/texture_ktx2.hpp"
+#include "engine/resource/texture/texture_ktx2.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
 
-namespace gneiss::tooling::asset_build {
+namespace gneiss::tooling {
 
 enum class runtime_texture_build_result : std::uint8_t {
   success,
@@ -21,7 +21,7 @@ enum class runtime_texture_build_result : std::uint8_t {
 
 /** 将二维 RGBA8 完整 Mip 链构建为含 BC7 优选与 RGBA8 回退变体的运行纹理。 */
 [[nodiscard]] runtime_texture_build_result
-build_runtime_texture(const asset_internal::texture_ktx2& source, std::vector<std::byte>& output,
+build_runtime_texture(const gneiss::engine::texture_ktx2& source, std::vector<std::byte>& output,
                       std::string& diagnostic) noexcept;
 
-} // namespace gneiss::tooling::asset_build
+} // namespace gneiss::tooling

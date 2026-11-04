@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::tooling_internal {
+namespace gneiss::tooling {
 
 struct bc7_image final {
   std::uint32_t width{};
@@ -28,6 +28,6 @@ enum class bc7_encode_result : std::uint8_t { success, invalid_argument, out_of_
                                                  bc7_image& output,
                                                  std::string& diagnostic) noexcept;
 
-} // namespace gneiss::tooling_internal
+} // namespace gneiss::tooling
 
 #endif

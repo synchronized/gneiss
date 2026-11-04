@@ -7,21 +7,23 @@ int main(int argc, char** argv) try {
   if (argc != 2) {
     return 1;
   }
-  gneiss::dynamic_library library;
+  gneiss::engine::dynamic_library library;
   void* symbol = nullptr;
   if (library.is_open() ||
       library.find_symbol("gneiss_test_library_value", &symbol) !=
-          gneiss::result::invalid_argument ||
-      library.open({}) != gneiss::result::invalid_state ||
-      library.open(std::filesystem::path{argv[1]} / "missing") != gneiss::result::not_found) {
+          gneiss::engine::error::invalid_argument ||
+      library.open({}) != gneiss::engine::error::invalid_state ||
+      library.open(std::filesystem::path{argv[1]} / "missing") !=
+          gneiss::engine::error::not_found) {
     return 2;
   }
   if (library.open(argv[1]).failed() || !library.is_open() ||
-      library.open(argv[1]) != gneiss::result::invalid_state ||
-      library.find_symbol("", &symbol) != gneiss::result::invalid_argument ||
+      library.open(argv[1]) != gneiss::engine::error::invalid_state ||
+      library.find_symbol("", &symbol) != gneiss::engine::error::invalid_argument ||
       library.find_symbol("gneiss_test_library_value", nullptr) !=
-          gneiss::result::invalid_argument ||
-      library.find_symbol("gneiss_test_library_missing", &symbol) != gneiss::result::not_found ||
+          gneiss::engine::error::invalid_argument ||
+      library.find_symbol("gneiss_test_library_missing", &symbol) !=
+          gneiss::engine::error::not_found ||
       symbol != nullptr || library.find_symbol("gneiss_test_library_value", &symbol).failed() ||
       symbol == nullptr) {
     return 3;
@@ -35,7 +37,7 @@ int main(int argc, char** argv) try {
   library.close();
   if (library.is_open() ||
       library.find_symbol("gneiss_test_library_value", &symbol) !=
-          gneiss::result::invalid_argument ||
+          gneiss::engine::error::invalid_argument ||
       library.open(argv[1]).failed()) {
     return 5;
   }

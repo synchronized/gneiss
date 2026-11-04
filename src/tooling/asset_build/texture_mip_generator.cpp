@@ -7,7 +7,7 @@
 #include <array>
 #include <cmath>
 
-namespace gneiss::tooling::asset_build {
+namespace gneiss::tooling {
 namespace {
 
 double linear_color(double value) {
@@ -29,7 +29,7 @@ double decode_sample(std::byte input, std::size_t channel, bool srgb, bool norma
   return srgb ? linear_color(value) : value;
 }
 
-std::array<double, 4> filter_pixel(const asset_internal::texture_mip& source, std::uint32_t x,
+std::array<double, 4> filter_pixel(const gneiss::engine::texture_mip& source, std::uint32_t x,
                                    std::uint32_t y, std::uint32_t width, std::uint32_t height,
                                    bool srgb, bool normal_map) {
   const double left = static_cast<double>(x) * source.width / width;
@@ -80,13 +80,13 @@ std::array<double, 4> filter_pixel(const asset_internal::texture_mip& source, st
 
 } // namespace
 
-std::vector<std::byte> generate_texture_mip(const asset_internal::texture_mip& source,
-                                            asset_internal::texture_transfer transfer,
+std::vector<std::byte> generate_texture_mip(const gneiss::engine::texture_mip& source,
+                                            gneiss::engine::texture_transfer transfer,
                                             bool normal_map) {
   if (source.width == 0U || source.height == 0U || source.width > 16384U ||
       source.height > 16384U ||
       source.pixels.size() != static_cast<std::uint64_t>(source.width) * source.height * 4U ||
-      (normal_map && transfer != asset_internal::texture_transfer::linear)) {
+      (normal_map && transfer != gneiss::engine::texture_transfer::linear)) {
     return {};
   }
   const auto width = std::max(1U, source.width / 2U);
@@ -96,7 +96,7 @@ std::vector<std::byte> generate_texture_mip(const asset_internal::texture_mip& s
     for (std::uint32_t x = 0; x < width; ++x) {
       const auto pixel =
           filter_pixel(source, x, y, width, height,
-                       transfer == asset_internal::texture_transfer::srgb, normal_map);
+                       transfer == gneiss::engine::texture_transfer::srgb, normal_map);
       const auto offset = ((static_cast<std::size_t>(y) * width) + x) * 4U;
       for (std::size_t channel = 0; channel < 4U; ++channel) {
         output[offset + channel] = static_cast<std::byte>(
@@ -107,4 +107,4 @@ std::vector<std::byte> generate_texture_mip(const asset_internal::texture_mip& s
   return output;
 }
 
-} // namespace gneiss::tooling::asset_build
+} // namespace gneiss::tooling

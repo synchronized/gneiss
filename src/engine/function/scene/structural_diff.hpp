@@ -4,22 +4,23 @@
 #ifndef GNEISS_SCENE_STRUCTURAL_DIFF_HPP_
 #define GNEISS_SCENE_STRUCTURAL_DIFF_HPP_
 
-#include "engine/function/scene/scene_description.hpp"
+#include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
+#include "engine/resource/scene/scene_description.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine {
 
 enum class structural_change : std::uint32_t {
   none = 0U,
   name = 1U << 0U,
   parent = 1U << 1U,
   transform = 1U << 2U,
-  camera = 1U << 3U,
-  mesh_renderer = 1U << 4U,
+  components = 1U << 3U,
 };
 
 [[nodiscard]] constexpr structural_change operator|(structural_change left,
@@ -34,19 +35,19 @@ enum class structural_change : std::uint32_t {
 }
 
 struct structural_node_add final {
-  std::string uuid;
+  guid uuid;
   std::size_t new_index = 0U;
   std::size_t depth = 0U;
 };
 
 struct structural_node_remove final {
-  std::string uuid;
+  guid uuid;
   std::size_t old_index = 0U;
   std::size_t depth = 0U;
 };
 
 struct structural_node_update final {
-  std::string uuid;
+  guid uuid;
   std::size_t old_index = 0U;
   std::size_t new_index = 0U;
   structural_change changes{structural_change::none};
@@ -66,11 +67,10 @@ struct structural_diff final {
   }
 };
 
-[[nodiscard]] gneiss_result
-build_structural_diff(const std::vector<object_description>& old_objects,
-                      const std::vector<object_description>& new_objects,
-                      structural_diff& output) noexcept;
+[[nodiscard]] error build_structural_diff(const std::vector<object_description>& old_objects,
+                                          const std::vector<object_description>& new_objects,
+                                          structural_diff& output) noexcept;
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine
 
 #endif

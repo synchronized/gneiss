@@ -3,84 +3,56 @@
 
 # Render 资产格式
 
-Runtime Mesh 优先使用二进制；旧 Mesh、Material 与 Texture 描述使用严格 UTF-8 JSON。所有格式仅由
+Runtime Mesh 优先使用二进制；Mesh、Material 与 Texture 描述使用严格 UTF-8 JSON。所有格式仅由
 内部 Loader 使用，资源 URI 规则见[资产 URI、目录挂载与缓存](assets.md)。
 
-## Mesh Binary v1 / v2 / v3
+## Mesh Binary v3
 
-建议扩展名为 `.gneiss-mesh`。多字节整数与 IEEE 754 Float32 固定使用小端序，所有 Offset 相对
-文件起点。Header 固定为 80 字节：
+建议扩展名为 `.gneiss-mesh`。只读写 v3；v1、v2 和未知版本返回 `unsupported_version`，
+旧二进制资产必须重新导入。多字节整数与 IEEE 754 Float32 固定为小端序，所有 Offset 相对文件起点。
 
-| Offset | 大小 | 字段 | v1 值或含义 |
+| Offset | 大小 | 字段 | 值或含义 |
 | ---: | ---: | --- | --- |
 | 0 | 4 | magic | ASCII `GNMS` |
-| 4 | 2 | version | `1` |
+| 4 | 2 | version | `3` |
 | 6 | 2 | header_size | `80` |
-| 8 | 4 | flags | `0` |
+| 8 | 4 | flags | 0..3；位 0 表示 UV1，位 1 表示颜色 |
 | 12 | 4 | vertex_count | 唯一顶点数 |
 | 16 | 4 | index_count | UInt32 索引数，必须是 3 的倍数 |
-| 20 | 2 | vertex_stride | `32` |
+| 20 | 2 | vertex_stride | `72` |
 | 22 | 2 | index_size | `4` |
 | 24 | 8 | vertex_offset | `80` |
 | 32 | 8 | index_offset | 16 字节对齐 |
 | 40 | 8 | file_size | 必须等于实际文件大小 |
-| 48 | 24 | bounds | AABB min Float3、max Float3 |
+| 48 | 24 | bounds | 局部 AABB min Float3、max Float3 |
 | 72 | 8 | reserved | `0` |
 
-顶点按 Position Float3、UV Float2、Normal Float3 交错排列，共 32 字节。随后填充到 16 字节边界，
-再保存 UInt32 索引。v1 只支持三角形列表、有限 Float32 和单位法线；Decoder 必须在分配或读取前验证
-版本、数量乘法、Offset、区域重叠、文件边界、AABB 和索引范围。Runtime Loader 将唯一顶点与索引
-直接交给 Render Service；Granit 后端通过 Index Buffer 绘制，不再展开为重复顶点。
+顶点固定依次保存 Position Float3、UV Float2、Normal Float3、Tangent Float4、UV1 Float2、
+线性 RGBA Color Float4，共 72 字节；随后填充到 16 字节边界，再保存 UInt32 索引。
+UV1 缺失填零、颜色缺失填白，但对应 flags 为零，解码后仍返回空的可选属性数组。
+切线必须逐顶点提供，XYZ 为与法线正交的单位向量（误差 `1e-4`），W 为 `+1` 或 `-1`。
+编码器不生成切线；缺失或无效直接报错。glTF 导入器保留作者手性并正交化切线，
+缺失或可修复的共线切线使用 MikkTSpace 生成；无法生成有效切线时导入失败。
 
-v2 保留 Header 布局，`version=2`、`vertex_stride=48`，在每顶点的 Normal 后追加 Tangent Float4。
-XYZ 必须为单位切线并与法线正交（误差 `1e-4`），W 必须精确为 `+1` 或 `-1`。
-新 glTF 导入器保留作者手性并正交化切线；缺失时使用 MikkTSpace 生成，在 UV 镜像接缝拆点。
-有限但与法线共线的作者切线按 Primitive 重生成并记录诊断；非有限值、非法手性或
-无法生成有效切线时导入失败；无切线的旧 v1 文件仍能读取，不具备准确的法线贴图基础。
+Decoder 验证版本、数量乘法、步长、Offset、文件边界、AABB、索引范围和属性值。
+边界必须与顶点计算结果一致；UV 有限，颜色分量位于 0..1。Runtime 向 Render Service 提交
+唯一顶点与索引，由后端通过 Index Buffer 绘制。
 
-v3 保留 Header，步长为 72 字节：在 v2 后追加 UV1 Float2、线性 RGBA Color Float4。
-`flags` 位 0/1 分别表示 UV1/Color 存在，值必须为 1..3；缺失槽填零 UV / 白色。
-UV 必须有限，颜色分量位于 0..1；数组数量与顶点一致。存在扩展属性时导入输出 v3，否则输出 v2。
+Mesh 构建处理器版本已提升至 3，旧缓存键失效；应从作者源重新导入并 Cook。
+这不改变下文 JSON Mesh 的独立版本规则。
 
 `gneiss_assetc inspect` 输出摘要，`validate` 只校验，`dump <file> --format json` 按需生成完整 Debug
 JSON。Debug JSON 的格式标识为 `gneiss.mesh.debug`，不是 Runtime 输入。
 
-## 兼容 JSON Mesh
+## Mesh JSON v3
 
-建议扩展名为 `.mesh.json`：
+建议扩展名为 `.mesh.json`。仅接受 `gneiss.mesh` v3；v1、v2 和未知正整数版本返回
+`unsupported`，诊断路径为 `/version`。旧资产需重新导入或显式补齐 UV 与单位法线。
 
-```json
-{
-  "format": "gneiss.mesh",
-  "version": 1,
-  "topology": "triangle_list",
-  "vertices": [
-    [-0.5, -0.5, 0.0],
-    [0.5, -0.5, 0.0],
-    [0.0, 0.5, 0.0]
-  ]
-}
-```
-
-`vertices` 每项为 `(x, y, z)` 位置。顶点数至少为 3 且是 3 的倍数，所有数值必须有限并可表示为
-float。v1 只支持 `triangle_list`，不包含索引、法线、UV、颜色或骨骼。
-
-Mesh v2 保留 `vertices`，并增加数量必须与顶点一致的 `uvs`；每项是有限二维纹理坐标 `(u, v)`：
-
-```json
-{
-  "format": "gneiss.mesh",
-  "version": 2,
-  "topology": "triangle_list",
-  "vertices": [[-0.5, -0.5, 0], [0.5, -0.5, 0], [0, 0.5, 0]],
-  "uvs": [[0, 0], [1, 0], [0.5, 1]]
-}
-```
-
-UV 的两个分量必须为有限 float，允许负数和大于 `1` 的平铺坐标，不进行截断或取模。
-采样寻址由 Material 决定，旧版本默认重复寻址。
-
-Mesh v3 继续要求 `uvs`，并增加数量与顶点一致的单位 `normals`；每项是右手坐标中的 `(x, y, z)`：
+`topology` 只支持 `triangle_list`。顶点数量至少为 3 且是 3 的倍数；
+`vertices`、`uvs`、`normals` 数量必须一致，分别包含 3、2、3 个有限 float 分量。
+UV 允许负数和大于 1 的平铺坐标，不截断或取模；采样寻址由材质决定。
+法线使用右手坐标系，长度允许 `1e-4` 误差。不再隐式填充 UV 或进入旧版无光照兼容路径。
 
 ```json
 {
@@ -93,63 +65,38 @@ Mesh v3 继续要求 `uvs`，并增加数量与顶点一致的单位 `normals`�
 }
 ```
 
-法线长度允许 `1e-4` 误差。v1/v2 不隐式生成法线，进入明确的无光照兼容路径。
-
 ## Material
 
-建议扩展名为 `.material.json`：
+仅读写 `gneiss.material` v6，建议扩展名为 `.material.json`。v1–v5 和未知版本拒绝加载。
+格式头独立保留，其余字段直接对应 `material_description` 的持久化成员：
 
 ```json
 {
   "format": "gneiss.material",
-  "version": 1,
-  "color": [0.95, 0.35, 0.12, 1.0]
+  "version": 6,
+  "parameters": {
+    "color": [1.0, 1.0, 1.0, 1.0],
+    "metallic": 0.0,
+    "roughness": 1.0,
+    "alpha_mode": 0
+  },
+  "texture_uris": ["", "", "", "", ""]
 }
 ```
 
-`color` 为线性空间 RGBA，每个分量位于 0..1。v1 不包含纹理、Shader 参数或材质图。
+`parameters` 与 `texture_uris` 必需，未知字段和重复字段拒绝。parameters 的成员可省略，
+保留 C++ 默认值。`color` 默认白色，为线性 RGBA，各分量位于 0..1；metallic 默认 0，
+roughness 默认 1，均位于 0..1。texture_uris 必须是五项字符串数组，顺序为
+base color、MR、normal、AO、emissive；空字符串表示没有纹理，不能使用 null。
+参数还包括 `normal_scale`（默认 1，有限值）、`occlusion_strength`（默认 1，0..1）、
+`emissive`（默认 `[0,0,0]`，线性 RGB 各分量 0..1）、`alpha_mode`（整数 0 opaque、1 mask、2 blend，默认 0）、
+`double_sided`（默认 false）、`alpha_cutoff`（默认 0.5，有限非负）。
+所有枚举保存为整数，超过底层整数范围或未定义的枚举值均拒绝。
+MR 的 G/B 通道分别保存粗糙度/金属度，AO 使用 R；基础颜色和自发光纹理使用 sRGB，其余使用 linear。
+作者材质只保存参数和 URI，不保存 RID 或后端对象。运行期材质及帧快照保留纹理依赖。
 
-Material v2 将 `color` 解释为 base-color 因子，并增加必需的 Texture 描述 URI：
-
-```json
-{
-  "format": "gneiss.material",
-  "version": 2,
-  "color": [1.0, 1.0, 1.0, 1.0],
-  "base_color_texture": "asset://textures/white.texture.json"
-}
-```
-
-Material 租约持有其 Texture 租约；Material 释放前依赖的 Texture RID 始终有效。
-
-Material v3 增加标准 PBR 的金属度与感知粗糙度，并允许没有基础颜色纹理：
-
-```json
-{
-  "format": "gneiss.material",
-  "version": 3,
-  "color": [1.0, 1.0, 1.0, 1.0],
-  "base_color_texture": null,
-  "metallic": 0.0,
-  "roughness": 1.0
-}
-```
-
-`metallic` 与 `roughness` 均位于 0..1。它们属于 Gneiss 作者资产语义，运行时再投影为
-Granit 标准 PBR Material 参数；作者资产不引用 `.grmat` 或后端 Shader。后端投影使用 Granit
-公开的标准 PBR Schema、Material 和 Shader Asset 元数据契约，Gneiss 不解析或复制其私有布局。
-
-Material v4 在 v3 基础上增加可选的 `metallic_roughness_texture`、`normal_texture`、
-`occlusion_texture`、`emissive_texture` URI（省略或 null 使用中性默认纹理），以及
-`normal_scale`（默认 1，有限值，允许负值）、`occlusion_strength`（默认 1，0..1）、
-`emissive`（默认 `[0,0,0]`，线性 RGB 各分量 0..1）。MR 的 G/B 通道分别保存粗糙度/金属度，AO 使用 R。
-基础颜色和自发光纹理应声明 sRGB，其余槽声明 linear。材质租约和帧快照保留所有纹理依赖，
-异步材质重载将全部依赖作为一个事务准备；任一项失败不会发布部分材质。
-
-Material v5 保留 v4 字段，新增可选 `alpha_mode`（`OPAQUE` 默认、`MASK`、`BLEND`）、
-`double_sided`（默认 false）、`alpha_cutoff`（默认 0.5，有限非负）以及 `sampling`。
-`sampling` 省略时五槽均使用 UV0、linear、trilinear、repeat；提供时必须为五项数组，顺序为
-base color、MR、normal、AO、emissive，每项要求以下六个整数：
+`parameters.sampling` 省略时五槽均使用 UV0、linear、trilinear、repeat；提供时必须为五项数组，顺序为
+base color、MR、normal、AO、emissive，每项提供以下六个整数；缺失成员保留对应默认值：
 
 | 字段 | 值 |
 | --- | --- |
@@ -158,9 +105,9 @@ base color、MR、normal、AO、emissive，每项要求以下六个整数：
 | `mip_filter` | 0 禁用 Mip、1 nearest、2 linear |
 | `address_u` / `address_v` | 0 repeat、1 clamp、2 mirror |
 
-glTF 导入输出 v5，保留五类纹理、逐槽 UV/采样、Alpha 模式、双面及 COLOR_0。
+glTF 导入输出 v6，保留五类纹理、逐槽 UV/采样、Alpha 模式、双面及 COLOR_0。
 UV2 及以上显式拒绝；法线缺切线时按其所用 UV 集生成。透明由 Granit 在每 View 的不透明阶段后
-进行对象级排序；不保证相交三角形的精确透明顺序，不包含折射/OIT。旧 v1–v4 材质保持 OPAQUE 默认。
+进行对象级排序；不保证相交三角形的精确透明顺序，不包含折射/OIT。
 GPU 使用统一包含 UV1/Color 的布局与对应标准变体；缺失顶点色补白色，基础颜色与 Alpha 各乘一次。
 负缩放的绕序与切线空间修正由 Granit 公共管线处理。
 
@@ -171,9 +118,10 @@ GPU 使用统一包含 UV1/Color 的布局与对应标准变体；缺失顶点�
 ```json
 {
   "format": "gneiss.texture",
-  "version": 1,
+  "version": 2,
   "source": "asset://textures/white.png",
-  "color_space": "srgb"
+  "color_space": "srgb",
+  "usage": "default"
 }
 ```
 
@@ -181,7 +129,10 @@ GPU 使用统一包含 UV1/Color 的布局与对应标准变体；缺失顶点�
 不从 PNG 元数据推断。资产构建会生成直到 1×1 的完整 Mip 链，再确定性转换为同名
 `.gneiss-texture` 并重写运行资产中的 URI。相同图像不能由多个 Texture 描述同时声明为不同颜色空间。
 
-Texture v2 在 v1 基础上要求 `usage: "normal"` 和 `color_space: "linear"`，用于声明法线 Mip。
+纹理描述仅接受 v2；旧版本返回 `unsupported`。`usage` 必填：普通纹理使用 `default`，
+法线纹理使用 `normal` 且要求 `color_space: "linear"`，用于生成法线 Mip。
+旧 v1 描述应迁到 v2 并补齐 `usage: "default"`。导入器版本提升至 4，纹理处理器版本提升至 6，
+已有导入结果需重新导入并重新 Cook，避免复用旧描述和构建缓存。
 Cook 对 sRGB 颜色先解码至线性光域再过滤；线性数据直接过滤；法线按向量过滤并归一化，
 相消时回退为 +Z。Alpha 始终线性过滤，奇数尺寸使用面积权重覆盖边缘像素。
 glTF 同图跨颜色/数据/法线用途时生成独立派生路径，MR 与 AO 共用 linear 变体，
@@ -196,8 +147,8 @@ base color 与 emissive 共用 sRGB 变体。纹理处理器版本与用途均�
 回退负载。两种变体使用相同完整 Mip 链；颜色空间决定对应的 UNORM 或 SRGB GPU 格式。编辑器直接
 运行尚未 Cook 的作者工程时保留 PNG 兼容路径。PNG 兼容加载包含 CPU 解码；Mip 生成和 BC7 编码只存在于工具路径。
 
-运行纹理封装的 Runtime 加载要求启用 `GNEISS_ENABLE_GRANIT_PLATFORM`；关闭时返回
-`GNEISS_ERROR_UNSUPPORTED` 并定位到 `/source`，不创建纹理 RID。PNG 与 KTX2 的 CPU 加载仍可用。
+运行纹理封装的 CPU 解码使用固定依赖 Granit 的 Manifest 接口，不要求创建窗口或初始化 GPU。
+PNG 与 KTX2 的 CPU 加载同样不依赖窗口。
 
 `gneiss_assetc inspect <file.gneiss-texture>` 校验外层封装、Manifest、二维完整 Mip 链、颜色空间、
 RGBA8 回退与所有变体的负载 SHA-256，输出尺寸、变体格式和各 Mip 的字节范围、行跨度。

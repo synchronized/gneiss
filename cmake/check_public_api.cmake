@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Gneiss contributors
+cmake_minimum_required(VERSION 3.23)
+file(GLOB adapters "${GNEISS_SOURCE_DIR}/src/engine/api/*.cpp" "${GNEISS_SOURCE_DIR}/src/runtime/api/*.cpp")
+set(definitions)
+foreach(adapter IN LISTS adapters)
+  file(READ "${adapter}" content)
+  string(REGEX MATCHALL "extern[ \t\r\n]+\"C\"[ \t\r\n]+[^;{}(]*gneiss_[a-zA-Z0-9_]+[ \t\r\n]*\\(" entries "${content}")
+  foreach(entry IN LISTS entries)
+    string(REGEX MATCH "gneiss_[a-zA-Z0-9_]+[ \t\r\n]*\\($" symbol "${entry}")
+    string(REGEX REPLACE "[ \t\r\n]*\\($" "" symbol "${symbol}")
+    if(symbol IN_LIST definitions)
+      message(FATAL_ERROR "重复公共 C 定义：${symbol}")
+    endif()
+    list(APPEND definitions "${symbol}")
+  endforeach()
+endforeach()
+if(definitions)
+  message(FATAL_ERROR "已撤销公共 C API，不得新增导出：${definitions}")
+endif()
+
+# 当前无公共头；以后依据实际需求重新设计对外接口。
+file(GLOB_RECURSE public_files "${GNEISS_SOURCE_DIR}/include/*")
+if(public_files)
+  message(FATAL_ERROR "当前不提供公共 SDK，出现未规划的公共头：${public_files}")
+endif()

@@ -4,14 +4,20 @@
 #ifndef GNEISS_APPS_EDITOR_IMGUI_ADAPTER_H_
 #define GNEISS_APPS_EDITOR_IMGUI_ADAPTER_H_
 
-#include <gneiss/engine/application.h>
-#include <gneiss/engine/input.h>
-#include <gneiss/engine/render.h>
+#include "engine/core/error.hpp"
+#include "engine/core/frame_time.hpp"
+#include "engine/core/input/input_types.hpp"
+#include "engine/core/rid.hpp"
+#include "engine/function/render/draw_types.hpp"
 
 #include <imgui.h>
 
 #include <cstdint>
 #include <vector>
+
+namespace gneiss::runtime {
+class application;
+}
 
 namespace gneiss::editor {
 
@@ -23,20 +29,20 @@ public:
   imgui_adapter(const imgui_adapter&) = delete;
   imgui_adapter& operator=(const imgui_adapter&) = delete;
 
-  [[nodiscard]] gneiss_result initialize(gneiss_application application);
-  void shutdown(gneiss_application application) noexcept;
-  [[nodiscard]] gneiss_result begin_frame(gneiss_application application,
-                                          const gneiss_frame_time& time);
-  [[nodiscard]] gneiss_result submit(gneiss_application application);
+  [[nodiscard]] gneiss::engine::error initialize(runtime::application& application);
+  void shutdown(runtime::application& application) noexcept;
+  [[nodiscard]] gneiss::engine::error begin_frame(runtime::application& application,
+                                                  const gneiss::engine::frame_time& time);
+  [[nodiscard]] gneiss::engine::error submit(runtime::application& application);
 
 private:
-  void process_input(const gneiss_input_event& event);
+  void process_input(const gneiss::engine::input_event& event);
 
   ImGuiContext* context_ = nullptr;
-  gneiss_texture font_texture_ = GNEISS_NULL_TEXTURE;
-  std::vector<gneiss_ui_vertex> vertices_;
+  gneiss::engine::texture font_texture_;
+  std::vector<gneiss::engine::ui_vertex> vertices_;
   std::vector<std::uint32_t> indices_;
-  std::vector<gneiss_ui_draw_command> commands_;
+  std::vector<gneiss::engine::ui_draw_command> commands_;
 };
 
 } // namespace gneiss::editor

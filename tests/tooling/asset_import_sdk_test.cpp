@@ -19,7 +19,7 @@ namespace {
 } // namespace
 
 int main() { // NOLINT(bugprone-exception-escape)
-  namespace asset_import = gneiss::tooling::asset_import;
+  namespace asset_import = gneiss::tooling;
   const auto fixture_root = std::filesystem::path{GNEISS_TEST_GLTF_ROOT};
   const auto root = std::filesystem::temp_directory_path() / "gneiss-asset-import-sdk-test";
   const auto sources = root / "sources";
@@ -33,23 +33,23 @@ int main() { // NOLINT(bugprone-exception-escape)
   std::filesystem::copy_file(fixture_root / "static_triangle.gltf", first_source);
   std::filesystem::copy_file(fixture_root / "static_triangle.gltf", second_source);
 
-  const auto first = asset_import::import_project_asset_and_update_index(
+  const auto first = gneiss::tooling::import_project_asset_and_update_index(
       {.source_root = sources, .imported_root = imported, .source_path = first_source}, index_path);
-  const auto repeated = asset_import::import_project_asset(
+  const auto repeated = gneiss::tooling::import_project_asset(
       {.source_root = sources, .imported_root = imported, .source_path = first_source});
-  const auto second = asset_import::import_project_asset(
+  const auto second = gneiss::tooling::import_project_asset(
       {.source_root = sources, .imported_root = imported, .source_path = second_source});
-  if (first.result != asset_import::import_asset_result::success ||
-      repeated.result != asset_import::import_asset_result::success ||
-      second.result != asset_import::import_asset_result::success || first.source_key.empty() ||
+  if (first.result != gneiss::tooling::import_asset_result::success ||
+      repeated.result != gneiss::tooling::import_asset_result::success ||
+      second.result != gneiss::tooling::import_asset_result::success || first.source_key.empty() ||
       first.source_key != repeated.source_key || first.source_key == second.source_key ||
       first.output_directory == second.output_directory || first.output_uris.empty()) {
     std::filesystem::remove_all(root);
     return 1;
   }
-  asset_import::asset_index index;
-  if (asset_import::load_asset_index(index_path, index).result !=
-          asset_import::asset_index_result::success ||
+  gneiss::tooling::asset_index index;
+  if (gneiss::tooling::load_asset_index(index_path, index).result !=
+          gneiss::tooling::asset_index_result::success ||
       index.entries.size() != 1U || index.entries[0].source_path != "models/first.gltf" ||
       index.entries[0].source_key != first.source_key) {
     std::filesystem::remove_all(root);
@@ -66,9 +66,9 @@ int main() { // NOLINT(bugprone-exception-escape)
   }
   std::filesystem::copy_file(fixture_root / "missing_normal.gltf", first_source,
                              std::filesystem::copy_options::overwrite_existing);
-  const auto failed = asset_import::import_project_asset_and_update_index(
+  const auto failed = gneiss::tooling::import_project_asset_and_update_index(
       {.source_root = sources, .imported_root = imported, .source_path = first_source}, index_path);
-  if (failed.result != asset_import::import_asset_result::unsupported_feature ||
+  if (failed.result != gneiss::tooling::import_asset_result::unsupported_feature ||
       failed.source_key != first.source_key || read_file(scene_path) != preserved_scene ||
       read_file(index_path) != preserved_index) {
     std::filesystem::remove_all(root);
@@ -76,28 +76,28 @@ int main() { // NOLINT(bugprone-exception-escape)
   }
 
   const auto escaped =
-      asset_import::import_project_asset({.source_root = sources,
-                                          .imported_root = imported,
-                                          .source_path = fixture_root / "static_triangle.gltf"});
+      gneiss::tooling::import_project_asset({.source_root = sources,
+                                             .imported_root = imported,
+                                             .source_path = fixture_root / "static_triangle.gltf"});
   const auto unsupported_source = sources / "readme.txt";
   {
     std::ofstream stream(unsupported_source);
     stream << "不是资产";
   }
-  const auto unsupported = asset_import::import_project_asset(
+  const auto unsupported = gneiss::tooling::import_project_asset(
       {.source_root = sources, .imported_root = imported, .source_path = unsupported_source});
-  if (escaped.result != asset_import::import_asset_result::invalid_argument ||
-      unsupported.result != asset_import::import_asset_result::unsupported_feature) {
+  if (escaped.result != gneiss::tooling::import_asset_result::invalid_argument ||
+      unsupported.result != gneiss::tooling::import_asset_result::unsupported_feature) {
     std::filesystem::remove_all(root);
     return 5;
   }
 
   std::filesystem::copy_file(fixture_root / "static_triangle.gltf", first_source,
                              std::filesystem::copy_options::overwrite_existing);
-  if (asset_import::rebuild_asset_index(sources, imported, index_path).result !=
-          asset_import::asset_index_result::success ||
-      asset_import::load_asset_index(index_path, index).result !=
-          asset_import::asset_index_result::success ||
+  if (gneiss::tooling::rebuild_asset_index(sources, imported, index_path).result !=
+          gneiss::tooling::asset_index_result::success ||
+      gneiss::tooling::load_asset_index(index_path, index).result !=
+          gneiss::tooling::asset_index_result::success ||
       index.entries.size() != 2U) {
     std::filesystem::remove_all(root);
     return 6;

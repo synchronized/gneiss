@@ -7,7 +7,7 @@
 #include <limits>
 
 int main() {
-  using namespace gneiss::tooling::asset_import;
+  using namespace gneiss::tooling;
   import_ir_primitive mesh;
   mesh.vertices = {{{0, 0, 0}, {0, 0, 1}, {0, 0}},
                    {{1, 0, 0}, {0, 0, 1}, {1, 0}},

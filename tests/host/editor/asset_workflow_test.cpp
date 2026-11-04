@@ -1,0 +1,192 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include "../../support/async_document.hpp"
+#include "../../support/async_editor_save.hpp"
+#include "../../support/async_mesh_edit.hpp"
+#include "asset_reimport_queue.hpp"
+#include "documents/scene_document.hpp"
+#include "engine/core/error.hpp"
+#include "engine/core/rid.hpp"
+#include "engine/function/world/world.hpp"
+#include "package_archive.hpp"
+#include "project_workspace.hpp"
+#include "runtime/application.hpp"
+#include "runtime_process.hpp"
+
+#include "engine/core/error.hpp"
+#include "engine/core/math/transform.hpp"
+
+#include <algorithm>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <iterator>
+#include <string>
+#include <thread>
+
+using namespace gneiss::host;
+
+namespace {
+struct temporary_project {
+  std::filesystem::path root;
+  ~temporary_project() {
+    std::error_code error;
+    std::filesystem::remove_all(root, error);
+  }
+};
+std::string read_text(const std::filesystem::path& path) {
+  std::ifstream stream(path);
+  return {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+}
+template <typename Predicate>
+bool wait_for(gneiss::host::runtime_process& process, Predicate predicate) {
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (std::chrono::steady_clock::now() < deadline) {
+    process.update();
+    if (predicate()) {
+      return true;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  return false;
+}
+}
+
+int main() try {
+  using namespace gneiss;
+  using namespace gneiss::editor;
+  temporary_project temporary{
+      std::filesystem::temp_directory_path() /
+          ("gneiss-asset-workflow-" +
+           std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())),
+  };
+  editor_project project;
+  if (create_editor_project(temporary.root / "project", GNEISS_TEST_TEMPLATE, "Asset Workflow",
+                            project) != gneiss::engine::error::success) {
+    return 1;
+  }
+  const auto imported =
+      import_external_asset(project.project_root, project.asset_root, GNEISS_TEST_SOURCE);
+  if (imported.result != editor_import_result::success) {
+    return 3;
+  }
+  const auto& uris = imported.import.output_uris;
+  const auto mesh =
+      std::ranges::find_if(uris, [](const auto& uri) { return uri.ends_with(".gneiss-mesh"); });
+  const auto material =
+      std::ranges::find_if(uris, [](const auto& uri) { return uri.ends_with(".material.json"); });
+  if (mesh == uris.end() || material == uris.end()) {
+    return 4;
+  }
+  const auto material_path = project.asset_root / std::filesystem::path(material->substr(8U));
+  const auto previous_material = read_text(material_path);
+  std::shared_ptr<gneiss::runtime::application> app;
+  gneiss::runtime::application_configuration desc;
+  const auto asset_root = project.asset_root.generic_string();
+  desc.asset_root = asset_root;
+  gneiss::engine::world* world{};
+  scene_document session;
+  scene_node_id node;
+  if (gneiss::engine::error{gneiss::runtime::application::create(desc, app)} !=
+          gneiss::engine::error::success ||
+      (world = app->native_world()) == nullptr ||
+      gneiss::test_support::open_document(session, *app, world, project.startup_scene) !=
+          gneiss::engine::error::success ||
+      gneiss::test_support::create_mesh_document(*app, session, "Imported", *mesh, *material,
+                                                 node) != gneiss::engine::error::success ||
+      gneiss::test_support::save_document(session, project.asset_root) !=
+          gneiss::engine::error::success) {
+    return 5;
+  }
+  session.close();
+  app.reset();
+  runtime_process runtime;
+  const auto fail = [&](int code) {
+    std::cerr << "资产工作流失败：step=" << code << " runtime_exit=" << runtime.exit_code()
+              << " state=" << static_cast<int>(runtime.control_state())
+              << " scene=" << static_cast<int>(runtime.scene_load_status().phase) << "\n"
+              << runtime.output() << '\n';
+    for (const auto& entry : runtime.console().entries()) {
+      if (entry.kind == console_entry_kind::raw) {
+        std::cerr << entry.raw_text << '\n';
+      } else {
+        std::cerr << entry.event.category << ": " << entry.event.message << '\n';
+      }
+    }
+    return code;
+  };
+  if (runtime.start(GNEISS_TEST_RUNTIME, {project.project_root}) !=
+          gneiss::engine::error::success ||
+      !wait_for(runtime, [&] {
+        return runtime.control_state() == runtime_control_state::running &&
+               runtime.scene_load_status().phase == ipc_scene_phase::applied;
+      })) {
+    std::cerr << runtime.output() << "\nstate=" << static_cast<int>(runtime.control_state())
+              << " result=" << runtime.last_result().message() << "\n";
+    return fail(6);
+  }
+  auto source = read_text(imported.source_path);
+  const auto color = source.find("0.5, 0.6, 0.7");
+  if (color == std::string::npos) {
+    return fail(7);
+  }
+  source.replace(color, 13U, "0.9, 0.2, 0.1");
+  std::ofstream(imported.source_path) << source;
+  asset_reimport_queue queue({
+      .debounce = std::chrono::milliseconds(0),
+      .stable_read_delay = std::chrono::milliseconds(1),
+  });
+  queue.request_rescan(); // 模拟源文件事件丢失，通过补扫恢复同一导入事务。
+  const auto now = asset_reimport_queue::clock::now();
+  (void)queue.tick(project.project_root, project.asset_root, now);
+  const auto imported_count =
+      queue.tick(project.project_root, project.asset_root, now + std::chrono::milliseconds(2));
+  if (imported_count != 1U || read_text(material_path) == previous_material) {
+    std::cerr << "reimport count=" << imported_count << " pending=" << queue.pending_count()
+              << " rescanning=" << queue.is_rescanning() << "\n";
+    return fail(8);
+  }
+  std::vector<asset_reimport_event> events;
+  (void)queue.poll_events(events);
+  const auto succeeded = std::ranges::find_if(
+      events, [](const auto& event) { return event.state == asset_reimport_state::succeeded; });
+  if (succeeded == events.end() ||
+      runtime.publish_asset_revision(succeeded->import.import.output_uris) !=
+          gneiss::engine::error::success ||
+      !wait_for(runtime,
+                [&] {
+                  return runtime.asset_reload_status().state == runtime_asset_reload_state::applied;
+                }) ||
+      runtime.request_stop() != gneiss::engine::error::success ||
+      !wait_for(runtime, [&] { return !runtime.is_running(); })) {
+    return fail(9);
+  }
+  const auto package = temporary.root / "package";
+  if (export_editor_project(project,
+                            {
+                                .runtime_executable = GNEISS_TEST_RUNTIME,
+                                .output_root = package,
+                                .profile = gneiss::host::project_build_profile::debug,
+                                .create_zip = false,
+                                .asset_progress = {},
+                            }) != gneiss::engine::error::success ||
+      verify_package_manifest(package) != gneiss::engine::error::success) {
+    return fail(10);
+  }
+  if (runtime.start(package / "bin" / std::filesystem::path(GNEISS_TEST_RUNTIME).filename(),
+                    {package}) != gneiss::engine::error::success ||
+      !wait_for(runtime,
+                [&] {
+                  return runtime.control_state() == runtime_control_state::running &&
+                         runtime.scene_load_status().phase == ipc_scene_phase::applied;
+                }) ||
+      runtime.request_stop() != gneiss::engine::error::success ||
+      !wait_for(runtime, [&] { return !runtime.is_running(); }) || runtime.exit_code() != 0) {
+    return fail(11);
+  }
+  return 0;
+} catch (...) {
+  return 99;
+}

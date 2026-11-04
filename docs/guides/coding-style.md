@@ -9,10 +9,17 @@
 
 项目采用以下语言分层：
 
-- `.h` 提供稳定的 C ABI，必须能被 C11 编译器独立包含。
-- `.hpp` 提供 C++20 包装，基于 C API 提供强类型、移动语义和 RAII。
+- 当前不提供公共 C ABI；以后如新增公共 `.h`，必须能被 C11 编译器独立包含。
+- 不安装公共 `.hpp`；共享值与迁移期转换辅助位于 `src/`，不提供对象 SDK。
+- `src/` 下 `.hpp` 声明内部原生 C++ 接口与类型，由 `.cpp` 实现；不要求经过 C ABI。
 - `.c` 使用 C11；`.cpp`、`.cc` 和 `.cxx` 使用 C++20。
 - C++ 包装层不得建立与 C API 平行的第二套运行时状态。
+
+## 文本换行
+
+自有文本统一使用 UTF-8 和 LF，Git 工作区规则见 `.gitattributes`，编辑器规则见
+`.editorconfig`；clang-format 也显式输出 LF。第三方源码保持上游格式。
+Windows 脚本或生成工具写自有文本时须显式选择 LF，不能依赖系统默认换行。
 
 ## 自动格式化基线
 
@@ -57,11 +64,28 @@ clang-format -i <files...>
 | C++ 命名空间 | 小写 | `gneiss` |
 | C++ 类型 | 小写下划线 | `render_service` |
 | 函数和变量 | 小写下划线 | `create_entity`、`entity_count` |
-| 枚举值 | C 使用大写前缀；C++ 使用小写 | `GNEISS_RESULT_OK`、`result::ok` |
+| 枚举值 | C 使用大写前缀；C++ 使用小写 | `GNEISS_RESULT_OK`、`error::ok` |
 | 私有数据成员 | 小写下划线并带末尾下划线 | `world_id_` |
 | 模板参数 | 描述性 PascalCase | `ResourceType` |
 
+内部原生类型与共享值类型保持小写下划线，通过模块命名空间区分职责。
+公共对象 SDK 已删除，见 ADR-070；不以类型名大小写区分内外接口。
+
 缩写视为普通单词，例如使用 `entity_id`、`resource_id`，不使用 `entityID` 或 `resourceID`。RID 作为项目术语可以出现在文档中，代码标识符使用 `rid`。
+
+### 对象职责与文件命名
+
+- `*_description` 表示可保存的描述；`*_resource` 表示上层持有的运行时资源；
+  `*_data` 用于具体数据负载或明确用途的操作输入，如 `scene_instantiation_data`。
+- `*_view` 强调借用数据，必须注明有效期；`*_snapshot` 表示自有快照。
+  混合借用字段和自有快照的查询结果使用 `*_info`，逐项说明所有权。
+- `*_request` 表示请求及其观察状态；`*_metrics` 表示统计；`*_record` 表示一次操作记录。
+- `asset_manager` 负责 CPU 资产加载，`resource_service` 组织运行时资源，
+  `render_service` 管理渲染后端；对应局部参数优先使用 `assets`、`resources`、`renderer`。
+- `render_resource_kind` 只描述渲染资源类别，不用于枚举所有 CPU 资产类型。
+- 文件名体现主要对象或职责；拆分实现优先沿用所属类前缀，如
+  `resource_service_loading.cpp`。相关小结构可以集中定义，不要求每个类型一个文件。
+- 不保留仅为兼容旧名称而增加的别名；不因字段相同就合并所有权或职责不同的类型。
 
 ### 布尔值和动作命名
 
@@ -180,7 +204,7 @@ GNEISS_API gneiss_result_t gneiss_world_create(gneiss_world_t* out_world);
 ## 目录与边界
 
 ```text
-include/gneiss/         C11 API 与 C++20 公共包装
+src/engine/core/       内部共享值与符号可见性定义，不安装公共头
 src/                    内部 C++20 实现和平台后端
 tests/                  C11、C++20 与行为测试
 examples/               可独立运行的最小示例
@@ -196,7 +220,7 @@ docs/                   项目文档
 ## 测试要求
 
 - 公共 `.h` 需要由 C11 编译器独立包含和构建。
-- 公共 `.hpp` 需要由 C++20 编译器独立包含和构建。
+- 内部共享值头需要由 C++20 编译器独立包含和构建。
 - 新增 API 或修复缺陷时覆盖成功、失败、生命周期和线程边界。
 - RID 测试至少覆盖零值、类型错误、generation 失效、跨服务混用和重复销毁。
 - 修改 ABI 时同时验证共享库、静态库、C consumer 和 C++ consumer。
@@ -212,3 +236,23 @@ docs/                   项目文档
 6. 运行 `git diff --check`，确认没有无关格式化或尾随空白。
 
 具体构建、测试和示例运行命令由[构建与测试指南](building.md)统一维护。
+
+## 模块命名空间
+
+内部业务类型按架构层使用 `gneiss::engine`、`gneiss::runtime`、`gneiss::editor`、
+`gneiss::tooling`、`gneiss::host`，目录不再逐级映射为命名空间。
+单文件辅助实现使用匿名命名空间，头文件实现细节允许 `detail`。
+不保留旧领域命名空间兼容别名。目录、头文件可见性与 CMake 依赖继续约束分层。
+该命名空间迁移不改变 C ABI；旧共享值的后续收敛见 PLAN-051。决策见 [ADR-079](../decisions/ADR-079-flat-namespaces.md)。
+
+Meta 是上述平铺规则的明确例外：反射描述、注册、查询和编解码接口位于
+`gneiss::engine::meta`，避免通用名称与业务模块冲突。基础值类型和 traits 定制点仍在
+`gneiss::engine`；不为旧 Meta 限定名保留兼容别名。
+
+## UTF-8 校验复用
+
+通用 UTF-8 编码校验使用 `engine/core/utf8.hpp` 中的
+`gneiss::engine::utf8::is_valid(std::string_view)`，不分配内存，不依赖平台。
+空串和嵌入 NUL 均是合法编码；路径禁用控制字符、名称或 Prefab 字符串禁用 NUL 等规则
+由对应调用层另行校验。不要在各模块重复实现字节序列解析。
+原生文件路径转换及平台字符转换仍属于路径/平台适配，不加入 Core 编码校验工具。

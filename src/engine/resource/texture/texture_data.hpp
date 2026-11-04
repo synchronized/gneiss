@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#pragma once
+
+#include "engine/resource/texture/texture_description.hpp"
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
+namespace gneiss::engine {
+
+struct texture_mip final {
+  std::uint32_t width{};
+  std::uint32_t height{};
+  std::vector<std::byte> pixels;
+};
+
+/** 调用方提供的不可变设备能力快照；位顺序为 RGBA8 linear/sRGB、BC7 linear/sRGB。
+ * generation 是不透明身份；零值保留整包兼容路径，不携带后端对象。 */
+struct texture_prepare_profile {
+  std::uint64_t generation{};
+  std::array<bool, 4> sampled_transfer_formats{};
+  bool operator==(const texture_prepare_profile&) const = default;
+};
+
+/** 解码、加载与渲染共用的 CPU 纹理数据；不含 GPU 对象或上传状态。
+ * 准备任务拥有可变数据，完成后移动给资源服务；渲染后端共享不可变引用。 */
+struct texture_data {
+  std::uint32_t width;
+  std::uint32_t height;
+  texture_format format;
+  texture_color_space color_space;
+  std::vector<texture_mip> levels;
+  std::vector<std::byte> manifest;
+  std::vector<std::byte> payload;
+  /** profile 非零时 payload 从选中变体起点开始，不含其他变体。 */
+  texture_prepare_profile profile{};
+  std::uint32_t selected_variant{UINT32_MAX};
+};
+
+} // namespace gneiss::engine

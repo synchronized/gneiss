@@ -4,7 +4,10 @@
 #ifndef GNEISS_SCENE_PREFAB_PROPERTY_OVERRIDE_HPP_
 #define GNEISS_SCENE_PREFAB_PROPERTY_OVERRIDE_HPP_
 
-#include <gneiss/engine/reflection.h>
+#include "engine/core/meta/registry.hpp"
+#include "engine/core/result.hpp"
+#include "engine/resource/scene/prefab_description.hpp"
+#include "engine/resource/scene/prefab_property_data.hpp"
 
 #include <array>
 #include <cstdint>
@@ -12,70 +15,37 @@
 #include <variant>
 #include <vector>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine {
 
-/** Prefab 实例中节点的稳定作者身份。 */
-struct prefab_author_address final {
-  std::string instance_uuid;
-  std::string source_node_uuid;
+/** 只修改私有描述，失败保持 output 不变；不读文件、不创建实体、不发送通知。 */
+[[nodiscard]] error prepare_prefab_description(const prefab_description& source,
+                                               std::span<const prefab_property_override> overrides,
+                                               prefab_description& output) noexcept;
 
-  [[nodiscard]] bool operator==(const prefab_author_address&) const noexcept = default;
-};
-
-/** 判断 UUID 是否为规范的小写形式。 */
-[[nodiscard]] bool is_canonical_prefab_uuid(std::string_view value) noexcept;
-
-/** 判断复合作者身份的两个 UUID 是否均为规范的小写形式。 */
-[[nodiscard]] bool is_valid_prefab_author_address(const prefab_author_address& address) noexcept;
-
-using prefab_property_payload =
-    std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float, double, std::string,
-                 std::array<std::uint8_t, 16>, std::array<float, 3>, std::array<float, 4>>;
-
-/** 场景作者数据拥有的属性值，不借用 Registry、IPC 或 JSON 内存。 */
-struct prefab_property_value final {
-  prefab_property_payload payload;
-
-  [[nodiscard]] bool operator==(const prefab_property_value&) const noexcept = default;
-};
-
-/** 单个 Prefab 实例字段覆盖的稳定作者键。 */
-struct prefab_property_override_key final {
-  prefab_author_address node;
-  gneiss_type_id type_id{};
-  gneiss_field_id field_id = GNEISS_NULL_FIELD_ID;
-
-  [[nodiscard]] bool operator==(const prefab_property_override_key& other) const noexcept;
-};
-
-struct prefab_property_override final {
-  prefab_property_override_key key;
-  prefab_property_value value;
-};
-
-/** 返回 owning 值对应的公共属性类别；无值返回 INVALID。 */
-[[nodiscard]] gneiss_property_kind
-prefab_property_value_kind(const prefab_property_value& value) noexcept;
+/** 应用结构与属性覆盖；诊断按来源 UUID、类型 GUID 和属性路径定位。 */
+[[nodiscard]] GNEISS_API error
+prepare_prefab_reference(const prefab_description&, const prefab_reference_description&,
+                         prefab_description&, scene_diagnostic* diagnostic = nullptr) noexcept;
 
 /** 验证作者键、值、字段存在性、类型和可写能力。Registry 必须已经冻结。 */
-[[nodiscard]] gneiss_result
-validate_prefab_property_override(gneiss_type_registry registry,
-                                  const prefab_property_override& value) noexcept;
+[[nodiscard]] error
+validate_prefab_property_override(const prefab_property_override& value) noexcept;
 
 /**
  * 写入或移除一条稀疏覆盖。
  *
  * candidate 与 source_value 规范化后相等时删除对应记录，否则按稳定键更新并确定性排序。
  */
-[[nodiscard]] gneiss_result set_prefab_property_override(
-    gneiss_type_registry registry, std::vector<prefab_property_override>& overrides,
-    prefab_property_override candidate, prefab_property_value source_value) noexcept;
+[[nodiscard]] GNEISS_API error set_prefab_property_override(
+    std::vector<prefab_property_override>& overrides, prefab_property_override candidate,
+    engine::value source_value) noexcept;
 
-/** 按稳定作者键比较，用于确定性排序。 */
-[[nodiscard]] bool
-prefab_property_override_key_less(const prefab_property_override_key& left,
-                                  const prefab_property_override_key& right) noexcept;
+/** 计算网格组件的 URI 覆盖；保留其他对象/属性记录。失败不改变输入，不访问 World 或资源服务。 */
+[[nodiscard]] GNEISS_API result<std::vector<prefab_property_override>>
+prepare_mesh_renderer_overrides(guid source_node, const mesh_renderer_description& original,
+                                const mesh_renderer_description& replacement,
+                                std::span<const prefab_property_override> existing = {}) noexcept;
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine
 
 #endif

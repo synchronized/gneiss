@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Gneiss contributors
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+
+[3rd/**]
+charset = unset
+end_of_line = unset

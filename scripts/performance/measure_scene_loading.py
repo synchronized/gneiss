@@ -130,7 +130,7 @@ def main():
             for mode in ("thread", "cooperative"):
                 group = [s for s in samples if s["configuration"] == configuration
                          and s["profile"] == profile and s["mode"] == mode]
-                values = [s["load_ms"] for s in group]
+                values = [s.get("load_and_drain_ms", s["load_ms"]) for s in group]
                 if len(values) != 3:
                     failures.append(f"{configuration}/{profile}/{mode}: 样本不足")
                     continue

@@ -2,39 +2,41 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/render/debug_draw_list.hpp"
+#include "engine/core/error.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <new>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine {
 
-gneiss_result debug_draw_list::replace(std::span<const gneiss_debug_line> lines) noexcept {
+error debug_draw_list::replace(std::span<const debug_line> lines) noexcept {
   constexpr std::uint32_t maximum_lines = 1024U * 1024U;
   if (lines.size() > maximum_lines) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return error::invalid_argument;
   }
   for (const auto& line : lines) {
-    if (line.depth_test > 1U || line.reserved[0] != 0U || line.reserved[1] != 0U ||
-        line.reserved[2] != 0U || !std::isfinite(line.width) || line.width <= 0.0F ||
-        !std::ranges::all_of(line.start, [](float value) { return std::isfinite(value); }) ||
-        !std::ranges::all_of(line.end, [](float value) { return std::isfinite(value); })) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+    if (!std::isfinite(line.width) || line.width <= 0.0F ||
+        !std::ranges::all_of(math::components(line.start),
+                             [](float value) { return std::isfinite(value); }) ||
+        !std::ranges::all_of(math::components(line.end),
+                             [](float value) { return std::isfinite(value); })) {
+      return error::invalid_argument;
     }
   }
   try {
-    std::vector<gneiss_debug_line> pending;
+    std::vector<debug_line> pending;
     if (!lines.empty()) {
       pending.assign(lines.begin(), lines.end());
     }
     lines_ = std::move(pending);
-    return GNEISS_SUCCESS;
+    return error::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return error::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return error::internal;
   }
 }
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine

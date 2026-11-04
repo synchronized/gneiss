@@ -3,7 +3,7 @@
 
 #include "tooling/asset_build/asset_build.hpp"
 
-#include "engine/asset/texture_binary.hpp"
+#include "engine/resource/texture/texture_binary.hpp"
 
 #include <granit/renderer/texture_asset.hpp>
 
@@ -16,7 +16,7 @@
 
 namespace {
 
-using namespace gneiss::tooling::asset_build;
+using namespace gneiss::tooling;
 
 [[nodiscard]] bool write(const std::filesystem::path& path, const std::string& content) {
   std::error_code error;
@@ -108,13 +108,10 @@ int main() {
     return 3;
   }
   const auto texture_bytes = read_bytes(development.output_root / "textures/a.gneiss-texture");
-  gneiss::asset_internal::texture_binary_view texture_binary;
-  std::string texture_diagnostic;
+  auto texture_binary = gneiss::engine::decode_texture_binary(texture_bytes);
   granit::texture_asset_info texture_info;
-  if (gneiss::asset_internal::decode_texture_binary(texture_bytes, texture_binary,
-                                                    texture_diagnostic) !=
-          gneiss::asset_internal::texture_binary_result::success ||
-      granit::inspect_texture_asset(texture_binary.manifest, texture_info) !=
+  if (!texture_binary ||
+      granit::inspect_texture_asset(texture_binary->manifest, texture_info) !=
           granit::result::success ||
       texture_info.variants.size() != 2U ||
       texture_info.variants[0].format != granit::texture_format::bc7_rgba_srgb ||
@@ -167,9 +164,9 @@ int main() {
 
   const auto pbr_source = root / "pbr-source";
   const std::string color_desc =
-      R"({"format":"gneiss.texture","version":1,"source":"asset://color.png","color_space":"srgb"})";
+      R"({"format":"gneiss.texture","version":2,"source":"asset://color.png","color_space":"srgb","usage":"default"})";
   const std::string data_desc =
-      R"({"format":"gneiss.texture","version":1,"source":"asset://data.png","color_space":"linear"})";
+      R"({"format":"gneiss.texture","version":2,"source":"asset://data.png","color_space":"linear","usage":"default"})";
   const std::string normal_desc =
       R"({"format":"gneiss.texture","version":2,"source":"asset://normal.png","color_space":"linear","usage":"normal"})";
   if (!write(pbr_source / "color.png", png_fixture('p')) ||
@@ -180,7 +177,7 @@ int main() {
       !write(pbr_source / "normal.texture.json", normal_desc) ||
       !write(
           pbr_source / "material.material.json",
-          R"({"format":"gneiss.material","version":4,"color":[1,1,1,1],"metallic":1,"roughness":1,"base_color_texture":"asset://color.texture.json","metallic_roughness_texture":"asset://data.texture.json","normal_texture":"asset://normal.texture.json","occlusion_texture":"asset://data.texture.json","emissive_texture":"asset://color.texture.json"})")) {
+          R"({"format":"gneiss.material","version":6,"parameters":{"color":[1,1,1,1],"metallic":1,"roughness":1},"texture_uris":["asset://color.texture.json","asset://data.texture.json","asset://normal.texture.json","asset://data.texture.json","asset://color.texture.json"]})")) {
     return 9;
   }
   auto pbr_request = shipping_request;
@@ -203,7 +200,7 @@ int main() {
   const auto* old_normal = find_output(pbr_first, "normal.gneiss-texture");
   if (!write(
           pbr_source / "normal.texture.json",
-          R"({"format":"gneiss.texture","version":1,"source":"asset://normal.png","color_space":"linear"})")) {
+          R"({"format":"gneiss.texture","version":2,"source":"asset://normal.png","color_space":"linear","usage":"default"})")) {
     return 11;
   }
   pbr_request.output_root = root / "pbr-changed";

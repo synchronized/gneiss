@@ -4,8 +4,8 @@
 #ifndef GNEISS_APPS_EDITOR_CONSOLE_MODEL_H_
 #define GNEISS_APPS_EDITOR_CONSOLE_MODEL_H_
 
-#include <gneiss/engine/core/result.hpp>
-#include <gneiss/engine/log.h>
+#include "engine/core/error.hpp"
+#include "engine/core/log/log_types.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -23,14 +23,14 @@ enum class console_entry_kind : std::uint8_t {
 
 /** 控制台持有的日志值；不含传输版本或协议对象，字符串由该值拥有。 */
 struct console_event final {
-  std::uint32_t severity = GNEISS_LOG_INFO;
+  std::uint32_t severity = static_cast<std::uint32_t>(gneiss::engine::level::info);
   std::uint64_t sequence = 0U;
   std::uint64_t timestamp_ns = 0U;
   std::uint64_t thread_id = 0U;
   std::string source;
   std::string category;
   std::string message;
-  gneiss_result operation = GNEISS_SUCCESS;
+  gneiss::engine::error operation = gneiss::engine::error::success;
 };
 
 struct console_entry final {
@@ -58,9 +58,10 @@ public:
 
   /** 开始新 Runtime 会话；已有记录保留原会话标识。 */
   [[nodiscard]] std::uint64_t begin_session() noexcept;
-  [[nodiscard]] result append_event(std::uint64_t session_id, console_event event) noexcept;
-  [[nodiscard]] result append_raw(std::uint64_t session_id, std::string_view text,
-                                  bool was_truncated = false) noexcept;
+  [[nodiscard]] gneiss::engine::error append_event(std::uint64_t session_id,
+                                                   console_event event) noexcept;
+  [[nodiscard]] gneiss::engine::error append_raw(std::uint64_t session_id, std::string_view text,
+                                                 bool was_truncated = false) noexcept;
   void clear() noexcept;
 
   [[nodiscard]] std::uint64_t current_session_id() const noexcept;
@@ -68,8 +69,8 @@ public:
   [[nodiscard]] const std::deque<console_entry>& entries() const noexcept;
   [[nodiscard]] bool matches(const console_entry& entry,
                              const console_filter& filter) const noexcept;
-  [[nodiscard]] result visible_indices(const console_filter& filter,
-                                       std::vector<std::size_t>& output) const noexcept;
+  [[nodiscard]] gneiss::engine::error
+  visible_indices(const console_filter& filter, std::vector<std::size_t>& output) const noexcept;
 
 private:
   void make_room() noexcept;

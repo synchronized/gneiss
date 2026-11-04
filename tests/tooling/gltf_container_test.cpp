@@ -95,7 +95,7 @@ void write_uri_fixture(const std::filesystem::path& path, std::string_view uri) 
 } // namespace
 
 int main() { // NOLINT(bugprone-exception-escape)
-  namespace asset_import = gneiss::tooling::asset_import;
+  namespace asset_import = gneiss::tooling;
   const auto root = std::filesystem::temp_directory_path() / "gneiss-gltf-container-test";
   std::filesystem::remove_all(root);
   std::filesystem::create_directories(root);
@@ -114,34 +114,36 @@ int main() { // NOLINT(bugprone-exception-escape)
   if (!symlink_error) {
     write_uri_fixture(root / "symlink-escape.gltf", "linked.bin");
   }
-  const auto glb = asset_import::inspect_gltf(root / "triangle.glb");
-  const auto embedded_image = asset_import::inspect_gltf(root / "embedded-image.glb");
-  const auto external = asset_import::inspect_gltf(root / "external.gltf");
+  const auto glb = gneiss::tooling::inspect_gltf(root / "triangle.glb");
+  const auto embedded_image = gneiss::tooling::inspect_gltf(root / "embedded-image.glb");
+  const auto external = gneiss::tooling::inspect_gltf(root / "external.gltf");
   const std::array unsafe_sources{root / "parent-escape.gltf", root / "absolute.gltf",
                                   root / "network.gltf", root / "encoded-escape.gltf"};
-  if (glb.result != asset_import::inspect_result::success) {
+  if (glb.result != gneiss::tooling::inspect_result::success) {
     std::cerr << "GLB：" << glb.diagnostic << '\n';
   }
-  if (external.result != asset_import::inspect_result::success) {
+  if (external.result != gneiss::tooling::inspect_result::success) {
     std::cerr << "外部 Buffer：" << external.diagnostic << '\n';
   }
-  if (glb.result != asset_import::inspect_result::success || glb.summary.primitive_count != 1U ||
-      embedded_image.result != asset_import::inspect_result::success ||
+  if (glb.result != gneiss::tooling::inspect_result::success || glb.summary.primitive_count != 1U ||
+      embedded_image.result != gneiss::tooling::inspect_result::success ||
       embedded_image.data.images.size() != 1U || embedded_image.data.images[0].bytes.size() != 8U ||
-      external.result != asset_import::inspect_result::success ||
+      external.result != gneiss::tooling::inspect_result::success ||
       external.data.meshes[0].primitives[0].vertices.size() != 3U) {
     return 1;
   }
   for (const auto& source : unsafe_sources) {
-    if (asset_import::inspect_gltf(source).result != asset_import::inspect_result::invalid_source) {
+    if (gneiss::tooling::inspect_gltf(source).result !=
+        gneiss::tooling::inspect_result::invalid_source) {
       return 2;
     }
   }
-  if (!symlink_error && asset_import::inspect_gltf(root / "symlink-escape.gltf").result !=
-                            asset_import::inspect_result::invalid_source) {
+  if (!symlink_error && gneiss::tooling::inspect_gltf(root / "symlink-escape.gltf").result !=
+                            gneiss::tooling::inspect_result::invalid_source) {
     return 3;
   }
-  auto external_image_json = read_file(std::filesystem::path{GNEISS_TEST_GLTF_ROOT} / "static_triangle.gltf");
+  auto external_image_json =
+      read_file(std::filesystem::path{GNEISS_TEST_GLTF_ROOT} / "static_triangle.gltf");
   const auto image_uri_start = external_image_json.find("data:image/png;base64,");
   const auto image_uri_end = external_image_json.find('"', image_uri_start);
   if (image_uri_start == std::string::npos || image_uri_end == std::string::npos) {
@@ -154,14 +156,14 @@ int main() { // NOLINT(bugprone-exception-escape)
     std::ofstream image(root / "external.png", std::ios::binary);
     image.write(reinterpret_cast<const char*>(signature.data()), signature.size());
   }
-  const auto without_mime = asset_import::inspect_gltf(root / "external-image.gltf");
-  if (without_mime.result != asset_import::inspect_result::success ||
+  const auto without_mime = gneiss::tooling::inspect_gltf(root / "external-image.gltf");
+  if (without_mime.result != gneiss::tooling::inspect_result::success ||
       !without_mime.data.images[0].is_png || without_mime.data.images[0].bytes.size() != 8U) {
     return 5;
   }
   std::ofstream(root / "external.png", std::ios::binary) << "not PNG";
-  if (asset_import::inspect_gltf(root / "external-image.gltf").result !=
-      asset_import::inspect_result::unsupported_feature) {
+  if (gneiss::tooling::inspect_gltf(root / "external-image.gltf").result !=
+      gneiss::tooling::inspect_result::unsupported_feature) {
     return 6;
   }
   std::filesystem::remove_all(root);

@@ -8,6 +8,7 @@
 
 | 版本 | 发布日期 | 主要变化 | 发布入口 |
 | --- | --- | --- | --- |
+| [0.51.0](0.51.0.md) | 2026-11-04 | 原生 C++、资源与场景所有权、Meta 及跨平台构建收敛 | [源码 Release](https://github.com/synchronized/gneiss/releases/tag/v0.51.0) |
 | [0.50.0](0.50.0.md) | 2026-10-14 | libuv 资产 I/O、Editor 异步加载与延迟观测；接受已记录遗留项 | [源码 Release](https://github.com/synchronized/gneiss/releases/tag/v0.50.0) |
 | [0.49.0](0.49.0.md) | 2026-10-07 | 分步加载、取消与清理分离、完整实景稳定性验收 | [源码 Release](https://github.com/synchronized/gneiss/releases/tag/v0.49.0) |
 | [0.48.0](0.48.0.md) | 2026-10-07 | C++ SDK 接口与适配分离、调用一致性与原生示例 | [源码 Release](https://github.com/synchronized/gneiss/releases/tag/v0.48.0) |

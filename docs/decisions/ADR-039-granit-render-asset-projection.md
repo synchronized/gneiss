@@ -66,3 +66,16 @@ Gneiss 当前拥有 Mesh、Material、Texture 的 RID、作者 JSON、Runtime Me
 - **把 Granit Material 句柄存入 ECS 或公共 RID 表**：减少一层映射，但让逻辑层持有 GPU 后端状态。
 - **运行时从 Granit 源码或安装绝对路径读取资产**：开发方便，但安装、打包和父工程消费不可重复。
 - **复制 Model Viewer 的资产与加载代码**：能快速显示结果，但依赖示例私有契约并形成第三套资产状态。
+
+## 服务接口收敛（2026-10-25）
+
+渲染提交与设备生命周期入口改名为 `engine::render_service`，位于
+`engine/function/render/render_service.hpp/.cpp`。接口只使用 Gneiss 的帧、上传、统计及窗口描述类型；
+`shutdown` 的存活资源计数使用 `render_device_stats`，在实现中显式转换 Granit 统计。
+
+`implementation` 只在 `.cpp` 定义，持有 Granit 对象、GPU 镜像、Shader 解析器与渲染执行器。
+服务以 unique_ptr 独占实现，不可复制或移动，保证异步回调捕获的实现地址稳定。
+保留原有初始化、提交、排空和关闭流程，以及成员析构顺序；宿主仍需在平台关闭前显式 shutdown。
+
+`render_resource_service` 继续管理 RID 和引擎资源数据，`render_asset_loader` 继续负责资产到运行期资源的衔接。
+本次不增加后端工厂、虚接口或后端切换；实现仍由 Granit 提供，并沿用现有条件构建。

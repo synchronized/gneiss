@@ -6,7 +6,12 @@ add_library(gneiss_tasks STATIC task_scheduler.cpp task_scheduler.hpp task_platf
 if(COMMAND gneiss_target_profiling)
   gneiss_target_profiling(gneiss_tasks)
 endif()
-target_include_directories(gneiss_tasks PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
+include("${CMAKE_CURRENT_SOURCE_DIR}/../../../../cmake/internal_headers.cmake")
+gneiss_internal_headers(gneiss_task_interface "${CMAKE_CURRENT_SOURCE_DIR}/../../.."
+  engine/core/tasks/task_scheduler.hpp
+  engine/core/progress_notification.hpp)
+target_link_libraries(gneiss_tasks PUBLIC gneiss_task_interface)
+target_include_directories(gneiss_tasks PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
 target_compile_features(gneiss_tasks PUBLIC cxx_std_20)
 target_compile_definitions(gneiss_tasks PRIVATE GNEISS_TASK_THREADS=$<BOOL:${GNEISS_TASK_THREADS}>)
 if(GNEISS_TASK_THREADS)

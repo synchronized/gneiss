@@ -15,7 +15,8 @@ Editor。
 - CMake 3.23 或更高版本。
 - 支持 C++20 的 C/C++ 编译器。
 - 使用 Ninja preset 时需要安装 Ninja。
-- 启用 Granit 运行时适配时需要已安装的 Granit `0.44.0+` 核心、Window 与 RenderPipeline
+- GLM 1.0.1 为内部头文件依赖，由 CMake 获取锁定归档并校验 SHA-256；已有依赖缓存时可离线复用，无需单独安装 GLM。
+- 启用 Granit 运行时适配时需要已安装的 Granit `0.67.x`（本次验证为 `0.67.0`） 核心、Window 与 RenderPipeline
   组件，或由父工程提供 `granit::granit`、`granit::window` 和
   `granit::render_pipeline` 目标。
 - 离线工具或测试还需要 Granit `AssetTools` 组件。FETCH 自动启用其 SDK；PACKAGE 或父工程模式
@@ -49,7 +50,7 @@ ctest --preset windows-clang-debug
 ./build/windows-clang-debug/bin/gneiss_property_inspector_example.exe
 ```
 
-该示例只使用公共 C11/C++20 SDK：枚举 Transform 与 Camera 元数据，通过稳定 Type ID 和 Field ID
+该示例使用公共 C ABI，可由 C++20 消费：枚举 Transform 与 Camera 元数据，通过稳定 Type ID 和 Field ID
 修改场景实体属性，将当前场景序列化到临时目录，再创建新的 Application 重新加载并校验。它不依赖
 EnTT、Granit 类型或私有组件头，运行完成后会清理自己创建的临时目录。
 
@@ -130,8 +131,7 @@ provider：优先复用父工程目标，其次查找 package，最后把锁定�
 `_deps`。开箱构建命令如下：
 
 ```sh
-cmake -S . -B build/granit-platform -G Ninja \
-  -DGNEISS_ENABLE_GRANIT_PLATFORM=ON
+cmake -S . -B build/granit-platform -G Ninja
 cmake --build build/granit-platform
 ctest --test-dir build/granit-platform --output-on-failure
 ```
@@ -140,7 +140,6 @@ ctest --test-dir build/granit-platform --output-on-failure
 
 ```sh
 cmake -S . -B build/granit-platform -G Ninja \
-  -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
   -DGNEISS_GRANIT_PROVIDER=PACKAGE \
   -DCMAKE_PREFIX_PATH=/path/to/granit/install
 cmake --build build/granit-platform
@@ -165,21 +164,15 @@ Gneiss 当前使用 Granit 原生 Window 后端，未接入 0.30 的可选 SDL3 
 ./build/granit-platform/bin/gneiss_lantern_gallery_example.exe
 ```
 
-1.0.0 的稳定运行时代表性样例覆盖同一图形路径，并提供独立的安装 SDK Consumer：
+稳定运行时样例保留为仓内目标：
 
 ```powershell
 ./build/windows-clang-debug/bin/gneiss_stable_runtime_example.exe --smoke
 ./build/windows-clang-release/bin/gneiss_stable_runtime_example.exe --measure
-
-cmake -S examples/stable_runtime -B build/stable-runtime-consumer `
-  -DCMAKE_PREFIX_PATH=build/gneiss-install
-cmake --build build/stable-runtime-consumer
-ctest --test-dir build/stable-runtime-consumer --output-on-failure
 ```
 
-独立 Consumer 需要同一前缀或 `CMAKE_PREFIX_PATH` 中同时提供启用 Window、Input 与 RenderPipeline
-组件的 Granit package。配置时资产会复制到 Consumer 构建目录，运行不读取 Gneiss 源码树。
-仓库的安装验收也会先把 Consumer 源码和资产复制到隔离目录，防止测试因源码树仍存在而误通过。
+动态模块模板编译检查已撤销；场景模板与 Runtime 的安装检查保留。
+
 `--measure` 固定执行 60 帧预热和 300 帧采样，以单行 JSON 报告各启动阶段、退出阶段及稳定帧
 的最小值、中位数、P95 和最大值。性能基线必须使用 Release 构建并重复采样；单次输出不能作为
 回归阈值。`scripts/performance/measure_stable_runtime.py` 默认执行 1 次进程预热和 10 次有效采样，
@@ -217,7 +210,6 @@ Runtime 宿主默认不参与普通构建，并需要 Granit 平台适配：
 
 ```sh
 cmake --preset windows-clang-debug \
-  -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
   -DGNEISS_BUILD_RUNTIME=ON
 cmake --build --preset windows-clang-debug --target gneiss_runtime
 ```
@@ -230,7 +222,7 @@ cmake --build --preset windows-clang-debug --target gneiss_runtime
 ./build/windows-clang-debug/bin/gneiss_runtime.exe --project ./examples/editor_demo --log-file ./build/runtime.log
 ```
 
-Runtime 宿主把 Application、诊断和 Game Module 事件以 `@gneiss-log-v1 ` 加单行 JSON 写入标准
+Runtime 宿主把 Application 与诊断事件以 `@gneiss-log-v1 ` 加单行 JSON 写入标准
 输出，并把人类可读格式写入文件；创建 Application 前的启动日志和协议降级信息保持原始文本。
 Windows 默认文件为
 `%LOCALAPPDATA%/Gneiss/logs/runtime.log`；Linux 默认遵循 `$XDG_STATE_HOME`，未设置时使用
@@ -251,7 +243,6 @@ Editor 当前需要 Granit
 
 ```sh
 cmake --preset windows-clang-debug \
-  -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
   -DGNEISS_BUILD_EDITOR=ON \
   -DGNEISS_BUILD_RUNTIME=ON
 cmake --build --preset windows-clang-debug --target gneiss_editor
@@ -303,32 +294,19 @@ Editor Demo 会安装到 `${CMAKE_INSTALL_DATADIR}/gneiss/projects/editor-demo`�
 
 ### 从游戏工程模板开始
 
-Shared SDK 会把可复制模板安装到 `${CMAKE_INSTALL_DATADIR}/gneiss/templates/game`。复制该目录，
-设置 `GNEISS_SDK_ROOT` 为安装前缀，然后在新工程根执行：
+安装包在 `${CMAKE_INSTALL_DATADIR}/gneiss/templates/game` 提供纯场景工程模板。
+复制目录后使用安装目录的 `bin/gneiss_runtime --project <工程目录>` 运行，无需配置或编译游戏代码。
+
+安装了 Editor 的包提供 `gneiss_project`：
 
 ```powershell
-cmake --preset game-debug-configure
-cmake --build --preset game-debug
-$env:GNEISS_SDK_ROOT/bin/gneiss_runtime --project .
-```
-
-模板仅通过 `find_package(gneiss CONFIG REQUIRED)` 和 `gneiss::engine` 消费安装 SDK，并包含最小场景、
-工程描述及 Game Module 生命周期。原生 Game Module 当前要求 Shared Engine SDK；使用 Static SDK
-配置模板会被明确拒绝。CMake package 通过 `GNEISS_GAME_TEMPLATE_DIR` 暴露模板的绝对安装位置；
-完整字段见[工程文件格式](../reference/project-format.md)。
-
-安装了 Editor 的 Shared SDK 也提供 `gneiss_project`，用于创建具有独立模块 ID 的工程，并按指定
-配置完成构建和发布包生成：
-
-```powershell
-$env:GNEISS_SDK_ROOT/bin/gneiss_project create ./MyGame "My Game"
-$env:GNEISS_SDK_ROOT/bin/gneiss_project package ./MyGame `
-  $env:GNEISS_SDK_ROOT/bin/gneiss_runtime ./MyGamePackage development --zip
-$env:GNEISS_SDK_ROOT/bin/gneiss_project verify ./MyGamePackage
+<安装目录>/bin/gneiss_project create ./MyGame "My Game"
+<安装目录>/bin/gneiss_project package ./MyGame <Runtime路径> ./MyGamePackage development --zip
+<安装目录>/bin/gneiss_project verify ./MyGamePackage
 ```
 
 Windows 从 `MyGamePackage/run.cmd` 启动，Linux 从 `MyGamePackage/run.sh` 启动。可选配置为 `debug`、
-`development` 和 `shipping`，默认使用 Development。目录包只包含工程描述、所选模块、Runtime、
+`development` 和 `shipping`，默认使用 Development。目录包只包含工程描述、Runtime、
 动态依赖及资产，不包含 `sources/`、CMake 文件、构建目录或 SDK；`--zip` 同时生成确定性归档。
 
 当前宿主已提供场景会话、可选择的层级树和独立 Editor Camera。鼠标位于 Scene View 时，可以使用
@@ -412,6 +390,9 @@ Release 路径、可选 Debug 功能矩阵与输出目录参数；工具顺序�
 性能门槛只检查 Release，两种执行模式均检查响应性。`--daily-assets`、`--full-assets`
 可指定现有 Cook 目录；默认资源数为 505，旧夹具需显式使用 `--expected-resources 458`。
 `--baseline docs/records/artifacts/0.49-baseline-release.json` 还会比较加载中位数、进程峰值与图像。
+结构早激活后，`load_ms` 仅记录激活时间；完整资源就绪使用 `load_and_drain_ms`，
+基线吞吐比较也使用后者。最终资源数量与回读图像在视觉队列排空后采样。
+普通加载只包含 I/O/CPU 阶段，取消用例不等待 GPU 上传；GPU 生命周期单独验收。
 资产身份和门槛见 [0.49 基线记录](../records/M-312-loading-stability-baseline.md)。
 
 诊断后台加载的长间隔时，可单独运行测量程序并追加 `trace`：
@@ -456,8 +437,7 @@ task_submit_lock 与 task_submit_work 区分提交取锁和锁内工作；alloca
 嵌套于 work。idle_lock 是等待前初次取锁，idle_condition 包含条件等待及其内部重新取锁。
 这些子项仍包含线程失去调度的时间，不把它们直接解释成 CPU 执行，也不重复加总。
 `task_submit_dispatch` 覆盖观测包装内的 executor.submit 调用，包含其参数迁移与返回，
-不包含进入包装前的参数构造。场景来源复验另记录 `scene_verify_submit_body` 函数体
-和其中的 `task_callback_create` 回调构造；函数入口执行前的等待仍只落在外层 `task_submit`。
+不包含进入包装前的参数构造；`task_callback_create` 记录回调构造。
 这些阶段相互嵌套，外层减去内层的差额不能直接视为锁等待或缺页耗时。
 清理计时不等同于 GPU 驱动资源已经释放；run 返回前的 finish_frames 等待及关闭不在循环体内。
 最长样本不能用于推算全量 P95。详细计时默认关闭，关闭时不读取时钟或分配每帧诊断记录；
@@ -489,12 +469,8 @@ python -X utf8 -B scripts/performance/correlate_loop_response.py `
 输出区分循环前空档、循环内部重叠与未保留时间。`total_ms` 包含 `gap_ms`，
 循环内部的结束时刻为 `start_ms + total_ms - gap_ms`。阶段耗时是整轮累计且可能嵌套，
 不能直接相加或视作探针窗口内的耗时；关联报告不代替原始门槛验收。
-场景收尾额外记录 `scene_verify`、`scene_builder_create`、`scene_asset_service_reset`
-与 `scene_build`，分别覆盖复验推进、构建器创建、资产服务切换和节点分批构建。
-其中构建器创建与资产服务切换包含在复验推进内，不重复累加。
-构建器内部还记录 `scene_description_move`、`scene_instance_allocate`、
-`scene_instance_initialize` 和 `scene_node_index_reserve`；未覆盖的外层分配、形参构造及其他
-成员初始化仍包含在 `scene_builder_create` 内，不能把子项之和当作构建器总耗时。
+场景收尾记录 `scene_build`，覆盖引用就绪后的同步实例化，不再执行来源复验。
+构建器创建、构建子阶段和资产服务重建计时项已删除；历史采样保留原字段。
 
 Windows 响应夹具的 `--trace` 还保留最慢 16 次 `scene` 推进回调及 `cpu_ns`。
 `scene` 序号是回调序号，与 `key`/`task` 探针对编号独立；按绝对时间窗关联。
@@ -557,3 +533,80 @@ main_thread_core_equivalent 为主线程 CPU 时间 / 进程墙钟时间，1 表
 手动 Windows/Linux Actions 的 `scope` 默认为 `all`，运行完整发布矩阵。只修改 Editor/Runtime
 或其测试后可选 `editor` 补验宿主矩阵；该范围不能代替首次完整验收，未执行的核心、Web 和安装
 任务仍须单独完成。纯记录更新不重跑矩阵。
+
+## 输入资源加载
+
+Engine 内部采用 Granit 示例模型的移植版资产管理器，复用 Gneiss VFS 和任务执行器。
+线程池模式可使用 libuv 异步读取；协作模式由宿主推进，无异步能力的后端在执行器内有界回退。
+两种模式均不在 begin 调用中执行文件读取；回退及单项解析不承诺硬耗时上限。
+同步入口在调用线程读取与解析，不要求执行器，不递归驱动宿主队列。
+同步与异步输入均限制为 1 MiB；同步成功发布后，较早异步完成不能覆盖当前缓存。
+请求成功只表示已接受；映射采用在主循环 update 前完成。
+
+启用常规测试后运行：
+
+```sh
+ctest --test-dir build/windows-clang-debug -R '^gneiss.assets.' --output-on-failure
+```
+
+`gneiss.assets.application` 覆盖输入应用；`gneiss.assets.manager` 覆盖请求、缓存和发布顺序；
+`gneiss.assets.material` 在原生线程配置验证读取后源变化不撤销已解析数据，以及 CPU 文档租约。
+旧 `GNEISS_BUILD_CAORS_PROBE` 选项已删除；CAORS 不再是构建或安装依赖。
+核心及静态 consumer 不需要 caors.dll 或 CAORS package；旧构建目录可能残留历史文件，
+以干净安装前缀验证实际分发内容。Web 浏览器 fetch 与完整 Web Editor 不因换库而自动获得支持。
+
+Runtime 集成回归可运行 `gneiss.runtime.async-input-startup`（启用 Runtime）。
+`gneiss_runtime --smoke` 创建真实隐藏窗口，完成后退出；正常启动仍显示窗口。
+
+需要持续运行的自动化测试可使用 `gneiss_runtime --hidden --project <工程根>`，
+它保持真实窗口和事件处理，但不显示窗口；可配合 `--stop-file <路径>` 正常停止。
+
+## 第三方源码缓存
+
+libuv、ImGui、ImGuizmo、MikkTSpace、bc7enc_rdo、fastgltf、Granit（默认锁定版本）、
+simdjson 和 Tracy 使用仓库级
+`vendor/cache` 保存已校验归档与源码，构建产物仍在当前 preset 的 `build/<preset>/_deps`。
+实施范围与验收见
+[源码缓存实施计划](../plans/PLAN-051-dependency-source-cache.md)。
+
+- `GNEISS_DEPENDENCY_SOURCE_CACHE_DIR`：缓存根目录，默认仓库下 `vendor/cache`。
+- `GNEISS_DEPENDENCY_OFFLINE=ON`：缓存获取禁止下载；支持完整源码命中或从已有有效归档解压。
+  此开关目前只约束接入缓存辅助函数的依赖，不保证整个工程离线。
+- `FETCHCONTENT_SOURCE_DIR_GNEISS_<NAME>_SOURCE`：显式本地源码覆盖，优先于缓存获取；
+  `<NAME>` 可为 `LIBUV`、`IMGUI`、`IMGUIZMO`、`MIKKTSPACE`、`BC7ENC`、`TRACY`、`SIMDJSON`；
+  fastgltf 使用 `FETCHCONTENT_SOURCE_DIR_FASTGLTF`，Granit 使用
+  `FETCHCONTENT_SOURCE_DIR_GNEISS_GRANIT`。
+- 自定义 bc7enc/fastgltf/Granit 仓库或提交仍走原 Git 获取路径，不冒用默认归档摘要；离线时必须提供上述
+  本地源码覆盖。Tracy 仍按 `GNEISS_ENABLE_PROFILING` 启用，链接方式仍为共享库。
+
+缓存内容不提交 Git；不要在共享源码目录修改代码或生成编译产物。损坏归档、缺失完成标记会
+报告具体路径，工具不会自动删除用户目录。失败时 staging 可留下诊断材料，不会作为有效源码。
+首次下载校验 SHA256；完整源码缓存命中只检查完成标记和入口，不逐文件重算摘要。
+源码复用不意味着 Debug/Release、不同编译器或静态/共享模式共用库文件。
+
+fastgltf 的 simdjson 3.12.3 以独立源码缓存及私有静态目标提供，上游检测到 target 后跳过
+向自身 `deps/simdjson` 下载文件。Gneiss 不安装 fastgltf SDK；此私有链接只用于构建树。
+宿主若预先提供 `simdjson::simdjson`，沿用其 target，兼容性由宿主负责。
+
+Granit 的 PACKAGE/AUTO 查找优先级保持不变，仅 FETCH 默认版本使用归档缓存。
+Granit 附属依赖缓存默认放在当前构建目录 `_deps/granit-cache`，显式设置的
+`GRANIT_DEPENDENCY_SOURCE_CACHE_DIR` 保持优先；当前关闭其 SDL3/ImGui 获取。
+Shader 工具链仍使用 Granit 自身机制，不受 Gneiss 源码离线开关控制。
+源码缓存只共享源码、不共享构建产物；已有四项 Git submodule 保持不变。
+
+## CPU 资源共享
+
+材质文档与 Mesh 使用标准库只读共享引用，不继承第三方资源基类。
+Mesh 先读取和解析，再移动数组到共享对象；材质保留来源身份和内容摘要索引。
+这些共享对象用于减少解析数据复制；运行时资源引用跟随最新成功内容，不提供固定版本采用。
+Asset Manager 不拥有 GPU、World 或编辑历史。剩余简化事项见
+[资产管理替换计划](../plans/PLAN-051-asset-manager-replacement.md)。
+
+## 测试源码目录
+
+测试源码、脚本及专用夹具统一存放在根目录 `tests/`，`src/` 下不再放置 tests 子目录。
+宿主测试分为 `tests/host/common`、`tests/host/editor` 和 `tests/host/runtime`；
+IPC 与 libuv 测试分别位于 `tests/platform/ipc` 和 `tests/platform/io/uv`。
+
+测试目标仍由对应模块的 CMake 文件按既有条件声明，依赖和编译权限保持在模块边界内。
+目录迁移不改变目标名、CTest 名称或测试运行命令。

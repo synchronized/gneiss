@@ -51,21 +51,12 @@ endif()
 set(editor_demo "${install_dir}/share/gneiss/projects/editor-demo")
 set(lantern_gallery "${install_dir}/share/gneiss/examples/lantern-gallery")
 set(game_template "${install_dir}/share/gneiss/templates/game")
-if(GNEISS_SHARED AND WIN32)
-  set(lantern_module "${lantern_gallery}/modules/gneiss_lantern_gallery_game.dll")
-elseif(GNEISS_SHARED AND APPLE)
-  set(lantern_module "${lantern_gallery}/modules/libgneiss_lantern_gallery_game.dylib")
-elseif(GNEISS_SHARED)
-  set(lantern_module "${lantern_gallery}/modules/libgneiss_lantern_gallery_game.so")
-endif()
 if(NOT EXISTS "${runtime}" OR NOT EXISTS "${project_tool}" OR
    NOT EXISTS "${editor_demo}/gneiss.project.json" OR
    NOT EXISTS "${game_template}/gneiss.project.json" OR
-   NOT EXISTS "${game_template}/CMakeLists.txt" OR
-   NOT EXISTS "${game_template}/game_module.cpp" OR
    (GNEISS_SHARED AND
-    (NOT EXISTS "${lantern_gallery}/gneiss.project.json" OR NOT EXISTS "${lantern_module}")))
-  message(FATAL_ERROR "安装树缺少 Runtime、示例工程或游戏模块")
+    NOT EXISTS "${lantern_gallery}/gneiss.project.json"))
+  message(FATAL_ERROR "安装树缺少 Runtime 或示例工程")
 endif()
 
 set(runtime_environment "${CMAKE_COMMAND}" -E env)
@@ -96,30 +87,12 @@ if(GNEISS_SHARED)
     message(FATAL_ERROR "安装树游戏工程创建失败：${template_create_result}")
   endif()
   execute_process(
-    COMMAND "${CMAKE_COMMAND}" -E env "GNEISS_SDK_ROOT=${install_dir}" "${CMAKE_COMMAND}"
-            --preset game-debug-configure --fresh
-    WORKING_DIRECTORY "${template_source_dir}"
-    RESULT_VARIABLE template_configure_result
-  )
-  if(NOT template_configure_result EQUAL 0)
-    message(FATAL_ERROR "安装树游戏模板配置失败：${template_configure_result}")
-  endif()
-  execute_process(
-    COMMAND "${CMAKE_COMMAND}" --build --preset game-debug --target gneiss_game
-    WORKING_DIRECTORY "${template_source_dir}"
-    RESULT_VARIABLE template_build_result
-  )
-  if(NOT template_build_result EQUAL 0)
-    message(FATAL_ERROR "安装树游戏模板构建失败：${template_build_result}")
-  endif()
-  execute_process(
     COMMAND ${runtime_environment} "${runtime}" --smoke --project "${template_source_dir}"
     RESULT_VARIABLE template_runtime_result
     OUTPUT_VARIABLE template_runtime_output
     ERROR_VARIABLE template_runtime_error
   )
   if(NOT template_runtime_result EQUAL 0 OR
-     NOT template_runtime_output MATCHES "gneiss.game.installed.workflow" OR
      NOT template_runtime_output MATCHES "stage=shutdown")
     message(FATAL_ERROR
             "安装树游戏模板启动失败：${template_runtime_result}\n${template_runtime_output}${template_runtime_error}"
@@ -191,7 +164,6 @@ if(GNEISS_SHARED)
     )
   endif()
   if(NOT package_runtime_result EQUAL 0 OR
-     NOT package_runtime_output MATCHES "gneiss.game.installed.workflow" OR
      NOT package_runtime_output MATCHES "stage=shutdown")
     message(FATAL_ERROR
             "可运行目录包启动失败：${package_runtime_result}\n${package_runtime_output}${package_runtime_error}"
@@ -227,29 +199,10 @@ if(GNEISS_SHARED)
     )
   endif()
   if(NOT shipping_runtime_result EQUAL 0 OR
-     NOT shipping_runtime_output MATCHES "gneiss.game.installed.workflow" OR
      NOT shipping_runtime_output MATCHES "stage=shutdown")
     message(FATAL_ERROR
             "Shipping 发布包启动失败：${shipping_runtime_result}\n${shipping_runtime_output}${shipping_runtime_error}"
     )
-  endif()
-
-  execute_process(
-    COMMAND "${CMAKE_COMMAND}" -E env "GNEISS_SDK_ROOT=${install_dir}" "${CMAKE_COMMAND}"
-            --preset game-debug-configure --fresh
-    WORKING_DIRECTORY "${lantern_gallery}"
-    RESULT_VARIABLE module_configure_result
-  )
-  if(NOT module_configure_result EQUAL 0)
-    message(FATAL_ERROR "安装树 Lantern Gallery 模块配置失败：${module_configure_result}")
-  endif()
-  execute_process(
-    COMMAND "${CMAKE_COMMAND}" --build --preset game-debug --target gneiss_lantern_gallery_game
-    WORKING_DIRECTORY "${lantern_gallery}"
-    RESULT_VARIABLE module_build_result
-  )
-  if(NOT module_build_result EQUAL 0)
-    message(FATAL_ERROR "安装树 Lantern Gallery 模块构建失败：${module_build_result}")
   endif()
 
   execute_process(
@@ -258,9 +211,7 @@ if(GNEISS_SHARED)
     OUTPUT_VARIABLE lantern_output
     ERROR_VARIABLE lantern_error
   )
-  if(NOT lantern_result EQUAL 0 OR NOT lantern_output MATCHES "stage=game_module" OR
-     NOT lantern_output MATCHES "@gneiss-log-v1" OR
-     NOT lantern_output MATCHES "\"source\":\"gneiss.examples.lantern_gallery\"" OR
+  if(NOT lantern_result EQUAL 0 OR NOT lantern_output MATCHES "stage=startup_scene" OR
      NOT lantern_output MATCHES "stage=shutdown")
     message(FATAL_ERROR
             "安装树 Lantern Gallery 启动失败：${lantern_result}\n${lantern_output}${lantern_error}")

@@ -5,7 +5,7 @@
 
 ## 所有权与映射
 
-每个 World 拥有一棵 Scene Tree。节点使用不透明的 `gneiss_scene_node_id` 标识，零值无效；节点
+每个 World 拥有一棵 Scene Tree。节点使用不透明的 `gneiss::scene_node_id` 标识，零值无效；节点
 ID 只在所属 World 的生命周期内有效，销毁后旧 ID 不会指向复用槽位的新节点。
 
 节点可以关联至多一个 Entity，同一 Entity 也只能关联一个节点。Scene Node 不拥有 Entity：递归
@@ -14,18 +14,18 @@ ECS 之间形成循环所有权。
 
 ## 层级操作
 
-创建节点时，父节点为零表示根节点。`gneiss_scene_node_reparent` 保留局部 Transform，并拒绝把节点
+创建节点时，父节点为零表示根节点。`world::node_reparent` 保留局部 Transform，并拒绝把节点
 挂到自身或后代下面。销毁节点会递归销毁整棵子树，所有相关节点 ID 随即失效。
 
-`gneiss_scene_node_get_parent` 返回节点当前父节点；根节点成功返回零值。节点无效、属于其他 World
-或已被递归销毁时返回 `GNEISS_ERROR_INVALID_HANDLE`。
+`world::node_get_parent` 返回节点当前父节点；根节点成功返回零值。节点无效、属于其他 World
+或已被递归销毁时返回 `error::invalid_handle`。
 
 Scene Tree 和所属 World 一样只能在 World 的创建线程访问。跨 World 节点、失效节点和重复销毁
 均返回句柄错误。
 
 ## Transform
 
-`gneiss_transform` 包含平移、四元数旋转和缩放。`GNEISS_TRANSFORM_IDENTITY` 提供单位变换。
+`gneiss::engine::math::transform` 包含平移、四元数旋转和缩放，默认构造提供单位变换。
 Scene Tree 是层级 Transform 的唯一权威存储：
 
 - 局部 Transform 相对于父节点；根节点相对于世界原点。
@@ -34,14 +34,21 @@ Scene Tree 是层级 Transform 的唯一权威存储：
 - 重挂接保留局部 Transform，因此世界 Transform 可能改变。
 
 四元数长度必须在 `1±1e-4` 范围内，每个缩放轴的绝对值必须至少为 `1e-6`；不满足时返回
-`GNEISS_ERROR_INVALID_ARGUMENT`，原值保持不变。负缩放有效，零缩放因不可逆而被拒绝。
+`error::invalid_argument`，原值保持不变。负缩放有效，零缩放因不可逆而被拒绝。
 
-`gneiss_world_entity_get_local_transform` 和 `gneiss_world_entity_set_local_transform` 通过节点的唯一
+`world::entity_get_local_transform` 和 `world::entity_set_local_transform` 通过节点的唯一
 实体关联访问同一份局部 Transform，不创建第二份状态。实体有效但没有关联节点时返回
-`GNEISS_ERROR_NOT_FOUND`；跨 World 或失效实体返回 `GNEISS_ERROR_INVALID_HANDLE`。
+`error::not_found`；跨 World 或失效实体返回 `error::invalid_handle`。
 
 层级采用显式 TRS 分量组合：子平移先乘父缩放、再由父旋转变换，旋转按父乘子组合，缩放逐轴
 相乘。这一纯 TRS 表达不保存“非均匀缩放后再旋转”可能产生的剪切分量；需要剪切的内容应在 Mesh
 顶点中烘焙。重挂接不会尝试反求局部 Transform，也不承诺保持世界 Transform。
 
 当前实现按查询即时计算世界 Transform；脏标记缓存应在真实性能数据证明必要后再加入。
+
+## 内部 Scene Tree 值接口
+
+`scene_tree::create(parent, entity)` 返回 `result<scene_node_id>`；
+`get_world(node)` 和 `get_world_for_entity(entity)` 返回 `result<math::transform>`。
+创建不再接收输出指针，失败不产生节点 ID；变换查询返回副本，失效节点返回 invalid_handle，
+非零实体未关联节点返回 not_ready。World 外层接口按其声明保留线程校验。

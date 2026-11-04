@@ -18,7 +18,8 @@
 
 ## 架构概览
 
-Gneiss 分为逻辑层、ECS 数据层、服务层与后端层。场景树通过实体 ID 映射到 ECS，运行时系统再通过 RID 使用渲染、网络、音频和物理服务。
+Gneiss 分为逻辑层、ECS 数据层、服务层与后端层。场景树通过实体 ID 映射到 ECS，
+上层持有引擎资源强引用，Render Service 通过 RID 管理渲染后端对象。网络、音频和物理服务仍为后续方向。
 
 项目解决的问题及与 Granit 的职责划分见[项目目标与边界](docs/concepts/project-scope.md)，完整的
 分层关系和技术方向见[总体架构](docs/concepts/architecture.md)。已完成阶段与后续方向见
@@ -26,9 +27,10 @@ Gneiss 分为逻辑层、ECS 数据层、服务层与后端层。场景树通过
 
 ## 开始使用
 
-当前工程提供 C11 公共接口、C++20 包装、Application、World、Scene Tree、最小 Render Service、
+当前工程提供内部原生 C++20 Application、World、Scene Tree、Render Service、
 输入与动作映射、统一诊断、离线 glTF 资产编译器，以及 version、交互纹理神殿和 Lantern 灯廊
-示例。选择与平台匹配的 preset，例如：
+示例。公共 C ABI、对象 SDK 和动态 Game Module 已撤销；同源码宿主直接使用内部接口。
+选择与平台匹配的 preset，例如：
 
 ```sh
 cmake --preset windows-clang-debug
@@ -36,11 +38,11 @@ cmake --build --preset windows-clang-debug
 ctest --preset windows-clang-debug
 ```
 
-Granit 图形示例需要启用可选的平台适配。完整构建、测试和示例运行命令见
+Granit 是当前必需依赖；图形示例需要可用的窗口环境和 GPU 驱动。完整构建、测试和示例运行命令见
 [构建与测试指南](docs/guides/building.md)。
 
-安装后的 SDK 在 `share/gneiss/templates/game` 提供可复制游戏工程模板，可独立构建 Game Module 并
-通过 `gneiss_runtime` 运行，不依赖 Gneiss 源码树。
+安装包在 `share/gneiss/templates/game` 提供纯场景工程模板，可通过 `gneiss_runtime` 运行。
+动态 Game Module 已撤销，客户游戏逻辑注册方式留待后续设计。
 
 你可以通过 [Issues](https://github.com/synchronized/gneiss/issues) 提交建议或跟踪开发进展。
 

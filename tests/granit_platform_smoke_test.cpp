@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/application.hpp>
-#include <gneiss/engine/input.h>
-#include <gneiss/engine/scene.h>
+#include "engine/function/render/render_service.hpp"
+#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/world/world.hpp"
+#include "engine/resource/texture/texture_view.hpp"
+#include "runtime/application.hpp"
+#include "support/value_result.hpp"
+#include <memory>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -13,59 +17,51 @@
 #include <cstdio>
 #include <string_view>
 
+using namespace gneiss;
+namespace native = gneiss::engine;
+
 namespace {
 
 struct smoke_context final {
-  gneiss_texture texture = GNEISS_NULL_TEXTURE;
+  native::texture texture;
   bool received_key{};
 };
 
-gneiss_result submit_ui(gneiss_application application, const gneiss_frame_time* /*time*/,
-                        void* user_data) {
-  auto& context = *static_cast<smoke_context*>(user_data);
-  gneiss_input_event event = GNEISS_INPUT_EVENT_INIT;
-  while (gneiss_application_poll_input(application, &event) == GNEISS_SUCCESS) {
-    if (event.type == GNEISS_INPUT_EVENT_KEY &&
-        event.data.key.physical_key == GNEISS_PHYSICAL_KEY_A &&
-        event.data.key.action == GNEISS_KEY_PRESSED) {
+native::error submit_ui(gneiss::runtime::application& application, smoke_context& context) {
+  native::input_event event;
+  while (application.poll_input(event) == native::error::success) {
+    // USB HID 物理键编号：A 为 4。
+    if (event.type == native::event_type::key && event.data.key.physical_key == 4U &&
+        event.data.key.action == native::key_action::pressed) {
       context.received_key = true;
     }
   }
   constexpr std::array vertices{
-      gneiss_ui_vertex{{16.0F, 16.0F}, {0.0F, 0.0F}, UINT32_C(0xccffffff)},
-      gneiss_ui_vertex{{144.0F, 16.0F}, {1.0F, 0.0F}, UINT32_C(0xccffffff)},
-      gneiss_ui_vertex{{144.0F, 64.0F}, {1.0F, 1.0F}, UINT32_C(0xccffffff)},
-      gneiss_ui_vertex{{16.0F, 64.0F}, {0.0F, 1.0F}, UINT32_C(0xccffffff)}};
+      native::ui_vertex{{16.0F, 16.0F}, {0.0F, 0.0F}, UINT32_C(0xccffffff)},
+      native::ui_vertex{{144.0F, 16.0F}, {1.0F, 0.0F}, UINT32_C(0xccffffff)},
+      native::ui_vertex{{144.0F, 64.0F}, {1.0F, 1.0F}, UINT32_C(0xccffffff)},
+      native::ui_vertex{{16.0F, 64.0F}, {0.0F, 1.0F}, UINT32_C(0xccffffff)}};
   constexpr std::array<std::uint32_t, 6> indices{0U, 1U, 2U, 2U, 3U, 0U};
   const std::array commands{
-      gneiss_ui_draw_command{.texture = context.texture,
-                             .clip_min = {16.0F, 16.0F},
-                             .clip_max = {144.0F, 64.0F},
-                             .first_index = 0U,
-                             .index_count = static_cast<std::uint32_t>(indices.size()),
-                             .vertex_offset = 0U,
-                             .reserved = 0U}};
-  gneiss_ui_draw_list_desc draw_list = GNEISS_UI_DRAW_LIST_DESC_INIT;
-  draw_list.display_width = 320.0F;
-  draw_list.display_height = 240.0F;
-  draw_list.vertex_count = static_cast<std::uint32_t>(vertices.size());
-  draw_list.vertices = vertices.data();
-  draw_list.index_count = static_cast<std::uint32_t>(indices.size());
-  draw_list.indices = indices.data();
-  draw_list.command_count = static_cast<std::uint32_t>(commands.size());
-  draw_list.commands = commands.data();
-  auto result = gneiss_application_submit_ui_draw_list(application, &draw_list);
-  constexpr gneiss_debug_line debug_line{.start = {-0.8F, 0.0F, 0.0F},
-                                         .end = {0.8F, 0.0F, 0.0F},
-                                         .color_rgba8 = UINT32_C(0xff60a5fa),
-                                         .width = 2.0F,
-                                         .depth_test = 1U,
-                                         .reserved = {}};
-  gneiss_debug_draw_list_desc debug = GNEISS_DEBUG_DRAW_LIST_DESC_INIT;
-  debug.line_count = 1U;
-  debug.lines = &debug_line;
-  if (result == GNEISS_SUCCESS) {
-    result = gneiss_application_submit_debug_draw_list(application, &debug);
+      native::ui_draw_command{.texture = context.texture,
+                              .clip_min = {16.0F, 16.0F},
+                              .clip_max = {144.0F, 64.0F},
+                              .first_index = 0U,
+                              .index_count = static_cast<std::uint32_t>(indices.size()),
+                              .vertex_offset = 0U}};
+  const native::ui_draw_view draw_list{.display_width = 320.0F,
+                                       .display_height = 240.0F,
+                                       .vertices = vertices,
+                                       .indices = indices,
+                                       .commands = commands};
+  auto result = application.submit_ui_draw_list(draw_list);
+  constexpr std::array lines{native::debug_line{.start = {-0.8F, 0.0F, 0.0F},
+                                                .end = {0.8F, 0.0F, 0.0F},
+                                                .color_rgba8 = UINT32_C(0xff60a5fa),
+                                                .width = 2.0F,
+                                                .depth_test = true}};
+  if (result == native::error::success) {
+    result = application.submit_debug_draw_list(lines);
   }
   return result;
 }
@@ -75,50 +71,49 @@ gneiss_result submit_ui(gneiss_application application, const gneiss_frame_time*
 int main() {
   constexpr std::string_view title = "Gneiss Granit Platform Smoke Test";
   smoke_context context;
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.user_data = &context;
-  desc.update = submit_ui;
-  desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
-  desc.window_title = title.data();
-  desc.window_title_length = static_cast<std::uint32_t>(title.size());
-  desc.window_width = 320;
-  desc.window_height = 240;
-
-  gneiss::application application;
-  const auto create_result = gneiss::application::create_native(desc, application);
-  if (create_result != gneiss::result::success) {
-    std::fprintf(stderr, "Application 创建失败：%d\n", gneiss::to_native(create_result));
+  std::shared_ptr<gneiss::runtime::application> application;
+  gneiss::runtime::application_configuration config;
+  config.enable_window = true;
+  config.window = {.title = title, .width = 320, .height = 240};
+  config.callbacks.update = [&](const native::frame_time&) {
+    return submit_ui(*application, context);
+  };
+  const auto create_result = gneiss::runtime::application::create(config, application);
+  if (create_result.failed()) {
+    std::fprintf(stderr, "Application 创建失败：%d\n", create_result.code());
     return 1;
   }
-
+  auto& resources = application->render();
+  auto& resources_factory = application->resources();
   constexpr std::array vertices{
-      gneiss::mesh_vertex{.x = -0.6F, .y = -0.5F, .z = 0.0F, .u = 0.0F, .v = 0.0F},
-      gneiss::mesh_vertex{.x = 0.6F, .y = -0.5F, .z = 0.0F, .u = 1.0F, .v = 0.0F},
-      gneiss::mesh_vertex{.x = 0.0F, .y = 0.6F, .z = 0.0F, .u = 0.5F, .v = 1.0F}};
-  gneiss::mesh_desc mesh_desc{};
+      native::mesh_vertex{.position = {-0.6F, -0.5F, 0.0F}, .uv = {0.0F, 0.0F}},
+      native::mesh_vertex{.position = {0.6F, -0.5F, 0.0F}, .uv = {1.0F, 0.0F}},
+      native::mesh_vertex{.position = {0.0F, 0.6F, 0.0F}, .uv = {0.5F, 1.0F}}};
+  native::mesh_view mesh_desc{};
   mesh_desc.vertices = vertices;
-  gneiss::material_desc material_desc{};
-  material_desc.red = 0.95F;
-  material_desc.green = 0.35F;
-  material_desc.blue = 0.12F;
+  native::material_data material_desc{};
+  material_desc.parameters.color[0] = 0.95F;
+  material_desc.parameters.color[1] = 0.35F;
+  material_desc.parameters.color[2] = 0.12F;
   constexpr std::array<std::uint8_t, 16> pixels{255, 255, 255, 255, 32,  64,  255, 255,
                                                 32,  64,  255, 255, 255, 255, 255, 255};
-  gneiss::texture_desc texture_desc{};
+  native::texture_view texture_desc{};
   texture_desc.width = 2;
   texture_desc.height = 2;
   texture_desc.row_stride_bytes = 8;
   texture_desc.pixels = pixels;
-  gneiss::mesh_id mesh;
-  gneiss::material_id material;
-  gneiss::material_id plain_material;
-  gneiss::texture_id texture;
-  if (application.create_texture(texture_desc, texture) != gneiss::result::success) {
+  native::rid mesh{}, material{}, plain_material{}, texture{};
+  native::mesh mesh_owner;
+  native::material material_owner, plain_material_owner;
+  if (gneiss::test_support::take_value(resources_factory.create_texture(texture_desc),
+                                       context.texture)
+          .failed()) {
     std::fprintf(stderr, "测试 Texture 创建失败\n");
     return 2;
   }
-  context.texture = texture.get();
+  texture = resource_handle(context.texture);
 #ifdef _WIN32
-  // 投递真实窗口消息，验证显式事件泵送及强类型输入到 Gneiss ABI 的转换。
+  // 投递真实窗口消息，验证显式事件泵送及原生输入事件传递。
   const auto window = FindWindowW(nullptr, L"Gneiss Granit Platform Smoke Test");
   if (window == nullptr || !PostMessageW(window, WM_KEYDOWN, 'A', 0x001e0001) ||
       !PostMessageW(window, WM_KEYUP, 'A', static_cast<LPARAM>(0xc01e0001U))) {
@@ -126,7 +121,7 @@ int main() {
   }
 #endif
   // 先验证没有相机和场景物体的 UI 帧，再验证常规场景及资源更新。
-  if (application.run(2) != gneiss::result::success) {
+  if (application->run(2) != native::error::success) {
     std::fprintf(stderr, "纯 UI 帧运行失败\n");
     return 10;
   }
@@ -136,84 +131,84 @@ int main() {
     return 11;
   }
 #endif
-  if (application.create_mesh(mesh_desc, mesh) != gneiss::result::success ||
-      application.create_material(material_desc, plain_material) != gneiss::result::success) {
+  if (gneiss::test_support::take_value(resources_factory.create_mesh(mesh_desc), mesh_owner)
+          .failed() ||
+      gneiss::test_support::take_value(
+          resources_factory.create_material(material_desc.parameters, {}), plain_material_owner)
+          .failed()) {
     std::fprintf(stderr, "测试基础资源创建失败\n");
     return 2;
   }
+  mesh = resource_handle(mesh_owner);
+  plain_material = resource_handle(plain_material_owner);
   material_desc.base_color_texture = texture;
-  if (application.create_material(material_desc, material) != gneiss::result::success) {
+  if (gneiss::test_support::take_value(
+          resources_factory.create_material(material_desc.parameters, {context.texture}),
+          material_owner)
+          .failed()) {
     std::fprintf(stderr, "测试资源创建失败\n");
     return 2;
   }
-
-  gneiss_world world = GNEISS_NULL_WORLD;
-  gneiss_entity_id camera_entity = GNEISS_NULL_ENTITY_ID;
-  gneiss_entity_id mesh_entity = GNEISS_NULL_ENTITY_ID;
-  gneiss_entity_id plain_mesh_entity = GNEISS_NULL_ENTITY_ID;
-  gneiss_scene_node_id camera_node = GNEISS_NULL_SCENE_NODE_ID;
-  gneiss_scene_node_id mesh_node = GNEISS_NULL_SCENE_NODE_ID;
-  gneiss_scene_node_id plain_mesh_node = GNEISS_NULL_SCENE_NODE_ID;
-  gneiss_camera camera = GNEISS_CAMERA_INIT;
-  gneiss_mesh_renderer mesh_renderer{.mesh = mesh.get(), .material = material.get()};
-  gneiss_mesh_renderer plain_mesh_renderer{.mesh = mesh.get(), .material = plain_material.get()};
-  gneiss_transform camera_transform = GNEISS_TRANSFORM_IDENTITY;
+  material = resource_handle(material_owner);
+  auto& world = *application->native_world();
+  entity_id camera_entity{}, mesh_entity{}, plain_mesh_entity{};
+  scene_node_id camera_node{}, mesh_node{}, plain_mesh_node{};
+  const native::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
+  native::mesh_renderer mesh_renderer{.mesh = resources_factory.find_mesh(mesh),
+                                      .material = resources_factory.find_material(material)};
+  native::mesh_renderer plain_mesh_renderer{.mesh = resources_factory.find_mesh(mesh),
+                                            .material =
+                                                resources_factory.find_material(plain_material)};
+  native::math::transform camera_transform;
   camera_transform.translation[2] = 2.0F;
-  gneiss_transform near_transform = GNEISS_TRANSFORM_IDENTITY;
+  native::math::transform near_transform;
   near_transform.translation[0] = -0.55F;
   near_transform.translation[2] = 0.5F;
-  gneiss_transform plain_transform = GNEISS_TRANSFORM_IDENTITY;
+  native::math::transform plain_transform;
   plain_transform.translation[0] = 0.55F;
   plain_transform.translation[2] = 0.5F;
-  if (application.get_world(world) != gneiss::result::success ||
-      gneiss_world_entity_create(world, &camera_entity) != GNEISS_SUCCESS ||
-      gneiss_world_entity_create(world, &mesh_entity) != GNEISS_SUCCESS ||
-      gneiss_world_entity_create(world, &plain_mesh_entity) != GNEISS_SUCCESS ||
-      gneiss_scene_node_create(world, GNEISS_NULL_SCENE_NODE_ID, camera_entity, &camera_node) !=
-          GNEISS_SUCCESS ||
-      gneiss_scene_node_create(world, GNEISS_NULL_SCENE_NODE_ID, mesh_entity, &mesh_node) !=
-          GNEISS_SUCCESS ||
-      gneiss_scene_node_create(world, GNEISS_NULL_SCENE_NODE_ID, plain_mesh_entity,
-                               &plain_mesh_node) != GNEISS_SUCCESS ||
-      gneiss_scene_node_set_local_transform(world, camera_node, &camera_transform) !=
-          GNEISS_SUCCESS ||
-      gneiss_scene_node_set_local_transform(world, mesh_node, &near_transform) != GNEISS_SUCCESS ||
-      gneiss_scene_node_set_local_transform(world, plain_mesh_node, &plain_transform) !=
-          GNEISS_SUCCESS ||
-      gneiss_world_entity_set_camera(world, camera_entity, &camera) != GNEISS_SUCCESS ||
-      gneiss_world_entity_set_mesh_renderer(world, mesh_entity, &mesh_renderer) != GNEISS_SUCCESS ||
-      gneiss_world_entity_set_mesh_renderer(world, plain_mesh_entity, &plain_mesh_renderer) !=
-          GNEISS_SUCCESS) {
+  if (world.entity_create(camera_entity).failed() || world.entity_create(mesh_entity).failed() ||
+      world.entity_create(plain_mesh_entity).failed() ||
+      world.node_create({}, camera_entity, camera_node).failed() ||
+      world.node_create({}, mesh_entity, mesh_node).failed() ||
+      world.node_create({}, plain_mesh_entity, plain_mesh_node).failed() ||
+      world.node_set_local_transform(camera_node, camera_transform).failed() ||
+      world.node_set_local_transform(mesh_node, near_transform).failed() ||
+      world.node_set_local_transform(plain_mesh_node, plain_transform).failed() ||
+      world.entity_set_camera(camera_entity, camera, true).failed() ||
+      world.entity_set_mesh_renderer(mesh_entity, mesh_renderer).failed() ||
+      world.entity_set_mesh_renderer(plain_mesh_entity, plain_mesh_renderer).failed()) {
     std::fprintf(stderr, "测试场景构造失败\n");
     return 3;
   }
-  auto run_result = application.run(2);
-  if (run_result != gneiss::result::success) {
-    std::fprintf(stderr, "Application 运行失败：%d\n", gneiss::to_native(run_result));
+  auto run_result = application->run(2);
+  if (run_result != native::error::success) {
+    std::fprintf(stderr, "Application 运行失败：%d\n", run_result.code());
     return 4;
   }
-  gneiss::mesh_id replacement_mesh;
-  if (application.destroy_mesh(mesh) != gneiss::result::success ||
-      application.create_mesh(mesh_desc, replacement_mesh) != gneiss::result::success) {
+  native::rid replacement_mesh{};
+  if (resources.destroy_mesh(mesh).failed() ||
+      gneiss::test_support::take_value(resources_factory.create_mesh(mesh_desc), mesh_owner)
+          .failed()) {
     return 5;
   }
-  mesh_renderer.mesh = replacement_mesh.get();
-  plain_mesh_renderer.mesh = replacement_mesh.get();
-  if (gneiss_world_entity_set_mesh_renderer(world, mesh_entity, &mesh_renderer) != GNEISS_SUCCESS ||
-      gneiss_world_entity_set_mesh_renderer(world, plain_mesh_entity, &plain_mesh_renderer) !=
-          GNEISS_SUCCESS) {
+  replacement_mesh = resource_handle(mesh_owner);
+  mesh_renderer.mesh = mesh_owner;
+  plain_mesh_renderer.mesh = resources_factory.find_mesh(replacement_mesh);
+  if (world.entity_set_mesh_renderer(mesh_entity, mesh_renderer).failed() ||
+      world.entity_set_mesh_renderer(plain_mesh_entity, plain_mesh_renderer).failed()) {
     return 6;
   }
-  run_result = application.run(1);
-  if (run_result != gneiss::result::success) {
-    std::fprintf(stderr, "Mesh generation 更新后运行失败：%d\n", gneiss::to_native(run_result));
+  run_result = application->run(1);
+  if (run_result.failed()) {
+    std::fprintf(stderr, "Mesh generation 更新后运行失败：%d\n", run_result.code());
     return 7;
   }
-  if (application.destroy_mesh(replacement_mesh) != gneiss::result::success ||
-      application.destroy_material(material) != gneiss::result::success ||
-      application.destroy_material(plain_material) != gneiss::result::success ||
-      application.destroy_texture(texture) != gneiss::result::success) {
+  if (resources.destroy_mesh(replacement_mesh).failed() ||
+      resources.destroy_material(material).failed() ||
+      resources.destroy_material(plain_material).failed() ||
+      resources.destroy_texture(texture).failed()) {
     return 8;
   }
-  return 0;
+  return application->shutdown().failed() ? 12 : 0;
 }

@@ -5,18 +5,20 @@
 
 ## World 生命周期
 
-`gneiss_world_create` 创建空 World，`gneiss_world_destroy` 销毁 World 及其全部实体和组件。World
-句柄是不透明的 64 位值，零值无效，重复销毁返回 `GNEISS_ERROR_INVALID_HANDLE`。
+`gneiss::engine::create_native()` 返回 `result<world_owner>`，成功值独占一个新 World。
+每次调用创建独立 World，不接收已有拥有者；调用方成功后可显式移动拥有权。
+拥有者在创建线程释放时销毁 World 及全部实体、组件。
+World 不再登记全局 RID 表，不提供借用 RID 或 world_service 转发接口。
+工厂仅分配节点与实体校验所需的唯一所属域，域编号不会复用。
 
-World 及其实体只能在创建 World 的线程访问。跨线程调用返回 `GNEISS_ERROR_INVALID_STATE`。当前
-线程约束保证 EnTT Registry、组件与 System 更新具有确定性；并行 System 需要独立设计和性能证据。
-
-`gneiss_world_desc` 使用 `struct_size` 支持后续追加字段。调用方应使用
-`GNEISS_WORLD_DESC_INIT` 初始化，不得设置保留字段。
+World 及其实体只能在创建线程访问；跨线程操作返回 `error::invalid_state`。
+内部直接借用 world&；Application 的 native_world() 返回活动对象的借用指针。
+场景切换或关闭后必须重新获取，禁止解引用旧指针；借用者必须在 World 销毁前清理。
+反射组件入口也直接接收 world&，不再按句柄查回对象。
 
 ## Entity 生命周期
 
-`gneiss_world_entity_create` 返回运行时 `gneiss_entity_id`。实体 ID 包含 World domain 和 EnTT
+`world::entity_create` 返回运行时 `gneiss::entity_id`。实体 ID 包含 World domain 和 EnTT
 实体 generation，但编码布局不是公共 ABI：
 
 - 零值表示无效实体。
@@ -24,35 +26,18 @@ World 及其实体只能在创建 World 的线程访问。跨线程调用返回 
 - 销毁后旧 ID 失效，即使底层槽位被复用也不会指向新实体。
 - 实体 ID 不能持久化为场景对象身份。
 
-`gneiss_world_entity_is_alive` 对已销毁或其他 World 的实体返回成功并将结果设为 0；需要执行销毁、
-读写组件等操作时，这类实体返回 `GNEISS_ERROR_INVALID_HANDLE`。
+`world::entity_is_alive` 返回 `result<bool>`，对已销毁或其他 World 的实体返回成功值 false；需要执行销毁、
+读写组件等操作时，这类实体返回 `error::invalid_handle`。
 
-## C++ 包装
 
-`gneiss::world` 独占 World，默认不可复制但可以移动，析构时自动销毁。`gneiss::entity_id` 只包装
-运行时标识，不拥有实体；World 销毁后所有关联实体 ID 都失效。
-
-`world::ref()` 和 `application::get_world(world_ref&)` 返回可复制的借用视图，不负责销毁 World。
-`world_ref` 提供与拥有型 World 相同的实体、组件和节点操作，不延长所有者寿命；所有者销毁或
-Application 更换对应 World 后，旧视图操作返回无效句柄。`is_valid()` 仅检查句柄非零。
-视图和拥有者都须遵守 World 所属线程约束。
-
-节点与实体 ID 均为借用标识。递归删除节点不删除其关联实体；移除 Mesh Renderer 或删除实体也不
-销毁所引用的 Mesh、Material，资源仍由原 Service/RAII 拥有者管理。
-
-输出错误行为保留既有契约：`get_active_camera` 在未设置相机时返回 `not_ready`，失败清空实体 ID；
-实体重载的 `get_local_transform` 在失败时输出单位变换。`create_entity`、`create_scene_node`、
-`get_parent`、`get_entity` 和 `is_alive` 的 C++ 输出仅在成功时修改，不应把一种输出规则套用到所有查询。
-
-拥有型包装的关闭、失败保留与所有权转移遵循 [Application C++ 契约](application.md#生命周期)。
-`reset()` 可在所属线程重试；`release()` 不改变底层 World 的线程归属。
+`world::entity_count()` 返回 `result<std::uint64_t>`；成功的零值与跨线程访问失败分别表达。
 
 ## ECS 与 System
 
 EnTT `3.15.0` 只用于 World 的内部组件存储。Gneiss 公共头、Entity ID 和 C ABI 不依赖 EnTT。
 内部 System Scheduler 按注册顺序串行执行，遇到第一个失败结果立即停止并保留该结果。
 
-Camera 与 Mesh Renderer 是当前首批公共组件，其行为由
+Camera 与 Mesh Renderer 是当前原生组件，其行为由
 [Render 资源、组件与帧提取](render.md)定义。Transform 和 Camera 可通过
-[Type Registry 与反射元数据](reflection.md)注册并按 World、Entity、Type ID 和 Field ID 访问；
+[Type Registry 与反射元数据](reflection.md)注册并按 World、Entity、Type GUID 和 Field ID 访问；
 公共接口不暴露 EnTT 或组件地址。可持久化对象 UUID 仍由场景格式负责，不使用运行时实体 ID。

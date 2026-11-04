@@ -2,21 +2,25 @@
 # Copyright (c) 2026 Gneiss contributors
 
 include(FetchContent)
+include("${CMAKE_CURRENT_LIST_DIR}/dependency_source_cache.cmake")
 
 function(gneiss_resolve_imguizmo)
   if(TARGET gneiss_imguizmo)
     return()
   endif()
 
-  FetchContent_Declare(
-    gneiss_imguizmo_source
-    GIT_REPOSITORY https://github.com/CedricGuillemet/ImGuizmo.git
-    # ImGuizmo；MIT 许可。固定提交保证 Editor 构建可复现。
-    GIT_TAG 18cef5e031d8c6973d80284c67f60549fafd78c1
-    # 固定 SHA 可能不在上游最新浅克隆中，必须允许取得历史提交。
-    GIT_SHALLOW FALSE
-    SOURCE_SUBDIR gneiss-no-cmake
-  )
+  if(NOT FETCHCONTENT_SOURCE_DIR_GNEISS_IMGUIZMO_SOURCE)
+    gneiss_cached_archive(imguizmo
+      "https://codeload.github.com/CedricGuillemet/ImGuizmo/tar.gz/18cef5e031d8c6973d80284c67f60549fafd78c1"
+      "6ad626f0687be12c2f3ba6542c0f1bdda9e71e395d0645e4cda37695354406d8" README.md cached_source)
+    FetchContent_Declare(gneiss_imguizmo_source SOURCE_DIR "${cached_source}"
+      BINARY_DIR "${CMAKE_BINARY_DIR}/_deps/gneiss_imguizmo_source-build"
+      SOURCE_SUBDIR gneiss-no-cmake)
+  else()
+    FetchContent_Declare(gneiss_imguizmo_source
+      BINARY_DIR "${CMAKE_BINARY_DIR}/_deps/gneiss_imguizmo_source-build"
+      SOURCE_SUBDIR gneiss-no-cmake)
+  endif()
   FetchContent_MakeAvailable(gneiss_imguizmo_source)
 
   add_library(gneiss_imguizmo STATIC "${gneiss_imguizmo_source_SOURCE_DIR}/src/ImGuizmo.cpp")

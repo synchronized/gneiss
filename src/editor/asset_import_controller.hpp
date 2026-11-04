@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/error.hpp"
 #include "tooling/asset_import/asset_import_sdk.hpp"
 
 #include <filesystem>
@@ -21,7 +22,7 @@ enum class editor_import_result {
 struct editor_import_report {
   editor_import_result result{editor_import_result::invalid_argument};
   std::filesystem::path source_path;
-  gneiss::tooling::asset_import::import_asset_report import;
+  gneiss::tooling::import_asset_report import;
   std::string diagnostic;
 };
 
@@ -39,9 +40,9 @@ import_external_asset(const std::filesystem::path& project_root,
 /// 后台调用的受控入口；回调与导入在同一工作线程执行。
 [[nodiscard]] editor_import_report reimport_source_asset_controlled(
     const std::filesystem::path& project, const std::filesystem::path& assets,
-    const std::filesystem::path& source, const tooling::asset_import::import_control& control);
+    const std::filesystem::path& source, const gneiss::tooling::import_control& control);
 [[nodiscard]] editor_import_report import_external_asset_controlled(
     const std::filesystem::path& project, const std::filesystem::path& assets,
-    const std::filesystem::path& source, const tooling::asset_import::import_control& control);
+    const std::filesystem::path& source, const gneiss::tooling::import_control& control);
 
 } // namespace gneiss::editor

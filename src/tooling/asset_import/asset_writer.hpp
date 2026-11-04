@@ -9,7 +9,7 @@
 #include <string>
 #include <string_view>
 
-namespace gneiss::tooling::asset_import {
+namespace gneiss::tooling {
 
 struct write_report {
   bool success{};
@@ -20,4 +20,4 @@ struct write_report {
                                         const std::filesystem::path& output_directory,
                                         std::string_view asset_uri_prefix = "asset://");
 
-} // namespace gneiss::tooling::asset_import
+} // namespace gneiss::tooling

@@ -23,7 +23,7 @@ void write_file(const std::filesystem::path& path, std::string_view text) {
 } // namespace
 
 int main() { // NOLINT(bugprone-exception-escape)
-  namespace asset_import = gneiss::tooling::asset_import;
+  namespace asset_import = gneiss::tooling;
   const auto root = std::filesystem::temp_directory_path() / "gneiss-asset-index-test";
   const auto path = root / ".gneiss" / "asset-index.json";
   const auto source = root / "sources" / "model.gltf";
@@ -32,45 +32,45 @@ int main() { // NOLINT(bugprone-exception-escape)
   write_file(source, "source-content");
 
   std::string content_hash;
-  if (asset_import::hash_source_file(source, content_hash).result !=
-          asset_import::asset_index_result::success ||
+  if (gneiss::tooling::hash_source_file(source, content_hash).result !=
+          gneiss::tooling::asset_index_result::success ||
       !content_hash.starts_with("fnv1a64:")) {
     return 1;
   }
-  asset_import::asset_index index;
-  asset_import::asset_index_entry entry{
+  gneiss::tooling::asset_index index;
+  gneiss::tooling::asset_index_entry entry{
       .source_path = "model.gltf",
       .source_key = "0123456789abcdef",
       .importer_id = "gneiss.gltf",
-      .importer_version = asset_import::gltf_importer_version,
+      .importer_version = gneiss::tooling::gltf_importer_version,
       .content_hash = content_hash,
-      .state = asset_import::asset_import_state::ready,
+      .state = gneiss::tooling::asset_import_state::ready,
       .output_uris = {"asset://imported/0123456789abcdef/scenes/scene.scene.json"}};
-  if (asset_import::upsert_asset_index_entry(index, entry).result !=
-          asset_import::asset_index_result::success ||
-      asset_import::save_asset_index(path, index).result !=
-          asset_import::asset_index_result::success) {
+  if (gneiss::tooling::upsert_asset_index_entry(index, entry).result !=
+          gneiss::tooling::asset_index_result::success ||
+      gneiss::tooling::save_asset_index(path, index).result !=
+          gneiss::tooling::asset_index_result::success) {
     std::filesystem::remove_all(root);
     return 2;
   }
   const auto first_json = read_file(path);
-  asset_import::asset_index loaded;
-  if (asset_import::load_asset_index(path, loaded).result !=
-          asset_import::asset_index_result::success ||
+  gneiss::tooling::asset_index loaded;
+  if (gneiss::tooling::load_asset_index(path, loaded).result !=
+          gneiss::tooling::asset_index_result::success ||
       loaded.entries.size() != 1U || loaded.entries[0].content_hash != content_hash ||
-      asset_import::save_asset_index(path, loaded).result !=
-          asset_import::asset_index_result::success ||
+      gneiss::tooling::save_asset_index(path, loaded).result !=
+          gneiss::tooling::asset_index_result::success ||
       read_file(path) != first_json) {
     std::filesystem::remove_all(root);
     return 3;
   }
 
   auto replacement = entry;
-  replacement.state = asset_import::asset_import_state::stale;
-  if (asset_import::upsert_asset_index_entry(loaded, replacement).result !=
-          asset_import::asset_index_result::success ||
+  replacement.state = gneiss::tooling::asset_import_state::stale;
+  if (gneiss::tooling::upsert_asset_index_entry(loaded, replacement).result !=
+          gneiss::tooling::asset_index_result::success ||
       loaded.entries.size() != 1U ||
-      loaded.entries[0].state != asset_import::asset_import_state::stale) {
+      loaded.entries[0].state != gneiss::tooling::asset_import_state::stale) {
     std::filesystem::remove_all(root);
     return 4;
   }
@@ -78,31 +78,31 @@ int main() { // NOLINT(bugprone-exception-escape)
   escaped.output_uris = {"asset://imported/0123456789abcdef/../escape"};
   auto collision = entry;
   collision.source_path = "other.gltf";
-  if (asset_import::upsert_asset_index_entry(loaded, std::move(escaped)).result !=
-          asset_import::asset_index_result::invalid_format ||
-      asset_import::upsert_asset_index_entry(loaded, std::move(collision)).result !=
-          asset_import::asset_index_result::invalid_format) {
+  if (gneiss::tooling::upsert_asset_index_entry(loaded, std::move(escaped)).result !=
+          gneiss::tooling::asset_index_result::invalid_format ||
+      gneiss::tooling::upsert_asset_index_entry(loaded, std::move(collision)).result !=
+          gneiss::tooling::asset_index_result::invalid_format) {
     std::filesystem::remove_all(root);
     return 5;
   }
 
   write_file(path, R"({"format":"gneiss.asset-index","version":2,"entries":[]})");
-  if (asset_import::load_asset_index(path, loaded).result !=
-      asset_import::asset_index_result::unsupported_version) {
+  if (gneiss::tooling::load_asset_index(path, loaded).result !=
+      gneiss::tooling::asset_index_result::unsupported_version) {
     std::filesystem::remove_all(root);
     return 6;
   }
   write_file(
       path,
       R"({"format":"gneiss.asset-index","version":1,"entries":[{"source":"../bad.gltf","source_key":"key","importer":"gneiss.gltf","importer_version":1,"hash":"x","state":"ready","outputs":[]}]})");
-  if (asset_import::load_asset_index(path, loaded).result !=
-      asset_import::asset_index_result::invalid_format) {
+  if (gneiss::tooling::load_asset_index(path, loaded).result !=
+      gneiss::tooling::asset_index_result::invalid_format) {
     std::filesystem::remove_all(root);
     return 7;
   }
   write_file(path, first_json);
-  if (asset_import::load_asset_index(path, loaded).result !=
-          asset_import::asset_index_result::success ||
+  if (gneiss::tooling::load_asset_index(path, loaded).result !=
+          gneiss::tooling::asset_index_result::success ||
       std::filesystem::exists(path.string() + ".gneiss-staging") ||
       std::filesystem::exists(path.string() + ".gneiss-backup")) {
     std::filesystem::remove_all(root);

@@ -8,7 +8,7 @@
 #include <bit>
 #include <cstdint>
 
-namespace gneiss::core {
+namespace gneiss::engine {
 namespace {
 
 constexpr std::array<std::uint32_t, 64U> round_constants = {
@@ -125,4 +125,4 @@ sha256_digest sha256(std::span<const std::byte> bytes) noexcept {
   return builder.digest();
 }
 
-} // namespace gneiss::core
+} // namespace gneiss::engine

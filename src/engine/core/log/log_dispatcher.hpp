@@ -4,7 +4,7 @@
 #ifndef GNEISS_SRC_LOG_LOG_DISPATCHER_HPP_
 #define GNEISS_SRC_LOG_LOG_DISPATCHER_HPP_
 
-#include <gneiss/engine/log.h>
+#include "engine/core/log/log_types.hpp"
 
 #include <condition_variable>
 #include <cstddef>
@@ -16,25 +16,8 @@
 #include <string_view>
 #include <thread>
 
-namespace gneiss::log_internal {
+namespace gneiss::engine {
 
-/** 提交期间借用文本；context 由调用方解释，零表示无关联上下文。 */
-struct message_view final {
-  std::uint64_t context{};
-  std::uint32_t severity{GNEISS_LOG_INFO};
-  std::string_view source{};
-  std::string_view category{};
-  std::string_view message{};
-  gneiss_result result{GNEISS_SUCCESS};
-};
-
-/** 所有文本只在回调期间有效，接收方不得保留视图。 */
-struct event_view final {
-  message_view message;
-  std::uint64_t sequence{};
-  std::uint64_t timestamp_ns{};
-  std::uint64_t thread_id{};
-};
 using event_sink = std::function<void(const event_view&)>;
 
 /** 单消费线程串行回调；销毁前排空队列，禁止在回调内 flush 或销毁投递器。 */
@@ -46,20 +29,20 @@ public:
   log_dispatcher(const log_dispatcher&) = delete;
   log_dispatcher& operator=(const log_dispatcher&) = delete;
 
-  [[nodiscard]] gneiss_result submit(const message_view& message) noexcept;
+  [[nodiscard]] engine::error submit(const message_view& message) noexcept;
   void flush() noexcept;
 
 private:
   struct owned_event final {
     std::uint64_t context{};
-    std::uint32_t severity = GNEISS_LOG_INFO;
+    level severity = level::info;
     std::uint64_t sequence = 0U;
     std::uint64_t timestamp_ns = 0U;
     std::uint64_t thread_id = 0U;
     std::string source;
     std::string category;
     std::string message;
-    gneiss_result result = GNEISS_SUCCESS;
+    engine::error result = engine::error::success;
   };
 
   void run() noexcept;
@@ -79,6 +62,6 @@ private:
   bool is_stopping_ = false;
 };
 
-} // namespace gneiss::log_internal
+} // namespace gneiss::engine
 
 #endif
