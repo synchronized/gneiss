@@ -385,7 +385,101 @@ bool polymorphic_references() {
   auto restored_null = m::deserialize<e::ref<const polymorphic_base>>(registry, *null);
   return restored_null && !*restored_null;
 }
+struct checked_value {
+  static constexpr std::string_view type_name = "checked_value";
+  static constexpr e::guid type_guid = e::guid::from_bytes({94, 40});
+  std::int64_t number = 1;
+};
+struct bound_properties {
+  static constexpr std::string_view type_name = "bound_properties";
+  static constexpr e::guid type_guid = e::guid::from_bytes({94, 41});
+  std::vector<std::int64_t> values{1};
+  checked_value child;
+  int calls = 0;
+  const auto& get_values() const { return values; }
+  const auto& get_child() const { return child; }
+  e::error set_values(const std::vector<std::int64_t>& input) {
+    ++calls;
+    for (auto value : input)
+      if (value < 0)
+        return e::error::invalid_argument;
+    auto copy = input;
+    values.swap(copy);
+    return e::error::success;
+  }
+  e::error set_child(const checked_value& input) {
+    ++calls;
+    if (input.number < 0)
+      return e::error::invalid_argument;
+    child = input;
+    return e::error::success;
+  }
+};
+bool bound_property_contract() {
+  auto registry = m::create_registry();
+  if (!registry ||
+      m::type_builder<checked_value>{*registry}
+          .property<&checked_value::number>(m::property_id{1}, "number")
+          .serialization()
+          .commit()
+          .failed() ||
+      m::type_builder<bound_properties>{*registry}
+          .property<&bound_properties::get_values, &bound_properties::set_values>(m::property_id{1},
+                                                                                  "values")
+          .property<&bound_properties::get_child, &bound_properties::set_child>(m::property_id{2},
+                                                                                "child")
+          .serialization()
+          .commit()
+          .failed() ||
+      m::freeze(*registry).failed())
+    return false;
+  bound_properties object;
+  auto root = m::mutable_instance::from(*registry, object);
+  if (!root)
+    return false;
+  auto values = root->property("values"), child = root->property("child");
+  if (!values || !child || values->as_sequence().error() != e::error::unsupported ||
+      child->object_data().error() != e::error::unsupported ||
+      child->property("number").error() != e::error::unsupported ||
+      !values->as_const().as_sequence() || !child->as_const().property("number"))
+    return false;
+  auto decode = [&](const m::mutable_instance& target, std::string_view json) {
+    return m::deserialize_instance(*registry, target,
+                                   std::as_bytes(std::span{json.data(), json.size()}));
+  };
+  auto invalid = decode(*values, "[2,\"bad\"]");
+  if (invalid.error.ok() || invalid.path != "/1" || object.calls != 0 ||
+      object.values != std::vector<std::int64_t>{1})
+    return false;
+  if (decode(*values, "[2,-3]").error.ok() || object.calls != 1 ||
+      object.values != std::vector<std::int64_t>{1})
+    return false;
+  if (decode(*values, "[2,3]").error.failed() || object.calls != 2 ||
+      object.values != std::vector<std::int64_t>{2, 3})
+    return false;
+  if (decode(*child, R"({"number":-1})").error.ok() || object.child.number != 1)
+    return false;
+  if (decode(*child, R"({"number":8})").error.failed() || object.child.number != 8)
+    return false;
+  std::vector<std::int64_t> next{5};
+  auto source = m::instance::from(*registry, next);
+  if (!source || values->assign(*source).failed() || object.values != next)
+    return false;
+  next[0] = -5;
+  if (values->assign(*source) != e::error::invalid_argument || object.values[0] != 5)
+    return false;
+  std::vector<float> wrong{1};
+  if (values->assign(*m::instance::from(*registry, wrong)) != e::error::invalid_argument)
+    return false;
+  auto encoded = m::serialize(*registry, object);
+  if (!encoded)
+    return false;
+  auto copy = m::deserialize<bound_properties>(*registry, *encoded);
+  return copy && copy->values == object.values && copy->child.number == object.child.number;
+}
 int main() try {
+  if (!bound_property_contract())
+    return 42;
   if (!polymorphic_references())
     return 41;
   if (!reference_properties())

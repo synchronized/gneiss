@@ -98,9 +98,14 @@ bool valid_binding(const property_binding& binding) noexcept {
   if (binding.object_type)
     return binding.kind == value_kind::invalid && !binding.getter && !binding.setter &&
            binding.object_getter &&
-           (static_cast<bool>(binding.object_mutator) == static_cast<bool>(binding.object_assign));
+           (static_cast<bool>(binding.object_mutator) ==
+            static_cast<bool>(binding.object_assign)) &&
+           (static_cast<bool>(binding.object_setter) ==
+            static_cast<bool>(binding.object_construct)) &&
+           (!binding.object_setter || (!binding.object_mutator && binding.access));
   return is_valid_property_kind(binding.kind) && (binding.getter || binding.setter) &&
          !binding.object_getter && !binding.object_mutator && !binding.object_assign &&
+         !binding.object_setter && !binding.object_construct &&
          (!binding.access || (binding.access->kind() == type_kind::scalar &&
                               binding.access->scalar_kind() == binding.kind &&
                               binding.access->enumeration == bool(binding.enum_type) &&
@@ -164,7 +169,8 @@ struct type_record {
           .capabilities = ((property.accessor.getter || property.accessor.object_getter)
                                ? property_capabilities::readable
                                : property_capabilities::none) |
-                          ((property.accessor.setter || property.accessor.object_mutator)
+                          ((property.accessor.setter || property.accessor.object_mutator ||
+                            property.accessor.object_setter)
                                ? property_capabilities::writable
                                : property_capabilities::none),
           .type = property.accessor.access
@@ -242,7 +248,7 @@ public:
         const auto& binding = bindings[i];
         if (!valid_binding(binding) ||
             (has_flags(desc.properties[i].flags, property_flags::read_only) &&
-             (binding.setter || binding.object_mutator)))
+             (binding.setter || binding.object_mutator || binding.object_setter)))
           return error::invalid_argument;
       }
     }
@@ -308,7 +314,8 @@ public:
         return error::not_found;
       }
       if ((found->flags & static_cast<std::uint32_t>(property_flags::read_only)) != 0U &&
-          (desc.setter != nullptr || desc.object_mutator != nullptr)) {
+          (desc.setter != nullptr || desc.object_mutator != nullptr ||
+           desc.object_setter != nullptr)) {
         return error::invalid_argument;
       }
       const auto& requested = desc;
@@ -321,6 +328,8 @@ public:
                        current.object_getter == requested.object_getter &&
                        current.object_mutator == requested.object_mutator &&
                        current.object_assign == requested.object_assign &&
+                       current.object_setter == requested.object_setter &&
+                       current.object_construct == requested.object_construct &&
                        current.access == requested.access &&
                        current.enum_type == requested.enum_type
                    ? error::success

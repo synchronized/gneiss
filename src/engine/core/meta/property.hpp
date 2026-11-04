@@ -4,6 +4,7 @@
 #pragma once
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/core/ref.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/core/value.hpp"
 #include <concepts>
@@ -87,6 +88,9 @@ struct property_binding {
   void* (*object_mutator)(void*){};
   /** 自定义子类型解码成功后，将独立值移入父对象成员。 */
   void (*object_assign)(void*, void*){};
+  /** 受约束属性只允许整项替换；失败须保持原对象，不提供可写成员地址。 */
+  error (*object_setter)(void*, const void*){};
+  ref<void> (*object_construct)(){};
   engine::type_id enum_type{};
   const detail::type_ops* access{}; // 静态只读操作表，不持有对象。
 };

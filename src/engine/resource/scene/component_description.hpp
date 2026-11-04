@@ -80,6 +80,25 @@ public:
   template <class T> void erase() {
     std::erase_if(values_, [](const auto& v) { return v->guid() == type_identity<T>::guid(); });
   }
+  /** 只读借用；替换、增删后须重新获取借用。 */
+  const std::vector<component_description>& values() const noexcept { return values_; }
+  /** 校验完整候选后替换，失败保持原列表。 */
+  error replace(const std::vector<component_description>& values) noexcept try {
+    for (std::size_t i = 0; i < values.size(); ++i) {
+      if (!values[i])
+        return error::invalid_argument;
+      for (std::size_t j = 0; j < i; ++j)
+        if (values[j]->guid() == values[i]->guid())
+          return error::invalid_argument;
+    }
+    auto candidate = values;
+    values_.swap(candidate);
+    return error::success;
+  } catch (const std::bad_alloc&) {
+    return error::out_of_memory;
+  } catch (...) {
+    return error::internal;
+  }
   [[nodiscard]] bool empty() const noexcept { return values_.empty(); }
   [[nodiscard]] std::size_t size() const noexcept { return values_.size(); }
   auto begin() const noexcept { return values_.begin(); }

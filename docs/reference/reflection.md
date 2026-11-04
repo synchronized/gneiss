@@ -448,3 +448,15 @@ Meta 注册表仅属于当前进程。通过 IPC 接收场景组件描述的宿�
 Texture 描述注册 source、color_space、usage 三个必填字段；后两者使用 enum_name。
 文件保持 gneiss.texture v2、字符串枚举及 normal 必须配 linear 的校验。调用描述 codec 前
 需初始化默认 Meta 注册表；不会自动启动 Application 或 GPU。
+
+### 非标量 getter/setter 属性
+
+`type_builder<T>::property<Getter, Setter>(id, name)` 支持嵌套对象、序列、关联容器和引用。
+非标量 getter 必须返回稳定的 const U&，不接受临时值；setter 接收完整 const U&，返回 error
+或 void，负责先校验再修改，失败须保持旧属性。未知 U 仍需按原规则注册。
+
+此绑定的 mutable_instance 支持 assign/assign_object 整项替换，但不提供可写对象地址、
+可写容器/引用视图或可写子属性；通过 as_const() 读取嵌套内容。属性替换后重新获取借用视图。
+反序列化先创建独立默认候选并完成解码，然后调用 setter；解析失败不调用 setter。
+setter 返回的业务错误定位到属性，嵌套解码错误保留具体子路径。
+这只保证单个受约束属性的替换边界，不承诺整个父对象或任意回调副作用的自动回滚。

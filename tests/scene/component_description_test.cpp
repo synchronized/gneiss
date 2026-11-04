@@ -88,6 +88,28 @@ int main() try {
       !parsed->objects.front().components.get<custom_description>()->enabled ||
       parsed->objects.front().components.get<e::camera_description>())
     return 2;
+  // 组件属性只能整项替换；失败不修改已有组件或共享快照。
+  auto guarded = parsed->objects.front();
+  auto registry = e::meta::default_registry();
+  if (!registry)
+    return 36;
+  auto object_view = e::meta::mutable_instance::from(*registry, guarded);
+  if (!object_view)
+    return 37;
+  auto property = object_view->property("components");
+  if (!property || property->as_sequence().error() != e::error::unsupported ||
+      !property->as_const().as_sequence())
+    return 38;
+  auto original = *guarded.components.begin();
+  auto null_status = e::meta::deserialize_instance(*registry, *property, bytes("[null]"));
+  auto duplicate_status =
+      e::meta::deserialize_instance(*registry, *property, bytes("[" + custom + "," + custom + "]"));
+  if (null_status.error.ok() || duplicate_status.error.ok() || guarded.components.size() != 1 ||
+      *guarded.components.begin() != original)
+    return 39;
+  if (e::meta::deserialize_instance(*registry, *property, bytes("[]")).error.failed() ||
+      !guarded.components.empty() || parsed->objects.front().components.empty())
+    return 40;
   auto copy = *parsed;
   copy.objects.front().components.update<custom_description>(
       [](auto& value) { value.enabled = false; });
@@ -116,10 +138,10 @@ int main() try {
   if (invalid || invalid.error().path != "/objects/0/components/0/$content/enabled")
     return 7;
   auto null_component = e::decode_scene(bytes(scene("[null]")));
-  if (null_component || null_component.error().path != "/objects/0/components/0")
+  if (null_component || null_component.error().path != "/objects/0/components")
     return 33;
   auto null_after_valid = e::decode_scene(bytes(scene("[" + custom + ",null]")));
-  if (null_after_valid || null_after_valid.error().path != "/objects/0/components/1")
+  if (null_after_valid || null_after_valid.error().path != "/objects/0/components")
     return 34;
   auto extra_envelope = custom;
   extra_envelope.insert(1, "\"extra\":true,");

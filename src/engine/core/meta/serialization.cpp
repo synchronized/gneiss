@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/serialization.hpp"
 #include "engine/core/meta/detail/json_value_codec.hpp"
+#include "engine/core/meta/detail/property_view_access.hpp"
 #include "engine/core/meta/detail/reference_view_access.hpp"
 #include "engine/core/meta/instance.hpp"
 #include <algorithm>
@@ -541,6 +542,17 @@ serialization_diagnostic decode_nested(serialization_context& ctx, const registr
 serialization_diagnostic decode_view(serialization_context& ctx, const registry_ref& registry,
                                      const mutable_instance& view, yyjson_val* input,
                                      std::size_t depth) {
+  if (detail::property_view_access::requires_replacement(view)) {
+    serialization_diagnostic diagnostic;
+    auto status =
+        detail::property_view_access::replace(view, [&](const mutable_instance& temporary) {
+          diagnostic = decode_view(ctx, registry, temporary, input, depth);
+          return diagnostic.error;
+        });
+    return diagnostic.error.failed()
+               ? diagnostic
+               : (status.failed() ? failure(status) : serialization_diagnostic{});
+  }
   const auto value_type = view.type();
   if (value_type.kind() == type_kind::reference) {
     if (yyjson_is_null(input)) {

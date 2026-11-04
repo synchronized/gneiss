@@ -152,26 +152,52 @@ public:
                          property_flags flags = property_flags::none) noexcept {
     using property_type =
         std::remove_cvref_t<std::invoke_result_t<decltype(Getter), const object_type&>>;
-    return add<property_type>(
-        id, name, flags,
-        {.kind = detail::reflected_value_kind<property_type>(),
-         .getter = [](void*, const void* object, value& output) -> error {
-           output =
-               detail::scalar_value(std::invoke(Getter, *static_cast<const object_type*>(object)));
-           return error::success;
-         },
-         .setter = [](void*, void* object, const value& input) -> error {
-           auto decoded = detail::scalar_cast<property_type>(input);
-           if (!decoded)
-             return decoded.error();
-           if constexpr (std::is_void_v<std::invoke_result_t<decltype(Setter), object_type&,
-                                                             const property_type&>>) {
-             std::invoke(Setter, *static_cast<object_type*>(object), *decoded);
+    if constexpr (detail::reflected_value_kind<property_type>() == value_kind::invalid) {
+      using returned = std::invoke_result_t<decltype(Getter), const object_type&>;
+      static_assert(std::is_lvalue_reference_v<returned> &&
+                        std::is_const_v<std::remove_reference_t<returned>>,
+                    "Object getters must borrow a const lvalue, not a temporary");
+      static_assert(std::is_default_constructible_v<property_type>);
+      return add<property_type>(
+          id, name, flags,
+          {.object_type = runtime_type_of<property_type>(),
+           .object_getter = [](const void* object) -> const void* {
+             return std::addressof(std::invoke(Getter, *static_cast<const object_type*>(object)));
+           },
+           .object_setter = [](void* object, const void* value) -> error {
+             if constexpr (std::is_void_v<std::invoke_result_t<decltype(Setter), object_type&,
+                                                               const property_type&>>) {
+               std::invoke(Setter, *static_cast<object_type*>(object),
+                           *static_cast<const property_type*>(value));
+               return error::success;
+             } else {
+               return std::invoke(Setter, *static_cast<object_type*>(object),
+                                  *static_cast<const property_type*>(value));
+             }
+           },
+           .object_construct = []() -> ref<void> { return make_ref<property_type>(); },
+           .access = &detail::ops_of<property_type>()});
+    } else
+      return add<property_type>(
+          id, name, flags,
+          {.kind = detail::reflected_value_kind<property_type>(),
+           .getter = [](void*, const void* object, value& output) -> error {
+             output = detail::scalar_value(
+                 std::invoke(Getter, *static_cast<const object_type*>(object)));
              return error::success;
-           } else {
-             return std::invoke(Setter, *static_cast<object_type*>(object), *decoded);
-           }
-         }});
+           },
+           .setter = [](void*, void* object, const value& input) -> error {
+             auto decoded = detail::scalar_cast<property_type>(input);
+             if (!decoded)
+               return decoded.error();
+             if constexpr (std::is_void_v<std::invoke_result_t<decltype(Setter), object_type&,
+                                                               const property_type&>>) {
+               std::invoke(Setter, *static_cast<object_type*>(object), *decoded);
+               return error::success;
+             } else {
+               return std::invoke(Setter, *static_cast<object_type*>(object), *decoded);
+             }
+           }});
   }
   template <auto Getter> type_builder& readonly(property_id id, std::string_view name) noexcept {
     using property_type =

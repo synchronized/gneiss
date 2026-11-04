@@ -181,19 +181,6 @@ read_component(gneiss::engine::guid type, yyjson_val* content) {
   return result;
 }
 
-[[nodiscard]] bool parse_components(yyjson_val* value, std::string_view path,
-                                    gneiss::engine::object_description& output,
-                                    scene_diagnostic& diagnostic) {
-  auto decoded = gneiss::engine::detail::read_components(value);
-  if (!decoded) {
-    fail(diagnostic, decoded.error().error, std::string(path) + decoded.error().path,
-         decoded.error().message);
-    return false;
-  }
-  output.components = std::move(*decoded);
-  return true;
-}
-
 [[nodiscard]] bool parse_prefab_reference(yyjson_val* value, std::size_t index,
                                           gneiss::engine::prefab_reference_description& output,
                                           scene_diagnostic& diagnostic);
@@ -213,7 +200,11 @@ read_component(gneiss::engine::guid type, yyjson_val* content) {
     output.prefab.emplace();
     return parse_prefab_reference(prefab, index, *output.prefab, diagnostic);
   }
-  return parse_components(components, path + "/components", output, diagnostic);
+  if (!components) {
+    fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/components", "缺少组件数组");
+    return false;
+  }
+  return true;
 }
 
 [[nodiscard]] bool parse_override_value(yyjson_val* object, gneiss::engine::value& output) {
@@ -532,9 +523,13 @@ encode_object(const object_description& source) {
   if (!source.uuid)
     return meta::serialization_diagnostic{
         .path = "/uuid", .message = "对象 UUID 不能为空", .error = error::invalid_argument};
+  if (source.prefab && !source.components.empty())
+    return meta::serialization_diagnostic{.error = error::invalid_argument};
   auto fields = meta::serialize_reflected(source);
   if (!fields)
     return std::move(fields).error();
+  if (!source.prefab)
+    return fields;
   std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> parsed(
       yyjson_read(reinterpret_cast<const char*>(fields->data()), fields->size(), 0),
       &yyjson_doc_free);
@@ -546,8 +541,7 @@ encode_object(const object_description& source) {
     return meta::serialization_diagnostic{.error = error::out_of_memory};
   auto* root = yyjson_mut_doc_get_root(doc.get());
   if (source.prefab) {
-    if (!source.components.empty())
-      return meta::serialization_diagnostic{.error = error::invalid_argument};
+    yyjson_mut_obj_remove_key(root, "components");
     auto changes = make_component_overrides(doc.get(), *source.prefab);
     if (!changes)
       return meta::serialization_diagnostic{.error = changes.error()};
@@ -560,12 +554,6 @@ encode_object(const object_description& source) {
                    make_prefab_overrides(doc.get(), source.prefab->overrides)) ||
         !put_value(doc.get(), reference, "component_overrides", *changes) ||
         !put_value(doc.get(), root, "prefab", reference))
-      return meta::serialization_diagnostic{.error = error::out_of_memory};
-  } else {
-    auto components = gneiss::engine::detail::write_components(doc.get(), source.components);
-    if (!components)
-      return std::move(components).error();
-    if (!put_value(doc.get(), root, "components", *components))
       return meta::serialization_diagnostic{.error = error::out_of_memory};
   }
   std::size_t length{};
@@ -844,6 +832,15 @@ meta::serialization_diagnostic check_mesh_renderer(const mesh_renderer_descripti
           diagnostic.error};
 }
 }
+namespace {
+const std::vector<component_description>& object_components(const object_description& object) {
+  return object.components.values();
+}
+error set_object_components(object_description& object,
+                            const std::vector<component_description>& values) {
+  return object.components.replace(values);
+}
+}
 error register_component_descriptions() noexcept {
   auto base_status = meta::type_builder<component_description_base>{}.polymorphic().commit();
   if (base_status.failed())
@@ -855,6 +852,7 @@ error register_component_descriptions() noexcept {
           .property<&object_description::name>(meta::property_id{2}, "name")
           .property<&object_description::parent_uuid>(meta::property_id{3}, "parent", required)
           .property<&object_description::transform>(meta::property_id{4}, "transform", required)
+          .property<&object_components, &set_object_components>(meta::property_id{5}, "components")
           .serialization()
           .serialization<&encode_object, &decode_object>()
           .commit();
@@ -904,15 +902,10 @@ read_components(yyjson_val* input) noexcept try {
   if (status.error.failed())
     return status;
   component_descriptions result;
-  for (std::size_t i = 0; i < decoded.size(); ++i) {
-    auto& component = decoded[i];
-    if (!component || result.find(component->guid()))
-      return meta::serialization_diagnostic{
-          .path = "/" + std::to_string(i) + (component ? "/$type_guid" : ""),
-          .message = component ? "重复组件描述类型" : "组件描述不能为空",
-          .error = error::invalid_argument};
-    result.set(std::move(component));
-  }
+  auto replaced = result.replace(decoded);
+  if (replaced.failed())
+    return meta::serialization_diagnostic{.message = "组件列表包含空项或重复类型",
+                                          .error = replaced};
   return result;
 } catch (const std::bad_alloc&) {
   return meta::serialization_diagnostic{.error = error::out_of_memory};
@@ -924,8 +917,7 @@ write_components(yyjson_mut_doc* document, const component_descriptions& compone
   auto registry = meta::default_registry();
   if (!registry)
     return meta::serialization_diagnostic{.error = registry.error()};
-  const std::vector<component_description> values(components.begin(), components.end());
-  auto view = meta::instance::from(*registry, values);
+  auto view = meta::instance::from(*registry, components.values());
   if (!view)
     return meta::serialization_diagnostic{.error = view.error()};
   return meta::detail::write_instance(document, *registry, *view);

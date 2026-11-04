@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/instance.hpp"
+#include "engine/core/meta/detail/property_view_access.hpp"
 #include "engine/core/meta/detail/reference_view_access.hpp"
 #include <algorithm>
 namespace gneiss::engine::meta {
@@ -147,6 +148,10 @@ result<mutable_instance> mutable_instance::property(std::string_view name) const
   return found == entries->end() ? result<mutable_instance>{error::not_found} : property(found->id);
 }
 result<mutable_instance> mutable_instance::property(property_id id) const noexcept try {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (!data_)
+    return error::unsupported;
   auto child = view_.property(id);
   if (!child)
     return child.error();
@@ -163,6 +168,8 @@ result<mutable_instance> mutable_instance::property(property_id id) const noexce
     auto binding = find_object_property(view_.registry_, view_.type_, id);
     if (!binding)
       return binding.error();
+    if (binding->object_setter)
+      return output;
     if (!binding->object_mutator)
       return error::unsupported;
     output.data_ = binding->object_mutator(data_);
@@ -195,13 +202,21 @@ error mutable_instance::write_value(const value& input) const noexcept try {
 result<void*> mutable_instance::object_data() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
-  if (kind() != type_kind::object)
+  if (kind() != type_kind::object || !data_)
     return error::unsupported;
   return data_;
 }
 error mutable_instance::assign(const instance& source) const noexcept try {
   if (kind() == type_kind::invalid || source.kind() == type_kind::invalid)
     return error::invalid_state;
+  if (detail::property_view_access::requires_replacement(*this)) {
+    if (view_.cpp_type_ != source.cpp_type_)
+      return error::invalid_argument;
+    auto binding = find_object_property(view_.registry_, view_.parent_type_, view_.property_);
+    if (!binding)
+      return binding.error();
+    return binding->object_setter(parent_, source.data_);
+  }
   if ((kind() != type_kind::object && kind() != type_kind::reference) || source.kind() != kind())
     return error::unsupported;
   if (view_.cpp_type_ != source.cpp_type_)
@@ -219,6 +234,14 @@ error mutable_instance::assign(const instance& source) const noexcept try {
 error mutable_instance::assign_object(engine::type_id id, void* source) const noexcept try {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
+  if (detail::property_view_access::requires_replacement(*this)) {
+    if (!source || id != view_.cpp_type_)
+      return error::invalid_argument;
+    auto binding = find_object_property(view_.registry_, view_.parent_type_, view_.property_);
+    if (!binding)
+      return binding.error();
+    return binding->object_setter(parent_, source);
+  }
   if (kind() != type_kind::object)
     return error::unsupported;
   if (!source || id != view_.cpp_type_)
@@ -286,6 +309,8 @@ result<sequence_view> instance::as_sequence() const noexcept {
 result<mutable_sequence_view> mutable_instance::as_sequence() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
+  if (!data_)
+    return error::unsupported;
   if (kind() != type_kind::sequence)
     return error::unsupported;
   return mutable_sequence_view{*this};
@@ -300,6 +325,8 @@ result<associative_view> instance::as_associative() const noexcept {
 result<mutable_associative_view> mutable_instance::as_associative() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
+  if (!data_)
+    return error::unsupported;
   if (kind() != type_kind::associative)
     return error::unsupported;
   return mutable_associative_view{*this};
@@ -314,6 +341,8 @@ result<reference_view> instance::as_reference() const noexcept {
 result<mutable_reference_view> mutable_instance::as_reference() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
+  if (!data_)
+    return error::unsupported;
   if (kind() != type_kind::reference)
     return error::unsupported;
   return mutable_reference_view{*this};
@@ -345,5 +374,31 @@ error reference_view_access::reset(const mutable_instance& view) noexcept {
   if (!reference)
     return reference.error();
   return reference->reset();
+}
+}
+
+namespace gneiss::engine::meta::detail {
+error property_view_access::replace(
+    const mutable_instance& target,
+    const std::function<error(const mutable_instance&)>& initialize) noexcept try {
+  if (!requires_replacement(target) || !initialize)
+    return error::invalid_argument;
+  auto binding = find_object_property(target.view_.registry_, target.view_.parent_type_,
+                                      target.view_.property_);
+  if (!binding)
+    return binding.error();
+  auto storage = binding->object_construct();
+  if (!storage)
+    return error::out_of_memory;
+  auto temporary =
+      mutable_instance::from_access(target.view_.registry_, *binding->access, storage.get());
+  if (!temporary)
+    return temporary.error();
+  auto status = initialize(*temporary);
+  return status.failed() ? status : binding->object_setter(target.parent_, storage.get());
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
 }
 }

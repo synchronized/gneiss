@@ -143,9 +143,21 @@ Meta 负责临时 vector<component_description> 的数组及多态内容，业�
 生成 component_descriptions。IPC 不再经过 JSON 字节中转；普通组件不再拆解重建类型信封。
 Prefab 组件覆盖仍含业务定位字段，保留提取信封的适配。
 
-object_description 全字段反射仍未完成：components 需要校验后整项替换的访问接口，
-prefab 需要明确可空引用及覆盖指令适配。目前不开放内部 vector 的可写访问，也不重新引入
-optional 反射。后续先评估受约束集合的读写绑定，再迁移这两个字段；普通基础字段保持现有反射。
+object_description 全字段反射仍未完成：prefab 需要明确可空引用及覆盖指令适配，
+不重新引入 optional 反射。components 的整项绑定已完成，见下节。
 
 本批仅完成共享入口及字段约束核查，验收见
 [记录](../records/2026-11-04-component-dom-codec.md)。
+
+### 非标量属性整项绑定与 components 注册（已完成）
+
+- getter 返回稳定 const T&，setter 接收完整 const T&，可返回 error 或 void。
+- 非标量绑定不开放可写地址或子元素视图。读取走 const 视图，整项赋值走 setter。
+- JSON 解码创建独立默认候选，完整解码成功后才调用 setter；setter 须保证失败不改变业务对象。
+- components 注册为向量属性，统一由 component_descriptions::replace 校验非空/唯一后替换。
+  普通对象 codec 删除手动组件数组读写，仅保留普通对象必需 components 与 prefab 互斥校验。
+- prefab 字段表达不在本批范围；保留其已有包装与覆盖冲突检查。
+
+验收覆盖容器与嵌套对象的成功替换、拒绝旁路修改、解码/校验失败保持原值、类型错误、
+Scene/Prefab 往返与编辑器撤销。受影响 Debug 目标编译及 18 项相关测试通过，见
+[验收记录](../records/2026-11-04-bound-object-properties.md)。未运行大场景或远端 CI。

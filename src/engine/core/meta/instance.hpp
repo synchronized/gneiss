@@ -15,6 +15,9 @@ using mutable_associative_view = basic_associative_view<true>;
 template <bool Mutable> class basic_reference_view;
 using reference_view = basic_reference_view<false>;
 using mutable_reference_view = basic_reference_view<true>;
+namespace detail {
+struct property_view_access;
+}
 class mutable_instance;
 /** 只读借用视图。持有注册表，不持有目标对象；父对象销毁、移动或成员地址失效后不可使用。
  * 基础属性保存访问位置，read_value 每次调用 getter 并返回自有副本，不借用 getter 临时值。
@@ -58,6 +61,7 @@ public:
 
 private:
   friend class mutable_instance;
+  friend struct detail::property_view_access;
   template <bool> friend class basic_sequence_view;
   template <bool> friend class basic_associative_view;
   template <bool> friend class basic_reference_view;
@@ -106,12 +110,14 @@ public:
   [[nodiscard]] result<value> read_value() const noexcept { return view_.read_value(); }
   [[nodiscard]] GNEISS_API error write_value(const value& input) const noexcept;
   [[nodiscard]] GNEISS_API result<void*> object_data() const noexcept;
-  /** 同类型对象或引用复制赋值；引用共享原控制块，不复制目标。不提供回滚或业务校验，调用方应修改候选副本。 */
+  /** 同类型对象或引用复制赋值；受约束属性经 setter 校验整项替换。
+   * 普通成员仍直接赋值，引用共享控制块；调用方负责普通成员的业务校验。 */
   [[nodiscard]] GNEISS_API error assign(const instance& source) const noexcept;
-  /** 解码专用移动赋值；source 类型须匹配，成功后其内容已移出。 */
+  /** 解码赋值；source 类型须匹配。普通成员移动赋值；受约束属性由 setter 借用候选值。 */
   [[nodiscard]] GNEISS_API error assign_object(engine::type_id id, void* source) const noexcept;
 
 private:
+  friend struct detail::property_view_access;
   template <bool> friend class basic_sequence_view;
   template <bool> friend class basic_associative_view;
   template <bool> friend class basic_reference_view;
