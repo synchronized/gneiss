@@ -22,7 +22,7 @@
 
 ## 操作指南
 
-- [从 0.50 迁移到 0.51 开发版](guides/migrating-0.50-to-0.51.md)
+- [从 0.50 迁移到 0.51](guides/migrating-0.50-to-0.51.md)
 
 - [从 0.46 迁移到 0.47](guides/migrating-0.46-to-0.47.md)
 
