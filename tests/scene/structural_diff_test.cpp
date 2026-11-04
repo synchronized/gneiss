@@ -14,8 +14,8 @@ namespace {
 
 using gneiss::engine::object_description;
 
-gneiss::engine::object_description
-object(gneiss::engine::guid uuid, std::optional<gneiss::engine::guid> parent = std::nullopt) {
+gneiss::engine::object_description object(gneiss::engine::guid uuid,
+                                          gneiss::engine::guid parent = {}) {
   return {.uuid = std::move(uuid),
           .name = "节点",
           .parent_uuid = std::move(parent),

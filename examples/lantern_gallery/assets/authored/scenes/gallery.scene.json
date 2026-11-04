@@ -5,7 +5,7 @@
   "objects": [
     {
       "uuid": "20000000-0000-4000-8000-000000000040",
-      "parent": null,
+      "parent": "00000000-0000-0000-0000-000000000000",
       "name": "Lantern Pivot",
       "transform": {
         "translation": [
@@ -29,7 +29,7 @@
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000001",
-      "parent": null,
+      "parent": "00000000-0000-0000-0000-000000000000",
       "name": "Gallery Camera",
       "transform": {
         "translation": [
@@ -61,7 +61,7 @@
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000002",
-      "parent": null,
+      "parent": "00000000-0000-0000-0000-000000000000",
       "name": "Stone Floor",
       "transform": {
         "translation": [
@@ -93,7 +93,7 @@
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000003",
-      "parent": null,
+      "parent": "00000000-0000-0000-0000-000000000000",
       "name": "Northwest Pillar",
       "transform": {
         "translation": [
@@ -125,7 +125,7 @@
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000004",
-      "parent": null,
+      "parent": "00000000-0000-0000-0000-000000000000",
       "name": "Northeast Pillar",
       "transform": {
         "translation": [
@@ -157,7 +157,7 @@
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000005",
-      "parent": null,
+      "parent": "00000000-0000-0000-0000-000000000000",
       "name": "Southwest Pillar",
       "transform": {
         "translation": [
@@ -189,7 +189,7 @@
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000006",
-      "parent": null,
+      "parent": "00000000-0000-0000-0000-000000000000",
       "name": "Southeast Pillar",
       "transform": {
         "translation": [

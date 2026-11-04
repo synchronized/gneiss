@@ -244,7 +244,7 @@ engine::error scene_instance::reload(scene_description candidate) {
   };
   for (const auto& addition : diff.added) {
     const auto& source = candidate.objects[addition.new_index];
-    const auto parent = source.parent_uuid ? nodes.at(*source.parent_uuid) : null_scene_node_id;
+    const auto parent = source.parent_uuid ? nodes.at(source.parent_uuid) : null_scene_node_id;
     result = commit_object(native_world_, source, staged[addition.new_index], parent, loader_);
     if (result != engine::error::success) {
       auto& failed = staged[addition.new_index];
@@ -323,7 +323,7 @@ engine::error scene_instance::reload(scene_description candidate) {
 
     const auto& source = candidate.objects[update.new_index];
     if (has_change(update.changes, structural_change::parent)) {
-      const auto parent = source.parent_uuid ? nodes.at(*source.parent_uuid) : null_scene_node_id;
+      const auto parent = source.parent_uuid ? nodes.at(source.parent_uuid) : null_scene_node_id;
       result = native_world_.node_reparent(gneiss::scene_node_id{target.node},
                                            gneiss::scene_node_id{parent});
     }
@@ -529,7 +529,7 @@ result<scene_node_id> scene_instance::create_node(const node_creation& desc) {
   if (!uuid || find_node(uuid) != null_scene_node_id) {
     return engine::error::invalid_argument;
   }
-  std::optional<gneiss::engine::guid> parent_uuid;
+  gneiss::engine::guid parent_uuid{};
   if (desc.parent != null_scene_node_id) {
     const auto parent = find_authored_node(desc.parent);
     if (parent == objects_.end()) {
@@ -607,13 +607,13 @@ result<scene_subtree_snapshot> scene_instance::capture_subtree(scene_node_id roo
                                                   &object_description::uuid);
   if (root_description == snapshot.description.objects.end())
     return error::invalid_state;
-  snapshot.parent_uuid = root_description->parent_uuid.value_or(guid{});
+  snapshot.parent_uuid = root_description->parent_uuid;
   std::unordered_set<guid, guid_hash> included{snapshot.root_uuid};
   bool changed = true;
   while (changed) {
     changed = false;
     for (const auto& object : snapshot.description.objects)
-      if (object.parent_uuid && included.contains(*object.parent_uuid))
+      if (object.parent_uuid && included.contains(object.parent_uuid))
         changed |= included.emplace(object.uuid).second;
   }
   if (included.size() > scene_subtree_max_nodes)
@@ -622,7 +622,7 @@ result<scene_subtree_snapshot> scene_instance::capture_subtree(scene_node_id roo
                 [&](const auto& value) { return !included.contains(value.uuid); });
   for (auto& author : snapshot.description.objects) {
     if (author.uuid == snapshot.root_uuid)
-      author.parent_uuid.reset();
+      author.parent_uuid = {};
     if (author.prefab) {
       auto& resources = snapshot.resources[author.uuid];
       const auto binding = std::ranges::find_if(prefab_instances_, [&](const auto& value) {
@@ -699,12 +699,12 @@ result<scene_node_id> scene_instance::restore_subtree(const scene_subtree_snapsh
     auto author = original;
     author.uuid = remap.at(original.uuid);
     if (author.parent_uuid)
-      author.parent_uuid = remap.at(*author.parent_uuid);
+      author.parent_uuid = remap.at(author.parent_uuid);
     if (!mappings.empty() && author.components.template get<camera_description>())
       author.components.update<camera_description>([&](auto& value) { value.is_primary = false; });
     const auto asset = snapshot.resources.find(original.uuid);
     const auto node_parent =
-        author.parent_uuid ? staged.find_node(*author.parent_uuid) : scene_node_id{};
+        author.parent_uuid ? staged.find_node(author.parent_uuid) : scene_node_id{};
     if (author.prefab) {
       if (asset == snapshot.resources.end() || !asset->second.prefab)
         return error::not_found;
@@ -817,7 +817,7 @@ scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& des
   if (!uuid || find_node(uuid) != null_scene_node_id) {
     return engine::error::invalid_argument;
   }
-  std::optional<gneiss::engine::guid> parent_uuid;
+  gneiss::engine::guid parent_uuid{};
   if (desc.parent != null_scene_node_id) {
     const auto parent = find_authored_node(desc.parent);
     if (parent == objects_.end()) {
@@ -1072,7 +1072,7 @@ result<scene_description> scene_instance::capture_description() const {
         capture_scene_object(native_world_, member.node, prefab == prefab_instances_.end());
     if (!captured)
       return captured.error();
-    if (captured->parent_uuid && !persistent_ids.contains(*captured->parent_uuid))
+    if (captured->parent_uuid && !persistent_ids.contains(captured->parent_uuid))
       return error::invalid_state; // 不将跨场景或临时父节点身份写进文件。
     if (prefab != prefab_instances_.end())
       captured->prefab = (*prefab)->reference_;

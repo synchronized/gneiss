@@ -742,6 +742,9 @@ decode_object(std::span<const std::byte> bytes) {
   auto object = meta::deserialize_reflected<object_description>(bytes);
   if (!object)
     return std::move(object).error();
+  if (!object->uuid)
+    return meta::serialization_diagnostic{
+        .path = "/uuid", .message = "对象 UUID 不能为空", .error = error::invalid_argument};
   std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> doc(
       yyjson_read(reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0), &yyjson_doc_free);
   if (!doc)
@@ -757,6 +760,9 @@ decode_object(std::span<const std::byte> bytes) {
 }
 result<std::vector<std::byte>, meta::serialization_diagnostic>
 encode_object(const object_description& source) {
+  if (!source.uuid)
+    return meta::serialization_diagnostic{
+        .path = "/uuid", .message = "对象 UUID 不能为空", .error = error::invalid_argument};
   auto fields = meta::serialize_reflected(source);
   if (!fields)
     return std::move(fields).error();

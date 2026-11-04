@@ -93,7 +93,7 @@ create_prefab_binding(world& native_world, resource_service& loader, prefab_asse
         renderer = {*mesh, *material};
       }
       const auto node_parent =
-          object.parent_uuid ? instance->find_node(*object.parent_uuid) : instance->root();
+          object.parent_uuid ? instance->find_node(object.parent_uuid) : instance->root();
       result = instance->create_node(addition.new_index, object, node_parent, renderer.mesh,
                                      renderer.material);
       if (result.failed())
@@ -128,7 +128,7 @@ constexpr std::string_view prefab_json = R"({
   "objects":[
     {
       "uuid":"10000000-0000-4000-8000-000000000002",
-      "parent":null,
+      "parent":"00000000-0000-0000-0000-000000000000",
       "transform":{"translation":[1,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
       "components":[]
     },
@@ -147,7 +147,7 @@ constexpr std::string_view broken_prefab_json = R"({
   "prefab_uuid":"10000000-0000-4000-8000-000000000011","root_uuid":"10000000-0000-4000-8000-000000000012",
   "objects":[{
     "uuid":"10000000-0000-4000-8000-000000000012",
-    "parent":null,
+    "parent":"00000000-0000-0000-0000-000000000000",
     "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
     "components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://missing.mesh","material":"asset://missing.material"}}]
   }]
@@ -211,7 +211,7 @@ bool check_explicit_root(gneiss::engine::world& world, gneiss::engine::resource_
     return false;
   const auto child = data.objects.back().uuid;
   data.objects.front().parent_uuid = child;
-  data.objects.back().parent_uuid.reset();
+  data.objects.back().parent_uuid = {};
   data.root_uuid = child;
   e::prefab_asset_ref changed{std::make_shared<const e::prefab_description>(data)};
   return instance->validate_reload(changed, {}) == e::error::unsupported &&

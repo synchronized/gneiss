@@ -156,7 +156,7 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
   for (const auto& addition : diff.added) {
     const auto& source = effective.objects[addition.new_index];
     auto& target = staged[addition.new_index];
-    const auto parent = source.parent_uuid ? runtime_nodes.at(*source.parent_uuid) : root_node_;
+    const auto parent = source.parent_uuid ? runtime_nodes.at(source.parent_uuid) : root_node_;
     auto created = create_scene_object(native_world_, source, parent,
                                        {target.mesh, target.material}, &loader_);
     result = created ? error::success : created.error();
@@ -240,7 +240,7 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
     applied.push_back(std::move(snapshot));
     const auto& source = effective.objects[update.new_index];
     if (target.node != root_node_ && has_change(update.changes, structural_change::parent)) {
-      const auto parent = source.parent_uuid ? runtime_nodes.at(*source.parent_uuid) : root_node_;
+      const auto parent = source.parent_uuid ? runtime_nodes.at(source.parent_uuid) : root_node_;
       result = native_world_.node_reparent(gneiss::scene_node_id{target.node},
                                            gneiss::scene_node_id{parent});
     }

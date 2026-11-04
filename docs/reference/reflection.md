@@ -289,7 +289,7 @@ auto snapshot = near->read_value(); // result<value>，拥有读取结果
 ```
 
 `property(name)` 和 `property(property_id)` 返回同一种视图。对象支持 `properties()` 枚举，
-基础属性支持 `read_value()`；`kind()` 区分 invalid、scalar、object、sequence、associative、optional；
+基础属性支持 `read_value()`；`kind()` 区分 invalid、scalar、object、sequence、associative、reference；
 `scalar_kind()` 区分基础值类别。`guid()` 返回静态稳定身份，容器通常为空；
 `type_id()` 为对象、容器和容器元素提供运行期身份，普通标量属性仍通过 value_kind/GUID 标识。
 
@@ -319,7 +319,7 @@ auto snapshot = near->read_value(); // result<value>，拥有读取结果
 材质的 parameters、texture_uris 以及 Scene/Prefab 的普通对象字段直接注册原生成员。
 source_schema_version、dependencies 等运行状态不注册为持久化字段。
 Scene/Prefab 的组件动态分派和 Prefab 覆盖使用专门 codec；保存直接从描述生成文件，
-不合并旧 JSON 或保留未知扩展字段。Scene 的 parent 键仍映射原生 parent_uuid，不因本次内部迁移改变现有场景格式。
+不合并旧 JSON 或保留未知扩展字段。Scene 的 parent 键映射原生 parent_uuid，空父节点使用全零 GUID 字符串；具体见场景格式参考。
 
 `serialization(true)` 启用严格字段检查；默认 false 保留忽略未知字段行为，两者都拒绝重复键。
 自定义 codec 可接收首参数 `const registry_ref&`，收到当前调用表；不接收该参数的简单函数仍可注册。
@@ -354,7 +354,7 @@ vector2 使用独立 vec2 身份及 `[x,y]` 数组，严格检查两个有限 fl
 `enum_entries()` 从冻结注册表借用同一份枚举项；未冻结返回 not_ready，未注册返回
 not_found，非枚举返回 unsupported，默认无效视图返回 invalid_state。借用结果不得超过
 类型视图或注册表的生命周期。`properties()` 返回对象属性快照；`element_type()` 返回
-序列/optional 元素类型，关联容器返回映射值类型。
+序列元素类型或引用静态目标类型，关联容器返回映射值类型。
 
 属性面板的 `draw_property_value` 接收类型视图和 value，检查存储类别匹配后从类型查询
 枚举选项。枚举容器元素也走此路径；注册表无需为每个属性复制枚举列表。

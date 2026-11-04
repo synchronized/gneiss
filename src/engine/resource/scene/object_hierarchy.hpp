@@ -43,8 +43,8 @@ inspect_object_hierarchy(std::span<const object_description> objects,
     if (!parent)
       output.parent_first.push_back(i);
     else {
-      const auto found = output.indices.find(*parent);
-      if (!*parent || found == output.indices.end())
+      const auto found = output.indices.find(parent);
+      if (found == output.indices.end())
         return fail("/objects/" + std::to_string(i) + "/parent", "父对象不存在");
       children[found->second].push_back(i);
     }

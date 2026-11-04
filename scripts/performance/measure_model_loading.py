@@ -26,12 +26,12 @@ def main():
     subprocess.run([str(args.assetc.resolve()), "import", str(args.source.resolve()),
                     "--output", str(root)], check=True, timeout=60)
     import_ms = (time.monotonic() - start) * 1000
-    camera = {"uuid": "00000000-0000-4000-8000-000000000002", "parent": None,
+    camera = {"uuid": "00000000-0000-4000-8000-000000000002", "parent": "00000000-0000-0000-0000-000000000000",
               "transform": {"translation": [0, 0, 2], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1]},
               "components": [{"$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101", "$content": {"settings": {"fov": 1.04719755, "near": .1, "far": 100}, "is_primary": True}}]}
     objects = [camera]
     for index, mesh in enumerate(sorted((root / "models").glob("*.gneiss-mesh"))):
-        objects.append({"uuid": f"00000000-0000-4000-8000-{index+3:012d}", "parent": None,
+        objects.append({"uuid": f"00000000-0000-4000-8000-{index+3:012d}", "parent": "00000000-0000-0000-0000-000000000000",
                         "transform": {"translation": [0, 0, 0], "rotation": [0, 0, 0, 1],
                                       "scale": [.12, .12, .12]},
                         "components": [{"$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102", "$content": {"mesh": "asset://models/" + mesh.name,

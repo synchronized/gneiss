@@ -39,10 +39,10 @@ e::result<custom, m::serialization_diagnostic> decode_custom(std::span<const std
 struct tree {
   static constexpr std::string_view type_name = "container_tree";
   static constexpr e::guid type_guid = e::guid::from_bytes({95, 2});
-  std::vector<std::optional<child>> items{child{}};
+  std::vector<child> items{child{}};
   std::map<std::string, std::vector<float>> groups{{"old", {1}}};
   std::unordered_map<std::string, std::string> labels;
-  std::optional<std::vector<float>> maybe;
+  std::vector<float> maybe;
   std::vector<float> readonly{4};
   std::vector<tree> children;
   std::vector<custom> custom_items{custom{}};
@@ -109,15 +109,10 @@ int main() try {
   CHECK(seq && *seq->size() == 1);
   CHECK(seq->at(2).error() == e::error::not_found);
   CHECK(seq->resize(2).ok());
-  auto optional_item = seq->at(1)->as_optional();
-  CHECK(optional_item);
-  CHECK(!*optional_item->has_value() && optional_item->get().error() == e::error::not_found);
-  auto object = optional_item->ensure();
+  auto object = seq->at(1);
   CHECK(object);
   CHECK(object->property("speed")->write_value(e::value{5.0F}).ok());
-  CHECK(source.items[1]->speed == 5);
-  CHECK(optional_item->reset().ok()); // 从此不再访问 object 元素视图。
-  CHECK(!source.items[1]);
+  CHECK(source.items[1].speed == 5);
   CHECK(root->property("readonly").error() == e::error::unsupported);
   auto readonly = root->as_const().property("readonly")->as_sequence();
   CHECK(readonly);
@@ -137,10 +132,8 @@ int main() try {
   CHECK(groups->insert(std::string("bad\0key", 7)).error() == e::error::invalid_argument);
   CHECK(groups->insert("a/b~")->as_sequence()->at(1)->read_value()->kind() ==
         e::value_kind::float32);
-  auto maybe = root->property("maybe")->as_optional();
-  CHECK(maybe);
-  CHECK(maybe->ensure()->as_sequence()->resize(1).ok());
-  CHECK(source.maybe && source.maybe->size() == 1);
+  auto maybe = root->property("maybe")->as_sequence();
+  CHECK(maybe && maybe->resize(1).ok() && source.maybe.size() == 1);
   source.labels = {{"z", "last"}, {"a", "first"}};
   auto encoded = m::serialize(*r, source);
   CHECK(encoded);
@@ -149,12 +142,13 @@ int main() try {
   CHECK(json.find("readonly") == std::string::npos);
   auto restored = m::deserialize<tree>(*r, *encoded);
   CHECK(restored);
-  CHECK(restored->items.size() == 2 && restored->items[0]->speed == 2 && !restored->items[1]);
+  CHECK(restored->items.size() == 2 && restored->items[0].speed == 2 &&
+        restored->items[1].speed == 5);
   CHECK(restored->custom_items.size() == 1 && restored->custom_items[0].number == 42);
   CHECK(restored->groups == source.groups && restored->labels == source.labels &&
         restored->maybe == source.maybe);
-  auto empty = m::deserialize<tree>(*r, bytes(R"({"items":[],"groups":{},"maybe":null})"));
-  CHECK(empty && empty->items.empty() && empty->groups.empty() && !empty->maybe);
+  auto empty = m::deserialize<tree>(*r, bytes(R"({"items":[],"groups":{},"maybe":[]})"));
+  CHECK(empty && empty->items.empty() && empty->groups.empty() && empty->maybe.empty());
   auto defaults = m::deserialize<tree>(*r, bytes("{}"));
   CHECK(defaults && defaults->items.size() == 1 && defaults->groups.contains("old"));
   const auto alive_before_failure = tree::alive;
@@ -167,9 +161,9 @@ int main() try {
   bad = m::deserialize<tree>(*r, bytes(R"({"items":{}})"));
   CHECK(!bad && bad.error().path == "/items");
   CHECK(tree::alive == alive_before_failure);
-  source.items[0]->speed = -1;
+  source.items[0].speed = -1;
   CHECK(!m::serialize(*r, source));
-  source.items[0]->speed = 2;
+  source.items[0].speed = 2;
   std::string deep = "{}";
   for (int i = 0; i < 35; ++i)
     deep = "{\"children\":[" + deep + "]}";

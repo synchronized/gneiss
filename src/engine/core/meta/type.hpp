@@ -23,7 +23,7 @@ public:
   [[nodiscard]] value_kind scalar_kind() const noexcept { return scalar_; }
   [[nodiscard]] GNEISS_API result<std::span<const enum_entry>> enum_entries() const noexcept;
   [[nodiscard]] GNEISS_API result<std::vector<property_info>> properties() const noexcept;
-  /** sequence/optional/reference 返回元素或静态目标类型，associative 返回映射值类型。 */
+  /** sequence/reference 返回元素或静态目标类型，associative 返回映射值类型。 */
   [[nodiscard]] GNEISS_API result<type> element_type() const noexcept;
 
 private:

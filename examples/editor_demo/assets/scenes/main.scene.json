@@ -6,7 +6,7 @@
     {
       "uuid": "28f46bb7-a59b-4dce-94b7-214522e7a6ea",
       "name": "Camera",
-      "parent": null,
+      "parent": "00000000-0000-0000-0000-000000000000",
       "transform": {
         "translation": [
           0.0,
@@ -38,7 +38,7 @@
     {
       "uuid": "3f39dab3-249c-4499-b338-6d25a0627b62",
       "name": "Editable Triangle",
-      "parent": null,
+      "parent": "00000000-0000-0000-0000-000000000000",
       "transform": {
         "translation": [
           0.0,

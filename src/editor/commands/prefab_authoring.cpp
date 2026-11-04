@@ -199,8 +199,9 @@ collect_subtree(yyjson_val* objects, gneiss::engine::guid root_uuid,
   }
   auto* identity = make_identity_transform(document.get());
   if (prefab_root == nullptr || identity == nullptr ||
-      !yyjson_mut_obj_put(prefab_root, yyjson_mut_strcpy(document.get(), "parent"),
-                          yyjson_mut_null(document.get())) ||
+      !yyjson_mut_obj_put(
+          prefab_root, yyjson_mut_strcpy(document.get(), "parent"),
+          yyjson_mut_strcpy(document.get(), "00000000-0000-0000-0000-000000000000")) ||
       !yyjson_mut_obj_put(prefab_root, yyjson_mut_strcpy(document.get(), "transform"), identity) ||
       !put_string(document.get(), prefab_envelope, "format", "gneiss.prefab") ||
       !yyjson_mut_obj_put(prefab_envelope, yyjson_mut_strcpy(document.get(), "version"),
@@ -479,7 +480,7 @@ engine::error prepare_unpack_prefab(std::string_view scene_json, std::string_vie
     } else {
       if (!object.parent_uuid)
         return error::invalid_argument;
-      object.parent_uuid = mapping.at(*object.parent_uuid);
+      object.parent_uuid = mapping.at(object.parent_uuid);
     }
     object.prefab.reset();
     input->scene.objects.push_back(std::move(object));

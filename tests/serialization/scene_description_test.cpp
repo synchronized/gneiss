@@ -25,10 +25,10 @@
 namespace {
 
 constexpr std::string_view valid_scene =
-    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,1,2],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"settings": {"fov": 1.0, "near": 0.1, "far": 100},"is_primary":true}}]},{"uuid":"00000000-0000-4000-8000-000000000003","parent":"00000000-0000-4000-8000-000000000002","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material"}}]}],"unknown":true})";
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":"00000000-0000-0000-0000-000000000000","transform":{"translation":[0,1,2],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"settings": {"fov": 1.0, "near": 0.1, "far": 100},"is_primary":true}}]},{"uuid":"00000000-0000-4000-8000-000000000003","parent":"00000000-0000-4000-8000-000000000002","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material"}}]}],"unknown":true})";
 
 constexpr std::string_view prefab_scene =
-    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"name":"Lamp","parent":"00000000-0000-4000-8000-000000000002","prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"69644f20b2d24e488c7491f4f952ec2d","property_id":1,"value":{"kind":"vec3","value":[4,5,6]}}]},"transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[2,2,2]},"unknown":true,"uuid":"00000000-0000-4000-8000-000000000010"}]})";
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":"00000000-0000-0000-0000-000000000000","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"name":"Lamp","parent":"00000000-0000-4000-8000-000000000002","prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"69644f20b2d24e488c7491f4f952ec2d","property_id":1,"value":{"kind":"vec3","value":[4,5,6]}}]},"transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[2,2,2]},"unknown":true,"uuid":"00000000-0000-4000-8000-000000000010"}]})";
 
 [[nodiscard]] std::string replace_once(std::string text, std::string_view source,
                                        std::string_view replacement) {
@@ -117,7 +117,7 @@ bool save_validation_contract() {
       }))
     return false;
   // Scene 仍允许多根，不因 Prefab 的唯一根约束变成只能保存一棵树。
-  parsed->objects[1].parent_uuid.reset();
+  parsed->objects[1].parent_uuid = {};
   auto forest = e::encode_scene(*parsed);
   return forest && static_cast<bool>(e::decode_scene(*forest));
 }
@@ -139,7 +139,7 @@ bool guid_identity_contract() {
       restored->objects[1].parent_uuid != parsed->objects[0].uuid)
     return false;
   parsed->objects[0].parent_uuid = e::guid{};
-  if (e::serialize_scene_description(*parsed))
+  if (!e::serialize_scene_description(*parsed))
     return false;
   *parsed = original;
   parsed->objects[0].uuid = {};
@@ -160,7 +160,12 @@ bool guid_identity_contract() {
   const auto nil_parent =
       replace_once(std::string(valid_scene), R"("parent":"00000000-0000-4000-8000-000000000002")",
                    R"("parent":"00000000-0000-0000-0000-000000000000")");
-  if (!fails_with(nil_parent, e::error::invalid_argument, "/objects/1/parent"))
+  if (!e::parse_scene_description(nil_parent))
+    return false;
+  const auto null_parent =
+      replace_once(std::string(valid_scene), R"("parent":"00000000-0000-0000-0000-000000000000")",
+                   R"("parent":null)");
+  if (!fails_with(null_parent, e::error::invalid_argument, "/objects/0/parent"))
     return false;
   const auto nil_source =
       replace_once(std::string(prefab_scene), "10000000-0000-4000-8000-000000000002",
@@ -301,8 +306,9 @@ int main() try {
   const auto missing_parent =
       replace_once(std::string(valid_scene), R"("parent":"00000000-0000-4000-8000-000000000002")",
                    R"("parent":"00000000-0000-4000-8000-000000000099")");
-  const auto cycle = replace_once(std::string(valid_scene), R"("parent":null)",
-                                  R"("parent":"00000000-0000-4000-8000-000000000003")");
+  const auto cycle =
+      replace_once(std::string(valid_scene), R"("parent":"00000000-0000-0000-0000-000000000000")",
+                   R"("parent":"00000000-0000-4000-8000-000000000003")");
   const auto invalid_uri = replace_once(std::string(valid_scene), "asset://models/triangle.mesh",
                                         "asset://models/../triangle.mesh");
   // 单位变换默认值不允许掩盖文件中缺失的必填分量。

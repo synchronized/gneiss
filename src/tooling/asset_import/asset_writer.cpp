@@ -172,7 +172,7 @@ void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t pr
     if (parents[index]) {
       stream << '\"' << uuid_for(*parents[index]) << '\"';
     } else {
-      stream << "null";
+      stream << R"("00000000-0000-0000-0000-000000000000")";
     }
     stream << ", ";
     write_transform(stream, node.translation, node.rotation, node.scale);

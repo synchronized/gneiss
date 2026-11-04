@@ -94,7 +94,7 @@ public:
     }
     if (result.failed())
       return result;
-    const auto parent_depth = instance.parent_uuid ? scene_depths.at(*instance.parent_uuid) : 0U;
+    const auto parent_depth = instance.parent_uuid ? scene_depths.at(instance.parent_uuid) : 0U;
     if (parent_depth >= limits.hierarchy_depth ||
         found->second.maximum_depth > limits.hierarchy_depth - parent_depth) {
       return engine::error::invalid_argument;
@@ -128,7 +128,7 @@ public:
     for (const auto index : candidate.parent_first) {
       const auto& object = candidate.description.objects[index];
       scene_depths.emplace(object.uuid,
-                           object.parent_uuid ? scene_depths.at(*object.parent_uuid) + 1U : 1U);
+                           object.parent_uuid ? scene_depths.at(object.parent_uuid) + 1U : 1U);
     }
     for (const auto& instance : candidate.description.objects) {
       if (!instance.prefab)

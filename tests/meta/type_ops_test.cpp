@@ -157,11 +157,5 @@ int main() {
   auto fixed_view = m::mutable_instance::from(*registry, fixed);
   CHECK(fixed_view && fixed_view->as_sequence()->at(0));
   CHECK(fixed_view->as_sequence()->resize(2) == e::error::invalid_argument);
-  std::optional<non_default> maybe{std::in_place, 6.0F};
-  auto optional = m::mutable_instance::from(*registry, maybe)->as_optional();
-  CHECK(optional && optional->ensure());
-  CHECK(optional->reset().ok() && !maybe);
-  CHECK(optional->ensure().error() == e::error::unsupported);
-  CHECK(optional->get().error() == e::error::not_found);
   return 0;
 }

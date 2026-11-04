@@ -62,7 +62,7 @@ scene_instance::instantiate_prefab_ready(const object_description& author, prefa
       prefab_instances_, [&](const auto& value) { return value->instance_uuid_ == author.uuid; });
   if (replacing ? previous == prefab_instances_.end() : previous != prefab_instances_.end())
     return error::invalid_argument;
-  const auto parent = author.parent_uuid ? find_node(*author.parent_uuid) : scene_node_id{};
+  const auto parent = author.parent_uuid ? find_node(author.parent_uuid) : scene_node_id{};
   if (author.parent_uuid && !parent)
     return error::invalid_handle;
   // 自有子对象不属于模板；刷新时保留其身份和局部变换。
@@ -113,7 +113,7 @@ scene_instance::instantiate_prefab_ready(const object_description& author, prefa
     const auto index = entry.new_index;
     const auto& source = effective.objects[index];
     const auto node_parent =
-        source.parent_uuid ? runtime->find_node(*source.parent_uuid) : runtime->root();
+        source.parent_uuid ? runtime->find_node(source.parent_uuid) : runtime->root();
     auto binding = bindings[index];
     status = runtime->create_node(index, source, node_parent, binding.mesh, binding.material);
     if (status.failed())

@@ -35,7 +35,7 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
       if (!source.prefab) {
         const auto renderer = prepared_component_renderer(source.components, find_asset);
         const auto result = instance->create_staged_node(
-            index, source, source.parent_uuid ? nodes.at(*source.parent_uuid) : null_scene_node_id,
+            index, source, source.parent_uuid ? nodes.at(source.parent_uuid) : null_scene_node_id,
             renderer.mesh, renderer.material);
         if (result != engine::error::success) {
           return result;
@@ -49,9 +49,8 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
       if (prepared_status.failed())
         return prepared_status;
       auto prefab = std::make_unique<prefab_binding>(native_world_, loader_, lease, source.uuid);
-      auto result = prefab->create_root(source.parent_uuid ? nodes.at(*source.parent_uuid)
-                                                           : null_scene_node_id,
-                                        source.transform);
+      auto result = prefab->create_root(
+          source.parent_uuid ? nodes.at(source.parent_uuid) : null_scene_node_id, source.transform);
       if (result != engine::error::success) {
         return result;
       }
@@ -64,10 +63,9 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
       for (const auto node_index : prepared.prefabs.at(source.prefab->uri).parent_first) {
         const auto& node = effective.objects.at(node_index);
         const auto renderer = prepared_component_renderer(node.components, find_asset);
-        result = prefab->create_node(node_index, node,
-                                     node.parent_uuid ? prefab_nodes.at(*node.parent_uuid)
-                                                      : prefab->root(),
-                                     renderer.mesh, renderer.material);
+        result = prefab->create_node(
+            node_index, node, node.parent_uuid ? prefab_nodes.at(node.parent_uuid) : prefab->root(),
+            renderer.mesh, renderer.material);
         if (result != engine::error::success) {
           return result;
         }

@@ -76,8 +76,6 @@ namespace {
           return std::isfinite(item);
         else if constexpr (std::is_same_v<type, std::string>)
           return is_valid_name(item);
-        else if constexpr (std::is_same_v<type, guid>)
-          return static_cast<bool>(item);
         else if constexpr (std::is_same_v<type, math::vector2>)
           return std::isfinite(item.x) && std::isfinite(item.y);
         else if constexpr (std::is_same_v<type, math::vector3>)
@@ -232,7 +230,6 @@ public:
           (bindings.size() != desc.properties.size() || !bindings[i].access ||
            (bindings[i].access->kind() != type_kind::sequence &&
             bindings[i].access->kind() != type_kind::associative &&
-            bindings[i].access->kind() != type_kind::optional &&
             bindings[i].access->kind() != type_kind::reference)))
         return error::invalid_argument;
     }

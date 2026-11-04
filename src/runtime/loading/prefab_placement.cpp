@@ -70,8 +70,8 @@ gneiss::engine::error prefab_placement::freeze(
   }
   auto status = engine::error::success;
   value->root_uuid = author.uuid;
-  value->parent_uuid = author.parent_uuid.value_or(gneiss::engine::guid{});
-  author.parent_uuid.reset();
+  value->parent_uuid = author.parent_uuid;
+  author.parent_uuid = {};
   value->description.objects.push_back(std::move(author));
   auto& binding = value->resources[value->root_uuid];
   binding.prefab = std::move(prepared.resource);

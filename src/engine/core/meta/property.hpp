@@ -14,7 +14,7 @@
 #include <vector>
 
 namespace gneiss::engine::meta {
-enum class type_kind { invalid, scalar, object, sequence, associative, optional, reference };
+enum class type_kind { invalid, scalar, object, sequence, associative, reference };
 namespace detail {
 struct type_ops;
 }

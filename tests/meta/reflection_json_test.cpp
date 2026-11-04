@@ -102,6 +102,13 @@ int main() try {
       decoded->identity != original.identity || decoded->position != original.position ||
       decoded->rotation != original.rotation || decoded->uv != original.uv)
     return 7;
+  original.identity = {};
+  auto nil_encoded = m::serialize(registry, original);
+  if (!nil_encoded)
+    return 40;
+  auto nil_decoded = m::deserialize<sample>(registry, *nil_encoded);
+  if (!nil_decoded || nil_decoded->identity)
+    return 41;
   auto defaults =
       m::deserialize<sample>(registry, bytes(R"({"enabled":false,"unknown":1,"computed":99})"));
   if (!defaults || defaults->enabled || defaults->name != "默认" || defaults->speed != 1)

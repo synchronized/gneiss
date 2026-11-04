@@ -293,23 +293,6 @@ encode_view(graph_context& ctx, const registry_ref& registry, const instance& vi
       return failure(p.error());
     return encode_nested(ctx, registry, value_type.id(), *p, doc, depth);
   }
-  if (value_type.kind() == type_kind::optional) {
-    auto v = view.as_optional();
-    if (!v)
-      return failure(v.error());
-    auto has = v->has_value();
-    if (!has)
-      return failure(has.error());
-    if (!*has) {
-      auto* output = yyjson_mut_null(doc);
-      return output ? result<yyjson_mut_val*, serialization_diagnostic>{output}
-                    : failure(error::out_of_memory);
-    }
-    auto child = v->get();
-    if (!child)
-      return failure(child.error());
-    return encode_view(ctx, registry, *child, doc, depth + 1);
-  }
   if (value_type.kind() == type_kind::sequence) {
     auto v = view.as_sequence();
     if (!v)
@@ -434,20 +417,6 @@ serialization_diagnostic validate_view(const registry_ref& registry, const insta
   if (value_type.kind() == type_kind::scalar) {
     auto v = view.read_value();
     return v ? serialization_diagnostic{} : failure(v.error());
-  }
-  if (value_type.kind() == type_kind::optional) {
-    auto v = view.as_optional();
-    if (!v)
-      return failure(v.error());
-    auto has = v->has_value();
-    if (!has)
-      return failure(has.error());
-    if (!*has)
-      return {};
-    auto child = v->get();
-    if (!child)
-      return failure(child.error());
-    return validate_view(registry, *child, depth + 1);
   }
   if (value_type.kind() == type_kind::sequence) {
     auto v = view.as_sequence();
@@ -623,20 +592,6 @@ serialization_diagnostic decode_view(graph_context& ctx, const registry_ref& reg
       return std::move(decoded).error();
     auto status = view.write_value(*decoded);
     return status.failed() ? failure(status) : serialization_diagnostic{};
-  }
-  if (value_type.kind() == type_kind::optional) {
-    auto v = view.as_optional();
-    if (!v)
-      return failure(v.error());
-    auto status = v->reset();
-    if (status.failed())
-      return failure(status);
-    if (yyjson_is_null(input))
-      return {};
-    auto child = v->ensure();
-    if (!child)
-      return failure(child.error());
-    return decode_view(ctx, registry, *child, input, depth + 1);
   }
   if (value_type.kind() == type_kind::sequence) {
     if (!yyjson_is_arr(input))

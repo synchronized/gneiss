@@ -2,16 +2,14 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/meta/ops/associative_ops.hpp"
-#include "engine/core/meta/ops/optional_ops.hpp"
 #include "engine/core/meta/ops/reference_ops.hpp"
 #include "engine/core/meta/ops/scalar_ops.hpp"
 #include "engine/core/meta/ops/sequence_ops.hpp"
 #include "engine/core/traits/type_identity.hpp"
 #include <variant>
 namespace gneiss::engine::meta::detail {
-using category_ops =
-    std::variant<std::monostate, const scalar_ops*, const sequence_ops*, const associative_ops*,
-                 const optional_ops*, const reference_ops*>;
+using category_ops = std::variant<std::monostate, const scalar_ops*, const sequence_ops*,
+                                  const associative_ops*, const reference_ops*>;
 /** 每个 C++ 类型共享的静态只读表；不持有实例，类别由 variant 唯一确定。 */
 struct type_ops {
   bool enumeration = false;
@@ -36,8 +34,6 @@ struct type_ops {
             return type_kind::sequence;
           else if constexpr (std::is_same_v<P, const associative_ops*>)
             return type_kind::associative;
-          else if constexpr (std::is_same_v<P, const optional_ops*>)
-            return type_kind::optional;
           else
             return type_kind::reference;
         },
@@ -62,7 +58,7 @@ struct type_ops {
 };
 template <class T> const type_ops& ops_of() {
   static_assert(int(sequence_traits<T>::enabled) + int(associative_traits<T>::enabled) +
-                        int(optional_traits<T>::enabled) + int(reference_traits<T>::enabled) <=
+                        int(reference_traits<T>::enabled) <=
                     1,
                 "Conflicting reflection categories");
   static const type_ops table = [] {
@@ -84,8 +80,6 @@ template <class T> const type_ops& ops_of() {
       ops.category = &sequence_ops_of<T>();
     else if constexpr (associative_traits<T>::enabled)
       ops.category = &associative_ops_of<T>();
-    else if constexpr (optional_traits<T>::enabled)
-      ops.category = &optional_ops_of<T>();
     else if constexpr (reference_traits<T>::enabled)
       ops.category = &reference_ops_of<T>();
     return ops;

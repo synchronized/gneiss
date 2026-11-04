@@ -32,7 +32,7 @@ constexpr std::string_view valid_prefab = R"({
     {
       "uuid":"10000000-0000-4000-8000-000000000002",
       "name":"Prefab Root",
-      "parent":null,
+      "parent":"00000000-0000-0000-0000-000000000000",
       "transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[1,1,1]},
       "components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/lantern.mesh","material":"asset://materials/lantern.material"}}]
     },
@@ -192,7 +192,7 @@ bool explicit_root_contract() {
     return false;
   // 根选择写回文件，不能保留 输入文件中的旧 root_uuid。
   parsed->root_uuid = child;
-  parsed->objects[0].parent_uuid.reset();
+  parsed->objects[0].parent_uuid = {};
   parsed->objects[1].parent_uuid = child;
   text = e::serialize_prefab_description(*parsed);
   if (!text)
@@ -216,8 +216,9 @@ bool explicit_root_contract() {
                               R"("root_uuid":"10000000-0000-4000-8000-000000000002",)", "");
   if (e::parse_prefab_description(missing))
     return false;
-  const auto cycle = replace_once(std::string(valid_prefab), R"("parent":null)",
-                                  R"("parent":"10000000-0000-4000-8000-000000000003")");
+  const auto cycle =
+      replace_once(std::string(valid_prefab), R"("parent":"00000000-0000-0000-0000-000000000000")",
+                   R"("parent":"10000000-0000-4000-8000-000000000003")");
   if (e::parse_prefab_description(cycle))
     return false;
   const auto duplicate =
@@ -238,7 +239,7 @@ bool save_tree_contract() {
     return !encoded && encoded.error().error == e::error::invalid_argument;
   };
   return rejects([](auto& prefab) { prefab.root_uuid = {}; }) &&
-         rejects([](auto& prefab) { prefab.objects[1].parent_uuid.reset(); }) &&
+         rejects([](auto& prefab) { prefab.objects[1].parent_uuid = {}; }) &&
          rejects([](auto& prefab) { prefab.objects[1].parent_uuid = prefab.objects[1].uuid; }) &&
          rejects([](auto& prefab) { prefab.objects[1].parent_uuid = prefab.uuid; }) &&
          rejects([](auto& prefab) { prefab.objects[1].uuid = prefab.objects[0].uuid; });
@@ -364,7 +365,7 @@ int main() try {
 
   const auto multiple_roots =
       replace_once(std::string(valid_prefab), R"("parent":"10000000-0000-4000-8000-000000000002")",
-                   R"("parent":null)");
+                   R"("parent":"00000000-0000-0000-0000-000000000000")");
   auto rejected = gneiss::engine::parse_prefab_description(multiple_roots);
   if (rejected || rejected.error().error != gneiss::engine::error::invalid_argument ||
       rejected.error().path != "/objects") {
