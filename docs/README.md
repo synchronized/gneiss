@@ -110,6 +110,8 @@
 - [UPSTREAM-050：窗口事件等待与跨线程唤醒](plans/UPSTREAM-050-granit-window-wait.md)
 - [VER-050：0.50.0 后台加载主线程延迟](plans/VER-050-0.50.0-main-loop-latency.md)
 - [DEV-050：后台加载主线程延迟开发计划](plans/DEV-050-main-loop-latency.md)
+- [VER-052：0.52.0 原生接口与模块职责整理](plans/VER-052-0.52.0-architecture-cleanup.md)
+- [DEV-052：原生接口与模块职责整理实施计划](plans/DEV-052-architecture-cleanup.md)
 - [VER-051：0.51.0 源码架构与模块边界收敛](plans/VER-051-0.51.0-architecture-boundaries.md)
 - [DEV-051：源码架构与模块边界开发计划](plans/DEV-051-architecture-boundaries.md)
 - [共享资产与场景实例实施设计](plans/asset-scene-ownership.md)
