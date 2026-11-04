@@ -16,7 +16,7 @@
 namespace gneiss::engine::meta {
 enum class type_kind { invalid, scalar, object, sequence, associative, optional, reference };
 namespace detail {
-struct type_access;
+struct type_ops;
 }
 /** 类型内部的字段身份，零无效。 */
 class property_id final {
@@ -86,6 +86,6 @@ struct property_binding {
   /** 自定义子类型解码成功后，将独立值移入父对象成员。 */
   void (*object_assign)(void*, void*){};
   engine::type_id enum_type{};
-  const detail::type_access* access{}; // 静态只读操作表，不持有对象。
+  const detail::type_ops* access{}; // 静态只读操作表，不持有对象。
 };
 } // namespace gneiss::engine::meta

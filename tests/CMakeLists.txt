@@ -1026,6 +1026,15 @@ gneiss_target_compile_warnings(gneiss_meta_container_test)
 gneiss_target_output_directories(gneiss_meta_container_test)
 add_test(NAME gneiss.meta-container COMMAND gneiss_meta_container_test)
 
+add_executable(gneiss_meta_type_ops_test meta/type_ops_test.cpp)
+target_include_directories(gneiss_meta_type_ops_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_meta_type_ops_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_meta_type_ops_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_meta_type_ops_test)
+gneiss_target_output_directories(gneiss_meta_type_ops_test)
+add_test(NAME gneiss.meta-type-ops COMMAND gneiss_meta_type_ops_test)
+
+
 
 
 # 仅编译接口，不链接后端，也不执行 GPU 测试。

@@ -30,7 +30,7 @@ private:
   friend class instance;
   friend struct detail::type_factory;
   registry_ref registry_;
-  const detail::type_access* access_{};
+  const detail::type_ops* access_{};
   engine::type_id id_{};
   engine::guid guid_{};
   type_kind kind_ = type_kind::invalid;

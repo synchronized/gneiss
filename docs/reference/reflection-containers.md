@@ -12,10 +12,11 @@
 | `std::optional<T>` | optional / as_optional() | 内容或 null |
 
 元素可递归组合为标量、已注册对象或上述容器。直接嵌套 optional 因 null 歧义被编译期拒绝。
-元素要求可默认构造，自动成员绑定要求成员可移动赋值。vector<bool>、set、非字符串键、
-其他序列容器及返回临时容器的 getter 不在支持范围。根 from 仍要求注册的对象，容器通过成员/元素访问。
+读取元素不要求默认构造；vector 扩容、map 插入默认值和 optional 创建值才要求此能力。
+自动成员绑定仍要求成员可移动赋值。vector<bool>、set、非字符串键及返回临时容器的 getter
+不在内置支持范围。自定义序列/映射可使用下述 traits 适配；根 from 也可直接借用容器。
 
-成员 `property_info.category` 提供结构类别；`kind` 保留标量类别，容器为 invalid。
+成员 `property_info.type.kind()` 提供结构类别；`scalar_kind()` 提供标量类别，容器为 invalid。
 `object_type` 对借用成员记录实际 C++ 类型 ID。容器没有人为生成的稳定 GUID；
 冻结时沿元素操作表检查对象叶子的 GUID 与运行期 ID，漏注册返回 not_found。
 递归对象（如 vector<Node>）只检查叶子身份，不在冻结阶段展开无限对象树。
@@ -50,3 +51,45 @@ auto snapshot = element->read_value(); // 仅当元素为标量时成功
 容器和对象共用 64 层复合值深度限制，标量叶子不额外计层。
 对象元素自定义 JSON codec 保持优先。解码失败释放临时根对象，不返回半成品，
 但可写视图本身不提供事务回滚，用户回调的外部副作用也不会回滚。
+
+## 操作表与自定义适配
+
+内部 `detail::type_ops` 保存类型身份、赋值操作及一个类别 variant；不再携带全部容器回调。
+静态类别表分为 `scalar_ops`、`sequence_ops`、`associative_ops`、`optional_ops` 和 `reference_ops`，
+位于 `src/engine/core/meta/ops/`，每个 C++ 类型共享静态表，不随对象分配。
+optional 表使用 has_value/get/get_mut/reset/ensure，不借用 sequence 的 resize。
+ref 表保留共享引用保活和赋值语义，与 optional 的内嵌值不同；目前只内置适配引擎 `ref<T>`，
+不自动接管裸指针、shared_ptr 或 unique_ptr，也不新增动态操作注册中心。
+
+在第一次生成该类型的反射操作表前专门化 `meta::sequence_traits<T>` 或
+`meta::associative_traits<T>`；特化应放在所有使用该类型反射的翻译单元可见的同一头文件中。
+类型不能同时声明为序列和映射。对象属性、名称与 GUID 仍由 type_builder 注册。
+
+| traits | 必需成员 | 可选成员 |
+| --- | --- | --- |
+| sequence_traits | enabled=true、element、size(const T&)、at(const T&, size_t) | at_mut(T&, size_t)、resize(T&, size_t)、fixed_size=true |
+| associative_traits | enabled=true、element、size(const T&)、keys(const T&)、find(const T&, string_view) | find_mut、insert、erase、clear |
+
+size 返回 size_t；keys 返回自有 vector<string>，操作表统一按键排序。at/find 返回 const element*，
+可写访问与 insert 返回 element*；find 未找到返回 nullptr。insert 保留已有值，erase 返回是否删除，
+resize/clear 返回 void。回调返回真实、稳定的元素地址，不得返回临时对象或代理引用。
+缺少可写回调时，对应可写视图操作返回 unsupported。固定长度序列改变长度返回 invalid_argument；
+其他不支持 resize 的序列改变长度返回 unsupported。保持原长度允许作为无操作成功。
+
+```cpp
+namespace gneiss::engine::meta {
+template<> struct sequence_traits<my_numbers> {
+  static constexpr bool enabled = true;
+  using element = float;
+  static std::size_t size(const my_numbers& v) { return v.values.size(); }
+  static const float* at(const my_numbers& v, std::size_t i) { return &v.values[i]; }
+  static float* at_mut(my_numbers& v, std::size_t i) { return &v.values[i]; }
+  static void resize(my_numbers& v, std::size_t n) { v.values.resize(n); }
+};
+}
+```
+
+适配器可抛出异常，instance/容器视图边界将 bad_alloc 映射为 out_of_memory，其他异常按现有接口
+规则返回错误；不承诺回滚自定义回调产生的修改。只读适配可用于遍历和编码，不能因此推断其支持解码。
+不可默认构造的 optional 已有值可访问和 ensure，清空后 ensure 返回 unsupported。
+容器结构修改后的借用视图失效规则保持不变。

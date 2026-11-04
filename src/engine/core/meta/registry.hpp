@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include "engine/core/meta/detail/type_access.hpp"
+#include "engine/core/meta/detail/type_ops.hpp"
 #include "engine/core/meta/type.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
@@ -13,10 +13,10 @@ namespace gneiss::engine::meta {
 GNEISS_API result<meta::type> find_type(const registry_ref&, engine::type_id) noexcept;
 GNEISS_API result<meta::type> find_type(const registry_ref&, engine::guid) noexcept;
 namespace detail {
-GNEISS_API result<meta::type> resolve_type(const registry_ref&, const type_access&) noexcept;
+GNEISS_API result<meta::type> resolve_type(const registry_ref&, const type_ops&) noexcept;
 }
 template <class T> result<meta::type> type_of(const registry_ref& registry) noexcept {
-  return detail::resolve_type(registry, detail::access_of<std::remove_cvref_t<T>>());
+  return detail::resolve_type(registry, detail::ops_of<std::remove_cvref_t<T>>());
 }
 /** 深拷贝枚举显示项；同一 C++ 类型只登记一次，冻结后禁止修改。 */
 [[nodiscard]] GNEISS_API error register_enum(const registry_ref&, engine::type_id, value_kind,

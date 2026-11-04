@@ -3,7 +3,7 @@
 
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/error.hpp"
-#include "engine/core/meta/detail/type_access.hpp"
+#include "engine/core/meta/detail/type_ops.hpp"
 #include "engine/core/utf8.hpp"
 
 #include <algorithm>
@@ -26,7 +26,7 @@
 namespace gneiss::engine::meta {
 namespace detail {
 struct type_factory {
-  static meta::type make(registry_ref registry, const type_access* access, engine::type_id id,
+  static meta::type make(registry_ref registry, const type_ops* access, engine::type_id id,
                          engine::guid guid, type_kind kind, value_kind scalar, bool enumeration) {
     meta::type out;
     out.registry_ = std::move(registry);
@@ -47,9 +47,9 @@ struct type_factory {
     out.enumeration_ = enumeration;
     return out;
   }
-  static meta::type make(registry_ref registry, const type_access& access) {
-    return make(std::move(registry), &access, access.id, access.guid, access.kind, access.scalar,
-                access.enumeration);
+  static meta::type make(registry_ref registry, const type_ops& access) {
+    return make(std::move(registry), &access, access.id, access.guid, access.kind(),
+                access.scalar_kind(), access.enumeration);
   }
 };
 }
@@ -102,10 +102,10 @@ bool valid_binding(const property_binding& binding) noexcept {
            (static_cast<bool>(binding.object_mutator) == static_cast<bool>(binding.object_assign));
   return is_valid_property_kind(binding.kind) && (binding.getter || binding.setter) &&
          !binding.object_getter && !binding.object_mutator && !binding.object_assign &&
-         (!binding.access ||
-          (binding.access->kind == type_kind::scalar && binding.access->scalar == binding.kind &&
-           binding.access->enumeration == bool(binding.enum_type) &&
-           (!binding.enum_type || binding.access->id == binding.enum_type)));
+         (!binding.access || (binding.access->kind() == type_kind::scalar &&
+                              binding.access->scalar_kind() == binding.kind &&
+                              binding.access->enumeration == bool(binding.enum_type) &&
+                              (!binding.enum_type || binding.access->id == binding.enum_type)));
 }
 
 struct property_record {
@@ -230,10 +230,10 @@ public:
     for (std::size_t i = 0; i < desc.properties.size(); ++i) {
       if (!desc.properties[i].type_guid &&
           (bindings.size() != desc.properties.size() || !bindings[i].access ||
-           (bindings[i].access->kind != type_kind::sequence &&
-            bindings[i].access->kind != type_kind::associative &&
-            bindings[i].access->kind != type_kind::optional &&
-            bindings[i].access->kind != type_kind::reference)))
+           (bindings[i].access->kind() != type_kind::sequence &&
+            bindings[i].access->kind() != type_kind::associative &&
+            bindings[i].access->kind() != type_kind::optional &&
+            bindings[i].access->kind() != type_kind::reference)))
         return error::invalid_argument;
     }
     if (!bindings.empty()) {
@@ -349,12 +349,12 @@ public:
             if (access->id != property.accessor.object_type || access->guid != property.type_guid)
               return error::invalid_argument;
             std::size_t depth = 0;
-            while (access->element) {
+            while (access->element_ops()) {
               if (++depth > 64)
                 return error::invalid_argument;
               access = &access->element();
             }
-            if (access->kind != type_kind::object)
+            if (access->kind() != type_kind::object)
               continue;
             const auto leaf = by_cpp_type_.find(access->id);
             if (leaf == by_cpp_type_.end())
@@ -469,22 +469,22 @@ public:
     }
   }
 
-  result<meta::type> resolve_access(const detail::type_access& access) const noexcept try {
+  result<meta::type> resolve_access(const detail::type_ops& access) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
       return error::not_ready;
     const auto* leaf = &access;
     std::size_t depth = 0;
-    while (leaf->element) {
+    while (leaf->element_ops()) {
       if (++depth > 64)
         return error::invalid_argument;
       leaf = &leaf->element();
     }
     if (leaf->enumeration && !enums_.contains(leaf->id))
       return error::not_found;
-    if (leaf->kind == type_kind::object && !by_cpp_type_.contains(leaf->id))
+    if (leaf->kind() == type_kind::object && !by_cpp_type_.contains(leaf->id))
       return error::not_found;
-    if (access.kind == type_kind::object) {
+    if (access.kind() == type_kind::object) {
       const auto& record = *by_cpp_type_.at(access.id);
       return detail::type_factory::make(owner(), &access, record.type_id, record.guid,
                                         type_kind::object, value_kind::invalid, false);
@@ -516,8 +516,8 @@ public:
         return detail::type_factory::make(owner(), nullptr, key, {}, type_kind::scalar,
                                           entry->second.kind, true);
     }
-    const detail::type_access* found = nullptr;
-    auto match = [&](const detail::type_access& access) {
+    const detail::type_ops* found = nullptr;
+    auto match = [&](const detail::type_ops& access) {
       if constexpr (std::is_same_v<Key, engine::guid>)
         return !access.enumeration && access.guid == key;
       else
@@ -527,7 +527,7 @@ public:
     [&]<std::size_t... I>(std::index_sequence<I...>) {
       (([&] {
          const auto& access =
-             detail::access_of<std::variant_alternative_t<I + 1, value::storage_type>>();
+             detail::ops_of<std::variant_alternative_t<I + 1, value::storage_type>>();
          if (match(access))
            found = &access;
        }()),
@@ -544,7 +544,7 @@ public:
               return error::not_found;
             return detail::type_factory::make(owner(), *access);
           }
-          access = access->element ? &access->element() : nullptr;
+          access = access->element_ops() ? &access->element() : nullptr;
         }
       }
     }
@@ -719,7 +719,7 @@ result<meta::type> find_type(const registry_ref& registry, engine::guid id) noex
   return registry ? registry->lookup_type(id) : result<meta::type>{error::invalid_handle};
 }
 namespace detail {
-result<meta::type> resolve_type(const registry_ref& registry, const type_access& access) noexcept {
+result<meta::type> resolve_type(const registry_ref& registry, const type_ops& access) noexcept {
   return registry ? registry->resolve_access(access) : result<meta::type>{error::invalid_handle};
 }
 }

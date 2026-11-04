@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/meta/detail/type_access.hpp"
+#include "engine/core/meta/detail/type_ops.hpp"
 #include "engine/core/meta/registry.hpp"
 #include <stdexcept>
 #include <type_traits>
@@ -25,7 +25,7 @@ public:
                                                  const void* object) noexcept;
   template <class T>
   static result<instance> from(const registry_ref& registry, T& object) noexcept {
-    return from_access(registry, detail::access_of<std::remove_cv_t<T>>(), std::addressof(object));
+    return from_access(registry, detail::ops_of<std::remove_cv_t<T>>(), std::addressof(object));
   }
   template <class T> static result<instance> from(T& object) noexcept {
     auto registry = default_registry();
@@ -61,9 +61,9 @@ public:
 private:
   friend class mutable_instance;
   template <bool, type_kind> friend class container_view;
-  static GNEISS_API result<instance> from_access(registry_ref, const detail::type_access&,
+  static GNEISS_API result<instance> from_access(registry_ref, const detail::type_ops&,
                                                  const void*) noexcept;
-  const detail::type_access* access_{};
+  const detail::type_ops* access_{};
   registry_ref registry_;
   engine::guid type_{};
   engine::type_id cpp_type_{};
@@ -85,7 +85,7 @@ public:
   template <class T>
     requires(!std::is_const_v<T>)
   static result<mutable_instance> from(const registry_ref& registry, T& object) noexcept {
-    return from_access(registry, detail::access_of<T>(), std::addressof(object));
+    return from_access(registry, detail::ops_of<T>(), std::addressof(object));
   }
   template <class T>
     requires(!std::is_const_v<T>)
@@ -120,7 +120,7 @@ public:
 
 private:
   template <bool, type_kind> friend class container_view;
-  static GNEISS_API result<mutable_instance> from_access(registry_ref, const detail::type_access&,
+  static GNEISS_API result<mutable_instance> from_access(registry_ref, const detail::type_ops&,
                                                          void*) noexcept;
   instance view_;
   void* data_{};
@@ -141,12 +141,19 @@ template <bool Mutable, type_kind Kind> class container_view {
     else
       return target_;
   }
+  using operations = std::conditional_t<
+      Kind == type_kind::sequence, sequence_ops,
+      std::conditional_t<Kind == type_kind::associative, associative_ops, optional_ops>>;
+  const operations* ops() const noexcept { return readonly().access_->template get<operations>(); }
   target_type target_;
 
 public:
   [[nodiscard]] result<std::size_t> size() const noexcept try {
     auto v = readonly();
-    return v.access_->size(v.data_);
+    if constexpr (Kind == type_kind::optional)
+      return ops()->has_value(v.data_) ? std::size_t{1} : std::size_t{0};
+    else
+      return ops()->size(v.data_);
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {
@@ -164,14 +171,28 @@ public:
     requires(Kind == type_kind::sequence || Kind == type_kind::optional)
   try {
     auto v = readonly();
-    if (index >= v.access_->size(v.data_))
+    auto count = size();
+    if (!count)
+      return count.error();
+    if (index >= *count)
       return error::not_found;
-    if constexpr (Mutable)
-      return mutable_instance::from_access(v.registry_, v.access_->element(),
-                                           v.access_->at_mut(target_.data_, index));
-    else
-      return instance::from_access(v.registry_, v.access_->element(),
-                                   v.access_->at(v.data_, index));
+    if constexpr (Kind == type_kind::optional) {
+      if constexpr (Mutable) {
+        if (!ops()->get_mut)
+          return error::unsupported;
+        return mutable_instance::from_access(v.registry_, ops()->element(),
+                                             ops()->get_mut(target_.data_));
+      } else
+        return instance::from_access(v.registry_, ops()->element(), ops()->get(v.data_));
+    } else {
+      if constexpr (Mutable) {
+        if (!ops()->at_mut)
+          return error::unsupported;
+        return mutable_instance::from_access(v.registry_, ops()->element(),
+                                             ops()->at_mut(target_.data_, index));
+      } else
+        return instance::from_access(v.registry_, ops()->element(), ops()->at(v.data_, index));
+    }
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {
@@ -185,15 +206,17 @@ public:
   [[nodiscard]] bool is_resizable() const noexcept
     requires(Kind == type_kind::sequence)
   {
-    return readonly().access_->resize != nullptr;
+    return ops()->resize != nullptr;
   }
   [[nodiscard]] error resize(std::size_t count) const noexcept
     requires(Mutable && Kind == type_kind::sequence)
   try {
     auto v = readonly();
-    if (!v.access_->resize)
-      return count == v.access_->size(v.data_) ? error::success : error::invalid_argument;
-    v.access_->resize(target_.data_, count);
+    if (!ops()->resize)
+      return count == ops()->size(v.data_)
+                 ? error::success
+                 : (ops()->fixed_size ? error::invalid_argument : error::unsupported);
+    ops()->resize(target_.data_, count);
     return error::success;
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
@@ -205,7 +228,9 @@ public:
   [[nodiscard]] error reset() const noexcept
     requires(Mutable && Kind == type_kind::optional)
   try {
-    readonly().access_->resize(target_.data_, 0);
+    if (!ops()->reset)
+      return error::unsupported;
+    ops()->reset(target_.data_);
     return error::success;
   } catch (...) {
     return error::internal;
@@ -213,7 +238,11 @@ public:
   [[nodiscard]] result<target_type> ensure() const noexcept
     requires(Mutable && Kind == type_kind::optional)
   try {
-    readonly().access_->resize(target_.data_, 1);
+    if (!ops()->has_value(readonly().data_)) {
+      if (!ops()->ensure)
+        return error::unsupported;
+      ops()->ensure(target_.data_);
+    }
     return at(0);
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
@@ -224,7 +253,7 @@ public:
     requires(Kind == type_kind::associative)
   try {
     auto v = readonly();
-    auto keys = v.access_->keys(v.data_);
+    auto keys = ops()->keys(v.data_);
     for (const auto& key : keys)
       if (!valid_scalar(value{key}))
         return error::invalid_argument;
@@ -239,15 +268,17 @@ public:
   try {
     auto v = readonly();
     if constexpr (Mutable) {
-      auto* p = v.access_->find_mut(target_.data_, key);
+      if (!ops()->find_mut)
+        return error::unsupported;
+      auto* p = ops()->find_mut(target_.data_, key);
       if (!p)
         return error::not_found;
-      return mutable_instance::from_access(v.registry_, v.access_->element(), p);
+      return mutable_instance::from_access(v.registry_, ops()->element(), p);
     } else {
-      auto* p = v.access_->find(v.data_, key);
+      auto* p = ops()->find(v.data_, key);
       if (!p)
         return error::not_found;
-      return instance::from_access(v.registry_, v.access_->element(), p);
+      return instance::from_access(v.registry_, ops()->element(), p);
     }
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
@@ -261,8 +292,10 @@ public:
     if (!valid_scalar(value{std::string(key)}))
       return error::invalid_argument;
     auto v = readonly();
-    return mutable_instance::from_access(v.registry_, v.access_->element(),
-                                         v.access_->insert(target_.data_, key));
+    if (!ops()->insert)
+      return error::unsupported;
+    return mutable_instance::from_access(v.registry_, ops()->element(),
+                                         ops()->insert(target_.data_, key));
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {
@@ -271,7 +304,9 @@ public:
   [[nodiscard]] error erase(std::string_view key) const noexcept
     requires(Mutable && Kind == type_kind::associative)
   try {
-    return readonly().access_->erase(target_.data_, key) ? error::success : error::not_found;
+    if (!ops()->erase)
+      return error::unsupported;
+    return ops()->erase(target_.data_, key) ? error::success : error::not_found;
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {
@@ -280,7 +315,9 @@ public:
   [[nodiscard]] error clear() const noexcept
     requires(Mutable && Kind == type_kind::associative)
   try {
-    readonly().access_->clear(target_.data_);
+    if (!ops()->clear)
+      return error::unsupported;
+    ops()->clear(target_.data_);
     return error::success;
   } catch (...) {
     return error::internal;

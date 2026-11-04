@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/meta/detail/type_access.hpp"
+#include "engine/core/meta/detail/type_ops.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/traits/type_identity.hpp"
 #include <functional>
@@ -128,7 +128,7 @@ public:
                  std::invoke(Member, *static_cast<object_type*>(object)) =
                      std::move(*static_cast<property_type*>(value));
                },
-           .access = &detail::access_of<property_type>()});
+           .access = &detail::ops_of<property_type>()});
     } else
       return add<property_type>(id, name, flags,
                                 {.kind = detail::reflected_value_kind<property_type>(),
@@ -291,7 +291,7 @@ private:
     if (committed_ || status_.failed())
       return *this;
     try {
-      binding.access = &detail::access_of<Property>();
+      binding.access = &detail::ops_of<Property>();
       if constexpr (std::is_enum_v<Property>)
         binding.enum_type = runtime_type_of<Property>();
       if (has_flags(flags, property_flags::read_only)) {

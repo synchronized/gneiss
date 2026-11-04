@@ -133,7 +133,13 @@ target_sources(
     engine/function/render/render_snapshot.hpp
     engine/core/meta/instance.cpp
     engine/core/meta/instance.hpp
-  engine/core/meta/detail/type_access.hpp
+  engine/core/meta/detail/type_ops.hpp
+  engine/core/meta/ops/forward.hpp
+  engine/core/meta/ops/scalar_ops.hpp
+  engine/core/meta/ops/sequence_ops.hpp
+  engine/core/meta/ops/associative_ops.hpp
+  engine/core/meta/ops/optional_ops.hpp
+  engine/core/meta/ops/reference_ops.hpp
     engine/core/meta/registry.cpp
     engine/core/meta/serialization.cpp
     engine/core/meta/serialization.hpp

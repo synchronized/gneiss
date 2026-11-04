@@ -34,7 +34,7 @@ result<std::vector<property_info>> type::properties() const noexcept {
 result<type> type::element_type() const noexcept {
   if (kind_ == type_kind::invalid)
     return error::invalid_state;
-  if (!access_ || !access_->element)
+  if (!access_ || !access_->element_ops())
     return error::unsupported;
   return detail::resolve_type(registry_, access_->element());
 }
@@ -90,7 +90,7 @@ result<instance> instance::property(property_id id) const noexcept try {
     if (!output.data_)
       return error::internal;
     output.cpp_type_ = info->type.id();
-    output.kind_ = binding->access ? binding->access->kind : type_kind::object;
+    output.kind_ = binding->access ? binding->access->kind() : type_kind::object;
     output.access_ = binding->access;
   } else {
     if (info->type.scalar_kind() == value_kind::invalid)
@@ -109,8 +109,8 @@ result<value> instance::read_value() const noexcept try {
     return error::invalid_state;
   if (kind_ != type_kind::scalar)
     return error::unsupported;
-  if (access_ && access_->read) {
-    auto output = access_->read(data_);
+  if (access_ && access_->get<scalar_ops>()->read) {
+    auto output = access_->get<scalar_ops>()->read(data_);
     if (output.kind() != scalar_kind_ || !valid_scalar(output))
       return error::internal;
     return output;
@@ -180,10 +180,10 @@ error mutable_instance::write_value(const value& input) const noexcept try {
     return error::invalid_state;
   if (kind() != type_kind::scalar)
     return error::unsupported;
-  if (view_.access_ && view_.access_->write) {
+  if (view_.access_ && view_.access_->get<scalar_ops>()->write) {
     if (input.kind() != view_.scalar_kind_ || !valid_scalar(input))
       return error::invalid_argument;
-    return view_.access_->write(data_, input);
+    return view_.access_->get<scalar_ops>()->write(data_, input);
   }
   return write_property(view_.registry_, view_.parent_type_, view_.property_, parent_, input);
 } catch (const std::bad_alloc&) {
@@ -224,8 +224,8 @@ error mutable_instance::assign_object(engine::type_id id, void* source) const no
     return error::invalid_argument;
   if (source == data_)
     return error::success;
-  if (view_.access_ && view_.access_->assign) {
-    view_.access_->assign(data_, source);
+  if (view_.access_ && view_.access_->move_assign) {
+    view_.access_->move_assign(data_, source);
     return error::success;
   }
   if (!parent_)
@@ -243,12 +243,12 @@ error mutable_instance::assign_object(engine::type_id id, void* source) const no
   return error::internal;
 }
 
-result<instance> instance::from_access(registry_ref registry, const detail::type_access& access,
+result<instance> instance::from_access(registry_ref registry, const detail::type_ops& access,
                                        const void* data) noexcept {
   if (!data)
     return error::invalid_argument;
   instance out;
-  if (access.kind == type_kind::object) {
+  if (access.kind() == type_kind::object) {
     auto object = from_object(registry, access.id, data);
     if (!object)
       return object.error();
@@ -258,14 +258,14 @@ result<instance> instance::from_access(registry_ref registry, const detail::type
     out.data_ = data;
     out.type_ = access.guid;
     out.cpp_type_ = access.id;
-    out.kind_ = access.kind;
-    out.scalar_kind_ = access.scalar;
+    out.kind_ = access.kind();
+    out.scalar_kind_ = access.scalar_kind();
   }
   out.access_ = &access;
   return out;
 }
 result<mutable_instance> mutable_instance::from_access(registry_ref registry,
-                                                       const detail::type_access& access,
+                                                       const detail::type_ops& access,
                                                        void* data) noexcept {
   auto view = instance::from_access(std::move(registry), access, data);
   if (!view)
@@ -320,9 +320,9 @@ result<mutable_optional_view> mutable_instance::as_optional() const noexcept {
 result<instance> instance::dereference() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
-  if (kind() != type_kind::reference || !access_ || !access_->at)
+  if (kind() != type_kind::reference || !access_ || !access_->get<reference_ops>()->get)
     return error::unsupported;
-  const auto* target = access_->at(data_, 0);
+  const auto* target = access_->get<reference_ops>()->get(data_);
   if (!target)
     return error::not_found;
   return from_access(registry_, access_->element(), target);
@@ -330,9 +330,10 @@ result<instance> instance::dereference() const noexcept {
 result<mutable_instance> mutable_instance::dereference() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
-  if (kind() != type_kind::reference || !view_.access_ || !view_.access_->at_mut)
+  if (kind() != type_kind::reference || !view_.access_ ||
+      !view_.access_->get<reference_ops>()->get_mut)
     return error::unsupported;
-  auto* target = view_.access_->at_mut(data_, 0);
+  auto* target = view_.access_->get<reference_ops>()->get_mut(data_);
   if (!target)
     return error::not_found;
   return from_access(view_.registry_, view_.access_->element(), target);
@@ -340,24 +341,25 @@ result<mutable_instance> mutable_instance::dereference() const noexcept {
 error mutable_instance::reset_reference() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
-  if (kind() != type_kind::reference || !view_.access_ || !view_.access_->clear)
+  if (kind() != type_kind::reference || !view_.access_ ||
+      !view_.access_->get<reference_ops>()->reset)
     return error::unsupported;
-  view_.access_->clear(data_);
+  view_.access_->get<reference_ops>()->reset(data_);
   return error::success;
 }
 
 result<ref<const void>> instance::reference_owner() const noexcept {
-  if (kind() != type_kind::reference || !access_ || !access_->reference_get)
+  if (kind() != type_kind::reference || !access_ || !access_->get<reference_ops>()->owner)
     return error::unsupported;
-  return access_->reference_get(data_);
+  return access_->get<reference_ops>()->owner(data_);
 }
 error mutable_instance::assign_reference(engine::type_id id,
                                          const ref<void>& owner) const noexcept {
-  if (kind() != type_kind::reference || !view_.access_ || !view_.access_->reference_set)
+  if (kind() != type_kind::reference || !view_.access_ || !view_.access_->get<reference_ops>()->set)
     return error::unsupported;
   if (view_.access_->element().id != id)
     return error::invalid_argument;
-  view_.access_->reference_set(data_, owner);
+  view_.access_->get<reference_ops>()->set(data_, owner);
   return error::success;
 }
 
