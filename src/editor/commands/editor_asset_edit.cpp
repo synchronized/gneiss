@@ -85,7 +85,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
       const auto* original = object->components.get<engine::mesh_renderer_description>();
       engine::mesh_renderer_description description{mesh_, material_};
       if (!original)
-        after.added = engine::component_description{description};
+        after.added = engine::make_component_description(description);
       else {
         auto overrides =
             engine::prepare_mesh_renderer_overrides(target_.source_uuid, *original, description);

@@ -17,6 +17,7 @@
 #include <memory>
 #include <mutex>
 #include <new>
+#include <set>
 #include <shared_mutex>
 #include <string>
 #include <string_view>
@@ -339,6 +340,19 @@ public:
         return error::success;
       }
       for (const auto& type : types_) {
+        auto current = type.get();
+        std::set<engine::type_id> chain;
+        while (current->serialization.base_type) {
+          if (!chain.insert(current->type_id).second || !current->serialization.upcast)
+            return error::invalid_argument;
+          auto base = by_cpp_type_.find(current->serialization.base_type);
+          if (base == by_cpp_type_.end())
+            return error::not_found;
+          current = base->second;
+          // 首阶段基类仅提供身份；拒绝静默遗漏尚未合并的继承属性。
+          if (!current->properties.empty())
+            return error::unsupported;
+        }
         for (const auto& property : type->properties) {
           if (!property.accessor.object_type)
             continue;
@@ -627,7 +641,8 @@ public:
     if (found == by_cpp_type_.end())
       return error::not_found;
     const auto& codec = found->second->serialization;
-    if (!codec.encode && !codec.decode && !codec.reflected_json)
+    if (!codec.encode && !codec.decode && !codec.reflected_json && !codec.polymorphic &&
+        !codec.base_type)
       return error::unsupported;
     return codec;
   } catch (...) {

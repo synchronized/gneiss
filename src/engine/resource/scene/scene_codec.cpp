@@ -148,6 +148,39 @@ yyjson_mut_val* make_uuid(yyjson_mut_doc* doc, gneiss::engine::guid value) {
   return true;
 }
 
+// 组件覆盖还包含业务定位字段；仅将类型/内容信封交给通用反射引用解码。
+gneiss::engine::result<gneiss::engine::component_description,
+                       gneiss::engine::meta::serialization_diagnostic>
+read_component(gneiss::engine::guid type, yyjson_val* content) {
+  using namespace gneiss::engine;
+  std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> document(
+      yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
+  if (!document)
+    return meta::serialization_diagnostic{.error = error::out_of_memory};
+  auto* root = yyjson_mut_obj(document.get());
+  auto name = type.string();
+  if (!root || !yyjson_mut_obj_add_strcpy(document.get(), root, "$type_guid", name.c_str()) ||
+      !yyjson_mut_obj_add_val(document.get(), root, "$content",
+                              yyjson_val_mut_copy(document.get(), content)))
+    return meta::serialization_diagnostic{.error = error::out_of_memory};
+  yyjson_mut_doc_set_root(document.get(), root);
+  std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> input(
+      yyjson_mut_doc_imut_copy(document.get(), nullptr), &yyjson_doc_free);
+  if (!input)
+    return meta::serialization_diagnostic{.error = error::out_of_memory};
+  auto registry = meta::default_registry();
+  if (!registry)
+    return meta::serialization_diagnostic{.error = registry.error()};
+  component_description result;
+  auto view = meta::mutable_instance::from(*registry, result);
+  if (!view)
+    return meta::serialization_diagnostic{.error = view.error()};
+  auto status = meta::detail::read_instance(yyjson_doc_get_root(input.get()), *registry, *view);
+  if (status.error.failed())
+    return status;
+  return result;
+}
+
 [[nodiscard]] bool parse_components(yyjson_val* value, std::string_view path,
                                     gneiss::engine::object_description& output,
                                     scene_diagnostic& diagnostic) {
@@ -176,16 +209,9 @@ yyjson_mut_val* make_uuid(yyjson_mut_doc* doc, gneiss::engine::guid value) {
       fail(diagnostic, error::invalid_argument, location + "/$content", "组件内容必须是对象");
       return false;
     }
-    std::size_t length{};
-    std::unique_ptr<char, decltype(&std::free)> text(yyjson_val_write(content, 0, &length),
-                                                     &std::free);
-    if (!text) {
-      fail(diagnostic, error::out_of_memory, location, "组件内容分配失败");
-      return false;
-    }
-    auto decoded = component_description::decode(*id, std::as_bytes(std::span{text.get(), length}));
+    auto decoded = read_component(*id, content);
     if (!decoded) {
-      fail(diagnostic, decoded.error().error, location + "/$content" + decoded.error().path,
+      fail(diagnostic, decoded.error().error, location + decoded.error().path,
            decoded.error().message.empty() ? "组件类型未注册或内容无法解码"
                                            : decoded.error().message);
       return false;
@@ -371,15 +397,7 @@ yyjson_mut_val* make_uuid(yyjson_mut_doc* doc, gneiss::engine::guid value) {
         fail(diagnostic, error::invalid_argument, location, "新增组件内容必须为对象");
         return false;
       }
-      std::size_t length{};
-      std::unique_ptr<char, decltype(&std::free)> text(yyjson_val_write(content, 0, &length),
-                                                       &std::free);
-      if (!text) {
-        fail(diagnostic, error::out_of_memory, location, "分配失败");
-        return false;
-      }
-      auto decoded =
-          component_description::decode(*tid, std::as_bytes(std::span{text.get(), length}));
+      auto decoded = read_component(*tid, content);
       if (!decoded) {
         fail(diagnostic, decoded.error().error, location + decoded.error().path,
              "新增组件解码失败");
@@ -432,20 +450,16 @@ make_components(yyjson_mut_doc* document, const gneiss::engine::component_descri
   if (!array)
     return gneiss::engine::error::out_of_memory;
   for (const auto& value : values) {
-    auto encoded = value.encode();
-    if (!encoded)
-      return encoded.error().error;
-    std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> decoded(
-        yyjson_read(reinterpret_cast<const char*>(encoded->data()), encoded->size(), 0),
-        &yyjson_doc_free);
-    if (!decoded || !yyjson_is_obj(yyjson_doc_get_root(decoded.get())))
-      return gneiss::engine::error::invalid_argument;
-    const auto type = value.guid().string();
-    auto* entry = yyjson_mut_obj(document);
-    // 内容完全由 codec 输出；不能合并旧字段，否则省略的默认值或删除的字段会复活。
-    auto* content = yyjson_val_mut_copy(document, yyjson_doc_get_root(decoded.get()));
-    if (!put_value(document, entry, "$type_guid", yyjson_mut_strcpy(document, type.c_str())) ||
-        !put_value(document, entry, "$content", content) || !yyjson_mut_arr_add_val(array, entry))
+    auto registry = gneiss::engine::meta::default_registry();
+    if (!registry)
+      return registry.error();
+    auto view = gneiss::engine::meta::instance::from(*registry, value);
+    if (!view)
+      return view.error();
+    auto entry = gneiss::engine::meta::detail::write_instance(document, *registry, *view);
+    if (!entry)
+      return entry.error().error;
+    if (!yyjson_mut_arr_add_val(array, *entry))
       return gneiss::engine::error::out_of_memory;
   }
   return array;
@@ -469,7 +483,7 @@ make_component_overrides(yyjson_mut_doc* document,
     keys.push_back(key);
     yyjson_mut_val* entry{};
     if (value.added) {
-      if (value.added->guid() != value.type_guid)
+      if (!*value.added || (*value.added)->guid() != value.type_guid)
         return error::invalid_argument;
       auto encoded = make_components(document, {*value.added});
       if (!encoded)
@@ -879,6 +893,9 @@ meta::serialization_diagnostic check_mesh_renderer(const mesh_renderer_descripti
 }
 }
 error register_component_descriptions() noexcept {
+  auto base_status = meta::type_builder<component_description_base>{}.polymorphic().commit();
+  if (base_status.failed())
+    return base_status;
   constexpr auto required = meta::property_flags::required;
   auto status =
       meta::type_builder<object_description>{}
@@ -902,6 +919,7 @@ error register_component_descriptions() noexcept {
     return status;
   status =
       meta::type_builder<camera_description>{}
+          .base<component_description_base>()
           .property<&camera_description::settings>(meta::property_id{1}, "settings", required)
           .property<&camera_description::is_primary>(
               meta::property_id{4}, "is_primary", required | meta::property_flags::editor_read_only)
@@ -910,6 +928,7 @@ error register_component_descriptions() noexcept {
   if (status.failed())
     return status;
   return meta::type_builder<mesh_renderer_description>{}
+      .base<component_description_base>()
       .property<&mesh_renderer_description::mesh_uri>(meta::property_id{1}, "mesh", required)
       .property<&mesh_renderer_description::material_uri>(meta::property_id{2}, "material",
                                                           required)

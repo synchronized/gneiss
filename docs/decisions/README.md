@@ -111,3 +111,5 @@ Reference 和实现为准。
 - [ADR-101：通用组件检查](ADR-101-component-inspection.md)
 
 - [ADR-102：导入工具复用 Engine 描述与编码](ADR-102-importer-engine-codecs.md)
+
+- [ADR-103：显式多态与引用按值持久化](ADR-103-inline-polymorphic-references.md)

@@ -14,7 +14,7 @@ int main() try {
   using namespace gneiss::editor;
   if (gneiss::engine::initialize_meta().failed())
     return 6;
-  gneiss::engine::camera_description camera{.settings = {1.0F, 0.1F, 100.0F}};
+  gneiss::engine::camera_description camera{{1.0F, 0.1F, 100.0F}};
   auto camera_view = gneiss::engine::meta::instance::from(camera);
   if (!camera_view)
     return 7;

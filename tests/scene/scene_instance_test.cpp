@@ -193,8 +193,7 @@ int main() try {
         application->native_world()->entity_set_mesh_renderer(entity, *renderer).failed())
       return 40;
   }
-  gneiss::engine::camera_description author_camera{.settings = {1.04719755F, 0.2F, 1000.0F},
-                                                   .is_primary = false};
+  gneiss::engine::camera_description author_camera{{1.04719755F, 0.2F, 1000.0F}, false};
   author_camera.settings.near = -1.0F;
   if (application->scenes()->set_camera(scene, created_node, author_camera) !=
           gneiss::engine::error::invalid_argument ||

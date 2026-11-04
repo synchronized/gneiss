@@ -132,6 +132,7 @@ target_sources(
     engine/core/math/camera.hpp
     engine/function/render/render_snapshot.hpp
     engine/core/meta/instance.cpp
+    engine/core/meta/object.hpp
     engine/core/meta/instance.hpp
     engine/core/meta/sequence_view.hpp
     engine/core/meta/associative_view.hpp

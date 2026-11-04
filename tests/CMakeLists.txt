@@ -684,8 +684,7 @@ gneiss_target_compile_warnings(gneiss_texture_load_service_test)
 gneiss_target_output_directories(gneiss_texture_load_service_test)
 add_test(NAME gneiss.texture-load-service COMMAND gneiss_texture_load_service_test)
 
-add_executable(gneiss_texture_load_application_test asset/texture_load_application_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp")
+add_executable(gneiss_texture_load_application_test asset/texture_load_application_test.cpp)
 target_include_directories(gneiss_texture_load_application_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_texture_load_application_test PRIVATE gneiss::engine gneiss_tasks)
 gneiss_target_compile_warnings(gneiss_texture_load_application_test)
@@ -693,10 +692,7 @@ gneiss_target_output_directories(gneiss_texture_load_application_test)
 add_test(NAME gneiss.texture-load-application COMMAND gneiss_texture_load_application_test)
 set_tests_properties(gneiss.texture-load-service gneiss.texture-load-application PROPERTIES TIMEOUT 30)
 
-add_executable(gneiss_asset_pixel_test render/asset_pixel_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp")
+add_executable(gneiss_asset_pixel_test render/asset_pixel_test.cpp)
 target_include_directories(gneiss_asset_pixel_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_asset_pixel_test PRIVATE gneiss::engine gneiss_tasks granit::asset_tools granit::granit)
 gneiss_target_compile_warnings(gneiss_asset_pixel_test)

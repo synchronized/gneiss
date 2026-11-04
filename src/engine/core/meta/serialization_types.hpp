@@ -4,6 +4,7 @@
 #pragma once
 #include "engine/core/ref.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/type_id.hpp"
 #include <cstddef>
 #include <memory>
 #include <span>
@@ -25,6 +26,11 @@ struct serialization_diagnostic {
  * 识别。编码对象及输入字节仅在调用期间借用；解码成功返回独立共享所有者。
  * 回调必须可并发操作不同对象；模块需在 Registry 使用期间存活。 */
 struct serialization_binding {
+  /** 声明引用可承载派生类型；与对象是否被 ref 拥有无关。 */
+  bool polymorphic = false;
+  engine::type_id base_type{};
+  /** 由注册的 C++ 继承关系执行指针调整，不以 void* 猜测基类布局。 */
+  void* (*upcast)(void*){};
   /** 显式启用反射 JSON；自定义函数按方向优先。 */
   bool reflected_json = false;
   bool reject_unknown_fields = false;

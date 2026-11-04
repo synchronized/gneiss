@@ -132,12 +132,12 @@ engine::error component_lifecycle(scene_document& document, editor_command_histo
     auto current = document.components(target->node);
     if (!current)
       return current.error();
-    auto* found = current->find(value.guid());
+    auto* found = current->find(value->guid());
     if (!found)
       return error::not_found;
     if (!equal_components({*found}, {value}))
       return error::invalid_state;
-    return document.remove_component_description(target->node, value.guid());
+    return document.remove_component_description(target->node, value->guid());
   };
   if (adding)
     return history.execute({.label = "添加组件", .undo = remove, .redo = add, .merge_key = {}});
@@ -282,7 +282,7 @@ engine::error edit_component_description(scene_document& document, editor_comman
     });
     if (!changed)
       return changed.error();
-    auto original = before.encode(), next = changed->encode();
+    auto original = engine::meta::serialize(before), next = engine::meta::serialize(*changed);
     if (!original)
       return original.error().error;
     if (!next)

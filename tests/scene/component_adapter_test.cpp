@@ -23,7 +23,8 @@ void check(bool value, std::source_location location = std::source_location::cur
     throw std::runtime_error("组件适配测试失败，行=" + std::to_string(location.line()));
 }
 using namespace gneiss::test_support;
-struct unknown_description {
+struct unknown_description
+    : e::meta::object_type<unknown_description, e::component_description_base> {
   inline static constexpr e::guid type_guid = e::guid::from_bytes({84, 2});
 };
 e::scene_instantiation_data prepare(e::scene_description scene, e::prefab_asset_ref prefab = {}) {
@@ -62,7 +63,7 @@ int main() try {
       e::meta::describe_property(e::camera_description::type_guid, e::meta::property_id{4});
   check(primary && e::meta::has_flags(primary->flags, e::meta::property_flags::editor_read_only));
   check(!e::meta::has_flags(primary->flags, e::meta::property_flags::read_only));
-  e::camera_description camera{.settings = {1, 0.1F, 100}, .is_primary = true};
+  e::camera_description camera{{1, 0.1F, 100}, true};
   auto saved_camera = e::meta::serialize(camera);
   check(saved_camera.has_value());
   auto loaded_camera = e::meta::deserialize<e::camera_description>(*saved_camera);

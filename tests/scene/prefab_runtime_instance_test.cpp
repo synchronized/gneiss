@@ -224,7 +224,7 @@ bool check_failed_camera_prefab(
     const std::vector<gneiss::engine::prefab_property_override>& invalid_overrides) {
   auto description = source;
   description.objects[0].components.set(
-      gneiss::engine::camera_description{.settings = {1.0F, 0.1F, 100.0F}, .is_primary = true});
+      gneiss::engine::camera_description{{1.0F, 0.1F, 100.0F}, true});
   gneiss::engine::prefab_asset_ref lease;
   if (gneiss::test_support::assign_value(
           prefab_loader.store<gneiss::engine::prefab_description>(

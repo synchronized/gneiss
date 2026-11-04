@@ -107,7 +107,7 @@ World 的节点身份、层级、局部变换与 ECS 组件是当前状态的权
 `world_component_access.hpp`，其借用指针只在所属线程及 World 生存期有效；
 普通 Scene/资源接口不暴露 EnTT。节点销毁依靠 ECS 正常析构组件，不另建组件副本表。
 通用扩展示例见 `tests/support/movement_component.hpp`。编辑器通过
-`scene_document::components` 捕获实际组件，用只读 `component_description::view()` 和
+`scene_document::components` 捕获实际组件，用只读 `component_description_base::view()` 和
 `meta::type` 绘制通用属性控件；视图不超过描述寿命，不借用 ECS 成员地址。
 
 通用组件编辑在适配器的自有副本上修改并校验，再调用 Scene 的 `set_component_description`。

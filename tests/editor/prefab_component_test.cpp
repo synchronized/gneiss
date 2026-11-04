@@ -36,7 +36,8 @@ int main() try {
   e::prefab_reference_description reference{.uri = "asset://movement.prefab", .overrides = {}};
   e::prefab_description effective;
   e::scene_diagnostic diagnostic;
-  reference.component_overrides.push_back({root_id, type, movement_description{.speed = 4}});
+  reference.component_overrides.push_back(
+      {root_id, type, e::make_component_description(movement_description{4})});
   check(e::prepare_prefab_reference(*source, reference, effective, &diagnostic).ok());
   check(effective.objects[0].components.get<movement_description>()->speed == 4);
   auto collision = *source;
@@ -109,7 +110,7 @@ int main() try {
                                        0)
             .ok());
   auto state = document.capture_component_override(root_node, type);
-  check(state && state->added->get<movement_description>()->speed == 5 &&
+  check(state && (*state->added)->get<movement_description>()->speed == 5 &&
         state->properties.empty());
   check(action(ed::prefab_component_action::remove).ok());
   state = document.capture_component_override(root_node, type);

@@ -54,15 +54,14 @@ bool test_updates() {
   auto previous = object(*gneiss::engine::guid::parse("f75c07c9-9e51-51b7-8dab-cffc2bf231c9"),
                          *gneiss::engine::guid::parse("8b11b657-69db-5c75-9abd-0b8eaedc4e5a"));
   previous.name = "旧名称";
-  previous.components.set(
-      gneiss::engine::camera_description{.settings = {1.0F, 0.1F, 10.0F}, .is_primary = false});
+  previous.components.set(gneiss::engine::camera_description{{1.0F, 0.1F, 10.0F}, false});
   auto current = previous;
   current.name = "新名称";
   current.parent_uuid = *gneiss::engine::guid::parse("16c26687-cd61-552d-bfaf-1b33cc112979");
   current.transform.translation[0] = 2.0F;
   current.components.erase<gneiss::engine::camera_description>();
-  current.components.set(gneiss::engine::mesh_renderer_description{
-      .mesh_uri = "asset://mesh", .material_uri = "asset://material"});
+  current.components.set(
+      gneiss::engine::mesh_renderer_description{"asset://mesh", "asset://material"});
   const std::vector old_objects{
       object(*gneiss::engine::guid::parse("8b11b657-69db-5c75-9abd-0b8eaedc4e5a")),
       object(*gneiss::engine::guid::parse("16c26687-cd61-552d-bfaf-1b33cc112979")), previous};

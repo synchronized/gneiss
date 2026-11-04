@@ -15,14 +15,20 @@ struct movement_settings {
   float maximum = 10;
   bool operator==(const movement_settings&) const = default;
 };
-struct movement_description {
+struct movement_description
+    : e::meta::object_type<movement_description, e::component_description_base> {
+  movement_description() = default;
+  explicit movement_description(float value) : speed(value) {}
   inline static constexpr std::string_view type_name = "test_movement";
   inline static constexpr e::guid type_guid = e::guid::from_bytes({84, 1});
   float speed = 1;
   movement_mode mode = movement_mode::walk;
   movement_settings settings{};
   std::vector<float> samples{1, 2};
-  bool operator==(const movement_description&) const = default;
+  bool operator==(const movement_description& other) const {
+    return speed == other.speed && mode == other.mode && settings == other.settings &&
+           samples == other.samples;
+  }
 };
 struct movement_component {
   movement_description data;
@@ -83,6 +89,7 @@ inline e::error register_movement_meta() {
   if (status.failed())
     return status;
   return e::meta::type_builder<movement_description>{}
+      .base<e::component_description_base>()
       .property<&movement_description::speed>(e::meta::property_id{1}, "speed")
       .property<&movement_description::mode>(e::meta::property_id{2}, "mode")
       .property<&movement_description::settings>(e::meta::property_id{3}, "settings")

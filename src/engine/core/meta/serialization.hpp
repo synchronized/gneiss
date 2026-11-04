@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/registry.hpp"
 #include <new>
 #include <span>
@@ -39,11 +40,24 @@ result<T, serialization_diagnostic> deserialize_reflected(const registry_ref& re
   return serialization_diagnostic{.error = error::internal};
 }
 
+/** 编解码任意反射视图；解码调用方提供临时目标，失败不承诺恢复目标。 */
+GNEISS_API result<std::vector<std::byte>, serialization_diagnostic>
+serialize_instance(const registry_ref&, const instance&) noexcept;
+GNEISS_API serialization_diagnostic deserialize_instance(const registry_ref&,
+                                                         const mutable_instance&,
+                                                         std::span<const std::byte>) noexcept;
 /** 返回编码后的字节；未知类型不隐式注册。 */
 template <class T>
 [[nodiscard]] result<std::vector<std::byte>, serialization_diagnostic>
 serialize(const registry_ref& registry, const T& object) noexcept try {
-  return serialize_object(registry, runtime_type_of<T>(), &object);
+  if constexpr (detail::reference_traits<std::remove_cv_t<T>>::enabled ||
+                sequence_traits<T>::enabled || associative_traits<T>::enabled) {
+    auto view = instance::from(registry, object);
+    if (!view)
+      return serialization_diagnostic{.error = view.error()};
+    return serialize_instance(registry, *view);
+  } else
+    return serialize_object(registry, runtime_type_of<T>(), &object);
 } catch (const std::bad_alloc&) {
   return serialization_diagnostic{.error = error::out_of_memory};
 } catch (...) {
@@ -53,12 +67,24 @@ serialize(const registry_ref& registry, const T& object) noexcept try {
 template <class T>
 [[nodiscard]] result<T, serialization_diagnostic>
 deserialize(const registry_ref& registry, std::span<const std::byte> bytes) noexcept try {
-  auto decoded = deserialize_object(registry, runtime_type_of<T>(), bytes);
-  if (!decoded)
-    return std::move(decoded).error();
-  if (!*decoded)
-    return serialization_diagnostic{.error = error::internal};
-  return std::move(*static_cast<T*>(decoded->get()));
+  if constexpr (detail::reference_traits<T>::enabled || sequence_traits<T>::enabled ||
+                associative_traits<T>::enabled) {
+    T object{};
+    auto view = mutable_instance::from(registry, object);
+    if (!view)
+      return serialization_diagnostic{.error = view.error()};
+    auto status = deserialize_instance(registry, *view, bytes);
+    if (status.error.failed())
+      return status;
+    return object;
+  } else {
+    auto decoded = deserialize_object(registry, runtime_type_of<T>(), bytes);
+    if (!decoded)
+      return std::move(decoded).error();
+    if (!*decoded)
+      return serialization_diagnostic{.error = error::internal};
+    return std::move(*static_cast<T*>(decoded->get()));
+  }
 } catch (const std::bad_alloc&) {
   return serialization_diagnostic{.error = error::out_of_memory};
 } catch (...) {

@@ -26,7 +26,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   using p = e::meta::property_id;
   auto& world = *app.native_world();
   const auto ordinary_uuid = session.selected_node()->uuid;
-  if (session.set_camera(ordinary, {.settings = {1.0F, 0.1F, 100.0F}}).failed())
+  if (session.set_camera(ordinary, {{1.0F, 0.1F, 100.0F}}).failed())
     return 31;
   ed::editor_command_history history;
   ed::component_edit_target target{.object_uuid = ordinary_uuid,
@@ -71,8 +71,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
     return 49;
   gneiss::scene_node_id other_camera;
   if (session.create_node("active", {}, other_camera).failed() ||
-      session.set_camera(other_camera, {.settings = {1.0F, 0.1F, 100.0F}, .is_primary = true})
-          .failed())
+      session.set_camera(other_camera, {{1.0F, 0.1F, 100.0F}, true}).failed())
     return 50;
   gneiss::entity_id active_before, active_after;
   if (world.get_active_camera(active_before).failed() || history.undo().failed() ||
@@ -87,7 +86,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   e::object_description root;
   root.uuid = source->root_uuid;
   root.name = "camera";
-  root.components.set(e::camera_description{.settings = {1.0F, 0.1F, 100.0F}, .is_primary = true});
+  root.components.set(e::camera_description{{1.0F, 0.1F, 100.0F}, true});
   source->objects.push_back(root);
   e::object_description child;
   if (ed::make_editor_uuid(child.uuid).failed())
@@ -119,8 +118,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
     return 40;
   auto prefab_entity = prefab_node->entity;
   // 来源标记主相机，但运行时已切到别处；编辑 fov 不应生成 is_primary 覆盖。
-  if (session.set_camera(other_camera, {.settings = {1.0F, 0.1F, 100.0F}, .is_primary = true})
-          .failed())
+  if (session.set_camera(other_camera, {{1.0F, 0.1F, 100.0F}, true}).failed())
     return 60;
   ed::editor_command_history prefab_history;
   edit = {.path = {p{1}, p{1}}, .data = e::value{1.3F}};

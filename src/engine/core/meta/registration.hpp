@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/meta/detail/type_ops.hpp"
+#include "engine/core/meta/object.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/traits/type_identity.hpp"
 #include <functional>
@@ -182,6 +183,29 @@ public:
                                      std::invoke(Getter, *static_cast<const object_type*>(object)));
                                  return error::success;
                                }});
+  }
+  /** 以本类型声明的引用始终保存实际类型信封；不自动启用派生类的多态声明。 */
+  type_builder& polymorphic() noexcept {
+    static_assert(std::derived_from<object_type, meta::object>);
+    if (committed_) {
+      status_ = error::invalid_state;
+      return *this;
+    }
+    codec_.polymorphic = true;
+    return *this;
+  }
+  /** 注册唯一直接基类；当前基类仅承载身份，冻结时拒绝未合并的继承属性。 */
+  template <class Base> type_builder& base() noexcept {
+    static_assert(std::derived_from<object_type, Base> && std::derived_from<Base, meta::object>);
+    if (committed_ || codec_.base_type) {
+      status_ = error::invalid_state;
+      return *this;
+    }
+    codec_.base_type = runtime_type_of<Base>();
+    codec_.upcast = [](void* p) -> void* {
+      return static_cast<Base*>(static_cast<object_type*>(p));
+    };
+    return *this;
   }
   /** 启用反射 JSON；缺失的非必填字段保留默认值，只读字段不持久化。 */
   type_builder& serialization(bool reject_unknown_fields = false) noexcept {

@@ -112,8 +112,7 @@ int main() try {
     return 13;
   }
   const auto child_uuid = session.find_node(session.selected_node()->uuid)->uuid;
-  gneiss::engine::camera_description author_camera{.settings = {1.04719755F, 0.1F, 1000.0F},
-                                                   .is_primary = false};
+  gneiss::engine::camera_description author_camera{{1.04719755F, 0.1F, 1000.0F}, false};
   if (session.set_camera(empty_child, author_camera) != gneiss::engine::error::success ||
       session.find_node(child_uuid)->components.get<gneiss::engine::camera_description>() ==
           nullptr ||

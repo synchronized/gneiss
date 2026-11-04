@@ -832,8 +832,8 @@ scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& des
         .name = std::string(name),
         .parent_uuid = std::move(parent_uuid),
         .transform = {},
-        .components = {engine::mesh_renderer_description{
-            .mesh_uri = std::string(mesh_uri), .material_uri = std::string(material_uri)}}};
+        .components = {make_component_description(
+            engine::mesh_renderer_description{std::string(mesh_uri), std::string(material_uri)})}};
     objects_.reserve(objects_.size() + 1U);
     staged_object target{};
     target.uuid = author.uuid;
@@ -956,7 +956,7 @@ engine::error scene_instance::set_camera(scene_node_id node,
       const auto* source = runtime.find_source_object(info.address->source_node_uuid);
       const auto* camera = source ? source->components.get<camera_description>() : nullptr;
       if (!camera)
-        return set_component_description(node, component_description{desc});
+        return set_component_description(node, make_component_description(desc));
       entity_id active;
       auto status = native_world_.get_active_camera(active);
       if (status.failed() && status != error::not_ready)

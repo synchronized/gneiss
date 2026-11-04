@@ -135,7 +135,7 @@ struct adapter_registry {
          .edit = camera_edit,
          .property_type = camera_component_type,
          .create_default = []() -> result<camera_description> {
-           return camera_description{.settings = {std::numbers::pi_v<float> / 3, 0.1F, 1000.0F}};
+           return camera_description{{std::numbers::pi_v<float> / 3, 0.1F, 1000.0F}};
          },
          .removable = true,
          .prepare_editor = [](world& owner, scene_node_id node,
@@ -216,7 +216,9 @@ error register_scene_component(component_adapter adapter) noexcept try {
 result<component_description>
 modify_component(const component_description& source,
                  const std::function<error(meta::mutable_instance)>& change) noexcept try {
-  const auto* adapter = find(source.guid());
+  if (!source)
+    return error::invalid_argument;
+  const auto* adapter = find(source->guid());
   if (!adapter)
     return error::unsupported;
   if (!change)
@@ -252,7 +254,9 @@ result<component_editor_info> component_editor(guid type) noexcept {
 result<component_description>
 prepare_component_editor_value(world& owner, scene_node_id node,
                                const component_description& value) noexcept try {
-  const auto* adapter = find(value.guid());
+  if (!value)
+    return error::invalid_argument;
+  const auto* adapter = find(value->guid());
   if (!adapter)
     return error::not_found;
   auto prepared = adapter->prepare_editor ? adapter->prepare_editor(owner, node, value)
@@ -275,7 +279,7 @@ result<component_description> default_component_description(guid type) noexcept 
   auto value = adapter->create_default();
   if (!value)
     return value.error();
-  if (value->guid() != type)
+  if (!*value || (*value)->guid() != type)
     return error::invalid_argument;
   auto status = adapter->validate(*value);
   return status.ok() ? std::move(value) : result<component_description>{status};
@@ -288,7 +292,9 @@ error add_component(component_context context, const component_description& valu
   auto status = valid_target(context);
   if (status.failed())
     return status;
-  const auto* adapter = find(value.guid());
+  if (!value)
+    return error::invalid_argument;
+  const auto* adapter = find(value->guid());
   if (!adapter)
     return error::unsupported;
   auto current = adapter->capture(context.owner, context.node);
@@ -324,7 +330,9 @@ error remove_component(component_context context, guid type) noexcept try {
 error validate_components(const component_descriptions& values) noexcept try {
   (void)adapters();
   for (const auto& value : values) {
-    const auto* adapter = find(value.guid());
+    if (!value)
+      return error::invalid_argument;
+    const auto* adapter = find(value->guid());
     if (!adapter)
       return error::unsupported;
     auto status = adapter->validate(value);
@@ -364,7 +372,7 @@ error install_components(component_context context, const component_descriptions
   if (status.failed())
     return status;
   for (const auto& value : values) {
-    status = find(value.guid())->install(context, value);
+    status = find(value->guid())->install(context, value);
     if (status.failed())
       return status;
   }
@@ -398,8 +406,10 @@ bool equal_components(const component_descriptions& a, const component_descripti
   if (a.size() != b.size())
     return false;
   for (const auto& value : a) {
-    const auto* other = b.find(value.guid());
-    const auto* adapter = find(value.guid());
+    if (!value)
+      return false;
+    const auto* other = b.find(value->guid());
+    const auto* adapter = find(value->guid());
     if (!other || !adapter || !adapter->equal(value, *other))
       return false;
   }
@@ -412,7 +422,7 @@ component_dependencies(const component_descriptions& values) noexcept try {
     return status;
   std::vector<render_resource_source> result;
   for (const auto& value : values) {
-    auto next = find(value.guid())->dependencies(value);
+    auto next = find(value->guid())->dependencies(value);
     result.insert(result.end(), std::make_move_iterator(next.begin()),
                   std::make_move_iterator(next.end()));
   }

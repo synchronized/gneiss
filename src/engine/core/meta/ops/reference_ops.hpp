@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/core/meta/object.hpp"
 #include "engine/core/meta/ops/forward.hpp"
 #include "engine/core/ref.hpp"
 #include <cstddef>
@@ -15,6 +16,7 @@ struct reference_ops {
   ref<const void> (*owner)(const void*){};
   void (*set)(void*, const ref<void>&){};
   void (*reset)(void*){};
+  engine::type_id (*dynamic_type)(const void*){};
 };
 namespace detail {
 template <class T> struct reference_traits {
@@ -32,7 +34,20 @@ template <class T> const reference_ops& reference_ops_of() {
                       [](const void* p) -> const void* { return static_cast<const T*>(p)->get(); }};
     if constexpr (!std::is_const_v<E>)
       ops.get_mut = [](void* p) -> void* { return static_cast<T*>(p)->get(); };
-    ops.owner = [](const void* p) -> ref<const void> { return *static_cast<const T*>(p); };
+    ops.owner = [](const void* p) -> ref<const void> {
+      const auto& v = *static_cast<const T*>(p);
+      if constexpr (std::derived_from<std::remove_const_t<E>, meta::object>)
+        return v ? v.template alias<const void>(v->dynamic_address()) : ref<const void>{};
+      else
+        return v;
+    };
+    ops.dynamic_type = [](const void* p) -> engine::type_id {
+      const auto& v = *static_cast<const T*>(p);
+      if constexpr (std::derived_from<std::remove_const_t<E>, meta::object>)
+        return v ? v->dynamic_type() : runtime_type_of<std::remove_const_t<E>>();
+      else
+        return runtime_type_of<std::remove_const_t<E>>();
+    };
     ops.set = [](void* p, const ref<void>& v) {
       *static_cast<T*>(p) = v.template alias<E>(static_cast<E*>(v.get()));
     };

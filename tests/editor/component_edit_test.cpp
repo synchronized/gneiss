@@ -39,7 +39,9 @@ int main() try {
   check(document.create_empty(*app, &world).ok());
   gneiss::scene_node_id node;
   check(document.create_node("movement", {}, node).ok());
-  check(e::install_components({world, node}, {movement_description{}}).ok());
+  check(
+      e::install_components({world, node}, {e::make_component_description(movement_description{})})
+          .ok());
   auto ordinary = document.selected_node()->uuid;
   ed::component_edit_target target{.object_uuid = ordinary,
                                    .component_type = movement_description::type_guid};
@@ -55,7 +57,7 @@ int main() try {
   };
   auto components = document.components(node);
   check(components && components->size() == 1);
-  auto view = components->begin()->view();
+  auto view = (*components->begin())->view();
   check(view.has_value());
   auto fields = view->type().properties();
   check(fields && fields->size() == 4 && (*fields)[1].type.is_enum());
@@ -126,8 +128,8 @@ int main() try {
   check(history.redo().ok() && override_count() == 2);
   // 实际绘制反射控件并点击序列元素的 Restore Source，控件只产生操作值。
   auto current = document.components(node);
-  auto current_view = current->begin()->view();
-  auto source_view = prefab->objects[0].components.begin()->view();
+  auto current_view = (*current->begin())->view();
+  auto source_view = (*prefab->objects[0].components.begin())->view();
   check(current_view && source_view);
   ImGui::CreateContext();
   auto& io = ImGui::GetIO();

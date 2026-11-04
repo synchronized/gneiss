@@ -7,15 +7,19 @@
 #include "engine/resource/scene/scene_codec.hpp"
 #include <string>
 namespace e = gneiss::engine;
-struct reflected_description {
+struct reflected_description
+    : e::meta::object_type<reflected_description, e::component_description_base> {
   inline static constexpr std::string_view type_name = "reflected_component";
   inline static constexpr e::guid type_guid = e::guid::from_bytes({21, 1, 2, 4});
   float speed = 1;
 };
 std::size_t decode_calls = 0;
-struct custom_description {
+struct custom_description
+    : e::meta::object_type<custom_description, e::component_description_base> {
   inline static constexpr std::string_view type_name = "test_component";
   inline static constexpr e::guid type_guid = e::guid::from_bytes({21, 1, 2, 3});
+  custom_description() = default;
+  explicit custom_description(bool value) : enabled(value) {}
   bool enabled{};
 };
 std::span<const std::byte> bytes(std::string_view value) {
@@ -49,12 +53,14 @@ std::string entry(e::guid type, std::string_view content) {
 int main() try {
   if (e::initialize_meta([]() {
         auto status = e::meta::type_builder<reflected_description>{}
+                          .base<e::component_description_base>()
                           .property<&reflected_description::speed>(e::meta::property_id{1}, "speed")
                           .serialization()
                           .commit();
         if (status.failed())
           return status;
         return e::meta::type_builder<custom_description>{}
+            .base<e::component_description_base>()
             .serialization<&encode, &decode>()
             .commit();
       }).failed())

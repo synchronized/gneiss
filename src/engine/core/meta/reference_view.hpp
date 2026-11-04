@@ -24,6 +24,7 @@ template <bool Mutable> class basic_reference_view {
     return readonly().access_->template get<reference_ops>();
   }
   target_type target_;
+  engine::type_id actual_type() const noexcept { return ops()->dynamic_type(readonly().data_); }
   result<ref<const void>> owner() const noexcept { return ops()->owner(readonly().data_); }
   error assign_owner(engine::type_id id, const ref<void>& owner) const noexcept
     requires(Mutable)
@@ -47,12 +48,19 @@ public:
       auto* p = ops()->get_mut(target_.data_);
       if (!p)
         return error::not_found;
-      return mutable_instance::from_access(v.registry_, ops()->element(), p);
+      auto owned = owner();
+      if (!owned)
+        return owned.error();
+      return mutable_instance::from_object(v.registry_, actual_type(),
+                                           const_cast<void*>(owned->get()));
     } else {
       auto* p = ops()->get(v.data_);
       if (!p)
         return error::not_found;
-      return instance::from_access(v.registry_, ops()->element(), p);
+      auto owned = owner();
+      if (!owned)
+        return owned.error();
+      return instance::from_object(v.registry_, actual_type(), owned->get());
     }
   }
   [[nodiscard]] reference_view as_const() const noexcept { return reference_view{readonly()}; }

@@ -321,6 +321,12 @@ result<mutable_reference_view> mutable_instance::as_reference() const noexcept {
 }
 
 namespace gneiss::engine::meta::detail {
+result<engine::type_id> reference_view_access::dynamic_type(const instance& view) noexcept {
+  auto reference = view.as_reference();
+  if (!reference)
+    return reference.error();
+  return reference->actual_type();
+}
 result<ref<const void>> reference_view_access::owner(const instance& view) noexcept {
   auto reference = view.as_reference();
   if (!reference)

@@ -147,7 +147,7 @@ void run(gneiss::engine::execution_mode mode) {
         gneiss::test_support::scene_query(session).prefab_nodes.size() == 2U);
   // 引入未准备依赖时返回清单，保留原快照与当前实例，不触发加载。
   changed_description.objects.front().components.set(engine::mesh_renderer_description{
-      .mesh_uri = "asset://missing.mesh.json", .material_uri = "asset://missing.material.json"});
+      "asset://missing.mesh.json", "asset://missing.material.json"});
   check(encode().ok());
   const editor::author_document_change missing{
       .path = "scenes/prefab.scene.json", .baseline = {}, .replacement = replacement};

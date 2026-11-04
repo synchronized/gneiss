@@ -203,14 +203,14 @@ void draw_runtime_inspector(const runtime_scene_node& node,
     draw_vec3("Scale", gneiss::engine::transform_scale_field.get(), scale, 0.05F);
   }
   for (const auto& component : node.components) {
-    auto view = component.view();
+    auto view = component->view();
     if (!view)
       continue;
     auto properties = view->properties();
-    auto type = gneiss::engine::meta::describe_type(component.guid());
+    auto type = gneiss::engine::meta::describe_type(component->guid());
     if (!properties || !type)
       continue;
-    ImGui::PushID(component.guid().string().c_str());
+    ImGui::PushID(component->guid().string().c_str());
     if (ImGui::CollapsingHeader(std::string(type->name).c_str())) {
       for (const auto& property : *properties) {
         auto child = view->property(property.id);
@@ -242,7 +242,7 @@ void draw_runtime_inspector(const runtime_scene_node& node,
               value->payload);
         }
         runtime_property_key key{
-            .object = node.id, .type_id = component.guid().bytes(), .field_id = property.id.get()};
+            .object = node.id, .type_id = component->guid().bytes(), .field_id = property.id.get()};
         const auto* pending = actions.find_edit ? actions.find_edit(actions.context, key) : nullptr;
         const bool readonly =
             engine::meta::has_flags(property.flags,

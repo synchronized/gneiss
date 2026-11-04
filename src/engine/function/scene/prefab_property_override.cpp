@@ -205,7 +205,7 @@ error prepare_prefab_reference(const prefab_description& source,
         }))
       return fail(error::invalid_argument, key.first, key.second, {}, "结构覆盖与属性覆盖矛盾");
     if (change.added) {
-      if (change.added->guid() != key.second)
+      if (!*change.added || (*change.added)->guid() != key.second)
         return fail(error::invalid_argument, key.first, key.second, {}, "新增描述类型不匹配");
       if (target->components.find(key.second))
         return fail(error::invalid_state, key.first, key.second, {},
@@ -238,8 +238,8 @@ error prepare_prefab_reference(const prefab_description& source,
       if (!component)
         return fail(error::not_found, key.source_node_uuid, key.type_guid, path,
                     "属性覆盖对应的来源组件已不存在");
-      if (key.type_guid == component->guid()) {
-        auto root = component->view();
+      if (key.type_guid == (*component)->guid()) {
+        auto root = (*component)->view();
         auto first = root ? root->property(key.property_id) : result<meta::instance>{root.error()};
         auto leaf =
             first ? meta::resolve_path(*first, key.path) : result<meta::instance>{first.error()};
@@ -286,7 +286,8 @@ engine::error prepare_prefab_description(const prefab_description& source,
   for (auto& object : candidate.objects) {
     for (const auto& component : object.components) {
       const auto matches = [&](const prefab_property_override& entry) {
-        return entry.key.source_node_uuid == object.uuid && entry.key.type_guid == component.guid();
+        return entry.key.source_node_uuid == object.uuid &&
+               entry.key.type_guid == component->guid();
       };
       if (!std::ranges::any_of(overrides, matches))
         continue;

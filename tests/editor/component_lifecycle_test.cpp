@@ -62,9 +62,13 @@ int main() try {
   check(history.redo().ok());
   check(history.redo().ok() && current()->data.speed == 4);
   // 历史不删除外部修改后的不同组件。
-  check(document.set_component_description(node, movement_description{.speed = 5}).ok());
+  check(document
+            .set_component_description(node, e::make_component_description(movement_description{5}))
+            .ok());
   check(history.redo() == e::error::invalid_state && current()->data.speed == 5);
-  check(document.set_component_description(node, movement_description{.speed = 4}).ok());
+  check(document
+            .set_component_description(node, e::make_component_description(movement_description{4}))
+            .ok());
   check(history.redo().ok() && !current());
   auto snapshot = [&] {
     e::scene_description result;
@@ -102,11 +106,11 @@ int main() try {
   check(cross_thread.failed() && current());
   check(history.clear().ok());
   check(document.remove_component_description(node, type).ok());
-  check(document.add_component_description(node, movement_description{.speed = -1}) ==
-            e::error::invalid_argument &&
+  check(document.add_component_description(node, e::make_component_description(movement_description{
+                                                     -1})) == e::error::invalid_argument &&
         !current());
-  check(document.add_component_description(node, movement_description{.speed = 13}) ==
-            e::error::invalid_state &&
+  check(document.add_component_description(node, e::make_component_description(movement_description{
+                                                     13})) == e::error::invalid_state &&
         !current());
   check(add().ok());
   // 相机使用同一默认工厂与历史，不再在面板手写快照。

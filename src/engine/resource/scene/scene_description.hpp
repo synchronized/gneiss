@@ -29,7 +29,11 @@ struct scene_diagnostic final {
   std::string message{};
 };
 
-struct camera_description final {
+struct camera_description final
+    : meta::object_type<camera_description, component_description_base> {
+  camera_description() = default;
+  camera_description(math::camera_settings value, bool primary = false)
+      : settings(value), is_primary(primary) {}
   inline static constexpr std::string_view type_name = "camera_description";
   inline static constexpr engine::guid type_guid =
       engine::guid::from_bytes({0x11, 0xa0, 0x21, 0x7a, 0x2e, 0xab, 0x4f, 0x61, 0x80, 0x11, 0x4a,
@@ -38,7 +42,11 @@ struct camera_description final {
   bool is_primary = false;
 };
 
-struct mesh_renderer_description final {
+struct mesh_renderer_description final
+    : meta::object_type<mesh_renderer_description, component_description_base> {
+  mesh_renderer_description() = default;
+  mesh_renderer_description(std::string mesh, std::string material)
+      : mesh_uri(std::move(mesh)), material_uri(std::move(material)) {}
   inline static constexpr std::string_view type_name = "mesh_renderer_description";
   inline static constexpr engine::guid type_guid =
       engine::guid::from_bytes({0x11, 0xa0, 0x21, 0x7a, 0x2e, 0xab, 0x4f, 0x61, 0x80, 0x11, 0x4a,

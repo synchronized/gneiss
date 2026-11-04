@@ -156,7 +156,8 @@ World 保持不变。旧顶层 `prefab_instances` 也被明确拒绝，不作为
 `object_description::transform` 直接使用 `math::transform`，表示相对父对象的局部变换，默认单位变换。
 文件中的 `transform` 及其 translation、rotation、scale 仍全部必填，默认值不代替格式校验。
 
-`object_description::components` 使用 `component_descriptions`，内部保存不可变的类型化描述条目。
+`object_description::components` 使用 `component_descriptions`，内部保存 `ref<const component_description_base>`。具体描述继承基类并注册 Meta 继承关系，
+通用引用序列化负责 `$type_guid` / `$content`，列表负责每种组件至多一项。
 `get<T>()` 借用只读指针，错误类型返回 nullptr；`set(T)` 替换对应类型，`erase<T>()` 删除，
 `update<T>(callback)` 在副本上修改后替换。借用指针不得跨对应条目替换或列表销毁。
 复制列表共享不可变内容；修改副本不改变模板、其他实例或编辑器撤销快照。

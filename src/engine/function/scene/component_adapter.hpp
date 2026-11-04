@@ -63,101 +63,101 @@ template <class T> struct component_operations {
 template <class T> component_adapter make_component_adapter(component_operations<T> ops) {
   if (!ops.validate || !ops.install || !ops.capture || !ops.remove || !ops.equal)
     return {};
-  return {.type = type_identity<T>::guid(),
-          .property_type = ops.property_type,
-          .validate =
-              [ops](const component_description& value) {
-                const auto* typed = value.get<T>();
-                return typed ? ops.validate(*typed) : error{error::invalid_argument};
-              },
-          .install =
-              [ops](component_context& context, const component_description& value) {
-                const auto* typed = value.get<T>();
-                return typed ? ops.install(context, *typed) : error{error::invalid_argument};
-              },
-          .capture = [ops](world& owner,
-                           scene_node_id node) -> result<std::optional<component_description>> {
-            auto value = ops.capture(owner, node);
-            if (!value)
-              return value.error();
-            if (!*value)
-              return std::optional<component_description>{};
-            return std::optional<component_description>{component_description{std::move(**value)}};
+  return {
+      .type = type_identity<T>::guid(),
+      .property_type = ops.property_type,
+      .validate =
+          [ops](const component_description& value) {
+            const auto* typed = value ? value->get<T>() : nullptr;
+            return typed ? ops.validate(*typed) : error{error::invalid_argument};
           },
-          .remove = ops.remove,
-          .equal =
-              [ops](const component_description& a, const component_description& b) {
-                return a.get<T>() && b.get<T>() && ops.equal(*a.get<T>(), *b.get<T>());
-              },
-          .read = [ops](const component_description& source, guid type,
-                        meta::property_id property) -> result<value> {
-            const auto* typed = source.get<T>();
-            if (!typed)
-              return error::invalid_argument;
-            return ops.read ? ops.read(*typed, type, property)
-                            : meta::read_property(type, property, typed);
+      .install =
+          [ops](component_context& context, const component_description& value) {
+            const auto* typed = value ? value->get<T>() : nullptr;
+            return typed ? ops.install(context, *typed) : error{error::invalid_argument};
           },
-          .edit = [ops](const component_description& source, guid type, meta::property_id property,
-                        const value& input) -> result<component_description> {
-            if (!source.get<T>())
-              return error::invalid_argument;
-            auto copy = *source.get<T>();
-            auto status = ops.edit ? ops.edit(copy, type, property, input)
-                                   : meta::write_property(type, property, &copy, input);
-            if (status.ok())
-              status = ops.validate(copy);
-            if (status.failed())
-              return status;
-            return component_description{std::move(copy)};
+      .capture = [ops](world& owner,
+                       scene_node_id node) -> result<std::optional<component_description>> {
+        auto value = ops.capture(owner, node);
+        if (!value)
+          return value.error();
+        if (!*value)
+          return std::optional<component_description>{};
+        return std::optional<component_description>{make_component_description(std::move(**value))};
+      },
+      .remove = ops.remove,
+      .equal =
+          [ops](const component_description& a, const component_description& b) {
+            return a && b && a->get<T>() && b->get<T>() && ops.equal(*a->get<T>(), *b->get<T>());
           },
-          .modify = [ops](const component_description& source,
-                          const std::function<error(meta::mutable_instance)>& change)
-              -> result<component_description> {
-            if (!source.get<T>())
-              return error::invalid_argument;
-            auto copy = *source.get<T>();
-            auto view = meta::mutable_instance::from(copy);
-            if (!view)
-              return view.error();
-            auto status = change(*view);
-            if (status.ok())
-              status = ops.validate(copy);
-            if (status.failed())
-              return status;
-            return component_description{std::move(copy)};
+      .read = [ops](const component_description& source, guid type,
+                    meta::property_id property) -> result<value> {
+        const auto* typed = source ? source->get<T>() : nullptr;
+        if (!typed)
+          return error::invalid_argument;
+        return ops.read ? ops.read(*typed, type, property)
+                        : meta::read_property(type, property, typed);
+      },
+      .edit = [ops](const component_description& source, guid type, meta::property_id property,
+                    const value& input) -> result<component_description> {
+        if (!source || !source->get<T>())
+          return error::invalid_argument;
+        auto copy = *source->get<T>();
+        auto status = ops.edit ? ops.edit(copy, type, property, input)
+                               : meta::write_property(type, property, &copy, input);
+        if (status.ok())
+          status = ops.validate(copy);
+        if (status.failed())
+          return status;
+        return make_component_description(std::move(copy));
+      },
+      .modify = [ops](const component_description& source,
+                      const std::function<error(meta::mutable_instance)>& change)
+          -> result<component_description> {
+        if (!source || !source->get<T>())
+          return error::invalid_argument;
+        auto copy = *source->get<T>();
+        auto view = meta::mutable_instance::from(copy);
+        if (!view)
+          return view.error();
+        auto status = change(*view);
+        if (status.ok())
+          status = ops.validate(copy);
+        if (status.failed())
+          return status;
+        return make_component_description(std::move(copy));
+      },
+      .dependencies =
+          [ops](const component_description& value) {
+            return ops.dependencies ? ops.dependencies(*value->get<T>())
+                                    : std::vector<render_resource_source>{};
           },
-          .dependencies =
-              [ops](const component_description& value) {
-                return ops.dependencies ? ops.dependencies(*value.get<T>())
-                                        : std::vector<render_resource_source>{};
-              },
-          .create_default =
-              ops.create_default
-                  ? std::function<
-                        result<component_description>()>{[ops]() -> result<component_description> {
-                      auto source = ops.create_default();
-                      if (!source)
-                        return source.error();
-                      auto status = ops.validate(*source);
-                      if (status.failed())
-                        return status;
-                      return component_description{std::move(*source)};
-                    }}
-                  : std::function<result<component_description>()>{},
-          .removable = ops.removable,
-          .editor_route = ops.editor_route,
-          .prepare_editor =
-              [ops](world& owner, scene_node_id node,
-                    const component_description& value) -> result<component_description> {
-            if (!value.get<T>())
-              return error::invalid_argument;
-            if (!ops.prepare_editor)
-              return value;
-            auto prepared = ops.prepare_editor(owner, node, *value.get<T>());
-            return prepared
-                       ? result<component_description>{component_description{std::move(*prepared)}}
-                       : result<component_description>{prepared.error()};
-          }};
+      .create_default =
+          ops.create_default
+              ? std::function<
+                    result<component_description>()>{[ops]() -> result<component_description> {
+                  auto source = ops.create_default();
+                  if (!source)
+                    return source.error();
+                  auto status = ops.validate(*source);
+                  if (status.failed())
+                    return status;
+                  return make_component_description(std::move(*source));
+                }}
+              : std::function<result<component_description>()>{},
+      .removable = ops.removable,
+      .editor_route = ops.editor_route,
+      .prepare_editor = [ops](world& owner, scene_node_id node,
+                              const component_description& value) -> result<component_description> {
+        if (!value || !value->get<T>())
+          return error::invalid_argument;
+        if (!ops.prepare_editor)
+          return value;
+        auto prepared = ops.prepare_editor(owner, node, *value->get<T>());
+        return prepared
+                   ? result<component_description>{make_component_description(std::move(*prepared))}
+                   : result<component_description>{prepared.error()};
+      }};
 }
 template <class T> error register_scene_component(component_operations<T> ops) noexcept try {
   return register_scene_component(make_component_adapter(ops));

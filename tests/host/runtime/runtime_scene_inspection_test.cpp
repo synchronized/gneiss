@@ -59,9 +59,10 @@ bool test_full_and_incremental_snapshot() {
   nodes[1].name = "Renamed";
   nodes[1].local_transform.translation[0] = 2.0F;
   nodes[1].components = {
-      gneiss::engine::camera_description{{1.04719755F, 0.25F, 1000.0F}},
-      gneiss::engine::mesh_renderer_description{"asset:///meshes/child.gneiss-mesh",
-                                                "asset:///materials/child.material.json"}};
+      gneiss::engine::make_component_description(
+          gneiss::engine::camera_description{{1.04719755F, 0.25F, 1000.0F}}),
+      gneiss::engine::make_component_description(gneiss::engine::mesh_renderer_description{
+          "asset:///meshes/child.gneiss-mesh", "asset:///materials/child.material.json"})};
   if (inspection.capture(nodes, false, snapshot) != gneiss::engine::error::success ||
       snapshot.is_full || snapshot.stamp.sequence != 2U || snapshot.changes.size() != 1U ||
       snapshot.changes[0].type != runtime_scene_change_type::upsert ||
@@ -206,8 +207,9 @@ bool test_registered_component_inspection() {
     return false;
   auto& world = **owner;
   auto node = world.object_create({}, {e::guid::from_bytes({7}), "Custom"}, {});
-  if (!node || e::install_components({world, *node},
-                                     {movement_description{3}, e::mesh_renderer_description{}})
+  if (!node || e::install_components(
+                   {world, *node}, {e::make_component_description(movement_description{3}),
+                                    e::make_component_description(e::mesh_renderer_description{})})
                    .failed())
     return false;
   auto components = e::capture_components(world, *node);
@@ -244,7 +246,7 @@ bool test_registered_component_inspection() {
       !received.get<e::mesh_renderer_description>() ||
       !received.get<e::mesh_renderer_description>()->mesh_uri.empty())
     return false;
-  auto reflected = received.find(movement_description::type_guid)->view();
+  auto reflected = (*received.find(movement_description::type_guid))->view();
   if (!reflected || !reflected->property("speed"))
     return false;
   gneiss::host::runtime_property_editor editor;

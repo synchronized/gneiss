@@ -111,18 +111,15 @@ bool add_components(yyjson_mut_doc* doc, yyjson_mut_val* node,
   if (!array)
     return false;
   for (const auto& component : components) {
-    auto bytes = component.encode();
+    auto bytes = gneiss::engine::meta::serialize(component);
     if (!bytes)
       return false;
     document_ptr parsed(yyjson_read(reinterpret_cast<const char*>(bytes->data()), bytes->size(), 0),
                         &yyjson_doc_free);
     if (!parsed || !yyjson_is_obj(yyjson_doc_get_root(parsed.get())))
       return false;
-    auto* entry = yyjson_mut_obj(doc);
-    auto* content = yyjson_val_mut_copy(doc, yyjson_doc_get_root(parsed.get()));
-    if (!entry || !content || !add_uuid(doc, entry, "$type_guid", component.guid()) ||
-        !yyjson_mut_obj_add_val(doc, entry, "$content", content) ||
-        !yyjson_mut_arr_add_val(array, entry))
+    auto* entry = yyjson_val_mut_copy(doc, yyjson_doc_get_root(parsed.get()));
+    if (!entry || !yyjson_mut_arr_add_val(array, entry))
       return false;
   }
   return yyjson_mut_obj_add_val(doc, node, "components", array);
@@ -142,12 +139,12 @@ bool parse_components(yyjson_val* node, gneiss::engine::component_descriptions& 
         result.find(type))
       return false;
     std::size_t length{};
-    std::unique_ptr<char, decltype(&std::free)> text(yyjson_val_write(content, 0, &length),
+    std::unique_ptr<char, decltype(&std::free)> text(yyjson_val_write(entry, 0, &length),
                                                      &std::free);
     if (!text)
       return false;
-    auto decoded = gneiss::engine::component_description::decode(
-        type, std::as_bytes(std::span{text.get(), length}));
+    auto decoded = gneiss::engine::meta::deserialize<gneiss::engine::component_description>(
+        std::as_bytes(std::span{text.get(), length}));
     if (!decoded)
       return false;
     result.set(std::move(*decoded));

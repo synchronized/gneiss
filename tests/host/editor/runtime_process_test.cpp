@@ -53,8 +53,10 @@ bool test_scene_adapter() {
     change.node.name = std::string(512U, 's');
     change.node.local_transform.translation[1] = 7.0F;
     change.node.components = {
-        gneiss::engine::camera_description{{1.04719755F, 0.75F, 1000.0F}},
-        gneiss::engine::mesh_renderer_description{"asset://mesh", "asset://material"}};
+        gneiss::engine::make_component_description(
+            gneiss::engine::camera_description{{1.04719755F, 0.75F, 1000.0F}}),
+        gneiss::engine::make_component_description(
+            gneiss::engine::mesh_renderer_description{"asset://mesh", "asset://material"})};
     input.changes.push_back(std::move(change));
     input.changes.push_back(
         {.type = gneiss::host::ipc_inspection_change_type::remove, .id = {51U, 52U}, .node = {}});

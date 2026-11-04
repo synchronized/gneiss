@@ -117,7 +117,7 @@ error scene_instance::set_component_override(scene_node_id node, guid type,
     return error::invalid_handle;
   if ((state.added && state.removed) ||
       ((state.added || state.removed) && !state.properties.empty()) ||
-      (state.added && state.added->guid() != type))
+      (state.added && (!*state.added || (*state.added)->guid() != type)))
     return error::invalid_argument;
   for (auto& prefab : prefab_instances_)
     for (const auto& member : prefab->nodes_) {
@@ -182,15 +182,17 @@ error scene_instance::set_component_override(scene_node_id node, guid type,
 }
 error scene_instance::add_component_description(scene_node_id node,
                                                 const component_description& value) noexcept {
+  if (!value)
+    return error::invalid_argument;
   if (!contains_editable_node(node))
     return error::invalid_handle;
   if (find_ordinary_node(node) == objects_.end()) {
     auto current = capture_components(native_world_, node);
     if (!current)
       return current.error();
-    if (current->find(value.guid()))
+    if (current->find(value->guid()))
       return error::invalid_state;
-    return set_component_override(node, value.guid(), {.added = value});
+    return set_component_override(node, value->guid(), {.added = value});
   }
   return add_component({native_world_, node, {}, &loader_}, value);
 }
@@ -212,12 +214,14 @@ error scene_instance::remove_component_description(scene_node_id node, guid type
 }
 error scene_instance::set_component_description(scene_node_id node,
                                                 const component_description& value) noexcept try {
+  if (!value)
+    return error::invalid_argument;
   if (!contains_editable_node(node))
     return error::invalid_handle;
   auto components = capture_components(native_world_, node);
   if (!components)
     return components.error();
-  if (!components->find(value.guid()))
+  if (!components->find(value->guid()))
     return error::not_found;
   auto renderer = native_world_.node_mesh_renderer(node);
   if (!renderer && renderer.error() != error::not_found)
@@ -229,17 +233,17 @@ error scene_instance::set_component_description(scene_node_id node,
       if (member.node != node)
         continue;
       const auto* object = prefab->find_source_object(member.address.source_node_uuid);
-      const auto* source = object ? object->components.find(value.guid()) : nullptr;
+      const auto* source = object ? object->components.find(value->guid()) : nullptr;
       if (!source) {
-        auto state = capture_component_override(node, value.guid());
+        auto state = capture_component_override(node, value->guid());
         if (!state)
           return state.error();
         if (!state->added)
           return error::not_found;
         state->added = value;
-        return set_component_override(node, value.guid(), *state);
+        return set_component_override(node, value->guid(), *state);
       }
-      auto before = source->view(), after = value.view();
+      auto before = (*source)->view(), after = value->view();
       if (!before)
         return before.error();
       if (!after)
@@ -247,11 +251,11 @@ error scene_instance::set_component_description(scene_node_id node,
       auto pending = prefab->reference_.overrides;
       std::erase_if(pending, [&](const auto& v) {
         return v.key.source_node_uuid == member.address.source_node_uuid &&
-               component_description_type(v.key.type_guid) == value.guid();
+               component_description_type(v.key.type_guid) == value->guid();
       });
       auto status = collect_component_overrides(
           *before, *after,
-          {.source_node_uuid = member.address.source_node_uuid, .type_guid = value.guid()},
+          {.source_node_uuid = member.address.source_node_uuid, .type_guid = value->guid()},
           pending);
       if (status.failed())
         return status;

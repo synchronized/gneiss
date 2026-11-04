@@ -50,7 +50,8 @@ int main() try {
   first.prefab.emplace();
   first.prefab->uri = "asset://prefabs/source.prefab.json";
   first.prefab->component_overrides.push_back(
-      {root.uuid, movement_description::type_guid, movement_description{.speed = 4}});
+      {root.uuid, movement_description::type_guid,
+       e::make_component_description(movement_description{4})});
   first.prefab->component_overrides.push_back({child.uuid, e::camera_description::type_guid, {}});
   first.prefab->overrides.push_back({.key = {.source_node_uuid = child.uuid,
                                              .type_guid = movement_description::type_guid,
@@ -158,7 +159,8 @@ int main() try {
   const auto successful_plan = plan;
   auto conflict = scene;
   conflict.objects[1].prefab->component_overrides.push_back(
-      {root.uuid, movement_description::type_guid, movement_description{}});
+      {root.uuid, movement_description::type_guid,
+       e::make_component_description(movement_description{})});
   check(ed::prepare_apply_prefab(text(*e::encode_scene(conflict)), prefab_json, apply, plan,
                                  &diagnostic) == e::error::invalid_state);
   check(plan.changes.empty() && diagnostic.path.find(second.uuid.string()) != std::string::npos &&

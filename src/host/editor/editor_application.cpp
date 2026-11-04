@@ -1205,30 +1205,30 @@ void draw_component_descriptions(editor_state& state) {
     ImGui::EndDisabled();
   }
   for (const auto& component : *components) {
-    identity.component_type = component.guid();
-    auto view = component.view();
-    auto type = meta::describe_type(component.guid());
+    identity.component_type = component->guid();
+    auto view = component->view();
+    auto type = meta::describe_type(component->guid());
     if (!view || !type) {
       state.inspector_error = !view ? view.error() : type.error();
       continue;
     }
     std::optional<meta::instance> original;
     if (source_object) {
-      if (const auto* source = source_object->components.find(component.guid())) {
-        auto original_view = source->view();
+      if (const auto* source = source_object->components.find(component->guid())) {
+        auto original_view = (*source)->view();
         if (original_view)
           original = *original_view;
         else
           state.inspector_error = original_view.error();
       }
     }
-    auto editor = component_editor(component.guid());
+    auto editor = component_editor(component->guid());
     if (!editor) {
       state.inspector_error = editor.error();
       continue;
     }
     const bool asset = editor->route == component_editor_route::mesh_assets;
-    ImGui::PushID(component.guid().string().c_str());
+    ImGui::PushID(component->guid().string().c_str());
     ImGui::BeginDisabled(state.editing.assets().active() || state.editing.history().is_pending());
     auto edit = gneiss::editor::draw_reflected_properties(
         *view, std::string(type->name).c_str(), state.property_edit_serial, state.inspector_error,

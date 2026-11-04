@@ -247,14 +247,14 @@ bool reference_properties() {
       copied_view->assign(readonly->as_reference()->as_const()) != e::error::invalid_argument ||
       copied_view->reset().failed() || copied || !owner.target)
     return false;
-  // 文件内共享恢复为同一对象；再次加载产生独立对象图。
+  // 引用按值内联保存；文件内重复引用与再次加载均产生独立对象。
   auto encoded = m::serialize(registry, owner);
   if (!encoded)
     return false;
   auto restored = m::deserialize<reference_owner>(registry, *encoded);
   auto independent = m::deserialize<reference_owner>(registry, *encoded);
   if (!restored || !independent || !restored->target ||
-      restored->target.get() != restored->readonly.get() || restored->target->number != 42 ||
+      restored->target.get() == restored->readonly.get() || restored->target->number != 42 ||
       restored->target.get() == independent->target.get())
     return false;
   target->next = target;
@@ -268,23 +268,14 @@ bool reference_properties() {
         registry, std::as_bytes(std::span{input.data(), input.size()}));
     return !result && reference_target::alive == before;
   };
-  if (!bad(R"({"target":{"$ref":"missing"}})") ||
-      !bad(R"({"$root":{},"$objects":{"1":{},"1":{}}})") ||
-      !bad(R"({"$root":{},"$objects":{"1":{}}})"))
+  if (!bad(R"({"target":3})") || !bad(R"({"target":{"number":"wrong"}})") ||
+      !bad(R"({"target":{"next":[]}})"))
     return false;
-  std::string wrong_type(reinterpret_cast<const char*>(encoded->data()), encoded->size());
-  auto type_pos = wrong_type.find(reference_target::type_guid.string());
-  if (type_pos == std::string::npos)
-    return false;
-  wrong_type.replace(type_pos, 36, reference_owner::type_guid.string());
-  if (!bad(wrong_type))
-    return false;
-  std::string cycle_json(reinterpret_cast<const char*>(encoded->data()), encoded->size());
-  auto pos = cycle_json.find("\"next\":null");
-  if (pos == std::string::npos)
-    return false;
-  cycle_json.replace(pos, 11, "\"next\":{\"$ref\":\"1\"}");
-  if (!bad(cycle_json))
+  const std::string_view encoded_text{reinterpret_cast<const char*>(encoded->data()),
+                                      encoded->size()};
+  if (encoded_text.find("$objects") != std::string_view::npos ||
+      encoded_text.find("$ref") != std::string_view::npos ||
+      encoded_text.find("$type_guid") != std::string_view::npos)
     return false;
   const std::string input = R"({"target":null,"readonly":null})";
   auto decoded = m::deserialize<reference_owner>(
@@ -298,7 +289,105 @@ bool reference_properties() {
     return false;
   return readonly->as_reference()->reset().ok() && !owner.readonly;
 }
+struct polymorphic_base : m::object {
+  static constexpr std::string_view type_name = "polymorphic_base";
+  static constexpr e::guid type_guid = e::guid::from_bytes({94, 30});
+};
+struct offset_base {
+  virtual ~offset_base() = default;
+  int padding = 0;
+};
+struct polymorphic_child : offset_base, m::object_type<polymorphic_child, polymorphic_base> {
+  static constexpr std::string_view type_name = "polymorphic_child";
+  static constexpr e::guid type_guid = e::guid::from_bytes({94, 31});
+  std::int64_t number = 7;
+};
+bool polymorphic_references() {
+  auto created = m::create_registry();
+  if (!created)
+    return false;
+  auto registry = *created;
+  if (m::type_builder<polymorphic_base>{registry}.polymorphic().commit().failed() ||
+      m::type_builder<polymorphic_child>{registry}
+          .base<polymorphic_base>()
+          .property<&polymorphic_child::number>(m::property_id{1}, "number")
+          .serialization()
+          .commit()
+          .failed() ||
+      m::type_builder<reference_target>{registry}
+          .property<&reference_target::number>(m::property_id{1}, "number")
+          .serialization()
+          .commit()
+          .failed() ||
+      m::freeze(registry).failed())
+    return false;
+  auto input = e::make_ref<polymorphic_child>();
+  input->number = 42;
+  e::ref<const polymorphic_base> original = input;
+  auto encoded = m::serialize(registry, original);
+  if (!encoded)
+    return false;
+  auto decoded = m::deserialize<e::ref<const polymorphic_base>>(registry, *encoded);
+  if (!decoded || !*decoded ||
+      (*decoded)->dynamic_type() != e::runtime_type_of<polymorphic_child>() ||
+      (*decoded).get() == original.get() ||
+      static_cast<const polymorphic_child*>((*decoded)->dynamic_address())->number != 42)
+    return false;
+  auto view = m::instance::from(registry, *decoded);
+  if (!view)
+    return false;
+  auto target = view->as_reference()->get();
+  if (!target || target->type().id() != e::runtime_type_of<polymorphic_child>() ||
+      !target->property("number"))
+    return false;
+  std::string text(reinterpret_cast<const char*>(encoded->data()), encoded->size());
+  auto position = text.find(polymorphic_child::type_guid.string());
+  if (position == std::string::npos)
+    return false;
+  text.replace(position, 36, reference_target::type_guid.string());
+  auto unrelated = m::deserialize<e::ref<const polymorphic_base>>(
+      registry, std::as_bytes(std::span{text.data(), text.size()}));
+  if (unrelated)
+    return false;
+  text.replace(position, 36, e::guid::from_bytes({94, 99}).string());
+  auto unknown = m::deserialize<e::ref<const polymorphic_base>>(
+      registry, std::as_bytes(std::span{text.data(), text.size()}));
+  if (unknown || unknown.error().error != e::error::not_found)
+    return false;
+  auto before = original.get();
+  auto destination = m::mutable_instance::from(registry, original);
+  if (!destination ||
+      m::deserialize_instance(registry, *destination,
+                              std::as_bytes(std::span{text.data(), text.size()}))
+          .error.ok() ||
+      original.get() != before)
+    return false;
+  e::ref<polymorphic_child> concrete = e::make_ref<polymorphic_child>();
+  auto concrete_bytes = m::serialize(registry, concrete);
+  if (!concrete_bytes)
+    return false;
+  const std::string_view concrete_text{reinterpret_cast<const char*>(concrete_bytes->data()),
+                                       concrete_bytes->size()};
+  if (concrete_text.find("$type_guid") != std::string_view::npos)
+    return false;
+  std::vector<e::ref<const polymorphic_base>> repeated{original, original};
+  auto repeated_bytes = m::serialize(registry, repeated);
+  if (!repeated_bytes)
+    return false;
+  auto repeated_copy = m::deserialize<decltype(repeated)>(registry, *repeated_bytes);
+  if (!repeated_copy || repeated_copy->size() != 2 || !(*repeated_copy)[0] ||
+      !(*repeated_copy)[1] || (*repeated_copy)[0].get() == (*repeated_copy)[1].get())
+    return false;
+  e::ref<const polymorphic_base> empty;
+  auto null = m::serialize(registry, empty);
+  if (!null)
+    return false;
+  auto restored_null = m::deserialize<e::ref<const polymorphic_base>>(registry, *null);
+  return restored_null && !*restored_null;
+}
 int main() try {
+  if (!polymorphic_references())
+    return 41;
   if (!reference_properties())
     return 40;
   if (!type_queries())

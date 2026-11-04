@@ -124,3 +124,14 @@ GUID nil 的 JSON 表达调整已完成，见[验收记录](../records/2026-11-0
 构建工具 read_texture_settings 复用纹理 codec；纹理字段走反射和通用格式包装；Prefab 覆盖
 目标 GUID 使用 guid::parse/string，与其他身份字段统一。当前样例、夹具和格式参考同步迁移，
 旧 32 字符覆盖类型标识不保留兼容。详见[验收记录](../records/2026-11-04-texture-reflection-guid.md)。
+
+### 显式多态与组件引用迁移（已完成）
+
+决策见 [ADR-103](../decisions/ADR-103-inline-polymorphic-references.md)。
+
+1. Meta 提供 object 身份、polymorphic/base 注册和引用按值 JSON；删除自动对象表。
+2. 组件改为不可变基类 ref，Scene/Prefab、编辑器与 IPC 复用通用反射入口。
+3. 覆盖引用语义与类型安全测试，编译受影响目标，更新当前接口参考与验收记录。
+
+Windows Clang Debug 全目标构建及 26 项相关测试通过，见
+[验收记录](../records/2026-11-04-inline-polymorphic-references.md)。本批完成不表示整个 0.52 版本完成。
