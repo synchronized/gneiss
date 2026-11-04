@@ -75,6 +75,11 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/progress_notification.hpp
   engine/core/meta/property_path.hpp
   engine/core/meta/instance.hpp
+    engine/core/meta/sequence_view.hpp
+    engine/core/meta/associative_view.hpp
+    engine/core/meta/optional_view.hpp
+    engine/core/meta/reference_view.hpp
+    engine/core/meta/detail/reference_view_access.hpp
   engine/core/meta/detail/type_ops.hpp
   engine/core/meta/ops/forward.hpp
   engine/core/meta/ops/scalar_ops.hpp

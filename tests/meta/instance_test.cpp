@@ -210,7 +210,7 @@ bool reference_properties() {
     return false;
   auto field = root->property("target");
   if (!field || field->kind() != m::type_kind::reference ||
-      field->dereference().error() != e::error::not_found ||
+      field->as_reference()->get().error() != e::error::not_found ||
       field->read_value().error() != e::error::unsupported)
     return false;
   auto target_type = field->type().element_type();
@@ -220,7 +220,7 @@ bool reference_properties() {
   auto source = m::instance::from(registry, target);
   if (!source || field->assign(*source).failed() || owner.target.get() != target.get())
     return false;
-  auto pointed = field->dereference();
+  auto pointed = field->as_reference()->get();
   if (!pointed)
     return false;
   auto number = pointed->property("number");
@@ -228,9 +228,24 @@ bool reference_properties() {
     return false;
   owner.readonly = target;
   auto readonly = root->property("readonly");
-  if (!readonly || readonly->dereference().error() != e::error::unsupported ||
-      !readonly->as_const().dereference() ||
+  if (!readonly || readonly->as_reference()->get().error() != e::error::unsupported ||
+      !readonly->as_const().as_reference()->get() ||
       field->assign(readonly->as_const()) != e::error::invalid_argument)
+    return false;
+  auto reference = field->as_reference();
+  if (!reference || !reference->has_value() || !*reference->has_value() ||
+      root->as_reference().error() != e::error::unsupported ||
+      m::instance{}.as_reference().error() != e::error::invalid_state)
+    return false;
+  e::ref<reference_target> copied;
+  auto copied_instance = m::mutable_instance::from(registry, copied);
+  if (!copied_instance)
+    return false;
+  auto copied_view = copied_instance->as_reference();
+  if (!copied_view || *copied_view->has_value() ||
+      copied_view->assign(reference->as_const()).failed() || copied.get() != target.get() ||
+      copied_view->assign(readonly->as_reference()->as_const()) != e::error::invalid_argument ||
+      copied_view->reset().failed() || copied || !owner.target)
     return false;
   // 文件内共享恢复为同一对象；再次加载产生独立对象图。
   auto encoded = m::serialize(registry, owner);
@@ -276,11 +291,12 @@ bool reference_properties() {
       registry, std::as_bytes(std::span{input.data(), input.size()}));
   if (!decoded || decoded->target || decoded->readonly)
     return false;
-  if (field->reset_reference().failed() || owner.target || !owner.readonly || target->number != 42)
+  if (field->as_reference()->reset().failed() || owner.target || !owner.readonly ||
+      target->number != 42)
     return false;
-  if (field->dereference().error() != e::error::not_found)
+  if (field->as_reference()->get().error() != e::error::not_found)
     return false;
-  return readonly->reset_reference().ok() && !owner.readonly;
+  return readonly->as_reference()->reset().ok() && !owner.readonly;
 }
 int main() try {
   if (!reference_properties())

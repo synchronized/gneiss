@@ -8,6 +8,13 @@
 2026-11-04：已完成 Meta 操作表拆分与容器 traits 适配，见[验收记录](../records/2026-11-04-meta-type-ops.md)；全仓审计及其他批次仍待开始。版本范围和非目标见
 [VER-052](VER-052-0.52.0-architecture-cleanup.md)，本页仅维护实施顺序和验收方法。
 
+## 当前批次
+
+已完成容器视图按 sequence、associative、optional 分拆，并增加 reference_view，
+见[本批验收记录](../records/2026-11-04-meta-views.md)。
+迁移序列化和调用方，移除 instance 上的旧引用专用入口；借用、共享控制块及文件格式保持不变。
+验收覆盖空引用、只读目标、共享赋值、重置、类型不匹配、深层 JSON 和独立头编译。
+
 ## 实施顺序
 
 ### A52-01：建立现状与删除清单

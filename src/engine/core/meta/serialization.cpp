@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/serialization.hpp"
+#include "engine/core/meta/detail/reference_view_access.hpp"
 #include "engine/core/meta/instance.hpp"
 #include <algorithm>
 #include <cmath>
@@ -224,7 +225,7 @@ encode_view(graph_context& ctx, const registry_ref& registry, const instance& vi
             yyjson_mut_doc* doc, std::size_t depth) {
   const auto value_type = view.type();
   if (value_type.kind() == type_kind::reference) {
-    auto owned = view.reference_owner();
+    auto owned = detail::reference_view_access::owner(view);
     if (!owned)
       return failure(owned.error());
     if (!*owned)
@@ -418,7 +419,7 @@ serialization_diagnostic validate_view(const registry_ref& registry, const insta
                                        std::size_t depth) {
   const auto value_type = view.type();
   if (value_type.kind() == type_kind::reference) {
-    auto owner = view.reference_owner();
+    auto owner = detail::reference_view_access::owner(view);
     return owner && !*owner ? serialization_diagnostic{}
                             : failure(error::unsupported, "", "非空缺省引用必须显式保存");
   }
@@ -561,7 +562,7 @@ serialization_diagnostic decode_view(graph_context& ctx, const registry_ref& reg
   const auto value_type = view.type();
   if (value_type.kind() == type_kind::reference) {
     if (yyjson_is_null(input)) {
-      auto status = view.reset_reference();
+      auto status = detail::reference_view_access::reset(view);
       return status.failed() ? failure(status) : serialization_diagnostic{};
     }
     auto* ref_id = yyjson_obj_get(input, "$ref");
@@ -609,7 +610,7 @@ serialization_diagnostic decode_view(graph_context& ctx, const registry_ref& reg
       return failure(error::invalid_argument, "", "不允许内嵌强引用环");
     if (found->second.type != target->id())
       return failure(error::invalid_argument, "", "引用目标类型不匹配");
-    auto status = view.assign_reference(target->id(), found->second.owner);
+    auto status = detail::reference_view_access::assign(view, target->id(), found->second.owner);
     return status.failed() ? failure(status) : serialization_diagnostic{};
   }
   if (depth > 64 && value_type.kind() != type_kind::scalar)

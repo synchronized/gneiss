@@ -21,12 +21,17 @@
 冻结时沿元素操作表检查对象叶子的 GUID 与运行期 ID，漏注册返回 not_found。
 递归对象（如 vector<Node>）只检查叶子身份，不在冻结阶段展开无限对象树。
 
-只读和可写容器都支持 size；顺序视图通过 at(index) 返回元素实例，越界返回 not_found。
+sequence_view 与 associative_view 的只读和可写版本都支持 size；顺序视图通过 at(index) 返回元素实例，越界返回 not_found。
 可写顺序视图提供 resize。vector 保留原有前缀、新元素默认构造，缩小时销毁尾部。
 array 的 is_resizable() 为 false，resize 仅接受原长度；JSON 长度必须恰好为 N，包含 N=0。
 关联视图通过 keys() 获取排序后的自有键列表，通过 find(key) 获取值实例；键不可通过视图修改。
 可写关联视图提供 insert、erase、clear，insert 已存在键时保留原值。optional 提供 has_value/get；
-可写版本提供 ensure/reset，ensure 保留已有值，reset 销毁内部对象。
+可写版本提供 ensure/reset，ensure 保留已有值，reset 销毁内部对象；optional 不提供 size/at。
+
+四类视图分别定义在 meta/sequence_view.hpp、associative_view.hpp、optional_view.hpp、
+reference_view.hpp；每类通过 basic_*_view<Mutable> 区分读写，不共用跨类别 container_view。
+instance.hpp 汇集这些视图，原有容器调用方无需更换 include。引用视图语义见
+[引用属性访问](reflection.md#引用属性访问)。
 
 ```cpp
 auto root = meta::instance::from(registry, object);

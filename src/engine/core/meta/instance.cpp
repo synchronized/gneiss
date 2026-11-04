@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/instance.hpp"
+#include "engine/core/meta/detail/reference_view_access.hpp"
 #include <algorithm>
 namespace gneiss::engine::meta {
 meta::type instance::type() const noexcept {
@@ -317,50 +318,40 @@ result<mutable_optional_view> mutable_instance::as_optional() const noexcept {
     return error::unsupported;
   return mutable_optional_view{*this};
 }
-result<instance> instance::dereference() const noexcept {
+result<reference_view> instance::as_reference() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
-  if (kind() != type_kind::reference || !access_ || !access_->get<reference_ops>()->get)
+  if (kind() != type_kind::reference)
     return error::unsupported;
-  const auto* target = access_->get<reference_ops>()->get(data_);
-  if (!target)
-    return error::not_found;
-  return from_access(registry_, access_->element(), target);
+  return reference_view{*this};
 }
-result<mutable_instance> mutable_instance::dereference() const noexcept {
+result<mutable_reference_view> mutable_instance::as_reference() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
-  if (kind() != type_kind::reference || !view_.access_ ||
-      !view_.access_->get<reference_ops>()->get_mut)
+  if (kind() != type_kind::reference)
     return error::unsupported;
-  auto* target = view_.access_->get<reference_ops>()->get_mut(data_);
-  if (!target)
-    return error::not_found;
-  return from_access(view_.registry_, view_.access_->element(), target);
+  return mutable_reference_view{*this};
 }
-error mutable_instance::reset_reference() const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (kind() != type_kind::reference || !view_.access_ ||
-      !view_.access_->get<reference_ops>()->reset)
-    return error::unsupported;
-  view_.access_->get<reference_ops>()->reset(data_);
-  return error::success;
 }
 
-result<ref<const void>> instance::reference_owner() const noexcept {
-  if (kind() != type_kind::reference || !access_ || !access_->get<reference_ops>()->owner)
-    return error::unsupported;
-  return access_->get<reference_ops>()->owner(data_);
+namespace gneiss::engine::meta::detail {
+result<ref<const void>> reference_view_access::owner(const instance& view) noexcept {
+  auto reference = view.as_reference();
+  if (!reference)
+    return reference.error();
+  return reference->owner();
 }
-error mutable_instance::assign_reference(engine::type_id id,
-                                         const ref<void>& owner) const noexcept {
-  if (kind() != type_kind::reference || !view_.access_ || !view_.access_->get<reference_ops>()->set)
-    return error::unsupported;
-  if (view_.access_->element().id != id)
-    return error::invalid_argument;
-  view_.access_->get<reference_ops>()->set(data_, owner);
-  return error::success;
+error reference_view_access::assign(const mutable_instance& view, engine::type_id id,
+                                    const ref<void>& owner) noexcept {
+  auto reference = view.as_reference();
+  if (!reference)
+    return reference.error();
+  return reference->assign_owner(id, owner);
 }
-
+error reference_view_access::reset(const mutable_instance& view) noexcept {
+  auto reference = view.as_reference();
+  if (!reference)
+    return reference.error();
+  return reference->reset();
+}
 }
