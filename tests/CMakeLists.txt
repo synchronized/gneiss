@@ -617,24 +617,16 @@ gneiss_target_compile_warnings(gneiss_scene_projection_math_test)
 gneiss_target_output_directories(gneiss_scene_projection_math_test)
 add_test(NAME gneiss.scene_projection_math COMMAND gneiss_scene_projection_math_test)
 
-# CPU 准备单独链接：不得通过 Engine 或资源服务补齐依赖。
+# CPU 准备复用 Engine 的反射描述 codec，不创建 Application 或 GPU。
 add_executable(gneiss_render_asset_preparation_test
-  "${PROJECT_SOURCE_DIR}/src/engine/core/guid.cpp"
   asset/asset_preparation_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/asset_decode.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
-)
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/asset_decode.cpp")
 target_compile_definitions(gneiss_render_asset_preparation_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_include_directories(gneiss_render_asset_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_render_asset_preparation_test PRIVATE
-  gneiss_core_values gneiss_yyjson gneiss_png granit::granit Threads::Threads)
+  gneiss::engine gneiss_yyjson granit::granit Threads::Threads)
 target_compile_features(gneiss_render_asset_preparation_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_asset_preparation_test)
 gneiss_target_output_directories(gneiss_render_asset_preparation_test)

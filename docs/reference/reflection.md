@@ -334,7 +334,7 @@ vector4 使用独立 vec4 标量身份和四分量 JSON 数组；旧 IPC 的四�
 
 ### 资源文件外层包装
 
-Material 与 Action Map 使用 resource/detail/reflected_asset_codec.hpp 共用格式包装：
+Material、Texture 与 Action Map 使用 resource/detail/reflected_asset_codec.hpp 共用格式包装：
 验证唯一的 format/version、对象根与配置的字节上限，内容交给反射字段序列化。
 编码拒绝反射字段占用 format/version 名称，并在添加格式头后检查完整输出大小。
 Material 保持版本 6，非零未知版本返回 unsupported；Action Map 保持版本 1 与 1 MiB 上限，
@@ -433,3 +433,14 @@ Meta 注册表仅属于当前进程。通过 IPC 接收场景组件描述的宿�
 非 nil GUID 保存为字符串，nil 保存为 null；全零 UUID 字符串仍可解析，重新保存统一为 null。
 字段缺失沿用 required/默认值规则，不等同于显式 null；非空身份约束仍由业务校验负责。
 此规则不依赖 optional 反射，也不改变 ref 的所有权和空引用规则。
+
+### 枚举名称的 JSON 表达
+
+属性标记 `property_flags::enum_name` 使 JSON 使用枚举注册项的名称。C++ 属性保持枚举类型，
+类型视图仍可查询枚举列表，`read_value()` 仍返回底层 int64/uint64。未标记属性保持数字编码。
+名称编码拒绝未注册值；解码只接受已注册名称，拒绝数字、null 和未知名称，诊断定位到属性路径。
+该标记用于枚举属性，不是任意容器或对象的格式转换选项。
+
+Texture 描述注册 source、color_space、usage 三个必填字段；后两者使用 enum_name。
+文件保持 gneiss.texture v2、字符串枚举及 normal 必须配 linear 的校验。调用描述 codec 前
+需初始化默认 Meta 注册表；不会自动启动 Application 或 GPU。

@@ -227,7 +227,7 @@
         "overrides": [
           {
             "source_node_uuid": "21000000-0000-4000-8000-000000000002",
-            "type_guid": "69644f20b2d24e488c7491f4f952ec2d",
+            "type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d",
             "property_id": 1,
             "value": {
               "kind": "vec3",
@@ -268,7 +268,7 @@
         "overrides": [
           {
             "source_node_uuid": "21000000-0000-4000-8000-000000000003",
-            "type_guid": "69644f20b2d24e488c7491f4f952ec2d",
+            "type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d",
             "property_id": 3,
             "value": {
               "kind": "vec3",
@@ -309,7 +309,7 @@
         "overrides": [
           {
             "source_node_uuid": "21000000-0000-4000-8000-000000000004",
-            "type_guid": "69644f20b2d24e488c7491f4f952ec2d",
+            "type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d",
             "property_id": 1,
             "value": {
               "kind": "vec3",

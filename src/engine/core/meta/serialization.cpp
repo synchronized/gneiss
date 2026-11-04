@@ -350,6 +350,31 @@ encode_view(graph_context& ctx, const registry_ref& registry, const instance& vi
   }
   return failure(error::unsupported);
 }
+result<yyjson_mut_val*, serialization_diagnostic> encode_enum_name(const instance& view,
+                                                                   yyjson_mut_doc* doc) {
+  auto entries = view.type().enum_entries();
+  auto scalar = view.read_value();
+  if (!entries || !scalar)
+    return failure(error::invalid_argument, "", "属性必须是已注册枚举");
+  const auto found = std::ranges::find(*entries, *scalar, &enum_entry::data);
+  if (found == entries->end())
+    return failure(error::invalid_argument, "", "未知枚举值");
+  auto* name = yyjson_mut_strncpy(doc, found->name.data(), found->name.size());
+  if (!name)
+    return failure(error::out_of_memory);
+  return name;
+}
+serialization_diagnostic decode_enum_name(const mutable_instance& view, yyjson_val* input) {
+  auto entries = view.type().enum_entries();
+  if (!entries || !yyjson_is_str(input))
+    return failure(error::invalid_argument, "", "属性必须是枚举名称");
+  const std::string_view name{yyjson_get_str(input), yyjson_get_len(input)};
+  const auto found = std::ranges::find(*entries, name, &enum_entry::name);
+  if (found == entries->end())
+    return failure(error::invalid_argument, "", "未知枚举名称");
+  auto status = view.write_value(found->data);
+  return status.failed() ? failure(status) : serialization_diagnostic{};
+}
 result<yyjson_mut_val*, serialization_diagnostic>
 encode_members(graph_context& ctx, const registry_ref& registry, type_id id, const void* object,
                yyjson_mut_doc* doc, std::size_t depth) {
@@ -369,7 +394,9 @@ encode_members(graph_context& ctx, const registry_ref& registry, type_id id, con
     auto child = view->property(property.id);
     if (!child)
       return failure(child.error(), path);
-    auto encoded = encode_view(ctx, registry, *child, doc, depth + 1);
+    auto encoded = has_flags(property.flags, property_flags::enum_name)
+                       ? encode_enum_name(*child, doc)
+                       : encode_view(ctx, registry, *child, doc, depth + 1);
     if (!encoded)
       return prefix(std::move(encoded).error(), path);
     auto* key = yyjson_mut_strncpy(doc, property.name.data(), property.name.size());
@@ -701,7 +728,9 @@ serialization_diagnostic decode_members(graph_context& ctx, const registry_ref& 
     auto child = view->property(property.id);
     if (!child)
       return failure(child.error(), path);
-    auto status = decode_view(ctx, registry, *child, input, depth + 1);
+    auto status = has_flags(property.flags, property_flags::enum_name)
+                      ? decode_enum_name(*child, input)
+                      : decode_view(ctx, registry, *child, input, depth + 1);
     if (status.error.failed())
       return prefix(std::move(status), path);
   }

@@ -12,32 +12,39 @@ namespace gneiss::engine {
 namespace {
 using diagnostic = meta::serialization_diagnostic;
 
-diagnostic material_invalid(std::string path, std::string message = {}) {
+diagnostic invalid_description(std::string path, std::string message = {}) {
   return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};
 }
 diagnostic validate_sampling(const texture_sampling& v) {
-  return valid_sampling(v) ? diagnostic{} : material_invalid("", "采样值越界");
+  return valid_sampling(v) ? diagnostic{} : invalid_description("", "采样值越界");
 }
 diagnostic validate_parameters(const material_parameters& v) {
   const auto unit = [](float n) { return std::isfinite(n) && n >= 0 && n <= 1; };
   for (std::size_t i = 0; i < 4; ++i)
     if (!unit(v.color[i]))
-      return material_invalid("/color/" + std::to_string(i));
+      return invalid_description("/color/" + std::to_string(i));
   if (!unit(v.metallic))
-    return material_invalid("/metallic");
+    return invalid_description("/metallic");
   if (!unit(v.roughness))
-    return material_invalid("/roughness");
+    return invalid_description("/roughness");
   if (!unit(v.occlusion_strength))
-    return material_invalid("/occlusion_strength");
+    return invalid_description("/occlusion_strength");
   if (!std::isfinite(v.normal_scale))
-    return material_invalid("/normal_scale");
+    return invalid_description("/normal_scale");
   for (float n : math::components(v.emissive))
     if (!unit(n))
-      return material_invalid("/emissive");
+      return invalid_description("/emissive");
   if (!std::isfinite(v.alpha_cutoff) || v.alpha_cutoff < 0)
-    return material_invalid("/alpha_cutoff");
+    return invalid_description("/alpha_cutoff");
   if (v.alpha_mode > material_alpha_mode::blend)
-    return material_invalid("/alpha_mode");
+    return invalid_description("/alpha_mode");
+  return {};
+}
+diagnostic validate_texture(const texture_description& v) {
+  if (v.uri.empty())
+    return invalid_description("/source", "纹理 source 必须是非空 URI");
+  if (v.usage == texture_usage::normal && v.color_space != texture_color_space::linear)
+    return invalid_description("/usage", "法线纹理必须使用 linear");
   return {};
 }
 constexpr detail::reflected_asset_format material_format{"gneiss.material", 6};
@@ -94,6 +101,32 @@ error register_builtin_resource_types() noexcept {
                .value("repeat", texture_address::repeat)
                .value("clamp", texture_address::clamp)
                .value("mirror", texture_address::mirror)
+               .commit();
+  if (status.failed())
+    return status;
+  status = meta::enum_builder<texture_color_space>{}
+               .value("linear", texture_color_space::linear)
+               .value("srgb", texture_color_space::srgb)
+               .commit();
+  if (status.failed())
+    return status;
+  status = meta::enum_builder<texture_usage>{}
+               .value("default", texture_usage::default_usage)
+               .value("normal", texture_usage::normal)
+               .commit();
+  if (status.failed())
+    return status;
+  status = meta::type_builder<texture_description>{}
+               .property<&texture_description::uri>(meta::property_id{1}, "source",
+                                                    meta::property_flags::required)
+               .property<&texture_description::color_space>(meta::property_id{2}, "color_space",
+                                                            meta::property_flags::required |
+                                                                meta::property_flags::enum_name)
+               .property<&texture_description::usage>(meta::property_id{3}, "usage",
+                                                      meta::property_flags::required |
+                                                          meta::property_flags::enum_name)
+               .serialization(true)
+               .validate<&validate_texture>()
                .commit();
   if (status.failed())
     return status;

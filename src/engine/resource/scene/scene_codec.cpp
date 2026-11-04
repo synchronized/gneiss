@@ -33,7 +33,6 @@ using gneiss::engine::scene_diagnostic;
 
 constexpr std::uint64_t schema_version = 5;
 constexpr std::string_view scene_format = "gneiss.scene";
-constexpr char hex_digits[] = "0123456789abcdef";
 
 void fail(scene_diagnostic& diagnostic, gneiss::engine::error result, std::string_view path,
           std::string_view message, std::size_t byte_offset = 0) noexcept {
@@ -218,37 +217,6 @@ yyjson_mut_val* make_uuid(yyjson_mut_doc* doc, gneiss::engine::guid value) {
   return parse_components(components, path + "/components", output, diagnostic);
 }
 
-[[nodiscard]] int hex_value(char value) noexcept {
-  if (value >= '0' && value <= '9') {
-    return value - '0';
-  }
-  if (value >= 'a' && value <= 'f') {
-    return value - 'a' + 10;
-  }
-  return -1;
-}
-
-[[nodiscard]] bool parse_type_id(yyjson_val* value, gneiss::engine::guid& output) noexcept {
-  if (!yyjson_is_str(value) || yyjson_get_len(value) != 32U) {
-    return false;
-  }
-  gneiss::engine::guid::byte_array parsed{};
-  const auto* text = yyjson_get_str(value);
-  for (std::size_t index = 0U; index < 16U; ++index) {
-    const auto high = hex_value(text[index * 2U]);
-    const auto low = hex_value(text[index * 2U + 1U]);
-    if (high < 0 || low < 0) {
-      return false;
-    }
-    parsed[index] = static_cast<std::uint8_t>((high << 4) | low);
-  }
-  if (std::ranges::all_of(parsed, [](std::uint8_t byte) { return byte == 0U; })) {
-    return false;
-  }
-  output = gneiss::engine::guid::from_bytes(parsed);
-  return true;
-}
-
 [[nodiscard]] bool parse_override_value(yyjson_val* object, gneiss::engine::value& output) {
   auto decoded = gneiss::engine::meta::detail::read_tagged_value(object);
   if (!decoded)
@@ -277,9 +245,9 @@ yyjson_mut_val* make_uuid(yyjson_mut_doc* doc, gneiss::engine::guid value) {
     return false;
   }
   gneiss::engine::guid type_id{};
-  if (!parse_type_id(yyjson_obj_get(value, "type_guid"), type_id)) {
+  if (!read_required_guid(value, "type_guid", path, type_id, diagnostic)) {
     fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/type_guid",
-         "Type ID 必须是非零的 32 位小写十六进制");
+         "类型 GUID 必须是非零的规范小写 UUID");
     return false;
   }
   auto* field = yyjson_obj_get(value, "property_id");
@@ -522,15 +490,6 @@ make_component_overrides(yyjson_mut_doc* document,
 }
 
 // 从当前描述生成已注册字段。
-[[nodiscard]] std::string type_id_text(gneiss::engine::guid id) {
-  std::string text(32U, '0');
-  for (std::size_t index = 0U; index < 16U; ++index) {
-    text[index * 2U] = hex_digits[id.bytes()[index] >> 4U];
-    text[index * 2U + 1U] = hex_digits[id.bytes()[index] & 0x0FU];
-  }
-  return text;
-}
-
 [[nodiscard]] yyjson_mut_val* make_override_value(yyjson_mut_doc* document,
                                                   const gneiss::engine::value& source) {
   auto encoded = gneiss::engine::meta::detail::write_tagged_value(document, source);
@@ -546,7 +505,7 @@ make_prefab_overrides(yyjson_mut_doc* document,
   }
   for (const auto& source : overrides) {
     auto* object = yyjson_mut_obj(document);
-    const auto type_text = type_id_text(source.key.type_guid);
+    const auto type_text = source.key.type_guid.string();
     auto* value = make_override_value(document, source.value);
     if (object == nullptr || value == nullptr ||
         !yyjson_mut_obj_add_val(document, object, "source_node_uuid",

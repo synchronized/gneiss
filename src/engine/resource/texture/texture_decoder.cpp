@@ -3,69 +3,24 @@
 
 #include "texture_decoder.hpp"
 #include "engine/core/sha256.hpp"
-#include "engine/resource/detail/asset_json.hpp"
+#include "engine/resource/detail/reflected_asset_codec.hpp"
 #include "png_decoder.hpp"
 #include "texture_binary.hpp"
 #include "texture_ktx2.hpp"
 #include <granit/renderer/texture_asset.hpp>
 namespace gneiss::engine::detail {
-[[nodiscard]] result<texture_description, asset_diagnostic>
+namespace {
+constexpr reflected_asset_format texture_format{"gneiss.texture", 2};
+asset_diagnostic convert(meta::serialization_diagnostic d) {
+  return {d.error, d.byte_offset, std::move(d.path), std::move(d.message)};
+}
+}
+result<texture_description, asset_diagnostic>
 parse_texture(const std::vector<std::byte>& bytes) try {
-  texture_description output;
-  asset_diagnostic diagnostic;
-
-  auto parsed_document = parse_document(bytes);
-  if (!parsed_document) {
-    diagnostic = std::move(parsed_document).error();
-    return diagnostic;
-  }
-  auto document = std::move(*parsed_document);
-  yyjson_val* root = yyjson_doc_get_root(document.get());
-  constexpr std::array fields{
-      std::string_view{"format"},      std::string_view{"version"}, std::string_view{"source"},
-      std::string_view{"color_space"}, std::string_view{"usage"},
-  };
-  std::uint64_t version = 0;
-  if (!validate_header(root, "gneiss.texture", fields, 2U, version, diagnostic)) {
-    return diagnostic;
-  }
-  if (version != 2U) {
-    fail(diagnostic, engine::error::unsupported, "/version", "纹理描述仅支持版本 2");
-    return diagnostic;
-  }
-  yyjson_val* source = yyjson_obj_get(root, "source");
-  if (!yyjson_is_str(source) || yyjson_get_len(source) == 0U) {
-    fail(diagnostic, engine::error::invalid_argument, "/source", "Texture source 必须是非空 URI");
-    return diagnostic;
-  }
-  yyjson_val* color_space = yyjson_obj_get(root, "color_space");
-  if (!yyjson_is_str(color_space)) {
-    fail(diagnostic, engine::error::invalid_argument, "/color_space",
-         "Texture 颜色空间必须是字符串");
-    return diagnostic;
-  }
-  const auto color_space_name = json_string(color_space);
-  if (color_space_name == "srgb") {
-    output.color_space = texture_color_space::srgb;
-  } else if (color_space_name == "linear") {
-    output.color_space = texture_color_space::linear;
-  } else {
-    fail(diagnostic, engine::error::invalid_argument, "/color_space", "只支持 srgb 或 linear");
-    return diagnostic;
-  }
-  auto* const usage = yyjson_obj_get(root, "usage");
-  if (!yyjson_is_str(usage) ||
-      (json_string(usage) != "default" && json_string(usage) != "normal") ||
-      (json_string(usage) == "normal" && output.color_space != texture_color_space::linear)) {
-    fail(diagnostic, engine::error::invalid_argument, "/usage",
-         "纹理用途必须是 default 或 normal，法线纹理必须使用 linear");
-    return diagnostic;
-  }
-  output.usage =
-      json_string(usage) == "normal" ? texture_usage::normal : texture_usage::default_usage;
-  output.uri.assign(json_string(source));
-  return output;
-
+  auto decoded = decode_reflected_asset<texture_description>(bytes, texture_format);
+  if (!decoded)
+    return convert(std::move(decoded).error());
+  return std::move(*decoded);
 } catch (const std::bad_alloc&) {
   return asset_diagnostic{.error = error::out_of_memory};
 } catch (...) {
@@ -74,35 +29,10 @@ parse_texture(const std::vector<std::byte>& bytes) try {
 
 result<std::vector<std::byte>, asset_diagnostic>
 encode_texture(const texture_description& source) noexcept try {
-  if (source.uri.empty() ||
-      (source.color_space != texture_color_space::linear &&
-       source.color_space != texture_color_space::srgb) ||
-      (source.usage != texture_usage::default_usage && source.usage != texture_usage::normal) ||
-      (source.usage == texture_usage::normal && source.color_space != texture_color_space::linear))
-    return asset_diagnostic{.error = error::invalid_argument};
-  std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> doc(yyjson_mut_doc_new(nullptr),
-                                                                      &yyjson_mut_doc_free);
-  if (!doc)
-    return asset_diagnostic{.error = error::out_of_memory};
-  auto* root = yyjson_mut_obj(doc.get());
-  if (!root || !yyjson_mut_obj_add_str(doc.get(), root, "format", "gneiss.texture") ||
-      !yyjson_mut_obj_add_uint(doc.get(), root, "version", 2) ||
-      !yyjson_mut_obj_add_strncpy(doc.get(), root, "source", source.uri.data(),
-                                  source.uri.size()) ||
-      !yyjson_mut_obj_add_str(doc.get(), root, "color_space",
-                              source.color_space == texture_color_space::srgb ? "srgb"
-                                                                              : "linear") ||
-      !yyjson_mut_obj_add_str(doc.get(), root, "usage",
-                              source.usage == texture_usage::normal ? "normal" : "default"))
-    return asset_diagnostic{.error = error::out_of_memory};
-  yyjson_mut_doc_set_root(doc.get(), root);
-  std::size_t size{};
-  std::unique_ptr<char, decltype(&std::free)> text(yyjson_mut_write(doc.get(), 0, &size),
-                                                   &std::free);
-  if (!text)
-    return asset_diagnostic{.error = error::out_of_memory};
-  const auto* begin = reinterpret_cast<const std::byte*>(text.get());
-  return std::vector<std::byte>(begin, begin + size);
+  auto encoded = encode_reflected_asset(source, texture_format);
+  if (!encoded)
+    return convert(std::move(encoded).error());
+  return std::move(*encoded);
 } catch (const std::bad_alloc&) {
   return asset_diagnostic{.error = error::out_of_memory};
 } catch (...) {

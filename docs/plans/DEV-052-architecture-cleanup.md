@@ -93,12 +93,12 @@ GUID nil 的 JSON 表达调整已完成，见[验收记录](../records/2026-11-0
 
 1. 已实现：Prefab 属性覆盖值复用 Meta 标量 JSON 编解码。带类型标签的 value
    使用统一标量规则；GUID 标签为 `guid`，值为 UUID 字符串或 null，不保留旧 `type_id` 标签。
-   覆盖目标的 `type_guid` 身份键格式本批不变。
+   覆盖目标的 `type_guid` 身份键已在后续收敛为规范 UUID 字符串。
 2. 已完成：导入 SDK 链接 Engine，构造材质/场景/纹理描述并调用共享 codec，
    删除手写 JSON 及重复编译的编码/摘要实现；见 [ADR-102](../decisions/ADR-102-importer-engine-codecs.md)。
 3. 已实现：Scene/Prefab 文档对象统一调用 `scene_codec.cpp` 的 `encode_object`，删除
    文档写入过程重复的组件与 Prefab 覆盖编码；文档级身份和层级校验保留。
-4. 已完成评估，纹理 usage 与显式 codec 随导入器迁移，反射迁移未实施：纹理、网格描述的反射化方案见下文。
+4. 已完成评估，纹理 usage 与显式 codec 随导入器迁移，纹理反射迁移已实施，网格仍为评估方案。
 
 ### 导入器依赖决策
 
@@ -109,8 +109,7 @@ GUID nil 的 JSON 表达调整已完成，见[验收记录](../records/2026-11-0
 ### 纹理与网格评估
 
 - `texture_description` 原先只有 URI 与色彩空间，本批已补齐 usage 保存及共享编码入口，
-  反射注册留待后续；当前字符串枚举须保留格式映射，不能
-  因枚举反射默认输出整数而悄悄改变格式。normal 必须使用 linear 的业务校验继续保留。
+  纹理字段已注册反射，字符串枚举通过 enum_name 标记保留。normal 必须使用 linear 的业务校验继续保留。
 - `mesh_decoder.cpp` 的 JSON 使用独立顶点/UV/法线数组，内存 mesh_data 的排列不同。
   建议明确文件描述与运行载荷转换，反射负责字段读取，转换负责数组长度、三角形数量、
   有限数和法线检查，不直接序列化运行数据的内存布局。
@@ -119,3 +118,9 @@ GUID nil 的 JSON 表达调整已完成，见[验收记录](../records/2026-11-0
 
 本批验证见[导入器共享 codec 验收记录](../records/2026-11-04-importer-engine-codecs.md)。
 前批覆盖值/对象编码的三项测试亦已通过；未执行大场景、远端 CI 或跨平台矩阵。
+
+### 三项序列化收敛验收
+
+构建工具 read_texture_settings 复用纹理 codec；纹理字段走反射和通用格式包装；Prefab 覆盖
+目标 GUID 使用 guid::parse/string，与其他身份字段统一。当前样例、夹具和格式参考同步迁移，
+旧 32 字符覆盖类型标识不保留兼容。详见[验收记录](../records/2026-11-04-texture-reflection-guid.md)。

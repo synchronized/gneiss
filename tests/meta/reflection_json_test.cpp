@@ -64,8 +64,53 @@ e::result<std::vector<std::byte>, m::serialization_diagnostic> custom_encode(con
 e::result<sample, m::serialization_diagnostic> custom_decode(std::span<const std::byte>) {
   return sample{};
 }
+enum class named_number : std::int32_t { negative = -7, positive = 9 };
+struct enum_sample {
+  static constexpr std::string_view type_name = "json_enum_sample";
+  static constexpr e::guid type_guid = e::guid::from_bytes({61, 9});
+  named_number named{named_number::negative};
+  named_number numeric{named_number::negative};
+};
+bool enum_json_contract() {
+  auto registry = m::create_registry();
+  if (!registry ||
+      m::enum_builder<named_number>{*registry}
+          .value("negative", named_number::negative)
+          .value("positive", named_number::positive)
+          .commit()
+          .failed() ||
+      m::type_builder<enum_sample>{*registry}
+          .property<&enum_sample::named>(m::property_id{1}, "named",
+                                         m::property_flags::enum_name | m::property_flags::required)
+          .property<&enum_sample::numeric>(m::property_id{2}, "numeric")
+          .serialization(true)
+          .commit()
+          .failed() ||
+      m::freeze(*registry).failed())
+    return false;
+  auto encoded = m::serialize(*registry, enum_sample{});
+  if (!encoded)
+    return false;
+  const std::string_view text(reinterpret_cast<const char*>(encoded->data()), encoded->size());
+  if (text.find(R"("named":"negative")") == text.npos || text.find(R"("numeric":-7)") == text.npos)
+    return false;
+  auto decoded = m::deserialize<enum_sample>(*registry, *encoded);
+  if (!decoded || decoded->named != named_number::negative ||
+      decoded->numeric != named_number::negative)
+    return false;
+  for (const auto invalid : {R"({"named":-7})", R"({"named":"unknown"})", R"({"named":null})"}) {
+    auto rejected = m::deserialize<enum_sample>(*registry, bytes(invalid));
+    if (rejected || rejected.error().path != "/named")
+      return false;
+  }
+  enum_sample unknown;
+  unknown.named = static_cast<named_number>(10);
+  return !m::serialize(*registry, unknown);
+}
 bool nested_json_contract();
 int main() try {
+  if (!enum_json_contract())
+    return 26;
   if (!nested_json_contract())
     return 25;
   auto created = m::create_registry();

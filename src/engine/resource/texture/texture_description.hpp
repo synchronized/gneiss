@@ -35,6 +35,8 @@ struct texture_sampling {
 /** 文件描述的运行时视图；尺寸和 mip 布局由负载容器负责，不重复存储。 */
 enum class texture_usage : std::uint32_t { default_usage, normal };
 struct texture_description final {
+  static constexpr std::string_view type_name = "texture_description";
+  static constexpr guid type_guid = guid::from_bytes({0x97, 7});
   std::string uri;
   texture_color_space color_space{};
   texture_usage usage{};

@@ -100,6 +100,19 @@ int main() { // NOLINT(bugprone-exception-escape)
     auto decoded = gneiss::engine::detail::parse_texture(*encoded);
     if (!decoded || decoded->usage != gneiss::engine::texture_usage::normal)
       return 35;
+    for (
+        const std::string_view invalid :
+        {R"({"format":"gneiss.texture","version":2,"source":"asset://x","color_space":1,"usage":"default"})",
+         R"({"format":"gneiss.texture","version":2,"source":"asset://x","color_space":"unknown","usage":"default"})",
+         R"({"format":"gneiss.texture","version":2,"source":"asset://x","color_space":"srgb"})",
+         R"({"format":"gneiss.texture","version":2,"source":"asset://x","color_space":"srgb","usage":"unknown"})"}) {
+      const auto bytes = std::as_bytes(std::span(invalid.data(), invalid.size()));
+      if (gneiss::engine::detail::parse_texture({bytes.begin(), bytes.end()}))
+        return 36;
+    }
+    texture->usage = static_cast<gneiss::engine::texture_usage>(99);
+    if (gneiss::engine::detail::encode_texture(*texture))
+      return 37;
   }
   const auto asset_root = first.generic_string();
   gneiss::runtime::application_configuration description;

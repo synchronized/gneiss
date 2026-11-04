@@ -134,7 +134,7 @@ Render 的同步资源创建接收内部 `mesh_view`、`texture_view` 与 `mater
 `src/engine/function/render/render_asset_preparation.hpp/.cpp`，
 Render 的准备适配只传入发布资源的预算。三类准备数据均使用 Asset 值类型，材质依赖仅用 URI，
 发布边界绑定纹理 RID 并移动纹理数组；上传弱引用仍由 Render 管理。Asset 不包含 Render 实现，
-独立准备测试不链接 Engine、缓存或资源服务。其余迁移见 [0.45 实施计划](../plans/DEV-045-cpp-boundaries.md)。
+CPU 准备测试复用 Engine 的反射描述 codec，但不创建缓存、资源服务、Application 或 GPU。其余迁移见 [0.45 实施计划](../plans/DEV-045-cpp-boundaries.md)。
 
 当前测试分布在 tests 根目录及 `tests/core/`、`tests/world/`、`tests/scene/` 等模块目录。
 公共头独立编译位于 `tests/headers/`，最小游戏模块安装消费者由

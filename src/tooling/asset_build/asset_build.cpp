@@ -3,6 +3,8 @@
 
 #include "tooling/asset_build/asset_build.hpp"
 #include "engine/core/error.hpp"
+#include "engine/function/meta_registration.hpp"
+#include "engine/resource/texture/texture_decoder.hpp"
 #include "tooling/asset_build/texture_mip_generator.hpp"
 
 #include "tooling/asset_build/ktx2_probe.hpp"
@@ -303,40 +305,20 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
   if (!std::string_view(node.relative_path).ends_with(".texture.json")) {
     return false;
   }
-  const auto bytes = read_bytes(node.absolute_path);
-  auto* document = yyjson_read(reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0U);
-  if (document == nullptr) {
+  if (gneiss::engine::initialize_meta().failed())
     return false;
-  }
-  auto* root = yyjson_doc_get_root(document);
-  auto* source_value = yyjson_obj_get(root, "source");
-  auto* color_value = yyjson_obj_get(root, "color_space");
-  auto* usage_value = yyjson_obj_get(root, "usage");
-  auto* format_value = yyjson_obj_get(root, "format");
-  auto* version_value = yyjson_obj_get(root, "version");
-  const auto version = yyjson_get_uint(version_value);
-  const std::string_view color = yyjson_is_str(color_value)
-                                     ? std::string_view{yyjson_get_str(color_value)}
-                                     : std::string_view{};
-  normal_map =
-      yyjson_is_str(usage_value) && std::string_view{yyjson_get_str(usage_value)} == "normal";
-  const bool valid = yyjson_is_str(source_value) && yyjson_is_str(format_value) &&
-                     std::string_view{yyjson_get_str(format_value)} == "gneiss.texture" &&
-                     yyjson_is_uint(version_value) && version == 2U &&
-                     (color == "linear" || color == "srgb") && yyjson_is_str(usage_value) &&
-                     (std::string_view{yyjson_get_str(usage_value)} == "default" ||
-                      (normal_map && color == "linear"));
-  if (valid) {
-    const std::string_view uri{yyjson_get_str(source_value), yyjson_get_len(source_value)};
-    constexpr std::string_view prefix = "asset://";
-    if (uri.starts_with(prefix)) {
-      source.assign(uri.substr(prefix.size()));
-      transfer = color == "linear" ? gneiss::engine::texture_transfer::linear
-                                   : gneiss::engine::texture_transfer::srgb;
-    }
-  }
-  yyjson_doc_free(document);
-  return valid && !source.empty();
+  const auto description = gneiss::engine::detail::parse_texture(read_bytes(node.absolute_path));
+  if (!description)
+    return false;
+  constexpr std::string_view prefix = "asset://";
+  if (!description->uri.starts_with(prefix))
+    return false;
+  source.assign(description->uri.substr(prefix.size()));
+  transfer = description->color_space == gneiss::engine::texture_color_space::linear
+                 ? gneiss::engine::texture_transfer::linear
+                 : gneiss::engine::texture_transfer::srgb;
+  normal_map = description->usage == gneiss::engine::texture_usage::normal;
+  return !source.empty();
 }
 
 [[nodiscard]] std::filesystem::path temporary_path(const std::filesystem::path& target,

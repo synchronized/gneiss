@@ -55,7 +55,7 @@
                 0
               ]
             },
-            "type_guid": "69644f20b2d24e488c7491f4f952ec2d",
+            "type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d",
             "property_id": 1
           }
         ]
@@ -106,9 +106,10 @@
   URI，`overrides` 必须是数组。此时组件来自模板，拒绝同时提供非空 `components`。
 - `parent` 可引用任意显式对象，包括 Prefab 根；不能引用来源内部节点 UUID。普通自有子对象正常保存，
   模板生成的子节点不重复写入列表。模板文件自身暂不允许嵌套 Prefab 引用。
-- 每项覆盖以来源节点 UUID、32 字符小写十六进制 `type_guid` 和非零 uint32 `property_id` 定位字段。`value`
+- 每项覆盖以来源节点 UUID、规范小写 UUID 字符串 `type_guid` 和非零 uint32 `property_id` 定位字段。`value`
   使用显式 `kind` 与值；当前类别为 `bool`、`int64`、`uint64`、`float32`、`float64`、`string`、
-  `type_id`、`vec3` 和 `quaternion`。同一实例内的完整覆盖键不能重复。
+  `guid`、`vec2`、`vec3`、`vec4` 和 `quaternion`。GUID 值为标准 UUID 字符串或 null；
+  覆盖目标身份必须非零。旧 32 字符 type_guid 不再接受。同一实例内的完整覆盖键不能重复。
 - 覆盖可带 `path` 后缀数组，继续定位首个 `property_id` 下的嵌套字段或序列元素；
   每步为 `{"property_id": 1}` 或 `{"index": 0}`，下标为非负整数，后缀最多 64 步。
   缺省或空数组表示直接属性，后缀属于完整覆盖键。实例化时校验字段类型与下标范围；

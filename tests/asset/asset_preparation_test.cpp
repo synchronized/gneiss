@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/value_result.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/detail/asset_decode.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
@@ -21,6 +22,7 @@ std::vector<std::byte> bytes(std::string_view text) {
 }
 }
 int main() try {
+  check(initialize_meta().ok());
   const render_resource_source mesh{"asset://mesh", render_resource_kind::mesh};
   constexpr auto text =
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";

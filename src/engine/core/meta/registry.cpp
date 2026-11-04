@@ -128,7 +128,8 @@ struct type_record {
          !has_flags(property.flags, property_flags::read_only | property_flags::required) &&
          (static_cast<std::uint32_t>(property.flags) &
           ~static_cast<std::uint32_t>(property_flags::read_only | property_flags::required |
-                                      property_flags::editor_read_only)) == 0U &&
+                                      property_flags::editor_read_only |
+                                      property_flags::enum_name)) == 0U &&
          !property.name.empty() &&
          property.name.size() <= std::numeric_limits<std::uint32_t>::max() &&
          is_valid_name(property.name);
