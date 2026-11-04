@@ -82,5 +82,7 @@
 
 按用户确认：完整对象 parent_uuid 使用 guid，nil 为根；部分修改使用现有属性路径或明确场景指令。
 删除 Meta optional 类别、视图、操作表及 JSON 分支；不禁止业务内部 std::optional。
-迁移源码、示例资产和生成脚本，不保留 parent:null 格式兼容。验证 nil 往返、非零身份约束、
+迁移源码、示例资产和生成脚本；后续按用户确认，GUID nil 的 JSON 表达统一为 null。验证 nil 往返、非零身份约束、
 缺失父节点/循环拒绝、Prefab 根约束以及重新挂接/撤销操作。
+
+GUID nil 的 JSON 表达调整已完成，见[验收记录](../records/2026-11-04-guid-json-null.md)。

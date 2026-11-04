@@ -18,7 +18,7 @@
     {
       "uuid": "00000000-0000-4000-8000-000000000002",
       "name": "Triangle",
-      "parent": "00000000-0000-0000-0000-000000000000",
+      "parent": null,
       "transform": {
         "translation": [
           0,
@@ -88,9 +88,9 @@
 
 - 身份 UUID 必须使用非零的 36 字符小写规范形式；对象 UUID 在场景内唯一。
   内存中的场景、对象、Prefab 来源及覆盖键使用 `engine::guid`；`object_description::parent_uuid`
-  使用普通 `guid`，nil 表示根。JSON 统一使用 GUID 字符串，根的 parent 写全零 UUID。
+  使用普通 `guid`，nil 表示根。JSON 非 nil 使用 GUID 字符串，nil 使用 null，根的 parent 写 null。
 - `name` 是可选 UTF-8 显示名称；缺失或为空时，工具可回退显示 UUID。
-- `parent` 必须是现有对象 UUID 或全零 UUID；层级不能形成循环。
+- `parent` 必须是现有对象 UUID 或 null；层级不能形成循环。
 - 向量与四元数只接受有限、可表示为 float 的 JSON 数字。
 - rotation 顺序为 `(x, y, z, w)` 且必须归一化；scale 的每个分量不能为零。
 - `components` 是数组，可为空。每项包含 `$type_guid`（描述类型的规范 GUID）和 `$content`（JSON 对象）。
@@ -191,4 +191,4 @@ Transform、组件和 Prefab 覆盖生成文件；删除或修改的字段不会
 完整描述中的 parent 始终给出值。局部修改通过已有属性 ID/路径操作或场景层级指令表达：
 没有操作表示不修改；设置 nil 表示解除父子关联成为根节点，不表示删除对象。
 删除对象使用独立指令。重新挂接必须通过场景层级入口，保持环校验、运行时同步和撤销语义。
-不再使用 optional<guid> 区分“不修改”和“清空”。旧 parent:null 文件需更新为全零 UUID，不保留兼容读取。
+不再使用 optional<guid> 区分“不修改”和“清空”。GUID 编解码接受 null 和规范 UUID 字符串（含全零字符串），保存 nil 时统一输出 null。

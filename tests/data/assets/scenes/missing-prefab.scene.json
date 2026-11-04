@@ -4,7 +4,7 @@
   "scene_uuid": "30000000-0000-4000-8000-000000000020",
   "objects": [
     {
-      "parent": "00000000-0000-0000-0000-000000000000",
+      "parent": null,
       "prefab": {
         "uri": "asset://prefabs/missing.prefab.json",
         "overrides": []

@@ -60,14 +60,14 @@ struct memory_files final : gneiss::test_support::memory_file_fixture {
 };
 
 constexpr std::string_view object = R"({"uuid":"00000000-0000-4000-8000-000000000002",
-"parent":"00000000-0000-0000-0000-000000000000","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
+"parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
 "components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://m.mesh","material":"asset://m.material"}}]})";
 constexpr std::string_view scene_prefix = R"({"format":"gneiss.scene","version":5,
 "scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[)";
 
 std::string instance(std::string_view id) {
   return R"({"uuid":"00000000-0000-4000-8000-00000000000)" + std::string(id) +
-         R"(","prefab":{"uri":"asset://p.prefab","overrides":[]},"parent":"00000000-0000-0000-0000-000000000000",
+         R"(","prefab":{"uri":"asset://p.prefab","overrides":[]},"parent":null,
 "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})";
 }
 
@@ -195,16 +195,14 @@ void run() {
   // 输入顺序不是父节点优先；输出索引保留作者对象顺序并提供独立拓扑顺序。
   auto child = std::string(object);
   child.replace(child.find("000000000002"), 12U, "000000000003");
-  child.replace(child.find("00000000-0000-0000-0000-000000000000") - 1U, 38U,
-                "\"00000000-0000-4000-8000-000000000002\"");
+  child.replace(child.find("null"), 4U, "\"00000000-0000-4000-8000-000000000002\"");
   memory->files["main.scene"] =
       std::string(scene_prefix) + child + "," + std::string(object) + R"(]})";
   check(prepare() == gneiss::engine::error::success &&
         output.parent_first == std::vector<std::size_t>({1U, 0U}));
   check(prepare({.hierarchy_depth = 1U}) == gneiss::engine::error::invalid_argument);
   auto parent = std::string(object);
-  parent.replace(parent.find("00000000-0000-0000-0000-000000000000") - 1U, 38U,
-                 "\"00000000-0000-4000-8000-000000000003\"");
+  parent.replace(parent.find("null"), 4U, "\"00000000-0000-4000-8000-000000000003\"");
   memory->files["main.scene"] = std::string(scene_prefix) + child + "," + parent + R"(]})";
   check(prepare() == gneiss::engine::error::invalid_argument && output.parent_first.empty());
 }

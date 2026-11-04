@@ -43,10 +43,10 @@ def fixture(root):
         "format": "gneiss.scene", "version": 5,
         "scene_uuid": "00000000-0000-4000-8000-000000000001",
         "objects": [
-            {"uuid": "00000000-0000-4000-8000-000000000002", "name": "Camera", "parent": "00000000-0000-0000-0000-000000000000",
+            {"uuid": "00000000-0000-4000-8000-000000000002", "name": "Camera", "parent": None,
              "transform": {"translation": [0, 0, 2], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1]},
              "components": [{"$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101", "$content": {"settings": {"fov": 1.04719755, "near": .1, "far": 100}, "is_primary": True}}]},
-            {"uuid": "00000000-0000-4000-8000-000000000003", "name": "Triangle", "parent": "00000000-0000-0000-0000-000000000000",
+            {"uuid": "00000000-0000-4000-8000-000000000003", "name": "Triangle", "parent": None,
              "transform": {"translation": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1]},
              "components": [{"$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102", "$content": {"mesh": "asset://models/test.mesh.json",
                                                 "material": "asset://materials/test.material.json"}}]}]})

@@ -96,7 +96,7 @@ return gneiss::engine::meta::type_builder<camera_properties>{}
 `invalid_handle`。类型查询输出拥有字段数组，名称借用 Registry，不能超过 Registry 生命周期。
 
 原生属性值支持布尔、int64、uint64、float、double、UTF-8 字符串、稳定 GUID、三维向量和四元数。
-浮点与数学值必须有限，字符串必须为无内嵌空字符的合法 UTF-8，GUID 不得全零。
+浮点与数学值必须有限，字符串必须为无内嵌空字符的合法 UTF-8，GUID 值允许 nil；类型或对象身份是否允许 nil，由对应注册/业务规则校验。
 字段专属范围和四元数归一化由 setter 校验，失败不得留下部分修改。
 
 回调、read/write 及组件接口统一使用 [engine::value](value.md)。
@@ -319,7 +319,7 @@ auto snapshot = near->read_value(); // result<value>，拥有读取结果
 材质的 parameters、texture_uris 以及 Scene/Prefab 的普通对象字段直接注册原生成员。
 source_schema_version、dependencies 等运行状态不注册为持久化字段。
 Scene/Prefab 的组件动态分派和 Prefab 覆盖使用专门 codec；保存直接从描述生成文件，
-不合并旧 JSON 或保留未知扩展字段。Scene 的 parent 键映射原生 parent_uuid，空父节点使用全零 GUID 字符串；具体见场景格式参考。
+不合并旧 JSON 或保留未知扩展字段。Scene 的 parent 键映射原生 parent_uuid，空父节点使用 JSON null；具体见场景格式参考。
 
 `serialization(true)` 启用严格字段检查；默认 false 保留忽略未知字段行为，两者都拒绝重复键。
 自定义 codec 可接收首参数 `const registry_ref&`，收到当前调用表；不接收该参数的简单函数仍可注册。
@@ -426,3 +426,10 @@ has_value 检查是否非空；视图本身不持有目标强引用。
 Meta 注册表仅属于当前进程。通过 IPC 接收场景组件描述的宿主，也必须在解码前完成
 `initialize_meta`；启动的 Runtime 子进程初始化不能替代 Editor 接收端初始化。
 独立运行的 IPC 集成测试同样需要遵循此启动约定。协议解码本身不隐式初始化或冻结注册表。
+
+### GUID 的 JSON 表达
+
+按反射类型解码：GUID 的 null 恢复为 guid{}，规范 UUID 字符串按 GUID 解析，其余 JSON 类型拒绝。
+非 nil GUID 保存为字符串，nil 保存为 null；全零 UUID 字符串仍可解析，重新保存统一为 null。
+字段缺失沿用 required/默认值规则，不等同于显式 null；非空身份约束仍由业务校验负责。
+此规则不依赖 optional 反射，也不改变 ref 的所有权和空引用规则。

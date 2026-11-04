@@ -95,6 +95,10 @@ result<value, serialization_diagnostic> read_value(yyjson_val* input, value_kind
     }
     break;
   case value_kind::type_guid:
+    if (yyjson_is_null(input)) {
+      output.payload = guid{};
+      return output;
+    }
     if (yyjson_is_str(input)) {
       const std::string_view text{yyjson_get_str(input), yyjson_get_len(input)};
       auto id = guid::parse(text);
@@ -157,8 +161,12 @@ write_value(yyjson_mut_doc* doc, const value& input, const std::string& path) {
         } else if constexpr (std::is_same_v<T, std::string>)
           output = yyjson_mut_strncpy(doc, item.data(), item.size());
         else if constexpr (std::is_same_v<T, guid>) {
-          auto text = item.string();
-          output = yyjson_mut_strncpy(doc, text.data(), text.size());
+          if (!item) {
+            output = yyjson_mut_null(doc);
+          } else {
+            auto text = item.string();
+            output = yyjson_mut_strncpy(doc, text.data(), text.size());
+          }
         } else {
           output = yyjson_mut_arr(doc);
           if (!output)

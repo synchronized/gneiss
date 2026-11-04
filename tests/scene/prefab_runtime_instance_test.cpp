@@ -128,7 +128,7 @@ constexpr std::string_view prefab_json = R"({
   "objects":[
     {
       "uuid":"10000000-0000-4000-8000-000000000002",
-      "parent":"00000000-0000-0000-0000-000000000000",
+      "parent":null,
       "transform":{"translation":[1,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
       "components":[]
     },
@@ -147,7 +147,7 @@ constexpr std::string_view broken_prefab_json = R"({
   "prefab_uuid":"10000000-0000-4000-8000-000000000011","root_uuid":"10000000-0000-4000-8000-000000000012",
   "objects":[{
     "uuid":"10000000-0000-4000-8000-000000000012",
-    "parent":"00000000-0000-0000-0000-000000000000",
+    "parent":null,
     "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
     "components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://missing.mesh","material":"asset://missing.material"}}]
   }]

@@ -39,7 +39,7 @@ decode(std::span<const std::byte> value) {
 }
 std::string scene(std::string_view components) {
   return std::string(
-             R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":"00000000-0000-0000-0000-000000000000","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":)") +
+             R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":)") +
          std::string(components) + "}]}";
 }
 std::string entry(e::guid type, std::string_view content) {

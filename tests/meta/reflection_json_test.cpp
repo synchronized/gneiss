@@ -106,6 +106,14 @@ int main() try {
   auto nil_encoded = m::serialize(registry, original);
   if (!nil_encoded)
     return 40;
+  const std::string nil_text(reinterpret_cast<const char*>(nil_encoded->data()),
+                             nil_encoded->size());
+  if (nil_text.find("\"identity\":null") == std::string::npos)
+    return 42;
+  auto zero_string = m::deserialize<sample>(
+      registry, bytes(R"({"enabled":true,"identity":"00000000-0000-0000-0000-000000000000"})"));
+  if (!zero_string || zero_string->identity)
+    return 43;
   auto nil_decoded = m::deserialize<sample>(registry, *nil_encoded);
   if (!nil_decoded || nil_decoded->identity)
     return 41;
@@ -126,7 +134,8 @@ int main() try {
       !fails(R"({"enabled":true,"signed":18446744073709551615})", "/signed") ||
       !fails(R"({"enabled":true,"signed":2.5})", "/signed") ||
       !fails(R"({"enabled":true,"position":[1,2]})", "/position") ||
-      !fails(R"({"enabled":true,"identity":"bad"})", "/identity"))
+      !fails(R"({"enabled":true,"identity":"bad"})", "/identity") ||
+      !fails(R"({"enabled":true,"identity":42})", "/identity"))
     return 9;
   if (!fails(R"({"enabled":true,"uv":[1]})", "/uv") ||
       !fails(R"({"enabled":true,"uv":[1,2,3]})", "/uv") ||

@@ -32,7 +32,7 @@ constexpr std::string_view valid_prefab = R"({
     {
       "uuid":"10000000-0000-4000-8000-000000000002",
       "name":"Prefab Root",
-      "parent":"00000000-0000-0000-0000-000000000000",
+      "parent":null,
       "transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[1,1,1]},
       "components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/lantern.mesh","material":"asset://materials/lantern.material"}}]
     },
@@ -216,9 +216,8 @@ bool explicit_root_contract() {
                               R"("root_uuid":"10000000-0000-4000-8000-000000000002",)", "");
   if (e::parse_prefab_description(missing))
     return false;
-  const auto cycle =
-      replace_once(std::string(valid_prefab), R"("parent":"00000000-0000-0000-0000-000000000000")",
-                   R"("parent":"10000000-0000-4000-8000-000000000003")");
+  const auto cycle = replace_once(std::string(valid_prefab), R"("parent":null)",
+                                  R"("parent":"10000000-0000-4000-8000-000000000003")");
   if (e::parse_prefab_description(cycle))
     return false;
   const auto duplicate =
@@ -365,7 +364,7 @@ int main() try {
 
   const auto multiple_roots =
       replace_once(std::string(valid_prefab), R"("parent":"10000000-0000-4000-8000-000000000002")",
-                   R"("parent":"00000000-0000-0000-0000-000000000000")");
+                   R"("parent":null)");
   auto rejected = gneiss::engine::parse_prefab_description(multiple_roots);
   if (rejected || rejected.error().error != gneiss::engine::error::invalid_argument ||
       rejected.error().path != "/objects") {
