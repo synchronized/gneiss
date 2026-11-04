@@ -109,3 +109,5 @@ Reference 和实现为准。
 - [ADR-100：加载保护边界](ADR-100-loading-limits.md)
 
 - [ADR-101：通用组件检查](ADR-101-component-inspection.md)
+
+- [ADR-102：导入工具复用 Engine 描述与编码](ADR-102-importer-engine-codecs.md)

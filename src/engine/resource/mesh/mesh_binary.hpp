@@ -4,6 +4,7 @@
 #ifndef GNEISS_ASSET_MESH_BINARY_HPP_
 #define GNEISS_ASSET_MESH_BINARY_HPP_
 
+#include "engine/core/export.hpp"
 #include "engine/core/math/aabb3.hpp"
 #include "engine/core/result.hpp"
 #include <cstddef>
@@ -39,12 +40,12 @@ struct mesh_binary_diagnostic final {
   std::string message;
 };
 
-[[nodiscard]] bool is_mesh_binary(std::span<const std::byte> bytes) noexcept;
-[[nodiscard]] result<std::vector<std::byte>, mesh_binary_diagnostic>
+[[nodiscard]] GNEISS_API bool is_mesh_binary(std::span<const std::byte> bytes) noexcept;
+[[nodiscard]] GNEISS_API result<std::vector<std::byte>, mesh_binary_diagnostic>
 encode_mesh_binary(const mesh_binary_data& data) noexcept;
-[[nodiscard]] result<mesh_binary_data, mesh_binary_diagnostic>
+[[nodiscard]] GNEISS_API result<mesh_binary_data, mesh_binary_diagnostic>
 decode_mesh_binary(std::span<const std::byte> bytes) noexcept;
-[[nodiscard]] std::string dump_mesh_binary_json(const mesh_binary_data& data);
+[[nodiscard]] GNEISS_API std::string dump_mesh_binary_json(const mesh_binary_data& data);
 
 } // namespace gneiss::engine
 

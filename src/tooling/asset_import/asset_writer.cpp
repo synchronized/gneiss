@@ -2,24 +2,21 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "tooling/asset_import/asset_writer.hpp"
+#include "engine/function/meta_registration.hpp"
+#include "engine/resource/material/material_codec.hpp"
+#include "engine/resource/scene/scene_codec.hpp"
 #include "engine/resource/scene/scene_description.hpp"
+#include "engine/resource/texture/texture_decoder.hpp"
 
 #include "engine/resource/mesh/mesh_binary.hpp"
 
 #include <fstream>
 #include <iomanip>
-#include <limits>
-#include <locale>
 #include <sstream>
 #include <system_error>
 
 namespace gneiss::tooling {
 namespace {
-
-void configure(std::ostream& stream) {
-  stream.imbue(std::locale::classic());
-  stream << std::setprecision(std::numeric_limits<float>::max_digits10);
-}
 
 [[nodiscard]] std::string uuid_for(std::size_t index) {
   std::ostringstream stream;
@@ -70,141 +67,76 @@ void configure(std::ostream& stream) {
   return stream.good();
 }
 
+template <class Bytes> bool write_bytes(const std::filesystem::path& path, const Bytes& bytes) {
+  std::ofstream stream(path, std::ios::binary | std::ios::trunc);
+  stream.write(reinterpret_cast<const char*>(bytes.data()),
+               static_cast<std::streamsize>(bytes.size()));
+  return stream.good();
+}
+
 [[nodiscard]] bool write_material(const import_ir_material& material,
                                   const std::filesystem::path& path,
                                   std::string_view asset_uri_prefix) {
-  std::ofstream stream(path, std::ios::binary | std::ios::trunc);
-  if (!stream) {
-    return false;
-  }
-  configure(stream);
-  // 离线 SDK 不链接 Engine；输出与原生材质描述一致的 v6 结构。
-  stream << R"({"format":"gneiss.material","version":6,"parameters":{"color":[)"
-         << material.base_color[0] << ',' << material.base_color[1] << ',' << material.base_color[2]
-         << ',' << material.base_color[3] << ']' << R"(,"metallic":)" << material.metallic
-         << R"(,"roughness":)" << material.roughness << R"(,"normal_scale":)"
-         << material.normal_scale << R"(,"occlusion_strength":)" << material.occlusion_strength
-         << R"(,"emissive":[)" << material.emissive[0] << ',' << material.emissive[1] << ','
-         << material.emissive[2] << R"(],"alpha_mode":)"
-         << static_cast<std::uint32_t>(material.alpha_mode) << R"(,"double_sided":)"
-         << (material.double_sided ? "true" : "false") << R"(,"alpha_cutoff":)"
-         << material.alpha_cutoff << R"(,"sampling":[)";
-  for (std::size_t slot = 0; slot < material.sampling.size(); ++slot) {
-    const auto& v = material.sampling[slot];
-    if (slot)
-      stream << ',';
-    stream << R"({"uv_set":)" << v.uv_set << R"(,"mag_filter":)"
-           << static_cast<std::uint32_t>(v.mag_filter) << R"(,"min_filter":)"
-           << static_cast<std::uint32_t>(v.min_filter) << R"(,"mip_filter":)"
-           << static_cast<std::uint32_t>(v.mip_filter) << R"(,"address_u":)"
-           << static_cast<std::uint32_t>(v.address_u) << R"(,"address_v":)"
-           << static_cast<std::uint32_t>(v.address_v) << '}';
-  }
-  stream << R"(]},"texture_uris":[)";
+  engine::material_description description;
+  auto& p = description.parameters;
+  p.color = {material.base_color[0], material.base_color[1], material.base_color[2],
+             material.base_color[3]};
+  p.metallic = material.metallic;
+  p.roughness = material.roughness;
+  p.normal_scale = material.normal_scale;
+  p.occlusion_strength = material.occlusion_strength;
+  p.emissive = {material.emissive[0], material.emissive[1], material.emissive[2]};
+  p.alpha_mode = material.alpha_mode;
+  p.double_sided = material.double_sided != 0;
+  p.alpha_cutoff = material.alpha_cutoff;
+  p.sampling = material.sampling;
   constexpr std::array variants{0U, 1U, 2U, 1U, 0U};
   const auto images = material.texture_indices();
-  for (std::size_t slot = 0; slot < images.size(); ++slot) {
-    if (slot)
-      stream << ',';
-    stream << '"';
+  for (std::size_t slot = 0; slot < images.size(); ++slot)
     if (images[slot])
-      stream << asset_uri_prefix << "textures/image-" << *images[slot]
-             << image_variant_suffixes[variants[slot]] << ".texture.json";
-    stream << '"';
-  }
-  stream << "]}\n";
-  return stream.good();
+      description.texture_uris[slot] = std::string(asset_uri_prefix) + "textures/image-" +
+                                       std::to_string(*images[slot]) +
+                                       image_variant_suffixes[variants[slot]] + ".texture.json";
+  auto bytes = engine::encode_material(description);
+  return bytes && write_bytes(path, *bytes);
 }
 
-void write_transform(std::ostream& stream, const gneiss::engine::math::vector3& translation,
-                     const gneiss::engine::math::quaternion& rotation,
-                     const gneiss::engine::math::vector3& scale) {
-  stream << R"("transform": {"translation": [)" << translation[0] << ',' << translation[1] << ','
-         << translation[2] << R"(], "rotation": [)" << rotation[0] << ',' << rotation[1] << ','
-         << rotation[2] << ',' << rotation[3] << R"(], "scale": [)" << scale[0] << ',' << scale[1]
-         << ',' << scale[2] << "]}";
-}
-
-void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t primitive_index,
-                    const import_ir_primitive& primitive, std::string_view asset_uri_prefix) {
-  stream << R"({"$type_guid": ")";
-  // 仅使用 constexpr 身份值；离线 SDK 不依赖引擎 DLL 的注册表或 GUID 函数。
-  constexpr auto bytes = gneiss::engine::mesh_renderer_description::type_guid.bytes();
-  constexpr char hex[] = "0123456789abcdef";
-  for (std::size_t index = 0; index < bytes.size(); ++index) {
-    if (index == 4 || index == 6 || index == 8 || index == 10)
-      stream << '-';
-    stream << hex[bytes[index] >> 4] << hex[bytes[index] & 15];
-  }
-  stream << R"(", "$content": {"mesh": ")" << asset_uri_prefix << "models/"
-         << mesh_name(mesh_index, primitive_index) << R"(", "material": ")" << asset_uri_prefix
-         << "materials/" << material_name(primitive) << R"("}})";
-}
-
-// NOLINTNEXTLINE(readability-function-cognitive-complexity): 输出顺序直接对应稳定 Scene Schema。
 [[nodiscard]] bool write_scene(const import_ir& data, const std::filesystem::path& path,
                                std::string_view asset_uri_prefix) {
-  std::vector<std::optional<std::size_t>> parents(data.nodes.size());
-  for (std::size_t parent = 0; parent < data.nodes.size(); ++parent) {
-    for (const auto child : data.nodes[parent].children) {
-      parents[child] = parent;
-    }
+  engine::scene_description scene;
+  scene.uuid = *engine::guid::parse("00000000-0000-4000-8000-000000000000");
+  scene.objects.resize(data.nodes.size());
+  auto renderer = [&](std::size_t mesh, std::size_t primitive) {
+    return engine::mesh_renderer_description{
+        std::string(asset_uri_prefix) + "models/" + mesh_name(mesh, primitive),
+        std::string(asset_uri_prefix) + "materials/" +
+            material_name(data.meshes[mesh].primitives[primitive])};
+  };
+  for (std::size_t i = 0; i < data.nodes.size(); ++i) {
+    const auto& node = data.nodes[i];
+    auto& object = scene.objects[i];
+    object.uuid = *engine::guid::parse(uuid_for(i));
+    object.name = node.name;
+    object.transform = {node.translation, node.rotation, node.scale};
+    for (auto child : node.children)
+      scene.objects[child].parent_uuid = object.uuid;
+    if (node.mesh_index && data.meshes[*node.mesh_index].primitives.size() == 1)
+      object.components.set(renderer(*node.mesh_index, 0));
   }
-  std::ofstream stream(path, std::ios::binary | std::ios::trunc);
-  if (!stream) {
-    return false;
-  }
-  configure(stream);
-  stream << "{\n  \"format\": \"gneiss.scene\",\n  \"version\": 5,\n"
-            "  \"scene_uuid\": \"00000000-0000-4000-8000-000000000000\",\n"
-            "  \"objects\": [\n";
-  std::size_t synthetic_count = 0;
-  for (const auto& node : data.nodes) {
-    if (node.mesh_index && data.meshes[*node.mesh_index].primitives.size() > 1U) {
-      synthetic_count += data.meshes[*node.mesh_index].primitives.size();
-    }
-  }
-  const auto total_count = data.nodes.size() + synthetic_count;
-  std::size_t emitted = 0;
-  for (std::size_t index = 0; index < data.nodes.size(); ++index) {
-    const auto& node = data.nodes[index];
-    stream << R"(    {"uuid": ")" << uuid_for(index) << R"(", "parent": )";
-    if (parents[index]) {
-      stream << '\"' << uuid_for(*parents[index]) << '\"';
-    } else {
-      stream << "null";
-    }
-    stream << ", ";
-    write_transform(stream, node.translation, node.rotation, node.scale);
-    stream << R"(, "components": [)";
-    if (node.mesh_index && data.meshes[*node.mesh_index].primitives.size() == 1U) {
-      write_renderer(stream, *node.mesh_index, 0U, data.meshes[*node.mesh_index].primitives[0],
-                     asset_uri_prefix);
-    }
-    stream << "]}" << (++emitted == total_count ? "\n" : ",\n");
-  }
-  std::size_t synthetic_index = 0;
-  const gneiss::engine::math::vector3 identity_translation{};
-  const gneiss::engine::math::quaternion identity_rotation{1.0F, 0.0F, 0.0F, 0.0F};
-  const gneiss::engine::math::vector3 identity_scale{1.0F};
-  for (std::size_t node_index = 0; node_index < data.nodes.size(); ++node_index) {
-    const auto& node = data.nodes[node_index];
-    if (!node.mesh_index || data.meshes[*node.mesh_index].primitives.size() <= 1U) {
+  for (std::size_t i = 0; i < data.nodes.size(); ++i) {
+    const auto& node = data.nodes[i];
+    if (!node.mesh_index || data.meshes[*node.mesh_index].primitives.size() <= 1)
       continue;
-    }
-    const auto& primitives = data.meshes[*node.mesh_index].primitives;
-    for (std::size_t primitive_index = 0; primitive_index < primitives.size(); ++primitive_index) {
-      stream << R"(    {"uuid": ")" << uuid_for(data.nodes.size() + synthetic_index++)
-             << R"(", "parent": ")" << uuid_for(node_index) << R"(", )";
-      write_transform(stream, identity_translation, identity_rotation, identity_scale);
-      stream << R"(, "components": [)";
-      write_renderer(stream, *node.mesh_index, primitive_index, primitives[primitive_index],
-                     asset_uri_prefix);
-      stream << "]}" << (++emitted == total_count ? "\n" : ",\n");
+    for (std::size_t j = 0; j < data.meshes[*node.mesh_index].primitives.size(); ++j) {
+      engine::object_description child;
+      child.uuid = *engine::guid::parse(uuid_for(scene.objects.size()));
+      child.parent_uuid = scene.objects[i].uuid;
+      child.components.set(renderer(*node.mesh_index, j));
+      scene.objects.push_back(std::move(child));
     }
   }
-  stream << "  ]\n}\n";
-  return stream.good();
+  auto bytes = engine::encode_scene(scene);
+  return bytes && write_bytes(path, *bytes);
 }
 
 [[nodiscard]] std::optional<std::string> validate_nodes(const import_ir& data) {
@@ -304,14 +236,13 @@ write_report write_assets_in_place(const import_ir& data,
                             std::ios::binary | std::ios::trunc);
         image.write(reinterpret_cast<const char*>(data.images[index].bytes.data()),
                     static_cast<std::streamsize>(data.images[index].bytes.size()));
-        std::ofstream texture(output_directory / "textures" / (base + ".texture.json"),
-                              std::ios::binary | std::ios::trunc);
-        texture << "{\n  \"format\": \"gneiss.texture\",\n  \"version\": " << 2
-                << ",\n  \"source\": \"" << asset_uri_prefix << "textures/" << base
-                << ".png\",\n  \"color_space\": \"" << (variant == 0U ? "srgb" : "linear") << '"';
-        texture << ",\n  \"usage\": \"" << (variant == 2U ? "normal" : "default") << '"';
-        texture << "\n}\n";
-        if (!image.good() || !texture.good())
+        engine::texture_description description{
+            std::string(asset_uri_prefix) + "textures/" + base + ".png",
+            variant == 0U ? engine::texture_color_space::srgb : engine::texture_color_space::linear,
+            variant == 2U ? engine::texture_usage::normal : engine::texture_usage::default_usage};
+        auto texture = engine::detail::encode_texture(description);
+        if (!image.good() || !texture ||
+            !write_bytes(output_directory / "textures" / (base + ".texture.json"), *texture))
           return {.success = false, .diagnostic = "写出 Texture 失败"};
       }
     }
@@ -339,6 +270,8 @@ bool remove_quietly(const std::filesystem::path& path) noexcept {
 
 write_report write_assets(const import_ir& data, const std::filesystem::path& output_directory,
                           std::string_view asset_uri_prefix) {
+  if (engine::initialize_meta() != engine::error::success)
+    return {.success = false, .diagnostic = "初始化资源类型失败"};
   if (output_directory.empty()) {
     return {.success = false, .diagnostic = "输出目录不能为空"};
   }

@@ -5,6 +5,8 @@
 #include "../support/value_result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/resource/material/material_codec.hpp"
+#include "engine/resource/scene/scene_codec.hpp"
+#include "engine/resource/texture/texture_decoder.hpp"
 #include "tooling/asset_import/asset_writer.hpp"
 #include "tooling/asset_import/gltf_importer.hpp"
 
@@ -70,6 +72,35 @@ int main() { // NOLINT(bugprone-exception-escape)
       std::filesystem::exists(root / "first.gneiss-backup")) {
     return 5;
   }
+  // 在创建 Application 前验证共享 codec，覆盖字符串转义与纹理用途。
+  {
+    auto escaped = imported.data;
+    escaped.nodes[0].name = "节点\"名称\n测试";
+    constexpr std::string_view prefix = "asset://quoted\"/";
+    const auto output = root / "escaped";
+    if (!asset_import::write_assets(escaped, output, prefix).success)
+      return 30;
+    auto scene_text = read_file(output / "scenes/scene.scene.json");
+    auto scene_data = gneiss::engine::decode_scene(
+        std::as_bytes(std::span(scene_text.data(), scene_text.size())));
+    if (!scene_data || scene_data->objects[0].name != escaped.nodes[0].name)
+      return 31;
+    auto text = read_file(output / "textures/image-0.texture.json");
+    const auto* begin = reinterpret_cast<const std::byte*>(text.data());
+    auto texture = gneiss::engine::detail::parse_texture({begin, begin + text.size()});
+    if (!texture || texture->uri != std::string(prefix) + "textures/image-0.png")
+      return 32;
+    texture->usage = gneiss::engine::texture_usage::normal;
+    if (gneiss::engine::detail::encode_texture(*texture))
+      return 33;
+    texture->color_space = gneiss::engine::texture_color_space::linear;
+    auto encoded = gneiss::engine::detail::encode_texture(*texture);
+    if (!encoded)
+      return 34;
+    auto decoded = gneiss::engine::detail::parse_texture(*encoded);
+    if (!decoded || decoded->usage != gneiss::engine::texture_usage::normal)
+      return 35;
+  }
   const auto asset_root = first.generic_string();
   gneiss::runtime::application_configuration description;
   description.asset_root = asset_root;
@@ -127,13 +158,16 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 9;
   }
   const auto color_image = read_file(pbr_output / "textures/image-0.png");
+  const auto normal_text = read_file(pbr_output / "textures/image-0-normal.texture.json");
+  const auto* normal_begin = reinterpret_cast<const std::byte*>(normal_text.data());
+  const auto normal =
+      gneiss::engine::detail::parse_texture({normal_begin, normal_begin + normal_text.size()});
   if (color_image.empty() || read_file(pbr_output / "textures/image-0-linear.png") != color_image ||
       read_file(pbr_output / "textures/image-0-normal.png") != color_image ||
       read_file(pbr_output / "textures/image-0.texture.json").find("srgb") == std::string::npos ||
       read_file(pbr_output / "textures/image-0-linear.texture.json").find("linear") ==
           std::string::npos ||
-      read_file(pbr_output / "textures/image-0-normal.texture.json")
-              .find("\"usage\": \"normal\"") == std::string::npos) {
+      !normal || normal->usage != gneiss::engine::texture_usage::normal) {
     return 10;
   }
   const auto material_file = read_file(pbr_output / "materials/material-0.material.json");

@@ -94,29 +94,22 @@ GUID nil 的 JSON 表达调整已完成，见[验收记录](../records/2026-11-0
 1. 已实现：Prefab 属性覆盖值复用 Meta 标量 JSON 编解码。带类型标签的 value
    使用统一标量规则；GUID 标签为 `guid`，值为 UUID 字符串或 null，不保留旧 `type_id` 标签。
    覆盖目标的 `type_guid` 身份键格式本批不变。
-2. 待依赖方案确认：导入器使用描述对象及共享 codec，替换手写材质、场景、纹理 JSON。
-   `src/tooling/CMakeLists.txt` 中离线 SDK 当前不链接 Engine，而现有描述 codec 依赖 Meta
-   默认注册表与 Engine 导出。不能仅增加头文件就实现复用，也不能复制一份进程注册表。
+2. 已完成：导入 SDK 链接 Engine，构造材质/场景/纹理描述并调用共享 codec，
+   删除手写 JSON 及重复编译的编码/摘要实现；见 [ADR-102](../decisions/ADR-102-importer-engine-codecs.md)。
 3. 已实现：Scene/Prefab 文档对象统一调用 `scene_codec.cpp` 的 `encode_object`，删除
    文档写入过程重复的组件与 Prefab 覆盖编码；文档级身份和层级校验保留。
-4. 已完成评估，未迁移：纹理、网格描述的反射化方案见下文。
+4. 已完成评估，纹理 usage 与显式 codec 随导入器迁移，反射迁移未实施：纹理、网格描述的反射化方案见下文。
 
-### 导入器依赖待决项
+### 导入器依赖决策
 
-推荐保持离线边界，抽取 Engine 与 Tooling 均可链接的 Core/Meta/描述 codec 模块。
-先梳理源文件闭包、唯一注册表及 DLL 导出归属，再迁移目标依赖，禁止用重复编译注册表
-规避链接问题。收益是离线工具保持独立且格式只有一个实现；代价是较大的构建与导出调整，
-需要共享/静态链接验证及 ADR。
-
-另一方案是允许导入工具直接链接 Engine，复用现有注册及 codec；实现较小，但离线 SDK
-部署和初始化会绑定引擎。此处等待用户选择，不将任一方案当成已确认架构。
-确认后验收：导入结果可由现有加载器读取，稳定 UUID、材质参数、组件和纹理语义不变，
-URI 正确转义，失败不会产生部分正式输出。
+用户已确认直接链接 Engine，暂不抽取共享模块。导入只初始化 Meta，不启动 Application 或 GPU。
+验收：生成资产可由 Engine 读取，稳定 UUID、材质参数、组件和纹理语义正确，URI 正确转义，
+失败不产生部分正式输出。具体权衡以 ADR-102 为准。
 
 ### 纹理与网格评估
 
-- `texture_description` 只有 URI 与色彩空间；`texture_decoder.cpp` 还校验文件的 usage，
-  但没有保存它。先补完整描述语义，再注册反射；当前字符串枚举须保留格式映射，不能
+- `texture_description` 原先只有 URI 与色彩空间，本批已补齐 usage 保存及共享编码入口，
+  反射注册留待后续；当前字符串枚举须保留格式映射，不能
   因枚举反射默认输出整数而悄悄改变格式。normal 必须使用 linear 的业务校验继续保留。
 - `mesh_decoder.cpp` 的 JSON 使用独立顶点/UV/法线数组，内存 mesh_data 的排列不同。
   建议明确文件描述与运行载荷转换，反射负责字段读取，转换负责数组长度、三角形数量、
@@ -124,5 +117,5 @@ URI 正确转义，失败不会产生部分正式输出。
 - 纹理压缩、mip、二进制网格及固定字节布局继续使用专用 codec；不为减少 switch
   强行迁移到通用反射。
 
-本批验证：Windows Clang Debug 受影响目标编译通过，scene_description、prefab_description、
-reflection-json 三项测试通过。未执行大场景、远端 CI、跨平台及导入器依赖重构验证。
+本批验证见[导入器共享 codec 验收记录](../records/2026-11-04-importer-engine-codecs.md)。
+前批覆盖值/对象编码的三项测试亦已通过；未执行大场景、远端 CI 或跨平台矩阵。

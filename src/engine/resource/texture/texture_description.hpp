@@ -33,8 +33,10 @@ struct texture_sampling {
 }
 
 /** 文件描述的运行时视图；尺寸和 mip 布局由负载容器负责，不重复存储。 */
+enum class texture_usage : std::uint32_t { default_usage, normal };
 struct texture_description final {
   std::string uri;
   texture_color_space color_space{};
+  texture_usage usage{};
 };
 } // namespace gneiss::engine

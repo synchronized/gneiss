@@ -61,9 +61,48 @@ parse_texture(const std::vector<std::byte>& bytes) try {
          "纹理用途必须是 default 或 normal，法线纹理必须使用 linear");
     return diagnostic;
   }
+  output.usage =
+      json_string(usage) == "normal" ? texture_usage::normal : texture_usage::default_usage;
   output.uri.assign(json_string(source));
   return output;
 
+} catch (const std::bad_alloc&) {
+  return asset_diagnostic{.error = error::out_of_memory};
+} catch (...) {
+  return asset_diagnostic{.error = error::internal};
+}
+
+result<std::vector<std::byte>, asset_diagnostic>
+encode_texture(const texture_description& source) noexcept try {
+  if (source.uri.empty() ||
+      (source.color_space != texture_color_space::linear &&
+       source.color_space != texture_color_space::srgb) ||
+      (source.usage != texture_usage::default_usage && source.usage != texture_usage::normal) ||
+      (source.usage == texture_usage::normal && source.color_space != texture_color_space::linear))
+    return asset_diagnostic{.error = error::invalid_argument};
+  std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> doc(yyjson_mut_doc_new(nullptr),
+                                                                      &yyjson_mut_doc_free);
+  if (!doc)
+    return asset_diagnostic{.error = error::out_of_memory};
+  auto* root = yyjson_mut_obj(doc.get());
+  if (!root || !yyjson_mut_obj_add_str(doc.get(), root, "format", "gneiss.texture") ||
+      !yyjson_mut_obj_add_uint(doc.get(), root, "version", 2) ||
+      !yyjson_mut_obj_add_strncpy(doc.get(), root, "source", source.uri.data(),
+                                  source.uri.size()) ||
+      !yyjson_mut_obj_add_str(doc.get(), root, "color_space",
+                              source.color_space == texture_color_space::srgb ? "srgb"
+                                                                              : "linear") ||
+      !yyjson_mut_obj_add_str(doc.get(), root, "usage",
+                              source.usage == texture_usage::normal ? "normal" : "default"))
+    return asset_diagnostic{.error = error::out_of_memory};
+  yyjson_mut_doc_set_root(doc.get(), root);
+  std::size_t size{};
+  std::unique_ptr<char, decltype(&std::free)> text(yyjson_mut_write(doc.get(), 0, &size),
+                                                   &std::free);
+  if (!text)
+    return asset_diagnostic{.error = error::out_of_memory};
+  const auto* begin = reinterpret_cast<const std::byte*>(text.get());
+  return std::vector<std::byte>(begin, begin + size);
 } catch (const std::bad_alloc&) {
   return asset_diagnostic{.error = error::out_of_memory};
 } catch (...) {

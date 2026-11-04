@@ -28,8 +28,7 @@ if(EMSCRIPTEN)
     "--embed-file=${PROJECT_SOURCE_DIR}/examples/temple/assets/input@/gneiss-input/input")
 endif()
 
-add_executable(gneiss_asset_manager_test asset_manager_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp")
+add_executable(gneiss_asset_manager_test asset_manager_test.cpp)
 target_include_directories(gneiss_asset_manager_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_asset_manager_test PRIVATE gneiss::engine gneiss_tasks)
 target_compile_definitions(gneiss_asset_manager_test PRIVATE GNEISS_TEST_TASK_THREADS=$<BOOL:${GNEISS_TASK_THREADS}>)

@@ -205,6 +205,8 @@ add_executable(
   asset/png_decoder_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
 )
+# 分配失败注入依赖可执行文件内的 operator new，保留本地编译的解码实现。
+target_compile_definitions(gneiss_png_decoder_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_include_directories(gneiss_png_decoder_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_png_decoder_test PRIVATE gneiss::engine gneiss_png)
 target_compile_features(gneiss_png_decoder_test PRIVATE cxx_std_20)
@@ -453,9 +455,7 @@ gneiss_target_compile_warnings(gneiss_json_format_test)
 gneiss_target_output_directories(gneiss_json_format_test)
 add_test(NAME gneiss.json_format COMMAND gneiss_json_format_test)
 
-add_executable(gneiss_scene_load_application_test scene/scene_load_application_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp")
+add_executable(gneiss_scene_load_application_test scene/scene_load_application_test.cpp)
 target_include_directories(gneiss_scene_load_application_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_scene_load_application_test PRIVATE gneiss::engine gneiss_tasks)
 gneiss_target_compile_warnings(gneiss_scene_load_application_test)
@@ -572,6 +572,7 @@ add_executable(
 target_include_directories(gneiss_mesh_binary_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_mesh_binary_test PRIVATE gneiss_math_dependency)
 target_compile_features(gneiss_mesh_binary_test PRIVATE cxx_std_20)
+target_compile_definitions(gneiss_mesh_binary_test PRIVATE GNEISS_STATIC_DEFINE)
 gneiss_target_compile_warnings(gneiss_mesh_binary_test)
 gneiss_target_output_directories(gneiss_mesh_binary_test)
 add_test(NAME gneiss.mesh_binary COMMAND gneiss_mesh_binary_test)
@@ -583,6 +584,7 @@ add_executable(
 )
 target_include_directories(gneiss_texture_ktx2_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(gneiss_texture_ktx2_test PRIVATE cxx_std_20)
+target_compile_definitions(gneiss_texture_ktx2_test PRIVATE GNEISS_STATIC_DEFINE)
 gneiss_target_compile_warnings(gneiss_texture_ktx2_test)
 gneiss_target_output_directories(gneiss_texture_ktx2_test)
 add_test(NAME gneiss.texture_ktx2 COMMAND gneiss_texture_ktx2_test)
@@ -594,6 +596,7 @@ add_executable(
 )
 target_include_directories(gneiss_texture_binary_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(gneiss_texture_binary_test PRIVATE cxx_std_20)
+target_compile_definitions(gneiss_texture_binary_test PRIVATE GNEISS_STATIC_DEFINE)
 gneiss_target_compile_warnings(gneiss_texture_binary_test)
 gneiss_target_output_directories(gneiss_texture_binary_test)
 add_test(NAME gneiss.texture_binary COMMAND gneiss_texture_binary_test)
