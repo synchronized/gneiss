@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <limits>
 namespace gneiss::engine {
-struct asset_manager::implementation::pending_load {
+struct detail::asset_construction::pending_load {
   std::shared_ptr<detail::asset_state> state;
   std::variant<asset_request<mesh_data>, asset_request<texture_data>,
                asset_request<material_description>>
@@ -20,7 +20,7 @@ struct asset_manager::implementation::pending_load {
 result<asset_request<render_resource_ref>> asset_manager::load(const render_resource_source& source,
                                                                bool reload) try {
   asset_request<render_resource_ref> output;
-  if (!impl_ || !impl_->loading_configured || render_stopping_)
+  if (!impl_ || !loading_configured())
     return error::invalid_state;
   auto reserved = reserve_resource(source);
   if (!reserved)
@@ -41,7 +41,7 @@ result<asset_request<render_resource_ref>> asset_manager::load(const render_reso
     output.state_ = std::move(state);
     return output;
   }
-  auto work = std::make_shared<implementation::pending_load>();
+  auto work = std::make_shared<detail::asset_construction::pending_load>();
   work->state = state;
   switch (source.type) {
   case render_resource_kind::mesh: {
@@ -78,12 +78,12 @@ result<asset_request<render_resource_ref>> asset_manager::load(const render_reso
   return error::internal;
 }
 
-void asset_manager::implementation::stop_loading() noexcept {
+void detail::asset_construction::stop_loading() noexcept {
   for (auto& work : pending)
     work->state->status = error::invalid_state;
   pending.clear();
 }
-void asset_manager::implementation::advance(asset_manager& service) {
+void detail::asset_construction::advance(asset_manager& service) {
   // 依赖请求可能追加到 pending；每次只处理开始时已有的工作。
   const auto count = pending.size();
   for (std::size_t i = 0; i < count; ++i) {
@@ -184,10 +184,9 @@ void asset_manager::implementation::advance(asset_manager& service) {
       state.status = error::internal;
     }
   }
-  if (notification && std::ranges::any_of(pending, [](const auto& work) {
-        return work->state->status != error::not_ready;
-      }))
-    notification->notify();
+  if (std::ranges::any_of(pending,
+                          [](const auto& work) { return work->state->status != error::not_ready; }))
+    service.notify_progress();
   std::erase_if(pending, [](const auto& work) {
     return work->state.use_count() == 1 || work->state->status != error::not_ready;
   });

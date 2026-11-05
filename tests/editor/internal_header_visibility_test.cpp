@@ -23,6 +23,9 @@
 #if __has_include("runtime/loading/resource_load_group.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
+#if __has_include("engine/function/resource/resource_cache.hpp")
+#error "资产缓存实现泄漏到宿主"
+#endif
 #if __has_include("engine/function/resource/detail/asset_decode.hpp") ||                           \
                   __has_include("engine/function/resource/detail/asset_construction.hpp")
 #error "宿主获得了未授权的内部实现头"
@@ -100,3 +103,11 @@ static_assert(exposes_render_attachment<gneiss::engine::asset_manager>);
 static_assert(!exposes_asset_update<gneiss::engine::asset_manager>);
 static_assert(!exposes_asset_claim<gneiss::engine::asset_manager>);
 int main() { return 0; }
+
+// 管理器实现类型及缓存只允许内部装配代码访问。
+template <class T>
+concept exposes_implementation = requires { typename T::implementation; };
+template <class T>
+concept exposes_cache = requires(T& value) { value.cache(); };
+static_assert(!exposes_implementation<gneiss::engine::asset_manager>);
+static_assert(!exposes_cache<gneiss::engine::asset_manager>);

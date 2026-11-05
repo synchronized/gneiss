@@ -7,7 +7,6 @@
 #include "engine/core/type_id.hpp"
 #include "engine/function/resource/asset_loading.hpp"
 #include "engine/function/resource/asset_request.hpp"
-#include "engine/function/resource/resource_cache.hpp"
 #include "engine/resource/asset_decoder.hpp"
 #include "engine/resource/asset_identity.hpp"
 #include "engine/resource/mesh/mesh_data.hpp"
@@ -16,6 +15,10 @@
 #include <utility>
 
 namespace gneiss::engine {
+class resource_cache;
+namespace detail {
+struct asset_construction;
+}
 class task_executor;
 class render_service;
 struct scene_instantiation_data;
@@ -38,7 +41,6 @@ public:
   prepare_scene(std::string_view uri, bool reload = false) noexcept;
   GNEISS_API result<asset_request<scene_instantiation_data>>
   prepare_prefab(std::string_view uri, bool reload = false) noexcept;
-  struct implementation; // 内部运行资源构造状态。
   /** 绑定渲染服务；Render 必须覆盖本服务的运行与关闭阶段。 */
   GNEISS_API error attach_render(render_service& render) noexcept;
   /** 配置 CPU 加载；首次配置后保留执行器与 profile，停止后拒绝重新装配。 */
@@ -115,7 +117,8 @@ public:
         if (options.texture_profile != texture_prepare_profile{} &&
             options.texture_profile != profile())
           return error::invalid_argument;
-        auto requested = load(render_resource_source{std::string(uri), kind<T>()}, options.reload);
+        auto requested = load(render_resource_source{std::string(uri), resource_traits<T>::kind},
+                              options.reload);
         if (!requested)
           return requested.error();
         return asset_request<T>{*requested};
@@ -146,7 +149,8 @@ public:
           options.texture_profile != profile())
         return error::not_found;
       try {
-        auto found = find_loaded(render_resource_source{std::string(uri), kind<T>()}, profile());
+        auto found = find_loaded(render_resource_source{std::string(uri), resource_traits<T>::kind},
+                                 profile());
         if (!found)
           return found.error();
         return resource_cast<T>(*found);
@@ -205,23 +209,18 @@ public:
   /** 所属线程回收无外部引用且无在途任务的缓存；不强制卸载活跃资源。 */
   GNEISS_API void collect_unused() noexcept;
   /** 当前弱索引键数，包含尚未清理的过期项；不暴露缓存写入口。 */
-  [[nodiscard]] std::size_t cached_count() const noexcept { return cache_.size(); }
+  [[nodiscard]] GNEISS_API std::size_t cached_count() const noexcept;
 
 private:
   GNEISS_API result<asset_request<scene_instantiation_data>>
   prepare_structure(std::string_view uri, bool prefab, bool reload) noexcept;
-  template <class T> static constexpr render_resource_kind kind() {
-    static_assert(std::is_same_v<T, mesh_resource> || std::is_same_v<T, texture_resource> ||
-                  std::is_same_v<T, material_resource>);
-    if constexpr (std::is_same_v<T, mesh_resource>)
-      return render_resource_kind::mesh;
-    else if constexpr (std::is_same_v<T, texture_resource>)
-      return render_resource_kind::texture;
-    else
-      return render_resource_kind::material;
-  }
-  bool render_stopping_{};
-  std::unique_ptr<implementation> impl_;
+  friend struct detail::asset_construction;
+  std::unique_ptr<detail::asset_construction> impl_;
+  resource_cache& cache() noexcept;
+  const resource_cache& cache() const noexcept;
+  bool stop_requested() const noexcept;
+  bool loading_configured() const noexcept;
+  void notify_progress() const noexcept;
   /** 任务中间数据只由任务保活，不登记为最终资产。 */
   template <class T>
   result<asset_request<T>> decode_data(std::string_view uri, asset_load_options options) noexcept {
@@ -246,7 +245,6 @@ private:
                                 std::shared_ptr<const void>&, asset_load_options) noexcept;
   struct resource_state;
   std::unique_ptr<resource_state> resource_state_;
-  resource_cache cache_;
 };
 }
 

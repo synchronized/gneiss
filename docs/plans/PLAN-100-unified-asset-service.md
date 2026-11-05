@@ -234,3 +234,11 @@ resource_cache 暂保留既有文件名供混合资源条目和独立缓存测�
 - [x] 查询统一为 find_loaded，异步配置统一为 configure，Render 绑定保持独立。
 - [x] Scene 与 Prefab 使用各自具名准备入口，移除公开的 prefab 布尔选择参数。
 - [x] 编译和相关回归验证完成；结果见[验收记录](../records/2026-11-05-unified-asset-service.md#接口收尾验收)。
+
+## 内部状态收尾
+
+- [x] profile、通知、执行器配置只由 resource_state 持有；渲染装配按需读取。
+- [x] 删除重复 render_stopping_，所有入口读取同一停止请求状态，保留后端 closed_。
+- [x] 缓存移入私有状态，构造实现归入 detail，宿主头清单移除 resource_cache.hpp。
+- [x] 类型化加载与查询复用 resource_traits，删除重复 kind<T> 分派。
+- [x] 完整编译、边界与生命周期等 41 项回归通过，见[验收记录](../records/2026-11-05-unified-asset-service.md#内部状态收尾验收)。

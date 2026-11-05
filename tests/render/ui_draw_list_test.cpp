@@ -15,12 +15,12 @@
 template <typename Factory>
 concept can_adopt_texture =
     requires(Factory& factory, gneiss::engine::rid handle) { factory.reference_texture(handle); };
-static_assert(!can_adopt_texture<gneiss::engine::asset_manager::implementation>);
+static_assert(!can_adopt_texture<gneiss::engine::detail::asset_construction>);
 static_assert(!std::is_constructible_v<gneiss::engine::texture_resource, gneiss::engine::rid>);
 
 int main() {
   gneiss::engine::render_service resources;
-  gneiss::engine::asset_manager::implementation resources_factory{resources};
+  gneiss::engine::detail::asset_construction resources_factory{resources};
   constexpr std::array<std::uint8_t, 4> pixels{255U, 255U, 255U, 255U};
   gneiss::engine::texture_view texture_desc;
   texture_desc.width = 1U;
@@ -80,7 +80,7 @@ int main() {
   commands[0].index_count = 3U;
 
   gneiss::engine::render_service other_resources;
-  gneiss::engine::asset_manager::implementation other_resources_factory{other_resources};
+  gneiss::engine::detail::asset_construction other_resources_factory{other_resources};
   if (draw_list.replace(desc, other_resources) != gneiss::engine::error::invalid_handle ||
       draw_list.commands().size() != 1U) {
     return 6;
@@ -104,7 +104,7 @@ int main() {
       resources_factory.find_texture(unowned) || resources.texture_status(unowned).failed())
     return 9;
   // 两个工厂共用一个 Render，也不能从裸 RID 建立第二个拥有者。
-  asset_manager::implementation peer{resources};
+  detail::asset_construction peer{resources};
   if (peer.find_texture(resource_handle(texture)))
     return 17;
   gneiss::engine::texture peer_texture;

@@ -8,9 +8,9 @@
 #include <unordered_map>
 namespace gneiss::engine {
 struct material_data;
-struct asset_manager::implementation final {
+struct detail::asset_construction final {
 public:
-  explicit GNEISS_API implementation(render_service& render);
+  explicit GNEISS_API asset_construction(render_service& render);
   GNEISS_API mesh wrap_mesh(rid handle);
   GNEISS_API texture wrap_texture(rid handle);
   GNEISS_API material wrap_material(rid handle);
@@ -30,13 +30,10 @@ public:
   std::unordered_map<rid, std::weak_ptr<const mesh_resource>> meshes_;
   std::unordered_map<rid, std::weak_ptr<const texture_resource>> textures_;
   std::unordered_map<rid, std::weak_ptr<const material_resource>> materials_;
-  GNEISS_API ~implementation();
+  GNEISS_API ~asset_construction();
   render_service& render() const noexcept { return render_; }
-  texture_prepare_profile default_profile{};
   struct pending_load;
   std::vector<std::shared_ptr<pending_load>> pending;
-  std::shared_ptr<progress_notification> notification;
-  bool loading_configured{};
   GNEISS_API void advance(asset_manager&);
   GNEISS_API void stop_loading() noexcept;
   /** 创建新的渲染身份并返回唯一拥有者；失败返回错误，不接管外部 RID。 */

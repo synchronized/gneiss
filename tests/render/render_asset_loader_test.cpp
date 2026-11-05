@@ -277,7 +277,7 @@ void selected_variants() {
   const std::array requests{render_resource_source{.uri = "asset://t.texture.json",
                                                    .type = render_resource_kind::texture}};
   render_service resources;
-  gneiss::engine::asset_manager::implementation resources_factory{resources};
+  gneiss::engine::detail::asset_construction resources_factory{resources};
   auto& scheduler = gneiss::test_support::render_tasks();
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   asset_owner.configure(scheduler);
@@ -394,7 +394,7 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
     return true;
   };
   render_service resources;
-  gneiss::engine::asset_manager::implementation resources_factory{resources};
+  gneiss::engine::detail::asset_construction resources_factory{resources};
   auto& scheduler = gneiss::test_support::render_tasks();
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   asset_owner.configure(scheduler);
@@ -524,7 +524,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
 
   gneiss::test_support::fixture_files file_system;
   gneiss::engine::render_service resources;
-  gneiss::engine::asset_manager::implementation resources_factory{resources};
+  gneiss::engine::detail::asset_construction resources_factory{resources};
   if (file_system.mount("asset://", memory).failed())
     return 1;
   auto& scheduler = gneiss::test_support::render_tasks();
@@ -990,7 +990,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   {
     using namespace gneiss::engine;
     render_service local;
-    gneiss::engine::asset_manager::implementation local_factory{local};
+    gneiss::engine::detail::asset_construction local_factory{local};
     gneiss::engine::mesh mesh_ref;
     gneiss::engine::texture texture_ref;
     gneiss::engine::material material_ref;
@@ -1025,7 +1025,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   // 显式关闭也立即失效旧句柄；晚释放在任意线程不再访问资源表。
   {
     gneiss::engine::render_service closing;
-    gneiss::engine::asset_manager::implementation closing_factory{closing};
+    gneiss::engine::detail::asset_construction closing_factory{closing};
     gneiss::engine::mesh reference;
     if (gneiss::test_support::take_value(closing_factory.reserve_mesh(), reference).failed())
       return 38;

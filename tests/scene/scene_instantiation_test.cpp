@@ -82,7 +82,7 @@ void unified_resource_index() {
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == error::success);
   gneiss::engine::render_service resources;
-  gneiss::engine::asset_manager::implementation resources_factory{resources};
+  gneiss::engine::detail::asset_construction resources_factory{resources};
   asset_manager assets(gneiss::test_support::test_files(files));
   auto& render = assets;
   if (render.attach_render(resources).failed())
@@ -131,7 +131,7 @@ void run() {
   gneiss::test_support::fixture_files vfs;
   check(vfs.mount("asset://", files) == gneiss::engine::error::success);
   gneiss::engine::render_service resources;
-  gneiss::engine::asset_manager::implementation resources_factory{resources};
+  gneiss::engine::detail::asset_construction resources_factory{resources};
   auto& executor = gneiss::test_support::render_tasks();
   gneiss::engine::asset_manager active_assets(gneiss::test_support::test_files(vfs));
   active_assets.configure(executor);

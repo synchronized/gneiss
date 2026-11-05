@@ -18,7 +18,7 @@ bool pending_resources() {
   using namespace gneiss::engine;
   using gneiss::engine::rid;
   render_service resources;
-  gneiss::engine::asset_manager::implementation resources_factory{resources};
+  gneiss::engine::detail::asset_construction resources_factory{resources};
   render_service foreign;
 
   rid mesh{}, texture{}, material{};
@@ -174,7 +174,7 @@ int main() {
   }
   using namespace gneiss::engine;
   render_service resources;
-  gneiss::engine::asset_manager::implementation resources_factory{resources};
+  gneiss::engine::detail::asset_construction resources_factory{resources};
   std::vector<std::uint8_t> pixels(64U * 64U * 4U, 1U);
   gneiss::engine::texture_view texture_desc;
   texture_desc.width = 64U;

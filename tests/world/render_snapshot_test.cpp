@@ -38,7 +38,7 @@ int run_host_tests() {
 
 int run_tests() {
   gneiss::engine::render_service resources;
-  gneiss::engine::asset_manager::implementation resources_factory{resources};
+  gneiss::engine::detail::asset_construction resources_factory{resources};
   gneiss::engine::mesh mesh_ref;
   gneiss::engine::material material_ref;
   if (gneiss::test_support::take_value(resources_factory.reserve_mesh(), mesh_ref).failed() ||

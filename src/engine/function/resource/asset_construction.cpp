@@ -5,6 +5,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/resource_cache.hpp"
 #include "engine/resource/material/detail/material_resource_access.hpp"
 #include "engine/resource/mesh/detail/mesh_resource_access.hpp"
 #include "engine/resource/texture/detail/texture_resource_access.hpp"
@@ -47,11 +48,11 @@ gneiss::engine::type_id cache_type(gneiss::engine::render_resource_kind type) no
 } // namespace
 
 namespace gneiss::engine {
-asset_manager::implementation::implementation(render_service& render)
+detail::asset_construction::asset_construction(render_service& render)
     : render_(render), retirement_(&render) {}
-asset_manager::implementation::~implementation() { close(); }
+detail::asset_construction::~asset_construction() { close(); }
 
-template <typename T> std::shared_ptr<T> asset_manager::implementation::make(rid handle) {
+template <typename T> std::shared_ptr<T> detail::asset_construction::make(rid handle) {
   auto finalize = [](T& value, void* owner) noexcept {
     auto* render = static_cast<render_service*>(owner);
     if (!render)
@@ -78,7 +79,7 @@ template <typename T> std::shared_ptr<T> asset_manager::implementation::make(rid
     return detail::material_resource_access::make(retirement_, finalize, handle);
 }
 
-void asset_manager::implementation::close() noexcept {
+void detail::asset_construction::close() noexcept {
   if (closed_)
     return;
   closed_ = true;
@@ -96,7 +97,7 @@ void asset_manager::implementation::close() noexcept {
   textures_.clear();
   materials_.clear();
 }
-mesh asset_manager::implementation::wrap_mesh(rid handle) {
+mesh detail::asset_construction::wrap_mesh(rid handle) {
   // 这里只接收本服务刚创建的 RID；先分配索引，再构造拥有者。
   const auto entry = meshes_.try_emplace(handle).first;
   auto value = make<mesh_resource>(handle);
@@ -105,7 +106,7 @@ mesh asset_manager::implementation::wrap_mesh(rid handle) {
     update_mesh(handle, *data);
   return mesh{std::move(value)};
 }
-texture asset_manager::implementation::wrap_texture(rid handle) {
+texture detail::asset_construction::wrap_texture(rid handle) {
   // 这里只接收本服务刚创建的 RID；先分配索引，再构造拥有者。
   const auto entry = textures_.try_emplace(handle).first;
   auto value = make<texture_resource>(handle);
@@ -114,13 +115,13 @@ texture asset_manager::implementation::wrap_texture(rid handle) {
     update_texture(handle, *data);
   return texture{std::move(value)};
 }
-material asset_manager::implementation::wrap_material(rid handle) {
+material detail::asset_construction::wrap_material(rid handle) {
   const auto entry = materials_.try_emplace(handle).first;
   auto value = make<material_resource>(handle);
   entry->second = value;
   return material{std::move(value)};
 }
-void asset_manager::implementation::update_mesh(rid handle, const mesh_data& data) noexcept {
+void detail::asset_construction::update_mesh(rid handle, const mesh_data& data) noexcept {
   const auto found = meshes_.find(handle);
   if (found != meshes_.end())
     if (auto value = found->second.lock())
@@ -128,7 +129,7 @@ void asset_manager::implementation::update_mesh(rid handle, const mesh_data& dat
           *value, mesh_metadata{data.vertices.size(), data.indices.size(), !data.normals.empty(),
                                 !data.uv1.empty()});
 }
-void asset_manager::implementation::update_texture(rid handle, const texture_data& data) noexcept {
+void detail::asset_construction::update_texture(rid handle, const texture_data& data) noexcept {
   const auto found = textures_.find(handle);
   if (found != textures_.end())
     if (auto value = found->second.lock())
@@ -140,8 +141,8 @@ void asset_manager::implementation::update_texture(rid handle, const texture_dat
                                   : std::optional{static_cast<std::uint32_t>(data.levels.size())},
               data.manifest.empty() ? std::optional{data.format} : std::nullopt, data.color_space});
 }
-void asset_manager::implementation::update_material(rid handle, const material_data& data,
-                                                    std::array<texture, 5> dependencies) noexcept {
+void detail::asset_construction::update_material(rid handle, const material_data& data,
+                                                 std::array<texture, 5> dependencies) noexcept {
   const auto found = materials_.find(handle);
   if (found != materials_.end())
     if (auto value = found->second.lock()) {
@@ -150,7 +151,7 @@ void asset_manager::implementation::update_material(rid handle, const material_d
     }
 }
 template <typename Ref, typename Create>
-result<Ref> asset_manager::implementation::create(Create create_rid) noexcept {
+result<Ref> detail::asset_construction::create(Create create_rid) noexcept {
   if (closed_)
     return error::invalid_state;
   auto created = create_rid();
@@ -187,24 +188,24 @@ result<Ref> asset_manager::implementation::create(Create create_rid) noexcept {
     return error::internal;
   }
 }
-result<mesh> asset_manager::implementation::reserve_mesh() noexcept {
+result<mesh> detail::asset_construction::reserve_mesh() noexcept {
   return create<mesh>([&] { return render_.reserve_mesh(); });
 }
-result<texture> asset_manager::implementation::reserve_texture() noexcept {
+result<texture> detail::asset_construction::reserve_texture() noexcept {
   return create<texture>([&] { return render_.reserve_texture(); });
 }
-result<material> asset_manager::implementation::reserve_material() noexcept {
+result<material> detail::asset_construction::reserve_material() noexcept {
   return create<material>([&] { return render_.reserve_material(); });
 }
-result<mesh> asset_manager::implementation::create_mesh(const mesh_view& desc) noexcept {
+result<mesh> detail::asset_construction::create_mesh(const mesh_view& desc) noexcept {
   return create<mesh>([&] { return render_.create_mesh(desc); });
 }
-result<texture> asset_manager::implementation::create_texture(const texture_view& desc) noexcept {
+result<texture> detail::asset_construction::create_texture(const texture_view& desc) noexcept {
   return create<texture>([&] { return render_.create_texture(desc); });
 }
 result<material>
-asset_manager::implementation::create_material(const material_parameters& parameters,
-                                               std::array<texture, 5> dependencies) noexcept {
+detail::asset_construction::create_material(const material_parameters& parameters,
+                                            std::array<texture, 5> dependencies) noexcept {
   if (closed_) {
     return error::invalid_state;
   }
@@ -221,19 +222,19 @@ asset_manager::implementation::create_material(const material_parameters& parame
     detail::material_resource_access::set_content(**output, parameters, std::move(dependencies));
   return output;
 }
-mesh asset_manager::implementation::find_mesh(rid handle) const noexcept {
+mesh detail::asset_construction::find_mesh(rid handle) const noexcept {
   if (closed_ || render_.mesh_status(handle) == error::invalid_handle)
     return {};
   const auto found = meshes_.find(handle);
   return found == meshes_.end() ? mesh{} : mesh{found->second.lock()};
 }
-material asset_manager::implementation::find_material(rid handle) const noexcept {
+material detail::asset_construction::find_material(rid handle) const noexcept {
   if (closed_ || render_.material_status(handle) == error::invalid_handle)
     return {};
   const auto found = materials_.find(handle);
   return found == materials_.end() ? material{} : material{found->second.lock()};
 }
-std::size_t asset_manager::implementation::drain() noexcept {
+std::size_t detail::asset_construction::drain() noexcept {
   if (closed_)
     return 0;
   const auto count = retirement_.drain();
@@ -248,14 +249,14 @@ std::size_t asset_manager::implementation::drain() noexcept {
   });
   return count;
 }
-texture asset_manager::implementation::find_texture(rid handle) const noexcept {
+texture detail::asset_construction::find_texture(rid handle) const noexcept {
   if (closed_ || render_.texture_status(handle) == error::invalid_handle)
     return {};
   const auto found = textures_.find(handle);
   return found == textures_.end() ? texture{} : texture{found->second.lock()};
 }
-bool asset_manager::implementation::update_mesh(const mesh& target,
-                                                std::shared_ptr<const mesh_data> data) noexcept {
+bool detail::asset_construction::update_mesh(const mesh& target,
+                                             std::shared_ptr<const mesh_data> data) noexcept {
   if (closed_ || !target || !data)
     return false;
   const auto handle = resource_handle(target);
@@ -266,8 +267,8 @@ bool asset_manager::implementation::update_mesh(const mesh& target,
   update_mesh(handle, *data);
   return true;
 }
-bool asset_manager::implementation::update_texture(
-    const texture& target, std::shared_ptr<const texture_data> data) noexcept {
+bool detail::asset_construction::update_texture(const texture& target,
+                                                std::shared_ptr<const texture_data> data) noexcept {
   if (closed_ || !target || !data)
     return false;
   const auto handle = resource_handle(target);
@@ -278,9 +279,9 @@ bool asset_manager::implementation::update_texture(
   update_texture(handle, *data);
   return true;
 }
-bool asset_manager::implementation::update_material(const material& target,
-                                                    std::shared_ptr<const material_data> data,
-                                                    std::array<texture, 5> dependencies) noexcept {
+bool detail::asset_construction::update_material(const material& target,
+                                                 std::shared_ptr<const material_data> data,
+                                                 std::array<texture, 5> dependencies) noexcept {
   if (closed_ || !target || !data)
     return false;
   const auto handle = resource_handle(target);
@@ -300,7 +301,7 @@ bool asset_manager::implementation::update_material(const material& target,
 }
 
 result<mesh> asset_manager::reserve_mesh() noexcept {
-  if (!impl_ || render_stopping_)
+  if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->reserve_mesh();
 }
@@ -309,7 +310,7 @@ mesh asset_manager::find_mesh(rid id) const noexcept {
 }
 
 result<texture> asset_manager::reserve_texture() noexcept {
-  if (!impl_ || render_stopping_)
+  if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->reserve_texture();
 }
@@ -318,7 +319,7 @@ texture asset_manager::find_texture(rid id) const noexcept {
 }
 
 result<material> asset_manager::reserve_material() noexcept {
-  if (!impl_ || render_stopping_)
+  if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->reserve_material();
 }
@@ -327,18 +328,18 @@ material asset_manager::find_material(rid id) const noexcept {
 }
 
 result<mesh> asset_manager::create_mesh(const mesh_view& data) noexcept {
-  if (!impl_ || render_stopping_)
+  if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->create_mesh(data);
 }
 result<texture> asset_manager::create_texture(const texture_view& data) noexcept {
-  if (!impl_ || render_stopping_)
+  if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->create_texture(data);
 }
 result<material> asset_manager::create_material(const material_parameters& data,
                                                 std::array<texture, 5> deps) noexcept {
-  if (!impl_ || render_stopping_)
+  if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->create_material(data, std::move(deps));
 }
@@ -368,14 +369,14 @@ render_resource_ref cached_resource(const resource_cache::entry& entry) noexcept
 result<render_resource_ref>
 asset_manager::find_loaded(const render_resource_source& source,
                            texture_prepare_profile profile) const noexcept {
-  if (!impl_ || render_stopping_)
+  if (!impl_ || stop_requested())
     return error::invalid_state;
   try {
     auto identity = identify(source.uri, static_cast<std::uint32_t>(source.type));
     if (!identity)
       return identity.error();
     auto domain = std::move(identity->source);
-    const auto current = cache_
+    const auto current = cache()
                              .observe(source.uri, cache_type(source.type), domain,
                                       asset_load_parameters({.texture_profile = this->profile()}))
                              .lock();
@@ -433,7 +434,7 @@ asset_manager::find_loaded(const render_resource_source& source,
 
 result<render_resource_ref>
 asset_manager::reserve_resource(const render_resource_source& source) noexcept {
-  if (!impl_ || render_stopping_)
+  if (!impl_ || stop_requested())
     return error::invalid_state;
   try {
     if (engine::validate_uri(source.uri) != engine::error::success) {
@@ -443,7 +444,7 @@ asset_manager::reserve_resource(const render_resource_source& source) noexcept {
     if (!identified)
       return identified.error();
     auto identity = std::move(*identified);
-    auto cached = cache_.load(
+    auto cached = cache().load(
         source.uri, cache_type(source.type),
         [&]() -> result<std::shared_ptr<const void>> {
           switch (source.type) {
@@ -486,7 +487,7 @@ asset_manager::reserve_resource(const render_resource_source& source) noexcept {
   }
 }
 
-error asset_manager::implementation::validate_sources(
+error detail::asset_construction::validate_sources(
     asset_manager& assets, std::span<const asset_read_record> sources) noexcept {
   for (const auto& input : sources) {
     auto identity = assets.identify(input.identity.uri, input.identity.type);
@@ -495,12 +496,11 @@ error asset_manager::implementation::validate_sources(
   }
   return error::success;
 }
-error asset_manager::implementation::adopt(asset_manager& assets,
-                                           std::shared_ptr<const mesh_data> content,
-                                           const mesh& target,
-                                           std::span<const asset_read_record> sources) noexcept
-    try {
-  if (!assets.impl_ || assets.render_stopping_)
+error detail::asset_construction::adopt(asset_manager& assets,
+                                        std::shared_ptr<const mesh_data> content,
+                                        const mesh& target,
+                                        std::span<const asset_read_record> sources) noexcept try {
+  if (!assets.impl_ || assets.stop_requested())
     return error::invalid_state;
   if (!assets.owns(target))
     return error::invalid_argument;
@@ -517,12 +517,11 @@ error asset_manager::implementation::adopt(asset_manager& assets,
 } catch (...) {
   return error::internal;
 }
-error asset_manager::implementation::adopt(asset_manager& assets,
-                                           std::shared_ptr<const texture_data> content,
-                                           const texture& target,
-                                           std::span<const asset_read_record> sources) noexcept
-    try {
-  if (!assets.impl_ || assets.render_stopping_)
+error detail::asset_construction::adopt(asset_manager& assets,
+                                        std::shared_ptr<const texture_data> content,
+                                        const texture& target,
+                                        std::span<const asset_read_record> sources) noexcept try {
+  if (!assets.impl_ || assets.stop_requested())
     return error::invalid_state;
   if (!assets.owns(target))
     return error::invalid_argument;
@@ -540,11 +539,11 @@ error asset_manager::implementation::adopt(asset_manager& assets,
 } catch (...) {
   return error::internal;
 }
-error asset_manager::implementation::adopt(asset_manager& assets,
-                                           const material_description& description,
-                                           const material& target,
-                                           std::array<texture, 5> dependencies) noexcept try {
-  if (!assets.impl_ || assets.render_stopping_)
+error detail::asset_construction::adopt(asset_manager& assets,
+                                        const material_description& description,
+                                        const material& target,
+                                        std::array<texture, 5> dependencies) noexcept try {
+  if (!assets.impl_ || assets.stop_requested())
     return error::invalid_state;
   if (!assets.owns(target))
     return error::invalid_argument;

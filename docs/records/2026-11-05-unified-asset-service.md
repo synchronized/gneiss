@@ -51,3 +51,17 @@
 
 日志：build/asset-api-cleanup-build.log、build/asset-api-cleanup-tests.log（不入库）。
 未运行大场景、跨平台或远端 CI；没有推送、合并或发布操作。
+
+## 内部状态收尾验收
+
+- 配置和停止请求统一保存在 resource_state；删除渲染装配中的 profile、通知、配置标记副本及 render_stopping_。
+- 后端 closed_ 仍表示实际后端关闭，与停止请求分开。Scene 准备任务直接使用统一通知配置，无需 Render。
+- 缓存移入私有状态，构造实现归入 detail::asset_construction，宿主头清单不再包含 resource_cache.hpp。
+- 类型化加载与查询直接复用 resource_traits，删除重复 kind<T> 判断。
+- 两项加载测试取消重复编译加载实现，直接测试引擎库中的同一实现；未新增私有方法导出。
+- Windows Clang Debug 完整构建通过，41 项资产、渲染引用、Scene/Prefab、编辑器和边界回归全部通过（35.91 秒）。
+- 补充配置先于 Render 绑定及停止后拒绝绑定检查；宿主编译检查禁止缓存头和公开 implementation 类型泄漏。
+- 修改的 C++ 文件 clang-format 检查及 git diff --check 通过。
+
+日志：build/asset-state-cleanup-build.log、build/asset-state-cleanup-tests.log（不入库）。
+未运行大型场景、跨平台和远端 CI；未执行远端操作。

@@ -627,7 +627,6 @@ add_test(NAME gneiss.render_asset_preparation COMMAND gneiss_render_asset_prepar
 add_executable(
   gneiss_render_asset_loader_test
   render/render_asset_loader_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/asset_construction_loading.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
@@ -654,7 +653,6 @@ add_test(NAME gneiss.render_asset_loader COMMAND gneiss_render_asset_loader_test
 add_executable(
   gneiss_texture_load_service_test
   render/texture_load_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/asset_construction_loading.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"

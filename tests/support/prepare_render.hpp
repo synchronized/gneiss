@@ -37,11 +37,11 @@ inline error adopt_render_for_test(asset_manager& service, decoded_asset decoded
       [&](auto& data) -> error {
         using T = std::decay_t<decltype(data)>;
         if constexpr (std::is_same_v<T, mesh_data>)
-          return asset_manager::implementation::adopt(
+          return detail::asset_construction::adopt(
               service, std::make_shared<const mesh_data>(std::move(data)),
               resource_cast<mesh_resource>(target), decoded.sources);
         else if constexpr (std::is_same_v<T, texture_data>)
-          return asset_manager::implementation::adopt(
+          return detail::asset_construction::adopt(
               service, std::make_shared<const texture_data>(std::move(data)),
               resource_cast<texture_resource>(target), decoded.sources);
         else if constexpr (std::is_same_v<T, asset_ref<const material_description>>) {
@@ -59,7 +59,7 @@ inline error adopt_render_for_test(asset_manager& service, decoded_asset decoded
               return status;
             dependencies[slot] = resource_cast<texture_resource>(entry);
           }
-          return asset_manager::implementation::adopt(
+          return detail::asset_construction::adopt(
               service, *data, resource_cast<material_resource>(target), std::move(dependencies));
         } else
           return error::invalid_argument;

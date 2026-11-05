@@ -199,6 +199,8 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 宿主用 `configure(executor, profile, notification)` 一次配置异步加载；
 仅需执行器时可用 `configure(executor)`，该重载保留已有 profile 与通知配置。
 相同配置可重复调用；更换执行器、profile 或通知对象返回 invalid_state，不改变已有配置。
+配置和停止请求状态只由管理器私有状态持有，渲染装配不保存配置副本。
+缓存定义与渲染构造实现不进入宿主可见头清单。
 纯 CPU 加载不要求 Render；程序化运行资源创建独立通过 `attach_render(render_service&)` 接入，
 可以先于或晚于异步配置。同一 Render 可重复绑定，替换 Render 被拒绝。
 `load<T>` 返回 `result<asset_request<T>>`，涵盖描述及纹理、网格、材质运行资源。
@@ -219,7 +221,7 @@ Application 通过 `assets()` 暴露统一入口，分发文件完成后推进�
 场景批量进度和回执位于 Runtime 的 `resource_load_types.hpp`，属于 `gneiss::runtime`。render_resource_kind 当前只枚举 Mesh、Material、Texture，
 CPU 描述类型仍由 load<T> 的 C++ 类型确定。
 `asset_construction_loading.cpp` 保存服务私有的单资源请求状态，`asset_decode` 只解码已有字节。
-`asset_manager::implementation` 定义服务私有实现；创建、RID 包装、延迟销毁和内容采用均属于服务。
+`detail::asset_construction` 定义服务私有实现；创建、RID 包装、延迟销毁和内容采用均属于服务。
 网格、纹理从统一 CPU 请求领取共享引用后直接传给对应采用函数，不再重新组装 decoded_asset。
 来源身份检查仍在采用前执行；材质在依赖完成后直接传递已经持有的纹理强引用。
 缓存条目只有同步创建期间的 is_loading 保护，不维护异步加载状态或失败副本。

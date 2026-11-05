@@ -168,7 +168,7 @@ void mesh_data_lifetime() {
       std::move(std::get<mesh_data>(first.assets.front().content)));
   check(mesh->vertices.data() == vertices);
   render_service resources;
-  gneiss::engine::asset_manager::implementation resources_factory{resources};
+  gneiss::engine::detail::asset_construction resources_factory{resources};
   gneiss::engine::rid rid{};
   check(gneiss::test_support::assign_value(resources.create_prepared_mesh(mesh), rid) ==
         gneiss::engine::error::success);
@@ -188,7 +188,7 @@ void independent_resource_identity() {
   check(files.mount("asset://", std::make_shared<memory_files>()) ==
         gneiss::engine::error::success);
   render_service resources;
-  gneiss::engine::asset_manager::implementation resources_factory{resources};
+  gneiss::engine::detail::asset_construction resources_factory{resources};
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   [[maybe_unused]] auto& cache = asset_owner;
   auto& loader = asset_owner;
@@ -244,7 +244,7 @@ void reserved_material_lifetime() {
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == gneiss::engine::error::success);
   render_service resources;
-  gneiss::engine::asset_manager::implementation resources_factory{resources};
+  gneiss::engine::detail::asset_construction resources_factory{resources};
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   [[maybe_unused]] auto& cache = asset_owner;
   auto& loader = asset_owner;
@@ -273,7 +273,7 @@ void cpu_loading(execution_mode mode) {
       gneiss::engine::files::service_options{.max_file_bytes = 64U * 1024U * 1024U});
   check(files->mount({.prefix = "asset://", .readers = {backend}, .writer = {}}).ok());
   render_service resources;
-  gneiss::engine::asset_manager::implementation resources_factory{resources};
+  gneiss::engine::detail::asset_construction resources_factory{resources};
   asset_manager manager(gneiss::test_support::test_files(files));
   auto& loader = manager;
   if (loader.attach_render(resources).failed())
@@ -486,6 +486,7 @@ void cpu_loading(execution_mode mode) {
             error::invalid_state &&
         !rejected);
   check(manager.configure(scheduler) == error::invalid_state);
+  check(manager.attach_render(resources) == error::invalid_state);
   check(manager.load<texture_resource>("asset://texture").error() == error::invalid_state);
   check(gneiss::test_support::assign_value(manager.load<mesh_data>("asset://mesh"), mesh_request) ==
         error::invalid_state);
@@ -514,7 +515,14 @@ void independent_loads(execution_mode mode) {
   asset_manager manager(test_support::test_files(files));
   render_service render;
   auto& service = manager;
-  check(service.attach_render(render).ok());
+  // 配置与 Render 绑定顺序不影响加载，且两者都不能在停止后重新装配。
+  if (mode == execution_mode::cooperative) {
+    check(service.configure(scheduler).ok());
+    check(service.attach_render(render).ok());
+  } else {
+    check(service.attach_render(render).ok());
+    check(service.configure(scheduler).ok());
+  }
   check(service.configure(scheduler).ok());
   material found;
   const auto reads_before_find = source->bytes_read->load();
@@ -566,8 +574,8 @@ void independent_loads(execution_mode mode) {
   std::array<asset_read_record, 1> stale;
   stale[0].identity.uri = "asset://image.ktx2";
   stale[0].identity.type = static_cast<std::uint32_t>(render_resource_kind::texture);
-  check(asset_manager::implementation::adopt(service, std::make_shared<const texture_data>(), image,
-                                             stale) == error::invalid_argument);
+  check(detail::asset_construction::adopt(service, std::make_shared<const texture_data>(), image,
+                                          stale) == error::invalid_argument);
   check(render.share_texture(resource_handle(image)) == retained);
   found = first.get<material_resource>();
   service.request_stop();

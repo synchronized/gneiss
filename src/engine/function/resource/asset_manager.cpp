@@ -14,6 +14,7 @@
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
+#include "resource_cache.hpp"
 #include <algorithm>
 #include <atomic>
 #include <limits>
@@ -23,6 +24,7 @@
 namespace gneiss::engine {
 // 移植示例的类型/位置请求表、合并与只读发布；接入已有执行器，不创建私有线程池。
 struct asset_manager::resource_state {
+  resource_cache cache;
   using key = resource_cache::key;
   struct entry {
     std::uint64_t generation{};
@@ -252,7 +254,7 @@ error asset_manager::store_erased(type_id type, std::string_view uri,
     return status;
   const auto parameters = asset_load_parameters(options);
   auto& request = state.requests[{domain, std::string(uri), type, parameters}];
-  auto stored = cache_.load(
+  auto stored = cache().load(
       uri, type, [&]() -> result<std::shared_ptr<const void>> { return value; }, domain, true, 0,
       parameters);
   if (!stored)
@@ -268,6 +270,17 @@ error asset_manager::store_erased(type_id type, std::string_view uri,
   return error::internal;
 }
 asset_manager::~asset_manager() { stop(); }
+resource_cache& asset_manager::cache() noexcept { return resource_state_->cache; }
+const resource_cache& asset_manager::cache() const noexcept { return resource_state_->cache; }
+std::size_t asset_manager::cached_count() const noexcept { return cache().size(); }
+bool asset_manager::stop_requested() const noexcept { return resource_state_->stopped; }
+bool asset_manager::loading_configured() const noexcept {
+  return resource_state_->executor && !stop_requested();
+}
+void asset_manager::notify_progress() const noexcept {
+  if (resource_state_->notification)
+    resource_state_->notification->notify();
+}
 error asset_manager::configure(task_executor& executor) noexcept {
   return configure(executor, resource_state_->profile, resource_state_->notification);
 }
@@ -289,11 +302,6 @@ error asset_manager::configure(task_executor& executor, texture_prepare_profile 
   state.executor = &executor;
   state.profile = profile;
   state.notification = std::move(notification);
-  if (impl_) {
-    impl_->default_profile = state.profile;
-    impl_->notification = state.notification;
-    impl_->loading_configured = true;
-  }
   return error::success;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
@@ -305,10 +313,7 @@ error asset_manager::attach_render(render_service& render) noexcept try {
     return error::invalid_state;
   if (impl_)
     return &impl_->render() == &render ? error::success : error::invalid_state;
-  auto next = std::make_unique<implementation>(render);
-  next->default_profile = resource_state_->profile;
-  next->notification = resource_state_->notification;
-  next->loading_configured = resource_state_->executor != nullptr;
+  auto next = std::make_unique<detail::asset_construction>(render);
   impl_ = std::move(next);
   return error::success;
 } catch (const std::bad_alloc&) {
@@ -386,7 +391,7 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
     output = std::move(pending);
     return error::success;
   }
-  const auto cached = cache_.observe(uri, type, domain, parameters).lock();
+  const auto cached = cache().observe(uri, type, domain, parameters).lock();
   if (cache_result && !options.reload && cached && !cached->is_loading) {
     auto ready = std::make_shared<detail::asset_state>();
     ready->status = error::success;
@@ -432,7 +437,7 @@ error asset_manager::find_loaded_erased(type_id type, std::string_view uri,
   if (status.failed())
     return status;
   const auto entry =
-      cache_.observe(uri, type, std::move(source), asset_load_parameters(options)).lock();
+      cache().observe(uri, type, std::move(source), asset_load_parameters(options)).lock();
   if (!entry || entry->is_loading || !entry->resource)
     return error::not_found;
   output = std::shared_ptr<const void>(entry, entry->resource.get());
@@ -524,9 +529,7 @@ void asset_manager::advance() {
     if (!work->completed && !work->task.id) {
       work->status = error::invalid_state;
       const auto submitted = state.executor->submit(
-          {.name = "asset.prepare-scene",
-           .scope = state.scope,
-           .notification = impl_ ? impl_->notification : nullptr},
+          {.name = "asset.prepare-scene", .scope = state.scope, .notification = state.notification},
           [work](const task_context& context) {
             work->status =
                 prepare_loaded_scene(work->inputs, work->prefab_uri, *work->prepared,
@@ -617,7 +620,7 @@ void asset_manager::advance() {
       entry.pending.reset();
       if (work->status == error::success && work->cache_result) {
         const auto& [domain, uri, type, parameters] = work->identity;
-        auto cached = cache_.load(
+        auto cached = cache().load(
             uri, type, [&]() -> result<std::shared_ptr<const void>> { return work->value; }, domain,
             true, work->source_bytes, parameters, work->loader->metrics);
         work->status = cached ? error::success : cached.error();
@@ -640,7 +643,7 @@ void asset_manager::advance() {
 }
 void asset_manager::collect_unused() noexcept {
   do {
-    cache_.release_unused();
+    cache().release_unused();
   } while (impl_ && impl_->drain() != 0U);
   auto& state = *resource_state_;
   std::erase_if(state.requests, [&](const auto& item) {
@@ -651,7 +654,6 @@ void asset_manager::collect_unused() noexcept {
   });
 }
 void asset_manager::request_stop() noexcept {
-  render_stopping_ = true;
   if (impl_)
     impl_->stop_loading();
   resource_state_->request_stop();
