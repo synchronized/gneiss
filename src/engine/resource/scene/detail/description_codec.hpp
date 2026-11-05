@@ -8,6 +8,15 @@ struct yyjson_val;
 struct yyjson_mut_val;
 struct yyjson_mut_doc;
 namespace gneiss::engine::detail {
+/** 覆盖协议的内部编解码入口，供内置类型注册使用。 */
+result<std::vector<std::byte>, meta::serialization_diagnostic>
+encode_property_override(const prefab_property_override&);
+result<prefab_property_override, meta::serialization_diagnostic>
+    decode_property_override(std::span<const std::byte>);
+result<std::vector<std::byte>, meta::serialization_diagnostic>
+encode_component_override(const prefab_component_override&);
+result<prefab_component_override, meta::serialization_diagnostic>
+    decode_component_override(std::span<const std::byte>);
 /** 内部 DOM 适配；成功返回非空、无重复类型的组件列表，失败不发布部分结果。 */
 GNEISS_API result<component_descriptions, meta::serialization_diagnostic>
 read_components(yyjson_val*) noexcept;

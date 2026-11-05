@@ -1,9 +1,77 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "scene_validation.hpp"
+#include "engine/core/meta/serialization.hpp"
+#include "engine/resource/asset_uri.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
 #include <algorithm>
+#include <cmath>
+#include <numbers>
+#include <set>
 namespace gneiss::engine {
+meta::serialization_diagnostic
+validate_prefab_reference_description(const prefab_reference_description& value) {
+  if (validate_uri(value.uri).failed())
+    return {
+        .path = "/uri", .message = "Prefab 来源必须包含规范 URI", .error = error::invalid_argument};
+  std::set<prefab_property_override_key, decltype(&prefab_property_override_key_less)> keys(
+      &prefab_property_override_key_less);
+  for (std::size_t i = 0; i < value.overrides.size(); ++i) {
+    const auto& entry = value.overrides[i];
+    bool valid = entry.key.source_node_uuid && entry.key.type_guid &&
+                 entry.key.property_id.is_valid() && entry.key.path.size() <= 64 &&
+                 meta::valid_scalar(entry.value);
+    for (const auto& step : entry.key.path)
+      if (const auto* property = std::get_if<meta::property_id>(&step);
+          property && !property->is_valid())
+        valid = false;
+    if (!valid)
+      return {.path = "/overrides/" + std::to_string(i),
+              .message = "覆盖作者键或属性值无效",
+              .error = error::invalid_argument};
+    if (!keys.insert(entry.key).second)
+      return {.path = "/overrides", .message = "覆盖作者键重复", .error = error::invalid_argument};
+  }
+  std::set<std::pair<guid, guid>> components;
+  for (std::size_t i = 0; i < value.component_overrides.size(); ++i) {
+    const auto& entry = value.component_overrides[i];
+    if (!entry.source_node_uuid || !entry.type_guid ||
+        !components.emplace(entry.source_node_uuid, entry.type_guid).second ||
+        (entry.added && (!*entry.added || (*entry.added)->guid() != entry.type_guid)) ||
+        std::ranges::any_of(value.overrides, [&](const auto& v) {
+          return v.key.source_node_uuid == entry.source_node_uuid &&
+                 v.key.type_guid == entry.type_guid;
+        }))
+      return {.path = "/component_overrides/" + std::to_string(i),
+              .message = "组件覆盖重复或与属性覆盖矛盾",
+              .error = error::invalid_argument};
+  }
+  return {};
+}
+meta::serialization_diagnostic validate_object_description(const object_description& object) {
+  if (!object.uuid)
+    return {.path = "/uuid", .message = "对象 UUID 不能为空", .error = error::invalid_argument};
+  if (object.prefab && !object.components.empty())
+    return {.path = "/components",
+            .message = "Prefab 引用与独立组件不能同时定义",
+            .error = error::invalid_argument};
+  return {};
+}
+meta::serialization_diagnostic validate_camera_description(const math::camera_settings& value) {
+  if (!std::isfinite(value.fov) || !std::isfinite(value.near) || !std::isfinite(value.far) ||
+      value.fov <= 0.0F || value.fov >= std::numbers::pi_v<float> || value.near <= 0.0F ||
+      value.far <= value.near)
+    return {.message = "相机透视参数范围错误", .error = error::invalid_argument};
+  return {};
+}
+meta::serialization_diagnostic
+validate_mesh_renderer_description(const mesh_renderer_description& value) {
+  if ((!value.mesh_uri.empty() && validate_uri(value.mesh_uri).failed()) ||
+      (!value.material_uri.empty() && validate_uri(value.material_uri).failed()))
+    return {.message = "资源引用必须是规范 asset URI", .error = error::invalid_argument};
+  return {};
+}
+
 namespace {
 meta::serialization_diagnostic validate_hierarchy(std::span<const object_description> objects,
                                                   std::optional<guid> root) {

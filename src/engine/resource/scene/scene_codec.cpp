@@ -1,31 +1,20 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/detail/json_value_codec.hpp"
-#include "engine/core/meta/registration.hpp"
 #include "engine/resource/scene/detail/description_codec.hpp"
-#include "engine/resource/scene/object_hierarchy.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
-#include <cstring>
-#include <set>
-
-#include "engine/resource/asset_uri.hpp"
 
 #include <yyjson.h>
 
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
 #include <memory>
 #include <new>
-#include <numbers>
-#include <numeric>
 #include <type_traits>
-#include <unordered_map>
 
 namespace {
 
@@ -96,29 +85,6 @@ void fail(scene_diagnostic& diagnostic, gneiss::engine::error result, std::strin
 yyjson_mut_val* make_uuid(yyjson_mut_doc* doc, gneiss::engine::guid value) {
   const auto text = value.string();
   return yyjson_mut_strncpy(doc, text.data(), text.size());
-}
-
-[[nodiscard]] bool validate_camera(const gneiss::engine::math::camera_settings& output,
-                                   std::string_view path, scene_diagnostic& diagnostic) {
-  if (!std::isfinite(output.fov) || !std::isfinite(output.near) || !std::isfinite(output.far) ||
-      output.fov <= 0.0F || output.fov >= std::numbers::pi_v<float> || output.near <= 0.0F ||
-      output.far <= output.near) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, path, "相机透视参数范围错误");
-    return false;
-  }
-  return true;
-}
-
-[[nodiscard]] bool validate_mesh_renderer(const gneiss::engine::mesh_renderer_description& output,
-                                          std::string_view path, scene_diagnostic& diagnostic) {
-  if ((!output.mesh_uri.empty() &&
-       gneiss::engine::validate_uri(output.mesh_uri) != gneiss::engine::error::success) ||
-      (!output.material_uri.empty() &&
-       gneiss::engine::validate_uri(output.material_uri) != gneiss::engine::error::success)) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, path, "资源引用必须是规范 asset URI");
-    return false;
-  }
-  return true;
 }
 
 // 组件覆盖还包含业务定位字段；仅将类型/内容信封交给通用反射引用解码。
@@ -359,7 +325,6 @@ make_prefab_overrides(yyjson_mut_doc* document,
 }
 
 using gneiss::engine::error;
-using gneiss::engine::object_description;
 using gneiss::engine::result;
 namespace meta = gneiss::engine::meta;
 template <class T, auto Parse>
@@ -404,168 +369,26 @@ result<std::vector<std::byte>, meta::serialization_diagnostic> encode_override(c
   auto bytes = std::as_bytes(std::span{text.get(), length});
   return std::vector<std::byte>(bytes.begin(), bytes.end());
 }
-meta::serialization_diagnostic
-check_prefab_reference(const gneiss::engine::prefab_reference_description& value) {
-  using namespace gneiss::engine;
-  if (validate_uri(value.uri).failed())
-    return {
-        .path = "/uri", .message = "Prefab 来源必须包含规范 URI", .error = error::invalid_argument};
-  std::set<prefab_property_override_key, decltype(&prefab_property_override_key_less)> keys(
-      &prefab_property_override_key_less);
-  for (std::size_t i = 0; i < value.overrides.size(); ++i) {
-    const auto& entry = value.overrides[i];
-    bool valid = entry.key.source_node_uuid && entry.key.type_guid &&
-                 entry.key.property_id.is_valid() && entry.key.path.size() <= 64 &&
-                 meta::valid_scalar(entry.value);
-    for (const auto& step : entry.key.path)
-      if (const auto* property = std::get_if<meta::property_id>(&step);
-          property && !property->is_valid())
-        valid = false;
-    if (!valid)
-      return {.path = "/overrides/" + std::to_string(i),
-              .message = "覆盖作者键或属性值无效",
-              .error = error::invalid_argument};
-    if (!keys.insert(entry.key).second)
-      return {.path = "/overrides", .message = "覆盖作者键重复", .error = error::invalid_argument};
-  }
-  std::set<std::pair<guid, guid>> components;
-  for (std::size_t i = 0; i < value.component_overrides.size(); ++i) {
-    const auto& entry = value.component_overrides[i];
-    if (!entry.source_node_uuid || !entry.type_guid ||
-        !components.emplace(entry.source_node_uuid, entry.type_guid).second ||
-        (entry.added && (!*entry.added || (*entry.added)->guid() != entry.type_guid)) ||
-        std::ranges::any_of(value.overrides, [&](const auto& v) {
-          return v.key.source_node_uuid == entry.source_node_uuid &&
-                 v.key.type_guid == entry.type_guid;
-        }))
-      return {.path = "/component_overrides/" + std::to_string(i),
-              .message = "组件覆盖重复或与属性覆盖矛盾",
-              .error = error::invalid_argument};
-  }
-  return {};
-}
-const std::vector<gneiss::engine::prefab_property_override>&
-reference_overrides(const gneiss::engine::prefab_reference_description& value) {
-  return value.overrides;
-}
-void set_reference_overrides(
-    gneiss::engine::prefab_reference_description& value,
-    const std::vector<gneiss::engine::prefab_property_override>& overrides) {
-  value.overrides = overrides;
-  std::ranges::sort(value.overrides, [](const auto& a, const auto& b) {
-    return gneiss::engine::prefab_property_override_key_less(a.key, b.key);
-  });
-}
-meta::serialization_diagnostic validate_object(const object_description& object) {
-  if (!object.uuid)
-    return {.path = "/uuid", .message = "对象 UUID 不能为空", .error = error::invalid_argument};
-  if (object.prefab && !object.components.empty())
-    return {.path = "/components",
-            .message = "Prefab 引用与独立组件不能同时定义",
-            .error = error::invalid_argument};
-  return {};
-}
-
 } // namespace
 
-namespace gneiss::engine {
-namespace {
-meta::serialization_diagnostic check_camera(const math::camera_settings& value) {
-  scene_diagnostic diagnostic;
-  (void)validate_camera(value, "", diagnostic);
-  return {diagnostic.byte_offset, std::move(diagnostic.path), std::move(diagnostic.message),
-          diagnostic.error};
+namespace gneiss::engine::detail {
+result<std::vector<std::byte>, meta::serialization_diagnostic>
+encode_property_override(const prefab_property_override& value) {
+  return encode_override(value);
 }
-meta::serialization_diagnostic check_mesh_renderer(const mesh_renderer_description& value) {
-  scene_diagnostic diagnostic;
-  (void)validate_mesh_renderer(value, "", diagnostic);
-  return {diagnostic.byte_offset, std::move(diagnostic.path), std::move(diagnostic.message),
-          diagnostic.error};
+result<prefab_property_override, meta::serialization_diagnostic>
+decode_property_override(std::span<const std::byte> bytes) {
+  return decode_override<prefab_property_override, parse_prefab_override>(bytes);
 }
+result<std::vector<std::byte>, meta::serialization_diagnostic>
+encode_component_override(const prefab_component_override& value) {
+  return encode_override(value);
 }
-namespace {
-const std::vector<component_description>& object_components(const object_description& object) {
-  return object.components.values();
-}
-error set_object_components(object_description& object,
-                            const std::vector<component_description>& values) {
-  return object.components.replace(values);
-}
-}
-error register_component_descriptions() noexcept {
-  auto base_status = meta::type_builder<component_description_base>{}.polymorphic().commit();
-  if (base_status.failed())
-    return base_status;
-  constexpr auto required = meta::property_flags::required;
-  auto status =
-      meta::type_builder<prefab_property_override>{}
-          .serialization<&encode_override<prefab_property_override>,
-                         &decode_override<prefab_property_override, parse_prefab_override>>()
-          .commit();
-  if (status.failed())
-    return status;
-  status =
-      meta::type_builder<prefab_component_override>{}
-          .serialization<&encode_override<prefab_component_override>,
-                         &decode_override<prefab_component_override, parse_component_override>>()
-          .commit();
-  if (status.failed())
-    return status;
-  status = meta::type_builder<prefab_reference_description>{}
-               .property<&prefab_reference_description::uri>(meta::property_id{1}, "uri", required)
-               .property<&reference_overrides, &set_reference_overrides>(meta::property_id{2},
-                                                                         "overrides", required)
-               .property<&prefab_reference_description::component_overrides>(meta::property_id{3},
-                                                                             "component_overrides")
-               .serialization()
-               .validate<&check_prefab_reference>()
-               .commit();
-  if (status.failed())
-    return status;
-  status =
-      meta::type_builder<object_description>{}
-          .property<&object_description::uuid>(meta::property_id{1}, "uuid", required)
-          .property<&object_description::name>(meta::property_id{2}, "name")
-          .property<&object_description::parent_uuid>(meta::property_id{3}, "parent", required)
-          .property<&object_description::transform>(meta::property_id{4}, "transform", required)
-          .property<&object_components, &set_object_components>(meta::property_id{5}, "components")
-          .property<&object_description::prefab>(meta::property_id{6}, "prefab")
-          .serialization()
-          .validate<&validate_object>()
-          .commit();
-  if (status.failed())
-    return status;
-  status = meta::type_builder<math::camera_settings>{}
-               .property<&math::camera_settings::fov>(meta::property_id{1}, "fov", required)
-               .property<&math::camera_settings::near>(meta::property_id{2}, "near", required)
-               .property<&math::camera_settings::far>(meta::property_id{3}, "far", required)
-               .serialization()
-               .validate<&check_camera>()
-               .commit();
-  if (status.failed())
-    return status;
-  status =
-      meta::type_builder<camera_description>{}
-          .base<component_description_base>()
-          .property<&camera_description::settings>(meta::property_id{1}, "settings", required)
-          .property<&camera_description::is_primary>(
-              meta::property_id{4}, "is_primary", required | meta::property_flags::editor_read_only)
-          .serialization()
-          .commit();
-  if (status.failed())
-    return status;
-  return meta::type_builder<mesh_renderer_description>{}
-      .base<component_description_base>()
-      .property<&mesh_renderer_description::mesh_uri>(meta::property_id{1}, "mesh", required)
-      .property<&mesh_renderer_description::material_uri>(meta::property_id{2}, "material",
-                                                          required)
-      .serialization()
-      .validate<&check_mesh_renderer>()
-      .commit();
-}
+result<prefab_component_override, meta::serialization_diagnostic>
+decode_component_override(std::span<const std::byte> bytes) {
+  return decode_override<prefab_component_override, parse_component_override>(bytes);
 }
 
-namespace gneiss::engine::detail {
 result<component_descriptions, meta::serialization_diagnostic>
 read_components(yyjson_val* input) noexcept try {
   auto registry = meta::default_registry();

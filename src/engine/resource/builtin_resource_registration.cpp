@@ -6,7 +6,9 @@
 #include "engine/resource/detail/reflected_asset_codec.hpp"
 #include "engine/resource/input/action_map.hpp"
 #include "engine/resource/material/material_description.hpp"
+#include "engine/resource/scene/detail/description_codec.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
+#include <algorithm>
 #include <cmath>
 namespace gneiss::engine {
 namespace {
@@ -67,6 +69,95 @@ constexpr detail::reflected_asset_format scene_format{
     "gneiss.scene", 5, scene_description::maximum_source_bytes, retired_scene_fields};
 constexpr detail::reflected_asset_format prefab_format{
     "gneiss.prefab", 1, prefab_description::maximum_source_bytes, retired_scene_fields};
+namespace {
+const std::vector<prefab_property_override>&
+reference_overrides(const prefab_reference_description& value) {
+  return value.overrides;
+}
+void set_reference_overrides(prefab_reference_description& value,
+                             const std::vector<prefab_property_override>& overrides) {
+  value.overrides = overrides;
+  std::ranges::sort(value.overrides, [](const auto& a, const auto& b) {
+    return prefab_property_override_key_less(a.key, b.key);
+  });
+}
+const std::vector<component_description>& object_components(const object_description& object) {
+  return object.components.values();
+}
+error set_object_components(object_description& object,
+                            const std::vector<component_description>& values) {
+  return object.components.replace(values);
+}
+}
+error register_component_descriptions() noexcept {
+  auto base_status = meta::type_builder<component_description_base>{}.polymorphic().commit();
+  if (base_status.failed())
+    return base_status;
+  constexpr auto required = meta::property_flags::required;
+  auto status =
+      meta::type_builder<prefab_property_override>{}
+          .serialization<&detail::encode_property_override, &detail::decode_property_override>()
+          .commit();
+  if (status.failed())
+    return status;
+  status =
+      meta::type_builder<prefab_component_override>{}
+          .serialization<&detail::encode_component_override, &detail::decode_component_override>()
+          .commit();
+  if (status.failed())
+    return status;
+  status = meta::type_builder<prefab_reference_description>{}
+               .property<&prefab_reference_description::uri>(meta::property_id{1}, "uri", required)
+               .property<&reference_overrides, &set_reference_overrides>(meta::property_id{2},
+                                                                         "overrides", required)
+               .property<&prefab_reference_description::component_overrides>(meta::property_id{3},
+                                                                             "component_overrides")
+               .serialization()
+               .validate<&validate_prefab_reference_description>()
+               .commit();
+  if (status.failed())
+    return status;
+  status =
+      meta::type_builder<object_description>{}
+          .property<&object_description::uuid>(meta::property_id{1}, "uuid", required)
+          .property<&object_description::name>(meta::property_id{2}, "name")
+          .property<&object_description::parent_uuid>(meta::property_id{3}, "parent", required)
+          .property<&object_description::transform>(meta::property_id{4}, "transform", required)
+          .property<&object_components, &set_object_components>(meta::property_id{5}, "components")
+          .property<&object_description::prefab>(meta::property_id{6}, "prefab")
+          .serialization()
+          .validate<&validate_object_description>()
+          .commit();
+  if (status.failed())
+    return status;
+  status = meta::type_builder<math::camera_settings>{}
+               .property<&math::camera_settings::fov>(meta::property_id{1}, "fov", required)
+               .property<&math::camera_settings::near>(meta::property_id{2}, "near", required)
+               .property<&math::camera_settings::far>(meta::property_id{3}, "far", required)
+               .serialization()
+               .validate<&validate_camera_description>()
+               .commit();
+  if (status.failed())
+    return status;
+  status =
+      meta::type_builder<camera_description>{}
+          .base<component_description_base>()
+          .property<&camera_description::settings>(meta::property_id{1}, "settings", required)
+          .property<&camera_description::is_primary>(
+              meta::property_id{4}, "is_primary", required | meta::property_flags::editor_read_only)
+          .serialization()
+          .commit();
+  if (status.failed())
+    return status;
+  return meta::type_builder<mesh_renderer_description>{}
+      .base<component_description_base>()
+      .property<&mesh_renderer_description::mesh_uri>(meta::property_id{1}, "mesh", required)
+      .property<&mesh_renderer_description::material_uri>(meta::property_id{2}, "material",
+                                                          required)
+      .serialization()
+      .validate<&validate_mesh_renderer_description>()
+      .commit();
+}
 error register_builtin_resource_types() noexcept {
   auto status = register_component_descriptions();
   if (status.failed())
