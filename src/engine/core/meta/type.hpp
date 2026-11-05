@@ -3,6 +3,7 @@
 
 #pragma once
 #include "engine/core/meta/property.hpp"
+#include "engine/core/meta/registry_fwd.hpp"
 #include "engine/core/meta/serialization_types.hpp"
 #include "engine/core/type_id.hpp"
 #include <span>

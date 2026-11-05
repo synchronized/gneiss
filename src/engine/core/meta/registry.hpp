@@ -3,6 +3,7 @@
 
 #pragma once
 #include "engine/core/meta/detail/type_ops.hpp"
+#include "engine/core/meta/registry_fwd.hpp"
 #include "engine/core/meta/type.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
