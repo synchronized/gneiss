@@ -88,7 +88,7 @@ e::error register_tree(const m::registry_ref& r) {
       .property<&tree::readonly>(m::property_id{5}, "readonly", m::property_flags::read_only)
       .property<&tree::children>(m::property_id{6}, "children")
       .property<&tree::custom_items>(m::property_id{7}, "custom_items")
-      .json_reflection()
+      .serialization()
       .commit();
 }
 std::span<const std::byte> bytes(std::string_view s) {
@@ -104,7 +104,7 @@ int main() try {
   CHECK(m::freeze(*r) == e::error::not_found);
   CHECK(m::type_builder<child>{*r}
             .property<&child::speed>(m::property_id{1}, "speed")
-            .json_reflection()
+            .serialization()
             .validate<&child::validate>()
             .commit()
             .ok());
@@ -118,7 +118,7 @@ int main() try {
                  m::property_id{2}, "number")
              .property<&optional_description::values>(m::property_id{3}, "values")
              .property<&optional_description::identifier>(m::property_id{4}, "identifier")
-             .json_reflection()
+             .serialization()
              .commit()
              .ok()));
   CHECK(m::freeze(*r).ok());

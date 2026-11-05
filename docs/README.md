@@ -56,6 +56,7 @@
 - [诊断回调](reference/diagnostics.md)
 - [日志消息契约](reference/logging.md)
 - [Type Registry 与反射元数据](reference/reflection.md)
+- [序列化接口与格式后端](reference/serialization.md)
 - [Render 资源、ECS 组件与帧提取](reference/render.md)
 - [资产 URI、目录挂载与缓存](reference/assets.md)
 - [场景文件格式 v4](reference/scene-format.md)

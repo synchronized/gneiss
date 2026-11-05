@@ -49,13 +49,13 @@ bool object_values() {
       m::type_builder<shared_probe>{*registry}
           .property<&shared_probe::number>(m::property_id{1}, "number")
           .property<&shared_probe::nested>(m::property_id{2}, "nested")
-          .json_reflection()
+          .serialization()
           .commit()
           .failed() ||
       m::type_builder<shared_holder>{*registry}
           .property<&shared_holder::item>(m::property_id{1}, "item")
           .property<&shared_holder::another>(m::property_id{2}, "another")
-          .json_reflection()
+          .serialization()
           .commit()
           .failed() ||
       m::freeze(*registry).failed())
@@ -327,13 +327,13 @@ bool reference_properties() {
   if (m::type_builder<reference_target>{registry}
           .property<&reference_target::number>(m::property_id{1}, "number")
           .property<&reference_target::next>(m::property_id{2}, "next")
-          .json_reflection()
+          .serialization()
           .commit()
           .failed() ||
       m::type_builder<reference_owner>{registry}
           .property<&reference_owner::target>(m::property_id{1}, "target")
           .property<&reference_owner::readonly>(m::property_id{2}, "readonly")
-          .json_reflection()
+          .serialization()
           .commit()
           .failed() ||
       m::freeze(registry).failed())
@@ -447,12 +447,12 @@ bool polymorphic_references() {
       m::type_builder<polymorphic_child>{registry}
           .base<polymorphic_base>()
           .property<&polymorphic_child::number>(m::property_id{1}, "number")
-          .json_reflection()
+          .serialization()
           .commit()
           .failed() ||
       m::type_builder<reference_target>{registry}
           .property<&reference_target::number>(m::property_id{1}, "number")
-          .json_reflection()
+          .serialization()
           .commit()
           .failed() ||
       m::freeze(registry).failed())
@@ -560,7 +560,7 @@ bool bound_property_contract() {
   if (!registry ||
       m::type_builder<checked_value>{*registry}
           .property<&checked_value::number>(m::property_id{1}, "number")
-          .json_reflection()
+          .serialization()
           .commit()
           .failed() ||
       m::type_builder<bound_properties>{*registry}
@@ -568,7 +568,7 @@ bool bound_property_contract() {
                                                                                   "values")
           .property<&bound_properties::get_child, &bound_properties::set_child>(m::property_id{2},
                                                                                 "child")
-          .json_reflection()
+          .serialization()
           .commit()
           .failed() ||
       m::freeze(*registry).failed())

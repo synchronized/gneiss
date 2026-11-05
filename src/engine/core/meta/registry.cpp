@@ -655,7 +655,7 @@ public:
       return error::not_found;
     const auto& codec = found->second->serialization;
     if (!codec.json.encode_bytes && !codec.json.decode_bytes && !codec.json.encode_node &&
-        !codec.json.decode_node && !codec.json.reflected && !codec.polymorphic && !codec.base_type)
+        !codec.json.decode_node && !codec.reflected && !codec.polymorphic && !codec.base_type)
       return error::unsupported;
     return codec;
   } catch (...) {

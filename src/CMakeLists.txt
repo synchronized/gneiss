@@ -148,6 +148,12 @@ target_sources(
   engine/core/meta/ops/variant_ops.hpp
   engine/core/meta/ops/reference_ops.hpp
     engine/core/meta/registry.cpp
+    engine/core/serialization/serialization.cpp
+    engine/core/serialization/serialization.hpp
+    engine/core/serialization/traversal.cpp
+    engine/core/serialization/reader.hpp
+    engine/core/serialization/writer.hpp
+    engine/core/serialization/detail/traversal.hpp
     engine/core/serialization/json.cpp
     engine/core/serialization/json.hpp
     engine/function/meta_registration.cpp

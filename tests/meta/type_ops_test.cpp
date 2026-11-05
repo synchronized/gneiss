@@ -126,7 +126,7 @@ int main() {
   CHECK(m::type_builder<document>{*registry}
             .property<&document::sequence>(m::property_id{1}, "sequence")
             .property<&document::mapping>(m::property_id{2}, "mapping")
-            .json_reflection()
+            .serialization()
             .commit()
             .ok());
   CHECK(m::type_builder<non_default>{*registry}
@@ -136,7 +136,7 @@ int main() {
   CHECK(m::type_builder<variant_document>{*registry}
             .property<&variant_document::entries>(m::property_id{1}, "entries")
             .property<&variant_document::selected>(m::property_id{2}, "selected")
-            .json_reflection()
+            .serialization()
             .commit()
             .ok());
   CHECK(m::type_builder<throwing_value>{*registry}.commit().ok());

@@ -34,7 +34,7 @@ e::error register_reference_meta() {
     return status;
   status = e::meta::type_builder<reference_settings>{}
                .property<&reference_settings::amount>(p{1}, "amount")
-               .json_reflection()
+               .serialization()
                .validate<[](const reference_settings& v) {
                  return v.amount >= 0 ? e::error::success : e::error::invalid_argument;
                }>()
@@ -44,7 +44,7 @@ e::error register_reference_meta() {
   return e::meta::type_builder<reference_description>{}
       .base<e::component_description_base>()
       .property<&reference_description::settings>(p{1}, "settings")
-      .json_reflection()
+      .serialization()
       .commit();
 }
 e::component_operations<reference_description> reference_operations() {

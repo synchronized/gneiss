@@ -25,7 +25,7 @@ bool test_object_value() {
   if (m::register_builtin_types().failed() ||
       m::type_builder<wire_object>{}
           .property<&wire_object::count>(m::property_id{1}, "count")
-          .json_reflection()
+          .serialization()
           .commit()
           .failed() ||
       m::freeze().failed())

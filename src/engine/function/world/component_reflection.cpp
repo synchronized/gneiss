@@ -58,7 +58,7 @@ gneiss::engine::error gneiss::engine::register_reflection() {
           .property<&get_transform<&math::transform::scale>,
                     &set_transform<&math::transform::scale, math::vector3>>(
               transform_scale_field, "scale", meta::property_flags::required)
-          .json_reflection()
+          .serialization()
           .validate<&validate_transform_value>()
           .commit();
   if (operation.failed())

@@ -45,7 +45,7 @@ e::error register_sample(const m::registry_ref& registry, std::string_view name 
       .property<&sample::rotation>(m::property_id{9}, "rotation")
       .property<&sample::uv>(m::property_id{11}, "uv")
       .readonly<&sample::computed>(m::property_id{10}, "computed")
-      .json_reflection()
+      .serialization()
       .validate<&validate_sample>()
       .commit();
 }
@@ -83,7 +83,7 @@ bool enum_json_contract() {
           .property<&enum_sample::named>(m::property_id{1}, "named",
                                          m::property_flags::enum_name | m::property_flags::required)
           .property<&enum_sample::numeric>(m::property_id{2}, "numeric")
-          .json_reflection(true)
+          .serialization(true)
           .commit()
           .failed() ||
       m::freeze(*registry).failed())
@@ -125,7 +125,7 @@ int main() try {
     return 3;
   if (m::type_builder<tracked>{registry}
           .property<&tracked::value>(m::property_id{1}, "value")
-          .json_reflection()
+          .serialization()
           .validate<&reject>()
           .commit()
           .failed() ||
@@ -262,7 +262,7 @@ int main() try {
   auto custom = m::create_registry();
   if (!custom ||
       m::type_builder<sample>{*custom}
-          .json_reflection()
+          .serialization()
           .json_bytes_serialization<&custom_encode, &custom_decode>()
           .commit()
           .failed() ||
@@ -278,7 +278,7 @@ int main() try {
       m::type_builder<sample>{*fallback}
           .property<&sample::enabled>(m::property_id{1}, "enabled")
           .json_bytes_serialization<&custom_encode, nullptr>()
-          .json_reflection()
+          .serialization()
           .commit()
           .failed() ||
       m::freeze(*fallback).failed())
@@ -292,7 +292,7 @@ int main() try {
                                 .property<&sample::enabled>(m::property_id{1}, "enabled",
                                                             m::property_flags::read_only |
                                                                 m::property_flags::required)
-                                .json_reflection()
+                                .serialization()
                                 .commit() != e::error::invalid_argument)
     return 24;
   return 0;

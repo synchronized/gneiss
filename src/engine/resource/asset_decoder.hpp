@@ -58,7 +58,7 @@ template <class T> result<std::shared_ptr<const asset_decoder>> make_reflected_d
   auto binding = meta::find_serialization(runtime_type_of<T>());
   if (!binding)
     return binding.error() == error::not_found ? error::unsupported : binding.error();
-  if (!binding->json.decode_bytes && !binding->json.decode_node && !binding->json.reflected)
+  if (!binding->json.decode_bytes && !binding->json.decode_node && !binding->reflected)
     return error::unsupported;
   if constexpr (std::is_move_constructible_v<T> && !std::is_const_v<T>) {
     return std::shared_ptr<const asset_decoder>{std::make_shared<typed_asset_decoder<T>>(nullptr)};

@@ -982,6 +982,15 @@ gneiss_target_compile_warnings(gneiss_serialization_test)
 gneiss_target_output_directories(gneiss_serialization_test)
 add_test(NAME gneiss.serialization COMMAND gneiss_serialization_test)
 
+add_executable(gneiss_serialization_archive_test meta/archive_test.cpp)
+target_include_directories(gneiss_serialization_archive_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_serialization_archive_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_serialization_archive_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_serialization_archive_test)
+gneiss_target_output_directories(gneiss_serialization_archive_test)
+add_test(NAME gneiss.serialization-archive COMMAND gneiss_serialization_archive_test)
+
+
 add_executable(gneiss_reflection_json_test meta/reflection_json_test.cpp meta/nested_json_test.cpp)
 target_include_directories(gneiss_reflection_json_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_reflection_json_test PRIVATE gneiss::engine)

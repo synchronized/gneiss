@@ -32,13 +32,13 @@ m::serialization_diagnostic check(const child& value) {
 e::error register_parent(const m::registry_ref& registry) {
   return m::type_builder<parent>{registry}
       .property<&parent::item>(m::property_id{1}, "a/b")
-      .json_reflection()
+      .serialization()
       .commit();
 }
 e::error register_child(const m::registry_ref& registry) {
   return m::type_builder<child>{registry}
       .property<&child::value>(m::property_id{1}, "value", m::property_flags::required)
-      .json_reflection()
+      .serialization()
       .validate<&check>()
       .commit();
 }
@@ -71,7 +71,7 @@ template <unsigned Depth> e::error register_chain(const m::registry_ref& registr
   if constexpr (Depth == 0)
     return m::type_builder<chain<0>>{registry}
         .property<&chain<0>::value>(m::property_id{1}, "value")
-        .json_reflection()
+        .serialization()
         .commit();
   else {
     auto status = register_chain<Depth - 1>(registry);
@@ -80,7 +80,7 @@ template <unsigned Depth> e::error register_chain(const m::registry_ref& registr
     return m::type_builder<chain<Depth>>{registry}
         .template property<&chain<Depth>::nested>(m::property_id{1}, "nested",
                                                   m::property_flags::required)
-        .json_reflection()
+        .serialization()
         .template json_serialization<
             [](gneiss::engine::serialization::json::json_codec_context& ctx, yyjson_mut_doc* doc,
                const chain<Depth>& value) { return ctx.write_fields(doc, value); },
@@ -101,7 +101,7 @@ bool nested_json_contract() {
   if (!defaults_registry || register_child(*defaults_registry).failed() ||
       m::type_builder<invalid_parent>{*defaults_registry}
           .property<&invalid_parent::item>(m::property_id{1}, "item")
-          .json_reflection()
+          .serialization()
           .commit()
           .failed() ||
       m::freeze(*defaults_registry).failed())
@@ -186,7 +186,7 @@ bool nested_json_contract() {
   if (!node_registry || register_parent(*node_registry).failed() ||
       m::type_builder<child>{*node_registry}
           .property<&child::value>(m::property_id{1}, "isolated", m::property_flags::required)
-          .json_reflection(true)
+          .serialization(true)
           .json_serialization<[](gneiss::engine::serialization::json::json_codec_context& ctx,
                                  yyjson_mut_doc* doc,
                                  const child& value) { return ctx.write_fields(doc, value); },

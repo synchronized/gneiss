@@ -1,0 +1,704 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+#include "engine/core/serialization/detail/traversal.hpp"
+#include "engine/core/meta/detail/property_view_access.hpp"
+#include "engine/core/meta/detail/reference_view_access.hpp"
+#include <algorithm>
+namespace gneiss::engine::serialization::detail {
+using namespace meta;
+std::string field_path(std::string_view name) {
+  std::string path = "/";
+  for (char c : name) {
+    if (c == '~')
+      path += "~0";
+    else if (c == '/')
+      path += "~1";
+    else
+      path += c;
+  }
+  return path;
+}
+serialization_diagnostic failure(error code, std::string path = {}, std::string message = {}) {
+  return {.path = std::move(path), .message = std::move(message), .error = code};
+}
+serialization_diagnostic prefix(serialization_diagnostic diagnostic, const std::string& path) {
+  diagnostic.path = path + diagnostic.path;
+  // 子 codec 的偏移相对于重编码片段，不冒充完整文档偏移。
+  diagnostic.byte_offset = 0;
+  return diagnostic;
+}
+/** 检查注册继承链并按 C++ 转换逐层调整地址。 */
+result<void*, serialization_diagnostic> cast_base(const registry_ref& registry, type_id actual,
+                                                  type_id declared, void* pointer) {
+  for (std::size_t depth = 0; depth <= 64; ++depth) {
+    if (actual == declared)
+      return pointer;
+    auto binding = find_serialization(registry, actual);
+    if (!binding || !binding->base_type || !binding->upcast)
+      return failure(error::invalid_argument, "", "实际类型不属于声明基类");
+    if (pointer)
+      pointer = binding->upcast(pointer);
+    actual = binding->base_type;
+  }
+  return failure(error::invalid_argument, "", "继承链过深或存在环");
+}
+result<writer::node, serialization_diagnostic> encode_members(traversal_context& ctx,
+                                                              const registry_ref&, type_id,
+                                                              const void*, writer*, std::size_t);
+result<writer::node, serialization_diagnostic> encode_nested(traversal_context& ctx,
+                                                             const registry_ref& registry,
+                                                             type_id id, const void* object,
+                                                             writer* doc, std::size_t depth) {
+  if (depth > 64)
+    return failure(error::invalid_argument, "", "嵌套对象超过深度限制");
+  if (!object)
+    return failure(error::internal);
+  auto binding = find_serialization(registry, id);
+  if (!binding)
+    return failure(binding.error());
+  if (binding->validate) {
+    auto status = binding->validate(object);
+    if (status.error.failed())
+      return status;
+  }
+  if (doc->has_custom(*binding)) {
+    auto encoded = doc->custom(ctx, registry, id, *binding, object, depth);
+    if (!encoded)
+      return std::move(encoded).error();
+    if (!doc->is_object(*encoded))
+      return failure(error::invalid_argument, "", "嵌套 codec 必须输出对象");
+    return encoded;
+  }
+  if (!binding->reflected)
+    return failure(error::unsupported);
+  return encode_members(ctx, registry, id, object, doc, depth);
+}
+result<writer::node, serialization_diagnostic>
+encode_nonobject(traversal_context&, const registry_ref&, const instance&, writer*, std::size_t);
+/** 对象递归使用轻量栈帧，不携带各容器分支的临时状态。 */
+result<writer::node, serialization_diagnostic> encode_view(traversal_context& ctx,
+                                                           const registry_ref& registry,
+                                                           const instance& view, writer* doc,
+                                                           std::size_t depth) {
+  if (view.kind() == type_kind::object) {
+    auto p = view.object_data();
+    if (!p)
+      return failure(p.error());
+    return encode_nested(ctx, registry, view.type().id(), *p, doc, depth);
+  }
+  return encode_nonobject(ctx, registry, view, doc, depth);
+}
+result<writer::node, serialization_diagnostic> encode_nonobject(traversal_context& ctx,
+                                                                const registry_ref& registry,
+                                                                const instance& view, writer* doc,
+                                                                std::size_t depth) {
+  const auto value_type = view.type();
+  if (value_type.kind() == type_kind::reference) {
+    auto owned = meta::detail::reference_view_access::owner(view);
+    if (!owned)
+      return failure(owned.error());
+    if (!*owned)
+      return doc->null();
+    auto target = value_type.element_type();
+    if (!target)
+      return failure(target.error());
+    if (target->kind() != type_kind::object)
+      return failure(error::unsupported, "", "内嵌引用目标必须是注册对象");
+    auto declared = find_serialization(registry, target->id());
+    auto actual = meta::detail::reference_view_access::dynamic_type(view);
+    if (!declared || !actual)
+      return failure(error::invalid_argument);
+    if (!declared->polymorphic && *actual != target->id())
+      return failure(error::invalid_argument, "", "未声明多态的引用不能保存派生对象");
+    auto adjusted = cast_base(registry, *actual, target->id(), nullptr);
+    if (!adjusted)
+      return std::move(adjusted).error();
+    auto binding = find_serialization(registry, *actual);
+    if (!binding || (!binding->reflected && !doc->has_custom(*binding)))
+      return failure(error::unsupported, "", "引用目标缺少编码器");
+    const auto* address = owned->get();
+    if (depth > 64 || !ctx.active.insert(address).second)
+      return failure(error::invalid_argument, "", "引用环或嵌套深度超限");
+    auto content = encode_nested(ctx, registry, *actual, address, doc, depth + 1);
+    ctx.active.erase(address);
+    if (!content)
+      return std::move(content).error();
+    if (!declared->polymorphic)
+      return content;
+    auto actual_type = describe_type(registry, *actual);
+    if (!actual_type)
+      return failure(actual_type.error());
+    auto* entry = doc->object();
+    const auto guid = actual_type->guid.string();
+    if (!entry || !doc->member(entry, "$type_guid", doc->string(guid)) ||
+        !doc->member(entry, "$content", *content))
+      return failure(error::out_of_memory);
+    return entry;
+  }
+  if (depth > 64 && value_type.kind() != type_kind::scalar)
+    return failure(error::invalid_argument, "", "嵌套值超过深度限制");
+  if (value_type.kind() == type_kind::scalar) {
+    auto v = view.read_value();
+    return v ? doc->scalar(*v) : result<writer::node, serialization_diagnostic>{failure(v.error())};
+  }
+  if (value_type.kind() == type_kind::variant) {
+    auto variant = view.as_variant();
+    if (!variant)
+      return failure(variant.error());
+    if (variant->names().empty())
+      return failure(error::unsupported, "", "variant 未配置文件标签");
+    auto index = variant->index();
+    if (!index)
+      return failure(index.error());
+    auto child = variant->value();
+    if (!child)
+      return failure(child.error());
+    auto content = encode_view(ctx, registry, *child, doc, depth + 1);
+    if (!content)
+      return prefix(std::move(content).error(), "/$value");
+    auto* output = doc->object();
+    auto name = variant->names()[*index];
+    if (!output || !doc->member(output, "$case", doc->string(name)) ||
+        !doc->member(output, "$value", *content))
+      return failure(error::out_of_memory);
+    return output;
+  }
+  if (value_type.kind() == type_kind::optional) {
+    auto v = view.as_optional();
+    if (!v)
+      return failure(v.error());
+    auto has = v->has_value();
+    if (!has)
+      return failure(has.error());
+    if (!*has) {
+      auto* output = doc->null();
+      return output ? result<writer::node, serialization_diagnostic>{output}
+                    : failure(error::out_of_memory);
+    }
+    auto child = v->get();
+    if (!child)
+      return failure(child.error());
+    auto encoded = encode_view(ctx, registry, *child, doc, depth + 1);
+    if (encoded && doc->is_null(*encoded))
+      return failure(error::unsupported, "", "optional 的非空值不能编码为 null");
+    return encoded;
+  }
+  if (value_type.kind() == type_kind::sequence) {
+    auto v = view.as_sequence();
+    if (!v)
+      return failure(v.error());
+    auto count = v->size();
+    if (!count)
+      return failure(count.error());
+    auto* output = doc->array();
+    if (!output)
+      return failure(error::out_of_memory);
+    for (std::size_t i = 0; i < *count; ++i) {
+      auto child = v->at(i);
+      if (!child)
+        return failure(child.error());
+      auto encoded = encode_view(ctx, registry, *child, doc, depth + 1);
+      if (!encoded)
+        return prefix(std::move(encoded).error(), "/" + std::to_string(i));
+      if (!doc->append(output, *encoded))
+        return failure(error::out_of_memory);
+    }
+    return output;
+  }
+  if (value_type.kind() == type_kind::associative) {
+    auto v = view.as_associative();
+    if (!v)
+      return failure(v.error());
+    auto keys = v->keys();
+    if (!keys)
+      return failure(keys.error());
+    auto* output = doc->object();
+    if (!output)
+      return failure(error::out_of_memory);
+    for (const auto& key : *keys) {
+      auto child = v->find(key);
+      if (!child)
+        return failure(child.error());
+      auto encoded = encode_view(ctx, registry, *child, doc, depth + 1);
+      if (!encoded)
+        return prefix(std::move(encoded).error(), field_path(key));
+      if (!doc->member(output, key, *encoded))
+        return failure(error::out_of_memory);
+    }
+    return output;
+  }
+  return failure(error::unsupported);
+}
+result<writer::node, serialization_diagnostic> encode_enum_name(const instance& view, writer* doc) {
+  auto entries = view.type().enum_entries();
+  auto scalar = view.read_value();
+  if (!entries || !scalar)
+    return failure(error::invalid_argument, "", "属性必须是已注册枚举");
+  const auto found = std::ranges::find(*entries, *scalar, &enum_entry::data);
+  if (found == entries->end())
+    return failure(error::invalid_argument, "", "未知枚举值");
+  auto* name = doc->string(found->name);
+  if (!name)
+    return failure(error::out_of_memory);
+  return name;
+}
+serialization_diagnostic decode_enum_name(traversal_context& ctx, const mutable_instance& view,
+                                          reader::node input) {
+  auto entries = view.type().enum_entries();
+  if (!entries || !ctx.input->is_string(input))
+    return failure(error::invalid_argument, "", "属性必须是枚举名称");
+  const auto name = ctx.input->string(input);
+  const auto found = std::ranges::find(*entries, name, &enum_entry::name);
+  if (found == entries->end())
+    return failure(error::invalid_argument, "", "未知枚举名称");
+  auto status = view.write_value(found->data);
+  return status.failed() ? failure(status) : serialization_diagnostic{};
+}
+result<writer::node, serialization_diagnostic> encode_members(traversal_context& ctx,
+                                                              const registry_ref& registry,
+                                                              type_id id, const void* object,
+                                                              writer* doc, std::size_t depth) {
+  auto view = instance::from_object(registry, id, object);
+  if (!view)
+    return failure(view.error());
+  auto properties = view->properties();
+  if (!properties)
+    return failure(properties.error());
+  auto* root = doc->object();
+  if (!root)
+    return failure(error::out_of_memory);
+  for (const auto& property : *properties) {
+    if (has_flags(property.flags, property_flags::read_only))
+      continue;
+    const auto path = field_path(property.name);
+    auto child = view->property(property.id);
+    if (!child)
+      return failure(child.error(), path);
+    auto encoded = has_flags(property.flags, property_flags::enum_name)
+                       ? encode_enum_name(*child, doc)
+                       : encode_view(ctx, registry, *child, doc, depth + 1);
+    if (!encoded)
+      return prefix(std::move(encoded).error(), path);
+    if (!doc->member(root, property.name, *encoded))
+      return failure(error::out_of_memory);
+  }
+  return root;
+}
+serialization_diagnostic validate_defaults(const registry_ref&, type_id, const void*, std::size_t);
+serialization_diagnostic validate_view(const registry_ref& registry, const instance& view,
+                                       std::size_t depth) {
+  const auto value_type = view.type();
+  if (value_type.kind() == type_kind::reference) {
+    auto owner = meta::detail::reference_view_access::owner(view);
+    return owner && !*owner ? serialization_diagnostic{}
+                            : failure(error::unsupported, "", "非空缺省引用必须显式保存");
+  }
+  if (depth > 64 && value_type.kind() != type_kind::scalar)
+    return failure(error::invalid_argument, "", "嵌套值超过深度限制");
+  if (value_type.kind() == type_kind::object) {
+    auto p = view.object_data();
+    if (!p)
+      return failure(p.error());
+    return validate_defaults(registry, value_type.id(), *p, depth);
+  }
+  if (value_type.kind() == type_kind::scalar) {
+    auto v = view.read_value();
+    return v ? serialization_diagnostic{} : failure(v.error());
+  }
+  if (value_type.kind() == type_kind::variant) {
+    auto variant = view.as_variant();
+    if (!variant)
+      return failure(variant.error());
+    auto child = variant->value();
+    if (!child)
+      return failure(child.error());
+    auto status = validate_view(registry, *child, depth + 1);
+    return status.error.failed() ? prefix(std::move(status), "/$value") : status;
+  }
+  if (value_type.kind() == type_kind::optional) {
+    auto v = view.as_optional();
+    if (!v)
+      return failure(v.error());
+    auto has = v->has_value();
+    if (!has)
+      return failure(has.error());
+    if (!*has)
+      return {};
+    auto child = v->get();
+    if (!child)
+      return failure(child.error());
+    return validate_view(registry, *child, depth + 1);
+  }
+  if (value_type.kind() == type_kind::sequence) {
+    auto v = view.as_sequence();
+    if (!v)
+      return failure(v.error());
+    auto n = v->size();
+    if (!n)
+      return failure(n.error());
+    for (std::size_t i = 0; i < *n; ++i) {
+      auto child = v->at(i);
+      if (!child)
+        return failure(child.error());
+      auto status = validate_view(registry, *child, depth + 1);
+      if (status.error.failed())
+        return prefix(std::move(status), "/" + std::to_string(i));
+    }
+    return {};
+  }
+  auto v = view.as_associative();
+  if (!v)
+    return failure(v.error());
+  auto keys = v->keys();
+  if (!keys)
+    return failure(keys.error());
+  for (const auto& key : *keys) {
+    auto child = v->find(key);
+    if (!child)
+      return failure(child.error());
+    auto status = validate_view(registry, *child, depth + 1);
+    if (status.error.failed())
+      return prefix(std::move(status), field_path(key));
+  }
+  return {};
+}
+serialization_diagnostic validate_defaults(const registry_ref& registry, type_id id,
+                                           const void* object, std::size_t depth) {
+  if (depth > 64)
+    return failure(error::invalid_argument, "", "嵌套对象超过深度限制");
+  auto binding = find_serialization(registry, id);
+  if (!binding)
+    return failure(binding.error());
+  if (binding->validate) {
+    auto status = binding->validate(object);
+    if (status.error.failed())
+      return status;
+  }
+  if (!binding->reflected)
+    return {};
+  auto view = instance::from_object(registry, id, object);
+  if (!view)
+    return failure(view.error());
+  auto properties = view->properties();
+  if (!properties)
+    return failure(properties.error());
+  for (const auto& property : *properties) {
+    if (property.type.kind() == type_kind::scalar ||
+        has_flags(property.flags, property_flags::read_only))
+      continue;
+    auto child = view->property(property.id);
+    if (!child)
+      return failure(child.error(), field_path(property.name));
+    auto status = validate_view(registry, *child, depth + 1);
+    if (status.error.failed())
+      return prefix(std::move(status), field_path(property.name));
+  }
+  return {};
+}
+serialization_diagnostic decode_members(traversal_context& ctx, const registry_ref&, type_id, void*,
+                                        reader::node, std::size_t,
+                                        std::span<const std::string_view>);
+result<ref<void>, serialization_diagnostic> decode_owned(traversal_context& ctx,
+                                                         const registry_ref& registry,
+                                                         type_id actual, reader::node content,
+                                                         std::size_t depth, bool root) {
+  if (depth > 64)
+    return failure(error::invalid_argument, "", "引用嵌套深度超限");
+  auto binding = find_serialization(registry, actual);
+  if (!binding)
+    return failure(binding.error());
+  ref<void> object;
+  serialization_diagnostic status;
+  if (ctx.input->has_custom(*binding)) {
+    auto decoded =
+        ctx.input->custom(ctx, registry, actual, *binding, content, depth + (root ? 0 : 1));
+    if (!decoded)
+      status = std::move(decoded).error();
+    else
+      object = std::move(*decoded);
+  } else {
+    if (!binding->reflected || !binding->construct)
+      return failure(error::unsupported);
+    object = binding->construct();
+    if (!object)
+      return failure(error::internal);
+    status = decode_members(ctx, registry, actual, object.get(), content, depth + (root ? 0 : 1));
+  }
+  if (status.error.ok() && !object)
+    status = failure(error::internal);
+  if (status.error.ok() && binding->validate)
+    status = binding->validate(object.get());
+  if (status.error.failed())
+    return status;
+  return object;
+}
+serialization_diagnostic decode_nested(traversal_context& ctx, const registry_ref& registry,
+                                       const mutable_instance& target, reader::node input,
+                                       std::size_t depth) {
+  if (depth > 64)
+    return failure(error::invalid_argument, "", "嵌套对象超过深度限制");
+  if (!ctx.input->is_object(input))
+    return failure(error::invalid_argument, "", "嵌套值必须是对象");
+  auto binding = find_serialization(registry, target.type().id());
+  if (!binding)
+    return failure(binding.error());
+  if (ctx.input->has_custom(*binding)) {
+    auto decoded = ctx.input->custom(ctx, registry, target.type().id(), *binding, input, depth);
+    if (!decoded)
+      return std::move(decoded).error();
+    if (!*decoded)
+      return failure(error::internal);
+    if (binding->validate) {
+      auto status = binding->validate(decoded->get());
+      if (status.error.failed())
+        return status;
+    }
+    return failure(target.assign_object(target.type().id(), decoded->get()));
+  }
+  if (!binding->reflected)
+    return failure(error::unsupported);
+  auto address = target.object_data();
+  if (!address)
+    return failure(address.error());
+  auto* object = *address;
+  auto status = decode_members(ctx, registry, target.type().id(), object, input, depth);
+  if (status.error.failed())
+    return status;
+  return binding->validate ? binding->validate(object) : serialization_diagnostic{};
+}
+serialization_diagnostic decode_nonobject(traversal_context&, const registry_ref&,
+                                          const mutable_instance&, reader::node, std::size_t);
+serialization_diagnostic decode_view(traversal_context& ctx, const registry_ref& registry,
+                                     const mutable_instance& view, reader::node input,
+                                     std::size_t depth) {
+  if (view.kind() == type_kind::object &&
+      !meta::detail::property_view_access::requires_replacement(view))
+    return decode_nested(ctx, registry, view, input, depth);
+  return decode_nonobject(ctx, registry, view, input, depth);
+}
+serialization_diagnostic decode_nonobject(traversal_context& ctx, const registry_ref& registry,
+                                          const mutable_instance& view, reader::node input,
+                                          std::size_t depth) {
+  if (meta::detail::property_view_access::requires_replacement(view)) {
+    serialization_diagnostic diagnostic;
+    auto status =
+        meta::detail::property_view_access::replace(view, [&](const mutable_instance& temporary) {
+          diagnostic = decode_view(ctx, registry, temporary, input, depth);
+          return diagnostic.error;
+        });
+    return diagnostic.error.failed()
+               ? diagnostic
+               : (status.failed() ? failure(status) : serialization_diagnostic{});
+  }
+  const auto value_type = view.type();
+  if (value_type.kind() == type_kind::reference) {
+    if (ctx.input->is_null(input)) {
+      auto status = meta::detail::reference_view_access::reset(view);
+      return status.failed() ? failure(status) : serialization_diagnostic{};
+    }
+    auto target = value_type.element_type();
+    if (!target || target->kind() != type_kind::object)
+      return failure(error::unsupported);
+    auto declared = find_serialization(registry, target->id());
+    if (!declared)
+      return failure(declared.error());
+    auto actual = target->id();
+    auto* content = input;
+    if (declared->polymorphic) {
+      auto* tag = ctx.input->member(input, "$type_guid");
+      content = ctx.input->member(input, "$content");
+      if (!ctx.input->is_object(input) || ctx.input->size(input) != 2 ||
+          !ctx.input->is_string(tag) || !ctx.input->is_object(content))
+        return failure(error::invalid_argument, "", "多态引用需要类型和内容");
+      auto guid = engine::guid::parse(ctx.input->string(tag));
+      if (!guid || !*guid || guid->string() != ctx.input->string(tag))
+        return failure(error::invalid_argument, "/$type_guid");
+      auto type = describe_type(registry, *guid);
+      if (!type)
+        return failure(type.error(), "/$type_guid");
+      actual = type->type_id;
+    }
+    auto compatible = cast_base(registry, actual, target->id(), nullptr);
+    if (!compatible)
+      return std::move(compatible).error();
+    auto decoded = decode_owned(ctx, registry, actual, content, depth);
+    if (!decoded)
+      return declared->polymorphic ? prefix(std::move(decoded).error(), "/$content")
+                                   : std::move(decoded).error();
+    auto object = std::move(*decoded);
+    auto adjusted = cast_base(registry, actual, target->id(), object.get());
+    if (!adjusted)
+      return std::move(adjusted).error();
+    auto assigned =
+        meta::detail::reference_view_access::assign(view, target->id(), object.alias(*adjusted));
+    return assigned.failed() ? failure(assigned) : serialization_diagnostic{};
+  }
+  if (depth > 64 && value_type.kind() != type_kind::scalar)
+    return failure(error::invalid_argument, "", "嵌套值超过深度限制");
+  if (value_type.kind() == type_kind::scalar) {
+    auto decoded = ctx.input->scalar(input, value_type.scalar_kind());
+    if (!decoded)
+      return std::move(decoded).error();
+    auto status = view.write_value(*decoded);
+    return status.failed() ? failure(status) : serialization_diagnostic{};
+  }
+  if (value_type.kind() == type_kind::variant) {
+    auto variant = view.as_variant();
+    if (!variant)
+      return failure(variant.error());
+    if (variant->names().empty())
+      return failure(error::unsupported, "", "variant 未配置文件标签");
+    auto* tag = ctx.input->is_object(input) ? ctx.input->member(input, "$case") : nullptr;
+    auto* content = ctx.input->is_object(input) ? ctx.input->member(input, "$value") : nullptr;
+    if (!ctx.input->is_object(input) || ctx.input->size(input) != 2 || !ctx.input->is_string(tag) ||
+        !content)
+      return failure(error::invalid_argument, "", "variant 必须包含 $case 和 $value");
+    const auto name = ctx.input->string(tag);
+    auto names = variant->names();
+    auto found = std::ranges::find(names, name);
+    if (found == names.end())
+      return failure(error::invalid_argument, "/$case", "未知 variant 标签");
+    auto status = variant->select(static_cast<std::size_t>(found - names.begin()));
+    if (status.failed())
+      return failure(status, "/$case");
+    auto child = variant->value();
+    if (!child)
+      return failure(child.error());
+    auto decoded = decode_view(ctx, registry, *child, content, depth + 1);
+    return decoded.error.failed() ? prefix(std::move(decoded), "/$value") : decoded;
+  }
+  if (value_type.kind() == type_kind::optional) {
+    auto v = view.as_optional();
+    if (!v)
+      return failure(v.error());
+    auto status = v->reset();
+    if (status.failed())
+      return failure(status);
+    if (ctx.input->is_null(input))
+      return {};
+    auto child = v->ensure();
+    if (!child)
+      return failure(child.error());
+    return decode_view(ctx, registry, *child, input, depth + 1);
+  }
+  if (value_type.kind() == type_kind::sequence) {
+    if (!ctx.input->is_array(input))
+      return failure(error::invalid_argument, "", "序列必须是数组");
+    auto v = view.as_sequence();
+    if (!v)
+      return failure(v.error());
+    if (v->supports_replacement()) {
+      serialization_diagnostic decoded;
+      auto status = v->replace([&](const mutable_instance& candidate) {
+        decoded = decode_view(ctx, registry, candidate, input, depth);
+        return decoded.error;
+      });
+      return decoded.error.failed() ? decoded : failure(status);
+    }
+    if (v->is_resizable()) {
+      auto status = v->resize(0);
+      if (status.failed())
+        return failure(status);
+    }
+    auto status = v->resize(ctx.input->size(input));
+    if (status.failed())
+      return failure(status);
+    std::size_t i = 0;
+    auto it = ctx.input->iterate(input);
+    while (auto* item = ctx.input->next_element(it)) {
+      auto child = v->at(i);
+      if (!child)
+        return failure(child.error());
+      auto decoded = decode_view(ctx, registry, *child, item, depth + 1);
+      if (decoded.error.failed())
+        return prefix(std::move(decoded), "/" + std::to_string(i));
+      ++i;
+    }
+    return {};
+  }
+  if (value_type.kind() == type_kind::associative) {
+    if (!ctx.input->is_object(input))
+      return failure(error::invalid_argument, "", "关联容器必须是对象");
+    auto v = view.as_associative();
+    if (!v)
+      return failure(v.error());
+    auto status = v->clear();
+    if (status.failed())
+      return failure(status);
+    std::unordered_set<std::string_view> keys;
+    auto it = ctx.input->iterate(input);
+    while (auto entry = ctx.input->next_member(it)) {
+      const auto name = entry.key;
+      if (!keys.insert(name).second)
+        return failure(error::invalid_argument, field_path(name), "重复关联键");
+      auto child = v->insert(name);
+      if (!child)
+        return failure(child.error(), field_path(name));
+      auto decoded = decode_view(ctx, registry, *child, entry.data, depth + 1);
+      if (decoded.error.failed())
+        return prefix(std::move(decoded), field_path(name));
+    }
+    return {};
+  }
+  return failure(error::unsupported);
+}
+serialization_diagnostic decode_members(traversal_context& ctx, const registry_ref& registry,
+                                        type_id id, void* object, reader::node root,
+                                        std::size_t depth,
+                                        std::span<const std::string_view> ignored) {
+  auto view = mutable_instance::from_object(registry, id, object);
+  if (!view)
+    return failure(view.error());
+  auto properties = view->as_const().properties();
+  if (!properties)
+    return failure(properties.error());
+  if (!ctx.input->is_object(root))
+    return failure(error::invalid_argument, "", "根值必须是对象");
+  auto codec = find_serialization(registry, id);
+  if (!codec)
+    return failure(codec.error());
+  std::unordered_set<std::string_view> names;
+  auto it = ctx.input->iterate(root);
+  while (auto entry = ctx.input->next_member(it)) {
+    const auto name = entry.key;
+    if (std::ranges::find(ignored, name) != ignored.end())
+      continue;
+    if (codec->reject_unknown_fields &&
+        std::ranges::none_of(*properties, [&](const auto& p) { return p.name == name; }))
+      return failure(error::invalid_argument, field_path(name), "未知字段");
+    if (!names.insert(name).second)
+      return failure(error::invalid_argument, field_path(name), "重复属性名");
+  }
+  for (const auto& property : *properties) {
+    if (std::ranges::find(ignored, property.name) != ignored.end())
+      return failure(error::invalid_argument, field_path(property.name), "反射字段占用格式头");
+    if (has_flags(property.flags, property_flags::read_only))
+      continue;
+    auto* input = ctx.input->member(root, property.name);
+    const auto path = field_path(property.name);
+    if (!input) {
+      if (has_flags(property.flags, property_flags::required))
+        return failure(error::invalid_argument, path, "缺少必填属性");
+      if (property.type.kind() != type_kind::scalar) {
+        auto child = view->as_const().property(property.id);
+        if (!child)
+          return failure(child.error(), path);
+        auto status = validate_view(registry, *child, depth + 1);
+        if (status.error.failed())
+          return prefix(std::move(status), path);
+      }
+      continue;
+    }
+    auto child = view->property(property.id);
+    if (!child)
+      return failure(child.error(), path);
+    auto status = has_flags(property.flags, property_flags::enum_name)
+                      ? decode_enum_name(ctx, *child, input)
+                      : decode_view(ctx, registry, *child, input, depth + 1);
+    if (status.error.failed())
+      return prefix(std::move(status), path);
+  }
+  return {};
+}
+
+}

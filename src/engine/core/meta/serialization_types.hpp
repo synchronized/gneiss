@@ -32,9 +32,6 @@ struct serialization_diagnostic {
 };
 /** JSON 专用操作；字节回调与节点回调互斥，字节内容必须遵循 JSON 契约。 */
 struct json_serialization_binding {
-  /** 显式启用反射 JSON；自定义函数按方向优先。 */
-  bool reflected = false;
-  bool reject_unknown_fields = false;
   /** JSON 节点回调仅借用文档；与字节 codec 互斥，复用当前递归上下文。 */
   result<yyjson_mut_val*, serialization_diagnostic> (*encode_node)(
       gneiss::engine::serialization::json::json_codec_context&, yyjson_mut_doc*, const void*){};
@@ -49,6 +46,9 @@ struct json_serialization_binding {
 /** 类型构造、继承及校验与具体格式操作分开保存。编码对象及输入字节仅在调用期间借用；解码成功返回独立共享所有者。
  * 回调必须可并发操作不同对象；模块需在 Registry 使用期间存活。 */
 struct serialization_binding {
+  /** 启用格式无关字段遍历；自定义 codec 按方向优先。 */
+  bool reflected = false;
+  bool reject_unknown_fields = false;
   /** 声明引用可承载派生类型；与对象是否被 ref 拥有无关。 */
   bool polymorphic = false;
   engine::type_id base_type{};

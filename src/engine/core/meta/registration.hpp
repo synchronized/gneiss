@@ -240,17 +240,17 @@ public:
     };
     return *this;
   }
-  /** 启用反射 JSON；缺失的非必填字段保留默认值，只读字段不持久化。 */
-  type_builder& json_reflection(bool reject_unknown_fields = false) noexcept {
+  /** 启用格式无关字段遍历；缺失的非必填字段保留默认值，只读字段不持久化。 */
+  type_builder& serialization(bool reject_unknown_fields = false) noexcept {
     static_assert(std::is_default_constructible_v<object_type>);
     if (committed_ || status_.failed())
       return *this;
-    if (codec_.json.reflected) {
+    if (codec_.reflected) {
       status_ = error::invalid_argument;
       return *this;
     }
-    codec_.json.reflected = true;
-    codec_.json.reject_unknown_fields = reject_unknown_fields;
+    codec_.reflected = true;
+    codec_.reject_unknown_fields = reject_unknown_fields;
     codec_.construct = []() -> ref<void> { return make_ref<object_type>(); };
     return *this;
   }

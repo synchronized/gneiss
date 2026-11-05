@@ -38,7 +38,7 @@ bool format_node_contract() {
       e::detail::register_reflected_asset<format_probe, probe_format>(
           m::type_builder<format_probe>{*registry}
               .property<&format_probe::text>(m::property_id{1}, "text", m::property_flags::required)
-              .json_reflection(true))
+              .serialization(true))
           .failed() ||
       m::freeze(*registry).failed())
     return false;

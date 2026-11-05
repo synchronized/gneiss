@@ -19,6 +19,10 @@ foreach(source IN LISTS sources)
       content MATCHES "(^|[^A-Za-z0-9_])default_registry[ \t\r\n]*[(]")
     message(FATAL_ERROR "Meta/Serialization 基础设施外部必须使用无 registry 入口，不能直接取得默认表：${source}")
   endif()
+  if(source MATCHES "/src/engine/core/serialization/(traversal|serialization|reader|writer)[.](hpp|cpp)$" AND
+      content MATCHES "yyjson|serialization/(json[.]hpp|detail/json_adapter[.]hpp)|[.]json[.]")
+    message(FATAL_ERROR "共享序列化遍历不得依赖 JSON 后端：${source}")
+  endif()
   if(content MATCHES "engine/resource/(mesh|texture|material)/detail/[a-z_]+_resource_access[.]hpp" AND
       NOT source MATCHES "/src/engine/(resource/(mesh|texture|material)/[a-z_]+_resource|function/resource/resource_service)[.]cpp$")
     message(FATAL_ERROR "资源私有访问器不得泄漏到普通调用方：${source}")
@@ -98,7 +102,7 @@ foreach(source IN LISTS sources)
   endif()
 
   if(source MATCHES "/src/engine/resource/scene/(scene_description|prefab_description|prefab_property_data)[.](cpp|hpp)$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"]engine/core/(meta/(registration|registry)|serialization/json)[.]hpp")
+      content MATCHES "#[ \t]*include[ \t]*[<\"]engine/core/(meta/(registration|registry)|serialization/(json|serialization|reader|writer))[.]hpp")
     message(FATAL_ERROR "场景资产描述不得依赖运行时 Registry：${source}")
   endif()
 

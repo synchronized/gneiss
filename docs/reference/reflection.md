@@ -163,7 +163,7 @@ codec 文件只提供编解码入口。首次失败立即返回，不回滚已�
 
 ## 反射 JSON 与对象校验
 
-`type_builder<T>.json_reflection()` 显式启用通用 JSON 对象读写，要求 T 可默认构造。
+`type_builder<T>.serialization()` 显式启用共享字段遍历，要求 T 可默认构造。
 已登记的自定义 encode/decode 按方向优先；只有缺少该方向函数时才回退到反射 JSON。
 同一 Builder 可各调用一次自定义和反射注册，两者顺序不限；未启用反射的类型保持原行为。
 
@@ -174,7 +174,7 @@ meta::type_builder<camera_description>{}
         meta::property_id{1}, "settings", meta::property_flags::required)
     .property<&camera_description::is_primary>(
         meta::property_id{4}, "is_primary", meta::property_flags::required)
-    .json_reflection()
+    .serialization()
     .commit();
 ```
 
@@ -514,10 +514,10 @@ mutable_instance::write_value 对可直接访问的引用槽接受兼容对象�
 `deserialize<T>` 接受文本或字节。两种入口均提供独立注册表和默认注册表版本。
 Meta 不再提供含糊的 serialize/deserialize 入口。
 
-注册表的 `serialization_binding.json` 单独保存 JSON 反射开关、节点/字节回调和字节限制；
-构造、继承和校验不属于 JSON 操作表。`json_reflection` 启用字段遍历，
+注册表的 `serialization_binding.json` 单独保存 JSON 节点/字节回调和字节限制；
+构造、继承、校验、字段遍历开关及未知字段策略不属于 JSON 操作表。`serialization` 启用字段遍历，
 `json_serialization<Encode, Decode>` 登记节点回调，`json_bytes_serialization<Encode, Decode>`
 登记 JSON 字节适配；两种自定义回调互斥，字节适配不是任意二进制格式入口。
 资源二进制协议通过 asset_decoder 显式注入解码函数。
 
-当前遍历仍由 JSON 后端实现；格式无关 reader/writer 尚未落地。
+字段遍历已独立于 JSON 后端，接口与限制见 [序列化](serialization.md)。

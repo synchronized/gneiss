@@ -520,6 +520,7 @@ endif()
 file(MAKE_DIRECTORY "${fixture}/src/engine/resource")
 foreach(header IN ITEMS "engine/core/meta/registry.hpp"
     "engine/core/meta/registration.hpp" "engine/core/serialization/json.hpp"
+    "engine/core/serialization/serialization.hpp"
     "engine/function/scene/prefab_property_override.hpp" "engine/function/world/world.hpp")
   file(WRITE "${fixture}/src/engine/resource/scene/scene_description.hpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
@@ -713,3 +714,14 @@ if(NOT status EQUAL 0)
   message(FATAL_ERROR "边界检查错误拒绝无 registry 入口")
 endif()
 file(WRITE "${fixture}/src/editor/probe.cpp" "")
+
+# 共享遍历必须独立于 JSON 后端。
+file(MAKE_DIRECTORY "${fixture}/src/engine/core/serialization")
+file(WRITE "${fixture}/src/engine/core/serialization/traversal.cpp" "#include <yyjson.h>\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+  RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+if(status EQUAL 0)
+  message(FATAL_ERROR "边界检查未拒绝共享遍历依赖 JSON")
+endif()
+file(WRITE "${fixture}/src/engine/core/serialization/traversal.cpp" "// 通用遍历\n")

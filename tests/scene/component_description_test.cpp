@@ -55,7 +55,7 @@ int main() try {
         auto status = e::meta::type_builder<reflected_description>{}
                           .base<e::component_description_base>()
                           .property<&reflected_description::speed>(e::meta::property_id{1}, "speed")
-                          .json_reflection()
+                          .serialization()
                           .commit();
         if (status.failed())
           return status;

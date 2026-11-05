@@ -95,7 +95,7 @@ error register_component_descriptions() noexcept {
                     .property<&prefab_property_override_key::property_id>(meta::property_id{3},
                                                                           "property_id", required)
                     .property<&prefab_property_override_key::path>(meta::property_id{4}, "path")
-                    .json_reflection(true)
+                    .serialization(true)
                     .validate<&validate_property_override_key>()
                     .commit();
   if (status.failed())
@@ -103,7 +103,7 @@ error register_component_descriptions() noexcept {
   status = meta::type_builder<prefab_property_override>{}
                .property<&prefab_property_override::key>(meta::property_id{1}, "key", required)
                .property<&prefab_property_override::value>(meta::property_id{2}, "value", required)
-               .json_reflection(true)
+               .serialization(true)
                .commit();
   if (status.failed())
     return status;
@@ -113,7 +113,7 @@ error register_component_descriptions() noexcept {
                .property<&prefab_component_override::type_guid>(meta::property_id{2}, "type_guid",
                                                                 required)
                .property<&prefab_component_override::added>(meta::property_id{3}, "added", required)
-               .json_reflection(true)
+               .serialization(true)
                .validate<&validate_component_override>()
                .commit();
   if (status.failed())
@@ -124,7 +124,7 @@ error register_component_descriptions() noexcept {
                                                                          "overrides", required)
                .property<&prefab_reference_description::component_overrides>(meta::property_id{3},
                                                                              "component_overrides")
-               .json_reflection()
+               .serialization()
                .validate<&validate_prefab_reference_description>()
                .commit();
   if (status.failed())
@@ -137,7 +137,7 @@ error register_component_descriptions() noexcept {
           .property<&object_description::transform>(meta::property_id{4}, "transform", required)
           .property<&object_description::components>(meta::property_id{5}, "components")
           .property<&object_description::prefab>(meta::property_id{6}, "prefab")
-          .json_reflection()
+          .serialization()
           .validate<&validate_object_description>()
           .commit();
   if (status.failed())
@@ -146,7 +146,7 @@ error register_component_descriptions() noexcept {
                .property<&math::camera_settings::fov>(meta::property_id{1}, "fov", required)
                .property<&math::camera_settings::near>(meta::property_id{2}, "near", required)
                .property<&math::camera_settings::far>(meta::property_id{3}, "far", required)
-               .json_reflection()
+               .serialization()
                .validate<&validate_camera_description>()
                .commit();
   if (status.failed())
@@ -157,7 +157,7 @@ error register_component_descriptions() noexcept {
           .property<&camera_description::settings>(meta::property_id{1}, "settings", required)
           .property<&camera_description::is_primary>(
               meta::property_id{4}, "is_primary", required | meta::property_flags::editor_read_only)
-          .json_reflection()
+          .serialization()
           .commit();
   if (status.failed())
     return status;
@@ -166,7 +166,7 @@ error register_component_descriptions() noexcept {
       .property<&mesh_renderer_description::mesh_uri>(meta::property_id{1}, "mesh", required)
       .property<&mesh_renderer_description::material_uri>(meta::property_id{2}, "material",
                                                           required)
-      .json_reflection()
+      .serialization()
       .validate<&validate_mesh_renderer_description>()
       .commit();
 }
@@ -222,7 +222,7 @@ error register_builtin_resource_types() noexcept {
                .property<&texture_description::usage>(meta::property_id{3}, "usage",
                                                       meta::property_flags::required |
                                                           meta::property_flags::enum_name)
-               .json_reflection(true)
+               .serialization(true)
                .validate<&validate_texture>()
                .commit();
   if (status.failed())
@@ -234,7 +234,7 @@ error register_builtin_resource_types() noexcept {
                .property<&texture_sampling::mip_filter>(meta::property_id{4}, "mip_filter")
                .property<&texture_sampling::address_u>(meta::property_id{5}, "address_u")
                .property<&texture_sampling::address_v>(meta::property_id{6}, "address_v")
-               .json_reflection(true)
+               .serialization(true)
                .validate<&validate_sampling>()
                .commit();
   if (status.failed())
@@ -251,7 +251,7 @@ error register_builtin_resource_types() noexcept {
                .property<&material_parameters::double_sided>(meta::property_id{8}, "double_sided")
                .property<&material_parameters::alpha_cutoff>(meta::property_id{9}, "alpha_cutoff")
                .property<&material_parameters::sampling>(meta::property_id{10}, "sampling")
-               .json_reflection(true)
+               .serialization(true)
                .validate<&validate_parameters>()
                .commit();
   if (status.failed())
@@ -263,7 +263,7 @@ error register_builtin_resource_types() noexcept {
                                                        meta::property_flags::required)
           .property<&material_description::texture_uris>(meta::property_id{2}, "texture_uris",
                                                          meta::property_flags::required)
-          .json_reflection(true));
+          .serialization(true));
   if (status.failed())
     return status;
 
@@ -271,7 +271,7 @@ error register_builtin_resource_types() noexcept {
   status = meta::type_builder<action_binding>{}
                .property<&action_binding::physical_key>(meta::property_id{1}, "key", required)
                .property<&action_binding::scale>(meta::property_id{2}, "scale", required)
-               .json_reflection(true)
+               .serialization(true)
                .validate<&validate_binding>()
                .commit();
   if (status.failed())
@@ -279,7 +279,7 @@ error register_builtin_resource_types() noexcept {
   status = meta::type_builder<action_definition>{}
                .property<&action_definition::name>(meta::property_id{1}, "name", required)
                .property<&action_definition::bindings>(meta::property_id{2}, "bindings", required)
-               .json_reflection(true)
+               .serialization(true)
                .commit();
   if (status.failed())
     return status;
@@ -287,7 +287,7 @@ error register_builtin_resource_types() noexcept {
       meta::type_builder<action_map>{}
           .schema_version(1)
           .property<&action_map::actions>(meta::property_id{1}, "actions", required)
-          .json_reflection(true)
+          .serialization(true)
           .validate<&validate_action_map>());
   if (status.failed())
     return status;
@@ -297,7 +297,7 @@ error register_builtin_resource_types() noexcept {
                                               meta::property_flags::required)
           .property<&scene_description::objects>(meta::property_id{2}, "objects",
                                                  meta::property_flags::required)
-          .json_reflection()
+          .serialization()
           .validate<&validate_scene_description>());
   if (status.failed())
     return status;
@@ -309,7 +309,7 @@ error register_builtin_resource_types() noexcept {
                                                     meta::property_flags::required)
           .property<&prefab_description::objects>(meta::property_id{3}, "objects",
                                                   meta::property_flags::required)
-          .json_reflection()
+          .serialization()
           .validate<&validate_prefab_description>());
 }
 }

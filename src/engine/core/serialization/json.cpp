@@ -6,6 +6,7 @@
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/detail/json_adapter.hpp"
+#include "engine/core/serialization/detail/traversal.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -17,9 +18,7 @@
 namespace gneiss::engine::serialization::json {
 using namespace meta;
 namespace {
-struct serialization_context {
-  std::unordered_set<const void*> active;
-};
+using serialization_context = serialization::detail::traversal_context;
 }
 namespace detail {
 struct json_codec_state {
@@ -40,18 +39,6 @@ struct json_codec_state {
 };
 }
 namespace {
-std::string field_path(std::string_view name) {
-  std::string path = "/";
-  for (char c : name) {
-    if (c == '~')
-      path += "~0";
-    else if (c == '/')
-      path += "~1";
-    else
-      path += c;
-  }
-  return path;
-}
 serialization_diagnostic failure(error code, std::string path = {}, std::string message = {}) {
   return {.path = std::move(path), .message = std::move(message), .error = code};
 }
@@ -200,52 +187,54 @@ serialization_diagnostic prefix(serialization_diagnostic diagnostic, const std::
   diagnostic.byte_offset = 0;
   return diagnostic;
 }
-/** 检查注册继承链并按 C++ 转换逐层调整地址。 */
-result<void*, serialization_diagnostic> cast_base(const registry_ref& registry, type_id actual,
-                                                  type_id declared, void* pointer) {
-  for (std::size_t depth = 0; depth <= 64; ++depth) {
-    if (actual == declared)
-      return pointer;
-    auto binding = find_serialization(registry, actual);
-    if (!binding || !binding->base_type || !binding->upcast)
-      return failure(error::invalid_argument, "", "实际类型不属于声明基类");
-    if (pointer)
-      pointer = binding->upcast(pointer);
-    actual = binding->base_type;
+
+class json_writer final : public serialization::writer {
+  yyjson_mut_doc* doc_;
+  static yyjson_mut_val* val(node n) { return static_cast<yyjson_mut_val*>(n); }
+
+public:
+  explicit json_writer(yyjson_mut_doc* doc) : doc_(doc) {}
+  node object() override { return yyjson_mut_obj(doc_); }
+  node array() override { return yyjson_mut_arr(doc_); }
+  node null() override { return yyjson_mut_null(doc_); }
+  node string(std::string_view s) override { return yyjson_mut_strncpy(doc_, s.data(), s.size()); }
+  result<node, serialization_diagnostic> scalar(const value& v) override {
+    auto result = write_value(doc_, v, "");
+    if (!result)
+      return std::move(result).error();
+    return static_cast<node>(*result);
   }
-  return failure(error::invalid_argument, "", "继承链过深或存在环");
-}
-result<yyjson_mut_val*, serialization_diagnostic> encode_members(serialization_context& ctx,
-                                                                 const registry_ref&, type_id,
-                                                                 const void*, yyjson_mut_doc*,
-                                                                 std::size_t);
-result<yyjson_mut_val*, serialization_diagnostic>
-encode_nested(serialization_context& ctx, const registry_ref& registry, type_id id,
-              const void* object, yyjson_mut_doc* doc, std::size_t depth) {
-  if (depth > 64)
-    return failure(error::invalid_argument, "", "嵌套对象超过深度限制");
-  if (!object)
-    return failure(error::internal);
-  auto binding = find_serialization(registry, id);
-  if (!binding)
-    return failure(binding.error());
-  if (binding->validate) {
-    auto status = binding->validate(object);
-    if (status.error.failed())
-      return status;
+  bool member(node o, std::string_view key, node v) override {
+    if (!o || !v)
+      return false;
+    auto name = yyjson_mut_strncpy(doc_, key.data(), key.size());
+    return name && yyjson_mut_obj_add(val(o), name, val(v));
   }
-  if (binding->json.encode_node) {
-    detail::json_codec_state state{registry, ctx, depth};
-    auto context = state.context();
-    auto encoded = binding->json.encode_node(context, doc, object);
-    if (!encoded)
-      return std::move(encoded).error();
-    if (!yyjson_mut_is_obj(*encoded))
-      return failure(error::invalid_argument, "", "嵌套 codec 必须输出 JSON 对象");
-    return encoded;
+  bool append(node a, node v) override { return a && v && yyjson_mut_arr_append(val(a), val(v)); }
+  bool is_object(node n) const override { return yyjson_mut_is_obj(val(n)); }
+  bool is_null(node n) const override { return yyjson_mut_is_null(val(n)); }
+  bool root(node n) override {
+    if (!n)
+      return false;
+    yyjson_mut_doc_set_root(doc_, val(n));
+    return true;
   }
-  if (binding->json.encode_bytes) {
-    auto encoded = binding->json.encode_bytes(registry, object);
+  bool has_custom(const serialization_binding& b) const override {
+    return b.json.encode_node || b.json.encode_bytes;
+  }
+  result<node, serialization_diagnostic> custom(serialization_context& ctx,
+                                                const registry_ref& registry, type_id,
+                                                const serialization_binding& binding,
+                                                const void* object, std::size_t depth) override {
+    if (binding.json.encode_node) {
+      detail::json_codec_state state{registry, ctx, depth};
+      auto context = state.context();
+      auto encoded = binding.json.encode_node(context, doc_, object);
+      if (!encoded)
+        return std::move(encoded).error();
+      return static_cast<node>(*encoded);
+    }
+    auto encoded = binding.json.encode_bytes(registry, object);
     if (!encoded)
       return std::move(encoded).error();
     std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> parsed(
@@ -253,229 +242,138 @@ encode_nested(serialization_context& ctx, const registry_ref& registry, type_id 
         &yyjson_doc_free);
     if (!parsed || !yyjson_is_obj(yyjson_doc_get_root(parsed.get())))
       return failure(error::invalid_argument, "", "嵌套 codec 必须输出 JSON 对象");
-    auto* copied = yyjson_val_mut_copy(doc, yyjson_doc_get_root(parsed.get()));
+    auto copied = yyjson_val_mut_copy(doc_, yyjson_doc_get_root(parsed.get()));
     if (!copied)
       return failure(error::out_of_memory);
-    return copied;
+    return static_cast<node>(copied);
   }
-  if (!binding->json.reflected)
-    return failure(error::unsupported);
-  return encode_members(ctx, registry, id, object, doc, depth);
-}
-result<yyjson_mut_val*, serialization_diagnostic> encode_nonobject(serialization_context&,
-                                                                   const registry_ref&,
-                                                                   const instance&, yyjson_mut_doc*,
-                                                                   std::size_t);
-/** 对象递归使用轻量栈帧，不携带各容器分支的临时状态。 */
+};
+class json_reader final : public serialization::reader {
+  yyjson_val* root_{};
+  static yyjson_val* val(node n) {
+    return const_cast<yyjson_val*>(static_cast<const yyjson_val*>(n));
+  }
+
+public:
+  explicit json_reader(yyjson_val* root = nullptr) : root_(root) {}
+  node root() const override { return root_; }
+  bool is_object(node n) const override { return yyjson_is_obj(val(n)); }
+  bool is_array(node n) const override { return yyjson_is_arr(val(n)); }
+  bool is_null(node n) const override { return yyjson_is_null(val(n)); }
+  bool is_string(node n) const override { return yyjson_is_str(val(n)); }
+  std::string_view string(node n) const override {
+    return {yyjson_get_str(val(n)), yyjson_get_len(val(n))};
+  }
+  std::size_t size(node n) const override {
+    return is_array(n) ? yyjson_arr_size(val(n)) : yyjson_obj_size(val(n));
+  }
+  node member(node n, std::string_view key) const override {
+    return yyjson_obj_getn(val(n), key.data(), key.size());
+  }
+  cursor iterate(node n) const override {
+    if (is_array(n)) {
+      auto i = yyjson_arr_iter_with(val(n));
+      return {i.idx, i.max, i.cur, n};
+    }
+    auto i = yyjson_obj_iter_with(val(n));
+    return {i.idx, i.max, i.cur, n};
+  }
+  node next_element(cursor& c) const override {
+    yyjson_arr_iter i{c.index, c.count, val(c.current)};
+    auto result = yyjson_arr_iter_next(&i);
+    c.index = i.idx;
+    c.current = i.cur;
+    return result;
+  }
+  entry next_member(cursor& c) const override {
+    yyjson_obj_iter i{c.index, c.count, val(c.current), val(c.owner)};
+    auto key = yyjson_obj_iter_next(&i);
+    c.index = i.idx;
+    c.current = i.cur;
+    if (!key)
+      return {};
+    return {{yyjson_get_str(key), yyjson_get_len(key)}, yyjson_obj_iter_get_val(key)};
+  }
+  result<value, serialization_diagnostic> scalar(node n, value_kind k) const override {
+    return read_value(val(n), k, "");
+  }
+  bool has_custom(const serialization_binding& b) const override {
+    return b.json.decode_node || b.json.decode_bytes;
+  }
+  result<ref<void>, serialization_diagnostic> custom(serialization_context& ctx,
+                                                     const registry_ref& registry, type_id,
+                                                     const serialization_binding& binding,
+                                                     node input, std::size_t depth) override {
+    if (binding.json.decode_node) {
+      detail::json_codec_state state{registry, ctx, depth};
+      auto context = state.context();
+      return binding.json.decode_node(context, val(input));
+    }
+    std::size_t size{};
+    std::unique_ptr<char, decltype(&std::free)> text(yyjson_val_write(val(input), 0, &size),
+                                                     &std::free);
+    if (!text)
+      return failure(error::out_of_memory);
+    return binding.json.decode_bytes(registry, std::as_bytes(std::span{text.get(), size}));
+  }
+};
+/** 嵌套 codec 借用同一个环检测上下文，临时 reader 不改变外层输入生命周期。 */
+struct scoped_reader {
+  serialization_context& context;
+  reader* previous;
+  json_reader backend;
+  explicit scoped_reader(serialization_context& ctx) : context(ctx), previous(ctx.input) {
+    ctx.input = &backend;
+  }
+  ~scoped_reader() { context.input = previous; }
+};
 result<yyjson_mut_val*, serialization_diagnostic>
 encode_view(serialization_context& ctx, const registry_ref& registry, const instance& view,
             yyjson_mut_doc* doc, std::size_t depth) {
-  if (view.kind() == type_kind::object) {
-    auto p = view.object_data();
-    if (!p)
-      return failure(p.error());
-    return encode_nested(ctx, registry, view.type().id(), *p, doc, depth);
-  }
-  return encode_nonobject(ctx, registry, view, doc, depth);
+  json_writer output{doc};
+  auto encoded = serialization::detail::encode_view(ctx, registry, view, &output, depth);
+  if (!encoded)
+    return std::move(encoded).error();
+  return static_cast<yyjson_mut_val*>(*encoded);
 }
 result<yyjson_mut_val*, serialization_diagnostic>
-encode_nonobject(serialization_context& ctx, const registry_ref& registry, const instance& view,
-                 yyjson_mut_doc* doc, std::size_t depth) {
-  const auto value_type = view.type();
-  if (value_type.kind() == type_kind::reference) {
-    auto owned = meta::detail::reference_view_access::owner(view);
-    if (!owned)
-      return failure(owned.error());
-    if (!*owned)
-      return yyjson_mut_null(doc);
-    auto target = value_type.element_type();
-    if (!target)
-      return failure(target.error());
-    if (target->kind() != type_kind::object)
-      return failure(error::unsupported, "", "内嵌引用目标必须是注册对象");
-    auto declared = find_serialization(registry, target->id());
-    auto actual = meta::detail::reference_view_access::dynamic_type(view);
-    if (!declared || !actual)
-      return failure(error::invalid_argument);
-    if (!declared->polymorphic && *actual != target->id())
-      return failure(error::invalid_argument, "", "未声明多态的引用不能保存派生对象");
-    auto adjusted = cast_base(registry, *actual, target->id(), nullptr);
-    if (!adjusted)
-      return std::move(adjusted).error();
-    auto binding = find_serialization(registry, *actual);
-    if (!binding ||
-        (!binding->json.reflected && !binding->json.encode_bytes && !binding->json.encode_node))
-      return failure(error::unsupported, "", "引用目标缺少编码器");
-    const auto* address = owned->get();
-    if (depth > 64 || !ctx.active.insert(address).second)
-      return failure(error::invalid_argument, "", "引用环或嵌套深度超限");
-    auto content = encode_nested(ctx, registry, *actual, address, doc, depth + 1);
-    ctx.active.erase(address);
-    if (!content)
-      return std::move(content).error();
-    if (!declared->polymorphic)
-      return content;
-    auto actual_type = describe_type(registry, *actual);
-    if (!actual_type)
-      return failure(actual_type.error());
-    auto* entry = yyjson_mut_obj(doc);
-    const auto guid = actual_type->guid.string();
-    if (!entry || !yyjson_mut_obj_add_strcpy(doc, entry, "$type_guid", guid.c_str()) ||
-        !yyjson_mut_obj_add_val(doc, entry, "$content", *content))
-      return failure(error::out_of_memory);
-    return entry;
-  }
-  if (depth > 64 && value_type.kind() != type_kind::scalar)
-    return failure(error::invalid_argument, "", "嵌套值超过深度限制");
-  if (value_type.kind() == type_kind::scalar) {
-    auto v = view.read_value();
-    return v ? write_value(doc, *v, "")
-             : result<yyjson_mut_val*, serialization_diagnostic>{failure(v.error())};
-  }
-  if (value_type.kind() == type_kind::variant) {
-    auto variant = view.as_variant();
-    if (!variant)
-      return failure(variant.error());
-    if (variant->names().empty())
-      return failure(error::unsupported, "", "variant 未配置文件标签");
-    auto index = variant->index();
-    if (!index)
-      return failure(index.error());
-    auto child = variant->value();
-    if (!child)
-      return failure(child.error());
-    auto content = encode_view(ctx, registry, *child, doc, depth + 1);
-    if (!content)
-      return prefix(std::move(content).error(), "/$value");
-    auto* output = yyjson_mut_obj(doc);
-    auto name = variant->names()[*index];
-    if (!output || !yyjson_mut_obj_add_strncpy(doc, output, "$case", name.data(), name.size()) ||
-        !yyjson_mut_obj_add_val(doc, output, "$value", *content))
-      return failure(error::out_of_memory);
-    return output;
-  }
-  if (value_type.kind() == type_kind::optional) {
-    auto v = view.as_optional();
-    if (!v)
-      return failure(v.error());
-    auto has = v->has_value();
-    if (!has)
-      return failure(has.error());
-    if (!*has) {
-      auto* output = yyjson_mut_null(doc);
-      return output ? result<yyjson_mut_val*, serialization_diagnostic>{output}
-                    : failure(error::out_of_memory);
-    }
-    auto child = v->get();
-    if (!child)
-      return failure(child.error());
-    auto encoded = encode_view(ctx, registry, *child, doc, depth + 1);
-    if (encoded && yyjson_mut_is_null(*encoded))
-      return failure(error::unsupported, "", "optional 的非空值不能编码为 null");
-    return encoded;
-  }
-  if (value_type.kind() == type_kind::sequence) {
-    auto v = view.as_sequence();
-    if (!v)
-      return failure(v.error());
-    auto count = v->size();
-    if (!count)
-      return failure(count.error());
-    auto* output = yyjson_mut_arr(doc);
-    if (!output)
-      return failure(error::out_of_memory);
-    for (std::size_t i = 0; i < *count; ++i) {
-      auto child = v->at(i);
-      if (!child)
-        return failure(child.error());
-      auto encoded = encode_view(ctx, registry, *child, doc, depth + 1);
-      if (!encoded)
-        return prefix(std::move(encoded).error(), "/" + std::to_string(i));
-      if (!yyjson_mut_arr_append(output, *encoded))
-        return failure(error::out_of_memory);
-    }
-    return output;
-  }
-  if (value_type.kind() == type_kind::associative) {
-    auto v = view.as_associative();
-    if (!v)
-      return failure(v.error());
-    auto keys = v->keys();
-    if (!keys)
-      return failure(keys.error());
-    auto* output = yyjson_mut_obj(doc);
-    if (!output)
-      return failure(error::out_of_memory);
-    for (const auto& key : *keys) {
-      auto child = v->find(key);
-      if (!child)
-        return failure(child.error());
-      auto encoded = encode_view(ctx, registry, *child, doc, depth + 1);
-      if (!encoded)
-        return prefix(std::move(encoded).error(), field_path(key));
-      auto* name = yyjson_mut_strncpy(doc, key.data(), key.size());
-      if (!name || !yyjson_mut_obj_add(output, name, *encoded))
-        return failure(error::out_of_memory);
-    }
-    return output;
-  }
-  return failure(error::unsupported);
-}
-result<yyjson_mut_val*, serialization_diagnostic> encode_enum_name(const instance& view,
-                                                                   yyjson_mut_doc* doc) {
-  auto entries = view.type().enum_entries();
-  auto scalar = view.read_value();
-  if (!entries || !scalar)
-    return failure(error::invalid_argument, "", "属性必须是已注册枚举");
-  const auto found = std::ranges::find(*entries, *scalar, &enum_entry::data);
-  if (found == entries->end())
-    return failure(error::invalid_argument, "", "未知枚举值");
-  auto* name = yyjson_mut_strncpy(doc, found->name.data(), found->name.size());
-  if (!name)
-    return failure(error::out_of_memory);
-  return name;
-}
-serialization_diagnostic decode_enum_name(const mutable_instance& view, yyjson_val* input) {
-  auto entries = view.type().enum_entries();
-  if (!entries || !yyjson_is_str(input))
-    return failure(error::invalid_argument, "", "属性必须是枚举名称");
-  const std::string_view name{yyjson_get_str(input), yyjson_get_len(input)};
-  const auto found = std::ranges::find(*entries, name, &enum_entry::name);
-  if (found == entries->end())
-    return failure(error::invalid_argument, "", "未知枚举名称");
-  auto status = view.write_value(found->data);
-  return status.failed() ? failure(status) : serialization_diagnostic{};
+encode_nested(serialization_context& ctx, const registry_ref& registry, type_id id,
+              const void* object, yyjson_mut_doc* doc, std::size_t depth) {
+  json_writer output{doc};
+  auto encoded = serialization::detail::encode_nested(ctx, registry, id, object, &output, depth);
+  if (!encoded)
+    return std::move(encoded).error();
+  return static_cast<yyjson_mut_val*>(*encoded);
 }
 result<yyjson_mut_val*, serialization_diagnostic>
 encode_members(serialization_context& ctx, const registry_ref& registry, type_id id,
                const void* object, yyjson_mut_doc* doc, std::size_t depth) {
-  auto view = instance::from_object(registry, id, object);
-  if (!view)
-    return failure(view.error());
-  auto properties = view->properties();
-  if (!properties)
-    return failure(properties.error());
-  auto* root = yyjson_mut_obj(doc);
-  if (!root)
-    return failure(error::out_of_memory);
-  for (const auto& property : *properties) {
-    if (has_flags(property.flags, property_flags::read_only))
-      continue;
-    const auto path = field_path(property.name);
-    auto child = view->property(property.id);
-    if (!child)
-      return failure(child.error(), path);
-    auto encoded = has_flags(property.flags, property_flags::enum_name)
-                       ? encode_enum_name(*child, doc)
-                       : encode_view(ctx, registry, *child, doc, depth + 1);
-    if (!encoded)
-      return prefix(std::move(encoded).error(), path);
-    auto* key = yyjson_mut_strncpy(doc, property.name.data(), property.name.size());
-    if (!key || !yyjson_mut_obj_add(root, key, *encoded))
-      return failure(error::out_of_memory);
-  }
-  return root;
+  json_writer output{doc};
+  auto encoded = serialization::detail::encode_members(ctx, registry, id, object, &output, depth);
+  if (!encoded)
+    return std::move(encoded).error();
+  return static_cast<yyjson_mut_val*>(*encoded);
 }
+serialization_diagnostic decode_view(serialization_context& ctx, const registry_ref& registry,
+                                     const mutable_instance& view, yyjson_val* input,
+                                     std::size_t depth) {
+  scoped_reader scope{ctx};
+  return serialization::detail::decode_view(ctx, registry, view, input, depth);
+}
+result<ref<void>, serialization_diagnostic> decode_owned(serialization_context& ctx,
+                                                         const registry_ref& registry, type_id id,
+                                                         yyjson_val* input, std::size_t depth) {
+  scoped_reader scope{ctx};
+  return serialization::detail::decode_owned(ctx, registry, id, input, depth);
+}
+serialization_diagnostic decode_members(serialization_context& ctx, const registry_ref& registry,
+                                        type_id id, void* object, yyjson_val* input,
+                                        std::size_t depth,
+                                        std::span<const std::string_view> ignored = {}) {
+  scoped_reader scope{ctx};
+  return serialization::detail::decode_members(ctx, registry, id, object, input, depth, ignored);
+}
+
 result<std::vector<std::byte>, serialization_diagnostic>
 encode_json(const registry_ref& registry, type_id id, const void* object, bool custom = false) {
   std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> doc(yyjson_mut_doc_new(nullptr),
@@ -500,455 +398,6 @@ encode_json(const registry_ref& registry, type_id id, const void* object, bool c
   }
   auto bytes = std::as_bytes(std::span{text.get(), size});
   return std::vector<std::byte>(bytes.begin(), bytes.end());
-}
-serialization_diagnostic validate_defaults(const registry_ref&, type_id, const void*, std::size_t);
-serialization_diagnostic validate_view(const registry_ref& registry, const instance& view,
-                                       std::size_t depth) {
-  const auto value_type = view.type();
-  if (value_type.kind() == type_kind::reference) {
-    auto owner = meta::detail::reference_view_access::owner(view);
-    return owner && !*owner ? serialization_diagnostic{}
-                            : failure(error::unsupported, "", "非空缺省引用必须显式保存");
-  }
-  if (depth > 64 && value_type.kind() != type_kind::scalar)
-    return failure(error::invalid_argument, "", "嵌套值超过深度限制");
-  if (value_type.kind() == type_kind::object) {
-    auto p = view.object_data();
-    if (!p)
-      return failure(p.error());
-    return validate_defaults(registry, value_type.id(), *p, depth);
-  }
-  if (value_type.kind() == type_kind::scalar) {
-    auto v = view.read_value();
-    return v ? serialization_diagnostic{} : failure(v.error());
-  }
-  if (value_type.kind() == type_kind::variant) {
-    auto variant = view.as_variant();
-    if (!variant)
-      return failure(variant.error());
-    auto child = variant->value();
-    if (!child)
-      return failure(child.error());
-    auto status = validate_view(registry, *child, depth + 1);
-    return status.error.failed() ? prefix(std::move(status), "/$value") : status;
-  }
-  if (value_type.kind() == type_kind::optional) {
-    auto v = view.as_optional();
-    if (!v)
-      return failure(v.error());
-    auto has = v->has_value();
-    if (!has)
-      return failure(has.error());
-    if (!*has)
-      return {};
-    auto child = v->get();
-    if (!child)
-      return failure(child.error());
-    return validate_view(registry, *child, depth + 1);
-  }
-  if (value_type.kind() == type_kind::sequence) {
-    auto v = view.as_sequence();
-    if (!v)
-      return failure(v.error());
-    auto n = v->size();
-    if (!n)
-      return failure(n.error());
-    for (std::size_t i = 0; i < *n; ++i) {
-      auto child = v->at(i);
-      if (!child)
-        return failure(child.error());
-      auto status = validate_view(registry, *child, depth + 1);
-      if (status.error.failed())
-        return prefix(std::move(status), "/" + std::to_string(i));
-    }
-    return {};
-  }
-  auto v = view.as_associative();
-  if (!v)
-    return failure(v.error());
-  auto keys = v->keys();
-  if (!keys)
-    return failure(keys.error());
-  for (const auto& key : *keys) {
-    auto child = v->find(key);
-    if (!child)
-      return failure(child.error());
-    auto status = validate_view(registry, *child, depth + 1);
-    if (status.error.failed())
-      return prefix(std::move(status), field_path(key));
-  }
-  return {};
-}
-serialization_diagnostic validate_defaults(const registry_ref& registry, type_id id,
-                                           const void* object, std::size_t depth) {
-  if (depth > 64)
-    return failure(error::invalid_argument, "", "嵌套对象超过深度限制");
-  auto binding = find_serialization(registry, id);
-  if (!binding)
-    return failure(binding.error());
-  if (binding->validate) {
-    auto status = binding->validate(object);
-    if (status.error.failed())
-      return status;
-  }
-  if (!binding->json.reflected)
-    return {};
-  auto view = instance::from_object(registry, id, object);
-  if (!view)
-    return failure(view.error());
-  auto properties = view->properties();
-  if (!properties)
-    return failure(properties.error());
-  for (const auto& property : *properties) {
-    if (property.type.kind() == type_kind::scalar ||
-        has_flags(property.flags, property_flags::read_only))
-      continue;
-    auto child = view->property(property.id);
-    if (!child)
-      return failure(child.error(), field_path(property.name));
-    auto status = validate_view(registry, *child, depth + 1);
-    if (status.error.failed())
-      return prefix(std::move(status), field_path(property.name));
-  }
-  return {};
-}
-serialization_diagnostic decode_members(serialization_context& ctx, const registry_ref&, type_id,
-                                        void*, yyjson_val*, std::size_t,
-                                        std::span<const std::string_view> = {});
-result<ref<void>, serialization_diagnostic> decode_owned(serialization_context& ctx,
-                                                         const registry_ref& registry,
-                                                         type_id actual, yyjson_val* content,
-                                                         std::size_t depth) {
-  if (depth > 64)
-    return failure(error::invalid_argument, "", "引用嵌套深度超限");
-  auto binding = find_serialization(registry, actual);
-  if (!binding)
-    return failure(binding.error());
-  ref<void> object;
-  serialization_diagnostic status;
-  if (binding->json.decode_node) {
-    detail::json_codec_state state{registry, ctx, depth + 1};
-    auto context = state.context();
-    auto decoded = binding->json.decode_node(context, content);
-    if (!decoded)
-      status = std::move(decoded).error();
-    else
-      object = std::move(*decoded);
-  } else if (binding->json.decode_bytes) {
-    std::size_t size{};
-    std::unique_ptr<char, decltype(&std::free)> text(yyjson_val_write(content, 0, &size),
-                                                     &std::free);
-    if (!text)
-      return failure(error::out_of_memory);
-    auto decoded = binding->json.decode_bytes(registry, std::as_bytes(std::span{text.get(), size}));
-    if (!decoded)
-      status = std::move(decoded).error();
-    else
-      object = std::move(*decoded);
-  } else {
-    if (!binding->json.reflected || !binding->construct)
-      return failure(error::unsupported);
-    object = binding->construct();
-    if (!object)
-      return failure(error::internal);
-    status = decode_members(ctx, registry, actual, object.get(), content, depth + 1);
-  }
-  if (status.error.ok() && !object)
-    status = failure(error::internal);
-  if (status.error.ok() && binding->validate)
-    status = binding->validate(object.get());
-  if (status.error.failed())
-    return status;
-  return object;
-}
-serialization_diagnostic decode_nested(serialization_context& ctx, const registry_ref& registry,
-                                       const mutable_instance& target, yyjson_val* input,
-                                       std::size_t depth) {
-  if (depth > 64)
-    return failure(error::invalid_argument, "", "嵌套对象超过深度限制");
-  if (!yyjson_is_obj(input))
-    return failure(error::invalid_argument, "", "嵌套值必须是 JSON 对象");
-  auto binding = find_serialization(registry, target.type().id());
-  if (!binding)
-    return failure(binding.error());
-  if (binding->json.decode_node) {
-    detail::json_codec_state state{registry, ctx, depth};
-    auto context = state.context();
-    auto value = binding->json.decode_node(context, input);
-    if (!value)
-      return std::move(value).error();
-    if (!*value)
-      return failure(error::internal);
-    if (binding->validate) {
-      auto status = binding->validate(value->get());
-      if (status.error.failed())
-        return status;
-    }
-    auto status = target.assign_object(target.type().id(), value->get());
-    return status.failed() ? failure(status) : serialization_diagnostic{};
-  }
-  if (binding->json.decode_bytes) {
-    std::size_t size{};
-    std::unique_ptr<char, decltype(&std::free)> text(yyjson_val_write(input, 0, &size), &std::free);
-    if (!text)
-      return failure(error::out_of_memory);
-    auto value = binding->json.decode_bytes(registry, std::as_bytes(std::span{text.get(), size}));
-    if (!value)
-      return std::move(value).error();
-    if (!*value)
-      return failure(error::internal);
-    if (binding->validate) {
-      auto status = binding->validate(value->get());
-      if (status.error.failed())
-        return status;
-    }
-    const auto assigned = target.assign_object(target.type().id(), value->get());
-    return assigned.failed() ? failure(assigned) : serialization_diagnostic{};
-  }
-  if (!binding->json.reflected)
-    return failure(error::unsupported);
-  auto address = target.object_data();
-  if (!address)
-    return failure(address.error());
-  auto* object = *address;
-  auto status = decode_members(ctx, registry, target.type().id(), object, input, depth);
-  if (status.error.failed())
-    return status;
-  return binding->validate ? binding->validate(object) : serialization_diagnostic{};
-}
-serialization_diagnostic decode_nonobject(serialization_context&, const registry_ref&,
-                                          const mutable_instance&, yyjson_val*, std::size_t);
-serialization_diagnostic decode_view(serialization_context& ctx, const registry_ref& registry,
-                                     const mutable_instance& view, yyjson_val* input,
-                                     std::size_t depth) {
-  if (view.kind() == type_kind::object &&
-      !meta::detail::property_view_access::requires_replacement(view))
-    return decode_nested(ctx, registry, view, input, depth);
-  return decode_nonobject(ctx, registry, view, input, depth);
-}
-serialization_diagnostic decode_nonobject(serialization_context& ctx, const registry_ref& registry,
-                                          const mutable_instance& view, yyjson_val* input,
-                                          std::size_t depth) {
-  if (meta::detail::property_view_access::requires_replacement(view)) {
-    serialization_diagnostic diagnostic;
-    auto status =
-        meta::detail::property_view_access::replace(view, [&](const mutable_instance& temporary) {
-          diagnostic = decode_view(ctx, registry, temporary, input, depth);
-          return diagnostic.error;
-        });
-    return diagnostic.error.failed()
-               ? diagnostic
-               : (status.failed() ? failure(status) : serialization_diagnostic{});
-  }
-  const auto value_type = view.type();
-  if (value_type.kind() == type_kind::reference) {
-    if (yyjson_is_null(input)) {
-      auto status = meta::detail::reference_view_access::reset(view);
-      return status.failed() ? failure(status) : serialization_diagnostic{};
-    }
-    auto target = value_type.element_type();
-    if (!target || target->kind() != type_kind::object)
-      return failure(error::unsupported);
-    auto declared = find_serialization(registry, target->id());
-    if (!declared)
-      return failure(declared.error());
-    auto actual = target->id();
-    auto* content = input;
-    if (declared->polymorphic) {
-      auto* tag = yyjson_obj_get(input, "$type_guid");
-      content = yyjson_obj_get(input, "$content");
-      if (!yyjson_is_obj(input) || yyjson_obj_size(input) != 2 || !yyjson_is_str(tag) ||
-          !yyjson_is_obj(content))
-        return failure(error::invalid_argument, "", "多态引用需要类型和内容");
-      auto guid = engine::guid::parse({yyjson_get_str(tag), yyjson_get_len(tag)});
-      if (!guid || !*guid ||
-          guid->string() != std::string_view{yyjson_get_str(tag), yyjson_get_len(tag)})
-        return failure(error::invalid_argument, "/$type_guid");
-      auto type = describe_type(registry, *guid);
-      if (!type)
-        return failure(type.error(), "/$type_guid");
-      actual = type->type_id;
-    }
-    auto compatible = cast_base(registry, actual, target->id(), nullptr);
-    if (!compatible)
-      return std::move(compatible).error();
-    auto decoded = decode_owned(ctx, registry, actual, content, depth);
-    if (!decoded)
-      return declared->polymorphic ? prefix(std::move(decoded).error(), "/$content")
-                                   : std::move(decoded).error();
-    auto object = std::move(*decoded);
-    auto adjusted = cast_base(registry, actual, target->id(), object.get());
-    if (!adjusted)
-      return std::move(adjusted).error();
-    auto assigned =
-        meta::detail::reference_view_access::assign(view, target->id(), object.alias(*adjusted));
-    return assigned.failed() ? failure(assigned) : serialization_diagnostic{};
-  }
-  if (depth > 64 && value_type.kind() != type_kind::scalar)
-    return failure(error::invalid_argument, "", "嵌套值超过深度限制");
-  if (value_type.kind() == type_kind::scalar) {
-    auto decoded = read_value(input, value_type.scalar_kind(), "");
-    if (!decoded)
-      return std::move(decoded).error();
-    auto status = view.write_value(*decoded);
-    return status.failed() ? failure(status) : serialization_diagnostic{};
-  }
-  if (value_type.kind() == type_kind::variant) {
-    auto variant = view.as_variant();
-    if (!variant)
-      return failure(variant.error());
-    if (variant->names().empty())
-      return failure(error::unsupported, "", "variant 未配置文件标签");
-    auto* tag = yyjson_is_obj(input) ? yyjson_obj_get(input, "$case") : nullptr;
-    auto* content = yyjson_is_obj(input) ? yyjson_obj_get(input, "$value") : nullptr;
-    if (!yyjson_is_obj(input) || yyjson_obj_size(input) != 2 || !yyjson_is_str(tag) || !content)
-      return failure(error::invalid_argument, "", "variant 必须包含 $case 和 $value");
-    const std::string_view name{yyjson_get_str(tag), yyjson_get_len(tag)};
-    auto names = variant->names();
-    auto found = std::ranges::find(names, name);
-    if (found == names.end())
-      return failure(error::invalid_argument, "/$case", "未知 variant 标签");
-    auto status = variant->select(static_cast<std::size_t>(found - names.begin()));
-    if (status.failed())
-      return failure(status, "/$case");
-    auto child = variant->value();
-    if (!child)
-      return failure(child.error());
-    auto decoded = decode_view(ctx, registry, *child, content, depth + 1);
-    return decoded.error.failed() ? prefix(std::move(decoded), "/$value") : decoded;
-  }
-  if (value_type.kind() == type_kind::optional) {
-    auto v = view.as_optional();
-    if (!v)
-      return failure(v.error());
-    auto status = v->reset();
-    if (status.failed())
-      return failure(status);
-    if (yyjson_is_null(input))
-      return {};
-    auto child = v->ensure();
-    if (!child)
-      return failure(child.error());
-    return decode_view(ctx, registry, *child, input, depth + 1);
-  }
-  if (value_type.kind() == type_kind::sequence) {
-    if (!yyjson_is_arr(input))
-      return failure(error::invalid_argument, "", "序列必须是 JSON 数组");
-    auto v = view.as_sequence();
-    if (!v)
-      return failure(v.error());
-    if (v->supports_replacement()) {
-      serialization_diagnostic decoded;
-      auto status = v->replace([&](const mutable_instance& candidate) {
-        decoded = decode_view(ctx, registry, candidate, input, depth);
-        return decoded.error;
-      });
-      return decoded.error.failed() ? decoded : failure(status);
-    }
-    if (v->is_resizable()) {
-      auto status = v->resize(0);
-      if (status.failed())
-        return failure(status);
-    }
-    auto status = v->resize(yyjson_arr_size(input));
-    if (status.failed())
-      return failure(status);
-    std::size_t i = 0;
-    auto it = yyjson_arr_iter_with(input);
-    while (auto* item = yyjson_arr_iter_next(&it)) {
-      auto child = v->at(i);
-      if (!child)
-        return failure(child.error());
-      auto decoded = decode_view(ctx, registry, *child, item, depth + 1);
-      if (decoded.error.failed())
-        return prefix(std::move(decoded), "/" + std::to_string(i));
-      ++i;
-    }
-    return {};
-  }
-  if (value_type.kind() == type_kind::associative) {
-    if (!yyjson_is_obj(input))
-      return failure(error::invalid_argument, "", "关联容器必须是 JSON 对象");
-    auto v = view.as_associative();
-    if (!v)
-      return failure(v.error());
-    auto status = v->clear();
-    if (status.failed())
-      return failure(status);
-    std::unordered_set<std::string_view> keys;
-    auto it = yyjson_obj_iter_with(input);
-    while (auto* key = yyjson_obj_iter_next(&it)) {
-      const std::string_view name{yyjson_get_str(key), yyjson_get_len(key)};
-      if (!keys.insert(name).second)
-        return failure(error::invalid_argument, field_path(name), "重复关联键");
-      auto child = v->insert(name);
-      if (!child)
-        return failure(child.error(), field_path(name));
-      auto decoded = decode_view(ctx, registry, *child, yyjson_obj_iter_get_val(key), depth + 1);
-      if (decoded.error.failed())
-        return prefix(std::move(decoded), field_path(name));
-    }
-    return {};
-  }
-  return failure(error::unsupported);
-}
-serialization_diagnostic decode_members(serialization_context& ctx, const registry_ref& registry,
-                                        type_id id, void* object, yyjson_val* root,
-                                        std::size_t depth,
-                                        std::span<const std::string_view> ignored) {
-  auto view = mutable_instance::from_object(registry, id, object);
-  if (!view)
-    return failure(view.error());
-  auto properties = view->as_const().properties();
-  if (!properties)
-    return failure(properties.error());
-  if (!yyjson_is_obj(root))
-    return failure(error::invalid_argument, "", "根值必须是 JSON 对象");
-  auto codec = find_serialization(registry, id);
-  if (!codec)
-    return failure(codec.error());
-  std::unordered_set<std::string_view> names;
-  auto it = yyjson_obj_iter_with(root);
-  while (auto* key = yyjson_obj_iter_next(&it)) {
-    const std::string_view name{yyjson_get_str(key), yyjson_get_len(key)};
-    if (std::ranges::find(ignored, name) != ignored.end())
-      continue;
-    if (codec->json.reject_unknown_fields &&
-        std::ranges::none_of(*properties, [&](const auto& p) { return p.name == name; }))
-      return failure(error::invalid_argument, field_path(name), "未知字段");
-    if (!names.insert(name).second)
-      return failure(error::invalid_argument, field_path(name), "重复属性名");
-  }
-  for (const auto& property : *properties) {
-    if (std::ranges::find(ignored, property.name) != ignored.end())
-      return failure(error::invalid_argument, field_path(property.name), "反射字段占用格式头");
-    if (has_flags(property.flags, property_flags::read_only))
-      continue;
-    auto* input = yyjson_obj_getn(root, property.name.data(), property.name.size());
-    const auto path = field_path(property.name);
-    if (!input) {
-      if (has_flags(property.flags, property_flags::required))
-        return failure(error::invalid_argument, path, "缺少必填属性");
-      if (property.type.kind() != type_kind::scalar) {
-        auto child = view->as_const().property(property.id);
-        if (!child)
-          return failure(child.error(), path);
-        auto status = validate_view(registry, *child, depth + 1);
-        if (status.error.failed())
-          return prefix(std::move(status), path);
-      }
-      continue;
-    }
-    auto child = view->property(property.id);
-    if (!child)
-      return failure(child.error(), path);
-    auto status = has_flags(property.flags, property_flags::enum_name)
-                      ? decode_enum_name(*child, input)
-                      : decode_view(ctx, registry, *child, input, depth + 1);
-    if (status.error.failed())
-      return prefix(std::move(status), path);
-  }
-  return {};
 }
 result<ref<void>, serialization_diagnostic> decode_json(const registry_ref& registry, type_id id,
                                                         const serialization_binding& binding,
@@ -1047,7 +496,7 @@ serialize_object(const registry_ref& registry, type_id id, const void* object) n
   }
   if (binding->json.encode_bytes)
     return binding->json.encode_bytes(registry, object);
-  if (binding->json.reflected)
+  if (binding->reflected)
     return encode_json(registry, id, object);
   return failure(error::unsupported);
 } catch (const std::bad_alloc&) {
@@ -1064,7 +513,7 @@ deserialize_object(const registry_ref& registry, type_id id,
     return failure(binding.error());
   auto decoded = binding->json.decode_node    ? decode_json(registry, id, *binding, bytes, true)
                  : binding->json.decode_bytes ? binding->json.decode_bytes(registry, bytes)
-                 : binding->json.reflected
+                 : binding->reflected
                      ? decode_json(registry, id, *binding, bytes)
                      : result<ref<void>, serialization_diagnostic>{failure(error::unsupported)};
   if (!decoded)
@@ -1251,7 +700,7 @@ json_codec_context::write_fields_object(yyjson_mut_doc* doc, type_id id, const v
   auto binding = find_serialization(ctx.registry, id);
   if (!binding)
     return failure(binding.error());
-  if (!binding->json.reflected)
+  if (!binding->reflected)
     return failure(error::unsupported);
   if (!object || !doc)
     return failure(error::invalid_argument);
@@ -1266,7 +715,7 @@ json_codec_context::read_fields_object(yyjson_val* input, type_id id,
   auto binding = find_serialization(ctx.registry, id);
   if (!binding)
     return failure(binding.error());
-  if (!binding->json.reflected || !binding->construct)
+  if (!binding->reflected || !binding->construct)
     return failure(error::unsupported);
   if (ctx.depth > 64)
     return failure(error::invalid_argument);
