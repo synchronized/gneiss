@@ -74,6 +74,7 @@ struct application::storage {
   runtime::action_map_application input_application_;
   bool asset_executor_attached_ = false;
   runtime::scene_service scene_service_;
+  std::unique_ptr<resource_load_group> asset_loading_;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;
   std::uint64_t elapsed_ns_ = 0;
@@ -202,7 +203,7 @@ gneiss::engine::error
 application::attach_task_executor(gneiss::engine::task_executor& executor) noexcept {
   if (!is_owner_thread() || !accepts_requests())
     return gneiss::engine::error::invalid_state;
-  if (storage_->scene_service_.loading_assets()) {
+  if (storage_->asset_loading_.get()) {
     return gneiss::engine::error::invalid_state;
   }
   try {
@@ -213,9 +214,14 @@ application::attach_task_executor(gneiss::engine::task_executor& executor) noexc
         storage_->asset_manager_->configure(executor, profile, storage_->loop_notification_);
     if (configured.failed())
       return configured;
+    auto group = std::make_unique<resource_load_group>(*storage_->asset_manager_);
+    const auto attached = storage_->scene_service_.configure(*storage_->render_service_,
+                                                             storage_->loop_notification_);
+    if (attached.failed())
+      return attached;
+    storage_->asset_loading_ = std::move(group);
     storage_->asset_executor_attached_ = true;
-    return storage_->scene_service_.attach_executor(executor, *storage_->render_service_,
-                                                    storage_->loop_notification_);
+    return engine::error::success;
   } catch (const std::bad_alloc&) {
     return gneiss::engine::error::out_of_memory;
   } catch (...) {
@@ -228,7 +234,13 @@ gneiss::engine::error application::activate_scene(std::uint64_t request,
   if (!is_owner_thread() || !accepts_requests())
     return gneiss::engine::error::invalid_state;
   try {
-    return storage_->scene_service_.activate(request, completion);
+    if (!can_activate_scene())
+      return engine::error::not_ready;
+    auto activated = storage_->scene_service_.activate(request);
+    if (!activated)
+      return activated.error();
+    completion = std::move(*activated);
+    return engine::error::success;
   } catch (const std::bad_alloc&) {
     return gneiss::engine::error::out_of_memory;
   } catch (...) {
@@ -241,6 +253,8 @@ gneiss::engine::error application::request_scene_reload(scene_instance_id instan
     try {
   if (!is_owner_thread() || !accepts_requests())
     return engine::error::invalid_state;
+  if (loading_assets() && loading_assets()->busy())
+    return engine::error::not_ready;
   return storage_->scene_service_.request_reload(instance, uri, prefab);
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
@@ -257,7 +271,14 @@ gneiss::engine::error application::poll_scene_reload(engine::error& result, bool
   if (status.failed())
     return status;
   storage_->scene_service_.advance();
-  return storage_->scene_service_.poll_reload(result, ready);
+  auto completed = storage_->scene_service_.poll_reload();
+  if (!completed)
+    return completed.error();
+  if (*completed) {
+    result = (**completed).result;
+    ready = true;
+  }
+  return engine::error::success;
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
 } catch (...) {
@@ -894,6 +915,8 @@ gneiss::engine::error application::request_shutdown() noexcept try {
   storage_->accepts_requests_.store(false, std::memory_order_release);
   storage_->input_application_.cancel();
   storage_->scene_service_.request_stop();
+  if (storage_->asset_loading_)
+    storage_->asset_loading_->request_stop();
   if (storage_->asset_manager_)
     storage_->asset_manager_->request_stop();
   return gneiss::engine::error::success;
@@ -942,6 +965,7 @@ gneiss::engine::error application::shutdown() noexcept {
   storage_->accepts_requests_.store(false, std::memory_order_release);
   auto shutdown_result = gneiss::engine::error::success;
   storage_->input_application_.cancel();
+  storage_->asset_loading_.reset();
   storage_->scene_service_.shutdown();
   if (storage_->asset_manager_)
     storage_->asset_manager_->stop();
@@ -1058,11 +1082,11 @@ gneiss::engine::error application::shutdown() noexcept {
 }
 
 bool application::has_asset_loading_service() const noexcept {
-  return storage_->scene_service_.loading_assets() != nullptr;
+  return storage_->asset_loading_.get() != nullptr;
 }
 
 resource_load_group* application::loading_assets() noexcept {
-  return storage_->scene_service_.loading_assets();
+  return storage_->asset_loading_.get();
 }
 
 runtime::scene_service& application::scene_loading_service() noexcept {
@@ -1075,7 +1099,13 @@ gneiss::engine::error application::request_scene(std::string_view uri, std::uint
   if (!is_owner_thread() || !accepts_requests())
     return gneiss::engine::error::invalid_state;
   try {
-    return storage_->scene_service_.request_scene(uri, session, revision, request);
+    if (loading_assets() && loading_assets()->busy())
+      return engine::error::not_ready;
+    auto submitted = storage_->scene_service_.request_scene(uri, session, revision);
+    if (!submitted)
+      return submitted.error();
+    request = *submitted;
+    return engine::error::success;
   } catch (const std::bad_alloc&) {
     return gneiss::engine::error::out_of_memory;
   } catch (...) {
@@ -1099,9 +1129,15 @@ gneiss::engine::error application::poll_scene(runtime::scene_load_completion& co
     const auto advanced = advance_resource_io();
     if (advanced.failed())
       return advanced;
-    const auto result = storage_->scene_service_.poll_scene(completion, ready);
+    auto result = storage_->scene_service_.poll_scene();
     report_visual_completion();
-    return result;
+    if (!result)
+      return result.error();
+    if (*result) {
+      completion = std::move(**result);
+      ready = true;
+    }
+    return engine::error::success;
   } catch (const std::bad_alloc&) {
     return gneiss::engine::error::out_of_memory;
   } catch (...) {
@@ -1123,6 +1159,43 @@ gneiss::engine::error application::cancel_scene(std::uint64_t request) {
 
 bool application::scene_loading() const noexcept { return storage_->scene_service_.loading(); }
 
+engine::result<asset_load_completion>
+application::prepare_assets(std::span<const engine::render_resource_source> sources,
+                            std::uint64_t revision, bool reload) try {
+  if (!is_owner_thread() || !accepts_requests())
+    return engine::error::invalid_state;
+  if (!loading_assets())
+    return engine::error::not_ready;
+  return loading_assets()->prepare_assets(sources, 1, revision, reload,
+                                          !scene_loading() && !visual_assets_loading() &&
+                                              storage_->scene_service_.can_activate());
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
+engine::result<asset_load_completion> application::poll_prepared_assets(std::uint64_t request) try {
+  if (!is_owner_thread() || !accepts_requests())
+    return engine::error::invalid_state;
+  if (!loading_assets() || !loading_assets()->owns(request))
+    return engine::error::invalid_handle;
+  loading_assets()->advance();
+  asset_load_completion completion;
+  if (!loading_assets()->take(completion))
+    return engine::error::not_ready;
+  return completion;
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
+engine::error application::discard_prepared_assets(std::uint64_t request) noexcept {
+  if (!is_owner_thread())
+    return engine::error::invalid_state;
+  return loading_assets() && loading_assets()->discard(request) ? engine::error::success
+                                                                : engine::error::invalid_handle;
+}
+
 gneiss::engine::error
 application::request_assets(std::span<const gneiss::engine::render_resource_source> sources,
                             std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
@@ -1130,10 +1203,11 @@ application::request_assets(std::span<const gneiss::engine::render_resource_sour
   request = 0;
   if (!is_owner_thread() || !accepts_requests())
     return gneiss::engine::error::invalid_state;
-  if (!loading_assets() || scene_loading())
+  if (!loading_assets() || scene_loading() || visual_assets_loading() ||
+      !storage_->scene_service_.can_activate())
     return gneiss::engine::error::not_ready;
   try {
-    return storage_->scene_service_.request_assets(sources, session, revision, request, reload);
+    return loading_assets()->submit_assets(sources, session, revision, request, reload);
   } catch (const std::bad_alloc&) {
     return gneiss::engine::error::out_of_memory;
   } catch (...) {
@@ -1150,7 +1224,11 @@ gneiss::engine::error application::poll_assets(gneiss::runtime::asset_load_compl
     const auto advanced = advance_resource_io();
     if (advanced.failed())
       return advanced;
-    return storage_->scene_service_.poll_assets(completion, ready);
+    if (!loading_assets())
+      return engine::error::not_ready;
+    loading_assets()->advance();
+    ready = loading_assets()->take(completion);
+    return engine::error::success;
   } catch (const std::bad_alloc&) {
     return gneiss::engine::error::out_of_memory;
   } catch (...) {
@@ -1162,7 +1240,7 @@ bool application::asset_progress(gneiss::runtime::asset_load_progress& progress)
   progress = {};
   if (!is_owner_thread() || !accepts_requests())
     return false;
-  auto* service = storage_->scene_service_.loading_assets();
+  auto* service = storage_->asset_loading_.get();
   return service && service->progress(progress);
 }
 
@@ -1223,7 +1301,8 @@ void application::report_visual_completion() {
 }
 
 bool application::can_activate_scene() const noexcept {
-  return storage_->scene_service_.can_activate();
+  return storage_->scene_service_.can_activate() &&
+         (!storage_->asset_loading_ || !storage_->asset_loading_->busy());
 }
 
 bool application::visual_assets_loading() const noexcept {

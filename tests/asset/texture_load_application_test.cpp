@@ -22,6 +22,17 @@
 #include <stdexcept>
 
 namespace {
+template <class T>
+concept exposes_asset_preparation = requires { &T::prepare_assets; };
+template <class T>
+concept exposes_asset_group = requires { &T::loading_assets; };
+template <class T>
+concept exposes_asset_request = requires { &T::request_assets; };
+static_assert(!exposes_asset_preparation<gneiss::runtime::scene_service>);
+static_assert(!exposes_asset_request<gneiss::runtime::scene_service>);
+static_assert(!exposes_asset_group<gneiss::runtime::scene_service>);
+static_assert(!exposes_asset_group<gneiss::runtime::application>);
+
 void check(bool value, std::source_location where = std::source_location::current()) {
   if (!value) {
     throw std::runtime_error("Application 纹理注入失败，行=" + std::to_string(where.line()));
@@ -72,12 +83,20 @@ void run(gneiss::engine::execution_mode mode) {
       .uri = "asset://a.texture.json", .type = gneiss::engine::render_resource_kind::texture}};
   std::uint64_t request{};
   check(app->request_assets(uris, 2U, 1U, request, false) == gneiss::engine::error::success);
+  // 场景轮询不能领取通用批次回执，跨场景切换仍由宿主拒绝。
+  runtime::scene_load_completion scene_completion;
+  bool scene_ready{};
+  check(app->poll_scene(scene_completion, scene_ready).ok() && !scene_ready);
+  std::uint64_t scene_request{};
+  check(app->request_scene("asset://unused.scene.json", 1, 1, scene_request) ==
+        engine::error::not_ready);
+  check(scene_request == 0);
+  check(app->cancel_scene(request) == engine::error::not_ready);
   // 错误编号不能轮询、取消或丢弃当前请求。
   check(app->cancel_assets(request + 1) == engine::error::not_ready);
-  auto mismatched = app->scene_loading_service().poll_prepared_assets(request + 1);
+  auto mismatched = app->poll_prepared_assets(request + 1);
   check(!mismatched && mismatched.error() == engine::error::invalid_handle);
-  check(app->scene_loading_service().discard_prepared_assets(request + 1) ==
-        engine::error::invalid_handle);
+  check(app->discard_prepared_assets(request + 1) == engine::error::invalid_handle);
   gneiss::runtime::asset_load_completion completion;
   bool ready{};
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -144,7 +163,7 @@ void run(gneiss::engine::execution_mode mode) {
         gneiss::engine::error::success);
   // 缓存命中立即返回；混合请求只加载缺失项，缓存资源仍保持同一引用。
   {
-    auto cached = app->scene_loading_service().prepare_assets({&material_source, 1}, 30U);
+    auto cached = app->prepare_assets({&material_source, 1}, 30U);
     check(cached && cached->request == 0 &&
           cached->state == gneiss::runtime::asset_load_state::applied &&
           cached->assets.size() == 1 && cached->assets.front() == selected_before);
@@ -154,12 +173,12 @@ void run(gneiss::engine::execution_mode mode) {
                                        .uri = "asset://extra.material",
                                        .type = gneiss::engine::render_resource_kind::material},
                                    material_source};
-    auto mixed = app->scene_loading_service().prepare_assets(mixed_sources, 30U);
+    auto mixed = app->prepare_assets(mixed_sources, 30U);
     check(mixed && mixed->request != 0 &&
           mixed->state == gneiss::runtime::asset_load_state::preparing);
-    auto blocked = app->scene_loading_service().prepare_assets(mixed_sources, 30U);
+    auto blocked = app->prepare_assets(mixed_sources, 30U);
     check(!blocked && blocked.error() == gneiss::engine::error::not_ready);
-    cached = app->scene_loading_service().prepare_assets({&material_source, 1}, 30U);
+    cached = app->prepare_assets({&material_source, 1}, 30U);
     check(cached && cached->request == 0 && cached->assets.front() == selected_before);
     wait();
     check(completion.request == mixed->request && completion.result.ok() &&
@@ -168,7 +187,7 @@ void run(gneiss::engine::execution_mode mode) {
     check(completion.results[0].applied && completion.results[1].applied);
   }
   write_material(false);
-  auto preparation = app->scene_loading_service().prepare_assets({&material_source, 1}, 31U, true);
+  auto preparation = app->prepare_assets({&material_source, 1}, 31U, true);
   check(bool(preparation));
   request = preparation->request;
   wait();
@@ -245,12 +264,11 @@ void run(gneiss::engine::execution_mode mode) {
   completion = {}; // 所有租约必须先于 Application 销毁。
   check(app->request_assets(uris, 2U, 2U, request, true) == gneiss::engine::error::success);
   check(app->cancel_assets() == gneiss::engine::error::success);
-  check(app->scene_loading_service().discard_prepared_assets(request).ok());
+  check(app->discard_prepared_assets(request).ok());
   const auto discarded = request;
   check(app->request_assets(uris, 2U, 9U, request, true).ok());
   check(request != discarded);
-  check(app->scene_loading_service().discard_prepared_assets(discarded) ==
-        engine::error::invalid_handle);
+  check(app->discard_prepared_assets(discarded) == engine::error::invalid_handle);
   check(app->cancel_assets(discarded) == engine::error::not_ready);
   wait();
   check(completion.request == request && completion.result.ok());

@@ -256,7 +256,11 @@ Prefab 覆盖捕获、恢复及有效描述准备共用此查询，相机身份�
 
 ### 编辑资源准备
 
-普通网格资源选择与 Prefab 操作统一调用 `scene_service::prepare_assets`：
+普通网格资源选择与 Prefab 操作统一调用 `application::prepare_assets`。
+宿主私有 resource_load_group 直接请求 asset_manager；场景视觉加载使用独立请求组，
+两组共享同一资产缓存，不共享回执槽位。场景服务不提供通用资源转发入口。
+
+行为如下：
 
 - 所有资源已就绪时直接返回 `applied` 和强引用，`request` 为零，不占加载槽位。
 - 存在缺失项时返回 `preparing` 和请求编号；加载组保留已就绪引用，仅加载缺失项。
@@ -292,3 +296,15 @@ Runtime 宿主将 IPC 会话/修订关联到 `request_assets` 返回的实际编
 重载协调器把轮询错误或异常转换为一次失败回执并结束等待；`not_ready` 继续等待，
 成功结果才推进已应用修订。保留逐项生效语义：部分成功不回滚，失败项保持原内容。
 实施及验证限制见 [PLAN-098](../plans/PLAN-098-runtime-reload-request-ownership.md)。
+
+## 场景服务请求结果
+
+scene_service 不持有执行器；资产管理器负责准备任务调度。configure 只接入用于内存统计的
+Render 与场景进度通知。关闭仅释放场景的请求观察者，不停止资产管理器。
+
+- request_scene 返回 result<uint64_t> 请求编号；activate 返回 result<scene_load_completion>。
+- poll_scene 返回 result<optional<scene_load_completion>>；poll_reload 返回
+  result<optional<scene_reload_completion>>。
+- 外层错误表示调用失败；成功但 optional 为空表示暂无回执；有值表示终态，工作成功与否由
+  完成值的 result 表示。完成回执领取一次，失败回执同样会被消费。
+- Application 保留既有宿主输出参数适配；编辑器与 IPC 无需了解场景服务的内部请求组。

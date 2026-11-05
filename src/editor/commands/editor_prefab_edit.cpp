@@ -7,7 +7,6 @@
 #include "runtime/application.hpp"
 #include "runtime/loading/prefab_placement.hpp"
 #include "runtime/loading/prefab_preparation.hpp"
-#include "runtime/loading/scene_service.hpp"
 #include <algorithm>
 
 namespace gneiss::editor {
@@ -176,7 +175,7 @@ struct editor_prefab_edit::state {
   gneiss::engine::error failure{gneiss::engine::error::success};
   void finish() noexcept {
     if (request) {
-      (void)application.scene_loading_service().discard_prepared_assets(request);
+      (void)application.discard_prepared_assets(request);
       request = 0;
     }
     asset_pending = false;
@@ -243,8 +242,7 @@ struct editor_prefab_edit::state {
     }
     preparation.reset();
     if (status.ok() && !cancelled) {
-      auto submitted =
-          application.scene_loading_service().prepare_assets(prepared.assets, 1U, refreshing);
+      auto submitted = application.prepare_assets(prepared.assets, 1U, refreshing);
       if (!submitted)
         status = submitted.error();
       else {
@@ -260,7 +258,7 @@ struct editor_prefab_edit::state {
   }
   bool poll_assets() {
     application.advance_scene_load();
-    auto polled = application.scene_loading_service().poll_prepared_assets(request);
+    auto polled = application.poll_prepared_assets(request);
     if (!polled) {
       status = polled.error();
       return status != engine::error::not_ready;

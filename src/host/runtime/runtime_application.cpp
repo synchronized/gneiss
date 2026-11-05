@@ -3,14 +3,13 @@
 
 #include "runtime_application.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_types.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/scene/scene_types.hpp"
 
 #include "engine/core/error.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
-#include "runtime/loading/scene_service.hpp"
 #include <gneiss/app/project_description.hpp>
 
 #include "runtime_asset_reloader.hpp"
@@ -617,13 +616,11 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
           }
           ready = false;
           native_application->advance_scene_load();
-          auto polled = native_application->scene_loading_service().poll_prepared_assets(
-              context.asset_request);
+          auto polled = native_application->poll_prepared_assets(context.asset_request);
           if (!polled) {
             if (polled.error() == gneiss::engine::error::not_ready)
               return gneiss::engine::error{gneiss::engine::error::success};
-            (void)native_application->scene_loading_service().discard_prepared_assets(
-                context.asset_request);
+            (void)native_application->discard_prepared_assets(context.asset_request);
             context.asset_request = 0;
             return polled.error();
           }
@@ -653,12 +650,12 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
           }
           return gneiss::engine::error{gneiss::engine::error::success};
         } catch (const std::bad_alloc&) {
-          (void)application->scene_loading_service().discard_prepared_assets(context.asset_request);
+          (void)application->discard_prepared_assets(context.asset_request);
           context.asset_request = 0;
           structural_reload.reset();
           return gneiss::engine::error{gneiss::engine::error::out_of_memory};
         } catch (...) {
-          (void)application->scene_loading_service().discard_prepared_assets(context.asset_request);
+          (void)application->discard_prepared_assets(context.asset_request);
           context.asset_request = 0;
           structural_reload.reset();
           return gneiss::engine::error{gneiss::engine::error::internal};
@@ -756,7 +753,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
   }
   context.ipc_session = nullptr;
   if (context.asset_request) {
-    (void)application->scene_loading_service().discard_prepared_assets(context.asset_request);
+    (void)application->discard_prepared_assets(context.asset_request);
     context.asset_request = 0;
   }
   context.asset_reloader = nullptr;

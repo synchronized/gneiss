@@ -399,3 +399,8 @@ Mesh JSON 保留版本 3 文件布局，不增加兼容代码。
 按 [PLAN-100](PLAN-100-unified-asset-service.md) 合并资产管理拥有者、请求与最终资产索引，
 将场景依赖准备与运行实例化分离。Windows 编译及 36 项针对性回归通过，见
 [验收记录](../records/2026-11-05-unified-asset-service.md)。
+
+### 场景服务边界（已完成）
+
+按 [PLAN-101](PLAN-101-scene-service-boundary.md) 移出通用资源批次转发，
+删除执行器借用，统一场景请求与轮询结果。资产管理、场景实例化和宿主编辑互斥保持各自职责。

@@ -5,7 +5,6 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
-#include "runtime/loading/scene_service.hpp"
 namespace gneiss::editor {
 engine::result<scene_document_snapshot>
 capture_scene_document(runtime::application& app, const scene_document& document) noexcept try {
@@ -107,7 +106,7 @@ engine::error restore_scene_document(runtime::application& app, scene_document& 
 }
 engine::error scene_document_edit::finish(engine::error status) noexcept {
   if (request_ && application_) {
-    (void)application_->scene_loading_service().discard_prepared_assets(request_);
+    (void)application_->discard_prepared_assets(request_);
     request_ = 0;
   }
   before_.reset();
@@ -145,7 +144,7 @@ engine::error scene_document_edit::begin(runtime::application& app, scene_docume
 
   application_ = &app;
   if (!prepared->missing.empty()) {
-    auto loading = app.scene_loading_service().prepare_assets(prepared->missing, 1);
+    auto loading = app.prepare_assets(prepared->missing, 1);
     if (!loading)
       return finish(loading.error());
     request_ = loading->request;
@@ -173,7 +172,7 @@ engine::error scene_document_edit::advance(runtime::application& app, scene_docu
   if (history.is_pending())
     return finish(error::invalid_state);
   if (request_) {
-    auto completed = app.scene_loading_service().poll_prepared_assets(request_);
+    auto completed = app.poll_prepared_assets(request_);
     if (!completed) {
       if (completed.error() == error::not_ready)
         return error::not_ready;

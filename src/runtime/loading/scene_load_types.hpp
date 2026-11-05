@@ -51,6 +51,11 @@ struct scene_load_completion {
   double cleanup_ms{};
 };
 
+/** 实例结构重载的终态；外层 result 表示轮询操作是否有效。 */
+struct scene_reload_completion {
+  engine::error result{engine::error::success};
+};
+
 struct scene_retirement_statistics {
   double last_ms{};
   std::uint64_t retired_domains{};

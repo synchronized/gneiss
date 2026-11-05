@@ -52,21 +52,21 @@ void scene_service::request_stop() {
   reload_.reset();
   visual_queue_.clear();
   visual_completion_.reset();
-  if (loading_assets())
-    loading_assets()->request_stop();
+  if (loading_)
+    loading_->request_stop();
   if (pending_)
     pending_->cancelled = true;
 }
 bool scene_service::stopped() const noexcept {
-  return stopping_ && !executor_ && !loading_assets() && !active_ && !retired_;
+  return stopping_ && !loading_ && !active_ && !retired_;
 }
 void scene_service::advance_stop() {
   if (stopped())
     return;
-  if (loading_assets())
-    loading_assets()->advance();
+  if (loading_)
+    loading_->advance();
   advance_load();
-  if (loading_assets() && !loading_assets()->stopped())
+  if (loading_ && !loading_->stopped())
     return;
   // 场景已放弃准备请求；共享资产任务由资产管理器负责收尾。
   shutdown();
@@ -75,7 +75,6 @@ void scene_service::advance_stop() {
 void scene_service::stop_load() noexcept {
   pending_.reset();
   completed_.reset();
-  executor_ = nullptr;
   renderer_ = nullptr;
   notification_.reset();
 }
@@ -84,11 +83,10 @@ void scene_service::check_owner() const {
     throw std::logic_error("场景加载服务须在所属线程操作");
   }
 }
-gneiss::engine::error scene_service::request_scene(std::string_view uri, std::uint64_t session,
-                                                   std::uint64_t revision, std::uint64_t& request) {
+engine::result<std::uint64_t>
+scene_service::request_scene(std::string_view uri, std::uint64_t session, std::uint64_t revision) {
   check_owner();
-  request = 0U;
-  if (!executor_ || !can_start_load() || loading()) {
+  if (!can_start_load() || loading()) {
     return gneiss::engine::error::not_ready;
   }
   if (gneiss::engine::validate_uri(uri) != gneiss::engine::error::success || session == 0U ||
@@ -102,14 +100,14 @@ gneiss::engine::error scene_service::request_scene(std::string_view uri, std::ui
   if (!prepared)
     return prepared.error();
   next->description_request = std::move(*prepared);
-  request = next->result.progress.request;
+  const auto request = next->result.progress.request;
   pending_ = std::move(next);
   visual_queue_.clear();
   visual_cursor_ = 0U;
   if (visual_pending_) {
-    (void)loading_assets()->cancel();
+    (void)loading_->cancel();
   }
-  return gneiss::engine::error::success;
+  return request;
 }
 void scene_service::sample_budget(scene_load_progress& value) const {
   const auto usage = renderer_->memory_usage();
@@ -157,32 +155,26 @@ void scene_service::finish(gneiss::engine::error result, scene_load_phase phase,
   completion.cleanup_ms = elapsed(cleanup_started);
   completed_ = std::move(completion);
 }
-gneiss::engine::error scene_service::poll_scene(scene_load_completion& result, bool& ready) {
+engine::result<std::optional<scene_load_completion>> scene_service::poll_scene() {
   check_owner();
-  ready = false;
-  if (!executor_) {
-    return gneiss::engine::error::not_ready;
-  }
+  if (!loading_)
+    return engine::error::not_ready;
   advance();
-  if (completed_) {
-    result = std::move(*completed_);
-    completed_.reset();
-    ready = true;
-  }
-  return gneiss::engine::error::success;
+  auto completed = std::move(completed_);
+  completed_.reset();
+  return completed;
 }
 
-gneiss::engine::error scene_service::activate(std::uint64_t request,
-                                              scene_load_completion& result) {
+engine::result<scene_load_completion> scene_service::activate(std::uint64_t request) {
   check_owner();
-  if (!executor_ || !can_activate() || !pending_ || pending_->cancelled ||
+  if (!can_activate() || !pending_ || pending_->cancelled ||
       pending_->result.progress.request != request ||
       pending_->result.progress.phase != scene_load_phase::ready) {
     return gneiss::engine::error::not_ready;
   }
   const auto start = clock_type::now();
   sample_budget(pending_->result.progress);
-  result = std::move(pending_->result);
+  auto result = std::move(pending_->result);
   result.result = gneiss::engine::error::success;
   result.progress.phase = scene_load_phase::applied;
   result.progress.can_cancel = false;
@@ -194,7 +186,7 @@ gneiss::engine::error scene_service::activate(std::uint64_t request,
   visual_revision_ = result.progress.revision;
   pending_.reset();
   result.activation_ms = elapsed(start);
-  return gneiss::engine::error::success;
+  return result;
 }
 void scene_service::advance_load() {
   GNEISS_PROFILE_SCOPE("scene.advance");

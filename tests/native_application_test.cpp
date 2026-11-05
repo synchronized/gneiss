@@ -104,7 +104,7 @@ void test_asset_request_boundaries() {
           scene_completion.scene == gneiss::scene_instance_id{29});
     gneiss::runtime::asset_load_completion completion;
     completion.request = 23;
-    auto prepared = app->scene_loading_service().prepare_assets({}, 1);
+    auto prepared = app->prepare_assets({}, 1);
     check(!prepared && prepared.error() == gneiss::engine::error::invalid_state);
     return app->request_assets({}, 1, 1, request, true) == gneiss::engine::error::invalid_state &&
            request == 0 &&

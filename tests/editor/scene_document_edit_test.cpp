@@ -170,10 +170,9 @@ void run(scenario mode) {
   }
   const e::render_resource_source source_asset{"asset://material.json",
                                                e::render_resource_kind::material};
-  auto retry =
-      editing.application->scene_loading_service().prepare_assets({&source_asset, 1}, 7, true);
+  auto retry = editing.application->prepare_assets({&source_asset, 1}, 7, true);
   check(retry && retry->request != 0);
-  check(editing.application->scene_loading_service().discard_prepared_assets(retry->request).ok());
+  check(editing.application->discard_prepared_assets(retry->request).ok());
   editing.document.close();
 }
 int main() try {

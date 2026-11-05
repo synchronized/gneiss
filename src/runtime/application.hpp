@@ -75,6 +75,13 @@ public:
   poll_scene(runtime::scene_load_completion& completion, bool& ready);
   [[nodiscard]] GNEISS_API gneiss::engine::error cancel_scene(std::uint64_t request);
   [[nodiscard]] GNEISS_API bool scene_loading() const noexcept;
+  /** 宿主通用资源批次；不经场景服务，不创建额外资产缓存。 */
+  [[nodiscard]] GNEISS_API engine::result<asset_load_completion>
+  prepare_assets(std::span<const engine::render_resource_source> sources, std::uint64_t revision,
+                 bool reload = false);
+  [[nodiscard]] GNEISS_API engine::result<asset_load_completion>
+  poll_prepared_assets(std::uint64_t request);
+  [[nodiscard]] GNEISS_API engine::error discard_prepared_assets(std::uint64_t request) noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::error
   request_assets(std::span<const gneiss::engine::render_resource_source> sources,
                  std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
@@ -92,6 +99,7 @@ public:
   activate_scene(std::uint64_t request, runtime::scene_load_completion& completion);
 
 private:
+  resource_load_group* loading_assets() noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::error advance_resource_io();
   explicit GNEISS_API application(const runtime::application_configuration& config);
   [[nodiscard]] GNEISS_API gneiss::engine::error initialize() noexcept;
@@ -162,7 +170,7 @@ private:
   [[nodiscard]] GNEISS_API std::uint64_t now_ns() const;
   [[nodiscard]] GNEISS_API gneiss::engine::error poll_events(bool& out_should_close) noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::error render_frame() noexcept;
-  [[nodiscard]] GNEISS_API resource_load_group* loading_assets() noexcept;
+
   struct storage;
   std::unique_ptr<storage> storage_;
 };

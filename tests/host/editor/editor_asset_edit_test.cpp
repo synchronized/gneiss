@@ -170,16 +170,16 @@ void run(gneiss::engine::execution_mode mode) {
   // 原编号失效后，旧操作不能领取新请求的回执，也不能取消新请求。
   runtime::asset_load_progress pending;
   check(app->asset_progress(pending));
-  check(app->scene_loading_service().discard_prepared_assets(pending.request).ok());
+  check(app->discard_prepared_assets(pending.request).ok());
   const engine::render_resource_source replacement{"asset://missing-other.json",
                                                    engine::render_resource_kind::material};
-  auto other = app->scene_loading_service().prepare_assets({&replacement, 1}, 1);
+  auto other = app->prepare_assets({&replacement, 1}, 1);
   check(other && other->request != pending.request);
   edit.advance(*app, session, history);
   check(!edit.active() && edit.operation() == engine::error::invalid_handle);
   edit.cancel(*app);
   check(app->asset_progress(pending) && pending.request == other->request);
-  check(app->scene_loading_service().discard_prepared_assets(other->request).ok());
+  check(app->discard_prepared_assets(other->request).ok());
   edit.dismiss();
   check(!edit.visible() && history.size() == count);
   // 创建同样先准备，成功才产生节点；命令持有资源引用，坏文件不影响当前成功内容的复用。

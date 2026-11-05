@@ -7,7 +7,6 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "runtime/application.hpp"
-#include "runtime/loading/scene_service.hpp"
 #include <algorithm>
 
 namespace gneiss::editor {
@@ -340,7 +339,7 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
   runtime::asset_load_completion prepared;
   prepared.state = runtime::asset_load_state::applied;
   if (!sources.empty()) {
-    auto result = application.scene_loading_service().prepare_assets(sources, ++revision_);
+    auto result = application.prepare_assets(sources, ++revision_);
     if (!result)
       operation_ = result.error();
     else
@@ -409,7 +408,7 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
   (void)application.asset_progress(progress_);
   if (progress_.request != request_)
     progress_ = {};
-  auto completion = application.scene_loading_service().poll_prepared_assets(request_);
+  auto completion = application.poll_prepared_assets(request_);
   if (!completion && completion.error() == engine::error::not_ready)
     return;
   operation_ = completion ? completion->result : completion.error();
@@ -424,7 +423,7 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
 }
 void editor_asset_edit::finish(runtime::application& application) {
   if (request_) {
-    (void)application.scene_loading_service().discard_prepared_assets(request_);
+    (void)application.discard_prepared_assets(request_);
     request_ = 0;
   }
   active_ = false;

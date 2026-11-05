@@ -302,16 +302,16 @@ void run(gneiss::engine::execution_mode mode) {
   await_assets();
   runtime::asset_load_progress pending;
   check(app->asset_progress(pending));
-  check(app->scene_loading_service().discard_prepared_assets(pending.request).ok());
+  check(app->discard_prepared_assets(pending.request).ok());
   const engine::render_resource_source replacement{"asset://other-missing.json",
                                                    engine::render_resource_kind::material};
-  auto other = app->scene_loading_service().prepare_assets({&replacement, 1}, 1);
+  auto other = app->prepare_assets({&replacement, 1}, 1);
   check(other && other->request != pending.request);
   edit.advance();
   check(!edit.active() && edit.operation() == engine::error::invalid_handle);
   edit.cancel();
   check(app->asset_progress(pending) && pending.request == other->request);
-  check(app->scene_loading_service().discard_prepared_assets(other->request).ok());
+  check(app->discard_prepared_assets(other->request).ok());
   check(history.size() == 0);
   edit.dismiss();
   // 已加载实例支持直接删除与基于快照的历史恢复。
