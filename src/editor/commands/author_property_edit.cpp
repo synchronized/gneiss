@@ -215,9 +215,6 @@ engine::error edit_component_description(scene_document& document, editor_comman
                                          const property_edit& edit, std::uint64_t serial) noexcept
     try {
   using namespace engine;
-  // 对象引用只共享状态，不能直接作为撤销快照。
-  if (!edit.object && edit.data.kind() == value_kind::object)
-    return error::unsupported;
   if (edit.path.empty() && !edit.object)
     return error::invalid_argument;
   auto location = locate_component(document, identity);
@@ -272,8 +269,15 @@ engine::error edit_component_description(scene_document& document, editor_comman
       auto target = meta::resolve_path(root, edit.path);
       if (!target)
         return target.error();
-      if (!edit.object)
-        return target->write_value(edit.data);
+      if (!edit.object) {
+        if (edit.data.kind() != value_kind::object)
+          return target->write_value(edit.data);
+        auto bytes = meta::serialize(edit.data);
+        if (!bytes)
+          return bytes.error().error;
+        auto owned = meta::deserialize<value>(*bytes);
+        return owned ? target->write_value(*owned) : owned.error().error;
+      }
       auto source = meta::instance::from_object(edit.object_type, edit.object.get());
       return source ? target->assign(*source) : source.error();
     });
@@ -286,7 +290,11 @@ engine::error edit_component_description(scene_document& document, editor_comman
       return next.error().error;
     if (*original == *next)
       return error::success;
-    const auto apply = [&document, &world, identity](const component_description& value) {
+    const auto apply = [&document, &world, identity](const std::vector<std::byte>& bytes) {
+      auto decoded = meta::deserialize<component_description>(bytes);
+      if (!decoded)
+        return decoded.error().error;
+      const auto& value = *decoded;
       auto node = locate_component(document, identity);
       if (!node)
         return node.error();
@@ -304,8 +312,8 @@ engine::error edit_component_description(scene_document& document, editor_comman
     }
     return history.execute(
         {.label = "修改组件属性",
-         .undo = [apply, before] { return apply(before); },
-         .redo = [apply, after = std::move(*changed)] { return apply(after); },
+         .undo = [apply, bytes = std::move(*original)] { return apply(bytes); },
+         .redo = [apply, bytes = std::move(*next)] { return apply(bytes); },
          .merge_key = serial && !edit.object ? key + ":" + std::to_string(serial) : std::string{}});
   }
 } catch (const std::bad_alloc&) {

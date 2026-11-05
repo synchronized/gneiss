@@ -95,16 +95,26 @@ template <class T> component_adapter make_component_adapter(component_operations
         const auto* typed = source ? source->get<T>() : nullptr;
         if (!typed)
           return error::invalid_argument;
-        return ops.read ? ops.read(*typed, type, property)
-                        : meta::read_property(type, property, typed);
+        if (ops.read)
+          return ops.read(*typed, type, property);
+        auto root = meta::instance::from(*typed);
+        auto field = root ? root->property(property) : result<meta::instance>{root.error()};
+        return field ? field->read_value() : result<value>{field.error()};
       },
       .edit = [ops](const component_description& source, guid type, meta::property_id property,
                     const value& input) -> result<component_description> {
         if (!source || !source->get<T>())
           return error::invalid_argument;
         auto copy = *source->get<T>();
-        auto status = ops.edit ? ops.edit(copy, type, property, input)
-                               : meta::write_property(type, property, &copy, input);
+        auto status = [&]() -> error {
+          if (ops.edit)
+            return ops.edit(copy, type, property, input);
+          auto root = meta::mutable_instance::from(copy);
+          if (!root)
+            return root.error();
+          auto field = root->property(property);
+          return field ? field->write_value(input) : field.error();
+        }();
         if (status.ok())
           status = ops.validate(copy);
         if (status.failed())
@@ -208,8 +218,8 @@ GNEISS_API mesh_renderer prepared_component_renderer(
 /** 在 World 所属线程定位节点组件；读出副本后访问，写入成功才提交。不会保留对象指针。
  * 失败保持既有组件；普通组件使用已注册适配器；未知组件类型返回
  * unsupported。值及字符串由调用方持有。 */
-[[nodiscard]] GNEISS_API error read_component_property(world& world, std::uint64_t entity, guid,
-                                                       meta::property_id, value&) noexcept;
+[[nodiscard]] GNEISS_API result<value> read_component_property(world& world, std::uint64_t entity,
+                                                               guid, meta::property_id) noexcept;
 [[nodiscard]] GNEISS_API error write_component_property(world& world, std::uint64_t entity, guid,
                                                         meta::property_id, const value&) noexcept;
 }

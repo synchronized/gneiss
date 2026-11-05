@@ -179,7 +179,10 @@ bool test_invalid_messages() {
 } // namespace
 
 int main() {
+  // 标量协议不要求初始化/冻结 Meta；对象传输随后显式初始化。
+  if (!test_all_value_types())
+    return 91;
   if (!test_object_value())
     return 90;
-  return test_all_value_types() && test_results() && test_invalid_messages() ? 0 : 1;
+  return test_results() && test_invalid_messages() ? 0 : 1;
 }

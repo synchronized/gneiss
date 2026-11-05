@@ -127,19 +127,17 @@ int main() try {
   if (!open_scene(scheduler, output_root.generic_string(), app, scene) ||
       !target_for(*app, scene, target))
     return 6;
-  if (gneiss::engine::read_component_property(*app->native_world(), target.get(),
-                                              gneiss::engine::transform_property_type(),
-                                              gneiss::engine::meta::property_id{1}, value)
-          .failed() ||
-      value.kind() != gneiss::engine::value_kind::vec3 ||
-      std::abs(std::get<gneiss::engine::math::vector3>(value.payload).x - 2) > 0.0001F)
+  auto translation = gneiss::engine::read_component_property(
+      *app->native_world(), target.get(), gneiss::engine::transform_property_type(),
+      gneiss::engine::meta::property_id{1});
+  if (!translation || translation->kind() != gneiss::engine::value_kind::vec3 ||
+      std::abs(std::get<gneiss::engine::math::vector3>(translation->payload).x - 2) > 0.0001F)
     return 6;
-  if (gneiss::engine::read_component_property(*app->native_world(), target.get(),
-                                              gneiss::engine::camera_property_type(),
-                                              gneiss::engine::meta::property_id{2}, value)
-          .failed() ||
-      value.kind() != gneiss::engine::value_kind::float32 ||
-      std::abs(std::get<float>(value.payload) - 0.25F) > 0.0001F)
+  auto near = gneiss::engine::read_component_property(*app->native_world(), target.get(),
+                                                      gneiss::engine::camera_property_type(),
+                                                      gneiss::engine::meta::property_id{2});
+  if (!near || near->kind() != gneiss::engine::value_kind::float32 ||
+      std::abs(std::get<float>(near->payload) - 0.25F) > 0.0001F)
     return 6;
   if (app->scenes()->unload(scene).failed())
     return 6;

@@ -290,3 +290,14 @@ Prefab 属性覆盖直接注册 key/value，路径复用 variant；engine::value
 
 已完成，Windows Clang Debug 构建及 33 项相关测试通过，见
 [验收记录](../records/2026-11-05-value-object-wire.md)。
+
+### 属性编解码、访问与引用面板收敛
+
+用户确认同时完成三项：IPC 复用 Meta 的带标签值 codec；
+组件读取改为 result<value>，默认字段通过 instance 访问；
+引用面板展开与整项替换，组件历史显式保存内容快照。
+保留 Transform 存储与组件安装差异、旧 GUID 协议、const 保护和 Prefab 标量覆盖边界。
+验收覆盖无 Meta 初始化的标量 IPC、组件线程/失效错误、引用编辑及外部修改后的撤销重做。
+
+已完成，构建与相关测试通过，见
+[验收记录](../records/2026-11-05-property-value-unification.md)。

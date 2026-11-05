@@ -17,6 +17,61 @@ namespace e = gneiss::engine;
 namespace ed = gneiss::editor;
 using namespace gneiss::test_support;
 using p = e::meta::property_id;
+struct reference_settings : e::meta::object_type<reference_settings> {
+  static constexpr std::string_view type_name = "reference_settings";
+  static constexpr e::guid type_guid = e::guid::from_bytes({84, 20});
+  float amount = 1;
+};
+struct reference_description
+    : e::meta::object_type<reference_description, e::component_description_base> {
+  static constexpr std::string_view type_name = "reference_description";
+  static constexpr e::guid type_guid = e::guid::from_bytes({84, 21});
+  e::ref<reference_settings> settings = e::make_ref<reference_settings>();
+};
+e::error register_reference_meta() {
+  auto status = register_movement_meta();
+  if (status.failed())
+    return status;
+  status = e::meta::type_builder<reference_settings>{}
+               .property<&reference_settings::amount>(p{1}, "amount")
+               .serialization()
+               .validate<[](const reference_settings& v) {
+                 return v.amount >= 0 ? e::error::success : e::error::invalid_argument;
+               }>()
+               .commit();
+  if (status.failed())
+    return status;
+  return e::meta::type_builder<reference_description>{}
+      .base<e::component_description_base>()
+      .property<&reference_description::settings>(p{1}, "settings")
+      .serialization()
+      .commit();
+}
+e::component_operations<reference_description> reference_operations() {
+  return {.validate = [](const reference_description&) -> e::error { return e::error::success; },
+          .install = [](e::component_context& c, const reference_description& d) -> e::error {
+            state(c.owner).emplace_or_replace<reference_description>(entity(c.owner, c.node), d);
+            return e::error::success;
+          },
+          .capture = [](e::world& w, gneiss::scene_node_id n)
+              -> e::result<std::optional<reference_description>> {
+            auto* v = state(w).get<reference_description>(entity(w, n));
+            return v ? std::optional{*v} : std::nullopt;
+          },
+          .remove =
+              [](e::world& w, gneiss::scene_node_id n) {
+                return state(w).remove<reference_description>(entity(w, n));
+              },
+          .equal =
+              [](const reference_description& a, const reference_description& b) {
+                return (!a.settings && !b.settings) ||
+                       (a.settings && b.settings && a.settings->amount == b.settings->amount);
+              },
+          .create_default = []() -> e::result<reference_description> {
+            return reference_description{};
+          },
+          .removable = true};
+}
 namespace {
 int editor_preparations{};
 void check(bool ok, std::source_location at = std::source_location::current()) {
@@ -25,7 +80,8 @@ void check(bool ok, std::source_location at = std::source_location::current()) {
 }
 }
 int main() try {
-  check(e::initialize_meta(register_movement_meta).ok());
+  check(e::initialize_meta(register_reference_meta).ok());
+  check(e::register_scene_component(reference_operations()).ok());
   auto ops = operations();
   ops.prepare_editor = [](e::world&, gneiss::scene_node_id,
                           const movement_description& value) -> e::result<movement_description> {
@@ -51,7 +107,7 @@ int main() try {
     return ed::edit_component_description(document, history, world, target, edit, serial);
   };
   check(apply({.path = {p{1}}, .data = e::value{e::ref<e::meta::object>{}}}) ==
-        e::error::unsupported);
+        e::error::invalid_argument);
   auto read = [&]() -> movement_description {
     auto components = document.components(node);
     check(components.has_value());
@@ -235,6 +291,72 @@ int main() try {
   check(app->scenes()->remove_prefab_instance(document.scene_handle(), reference.uuid).ok());
   check(document.validate_selection().ok());
   check(history.undo() == e::error::not_found);
+  {
+    gneiss::scene_node_id ref_node;
+    check(document.create_node("reference", {}, ref_node).ok());
+    auto id = document.selected_node()->uuid;
+    check(document
+              .add_component_description(ref_node,
+                                         e::make_component_description(reference_description{}))
+              .ok());
+    ed::component_edit_target ref_target{.object_uuid = id,
+                                         .component_type = reference_description::type_guid};
+    ed::editor_command_history ref_history;
+    auto current = [&] {
+      auto list = document.components(ref_node);
+      check(bool(list));
+      return list->get<reference_description>()->settings;
+    };
+    auto initial = current();
+    e::value input{e::ref<e::meta::object>{initial}};
+    auto changed = ed::edit_reference_snapshot(input, {.path = {p{1}}, .data = e::value{5.0F}});
+    check(changed.has_value() && initial->amount == 1);
+    check(ed::edit_component_description(document, ref_history, world, ref_target,
+                                         {.path = {p{1}}, .data = *changed}, 0)
+              .ok());
+    initial->amount = 99;
+    dynamic_cast<reference_settings*>(std::get<e::ref<e::meta::object>>(changed->payload).get())
+        ->amount = 88;
+    check(current()->amount == 5);
+    auto installed = current();
+    installed->amount = 77;
+    check(ref_history.undo().ok() && current()->amount == 1);
+    current()->amount = 66;
+    check(ref_history.redo().ok() && current()->amount == 5);
+    auto rejected = ed::edit_reference_snapshot(input, {.path = {p{1}}, .data = e::value{-1.0F}});
+    check(!rejected && initial->amount == 99);
+    auto read_ref = e::read_component_property(world, entity(world, ref_node),
+                                               reference_description::type_guid, p{1});
+    check(read_ref && read_ref->kind() == e::value_kind::object);
+    check(e::write_component_property(world, entity(world, ref_node),
+                                      reference_description::type_guid, p{1},
+                                      e::value{e::ref<e::meta::object>{}})
+              .ok());
+    // 实际绘制引用及空引用，面板不直接改变共享对象。
+    ImGui::CreateContext();
+    auto& ref_io = ImGui::GetIO();
+    ref_io.IniFilename = nullptr;
+    ref_io.DisplaySize = {800, 600};
+    ref_io.DeltaTime = 1.0F / 60;
+    unsigned char* pixels;
+    int width, height;
+    ref_io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    auto ref_view = e::meta::instance::from(input);
+    check(bool(ref_view));
+    std::uint64_t serial = 0;
+    e::error status = e::error::success;
+    ImGui::NewFrame();
+    ImGui::Begin("References");
+    auto emitted = ed::draw_reflected_properties(*ref_view, "Object", serial, status);
+    e::ref<reference_settings> empty;
+    auto empty_view = e::meta::instance::from(empty);
+    check(bool(empty_view));
+    (void)ed::draw_reflected_properties(*empty_view, "Empty", serial, status);
+    ImGui::End();
+    ImGui::Render();
+    ImGui::DestroyContext();
+    check(!emitted && status.ok() && initial->amount == 99);
+  }
   return 0;
 } catch (const std::exception& failure) {
   std::fprintf(stderr, "%s\n", failure.what());

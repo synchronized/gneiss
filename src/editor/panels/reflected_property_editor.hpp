@@ -5,6 +5,9 @@
 #include "panels/property_path.hpp"
 #include <optional>
 namespace gneiss::editor {
+/** 显式复制对象内容后修改，不改变源引用；结果可用于整项替换。 */
+engine::result<engine::value> edit_reference_snapshot(const engine::value&,
+                                                      const property_edit&) noexcept;
 bool draw_property_value(const char* name, engine::value&, const engine::meta::type&,
                          std::uint64_t& serial, engine::error&);
 /** source 为同类型来源快照，仅在本次绘制借用；恢复返回独立值，不直接修改对象。

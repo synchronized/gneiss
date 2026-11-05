@@ -539,25 +539,21 @@ error access_component(world& world, std::uint64_t entity, guid type, bool write
   return error::unsupported;
 }
 }
-error read_component_property(world& world, std::uint64_t entity, guid type,
-                              meta::property_id field, engine::value& value) noexcept {
+result<value> read_component_property(world& world, std::uint64_t entity, guid type,
+                                      meta::property_id field) noexcept {
   if (type != transform_component_type) {
     auto node = world.entity_node(entity_id{entity});
-    if (!node)
-      return node.error();
-    auto read = read_runtime_component(world, *node, type, field);
-    if (!read)
-      return read.error();
-    value = std::move(*read);
-    return error::success;
+    return node ? read_runtime_component(world, *node, type, field) : result<value>{node.error()};
   }
-  return access_component(world, entity, type, false, [&](auto* object) {
-    auto read = meta::read_property(type, field, object);
-    if (!read)
-      return read.error();
-    value = std::move(*read);
-    return error::success;
-  });
+  math::transform object;
+  auto status = world.entity_get_local_transform(entity_id{entity}, object);
+  if (status.failed())
+    return status;
+  auto root = meta::instance::from(object);
+  if (!root)
+    return root.error();
+  auto member = root->property(field);
+  return member ? member->read_value() : result<value>{member.error()};
 }
 error write_component_property(world& world, std::uint64_t entity, guid type,
                                meta::property_id field, const engine::value& value) noexcept {
@@ -566,7 +562,11 @@ error write_component_property(world& world, std::uint64_t entity, guid type,
     return node ? edit_runtime_component({world, *node}, type, field, value) : node.error();
   }
   return access_component(world, entity, type, true, [&](auto* object) {
-    return meta::write_property(type, field, object, value);
+    auto root = meta::mutable_instance::from(*object);
+    if (!root)
+      return root.error();
+    auto member = root->property(field);
+    return member ? member->write_value(value) : member.error();
   });
 }
 }

@@ -338,7 +338,7 @@ Scene/Prefab 不缓存来源版本或派生依赖列表，依赖由组件描述�
 节点回调必须返回对象节点，解码返回独立对象；异常由外层序列化边界转换为错误。
 文件字节上限在根字节入口检查，嵌套节点不是独立文件，不重复计算字节上限。
 内部 JSON 适配头为 json_serialization.hpp，IPC 等节点调用使用 meta::json::read/write；独立格式包装使用其 read_fields/write_fields。
-value 标签编解码及递归状态只在 serialization.cpp 内定义，不提供外部 detail 接口。
+带标签的 value 节点使用 meta::json::read_value/write_value；实现和递归状态仍只在 serialization.cpp 中定义。
 普通字节 codec 保留给自定义文件协议；若用于嵌套 JSON，仍使用显式文本适配。
 内置资源格式包装和 value 已使用节点回调，不经过该适配；旧 serialize_reflected 字节入口已删除。
 材质文件包装仅处理 format/version，直接读写 v6 原生描述，不再创建文件数据副本类型。
@@ -504,3 +504,5 @@ mutable_instance::write_value 对可直接访问的引用槽接受兼容对象�
 需要 setter 整项替换的属性仍使用 assign，避免绕过业务校验。
 这些属性仍为 reference 类别，不变成 scalar。ref<const T> 不转换为可变对象引用；
 普通结构体继续使用 instance，const 引用仍可通过 reference_view 访问。
+
+原生 value 槽位也支持 instance::read_value/write_value；复制对象分支仍共享引用，不意味着生成快照。

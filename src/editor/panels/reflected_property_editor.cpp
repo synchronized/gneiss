@@ -7,6 +7,41 @@
 #include <imgui.h>
 namespace gneiss::editor {
 using namespace engine;
+result<value> edit_reference_snapshot(const value& source, const property_edit& edit) noexcept try {
+  if (source.kind() != value_kind::object)
+    return error::invalid_argument;
+  auto encoded = meta::serialize(source);
+  if (!encoded)
+    return encoded.error().error;
+  auto copy = meta::deserialize<value>(*encoded);
+  if (!copy)
+    return copy.error().error;
+  auto owner = std::get<ref<meta::object>>(copy->payload);
+  if (!owner)
+    return error::not_found;
+  auto root = meta::mutable_instance::from_object(owner->dynamic_type(),
+                                                  const_cast<void*>(owner->dynamic_address()));
+  if (!root)
+    return root.error();
+  auto target = meta::resolve_path(*root, edit.path);
+  if (!target)
+    return target.error();
+  auto status = [&]() -> error {
+    if (!edit.object)
+      return target->write_value(edit.data);
+    auto replacement = meta::instance::from_object(edit.object_type, edit.object.get());
+    return replacement ? target->assign(*replacement) : replacement.error();
+  }();
+  if (status.failed())
+    return status;
+  auto checked = meta::serialize(*copy);
+  return checked ? result<value>{std::move(*copy)} : result<value>{checked.error().error};
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+
 namespace {
 int resize_text(ImGuiInputTextCallbackData* data) {
   auto& text = *static_cast<std::string*>(data->UserData);
@@ -17,8 +52,77 @@ int resize_text(ImGuiInputTextCallbackData* data) {
 void draw_value(const meta::instance& view, const std::string& name, property_path& path,
                 std::optional<property_edit>& pending, std::uint64_t& serial, error& status,
                 std::span<const meta::property_id> readonly = {},
-                const meta::instance* source = nullptr) {
+                const meta::instance* source = nullptr, std::size_t depth = 0) {
+  if (depth > 64) {
+    status = error::invalid_argument;
+    return;
+  }
   const auto value_type = view.type();
+  auto held = view.read_value();
+  if (value_type.kind() == meta::type_kind::reference ||
+      (held && held->kind() == value_kind::object)) {
+    const bool editable = held && held->kind() == value_kind::object;
+    result<meta::instance> target = error::not_found;
+    if (value_type.kind() == meta::type_kind::reference) {
+      auto reference = view.as_reference();
+      if (reference)
+        target = reference->get();
+    } else if (editable) {
+      const auto& owner = std::get<ref<meta::object>>(held->payload);
+      if (owner)
+        target = meta::instance::from_object(owner->dynamic_type(), owner->dynamic_address());
+    }
+    const bool expanded = ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
+    if (ImGui::BeginPopupContextItem()) {
+      ImGui::BeginDisabled(!editable);
+      if (ImGui::MenuItem("Copy Object Reference Content")) {
+        auto bytes = meta::serialize(*held);
+        if (bytes) {
+          auto text = std::string{"gneiss-reference:\n"} +
+                      std::string(reinterpret_cast<const char*>(bytes->data()), bytes->size());
+          ImGui::SetClipboardText(text.c_str());
+        } else
+          status = bytes.error().error;
+      }
+      const char* clipboard = ImGui::GetClipboardText();
+      const std::string_view text = clipboard ? clipboard : "";
+      constexpr std::string_view prefix = "gneiss-reference:\n";
+      if (ImGui::MenuItem("Paste Object Reference Content", nullptr, false,
+                          text.starts_with(prefix))) {
+        const auto body = text.substr(prefix.size());
+        auto decoded = meta::deserialize<value>(std::as_bytes(std::span{body.data(), body.size()}));
+        if (!decoded || decoded->kind() != value_kind::object)
+          status = decoded ? error::invalid_argument : decoded.error().error;
+        else
+          pending = property_edit{.path = path, .data = std::move(*decoded)};
+      }
+      if (ImGui::MenuItem("Clear Object Reference"))
+        pending = property_edit{.path = path, .data = value{ref<meta::object>{}}};
+      ImGui::EndDisabled();
+      ImGui::EndPopup();
+    }
+    if (!expanded)
+      return;
+    if (target) {
+      property_path local_path;
+      std::optional<property_edit> local;
+      ImGui::BeginDisabled(!editable);
+      draw_value(*target, "Object", local_path, local, serial, status, {}, nullptr, depth + 1);
+      ImGui::EndDisabled();
+      if (local && editable) {
+        auto changed = edit_reference_snapshot(*held, *local);
+        if (changed)
+          pending = property_edit{.path = path, .data = std::move(*changed)};
+        else
+          status = changed.error();
+      }
+    } else if (target.error() == error::not_found)
+      ImGui::TextDisabled("null");
+    else
+      status = target.error();
+    ImGui::TreePop();
+    return;
+  }
   if (value_type.kind() == meta::type_kind::object ||
       value_type.kind() == meta::type_kind::sequence) {
     const bool expanded = ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
@@ -81,7 +185,7 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
               original = *member;
           }
           draw_value(*child, std::string(property.name), path, pending, serial, status, readonly,
-                     original ? &*original : nullptr);
+                     original ? &*original : nullptr, depth + 1);
           ImGui::EndDisabled();
           ImGui::PopID();
           path.pop_back();
@@ -113,7 +217,7 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
               }
             }
             draw_value(*child, "[" + std::to_string(i) + "]", path, pending, serial, status,
-                       readonly, original ? &*original : nullptr);
+                       readonly, original ? &*original : nullptr, depth + 1);
             ImGui::PopID();
             path.pop_back();
           }

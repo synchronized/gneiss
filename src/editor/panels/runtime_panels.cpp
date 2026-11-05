@@ -3,6 +3,7 @@
 
 #include "panels/runtime_panels.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "panels/reflected_property_editor.hpp"
@@ -65,7 +66,14 @@ void draw_runtime_property_status(const runtime_property_edit* edit,
     ImGui::TextDisabled("等待 Runtime 确认…");
     break;
   case runtime_property_edit_state::applied:
-    if (edit->canonical_value.payload != observed.payload) {
+    if ([&] {
+          if (edit->canonical_value.kind() != engine::value_kind::object ||
+              observed.kind() != engine::value_kind::object)
+            return edit->canonical_value != observed;
+          auto a = engine::meta::serialize(edit->canonical_value),
+               b = engine::meta::serialize(observed);
+          return !a || !b || *a != *b;
+        }()) {
       ImGui::TextColored({0.95F, 0.75F, 0.35F, 1.0F}, "已应用，但运行逻辑随后覆盖了该值");
     } else {
       ImGui::TextColored({0.65F, 0.9F, 0.55F, 1.0F}, "已由 Runtime 应用");
@@ -218,8 +226,7 @@ void draw_runtime_inspector(const runtime_scene_node& node,
         if (!child)
           continue;
         auto value = child->read_value();
-        const bool supported = value && value->kind() != engine::value_kind::object &&
-                               value->kind() != engine::value_kind::invalid;
+        const bool supported = value && value->kind() != engine::value_kind::invalid;
         const auto observed = value ? *value : engine::value{};
         runtime_property_key key{
             .object = node.id, .type_id = component->guid().bytes(), .field_id = property.id.get()};
@@ -234,7 +241,16 @@ void draw_runtime_inspector(const runtime_scene_node& node,
         std::uint64_t serial{};
         engine::error status;
         ImGui::PushID(static_cast<int>(property.id.get()));
-        if (supported) {
+        if (supported && value->kind() == engine::value_kind::object) {
+          auto edit =
+              draw_reflected_properties(*child, std::string(property.name).c_str(), serial, status);
+          if (edit && edit->path.empty() && !edit->object)
+            actions.report_result(
+                actions.context,
+                actions.write_property(actions.context, key,
+                                       pending && pending->revision ? pending->revision : 1U,
+                                       std::move(edit->data)));
+        } else if (supported) {
           if (draw_property_value(std::string(property.name).c_str(), *value, child->type(), serial,
                                   status)) {
             // 转换同一种标量，协议不支持的嵌套/容器属性仅展示。

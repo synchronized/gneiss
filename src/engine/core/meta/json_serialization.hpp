@@ -36,6 +36,11 @@ public:
 };
 /** 内部 JSON 适配边界；普通业务使用 serialize/deserialize。节点只在所属文档存活期间有效。 */
 namespace json {
+/** 通用带标签值；标量无需冻结表，对象分支要求默认表已注册并冻结。 */
+GNEISS_API result<yyjson_mut_val*, serialization_diagnostic> write_value(yyjson_mut_doc*,
+                                                                         const value&) noexcept;
+GNEISS_API result<value, serialization_diagnostic> read_value(yyjson_val*) noexcept;
+
 /** 完整视图编解码，使用视图自身的注册表。输出节点由 doc 拥有；读取失败不保证恢复目标。 */
 GNEISS_API result<yyjson_mut_val*, serialization_diagnostic> write(yyjson_mut_doc* doc,
                                                                    const instance&) noexcept;

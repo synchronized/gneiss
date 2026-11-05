@@ -109,6 +109,8 @@ result<instance> instance::property(property_id id) const noexcept try {
 result<value> instance::read_value() const noexcept try {
   if (kind_ == type_kind::invalid)
     return error::invalid_state;
+  if (kind_ == type_kind::object && cpp_type_ == runtime_type_of<value>() && data_)
+    return *static_cast<const value*>(data_);
   if (kind_ == type_kind::reference && access_) {
     const auto* ops = access_->get<reference_ops>();
     return ops && ops->read_object ? result<value>{value{ops->read_object(data_)}}
@@ -191,6 +193,10 @@ result<mutable_instance> mutable_instance::property(property_id id) const noexce
 error mutable_instance::write_value(const value& input) const noexcept try {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
+  if (kind() == type_kind::object && view_.cpp_type_ == runtime_type_of<value>() && data_) {
+    *static_cast<value*>(data_) = input;
+    return error::success;
+  }
   if (kind() == type_kind::reference && view_.access_) {
     const auto* ops = view_.access_->get<reference_ops>();
     if (!data_ || !ops || !ops->write_object)

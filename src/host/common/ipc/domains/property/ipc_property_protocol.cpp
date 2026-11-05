@@ -75,171 +75,48 @@ bool parse_type_id(yyjson_val* value, gneiss::engine::guid& output) noexcept {
   return true;
 }
 
-template <std::size_t Size>
-bool add_float_array(yyjson_mut_doc* document, yyjson_mut_val* root,
-                     const std::span<const float, Size> values) noexcept {
-  auto* array = yyjson_mut_arr(document);
-  if (array == nullptr) {
-    return false;
-  }
-  for (const auto value : values) {
-    if (!std::isfinite(value) || !yyjson_mut_arr_add_real(document, array, value)) {
-      return false;
-    }
-  }
-  return yyjson_mut_obj_add_val(document, root, "value", array);
-}
-
-bool add_property_value(yyjson_mut_doc* document, yyjson_mut_val* root,
+bool add_property_value(yyjson_mut_doc* doc, yyjson_mut_val* root,
                         const gneiss::engine::value& value) {
-  const auto add_kind = [&](const char* kind) {
-    return yyjson_mut_obj_add_str(document, root, "kind", kind);
-  };
-  return std::visit(
-      [&](const auto& payload) -> bool {
-        using Payload = std::decay_t<decltype(payload)>;
-        if constexpr (std::is_same_v<Payload, std::monostate>) {
-          return false;
-        } else if constexpr (std::is_same_v<Payload, bool>) {
-          return add_kind("bool") && yyjson_mut_obj_add_bool(document, root, "value", payload);
-        } else if constexpr (std::is_same_v<Payload, std::int64_t>) {
-          return add_kind("int64") && yyjson_mut_obj_add_sint(document, root, "value", payload);
-        } else if constexpr (std::is_same_v<Payload, std::uint64_t>) {
-          return add_kind("uint64") && yyjson_mut_obj_add_uint(document, root, "value", payload);
-        } else if constexpr (std::is_same_v<Payload, float>) {
-          return std::isfinite(payload) && add_kind("float32") &&
-                 yyjson_mut_obj_add_real(document, root, "value", payload);
-        } else if constexpr (std::is_same_v<Payload, double>) {
-          return std::isfinite(payload) && add_kind("float64") &&
-                 yyjson_mut_obj_add_real(document, root, "value", payload);
-        } else if constexpr (std::is_same_v<Payload, std::string>) {
-          return payload.size() <= max_property_string_size && add_kind("string") &&
-                 yyjson_mut_obj_add_strncpy(document, root, "value", payload.data(),
-                                            payload.size());
-        } else if constexpr (std::is_same_v<Payload, gneiss::engine::guid>) {
-          const auto& id = payload;
-          if (!valid_type_id(id) || !add_kind("type_id")) {
-            return false;
-          }
-          const auto text = type_id_text(id);
-          return yyjson_mut_obj_add_strncpy(document, root, "value", text.data(), text.size());
-        } else if constexpr (std::is_same_v<Payload, gneiss::engine::math::vector3>) {
-          return add_kind("vec3") &&
-                 add_float_array(document, root, gneiss::engine::math::components(payload));
-        } else if constexpr (std::is_same_v<Payload, gneiss::engine::math::vector2>) {
-          return add_kind("vec2") &&
-                 add_float_array(document, root, gneiss::engine::math::components(payload));
-        } else if constexpr (std::is_same_v<Payload, gneiss::engine::math::vector4>) {
-          return add_kind("vec4") &&
-                 add_float_array(document, root, gneiss::engine::math::components(payload));
-        } else if constexpr (std::is_same_v<Payload,
-                                            gneiss::engine::ref<gneiss::engine::meta::object>>) {
-          auto view = gneiss::engine::meta::instance::from(value);
-          if (!view)
-            return false;
-          auto node = gneiss::engine::meta::json::write(document, *view);
-          return node && add_kind("object") &&
-                 yyjson_mut_obj_add_val(document, root, "value",
-                                        yyjson_mut_obj_remove_key(*node, "value"));
-        } else {
-          return add_kind("quaternion") &&
-                 add_float_array(document, root, gneiss::engine::math::components(payload));
-        }
-      },
-      value.payload);
-}
-
-template <std::size_t Size>
-bool parse_float_array(yyjson_val* value, std::array<float, Size>& output) noexcept {
-  if (!yyjson_is_arr(value) || yyjson_arr_size(value) != Size) {
+  using namespace gneiss::engine;
+  if (const auto* text = std::get_if<std::string>(&value.payload);
+      text && text->size() > max_property_string_size)
     return false;
-  }
-  std::array<float, Size> parsed{};
-  std::size_t index = 0U;
-  std::size_t count = 0U;
-  yyjson_val* item = nullptr;
-  yyjson_arr_foreach(value, index, count, item) {
-    if (!yyjson_is_num(item)) {
+  // 旧 IPC GUID 使用 type_id 标签和 32 位十六进制文本；只保留这层协议适配。
+  if (const auto* id = std::get_if<guid>(&value.payload)) {
+    if (!valid_type_id(*id))
       return false;
-    }
-    const auto number = yyjson_get_real(item);
-    if (!std::isfinite(number) || number < -std::numeric_limits<float>::max() ||
-        number > std::numeric_limits<float>::max()) {
-      return false;
-    }
-    parsed[index] = static_cast<float>(number);
+    const auto text = type_id_text(*id);
+    return yyjson_mut_obj_add_str(doc, root, "kind", "type_id") &&
+           yyjson_mut_obj_add_strncpy(doc, root, "value", text.data(), text.size());
   }
-  output = parsed;
-  return true;
+  auto node = meta::json::write_value(doc, value);
+  if (!node)
+    return false;
+  return yyjson_mut_obj_add_str(doc, root, "kind",
+                                yyjson_mut_get_str(yyjson_mut_obj_get(*node, "kind"))) &&
+         yyjson_mut_obj_add_val(doc, root, "value", yyjson_mut_obj_remove_key(*node, "value"));
 }
-
 bool parse_property_value(yyjson_val* root, gneiss::engine::value& output) {
-  auto* kind_value = yyjson_is_obj(root) ? yyjson_obj_get(root, "kind") : nullptr;
-  auto* value = yyjson_is_obj(root) ? yyjson_obj_get(root, "value") : nullptr;
-  if (!yyjson_is_str(kind_value)) {
+  using namespace gneiss::engine;
+  auto* tag = yyjson_obj_get(root, "kind");
+  auto* content = yyjson_obj_get(root, "value");
+  if (!yyjson_is_obj(root) || yyjson_obj_size(root) != 2 || !yyjson_is_str(tag))
     return false;
+  const std::string_view kind{yyjson_get_str(tag), yyjson_get_len(tag)};
+  if (kind == "type_id") {
+    guid id;
+    if (!parse_type_id(content, id))
+      return false;
+    output = value{id};
+    return true;
   }
-  const std::string_view kind(yyjson_get_str(kind_value), yyjson_get_len(kind_value));
-  gneiss::engine::value parsed;
-  if (kind == "bool" && yyjson_is_bool(value)) {
-    parsed.payload = yyjson_get_bool(value);
-  } else if (kind == "int64" && yyjson_is_sint(value)) {
-    parsed.payload = yyjson_get_sint(value);
-  } else if (kind == "uint64" && yyjson_is_uint(value)) {
-    parsed.payload = yyjson_get_uint(value);
-  } else if (kind == "float32" && yyjson_is_num(value)) {
-    const auto number = yyjson_get_real(value);
-    if (!std::isfinite(number) || number < -std::numeric_limits<float>::max() ||
-        number > std::numeric_limits<float>::max()) {
-      return false;
-    }
-    parsed.payload = static_cast<float>(number);
-  } else if (kind == "float64" && yyjson_is_num(value)) {
-    const auto number = yyjson_get_real(value);
-    if (!std::isfinite(number)) {
-      return false;
-    }
-    parsed.payload = number;
-  } else if (kind == "string" && yyjson_is_str(value) &&
-             yyjson_get_len(value) <= max_property_string_size) {
-    parsed.payload = std::string(yyjson_get_str(value), yyjson_get_len(value));
-  } else if (kind == "type_id") {
-    gneiss::engine::guid id{};
-    if (!parse_type_id(value, id)) {
-      return false;
-    }
-    parsed.payload = id;
-  } else if (kind == "vec3") {
-    std::array<float, 3> numbers{};
-    if (!parse_float_array(value, numbers)) {
-      return false;
-    }
-    parsed.payload = gneiss::engine::math::vector3{numbers[0], numbers[1], numbers[2]};
-  } else if (kind == "quaternion") {
-    std::array<float, 4> numbers{};
-    if (!parse_float_array(value, numbers)) {
-      return false;
-    }
-    parsed.payload =
-        gneiss::engine::math::quaternion_xyzw(numbers[0], numbers[1], numbers[2], numbers[3]);
-  } else if (kind == "vec2") {
-    std::array<float, 2> numbers{};
-    if (!parse_float_array(value, numbers))
-      return false;
-    parsed.payload = gneiss::engine::math::vector2{numbers[0], numbers[1]};
-  } else if (kind == "vec4") {
-    std::array<float, 4> numbers{};
-    if (!parse_float_array(value, numbers))
-      return false;
-    parsed.payload = gneiss::engine::math::vector4{numbers[0], numbers[1], numbers[2], numbers[3]};
-  } else if (kind == "object") {
-    auto view = gneiss::engine::meta::mutable_instance::from(parsed);
-    if (!view || gneiss::engine::meta::json::read(root, *view).error.failed())
-      return false;
-  } else {
+  if (kind == "guid" || (kind == "string" && yyjson_is_str(content) &&
+                         yyjson_get_len(content) > max_property_string_size))
     return false;
-  }
-  output = std::move(parsed);
+  auto decoded = meta::json::read_value(root);
+  if (!decoded)
+    return false;
+  output = std::move(*decoded);
   return true;
 }
 

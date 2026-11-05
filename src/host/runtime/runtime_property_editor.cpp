@@ -111,9 +111,14 @@ gneiss::engine::error runtime_property_editor::execute(const ipc_property_write&
   }
   operation = gneiss::engine::write_component_property(*world_, entity, property_type,
                                                        property_field, command.value);
-  if (operation.ok())
-    operation = gneiss::engine::read_component_property(*world_, entity, property_type,
-                                                        property_field, response.canonical_value);
+  if (operation.ok()) {
+    auto canonical =
+        gneiss::engine::read_component_property(*world_, entity, property_type, property_field);
+    if (canonical)
+      response.canonical_value = std::move(*canonical);
+    else
+      operation = canonical.error();
+  }
   if (operation.failed()) {
     response.code = operation.code();
     response.message = "属性写入被拒绝";

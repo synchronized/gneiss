@@ -1274,6 +1274,34 @@ json_codec_context::read_fields_object(yyjson_val* input, type_id id,
   return object;
 }
 namespace json {
+result<yyjson_mut_val*, serialization_diagnostic> write_value(yyjson_mut_doc* doc,
+                                                              const value& v) noexcept try {
+  auto registry = default_registry();
+  if (!registry)
+    return failure(registry.error());
+  serialization_context traversal;
+  detail::json_codec_state state{*registry, traversal, 0};
+  auto context = state.context();
+  return write_tagged_value(context, doc, v);
+} catch (const std::bad_alloc&) {
+  return failure(error::out_of_memory);
+} catch (...) {
+  return failure(error::internal);
+}
+result<value, serialization_diagnostic> read_value(yyjson_val* node) noexcept try {
+  auto registry = default_registry();
+  if (!registry)
+    return failure(registry.error());
+  serialization_context traversal;
+  detail::json_codec_state state{*registry, traversal, 0};
+  auto context = state.context();
+  return read_tagged_value(context, node);
+} catch (const std::bad_alloc&) {
+  return failure(error::out_of_memory);
+} catch (...) {
+  return failure(error::internal);
+}
+
 result<yyjson_mut_val*, serialization_diagnostic> write_fields(yyjson_mut_doc* doc,
                                                                const instance& view) noexcept try {
   auto registry = detail::property_view_access::registry(view);
