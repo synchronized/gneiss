@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/value_result.hpp"
 #include "engine/core/meta/instance.hpp"
+#include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/serialization.hpp"
 #include "engine/function/resource/detail/asset_decode.hpp"
 #include "engine/function/world/world_reflection.hpp"
@@ -125,6 +126,7 @@ void run(std::size_t limit) {
 }
 }
 int main() try {
+  check(meta::register_builtin_types().ok());
   check(register_reflection().ok());
   check(register_builtin_resource_types().ok());
   check(meta::freeze().ok());

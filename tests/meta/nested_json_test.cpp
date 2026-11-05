@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/meta/detail/json_value_codec.hpp"
+#include "engine/core/meta/json_serialization.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/serialization.hpp"
 namespace {
@@ -81,12 +81,12 @@ template <unsigned Depth> e::error register_chain(const m::registry_ref& registr
         .template property<&chain<Depth>::nested>(m::property_id{1}, "nested",
                                                   m::property_flags::required)
         .serialization()
-        .template json_serialization<[](m::detail::json_codec_context& ctx, yyjson_mut_doc* doc,
+        .template json_serialization<[](m::json_codec_context& ctx, yyjson_mut_doc* doc,
                                         const chain<Depth>& value) {
-          return m::detail::write_reflected(ctx, doc, e::runtime_type_of<chain<Depth>>(), &value);
+          return ctx.write_fields(doc, value);
         },
-                                     [](m::detail::json_codec_context& ctx, yyjson_val* input) {
-                                       return m::detail::read_reflected<chain<Depth>>(ctx, input);
+                                     [](m::json_codec_context& ctx, yyjson_val* input) {
+                                       return ctx.read_fields<chain<Depth>>(input);
                                      }>()
         .commit();
   }
@@ -183,12 +183,10 @@ bool nested_json_contract() {
       m::type_builder<child>{*node_registry}
           .property<&child::value>(m::property_id{1}, "isolated", m::property_flags::required)
           .serialization(true)
-          .json_serialization<[](m::detail::json_codec_context& ctx, yyjson_mut_doc* doc,
-                                 const child& value) {
-            return m::detail::write_reflected(ctx, doc, e::runtime_type_of<child>(), &value);
-          },
-                              [](m::detail::json_codec_context& ctx, yyjson_val* input) {
-                                return m::detail::read_reflected<child>(ctx, input);
+          .json_serialization<[](m::json_codec_context& ctx, yyjson_mut_doc* doc,
+                                 const child& value) { return ctx.write_fields(doc, value); },
+                              [](m::json_codec_context& ctx, yyjson_val* input) {
+                                return ctx.read_fields<child>(input);
                               }>(64)
           .validate<&check>()
           .commit()

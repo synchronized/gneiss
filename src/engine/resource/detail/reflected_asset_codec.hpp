@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/meta/detail/json_value_codec.hpp"
+#include "engine/core/meta/json_serialization.hpp"
 #include "engine/core/meta/registration.hpp"
 #include <array>
 #include <cstdlib>
@@ -55,13 +55,13 @@ inline meta::serialization_diagnostic check_asset_format(yyjson_val* root,
 }
 inline constexpr std::array<std::string_view, 2> asset_headers{"format", "version"};
 template <class T>
-result<T, meta::serialization_diagnostic>
-decode_reflected_asset(meta::detail::json_codec_context& ctx, yyjson_val* root,
-                       reflected_asset_format format) {
+result<T, meta::serialization_diagnostic> decode_reflected_asset(meta::json_codec_context& ctx,
+                                                                 yyjson_val* root,
+                                                                 reflected_asset_format format) {
   auto status = check_asset_format(root, format);
   if (status.error.failed())
     return status;
-  return meta::detail::read_reflected<T>(ctx, root, asset_headers);
+  return ctx.read_fields<T>(root, asset_headers);
 }
 
 inline result<yyjson_mut_val*, meta::serialization_diagnostic>
@@ -78,9 +78,9 @@ add_asset_header(yyjson_mut_doc* doc, yyjson_mut_val* root, reflected_asset_form
 }
 template <class T>
 result<yyjson_mut_val*, meta::serialization_diagnostic>
-encode_reflected_asset(meta::detail::json_codec_context& ctx, yyjson_mut_doc* doc, const T& object,
+encode_reflected_asset(meta::json_codec_context& ctx, yyjson_mut_doc* doc, const T& object,
                        reflected_asset_format format) {
-  auto fields = meta::detail::write_reflected(ctx, doc, runtime_type_of<T>(), &object);
+  auto fields = ctx.write_fields(doc, object);
   if (!fields)
     return std::move(fields).error();
   return add_asset_header(doc, *fields, format);
@@ -109,7 +109,7 @@ result<T, meta::serialization_diagnostic> decode_reflected_asset(std::span<const
   auto view = meta::mutable_instance::from(object);
   if (!view)
     return diagnostic{.error = view.error()};
-  status = meta::detail::read_reflected(root, *view, asset_headers);
+  status = meta::json::read_fields(root, *view, asset_headers);
   if (status.error.failed())
     return status;
   return object;
@@ -125,7 +125,7 @@ encode_reflected_asset(const T& object, reflected_asset_format format) {
                                                                       &yyjson_mut_doc_free);
   if (!doc)
     return diagnostic{.error = error::out_of_memory};
-  auto root = meta::detail::write_reflected(doc.get(), *view);
+  auto root = meta::json::write_fields(doc.get(), *view);
   if (!root)
     return std::move(root).error();
   root = add_asset_header(doc.get(), *root, format);
@@ -145,11 +145,10 @@ encode_reflected_asset(const T& object, reflected_asset_format format) {
 /** 复用字段注册和校验，只追加文件格式包装并提交类型。 */
 template <class T, const reflected_asset_format& Format>
 error register_reflected_asset(meta::type_builder<T>& builder) noexcept {
-  constexpr auto encode = [](meta::detail::json_codec_context& ctx, yyjson_mut_doc* doc,
-                             const T& object) {
+  constexpr auto encode = [](meta::json_codec_context& ctx, yyjson_mut_doc* doc, const T& object) {
     return encode_reflected_asset(ctx, doc, object, Format);
   };
-  constexpr auto decode = [](meta::detail::json_codec_context& ctx, yyjson_val* input) {
+  constexpr auto decode = [](meta::json_codec_context& ctx, yyjson_val* input) {
     return decode_reflected_asset<T>(ctx, input, Format);
   };
   return builder.template json_serialization<encode, decode>(Format.maximum_bytes).commit();

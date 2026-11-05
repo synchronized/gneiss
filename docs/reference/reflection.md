@@ -157,8 +157,8 @@ Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `
 资源层 `register_builtin_resource_types()` 统一登记材质、采样参数与枚举、ActionMap、Scene、Prefab
 的类型及 codec，统一使用默认表。注册集中在 `resource/builtin_resource_registration.cpp`；
 codec 文件只提供编解码入口。首次失败立即返回，不回滚已注册内容；重复注册失败。
-组件描述随资源入口一起登记。冻结前先登记 World 基础值；默认 initialize_meta 已按依赖顺序集中调用，
-无需资源消费者重复注册。
+组件描述随资源入口一起登记。冻结前依次登记 Meta 内置类型、World 基础值和资源类型；默认 initialize_meta 已按依赖顺序集中调用，
+无需资源消费者重复注册。Meta 的 register_builtin_types 提供默认表和显式表版本，独立注册表可据此读写 engine::value，无需加载资源模块。
 材质直接注册 parameters、texture_uris 及嵌套字段，格式包装器只处理格式头；实际格式见[材质格式](render-asset-formats.md#material)。
 
 ## 反射 JSON 与对象校验
@@ -331,12 +331,14 @@ Scene/Prefab 不缓存来源版本或派生依赖列表，依赖由组件描述�
 `serialization(true)` 启用严格字段检查；默认 false 保留忽略未知字段行为，两者都拒绝重复键。
 自定义 codec 可接收首参数 `const registry_ref&`，收到当前调用表；不接收该参数的简单函数仍可注册。
 内部 JSON 适配使用 `json_serialization<Encode, Decode>()` 注册节点回调，与字节 codec 互斥。
-回调借用当前 JSON 文档及不透明 `detail::json_codec_context`，不能保存节点或上下文。
-格式包装器使用 detail::write_reflected/read_reflected 跳过本类型 codec、直接遍历注册字段；
+回调借用当前 JSON 文档及 `json_codec_context`，不能保存节点或上下文。
+格式包装器使用 ctx.write_fields / ctx.read_fields<T> 跳过本类型 codec、直接遍历注册字段；
 嵌套 codec 继续使用同一注册表、引用环检测状态和深度计数，入口统一执行对象校验。
 解码只在当前对象忽略已检查的 format/version；其他未知字段、重复键和必填规则保持不变。
 节点回调必须返回对象节点，解码返回独立对象；异常由外层序列化边界转换为错误。
 文件字节上限在根字节入口检查，嵌套节点不是独立文件，不重复计算字节上限。
+内部 JSON 适配头为 json_serialization.hpp，IPC 等节点调用使用 meta::json::read/write；独立格式包装使用其 read_fields/write_fields。
+value 标签编解码及递归状态只在 serialization.cpp 内定义，不提供外部 detail 接口。
 普通字节 codec 保留给自定义文件协议；若用于嵌套 JSON，仍使用显式文本适配。
 内置资源格式包装和 value 已使用节点回调，不经过该适配；旧 serialize_reflected 字节入口已删除。
 材质文件包装仅处理 format/version，直接读写 v6 原生描述，不再创建文件数据副本类型。

@@ -260,3 +260,12 @@ Prefab 属性覆盖直接注册 key/value，路径复用 variant；engine::value
 本项不调整 value 注册归属或覆盖校验分层。
 
 已完成，构建与 21 项相关测试通过，见[验收记录](../records/2026-11-05-json-node-codecs.md)。
+
+### Meta JSON 适配边界
+
+按用户确认收回 value 注册及标签编解码，删除对外 detail 头。
+节点 codec 通过借用上下文遍历字段，IPC 通过明确的内部 JSON 适配入口调用；
+不新增 JSON DOM 抽象，不改变文件格式或递归校验规则。
+
+已完成，Windows Clang Debug 构建及 25 项相关测试通过，见
+[验收记录](../records/2026-11-05-meta-json-boundary.md)。

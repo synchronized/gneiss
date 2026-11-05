@@ -39,6 +39,24 @@ decode_move_only(std::span<const std::byte> input) {
   return move_only{std::to_integer<int>(input.front())};
 }
 int main() {
+  // Meta 独立注册表即可读写 value，不依赖 World 或资源注册。
+  auto core = e::meta::create_registry();
+  if (!core || e::meta::register_builtin_types(*core).failed() ||
+      e::meta::register_builtin_types(*core) != e::error::invalid_argument ||
+      e::meta::freeze(*core).failed())
+    return 30;
+  const e::value source{std::string{"独立 Meta"}};
+  auto encoded = e::meta::serialize(*core, source);
+  if (!encoded)
+    return 31;
+  auto restored_value = e::meta::deserialize<e::value>(*core, *encoded);
+  if (!restored_value || *restored_value != source)
+    return 32;
+  auto invalid = e::meta::serialize(*core, e::value{});
+  if (invalid || invalid.error().error != e::error::invalid_argument ||
+      e::meta::register_builtin_types(*core) != e::error::invalid_state)
+    return 33;
+
   gneiss::engine::meta::registry_ref registry;
   gneiss::engine::meta::serialization_diagnostic diagnostic;
   e::material_description material;
@@ -49,7 +67,8 @@ int main() {
     return 1;
   if (gneiss::test_support::assign_value(gneiss::engine::meta::default_registry(), registry)
           .failed() ||
-      e::register_reflection().failed() || e::register_builtin_resource_types().failed())
+      e::meta::register_builtin_types().failed() || e::register_reflection().failed() ||
+      e::register_builtin_resource_types().failed())
     return 2;
   if (gneiss::test_support::assign_decoded(gneiss::engine::meta::serialize(registry, material),
                                            output, diagnostic) != e::error::not_ready)

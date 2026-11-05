@@ -139,7 +139,7 @@ target_sources(
     engine/core/meta/detail/reference_view_access.hpp
   engine/core/meta/detail/property_view_access.hpp
   engine/core/meta/detail/type_ops.hpp
-  engine/core/meta/detail/json_value_codec.hpp
+  engine/core/meta/json_serialization.hpp
   engine/core/meta/ops/forward.hpp
   engine/core/meta/ops/scalar_ops.hpp
   engine/core/meta/ops/sequence_ops.hpp

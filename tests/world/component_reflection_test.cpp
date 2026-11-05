@@ -16,7 +16,7 @@ int main() {
   engine::world_owner first, second;
   gneiss::entity_id entity, missing;
   gneiss::scene_node_id node;
-  if (engine::register_reflection().failed() ||
+  if (engine::meta::register_builtin_types().failed() || engine::register_reflection().failed() ||
       engine::register_reflection() != engine::error::invalid_argument ||
       engine::register_builtin_resource_types().failed() ||
       gneiss::engine::meta::freeze().failed() ||

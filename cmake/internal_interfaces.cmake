@@ -44,7 +44,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/resource/resource_service.hpp
   engine/function/resource/render_resource.hpp
   engine/resource/scene/component_description.hpp
-  engine/core/meta/detail/json_value_codec.hpp
+  engine/core/meta/json_serialization.hpp
   engine/resource/asset_uri.hpp
   engine/resource/material/material_description.hpp
   engine/resource/mesh/mesh_data.hpp

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/serialization.hpp"
-#include "engine/core/meta/detail/json_value_codec.hpp"
 #include "engine/core/meta/detail/property_view_access.hpp"
 #include "engine/core/meta/detail/reference_view_access.hpp"
 #include "engine/core/meta/instance.hpp"
+#include "engine/core/meta/json_serialization.hpp"
+#include "engine/core/meta/registration.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -20,10 +21,20 @@ struct serialization_context {
 };
 }
 namespace detail {
-struct json_codec_context {
+struct json_codec_state {
   const registry_ref& registry;
   serialization_context& traversal;
   std::size_t depth;
+  json_codec_context context() { return json_codec_context{*this}; }
+  static result<yyjson_mut_val*, serialization_diagnostic>
+  write_fields(json_codec_context& ctx, yyjson_mut_doc* doc, type_id id, const void* object) {
+    return ctx.write_fields_object(doc, id, object);
+  }
+  static result<ref<void>, serialization_diagnostic>
+  read_fields(json_codec_context& ctx, yyjson_val* input, type_id id,
+              std::span<const std::string_view> ignored) {
+    return ctx.read_fields_object(input, id, ignored);
+  }
 };
 }
 namespace {
@@ -222,7 +233,8 @@ encode_nested(serialization_context& ctx, const registry_ref& registry, type_id 
       return status;
   }
   if (binding->encode_json) {
-    detail::json_codec_context context{registry, ctx, depth};
+    detail::json_codec_state state{registry, ctx, depth};
+    auto context = state.context();
     auto encoded = binding->encode_json(context, doc, object);
     if (!encoded)
       return std::move(encoded).error();
@@ -611,7 +623,8 @@ serialization_diagnostic decode_nested(serialization_context& ctx, const registr
   if (!binding)
     return failure(binding.error());
   if (binding->decode_json) {
-    detail::json_codec_context context{registry, ctx, depth};
+    detail::json_codec_state state{registry, ctx, depth};
+    auto context = state.context();
     auto value = binding->decode_json(context, input);
     if (!value)
       return std::move(value).error();
@@ -717,7 +730,8 @@ serialization_diagnostic decode_nonobject(serialization_context& ctx, const regi
     ref<void> object;
     serialization_diagnostic status;
     if (binding->decode_json) {
-      detail::json_codec_context context{registry, ctx, depth + 1};
+      detail::json_codec_state state{registry, ctx, depth + 1};
+      auto context = state.context();
       auto decoded = binding->decode_json(context, content);
       if (!decoded)
         status = std::move(decoded).error();
@@ -942,7 +956,8 @@ result<ref<void>, serialization_diagnostic> decode_json(const registry_ref& regi
   serialization_context ctx;
   auto* root = yyjson_doc_get_root(doc.get());
   if (custom) {
-    detail::json_codec_context context{registry, ctx, 0};
+    detail::json_codec_state state{registry, ctx, 0};
+    auto context = state.context();
     return binding.decode_json(context, root);
   }
   auto object = binding.construct();
@@ -1055,10 +1070,12 @@ deserialize_object(const registry_ref& registry, type_id id,
 
 }
 
-namespace gneiss::engine::meta::detail {
-result<yyjson_mut_val*, serialization_diagnostic>
-write_instance(yyjson_mut_doc* doc, const registry_ref& registry, const instance& view) noexcept
-    try {
+namespace gneiss::engine::meta::json {
+result<yyjson_mut_val*, serialization_diagnostic> write(yyjson_mut_doc* doc,
+                                                        const instance& view) noexcept try {
+  if (!doc)
+    return failure(error::invalid_argument);
+  const auto& registry = detail::property_view_access::registry(view);
   serialization_context ctx;
   return encode_view(ctx, registry, view, doc, 0);
 } catch (const std::bad_alloc&) {
@@ -1066,8 +1083,8 @@ write_instance(yyjson_mut_doc* doc, const registry_ref& registry, const instance
 } catch (...) {
   return failure(error::internal);
 }
-serialization_diagnostic read_instance(yyjson_val* input, const registry_ref& registry,
-                                       const mutable_instance& view) noexcept try {
+serialization_diagnostic read(yyjson_val* input, const mutable_instance& view) noexcept try {
+  const auto& registry = detail::property_view_access::registry(view);
   serialization_context ctx;
   return decode_view(ctx, registry, view, input, 0);
 } catch (const std::bad_alloc&) {
@@ -1076,11 +1093,13 @@ serialization_diagnostic read_instance(yyjson_val* input, const registry_ref& re
   return failure(error::internal);
 }
 
+}
+
+namespace gneiss::engine::meta {
 namespace {
 constexpr std::array<std::string_view, 12> value_names{"",        "bool",       "int64",  "uint64",
                                                        "float32", "float64",    "string", "guid",
                                                        "vec3",    "quaternion", "vec4",   "vec2"};
-}
 result<value, serialization_diagnostic> read_tagged_value(yyjson_val* input) noexcept try {
   if (!yyjson_is_obj(input) || yyjson_obj_size(input) != 2)
     return failure(error::invalid_argument);
@@ -1121,6 +1140,21 @@ result<yyjson_mut_val*, serialization_diagnostic> write_tagged_value(yyjson_mut_
 } catch (...) {
   return failure(error::internal);
 }
+
+}
+error register_builtin_types(const registry_ref& registry) noexcept {
+  return type_builder<value>{registry}
+      .json_serialization<[](json_codec_context&, yyjson_mut_doc* doc, const value& v) {
+        return write_tagged_value(doc, v);
+      },
+                          [](json_codec_context&, yyjson_val* input) {
+                            return read_tagged_value(input);
+                          }>()
+      .validate<[](const value& v) {
+        return valid_scalar(v) ? error::success : error::invalid_argument;
+      }>()
+      .commit();
+}
 }
 
 namespace gneiss::engine::meta {
@@ -1132,20 +1166,12 @@ serialization_diagnostic deserialize_instance(const mutable_instance& view,
                                               std::span<const std::byte> bytes) noexcept {
   return deserialize_instance(detail::property_view_access::registry(view), view, bytes);
 }
-namespace detail {
-result<yyjson_mut_val*, serialization_diagnostic> write_instance(yyjson_mut_doc* doc,
-                                                                 const instance& view) noexcept {
-  return write_instance(doc, property_view_access::registry(view), view);
-}
-serialization_diagnostic read_instance(yyjson_val* input, const mutable_instance& view) noexcept {
-  return read_instance(input, property_view_access::registry(view), view);
-}
-}
 }
 
-namespace gneiss::engine::meta::detail {
+namespace gneiss::engine::meta {
 result<yyjson_mut_val*, serialization_diagnostic>
-write_reflected(json_codec_context& ctx, yyjson_mut_doc* doc, type_id id, const void* object) {
+json_codec_context::write_fields_object(yyjson_mut_doc* doc, type_id id, const void* object) {
+  auto& ctx = *state_;
   auto binding = find_serialization(ctx.registry, id);
   if (!binding)
     return failure(binding.error());
@@ -1158,8 +1184,9 @@ write_reflected(json_codec_context& ctx, yyjson_mut_doc* doc, type_id id, const 
   return encode_members(ctx.traversal, ctx.registry, id, object, doc, ctx.depth);
 }
 result<ref<void>, serialization_diagnostic>
-read_reflected(json_codec_context& ctx, yyjson_val* input, type_id id,
-               std::span<const std::string_view> ignored) {
+json_codec_context::read_fields_object(yyjson_val* input, type_id id,
+                                       std::span<const std::string_view> ignored) {
+  auto& ctx = *state_;
   auto binding = find_serialization(ctx.registry, id);
   if (!binding)
     return failure(binding.error());
@@ -1176,11 +1203,13 @@ read_reflected(json_codec_context& ctx, yyjson_val* input, type_id id,
     return status;
   return object;
 }
-result<yyjson_mut_val*, serialization_diagnostic> write_reflected(yyjson_mut_doc* doc,
-                                                                  const instance& view) {
+namespace json {
+result<yyjson_mut_val*, serialization_diagnostic> write_fields(yyjson_mut_doc* doc,
+                                                               const instance& view) noexcept try {
   auto registry = detail::property_view_access::registry(view);
   serialization_context traversal;
-  json_codec_context ctx{registry, traversal, 0};
+  detail::json_codec_state state{registry, traversal, 0};
+  auto ctx = state.context();
   auto address = view.object_data();
   if (!address)
     return failure(address.error());
@@ -1192,14 +1221,19 @@ result<yyjson_mut_val*, serialization_diagnostic> write_reflected(yyjson_mut_doc
     if (status.error.failed())
       return status;
   }
-  return write_reflected(ctx, doc, view.type().id(), *address);
+  return detail::json_codec_state::write_fields(ctx, doc, view.type().id(), *address);
+} catch (const std::bad_alloc&) {
+  return failure(error::out_of_memory);
+} catch (...) {
+  return failure(error::internal);
 }
-serialization_diagnostic read_reflected(yyjson_val* input, const mutable_instance& view,
-                                        std::span<const std::string_view> ignored) {
+serialization_diagnostic read_fields(yyjson_val* input, const mutable_instance& view,
+                                     std::span<const std::string_view> ignored) noexcept try {
   auto registry = detail::property_view_access::registry(view.as_const());
   serialization_context traversal;
-  json_codec_context ctx{registry, traversal, 0};
-  auto decoded = read_reflected(ctx, input, view.type().id(), ignored);
+  detail::json_codec_state state{registry, traversal, 0};
+  auto ctx = state.context();
+  auto decoded = detail::json_codec_state::read_fields(ctx, input, view.type().id(), ignored);
   if (!decoded)
     return std::move(decoded).error();
   auto binding = find_serialization(registry, view.type().id());
@@ -1212,6 +1246,12 @@ serialization_diagnostic read_reflected(yyjson_val* input, const mutable_instanc
   }
   auto status = view.assign_object(view.type().id(), decoded->get());
   return status.failed() ? failure(status) : serialization_diagnostic{};
+} catch (const std::bad_alloc&) {
+  return failure(error::out_of_memory);
+} catch (...) {
+  return failure(error::internal);
+}
+
 }
 
 }
