@@ -5,7 +5,6 @@
 #include "engine/core/meta/serialization.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/resource/material/material_description.hpp"
-#include "engine/resource/scene/scene_codec.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
 

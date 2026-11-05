@@ -6,7 +6,6 @@
 #include "engine/core/meta/serialization.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/resource/material/material_description.hpp"
-#include "engine/resource/scene/scene_codec.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
 #include "tooling/asset_import/asset_writer.hpp"
 #include "tooling/asset_import/gltf_importer.hpp"

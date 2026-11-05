@@ -97,7 +97,6 @@ target_sources(
     engine/resource/scene/scene_validation.cpp
     engine/resource/scene/scene_validation.hpp
     engine/resource/scene/scene_codec.cpp
-    engine/resource/scene/scene_codec.hpp
     engine/resource/input/action_map.hpp
     engine/core/log/log.hpp
     engine/core/log/log.cpp

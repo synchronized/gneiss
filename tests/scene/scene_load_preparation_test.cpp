@@ -13,7 +13,6 @@
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
-#include "engine/resource/scene/scene_codec.hpp"
 
 #include <algorithm>
 #include <cstdio>

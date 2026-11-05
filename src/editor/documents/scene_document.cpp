@@ -9,7 +9,6 @@
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/resource/scene/scene_codec.hpp"
 #include "runtime/application.hpp"
 
 #include "engine/function/world/component_identity.hpp"

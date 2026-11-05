@@ -11,7 +11,6 @@
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
-#include "engine/resource/scene/scene_codec.hpp"
 #include "runtime/application.hpp"
 
 #include <cstdint>

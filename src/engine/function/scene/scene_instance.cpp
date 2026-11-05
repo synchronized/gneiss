@@ -7,7 +7,6 @@
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_types.hpp"
-#include "engine/resource/scene/scene_codec.hpp"
 
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/meta/registration.hpp"

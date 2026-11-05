@@ -10,7 +10,6 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
-#include "engine/resource/scene/scene_codec.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 
 #include <array>

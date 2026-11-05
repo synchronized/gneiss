@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/scene/scene_codec.hpp"
+#include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/detail/json_value_codec.hpp"
 #include "engine/core/meta/registration.hpp"

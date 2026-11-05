@@ -6,7 +6,6 @@
 #include "engine/resource/detail/reflected_asset_codec.hpp"
 #include "engine/resource/input/action_map.hpp"
 #include "engine/resource/material/material_description.hpp"
-#include "engine/resource/scene/scene_codec.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
 #include <cmath>
 namespace gneiss::engine {

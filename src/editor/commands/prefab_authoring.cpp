@@ -10,7 +10,6 @@
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
-#include "engine/resource/scene/scene_codec.hpp"
 #include <unordered_map>
 
 #include <yyjson.h>

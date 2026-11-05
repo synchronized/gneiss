@@ -12,7 +12,6 @@
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world_component_access.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "engine/resource/scene/scene_codec.hpp"
 #include <cstdio>
 #include <source_location>
 #include <stdexcept>

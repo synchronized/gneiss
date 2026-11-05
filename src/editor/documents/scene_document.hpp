@@ -14,7 +14,6 @@
 #include "engine/function/scene/scene_subtree_snapshot.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "engine/resource/scene/scene_codec.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 namespace gneiss::runtime {
 class application;
