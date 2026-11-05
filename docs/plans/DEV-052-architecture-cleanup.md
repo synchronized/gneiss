@@ -233,3 +233,11 @@ component_descriptions 接入 sequence_traits，提供只读元素访问与整�
 
 已完成，全量编译、17 项相关测试和分层检查通过，见
 [验收记录](../records/2026-11-05-component-sequence-reflection.md)。
+
+
+### Prefab 组件覆盖反射
+
+按用户确认调整未发布格式：source_node_uuid、type_guid、added 均必填，删除使用 added: null。
+直接注册成员并保留局部校验，删除组件覆盖专用 codec；不提供旧格式兼容。
+已完成，Windows Clang Debug 构建、8 项相关测试及分层检查通过，见
+[验收记录](../records/2026-11-05-component-override-reflection.md)。

@@ -301,7 +301,7 @@ int main() try {
   auto structural = std::string(apply_scene_json);
   structural.insert(
       structural.find(R"("overrides":)"),
-      R"("component_overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101"}],)");
+      R"("component_overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","added":null}],)");
   if (gneiss::editor::prepare_apply_prefab(structural, apply_prefab_json, apply_request, apply_plan)
           .failed() ||
       apply_plan.changes.size() != 2 ||

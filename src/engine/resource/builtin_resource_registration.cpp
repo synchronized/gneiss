@@ -94,10 +94,15 @@ error register_component_descriptions() noexcept {
           .commit();
   if (status.failed())
     return status;
-  status =
-      meta::type_builder<prefab_component_override>{}
-          .serialization<&detail::encode_component_override, &detail::decode_component_override>()
-          .commit();
+  status = meta::type_builder<prefab_component_override>{}
+               .property<&prefab_component_override::source_node_uuid>(meta::property_id{1},
+                                                                       "source_node_uuid", required)
+               .property<&prefab_component_override::type_guid>(meta::property_id{2}, "type_guid",
+                                                                required)
+               .property<&prefab_component_override::added>(meta::property_id{3}, "added", required)
+               .serialization(true)
+               .validate<&validate_component_override>()
+               .commit();
   if (status.failed())
     return status;
   status = meta::type_builder<prefab_reference_description>{}

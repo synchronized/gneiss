@@ -87,36 +87,6 @@ yyjson_mut_val* make_uuid(yyjson_mut_doc* doc, gneiss::engine::guid value) {
   return yyjson_mut_strncpy(doc, text.data(), text.size());
 }
 
-// 组件覆盖还包含业务定位字段；仅将类型/内容信封交给通用反射引用解码。
-gneiss::engine::result<gneiss::engine::component_description,
-                       gneiss::engine::meta::serialization_diagnostic>
-read_component(gneiss::engine::guid type, yyjson_val* content) {
-  using namespace gneiss::engine;
-  std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> document(
-      yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
-  if (!document)
-    return meta::serialization_diagnostic{.error = error::out_of_memory};
-  auto* root = yyjson_mut_obj(document.get());
-  auto name = type.string();
-  if (!root || !yyjson_mut_obj_add_strcpy(document.get(), root, "$type_guid", name.c_str()) ||
-      !yyjson_mut_obj_add_val(document.get(), root, "$content",
-                              yyjson_val_mut_copy(document.get(), content)))
-    return meta::serialization_diagnostic{.error = error::out_of_memory};
-  yyjson_mut_doc_set_root(document.get(), root);
-  std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> input(
-      yyjson_mut_doc_imut_copy(document.get(), nullptr), &yyjson_doc_free);
-  if (!input)
-    return meta::serialization_diagnostic{.error = error::out_of_memory};
-  component_description result;
-  auto view = meta::mutable_instance::from(result);
-  if (!view)
-    return meta::serialization_diagnostic{.error = view.error()};
-  auto status = meta::detail::read_instance(yyjson_doc_get_root(input.get()), *view);
-  if (status.error.failed())
-    return status;
-  return result;
-}
-
 [[nodiscard]] bool parse_override_value(yyjson_val* object, gneiss::engine::value& output) {
   auto decoded = gneiss::engine::meta::detail::read_tagged_value(object);
   if (!decoded)
@@ -199,84 +169,6 @@ read_component(gneiss::engine::guid type, yyjson_val* content) {
   return true;
 }
 
-[[nodiscard]] bool parse_component_override(yyjson_val* item,
-                                            gneiss::engine::prefab_component_override& output,
-                                            scene_diagnostic& diagnostic) {
-  using namespace gneiss::engine;
-  const std::string location;
-  auto* object = yyjson_obj_get(item, "source_node_uuid");
-  auto* type = yyjson_obj_get(item, "$type_guid");
-  auto id = yyjson_is_str(object) ? guid::parse(json_string(object)) : std::nullopt;
-  auto tid = yyjson_is_str(type) ? guid::parse(json_string(type)) : std::nullopt;
-  if (!id || !*id || !tid || !*tid || !is_canonical_uuid(json_string(object)) ||
-      !is_canonical_uuid(json_string(type))) {
-    fail(diagnostic, error::invalid_argument, location, "组件覆盖身份无效");
-    return false;
-  }
-  if (auto* content = yyjson_obj_get(item, "$content")) {
-    if (!yyjson_is_obj(content)) {
-      fail(diagnostic, error::invalid_argument, location, "新增组件内容必须为对象");
-      return false;
-    }
-    auto decoded = read_component(*tid, content);
-    if (!decoded) {
-      fail(diagnostic, decoded.error().error, location + decoded.error().path, "新增组件解码失败");
-      return false;
-    }
-    output = {.source_node_uuid = *id, .type_guid = *tid, .added = std::move(*decoded)};
-  } else {
-    output = {.source_node_uuid = *id, .type_guid = *tid, .added = std::nullopt};
-  }
-  return true;
-}
-
-[[nodiscard]] bool put_value(yyjson_mut_doc* document, yyjson_mut_val* object, const char* name,
-                             yyjson_mut_val* value) {
-  return object != nullptr && value != nullptr &&
-         yyjson_mut_obj_put(object, yyjson_mut_strcpy(document, name), value);
-}
-
-[[nodiscard]] gneiss::engine::result<yyjson_mut_val*>
-make_component_overrides(yyjson_mut_doc* document,
-                         const gneiss::engine::prefab_reference_description& reference) {
-  using namespace gneiss::engine;
-  auto* array = yyjson_mut_arr(document);
-  if (!array)
-    return error::out_of_memory;
-  std::vector<std::pair<guid, guid>> keys;
-  for (const auto& value : reference.component_overrides) {
-    auto key = std::pair{value.source_node_uuid, value.type_guid};
-    if (!key.first || !key.second || std::ranges::find(keys, key) != keys.end() ||
-        std::ranges::any_of(reference.overrides, [&](const auto& v) {
-          return v.key.source_node_uuid == key.first && v.key.type_guid == key.second;
-        }))
-      return error::invalid_argument;
-    keys.push_back(key);
-    yyjson_mut_val* entry{};
-    if (value.added) {
-      if (!*value.added || (*value.added)->guid() != value.type_guid)
-        return error::invalid_argument;
-      auto view = meta::instance::from(*value.added);
-      if (!view)
-        return view.error();
-      auto encoded = meta::detail::write_instance(document, *view);
-      if (!encoded)
-        return encoded.error().error;
-      entry = *encoded;
-    } else {
-      entry = yyjson_mut_obj(document);
-      if (!put_value(document, entry, "$type_guid",
-                     yyjson_mut_strcpy(document, value.type_guid.string().c_str())))
-        return error::out_of_memory;
-    }
-    if (!put_value(document, entry, "source_node_uuid",
-                   yyjson_mut_strcpy(document, value.source_node_uuid.string().c_str())) ||
-        !yyjson_mut_arr_add_val(array, entry))
-      return error::out_of_memory;
-  }
-  return array;
-}
-
 // 从当前描述生成已注册字段。
 [[nodiscard]] yyjson_mut_val* make_override_value(yyjson_mut_doc* document,
                                                   const gneiss::engine::value& source) {
@@ -347,17 +239,7 @@ result<std::vector<std::byte>, meta::serialization_diagnostic> encode_override(c
                                                                       &yyjson_mut_doc_free);
   if (!doc)
     return meta::serialization_diagnostic{.error = error::out_of_memory};
-  yyjson_mut_val* array{};
-  if constexpr (std::is_same_v<T, prefab_property_override>) {
-    array = make_prefab_overrides(doc.get(), {input});
-  } else {
-    prefab_reference_description reference;
-    reference.component_overrides.push_back(input);
-    auto encoded = make_component_overrides(doc.get(), reference);
-    if (!encoded)
-      return meta::serialization_diagnostic{.error = encoded.error()};
-    array = *encoded;
-  }
+  auto* array = make_prefab_overrides(doc.get(), {input});
   if (!array)
     return meta::serialization_diagnostic{.error = error::out_of_memory};
   yyjson_mut_doc_set_root(doc.get(), yyjson_mut_arr_remove_first(array));
@@ -380,13 +262,4 @@ result<prefab_property_override, meta::serialization_diagnostic>
 decode_property_override(std::span<const std::byte> bytes) {
   return decode_override<prefab_property_override, parse_prefab_override>(bytes);
 }
-result<std::vector<std::byte>, meta::serialization_diagnostic>
-encode_component_override(const prefab_component_override& value) {
-  return encode_override(value);
-}
-result<prefab_component_override, meta::serialization_diagnostic>
-decode_component_override(std::span<const std::byte> bytes) {
-  return decode_override<prefab_component_override, parse_component_override>(bytes);
-}
-
 }

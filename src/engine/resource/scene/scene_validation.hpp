@@ -4,6 +4,7 @@
 #include "engine/core/meta/serialization_types.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 namespace gneiss::engine {
+meta::serialization_diagnostic validate_component_override(const prefab_component_override&);
 /** 局部描述校验，供反射注册使用。 */
 meta::serialization_diagnostic
 validate_prefab_reference_description(const prefab_reference_description&);

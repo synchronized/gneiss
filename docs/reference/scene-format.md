@@ -165,7 +165,7 @@ World 保持不变。旧顶层 `prefab_instances` 也被明确拒绝，不作为
 Scene 的 components 直接注册成员；component_descriptions 通过 sequence_traits 提供只读
 序列访问与整组校验替换。IPC 使用同一 Meta 数组解码，不再依赖组件专用 DOM 适配函数。
 `object_description.prefab` 注册为 optional，引用描述的 uri、overrides、component_overrides
-由反射遍历。属性覆盖和组件增删指令保留专用 codec；覆盖键重复、URI 和跨列表冲突由
+由反射遍历。组件增删指令同样按成员反射，属性覆盖保留专用 codec；覆盖键重复、URI 和跨列表冲突由
 引用描述校验器统一验证。属性覆盖解码后按作者键排序。
 object_description 使用通用反射编解码，不再注册专用 encode/decode；独立 validate_object
 检查 UUID 非空及 Prefab 与非空组件互斥，保存和读取都经反射校验钩子调用。
@@ -193,9 +193,11 @@ Transform、组件和 Prefab 覆盖生成文件；删除或修改的字段不会
 
 ## Prefab 组件结构覆盖
 
-`prefab.component_overrides` 是可省略数组，缺省为空。每项包含 `source_node_uuid` 和 `$type_guid`：
-含 `$content` 对象表示新增组件（由该类型 codec 编解码）；不含 `$content` 表示移除来源组件。
-`$content: null` 无效。相同目标键不能重复，也不能同时出现在属性覆盖中。
+`prefab.component_overrides` 是可省略数组，缺省为空。每项必须包含 `source_node_uuid`、
+`type_guid` 和 `added`。`added` 为 `{ "$type_guid": "...", "$content": {...} }` 表示新增组件，
+内层类型必须匹配外层 `type_guid`；`added: null` 表示移除来源组件。
+按原生成员反射读写，拒绝未知字段和旧的同层多态信封，不做旧格式兼容。
+相同目标键不能重复，也不能同时出现在属性覆盖中。
 新增组件编辑直接修改完整描述，不另写属性覆盖；新增后删除直接清除新增记录。
 
 来源同类型组件与新增记录相撞、来源对象消失、属性目标不存在或类型/路径改变时返回冲突。

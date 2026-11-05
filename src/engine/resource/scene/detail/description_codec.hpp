@@ -10,8 +10,4 @@ result<std::vector<std::byte>, meta::serialization_diagnostic>
 encode_property_override(const prefab_property_override&);
 result<prefab_property_override, meta::serialization_diagnostic>
     decode_property_override(std::span<const std::byte>);
-result<std::vector<std::byte>, meta::serialization_diagnostic>
-encode_component_override(const prefab_component_override&);
-result<prefab_component_override, meta::serialization_diagnostic>
-    decode_component_override(std::span<const std::byte>);
 }

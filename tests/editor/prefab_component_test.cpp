@@ -23,6 +23,29 @@ int main() try {
   constexpr auto type = movement_description::type_guid;
   constexpr auto root_id = e::guid::from_bytes({87, 2});
   constexpr auto child_id = e::guid::from_bytes({87, 3});
+  {
+    e::prefab_component_override added{root_id, type,
+                                       e::make_component_description(movement_description{4})};
+    auto text = e::meta::serialize_json(added);
+    check(bool(text) && text->find("\"added\":{") != std::string::npos);
+    auto decoded = e::meta::deserialize<e::prefab_component_override>(*text);
+    check(decoded && decoded->added && (*decoded->added)->get<movement_description>()->speed == 4);
+    added.added.reset();
+    text = e::meta::serialize_json(added);
+    check(bool(text) && text->find("\"added\":null") != std::string::npos);
+    decoded = e::meta::deserialize<e::prefab_component_override>(*text);
+    check(decoded && !decoded->added);
+    const auto prefix = "{\"source_node_uuid\":\"" + root_id.string() + "\",\"type_guid\":\"" +
+                        type.string() + "\"";
+    check(!e::meta::deserialize<e::prefab_component_override>(prefix + "}"));
+    check(!e::meta::deserialize<e::prefab_component_override>(
+        "{\"source_node_uuid\":\"" + root_id.string() + "\",\"$type_guid\":\"" + type.string() +
+        "\"}"));
+    added.added = e::component_description{};
+    check(!e::meta::serialize(added));
+    added.added = e::make_component_description(e::camera_description{});
+    check(!e::meta::serialize(added));
+  }
   auto source = std::make_shared<e::prefab_description>();
   source->uuid = e::guid::from_bytes({87, 1});
   source->root_uuid = root_id;

@@ -9,6 +9,21 @@
 #include <numbers>
 #include <set>
 namespace gneiss::engine {
+meta::serialization_diagnostic validate_component_override(const prefab_component_override& value) {
+  if (!value.source_node_uuid)
+    return {.path = "/source_node_uuid",
+            .message = "组件覆盖对象不能为空",
+            .error = error::invalid_argument};
+  if (!value.type_guid)
+    return {
+        .path = "/type_guid", .message = "组件覆盖类型不能为空", .error = error::invalid_argument};
+  if (value.added && (!*value.added || (*value.added)->guid() != value.type_guid))
+    return {.path = "/added",
+            .message = "新增组件必须非空且匹配覆盖类型",
+            .error = error::invalid_argument};
+  return {};
+}
+
 meta::serialization_diagnostic
 validate_prefab_reference_description(const prefab_reference_description& value) {
   if (validate_uri(value.uri).failed())
