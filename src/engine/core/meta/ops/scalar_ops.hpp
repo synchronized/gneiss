@@ -23,10 +23,15 @@ template <class T> using integer_base_t = typename integer_base<T>::type;
 // 整数/枚举借用现有 64 位标量；写入前检查原生底层宽度，枚举定义域由业务校验。
 template <class T>
 using scalar_storage = std::conditional_t<
-    std::is_integral_v<integer_base_t<T>> && !std::is_same_v<T, bool>,
-    std::conditional_t<std::is_signed_v<integer_base_t<T>>, std::int64_t, std::uint64_t>, T>;
+    std::is_same_v<T, property_id>, std::uint64_t,
+    std::conditional_t<
+        std::is_integral_v<integer_base_t<T>> && !std::is_same_v<T, bool>,
+        std::conditional_t<std::is_signed_v<integer_base_t<T>>, std::int64_t, std::uint64_t>, T>>;
 template <class T> value scalar_value(const T& input) {
-  return value{static_cast<scalar_storage<T>>(input)};
+  if constexpr (std::is_same_v<T, property_id>)
+    return value{std::uint64_t(input.get())};
+  else
+    return value{static_cast<scalar_storage<T>>(input)};
 }
 template <class T> result<T> scalar_cast(const value& input) {
   const auto* v = std::get_if<scalar_storage<T>>(&input.payload);
@@ -37,7 +42,12 @@ template <class T> result<T> scalar_cast(const value& input) {
     if (*v < std::numeric_limits<Base>::lowest() || *v > std::numeric_limits<Base>::max())
       return error::invalid_argument;
   }
-  return static_cast<T>(*v);
+  if constexpr (std::is_same_v<T, property_id>) {
+    if (*v > UINT32_MAX)
+      return error::invalid_argument;
+    return property_id{static_cast<std::uint32_t>(*v)};
+  } else
+    return static_cast<T>(*v);
 }
 template <class T, std::size_t Index = 1> constexpr value_kind reflected_value_kind() {
   if constexpr (Index == std::variant_size_v<value::storage_type>)

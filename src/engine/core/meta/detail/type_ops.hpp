@@ -6,12 +6,13 @@
 #include "engine/core/meta/ops/reference_ops.hpp"
 #include "engine/core/meta/ops/scalar_ops.hpp"
 #include "engine/core/meta/ops/sequence_ops.hpp"
+#include "engine/core/meta/ops/variant_ops.hpp"
 #include "engine/core/traits/type_identity.hpp"
 #include <variant>
 namespace gneiss::engine::meta::detail {
 using category_ops =
     std::variant<std::monostate, const scalar_ops*, const sequence_ops*, const associative_ops*,
-                 const optional_ops*, const reference_ops*>;
+                 const optional_ops*, const reference_ops*, const variant_ops*>;
 /** 每个 C++ 类型共享的静态只读表；不持有实例，类别由 variant 唯一确定。 */
 struct type_ops {
   bool enumeration = false;
@@ -38,8 +39,10 @@ struct type_ops {
             return type_kind::associative;
           else if constexpr (std::is_same_v<P, const optional_ops*>)
             return type_kind::optional;
-          else
+          else if constexpr (std::is_same_v<P, const reference_ops*>)
             return type_kind::reference;
+          else
+            return type_kind::variant;
         },
         category);
   }
@@ -51,7 +54,8 @@ struct type_ops {
     return std::visit(
         [](auto p) -> const type_ops* {
           using P = decltype(p);
-          if constexpr (std::is_same_v<P, std::monostate> || std::is_same_v<P, const scalar_ops*>)
+          if constexpr (std::is_same_v<P, std::monostate> || std::is_same_v<P, const scalar_ops*> ||
+                        std::is_same_v<P, const variant_ops*>)
             return nullptr;
           else
             return &p->element();
@@ -60,9 +64,28 @@ struct type_ops {
   }
   const type_ops& element() const { return *element_ops(); }
 };
+/** 遍历全部叶类型；variant 的每个分支都必须满足注册约束。 */
+template <class F>
+error visit_type_leaves(const type_ops& access, const F& check, std::size_t depth = 0) {
+  if (depth > 64)
+    return error::invalid_argument;
+  if (const auto* variant = access.get<variant_ops>()) {
+    for (const auto* child : variant->alternatives) {
+      auto status = visit_type_leaves(*child, check, depth + 1);
+      if (status.failed())
+        return status;
+    }
+    return error::success;
+  }
+  if (const auto* child = access.element_ops())
+    return visit_type_leaves(*child, check, depth + 1);
+  return check(access);
+}
+
 template <class T> const type_ops& ops_of() {
   static_assert(int(sequence_traits<T>::enabled) + int(associative_traits<T>::enabled) +
-                        int(optional_traits<T>::enabled) + int(reference_traits<T>::enabled) <=
+                        int(optional_traits<T>::enabled) + int(reference_traits<T>::enabled) +
+                        int(variant_traits<T>::enabled) <=
                     1,
                 "Conflicting reflection categories");
   static const type_ops table = [] {
@@ -80,6 +103,8 @@ template <class T> const type_ops& ops_of() {
       };
     if constexpr (reflected_value_kind<T>() != value_kind::invalid)
       ops.category = &scalar_ops_of<T>();
+    else if constexpr (variant_traits<T>::enabled)
+      ops.category = &variant_ops_of<T>();
     else if constexpr (sequence_traits<T>::enabled)
       ops.category = &sequence_ops_of<T>();
     else if constexpr (associative_traits<T>::enabled)

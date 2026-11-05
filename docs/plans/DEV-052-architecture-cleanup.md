@@ -241,3 +241,12 @@ component_descriptions 接入 sequence_traits，提供只读元素访问与整�
 直接注册成员并保留局部校验，删除组件覆盖专用 codec；不提供旧格式兼容。
 已完成，Windows Clang Debug 构建、8 项相关测试及分层检查通过，见
 [验收记录](../records/2026-11-05-component-override-reflection.md)。
+
+### Variant 与 Prefab 属性覆盖
+
+已确认：为 std::variant 增加独立 ops/view，文件标签由显式 traits 配置，使用 $case/$value。
+Prefab 属性覆盖直接注册 key/value，路径复用 variant；engine::value 保留既有基础值格式。
+删除重复属性覆盖 codec，迁移未发布格式，不提供旧格式兼容。
+验收覆盖标签往返、分支重排、非法标签、未配置标签、非默认构造分支、嵌套路径及场景/编辑器调用。
+
+已完成，构建与相关测试通过，见[验收记录](../records/2026-11-05-meta-variant.md)。

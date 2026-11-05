@@ -296,7 +296,7 @@ auto snapshot = near->read_value(); // result<value>，拥有读取结果
 ```
 
 `property(name)` 和 `property(property_id)` 返回同一种视图。对象支持 `properties()` 枚举，
-基础属性支持 `read_value()`；`kind()` 区分 invalid、scalar、object、sequence、associative、reference；
+基础属性支持 `read_value()`；`kind()` 区分 invalid、scalar、object、sequence、associative、optional、reference、variant；
 `scalar_kind()` 区分基础值类别。`guid()` 返回静态稳定身份，容器通常为空；
 `type_id()` 为对象、容器和容器元素提供运行期身份，普通标量属性仍通过 value_kind/GUID 标识。
 
@@ -483,3 +483,5 @@ JSON 空 optional 编码为 null，有值直接编码 T；缺失字段保留默�
 空 ref 或空内层 optional。普通嵌套对象和容器沿用现有遍历与校验。
 非标量 getter/setter 属性只开放只读 optional 视图，解码走临时候选和整项 setter，
 不能借 ensure/reset 绕过 setter 校验。此能力不自动为编辑器增加可选值控件。
+
+Variant 的标签与视图规则见[Variant 分支反射](reflection-containers.md#variant-分支反射)。

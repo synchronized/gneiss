@@ -91,6 +91,35 @@ struct non_default {
   float number;
 };
 
+struct throwing_value {
+  static constexpr std::string_view type_name = "ops_throwing_value";
+  static constexpr e::guid type_guid = e::guid::from_bytes({96, 23});
+  throwing_value() = default;
+  throwing_value(throwing_value&&) { throw 1; }
+  throwing_value& operator=(throwing_value&&) = default;
+};
+using throwing_choice = std::variant<int, throwing_value>;
+using choice = std::variant<std::int32_t, std::string>;
+using reordered_choice = std::variant<std::string, std::int32_t>;
+namespace gneiss::engine::meta {
+template <> struct variant_serialization_traits<throwing_choice> {
+  static constexpr std::array<std::string_view, 2> names{"number", "throwing"};
+};
+template <> struct variant_serialization_traits<choice> {
+  static constexpr std::array<std::string_view, 2> names{"number", "text"};
+};
+template <> struct variant_serialization_traits<reordered_choice> {
+  static constexpr std::array<std::string_view, 2> names{"text", "number"};
+};
+}
+
+struct variant_document {
+  static constexpr std::string_view type_name = "ops_variant_document";
+  static constexpr e::guid type_guid = e::guid::from_bytes({96, 24});
+  std::vector<choice> entries;
+  std::optional<choice> selected;
+};
+
 int main() {
   auto registry = m::create_registry();
   CHECK(registry);
@@ -104,6 +133,13 @@ int main() {
             .property<&non_default::number>(m::property_id{1}, "number")
             .commit()
             .ok());
+  CHECK(m::type_builder<variant_document>{*registry}
+            .property<&variant_document::entries>(m::property_id{1}, "entries")
+            .property<&variant_document::selected>(m::property_id{2}, "selected")
+            .serialization()
+            .commit()
+            .ok());
+  CHECK(m::type_builder<throwing_value>{*registry}.commit().ok());
   CHECK(m::freeze(*registry).ok());
   document source;
   auto view = m::mutable_instance::from(*registry, source);
@@ -157,5 +193,67 @@ int main() {
   auto fixed_view = m::mutable_instance::from(*registry, fixed);
   CHECK(fixed_view && fixed_view->as_sequence()->at(0));
   CHECK(fixed_view->as_sequence()->resize(2) == e::error::invalid_argument);
+  choice selected{std::int32_t{42}};
+  auto selected_instance = m::mutable_instance::from(*registry, selected);
+  CHECK(selected_instance);
+  auto variant = selected_instance->as_variant();
+  CHECK(variant && variant->alternative_count() == 2 && *variant->index() == 0);
+  CHECK(variant->alternative(0) && variant->alternative(2).error() == e::error::invalid_argument);
+  auto choice_bytes = m::serialize(*registry, selected);
+  CHECK(choice_bytes);
+  auto reordered = m::deserialize<reordered_choice>(*registry, *choice_bytes);
+  CHECK(reordered && reordered->index() == 1 && std::get<1>(*reordered) == 42);
+  CHECK(variant->select(1).ok());
+  CHECK(variant->value()->write_value(e::value{std::string{"hello"}}).ok());
+  CHECK(std::get<1>(selected) == "hello");
+  CHECK(variant->select(2) == e::error::invalid_argument && *variant->index() == 1);
+  auto text_bytes = m::serialize(*registry, selected);
+  CHECK(text_bytes);
+  auto text_copy = m::deserialize<choice>(*registry, *text_bytes);
+  CHECK(text_copy && *text_copy == selected);
+  for (std::string_view invalid :
+       {R"({"$case":"missing","$value":1})", R"({"$case":"number"})",
+        R"({"$case":"number","$value":"wrong"})", R"({"$case":"number","$value":1,"extra":2})"}) {
+    auto decoded_choice =
+        m::deserialize<choice>(*registry, std::as_bytes(std::span(invalid.data(), invalid.size())));
+    CHECK(!decoded_choice && decoded_choice.error().error == e::error::invalid_argument);
+  }
+  std::variant<int, double> unlabelled{3};
+  auto unlabelled_view = m::mutable_instance::from(*registry, unlabelled);
+  CHECK(unlabelled_view && unlabelled_view->as_variant()->select(1).ok());
+  auto unlabelled_bytes = m::serialize(*registry, unlabelled);
+  CHECK(!unlabelled_bytes && unlabelled_bytes.error().error == e::error::unsupported);
+  std::variant<int, non_default> cannot_construct{4};
+  auto non_default_variant = m::mutable_instance::from(*registry, cannot_construct);
+  CHECK(non_default_variant);
+  CHECK(non_default_variant->as_variant()->select(1) == e::error::unsupported);
+  CHECK(std::get<0>(cannot_construct) == 4);
+  // 即使当前分支是整数，另一个未注册的对象分支也不能绕过类型检查。
+  auto empty_registry = m::create_registry();
+  CHECK(empty_registry && m::freeze(*empty_registry).ok());
+  CHECK(!m::mutable_instance::from(*empty_registry, cannot_construct));
+  throwing_choice throwing_source{std::in_place_index<1>};
+  throwing_choice valueless{1};
+  try {
+    valueless = std::move(throwing_source);
+    CHECK(false);
+  } catch (int) {
+  }
+  auto valueless_instance = m::mutable_instance::from(*registry, valueless);
+  CHECK(valueless_instance);
+  auto valueless_view = valueless_instance->as_variant();
+  CHECK(valueless_view && valueless_view->valueless());
+  CHECK(valueless_view->index().error() == e::error::invalid_state);
+  CHECK(valueless_view->value().error() == e::error::invalid_state);
+  auto failed_bytes = m::serialize(*registry, valueless);
+  CHECK(!failed_bytes && failed_bytes.error().error == e::error::invalid_state);
+  CHECK(valueless_view->select(0).ok() && !valueless_view->valueless());
+  variant_document nested{{choice{std::int32_t{7}}, choice{std::string{"text"}}},
+                          choice{std::string{"selected"}}};
+  auto nested_bytes = m::serialize(*registry, nested);
+  CHECK(nested_bytes);
+  auto nested_copy = m::deserialize<variant_document>(*registry, *nested_bytes);
+  CHECK(nested_copy && nested_copy->entries == nested.entries &&
+        nested_copy->selected == nested.selected);
   return 0;
 }

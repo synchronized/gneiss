@@ -10,6 +10,7 @@
 #include "engine/function/world/world_reflection.hpp"
 
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/meta/serialization.hpp"
 
 #include <array>
 #include <cmath>
@@ -35,6 +36,23 @@ make_translation(gneiss::engine::guid source_node, gneiss::engine::math::vector3
 int main() {
   if (gneiss::engine::initialize_meta().failed())
     return 1;
+
+  {
+    using namespace gneiss::engine;
+    auto original = make_translation(source_a, {1, 2, 3});
+    original.key.path = {meta::property_id{2}, std::size_t{3}};
+    auto bytes = meta::serialize(original);
+    if (!bytes)
+      return 30;
+    auto copy = meta::deserialize<prefab_property_override>(*bytes);
+    if (!copy || copy->key != original.key || copy->value != original.value)
+      return 31;
+    const std::string json(reinterpret_cast<const char*>(bytes->data()), bytes->size());
+    if (json.find(R"("$case":"property")") == std::string::npos ||
+        json.find(R"("$case":"index")") == std::string::npos ||
+        json.find(R"("key":)") == std::string::npos)
+      return 32;
+  }
 
   // 共享计算保留其他节点覆盖；恢复原值删除稀疏记录，失败不修改输入。
   {

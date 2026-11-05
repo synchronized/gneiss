@@ -77,6 +77,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
     engine/core/meta/sequence_view.hpp
     engine/core/meta/associative_view.hpp
     engine/core/meta/optional_view.hpp
+    engine/core/meta/variant_view.hpp
     engine/core/meta/reference_view.hpp
     engine/core/meta/detail/reference_view_access.hpp
   engine/core/meta/detail/type_ops.hpp
@@ -85,6 +86,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/meta/ops/sequence_ops.hpp
   engine/core/meta/ops/associative_ops.hpp
   engine/core/meta/ops/optional_ops.hpp
+  engine/core/meta/ops/variant_ops.hpp
   engine/core/meta/ops/reference_ops.hpp
 
   engine/core/meta/serialization.hpp

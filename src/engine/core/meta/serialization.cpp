@@ -290,6 +290,28 @@ encode_view(serialization_context& ctx, const registry_ref& registry, const inst
       return failure(p.error());
     return encode_nested(ctx, registry, value_type.id(), *p, doc, depth);
   }
+  if (value_type.kind() == type_kind::variant) {
+    auto variant = view.as_variant();
+    if (!variant)
+      return failure(variant.error());
+    if (variant->names().empty())
+      return failure(error::unsupported, "", "variant 未配置文件标签");
+    auto index = variant->index();
+    if (!index)
+      return failure(index.error());
+    auto child = variant->value();
+    if (!child)
+      return failure(child.error());
+    auto content = encode_view(ctx, registry, *child, doc, depth + 1);
+    if (!content)
+      return prefix(std::move(content).error(), "/$value");
+    auto* output = yyjson_mut_obj(doc);
+    auto name = variant->names()[*index];
+    if (!output || !yyjson_mut_obj_add_strncpy(doc, output, "$case", name.data(), name.size()) ||
+        !yyjson_mut_obj_add_val(doc, output, "$value", *content))
+      return failure(error::out_of_memory);
+    return output;
+  }
   if (value_type.kind() == type_kind::optional) {
     auto v = view.as_optional();
     if (!v)
@@ -451,6 +473,16 @@ serialization_diagnostic validate_view(const registry_ref& registry, const insta
   if (value_type.kind() == type_kind::scalar) {
     auto v = view.read_value();
     return v ? serialization_diagnostic{} : failure(v.error());
+  }
+  if (value_type.kind() == type_kind::variant) {
+    auto variant = view.as_variant();
+    if (!variant)
+      return failure(variant.error());
+    auto child = variant->value();
+    if (!child)
+      return failure(child.error());
+    auto status = validate_view(registry, *child, depth + 1);
+    return status.error.failed() ? prefix(std::move(status), "/$value") : status;
   }
   if (value_type.kind() == type_kind::optional) {
     auto v = view.as_optional();
@@ -668,6 +700,30 @@ serialization_diagnostic decode_view(serialization_context& ctx, const registry_
       return std::move(decoded).error();
     auto status = view.write_value(*decoded);
     return status.failed() ? failure(status) : serialization_diagnostic{};
+  }
+  if (value_type.kind() == type_kind::variant) {
+    auto variant = view.as_variant();
+    if (!variant)
+      return failure(variant.error());
+    if (variant->names().empty())
+      return failure(error::unsupported, "", "variant 未配置文件标签");
+    auto* tag = yyjson_is_obj(input) ? yyjson_obj_get(input, "$case") : nullptr;
+    auto* content = yyjson_is_obj(input) ? yyjson_obj_get(input, "$value") : nullptr;
+    if (!yyjson_is_obj(input) || yyjson_obj_size(input) != 2 || !yyjson_is_str(tag) || !content)
+      return failure(error::invalid_argument, "", "variant 必须包含 $case 和 $value");
+    const std::string_view name{yyjson_get_str(tag), yyjson_get_len(tag)};
+    auto names = variant->names();
+    auto found = std::ranges::find(names, name);
+    if (found == names.end())
+      return failure(error::invalid_argument, "/$case", "未知 variant 标签");
+    auto status = variant->select(static_cast<std::size_t>(found - names.begin()));
+    if (status.failed())
+      return failure(status, "/$case");
+    auto child = variant->value();
+    if (!child)
+      return failure(child.error());
+    auto decoded = decode_view(ctx, registry, *child, content, depth + 1);
+    return decoded.error.failed() ? prefix(std::move(decoded), "/$value") : decoded;
   }
   if (value_type.kind() == type_kind::optional) {
     auto v = view.as_optional();
@@ -1036,5 +1092,38 @@ result<yyjson_mut_val*, serialization_diagnostic> write_instance(yyjson_mut_doc*
 serialization_diagnostic read_instance(yyjson_val* input, const mutable_instance& view) noexcept {
   return read_instance(input, property_view_access::registry(view), view);
 }
+}
+}
+
+namespace gneiss::engine::meta::detail {
+result<std::vector<std::byte>, serialization_diagnostic> encode_value(const value& input) {
+  std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> doc(yyjson_mut_doc_new(nullptr),
+                                                                      &yyjson_mut_doc_free);
+  if (!doc)
+    return failure(error::out_of_memory);
+  auto root = write_tagged_value(doc.get(), input);
+  if (!root)
+    return root.error();
+  yyjson_mut_doc_set_root(doc.get(), *root);
+  std::size_t length{};
+  std::unique_ptr<char, decltype(&std::free)> text(yyjson_mut_write(doc.get(), 0, &length),
+                                                   &std::free);
+  if (!text)
+    return failure(error::out_of_memory);
+  auto bytes = std::as_bytes(std::span{text.get(), length});
+  return std::vector<std::byte>(bytes.begin(), bytes.end());
+}
+result<value, serialization_diagnostic> decode_value(std::span<const std::byte> bytes) {
+  yyjson_read_err err{};
+  std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> doc(
+      yyjson_read_opts(const_cast<char*>(reinterpret_cast<const char*>(bytes.data())), bytes.size(),
+                       0, nullptr, &err),
+      &yyjson_doc_free);
+  if (!doc)
+    return serialization_diagnostic{err.pos, "", err.msg ? err.msg : "JSON 无效",
+                                    err.code == YYJSON_READ_ERROR_MEMORY_ALLOCATION
+                                        ? error::out_of_memory
+                                        : error::invalid_argument};
+  return read_tagged_value(yyjson_doc_get_root(doc.get()));
 }
 }

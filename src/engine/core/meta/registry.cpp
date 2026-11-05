@@ -239,7 +239,8 @@ public:
            (bindings[i].access->kind() != type_kind::sequence &&
             bindings[i].access->kind() != type_kind::associative &&
             bindings[i].access->kind() != type_kind::optional &&
-            bindings[i].access->kind() != type_kind::reference)))
+            bindings[i].access->kind() != type_kind::reference &&
+            bindings[i].access->kind() != type_kind::variant)))
         return error::invalid_argument;
     }
     if (!bindings.empty()) {
@@ -370,19 +371,16 @@ public:
             const auto* access = property.accessor.access;
             if (access->id != property.accessor.object_type || access->guid != property.type_guid)
               return error::invalid_argument;
-            std::size_t depth = 0;
-            while (access->element_ops()) {
-              if (++depth > 64)
-                return error::invalid_argument;
-              access = &access->element();
-            }
-            if (access->kind() != type_kind::object)
-              continue;
-            const auto leaf = by_cpp_type_.find(access->id);
-            if (leaf == by_cpp_type_.end())
-              return error::not_found;
-            if (leaf->second->guid != access->guid)
-              return error::invalid_argument;
+            auto status = detail::visit_type_leaves(*access, [&](const detail::type_ops& leaf) {
+              if (leaf.kind() != type_kind::object)
+                return error::success;
+              const auto found = by_cpp_type_.find(leaf.id);
+              if (found == by_cpp_type_.end())
+                return error::not_found;
+              return found->second->guid == leaf.guid ? error::success : error::invalid_argument;
+            });
+            if (status.failed())
+              return status;
             continue;
           }
           const auto found = by_cpp_type_.find(property.accessor.object_type);
@@ -495,17 +493,15 @@ public:
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
       return error::not_ready;
-    const auto* leaf = &access;
-    std::size_t depth = 0;
-    while (leaf->element_ops()) {
-      if (++depth > 64)
-        return error::invalid_argument;
-      leaf = &leaf->element();
-    }
-    if (leaf->enumeration && !enums_.contains(leaf->id))
-      return error::not_found;
-    if (leaf->kind() == type_kind::object && !by_cpp_type_.contains(leaf->id))
-      return error::not_found;
+    auto status = detail::visit_type_leaves(access, [&](const detail::type_ops& leaf) {
+      if (leaf.enumeration && !enums_.contains(leaf.id))
+        return error::not_found;
+      if (leaf.kind() == type_kind::object && !by_cpp_type_.contains(leaf.id))
+        return error::not_found;
+      return error::success;
+    });
+    if (status.failed())
+      return status;
     if (access.kind() == type_kind::object) {
       const auto& record = *by_cpp_type_.at(access.id);
       return detail::type_factory::make(owner(), &access, record.type_id, record.guid,

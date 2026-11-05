@@ -10,7 +10,7 @@
 | `std::vector<T>`（排除 bool）和 `std::array<T, N>` | sequence / as_sequence() | 数组 |
 | `std::map<std::string, T>`、`std::unordered_map<std::string, T>` | associative / as_associative() | 对象 |
 
-元素可递归组合为标量、已注册对象或上述容器。不内置适配 std::optional<T>；内部业务仍可使用该类型，由专用 codec 处理。
+元素可递归组合为标量、已注册对象或上述容器。std::optional<T> 的规则见[可选值反射](reflection.md#可选值反射)。
 读取元素不要求默认构造；vector 扩容、map 插入默认值才要求此能力。
 自动成员绑定仍要求成员可移动赋值。vector<bool>、set、非字符串键及返回临时容器的 getter
 不在内置支持范围。自定义序列/映射可使用下述 traits 适配；根 from 也可直接借用容器。
@@ -26,7 +26,7 @@ array 的 is_resizable() 为 false，resize 仅接受原长度；JSON 长度必�
 关联视图通过 keys() 获取排序后的自有键列表，通过 find(key) 获取值实例；键不可通过视图修改。
 可写关联视图提供 insert、erase、clear，insert 已存在键时保留原值。
 
-三类视图分别定义在 meta/sequence_view.hpp、associative_view.hpp、
+序列、关联与引用视图分别定义在 meta/sequence_view.hpp、associative_view.hpp、
 reference_view.hpp；每类通过 basic_*_view<Mutable> 区分读写，不共用跨类别 container_view。
 instance.hpp 汇集这些视图，原有容器调用方无需更换 include。引用视图语义见
 [引用属性访问](reflection.md#引用属性访问)。
@@ -58,7 +58,7 @@ auto snapshot = element->read_value(); // 仅当元素为标量时成功
 ## 操作表与自定义适配
 
 内部 `detail::type_ops` 保存类型身份、赋值操作及一个类别 variant；不再携带全部容器回调。
-静态类别表分为 `scalar_ops`、`sequence_ops`、`associative_ops` 和 `reference_ops`，
+静态类别表分为 `scalar_ops`、`sequence_ops`、`associative_ops`、`optional_ops`、`variant_ops` 和 `reference_ops`，
 位于 `src/engine/core/meta/ops/`，每个 C++ 类型共享静态表，不随对象分配。
 ref 表保留共享引用保活和赋值语义；目前只内置适配引擎 `ref<T>`，
 不自动接管裸指针、shared_ptr 或 unique_ptr，也不新增动态操作注册中心。
@@ -98,3 +98,35 @@ template<> struct sequence_traits<my_numbers> {
 适配器可抛出异常，instance/容器视图边界将 bad_alloc 映射为 out_of_memory，其他异常按现有接口
 规则返回错误；不承诺回滚自定义回调产生的修改。只读适配可用于遍历和编码，不能因此推断其支持解码。
 容器结构修改后的借用视图失效规则保持不变。
+
+## Variant 分支反射
+
+`std::variant<T...>` 使用 `type_kind::variant` 和独立 `variant_ops`。
+`as_variant()` 返回借用视图，提供 alternative_count、alternative(index)、index、value 和 names；
+可写视图增加 select(index)，默认构造并替换当前分支。同一分支再次 select 也重置内容。
+不支持默认构造的分支返回 unsupported，越界返回 invalid_argument。
+valueless_by_exception 状态下 index/value 返回 invalid_state；select 可用于恢复。
+构造异常映射为 out_of_memory 或 internal，不承诺恢复旧分支。
+切换分支、赋值或移动宿主后，必须重新获取内部视图。
+
+文件标签必须在第一次使用该类型的 Meta 操作前显式配置，在所有使用它的翻译单元保持一致：
+
+```cpp
+using choice = std::variant<float, std::string>;
+namespace gneiss::engine::meta {
+template <> struct variant_serialization_traits<choice> {
+  static constexpr std::array<std::string_view, 2> names{"number", "text"};
+};
+}
+```
+
+names 与 C++ 分支位置一一对应，编译期检查数量、非空和唯一性。
+JSON 保存 `{"$case":"text","$value":"hello"}`，不保存分支下标或编译器类型名。
+调整 C++ 分支顺序时同步调整 names，已保存标签不变；同一个 variant 类型的所有属性共用标签。
+未配置标签时仍可使用视图，JSON 编解码返回 unsupported。
+未知标签、缺失字段及多余包装字段返回 invalid_argument；诊断通过 /$case 或 /$value 定位。
+所有候选分支均须满足现有类型注册要求，不只检查当前分支；不为 monostate 自动添加 null 规则。
+Variant 本身不支持 read_value，须先 value() 取得当前分支。此能力不自动增加编辑器切换控件。
+
+`meta::property_step` 显式使用 property/index 标签；property_id 作为范围受限的 uint32 数值编解码。
+`engine::value` 保留既有 `{kind,value}` 表达，注册其基础值 codec，不使用上述 variant 包装。

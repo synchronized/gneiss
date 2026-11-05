@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "builtin_resource_registration.hpp"
+#include "engine/core/meta/detail/json_value_codec.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/serialization.hpp"
 #include "engine/resource/detail/reflected_asset_codec.hpp"
 #include "engine/resource/input/action_map.hpp"
 #include "engine/resource/material/material_description.hpp"
-#include "engine/resource/scene/detail/description_codec.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
 #include <algorithm>
 #include <cmath>
@@ -88,10 +88,32 @@ error register_component_descriptions() noexcept {
   if (base_status.failed())
     return base_status;
   constexpr auto required = meta::property_flags::required;
-  auto status =
-      meta::type_builder<prefab_property_override>{}
-          .serialization<&detail::encode_property_override, &detail::decode_property_override>()
-          .commit();
+  auto status = meta::type_builder<value>{}
+                    .serialization<&meta::detail::encode_value, &meta::detail::decode_value>()
+                    .validate<[](const value& v) {
+                      return meta::valid_scalar(v) ? error::success : error::invalid_argument;
+                    }>()
+                    .commit();
+  if (status.failed())
+    return status;
+  status = meta::type_builder<prefab_property_override_key>{}
+               .property<&prefab_property_override_key::source_node_uuid>(
+                   meta::property_id{1}, "source_node_uuid", required)
+               .property<&prefab_property_override_key::type_guid>(meta::property_id{2},
+                                                                   "type_guid", required)
+               .property<&prefab_property_override_key::property_id>(meta::property_id{3},
+                                                                     "property_id", required)
+               .property<&prefab_property_override_key::path>(meta::property_id{4}, "path")
+               .serialization(true)
+               .validate<&validate_property_override_key>()
+               .commit();
+  if (status.failed())
+    return status;
+  status = meta::type_builder<prefab_property_override>{}
+               .property<&prefab_property_override::key>(meta::property_id{1}, "key", required)
+               .property<&prefab_property_override::value>(meta::property_id{2}, "value", required)
+               .serialization(true)
+               .commit();
   if (status.failed())
     return status;
   status = meta::type_builder<prefab_component_override>{}

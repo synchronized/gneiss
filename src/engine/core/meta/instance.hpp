@@ -21,6 +21,9 @@ using mutable_reference_view = basic_reference_view<true>;
 namespace detail {
 struct property_view_access;
 }
+template <bool Mutable> class basic_variant_view;
+using variant_view = basic_variant_view<false>;
+using mutable_variant_view = basic_variant_view<true>;
 class mutable_instance;
 /** 只读借用视图。持有注册表，不持有目标对象；父对象销毁、移动或成员地址失效后不可使用。
  * 基础属性保存访问位置，read_value 每次调用 getter 并返回自有副本，不借用 getter 临时值。
@@ -61,6 +64,7 @@ public:
   [[nodiscard]] GNEISS_API result<sequence_view> as_sequence() const noexcept;
   [[nodiscard]] GNEISS_API result<associative_view> as_associative() const noexcept;
   [[nodiscard]] GNEISS_API result<optional_view> as_optional() const noexcept;
+  [[nodiscard]] GNEISS_API result<variant_view> as_variant() const noexcept;
   [[nodiscard]] GNEISS_API result<reference_view> as_reference() const noexcept;
   [[nodiscard]] GNEISS_API result<std::vector<property_info>> properties() const noexcept;
   [[nodiscard]] GNEISS_API result<instance> property(property_id id) const noexcept;
@@ -75,6 +79,7 @@ private:
   template <bool> friend class basic_sequence_view;
   template <bool> friend class basic_associative_view;
   template <bool> friend class basic_optional_view;
+  template <bool> friend class basic_variant_view;
   template <bool> friend class basic_reference_view;
   static GNEISS_API result<instance> from_access(registry_ref, const detail::type_ops&,
                                                  const void*) noexcept;
@@ -119,6 +124,7 @@ public:
   [[nodiscard]] GNEISS_API result<mutable_sequence_view> as_sequence() const noexcept;
   [[nodiscard]] GNEISS_API result<mutable_associative_view> as_associative() const noexcept;
   [[nodiscard]] GNEISS_API result<mutable_optional_view> as_optional() const noexcept;
+  [[nodiscard]] GNEISS_API result<mutable_variant_view> as_variant() const noexcept;
   [[nodiscard]] GNEISS_API result<mutable_reference_view> as_reference() const noexcept;
   [[nodiscard]] instance as_const() const noexcept { return view_; }
   [[nodiscard]] type_kind kind() const noexcept { return view_.kind(); }
@@ -139,6 +145,7 @@ private:
   template <bool> friend class basic_sequence_view;
   template <bool> friend class basic_associative_view;
   template <bool> friend class basic_optional_view;
+  template <bool> friend class basic_variant_view;
   template <bool> friend class basic_reference_view;
   static GNEISS_API result<mutable_instance> from_access(registry_ref, const detail::type_ops&,
                                                          void*) noexcept;
@@ -152,3 +159,5 @@ private:
 #include "engine/core/meta/optional_view.hpp"
 #include "engine/core/meta/reference_view.hpp"
 #include "engine/core/meta/sequence_view.hpp"
+
+#include "engine/core/meta/variant_view.hpp"

@@ -34,9 +34,12 @@
         "uri": "asset://prefabs/test.prefab.json",
         "overrides": [
           {
-            "source_node_uuid": "30000000-0000-4000-8000-000000000002",
-            "type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d",
-            "property_id": 1,
+            "key": {
+              "source_node_uuid": "30000000-0000-4000-8000-000000000002",
+              "type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d",
+              "property_id": 1,
+              "path": []
+            },
             "value": {
               "kind": "vec3",
               "value": [

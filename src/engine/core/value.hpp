@@ -28,6 +28,8 @@ enum class value_kind : std::uint32_t {
  * 字符串构造和复制可能抛出分配异常，调用方在结果码边界转换错误。
  * 通用值不限制字符串编码或浮点范围；反射、文件和 IPC 各自执行边界校验。 */
 struct value {
+  static constexpr std::string_view type_name = "value";
+  static constexpr engine::guid type_guid = engine::guid::from_bytes({0x97, 0x40});
   using storage_type =
       std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float, double, std::string,
                    engine::guid, math::vector3, math::quaternion, math::vector4, math::vector2>;

@@ -5,6 +5,9 @@
 #include <variant>
 namespace gneiss::engine::meta {
 using property_step = std::variant<property_id, std::size_t>;
+template <> struct variant_serialization_traits<property_step> {
+  static constexpr std::array<std::string_view, 2> names{"property", "index"};
+};
 using property_path = std::vector<property_step>;
 /** 每次从根重新定位，不能跨容器修改保留元素地址。 */
 template <class View> result<View> resolve_path(View root, std::span<const property_step> path) {

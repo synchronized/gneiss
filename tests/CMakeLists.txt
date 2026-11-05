@@ -464,7 +464,6 @@ add_test(NAME gneiss.scene-load-application COMMAND gneiss_scene_load_applicatio
 add_executable(gneiss_scene_load_preparation_test
   scene/scene_load_preparation_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_preparation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/scene_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
@@ -491,7 +490,6 @@ add_executable(
   serialization/scene_description_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/scene_codec.cpp"
 )
 target_include_directories(gneiss_scene_description_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_scene_description_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -508,7 +506,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/scene_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_tree.cpp"
 )
 target_include_directories(gneiss_prefab_description_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -525,7 +522,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/scene_codec.cpp"
 )
 target_include_directories(gneiss_prefab_property_override_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_prefab_property_override_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -777,7 +773,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_binding.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/scene_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/structural_diff.cpp"
 )
 target_include_directories(gneiss_prefab_runtime_instance_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

@@ -56,7 +56,8 @@ template <class T>
 [[nodiscard]] result<std::vector<std::byte>, serialization_diagnostic>
 serialize(const registry_ref& registry, const T& object) noexcept try {
   if constexpr (detail::reference_traits<std::remove_cv_t<T>>::enabled ||
-                sequence_traits<T>::enabled || associative_traits<T>::enabled) {
+                sequence_traits<T>::enabled || associative_traits<T>::enabled ||
+                detail::variant_traits<T>::enabled) {
     auto view = instance::from(registry, object);
     if (!view)
       return serialization_diagnostic{.error = view.error()};
@@ -73,7 +74,7 @@ template <class T>
 [[nodiscard]] result<T, serialization_diagnostic>
 deserialize(const registry_ref& registry, std::span<const std::byte> bytes) noexcept try {
   if constexpr (detail::reference_traits<T>::enabled || sequence_traits<T>::enabled ||
-                associative_traits<T>::enabled) {
+                associative_traits<T>::enabled || detail::variant_traits<T>::enabled) {
     T object{};
     auto view = mutable_instance::from(registry, object);
     if (!view)

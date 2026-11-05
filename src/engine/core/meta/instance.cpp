@@ -271,6 +271,12 @@ result<instance> instance::from_access(registry_ref registry, const detail::type
                                        const void* data) noexcept {
   if (!data)
     return error::invalid_argument;
+  // Variant 的未选中分支也必须有效，不能只验证当前实例内容。
+  if (access.kind() == type_kind::variant) {
+    auto resolved = detail::resolve_type(registry, access);
+    if (!resolved)
+      return resolved.error();
+  }
   instance out;
   if (access.kind() == type_kind::object) {
     auto object = from_object(registry, access.id, data);
@@ -416,5 +422,22 @@ error property_view_access::replace(
   return error::out_of_memory;
 } catch (...) {
   return error::internal;
+}
+}
+
+namespace gneiss::engine::meta {
+result<variant_view> instance::as_variant() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_argument;
+  if (kind() != type_kind::variant)
+    return error::unsupported;
+  return variant_view{*this};
+}
+result<mutable_variant_view> mutable_instance::as_variant() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_argument;
+  if (!data_ || kind() != type_kind::variant)
+    return error::unsupported;
+  return mutable_variant_view{*this};
 }
 }

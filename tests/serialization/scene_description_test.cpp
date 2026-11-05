@@ -27,7 +27,7 @@ constexpr std::string_view valid_scene =
     R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,1,2],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"settings": {"fov": 1.0, "near": 0.1, "far": 100},"is_primary":true}}]},{"uuid":"00000000-0000-4000-8000-000000000003","parent":"00000000-0000-4000-8000-000000000002","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material"}}]}],"unknown":true})";
 
 constexpr std::string_view prefab_scene =
-    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"name":"Lamp","parent":"00000000-0000-4000-8000-000000000002","prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d","property_id":1,"value":{"kind":"vec3","value":[4,5,6]}}]},"transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[2,2,2]},"unknown":true,"uuid":"00000000-0000-4000-8000-000000000010"}]})";
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"name":"Lamp","parent":"00000000-0000-4000-8000-000000000002","prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"key":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d","property_id":1},"value":{"kind":"vec3","value":[4,5,6]}}]},"transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[2,2,2]},"unknown":true,"uuid":"00000000-0000-4000-8000-000000000010"}]})";
 
 [[nodiscard]] std::string replace_once(std::string text, std::string_view source,
                                        std::string_view replacement) {
@@ -471,7 +471,7 @@ int main() try {
 
   const auto duplicate_override = replace_once(
       std::string(prefab_scene), R"("overrides":[{)",
-      R"("overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d","property_id":1,"value":{"kind":"vec3","value":[7,8,9]}},{)");
+      R"("overrides":[{"key":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d","property_id":1},"value":{"kind":"vec3","value":[7,8,9]}},{)");
   const auto bad_type =
       replace_once(std::string(prefab_scene), "69644f20-b2d2-4e48-8c74-91f4f952ec2d",
                    "69644F20-b2d2-4e48-8c74-91f4f952ec2d");
@@ -479,16 +479,16 @@ int main() try {
       replace_once(std::string(prefab_scene), "69644f20-b2d2-4e48-8c74-91f4f952ec2d",
                    "69644f20b2d24e488c7491f4f952ec2d");
   if (!fails_with(legacy_type, gneiss::engine::error::invalid_argument,
-                  "/objects/1/prefab/overrides/0/type_guid"))
+                  "/objects/1/prefab/overrides/0/key/type_guid"))
     return 4;
   const auto bad_value =
       replace_once(std::string(prefab_scene), R"("value":[4,5,6])", R"("value":[4,5])");
   if (!fails_with(duplicate_override, gneiss::engine::error::invalid_argument,
                   "/objects/1/prefab/overrides") ||
       !fails_with(bad_type, gneiss::engine::error::invalid_argument,
-                  "/objects/1/prefab/overrides/0/type_guid") ||
+                  "/objects/1/prefab/overrides/0/key/type_guid") ||
       !fails_with(bad_value, gneiss::engine::error::invalid_argument,
-                  "/objects/1/prefab/overrides/0/value")) {
+                  "/objects/1/prefab/overrides/0/value/value")) {
     return 4;
   }
 

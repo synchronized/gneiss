@@ -18,4 +18,7 @@ GNEISS_API serialization_diagnostic read_instance(yyjson_val*, const mutable_ins
 GNEISS_API result<value, serialization_diagnostic> read_tagged_value(yyjson_val*) noexcept;
 GNEISS_API result<yyjson_mut_val*, serialization_diagnostic>
 write_tagged_value(yyjson_mut_doc*, const value&) noexcept;
+/** value 的稳定文件协议，供内置类型注册复用。 */
+GNEISS_API result<std::vector<std::byte>, serialization_diagnostic> encode_value(const value&);
+GNEISS_API result<value, serialization_diagnostic> decode_value(std::span<const std::byte>);
 }
