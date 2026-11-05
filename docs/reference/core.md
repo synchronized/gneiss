@@ -51,7 +51,9 @@ auto request = std::move(*loaded);
   Engine 内只有一张带锁字符串表，不逐条回收。`view()` 借用表内文本，所有引用必须在
   Engine 卸载前停止使用；构造与查询线程安全，可能抛出分配异常。
 - `guid`：16 字节值，默认 nil。解析严格的 36 字符 UUID 文本，接受大小写十六进制，输出小写；
-  不提供随机生成，也不替换当前场景 UUID 字符串。
+  `guid::literal("…")` 在编译期解析，格式错误导致编译失败；适用于固定 type_guid 声明。
+  `guid::parse(text)` 为 constexpr/noexcept，运行期非法输入返回空 optional，与 literal 共用解析。
+  `guid::from_bytes(bytes)` 用于二进制及动态字节输入。不提供随机生成。
 - 稳定类型身份直接使用 `guid`，不再提供 `type_guid` 包装或兼容别名；不从地址或名称哈希推导。
 - `core/traits` 下的 `type_name<T>` 与 `type_identity<T>`：名称与稳定 GUID 定制点。内置类型提供名称，默认 GUID
   为 nil；未定制用户类型名称为空。可显式特化 `type_identity<T>`；泛型调用方应先用

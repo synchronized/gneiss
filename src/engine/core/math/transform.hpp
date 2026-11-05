@@ -15,8 +15,7 @@ namespace gneiss::engine::math {
 struct transform {
   inline static constexpr std::string_view type_name = "transform";
   inline static constexpr engine::guid type_guid{
-      guid::from_bytes({0x69, 0x64, 0x4f, 0x20, 0xb2, 0xd2, 0x4e, 0x48, 0x8c, 0x74, 0x91, 0xf4,
-                        0xf9, 0x52, 0xec, 0x2d})};
+      guid::literal("69644f20-b2d2-4e48-8c74-91f4f952ec2d")};
   vector3 translation{0.0F};
   quaternion rotation{1.0F, 0.0F, 0.0F, 0.0F};
   vector3 scale{1.0F};

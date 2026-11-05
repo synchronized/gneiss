@@ -21,14 +21,14 @@ namespace gneiss::engine {
 
 struct action_binding final {
   inline static constexpr std::string_view type_name = "action_binding";
-  inline static constexpr guid type_guid = guid::from_bytes({0x97, 5});
+  inline static constexpr guid type_guid = guid::literal("97050000-0000-0000-0000-000000000000");
   std::uint32_t physical_key{};
   float scale{};
 };
 
 struct action_definition final {
   inline static constexpr std::string_view type_name = "action_definition";
-  inline static constexpr guid type_guid = guid::from_bytes({0x97, 6});
+  inline static constexpr guid type_guid = guid::literal("97060000-0000-0000-0000-000000000000");
   std::string name;
   std::vector<action_binding> bindings;
 };
@@ -40,8 +40,7 @@ inline constexpr std::size_t maximum_action_map_bytes = 1024U * 1024U;
 struct action_map final {
   inline static constexpr std::string_view type_name = "action_map";
   inline static constexpr engine::guid type_guid{
-      engine::guid::from_bytes({0x2c, 0x83, 0x19, 0xd2, 0x67, 0x3f, 0x4a, 0x51, 0x93, 0x80, 0x7a,
-                                0xc5, 0x02, 0xe6, 0x94, 0xb1})};
+      engine::guid::literal("2c8319d2-673f-4a51-9380-7ac502e694b1")};
   inline static constexpr std::size_t maximum_source_bytes = maximum_action_map_bytes;
   std::vector<action_definition> actions;
 };

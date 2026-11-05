@@ -40,7 +40,8 @@ enum class value_kind : std::uint32_t {
  * 通用值不限制字符串编码或浮点范围；反射、文件和 IPC 各自执行边界校验。 */
 struct value {
   static constexpr std::string_view type_name = "value";
-  static constexpr engine::guid type_guid = engine::guid::from_bytes({0x97, 0x40});
+  static constexpr engine::guid type_guid =
+      engine::guid::literal("97400000-0000-0000-0000-000000000000");
   using storage_type =
       std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float, double, std::string,
                    engine::guid, math::vector2, math::vector3, math::vector4, math::quaternion,

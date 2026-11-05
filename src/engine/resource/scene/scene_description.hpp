@@ -36,8 +36,7 @@ struct camera_description final
       : settings(value), is_primary(primary) {}
   inline static constexpr std::string_view type_name = "camera_description";
   inline static constexpr engine::guid type_guid =
-      engine::guid::from_bytes({0x11, 0xa0, 0x21, 0x7a, 0x2e, 0xab, 0x4f, 0x61, 0x80, 0x11, 0x4a,
-                                0x63, 0xa2, 0x6e, 0x01, 0x01});
+      engine::guid::literal("11a0217a-2eab-4f61-8011-4a63a26e0101");
   math::camera_settings settings{};
   bool is_primary = false;
 };
@@ -49,8 +48,7 @@ struct mesh_renderer_description final
       : mesh_uri(std::move(mesh)), material_uri(std::move(material)) {}
   inline static constexpr std::string_view type_name = "mesh_renderer_description";
   inline static constexpr engine::guid type_guid =
-      engine::guid::from_bytes({0x11, 0xa0, 0x21, 0x7a, 0x2e, 0xab, 0x4f, 0x61, 0x80, 0x11, 0x4a,
-                                0x63, 0xa2, 0x6e, 0x01, 0x02});
+      engine::guid::literal("11a0217a-2eab-4f61-8011-4a63a26e0102");
   std::string mesh_uri;
   std::string material_uri;
 };
@@ -63,7 +61,7 @@ struct prefab_component_override final {
 };
 struct prefab_reference_description final {
   static constexpr std::string_view type_name = "prefab_reference_description";
-  static constexpr guid type_guid = guid::from_bytes({0x97, 0x21});
+  static constexpr guid type_guid = guid::literal("97210000-0000-0000-0000-000000000000");
   std::string uri;
   std::vector<prefab_property_override> overrides;
   std::vector<prefab_component_override> component_overrides{};
@@ -71,7 +69,7 @@ struct prefab_reference_description final {
 
 struct object_description final {
   static constexpr std::string_view type_name = "object_description";
-  static constexpr guid type_guid = guid::from_bytes({0x97, 4});
+  static constexpr guid type_guid = guid::literal("97040000-0000-0000-0000-000000000000");
   gneiss::engine::guid uuid;
   std::string name;
   gneiss::engine::guid parent_uuid{};
@@ -84,8 +82,7 @@ struct object_description final {
 struct scene_description final {
   inline static constexpr std::string_view type_name = "scene_description";
   inline static constexpr engine::guid type_guid{
-      engine::guid::from_bytes({0x4b, 0x91, 0xd8, 0x30, 0x28, 0xb7, 0x42, 0x57, 0x81, 0x5f, 0x67,
-                                0x3a, 0x9e, 0x6b, 0x70, 0x11})};
+      engine::guid::literal("4b91d830-28b7-4257-815f-673a9e6b7011")};
   inline static constexpr std::size_t maximum_source_bytes = 16U * 1024U * 1024U;
   gneiss::engine::guid uuid;
   std::vector<object_description> objects;
@@ -93,7 +90,9 @@ struct scene_description final {
 
 template <> struct type_identity<prefab_component_override> {
   static constexpr std::string_view name() noexcept { return "prefab_component_override"; }
-  static constexpr engine::guid guid() noexcept { return engine::guid::from_bytes({0x97, 0x22}); }
+  static constexpr engine::guid guid() noexcept {
+    return engine::guid::literal("97220000-0000-0000-0000-000000000000");
+  }
 };
 
 } // namespace gneiss::engine

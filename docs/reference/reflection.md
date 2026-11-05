@@ -59,6 +59,16 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 
 ## C++ 类型注册
 
+固定类型 GUID 推荐使用编译期字符串：
+
+```cpp
+static constexpr guid type_guid =
+    guid::literal("00112233-4455-6677-8899-aabbccddeeff");
+```
+
+字面量格式错误在编译期拒绝。GUID 必须固定保存，重命名类型不能重新生成；
+从字节数组迁移到字符串只改变写法，不改变持久化身份。
+
 `type_identity<T>` 优先读取类内静态 `type_name` 和 `type_guid`，也允许外部特化；
 未声明名称时回退到 `type_name<T>`，未声明 GUID 时为空。cv/ref 委托规范化类型。
 当前 bool、float、vector3、quaternion 的 traits 提供内建字段原有的稳定 GUID；

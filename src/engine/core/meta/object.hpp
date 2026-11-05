@@ -8,7 +8,8 @@ namespace gneiss::engine::meta {
 class object {
 public:
   static constexpr std::string_view type_name = "meta.object";
-  static constexpr engine::guid type_guid = engine::guid::from_bytes({0x97, 0x43});
+  static constexpr engine::guid type_guid =
+      engine::guid::literal("97430000-0000-0000-0000-000000000000");
   virtual ~object() = default;
   virtual engine::type_id dynamic_type() const noexcept = 0;
   virtual engine::guid dynamic_guid() const noexcept = 0;

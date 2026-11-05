@@ -16,7 +16,7 @@ enum class texture_mip_filter : std::uint32_t { none, nearest, linear };
 enum class texture_address : std::uint32_t { repeat, clamp, mirror };
 struct texture_sampling {
   static constexpr std::string_view type_name = "texture_sampling";
-  static constexpr guid type_guid = guid::from_bytes({0x97, 3});
+  static constexpr guid type_guid = guid::literal("97030000-0000-0000-0000-000000000000");
   std::uint32_t uv_set{};
   texture_filter mag_filter{texture_filter::linear};
   texture_filter min_filter{texture_filter::linear};
@@ -36,7 +36,7 @@ struct texture_sampling {
 enum class texture_usage : std::uint32_t { default_usage, normal };
 struct texture_description final {
   static constexpr std::string_view type_name = "texture_description";
-  static constexpr guid type_guid = guid::from_bytes({0x97, 7});
+  static constexpr guid type_guid = guid::literal("97070000-0000-0000-0000-000000000000");
   std::string uri;
   texture_color_space color_space{};
   texture_usage usage{};

@@ -31,7 +31,7 @@ struct prefab_author_address final {
 /** 单个 Prefab 实例字段覆盖的稳定作者键。 */
 struct prefab_property_override_key final {
   static constexpr std::string_view type_name = "prefab_property_override_key";
-  static constexpr guid reflection_guid = guid::from_bytes({0x97, 0x41});
+  static constexpr guid reflection_guid = guid::literal("97410000-0000-0000-0000-000000000000");
   gneiss::engine::guid source_node_uuid;
   guid type_guid{};
   meta::property_id property_id{};
@@ -44,7 +44,7 @@ struct prefab_property_override_key final {
 
 struct prefab_property_override final {
   static constexpr std::string_view type_name = "prefab_property_override";
-  static constexpr guid type_guid = guid::from_bytes({0x97, 0x23});
+  static constexpr guid type_guid = guid::literal("97230000-0000-0000-0000-000000000000");
   prefab_property_override_key key;
   engine::value value;
 };

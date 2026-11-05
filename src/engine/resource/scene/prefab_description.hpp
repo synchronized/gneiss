@@ -20,8 +20,7 @@ namespace gneiss::engine {
 struct prefab_description final {
   inline static constexpr std::string_view type_name = "prefab_description";
   inline static constexpr engine::guid type_guid{
-      engine::guid::from_bytes({0x4b, 0x91, 0xd8, 0x30, 0x28, 0xb7, 0x42, 0x57, 0x81, 0x5f, 0x67,
-                                0x3a, 0x9e, 0x6b, 0x70, 0x12})};
+      engine::guid::literal("4b91d830-28b7-4257-815f-673a9e6b7012")};
   inline static constexpr std::size_t maximum_source_bytes = 16U * 1024U * 1024U;
   guid uuid;
   /** 对象树入口；必须指向唯一无父对象。 */

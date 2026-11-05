@@ -54,92 +54,87 @@ struct type_identity<T> : type_identity<std::remove_cvref_t<T>> {};
 template <> struct type_identity<math::vector3> {
   static constexpr std::string_view name() noexcept { return "vec3"; }
   static constexpr engine::guid guid() noexcept {
-    return engine::guid::from_bytes({0x90, 0xbc, 0xc8, 0x13, 0xa5, 0x3c, 0x41, 0x96, 0xaa, 0x35,
-                                     0x93, 0xf8, 0x94, 0x6e, 0x82, 0xcb});
+    return engine::guid::literal("90bcc813-a53c-4196-aa35-93f8946e82cb");
   }
 };
 template <> struct type_identity<math::vector2> {
   static constexpr std::string_view name() noexcept { return "vec2"; }
   static constexpr engine::guid guid() noexcept {
-    return engine::guid::from_bytes({0x1e, 0x1a, 0x6e, 0xaf, 0xf3, 0x85, 0x40, 0x9c, 0xb3, 0x65,
-                                     0xd9, 0x8b, 0xe4, 0x5f, 0x47, 0xd4});
+    return engine::guid::literal("1e1a6eaf-f385-409c-b365-d98be45f47d4");
   }
 };
 template <> struct type_identity<math::vector4> {
   static constexpr std::string_view name() noexcept { return "vec4"; }
-  static constexpr engine::guid guid() noexcept { return engine::guid::from_bytes({0x97, 1}); }
+  static constexpr engine::guid guid() noexcept {
+    return engine::guid::literal("97010000-0000-0000-0000-000000000000");
+  }
 };
 template <> struct type_identity<math::matrix3> {
   static constexpr std::string_view name() noexcept { return "matrix3"; }
-  static constexpr engine::guid guid() noexcept { return engine::guid::from_bytes({0x97, 0x41}); }
+  static constexpr engine::guid guid() noexcept {
+    return engine::guid::literal("97410000-0000-0000-0000-000000000000");
+  }
 };
 template <> struct type_identity<math::matrix4> {
   static constexpr std::string_view name() noexcept { return "matrix4"; }
-  static constexpr engine::guid guid() noexcept { return engine::guid::from_bytes({0x97, 0x42}); }
+  static constexpr engine::guid guid() noexcept {
+    return engine::guid::literal("97420000-0000-0000-0000-000000000000");
+  }
 };
 template <> struct type_identity<math::quaternion> {
   static constexpr std::string_view name() noexcept { return "quaternion"; }
   static constexpr engine::guid guid() noexcept {
-    return engine::guid::from_bytes({0x21, 0xc1, 0x11, 0xbd, 0xd7, 0x54, 0x44, 0xf0, 0x89, 0xc1,
-                                     0xf7, 0xcc, 0x27, 0x75, 0xd9, 0x1e});
+    return engine::guid::literal("21c111bd-d754-44f0-89c1-f7cc2775d91e");
   }
 };
 template <> struct type_identity<float> {
   static constexpr std::string_view name() noexcept { return "float"; }
   static constexpr engine::guid guid() noexcept {
-    return engine::guid::from_bytes({0xa2, 0x7e, 0x99, 0x02, 0xf3, 0xcb, 0x48, 0x45, 0xa7, 0xe8,
-                                     0x32, 0x17, 0xf9, 0x75, 0x9f, 0xc5});
+    return engine::guid::literal("a27e9902-f3cb-4845-a7e8-3217f9759fc5");
   }
 };
 template <> struct type_identity<bool> {
   static constexpr std::string_view name() noexcept { return "bool"; }
   static constexpr engine::guid guid() noexcept {
-    return engine::guid::from_bytes({0xc2, 0xaf, 0x2a, 0xd1, 0xa6, 0x25, 0x48, 0x42, 0xb4, 0xdd,
-                                     0x74, 0xe9, 0x77, 0x06, 0x7e, 0x35});
+    return engine::guid::literal("c2af2ad1-a625-4842-b4dd-74e977067e35");
   }
 };
 
 template <> struct type_identity<std::int64_t> {
   static constexpr std::string_view name() noexcept { return "int64"; }
   static constexpr engine::guid guid() noexcept {
-    return engine::guid::from_bytes({0x81, 0x3f, 0x73, 0xd9, 0x20, 0x5e, 0x42, 0xf2, 0x93, 0x3b,
-                                     0xc3, 0xef, 0xb0, 0x90, 0xca, 0xf1});
+    return engine::guid::literal("813f73d9-205e-42f2-933b-c3efb090caf1");
   }
 };
 template <> struct type_identity<std::uint64_t> {
   static constexpr std::string_view name() noexcept { return "uint64"; }
   static constexpr engine::guid guid() noexcept {
-    return engine::guid::from_bytes({0x2e, 0xc2, 0x37, 0xdb, 0x7d, 0xe3, 0x41, 0xdc, 0xa0, 0x77,
-                                     0x1e, 0x5d, 0xac, 0x89, 0x18, 0x1c});
+    return engine::guid::literal("2ec237db-7de3-41dc-a077-1e5dac89181c");
   }
 };
 template <> struct type_identity<double> {
   static constexpr std::string_view name() noexcept { return "double"; }
   static constexpr engine::guid guid() noexcept {
-    return engine::guid::from_bytes({0xbb, 0x42, 0xb8, 0x6e, 0x4a, 0x80, 0x46, 0x95, 0x99, 0x78,
-                                     0x14, 0xd6, 0x2c, 0xee, 0xb2, 0x17});
+    return engine::guid::literal("bb42b86e-4a80-4695-9978-14d62ceeb217");
   }
 };
 template <> struct type_identity<std::string> {
   static constexpr std::string_view name() noexcept { return "string"; }
   static constexpr engine::guid guid() noexcept {
-    return engine::guid::from_bytes({0x60, 0x54, 0x29, 0x78, 0xc4, 0x90, 0x4a, 0xb5, 0x83, 0x50,
-                                     0xa9, 0x01, 0xec, 0xc9, 0x8e, 0xa8});
+    return engine::guid::literal("60542978-c490-4ab5-8350-a901ecc98ea8");
   }
 };
 template <> struct type_identity<engine::guid> {
   static constexpr std::string_view name() noexcept { return "guid"; }
   static constexpr engine::guid guid() noexcept {
-    return engine::guid::from_bytes({0x5f, 0x7a, 0xd2, 0x9c, 0x1a, 0xa6, 0x43, 0x4f, 0x9e, 0xc8,
-                                     0x80, 0xec, 0xdf, 0x59, 0xe1, 0x82});
+    return engine::guid::literal("5f7ad29c-1aa6-434f-9ec8-80ecdf59e182");
   }
 };
 
 template <> struct type_identity<math::camera_settings> {
   static constexpr std::string_view name() noexcept { return "camera_settings"; }
   static constexpr engine::guid guid() noexcept {
-    return engine::guid::from_bytes({0x9b, 0x43, 0x2c, 0x67, 0x04, 0x3e, 0x4a, 0xf8, 0x96, 0x14,
-                                     0x24, 0x4f, 0x92, 0xc5, 0x77, 0x81});
+    return engine::guid::literal("9b432c67-043e-4af8-9614-244f92c57781");
   }
 };
 
