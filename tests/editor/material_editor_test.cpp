@@ -112,6 +112,9 @@ int main() try {
           "shared enum options");
   }
   const auto initial = model.description().parameters.roughness;
+  check(model.set_value(rough, e::value{e::ref<e::meta::object>{}}) == e::error::unsupported &&
+            !model.can_undo(),
+        "object reference is not a snapshot");
   check(model.set_value(rough, e::value{0.2F}, 7).ok() &&
             model.set_value(rough, e::value{0.4F}, 7).ok(),
         "merged edits");

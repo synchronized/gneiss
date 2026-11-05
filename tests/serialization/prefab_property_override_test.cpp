@@ -54,6 +54,14 @@ int main() {
       return 32;
   }
 
+  {
+    using namespace gneiss::engine;
+    auto invalid = make_translation(source_a, {1, 2, 3});
+    invalid.value = value{ref<meta::object>{}};
+    if (validate_prefab_property_override(invalid) != error::invalid_argument)
+      return 33;
+  }
+
   // 共享计算保留其他节点覆盖；恢复原值删除稀疏记录，失败不修改输入。
   {
     using namespace gneiss::engine;

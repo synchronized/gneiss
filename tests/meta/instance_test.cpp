@@ -6,6 +6,95 @@
 #include <future>
 namespace e = gneiss::engine;
 namespace m = e::meta;
+struct object_padding {
+  virtual ~object_padding() = default;
+  int padding = 1;
+};
+struct shared_probe : object_padding, m::object_type<shared_probe> {
+  static constexpr std::string_view type_name = "shared_probe";
+  static constexpr e::guid type_guid = e::guid::from_bytes({94, 20});
+  int number = 7;
+};
+struct unrelated_probe : m::object_type<unrelated_probe> {
+  static constexpr std::string_view type_name = "unrelated_probe";
+  static constexpr e::guid type_guid = e::guid::from_bytes({94, 21});
+};
+struct shared_holder {
+  static constexpr std::string_view type_name = "shared_holder";
+  static constexpr e::guid type_guid = e::guid::from_bytes({94, 22});
+  e::ref<shared_probe> item;
+};
+bool object_values() {
+  {
+    auto owner = e::make_ref<shared_probe>();
+    std::weak_ptr<shared_probe> weak = owner.shared();
+    e::value first{e::ref<m::object>{owner}};
+    e::value second = first;
+    owner.reset();
+    first = e::value{};
+    if (weak.expired() || second.kind() != e::value_kind::object)
+      return false;
+    e::value empty{e::ref<m::object>{}};
+    if (empty == e::value{} || empty == second || empty.kind() != e::value_kind::object)
+      return false;
+    second = e::value{};
+    if (!weak.expired())
+      return false;
+  }
+
+  auto registry = m::create_registry();
+  if (!registry || m::register_builtin_types(*registry).failed() ||
+      m::type_builder<shared_probe>{*registry}
+          .property<&shared_probe::number>(m::property_id{1}, "number")
+          .serialization()
+          .commit()
+          .failed() ||
+      m::type_builder<shared_holder>{*registry}
+          .property<&shared_holder::item>(m::property_id{1}, "item")
+          .serialization()
+          .commit()
+          .failed() ||
+      m::freeze(*registry).failed())
+    return false;
+  shared_holder holder{e::make_ref<shared_probe>()};
+  auto view = m::mutable_instance::from(*registry, holder);
+  if (!view)
+    return false;
+  auto field = view->property("item");
+  if (!field || field->kind() != m::type_kind::reference)
+    return false;
+  auto read = field->read_value();
+  if (!read || read->kind() != e::value_kind::object)
+    return false;
+  auto copy = *read;
+  auto owner = std::get<e::ref<m::object>>(copy.payload);
+  if (owner.get() != holder.item.get())
+    return false;
+  holder.item->number = 19;
+  if (dynamic_cast<shared_probe*>(owner.get())->number != 19)
+    return false;
+  e::value wrong{e::ref<m::object>{e::make_ref<unrelated_probe>()}};
+  if (field->write_value(wrong) != e::error::invalid_argument || holder.item->number != 19 ||
+      field->write_value(e::value{true}) != e::error::invalid_argument)
+    return false;
+  e::value empty{e::ref<m::object>{}};
+  if (field->write_value(empty).failed() || holder.item || field->write_value(copy).failed() ||
+      holder.item.get() != owner.get())
+    return false;
+  e::ref<const shared_probe> readonly = holder.item;
+  auto const_view = m::instance::from(*registry, readonly);
+  if (!const_view || const_view->read_value().error() != e::error::unsupported)
+    return false;
+  // 普通 ref 的内联序列化仍有效；value 不猜测对象的持久化协议。
+  auto file = m::serialize(*registry, holder);
+  auto rejected = m::serialize(*registry, copy);
+  auto rejected_empty = m::serialize(*registry, empty);
+  if (!file || rejected || rejected.error().error != e::error::unsupported || rejected_empty ||
+      rejected_empty.error().error != e::error::unsupported || m::valid_scalar(copy))
+    return false;
+  auto decoded = m::deserialize<shared_holder>(*registry, *file);
+  return decoded && decoded->item && decoded->item->number == 19 && decoded->item != holder.item;
+}
 enum class mode : std::int8_t { first = -1, second = 2 };
 struct enum_object {
   static constexpr std::string_view type_name = "enum_object";

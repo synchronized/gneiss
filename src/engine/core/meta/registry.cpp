@@ -40,7 +40,7 @@ struct type_factory {
                            std::variant_alternative_t<I + 1, value::storage_type>>())
               : (void)0),
          ...);
-      }(std::make_index_sequence<std::variant_size_v<value::storage_type> - 1>{});
+      }(std::make_index_sequence<static_cast<std::size_t>(value_kind::object) - 1>{});
     }
     out.guid_ = guid;
     out.kind_ = kind;
@@ -66,7 +66,7 @@ namespace {
 }
 
 [[nodiscard]] bool is_valid_property_value(const value& value) noexcept {
-  if (value.payload.valueless_by_exception())
+  if (value.kind() == value_kind::object || value.payload.valueless_by_exception())
     return false;
   return std::visit(
       [](const auto& item) noexcept {
@@ -556,7 +556,7 @@ public:
            found = &access;
        }()),
        ...);
-    }(std::make_index_sequence<std::variant_size_v<value::storage_type> - 1>{});
+    }(std::make_index_sequence<static_cast<std::size_t>(value_kind::object) - 1>{});
     if (found)
       return detail::type_factory::make(owner(), *found);
     for (const auto& record : types_) {

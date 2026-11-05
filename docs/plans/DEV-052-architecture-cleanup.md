@@ -269,3 +269,13 @@ Prefab 属性覆盖直接注册 key/value，路径复用 variant；engine::value
 
 已完成，Windows Clang Debug 构建及 25 项相关测试通过，见
 [验收记录](../records/2026-11-05-meta-json-boundary.md)。
+
+### Value 对象强引用
+
+用户确认增加受约束的对象强引用分支，复用现有 ref 和 meta::object。
+已确认规则见 [ADR-104](../decisions/ADR-104-value-object-reference.md)。
+实施 value 存储及引用属性读写，保留标量快照和持久化边界；
+验收共享生命周期、类型检查、const 保护和原有序列化回归。
+
+已完成，Windows Clang Debug 构建及 28 项相关测试通过，见
+[验收记录](../records/2026-11-05-value-object-reference.md)。

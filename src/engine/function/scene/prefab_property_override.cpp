@@ -19,7 +19,7 @@ namespace {
 using namespace gneiss::engine;
 
 [[nodiscard]] bool valid_value(const gneiss::engine::value& value) noexcept {
-  if (value.payload.valueless_by_exception()) {
+  if (value.kind() == value_kind::object || value.payload.valueless_by_exception()) {
     return false;
   }
   return std::visit(

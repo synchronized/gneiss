@@ -4,6 +4,7 @@
 #include "engine/core/meta/object.hpp"
 #include "engine/core/meta/ops/forward.hpp"
 #include "engine/core/ref.hpp"
+#include "engine/core/result.hpp"
 #include <cstddef>
 #include <type_traits>
 #include <utility>
@@ -17,6 +18,9 @@ struct reference_ops {
   void (*set)(void*, const ref<void>&){};
   void (*reset)(void*){};
   engine::type_id (*dynamic_type)(const void*){};
+  /** 仅可变 meta::object 引用支持 value 传递；不移除目标 const。 */
+  ref<meta::object> (*read_object)(const void*){};
+  error (*write_object)(void*, const ref<meta::object>&){};
 };
 namespace detail {
 template <class T> struct reference_traits {
@@ -52,6 +56,22 @@ template <class T> const reference_ops& reference_ops_of() {
       *static_cast<T*>(p) = v.template alias<E>(static_cast<E*>(v.get()));
     };
     ops.reset = [](void* p) { static_cast<T*>(p)->reset(); };
+    if constexpr (!std::is_const_v<E> && std::derived_from<E, meta::object>) {
+      ops.read_object = [](const void* p) -> ref<meta::object> {
+        return *static_cast<const T*>(p);
+      };
+      ops.write_object = [](void* p, const ref<meta::object>& source) -> error {
+        if (!source) {
+          static_cast<T*>(p)->reset();
+          return error::success;
+        }
+        auto* target = dynamic_cast<E*>(source.get());
+        if (!target)
+          return error::invalid_argument;
+        *static_cast<T*>(p) = source.alias(target);
+        return error::success;
+      };
+    }
     return ops;
   }();
   return table;

@@ -69,6 +69,8 @@ public:
   [[nodiscard]] GNEISS_API result<std::vector<property_info>> properties() const noexcept;
   [[nodiscard]] GNEISS_API result<instance> property(property_id id) const noexcept;
   [[nodiscard]] GNEISS_API result<instance> property(std::string_view name) const noexcept;
+  /** 标量按值复制；可变目标的 ref<meta::object 派生类> 共享强引用，不深拷贝。const
+   * 目标不转为可变引用。 */
   [[nodiscard]] GNEISS_API result<value> read_value() const noexcept;
   /** 仅对象视图有稳定对象地址；基础属性（含 getter）返回 unsupported。 */
   [[nodiscard]] GNEISS_API result<const void*> object_data() const noexcept;

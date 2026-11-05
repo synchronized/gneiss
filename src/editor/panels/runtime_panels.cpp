@@ -225,7 +225,8 @@ void draw_runtime_inspector(const runtime_scene_node& node,
                 using T = std::decay_t<decltype(payload)>;
                 if constexpr (std::is_same_v<T, engine::math::vector2> ||
                               std::is_same_v<T, engine::math::vector4> ||
-                              std::is_same_v<T, std::monostate>) {
+                              std::is_same_v<T, std::monostate> ||
+                              std::is_same_v<T, engine::ref<engine::meta::object>>) {
                   return false;
                 } else {
                   if constexpr (std::is_same_v<T, engine::guid>)
@@ -269,7 +270,8 @@ void draw_runtime_inspector(const runtime_scene_node& node,
                   else if constexpr (std::is_same_v<T, engine::math::quaternion>)
                     input.payload = std::array{payload.x, payload.y, payload.z, payload.w};
                   else if constexpr (!std::is_same_v<T, engine::math::vector2> &&
-                                     !std::is_same_v<T, engine::math::vector4>)
+                                     !std::is_same_v<T, engine::math::vector4> &&
+                                     !std::is_same_v<T, engine::ref<engine::meta::object>>)
                     input.payload = payload;
                 },
                 value->payload);

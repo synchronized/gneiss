@@ -50,6 +50,8 @@ int main() try {
   auto apply = [&](ed::property_edit edit, std::uint64_t serial = 0) {
     return ed::edit_component_description(document, history, world, target, edit, serial);
   };
+  check(apply({.path = {p{1}}, .data = e::value{e::ref<e::meta::object>{}}}) ==
+        e::error::unsupported);
   auto read = [&]() -> movement_description {
     auto components = document.components(node);
     check(components.has_value());

@@ -46,6 +46,8 @@ error material_editor_model::replace_object(const property_path& path,
 error material_editor_model::apply(const property_path& path, const value* input,
                                    const meta::instance* source, std::uint64_t serial) noexcept
     try {
+  if (input && input->kind() == value_kind::object)
+    return error::unsupported;
   if (!current_ || path.empty())
     return error::invalid_argument;
   auto candidate = current_->description;

@@ -4,11 +4,15 @@
 #pragma once
 #include "engine/core/guid.hpp"
 #include "engine/core/math/types.hpp"
+#include "engine/core/ref.hpp"
 #include <cstdint>
 #include <string>
 #include <variant>
 
 namespace gneiss::engine {
+namespace meta {
+class object;
+}
 /** 固定值类别；稳定 GUID 的类别编号延续既有属性值约定。 */
 enum class value_kind : std::uint32_t {
   invalid = 0,
@@ -23,8 +27,10 @@ enum class value_kind : std::uint32_t {
   quaternion = 9,
   vec4 = 10,
   vec2 = 11,
+  object = 12,
 };
-/** 拥有数据的通用值；复制字符串后不依赖源对象。不承载任意 C++ 对象或借用指针。
+/** 拥有数据的通用值；复制字符串后不依赖源对象。对象分支仅保存
+ * ref<meta::object>，复制共享对象，不隐式深拷贝；不承载任意结构体或裸指针。
  * 字符串构造和复制可能抛出分配异常，调用方在结果码边界转换错误。
  * 通用值不限制字符串编码或浮点范围；反射、文件和 IPC 各自执行边界校验。 */
 struct value {
@@ -32,9 +38,10 @@ struct value {
   static constexpr engine::guid type_guid = engine::guid::from_bytes({0x97, 0x40});
   using storage_type =
       std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float, double, std::string,
-                   engine::guid, math::vector3, math::quaternion, math::vector4, math::vector2>;
+                   engine::guid, math::vector3, math::quaternion, math::vector4, math::vector2,
+                   ref<meta::object>>;
   storage_type payload;
-  /** 按类型及分量精确比较；不执行浮点容差或旋转等价比较。 */
+  /** 对象按指针身份比较；其他分支按类型及分量精确比较；不执行浮点容差或旋转等价比较。 */
   [[nodiscard]] bool operator==(const value&) const = default;
   [[nodiscard]] value_kind kind() const noexcept {
     return payload.valueless_by_exception() ? value_kind::invalid

@@ -113,3 +113,5 @@ Reference 和实现为准。
 - [ADR-102：导入工具复用 Engine 描述与编码](ADR-102-importer-engine-codecs.md)
 
 - [ADR-103：显式多态与引用按值持久化](ADR-103-inline-polymorphic-references.md)
+
+- [ADR-104：Value 的受约束对象强引用](ADR-104-value-object-reference.md)

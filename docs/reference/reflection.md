@@ -416,7 +416,7 @@ kind/category/object_type/enum_type/choices/type_guid。属性保留 id、name�
 `mutable_instance::as_reference()` 返回可写引用视图，get 仅对 ref<T> 的可写目标有效；
 ref<const T> 返回 unsupported，可通过引用视图的 as_const().get() 读取。
 has_value 检查是否非空；视图本身不持有目标强引用。
-空引用返回 not_found；引用不是标量，read_value 返回 unsupported。
+reference_view::get 对空引用返回 not_found。引用不是标量；可变 meta::object 目标支持 value 强引用传递，其他引用的 read_value 返回 unsupported。
 
 `mutable_reference_view::assign(source)` 接受只读引用视图，对完全相同的 ref 类型共享控制块，不复制目标；
 不同目标类型（包括 const 差异）返回 invalid_argument，不隐式推断派生转换。
@@ -494,3 +494,13 @@ JSON 空 optional 编码为 null，有值直接编码 T；缺失字段保留默�
 不能借 ensure/reset 绕过 setter 校验。此能力不自动为编辑器增加可选值控件。
 
 Variant 的标签与视图规则见[Variant 分支反射](reflection-containers.md#variant-分支反射)。
+
+## Value 对象引用
+
+对象分支的共享、比较和持久化规则见[通用值](value.md#对象强引用)。
+
+instance::read_value 对可变目标的 ref<T>（T 派生自 meta::object）返回共享强引用；
+mutable_instance::write_value 对可直接访问的引用槽接受兼容对象或空引用，错误类型不改变旧引用。
+需要 setter 整项替换的属性仍使用 assign，避免绕过业务校验。
+这些属性仍为 reference 类别，不变成 scalar。ref<const T> 不转换为可变对象引用；
+普通结构体继续使用 instance，const 引用仍可通过 reference_view 访问。

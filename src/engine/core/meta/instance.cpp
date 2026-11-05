@@ -109,6 +109,11 @@ result<instance> instance::property(property_id id) const noexcept try {
 result<value> instance::read_value() const noexcept try {
   if (kind_ == type_kind::invalid)
     return error::invalid_state;
+  if (kind_ == type_kind::reference && access_) {
+    const auto* ops = access_->get<reference_ops>();
+    return ops && ops->read_object ? result<value>{value{ops->read_object(data_)}}
+                                   : result<value>{error::unsupported};
+  }
   if (kind_ != type_kind::scalar)
     return error::unsupported;
   if (access_ && access_->get<scalar_ops>()->read) {
@@ -186,6 +191,13 @@ result<mutable_instance> mutable_instance::property(property_id id) const noexce
 error mutable_instance::write_value(const value& input) const noexcept try {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
+  if (kind() == type_kind::reference && view_.access_) {
+    const auto* ops = view_.access_->get<reference_ops>();
+    if (!data_ || !ops || !ops->write_object)
+      return error::unsupported;
+    const auto* object = std::get_if<ref<meta::object>>(&input.payload);
+    return object ? ops->write_object(data_, *object) : error::invalid_argument;
+  }
   if (kind() != type_kind::scalar)
     return error::unsupported;
   if (view_.access_ && view_.access_->get<scalar_ops>()->write) {

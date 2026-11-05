@@ -153,7 +153,7 @@ write_value(yyjson_mut_doc* doc, const value& input, const std::string& path) {
       [&](const auto& item) -> result<yyjson_mut_val*, serialization_diagnostic> {
         using T = std::decay_t<decltype(item)>;
         yyjson_mut_val* output = nullptr;
-        if constexpr (std::is_same_v<T, std::monostate>)
+        if constexpr (std::is_same_v<T, std::monostate> || std::is_same_v<T, ref<meta::object>>)
           return failure(error::unsupported, path);
         else if constexpr (std::is_same_v<T, bool>)
           output = yyjson_mut_bool(doc, item);
@@ -1151,7 +1151,9 @@ error register_builtin_types(const registry_ref& registry) noexcept {
                             return read_tagged_value(input);
                           }>()
       .validate<[](const value& v) {
-        return valid_scalar(v) ? error::success : error::invalid_argument;
+        return v.kind() == value_kind::object ? error::unsupported
+               : valid_scalar(v)              ? error::success
+                                              : error::invalid_argument;
       }>()
       .commit();
 }

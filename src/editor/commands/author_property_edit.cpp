@@ -215,6 +215,9 @@ engine::error edit_component_description(scene_document& document, editor_comman
                                          const property_edit& edit, std::uint64_t serial) noexcept
     try {
   using namespace engine;
+  // 对象引用只共享状态，不能直接作为撤销快照。
+  if (!edit.object && edit.data.kind() == value_kind::object)
+    return error::unsupported;
   if (edit.path.empty() && !edit.object)
     return error::invalid_argument;
   auto location = locate_component(document, identity);
