@@ -5,6 +5,7 @@
 #include "../support/memory_file_fixture.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
@@ -12,10 +13,13 @@
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/detail/reflected_asset_codec.hpp"
 #include "engine/resource/input/action_map.hpp"
-#include "engine/resource/input/action_map_codec.hpp"
 #include <cstring>
 
 namespace {
+std::span<const std::byte> bytes(std::string_view text) {
+  return std::as_bytes(std::span{text.data(), text.size()});
+}
+
 void advance_assets_for_test(gneiss::engine::asset_manager& assets) {
   if (const auto files = assets.async_files())
     (void)files->dispatch_completions(64);
@@ -76,7 +80,8 @@ int main() {
   gneiss::engine::action_map map;
   constexpr auto valid =
       R"({"format":"gneiss.input-map","version":1,"actions":[{"name":"move","bindings":[{"key":4,"scale":-1.0},{"key":7,"scale":1.0}]}]})";
-  if (gneiss::test_support::assign_decoded(gneiss::engine::parse_action_map(valid), map) !=
+  if (gneiss::test_support::assign_decoded(
+          gneiss::engine::meta::deserialize<gneiss::engine::action_map>(bytes(valid)), map) !=
           gneiss::engine::error::success ||
       map.actions.size() != 1U || map.actions[0].bindings.size() != 2U) {
     return 1;
@@ -88,12 +93,15 @@ int main() {
       R"({"format":"gneiss.input-map","version":1,"actions":[{"name":"move","bindings":[{"key":256,"scale":1}]}]})";
   constexpr auto invalid_scale =
       R"({"format":"gneiss.input-map","version":1,"actions":[{"name":"move","bindings":[{"key":4,"scale":0}]}]})";
-  if (gneiss::test_support::assign_decoded(gneiss::engine::parse_action_map(duplicate), map) !=
+  if (gneiss::test_support::assign_decoded(
+          gneiss::engine::meta::deserialize<gneiss::engine::action_map>(bytes(duplicate)), map) !=
           gneiss::engine::error::invalid_argument ||
-      gneiss::test_support::assign_decoded(gneiss::engine::parse_action_map(unknown_key), map) !=
+      gneiss::test_support::assign_decoded(
+          gneiss::engine::meta::deserialize<gneiss::engine::action_map>(bytes(unknown_key)), map) !=
           gneiss::engine::error::invalid_argument ||
-      gneiss::test_support::assign_decoded(gneiss::engine::parse_action_map(invalid_scale), map) !=
-          gneiss::engine::error::invalid_argument ||
+      gneiss::test_support::assign_decoded(
+          gneiss::engine::meta::deserialize<gneiss::engine::action_map>(bytes(invalid_scale)),
+          map) != gneiss::engine::error::invalid_argument ||
       map.actions[0].bindings.size() != original_size) {
     return 2;
   }
@@ -135,7 +143,7 @@ int main() {
   if (!codec || !codec->decode || !codec->encode)
     return 9;
   meta::serialization_diagnostic diagnostic;
-  auto saved_bytes = encode_action_map(map);
+  auto saved_bytes = meta::serialize(map);
   if (!saved_bytes)
     return 10;
   const detail::reflected_asset_format exact{"gneiss.input-map", 1, saved_bytes->size(),
@@ -147,7 +155,7 @@ int main() {
       detail::encode_reflected_asset(map, short_limit) ||
       detail::decode_reflected_asset<action_map>(*saved_bytes, short_limit))
     return 31;
-  auto roundtrip = decode_action_map(*saved_bytes);
+  auto roundtrip = meta::deserialize<action_map>(*saved_bytes);
   if (!roundtrip || roundtrip->actions.front().name != "move" ||
       roundtrip->actions.front().bindings.front().physical_key != 4 ||
       roundtrip->actions.front().bindings.front().scale != -1)
@@ -158,21 +166,21 @@ int main() {
         R"({"format":"wrong","version":1,"actions":[]})",
         R"({"format":"gneiss.input-map","version":2,"actions":[]})",
         R"({"format":"gneiss.input-map","version":"1","actions":[]})"}) {
-    auto result = parse_action_map(malformed);
+    auto result = meta::deserialize<gneiss::engine::action_map>(bytes(malformed));
     if (result || result.error().error != error::invalid_argument)
       return 30;
   }
   auto bad_map = map;
   bad_map.actions.push_back(bad_map.actions.front());
-  if (encode_action_map(bad_map))
+  if (meta::serialize(bad_map))
     return 21;
   bad_map = map;
   bad_map.actions.front().bindings.front().scale = 0;
-  if (encode_action_map(bad_map))
+  if (meta::serialize(bad_map))
     return 22;
   bad_map = map;
   bad_map.actions.front().name.assign(maximum_action_map_bytes, 'x');
-  if (encode_action_map(bad_map))
+  if (meta::serialize(bad_map))
     return 23;
   for (const std::string_view body :
        {R"({"name":"move","bindings":[{"key":4294967296,"scale":1}]})",
@@ -182,7 +190,7 @@ int main() {
     const std::string malformed =
         std::string(R"({"format":"gneiss.input-map","version":1,"actions":[)") + std::string(body) +
         "]}";
-    if (parse_action_map(malformed))
+    if (meta::deserialize<gneiss::engine::action_map>(bytes(malformed)))
       return 24;
   }
   const auto invalid = std::as_bytes(std::span{invalid_scale, std::strlen(invalid_scale)});

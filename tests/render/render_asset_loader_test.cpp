@@ -7,6 +7,7 @@
 #include "../support/prepare_render.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_service.hpp"
@@ -15,7 +16,7 @@
 #include "engine/function/resource/resource_cache.hpp"
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "engine/resource/material/material_codec.hpp"
+#include "engine/resource/material/material_description.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
 #include "engine/resource/texture/texture_binary.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
@@ -78,7 +79,7 @@ public:
                          gneiss::engine::meta::serialization_diagnostic>
   decode(const std::vector<std::byte>& bytes) const override {
     ++calls;
-    auto decoded = gneiss::engine::decode_material(bytes);
+    auto decoded = gneiss::engine::meta::deserialize<gneiss::engine::material_description>(bytes);
     if (!decoded)
       return std::move(decoded).error();
     return std::shared_ptr<const void>{

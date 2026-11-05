@@ -6,7 +6,7 @@
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/asset_decoder.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
-#include "engine/resource/material/material_codec.hpp"
+#include "engine/resource/material/material_description.hpp"
 #include <limits>
 #include <stdexcept>
 namespace e = gneiss::engine;

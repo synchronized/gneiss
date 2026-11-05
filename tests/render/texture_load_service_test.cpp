@@ -6,6 +6,7 @@
 #include "../support/prepare_render.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_service.hpp"
@@ -14,7 +15,7 @@
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/platform/files/file_backend.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "engine/resource/material/material_codec.hpp"
+#include "engine/resource/material/material_description.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 #include <algorithm>
 #include <stdexcept>

@@ -301,3 +301,13 @@ World、场景实例及编辑会话仍由场景服务管理，不进入资源缓
 及自有 `std::string message`；成功由 result 的值分支表示，错误枚举没有 success 成员。
 诊断文本分配失败返回 out_of_memory 和空消息；编码失败不返回部分字节。
 解码视图仍借用输入字节，不能超过输入存储的生命周期。64 字节 Header 与封装布局不变。
+
+
+## 描述编解码入口
+
+材质和 Action Map 使用 `meta::serialize(value)` 与 `meta::deserialize<T>(bytes)`，
+不再提供按类型命名的转发 codec。调用前仍须初始化 Meta 注册表。
+资源层内部 `register_reflected_asset` 复用已配置的类型 builder，追加统一格式包装并提交；
+格式名、版本、字节上限和版本错误码仍由各资源的格式配置决定。
+材质保持 gneiss.material v6，输入映射保持 gneiss.input-map v1 及 1 MiB 上限。
+该辅助不替代字段校验，也不改变 Scene/Prefab 和二进制资源的专用协议。

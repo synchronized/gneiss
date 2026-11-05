@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "panels/material_editor_model.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/resource/asset_uri.hpp"
-#include "engine/resource/material/material_codec.hpp"
+#include "engine/resource/material/material_description.hpp"
 namespace gneiss::editor {
 using namespace engine;
 error material_editor_model::open(std::string uri, std::string content) noexcept try {
@@ -10,10 +11,11 @@ error material_editor_model::open(std::string uri, std::string content) noexcept
     return error::invalid_state;
   if (!uri.starts_with("asset://") || validate_uri(uri).failed())
     return error::invalid_argument;
-  auto decoded = decode_material(std::as_bytes(std::span{content.data(), content.size()}));
+  auto decoded = meta::deserialize<material_description>(
+      std::as_bytes(std::span{content.data(), content.size()}));
   if (!decoded)
     return decoded.error().error;
-  auto encoded = encode_material(*decoded);
+  auto encoded = meta::serialize(*decoded);
   if (!encoded)
     return encoded.error().error;
   auto next = std::make_shared<snapshot>(
@@ -73,7 +75,7 @@ error material_editor_model::apply(const property_path& path, const value* input
     if (!uri.empty() && validate_uri(uri).failed())
       return error::invalid_argument;
   // 完整编码同时执行嵌套类型和整材质校验，不发布半成品。
-  auto encoded = encode_material(candidate);
+  auto encoded = meta::serialize(candidate);
   if (!encoded)
     return encoded.error().error;
   auto next = std::make_shared<const snapshot>(

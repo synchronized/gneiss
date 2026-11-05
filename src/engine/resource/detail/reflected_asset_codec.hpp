@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/serialization.hpp"
 #include <cstdlib>
 #include <limits>
@@ -103,5 +104,14 @@ encode_reflected_asset(const T& object, reflected_asset_format format) {
       !yyjson_mut_obj_add_uint(output.get(), root, "version", format.version))
     return diagnostic{.error = error::out_of_memory};
   return write(output.get(), format.maximum_bytes);
+}
+/** 复用字段注册和校验，只追加文件格式包装并提交类型。 */
+template <class T, const reflected_asset_format& Format>
+error register_reflected_asset(meta::type_builder<T>& builder) noexcept {
+  constexpr auto encode = [](const T& object) { return encode_reflected_asset(object, Format); };
+  constexpr auto decode = [](std::span<const std::byte> bytes) {
+    return decode_reflected_asset<T>(bytes, Format);
+  };
+  return builder.template serialization<encode, decode>().commit();
 }
 } // namespace gneiss::engine::detail

@@ -2,10 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/value_result.hpp"
 #include "engine/core/meta/instance.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/function/resource/detail/asset_decode.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
-#include "engine/resource/material/material_codec.hpp"
+#include "engine/resource/material/material_description.hpp"
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -25,7 +26,7 @@ std::vector<std::byte> bytes(std::string_view text) {
 void native_material_contract() {
   auto input = bytes(
       R"({"format":"gneiss.material","version":6,"parameters":{},"texture_uris":["","","","",""]})");
-  auto material = decode_material(input);
+  auto material = meta::deserialize<material_description>(input);
   check(material.ok());
   auto root = meta::mutable_instance::from(*material);
   check(root.ok());
@@ -41,9 +42,9 @@ void native_material_contract() {
   check(uv.ok());
   check(uv->write_value(value{std::uint64_t{1} << 32}) == error::invalid_argument);
   check(material->parameters.sampling[0].uv_set == 0);
-  auto encoded = encode_material(*material);
+  auto encoded = meta::serialize(*material);
   check(encoded.ok());
-  auto restored = decode_material(*encoded);
+  auto restored = meta::deserialize<material_description>(*encoded);
   check(restored && restored->parameters.color == material->parameters.color);
   const std::string text(reinterpret_cast<const char*>(encoded->data()), encoded->size());
   check(text.find("\"parameters\"") != std::string::npos &&
@@ -59,18 +60,19 @@ void native_material_contract() {
        R"({"format":"gneiss.material","version":6,"parameters":{"color":[1,1,1]},"texture_uris":["","","","",""]})",
        R"({"format":"gneiss.material","version":6,"parameters":{"unknown":1},"texture_uris":["","","","",""]})",
        R"({"format":"gneiss.material","version":6,"parameters":{},"parameters":{},"texture_uris":["","","","",""]})"})
-    check(!decode_material(bytes(malformed)));
+    check(!meta::deserialize<material_description>(bytes(malformed)));
   for (
       const auto malformed :
       {R"({"format":"gneiss.material","format":"gneiss.material","version":6,"parameters":{},"texture_uris":["","","","",""]})",
        R"({"format":"gneiss.material","version":6,"version":6,"parameters":{},"texture_uris":["","","","",""]})",
        R"({"format":"other","version":6})", R"({"format":"gneiss.material","version":0})",
        R"({"format":"gneiss.material","version":"6"})", R"([])"})
-    check(!decode_material(bytes(malformed)));
-  auto obsolete = decode_material(bytes(R"({"format":"gneiss.material","version":5})"));
+    check(!meta::deserialize<material_description>(bytes(malformed)));
+  auto obsolete =
+      meta::deserialize<material_description>(bytes(R"({"format":"gneiss.material","version":5})"));
   check(!obsolete && obsolete.error().error == error::unsupported &&
         obsolete.error().path == "/version");
-  auto length_error = decode_material(
+  auto length_error = meta::deserialize<material_description>(
       bytes(R"({"format":"gneiss.material","version":6,"parameters":{},"texture_uris":[]})"));
   check(!length_error && length_error.error().path == "/texture_uris");
 }
@@ -82,11 +84,14 @@ void run(std::size_t limit) {
   asset_diagnostic diagnostic;
   meta::serialization_diagnostic codec_diagnostic;
   auto input = bytes(text);
-  check(gneiss::test_support::assign_decoded(decode_material(input), *old, codec_diagnostic).ok());
+  check(gneiss::test_support::assign_decoded(meta::deserialize<material_description>(input), *old,
+                                             codec_diagnostic)
+            .ok());
   input = bytes(
       R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,1,0,1]},"texture_uris":["asset://missing","","","",""]})");
   auto current = std::make_shared<material_description>();
-  check(gneiss::test_support::assign_decoded(decode_material(input), *current, codec_diagnostic)
+  check(gneiss::test_support::assign_decoded(meta::deserialize<material_description>(input),
+                                             *current, codec_diagnostic)
             .ok());
   decoded_asset prepared;
   const render_resource_source source{"asset://material.json", render_resource_kind::material};
@@ -113,9 +118,9 @@ void run(std::size_t limit) {
   check(std::get<asset_ref<const material_description>>(prepared.content) == retained &&
         std::get<asset_ref<const material_description>>(prepared.content)->parameters.color[1] ==
             1);
-  check(
-      gneiss::test_support::assign_decoded(decode_material(bytes("{}")), *current, codec_diagnostic)
-          .failed());
+  check(gneiss::test_support::assign_decoded(meta::deserialize<material_description>(bytes("{}")),
+                                             *current, codec_diagnostic)
+            .failed());
   check(current->parameters.color[1] == 1 && current->texture_uris[0] == "asset://missing");
 }
 }

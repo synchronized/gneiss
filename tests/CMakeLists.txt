@@ -268,7 +268,6 @@ add_executable(
   gneiss_action_map_test
   input/action_map_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/input/action_map_validation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/input/action_map_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
 )
 target_include_directories(gneiss_action_map_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -810,7 +809,6 @@ add_executable(gneiss_scene_instantiation_test scene/scene_instantiation_test.cp
 # 测试直接构造私有 manager，编译其实现而不向 DLL 公共 ABI 导出内部类型。
 target_sources(gneiss_scene_instantiation_test PRIVATE
   "${PROJECT_SOURCE_DIR}/src/engine/function/resource/asset_manager.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/input/action_map_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/input/action_map_validation.cpp")
 target_include_directories(gneiss_scene_instantiation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_scene_instantiation_test PRIVATE GNEISS_BUILDING_LIBRARY)

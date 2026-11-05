@@ -297,7 +297,7 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 
 - `resource/asset_decoder.hpp`：消费内存字节的类型解码契约，不要求字段反射。
 - `resource/material/material_description.hpp`：集中定义透明模式、共用材质参数和可序列化的 CPU 描述；编解码接口独立放在 codec。
-- `resource/material/material_codec.hpp`：材质 JSON 编解码，失败保持原输出。
+- `core/meta/serialization.hpp`：材质及输入映射使用统一反射编解码入口。
 - `resource/mesh/mesh_data.hpp`：CPU 网格数组；描述与二进制解码位于同目录。
 - `resource/texture/texture_data.hpp`：CPU mip、容器负载及解码能力快照，不依赖 KTX2 codec。
 - `engine/platform/files/`：异步文件读写与平台后端。
@@ -333,7 +333,7 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 资源头文件按实际使用边界收敛：`texture_description.hpp` 集中纹理枚举、采样参数和来源描述，
 `mesh_data.hpp` 集中网格数据与切线校验。各 codec 仅依赖序列化值类型，
 `register_*_reflection` 的声明统一位于 `builtin_resource_registration.hpp`。
-材质字节解码统一使用 `decode_material`，返回 `result<material_description, serialization_diagnostic>`；
+材质字节解码统一使用 `meta::deserialize<material_description>`，返回 `result<material_description, serialization_diagnostic>`；
 成功值与失败诊断互斥，详见[类型编解码](../reference/reflection.md#类型编解码)。
 
 CPU 网格的法线、切线、附加 UV 和颜色直接使用 `math::vector3/4/2/4`；

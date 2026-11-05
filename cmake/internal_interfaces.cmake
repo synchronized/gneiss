@@ -49,7 +49,6 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/scene/prefab_codec.hpp
   engine/resource/asset_uri.hpp
   engine/resource/material/material_description.hpp
-  engine/resource/material/material_codec.hpp
   engine/resource/mesh/mesh_data.hpp
   engine/resource/asset_ref.hpp
   engine/resource/resource_retirement_queue.hpp

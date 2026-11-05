@@ -176,7 +176,7 @@ foreach(source IN LISTS sources)
   if(source MATCHES "/src/(engine|runtime)/api/")
     continue()
   endif()
-  if(source MATCHES "(/src/engine/resource/(mesh/mesh_decoder|texture/texture_decoder|material/material_codec)|/src/engine/function/(resource/detail/asset_decode|render/render_resource_data))\\.(cpp|hpp)$" AND
+  if(source MATCHES "(/src/engine/resource/(mesh/mesh_decoder|texture/texture_decoder)|/src/engine/function/(resource/detail/asset_decode|render/render_resource_data))\\.(cpp|hpp)$" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_service)\\.(h|hpp)|engine/(function/resource/(resource_cache|asset_manager|resource_service|detail/resource_service_impl)|core/rid_table)\\.hpp)[>\"]")
     message(FATAL_ERROR "CPU 准备与值类型不得包含资源发布、缓存或 RID 表：${source}")
   endif()

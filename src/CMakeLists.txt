@@ -97,8 +97,6 @@ target_sources(
     engine/resource/texture/texture_decoder.cpp
     engine/resource/scene/scene_codec.cpp
     engine/resource/scene/scene_codec.hpp
-    engine/resource/input/action_map_codec.cpp
-    engine/resource/input/action_map_codec.hpp
     engine/resource/input/action_map.hpp
     engine/core/log/log.hpp
     engine/core/log/log.cpp
@@ -156,8 +154,6 @@ target_sources(
     engine/resource/builtin_resource_registration.cpp
     engine/resource/builtin_resource_registration.hpp
     engine/resource/asset_decoder.hpp
-    engine/resource/material/material_codec.cpp
-    engine/resource/material/material_codec.hpp
     engine/resource/material/material_description.hpp
     engine/core/meta/registration.hpp
     engine/core/meta/property.hpp

@@ -2,9 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "builtin_resource_registration.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/resource/detail/reflected_asset_codec.hpp"
-#include "engine/resource/input/action_map_codec.hpp"
-#include "engine/resource/material/material_codec.hpp"
+#include "engine/resource/input/action_map.hpp"
+#include "engine/resource/material/material_description.hpp"
 #include "engine/resource/scene/prefab_codec.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
 #include <cmath>
@@ -48,12 +49,6 @@ diagnostic validate_texture(const texture_description& v) {
   return {};
 }
 constexpr detail::reflected_asset_format material_format{"gneiss.material", 6};
-result<material_description, diagnostic> material_decode(std::span<const std::byte> bytes) {
-  return detail::decode_reflected_asset<material_description>(bytes, material_format);
-}
-result<std::vector<std::byte>, diagnostic> material_encode(const material_description& object) {
-  return detail::encode_reflected_asset(object, material_format);
-}
 
 diagnostic action_map_invalid(std::string path, std::string message = {}) {
   return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};
@@ -66,12 +61,7 @@ diagnostic validate_binding(const action_binding& binding) {
 }
 constexpr detail::reflected_asset_format action_map_format{
     "gneiss.input-map", 1, maximum_action_map_bytes, error::invalid_argument};
-result<action_map, diagnostic> action_map_decode(std::span<const std::byte> bytes) {
-  return detail::decode_reflected_asset<action_map>(bytes, action_map_format);
-}
-result<std::vector<std::byte>, diagnostic> action_map_encode(const action_map& object) {
-  return detail::encode_reflected_asset(object, action_map_format);
-}
+
 }
 error register_builtin_resource_types() noexcept {
   auto status = register_component_descriptions();
@@ -159,15 +149,14 @@ error register_builtin_resource_types() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<material_description>{}
-               .schema_version(6)
-               .property<&material_description::parameters>(meta::property_id{1}, "parameters",
-                                                            meta::property_flags::required)
-               .property<&material_description::texture_uris>(meta::property_id{2}, "texture_uris",
-                                                              meta::property_flags::required)
-               .serialization(true)
-               .serialization<&material_encode, &material_decode>()
-               .commit();
+  status = detail::register_reflected_asset<material_description, material_format>(
+      meta::type_builder<material_description>{}
+          .schema_version(6)
+          .property<&material_description::parameters>(meta::property_id{1}, "parameters",
+                                                       meta::property_flags::required)
+          .property<&material_description::texture_uris>(meta::property_id{2}, "texture_uris",
+                                                         meta::property_flags::required)
+          .serialization(true));
   if (status.failed())
     return status;
 
@@ -187,13 +176,12 @@ error register_builtin_resource_types() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<action_map>{}
-               .schema_version(1)
-               .property<&action_map::actions>(meta::property_id{1}, "actions", required)
-               .serialization(true)
-               .serialization<&action_map_encode, &action_map_decode>()
-               .validate<&validate_action_map>()
-               .commit();
+  status = detail::register_reflected_asset<action_map, action_map_format>(
+      meta::type_builder<action_map>{}
+          .schema_version(1)
+          .property<&action_map::actions>(meta::property_id{1}, "actions", required)
+          .serialization(true)
+          .validate<&validate_action_map>());
   if (status.failed())
     return status;
   status = meta::type_builder<scene_description>{}

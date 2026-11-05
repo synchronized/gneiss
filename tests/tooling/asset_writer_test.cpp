@@ -3,8 +3,9 @@
 
 #include "../support/async_application.hpp"
 #include "../support/value_result.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/resource/material/material_codec.hpp"
+#include "engine/resource/material/material_description.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
 #include "tooling/asset_import/asset_writer.hpp"
@@ -184,7 +185,7 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 10;
   }
   const auto material_file = read_file(pbr_output / "materials/material-0.material.json");
-  auto decoded_material = gneiss::engine::decode_material(
+  auto decoded_material = gneiss::engine::meta::deserialize<gneiss::engine::material_description>(
       std::as_bytes(std::span{material_file.data(), material_file.size()}));
   if (!decoded_material ||
       decoded_material->texture_uris[1].find("image-0-linear.texture.json") == std::string::npos ||

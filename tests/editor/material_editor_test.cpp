@@ -3,7 +3,7 @@
 #include "engine/core/meta/serialization.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/platform/files/memory_file_backend.hpp"
-#include "engine/resource/material/material_codec.hpp"
+#include "engine/resource/material/material_description.hpp"
 #include "panels/material_editor_panel.hpp"
 #include <cstdio>
 #include <imgui.h>
@@ -22,7 +22,7 @@ int main() try {
   e::files::service files;
   auto backend = std::make_shared<e::files::memory_backend>();
   check(files.mount({.prefix = "asset://", .readers = {backend}, .writer = backend}).ok(), "mount");
-  auto encoded = e::encode_material(e::material_description{});
+  auto encoded = e::meta::serialize(e::material_description{});
   check(bool(encoded), "encode fixture");
   const auto original = text(*encoded);
   const std::string uri = "asset://materials/test.material.json";
@@ -145,7 +145,8 @@ int main() try {
   check(!model.saving() && model.save_status().ok() && model.is_dirty(),
         "save does not clear newer edits");
   auto disk = read();
-  auto disk_material = e::decode_material(std::as_bytes(std::span{disk.data(), disk.size()}));
+  auto disk_material = e::meta::deserialize<e::material_description>(
+      std::as_bytes(std::span{disk.data(), disk.size()}));
   check(disk_material && disk_material->parameters.roughness == 0.4F &&
             disk_material->texture_uris[0] == "asset://textures/a.texture.json",
         "saved snapshot content");

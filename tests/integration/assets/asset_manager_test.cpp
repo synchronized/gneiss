@@ -6,13 +6,13 @@
 #include "../../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/platform/files/file_backend.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "engine/resource/material/material_codec.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include <atomic>
 #include <chrono>
@@ -347,7 +347,7 @@ void decoder_selection() {
   material_description description;
   description.parameters.metallic = 0.25F;
   gneiss::engine::meta::serialization_diagnostic diagnostic;
-  check(gneiss::test_support::assign_decoded(encode_material(description), source->contents,
+  check(gneiss::test_support::assign_decoded(meta::serialize(description), source->contents,
                                              diagnostic) == error::success,
         "material fixture");
   asset_manager material_assets(gneiss::test_support::test_files(files));

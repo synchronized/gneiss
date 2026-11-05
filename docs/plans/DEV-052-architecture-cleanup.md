@@ -191,3 +191,12 @@ serialization + validate 注册。对象校验只检查 UUID 非空和 Prefab/�
 components 缺失使用空列表，保存始终输出，移除按 Prefab 存在性进行的字段省略。
 
 已完成，相关构建和 6 项测试通过，见[验收记录](../records/2026-11-05-object-reflected-codec.md)。
+
+
+### 材质与输入映射 codec 收敛
+
+删除 material_codec 与 action_map_codec 的头文件和实现，工具、编辑器与测试统一使用 Meta。
+资源层统一格式注册辅助替代两种资源各自的 encode/decode 转发，保留原格式约束及校验。
+构建清单、内部头文件白名单和相关边界检查同步移除已删除路径。
+
+已完成相关构建、8 项测试和分层检查，见[验收记录](../records/2026-11-05-resource-codec-consolidation.md)。
