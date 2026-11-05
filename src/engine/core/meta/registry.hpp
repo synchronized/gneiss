@@ -74,6 +74,26 @@ describe_property(const registry_ref& registry, engine::guid type, property_id p
 GNEISS_API result<property_binding> find_object_property(const registry_ref&, guid,
                                                          property_id) noexcept;
 
+inline error register_enum(engine::type_id id, value_kind kind,
+                           std::span<const enum_entry> entries) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return register_enum(*registry, id, kind, entries);
+}
+inline result<std::span<const enum_entry>> enum_entries(engine::type_id id) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return enum_entries(*registry, id);
+}
+inline result<property_binding> find_object_property(guid type, property_id property) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return find_object_property(*registry, type, property);
+}
+
 template <class T> result<meta::type> type_of() noexcept {
   auto registry = default_registry();
   if (!registry)

@@ -233,9 +233,6 @@ int main() try {
   // 反射 codec 忽略未知字段；解码失败不覆盖旧对象。
   {
     namespace e = gneiss::engine;
-    gneiss::engine::meta::registry_ref registry;
-    if (gneiss::test_support::assign_value(e::meta::default_registry(), registry).failed())
-      return 90;
     auto text = std::string(valid_scene);
     text.insert(1, R"("codec_unknown":{"keep":7},)");
     const auto source = std::as_bytes(std::span{text.data(), text.size()});
@@ -243,18 +240,16 @@ int main() try {
     gneiss::engine::meta::serialization_diagnostic detail;
     std::vector<std::byte> encoded;
     if (gneiss::test_support::assign_decoded(
-            gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(value)>>(registry,
-                                                                                    source),
-            value, detail)
+            gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(value)>>(source), value,
+            detail)
             .failed() ||
-        gneiss::test_support::assign_decoded(gneiss::engine::meta::serialize(registry, value),
-                                             encoded, detail)
+        gneiss::test_support::assign_decoded(gneiss::engine::meta::serialize(value), encoded,
+                                             detail)
             .failed())
       return 91;
     e::scene_description restored;
     if (gneiss::test_support::assign_decoded(
-            gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(restored)>>(registry,
-                                                                                       encoded),
+            gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(restored)>>(encoded),
             restored, detail)
             .failed() ||
         restored.objects.size() != value.objects.size() ||
@@ -265,15 +260,14 @@ int main() try {
     const std::string broken = "{";
     if (gneiss::test_support::assign_decoded(
             gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(restored)>>(
-                registry, std::as_bytes(std::span{broken.data(), broken.size()})),
+                std::as_bytes(std::span{broken.data(), broken.size()})),
             restored, detail)
             .ok() ||
         (*gneiss::engine::meta::serialize_json(restored)) != saved)
       return 93;
     std::vector<std::byte> oversized(e::scene_description::maximum_source_bytes + 1U);
     if (gneiss::test_support::assign_decoded(
-            gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(restored)>>(registry,
-                                                                                       oversized),
+            gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(restored)>>(oversized),
             restored, detail) != e::error::invalid_argument ||
         (*gneiss::engine::meta::serialize_json(restored)) != saved)
       return 94;

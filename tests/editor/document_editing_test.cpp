@@ -60,12 +60,10 @@ bool save_codec_contract(gneiss::runtime::application& application) {
           .failed() ||
       document.is_dirty())
     return false;
-  gneiss::engine::meta::registry_ref registry;
   gneiss::engine::meta::serialization_diagnostic diagnostic;
-  if (gneiss::test_support::assign_value(e::meta::default_registry(), registry).failed() ||
-      gneiss::test_support::assign_decoded(
+  if (gneiss::test_support::assign_decoded(
           gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(snapshot)>>(
-              registry, std::as_bytes(std::span{saved.data(), saved.size()})),
+              std::as_bytes(std::span{saved.data(), saved.size()})),
           snapshot, diagnostic)
           .failed() ||
       snapshot.objects.size() != 1 || snapshot.objects.front().name != "保存节点" ||

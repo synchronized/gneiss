@@ -695,3 +695,21 @@ foreach(header IN ITEMS "engine/function/resource/detail/resource_service_impl.h
   endif()
 endforeach()
 file(WRITE "${fixture}/src/engine/function/render/render_service_resources.cpp" "// 已清理反向依赖探针\n")
+
+# Meta 默认注册表只能由 Meta 内部取得，业务侧使用无 registry 入口。
+foreach(content IN ITEMS "auto value = meta::default_registry();" "using namespace meta; auto value = default_registry();")
+  file(WRITE "${fixture}/src/editor/probe.cpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "边界检查未拒绝外部默认注册表访问")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/editor/probe.cpp" "auto value = meta::type_of<int>();\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "边界检查错误拒绝无 registry 入口")
+endif()
+file(WRITE "${fixture}/src/editor/probe.cpp" "")

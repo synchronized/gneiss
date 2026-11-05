@@ -211,3 +211,14 @@ components 缺失使用空列表，保存始终输出，移除按 Prefab 存在�
 
 已完成，Windows Clang Debug 全量构建、19 项相关测试与分层检查通过，见
 [验收记录](../records/2026-11-05-scene-prefab-codec-consolidation.md)。
+
+
+### Meta 默认注册表入口收敛
+
+补齐运行期类型视图、枚举及属性绑定查询的无 registry 入口，迁移 Meta 外部直接取表的业务调用。
+视图编解码复用已绑定注册表，内部递归与 codec 回调继续显式传递上下文。
+边界检查禁止业务源码直接调用 default_registry；注册表机制测试保留例外。
+验收覆盖默认表视图创建、隔离表编解码、场景与编辑器调用以及边界反例。
+
+已完成，全量编译、15 项相关测试与边界反例检查通过，见
+[验收记录](../records/2026-11-05-meta-registry-entrypoints.md)。

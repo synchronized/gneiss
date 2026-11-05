@@ -52,6 +52,12 @@ int main(int argc, char** argv) {
       !m::describe_type<e::material_description>())
     return 4;
   sample object;
+  auto view = m::instance::from_object(e::runtime_type_of<sample>(), &object);
+  auto mutable_view = m::mutable_instance::from_object(e::runtime_type_of<sample>(), &object);
+  if (!view || !mutable_view || !view->property("speed") || !mutable_view->property("speed") ||
+      m::instance::from_object(e::runtime_type_of<sample>(), nullptr).error() !=
+          e::error::invalid_argument)
+    return 12;
   if (m::write_property(sample::type_guid, m::property_id{1}, &object, e::value{2.0F}).failed())
     return 5;
   auto value = m::read_property(sample::type_guid, m::property_id{1}, &object);

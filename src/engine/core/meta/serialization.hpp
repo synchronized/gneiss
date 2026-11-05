@@ -46,6 +46,11 @@ serialize_instance(const registry_ref&, const instance&) noexcept;
 GNEISS_API serialization_diagnostic deserialize_instance(const registry_ref&,
                                                          const mutable_instance&,
                                                          std::span<const std::byte>) noexcept;
+/** 使用视图绑定的注册表，包含独立注册表；不重新查询默认表。 */
+GNEISS_API result<std::vector<std::byte>, serialization_diagnostic>
+serialize_instance(const instance&) noexcept;
+GNEISS_API serialization_diagnostic deserialize_instance(const mutable_instance&,
+                                                         std::span<const std::byte>) noexcept;
 /** 返回编码后的字节；未知类型不隐式注册。 */
 template <class T>
 [[nodiscard]] result<std::vector<std::byte>, serialization_diagnostic>

@@ -224,6 +224,20 @@ int main() try {
   auto escaped = m::deserialize<sample>(*other, bytes(R"({"enabled":true,"a/b~c":2})"));
   if (escaped || escaped.error().path != "/a~1b~0c")
     return 15;
+  // 无 registry 的视图编解码必须保留隔离表的字段名，不能查询默认表。
+  sample isolated_value;
+  auto isolated_view = m::mutable_instance::from(*other, isolated_value);
+  if (!isolated_view ||
+      m::deserialize_instance(*isolated_view, bytes(R"({"enabled":true,"a/b~c":"isolated"})"))
+          .error.failed() ||
+      isolated_value.name != "isolated")
+    return 90;
+  auto isolated_bytes = m::serialize_instance(isolated_view->as_const());
+  if (!isolated_bytes || std::string_view(reinterpret_cast<const char*>(isolated_bytes->data()),
+                                          isolated_bytes->size())
+                                 .find("a/b~c") == std::string_view::npos)
+    return 91;
+  isolated_view = e::error::invalid_state;
   // CPU 资源入口统一使用默认表；独立表不再由解码适配器持有。
   auto shared = m::default_registry();
   if (!shared || register_sample(*shared).failed() || m::freeze().failed())

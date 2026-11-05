@@ -228,6 +228,13 @@ getter 失败、异常或返回不匹配／无效值时仅返回错误，不交�
 `describe_type<T>()`、属性访问和 `serialize(object)` / `deserialize<T>(bytes)` 使用默认表；
 显式 registry 重载保持原行为。
 
+业务模块不得直接调用 `meta::default_registry()`；默认表获取集中在 Meta 内部，
+普通调用使用无 registry 的查询、注册、序列化及视图入口。
+`instance::from_object(type_id, address)` 和可写版本使用默认表，错误按 result 返回。
+`serialize_instance(view)`、`deserialize_instance(view, bytes)` 及内部 DOM 适配使用
+视图自身绑定的注册表，不重新获取默认表，因此独立表的字段与 codec 语义保持不变。
+Meta 内部递归与 codec 回调仍保留显式上下文；注册表机制测试允许直接验证默认表。
+
 `engine/function/meta_registration.hpp` 的 `engine::initialize_meta(callback = nullptr)` 在启动阶段
 串行登记内置 World 属性、资源 codec、项目类型，再冻结。callback 不带参数，
 可直接使用默认 builder。需要自定义类型的宿主在首次 `application::create` 前调用带 callback 的入口；

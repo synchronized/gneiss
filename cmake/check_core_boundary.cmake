@@ -15,6 +15,10 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
+  if(NOT source MATCHES "/src/engine/core/meta/" AND
+      content MATCHES "(^|[^A-Za-z0-9_])default_registry[ \t\r\n]*[(]")
+    message(FATAL_ERROR "Meta 外部必须使用无 registry 入口，不能直接取得默认表：${source}")
+  endif()
   if(content MATCHES "engine/resource/(mesh|texture|material)/detail/[a-z_]+_resource_access[.]hpp" AND
       NOT source MATCHES "/src/engine/(resource/(mesh|texture|material)/[a-z_]+_resource|function/resource/resource_service)[.]cpp$")
     message(FATAL_ERROR "资源私有访问器不得泄漏到普通调用方：${source}")

@@ -20,10 +20,7 @@ public:
                                                   : nullptr;
   }
   result<meta::instance> view() const noexcept {
-    auto registry = meta::default_registry();
-    if (!registry)
-      return registry.error();
-    return meta::instance::from_object(*registry, dynamic_type(), dynamic_address());
+    return meta::instance::from_object(dynamic_type(), dynamic_address());
   }
 };
 using component_description = ref<const component_description_base>;

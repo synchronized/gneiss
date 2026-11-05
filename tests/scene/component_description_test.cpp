@@ -91,10 +91,7 @@ int main() try {
     return 2;
   // 组件属性只能整项替换；失败不修改已有组件或共享快照。
   auto guarded = parsed->objects.front();
-  auto registry = e::meta::default_registry();
-  if (!registry)
-    return 36;
-  auto object_view = e::meta::mutable_instance::from(*registry, guarded);
+  auto object_view = e::meta::mutable_instance::from(guarded);
   if (!object_view)
     return 37;
   auto property = object_view->property("components");
@@ -102,13 +99,13 @@ int main() try {
       !property->as_const().as_sequence())
     return 38;
   auto original = *guarded.components.begin();
-  auto null_status = e::meta::deserialize_instance(*registry, *property, bytes("[null]"));
+  auto null_status = e::meta::deserialize_instance(*property, bytes("[null]"));
   auto duplicate_status =
-      e::meta::deserialize_instance(*registry, *property, bytes("[" + custom + "," + custom + "]"));
+      e::meta::deserialize_instance(*property, bytes("[" + custom + "," + custom + "]"));
   if (null_status.error.ok() || duplicate_status.error.ok() || guarded.components.size() != 1 ||
       *guarded.components.begin() != original)
     return 39;
-  if (e::meta::deserialize_instance(*registry, *property, bytes("[]")).error.failed() ||
+  if (e::meta::deserialize_instance(*property, bytes("[]")).error.failed() ||
       !guarded.components.empty() || parsed->objects.front().components.empty())
     return 40;
   auto copy = *parsed;

@@ -13,16 +13,13 @@
 int main() {
   namespace engine = gneiss::engine;
   using engine::error;
-  gneiss::engine::meta::registry_ref registry;
   engine::world_owner first, second;
   gneiss::entity_id entity, missing;
   gneiss::scene_node_id node;
-  if (gneiss::test_support::assign_value(gneiss::engine::meta::default_registry(), registry)
-          .failed() ||
-      engine::register_reflection().failed() ||
+  if (engine::register_reflection().failed() ||
       engine::register_reflection() != engine::error::invalid_argument ||
       engine::register_builtin_resource_types().failed() ||
-      gneiss::engine::meta::freeze(registry).failed() ||
+      gneiss::engine::meta::freeze().failed() ||
       gneiss::test_support::assign_value(engine::create_native(), first).failed() ||
       gneiss::test_support::assign_value(engine::create_native(), second).failed() ||
       first->entity_create(entity).failed() || first->entity_create(missing).failed() ||
@@ -31,20 +28,18 @@ int main() {
   const auto transform_type = engine::transform_property_type();
   const auto camera_type = engine::camera_property_type();
   gneiss::engine::meta::type_info info;
-  if (gneiss::test_support::assign_value(
-          gneiss::engine::meta::describe_type(registry, transform_type), info)
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::describe_type(transform_type), info)
           .failed() ||
       info.properties.size() != 3 ||
-      gneiss::test_support::assign_value(gneiss::engine::meta::describe_type(registry, camera_type),
-                                         info)
+      gneiss::test_support::assign_value(gneiss::engine::meta::describe_type(camera_type), info)
           .failed() ||
       info.properties.size() != 4 ||
       gneiss::test_support::assign_value(
-          gneiss::engine::meta::describe_type<engine::math::transform>(registry), info)
+          gneiss::engine::meta::describe_type<engine::math::transform>(), info)
           .failed() ||
       info.guid != transform_type ||
       gneiss::test_support::assign_value(
-          gneiss::engine::meta::describe_type<engine::camera_properties>(registry), info)
+          gneiss::engine::meta::describe_type<engine::camera_properties>(), info)
           .failed() ||
       info.guid != camera_type)
     return 2;

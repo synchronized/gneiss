@@ -107,14 +107,11 @@ read_component(gneiss::engine::guid type, yyjson_val* content) {
       yyjson_mut_doc_imut_copy(document.get(), nullptr), &yyjson_doc_free);
   if (!input)
     return meta::serialization_diagnostic{.error = error::out_of_memory};
-  auto registry = meta::default_registry();
-  if (!registry)
-    return meta::serialization_diagnostic{.error = registry.error()};
   component_description result;
-  auto view = meta::mutable_instance::from(*registry, result);
+  auto view = meta::mutable_instance::from(result);
   if (!view)
     return meta::serialization_diagnostic{.error = view.error()};
-  auto status = meta::detail::read_instance(yyjson_doc_get_root(input.get()), *registry, *view);
+  auto status = meta::detail::read_instance(yyjson_doc_get_root(input.get()), *view);
   if (status.error.failed())
     return status;
   return result;
@@ -391,14 +388,11 @@ decode_component_override(std::span<const std::byte> bytes) {
 
 result<component_descriptions, meta::serialization_diagnostic>
 read_components(yyjson_val* input) noexcept try {
-  auto registry = meta::default_registry();
-  if (!registry)
-    return meta::serialization_diagnostic{.error = registry.error()};
   std::vector<component_description> decoded;
-  auto view = meta::mutable_instance::from(*registry, decoded);
+  auto view = meta::mutable_instance::from(decoded);
   if (!view)
     return meta::serialization_diagnostic{.error = view.error()};
-  auto status = meta::detail::read_instance(input, *registry, *view);
+  auto status = meta::detail::read_instance(input, *view);
   if (status.error.failed())
     return status;
   component_descriptions result;
@@ -414,13 +408,10 @@ read_components(yyjson_val* input) noexcept try {
 }
 result<yyjson_mut_val*, meta::serialization_diagnostic>
 write_components(yyjson_mut_doc* document, const component_descriptions& components) noexcept try {
-  auto registry = meta::default_registry();
-  if (!registry)
-    return meta::serialization_diagnostic{.error = registry.error()};
-  auto view = meta::instance::from(*registry, components.values());
+  auto view = meta::instance::from(components.values());
   if (!view)
     return meta::serialization_diagnostic{.error = view.error()};
-  return meta::detail::write_instance(document, *registry, *view);
+  return meta::detail::write_instance(document, *view);
 } catch (const std::bad_alloc&) {
   return meta::serialization_diagnostic{.error = error::out_of_memory};
 } catch (...) {

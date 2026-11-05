@@ -57,10 +57,7 @@ engine::error edit_description(editor_command_history& history,
       return target.error();
   }
   if (edit.object) {
-    auto registry = meta::default_registry();
-    if (!registry)
-      return registry.error();
-    auto source = meta::instance::from_object(*registry, edit.object_type, edit.object.get());
+    auto source = meta::instance::from_object(edit.object_type, edit.object.get());
     if (!source)
       return source.error();
     status = target->assign(*source);
@@ -274,10 +271,7 @@ engine::error edit_component_description(scene_document& document, editor_comman
         return target.error();
       if (!edit.object)
         return target->write_value(edit.data);
-      auto registry = meta::default_registry();
-      if (!registry)
-        return registry.error();
-      auto source = meta::instance::from_object(*registry, edit.object_type, edit.object.get());
+      auto source = meta::instance::from_object(edit.object_type, edit.object.get());
       return source ? target->assign(*source) : source.error();
     });
     if (!changed)

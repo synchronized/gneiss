@@ -31,6 +31,12 @@ public:
   /** 类型擦除入口：调用方保证 object 的实际类型匹配 id，且地址在视图使用期间稳定。 */
   static GNEISS_API result<instance> from_object(registry_ref registry, engine::type_id id,
                                                  const void* object) noexcept;
+  static result<instance> from_object(engine::type_id id, const void* object) noexcept {
+    auto registry = default_registry();
+    if (!registry)
+      return registry.error();
+    return from_object(*registry, id, object);
+  }
   template <class T>
   static result<instance> from(const registry_ref& registry, T& object) noexcept {
     return from_access(registry, detail::ops_of<std::remove_cv_t<T>>(), std::addressof(object));
@@ -91,6 +97,12 @@ public:
   mutable_instance() = default;
   static GNEISS_API result<mutable_instance> from_object(registry_ref registry, engine::type_id id,
                                                          void* object) noexcept;
+  static result<mutable_instance> from_object(engine::type_id id, void* object) noexcept {
+    auto registry = default_registry();
+    if (!registry)
+      return registry.error();
+    return from_object(*registry, id, object);
+  }
   template <class T>
     requires(!std::is_const_v<T>)
   static result<mutable_instance> from(const registry_ref& registry, T& object) noexcept {

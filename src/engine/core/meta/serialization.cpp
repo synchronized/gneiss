@@ -1010,3 +1010,23 @@ result<yyjson_mut_val*, serialization_diagnostic> write_tagged_value(yyjson_mut_
   return failure(error::internal);
 }
 }
+
+namespace gneiss::engine::meta {
+result<std::vector<std::byte>, serialization_diagnostic>
+serialize_instance(const instance& view) noexcept {
+  return serialize_instance(detail::property_view_access::registry(view), view);
+}
+serialization_diagnostic deserialize_instance(const mutable_instance& view,
+                                              std::span<const std::byte> bytes) noexcept {
+  return deserialize_instance(detail::property_view_access::registry(view), view, bytes);
+}
+namespace detail {
+result<yyjson_mut_val*, serialization_diagnostic> write_instance(yyjson_mut_doc* doc,
+                                                                 const instance& view) noexcept {
+  return write_instance(doc, property_view_access::registry(view), view);
+}
+serialization_diagnostic read_instance(yyjson_val* input, const mutable_instance& view) noexcept {
+  return read_instance(input, property_view_access::registry(view), view);
+}
+}
+}
