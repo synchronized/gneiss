@@ -5,7 +5,11 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/asset_file.hpp"
+#include "engine/resource/input/action_map.hpp"
 #include "engine/resource/material/material_description.hpp"
+#include "engine/resource/mesh/mesh_description.hpp"
+#include "engine/resource/scene/scene_description.hpp"
+#include <array>
 #ifdef GNEISS_TEST_THREADS
 #include <atomic>
 #include <thread>
@@ -20,6 +24,36 @@ struct sample {
   inline static constexpr e::guid type_guid = e::guid::from_bytes({91, 23, 3});
   float speed = 1;
 };
+// 内建类型的固定身份必须是 UUID v4，数学值与注册对象之间也不能重号。
+constexpr std::array migrated_ids{e::type_identity<e::math::vector4>::guid(),
+                                  e::type_identity<e::math::matrix3>::guid(),
+                                  e::type_identity<e::math::matrix4>::guid(),
+                                  e::value::type_guid,
+                                  m::object::type_guid,
+                                  e::material_parameters::type_guid,
+                                  e::texture_sampling::type_guid,
+                                  e::texture_description::type_guid,
+                                  e::mesh_description::type_guid,
+                                  e::action_binding::type_guid,
+                                  e::action_definition::type_guid,
+                                  e::component_description_base::type_guid,
+                                  e::prefab_reference_description::type_guid,
+                                  e::object_description::type_guid,
+                                  e::type_identity<e::prefab_component_override>::guid(),
+                                  e::prefab_property_override_key::reflection_guid,
+                                  e::prefab_property_override::type_guid};
+static_assert([] {
+  for (std::size_t i = 0; i < migrated_ids.size(); ++i) {
+    const auto& bytes = migrated_ids[i].bytes();
+    if ((bytes[6] & 0xf0) != 0x40 || (bytes[8] & 0xc0) != 0x80)
+      return false;
+    for (std::size_t j = 0; j < i; ++j)
+      if (migrated_ids[i] == migrated_ids[j])
+        return false;
+  }
+  return true;
+}());
+
 static int calls = 0;
 e::error register_project() {
   ++calls;

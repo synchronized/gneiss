@@ -66,19 +66,19 @@ template <> struct type_identity<math::vector2> {
 template <> struct type_identity<math::vector4> {
   static constexpr std::string_view name() noexcept { return "vec4"; }
   static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("97010000-0000-0000-0000-000000000000");
+    return engine::guid::literal("f4cae1c0-3da1-4fe7-ac62-a0711b4c9919");
   }
 };
 template <> struct type_identity<math::matrix3> {
   static constexpr std::string_view name() noexcept { return "matrix3"; }
   static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("97410000-0000-0000-0000-000000000000");
+    return engine::guid::literal("6d5184fd-12b1-468f-ab48-f6584b83436c");
   }
 };
 template <> struct type_identity<math::matrix4> {
   static constexpr std::string_view name() noexcept { return "matrix4"; }
   static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("97420000-0000-0000-0000-000000000000");
+    return engine::guid::literal("67dec1c6-2a38-4f05-af43-5233bdc8713c");
   }
 };
 template <> struct type_identity<math::quaternion> {

@@ -54,6 +54,8 @@ auto request = std::move(*loaded);
   `guid::literal("…")` 在编译期解析，格式错误导致编译失败；适用于固定 type_guid 声明。
   `guid::parse(text)` 为 constexpr/noexcept，运行期非法输入返回空 optional，与 literal 共用解析。
   `guid::from_bytes(bytes)` 用于二进制及动态字节输入。不提供随机生成。
+- 新增类型身份生成一次标准 UUID v4 后使用 `guid::literal` 固定到源码，不按短编号手工分配；
+  不随类型重命名或每次构建重新生成。
 - 稳定类型身份直接使用 `guid`，不再提供 `type_guid` 包装或兼容别名；不从地址或名称哈希推导。
 - `core/traits` 下的 `type_name<T>` 与 `type_identity<T>`：名称与稳定 GUID 定制点。内置类型提供名称，默认 GUID
   为 nil；未定制用户类型名称为空。可显式特化 `type_identity<T>`；泛型调用方应先用

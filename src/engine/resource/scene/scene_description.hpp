@@ -61,7 +61,7 @@ struct prefab_component_override final {
 };
 struct prefab_reference_description final {
   static constexpr std::string_view type_name = "prefab_reference_description";
-  static constexpr guid type_guid = guid::literal("97210000-0000-0000-0000-000000000000");
+  static constexpr guid type_guid = guid::literal("1631bf8f-97cd-437b-9f6f-72b9487977e0");
   std::string uri;
   std::vector<prefab_property_override> overrides;
   std::vector<prefab_component_override> component_overrides{};
@@ -69,7 +69,7 @@ struct prefab_reference_description final {
 
 struct object_description final {
   static constexpr std::string_view type_name = "object_description";
-  static constexpr guid type_guid = guid::literal("97040000-0000-0000-0000-000000000000");
+  static constexpr guid type_guid = guid::literal("d37553e3-45c8-4a29-ae26-ada3069d81ec");
   gneiss::engine::guid uuid;
   std::string name;
   gneiss::engine::guid parent_uuid{};
@@ -91,7 +91,7 @@ struct scene_description final {
 template <> struct type_identity<prefab_component_override> {
   static constexpr std::string_view name() noexcept { return "prefab_component_override"; }
   static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("97220000-0000-0000-0000-000000000000");
+    return engine::guid::literal("929b6330-9200-4f3b-b707-d1fef184eda3");
   }
 };
 

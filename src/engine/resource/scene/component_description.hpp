@@ -14,7 +14,7 @@ class component_description_base : public meta::object {
 public:
   static constexpr std::string_view type_name = "component_description_base";
   static constexpr engine::guid type_guid =
-      engine::guid::literal("97200000-0000-0000-0000-000000000000");
+      engine::guid::literal("8bbd9682-e941-46a2-936a-b4ad959b2546");
   [[nodiscard]] engine::guid guid() const noexcept { return dynamic_guid(); }
   template <class T> const T* get() const noexcept {
     return dynamic_type() == runtime_type_of<T>() ? static_cast<const T*>(dynamic_address())

@@ -41,7 +41,7 @@ enum class value_kind : std::uint32_t {
 struct value {
   static constexpr std::string_view type_name = "value";
   static constexpr engine::guid type_guid =
-      engine::guid::literal("97400000-0000-0000-0000-000000000000");
+      engine::guid::literal("f9a2f886-1703-4138-806f-f10fc7f20efc");
   using storage_type =
       std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float, double, std::string,
                    engine::guid, math::vector2, math::vector3, math::vector4, math::quaternion,

@@ -21,14 +21,14 @@ namespace gneiss::engine {
 
 struct action_binding final {
   inline static constexpr std::string_view type_name = "action_binding";
-  inline static constexpr guid type_guid = guid::literal("97050000-0000-0000-0000-000000000000");
+  inline static constexpr guid type_guid = guid::literal("f369fe72-b420-4ecb-abfb-c5d58df57b7b");
   std::uint32_t physical_key{};
   float scale{};
 };
 
 struct action_definition final {
   inline static constexpr std::string_view type_name = "action_definition";
-  inline static constexpr guid type_guid = guid::literal("97060000-0000-0000-0000-000000000000");
+  inline static constexpr guid type_guid = guid::literal("88ef4852-3bfc-4ee3-8aa6-6e752bd056a4");
   std::string name;
   std::vector<action_binding> bindings;
 };

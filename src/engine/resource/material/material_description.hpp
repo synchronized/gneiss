@@ -17,7 +17,7 @@ enum class material_alpha_mode : std::uint32_t { opaque, mask, blend };
 /** 描述数据和运行期资源共用的材质参数；不包含纹理 URI 或 RID。 */
 struct material_parameters {
   static constexpr std::string_view type_name = "material_parameters";
-  static constexpr guid type_guid = guid::literal("97020000-0000-0000-0000-000000000000");
+  static constexpr guid type_guid = guid::literal("f9f14c75-5ed5-457f-b09d-9411dc9a473c");
   math::vector4 color{1.0F, 1.0F, 1.0F, 1.0F};
   float metallic{};
   float roughness{1.0F};
