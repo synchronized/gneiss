@@ -181,26 +181,6 @@ read_component(gneiss::engine::guid type, yyjson_val* content) {
   return result;
 }
 
-[[nodiscard]] bool parse_object(yyjson_val* value, std::size_t index,
-                                gneiss::engine::object_description& output,
-                                scene_diagnostic& diagnostic) {
-  const std::string path = "/objects/" + std::to_string(index);
-  auto* components = yyjson_obj_get(value, "components");
-  if (output.prefab) {
-    if (components && (!yyjson_is_arr(components) || yyjson_arr_size(components) != 0)) {
-      fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/components",
-           "Prefab 引用与独立组件不能同时定义");
-      return false;
-    }
-    return true;
-  }
-  if (!components) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/components", "缺少组件数组");
-    return false;
-  }
-  return true;
-}
-
 [[nodiscard]] bool parse_override_value(yyjson_val* object, gneiss::engine::value& output) {
   auto decoded = gneiss::engine::meta::detail::read_tagged_value(object);
   if (!decoded)
@@ -528,57 +508,14 @@ void set_reference_overrides(
     return gneiss::engine::prefab_property_override_key_less(a.key, b.key);
   });
 }
-result<object_description, meta::serialization_diagnostic>
-decode_object(std::span<const std::byte> bytes) {
-  auto object = meta::deserialize_reflected<object_description>(bytes);
-  if (!object)
-    return std::move(object).error();
-  if (!object->uuid)
-    return meta::serialization_diagnostic{
-        .path = "/uuid", .message = "对象 UUID 不能为空", .error = error::invalid_argument};
-  std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> doc(
-      yyjson_read(reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0), &yyjson_doc_free);
-  if (!doc)
-    return meta::serialization_diagnostic{.error = error::out_of_memory};
-  scene_diagnostic diagnostic;
-  if (!parse_object(yyjson_doc_get_root(doc.get()), 0, *object, diagnostic)) {
-    if (diagnostic.path.starts_with("/objects/0"))
-      diagnostic.path.erase(0, 10);
-    return meta::serialization_diagnostic{diagnostic.byte_offset, std::move(diagnostic.path),
-                                          std::move(diagnostic.message), diagnostic.error};
-  }
-  return std::move(*object);
-}
-result<std::vector<std::byte>, meta::serialization_diagnostic>
-encode_object(const object_description& source) {
-  if (!source.uuid)
-    return meta::serialization_diagnostic{
-        .path = "/uuid", .message = "对象 UUID 不能为空", .error = error::invalid_argument};
-  if (source.prefab && !source.components.empty())
-    return meta::serialization_diagnostic{.error = error::invalid_argument};
-  auto fields = meta::serialize_reflected(source);
-  if (!fields)
-    return std::move(fields).error();
-  if (!source.prefab)
-    return fields;
-  std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> parsed(
-      yyjson_read(reinterpret_cast<const char*>(fields->data()), fields->size(), 0),
-      &yyjson_doc_free);
-  if (!parsed)
-    return meta::serialization_diagnostic{.error = error::out_of_memory};
-  std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> doc(
-      yyjson_doc_mut_copy(parsed.get(), nullptr), &yyjson_mut_doc_free);
-  if (!doc)
-    return meta::serialization_diagnostic{.error = error::out_of_memory};
-  auto* root = yyjson_mut_doc_get_root(doc.get());
-  yyjson_mut_obj_remove_key(root, "components");
-  std::size_t length{};
-  std::unique_ptr<char, decltype(&std::free)> text(yyjson_mut_write(doc.get(), 0, &length),
-                                                   &std::free);
-  if (!text)
-    return meta::serialization_diagnostic{.error = error::out_of_memory};
-  const auto bytes = std::as_bytes(std::span{text.get(), length});
-  return std::vector<std::byte>(bytes.begin(), bytes.end());
+meta::serialization_diagnostic validate_object(const object_description& object) {
+  if (!object.uuid)
+    return {.path = "/uuid", .message = "对象 UUID 不能为空", .error = error::invalid_argument};
+  if (object.prefab && !object.components.empty())
+    return {.path = "/components",
+            .message = "Prefab 引用与独立组件不能同时定义",
+            .error = error::invalid_argument};
+  return {};
 }
 
 } // namespace
@@ -722,13 +659,6 @@ detail::serialize_object_document(guid uuid, std::optional<guid> root_uuid,
   for (const auto& object : object_list) {
     if (!validate_transform(object.transform, "/objects/transform", diagnostic))
       return diagnostic.error;
-    if (!object.prefab)
-      continue;
-    if (!object.components.empty())
-      return error::invalid_argument;
-    auto status = check_prefab_reference(*object.prefab);
-    if (status.error.failed())
-      return status.error;
   }
   using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
   mutable_document_ptr mutable_document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
@@ -753,7 +683,7 @@ detail::serialize_object_document(guid uuid, std::optional<guid> root_uuid,
   if (!put_value(mutable_document.get(), root, "objects", objects))
     return error::out_of_memory;
   for (const auto& source : object_list) {
-    auto encoded = encode_object(source);
+    auto encoded = meta::serialize(source);
     if (!encoded)
       return encoded.error().error;
     std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> parsed(
@@ -883,7 +813,7 @@ error register_component_descriptions() noexcept {
           .property<&object_components, &set_object_components>(meta::property_id{5}, "components")
           .property<&object_description::prefab>(meta::property_id{6}, "prefab")
           .serialization()
-          .serialization<&encode_object, &decode_object>()
+          .validate<&validate_object>()
           .commit();
   if (status.failed())
     return status;

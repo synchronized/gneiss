@@ -117,7 +117,8 @@
   不通过覆盖改变序列长度。相互约束的字段覆盖合并后才执行组件校验。
 - Prefab 实例身份就是引用对象的 UUID，覆盖键不重复携带实例身份。Prefab 展开后的源节点、Entity
   ID、Scene Node ID 和 RID 均不写入场景文件。
-- 普通对象需要 `components`，模板引用对象需要 `prefab`；`name` 可选。当前受支持版本中的未知字段不会参与运行时
+- `components` 缺失时使用空列表，保存时始终输出（包括模板引用对象）；非数组仍报错。
+  模板引用对象需要非空 `prefab`；`name` 可选。当前受支持版本中的未知字段不会参与运行时
   实例化；对象和组件外壳的未知扩展字段忽略，保存时不保留。
   `$content` 由对应 codec 完整输出，不与旧内容合并，避免已删除或省略的字段重新出现；
   需要保留内容扩展字段的类型须由自身 codec 读写这些字段。
@@ -162,8 +163,10 @@ World 保持不变。旧顶层 `prefab_instances` 也被明确拒绝，不作为
 Scene 的 components 通过非标量 getter/setter 注册反射；IPC 使用同一 Meta 数组解码。
 `object_description.prefab` 注册为 optional，引用描述的 uri、overrides、component_overrides
 由反射遍历。属性覆盖和组件增删指令保留专用 codec；覆盖键重复、URI 和跨列表冲突由
-引用描述校验器统一验证。属性覆盖解码后按作者键排序。对象 codec 仅保留普通对象必需组件
-的存在性检查和模板对象省略空组件数组的格式处理，不再手动读写 prefab 字段。
+引用描述校验器统一验证。属性覆盖解码后按作者键排序。
+object_description 使用通用反射编解码，不再注册专用 encode/decode；独立 validate_object
+检查 UUID 非空及 Prefab 与非空组件互斥，保存和读取都经反射校验钩子调用。
+父节点存在性和层级循环仍由场景整体校验。
 两者均先完成临时数组解码，再由 component_descriptions::replace 检查非空和类型唯一，成功才替换。
 组件列表校验错误定位到 components 属性；嵌套内容解码错误保留具体子路径。
 多态信封仅允许 `$type_guid` 和 `$content`，类型 GUID 使用规范小写形式。

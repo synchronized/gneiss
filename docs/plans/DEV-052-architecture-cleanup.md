@@ -181,3 +181,13 @@ API 与空值歧义处理见 [反射参考](../reference/reflection.md#可选值
 本批不包含 optional 面板控件或覆盖指令格式重设计。
 
 本批受影响目标编译和 6 项测试通过，见[验收记录](../records/2026-11-05-prefab-reference-reflection.md)。
+
+
+### 对象通用编解码与校验归位
+
+删除 object_description 的 encode_object、decode_object、parse_object 包装，使用现有
+serialization + validate 注册。对象校验只检查 UUID 非空和 Prefab/组件互斥；
+引用描述继续检查 URI 与覆盖冲突，层级规则保留场景整体校验。
+components 缺失使用空列表，保存始终输出，移除按 Prefab 存在性进行的字段省略。
+
+已完成，相关构建和 6 项测试通过，见[验收记录](../records/2026-11-05-object-reflected-codec.md)。

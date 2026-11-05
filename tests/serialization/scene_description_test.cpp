@@ -396,6 +396,72 @@ int main() try {
                   gneiss::engine::error::invalid_argument, "/objects/1/prefab/uri"))
     return 103;
 
+  {
+    using namespace gneiss::engine;
+    // 通用入口与场景入口遵循相同的对象校验；缺失组件默认空列表。
+    const std::string object_json =
+        R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})";
+    auto decode = [](std::string_view text) {
+      return meta::deserialize<object_description>(
+          std::as_bytes(std::span{text.data(), text.size()}));
+    };
+    auto empty = decode(object_json);
+    if (!empty || !empty->components.empty() || empty->prefab)
+      return 104;
+    auto empty_bytes = meta::serialize(*empty);
+    if (!empty_bytes)
+      return 105;
+    const std::string empty_json(reinterpret_cast<const char*>(empty_bytes->data()),
+                                 empty_bytes->size());
+    if (empty_json.find(R"("components":[])") == std::string::npos ||
+        empty_json.find(R"("prefab":null)") == std::string::npos)
+      return 105;
+    auto template_bytes = meta::serialize(scene.objects[1]);
+    if (!template_bytes)
+      return 106;
+    const std::string template_json(reinterpret_cast<const char*>(template_bytes->data()),
+                                    template_bytes->size());
+    if (template_json.find(R"("components":[])") == std::string::npos)
+      return 106;
+    auto template_copy = decode(template_json);
+    if (!template_copy || !template_copy->prefab || !template_copy->components.empty())
+      return 106;
+    auto invalid_uuid = decode(replace_once(
+        object_json, R"("uuid":"00000000-0000-4000-8000-000000000002")", R"("uuid":null)"));
+    if (invalid_uuid || invalid_uuid.error().path != "/uuid")
+      return 107;
+    empty->uuid = {};
+    auto invalid_encoded = meta::serialize(*empty);
+    if (invalid_encoded || invalid_encoded.error().path != "/uuid")
+      return 107;
+    auto invalid_components = decode(replace_once(object_json, "{", R"({"components":{},)"));
+    if (invalid_components || invalid_components.error().path != "/components")
+      return 108;
+    auto conflict = scene.objects[1];
+    auto normal = parse_scene_description(valid_scene);
+    if (!normal)
+      return 109;
+    conflict.components = normal->objects[0].components;
+    auto rejected = meta::serialize(conflict);
+    if (rejected || rejected.error().path != "/components")
+      return 109;
+    auto component_bytes = meta::serialize(normal->objects[0]);
+    if (!component_bytes)
+      return 110;
+    std::string component_json(reinterpret_cast<const char*>(component_bytes->data()),
+                               component_bytes->size());
+    component_json =
+        replace_once(component_json, R"("prefab":null)",
+                     R"("prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[]})");
+    auto conflict_decoded = decode(component_json);
+    if (conflict_decoded || conflict_decoded.error().path != "/components")
+      return 110;
+    auto missing =
+        parse_scene_description(replace_once(std::string(prefab_scene), R"(,"components":[])", ""));
+    if (!missing || !missing->objects[0].components.empty())
+      return 111;
+  }
+
   const auto duplicate_override = replace_once(
       std::string(prefab_scene), R"("overrides":[{)",
       R"("overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d","property_id":1,"value":{"kind":"vec3","value":[7,8,9]}},{)");
