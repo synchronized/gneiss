@@ -22,6 +22,23 @@ namespace {
 serialization::diagnostic failure(error code, std::string path = {}, std::string message = {}) {
   return {.path = std::move(path), .message = std::move(message), .error = code};
 }
+/** 数学值统一逐分量解码；保留具体 C++ 类型及固定长度。 */
+template <class T>
+result<value, serialization::diagnostic> read_math(yyjson_val* input, const std::string& path) {
+  T output{};
+  auto components = math::components(output);
+  if (!yyjson_is_arr(input) || yyjson_arr_size(input) != components.size())
+    return failure(error::invalid_argument, path, "数学值分量数量错误");
+  for (std::size_t i = 0; i < components.size(); ++i) {
+    auto* item = yyjson_arr_get(input, i);
+    if (!yyjson_is_num(item) || !std::isfinite(yyjson_get_num(item)) ||
+        std::abs(yyjson_get_num(item)) > std::numeric_limits<float>::max())
+      return failure(error::invalid_argument, path + "/" + std::to_string(i),
+                     "分量必须为有限 float");
+    components[i] = static_cast<float>(yyjson_get_num(item));
+  }
+  return value{output};
+}
 result<value, serialization::diagnostic> read_value(yyjson_val* input, value_kind kind,
                                                     std::string path) {
   value output;
@@ -85,51 +102,17 @@ result<value, serialization::diagnostic> read_value(yyjson_val* input, value_kin
     }
     break;
   case value_kind::matrix3:
-  case value_kind::matrix4: {
-    const std::size_t count = kind == value_kind::matrix3 ? 9 : 16;
-    if (!yyjson_is_arr(input) || yyjson_arr_size(input) != count)
-      break;
-    math::matrix3 small{};
-    math::matrix4 large{};
-    std::span<float> components = kind == value_kind::matrix3
-                                      ? std::span<float>{math::components(small)}
-                                      : std::span<float>{math::components(large)};
-    for (std::size_t i = 0; i < count; ++i) {
-      auto* item = yyjson_arr_get(input, i);
-      if (!yyjson_is_num(item) || !std::isfinite(yyjson_get_num(item)) ||
-          std::abs(yyjson_get_num(item)) > std::numeric_limits<float>::max())
-        return failure(error::invalid_argument, path + "/" + std::to_string(i));
-      components[i] = static_cast<float>(yyjson_get_num(item));
-    }
-    return kind == value_kind::matrix3 ? value{small} : value{large};
-  }
+    return read_math<math::matrix3>(input, path);
+  case value_kind::matrix4:
+    return read_math<math::matrix4>(input, path);
   case value_kind::vec2:
+    return read_math<math::vector2>(input, path);
   case value_kind::vec3:
+    return read_math<math::vector3>(input, path);
   case value_kind::vec4:
-  case value_kind::quaternion: {
-    const std::size_t count = kind == value_kind::vec2 ? 2U : kind == value_kind::vec3 ? 3U : 4U;
-    if (!yyjson_is_arr(input) || yyjson_arr_size(input) != count)
-      break;
-    math::quaternion numbers{};
-    auto components = math::components(numbers);
-    for (std::size_t i = 0; i < count; ++i) {
-      auto* item = yyjson_arr_get(input, i);
-      if (!yyjson_is_num(item) || !std::isfinite(yyjson_get_num(item)) ||
-          std::abs(yyjson_get_num(item)) > std::numeric_limits<float>::max())
-        return failure(error::invalid_argument, path + "/" + std::to_string(i),
-                       "分量必须为有限 float");
-      components[i] = static_cast<float>(yyjson_get_num(item));
-    }
-    if (kind == value_kind::vec2)
-      output.payload = math::vector2{components[0], components[1]};
-    else if (kind == value_kind::vec3)
-      output.payload = math::vector3{components[0], components[1], components[2]};
-    else if (kind == value_kind::vec4)
-      output.payload = math::vector4{components[0], components[1], components[2], components[3]};
-    else
-      output.payload = numbers;
-    return output;
-  }
+    return read_math<math::vector4>(input, path);
+  case value_kind::quaternion:
+    return read_math<math::quaternion>(input, path);
   default:
     return failure(error::unsupported, std::move(path), "不支持的反射属性类型");
   }

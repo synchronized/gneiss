@@ -53,6 +53,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/asset_uri.hpp
   engine/resource/material/material_description.hpp
   engine/resource/mesh/mesh_data.hpp
+  engine/resource/mesh/mesh_description.hpp
   engine/resource/asset_ref.hpp
   engine/resource/resource_retirement_queue.hpp
   engine/function/resource/resource_cache.hpp
@@ -96,6 +97,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
 
   engine/resource/asset_file.hpp
   engine/core/serialization/context.hpp
+  engine/core/serialization/detail/typed_decode.hpp
   engine/core/serialization/json.hpp
   engine/core/serialization/serialization.hpp
   engine/core/serialization/reader.hpp

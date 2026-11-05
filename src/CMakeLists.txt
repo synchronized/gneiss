@@ -160,6 +160,7 @@ target_sources(
     engine/core/serialization/reader.hpp
     engine/core/serialization/writer.hpp
     engine/core/serialization/detail/traversal.hpp
+    engine/core/serialization/detail/typed_decode.hpp
     engine/core/serialization/json.cpp
     engine/core/serialization/json.hpp
     engine/function/meta_registration.cpp

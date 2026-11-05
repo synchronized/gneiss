@@ -5,6 +5,7 @@
 #include <limits>
 namespace gneiss::engine {
 struct material_description;
+struct mesh_description;
 struct action_map;
 struct scene_description;
 struct prefab_description;
@@ -20,6 +21,11 @@ struct format {
 template <class T> struct format_traits {
   static constexpr bool enabled = false;
 };
+template <> struct format_traits<mesh_description> {
+  static constexpr bool enabled = true;
+  static GNEISS_API format get() noexcept;
+};
+
 template <> struct format_traits<material_description> {
   static constexpr bool enabled = true;
   static GNEISS_API format get() noexcept;

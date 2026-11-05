@@ -5,9 +5,11 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/resource/input/action_map.hpp"
 #include "engine/resource/material/material_description.hpp"
+#include "engine/resource/mesh/mesh_description.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 namespace gneiss::engine {
 namespace {
 using diagnostic = serialization::diagnostic;
@@ -15,6 +17,25 @@ using diagnostic = serialization::diagnostic;
 diagnostic invalid_description(std::string path, std::string message = {}) {
   return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};
 }
+diagnostic validate_mesh(const mesh_description& v) {
+  if (v.topology != "triangle_list")
+    return invalid_description("/topology", "只支持 triangle_list");
+  const auto count = v.vertices.size();
+  if (count < 3 || count % 3 != 0 || count > std::numeric_limits<std::uint32_t>::max())
+    return invalid_description("/vertices", "顶点必须组成非空三角形列表");
+  if (v.uvs.size() != count)
+    return invalid_description("/uvs", "UV 数量必须与顶点数量一致");
+  if (v.normals.size() != count)
+    return invalid_description("/normals", "法线数量必须与顶点数量一致");
+  for (std::size_t i = 0; i < count; ++i) {
+    const auto& n = v.normals[i];
+    const auto length = std::sqrt(n.x * n.x + n.y * n.y + n.z * n.z);
+    if (!std::isfinite(length) || std::abs(length - 1.0F) > 1.0e-4F)
+      return invalid_description("/normals/" + std::to_string(i), "法线必须归一化");
+  }
+  return {};
+}
+
 diagnostic validate_sampling(const texture_sampling& v) {
   return valid_sampling(v) ? diagnostic{} : invalid_description("", "采样值越界");
 }
@@ -163,6 +184,20 @@ error register_component_descriptions() noexcept {
 }
 error register_builtin_resource_types() noexcept {
   auto status = register_component_descriptions();
+  if (status.failed())
+    return status;
+  status = meta::type_builder<mesh_description>{}
+               .property<&mesh_description::topology>(meta::property_id{1}, "topology",
+                                                      meta::property_flags::required)
+               .property<&mesh_description::vertices>(meta::property_id{2}, "vertices",
+                                                      meta::property_flags::required)
+               .property<&mesh_description::uvs>(meta::property_id{3}, "uvs",
+                                                 meta::property_flags::required)
+               .property<&mesh_description::normals>(meta::property_id{4}, "normals",
+                                                     meta::property_flags::required)
+               .serialization(true)
+               .validate<&validate_mesh>()
+               .commit();
   if (status.failed())
     return status;
   status = meta::enum_builder<material_alpha_mode>{}

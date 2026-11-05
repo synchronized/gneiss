@@ -3,6 +3,7 @@
 #pragma once
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/serialization/context.hpp"
+#include "engine/core/serialization/detail/typed_decode.hpp"
 #include "engine/core/serialization/reader.hpp"
 #include "engine/core/serialization/writer.hpp"
 namespace gneiss::engine::serialization {
@@ -43,27 +44,9 @@ template <class T> serialization::diagnostic serialize(const T& value, writer& o
 }
 template <class T>
 result<T, serialization::diagnostic> deserialize(const context& ctx, reader& input) noexcept try {
-  auto registry = ctx.registry();
-  if (!registry)
-    return serialization::diagnostic{.error = registry.error()};
-  if constexpr (meta::detail::reflected_value_kind<T>() != value_kind::invalid ||
-                meta::detail::optional_traits<T>::enabled ||
-                meta::detail::reference_traits<T>::enabled || meta::sequence_traits<T>::enabled ||
-                meta::associative_traits<T>::enabled || meta::variant_traits<T>::enabled) {
-    T result{};
-    auto view = meta::mutable_instance::from(*registry, result);
-    if (!view)
-      return serialization::diagnostic{.error = view.error()};
-    auto status = deserialize(ctx, input, *view);
-    if (status.error.failed())
-      return status;
-    return result;
-  } else {
-    auto decoded = deserialize_object(ctx, runtime_type_of<T>(), input);
-    if (!decoded)
-      return std::move(decoded).error();
-    return std::move(*static_cast<T*>(decoded->get()));
-  }
+  return detail::decode_typed<T>(
+      ctx, [&](const meta::mutable_instance& view) { return deserialize(ctx, input, view); },
+      [&](type_id id) { return deserialize_object(ctx, id, input); });
 } catch (const std::bad_alloc&) {
   return serialization::diagnostic{.error = error::out_of_memory};
 } catch (...) {

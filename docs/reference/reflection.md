@@ -8,7 +8,7 @@
 反射注册与查询使用 `src/engine/core/meta/registration.hpp` 和
 `registry.hpp` 中的原生接口。Registry 的 C 函数、公共句柄表及 C 元数据缓存已删除。
 旧 `reflection.h`、C 属性值布局和转换头已删除；Editor/Runtime 属性命令直接持有原生 `guid`。
-IPC 仍使用既有 32 位十六进制字符串编码 GUID，不传输原生对象布局。
+IPC 使用 guid::string 的标准带连字符字符串编码 GUID，不传输原生对象布局。
 
 当前支持类型、字段、显式属性访问器和显式单基类登记，内建 Transform 与 Camera 已接入。
 类型构造和基类转换通过 object_ops 查询，序列化使用这些能力恢复对象；

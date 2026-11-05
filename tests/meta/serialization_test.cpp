@@ -10,6 +10,7 @@
 #include "engine/resource/material/material_description.hpp"
 #include <array>
 #include <limits>
+#include <optional>
 #include <stdexcept>
 namespace e = gneiss::engine;
 std::span<const std::byte> bytes(std::string_view text) {
@@ -54,6 +55,22 @@ int main() {
       e::meta::register_builtin_types(*core) != e::error::invalid_argument ||
       e::meta::freeze(*core).failed())
     return 30;
+  // JSON 顶层类型与通用后端使用同一分派，不要求注册标量或 optional。
+  const auto round_trip = [&]<class T>(const T& source) {
+    e::serialization::context ctx{*core};
+    auto encoded = e::serialization::json::serialize(ctx, source);
+    if (!encoded)
+      return false;
+    auto decoded = e::serialization::json::deserialize<T>(ctx, std::string_view{*encoded});
+    return decoded && *decoded == source;
+  };
+  if (!round_trip(std::int64_t{-42}) || !round_trip(std::optional<int>{}) ||
+      !round_trip(std::optional<int>{17}) || !round_trip(std::monostate{}) ||
+      !round_trip(e::math::matrix3{2}) || !round_trip(e::math::quaternion_xyzw(1, 2, 3, 4)))
+    return 50;
+  if (e::serialization::json::deserialize<std::optional<int>>(e::serialization::context{*core},
+                                                              std::string_view{R"("invalid")"}))
+    return 51;
   e::math::matrix3 matrix3{};
   e::math::matrix4 matrix4{};
   for (std::size_t i = 0; i < 9; ++i)

@@ -152,6 +152,14 @@ int main() {
   CHECK(m::freeze(*r).ok());
   s::context ctx{*r};
   static_assert(!std::is_copy_constructible_v<s::context>);
+  // 顶层可空值与 JSON 共用类型分派，空值不走对象工厂。
+  for (const auto optional : {std::optional<int>{}, std::optional<int>{17}}) {
+    memory_writer encoded;
+    CHECK(s::serialize(ctx, optional, encoded).error.ok());
+    memory_reader decoded{encoded.root_value};
+    auto restored = s::deserialize<std::optional<int>>(ctx, decoded);
+    CHECK(restored && *restored == optional);
+  }
   record original{{1, 2, 3}, {{"a/b~c", 42}}, "hello", e::make_ref<derived>(), 12};
   memory_writer output;
   CHECK(s::serialize(ctx, original, output).error.ok());

@@ -64,6 +64,16 @@ int main() try {
                                              diagnostic)
             .failed());
   check(std::get<mesh_data>(output.content).vertices.data() == vertices);
+  // 反射读取负责形状和数值；业务校验负责数组对应与法线归一化。
+  for (
+      const auto malformed :
+      {R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[],"normals":[[0,0,1],[0,0,1],[0,0,1]]})",
+       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[1,0],[0,1]],"normals":[[0,0,2],[0,0,1],[0,0,1]]})",
+       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[1,0],[0,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})"}) {
+    check(gneiss::test_support::assign_decoded(decode_mesh_asset(mesh.uri, bytes(malformed)),
+                                               output, diagnostic) == error::invalid_argument);
+    check(std::get<mesh_data>(output.content).vertices.data() == vertices);
+  }
   check(decoded_asset{}.kind() == render_resource_kind::invalid);
   const render_resource_source material{"asset://material", render_resource_kind::material};
   auto description = std::make_shared<material_description>();

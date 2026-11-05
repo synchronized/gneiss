@@ -4,6 +4,7 @@
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/serialization/context.hpp"
+#include "engine/core/serialization/detail/typed_decode.hpp"
 #include <new>
 #include <span>
 #include <type_traits>
@@ -36,15 +37,10 @@ serialize_bytes(const context& ctx, const T& object) noexcept try {
   auto registry = ctx.registry();
   if (!registry)
     return serialization::diagnostic{.error = registry.error()};
-  if constexpr (meta::detail::reference_traits<std::remove_cv_t<T>>::enabled ||
-                meta::sequence_traits<T>::enabled || meta::associative_traits<T>::enabled ||
-                meta::variant_traits<T>::enabled) {
-    auto view = instance::from(*registry, object);
-    if (!view)
-      return serialization::diagnostic{.error = view.error()};
-    return serialize_instance(ctx, *view);
-  } else
-    return serialize_object(ctx, runtime_type_of<T>(), &object);
+  auto view = instance::from(*registry, object);
+  if (!view)
+    return serialization::diagnostic{.error = view.error()};
+  return serialize_instance(ctx, *view);
 } catch (const std::bad_alloc&) {
   return serialization::diagnostic{.error = error::out_of_memory};
 } catch (...) {
@@ -54,27 +50,9 @@ serialize_bytes(const context& ctx, const T& object) noexcept try {
 template <class T>
 [[nodiscard]] result<T, serialization::diagnostic>
 deserialize(const context& ctx, std::span<const std::byte> bytes) noexcept try {
-  auto registry = ctx.registry();
-  if (!registry)
-    return serialization::diagnostic{.error = registry.error()};
-  if constexpr (meta::detail::reference_traits<T>::enabled || meta::sequence_traits<T>::enabled ||
-                meta::associative_traits<T>::enabled || meta::variant_traits<T>::enabled) {
-    T object{};
-    auto view = mutable_instance::from(*registry, object);
-    if (!view)
-      return serialization::diagnostic{.error = view.error()};
-    auto status = deserialize_instance(ctx, *view, bytes);
-    if (status.error.failed())
-      return status;
-    return object;
-  } else {
-    auto decoded = deserialize_object(ctx, runtime_type_of<T>(), bytes);
-    if (!decoded)
-      return std::move(decoded).error();
-    if (!*decoded)
-      return serialization::diagnostic{.error = error::internal};
-    return std::move(*static_cast<T*>(decoded->get()));
-  }
+  return serialization::detail::decode_typed<T>(
+      ctx, [&](const mutable_instance& view) { return deserialize_instance(ctx, view, bytes); },
+      [&](type_id id) { return deserialize_object(ctx, id, bytes); });
 } catch (const std::bad_alloc&) {
   return serialization::diagnostic{.error = error::out_of_memory};
 } catch (...) {

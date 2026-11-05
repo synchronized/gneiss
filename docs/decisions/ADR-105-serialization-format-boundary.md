@@ -60,3 +60,10 @@ Value 通过 Meta traits 暴露底层 variant，统一使用 $kind/$content；�
 GUID 兼容删除。分支标签显式配置，不与枚举数值绑定。monostate 为 invalid 分支，内容 null；
 空对象为 object 分支，内容 null；非空对象使用通用 $type_guid/$content 多态引用规则。
 矩阵按列优先保存 9/16 个有限 float 分量。该未发布格式直接迁移，不提供旧格式读取。
+
+### 入口与资源适配收敛
+
+JSON 和通用 reader 的类型模板共用 Meta 分类分派，对象继续通过注册工厂或解码回调创建，
+不要求普通结构默认构造。Mesh JSON 字段采用反射描述，文件头由 asset_file 统一处理，
+拓扑、数组对应和法线合法性保留为资源校验；二进制网格仍保留专用布局。
+IPC 嵌入通用值节点，不解释其类型标签；命令 GUID 统一为标准带连字符字符串，不兼容旧 32 字符编码。

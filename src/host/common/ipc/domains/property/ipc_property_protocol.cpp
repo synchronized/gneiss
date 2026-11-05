@@ -24,54 +24,20 @@ constexpr std::size_t max_json_size = 64U * 1024U;
 
 constexpr std::size_t max_message_size = 1024U;
 constexpr std::size_t max_property_string_size = 16U * 1024U;
-constexpr char hex_digits[] = "0123456789abcdef";
 
 using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
 
 bool valid_type_id(gneiss::engine::guid id) noexcept { return !id.is_nil(); }
 
-std::string type_id_text(gneiss::engine::guid id) {
-  std::string text(32U, '0');
-  for (std::size_t index = 0U; index < 16U; ++index) {
-    text[index * 2U] = hex_digits[id.bytes()[index] >> 4U];
-    text[index * 2U + 1U] = hex_digits[id.bytes()[index] & 0x0FU];
-  }
-  return text;
-}
-
-int hex_value(char value) noexcept {
-  if (value >= '0' && value <= '9') {
-    return value - '0';
-  }
-  if (value >= 'a' && value <= 'f') {
-    return value - 'a' + 10;
-  }
-  if (value >= 'A' && value <= 'F') {
-    return value - 'A' + 10;
-  }
-  return -1;
-}
-
-bool parse_type_id(yyjson_val* value, gneiss::engine::guid& output) noexcept {
-  if (!yyjson_is_str(value) || yyjson_get_len(value) != 32U) {
+bool parse_type_id(yyjson_val* value, gneiss::engine::guid& output) {
+  if (!yyjson_is_str(value))
     return false;
-  }
-  gneiss::engine::guid::byte_array bytes{};
-  const auto* text = yyjson_get_str(value);
-  for (std::size_t index = 0U; index < 16U; ++index) {
-    const auto high = hex_value(text[index * 2U]);
-    const auto low = hex_value(text[index * 2U + 1U]);
-    if (high < 0 || low < 0) {
-      return false;
-    }
-    bytes[index] = static_cast<std::uint8_t>((high << 4) | low);
-  }
-  const gneiss::engine::guid parsed{gneiss::engine::guid::from_bytes(bytes)};
-  if (!valid_type_id(parsed)) {
+  const std::string_view text{yyjson_get_str(value), yyjson_get_len(value)};
+  auto parsed = gneiss::engine::guid::parse(text);
+  if (!parsed || parsed->is_nil() || parsed->string() != text)
     return false;
-  }
-  output = parsed;
+  output = *parsed;
   return true;
 }
 
@@ -84,23 +50,15 @@ bool add_property_value(yyjson_mut_doc* doc, yyjson_mut_val* root,
   auto node = gneiss::engine::serialization::json::detail::write_value(doc, value);
   if (!node)
     return false;
-  return yyjson_mut_obj_add_str(doc, root, "$kind",
-                                yyjson_mut_get_str(yyjson_mut_obj_get(*node, "$kind"))) &&
-         yyjson_mut_obj_add_val(doc, root, "$content",
-                                yyjson_mut_obj_remove_key(*node, "$content"));
+  return yyjson_mut_obj_add_val(doc, root, "value", *node);
 }
 bool parse_property_value(yyjson_val* root, gneiss::engine::value& output) {
   using namespace gneiss::engine;
-  auto* tag = yyjson_obj_get(root, "$kind");
-  auto* content = yyjson_obj_get(root, "$content");
-  if (!yyjson_is_obj(root) || yyjson_obj_size(root) != 2 || !yyjson_is_str(tag))
-    return false;
-  const std::string_view kind{yyjson_get_str(tag), yyjson_get_len(tag)};
-  if (kind == "string" && yyjson_is_str(content) &&
-      yyjson_get_len(content) > max_property_string_size)
-    return false;
-  auto decoded = gneiss::engine::serialization::json::detail::read_value(root);
+  auto decoded = serialization::json::detail::read_value(root);
   if (!decoded)
+    return false;
+  if (const auto* text = std::get_if<std::string>(&decoded->payload);
+      text && text->size() > max_property_string_size)
     return false;
   output = std::move(*decoded);
   return true;
@@ -148,10 +106,8 @@ gneiss::engine::error encode_ipc_property_write(const ipc_property_write& comman
   try {
     mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
     auto* root = document ? yyjson_mut_obj(document.get()) : nullptr;
-    auto* value = document ? yyjson_mut_obj(document.get()) : nullptr;
-    const auto type_text = type_id_text(command.type_id);
-    if (root == nullptr || value == nullptr ||
-        !add_session(document.get(), root, command.session_id) ||
+    const auto type_text = command.type_id.string();
+    if (root == nullptr || !add_session(document.get(), root, command.session_id) ||
         !yyjson_mut_obj_add_uint(document.get(), root, "object_id", command.object.value) ||
         !yyjson_mut_obj_add_uint(document.get(), root, "generation", command.object.generation) ||
         !yyjson_mut_obj_add_strncpy(document.get(), root, "type_id", type_text.data(),
@@ -159,8 +115,7 @@ gneiss::engine::error encode_ipc_property_write(const ipc_property_write& comman
         !yyjson_mut_obj_add_uint(document.get(), root, "field_id", command.field_id) ||
         !yyjson_mut_obj_add_uint(document.get(), root, "expected_revision",
                                  command.expected_revision) ||
-        !add_property_value(document.get(), value, command.value) ||
-        !yyjson_mut_obj_add_val(document.get(), root, "value", value)) {
+        !add_property_value(document.get(), root, command.value)) {
       return gneiss::engine::error::invalid_argument;
     }
     return write_payload(document.get(), root, output);
@@ -231,10 +186,7 @@ gneiss::engine::error encode_ipc_property_write_result(const ipc_property_write_
       return gneiss::engine::error::invalid_argument;
     }
     if (response.code == 0) {
-      auto* value = yyjson_mut_obj(document.get());
-      if (value == nullptr ||
-          !add_property_value(document.get(), value, response.canonical_value) ||
-          !yyjson_mut_obj_add_val(document.get(), root, "value", value)) {
+      if (!add_property_value(document.get(), root, response.canonical_value)) {
         return gneiss::engine::error::invalid_argument;
       }
     }

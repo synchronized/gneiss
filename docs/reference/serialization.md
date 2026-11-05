@@ -106,3 +106,13 @@ Material、Action Map、Scene、Prefab、Texture 的格式名、版本、大小�
 内建反射对象根类型的注册实现在 `meta/builtin_registration.cpp`；value 是内建 variant 包装，
 无需登记自己的字段或 codec。JSON 节点适配位于 `detail/json_adapter.hpp`，
 命名空间为 `serialization::json::detail`；普通调用方使用文本、字节或 reader/writer 入口。
+
+## 类型分派与资源文件
+
+JSON 与通用 reader 的返回值模板共用 `detail::decode_typed`：Meta 非对象类别通过临时实例解码，
+对象类别通过注册的构造或解码能力创建，因此保留非默认构造对象支持。编码统一从 instance 遍历。
+向量、四元数和矩阵共用固定长度分量读取，保留有限 float 校验和实际类型。
+
+Mesh JSON 使用 `mesh_description` 注册字段，由 `asset_file` 处理 `gneiss.mesh` 版本 3 格式头；
+字段反射读取后校验三角形列表、数组数量对应和法线归一化，再转换为 `mesh_data`。
+独立二进制 Mesh 编解码保持专用布局。

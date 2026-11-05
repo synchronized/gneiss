@@ -74,6 +74,8 @@ bool round_trip_value(const gneiss::engine::value& value) {
   return gneiss::host::encode_ipc_property_write(source, payload) ==
              gneiss::engine::error::success &&
          std::string(payload.begin(), payload.end()).find("command_id") == std::string::npos &&
+         std::string(payload.begin(), payload.end()).find(source.type_id.string()) !=
+             std::string::npos &&
          gneiss::host::decode_ipc_property_write(payload, decoded) ==
              gneiss::engine::error::success &&
          decoded.session_id == source.session_id && decoded.command_id == 0U &&
