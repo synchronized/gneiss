@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/meta/serialization.hpp"
-namespace gneiss::engine::meta {
+#include "engine/core/serialization/json.hpp"
+namespace gneiss::engine::serialization::json {
+using meta::instance;
+using meta::mutable_instance;
+using meta::registry_ref;
+using meta::serialization_diagnostic;
 namespace detail {
 struct json_codec_state;
 }
@@ -35,7 +39,7 @@ public:
   }
 };
 /** 内部 JSON 适配边界；普通业务使用 serialize/deserialize。节点只在所属文档存活期间有效。 */
-namespace json {
+
 /** 通用带标签值；标量无需冻结表，对象分支要求默认表已注册并冻结。 */
 GNEISS_API result<yyjson_mut_val*, serialization_diagnostic> write_value(yyjson_mut_doc*,
                                                                          const value&) noexcept;
@@ -50,5 +54,4 @@ GNEISS_API result<yyjson_mut_val*, serialization_diagnostic> write_fields(yyjson
                                                                           const instance&) noexcept;
 GNEISS_API serialization_diagnostic read_fields(
     yyjson_val*, const mutable_instance&, std::span<const std::string_view> ignored = {}) noexcept;
-}
 }

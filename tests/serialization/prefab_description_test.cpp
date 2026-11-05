@@ -6,8 +6,8 @@
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
-#include "engine/core/meta/serialization.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/resource/resource_cache.hpp"
@@ -111,7 +111,8 @@ bool prepared_description_contract() {
   gneiss::engine::prefab_description description;
   gneiss::engine::meta::serialization_diagnostic diagnostic;
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::meta::deserialize<gneiss::engine::prefab_description>(valid_prefab),
+          gneiss::engine::serialization::json::deserialize<gneiss::engine::prefab_description>(
+              valid_prefab),
           description, diagnostic) != gneiss::engine::error::success) {
     return false;
   }
@@ -177,30 +178,31 @@ bool prepared_description_contract() {
 
 bool explicit_root_contract() {
   namespace e = gneiss::engine;
-  auto parsed = e::meta::deserialize<e::prefab_description>(valid_prefab);
+  auto parsed =
+      gneiss::engine::serialization::json::deserialize<e::prefab_description>(valid_prefab);
   if (!parsed || parsed->root_uuid != parsed->objects.front().uuid)
     return false;
   const auto root = parsed->root_uuid;
   const auto child = parsed->objects.back().uuid;
   std::swap(parsed->objects[0], parsed->objects[1]);
-  auto text = e::meta::serialize_json(*parsed);
+  auto text = gneiss::engine::serialization::json::serialize(*parsed);
   if (!text)
     return false;
-  auto restored = e::meta::deserialize<e::prefab_description>(*text);
+  auto restored = gneiss::engine::serialization::json::deserialize<e::prefab_description>(*text);
   if (!restored || restored->root_uuid != root || restored->objects[0].uuid != child)
     return false;
   // 根选择写回文件，不能保留 输入文件中的旧 root_uuid。
   parsed->root_uuid = child;
   parsed->objects[0].parent_uuid = {};
   parsed->objects[1].parent_uuid = child;
-  text = e::meta::serialize_json(*parsed);
+  text = gneiss::engine::serialization::json::serialize(*parsed);
   if (!text)
     return false;
-  restored = e::meta::deserialize<e::prefab_description>(*text);
+  restored = gneiss::engine::serialization::json::deserialize<e::prefab_description>(*text);
   if (!restored || restored->root_uuid != child)
     return false;
   parsed->root_uuid = root; // 有父节点的对象不能被指定为根。
-  if (e::meta::serialize_json(*parsed))
+  if (gneiss::engine::serialization::json::serialize(*parsed))
     return false;
   for (const auto invalid :
        {"00000000-0000-0000-0000-000000000000", "10000000-0000-4000-8000-000000000099",
@@ -208,32 +210,33 @@ bool explicit_root_contract() {
     auto broken = replace_once(std::string(valid_prefab),
                                R"("root_uuid":"10000000-0000-4000-8000-000000000002")",
                                std::string(R"("root_uuid":")") + invalid + "\"");
-    if (e::meta::deserialize<e::prefab_description>(broken))
+    if (gneiss::engine::serialization::json::deserialize<e::prefab_description>(broken))
       return false;
   }
   auto missing = replace_once(std::string(valid_prefab),
                               R"("root_uuid":"10000000-0000-4000-8000-000000000002",)", "");
-  if (e::meta::deserialize<e::prefab_description>(missing))
+  if (gneiss::engine::serialization::json::deserialize<e::prefab_description>(missing))
     return false;
   const auto cycle = replace_once(std::string(valid_prefab), R"("parent":null)",
                                   R"("parent":"10000000-0000-4000-8000-000000000003")");
-  if (e::meta::deserialize<e::prefab_description>(cycle))
+  if (gneiss::engine::serialization::json::deserialize<e::prefab_description>(cycle))
     return false;
   const auto duplicate =
       replace_once(std::string(valid_prefab), R"("uuid":"10000000-0000-4000-8000-000000000003")",
                    R"("uuid":"10000000-0000-4000-8000-000000000002")");
-  return !e::meta::deserialize<e::prefab_description>(duplicate);
+  return !gneiss::engine::serialization::json::deserialize<e::prefab_description>(duplicate);
 }
 
 bool save_tree_contract() {
   namespace e = gneiss::engine;
-  auto parsed = e::meta::deserialize<e::prefab_description>(valid_prefab);
+  auto parsed =
+      gneiss::engine::serialization::json::deserialize<e::prefab_description>(valid_prefab);
   if (!parsed)
     return false;
   const auto rejects = [&](auto change) {
     auto candidate = *parsed;
     change(candidate);
-    auto encoded = e::meta::serialize(candidate);
+    auto encoded = gneiss::engine::serialization::json::serialize_bytes(candidate);
     return !encoded && encoded.error().error == e::error::invalid_argument;
   };
   return rejects([](auto& prefab) { prefab.root_uuid = {}; }) &&
@@ -249,7 +252,7 @@ int main() try {
   const auto nested = replace_once(std::string(valid_prefab), R"("components":[])",
                                    R"("prefab":{"uri":"asset://nested.prefab","overrides":[]})");
   const auto parsed_nested =
-      gneiss::engine::meta::deserialize<gneiss::engine::prefab_description>(nested);
+      gneiss::engine::serialization::json::deserialize<gneiss::engine::prefab_description>(nested);
   if (parsed_nested || parsed_nested.error().error != gneiss::engine::error::unsupported)
     return 95;
   // 反射 codec 忽略未知字段；解码失败不覆盖旧对象。
@@ -262,36 +265,39 @@ int main() try {
     gneiss::engine::meta::serialization_diagnostic detail;
     std::vector<std::byte> encoded;
     if (gneiss::test_support::assign_decoded(
-            gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(value)>>(source), value,
-            detail)
+            gneiss::engine::serialization::json::deserialize<std::remove_cvref_t<decltype(value)>>(
+                source),
+            value, detail)
             .failed() ||
-        gneiss::test_support::assign_decoded(gneiss::engine::meta::serialize(value), encoded,
-                                             detail)
+        gneiss::test_support::assign_decoded(
+            gneiss::engine::serialization::json::serialize_bytes(value), encoded, detail)
             .failed())
       return 91;
     e::prefab_description restored;
-    if (gneiss::test_support::assign_decoded(
-            gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(restored)>>(encoded),
-            restored, detail)
+    if (gneiss::test_support::assign_decoded(gneiss::engine::serialization::json::deserialize<
+                                                 std::remove_cvref_t<decltype(restored)>>(encoded),
+                                             restored, detail)
             .failed() ||
         restored.objects.size() != value.objects.size() ||
-        (*gneiss::engine::meta::serialize_json(restored)).find("codec_unknown") !=
+        (*gneiss::engine::serialization::json::serialize(restored)).find("codec_unknown") !=
             std::string::npos)
       return 92;
-    const auto saved = (*gneiss::engine::meta::serialize_json(restored));
+    const auto saved = (*gneiss::engine::serialization::json::serialize(restored));
     const std::string broken = "{";
     if (gneiss::test_support::assign_decoded(
-            gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(restored)>>(
+            gneiss::engine::serialization::json::deserialize<
+                std::remove_cvref_t<decltype(restored)>>(
                 std::as_bytes(std::span{broken.data(), broken.size()})),
             restored, detail)
             .ok() ||
-        (*gneiss::engine::meta::serialize_json(restored)) != saved)
+        (*gneiss::engine::serialization::json::serialize(restored)) != saved)
       return 93;
     std::vector<std::byte> oversized(e::prefab_description::maximum_source_bytes + 1U);
     if (gneiss::test_support::assign_decoded(
-            gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(restored)>>(oversized),
+            gneiss::engine::serialization::json::deserialize<
+                std::remove_cvref_t<decltype(restored)>>(oversized),
             restored, detail) != e::error::invalid_argument ||
-        (*gneiss::engine::meta::serialize_json(restored)) != saved)
+        (*gneiss::engine::serialization::json::serialize(restored)) != saved)
       return 94;
   }
 
@@ -305,7 +311,8 @@ int main() try {
   gneiss::engine::prefab_description prefab;
   gneiss::engine::meta::serialization_diagnostic diagnostic;
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::meta::deserialize<gneiss::engine::prefab_description>(valid_prefab),
+          gneiss::engine::serialization::json::deserialize<gneiss::engine::prefab_description>(
+              valid_prefab),
           prefab, diagnostic) != gneiss::engine::error::success ||
       prefab.objects.size() != 2U || prefab.objects[1].parent_uuid != prefab.objects[0].uuid) {
     return 1;
@@ -315,19 +322,20 @@ int main() try {
   const auto author_with_unknown = replace_once(std::string(valid_prefab), R"("version":1,)",
                                                 R"("version":1,"editor_unknown":{"kept":true},)");
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::meta::deserialize<gneiss::engine::prefab_description>(
+          gneiss::engine::serialization::json::deserialize<gneiss::engine::prefab_description>(
               author_with_unknown),
           prefab, diagnostic) != gneiss::engine::error::success) {
     return 7;
   }
   prefab.objects[1].name = "Serialized Child";
-  if (gneiss::test_support::assign_value(gneiss::engine::meta::serialize_json(prefab),
+  if (gneiss::test_support::assign_value(gneiss::engine::serialization::json::serialize(prefab),
                                          serialized) != gneiss::engine::error::success ||
       serialized.find("Serialized Child") == std::string::npos ||
       serialized.find("editor_unknown") != std::string::npos ||
       serialized.find("prefab_instances") != std::string::npos ||
       gneiss::test_support::assign_decoded(
-          gneiss::engine::meta::deserialize<gneiss::engine::prefab_description>(serialized),
+          gneiss::engine::serialization::json::deserialize<gneiss::engine::prefab_description>(
+              serialized),
           round_trip, diagnostic) != gneiss::engine::error::success ||
       round_trip.objects[1].name != "Serialized Child") {
     return 8;
@@ -335,16 +343,17 @@ int main() try {
 
   // 新建描述不依赖原文件；非法根节点仍须拒绝保存。
   auto fresh = prefab;
-  auto fresh_bytes = gneiss::engine::meta::serialize(fresh);
+  auto fresh_bytes = gneiss::engine::serialization::json::serialize_bytes(fresh);
   if (!fresh_bytes)
     return 40;
   auto fresh_copy =
-      gneiss::engine::meta::deserialize<gneiss::engine::prefab_description>(*fresh_bytes);
+      gneiss::engine::serialization::json::deserialize<gneiss::engine::prefab_description>(
+          *fresh_bytes);
   if (!fresh_copy || fresh_copy->root_uuid != fresh.root_uuid ||
       fresh_copy->objects.size() != fresh.objects.size())
     return 41;
   fresh.root_uuid = {};
-  if (gneiss::engine::meta::serialize(fresh))
+  if (gneiss::engine::serialization::json::serialize_bytes(fresh))
     return 42;
   const gneiss::engine::prefab_author_address address{
       .instance_uuid = *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000001"),
@@ -360,7 +369,8 @@ int main() try {
       replace_once(std::string(valid_prefab), R"("parent":"10000000-0000-4000-8000-000000000002")",
                    R"("parent":null)");
   auto rejected =
-      gneiss::engine::meta::deserialize<gneiss::engine::prefab_description>(multiple_roots);
+      gneiss::engine::serialization::json::deserialize<gneiss::engine::prefab_description>(
+          multiple_roots);
   if (rejected || rejected.error().error != gneiss::engine::error::invalid_argument ||
       rejected.error().path != "/objects") {
     return 3;
@@ -368,8 +378,9 @@ int main() try {
 
   const auto future = replace_once(std::string(valid_prefab), "\"version\":1", "\"version\":2");
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::meta::deserialize<gneiss::engine::prefab_description>(future), prefab,
-          diagnostic) != gneiss::engine::error::unsupported ||
+          gneiss::engine::serialization::json::deserialize<gneiss::engine::prefab_description>(
+              future),
+          prefab, diagnostic) != gneiss::engine::error::unsupported ||
       diagnostic.path != "/version") {
     return 4;
   }

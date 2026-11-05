@@ -8,7 +8,7 @@
 #include "engine/function/world/world.hpp"
 
 #include "engine/core/meta/instance.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include <memory>
 #include <new>
@@ -65,10 +65,10 @@ engine::error edit_description(editor_command_history& history,
     status = target->write_value(edit.data);
   if (status.failed())
     return status;
-  auto validated = meta::serialize(candidate);
+  auto validated = gneiss::engine::serialization::json::serialize_bytes(candidate);
   if (!validated)
     return validated.error().error;
-  auto original = meta::serialize(before);
+  auto original = gneiss::engine::serialization::json::serialize_bytes(before);
   if (!original)
     return original.error().error;
   if (*original == *validated)
@@ -272,10 +272,10 @@ engine::error edit_component_description(scene_document& document, editor_comman
       if (!edit.object) {
         if (edit.data.kind() != value_kind::object)
           return target->write_value(edit.data);
-        auto bytes = meta::serialize(edit.data);
+        auto bytes = gneiss::engine::serialization::json::serialize_bytes(edit.data);
         if (!bytes)
           return bytes.error().error;
-        auto owned = meta::deserialize<value>(*bytes);
+        auto owned = gneiss::engine::serialization::json::deserialize<value>(*bytes);
         return owned ? target->write_value(*owned) : owned.error().error;
       }
       auto source = meta::instance::from_object(edit.object_type, edit.object.get());
@@ -283,7 +283,8 @@ engine::error edit_component_description(scene_document& document, editor_comman
     });
     if (!changed)
       return changed.error();
-    auto original = engine::meta::serialize(before), next = engine::meta::serialize(*changed);
+    auto original = gneiss::engine::serialization::json::serialize_bytes(before),
+         next = gneiss::engine::serialization::json::serialize_bytes(*changed);
     if (!original)
       return original.error().error;
     if (!next)
@@ -291,7 +292,7 @@ engine::error edit_component_description(scene_document& document, editor_comman
     if (*original == *next)
       return error::success;
     const auto apply = [&document, &world, identity](const std::vector<std::byte>& bytes) {
-      auto decoded = meta::deserialize<component_description>(bytes);
+      auto decoded = gneiss::engine::serialization::json::deserialize<component_description>(bytes);
       if (!decoded)
         return decoded.error().error;
       const auto& value = *decoded;

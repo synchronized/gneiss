@@ -6,7 +6,7 @@
 #include "../support/memory_file_fixture.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
@@ -75,12 +75,12 @@ unsigned scene_decodes{}, prefab_decodes{};
 result<scene_description, meta::serialization_diagnostic>
 custom_scene(std::span<const std::byte> bytes) {
   ++scene_decodes;
-  return meta::deserialize<scene_description>(bytes);
+  return gneiss::engine::serialization::json::deserialize<scene_description>(bytes);
 }
 result<prefab_description, meta::serialization_diagnostic>
 custom_prefab(std::span<const std::byte> bytes) {
   ++prefab_decodes;
-  return meta::deserialize<prefab_description>(bytes);
+  return gneiss::engine::serialization::json::deserialize<prefab_description>(bytes);
 }
 void run() {
   auto memory = std::make_shared<memory_files>();

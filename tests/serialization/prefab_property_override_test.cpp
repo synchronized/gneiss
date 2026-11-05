@@ -10,7 +10,7 @@
 #include "engine/function/world/world_reflection.hpp"
 
 #include "engine/core/meta/registration.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 
 #include <array>
 #include <cmath>
@@ -41,10 +41,10 @@ int main() {
     using namespace gneiss::engine;
     auto original = make_translation(source_a, {1, 2, 3});
     original.key.path = {meta::property_id{2}, std::size_t{3}};
-    auto bytes = meta::serialize(original);
+    auto bytes = gneiss::engine::serialization::json::serialize_bytes(original);
     if (!bytes)
       return 30;
-    auto copy = meta::deserialize<prefab_property_override>(*bytes);
+    auto copy = gneiss::engine::serialization::json::deserialize<prefab_property_override>(*bytes);
     if (!copy || copy->key != original.key || copy->value != original.value)
       return 31;
     const std::string json(reinterpret_cast<const char*>(bytes->data()), bytes->size());

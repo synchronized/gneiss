@@ -4,10 +4,10 @@
 #include "documents/scene_document.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registry.hpp"
-#include "engine/core/meta/serialization.hpp"
-#include "engine/function/scene/scene_types.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
@@ -755,7 +755,7 @@ engine::error scene_document::encode_scene(std::string& output) const noexcept t
   if (!description_result)
     return description_result.error();
   description = std::move(*description_result);
-  auto encoded = engine::meta::serialize(description);
+  auto encoded = gneiss::engine::serialization::json::serialize_bytes(description);
   if (!encoded)
     return encoded.error().error;
   output.assign(reinterpret_cast<const char*>(encoded->data()), encoded->size());

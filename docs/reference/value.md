@@ -58,7 +58,7 @@ IPC 传递的是对象内容，不是远端对象句柄；运行对象定位继�
 
 ## JSON 与组件属性入口
 
-IPC 使用 meta::json::read_value/write_value 复用 Meta 标签编解码。
+IPC 使用 serialization::json::read_value/write_value 复用 Meta 标签编解码。
 协议层只保留大小限制及 GUID 的 type_id/32 位十六进制适配，不再重复标量分派。
 该入口的标量分支不要求冻结注册表；对象沿用已注册类型和递归校验规则。
 

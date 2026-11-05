@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "tooling/asset_import/asset_writer.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/scene/scene_description.hpp"
@@ -97,7 +97,7 @@ template <class Bytes> bool write_bytes(const std::filesystem::path& path, const
       description.texture_uris[slot] = std::string(asset_uri_prefix) + "textures/image-" +
                                        std::to_string(*images[slot]) +
                                        image_variant_suffixes[variants[slot]] + ".texture.json";
-  auto bytes = engine::meta::serialize(description);
+  auto bytes = gneiss::engine::serialization::json::serialize_bytes(description);
   return bytes && write_bytes(path, *bytes);
 }
 
@@ -135,7 +135,7 @@ template <class Bytes> bool write_bytes(const std::filesystem::path& path, const
       scene.objects.push_back(std::move(child));
     }
   }
-  auto bytes = engine::meta::serialize(scene);
+  auto bytes = gneiss::engine::serialization::json::serialize_bytes(scene);
   return bytes && write_bytes(path, *bytes);
 }
 

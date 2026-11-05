@@ -305,7 +305,7 @@ World、场景实例及编辑会话仍由场景服务管理，不进入资源缓
 
 ## 描述编解码入口
 
-材质、Action Map、Scene 与 Prefab 使用 `meta::serialize(value)` 与 `meta::deserialize<T>(bytes)`，
+材质、Action Map、Scene 与 Prefab 使用 `serialization::json::serialize_bytes(value)` 与 `serialization::json::deserialize<T>(bytes)`，
 不再提供按类型命名的转发 codec。调用前仍须初始化 Meta 注册表。
 资源层内部 `register_reflected_asset` 复用已配置的类型 builder，追加统一格式包装并提交；
 格式名、当前版本和字节上限由各资源的格式配置决定，版本错误码使用统一规则。

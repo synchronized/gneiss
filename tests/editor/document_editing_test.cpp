@@ -7,8 +7,8 @@
 #include "documents/editor_scene_loader.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
-#include "engine/core/meta/serialization.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
@@ -62,7 +62,7 @@ bool save_codec_contract(gneiss::runtime::application& application) {
     return false;
   gneiss::engine::meta::serialization_diagnostic diagnostic;
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(snapshot)>>(
+          gneiss::engine::serialization::json::deserialize<std::remove_cvref_t<decltype(snapshot)>>(
               std::as_bytes(std::span{saved.data(), saved.size()})),
           snapshot, diagnostic)
           .failed() ||

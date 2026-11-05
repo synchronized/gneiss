@@ -4,7 +4,7 @@
 
 #pragma once
 #include "engine/core/error.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/core/type_id.hpp"
 #include <algorithm>
 #include <memory>
@@ -38,7 +38,8 @@ public:
         return std::move(decoded).error();
       return std::shared_ptr<const void>{std::make_shared<T>(std::move(*decoded))};
     }
-    auto decoded = meta::deserialize_object(runtime_type_of<T>(), bytes);
+    auto decoded =
+        gneiss::engine::serialization::json::deserialize_object(runtime_type_of<T>(), bytes);
     if (!decoded)
       return std::move(decoded).error();
     if (!*decoded)
@@ -57,7 +58,7 @@ template <class T> result<std::shared_ptr<const asset_decoder>> make_reflected_d
   auto binding = meta::find_serialization(runtime_type_of<T>());
   if (!binding)
     return binding.error() == error::not_found ? error::unsupported : binding.error();
-  if (!binding->decode && !binding->reflected_json)
+  if (!binding->json.decode_bytes && !binding->json.decode_node && !binding->json.reflected)
     return error::unsupported;
   if constexpr (std::is_move_constructible_v<T> && !std::is_const_v<T>) {
     return std::shared_ptr<const asset_decoder>{std::make_shared<typed_asset_decoder<T>>(nullptr)};

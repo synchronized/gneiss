@@ -3,7 +3,7 @@
 
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/core/error.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/core/utf8.hpp"
 #include "engine/function/scene/scene_object.hpp"
 #include "engine/function/world/world_reflection.hpp"

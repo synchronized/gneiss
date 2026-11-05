@@ -3,7 +3,7 @@
 
 #include "panels/runtime_panels.hpp"
 #include "engine/core/error.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "panels/reflected_property_editor.hpp"
@@ -70,8 +70,8 @@ void draw_runtime_property_status(const runtime_property_edit* edit,
           if (edit->canonical_value.kind() != engine::value_kind::object ||
               observed.kind() != engine::value_kind::object)
             return edit->canonical_value != observed;
-          auto a = engine::meta::serialize(edit->canonical_value),
-               b = engine::meta::serialize(observed);
+          auto a = gneiss::engine::serialization::json::serialize_bytes(edit->canonical_value),
+               b = gneiss::engine::serialization::json::serialize_bytes(observed);
           return !a || !b || *a != *b;
         }()) {
       ImGui::TextColored({0.95F, 0.75F, 0.35F, 1.0F}, "已应用，但运行逻辑随后覆盖了该值");

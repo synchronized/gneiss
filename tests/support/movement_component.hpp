@@ -84,7 +84,7 @@ inline e::error register_movement_meta() {
   status = e::meta::type_builder<movement_settings>{}
                .property<&movement_settings::acceleration>(e::meta::property_id{1}, "acceleration")
                .property<&movement_settings::maximum>(e::meta::property_id{2}, "maximum")
-               .serialization()
+               .json_reflection()
                .commit();
   if (status.failed())
     return status;
@@ -94,7 +94,7 @@ inline e::error register_movement_meta() {
       .property<&movement_description::mode>(e::meta::property_id{2}, "mode")
       .property<&movement_description::settings>(e::meta::property_id{3}, "settings")
       .property<&movement_description::samples>(e::meta::property_id{4}, "samples")
-      .serialization()
+      .json_reflection()
       .commit();
 }
 }

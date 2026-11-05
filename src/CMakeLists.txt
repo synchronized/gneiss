@@ -139,7 +139,7 @@ target_sources(
     engine/core/meta/detail/reference_view_access.hpp
   engine/core/meta/detail/property_view_access.hpp
   engine/core/meta/detail/type_ops.hpp
-  engine/core/meta/json_serialization.hpp
+  engine/core/serialization/detail/json_adapter.hpp
   engine/core/meta/ops/forward.hpp
   engine/core/meta/ops/scalar_ops.hpp
   engine/core/meta/ops/sequence_ops.hpp
@@ -148,8 +148,8 @@ target_sources(
   engine/core/meta/ops/variant_ops.hpp
   engine/core/meta/ops/reference_ops.hpp
     engine/core/meta/registry.cpp
-    engine/core/meta/serialization.cpp
-    engine/core/meta/serialization.hpp
+    engine/core/serialization/json.cpp
+    engine/core/serialization/json.hpp
     engine/function/meta_registration.cpp
     engine/function/meta_registration.hpp
     engine/resource/builtin_resource_registration.cpp

@@ -44,7 +44,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/resource/resource_service.hpp
   engine/function/resource/render_resource.hpp
   engine/resource/scene/component_description.hpp
-  engine/core/meta/json_serialization.hpp
+  engine/core/serialization/detail/json_adapter.hpp
   engine/resource/asset_uri.hpp
   engine/resource/material/material_description.hpp
   engine/resource/mesh/mesh_data.hpp
@@ -89,7 +89,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/meta/ops/variant_ops.hpp
   engine/core/meta/ops/reference_ops.hpp
 
-  engine/core/meta/serialization.hpp
+  engine/core/serialization/json.hpp
   engine/function/meta_registration.hpp
   engine/resource/builtin_resource_registration.hpp
   engine/core/meta/registry.hpp

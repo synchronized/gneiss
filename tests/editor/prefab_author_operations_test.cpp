@@ -4,7 +4,7 @@
 #include "../support/movement_component.hpp"
 #include "commands/editor_command_history.hpp"
 #include "commands/prefab_authoring.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 #include <cstdio>
@@ -69,14 +69,14 @@ int main() try {
   own.uuid = id(7);
   own.parent_uuid = first.uuid;
   scene.objects.push_back(own);
-  const auto prefab_json = text(*e::meta::serialize(source));
-  const auto scene_json = text(*e::meta::serialize(scene));
+  const auto prefab_json = text(*gneiss::engine::serialization::json::serialize_bytes(source));
+  const auto scene_json = text(*gneiss::engine::serialization::json::serialize_bytes(scene));
   auto entries = ed::describe_prefab_overrides(*first.prefab, source);
   check(entries && entries->size() == 3);
   check((*entries)[0].label.find("acceleration") != std::string::npos);
   const auto decode_changes = [](const auto& changes) {
     const auto& json = *changes.front().replacement;
-    return e::meta::deserialize<e::scene_description>(
+    return gneiss::engine::serialization::json::deserialize<e::scene_description>(
         std::as_bytes(std::span{json.data(), json.size()}));
   };
   auto restore_component =
@@ -131,7 +131,7 @@ int main() try {
   check(ed::prepare_unpack_prefab(scene_json, prefab_json, unpack, changes, &diagnostic).ok());
   check(changes.size() == 1 && *changes[0].baseline == scene_json);
   const auto& unpacked_json = *changes[0].replacement;
-  auto unpacked = e::meta::deserialize<e::scene_description>(
+  auto unpacked = gneiss::engine::serialization::json::deserialize<e::scene_description>(
       std::as_bytes(std::span{unpacked_json.data(), unpacked_json.size()}));
   check(unpacked && unpacked->objects.size() == 4);
   auto find = [](auto& objects, e::guid uuid) -> auto& {
@@ -152,8 +152,9 @@ int main() try {
   ed::apply_prefab_author_plan plan;
   check(ed::prepare_apply_prefab(scene_json, prefab_json, apply, plan, &diagnostic).ok());
   check(plan.changes.size() == 2 && plan.affected_instance_uuids.size() == 2);
-  auto applied = e::meta::deserialize<e::prefab_description>(std::as_bytes(
-      std::span{plan.changes[0].replacement->data(), plan.changes[0].replacement->size()}));
+  auto applied =
+      gneiss::engine::serialization::json::deserialize<e::prefab_description>(std::as_bytes(
+          std::span{plan.changes[0].replacement->data(), plan.changes[0].replacement->size()}));
   check(applied && applied->objects[0].components.get<movement_description>()->speed == 4);
   check(applied->objects[0].name == root.name && applied->objects[0].transform.translation.x == 0);
   check(!applied->objects[1].components.get<e::camera_description>() &&
@@ -163,8 +164,9 @@ int main() try {
   conflict.objects[1].prefab->component_overrides.push_back(
       {root.uuid, movement_description::type_guid,
        e::make_component_description(movement_description{})});
-  check(ed::prepare_apply_prefab(text(*e::meta::serialize(conflict)), prefab_json, apply, plan,
-                                 &diagnostic) == e::error::invalid_state);
+  check(ed::prepare_apply_prefab(
+            text(*gneiss::engine::serialization::json::serialize_bytes(conflict)), prefab_json,
+            apply, plan, &diagnostic) == e::error::invalid_state);
   check(plan.changes.empty() && diagnostic.path.find(second.uuid.string()) != std::string::npos &&
         diagnostic.path.find(root.uuid.string()) != std::string::npos);
   conflict = scene;
@@ -174,13 +176,15 @@ int main() try {
                .property_id = e::meta::property_id{1},
                .path = {e::meta::property_id{1}}},
        .value = e::value{0.8F}});
-  check(ed::prepare_apply_prefab(text(*e::meta::serialize(conflict)), prefab_json, apply, plan,
-                                 &diagnostic) == e::error::not_found);
+  check(ed::prepare_apply_prefab(
+            text(*gneiss::engine::serialization::json::serialize_bytes(conflict)), prefab_json,
+            apply, plan, &diagnostic) == e::error::not_found);
   check(plan.changes.empty() && diagnostic.path.find(second.uuid.string()) != std::string::npos);
   auto missing = source;
   missing.objects.pop_back();
-  check(ed::prepare_unpack_prefab(scene_json, text(*e::meta::serialize(missing)), unpack, changes,
-                                  &diagnostic)
+  check(ed::prepare_unpack_prefab(
+            scene_json, text(*gneiss::engine::serialization::json::serialize_bytes(missing)),
+            unpack, changes, &diagnostic)
             .failed() &&
         changes.empty());
   check(ed::prepare_unpack_prefab(scene_json, prefab_json, unpack, changes).ok());

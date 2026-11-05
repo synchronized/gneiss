@@ -5,7 +5,7 @@
 #include "../support/memory_file_fixture.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
@@ -81,8 +81,9 @@ int main() {
   constexpr auto valid =
       R"({"format":"gneiss.input-map","version":1,"actions":[{"name":"move","bindings":[{"key":4,"scale":-1.0},{"key":7,"scale":1.0}]}]})";
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::meta::deserialize<gneiss::engine::action_map>(bytes(valid)), map) !=
-          gneiss::engine::error::success ||
+          gneiss::engine::serialization::json::deserialize<gneiss::engine::action_map>(
+              bytes(valid)),
+          map) != gneiss::engine::error::success ||
       map.actions.size() != 1U || map.actions[0].bindings.size() != 2U) {
     return 1;
   }
@@ -94,13 +95,16 @@ int main() {
   constexpr auto invalid_scale =
       R"({"format":"gneiss.input-map","version":1,"actions":[{"name":"move","bindings":[{"key":4,"scale":0}]}]})";
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::meta::deserialize<gneiss::engine::action_map>(bytes(duplicate)), map) !=
-          gneiss::engine::error::invalid_argument ||
+          gneiss::engine::serialization::json::deserialize<gneiss::engine::action_map>(
+              bytes(duplicate)),
+          map) != gneiss::engine::error::invalid_argument ||
       gneiss::test_support::assign_decoded(
-          gneiss::engine::meta::deserialize<gneiss::engine::action_map>(bytes(unknown_key)), map) !=
-          gneiss::engine::error::invalid_argument ||
+          gneiss::engine::serialization::json::deserialize<gneiss::engine::action_map>(
+              bytes(unknown_key)),
+          map) != gneiss::engine::error::invalid_argument ||
       gneiss::test_support::assign_decoded(
-          gneiss::engine::meta::deserialize<gneiss::engine::action_map>(bytes(invalid_scale)),
+          gneiss::engine::serialization::json::deserialize<gneiss::engine::action_map>(
+              bytes(invalid_scale)),
           map) != gneiss::engine::error::invalid_argument ||
       map.actions[0].bindings.size() != original_size) {
     return 2;
@@ -140,18 +144,18 @@ int main() {
   using namespace gneiss::engine;
   // 编码、解码与资源加载共用默认表；字段保持 input-map v1 布局。
   auto codec = meta::find_serialization(runtime_type_of<action_map>());
-  if (!codec || !codec->decode_json || !codec->encode_json)
+  if (!codec || !codec->json.decode_node || !codec->json.encode_node)
     return 9;
   meta::serialization_diagnostic diagnostic;
   for (auto version : {2, 3}) {
     const auto text = std::string("{\"format\":\"gneiss.input-map\",\"version\":") +
                       std::to_string(version) + ",\"actions\":[]}";
-    auto unsupported = meta::deserialize<action_map>(text);
+    auto unsupported = gneiss::engine::serialization::json::deserialize<action_map>(text);
     if (unsupported || unsupported.error().error != error::unsupported ||
         unsupported.error().path != "/version")
       return 28;
   }
-  auto saved_bytes = meta::serialize(map);
+  auto saved_bytes = gneiss::engine::serialization::json::serialize_bytes(map);
   if (!saved_bytes)
     return 10;
   const detail::reflected_asset_format exact{"gneiss.input-map", 1, saved_bytes->size()};
@@ -162,7 +166,7 @@ int main() {
       detail::encode_reflected_asset(map, short_limit) ||
       detail::decode_reflected_asset<action_map>(*saved_bytes, short_limit))
     return 31;
-  auto roundtrip = meta::deserialize<action_map>(*saved_bytes);
+  auto roundtrip = gneiss::engine::serialization::json::deserialize<action_map>(*saved_bytes);
   if (!roundtrip || roundtrip->actions.front().name != "move" ||
       roundtrip->actions.front().bindings.front().physical_key != 4 ||
       roundtrip->actions.front().bindings.front().scale != -1)
@@ -172,21 +176,22 @@ int main() {
         R"({"format":"gneiss.input-map","version":1,"version":1,"actions":[]})",
         R"({"format":"wrong","version":1,"actions":[]})",
         R"({"format":"gneiss.input-map","version":"1","actions":[]})"}) {
-    auto result = meta::deserialize<gneiss::engine::action_map>(bytes(malformed));
+    auto result = gneiss::engine::serialization::json::deserialize<gneiss::engine::action_map>(
+        bytes(malformed));
     if (result || result.error().error != error::invalid_argument)
       return 30;
   }
   auto bad_map = map;
   bad_map.actions.push_back(bad_map.actions.front());
-  if (meta::serialize(bad_map))
+  if (gneiss::engine::serialization::json::serialize_bytes(bad_map))
     return 21;
   bad_map = map;
   bad_map.actions.front().bindings.front().scale = 0;
-  if (meta::serialize(bad_map))
+  if (gneiss::engine::serialization::json::serialize_bytes(bad_map))
     return 22;
   bad_map = map;
   bad_map.actions.front().name.assign(maximum_action_map_bytes, 'x');
-  if (meta::serialize(bad_map))
+  if (gneiss::engine::serialization::json::serialize_bytes(bad_map))
     return 23;
   for (const std::string_view body :
        {R"({"name":"move","bindings":[{"key":4294967296,"scale":1}]})",
@@ -196,13 +201,15 @@ int main() {
     const std::string malformed =
         std::string(R"({"format":"gneiss.input-map","version":1,"actions":[)") + std::string(body) +
         "]}";
-    if (meta::deserialize<gneiss::engine::action_map>(bytes(malformed)))
+    if (gneiss::engine::serialization::json::deserialize<gneiss::engine::action_map>(
+            bytes(malformed)))
       return 24;
   }
   const auto invalid = std::as_bytes(std::span{invalid_scale, std::strlen(invalid_scale)});
   if (gneiss::test_support::assign_decoded(
-          meta::deserialize<std::remove_cvref_t<decltype(map)>>(invalid), map, diagnostic) !=
-          error::invalid_argument ||
+          gneiss::engine::serialization::json::deserialize<std::remove_cvref_t<decltype(map)>>(
+              invalid),
+          map, diagnostic) != error::invalid_argument ||
       diagnostic.path != "/actions/0/bindings/0" || diagnostic.message.empty() ||
       map.actions.front().name != "move")
     return 11;

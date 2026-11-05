@@ -301,3 +301,17 @@ Prefab 属性覆盖直接注册 key/value，路径复用 variant；engine::value
 
 已完成，构建与相关测试通过，见
 [验收记录](../records/2026-11-05-property-value-unification.md)。
+
+### 序列化格式边界
+
+决策见 [ADR-105](../decisions/ADR-105-serialization-format-boundary.md)。
+
+- [x] 将 JSON 接口与实现迁入 serialization，显式区分文本与字节调用。
+- [x] 拆分格式绑定，明确 JSON 专用 codec，保留资源专用二进制入口。
+- [ ] 抽取 reader/writer 与共享遍历，JSON 后端接入，保留节点适配。
+- [ ] 编译、格式边界与原有序列化/IPC/编辑器回归。
+
+不新增二进制通用格式、不修改现有文件格式、不引入文件系统依赖。
+
+入口与绑定拆分已完成并通过 33 项相关回归，见 [阶段验收](../records/2026-11-05-json-format-boundary.md)。
+reader/writer 及共享遍历仍待实施。

@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/object.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/core/traits/type_identity.hpp"
 #include <algorithm>
 #include <initializer_list>

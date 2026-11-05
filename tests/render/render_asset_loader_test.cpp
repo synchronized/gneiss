@@ -7,7 +7,7 @@
 #include "../support/prepare_render.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_service.hpp"
@@ -79,7 +79,9 @@ public:
                          gneiss::engine::meta::serialization_diagnostic>
   decode(const std::vector<std::byte>& bytes) const override {
     ++calls;
-    auto decoded = gneiss::engine::meta::deserialize<gneiss::engine::material_description>(bytes);
+    auto decoded =
+        gneiss::engine::serialization::json::deserialize<gneiss::engine::material_description>(
+            bytes);
     if (!decoded)
       return std::move(decoded).error();
     return std::shared_ptr<const void>{

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "scene_validation.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
 #include <algorithm>

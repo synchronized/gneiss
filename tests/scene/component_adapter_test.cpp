@@ -3,7 +3,7 @@
 #include "../support/movement_component.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/component_adapter.hpp"
@@ -64,9 +64,10 @@ int main() try {
   check(primary && e::meta::has_flags(primary->flags, e::meta::property_flags::editor_read_only));
   check(!e::meta::has_flags(primary->flags, e::meta::property_flags::read_only));
   e::camera_description camera{{1, 0.1F, 100}, true};
-  auto saved_camera = e::meta::serialize(camera);
+  auto saved_camera = gneiss::engine::serialization::json::serialize_bytes(camera);
   check(saved_camera.has_value());
-  auto loaded_camera = e::meta::deserialize<e::camera_description>(*saved_camera);
+  auto loaded_camera =
+      gneiss::engine::serialization::json::deserialize<e::camera_description>(*saved_camera);
   check(loaded_camera && loaded_camera->is_primary);
   auto owner = e::create_native();
   check(owner.has_value());
@@ -87,9 +88,9 @@ int main() try {
   second.parent_uuid = first.uuid;
   source.objects.push_back(second);
   // 真实文件格式解码后进入统一准备与同步实例化路径。
-  auto encoded = e::meta::serialize(source);
+  auto encoded = gneiss::engine::serialization::json::serialize_bytes(source);
   check(encoded.has_value());
-  auto decoded = e::meta::deserialize<e::scene_description>(*encoded);
+  auto decoded = gneiss::engine::serialization::json::deserialize<e::scene_description>(*encoded);
   check(decoded.has_value());
   auto prepared = prepare(*decoded);
   check(e::register_scene_component(operations()) == e::error::invalid_state);
@@ -123,9 +124,10 @@ int main() try {
   e::scene_description saved;
   check(gneiss::test_support::assign_value(scenes.capture_description(instance), saved).ok());
   check(saved.objects[0].components.get<movement_description>()->speed == 5);
-  auto saved_bytes = e::meta::serialize(saved);
+  auto saved_bytes = gneiss::engine::serialization::json::serialize_bytes(saved);
   check(saved_bytes.has_value());
-  auto restored = e::meta::deserialize<e::scene_description>(*saved_bytes);
+  auto restored =
+      gneiss::engine::serialization::json::deserialize<e::scene_description>(*saved_bytes);
   check(restored.has_value());
   state(world).get<movement_component>(id)->data.speed = 8;
   check(scenes.reload_loaded(instance, *restored).ok());

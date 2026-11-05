@@ -131,7 +131,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
     if (gneiss::test_support::assign_value(app.scenes()->serialize(session.scene_handle()), json)
             .failed())
       throw std::runtime_error("serialize");
-    auto decoded = e::meta::deserialize<e::scene_description>(
+    auto decoded = gneiss::engine::serialization::json::deserialize<e::scene_description>(
         std::as_bytes(std::span{json.data(), json.size()}));
     if (!decoded)
       throw std::runtime_error("parse");

@@ -6,8 +6,8 @@
 #include "commands/editor_asset_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/math/transform.hpp"
-#include "engine/core/meta/serialization.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -306,7 +306,7 @@ void prefab_edits(engine::execution_mode mode) {
     return e::guid{bytes};
   };
   const auto write = [&](const char* name, const auto& value) {
-    auto encoded = e::meta::serialize(value);
+    auto encoded = gneiss::engine::serialization::json::serialize_bytes(value);
     check(bool(encoded));
     std::ofstream file(files.root / name, std::ios::binary);
     file.write(reinterpret_cast<const char*>(encoded->data()),

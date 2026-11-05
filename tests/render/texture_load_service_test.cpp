@@ -6,7 +6,7 @@
 #include "../support/prepare_render.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_service.hpp"

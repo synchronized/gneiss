@@ -6,7 +6,7 @@
 #include "../../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registration.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/function/meta_registration.hpp"
@@ -228,7 +228,7 @@ void injected_file_service() {
 }
 error register_test_assets() {
   gneiss::engine::meta::serialization_binding codec;
-  codec.decode =
+  codec.json.decode_bytes =
       [](const meta::registry_ref&,
          std::span<const std::byte> bytes) -> result<ref<void>, meta::serialization_diagnostic> {
     if (bytes.front() == std::byte{'?'})
@@ -347,8 +347,9 @@ void decoder_selection() {
   material_description description;
   description.parameters.metallic = 0.25F;
   gneiss::engine::meta::serialization_diagnostic diagnostic;
-  check(gneiss::test_support::assign_decoded(meta::serialize(description), source->contents,
-                                             diagnostic) == error::success,
+  check(gneiss::test_support::assign_decoded(
+            gneiss::engine::serialization::json::serialize_bytes(description), source->contents,
+            diagnostic) == error::success,
         "material fixture");
   asset_manager material_assets(gneiss::test_support::test_files(files));
   asset_ref<const material_description> material;

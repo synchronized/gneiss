@@ -3,7 +3,7 @@
 
 #include "ipc_property_protocol.hpp"
 #include "engine/core/error.hpp"
-#include "engine/core/meta/json_serialization.hpp"
+#include "engine/core/serialization/detail/json_adapter.hpp"
 
 #include <yyjson.h>
 
@@ -89,7 +89,7 @@ bool add_property_value(yyjson_mut_doc* doc, yyjson_mut_val* root,
     return yyjson_mut_obj_add_str(doc, root, "kind", "type_id") &&
            yyjson_mut_obj_add_strncpy(doc, root, "value", text.data(), text.size());
   }
-  auto node = meta::json::write_value(doc, value);
+  auto node = gneiss::engine::serialization::json::write_value(doc, value);
   if (!node)
     return false;
   return yyjson_mut_obj_add_str(doc, root, "kind",
@@ -113,7 +113,7 @@ bool parse_property_value(yyjson_val* root, gneiss::engine::value& output) {
   if (kind == "guid" || (kind == "string" && yyjson_is_str(content) &&
                          yyjson_get_len(content) > max_property_string_size))
     return false;
-  auto decoded = meta::json::read_value(root);
+  auto decoded = gneiss::engine::serialization::json::read_value(root);
   if (!decoded)
     return false;
   output = std::move(*decoded);

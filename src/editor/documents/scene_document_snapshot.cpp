@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/scene_document_snapshot.hpp"
 #include "engine/core/meta/registry.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "runtime/application.hpp"
 #include "runtime/loading/scene_service.hpp"
 namespace gneiss::editor {
@@ -34,8 +34,9 @@ prepare_scene_document(const scene_document_snapshot& before,
   for (const auto& [uri, prefab] : before.description.prefabs)
     inputs.prefabs.emplace(uri, prefab.resource);
   const auto decode = [&](const std::string& json, auto& output) {
-    auto decoded_result = engine::meta::deserialize<std::remove_cvref_t<decltype(output)>>(
-        std::as_bytes(std::span(json.data(), json.size())));
+    auto decoded_result =
+        gneiss::engine::serialization::json::deserialize<std::remove_cvref_t<decltype(output)>>(
+            std::as_bytes(std::span(json.data(), json.size())));
     if (!decoded_result) {
       return decoded_result.error().error;
     }

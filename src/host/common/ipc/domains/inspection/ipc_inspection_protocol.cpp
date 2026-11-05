@@ -3,7 +3,7 @@
 
 #include "ipc_inspection_protocol.hpp"
 #include "engine/core/error.hpp"
-#include "engine/core/meta/json_serialization.hpp"
+#include "engine/core/serialization/detail/json_adapter.hpp"
 
 #include <yyjson.h>
 
@@ -111,13 +111,14 @@ bool add_components(yyjson_mut_doc* doc, yyjson_mut_val* node,
   auto view = gneiss::engine::meta::instance::from(components);
   if (!view)
     return false;
-  auto array = gneiss::engine::meta::json::write(doc, *view);
+  auto array = gneiss::engine::serialization::json::write(doc, *view);
   return array && yyjson_mut_obj_add_val(doc, node, "components", *array);
 }
 bool parse_components(yyjson_val* node, gneiss::engine::component_descriptions& output) {
   auto view = gneiss::engine::meta::mutable_instance::from(output);
   return view &&
-         gneiss::engine::meta::json::read(yyjson_obj_get(node, "components"), *view).error.ok();
+         gneiss::engine::serialization::json::read(yyjson_obj_get(node, "components"), *view)
+             .error.ok();
 }
 
 bool add_node(yyjson_mut_doc* document, yyjson_mut_val* change,

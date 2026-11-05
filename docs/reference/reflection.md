@@ -30,7 +30,7 @@ Meta 的类型与函数统一位于 `gneiss::engine::meta`，不保留旧命名�
 | `meta/registry.hpp` | `registry_ref`、创建/注册/冻结、查询、属性访问和编解码函数表查询 |
 | `meta/registry.cpp` | 唯一注册表的私有存储与实现 |
 | `meta/registration.hpp` | C++ Builder 注册入口与模板身份适配 |
-| `meta/serialization.hpp` | `serialize<T>`、`deserialize<T>` 调用模板 |
+| `serialization/json.hpp` | `json::serialize` 文本、`json::serialize_bytes` 字节及 `json::deserialize<T>` |
 
 内建组件身份位于 `engine/function/world/component_identity.hpp`，不属于通用 Meta。
 `guid`、`type_id`、`value` 仍是 Core 基础类型，`type_identity` 仍是 traits 定制点。
@@ -145,7 +145,7 @@ Registry 使用原生共享引用管理，不经全局句柄表。独立表在�
 每个类型当前只登记一组编解码函数，自定义文件格式标识及版本由 codec 自行校验，不提供任意 capability 或通用对象工厂。
 
 `find_serialization` 按运行期 type_id 查询冻结 Registry 中的函数表，不登记重复的格式名称。
-`serialize<T>` 返回 `result<vector<byte>, serialization_diagnostic>`，`deserialize<T>` 返回
+`serialization::json::serialize_bytes<T>` 返回 `result<vector<byte>, serialization_diagnostic>`，`deserialize<T>` 返回
 `result<T, serialization_diagnostic>`。成功结果拥有值，失败结果仅携带错误码、路径、字节偏移和消息。
 `serialization_diagnostic.error` 保存错误码；bad_alloc 转为 out_of_memory，其余异常转为 internal。
 Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `result<ref<void>, serialization_diagnostic>`，
@@ -163,7 +163,7 @@ codec 文件只提供编解码入口。首次失败立即返回，不回滚已�
 
 ## 反射 JSON 与对象校验
 
-`type_builder<T>.serialization()` 显式启用通用 JSON 对象读写，要求 T 可默认构造。
+`type_builder<T>.json_reflection()` 显式启用通用 JSON 对象读写，要求 T 可默认构造。
 已登记的自定义 encode/decode 按方向优先；只有缺少该方向函数时才回退到反射 JSON。
 同一 Builder 可各调用一次自定义和反射注册，两者顺序不限；未启用反射的类型保持原行为。
 
@@ -174,7 +174,7 @@ meta::type_builder<camera_description>{}
         meta::property_id{1}, "settings", meta::property_flags::required)
     .property<&camera_description::is_primary>(
         meta::property_id{4}, "is_primary", meta::property_flags::required)
-    .serialization()
+    .json_reflection()
     .commit();
 ```
 
@@ -225,7 +225,7 @@ getter 失败、异常或返回不匹配／无效值时仅返回错误，不交�
 `meta::default_registry()` 返回进程共享的 `result<registry_ref>`，只创建表，不登记内置类型、不冻结。
 定义位于 engine 编译单元；各模块应链接同一引擎，不能把引擎静态复制到多个动态库后期待共享状态。
 未冻结时查询返回 `not_ready`。`meta::type_builder<T>{}`、`register_type<T>(definition)`、
-`describe_type<T>()`、属性访问和 `serialize(object)` / `deserialize<T>(bytes)` 使用默认表；
+`describe_type<T>()`、属性访问和 `serialization::json::serialize(object)` / `serialization::json::deserialize<T>(bytes)` 使用默认表；
 显式 registry 重载保持原行为。
 
 业务模块不得直接调用 `meta::default_registry()`；默认表获取集中在 Meta 内部，
@@ -337,8 +337,8 @@ Scene/Prefab 不缓存来源版本或派生依赖列表，依赖由组件描述�
 解码只在当前对象忽略已检查的 format/version；其他未知字段、重复键和必填规则保持不变。
 节点回调必须返回对象节点，解码返回独立对象；异常由外层序列化边界转换为错误。
 文件字节上限在根字节入口检查，嵌套节点不是独立文件，不重复计算字节上限。
-内部 JSON 适配头为 json_serialization.hpp，IPC 等节点调用使用 meta::json::read/write；独立格式包装使用其 read_fields/write_fields。
-带标签的 value 节点使用 meta::json::read_value/write_value；实现和递归状态仍只在 serialization.cpp 中定义。
+内部 JSON 适配头为 serialization/detail/json_adapter.hpp，IPC 等节点调用使用 serialization::json::read/write；独立格式包装使用其 read_fields/write_fields。
+带标签的 value 节点使用 serialization::json::read_value/write_value；实现和递归状态仍只在 serialization.cpp 中定义。
 普通字节 codec 保留给自定义文件协议；若用于嵌套 JSON，仍使用显式文本适配。
 内置资源格式包装和 value 已使用节点回调，不经过该适配；旧 serialize_reflected 字节入口已删除。
 材质文件包装仅处理 format/version，直接读写 v6 原生描述，不再创建文件数据副本类型。
@@ -506,3 +506,18 @@ mutable_instance::write_value 对可直接访问的引用槽接受兼容对象�
 普通结构体继续使用 instance，const 引用仍可通过 reference_view 访问。
 
 原生 value 槽位也支持 instance::read_value/write_value；复制对象分支仍共享引用，不意味着生成快照。
+
+## 序列化格式边界
+
+序列化实现位于 `engine/core/serialization/json.cpp`，普通调用包含 `serialization/json.hpp`。
+`serialization::json::serialize` 返回 JSON 文本，`serialize_bytes` 返回相同 JSON 的字节；
+`deserialize<T>` 接受文本或字节。两种入口均提供独立注册表和默认注册表版本。
+Meta 不再提供含糊的 serialize/deserialize 入口。
+
+注册表的 `serialization_binding.json` 单独保存 JSON 反射开关、节点/字节回调和字节限制；
+构造、继承和校验不属于 JSON 操作表。`json_reflection` 启用字段遍历，
+`json_serialization<Encode, Decode>` 登记节点回调，`json_bytes_serialization<Encode, Decode>`
+登记 JSON 字节适配；两种自定义回调互斥，字节适配不是任意二进制格式入口。
+资源二进制协议通过 asset_decoder 显式注入解码函数。
+
+当前遍历仍由 JSON 后端实现；格式无关 reader/writer 尚未落地。

@@ -5,8 +5,8 @@
 #include "../support/prefab_query.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/guid.hpp"
-#include "engine/core/meta/serialization.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
@@ -181,8 +181,9 @@ int main() try {
   if (gneiss::test_support::assign_value(application->scenes()->serialize(scene), with_child)
           .failed())
     return 12;
-  auto decoded_child = gneiss::engine::meta::deserialize<gneiss::engine::scene_description>(
-      std::as_bytes(std::span(with_child)));
+  auto decoded_child =
+      gneiss::engine::serialization::json::deserialize<gneiss::engine::scene_description>(
+          std::as_bytes(std::span(with_child)));
   if (!decoded_child || decoded_child->objects.size() != 4U ||
       decoded_child->objects.back().parent_uuid != created_uuid)
     return 12;

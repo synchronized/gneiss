@@ -15,9 +15,9 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
-  if(NOT source MATCHES "/src/engine/core/meta/" AND
+  if(NOT source MATCHES "/src/engine/core/(meta|serialization)/" AND
       content MATCHES "(^|[^A-Za-z0-9_])default_registry[ \t\r\n]*[(]")
-    message(FATAL_ERROR "Meta 外部必须使用无 registry 入口，不能直接取得默认表：${source}")
+    message(FATAL_ERROR "Meta/Serialization 基础设施外部必须使用无 registry 入口，不能直接取得默认表：${source}")
   endif()
   if(content MATCHES "engine/resource/(mesh|texture|material)/detail/[a-z_]+_resource_access[.]hpp" AND
       NOT source MATCHES "/src/engine/(resource/(mesh|texture|material)/[a-z_]+_resource|function/resource/resource_service)[.]cpp$")
@@ -98,7 +98,7 @@ foreach(source IN LISTS sources)
   endif()
 
   if(source MATCHES "/src/engine/resource/scene/(scene_description|prefab_description|prefab_property_data)[.](cpp|hpp)$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"]engine/core/meta/(registration|registry|serialization)[.]hpp")
+      content MATCHES "#[ \t]*include[ \t]*[<\"]engine/core/(meta/(registration|registry)|serialization/json)[.]hpp")
     message(FATAL_ERROR "场景资产描述不得依赖运行时 Registry：${source}")
   endif()
 

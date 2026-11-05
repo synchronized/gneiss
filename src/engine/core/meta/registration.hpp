@@ -241,16 +241,16 @@ public:
     return *this;
   }
   /** 启用反射 JSON；缺失的非必填字段保留默认值，只读字段不持久化。 */
-  type_builder& serialization(bool reject_unknown_fields = false) noexcept {
+  type_builder& json_reflection(bool reject_unknown_fields = false) noexcept {
     static_assert(std::is_default_constructible_v<object_type>);
     if (committed_ || status_.failed())
       return *this;
-    if (codec_.reflected_json) {
+    if (codec_.json.reflected) {
       status_ = error::invalid_argument;
       return *this;
     }
-    codec_.reflected_json = true;
-    codec_.reject_unknown_fields = reject_unknown_fields;
+    codec_.json.reflected = true;
+    codec_.json.reject_unknown_fields = reject_unknown_fields;
     codec_.construct = []() -> ref<void> { return make_ref<object_type>(); };
     return *this;
   }
@@ -272,7 +272,7 @@ public:
     return *this;
   }
   /** Encode/Decode 是有类型函数，允许 nullptr 表示缺少该方向。文件格式由 codec 自行校验。 */
-  template <auto Encode, auto Decode> type_builder& serialization() noexcept {
+  template <auto Encode, auto Decode> type_builder& json_bytes_serialization() noexcept {
     if (committed_ || status_.failed())
       return *this;
     if (has_serialization_) {
@@ -283,7 +283,7 @@ public:
     if constexpr (!std::is_null_pointer_v<decltype(Encode)>) {
       auto encode = Encode;
       if (encode)
-        codec_.encode =
+        codec_.json.encode_bytes =
             []([[maybe_unused]] const registry_ref& registry,
                const void* object) -> result<std::vector<std::byte>, serialization_diagnostic> {
           if constexpr (std::is_invocable_v<decltype(Encode), const registry_ref&,
@@ -296,7 +296,7 @@ public:
     if constexpr (!std::is_null_pointer_v<decltype(Decode)>) {
       auto decode = Decode;
       if (decode)
-        codec_.decode =
+        codec_.json.decode_bytes =
             []([[maybe_unused]] const registry_ref& registry,
                std::span<const std::byte> bytes) -> result<ref<void>, serialization_diagnostic> {
           auto decoded = [&] {
@@ -311,7 +311,7 @@ public:
           return ref<void>{std::make_shared<object_type>(std::move(*decoded))};
         };
     }
-    if (!codec_.encode && !codec_.decode)
+    if (!codec_.json.encode_bytes && !codec_.json.decode_bytes)
       status_ = error::invalid_argument;
     return *this;
   }
@@ -326,12 +326,13 @@ public:
       return *this;
     }
     has_serialization_ = true;
-    codec_.maximum_json_bytes = maximum_bytes;
-    codec_.encode_json = [](json_codec_context& ctx, yyjson_mut_doc* doc, const void* object) {
+    codec_.json.maximum_bytes = maximum_bytes;
+    codec_.json.encode_node = [](gneiss::engine::serialization::json::json_codec_context& ctx,
+                                 yyjson_mut_doc* doc, const void* object) {
       return Encode(ctx, doc, *static_cast<const object_type*>(object));
     };
-    codec_.decode_json = [](json_codec_context& ctx,
-                            yyjson_val* input) -> result<ref<void>, serialization_diagnostic> {
+    codec_.json.decode_node = [](gneiss::engine::serialization::json::json_codec_context& ctx,
+                                 yyjson_val* input) -> result<ref<void>, serialization_diagnostic> {
       auto decoded = Decode(ctx, input);
       if (!decoded)
         return std::move(decoded).error();

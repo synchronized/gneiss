@@ -4,7 +4,7 @@
 #include "commands/prefab_authoring.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/instance.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "runtime/application.hpp"
 #include "runtime/loading/scene_service.hpp"
@@ -217,7 +217,7 @@ engine::error editor_asset_edit::request_property(runtime::application& app,
                            std::get<meta::property_id>(edit.path.front()), &description, edit.data);
   if (status.failed())
     return status;
-  auto valid = meta::serialize(description);
+  auto valid = gneiss::engine::serialization::json::serialize_bytes(description);
   if (!valid)
     return valid.error().error;
   return request(app, document, history, target, {description.mesh_uri, description.material_uri});

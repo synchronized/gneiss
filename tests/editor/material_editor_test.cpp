@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/platform/files/memory_file_backend.hpp"
 #include "engine/resource/material/material_description.hpp"
@@ -22,7 +22,7 @@ int main() try {
   e::files::service files;
   auto backend = std::make_shared<e::files::memory_backend>();
   check(files.mount({.prefix = "asset://", .readers = {backend}, .writer = backend}).ok(), "mount");
-  auto encoded = e::meta::serialize(e::material_description{});
+  auto encoded = gneiss::engine::serialization::json::serialize_bytes(e::material_description{});
   check(bool(encoded), "encode fixture");
   const auto original = text(*encoded);
   const std::string uri = "asset://materials/test.material.json";
@@ -84,7 +84,7 @@ int main() try {
     check(model.replace_object({p{1}}, *wrong) == e::error::invalid_argument, "wrong type");
     check(model.replace_object({p{1}, p{3}}, *source) == e::error::unsupported,
           "scalar replacement rejected");
-    auto defaults = e::meta::deserialize<e::material_parameters>(
+    auto defaults = gneiss::engine::serialization::json::deserialize<e::material_parameters>(
         std::as_bytes(std::span{"{}", std::size_t{2}}));
     check(bool(defaults), "decode defaults");
     auto default_view = e::meta::instance::from(*defaults);
@@ -148,7 +148,7 @@ int main() try {
   check(!model.saving() && model.save_status().ok() && model.is_dirty(),
         "save does not clear newer edits");
   auto disk = read();
-  auto disk_material = e::meta::deserialize<e::material_description>(
+  auto disk_material = gneiss::engine::serialization::json::deserialize<e::material_description>(
       std::as_bytes(std::span{disk.data(), disk.size()}));
   check(disk_material && disk_material->parameters.roughness == 0.4F &&
             disk_material->texture_uris[0] == "asset://textures/a.texture.json",
