@@ -19,7 +19,8 @@ engine::error load_asset(engine::asset_manager& assets, std::string_view uri,
                          engine::asset_ref<const T>& output, bool reload = false,
                          engine::serialization::diagnostic* diagnostic = nullptr) {
   auto& tasks = asset_tasks();
-  assets.attach_task_executor(tasks);
+  if (const auto configured = assets.configure(tasks); configured.failed())
+    return configured;
   engine::asset_request<T> request;
   auto status = gneiss::test_support::assign_value(assets.load<T>(uri, reload), request);
   if (status.failed())

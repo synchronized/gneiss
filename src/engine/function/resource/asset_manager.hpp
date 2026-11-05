@@ -35,27 +35,19 @@ class asset_manager final {
 public:
   /** 异步准备结构依赖、层级顺序和视觉依赖清单；不创建 World，不等待视觉资源。 */
   GNEISS_API result<asset_request<scene_instantiation_data>>
-  prepare_scene(std::string_view uri, bool prefab = false, bool reload = false) noexcept;
+  prepare_scene(std::string_view uri, bool reload = false) noexcept;
+  GNEISS_API result<asset_request<scene_instantiation_data>>
+  prepare_prefab(std::string_view uri, bool reload = false) noexcept;
   struct implementation; // 内部运行资源构造状态。
   /** 绑定渲染服务；Render 必须覆盖本服务的运行与关闭阶段。 */
-  GNEISS_API error attach_render(render_service& render, texture_prepare_profile profile = {});
+  GNEISS_API error attach_render(render_service& render) noexcept;
   /** 配置 CPU 加载；首次配置后保留执行器与 profile，停止后拒绝重新装配。 */
-  GNEISS_API error configure_loading(task_executor& executor, texture_prepare_profile profile = {},
-                                     std::shared_ptr<progress_notification> notification = {});
+  GNEISS_API error configure(task_executor& executor, texture_prepare_profile profile,
+                             std::shared_ptr<progress_notification> notification = {}) noexcept;
   GNEISS_API result<render_resource_ref> reserve_resource(const render_resource_source&) noexcept;
   /** 只查找 CPU 内容已就绪的缓存，不读取文件、不等待 GPU。 */
-  GNEISS_API result<render_resource_ref> find(const render_resource_source&,
-                                              texture_prepare_profile = {}) const noexcept;
-  template <class T> result<asset_ref<const T>> find(std::string_view uri) const noexcept try {
-    auto found = find({std::string(uri), kind<T>()}, profile());
-    if (!found)
-      return found.error();
-    return resource_cast<T>(*found);
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
-  }
+  GNEISS_API result<render_resource_ref> find_loaded(const render_resource_source&,
+                                                     texture_prepare_profile = {}) const noexcept;
   GNEISS_API bool owns(const mesh&) const noexcept;
   GNEISS_API bool owns(const texture&) const noexcept;
   GNEISS_API bool owns(const material&) const noexcept;
@@ -74,8 +66,8 @@ public:
   GNEISS_API material find_material(rid) const noexcept;
   /** 单资源异步加载；默认复用缓存，同身份的在途请求共享工作（包括 reload）。
    * 输入在返回前复制；提交失败返回错误。每项独立完成，不等待 GPU。 */
-  GNEISS_API result<asset_request<resource_cache::entry>> load(const render_resource_source&,
-                                                               bool reload = false);
+  GNEISS_API result<asset_request<render_resource_ref>> load(const render_resource_source&,
+                                                             bool reload = false);
 
   GNEISS_API texture_prepare_profile profile() const noexcept;
 
@@ -85,7 +77,7 @@ public:
   explicit GNEISS_API asset_manager(std::shared_ptr<engine::files::service> files);
   GNEISS_API ~asset_manager();
   /** 借用宿主解码执行器；文件 I/O 由服务后端执行，不创建独立线程池。 */
-  GNEISS_API void attach_task_executor(engine::task_executor& executor);
+  GNEISS_API error configure(task_executor& executor) noexcept;
   /** 宿主每次先分发文件完成，再推进本管理器；不驱动文件或其他服务回调。 */
   GNEISS_API void advance();
   /** 请求停止：立即拒绝新加载、终止观察者并取消 I/O/CPU 任务，不等待任务退出。
@@ -153,7 +145,16 @@ public:
       if (options.texture_profile != texture_prepare_profile{} &&
           options.texture_profile != profile())
         return error::not_found;
-      return find<T>(uri);
+      try {
+        auto found = find_loaded(render_resource_source{std::string(uri), kind<T>()}, profile());
+        if (!found)
+          return found.error();
+        return resource_cast<T>(*found);
+      } catch (const std::bad_alloc&) {
+        return error::out_of_memory;
+      } catch (...) {
+        return error::internal;
+      }
     }
     std::shared_ptr<const void> value;
     const auto status = find_loaded_erased(runtime_type_of<T>(), uri, value, options);
@@ -207,6 +208,8 @@ public:
   [[nodiscard]] std::size_t cached_count() const noexcept { return cache_.size(); }
 
 private:
+  GNEISS_API result<asset_request<scene_instantiation_data>>
+  prepare_structure(std::string_view uri, bool prefab, bool reload) noexcept;
   template <class T> static constexpr render_resource_kind kind() {
     static_assert(std::is_same_v<T, mesh_resource> || std::is_same_v<T, texture_resource> ||
                   std::is_same_v<T, material_resource>);

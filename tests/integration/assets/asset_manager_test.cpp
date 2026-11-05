@@ -129,7 +129,7 @@ void injected_file_service() {
         "identity failure has no value");
   auto decoder = std::make_shared<loader>();
   check(assets->register_decoder(decoder).ok(), "service decoder");
-  assets->attach_task_executor(executor);
+  assets->configure(executor);
   asset_request<value> first, second;
   asset_ref<const value> loaded, other;
   check(gneiss::test_support::assign_value(
@@ -272,15 +272,14 @@ void decoder_selection() {
   check(reflected.register_decoder<value>(&explicit_decode) == error::invalid_state,
         "fallback freezes registration");
   source->byte = 'a';
-  reflected.attach_task_executor(executor);
+  check(reflected.configure(executor).ok(), "configure CPU-only manager");
+  check(reflected.configure(executor).ok(), "same configuration is idempotent");
+  check(reflected.configure(executor, texture_prepare_profile{.generation = 1}) ==
+            error::invalid_state,
+        "configuration conflict is rejected");
   task_scheduler other_executor({.workers = 0, .mode = execution_mode::cooperative});
-  bool rejected_executor{};
-  try {
-    reflected.attach_task_executor(other_executor);
-  } catch (const std::invalid_argument&) {
-    rejected_executor = true;
-  }
-  check(rejected_executor, "manager rejects executor replacement");
+  check(reflected.configure(other_executor) == error::invalid_state,
+        "manager rejects executor replacement");
   asset_request<value> request;
   check(gneiss::test_support::assign_value(
             reflected.load<typename std::remove_cvref_t<decltype(request)>::value_type>(
@@ -404,7 +403,7 @@ void cache_collection() {
   asset_manager assets(gneiss::test_support::test_files(files));
   check(assets.register_decoder(std::make_shared<loader>()) == gneiss::engine::error::success,
         "collection loader");
-  assets.attach_task_executor(executor);
+  assets.configure(executor);
   asset_ref<const value> held;
   check(gneiss::test_support::load_asset(assets, "asset://value", held) ==
             gneiss::engine::error::success,
@@ -502,7 +501,7 @@ void run() {
             assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
             first) == gneiss::engine::error::not_ready,
         "executor required");
-  assets.attach_task_executor(executor);
+  assets.configure(executor);
   auto drive = [&] {
     check(executor.run_ready().status == drive_status::success, "drive");
     advance_assets_for_test(assets);
@@ -710,7 +709,7 @@ void run() {
   task_scheduler stopped({.workers = 0, .mode = execution_mode::cooperative});
   asset_manager rejected(gneiss::test_support::test_files(files));
   check(rejected.register_decoder(parser) == gneiss::engine::error::success, "rejection parser");
-  rejected.attach_task_executor(stopped);
+  rejected.configure(stopped);
   stopped.request_stop();
   check(
       gneiss::test_support::assign_value(
@@ -730,7 +729,7 @@ void stored_value_supersedes_pending() {
   check(files.mount("asset://", source).ok(), "store mount");
   asset_manager assets(gneiss::test_support::test_files(files));
   check(assets.register_decoder(std::make_shared<loader>()).ok(), "store decoder");
-  assets.attach_task_executor(executor);
+  assets.configure(executor);
   asset_request<value> pending;
   check(gneiss::test_support::assign_value(
             assets.load<typename std::remove_cvref_t<decltype(pending)>::value_type>(
@@ -782,7 +781,7 @@ void nonblocking_decode_shutdown() {
   asset_manager assets(gneiss::test_support::test_files(files));
   auto decoder = std::make_shared<gated_decoder>();
   check(assets.register_decoder(decoder).ok(), "stop decoder");
-  assets.attach_task_executor(executor);
+  assets.configure(executor);
   struct release_guard {
     gated_decoder& decoder;
     ~release_guard() { decoder.released.store(true, std::memory_order_release); }

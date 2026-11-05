@@ -134,7 +134,7 @@ void run() {
   gneiss::engine::asset_manager::implementation resources_factory{resources};
   auto& executor = gneiss::test_support::render_tasks();
   gneiss::engine::asset_manager active_assets(gneiss::test_support::test_files(vfs));
-  active_assets.attach_task_executor(executor);
+  active_assets.configure(executor);
   gneiss::engine::asset_manager candidate_assets(gneiss::test_support::test_files(vfs));
   auto& active_render = active_assets;
   if (active_render.attach_render(resources).failed())
@@ -258,8 +258,8 @@ void run() {
   check(!gneiss::engine::resource_cast<gneiss::engine::material_resource>(
       bindings.at("asset://m.mesh")));
   gneiss::engine::render_resource_ref uncached;
-  check(gneiss::test_support::take_value(candidate_render.find(requests.front()), uncached) ==
-        gneiss::engine::error::success);
+  check(gneiss::test_support::take_value(candidate_render.find_loaded(requests.front()),
+                                         uncached) == gneiss::engine::error::success);
   // 绑定复用稳定资源；另一个 URI 的蓝色材质不影响它。
   files->files["blue.material"] =
       R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,0,1,1]},"texture_uris":["","","","",""]})";
@@ -395,8 +395,8 @@ void run() {
   check(resources.get_material(selected_material) != nullptr &&
         resources.get_material(selected_material)->parameters.color[1] == 1.0F);
   gneiss::engine::render_resource_ref next_version;
-  check(gneiss::test_support::take_value(candidate_render.find(requests.back()), next_version) ==
-        gneiss::engine::error::success);
+  check(gneiss::test_support::take_value(candidate_render.find_loaded(requests.back()),
+                                         next_version) == gneiss::engine::error::success);
   gneiss::engine::scene_node_info ordinary;
   gneiss::engine::scene_node_info prefab_node;
   check(gneiss::test_support::take_value(candidate->scenes()->get_node_info(new_scene, 0U),
@@ -431,7 +431,7 @@ void run() {
         gneiss::engine::error::success);
   const gneiss::engine::mesh_renderer edited{
       .mesh = candidate_render.find_mesh(mesh_rid),
-      .material = edited_material->as<gneiss::engine::material_resource>()};
+      .material = edited_material.as<gneiss::engine::material_resource>()};
   const std::array material_only{gneiss::engine::mesh_renderer_replacement{
       .entity = ordinary.entity, .expected = edited, .replacement = edited}};
   check(candidate->native_world()->replace_mesh_renderers(material_only) ==

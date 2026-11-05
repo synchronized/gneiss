@@ -111,7 +111,7 @@ int main() {
     return 3;
   auto& executor = gneiss::test_support::asset_tasks();
   gneiss::engine::asset_manager assets(gneiss::test_support::test_files(files));
-  assets.attach_task_executor(executor);
+  assets.configure(executor);
   backend->first = valid;
   backend->second = valid;
   if (load_map_for_test(assets, executor, "asset://input/map", map) !=
@@ -220,7 +220,7 @@ int main() {
       shared != previous || backend->reads != 1)
     return 13;
   asset_manager asynchronous(gneiss::test_support::test_files(files));
-  asynchronous.attach_task_executor(executor);
+  asynchronous.configure(executor);
   asset_request<action_map> request;
   if (gneiss::test_support::assign_value(asynchronous.load<action_map>("asset://input/map", true),
                                          request)
@@ -266,7 +266,7 @@ int main() {
     return 25;
   backend->first = backend->second = invalid_scale;
   asset_manager custom(gneiss::test_support::test_files(files));
-  custom.attach_task_executor(executor);
+  custom.configure(executor);
   const auto override_decode =
       +[](std::span<const std::byte>) -> result<action_map, serialization::diagnostic> {
     action_map output;

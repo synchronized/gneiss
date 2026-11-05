@@ -14,12 +14,12 @@ struct asset_manager::implementation::pending_load {
                asset_request<material_description>>
       cpu;
   asset_ref<const material_description> description;
-  std::array<asset_request<resource_cache::entry>, 5> dependencies;
+  std::array<asset_request<render_resource_ref>, 5> dependencies;
   std::size_t dependency_cursor{};
 };
-result<asset_request<resource_cache::entry>>
-asset_manager::load(const render_resource_source& source, bool reload) try {
-  asset_request<resource_cache::entry> output;
+result<asset_request<render_resource_ref>> asset_manager::load(const render_resource_source& source,
+                                                               bool reload) try {
+  asset_request<render_resource_ref> output;
   if (!impl_ || !impl_->loading_configured || render_stopping_)
     return error::invalid_state;
   auto reserved = reserve_resource(source);
@@ -36,7 +36,7 @@ asset_manager::load(const render_resource_source& source, bool reload) try {
   }
   auto state = std::make_shared<detail::asset_state>();
   state->target = target;
-  if (!reload && find(source, profile()).ok()) {
+  if (!reload && find_loaded(source, profile()).ok()) {
     state->status = error::success;
     output.state_ = std::move(state);
     return output;

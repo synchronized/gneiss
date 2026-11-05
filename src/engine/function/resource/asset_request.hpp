@@ -31,7 +31,8 @@ struct asset_state {
 template <typename T> class asset_request final {
 public:
   using value_type = T;
-  using reference = asset_ref<const T>;
+  using reference = std::conditional_t<std::is_same_v<T, render_resource_ref>, render_resource_ref,
+                                       asset_ref<const T>>;
   asset_request() noexcept = default;
   explicit asset_request(std::shared_ptr<detail::asset_state> state) noexcept
       : state_(std::move(state)) {}
@@ -41,7 +42,8 @@ public:
   asset_request& operator=(asset_request&&) noexcept = default;
   [[nodiscard]] explicit operator bool() const noexcept { return state_ != nullptr; }
   template <class U>
-    requires(std::is_same_v<T, resource_cache::entry> || std::is_same_v<U, resource_cache::entry>)
+    requires((std::is_same_v<T, render_resource_ref> && render_resource<U>) ||
+             (render_resource<T> && std::is_same_v<U, render_resource_ref>))
   asset_request(const asset_request<U>& other) noexcept : state_(other.state_) {}
   [[nodiscard]] error status() const noexcept {
     if (!state_)
@@ -80,10 +82,10 @@ public:
     if (!state->value && !state->target)
       return asset_diagnostic{error::internal, 0, {}, {}};
     reference value;
-    if constexpr (std::is_same_v<T, resource_cache::entry>) {
+    if constexpr (std::is_same_v<T, render_resource_ref>) {
       value = state->target;
     } else {
-      value = state->target ? state->target->as<T>()
+      value = state->target ? state->target.as<T>()
                             : reference{std::static_pointer_cast<const T>(state->value)};
     }
     if (!value)

@@ -13,11 +13,12 @@ inline engine::task_scheduler& render_tasks() { return asset_tasks(); }
 inline engine::error load_render(engine::asset_manager& loader, engine::render_resource_kind type,
                                  std::string_view uri, engine::render_resource_ref& output,
                                  engine::asset_diagnostic& diagnostic) {
-  auto status = gneiss::test_support::take_value(loader.find({std::string(uri), type}), output);
+  auto status =
+      gneiss::test_support::take_value(loader.find_loaded({std::string(uri), type}), output);
   if (status != engine::error::not_found)
     return status;
   auto& tasks = render_tasks();
-  status = loader.configure_loading(tasks);
+  status = loader.configure(tasks);
   if (status.failed())
     return status;
   const engine::render_resource_source source{std::string(uri), type};
@@ -41,7 +42,7 @@ inline engine::error load_render(engine::asset_manager& loader, engine::render_r
         loader.collect_unused();
         return completion.result;
       }
-      return gneiss::test_support::take_value(loader.find({std::string(uri), type}), output);
+      return gneiss::test_support::take_value(loader.find_loaded({std::string(uri), type}), output);
     }
     if (std::chrono::steady_clock::now() > deadline)
       throw std::runtime_error("异步渲染资产测试超时");

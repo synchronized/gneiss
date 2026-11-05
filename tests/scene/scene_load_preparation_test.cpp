@@ -97,7 +97,7 @@ void run() {
   asset_manager assets(gneiss::test_support::test_files(files));
   check(assets.register_decoder<scene_description>(&custom_scene).ok());
   check(assets.register_decoder<prefab_description>(&custom_prefab).ok());
-  assets.attach_task_executor(executor);
+  assets.configure(executor);
   scene_instantiation_data output;
   gneiss::engine::scene_diagnostic diagnostic;
   auto prepare = [&](scene_prepare_limits limits = {}, const std::function<bool()>& cancel = {}) {

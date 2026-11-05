@@ -66,13 +66,13 @@ result<mesh_renderer> mesh_resolve(const mesh_renderer_description& value,
                                    asset_manager& resources) {
   mesh_renderer result;
   if (!value.mesh_uri.empty()) {
-    auto loaded = resources.find<mesh_resource>(value.mesh_uri);
+    auto loaded = resources.find_loaded<mesh_resource>(value.mesh_uri);
     if (!loaded)
       return loaded.error();
     result.mesh = std::move(*loaded);
   }
   if (!value.material_uri.empty()) {
-    auto loaded = resources.find<material_resource>(value.material_uri);
+    auto loaded = resources.find_loaded<material_resource>(value.material_uri);
     if (!loaded)
       return loaded.error();
     result.material = std::move(*loaded);
@@ -86,7 +86,7 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
   else if (resource_uri(ready.mesh) != value.mesh_uri) {
     if (!context.resources)
       return error::not_ready;
-    auto loaded = context.resources->find<mesh_resource>(value.mesh_uri);
+    auto loaded = context.resources->find_loaded<mesh_resource>(value.mesh_uri);
     if (!loaded)
       return loaded.error();
     ready.mesh = std::move(*loaded);
@@ -96,7 +96,7 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
   else if (resource_uri(ready.material) != value.material_uri) {
     if (!context.resources)
       return error::not_ready;
-    auto loaded = context.resources->find<material_resource>(value.material_uri);
+    auto loaded = context.resources->find_loaded<material_resource>(value.material_uri);
     if (!loaded)
       return loaded.error();
     ready.material = std::move(*loaded);

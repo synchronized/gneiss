@@ -36,3 +36,18 @@
 未运行大型场景、跨平台构建、远端 CI 或发布；未执行远端及 Granit 仓库操作。
 本次没有引入流送、跨资产事务或任意动态依赖图；材质/纹理及 Scene/Prefab 使用各自明确的依赖规则。
 运行资源完成仍只表示 CPU 内容已采用，不表示 GPU 上传完成。
+
+## 接口收尾验收
+
+同日继续完成混合引用、查询/配置及场景准备入口整理：
+
+- render_resource_ref 直接持有 Mesh、Texture、Material 类型化强引用之一；混合请求不再使用缓存条目作为结果类型。
+- 查询统一为 find_loaded；异步配置统一为 configure，重复相同配置成功，冲突配置拒绝且保留原配置。
+- Render 绑定保持独立；prepare_scene 与 prepare_prefab 分别表达资产种类。
+- Runtime、组件适配器、场景实例与相关测试完成调用迁移，并清理 Reference 的双管理器遗留说明。
+- Windows Clang Debug 完整构建通过；36 项资产/场景/编辑器/分层回归通过（33.15 秒），
+  另补充 action_map 与 runtime.async-input-startup 两项通过，共 38 项。
+- 修改的 C++ 文件 clang-format 检查及 git diff --check 通过。
+
+日志：build/asset-api-cleanup-build.log、build/asset-api-cleanup-tests.log（不入库）。
+未运行大场景、跨平台或远端 CI；没有推送、合并或发布操作。

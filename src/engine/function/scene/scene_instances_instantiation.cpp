@@ -116,7 +116,7 @@ result<scene_capture> scene_instances::capture_prepared(scene_instance_id instan
     return status;
   resource_bindings bindings;
   for (const auto& source : prepared.assets) {
-    auto loaded = loader_.find(source);
+    auto loaded = loader_.find_loaded(source);
     if (!loaded)
       return loaded.error();
     bindings.emplace(source.uri, std::move(*loaded));

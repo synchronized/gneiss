@@ -244,7 +244,7 @@ void run(gneiss::engine::execution_mode mode) {
         history.size() == creation_count);
   gneiss::engine::render_resource_ref unused;
   check(gneiss::test_support::take_value(
-            app->assets().find(
+            app->assets().find_loaded(
                 {.uri = "asset://c.json", .type = gneiss::engine::render_resource_kind::material},
                 app->assets().profile()),
             unused) == gneiss::engine::error::not_found &&
@@ -267,7 +267,7 @@ void run(gneiss::engine::execution_mode mode) {
         session.scene_handle() == new_scene &&
         gneiss::test_support::scene_query(session).nodes.empty() && history.size() == 0U);
   check(gneiss::test_support::take_value(
-            app->assets().find(
+            app->assets().find_loaded(
                 {.uri = "asset://d.json", .type = gneiss::engine::render_resource_kind::material},
                 app->assets().profile()),
             unused) == gneiss::engine::error::not_found);

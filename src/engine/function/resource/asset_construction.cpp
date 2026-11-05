@@ -299,60 +299,6 @@ bool asset_manager::implementation::update_material(const material& target,
   return true;
 }
 
-render_resource_kind resource_kind(const render_resource_ref& asset) noexcept {
-  if (asset) {
-    if (asset->type == engine::runtime_type_of<mesh_resource>())
-      return render_resource_kind::mesh;
-    if (asset->type == engine::runtime_type_of<material_resource>())
-      return render_resource_kind::material;
-    if (asset->type == engine::runtime_type_of<texture_resource>())
-      return render_resource_kind::texture;
-  }
-  return render_resource_kind::invalid;
-}
-
-engine::rid resource_rid(const render_resource_ref& asset) noexcept {
-  if (!asset || !asset->resource) {
-    return 0U;
-  }
-  switch (resource_kind(asset)) {
-  case render_resource_kind::invalid:
-    return 0U;
-  case render_resource_kind::mesh:
-    return detail::mesh_resource_access::handle(
-        *std::static_pointer_cast<const mesh_resource>(asset->resource));
-  case render_resource_kind::material:
-    return detail::material_resource_access::handle(
-        *std::static_pointer_cast<const material_resource>(asset->resource));
-  case render_resource_kind::texture:
-    return detail::texture_resource_access::handle(
-        *std::static_pointer_cast<const texture_resource>(asset->resource));
-  }
-  return 0U;
-}
-
-error asset_manager::attach_render(render_service& render, texture_prepare_profile profile) {
-  if (render_stopping_)
-    return error::invalid_state;
-  if (impl_)
-    return &impl_->render() == &render ? error::success : error::invalid_state;
-  impl_ = std::make_unique<implementation>(render);
-  impl_->default_profile = profile;
-  return error::success;
-}
-error asset_manager::configure_loading(task_executor& executor, texture_prepare_profile profile,
-                                       std::shared_ptr<progress_notification> notification) {
-  if (!impl_ || render_stopping_)
-    return error::invalid_state;
-  if (impl_->loading_configured)
-    return error::success;
-  attach_task_executor(executor);
-  impl_->default_profile = profile;
-  impl_->notification = std::move(notification);
-  impl_->loading_configured = true;
-  return error::success;
-}
-
 result<mesh> asset_manager::reserve_mesh() noexcept {
   if (!impl_ || render_stopping_)
     return error::invalid_state;
@@ -397,32 +343,31 @@ result<material> asset_manager::create_material(const material_parameters& data,
   return impl_->create_material(data, std::move(deps));
 }
 
-texture_prepare_profile asset_manager::profile() const noexcept {
-  return impl_ ? impl_->default_profile : texture_prepare_profile{};
+bool asset_manager::owns(const render_resource_ref& value) const noexcept {
+  if (auto asset = value.as<mesh_resource>())
+    return owns(asset);
+  if (auto asset = value.as<texture_resource>())
+    return owns(asset);
+  if (auto asset = value.as<material_resource>())
+    return owns(asset);
+  return false;
 }
 
-bool asset_manager::owns(const render_resource_ref& lease) const noexcept {
-  if (!impl_)
-    return false;
-  if (!lease || !lease->resource)
-    return false;
-  auto identity = identify(lease->uri, static_cast<std::uint32_t>(resource_kind(lease)));
-  if (!identity || identity->source != lease->source)
-    return false;
-  switch (resource_kind(lease)) {
-  case render_resource_kind::mesh:
-    return impl_->render().mesh_status(resource_rid(lease)) != engine::error::invalid_handle;
-  case render_resource_kind::material:
-    return impl_->render().material_status(resource_rid(lease)) != engine::error::invalid_handle;
-  case render_resource_kind::texture:
-    return impl_->render().texture_status(resource_rid(lease)) != engine::error::invalid_handle;
-  default:
-    return false;
-  }
+namespace {
+render_resource_ref cached_resource(const resource_cache::entry& entry) noexcept {
+  if (auto asset = entry.as<mesh_resource>())
+    return asset;
+  if (auto asset = entry.as<texture_resource>())
+    return asset;
+  if (auto asset = entry.as<material_resource>())
+    return asset;
+  return {};
+}
 }
 
-result<render_resource_ref> asset_manager::find(const render_resource_source& source,
-                                                texture_prepare_profile profile) const noexcept {
+result<render_resource_ref>
+asset_manager::find_loaded(const render_resource_source& source,
+                           texture_prepare_profile profile) const noexcept {
   if (!impl_ || render_stopping_)
     return error::invalid_state;
   try {
@@ -441,7 +386,7 @@ result<render_resource_ref> asset_manager::find(const render_resource_source& so
       return engine::error::invalid_argument;
     }
     render_resource_ref target;
-    target = render_resource_ref{current};
+    target = cached_resource(*current);
     if (!owns(target)) {
       return engine::error::invalid_handle;
     }
@@ -480,7 +425,7 @@ result<render_resource_ref> asset_manager::find(const render_resource_source& so
         }
       }
     }
-    return render_resource_ref{current};
+    return cached_resource(*current);
   } catch (...) {
     return engine::error::out_of_memory;
   }
@@ -530,9 +475,10 @@ asset_manager::reserve_resource(const render_resource_source& source) noexcept {
         identity.source, false, 0, asset_load_parameters({.texture_profile = profile()}));
     if (!cached)
       return cached.error();
-    if (!owns(*cached))
+    auto resource = cached_resource(**cached);
+    if (!owns(resource))
       return error::invalid_handle;
-    return std::move(*cached);
+    return resource;
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {

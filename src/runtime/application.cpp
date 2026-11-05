@@ -209,8 +209,8 @@ application::attach_task_executor(gneiss::engine::task_executor& executor) noexc
     gneiss::engine::texture_prepare_profile profile;
     if (storage_->window_service_)
       profile = storage_->render_service_->texture_profile();
-    const auto configured = storage_->asset_manager_->configure_loading(
-        executor, profile, storage_->loop_notification_);
+    const auto configured =
+        storage_->asset_manager_->configure(executor, profile, storage_->loop_notification_);
     if (configured.failed())
       return configured;
     storage_->asset_executor_attached_ = true;

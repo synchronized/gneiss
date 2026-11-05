@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/resource/resource_cache.hpp"
 #include "engine/resource/asset_diagnostic.hpp"
 #include "engine/resource/material/material_resource.hpp"
 #include "engine/resource/mesh/mesh_resource.hpp"
 #include "engine/resource/texture/texture_data.hpp"
 #include <concepts>
+#include <variant>
 namespace gneiss::engine {
 enum class render_resource_kind : std::uint32_t {
   invalid = 0U,
@@ -18,20 +18,6 @@ struct render_resource_source final {
   std::string uri;
   render_resource_kind type = render_resource_kind::mesh;
 };
-/** 统一持有资产缓存条目；非空仅表示身份存在，不代表 GPU 就绪。 */
-using render_resource_ref = asset_ref<const resource_cache::entry>;
-/** 混合加载结果转为类型化引用；空值和类型不符均返回空。 */
-template <typename T>
-[[nodiscard]] asset_ref<const T> resource_cast(const render_resource_ref& asset) noexcept {
-  return asset ? asset->as<T>() : asset_ref<const T>{};
-}
-[[nodiscard]] GNEISS_API rid resource_rid(const render_resource_ref& asset) noexcept;
-[[nodiscard]] GNEISS_API render_resource_kind
-resource_kind(const render_resource_ref& asset) noexcept;
-[[nodiscard]] inline std::string_view resource_uri(const render_resource_ref& asset) noexcept {
-  return asset ? std::string_view(asset->uri) : std::string_view{};
-}
-
 /** 资源分类属于加载层，不让资源对象反向依赖 render_resource_kind。 */
 template <typename T> struct resource_traits {};
 template <> struct resource_traits<mesh_resource> {
@@ -47,6 +33,60 @@ template <typename T>
 concept render_resource = requires {
   { resource_traits<T>::kind } -> std::convertible_to<render_resource_kind>;
 };
+
+/** 混合资源强引用；直接持有类型化资源，不暴露缓存条目或创建新拥有者。 */
+class render_resource_ref final {
+public:
+  render_resource_ref() noexcept = default;
+  template <render_resource T> render_resource_ref(asset_ref<const T> value) noexcept {
+    if (value)
+      value_ = std::move(value);
+  }
+  template <class T> [[nodiscard]] asset_ref<const T> as() const noexcept {
+    if constexpr (render_resource<T>) {
+      if (const auto* value = std::get_if<asset_ref<const T>>(&value_))
+        return *value;
+    }
+    return {};
+  }
+  [[nodiscard]] explicit operator bool() const noexcept {
+    return std::visit([](const auto& value) { return bool(value); }, value_);
+  }
+  void reset() noexcept { value_ = mesh{}; }
+  friend bool operator==(const render_resource_ref&, const render_resource_ref&) = default;
+
+private:
+  std::variant<mesh, texture, material> value_;
+};
+template <class T>
+[[nodiscard]] asset_ref<const T> resource_cast(const render_resource_ref& value) noexcept {
+  return value.as<T>();
+}
+[[nodiscard]] inline render_resource_kind resource_kind(const render_resource_ref& value) noexcept {
+  if (value.as<mesh_resource>())
+    return render_resource_kind::mesh;
+  if (value.as<texture_resource>())
+    return render_resource_kind::texture;
+  if (value.as<material_resource>())
+    return render_resource_kind::material;
+  return render_resource_kind::invalid;
+}
+[[nodiscard]] inline rid resource_rid(const render_resource_ref& value) noexcept {
+  if (auto asset = value.as<mesh_resource>())
+    return resource_handle(asset);
+  if (auto asset = value.as<texture_resource>())
+    return resource_handle(asset);
+  return resource_handle(value.as<material_resource>());
+}
+[[nodiscard]] inline std::string_view resource_uri(const render_resource_ref& value) noexcept {
+  if (auto asset = value.as<mesh_resource>())
+    return asset->source().uri;
+  if (auto asset = value.as<texture_resource>())
+    return asset->source().uri;
+  if (auto asset = value.as<material_resource>())
+    return asset->source().uri;
+  return {};
+}
 
 template <render_resource T>
 [[nodiscard]] inline std::string_view resource_uri(const asset_ref<const T>& value) noexcept {

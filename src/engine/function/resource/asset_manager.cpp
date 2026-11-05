@@ -98,6 +98,8 @@ struct asset_manager::resource_state {
   };
   std::shared_ptr<engine::files::service> files;
   task_executor* executor{};
+  texture_prepare_profile profile{};
+  std::shared_ptr<progress_notification> notification;
   task_scope scope{};
   bool frozen{}, stopped{};
   std::map<type_id, std::shared_ptr<const asset_decoder>> decoders;
@@ -266,15 +268,55 @@ error asset_manager::store_erased(type_id type, std::string_view uri,
   return error::internal;
 }
 asset_manager::~asset_manager() { stop(); }
-void asset_manager::attach_task_executor(task_executor& executor) {
-  auto& state = *resource_state_;
-  if (state.executor && state.executor != &executor)
-    throw std::invalid_argument("资产管理器不能切换执行器");
-  if ((state.executor == nullptr) && !state.stopped) {
-    state.scope = executor.make_scope();
-    state.executor = &executor;
-  }
+error asset_manager::configure(task_executor& executor) noexcept {
+  return configure(executor, resource_state_->profile, resource_state_->notification);
 }
+error asset_manager::configure(task_executor& executor, texture_prepare_profile profile,
+                               std::shared_ptr<progress_notification> notification) noexcept try {
+  auto& state = *resource_state_;
+  if (state.stopped)
+    return error::invalid_state;
+  if (state.executor) {
+    return state.executor == &executor && state.profile == profile &&
+                   state.notification == notification
+               ? error::success
+               : error::invalid_state;
+  }
+  const auto scope = executor.make_scope();
+  if (!scope.id)
+    return error::invalid_state;
+  state.scope = scope;
+  state.executor = &executor;
+  state.profile = profile;
+  state.notification = std::move(notification);
+  if (impl_) {
+    impl_->default_profile = state.profile;
+    impl_->notification = state.notification;
+    impl_->loading_configured = true;
+  }
+  return error::success;
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+error asset_manager::attach_render(render_service& render) noexcept try {
+  if (resource_state_->stopped)
+    return error::invalid_state;
+  if (impl_)
+    return &impl_->render() == &render ? error::success : error::invalid_state;
+  auto next = std::make_unique<implementation>(render);
+  next->default_profile = resource_state_->profile;
+  next->notification = resource_state_->notification;
+  next->loading_configured = resource_state_->executor != nullptr;
+  impl_ = std::move(next);
+  return error::success;
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+texture_prepare_profile asset_manager::profile() const noexcept { return resource_state_->profile; }
 error asset_manager::register_decoder(const std::shared_ptr<const asset_decoder>& loader) noexcept
     try {
   auto& state = *resource_state_;
@@ -401,8 +443,16 @@ error asset_manager::find_loaded_erased(type_id type, std::string_view uri,
   return error::internal;
 }
 
+result<asset_request<scene_instantiation_data>> asset_manager::prepare_scene(std::string_view uri,
+                                                                             bool reload) noexcept {
+  return prepare_structure(uri, false, reload);
+}
 result<asset_request<scene_instantiation_data>>
-asset_manager::prepare_scene(std::string_view uri, bool prefab, bool reload) noexcept try {
+asset_manager::prepare_prefab(std::string_view uri, bool reload) noexcept {
+  return prepare_structure(uri, true, reload);
+}
+result<asset_request<scene_instantiation_data>>
+asset_manager::prepare_structure(std::string_view uri, bool prefab, bool reload) noexcept try {
   auto& state = *resource_state_;
   if (state.stopped)
     return error::invalid_state;

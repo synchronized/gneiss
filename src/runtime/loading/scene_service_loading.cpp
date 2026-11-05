@@ -98,7 +98,7 @@ gneiss::engine::error scene_service::request_scene(std::string_view uri, std::ui
   auto next = std::make_unique<load_task>();
   next->result.progress = {
       .request = ++sequence_, .session = session, .revision = revision, .can_cancel = true};
-  auto prepared = resources_->prepare_scene(uri, false, true);
+  auto prepared = resources_->prepare_scene(uri, true);
   if (!prepared)
     return prepared.error();
   next->description_request = std::move(*prepared);

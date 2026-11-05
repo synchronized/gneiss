@@ -26,8 +26,9 @@ prefab_preparation::create(runtime::application& application,
   }
   auto candidate = std::unique_ptr<prefab_preparation>(new prefab_preparation());
   auto& assets = host->assets();
-  assets.attach_task_executor(executor);
-  auto prepared = assets.prepare_scene(uri, true, true);
+  if (const auto configured = assets.configure(executor); configured.failed())
+    return configured;
+  auto prepared = assets.prepare_prefab(uri, true);
   if (!prepared)
     return prepared.error();
   candidate->state_->request = std::move(*prepared);

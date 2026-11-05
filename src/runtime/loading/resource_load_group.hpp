@@ -72,7 +72,7 @@ public:
            source.type != engine::render_resource_kind::texture))
         return error::invalid_argument;
       auto found = reload ? engine::result<engine::render_resource_ref>{error::not_found}
-                          : service_.find(source, profile());
+                          : service_.find_loaded(source, profile());
       if (found) {
         ready.assets.push_back(std::move(*found));
         ready.results.push_back({.source = source, .result = error::success, .applied = true});
@@ -195,7 +195,7 @@ public:
 
 private:
   engine::asset_manager& service_;
-  engine::asset_request<engine::resource_cache::entry> current_;
+  engine::asset_request<engine::render_resource_ref> current_;
   std::optional<runtime::asset_load_completion> completion_;
   std::chrono::steady_clock::time_point started_;
   std::uint64_t sequence_{};

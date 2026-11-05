@@ -27,7 +27,7 @@ Scene、Prefab 描述和 Texture、Mesh、Material 运行资源均由同一个 `
 所有类型统一使用弱缓存，无缓存策略参数。内置网格/纹理使用专用 Loader，
 不能用单缓冲区 register_decoder 覆盖；其他类型先用注册解码器，否则使用反射解码。
 
-`resource_service::reserve_mesh/texture/material()` 返回对应资源引用的 result，
+`asset_manager::reserve_mesh/texture/material()` 返回对应资源引用的 result，
 `reserve_resource(source)` 返回 `result<render_resource_ref>`；它们只预留资源身份，不代表内容已加载。
 `asset_manager::identify(uri, type)` 返回 `result<asset_identity>`，只解析来源身份，不读取资源内容。
 
@@ -67,7 +67,7 @@ HTTP(S) 地址使用 Fetch URL 基址。借用目录不会在后端销毁时被�
 | --- | --- | --- |
 | `asset_manager::find_loaded<T>`、`asset_request<T>::take` | `asset_ref<const T>`，直接访问 CPU 描述 | 成功重载替换当前缓存，旧引用继续保活旧数据 |
 | Prefab 描述 | `prefab_asset_ref`，即 `asset_ref<const prefab_description>` | 别名引用保活缓存条目；重载不会修改旧描述 |
-| 资产管理器、场景绑定、编辑器历史 | `mesh`、`material`、`texture` 强引用；混合批次另用缓存条目 | CPU 内容采用即完成，资源身份保持稳定，GPU 更新由 Render 独立处理 |
+| 资产管理器、场景绑定、编辑器历史 | `mesh`、`material`、`texture` 强引用；混合批次用 `render_resource_ref` 持有类型化引用 | CPU 内容采用即完成，资源身份保持稳定，GPU 更新由 Render 独立处理 |
 
 渲染引用通过 `resource_rid`、`resource_kind`、`resource_uri` 访问 RID、类型和 URI；空引用分别返回
 零 RID、invalid 类型和空 URI。场景绑定校验所属服务及来源域，ECS 保存类型化资源强引用。
@@ -140,7 +140,7 @@ asset_manager 内部使用任务私有的 CPU 数据请求完成装配，不将�
 
 ## 结构准备与实例化边界
 
-`asset_manager::prepare_scene(uri, prefab, reload)` 返回 `asset_request<scene_instantiation_data>`。
+`asset_manager::prepare_scene(uri, reload)` 与 `prepare_prefab(uri, reload)` 返回 `asset_request<scene_instantiation_data>`。
 它异步加载描述和结构依赖、执行层级排序并收集视觉资源清单，不创建 World、实体或场景节点，
 也不等待视觉资源和 GPU。默认复用描述；显式 reload 重新读取。准备结果本身不建立第二份 URI 缓存。
 同一 Prefab 描述可以由多个准备结果和实例共享。取消一个准备请求只放弃它的依赖观察权。
@@ -195,30 +195,31 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 
 ## 普通资源读取与解码
 
-两个对象位于 `engine/function/resource`。宿主构造 asset_manager 后，将其传给 resource_service；
-资源服务用 `attach_render(render_service&)` 绑定 Render，
-再用 `configure_loading(executor, profile, notification)` 装配运行资源异步加载。
-纯 CPU 使用者只需 `attach_task_executor`，不要求 Render。
-Scene/Editor 通过 resource_service 创建、查询和加载运行资源，通过 asset_manager 加载描述。
-asset_manager 的 `load<T>` 保留 CPU 描述解码契约；resource_service 的
-`load<texture_resource>(uri)` 等接口返回 `result<resource_request>`。
-缓存查询统一为 `find<T>(uri)`，混合类型使用 `find(render_resource_source, profile)`；
-不读取文件、不等待 GPU，失败清空输出。类型化查询使用服务配置的纹理 profile。
-所属线程通过 `status()` 查询，`get<texture_resource>()` 获取强引用；成功表示 CPU 内容与依赖已采用。
-两者共享文件服务与执行器，各自持有缓存。
+统一入口 `asset_manager` 位于 `engine/function/resource`，管理描述与运行资源的一份 URI 弱缓存。
+宿主用 `configure(executor, profile, notification)` 一次配置异步加载；
+仅需执行器时可用 `configure(executor)`，该重载保留已有 profile 与通知配置。
+相同配置可重复调用；更换执行器、profile 或通知对象返回 invalid_state，不改变已有配置。
+纯 CPU 加载不要求 Render；程序化运行资源创建独立通过 `attach_render(render_service&)` 接入，
+可以先于或晚于异步配置。同一 Render 可重复绑定，替换 Render 被拒绝。
+`load<T>` 返回 `result<asset_request<T>>`，涵盖描述及纹理、网格、材质运行资源。
+缓存查询统一为 `find_loaded<T>(uri)`，混合查询使用 `find_loaded(render_resource_source, profile)`；
+不读取文件、不等待 GPU，失败返回错误。类型化查询使用管理器配置的纹理 profile。
+混合引用 `render_resource_ref` 直接保存三种类型化强引用之一，不暴露缓存条目。
+`asset_request<render_resource_ref>::take()` 返回混合引用值，类型化请求返回对应资源强引用。
+所属线程通过 `status()` 查询；成功表示 CPU 内容与依赖已采用。
 同身份在途请求（含 reload）共享一次加载；请求复制共享观察权，cancel 仅释放当前观察权。
 所有观察者释放后取消未采用工作；再次 reload 须在前次完成后调用，不建立版本覆盖协议。
 材质依赖失败时材质请求失败，成功的独立资源不回滚。
-Application 提供 `assets()` 和 `resources()`；宿主分发文件完成后分别推进两个对象。
-资源服务停止不关闭共享加载器：先停止资源请求并释放场景，再销毁资源服务、资产管理器和 Render。
-各自的 `collect_unused()` 只回收所属缓存；运行资源强引用仍保活对应对象。
+Application 通过 `assets()` 暴露统一入口，分发文件完成后推进该管理器。
+管理器停止并排空任务、场景释放资源后，再关闭 Render；迟到的资源引用释放不访问已关闭后端。
+`collect_unused()` 回收过期弱缓存及待销毁后端资源，外部强引用仍保活对应对象。
 内部加载文件位于 `detail/`，不向宿主开放。资源数据及格式编解码仍位于 `engine/resource`。
 
 `render_resource.hpp` 声明 `render_resource_source` 及混合资源引用辅助函数；
 场景批量进度和回执位于 Runtime 的 `resource_load_types.hpp`，属于 `gneiss::runtime`。render_resource_kind 当前只枚举 Mesh、Material、Texture，
 CPU 描述类型仍由 load<T> 的 C++ 类型确定。
-`resource_service_loading.cpp` 保存服务私有的单资源请求状态，`asset_decode` 只解码已有字节。
-`resource_service_impl` 定义服务私有实现；创建、RID 包装、延迟销毁和内容采用均属于服务。
+`asset_construction_loading.cpp` 保存服务私有的单资源请求状态，`asset_decode` 只解码已有字节。
+`asset_manager::implementation` 定义服务私有实现；创建、RID 包装、延迟销毁和内容采用均属于服务。
 网格、纹理从统一 CPU 请求领取共享引用后直接传给对应采用函数，不再重新组装 decoded_asset。
 来源身份检查仍在采用前执行；材质在依赖完成后直接传递已经持有的纹理强引用。
 缓存条目只有同步创建期间的 is_loading 保护，不维护异步加载状态或失败副本。
@@ -249,7 +250,7 @@ asset_manager 仅接受 shared_ptr<files::service>。`find_loaded<T>` 只查询�
 普通加载不传递字节额度，按注入文件服务的 max_file_bytes 读取。
 Scene / Prefab、ActionMap 等格式自己的长度校验仍在 codec 中执行，不再通过类型 traits 限制读取。
 
-功能层 `asset_manager` 负责 CPU 描述加载，`resource_service` 负责运行资源加载编排。材质描述通过 `load<material_description>` 加载。
+功能层 `asset_manager` 统一负责 CPU 描述与运行资源加载编排。材质描述通过 `load<material_description>` 加载。
 资源服务在所属线程领取描述并请求纹理依赖，工作线程只解码 CPU 数据。
 网格和纹理由 asset_manager 的类型化入口加载，与描述请求共用文件读取、任务调度和关闭流程。
 网格读取后解码一次；纹理先读取并解析描述，再读取负载，按请求携带的设备能力解码。
@@ -259,7 +260,7 @@ Scene / Prefab、ActionMap 等格式自己的长度校验仍在 codec 中执行�
 
 texture_description 表示现有纹理 JSON 的运行时视图；尺寸、变体和 mip 布局仍来自容器 Manifest。
 网格复用 GNMS 文件头，不增加重复描述文件。当前不是 mip/LOD 流送。
-asset_manager/resource_service 不设统一的单资源输出额度，也不累计描述与负载的读取额度。
+asset_manager 不设统一的单资源输出额度，也不累计描述与负载的读取额度。
 文件服务集中配置单文件大小及在途缓冲预算；Application 当前配置单文件 64 MiB，可由宿主调整。
 格式解码器保留长度、数量、尺寸与整数溢出检查；PNG 解码保留默认 256 MiB 像素输出保护，
 这是压缩展开保护，不是通用加载额度。KTX2 当前只接受无超级压缩的 RGBA8 数据。

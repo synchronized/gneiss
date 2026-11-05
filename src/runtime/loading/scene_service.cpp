@@ -223,7 +223,8 @@ engine::error scene_service::request_reload(scene_instance_id instance, std::str
   next->instance = instance;
   next->uri = uri;
   next->prefab = prefab;
-  auto prepared = resources_->prepare_scene(uri, prefab, true);
+  auto prepared =
+      (prefab ? resources_->prepare_prefab(uri, true) : resources_->prepare_scene(uri, true));
   if (!prepared)
     return prepared.error();
   next->descriptions = std::move(*prepared);
