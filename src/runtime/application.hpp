@@ -7,9 +7,8 @@
 #include "engine/core/error.hpp"
 #include "engine/core/input/input_types.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/resource/asset_manager.hpp"
-#include "engine/function/resource/resource_service.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/input/action_map.hpp"
 
@@ -120,7 +119,6 @@ public:
   [[nodiscard]] GNEISS_API gneiss::engine::render_service& render() noexcept;
   /** 借用应用级资产管理器；仅所属线程使用，有效期不超过 Application。 */
   [[nodiscard]] GNEISS_API gneiss::engine::asset_manager& assets() noexcept;
-  [[nodiscard]] GNEISS_API gneiss::engine::resource_service& resources() noexcept;
   /** 共享宿主文件服务；由 Application 分发和关闭，消费者只提交/取消自己的请求。 */
   [[nodiscard]] GNEISS_API std::shared_ptr<gneiss::engine::files::service>
   async_files() const noexcept;

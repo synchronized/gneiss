@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/resource/resource_service.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "runtime/loading/resource_load_types.hpp"
 #include <algorithm>
@@ -12,7 +12,7 @@ namespace gneiss::runtime {
 /** 场景/编辑器的请求汇总；不读文件、不解码、不创建或更新资源。 */
 class resource_load_group final {
 public:
-  explicit resource_load_group(engine::resource_service& service) : service_(service) {}
+  explicit resource_load_group(engine::asset_manager& service) : service_(service) {}
   engine::texture_prepare_profile profile() const noexcept { return service_.profile(); }
   engine::error submit_assets(std::span<const engine::render_resource_source> sources,
                               std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
@@ -194,8 +194,8 @@ public:
   bool stopped() const { return stopping_; }
 
 private:
-  engine::resource_service& service_;
-  engine::resource_request current_;
+  engine::asset_manager& service_;
+  engine::asset_request<engine::resource_cache::entry> current_;
   std::optional<runtime::asset_load_completion> completion_;
   std::chrono::steady_clock::time_point started_;
   std::uint64_t sequence_{};

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/resource/resource_service.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/resource_retirement_queue.hpp"
 #include "engine/resource/texture/texture_view.hpp"
 #include <unordered_map>
 namespace gneiss::engine {
 struct material_data;
-struct resource_service::implementation final {
+struct asset_manager::implementation final {
 public:
   explicit GNEISS_API implementation(render_service& render);
   GNEISS_API mesh wrap_mesh(rid handle);
@@ -37,7 +37,7 @@ public:
   std::vector<std::shared_ptr<pending_load>> pending;
   std::shared_ptr<progress_notification> notification;
   bool loading_configured{};
-  GNEISS_API void advance(resource_service&);
+  GNEISS_API void advance(asset_manager&);
   GNEISS_API void stop_loading() noexcept;
   /** 创建新的渲染身份并返回唯一拥有者；失败返回错误，不接管外部 RID。 */
   GNEISS_API result<mesh> reserve_mesh() noexcept;
@@ -57,13 +57,13 @@ public:
   GNEISS_API bool update_material(const material& target, std::shared_ptr<const material_data> data,
                                   std::array<texture, 5> dependencies) noexcept;
   GNEISS_API result<texture> create_texture(const texture_view& desc) noexcept;
-  static GNEISS_API error adopt(resource_service&, std::shared_ptr<const mesh_data>, const mesh&,
+  static GNEISS_API error adopt(asset_manager&, std::shared_ptr<const mesh_data>, const mesh&,
                                 std::span<const asset_read_record> = {}) noexcept;
-  static GNEISS_API error adopt(resource_service&, std::shared_ptr<const texture_data>,
-                                const texture&, std::span<const asset_read_record> = {}) noexcept;
-  static GNEISS_API error adopt(resource_service&, const material_description&, const material&,
+  static GNEISS_API error adopt(asset_manager&, std::shared_ptr<const texture_data>, const texture&,
+                                std::span<const asset_read_record> = {}) noexcept;
+  static GNEISS_API error adopt(asset_manager&, const material_description&, const material&,
                                 std::array<texture, 5>) noexcept;
-  static GNEISS_API error validate_sources(resource_service&,
+  static GNEISS_API error validate_sources(asset_manager&,
                                            std::span<const asset_read_record>) noexcept;
 };
 } // namespace gneiss::engine

@@ -75,7 +75,7 @@ int main() try {
   auto& world = **owner;
   auto files = std::make_shared<e::files::service>();
   e::asset_manager assets(files);
-  e::resource_service resources(assets);
+  auto& resources = assets;
   e::scene_instances scenes(world, resources);
   e::scene_description source;
   source.uuid = e::guid::from_bytes({1});

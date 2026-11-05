@@ -14,8 +14,7 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/asset_manager.hpp"
-#include "engine/function/resource/detail/resource_service_impl.hpp"
-#include "engine/function/resource/resource_service.hpp"
+#include "engine/function/resource/detail/asset_construction.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/loading/scene_domain.hpp"
@@ -83,9 +82,9 @@ void unified_resource_index() {
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == error::success);
   gneiss::engine::render_service resources;
-  gneiss::engine::resource_service::implementation resources_factory{resources};
+  gneiss::engine::asset_manager::implementation resources_factory{resources};
   asset_manager assets(gneiss::test_support::test_files(files));
-  resource_service render{assets};
+  auto& render = assets;
   if (render.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   check(assets.register_decoder(std::make_shared<text_loader>()) == error::success);
@@ -105,17 +104,16 @@ void unified_resource_index() {
           render.reserve_resource({"asset://same", gneiss::engine::render_resource_kind::material}),
           material) == error::success);
   assets.collect_unused();
-  check(assets.cache().size() == 2U && render.cache().size() == 1U && *cpu == "cpu" &&
-        resources.live_resource_count() == 1U);
+  check(assets.cached_count() == 3U && *cpu == "cpu" && resources.live_resource_count() == 1U);
   prefab.reset();
   assets.collect_unused();
-  check(assets.cache().size() == 1U && render.cache().size() == 1U);
+  check(assets.cached_count() == 2U);
   cpu.reset();
   assets.collect_unused();
-  check(assets.cache().size() == 0U && render.owns(material));
+  check(assets.cached_count() == 1U && render.owns(material));
   material.reset();
   render.collect_unused();
-  check(assets.cache().size() == 0U && resources.live_resource_count() == 0U);
+  check(assets.cached_count() == 0U && resources.live_resource_count() == 0U);
 }
 
 void run() {
@@ -133,15 +131,15 @@ void run() {
   gneiss::test_support::fixture_files vfs;
   check(vfs.mount("asset://", files) == gneiss::engine::error::success);
   gneiss::engine::render_service resources;
-  gneiss::engine::resource_service::implementation resources_factory{resources};
+  gneiss::engine::asset_manager::implementation resources_factory{resources};
   auto& executor = gneiss::test_support::render_tasks();
   gneiss::engine::asset_manager active_assets(gneiss::test_support::test_files(vfs));
   active_assets.attach_task_executor(executor);
   gneiss::engine::asset_manager candidate_assets(gneiss::test_support::test_files(vfs));
-  gneiss::engine::resource_service active_render{active_assets};
+  auto& active_render = active_assets;
   if (active_render.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
-  gneiss::engine::resource_service candidate_render{candidate_assets};
+  auto& candidate_render = candidate_assets;
   if (candidate_render.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   {
@@ -171,7 +169,7 @@ void run() {
     gneiss::engine::render_service foreign_resources;
 
     gneiss::engine::asset_manager foreign_owner(gneiss::test_support::test_files(vfs));
-    gneiss::engine::resource_service foreign_assets{foreign_owner};
+    auto& foreign_assets = foreign_owner;
     if (foreign_assets.attach_render(foreign_resources).failed())
       throw std::runtime_error("资源管理器渲染绑定失败");
     gneiss::engine::render_resource_ref foreign_mesh;

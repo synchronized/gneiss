@@ -80,11 +80,11 @@ clang-format -i <files...>
 - `*_view` 强调借用数据，必须注明有效期；`*_snapshot` 表示自有快照。
   混合借用字段和自有快照的查询结果使用 `*_info`，逐项说明所有权。
 - `*_request` 表示请求及其观察状态；`*_metrics` 表示统计；`*_record` 表示一次操作记录。
-- `asset_manager` 负责 CPU 资产加载，`resource_service` 组织运行时资源，
-  `render_service` 管理渲染后端；对应局部参数优先使用 `assets`、`resources`、`renderer`。
+- `asset_manager` 统一负责描述加载与运行资源装配，
+  `render_service` 管理渲染后端；对应局部参数优先使用 `assets`、`renderer`。
 - `render_resource_kind` 只描述渲染资源类别，不用于枚举所有 CPU 资产类型。
 - 文件名体现主要对象或职责；拆分实现优先沿用所属类前缀，如
-  `resource_service_loading.cpp`。相关小结构可以集中定义，不要求每个类型一个文件。
+  `asset_construction_loading.cpp`。相关小结构可以集中定义，不要求每个类型一个文件。
 - 不保留仅为兼容旧名称而增加的别名；不因字段相同就合并所有权或职责不同的类型。
 
 ### 布尔值和动作命名

@@ -5,7 +5,9 @@
 #include "engine/core/serialization/binding.hpp"
 #include "engine/function/resource/asset_loading.hpp"
 namespace gneiss::test_support {
-template <class T> engine::error take_value(engine::result<T> value, T& output) {
+template <class T, class U>
+  requires std::is_assignable_v<U&, T&&>
+engine::error take_value(engine::result<T> value, U& output) {
   if (!value) {
     output = {};
     return value.error();

@@ -3,8 +3,8 @@
 #pragma once
 #include "async_asset.hpp"
 #include "engine/function/render/render_resource_data.hpp"
+#include "engine/function/resource/detail/asset_construction.hpp"
 #include "engine/function/resource/detail/asset_decode.hpp"
-#include "engine/function/resource/detail/resource_service_impl.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
 #include "value_result.hpp"
@@ -20,7 +20,7 @@ struct prepared_batch {
 }
 namespace gneiss::test_support {
 using namespace gneiss::engine;
-inline error adopt_render_for_test(resource_service& service, decoded_asset decoded,
+inline error adopt_render_for_test(asset_manager& service, decoded_asset decoded,
                                    render_resource_ref& target) {
   const auto kind = decoded.kind();
   if (kind == render_resource_kind::invalid)
@@ -37,11 +37,11 @@ inline error adopt_render_for_test(resource_service& service, decoded_asset deco
       [&](auto& data) -> error {
         using T = std::decay_t<decltype(data)>;
         if constexpr (std::is_same_v<T, mesh_data>)
-          return resource_service::implementation::adopt(
+          return asset_manager::implementation::adopt(
               service, std::make_shared<const mesh_data>(std::move(data)),
               resource_cast<mesh_resource>(target), decoded.sources);
         else if constexpr (std::is_same_v<T, texture_data>)
-          return resource_service::implementation::adopt(
+          return asset_manager::implementation::adopt(
               service, std::make_shared<const texture_data>(std::move(data)),
               resource_cast<texture_resource>(target), decoded.sources);
         else if constexpr (std::is_same_v<T, asset_ref<const material_description>>) {
@@ -59,7 +59,7 @@ inline error adopt_render_for_test(resource_service& service, decoded_asset deco
               return status;
             dependencies[slot] = resource_cast<texture_resource>(entry);
           }
-          return resource_service::implementation::adopt(
+          return asset_manager::implementation::adopt(
               service, *data, resource_cast<material_resource>(target), std::move(dependencies));
         } else
           return error::invalid_argument;

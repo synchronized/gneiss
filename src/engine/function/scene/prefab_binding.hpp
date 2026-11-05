@@ -7,9 +7,9 @@
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/meta/registry.hpp"
-#include "engine/function/scene/scene_types.hpp"
-#include "engine/function/resource/resource_service.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 
 #include "engine/function/scene/scene_object.hpp"
@@ -35,7 +35,7 @@ public:
     scene_node_id parent = null_scene_node_id;
   };
 
-  prefab_binding(world& native_world, resource_service& loader, prefab_asset_ref prefab,
+  prefab_binding(world& native_world, asset_manager& loader, prefab_asset_ref prefab,
                  guid instance_uuid) noexcept;
   ~prefab_binding() noexcept = default;
 
@@ -74,7 +74,7 @@ private:
   [[nodiscard]] error apply_overrides(std::span<const prefab_property_override> overrides) noexcept;
 
   world& native_world_;
-  resource_service& loader_;
+  asset_manager& loader_;
   prefab_asset_ref prefab_;
   guid instance_uuid_;
   prefab_reference_description reference_; // 实例来源与覆盖的唯一可变记录。

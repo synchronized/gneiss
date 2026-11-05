@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/scene/component_adapter.hpp"
-#include "engine/function/resource/resource_service.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include <cmath>
@@ -63,7 +63,7 @@ error mesh_valid(const mesh_renderer_description& value) {
              : error::invalid_argument;
 }
 result<mesh_renderer> mesh_resolve(const mesh_renderer_description& value,
-                                   resource_service& resources) {
+                                   asset_manager& resources) {
   mesh_renderer result;
   if (!value.mesh_uri.empty()) {
     auto loaded = resources.find<mesh_resource>(value.mesh_uri);
@@ -497,7 +497,7 @@ error edit_runtime_component(component_context context, guid type, meta::propert
   return error::internal;
 }
 result<mesh_renderer> resolve_component_renderer(const component_descriptions& values,
-                                                 resource_service& resources) noexcept try {
+                                                 asset_manager& resources) noexcept try {
   const auto* renderer = values.get<mesh_renderer_description>();
   return renderer ? mesh_resolve(*renderer, resources) : result<mesh_renderer>{mesh_renderer{}};
 } catch (const std::bad_alloc&) {

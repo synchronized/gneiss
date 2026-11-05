@@ -189,7 +189,7 @@ void injected_file_service() {
         "cache miss preserves output");
   std::shared_ptr<const gneiss::engine::files::source_domain> source;
   check(files->resolve_source("asset://value", source).ok() && source &&
-            assets->cache().size() == 1,
+            assets->cached_count() == 1,
         "service cache source identity");
   check(gneiss::test_support::assign_value(
             assets->load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value",
@@ -409,7 +409,7 @@ void cache_collection() {
   check(gneiss::test_support::load_asset(assets, "asset://value", held) ==
             gneiss::engine::error::success,
         "seed cache");
-  check(assets.cache().size() == 1U, "CPU result uses unified index");
+  check(assets.cached_count() == 1U, "CPU result uses unified index");
   assets.collect_unused();
   asset_request<value> request;
   check(
@@ -426,7 +426,7 @@ void cache_collection() {
   check(assets.find_loaded<value>("asset://value").error() == gneiss::engine::error::not_found,
         "weak CPU cache expires before collection");
   assets.collect_unused();
-  check(assets.cache().size() == 0U, "CPU entry collected after last reference");
+  check(assets.cached_count() == 0U, "CPU entry collected after last reference");
   source->byte = 'b';
   check(
       gneiss::test_support::assign_value(
@@ -461,7 +461,7 @@ void cache_collection() {
         "reload before collection");
   copy.reset();
   assets.collect_unused();
-  check(assets.cache().size() == 1U, "in-flight reload retains previous cache entry");
+  check(assets.cached_count() == 1U, "in-flight reload retains previous cache entry");
   auto reload_status = gneiss::engine::error::not_ready;
   for (unsigned i = 0; i < 10 && reload_status == gneiss::engine::error::not_ready; ++i) {
     check(executor.run_ready().status == drive_status::success, "failed reload drive");

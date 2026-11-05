@@ -32,23 +32,22 @@ inline engine::error prepare_scene(runtime::application& app, std::string_view u
     std::this_thread::yield();
     return std::chrono::steady_clock::now() < deadline;
   };
-  engine::scene_description_request request(app.assets(), std::string(uri), prefab);
-  engine::scene_preparation_inputs inputs;
-  engine::scene_diagnostic diagnostic;
+  auto request = app.assets().prepare_scene(uri, prefab);
+  if (!request)
+    return request.error();
   for (;;) {
     if (!step())
       return engine::error::internal;
-    const auto status = request.advance(inputs, diagnostic);
-    if (status == engine::error::not_ready)
-      continue;
-    if (status.failed())
-      return status;
+    auto loaded = request->take();
+    if (!loaded) {
+      if (loaded.error().error == engine::error::not_ready)
+        continue;
+      return loaded.error().error;
+    }
+    prepared = **loaded;
     break;
   }
-  auto status = engine::prepare_loaded_scene(inputs, prefab ? uri : std::string_view{}, prepared,
-                                             diagnostic, {});
-  if (status.failed())
-    return status;
+  auto status = engine::error::success;
   bindings.clear();
   for (const auto& source : prepared.assets) {
     std::uint64_t id{};

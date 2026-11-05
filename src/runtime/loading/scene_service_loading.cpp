@@ -6,7 +6,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/resource/resource_service.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "runtime/loading/resource_load_group.hpp"
@@ -29,13 +29,9 @@ double elapsed(clock_type::time_point start) {
 struct scene_service::load_task {
   struct cpu_result {
     gneiss::engine::scene_instantiation_data description;
-    gneiss::engine::scene_preparation_inputs inputs;
-    gneiss::engine::scene_diagnostic diagnostic;
-    gneiss::engine::error result{gneiss::engine::error::internal};
   };
   std::shared_ptr<cpu_result> cpu{std::make_shared<cpu_result>()};
-  gneiss::engine::task_handle task;
-  std::unique_ptr<gneiss::engine::scene_description_request> description_request;
+  engine::asset_request<engine::scene_instantiation_data> description_request;
   scene_load_completion result;
   std::unique_ptr<scene_domain> candidate;
   gneiss::engine::scene_instances::resource_bindings bindings;
@@ -60,8 +56,6 @@ void scene_service::request_stop() {
     loading_assets()->request_stop();
   if (pending_)
     pending_->cancelled = true;
-  if (executor_)
-    executor_->cancel_scope(scope_);
 }
 bool scene_service::stopped() const noexcept {
   return stopping_ && !executor_ && !loading_assets() && !active_ && !retired_;
@@ -72,21 +66,16 @@ void scene_service::advance_stop() {
   if (loading_assets())
     loading_assets()->advance();
   advance_load();
-  if ((loading_assets() && !loading_assets()->stopped()) || (executor_ && !executor_->idle(scope_)))
+  if (loading_assets() && !loading_assets()->stopped())
     return;
-  // 两个 CPU scope 已静止，沿用销毁顺序，此时不会等待后台任务。
+  // 场景已放弃准备请求；共享资产任务由资产管理器负责收尾。
   shutdown();
 }
 
 void scene_service::stop_load() noexcept {
-  if (executor_) {
-    executor_->cancel_scope(scope_);
-    (void)executor_->close_scope(scope_);
-  }
   pending_.reset();
   completed_.reset();
   executor_ = nullptr;
-  scope_ = {};
   renderer_ = nullptr;
   notification_.reset();
 }
@@ -109,8 +98,10 @@ gneiss::engine::error scene_service::request_scene(std::string_view uri, std::ui
   auto next = std::make_unique<load_task>();
   next->result.progress = {
       .request = ++sequence_, .session = session, .revision = revision, .can_cancel = true};
-  next->description_request = std::make_unique<gneiss::engine::scene_description_request>(
-      resources_->assets(), std::string(uri), false);
+  auto prepared = resources_->prepare_scene(uri, false, true);
+  if (!prepared)
+    return prepared.error();
+  next->description_request = std::move(*prepared);
   request = next->result.progress.request;
   pending_ = std::move(next);
   visual_queue_.clear();
@@ -146,7 +137,6 @@ gneiss::engine::error scene_service::cancel_scene(std::uint64_t request) {
   }
   pending_->cancelled = true;
   pending_->result.progress.can_cancel = false;
-  (void)executor_->cancel(pending_->task);
   return gneiss::engine::error::success;
 }
 void scene_service::finish(gneiss::engine::error result, scene_load_phase phase,
@@ -253,54 +243,19 @@ void scene_service::advance_load_impl() {
   auto& value = *pending_;
   auto& progress = value.result.progress;
   if (value.preparing) {
-    if (value.task.id == 0U) {
-      if (value.cancelled) {
-        finish(gneiss::engine::error::invalid_state, scene_load_phase::cancelled);
-        return;
-      }
-      if (value.description_request) {
-        const auto loaded =
-            value.description_request->advance(value.cpu->inputs, value.cpu->diagnostic);
-        if (loaded == gneiss::engine::error::not_ready)
-          return;
-        if (loaded.failed()) {
-          finish(loaded, scene_load_phase::failed, value.cpu->diagnostic.message);
-          return;
-        }
-        value.description_request.reset();
-      }
-      const auto accepted = executor_->submit(
-          {.name = "scene.prepare", .scope = scope_, .notification = notification_},
-          [cpu = value.cpu](const gneiss::engine::task_context& context) {
-            cpu->result = gneiss::engine::prepare_loaded_scene(
-                cpu->inputs, {}, cpu->description, cpu->diagnostic,
-                [&] { return context.stop_requested(); });
-            return gneiss::engine::task_outcome{.state = cpu->result.ok()
-                                                             ? gneiss::engine::task_state::succeeded
-                                                             : gneiss::engine::task_state::failed};
-          },
-          value.task);
-      if (accepted != gneiss::engine::submit_result::success &&
-          accepted != gneiss::engine::submit_result::full)
-        finish(gneiss::engine::error::invalid_state, scene_load_phase::failed);
+    if (value.cancelled) {
+      finish(engine::error::invalid_state, scene_load_phase::cancelled);
       return;
     }
-    std::vector<gneiss::engine::task_completion> completions;
-    gneiss::engine::measure(gneiss::engine::loop_stage::task_collect,
-                            [&] { return executor_->poll(scope_, completions); });
-    if (completions.empty()) {
+    auto prepared = value.description_request.take();
+    if (!prepared) {
+      if (prepared.error().error != engine::error::not_ready)
+        finish(prepared.error().error, scene_load_phase::failed, prepared.error().message);
       return;
     }
     value.preparing = false;
-    value.result.prepare_ms = completions.front().execution_ms;
-    if (value.cancelled) {
-      finish(gneiss::engine::error::invalid_state, scene_load_phase::cancelled);
-      return;
-    }
-    if (value.cpu->result != gneiss::engine::error::success) {
-      finish(value.cpu->result, scene_load_phase::failed, value.cpu->diagnostic.message);
-      return;
-    }
+    value.result.prepare_ms = value.description_request.metrics().decode_ms;
+    value.cpu->description = **prepared;
     value.candidate = std::make_unique<scene_domain>();
     const auto initialized = value.candidate->initialize(*resources_);
     if (initialized != gneiss::engine::error::success) {

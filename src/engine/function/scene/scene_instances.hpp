@@ -8,7 +8,7 @@
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid_table.hpp"
-#include "engine/function/resource/resource_service.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
@@ -82,7 +82,7 @@ public:
   /** 验证普通作者节点或 Prefab 来源节点归属；组件增删仍受各接口限制。 */
   [[nodiscard]] GNEISS_API error validate_editable_node(scene_instance_id instance,
                                                         scene_node_id node) const noexcept;
-  GNEISS_API scene_instances(world& native_world, resource_service& loader) noexcept;
+  GNEISS_API scene_instances(world& native_world, asset_manager& loader) noexcept;
   GNEISS_API ~scene_instances() noexcept;
 
   [[nodiscard]] bool is_valid() const noexcept {
@@ -166,7 +166,7 @@ public:
 private:
   using instance_ptr = std::unique_ptr<scene_instance>;
   world& native_world_;
-  resource_service& loader_;
+  asset_manager& loader_;
   std::uint16_t domain_;
   rid_table<instance_ptr, scene_instance_id> instances_;
 };

@@ -7,7 +7,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/resource/resource_service.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/loading/resource_load_types.hpp"
@@ -44,10 +44,9 @@ public:
   poll_prepared_assets(std::uint64_t request);
   /** 放弃指定请求及其回执，立即释放加载槽位；不会取消其他编号的请求。 */
   [[nodiscard]] GNEISS_API engine::error discard_prepared_assets(std::uint64_t request) noexcept;
-  [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::resource_service& resources);
+  [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::asset_manager& resources);
   [[nodiscard]] gneiss::engine::error
   attach_executor(gneiss::engine::task_executor& executor, gneiss::engine::render_service& renderer,
-                  gneiss::engine::texture_prepare_profile profile,
                   std::shared_ptr<gneiss::engine::progress_notification> notification);
   void advance();
   /** 激活后的视觉资源独立完成，不影响结构激活结果；所属线程消费诊断。 */
@@ -96,8 +95,7 @@ private:
     scene_instance_id instance;
     std::string uri;
     bool prefab{};
-    std::unique_ptr<engine::scene_description_request> descriptions;
-    engine::scene_preparation_inputs inputs;
+    engine::asset_request<engine::scene_instantiation_data> descriptions;
     engine::scene_instantiation_data prepared;
     std::vector<engine::render_resource_ref> retained;
     std::size_t cursor{};
@@ -115,7 +113,7 @@ private:
   std::uint64_t visual_revision_{};
   bool visual_pending_{};
   std::optional<gneiss::runtime::asset_load_completion> visual_completion_;
-  gneiss::engine::resource_service* resources_{};
+  gneiss::engine::asset_manager* resources_{};
   std::unique_ptr<scene_domain> active_;
   std::unique_ptr<scene_domain> retired_;
   scene_retirement_statistics retirement_;
@@ -129,7 +127,6 @@ private:
   void sample_budget(scene_load_progress& value) const;
   void check_owner() const;
   gneiss::engine::task_executor* executor_{};
-  gneiss::engine::task_scope scope_{};
   gneiss::engine::render_service* renderer_{};
   std::shared_ptr<gneiss::engine::progress_notification> notification_;
   std::unique_ptr<load_task> pending_;

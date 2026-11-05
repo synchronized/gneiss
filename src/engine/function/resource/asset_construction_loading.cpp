@@ -4,23 +4,22 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/function/resource/asset_manager.hpp"
-#include "engine/function/resource/detail/resource_service_impl.hpp"
-#include "engine/function/resource/resource_service.hpp"
+#include "engine/function/resource/detail/asset_construction.hpp"
 #include <algorithm>
 #include <limits>
 namespace gneiss::engine {
-struct resource_service::implementation::pending_load {
-  std::shared_ptr<detail::resource_load_state> state;
+struct asset_manager::implementation::pending_load {
+  std::shared_ptr<detail::asset_state> state;
   std::variant<asset_request<mesh_data>, asset_request<texture_data>,
                asset_request<material_description>>
       cpu;
   asset_ref<const material_description> description;
-  std::array<resource_request, 5> dependencies;
+  std::array<asset_request<resource_cache::entry>, 5> dependencies;
   std::size_t dependency_cursor{};
 };
-result<resource_request> resource_service::load(const render_resource_source& source,
-                                                bool reload) try {
-  resource_request output;
+result<asset_request<resource_cache::entry>>
+asset_manager::load(const render_resource_source& source, bool reload) try {
+  asset_request<resource_cache::entry> output;
   if (!impl_ || !impl_->loading_configured || render_stopping_)
     return error::invalid_state;
   auto reserved = reserve_resource(source);
@@ -35,7 +34,7 @@ result<resource_request> resource_service::load(const render_resource_source& so
       return output;
     }
   }
-  auto state = std::make_shared<detail::resource_load_state>();
+  auto state = std::make_shared<detail::asset_state>();
   state->target = target;
   if (!reload && find(source, profile()).ok()) {
     state->status = error::success;
@@ -46,7 +45,7 @@ result<resource_request> resource_service::load(const render_resource_source& so
   work->state = state;
   switch (source.type) {
   case render_resource_kind::mesh: {
-    auto loaded = assets_.load<mesh_data>(source.uri, {.reload = reload});
+    auto loaded = decode_data<mesh_data>(source.uri, {.reload = reload});
     if (!loaded)
       return loaded.error();
     work->cpu = std::move(*loaded);
@@ -54,14 +53,14 @@ result<resource_request> resource_service::load(const render_resource_source& so
   }
   case render_resource_kind::texture: {
     auto loaded =
-        assets_.load<texture_data>(source.uri, {.reload = reload, .texture_profile = profile()});
+        decode_data<texture_data>(source.uri, {.reload = reload, .texture_profile = profile()});
     if (!loaded)
       return loaded.error();
     work->cpu = std::move(*loaded);
     break;
   }
   case render_resource_kind::material: {
-    auto loaded = assets_.load<material_description>(source.uri, reload);
+    auto loaded = decode_data<material_description>(source.uri, {.reload = reload});
     if (!loaded)
       return loaded.error();
     work->cpu = std::move(*loaded);
@@ -79,12 +78,12 @@ result<resource_request> resource_service::load(const render_resource_source& so
   return error::internal;
 }
 
-void resource_service::implementation::stop_loading() noexcept {
+void asset_manager::implementation::stop_loading() noexcept {
   for (auto& work : pending)
     work->state->status = error::invalid_state;
   pending.clear();
 }
-void resource_service::implementation::advance(resource_service& service) {
+void asset_manager::implementation::advance(asset_manager& service) {
   // 依赖请求可能追加到 pending；每次只处理开始时已有的工作。
   const auto count = pending.size();
   for (std::size_t i = 0; i < count; ++i) {
@@ -105,6 +104,7 @@ void resource_service::implementation::advance(resource_service& service) {
                               std::move(failure.message), failure.error};
                 return failure.error;
               }
+              state.source_bytes = request.source_bytes();
               if constexpr (std::is_same_v<T, asset_request<mesh_data>>) {
                 state.metrics = request.metrics();
                 return adopt(service, loaded->shared(), resource_cast<mesh_resource>(state.target),
@@ -132,8 +132,7 @@ void resource_service::implementation::advance(resource_service& service) {
         if (status.failed()) {
           state.status = status;
           if (!diagnostic.message.empty())
-            state.diagnostic = {status, diagnostic.byte_offset, std::move(diagnostic.path),
-                                std::move(diagnostic.message)};
+            state.diagnostic = std::move(diagnostic);
           continue;
         }
         if (!work->description) {
@@ -163,7 +162,8 @@ void resource_service::implementation::advance(resource_service& service) {
             break;
           if (status.failed()) {
             state.status = status;
-            state.diagnostic = dependency.diagnostic();
+            const auto failure = dependency.diagnostic();
+            state.diagnostic = {failure.byte_offset, failure.path, failure.message, failure.error};
             break;
           }
           ++work->dependency_cursor;

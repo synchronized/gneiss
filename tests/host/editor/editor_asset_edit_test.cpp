@@ -244,9 +244,9 @@ void run(gneiss::engine::execution_mode mode) {
         history.size() == creation_count);
   gneiss::engine::render_resource_ref unused;
   check(gneiss::test_support::take_value(
-            app->resources().find(
+            app->assets().find(
                 {.uri = "asset://c.json", .type = gneiss::engine::render_resource_kind::material},
-                app->resources().profile()),
+                app->assets().profile()),
             unused) == gneiss::engine::error::not_found &&
         !unused);
   history.clear();
@@ -267,9 +267,9 @@ void run(gneiss::engine::execution_mode mode) {
         session.scene_handle() == new_scene &&
         gneiss::test_support::scene_query(session).nodes.empty() && history.size() == 0U);
   check(gneiss::test_support::take_value(
-            app->resources().find(
+            app->assets().find(
                 {.uri = "asset://d.json", .type = gneiss::engine::render_resource_kind::material},
-                app->resources().profile()),
+                app->assets().profile()),
             unused) == gneiss::engine::error::not_found);
   // 文档入口负责应用停止和关闭边界，Scene 不依赖 Application。
   check(edit.request_add(*app, session, history, "stopping",

@@ -128,14 +128,14 @@ void visual_failure(gneiss::engine::execution_mode mode) {
   check(failures == 1U);
   gneiss::engine::render_resource_ref ready;
   check(gneiss::test_support::take_value(
-            app->resources().find({"asset://mesh.json", gneiss::engine::render_resource_kind::mesh},
-                                  app->resources().profile()),
+            app->assets().find({"asset://mesh.json", gneiss::engine::render_resource_kind::mesh},
+                               app->assets().profile()),
             ready) == gneiss::engine::error::success);
   check(gneiss::engine::resource_cast<gneiss::engine::mesh_resource>(ready) == binding.mesh);
   check(gneiss::test_support::take_value(
-            app->resources().find(
+            app->assets().find(
                 {"asset://material.json", gneiss::engine::render_resource_kind::material},
-                app->resources().profile()),
+                app->assets().profile()),
             ready) == gneiss::engine::error::not_ready);
   std::uint64_t nodes{};
   check(gneiss::test_support::take_value(app->scenes()->get_node_count(completion.scene), nodes) ==
@@ -229,8 +229,8 @@ void run(gneiss::engine::execution_mode mode) {
   // 结构 ready 时视觉内容尚未读取或上传。
   gneiss::engine::render_resource_ref not_ready;
   check(gneiss::test_support::take_value(
-            app->resources().find({"asset://mesh.json", gneiss::engine::render_resource_kind::mesh},
-                                  app->resources().profile()),
+            app->assets().find({"asset://mesh.json", gneiss::engine::render_resource_kind::mesh},
+                               app->assets().profile()),
             not_ready) == gneiss::engine::error::not_ready);
   check(prepared.cpu_data_bytes == prepared.resident_bytes);
   check(prepared.application_logical_bytes >= prepared.resident_bytes);
@@ -374,8 +374,8 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   auto selected = [&](gneiss::engine::render_resource_kind type, const char* uri) {
     gneiss::engine::render_resource_ref lease;
     check(gneiss::test_support::take_value(
-              app->resources().find({.uri = uri, .type = type}, app->resources().profile()),
-              lease) == gneiss::engine::error::success);
+              app->assets().find({.uri = uri, .type = type}, app->assets().profile()), lease) ==
+          gneiss::engine::error::success);
     return lease;
   };
   auto binding = [&] {

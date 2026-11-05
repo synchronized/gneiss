@@ -24,8 +24,8 @@
 
 namespace gneiss::engine {
 
-prefab_binding::prefab_binding(world& native_world, resource_service& loader,
-                               prefab_asset_ref prefab, gneiss::engine::guid instance_uuid) noexcept
+prefab_binding::prefab_binding(world& native_world, asset_manager& loader, prefab_asset_ref prefab,
+                               gneiss::engine::guid instance_uuid) noexcept
     : native_world_(native_world), loader_(loader), prefab_(std::move(prefab)),
       instance_uuid_(std::move(instance_uuid)) {}
 

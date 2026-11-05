@@ -45,8 +45,6 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/resource/asset_request.hpp
   engine/function/resource/asset_loading.hpp
   engine/function/resource/asset_manager.hpp
-  engine/function/resource/resource_request.hpp
-  engine/function/resource/resource_service.hpp
   engine/function/resource/render_resource.hpp
   engine/resource/scene/component_description.hpp
   engine/core/serialization/detail/json_adapter.hpp

@@ -9,8 +9,7 @@ namespace gneiss::runtime {
 
 scene_domain::~scene_domain() noexcept = default;
 
-gneiss::engine::error
-scene_domain::initialize(gneiss::engine::resource_service& resources) noexcept {
+gneiss::engine::error scene_domain::initialize(gneiss::engine::asset_manager& resources) noexcept {
   if (world_owner_) {
     return gneiss::engine::error::invalid_state;
   }

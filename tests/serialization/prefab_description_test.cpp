@@ -106,7 +106,7 @@ bool prepared_description_contract() {
     return false;
   }
   asset_manager assets(gneiss::test_support::test_files(files));
-  auto& cache = assets.cache();
+  auto& cache = assets;
   asset_manager other_assets(gneiss::test_support::test_files(different_source));
   constexpr std::string_view uri = "asset://prefabs/lamp.prefab.json";
   gneiss::engine::prefab_description description;
@@ -172,8 +172,8 @@ bool prepared_description_contract() {
   reused = {};
   ordinary = {};
   legacy = {};
-  cache.release_unused();
-  return cache.size() == 0U && first.get()->objects[0].transform.translation[0] == 1.0F;
+  assets.collect_unused();
+  return cache.cached_count() == 0U && first.get()->objects[0].transform.translation[0] == 1.0F;
 }
 
 bool explicit_root_contract() {
@@ -406,7 +406,7 @@ int main() try {
   if (file_system.mount("asset://prefabs/", mounted).failed())
     return 7;
   gneiss::engine::asset_manager assets(gneiss::test_support::test_files(file_system));
-  auto& cache = assets.cache();
+  auto& cache = assets;
   gneiss::engine::prefab_asset_ref first;
   gneiss::engine::prefab_asset_ref second;
   if (gneiss::test_support::load_asset(assets, "asset://prefabs/lamp.prefab.json", first) !=
@@ -414,14 +414,14 @@ int main() try {
       gneiss::test_support::load_asset(assets, "asset://prefabs/lamp.prefab.json", second) !=
           gneiss::engine::error::success ||
       first.get() == nullptr || first.get() != second.get() || mounted->read_count != 1U ||
-      cache.size() != 1U) {
+      cache.cached_count() != 1U) {
     return 7;
   }
   gneiss::engine::prefab_asset_ref reloaded;
   if (gneiss::test_support::load_asset(assets, "asset://prefabs/lamp.prefab.json", reloaded,
                                        true) != gneiss::engine::error::success ||
       !reloaded || reloaded.get() == first.get() || mounted->read_count != 2U ||
-      cache.size() != 1U) {
+      cache.cached_count() != 1U) {
     return 7;
   }
   gneiss::engine::prefab_asset_ref invalid;

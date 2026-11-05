@@ -3,9 +3,9 @@
 
 # PLAN-100：统一资产服务与场景加载边界
 
-状态：方案已确认，实施待开始。日期：2026-11-05。
+状态：已完成，Windows 编译及 36 项针对性回归通过。日期：2026-11-05。
 归属：[DEV-052](DEV-052-architecture-cleanup.md)。决策见
-[ADR-106](../decisions/ADR-106-unified-asset-service.md)。本文中的目标接口和目录均尚未实现。
+[ADR-106](../decisions/ADR-106-unified-asset-service.md)。实施结果见[统一资产服务验收](../records/2026-11-05-unified-asset-service.md)。
 
 ## 目标与非目标
 
@@ -140,49 +140,67 @@ render_resource_ref 等现有类型擦除辅助仅在运行选择类型的调用
 scene_service 是否最终保留类名由迁移后剩余职责决定：真正负责活动场景和退场则保留；
 若只剩转发则并入已有实例/运行协调拥有者，不为删名字把生命周期塞进 Application。
 
+## 实施映射
+
+| 原入口/拥有者 | 迁移去处 |
+| --- | --- |
+| resource_service | 删除类；构造、RID 释放衔接移入 asset_manager 内部实现 |
+| resource_request / resource_load_state | 删除；统一 asset_request<T> / asset_state，混合列表使用现有资源条目类型 |
+| Application.resources() | 删除，调用 Application.assets() |
+| 两个 resource_cache 成员 | 只保留 asset_manager 的一个弱索引；cached_count 只读计数替代 cache 访问器 |
+| 渲染加载中的 mesh_data / texture_data / material_description | 内部 decode_data 任务负载，不默认写最终资产索引 |
+| scene_description_request | 移入 function/resource/detail/scene_loading |
+| Runtime 自建场景排序任务 | 使用 asset_manager.prepare_scene；场景层只消费准备结果 |
+| resource_load_group | 保留批次进度、取消和回执，不拥有独立缓存或解码队列 |
+| scene_service | 保留活动场景、实例化、激活和退场；删除准备任务 scope |
+
+resource_cache 暂保留既有文件名供混合资源条目和独立缓存测试使用，实际索引只由统一管理器拥有。
+未增加第二套缓存类。prepare_scene 的 bool prefab 选择准备类型，reload 控制描述重新读取；
+普通类型化 load 只加载描述本身。运行资产未绑定 Render 返回 invalid_state。
+
 ## 实施阶段与退出条件
 
 ### S1：固定契约和迁移清单
 
-- [ ] 核查所有 load/find/create/cache/advance/stop 调用方及资源持有关系，形成逐项删除清单。
-- [ ] 固定类型化请求、描述/运行资源重载差异、无 Render 错误及场景准备结果。
-- [ ] 补最小契约测试；不先重命名全部文件。
+- [x] 核查所有 load/find/create/cache/advance/stop 调用方及资源持有关系，形成逐项删除清单。
+- [x] 固定类型化请求、描述/运行资源重载差异、无 Render 错误及场景准备结果。
+- [x] 补最小契约测试；不先重命名全部文件。
 
 退出：每个旧公开入口均有目标去处；不存在未决定的资产所有权。
 
 ### S2：合并拥有者与渲染资产闭环
 
-- [ ] 将 resource_service 的装配、运行索引、在途请求和退休队列并入 asset_manager。
-- [ ] Texture、Mesh、Material 使用统一请求；材质依赖复用同一入口。
-- [ ] 合并最终资产弱索引；移除中间数据的默认公开缓存及可写 cache() 暴露。
-- [ ] 宿主一次性配置依赖，移除服务之间反向配置与重复 advance/stop。
+- [x] 将 resource_service 的装配、运行索引、在途请求和退休队列并入 asset_manager。
+- [x] Texture、Mesh、Material 使用统一请求；材质依赖复用同一入口。
+- [x] 合并最终资产弱索引；移除中间数据的默认公开缓存及可写 cache() 暴露。
+- [x] 宿主一次性配置依赖，移除服务之间反向配置与重复 advance/stop。
 
 退出：三个渲染类型能加载、创建、复用、重载和释放；新增路径不经过独立 resource_service。
 迁移期间必要适配只留在内部，同一阶段结束前删除，不能成为长期双轨。
 
 ### S3：迁移 Scene/Prefab 依赖准备
 
-- [ ] 将 scene_description_request 和通用资源准备请求迁入资产服务。
-- [ ] prepare_scene/Prefab 复用统一加载状态和引用，不保存第二份 URI 索引。
-- [ ] 场景运行协调器消费准备结果，保留同步实例化、结构激活与视觉后续加载规则。
-- [ ] 场景取消只放弃自己的观察权，不取消其他实例仍等待的共享资产。
+- [x] 将 scene_description_request 和通用资源准备请求迁入资产服务。
+- [x] prepare_scene/Prefab 复用统一加载状态和引用，不保存第二份 URI 索引。
+- [x] 场景运行协调器消费准备结果，保留同步实例化、结构激活与视觉后续加载规则。
+- [x] 场景取消只放弃自己的观察权，不取消其他实例仍等待的共享资产。
 
 退出：同一个 Prefab 加载一次可实例化多次；卸载一个实例不影响其他实例或共享资产。
 
 ### S4：调用端迁移与删除旧体系
 
-- [ ] 迁移 Runtime、Scene、编辑器、程序化创建、工具及测试；替换旧资源请求协议。
-- [ ] 删除 resource_service、resource_request、旧缓存访问器及无业务职责的转发。
-- [ ] 审查 resource_load_group、scene_service 剩余状态，仅保留聚合进度或场景生命周期所需部分。
-- [ ] 更新 CMake 内部头清单、当前 Reference/Guide；历史文档仅添加必要的后续决策链接。
+- [x] 迁移 Runtime、Scene、编辑器、程序化创建、工具及测试；替换旧资源请求协议。
+- [x] 删除 resource_service、resource_request、旧缓存访问器及无业务职责的转发。
+- [x] 审查 resource_load_group、scene_service 剩余状态，仅保留聚合进度或场景生命周期所需部分。
+- [x] 更新 CMake 内部头清单、当前 Reference/Guide；历史文档仅添加必要的后续决策链接。
 
 退出：源码不再依赖旧管理器；不存在“新的管理器包装旧的两个管理器”的结构。
 
 ### S5：统一验收
 
-- [ ] 编译与分层/内部头可见性检查通过。
-- [ ] 单资源、依赖、场景实例化与编辑器最小回归通过，记录未验证项。
-- [ ] 开发计划、架构决策和当前接口文档一致，提交完整连贯改动。
+- [x] 编译与分层/内部头可见性检查通过。
+- [x] 单资源、依赖、场景实例化与编辑器最小回归通过，记录未验证项。
+- [x] 开发计划、架构决策和当前接口文档一致，提交完整连贯改动。
 
 迁移过程中优先编译与阶段最小验证；架构收敛后统一运行下表回归。
 不运行大型场景、耗时 CI 或远端发布；本计划不包含远端及 Granit 跨仓库操作。

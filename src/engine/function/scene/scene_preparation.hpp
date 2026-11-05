@@ -46,19 +46,6 @@ struct scene_preparation_inputs {
   asset_ref<const scene_description> scene;
   std::map<std::string, asset_ref<const prefab_description>> prefabs;
 };
-/** 所属线程推进普通资源请求；销毁即放弃本请求的观察权。
- * 宿主须先分发文件完成并推进资产管理器；本对象不驱动文件或任务队列。 */
-class scene_description_request final {
-public:
-  GNEISS_API scene_description_request(asset_manager&, std::string uri, bool prefab,
-                                       scene_prepare_limits limits = {});
-  GNEISS_API ~scene_description_request();
-  GNEISS_API error advance(scene_preparation_inputs&, scene_diagnostic&);
-
-private:
-  struct state;
-  std::unique_ptr<state> state_;
-};
 /** 纯 CPU 排序和依赖收集；prefab_uri 非空表示仅准备一个 Prefab。 */
 [[nodiscard]] GNEISS_API error prepare_loaded_scene(const scene_preparation_inputs&,
                                                     std::string_view prefab_uri,

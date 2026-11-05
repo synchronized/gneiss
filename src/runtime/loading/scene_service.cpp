@@ -5,7 +5,7 @@
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/resource/resource_service.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/loading/resource_load_group.hpp"
 #include "runtime/loading/scene_domain.hpp"
@@ -18,7 +18,7 @@
 
 namespace gneiss::runtime {
 
-gneiss::engine::error scene_service::initialize(gneiss::engine::resource_service& resources) {
+gneiss::engine::error scene_service::initialize(gneiss::engine::asset_manager& resources) {
   if (active_ || stopping_) {
     return gneiss::engine::error::invalid_state;
   }
@@ -34,21 +34,11 @@ gneiss::engine::error scene_service::initialize(gneiss::engine::resource_service
 
 gneiss::engine::error scene_service::attach_executor(
     gneiss::engine::task_executor& executor, gneiss::engine::render_service& renderer,
-    gneiss::engine::texture_prepare_profile profile,
     std::shared_ptr<gneiss::engine::progress_notification> notification) {
   if (loading_assets() || !active_) {
     return gneiss::engine::error::invalid_state;
   }
-  // 先构造可失败依赖，再发布装配状态，失败时不留下半装配服务。
-  const auto configured = resources_->configure_loading(executor, profile, notification);
-  if (configured.failed())
-    return configured;
-  const auto scope = executor.make_scope();
-  if (scope.id == 0U) {
-    return gneiss::engine::error::invalid_state;
-  }
   executor_ = &executor;
-  scope_ = scope;
   renderer_ = &renderer;
   notification_ = std::move(notification);
   loading_ = std::make_unique<resource_load_group>(*resources_);
@@ -233,8 +223,10 @@ engine::error scene_service::request_reload(scene_instance_id instance, std::str
   next->instance = instance;
   next->uri = uri;
   next->prefab = prefab;
-  next->descriptions =
-      std::make_unique<engine::scene_description_request>(resources_->assets(), next->uri, prefab);
+  auto prepared = resources_->prepare_scene(uri, prefab, true);
+  if (!prepared)
+    return prepared.error();
+  next->descriptions = std::move(*prepared);
   reload_ = std::move(next);
   return engine::error::success;
 }
@@ -244,19 +236,13 @@ void scene_service::advance_reload() try {
     return;
   auto& value = *reload_;
   if (value.descriptions) {
-    engine::scene_diagnostic diagnostic;
-    auto status = value.descriptions->advance(value.inputs, diagnostic);
-    if (status == engine::error::not_ready)
-      return;
-    if (status.ok())
-      status =
-          engine::prepare_loaded_scene(value.inputs, value.prefab ? value.uri : std::string_view{},
-                                       value.prepared, diagnostic, {});
-    value.descriptions.reset();
-    if (status.failed()) {
-      value.result = status;
+    auto prepared = value.descriptions.take();
+    if (!prepared) {
+      if (prepared.error().error != engine::error::not_ready)
+        value.result = prepared.error().error;
       return;
     }
+    value.prepared = **prepared;
   }
   if (value.asset_pending) {
     loading_assets()->advance();
@@ -284,7 +270,7 @@ void scene_service::advance_reload() try {
   }
   value.result =
       value.prefab ? scenes()->reload_prefab_loaded(value.instance, value.uri,
-                                                    value.inputs.prefabs.at(value.uri))
+                                                    value.prepared.prefabs.at(value.uri).resource)
                    : scenes()->reload_loaded(value.instance, std::move(value.prepared.description));
 } catch (const std::bad_alloc&) {
   if (reload_)

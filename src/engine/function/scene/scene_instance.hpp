@@ -5,15 +5,15 @@
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/meta/registry.hpp"
-#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/prefab_binding.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include <map>
 
 namespace gneiss::engine {
 class scene_instance final {
 public:
-  scene_instance(world& native_world, resource_service& loader) noexcept;
+  scene_instance(world& native_world, asset_manager& loader) noexcept;
   ~scene_instance() noexcept;
 
   scene_instance(const scene_instance&) = delete;
@@ -112,6 +112,6 @@ private:
   guid uuid_;
 
   world& native_world_;
-  resource_service& loader_;
+  asset_manager& loader_;
 };
 }

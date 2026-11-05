@@ -4,7 +4,7 @@
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/serialization/json.hpp"
-#include "engine/function/resource/resource_service.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/resource/asset_file.hpp"
@@ -42,7 +42,7 @@ struct staged_object {
   engine::material material;
 };
 error commit_object(world& native_world, const object_description& source, staged_object& target,
-                    scene_node_id parent, resource_service& resources) {
+                    scene_node_id parent, asset_manager& resources) {
   auto created =
       create_scene_object(native_world, source, parent, {target.mesh, target.material}, &resources);
   if (!created)
@@ -91,7 +91,7 @@ error commit_object(world& native_world, const object_description& source, stage
 
 } // namespace
 
-scene_instance::scene_instance(world& native_world, resource_service& loader) noexcept
+scene_instance::scene_instance(world& native_world, asset_manager& loader) noexcept
     : native_world_(native_world), loader_(loader) {}
 
 scene_instance::~scene_instance() noexcept { rollback(); }

@@ -28,9 +28,7 @@ public:
 
 private:
   struct state;
-  GNEISS_API prefab_preparation(gneiss::engine::task_executor& executor);
-  gneiss::engine::task_executor& executor_;
-  gneiss::engine::task_scope scope_;
+  GNEISS_API prefab_preparation();
   std::shared_ptr<state> state_;
   bool cancelled_{};
 };

@@ -73,7 +73,7 @@ error scene_instances::remove_prefab_instance(scene_instance_id instance,
   return !slot || !*slot ? error::invalid_handle : (*slot)->remove_prefab_instance(uuid);
 }
 
-scene_instances::scene_instances(world& native_world, resource_service& loader) noexcept
+scene_instances::scene_instances(world& native_world, asset_manager& loader) noexcept
     : native_world_(native_world), loader_(loader), domain_(allocate_domain()),
       instances_(domain_) {}
 

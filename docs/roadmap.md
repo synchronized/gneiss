@@ -21,7 +21,7 @@
 
 ## 阶段概览
 
-统一资产服务方案已确认、实施待开始，见 [PLAN-100](plans/PLAN-100-unified-asset-service.md)。
+统一资产服务已完成本地编译及针对性验收，见 [PLAN-100](plans/PLAN-100-unified-asset-service.md)。
 
 渲染资源对象模型阶段一、二实现与编译已完成，运行验收待架构统一后执行；CPU 数据释放策略与流送为后续阶段，见 [PLAN-054](plans/PLAN-054-render-resource-model.md)。
 

@@ -24,7 +24,7 @@
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("engine/function/resource/detail/asset_decode.hpp") ||                           \
-                  __has_include("engine/function/resource/detail/resource_service_impl.hpp")
+                  __has_include("engine/function/resource/detail/asset_construction.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("runtime/loading/scene_domain.hpp")
@@ -84,9 +84,9 @@ static_assert(std::is_same_v<decltype(std::declval<gneiss::runtime::application&
 // Render 服务是允许的 RID 边界，具体资源表和引用关联仍不可见。
 #include "engine/function/render/render_service.hpp"
 template <typename T>
-concept exposes_resource_table = requires(T& value) { value.resources(); };
-static_assert(std::is_same_v<decltype(std::declval<gneiss::runtime::application&>().resources()),
-                             gneiss::engine::resource_service&>);
+concept exposes_resource_table = requires(T& value) { value.assets(); };
+static_assert(std::is_same_v<decltype(std::declval<gneiss::runtime::application&>().assets()),
+                             gneiss::engine::asset_manager&>);
 static_assert(!exposes_resource_table<gneiss::engine::render_service>);
 template <typename T>
 concept exposes_asset_update = requires { &T::prepare_update; };
@@ -96,7 +96,7 @@ static_assert(!exposes_asset_update<gneiss::engine::asset_manager>);
 static_assert(!exposes_asset_claim<gneiss::engine::asset_manager>);
 template <typename T>
 concept exposes_render_attachment = requires { &T::attach_render; };
-static_assert(!exposes_render_attachment<gneiss::engine::asset_manager>);
-static_assert(!exposes_asset_update<gneiss::engine::resource_service>);
-static_assert(!exposes_asset_claim<gneiss::engine::resource_service>);
+static_assert(exposes_render_attachment<gneiss::engine::asset_manager>);
+static_assert(!exposes_asset_update<gneiss::engine::asset_manager>);
+static_assert(!exposes_asset_claim<gneiss::engine::asset_manager>);
 int main() { return 0; }

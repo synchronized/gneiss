@@ -12,7 +12,6 @@
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/resource/resource_cache.hpp"
-#include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/prefab_binding.hpp"
 #include "engine/function/scene/structural_diff.hpp"
 #include "engine/function/world/component_identity.hpp"
@@ -44,7 +43,7 @@ struct camera_restore_guard {
 };
 
 gneiss::engine::error
-create_prefab_binding(world& native_world, resource_service& loader, prefab_asset_ref prefab,
+create_prefab_binding(world& native_world, asset_manager& loader, prefab_asset_ref prefab,
                       gneiss::engine::guid instance_uuid, scene_node_id parent,
                       const math::transform& root_transform,
                       const std::vector<prefab_property_override>& overrides,
@@ -186,7 +185,7 @@ public:
   }
 };
 
-bool check_explicit_root(gneiss::engine::world& world, gneiss::engine::resource_service& loader,
+bool check_explicit_root(gneiss::engine::world& world, gneiss::engine::asset_manager& loader,
                          const gneiss::engine::prefab_description& original) {
   namespace e = gneiss::engine;
   auto data = original;
@@ -219,7 +218,7 @@ bool check_explicit_root(gneiss::engine::world& world, gneiss::engine::resource_
 }
 
 bool check_failed_camera_prefab(
-    gneiss::engine::world& native_world, gneiss::engine::resource_service& render_loader,
+    gneiss::engine::world& native_world, gneiss::engine::asset_manager& render_loader,
     gneiss::engine::asset_manager& prefab_loader, const gneiss::engine::prefab_description& source,
     const std::vector<gneiss::engine::prefab_property_override>& invalid_overrides) {
   auto description = source;
@@ -280,7 +279,7 @@ bool check_failed_camera_prefab(
          count == 4U;
 }
 
-bool check_visible_prefab(gneiss::engine::world& world, gneiss::engine::resource_service& loader,
+bool check_visible_prefab(gneiss::engine::world& world, gneiss::engine::asset_manager& loader,
                           gneiss::engine::prefab_asset_ref source, gneiss::scene_node_id parent) {
   std::uint64_t before{}, during{}, after{};
   if (gneiss::test_support::assign_value(world.entity_count(), before).failed())
@@ -333,8 +332,8 @@ int main() try {
     return 3;
   }
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(file_system));
-  [[maybe_unused]] auto& cache = asset_owner.cache();
-  gneiss::engine::resource_service render_loader{asset_owner};
+  [[maybe_unused]] auto& cache = asset_owner;
+  auto& render_loader = asset_owner;
   if (render_loader.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   auto& prefab_loader = asset_owner;

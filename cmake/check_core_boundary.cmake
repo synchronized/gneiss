@@ -28,12 +28,12 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "Meta 类型注册不得包含 JSON 专用操作：${source}")
   endif()
   if(content MATCHES "engine/resource/(mesh|texture|material)/detail/[a-z_]+_resource_access[.]hpp" AND
-      NOT source MATCHES "/src/engine/(resource/(mesh|texture|material)/[a-z_]+_resource|function/resource/resource_service)[.]cpp$")
+      NOT source MATCHES "/src/engine/(resource/(mesh|texture|material)/[a-z_]+_resource|function/resource/asset_construction)[.]cpp$")
     message(FATAL_ERROR "资源私有访问器不得泄漏到普通调用方：${source}")
   endif()
 
   if(content MATCHES "engine/function/resource/detail/" AND
-      NOT source MATCHES "/src/engine/function/resource/(detail/|resource_service(_loading)?[.]cpp$|asset_manager[.]cpp$)")
+      NOT source MATCHES "/src/engine/function/resource/(detail/|asset_construction(_loading)?[.]cpp$|asset_manager[.]cpp$)")
     message(FATAL_ERROR "资产加载私有实现不得泄漏到普通调用方：${source}")
   endif()
 
@@ -189,7 +189,7 @@ foreach(source IN LISTS sources)
     continue()
   endif()
   if(source MATCHES "(/src/engine/resource/(mesh/mesh_decoder|texture/texture_decoder)|/src/engine/function/(resource/detail/asset_decode|render/render_resource_data))\\.(cpp|hpp)$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_service)\\.(h|hpp)|engine/(function/resource/(resource_cache|asset_manager|resource_service|detail/resource_service_impl)|core/rid_table)\\.hpp)[>\"]")
+      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_service)\\.(h|hpp)|engine/(function/resource/(resource_cache|asset_manager|detail/asset_construction)|core/rid_table)\\.hpp)[>\"]")
     message(FATAL_ERROR "CPU 准备与值类型不得包含资源发布、缓存或 RID 表：${source}")
   endif()
   if(source MATCHES "/src/engine/core/" AND

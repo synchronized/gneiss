@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "async_asset.hpp"
-#include "engine/function/resource/resource_service.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "runtime/loading/resource_load_group.hpp"
 #include "value_result.hpp"
@@ -10,9 +10,8 @@
 #include <stdexcept>
 namespace gneiss::test_support {
 inline engine::task_scheduler& render_tasks() { return asset_tasks(); }
-inline engine::error load_render(engine::resource_service& loader,
-                                 engine::render_resource_kind type, std::string_view uri,
-                                 engine::render_resource_ref& output,
+inline engine::error load_render(engine::asset_manager& loader, engine::render_resource_kind type,
+                                 std::string_view uri, engine::render_resource_ref& output,
                                  engine::asset_diagnostic& diagnostic) {
   auto status = gneiss::test_support::take_value(loader.find({std::string(uri), type}), output);
   if (status != engine::error::not_found)
@@ -30,8 +29,8 @@ inline engine::error load_render(engine::resource_service& loader,
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   for (;;) {
     (void)tasks.run_ready();
-    (void)loader.assets().async_files()->dispatch_completions(64);
-    loader.assets().advance();
+    (void)loader.async_files()->dispatch_completions(64);
+    loader.advance();
     group.advance();
     runtime::asset_load_completion completion;
     if (group.take(completion)) {

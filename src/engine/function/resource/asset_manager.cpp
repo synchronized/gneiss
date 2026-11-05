@@ -3,6 +3,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset_manager.hpp"
+#include "detail/asset_construction.hpp"
+#include "detail/scene_loading.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/registry.hpp"
@@ -29,6 +31,7 @@ struct asset_manager::resource_state {
   struct operation {
     key identity;
     std::uint64_t generation;
+    bool cache_result{true};
     std::shared_ptr<detail::asset_load_task> loader;
     std::shared_ptr<detail::asset_state> observer{std::make_shared<detail::asset_state>()};
     engine::files::request_id read_request;
@@ -69,6 +72,19 @@ struct asset_manager::resource_state {
       files::bytes{}.swap(bytes);
     }
   };
+  struct scene_work {
+    std::unique_ptr<detail::scene_description_request> descriptions;
+    scene_preparation_inputs inputs;
+    std::shared_ptr<scene_instantiation_data> prepared{
+        std::make_shared<scene_instantiation_data>()};
+    scene_diagnostic diagnostic;
+    std::string prefab_uri;
+    std::shared_ptr<detail::asset_state> observer{std::make_shared<detail::asset_state>()};
+    task_handle task;
+    error status{error::invalid_state};
+    bool completed{};
+  };
+  std::vector<std::shared_ptr<scene_work>> scenes;
   // 执行器丢弃排队任务时也产生终态；所有数据先写入，再 release 发布。
   struct settlement {
     std::shared_ptr<operation> work;
@@ -154,6 +170,10 @@ struct asset_manager::resource_state {
     stopped = true;
     if (executor)
       executor->cancel_scope(scope);
+    for (const auto& work : scenes) {
+      work->descriptions.reset();
+      work->observer->status = error::invalid_state;
+    }
     for (const auto& work : active) {
       if (work->reading && work->read_request.value != 0)
         (void)files->cancel(work->read_request);
@@ -172,6 +192,7 @@ struct asset_manager::resource_state {
         return false;
       executor = nullptr;
     }
+    scenes.clear();
     active.clear();
     requests.clear();
     files.reset();
@@ -291,8 +312,8 @@ error asset_manager::resolve_decoder(type_id type, decoder_factory fallback,
 }
 
 error asset_manager::request(type_id type, std::string_view uri, asset_load_options options,
-                             std::shared_ptr<detail::asset_state>& output,
-                             decoder_factory fallback) noexcept try {
+                             std::shared_ptr<detail::asset_state>& output, decoder_factory fallback,
+                             bool cache_result) noexcept try {
   auto& state = *resource_state_;
   if (state.stopped) {
     return error::invalid_state;
@@ -316,7 +337,7 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
   const auto identified = state.files->resolve_source(uri, domain);
   if (identified != error::success)
     return identified;
-  const auto parameters = asset_load_parameters(options);
+  const auto parameters = asset_load_parameters(options) + (cache_result ? "" : ":payload");
   resource_state::key key{domain, std::string(uri), type, parameters};
   auto& entry = state.requests[key];
   if (auto pending = entry.pending.lock()) {
@@ -324,7 +345,7 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
     return error::success;
   }
   const auto cached = cache_.observe(uri, type, domain, parameters).lock();
-  if (!options.reload && cached && !cached->is_loading) {
+  if (cache_result && !options.reload && cached && !cached->is_loading) {
     auto ready = std::make_shared<detail::asset_state>();
     ready->status = error::success;
     ready->source_bytes = cached->source_bytes;
@@ -335,6 +356,7 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
   }
   auto work =
       std::make_shared<resource_state::operation>(key, entry.generation + 1, std::move(*task));
+  work->cache_result = cache_result;
   work->previous = cached;
   state.active.push_back(work);
   try {
@@ -379,8 +401,34 @@ error asset_manager::find_loaded_erased(type_id type, std::string_view uri,
   return error::internal;
 }
 
+result<asset_request<scene_instantiation_data>>
+asset_manager::prepare_scene(std::string_view uri, bool prefab, bool reload) noexcept try {
+  auto& state = *resource_state_;
+  if (state.stopped)
+    return error::invalid_state;
+  if (!state.executor)
+    return error::not_ready;
+  if (validate_uri(uri).failed())
+    return error::invalid_argument;
+  auto work = std::make_shared<resource_state::scene_work>();
+  work->descriptions = std::make_unique<detail::scene_description_request>(
+      *this, std::string(uri), prefab, scene_prepare_limits{}, reload);
+  if (prefab)
+    work->prefab_uri = uri;
+  state.scenes.push_back(work);
+  return asset_request<scene_instantiation_data>{work->observer};
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+
 void asset_manager::advance() {
   auto& state = *resource_state_;
+  if (impl_) {
+    (void)impl_->drain();
+    impl_->advance(*this);
+  }
   if (state.stopped) {
     (void)state.finish_stop();
     return;
@@ -398,6 +446,66 @@ void asset_manager::advance() {
         work->task = {};
         break;
       }
+  for (const auto& completion : completions)
+    for (const auto& work : state.scenes)
+      if (work->task.id == completion.task.id) {
+        work->completed = true;
+        work->observer->metrics.decode_ms = completion.execution_ms;
+        work->observer->metrics.queue_ms = completion.queue_ms;
+      }
+  for (auto it = state.scenes.begin(); it != state.scenes.end();) {
+    const auto& work = *it;
+    if (work->observer.use_count() == 1) {
+      if (work->task.id)
+        (void)state.executor->cancel(work->task);
+      it = state.scenes.erase(it);
+      continue;
+    }
+    if (work->descriptions) {
+      work->status = work->descriptions->advance(work->inputs, work->diagnostic);
+      if (work->status == error::not_ready) {
+        ++it;
+        continue;
+      }
+      work->descriptions.reset();
+      if (work->status.failed())
+        work->completed = true;
+    }
+    if (!work->completed && !work->task.id) {
+      work->status = error::invalid_state;
+      const auto submitted = state.executor->submit(
+          {.name = "asset.prepare-scene",
+           .scope = state.scope,
+           .notification = impl_ ? impl_->notification : nullptr},
+          [work](const task_context& context) {
+            work->status =
+                prepare_loaded_scene(work->inputs, work->prefab_uri, *work->prepared,
+                                     work->diagnostic, [&] { return context.stop_requested(); });
+            return task_outcome{.state =
+                                    work->status.ok() ? task_state::succeeded : task_state::failed};
+          },
+          work->task);
+      if (submitted != submit_result::success && submitted != submit_result::full) {
+        work->status = error::invalid_state;
+        work->completed = true;
+      }
+    }
+    if (!work->completed) {
+      ++it;
+      continue;
+    }
+    {
+      const std::scoped_lock lock(work->observer->mutex);
+      work->observer->status = work->status;
+      work->observer->diagnostic = {work->diagnostic.byte_offset, work->diagnostic.path,
+                                    work->diagnostic.message, work->status};
+      if (work->status.ok()) {
+        work->observer->value = std::move(work->prepared);
+        work->observer->source_bytes = work->inputs.source_bytes;
+      }
+    }
+    it = state.scenes.erase(it);
+  }
   for (auto it = state.active.begin(); it != state.active.end();) {
     const auto& work = *it;
     // 丢弃全部观察者后不再提交解码或发布；已经运行的任务自行保活并收尾。
@@ -457,7 +565,7 @@ void asset_manager::advance() {
     auto& entry = state.requests.at(work->identity);
     if (entry.generation == work->generation) {
       entry.pending.reset();
-      if (work->status == error::success) {
+      if (work->status == error::success && work->cache_result) {
         const auto& [domain, uri, type, parameters] = work->identity;
         auto cached = cache_.load(
             uri, type, [&]() -> result<std::shared_ptr<const void>> { return work->value; }, domain,
@@ -481,7 +589,9 @@ void asset_manager::advance() {
   }
 }
 void asset_manager::collect_unused() noexcept {
-  cache_.release_unused();
+  do {
+    cache_.release_unused();
+  } while (impl_ && impl_->drain() != 0U);
   auto& state = *resource_state_;
   std::erase_if(state.requests, [&](const auto& item) {
     const auto& [identity, entry] = item;
@@ -490,9 +600,20 @@ void asset_manager::collect_unused() noexcept {
     return !active && entry.pending.expired();
   });
 }
-void asset_manager::request_stop() noexcept { resource_state_->request_stop(); }
+void asset_manager::request_stop() noexcept {
+  render_stopping_ = true;
+  if (impl_)
+    impl_->stop_loading();
+  resource_state_->request_stop();
+}
 bool asset_manager::stopped() const noexcept {
   return resource_state_->stopped && !resource_state_->executor && !resource_state_->files;
 }
-void asset_manager::stop() noexcept { resource_state_->stop(); }
+void asset_manager::stop() noexcept {
+  request_stop();
+  resource_state_->stop();
+  collect_unused();
+  if (impl_)
+    impl_->close();
+}
 }

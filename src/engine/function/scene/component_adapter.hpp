@@ -7,7 +7,7 @@
 #include <functional>
 #include <optional>
 namespace gneiss::engine {
-class resource_service;
+class asset_manager;
 /** 当前支持的编辑入口；资源绑定操作由编辑器异步资产命令执行。 */
 enum class component_editor_route { reflected, mesh_assets };
 /** 借用所属线程 World 和已准备的资源；回调不得保留上下文。 */
@@ -15,7 +15,7 @@ struct component_context {
   world& owner;
   scene_node_id node;
   mesh_renderer renderer{};
-  resource_service* resources{};
+  asset_manager* resources{};
 };
 /** 组件实现契约：安装失败不修改目标组件；捕获不修改 World。
  * 安装必须允许用之前捕获的有效描述恢复；不执行 I/O 或阻塞等待。 */
@@ -212,7 +212,7 @@ GNEISS_API error edit_runtime_component(component_context, guid, meta::property_
                                         const value&) noexcept;
 /** 内建渲染依赖桥接；类型判断仅在组件适配实现中。 */
 GNEISS_API result<mesh_renderer> resolve_component_renderer(const component_descriptions&,
-                                                            resource_service&) noexcept;
+                                                            asset_manager&) noexcept;
 GNEISS_API mesh_renderer prepared_component_renderer(
     const component_descriptions&, const std::function<render_resource_ref(std::string_view)>&);
 /** 在 World 所属线程定位节点组件；读出副本后访问，写入成功才提交。不会保留对象指针。

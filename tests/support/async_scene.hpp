@@ -3,6 +3,7 @@
 #pragma once
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/detail/scene_loading.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include <chrono>
@@ -14,7 +15,7 @@ prepare_scene_for_test(engine::asset_manager& assets, engine::task_scheduler& ex
                        engine::scene_prepare_limits limits = {}) {
   output = {};
   diagnostic = {};
-  engine::scene_description_request request(assets, std::string(uri), prefab, limits);
+  engine::detail::scene_description_request request(assets, std::string(uri), prefab, limits);
   engine::scene_preparation_inputs inputs;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   for (;;) {

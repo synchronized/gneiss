@@ -73,7 +73,7 @@ inline error validate_scene_components(const object_description& source) noexcep
 /** 将已解析组件安装到节点；创建失败的回收由调用者负责。 */
 inline error configure_scene_object(world& owner, scene_node_id node,
                                     const object_description& source, const mesh_renderer& renderer,
-                                    resource_service* resources = nullptr) {
+                                    asset_manager* resources = nullptr) {
   const auto validation = validate_scene_components(source);
   if (validation.failed())
     return validation;
@@ -83,7 +83,7 @@ inline error configure_scene_object(world& owner, scene_node_id node,
 inline result<scene_node_id> create_scene_object(world& owner, const object_description& source,
                                                  scene_node_id parent,
                                                  const mesh_renderer& renderer,
-                                                 resource_service* resources = nullptr) {
+                                                 asset_manager* resources = nullptr) {
   auto created = owner.object_create(parent, {source.uuid, source.name}, source.transform);
   if (!created)
     return created.error();

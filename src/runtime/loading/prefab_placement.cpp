@@ -93,7 +93,7 @@ gneiss::engine::error prefab_placement::freeze(
     }
     // 刷新来源时，实例覆盖仍引用当前已加载资源；快照必须强持有它们。
     auto found =
-        application.resources().find({std::string(uri), type}, application.resources().profile());
+        application.assets().find({std::string(uri), type}, application.assets().profile());
     if (!found)
       return found.error() == engine::error::not_found ? engine::error::not_ready : found.error();
     result = std::move(*found);

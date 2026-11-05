@@ -543,7 +543,7 @@ target_link_libraries(gneiss_resource_service_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_resource_service_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_resource_service_test)
 gneiss_target_output_directories(gneiss_resource_service_test)
-add_test(NAME gneiss.resource_service COMMAND gneiss_resource_service_test)
+add_test(NAME gneiss.asset_manager COMMAND gneiss_resource_service_test)
 
 find_package(Threads REQUIRED)
 add_executable(gneiss_loop_timing_test loop_timing_test.cpp)
@@ -627,7 +627,7 @@ add_test(NAME gneiss.render_asset_preparation COMMAND gneiss_render_asset_prepar
 add_executable(
   gneiss_render_asset_loader_test
   render/render_asset_loader_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_service_loading.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/asset_construction_loading.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
@@ -654,7 +654,7 @@ add_test(NAME gneiss.render_asset_loader COMMAND gneiss_render_asset_loader_test
 add_executable(
   gneiss_texture_load_service_test
   render/texture_load_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_service_loading.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/asset_construction_loading.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
@@ -1042,7 +1042,7 @@ foreach(test IN ITEMS gneiss_texture_load_application_test gneiss_asset_pixel_te
 endforeach()
 
 target_sources(gneiss_scene_instantiation_test PRIVATE
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_service_loading.cpp")
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/asset_construction_loading.cpp")
 
 # 异步资产测试由宿主推进解码任务。
 foreach(test IN ITEMS gneiss_scene_description_test gneiss_prefab_description_test gneiss_prefab_runtime_instance_test)

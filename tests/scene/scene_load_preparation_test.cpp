@@ -10,6 +10,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/detail/scene_loading.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_file.hpp"
@@ -119,7 +120,7 @@ void run() {
   check(bool(cached_scene) &&
         cached_request->source_bytes() == memory->files.at("main.scene").size());
   check(scene_decodes == 2U && prefab_decodes == 1U);
-  scene_description_request request(assets, "asset://main.scene", false);
+  detail::scene_description_request request(assets, "asset://main.scene", false);
   scene_preparation_inputs inputs;
   auto status = error::not_ready;
   for (unsigned i = 0; i < 100U && status == error::not_ready; ++i) {
@@ -188,6 +189,22 @@ void run() {
   check(prepare({.hierarchy_depth = 1U}) == gneiss::engine::error::success);
   check(prepare({.hierarchy_depth = 0U}) == gneiss::engine::error::invalid_argument);
   check(prepare({}, [] { return true; }) == gneiss::engine::error::invalid_state);
+  // 无 Render 的统一入口：描述准备不创建运行对象，两个观察者独立取消。
+  auto first_prepare = assets.prepare_scene("asset://main.scene");
+  auto second_prepare = assets.prepare_scene("asset://main.scene");
+  check(bool(first_prepare) && bool(second_prepare));
+  first_prepare->cancel();
+  for (unsigned i = 0; i < 100U && second_prepare->status() == error::not_ready; ++i) {
+    check(assets.async_files()->dispatch_completions(64).ok());
+    assets.advance();
+    check(executor.run_ready().status == drive_status::success);
+  }
+  auto unified = second_prepare->take();
+  check(bool(unified) && (*unified)->instance_nodes == 3U);
+  auto no_renderer = assets.load<texture_resource>("asset://image");
+  check(!no_renderer && no_renderer.error() == error::invalid_state);
+  auto created = assets.create(scene_description{});
+  check(bool(created));
   memory->reads.clear();
   memory->change_on_verify = true;
   check(prepare() == gneiss::engine::error::success && memory->reads["p.prefab"] == 1U);
@@ -208,6 +225,13 @@ void run() {
   parent.replace(parent.find("null"), 4U, "\"00000000-0000-4000-8000-000000000003\"");
   memory->files["main.scene"] = std::string(scene_prefix) + child + "," + parent + R"(]})";
   check(prepare() == gneiss::engine::error::invalid_argument && output.parent_first.empty());
+  auto stopping = assets.prepare_scene("asset://main.scene");
+  check(bool(stopping));
+  assets.request_stop();
+  check(stopping->take().error().error == error::invalid_state);
+  assets.advance();
+  check(assets.stopped() && (*unified)->instance_nodes == 3U);
+  check(assets.prepare_scene("asset://main.scene").error() == error::invalid_state);
 }
 } // namespace
 

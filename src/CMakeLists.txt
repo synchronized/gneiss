@@ -29,9 +29,9 @@ target_sources(
     engine/resource/asset_ref.hpp
     engine/resource/resource_retirement_queue.hpp
     engine/function/resource/asset_manager.hpp
-    engine/function/resource/resource_service.hpp
     engine/function/resource/asset_manager.cpp
-    engine/function/resource/resource_service.cpp
+    engine/function/resource/detail/scene_loading.cpp
+    engine/function/resource/asset_construction.cpp
     engine/platform/files/file_read_stream.cpp
     engine/platform/files/file_service.cpp
     engine/platform/files/memory_file_backend.cpp
@@ -58,7 +58,7 @@ target_sources(
     engine/resource/texture/texture_ktx2.hpp
     engine/resource/texture/texture_binary.cpp
     engine/resource/texture/texture_binary.hpp
-    engine/function/resource/resource_service_loading.cpp
+    engine/function/resource/asset_construction_loading.cpp
     engine/function/resource/resource_cache.cpp
     engine/function/resource/resource_cache.hpp
     engine/core/service_registry.cpp
@@ -110,7 +110,7 @@ target_sources(
     engine/resource/material/material_resource.hpp
     engine/function/render/render_service_resources.cpp
     engine/function/render/render_resource_storage.hpp
-    engine/function/resource/detail/resource_service_impl.hpp
+    engine/function/resource/detail/asset_construction.hpp
     engine/resource/mesh/detail/mesh_resource_access.hpp
     engine/resource/texture/detail/texture_resource_access.hpp
     engine/resource/material/detail/material_resource_access.hpp

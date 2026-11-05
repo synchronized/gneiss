@@ -97,7 +97,7 @@ int main() {
   const std::array<std::uint8_t, 4> pixels{255, 255, 255, 255};
   const gneiss::engine::texture_view texture{
       .width = 1, .height = 1, .row_stride_bytes = 4, .pixels = pixels};
-  if (gneiss::test_support::take_value(app->resources().create_texture(texture), context.texture)
+  if (gneiss::test_support::take_value(app->assets().create_texture(texture), context.texture)
           .failed()) {
     return 2;
   }
