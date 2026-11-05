@@ -153,4 +153,22 @@ deserialize_reflected(std::span<const std::byte> bytes) noexcept {
   return deserialize_reflected<T>(*registry, bytes);
 }
 
+/** JSON 文本便捷入口；与字节入口具有相同的校验及诊断语义。 */
+template <class T>
+[[nodiscard]] result<T, serialization_diagnostic> deserialize(std::string_view json) noexcept {
+  return deserialize<T>(std::as_bytes(std::span{json.data(), json.size()}));
+}
+template <class T>
+[[nodiscard]] result<std::string, serialization_diagnostic> serialize_json(const T& object) noexcept
+    try {
+  auto bytes = serialize(object);
+  if (!bytes)
+    return std::move(bytes).error();
+  return std::string(reinterpret_cast<const char*>(bytes->data()), bytes->size());
+} catch (const std::bad_alloc&) {
+  return serialization_diagnostic{.error = error::out_of_memory};
+} catch (...) {
+  return serialization_diagnostic{.error = error::internal};
+}
+
 }

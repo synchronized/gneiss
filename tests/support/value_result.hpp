@@ -20,6 +20,14 @@ template <class T> engine::error assign_value(engine::result<T> value, T& output
   output = std::move(*value);
   return engine::error::success;
 }
+template <class T>
+engine::error assign_value(engine::result<T, engine::meta::serialization_diagnostic> value,
+                           T& output) {
+  if (!value)
+    return value.error().error;
+  output = std::move(*value);
+  return engine::error::success;
+}
 template <class T, class E>
 engine::error assign_decoded(engine::result<T, E> value, T& output, E& diagnostic) {
   if (!value) {

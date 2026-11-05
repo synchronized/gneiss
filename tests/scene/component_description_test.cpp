@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_object.hpp"
-#include "engine/resource/scene/prefab_codec.hpp"
+#include "engine/resource/scene/prefab_description.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
 #include <string>
 namespace e = gneiss::engine;
@@ -67,7 +68,8 @@ int main() try {
     return 1;
   // 项目组件只注册字段，不写 codec；Scene/Prefab 的 GUID 分派共用默认表。
   const auto reflected = entry(reflected_description::type_guid, R"({"speed":3})");
-  auto reflected_scene = e::decode_scene(bytes(scene("[" + reflected + "]")));
+  auto reflected_scene =
+      e::meta::deserialize<e::scene_description>(bytes(scene("[" + reflected + "]")));
   if (!reflected_scene ||
       reflected_scene->objects.front().components.get<reflected_description>()->speed != 3)
     return 30;
@@ -75,15 +77,15 @@ int main() try {
   reflected_prefab.uuid = reflected_scene->uuid;
   reflected_prefab.objects = reflected_scene->objects;
   reflected_prefab.root_uuid = reflected_prefab.objects.front().uuid;
-  auto reflected_prefab_bytes = e::encode_prefab(reflected_prefab);
+  auto reflected_prefab_bytes = e::meta::serialize(reflected_prefab);
   if (!reflected_prefab_bytes)
     return 31;
-  auto restored_prefab = e::decode_prefab(*reflected_prefab_bytes);
+  auto restored_prefab = e::meta::deserialize<e::prefab_description>(*reflected_prefab_bytes);
   if (!restored_prefab ||
       restored_prefab->objects.front().components.get<reflected_description>()->speed != 3)
     return 32;
   const auto custom = entry(custom_description::type_guid, R"({"enabled":true})");
-  auto parsed = e::decode_scene(bytes(scene("[" + custom + "]")));
+  auto parsed = e::meta::deserialize<e::scene_description>(bytes(scene("[" + custom + "]")));
   if (!parsed || parsed->objects.front().components.size() != 1 ||
       !parsed->objects.front().components.get<custom_description>()->enabled ||
       parsed->objects.front().components.get<e::camera_description>())
@@ -117,37 +119,40 @@ int main() try {
     return 3;
   // false 编码省略 enabled，保存不能把原始 true 字段合并回来。
   const auto scene_decodes = decode_calls;
-  auto encoded = e::encode_scene(copy);
+  auto encoded = e::meta::serialize(copy);
   // 保存只调用编码器，不能通过反向解码产生新的组件对象或副作用。
   if (decode_calls != scene_decodes)
     return 15;
   auto roundtrip =
-      encoded ? e::decode_scene(*encoded)
+      encoded ? e::meta::deserialize<e::scene_description>(*encoded)
               : e::result<e::scene_description, e::meta::serialization_diagnostic>{encoded.error()};
   if (!roundtrip || roundtrip->objects.front().components.get<custom_description>()->enabled)
     return 4;
-  auto unknown = e::decode_scene(bytes(scene("[" + entry(e::guid::from_bytes({99}), "{}") + "]")));
+  auto unknown = e::meta::deserialize<e::scene_description>(
+      bytes(scene("[" + entry(e::guid::from_bytes({99}), "{}") + "]")));
   if (unknown || unknown.error().error != e::error::not_found ||
       unknown.error().path.find("/objects/0/components/0") != 0)
     return 5;
-  auto duplicate = e::decode_scene(bytes(scene("[" + custom + "," + custom + "]")));
+  auto duplicate =
+      e::meta::deserialize<e::scene_description>(bytes(scene("[" + custom + "," + custom + "]")));
   if (duplicate || duplicate.error().error != e::error::invalid_argument)
     return 6;
-  auto invalid = e::decode_scene(
+  auto invalid = e::meta::deserialize<e::scene_description>(
       bytes(scene("[" + entry(custom_description::type_guid, R"({"enabled":null})") + "]")));
   if (invalid || invalid.error().path != "/objects/0/components/0/$content/enabled")
     return 7;
-  auto null_component = e::decode_scene(bytes(scene("[null]")));
+  auto null_component = e::meta::deserialize<e::scene_description>(bytes(scene("[null]")));
   if (null_component || null_component.error().path != "/objects/0/components")
     return 33;
-  auto null_after_valid = e::decode_scene(bytes(scene("[" + custom + ",null]")));
+  auto null_after_valid =
+      e::meta::deserialize<e::scene_description>(bytes(scene("[" + custom + ",null]")));
   if (null_after_valid || null_after_valid.error().path != "/objects/0/components")
     return 34;
   auto extra_envelope = custom;
   extra_envelope.insert(1, "\"extra\":true,");
-  if (e::decode_scene(bytes(scene("[" + extra_envelope + "]"))))
+  if (e::meta::deserialize<e::scene_description>(bytes(scene("[" + extra_envelope + "]"))))
     return 35;
-  if (e::decode_scene(bytes(scene("{}"))))
+  if (e::meta::deserialize<e::scene_description>(bytes(scene("{}"))))
     return 8;
   auto owner = e::create_native();
   if (!owner)
@@ -156,7 +161,7 @@ int main() try {
   if (unsupported || unsupported.error() != e::error::unsupported)
     return 10;
   // 未发布的旧扁平 Camera 格式不再接受。
-  auto old_camera = e::decode_scene(bytes(scene(
+  auto old_camera = e::meta::deserialize<e::scene_description>(bytes(scene(
       "[" +
       entry(
           e::camera_description::type_guid,
@@ -164,7 +169,7 @@ int main() try {
       "]")));
   if (old_camera || old_camera.error().path != "/objects/0/components/0/$content/settings")
     return 21;
-  auto bad_camera = e::decode_scene(
+  auto bad_camera = e::meta::deserialize<e::scene_description>(
       bytes(scene("[" +
                   entry(e::camera_description::type_guid,
                         R"({"settings":{"fov":1,"near":"bad","far":100},"is_primary":false})") +
@@ -174,7 +179,7 @@ int main() try {
   const auto camera =
       entry(e::camera_description::type_guid,
             R"({"settings": {"fov": 1, "near": 0.1, "far": 100},"is_primary":false})");
-  auto supported = e::decode_scene(bytes(scene("[" + camera + "]")));
+  auto supported = e::meta::deserialize<e::scene_description>(bytes(scene("[" + camera + "]")));
   if (!supported)
     return 11;
   const auto* description = supported->objects.front().components.get<e::camera_description>();
@@ -185,10 +190,10 @@ int main() try {
     value.settings = {0.8F, 0.2F, 250.0F};
     value.is_primary = true;
   });
-  auto camera_bytes = e::encode_scene(*supported);
+  auto camera_bytes = e::meta::serialize(*supported);
   if (!camera_bytes)
     return 18;
-  auto camera_roundtrip = e::decode_scene(*camera_bytes);
+  auto camera_roundtrip = e::meta::deserialize<e::scene_description>(*camera_bytes);
   if (!camera_roundtrip)
     return 19;
   const auto* restored = camera_roundtrip->objects.front().components.get<e::camera_description>();
@@ -205,14 +210,14 @@ int main() try {
   prefab_text.replace(prefab_text.find("scene_uuid"), 10, "prefab_uuid");
   prefab_text.replace(prefab_text.find("\"version\":5"), 11, "\"version\":1");
   prefab_text.insert(1, R"("root_uuid":"00000000-0000-4000-8000-000000000002",)");
-  auto prefab = e::decode_prefab(bytes(prefab_text));
+  auto prefab = e::meta::deserialize<e::prefab_description>(bytes(prefab_text));
   if (!prefab || prefab->objects.front().components.size() != 2)
     return 13;
   const auto prefab_decodes = decode_calls;
-  auto prefab_bytes = e::encode_prefab(*prefab);
+  auto prefab_bytes = e::meta::serialize(*prefab);
   if (decode_calls != prefab_decodes)
     return 16;
-  if (!prefab_bytes || !e::decode_prefab(*prefab_bytes))
+  if (!prefab_bytes || !e::meta::deserialize<e::prefab_description>(*prefab_bytes))
     return 14;
   return 0;
 } catch (...) {

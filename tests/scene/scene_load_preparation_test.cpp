@@ -6,12 +6,13 @@
 #include "../support/memory_file_fixture.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "engine/resource/scene/prefab_codec.hpp"
+#include "engine/resource/scene/prefab_description.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
 
 #include <algorithm>
@@ -75,12 +76,12 @@ unsigned scene_decodes{}, prefab_decodes{};
 result<scene_description, meta::serialization_diagnostic>
 custom_scene(std::span<const std::byte> bytes) {
   ++scene_decodes;
-  return decode_scene(bytes);
+  return meta::deserialize<scene_description>(bytes);
 }
 result<prefab_description, meta::serialization_diagnostic>
 custom_prefab(std::span<const std::byte> bytes) {
   ++prefab_decodes;
-  return decode_prefab(bytes);
+  return meta::deserialize<prefab_description>(bytes);
 }
 void run() {
   auto memory = std::make_shared<memory_files>();
@@ -115,7 +116,8 @@ void run() {
   auto cached_request = assets.load<scene_description>("asset://main.scene");
   check(bool(cached_request));
   auto cached_scene = cached_request->take();
-  check(bool(cached_scene) && cached_request->source_bytes() == memory->files.at("main.scene").size());
+  check(bool(cached_scene) &&
+        cached_request->source_bytes() == memory->files.at("main.scene").size());
   check(scene_decodes == 2U && prefab_decodes == 1U);
   scene_description_request request(assets, "asset://main.scene", false);
   scene_preparation_inputs inputs;

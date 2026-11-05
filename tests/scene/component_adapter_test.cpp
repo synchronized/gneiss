@@ -3,6 +3,7 @@
 #include "../support/movement_component.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/component_adapter.hpp"
@@ -87,9 +88,9 @@ int main() try {
   second.parent_uuid = first.uuid;
   source.objects.push_back(second);
   // 真实文件格式解码后进入统一准备与同步实例化路径。
-  auto encoded = e::encode_scene(source);
+  auto encoded = e::meta::serialize(source);
   check(encoded.has_value());
-  auto decoded = e::decode_scene(*encoded);
+  auto decoded = e::meta::deserialize<e::scene_description>(*encoded);
   check(decoded.has_value());
   auto prepared = prepare(*decoded);
   check(e::register_scene_component(operations()) == e::error::invalid_state);
@@ -123,9 +124,9 @@ int main() try {
   e::scene_description saved;
   check(gneiss::test_support::assign_value(scenes.capture_description(instance), saved).ok());
   check(saved.objects[0].components.get<movement_description>()->speed == 5);
-  auto saved_bytes = e::encode_scene(saved);
+  auto saved_bytes = e::meta::serialize(saved);
   check(saved_bytes.has_value());
-  auto restored = e::decode_scene(*saved_bytes);
+  auto restored = e::meta::deserialize<e::scene_description>(*saved_bytes);
   check(restored.has_value());
   state(world).get<movement_component>(id)->data.speed = 8;
   check(scenes.reload_loaded(instance, *restored).ok());

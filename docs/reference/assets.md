@@ -305,9 +305,13 @@ World、场景实例及编辑会话仍由场景服务管理，不进入资源缓
 
 ## 描述编解码入口
 
-材质和 Action Map 使用 `meta::serialize(value)` 与 `meta::deserialize<T>(bytes)`，
+材质、Action Map、Scene 与 Prefab 使用 `meta::serialize(value)` 与 `meta::deserialize<T>(bytes)`，
 不再提供按类型命名的转发 codec。调用前仍须初始化 Meta 注册表。
 资源层内部 `register_reflected_asset` 复用已配置的类型 builder，追加统一格式包装并提交；
-格式名、版本、字节上限和版本错误码仍由各资源的格式配置决定。
+格式名、当前版本和字节上限由各资源的格式配置决定，版本错误码使用统一规则。
 材质保持 gneiss.material v6，输入映射保持 gneiss.input-map v1 及 1 MiB 上限。
-该辅助不替代字段校验，也不改变 Scene/Prefab 和二进制资源的专用协议。
+该辅助不替代字段及业务校验，也不改变二进制资源的专用协议。
+
+Scene v5 与 Prefab v1 同样使用通用格式注册，保持各自 16 MiB 限制。
+格式版本统一要求正整数：非当前正整数版本返回 unsupported，其余非法版本返回
+invalid_argument；不再按资源类型或版本新旧采用不同错误码。重复 format/version 拒绝。

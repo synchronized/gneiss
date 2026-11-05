@@ -82,7 +82,7 @@ int main() { // NOLINT(bugprone-exception-escape)
     if (!asset_import::write_assets(escaped, output, prefix).success)
       return 30;
     auto scene_text = read_file(output / "scenes/scene.scene.json");
-    auto scene_data = gneiss::engine::decode_scene(
+    auto scene_data = gneiss::engine::meta::deserialize<gneiss::engine::scene_description>(
         std::as_bytes(std::span(scene_text.data(), scene_text.size())));
     if (!scene_data || scene_data->objects[0].name != escaped.nodes[0].name)
       return 31;

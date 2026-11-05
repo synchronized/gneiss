@@ -13,7 +13,7 @@ struct reflected_asset_format {
   std::string_view name;
   std::uint64_t version;
   std::size_t maximum_bytes = std::numeric_limits<std::size_t>::max();
-  error version_error = error::unsupported;
+  std::span<const std::string_view> rejected_fields{};
 };
 namespace asset_json {
 using diagnostic = meta::serialization_diagnostic;
@@ -68,8 +68,11 @@ result<T, meta::serialization_diagnostic> decode_reflected_asset(std::span<const
     return diagnostic{.path = "/version",
                       .message = "不支持的资源格式版本",
                       .error = yyjson_is_uint(version) && yyjson_get_uint(version)
-                                   ? format.version_error
+                                   ? error::unsupported
                                    : error::invalid_argument};
+  for (auto field : format.rejected_fields)
+    if (yyjson_obj_getn(root, field.data(), field.size()))
+      return invalid("/" + std::string(field), "该字段已移除，不支持旧格式");
   mutable_document fields(yyjson_doc_mut_copy(doc.get(), nullptr), &yyjson_mut_doc_free);
   if (!fields)
     return diagnostic{.error = error::out_of_memory};

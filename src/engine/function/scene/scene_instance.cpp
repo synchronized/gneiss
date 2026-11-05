@@ -3,6 +3,7 @@
 
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_types.hpp"
@@ -1085,7 +1086,10 @@ result<std::string> scene_instance::serialize() const {
   auto current = capture_description();
   if (!current)
     return current.error();
-  return serialize_scene_description(*current);
+  auto encoded = meta::serialize_json(*current);
+  if (!encoded)
+    return encoded.error().error;
+  return std::move(*encoded);
 }
 
 } // namespace gneiss::engine

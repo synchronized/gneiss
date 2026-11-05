@@ -200,3 +200,14 @@ components 缺失使用空列表，保存始终输出，移除按 Prefab 存在�
 构建清单、内部头文件白名单和相关边界检查同步移除已删除路径。
 
 已完成相关构建、8 项测试和分层检查，见[验收记录](../records/2026-11-05-resource-codec-consolidation.md)。
+
+
+### Scene/Prefab 格式包装统一
+
+用户确认允许版本错误码的小幅行为调整。采用统一正整数版本规则，删除重复场景/Prefab
+编解码与中间 decoded_object_document，整体校验独立为 scene_validation。
+清除无生产消费者的 Prefab dependencies 和 source_schema_version；复用已有运行时组件依赖收集。
+字符串调用迁移为通用 Meta 文本入口，统一序列化诊断。旧 prefab_instances 仍明确拒绝。
+
+已完成，Windows Clang Debug 全量构建、19 项相关测试与分层检查通过，见
+[验收记录](../records/2026-11-05-scene-prefab-codec-consolidation.md)。

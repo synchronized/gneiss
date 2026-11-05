@@ -3,6 +3,7 @@
 #include "../support/movement_component.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
@@ -140,9 +141,9 @@ int main() try {
             app->scenes()->capture_description(document.scene_handle()), saved)
             .ok());
   check(saved.objects[0].prefab->component_overrides.size() == 2);
-  auto bytes = e::encode_scene(saved);
+  auto bytes = e::meta::serialize(saved);
   check(bytes.has_value());
-  auto decoded = e::decode_scene(*bytes);
+  auto decoded = e::meta::deserialize<e::scene_description>(*bytes);
   check(decoded.has_value());
   check(decoded->objects[0].prefab->component_overrides.size() == 2);
   auto contradictory = saved;
@@ -151,7 +152,7 @@ int main() try {
                .type_guid = type,
                .property_id = e::meta::property_id{1}},
        .value = e::value{2.0F}});
-  check(!e::encode_scene(contradictory));
+  check(!e::meta::serialize(contradictory));
   e::scene_preparation_inputs inputs;
   inputs.scene = e::asset_ref<const e::scene_description>{
       std::make_shared<const e::scene_description>(*decoded)};

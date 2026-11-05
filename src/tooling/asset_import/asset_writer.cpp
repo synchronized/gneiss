@@ -136,7 +136,7 @@ template <class Bytes> bool write_bytes(const std::filesystem::path& path, const
       scene.objects.push_back(std::move(child));
     }
   }
-  auto bytes = engine::encode_scene(scene);
+  auto bytes = engine::meta::serialize(scene);
   return bytes && write_bytes(path, *bytes);
 }
 

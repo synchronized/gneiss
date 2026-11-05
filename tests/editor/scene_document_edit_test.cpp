@@ -2,8 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/async_editor_save.hpp"
 #include "commands/prefab_authoring.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/resource/scene/prefab_codec.hpp"
+#include "engine/resource/scene/prefab_description.hpp"
 #include "runtime/loading/scene_service.hpp"
 #include <cstdio>
 #include <fstream>
@@ -55,7 +56,7 @@ void run(scenario mode) {
       "asset://mesh.json",
       mode == scenario::failure ? "asset://missing.json" : "asset://material.json"});
   source.objects.push_back(root);
-  write(files.path / "source.prefab.json", text(*e::encode_prefab(source)));
+  write(files.path / "source.prefab.json", text(*e::meta::serialize(source)));
   e::scene_description scene;
   scene.uuid = id(3);
   e::object_description instance;
@@ -66,7 +67,7 @@ void run(scenario mode) {
   instance.prefab->component_overrides.push_back(
       {root.uuid, e::mesh_renderer_description::type_guid, {}});
   scene.objects.push_back(instance);
-  const auto json = text(*e::encode_scene(scene));
+  const auto json = text(*e::meta::serialize(scene));
   write(files.path / "scene.json", json);
   author_scene editing;
   check(editing.open(files.path, "asset://scene.json"));

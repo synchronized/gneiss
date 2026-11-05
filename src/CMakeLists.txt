@@ -92,9 +92,10 @@ target_sources(
     engine/core/input/input_types.hpp
     engine/function/input/input_service.hpp
     engine/resource/input/action_map_validation.cpp
-    engine/resource/scene/prefab_codec.cpp
     engine/resource/mesh/mesh_decoder.cpp
     engine/resource/texture/texture_decoder.cpp
+    engine/resource/scene/scene_validation.cpp
+    engine/resource/scene/scene_validation.hpp
     engine/resource/scene/scene_codec.cpp
     engine/resource/scene/scene_codec.hpp
     engine/resource/input/action_map.hpp

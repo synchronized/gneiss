@@ -465,7 +465,6 @@ add_executable(gneiss_scene_load_preparation_test
   scene/scene_load_preparation_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/scene_codec.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
@@ -508,7 +507,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/scene_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_tree.cpp"
@@ -525,7 +523,6 @@ add_executable(
   gneiss_prefab_property_override_test
   serialization/prefab_property_override_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/scene_codec.cpp"
@@ -777,7 +774,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/asset_decode.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_binding.cpp"

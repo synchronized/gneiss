@@ -4,11 +4,12 @@
 #include "commands/prefab_authoring.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registry.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/resource/asset_uri.hpp"
-#include "engine/resource/scene/prefab_codec.hpp"
+#include "engine/resource/scene/prefab_description.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
 #include <unordered_map>
 
@@ -271,9 +272,10 @@ engine::result<prefab_author_input> read_prefab_author_input(std::string_view sc
                                                              engine::guid instance,
                                                              std::string_view uri,
                                                              engine::scene_diagnostic* diagnostic) {
-  auto scene = engine::decode_scene(std::as_bytes(std::span{scene_json.data(), scene_json.size()}));
-  auto prefab =
-      engine::decode_prefab(std::as_bytes(std::span{prefab_json.data(), prefab_json.size()}));
+  auto scene = engine::meta::deserialize<engine::scene_description>(
+      std::as_bytes(std::span{scene_json.data(), scene_json.size()}));
+  auto prefab = engine::meta::deserialize<engine::prefab_description>(
+      std::as_bytes(std::span{prefab_json.data(), prefab_json.size()}));
   if (!scene || !prefab) {
     const auto& failure = !scene ? scene.error() : prefab.error();
     if (diagnostic)
@@ -405,8 +407,8 @@ engine::error prepare_apply_prefab(std::string_view scene_json, std::string_view
       return status;
     plan.affected_instance_uuids.push_back(object.uuid);
   }
-  auto prefab_bytes = encode_prefab(candidate);
-  auto scene_bytes = encode_scene(input->scene);
+  auto prefab_bytes = meta::serialize(candidate);
+  auto scene_bytes = meta::serialize(input->scene);
   if (!prefab_bytes || !scene_bytes) {
     const auto& failure = !prefab_bytes ? prefab_bytes.error() : scene_bytes.error();
     if (diagnostic)
@@ -485,7 +487,7 @@ engine::error prepare_unpack_prefab(std::string_view scene_json, std::string_vie
     object.prefab.reset();
     input->scene.objects.push_back(std::move(object));
   }
-  auto bytes = encode_scene(input->scene);
+  auto bytes = meta::serialize(input->scene);
   if (!bytes) {
     if (diagnostic)
       *diagnostic = {.error = bytes.error().error,
@@ -566,7 +568,8 @@ prepare_restore_prefab_impl(std::string_view scene_json, std::string_view scene_
   using namespace engine;
   if (scene_path.empty() || !instance)
     return error::invalid_argument;
-  auto scene = decode_scene(std::as_bytes(std::span{scene_json.data(), scene_json.size()}));
+  auto scene = meta::deserialize<scene_description>(
+      std::as_bytes(std::span{scene_json.data(), scene_json.size()}));
   if (!scene)
     return scene.error().error;
   auto object = std::ranges::find(scene->objects, instance, &object_description::uuid);
@@ -596,7 +599,7 @@ prepare_restore_prefab_impl(std::string_view scene_json, std::string_view scene_
     if (!removed)
       return error::not_found;
   }
-  auto encoded = encode_scene(*scene);
+  auto encoded = meta::serialize(*scene);
   if (!encoded)
     return encoded.error().error;
   return std::vector<author_document_change>{{.path = std::string(scene_path),

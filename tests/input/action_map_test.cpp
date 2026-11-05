@@ -143,11 +143,18 @@ int main() {
   if (!codec || !codec->decode || !codec->encode)
     return 9;
   meta::serialization_diagnostic diagnostic;
+  for (auto version : {2, 3}) {
+    const auto text = std::string("{\"format\":\"gneiss.input-map\",\"version\":") +
+                      std::to_string(version) + ",\"actions\":[]}";
+    auto unsupported = meta::deserialize<action_map>(text);
+    if (unsupported || unsupported.error().error != error::unsupported ||
+        unsupported.error().path != "/version")
+      return 28;
+  }
   auto saved_bytes = meta::serialize(map);
   if (!saved_bytes)
     return 10;
-  const detail::reflected_asset_format exact{"gneiss.input-map", 1, saved_bytes->size(),
-                                             error::invalid_argument};
+  const detail::reflected_asset_format exact{"gneiss.input-map", 1, saved_bytes->size()};
   auto short_limit = exact;
   --short_limit.maximum_bytes;
   if (!detail::encode_reflected_asset(map, exact) ||
@@ -164,7 +171,6 @@ int main() {
        {R"({"format":"gneiss.input-map","format":"gneiss.input-map","version":1,"actions":[]})",
         R"({"format":"gneiss.input-map","version":1,"version":1,"actions":[]})",
         R"({"format":"wrong","version":1,"actions":[]})",
-        R"({"format":"gneiss.input-map","version":2,"actions":[]})",
         R"({"format":"gneiss.input-map","version":"1","actions":[]})"}) {
     auto result = meta::deserialize<gneiss::engine::action_map>(bytes(malformed));
     if (result || result.error().error != error::invalid_argument)

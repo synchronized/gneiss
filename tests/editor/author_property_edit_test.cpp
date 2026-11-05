@@ -79,7 +79,6 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
       active_before != active_after)
     return 51;
   auto source = std::make_shared<e::prefab_description>();
-  source->source_schema_version = 1;
   if (ed::make_editor_uuid(source->uuid).failed() ||
       ed::make_editor_uuid(source->root_uuid).failed())
     return 37;

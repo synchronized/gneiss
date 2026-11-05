@@ -317,8 +317,8 @@ auto snapshot = near->read_value(); // result<value>，拥有读取结果
 ## 原生描述与文件包装
 
 材质的 parameters、texture_uris 以及 Scene/Prefab 的普通对象字段直接注册原生成员。
-source_schema_version、dependencies 等运行状态不注册为持久化字段。
-Scene/Prefab 的组件动态分派和 Prefab 覆盖使用专门 codec；保存直接从描述生成文件，
+Scene/Prefab 不缓存来源版本或派生依赖列表，依赖由组件描述按需收集。
+组件动态分派使用通用引用反射，Prefab 覆盖仍使用专门 codec；保存直接从描述生成文件，
 不合并旧 JSON 或保留未知扩展字段。Scene 的 parent 键映射原生 parent_uuid，空父节点使用 JSON null；具体见场景格式参考。
 
 `serialization(true)` 启用严格字段检查；默认 false 保留忽略未知字段行为，两者都拒绝重复键。

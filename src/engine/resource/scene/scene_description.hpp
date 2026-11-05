@@ -87,7 +87,6 @@ struct scene_description final {
       engine::guid::from_bytes({0x4b, 0x91, 0xd8, 0x30, 0x28, 0xb7, 0x42, 0x57, 0x81, 0x5f, 0x67,
                                 0x3a, 0x9e, 0x6b, 0x70, 0x11})};
   inline static constexpr std::size_t maximum_source_bytes = 16U * 1024U * 1024U;
-  std::uint32_t source_schema_version = 0;
   gneiss::engine::guid uuid;
   std::vector<object_description> objects;
 };

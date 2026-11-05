@@ -130,7 +130,7 @@ settings、其三个参数及 is_primary 均必填。
 共用实现，Scene 允许多根森林，Prefab 按显式根要求单树。
 
 解析成功只产生中间描述，不修改 World。语法错误诊断使用 UTF-8 文档的零起始字节偏移，字段错误
-使用类似 `/objects/0/transform` 的 JSON 路径。未来版本返回 `GNEISS_ERROR_UNSUPPORTED`。
+使用类似 `/objects/0/transform` 的 JSON 路径。格式头错误规则见下节。
 
 ## Prefab 根语义
 
@@ -148,8 +148,10 @@ Prefab v1 顶层必须包含 `prefab_uuid`、`root_uuid` 和 `objects`。`prefab
 
 ## 版本兼容
 
-项目尚未对场景 Schema 作出外部兼容承诺。当前只接受 v5：旧版本返回
-`GNEISS_ERROR_INVALID_ARGUMENT`，未来版本返回 `GNEISS_ERROR_UNSUPPORTED`。仓库内作者场景、示例
+项目尚未对场景 Schema 作出外部兼容承诺。Scene 只接受 v5，Prefab 只接受 v1。
+合法正整数版本与当前版本不同（旧版本或未来版本）统一返回 `unsupported`；
+缺失、零、负数、非整数或错误类型返回 `invalid_argument`。格式名错误及重复格式头也返回
+`invalid_argument`，与材质及输入映射共用规则。仓库内作者场景、示例
 和测试随格式直接升级，不维护尚无真实消费者的迁移链。解析或校验失败时场景实例化尚未开始，现有
 World 保持不变。旧顶层 `prefab_instances` 也被明确拒绝，不作为扩展字段忽略。
 
@@ -206,3 +208,13 @@ Transform、组件和 Prefab 覆盖生成文件；删除或修改的字段不会
 没有操作表示不修改；设置 nil 表示解除父子关联成为根节点，不表示删除对象。
 删除对象使用独立指令。重新挂接必须通过场景层级入口，保持环校验、运行时同步和撤销语义。
 不再使用 optional<guid> 区分“不修改”和“清空”。GUID 编解码接受 null 和规范 UUID 字符串（含全零字符串），保存 nil 时统一输出 null。
+
+
+## 编解码与校验职责
+
+Scene/Prefab 使用 Meta 通用字节入口，字符串输入可调用 `meta::deserialize<T>(string_view)`，
+字符串输出可调用 `meta::serialize_json(value)`；统一返回 serialization_diagnostic。
+资源格式包装负责 format/version、文件字节上限与已移除字段检查；scene_validation 负责整体
+层级与主相机约束，局部对象和组件由各自注册校验器检查。保存和加载使用相同规则。
+Prefab 不再维护派生 dependencies 或 source_schema_version 字段；运行时依赖继续由
+component_dependencies 收集，不在反序列化中硬编码扫描 MeshRenderer。

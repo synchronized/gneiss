@@ -3,6 +3,7 @@
 #include "../support/movement_component.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
@@ -80,9 +81,9 @@ int main() try {
   auto removed = snapshot();
   check(removed.objects.size() == 1 && removed.objects[0].components.empty());
   check(history.undo().ok() && current()->data.speed == 4);
-  auto encoded = e::encode_scene(snapshot());
+  auto encoded = e::meta::serialize(snapshot());
   check(encoded.has_value());
-  auto decoded = e::decode_scene(*encoded);
+  auto decoded = e::meta::deserialize<e::scene_description>(*encoded);
   check(decoded.has_value());
   e::scene_preparation_inputs inputs;
   inputs.scene = e::asset_ref<const e::scene_description>{

@@ -3,6 +3,7 @@
 #include "../support/movement_component.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
@@ -110,9 +111,9 @@ int main() try {
     check(gneiss::test_support::assign_value(
               app->scenes()->capture_description(document.scene_handle()), output)
               .ok());
-    auto bytes = e::encode_scene(output);
+    auto bytes = e::meta::serialize(output);
     check(bytes.has_value());
-    auto decoded = e::decode_scene(*bytes);
+    auto decoded = e::meta::deserialize<e::scene_description>(*bytes);
     check(decoded.has_value());
     return *decoded;
   };
@@ -194,15 +195,16 @@ int main() try {
       invalid.objects, [](const auto& value) { return value.prefab.has_value(); });
   check(invalid_prefab != invalid.objects.end());
   invalid_prefab->prefab->overrides.front().key.path = {p{0}};
-  check(!e::encode_scene(invalid));
-  auto valid_bytes = e::encode_scene(snapshot());
+  check(!e::meta::serialize(invalid));
+  auto valid_bytes = e::meta::serialize(snapshot());
   check(valid_bytes.has_value());
   std::string malformed(reinterpret_cast<const char*>(valid_bytes->data()), valid_bytes->size());
   auto path_start = malformed.find("\"path\"");
   check(path_start != std::string::npos);
   auto array_start = malformed.find('[', path_start), array_end = malformed.find(']', array_start);
   malformed.replace(array_start, array_end - array_start + 1, R"([{"index":-1}])");
-  auto rejected = e::decode_scene(std::as_bytes(std::span{malformed.data(), malformed.size()}));
+  auto rejected = e::meta::deserialize<e::scene_description>(
+      std::as_bytes(std::span{malformed.data(), malformed.size()}));
   check(!rejected && rejected.error().path.find("/path") != std::string::npos);
   e::scene_preparation_inputs inputs;
   inputs.scene = e::asset_ref<const e::scene_description>{

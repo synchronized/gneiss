@@ -4,8 +4,9 @@
 #include "../support/movement_component.hpp"
 #include "commands/editor_command_history.hpp"
 #include "commands/prefab_authoring.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/resource/scene/prefab_codec.hpp"
+#include "engine/resource/scene/prefab_description.hpp"
 #include <cstdio>
 #include <fstream>
 #include <source_location>
@@ -68,14 +69,15 @@ int main() try {
   own.uuid = id(7);
   own.parent_uuid = first.uuid;
   scene.objects.push_back(own);
-  const auto prefab_json = text(*e::encode_prefab(source));
-  const auto scene_json = text(*e::encode_scene(scene));
+  const auto prefab_json = text(*e::meta::serialize(source));
+  const auto scene_json = text(*e::meta::serialize(scene));
   auto entries = ed::describe_prefab_overrides(*first.prefab, source);
   check(entries && entries->size() == 3);
   check((*entries)[0].label.find("acceleration") != std::string::npos);
   const auto decode_changes = [](const auto& changes) {
     const auto& json = *changes.front().replacement;
-    return e::decode_scene(std::as_bytes(std::span{json.data(), json.size()}));
+    return e::meta::deserialize<e::scene_description>(
+        std::as_bytes(std::span{json.data(), json.size()}));
   };
   auto restore_component =
       ed::prepare_restore_prefab_component(scene_json, "scenes/main.scene.json", first.uuid,
@@ -129,8 +131,8 @@ int main() try {
   check(ed::prepare_unpack_prefab(scene_json, prefab_json, unpack, changes, &diagnostic).ok());
   check(changes.size() == 1 && *changes[0].baseline == scene_json);
   const auto& unpacked_json = *changes[0].replacement;
-  auto unpacked =
-      e::decode_scene(std::as_bytes(std::span{unpacked_json.data(), unpacked_json.size()}));
+  auto unpacked = e::meta::deserialize<e::scene_description>(
+      std::as_bytes(std::span{unpacked_json.data(), unpacked_json.size()}));
   check(unpacked && unpacked->objects.size() == 4);
   auto find = [](auto& objects, e::guid uuid) -> auto& {
     auto found = std::ranges::find(objects, uuid, &e::object_description::uuid);
@@ -150,7 +152,7 @@ int main() try {
   ed::apply_prefab_author_plan plan;
   check(ed::prepare_apply_prefab(scene_json, prefab_json, apply, plan, &diagnostic).ok());
   check(plan.changes.size() == 2 && plan.affected_instance_uuids.size() == 2);
-  auto applied = e::decode_prefab(std::as_bytes(
+  auto applied = e::meta::deserialize<e::prefab_description>(std::as_bytes(
       std::span{plan.changes[0].replacement->data(), plan.changes[0].replacement->size()}));
   check(applied && applied->objects[0].components.get<movement_description>()->speed == 4);
   check(applied->objects[0].name == root.name && applied->objects[0].transform.translation.x == 0);
@@ -161,7 +163,7 @@ int main() try {
   conflict.objects[1].prefab->component_overrides.push_back(
       {root.uuid, movement_description::type_guid,
        e::make_component_description(movement_description{})});
-  check(ed::prepare_apply_prefab(text(*e::encode_scene(conflict)), prefab_json, apply, plan,
+  check(ed::prepare_apply_prefab(text(*e::meta::serialize(conflict)), prefab_json, apply, plan,
                                  &diagnostic) == e::error::invalid_state);
   check(plan.changes.empty() && diagnostic.path.find(second.uuid.string()) != std::string::npos &&
         diagnostic.path.find(root.uuid.string()) != std::string::npos);
@@ -172,12 +174,12 @@ int main() try {
                .property_id = e::meta::property_id{1},
                .path = {e::meta::property_id{1}}},
        .value = e::value{0.8F}});
-  check(ed::prepare_apply_prefab(text(*e::encode_scene(conflict)), prefab_json, apply, plan,
+  check(ed::prepare_apply_prefab(text(*e::meta::serialize(conflict)), prefab_json, apply, plan,
                                  &diagnostic) == e::error::not_found);
   check(plan.changes.empty() && diagnostic.path.find(second.uuid.string()) != std::string::npos);
   auto missing = source;
   missing.objects.pop_back();
-  check(ed::prepare_unpack_prefab(scene_json, text(*e::encode_prefab(missing)), unpack, changes,
+  check(ed::prepare_unpack_prefab(scene_json, text(*e::meta::serialize(missing)), unpack, changes,
                                   &diagnostic)
             .failed() &&
         changes.empty());
