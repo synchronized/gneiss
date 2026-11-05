@@ -56,7 +56,7 @@ value 的标签和多态内容通过通用结构操作表达，JSON 后端只负
 
 ### Value 统一 variant 持久化
 
-Value 通过 Meta traits 暴露底层 variant，统一使用 $case/$content；旧 kind/value 及 IPC
+Value 通过 Meta traits 暴露底层 variant，统一使用 $kind/$content；旧 kind/value 及 IPC
 GUID 兼容删除。分支标签显式配置，不与枚举数值绑定。monostate 为 invalid 分支，内容 null；
 空对象为 object 分支，内容 null；非空对象使用通用 $type_guid/$content 多态引用规则。
 矩阵按列优先保存 9/16 个有限 float 分量。该未发布格式直接迁移，不提供旧格式读取。

@@ -244,7 +244,7 @@ component_descriptions 接入 sequence_traits，提供只读元素访问与整�
 
 ### Variant 与 Prefab 属性覆盖
 
-已确认：为 std::variant 增加独立 ops/view，文件标签由显式 traits 配置，使用 $case/$value。
+已确认：为 std::variant 增加独立 ops/view，文件标签由显式 traits 配置，使用 $kind/$content。
 Prefab 属性覆盖直接注册 key/value，路径复用 variant；engine::value 保留既有基础值格式。
 删除重复属性覆盖 codec，迁移未发布格式，不提供旧格式兼容。
 验收覆盖标签往返、分支重排、非法标签、未配置标签、非默认构造分支、嵌套路径及场景/编辑器调用。
@@ -353,7 +353,7 @@ reader/writer 及共享遍历已完成，37 项相关测试通过，见 [共享�
 
 - [x] 保留用户调整的 value_kind 分组编号，消除对连续编号与存储下标相等的依赖。
 - [x] Value 通过 traits 接入 variant_ops，空分支与矩阵补齐通用访问和序列化。
-- [x] 统一 $case/$content 格式，对象分支复用多态引用，删除旧 value codec 和 IPC GUID 兼容。
+- [x] 统一 $kind/$content 格式，对象分支复用多态引用，删除旧 value codec 和 IPC GUID 兼容。
 - [x] 同步资源、样例、IPC 与测试；不读取旧格式，不新增兼容代码。
 
 已完成，构建与 56 项相关测试及检查通过，见

@@ -190,7 +190,7 @@ result<writer::node, serialization::diagnostic> encode_nonobject(const context& 
       return prefix(std::move(content).error(), "/$content");
     auto* output = doc->object();
     auto name = variant->names()[*index];
-    if (!output || !doc->member(output, "$case", doc->string(name)) ||
+    if (!output || !doc->member(output, "$kind", doc->string(name)) ||
         !doc->member(output, "$content", *content))
       return failure(error::out_of_memory);
     return output;
@@ -604,7 +604,7 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
     if (variant->names().empty())
       return failure(error::unsupported, "", "variant 未配置文件标签");
     auto* tag = context_access::input(ctx)->is_object(input)
-                    ? context_access::input(ctx)->member(input, "$case")
+                    ? context_access::input(ctx)->member(input, "$kind")
                     : nullptr;
     auto* content = context_access::input(ctx)->is_object(input)
                         ? context_access::input(ctx)->member(input, "$content")
@@ -612,15 +612,15 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
     if (!context_access::input(ctx)->is_object(input) ||
         context_access::input(ctx)->size(input) != 2 ||
         !context_access::input(ctx)->is_string(tag) || !content)
-      return failure(error::invalid_argument, "", "variant 必须包含 $case 和 $content");
+      return failure(error::invalid_argument, "", "variant 必须包含 $kind 和 $content");
     const auto name = context_access::input(ctx)->string(tag);
     auto names = variant->names();
     auto found = std::ranges::find(names, name);
     if (found == names.end())
-      return failure(error::invalid_argument, "/$case", "未知 variant 标签");
+      return failure(error::invalid_argument, "/$kind", "未知 variant 标签");
     auto status = variant->select(static_cast<std::size_t>(found - names.begin()));
     if (status.failed())
-      return failure(status, "/$case");
+      return failure(status, "/$kind");
     auto child = variant->value();
     if (!child)
       return failure(child.error());

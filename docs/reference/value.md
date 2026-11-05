@@ -18,7 +18,7 @@ GUID 对应 value_kind::guid（7）；数学类别为 20–25，对象为 50。k
 它不是可存任意 C++ 结构体的 any，也不持有借用对象指针或容器；结构体仍通过 meta::instance 访问。
 
 IPC 属性载荷与编辑器属性模型直接使用 value，不再维护 ipc_property_value/runtime_property_value。
-文件和 IPC 均通过通用 variant 遍历保存 `$case/$content`，不保存 std::variant 或 GLM 原始内存。
+文件和 IPC 均通过通用 variant 遍历保存 `$kind/$content`，不保存 std::variant 或 GLM 原始内存。
 删除旧 kind/value 和 IPC GUID 值的 type_id 标签适配；GUID 内容为规范 UUID 或 null。
 字符串和消息大小限制仍由 IPC 入口执行。
 
@@ -39,10 +39,10 @@ valid_scalar 对对象分支返回 false。对象引用不能直接充当撤销�
 
 ## 对象内容编解码
 
-对象分支使用以下形式，空引用为 {"$case":"object","$content":null}：
+对象分支使用以下形式，空引用为 {"$kind":"object","$content":null}：
 
 ```json
-{"$case":"object","$content":{"$type_guid":"<已注册类型 GUID>","$content":{"speed":3}}}
+{"$kind":"object","$content":{"$type_guid":"<已注册类型 GUID>","$content":{"speed":3}}}
 ```
 
 实际类型必须已注册、派生自 meta::object 并具备相应编解码能力。Builder 在编译期建立安全转换，
@@ -78,7 +78,7 @@ instance.as_variant() 可查询分支、借用内容，mutable_variant_view.sele
 切换分支后旧内容视图失效。value 的 read_value/write_value 仍提供整项复制和替换。
 分支标签由 variant_case_traits 显式定义，不使用枚举数字或编译器字符串。
 
-默认空值保存为 `{"$case":"invalid","$content":null}`；异常无值状态不能保存。
-空对象保存为 `{"$case":"object","$content":null}`，两者不混同。
+默认空值保存为 `{"$kind":"invalid","$content":null}`；异常无值状态不能保存。
+空对象保存为 `{"$kind":"object","$content":null}`，两者不混同。
 矩阵分别保存列优先的 9/16 个有限 float 分量；读取严格检查长度、数值范围和非有限值。
 编辑器矩阵当前只读；内存 API 与序列化支持读写。

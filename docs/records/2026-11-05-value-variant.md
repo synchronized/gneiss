@@ -31,3 +31,12 @@
 未运行大型场景、远端 CI，未执行远端操作。
 本次主动改变尚未发布的持久化格式，不提供旧 kind/value 或 $value 格式兼容。
 矩阵属性在编辑器中只读显示，本次不增加矩阵编辑控件。
+
+## 后续标签统一
+
+按用户确认，variant 与 value 的持久化标签由 `$case` 改为 `$kind`，统一使用
+`$kind/$content`；多态引用仍使用 `$type_guid/$content`。同步更新 IPC、Prefab、样例、
+测试与当前参考文档，不提供旧标签兼容。
+
+重新执行 windows-clang-debug 构建通过，22 项相关回归全部通过；修改源码的
+clang-format 检查与 git diff --check 通过。未运行大型场景或远端 CI。

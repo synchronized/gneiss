@@ -77,7 +77,7 @@ int main() {
                          e::value{e::ref<e::meta::object>{}}};
   for (const auto& item : cases) {
     auto wire = e::serialization::json::serialize(e::serialization::context{*core}, item);
-    if (!wire || wire->find("\"$case\"") == std::string::npos ||
+    if (!wire || wire->find("\"$kind\"") == std::string::npos ||
         wire->find("\"$content\"") == std::string::npos)
       return 40;
     auto restored = e::serialization::json::deserialize<e::value>(e::serialization::context{*core},
@@ -92,7 +92,7 @@ int main() {
     return 42;
   auto bad_matrix = e::serialization::json::deserialize<e::value>(
       e::serialization::context{*core},
-      std::string_view{R"({"$case":"matrix3","$content":[1,2]})"});
+      std::string_view{R"({"$kind":"matrix3","$content":[1,2]})"});
   if (bad_matrix)
     return 43;
   auto old_format = e::serialization::json::deserialize<e::value>(

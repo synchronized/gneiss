@@ -233,7 +233,7 @@
               "path": []
             },
             "value": {
-              "$case":"vec3","$content": [
+              "$kind":"vec3","$content": [
                 -5,
                 13.0160303,
                 0
@@ -276,7 +276,7 @@
               "path": []
             },
             "value": {
-              "$case":"vec3","$content": [
+              "$kind":"vec3","$content": [
                 1.15,
                 1.15,
                 1.15
@@ -319,7 +319,7 @@
               "path": []
             },
             "value": {
-              "$case":"vec3","$content": [
+              "$kind":"vec3","$content": [
                 -9.58200741,
                 20,
                 0

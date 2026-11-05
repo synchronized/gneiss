@@ -84,14 +84,14 @@ bool add_property_value(yyjson_mut_doc* doc, yyjson_mut_val* root,
   auto node = gneiss::engine::serialization::json::detail::write_value(doc, value);
   if (!node)
     return false;
-  return yyjson_mut_obj_add_str(doc, root, "$case",
-                                yyjson_mut_get_str(yyjson_mut_obj_get(*node, "$case"))) &&
+  return yyjson_mut_obj_add_str(doc, root, "$kind",
+                                yyjson_mut_get_str(yyjson_mut_obj_get(*node, "$kind"))) &&
          yyjson_mut_obj_add_val(doc, root, "$content",
                                 yyjson_mut_obj_remove_key(*node, "$content"));
 }
 bool parse_property_value(yyjson_val* root, gneiss::engine::value& output) {
   using namespace gneiss::engine;
-  auto* tag = yyjson_obj_get(root, "$case");
+  auto* tag = yyjson_obj_get(root, "$kind");
   auto* content = yyjson_obj_get(root, "$content");
   if (!yyjson_is_obj(root) || yyjson_obj_size(root) != 2 || !yyjson_is_str(tag))
     return false;

@@ -48,8 +48,8 @@ int main() {
     if (!copy || copy->key != original.key || copy->value != original.value)
       return 31;
     const std::string json(reinterpret_cast<const char*>(bytes->data()), bytes->size());
-    if (json.find(R"("$case":"property")") == std::string::npos ||
-        json.find(R"("$case":"index")") == std::string::npos ||
+    if (json.find(R"("$kind":"property")") == std::string::npos ||
+        json.find(R"("$kind":"index")") == std::string::npos ||
         json.find(R"("key":)") == std::string::npos)
       return 32;
   }

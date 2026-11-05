@@ -53,7 +53,7 @@
               "path": []
             },
             "value": {
-              "$case":"vec3","$content": [
+              "$kind":"vec3","$content": [
                 0,
                 1,
                 0
@@ -110,11 +110,11 @@
 - `parent` 可引用任意显式对象，包括 Prefab 根；不能引用来源内部节点 UUID。普通自有子对象正常保存，
   模板生成的子节点不重复写入列表。模板文件自身暂不允许嵌套 Prefab 引用。
 - 每项覆盖包含必填 key 和 value；key 以来源节点 UUID、规范小写 UUID 字符串 `type_guid` 和非零 uint32 `property_id` 定位字段。`value`
-  使用显式 `$case` 与 `$content`；当前类别为 `bool`、`int64`、`uint64`、`float32`、`float64`、`string`、
+  使用显式 `$kind` 与 `$content`；当前类别为 `bool`、`int64`、`uint64`、`float32`、`float64`、`string`、
   `guid`、`vec2`、`vec3`、`vec4`、`quaternion`、`matrix3` 和 `matrix4`。GUID 值为标准 UUID 字符串或 null；
   覆盖目标身份必须非零。旧 32 字符 type_guid 不再接受。同一实例内的完整覆盖键不能重复。
 - 覆盖的 key 可带 `path` 后缀数组，继续定位首个 `property_id` 下的嵌套字段或序列元素；
-  每步为 `{"$case":"property","$content":1}` 或 `{"$case":"index","$content":0}`，下标为非负整数，后缀最多 64 步。
+  每步为 `{"$kind":"property","$content":1}` 或 `{"$kind":"index","$content":0}`，下标为非负整数，后缀最多 64 步。
   缺省或空数组表示直接属性，后缀属于完整覆盖键。实例化时校验字段类型与下标范围；
   不通过覆盖改变序列长度。相互约束的字段覆盖合并后才执行组件校验。
 - Prefab 实例身份就是引用对象的 UUID，覆盖键不重复携带实例身份。Prefab 展开后的源节点、Entity
@@ -225,4 +225,4 @@ Prefab 不再维护派生 dependencies 或 source_schema_version 字段；运行
 component_dependencies 收集，不在反序列化中硬编码扫描 MeshRenderer。
 
 属性覆盖的 key/value 直接注册反射；key 校验身份、字段编号及路径，通用序列化处理 variant 路径。
-旧平铺覆盖字段及旧路径格式不再接受。覆盖值统一使用 `$case/$content`，不读取旧 kind/value。
+旧平铺覆盖字段及旧路径格式不再接受。覆盖值统一使用 `$kind/$content`，不读取旧 kind/value。

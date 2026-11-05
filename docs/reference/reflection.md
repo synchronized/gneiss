@@ -356,7 +356,7 @@ Material 保持版本 6，非零未知版本返回 unsupported；Action Map 保�
 版本为非零未知整数时返回 unsupported，缺失或非法版本返回 invalid_argument。业务字段校验仍由各类型的 validate 完成。
 
 vector2 使用独立 vec2 身份及 `[x,y]` 数组，严格检查两个有限 float 分量。
-value_kind 使用显式分组编号，与 variant 下标无关。Prefab 与 IPC 使用通用 $case/$content，
+value_kind 使用显式分组编号，与 variant 下标无关。Prefab 与 IPC 使用通用 $kind/$content，
 vec2、vec4 和 quaternion 保持独立分支，矩阵按列优先数组保存。
 
 ## 类型视图

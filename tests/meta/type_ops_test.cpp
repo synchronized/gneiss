@@ -217,9 +217,9 @@ int main() {
   auto text_copy = gneiss::engine::serialization::json::deserialize<choice>(
       gneiss::engine::serialization::context{*registry}, *text_bytes);
   CHECK(text_copy && *text_copy == selected);
-  for (std::string_view invalid : {R"({"$case":"missing","$content":1})", R"({"$case":"number"})",
-                                   R"({"$case":"number","$content":"wrong"})",
-                                   R"({"$case":"number","$content":1,"extra":2})"}) {
+  for (std::string_view invalid : {R"({"$kind":"missing","$content":1})", R"({"$kind":"number"})",
+                                   R"({"$kind":"number","$content":"wrong"})",
+                                   R"({"$kind":"number","$content":1,"extra":2})"}) {
     auto decoded_choice = gneiss::engine::serialization::json::deserialize<choice>(
         gneiss::engine::serialization::context{*registry},
         std::as_bytes(std::span(invalid.data(), invalid.size())));
