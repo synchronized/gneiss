@@ -62,6 +62,8 @@ struct prefab_component_override final {
   std::optional<component_description> added{};
 };
 struct prefab_reference_description final {
+  static constexpr std::string_view type_name = "prefab_reference_description";
+  static constexpr guid type_guid = guid::from_bytes({0x97, 0x21});
   std::string uri;
   std::vector<prefab_property_override> overrides;
   std::vector<prefab_component_override> component_overrides{};
@@ -88,6 +90,11 @@ struct scene_description final {
   std::uint32_t source_schema_version = 0;
   gneiss::engine::guid uuid;
   std::vector<object_description> objects;
+};
+
+template <> struct type_identity<prefab_component_override> {
+  static constexpr std::string_view name() noexcept { return "prefab_component_override"; }
+  static constexpr engine::guid guid() noexcept { return engine::guid::from_bytes({0x97, 0x22}); }
 };
 
 } // namespace gneiss::engine

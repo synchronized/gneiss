@@ -167,7 +167,8 @@ collect_subtree(yyjson_val* objects, gneiss::engine::guid root_uuid,
   yyjson_val* object{};
   yyjson_arr_foreach(objects, index, maximum, object) {
     const auto uuid = uuid_member(object, "uuid");
-    if (uuid && included.contains(*uuid) && yyjson_obj_get(object, "prefab"))
+    auto* prefab = yyjson_obj_get(object, "prefab");
+    if (uuid && included.contains(*uuid) && prefab && !yyjson_is_null(prefab))
       return true;
   }
   return false;

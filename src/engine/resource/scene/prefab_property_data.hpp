@@ -41,6 +41,8 @@ struct prefab_property_override_key final {
 };
 
 struct prefab_property_override final {
+  static constexpr std::string_view type_name = "prefab_property_override";
+  static constexpr guid type_guid = guid::from_bytes({0x97, 0x23});
   prefab_property_override_key key;
   engine::value value;
 };

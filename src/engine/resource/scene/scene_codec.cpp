@@ -181,24 +181,18 @@ read_component(gneiss::engine::guid type, yyjson_val* content) {
   return result;
 }
 
-[[nodiscard]] bool parse_prefab_reference(yyjson_val* value, std::size_t index,
-                                          gneiss::engine::prefab_reference_description& output,
-                                          scene_diagnostic& diagnostic);
-
 [[nodiscard]] bool parse_object(yyjson_val* value, std::size_t index,
                                 gneiss::engine::object_description& output,
                                 scene_diagnostic& diagnostic) {
   const std::string path = "/objects/" + std::to_string(index);
-  auto* prefab = yyjson_obj_get(value, "prefab");
   auto* components = yyjson_obj_get(value, "components");
-  if (prefab) {
+  if (output.prefab) {
     if (components && (!yyjson_is_arr(components) || yyjson_arr_size(components) != 0)) {
       fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/components",
            "Prefab 引用与独立组件不能同时定义");
       return false;
     }
-    output.prefab.emplace();
-    return parse_prefab_reference(prefab, index, *output.prefab, diagnostic);
+    return true;
   }
   if (!components) {
     fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/components", "缺少组件数组");
@@ -215,12 +209,10 @@ read_component(gneiss::engine::guid type, yyjson_val* content) {
   return true;
 }
 
-[[nodiscard]] bool parse_prefab_override(yyjson_val* value, std::size_t instance_index,
-                                         std::size_t override_index,
+[[nodiscard]] bool parse_prefab_override(yyjson_val* value,
                                          gneiss::engine::prefab_property_override& output,
                                          scene_diagnostic& diagnostic) {
-  const auto path = "/objects/" + std::to_string(instance_index) + "/prefab/overrides/" +
-                    std::to_string(override_index);
+  const std::string path;
   if (!yyjson_is_obj(value)) {
     fail(diagnostic, gneiss::engine::error::invalid_argument, path, "覆盖必须是对象");
     return false;
@@ -291,88 +283,33 @@ read_component(gneiss::engine::guid type, yyjson_val* content) {
   return true;
 }
 
-[[nodiscard]] bool parse_prefab_reference(yyjson_val* value, std::size_t index,
-                                          gneiss::engine::prefab_reference_description& output,
-                                          scene_diagnostic& diagnostic) {
-  const auto path = "/objects/" + std::to_string(index) + "/prefab";
-  if (!yyjson_is_obj(value) || !read_required_string(value, "uri", path, output.uri, diagnostic) ||
-      gneiss::engine::validate_uri(output.uri) != gneiss::engine::error::success) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, path, "Prefab 来源必须包含规范 URI");
+[[nodiscard]] bool parse_component_override(yyjson_val* item,
+                                            gneiss::engine::prefab_component_override& output,
+                                            scene_diagnostic& diagnostic) {
+  using namespace gneiss::engine;
+  const std::string location;
+  auto* object = yyjson_obj_get(item, "source_node_uuid");
+  auto* type = yyjson_obj_get(item, "$type_guid");
+  auto id = yyjson_is_str(object) ? guid::parse(json_string(object)) : std::nullopt;
+  auto tid = yyjson_is_str(type) ? guid::parse(json_string(type)) : std::nullopt;
+  if (!id || !*id || !tid || !*tid || !is_canonical_uuid(json_string(object)) ||
+      !is_canonical_uuid(json_string(type))) {
+    fail(diagnostic, error::invalid_argument, location, "组件覆盖身份无效");
     return false;
   }
-  auto* overrides = yyjson_obj_get(value, "overrides");
-  if (!yyjson_is_arr(overrides)) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/overrides",
-         "overrides 必须是数组");
-    return false;
-  }
-  output.overrides.reserve(yyjson_arr_size(overrides));
-  std::size_t override_index = 0U;
-  std::size_t override_maximum = 0U;
-  yyjson_val* override_value = nullptr;
-  yyjson_arr_foreach(overrides, override_index, override_maximum, override_value) {
-    output.overrides.emplace_back();
-    if (!parse_prefab_override(override_value, index, override_index, output.overrides.back(),
-                               diagnostic)) {
+  if (auto* content = yyjson_obj_get(item, "$content")) {
+    if (!yyjson_is_obj(content)) {
+      fail(diagnostic, error::invalid_argument, location, "新增组件内容必须为对象");
       return false;
     }
-  }
-  std::ranges::sort(output.overrides, [](const auto& left, const auto& right) {
-    return gneiss::engine::prefab_property_override_key_less(left.key, right.key);
-  });
-  if (std::ranges::adjacent_find(output.overrides, [](const auto& left, const auto& right) {
-        return left.key == right.key;
-      }) != output.overrides.end()) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/overrides",
-         "覆盖作者键重复");
-    return false;
-  }
-  auto* structural = yyjson_obj_get(value, "component_overrides");
-  if (structural && !yyjson_is_arr(structural)) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/component_overrides",
-         "组件覆盖必须是数组");
-    return false;
-  }
-  std::size_t si, sc;
-  yyjson_val* item;
-  yyjson_arr_foreach(structural, si, sc, item) {
-    using namespace gneiss::engine;
-    const auto location = path + "/component_overrides/" + std::to_string(si);
-    auto* object = yyjson_obj_get(item, "source_node_uuid");
-    auto* type = yyjson_obj_get(item, "$type_guid");
-    auto id = yyjson_is_str(object) ? guid::parse(json_string(object)) : std::nullopt;
-    auto tid = yyjson_is_str(type) ? guid::parse(json_string(type)) : std::nullopt;
-    if (!id || !*id || !tid || !*tid || !is_canonical_uuid(json_string(object)) ||
-        !is_canonical_uuid(json_string(type))) {
-      fail(diagnostic, error::invalid_argument, location, "组件覆盖身份无效");
+    auto decoded = read_component(*tid, content);
+    if (!decoded) {
+      fail(diagnostic, decoded.error().error, location + decoded.error().path, "新增组件解码失败");
       return false;
     }
-    if (std::ranges::any_of(
-            output.component_overrides,
-            [&](const auto& v) { return v.source_node_uuid == *id && v.type_guid == *tid; }) ||
-        std::ranges::any_of(output.overrides, [&](const auto& v) {
-          return v.key.source_node_uuid == *id && v.key.type_guid == *tid;
-        })) {
-      fail(diagnostic, error::invalid_argument, location, "组件覆盖重复或与属性覆盖矛盾");
-      return false;
-    }
-    if (auto* content = yyjson_obj_get(item, "$content")) {
-      if (!yyjson_is_obj(content)) {
-        fail(diagnostic, error::invalid_argument, location, "新增组件内容必须为对象");
-        return false;
-      }
-      auto decoded = read_component(*tid, content);
-      if (!decoded) {
-        fail(diagnostic, decoded.error().error, location + decoded.error().path,
-             "新增组件解码失败");
-        return false;
-      }
-      output.component_overrides.push_back(
-          {.source_node_uuid = *id, .type_guid = *tid, .added = std::move(*decoded)});
-    } else {
-      output.component_overrides.push_back(
-          {.source_node_uuid = *id, .type_guid = *tid, .added = std::nullopt});
-    }
+    output = {.source_node_uuid = *id, .type_guid = *tid, .added = std::move(*decoded)};
+  } else {
+    output = {.source_node_uuid = *id, .type_guid = *tid, .added = std::nullopt};
   }
   return true;
 }
@@ -497,6 +434,100 @@ using gneiss::engine::error;
 using gneiss::engine::object_description;
 using gneiss::engine::result;
 namespace meta = gneiss::engine::meta;
+template <class T, auto Parse>
+result<T, meta::serialization_diagnostic> decode_override(std::span<const std::byte> bytes) {
+  std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> doc(
+      yyjson_read(reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0), &yyjson_doc_free);
+  if (!doc)
+    return meta::serialization_diagnostic{.error = error::invalid_argument};
+  T output;
+  scene_diagnostic diagnostic;
+  if (!Parse(yyjson_doc_get_root(doc.get()), output, diagnostic))
+    return meta::serialization_diagnostic{diagnostic.byte_offset, std::move(diagnostic.path),
+                                          std::move(diagnostic.message), diagnostic.error};
+  return output;
+}
+template <class T>
+result<std::vector<std::byte>, meta::serialization_diagnostic> encode_override(const T& input) {
+  using namespace gneiss::engine;
+  std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> doc(yyjson_mut_doc_new(nullptr),
+                                                                      &yyjson_mut_doc_free);
+  if (!doc)
+    return meta::serialization_diagnostic{.error = error::out_of_memory};
+  yyjson_mut_val* array{};
+  if constexpr (std::is_same_v<T, prefab_property_override>) {
+    array = make_prefab_overrides(doc.get(), {input});
+  } else {
+    prefab_reference_description reference;
+    reference.component_overrides.push_back(input);
+    auto encoded = make_component_overrides(doc.get(), reference);
+    if (!encoded)
+      return meta::serialization_diagnostic{.error = encoded.error()};
+    array = *encoded;
+  }
+  if (!array)
+    return meta::serialization_diagnostic{.error = error::out_of_memory};
+  yyjson_mut_doc_set_root(doc.get(), yyjson_mut_arr_remove_first(array));
+  std::size_t length{};
+  std::unique_ptr<char, decltype(&std::free)> text(yyjson_mut_write(doc.get(), 0, &length),
+                                                   &std::free);
+  if (!text)
+    return meta::serialization_diagnostic{.error = error::out_of_memory};
+  auto bytes = std::as_bytes(std::span{text.get(), length});
+  return std::vector<std::byte>(bytes.begin(), bytes.end());
+}
+meta::serialization_diagnostic
+check_prefab_reference(const gneiss::engine::prefab_reference_description& value) {
+  using namespace gneiss::engine;
+  if (validate_uri(value.uri).failed())
+    return {
+        .path = "/uri", .message = "Prefab 来源必须包含规范 URI", .error = error::invalid_argument};
+  std::set<prefab_property_override_key, decltype(&prefab_property_override_key_less)> keys(
+      &prefab_property_override_key_less);
+  for (std::size_t i = 0; i < value.overrides.size(); ++i) {
+    const auto& entry = value.overrides[i];
+    bool valid = entry.key.source_node_uuid && entry.key.type_guid &&
+                 entry.key.property_id.is_valid() && entry.key.path.size() <= 64 &&
+                 meta::valid_scalar(entry.value);
+    for (const auto& step : entry.key.path)
+      if (const auto* property = std::get_if<meta::property_id>(&step);
+          property && !property->is_valid())
+        valid = false;
+    if (!valid)
+      return {.path = "/overrides/" + std::to_string(i),
+              .message = "覆盖作者键或属性值无效",
+              .error = error::invalid_argument};
+    if (!keys.insert(entry.key).second)
+      return {.path = "/overrides", .message = "覆盖作者键重复", .error = error::invalid_argument};
+  }
+  std::set<std::pair<guid, guid>> components;
+  for (std::size_t i = 0; i < value.component_overrides.size(); ++i) {
+    const auto& entry = value.component_overrides[i];
+    if (!entry.source_node_uuid || !entry.type_guid ||
+        !components.emplace(entry.source_node_uuid, entry.type_guid).second ||
+        (entry.added && (!*entry.added || (*entry.added)->guid() != entry.type_guid)) ||
+        std::ranges::any_of(value.overrides, [&](const auto& v) {
+          return v.key.source_node_uuid == entry.source_node_uuid &&
+                 v.key.type_guid == entry.type_guid;
+        }))
+      return {.path = "/component_overrides/" + std::to_string(i),
+              .message = "组件覆盖重复或与属性覆盖矛盾",
+              .error = error::invalid_argument};
+  }
+  return {};
+}
+const std::vector<gneiss::engine::prefab_property_override>&
+reference_overrides(const gneiss::engine::prefab_reference_description& value) {
+  return value.overrides;
+}
+void set_reference_overrides(
+    gneiss::engine::prefab_reference_description& value,
+    const std::vector<gneiss::engine::prefab_property_override>& overrides) {
+  value.overrides = overrides;
+  std::ranges::sort(value.overrides, [](const auto& a, const auto& b) {
+    return gneiss::engine::prefab_property_override_key_less(a.key, b.key);
+  });
+}
 result<object_description, meta::serialization_diagnostic>
 decode_object(std::span<const std::byte> bytes) {
   auto object = meta::deserialize_reflected<object_description>(bytes);
@@ -540,22 +571,7 @@ encode_object(const object_description& source) {
   if (!doc)
     return meta::serialization_diagnostic{.error = error::out_of_memory};
   auto* root = yyjson_mut_doc_get_root(doc.get());
-  if (source.prefab) {
-    yyjson_mut_obj_remove_key(root, "components");
-    auto changes = make_component_overrides(doc.get(), *source.prefab);
-    if (!changes)
-      return meta::serialization_diagnostic{.error = changes.error()};
-    auto* reference = yyjson_mut_obj(doc.get());
-    if (!reference ||
-        !put_value(
-            doc.get(), reference, "uri",
-            yyjson_mut_strncpy(doc.get(), source.prefab->uri.data(), source.prefab->uri.size())) ||
-        !put_value(doc.get(), reference, "overrides",
-                   make_prefab_overrides(doc.get(), source.prefab->overrides)) ||
-        !put_value(doc.get(), reference, "component_overrides", *changes) ||
-        !put_value(doc.get(), root, "prefab", reference))
-      return meta::serialization_diagnostic{.error = error::out_of_memory};
-  }
+  yyjson_mut_obj_remove_key(root, "components");
   std::size_t length{};
   std::unique_ptr<char, decltype(&std::free)> text(yyjson_mut_write(doc.get(), 0, &length),
                                                    &std::free);
@@ -708,24 +724,11 @@ detail::serialize_object_document(guid uuid, std::optional<guid> root_uuid,
       return diagnostic.error;
     if (!object.prefab)
       continue;
-    if (validate_uri(object.prefab->uri).failed() || !object.components.empty())
+    if (!object.components.empty())
       return error::invalid_argument;
-    std::set<prefab_property_override_key, decltype(&prefab_property_override_key_less)> keys(
-        &prefab_property_override_key_less);
-    for (const auto& entry : object.prefab->overrides) {
-      if (!entry.key.source_node_uuid || !entry.key.type_guid ||
-          !entry.key.property_id.is_valid() || !keys.insert(entry.key).second)
-        return error::invalid_argument;
-      if (entry.key.path.size() > 64)
-        return error::invalid_argument;
-      for (const auto& step : entry.key.path)
-        if (const auto* property = std::get_if<meta::property_id>(&step);
-            property && !property->is_valid())
-          return error::invalid_argument;
-      const bool valid = meta::valid_scalar(entry.value);
-      if (!valid)
-        return error::invalid_argument;
-    }
+    auto status = check_prefab_reference(*object.prefab);
+    if (status.error.failed())
+      return status.error;
   }
   using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
   mutable_document_ptr mutable_document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
@@ -847,12 +850,38 @@ error register_component_descriptions() noexcept {
     return base_status;
   constexpr auto required = meta::property_flags::required;
   auto status =
+      meta::type_builder<prefab_property_override>{}
+          .serialization<&encode_override<prefab_property_override>,
+                         &decode_override<prefab_property_override, parse_prefab_override>>()
+          .commit();
+  if (status.failed())
+    return status;
+  status =
+      meta::type_builder<prefab_component_override>{}
+          .serialization<&encode_override<prefab_component_override>,
+                         &decode_override<prefab_component_override, parse_component_override>>()
+          .commit();
+  if (status.failed())
+    return status;
+  status = meta::type_builder<prefab_reference_description>{}
+               .property<&prefab_reference_description::uri>(meta::property_id{1}, "uri", required)
+               .property<&reference_overrides, &set_reference_overrides>(meta::property_id{2},
+                                                                         "overrides", required)
+               .property<&prefab_reference_description::component_overrides>(meta::property_id{3},
+                                                                             "component_overrides")
+               .serialization()
+               .validate<&check_prefab_reference>()
+               .commit();
+  if (status.failed())
+    return status;
+  status =
       meta::type_builder<object_description>{}
           .property<&object_description::uuid>(meta::property_id{1}, "uuid", required)
           .property<&object_description::name>(meta::property_id{2}, "name")
           .property<&object_description::parent_uuid>(meta::property_id{3}, "parent", required)
           .property<&object_description::transform>(meta::property_id{4}, "transform", required)
           .property<&object_components, &set_object_components>(meta::property_id{5}, "components")
+          .property<&object_description::prefab>(meta::property_id{6}, "prefab")
           .serialization()
           .serialization<&encode_object, &decode_object>()
           .commit();

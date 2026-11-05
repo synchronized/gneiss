@@ -143,8 +143,8 @@ Meta 负责临时 vector<component_description> 的数组及多态内容，业�
 生成 component_descriptions。IPC 不再经过 JSON 字节中转；普通组件不再拆解重建类型信封。
 Prefab 组件覆盖仍含业务定位字段，保留提取信封的适配。
 
-object_description 全字段反射仍未完成：prefab 需要明确可空引用及覆盖指令适配，
-后续已确认恢复独立 optional 反射，以保留可选描述的值语义。components 的整项绑定已完成，见下节。
+object_description 的 components 整项绑定与 prefab 可选描述字段均已接入反射，见后续小节。
+覆盖指令继续保留专用 codec，不将文件协议处理混入通用字段遍历。
 
 本批仅完成共享入口及字段约束核查，验收见
 [记录](../records/2026-11-04-component-dom-codec.md)。
@@ -171,3 +171,13 @@ Scene/Prefab 往返与编辑器撤销。受影响 Debug 目标编译及 18 项�
 API 与空值歧义处理见 [反射参考](../reference/reflection.md#可选值反射)。
 
 已完成基础能力与相关验证，见[验收记录](../records/2026-11-05-meta-optional.md)。
+
+
+### Prefab 引用字段反射接入
+
+已注册 prefab_reference_description 三个字段和 object_description.prefab optional 属性。
+覆盖指令保持专用 codec，URI、重复覆盖和结构/属性覆盖冲突集中在描述校验器。
+普通对象写 null，缺失或 null 都表示无 Prefab；编辑器嵌套模板检测同步识别空值。
+本批不包含 optional 面板控件或覆盖指令格式重设计。
+
+本批受影响目标编译和 6 项测试通过，见[验收记录](../records/2026-11-05-prefab-reference-reflection.md)。

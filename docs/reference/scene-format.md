@@ -104,6 +104,7 @@
 - Mesh Renderer 的 `mesh` 与 `material` 必须是规范 `asset://` URI。
 - `objects` 是唯一对象列表。对象可通过 `prefab: {uri, overrides}` 引用模板；`uri` 必须是规范资产
   URI，`overrides` 必须是数组。此时组件来自模板，拒绝同时提供非空 `components`。
+  `prefab` 缺失或为 null 表示普通对象；保存普通对象时写出 `prefab: null`。
 - `parent` 可引用任意显式对象，包括 Prefab 根；不能引用来源内部节点 UUID。普通自有子对象正常保存，
   模板生成的子节点不重复写入列表。模板文件自身暂不允许嵌套 Prefab 引用。
 - 每项覆盖以来源节点 UUID、规范小写 UUID 字符串 `type_guid` 和非零 uint32 `property_id` 定位字段。`value`
@@ -159,6 +160,10 @@ World 保持不变。旧顶层 `prefab_instances` 也被明确拒绝，不作为
 `object_description::components` 使用 `component_descriptions`，内部保存 `ref<const component_description_base>`。具体描述继承基类并注册 Meta 继承关系，
 通用引用序列化负责 `$type_guid` / `$content`，列表负责每种组件至多一项。
 Scene 的 components 通过非标量 getter/setter 注册反射；IPC 使用同一 Meta 数组解码。
+`object_description.prefab` 注册为 optional，引用描述的 uri、overrides、component_overrides
+由反射遍历。属性覆盖和组件增删指令保留专用 codec；覆盖键重复、URI 和跨列表冲突由
+引用描述校验器统一验证。属性覆盖解码后按作者键排序。对象 codec 仅保留普通对象必需组件
+的存在性检查和模板对象省略空组件数组的格式处理，不再手动读写 prefab 字段。
 两者均先完成临时数组解码，再由 component_descriptions::replace 检查非空和类型唯一，成功才替换。
 组件列表校验错误定位到 components 属性；嵌套内容解码错误保留具体子路径。
 多态信封仅允许 `$type_guid` 和 `$content`，类型 GUID 使用规范小写形式。

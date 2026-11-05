@@ -349,6 +349,53 @@ int main() try {
     return 3;
   }
 
+  {
+    using namespace gneiss::engine;
+    auto null_prefab = parse_scene_description(replace_once(
+        std::string(valid_scene), R"("components":[)", R"("prefab":null,"components":[)"));
+    if (!null_prefab || null_prefab->objects[0].prefab)
+      return 97;
+    auto slot = meta::instance::from(scene.objects[1]);
+    if (!slot)
+      return 98;
+    auto reference = slot->property("prefab")->as_optional();
+    if (!reference || !*reference->has_value())
+      return 98;
+    auto contents = reference->get();
+    if (!contents || contents->properties()->size() != 3 ||
+        *contents->property("overrides")->as_sequence()->size() != 1)
+      return 98;
+    auto copied = scene.objects[1];
+    copied.prefab->uri = "asset://prefabs/copy.prefab.json";
+    copied.prefab->overrides.clear();
+    if (scene.objects[1].prefab->overrides.empty() ||
+        scene.objects[1].prefab->uri == copied.prefab->uri)
+      return 99;
+    auto bytes = meta::serialize(*scene.objects[1].prefab);
+    if (!bytes)
+      return 100;
+    auto restored = meta::deserialize<prefab_reference_description>(*bytes);
+    if (!restored || restored->overrides.size() != 1 ||
+        restored->uri != scene.objects[1].prefab->uri)
+      return 100;
+    auto conflict = *restored;
+    conflict.component_overrides.push_back(
+        {.source_node_uuid = conflict.overrides[0].key.source_node_uuid,
+         .type_guid = conflict.overrides[0].key.type_guid});
+    if (meta::serialize(conflict))
+      return 101;
+    conflict = *restored;
+    conflict.uri = "asset://../bad";
+    auto rejected = meta::serialize(conflict);
+    if (rejected || rejected.error().path != "/uri")
+      return 102;
+  }
+  if (!fails_with(replace_once(std::string(prefab_scene),
+                               R"("uri":"asset://prefabs/lamp.prefab.json")",
+                               R"("uri":"asset://../bad")"),
+                  gneiss::engine::error::invalid_argument, "/objects/1/prefab/uri"))
+    return 103;
+
   const auto duplicate_override = replace_once(
       std::string(prefab_scene), R"("overrides":[{)",
       R"("overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d","property_id":1,"value":{"kind":"vec3","value":[7,8,9]}},{)");
