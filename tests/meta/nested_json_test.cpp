@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "engine/core/meta/detail/json_value_codec.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/serialization.hpp"
 namespace {
@@ -80,6 +81,13 @@ template <unsigned Depth> e::error register_chain(const m::registry_ref& registr
         .template property<&chain<Depth>::nested>(m::property_id{1}, "nested",
                                                   m::property_flags::required)
         .serialization()
+        .template json_serialization<[](m::detail::json_codec_context& ctx, yyjson_mut_doc* doc,
+                                        const chain<Depth>& value) {
+          return m::detail::write_reflected(ctx, doc, e::runtime_type_of<chain<Depth>>(), &value);
+        },
+                                     [](m::detail::json_codec_context& ctx, yyjson_val* input) {
+                                       return m::detail::read_reflected<chain<Depth>>(ctx, input);
+                                     }>()
         .commit();
   }
 }
@@ -169,6 +177,47 @@ bool nested_json_contract() {
   }
   if (parent::alive != 0)
     return false;
+  // 节点 codec 复用独立表的字段名和校验，不经过默认注册表或文本中转。
+  auto node_registry = m::create_registry();
+  if (!node_registry || register_parent(*node_registry).failed() ||
+      m::type_builder<child>{*node_registry}
+          .property<&child::value>(m::property_id{1}, "isolated", m::property_flags::required)
+          .serialization(true)
+          .json_serialization<[](m::detail::json_codec_context& ctx, yyjson_mut_doc* doc,
+                                 const child& value) {
+            return m::detail::write_reflected(ctx, doc, e::runtime_type_of<child>(), &value);
+          },
+                              [](m::detail::json_codec_context& ctx, yyjson_val* input) {
+                                return m::detail::read_reflected<child>(ctx, input);
+                              }>(64)
+          .validate<&check>()
+          .commit()
+          .failed() ||
+      m::freeze(*node_registry).failed())
+    return false;
+  {
+    auto encoded = m::serialize(*node_registry, parent{});
+    if (!encoded)
+      return false;
+    const std::string_view text{reinterpret_cast<const char*>(encoded->data()), encoded->size()};
+    if (text != R"({"a/b":{"isolated":7.0}})" && text != R"({"a/b":{"isolated":7}})")
+      return false;
+    auto restored = m::deserialize<parent>(*node_registry, *encoded);
+    if (!restored || restored->item.value != 7)
+      return false;
+    auto bad = m::deserialize<parent>(*node_registry, bytes(R"({"a/b":{"isolated":"bad"}})"));
+    if (bad || bad.error().path != "/a~1b/isolated")
+      return false;
+    auto unknown = m::deserialize<child>(*node_registry, bytes(R"({"isolated":7,"unknown":1})"));
+    if (unknown || unknown.error().path != "/unknown")
+      return false;
+    auto too_large = m::deserialize<child>(*node_registry, bytes(std::string(65, ' ')));
+    if (too_large || too_large.error().error != e::error::invalid_argument)
+      return false;
+    auto invalid = m::serialize(*node_registry, child{-1});
+    if (invalid || invalid.error().path != "/value")
+      return false;
+  }
   auto deep = m::create_registry();
   if (!deep || register_chain<65>(*deep).failed() || m::freeze(*deep).failed())
     return false;

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/core/meta/detail/json_value_codec.hpp"
 #include "engine/core/meta/registration.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include <array>
 #include <cstdlib>
 #include <limits>
 #include <yyjson.h>
@@ -17,37 +18,14 @@ struct reflected_asset_format {
 };
 namespace asset_json {
 using diagnostic = meta::serialization_diagnostic;
-using document = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
-using mutable_document = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
 inline diagnostic invalid(std::string path, std::string message) {
   return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};
 }
-inline result<std::vector<std::byte>, diagnostic> write(yyjson_mut_doc* doc, std::size_t limit) {
-  std::size_t length{};
-  std::unique_ptr<char, decltype(&std::free)> text(yyjson_mut_write(doc, 0, &length), &std::free);
-  if (!text)
-    return diagnostic{.error = error::out_of_memory};
-  if (length > limit)
-    return invalid("", "资源描述超过文件大小上限");
-  const auto bytes = std::as_bytes(std::span{text.get(), length});
-  return std::vector<std::byte>(bytes.begin(), bytes.end());
 }
-}
-template <class T>
-result<T, meta::serialization_diagnostic> decode_reflected_asset(std::span<const std::byte> bytes,
-                                                                 reflected_asset_format format) {
+
+inline meta::serialization_diagnostic check_asset_format(yyjson_val* root,
+                                                         reflected_asset_format format) {
   using namespace asset_json;
-  if (bytes.size() > format.maximum_bytes)
-    return invalid("", "资源描述超过文件大小上限");
-  yyjson_read_err err{};
-  document doc(yyjson_read_opts(reinterpret_cast<char*>(const_cast<std::byte*>(bytes.data())),
-                                bytes.size(), 0, nullptr, &err),
-               &yyjson_doc_free);
-  if (!doc)
-    return diagnostic{err.pos, "", err.msg ? err.msg : "JSON 语法错误",
-                      err.code == YYJSON_READ_ERROR_MEMORY_ALLOCATION ? error::out_of_memory
-                                                                      : error::invalid_argument};
-  auto* root = yyjson_doc_get_root(doc.get());
   if (!yyjson_is_obj(root))
     return invalid("", "资源描述根必须是对象");
   std::size_t formats = 0, versions = 0;
@@ -73,48 +51,107 @@ result<T, meta::serialization_diagnostic> decode_reflected_asset(std::span<const
   for (auto field : format.rejected_fields)
     if (yyjson_obj_getn(root, field.data(), field.size()))
       return invalid("/" + std::string(field), "该字段已移除，不支持旧格式");
-  mutable_document fields(yyjson_doc_mut_copy(doc.get(), nullptr), &yyjson_mut_doc_free);
-  if (!fields)
+  return {};
+}
+inline constexpr std::array<std::string_view, 2> asset_headers{"format", "version"};
+template <class T>
+result<T, meta::serialization_diagnostic>
+decode_reflected_asset(meta::detail::json_codec_context& ctx, yyjson_val* root,
+                       reflected_asset_format format) {
+  auto status = check_asset_format(root, format);
+  if (status.error.failed())
+    return status;
+  return meta::detail::read_reflected<T>(ctx, root, asset_headers);
+}
+
+inline result<yyjson_mut_val*, meta::serialization_diagnostic>
+add_asset_header(yyjson_mut_doc* doc, yyjson_mut_val* root, reflected_asset_format format) {
+  using namespace asset_json;
+  if (!yyjson_mut_is_obj(root) || yyjson_mut_obj_get(root, "format") ||
+      yyjson_mut_obj_get(root, "version"))
+    return invalid("", "反射字段不得占用 format/version 格式头");
+  auto* name = yyjson_mut_strncpy(doc, format.name.data(), format.name.size());
+  if (!name || !yyjson_mut_obj_add_val(doc, root, "format", name) ||
+      !yyjson_mut_obj_add_uint(doc, root, "version", format.version))
     return diagnostic{.error = error::out_of_memory};
-  auto* fields_root = yyjson_mut_doc_get_root(fields.get());
-  (void)yyjson_mut_obj_remove_key(fields_root, "format");
-  (void)yyjson_mut_obj_remove_key(fields_root, "version");
-  auto content = write(fields.get(), format.maximum_bytes);
-  if (!content)
-    return std::move(content).error();
-  return meta::deserialize_reflected<T>(*content);
+  return root;
+}
+template <class T>
+result<yyjson_mut_val*, meta::serialization_diagnostic>
+encode_reflected_asset(meta::detail::json_codec_context& ctx, yyjson_mut_doc* doc, const T& object,
+                       reflected_asset_format format) {
+  auto fields = meta::detail::write_reflected(ctx, doc, runtime_type_of<T>(), &object);
+  if (!fields)
+    return std::move(fields).error();
+  return add_asset_header(doc, *fields, format);
+}
+/** 纹理等独立文件适配入口；只解析/输出一次，字段使用同一 DOM。 */
+template <class T>
+result<T, meta::serialization_diagnostic> decode_reflected_asset(std::span<const std::byte> bytes,
+                                                                 reflected_asset_format format) {
+  using namespace asset_json;
+  if (bytes.size() > format.maximum_bytes)
+    return invalid("", "资源描述超过文件大小上限");
+  yyjson_read_err err{};
+  std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> doc(
+      yyjson_read_opts(reinterpret_cast<char*>(const_cast<std::byte*>(bytes.data())), bytes.size(),
+                       0, nullptr, &err),
+      &yyjson_doc_free);
+  if (!doc)
+    return diagnostic{err.pos, "", err.msg ? err.msg : "JSON 语法错误",
+                      err.code == YYJSON_READ_ERROR_MEMORY_ALLOCATION ? error::out_of_memory
+                                                                      : error::invalid_argument};
+  auto* root = yyjson_doc_get_root(doc.get());
+  auto status = check_asset_format(root, format);
+  if (status.error.failed())
+    return status;
+  T object{};
+  auto view = meta::mutable_instance::from(object);
+  if (!view)
+    return diagnostic{.error = view.error()};
+  status = meta::detail::read_reflected(root, *view, asset_headers);
+  if (status.error.failed())
+    return status;
+  return object;
 }
 template <class T>
 result<std::vector<std::byte>, meta::serialization_diagnostic>
 encode_reflected_asset(const T& object, reflected_asset_format format) {
   using namespace asset_json;
-  auto fields = meta::serialize_reflected(object);
-  if (!fields)
-    return std::move(fields).error();
-  document doc(yyjson_read(reinterpret_cast<const char*>(fields->data()), fields->size(), 0),
-               &yyjson_doc_free);
+  auto view = meta::instance::from(object);
+  if (!view)
+    return diagnostic{.error = view.error()};
+  std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> doc(yyjson_mut_doc_new(nullptr),
+                                                                      &yyjson_mut_doc_free);
   if (!doc)
     return diagnostic{.error = error::out_of_memory};
-  mutable_document output(yyjson_doc_mut_copy(doc.get(), nullptr), &yyjson_mut_doc_free);
-  if (!output)
+  auto root = meta::detail::write_reflected(doc.get(), *view);
+  if (!root)
+    return std::move(root).error();
+  root = add_asset_header(doc.get(), *root, format);
+  if (!root)
+    return std::move(root).error();
+  yyjson_mut_doc_set_root(doc.get(), *root);
+  std::size_t length{};
+  std::unique_ptr<char, decltype(&std::free)> text(yyjson_mut_write(doc.get(), 0, &length),
+                                                   &std::free);
+  if (!text)
     return diagnostic{.error = error::out_of_memory};
-  auto* root = yyjson_mut_doc_get_root(output.get());
-  if (!yyjson_mut_is_obj(root) || yyjson_mut_obj_get(root, "format") ||
-      yyjson_mut_obj_get(root, "version"))
-    return invalid("", "反射字段不得占用 format/version 格式头");
-  auto* name = yyjson_mut_strncpy(output.get(), format.name.data(), format.name.size());
-  if (!name || !yyjson_mut_obj_add_val(output.get(), root, "format", name) ||
-      !yyjson_mut_obj_add_uint(output.get(), root, "version", format.version))
-    return diagnostic{.error = error::out_of_memory};
-  return write(output.get(), format.maximum_bytes);
+  if (length > format.maximum_bytes)
+    return invalid("", "资源描述超过文件大小上限");
+  auto bytes = std::as_bytes(std::span{text.get(), length});
+  return std::vector<std::byte>(bytes.begin(), bytes.end());
 }
 /** 复用字段注册和校验，只追加文件格式包装并提交类型。 */
 template <class T, const reflected_asset_format& Format>
 error register_reflected_asset(meta::type_builder<T>& builder) noexcept {
-  constexpr auto encode = [](const T& object) { return encode_reflected_asset(object, Format); };
-  constexpr auto decode = [](std::span<const std::byte> bytes) {
-    return decode_reflected_asset<T>(bytes, Format);
+  constexpr auto encode = [](meta::detail::json_codec_context& ctx, yyjson_mut_doc* doc,
+                             const T& object) {
+    return encode_reflected_asset(ctx, doc, object, Format);
   };
-  return builder.template serialization<encode, decode>().commit();
+  constexpr auto decode = [](meta::detail::json_codec_context& ctx, yyjson_val* input) {
+    return decode_reflected_asset<T>(ctx, input, Format);
+  };
+  return builder.template json_serialization<encode, decode>(Format.maximum_bytes).commit();
 }
 } // namespace gneiss::engine::detail

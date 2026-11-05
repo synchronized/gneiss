@@ -140,7 +140,7 @@ int main() {
   using namespace gneiss::engine;
   // 编码、解码与资源加载共用默认表；字段保持 input-map v1 布局。
   auto codec = meta::find_serialization(runtime_type_of<action_map>());
-  if (!codec || !codec->decode || !codec->encode)
+  if (!codec || !codec->decode_json || !codec->encode_json)
     return 9;
   meta::serialization_diagnostic diagnostic;
   for (auto version : {2, 3}) {

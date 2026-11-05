@@ -308,6 +308,31 @@ public:
       status_ = error::invalid_argument;
     return *this;
   }
+  /** 内部 JSON 节点适配：回调复用上下文，不能保存节点或文档指针。 */
+  template <auto Encode, auto Decode>
+  type_builder&
+  json_serialization(std::size_t maximum_bytes = std::numeric_limits<std::size_t>::max()) noexcept {
+    if (committed_ || status_.failed())
+      return *this;
+    if (has_serialization_) {
+      status_ = error::invalid_argument;
+      return *this;
+    }
+    has_serialization_ = true;
+    codec_.maximum_json_bytes = maximum_bytes;
+    codec_.encode_json = [](detail::json_codec_context& ctx, yyjson_mut_doc* doc,
+                            const void* object) {
+      return Encode(ctx, doc, *static_cast<const object_type*>(object));
+    };
+    codec_.decode_json = [](detail::json_codec_context& ctx,
+                            yyjson_val* input) -> result<ref<void>, serialization_diagnostic> {
+      auto decoded = Decode(ctx, input);
+      if (!decoded)
+        return std::move(decoded).error();
+      return ref<void>{std::make_shared<object_type>(std::move(*decoded))};
+    };
+    return *this;
+  }
   [[nodiscard]] error commit() noexcept {
     if (committed_)
       return error::invalid_state;

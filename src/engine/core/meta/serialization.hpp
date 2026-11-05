@@ -15,31 +15,6 @@ serialize_object(const registry_ref&, type_id, const void*) noexcept;
 GNEISS_API result<ref<void>, serialization_diagnostic>
 deserialize_object(const registry_ref&, type_id, std::span<const std::byte>) noexcept;
 
-/** 格式包装器使用：只遍历注册字段，跳过本类型自定义 codec，保留嵌套 codec 和校验。
- * 类型必须显式启用 reflected_json。 */
-GNEISS_API result<std::vector<std::byte>, serialization_diagnostic>
-serialize_reflected_object(const registry_ref&, type_id, const void*) noexcept;
-GNEISS_API result<ref<void>, serialization_diagnostic>
-deserialize_reflected_object(const registry_ref&, type_id, std::span<const std::byte>) noexcept;
-template <class T>
-result<std::vector<std::byte>, serialization_diagnostic>
-serialize_reflected(const registry_ref& registry, const T& object) noexcept {
-  return serialize_reflected_object(registry, runtime_type_of<T>(), &object);
-}
-template <class T>
-result<T, serialization_diagnostic> deserialize_reflected(const registry_ref& registry,
-                                                          std::span<const std::byte> bytes) noexcept
-    try {
-  auto decoded = deserialize_reflected_object(registry, runtime_type_of<T>(), bytes);
-  if (!decoded)
-    return std::move(decoded).error();
-  return std::move(*static_cast<T*>(decoded->get()));
-} catch (const std::bad_alloc&) {
-  return serialization_diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return serialization_diagnostic{.error = error::internal};
-}
-
 /** 编解码任意反射视图；解码调用方提供临时目标，失败不承诺恢复目标。 */
 GNEISS_API result<std::vector<std::byte>, serialization_diagnostic>
 serialize_instance(const registry_ref&, const instance&) noexcept;
@@ -128,37 +103,6 @@ deserialize_object(type_id type, std::span<const std::byte> bytes) noexcept {
     return serialization_diagnostic{.error = registry.error()};
   return deserialize_object(*registry, type, bytes);
 }
-[[nodiscard]] inline result<std::vector<std::byte>, serialization_diagnostic>
-serialize_reflected_object(type_id type, const void* object) noexcept {
-  auto registry = default_registry();
-  if (!registry)
-    return serialization_diagnostic{.error = registry.error()};
-  return serialize_reflected_object(*registry, type, object);
-}
-[[nodiscard]] inline result<ref<void>, serialization_diagnostic>
-deserialize_reflected_object(type_id type, std::span<const std::byte> bytes) noexcept {
-  auto registry = default_registry();
-  if (!registry)
-    return serialization_diagnostic{.error = registry.error()};
-  return deserialize_reflected_object(*registry, type, bytes);
-}
-template <class T>
-[[nodiscard]] result<std::vector<std::byte>, serialization_diagnostic>
-serialize_reflected(const T& object) noexcept {
-  auto registry = default_registry();
-  if (!registry)
-    return serialization_diagnostic{.error = registry.error()};
-  return serialize_reflected(*registry, object);
-}
-template <class T>
-[[nodiscard]] result<T, serialization_diagnostic>
-deserialize_reflected(std::span<const std::byte> bytes) noexcept {
-  auto registry = default_registry();
-  if (!registry)
-    return serialization_diagnostic{.error = registry.error()};
-  return deserialize_reflected<T>(*registry, bytes);
-}
-
 /** JSON 文本便捷入口；与字节入口具有相同的校验及诊断语义。 */
 template <class T>
 [[nodiscard]] result<T, serialization_diagnostic> deserialize(std::string_view json) noexcept {

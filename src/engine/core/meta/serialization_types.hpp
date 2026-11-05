@@ -6,12 +6,19 @@
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
 #include <cstddef>
+#include <limits>
 #include <memory>
 #include <span>
 #include <string>
 #include <vector>
 
+struct yyjson_val;
+struct yyjson_mut_val;
+struct yyjson_mut_doc;
 namespace gneiss::engine::meta {
+namespace detail {
+struct json_codec_context;
+}
 class type_registry_state;
 /** 原生注册表共享所有者；最后一个引用释放时销毁，借用元数据不得超过该生命周期。 */
 using registry_ref = std::shared_ptr<type_registry_state>;
@@ -34,6 +41,12 @@ struct serialization_binding {
   /** 显式启用反射 JSON；自定义函数按方向优先。 */
   bool reflected_json = false;
   bool reject_unknown_fields = false;
+  /** JSON 节点回调仅借用文档；与字节 codec 互斥，复用当前递归上下文。 */
+  result<yyjson_mut_val*, serialization_diagnostic> (*encode_json)(detail::json_codec_context&,
+                                                                   yyjson_mut_doc*, const void*){};
+  result<ref<void>, serialization_diagnostic> (*decode_json)(detail::json_codec_context&,
+                                                             yyjson_val*){};
+  std::size_t maximum_json_bytes = std::numeric_limits<std::size_t>::max();
   ref<void> (*construct)(){};
   /** error == success 表示通过；在编码前和解码完成后执行。 */
   serialization_diagnostic (*validate)(const void*){};

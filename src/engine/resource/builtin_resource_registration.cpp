@@ -89,7 +89,13 @@ error register_component_descriptions() noexcept {
     return base_status;
   constexpr auto required = meta::property_flags::required;
   auto status = meta::type_builder<value>{}
-                    .serialization<&meta::detail::encode_value, &meta::detail::decode_value>()
+                    .json_serialization<[](meta::detail::json_codec_context&, yyjson_mut_doc* doc,
+                                           const value& v) {
+                      return meta::detail::write_tagged_value(doc, v);
+                    },
+                                        [](meta::detail::json_codec_context&, yyjson_val* input) {
+                                          return meta::detail::read_tagged_value(input);
+                                        }>()
                     .validate<[](const value& v) {
                       return meta::valid_scalar(v) ? error::success : error::invalid_argument;
                     }>()

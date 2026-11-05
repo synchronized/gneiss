@@ -10,6 +10,7 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
+#include "engine/resource/detail/reflected_asset_codec.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 
 #include <array>
@@ -22,6 +23,46 @@
 #include <vector>
 
 namespace {
+
+struct format_probe {
+  static constexpr std::string_view type_name = "format_probe";
+  static constexpr gneiss::engine::guid type_guid = gneiss::engine::guid::from_bytes({98, 11});
+  std::string text;
+};
+constexpr gneiss::engine::detail::reflected_asset_format probe_format{"probe", 1, 80};
+bool format_node_contract() {
+  namespace e = gneiss::engine;
+  namespace m = e::meta;
+  auto registry = m::create_registry();
+  if (!registry ||
+      e::detail::register_reflected_asset<format_probe, probe_format>(
+          m::type_builder<format_probe>{*registry}
+              .property<&format_probe::text>(m::property_id{1}, "text", m::property_flags::required)
+              .serialization(true))
+          .failed() ||
+      m::freeze(*registry).failed())
+    return false;
+  auto encoded = m::serialize(*registry, format_probe{"ok"});
+  if (!encoded)
+    return false;
+  auto decoded = m::deserialize<format_probe>(*registry, *encoded);
+  if (!decoded || decoded->text != "ok")
+    return false;
+  auto huge = m::serialize(*registry, format_probe{std::string(100, 'x')});
+  if (huge || huge.error().error != e::error::invalid_argument)
+    return false;
+  for (std::string_view text : {R"({"format":"probe","version":1,"text":"ok","extra":0})",
+                                R"({"format":"probe","format":"probe","version":1,"text":"ok"})",
+                                R"({"format":"probe","version":1,"version":1,"text":"ok"})",
+                                R"({"format":"probe","version":1,"text":"ok","text":"other"})",
+                                R"({"format":"probe","version":1})"}) {
+    auto invalid =
+        m::deserialize<format_probe>(*registry, std::as_bytes(std::span{text.data(), text.size()}));
+    if (invalid || invalid.error().error != e::error::invalid_argument)
+      return false;
+  }
+  return true;
+}
 
 constexpr std::string_view valid_scene =
     R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,1,2],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"settings": {"fov": 1.0, "near": 0.1, "far": 100},"is_primary":true}}]},{"uuid":"00000000-0000-4000-8000-000000000003","parent":"00000000-0000-4000-8000-000000000002","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material"}}]}],"unknown":true})";
@@ -212,6 +253,8 @@ private:
 } // namespace
 
 int main() try {
+  if (!format_node_contract())
+    return 97;
   if (gneiss::engine::initialize_meta().failed())
     return 99;
   if (!save_validation_contract())
