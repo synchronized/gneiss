@@ -14,69 +14,6 @@
 #include <type_traits>
 #include <utility>
 
-namespace {
-
-gneiss::engine::error to_native_value(const gneiss::host::ipc_property_value& source,
-                                      gneiss::engine::value& output) noexcept try {
-  return std::visit(
-      [&](const auto& payload) -> gneiss::engine::error {
-        using T = std::decay_t<decltype(payload)>;
-        if constexpr (std::is_same_v<T, std::monostate>) {
-          return gneiss::engine::error::invalid_argument;
-        } else {
-          if constexpr (std::is_same_v<T, std::array<std::uint8_t, 16>>) {
-            output.payload = gneiss::engine::guid::from_bytes(payload);
-          } else if constexpr (std::is_same_v<T, std::array<float, 3>>) {
-            output.payload = gneiss::engine::math::vector3{payload[0], payload[1], payload[2]};
-          } else if constexpr (std::is_same_v<T, std::array<float, 4>>) {
-            output.payload = gneiss::engine::math::quaternion_xyzw(payload[0], payload[1],
-                                                                   payload[2], payload[3]);
-          } else {
-            output.payload = payload;
-          }
-          return gneiss::engine::error::success;
-        }
-      },
-      source.payload);
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::error::out_of_memory;
-} catch (...) {
-  return gneiss::engine::error::internal;
-}
-
-gneiss::engine::error from_native_value(const gneiss::engine::value& source,
-                                        gneiss::host::ipc_property_value& output) noexcept try {
-  return std::visit(
-      [&](const auto& payload) -> gneiss::engine::error {
-        using T = std::decay_t<decltype(payload)>;
-        if constexpr (std::is_same_v<T, std::monostate> ||
-                      std::is_same_v<T, gneiss::engine::math::vector4> ||
-                      std::is_same_v<T, gneiss::engine::math::vector2> ||
-                      std::is_same_v<T, gneiss::engine::ref<gneiss::engine::meta::object>>) {
-          // 当前 IPC 不承载进程内对象引用或二维向量，四分量只表示旋转。
-          return gneiss::engine::error::unsupported;
-        } else {
-          if constexpr (std::is_same_v<T, gneiss::engine::guid>) {
-            output.payload = payload.bytes();
-          } else if constexpr (std::is_same_v<T, gneiss::engine::math::vector3>) {
-            output.payload = std::array{payload.x, payload.y, payload.z};
-          } else if constexpr (std::is_same_v<T, gneiss::engine::math::quaternion>) {
-            output.payload = std::array{payload.x, payload.y, payload.z, payload.w};
-          } else {
-            output.payload = payload;
-          }
-          return gneiss::engine::error::success;
-        }
-      },
-      source.payload);
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::error::out_of_memory;
-} catch (...) {
-  return gneiss::engine::error::internal;
-}
-
-} // namespace
-
 namespace gneiss::host {
 
 runtime_property_editor::~runtime_property_editor() { reset(); }
@@ -172,20 +109,11 @@ gneiss::engine::error runtime_property_editor::execute(const ipc_property_write&
     output = std::move(response);
     return gneiss::engine::error::success;
   }
-  gneiss::engine::value value;
-  operation = to_native_value(command.value, value);
-  if (operation.ok()) {
-    operation = gneiss::engine::write_component_property(*world_, entity, property_type,
-                                                         property_field, value);
-    if (operation.ok()) {
-      gneiss::engine::value canonical;
-      operation = gneiss::engine::read_component_property(*world_, entity, property_type,
-                                                          property_field, canonical);
-      if (operation.ok()) {
-        operation = from_native_value(canonical, response.canonical_value);
-      }
-    }
-  }
+  operation = gneiss::engine::write_component_property(*world_, entity, property_type,
+                                                       property_field, command.value);
+  if (operation.ok())
+    operation = gneiss::engine::read_component_property(*world_, entity, property_type,
+                                                        property_field, response.canonical_value);
   if (operation.failed()) {
     response.code = operation.code();
     response.message = "属性写入被拒绝";

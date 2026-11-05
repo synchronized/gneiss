@@ -109,13 +109,14 @@ bool test_property_write_round_trip() {
     return false;
   }
 
-  gneiss::host::ipc_property_write command{.session_id = 7U,
-                                           .command_id = 11U,
-                                           .object = {2U, 3U},
-                                           .type_id = gneiss::engine::guid::from_bytes({1U}),
-                                           .field_id = 4U,
-                                           .expected_revision = 1U,
-                                           .value = {std::array<float, 3>{1.0F, 2.0F, 3.0F}}};
+  gneiss::host::ipc_property_write command{
+      .session_id = 7U,
+      .command_id = 11U,
+      .object = {2U, 3U},
+      .type_id = gneiss::engine::guid::from_bytes({1U}),
+      .field_id = 4U,
+      .expected_revision = 1U,
+      .value = {gneiss::engine::math::vector3{1.0F, 2.0F, 3.0F}}};
   gneiss::engine::ipc_envelope frame;
   if (gneiss::host::encode_ipc_property_write_v2(command, 11U, frame) !=
           gneiss::engine::error::success ||

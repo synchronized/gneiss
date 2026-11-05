@@ -354,6 +354,8 @@ public:
         properties.push_back({item.id, item.guid, item.flags, item.name});
         bindings.push_back(item.binding);
       }
+      if constexpr (std::derived_from<object_type, meta::object>)
+        codec_.as_object = [](void* p) -> meta::object* { return static_cast<object_type*>(p); };
       return register_type<object_type>(
           registry_,
           {.schema_version = version_, .properties = properties, .serialization = codec_},

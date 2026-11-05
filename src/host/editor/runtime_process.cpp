@@ -586,7 +586,7 @@ gneiss::engine::error runtime_process::request_resume() noexcept {
 gneiss::engine::error
 runtime_process::request_property_write(gneiss::editor::runtime_property_key key,
                                         std::uint64_t expected_revision,
-                                        ipc_property_value value) noexcept {
+                                        gneiss::engine::value value) noexcept {
   if (!implementation_ || !implementation_->ipc_session.is_authenticated() ||
       !implementation_->ipc_session.supports_property_editing() ||
       (implementation_->control_state != runtime_control_state::running &&
@@ -594,9 +594,9 @@ runtime_process::request_property_write(gneiss::editor::runtime_property_key key
     return gneiss::engine::error::not_ready;
   }
   gneiss::editor::runtime_property_write command;
-  auto operation = implementation_->property_edits.prepare(
-      std::move(key), expected_revision, to_runtime_property_value(std::move(value)),
-      std::chrono::steady_clock::now(), command);
+  auto operation =
+      implementation_->property_edits.prepare(std::move(key), expected_revision, std::move(value),
+                                              std::chrono::steady_clock::now(), command);
   if (operation != gneiss::engine::error::success) {
     return operation;
   }

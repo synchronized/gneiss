@@ -56,7 +56,7 @@ int main() try {
       // NOLINTNEXTLINE(performance-unnecessary-value-param): 测试桩须匹配转移属性值的回调契约。
       .write_property =
           [](void* context, const runtime_property_key&, std::uint64_t,
-             [[maybe_unused]] runtime_property_value value) {
+             [[maybe_unused]] gneiss::engine::value value) {
             ++static_cast<observations*>(context)->mutations;
             return gneiss::engine::error::success;
           },

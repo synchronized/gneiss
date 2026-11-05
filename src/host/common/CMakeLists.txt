@@ -124,6 +124,7 @@ if(BUILD_TESTING)
     "${PROJECT_SOURCE_DIR}/tests/host/common/ipc/ipc_property_protocol_test.cpp"
   )
   target_link_libraries(gneiss_ipc_property_protocol_test PRIVATE gneiss_app_ipc_protocol)
+  target_include_directories(gneiss_ipc_property_protocol_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   gneiss_target_compile_warnings(gneiss_ipc_property_protocol_test)
   gneiss_target_output_directories(gneiss_ipc_property_protocol_test)
   add_test(

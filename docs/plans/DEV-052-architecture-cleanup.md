@@ -279,3 +279,14 @@ Prefab 属性覆盖直接注册 key/value，路径复用 variant；engine::value
 
 已完成，Windows Clang Debug 构建及 28 项相关测试通过，见
 [验收记录](../records/2026-11-05-value-object-reference.md)。
+
+### Value 对象内容与 IPC 值统一
+
+用户确认对象引用可按内容编解码，接收端重建对象而非保留跨进程身份。
+复用 Meta 注册、递归上下文与校验；IPC 和编辑器直接使用 engine::value，
+删除重复载荷与值转换，保留已有标量编码并补充 vec2/vec4/object 标签。
+对象 ID、资源 URI、撤销快照仍维持各自边界。
+验收覆盖对象独立恢复、空引用、未知及不兼容类型、循环/深度拒绝和 IPC/编辑器回归。
+
+已完成，Windows Clang Debug 构建及 33 项相关测试通过，见
+[验收记录](../records/2026-11-05-value-object-wire.md)。

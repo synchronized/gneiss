@@ -17,6 +17,7 @@ struct yyjson_mut_val;
 struct yyjson_mut_doc;
 namespace gneiss::engine::meta {
 class json_codec_context;
+class object;
 class type_registry_state;
 /** 原生注册表共享所有者；最后一个引用释放时销毁，借用元数据不得超过该生命周期。 */
 using registry_ref = std::shared_ptr<type_registry_state>;
@@ -45,6 +46,8 @@ struct serialization_binding {
   result<ref<void>, serialization_diagnostic> (*decode_json)(json_codec_context&, yyjson_val*){};
   std::size_t maximum_json_bytes = std::numeric_limits<std::size_t>::max();
   ref<void> (*construct)(){};
+  /** 编译期确认派生关系，按 C++ 布局转换完整对象地址。 */
+  object* (*as_object)(void*){};
   /** error == success 表示通过；在编码前和解码完成后执行。 */
   serialization_diagnostic (*validate)(const void*){};
   result<std::vector<std::byte>, serialization_diagnostic> (*encode)(const registry_ref&,

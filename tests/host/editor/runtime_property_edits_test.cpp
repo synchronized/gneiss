@@ -55,7 +55,7 @@ bool test_result_and_single_pending() {
   const auto now = gneiss::editor::runtime_property_edits::clock::now();
   gneiss::editor::runtime_property_write command;
   const auto key = make_key();
-  if (edits.prepare(key, 1U, {std::array<float, 3>{1.0F, 2.0F, 3.0F}}, now, command) !=
+  if (edits.prepare(key, 1U, {gneiss::engine::math::vector3{1.0F, 2.0F, 3.0F}}, now, command) !=
           gneiss::engine::error::success ||
       command.session_id != 7U || command.command_id != 1U ||
       edits.prepare(key, 1U, {true}, now, command) != gneiss::engine::error::not_ready) {
@@ -67,7 +67,7 @@ bool test_result_and_single_pending() {
       .code = gneiss::engine::error::success.code(),
       .revision = 2U,
       .message = "属性已应用",
-      .canonical_value = {std::array<float, 3>{1.0F, 2.0F, 3.0F}}};
+      .canonical_value = {gneiss::engine::math::vector3{1.0F, 2.0F, 3.0F}}};
   if (edits.accept(response) != gneiss::engine::error::success) {
     return false;
   }

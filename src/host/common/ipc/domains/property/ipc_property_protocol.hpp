@@ -10,6 +10,7 @@
 #include "ipc_dispatcher.hpp"
 
 #include "engine/core/guid.hpp"
+#include "engine/core/value.hpp"
 
 #include <array>
 #include <cstdint>
@@ -23,15 +24,6 @@ namespace gneiss::host {
 inline constexpr std::uint16_t ipc_property_domain_version = 1U;
 enum class ipc_property_operation : std::uint16_t { write = 1U };
 
-using ipc_property_payload =
-    std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float, double, std::string,
-                 std::array<std::uint8_t, 16>, std::array<float, 3>, std::array<float, 4>>;
-
-/** IPC 自有的类型化属性值；字符串和数组不借用调用方内存。 */
-struct ipc_property_value final {
-  ipc_property_payload payload;
-};
-
 /** Editor 发往 Runtime 的单字段写入命令。 */
 struct ipc_property_write final {
   std::uint64_t session_id = 0U;
@@ -40,7 +32,7 @@ struct ipc_property_write final {
   gneiss::engine::guid type_id{};
   std::uint32_t field_id = 0U;
   std::uint64_t expected_revision = 0U;
-  ipc_property_value value;
+  gneiss::engine::value value;
 };
 
 /** Runtime 返回的权威执行结果；成功时携带规范值和新修订号。 */
@@ -50,7 +42,7 @@ struct ipc_property_write_result final {
   std::int32_t code = 0;
   std::uint64_t revision = 0U;
   std::string message;
-  ipc_property_value canonical_value;
+  gneiss::engine::value canonical_value;
 };
 
 [[nodiscard]] gneiss::engine::error

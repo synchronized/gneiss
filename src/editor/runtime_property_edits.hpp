@@ -8,6 +8,7 @@
 
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/core/value.hpp"
 
 #include <array>
 #include <chrono>
@@ -20,13 +21,6 @@
 
 namespace gneiss::editor {
 
-/** 模型拥有的属性值；不借用协议缓冲区，不含传输版本。 */
-struct runtime_property_value final {
-  std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float, double, std::string,
-               std::array<std::uint8_t, 16>, std::array<float, 3>, std::array<float, 4>>
-      payload;
-};
-
 struct runtime_property_write final {
   std::uint64_t session_id = 0U;
   std::uint64_t command_id = 0U;
@@ -34,7 +28,7 @@ struct runtime_property_write final {
   gneiss::engine::guid type_id{};
   std::uint32_t field_id = 0U;
   std::uint64_t expected_revision = 0U;
-  runtime_property_value value;
+  gneiss::engine::value value;
 };
 
 struct runtime_property_write_result final {
@@ -43,7 +37,7 @@ struct runtime_property_write_result final {
   std::int32_t code = 0;
   std::uint64_t revision = 0U;
   std::string message;
-  runtime_property_value canonical_value;
+  gneiss::engine::value canonical_value;
 };
 
 struct runtime_property_key final {
@@ -71,7 +65,7 @@ struct runtime_property_edit final {
   std::uint64_t revision = 0U;
   std::int32_t code = gneiss::engine::error::success.code();
   std::string message;
-  runtime_property_value canonical_value;
+  gneiss::engine::value canonical_value;
 };
 
 /** Editor 主线程拥有的 Runtime 属性写入状态模型。 */
@@ -83,7 +77,7 @@ public:
   void disconnect() noexcept;
   [[nodiscard]] gneiss::engine::error prepare(runtime_property_key key,
                                               std::uint64_t expected_revision,
-                                              runtime_property_value value, clock::time_point now,
+                                              gneiss::engine::value value, clock::time_point now,
                                               runtime_property_write& output) noexcept;
   [[nodiscard]] gneiss::engine::error accept(runtime_property_write_result response) noexcept;
   void expire(clock::time_point now, std::chrono::milliseconds timeout) noexcept;

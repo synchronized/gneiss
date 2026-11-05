@@ -36,7 +36,7 @@ void runtime_property_edits::disconnect() noexcept {
 
 gneiss::engine::error runtime_property_edits::prepare(runtime_property_key key,
                                                       std::uint64_t expected_revision,
-                                                      runtime_property_value value,
+                                                      gneiss::engine::value value,
                                                       clock::time_point now,
                                                       runtime_property_write& output) noexcept {
   if (session_id_ == 0U || !key.object.is_valid() || key.field_id == 0U ||

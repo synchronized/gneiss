@@ -56,7 +56,7 @@ runtime_property_key runtime_transform_key(const runtime_scene_node& node, std::
 }
 
 void draw_runtime_property_status(const runtime_property_edit* edit,
-                                  const runtime_property_value& observed) {
+                                  const gneiss::engine::value& observed) {
   if (edit == nullptr) {
     return;
   }
@@ -143,10 +143,13 @@ void draw_runtime_inspector(const runtime_scene_node& node,
       ImGui::EndDisabled();
       if (committed) {
         const auto revision = edit != nullptr && edit->revision != 0U ? edit->revision : 1U;
-        actions.report_result(actions.context,
-                              actions.write_property(actions.context, key, revision, {value}));
+        actions.report_result(
+            actions.context,
+            actions.write_property(actions.context, key, revision,
+                                   {engine::math::vector3{value[0], value[1], value[2]}}));
       }
-      draw_runtime_property_status(edit, {observed});
+      draw_runtime_property_status(edit,
+                                   {engine::math::vector3{observed[0], observed[1], observed[2]}});
     };
 
     const auto translation_key =
@@ -166,10 +169,11 @@ void draw_runtime_inspector(const runtime_scene_node& node,
                                 : 1U;
       actions.report_result(
           actions.context,
-          actions.write_property(actions.context, translation_key, revision, {translation}));
+          actions.write_property(
+              actions.context, translation_key, revision,
+              {engine::math::vector3{translation[0], translation[1], translation[2]}}));
     }
-    draw_runtime_property_status(translation_edit, {gneiss::engine::math::component_array(
-                                                       node.local_transform.translation)});
+    draw_runtime_property_status(translation_edit, {node.local_transform.translation});
 
     const auto rotation_key =
         runtime_transform_key(node, gneiss::engine::transform_rotation_field.get());
@@ -189,16 +193,13 @@ void draw_runtime_inspector(const runtime_scene_node& node,
         const auto revision = rotation_edit != nullptr && rotation_edit->revision != 0U
                                   ? rotation_edit->revision
                                   : 1U;
-        actions.report_result(
-            actions.context,
-            actions.write_property(actions.context, rotation_key, revision,
-                                   {std::array<float, 4>{edited.x, edited.y, edited.z, edited.w}}));
+        actions.report_result(actions.context, actions.write_property(actions.context, rotation_key,
+                                                                      revision, {edited}));
       } else {
         actions.report_result(actions.context, converted);
       }
     }
-    draw_runtime_property_status(rotation_edit, {std::array<float, 4>{quaternion.x, quaternion.y,
-                                                                      quaternion.z, quaternion.w}});
+    draw_runtime_property_status(rotation_edit, {quaternion});
 
     draw_vec3("Scale", gneiss::engine::transform_scale_field.get(), scale, 0.05F);
   }
@@ -217,31 +218,9 @@ void draw_runtime_inspector(const runtime_scene_node& node,
         if (!child)
           continue;
         auto value = child->read_value();
-        runtime_property_value observed;
-        bool supported = false;
-        if (value) {
-          supported = std::visit(
-              [&](const auto& payload) {
-                using T = std::decay_t<decltype(payload)>;
-                if constexpr (std::is_same_v<T, engine::math::vector2> ||
-                              std::is_same_v<T, engine::math::vector4> ||
-                              std::is_same_v<T, std::monostate> ||
-                              std::is_same_v<T, engine::ref<engine::meta::object>>) {
-                  return false;
-                } else {
-                  if constexpr (std::is_same_v<T, engine::guid>)
-                    observed.payload = payload.bytes();
-                  else if constexpr (std::is_same_v<T, engine::math::vector3>)
-                    observed.payload = std::array{payload.x, payload.y, payload.z};
-                  else if constexpr (std::is_same_v<T, engine::math::quaternion>)
-                    observed.payload = std::array{payload.x, payload.y, payload.z, payload.w};
-                  else
-                    observed.payload = payload;
-                  return true;
-                }
-              },
-              value->payload);
-        }
+        const bool supported = value && value->kind() != engine::value_kind::object &&
+                               value->kind() != engine::value_kind::invalid;
+        const auto observed = value ? *value : engine::value{};
         runtime_property_key key{
             .object = node.id, .type_id = component->guid().bytes(), .field_id = property.id.get()};
         const auto* pending = actions.find_edit ? actions.find_edit(actions.context, key) : nullptr;
@@ -259,22 +238,7 @@ void draw_runtime_inspector(const runtime_scene_node& node,
           if (draw_property_value(std::string(property.name).c_str(), *value, child->type(), serial,
                                   status)) {
             // 转换同一种标量，协议不支持的嵌套/容器属性仅展示。
-            runtime_property_value input;
-            std::visit(
-                [&](const auto& payload) {
-                  using T = std::decay_t<decltype(payload)>;
-                  if constexpr (std::is_same_v<T, engine::guid>)
-                    input.payload = payload.bytes();
-                  else if constexpr (std::is_same_v<T, engine::math::vector3>)
-                    input.payload = std::array{payload.x, payload.y, payload.z};
-                  else if constexpr (std::is_same_v<T, engine::math::quaternion>)
-                    input.payload = std::array{payload.x, payload.y, payload.z, payload.w};
-                  else if constexpr (!std::is_same_v<T, engine::math::vector2> &&
-                                     !std::is_same_v<T, engine::math::vector4> &&
-                                     !std::is_same_v<T, engine::ref<engine::meta::object>>)
-                    input.payload = payload;
-                },
-                value->payload);
+            auto input = *value;
             actions.report_result(
                 actions.context,
                 actions.write_property(actions.context, key,

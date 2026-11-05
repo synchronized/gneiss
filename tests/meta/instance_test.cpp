@@ -14,6 +14,7 @@ struct shared_probe : object_padding, m::object_type<shared_probe> {
   static constexpr std::string_view type_name = "shared_probe";
   static constexpr e::guid type_guid = e::guid::from_bytes({94, 20});
   int number = 7;
+  e::value nested{true};
 };
 struct unrelated_probe : m::object_type<unrelated_probe> {
   static constexpr std::string_view type_name = "unrelated_probe";
@@ -23,6 +24,7 @@ struct shared_holder {
   static constexpr std::string_view type_name = "shared_holder";
   static constexpr e::guid type_guid = e::guid::from_bytes({94, 22});
   e::ref<shared_probe> item;
+  e::value another{true};
 };
 bool object_values() {
   {
@@ -46,11 +48,13 @@ bool object_values() {
   if (!registry || m::register_builtin_types(*registry).failed() ||
       m::type_builder<shared_probe>{*registry}
           .property<&shared_probe::number>(m::property_id{1}, "number")
+          .property<&shared_probe::nested>(m::property_id{2}, "nested")
           .serialization()
           .commit()
           .failed() ||
       m::type_builder<shared_holder>{*registry}
           .property<&shared_holder::item>(m::property_id{1}, "item")
+          .property<&shared_holder::another>(m::property_id{2}, "another")
           .serialization()
           .commit()
           .failed() ||
@@ -85,15 +89,53 @@ bool object_values() {
   auto const_view = m::instance::from(*registry, readonly);
   if (!const_view || const_view->read_value().error() != e::error::unsupported)
     return false;
-  // 普通 ref 的内联序列化仍有效；value 不猜测对象的持久化协议。
+  // value 对象按内容恢复独立对象，普通 ref 的内联序列化仍有效。
+  holder.another = copy;
   auto file = m::serialize(*registry, holder);
-  auto rejected = m::serialize(*registry, copy);
-  auto rejected_empty = m::serialize(*registry, empty);
-  if (!file || rejected || rejected.error().error != e::error::unsupported || rejected_empty ||
-      rejected_empty.error().error != e::error::unsupported || m::valid_scalar(copy))
+  auto encoded_value = m::serialize(*registry, copy);
+  auto encoded_empty = m::serialize(*registry, empty);
+  if (!file || !encoded_value || !encoded_empty || m::valid_scalar(copy))
+    return false;
+  auto restored = m::deserialize<e::value>(*registry, *encoded_value);
+  auto restored_empty = m::deserialize<e::value>(*registry, *encoded_empty);
+  if (!restored || !restored_empty || *restored_empty != empty)
+    return false;
+  auto restored_owner = std::get<e::ref<m::object>>(restored->payload);
+  auto* restored_probe = dynamic_cast<shared_probe*>(restored_owner.get());
+  if (!restored_probe || restored_probe->number != 19 || restored_owner == owner)
+    return false;
+  holder.item->nested = copy;
+  auto cycle = m::serialize(*registry, copy);
+  holder.item->nested = e::value{true};
+  if (cycle || cycle.error().error != e::error::invalid_argument)
+    return false;
+  auto malformed = [&](std::string tag) {
+    const std::string json =
+        "{\"kind\":\"object\",\"value\":{\"$type_guid\":\"" + tag + "\",\"$content\":{}}}";
+    return m::deserialize<e::value>(*registry, std::as_bytes(std::span{json.data(), json.size()}));
+  };
+  auto unknown = malformed(unrelated_probe::type_guid.string());
+  auto wrong_type = malformed(shared_holder::type_guid.string());
+  if (unknown || unknown.error().error != e::error::not_found || wrong_type ||
+      wrong_type.error().error != e::error::unsupported)
+    return false;
+  auto unregistered = m::serialize(*registry, wrong);
+  if (unregistered || unregistered.error().error != e::error::not_found)
     return false;
   auto decoded = m::deserialize<shared_holder>(*registry, *file);
-  return decoded && decoded->item && decoded->item->number == 19 && decoded->item != holder.item;
+  if (!decoded || !decoded->item || decoded->item->number != 19 || decoded->item == holder.item)
+    return false;
+  const auto duplicate = std::get<e::ref<m::object>>(decoded->another.payload);
+  if (duplicate.get() == decoded->item.get() ||
+      dynamic_cast<shared_probe*>(duplicate.get())->number != 19)
+    return false;
+  std::string deep = "{\"kind\":\"bool\",\"value\":true}";
+  for (int i = 0; i < 70; ++i)
+    deep = "{\"kind\":\"object\",\"value\":{\"$type_guid\":\"" + shared_probe::type_guid.string() +
+           "\",\"$content\":{\"number\":1,\"nested\":" + deep + "}}}";
+  auto too_deep =
+      m::deserialize<e::value>(*registry, std::as_bytes(std::span{deep.data(), deep.size()}));
+  return !too_deep && too_deep.error().error == e::error::invalid_argument;
 }
 enum class mode : std::int8_t { first = -1, second = 2 };
 struct enum_object {

@@ -16,8 +16,11 @@ std::string、guid、vector2、vector3、vector4、quaternion、ref<meta::object
 通用值不校验 UTF-8、内嵌零或浮点有限性，这些规则由反射、资产和 IPC 的具体边界执行。
 它不是可存任意 C++ 结构体的 any，也不持有借用对象指针或容器；结构体仍通过 meta::instance 访问。
 
-资产和 IPC 的专用载荷仍保留协议数组、固定 GUID 字节等表示，显式转换到 value；不直接序列化
-std::variant 或 GLM 对象内存。文件与 IPC 的现有字段名及编码不变。
+IPC 属性载荷与编辑器属性模型直接使用 value，不再维护 ipc_property_value/runtime_property_value。
+协议编码仍显式处理类型标签，不直接序列化 std::variant 或 GLM 内存。旧标量标签保持不变：
+IPC 的 GUID 仍使用 type_id 标签，且必须非 nil；文件中的 GUID 仍使用 guid 标签。
+IPC 补充 vec2、vec4 与 object 标签；旧接收端不认识新标签时拒绝该消息。
+字符串和消息大小限制仍由 IPC 入口执行。
 
 ## 对象强引用
 
@@ -33,5 +36,21 @@ object 分支的类别值为 12，保存 ref<meta::object>。value 头仅前置�
 valid_scalar 对对象分支返回 false。对象引用不能直接充当撤销或 Prefab 覆盖快照；
 需要快照时业务显式复制对象或捕获属性数据。
 
-通用 value JSON 对对象分支（包括空引用）返回 unsupported，IPC 也不传输进程内引用。
-普通类型化 ref 的内联多态持久化规则不变，资源身份仍使用 URI。
+## 对象内容编解码
+
+对象分支使用以下形式，空引用为 {"kind":"object","value":null}：
+
+```json
+{"kind":"object","value":{"$type_guid":"<已注册类型 GUID>","$content":{"speed":3}}}
+```
+
+实际类型必须已注册、派生自 meta::object 并具备相应编解码能力。Builder 在编译期建立安全转换，
+解码前检查类型资格，解码后验证动态身份。未知类型返回 not_found，普通结构体或缺少 codec 返回
+unsupported；引用环、非法信封、深度超限及对象业务校验失败返回相应错误。
+节点回调使用当前注册表与递归上下文，不重新解析文本或重置引用环状态。
+
+解码生成独立对象，重复引用也分别恢复，不跨进程保持地址或共享身份。
+对象分支的 IPC 编解码要求先完成默认 Meta 注册与冻结；标量 IPC 不增加该前置条件。
+IPC 传递的是对象内容，不是远端对象句柄；运行对象定位继续使用对象 ID，资源身份继续使用 URI。
+序列化能力不代表 Runtime 所有属性均可写，对应组件适配器仍决定写入能力。
+普通类型化 ref 的内联多态持久化规则不变。

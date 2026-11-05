@@ -3,6 +3,7 @@
 
 #include "ipc_property_protocol.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/json_serialization.hpp"
 
 #include <yyjson.h>
 
@@ -76,7 +77,7 @@ bool parse_type_id(yyjson_val* value, gneiss::engine::guid& output) noexcept {
 
 template <std::size_t Size>
 bool add_float_array(yyjson_mut_doc* document, yyjson_mut_val* root,
-                     const std::array<float, Size>& values) noexcept {
+                     const std::span<const float, Size> values) noexcept {
   auto* array = yyjson_mut_arr(document);
   if (array == nullptr) {
     return false;
@@ -90,7 +91,7 @@ bool add_float_array(yyjson_mut_doc* document, yyjson_mut_val* root,
 }
 
 bool add_property_value(yyjson_mut_doc* document, yyjson_mut_val* root,
-                        const gneiss::host::ipc_property_value& value) {
+                        const gneiss::engine::value& value) {
   const auto add_kind = [&](const char* kind) {
     return yyjson_mut_obj_add_str(document, root, "kind", kind);
   };
@@ -115,17 +116,34 @@ bool add_property_value(yyjson_mut_doc* document, yyjson_mut_val* root,
           return payload.size() <= max_property_string_size && add_kind("string") &&
                  yyjson_mut_obj_add_strncpy(document, root, "value", payload.data(),
                                             payload.size());
-        } else if constexpr (std::is_same_v<Payload, std::array<std::uint8_t, 16>>) {
-          const gneiss::engine::guid id{gneiss::engine::guid::from_bytes(payload)};
+        } else if constexpr (std::is_same_v<Payload, gneiss::engine::guid>) {
+          const auto& id = payload;
           if (!valid_type_id(id) || !add_kind("type_id")) {
             return false;
           }
           const auto text = type_id_text(id);
           return yyjson_mut_obj_add_strncpy(document, root, "value", text.data(), text.size());
-        } else if constexpr (std::is_same_v<Payload, std::array<float, 3>>) {
-          return add_kind("vec3") && add_float_array(document, root, payload);
+        } else if constexpr (std::is_same_v<Payload, gneiss::engine::math::vector3>) {
+          return add_kind("vec3") &&
+                 add_float_array(document, root, gneiss::engine::math::components(payload));
+        } else if constexpr (std::is_same_v<Payload, gneiss::engine::math::vector2>) {
+          return add_kind("vec2") &&
+                 add_float_array(document, root, gneiss::engine::math::components(payload));
+        } else if constexpr (std::is_same_v<Payload, gneiss::engine::math::vector4>) {
+          return add_kind("vec4") &&
+                 add_float_array(document, root, gneiss::engine::math::components(payload));
+        } else if constexpr (std::is_same_v<Payload,
+                                            gneiss::engine::ref<gneiss::engine::meta::object>>) {
+          auto view = gneiss::engine::meta::instance::from(value);
+          if (!view)
+            return false;
+          auto node = gneiss::engine::meta::json::write(document, *view);
+          return node && add_kind("object") &&
+                 yyjson_mut_obj_add_val(document, root, "value",
+                                        yyjson_mut_obj_remove_key(*node, "value"));
         } else {
-          return add_kind("quaternion") && add_float_array(document, root, payload);
+          return add_kind("quaternion") &&
+                 add_float_array(document, root, gneiss::engine::math::components(payload));
         }
       },
       value.payload);
@@ -155,14 +173,14 @@ bool parse_float_array(yyjson_val* value, std::array<float, Size>& output) noexc
   return true;
 }
 
-bool parse_property_value(yyjson_val* root, gneiss::host::ipc_property_value& output) {
+bool parse_property_value(yyjson_val* root, gneiss::engine::value& output) {
   auto* kind_value = yyjson_is_obj(root) ? yyjson_obj_get(root, "kind") : nullptr;
   auto* value = yyjson_is_obj(root) ? yyjson_obj_get(root, "value") : nullptr;
   if (!yyjson_is_str(kind_value)) {
     return false;
   }
   const std::string_view kind(yyjson_get_str(kind_value), yyjson_get_len(kind_value));
-  gneiss::host::ipc_property_value parsed;
+  gneiss::engine::value parsed;
   if (kind == "bool" && yyjson_is_bool(value)) {
     parsed.payload = yyjson_get_bool(value);
   } else if (kind == "int64" && yyjson_is_sint(value)) {
@@ -190,21 +208,34 @@ bool parse_property_value(yyjson_val* root, gneiss::host::ipc_property_value& ou
     if (!parse_type_id(value, id)) {
       return false;
     }
-    std::array<std::uint8_t, 16> bytes{};
-    std::ranges::copy(id.bytes(), bytes.begin());
-    parsed.payload = bytes;
+    parsed.payload = id;
   } else if (kind == "vec3") {
     std::array<float, 3> numbers{};
     if (!parse_float_array(value, numbers)) {
       return false;
     }
-    parsed.payload = numbers;
+    parsed.payload = gneiss::engine::math::vector3{numbers[0], numbers[1], numbers[2]};
   } else if (kind == "quaternion") {
     std::array<float, 4> numbers{};
     if (!parse_float_array(value, numbers)) {
       return false;
     }
-    parsed.payload = numbers;
+    parsed.payload =
+        gneiss::engine::math::quaternion_xyzw(numbers[0], numbers[1], numbers[2], numbers[3]);
+  } else if (kind == "vec2") {
+    std::array<float, 2> numbers{};
+    if (!parse_float_array(value, numbers))
+      return false;
+    parsed.payload = gneiss::engine::math::vector2{numbers[0], numbers[1]};
+  } else if (kind == "vec4") {
+    std::array<float, 4> numbers{};
+    if (!parse_float_array(value, numbers))
+      return false;
+    parsed.payload = gneiss::engine::math::vector4{numbers[0], numbers[1], numbers[2], numbers[3]};
+  } else if (kind == "object") {
+    auto view = gneiss::engine::meta::mutable_instance::from(parsed);
+    if (!view || gneiss::engine::meta::json::read(root, *view).error.failed())
+      return false;
   } else {
     return false;
   }

@@ -100,7 +100,7 @@ bool test_scene_adapter() {
 }
 
 bool test_property_adapter() {
-  const std::array<gneiss::host::ipc_property_payload, 10> values{
+  const std::array<gneiss::engine::value::storage_type, 10> values{
       std::monostate{},
       true,
       std::int64_t{-17},
@@ -108,18 +108,18 @@ bool test_property_adapter() {
       1.5F,
       2.5,
       std::string(512U, 'p'),
-      std::array<std::uint8_t, 16>{1U, 2U},
-      std::array<float, 3>{1.0F, 2.0F, 3.0F},
-      std::array<float, 4>{1.0F, 2.0F, 3.0F, 4.0F}};
+      gneiss::engine::guid::from_bytes({1U, 2U}),
+      gneiss::engine::math::vector3{1.0F, 2.0F, 3.0F},
+      gneiss::engine::math::quaternion_xyzw(1.0F, 2.0F, 3.0F, 4.0F)};
   for (const auto& payload : values) {
-    gneiss::editor::runtime_property_write request{
-        .session_id = 11U,
-        .command_id = 12U,
-        .object = {13U, 14U},
-        .type_id = gneiss::engine::guid::from_bytes({15U}),
-        .field_id = 16U,
-        .expected_revision = 17U,
-        .value = gneiss::host::to_runtime_property_value({payload})};
+    gneiss::editor::runtime_property_write request{.session_id = 11U,
+                                                   .command_id = 12U,
+                                                   .object = {13U, 14U},
+                                                   .type_id =
+                                                       gneiss::engine::guid::from_bytes({15U}),
+                                                   .field_id = 16U,
+                                                   .expected_revision = 17U,
+                                                   .value = gneiss::engine::value{payload}};
     const auto wire = gneiss::host::to_ipc_property_write(std::move(request));
     if (wire.session_id != 11U || wire.command_id != 12U || wire.object.value != 13U ||
         wire.object.generation != 14U || wire.type_id.bytes()[0] != 15U || wire.field_id != 16U ||
@@ -402,7 +402,7 @@ int main() try {
   std::ranges::copy(transform_type.bytes(), property_key.type_id.begin());
   if (!process.supports_property_editing() ||
       process.request_property_write(property_key, 1U,
-                                     {std::array<float, 3>{0.25F, 0.5F, 0.75F}}) !=
+                                     {gneiss::engine::math::vector3{0.25F, 0.5F, 0.75F}}) !=
           gneiss::engine::error::success ||
       process.request_property_write(property_key, 1U, {true}) !=
           gneiss::engine::error::not_ready) {
@@ -445,7 +445,8 @@ int main() try {
   }
   auto paused_key = property_key;
   paused_key.field_id = gneiss::engine::transform_scale_field.get();
-  if (process.request_property_write(paused_key, 1U, {std::array<float, 3>{1.1F, 1.2F, 1.3F}}) !=
+  if (process.request_property_write(paused_key, 1U,
+                                     {gneiss::engine::math::vector3{1.1F, 1.2F, 1.3F}}) !=
       gneiss::engine::error::success) {
     return 7;
   }

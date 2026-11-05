@@ -1064,7 +1064,7 @@ make_runtime_inspector_actions(editor_state& state,
               },
           .write_property =
               [](void* context, const gneiss::editor::runtime_property_key& key,
-                 std::uint64_t revision, gneiss::editor::runtime_property_value value) {
+                 std::uint64_t revision, gneiss::engine::value value) {
                 return static_cast<editor_state*>(context)->runtime.request_property_write(
                     key, revision, {std::move(value.payload)});
               },

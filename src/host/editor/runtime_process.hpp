@@ -69,7 +69,7 @@ public:
   [[nodiscard]] gneiss::engine::error request_resume() noexcept;
   [[nodiscard]] gneiss::engine::error
   request_property_write(gneiss::editor::runtime_property_key key, std::uint64_t expected_revision,
-                         ipc_property_value value) noexcept;
+                         gneiss::engine::value value) noexcept;
   /** 发布已提交的派生资产；Runtime 未连接时保留到下次全量重同步。 */
   [[nodiscard]] gneiss::engine::error
   publish_asset_revision(std::span<const std::string> output_uris) noexcept;

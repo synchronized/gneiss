@@ -66,7 +66,7 @@ bool test_write_and_revision() {
       .type_id = gneiss::engine::transform_component_type,
       .field_id = gneiss::engine::transform_translation_field.get(),
       .expected_revision = 1U,
-      .value = {std::array<float, 3>{2.0F, 3.0F, 4.0F}}};
+      .value = {gneiss::engine::math::vector3{2.0F, 3.0F, 4.0F}}};
   gneiss::host::ipc_property_write_result response;
   GNEISS_TEST_CHECK(editor.execute(command, response) == gneiss::engine::error::success);
   if (response.code != gneiss::engine::error::success.code()) {
@@ -110,7 +110,7 @@ bool test_rejections() {
       .type_id = gneiss::engine::transform_component_type,
       .field_id = gneiss::engine::transform_scale_field.get(),
       .expected_revision = 1U,
-      .value = {std::array<float, 3>{1.0F, 1.0F, 1.0F}}};
+      .value = {gneiss::engine::math::vector3{1.0F, 1.0F, 1.0F}}};
   gneiss::host::ipc_property_write_result response;
   GNEISS_TEST_CHECK(editor.execute(missing, response) == gneiss::engine::error::success);
   GNEISS_TEST_CHECK(response.code == gneiss::engine::error::not_found.code());

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
+#include "engine/core/meta/registration.hpp"
 #include "ipc_property_protocol.hpp"
 
 #include <array>
@@ -13,6 +14,44 @@
 using namespace gneiss::host;
 
 namespace {
+namespace e = gneiss::engine;
+namespace m = e::meta;
+struct wire_object : m::object_type<wire_object> {
+  static constexpr std::string_view type_name = "wire_object";
+  static constexpr e::guid type_guid = e::guid::from_bytes({94, 27});
+  int count = 9;
+};
+bool test_object_value() {
+  if (m::register_builtin_types().failed() ||
+      m::type_builder<wire_object>{}
+          .property<&wire_object::count>(m::property_id{1}, "count")
+          .serialization()
+          .commit()
+          .failed() ||
+      m::freeze().failed())
+    return false;
+  ipc_property_write command{.session_id = 1,
+                             .object = {1, 1},
+                             .type_id = wire_object::type_guid,
+                             .field_id = 1,
+                             .expected_revision = 1,
+                             .value = {e::ref<m::object>{e::make_ref<wire_object>()}}};
+  std::vector<std::uint8_t> bytes;
+  ipc_property_write restored;
+  if (encode_ipc_property_write(command, bytes).failed() ||
+      decode_ipc_property_write(bytes, restored).failed())
+    return false;
+  auto original = std::get<e::ref<m::object>>(command.value.payload);
+  auto decoded = std::get<e::ref<m::object>>(restored.value.payload);
+  auto* object = dynamic_cast<wire_object*>(decoded.get());
+  if (!object || object->count != 9 || original == decoded)
+    return false;
+  command.value = e::value{e::ref<m::object>{}};
+  if (encode_ipc_property_write(command, bytes).failed() ||
+      decode_ipc_property_write(bytes, restored).failed() || restored.value != command.value)
+    return false;
+  return true;
+}
 
 gneiss::engine::guid test_type_id() noexcept {
   gneiss::engine::guid::byte_array bytes{};
@@ -22,7 +61,7 @@ gneiss::engine::guid test_type_id() noexcept {
   return gneiss::engine::guid::from_bytes(bytes);
 }
 
-bool round_trip_value(const gneiss::host::ipc_property_value& value) {
+bool round_trip_value(const gneiss::engine::value& value) {
   const gneiss::host::ipc_property_write source{.session_id = 9U,
                                                 .command_id = 21U,
                                                 .object = {5U, 2U},
@@ -45,17 +84,19 @@ bool round_trip_value(const gneiss::host::ipc_property_value& value) {
 }
 
 bool test_all_value_types() {
-  const std::vector<gneiss::host::ipc_property_value> values{
+  const std::vector<gneiss::engine::value> values{
+      {e::math::vector2{1, 2}},
+      {e::math::vector4{1, 2, 3, 4}},
       {true},
       {std::int64_t{-42}},
       {std::uint64_t{42}},
       {1.25F},
       {2.5},
       {std::string{"运行态值"}},
-      {std::array<std::uint8_t, 16>{1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U, 9U, 10U, 11U, 12U, 13U, 14U,
-                                    15U, 16U}},
-      {std::array<float, 3>{1.0F, 2.0F, 3.0F}},
-      {std::array<float, 4>{0.0F, 0.0F, 0.0F, 1.0F}},
+      {gneiss::engine::guid::from_bytes(
+          {1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U, 9U, 10U, 11U, 12U, 13U, 14U, 15U, 16U})},
+      {gneiss::engine::math::vector3{1.0F, 2.0F, 3.0F}},
+      {gneiss::engine::math::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F)},
   };
   for (const auto& value : values) {
     if (!round_trip_value(value)) {
@@ -72,7 +113,7 @@ bool test_results() {
       .code = 0,
       .revision = 12U,
       .message = "已应用",
-      .canonical_value = {std::array<float, 3>{1.0F, 2.0F, 3.0F}}};
+      .canonical_value = {gneiss::engine::math::vector3{1.0F, 2.0F, 3.0F}}};
   std::vector<std::uint8_t> payload;
   gneiss::host::ipc_property_write_result decoded;
   if (gneiss::host::encode_ipc_property_write_result(success, payload) !=
@@ -137,4 +178,8 @@ bool test_invalid_messages() {
 
 } // namespace
 
-int main() { return test_all_value_types() && test_results() && test_invalid_messages() ? 0 : 1; }
+int main() {
+  if (!test_object_value())
+    return 90;
+  return test_all_value_types() && test_results() && test_invalid_messages() ? 0 : 1;
+}

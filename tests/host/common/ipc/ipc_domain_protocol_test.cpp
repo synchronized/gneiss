@@ -119,13 +119,14 @@ namespace {
 }
 
 [[nodiscard]] bool test_property_request_and_response() {
-  const gneiss::host::ipc_property_write command{.session_id = 9U,
-                                                 .command_id = 21U,
-                                                 .object = {.value = 5U, .generation = 2U},
-                                                 .type_id = test_type_id(),
-                                                 .field_id = 7U,
-                                                 .expected_revision = 11U,
-                                                 .value = {std::array<float, 3>{1.0F, 2.0F, 3.0F}}};
+  const gneiss::host::ipc_property_write command{
+      .session_id = 9U,
+      .command_id = 21U,
+      .object = {.value = 5U, .generation = 2U},
+      .type_id = test_type_id(),
+      .field_id = 7U,
+      .expected_revision = 11U,
+      .value = {gneiss::engine::math::vector3{1.0F, 2.0F, 3.0F}}};
   gneiss::engine::ipc_envelope envelope;
   gneiss::host::ipc_property_write decoded_command;
   if (gneiss::host::encode_ipc_property_write_v2(command, 21U, envelope) !=
@@ -148,7 +149,7 @@ namespace {
       .code = 0,
       .revision = 12U,
       .message = "已应用",
-      .canonical_value = {std::array<float, 3>{1.0F, 2.0F, 3.0F}}};
+      .canonical_value = {gneiss::engine::math::vector3{1.0F, 2.0F, 3.0F}}};
   gneiss::host::ipc_property_write_result decoded_response;
   return gneiss::host::encode_ipc_property_result_v2(response, 21U, envelope) ==
              gneiss::engine::error::success &&
