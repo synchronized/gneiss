@@ -36,6 +36,21 @@ e::result<std::vector<std::byte>, m::serialization_diagnostic> encode_custom(con
 e::result<custom, m::serialization_diagnostic> decode_custom(std::span<const std::byte>) {
   return custom{42};
 }
+struct optional_description {
+  static constexpr std::string_view type_name = "optional_description";
+  static constexpr e::guid type_guid = e::guid::from_bytes({95, 4});
+  std::optional<child> item;
+  std::optional<float> number{3};
+  std::optional<std::vector<float>> values;
+  std::optional<e::guid> identifier;
+  const std::optional<float>& get_number() const { return number; }
+  e::error set_number(const std::optional<float>& v) {
+    if (v && *v < 0)
+      return e::error::invalid_argument;
+    number = v;
+    return e::error::success;
+  }
+};
 struct tree {
   static constexpr std::string_view type_name = "container_tree";
   static constexpr e::guid type_guid = e::guid::from_bytes({95, 2});
@@ -95,7 +110,49 @@ int main() try {
             .ok());
   CHECK(
       (m::type_builder<custom>{*r}.serialization<&encode_custom, &decode_custom>().commit().ok()));
+  CHECK((m::type_builder<optional_description>{*r}
+             .property<&optional_description::item>(m::property_id{1}, "item")
+             .property<&optional_description::get_number, &optional_description::set_number>(
+                 m::property_id{2}, "number")
+             .property<&optional_description::values>(m::property_id{3}, "values")
+             .property<&optional_description::identifier>(m::property_id{4}, "identifier")
+             .serialization()
+             .commit()
+             .ok()));
   CHECK(m::freeze(*r).ok());
+  optional_description optional;
+  auto optional_root = m::mutable_instance::from(*r, optional);
+  CHECK(optional_root);
+  CHECK(optional_root->property("number")->as_optional().error() == e::error::unsupported);
+  CHECK(*optional_root->as_const().property("number")->as_optional()->has_value());
+  auto rejected_number = m::deserialize<optional_description>(*r, bytes(R"({"number":-1})"));
+  CHECK(!rejected_number && rejected_number.error().path == "/number");
+  auto slot = optional_root->property("item")->as_optional();
+  CHECK(slot && !*slot->has_value());
+  CHECK(slot->get().error() == e::error::not_found);
+  CHECK(optional_root->property("item")->read_value().error() == e::error::unsupported);
+  CHECK(slot->ensure() && optional.item.has_value());
+  CHECK(slot->get()->property("speed")->write_value(e::value{4.0f}).ok());
+  auto optional_json = m::serialize(*r, optional);
+  CHECK(optional_json);
+  auto optional_copy = m::deserialize<optional_description>(*r, *optional_json);
+  CHECK(optional_copy && optional_copy->item->speed == 4);
+  optional_copy->item->speed = 9;
+  CHECK(optional.item->speed == 4);
+  CHECK(slot->reset().ok() && !optional.item);
+  auto optional_default = m::deserialize<optional_description>(*r, bytes("{}"));
+  CHECK(optional_default && optional_default->number == 3 && !optional_default->item);
+  auto optional_null = m::deserialize<optional_description>(*r, bytes(R"({"number":null})"));
+  CHECK(optional_null && !optional_null->number);
+  auto optional_bad = m::deserialize<optional_description>(*r, bytes(R"({"item":{"speed":-1}})"));
+  CHECK(!optional_bad && optional_bad.error().path == "/item");
+  optional.values.emplace(std::initializer_list<float>{1, 2});
+  optional_json = m::serialize(*r, optional);
+  CHECK(optional_json);
+  optional_copy = m::deserialize<optional_description>(*r, *optional_json);
+  CHECK(optional_copy && optional_copy->values == optional.values);
+  optional.identifier.emplace();
+  CHECK(!m::serialize(*r, optional));
   tree source;
   auto root = m::mutable_instance::from(*r, source);
   CHECK(root);

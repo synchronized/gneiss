@@ -144,7 +144,7 @@ Meta 负责临时 vector<component_description> 的数组及多态内容，业�
 Prefab 组件覆盖仍含业务定位字段，保留提取信封的适配。
 
 object_description 全字段反射仍未完成：prefab 需要明确可空引用及覆盖指令适配，
-不重新引入 optional 反射。components 的整项绑定已完成，见下节。
+后续已确认恢复独立 optional 反射，以保留可选描述的值语义。components 的整项绑定已完成，见下节。
 
 本批仅完成共享入口及字段约束核查，验收见
 [记录](../records/2026-11-04-component-dom-codec.md)。
@@ -161,3 +161,13 @@ object_description 全字段反射仍未完成：prefab 需要明确可空引用
 验收覆盖容器与嵌套对象的成功替换、拒绝旁路修改、解码/校验失败保持原值、类型错误、
 Scene/Prefab 往返与编辑器撤销。受影响 Debug 目标编译及 18 项相关测试通过，见
 [验收记录](../records/2026-11-04-bound-object-properties.md)。未运行大场景或远端 CI。
+
+
+### 可选值反射恢复
+
+用户确认恢复 optional 的独立类别、操作表和借用视图，以支持真实的可选描述值。
+保持 parent_uuid 的 nil GUID 表达，不恢复可选父 ID，也不改变 ref 的所有权。
+实现范围为 Meta 类型访问和 JSON 往返；prefab 字段注册及覆盖指令适配仍是后续任务。
+API 与空值歧义处理见 [反射参考](../reference/reflection.md#可选值反射)。
+
+已完成基础能力与相关验证，见[验收记录](../records/2026-11-05-meta-optional.md)。

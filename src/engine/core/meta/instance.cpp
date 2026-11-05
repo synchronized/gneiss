@@ -331,6 +331,22 @@ result<mutable_associative_view> mutable_instance::as_associative() const noexce
     return error::unsupported;
   return mutable_associative_view{*this};
 }
+result<optional_view> instance::as_optional() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::optional)
+    return error::unsupported;
+  return optional_view{*this};
+}
+result<mutable_optional_view> mutable_instance::as_optional() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (!data_)
+    return error::unsupported;
+  if (kind() != type_kind::optional)
+    return error::unsupported;
+  return mutable_optional_view{*this};
+}
 result<reference_view> instance::as_reference() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;

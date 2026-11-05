@@ -460,3 +460,19 @@ Texture 描述注册 source、color_space、usage 三个必填字段；后两者
 反序列化先创建独立默认候选并完成解码，然后调用 setter；解析失败不调用 setter。
 setter 返回的业务错误定位到属性，嵌套解码错误保留具体子路径。
 这只保证单个受约束属性的替换边界，不承诺整个父对象或任意回调副作用的自动回滚。
+
+
+## 可选值反射
+
+`std::optional<T>` 对应独立 `type_kind::optional` 和 `optional_ops`，不改变值所有权，
+也不引入共享引用。`type::element_type()` 返回 T 的类型。
+通过 `instance::as_optional()` 获取只读借用视图，提供 `has_value()`、`get()`；
+可写视图增加 `ensure()` 和 `reset()`。空值的 `get()` 返回 not_found；T 无默认构造时，
+空槽位的 ensure 返回 unsupported。清空、替换或移动宿主后须重新获取内部视图。
+optional 本身不支持 read_value，须先 get 后读取内部值。
+
+JSON 空 optional 编码为 null，有值直接编码 T；缺失字段保留默认构造值，显式 null 清空。
+内部有值却编码为 null 时返回 unsupported，避免与空 optional 混淆，例如含 nil GUID、
+空 ref 或空内层 optional。普通嵌套对象和容器沿用现有遍历与校验。
+非标量 getter/setter 属性只开放只读 optional 视图，解码走临时候选和整项 setter，
+不能借 ensure/reset 绕过 setter 校验。此能力不自动为编辑器增加可选值控件。
