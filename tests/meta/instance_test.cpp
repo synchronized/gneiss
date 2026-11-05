@@ -469,6 +469,18 @@ bool polymorphic_references() {
           .failed() ||
       m::freeze(registry).failed())
     return false;
+  auto ops = m::find_object_ops(registry, e::runtime_type_of<polymorphic_child>());
+  if (!ops || ops->base_type != e::runtime_type_of<polymorphic_base>() || !ops->construct ||
+      !ops->upcast || !ops->as_object)
+    return false;
+  auto owner = ops->construct();
+  auto* child = static_cast<polymorphic_child*>(owner.get());
+  if (ops->upcast(child) != static_cast<polymorphic_base*>(child) ||
+      ops->as_object(child) != static_cast<m::object*>(child))
+    return false;
+  if (m::find_object_ops(m::registry_ref{}, e::runtime_type_of<polymorphic_child>()).error() !=
+      e::error::invalid_handle)
+    return false;
   auto input = e::make_ref<polymorphic_child>();
   input->number = 42;
   e::ref<const polymorphic_base> original = input;

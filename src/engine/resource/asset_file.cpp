@@ -10,12 +10,12 @@
 #include <yyjson.h>
 namespace gneiss::engine::asset_file {
 namespace {
-using diagnostic = meta::serialization_diagnostic;
+using diagnostic = serialization::diagnostic;
 inline diagnostic invalid(std::string path, std::string message) {
   return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};
 }
 
-inline meta::serialization_diagnostic check_asset_format(yyjson_val* root, format format) {
+inline serialization::diagnostic check_asset_format(yyjson_val* root, format format) {
   if (!yyjson_is_obj(root))
     return invalid("", "资源描述根必须是对象");
   std::size_t formats = 0, versions = 0;
@@ -44,7 +44,7 @@ inline meta::serialization_diagnostic check_asset_format(yyjson_val* root, forma
   return {};
 }
 inline constexpr std::array<std::string_view, 2> asset_headers{"format", "version"};
-inline result<yyjson_mut_val*, meta::serialization_diagnostic>
+inline result<yyjson_mut_val*, serialization::diagnostic>
 add_asset_header(yyjson_mut_doc* doc, yyjson_mut_val* root, format format) {
   if (!yyjson_mut_is_obj(root) || yyjson_mut_obj_get(root, "format") ||
       yyjson_mut_obj_get(root, "version"))
@@ -57,7 +57,7 @@ add_asset_header(yyjson_mut_doc* doc, yyjson_mut_val* root, format format) {
 }
 }
 
-using diagnostic = meta::serialization_diagnostic;
+using diagnostic = serialization::diagnostic;
 namespace {
 constexpr std::string_view retired_fields[]{"prefab_instances"};
 }
@@ -80,7 +80,7 @@ result<std::vector<std::byte>, diagnostic> serialize_instance(const serializatio
                                                                       &yyjson_mut_doc_free);
   if (!doc)
     return diagnostic{.error = error::out_of_memory};
-  auto root = serialization::json::write_fields(ctx, doc.get(), view);
+  auto root = serialization::json::detail::write_fields(ctx, doc.get(), view);
   if (!root)
     return std::move(root).error();
   root = add_asset_header(doc.get(), *root, format);
@@ -119,7 +119,7 @@ result<ref<void>, diagnostic> deserialize_object(const serialization::context& c
   auto status = check_asset_format(root, format);
   if (status.error.failed())
     return status;
-  auto decoded = serialization::json::read_fields_object(ctx, root, id, asset_headers);
+  auto decoded = serialization::json::detail::read_fields_object(ctx, root, id, asset_headers);
   if (!decoded)
     return std::move(decoded).error();
   auto registry = ctx.registry();

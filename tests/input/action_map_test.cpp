@@ -142,7 +142,7 @@ int main() {
   auto codec = meta::find_serialization(runtime_type_of<action_map>());
   if (!codec || !codec->reflected || codec->decode || codec->encode)
     return 9;
-  meta::serialization_diagnostic diagnostic;
+  serialization::diagnostic diagnostic;
   for (auto version : {2, 3}) {
     const auto text = std::string("{\"format\":\"gneiss.input-map\",\"version\":") +
                       std::to_string(version) + ",\"actions\":[]}";
@@ -268,7 +268,7 @@ int main() {
   asset_manager custom(gneiss::test_support::test_files(files));
   custom.attach_task_executor(executor);
   const auto override_decode =
-      +[](std::span<const std::byte>) -> result<action_map, meta::serialization_diagnostic> {
+      +[](std::span<const std::byte>) -> result<action_map, serialization::diagnostic> {
     action_map output;
     output.actions = {{.name = "override", .bindings = {{.physical_key = 4, .scale = 1.0F}}}};
     return output;

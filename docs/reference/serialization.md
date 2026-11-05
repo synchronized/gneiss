@@ -23,8 +23,8 @@ auto status = ser::serialize(description, output_writer);
 auto restored = ser::deserialize<scene_description>(input_reader);
 ```
 
-写入返回 `meta::serialization_diagnostic`，其 error 为 success 时成功；
-构造对象的读取返回 `result<T, meta::serialization_diagnostic>`。
+写入返回 `serialization::diagnostic`，其 error 为 success 时成功；
+构造对象的读取返回 `result<T, serialization::diagnostic>`。
 所有显式上下文重载采用 context-first：
 
 ```cpp
@@ -97,3 +97,12 @@ Material、Action Map、Scene、Prefab、Texture 的格式名、版本、大小�
 错误版本、重复格式头、超出文件大小及已移除字段由文件边界拒绝；普通对象没有这些文件约束。
 导入器输出、编辑器保存和内置资源的 asset_decoder 默认路径使用文件入口。
 未知文件类型仍可给 asset_manager 显式注册字节解码函数，不在 Meta 注册文件协议。
+
+## 定义归属
+
+错误值为 `serialization::diagnostic`，定义在 `diagnostic.hpp`；
+类型的编解码规则为 `serialization::binding`，定义在 `binding.hpp`。
+类型构造与继承转换属于 Meta 的 object_ops，不存放于编解码绑定。
+内建 value 的注册实现在 `meta/builtin_registration.cpp`，其通用编码实现在
+`serialization/value_codec.cpp`。JSON 节点适配位于 `detail/json_adapter.hpp`，
+命名空间为 `serialization::json::detail`；普通调用方使用文本、字节或 reader/writer 入口。

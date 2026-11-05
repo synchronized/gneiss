@@ -19,13 +19,13 @@ struct probe {
   inline static constexpr e::guid type_guid{e::guid::from_bytes({7, 6, 5})};
   int number = 3;
 };
-e::result<void*, e::meta::serialization_diagnostic>
-bad_encode(const e::serialization::context&, e::serialization::writer&, const probe&) {
+e::result<void*, e::serialization::diagnostic> bad_encode(const e::serialization::context&,
+                                                          e::serialization::writer&, const probe&) {
   throw std::bad_alloc{};
 }
-e::result<probe, e::meta::serialization_diagnostic>
-bad_decode(const e::serialization::context&, e::serialization::reader&, const void*) {
-  return e::meta::serialization_diagnostic{.error = e::error::invalid_argument};
+e::result<probe, e::serialization::diagnostic> bad_decode(const e::serialization::context&,
+                                                          e::serialization::reader&, const void*) {
+  return e::serialization::diagnostic{.error = e::error::invalid_argument};
 }
 struct move_only {
   inline static constexpr std::string_view type_name = "move_only_codec";
@@ -35,12 +35,12 @@ struct move_only {
   move_only(move_only&&) noexcept = default;
   move_only& operator=(move_only&&) = delete;
 };
-e::result<move_only, e::meta::serialization_diagnostic>
+e::result<move_only, e::serialization::diagnostic>
 decode_move_only(const e::serialization::context&, e::serialization::reader& input,
                  const void* node) {
   auto number = input.member(node, "number");
   if (!number)
-    return e::meta::serialization_diagnostic{3, "/number", "缺少数据", e::error::invalid_argument};
+    return e::serialization::diagnostic{3, "/number", "缺少数据", e::error::invalid_argument};
   auto decoded = input.scalar(number, e::value_kind::int64);
   if (!decoded)
     return std::move(decoded).error();
@@ -79,7 +79,7 @@ int main() {
     return 33;
 
   gneiss::engine::meta::registry_ref registry;
-  gneiss::engine::meta::serialization_diagnostic diagnostic;
+  gneiss::engine::serialization::diagnostic diagnostic;
   e::material_description material;
   std::vector<std::byte> output{std::byte{42}};
   if (gneiss::test_support::assign_decoded(
@@ -125,7 +125,7 @@ int main() {
   if (e::register_builtin_resource_types() != e::error::invalid_argument ||
       gneiss::engine::meta::freeze(registry).failed())
     return 6;
-  gneiss::engine::meta::serialization_binding binding;
+  gneiss::engine::serialization::binding binding;
   if (gneiss::test_support::assign_value(
           gneiss::engine::meta::find_serialization(registry, e::runtime_type_of<probe>()), binding)
           .failed() ||

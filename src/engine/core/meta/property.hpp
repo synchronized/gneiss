@@ -4,6 +4,7 @@
 #pragma once
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/core/meta/type_types.hpp"
 #include "engine/core/ref.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/core/value.hpp"
@@ -15,16 +16,6 @@
 #include <vector>
 
 namespace gneiss::engine::meta {
-enum class type_kind {
-  invalid,
-  scalar,
-  object,
-  sequence,
-  associative,
-  optional,
-  reference,
-  variant
-};
 namespace detail {
 struct type_ops;
 }
@@ -75,12 +66,6 @@ struct property_definition {
   engine::guid type_guid{};
   property_flags flags = property_flags::none;
   std::string_view name{};
-};
-/** 自有枚举显示项，注册时复制；不改变类型的业务校验规则。 */
-struct enum_entry {
-  std::string name;
-  value data;
-  bool operator==(const enum_entry&) const = default;
 };
 struct property_info;
 /** 回调借用实际类型的对象指针；调用方保证对象存活、类型正确和线程访问合法。

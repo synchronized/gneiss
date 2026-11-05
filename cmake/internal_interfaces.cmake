@@ -23,7 +23,11 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/meta/property.hpp
   engine/core/meta/type.hpp
   engine/core/meta/registry_fwd.hpp
-  engine/core/meta/serialization_types.hpp
+  engine/core/meta/type_types.hpp
+  engine/core/meta/type_definition.hpp
+  engine/core/meta/ops/object_ops.hpp
+  engine/core/serialization/diagnostic.hpp
+  engine/core/serialization/binding.hpp
   engine/core/type_id.hpp
   engine/core/detail/canonical_type_name.hpp
   engine/function/world/component_identity.hpp
@@ -82,7 +86,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
     engine/core/meta/reference_view.hpp
     engine/core/meta/detail/reference_view_access.hpp
   engine/core/meta/detail/type_ops.hpp
-  engine/core/meta/ops/forward.hpp
+  engine/core/meta/ops/ops_fwd.hpp
   engine/core/meta/ops/scalar_ops.hpp
   engine/core/meta/ops/sequence_ops.hpp
   engine/core/meta/ops/associative_ops.hpp

@@ -18,28 +18,27 @@ class asset_decoder {
 public:
   virtual ~asset_decoder() = default;
   [[nodiscard]] virtual type_id target_type() const noexcept = 0;
-  [[nodiscard]] virtual result<std::shared_ptr<const void>, meta::serialization_diagnostic>
+  [[nodiscard]] virtual result<std::shared_ptr<const void>, serialization::diagnostic>
   decode(const std::vector<std::byte>& bytes) const = 0;
 };
 
 /** 有类型解码函数；失败对象由适配器丢弃，可并发处理不同输入。 */
 template <class T>
-using asset_decode_function =
-    result<T, meta::serialization_diagnostic> (*)(std::span<const std::byte>);
+using asset_decode_function = result<T, serialization::diagnostic> (*)(std::span<const std::byte>);
 namespace detail {
 template <class T> class typed_asset_decoder final : public asset_decoder {
 public:
   explicit typed_asset_decoder(asset_decode_function<T> function) : function_(function) {}
   type_id target_type() const noexcept override { return runtime_type_of<T>(); }
-  result<std::shared_ptr<const void>, meta::serialization_diagnostic>
+  result<std::shared_ptr<const void>, serialization::diagnostic>
   decode(const std::vector<std::byte>& bytes) const override try {
     if (function_ || asset_file::format_traits<T>::enabled) {
-      auto decoded = [&]() -> result<T, meta::serialization_diagnostic> {
+      auto decoded = [&]() -> result<T, serialization::diagnostic> {
         if (function_)
           return function_(bytes);
         if constexpr (asset_file::format_traits<T>::enabled)
           return asset_file::deserialize<T>(bytes);
-        return meta::serialization_diagnostic{.error = error::unsupported};
+        return serialization::diagnostic{.error = error::unsupported};
       }();
       if (!decoded)
         return std::move(decoded).error();
@@ -50,12 +49,12 @@ public:
     if (!decoded)
       return std::move(decoded).error();
     if (!*decoded)
-      return meta::serialization_diagnostic{.error = error::internal};
+      return serialization::diagnostic{.error = error::internal};
     return std::shared_ptr<const void>{decoded->shared()};
   } catch (const std::bad_alloc&) {
-    return meta::serialization_diagnostic{.error = error::out_of_memory};
+    return serialization::diagnostic{.error = error::out_of_memory};
   } catch (...) {
-    return meta::serialization_diagnostic{.error = error::internal};
+    return serialization::diagnostic{.error = error::internal};
   }
 
 private:

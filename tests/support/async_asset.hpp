@@ -17,7 +17,7 @@ inline engine::task_scheduler& asset_tasks() {
 template <class T>
 engine::error load_asset(engine::asset_manager& assets, std::string_view uri,
                          engine::asset_ref<const T>& output, bool reload = false,
-                         engine::meta::serialization_diagnostic* diagnostic = nullptr) {
+                         engine::serialization::diagnostic* diagnostic = nullptr) {
   auto& tasks = asset_tasks();
   assets.attach_task_executor(tasks);
   engine::asset_request<T> request;

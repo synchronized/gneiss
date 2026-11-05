@@ -4,8 +4,8 @@
 
 #pragma once
 #include "asset_loading.hpp"
-#include "engine/core/meta/serialization_types.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/serialization/binding.hpp"
 #include "engine/resource/asset_diagnostic.hpp"
 #include "engine/resource/asset_ref.hpp"
 #include <memory>
@@ -19,7 +19,7 @@ struct asset_state {
   std::mutex mutex;
   error status{error::not_ready};
   std::shared_ptr<const void> value;
-  meta::serialization_diagnostic diagnostic;
+  serialization::diagnostic diagnostic;
   std::size_t source_bytes{};
   asset_load_metrics metrics;
 };

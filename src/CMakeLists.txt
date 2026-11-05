@@ -140,7 +140,7 @@ target_sources(
   engine/core/meta/detail/property_view_access.hpp
   engine/core/meta/detail/type_ops.hpp
   engine/core/serialization/detail/json_adapter.hpp
-  engine/core/meta/ops/forward.hpp
+  engine/core/meta/ops/ops_fwd.hpp
   engine/core/meta/ops/scalar_ops.hpp
   engine/core/meta/ops/sequence_ops.hpp
   engine/core/meta/ops/associative_ops.hpp
@@ -148,6 +148,7 @@ target_sources(
   engine/core/meta/ops/variant_ops.hpp
   engine/core/meta/ops/reference_ops.hpp
     engine/core/meta/registry.cpp
+    engine/core/meta/builtin_registration.cpp
     engine/core/serialization/context.cpp
     engine/core/serialization/context.hpp
     engine/core/serialization/detail/context_access.hpp
@@ -171,7 +172,11 @@ target_sources(
     engine/core/meta/registration.hpp
     engine/core/meta/property.hpp
     engine/core/meta/type.hpp
-    engine/core/meta/serialization_types.hpp
+    engine/core/meta/type_types.hpp
+  engine/core/meta/type_definition.hpp
+  engine/core/meta/ops/object_ops.hpp
+  engine/core/serialization/diagnostic.hpp
+  engine/core/serialization/binding.hpp
     engine/core/meta/registry.hpp
     engine/function/scene/scene_tree.cpp
     engine/function/scene/scene_object.hpp

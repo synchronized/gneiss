@@ -12,7 +12,7 @@ struct asset_load_task {
   std::uint32_t source_type{};
   std::shared_ptr<const void> value;
   asset_load_metrics metrics;
-  meta::serialization_diagnostic diagnostic;
+  serialization::diagnostic diagnostic;
   error status{error::not_ready};
   explicit asset_load_task(std::string path) : uri(std::move(path)), next_uri(uri) {}
   virtual ~asset_load_task() = default;

@@ -9,8 +9,7 @@
 #include <numbers>
 #include <set>
 namespace gneiss::engine {
-meta::serialization_diagnostic
-validate_property_override_key(const prefab_property_override_key& key) {
+serialization::diagnostic validate_property_override_key(const prefab_property_override_key& key) {
   if (!key.source_node_uuid)
     return {.path = "/source_node_uuid", .error = error::invalid_argument};
   if (!key.type_guid)
@@ -29,7 +28,7 @@ validate_property_override_key(const prefab_property_override_key& key) {
   return {};
 }
 
-meta::serialization_diagnostic validate_component_override(const prefab_component_override& value) {
+serialization::diagnostic validate_component_override(const prefab_component_override& value) {
   if (!value.source_node_uuid)
     return {.path = "/source_node_uuid",
             .message = "组件覆盖对象不能为空",
@@ -44,7 +43,7 @@ meta::serialization_diagnostic validate_component_override(const prefab_componen
   return {};
 }
 
-meta::serialization_diagnostic
+serialization::diagnostic
 validate_prefab_reference_description(const prefab_reference_description& value) {
   if (validate_uri(value.uri).failed())
     return {
@@ -77,7 +76,7 @@ validate_prefab_reference_description(const prefab_reference_description& value)
   }
   return {};
 }
-meta::serialization_diagnostic validate_object_description(const object_description& object) {
+serialization::diagnostic validate_object_description(const object_description& object) {
   if (!object.uuid)
     return {.path = "/uuid", .message = "对象 UUID 不能为空", .error = error::invalid_argument};
   if (object.prefab && !object.components.empty())
@@ -86,14 +85,14 @@ meta::serialization_diagnostic validate_object_description(const object_descript
             .error = error::invalid_argument};
   return {};
 }
-meta::serialization_diagnostic validate_camera_description(const math::camera_settings& value) {
+serialization::diagnostic validate_camera_description(const math::camera_settings& value) {
   if (!std::isfinite(value.fov) || !std::isfinite(value.near) || !std::isfinite(value.far) ||
       value.fov <= 0.0F || value.fov >= std::numbers::pi_v<float> || value.near <= 0.0F ||
       value.far <= value.near)
     return {.message = "相机透视参数范围错误", .error = error::invalid_argument};
   return {};
 }
-meta::serialization_diagnostic
+serialization::diagnostic
 validate_mesh_renderer_description(const mesh_renderer_description& value) {
   if ((!value.mesh_uri.empty() && validate_uri(value.mesh_uri).failed()) ||
       (!value.material_uri.empty() && validate_uri(value.material_uri).failed()))
@@ -102,8 +101,8 @@ validate_mesh_renderer_description(const mesh_renderer_description& value) {
 }
 
 namespace {
-meta::serialization_diagnostic validate_hierarchy(std::span<const object_description> objects,
-                                                  std::optional<guid> root) {
+serialization::diagnostic validate_hierarchy(std::span<const object_description> objects,
+                                             std::optional<guid> root) {
   auto inspected = inspect_object_hierarchy(objects, root);
   if (!inspected) {
     auto diagnostic = std::move(inspected).error();
@@ -123,13 +122,13 @@ meta::serialization_diagnostic validate_hierarchy(std::span<const object_descrip
   return {};
 }
 }
-meta::serialization_diagnostic validate_scene_description(const scene_description& scene) {
+serialization::diagnostic validate_scene_description(const scene_description& scene) {
   if (!scene.uuid)
     return {
         .path = "/scene_uuid", .message = "场景 UUID 不能为空", .error = error::invalid_argument};
   return validate_hierarchy(scene.objects, std::nullopt);
 }
-meta::serialization_diagnostic validate_prefab_description(const prefab_description& prefab) {
+serialization::diagnostic validate_prefab_description(const prefab_description& prefab) {
   if (!prefab.uuid)
     return {.path = "/prefab_uuid",
             .message = "Prefab UUID 不能为空",

@@ -76,8 +76,7 @@ public:
   gneiss::engine::type_id target_type() const noexcept override {
     return gneiss::engine::runtime_type_of<gneiss::engine::material_description>();
   }
-  gneiss::engine::result<std::shared_ptr<const void>,
-                         gneiss::engine::meta::serialization_diagnostic>
+  gneiss::engine::result<std::shared_ptr<const void>, gneiss::engine::serialization::diagnostic>
   decode(const std::vector<std::byte>& bytes) const override {
     ++calls;
     auto decoded =

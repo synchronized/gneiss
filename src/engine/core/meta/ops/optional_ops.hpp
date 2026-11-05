@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/meta/ops/forward.hpp"
+#include "engine/core/meta/ops/ops_fwd.hpp"
 #include <cstddef>
 #include <memory>
 #include <optional>

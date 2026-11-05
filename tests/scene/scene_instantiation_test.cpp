@@ -72,7 +72,7 @@ void unified_resource_index() {
     gneiss::engine::type_id target_type() const noexcept override {
       return gneiss::engine::runtime_type_of<std::string>();
     }
-    result<std::shared_ptr<const void>, meta::serialization_diagnostic>
+    result<std::shared_ptr<const void>, serialization::diagnostic>
     decode(const std::vector<std::byte>& bytes) const override {
       return std::shared_ptr<const void>{
           std::make_shared<std::string>(reinterpret_cast<const char*>(bytes.data()), bytes.size())};

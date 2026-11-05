@@ -13,8 +13,8 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::engine::meta {
-struct serialization_diagnostic;
+namespace gneiss::engine::serialization {
+struct diagnostic;
 }
 
 namespace gneiss::engine {

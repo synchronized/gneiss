@@ -7,24 +7,19 @@
 #include "engine/core/serialization/writer.hpp"
 namespace gneiss::engine::serialization::detail {
 using meta::registry_ref;
-using meta::serialization_diagnostic;
 
-result<writer::node, serialization_diagnostic>
+result<writer::node, serialization::diagnostic>
 encode_view(const context&, const registry_ref&, const meta::instance&, writer*, std::size_t);
-result<writer::node, serialization_diagnostic>
+result<writer::node, serialization::diagnostic>
 encode_nested(const context&, const registry_ref&, type_id, const void*, writer*, std::size_t);
-result<writer::node, serialization_diagnostic>
+result<writer::node, serialization::diagnostic>
 encode_members(const context&, const registry_ref&, type_id, const void*, writer*, std::size_t);
-serialization_diagnostic decode_view(const context&, const registry_ref&,
-                                     const meta::mutable_instance&, reader::node, std::size_t);
-result<ref<void>, serialization_diagnostic> decode_owned(const context&, const registry_ref&,
-                                                         type_id, reader::node, std::size_t,
-                                                         bool root = false);
-serialization_diagnostic decode_members(const context&, const registry_ref&, type_id, void*,
-                                        reader::node, std::size_t,
-                                        std::span<const std::string_view> = {});
-result<writer::node, serialization_diagnostic> encode_value(const context&, writer&,
-                                                            const value&) noexcept;
-result<value, serialization_diagnostic> decode_value(const context&, reader&,
-                                                     reader::node) noexcept;
+serialization::diagnostic decode_view(const context&, const registry_ref&,
+                                      const meta::mutable_instance&, reader::node, std::size_t);
+result<ref<void>, serialization::diagnostic> decode_owned(const context&, const registry_ref&,
+                                                          type_id, reader::node, std::size_t,
+                                                          bool root = false);
+serialization::diagnostic decode_members(const context&, const registry_ref&, type_id, void*,
+                                         reader::node, std::size_t,
+                                         std::span<const std::string_view> = {});
 }

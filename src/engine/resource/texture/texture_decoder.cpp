@@ -10,7 +10,7 @@
 #include <granit/renderer/texture_asset.hpp>
 namespace gneiss::engine::detail {
 namespace {
-asset_diagnostic convert(meta::serialization_diagnostic d) {
+asset_diagnostic convert(serialization::diagnostic d) {
   return {d.error, d.byte_offset, std::move(d.path), std::move(d.message)};
 }
 }

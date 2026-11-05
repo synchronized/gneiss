@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/meta/registration.hpp"
+#include "engine/core/serialization/detail/value_codec.hpp"
 #include "engine/core/serialization/detail/traversal.hpp"
 #include <algorithm>
 #include <array>
 namespace gneiss::engine::serialization::detail {
 using namespace meta;
-serialization_diagnostic failure(error, std::string = {}, std::string = {});
-serialization_diagnostic prefix(serialization_diagnostic, const std::string&);
+serialization::diagnostic failure(error, std::string = {}, std::string = {});
+serialization::diagnostic prefix(serialization::diagnostic, const std::string&);
 constexpr std::array<std::string_view, 13> value_names{
     "",     "bool", "int64",      "uint64", "float32", "float64", "string",
     "guid", "vec3", "quaternion", "vec4",   "vec2",    "object"};
-result<value, serialization_diagnostic> decode_value(const context& ctx, reader& source,
-                                                     reader::node input) noexcept try {
+result<value, serialization::diagnostic> decode_value(const context& ctx, reader& source,
+                                                      reader::node input) noexcept try {
   auto* previous = context_access::input(ctx);
   struct restore {
     const context& ctx;
@@ -48,7 +48,7 @@ result<value, serialization_diagnostic> decode_value(const context& ctx, reader&
     auto type = describe_type(registry, *guid);
     if (!type)
       return failure(type.error(), "/value/$type_guid");
-    auto binding = find_serialization(registry, type->type_id);
+    auto binding = find_object_ops(registry, type->type_id);
     if (!binding || !binding->as_object)
       return failure(error::unsupported, "/value", "类型不是可反射对象");
     auto decoded = decode_owned(ctx, registry, type->type_id, fields, context_access::depth(ctx));
@@ -71,11 +71,11 @@ result<value, serialization_diagnostic> decode_value(const context& ctx, reader&
 } catch (...) {
   return failure(error::internal);
 }
-result<writer::node, serialization_diagnostic> encode_value(const context& ctx, writer& output,
-                                                            const value& input) noexcept try {
+result<writer::node, serialization::diagnostic> encode_value(const context& ctx, writer& output,
+                                                             const value& input) noexcept try {
   if (input.kind() != value_kind::object && !valid_scalar(input))
     return failure(error::invalid_argument);
-  auto content = [&]() -> result<writer::node, serialization_diagnostic> {
+  auto content = [&]() -> result<writer::node, serialization::diagnostic> {
     if (input.kind() != value_kind::object)
       return output.scalar(input);
     const auto& owner = std::get<ref<meta::object>>(input.payload);
@@ -88,7 +88,7 @@ result<writer::node, serialization_diagnostic> encode_value(const context& ctx, 
     auto type = describe_type(registry, owner->dynamic_type());
     if (!type)
       return failure(type.error(), "/value/$type_guid");
-    auto binding = find_serialization(registry, owner->dynamic_type());
+    auto binding = find_object_ops(registry, owner->dynamic_type());
     if (!binding || !binding->as_object || type->guid != owner->dynamic_guid())
       return failure(error::unsupported, "/value");
     const auto* address = owner->dynamic_address();
@@ -122,15 +122,4 @@ result<writer::node, serialization_diagnostic> encode_value(const context& ctx, 
   return failure(error::internal);
 }
 
-}
-namespace gneiss::engine::meta {
-error register_builtin_types(const registry_ref& registry) noexcept {
-  return type_builder<value>{registry}
-      .serialization<&serialization::detail::encode_value, &serialization::detail::decode_value>()
-      .validate<[](const value& v) {
-        return v.kind() == value_kind::object || valid_scalar(v) ? error::success
-                                                                 : error::invalid_argument;
-      }>()
-      .commit();
-}
 }

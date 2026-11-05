@@ -98,7 +98,7 @@ void run(std::size_t limit) {
   text.resize(limit, ' ');
   auto old = std::make_shared<material_description>();
   asset_diagnostic diagnostic;
-  meta::serialization_diagnostic codec_diagnostic;
+  serialization::diagnostic codec_diagnostic;
   auto input = bytes(text);
   check(gneiss::test_support::assign_decoded(
             gneiss::engine::asset_file::deserialize<material_description>(input), *old,

@@ -25,7 +25,7 @@ struct invalid_parent {
   static constexpr e::guid type_guid = e::guid::from_bytes({91, 3});
   child item{-1};
 };
-m::serialization_diagnostic check(const child& value) {
+gneiss::engine::serialization::diagnostic check(const child& value) {
   if (value.value <= 0)
     return {.path = "/value", .error = e::error::invalid_argument};
   return {};
@@ -46,25 +46,25 @@ e::error register_child(const m::registry_ref& registry) {
 std::span<const std::byte> bytes(std::string_view text) {
   return std::as_bytes(std::span{text.data(), text.size()});
 }
-e::result<void*, m::serialization_diagnostic> encode_custom(const e::serialization::context&,
-                                                            e::serialization::writer& output,
-                                                            const child& value) {
+e::result<void*, gneiss::engine::serialization::diagnostic>
+encode_custom(const e::serialization::context&, e::serialization::writer& output,
+              const child& value) {
   if (value.value == 13)
     return output.array();
   auto root = output.object();
   auto flag = output.scalar(e::value{true});
   if (!flag || !output.member(root, "custom", *flag))
-    return m::serialization_diagnostic{.error = e::error::out_of_memory};
+    return gneiss::engine::serialization::diagnostic{.error = e::error::out_of_memory};
   return root;
 }
-e::result<child, m::serialization_diagnostic>
+e::result<child, gneiss::engine::serialization::diagnostic>
 decode_custom(const e::serialization::context&, e::serialization::reader&, const void*) {
   return child{42};
 }
 // 通用回调重入 JSON 入口仍沿用上下文限制。
-e::result<void*, m::serialization_diagnostic> encode_reentrant(const e::serialization::context& ctx,
-                                                               e::serialization::writer& output,
-                                                               const child& value) {
+e::result<void*, gneiss::engine::serialization::diagnostic>
+encode_reentrant(const e::serialization::context& ctx, e::serialization::writer& output,
+                 const child& value) {
   if (value.value != 0) {
     auto nested = e::serialization::json::serialize_bytes(ctx, value);
     if (!nested)
@@ -72,9 +72,9 @@ e::result<void*, m::serialization_diagnostic> encode_reentrant(const e::serializ
   }
   return output.object();
 }
-e::result<child, m::serialization_diagnostic> decode_reentrant(const e::serialization::context& ctx,
-                                                               e::serialization::reader& input,
-                                                               const void* node) {
+e::result<child, gneiss::engine::serialization::diagnostic>
+decode_reentrant(const e::serialization::context& ctx, e::serialization::reader& input,
+                 const void* node) {
   if (input.size(node) != 0)
     return e::serialization::json::deserialize<child>(ctx, bytes(R"({"again":1})"));
   return child{0};

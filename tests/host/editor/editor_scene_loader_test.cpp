@@ -127,7 +127,7 @@ void run(gneiss::engine::execution_mode mode) {
   std::string replacement;
   const auto encode = [&] {
     std::vector<std::byte> bytes;
-    engine::meta::serialization_diagnostic diagnostic;
+    engine::serialization::diagnostic diagnostic;
     const auto status = gneiss::test_support::assign_decoded(
         gneiss::engine::asset_file::serialize_bytes(changed_description), bytes, diagnostic);
     replacement.assign(reinterpret_cast<const char*>(bytes.data()), bytes.size());

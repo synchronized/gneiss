@@ -5,6 +5,7 @@
 #include "engine/core/meta/detail/type_ops.hpp"
 #include "engine/core/meta/registry_fwd.hpp"
 #include "engine/core/meta/type.hpp"
+#include "engine/core/meta/type_definition.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
 #include <memory>
@@ -40,9 +41,15 @@ GNEISS_API result<std::span<const enum_entry>> enum_entries(const registry_ref&,
                                              std::span<const property_binding>) noexcept;
 [[nodiscard]] GNEISS_API error freeze(const registry_ref& state) noexcept;
 [[nodiscard]] GNEISS_API result<bool> is_frozen(const registry_ref& state) noexcept;
+/** 冻结后查询类型构造与继承能力。 */
+GNEISS_API result<object_ops> find_object_ops(const registry_ref&, type_id) noexcept;
+inline result<object_ops> find_object_ops(type_id id) noexcept {
+  auto registry = default_registry();
+  return registry ? find_object_ops(*registry, id) : result<object_ops>{registry.error()};
+}
 /** 冻结后查询函数表，未登记能力返回 unsupported。 */
-[[nodiscard]] GNEISS_API result<serialization_binding> find_serialization(const registry_ref&,
-                                                                          type_id) noexcept;
+[[nodiscard]] GNEISS_API result<serialization::binding> find_serialization(const registry_ref&,
+                                                                           type_id) noexcept;
 /** 冻结后返回类型数量；未冻结返回 not_ready。 */
 [[nodiscard]] GNEISS_API result<std::uint32_t> type_count(const registry_ref& registry) noexcept;
 /** 按稳定 GUID 字节顺序枚举冻结元数据，名称借用 Registry。 */
@@ -146,7 +153,7 @@ inline result<meta::type> find_type(engine::guid id) noexcept {
     return registry.error();
   return is_frozen(*registry);
 }
-[[nodiscard]] inline result<serialization_binding> find_serialization(type_id type) noexcept {
+[[nodiscard]] inline result<serialization::binding> find_serialization(type_id type) noexcept {
   auto registry = default_registry();
   if (!registry)
     return registry.error();

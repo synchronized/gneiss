@@ -10,7 +10,7 @@
 #include <cmath>
 namespace gneiss::engine {
 namespace {
-using diagnostic = meta::serialization_diagnostic;
+using diagnostic = serialization::diagnostic;
 
 diagnostic invalid_description(std::string path, std::string message = {}) {
   return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};

@@ -29,14 +29,14 @@ struct custom {
   static constexpr e::guid type_guid = e::guid::from_bytes({95, 3});
   float number = 11;
 };
-e::result<void*, m::serialization_diagnostic>
+e::result<void*, gneiss::engine::serialization::diagnostic>
 encode_custom(const e::serialization::context&, e::serialization::writer& output, const custom&) {
   auto root = output.object();
   if (!root || !output.member(root, "custom", output.string("yes")))
-    return m::serialization_diagnostic{.error = e::error::out_of_memory};
+    return gneiss::engine::serialization::diagnostic{.error = e::error::out_of_memory};
   return root;
 }
-e::result<custom, m::serialization_diagnostic>
+e::result<custom, gneiss::engine::serialization::diagnostic>
 decode_custom(const e::serialization::context&, e::serialization::reader&, const void*) {
   return custom{42};
 }

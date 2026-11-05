@@ -4,8 +4,8 @@
 #include "engine/core/meta/detail/property_view_access.hpp"
 #include "engine/core/serialization/detail/traversal.hpp"
 namespace gneiss::engine::serialization {
-meta::serialization_diagnostic serialize(const context& ctx, const meta::instance& view,
-                                         writer& output) noexcept try {
+serialization::diagnostic serialize(const context& ctx, const meta::instance& view,
+                                    writer& output) noexcept try {
   auto registry = ctx.registry();
   if (!registry)
     return {.error = registry.error()};
@@ -22,11 +22,11 @@ meta::serialization_diagnostic serialize(const context& ctx, const meta::instanc
 } catch (...) {
   return {.error = error::internal};
 }
-meta::serialization_diagnostic deserialize(const context& ctx, reader& input,
-                                           const meta::mutable_instance& view) noexcept try {
+serialization::diagnostic deserialize(const context& ctx, reader& input,
+                                      const meta::mutable_instance& view) noexcept try {
   auto registry = ctx.registry();
   if (!registry)
-    return meta::serialization_diagnostic{.error = registry.error()};
+    return serialization::diagnostic{.error = registry.error()};
   detail::operation_scope operation{ctx};
   detail::context_access::input(ctx) = &input;
   if (*registry != meta::detail::property_view_access::registry(view))
@@ -38,26 +38,25 @@ meta::serialization_diagnostic deserialize(const context& ctx, reader& input,
 } catch (...) {
   return {.error = error::internal};
 }
-result<ref<void>, meta::serialization_diagnostic> deserialize_object(const context& ctx, type_id id,
-                                                                     reader& input) noexcept try {
+result<ref<void>, serialization::diagnostic> deserialize_object(const context& ctx, type_id id,
+                                                                reader& input) noexcept try {
   auto registry = ctx.registry();
   if (!registry)
-    return meta::serialization_diagnostic{.error = registry.error()};
+    return serialization::diagnostic{.error = registry.error()};
   detail::operation_scope operation{ctx};
   detail::context_access::input(ctx) = &input;
   return detail::decode_owned(ctx, *registry, id, input.root(), detail::context_access::depth(ctx),
                               true);
 } catch (const std::bad_alloc&) {
-  return meta::serialization_diagnostic{.error = error::out_of_memory};
+  return serialization::diagnostic{.error = error::out_of_memory};
 } catch (...) {
-  return meta::serialization_diagnostic{.error = error::internal};
+  return serialization::diagnostic{.error = error::internal};
 }
-meta::serialization_diagnostic serialize(const meta::instance& view, writer& output) noexcept {
+serialization::diagnostic serialize(const meta::instance& view, writer& output) noexcept {
   context ctx{meta::detail::property_view_access::registry(view)};
   return serialize(ctx, view, output);
 }
-meta::serialization_diagnostic deserialize(reader& input,
-                                           const meta::mutable_instance& view) noexcept {
+serialization::diagnostic deserialize(reader& input, const meta::mutable_instance& view) noexcept {
   context ctx{meta::detail::property_view_access::registry(view)};
   return deserialize(ctx, input, view);
 }

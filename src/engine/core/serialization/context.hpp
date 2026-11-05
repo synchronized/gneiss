@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/meta/registry_fwd.hpp"
-#include "engine/core/meta/serialization_types.hpp"
+#include "engine/core/result.hpp"
 #include <unordered_set>
 namespace gneiss::engine::serialization {
 class reader;

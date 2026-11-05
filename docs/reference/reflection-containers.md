@@ -114,7 +114,7 @@ valueless_by_exception 状态下 index/value 返回 invalid_state；select 可�
 ```cpp
 using choice = std::variant<float, std::string>;
 namespace gneiss::engine::meta {
-template <> struct variant_serialization_traits<choice> {
+template <> struct variant_case_traits<choice> {
   static constexpr std::array<std::string_view, 2> names{"number", "text"};
 };
 }

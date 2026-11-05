@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/meta/serialization_types.hpp"
+#include "engine/core/result.hpp"
+#include "engine/core/serialization/diagnostic.hpp"
 #include "engine/core/value.hpp"
 namespace gneiss::engine::serialization {
 class context;
@@ -14,7 +15,7 @@ public:
   virtual node array() = 0;
   virtual node null() = 0;
   virtual node string(std::string_view) = 0;
-  virtual result<node, meta::serialization_diagnostic> scalar(const value&) = 0;
+  virtual result<node, serialization::diagnostic> scalar(const value&) = 0;
   virtual bool member(node object, std::string_view key, node value) = 0;
   virtual bool append(node array, node value) = 0;
   virtual bool is_object(node) const = 0;

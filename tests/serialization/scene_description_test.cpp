@@ -92,7 +92,7 @@ constexpr std::string_view prefab_scene =
 [[nodiscard]] bool fails_with(std::string_view json, gneiss::engine::error expected,
                               std::string_view path) {
   gneiss::engine::scene_description scene;
-  gneiss::engine::meta::serialization_diagnostic diagnostic;
+  gneiss::engine::serialization::diagnostic diagnostic;
   const auto status = gneiss::test_support::assign_decoded(
       gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(json), scene,
       diagnostic);
@@ -293,7 +293,7 @@ int main() try {
     text.insert(1, R"("codec_unknown":{"keep":7},)");
     const auto source = std::as_bytes(std::span{text.data(), text.size()});
     e::scene_description value;
-    gneiss::engine::meta::serialization_diagnostic detail;
+    gneiss::engine::serialization::diagnostic detail;
     std::vector<std::byte> encoded;
     if (gneiss::test_support::assign_decoded(
             gneiss::engine::asset_file::deserialize<std::remove_cvref_t<decltype(value)>>(source),
@@ -332,7 +332,7 @@ int main() try {
   }
 
   gneiss::engine::scene_description scene;
-  gneiss::engine::meta::serialization_diagnostic diagnostic;
+  gneiss::engine::serialization::diagnostic diagnostic;
   std::string serialized;
   if (gneiss::test_support::assign_decoded(
           gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(valid_scene),

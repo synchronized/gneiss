@@ -61,7 +61,7 @@ bool save_codec_contract(gneiss::runtime::application& application) {
           .failed() ||
       document.is_dirty())
     return false;
-  gneiss::engine::meta::serialization_diagnostic diagnostic;
+  gneiss::engine::serialization::diagnostic diagnostic;
   if (gneiss::test_support::assign_decoded(
           gneiss::engine::asset_file::deserialize<std::remove_cvref_t<decltype(snapshot)>>(
               std::as_bytes(std::span{saved.data(), saved.size()})),

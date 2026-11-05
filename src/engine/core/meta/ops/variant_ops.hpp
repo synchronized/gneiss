@@ -2,15 +2,15 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/error.hpp"
-#include "engine/core/meta/ops/forward.hpp"
+#include "engine/core/meta/ops/ops_fwd.hpp"
 #include <array>
 #include <memory>
 #include <span>
 #include <string_view>
 #include <variant>
 namespace gneiss::engine::meta {
-/** 文件标签显式配置；不配置时仍支持视图访问，JSON 编解码返回 unsupported。 */
-template <class T> struct variant_serialization_traits {};
+/** 稳定分支名显式配置；供视图查询和持久化使用，未配置时仍支持按索引访问。 */
+template <class T> struct variant_case_traits {};
 struct variant_ops {
   std::span<const detail::type_ops* const> alternatives;
   std::span<const std::string_view> names;
@@ -61,12 +61,12 @@ template <class T> const variant_ops& variant_ops_of() {
                             *static_cast<T*>(p));
         },
         [](void* p, std::size_t index) { return select_variant(*static_cast<T*>(p), index); }};
-    if constexpr (requires { variant_serialization_traits<T>::names; }) {
-      constexpr auto& names = variant_serialization_traits<T>::names;
+    if constexpr (requires { variant_case_traits<T>::names; }) {
+      constexpr auto& names = variant_case_traits<T>::names;
       static_assert(names.size() == std::variant_size_v<T>);
       static_assert(
           [] {
-            constexpr auto& labels = variant_serialization_traits<T>::names;
+            constexpr auto& labels = variant_case_traits<T>::names;
             for (std::size_t i = 0; i < labels.size(); ++i) {
               if (labels[i].empty())
                 return false;

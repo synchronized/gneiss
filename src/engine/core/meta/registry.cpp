@@ -126,7 +126,8 @@ struct type_record {
   std::uint32_t schema_version = 0;
   std::string name;
   std::vector<property_record> properties;
-  serialization_binding serialization{};
+  object_ops object{};
+  serialization::binding serialization{};
 };
 
 [[nodiscard]] bool validate_property(const property_definition& property) noexcept {
@@ -268,6 +269,7 @@ public:
       record->type_id = desc.type_id;
       record->schema_version = desc.schema_version;
       record->name.assign(desc.name);
+      record->object = desc.object;
       record->serialization = desc.serialization;
       record->properties.reserve(desc.properties.size());
       for (const auto& property : desc.properties) {
@@ -353,10 +355,10 @@ public:
       for (const auto& type : types_) {
         auto current = type.get();
         std::set<engine::type_id> chain;
-        while (current->serialization.base_type) {
-          if (!chain.insert(current->type_id).second || !current->serialization.upcast)
+        while (current->object.base_type) {
+          if (!chain.insert(current->type_id).second || !current->object.upcast)
             return error::invalid_argument;
-          auto base = by_cpp_type_.find(current->serialization.base_type);
+          auto base = by_cpp_type_.find(current->object.base_type);
           if (base == by_cpp_type_.end())
             return error::not_found;
           current = base->second;
@@ -639,7 +641,19 @@ public:
     return error::internal;
   }
 
-  result<serialization_binding> find_serialization(engine::type_id id) const noexcept try {
+  result<object_ops> find_object_ops(engine::type_id id) const noexcept try {
+    std::shared_lock lock(mutex_);
+    if (!is_frozen_)
+      return error::not_ready;
+    const auto found = by_cpp_type_.find(id);
+    if (found == by_cpp_type_.end())
+      return error::not_found;
+    return found->second->object;
+  } catch (...) {
+    return error::internal;
+  }
+
+  result<serialization::binding> find_serialization(engine::type_id id) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
       return error::not_ready;
@@ -648,7 +662,7 @@ public:
       return error::not_found;
     const auto& codec = found->second->serialization;
     if (!codec.encode && !codec.decode && !codec.reflected && !codec.polymorphic &&
-        !codec.base_type)
+        !found->second->object.base_type)
       return error::unsupported;
     return codec;
   } catch (...) {
@@ -805,8 +819,11 @@ error write_property(const registry_ref& registry, guid type, property_id proper
   return registry ? registry->set_property(type, property.get(), object, input)
                   : error::invalid_handle;
 }
-result<serialization_binding> find_serialization(const registry_ref& registry,
-                                                 type_id id) noexcept {
+result<object_ops> find_object_ops(const registry_ref& registry, type_id id) noexcept {
+  return registry ? registry->find_object_ops(id) : error::invalid_handle;
+}
+result<serialization::binding> find_serialization(const registry_ref& registry,
+                                                  type_id id) noexcept {
   return registry ? registry->find_serialization(id) : error::invalid_handle;
 }
 }

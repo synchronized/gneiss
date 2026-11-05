@@ -83,18 +83,18 @@ public:
   gneiss::engine::type_id target_type() const noexcept override {
     return gneiss::engine::runtime_type_of<value>();
   }
-  result<std::shared_ptr<const void>, meta::serialization_diagnostic>
+  result<std::shared_ptr<const void>, serialization::diagnostic>
   decode(const std::vector<std::byte>& bytes) const override {
     ++decodes;
     if (bytes.empty() || bytes[0] == std::byte{'!'})
-      return meta::serialization_diagnostic{.error = error::invalid_argument};
+      return serialization::diagnostic{.error = error::invalid_argument};
     return std::shared_ptr<const void>{
         std::make_shared<const value>(value{static_cast<char>(bytes[0])})};
   }
 };
-result<value, meta::serialization_diagnostic> explicit_decode(std::span<const std::byte> bytes) {
+result<value, serialization::diagnostic> explicit_decode(std::span<const std::byte> bytes) {
   if (bytes.front() == std::byte{'!'})
-    return meta::serialization_diagnostic{.error = error::invalid_argument};
+    return serialization::diagnostic{.error = error::invalid_argument};
   return value{'x'};
 }
 class delayed_files final : public gneiss::engine::files::backend {
@@ -231,11 +231,11 @@ void injected_file_service() {
   check(files->dispatch_completions(64).ok() && closed, "shared service drained");
 }
 error register_test_assets() {
-  gneiss::engine::meta::serialization_binding codec;
+  gneiss::engine::serialization::binding codec;
   codec.decode = [](const serialization::context&, serialization::reader& input,
-                    const void* node) -> result<ref<void>, meta::serialization_diagnostic> {
+                    const void* node) -> result<ref<void>, serialization::diagnostic> {
     if (!input.is_string(node) || input.string(node) == "?")
-      return meta::serialization_diagnostic{7U, "/value", "invalid value", error::invalid_argument};
+      return serialization::diagnostic{7U, "/value", "invalid value", error::invalid_argument};
     return ref<void>{std::make_shared<value>(value{'r'})};
   };
   return meta::register_type<value>({.guid = guid::from_bytes({0x98, 1}),
@@ -262,7 +262,7 @@ void decoder_selection() {
         "load reuses cache");
   auto previous = output;
   source->byte = '?';
-  gneiss::engine::meta::serialization_diagnostic failure;
+  gneiss::engine::serialization::diagnostic failure;
   check(gneiss::test_support::load_asset(reflected, "asset://value", output, true, &failure) ==
                 error::invalid_argument &&
             output == previous,
@@ -337,12 +337,12 @@ void decoder_selection() {
             source->reads == reads,
         "missing decoder fails before IO");
   asset_manager native(gneiss::test_support::test_files(files));
-  check(native.register_decoder<unreflected_value>(
-            +[](std::span<const std::byte>)
-                -> result<unreflected_value, meta::serialization_diagnostic> {
-              return unreflected_value{'x'};
-            }) == error::success,
-        "unreflected decoder registration");
+  check(
+      native.register_decoder<unreflected_value>(
+          +[](std::span<const std::byte>) -> result<unreflected_value, serialization::diagnostic> {
+            return unreflected_value{'x'};
+          }) == error::success,
+      "unreflected decoder registration");
   source->byte = 'a';
   asset_ref<const unreflected_value> native_output;
   check(gneiss::test_support::load_asset(native, "asset://native", native_output) ==
@@ -351,7 +351,7 @@ void decoder_selection() {
         "unreflected type loads");
   material_description description;
   description.parameters.metallic = 0.25F;
-  gneiss::engine::meta::serialization_diagnostic diagnostic;
+  gneiss::engine::serialization::diagnostic diagnostic;
   check(
       gneiss::test_support::assign_decoded(gneiss::engine::asset_file::serialize_bytes(description),
                                            source->contents, diagnostic) == error::success,
@@ -767,7 +767,7 @@ void nonblocking_decode_shutdown() {
   struct gated_decoder final : asset_decoder {
     mutable std::atomic_bool entered{}, released{};
     type_id target_type() const noexcept override { return runtime_type_of<value>(); }
-    result<std::shared_ptr<const void>, meta::serialization_diagnostic>
+    result<std::shared_ptr<const void>, serialization::diagnostic>
     decode(const std::vector<std::byte>&) const override {
       entered.store(true, std::memory_order_release);
       while (!released.load(std::memory_order_acquire))

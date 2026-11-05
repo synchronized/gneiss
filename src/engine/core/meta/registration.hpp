@@ -230,12 +230,12 @@ public:
   /** 注册唯一直接基类；当前基类仅承载身份，冻结时拒绝未合并的继承属性。 */
   template <class Base> type_builder& base() noexcept {
     static_assert(std::derived_from<object_type, Base> && std::derived_from<Base, meta::object>);
-    if (committed_ || codec_.base_type) {
+    if (committed_ || object_.base_type) {
       status_ = error::invalid_state;
       return *this;
     }
-    codec_.base_type = runtime_type_of<Base>();
-    codec_.upcast = [](void* p) -> void* {
+    object_.base_type = runtime_type_of<Base>();
+    object_.upcast = [](void* p) -> void* {
       return static_cast<Base*>(static_cast<object_type*>(p));
     };
     return *this;
@@ -251,10 +251,10 @@ public:
     }
     codec_.reflected = true;
     codec_.reject_unknown_fields = reject_unknown_fields;
-    codec_.construct = []() -> ref<void> { return make_ref<object_type>(); };
+    object_.construct = []() -> ref<void> { return make_ref<object_type>(); };
     return *this;
   }
-  /** 校验返回 error 或 serialization_diagnostic；不修改对象。 */
+  /** 校验返回 error 或 serialization::diagnostic；不修改对象。 */
   template <auto Validate> type_builder& validate() noexcept {
     if (committed_ || status_.failed())
       return *this;
@@ -262,7 +262,7 @@ public:
       status_ = error::invalid_argument;
       return *this;
     }
-    codec_.validate = [](const void* object) -> serialization_diagnostic {
+    codec_.validate = [](const void* object) -> serialization::diagnostic {
       auto status = std::invoke(Validate, *static_cast<const object_type*>(object));
       if constexpr (std::is_same_v<decltype(status), error>)
         return {.error = status};
@@ -284,7 +284,7 @@ public:
       auto encode = Encode;
       if (encode)
         codec_.encode = [](const serialization::context& ctx, serialization::writer& output,
-                           const void* object) -> result<void*, serialization_diagnostic> {
+                           const void* object) -> result<void*, serialization::diagnostic> {
           return std::invoke(Encode, ctx, output, *static_cast<const object_type*>(object));
         };
     }
@@ -292,7 +292,7 @@ public:
       auto decode = Decode;
       if (decode)
         codec_.decode = [](const serialization::context& ctx, serialization::reader& input,
-                           const void* node) -> result<ref<void>, serialization_diagnostic> {
+                           const void* node) -> result<ref<void>, serialization::diagnostic> {
           auto decoded = std::invoke(Decode, ctx, input, node);
           if (!decoded)
             return std::move(decoded).error();
@@ -319,11 +319,13 @@ public:
         bindings.push_back(item.binding);
       }
       if constexpr (std::derived_from<object_type, meta::object>)
-        codec_.as_object = [](void* p) -> meta::object* { return static_cast<object_type*>(p); };
-      return register_type<object_type>(
-          registry_,
-          {.schema_version = version_, .properties = properties, .serialization = codec_},
-          bindings);
+        object_.as_object = [](void* p) -> meta::object* { return static_cast<object_type*>(p); };
+      return register_type<object_type>(registry_,
+                                        {.schema_version = version_,
+                                         .properties = properties,
+                                         .object = object_,
+                                         .serialization = codec_},
+                                        bindings);
     } catch (const std::bad_alloc&) {
       return error::out_of_memory;
     } catch (...) {
@@ -355,7 +357,8 @@ private:
     }
     return *this;
   }
-  serialization_binding codec_{};
+  object_ops object_{};
+  serialization::binding codec_{};
   bool has_serialization_ = false;
   registry_ref registry_;
   std::vector<entry> entries_;

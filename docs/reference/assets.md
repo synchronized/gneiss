@@ -219,7 +219,7 @@ asset-decode 任务。等待文件期间不轮询 CPU 任务，不使用同步�
 asset_manager 仅接受 shared_ptr<files::service>。`find_loaded<T>` 只查询已完成缓存，
 未命中返回 not_found；`load<T>` 返回请求，不阻塞等待文件或解码。
 `register_decoder<T>(function)` 可直接登记
-`result<T, serialization_diagnostic>(span<const byte>)` 函数，无需类型继承或反射身份。
+`result<T, serialization::diagnostic>(span<const byte>)` 函数，无需类型继承或反射身份。
 仍可继承 asset_decoder 提供有状态解码器；回调必须支持不同输入的并发调用。
 
 普通类型加载优先使用显式 decoder；未注册时，按 type_id 查找冻结 Registry 中的 decode。

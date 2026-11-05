@@ -727,7 +727,7 @@ endif()
 file(WRITE "${fixture}/src/engine/core/serialization/traversal.cpp" "// 通用遍历\n")
 
 # Value 编码与类型注册也不能反向依赖 JSON。
-foreach(path IN ITEMS "serialization/value_codec.cpp" "meta/serialization_types.hpp")
+foreach(path IN ITEMS "serialization/value_codec.cpp" "meta/type_definition.hpp")
   file(WRITE "${fixture}/src/engine/core/${path}" "struct yyjson_val;\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"

@@ -38,7 +38,7 @@ public:
   node array() override { return make(item::kind::array); }
   node null() override { return make(item::kind::null); }
   node string(std::string_view text) override { return *scalar(e::value{std::string{text}}); }
-  e::result<node, m::serialization_diagnostic> scalar(const e::value& v) override {
+  e::result<node, gneiss::engine::serialization::diagnostic> scalar(const e::value& v) override {
     auto n = make(item::kind::scalar);
     as(n)->data = v;
     return n;
@@ -96,10 +96,10 @@ public:
     const auto& [name, value] = as(c.owner)->members[c.index++];
     return {name, value};
   }
-  e::result<e::value, m::serialization_diagnostic> scalar(node n,
-                                                          e::value_kind kind) const override {
+  e::result<e::value, gneiss::engine::serialization::diagnostic>
+  scalar(node n, e::value_kind kind) const override {
     if (!n || as(n)->data.kind() != kind)
-      return m::serialization_diagnostic{.error = e::error::invalid_argument};
+      return gneiss::engine::serialization::diagnostic{.error = e::error::invalid_argument};
     return as(n)->data;
   }
 };
@@ -115,7 +115,7 @@ struct derived : m::object_type<derived, base> {
 };
 using choice = std::variant<std::int64_t, std::string>;
 namespace gneiss::engine::meta {
-template <> struct variant_serialization_traits<choice> {
+template <> struct variant_case_traits<choice> {
   static constexpr std::array<std::string_view, 2> names{"number", "text"};
 };
 }

@@ -158,7 +158,7 @@ inline error prepare_render_for_test(asset_manager& assets,
     error status;
     if (source.type == render_resource_kind::material) {
       asset_ref<const material_description> material;
-      meta::serialization_diagnostic error;
+      serialization::diagnostic error;
       status = load_asset(assets, source.uri, material, reload, &error);
       if (status.failed()) {
         diagnostic = {status, error.byte_offset, std::move(error.path), std::move(error.message)};

@@ -25,7 +25,7 @@ struct sample {
   e::math::quaternion rotation{1, 0, 0, 0};
   float computed() const { return speed * 2; }
 };
-m::serialization_diagnostic validate_sample(const sample& object) {
+gneiss::engine::serialization::diagnostic validate_sample(const sample& object) {
   if (object.speed <= 0)
     return {.path = "/speed", .message = "速度必须大于零", .error = e::error::invalid_argument};
   return {};
@@ -59,14 +59,14 @@ struct tracked {
   float value = 0;
 };
 e::error reject(const tracked&) { return e::error::invalid_argument; }
-e::result<void*, m::serialization_diagnostic>
+e::result<void*, gneiss::engine::serialization::diagnostic>
 custom_encode(const e::serialization::context&, e::serialization::writer& output, const sample&) {
   auto root = output.object();
   if (!root || !output.member(root, "custom", output.string("yes")))
-    return m::serialization_diagnostic{.error = e::error::out_of_memory};
+    return gneiss::engine::serialization::diagnostic{.error = e::error::out_of_memory};
   return root;
 }
-e::result<sample, m::serialization_diagnostic>
+e::result<sample, gneiss::engine::serialization::diagnostic>
 custom_decode(const e::serialization::context&, e::serialization::reader&, const void*) {
   return sample{};
 }

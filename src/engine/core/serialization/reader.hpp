@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/meta/serialization_types.hpp"
+#include "engine/core/result.hpp"
+#include "engine/core/serialization/diagnostic.hpp"
 #include "engine/core/value.hpp"
 namespace gneiss::engine::serialization {
 class context;
@@ -30,6 +31,6 @@ public:
   virtual cursor iterate(node) const = 0;
   virtual node next_element(cursor&) const = 0;
   virtual entry next_member(cursor&) const = 0;
-  virtual result<value, meta::serialization_diagnostic> scalar(node, value_kind) const = 0;
+  virtual result<value, serialization::diagnostic> scalar(node, value_kind) const = 0;
 };
 }

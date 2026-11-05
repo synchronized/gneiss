@@ -135,8 +135,8 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
         auto bytes =
             address
                 ? gneiss::engine::serialization::json::serialize_object(value_type.id(), *address)
-                : result<std::vector<std::byte>, meta::serialization_diagnostic>{
-                      meta::serialization_diagnostic{.error = address.error()}};
+                : result<std::vector<std::byte>, serialization::diagnostic>{
+                      serialization::diagnostic{.error = address.error()}};
         if (bytes) {
           auto text =
               prefix + std::string(reinterpret_cast<const char*>(bytes->data()), bytes->size());

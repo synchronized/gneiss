@@ -27,18 +27,18 @@ struct custom_description
 std::span<const std::byte> bytes(std::string_view value) {
   return std::as_bytes(std::span{value.data(), value.size()});
 }
-e::result<void*, e::meta::serialization_diagnostic> encode(const e::serialization::context&,
-                                                           e::serialization::writer& output,
-                                                           const custom_description& value) {
+e::result<void*, e::serialization::diagnostic> encode(const e::serialization::context&,
+                                                      e::serialization::writer& output,
+                                                      const custom_description& value) {
   auto root = output.object();
   if (value.enabled) {
     auto flag = output.scalar(e::value{true});
     if (!flag || !output.member(root, "enabled", *flag))
-      return e::meta::serialization_diagnostic{.error = e::error::out_of_memory};
+      return e::serialization::diagnostic{.error = e::error::out_of_memory};
   }
   return root;
 }
-e::result<custom_description, e::meta::serialization_diagnostic>
+e::result<custom_description, e::serialization::diagnostic>
 decode(const e::serialization::context&, e::serialization::reader& input, const void* node) {
   ++decode_calls;
   if (input.is_object(node) && input.size(node) == 0)
@@ -46,7 +46,7 @@ decode(const e::serialization::context&, e::serialization::reader& input, const 
   auto flag = input.scalar(input.member(node, "enabled"), e::value_kind::boolean);
   if (input.is_object(node) && input.size(node) == 1 && flag && std::get<bool>(flag->payload))
     return custom_description{true};
-  return e::meta::serialization_diagnostic{
+  return e::serialization::diagnostic{
       .path = "/enabled", .message = "缺少布尔字段", .error = e::error::invalid_argument};
 }
 std::string scene(std::string_view components) {
@@ -140,7 +140,7 @@ int main() try {
     return 15;
   auto roundtrip =
       encoded ? gneiss::engine::asset_file::deserialize<e::scene_description>(*encoded)
-              : e::result<e::scene_description, e::meta::serialization_diagnostic>{encoded.error()};
+              : e::result<e::scene_description, e::serialization::diagnostic>{encoded.error()};
   if (!roundtrip || roundtrip->objects.front().components.get<custom_description>()->enabled)
     return 4;
   auto unknown = gneiss::engine::asset_file::deserialize<e::scene_description>(

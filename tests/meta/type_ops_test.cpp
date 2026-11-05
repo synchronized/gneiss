@@ -102,13 +102,13 @@ using throwing_choice = std::variant<int, throwing_value>;
 using choice = std::variant<std::int32_t, std::string>;
 using reordered_choice = std::variant<std::string, std::int32_t>;
 namespace gneiss::engine::meta {
-template <> struct variant_serialization_traits<throwing_choice> {
+template <> struct variant_case_traits<throwing_choice> {
   static constexpr std::array<std::string_view, 2> names{"number", "throwing"};
 };
-template <> struct variant_serialization_traits<choice> {
+template <> struct variant_case_traits<choice> {
   static constexpr std::array<std::string_view, 2> names{"number", "text"};
 };
-template <> struct variant_serialization_traits<reordered_choice> {
+template <> struct variant_case_traits<reordered_choice> {
   static constexpr std::array<std::string_view, 2> names{"text", "number"};
 };
 }

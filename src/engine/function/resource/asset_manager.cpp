@@ -38,7 +38,7 @@ struct asset_manager::resource_state {
     std::size_t source_bytes{};
     bool reading{true}, read_complete{};
     std::shared_ptr<const void> value;
-    meta::serialization_diagnostic diagnostic;
+    serialization::diagnostic diagnostic;
     // 在途重载保活旧缓存条目；失败后旧内容仍可复用。
     std::shared_ptr<const resource_cache::entry> previous;
     std::atomic_bool settled{false};

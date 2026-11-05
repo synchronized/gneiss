@@ -338,3 +338,13 @@ reader/writer 及共享遍历已完成，37 项相关测试通过，见 [共享�
 
 已完成，Windows Clang Debug 构建及 54 项相关测试与边界检查通过，见
 [验收记录](../records/2026-11-05-serialization-codec-cleanup.md)。
+
+### Meta 与序列化类型归属整理
+
+- [x] 诊断和编解码绑定迁入 serialization，构造和继承能力归入 Meta object_ops。
+- [x] 分离类型基础定义、注册输入与查询视图，移动内建注册实现。
+- [x] 统一内部 JSON 命名空间、ops 前置声明与 variant 分支名称 traits。
+- [x] 编译并验证序列化、多态、资源文件及分层边界，保持文件格式与运行语义。
+
+已完成，构建及 55 项相关测试与边界检查通过，见
+[验收记录](../records/2026-11-05-meta-serialization-layout.md)。

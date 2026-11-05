@@ -110,7 +110,7 @@ bool prepared_description_contract() {
   asset_manager other_assets(gneiss::test_support::test_files(different_source));
   constexpr std::string_view uri = "asset://prefabs/lamp.prefab.json";
   gneiss::engine::prefab_description description;
-  gneiss::engine::meta::serialization_diagnostic diagnostic;
+  gneiss::engine::serialization::diagnostic diagnostic;
   if (gneiss::test_support::assign_decoded(
           gneiss::engine::asset_file::deserialize<gneiss::engine::prefab_description>(valid_prefab),
           description, diagnostic) != gneiss::engine::error::success) {
@@ -260,7 +260,7 @@ int main() try {
     text.insert(1, R"("codec_unknown":{"keep":7},)");
     const auto source = std::as_bytes(std::span{text.data(), text.size()});
     e::prefab_description value;
-    gneiss::engine::meta::serialization_diagnostic detail;
+    gneiss::engine::serialization::diagnostic detail;
     std::vector<std::byte> encoded;
     if (gneiss::test_support::assign_decoded(
             gneiss::engine::asset_file::deserialize<std::remove_cvref_t<decltype(value)>>(source),
@@ -306,7 +306,7 @@ int main() try {
     return 9;
   }
   gneiss::engine::prefab_description prefab;
-  gneiss::engine::meta::serialization_diagnostic diagnostic;
+  gneiss::engine::serialization::diagnostic diagnostic;
   if (gneiss::test_support::assign_decoded(
           gneiss::engine::asset_file::deserialize<gneiss::engine::prefab_description>(valid_prefab),
           prefab, diagnostic) != gneiss::engine::error::success ||

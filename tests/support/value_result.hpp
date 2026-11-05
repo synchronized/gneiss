@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/meta/serialization_types.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/serialization/binding.hpp"
 #include "engine/function/resource/asset_loading.hpp"
 namespace gneiss::test_support {
 template <class T> engine::error take_value(engine::result<T> value, T& output) {
@@ -21,8 +21,7 @@ template <class T> engine::error assign_value(engine::result<T> value, T& output
   return engine::error::success;
 }
 template <class T>
-engine::error assign_value(engine::result<T, engine::meta::serialization_diagnostic> value,
-                           T& output) {
+engine::error assign_value(engine::result<T, engine::serialization::diagnostic> value, T& output) {
   if (!value)
     return value.error().error;
   output = std::move(*value);
@@ -47,7 +46,7 @@ template <class T, class E> engine::error assign_decoded(engine::result<T, E> va
 }
 template <class R, class T>
 engine::error take_request(R& request, T& output,
-                           engine::meta::serialization_diagnostic* diagnostic = nullptr,
+                           engine::serialization::diagnostic* diagnostic = nullptr,
                            engine::asset_load_metrics* metrics = nullptr) {
   auto value = request.take();
   if (!value) {

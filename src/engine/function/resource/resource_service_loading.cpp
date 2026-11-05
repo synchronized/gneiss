@@ -94,7 +94,7 @@ void resource_service::implementation::advance(resource_service& service) {
       continue;
     try {
       if (!work->description) {
-        meta::serialization_diagnostic diagnostic;
+        serialization::diagnostic diagnostic;
         const auto status = std::visit(
             [&](auto& request) -> error {
               using T = std::decay_t<decltype(request)>;
