@@ -229,7 +229,7 @@ void injected_file_service() {
 error register_test_assets() {
   gneiss::engine::meta::serialization_binding codec;
   codec.json.decode_bytes =
-      [](const meta::registry_ref&,
+      [](const serialization::context&,
          std::span<const std::byte> bytes) -> result<ref<void>, meta::serialization_diagnostic> {
     if (bytes.front() == std::byte{'?'})
       return meta::serialization_diagnostic{7U, "/value", "invalid value", error::invalid_argument};

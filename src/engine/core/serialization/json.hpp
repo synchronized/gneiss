@@ -3,6 +3,7 @@
 #pragma once
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/registry.hpp"
+#include "engine/core/serialization/context.hpp"
 #include <new>
 #include <span>
 #include <type_traits>
@@ -15,15 +16,14 @@ using meta::registry_ref;
 using meta::serialization_diagnostic;
 /** 类型擦除入口；调用方保证对象类型。反射访问始终使用传入的冻结注册表。 */
 GNEISS_API result<std::vector<std::byte>, serialization_diagnostic>
-serialize_object(const registry_ref&, type_id, const void*) noexcept;
+serialize_object(const context&, type_id, const void*) noexcept;
 GNEISS_API result<ref<void>, serialization_diagnostic>
-deserialize_object(const registry_ref&, type_id, std::span<const std::byte>) noexcept;
+deserialize_object(const context&, type_id, std::span<const std::byte>) noexcept;
 
 /** 编解码任意反射视图；解码调用方提供临时目标，失败不承诺恢复目标。 */
 GNEISS_API result<std::vector<std::byte>, serialization_diagnostic>
-serialize_instance(const registry_ref&, const instance&) noexcept;
-GNEISS_API serialization_diagnostic deserialize_instance(const registry_ref&,
-                                                         const mutable_instance&,
+serialize_instance(const context&, const instance&) noexcept;
+GNEISS_API serialization_diagnostic deserialize_instance(const context&, const mutable_instance&,
                                                          std::span<const std::byte>) noexcept;
 /** 使用视图绑定的注册表，包含独立注册表；不重新查询默认表。 */
 GNEISS_API result<std::vector<std::byte>, serialization_diagnostic>
@@ -33,16 +33,19 @@ GNEISS_API serialization_diagnostic deserialize_instance(const mutable_instance&
 /** 返回编码后的字节；未知类型不隐式注册。 */
 template <class T>
 [[nodiscard]] result<std::vector<std::byte>, serialization_diagnostic>
-serialize_bytes(const registry_ref& registry, const T& object) noexcept try {
+serialize_bytes(const context& ctx, const T& object) noexcept try {
+  auto registry = ctx.registry();
+  if (!registry)
+    return meta::serialization_diagnostic{.error = registry.error()};
   if constexpr (meta::detail::reference_traits<std::remove_cv_t<T>>::enabled ||
                 meta::sequence_traits<T>::enabled || meta::associative_traits<T>::enabled ||
                 meta::detail::variant_traits<T>::enabled) {
-    auto view = instance::from(registry, object);
+    auto view = instance::from(*registry, object);
     if (!view)
       return serialization_diagnostic{.error = view.error()};
-    return serialize_instance(registry, *view);
+    return serialize_instance(ctx, *view);
   } else
-    return serialize_object(registry, runtime_type_of<T>(), &object);
+    return serialize_object(ctx, runtime_type_of<T>(), &object);
 } catch (const std::bad_alloc&) {
   return serialization_diagnostic{.error = error::out_of_memory};
 } catch (...) {
@@ -51,19 +54,22 @@ serialize_bytes(const registry_ref& registry, const T& object) noexcept try {
 /** 解码返回独立对象；失败不向调用方暴露半成品。 */
 template <class T>
 [[nodiscard]] result<T, serialization_diagnostic>
-deserialize(const registry_ref& registry, std::span<const std::byte> bytes) noexcept try {
+deserialize(const context& ctx, std::span<const std::byte> bytes) noexcept try {
+  auto registry = ctx.registry();
+  if (!registry)
+    return meta::serialization_diagnostic{.error = registry.error()};
   if constexpr (meta::detail::reference_traits<T>::enabled || meta::sequence_traits<T>::enabled ||
                 meta::associative_traits<T>::enabled || meta::detail::variant_traits<T>::enabled) {
     T object{};
-    auto view = mutable_instance::from(registry, object);
+    auto view = mutable_instance::from(*registry, object);
     if (!view)
       return serialization_diagnostic{.error = view.error()};
-    auto status = deserialize_instance(registry, *view, bytes);
+    auto status = deserialize_instance(ctx, *view, bytes);
     if (status.error.failed())
       return status;
     return object;
   } else {
-    auto decoded = deserialize_object(registry, runtime_type_of<T>(), bytes);
+    auto decoded = deserialize_object(ctx, runtime_type_of<T>(), bytes);
     if (!decoded)
       return std::move(decoded).error();
     if (!*decoded)
@@ -79,33 +85,25 @@ deserialize(const registry_ref& registry, std::span<const std::byte> bytes) noex
 template <class T>
 [[nodiscard]] result<std::vector<std::byte>, serialization_diagnostic>
 serialize_bytes(const T& object) noexcept {
-  auto registry = meta::default_registry();
-  if (!registry)
-    return serialization_diagnostic{.error = registry.error()};
-  return serialize_bytes(*registry, object);
+  context ctx;
+  return serialize_bytes(ctx, object);
 }
 template <class T>
 [[nodiscard]] result<T, serialization_diagnostic>
 deserialize(std::span<const std::byte> bytes) noexcept {
-  auto registry = meta::default_registry();
-  if (!registry)
-    return serialization_diagnostic{.error = registry.error()};
-  return deserialize<T>(*registry, bytes);
+  context ctx;
+  return deserialize<T>(ctx, bytes);
 }
 /** 使用默认注册表的类型擦除与字段遍历入口；不隐式注册或冻结。 */
 [[nodiscard]] inline result<std::vector<std::byte>, serialization_diagnostic>
 serialize_object(type_id type, const void* object) noexcept {
-  auto registry = meta::default_registry();
-  if (!registry)
-    return serialization_diagnostic{.error = registry.error()};
-  return serialize_object(*registry, type, object);
+  context ctx;
+  return serialize_object(ctx, type, object);
 }
 [[nodiscard]] inline result<ref<void>, serialization_diagnostic>
 deserialize_object(type_id type, std::span<const std::byte> bytes) noexcept {
-  auto registry = meta::default_registry();
-  if (!registry)
-    return serialization_diagnostic{.error = registry.error()};
-  return deserialize_object(*registry, type, bytes);
+  context ctx;
+  return deserialize_object(ctx, type, bytes);
 }
 /** JSON 文本便捷入口；与字节入口具有相同的校验及诊断语义。 */
 template <class T>
@@ -113,10 +111,10 @@ template <class T>
   return deserialize<T>(std::as_bytes(std::span{json.data(), json.size()}));
 }
 template <class T>
-[[nodiscard]] result<std::string, serialization_diagnostic> serialize(const registry_ref& registry,
+[[nodiscard]] result<std::string, serialization_diagnostic> serialize(const context& ctx,
                                                                       const T& object) noexcept
     try {
-  auto bytes = serialize_bytes(registry, object);
+  auto bytes = serialize_bytes(ctx, object);
   if (!bytes)
     return std::move(bytes).error();
   return std::string(reinterpret_cast<const char*>(bytes->data()), bytes->size());
@@ -129,15 +127,13 @@ template <class T>
 /** 默认注册表文本入口；不隐式注册或冻结。 */
 template <class T>
 [[nodiscard]] result<std::string, serialization_diagnostic> serialize(const T& object) noexcept {
-  auto registry = meta::default_registry();
-  if (!registry)
-    return serialization_diagnostic{.error = registry.error()};
-  return serialize(*registry, object);
+  context ctx;
+  return serialize(ctx, object);
 }
 template <class T>
-[[nodiscard]] result<T, serialization_diagnostic> deserialize(const registry_ref& registry,
+[[nodiscard]] result<T, serialization_diagnostic> deserialize(const context& ctx,
                                                               std::string_view text) noexcept {
-  return deserialize<T>(registry, std::as_bytes(std::span{text.data(), text.size()}));
+  return deserialize<T>(ctx, std::as_bytes(std::span{text.data(), text.size()}));
 }
 
 }

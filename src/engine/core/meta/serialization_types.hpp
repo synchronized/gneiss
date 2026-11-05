@@ -15,8 +15,8 @@
 struct yyjson_val;
 struct yyjson_mut_val;
 struct yyjson_mut_doc;
-namespace gneiss::engine::serialization::json {
-class json_codec_context;
+namespace gneiss::engine::serialization {
+class context;
 }
 namespace gneiss::engine::meta {
 class object;
@@ -34,14 +34,14 @@ struct serialization_diagnostic {
 struct json_serialization_binding {
   /** JSON 节点回调仅借用文档；与字节 codec 互斥，复用当前递归上下文。 */
   result<yyjson_mut_val*, serialization_diagnostic> (*encode_node)(
-      gneiss::engine::serialization::json::json_codec_context&, yyjson_mut_doc*, const void*){};
+      const gneiss::engine::serialization::context&, yyjson_mut_doc*, const void*){};
   result<ref<void>, serialization_diagnostic> (*decode_node)(
-      gneiss::engine::serialization::json::json_codec_context&, yyjson_val*){};
+      const gneiss::engine::serialization::context&, yyjson_val*){};
   std::size_t maximum_bytes = std::numeric_limits<std::size_t>::max();
-  result<std::vector<std::byte>, serialization_diagnostic> (*encode_bytes)(const registry_ref&,
-                                                                           const void*){};
-  result<ref<void>, serialization_diagnostic> (*decode_bytes)(const registry_ref&,
-                                                              std::span<const std::byte>){};
+  result<std::vector<std::byte>, serialization_diagnostic> (*encode_bytes)(
+      const gneiss::engine::serialization::context&, const void*){};
+  result<ref<void>, serialization_diagnostic> (*decode_bytes)(
+      const gneiss::engine::serialization::context&, std::span<const std::byte>){};
 };
 /** 类型构造、继承及校验与具体格式操作分开保存。编码对象及输入字节仅在调用期间借用；解码成功返回独立共享所有者。
  * 回调必须可并发操作不同对象；模块需在 Registry 使用期间存活。 */

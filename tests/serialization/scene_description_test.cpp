@@ -42,16 +42,16 @@ bool format_node_contract() {
           .failed() ||
       m::freeze(*registry).failed())
     return false;
-  auto encoded =
-      gneiss::engine::serialization::json::serialize_bytes(*registry, format_probe{"ok"});
+  auto encoded = gneiss::engine::serialization::json::serialize_bytes(
+      gneiss::engine::serialization::context{*registry}, format_probe{"ok"});
   if (!encoded)
     return false;
-  auto decoded =
-      gneiss::engine::serialization::json::deserialize<format_probe>(*registry, *encoded);
+  auto decoded = gneiss::engine::serialization::json::deserialize<format_probe>(
+      gneiss::engine::serialization::context{*registry}, *encoded);
   if (!decoded || decoded->text != "ok")
     return false;
   auto huge = gneiss::engine::serialization::json::serialize_bytes(
-      *registry, format_probe{std::string(100, 'x')});
+      gneiss::engine::serialization::context{*registry}, format_probe{std::string(100, 'x')});
   if (huge || huge.error().error != e::error::invalid_argument)
     return false;
   for (std::string_view text : {R"({"format":"probe","version":1,"text":"ok","extra":0})",
@@ -60,7 +60,8 @@ bool format_node_contract() {
                                 R"({"format":"probe","version":1,"text":"ok","text":"other"})",
                                 R"({"format":"probe","version":1})"}) {
     auto invalid = gneiss::engine::serialization::json::deserialize<format_probe>(
-        *registry, std::as_bytes(std::span{text.data(), text.size()}));
+        gneiss::engine::serialization::context{*registry},
+        std::as_bytes(std::span{text.data(), text.size()}));
     if (invalid || invalid.error().error != e::error::invalid_argument)
       return false;
   }

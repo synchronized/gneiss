@@ -148,6 +148,9 @@ target_sources(
   engine/core/meta/ops/variant_ops.hpp
   engine/core/meta/ops/reference_ops.hpp
     engine/core/meta/registry.cpp
+    engine/core/serialization/context.cpp
+    engine/core/serialization/context.hpp
+    engine/core/serialization/detail/context_access.hpp
     engine/core/serialization/serialization.cpp
     engine/core/serialization/serialization.hpp
     engine/core/serialization/traversal.cpp

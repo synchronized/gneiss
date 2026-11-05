@@ -284,11 +284,11 @@ public:
       auto encode = Encode;
       if (encode)
         codec_.json.encode_bytes =
-            []([[maybe_unused]] const registry_ref& registry,
+            []([[maybe_unused]] const serialization::context& ctx,
                const void* object) -> result<std::vector<std::byte>, serialization_diagnostic> {
-          if constexpr (std::is_invocable_v<decltype(Encode), const registry_ref&,
+          if constexpr (std::is_invocable_v<decltype(Encode), const serialization::context&,
                                             const object_type&>)
-            return std::invoke(Encode, registry, *static_cast<const object_type*>(object));
+            return std::invoke(Encode, ctx, *static_cast<const object_type*>(object));
           else
             return std::invoke(Encode, *static_cast<const object_type*>(object));
         };
@@ -297,12 +297,12 @@ public:
       auto decode = Decode;
       if (decode)
         codec_.json.decode_bytes =
-            []([[maybe_unused]] const registry_ref& registry,
+            []([[maybe_unused]] const serialization::context& ctx,
                std::span<const std::byte> bytes) -> result<ref<void>, serialization_diagnostic> {
           auto decoded = [&] {
-            if constexpr (std::is_invocable_v<decltype(Decode), const registry_ref&,
+            if constexpr (std::is_invocable_v<decltype(Decode), const serialization::context&,
                                               std::span<const std::byte>>)
-              return std::invoke(Decode, registry, bytes);
+              return std::invoke(Decode, ctx, bytes);
             else
               return std::invoke(Decode, bytes);
           }();
@@ -327,11 +327,11 @@ public:
     }
     has_serialization_ = true;
     codec_.json.maximum_bytes = maximum_bytes;
-    codec_.json.encode_node = [](gneiss::engine::serialization::json::json_codec_context& ctx,
-                                 yyjson_mut_doc* doc, const void* object) {
+    codec_.json.encode_node = [](const serialization::context& ctx, yyjson_mut_doc* doc,
+                                 const void* object) {
       return Encode(ctx, doc, *static_cast<const object_type*>(object));
     };
-    codec_.json.decode_node = [](gneiss::engine::serialization::json::json_codec_context& ctx,
+    codec_.json.decode_node = [](const serialization::context& ctx,
                                  yyjson_val* input) -> result<ref<void>, serialization_diagnostic> {
       auto decoded = Decode(ctx, input);
       if (!decoded)

@@ -54,6 +54,21 @@ e::result<std::vector<std::byte>, m::serialization_diagnostic> encode_custom(con
 e::result<child, m::serialization_diagnostic> decode_custom(std::span<const std::byte>) {
   return child{42};
 }
+// 自定义 codec 重入公共入口时必须沿用限制，不能重新从深度零开始。
+e::result<std::vector<std::byte>, m::serialization_diagnostic>
+encode_reentrant(const e::serialization::context& ctx, const child& value) {
+  if (value.value != 0)
+    return e::serialization::json::serialize_bytes(ctx, value);
+  auto text = bytes("{}");
+  return std::vector<std::byte>(text.begin(), text.end());
+}
+e::result<child, m::serialization_diagnostic> decode_reentrant(const e::serialization::context& ctx,
+                                                               std::span<const std::byte> input) {
+  if (input.size() != 2)
+    return e::serialization::json::deserialize<child>(ctx, input);
+  return child{0};
+}
+
 template <unsigned Depth> struct chain {
   // 逐层默认构造，避免 MSVC 对 65 层聚合初始化的编译器深度限制。
   chain() {}
@@ -82,10 +97,12 @@ template <unsigned Depth> e::error register_chain(const m::registry_ref& registr
                                                   m::property_flags::required)
         .serialization()
         .template json_serialization<
-            [](gneiss::engine::serialization::json::json_codec_context& ctx, yyjson_mut_doc* doc,
-               const chain<Depth>& value) { return ctx.write_fields(doc, value); },
-            [](gneiss::engine::serialization::json::json_codec_context& ctx, yyjson_val* input) {
-              return ctx.read_fields<chain<Depth>>(input);
+            [](const gneiss::engine::serialization::context& ctx, yyjson_mut_doc* doc,
+               const chain<Depth>& value) {
+              return gneiss::engine::serialization::json::write_fields(ctx, doc, value);
+            },
+            [](const gneiss::engine::serialization::context& ctx, yyjson_val* input) {
+              return gneiss::engine::serialization::json::read_fields<chain<Depth>>(ctx, input);
             }>()
         .commit();
   }
@@ -107,7 +124,7 @@ bool nested_json_contract() {
       m::freeze(*defaults_registry).failed())
     return false;
   auto invalid_default = gneiss::engine::serialization::json::deserialize<invalid_parent>(
-      *defaults_registry, bytes("{}"));
+      gneiss::engine::serialization::context{*defaults_registry}, bytes("{}"));
   if (invalid_default || invalid_default.error().path != "/item/value")
     return false;
   auto metadata = m::describe_type<parent>(*registry);
@@ -121,15 +138,17 @@ bool nested_json_contract() {
     if (m::read_property(*registry, parent::type_guid, m::property_id{1}, &original).error() !=
         e::error::unsupported)
       return false;
-    auto encoded = gneiss::engine::serialization::json::serialize_bytes(*registry, original);
+    auto encoded = gneiss::engine::serialization::json::serialize_bytes(
+        gneiss::engine::serialization::context{*registry}, original);
     if (!encoded)
       return false;
     auto restored = gneiss::engine::serialization::json::deserialize_object(
-        *registry, e::runtime_type_of<parent>(), *encoded);
+        gneiss::engine::serialization::context{*registry}, e::runtime_type_of<parent>(), *encoded);
     if (!restored || static_cast<parent*>(restored->get())->item.value != 12)
       return false;
     original.item.value = -1;
-    auto invalid = gneiss::engine::serialization::json::serialize_bytes(*registry, original);
+    auto invalid = gneiss::engine::serialization::json::serialize_bytes(
+        gneiss::engine::serialization::context{*registry}, original);
     if (invalid || invalid.error().path != "/a~1b/value")
       return false;
   }
@@ -138,17 +157,20 @@ bool nested_json_contract() {
   for (const auto text : {R"({"a/b":{"value":-1}})", R"({"a/b":{"value":"bad"}})", R"({"a/b":{}})",
                           R"({"a/b":{"value":1,"value":2}})"}) {
     auto invalid = gneiss::engine::serialization::json::deserialize_object(
-        *registry, e::runtime_type_of<parent>(), bytes(text));
+        gneiss::engine::serialization::context{*registry}, e::runtime_type_of<parent>(),
+        bytes(text));
     if (invalid || invalid.error().path != "/a~1b/value" || parent::alive != 0)
       return false;
   }
   auto invalid = gneiss::engine::serialization::json::deserialize_object(
-      *registry, e::runtime_type_of<parent>(), bytes(R"({"a/b":null})"));
+      gneiss::engine::serialization::context{*registry}, e::runtime_type_of<parent>(),
+      bytes(R"({"a/b":null})"));
   if (invalid || invalid.error().path != "/a~1b" || parent::alive != 0)
     return false;
   {
     auto defaults = gneiss::engine::serialization::json::deserialize_object(
-        *registry, e::runtime_type_of<parent>(), bytes("{}"));
+        gneiss::engine::serialization::context{*registry}, e::runtime_type_of<parent>(),
+        bytes("{}"));
     if (!defaults || static_cast<parent*>(defaults->get())->item.value != 7)
       return false;
   }
@@ -163,18 +185,20 @@ bool nested_json_contract() {
     return false;
   {
     parent original;
-    auto encoded = gneiss::engine::serialization::json::serialize_bytes(*custom, original);
+    auto encoded = gneiss::engine::serialization::json::serialize_bytes(
+        gneiss::engine::serialization::context{*custom}, original);
     if (!encoded)
       return false;
     const std::string_view text{reinterpret_cast<const char*>(encoded->data()), encoded->size()};
     if (text != R"({"a/b":{"custom":true}})")
       return false;
     auto restored = gneiss::engine::serialization::json::deserialize_object(
-        *custom, e::runtime_type_of<parent>(), *encoded);
+        gneiss::engine::serialization::context{*custom}, e::runtime_type_of<parent>(), *encoded);
     if (!restored || static_cast<parent*>(restored->get())->item.value != 42)
       return false;
     original.item.value = 13;
-    auto bad_output = gneiss::engine::serialization::json::serialize_bytes(*custom, original);
+    auto bad_output = gneiss::engine::serialization::json::serialize_bytes(
+        gneiss::engine::serialization::context{*custom}, original);
     if (bad_output || bad_output.error().path != "/a~1b" ||
         bad_output.error().error != e::error::invalid_argument)
       return false;
@@ -187,55 +211,106 @@ bool nested_json_contract() {
       m::type_builder<child>{*node_registry}
           .property<&child::value>(m::property_id{1}, "isolated", m::property_flags::required)
           .serialization(true)
-          .json_serialization<[](gneiss::engine::serialization::json::json_codec_context& ctx,
-                                 yyjson_mut_doc* doc,
-                                 const child& value) { return ctx.write_fields(doc, value); },
-                              [](gneiss::engine::serialization::json::json_codec_context& ctx,
-                                 yyjson_val* input) { return ctx.read_fields<child>(input); }>(64)
+          .json_serialization<[](const gneiss::engine::serialization::context& ctx,
+                                 yyjson_mut_doc* doc, const child& value) {
+            return gneiss::engine::serialization::json::write_fields(ctx, doc, value);
+          },
+                              [](const gneiss::engine::serialization::context& ctx,
+                                 yyjson_val* input) {
+                                return gneiss::engine::serialization::json::read_fields<child>(
+                                    ctx, input);
+                              }>(64)
           .validate<&check>()
           .commit()
           .failed() ||
       m::freeze(*node_registry).failed())
     return false;
   {
-    auto encoded = gneiss::engine::serialization::json::serialize_bytes(*node_registry, parent{});
+    auto encoded = gneiss::engine::serialization::json::serialize_bytes(
+        gneiss::engine::serialization::context{*node_registry}, parent{});
     if (!encoded)
       return false;
     const std::string_view text{reinterpret_cast<const char*>(encoded->data()), encoded->size()};
     if (text != R"({"a/b":{"isolated":7.0}})" && text != R"({"a/b":{"isolated":7}})")
       return false;
-    auto restored =
-        gneiss::engine::serialization::json::deserialize<parent>(*node_registry, *encoded);
+    auto restored = gneiss::engine::serialization::json::deserialize<parent>(
+        gneiss::engine::serialization::context{*node_registry}, *encoded);
     if (!restored || restored->item.value != 7)
       return false;
     auto bad = gneiss::engine::serialization::json::deserialize<parent>(
-        *node_registry, bytes(R"({"a/b":{"isolated":"bad"}})"));
+        gneiss::engine::serialization::context{*node_registry},
+        bytes(R"({"a/b":{"isolated":"bad"}})"));
     if (bad || bad.error().path != "/a~1b/isolated")
       return false;
     auto unknown = gneiss::engine::serialization::json::deserialize<child>(
-        *node_registry, bytes(R"({"isolated":7,"unknown":1})"));
+        gneiss::engine::serialization::context{*node_registry},
+        bytes(R"({"isolated":7,"unknown":1})"));
     if (unknown || unknown.error().path != "/unknown")
       return false;
     auto too_large = gneiss::engine::serialization::json::deserialize<child>(
-        *node_registry, bytes(std::string(65, ' ')));
+        gneiss::engine::serialization::context{*node_registry}, bytes(std::string(65, ' ')));
     if (too_large || too_large.error().error != e::error::invalid_argument)
       return false;
-    auto invalid = gneiss::engine::serialization::json::serialize_bytes(*node_registry, child{-1});
+    auto invalid = gneiss::engine::serialization::json::serialize_bytes(
+        gneiss::engine::serialization::context{*node_registry}, child{-1});
     if (invalid || invalid.error().path != "/value")
       return false;
   }
+  // 字段委托保持当前层级；真正嵌套的对象才增加深度。
+  e::serialization::context one_level{*node_registry, 1};
+  auto shallow_text = e::serialization::json::serialize(one_level, parent{});
+  if (!shallow_text ||
+      !e::serialization::json::deserialize<parent>(one_level, std::string_view{*shallow_text}))
+    return false;
+  e::serialization::context zero_levels{*node_registry, 0};
+  if (e::serialization::json::serialize(zero_levels, parent{}))
+    return false;
+  // 注册表不匹配必须在写入调用方目标之前失败。
+  child destination{19};
+  auto destination_view = m::mutable_instance::from(*node_registry, destination);
+  e::serialization::context mismatch{*custom};
+  if (!destination_view ||
+      e::serialization::json::deserialize_instance(mismatch, *destination_view,
+                                                   bytes(R"({"isolated":8})"))
+              .error != e::error::invalid_argument ||
+      destination.value != 19)
+    return false;
+  if (e::serialization::json::serialize_instance(mismatch, destination_view->as_const()))
+    return false;
+  auto reentrant = m::create_registry();
+  if (!reentrant ||
+      m::type_builder<child>{*reentrant}
+          .json_bytes_serialization<&encode_reentrant, &decode_reentrant>()
+          .commit()
+          .failed() ||
+      m::freeze(*reentrant).failed())
+    return false;
+  e::serialization::context recursion{*reentrant, 2};
+  auto recursive_write = e::serialization::json::serialize_bytes(recursion, child{1});
+  auto recursive_read = e::serialization::json::deserialize<child>(recursion, bytes("{ }"));
+  if (recursive_write || recursive_read ||
+      recursive_write.error().error != e::error::invalid_argument ||
+      recursive_read.error().error != e::error::invalid_argument)
+    return false;
+  if (!e::serialization::json::serialize_bytes(recursion, child{0}) ||
+      !e::serialization::json::deserialize<child>(recursion, bytes("{}")))
+    return false;
   auto deep = m::create_registry();
   if (!deep || register_chain<65>(*deep).failed() || m::freeze(*deep).failed())
     return false;
-  auto allowed = gneiss::engine::serialization::json::serialize_bytes(*deep, chain<64>{});
-  auto excessive = gneiss::engine::serialization::json::serialize_bytes(*deep, chain<65>{});
+  auto allowed = gneiss::engine::serialization::json::serialize_bytes(
+      gneiss::engine::serialization::context{*deep}, chain<64>{});
+  auto excessive = gneiss::engine::serialization::json::serialize_bytes(
+      gneiss::engine::serialization::context{*deep}, chain<65>{});
   if (!allowed || excessive || excessive.error().error != e::error::invalid_argument)
     return false;
-  if (!gneiss::engine::serialization::json::deserialize<chain<64>>(*deep, *allowed))
+  if (!gneiss::engine::serialization::json::deserialize<chain<64>>(
+          gneiss::engine::serialization::context{*deep}, *allowed))
     return false;
   std::string text = R"({"value":1})";
   for (int i = 0; i < 65; ++i)
     text = "{\"nested\":" + text + "}";
-  auto rejected = gneiss::engine::serialization::json::deserialize<chain<65>>(*deep, bytes(text));
+  auto rejected = gneiss::engine::serialization::json::deserialize<chain<65>>(
+      gneiss::engine::serialization::context{*deep}, bytes(text));
   return !rejected && rejected.error().error == e::error::invalid_argument;
 }

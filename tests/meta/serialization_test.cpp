@@ -46,21 +46,26 @@ int main() {
       e::meta::freeze(*core).failed())
     return 30;
   const e::value source{std::string{"独立 Meta"}};
-  auto encoded = gneiss::engine::serialization::json::serialize_bytes(*core, source);
+  auto encoded = gneiss::engine::serialization::json::serialize_bytes(
+      gneiss::engine::serialization::context{*core}, source);
   if (!encoded)
     return 31;
-  auto restored_value = gneiss::engine::serialization::json::deserialize<e::value>(*core, *encoded);
+  auto restored_value = gneiss::engine::serialization::json::deserialize<e::value>(
+      gneiss::engine::serialization::context{*core}, *encoded);
   if (!restored_value || *restored_value != source)
     return 32;
   // 显式 JSON 文本/字节入口共享格式，独立注册表不会退回默认表。
-  auto text = e::serialization::json::serialize(*core, source);
+  auto text =
+      e::serialization::json::serialize(gneiss::engine::serialization::context{*core}, source);
   if (!text ||
       *text != std::string(reinterpret_cast<const char*>(encoded->data()), encoded->size()))
     return 34;
-  auto from_text = e::serialization::json::deserialize<e::value>(*core, std::string_view{*text});
+  auto from_text = e::serialization::json::deserialize<e::value>(
+      gneiss::engine::serialization::context{*core}, std::string_view{*text});
   if (!from_text || *from_text != source)
     return 35;
-  auto invalid = gneiss::engine::serialization::json::serialize_bytes(*core, e::value{});
+  auto invalid = gneiss::engine::serialization::json::serialize_bytes(
+      gneiss::engine::serialization::context{*core}, e::value{});
   if (invalid || invalid.error().error != e::error::invalid_argument ||
       e::meta::register_builtin_types(*core) != e::error::invalid_state)
     return 33;
@@ -70,8 +75,9 @@ int main() {
   e::material_description material;
   std::vector<std::byte> output{std::byte{42}};
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::serialization::json::serialize_bytes(registry, material), output,
-          diagnostic) != e::error::invalid_handle ||
+          gneiss::engine::serialization::json::serialize_bytes(
+              gneiss::engine::serialization::context{registry}, material),
+          output, diagnostic) != e::error::invalid_handle ||
       output.size() != 1)
     return 1;
   if (gneiss::test_support::assign_value(gneiss::engine::meta::default_registry(), registry)
@@ -80,8 +86,9 @@ int main() {
       e::register_builtin_resource_types().failed())
     return 2;
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::serialization::json::serialize_bytes(registry, material), output,
-          diagnostic) != e::error::not_ready)
+          gneiss::engine::serialization::json::serialize_bytes(
+              gneiss::engine::serialization::context{registry}, material),
+          output, diagnostic) != e::error::not_ready)
     return 3;
   if (gneiss::engine::meta::type_builder<probe>{registry}
           .json_bytes_serialization<nullptr, nullptr>()
@@ -118,13 +125,14 @@ int main() {
     return 7;
   probe object;
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::serialization::json::serialize_bytes(registry, object), output,
-          diagnostic) != e::error::out_of_memory ||
+          gneiss::engine::serialization::json::serialize_bytes(
+              gneiss::engine::serialization::context{registry}, object),
+          output, diagnostic) != e::error::out_of_memory ||
       output.size() != 1 || output[0] != std::byte{42})
     return 8;
   if (gneiss::test_support::assign_decoded(
           gneiss::engine::serialization::json::deserialize<std::remove_cvref_t<decltype(object)>>(
-              registry, bytes("bad")),
+              gneiss::engine::serialization::context{registry}, bytes("bad")),
           object, diagnostic) != e::error::invalid_argument ||
       object.number != 3)
     return 9;
@@ -135,14 +143,15 @@ int main() {
   material.texture_uris[0] = "asset://textures/纹理\".json";
   material.parameters.sampling[0].uv_set = 1;
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::serialization::json::serialize_bytes(registry, material), output,
-          diagnostic)
+          gneiss::engine::serialization::json::serialize_bytes(
+              gneiss::engine::serialization::context{registry}, material),
+          output, diagnostic)
           .failed())
     return 10;
   e::material_description restored;
   if (gneiss::test_support::assign_decoded(
           gneiss::engine::serialization::json::deserialize<std::remove_cvref_t<decltype(restored)>>(
-              registry, output),
+              gneiss::engine::serialization::context{registry}, output),
           restored, diagnostic)
           .failed() ||
       restored.parameters.color != material.parameters.color ||
@@ -153,14 +162,16 @@ int main() {
   const auto saved = output;
   material.parameters.color[0] = std::numeric_limits<float>::infinity();
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::serialization::json::serialize_bytes(registry, material), output,
-          diagnostic) != e::error::invalid_argument ||
+          gneiss::engine::serialization::json::serialize_bytes(
+              gneiss::engine::serialization::context{registry}, material),
+          output, diagnostic) != e::error::invalid_argument ||
       output != saved)
     return 12;
   material.parameters.color[0] = 2;
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::serialization::json::serialize_bytes(registry, material), output,
-          diagnostic) != e::error::invalid_argument ||
+          gneiss::engine::serialization::json::serialize_bytes(
+              gneiss::engine::serialization::context{registry}, material),
+          output, diagnostic) != e::error::invalid_argument ||
       output != saved)
     return 13;
   for (unsigned version : {1U, 2U, 3U, 4U, 5U, 7U}) {
@@ -168,14 +179,15 @@ int main() {
                       std::to_string(version) + R"(,"color":[1,1,1,1]})";
     if (gneiss::test_support::assign_decoded(
             gneiss::engine::serialization::json::deserialize<
-                std::remove_cvref_t<decltype(restored)>>(registry, bytes(text)),
+                std::remove_cvref_t<decltype(restored)>>(
+                gneiss::engine::serialization::context{registry}, bytes(text)),
             restored, diagnostic) != e::error::unsupported ||
         restored.parameters.color[0] != 0.25F)
       return 14;
   }
   if (gneiss::test_support::assign_decoded(
           gneiss::engine::serialization::json::deserialize<std::remove_cvref_t<decltype(restored)>>(
-              registry, bytes("{")),
+              gneiss::engine::serialization::context{registry}, bytes("{")),
           restored, diagnostic) != e::error::invalid_argument ||
       restored.parameters.color[0] != 0.25F)
     return 15;
@@ -188,8 +200,9 @@ int main() {
       gneiss::engine::meta::freeze(no_codec).failed())
     return 17;
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::serialization::json::serialize_bytes(no_codec, object), output,
-          diagnostic) != e::error::unsupported ||
+          gneiss::engine::serialization::json::serialize_bytes(
+              gneiss::engine::serialization::context{no_codec}, object),
+          output, diagnostic) != e::error::unsupported ||
       output != saved)
     return 18;
   auto owned_registry = e::meta::create_registry();
@@ -200,18 +213,19 @@ int main() {
           .failed() ||
       e::meta::freeze(*owned_registry).failed())
     return 19;
-  auto owned =
-      gneiss::engine::serialization::json::deserialize<move_only>(*owned_registry, bytes("A"));
+  auto owned = gneiss::engine::serialization::json::deserialize<move_only>(
+      gneiss::engine::serialization::context{*owned_registry}, bytes("A"));
   if (!owned || !owned->number || *owned->number != 65)
     return 20;
   auto rejected = gneiss::engine::serialization::json::deserialize<move_only>(
-      *owned_registry, std::span<const std::byte>{});
+      gneiss::engine::serialization::context{*owned_registry}, std::span<const std::byte>{});
   if (rejected || rejected.error().error != e::error::invalid_argument ||
       rejected.error().byte_offset != 3 || rejected.error().path != "/number")
     return 21;
   // 反射创建的拥有者可共享/擦除为 const；借用视图不承担所有权。
   auto shared_object = gneiss::engine::serialization::json::deserialize_object(
-      *owned_registry, e::runtime_type_of<move_only>(), bytes("A"));
+      gneiss::engine::serialization::context{*owned_registry}, e::runtime_type_of<move_only>(),
+      bytes("A"));
   if (!shared_object || !*shared_object)
     return 24;
   std::weak_ptr<void> weak_object = shared_object->shared();

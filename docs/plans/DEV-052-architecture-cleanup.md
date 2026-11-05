@@ -315,3 +315,14 @@ Prefab 属性覆盖直接注册 key/value，路径复用 variant；engine::value
 
 入口与绑定拆分已完成并通过 33 项相关回归，见 [阶段验收](../records/2026-11-05-json-format-boundary.md)。
 reader/writer 及共享遍历已完成，37 项相关测试通过，见 [共享遍历验收](../records/2026-11-05-serialization-traversal.md)。
+
+### 序列化 context-first 收敛
+
+- [x] 新增统一 context，封装注册表、深度配置及递归状态。
+- [x] 通用与 JSON 入口、节点/字节回调迁移 context-first，保留便捷重载。
+- [x] 删除 JSON 专用上下文和显式 registry 序列化重载，迁移调用点。
+- [x] 验证嵌套重入限制、失败复用、注册表不匹配和现有回归。
+
+不改变持久化格式，不新增通用二进制后端；决策见 [ADR-105](../decisions/ADR-105-serialization-format-boundary.md)。
+
+统一 context 已完成，构建与 37 项相关检查通过，见[验收记录](../records/2026-11-05-serialization-context.md)。

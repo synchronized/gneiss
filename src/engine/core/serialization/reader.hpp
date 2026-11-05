@@ -4,9 +4,7 @@
 #include "engine/core/meta/serialization_types.hpp"
 #include "engine/core/value.hpp"
 namespace gneiss::engine::serialization {
-namespace detail {
-struct traversal_context;
-}
+class context;
 /** 节点与键名借用后端；游标只在所属 reader 和输入数据存活期间有效。 */
 class reader {
 public:
@@ -35,8 +33,7 @@ public:
   virtual result<value, meta::serialization_diagnostic> scalar(node, value_kind) const = 0;
   virtual bool has_custom(const meta::serialization_binding&) const { return false; }
   virtual result<ref<void>, meta::serialization_diagnostic>
-  custom(detail::traversal_context&, const meta::registry_ref&, type_id,
-         const meta::serialization_binding&, node, std::size_t) {
+  custom(const context&, type_id, const meta::serialization_binding&, node) {
     return meta::serialization_diagnostic{.error = error::unsupported};
   }
 };

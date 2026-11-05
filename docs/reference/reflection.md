@@ -329,16 +329,15 @@ Scene/Prefab 不缓存来源版本或派生依赖列表，依赖由组件描述�
 不合并旧 JSON 或保留未知扩展字段。Scene 的 parent 键映射原生 parent_uuid，空父节点使用 JSON null；具体见场景格式参考。
 
 `serialization(true)` 启用严格字段检查；默认 false 保留忽略未知字段行为，两者都拒绝重复键。
-自定义 codec 可接收首参数 `const registry_ref&`，收到当前调用表；不接收该参数的简单函数仍可注册。
+自定义字节 codec 可接收首参数 `const serialization::context&`；不接收上下文的纯转换函数仍可注册。
 内部 JSON 适配使用 `json_serialization<Encode, Decode>()` 注册节点回调，与字节 codec 互斥。
-回调借用当前 JSON 文档及 `json_codec_context`，不能保存节点或上下文。
-格式包装器使用 ctx.write_fields / ctx.read_fields<T> 跳过本类型 codec、直接遍历注册字段；
-嵌套 codec 继续使用同一注册表、引用环检测状态和深度计数，入口统一执行对象校验。
+回调与字段委托使用统一 context，具体签名、重入限制和生命周期见[序列化接口](serialization.md)。
+格式包装器跳过本类型 codec、直接遍历注册字段；嵌套 codec 沿用同一 context，入口统一执行对象校验。
 解码只在当前对象忽略已检查的 format/version；其他未知字段、重复键和必填规则保持不变。
 节点回调必须返回对象节点，解码返回独立对象；异常由外层序列化边界转换为错误。
 文件字节上限在根字节入口检查，嵌套节点不是独立文件，不重复计算字节上限。
 内部 JSON 适配头为 serialization/detail/json_adapter.hpp，IPC 等节点调用使用 serialization::json::read/write；独立格式包装使用其 read_fields/write_fields。
-带标签的 value 节点使用 serialization::json::read_value/write_value；实现和递归状态仍只在 serialization.cpp 中定义。
+带标签的 value 节点使用 serialization::json::read_value/write_value；格式实现位于 json.cpp，递归状态由统一 context 私有持有。
 普通字节 codec 保留给自定义文件协议；若用于嵌套 JSON，仍使用显式文本适配。
 内置资源格式包装和 value 已使用节点回调，不经过该适配；旧 serialize_reflected 字节入口已删除。
 材质文件包装仅处理 format/version，直接读写 v6 原生描述，不再创建文件数据副本类型。
