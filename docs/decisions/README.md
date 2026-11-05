@@ -115,3 +115,5 @@ Reference 和实现为准。
 - [ADR-103：显式多态与引用按值持久化](ADR-103-inline-polymorphic-references.md)
 
 - [ADR-104：Value 的受约束对象强引用](ADR-104-value-object-reference.md)
+
+- [ADR-106：统一资产服务与场景实例化分离](ADR-106-unified-asset-service.md)

@@ -35,3 +35,6 @@ CPU 引用及从缓存取得的类型化运行资源引用共享缓存条目控�
 [资产参考](../reference/assets.md)，实施见 [PLAN-094](../plans/PLAN-094-unified-asset-loading.md)。
 
 读取额度已由 [ADR-100](ADR-100-loading-limits.md) 移至文件服务，CPU 缓存键不再包含读取上限。
+
+后续边界调整：已接受的 [ADR-106](ADR-106-unified-asset-service.md) 计划合并资产拥有者，
+尚待实施；不表示本记录中的双管理器实现已经删除。
