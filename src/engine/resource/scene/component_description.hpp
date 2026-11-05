@@ -105,3 +105,17 @@ private:
   std::vector<component_description> values_;
 };
 }
+namespace gneiss::engine::meta {
+/** 只读序列访问；解码整组校验后替换，禁止绕过集合约束修改元素。 */
+template <> struct sequence_traits<component_descriptions> {
+  static constexpr bool enabled = true;
+  using element = component_description;
+  static std::size_t size(const component_descriptions& value) { return value.size(); }
+  static const element* at(const component_descriptions& value, std::size_t index) {
+    return &value.values()[index];
+  }
+  static error replace(component_descriptions& target, const std::vector<element>& values) {
+    return target.replace(values);
+  }
+};
+}

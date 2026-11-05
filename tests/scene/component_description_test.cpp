@@ -95,9 +95,14 @@ int main() try {
   if (!object_view)
     return 37;
   auto property = object_view->property("components");
-  if (!property || property->as_sequence().error() != e::error::unsupported ||
+  if (!property || !property->as_sequence() || !property->as_sequence()->supports_replacement() ||
+      property->as_sequence()->at(0).error() != e::error::unsupported ||
+      property->as_sequence()->resize(2) != e::error::unsupported ||
       !property->as_const().as_sequence())
     return 38;
+  auto collection_bytes = e::meta::serialize(guarded.components);
+  if (!collection_bytes || !e::meta::deserialize<e::component_descriptions>(*collection_bytes))
+    return 41;
   auto original = *guarded.components.begin();
   auto null_status = e::meta::deserialize_instance(*property, bytes("[null]"));
   auto duplicate_status =

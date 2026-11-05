@@ -162,7 +162,8 @@ World 保持不变。旧顶层 `prefab_instances` 也被明确拒绝，不作为
 
 `object_description::components` 使用 `component_descriptions`，内部保存 `ref<const component_description_base>`。具体描述继承基类并注册 Meta 继承关系，
 通用引用序列化负责 `$type_guid` / `$content`，列表负责每种组件至多一项。
-Scene 的 components 通过非标量 getter/setter 注册反射；IPC 使用同一 Meta 数组解码。
+Scene 的 components 直接注册成员；component_descriptions 通过 sequence_traits 提供只读
+序列访问与整组校验替换。IPC 使用同一 Meta 数组解码，不再依赖组件专用 DOM 适配函数。
 `object_description.prefab` 注册为 optional，引用描述的 uri、overrides、component_overrides
 由反射遍历。属性覆盖和组件增删指令保留专用 codec；覆盖键重复、URI 和跨列表冲突由
 引用描述校验器统一验证。属性覆盖解码后按作者键排序。

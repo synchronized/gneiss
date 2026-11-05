@@ -222,3 +222,14 @@ components 缺失使用空列表，保存始终输出，移除按 Prefab 存在�
 
 已完成，全量编译、15 项相关测试与边界反例检查通过，见
 [验收记录](../records/2026-11-05-meta-registry-entrypoints.md)。
+
+
+### 组件集合序列反射
+
+component_descriptions 接入 sequence_traits，提供只读元素访问与整组校验替换。
+通用序列解码增加可选 replace 能力：解码候选 vector 后再提交，不开放集合可写元素。
+对象 components 改为直接成员注册；IPC 和 Prefab 覆盖使用通用视图 DOM 编解码，
+删除 read_components/write_components。验收覆盖多态往返、空项/重复项拒绝及失败保留旧值。
+
+已完成，全量编译、17 项相关测试和分层检查通过，见
+[验收记录](../records/2026-11-05-component-sequence-reflection.md)。

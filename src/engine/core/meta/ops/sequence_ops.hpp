@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/core/error.hpp"
 #include "engine/core/meta/ops/forward.hpp"
 #include <array>
 #include <concepts>
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <type_traits>
 #include <utility>
 #include <vector>
 namespace gneiss::engine::meta {
-/** 专门化以适配自定义序列；size/at 必需，at_mut/resize 可选。元素地址仅借用。 */
+/** 专门化以适配自定义序列；size/at 必需，at_mut/resize/replace 可选。元素地址仅借用。
+ * replace(T&, const vector<element>&) 返回 error，负责整组校验，失败保持原集合。 */
 template <class T> struct sequence_traits {
   static constexpr bool enabled = false;
 };
@@ -41,6 +44,7 @@ struct sequence_ops {
   void* (*at_mut)(void*, std::size_t){};
   void (*resize)(void*, std::size_t){};
   bool fixed_size = false;
+  error (*replace)(void*, const std::function<error(void*, const detail::type_ops&)>&){};
 };
 namespace detail {
 template <class T> const sequence_ops& sequence_ops_of() {
@@ -63,6 +67,14 @@ template <class T> const sequence_ops& sequence_ops_of() {
       ops.resize = [](void* p, std::size_t n) { traits::resize(*static_cast<T*>(p), n); };
     if constexpr (requires { traits::fixed_size; })
       ops.fixed_size = traits::fixed_size;
+    if constexpr (requires(T& v, const std::vector<E>& values) {
+                    { traits::replace(v, values) } -> std::same_as<error>;
+                  })
+      ops.replace = [](void* p, const std::function<error(void*, const type_ops&)>& initialize) {
+        std::vector<E> candidate;
+        auto status = initialize(&candidate, ops_of<std::vector<E>>());
+        return status.failed() ? status : traits::replace(*static_cast<T*>(p), candidate);
+      };
     return ops;
   }();
   return table;

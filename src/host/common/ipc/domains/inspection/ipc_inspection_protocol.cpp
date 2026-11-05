@@ -3,7 +3,7 @@
 
 #include "ipc_inspection_protocol.hpp"
 #include "engine/core/error.hpp"
-#include "engine/resource/scene/detail/description_codec.hpp"
+#include "engine/core/meta/detail/json_value_codec.hpp"
 
 #include <yyjson.h>
 
@@ -108,15 +108,17 @@ bool parse_uuid(yyjson_val* value, bool optional, gneiss::engine::guid& output) 
 // Scene 和 IPC 共用组件数组反射编解码与业务校验。
 bool add_components(yyjson_mut_doc* doc, yyjson_mut_val* node,
                     const gneiss::engine::component_descriptions& components) {
-  auto array = gneiss::engine::detail::write_components(doc, components);
+  auto view = gneiss::engine::meta::instance::from(components);
+  if (!view)
+    return false;
+  auto array = gneiss::engine::meta::detail::write_instance(doc, *view);
   return array && yyjson_mut_obj_add_val(doc, node, "components", *array);
 }
 bool parse_components(yyjson_val* node, gneiss::engine::component_descriptions& output) {
-  auto decoded = gneiss::engine::detail::read_components(yyjson_obj_get(node, "components"));
-  if (!decoded)
-    return false;
-  output = std::move(*decoded);
-  return true;
+  auto view = gneiss::engine::meta::mutable_instance::from(output);
+  return view &&
+         gneiss::engine::meta::detail::read_instance(yyjson_obj_get(node, "components"), *view)
+             .error.ok();
 }
 
 bool add_node(yyjson_mut_doc* document, yyjson_mut_val* change,

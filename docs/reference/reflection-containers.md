@@ -69,12 +69,16 @@ ref 表保留共享引用保活和赋值语义；目前只内置适配引擎 `re
 
 | traits | 必需成员 | 可选成员 |
 | --- | --- | --- |
-| sequence_traits | enabled=true、element、size(const T&)、at(const T&, size_t) | at_mut(T&, size_t)、resize(T&, size_t)、fixed_size=true |
+| sequence_traits | enabled=true、element、size(const T&)、at(const T&, size_t) | at_mut(T&, size_t)、resize(T&, size_t)、fixed_size=true、replace(T&, const vector<element>&) |
 | associative_traits | enabled=true、element、size(const T&)、keys(const T&)、find(const T&, string_view) | find_mut、insert、erase、clear |
 
 size 返回 size_t；keys 返回自有 vector<string>，操作表统一按键排序。at/find 返回 const element*，
 可写访问与 insert 返回 element*；find 未找到返回 nullptr。insert 保留已有值，erase 返回是否删除，
 resize/clear 返回 void。回调返回真实、稳定的元素地址，不得返回临时对象或代理引用。
+可选 replace 返回 error：先在临时 vector 中完成解码，再由回调整组校验并替换。
+回调必须保证失败不改变原集合。存在 replace 时 JSON 解码优先使用该入口；
+可写序列视图通过 supports_replacement()/replace() 暴露此能力，无需开放 at_mut 或 resize。
+component_descriptions 使用此方式拒绝空组件和重复类型，保留多态引用的通用数组格式。
 缺少可写回调时，对应可写视图操作返回 unsupported。固定长度序列改变长度返回 invalid_argument；
 其他不支持 resize 的序列改变长度返回 unsupported。保持原长度允许作为无操作成功。
 

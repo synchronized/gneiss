@@ -256,10 +256,13 @@ make_component_overrides(yyjson_mut_doc* document,
     if (value.added) {
       if (!*value.added || (*value.added)->guid() != value.type_guid)
         return error::invalid_argument;
-      auto encoded = detail::write_components(document, {*value.added});
+      auto view = meta::instance::from(*value.added);
+      if (!view)
+        return view.error();
+      auto encoded = meta::detail::write_instance(document, *view);
       if (!encoded)
         return encoded.error().error;
-      entry = yyjson_mut_arr_remove_first(*encoded);
+      entry = *encoded;
     } else {
       entry = yyjson_mut_obj(document);
       if (!put_value(document, entry, "$type_guid",
@@ -386,35 +389,4 @@ decode_component_override(std::span<const std::byte> bytes) {
   return decode_override<prefab_component_override, parse_component_override>(bytes);
 }
 
-result<component_descriptions, meta::serialization_diagnostic>
-read_components(yyjson_val* input) noexcept try {
-  std::vector<component_description> decoded;
-  auto view = meta::mutable_instance::from(decoded);
-  if (!view)
-    return meta::serialization_diagnostic{.error = view.error()};
-  auto status = meta::detail::read_instance(input, *view);
-  if (status.error.failed())
-    return status;
-  component_descriptions result;
-  auto replaced = result.replace(decoded);
-  if (replaced.failed())
-    return meta::serialization_diagnostic{.message = "组件列表包含空项或重复类型",
-                                          .error = replaced};
-  return result;
-} catch (const std::bad_alloc&) {
-  return meta::serialization_diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return meta::serialization_diagnostic{.error = error::internal};
-}
-result<yyjson_mut_val*, meta::serialization_diagnostic>
-write_components(yyjson_mut_doc* document, const component_descriptions& components) noexcept try {
-  auto view = meta::instance::from(components.values());
-  if (!view)
-    return meta::serialization_diagnostic{.error = view.error()};
-  return meta::detail::write_instance(document, *view);
-} catch (const std::bad_alloc&) {
-  return meta::serialization_diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return meta::serialization_diagnostic{.error = error::internal};
-}
 }

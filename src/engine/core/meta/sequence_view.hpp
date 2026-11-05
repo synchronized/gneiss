@@ -49,6 +49,25 @@ public:
     return error::internal;
   }
   [[nodiscard]] bool is_resizable() const noexcept { return ops()->resize != nullptr; }
+  [[nodiscard]] bool supports_replacement() const noexcept { return ops()->replace != nullptr; }
+  /** 在临时序列上初始化，再通过容器约束校验并替换；不开放原集合可写元素。 */
+  [[nodiscard]] error
+  replace(const std::function<error(const mutable_instance&)>& initialize) const noexcept
+    requires(Mutable)
+  try {
+    if (!ops()->replace)
+      return error::unsupported;
+    if (!initialize)
+      return error::invalid_argument;
+    return ops()->replace(target_.data_, [&](void* data, const detail::type_ops& access) {
+      auto candidate = mutable_instance::from_access(readonly().registry_, access, data);
+      return candidate ? initialize(*candidate) : candidate.error();
+    });
+  } catch (const std::bad_alloc&) {
+    return error::out_of_memory;
+  } catch (...) {
+    return error::internal;
+  }
   [[nodiscard]] error resize(std::size_t count) const noexcept
     requires(Mutable)
   try {

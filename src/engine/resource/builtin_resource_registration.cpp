@@ -81,13 +81,7 @@ void set_reference_overrides(prefab_reference_description& value,
     return prefab_property_override_key_less(a.key, b.key);
   });
 }
-const std::vector<component_description>& object_components(const object_description& object) {
-  return object.components.values();
-}
-error set_object_components(object_description& object,
-                            const std::vector<component_description>& values) {
-  return object.components.replace(values);
-}
+
 }
 error register_component_descriptions() noexcept {
   auto base_status = meta::type_builder<component_description_base>{}.polymorphic().commit();
@@ -123,7 +117,7 @@ error register_component_descriptions() noexcept {
           .property<&object_description::name>(meta::property_id{2}, "name")
           .property<&object_description::parent_uuid>(meta::property_id{3}, "parent", required)
           .property<&object_description::transform>(meta::property_id{4}, "transform", required)
-          .property<&object_components, &set_object_components>(meta::property_id{5}, "components")
+          .property<&object_description::components>(meta::property_id{5}, "components")
           .property<&object_description::prefab>(meta::property_id{6}, "prefab")
           .serialization()
           .validate<&validate_object_description>()

@@ -689,6 +689,14 @@ serialization_diagnostic decode_view(serialization_context& ctx, const registry_
     auto v = view.as_sequence();
     if (!v)
       return failure(v.error());
+    if (v->supports_replacement()) {
+      serialization_diagnostic decoded;
+      auto status = v->replace([&](const mutable_instance& candidate) {
+        decoded = decode_view(ctx, registry, candidate, input, depth);
+        return decoded.error;
+      });
+      return decoded.error.failed() ? decoded : failure(status);
+    }
     if (v->is_resizable()) {
       auto status = v->resize(0);
       if (status.failed())
