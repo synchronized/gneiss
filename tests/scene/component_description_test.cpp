@@ -2,8 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/serialization.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_object.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 #include <string>
 namespace e = gneiss::engine;
@@ -25,19 +27,25 @@ struct custom_description
 std::span<const std::byte> bytes(std::string_view value) {
   return std::as_bytes(std::span{value.data(), value.size()});
 }
-e::result<std::vector<std::byte>, e::meta::serialization_diagnostic>
-encode(const custom_description& value) {
-  auto text = bytes(value.enabled ? R"({"enabled":true})" : R"({})");
-  return std::vector<std::byte>(text.begin(), text.end());
+e::result<void*, e::meta::serialization_diagnostic> encode(const e::serialization::context&,
+                                                           e::serialization::writer& output,
+                                                           const custom_description& value) {
+  auto root = output.object();
+  if (value.enabled) {
+    auto flag = output.scalar(e::value{true});
+    if (!flag || !output.member(root, "enabled", *flag))
+      return e::meta::serialization_diagnostic{.error = e::error::out_of_memory};
+  }
+  return root;
 }
 e::result<custom_description, e::meta::serialization_diagnostic>
-decode(std::span<const std::byte> value) {
+decode(const e::serialization::context&, e::serialization::reader& input, const void* node) {
   ++decode_calls;
-  std::string_view text{reinterpret_cast<const char*>(value.data()), value.size()};
-  if (text == R"({"enabled":true})")
-    return custom_description{true};
-  if (text == R"({})")
+  if (input.is_object(node) && input.size(node) == 0)
     return custom_description{false};
+  auto flag = input.scalar(input.member(node, "enabled"), e::value_kind::boolean);
+  if (input.is_object(node) && input.size(node) == 1 && flag && std::get<bool>(flag->payload))
+    return custom_description{true};
   return e::meta::serialization_diagnostic{
       .path = "/enabled", .message = "缺少布尔字段", .error = e::error::invalid_argument};
 }
@@ -61,13 +69,13 @@ int main() try {
           return status;
         return e::meta::type_builder<custom_description>{}
             .base<e::component_description_base>()
-            .json_bytes_serialization<&encode, &decode>()
+            .serialization<&encode, &decode>()
             .commit();
       }).failed())
     return 1;
   // 项目组件只注册字段，不写 codec；Scene/Prefab 的 GUID 分派共用默认表。
   const auto reflected = entry(reflected_description::type_guid, R"({"speed":3})");
-  auto reflected_scene = gneiss::engine::serialization::json::deserialize<e::scene_description>(
+  auto reflected_scene = gneiss::engine::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + reflected + "]")));
   if (!reflected_scene ||
       reflected_scene->objects.front().components.get<reflected_description>()->speed != 3)
@@ -76,17 +84,16 @@ int main() try {
   reflected_prefab.uuid = reflected_scene->uuid;
   reflected_prefab.objects = reflected_scene->objects;
   reflected_prefab.root_uuid = reflected_prefab.objects.front().uuid;
-  auto reflected_prefab_bytes =
-      gneiss::engine::serialization::json::serialize_bytes(reflected_prefab);
+  auto reflected_prefab_bytes = gneiss::engine::asset_file::serialize_bytes(reflected_prefab);
   if (!reflected_prefab_bytes)
     return 31;
-  auto restored_prefab = gneiss::engine::serialization::json::deserialize<e::prefab_description>(
-      *reflected_prefab_bytes);
+  auto restored_prefab =
+      gneiss::engine::asset_file::deserialize<e::prefab_description>(*reflected_prefab_bytes);
   if (!restored_prefab ||
       restored_prefab->objects.front().components.get<reflected_description>()->speed != 3)
     return 32;
   const auto custom = entry(custom_description::type_guid, R"({"enabled":true})");
-  auto parsed = gneiss::engine::serialization::json::deserialize<e::scene_description>(
+  auto parsed = gneiss::engine::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + custom + "]")));
   if (!parsed || parsed->objects.front().components.size() != 1 ||
       !parsed->objects.front().components.get<custom_description>()->enabled ||
@@ -127,42 +134,42 @@ int main() try {
     return 3;
   // false 编码省略 enabled，保存不能把原始 true 字段合并回来。
   const auto scene_decodes = decode_calls;
-  auto encoded = gneiss::engine::serialization::json::serialize_bytes(copy);
+  auto encoded = gneiss::engine::asset_file::serialize_bytes(copy);
   // 保存只调用编码器，不能通过反向解码产生新的组件对象或副作用。
   if (decode_calls != scene_decodes)
     return 15;
   auto roundtrip =
-      encoded ? gneiss::engine::serialization::json::deserialize<e::scene_description>(*encoded)
+      encoded ? gneiss::engine::asset_file::deserialize<e::scene_description>(*encoded)
               : e::result<e::scene_description, e::meta::serialization_diagnostic>{encoded.error()};
   if (!roundtrip || roundtrip->objects.front().components.get<custom_description>()->enabled)
     return 4;
-  auto unknown = gneiss::engine::serialization::json::deserialize<e::scene_description>(
+  auto unknown = gneiss::engine::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + entry(e::guid::from_bytes({99}), "{}") + "]")));
   if (unknown || unknown.error().error != e::error::not_found ||
       unknown.error().path.find("/objects/0/components/0") != 0)
     return 5;
-  auto duplicate = gneiss::engine::serialization::json::deserialize<e::scene_description>(
+  auto duplicate = gneiss::engine::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + custom + "," + custom + "]")));
   if (duplicate || duplicate.error().error != e::error::invalid_argument)
     return 6;
-  auto invalid = gneiss::engine::serialization::json::deserialize<e::scene_description>(
+  auto invalid = gneiss::engine::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + entry(custom_description::type_guid, R"({"enabled":null})") + "]")));
   if (invalid || invalid.error().path != "/objects/0/components/0/$content/enabled")
     return 7;
-  auto null_component = gneiss::engine::serialization::json::deserialize<e::scene_description>(
-      bytes(scene("[null]")));
+  auto null_component =
+      gneiss::engine::asset_file::deserialize<e::scene_description>(bytes(scene("[null]")));
   if (null_component || null_component.error().path != "/objects/0/components")
     return 33;
-  auto null_after_valid = gneiss::engine::serialization::json::deserialize<e::scene_description>(
+  auto null_after_valid = gneiss::engine::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + custom + ",null]")));
   if (null_after_valid || null_after_valid.error().path != "/objects/0/components")
     return 34;
   auto extra_envelope = custom;
   extra_envelope.insert(1, "\"extra\":true,");
-  if (gneiss::engine::serialization::json::deserialize<e::scene_description>(
+  if (gneiss::engine::asset_file::deserialize<e::scene_description>(
           bytes(scene("[" + extra_envelope + "]"))))
     return 35;
-  if (gneiss::engine::serialization::json::deserialize<e::scene_description>(bytes(scene("{}"))))
+  if (gneiss::engine::asset_file::deserialize<e::scene_description>(bytes(scene("{}"))))
     return 8;
   auto owner = e::create_native();
   if (!owner)
@@ -180,7 +187,7 @@ int main() try {
       "]")));
   if (old_camera || old_camera.error().path != "/objects/0/components/0/$content/settings")
     return 21;
-  auto bad_camera = gneiss::engine::serialization::json::deserialize<e::scene_description>(
+  auto bad_camera = gneiss::engine::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" +
                   entry(e::camera_description::type_guid,
                         R"({"settings":{"fov":1,"near":"bad","far":100},"is_primary":false})") +
@@ -190,7 +197,7 @@ int main() try {
   const auto camera =
       entry(e::camera_description::type_guid,
             R"({"settings": {"fov": 1, "near": 0.1, "far": 100},"is_primary":false})");
-  auto supported = gneiss::engine::serialization::json::deserialize<e::scene_description>(
+  auto supported = gneiss::engine::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + camera + "]")));
   if (!supported)
     return 11;
@@ -202,11 +209,11 @@ int main() try {
     value.settings = {0.8F, 0.2F, 250.0F};
     value.is_primary = true;
   });
-  auto camera_bytes = gneiss::engine::serialization::json::serialize_bytes(*supported);
+  auto camera_bytes = gneiss::engine::asset_file::serialize_bytes(*supported);
   if (!camera_bytes)
     return 18;
   auto camera_roundtrip =
-      gneiss::engine::serialization::json::deserialize<e::scene_description>(*camera_bytes);
+      gneiss::engine::asset_file::deserialize<e::scene_description>(*camera_bytes);
   if (!camera_roundtrip)
     return 19;
   const auto* restored = camera_roundtrip->objects.front().components.get<e::camera_description>();
@@ -223,16 +230,15 @@ int main() try {
   prefab_text.replace(prefab_text.find("scene_uuid"), 10, "prefab_uuid");
   prefab_text.replace(prefab_text.find("\"version\":5"), 11, "\"version\":1");
   prefab_text.insert(1, R"("root_uuid":"00000000-0000-4000-8000-000000000002",)");
-  auto prefab =
-      gneiss::engine::serialization::json::deserialize<e::prefab_description>(bytes(prefab_text));
+  auto prefab = gneiss::engine::asset_file::deserialize<e::prefab_description>(bytes(prefab_text));
   if (!prefab || prefab->objects.front().components.size() != 2)
     return 13;
   const auto prefab_decodes = decode_calls;
-  auto prefab_bytes = gneiss::engine::serialization::json::serialize_bytes(*prefab);
+  auto prefab_bytes = gneiss::engine::asset_file::serialize_bytes(*prefab);
   if (decode_calls != prefab_decodes)
     return 16;
   if (!prefab_bytes ||
-      !gneiss::engine::serialization::json::deserialize<e::prefab_description>(*prefab_bytes))
+      !gneiss::engine::asset_file::deserialize<e::prefab_description>(*prefab_bytes))
     return 14;
   return 0;
 } catch (...) {

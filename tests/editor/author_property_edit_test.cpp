@@ -8,6 +8,7 @@
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
 
 #include "engine/core/error.hpp"
@@ -131,7 +132,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
     if (gneiss::test_support::assign_value(app.scenes()->serialize(session.scene_handle()), json)
             .failed())
       throw std::runtime_error("serialize");
-    auto decoded = gneiss::engine::serialization::json::deserialize<e::scene_description>(
+    auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(
         std::as_bytes(std::span{json.data(), json.size()}));
     if (!decoded)
       throw std::runtime_error("parse");

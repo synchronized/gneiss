@@ -5,6 +5,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
 #include "tooling/asset_import/asset_writer.hpp"
@@ -81,9 +82,8 @@ int main() { // NOLINT(bugprone-exception-escape)
     if (!asset_import::write_assets(escaped, output, prefix).success)
       return 30;
     auto scene_text = read_file(output / "scenes/scene.scene.json");
-    auto scene_data =
-        gneiss::engine::serialization::json::deserialize<gneiss::engine::scene_description>(
-            std::as_bytes(std::span(scene_text.data(), scene_text.size())));
+    auto scene_data = gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(
+        std::as_bytes(std::span(scene_text.data(), scene_text.size())));
     if (!scene_data || scene_data->objects[0].name != escaped.nodes[0].name)
       return 31;
     auto text = read_file(output / "textures/image-0.texture.json");
@@ -186,7 +186,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   }
   const auto material_file = read_file(pbr_output / "materials/material-0.material.json");
   auto decoded_material =
-      gneiss::engine::serialization::json::deserialize<gneiss::engine::material_description>(
+      gneiss::engine::asset_file::deserialize<gneiss::engine::material_description>(
           std::as_bytes(std::span{material_file.data(), material_file.size()}));
   if (!decoded_material ||
       decoded_material->texture_uris[1].find("image-0-linear.texture.json") == std::string::npos ||

@@ -9,6 +9,7 @@
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
 
 #include "engine/function/world/component_identity.hpp"
@@ -755,7 +756,7 @@ engine::error scene_document::encode_scene(std::string& output) const noexcept t
   if (!description_result)
     return description_result.error();
   description = std::move(*description_result);
-  auto encoded = gneiss::engine::serialization::json::serialize_bytes(description);
+  auto encoded = gneiss::engine::asset_file::serialize_bytes(description);
   if (!encoded)
     return encoded.error().error;
   output.assign(reinterpret_cast<const char*>(encoded->data()), encoded->size());

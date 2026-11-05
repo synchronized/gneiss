@@ -31,10 +31,5 @@ public:
   virtual node next_element(cursor&) const = 0;
   virtual entry next_member(cursor&) const = 0;
   virtual result<value, meta::serialization_diagnostic> scalar(node, value_kind) const = 0;
-  virtual bool has_custom(const meta::serialization_binding&) const { return false; }
-  virtual result<ref<void>, meta::serialization_diagnostic>
-  custom(const context&, type_id, const meta::serialization_binding&, node) {
-    return meta::serialization_diagnostic{.error = error::unsupported};
-  }
 };
 }

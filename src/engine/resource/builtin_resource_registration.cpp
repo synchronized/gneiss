@@ -3,7 +3,6 @@
 #include "builtin_resource_registration.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
-#include "engine/resource/detail/reflected_asset_codec.hpp"
 #include "engine/resource/input/action_map.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
@@ -48,7 +47,6 @@ diagnostic validate_texture(const texture_description& v) {
     return invalid_description("/usage", "法线纹理必须使用 linear");
   return {};
 }
-constexpr detail::reflected_asset_format material_format{"gneiss.material", 6};
 
 diagnostic action_map_invalid(std::string path, std::string message = {}) {
   return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};
@@ -59,15 +57,8 @@ diagnostic validate_binding(const action_binding& binding) {
     return action_map_invalid("", "按键或 scale 超出有效范围");
   return {};
 }
-constexpr detail::reflected_asset_format action_map_format{"gneiss.input-map", 1,
-                                                           maximum_action_map_bytes};
 
 }
-constexpr std::string_view retired_scene_fields[]{"prefab_instances"};
-constexpr detail::reflected_asset_format scene_format{
-    "gneiss.scene", 5, scene_description::maximum_source_bytes, retired_scene_fields};
-constexpr detail::reflected_asset_format prefab_format{
-    "gneiss.prefab", 1, prefab_description::maximum_source_bytes, retired_scene_fields};
 namespace {
 const std::vector<prefab_property_override>&
 reference_overrides(const prefab_reference_description& value) {
@@ -256,14 +247,14 @@ error register_builtin_resource_types() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = detail::register_reflected_asset<material_description, material_format>(
-      meta::type_builder<material_description>{}
-          .schema_version(6)
-          .property<&material_description::parameters>(meta::property_id{1}, "parameters",
-                                                       meta::property_flags::required)
-          .property<&material_description::texture_uris>(meta::property_id{2}, "texture_uris",
-                                                         meta::property_flags::required)
-          .serialization(true));
+  status = meta::type_builder<material_description>{}
+               .schema_version(6)
+               .property<&material_description::parameters>(meta::property_id{1}, "parameters",
+                                                            meta::property_flags::required)
+               .property<&material_description::texture_uris>(meta::property_id{2}, "texture_uris",
+                                                              meta::property_flags::required)
+               .serialization(true)
+               .commit();
   if (status.failed())
     return status;
 
@@ -283,33 +274,33 @@ error register_builtin_resource_types() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = detail::register_reflected_asset<action_map, action_map_format>(
-      meta::type_builder<action_map>{}
-          .schema_version(1)
-          .property<&action_map::actions>(meta::property_id{1}, "actions", required)
-          .serialization(true)
-          .validate<&validate_action_map>());
+  status = meta::type_builder<action_map>{}
+               .schema_version(1)
+               .property<&action_map::actions>(meta::property_id{1}, "actions", required)
+               .serialization(true)
+               .validate<&validate_action_map>()
+               .commit();
   if (status.failed())
     return status;
-  status = detail::register_reflected_asset<scene_description, scene_format>(
-      meta::type_builder<scene_description>{}
-          .property<&scene_description::uuid>(meta::property_id{1}, "scene_uuid",
+  status = meta::type_builder<scene_description>{}
+               .property<&scene_description::uuid>(meta::property_id{1}, "scene_uuid",
+                                                   meta::property_flags::required)
+               .property<&scene_description::objects>(meta::property_id{2}, "objects",
+                                                      meta::property_flags::required)
+               .serialization()
+               .validate<&validate_scene_description>()
+               .commit();
+  if (status.failed())
+    return status;
+  return meta::type_builder<prefab_description>{}
+      .property<&prefab_description::uuid>(meta::property_id{1}, "prefab_uuid",
+                                           meta::property_flags::required)
+      .property<&prefab_description::root_uuid>(meta::property_id{2}, "root_uuid",
+                                                meta::property_flags::required)
+      .property<&prefab_description::objects>(meta::property_id{3}, "objects",
                                               meta::property_flags::required)
-          .property<&scene_description::objects>(meta::property_id{2}, "objects",
-                                                 meta::property_flags::required)
-          .serialization()
-          .validate<&validate_scene_description>());
-  if (status.failed())
-    return status;
-  return detail::register_reflected_asset<prefab_description, prefab_format>(
-      meta::type_builder<prefab_description>{}
-          .property<&prefab_description::uuid>(meta::property_id{1}, "prefab_uuid",
-                                               meta::property_flags::required)
-          .property<&prefab_description::root_uuid>(meta::property_id{2}, "root_uuid",
-                                                    meta::property_flags::required)
-          .property<&prefab_description::objects>(meta::property_id{3}, "objects",
-                                                  meta::property_flags::required)
-          .serialization()
-          .validate<&validate_prefab_description>());
+      .serialization()
+      .validate<&validate_prefab_description>()
+      .commit();
 }
 }

@@ -20,11 +20,5 @@ public:
   virtual bool is_object(node) const = 0;
   virtual bool is_null(node) const = 0;
   virtual bool root(node) = 0;
-  /** 格式专用扩展；普通后端仅实现结构与标量操作即可。 */
-  virtual bool has_custom(const meta::serialization_binding&) const { return false; }
-  virtual result<node, meta::serialization_diagnostic>
-  custom(const context&, type_id, const meta::serialization_binding&, const void*) {
-    return meta::serialization_diagnostic{.error = error::unsupported};
-  }
 };
 }

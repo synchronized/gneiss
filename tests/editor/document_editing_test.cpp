@@ -11,6 +11,7 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "runtime/application.hpp"
 #include <fstream>
@@ -62,7 +63,7 @@ bool save_codec_contract(gneiss::runtime::application& application) {
     return false;
   gneiss::engine::meta::serialization_diagnostic diagnostic;
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::serialization::json::deserialize<std::remove_cvref_t<decltype(snapshot)>>(
+          gneiss::engine::asset_file::deserialize<std::remove_cvref_t<decltype(snapshot)>>(
               std::as_bytes(std::span{saved.data(), saved.size()})),
           snapshot, diagnostic)
           .failed() ||

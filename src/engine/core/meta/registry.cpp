@@ -141,13 +141,6 @@ struct type_record {
          is_valid_name(property.name);
 }
 [[nodiscard]] bool validate_type(const type_definition& desc) noexcept {
-  const auto& codec = desc.serialization;
-  if ((codec.json.encode_node || codec.json.decode_node) &&
-      (codec.json.encode_bytes || codec.json.decode_bytes))
-    return false;
-  if (bool(codec.json.encode_node) != bool(codec.json.decode_node))
-    return false;
-
   if (!static_cast<bool>(desc.guid) || desc.schema_version == 0U || desc.name.empty() ||
       desc.name.size() > std::numeric_limits<std::uint32_t>::max() ||
       desc.properties.size() > std::numeric_limits<std::uint32_t>::max() ||
@@ -654,8 +647,8 @@ public:
     if (found == by_cpp_type_.end())
       return error::not_found;
     const auto& codec = found->second->serialization;
-    if (!codec.json.encode_bytes && !codec.json.decode_bytes && !codec.json.encode_node &&
-        !codec.json.decode_node && !codec.reflected && !codec.polymorphic && !codec.base_type)
+    if (!codec.encode && !codec.decode && !codec.reflected && !codec.polymorphic &&
+        !codec.base_type)
       return error::unsupported;
     return codec;
   } catch (...) {

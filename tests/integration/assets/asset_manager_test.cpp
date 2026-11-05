@@ -7,12 +7,14 @@
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/reader.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/platform/files/file_backend.hpp"
 #include "engine/platform/files/file_service.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include <atomic>
 #include <chrono>
@@ -50,7 +52,7 @@ public:
   mutable unsigned reads{};
   mutable char byte{'a'};
   mutable bool change{};
-  bool missing{}, oversized{};
+  bool missing{}, oversized{}, json{};
   std::vector<std::byte> contents;
   gneiss::engine::error read(std::string_view path,
                              std::vector<std::byte>& output) const noexcept override {
@@ -65,6 +67,8 @@ public:
       return gneiss::engine::error::invalid_argument;
     try {
       output = contents.empty() ? std::vector{static_cast<std::byte>(byte)} : contents;
+      if (json && contents.empty())
+        output = {std::byte{'"'}, static_cast<std::byte>(byte), std::byte{'"'}};
       if (change)
         ++byte;
       return gneiss::engine::error::success;
@@ -228,10 +232,9 @@ void injected_file_service() {
 }
 error register_test_assets() {
   gneiss::engine::meta::serialization_binding codec;
-  codec.json.decode_bytes =
-      [](const serialization::context&,
-         std::span<const std::byte> bytes) -> result<ref<void>, meta::serialization_diagnostic> {
-    if (bytes.front() == std::byte{'?'})
+  codec.decode = [](const serialization::context&, serialization::reader& input,
+                    const void* node) -> result<ref<void>, meta::serialization_diagnostic> {
+    if (!input.is_string(node) || input.string(node) == "?")
       return meta::serialization_diagnostic{7U, "/value", "invalid value", error::invalid_argument};
     return ref<void>{std::make_shared<value>(value{'r'})};
   };
@@ -245,6 +248,7 @@ void decoder_selection() {
   auto source = std::make_shared<memory_files>();
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == error::success, "decoder mount");
+  source->json = true;
   asset_manager reflected(gneiss::test_support::test_files(files));
   asset_ref<const value> output;
   check(gneiss::test_support::load_asset(reflected, "asset://value", output, true) ==
@@ -309,6 +313,7 @@ void decoder_selection() {
         "async diagnostic and unchanged output");
   source->byte = 'a';
   // 同一个类型同时具备反射与显式解码器时，只采用显式函数。
+  source->json = false;
   asset_manager explicit_assets(gneiss::test_support::test_files(files));
   check(explicit_assets.register_decoder<value>(&explicit_decode) == error::success,
         "typed decoder");
@@ -347,10 +352,10 @@ void decoder_selection() {
   material_description description;
   description.parameters.metallic = 0.25F;
   gneiss::engine::meta::serialization_diagnostic diagnostic;
-  check(gneiss::test_support::assign_decoded(
-            gneiss::engine::serialization::json::serialize_bytes(description), source->contents,
-            diagnostic) == error::success,
-        "material fixture");
+  check(
+      gneiss::test_support::assign_decoded(gneiss::engine::asset_file::serialize_bytes(description),
+                                           source->contents, diagnostic) == error::success,
+      "material fixture");
   asset_manager material_assets(gneiss::test_support::test_files(files));
   asset_ref<const material_description> material;
   check(gneiss::test_support::load_asset(material_assets, "asset://material", material) ==

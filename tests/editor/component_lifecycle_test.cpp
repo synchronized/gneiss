@@ -7,6 +7,7 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
 #include <cstdio>
 #include <source_location>
@@ -81,9 +82,9 @@ int main() try {
   auto removed = snapshot();
   check(removed.objects.size() == 1 && removed.objects[0].components.empty());
   check(history.undo().ok() && current()->data.speed == 4);
-  auto encoded = gneiss::engine::serialization::json::serialize_bytes(snapshot());
+  auto encoded = gneiss::engine::asset_file::serialize_bytes(snapshot());
   check(encoded.has_value());
-  auto decoded = gneiss::engine::serialization::json::deserialize<e::scene_description>(*encoded);
+  auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(*encoded);
   check(decoded.has_value());
   e::scene_preparation_inputs inputs;
   inputs.scene = e::asset_ref<const e::scene_description>{

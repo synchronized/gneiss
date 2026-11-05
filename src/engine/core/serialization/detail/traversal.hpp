@@ -23,4 +23,8 @@ result<ref<void>, serialization_diagnostic> decode_owned(const context&, const r
 serialization_diagnostic decode_members(const context&, const registry_ref&, type_id, void*,
                                         reader::node, std::size_t,
                                         std::span<const std::string_view> = {});
+result<writer::node, serialization_diagnostic> encode_value(const context&, writer&,
+                                                            const value&) noexcept;
+result<value, serialization_diagnostic> decode_value(const context&, reader&,
+                                                     reader::node) noexcept;
 }

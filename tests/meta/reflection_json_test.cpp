@@ -3,6 +3,7 @@
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/serialization.hpp"
 #include "engine/resource/asset_decoder.hpp"
 #include <future>
 #include <limits>
@@ -58,10 +59,15 @@ struct tracked {
   float value = 0;
 };
 e::error reject(const tracked&) { return e::error::invalid_argument; }
-e::result<std::vector<std::byte>, m::serialization_diagnostic> custom_encode(const sample&) {
-  return std::vector<std::byte>{std::byte{42}};
+e::result<void*, m::serialization_diagnostic>
+custom_encode(const e::serialization::context&, e::serialization::writer& output, const sample&) {
+  auto root = output.object();
+  if (!root || !output.member(root, "custom", output.string("yes")))
+    return m::serialization_diagnostic{.error = e::error::out_of_memory};
+  return root;
 }
-e::result<sample, m::serialization_diagnostic> custom_decode(std::span<const std::byte>) {
+e::result<sample, m::serialization_diagnostic>
+custom_decode(const e::serialization::context&, e::serialization::reader&, const void*) {
   return sample{};
 }
 enum class named_number : std::int32_t { negative = -7, positive = 9 };
@@ -281,22 +287,24 @@ int main() try {
   if (!custom ||
       m::type_builder<sample>{*custom}
           .serialization()
-          .json_bytes_serialization<&custom_encode, &custom_decode>()
+          .serialization<&custom_encode, &custom_decode>()
           .commit()
           .failed() ||
       m::freeze(*custom).failed())
     return 19;
   auto custom_output = gneiss::engine::serialization::json::serialize_bytes(
       gneiss::engine::serialization::context{*custom}, sample{});
-  if (!custom_output || custom_output->size() != 1 || custom_output->front() != std::byte{42} ||
+  if (!custom_output ||
+      std::string_view(reinterpret_cast<const char*>(custom_output->data()),
+                       custom_output->size()) != R"({"custom":"yes"})" ||
       !gneiss::engine::serialization::json::deserialize<sample>(
-          gneiss::engine::serialization::context{*custom}, std::span<const std::byte>{}))
+          gneiss::engine::serialization::context{*custom}, bytes("{}")))
     return 20;
   auto fallback = m::create_registry();
   if (!fallback ||
       m::type_builder<sample>{*fallback}
           .property<&sample::enabled>(m::property_id{1}, "enabled")
-          .json_bytes_serialization<&custom_encode, nullptr>()
+          .serialization<&custom_encode, nullptr>()
           .serialization()
           .commit()
           .failed() ||

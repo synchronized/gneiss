@@ -89,6 +89,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/meta/ops/variant_ops.hpp
   engine/core/meta/ops/reference_ops.hpp
 
+  engine/resource/asset_file.hpp
   engine/core/serialization/context.hpp
   engine/core/serialization/json.hpp
   engine/core/serialization/serialization.hpp

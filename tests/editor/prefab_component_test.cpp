@@ -7,6 +7,7 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
 #include <cstdio>
 #include <source_location>
@@ -166,9 +167,9 @@ int main() try {
             app->scenes()->capture_description(document.scene_handle()), saved)
             .ok());
   check(saved.objects[0].prefab->component_overrides.size() == 2);
-  auto bytes = gneiss::engine::serialization::json::serialize_bytes(saved);
+  auto bytes = gneiss::engine::asset_file::serialize_bytes(saved);
   check(bytes.has_value());
-  auto decoded = gneiss::engine::serialization::json::deserialize<e::scene_description>(*bytes);
+  auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(*bytes);
   check(decoded.has_value());
   check(decoded->objects[0].prefab->component_overrides.size() == 2);
   auto contradictory = saved;
@@ -177,7 +178,7 @@ int main() try {
                .type_guid = type,
                .property_id = e::meta::property_id{1}},
        .value = e::value{2.0F}});
-  check(!gneiss::engine::serialization::json::serialize_bytes(contradictory));
+  check(!gneiss::engine::asset_file::serialize_bytes(contradictory));
   e::scene_preparation_inputs inputs;
   inputs.scene = e::asset_ref<const e::scene_description>{
       std::make_shared<const e::scene_description>(*decoded)};

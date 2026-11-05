@@ -271,8 +271,8 @@ public:
     };
     return *this;
   }
-  /** Encode/Decode 是有类型函数，允许 nullptr 表示缺少该方向。文件格式由 codec 自行校验。 */
-  template <auto Encode, auto Decode> type_builder& json_bytes_serialization() noexcept {
+  /** 通用有类型 codec；借用上下文与后端，允许 nullptr 表示缺少某个方向。 */
+  template <auto Encode, auto Decode> type_builder& serialization() noexcept {
     if (committed_ || status_.failed())
       return *this;
     if (has_serialization_) {
@@ -283,61 +283,24 @@ public:
     if constexpr (!std::is_null_pointer_v<decltype(Encode)>) {
       auto encode = Encode;
       if (encode)
-        codec_.json.encode_bytes =
-            []([[maybe_unused]] const serialization::context& ctx,
-               const void* object) -> result<std::vector<std::byte>, serialization_diagnostic> {
-          if constexpr (std::is_invocable_v<decltype(Encode), const serialization::context&,
-                                            const object_type&>)
-            return std::invoke(Encode, ctx, *static_cast<const object_type*>(object));
-          else
-            return std::invoke(Encode, *static_cast<const object_type*>(object));
+        codec_.encode = [](const serialization::context& ctx, serialization::writer& output,
+                           const void* object) -> result<void*, serialization_diagnostic> {
+          return std::invoke(Encode, ctx, output, *static_cast<const object_type*>(object));
         };
     }
     if constexpr (!std::is_null_pointer_v<decltype(Decode)>) {
       auto decode = Decode;
       if (decode)
-        codec_.json.decode_bytes =
-            []([[maybe_unused]] const serialization::context& ctx,
-               std::span<const std::byte> bytes) -> result<ref<void>, serialization_diagnostic> {
-          auto decoded = [&] {
-            if constexpr (std::is_invocable_v<decltype(Decode), const serialization::context&,
-                                              std::span<const std::byte>>)
-              return std::invoke(Decode, ctx, bytes);
-            else
-              return std::invoke(Decode, bytes);
-          }();
+        codec_.decode = [](const serialization::context& ctx, serialization::reader& input,
+                           const void* node) -> result<ref<void>, serialization_diagnostic> {
+          auto decoded = std::invoke(Decode, ctx, input, node);
           if (!decoded)
             return std::move(decoded).error();
           return ref<void>{std::make_shared<object_type>(std::move(*decoded))};
         };
     }
-    if (!codec_.json.encode_bytes && !codec_.json.decode_bytes)
+    if (!codec_.encode && !codec_.decode)
       status_ = error::invalid_argument;
-    return *this;
-  }
-  /** 内部 JSON 节点适配：回调复用上下文，不能保存节点或文档指针。 */
-  template <auto Encode, auto Decode>
-  type_builder&
-  json_serialization(std::size_t maximum_bytes = std::numeric_limits<std::size_t>::max()) noexcept {
-    if (committed_ || status_.failed())
-      return *this;
-    if (has_serialization_) {
-      status_ = error::invalid_argument;
-      return *this;
-    }
-    has_serialization_ = true;
-    codec_.json.maximum_bytes = maximum_bytes;
-    codec_.json.encode_node = [](const serialization::context& ctx, yyjson_mut_doc* doc,
-                                 const void* object) {
-      return Encode(ctx, doc, *static_cast<const object_type*>(object));
-    };
-    codec_.json.decode_node = [](const serialization::context& ctx,
-                                 yyjson_val* input) -> result<ref<void>, serialization_diagnostic> {
-      auto decoded = Decode(ctx, input);
-      if (!decoded)
-        return std::move(decoded).error();
-      return ref<void>{std::make_shared<object_type>(std::move(*decoded))};
-    };
     return *this;
   }
   [[nodiscard]] error commit() noexcept {

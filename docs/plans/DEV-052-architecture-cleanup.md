@@ -326,3 +326,15 @@ reader/writer 及共享遍历已完成，37 项相关测试通过，见 [共享�
 不改变持久化格式，不新增通用二进制后端；决策见 [ADR-105](../decisions/ADR-105-serialization-format-boundary.md)。
 
 统一 context 已完成，构建与 37 项相关检查通过，见[验收记录](../records/2026-11-05-serialization-context.md)。
+
+### 删除类型上的 JSON 专用注册
+
+- [x] 将资源格式头、版本和文件大小限制移到资源文件读写入口，保持已有文件格式。
+- [x] 将 value 标签及对象内容编解码迁入通用 reader/writer，支持通用特殊类型回调。
+- [x] 删除 JSON 节点/字节注册、Meta 中 JSON 回调及重复后端扩展，迁移调用与测试。
+- [x] 验证普通对象无文件头、资源文件包装、通用 value、多态/循环/错误及相关回归。
+
+普通描述仍按反射字段遍历，文件包装只在文件边界启用；不新增二进制格式。
+
+已完成，Windows Clang Debug 构建及 54 项相关测试与边界检查通过，见
+[验收记录](../records/2026-11-05-serialization-codec-cleanup.md)。

@@ -6,6 +6,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/type_id.hpp"
+#include "engine/resource/asset_file.hpp"
 #include <algorithm>
 #include <memory>
 #include <vector>
@@ -32,8 +33,14 @@ public:
   type_id target_type() const noexcept override { return runtime_type_of<T>(); }
   result<std::shared_ptr<const void>, meta::serialization_diagnostic>
   decode(const std::vector<std::byte>& bytes) const override try {
-    if (function_) {
-      auto decoded = function_(bytes);
+    if (function_ || asset_file::format_traits<T>::enabled) {
+      auto decoded = [&]() -> result<T, meta::serialization_diagnostic> {
+        if (function_)
+          return function_(bytes);
+        if constexpr (asset_file::format_traits<T>::enabled)
+          return asset_file::deserialize<T>(bytes);
+        return meta::serialization_diagnostic{.error = error::unsupported};
+      }();
       if (!decoded)
         return std::move(decoded).error();
       return std::shared_ptr<const void>{std::make_shared<T>(std::move(*decoded))};
@@ -58,7 +65,7 @@ template <class T> result<std::shared_ptr<const asset_decoder>> make_reflected_d
   auto binding = meta::find_serialization(runtime_type_of<T>());
   if (!binding)
     return binding.error() == error::not_found ? error::unsupported : binding.error();
-  if (!binding->json.decode_bytes && !binding->json.decode_node && !binding->reflected)
+  if (!binding->decode && !binding->reflected)
     return error::unsupported;
   if constexpr (std::is_move_constructible_v<T> && !std::is_const_v<T>) {
     return std::shared_ptr<const asset_decoder>{std::make_shared<typed_asset_decoder<T>>(nullptr)};

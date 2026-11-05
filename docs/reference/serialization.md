@@ -47,9 +47,13 @@ auto status = ser::serialize(ctx, description, output_writer);
 它不包含 yyjson，也不选择 JSON codec。
 
 类型通过 `.serialization()` 启用共享字段遍历；字段开关和未知字段策略属于通用绑定。
-`.json_serialization<Encode, Decode>()` 与 `.json_bytes_serialization<Encode, Decode>()`
-仍登记 JSON 专用回调；JSON 后端按方向优先使用它们。
-仅登记 JSON codec 的类型不会自动获得其他格式的编解码能力。
+特殊类型通过 `.serialization<Encode, Decode>()` 注册通用操作，按方向优先于字段遍历。
+编码签名为 `(const context&, writer&, const T&) -> result<writer::node, diagnostic>`；
+解码签名为 `(const context&, reader&, reader::node) -> result<T, diagnostic>`。
+允许 nullptr 表示缺少某方向，该方向若启用字段遍历则回退，否则返回 unsupported。
+自定义编码返回对象节点，解码返回独立对象；异常由序列化边界转换为错误。
+Meta 不包含 JSON 类型或格式专用回调，reader/writer 不承担类型 codec 注册。
+`value_codec.cpp` 通过同一套结构操作处理 value 标签和对象内容，JSON 与其他后端共享实现。
 
 ## 后端契约
 
@@ -64,17 +68,32 @@ context 不可复制，可在操作完成或失败后顺序复用；外层入口
 
 默认最大嵌套深度为 64，根为零，字段、容器和引用的结构层级递增；叶子标量不另加限制。
 自定义 codec 重入完整公共入口会增加深度；字段委托保持当前深度。
-JSON 节点回调接受 `(const context&, doc, object)` / `(const context&, node)`；
-字段委托使用 `json::write_fields(ctx, doc, object)` / `json::read_fields<T>(ctx, node)`。
-JSON 字节回调可接收 context-first 参数，也保留不接收 context 的纯转换函数适配。
+JSON 的内部节点适配用于 IPC 与资源文件边界，不再作为类型注册回调。
 回调只借用 context，不得在返回后保存其引用。
 
 JSON 后端直接借用 yyjson 节点，不构建中间 DOM，不为共享遍历重新解析文本。
 reader 的容器游标逐项前进，不额外分配整个节点列表。
 writer 的结构操作返回 false 表示创建/挂接失败，统一转换为 out_of_memory；
-scalar 和格式专用扩展可返回带诊断的错误。
+scalar 和通用类型 codec 可返回带诊断的错误。
 失败后的 writer 可能包含尚未设置为根的临时节点，其回收由后端负责。
 
 当前接口面向内存中的结构编码，并非前向流式 writer。
 没有通用二进制后端或 MessagePack 实现；Mesh/Texture 的专用二进制格式继续使用独立 codec。
 设计取舍见 [ADR-105](../decisions/ADR-105-serialization-format-boundary.md)。
+
+## 资源文件边界
+
+普通 `serialization::json::serialize(description)` 只保存描述内容，不添加文件头。
+完整资源文件包含 `engine/resource/asset_file.hpp`：
+
+```cpp
+auto bytes = asset_file::serialize_bytes(scene);
+auto loaded = asset_file::deserialize<scene_description>(file_bytes);
+```
+
+资源入口提供 context-first 及默认上下文版本；`format_traits<T>` 选择文件格式。
+Material、Action Map、Scene、Prefab、Texture 的格式名、版本、大小限制集中在 asset_file.cpp。
+读写复用反射字段与校验，文件头只作用于最外层，不传播到嵌套描述对象。
+错误版本、重复格式头、超出文件大小及已移除字段由文件边界拒绝；普通对象没有这些文件约束。
+导入器输出、编辑器保存和内置资源的 asset_decoder 默认路径使用文件入口。
+未知文件类型仍可给 asset_manager 显式注册字节解码函数，不在 Meta 注册文件协议。

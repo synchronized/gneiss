@@ -9,6 +9,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
@@ -128,8 +129,7 @@ void run(gneiss::engine::execution_mode mode) {
     std::vector<std::byte> bytes;
     engine::meta::serialization_diagnostic diagnostic;
     const auto status = gneiss::test_support::assign_decoded(
-        gneiss::engine::serialization::json::serialize_bytes(changed_description), bytes,
-        diagnostic);
+        gneiss::engine::asset_file::serialize_bytes(changed_description), bytes, diagnostic);
     replacement.assign(reinterpret_cast<const char*>(bytes.data()), bytes.size());
     return status;
   };

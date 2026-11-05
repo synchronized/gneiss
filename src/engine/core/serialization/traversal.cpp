@@ -61,8 +61,8 @@ result<writer::node, serialization_diagnostic> encode_nested(const context& ctx,
     if (status.error.failed())
       return status;
   }
-  if (doc->has_custom(*binding)) {
-    auto encoded = doc->custom(ctx, id, *binding, object);
+  if (binding->encode) {
+    auto encoded = binding->encode(ctx, *doc, object);
     if (!encoded)
       return std::move(encoded).error();
     if (!doc->is_object(*encoded))
@@ -116,7 +116,7 @@ result<writer::node, serialization_diagnostic> encode_nonobject(const context& c
     if (!adjusted)
       return std::move(adjusted).error();
     auto binding = find_serialization(registry, *actual);
-    if (!binding || (!binding->reflected && !doc->has_custom(*binding)))
+    if (!binding || (!binding->reflected && !binding->encode))
       return failure(error::unsupported, "", "引用目标缺少编码器");
     const auto* address = owned->get();
     if (depth > ctx.maximum_depth() || !context_access::active(ctx).insert(address).second)
@@ -419,11 +419,11 @@ result<ref<void>, serialization_diagnostic> decode_owned(const context& ctx,
     return failure(binding.error());
   ref<void> object;
   serialization_diagnostic status;
-  if (context_access::input(ctx)->has_custom(*binding)) {
+  if (binding->decode) {
     depth_scope custom_depth{ctx, depth + (root ? 0 : 1)};
     if (context_access::depth(ctx) > ctx.maximum_depth())
       return failure(error::invalid_argument);
-    auto decoded = context_access::input(ctx)->custom(ctx, actual, *binding, content);
+    auto decoded = binding->decode(ctx, *context_access::input(ctx), content);
     if (!decoded)
       status = std::move(decoded).error();
     else
@@ -455,8 +455,8 @@ serialization_diagnostic decode_nested(const context& ctx, const registry_ref& r
   auto binding = find_serialization(registry, target.type().id());
   if (!binding)
     return failure(binding.error());
-  if (context_access::input(ctx)->has_custom(*binding)) {
-    auto decoded = context_access::input(ctx)->custom(ctx, target.type().id(), *binding, input);
+  if (binding->decode) {
+    auto decoded = binding->decode(ctx, *context_access::input(ctx), input);
     if (!decoded)
       return std::move(decoded).error();
     if (!*decoded)

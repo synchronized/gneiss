@@ -3,6 +3,7 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/platform/files/memory_file_backend.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "panels/material_editor_panel.hpp"
 #include <cstdio>
@@ -22,7 +23,7 @@ int main() try {
   e::files::service files;
   auto backend = std::make_shared<e::files::memory_backend>();
   check(files.mount({.prefix = "asset://", .readers = {backend}, .writer = backend}).ok(), "mount");
-  auto encoded = gneiss::engine::serialization::json::serialize_bytes(e::material_description{});
+  auto encoded = gneiss::engine::asset_file::serialize_bytes(e::material_description{});
   check(bool(encoded), "encode fixture");
   const auto original = text(*encoded);
   const std::string uri = "asset://materials/test.material.json";
@@ -148,7 +149,7 @@ int main() try {
   check(!model.saving() && model.save_status().ok() && model.is_dirty(),
         "save does not clear newer edits");
   auto disk = read();
-  auto disk_material = gneiss::engine::serialization::json::deserialize<e::material_description>(
+  auto disk_material = gneiss::engine::asset_file::deserialize<e::material_description>(
       std::as_bytes(std::span{disk.data(), disk.size()}));
   check(disk_material && disk_material->parameters.roughness == 0.4F &&
             disk_material->texture_uris[0] == "asset://textures/a.texture.json",

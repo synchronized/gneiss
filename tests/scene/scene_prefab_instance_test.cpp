@@ -11,6 +11,7 @@
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
 
 #include <cstdint>
@@ -181,9 +182,8 @@ int main() try {
   if (gneiss::test_support::assign_value(application->scenes()->serialize(scene), with_child)
           .failed())
     return 12;
-  auto decoded_child =
-      gneiss::engine::serialization::json::deserialize<gneiss::engine::scene_description>(
-          std::as_bytes(std::span(with_child)));
+  auto decoded_child = gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(
+      std::as_bytes(std::span(with_child)));
   if (!decoded_child || decoded_child->objects.size() != 4U ||
       decoded_child->objects.back().parent_uuid != created_uuid)
     return 12;

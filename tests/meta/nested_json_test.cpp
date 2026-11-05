@@ -3,6 +3,7 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/detail/json_adapter.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/serialization.hpp"
 namespace {
 namespace e = gneiss::engine;
 namespace m = e::meta;
@@ -45,27 +46,37 @@ e::error register_child(const m::registry_ref& registry) {
 std::span<const std::byte> bytes(std::string_view text) {
   return std::as_bytes(std::span{text.data(), text.size()});
 }
-e::result<std::vector<std::byte>, m::serialization_diagnostic> encode_custom(const child& value) {
+e::result<void*, m::serialization_diagnostic> encode_custom(const e::serialization::context&,
+                                                            e::serialization::writer& output,
+                                                            const child& value) {
   if (value.value == 13)
-    return std::vector<std::byte>{std::byte{'['}, std::byte{']'}};
-  auto text = bytes(R"({"custom":true})");
-  return std::vector<std::byte>(text.begin(), text.end());
+    return output.array();
+  auto root = output.object();
+  auto flag = output.scalar(e::value{true});
+  if (!flag || !output.member(root, "custom", *flag))
+    return m::serialization_diagnostic{.error = e::error::out_of_memory};
+  return root;
 }
-e::result<child, m::serialization_diagnostic> decode_custom(std::span<const std::byte>) {
+e::result<child, m::serialization_diagnostic>
+decode_custom(const e::serialization::context&, e::serialization::reader&, const void*) {
   return child{42};
 }
-// 自定义 codec 重入公共入口时必须沿用限制，不能重新从深度零开始。
-e::result<std::vector<std::byte>, m::serialization_diagnostic>
-encode_reentrant(const e::serialization::context& ctx, const child& value) {
-  if (value.value != 0)
-    return e::serialization::json::serialize_bytes(ctx, value);
-  auto text = bytes("{}");
-  return std::vector<std::byte>(text.begin(), text.end());
+// 通用回调重入 JSON 入口仍沿用上下文限制。
+e::result<void*, m::serialization_diagnostic> encode_reentrant(const e::serialization::context& ctx,
+                                                               e::serialization::writer& output,
+                                                               const child& value) {
+  if (value.value != 0) {
+    auto nested = e::serialization::json::serialize_bytes(ctx, value);
+    if (!nested)
+      return std::move(nested).error();
+  }
+  return output.object();
 }
 e::result<child, m::serialization_diagnostic> decode_reentrant(const e::serialization::context& ctx,
-                                                               std::span<const std::byte> input) {
-  if (input.size() != 2)
-    return e::serialization::json::deserialize<child>(ctx, input);
+                                                               e::serialization::reader& input,
+                                                               const void* node) {
+  if (input.size(node) != 0)
+    return e::serialization::json::deserialize<child>(ctx, bytes(R"({"again":1})"));
   return child{0};
 }
 
@@ -96,14 +107,6 @@ template <unsigned Depth> e::error register_chain(const m::registry_ref& registr
         .template property<&chain<Depth>::nested>(m::property_id{1}, "nested",
                                                   m::property_flags::required)
         .serialization()
-        .template json_serialization<
-            [](const gneiss::engine::serialization::context& ctx, yyjson_mut_doc* doc,
-               const chain<Depth>& value) {
-              return gneiss::engine::serialization::json::write_fields(ctx, doc, value);
-            },
-            [](const gneiss::engine::serialization::context& ctx, yyjson_val* input) {
-              return gneiss::engine::serialization::json::read_fields<chain<Depth>>(ctx, input);
-            }>()
         .commit();
   }
 }
@@ -177,7 +180,7 @@ bool nested_json_contract() {
   auto custom = m::create_registry();
   if (!custom || register_parent(*custom).failed() ||
       m::type_builder<child>{*custom}
-          .json_bytes_serialization<&encode_custom, &decode_custom>()
+          .serialization<&encode_custom, &decode_custom>()
           .validate<&check>()
           .commit()
           .failed() ||
@@ -205,21 +208,12 @@ bool nested_json_contract() {
   }
   if (parent::alive != 0)
     return false;
-  // 节点 codec 复用独立表的字段名和校验，不经过默认注册表或文本中转。
+  // 默认字段遍历使用独立表的字段名和校验。
   auto node_registry = m::create_registry();
   if (!node_registry || register_parent(*node_registry).failed() ||
       m::type_builder<child>{*node_registry}
           .property<&child::value>(m::property_id{1}, "isolated", m::property_flags::required)
           .serialization(true)
-          .json_serialization<[](const gneiss::engine::serialization::context& ctx,
-                                 yyjson_mut_doc* doc, const child& value) {
-            return gneiss::engine::serialization::json::write_fields(ctx, doc, value);
-          },
-                              [](const gneiss::engine::serialization::context& ctx,
-                                 yyjson_val* input) {
-                                return gneiss::engine::serialization::json::read_fields<child>(
-                                    ctx, input);
-                              }>(64)
           .validate<&check>()
           .commit()
           .failed() ||
@@ -256,7 +250,7 @@ bool nested_json_contract() {
     if (invalid || invalid.error().path != "/value")
       return false;
   }
-  // 字段委托保持当前层级；真正嵌套的对象才增加深度。
+  // 默认字段遍历保持对象层级，不引入额外包装层。
   e::serialization::context one_level{*node_registry, 1};
   auto shallow_text = e::serialization::json::serialize(one_level, parent{});
   if (!shallow_text ||
@@ -280,14 +274,15 @@ bool nested_json_contract() {
   auto reentrant = m::create_registry();
   if (!reentrant ||
       m::type_builder<child>{*reentrant}
-          .json_bytes_serialization<&encode_reentrant, &decode_reentrant>()
+          .serialization<&encode_reentrant, &decode_reentrant>()
           .commit()
           .failed() ||
       m::freeze(*reentrant).failed())
     return false;
   e::serialization::context recursion{*reentrant, 2};
   auto recursive_write = e::serialization::json::serialize_bytes(recursion, child{1});
-  auto recursive_read = e::serialization::json::deserialize<child>(recursion, bytes("{ }"));
+  auto recursive_read =
+      e::serialization::json::deserialize<child>(recursion, bytes(R"({"again":1})"));
   if (recursive_write || recursive_read ||
       recursive_write.error().error != e::error::invalid_argument ||
       recursive_read.error().error != e::error::invalid_argument)

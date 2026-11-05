@@ -6,6 +6,7 @@
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/scene/component_adapter.hpp"
+#include "engine/resource/asset_file.hpp"
 
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/resource/asset_uri.hpp"
@@ -271,9 +272,9 @@ engine::result<prefab_author_input> read_prefab_author_input(std::string_view sc
                                                              engine::guid instance,
                                                              std::string_view uri,
                                                              engine::scene_diagnostic* diagnostic) {
-  auto scene = gneiss::engine::serialization::json::deserialize<engine::scene_description>(
+  auto scene = gneiss::engine::asset_file::deserialize<engine::scene_description>(
       std::as_bytes(std::span{scene_json.data(), scene_json.size()}));
-  auto prefab = gneiss::engine::serialization::json::deserialize<engine::prefab_description>(
+  auto prefab = gneiss::engine::asset_file::deserialize<engine::prefab_description>(
       std::as_bytes(std::span{prefab_json.data(), prefab_json.size()}));
   if (!scene || !prefab) {
     const auto& failure = !scene ? scene.error() : prefab.error();
@@ -406,8 +407,8 @@ engine::error prepare_apply_prefab(std::string_view scene_json, std::string_view
       return status;
     plan.affected_instance_uuids.push_back(object.uuid);
   }
-  auto prefab_bytes = gneiss::engine::serialization::json::serialize_bytes(candidate);
-  auto scene_bytes = gneiss::engine::serialization::json::serialize_bytes(input->scene);
+  auto prefab_bytes = gneiss::engine::asset_file::serialize_bytes(candidate);
+  auto scene_bytes = gneiss::engine::asset_file::serialize_bytes(input->scene);
   if (!prefab_bytes || !scene_bytes) {
     const auto& failure = !prefab_bytes ? prefab_bytes.error() : scene_bytes.error();
     if (diagnostic)
@@ -486,7 +487,7 @@ engine::error prepare_unpack_prefab(std::string_view scene_json, std::string_vie
     object.prefab.reset();
     input->scene.objects.push_back(std::move(object));
   }
-  auto bytes = gneiss::engine::serialization::json::serialize_bytes(input->scene);
+  auto bytes = gneiss::engine::asset_file::serialize_bytes(input->scene);
   if (!bytes) {
     if (diagnostic)
       *diagnostic = {.error = bytes.error().error,
@@ -567,7 +568,7 @@ prepare_restore_prefab_impl(std::string_view scene_json, std::string_view scene_
   using namespace engine;
   if (scene_path.empty() || !instance)
     return error::invalid_argument;
-  auto scene = gneiss::engine::serialization::json::deserialize<scene_description>(
+  auto scene = gneiss::engine::asset_file::deserialize<scene_description>(
       std::as_bytes(std::span{scene_json.data(), scene_json.size()}));
   if (!scene)
     return scene.error().error;
@@ -598,7 +599,7 @@ prepare_restore_prefab_impl(std::string_view scene_json, std::string_view scene_
     if (!removed)
       return error::not_found;
   }
-  auto encoded = gneiss::engine::serialization::json::serialize_bytes(*scene);
+  auto encoded = gneiss::engine::asset_file::serialize_bytes(*scene);
   if (!encoded)
     return encoded.error().error;
   return std::vector<author_document_change>{{.path = std::string(scene_path),

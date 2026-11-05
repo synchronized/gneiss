@@ -12,6 +12,7 @@
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world_component_access.hpp"
 #include "engine/platform/files/file_service.hpp"
+#include "engine/resource/asset_file.hpp"
 #include <cstdio>
 #include <source_location>
 #include <stdexcept>
@@ -88,9 +89,9 @@ int main() try {
   second.parent_uuid = first.uuid;
   source.objects.push_back(second);
   // 真实文件格式解码后进入统一准备与同步实例化路径。
-  auto encoded = gneiss::engine::serialization::json::serialize_bytes(source);
+  auto encoded = gneiss::engine::asset_file::serialize_bytes(source);
   check(encoded.has_value());
-  auto decoded = gneiss::engine::serialization::json::deserialize<e::scene_description>(*encoded);
+  auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(*encoded);
   check(decoded.has_value());
   auto prepared = prepare(*decoded);
   check(e::register_scene_component(operations()) == e::error::invalid_state);
@@ -124,10 +125,9 @@ int main() try {
   e::scene_description saved;
   check(gneiss::test_support::assign_value(scenes.capture_description(instance), saved).ok());
   check(saved.objects[0].components.get<movement_description>()->speed == 5);
-  auto saved_bytes = gneiss::engine::serialization::json::serialize_bytes(saved);
+  auto saved_bytes = gneiss::engine::asset_file::serialize_bytes(saved);
   check(saved_bytes.has_value());
-  auto restored =
-      gneiss::engine::serialization::json::deserialize<e::scene_description>(*saved_bytes);
+  auto restored = gneiss::engine::asset_file::deserialize<e::scene_description>(*saved_bytes);
   check(restored.has_value());
   state(world).get<movement_component>(id)->data.speed = 8;
   check(scenes.reload_loaded(instance, *restored).ok());

@@ -329,17 +329,10 @@ Scene/Prefab 不缓存来源版本或派生依赖列表，依赖由组件描述�
 不合并旧 JSON 或保留未知扩展字段。Scene 的 parent 键映射原生 parent_uuid，空父节点使用 JSON null；具体见场景格式参考。
 
 `serialization(true)` 启用严格字段检查；默认 false 保留忽略未知字段行为，两者都拒绝重复键。
-自定义字节 codec 可接收首参数 `const serialization::context&`；不接收上下文的纯转换函数仍可注册。
-内部 JSON 适配使用 `json_serialization<Encode, Decode>()` 注册节点回调，与字节 codec 互斥。
-回调与字段委托使用统一 context，具体签名、重入限制和生命周期见[序列化接口](serialization.md)。
-格式包装器跳过本类型 codec、直接遍历注册字段；嵌套 codec 沿用同一 context，入口统一执行对象校验。
-解码只在当前对象忽略已检查的 format/version；其他未知字段、重复键和必填规则保持不变。
-节点回调必须返回对象节点，解码返回独立对象；异常由外层序列化边界转换为错误。
-文件字节上限在根字节入口检查，嵌套节点不是独立文件，不重复计算字节上限。
-内部 JSON 适配头为 serialization/detail/json_adapter.hpp，IPC 等节点调用使用 serialization::json::read/write；独立格式包装使用其 read_fields/write_fields。
-带标签的 value 节点使用 serialization::json::read_value/write_value；格式实现位于 json.cpp，递归状态由统一 context 私有持有。
-普通字节 codec 保留给自定义文件协议；若用于嵌套 JSON，仍使用显式文本适配。
-内置资源格式包装和 value 已使用节点回调，不经过该适配；旧 serialize_reflected 字节入口已删除。
+特殊类型通过通用 reader/writer 操作注册，签名和上下文规则见[序列化接口](serialization.md)。
+普通类型不注册格式专用 codec；资源文件包装在 asset_file 入口执行。
+内部 JSON 适配头为 serialization/detail/json_adapter.hpp，IPC 使用 read/write 或 read_value/write_value。
+value 的标签与引用内容由通用 value_codec.cpp 处理，JSON 仅适配基础节点。
 材质文件包装仅处理 format/version，直接读写 v6 原生描述，不再创建文件数据副本类型。
 材质、Scene/Prefab 及其嵌套组件使用已初始化并冻结的默认表；业务注册入口不接受独立表。
 
@@ -349,11 +342,11 @@ vector4 使用独立 vec4 标量身份和四分量 JSON 数组；旧 IPC 的四�
 
 ### 资源文件外层包装
 
-Material、Texture 与 Action Map 使用 resource/detail/reflected_asset_codec.hpp 共用格式包装：
+Material、Texture、Action Map、Scene 与 Prefab 使用 resource/asset_file.hpp 共用文件包装：
 验证唯一的 format/version、对象根与配置的字节上限，内容交给反射字段序列化。
 编码拒绝反射字段占用 format/version 名称，并在添加格式头后检查完整输出大小。
 Material 保持版本 6，非零未知版本返回 unsupported；Action Map 保持版本 1 与 1 MiB 上限，
-版本不符返回 invalid_argument。业务字段校验仍由各类型的 validate 完成。
+版本为非零未知整数时返回 unsupported，缺失或非法版本返回 invalid_argument。业务字段校验仍由各类型的 validate 完成。
 
 vector2 使用独立 vec2 身份及 `[x,y]` 数组，严格检查两个有限 float 分量。
 已有 value_kind 编号不变，vec2 追加于末尾。Prefab 覆盖格式支持 vec2/vec4 的独立 kind，
@@ -510,13 +503,11 @@ mutable_instance::write_value 对可直接访问的引用槽接受兼容对象�
 
 序列化实现位于 `engine/core/serialization/json.cpp`，普通调用包含 `serialization/json.hpp`。
 `serialization::json::serialize` 返回 JSON 文本，`serialize_bytes` 返回相同 JSON 的字节；
-`deserialize<T>` 接受文本或字节。两种入口均提供独立注册表和默认注册表版本。
+`deserialize<T>` 接受文本或字节。两种入口均提供 context-first 和默认上下文版本。
 Meta 不再提供含糊的 serialize/deserialize 入口。
 
-注册表的 `serialization_binding.json` 单独保存 JSON 节点/字节回调和字节限制；
-构造、继承、校验、字段遍历开关及未知字段策略不属于 JSON 操作表。`serialization` 启用字段遍历，
-`json_serialization<Encode, Decode>` 登记节点回调，`json_bytes_serialization<Encode, Decode>`
-登记 JSON 字节适配；两种自定义回调互斥，字节适配不是任意二进制格式入口。
+注册表只保存通用 encode/decode、构造、继承、校验和字段遍历策略。
+`serialization()` 启用字段遍历，`serialization<Encode, Decode>()` 提供特殊类型的通用操作。
 资源二进制协议通过 asset_decoder 显式注入解码函数。
 
 字段遍历已独立于 JSON 后端，接口与限制见 [序列化](serialization.md)。

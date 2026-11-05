@@ -12,11 +12,10 @@
 #include <string>
 #include <vector>
 
-struct yyjson_val;
-struct yyjson_mut_val;
-struct yyjson_mut_doc;
 namespace gneiss::engine::serialization {
 class context;
+class reader;
+class writer;
 }
 namespace gneiss::engine::meta {
 class object;
@@ -30,19 +29,6 @@ struct serialization_diagnostic {
   std::string message{};
   engine::error error{engine::error::success};
 };
-/** JSON 专用操作；字节回调与节点回调互斥，字节内容必须遵循 JSON 契约。 */
-struct json_serialization_binding {
-  /** JSON 节点回调仅借用文档；与字节 codec 互斥，复用当前递归上下文。 */
-  result<yyjson_mut_val*, serialization_diagnostic> (*encode_node)(
-      const gneiss::engine::serialization::context&, yyjson_mut_doc*, const void*){};
-  result<ref<void>, serialization_diagnostic> (*decode_node)(
-      const gneiss::engine::serialization::context&, yyjson_val*){};
-  std::size_t maximum_bytes = std::numeric_limits<std::size_t>::max();
-  result<std::vector<std::byte>, serialization_diagnostic> (*encode_bytes)(
-      const gneiss::engine::serialization::context&, const void*){};
-  result<ref<void>, serialization_diagnostic> (*decode_bytes)(
-      const gneiss::engine::serialization::context&, std::span<const std::byte>){};
-};
 /** 类型构造、继承及校验与具体格式操作分开保存。编码对象及输入字节仅在调用期间借用；解码成功返回独立共享所有者。
  * 回调必须可并发操作不同对象；模块需在 Registry 使用期间存活。 */
 struct serialization_binding {
@@ -54,7 +40,11 @@ struct serialization_binding {
   engine::type_id base_type{};
   /** 由注册的 C++ 继承关系执行指针调整，不以 void* 猜测基类布局。 */
   void* (*upcast)(void*){};
-  json_serialization_binding json{};
+  /** 借用 reader/writer 节点；回调只处理对象内容，不读写文件。 */
+  result<void*, serialization_diagnostic> (*encode)(const serialization::context&,
+                                                    serialization::writer&, const void*){};
+  result<ref<void>, serialization_diagnostic> (*decode)(const serialization::context&,
+                                                        serialization::reader&, const void*){};
   ref<void> (*construct)(){};
   /** 编译期确认派生关系，按 C++ 布局转换完整对象地址。 */
   object* (*as_object)(void*){};

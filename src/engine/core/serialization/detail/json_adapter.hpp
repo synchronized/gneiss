@@ -2,6 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/serialization/json.hpp"
+struct yyjson_val;
+struct yyjson_mut_val;
+struct yyjson_mut_doc;
 namespace gneiss::engine::serialization::json {
 using meta::instance;
 using meta::mutable_instance;
@@ -13,24 +16,6 @@ write_fields_object(const context&, yyjson_mut_doc*, type_id, const void*) noexc
 GNEISS_API result<ref<void>, serialization_diagnostic>
 read_fields_object(const context&, yyjson_val*, type_id,
                    std::span<const std::string_view>) noexcept;
-template <class T>
-result<yyjson_mut_val*, serialization_diagnostic>
-write_fields(const context& ctx, yyjson_mut_doc* doc, const T& object) noexcept {
-  return write_fields_object(ctx, doc, runtime_type_of<T>(), std::addressof(object));
-}
-template <class T>
-result<T, serialization_diagnostic>
-read_fields(const context& ctx, yyjson_val* input,
-            std::span<const std::string_view> ignored = {}) noexcept try {
-  auto decoded = read_fields_object(ctx, input, runtime_type_of<T>(), ignored);
-  if (!decoded)
-    return std::move(decoded).error();
-  return std::move(*static_cast<T*>(decoded->get()));
-} catch (const std::bad_alloc&) {
-  return serialization_diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return serialization_diagnostic{.error = error::internal};
-}
 GNEISS_API result<yyjson_mut_val*, serialization_diagnostic>
 write_value(const context&, yyjson_mut_doc*, const value&) noexcept;
 GNEISS_API result<value, serialization_diagnostic> read_value(const context&, yyjson_val*) noexcept;

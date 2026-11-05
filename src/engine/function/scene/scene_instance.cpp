@@ -7,6 +7,7 @@
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_types.hpp"
+#include "engine/resource/asset_file.hpp"
 
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/meta/registration.hpp"
@@ -1085,7 +1086,7 @@ result<std::string> scene_instance::serialize() const {
   auto current = capture_description();
   if (!current)
     return current.error();
-  auto encoded = gneiss::engine::serialization::json::serialize(*current);
+  auto encoded = gneiss::engine::asset_file::serialize(*current);
   if (!encoded)
     return encoded.error().error;
   return std::move(*encoded);

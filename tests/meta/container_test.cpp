@@ -3,6 +3,7 @@
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/serialization.hpp"
 #include <cstdio>
 #include <future>
 #include <limits>
@@ -28,12 +29,15 @@ struct custom {
   static constexpr e::guid type_guid = e::guid::from_bytes({95, 3});
   float number = 11;
 };
-e::result<std::vector<std::byte>, m::serialization_diagnostic> encode_custom(const custom&) {
-  const std::string text = "{\"custom\":true}";
-  const auto data = std::as_bytes(std::span{text.data(), text.size()});
-  return std::vector<std::byte>(data.begin(), data.end());
+e::result<void*, m::serialization_diagnostic>
+encode_custom(const e::serialization::context&, e::serialization::writer& output, const custom&) {
+  auto root = output.object();
+  if (!root || !output.member(root, "custom", output.string("yes")))
+    return m::serialization_diagnostic{.error = e::error::out_of_memory};
+  return root;
 }
-e::result<custom, m::serialization_diagnostic> decode_custom(std::span<const std::byte>) {
+e::result<custom, m::serialization_diagnostic>
+decode_custom(const e::serialization::context&, e::serialization::reader&, const void*) {
   return custom{42};
 }
 struct optional_description {
@@ -108,10 +112,8 @@ int main() try {
             .validate<&child::validate>()
             .commit()
             .ok());
-  CHECK((m::type_builder<custom>{*r}
-             .json_bytes_serialization<&encode_custom, &decode_custom>()
-             .commit()
-             .ok()));
+  CHECK(
+      (m::type_builder<custom>{*r}.serialization<&encode_custom, &decode_custom>().commit().ok()));
   CHECK((m::type_builder<optional_description>{*r}
              .property<&optional_description::item>(m::property_id{1}, "item")
              .property<&optional_description::get_number, &optional_description::set_number>(

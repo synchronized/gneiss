@@ -148,6 +148,7 @@ int main() {
             .serialization(true)
             .commit()
             .ok());
+  CHECK(m::register_builtin_types(*r).ok());
   CHECK(m::freeze(*r).ok());
   s::context ctx{*r};
   static_assert(!std::is_copy_constructible_v<s::context>);
@@ -225,5 +226,22 @@ int main() {
   memory_reader variant_input{variant_output.root_value};
   auto variant = s::deserialize<choice>(ctx, variant_input);
   CHECK(variant && std::get<std::string>(*variant) == "variant");
+  // 同一个 value 编解码器在无 JSON 的后端上处理标量和对象内容。
+  std::vector<e::value> values{e::value{std::int64_t{42}}, e::value{std::string{"hello"}},
+                               e::value{e::ref<m::object>{}}, e::value{e::make_ref<derived>()}};
+  memory_writer value_output;
+  CHECK(s::serialize(ctx, values, value_output).error.ok());
+  memory_reader value_input{value_output.root_value};
+  auto value_copy = s::deserialize<std::vector<e::value>>(ctx, value_input);
+  CHECK(value_copy && value_copy->size() == values.size());
+  CHECK((*value_copy)[0] == values[0] && (*value_copy)[1] == values[1] &&
+        (*value_copy)[2] == values[2]);
+  auto object_copy = std::get<e::ref<m::object>>((*value_copy)[3].payload);
+  auto object_source = std::get<e::ref<m::object>>(values[3].payload);
+  CHECK(object_copy && object_copy.get() != object_source.get());
+  CHECK(dynamic_cast<derived*>(object_copy.get())->number == 7);
+  value_output.root_value->elements[0]->members[0].second->data = e::value{std::string{"unknown"}};
+  auto unknown_kind = s::deserialize<std::vector<e::value>>(ctx, value_input);
+  CHECK(!unknown_kind && unknown_kind.error().error == e::error::unsupported);
   return 0;
 }

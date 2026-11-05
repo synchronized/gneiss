@@ -7,6 +7,7 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "panels/reflected_property_editor.hpp"
 #include "runtime/application.hpp"
 #include <cstdio>
@@ -169,9 +170,9 @@ int main() try {
     check(gneiss::test_support::assign_value(
               app->scenes()->capture_description(document.scene_handle()), output)
               .ok());
-    auto bytes = gneiss::engine::serialization::json::serialize_bytes(output);
+    auto bytes = gneiss::engine::asset_file::serialize_bytes(output);
     check(bytes.has_value());
-    auto decoded = gneiss::engine::serialization::json::deserialize<e::scene_description>(*bytes);
+    auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(*bytes);
     check(decoded.has_value());
     return *decoded;
   };
@@ -253,15 +254,15 @@ int main() try {
       invalid.objects, [](const auto& value) { return value.prefab.has_value(); });
   check(invalid_prefab != invalid.objects.end());
   invalid_prefab->prefab->overrides.front().key.path = {p{0}};
-  check(!gneiss::engine::serialization::json::serialize_bytes(invalid));
-  auto valid_bytes = gneiss::engine::serialization::json::serialize_bytes(snapshot());
+  check(!gneiss::engine::asset_file::serialize_bytes(invalid));
+  auto valid_bytes = gneiss::engine::asset_file::serialize_bytes(snapshot());
   check(valid_bytes.has_value());
   std::string malformed(reinterpret_cast<const char*>(valid_bytes->data()), valid_bytes->size());
   auto path_start = malformed.find("\"path\"");
   check(path_start != std::string::npos);
   auto array_start = malformed.find('[', path_start), array_end = malformed.find(']', array_start);
   malformed.replace(array_start, array_end - array_start + 1, R"([{"index":-1}])");
-  auto rejected = gneiss::engine::serialization::json::deserialize<e::scene_description>(
+  auto rejected = gneiss::engine::asset_file::deserialize<e::scene_description>(
       std::as_bytes(std::span{malformed.data(), malformed.size()}));
   check(!rejected && rejected.error().path.find("/path") != std::string::npos);
   e::scene_preparation_inputs inputs;

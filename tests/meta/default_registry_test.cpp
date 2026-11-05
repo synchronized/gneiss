@@ -4,6 +4,7 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/world/world_reflection.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "engine/resource/material/material_description.hpp"
 #ifdef GNEISS_TEST_THREADS
 #include <atomic>
@@ -63,9 +64,8 @@ int main(int argc, char** argv) {
   auto value = m::read_property(sample::type_guid, m::property_id{1}, &object);
   if (!value || std::get<float>(value->payload) != 2.0F || object.speed != 2.0F)
     return 6;
-  auto encoded = gneiss::engine::serialization::json::serialize_bytes(e::material_description{});
-  if (!encoded ||
-      !gneiss::engine::serialization::json::deserialize<e::material_description>(*encoded))
+  auto encoded = gneiss::engine::asset_file::serialize_bytes(e::material_description{});
+  if (!encoded || !gneiss::engine::asset_file::deserialize<e::material_description>(*encoded))
     return 7;
   if (m::register_type<sample>({.schema_version = 1}).ok() ||
       m::type_builder<sample>{}.commit().ok())

@@ -725,3 +725,15 @@ if(status EQUAL 0)
   message(FATAL_ERROR "边界检查未拒绝共享遍历依赖 JSON")
 endif()
 file(WRITE "${fixture}/src/engine/core/serialization/traversal.cpp" "// 通用遍历\n")
+
+# Value 编码与类型注册也不能反向依赖 JSON。
+foreach(path IN ITEMS "serialization/value_codec.cpp" "meta/serialization_types.hpp")
+  file(WRITE "${fixture}/src/engine/core/${path}" "struct yyjson_val;\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "边界检查未拒绝 ${path} 依赖 JSON")
+  endif()
+  file(WRITE "${fixture}/src/engine/core/${path}" "// 已清理探针\n")
+endforeach()

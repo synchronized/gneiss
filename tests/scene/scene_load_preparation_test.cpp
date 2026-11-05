@@ -12,6 +12,7 @@
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/platform/files/file_service.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 
 #include <algorithm>
@@ -75,12 +76,12 @@ unsigned scene_decodes{}, prefab_decodes{};
 result<scene_description, meta::serialization_diagnostic>
 custom_scene(std::span<const std::byte> bytes) {
   ++scene_decodes;
-  return gneiss::engine::serialization::json::deserialize<scene_description>(bytes);
+  return gneiss::engine::asset_file::deserialize<scene_description>(bytes);
 }
 result<prefab_description, meta::serialization_diagnostic>
 custom_prefab(std::span<const std::byte> bytes) {
   ++prefab_decodes;
-  return gneiss::engine::serialization::json::deserialize<prefab_description>(bytes);
+  return gneiss::engine::asset_file::deserialize<prefab_description>(bytes);
 }
 void run() {
   auto memory = std::make_shared<memory_files>();

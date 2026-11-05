@@ -3,21 +3,20 @@
 
 #include "texture_decoder.hpp"
 #include "engine/core/sha256.hpp"
-#include "engine/resource/detail/reflected_asset_codec.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "png_decoder.hpp"
 #include "texture_binary.hpp"
 #include "texture_ktx2.hpp"
 #include <granit/renderer/texture_asset.hpp>
 namespace gneiss::engine::detail {
 namespace {
-constexpr reflected_asset_format texture_format{"gneiss.texture", 2};
 asset_diagnostic convert(meta::serialization_diagnostic d) {
   return {d.error, d.byte_offset, std::move(d.path), std::move(d.message)};
 }
 }
 result<texture_description, asset_diagnostic>
 parse_texture(const std::vector<std::byte>& bytes) try {
-  auto decoded = decode_reflected_asset<texture_description>(bytes, texture_format);
+  auto decoded = asset_file::deserialize<texture_description>(bytes);
   if (!decoded)
     return convert(std::move(decoded).error());
   return std::move(*decoded);
@@ -29,7 +28,7 @@ parse_texture(const std::vector<std::byte>& bytes) try {
 
 result<std::vector<std::byte>, asset_diagnostic>
 encode_texture(const texture_description& source) noexcept try {
-  auto encoded = encode_reflected_asset(source, texture_format);
+  auto encoded = asset_file::serialize_bytes(source);
   if (!encoded)
     return convert(std::move(encoded).error());
   return std::move(*encoded);

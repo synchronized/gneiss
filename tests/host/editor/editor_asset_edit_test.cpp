@@ -10,6 +10,7 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
 #include "runtime/loading/prefab_placement.hpp"
 #include "runtime/loading/scene_service.hpp"
@@ -306,7 +307,7 @@ void prefab_edits(engine::execution_mode mode) {
     return e::guid{bytes};
   };
   const auto write = [&](const char* name, const auto& value) {
-    auto encoded = gneiss::engine::serialization::json::serialize_bytes(value);
+    auto encoded = gneiss::engine::asset_file::serialize_bytes(value);
     check(bool(encoded));
     std::ofstream file(files.root / name, std::ios::binary);
     file.write(reinterpret_cast<const char*>(encoded->data()),
