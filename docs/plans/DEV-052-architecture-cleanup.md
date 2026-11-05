@@ -348,3 +348,13 @@ reader/writer 及共享遍历已完成，37 项相关测试通过，见 [共享�
 
 已完成，构建及 55 项相关测试与边界检查通过，见
 [验收记录](../records/2026-11-05-meta-serialization-layout.md)。
+
+### Value 通用 variant 访问与持久化
+
+- [x] 保留用户调整的 value_kind 分组编号，消除对连续编号与存储下标相等的依赖。
+- [x] Value 通过 traits 接入 variant_ops，空分支与矩阵补齐通用访问和序列化。
+- [x] 统一 $case/$content 格式，对象分支复用多态引用，删除旧 value codec 和 IPC GUID 兼容。
+- [x] 同步资源、样例、IPC 与测试；不读取旧格式，不新增兼容代码。
+
+已完成，构建与 56 项相关测试及检查通过，见
+[验收记录](../records/2026-11-05-value-variant.md)。

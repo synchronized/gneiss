@@ -49,7 +49,7 @@ result<T, serialization::diagnostic> deserialize(const context& ctx, reader& inp
   if constexpr (meta::detail::reflected_value_kind<T>() != value_kind::invalid ||
                 meta::detail::optional_traits<T>::enabled ||
                 meta::detail::reference_traits<T>::enabled || meta::sequence_traits<T>::enabled ||
-                meta::associative_traits<T>::enabled || meta::detail::variant_traits<T>::enabled) {
+                meta::associative_traits<T>::enabled || meta::variant_traits<T>::enabled) {
     T result{};
     auto view = meta::mutable_instance::from(*registry, result);
     if (!view)

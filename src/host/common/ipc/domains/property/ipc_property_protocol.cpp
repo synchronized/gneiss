@@ -81,37 +81,23 @@ bool add_property_value(yyjson_mut_doc* doc, yyjson_mut_val* root,
   if (const auto* text = std::get_if<std::string>(&value.payload);
       text && text->size() > max_property_string_size)
     return false;
-  // 旧 IPC GUID 使用 type_id 标签和 32 位十六进制文本；只保留这层协议适配。
-  if (const auto* id = std::get_if<guid>(&value.payload)) {
-    if (!valid_type_id(*id))
-      return false;
-    const auto text = type_id_text(*id);
-    return yyjson_mut_obj_add_str(doc, root, "kind", "type_id") &&
-           yyjson_mut_obj_add_strncpy(doc, root, "value", text.data(), text.size());
-  }
   auto node = gneiss::engine::serialization::json::detail::write_value(doc, value);
   if (!node)
     return false;
-  return yyjson_mut_obj_add_str(doc, root, "kind",
-                                yyjson_mut_get_str(yyjson_mut_obj_get(*node, "kind"))) &&
-         yyjson_mut_obj_add_val(doc, root, "value", yyjson_mut_obj_remove_key(*node, "value"));
+  return yyjson_mut_obj_add_str(doc, root, "$case",
+                                yyjson_mut_get_str(yyjson_mut_obj_get(*node, "$case"))) &&
+         yyjson_mut_obj_add_val(doc, root, "$content",
+                                yyjson_mut_obj_remove_key(*node, "$content"));
 }
 bool parse_property_value(yyjson_val* root, gneiss::engine::value& output) {
   using namespace gneiss::engine;
-  auto* tag = yyjson_obj_get(root, "kind");
-  auto* content = yyjson_obj_get(root, "value");
+  auto* tag = yyjson_obj_get(root, "$case");
+  auto* content = yyjson_obj_get(root, "$content");
   if (!yyjson_is_obj(root) || yyjson_obj_size(root) != 2 || !yyjson_is_str(tag))
     return false;
   const std::string_view kind{yyjson_get_str(tag), yyjson_get_len(tag)};
-  if (kind == "type_id") {
-    guid id;
-    if (!parse_type_id(content, id))
-      return false;
-    output = value{id};
-    return true;
-  }
-  if (kind == "guid" || (kind == "string" && yyjson_is_str(content) &&
-                         yyjson_get_len(content) > max_property_string_size))
+  if (kind == "string" && yyjson_is_str(content) &&
+      yyjson_get_len(content) > max_property_string_size)
     return false;
   auto decoded = gneiss::engine::serialization::json::detail::read_value(root);
   if (!decoded)

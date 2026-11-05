@@ -35,12 +35,12 @@ struct type_factory {
     out.id_ = id;
     if (!id && kind == type_kind::scalar && !enumeration) {
       [&]<std::size_t... I>(std::index_sequence<I...>) {
-        ((scalar == static_cast<value_kind>(I + 1)
+        ((value::kind_index[I + 1] != value_kind::object && scalar == value::kind_index[I + 1]
               ? (void)(out.id_ = runtime_type_of<
                            std::variant_alternative_t<I + 1, value::storage_type>>())
               : (void)0),
          ...);
-      }(std::make_index_sequence<static_cast<std::size_t>(value_kind::object) - 1>{});
+      }(std::make_index_sequence<std::variant_size_v<value::storage_type> - 1>{});
     }
     out.guid_ = guid;
     out.kind_ = kind;
@@ -62,7 +62,8 @@ namespace {
 }
 
 [[nodiscard]] bool is_valid_property_kind(value_kind kind) noexcept {
-  return kind >= value_kind::boolean && kind <= value_kind::vec2;
+  return kind != value_kind::invalid && kind != value_kind::object &&
+         std::ranges::find(value::kind_index, kind) != value::kind_index.end();
 }
 
 [[nodiscard]] bool is_valid_property_value(const value& value) noexcept {
@@ -85,6 +86,10 @@ namespace {
                            std::is_same_v<type, math::vector4>)
           return std::isfinite(item.x) && std::isfinite(item.y) && std::isfinite(item.z) &&
                  std::isfinite(item.w);
+        else if constexpr (std::is_same_v<type, math::matrix3> ||
+                           std::is_same_v<type, math::matrix4>)
+          return std::ranges::all_of(math::components(item),
+                                     [](float v) { return std::isfinite(v); });
         else
           return true;
       },
@@ -546,13 +551,15 @@ public:
     // 基础值使用既有 value 类型集合，不另建可变注册表。
     [&]<std::size_t... I>(std::index_sequence<I...>) {
       (([&] {
-         const auto& access =
-             detail::ops_of<std::variant_alternative_t<I + 1, value::storage_type>>();
-         if (match(access))
-           found = &access;
+         if constexpr (value::kind_index[I + 1] != value_kind::object) {
+           const auto& access =
+               detail::ops_of<std::variant_alternative_t<I + 1, value::storage_type>>();
+           if (match(access))
+             found = &access;
+         }
        }()),
        ...);
-    }(std::make_index_sequence<static_cast<std::size_t>(value_kind::object) - 1>{});
+    }(std::make_index_sequence<std::variant_size_v<value::storage_type> - 1>{});
     if (found)
       return detail::type_factory::make(owner(), *found);
     for (const auto& record : types_) {

@@ -37,7 +37,9 @@ using namespace gneiss::engine;
         } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector2> ||
                              std::is_same_v<value_type, gneiss::engine::math::vector4> ||
                              std::is_same_v<value_type, gneiss::engine::math::vector3> ||
-                             std::is_same_v<value_type, gneiss::engine::math::quaternion>) {
+                             std::is_same_v<value_type, gneiss::engine::math::quaternion> ||
+                             std::is_same_v<value_type, math::matrix3> ||
+                             std::is_same_v<value_type, math::matrix4>) {
           return std::ranges::all_of(gneiss::engine::math::components(payload),
                                      [](float item) { return std::isfinite(item); });
         } else {
@@ -58,7 +60,9 @@ void normalize_zero(gneiss::engine::value& value) noexcept {
         } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector2> ||
                              std::is_same_v<value_type, gneiss::engine::math::vector4> ||
                              std::is_same_v<value_type, gneiss::engine::math::vector3> ||
-                             std::is_same_v<value_type, gneiss::engine::math::quaternion>) {
+                             std::is_same_v<value_type, gneiss::engine::math::quaternion> ||
+                             std::is_same_v<value_type, math::matrix3> ||
+                             std::is_same_v<value_type, math::matrix4>) {
           for (auto& item : gneiss::engine::math::components(payload)) {
             if (item == 0.0F) {
               item = 0.0F;

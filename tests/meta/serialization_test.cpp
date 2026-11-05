@@ -8,6 +8,7 @@
 #include "engine/resource/asset_decoder.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/material/material_description.hpp"
+#include <array>
 #include <limits>
 #include <stdexcept>
 namespace e = gneiss::engine;
@@ -53,6 +54,68 @@ int main() {
       e::meta::register_builtin_types(*core) != e::error::invalid_argument ||
       e::meta::freeze(*core).failed())
     return 30;
+  e::math::matrix3 matrix3{};
+  e::math::matrix4 matrix4{};
+  for (std::size_t i = 0; i < 9; ++i)
+    e::math::components(matrix3)[i] = float(i + 1);
+  for (std::size_t i = 0; i < 16; ++i)
+    e::math::components(matrix4)[i] = float(i + 1);
+  const std::array cases{e::value{},
+                         e::value{true},
+                         e::value{std::int64_t{-2}},
+                         e::value{std::uint64_t{2}},
+                         e::value{1.5F},
+                         e::value{2.5},
+                         e::value{std::string{"abc"}},
+                         e::value{e::guid{}},
+                         e::value{e::math::vector2{1, 2}},
+                         e::value{e::math::vector3{1, 2, 3}},
+                         e::value{e::math::vector4{1, 2, 3, 4}},
+                         e::value{e::math::quaternion_xyzw(1, 2, 3, 4)},
+                         e::value{matrix3},
+                         e::value{matrix4},
+                         e::value{e::ref<e::meta::object>{}}};
+  for (const auto& item : cases) {
+    auto wire = e::serialization::json::serialize(e::serialization::context{*core}, item);
+    if (!wire || wire->find("\"$case\"") == std::string::npos ||
+        wire->find("\"$content\"") == std::string::npos)
+      return 40;
+    auto restored = e::serialization::json::deserialize<e::value>(e::serialization::context{*core},
+                                                                  std::string_view{*wire});
+    if (!restored || *restored != item)
+      return 41;
+  }
+  auto matrix_wire =
+      e::serialization::json::serialize(e::serialization::context{*core}, e::value{matrix3});
+  if (!matrix_wire ||
+      matrix_wire->find("[1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]") == std::string::npos)
+    return 42;
+  auto bad_matrix = e::serialization::json::deserialize<e::value>(
+      e::serialization::context{*core},
+      std::string_view{R"({"$case":"matrix3","$content":[1,2]})"});
+  if (bad_matrix)
+    return 43;
+  auto old_format = e::serialization::json::deserialize<e::value>(
+      e::serialization::context{*core}, std::string_view{R"({"kind":"bool","value":true})"});
+  if (old_format)
+    return 44;
+  e::math::components(matrix4)[2] = std::numeric_limits<float>::infinity();
+  if (e::serialization::json::serialize(e::serialization::context{*core}, e::value{matrix4}))
+    return 45;
+  e::value edited{true};
+  auto value_view = e::meta::mutable_instance::from(*core, edited);
+  if (!value_view || value_view->kind() != e::meta::type_kind::variant)
+    return 46;
+  auto variant = value_view->as_variant();
+  if (!variant || variant->alternative_count() != cases.size() || variant->select(12).failed())
+    return 47;
+  auto selected = variant->value();
+  if (!selected || selected->write_value(e::value{matrix3}).failed() || edited != e::value{matrix3})
+    return 48;
+  if (variant->select(0).failed() || edited.kind() != e::value_kind::invalid)
+    return 49;
+  if (variant->select(cases.size()) != e::error::invalid_argument)
+    return 50;
   const e::value source{std::string{"独立 Meta"}};
   auto encoded = gneiss::engine::serialization::json::serialize_bytes(
       gneiss::engine::serialization::context{*core}, source);
@@ -74,8 +137,7 @@ int main() {
     return 35;
   auto invalid = gneiss::engine::serialization::json::serialize_bytes(
       gneiss::engine::serialization::context{*core}, e::value{});
-  if (invalid || invalid.error().error != e::error::invalid_argument ||
-      e::meta::register_builtin_types(*core) != e::error::invalid_state)
+  if (!invalid || e::meta::register_builtin_types(*core) != e::error::invalid_state)
     return 33;
 
   gneiss::engine::meta::registry_ref registry;

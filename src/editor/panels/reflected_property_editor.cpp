@@ -236,7 +236,21 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
   }
   auto original = source ? source->read_value() : result<value>{error::not_found};
   const bool overridden = original && original->payload != data->payload;
-  if (draw_property_value(name.c_str(), *data, view.type(), serial, status))
+  auto displayed_type = view.type();
+  if (displayed_type.kind() == meta::type_kind::variant) {
+    auto variant = view.as_variant();
+    auto child = variant ? variant->value() : result<meta::instance>{variant.error()};
+    if (!child) {
+      status = child.error();
+      return;
+    }
+    displayed_type = child->type();
+    if (displayed_type.kind() == meta::type_kind::empty) {
+      ImGui::TextDisabled("%s: invalid", name.c_str());
+      return;
+    }
+  }
+  if (draw_property_value(name.c_str(), *data, displayed_type, serial, status))
     pending = property_edit{.path = path, .data = std::move(*data)};
   if (original) {
     ImGui::SameLine();
@@ -289,6 +303,10 @@ bool draw_property_value(const char* name, value& data, const meta::type& type,
       break;
     case value_kind::float32:
       changed = ImGui::DragFloat(name, &std::get<float>(data.payload), 0.01F);
+      break;
+    case value_kind::matrix3:
+    case value_kind::matrix4:
+      ImGui::TextUnformatted("矩阵（只读）");
       break;
     case value_kind::vec2:
       changed = ImGui::DragFloat2(name, &std::get<math::vector2>(data.payload).x, 0.01F);

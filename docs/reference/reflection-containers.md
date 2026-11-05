@@ -121,12 +121,14 @@ template <> struct variant_case_traits<choice> {
 ```
 
 names 与 C++ 分支位置一一对应，编译期检查数量、非空和唯一性。
-JSON 保存 `{"$case":"text","$value":"hello"}`，不保存分支下标或编译器类型名。
+JSON 保存 `{"$case":"text","$content":"hello"}`，不保存分支下标或编译器类型名。
 调整 C++ 分支顺序时同步调整 names，已保存标签不变；同一个 variant 类型的所有属性共用标签。
 未配置标签时仍可使用视图，JSON 编解码返回 unsupported。
-未知标签、缺失字段及多余包装字段返回 invalid_argument；诊断通过 /$case 或 /$value 定位。
-所有候选分支均须满足现有类型注册要求，不只检查当前分支；不为 monostate 自动添加 null 规则。
+未知标签、缺失字段及多余包装字段返回 invalid_argument；诊断通过 /$case 或 /$content 定位。
+注册属性冻结时检查所有候选分支；内存视图只在实际访问对象分支时检查注册。
+monostate 使用 empty 类型类别，内容保存为 null。
 Variant 本身不支持 read_value，须先 value() 取得当前分支。此能力不自动增加编辑器切换控件。
 
 `meta::property_step` 显式使用 property/index 标签；property_id 作为范围受限的 uint32 数值编解码。
-`engine::value` 保留既有 `{kind,value}` 表达，注册其基础值 codec，不使用上述 variant 包装。
+`engine::value` 使用同一 variant 包装，variant_traits 将访问转交给 payload。
+自定义包装类型可提供 storage_type 与可变/只读 storage()；分支名仍通过 variant_case_traits 配置。

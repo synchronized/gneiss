@@ -50,11 +50,12 @@ template <class T> result<T> scalar_cast(const value& input) {
     return static_cast<T>(*v);
 }
 template <class T, std::size_t Index = 1> constexpr value_kind reflected_value_kind() {
-  if constexpr (Index == static_cast<std::size_t>(value_kind::object))
+  if constexpr (Index == std::variant_size_v<value::storage_type>)
     return value_kind::invalid;
   else if constexpr (std::is_same_v<scalar_storage<T>,
                                     std::variant_alternative_t<Index, value::storage_type>>)
-    return static_cast<value_kind>(Index);
+    return value::kind_index[Index] == value_kind::object ? value_kind::invalid
+                                                          : value::kind_index[Index];
   else
     return reflected_value_kind<T, Index + 1>();
 }

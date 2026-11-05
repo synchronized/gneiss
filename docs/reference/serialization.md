@@ -53,7 +53,7 @@ auto status = ser::serialize(ctx, description, output_writer);
 允许 nullptr 表示缺少某方向，该方向若启用字段遍历则回退，否则返回 unsupported。
 自定义编码返回对象节点，解码返回独立对象；异常由序列化边界转换为错误。
 Meta 不包含 JSON 类型或格式专用回调，reader/writer 不承担类型 codec 注册。
-`value_codec.cpp` 通过同一套结构操作处理 value 标签和对象内容，JSON 与其他后端共享实现。
+value 通过 variant_traits 接入通用 variant 遍历，对象分支复用通用多态引用，无专用 codec。
 
 ## 后端契约
 
@@ -103,6 +103,6 @@ Material、Action Map、Scene、Prefab、Texture 的格式名、版本、大小�
 错误值为 `serialization::diagnostic`，定义在 `diagnostic.hpp`；
 类型的编解码规则为 `serialization::binding`，定义在 `binding.hpp`。
 类型构造与继承转换属于 Meta 的 object_ops，不存放于编解码绑定。
-内建 value 的注册实现在 `meta/builtin_registration.cpp`，其通用编码实现在
-`serialization/value_codec.cpp`。JSON 节点适配位于 `detail/json_adapter.hpp`，
+内建反射对象根类型的注册实现在 `meta/builtin_registration.cpp`；value 是内建 variant 包装，
+无需登记自己的字段或 codec。JSON 节点适配位于 `detail/json_adapter.hpp`，
 命名空间为 `serialization::json::detail`；普通调用方使用文本、字节或 reader/writer 入口。

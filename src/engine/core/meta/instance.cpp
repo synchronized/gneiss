@@ -109,7 +109,7 @@ result<instance> instance::property(property_id id) const noexcept try {
 result<value> instance::read_value() const noexcept try {
   if (kind_ == type_kind::invalid)
     return error::invalid_state;
-  if (kind_ == type_kind::object && cpp_type_ == runtime_type_of<value>() && data_)
+  if (kind_ == type_kind::variant && cpp_type_ == runtime_type_of<value>() && data_)
     return *static_cast<const value*>(data_);
   if (kind_ == type_kind::reference && access_) {
     const auto* ops = access_->get<reference_ops>();
@@ -193,7 +193,7 @@ result<mutable_instance> mutable_instance::property(property_id id) const noexce
 error mutable_instance::write_value(const value& input) const noexcept try {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
-  if (kind() == type_kind::object && view_.cpp_type_ == runtime_type_of<value>() && data_) {
+  if (kind() == type_kind::variant && view_.cpp_type_ == runtime_type_of<value>() && data_) {
     *static_cast<value*>(data_) = input;
     return error::success;
   }
@@ -289,12 +289,8 @@ result<instance> instance::from_access(registry_ref registry, const detail::type
                                        const void* data) noexcept {
   if (!data)
     return error::invalid_argument;
-  // Variant 的未选中分支也必须有效，不能只验证当前实例内容。
-  if (access.kind() == type_kind::variant) {
-    auto resolved = detail::resolve_type(registry, access);
-    if (!resolved)
-      return resolved.error();
-  }
+  // 内存视图只借用当前存储；对象分支在实际访问时校验注册。
+  // 注册属性仍在 freeze 时检查全部叶类型。
   instance out;
   if (access.kind() == type_kind::object) {
     auto object = from_object(registry, access.id, data);

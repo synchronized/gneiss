@@ -40,6 +40,15 @@ inline auto components(quaternion& v) noexcept { return std::span<float, 4>{glm:
 inline auto components(const quaternion& v) noexcept {
   return std::span<const float, 4>{glm::value_ptr(v), 4};
 }
+/** 矩阵按列优先连续遍历，不转置。 */
+template <glm::length_t C, glm::length_t R>
+auto components(glm::mat<C, R, float, glm::packed_highp>& v) noexcept {
+  return std::span<float, C * R>{glm::value_ptr(v), C * R};
+}
+template <glm::length_t C, glm::length_t R>
+auto components(const glm::mat<C, R, float, glm::packed_highp>& v) noexcept {
+  return std::span<const float, C * R>{glm::value_ptr(v), C * R};
+}
 inline auto matrix_elements(matrix4& v) noexcept {
   return std::span<float, 16>{glm::value_ptr(v), 16};
 }

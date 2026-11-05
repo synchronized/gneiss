@@ -7,6 +7,7 @@
 namespace gneiss::engine::meta {
 enum class type_kind {
   invalid,
+  empty,
   scalar,
   object,
   sequence,

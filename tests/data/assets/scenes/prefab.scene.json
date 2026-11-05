@@ -41,8 +41,7 @@
               "path": []
             },
             "value": {
-              "kind": "vec3",
-              "value": [
+              "$case":"vec3","$content": [
                 3,
                 0,
                 0

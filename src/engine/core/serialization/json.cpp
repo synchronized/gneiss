@@ -6,7 +6,6 @@
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/serialization/detail/json_adapter.hpp"
 #include "engine/core/serialization/detail/traversal.hpp"
-#include "engine/core/serialization/detail/value_codec.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -71,7 +70,7 @@ result<value, serialization::diagnostic> read_value(yyjson_val* input, value_kin
       return output;
     }
     break;
-  case value_kind::type_guid:
+  case value_kind::guid:
     if (yyjson_is_null(input)) {
       output.payload = guid{};
       return output;
@@ -85,6 +84,25 @@ result<value, serialization::diagnostic> read_value(yyjson_val* input, value_kin
       }
     }
     break;
+  case value_kind::matrix3:
+  case value_kind::matrix4: {
+    const std::size_t count = kind == value_kind::matrix3 ? 9 : 16;
+    if (!yyjson_is_arr(input) || yyjson_arr_size(input) != count)
+      break;
+    math::matrix3 small{};
+    math::matrix4 large{};
+    std::span<float> components = kind == value_kind::matrix3
+                                      ? std::span<float>{math::components(small)}
+                                      : std::span<float>{math::components(large)};
+    for (std::size_t i = 0; i < count; ++i) {
+      auto* item = yyjson_arr_get(input, i);
+      if (!yyjson_is_num(item) || !std::isfinite(yyjson_get_num(item)) ||
+          std::abs(yyjson_get_num(item)) > std::numeric_limits<float>::max())
+        return failure(error::invalid_argument, path + "/" + std::to_string(i));
+      components[i] = static_cast<float>(yyjson_get_num(item));
+    }
+    return kind == value_kind::matrix3 ? value{small} : value{large};
+  }
   case value_kind::vec2:
   case value_kind::vec3:
   case value_kind::vec4:
@@ -484,16 +502,13 @@ read_fields_object(const context& ctx, yyjson_val* input, type_id id,
 }
 result<yyjson_mut_val*, serialization::diagnostic>
 write_value(const context& ctx, yyjson_mut_doc* doc, const value& v) noexcept try {
-  operation_scope operation{ctx};
-  if (context_access::depth(ctx) > ctx.maximum_depth())
-    return failure(error::invalid_argument);
-  if (!doc)
-    return failure(error::invalid_argument);
-  json_writer output{doc};
-  auto encoded = serialization::detail::encode_value(ctx, output, v);
-  if (!encoded)
-    return std::move(encoded).error();
-  return static_cast<yyjson_mut_val*>(*encoded);
+  auto registry = ctx.registry();
+  if (!registry)
+    return failure(registry.error());
+  auto view = instance::from(*registry, v);
+  if (!view)
+    return failure(view.error());
+  return write(ctx, doc, *view);
 } catch (const std::bad_alloc&) {
   return failure(error::out_of_memory);
 } catch (...) {
@@ -501,11 +516,17 @@ write_value(const context& ctx, yyjson_mut_doc* doc, const value& v) noexcept tr
 }
 result<value, serialization::diagnostic> read_value(const context& ctx, yyjson_val* node) noexcept
     try {
-  operation_scope operation{ctx};
-  if (context_access::depth(ctx) > ctx.maximum_depth())
-    return failure(error::invalid_argument);
-  json_reader input;
-  return serialization::detail::decode_value(ctx, input, node);
+  auto registry = ctx.registry();
+  if (!registry)
+    return failure(registry.error());
+  value output;
+  auto view = mutable_instance::from(*registry, output);
+  if (!view)
+    return failure(view.error());
+  auto status = read(ctx, node, *view);
+  if (status.error.failed())
+    return status;
+  return output;
 } catch (const std::bad_alloc&) {
   return failure(error::out_of_memory);
 } catch (...) {

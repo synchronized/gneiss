@@ -117,7 +117,7 @@ bool object_values() {
     return false;
   auto malformed = [&](std::string tag) {
     const std::string json =
-        "{\"kind\":\"object\",\"value\":{\"$type_guid\":\"" + tag + "\",\"$content\":{}}}";
+        "{\"$case\":\"object\",\"$content\":{\"$type_guid\":\"" + tag + "\",\"$content\":{}}}";
     return gneiss::engine::serialization::json::deserialize<e::value>(
         gneiss::engine::serialization::context{*registry},
         std::as_bytes(std::span{json.data(), json.size()}));
@@ -139,10 +139,11 @@ bool object_values() {
   if (duplicate.get() == decoded->item.get() ||
       dynamic_cast<shared_probe*>(duplicate.get())->number != 19)
     return false;
-  std::string deep = "{\"kind\":\"bool\",\"value\":true}";
+  std::string deep = "{\"$case\":\"bool\",\"$content\":true}";
   for (int i = 0; i < 70; ++i)
-    deep = "{\"kind\":\"object\",\"value\":{\"$type_guid\":\"" + shared_probe::type_guid.string() +
-           "\",\"$content\":{\"number\":1,\"nested\":" + deep + "}}}";
+    deep = "{\"$case\":\"object\",\"$content\":{\"$type_guid\":\"" +
+           shared_probe::type_guid.string() + "\",\"$content\":{\"number\":1,\"nested\":" + deep +
+           "}}}";
   auto too_deep = gneiss::engine::serialization::json::deserialize<e::value>(
       gneiss::engine::serialization::context{*registry},
       std::as_bytes(std::span{deep.data(), deep.size()}));

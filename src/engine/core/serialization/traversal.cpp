@@ -27,9 +27,32 @@ serialization::diagnostic prefix(serialization::diagnostic diagnostic, const std
   diagnostic.byte_offset = 0;
   return diagnostic;
 }
+/** 统一验证反射对象实际身份，普通值结构无此要求。 */
+serialization::diagnostic validate_identity(const registry_ref& registry, type_id id,
+                                            const void* address) {
+  auto ops = find_object_ops(registry, id);
+  if (!ops)
+    return failure(ops.error());
+  if (!ops->as_object)
+    return {};
+  auto type = describe_type(registry, id);
+  auto* object = ops->as_object(const_cast<void*>(address));
+  if (!type || !object || object->dynamic_type() != id || object->dynamic_guid() != type->guid ||
+      object->dynamic_address() != address)
+    return failure(error::invalid_argument, "", "对象实际身份与注册类型不符");
+  return {};
+}
 /** 检查注册继承链并按 C++ 转换逐层调整地址。 */
 result<void*, serialization::diagnostic> cast_base(const registry_ref& registry, type_id actual,
                                                    type_id declared, void* pointer) {
+  if (declared == runtime_type_of<meta::object>()) {
+    auto ops = find_object_ops(registry, actual);
+    if (!ops)
+      return failure(ops.error());
+    if (!ops->as_object)
+      return failure(error::unsupported);
+    return pointer ? static_cast<void*>(ops->as_object(pointer)) : nullptr;
+  }
   for (std::size_t depth = 0; depth <= 64; ++depth) {
     if (actual == declared)
       return pointer;
@@ -56,6 +79,9 @@ result<writer::node, serialization::diagnostic> encode_nested(const context& ctx
   auto binding = find_serialization(registry, id);
   if (!binding)
     return failure(binding.error());
+  auto identity = validate_identity(registry, id, object);
+  if (identity.error.failed())
+    return identity;
   if (binding->validate) {
     auto status = binding->validate(object);
     if (status.error.failed())
@@ -95,6 +121,8 @@ result<writer::node, serialization::diagnostic> encode_nonobject(const context& 
                                                                  std::size_t depth) {
   depth_scope scope{ctx, depth};
   const auto value_type = view.type();
+  if (value_type.kind() == type_kind::empty)
+    return doc->null();
   if (value_type.kind() == type_kind::reference) {
     auto owned = meta::detail::reference_view_access::owner(view);
     if (!owned)
@@ -159,11 +187,11 @@ result<writer::node, serialization::diagnostic> encode_nonobject(const context& 
       return failure(child.error());
     auto content = encode_view(ctx, registry, *child, doc, depth + 1);
     if (!content)
-      return prefix(std::move(content).error(), "/$value");
+      return prefix(std::move(content).error(), "/$content");
     auto* output = doc->object();
     auto name = variant->names()[*index];
     if (!output || !doc->member(output, "$case", doc->string(name)) ||
-        !doc->member(output, "$value", *content))
+        !doc->member(output, "$content", *content))
       return failure(error::out_of_memory);
     return output;
   }
@@ -298,6 +326,8 @@ serialization::diagnostic validate_view(const context& ctx, const registry_ref& 
                                         const instance& view, std::size_t depth) {
   depth_scope scope{ctx, depth};
   const auto value_type = view.type();
+  if (value_type.kind() == type_kind::empty)
+    return {};
   if (value_type.kind() == type_kind::reference) {
     auto owner = meta::detail::reference_view_access::owner(view);
     return owner && !*owner ? serialization::diagnostic{}
@@ -323,7 +353,7 @@ serialization::diagnostic validate_view(const context& ctx, const registry_ref& 
     if (!child)
       return failure(child.error());
     auto status = validate_view(ctx, registry, *child, depth + 1);
-    return status.error.failed() ? prefix(std::move(status), "/$value") : status;
+    return status.error.failed() ? prefix(std::move(status), "/$content") : status;
   }
   if (value_type.kind() == type_kind::optional) {
     auto v = view.as_optional();
@@ -441,6 +471,8 @@ result<ref<void>, serialization::diagnostic> decode_owned(const context& ctx,
   }
   if (status.error.ok() && !object)
     status = failure(error::internal);
+  if (status.error.ok())
+    status = validate_identity(registry, actual, object.get());
   if (status.error.ok() && binding->validate)
     status = binding->validate(object.get());
   if (status.error.failed())
@@ -509,6 +541,9 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
                : (status.failed() ? failure(status) : serialization::diagnostic{});
   }
   const auto value_type = view.type();
+  if (value_type.kind() == type_kind::empty)
+    return context_access::input(ctx)->is_null(input) ? serialization::diagnostic{}
+                                                      : failure(error::invalid_argument);
   if (value_type.kind() == type_kind::reference) {
     if (context_access::input(ctx)->is_null(input)) {
       auto status = meta::detail::reference_view_access::reset(view);
@@ -572,12 +607,12 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
                     ? context_access::input(ctx)->member(input, "$case")
                     : nullptr;
     auto* content = context_access::input(ctx)->is_object(input)
-                        ? context_access::input(ctx)->member(input, "$value")
+                        ? context_access::input(ctx)->member(input, "$content")
                         : nullptr;
     if (!context_access::input(ctx)->is_object(input) ||
         context_access::input(ctx)->size(input) != 2 ||
         !context_access::input(ctx)->is_string(tag) || !content)
-      return failure(error::invalid_argument, "", "variant 必须包含 $case 和 $value");
+      return failure(error::invalid_argument, "", "variant 必须包含 $case 和 $content");
     const auto name = context_access::input(ctx)->string(tag);
     auto names = variant->names();
     auto found = std::ranges::find(names, name);
@@ -590,7 +625,7 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
     if (!child)
       return failure(child.error());
     auto decoded = decode_view(ctx, registry, *child, content, depth + 1);
-    return decoded.error.failed() ? prefix(std::move(decoded), "/$value") : decoded;
+    return decoded.error.failed() ? prefix(std::move(decoded), "/$content") : decoded;
   }
   if (value_type.kind() == type_kind::optional) {
     auto v = view.as_optional();

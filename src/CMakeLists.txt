@@ -156,7 +156,6 @@ target_sources(
     engine/core/serialization/serialization.hpp
     engine/resource/asset_file.cpp
     engine/resource/asset_file.hpp
-    engine/core/serialization/value_codec.cpp
     engine/core/serialization/traversal.cpp
     engine/core/serialization/reader.hpp
     engine/core/serialization/writer.hpp

@@ -34,7 +34,7 @@ Meta 的类型与函数统一位于 `gneiss::engine::meta`，不保留旧命名�
 | `meta/registry.hpp` | 创建/注册/冻结、属性访问及能力查询 |
 | `meta/registry.cpp` | 唯一注册表的私有存储与实现 |
 | `meta/registration.hpp` | C++ Builder 注册入口与模板身份适配 |
-| `meta/builtin_registration.cpp` | 内建 value 的类型注册与编解码绑定 |
+| `meta/builtin_registration.cpp` | 内建 meta::object 多态根类型注册 |
 | `serialization/diagnostic.hpp` | 编解码错误、路径与位置 |
 | `serialization/binding.hpp` | 字段遍历、多态保存策略、自定义编解码与校验 |
 | `serialization/json.hpp` | JSON 文本、字节与对象入口 |
@@ -303,7 +303,7 @@ auto snapshot = near->read_value(); // result<value>，拥有读取结果
 ```
 
 `property(name)` 和 `property(property_id)` 返回同一种视图。对象支持 `properties()` 枚举，
-基础属性支持 `read_value()`；`kind()` 区分 invalid、scalar、object、sequence、associative、optional、reference、variant；
+基础属性支持 `read_value()`；`kind()` 区分 invalid、empty、scalar、object、sequence、associative、optional、reference、variant；
 `scalar_kind()` 区分基础值类别。`guid()` 返回静态稳定身份，容器通常为空；
 `type_id()` 为对象、容器和容器元素提供运行期身份，普通标量属性仍通过 value_kind/GUID 标识。
 
@@ -339,7 +339,7 @@ Scene/Prefab 不缓存来源版本或派生依赖列表，依赖由组件描述�
 特殊类型通过通用 reader/writer 操作注册，签名和上下文规则见[序列化接口](serialization.md)。
 普通类型不注册格式专用 codec；资源文件包装在 asset_file 入口执行。
 内部 JSON 适配头为 serialization/detail/json_adapter.hpp，IPC 使用 read/write 或 read_value/write_value。
-value 的标签与引用内容由通用 value_codec.cpp 处理，JSON 仅适配基础节点。
+value 的标签与引用内容由通用 variant 和引用遍历处理，JSON 仅适配基础节点。
 材质文件包装仅处理 format/version，直接读写 v6 原生描述，不再创建文件数据副本类型。
 材质、Scene/Prefab 及其嵌套组件使用已初始化并冻结的默认表；业务注册入口不接受独立表。
 
@@ -356,8 +356,8 @@ Material 保持版本 6，非零未知版本返回 unsupported；Action Map 保�
 版本为非零未知整数时返回 unsupported，缺失或非法版本返回 invalid_argument。业务字段校验仍由各类型的 validate 完成。
 
 vector2 使用独立 vec2 身份及 `[x,y]` 数组，严格检查两个有限 float 分量。
-已有 value_kind 编号不变，vec2 追加于末尾。Prefab 覆盖格式支持 vec2/vec4 的独立 kind，
-不把四分量向量解释成四元数。旧 Runtime IPC 尚无 vec2/vec4 表示，明确返回 unsupported。
+value_kind 使用显式分组编号，与 variant 下标无关。Prefab 与 IPC 使用通用 $case/$content，
+vec2、vec4 和 quaternion 保持独立分支，矩阵按列优先数组保存。
 
 ## 类型视图
 

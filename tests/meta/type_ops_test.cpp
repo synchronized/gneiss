@@ -217,9 +217,9 @@ int main() {
   auto text_copy = gneiss::engine::serialization::json::deserialize<choice>(
       gneiss::engine::serialization::context{*registry}, *text_bytes);
   CHECK(text_copy && *text_copy == selected);
-  for (std::string_view invalid :
-       {R"({"$case":"missing","$value":1})", R"({"$case":"number"})",
-        R"({"$case":"number","$value":"wrong"})", R"({"$case":"number","$value":1,"extra":2})"}) {
+  for (std::string_view invalid : {R"({"$case":"missing","$content":1})", R"({"$case":"number"})",
+                                   R"({"$case":"number","$content":"wrong"})",
+                                   R"({"$case":"number","$content":1,"extra":2})"}) {
     auto decoded_choice = gneiss::engine::serialization::json::deserialize<choice>(
         gneiss::engine::serialization::context{*registry},
         std::as_bytes(std::span(invalid.data(), invalid.size())));
@@ -236,10 +236,14 @@ int main() {
   CHECK(non_default_variant);
   CHECK(non_default_variant->as_variant()->select(1) == e::error::unsupported);
   CHECK(std::get<0>(cannot_construct) == 4);
-  // 即使当前分支是整数，另一个未注册的对象分支也不能绕过类型检查。
+  // 内存视图可访问当前整数分支；未注册对象的访问和完整类型查询仍被拒绝。
   auto empty_registry = m::create_registry();
   CHECK(empty_registry && m::freeze(*empty_registry).ok());
-  CHECK(!m::mutable_instance::from(*empty_registry, cannot_construct));
+  auto lazy = m::mutable_instance::from(*empty_registry, cannot_construct);
+  CHECK(lazy && lazy->as_variant()->value()->read_value()->kind() == e::value_kind::int64);
+  cannot_construct.emplace<1>(1.0F);
+  CHECK(lazy->as_variant()->value().error() == e::error::not_found);
+  CHECK(m::type_of<decltype(cannot_construct)>(*empty_registry).error() == e::error::not_found);
   throwing_choice throwing_source{std::in_place_index<1>};
   throwing_choice valueless{1};
   try {

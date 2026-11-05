@@ -28,7 +28,6 @@ int main() {
   auto moved = std::move(copy);
   if (std::get<std::string>(moved.payload)[0] != 'y')
     return 3;
-  // 类别序号同时供既有资产适配器使用，固定类别的顺序必须保持。
   const std::array values{value{},
                           value{true},
                           value{std::int64_t{-1}},
@@ -37,11 +36,18 @@ int main() {
                           value{1.0},
                           value{std::string{}},
                           value{gneiss::engine::guid{}},
+                          value{math::vector2{}},
                           value{math::vector3{}},
-                          value{math::quaternion{}}};
+                          value{math::vector4{}},
+                          value{math::quaternion{}},
+                          value{math::matrix3{1}},
+                          value{math::matrix4{1}},
+                          value{ref<meta::object>{}}};
   for (std::size_t i = 0; i < values.size(); ++i)
-    if (static_cast<std::size_t>(values[i].kind()) != i)
+    if (values[i].kind() != value::kind_index[i])
       return 4;
+  static_assert(static_cast<unsigned>(value_kind::vec2) == 20);
+  static_assert(static_cast<unsigned>(value_kind::object) == 50);
   // 精确比较保留类型和四元数符号，不把同一旋转视为相同存储值。
   for (const auto& item : values)
     if (item != item)

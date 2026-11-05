@@ -226,7 +226,7 @@ int main() {
   memory_reader variant_input{variant_output.root_value};
   auto variant = s::deserialize<choice>(ctx, variant_input);
   CHECK(variant && std::get<std::string>(*variant) == "variant");
-  // 同一个 value 编解码器在无 JSON 的后端上处理标量和对象内容。
+  // 通用 variant 遍历在无 JSON 的后端上处理 value 标量和对象内容。
   std::vector<e::value> values{e::value{std::int64_t{42}}, e::value{std::string{"hello"}},
                                e::value{e::ref<m::object>{}}, e::value{e::make_ref<derived>()}};
   memory_writer value_output;
@@ -242,6 +242,6 @@ int main() {
   CHECK(dynamic_cast<derived*>(object_copy.get())->number == 7);
   value_output.root_value->elements[0]->members[0].second->data = e::value{std::string{"unknown"}};
   auto unknown_kind = s::deserialize<std::vector<e::value>>(ctx, value_input);
-  CHECK(!unknown_kind && unknown_kind.error().error == e::error::unsupported);
+  CHECK(!unknown_kind && unknown_kind.error().error == e::error::invalid_argument);
   return 0;
 }

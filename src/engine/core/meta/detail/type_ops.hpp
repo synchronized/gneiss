@@ -16,6 +16,7 @@ using category_ops =
 /** 每个 C++ 类型共享的静态只读表；不持有实例，类别由 variant 唯一确定。 */
 struct type_ops {
   bool enumeration = false;
+  bool empty = false;
   engine::type_id id{};
   engine::guid guid{};
   void (*move_assign)(void*, void*){};
@@ -26,6 +27,8 @@ struct type_ops {
     return p ? *p : nullptr;
   }
   type_kind kind() const noexcept {
+    if (empty)
+      return type_kind::empty;
     return std::visit(
         []([[maybe_unused]] auto p) {
           using P = decltype(p);
@@ -90,6 +93,7 @@ template <class T> const type_ops& ops_of() {
                 "Conflicting reflection categories");
   static const type_ops table = [] {
     type_ops ops;
+    ops.empty = std::is_same_v<T, std::monostate>;
     ops.id = runtime_type_of<T>();
     ops.guid = type_identity<scalar_storage<T>>::guid();
     ops.enumeration = std::is_enum_v<T>;

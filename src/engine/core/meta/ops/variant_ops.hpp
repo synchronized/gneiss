@@ -3,6 +3,7 @@
 #pragma once
 #include "engine/core/error.hpp"
 #include "engine/core/meta/ops/ops_fwd.hpp"
+#include "engine/core/value.hpp"
 #include <array>
 #include <memory>
 #include <span>
@@ -20,13 +21,27 @@ struct variant_ops {
   void* (*get_mut)(void*);
   error (*select)(void*, std::size_t);
 };
-namespace detail {
 template <class T> struct variant_traits {
   static constexpr bool enabled = false;
 };
 template <class... T> struct variant_traits<std::variant<T...>> {
   static constexpr bool enabled = true;
+  using storage_type = std::variant<T...>;
+  static auto& storage(storage_type& v) noexcept { return v; }
+  static const auto& storage(const storage_type& v) noexcept { return v; }
 };
+template <> struct variant_traits<engine::value> {
+  static constexpr bool enabled = true;
+  using storage_type = engine::value::storage_type;
+  static auto& storage(engine::value& v) noexcept { return v.payload; }
+  static const auto& storage(const engine::value& v) noexcept { return v.payload; }
+};
+template <> struct variant_case_traits<engine::value> {
+  static constexpr std::array<std::string_view, 15> names{
+      "invalid", "bool", "int64", "uint64",     "float32", "float64", "string", "guid",
+      "vec2",    "vec3", "vec4",  "quaternion", "matrix3", "matrix4", "object"};
+};
+namespace detail {
 template <class T, std::size_t I = 0> error select_variant(T& value, std::size_t index) {
   if constexpr (I == std::variant_size_v<T>)
     return error::invalid_argument;
@@ -42,28 +57,33 @@ template <class T, std::size_t I = 0> error select_variant(T& value, std::size_t
   }
 }
 template <class T> const variant_ops& variant_ops_of() {
+  using S = typename variant_traits<T>::storage_type;
   static const auto alternatives = []<std::size_t... I>(std::index_sequence<I...>) {
     return std::array<const type_ops*, sizeof...(I)>{
-        &ops_of<std::variant_alternative_t<I, T>>()...};
-  }(std::make_index_sequence<std::variant_size_v<T>>{});
+        &ops_of<std::variant_alternative_t<I, S>>()...};
+  }(std::make_index_sequence<std::variant_size_v<S>>{});
   static const variant_ops table = [] {
     variant_ops ops{
         alternatives,
         {},
-        [](const void* p) { return static_cast<const T*>(p)->valueless_by_exception(); },
-        [](const void* p) { return static_cast<const T*>(p)->index(); },
+        [](const void* p) {
+          return variant_traits<T>::storage(*static_cast<const T*>(p)).valueless_by_exception();
+        },
+        [](const void* p) { return variant_traits<T>::storage(*static_cast<const T*>(p)).index(); },
         [](const void* p) -> const void* {
           return std::visit([](const auto& v) -> const void* { return std::addressof(v); },
-                            *static_cast<const T*>(p));
+                            variant_traits<T>::storage(*static_cast<const T*>(p)));
         },
         [](void* p) -> void* {
           return std::visit([](auto& v) -> void* { return std::addressof(v); },
-                            *static_cast<T*>(p));
+                            variant_traits<T>::storage(*static_cast<T*>(p)));
         },
-        [](void* p, std::size_t index) { return select_variant(*static_cast<T*>(p), index); }};
+        [](void* p, std::size_t index) {
+          return select_variant(variant_traits<T>::storage(*static_cast<T*>(p)), index);
+        }};
     if constexpr (requires { variant_case_traits<T>::names; }) {
       constexpr auto& names = variant_case_traits<T>::names;
-      static_assert(names.size() == std::variant_size_v<T>);
+      static_assert(names.size() == std::variant_size_v<S>);
       static_assert(
           [] {
             constexpr auto& labels = variant_case_traits<T>::names;

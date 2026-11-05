@@ -38,7 +38,7 @@ serialize_bytes(const context& ctx, const T& object) noexcept try {
     return serialization::diagnostic{.error = registry.error()};
   if constexpr (meta::detail::reference_traits<std::remove_cv_t<T>>::enabled ||
                 meta::sequence_traits<T>::enabled || meta::associative_traits<T>::enabled ||
-                meta::detail::variant_traits<T>::enabled) {
+                meta::variant_traits<T>::enabled) {
     auto view = instance::from(*registry, object);
     if (!view)
       return serialization::diagnostic{.error = view.error()};
@@ -58,7 +58,7 @@ deserialize(const context& ctx, std::span<const std::byte> bytes) noexcept try {
   if (!registry)
     return serialization::diagnostic{.error = registry.error()};
   if constexpr (meta::detail::reference_traits<T>::enabled || meta::sequence_traits<T>::enabled ||
-                meta::associative_traits<T>::enabled || meta::detail::variant_traits<T>::enabled) {
+                meta::associative_traits<T>::enabled || meta::variant_traits<T>::enabled) {
     T object{};
     auto view = mutable_instance::from(*registry, object);
     if (!view)

@@ -85,6 +85,11 @@ bool round_trip_value(const gneiss::engine::value& value) {
 
 bool test_all_value_types() {
   const std::vector<gneiss::engine::value> values{
+      {},
+      {e::guid{}},
+      {e::ref<m::object>{}},
+      {e::math::matrix3{2}},
+      {e::math::matrix4{3}},
       {e::math::vector2{1, 2}},
       {e::math::vector4{1, 2, 3, 4}},
       {true},
