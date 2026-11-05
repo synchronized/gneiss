@@ -86,10 +86,10 @@ int main() try {
   deleted.objects.pop_back();
   check(e::prepare_prefab_reference(deleted, reference, effective, &diagnostic) ==
         e::error::not_found);
-  reference.overrides.push_back({.key = {.source_node_uuid = child_id,
-                                         .type_guid = type,
-                                         .property_id = e::meta::property_id{1}},
-                                 .value = e::value{6.0F}});
+  reference.overrides.push_back(
+      {.key = {.target = {.source_node_uuid = child_id, .target_type_guid = type},
+               .path = {e::meta::property_id{1}}},
+       .value = e::value{6.0F}});
   check(e::prepare_prefab_reference(*source, reference, effective) == e::error::invalid_argument);
   reference.component_overrides.clear();
   check(e::prepare_prefab_reference(*source, reference, effective).ok());
@@ -98,10 +98,10 @@ int main() try {
   deleted.objects[1].components.erase(type);
   check(e::prepare_prefab_reference(deleted, reference, effective, &diagnostic) ==
         e::error::not_found);
-  reference.overrides[0].key.property_id = e::meta::property_id{99};
+  reference.overrides[0].key.path.front() = e::meta::property_id{99};
   check(e::prepare_prefab_reference(*source, reference, effective, &diagnostic).failed());
   check(diagnostic.path.find("99") != std::string::npos);
-  reference.overrides[0].key.property_id = e::meta::property_id{1};
+  reference.overrides[0].key.path.front() = e::meta::property_id{1};
   reference.overrides[0].value = e::value{std::string("wrong")};
   check(e::prepare_prefab_reference(*source, reference, effective).failed());
   reference.overrides.clear();
@@ -124,6 +124,24 @@ int main() try {
   auto child_node = document.find_prefab_source(instance.uuid, child_id);
   check(bool(child_node));
   const auto node = child_node->node;
+  // 组件列表编辑生成整列表快照，来源描述和快照不会随后续修改而改变。
+  {
+    movement_description edited;
+    edited.samples = {4, 5, 6};
+    check(document.set_component_description(node, e::make_component_description(edited)).ok());
+    auto changes = document.capture_component_override(node, type);
+    check(
+        changes && changes->properties.size() == 1 && changes->properties[0].key.path.size() == 1 &&
+        std::holds_alternative<e::serialization::property_snapshot>(changes->properties[0].value));
+    edited.samples.clear();
+    check(document.components(node)->get<movement_description>()->samples.size() == 3);
+    check(
+        document
+            .set_component_description(node, e::make_component_description(movement_description{}))
+            .ok());
+    changes = document.capture_component_override(node, type);
+    check(changes && changes->properties.empty());
+  }
   ed::editor_command_history history;
   ed::component_edit_target target{
       .instance_uuid = instance.uuid, .source_uuid = root_id, .component_type = type};
@@ -174,9 +192,8 @@ int main() try {
   check(decoded->objects[0].prefab->component_overrides.size() == 2);
   auto contradictory = saved;
   contradictory.objects[0].prefab->overrides.push_back(
-      {.key = {.source_node_uuid = root_id,
-               .type_guid = type,
-               .property_id = e::meta::property_id{1}},
+      {.key = {.target = {.source_node_uuid = root_id, .target_type_guid = type},
+               .path = {e::meta::property_id{1}}},
        .value = e::value{2.0F}});
   check(!gneiss::engine::asset_file::serialize_bytes(contradictory));
   e::scene_preparation_inputs inputs;

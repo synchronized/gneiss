@@ -66,9 +66,9 @@ int main() try {
   const auto custom_type = *gneiss::engine::guid::parse("90000000-0000-4000-8000-000000000001");
   const auto property = gneiss::engine::transform_scale_field;
   gneiss::engine::prefab_property_override custom;
-  custom.key.source_node_uuid = prefab_source.prefab->source_node_uuid;
-  custom.key.type_guid = custom_type;
-  custom.key.property_id = property;
+  custom.key.target.source_node_uuid = prefab_source.prefab->source_node_uuid;
+  custom.key.target.target_type_guid = custom_type;
+  custom.key.path = {property};
   auto origin = *prefab_source.prefab;
   origin.overrides = {&custom, 1};
   if (!origin.has_override(custom_type, property) ||

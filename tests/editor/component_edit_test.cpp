@@ -236,14 +236,15 @@ int main() try {
             .ok());
   check(read().settings.acceleration == 1 && override_count() == 1);
   check(history.undo().ok() && read().settings.acceleration == 7);
-  // 序列结构变更不属于本阶段覆盖语义，拒绝并保留当前值。
+  // 序列结构变更保存整列表快照，并支持撤销恢复原长度。
   auto replacement = read();
   replacement.samples.push_back(3);
   check(apply({.path = {},
                .object_type = e::runtime_type_of<movement_description>(),
-               .object = gneiss::engine::make_ref<movement_description>(replacement)}) ==
-        e::error::unsupported);
-  check(read().samples.size() == 2);
+               .object = gneiss::engine::make_ref<movement_description>(replacement)})
+            .ok());
+  check(read().samples.size() == 3);
+  check(history.undo().ok() && read().samples.size() == 2);
   // 两个相互约束的字段必须整体覆盖，不能按路径顺序提前校验中间态。
   check(apply({.path = {p{3}},
                .object_type = e::runtime_type_of<movement_settings>(),

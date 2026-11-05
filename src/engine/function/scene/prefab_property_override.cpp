@@ -77,19 +77,29 @@ void normalize_zero(gneiss::engine::value& value) noexcept {
 
 namespace gneiss::engine {
 
+error apply_prefab_override_value(meta::mutable_instance target,
+                                  const prefab_override_value& value) noexcept {
+  if (const auto* scalar = std::get_if<engine::value>(&value))
+    return target.write_value(*scalar);
+  if (const auto* snapshot = std::get_if<serialization::property_snapshot>(&value))
+    return serialization::restore_property(target, *snapshot);
+  return error::invalid_argument;
+}
+
 error validate_prefab_property_override(const prefab_property_override& value) noexcept try {
-  if (!value.key.source_node_uuid || !value.key.type_guid || !value.key.property_id.is_valid() ||
-      !valid_value(value.value)) {
+  if (!value.key.target.source_node_uuid || !value.key.target.target_type_guid ||
+      !value.key.first_property().is_valid() || value.value.valueless_by_exception()) {
     return error::invalid_argument;
   }
-  auto field = meta::describe_property(value.key.type_guid, value.key.property_id);
+  auto field =
+      meta::describe_property(value.key.target.target_type_guid, value.key.first_property());
   if (!field)
     return field.error();
   if (!has_flags(field->capabilities, meta::property_capabilities::writable) ||
       value.key.path.size() > 64)
     return error::invalid_argument;
   auto type = field->type;
-  for (const auto& step : value.key.path) {
+  for (const auto& step : std::span{value.key.path}.subspan(1)) {
     if (const auto* property = std::get_if<meta::property_id>(&step)) {
       auto properties = type.properties();
       if (!properties)
@@ -101,7 +111,12 @@ error validate_prefab_property_override(const prefab_property_override& value) n
         return error::invalid_argument;
       type = found->type;
     } else {
-      if (type.kind() != meta::type_kind::sequence)
+      if (type.kind() != (std::holds_alternative<std::string>(step) ? meta::type_kind::associative
+                                                                    : meta::type_kind::sequence))
+        return error::invalid_argument;
+      if (std::holds_alternative<std::size_t>(step) && !type.is_fixed_sequence())
+        return error::unsupported;
+      if (const auto* id = std::get_if<guid>(&step); id && (!*id || !type.has_sequence_identity()))
         return error::invalid_argument;
       auto element = type.element_type();
       if (!element)
@@ -109,7 +124,11 @@ error validate_prefab_property_override(const prefab_property_override& value) n
       type = *element;
     }
   }
-  if (type.scalar_kind() != value.value.kind())
+  if (const auto* scalar = std::get_if<engine::value>(&value.value);
+      scalar && (!valid_value(*scalar) || type.scalar_kind() != scalar->kind()))
+    return error::invalid_argument;
+  if (const auto* snapshot = std::get_if<serialization::property_snapshot>(&value.value);
+      snapshot && snapshot->json.empty())
     return error::invalid_argument;
   return error::success;
 } catch (...) {
@@ -118,16 +137,20 @@ error validate_prefab_property_override(const prefab_property_override& value) n
 
 error set_prefab_property_override(std::vector<prefab_property_override>& overrides,
                                    prefab_property_override candidate,
-                                   engine::value source_value) noexcept {
+                                   prefab_override_value source_value) noexcept {
   auto operation = validate_prefab_property_override(candidate);
   if (operation != error::success) {
     return operation;
   }
-  if (!valid_value(source_value) || source_value.kind() != candidate.value.kind()) {
+  if (source_value.index() != candidate.value.index())
     return error::invalid_argument;
+  if (auto* scalar = std::get_if<engine::value>(&source_value)) {
+    auto& next = std::get<engine::value>(candidate.value);
+    if (!valid_value(*scalar) || scalar->kind() != next.kind())
+      return error::invalid_argument;
+    normalize_zero(*scalar);
+    normalize_zero(next);
   }
-  normalize_zero(candidate.value);
-  normalize_zero(source_value);
   try {
     const auto found = std::ranges::find(overrides, candidate.key, &prefab_property_override::key);
     if (candidate.value == source_value) {
@@ -156,18 +179,20 @@ namespace {
 engine::error apply_candidate_object(const prefab_property_override& value,
                                      const engine::value& native, object_description& object) {
   auto result = engine::error::success;
-  const auto is_type = [&](guid type) { return value.key.type_guid == type; };
+  const auto is_type = [&](guid type) { return value.key.target.target_type_guid == type; };
   if (is_type(transform_component_type)) {
     auto transform = object.transform;
-    result = meta::write_property(value.key.type_guid, value.key.property_id, &transform, native);
+    result = meta::write_property(value.key.target.target_type_guid, value.key.first_property(),
+                                  &transform, native);
     if (result != engine::error::success) {
       return result;
     }
     object.transform = transform;
   } else {
-    if (!value.key.path.empty())
+    if (value.key.path.size() != 1)
       return error::unsupported;
-    return edit_component(object.components, value.key.type_guid, value.key.property_id, native);
+    return edit_component(object.components, value.key.target.target_type_guid,
+                          value.key.first_property(), native);
   }
   return engine::error::success;
 }
@@ -204,8 +229,8 @@ error prepare_prefab_reference(const prefab_description& source,
     if (target == candidate.objects.end())
       return fail(error::not_found, key.first, key.second, {}, "覆盖目标对象已不存在");
     if (std::ranges::any_of(reference.overrides, [&](const auto& v) {
-          return v.key.source_node_uuid == key.first &&
-                 component_description_type(v.key.type_guid) == key.second;
+          return v.key.target.source_node_uuid == key.first &&
+                 component_description_type(v.key.target.target_type_guid) == key.second;
         }))
       return fail(error::invalid_argument, key.first, key.second, {}, "结构覆盖与属性覆盖矛盾");
     if (change.added) {
@@ -223,32 +248,28 @@ error prepare_prefab_reference(const prefab_description& source,
   for (const auto& entry : reference.overrides) {
     const auto& key = entry.key;
     if (std::ranges::find(property_keys, key) != property_keys.end())
-      return fail(error::invalid_argument, key.source_node_uuid, key.type_guid, {},
-                  "属性覆盖键重复");
+      return fail(error::invalid_argument, key.target.source_node_uuid, key.target.target_type_guid,
+                  {}, "属性覆盖键重复");
     property_keys.push_back(key);
-    std::string path = "/properties/" + std::to_string(key.property_id.get());
-    for (const auto& step : key.path)
-      path += std::holds_alternative<meta::property_id>(step)
-                  ? "/properties/" + std::to_string(std::get<meta::property_id>(step).get())
-                  : "/indices/" + std::to_string(std::get<std::size_t>(step));
-    auto object =
-        std::ranges::find(candidate.objects, key.source_node_uuid, &object_description::uuid);
+    std::string path = meta::property_path_text(key.path);
+    auto object = std::ranges::find(candidate.objects, key.target.source_node_uuid,
+                                    &object_description::uuid);
     auto status = validate_prefab_property_override(entry);
     if (status.failed() || object == candidate.objects.end())
-      return fail(status.failed() ? status : error{error::not_found}, key.source_node_uuid,
-                  key.type_guid, path, "属性覆盖目标不存在或类型不匹配");
-    if (key.type_guid != transform_component_type) {
-      auto* component = object->components.find(component_description_type(key.type_guid));
+      return fail(status.failed() ? status : error{error::not_found}, key.target.source_node_uuid,
+                  key.target.target_type_guid, path, "属性覆盖目标不存在或类型不匹配");
+    if (key.target.target_type_guid != transform_component_type) {
+      auto* component =
+          object->components.find(component_description_type(key.target.target_type_guid));
       if (!component)
-        return fail(error::not_found, key.source_node_uuid, key.type_guid, path,
-                    "属性覆盖对应的来源组件已不存在");
-      if (key.type_guid == (*component)->guid()) {
+        return fail(error::not_found, key.target.source_node_uuid, key.target.target_type_guid,
+                    path, "属性覆盖对应的来源组件已不存在");
+      if (key.target.target_type_guid == (*component)->guid()) {
         auto root = (*component)->view();
-        auto first = root ? root->property(key.property_id) : result<meta::instance>{root.error()};
         auto leaf =
-            first ? meta::resolve_path(*first, key.path) : result<meta::instance>{first.error()};
+            root ? meta::resolve_path(*root, key.path, true) : result<meta::instance>{root.error()};
         if (!leaf)
-          return fail(leaf.error(), key.source_node_uuid, key.type_guid, path,
+          return fail(leaf.error(), key.target.source_node_uuid, key.target.target_type_guid, path,
                       "属性覆盖路径已失效");
       }
     }
@@ -272,17 +293,21 @@ engine::error prepare_prefab_description(const prefab_description& source,
     if (validation != engine::error::success) {
       return validation;
     }
-    auto found =
-        std::ranges::find(candidate.objects, value.key.source_node_uuid, &object_description::uuid);
+    auto found = std::ranges::find(candidate.objects, value.key.target.source_node_uuid,
+                                   &object_description::uuid);
     if (found == candidate.objects.end()) {
       return engine::error::not_found;
     }
-    if (found->uuid == candidate.root_uuid && value.key.type_guid == transform_component_type)
+    if (found->uuid == candidate.root_uuid &&
+        value.key.target.target_type_guid == transform_component_type)
       return error::invalid_argument;
     // 描述类型的全部叶覆盖在同一副本中应用，再检查跨字段约束。
-    if (found->components.find(value.key.type_guid))
+    if (found->components.find(value.key.target.target_type_guid))
       continue;
-    const auto result = apply_candidate_object(value, value.value, *found);
+    const auto* scalar = std::get_if<engine::value>(&value.value);
+    if (!scalar || value.key.path.size() != 1)
+      return error::unsupported;
+    const auto result = apply_candidate_object(value, *scalar, *found);
     if (result != engine::error::success) {
       return result;
     }
@@ -290,8 +315,8 @@ engine::error prepare_prefab_description(const prefab_description& source,
   for (auto& object : candidate.objects) {
     for (const auto& component : object.components) {
       const auto matches = [&](const prefab_property_override& entry) {
-        return entry.key.source_node_uuid == object.uuid &&
-               entry.key.type_guid == component->guid();
+        return entry.key.target.source_node_uuid == object.uuid &&
+               entry.key.target.target_type_guid == component->guid();
       };
       if (!std::ranges::any_of(overrides, matches))
         continue;
@@ -299,13 +324,10 @@ engine::error prepare_prefab_description(const prefab_description& source,
         for (const auto& entry : overrides) {
           if (!matches(entry))
             continue;
-          auto first = root.property(entry.key.property_id);
-          if (!first)
-            return first.error();
-          auto target = meta::resolve_path(*first, entry.key.path);
+          auto target = meta::resolve_path(root, entry.key.path, true);
           if (!target)
             return target.error();
-          auto status = target->write_value(entry.value);
+          auto status = apply_prefab_override_value(*target, entry.value);
           if (status.failed())
             return status;
         }
@@ -337,9 +359,9 @@ prepare_mesh_renderer_overrides(guid source_node, const mesh_renderer_descriptio
   for (std::size_t i = 0; i < originals.size(); ++i) {
     auto status = set_prefab_property_override(
         pending,
-        {.key = {.source_node_uuid = source_node,
-                 .type_guid = mesh_renderer_description::type_guid,
-                 .property_id = meta::property_id{static_cast<std::uint32_t>(i + 1)}},
+        {.key = {.target = {.source_node_uuid = source_node,
+                            .target_type_guid = mesh_renderer_description::type_guid},
+                 .path = {meta::property_id{static_cast<std::uint32_t>(i + 1)}}},
          .value = engine::value{replacements[i]}},
         engine::value{originals[i]});
     if (status.failed())

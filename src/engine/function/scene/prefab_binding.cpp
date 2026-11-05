@@ -3,8 +3,8 @@
 
 #include "engine/function/scene/prefab_binding.hpp"
 #include "engine/core/error.hpp"
-#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
 
 #include "engine/core/identifier_conversion.hpp"
@@ -291,26 +291,25 @@ prefab_binding::apply_overrides(std::span<const prefab_property_override> overri
       return validation;
     }
     const auto found =
-        std::ranges::find(nodes_, override_value.key.source_node_uuid,
+        std::ranges::find(nodes_, override_value.key.target.source_node_uuid,
                           [](const runtime_node& node) { return node.address.source_node_uuid; });
     if (found == nodes_.end()) {
       return engine::error::not_found;
     }
-    if (found->node == root_node_ && override_value.key.type_guid == transform_component_type)
+    if (found->node == root_node_ &&
+        override_value.key.target.target_type_guid == transform_component_type)
       return error::invalid_argument;
-    if (!override_value.key.path.empty()) {
+    if (override_value.key.path.size() > 1 ||
+        std::holds_alternative<serialization::property_snapshot>(override_value.value)) {
       auto captured = capture_components(native_world_, found->node);
       if (!captured)
         return captured.error();
-      const auto* source = captured->find(override_value.key.type_guid);
+      const auto* source = captured->find(override_value.key.target.target_type_guid);
       if (!source)
         return error::not_found;
       auto changed = modify_component(*source, [&](meta::mutable_instance root) -> error {
-        auto field = root.property(override_value.key.property_id);
-        if (!field)
-          return field.error();
-        auto target = meta::resolve_path(*field, override_value.key.path);
-        return target ? target->write_value(override_value.value) : target.error();
+        auto target = meta::resolve_path(root, override_value.key.path, true);
+        return target ? apply_prefab_override_value(*target, override_value.value) : target.error();
       });
       if (!changed)
         return changed.error();
@@ -325,14 +324,15 @@ prefab_binding::apply_overrides(std::span<const prefab_property_override> overri
       continue;
     }
     const auto result =
-        override_value.key.type_guid == transform_component_type
-            ? engine::write_component_property(native_world_,
-                                               scene_object_entity(native_world_, found->node),
-                                               override_value.key.type_guid,
-                                               override_value.key.property_id, override_value.value)
+        override_value.key.target.target_type_guid == transform_component_type
+            ? engine::write_component_property(
+                  native_world_, scene_object_entity(native_world_, found->node),
+                  override_value.key.target.target_type_guid, override_value.key.first_property(),
+                  std::get<engine::value>(override_value.value))
             : edit_runtime_component({native_world_, found->node, {}, &loader_},
-                                     override_value.key.type_guid, override_value.key.property_id,
-                                     override_value.value);
+                                     override_value.key.target.target_type_guid,
+                                     override_value.key.first_property(),
+                                     std::get<engine::value>(override_value.value));
     if (result != engine::error::success) {
       return result;
     }

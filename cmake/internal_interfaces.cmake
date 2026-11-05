@@ -98,6 +98,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/asset_file.hpp
   engine/core/serialization/context.hpp
   engine/core/serialization/detail/typed_decode.hpp
+  engine/core/serialization/property_snapshot.hpp
   engine/core/serialization/json.hpp
   engine/core/serialization/serialization.hpp
   engine/core/serialization/reader.hpp

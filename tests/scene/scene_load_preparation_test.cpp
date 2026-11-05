@@ -138,10 +138,11 @@ void run() {
   std::erase_if(overridden->objects, [](const auto& node) { return !node.prefab; });
   const auto source_uuid = inputs.prefabs.at("asset://p.prefab")->root_uuid;
   for (auto& node : overridden->objects) {
-    node.prefab->overrides.push_back({.key = {.source_node_uuid = source_uuid,
-                                              .type_guid = mesh_renderer_description::type_guid,
-                                              .property_id = meta::property_id{2}},
-                                      .value = value{std::string("asset://override.material")}});
+    node.prefab->overrides.push_back(
+        {.key = {.target = {.source_node_uuid = source_uuid,
+                            .target_type_guid = mesh_renderer_description::type_guid},
+                 .path = {meta::property_id{2}}},
+         .value = value{std::string("asset://override.material")}});
   }
   auto overridden_inputs = inputs;
   overridden_inputs.scene = asset_ref<const scene_description>{overridden};

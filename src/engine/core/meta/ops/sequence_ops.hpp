@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/meta/ops/ops_fwd.hpp"
 #include <array>
 #include <concepts>
@@ -15,6 +16,10 @@ namespace gneiss::engine::meta {
 /** 专门化以适配自定义序列；size/at 必需，at_mut/resize/replace 可选。元素地址仅借用。
  * replace(T&, const vector<element>&) 返回 error，负责整组校验，失败保持原集合。 */
 template <class T> struct sequence_traits {
+  static constexpr bool enabled = false;
+};
+/** 显式声明序列元素身份；未声明的序列不推测成员名。 */
+template <class T> struct sequence_identity_traits {
   static constexpr bool enabled = false;
 };
 template <class T> struct indexed_sequence_traits {
@@ -44,6 +49,7 @@ struct sequence_ops {
   void* (*at_mut)(void*, std::size_t){};
   void (*resize)(void*, std::size_t){};
   bool fixed_size = false;
+  guid (*identity)(const void*, std::size_t){};
   error (*replace)(void*, const std::function<error(void*, const detail::type_ops&)>&){};
 };
 namespace detail {
@@ -65,6 +71,10 @@ template <class T> const sequence_ops& sequence_ops_of() {
       };
     if constexpr (requires(T& v) { traits::resize(v, std::size_t{}); })
       ops.resize = [](void* p, std::size_t n) { traits::resize(*static_cast<T*>(p), n); };
+    if constexpr (sequence_identity_traits<T>::enabled)
+      ops.identity = [](const void* p, std::size_t i) {
+        return sequence_identity_traits<T>::identity(*traits::at(*static_cast<const T*>(p), i));
+      };
     if constexpr (requires { traits::fixed_size; })
       ops.fixed_size = traits::fixed_size;
     if constexpr (requires(T& v, const std::vector<E>& values) {

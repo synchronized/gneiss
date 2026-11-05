@@ -10,16 +10,18 @@
 #include <set>
 namespace gneiss::engine {
 serialization::diagnostic validate_property_override_key(const prefab_property_override_key& key) {
-  if (!key.source_node_uuid)
-    return {.path = "/source_node_uuid", .error = error::invalid_argument};
-  if (!key.type_guid)
-    return {.path = "/type_guid", .error = error::invalid_argument};
-  if (!key.property_id.is_valid())
-    return {.path = "/property_id", .error = error::invalid_argument};
+  if (!key.target.source_node_uuid)
+    return {.path = "/target/source_node_uuid", .error = error::invalid_argument};
+  if (!key.target.target_type_guid)
+    return {.path = "/target/target_type_guid", .error = error::invalid_argument};
+  if (!key.first_property().is_valid())
+    return {.path = "/path", .error = error::invalid_argument};
   if (key.path.size() > 64)
     return {.path = "/path", .error = error::invalid_argument};
   for (const auto& step : key.path) {
     if (step.valueless_by_exception())
+      return {.path = "/path", .error = error::invalid_argument};
+    if (const auto* id = std::get_if<guid>(&step); id && !*id)
       return {.path = "/path", .error = error::invalid_argument};
     if (const auto* property = std::get_if<meta::property_id>(&step);
         property && !property->is_valid())
@@ -53,7 +55,10 @@ validate_prefab_reference_description(const prefab_reference_description& value)
   for (std::size_t i = 0; i < value.overrides.size(); ++i) {
     const auto& entry = value.overrides[i];
     if (validate_property_override_key(entry.key).error.failed() ||
-        !meta::valid_scalar(entry.value))
+        (entry.value.valueless_by_exception() ||
+         (std::holds_alternative<engine::value>(entry.value)
+              ? !meta::valid_scalar(std::get<engine::value>(entry.value))
+              : std::get<serialization::property_snapshot>(entry.value).json.empty())))
       return {.path = "/overrides/" + std::to_string(i),
               .message = "覆盖作者键或属性值无效",
               .error = error::invalid_argument};
@@ -67,8 +72,8 @@ validate_prefab_reference_description(const prefab_reference_description& value)
         !components.emplace(entry.source_node_uuid, entry.type_guid).second ||
         (entry.added && (!*entry.added || (*entry.added)->guid() != entry.type_guid)) ||
         std::ranges::any_of(value.overrides, [&](const auto& v) {
-          return v.key.source_node_uuid == entry.source_node_uuid &&
-                 v.key.type_guid == entry.type_guid;
+          return v.key.target.source_node_uuid == entry.source_node_uuid &&
+                 v.key.target.target_type_guid == entry.type_guid;
         }))
       return {.path = "/component_overrides/" + std::to_string(i),
               .message = "组件覆盖重复或与属性覆盖矛盾",

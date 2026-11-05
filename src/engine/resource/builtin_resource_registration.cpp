@@ -99,17 +99,29 @@ error register_component_descriptions() noexcept {
   if (base_status.failed())
     return base_status;
   constexpr auto required = meta::property_flags::required;
-  auto status = meta::type_builder<prefab_property_override_key>{}
-                    .property<&prefab_property_override_key::source_node_uuid>(
-                        meta::property_id{1}, "source_node_uuid", required)
-                    .property<&prefab_property_override_key::type_guid>(meta::property_id{2},
-                                                                        "type_guid", required)
-                    .property<&prefab_property_override_key::property_id>(meta::property_id{3},
-                                                                          "property_id", required)
-                    .property<&prefab_property_override_key::path>(meta::property_id{4}, "path")
-                    .serialization(true)
-                    .validate<&validate_property_override_key>()
-                    .commit();
+  auto status =
+      meta::type_builder<serialization::property_snapshot>{}
+          .property<&serialization::property_snapshot::json>(meta::property_id{1}, "json", required)
+          .serialization(true)
+          .commit();
+  if (status.failed())
+    return status;
+  status = meta::type_builder<prefab_property_target>{}
+               .property<&prefab_property_target::source_node_uuid>(meta::property_id{1},
+                                                                    "source_node_uuid", required)
+               .property<&prefab_property_target::target_type_guid>(meta::property_id{2},
+                                                                    "target_type_guid", required)
+               .serialization(true)
+               .commit();
+  if (status.failed())
+    return status;
+  status =
+      meta::type_builder<prefab_property_override_key>{}
+          .property<&prefab_property_override_key::target>(meta::property_id{1}, "target", required)
+          .property<&prefab_property_override_key::path>(meta::property_id{2}, "path", required)
+          .serialization(true)
+          .validate<&validate_property_override_key>()
+          .commit();
   if (status.failed())
     return status;
   status = meta::type_builder<prefab_property_override>{}

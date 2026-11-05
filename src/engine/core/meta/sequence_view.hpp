@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/meta/instance.hpp"
+#include <unordered_set>
 namespace gneiss::engine::meta {
 /** 借用视图；不延长目标寿命，结构修改后需重新获取元素视图。 */
 template <bool Mutable> class basic_sequence_view {
@@ -43,6 +44,47 @@ public:
                                            ops()->at_mut(target_.data_, index));
     } else
       return instance::from_access(v.registry_, ops()->element(), ops()->at(v.data_, index));
+  } catch (const std::bad_alloc&) {
+    return error::out_of_memory;
+  } catch (...) {
+    return error::internal;
+  }
+  [[nodiscard]] bool is_fixed_size() const noexcept { return ops()->fixed_size; }
+  [[nodiscard]] bool has_identity() const noexcept { return ops()->identity != nullptr; }
+  [[nodiscard]] result<guid> identity(std::size_t index) const noexcept try {
+    if (!has_identity())
+      return error::unsupported;
+    auto count = size();
+    if (!count)
+      return count.error();
+    if (index >= *count)
+      return error::not_found;
+    auto id = ops()->identity(readonly().data_, index);
+    return id ? result<guid>{id} : result<guid>{error::invalid_argument};
+  } catch (...) {
+    return error::internal;
+  }
+  /** 拒绝空身份或重号；查找失败不回退下标。 */
+  [[nodiscard]] result<target_type> find(guid id) const noexcept try {
+    if (!id)
+      return error::invalid_argument;
+    if (!has_identity())
+      return error::unsupported;
+    auto count = size();
+    if (!count)
+      return count.error();
+    std::unordered_set<guid, guid_hash> seen;
+    std::size_t found = *count;
+    for (std::size_t i = 0; i < *count; ++i) {
+      auto current = identity(i);
+      if (!current)
+        return current.error();
+      if (!seen.insert(*current).second)
+        return error::invalid_argument;
+      if (*current == id)
+        found = i;
+    }
+    return found == *count ? result<target_type>{error::not_found} : at(found);
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {

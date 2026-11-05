@@ -604,7 +604,7 @@ void draw_prefab_overrides(editor_state& state) {
     ImGui::TextWrapped("%s: %s", entry.component ? (entry.added ? "Added" : "Removed") : "Modified",
                        entry.label.c_str());
     const auto node =
-        state.editing.document().find_prefab_source(instance, entry.key.source_node_uuid);
+        state.editing.document().find_prefab_source(instance, entry.key.target.source_node_uuid);
     ImGui::BeginDisabled(!node);
     if (ImGui::SmallButton("Locate") && node)
       (void)state.editing.document().select(node->node);
@@ -662,14 +662,10 @@ void draw_prefab_conflict(editor_state& state) {
     if (entries)
       for (const auto& entry : *entries) {
         std::string path = "/instances/" + instance->string() + "/objects/" +
-                           entry.key.source_node_uuid.string() + "/components/" +
-                           entry.key.type_guid.string();
+                           entry.key.target.source_node_uuid.string() + "/components/" +
+                           entry.key.target.target_type_guid.string();
         if (!entry.component) {
-          path += "/properties/" + std::to_string(entry.key.property_id.get());
-          for (const auto& step : entry.key.path)
-            path += std::holds_alternative<meta::property_id>(step)
-                        ? "/properties/" + std::to_string(std::get<meta::property_id>(step).get())
-                        : "/indices/" + std::to_string(std::get<std::size_t>(step));
+          path += meta::property_path_text(entry.key.path);
         }
         if (path == diagnostic.path) {
           ImGui::TextWrapped("%s", entry.label.c_str());

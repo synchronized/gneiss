@@ -9,9 +9,9 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_subtree_snapshot.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/scene/scene_description.hpp"
@@ -61,13 +61,13 @@ struct prefab_node_record final {
   [[nodiscard]] bool has_override(engine::guid type,
                                   engine::meta::property_id property) const noexcept {
     for (const auto& key : overrides)
-      if (key.type_guid == type && key.property_id == property)
+      if (key.target.target_type_guid == type && key.first_property() == property)
         return true;
     return false;
   }
   [[nodiscard]] bool has_overrides(engine::guid type) const noexcept {
     for (const auto& key : overrides)
-      if (key.type_guid == type)
+      if (key.target.target_type_guid == type)
         return true;
     return false;
   }

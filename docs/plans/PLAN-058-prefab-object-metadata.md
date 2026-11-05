@@ -175,7 +175,8 @@ struct prefab_instance_metadata {
 ## 统一描述迁移
 
 `scene_description.objects` 是唯一显式对象列表；可选 `object_description.prefab` 保存 URI 与覆盖。
-覆盖键保留独立的 `key` 值结构，字段为 `source_node_uuid`、`type_guid`、`property_id`，不保存实例 UUID。
+覆盖键保留独立的 `key` 值结构，不保存实例 UUID；后续稳定地址调整见
+[场景文件格式](../reference/scene-format.md)。
 跨实例查询仍使用运行期复合来源地址，避免共享模板的节点身份混淆。
 
 普通自有对象可挂到实例根下；刷新保留其节点身份及局部变换，解包更新它们的根引用。

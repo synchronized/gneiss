@@ -33,6 +33,14 @@ result<std::vector<property_info>> type::properties() const noexcept {
     return info.error();
   return std::move(info->properties);
 }
+bool type::is_fixed_sequence() const noexcept {
+  const auto* ops = access_ ? access_->get<sequence_ops>() : nullptr;
+  return ops && ops->fixed_size;
+}
+bool type::has_sequence_identity() const noexcept {
+  const auto* ops = access_ ? access_->get<sequence_ops>() : nullptr;
+  return ops && ops->identity;
+}
 result<type> type::element_type() const noexcept {
   if (kind_ == type_kind::invalid)
     return error::invalid_state;

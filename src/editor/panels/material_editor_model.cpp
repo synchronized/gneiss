@@ -55,22 +55,10 @@ error material_editor_model::apply(const property_path& path, const value* input
   auto target = meta::mutable_instance::from(candidate);
   if (!target)
     return target.error();
-  std::string key;
-  for (const auto& step : path) {
-    if (const auto* property = std::get_if<meta::property_id>(&step)) {
-      target = target->property(*property);
-      key += "/p" + std::to_string(property->get());
-    } else {
-      auto sequence = target->as_sequence();
-      if (!sequence)
-        return sequence.error();
-      const auto index = std::get<std::size_t>(step);
-      target = sequence->at(index);
-      key += "/i" + std::to_string(index);
-    }
-    if (!target)
-      return target.error();
-  }
+  std::string key = meta::property_path_text(path);
+  target = meta::resolve_path(*target, path);
+  if (!target)
+    return target.error();
   auto status = source ? target->assign(*source) : target->write_value(*input);
   if (status.failed())
     return status;

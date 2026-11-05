@@ -360,11 +360,11 @@ int main() try {
   std::unique_ptr<gneiss::engine::prefab_binding> second;
   const std::vector<gneiss::engine::prefab_property_override> no_overrides;
   const std::vector<gneiss::engine::prefab_property_override> first_overrides{{
-      .key = {.source_node_uuid =
-                  *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000003"),
-              .type_guid = gneiss::engine::transform_component_type,
-              .property_id = gneiss::engine::transform_translation_field},
-      .value = {.payload = gneiss::engine::math::vector3{3.0F, 0.0F, 0.0F}},
+      .key = {.target = {.source_node_uuid =
+                             *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000003"),
+                         .target_type_guid = gneiss::engine::transform_component_type},
+              .path = {gneiss::engine::transform_translation_field}},
+      .value = gneiss::engine::value{.payload = gneiss::engine::math::vector3{3.0F, 0.0F, 0.0F}},
   }};
   if (create_prefab_binding(native_world, render_loader, std::move(first_lease),
                             *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000001"),
@@ -417,7 +417,7 @@ int main() try {
       actual_root.scale != first_transform.scale)
     return 23;
   auto root_override = first_overrides.front();
-  root_override.key.source_node_uuid =
+  root_override.key.target.source_node_uuid =
       *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000002");
   if (first->apply_override(root_override) != gneiss::engine::error::invalid_argument)
     return 24;
@@ -446,11 +446,11 @@ int main() try {
     return 7;
   }
   const std::vector<gneiss::engine::prefab_property_override> invalid_overrides{{
-      .key = {.source_node_uuid =
-                  *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000099"),
-              .type_guid = gneiss::engine::transform_component_type,
-              .property_id = gneiss::engine::transform_translation_field},
-      .value = {.payload = gneiss::engine::math::vector3{3.0F, 0.0F, 0.0F}},
+      .key = {.target = {.source_node_uuid =
+                             *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000099"),
+                         .target_type_guid = gneiss::engine::transform_component_type},
+              .path = {gneiss::engine::transform_translation_field}},
+      .value = gneiss::engine::value{.payload = gneiss::engine::math::vector3{3.0F, 0.0F, 0.0F}},
   }};
   std::unique_ptr<gneiss::engine::prefab_binding> failed;
   if (!check_visible_prefab(native_world, render_loader, first->prefab_lease(), first->root())) {

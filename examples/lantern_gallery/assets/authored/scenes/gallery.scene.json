@@ -53,7 +53,11 @@
         {
           "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101",
           "$content": {
-            "settings": {"fov": 1.04719755, "near": 0.1, "far": 100},
+            "settings": {
+              "fov": 1.04719755,
+              "near": 0.1,
+              "far": 100
+            },
             "is_primary": true
           }
         }
@@ -227,17 +231,27 @@
         "overrides": [
           {
             "key": {
-              "source_node_uuid": "21000000-0000-4000-8000-000000000002",
-              "type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d",
-              "property_id": 1,
-              "path": []
+              "target": {
+                "source_node_uuid": "21000000-0000-4000-8000-000000000002",
+                "target_type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d"
+              },
+              "path": [
+                {
+                  "$kind": "property",
+                  "$content": 1
+                }
+              ]
             },
             "value": {
-              "$kind":"vec3","$content": [
-                -5,
-                13.0160303,
-                0
-              ]
+              "$kind": "value",
+              "$content": {
+                "$kind": "vec3",
+                "$content": [
+                  -5,
+                  13.0160303,
+                  0
+                ]
+              }
             }
           }
         ]
@@ -270,17 +284,27 @@
         "overrides": [
           {
             "key": {
-              "source_node_uuid": "21000000-0000-4000-8000-000000000003",
-              "type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d",
-              "property_id": 3,
-              "path": []
+              "target": {
+                "source_node_uuid": "21000000-0000-4000-8000-000000000003",
+                "target_type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d"
+              },
+              "path": [
+                {
+                  "$kind": "property",
+                  "$content": 3
+                }
+              ]
             },
             "value": {
-              "$kind":"vec3","$content": [
-                1.15,
-                1.15,
-                1.15
-              ]
+              "$kind": "value",
+              "$content": {
+                "$kind": "vec3",
+                "$content": [
+                  1.15,
+                  1.15,
+                  1.15
+                ]
+              }
             }
           }
         ]
@@ -313,17 +337,27 @@
         "overrides": [
           {
             "key": {
-              "source_node_uuid": "21000000-0000-4000-8000-000000000004",
-              "type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d",
-              "property_id": 1,
-              "path": []
+              "target": {
+                "source_node_uuid": "21000000-0000-4000-8000-000000000004",
+                "target_type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d"
+              },
+              "path": [
+                {
+                  "$kind": "property",
+                  "$content": 1
+                }
+              ]
             },
             "value": {
-              "$kind":"vec3","$content": [
-                -9.58200741,
-                20,
-                0
-              ]
+              "$kind": "value",
+              "$content": {
+                "$kind": "vec3",
+                "$content": [
+                  -9.58200741,
+                  20,
+                  0
+                ]
+              }
             }
           }
         ]

@@ -175,10 +175,11 @@ int main() try {
   reference.uuid = e::guid::from_bytes({5});
   reference.prefab.emplace();
   reference.prefab->uri = "asset://test.prefab";
-  reference.prefab->overrides.push_back({.key = {.source_node_uuid = first.uuid,
-                                                 .type_guid = movement_description::type_guid,
-                                                 .property_id = e::meta::property_id{1}},
-                                         .value = e::value{9.0F}});
+  reference.prefab->overrides.push_back(
+      {.key = {.target = {.source_node_uuid = first.uuid,
+                          .target_type_guid = movement_description::type_guid},
+               .path = {e::meta::property_id{1}}},
+       .value = e::value{9.0F}});
   source.objects = {reference};
   e::prefab_asset_ref prefab_ref{prefab};
   check(gneiss::test_support::take_value(

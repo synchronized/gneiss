@@ -47,17 +47,15 @@
         "overrides": [
           {
             "key": {
-              "source_node_uuid": "10000000-0000-4000-8000-000000000002",
-              "type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d",
-              "property_id": 1,
-              "path": []
+              "target": {
+                "source_node_uuid": "10000000-0000-4000-8000-000000000002",
+                "target_type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d"
+              },
+              "path": [{"$kind":"property","$content":1}]
             },
             "value": {
-              "$kind":"vec3","$content": [
-                0,
-                1,
-                0
-              ]
+              "$kind":"value",
+              "$content":{"$kind":"vec3","$content":[0,1,0]}
             }
           }
         ]
@@ -109,14 +107,19 @@
   `prefab` 缺失或为 null 表示普通对象；保存普通对象时写出 `prefab: null`。
 - `parent` 可引用任意显式对象，包括 Prefab 根；不能引用来源内部节点 UUID。普通自有子对象正常保存，
   模板生成的子节点不重复写入列表。模板文件自身暂不允许嵌套 Prefab 引用。
-- 每项覆盖包含必填 key 和 value；key 以来源节点 UUID、规范小写 UUID 字符串 `type_guid` 和非零 uint32 `property_id` 定位字段。`value`
-  使用显式 `$kind` 与 `$content`；当前类别为 `bool`、`int64`、`uint64`、`float32`、`float64`、`string`、
-  `guid`、`vec2`、`vec3`、`vec4`、`quaternion`、`matrix3` 和 `matrix4`。GUID 值为标准 UUID 字符串或 null；
-  覆盖目标身份必须非零。旧 32 字符 type_guid 不再接受。同一实例内的完整覆盖键不能重复。
-- 覆盖的 key 可带 `path` 后缀数组，继续定位首个 `property_id` 下的嵌套字段或序列元素；
-  每步为 `{"$kind":"property","$content":1}` 或 `{"$kind":"index","$content":0}`，下标为非负整数，后缀最多 64 步。
-  缺省或空数组表示直接属性，后缀属于完整覆盖键。实例化时校验字段类型与下标范围；
-  不通过覆盖改变序列长度。相互约束的字段覆盖合并后才执行组件校验。
+- 每项覆盖包含必填 `key` 和 `value`。`key.target` 保存非零 `source_node_uuid` 与
+  `target_type_guid`；`key.path` 是从目标根开始的完整路径，首步必须是属性 ID，最多 64 步。
+  同一实例内的完整覆盖键不能重复。
+- 路径步统一为 `$kind/$content`：`property` 使用非零属性 ID；`key` 使用映射字符串键；
+  `element` 使用序列元素的非零 GUID；`index` 仅允许固定长度序列的位置下标。
+  序列必须显式声明身份能力才能使用 `element`；目标丢失、身份为空或重复均失败，不回退下标。
+- `value` 为带标签联合：`{"$kind":"value","$content":...}` 保存普通引擎值，内容仍使用
+  Value 的 `$kind/$content` 格式；`{"$kind":"snapshot","$content":{"json":"..."}}`
+  保存独立属性 JSON 快照。快照在临时目标上解码并校验，失败不替换输出描述。
+  无身份的可变列表整体覆盖，列表结构变化不会生成持久化下标。序列或映射的结构变化也整体保存。
+  快照不承诺逐元素合并；来源新增的元素会被实例的整列表覆盖替换。
+- 路径展示文本只用于诊断，不解析为存档地址。旧覆盖键和值格式不再读取。
+  相互约束的字段覆盖合并后才执行组件校验；失效覆盖仍保留在来源引用中供用户修复。
 - Prefab 实例身份就是引用对象的 UUID，覆盖键不重复携带实例身份。Prefab 展开后的源节点、Entity
   ID、Scene Node ID 和 RID 均不写入场景文件。
 - `components` 缺失时使用空列表，保存时始终输出（包括模板引用对象）；非数组仍报错。

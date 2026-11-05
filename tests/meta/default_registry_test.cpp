@@ -40,7 +40,7 @@ constexpr std::array migrated_ids{e::type_identity<e::math::vector4>::guid(),
                                   e::prefab_reference_description::type_guid,
                                   e::object_description::type_guid,
                                   e::type_identity<e::prefab_component_override>::guid(),
-                                  e::prefab_property_override_key::reflection_guid,
+                                  e::prefab_property_override_key::type_guid,
                                   e::prefab_property_override::type_guid};
 static_assert([] {
   for (std::size_t i = 0; i < migrated_ids.size(); ++i) {

@@ -525,7 +525,7 @@ add_executable(
 )
 target_include_directories(gneiss_prefab_property_override_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_prefab_property_override_test PRIVATE GNEISS_BUILDING_LIBRARY)
-target_link_libraries(gneiss_prefab_property_override_test PRIVATE gneiss::engine gneiss_yyjson)
+target_link_libraries(gneiss_prefab_property_override_test PRIVATE gneiss::engine gneiss_yyjson EnTT::EnTT)
 target_compile_features(gneiss_prefab_property_override_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_prefab_property_override_test)
 gneiss_target_output_directories(gneiss_prefab_property_override_test)

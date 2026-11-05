@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <new>
+#include <unordered_set>
 
 namespace gneiss::engine {
 namespace {
@@ -33,16 +34,22 @@ error collect_component_overrides(meta::instance source, meta::instance candidat
       if (!right)
         return right.error();
       auto next = key;
-      if (!next.property_id.is_valid())
-        next.property_id = property.id;
-      else
-        next.path.emplace_back(property.id);
+      next.path.emplace_back(property.id);
       auto status = collect_component_overrides(*left, *right, std::move(next), output, depth + 1);
       if (status.failed())
         return status;
     }
     return error::success;
   }
+  const auto snapshot = [&]() -> error {
+    auto before = serialization::capture_property(source),
+         after = serialization::capture_property(candidate);
+    if (!before)
+      return before.error();
+    if (!after)
+      return after.error();
+    return set_prefab_property_override(output, {key, std::move(*after)}, std::move(*before));
+  };
   if (source.kind() == meta::type_kind::sequence) {
     auto left = source.as_sequence(), right = candidate.as_sequence();
     if (!left)
@@ -54,8 +61,38 @@ error collect_component_overrides(meta::instance source, meta::instance candidat
       return count.error();
     if (!other)
       return other.error();
+    // 无稳定身份的可变序列整体保存，不能把当前下标当成持久身份。
+    if (!left->is_fixed_size() && !left->has_identity())
+      return snapshot();
+    if (left->has_identity()) {
+      bool changed = *count != *other;
+      std::unordered_set<guid, guid_hash> seen;
+      for (std::size_t i = 0; i < *count; ++i) {
+        auto id = left->identity(i);
+        if (!id)
+          return id.error();
+        if (!seen.insert(*id).second)
+          return error::invalid_argument;
+        if (i < *other) {
+          auto next = right->identity(i);
+          if (!next)
+            return next.error();
+          changed |= *next != *id;
+        }
+      }
+      seen.clear();
+      for (std::size_t i = 0; i < *other; ++i) {
+        auto id = right->identity(i);
+        if (!id)
+          return id.error();
+        if (!seen.insert(*id).second)
+          return error::invalid_argument;
+      }
+      if (changed)
+        return snapshot();
+    }
     if (*count != *other)
-      return error::unsupported;
+      return error::invalid_argument;
     for (std::size_t i = 0; i < *count; ++i) {
       auto a = left->at(i), b = right->at(i);
       if (!a)
@@ -63,13 +100,50 @@ error collect_component_overrides(meta::instance source, meta::instance candidat
       if (!b)
         return b.error();
       auto next = key;
-      next.path.emplace_back(i);
+      if (left->has_identity()) {
+        auto id = left->identity(i);
+        if (!id)
+          return id.error();
+        next.path.emplace_back(*id);
+      } else
+        next.path.emplace_back(i);
       auto status = collect_component_overrides(*a, *b, std::move(next), output, depth + 1);
       if (status.failed())
         return status;
     }
     return error::success;
   }
+  if (source.kind() == meta::type_kind::associative) {
+    auto left = source.as_associative(), right = candidate.as_associative();
+    if (!left)
+      return left.error();
+    if (!right)
+      return right.error();
+    auto keys = left->keys(), other = right->keys();
+    if (!keys)
+      return keys.error();
+    if (!other)
+      return other.error();
+    std::ranges::sort(*keys);
+    std::ranges::sort(*other);
+    if (*keys != *other)
+      return snapshot();
+    for (const auto& name : *keys) {
+      auto a = left->find(name), b = right->find(name);
+      if (!a)
+        return a.error();
+      if (!b)
+        return b.error();
+      auto next = key;
+      next.path.emplace_back(name);
+      auto status = collect_component_overrides(*a, *b, std::move(next), output, depth + 1);
+      if (status.failed())
+        return status;
+    }
+    return error::success;
+  }
+  if (source.kind() != meta::type_kind::scalar)
+    return snapshot();
   auto before = source.read_value(), after = candidate.read_value();
   if (!before)
     return before.error();
@@ -94,8 +168,8 @@ result<prefab_component_state> scene_instance::capture_component_override(scene_
           state.removed = !change.added;
         }
       for (const auto& change : prefab->reference_.overrides)
-        if (change.key.source_node_uuid == source &&
-            component_description_type(change.key.type_guid) == type)
+        if (change.key.target.source_node_uuid == source &&
+            component_description_type(change.key.target.target_type_guid) == type)
           state.properties.push_back(change);
       if (type == mesh_renderer_description::type_guid) {
         auto resources = capture_mesh_binding(node);
@@ -129,14 +203,14 @@ error scene_instance::set_component_override(scene_node_id node, guid type,
         return v.source_node_uuid == source && v.type_guid == type;
       });
       std::erase_if(pending.overrides, [&](const auto& v) {
-        return v.key.source_node_uuid == source &&
-               component_description_type(v.key.type_guid) == type;
+        return v.key.target.source_node_uuid == source &&
+               component_description_type(v.key.target.target_type_guid) == type;
       });
       if (state.added || state.removed)
         pending.component_overrides.push_back({source, type, state.added});
       for (const auto& value : state.properties) {
-        if (value.key.source_node_uuid != source ||
-            component_description_type(value.key.type_guid) != type)
+        if (value.key.target.source_node_uuid != source ||
+            component_description_type(value.key.target.target_type_guid) != type)
           return error::invalid_argument;
         pending.overrides.push_back(value);
       }
@@ -250,12 +324,14 @@ error scene_instance::set_component_description(scene_node_id node,
         return after.error();
       auto pending = prefab->reference_.overrides;
       std::erase_if(pending, [&](const auto& v) {
-        return v.key.source_node_uuid == member.address.source_node_uuid &&
-               component_description_type(v.key.type_guid) == value->guid();
+        return v.key.target.source_node_uuid == member.address.source_node_uuid &&
+               component_description_type(v.key.target.target_type_guid) == value->guid();
       });
       auto status = collect_component_overrides(
           *before, *after,
-          {.source_node_uuid = member.address.source_node_uuid, .type_guid = value->guid()},
+          {.target = {.source_node_uuid = member.address.source_node_uuid,
+                      .target_type_guid = value->guid()},
+           .path = {}},
           pending);
       if (status.failed())
         return status;

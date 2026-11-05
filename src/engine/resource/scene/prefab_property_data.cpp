@@ -35,31 +35,12 @@ bool is_valid_prefab_author_address(const prefab_author_address& address) noexce
 
 bool prefab_property_override_key_less(const prefab_property_override_key& left,
                                        const prefab_property_override_key& right) noexcept {
-  if (left.source_node_uuid != right.source_node_uuid) {
-    return left.source_node_uuid < right.source_node_uuid;
-  }
-  if (!std::ranges::equal(left.type_guid.bytes(), right.type_guid.bytes())) {
-    return std::lexicographical_compare(
-        std::begin(left.type_guid.bytes()), std::end(left.type_guid.bytes()),
-        std::begin(right.type_guid.bytes()), std::end(right.type_guid.bytes()));
-  }
-  if (left.property_id != right.property_id)
-    return left.property_id.get() < right.property_id.get();
-  return std::lexicographical_compare(
-      left.path.begin(), left.path.end(), right.path.begin(), right.path.end(),
-      [](const auto& a, const auto& b) {
-        if (a.index() != b.index())
-          return a.index() < b.index();
-        if (const auto* property = std::get_if<meta::property_id>(&a))
-          return property->get() < std::get<meta::property_id>(b).get();
-        return std::get<std::size_t>(a) < std::get<std::size_t>(b);
-      });
-}
-
-bool prefab_property_override_key::operator==(
-    const prefab_property_override_key& other) const noexcept {
-  return source_node_uuid == other.source_node_uuid && property_id == other.property_id &&
-         path == other.path && std::ranges::equal(type_guid.bytes(), other.type_guid.bytes());
+  if (left.target.source_node_uuid != right.target.source_node_uuid)
+    return left.target.source_node_uuid < right.target.source_node_uuid;
+  if (left.target.target_type_guid != right.target.target_type_guid)
+    return left.target.target_type_guid < right.target.target_type_guid;
+  return std::lexicographical_compare(left.path.begin(), left.path.end(), right.path.begin(),
+                                      right.path.end(), meta::property_step_less);
 }
 
 } // namespace gneiss::engine

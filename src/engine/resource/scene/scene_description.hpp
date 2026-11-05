@@ -97,4 +97,10 @@ template <> struct type_identity<prefab_component_override> {
 
 } // namespace gneiss::engine
 
+namespace gneiss::engine::meta {
+template <> struct sequence_identity_traits<std::vector<object_description>> {
+  static constexpr bool enabled = true;
+  static guid identity(const object_description& object) noexcept { return object.uuid; }
+};
+}
 #endif

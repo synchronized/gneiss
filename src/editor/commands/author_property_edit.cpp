@@ -40,22 +40,10 @@ engine::error edit_description(editor_command_history& history,
   auto target = meta::mutable_instance::from(candidate);
   if (!target)
     return target.error();
-  std::string key;
-  for (const auto& step : edit.path) {
-    if (const auto* property = std::get_if<meta::property_id>(&step)) {
-      target = target->property(*property);
-      key += "/p" + std::to_string(property->get());
-    } else {
-      auto sequence = target->as_sequence();
-      if (!sequence)
-        return sequence.error();
-      const auto index = std::get<std::size_t>(step);
-      target = sequence->at(index);
-      key += "/i" + std::to_string(index);
-    }
-    if (!target)
-      return target.error();
-  }
+  std::string key = meta::property_path_text(edit.path);
+  target = meta::resolve_path(*target, edit.path);
+  if (!target)
+    return target.error();
   if (edit.object) {
     auto source = meta::instance::from_object(edit.object_type, edit.object.get());
     if (!source)
@@ -305,12 +293,7 @@ engine::error edit_component_description(scene_document& document, editor_comman
     };
     std::string key = identity.component_type.string() + identity.object_uuid.string() +
                       identity.instance_uuid.string() + identity.source_uuid.string();
-    for (const auto& step : edit.path) {
-      if (const auto* field = std::get_if<meta::property_id>(&step))
-        key += "/p" + std::to_string(field->get());
-      else
-        key += "/i" + std::to_string(std::get<std::size_t>(step));
-    }
+    key += meta::property_path_text(edit.path);
     return history.execute(
         {.label = "修改组件属性",
          .undo = [apply, bytes = std::move(*original)] { return apply(bytes); },

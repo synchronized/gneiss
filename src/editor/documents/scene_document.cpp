@@ -215,7 +215,7 @@ prefab_node_record prefab_record(const engine::scene_node_info& info) {
       .source_local_transform = origin.source_local_transform,
       .is_instance_root = origin.is_instance_root};
   for (const auto& item : origin.overrides)
-    if (item.key.source_node_uuid == origin.source_node_uuid)
+    if (item.key.target.source_node_uuid == origin.source_node_uuid)
       record.overrides.push_back(item.key);
   return record;
 }

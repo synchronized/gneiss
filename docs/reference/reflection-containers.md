@@ -99,6 +99,22 @@ template<> struct sequence_traits<my_numbers> {
 规则返回错误；不承诺回滚自定义回调产生的修改。只读适配可用于遍历和编码，不能因此推断其支持解码。
 容器结构修改后的借用视图失效规则保持不变。
 
+## 稳定元素地址
+
+`sequence_identity_traits<Sequence>` 是独立的可选适配，提供 `enabled=true` 与
+`static guid identity(const element&)`。不会根据成员名自动推测身份，也不为普通 vector 生成 ID。
+现有 `vector<object_description>` 使用对象 UUID；声明须在首次生成操作表前可见。
+
+视图提供 `has_identity()`、`identity(index)` 与 `find(guid)`；find 每次检查序列身份并线性查找，
+空身份或重复身份返回 invalid_argument，目标消失返回 not_found，不回退位置下标。
+它不缓存元素指针。结构修改后重新从根解析路径，原借用视图的失效规则仍然适用。
+类型视图提供 `is_fixed_sequence()` 和 `has_sequence_identity()`，可在没有对象实例时检查地址能力。
+
+`resolve_path(root, path)` 支持字段 ID、下标、映射字符串键与元素 GUID。
+`resolve_path(root, path, true)` 用于持久化地址，拒绝可变序列的下标步骤；固定长度序列仍允许下标。
+路径展示使用 `property_path_text`，其字符串不作为可解析的持久化格式。
+Prefab 的目标定位与无身份列表快照规则见[场景文件格式](scene-format.md)。
+
 ## Variant 分支反射
 
 `std::variant<T...>` 使用 `type_kind::variant` 和独立 `variant_ops`。
@@ -129,6 +145,6 @@ JSON 保存 `{"$kind":"text","$content":"hello"}`，不保存分支下标或编�
 monostate 使用 empty 类型类别，内容保存为 null。
 Variant 本身不支持 read_value，须先 value() 取得当前分支。此能力不自动增加编辑器切换控件。
 
-`meta::property_step` 显式使用 property/index 标签；property_id 作为范围受限的 uint32 数值编解码。
+`meta::property_step` 显式使用 property/index/key/element 标签；property_id 作为范围受限的 uint32 数值编解码。
 `engine::value` 使用同一 variant 包装，variant_traits 将访问转交给 payload。
 自定义包装类型可提供 storage_type 与可变/只读 storage()；分支名仍通过 variant_case_traits 配置。

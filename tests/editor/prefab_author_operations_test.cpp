@@ -55,11 +55,11 @@ int main() try {
       {root.uuid, movement_description::type_guid,
        e::make_component_description(movement_description{4})});
   first.prefab->component_overrides.push_back({child.uuid, e::camera_description::type_guid, {}});
-  first.prefab->overrides.push_back({.key = {.source_node_uuid = child.uuid,
-                                             .type_guid = movement_description::type_guid,
-                                             .property_id = e::meta::property_id{3},
-                                             .path = {e::meta::property_id{1}}},
-                                     .value = e::value{6.0F}});
+  first.prefab->overrides.push_back(
+      {.key = {.target = {.source_node_uuid = child.uuid,
+                          .target_type_guid = movement_description::type_guid},
+               .path = {e::meta::property_id{3}, e::meta::property_id{1}}},
+       .value = e::value{6.0F}});
   scene.objects.push_back(first);
   auto second = first;
   second.uuid = id(6);
@@ -170,10 +170,9 @@ int main() try {
         diagnostic.path.find(root.uuid.string()) != std::string::npos);
   conflict = scene;
   conflict.objects[1].prefab->overrides.push_back(
-      {.key = {.source_node_uuid = child.uuid,
-               .type_guid = e::camera_description::type_guid,
-               .property_id = e::meta::property_id{1},
-               .path = {e::meta::property_id{1}}},
+      {.key = {.target = {.source_node_uuid = child.uuid,
+                          .target_type_guid = e::camera_description::type_guid},
+               .path = {e::meta::property_id{1}, e::meta::property_id{1}}},
        .value = e::value{0.8F}});
   check(ed::prepare_apply_prefab(text(*gneiss::engine::asset_file::serialize_bytes(conflict)),
                                  prefab_json, apply, plan, &diagnostic) == e::error::not_found);

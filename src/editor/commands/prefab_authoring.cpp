@@ -514,18 +514,18 @@ describe_prefab_overrides(const engine::prefab_reference_description& reference,
   std::vector<prefab_override_entry> entries;
   const auto label = [&](const prefab_property_override_key& key) {
     auto object =
-        std::ranges::find(source.objects, key.source_node_uuid, &object_description::uuid);
+        std::ranges::find(source.objects, key.target.source_node_uuid, &object_description::uuid);
     std::string text =
-        object == source.objects.end() ? key.source_node_uuid.string() : object->name;
-    auto type = meta::describe_type(key.type_guid);
-    text += " / " + (type ? std::string(type->name) : key.type_guid.string());
-    if (!key.property_id.is_valid())
+        object == source.objects.end() ? key.target.source_node_uuid.string() : object->name;
+    auto type = meta::describe_type(key.target.target_type_guid);
+    text += " / " + (type ? std::string(type->name) : key.target.target_type_guid.string());
+    if (!key.first_property().is_valid())
       return text;
-    auto property = meta::describe_property(key.type_guid, key.property_id);
-    text +=
-        " / " + (property ? std::string(property->name) : std::to_string(key.property_id.get()));
+    auto property = meta::describe_property(key.target.target_type_guid, key.first_property());
+    text += " / " +
+            (property ? std::string(property->name) : std::to_string(key.first_property().get()));
     auto current = property ? property->type : meta::type{};
-    for (const auto& step : key.path) {
+    for (const auto& step : std::span{key.path}.subspan(1)) {
       if (auto* id = std::get_if<meta::property_id>(&step)) {
         auto fields = current.properties();
         if (fields) {
@@ -539,7 +539,7 @@ describe_prefab_overrides(const engine::prefab_reference_description& reference,
         text += "." + std::to_string(id->get());
         current = {};
       } else {
-        text += "[" + std::to_string(std::get<std::size_t>(step)) + "]";
+        text += "[" + meta::property_step_text(step) + "]";
         auto element = current.element_type();
         current = element ? *element : meta::type{};
       }
@@ -549,8 +549,9 @@ describe_prefab_overrides(const engine::prefab_reference_description& reference,
   for (const auto& change : reference.overrides)
     entries.push_back({.key = change.key, .label = label(change.key)});
   for (const auto& change : reference.component_overrides) {
-    prefab_property_override_key key{.source_node_uuid = change.source_node_uuid,
-                                     .type_guid = change.type_guid};
+    prefab_property_override_key key{.target = {.source_node_uuid = change.source_node_uuid,
+                                                .target_type_guid = change.type_guid},
+                                     .path = {}};
     entries.push_back(
         {.key = key, .component = true, .added = change.added.has_value(), .label = label(key)});
   }
@@ -583,13 +584,14 @@ prepare_restore_prefab_impl(std::string_view scene_json, std::string_view scene_
     reference.component_overrides.clear();
   } else if (entry->component) {
     auto removed = std::erase_if(reference.component_overrides, [&](const auto& item) {
-      return item.source_node_uuid == entry->key.source_node_uuid &&
-             item.type_guid == entry->key.type_guid;
+      return item.source_node_uuid == entry->key.target.source_node_uuid &&
+             item.type_guid == entry->key.target.target_type_guid;
     });
     if (whole_component)
       removed += std::erase_if(reference.overrides, [&](const auto& item) {
-        return item.key.source_node_uuid == entry->key.source_node_uuid &&
-               component_description_type(item.key.type_guid) == entry->key.type_guid;
+        return item.key.target.source_node_uuid == entry->key.target.source_node_uuid &&
+               component_description_type(item.key.target.target_type_guid) ==
+                   entry->key.target.target_type_guid;
       });
     if (!removed)
       return error::not_found;
@@ -623,7 +625,9 @@ prepare_restore_prefab_component(std::string_view json, std::string_view path,
   if (!object || !component)
     return engine::error::invalid_argument;
   prefab_override_entry entry{
-      .key = {.source_node_uuid = object, .type_guid = component}, .component = true, .label = {}};
+      .key = {.target = {.source_node_uuid = object, .target_type_guid = component}, .path = {}},
+      .component = true,
+      .label = {}};
   return prepare_restore_prefab_impl(json, path, instance, &entry, true);
 }
 

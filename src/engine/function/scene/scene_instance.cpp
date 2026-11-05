@@ -487,21 +487,22 @@ engine::error scene_instance::set_prefab_source_transform(scene_node_id node,
       }
       auto pending = prefab_reference(index).overrides;
       const auto type_id = engine::transform_component_type;
-      const std::array candidates{engine::prefab_property_override{
-                                      .key = {.source_node_uuid = info.address->source_node_uuid,
-                                              .type_guid = type_id,
-                                              .property_id = transform_translation_field},
-                                      .value = {.payload = transform.translation}},
-                                  engine::prefab_property_override{
-                                      .key = {.source_node_uuid = info.address->source_node_uuid,
-                                              .type_guid = type_id,
-                                              .property_id = transform_rotation_field},
-                                      .value = {.payload = transform.rotation}},
-                                  engine::prefab_property_override{
-                                      .key = {.source_node_uuid = info.address->source_node_uuid,
-                                              .type_guid = type_id,
-                                              .property_id = transform_scale_field},
-                                      .value = {.payload = transform.scale}}};
+      const std::array candidates{
+          engine::prefab_property_override{
+              .key = {.target = {.source_node_uuid = info.address->source_node_uuid,
+                                 .target_type_guid = type_id},
+                      .path = {transform_translation_field}},
+              .value = gneiss::engine::value{.payload = transform.translation}},
+          engine::prefab_property_override{
+              .key = {.target = {.source_node_uuid = info.address->source_node_uuid,
+                                 .target_type_guid = type_id},
+                      .path = {transform_rotation_field}},
+              .value = gneiss::engine::value{.payload = transform.rotation}},
+          engine::prefab_property_override{
+              .key = {.target = {.source_node_uuid = info.address->source_node_uuid,
+                                 .target_type_guid = type_id},
+                      .path = {transform_scale_field}},
+              .value = gneiss::engine::value{.payload = transform.scale}}};
       const std::array source_values{engine::value{.payload = source->transform.translation},
                                      engine::value{.payload = source->transform.rotation},
                                      engine::value{.payload = source->transform.scale}};
@@ -973,9 +974,9 @@ engine::error scene_instance::set_camera(scene_node_id node,
       for (std::size_t i = 0; i < fields.size(); ++i) {
         status = set_prefab_property_override(
             pending,
-            {.key = {.source_node_uuid = info.address->source_node_uuid,
-                     .type_guid = camera_component_type,
-                     .property_id = fields[i]},
+            {.key = {.target = {.source_node_uuid = info.address->source_node_uuid,
+                                .target_type_guid = camera_component_type},
+                     .path = {fields[i]}},
              .value = engine::value{values[i]}},
             engine::value{originals[i]});
         if (status.failed())

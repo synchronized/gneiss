@@ -5,6 +5,7 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/meta/property_path.hpp"
 #include "engine/core/meta/type.hpp"
+#include "engine/core/serialization/property_snapshot.hpp"
 #include "engine/core/value.hpp"
 #include <cstdint>
 #include <string>
@@ -28,25 +29,37 @@ struct prefab_author_address final {
 /** 判断复合作者身份的两个 GUID 是否均为非零值。 */
 [[nodiscard]] bool is_valid_prefab_author_address(const prefab_author_address& address) noexcept;
 
-/** 单个 Prefab 实例字段覆盖的稳定作者键。 */
+/** 先定位来源对象，再选择该对象上的属性所属类型。 */
+struct prefab_property_target final {
+  static constexpr std::string_view type_name = "prefab_property_target";
+  static constexpr guid type_guid = guid::literal("dfdb1dac-6d93-4326-8909-70735ee03e7f");
+  guid source_node_uuid;
+  guid target_type_guid;
+  bool operator==(const prefab_property_target&) const noexcept = default;
+};
+
+/** 完整覆盖地址；path 从目标根开始，不持有对象或容器地址。 */
 struct prefab_property_override_key final {
   static constexpr std::string_view type_name = "prefab_property_override_key";
-  static constexpr guid reflection_guid = guid::literal("9c2683a8-3bfb-48b4-92af-6bce11ab215e");
-  gneiss::engine::guid source_node_uuid;
-  guid type_guid{};
-  meta::property_id property_id{};
-  /** 首属性之后的对象字段/序列下标；空表示直接标量属性。 */
-  meta::property_path path{};
-
-  [[nodiscard]] GNEISS_API bool
-  operator==(const prefab_property_override_key& other) const noexcept;
+  static constexpr guid type_guid = guid::literal("9c2683a8-3bfb-48b4-92af-6bce11ab215e");
+  prefab_property_target target;
+  meta::property_path path;
+  [[nodiscard]] meta::property_id first_property() const noexcept {
+    if (!path.empty())
+      if (const auto* id = std::get_if<meta::property_id>(&path.front()))
+        return *id;
+    return {};
+  }
+  bool operator==(const prefab_property_override_key&) const noexcept = default;
 };
+
+using prefab_override_value = std::variant<engine::value, serialization::property_snapshot>;
 
 struct prefab_property_override final {
   static constexpr std::string_view type_name = "prefab_property_override";
   static constexpr guid type_guid = guid::literal("8a714394-5d76-4aab-9787-46fb7cb53025");
   prefab_property_override_key key;
-  engine::value value;
+  prefab_override_value value;
 };
 
 /** 按稳定作者键比较，用于确定性排序。 */
@@ -56,11 +69,8 @@ prefab_property_override_key_less(const prefab_property_override_key& left,
 
 } // namespace gneiss::engine
 
-namespace gneiss::engine {
-template <> struct type_identity<prefab_property_override_key> {
-  static constexpr std::string_view name() noexcept { return "prefab_property_override_key"; }
-  static constexpr engine::guid guid() noexcept {
-    return prefab_property_override_key::reflection_guid;
-  }
+namespace gneiss::engine::meta {
+template <> struct variant_case_traits<prefab_override_value> {
+  static constexpr std::array<std::string_view, 2> names{"value", "snapshot"};
 };
 }

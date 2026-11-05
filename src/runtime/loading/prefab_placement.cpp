@@ -3,6 +3,7 @@
 #include "runtime/loading/prefab_placement.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/structural_diff.hpp"
 #include "engine/function/world/world.hpp"
@@ -58,11 +59,16 @@ gneiss::engine::error prefab_placement::freeze(
       continue;
     auto renderer = *original;
     for (const auto& override : author.prefab->overrides) {
-      if (override.key.source_node_uuid != object.uuid ||
-          override.key.type_guid != engine::mesh_renderer_description::type_guid)
+      if (override.key.target.source_node_uuid != object.uuid ||
+          override.key.target.target_type_guid != engine::mesh_renderer_description::type_guid)
         continue;
-      const auto status = engine::meta::write_property(
-          override.key.type_guid, override.key.property_id, &renderer, override.value);
+      auto root = engine::meta::mutable_instance::from(renderer);
+      if (!root)
+        return root.error();
+      auto target = engine::meta::resolve_path(*root, override.key.path, true);
+      if (!target)
+        return target.error();
+      const auto status = engine::apply_prefab_override_value(*target, override.value);
       if (status.failed())
         return status;
     }

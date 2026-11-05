@@ -30,8 +30,8 @@ struct prefab_origin_view {
   std::span<const prefab_property_override> overrides;
   [[nodiscard]] bool has_override(guid type, meta::property_id property) const noexcept {
     for (const auto& item : overrides)
-      if (item.key.source_node_uuid == source_node_uuid && item.key.type_guid == type &&
-          item.key.property_id == property)
+      if (item.key.target.source_node_uuid == source_node_uuid &&
+          item.key.target.target_type_guid == type && item.key.first_property() == property)
         return true;
     return false;
   }
