@@ -639,3 +639,6 @@
 - [PLAN-100：统一资产服务与场景加载边界](plans/PLAN-100-unified-asset-service.md)
 - [统一资产服务验收](records/2026-11-05-unified-asset-service.md)
 - [ADR-106：统一资产服务与场景实例化分离](decisions/ADR-106-unified-asset-service.md)
+
+- [PLAN-102：资源对象与统一加载生命周期](plans/PLAN-102-resource-object-loading.md)
+- [ADR-107：以资源对象为中心的加载与持久化](decisions/ADR-107-resource-object-loading.md)
