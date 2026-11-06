@@ -43,6 +43,35 @@ gneiss::engine::error load_cached(
 int main() try {
   {
     using namespace gneiss::engine;
+    auto record = std::make_shared<detail::asset_entry>();
+    auto first = std::make_shared<detail::load_operation>();
+    first->entry = record;
+    record->loading = first;
+    asset_request<int> subscriber(first->observer);
+    auto second_subscriber = subscriber;
+    if (!first->is_current() || !first->has_observers())
+      return 23;
+    subscriber.cancel();
+    if (!first->has_observers())
+      return 24;
+    second_subscriber.cancel();
+    if (first->has_observers())
+      return 25;
+    auto replacement = std::make_shared<detail::load_operation>();
+    replacement->entry = record;
+    record->loading = replacement;
+    first->stop();
+    if (first->is_current() || !replacement->is_current() || record->loading != replacement ||
+        first->observer->status != error::invalid_state)
+      return 26;
+    replacement->stop();
+    replacement->stop(); // 重复收尾不改变其他记录。
+    if (record->loading || replacement->is_current())
+      return 27;
+  }
+
+  {
+    using namespace gneiss::engine;
     resource_cache cache;
     auto owner = std::make_shared<const test_asset<int>>(23);
     {

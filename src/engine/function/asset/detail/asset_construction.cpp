@@ -319,9 +319,7 @@ error asset_construction::validate_sources(asset_manager& assets,
 
 void asset_construction::stop_loading() noexcept {
   for (auto& work : pending) {
-    work->observer->status = error::invalid_state;
-    if (auto entry = work->entry.lock(); entry && entry->loading == work)
-      entry->loading.reset();
+    work->stop();
   }
   pending.clear();
 }
@@ -332,8 +330,12 @@ void asset_construction::advance(asset_manager& service) {
   for (std::size_t i = 0; i < count; ++i) {
     auto work = pending[i];
     auto& state = *work->observer;
-    if (work->observer.use_count() == 1 || state.status != error::not_ready)
+    if (!work->has_observers() || state.status != error::not_ready)
       continue;
+    if (!work->is_current()) {
+      work->stop();
+      continue;
+    }
     try {
       if (!work->description) {
         serialization::diagnostic diagnostic;
@@ -445,11 +447,9 @@ void asset_construction::advance(asset_manager& service) {
           pending, [](const auto& work) { return work->observer->status != error::not_ready; }))
     service.notify_progress();
   std::erase_if(pending, [](const auto& work) {
-    const bool finished =
-        work->observer.use_count() == 1 || work->observer->status != error::not_ready;
+    const bool finished = !work->has_observers() || work->observer->status != error::not_ready;
     if (finished)
-      if (auto entry = work->entry.lock(); entry && entry->loading == work)
-        entry->loading.reset();
+      work->detach();
     return finished;
   });
 }

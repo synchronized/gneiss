@@ -75,7 +75,6 @@ public:
 };
 
 struct detail::asset_construction::pending_load : detail::load_operation {
-  std::weak_ptr<detail::asset_entry> entry;
   std::variant<asset_request<mesh_data>, asset_request<texture_data>,
                asset_request<material_description>>
       cpu;

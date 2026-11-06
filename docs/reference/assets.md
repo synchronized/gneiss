@@ -232,6 +232,8 @@ Application 通过 `assets()` 暴露统一入口，分发文件完成后推进�
 `cached_asset` 只是查询时取得的强引用与统计副本，不建立控制块或永久缓存身份。
 渲染资产内部的 CPU 解码不登记资产索引或临时 payload 键，只由父加载操作持有请求；
 同资产请求在最终资产记录上合并，中间解码复用执行队列与取消逻辑。
+`load_operation` 统一保存记录弱关联并检查观察者；清理仅解除指向自身的当前操作。
+渲染装配在采用前检查当前操作身份，旧操作停止不会清除新操作。具体 I/O、CPU 与依赖取消仍由对应阶段执行。
 ActionMap 使用 `load<action_map>` 返回共享资产；`snapshot()` 取得不可变
 `action_map_description`。重载保持资产身份和旧快照，InputService 显式复制并校验描述，
 不自动跟随重载。描述使用原有 input-map 文件格式和 GUID；描述的 load/store/find_loaded

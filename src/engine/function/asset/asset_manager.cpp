@@ -52,7 +52,6 @@ namespace gneiss::engine {
 struct asset_manager::resource_state {
   resource_cache cache;
   struct operation : detail::load_operation {
-    std::weak_ptr<detail::asset_entry> entry;
     cache_conversion conversion;
     std::shared_ptr<asset_loader> loader;
     engine::files::request_id read_request;
@@ -93,14 +92,13 @@ struct asset_manager::resource_state {
       files::bytes{}.swap(bytes);
     }
   };
-  struct scene_work {
+  struct scene_work : detail::load_operation {
     std::unique_ptr<detail::scene_description_request> descriptions;
     scene_preparation_inputs inputs;
     std::shared_ptr<scene_instantiation_data> prepared{
         std::make_shared<scene_instantiation_data>()};
     scene_diagnostic diagnostic;
     std::string prefab_uri;
-    std::shared_ptr<detail::asset_state> observer{std::make_shared<detail::asset_state>()};
     task_handle task;
     error status{error::invalid_state};
     bool completed{};
@@ -194,13 +192,13 @@ struct asset_manager::resource_state {
       executor->cancel_scope(scope);
     for (const auto& work : scenes) {
       work->descriptions.reset();
-      work->observer->status = error::invalid_state;
+      work->stop();
     }
     for (const auto& work : active) {
       if (work->reading && work->read_request.value != 0)
         (void)files->cancel(work->read_request);
       const std::scoped_lock lock(work->observer->mutex);
-      work->observer->status = error::invalid_state;
+      work->stop();
     }
   }
   bool finish_stop() noexcept {
@@ -416,7 +414,7 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
   if (conversion.to_asset) {
     const auto parameters = asset_load_parameters(options);
     entry = cache().acquire({domain, std::string(uri), type, parameters});
-    if (entry->loading && entry->loading->observer.use_count() > 1) {
+    if (entry->loading && entry->loading->has_observers()) {
       output = entry->loading->observer;
       return error::success;
     }
@@ -540,7 +538,7 @@ void asset_manager::advance() {
       }
   for (auto it = state.scenes.begin(); it != state.scenes.end();) {
     const auto& work = *it;
-    if (work->observer.use_count() == 1) {
+    if (!work->has_observers()) {
       if (work->task.id)
         (void)state.executor->cancel(work->task);
       it = state.scenes.erase(it);
@@ -592,13 +590,12 @@ void asset_manager::advance() {
   for (auto it = state.active.begin(); it != state.active.end();) {
     const auto& work = *it;
     // 丢弃全部观察者后不再提交解码或发布；已经运行的任务自行保活并收尾。
-    if (work->observer.use_count() == 1) {
+    if (!work->has_observers()) {
       if (work->task.id != 0U)
         (void)state.executor->cancel(work->task);
       if (work->reading)
         (void)state.files->cancel(work->read_request);
-      if (auto entry = work->entry.lock(); entry && entry->loading == work)
-        entry->loading.reset();
+      work->detach();
       it = state.active.erase(it);
       continue;
     }
@@ -644,8 +641,9 @@ void asset_manager::advance() {
       }
     }
     work->loader->metrics.queue_ms = work->queue_ms;
-    if (auto entry = work->entry.lock(); entry && entry->loading == work) {
-      entry->loading.reset();
+    if (work->is_current()) {
+      auto entry = work->entry.lock();
+      work->detach();
       if (work->status == error::success) {
         work->loader->adopt(work->previous);
         work->value = work->loader->value;
@@ -709,7 +707,7 @@ result<asset_request<render_resource_ref>> asset_manager::load(const render_reso
     return identity.error();
   auto entry = cache().acquire({identity->source, source.uri, cache_type(source.type),
                                 asset_load_parameters({.texture_profile = profile()})});
-  if (entry->loading && entry->loading->observer.use_count() > 1 &&
+  if (entry->loading && entry->loading->has_observers() &&
       entry->loading->observer->status == error::not_ready) {
     output.state_ = entry->loading->observer;
     return output;

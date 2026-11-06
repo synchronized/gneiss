@@ -73,6 +73,8 @@ struct asset_entry {
   - [x] 公开 load/find_loaded/store 只接受 asset 派生类型；测试自定义资产同步迁移。
   - [x] 内部缓存与查询结果收窄为 asset，写入校验实际类型；解码边界保留类型化指针转换。
 - [ ] E. 类型加载器共用 load_operation 生命周期；覆盖去重、单观察者取消、旧操作迟到、重载失败、清理与关闭。
+  - [x] 操作记录关联、观察者检查及只清理自身记录统一；CPU/渲染/场景准备共用基类。
+  - [ ] 继续统一类型加载器的阶段推进与完成通知，移除分立装配生命周期。
 
 缓存槽位使用 weak_ptr<const asset>，直接共享最终资产控制块；描述与负载不登记资产索引。
 内部解码请求仍允许擦除值，由类型化转换进入资产缓存。不得新增另一份永久资产索引。
@@ -430,3 +432,12 @@ Runtime/边界回归通过；改动行格式化与 git diff --check 通过。
 场景/生命周期/Runtime/边界回归通过；改动行格式化与 git diff --check 通过。
 日志：build/asset-typed-cache-build-final.log、build/asset-typed-cache-tests.log（不入库）。
 D 项完成；B/C 的采用路径及 E 的统一操作生命周期仍未完成。未运行 GPU 大场景、跨平台或远端 CI。
+
+2026-11-06：操作关联与收尾规则收敛。load_operation 共用 entry 弱关联、观察者检查、当前身份
+检查、detach 与 stop；CPU 解码、渲染装配和场景准备使用同一基类。删除派生类重复记录和观察
+状态，渲染采用前拒绝已失去当前记录的操作。具体 I/O、任务和依赖取消继续由对应阶段处理。
+新增回归覆盖单观察者取消、最后观察者释放、旧操作停止不清除替代操作及重复收尾。
+Windows Clang Debug 完整构建、13 项资产/场景/输入/Runtime/生命周期/边界回归通过；
+改动行格式化与 git diff --check 通过。日志：build/asset-operation-lifecycle-build.log、
+build/asset-operation-lifecycle-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+E 仍需统一阶段推进与完成通知；本步不代表 PLAN-102 整体完成。
