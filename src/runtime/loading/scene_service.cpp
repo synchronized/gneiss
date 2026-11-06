@@ -211,34 +211,22 @@ void scene_service::advance_reload() try {
     }
     value.prepared = **prepared;
   }
-  if (value.asset_pending) {
-    loading_->advance();
-    runtime::asset_load_completion completion;
-    if (!loading_->take(completion))
-      return;
-    value.asset_pending = false;
-    if (completion.result.failed()) {
-      value.result = completion.result;
+  // 结构仅需要稳定资源身份，不等待视觉内容加载。
+  for (const auto& source : value.prepared.assets) {
+    auto reserved = resources_->reserve_resource(source);
+    if (!reserved) {
+      value.result = reserved.error();
       return;
     }
-    for (auto& asset : completion.assets)
-      value.retained.push_back(std::move(asset));
-    ++value.cursor;
-  }
-  if (value.cursor < value.prepared.assets.size()) {
-    std::uint64_t request{};
-    const auto status = loading_->submit_assets(
-        std::span(value.prepared.assets).subspan(value.cursor, 1), 1, 1, request, false);
-    if (status.ok())
-      value.asset_pending = true;
-    else if (status != engine::error::not_ready)
-      value.result = status;
-    return;
+    value.retained.push_back(std::move(*reserved));
   }
   value.result =
       value.prefab ? scenes()->reload_prefab_loaded(value.instance, value.uri,
                                                     value.prepared.prefabs.at(value.uri).resource)
                    : scenes()->reload_loaded(value.instance, std::move(value.prepared.description));
+  if (value.result.ok())
+    visuals_.begin(std::move(value.prepared.assets), 1, 1);
+
 } catch (const std::bad_alloc&) {
   if (reload_)
     reload_->result = engine::error::out_of_memory;

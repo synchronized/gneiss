@@ -22,3 +22,18 @@ Windows Clang Debug 完整构建通过；23 项场景加载、Scene/Prefab 结�
 
 日志：build/scene-state-build.log、build/scene-state-tests.log（不入库）。
 未运行大场景、跨平台、远端 CI 或发布；未执行远端操作。
+
+## 后续：视觉依赖失败隔离
+
+- 结构重载改为预留稳定资源引用、同步更新结构、独立推进视觉队列；不等待所有视觉资源成功。
+- 组件与 Prefab 绑定只要求资源身份有效；缺失文件不等于非法 URI。
+- 材质纹理依赖逐项处理，失败继续其他槽位；首次加载使用默认贴图，更新失败保留旧材质内容。
+- Application 视觉诊断保留依赖 URI 和消息；格式与层级失败仍阻断结构操作。
+- 新增缺失网格、材质、纹理和更新失败回归，验证结构回执与视觉完成分离、稳定身份及旧内容。
+
+Windows Clang Debug 完整构建通过；28 项相关回归中一项旧断言要求缺失资源阻断实例化，
+改用非法 URI 验证失败回收后单独复测通过，其余 27 项通过；另一个 render_asset_loader 回归通过，
+共 29 项。格式检查与 git diff --check 通过。
+日志：build/scene-tolerance-build.log、build/scene-tolerance-tests.log、
+build/scene-tolerance-retest.log、build/scene-tolerance-assets-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI；缺失 Prefab、未知组件的数据保留未纳入此次实现。

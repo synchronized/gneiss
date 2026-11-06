@@ -62,7 +62,7 @@ public:
   [[nodiscard]] engine::result<std::optional<scene_load_completion>> poll_scene();
   [[nodiscard]] gneiss::engine::error cancel_scene(std::uint64_t request);
   /** 异步读取结构与依赖，所属线程原位修改实例；不切换 World。
-   * 重载期间拒绝其他加载；poll_reload 消费终态后释放请求槽位。 */
+   * 结构完成后独立加载视觉依赖；poll_reload 不等待视觉内容成功。 */
   [[nodiscard]] engine::error request_reload(scene_instance_id instance, std::string_view uri,
                                              bool prefab);
   [[nodiscard]] engine::result<std::optional<scene_reload_completion>> poll_reload();
@@ -75,8 +75,6 @@ private:
     engine::asset_request<engine::scene_instantiation_data> descriptions;
     engine::scene_instantiation_data prepared;
     std::vector<engine::render_resource_ref> retained;
-    std::size_t cursor{};
-    bool asset_pending{};
     engine::error result{engine::error::not_ready};
   };
   void advance_reload();

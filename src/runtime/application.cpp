@@ -1294,7 +1294,9 @@ void application::report_visual_completion() {
     for (const auto& item : completion.results) {
       if (!item.applied) {
         report(gneiss::engine::severity::error, gneiss::engine::category::asset, item.result,
-               "scene.assets", item.source.uri);
+               "scene.assets",
+               completion.message.empty() ? item.source.uri
+                                          : item.source.uri + ": " + completion.message);
       }
     }
   }

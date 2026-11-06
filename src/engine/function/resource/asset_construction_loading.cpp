@@ -3,6 +3,7 @@
 
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_resource_data.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/resource/detail/asset_construction.hpp"
 #include <algorithm>
@@ -16,6 +17,7 @@ struct detail::asset_construction::pending_load {
   asset_ref<const material_description> description;
   std::array<asset_request<render_resource_ref>, 5> dependencies;
   std::size_t dependency_cursor{};
+  error dependency_error{error::success};
 };
 result<asset_request<render_resource_ref>> asset_manager::load(const render_resource_source& source,
                                                                bool reload) try {
@@ -152,8 +154,10 @@ void detail::asset_construction::advance(asset_manager& service) {
           if (!dependency) {
             auto loaded = service.load<texture_resource>(uri);
             if (!loaded) {
-              state.status = loaded.error();
-              break;
+              work->dependency_error = loaded.error();
+              state.diagnostic.message += uri + ": 纹理请求失败\n";
+              ++work->dependency_cursor;
+              continue;
             }
             dependency = std::move(*loaded);
           }
@@ -161,23 +165,30 @@ void detail::asset_construction::advance(asset_manager& service) {
           if (status == error::not_ready)
             break;
           if (status.failed()) {
-            state.status = status;
+            work->dependency_error = status;
             const auto failure = dependency.diagnostic();
-            state.diagnostic = {failure.byte_offset, failure.path, failure.message, failure.error};
-            break;
+            state.diagnostic.path = failure.path.empty() ? uri : failure.path;
+            state.diagnostic.byte_offset = failure.byte_offset;
+            state.diagnostic.message += uri + ": " + failure.message + "\n";
           }
           ++work->dependency_cursor;
         }
-        if (state.status.failed() && state.status != error::not_ready)
-          continue;
         if (work->dependency_cursor < work->description->texture_uris.size())
           continue;
       }
       std::array<texture, 5> dependencies;
       for (std::size_t slot = 0; slot < dependencies.size(); ++slot)
         dependencies[slot] = work->dependencies[slot].get<texture_resource>();
+      // 首次加载允许纹理占位；已有材质更新失败时保留旧内容。
+      if (work->dependency_error.failed() &&
+          render_.material_status(resource_rid(state.target)).ok()) {
+        state.status = work->dependency_error;
+        continue;
+      }
       state.status = adopt(service, *work->description,
                            resource_cast<material_resource>(state.target), std::move(dependencies));
+      if (state.status.ok() && work->dependency_error.failed())
+        state.status = work->dependency_error;
     } catch (const std::bad_alloc&) {
       state.status = error::out_of_memory;
     } catch (...) {

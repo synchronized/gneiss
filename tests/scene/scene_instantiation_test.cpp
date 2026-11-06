@@ -517,29 +517,29 @@ void run() {
   // 旧域已析构；此前借用的 World 指针不再可访问。
   check(old_pixels->parameters.color[0] == 1.0F);
 
-  // 构造失败时仅回收候选节点；即使依赖缺失也不能退回主线程文件读取。
+  // 构造失败时仅回收候选节点；非法引用不能退回主线程文件读取。
   check(gneiss::test_support::prepare_scene_for_test(active_assets, executor, false,
                                                      "asset://s.scene", prepared, scene_error,
                                                      {}) == gneiss::engine::error::success);
   candidate = std::make_unique<runtime::scene_domain>();
   check(candidate->initialize(candidate_render) == gneiss::engine::error::success);
-  // 空绑定表仍可复用资源服务内的已有资源；使用真正缺失的 URI 验证失败回收。
-  bool missing_dependency = false;
+  // 空绑定表可预留尚未加载的资源身份；使用非法 URI 验证失败回收。
+  bool invalid_dependency = false;
   for (auto& description : prepared.description.objects) {
     if (auto* renderer = description.components.get<gneiss::engine::mesh_renderer_description>()) {
       auto missing = *renderer;
-      missing.mesh_uri = "asset://missing-for-instantiation.mesh";
+      missing.mesh_uri = "invalid-uri";
       description.components.set(std::move(missing));
-      missing_dependency = true;
+      invalid_dependency = true;
       break;
     }
   }
-  check(missing_dependency);
+  check(invalid_dependency);
   const auto failure_reads = files->reads;
   gneiss::scene_instance_id failed_instance{};
   check(gneiss::test_support::take_value(
             candidate->scenes()->instantiate_prepared(std::move(prepared), {}), failed_instance) ==
-        gneiss::engine::error::not_found);
+        gneiss::engine::error::invalid_argument);
   check(failed_instance == gneiss::scene_instance_id{});
   check(files->reads == failure_reads);
   check(gneiss::engine::error{gneiss::test_support::assign_value(

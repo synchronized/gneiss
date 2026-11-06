@@ -51,6 +51,11 @@ int main() try {
 
   gneiss::runtime::application_configuration config;
   config.asset_root = root_text;
+  unsigned visual_failures{};
+  config.callbacks.diagnostic = [&](const auto& event) {
+    if (event.module == "scene.assets")
+      ++visual_failures;
+  };
   gneiss::engine::task_scheduler scheduler({.mode = gneiss::engine::execution_mode::cooperative});
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::scene_instance_id scene = {};
@@ -122,7 +127,7 @@ int main() try {
       scene_path,
       R"([{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/triangle.material.json"}}])");
   if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, uri, false) !=
-          gneiss::engine::error::not_found ||
+          gneiss::engine::error::success ||
       gneiss::test_support::take_value(application->scenes()->find_node(scene, camera_uuid),
                                        camera_after) != gneiss::engine::error::success ||
       camera_after != camera_before ||
@@ -130,6 +135,49 @@ int main() try {
                                        new_child) != gneiss::engine::error::success) {
     return 4;
   }
+
+  if (visual_failures != 1)
+    return 22;
+  auto binding = application->scenes()->capture_mesh_binding(scene, new_child);
+  if (!binding || !binding->mesh || !binding->material ||
+      !application->assets().find_loaded<gneiss::engine::material_resource>(
+          "asset://materials/triangle.material.json"))
+    return 23;
+  binding = gneiss::engine::error::not_found;
+
+  // 缺失材质也不阻断结构回执；回执到达时视觉加载仍未结束。
+  write_scene(
+      scene_path,
+      R"([{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/missing.material.json"}}])");
+  if (application->request_scene_reload(scene, uri, false).failed())
+    return 24;
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  for (;;) {
+    (void)scheduler.run_ready();
+    bool ready{};
+    gneiss::engine::error result;
+    if (application->poll_scene_reload(result, ready).failed())
+      return 25;
+    if (ready) {
+      if (result.failed() || !application->visual_assets_loading())
+        return 26;
+      break;
+    }
+    if (std::chrono::steady_clock::now() >= deadline)
+      return 27;
+  }
+  while (application->visual_assets_loading()) {
+    if (std::chrono::steady_clock::now() >= deadline)
+      return 28;
+    (void)scheduler.run_ready();
+    application->advance_scene_load();
+  }
+  if (visual_failures != 3)
+    return 29;
+  // 描述本身损坏仍失败，不能把解析失败解释为缺失视觉内容。
+  std::ofstream(scene_path) << "broken";
+  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, uri, false).ok())
+    return 30;
 
   const bool destroyed = application->scenes()->unload(scene) == gneiss::engine::error::success &&
                          application->shutdown() == gneiss::engine::error::success;

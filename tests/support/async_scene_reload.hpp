@@ -23,8 +23,16 @@ inline engine::error reload_scene_for_test(runtime::application& app, engine::ta
     status = app.poll_scene_reload(result, ready);
     if (status.failed())
       return status;
-    if (ready)
+    if (ready) {
+      while (app.visual_assets_loading()) {
+        if (std::chrono::steady_clock::now() >= deadline)
+          return engine::error::internal;
+        (void)tasks.run_ready();
+        app.advance_scene_load();
+        std::this_thread::yield();
+      }
       return result;
+    }
     if (std::chrono::steady_clock::now() >= deadline)
       return engine::error::internal;
     std::this_thread::yield();

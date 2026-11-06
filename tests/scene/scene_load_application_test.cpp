@@ -76,9 +76,13 @@ void drain_visuals(const std::shared_ptr<application>& app,
   } while (app->visual_assets_loading());
 }
 
-void visual_failure(gneiss::engine::execution_mode mode) {
+void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = false) {
   fixture files;
-  std::ofstream(files.root / "material.json") << "broken";
+  if (missing_texture)
+    std::ofstream(files.root / "material.json")
+        << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,0,0,1]},"texture_uris":["asset://missing.ktx2","","","",""]})";
+  else
+    std::ofstream(files.root / "material.json") << "broken";
   gneiss::engine::task_scheduler scheduler({.workers = 1U, .mode = mode});
   application_configuration config;
   const auto root = files.root.string();
@@ -137,7 +141,14 @@ void visual_failure(gneiss::engine::execution_mode mode) {
             app->assets().find_loaded(
                 {"asset://material.json", gneiss::engine::render_resource_kind::material},
                 app->assets().profile()),
-            ready) == gneiss::engine::error::not_ready);
+            ready) == (missing_texture ? engine::error::not_found : engine::error::not_ready));
+  if (missing_texture) {
+    const auto* data = app->render().get_material(engine::resource_handle(material));
+    check(data && data->parameters.color.x == 1.0F);
+    check(static_cast<bool>(material->textures()[0]));
+    check(app->render().texture_status(engine::resource_handle(material->textures()[0])) ==
+          engine::error::not_ready);
+  }
   std::uint64_t nodes{};
   check(gneiss::test_support::take_value(app->scenes()->get_node_count(completion.scene), nodes) ==
             gneiss::engine::error::success &&
@@ -160,6 +171,19 @@ void visual_failure(gneiss::engine::execution_mode mode) {
       gneiss::test_support::take_value(app->scenes()->capture_mesh_binding(completion.scene, node),
                                        binding) == gneiss::engine::error::success &&
       binding.material == material);
+  // 更新时依赖失败不能覆盖已有材质，也不能更换其资源身份。
+  const auto old_data = app->render().share_material(engine::resource_handle(material));
+  std::ofstream(files.root / "material.json")
+      << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,0,1,1]},"texture_uris":["asset://missing-update.ktx2","","","",""]})";
+  check(app->request_assets(sources, 1U, 3U, request, true).ok());
+  until([&] {
+    bool finished{};
+    check(app->poll_assets(loaded, finished).ok());
+    return finished;
+  });
+  check(loaded.result.failed());
+  check(loaded.message.find("asset://missing-update.ktx2") != std::string::npos);
+  check(app->render().share_material(engine::resource_handle(material)) == old_data);
   // 已激活场景继续持有稳定资源，关闭会等待所属任务并释放其作用域。
   binding = {};
   material = {};
@@ -613,6 +637,8 @@ int main() try {
   asynchronous_shutdown(gneiss::engine::execution_mode::cooperative);
   visual_failure(gneiss::engine::execution_mode::thread_pool);
   visual_failure(gneiss::engine::execution_mode::cooperative);
+  visual_failure(gneiss::engine::execution_mode::thread_pool, true);
+  visual_failure(gneiss::engine::execution_mode::cooperative, true);
   run(gneiss::engine::execution_mode::thread_pool);
   run(gneiss::engine::execution_mode::cooperative);
   shared_scene_assets(gneiss::engine::execution_mode::thread_pool);

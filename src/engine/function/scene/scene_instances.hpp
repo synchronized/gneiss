@@ -89,7 +89,7 @@ public:
     const auto frozen = meta::is_frozen();
     return domain_ != 0U && frozen && *frozen;
   }
-  /** 应用已经加载的描述；调用方先准备渲染依赖，保持现有节点身份。 */
+  /** 应用已经加载的描述；只要求渲染资源身份有效，不等待内容加载；保持现有节点身份。 */
   [[nodiscard]] GNEISS_API error reload_loaded(scene_instance_id instance,
                                                scene_description description) noexcept;
   [[nodiscard]] GNEISS_API error
