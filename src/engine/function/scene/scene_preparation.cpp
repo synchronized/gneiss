@@ -70,6 +70,9 @@ public:
         return error::not_found;
       prefab_instantiation_data prefab;
       prefab.resource = input->second;
+      if (auto asset = inputs.prefab_assets.find(instance.prefab->uri);
+          asset != inputs.prefab_assets.end())
+        prefab.source_asset = asset->second;
       if (result == engine::error::success && prefab.resource->objects.size() > limits.nodes) {
         return engine::error::invalid_argument;
       }
@@ -169,6 +172,7 @@ error prepare_loaded_scene(const scene_preparation_inputs& inputs, std::string_v
                    .dependencies = {},
                    .scene_depths = {}};
   work.candidate.source_bytes = inputs.source_bytes;
+  work.candidate.source_asset = inputs.source_asset;
   auto status = error::success;
   if (inputs.source_bytes > limits.source_bytes)
     status = error::invalid_argument;

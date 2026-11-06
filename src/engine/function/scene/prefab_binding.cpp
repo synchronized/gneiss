@@ -25,9 +25,10 @@
 namespace gneiss::engine {
 
 prefab_binding::prefab_binding(world& native_world, asset_manager& loader, prefab_asset_ref prefab,
-                               gneiss::engine::guid instance_uuid) noexcept
+                               gneiss::engine::guid instance_uuid,
+                               ref<const engine::prefab> source_asset) noexcept
     : native_world_(native_world), loader_(loader), prefab_(std::move(prefab)),
-      instance_uuid_(std::move(instance_uuid)) {}
+      source_asset_(std::move(source_asset)), instance_uuid_(std::move(instance_uuid)) {}
 
 engine::error prefab_binding::validate_reload(const prefab_asset_ref& candidate,
                                               const prefab_reference_description& reference,

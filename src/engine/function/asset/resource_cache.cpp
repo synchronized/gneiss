@@ -59,6 +59,15 @@ resource_cache::load(std::string_view uri, type_id type, const loader& decode,
       record->cached = previous && !previous->expired() ? previous : std::nullopt;
       return status;
     }
+    // 同一资产采用新内容时复用原控制块，避免旧引用仍存活却丢失弱缓存身份。
+    if (existing && existing->resource.get() == value->resource.get() &&
+        !existing->resource.owner_before(value->resource) &&
+        !value->resource.owner_before(existing->resource)) {
+      existing->source_bytes = value->source_bytes;
+      existing->metrics = std::move(value->metrics);
+      record->cached = existing;
+      return asset_ref<const detail::asset_cache_value>{std::move(existing)};
+    }
     value->is_loading = false;
     return asset_ref<const detail::asset_cache_value>{std::move(value)};
   } catch (const std::bad_alloc&) {

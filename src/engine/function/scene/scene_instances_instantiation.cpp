@@ -27,6 +27,7 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
         return error::invalid_argument;
     }
     auto instance = std::make_unique<scene_instance>(native_world_, loader_);
+    instance->source_asset = prepared.source_asset;
     instance->initialize_staged(prepared.description.uuid, prepared.description.objects.size());
     std::unordered_map<guid, scene_node_id, guid_hash> nodes;
     nodes.reserve(prepared.description.objects.size());
@@ -48,7 +49,9 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
       auto prepared_status = prepare_prefab_reference(*lease, *source.prefab, effective);
       if (prepared_status.failed())
         return prepared_status;
-      auto prefab = std::make_unique<prefab_binding>(native_world_, loader_, lease, source.uuid);
+      auto prefab =
+          std::make_unique<prefab_binding>(native_world_, loader_, lease, source.uuid,
+                                           prepared.prefabs.at(source.prefab->uri).source_asset);
       auto result = prefab->create_root(
           source.parent_uuid ? nodes.at(source.parent_uuid) : null_scene_node_id, source.transform);
       if (result != engine::error::success) {
@@ -101,12 +104,14 @@ result<scene_capture> scene_instances::capture_prepared(scene_instance_id instan
   auto scene = std::make_shared<scene_description>(std::move(*captured));
   scene_preparation_inputs inputs;
   inputs.scene = asset_ref<const scene_description>{scene};
+  inputs.source_asset = (*value)->source_asset;
   for (const auto& prefab : scene->objects) {
     if (!prefab.prefab)
       continue;
     auto header = (*value)->capture_prefab_instance_header(prefab.uuid);
     if (!header)
       return header.error();
+    inputs.prefab_assets.insert_or_assign(prefab.prefab->uri, header->source_asset);
     inputs.prefabs.insert_or_assign(prefab.prefab->uri, std::move(header->source));
   }
   scene_instantiation_data prepared;

@@ -24,7 +24,8 @@ scene_instance::capture_prefab_instance_header(guid uuid) const noexcept try {
     return captured.error();
   auto copy = std::move(*captured);
   copy.prefab = (*found)->reference_;
-  return prefab_header_snapshot{std::move(copy), prefab_instances_[index]->prefab_lease()};
+  return prefab_header_snapshot{std::move(copy), prefab_instances_[index]->prefab_lease(),
+                                prefab_instances_[index]->source_asset()};
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -53,7 +54,8 @@ scene_instance::capture_prefab_instance_binding(guid uuid, std::size_t index) co
 result<scene_node_id>
 scene_instance::instantiate_prefab_ready(const object_description& author, prefab_asset_ref prefab,
                                          std::span<const scene_mesh_binding> bindings,
-                                         bool replacing) noexcept try {
+                                         bool replacing,
+                                         ref<const engine::prefab> source_asset) noexcept try {
   if (!author.prefab || !author.components.empty() || !prefab ||
       bindings.size() != prefab.get()->objects.size() || !author.uuid ||
       (!replacing && find_node(author.uuid)))
@@ -100,8 +102,8 @@ scene_instance::instantiate_prefab_ready(const object_description& author, prefa
   if (status.failed())
     return status;
   prefab_instances_.reserve(prefab_instances_.size() + 1U);
-  auto runtime =
-      std::make_unique<prefab_binding>(native_world_, loader_, std::move(prefab), author.uuid);
+  auto runtime = std::make_unique<prefab_binding>(native_world_, loader_, std::move(prefab),
+                                                  author.uuid, std::move(source_asset));
   status = runtime->create_root(parent, author.transform);
   if (status.failed())
     return status;

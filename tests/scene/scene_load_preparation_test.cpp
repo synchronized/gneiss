@@ -112,6 +112,12 @@ void run() {
         output.parent_first == std::vector<std::size_t>({0U, 1U, 2U}));
   const auto bytes = memory->files.at("main.scene").size() + memory->files.at("p.prefab").size();
   check(output.source_bytes == bytes);
+  check(bool(output.source_asset));
+  check(bool(output.prefabs.at("asset://p.prefab").source_asset));
+  check(assets.find_loaded<engine::scene>("asset://main.scene")->get() ==
+        output.source_asset.get());
+  check(assets.find_loaded<engine::prefab>("asset://p.prefab")->get() ==
+        output.prefabs.at("asset://p.prefab").source_asset.get());
   // 准备结果拥有场景值副本；没有原始引用时弱缓存立即失效。
   check(assets.find_loaded<scene_description>("asset://main.scene").error() == error::not_found);
   asset_ref<const scene_description> held_scene;
@@ -149,6 +155,10 @@ void run() {
   check(test_support::load_asset(assets, "asset://main.scene", reloaded, true).ok());
   check(reloaded == scene_asset && snapshot->objects.front().name != "reloaded");
   check(reloaded->snapshot()->objects.front().name == "reloaded");
+  reloaded.reset();
+  assets.collect_unused();
+  auto retained = assets.find_loaded<engine::scene>("asset://main.scene");
+  check(bool(retained) && retained->get() == scene_asset.get());
   memory->files["main.scene"] = "{";
   ref<const engine::scene> rejected;
   check(test_support::load_asset(assets, "asset://main.scene", rejected, true).failed());

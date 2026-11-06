@@ -31,8 +31,11 @@ prepare_scene_document(const scene_document_snapshot& before,
   std::vector<engine::render_resource_source> pending;
   auto scene = std::make_shared<engine::scene_description>(before.description.description);
   engine::scene_preparation_inputs inputs;
-  for (const auto& [uri, prefab] : before.description.prefabs)
+  inputs.source_asset = before.description.source_asset;
+  for (const auto& [uri, prefab] : before.description.prefabs) {
     inputs.prefabs.emplace(uri, prefab.resource);
+    inputs.prefab_assets.emplace(uri, prefab.source_asset);
+  }
   const auto decode = [&](const std::string& json, auto& output) {
     auto decoded_result =
         gneiss::engine::asset_file::deserialize<std::remove_cvref_t<decltype(output)>>(
@@ -55,6 +58,7 @@ prepare_scene_document(const scene_document_snapshot& before,
     } else if (uri.ends_with(".prefab.json")) {
       if (!change.replacement) {
         inputs.prefabs.erase(uri);
+        inputs.prefab_assets.erase(uri);
         continue;
       }
       auto prefab = std::make_shared<engine::prefab_description>();

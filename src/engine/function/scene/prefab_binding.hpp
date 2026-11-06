@@ -10,6 +10,7 @@
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_types.hpp"
+#include "engine/resource/prefab.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 
 #include "engine/function/scene/scene_object.hpp"
@@ -36,7 +37,7 @@ public:
   };
 
   prefab_binding(world& native_world, asset_manager& loader, prefab_asset_ref prefab,
-                 guid instance_uuid) noexcept;
+                 guid instance_uuid, ref<const engine::prefab> source_asset = {}) noexcept;
   ~prefab_binding() noexcept = default;
 
   prefab_binding(const prefab_binding&) = delete;
@@ -44,6 +45,7 @@ public:
 
   [[nodiscard]] scene_node_id root() const noexcept { return root_node_; }
   [[nodiscard]] prefab_asset_ref prefab_lease() const noexcept { return prefab_; }
+  [[nodiscard]] ref<const engine::prefab> source_asset() const noexcept { return source_asset_; }
   [[nodiscard]] scene_node_id find_node(guid source_node_uuid) const noexcept;
   [[nodiscard]] const object_description* find_source_object(guid source_node_uuid) const noexcept;
   [[nodiscard]] std::size_t node_count() const noexcept { return nodes_.size(); }
@@ -76,6 +78,7 @@ private:
   world& native_world_;
   asset_manager& loader_;
   prefab_asset_ref prefab_;
+  ref<const engine::prefab> source_asset_;
   guid instance_uuid_;
   prefab_reference_description reference_; // 实例来源与覆盖的唯一可变记录。
   scene_node_id root_node_ = null_scene_node_id;

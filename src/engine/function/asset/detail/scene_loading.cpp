@@ -55,6 +55,7 @@ error scene_description_request::advance(scene_preparation_inputs& output,
                     std::move(failure.message)};
       return diagnostic.error;
     }
+    s.inputs.source_asset = *loaded;
     s.inputs.scene = (*loaded)->snapshot();
     s.bytes = s.scene.source_bytes();
     for (const auto& instance : s.inputs.scene->objects)
@@ -82,6 +83,7 @@ error scene_description_request::advance(scene_preparation_inputs& output,
     if (s.current.source_bytes() > s.limits.source_bytes - s.bytes)
       return fail(error::invalid_argument);
     s.bytes += s.current.source_bytes();
+    s.inputs.prefab_assets.emplace(uri, *loaded);
     s.inputs.prefabs.emplace(uri, std::move(value));
     ++s.cursor;
     if (s.cursor < s.uris.size())

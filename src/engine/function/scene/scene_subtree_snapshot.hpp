@@ -3,6 +3,7 @@
 #pragma once
 #include "engine/core/guid.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
+#include "engine/resource/prefab.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 #include <map>
 namespace gneiss::engine {
@@ -11,6 +12,7 @@ struct scene_object_resources {
   scene_mesh_binding renderer;
   prefab_asset_ref prefab;
   std::vector<scene_mesh_binding> source_nodes;
+  ref<const engine::prefab> source_asset{};
 };
 /** 普通对象与 Prefab 共用的内存子树快照；不持有运行期节点。 */
 struct scene_subtree_snapshot {

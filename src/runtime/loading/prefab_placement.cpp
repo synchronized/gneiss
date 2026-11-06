@@ -81,6 +81,7 @@ gneiss::engine::error prefab_placement::freeze(
   value->description.objects.push_back(std::move(author));
   auto& binding = value->resources[value->root_uuid];
   binding.prefab = std::move(prepared.resource);
+  binding.source_asset = std::move(prepared.source_asset);
   binding.source_nodes.resize(binding.prefab->objects.size());
   const auto find = [&](std::string_view uri, engine::render_resource_kind type,
                         engine::render_resource_ref& result) {
@@ -157,7 +158,8 @@ gneiss::engine::error prefab_placement::apply(application& app, scene_instance_i
     if (!snapshot.parent_uuid.is_nil())
       author.parent_uuid = snapshot.parent_uuid;
     auto scene_result = app.scenes()->instantiate_prefab_ready(
-        scene, author, resources->second.prefab, resources->second.source_nodes, true);
+        scene, author, resources->second.prefab, resources->second.source_nodes, true,
+        resources->second.source_asset);
     if (!scene_result)
       return scene_result.error();
     output = std::move(*scene_result);

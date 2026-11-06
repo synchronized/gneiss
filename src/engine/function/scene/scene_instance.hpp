@@ -14,6 +14,7 @@ namespace gneiss::engine {
 class scene_instance final {
 public:
   scene_instance(world& native_world, asset_manager& loader) noexcept;
+  ref<const engine::scene> source_asset;
   ~scene_instance() noexcept;
 
   scene_instance(const scene_instance&) = delete;
@@ -80,7 +81,8 @@ public:
   capture_prefab_instance_binding(guid uuid, std::size_t index) const noexcept;
   [[nodiscard]] result<scene_node_id>
   instantiate_prefab_ready(const object_description& author, prefab_asset_ref prefab,
-                           std::span<const scene_mesh_binding> bindings, bool replacing) noexcept;
+                           std::span<const scene_mesh_binding> bindings, bool replacing,
+                           ref<const engine::prefab> source_asset = {}) noexcept;
   [[nodiscard]] error remove_prefab_instance(guid uuid) noexcept;
 
   /** 捕获当前 ECS 引用；替换普通组件只写 World，Prefab 同时维护显式覆盖。 */

@@ -17,8 +17,8 @@ struct asset_cache_value final : std::enable_shared_from_this<asset_cache_value>
   type_id type{engine::runtime_type_of<void>()};
   bool is_loading{true}; // 仅在同步创建回调期间阻止同键递归。
   std::shared_ptr<const void> resource;
-  asset_load_metrics metrics;
-  std::size_t source_bytes{}; // CPU 文件加载统计；程序创建的对象默认为零。
+  mutable asset_load_metrics metrics;
+  mutable std::size_t source_bytes{}; // CPU 文件加载统计；程序创建的对象默认为零。
   /** 类型化引用保活条目与资源，保证只持有类型化引用时也能命中弱索引。 */
   template <typename T> [[nodiscard]] asset_ref<const T> as() const noexcept {
     auto owner = weak_from_this().lock();

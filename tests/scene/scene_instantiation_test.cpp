@@ -268,6 +268,9 @@ void run() {
   check(gneiss::engine::resource_rid(unrelated) != gneiss::engine::resource_rid(material));
   const auto reads = files->reads;
   gneiss::scene_instance_id new_scene{};
+  auto expected_scene_asset = prepared.source_asset;
+  auto expected_prefab_asset = prepared.prefabs.begin()->second.source_asset;
+  check(bool(expected_scene_asset) && bool(expected_prefab_asset));
   // 缺少来源引用必须拒绝，不能通过临时描述回写缓存。
   auto missing_source = prepared;
   missing_source.prefabs.begin()->second.resource.reset();
@@ -280,6 +283,12 @@ void run() {
             candidate->scenes()->instantiate_prepared(std::move(prepared), bindings), new_scene) ==
         gneiss::engine::error::success);
   check(new_scene != gneiss::scene_instance_id{});
+  {
+    auto captured = candidate->scenes()->capture_prepared(new_scene);
+    check(bool(captured));
+    check(captured->description.source_asset == expected_scene_asset);
+    check(captured->description.prefabs.begin()->second.source_asset == expected_prefab_asset);
+  }
   std::uint64_t unchanged_count{};
   check(gneiss::engine::error{gneiss::test_support::assign_value(
             active->native_world()->entity_count(), unchanged_count)} ==

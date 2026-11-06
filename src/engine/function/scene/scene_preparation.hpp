@@ -6,6 +6,8 @@
 #include "engine/core/error.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/asset/render_resource.hpp"
+#include "engine/resource/prefab.hpp"
+#include "engine/resource/scene.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 
 #include <functional>
@@ -23,6 +25,7 @@ struct scene_prepare_limits {
 
 struct prefab_instantiation_data {
   asset_ref<const prefab_description> resource;
+  ref<const prefab> source_asset{};
   std::size_t maximum_depth{};
   std::vector<std::size_t> parent_first;
 };
@@ -32,6 +35,7 @@ struct prefab_instantiation_data {
  * source_bytes 是加载统计，不代表解析后内存用量。 */
 struct scene_instantiation_data {
   scene_description description;
+  ref<const scene> source_asset{};
   std::vector<std::size_t> parent_first;
   std::map<std::string, prefab_instantiation_data> prefabs;
   std::vector<render_resource_source> assets;
@@ -45,6 +49,9 @@ struct scene_preparation_inputs {
   std::size_t source_bytes{}; // 文件加载请求统计；纯内存构造的输入为零。
   asset_ref<const scene_description> scene;
   std::map<std::string, asset_ref<const prefab_description>> prefabs;
+  // 身份保活与不可变快照分开；纯内存编辑输入允许没有文件资产。
+  ref<const engine::scene> source_asset{};
+  std::map<std::string, ref<const prefab>> prefab_assets{};
 };
 /** 纯 CPU 排序和依赖收集；prefab_uri 非空表示仅准备一个 Prefab。 */
 [[nodiscard]] GNEISS_API error prepare_loaded_scene(const scene_preparation_inputs&,

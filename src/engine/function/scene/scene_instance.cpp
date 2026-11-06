@@ -633,6 +633,7 @@ result<scene_subtree_snapshot> scene_instance::capture_subtree(scene_node_id roo
       if (binding == prefab_instances_.end())
         return error::invalid_state;
       resources.prefab = (*binding)->prefab_lease();
+      resources.source_asset = (*binding)->source_asset();
       resources.source_nodes.resize((*binding)->node_count());
       for (std::size_t i = 0; i < resources.source_nodes.size(); ++i) {
         auto node_binding = capture_prefab_instance_binding(author.uuid, i);
@@ -710,8 +711,9 @@ result<scene_node_id> scene_instance::restore_subtree(const scene_subtree_snapsh
     if (author.prefab) {
       if (asset == snapshot.resources.end() || !asset->second.prefab)
         return error::not_found;
-      auto created = staged.instantiate_prefab_ready(author, asset->second.prefab,
-                                                     asset->second.source_nodes, false);
+      auto created =
+          staged.instantiate_prefab_ready(author, asset->second.prefab, asset->second.source_nodes,
+                                          false, asset->second.source_asset);
       if (!created)
         return created.error();
       status = error::success;
