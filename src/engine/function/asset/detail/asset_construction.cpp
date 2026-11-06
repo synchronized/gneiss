@@ -336,6 +336,10 @@ void asset_construction::advance(asset_manager& service) {
       work->stop();
       continue;
     }
+    const auto complete = [&](error status) {
+      work->complete(status, std::move(state.diagnostic), {}, state.source_bytes,
+                     std::move(state.metrics));
+    };
     try {
       if (!work->description) {
         serialization::diagnostic diagnostic;
@@ -400,13 +404,13 @@ void asset_construction::advance(asset_manager& service) {
         if (status == error::not_ready)
           continue;
         if (status.failed()) {
-          state.status = status;
           if (!diagnostic.message.empty())
             state.diagnostic = std::move(diagnostic);
+          complete(status);
           continue;
         }
         if (!work->description) {
-          state.status = error::success;
+          complete(error::success);
           continue;
         }
       }
@@ -429,23 +433,21 @@ void asset_construction::advance(asset_manager& service) {
       // 首次加载允许纹理占位；已有材质更新失败时保留旧内容。
       if (work->dependency_error.failed() &&
           render_.material_status(resource_rid(state.target)).ok()) {
-        state.status = work->dependency_error;
+        complete(work->dependency_error);
         continue;
       }
-      state.status =
+      auto status =
           adopt(service, *work->description, resource_cast<engine::material>(state.target),
                 std::move(work->texture_references));
-      if (state.status.ok() && work->dependency_error.failed())
-        state.status = work->dependency_error;
+      if (status.ok() && work->dependency_error.failed())
+        status = work->dependency_error;
+      complete(status);
     } catch (const std::bad_alloc&) {
-      state.status = error::out_of_memory;
+      complete(error::out_of_memory);
     } catch (...) {
-      state.status = error::internal;
+      complete(error::internal);
     }
   }
-  if (std::ranges::any_of(
-          pending, [](const auto& work) { return work->observer->status != error::not_ready; }))
-    service.notify_progress();
   std::erase_if(pending, [](const auto& work) {
     const bool finished = !work->has_observers() || work->observer->status != error::not_ready;
     if (finished)

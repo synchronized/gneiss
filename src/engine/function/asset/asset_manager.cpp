@@ -197,7 +197,6 @@ struct asset_manager::resource_state {
     for (const auto& work : active) {
       if (work->reading && work->read_request.value != 0)
         (void)files->cancel(work->read_request);
-      const std::scoped_lock lock(work->observer->mutex);
       work->stop();
     }
   }
@@ -291,10 +290,6 @@ std::size_t asset_manager::cached_count() const noexcept { return cache().size()
 bool asset_manager::stop_requested() const noexcept { return resource_state_->stopped; }
 bool asset_manager::loading_configured() const noexcept {
   return resource_state_->executor && !stop_requested();
-}
-void asset_manager::notify_progress() const noexcept {
-  if (resource_state_->notification)
-    resource_state_->notification->notify();
 }
 error asset_manager::configure(task_executor& executor) noexcept {
   return configure(executor, resource_state_->profile, resource_state_->notification);
@@ -431,6 +426,7 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
   }
   // 内部解码由父资产操作持有；不另建身份、弱缓存或在途索引。
   auto work = std::make_shared<resource_state::operation>(std::move(*task));
+  work->notification = state.notification;
   work->entry = entry;
   work->conversion = conversion;
   work->previous = cached ? conversion.to_value(cached->resource) : nullptr;
@@ -494,6 +490,7 @@ asset_manager::prepare_structure(std::string_view uri, bool prefab, bool reload)
   if (validate_uri(uri).failed())
     return error::invalid_argument;
   auto work = std::make_shared<resource_state::scene_work>();
+  work->notification = state.notification;
   work->descriptions = std::make_unique<detail::scene_description_request>(
       *this, std::string(uri), prefab, scene_prepare_limits{}, reload);
   if (prefab)
@@ -575,16 +572,11 @@ void asset_manager::advance() {
       ++it;
       continue;
     }
-    {
-      const std::scoped_lock lock(work->observer->mutex);
-      work->observer->status = work->status;
-      work->observer->diagnostic = {work->diagnostic.byte_offset, work->diagnostic.path,
-                                    work->diagnostic.message, work->status};
-      if (work->status.ok()) {
-        work->observer->value = std::move(work->prepared);
-        work->observer->source_bytes = work->inputs.source_bytes;
-      }
-    }
+    work->complete(work->status,
+                   {work->diagnostic.byte_offset, std::move(work->diagnostic.path),
+                    std::move(work->diagnostic.message), work->status},
+                   std::move(work->prepared), work->inputs.source_bytes,
+                   std::move(work->observer->metrics));
     it = state.scenes.erase(it);
   }
   for (auto it = state.active.begin(); it != state.active.end();) {
@@ -659,16 +651,8 @@ void asset_manager::advance() {
           work->value = work->conversion.to_value(cached->resource);
       }
     }
-    {
-      const std::scoped_lock lock(work->observer->mutex);
-      work->observer->status = work->status;
-      work->observer->diagnostic = std::move(work->diagnostic);
-      if (work->status == error::success) {
-        work->observer->source_bytes = work->source_bytes;
-        work->observer->metrics = work->loader->metrics;
-        work->observer->value = std::move(work->value);
-      }
-    }
+    work->complete(work->status, std::move(work->diagnostic), std::move(work->value),
+                   work->source_bytes, std::move(work->loader->metrics));
     it = state.active.erase(it);
   }
 }
@@ -720,6 +704,7 @@ result<asset_request<render_resource_ref>> asset_manager::load(const render_reso
     return output;
   }
   auto work = std::make_shared<detail::asset_construction::pending_load>();
+  work->notification = resource_state_->notification;
   work->observer = state;
   work->entry = entry;
   switch (source.type) {

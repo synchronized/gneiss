@@ -236,7 +236,6 @@ private:
   const resource_cache& cache() const noexcept;
   bool stop_requested() const noexcept;
   bool loading_configured() const noexcept;
-  void notify_progress() const noexcept;
   /** 任务中间数据只由任务保活，不登记为最终资产。 */
   template <class T>
   result<asset_request<T>> decode_data(std::string_view uri, asset_load_options options) noexcept {

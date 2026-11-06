@@ -74,7 +74,8 @@ struct asset_entry {
   - [x] 内部缓存与查询结果收窄为 asset，写入校验实际类型；解码边界保留类型化指针转换。
 - [ ] E. 类型加载器共用 load_operation 生命周期；覆盖去重、单观察者取消、旧操作迟到、重载失败、清理与关闭。
   - [x] 操作记录关联、观察者检查及只清理自身记录统一；CPU/渲染/场景准备共用基类。
-  - [ ] 继续统一类型加载器的阶段推进与完成通知，移除分立装配生命周期。
+  - [x] CPU/渲染/场景准备统一终态提交与完成通知；重复完成或停止不覆盖已有结果。
+  - [ ] 继续统一类型加载器的阶段推进，移除分立装配生命周期。
 
 缓存槽位使用 weak_ptr<const asset>，直接共享最终资产控制块；描述与负载不登记资产索引。
 内部解码请求仍允许擦除值，由类型化转换进入资产缓存。不得新增另一份永久资产索引。
@@ -441,3 +442,13 @@ Windows Clang Debug 完整构建、13 项资产/场景/输入/Runtime/生命周�
 改动行格式化与 git diff --check 通过。日志：build/asset-operation-lifecycle-build.log、
 build/asset-operation-lifecycle-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
 E 仍需统一阶段推进与完成通知；本步不代表 PLAN-102 整体完成。
+
+2026-11-06：统一终态提交与完成通知。CPU 加载、渲染装配和场景准备共用 load_operation::complete，
+提交结果后解除当前记录并唤醒宿主；重复完成、完成后停止和停止后的迟到完成不会覆盖原结果。
+删除渲染装配额外扫描终态并通知的逻辑及闲置通知入口；具体取消仍由所属阶段执行。
+新增回归覆盖 not_ready 拒绝、成功结果/字节数保留、重复完成、停止后迟到以及通知次数。
+Windows Clang Debug 完整构建与构建结束后的 13 项相关回归通过；场景实例化额外连续 10 次通过。
+构建重叠期间的一次场景实例化崩溃未在后续运行复现，不据此认定其根因。
+日志：build/asset-completion-build.log、build/asset-completion-tests-final.log、
+build/asset-completion-scene-repeat.log（不入库）。改动行格式化与 git diff --check 通过。
+未运行 GPU 大场景、跨平台或远端 CI；E 的阶段推进收敛及 B/C 剩余采用路径仍未完成。
