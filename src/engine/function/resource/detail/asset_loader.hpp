@@ -6,6 +6,7 @@
 #include "engine/resource/texture/texture_decoder.hpp"
 #include <optional>
 namespace gneiss::engine::detail {
+
 /** 一次加载的格式状态；管理器负责 I/O 和调度，Loader 只消费字节并描述下一次读取。 */
 struct asset_load_task {
   std::string uri, next_uri;
@@ -23,6 +24,7 @@ struct asset_load_task {
     diagnostic = {failure.byte_offset, std::move(failure.path), std::move(failure.message), status};
   }
 };
+
 struct object_load_task final : asset_load_task {
   std::shared_ptr<const asset_decoder> decoder;
   object_load_task(std::string uri, std::shared_ptr<const asset_decoder> parser)
@@ -37,6 +39,7 @@ struct object_load_task final : asset_load_task {
     metrics.bytes = input_bytes;
   }
 };
+
 struct mesh_load_task final : asset_load_task {
   explicit mesh_load_task(std::string uri) : asset_load_task(std::move(uri)) {
     source_type = static_cast<std::uint32_t>(render_resource_kind::mesh);
@@ -52,6 +55,7 @@ struct mesh_load_task final : asset_load_task {
     status = error::success;
   }
 };
+
 struct texture_load_task final : asset_load_task {
   texture_prepare_profile profile;
   std::optional<texture_description> description;
@@ -82,6 +86,7 @@ struct texture_load_task final : asset_load_task {
     status = error::success;
   }
 };
+
 template <class Resolve>
 result<std::shared_ptr<asset_load_task>>
 make_asset_load_task(type_id type, std::string uri, asset_load_options options, Resolve resolve) {
@@ -96,4 +101,5 @@ make_asset_load_task(type_id type, std::string uri, asset_load_options options, 
   return std::shared_ptr<asset_load_task>{
       std::make_shared<object_load_task>(std::move(uri), std::move(*decoder))};
 }
+
 }

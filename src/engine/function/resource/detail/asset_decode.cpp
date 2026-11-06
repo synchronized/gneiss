@@ -9,7 +9,9 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+
 namespace gneiss::engine {
+
 using namespace engine::detail;
 
 namespace {
@@ -33,8 +35,10 @@ bool invalid_prepared_mesh(const mesh_data& mesh) {
           !std::ranges::all_of(mesh.indices, [&](auto i) { return i < mesh.vertices.size(); }));
 }
 } // namespace
-result<decoded_asset, asset_diagnostic> decode_mesh_asset(std::string_view uri,
-                                                          const std::vector<std::byte>& bytes) {
+
+result<decoded_asset, asset_diagnostic> decode_mesh_asset(
+    std::string_view uri, const std::vector<std::byte>& bytes)
+{
   asset_diagnostic diagnostic;
   const auto failure = [&](error code) {
     diagnostic.error = code;
@@ -54,10 +58,12 @@ result<decoded_asset, asset_diagnostic> decode_mesh_asset(std::string_view uri,
   return decoded_asset{
       .uri = std::string(uri), .sources = {}, .content = std::move(mesh), .bytes = size};
 }
-result<decoded_asset, asset_diagnostic> decode_texture_asset(std::string_view uri,
-                                                             const texture_description& description,
-                                                             const std::vector<std::byte>& payload,
-                                                             texture_prepare_profile profile) {
+result<decoded_asset, asset_diagnostic> decode_texture_asset(
+    std::string_view uri,
+    const texture_description& description,
+    const std::vector<std::byte>& payload,
+    texture_prepare_profile profile)
+{
   asset_diagnostic diagnostic;
   const auto failure = [&](error code) {
     diagnostic.error = code;
@@ -77,9 +83,12 @@ result<decoded_asset, asset_diagnostic> decode_texture_asset(std::string_view ur
   return decoded_asset{
       .uri = std::string(uri), .sources = {}, .content = std::move(texture), .bytes = size};
 }
-result<decoded_asset, asset_diagnostic>
-adopt_material_asset(std::string_view uri, asset_ref<const material_description> material,
-                     std::size_t material_bytes) {
+
+result<decoded_asset, asset_diagnostic> adopt_material_asset(
+    std::string_view uri,
+    asset_ref<const material_description> material,
+    std::size_t material_bytes)
+{
   asset_diagnostic diagnostic;
   const auto failure = [&](error code) {
     diagnostic.error = code;
@@ -104,4 +113,5 @@ adopt_material_asset(std::string_view uri, asset_ref<const material_description>
   return decoded_asset{
       .uri = std::string(uri), .sources = {}, .content = std::move(material), .bytes = size};
 }
+
 } // namespace gneiss::engine

@@ -7,7 +7,9 @@
 #include "engine/resource/texture/texture_view.hpp"
 #include <unordered_map>
 namespace gneiss::engine {
+
 struct material_data;
+
 struct detail::asset_construction final {
 public:
   explicit GNEISS_API asset_construction(render_service& render);
@@ -63,4 +65,16 @@ public:
   static GNEISS_API error validate_sources(asset_manager&,
                                            std::span<const asset_read_record>) noexcept;
 };
+
+struct detail::asset_construction::pending_load {
+  std::shared_ptr<detail::asset_state> state;
+  std::variant<asset_request<mesh_data>, asset_request<texture_data>,
+               asset_request<material_description>>
+      cpu;
+  asset_ref<const material_description> description;
+  std::array<asset_request<render_resource_ref>, 5> dependencies;
+  std::size_t dependency_cursor{};
+  error dependency_error{error::success};
+};
+
 } // namespace gneiss::engine

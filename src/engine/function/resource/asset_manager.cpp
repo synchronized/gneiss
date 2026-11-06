@@ -10,16 +10,41 @@
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/detail/asset_loader.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_uri.hpp"
+#include "engine/resource/material/detail/material_resource_access.hpp"
+#include "engine/resource/mesh/detail/mesh_resource_access.hpp"
+#include "engine/resource/texture/detail/texture_resource_access.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
+
 #include "resource_cache.hpp"
 #include <algorithm>
 #include <atomic>
 #include <limits>
 #include <map>
 #include <stdexcept>
+
+namespace {
+
+using namespace gneiss::engine;
+
+gneiss::engine::type_id cache_type(gneiss::engine::render_resource_kind type) noexcept {
+  using gneiss::engine::render_resource_kind;
+  switch (type) {
+  case render_resource_kind::mesh:
+    return gneiss::engine::runtime_type_of<mesh_resource>();
+  case render_resource_kind::material:
+    return gneiss::engine::runtime_type_of<material_resource>();
+  case render_resource_kind::texture:
+    return gneiss::engine::runtime_type_of<texture_resource>();
+  default:
+    return gneiss::engine::runtime_type_of<void>();
+  }
+}
+
+} // namespace
 
 namespace gneiss::engine {
 // 移植示例的类型/位置请求表、合并与只读发布；接入已有执行器，不创建私有线程池。
@@ -668,4 +693,283 @@ void asset_manager::stop() noexcept {
   if (impl_)
     impl_->close();
 }
+
+result<asset_request<render_resource_ref>> asset_manager::load(const render_resource_source& source,
+                                                               bool reload) try {
+  asset_request<render_resource_ref> output;
+  if (!impl_ || !loading_configured())
+    return error::invalid_state;
+  auto reserved = reserve_resource(source);
+  if (!reserved)
+    return reserved.error();
+  auto target = std::move(*reserved);
+  // 同一身份只允许一个实际工作；重载不制造并行版本或抢占已有请求。
+  for (const auto& pending : impl_->pending) {
+    if (pending->state->target == target && pending->state.use_count() > 1 &&
+        pending->state->status == error::not_ready) {
+      output.state_ = pending->state;
+      return output;
+    }
+  }
+  auto state = std::make_shared<detail::asset_state>();
+  state->target = target;
+  if (!reload && find_loaded(source, profile()).ok()) {
+    state->status = error::success;
+    output.state_ = std::move(state);
+    return output;
+  }
+  auto work = std::make_shared<detail::asset_construction::pending_load>();
+  work->state = state;
+  switch (source.type) {
+  case render_resource_kind::mesh: {
+    auto loaded = decode_data<mesh_data>(source.uri, {.reload = reload});
+    if (!loaded)
+      return loaded.error();
+    work->cpu = std::move(*loaded);
+    break;
+  }
+  case render_resource_kind::texture: {
+    auto loaded =
+        decode_data<texture_data>(source.uri, {.reload = reload, .texture_profile = profile()});
+    if (!loaded)
+      return loaded.error();
+    work->cpu = std::move(*loaded);
+    break;
+  }
+  case render_resource_kind::material: {
+    auto loaded = decode_data<material_description>(source.uri, {.reload = reload});
+    if (!loaded)
+      return loaded.error();
+    work->cpu = std::move(*loaded);
+    break;
+  }
+  default:
+    return error::invalid_argument;
+  }
+  impl_->pending.push_back(std::move(work));
+  output.state_ = std::move(state);
+  return output;
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+
+result<mesh> asset_manager::reserve_mesh() noexcept {
+  if (!impl_ || stop_requested())
+    return error::invalid_state;
+  return impl_->reserve_mesh();
+}
+mesh asset_manager::find_mesh(rid id) const noexcept {
+  return impl_ ? impl_->find_mesh(id) : mesh{};
+}
+
+result<texture> asset_manager::reserve_texture() noexcept {
+  if (!impl_ || stop_requested())
+    return error::invalid_state;
+  return impl_->reserve_texture();
+}
+texture asset_manager::find_texture(rid id) const noexcept {
+  return impl_ ? impl_->find_texture(id) : texture{};
+}
+
+result<material> asset_manager::reserve_material() noexcept {
+  if (!impl_ || stop_requested())
+    return error::invalid_state;
+  return impl_->reserve_material();
+}
+material asset_manager::find_material(rid id) const noexcept {
+  return impl_ ? impl_->find_material(id) : material{};
+}
+
+result<mesh> asset_manager::create_mesh(const mesh_view& data) noexcept {
+  if (!impl_ || stop_requested())
+    return error::invalid_state;
+  return impl_->create_mesh(data);
+}
+result<texture> asset_manager::create_texture(const texture_view& data) noexcept {
+  if (!impl_ || stop_requested())
+    return error::invalid_state;
+  return impl_->create_texture(data);
+}
+result<material> asset_manager::create_material(const material_parameters& data,
+                                                std::array<texture, 5> deps) noexcept {
+  if (!impl_ || stop_requested())
+    return error::invalid_state;
+  return impl_->create_material(data, std::move(deps));
+}
+
+bool asset_manager::owns(const render_resource_ref& value) const noexcept {
+  if (auto asset = value.as<mesh_resource>())
+    return owns(asset);
+  if (auto asset = value.as<texture_resource>())
+    return owns(asset);
+  if (auto asset = value.as<material_resource>())
+    return owns(asset);
+  return false;
+}
+
+namespace {
+render_resource_ref cached_resource(const resource_cache::entry& entry) noexcept {
+  if (auto asset = entry.as<mesh_resource>())
+    return asset;
+  if (auto asset = entry.as<texture_resource>())
+    return asset;
+  if (auto asset = entry.as<material_resource>())
+    return asset;
+  return {};
+}
+}
+
+result<render_resource_ref>
+asset_manager::find_loaded(const render_resource_source& source,
+                           texture_prepare_profile profile) const noexcept {
+  if (!impl_ || stop_requested())
+    return error::invalid_state;
+  try {
+    auto identity = identify(source.uri, static_cast<std::uint32_t>(source.type));
+    if (!identity)
+      return identity.error();
+    auto domain = std::move(identity->source);
+    const auto current = cache()
+                             .observe(source.uri, cache_type(source.type), domain,
+                                      asset_load_parameters({.texture_profile = this->profile()}))
+                             .lock();
+    if (!current) {
+      return engine::error::not_found;
+    }
+    if (current->type != cache_type(source.type) || current->is_loading) {
+      return engine::error::invalid_argument;
+    }
+    render_resource_ref target;
+    target = cached_resource(*current);
+    if (!owns(target)) {
+      return engine::error::invalid_handle;
+    }
+    auto status = engine::error::invalid_argument;
+    switch (source.type) {
+    case render_resource_kind::texture:
+      status = impl_->render().texture_status(resource_rid(target));
+      break;
+    case render_resource_kind::mesh:
+      status = impl_->render().mesh_status(resource_rid(target));
+      break;
+    case render_resource_kind::material:
+      status = impl_->render().material_status(resource_rid(target));
+      break;
+    case render_resource_kind::invalid:
+      break;
+    }
+    if (status != engine::error::success) {
+      return status;
+    }
+    const auto matches_profile = [&](const texture_resource& resource) {
+      const auto rid = detail::texture_resource_access::handle(resource);
+      const auto* texture = impl_->render().get_texture(rid);
+      return texture &&
+             (profile.generation == 0U || texture->manifest.empty() || texture->profile == profile);
+    };
+    if (source.type == render_resource_kind::texture &&
+        !matches_profile(*current->as<texture_resource>())) {
+      return engine::error::not_found;
+    }
+    if (source.type == render_resource_kind::material) {
+      const auto material = std::static_pointer_cast<const material_resource>(current->resource);
+      for (const auto& texture : material->textures()) {
+        if (texture && !matches_profile(*texture)) {
+          return engine::error::not_found;
+        }
+      }
+    }
+    return cached_resource(*current);
+  } catch (...) {
+    return engine::error::out_of_memory;
+  }
+}
+
+result<render_resource_ref>
+asset_manager::reserve_resource(const render_resource_source& source) noexcept {
+  if (!impl_ || stop_requested())
+    return error::invalid_state;
+  try {
+    if (engine::validate_uri(source.uri) != engine::error::success) {
+      return engine::error::invalid_argument;
+    }
+    auto identified = identify(source.uri, static_cast<std::uint32_t>(source.type));
+    if (!identified)
+      return identified.error();
+    auto identity = std::move(*identified);
+    auto cached = cache().load(
+        source.uri, cache_type(source.type),
+        [&]() -> result<std::shared_ptr<const void>> {
+          switch (source.type) {
+          case render_resource_kind::mesh: {
+            auto value = impl_->reserve_mesh();
+            if (!value)
+              return value.error();
+            detail::mesh_resource_access::set_source(**value, identity);
+            return std::shared_ptr<const void>(value->shared());
+          }
+          case render_resource_kind::texture: {
+            auto value = impl_->reserve_texture();
+            if (!value)
+              return value.error();
+            detail::texture_resource_access::set_source(**value, identity);
+            return std::shared_ptr<const void>(value->shared());
+          }
+          case render_resource_kind::material: {
+            auto value = impl_->reserve_material();
+            if (!value)
+              return value.error();
+            detail::material_resource_access::set_source(**value, identity);
+            return std::shared_ptr<const void>(value->shared());
+          }
+          default:
+            return error::invalid_argument;
+          }
+        },
+        identity.source, false, 0, asset_load_parameters({.texture_profile = profile()}));
+    if (!cached)
+      return cached.error();
+    auto resource = cached_resource(**cached);
+    if (!owns(resource))
+      return error::invalid_handle;
+    return resource;
+  } catch (const std::bad_alloc&) {
+    return engine::error::out_of_memory;
+  } catch (...) {
+    return engine::error::internal;
+  }
+}
+
+bool asset_manager::owns(const engine::mesh& value) const noexcept {
+  if (!impl_)
+    return false;
+  if (!value || impl_->render().mesh_status(resource_handle(value)) == error::invalid_handle)
+    return false;
+  auto identity =
+      identify(value->source().uri, static_cast<std::uint32_t>(render_resource_kind::mesh));
+  return identity && *identity == value->source();
+}
+
+bool asset_manager::owns(const engine::texture& value) const noexcept {
+  if (!impl_)
+    return false;
+  if (!value || impl_->render().texture_status(resource_handle(value)) == error::invalid_handle)
+    return false;
+  auto identity =
+      identify(value->source().uri, static_cast<std::uint32_t>(render_resource_kind::texture));
+  return identity && *identity == value->source();
+}
+
+bool asset_manager::owns(const engine::material& value) const noexcept {
+  if (!impl_)
+    return false;
+  if (!value || impl_->render().material_status(resource_handle(value)) == error::invalid_handle)
+    return false;
+  auto identity =
+      identify(value->source().uri, static_cast<std::uint32_t>(render_resource_kind::material));
+  return identity && *identity == value->source();
+}
+
 }

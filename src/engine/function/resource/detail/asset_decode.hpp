@@ -17,9 +17,11 @@
 #include <vector>
 
 namespace gneiss::engine {
+
 /** 解码结果只有一个有效内容；材质共享已经解码的不可变描述。 */
 using decoded_content =
     std::variant<std::monostate, mesh_data, texture_data, asset_ref<const material_description>>;
+
 struct decoded_asset {
   std::string uri;
   std::vector<asset_read_record> sources;
@@ -35,6 +37,7 @@ struct decoded_asset {
     return render_resource_kind::invalid;
   }
 };
+
 /** 纯内存网格解码；失败返回诊断，不读取文件或创建渲染资源。 */
 [[nodiscard]] result<decoded_asset, asset_diagnostic>
 decode_mesh_asset(std::string_view uri, const std::vector<std::byte>& bytes);

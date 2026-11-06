@@ -26,41 +26,20 @@ configure_file(
 target_sources(
   gneiss_engine
   PRIVATE
-    engine/resource/asset_ref.hpp
-    engine/resource/resource_retirement_queue.hpp
-    engine/function/resource/asset_manager.hpp
-    engine/function/resource/asset_manager.cpp
-    engine/function/resource/detail/scene_loading.cpp
-    engine/function/resource/asset_construction.cpp
     engine/platform/files/file_read_stream.cpp
     engine/platform/files/file_service.cpp
     engine/platform/files/memory_file_backend.cpp
+    engine/platform/window_service.cpp
+    engine/platform/window_service.hpp
+    engine/platform/native_window_info.hpp
+    engine/platform/window_configuration.hpp
+)
+
+target_sources(
+  gneiss_engine
+  PRIVATE
     engine/core/sha256.cpp
     engine/core/sha256.hpp
-    runtime/loading/prefab_preparation.cpp
-    runtime/loading/prefab_placement.cpp
-    runtime/loading/scene_service_loading.cpp
-    runtime/loading/scene_load_types.hpp
-    runtime/loading/scene_service.cpp
-    runtime/loading/scene_service.hpp
-    runtime/loading/scene_domain.cpp
-    runtime/loading/scene_domain.hpp
-    runtime/application.cpp
-    runtime/application.hpp
-    runtime/main_loop_wakeup.hpp
-    runtime/configuration/application_configuration.hpp
-    engine/resource/asset_uri.cpp
-    engine/resource/asset_uri.hpp
-    engine/resource/asset_identity.hpp
-    engine/resource/mesh/mesh_binary.cpp
-    engine/resource/mesh/mesh_binary.hpp
-    engine/resource/texture/texture_ktx2.cpp
-    engine/resource/texture/texture_ktx2.hpp
-    engine/resource/texture/texture_binary.cpp
-    engine/resource/texture/texture_binary.hpp
-    engine/function/resource/asset_construction_loading.cpp
-    engine/function/resource/resource_cache.cpp
-    engine/function/resource/resource_cache.hpp
     engine/core/service_registry.cpp
     engine/core/service_registry.hpp
     engine/core/rid_table.hpp
@@ -76,58 +55,46 @@ target_sources(
     engine/core/ref.hpp
     engine/core/result.hpp
     engine/core/version.hpp
-
     engine/core/entity_id.hpp
-    engine/core/meta/property.hpp
-    engine/core/meta/type.hpp
-    engine/function/world/component_identity.hpp
-
-    engine/function/scene/scene_types.hpp
     engine/core/type_id.cpp
     engine/core/type_id.hpp
-    engine/core/detail/canonical_type_name.hpp
     engine/core/error.cpp
     engine/core/version.cpp
-    engine/function/input/input_service.cpp
+    engine/core/detail/canonical_type_name.hpp
     engine/core/input/input_types.hpp
-    engine/function/input/input_service.hpp
-    engine/resource/input/action_map_validation.cpp
-    engine/resource/mesh/mesh_decoder.cpp
-    engine/resource/texture/texture_decoder.cpp
-    engine/resource/scene/scene_validation.cpp
-    engine/resource/scene/scene_validation.hpp
-    engine/resource/input/action_map.hpp
     engine/core/log/log.hpp
     engine/core/log/log.cpp
     engine/core/log/log_dispatcher.cpp
     engine/core/log/log_dispatcher.hpp
     engine/core/log/log_types.hpp
-    engine/resource/mesh/mesh_resource.cpp
-    engine/resource/texture/texture_resource.cpp
-    engine/resource/material/material_resource.cpp
-    engine/resource/mesh/mesh_resource.hpp
-    engine/resource/texture/texture_resource.hpp
-    engine/resource/material/material_resource.hpp
-    engine/function/render/render_service_resources.cpp
-    engine/function/render/render_resource_storage.hpp
-    engine/function/resource/detail/asset_construction.hpp
-    engine/resource/mesh/detail/mesh_resource_access.hpp
-    engine/resource/texture/detail/texture_resource_access.hpp
-    engine/resource/material/detail/material_resource_access.hpp
-    engine/resource/texture/texture_view.hpp
-    engine/function/render/debug_draw_list.cpp
-    engine/function/render/draw_types.hpp
-    engine/function/render/debug_draw_list.hpp
-    engine/function/render/ui_draw_list.cpp
-    engine/function/render/ui_draw_list.hpp
-    engine/function/resource/detail/asset_decode.cpp
-    engine/resource/texture/png_decoder.cpp
-    engine/resource/texture/png_decoder.hpp
+)
+
+target_sources(
+  gneiss_engine
+  PRIVATE
+    engine/core/meta/detail/reference_view_access.hpp
+    engine/core/meta/detail/property_view_access.hpp
+    engine/core/meta/detail/type_ops.hpp
+    engine/core/meta/ops/ops_fwd.hpp
+    engine/core/meta/ops/scalar_ops.hpp
+    engine/core/meta/ops/sequence_ops.hpp
+    engine/core/meta/ops/associative_ops.hpp
+    engine/core/meta/ops/optional_ops.hpp
+    engine/core/meta/ops/variant_ops.hpp
+    engine/core/meta/ops/reference_ops.hpp
+    engine/core/meta/ops/object_ops.hpp
     engine/core/math/transform.cpp
     engine/core/math/transform.hpp
     engine/core/math/camera.cpp
     engine/core/math/camera.hpp
-    engine/function/render/render_snapshot.hpp
+    engine/core/meta/registration.hpp
+    engine/core/meta/property.hpp
+    engine/core/meta/type.hpp
+    engine/core/meta/type_types.hpp
+    engine/core/meta/type_definition.hpp
+    engine/core/meta/registry.hpp
+    engine/core/meta/property.hpp
+    engine/core/meta/type.hpp
     engine/core/meta/instance.cpp
     engine/core/meta/object.hpp
     engine/core/meta/instance.hpp
@@ -136,26 +103,16 @@ target_sources(
     engine/core/meta/optional_view.hpp
     engine/core/meta/variant_view.hpp
     engine/core/meta/reference_view.hpp
-    engine/core/meta/detail/reference_view_access.hpp
-  engine/core/meta/detail/property_view_access.hpp
-  engine/core/meta/detail/type_ops.hpp
-  engine/core/serialization/detail/json_adapter.hpp
-  engine/core/meta/ops/ops_fwd.hpp
-  engine/core/meta/ops/scalar_ops.hpp
-  engine/core/meta/ops/sequence_ops.hpp
-  engine/core/meta/ops/associative_ops.hpp
-  engine/core/meta/ops/optional_ops.hpp
-  engine/core/meta/ops/variant_ops.hpp
-  engine/core/meta/ops/reference_ops.hpp
     engine/core/meta/registry.cpp
     engine/core/meta/builtin_registration.cpp
+    engine/core/serialization/detail/json_adapter.hpp
+    engine/core/serialization/detail/context_access.hpp
+    engine/core/serialization/diagnostic.hpp
+    engine/core/serialization/binding.hpp
     engine/core/serialization/context.cpp
     engine/core/serialization/context.hpp
-    engine/core/serialization/detail/context_access.hpp
     engine/core/serialization/serialization.cpp
     engine/core/serialization/serialization.hpp
-    engine/resource/asset_file.cpp
-    engine/resource/asset_file.hpp
     engine/core/serialization/traversal.cpp
     engine/core/serialization/reader.hpp
     engine/core/serialization/writer.hpp
@@ -163,34 +120,98 @@ target_sources(
     engine/core/serialization/detail/typed_decode.hpp
     engine/core/serialization/json.cpp
     engine/core/serialization/json.hpp
-    engine/function/meta_registration.cpp
-    engine/function/meta_registration.hpp
+)
+
+target_sources(
+  gneiss_engine
+  PRIVATE
+    engine/resource/asset_ref.hpp
+    engine/resource/asset_uri.cpp
+    engine/resource/asset_uri.hpp
+    engine/resource/asset_identity.hpp
+    engine/resource/resource_retirement_queue.hpp
+    engine/resource/input/action_map.hpp
+    engine/resource/input/action_map_validation.cpp
+    engine/resource/mesh/detail/mesh_resource_access.hpp
+    engine/resource/mesh/mesh_binary.cpp
+    engine/resource/mesh/mesh_binary.hpp
+    engine/resource/mesh/mesh_decoder.cpp
+    engine/resource/mesh/mesh_resource.cpp
+    engine/resource/mesh/mesh_resource.hpp
+    engine/resource/texture/detail/texture_resource_access.hpp
+    engine/resource/texture/texture_ktx2.cpp
+    engine/resource/texture/texture_ktx2.hpp
+    engine/resource/texture/texture_binary.cpp
+    engine/resource/texture/texture_binary.hpp
+    engine/resource/texture/texture_decoder.cpp
+    engine/resource/texture/texture_resource.cpp
+    engine/resource/texture/texture_resource.hpp
+    engine/resource/texture/texture_view.hpp
+    engine/resource/texture/png_decoder.cpp
+    engine/resource/texture/png_decoder.hpp
+    engine/resource/material/detail/material_resource_access.hpp
+    engine/resource/material/material_resource.cpp
+    engine/resource/material/material_resource.hpp
+    engine/resource/material/material_description.hpp
+    engine/resource/scene/scene_validation.cpp
+    engine/resource/scene/scene_validation.hpp
+    engine/resource/scene/component_description.hpp
+    engine/resource/scene/scene_description.hpp
+    engine/resource/scene/prefab_description.hpp
+    engine/resource/scene/prefab_property_data.cpp
+    engine/resource/asset_file.cpp
+    engine/resource/asset_file.hpp
     engine/resource/builtin_resource_registration.cpp
     engine/resource/builtin_resource_registration.hpp
     engine/resource/asset_decoder.hpp
-    engine/resource/material/material_description.hpp
-    engine/core/meta/registration.hpp
-    engine/core/meta/property.hpp
-    engine/core/meta/type.hpp
-    engine/core/meta/type_types.hpp
-  engine/core/meta/type_definition.hpp
-  engine/core/meta/ops/object_ops.hpp
-  engine/core/serialization/diagnostic.hpp
-  engine/core/serialization/binding.hpp
-    engine/core/meta/registry.hpp
+)
+
+target_sources(
+  gneiss_engine
+  PRIVATE
+    engine/function/render/render_service.cpp
+    engine/function/render/render_service.hpp
+    engine/function/render/backend/granit/pbr_shader_resolver.cpp
+    engine/function/render/backend/granit/pbr_shader_resolver.hpp
+    engine/function/render/render_frame_packet.cpp
+    engine/function/render/render_frame_packet.hpp
+    engine/function/render/render_executor.cpp
+    engine/function/render/render_executor.hpp
+    engine/function/render/debug_draw_list.cpp
+    engine/function/render/draw_types.hpp
+    engine/function/render/debug_draw_list.hpp
+    engine/function/render/ui_draw_list.cpp
+    engine/function/render/ui_draw_list.hpp
+    engine/function/render/render_service_resources.cpp
+    engine/function/render/render_resource_storage.hpp
+    engine/function/render/render_snapshot.hpp
+    ${gneiss_pbr_embedded_sources}
+)
+
+target_sources(
+  gneiss_engine
+  PRIVATE
+
+    engine/function/input/input_service.cpp
+    engine/function/input/input_service.hpp
+    engine/function/resource/detail/asset_decode.cpp
+    engine/function/resource/detail/asset_construction.hpp
+    engine/function/resource/detail/scene_loading.cpp
+    engine/function/resource/detail/asset_construction.cpp
+    engine/function/resource/asset_manager.hpp
+    engine/function/resource/asset_manager.cpp
+    engine/function/resource/resource_cache.cpp
+    engine/function/resource/resource_cache.hpp
+    engine/function/scene/scene_types.hpp
     engine/function/scene/scene_tree.cpp
     engine/function/scene/scene_object.hpp
     engine/function/scene/scene_tree.hpp
     engine/function/scene/scene_instances_instantiation.cpp
     engine/function/scene/scene_preparation.cpp
     engine/function/scene/scene_preparation.hpp
-    engine/resource/scene/component_description.hpp
-    engine/resource/scene/scene_description.hpp
     engine/function/scene/scene_subtree_snapshot.hpp
     engine/function/scene/scene_creation.hpp
     engine/function/scene/scene_query.hpp
-    engine/resource/scene/prefab_description.hpp
-    engine/resource/scene/prefab_property_data.cpp
     engine/function/scene/prefab_property_override.cpp
     engine/function/scene/prefab_property_override.hpp
     engine/function/scene/prefab_binding.cpp
@@ -204,11 +225,11 @@ target_sources(
     engine/function/scene/scene_instances.hpp
     engine/function/scene/structural_diff.cpp
     engine/function/scene/structural_diff.hpp
+    engine/function/world/component_identity.hpp
     engine/function/world/system_scheduler.cpp
     engine/function/world/system_scheduler.hpp
     engine/function/world/render_snapshot.cpp
     engine/function/world/render_snapshot.hpp
-
     engine/function/world/world.cpp
     engine/function/world/world.hpp
     engine/function/world/world_types.hpp
@@ -216,9 +237,26 @@ target_sources(
     engine/function/world/world_reflection.hpp
     engine/function/world/component_reflection.cpp
     engine/function/world/world_state.hpp
-
+    engine/function/meta_registration.cpp
+    engine/function/meta_registration.hpp
 )
 
+target_sources(
+  gneiss_engine
+  PRIVATE
+    runtime/loading/prefab_preparation.cpp
+    runtime/loading/prefab_placement.cpp
+    runtime/loading/scene_service_loading.cpp
+    runtime/loading/scene_load_types.hpp
+    runtime/loading/scene_service.cpp
+    runtime/loading/scene_service.hpp
+    runtime/loading/scene_domain.cpp
+    runtime/loading/scene_domain.hpp
+    runtime/application.cpp
+    runtime/application.hpp
+    runtime/main_loop_wakeup.hpp
+    runtime/configuration/application_configuration.hpp
+)
 
 set(granit_pbr_asset_dir "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries")
 set(granit_pbr_assets pbr_standard.grshlib)
@@ -275,23 +313,6 @@ add_custom_command(
   VERBATIM
 )
 list(APPEND gneiss_pbr_embedded_sources "${gneiss_pbr_material_include}")
-target_sources(
-  gneiss_engine
-  PRIVATE
-    engine/platform/window_service.cpp
-    engine/platform/window_service.hpp
-    engine/platform/native_window_info.hpp
-    engine/platform/window_configuration.hpp
-    engine/function/render/render_service.cpp
-    engine/function/render/render_service.hpp
-    engine/function/render/backend/granit/pbr_shader_resolver.cpp
-    engine/function/render/backend/granit/pbr_shader_resolver.hpp
-    ${gneiss_pbr_embedded_sources}
-    engine/function/render/render_frame_packet.cpp
-    engine/function/render/render_frame_packet.hpp
-    engine/function/render/render_executor.cpp
-    engine/function/render/render_executor.hpp
-)
 if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
   target_compile_definitions(gneiss_engine PRIVATE GNEISS_NATIVE_LOOP_WAIT)
 endif()
