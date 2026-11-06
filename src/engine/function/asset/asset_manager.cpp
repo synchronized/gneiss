@@ -469,26 +469,15 @@ error asset_manager::find_loaded_erased(type_id type, std::string_view uri,
   return error::internal;
 }
 
-result<asset_request<scene_instantiation_data>> asset_manager::prepare_scene(std::string_view uri,
-                                                                             bool reload) noexcept {
-  return prepare_structure(uri, false, reload);
-}
-result<asset_request<scene_instantiation_data>>
-asset_manager::prepare_prefab(std::string_view uri, bool reload) noexcept {
-  return prepare_structure(uri, true, reload);
-}
-result<asset_request<scene_instantiation_data>>
-asset_manager::prepare_structure(std::string_view uri, bool prefab, bool reload) noexcept try {
+result<asset_request<scene_instantiation_data>> asset_manager::enqueue_scene_preparation(
+    std::shared_ptr<detail::scene_preparation_operation> preparation) noexcept try {
   auto& state = *resource_state_;
   if (state.stopped)
     return error::invalid_state;
   if (!state.executor)
     return error::not_ready;
-  if (validate_uri(uri).failed())
-    return error::invalid_argument;
   auto work = std::make_shared<resource_state::scene_work>();
-  work->preparation = std::make_shared<detail::scene_preparation_operation>(*this, std::string(uri),
-                                                                            prefab, reload);
+  work->preparation = std::move(preparation);
   work->notification = state.notification;
   state.scenes.push_back(work);
   return asset_request<scene_instantiation_data>{work->observer};

@@ -28,6 +28,7 @@ class service;
 }
 namespace detail {
 struct asset_construction;
+class scene_preparation_operation;
 }
 }
 
@@ -37,11 +38,6 @@ namespace gneiss::engine {
  * 统一拥有描述数据和运行资源；Render 仅管理后端 RID。 */
 class asset_manager final {
 public:
-  /** 异步准备结构依赖、层级顺序和视觉依赖清单；不创建 World，不等待视觉资源。 */
-  GNEISS_API result<asset_request<scene_instantiation_data>>
-  prepare_scene(std::string_view uri, bool reload = false) noexcept;
-  GNEISS_API result<asset_request<scene_instantiation_data>>
-  prepare_prefab(std::string_view uri, bool reload = false) noexcept;
   /** 绑定渲染服务；Render 必须覆盖本服务的运行与关闭阶段。 */
   GNEISS_API error attach_render(render_service& render) noexcept;
   /** 配置 CPU 加载；首次配置后保留执行器与 profile，停止后拒绝重新装配。 */
@@ -229,7 +225,11 @@ public:
 
 private:
   GNEISS_API result<asset_request<scene_instantiation_data>>
-  prepare_structure(std::string_view uri, bool prefab, bool reload) noexcept;
+      enqueue_scene_preparation(std::shared_ptr<detail::scene_preparation_operation>) noexcept;
+  friend GNEISS_API result<asset_request<scene_instantiation_data>>
+  prepare_scene(asset_manager&, std::string_view, bool) noexcept;
+  friend GNEISS_API result<asset_request<scene_instantiation_data>>
+  prepare_prefab(asset_manager&, std::string_view, bool) noexcept;
   friend struct detail::asset_construction;
   std::unique_ptr<detail::asset_construction> impl_;
   resource_cache& cache() noexcept;

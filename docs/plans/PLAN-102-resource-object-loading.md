@@ -510,3 +510,14 @@ Windows Clang Debug 完整构建、16 项资产/场景/编辑器文档/边界回
 git diff --check 通过，旧 scene_loading 路径在源码与测试中零引用。
 日志：build/scene-preparation-boundary-build-final.log、
 build/scene-preparation-boundary-tests-final.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+
+2026-11-06：公开场景准备入口迁至 function/scene/scene_preparation.hpp，调用形态为
+prepare_scene(assets, uri, reload) / prepare_prefab(assets, uri, reload)。Runtime 场景加载、
+重载、编辑器 Prefab 准备及测试驱动已迁移；asset_manager 删除对应公开成员和 URI/类型构造逻辑。
+场景侧校验 URI 并创建操作，管理器仅保留私有 enqueue_scene_preparation 及迁移期调度队列。
+这是入口迁移，不代表调度所有权已迁出资产管理器；下一步仍需处理执行器、scope 与关闭生命周期。
+
+Windows Clang Debug 完整构建、17 项资产/场景/Prefab/编辑器/Runtime 场景加载/边界回归通过；
+改动行格式化及 git diff --check 通过。源码与测试中旧成员调用零引用。
+日志：build/scene-entrypoints-build-final.log、build/scene-entrypoints-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI；PLAN-102 仍在实施中。

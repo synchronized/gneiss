@@ -15,6 +15,13 @@
 
 namespace gneiss::engine {
 
+/** 场景侧异步准备入口；不创建 World，不等待视觉内容。宿主继续推进资产 I/O 与任务。
+ * 迁移期由资产管理器私有队列调度，取消只放弃本请求的观察权。 */
+GNEISS_API result<asset_request<scene_instantiation_data>>
+prepare_scene(asset_manager&, std::string_view uri, bool reload = false) noexcept;
+GNEISS_API result<asset_request<scene_instantiation_data>>
+prepare_prefab(asset_manager&, std::string_view uri, bool reload = false) noexcept;
+
 struct scene_prepare_limits {
   // 累计读取的源文件字节数；单文件读取上限由 codec 规定。
   std::size_t source_bytes{16U * 1024U * 1024U};

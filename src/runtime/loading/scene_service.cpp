@@ -189,8 +189,8 @@ engine::error scene_service::request_reload(scene_instance_id instance, std::str
   next->instance = instance;
   next->uri = uri;
   next->prefab = prefab;
-  auto prepared =
-      (prefab ? resources_->prepare_prefab(uri, true) : resources_->prepare_scene(uri, true));
+  auto prepared = (prefab ? gneiss::engine::prepare_prefab(*resources_, uri, true)
+                          : gneiss::engine::prepare_scene(*resources_, uri, true));
   if (!prepared)
     return prepared.error();
   next->descriptions = std::move(*prepared);

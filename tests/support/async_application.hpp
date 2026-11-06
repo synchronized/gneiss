@@ -32,7 +32,8 @@ inline engine::error prepare_scene(runtime::application& app, std::string_view u
     std::this_thread::yield();
     return std::chrono::steady_clock::now() < deadline;
   };
-  auto request = (prefab ? app.assets().prepare_prefab(uri) : app.assets().prepare_scene(uri));
+  auto request = (prefab ? gneiss::engine::prepare_prefab(app.assets(), uri)
+                         : gneiss::engine::prepare_scene(app.assets(), uri));
   if (!request)
     return request.error();
   for (;;) {

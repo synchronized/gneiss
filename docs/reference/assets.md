@@ -127,7 +127,8 @@ Scene/Prefab 文件 Loader 与编辑器文件替换使用 `asset_file::deseriali
 
 场景结构依赖收集与实例化数据准备由 `function/scene/detail/scene_loading.*` 实现。
 `scene_preparation_operation` 封装依赖请求、任务提交和完成诊断；资产管理器只转发任务完成、
-推进与取消。迁移期 `prepare_scene/prepare_prefab` 仍是管理器入口，不表示已经删除这些接口。
+推进与取消。公开入口位于场景模块，迁移期任务仍由资产管理器私有队列调度；
+管理器不再公开 `prepare_scene/prepare_prefab` 成员。
 
 ## 内部异步准备
 
@@ -157,7 +158,7 @@ asset_manager 内部使用任务私有的 CPU 数据请求完成装配，不将�
 
 ## 结构准备与实例化边界
 
-`asset_manager::prepare_scene(uri, reload)` 与 `prepare_prefab(uri, reload)` 返回 `asset_request<scene_instantiation_data>`。
+场景模块的 `prepare_scene(assets, uri, reload)` 与 `prepare_prefab(assets, uri, reload)` 返回 `asset_request<scene_instantiation_data>`。
 它异步加载描述和结构依赖、执行层级排序并收集视觉资源清单，不创建 World、实体或场景节点，
 也不等待视觉资源和 GPU。默认复用描述；显式 reload 重新读取。准备结果本身不建立第二份 URI 缓存。
 同一 Prefab 描述可以由多个准备结果和实例共享。取消一个准备请求只放弃它的依赖观察权。

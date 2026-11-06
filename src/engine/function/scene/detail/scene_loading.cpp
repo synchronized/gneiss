@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "scene_loading.hpp"
+#include "engine/resource/asset_uri.hpp"
 #include "engine/resource/prefab.hpp"
 #include "engine/resource/scene.hpp"
 #include <algorithm>
@@ -152,3 +153,28 @@ scene_preparation_operation::advance(task_executor& executor, task_scope scope,
 }
 
 }
+
+namespace gneiss::engine {
+result<asset_request<scene_instantiation_data>>
+prepare_scene(asset_manager& assets, std::string_view uri, bool reload) noexcept try {
+  if (validate_uri(uri).failed())
+    return error::invalid_argument;
+  return assets.enqueue_scene_preparation(std::make_shared<detail::scene_preparation_operation>(
+      assets, std::string(uri), false, reload));
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+result<asset_request<scene_instantiation_data>>
+prepare_prefab(asset_manager& assets, std::string_view uri, bool reload) noexcept try {
+  if (validate_uri(uri).failed())
+    return error::invalid_argument;
+  return assets.enqueue_scene_preparation(std::make_shared<detail::scene_preparation_operation>(
+      assets, std::string(uri), true, reload));
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+} // namespace gneiss::engine

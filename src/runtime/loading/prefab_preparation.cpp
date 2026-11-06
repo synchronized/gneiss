@@ -28,7 +28,7 @@ prefab_preparation::create(runtime::application& application,
   auto& assets = host->assets();
   if (const auto configured = assets.configure(executor); configured.failed())
     return configured;
-  auto prepared = assets.prepare_prefab(uri, true);
+  auto prepared = gneiss::engine::prepare_prefab(assets, uri, true);
   if (!prepared)
     return prepared.error();
   candidate->state_->request = std::move(*prepared);

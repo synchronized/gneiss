@@ -232,8 +232,8 @@ void run() {
   check(prepare({.hierarchy_depth = 0U}) == gneiss::engine::error::invalid_argument);
   check(prepare({}, [] { return true; }) == gneiss::engine::error::invalid_state);
   // 无 Render 的统一入口：描述准备不创建运行对象，两个观察者独立取消。
-  auto first_prepare = assets.prepare_scene("asset://main.scene");
-  auto second_prepare = assets.prepare_scene("asset://main.scene");
+  auto first_prepare = gneiss::engine::prepare_scene(assets, "asset://main.scene");
+  auto second_prepare = gneiss::engine::prepare_scene(assets, "asset://main.scene");
   check(bool(first_prepare) && bool(second_prepare));
   first_prepare->cancel();
   for (unsigned i = 0; i < 100U && second_prepare->status() == error::not_ready; ++i) {
@@ -267,13 +267,14 @@ void run() {
   parent.replace(parent.find("null"), 4U, "\"00000000-0000-4000-8000-000000000003\"");
   memory->files["main.scene"] = std::string(scene_prefix) + child + "," + parent + R"(]})";
   check(prepare() == gneiss::engine::error::invalid_argument && output.parent_first.empty());
-  auto stopping = assets.prepare_scene("asset://main.scene");
+  auto stopping = gneiss::engine::prepare_scene(assets, "asset://main.scene");
   check(bool(stopping));
   assets.request_stop();
   check(stopping->take().error().error == error::invalid_state);
   assets.advance();
   check(assets.stopped() && (*unified)->instance_nodes == 3U);
-  check(assets.prepare_scene("asset://main.scene").error() == error::invalid_state);
+  check(gneiss::engine::prepare_scene(assets, "asset://main.scene").error() ==
+        error::invalid_state);
 }
 } // namespace
 
