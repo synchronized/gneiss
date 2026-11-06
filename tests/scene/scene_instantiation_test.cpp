@@ -158,7 +158,7 @@ void run() {
     const auto render_count = resources.live_resource_count();
     gneiss::engine::prefab_asset_ref prefab;
     gneiss::engine::scene_diagnostic prefab_diagnostic;
-    check(gneiss::test_support::load_asset(active_assets, "asset://p.prefab", prefab) ==
+    check(gneiss::test_support::load_scene_snapshot(active_assets, "asset://p.prefab", prefab) ==
           gneiss::engine::error::success);
     check(prefab.get() != nullptr);
     check(resources.live_resource_count() == render_count);

@@ -62,7 +62,8 @@ struct asset_entry {
 - [ ] C. scene/prefab 成为 asset 派生类型；共享内容与 World 实例分离。
   - [x] 顶层资产对象与专用 Loader 接入，场景准备通过资产取得描述快照；成功重载保留身份和旧快照。
   - [x] 加载准备结果、World 实例及编辑快照保留来源资产强引用，同时固定实例化描述快照。
-  - [ ] 移除旧描述加载入口，统一纯内存编辑与文件资产采用路径。
+  - [x] Scene/Prefab 描述的文件加载与 Decoder 注册入口关闭，文件加载只返回资产对象。
+  - [ ] 统一纯内存编辑与文件资产采用路径，移除描述 store/find_loaded 兼容入口。
 - [ ] D. 记录 cached 统一为最终资产弱引用；取消 CPU 描述缓存条目、临时 payload 身份键及兼容桥接。
   - [x] 删除 asset_cache_value 控制块包装，直接弱持有实际对象；统计归入 asset_entry。
   - [ ] 移除非资产描述的加载兼容路径，将擦除弱引用收窄为最终 asset 类型并清理 payload 键。
@@ -362,3 +363,11 @@ asset_entry 直接弱持有实际对象，保存统计和同步递归保护；�
 build/asset-cache-direct-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
 生产场景准备已无直接 load<scene_description/prefab_description> 调用；通用模板仍允许旧描述
 和其他 CPU 类型，后续清理入口后再将 weak_ptr<const void> 收窄为 asset。D 尚未整体完成。
+
+2026-11-06：关闭 Scene/Prefab 描述的文件加载入口。load<scene_description/prefab_description>
+及对应解码器注册返回 unsupported，拒绝请求不会触发文件读取；调用方通过 scene/prefab 资产
+取得描述快照。迁移相关测试，缓存与重载测试直接持有资产引用并验证身份稳定。描述反射编解码
+以及纯内存 create/store/find_loaded 暂时保留，后者仍需随编辑输入归属继续清理。
+Windows Clang Debug 完整构建、14 项资源/场景/Prefab/编辑/边界回归与 git diff --check 通过。
+日志：build/scene-load-entry-build-final.log、build/scene-load-entry-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI；C、D 与整个 PLAN-102 尚未完成。

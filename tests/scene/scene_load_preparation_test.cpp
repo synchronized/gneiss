@@ -97,8 +97,8 @@ void run() {
   check(files.mount("asset://", memory) == gneiss::engine::error::success);
   auto& executor = gneiss::test_support::asset_tasks();
   asset_manager assets(gneiss::test_support::test_files(files));
-  check(assets.register_decoder<scene_description>(&custom_scene).ok());
-  check(assets.register_decoder<prefab_description>(&custom_prefab).ok());
+  check(assets.register_decoder<scene_description>(&custom_scene) == error::unsupported);
+  check(assets.register_decoder<prefab_description>(&custom_prefab) == error::unsupported);
   assets.configure(executor);
   scene_instantiation_data output;
   gneiss::engine::scene_diagnostic diagnostic;
@@ -118,16 +118,18 @@ void run() {
         output.source_asset.get());
   check(assets.find_loaded<engine::prefab>("asset://p.prefab")->get() ==
         output.prefabs.at("asset://p.prefab").source_asset.get());
-  // 准备结果拥有场景值副本；没有原始引用时弱缓存立即失效。
-  check(assets.find_loaded<scene_description>("asset://main.scene").error() == error::not_found);
-  asset_ref<const scene_description> held_scene;
-  check(gneiss::test_support::load_asset(assets, "asset://main.scene", held_scene).ok());
-  auto cached_request = assets.load<scene_description>("asset://main.scene");
+  const auto reads_before_rejection = memory->reads;
+  auto old_scene = assets.load<scene_description>("asset://main.scene");
+  auto old_prefab = assets.load<prefab_description>("asset://p.prefab");
+  check(!old_scene && old_scene.error() == error::unsupported);
+  check(!old_prefab && old_prefab.error() == error::unsupported);
+  check(memory->reads == reads_before_rejection);
+  auto cached_request = assets.load<engine::scene>("asset://main.scene");
   check(bool(cached_request));
   auto cached_scene = cached_request->take();
   check(bool(cached_scene) &&
         cached_request->source_bytes() == memory->files.at("main.scene").size());
-  check(scene_decodes == 1U && prefab_decodes == 0U);
+  check(scene_decodes == 0U && prefab_decodes == 0U);
   detail::scene_description_request request(assets, "asset://main.scene", false);
   scene_preparation_inputs inputs;
   auto status = error::not_ready;
@@ -137,7 +139,7 @@ void run() {
     status = request.advance(inputs, diagnostic);
     check(executor.run_ready().status == drive_status::success);
   }
-  check(status.ok() && scene_decodes == 1U && prefab_decodes == 0U);
+  check(status.ok() && scene_decodes == 0U && prefab_decodes == 0U);
   // 资产身份稳定；旧快照不随重载改变，失败重载不破坏当前内容。
   ref<const engine::scene> scene_asset;
   check(test_support::load_asset(assets, "asset://main.scene", scene_asset).ok());
@@ -204,11 +206,11 @@ void run() {
   check(prepare_loaded_scene(overridden_inputs, {}, output, diagnostic, {}).failed());
   check(output.assets.empty());
   check(prepare_loaded_scene(inputs, {}, output, diagnostic, {}).ok());
-  asset_ref<const prefab_description> newer;
+  ref<const engine::prefab> newer;
   check(gneiss::test_support::load_asset(assets, "asset://p.prefab", newer, true).ok());
-  check(newer != output.prefabs.at("asset://p.prefab").resource);
+  check(newer->snapshot() != output.prefabs.at("asset://p.prefab").resource);
   check(prepare_loaded_scene(inputs, {}, output, diagnostic, {}).ok());
-  asset_ref<const prefab_description> cached;
+  ref<const engine::prefab> cached;
   check(gneiss::test_support::load_asset(assets, "asset://p.prefab", cached).ok() &&
         cached == newer);
 

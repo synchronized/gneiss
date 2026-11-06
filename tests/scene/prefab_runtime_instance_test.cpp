@@ -339,10 +339,10 @@ int main() try {
   auto& prefab_loader = asset_owner;
   gneiss::engine::prefab_asset_ref first_lease;
   gneiss::engine::prefab_asset_ref second_lease;
-  if (gneiss::test_support::load_asset(prefab_loader, "asset://prefabs/lamp.prefab.json",
-                                       first_lease) != gneiss::engine::error::success ||
-      gneiss::test_support::load_asset(prefab_loader, "asset://prefabs/lamp.prefab.json",
-                                       second_lease) != gneiss::engine::error::success) {
+  if (gneiss::test_support::load_scene_snapshot(prefab_loader, "asset://prefabs/lamp.prefab.json",
+                                                first_lease) != gneiss::engine::error::success ||
+      gneiss::test_support::load_scene_snapshot(prefab_loader, "asset://prefabs/lamp.prefab.json",
+                                                second_lease) != gneiss::engine::error::success) {
     return 4;
   }
 
@@ -440,8 +440,9 @@ int main() try {
       gneiss::engine::scene_object_identity(native_world, first->root()).name != "Instance name")
     return 25;
   gneiss::engine::prefab_asset_ref invalid_override_lease;
-  if (gneiss::test_support::load_asset(prefab_loader, "asset://prefabs/lamp.prefab.json",
-                                       invalid_override_lease) != gneiss::engine::error::success) {
+  if (gneiss::test_support::load_scene_snapshot(prefab_loader, "asset://prefabs/lamp.prefab.json",
+                                                invalid_override_lease) !=
+      gneiss::engine::error::success) {
     return 7;
   }
   const std::vector<gneiss::engine::prefab_property_override> invalid_overrides{{
@@ -471,8 +472,8 @@ int main() try {
   }
 
   gneiss::engine::prefab_asset_ref failure_lease;
-  if (gneiss::test_support::load_asset(prefab_loader, "asset://prefabs/lamp.prefab.json",
-                                       failure_lease) != gneiss::engine::error::success) {
+  if (gneiss::test_support::load_scene_snapshot(prefab_loader, "asset://prefabs/lamp.prefab.json",
+                                                failure_lease) != gneiss::engine::error::success) {
     return 7;
   }
   gneiss::engine::math::transform invalid_transform = {};
@@ -489,8 +490,8 @@ int main() try {
   }
 
   gneiss::engine::prefab_asset_ref broken_lease;
-  if (gneiss::test_support::load_asset(prefab_loader, "asset://prefabs/broken.prefab.json",
-                                       broken_lease) != gneiss::engine::error::success) {
+  if (gneiss::test_support::load_scene_snapshot(prefab_loader, "asset://prefabs/broken.prefab.json",
+                                                broken_lease) != gneiss::engine::error::success) {
     return 9;
   }
   if (create_prefab_binding(native_world, render_loader, std::move(broken_lease),

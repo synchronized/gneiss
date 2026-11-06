@@ -350,6 +350,8 @@ error asset_manager::register_decoder(const std::shared_ptr<const asset_decoder>
     return error::invalid_argument;
   }
   const auto type = loader->target_type();
+  if (type == runtime_type_of<scene_description>() || type == runtime_type_of<prefab_description>())
+    return error::unsupported;
   // 内置多阶段 Loader 不接受单缓冲区解码器覆盖。
   if (type == runtime_type_of<mesh_data>() || type == runtime_type_of<texture_data>() ||
       type == runtime_type_of<scene>() || type == runtime_type_of<prefab>())
@@ -380,6 +382,8 @@ error asset_manager::resolve_decoder(type_id type, decoder_factory fallback,
 error asset_manager::request(type_id type, std::string_view uri, asset_load_options options,
                              std::shared_ptr<detail::asset_state>& output, decoder_factory fallback,
                              bool cache_result) noexcept try {
+  if (type == runtime_type_of<scene_description>() || type == runtime_type_of<prefab_description>())
+    return error::unsupported;
   auto& state = *resource_state_;
   if (state.stopped) {
     return error::invalid_state;

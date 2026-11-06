@@ -602,7 +602,8 @@ int main() try {
     return 6;
   gneiss::engine::asset_manager assets(gneiss::test_support::test_files(file_system));
   gneiss::engine::asset_ref<const gneiss::engine::scene_description> loaded;
-  if (gneiss::test_support::load_asset(assets, "asset://scenes/main.scene.json", loaded).failed() ||
+  if (gneiss::test_support::load_scene_snapshot(assets, "asset://scenes/main.scene.json", loaded)
+          .failed() ||
       !loaded)
     return 6;
   return fails_with("{\"format\":", gneiss::engine::error::invalid_argument, "") ? 0 : 7;

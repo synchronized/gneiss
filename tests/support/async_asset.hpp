@@ -4,6 +4,8 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/platform/files/file_service.hpp"
+#include "engine/resource/prefab.hpp"
+#include "engine/resource/scene.hpp"
 #include "memory_file_fixture.hpp"
 #include "value_result.hpp"
 #include <chrono>
@@ -34,6 +36,21 @@ engine::error load_asset(engine::asset_manager& assets, std::string_view uri,
     if (std::chrono::steady_clock::now() > deadline)
       throw std::runtime_error("资产请求测试超时");
   }
+  return status;
+}
+// 测试显式取得场景资产的描述快照；生产加载入口始终返回资产对象。
+template <class D>
+engine::error load_scene_snapshot(engine::asset_manager& assets, std::string_view uri,
+                                  engine::ref<const D>& output, bool reload = false,
+                                  engine::serialization::diagnostic* diagnostic = nullptr) {
+  static_assert(std::is_same_v<D, engine::scene_description> ||
+                std::is_same_v<D, engine::prefab_description>);
+  using T = std::conditional_t<std::is_same_v<D, engine::scene_description>, engine::scene,
+                               engine::prefab>;
+  engine::ref<const T> asset;
+  auto status = load_asset(assets, uri, asset, reload, diagnostic);
+  if (status.ok())
+    output = asset->snapshot();
   return status;
 }
 }

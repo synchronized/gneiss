@@ -117,7 +117,8 @@ bool prepared_description_contract() {
     return false;
   }
   gneiss::engine::prefab_asset_ref legacy;
-  if (gneiss::test_support::load_asset(assets, uri, legacy) != gneiss::engine::error::success) {
+  if (gneiss::test_support::load_scene_snapshot(assets, uri, legacy) !=
+      gneiss::engine::error::success) {
     return false;
   }
   gneiss::engine::prefab_asset_ref first, reused, changed, foreign;
@@ -148,7 +149,9 @@ bool prepared_description_contract() {
     return false;
   }
   gneiss::engine::prefab_asset_ref ordinary;
-  if (gneiss::test_support::load_asset(assets, uri, ordinary) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(
+          assets.find_loaded<gneiss::engine::prefab_description>(uri), ordinary) !=
+          gneiss::engine::error::success ||
       ordinary.get() != changed.get()) {
     return false;
   }
@@ -407,8 +410,8 @@ int main() try {
     return 7;
   gneiss::engine::asset_manager assets(gneiss::test_support::test_files(file_system));
   auto& cache = assets;
-  gneiss::engine::prefab_asset_ref first;
-  gneiss::engine::prefab_asset_ref second;
+  gneiss::engine::ref<const gneiss::engine::prefab> first;
+  gneiss::engine::ref<const gneiss::engine::prefab> second;
   if (gneiss::test_support::load_asset(assets, "asset://prefabs/lamp.prefab.json", first) !=
           gneiss::engine::error::success ||
       gneiss::test_support::load_asset(assets, "asset://prefabs/lamp.prefab.json", second) !=
@@ -417,14 +420,14 @@ int main() try {
       cache.cached_count() != 1U) {
     return 7;
   }
-  gneiss::engine::prefab_asset_ref reloaded;
+  gneiss::engine::ref<const gneiss::engine::prefab> reloaded;
   if (gneiss::test_support::load_asset(assets, "asset://prefabs/lamp.prefab.json", reloaded,
                                        true) != gneiss::engine::error::success ||
-      !reloaded || reloaded.get() == first.get() || mounted->read_count != 2U ||
+      !reloaded || reloaded.get() != first.get() || mounted->read_count != 2U ||
       cache.cached_count() != 1U) {
     return 7;
   }
-  gneiss::engine::prefab_asset_ref invalid;
+  gneiss::engine::ref<const gneiss::engine::prefab> invalid;
   if (gneiss::test_support::load_asset(assets, "asset://prefabs/../lamp.prefab.json", invalid) !=
           gneiss::engine::error::invalid_argument ||
       invalid) {

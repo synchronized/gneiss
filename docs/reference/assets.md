@@ -279,11 +279,11 @@ asset_manager 不设统一的单资源输出额度，也不累计描述与负载
 
 ### Scene 与 Prefab 描述
 
-`scene_description` 和 `prefab_description` 通过同一 manager 同步或后台加载，默认 Registry
-注册现有格式的双向 codec；保留层级及 Prefab 单根校验，未知扩展字段不保留。每文件默认限制为 16 MiB，
-显式 decoder 可以指定自己的上限。直接 parse/serialize 函数仍用于编辑器的内存文本操作。
-Prefab 直接使用 `load<prefab_description>`；
-显式重载使用 `reload=true`，不再保留专用 Prefab Loader 或转发接口。
+`scene` 和 `prefab` 通过同一 manager 异步加载，专用 Loader 解码对应描述格式；
+保留层级及 Prefab 单根校验，未知扩展字段不保留。每文件默认限制为 16 MiB。
+直接 parse/serialize 函数仍用于编辑器的内存文本操作。
+Prefab 文件使用 `load<prefab>()`，需要描述时调用资产的 `snapshot()`；
+显式重载使用 `reload=true`。
 
 场景所属线程用 `scene_description_request` 取得场景及去重后的 Prefab 引用；工作线程只做
 层级排序、依赖收集与准备预算检查。`scene_prepare_limits::source_bytes` 统计累计源文件
@@ -349,5 +349,9 @@ invalid_argument；不再按资源类型或版本新旧采用不同错误码。�
 
 场景准备、运行实例、捕获结果与编辑历史同时保留来源资产强引用和当次描述快照。
 身份引用保证同 URI 继续共享资产；描述快照固定实例采用的内容，编辑不会写回共享资产。
-纯内存创建的编辑对象允许没有来源资产。旧描述加载接口仍处于迁移期，
+纯内存创建的编辑对象允许没有来源资产。描述的纯内存存储接口仍处于迁移期，
 最终缓存与引用入口的收敛见 [PLAN-102](../plans/PLAN-102-resource-object-loading.md)。
+
+Scene/Prefab 的 `load<scene_description/prefab_description>()` 和对应 Decoder 注册返回
+`unsupported`，不读取文件。文件加载统一返回资产对象；反射编解码和纯内存
+`create/store/find_loaded` 描述路径仍可用，后者尚待后续收敛，不代表另一个文件加载入口。

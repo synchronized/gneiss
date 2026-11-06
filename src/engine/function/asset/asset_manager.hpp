@@ -109,6 +109,7 @@ public:
     }
   }
   /** 默认复用已完成缓存；reload 重新读取并解析，在途同键请求合并。
+   * Scene/Prefab 文件须请求 scene/prefab 对象，描述类型返回 unsupported。
    * 所属线程调用；执行器须存活至 stop 返回。 */
   template <typename T>
   [[nodiscard]] result<asset_request<T>> load(std::string_view uri,
