@@ -512,18 +512,9 @@ void asset_manager::advance() {
   auto& state = *resource_state_;
   if (impl_) {
     (void)impl_->drain();
-    // 装配可能提交纹理依赖并追加工作；本轮只推进开始时已有的操作。
-    const auto count = state.rendering.size();
-    for (std::size_t i = 0; i < count; ++i) {
-      auto work = state.rendering[i];
-      work->advance(*this, *impl_);
-    }
-    std::erase_if(state.rendering, [](const auto& work) {
-      const bool finished = !work->has_observers() || work->observer->status != error::not_ready;
-      if (finished)
-        work->detach();
-      return finished;
-    });
+    detail::advance_load_operations(
+        state.rendering, [&](const auto& work) { work->advance(*this, *impl_); },
+        [](const auto&) {});
   }
   if (state.stopped) {
     (void)state.finish_stop();
@@ -549,128 +540,119 @@ void asset_manager::advance() {
         work->observer->metrics.decode_ms = completion.execution_ms;
         work->observer->metrics.queue_ms = completion.queue_ms;
       }
-  for (auto it = state.scenes.begin(); it != state.scenes.end();) {
-    const auto& work = *it;
-    if (!work->has_observers()) {
-      if (work->task.id)
-        (void)state.executor->cancel(work->task);
-      it = state.scenes.erase(it);
-      continue;
-    }
-    if (work->descriptions) {
-      work->status = work->descriptions->advance(work->inputs, work->diagnostic);
-      if (work->status == error::not_ready) {
-        ++it;
-        continue;
-      }
-      work->descriptions.reset();
-      if (work->status.failed())
-        work->completed = true;
-    }
-    if (!work->completed && !work->task.id) {
-      work->status = error::invalid_state;
-      const auto submitted = state.executor->submit(
-          {.name = "asset.prepare-scene", .scope = state.scope, .notification = state.notification},
-          [work](const task_context& context) {
-            work->status =
-                prepare_loaded_scene(work->inputs, work->prefab_uri, *work->prepared,
-                                     work->diagnostic, [&] { return context.stop_requested(); });
-            return task_outcome{.state =
-                                    work->status.ok() ? task_state::succeeded : task_state::failed};
-          },
-          work->task);
-      if (submitted != submit_result::success && submitted != submit_result::full) {
-        work->status = error::invalid_state;
-        work->completed = true;
-      }
-    }
-    if (!work->completed) {
-      ++it;
-      continue;
-    }
-    work->complete(work->status,
-                   {work->diagnostic.byte_offset, std::move(work->diagnostic.path),
-                    std::move(work->diagnostic.message), work->status},
-                   std::move(work->prepared), work->inputs.source_bytes,
-                   std::move(work->observer->metrics));
-    it = state.scenes.erase(it);
-  }
-  for (auto it = state.active.begin(); it != state.active.end();) {
-    const auto& work = *it;
-    // 丢弃全部观察者后不再提交解码或发布；已经运行的任务自行保活并收尾。
-    if (!work->has_observers()) {
-      if (work->task.id != 0U)
-        (void)state.executor->cancel(work->task);
-      if (work->reading)
-        (void)state.files->cancel(work->read_request);
-      work->detach();
-      it = state.active.erase(it);
-      continue;
-    }
-    if (work->reading) {
-      if (!work->read_complete) {
-        ++it;
-        continue;
-      }
-      work->reading = false;
-      if (work->status == error::success) {
-        try {
-          if (!state.schedule(work)) {
-            ++it;
-            continue;
+  detail::advance_load_operations(
+      state.scenes,
+      [&](const auto& work) {
+        if (work->descriptions) {
+          work->status = work->descriptions->advance(work->inputs, work->diagnostic);
+          if (work->status == error::not_ready) {
+            return;
           }
-        } catch (const std::bad_alloc&) {
-          work->status = error::out_of_memory;
-          work->settled.store(true, std::memory_order_release);
-        } catch (...) {
-          work->status = error::internal;
-          work->settled.store(true, std::memory_order_release);
+          work->descriptions.reset();
+          if (work->status.failed())
+            work->completed = true;
         }
-      } else {
-        work->settled.store(true, std::memory_order_release);
-      }
-    }
-    if (!work->settled.load(std::memory_order_acquire)) {
-      ++it;
-      continue;
-    }
-    if (work->status.ok() && !work->loader->next_uri.empty()) {
-      try {
-        const auto next_uri = work->loader->next_uri;
-        work->status = state.read(work, next_uri);
-      } catch (const std::bad_alloc&) {
-        work->status = error::out_of_memory;
-      } catch (...) {
-        work->status = error::internal;
-      }
-      if (work->status.ok()) {
-        ++it;
-        continue;
-      }
-    }
-    work->loader->metrics.queue_ms = work->queue_ms;
-    if (work->is_current()) {
-      auto entry = work->entry.lock();
-      work->detach();
-      if (work->status == error::success) {
-        work->loader->adopt(work->previous);
-        work->value = work->loader->value;
-        const auto& [domain, uri, type, parameters] = entry->identity;
-        auto cached = cache().load(
-            uri, type,
-            [&]() -> result<std::shared_ptr<const asset>> {
-              return work->conversion.to_asset(work->value);
-            },
-            domain, true, work->source_bytes, parameters, work->loader->metrics);
-        work->status = cached ? error::success : cached.error();
-        if (cached)
-          work->value = work->conversion.to_value(cached->resource);
-      }
-    }
-    work->complete(work->status, std::move(work->diagnostic), std::move(work->value),
-                   work->source_bytes, std::move(work->loader->metrics));
-    it = state.active.erase(it);
-  }
+        if (!work->completed && !work->task.id) {
+          work->status = error::invalid_state;
+          const auto submitted = state.executor->submit(
+              {.name = "asset.prepare-scene",
+               .scope = state.scope,
+               .notification = state.notification},
+              [work](const task_context& context) {
+                work->status = prepare_loaded_scene(work->inputs, work->prefab_uri, *work->prepared,
+                                                    work->diagnostic,
+                                                    [&] { return context.stop_requested(); });
+                return task_outcome{.state = work->status.ok() ? task_state::succeeded
+                                                               : task_state::failed};
+              },
+              work->task);
+          if (submitted != submit_result::success && submitted != submit_result::full) {
+            work->status = error::invalid_state;
+            work->completed = true;
+          }
+        }
+        if (!work->completed) {
+          return;
+        }
+        work->complete(work->status,
+                       {work->diagnostic.byte_offset, std::move(work->diagnostic.path),
+                        std::move(work->diagnostic.message), work->status},
+                       std::move(work->prepared), work->inputs.source_bytes,
+                       std::move(work->observer->metrics));
+      },
+      [&](const auto& work) {
+        if (work->task.id)
+          (void)state.executor->cancel(work->task);
+        work->descriptions.reset();
+      });
+  detail::advance_load_operations(
+      state.active,
+      [&](const auto& work) {
+        if (work->reading) {
+          if (!work->read_complete) {
+            return;
+          }
+          work->reading = false;
+          if (work->status == error::success) {
+            try {
+              if (!state.schedule(work)) {
+                return;
+              }
+            } catch (const std::bad_alloc&) {
+              work->status = error::out_of_memory;
+              work->settled.store(true, std::memory_order_release);
+            } catch (...) {
+              work->status = error::internal;
+              work->settled.store(true, std::memory_order_release);
+            }
+          } else {
+            work->settled.store(true, std::memory_order_release);
+          }
+        }
+        if (!work->settled.load(std::memory_order_acquire)) {
+          return;
+        }
+        if (work->status.ok() && !work->loader->next_uri.empty()) {
+          try {
+            const auto next_uri = work->loader->next_uri;
+            work->status = state.read(work, next_uri);
+          } catch (const std::bad_alloc&) {
+            work->status = error::out_of_memory;
+          } catch (...) {
+            work->status = error::internal;
+          }
+          if (work->status.ok()) {
+            return;
+          }
+        }
+        work->loader->metrics.queue_ms = work->queue_ms;
+        if (work->is_current()) {
+          auto entry = work->entry.lock();
+          work->detach();
+          if (work->status == error::success) {
+            work->loader->adopt(work->previous);
+            work->value = work->loader->value;
+            const auto& [domain, uri, type, parameters] = entry->identity;
+            auto cached = cache().load(
+                uri, type,
+                [&]() -> result<std::shared_ptr<const asset>> {
+                  return work->conversion.to_asset(work->value);
+                },
+                domain, true, work->source_bytes, parameters, work->loader->metrics);
+            work->status = cached ? error::success : cached.error();
+            if (cached)
+              work->value = work->conversion.to_value(cached->resource);
+          }
+        }
+        work->complete(work->status, std::move(work->diagnostic), std::move(work->value),
+                       work->source_bytes, std::move(work->loader->metrics));
+      },
+      [&](const auto& work) {
+        if (work->task.id)
+          (void)state.executor->cancel(work->task);
+        if (work->reading)
+          (void)state.files->cancel(work->read_request);
+      });
 }
 void asset_manager::collect_unused() noexcept {
   do {

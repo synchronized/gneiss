@@ -72,11 +72,11 @@ struct asset_entry {
   - [x] ActionMap 拆分为共享资产和描述快照；输入服务继续采用独立描述。
   - [x] 公开 load/find_loaded/store 只接受 asset 派生类型；测试自定义资产同步迁移。
   - [x] 内部缓存与查询结果收窄为 asset，写入校验实际类型；解码边界保留类型化指针转换。
-- [ ] E. 类型加载器共用 load_operation 生命周期；覆盖去重、单观察者取消、旧操作迟到、重载失败、清理与关闭。
+- [x] E. 类型加载器共用 load_operation 生命周期；覆盖去重、单观察者取消、旧操作迟到、重载失败、清理与关闭。
   - [x] 操作记录关联、观察者检查及只清理自身记录统一；CPU/渲染/场景准备共用基类。
   - [x] CPU/渲染/场景准备统一终态提交与完成通知；重复完成或停止不覆盖已有结果。
   - [x] 渲染装配队列、推进与停止归入管理器；asset_construction 不再管理加载生命周期。
-  - [ ] 继续统一 CPU、场景准备和渲染操作的阶段调度，清理重复推进代码。
+  - [x] CPU、场景准备和渲染队列共用 advance_load_operations；统一观察者检查、取消和终态清理，类型步骤由回调推进。
 
 缓存槽位使用 weak_ptr<const asset>，直接共享最终资产控制块；描述与负载不登记资产索引。
 内部解码请求仍允许擦除值，由类型化转换进入资产缓存。不得新增另一份永久资产索引。
@@ -462,3 +462,11 @@ Windows Clang Debug 完整构建、13 项资产/输入/场景/生命周期/边�
 改动行格式化和 git diff --check 通过。日志：build/asset-render-operation-build-final.log、
 build/asset-render-operation-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
 CPU、场景与渲染仍按类型推进，E 的通用调度及 B/C 剩余采用路径尚未完成。
+
+2026-11-06：统一执行队列推进。三类操作使用 advance_load_operations，固定本轮范围并保活当前
+操作，未完成工作保留，失去全部观察者时执行类型取消回调并停止，终态操作统一解除记录和移除。
+保留类型化执行队列和装配步骤，不引入新的身份索引、虚拟阶段协议或跨资产事务。
+新增队列扩容、延迟执行新增操作、无人观察取消与成功/失败终态清理回归。
+Windows Clang Debug 完整构建、13 项相关回归及 git diff --check 通过；改动行已格式化。
+日志：build/asset-queue-build.log、build/asset-queue-tests.log（不入库）。
+E 项完成；B/C 的重复内容采用路径仍待收敛。未运行 GPU 大场景、跨平台或远端 CI。

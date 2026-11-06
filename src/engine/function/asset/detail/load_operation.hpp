@@ -4,6 +4,8 @@
 #include "engine/core/progress_notification.hpp"
 #include "engine/function/asset/asset_request.hpp"
 #include "engine/function/asset/detail/asset_entry.hpp"
+#include <algorithm>
+#include <vector>
 namespace gneiss::engine::detail {
 /** 记录持有当前操作；请求只共享观察状态，执行队列不承担身份查询。 */
 struct load_operation {
@@ -49,4 +51,28 @@ struct load_operation {
   std::shared_ptr<progress_notification> notification;
   std::shared_ptr<asset_state> observer{std::make_shared<asset_state>()};
 };
+/** 所属线程推进开始时已有的操作；回调可追加队列，不能移除队列元素。
+ * 已运行任务由自身保活；取消回调只发出停止请求，不等待工作线程。 */
+template <class Operation, class Advance, class Cancel>
+void advance_load_operations(std::vector<std::shared_ptr<Operation>>& queue, Advance advance,
+                             Cancel cancel) {
+  const auto count = queue.size();
+  for (std::size_t i = 0; i < count; ++i) {
+    auto work = queue[i];
+    if (work->observer->status != error::not_ready)
+      continue;
+    if (!work->has_observers()) {
+      cancel(work);
+      work->stop();
+      continue;
+    }
+    advance(work);
+  }
+  std::erase_if(queue, [](const auto& work) {
+    if (work->observer->status == error::not_ready)
+      return false;
+    work->detach();
+    return true;
+  });
+}
 }

@@ -47,6 +47,43 @@ struct counting_notification final : gneiss::engine::progress_notification {
 int main() try {
   {
     using namespace gneiss::engine;
+    auto first = std::make_shared<detail::load_operation>();
+    auto appended = std::make_shared<detail::load_operation>();
+    auto abandoned = std::make_shared<detail::load_operation>();
+    asset_request<int> first_request(first->observer), appended_request(appended->observer);
+    auto record = std::make_shared<detail::asset_entry>();
+    abandoned->entry = record;
+    record->loading = abandoned;
+    std::vector<std::shared_ptr<detail::load_operation>> queue{first, abandoned};
+    int advanced{}, cancelled{};
+    detail::advance_load_operations(
+        queue,
+        [&](const auto& work) {
+          ++advanced;
+          queue.push_back(appended); // 可能重新分配；当前工作须独立保活。
+          work->complete(error::success);
+        },
+        [&](const auto& work) {
+          if (work == abandoned)
+            ++cancelled;
+        });
+    if (advanced != 1 || cancelled != 1 || queue.size() != 1 || queue.front() != appended ||
+        record->loading || abandoned->observer->status != error::invalid_state ||
+        appended_request.status() != error::not_ready)
+      return 32;
+    detail::advance_load_operations(
+        queue,
+        [&](const auto& work) {
+          ++advanced;
+          work->complete(error::io);
+        },
+        [&](const auto&) { ++cancelled; });
+    if (advanced != 2 || cancelled != 1 || !queue.empty() ||
+        appended_request.status() != error::io || first_request.status() != error::success)
+      return 33;
+  }
+  {
+    using namespace gneiss::engine;
     auto record = std::make_shared<detail::asset_entry>();
     auto operation = std::make_shared<detail::load_operation>();
     auto notification = std::make_shared<counting_notification>();
