@@ -100,6 +100,32 @@ void run() {
   check(assets.register_decoder<scene_description>(&custom_scene) == error::unsupported);
   check(assets.register_decoder<prefab_description>(&custom_prefab) == error::unsupported);
   assets.configure(executor);
+  // 普通场景请求共享工作；取消一个观察者不影响另一个。内容快照独立保活依赖。
+  {
+    asset_manager independent(test_support::test_files(files));
+    check(independent.configure(executor).ok());
+    auto first = independent.load<engine::scene>("asset://main.scene");
+    auto second = independent.load<engine::scene>("asset://main.scene");
+    check(bool(first) && bool(second));
+    first->cancel();
+    for (unsigned i = 0; i < 100U && second->status() == error::not_ready; ++i) {
+      check(independent.async_files()->dispatch_completions(64).ok());
+      independent.advance();
+      check(executor.run_ready().status == drive_status::success);
+    }
+    auto result = second->take();
+    check(bool(result));
+    auto content = (*result)->content();
+    check(content->prefabs.size() == 1U);
+    result->reset();
+    independent.collect_unused();
+    check(!independent.find_loaded<engine::scene>("asset://main.scene"));
+    check(bool(independent.find_loaded<engine::prefab>("asset://p.prefab")));
+    content.reset();
+    independent.collect_unused();
+    check(!independent.find_loaded<engine::prefab>("asset://p.prefab"));
+  }
+  memory->reads.clear();
   scene_instantiation_data output;
   gneiss::engine::scene_diagnostic diagnostic;
   auto prepare = [&](scene_prepare_limits limits = {}, const std::function<bool()>& cancel = {}) {
@@ -129,6 +155,12 @@ void run() {
   auto cached_scene = cached_request->take();
   check(bool(cached_scene) &&
         cached_request->source_bytes() == memory->files.at("main.scene").size());
+  // 场景加载本身持有去重后的结构依赖；视觉文件不存在也不影响成功。
+  const auto loaded_content = (*cached_scene)->content();
+  check(loaded_content->prefabs.size() == 1U);
+  check(loaded_content->prefabs.at("asset://p.prefab").resource ==
+        output.prefabs.at("asset://p.prefab").source_asset);
+  check(!memory->reads.contains("m.mesh") && !memory->reads.contains("m.material"));
   check(scene_decodes == 0U && prefab_decodes == 0U);
   detail::scene_description_request request(assets, "asset://main.scene", false);
   scene_preparation_inputs inputs;
@@ -209,6 +241,16 @@ void run() {
   ref<const engine::prefab> newer;
   check(gneiss::test_support::load_asset(assets, "asset://p.prefab", newer, true).ok());
   check(newer->snapshot() != output.prefabs.at("asset://p.prefab").resource);
+  check(loaded_content->prefabs.at("asset://p.prefab").description != newer->snapshot());
+  check(loaded_content->prefabs.at("asset://p.prefab").resource == newer);
+  const auto before_cached_scene = memory->reads;
+  auto cached_structural_request = assets.load<engine::scene>("asset://main.scene");
+  check(bool(cached_structural_request));
+  auto cached_structure = cached_structural_request->take();
+  check(bool(cached_structure) && memory->reads == before_cached_scene);
+  // 缓存命中保留场景所选择的依赖快照，不自动采用独立重载后的 Prefab。
+  check((*cached_structure)->content()->prefabs.at("asset://p.prefab").description !=
+        newer->snapshot());
   check(prepare_loaded_scene(inputs, {}, output, diagnostic, {}).ok());
   ref<const engine::prefab> cached;
   check(gneiss::test_support::load_asset(assets, "asset://p.prefab", cached).ok() &&
@@ -262,6 +304,13 @@ void run() {
   check(prepare() == gneiss::engine::error::success && memory->reads["p.prefab"] == 1U);
   memory->change_on_verify = false;
   memory->files.erase("p.prefab");
+  const auto before_failed_reload = scene_asset->content();
+  serialization::diagnostic dependency_failure;
+  ref<const engine::scene> missing_dependency;
+  check(test_support::load_asset(assets, "asset://main.scene", missing_dependency, true,
+                                 &dependency_failure) == error::not_found);
+  check(dependency_failure.path.find("asset://p.prefab") != std::string::npos);
+  check(scene_asset->content() == before_failed_reload);
   check(prepare() == gneiss::engine::error::not_found && output.prefabs.empty());
 
   // 输入顺序不是父节点优先；输出索引保留作者对象顺序并提供独立拓扑顺序。

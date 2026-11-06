@@ -8,7 +8,8 @@
 #include <string>
 #include <vector>
 namespace gneiss::engine {
-/** 一次加载的格式状态；管理器负责 I/O 和调度，Loader 只消费字节并描述下一次读取。 */
+class asset_manager;
+/** 一次加载的格式状态；管理器负责 I/O 和调度，Loader 消费字节并声明后续读取与必要依赖。 */
 struct asset_loader {
   std::string uri, next_uri;
   std::uint32_t source_type{};
@@ -19,6 +20,8 @@ struct asset_loader {
   explicit asset_loader(std::string path) : uri(std::move(path)), next_uri(uri) {}
   virtual ~asset_loader() = default;
   virtual void decode(const std::vector<std::byte>& bytes) = 0;
+  /** 字节解码完成后，在所属线程非阻塞推进必要依赖；not_ready 表示继续等待。 */
+  virtual error resolve_dependencies(asset_manager&) { return error::success; }
   /** 所属线程采用成功结果；只有仍持有记录更新权的操作才会调用。 */
   virtual void adopt(const std::shared_ptr<const void>&) noexcept {}
   std::size_t input_bytes{};

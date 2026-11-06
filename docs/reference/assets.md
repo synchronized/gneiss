@@ -125,8 +125,18 @@ Scene/Prefab 文件 Loader 与编辑器文件替换使用 `asset_file::deseriali
 不登记 URI 缓存。文件重载在所属线程更新资产的当前快照；编辑器及运行捕获继续保留独立描述，
 通过 `prepare_loaded_scene` 准备实例，不修改来源资产。已有快照不随重载改变。
 
-场景结构依赖收集与实例化数据准备由 `function/scene/detail/scene_loading.*` 实现。
-`scene_preparation_operation` 封装异步依赖请求和完成诊断，依赖就绪后在所属线程同步整理层级；
+`load<scene>` 在成功前加载描述引用的必要 Prefab（同一 URI 去重），不加载网格、材质或纹理。
+Scene 的 `content()` 同时保留描述、Prefab 资产强引用及其本次加载的固定描述快照；
+独立重载 Prefab 不会改变旧 Scene 内容快照。显式重载 Scene 会重新请求结构依赖；失败不采用
+新的 Scene 内容，但不承诺回滚已经成功重载的独立 Prefab。根文件字节统计仍只计 Scene 文件。
+
+Scene Loader 在 CPU 解码后通过 `resolve_dependencies` 于所属线程非阻塞推进普通资产请求，
+依赖全部成功才登记 Scene 缓存。必要 Prefab 失败返回带依赖 URI 的诊断；最后一个 Scene
+请求观察者消失后，其依赖请求随操作回收，其他观察者不受影响。
+
+实例化数据准备仍由 `function/scene/detail/scene_loading.*` 实现；它直接使用 Scene 内容快照中的
+结构依赖，不再重新请求 Prefab。`scene_preparation_operation` 封装资产请求和完成诊断，
+资产就绪后在所属线程同步整理层级；
 不再提交独立场景准备任务，资产管理器只推进与取消。公开入口位于场景模块，迁移期任务仍由资产管理器私有队列调度；
 管理器不再公开 `prepare_scene/prepare_prefab` 成员。
 

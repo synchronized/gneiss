@@ -60,9 +60,17 @@ error scene_description_request::advance(scene_preparation_inputs& output,
     s.inputs.source_asset = *loaded;
     s.inputs.scene = (*loaded)->snapshot();
     s.bytes = s.scene.source_bytes();
-    for (const auto& instance : s.inputs.scene->objects)
-      if (instance.prefab && std::ranges::find(s.uris, instance.prefab->uri) == s.uris.end())
-        s.uris.push_back(instance.prefab->uri);
+    const auto content = (*loaded)->content();
+    for (const auto& [uri, dependency] : content->prefabs) {
+      if (s.bytes > s.limits.source_bytes ||
+          dependency.source_bytes > s.limits.source_bytes - s.bytes)
+        return fail(error::invalid_argument);
+      s.bytes += dependency.source_bytes;
+      s.inputs.prefab_assets.emplace(uri, dependency.resource);
+      s.inputs.prefabs.emplace(uri, dependency.description);
+    }
+    if (content->prefabs.size() > s.limits.dependencies)
+      return fail(error::invalid_argument);
   }
   if (s.bytes > s.limits.source_bytes || s.uris.size() > s.limits.dependencies)
     return fail(error::invalid_argument);

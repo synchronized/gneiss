@@ -568,6 +568,19 @@ void asset_manager::advance() {
             return;
           }
         }
+        if (work->status.ok()) {
+          try {
+            const auto dependencies = work->loader->resolve_dependencies(*this);
+            if (dependencies == error::not_ready)
+              return;
+            work->status = dependencies;
+            work->diagnostic = work->loader->diagnostic;
+          } catch (const std::bad_alloc&) {
+            work->status = error::out_of_memory;
+          } catch (...) {
+            work->status = error::internal;
+          }
+        }
         work->loader->metrics.queue_ms = work->queue_ms;
         if (work->is_current()) {
           auto entry = work->entry.lock();

@@ -17,7 +17,8 @@ make_object_loader(std::string uri, std::shared_ptr<const asset_decoder> decoder
 GNEISS_API std::shared_ptr<asset_loader>
     make_action_map_loader(asset_identity, std::shared_ptr<const asset_decoder>);
 
-GNEISS_API std::shared_ptr<asset_loader> make_scene_loader(asset_identity, bool prefab);
+GNEISS_API std::shared_ptr<asset_loader> make_scene_loader(asset_identity, bool prefab,
+                                                           bool reload);
 
 template <class Resolve>
 result<std::shared_ptr<asset_loader>>
@@ -29,7 +30,7 @@ make_asset_loader(type_id type, std::string uri, asset_load_options options, Res
     return make_texture_loader(std::move(uri), options);
   if (type == runtime_type_of<scene>() || type == runtime_type_of<prefab>())
     return make_scene_loader({std::move(domain), std::move(uri), 0},
-                             type == runtime_type_of<prefab>());
+                             type == runtime_type_of<prefab>(), options.reload);
   auto decoder = resolve();
   if (!decoder)
     return decoder.error();

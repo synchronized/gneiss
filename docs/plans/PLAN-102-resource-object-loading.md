@@ -531,3 +531,19 @@ CPU 任务、task_handle、完成回执和 enable_shared_from_this；依赖异�
 Windows Clang Debug 完整构建、17 项资产/场景/编辑器/Runtime/边界回归通过，改动行格式化与
  git diff --check 通过。日志：build/scene-sync-structure-build-final.log、
 build/scene-sync-structure-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+
+
+2026-11-06：Scene Loader 接管必要 Prefab 依赖加载，通过普通资产请求去重和共享工作；
+场景资产成功前等待结构依赖，不等待视觉资产。Scene 内容一次持有描述、Prefab 资产身份和
+固定描述快照，重载成功统一替换当前内容；独立 Prefab 重载不改变旧 Scene 内容快照。
+场景准备直接消费这些依赖，不再重复请求。保留根文件 source_bytes 统计，准备阶段按依赖
+快照累计结构源文件字节数；不新增依赖缓存或跨文件事务。
+
+Windows Clang Debug 完整构建、17 项相关回归通过；新增普通 Scene 请求共享/独立取消、
+内容快照保活依赖与最终回收、缺少视觉文件仍成功、必要依赖失败诊断与旧内容保留回归。
+补充生命周期测试后增量构建和场景准备测试通过，改动行格式化、git diff --check 通过。
+日志：build/scene-dependencies-build-final.log、build/scene-dependencies-tests.log、
+build/scene-dependencies-lifetime-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+
+剩余：将 Runtime/编辑器改为直接消费 Scene/Prefab 资产实例化，删除公开 prepare 请求和
+管理器的迁移期场景准备队列；本次仅完成结构依赖的加载与所有权迁移，PLAN-102 尚未完成。
