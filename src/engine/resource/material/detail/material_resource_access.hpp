@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include "engine/resource/material/material_resource.hpp"
+#include "engine/resource/material.hpp"
 #include "engine/resource/resource_retirement_queue.hpp"
 #include <utility>
 namespace gneiss::engine::detail {

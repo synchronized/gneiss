@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/resource/asset_manager.hpp"
-#include "engine/function/resource/resource_cache.hpp"
+#include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/asset/detail/load_operation.hpp"
+#include "engine/function/asset/resource_cache.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/resource_retirement_queue.hpp"
 #include "engine/resource/texture/texture_view.hpp"
@@ -68,7 +69,7 @@ public:
 };
 
 struct detail::asset_construction::pending_load : detail::load_operation {
-  std::weak_ptr<resource_cache::asset_entry> entry;
+  std::weak_ptr<detail::asset_entry> entry;
   std::variant<asset_request<mesh_data>, asset_request<texture_data>,
                asset_request<material_description>>
       cpu;

@@ -138,22 +138,22 @@ target_sources(
     engine/resource/mesh/mesh_binary.cpp
     engine/resource/mesh/mesh_binary.hpp
     engine/resource/mesh/mesh_decoder.cpp
-    engine/resource/mesh/mesh_resource.cpp
-    engine/resource/mesh/mesh_resource.hpp
+    engine/resource/mesh.cpp
+    engine/resource/mesh.hpp
     engine/resource/texture/detail/texture_resource_access.hpp
     engine/resource/texture/texture_ktx2.cpp
     engine/resource/texture/texture_ktx2.hpp
     engine/resource/texture/texture_binary.cpp
     engine/resource/texture/texture_binary.hpp
     engine/resource/texture/texture_decoder.cpp
-    engine/resource/texture/texture_resource.cpp
-    engine/resource/texture/texture_resource.hpp
+    engine/resource/texture.cpp
+    engine/resource/texture.hpp
     engine/resource/texture/texture_view.hpp
     engine/resource/texture/png_decoder.cpp
     engine/resource/texture/png_decoder.hpp
     engine/resource/material/detail/material_resource_access.hpp
-    engine/resource/material/material_resource.cpp
-    engine/resource/material/material_resource.hpp
+    engine/resource/material.cpp
+    engine/resource/material.hpp
     engine/resource/material/material_description.hpp
     engine/resource/scene/scene_validation.cpp
     engine/resource/scene/scene_validation.hpp
@@ -196,15 +196,17 @@ target_sources(
 
     engine/function/input/input_service.cpp
     engine/function/input/input_service.hpp
-    engine/function/resource/detail/asset_decode.cpp
-    engine/function/resource/detail/asset_construction.hpp
-    engine/function/resource/detail/scene_loading.cpp
-    engine/function/resource/detail/asset_construction.cpp
-    engine/function/resource/asset_reference_context.hpp
-    engine/function/resource/asset_manager.hpp
-    engine/function/resource/asset_manager.cpp
-    engine/function/resource/resource_cache.cpp
-    engine/function/resource/resource_cache.hpp
+    engine/function/asset/detail/asset_entry.hpp
+    engine/function/asset/detail/load_operation.hpp
+    engine/function/asset/detail/asset_decode.cpp
+    engine/function/asset/detail/asset_construction.hpp
+    engine/function/asset/detail/scene_loading.cpp
+    engine/function/asset/detail/asset_construction.cpp
+    engine/function/asset/asset_reference_context.hpp
+    engine/function/asset/asset_manager.hpp
+    engine/function/asset/asset_manager.cpp
+    engine/function/asset/resource_cache.cpp
+    engine/function/asset/resource_cache.hpp
     engine/function/scene/scene_types.hpp
     engine/function/scene/scene_tree.cpp
     engine/function/scene/scene_object.hpp

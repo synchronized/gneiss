@@ -5,7 +5,7 @@
 #include "engine/core/error.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
-#include "engine/function/resource/detail/asset_construction.hpp"
+#include "engine/function/asset/detail/asset_construction.hpp"
 
 #include <array>
 #include <cstdint>

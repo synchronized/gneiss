@@ -11,7 +11,7 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/platform/files/file_service.hpp"

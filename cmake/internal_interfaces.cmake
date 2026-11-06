@@ -42,10 +42,10 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/asset_identity.hpp
   engine/resource/asset_diagnostic.hpp
   engine/resource/asset_decoder.hpp
-  engine/function/resource/asset_request.hpp
-  engine/function/resource/asset_loading.hpp
-  engine/function/resource/asset_manager.hpp
-  engine/function/resource/render_resource.hpp
+  engine/function/asset/asset_request.hpp
+  engine/function/asset/asset_loading.hpp
+  engine/function/asset/asset_manager.hpp
+  engine/function/asset/render_resource.hpp
   engine/resource/scene/component_description.hpp
   engine/core/serialization/detail/json_adapter.hpp
   engine/resource/asset_uri.hpp
@@ -124,9 +124,9 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/render/draw_types.hpp
   engine/function/render/render_executor.hpp
   engine/function/render/render_frame_packet.hpp
-  engine/resource/mesh/mesh_resource.hpp
-  engine/resource/texture/texture_resource.hpp
-  engine/resource/material/material_resource.hpp
+  engine/resource/mesh.hpp
+  engine/resource/texture.hpp
+  engine/resource/material.hpp
   engine/function/render/render_service.hpp
   engine/function/render/render_resource_data.hpp
   engine/function/render/render_snapshot.hpp

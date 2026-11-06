@@ -7,7 +7,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/resource/render_resource.hpp"
+#include "engine/function/asset/render_resource.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "runtime/loading/resource_load_types.hpp"

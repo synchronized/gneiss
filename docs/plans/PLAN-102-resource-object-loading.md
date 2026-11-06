@@ -61,7 +61,7 @@ struct asset_entry {
 - [ ] D. 记录 cached 统一为最终资产弱引用；取消 CPU 描述缓存条目、临时 payload 身份键及兼容桥接。
 - [ ] E. 类型加载器共用 load_operation 生命周期；覆盖去重、单观察者取消、旧操作迟到、重载失败、清理与关闭。
 
-A 阶段允许缓存槽位临时弱持有旧 resource_cache::entry，以兼容尚未迁移的纯 CPU 描述；
+A 阶段允许缓存槽位临时弱持有 detail::asset_cache_value，以兼容尚未迁移的纯 CPU 描述；
 这不满足 D 的最终弱资产引用验收。不得新增另一份永久资产索引绕过上述迁移。
 优先完成 A，再继续资源文件格式等支线；完成整个计划要求 A—E 全部通过。
 
@@ -76,18 +76,49 @@ A 阶段允许缓存槽位临时弱持有旧 resource_cache::entry，以兼容�
 | 场景逻辑 | 资产到 World 实例、对象层级、活动场景切换 |
 
 ```text
-engine/function/asset/             # 最终替换 function/resource 管理逻辑
+engine/function/asset/
   asset_manager.hpp/.cpp
   asset_request.hpp
   asset_loader.hpp
-  detail/                         # entry、operation 等内部实现
+  detail/
+    asset_entry.hpp
+    load_operation.hpp
+  loaders/
+    texture_loader.cpp
+    mesh_loader.cpp
+    material_loader.cpp
+    scene_loader.cpp
 engine/resource/
   asset.hpp
-  texture/ mesh/ material/ scene/  # 具体资源及必要负载，沿用领域子目录
-engine/function/asset/loaders/     # 可依赖 file/render 的类型加载器
-engine/function/render/           # render_service 及后端私有实现
-engine/function/scene/            # 场景实例化和运行逻辑
+  texture.hpp/.cpp
+  mesh.hpp/.cpp
+  material.hpp/.cpp
+  scene.hpp/.cpp
+  prefab.hpp/.cpp
+  texture/ mesh/ material/ scene/  # 必要负载、编解码与私有辅助
+engine/function/render/
+  render_service.hpp/.cpp
+  detail/...
+engine/function/scene/
+  scene_instantiation.hpp/.cpp
+  ...
 ```
+
+上述清单是最终布局验收，不只是示意目录。texture/mesh/material/scene/prefab 主头定义对象类型，
+上层使用 ref<const T>；不以同名引用别名或转发头冒充迁移完成。资源子目录保留像素、顶点、
+二进制格式及私有访问器等有独立语义的辅助文件。
+
+布局迁移验收：
+
+- [x] 管理模块迁至 function/asset；代码、构建、测试、现行指南不再使用 function/resource。
+- [x] asset_entry、load_operation 分别定义于 detail 对应头，不再嵌套于缓存类或请求头。
+- [ ] 五个具体资产主头位于 resource 顶层；类型名称与上层 ref<const T> 同步迁移。
+- [ ] 类型加载器收进 function/asset/loaders；asset_loader.hpp 只定义实际共用的加载契约。
+- [ ] 旧路径零引用且无转发头；边界检查、整库编译和资源生命周期回归通过。
+
+旧 detail/asset_loader.hpp 仍包含 CPU 字节加载任务与具体实现，须拆出共用契约和类型实现；
+仅移动头文件不能视为最终资产装配接口完成。
+Scene/Prefab 主头与对象迁移一起实施，不为目录完整创建没有行为的空壳。
 
 加载器放 function 层，避免 resource 数据层反向依赖服务；修正讨论示意中 resource/loaders 的依赖风险。
 序列化框架不依赖 asset_manager 或 render_service，类型描述和转换由资源注册提供。
@@ -259,3 +290,14 @@ cached_count 统计口径；这是旧描述/包装层的迁移表示，不是最
 build/asset-entry-build-verified.log、build/asset-entry-tests.log（不入库）。
 未运行大场景、跨平台或远端 CI。下一阶段按 B/C/D 迁移具体对象、Scene/Prefab 和缓存值，
 E 的通用类型加载生命周期仍未完成。
+
+2026-11-06：布局迁移首批完成。管理模块从 function/resource 整体迁至 function/asset；
+asset_entry 与 load_operation 拆入 detail 对应头，旧缓存包装以 asset_cache_value 命名，
+不再混用 entry。纹理、网格、材质主定义及实现迁至 resource/texture、mesh、material 的
+顶层同名 .hpp/.cpp；辅助负载和私有访问器仍在领域子目录。同步更新调用方、工具、示例、
+测试、CMake 和现行文档，无旧路径转发头。边界检查禁止旧管理目录，并验证新路径下的
+私有实现和 CPU 解码隔离。完整 Windows Clang Debug 构建、9 项资源/头文件回归及 2 项
+边界正反例通过；git diff --check 通过。日志：build/asset-layout-build.log、
+build/asset-layout-tests.log、build/asset-layout-boundary.log（不入库）。
+本次不改变资源类型名称：类仍为 *_resource，texture/mesh/material 仍是引用别名；
+Scene/Prefab 主对象、最终 asset_loader 契约及 loaders 拆分尚未完成。未运行大场景、跨平台或远端 CI。

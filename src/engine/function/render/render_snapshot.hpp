@@ -5,8 +5,8 @@
 #define GNEISS_RENDER_RENDER_SNAPSHOT_HPP_
 
 #include "engine/core/math/camera.hpp"
-#include "engine/resource/material/material_resource.hpp"
-#include "engine/resource/mesh/mesh_resource.hpp"
+#include "engine/resource/material.hpp"
+#include "engine/resource/mesh.hpp"
 #include <cstdint>
 
 #include <vector>

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/mesh/mesh_resource.hpp"
+#include "engine/resource/mesh.hpp"
 #include "engine/resource/mesh/detail/mesh_resource_access.hpp"
 
 namespace gneiss::engine {

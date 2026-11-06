@@ -8,7 +8,7 @@
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid_table.hpp"
-#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
 #include "engine/function/scene/scene_preparation.hpp"

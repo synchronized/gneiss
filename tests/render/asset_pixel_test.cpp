@@ -9,7 +9,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"

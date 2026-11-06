@@ -3,7 +3,7 @@
 
 #pragma once
 #include "engine/resource/resource_retirement_queue.hpp"
-#include "engine/resource/texture/texture_resource.hpp"
+#include "engine/resource/texture.hpp"
 #include <utility>
 namespace gneiss::engine::detail {
 /** 仅供资源装配与 Loader 使用；修改操作限所属线程。 */

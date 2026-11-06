@@ -3,7 +3,7 @@
 
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/core/error.hpp"
-#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"

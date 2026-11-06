@@ -8,7 +8,7 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/asset/asset_manager.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"

@@ -7,7 +7,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/input/input_types.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/input/action_map.hpp"

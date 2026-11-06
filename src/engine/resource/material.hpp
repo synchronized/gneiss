@@ -8,7 +8,7 @@
 #include "engine/resource/asset.hpp"
 #include "engine/resource/asset_ref.hpp"
 #include "engine/resource/material/material_description.hpp"
-#include "engine/resource/texture/texture_resource.hpp"
+#include "engine/resource/texture.hpp"
 #include <array>
 
 namespace gneiss::engine {

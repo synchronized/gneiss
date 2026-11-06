@@ -4,7 +4,7 @@
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/serialization/json.hpp"
-#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/resource/asset_file.hpp"

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/resource/detail/asset_construction.hpp"
+#include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/type_id.hpp"
-#include "engine/function/resource/asset_manager.hpp"
-#include "engine/function/resource/asset_reference_context.hpp"
-#include "engine/function/resource/resource_cache.hpp"
+#include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/asset/asset_reference_context.hpp"
+#include "engine/function/asset/resource_cache.hpp"
 #include "engine/resource/material/detail/material_resource_access.hpp"
 #include "engine/resource/mesh/detail/mesh_resource_access.hpp"
 #include "engine/resource/texture/detail/texture_resource_access.hpp"

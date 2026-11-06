@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/core/result.hpp"
 #include "engine/core/serialization/binding.hpp"
-#include "engine/function/resource/asset_loading.hpp"
+#include "engine/function/asset/asset_loading.hpp"
 namespace gneiss::test_support {
 template <class T, class U>
   requires std::is_assignable_v<U&, T&&>

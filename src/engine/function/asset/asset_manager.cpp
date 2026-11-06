@@ -3,6 +3,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset_manager.hpp"
+#include "detail/load_operation.hpp"
 #include "detail/asset_construction.hpp"
 #include "detail/scene_loading.hpp"
 #include "engine/core/error.hpp"
@@ -11,7 +12,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/resource/detail/asset_loader.hpp"
+#include "engine/function/asset/detail/asset_loader.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/material/detail/material_resource_access.hpp"
@@ -50,9 +51,9 @@ namespace gneiss::engine {
 // 移植示例的类型/位置请求表、合并与只读发布；接入已有执行器，不创建私有线程池。
 struct asset_manager::resource_state {
   resource_cache cache;
-  using key = resource_cache::key;
+  using key = detail::asset_key;
   struct operation : detail::load_operation {
-    std::weak_ptr<resource_cache::asset_entry> entry;
+    std::weak_ptr<detail::asset_entry> entry;
     bool cache_result{true};
     std::shared_ptr<detail::asset_load_task> loader;
     engine::files::request_id read_request;
@@ -64,7 +65,7 @@ struct asset_manager::resource_state {
     std::shared_ptr<const void> value;
     serialization::diagnostic diagnostic;
     // 在途重载保活旧缓存条目；失败后旧内容仍可复用。
-    std::shared_ptr<const resource_cache::entry> previous;
+    std::shared_ptr<const detail::asset_cache_value> previous;
     std::atomic_bool settled{false};
     error status{error::not_ready};
     explicit operation(std::shared_ptr<detail::asset_load_task> parser)
@@ -796,7 +797,7 @@ bool asset_manager::owns(const render_resource_ref& value) const noexcept {
 }
 
 namespace {
-render_resource_ref cached_resource(const resource_cache::entry& entry) noexcept {
+render_resource_ref cached_resource(const detail::asset_cache_value& entry) noexcept {
   if (auto asset = entry.as<mesh_resource>())
     return asset;
   if (auto asset = entry.as<texture_resource>())

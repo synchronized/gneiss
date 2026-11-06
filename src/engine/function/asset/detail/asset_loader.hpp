@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/resource/detail/asset_decode.hpp"
+#include "engine/function/asset/detail/asset_decode.hpp"
 #include "engine/resource/asset_decoder.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
 #include <optional>

@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/resource/asset_diagnostic.hpp"
-#include "engine/resource/material/material_resource.hpp"
-#include "engine/resource/mesh/mesh_resource.hpp"
+#include "engine/resource/material.hpp"
+#include "engine/resource/mesh.hpp"
 #include "engine/resource/texture/texture_data.hpp"
 #include <concepts>
 namespace gneiss::engine {

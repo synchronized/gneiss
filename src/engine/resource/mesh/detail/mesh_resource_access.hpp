@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include "engine/resource/mesh/mesh_resource.hpp"
+#include "engine/resource/mesh.hpp"
 #include "engine/resource/resource_retirement_queue.hpp"
 #include <utility>
 namespace gneiss::engine::detail {

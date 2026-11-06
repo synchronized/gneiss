@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/material/material_resource.hpp"
+#include "engine/resource/material.hpp"
 #include "engine/resource/material/detail/material_resource_access.hpp"
 
 #include <utility>

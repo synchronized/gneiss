@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/serialization/context.hpp"
-#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/asset/asset_manager.hpp"
 #include <algorithm>
 namespace gneiss::engine {
 /** 所属线程的资源引用解析；仅预留身份并记录依赖，不启动文件加载。

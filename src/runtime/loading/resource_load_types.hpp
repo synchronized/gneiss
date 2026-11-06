@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/resource/render_resource.hpp"
+#include "engine/function/asset/render_resource.hpp"
 namespace gneiss::runtime {
 enum class asset_load_state : std::uint8_t { preparing, applied, failed, cancelled };
 /** 请求中每项资源的结果；applied 表示完整成功，失败项仍可能有占位内容或可用旧内容。 */

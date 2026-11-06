@@ -6,11 +6,11 @@
 #include "engine/resource/asset_serialization.hpp"
 #include "engine/resource/input/action_map.hpp"
 #include "engine/resource/material/material_description.hpp"
-#include "engine/resource/material/material_resource.hpp"
+#include "engine/resource/material.hpp"
 #include "engine/resource/mesh/mesh_description.hpp"
-#include "engine/resource/mesh/mesh_resource.hpp"
+#include "engine/resource/mesh.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
-#include "engine/resource/texture/texture_resource.hpp"
+#include "engine/resource/texture.hpp"
 #include <algorithm>
 #include <cmath>
 #include <limits>

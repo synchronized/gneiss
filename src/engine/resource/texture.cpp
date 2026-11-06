@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/texture/texture_resource.hpp"
+#include "engine/resource/texture.hpp"
 #include "engine/resource/texture/detail/texture_resource_access.hpp"
 
 namespace gneiss::engine {

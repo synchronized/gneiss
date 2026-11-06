@@ -3,8 +3,8 @@
 #pragma once
 #include "async_asset.hpp"
 #include "engine/function/render/render_resource_data.hpp"
-#include "engine/function/resource/detail/asset_construction.hpp"
-#include "engine/function/resource/detail/asset_decode.hpp"
+#include "engine/function/asset/detail/asset_construction.hpp"
+#include "engine/function/asset/detail/asset_decode.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
 #include "value_result.hpp"

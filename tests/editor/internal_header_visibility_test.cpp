@@ -23,11 +23,11 @@
 #if __has_include("runtime/loading/resource_load_group.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("engine/function/resource/resource_cache.hpp")
+#if __has_include("engine/function/asset/resource_cache.hpp")
 #error "资产缓存实现泄漏到宿主"
 #endif
-#if __has_include("engine/function/resource/detail/asset_decode.hpp") ||                           \
-                  __has_include("engine/function/resource/detail/asset_construction.hpp")
+#if __has_include("engine/function/asset/detail/asset_decode.hpp") ||                           \
+                  __has_include("engine/function/asset/detail/asset_construction.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("runtime/loading/scene_domain.hpp")

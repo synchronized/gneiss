@@ -75,7 +75,7 @@ if(NOT GNEISS_TASK_THREADS OR EMSCRIPTEN)
 endif()
 # 使用正式资源注册入口，验证 CPU 描述与保活契约；不创建 GPU 设备。
 add_executable(gneiss_asset_material_test material_description_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/asset_decode.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/detail/asset_decode.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"

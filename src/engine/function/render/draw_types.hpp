@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/math/types.hpp"
-#include "engine/resource/texture/texture_resource.hpp"
+#include "engine/resource/texture.hpp"
 #include <cstdint>
 namespace gneiss::engine {
 struct debug_line {

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/value_result.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/resource/detail/asset_decode.hpp"
+#include "engine/function/asset/detail/asset_decode.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
 #include <cstring>

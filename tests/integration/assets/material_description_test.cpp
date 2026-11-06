@@ -4,7 +4,7 @@
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
-#include "engine/function/resource/detail/asset_decode.hpp"
+#include "engine/function/asset/detail/asset_decode.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"

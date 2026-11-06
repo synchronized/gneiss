@@ -4,7 +4,7 @@
 #ifndef GNEISS_ASSET_RESOURCE_CACHE_HPP_
 #define GNEISS_ASSET_RESOURCE_CACHE_HPP_
 
-#include "asset_loading.hpp"
+#include "detail/asset_entry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/resource/asset_identity.hpp"
 #include "engine/resource/asset_ref.hpp"
@@ -23,62 +23,33 @@
 
 namespace gneiss::engine {
 
-namespace detail {
-struct load_operation;
-}
 class resource_cache final {
 public:
-  using key =
-      std::tuple<std::shared_ptr<const files::source_domain>, std::string, type_id, std::string>;
   resource_cache() = default;
   resource_cache(const resource_cache&) = delete;
   resource_cache& operator=(const resource_cache&) = delete;
-  struct entry final : std::enable_shared_from_this<entry> {
-    std::string uri;
-    std::shared_ptr<const files::source_domain> source;
-    type_id type{engine::runtime_type_of<void>()};
-    bool is_loading{true}; // 仅在同步创建回调期间阻止同键递归。
-    std::shared_ptr<const void> resource;
-    asset_load_metrics metrics;
-    std::size_t source_bytes{}; // CPU 文件加载统计；程序创建的对象默认为零。
-    /** 类型化引用保活条目与资源，保证只持有类型化引用时也能命中弱索引。 */
-    template <typename T> [[nodiscard]] asset_ref<const T> as() const noexcept {
-      auto owner = weak_from_this().lock();
-      if (type != runtime_type_of<T>() || !owner)
-        return {};
-      return asset_ref<const T>{
-          std::shared_ptr<const T>(std::move(owner), static_cast<const T*>(resource.get()))};
-    }
-  };
-
-  /** 迁移期统一身份记录；cached 仍包装尚未迁移的 CPU 描述。 */
-  struct asset_entry {
-    key identity;
-    std::optional<std::weak_ptr<const entry>> cached;
-    std::shared_ptr<detail::load_operation> loading;
-  };
-  [[nodiscard]] std::shared_ptr<asset_entry> acquire(const key& identity);
+  [[nodiscard]] std::shared_ptr<detail::asset_entry> acquire(const detail::asset_key& identity);
   void clear_loading() noexcept;
 
   using loader = std::function<result<std::shared_ptr<const void>>()>;
 
   /** 所属线程统一加载入口；默认复用，reload 成功后替换，失败保留旧条目。
    * 回调仅在需要加载时执行；同键递归加载返回 invalid_state。 */
-  [[nodiscard]] result<asset_ref<const entry>>
+  [[nodiscard]] result<asset_ref<const detail::asset_cache_value>>
   load(std::string_view uri, type_id type, const loader& decode,
        std::shared_ptr<const files::source_domain> source = {}, bool reload = false,
        std::size_t source_bytes = 0, std::string parameters = {},
        asset_load_metrics metrics = {}) noexcept;
   void release_unused() noexcept;
   /** 只观察当前身份，不触发加载；返回的弱引用不会阻止卸载。 */
-  [[nodiscard]] std::weak_ptr<const entry>
+  [[nodiscard]] std::weak_ptr<const detail::asset_cache_value>
   observe(std::string_view uri, type_id type,
           std::shared_ptr<const files::source_domain> source = {},
           std::string parameters = {}) const;
   [[nodiscard]] std::size_t size() const noexcept;
 
 private:
-  std::map<key, std::shared_ptr<asset_entry>> entries_;
+  std::map<detail::asset_key, std::shared_ptr<detail::asset_entry>> entries_;
 };
 
 } // namespace gneiss::engine

@@ -503,7 +503,7 @@ add_executable(
   gneiss_prefab_description_test
   serialization/prefab_description_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_tree.cpp"
@@ -535,7 +535,7 @@ add_executable(
   gneiss_resource_service_test
   asset/resource_service_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/resource_cache.cpp"
 )
 target_include_directories(gneiss_resource_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_resource_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -614,7 +614,7 @@ add_executable(gneiss_render_asset_preparation_test
   asset/asset_preparation_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/asset_decode.cpp")
+  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/detail/asset_decode.cpp")
 target_compile_definitions(gneiss_render_asset_preparation_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_include_directories(gneiss_render_asset_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_render_asset_preparation_test PRIVATE
@@ -631,10 +631,10 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/asset_decode.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/detail/asset_decode.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
 )
@@ -657,10 +657,10 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/asset_decode.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/detail/asset_decode.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
 )
@@ -762,11 +762,11 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/asset_decode.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/detail/asset_decode.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
@@ -797,7 +797,7 @@ add_executable(gneiss_scene_instantiation_test scene/scene_instantiation_test.cp
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_preparation.cpp")
 # 测试直接构造私有 manager，编译其实现而不向 DLL 公共 ABI 导出内部类型。
 target_sources(gneiss_scene_instantiation_test PRIVATE
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/asset_manager.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/asset_manager.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/input/action_map_validation.cpp")
 target_include_directories(gneiss_scene_instantiation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_scene_instantiation_test PRIVATE GNEISS_BUILDING_LIBRARY)
