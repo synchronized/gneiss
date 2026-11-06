@@ -530,7 +530,16 @@ void independent_loads(execution_mode mode) {
                                           stale) == error::invalid_argument);
   check(render.share_texture(resource_handle(image)) == retained);
   found = first.get<gneiss::engine::material>();
+  auto stopping = service.load<gneiss::engine::material>("asset://a", true);
+  check(bool(stopping) && stopping->status() == error::not_ready);
+  auto stopping_subscriber = *stopping;
   service.request_stop();
+  service.request_stop();
+  check(stopping->status() == error::invalid_state &&
+        stopping_subscriber.status() == error::invalid_state);
+  check(first.status().ok() && first.get<gneiss::engine::material>() == found);
+  service.advance();
+  check(stopping->status() == error::invalid_state);
   check(gneiss::test_support::take_value(service.find_loaded<gneiss::engine::material>("asset://a"),
                                          found) == error::invalid_state &&
         !found);

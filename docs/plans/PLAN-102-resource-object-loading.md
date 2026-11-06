@@ -75,7 +75,8 @@ struct asset_entry {
 - [ ] E. 类型加载器共用 load_operation 生命周期；覆盖去重、单观察者取消、旧操作迟到、重载失败、清理与关闭。
   - [x] 操作记录关联、观察者检查及只清理自身记录统一；CPU/渲染/场景准备共用基类。
   - [x] CPU/渲染/场景准备统一终态提交与完成通知；重复完成或停止不覆盖已有结果。
-  - [ ] 继续统一类型加载器的阶段推进，移除分立装配生命周期。
+  - [x] 渲染装配队列、推进与停止归入管理器；asset_construction 不再管理加载生命周期。
+  - [ ] 继续统一 CPU、场景准备和渲染操作的阶段调度，清理重复推进代码。
 
 缓存槽位使用 weak_ptr<const asset>，直接共享最终资产控制块；描述与负载不登记资产索引。
 内部解码请求仍允许擦除值，由类型化转换进入资产缓存。不得新增另一份永久资产索引。
@@ -452,3 +453,12 @@ Windows Clang Debug 完整构建与构建结束后的 13 项相关回归通过�
 日志：build/asset-completion-build.log、build/asset-completion-tests-final.log、
 build/asset-completion-scene-repeat.log（不入库）。改动行格式化与 git diff --check 通过。
 未运行 GPU 大场景、跨平台或远端 CI；E 的阶段推进收敛及 B/C 剩余采用路径仍未完成。
+
+2026-11-06：渲染装配生命周期迁入管理器。asset_construction 删除 pending 队列、advance 和
+stop_loading，单操作装配移入 render_load_operation；管理器统一持有与停止渲染执行队列。
+推进时固定本轮操作数量并保活当前操作，材质提交的新纹理依赖留待下一轮。
+补充协作执行与线程池下的在途重载停止、重复停止及既有成功请求保留回归。
+Windows Clang Debug 完整构建、13 项资产/输入/场景/生命周期/边界回归通过；
+改动行格式化和 git diff --check 通过。日志：build/asset-render-operation-build-final.log、
+build/asset-render-operation-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+CPU、场景与渲染仍按类型推进，E 的通用调度及 B/C 剩余采用路径尚未完成。

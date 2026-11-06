@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/asset/detail/load_operation.hpp"
 #include "engine/function/asset/resource_cache.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/resource_retirement_queue.hpp"
@@ -36,10 +35,6 @@ public:
   std::unordered_map<rid, std::weak_ptr<const engine::material>> materials_;
   GNEISS_API ~asset_construction();
   render_service& render() const noexcept { return render_; }
-  struct pending_load;
-  std::vector<std::shared_ptr<pending_load>> pending;
-  GNEISS_API void advance(asset_manager&);
-  GNEISS_API void stop_loading() noexcept;
   /** 创建新的渲染身份并返回唯一拥有者；失败返回错误，不接管外部 RID。 */
   GNEISS_API result<ref<const engine::mesh>> reserve_mesh() noexcept;
   GNEISS_API result<ref<const engine::texture>> reserve_texture() noexcept;
@@ -74,14 +69,5 @@ public:
                                            std::span<const asset_read_record>) noexcept;
 };
 
-struct detail::asset_construction::pending_load : detail::load_operation {
-  std::variant<asset_request<mesh_data>, asset_request<texture_data>,
-               asset_request<material_description>>
-      cpu;
-  asset_ref<const material_description> description;
-  std::array<ref<const engine::texture>, 5> texture_references;
-  std::vector<asset_request<render_resource_ref>> dependencies;
-  error dependency_error{error::success};
-};
 
 } // namespace gneiss::engine

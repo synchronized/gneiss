@@ -3,16 +3,17 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset_manager.hpp"
-#include "detail/load_operation.hpp"
 #include "detail/asset_construction.hpp"
+#include "detail/load_operation.hpp"
+#include "detail/render_load_operation.hpp"
 #include "detail/scene_loading.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
-#include "engine/function/render/render_service.hpp"
 #include "engine/function/asset/detail/loader_factory.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/material/detail/material_resource_access.hpp"
@@ -104,6 +105,7 @@ struct asset_manager::resource_state {
     bool completed{};
   };
   std::vector<std::shared_ptr<scene_work>> scenes;
+  std::vector<std::shared_ptr<detail::render_load_operation>> rendering;
   // 执行器丢弃排队任务时也产生终态；所有数据先写入，再 release 发布。
   struct settlement {
     std::shared_ptr<operation> work;
@@ -188,6 +190,9 @@ struct asset_manager::resource_state {
     if (stopped)
       return;
     stopped = true;
+    for (const auto& work : rendering)
+      work->stop();
+    rendering.clear();
     if (executor)
       executor->cancel_scope(scope);
     for (const auto& work : scenes) {
@@ -507,7 +512,18 @@ void asset_manager::advance() {
   auto& state = *resource_state_;
   if (impl_) {
     (void)impl_->drain();
-    impl_->advance(*this);
+    // 装配可能提交纹理依赖并追加工作；本轮只推进开始时已有的操作。
+    const auto count = state.rendering.size();
+    for (std::size_t i = 0; i < count; ++i) {
+      auto work = state.rendering[i];
+      work->advance(*this, *impl_);
+    }
+    std::erase_if(state.rendering, [](const auto& work) {
+      const bool finished = !work->has_observers() || work->observer->status != error::not_ready;
+      if (finished)
+        work->detach();
+      return finished;
+    });
   }
   if (state.stopped) {
     (void)state.finish_stop();
@@ -662,8 +678,6 @@ void asset_manager::collect_unused() noexcept {
   } while (impl_ && impl_->drain() != 0U);
 }
 void asset_manager::request_stop() noexcept {
-  if (impl_)
-    impl_->stop_loading();
   resource_state_->request_stop();
 }
 bool asset_manager::stopped() const noexcept {
@@ -703,7 +717,7 @@ result<asset_request<render_resource_ref>> asset_manager::load(const render_reso
     output.state_ = std::move(state);
     return output;
   }
-  auto work = std::make_shared<detail::asset_construction::pending_load>();
+  auto work = std::make_shared<detail::render_load_operation>();
   work->notification = resource_state_->notification;
   work->observer = state;
   work->entry = entry;
@@ -733,7 +747,7 @@ result<asset_request<render_resource_ref>> asset_manager::load(const render_reso
   default:
     return error::invalid_argument;
   }
-  impl_->pending.push_back(work);
+  resource_state_->rendering.push_back(work);
   entry->loading = work;
   output.state_ = std::move(state);
   return output;

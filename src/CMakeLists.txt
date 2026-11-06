@@ -209,6 +209,8 @@ target_sources(
     engine/function/asset/loaders/material_loader.cpp
     engine/function/asset/detail/asset_entry.hpp
     engine/function/asset/detail/load_operation.hpp
+    engine/function/asset/detail/render_load_operation.hpp
+    engine/function/asset/detail/render_load_operation.cpp
     engine/function/asset/detail/asset_decode.cpp
     engine/function/asset/detail/asset_construction.hpp
     engine/function/asset/detail/scene_loading.cpp
