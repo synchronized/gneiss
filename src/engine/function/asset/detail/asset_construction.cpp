@@ -202,21 +202,30 @@ asset_construction::create_texture(const texture_view& desc) noexcept {
 result<ref<const engine::material>> asset_construction::create_material(
     const material_parameters& parameters,
     std::array<ref<const engine::texture>, 5> dependencies) noexcept {
-  if (closed_) {
-    return error::invalid_state;
-  }
-  material_data data{.parameters = parameters};
-  for (std::size_t i = 0; i < dependencies.size(); ++i) {
-    const auto handle = resource_handle(dependencies[i]);
-    if (dependencies[i] && find_texture(handle) != dependencies[i]) {
-      return error::invalid_argument;
-    }
-    data.set_texture(i, handle);
-  }
-  auto output = create<ref<const engine::material>>([&] { return render_.create_material(data); });
-  if (output)
-    detail::material_resource_access::set_content(**output, parameters, std::move(dependencies));
+  auto data = prepare_material(parameters, dependencies);
+  if (!data)
+    return data.error();
+  auto output = reserve_material();
+  if (!output)
+    return output.error();
+  if (!update_material(*output, std::move(*data), std::move(dependencies)))
+    return error::out_of_memory;
   return output;
+}
+
+result<std::shared_ptr<const material_data>> asset_construction::prepare_material(
+    const material_parameters& parameters,
+    const std::array<ref<const engine::texture>, 5>& dependencies) noexcept {
+  if (closed_)
+    return error::invalid_state;
+  material_data data{.parameters = parameters};
+  for (std::size_t slot = 0; slot < dependencies.size(); ++slot) {
+    const auto handle = resource_handle(dependencies[slot]);
+    if (dependencies[slot] && find_texture(handle) != dependencies[slot])
+      return error::invalid_argument;
+    data.set_texture(slot, handle);
+  }
+  return render_.prepare_material_data(data);
 }
 
 ref<const engine::mesh> asset_construction::find_mesh(rid handle) const noexcept {

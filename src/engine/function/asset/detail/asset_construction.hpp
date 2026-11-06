@@ -43,6 +43,10 @@ public:
   GNEISS_API result<ref<const engine::material>>
   create_material(const material_parameters& parameters,
                   std::array<ref<const engine::texture>, 5> dependencies) noexcept;
+  /** 文件装配和程序化创建共用依赖归属校验与后端数据准备。 */
+  GNEISS_API result<std::shared_ptr<const material_data>>
+  prepare_material(const material_parameters&,
+                   const std::array<ref<const engine::texture>, 5>& dependencies) noexcept;
   GNEISS_API ref<const engine::mesh> find_mesh(rid handle) const noexcept;
   GNEISS_API ref<const engine::material> find_material(rid handle) const noexcept;
   /** 仅查询现有纹理引用；UI 等借用 RID 的调用方不得创建拥有者。 */

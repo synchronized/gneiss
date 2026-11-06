@@ -127,6 +127,22 @@ int main() {
     return 22;
   if (gneiss::test_support::take_value(peer.create_texture(texture_desc), peer_texture).failed())
     return 23;
+  material_parameters parameters;
+  parameters.roughness = 0.25F;
+  auto local_material = peer.create_material(parameters, {peer_texture});
+  if (!local_material || (*local_material)->textures()[0] != peer_texture ||
+      (*local_material)->parameters().roughness != parameters.roughness)
+    return 24;
+  const auto material_content = resources.share_material(resource_handle(*local_material));
+  if (!material_content ||
+      material_content->texture_handles()[0] != resource_handle(peer_texture) ||
+      material_content->parameters.roughness != parameters.roughness)
+    return 25;
+  parameters.roughness = -1.0F;
+  auto invalid_material = peer.create_material(parameters, {peer_texture});
+  if (invalid_material || invalid_material.error() != error::invalid_argument ||
+      resources.share_material(resource_handle(*local_material)) != material_content)
+    return 26;
   peer.close();
   if (resources.texture_status(resource_handle(texture)).failed() ||
       resources.texture_status(resource_handle(peer_texture)) != error::invalid_handle)

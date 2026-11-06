@@ -12,15 +12,12 @@ error asset_construction::adopt(asset_manager& assets, const material_descriptio
     return error::invalid_state;
   if (!assets.owns(target))
     return error::invalid_argument;
-  material_data value{.parameters = description.parameters};
   for (std::size_t slot = 0; slot < dependencies.size(); ++slot) {
     if (!description.texture_uris[slot].empty() &&
-        (!assets.owns(dependencies[slot]) ||
-         resource_uri(dependencies[slot]) != description.texture_uris[slot]))
+        (!dependencies[slot] || resource_uri(dependencies[slot]) != description.texture_uris[slot]))
       return error::invalid_argument;
-    value.set_texture(slot, resource_handle(dependencies[slot]));
   }
-  auto prepared = assets.impl_->render().prepare_material_data(value);
+  auto prepared = assets.impl_->prepare_material(description.parameters, dependencies);
   if (!prepared)
     return prepared.error();
   auto data = std::move(*prepared);

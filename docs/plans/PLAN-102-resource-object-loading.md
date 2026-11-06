@@ -59,6 +59,7 @@ struct asset_entry {
 - [ ] B. texture/mesh/material 改为对象类型，上层统一 ref<const T>；删除同名引用别名及重复描述装配入口。
   - [x] 三类对象及调用方完成命名迁移，删除同名引用别名，反射注册使用对象类型。
   - [ ] 删除重复描述装配入口，统一对象内容加载。
+    - 材质程序化创建与文件装配已共用依赖校验、数据准备和内容更新；网格/纹理路径待继续核查。
 - [ ] C. scene/prefab 成为 asset 派生类型；共享内容与 World 实例分离。
   - [x] 顶层资产对象与专用 Loader 接入，场景准备通过资产取得描述快照；成功重载保留身份和旧快照。
   - [x] 加载准备结果、World 实例及编辑快照保留来源资产强引用，同时固定实例化描述快照。
@@ -470,3 +471,11 @@ CPU、场景与渲染仍按类型推进，E 的通用调度及 B/C 剩余采用�
 Windows Clang Debug 完整构建、13 项相关回归及 git diff --check 通过；改动行已格式化。
 日志：build/asset-queue-build.log、build/asset-queue-tests.log（不入库）。
 E 项完成；B/C 的重复内容采用路径仍待收敛。未运行 GPU 大场景、跨平台或远端 CI。
+
+2026-11-06：材质内容采用路径收敛。程序化 create_material 与文件 adopt 共用 prepare_material，
+统一纹理归属检查、RID 转换及后端数据准备；程序化创建预留身份后也通过 update_material
+更新参数与依赖强引用。文件路径只额外校验描述 URI 与依赖来源一致。
+补充程序化材质参数、纹理引用与后端内容一致性，以及无效参数不改变已有材质回归。
+Windows Clang Debug 完整构建与 14 项相关回归通过；改动行格式化、git diff --check 通过。
+日志：build/asset-material-adoption-build.log、build/asset-material-adoption-tests.log（不入库）。
+B/C 尚未完成；未运行 GPU 大场景、跨平台或远端 CI。

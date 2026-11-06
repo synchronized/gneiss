@@ -123,12 +123,14 @@ GPU 在途使用的安全回收由 Render 及后端负责，详见[运行资源�
 ## 内部异步准备
 
 网格使用 `decode_mesh_asset`，纹理使用 `decode_texture_asset` 接收已解析描述与负载；
-材质通过 `adopt_material_asset` 共享已解码描述。各入口不读取文件、不递归加载依赖。
+材质通过 `asset_construction::adopt` 采用已解码描述与已解析纹理引用。各入口不读取文件、不递归加载依赖。
+程序化材质创建和文件材质装配共用 `prepare_material` 的纹理归属校验与数据准备，
+再通过 `update_material` 同步渲染内容、上层参数和纹理强引用；文件装配另外校验描述 URI。
 asset_manager 内部使用任务私有的 CPU 数据请求完成装配，不将这些中间负载登记到最终资产索引。
 `mesh_data`、`texture_data`、`material_description` 的公开 `load/store/find_loaded` 返回
 `unsupported`；工具需要原始数据时使用对应格式编解码，不建立第二份资产缓存。
 内部材质解码仍支持显式 Decoder，供最终材质 Loader 使用。
-私有 `detail/asset_loader.hpp` 的 Loader 消费字节并给出下一读取 URI：网格一次解码，
+内部 `asset_loader.hpp` 的 Loader 消费字节并给出下一读取 URI：网格一次解码，
 纹理先解码描述，再读取并解码所选负载。管理器只编排 I/O、执行器、请求合并与缓存登记。
 成功领取共享只读 CPU 内容后，asset_manager 内部构造步骤直接交给 Render 共享准备入口，不复制大块负载。
 取消只放弃当前观察者，最后一个观察者消失后取消后续工作，不等待工作线程。
