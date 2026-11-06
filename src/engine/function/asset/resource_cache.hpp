@@ -6,8 +6,8 @@
 
 #include "detail/asset_entry.hpp"
 #include "engine/core/result.hpp"
+#include "engine/resource/asset.hpp"
 #include "engine/resource/asset_identity.hpp"
-#include "engine/resource/asset_ref.hpp"
 
 #include "engine/core/type_id.hpp"
 #include <cstdint>
@@ -31,7 +31,7 @@ public:
   [[nodiscard]] std::shared_ptr<detail::asset_entry> acquire(const detail::asset_key& identity);
   void clear_loading() noexcept;
 
-  using loader = std::function<result<std::shared_ptr<const void>>()>;
+  using loader = std::function<result<std::shared_ptr<const asset>>()>;
 
   /** 所属线程统一加载入口；默认复用，reload 成功后替换，失败保留旧条目。
    * 回调仅在需要加载时执行；同键递归加载返回 invalid_state。 */
@@ -42,7 +42,7 @@ public:
        asset_load_metrics metrics = {}) noexcept;
   void release_unused() noexcept;
   /** 只观察当前身份，不触发加载；返回的弱引用不会阻止卸载。 */
-  [[nodiscard]] std::weak_ptr<const void>
+  [[nodiscard]] std::weak_ptr<const asset>
   observe(std::string_view uri, type_id type,
           std::shared_ptr<const files::source_domain> source = {},
           std::string parameters = {}) const;

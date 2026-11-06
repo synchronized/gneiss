@@ -133,8 +133,8 @@ public:
       }
     }
     std::shared_ptr<detail::asset_state> state;
-    const auto status =
-        request(runtime_type_of<T>(), uri, options, state, &detail::make_reflected_decoder<T>);
+    const auto status = request(runtime_type_of<T>(), uri, options, state,
+                                &detail::make_reflected_decoder<T>, cache_casts<T>());
     if (status.failed())
       return status;
     return asset_request<T>{std::move(state)};
@@ -166,11 +166,14 @@ public:
         return error::internal;
       }
     }
-    std::shared_ptr<const void> value;
+    std::shared_ptr<const asset> value;
     const auto status = find_loaded_erased(runtime_type_of<T>(), uri, value, options);
     if (status.failed())
       return status;
-    return asset_ref<const T>{std::static_pointer_cast<const T>(value)};
+    if constexpr (std::derived_from<T, asset>)
+      return asset_ref<const T>{std::static_pointer_cast<const T>(value)};
+    else
+      return error::unsupported;
   }
   template <class T>
   [[nodiscard]] result<asset_ref<const T>> find_loaded(std::string_view uri) const noexcept {
@@ -195,11 +198,15 @@ public:
   store(std::string_view uri, std::shared_ptr<const T> value, asset_load_options options) noexcept {
     if constexpr (!std::derived_from<T, asset>)
       return error::unsupported;
-    std::shared_ptr<const void> stored;
-    const auto status = store_erased(runtime_type_of<T>(), uri, std::move(value), stored, options);
-    if (status.failed())
-      return status;
-    return asset_ref<const T>{std::static_pointer_cast<const T>(stored)};
+    if constexpr (std::derived_from<T, asset>) {
+      std::shared_ptr<const asset> stored;
+      const auto status =
+          store_erased(runtime_type_of<T>(), uri, std::move(value), stored, options);
+      if (status.failed())
+        return status;
+      return asset_ref<const T>{std::static_pointer_cast<const T>(stored)};
+    } else
+      return error::unsupported;
   }
   template <class T>
     requires(!render_resource<T>)
@@ -234,11 +241,27 @@ private:
   template <class T>
   result<asset_request<T>> decode_data(std::string_view uri, asset_load_options options) noexcept {
     std::shared_ptr<detail::asset_state> state;
-    const auto status = request(runtime_type_of<T>(), uri, options, state,
-                                &detail::make_reflected_decoder<T>, false);
+    const auto status =
+        request(runtime_type_of<T>(), uri, options, state, &detail::make_reflected_decoder<T>, {});
     if (status.failed())
       return status;
     return asset_request<T>{std::move(state)};
+  }
+  // 双向转换保留控制块，并正确处理 asset 基类的地址偏移。
+  struct cache_conversion {
+    std::shared_ptr<const asset> (*to_asset)(const std::shared_ptr<const void>&){};
+    std::shared_ptr<const void> (*to_value)(const std::shared_ptr<const asset>&){};
+  };
+  template <class T> static cache_conversion cache_casts() noexcept {
+    if constexpr (std::derived_from<T, asset>) {
+      return {+[](const std::shared_ptr<const void>& value) -> std::shared_ptr<const asset> {
+                return std::static_pointer_cast<const T>(value);
+              },
+              +[](const std::shared_ptr<const asset>& value) -> std::shared_ptr<const void> {
+                return std::static_pointer_cast<const T>(value);
+              }};
+    } else
+      return {};
   }
   using decoder_factory = result<std::shared_ptr<const asset_decoder>> (*)();
   [[nodiscard]] GNEISS_API error resolve_decoder(type_id, decoder_factory,
@@ -247,11 +270,11 @@ private:
                                                  asset_load_options options,
                                                  std::shared_ptr<detail::asset_state>& output,
                                                  decoder_factory fallback,
-                                                 bool cache_result = true) noexcept;
-  GNEISS_API error find_loaded_erased(type_id, std::string_view, std::shared_ptr<const void>&,
+                                                 cache_conversion conversion) noexcept;
+  GNEISS_API error find_loaded_erased(type_id, std::string_view, std::shared_ptr<const asset>&,
                                       asset_load_options) const noexcept;
-  GNEISS_API error store_erased(type_id, std::string_view, std::shared_ptr<const void>,
-                                std::shared_ptr<const void>&, asset_load_options) noexcept;
+  GNEISS_API error store_erased(type_id, std::string_view, std::shared_ptr<const asset>,
+                                std::shared_ptr<const asset>&, asset_load_options) noexcept;
   struct resource_state;
   std::unique_ptr<resource_state> resource_state_;
 };

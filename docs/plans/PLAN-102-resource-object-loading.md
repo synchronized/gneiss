@@ -65,17 +65,17 @@ struct asset_entry {
   - [x] Scene/Prefab 描述的文件加载与 Decoder 注册入口关闭，文件加载只返回资产对象。
   - [x] 关闭描述 store/find_loaded 入口；纯内存编辑持有独立快照，不登记第二份 URI 缓存。
   - [ ] 统一纯内存编辑与文件资产采用路径。
-- [ ] D. 记录 cached 统一为最终资产弱引用；取消 CPU 描述缓存条目、临时 payload 身份键及兼容桥接。
+- [x] D. 记录 cached 统一为最终资产弱引用；取消 CPU 描述缓存条目、临时 payload 身份键及兼容桥接。
   - [x] 删除 asset_cache_value 控制块包装，直接弱持有实际对象；统计归入 asset_entry。
   - [x] 内部 CPU 解码不登记资产记录，删除临时 payload 身份键。
   - [x] 关闭 mesh_data/texture_data/material_description 的公开加载与缓存入口，内部解码不受影响。
   - [x] ActionMap 拆分为共享资产和描述快照；输入服务继续采用独立描述。
   - [x] 公开 load/find_loaded/store 只接受 asset 派生类型；测试自定义资产同步迁移。
-  - [ ] 将内部擦除弱引用收窄为最终 asset 类型。
+  - [x] 内部缓存与查询结果收窄为 asset，写入校验实际类型；解码边界保留类型化指针转换。
 - [ ] E. 类型加载器共用 load_operation 生命周期；覆盖去重、单观察者取消、旧操作迟到、重载失败、清理与关闭。
 
-缓存槽位当前直接 weak_ptr<const void> 指向实际对象，兼容尚未迁移的纯 CPU 描述；
-额外控制块包装已删除，但这仍不满足 D 的最终弱资产引用验收。不得新增另一份永久资产索引绕过上述迁移。
+缓存槽位使用 weak_ptr<const asset>，直接共享最终资产控制块；描述与负载不登记资产索引。
+内部解码请求仍允许擦除值，由类型化转换进入资产缓存。不得新增另一份永久资产索引。
 优先完成 A，再继续资源文件格式等支线；完成整个计划要求 A—E 全部通过。
 
 ## 职责和目录
@@ -420,3 +420,13 @@ Runtime/边界回归通过；改动行格式化与 git diff --check 通过。
 回归通过；改动行格式化和 git diff --check 通过。
 日志：build/asset-public-types-build-final.log、build/asset-public-types-tests.log（不入库）。
 未运行 GPU 大场景、跨平台或远端 CI。内部缓存仍为擦除弱引用，收窄类型与统一操作尚未完成。
+
+2026-11-06：最终缓存类型收窄完成。asset_entry 使用 weak_ptr<const asset>，cached_asset、
+缓存创建回调、store/find_loaded 内部接口使用资产基类强引用；写入验证实际类型与键一致，
+不匹配时保留旧值。异步解码的擦除结果通过模板生成的双向转换与缓存交接，正确处理多重继承
+基类偏移并共享原控制块；内部描述请求不建立缓存转换或记录。
+缓存测试改为资产对象并补充类型不匹配拒绝；集成测试的自定义资产采用多重继承，覆盖加载、
+缓存命中、显式存储、重载和生命周期。Windows Clang Debug 完整构建、13 项资产/输入/
+场景/生命周期/Runtime/边界回归通过；改动行格式化与 git diff --check 通过。
+日志：build/asset-typed-cache-build-final.log、build/asset-typed-cache-tests.log（不入库）。
+D 项完成；B/C 的采用路径及 E 的统一操作生命周期仍未完成。未运行 GPU 大场景、跨平台或远端 CI。

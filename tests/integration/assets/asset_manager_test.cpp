@@ -25,7 +25,12 @@
 #include <thread>
 
 namespace gneiss::test_support {
-struct asset_value : gneiss::engine::asset {
+// asset 不是首个多态基类，缓存转换必须正确调整地址并共享控制块。
+struct asset_prefix {
+  virtual ~asset_prefix() = default;
+  std::uint64_t marker{0x12345678U};
+};
+struct asset_value : asset_prefix, gneiss::engine::asset {
   asset_value(char value = {})
       : asset(gneiss::engine::runtime_type_of<asset_value>()), byte(value) {}
   asset_value(const asset_value& other) : asset_value(other.byte) {}

@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/core/type_id.hpp"
 #include "engine/function/asset/asset_loading.hpp"
-#include "engine/resource/asset_ref.hpp"
+#include "engine/resource/asset.hpp"
 #include <memory>
 #include <optional>
 #include <tuple>
@@ -14,7 +14,7 @@ using asset_key =
 /** 一次查询取得的强引用与统计副本；不创建控制块，不承担资产身份。 */
 struct cached_asset {
   type_id type{runtime_type_of<void>()};
-  std::shared_ptr<const void> resource;
+  std::shared_ptr<const asset> resource;
   asset_load_metrics metrics;
   std::size_t source_bytes{};
   template <class T> [[nodiscard]] ref<const T> as() const noexcept {
@@ -22,10 +22,10 @@ struct cached_asset {
                                         : ref<const T>{};
   }
 };
-/** 身份、弱缓存及在途操作共用一条记录；纯 CPU 类型迁移期间仍允许擦除值。 */
+/** 身份、弱缓存及在途操作共用一条记录；只弱持有最终资产对象。 */
 struct asset_entry {
   asset_key identity;
-  std::optional<std::weak_ptr<const void>> cached;
+  std::optional<std::weak_ptr<const asset>> cached;
   asset_load_metrics metrics;
   std::size_t source_bytes{};
   bool constructing{}; // 同步创建回调的递归保护。

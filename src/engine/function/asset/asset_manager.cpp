@@ -53,6 +53,7 @@ struct asset_manager::resource_state {
   resource_cache cache;
   struct operation : detail::load_operation {
     std::weak_ptr<detail::asset_entry> entry;
+    cache_conversion conversion;
     std::shared_ptr<asset_loader> loader;
     engine::files::request_id read_request;
     task_handle task;
@@ -257,8 +258,8 @@ asset_manager::asset_manager(std::shared_ptr<engine::files::service> files)
     throw std::invalid_argument("资源 Registry 必须冻结");
 }
 error asset_manager::store_erased(type_id type, std::string_view uri,
-                                  std::shared_ptr<const void> value,
-                                  std::shared_ptr<const void>& output,
+                                  std::shared_ptr<const asset> value,
+                                  std::shared_ptr<const asset>& output,
                                   asset_load_options options) noexcept try {
   auto& state = *resource_state_;
   if (state.stopped)
@@ -272,7 +273,7 @@ error asset_manager::store_erased(type_id type, std::string_view uri,
   const auto parameters = asset_load_parameters(options);
   auto record = cache().acquire({domain, std::string(uri), type, parameters});
   auto stored = cache().load(
-      uri, type, [&]() -> result<std::shared_ptr<const void>> { return value; }, domain, true, 0,
+      uri, type, [&]() -> result<std::shared_ptr<const asset>> { return value; }, domain, true, 0,
       parameters);
   if (!stored)
     return stored.error();
@@ -380,7 +381,7 @@ error asset_manager::resolve_decoder(type_id type, decoder_factory fallback,
 
 error asset_manager::request(type_id type, std::string_view uri, asset_load_options options,
                              std::shared_ptr<detail::asset_state>& output, decoder_factory fallback,
-                             bool cache_result) noexcept try {
+                             cache_conversion conversion) noexcept try {
   auto& state = *resource_state_;
   if (state.stopped) {
     return error::invalid_state;
@@ -412,7 +413,7 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
   state.frozen = true;
   std::shared_ptr<detail::asset_entry> entry;
   std::optional<detail::cached_asset> cached;
-  if (cache_result) {
+  if (conversion.to_asset) {
     const auto parameters = asset_load_parameters(options);
     entry = cache().acquire({domain, std::string(uri), type, parameters});
     if (entry->loading && entry->loading->observer.use_count() > 1) {
@@ -425,7 +426,7 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
       ready->status = error::success;
       ready->source_bytes = cached->source_bytes;
       ready->metrics = cached->metrics;
-      ready->value = cached->resource;
+      ready->value = conversion.to_value(cached->resource);
       output = std::move(ready);
       return error::success;
     }
@@ -433,7 +434,8 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
   // 内部解码由父资产操作持有；不另建身份、弱缓存或在途索引。
   auto work = std::make_shared<resource_state::operation>(std::move(*task));
   work->entry = entry;
-  work->previous = cached ? cached->resource : nullptr;
+  work->conversion = conversion;
+  work->previous = cached ? conversion.to_value(cached->resource) : nullptr;
   state.active.push_back(work);
   try {
     const auto submitted = state.read(work, uri);
@@ -455,7 +457,7 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
   return error::internal;
 }
 error asset_manager::find_loaded_erased(type_id type, std::string_view uri,
-                                        std::shared_ptr<const void>& output,
+                                        std::shared_ptr<const asset>& output,
                                         asset_load_options options) const noexcept try {
   if (resource_state_->stopped || !resource_state_->files)
     return error::invalid_state;
@@ -649,11 +651,14 @@ void asset_manager::advance() {
         work->value = work->loader->value;
         const auto& [domain, uri, type, parameters] = entry->identity;
         auto cached = cache().load(
-            uri, type, [&]() -> result<std::shared_ptr<const void>> { return work->value; }, domain,
-            true, work->source_bytes, parameters, work->loader->metrics);
+            uri, type,
+            [&]() -> result<std::shared_ptr<const asset>> {
+              return work->conversion.to_asset(work->value);
+            },
+            domain, true, work->source_bytes, parameters, work->loader->metrics);
         work->status = cached ? error::success : cached.error();
         if (cached)
-          work->value = cached->resource;
+          work->value = work->conversion.to_value(cached->resource);
       }
     }
     {
@@ -902,28 +907,28 @@ asset_manager::reserve_resource(const render_resource_source& source) noexcept {
     auto identity = std::move(*identified);
     auto cached = cache().load(
         source.uri, cache_type(source.type),
-        [&]() -> result<std::shared_ptr<const void>> {
+        [&]() -> result<std::shared_ptr<const asset>> {
           switch (source.type) {
           case render_resource_kind::mesh: {
             auto value = impl_->reserve_mesh();
             if (!value)
               return value.error();
             detail::mesh_resource_access::set_source(**value, identity);
-            return std::shared_ptr<const void>(value->shared());
+            return std::shared_ptr<const asset>(value->shared());
           }
           case render_resource_kind::texture: {
             auto value = impl_->reserve_texture();
             if (!value)
               return value.error();
             detail::texture_resource_access::set_source(**value, identity);
-            return std::shared_ptr<const void>(value->shared());
+            return std::shared_ptr<const asset>(value->shared());
           }
           case render_resource_kind::material: {
             auto value = impl_->reserve_material();
             if (!value)
               return value.error();
             detail::material_resource_access::set_source(**value, identity);
-            return std::shared_ptr<const void>(value->shared());
+            return std::shared_ptr<const asset>(value->shared());
           }
           default:
             return error::invalid_argument;
