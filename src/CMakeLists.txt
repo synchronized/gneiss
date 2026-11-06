@@ -213,8 +213,6 @@ target_sources(
     engine/function/asset/detail/render_load_operation.cpp
     engine/function/asset/detail/asset_decode.cpp
     engine/function/asset/detail/asset_construction.hpp
-    engine/function/scene/detail/scene_loading.cpp
-    engine/function/scene/detail/scene_loading.hpp
     engine/function/asset/detail/asset_construction.cpp
     engine/function/asset/asset_reference_context.hpp
     engine/function/asset/asset_manager.hpp
@@ -263,7 +261,6 @@ target_sources(
 target_sources(
   gneiss_engine
   PRIVATE
-    runtime/loading/prefab_preparation.cpp
     runtime/loading/prefab_placement.cpp
     runtime/loading/scene_service_loading.cpp
     runtime/loading/scene_load_types.hpp

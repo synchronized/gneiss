@@ -13,7 +13,6 @@
 #include "engine/core/type_id.hpp"
 #include "engine/function/asset/detail/loader_factory.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/scene/detail/scene_loading.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/material/detail/material_resource_access.hpp"
@@ -93,10 +92,6 @@ struct asset_manager::resource_state {
       files::bytes{}.swap(bytes);
     }
   };
-  struct scene_work : detail::load_operation {
-    std::shared_ptr<detail::scene_preparation_operation> preparation;
-  };
-  std::vector<std::shared_ptr<scene_work>> scenes;
   std::vector<std::shared_ptr<detail::render_load_operation>> rendering;
   // 执行器丢弃排队任务时也产生终态；所有数据先写入，再 release 发布。
   struct settlement {
@@ -187,10 +182,6 @@ struct asset_manager::resource_state {
     rendering.clear();
     if (executor)
       executor->cancel_scope(scope);
-    for (const auto& work : scenes) {
-      work->preparation->cancel();
-      work->stop();
-    }
     for (const auto& work : active) {
       if (work->reading && work->read_request.value != 0)
         (void)files->cancel(work->read_request);
@@ -208,7 +199,6 @@ struct asset_manager::resource_state {
         return false;
       executor = nullptr;
     }
-    scenes.clear();
     active.clear();
     cache.clear_loading();
     files.reset();
@@ -469,24 +459,6 @@ error asset_manager::find_loaded_erased(type_id type, std::string_view uri,
   return error::internal;
 }
 
-result<asset_request<scene_instantiation_data>> asset_manager::enqueue_scene_preparation(
-    std::shared_ptr<detail::scene_preparation_operation> preparation) noexcept try {
-  auto& state = *resource_state_;
-  if (state.stopped)
-    return error::invalid_state;
-  if (!state.executor)
-    return error::not_ready;
-  auto work = std::make_shared<resource_state::scene_work>();
-  work->preparation = std::move(preparation);
-  work->notification = state.notification;
-  state.scenes.push_back(work);
-  return asset_request<scene_instantiation_data>{work->observer};
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
-}
-
 void asset_manager::advance() {
   auto& state = *resource_state_;
   if (impl_) {
@@ -512,22 +484,6 @@ void asset_manager::advance() {
         work->task = {};
         break;
       }
-  detail::advance_load_operations(
-      state.scenes,
-      [&](const auto& work) {
-        auto prepared = work->preparation->advance();
-        if (!prepared) {
-          auto diagnostic = std::move(prepared).error();
-          if (diagnostic.error != error::not_ready)
-            work->complete(diagnostic.error, {diagnostic.byte_offset, std::move(diagnostic.path),
-                                              std::move(diagnostic.message), diagnostic.error});
-          return;
-        }
-        const auto bytes = (*prepared)->source_bytes;
-        work->complete(error::success, {}, std::move(*prepared), bytes,
-                       work->preparation->metrics());
-      },
-      [&](const auto& work) { work->preparation->cancel(); });
   detail::advance_load_operations(
       state.active,
       [&](const auto& work) {

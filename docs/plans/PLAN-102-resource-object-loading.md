@@ -547,3 +547,21 @@ build/scene-dependencies-lifetime-tests.log（不入库）。未运行 GPU 大�
 
 剩余：将 Runtime/编辑器改为直接消费 Scene/Prefab 资产实例化，删除公开 prepare 请求和
 管理器的迁移期场景准备队列；本次仅完成结构依赖的加载与所有权迁移，PLAN-102 尚未完成。
+
+
+2026-11-06：Runtime 场景打开/重载与编辑器 Prefab 插入/刷新改用普通 Scene/Prefab
+资产请求；成功后同步调用 make_instantiation_data，保持视觉加载独立。删除公开
+prepare_scene/prepare_prefab、asset_manager 私有场景队列及 enqueue_scene_preparation、
+scene_description_request、scene_preparation_operation 和 Runtime prefab_preparation 包装。
+构建源清单与内部头导出清单同步删除，不保留兼容转发。
+
+实例化数据仍是同步算法结果：包含排序、覆盖和视觉资源清单，供 Runtime 预留引用及内存编辑使用；
+不是异步请求或第二份缓存。scene_instances 当前仍消费 instantiate_prepared 数据入口，
+尚未新增直接接收资产引用的便捷重载，不能将本步描述为整个 PLAN-102 完成。
+
+Windows Clang Debug 完整构建通过。17 项相关回归中 16 项首轮通过；场景准备测试的测试驱动
+在检查提前取消前提交了读取，修复为提交前检查后，该项重跑通过。覆盖普通资产请求取消、
+线程池/协作执行器、结构限制、重载、编辑器 Prefab 操作、模块边界与内部头可见性。
+改动行格式化及 git diff --check 通过。日志：build/scene-direct-build-final.log、
+build/scene-direct-build-fix.log、build/scene-direct-tests.log、build/scene-direct-tests-fix.log
+（不入库）。未运行 GPU 大场景、跨平台或远端 CI。

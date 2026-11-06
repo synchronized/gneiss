@@ -189,11 +189,17 @@ engine::error scene_service::request_reload(scene_instance_id instance, std::str
   next->instance = instance;
   next->uri = uri;
   next->prefab = prefab;
-  auto prepared = (prefab ? gneiss::engine::prepare_prefab(*resources_, uri, true)
-                          : gneiss::engine::prepare_scene(*resources_, uri, true));
-  if (!prepared)
-    return prepared.error();
-  next->descriptions = std::move(*prepared);
+  if (prefab) {
+    auto loaded = resources_->load<engine::prefab>(uri, true);
+    if (!loaded)
+      return loaded.error();
+    next->descriptions = std::move(*loaded);
+  } else {
+    auto loaded = resources_->load<engine::scene>(uri, true);
+    if (!loaded)
+      return loaded.error();
+    next->descriptions = std::move(*loaded);
+  }
   reload_ = std::move(next);
   return engine::error::success;
 }
@@ -202,15 +208,24 @@ void scene_service::advance_reload() try {
   if (!reload_ || reload_->result != engine::error::not_ready)
     return;
   auto& value = *reload_;
-  if (value.descriptions) {
-    auto prepared = value.descriptions.take();
-    if (!prepared) {
-      if (prepared.error().error != engine::error::not_ready)
-        value.result = prepared.error().error;
-      return;
-    }
-    value.prepared = **prepared;
+  auto prepared = std::visit(
+      [](auto& request)
+          -> engine::result<engine::scene_instantiation_data, engine::scene_diagnostic> {
+        auto loaded = request.take();
+        if (!loaded) {
+          auto failure = std::move(loaded).error();
+          return engine::scene_diagnostic{failure.error, failure.byte_offset,
+                                          std::move(failure.path), std::move(failure.message)};
+        }
+        return engine::make_instantiation_data(*loaded, request.source_bytes());
+      },
+      value.descriptions);
+  if (!prepared) {
+    if (prepared.error().error != engine::error::not_ready)
+      value.result = prepared.error().error;
+    return;
   }
+  value.prepared = std::move(*prepared);
   // 结构仅需要稳定资源身份，不等待视觉内容加载。
   for (const auto& source : value.prepared.assets) {
     auto reserved = resources_->reserve_resource(source);

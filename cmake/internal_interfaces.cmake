@@ -113,7 +113,6 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   runtime/application.hpp
   runtime/configuration/application_configuration.hpp
   runtime/loading/prefab_placement.hpp
-  runtime/loading/prefab_preparation.hpp
   runtime/loading/resource_load_types.hpp
   runtime/loading/scene_load_types.hpp
   runtime/loading/scene_service.hpp

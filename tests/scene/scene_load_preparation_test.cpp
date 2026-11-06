@@ -10,7 +10,6 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/detail/scene_loading.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_file.hpp"
@@ -162,16 +161,15 @@ void run() {
         output.prefabs.at("asset://p.prefab").source_asset);
   check(!memory->reads.contains("m.mesh") && !memory->reads.contains("m.material"));
   check(scene_decodes == 0U && prefab_decodes == 0U);
-  detail::scene_description_request request(assets, "asset://main.scene", false);
   scene_preparation_inputs inputs;
-  auto status = error::not_ready;
-  for (unsigned i = 0; i < 100U && status == error::not_ready; ++i) {
-    check(assets.async_files()->dispatch_completions(64).ok());
-    assets.advance();
-    status = request.advance(inputs, diagnostic);
-    check(executor.run_ready().status == drive_status::success);
+  inputs.source_asset = *cached_scene;
+  inputs.scene = loaded_content->description;
+  inputs.source_bytes = cached_request->source_bytes();
+  for (const auto& [uri, dependency] : loaded_content->prefabs) {
+    inputs.source_bytes += dependency.source_bytes;
+    inputs.prefabs.emplace(uri, dependency.description);
+    inputs.prefab_assets.emplace(uri, dependency.resource);
   }
-  check(status.ok() && scene_decodes == 0U && prefab_decodes == 0U);
   // 资产身份稳定；旧快照不随重载改变，失败重载不破坏当前内容。
   ref<const engine::scene> scene_asset;
   check(test_support::load_asset(assets, "asset://main.scene", scene_asset).ok());
@@ -273,28 +271,13 @@ void run() {
   check(prepare({.hierarchy_depth = 1U}) == gneiss::engine::error::success);
   check(prepare({.hierarchy_depth = 0U}) == gneiss::engine::error::invalid_argument);
   check(prepare({}, [] { return true; }) == gneiss::engine::error::invalid_state);
-  // 无 Render 的统一入口：描述准备不创建运行对象，两个观察者独立取消。
-  auto first_prepare = gneiss::engine::prepare_scene(assets, "asset://main.scene");
-  auto second_prepare = gneiss::engine::prepare_scene(assets, "asset://main.scene");
-  check(bool(first_prepare) && bool(second_prepare));
-  first_prepare->cancel();
-  for (unsigned i = 0; i < 100U && second_prepare->status() == error::not_ready; ++i) {
-    check(assets.async_files()->dispatch_completions(64).ok());
-    assets.advance();
-    check(executor.run_ready().status == drive_status::success);
-  }
-  auto unified = second_prepare->take();
-  check(bool(unified) && (*unified)->instance_nodes == 3U);
-  // 依赖已有缓存时一次完成，不需要再次驱动 CPU 执行器。
-  detail::scene_preparation_operation immediate(assets, "asset://main.scene", false, false);
-  auto ready = immediate.advance();
-  check(bool(ready) && (*ready)->instance_nodes == 3U && immediate.metrics().queue_ms == 0.0);
-  immediate.cancel();
-  auto completed_structure = immediate.advance();
-  check(bool(completed_structure) && *completed_structure == *ready);
-  detail::scene_preparation_operation cancelled(assets, "asset://main.scene", false, false);
-  cancelled.cancel();
-  check(cancelled.advance().error().error == error::invalid_state);
+  // 资产加载后同步整理结构，不需要驱动文件或执行器。
+  auto unified = make_instantiation_data(scene_asset);
+  check(bool(unified) && unified->instance_nodes == 3U);
+  auto repeated = make_instantiation_data(scene_asset);
+  check(bool(repeated) && repeated->instance_nodes == 3U);
+  check(make_instantiation_data(ref<const engine::scene>{}).error().error ==
+        error::invalid_argument);
   auto no_renderer = assets.load<gneiss::engine::texture>("asset://image");
   check(!no_renderer && no_renderer.error() == error::invalid_state);
   auto created = assets.create(scene_description{});
@@ -326,14 +309,13 @@ void run() {
   parent.replace(parent.find("null"), 4U, "\"00000000-0000-4000-8000-000000000003\"");
   memory->files["main.scene"] = std::string(scene_prefix) + child + "," + parent + R"(]})";
   check(prepare() == gneiss::engine::error::invalid_argument && output.parent_first.empty());
-  auto stopping = gneiss::engine::prepare_scene(assets, "asset://main.scene");
+  auto stopping = assets.load<engine::scene>("asset://main.scene", true);
   check(bool(stopping));
   assets.request_stop();
   check(stopping->take().error().error == error::invalid_state);
   assets.advance();
-  check(assets.stopped() && (*unified)->instance_nodes == 3U);
-  check(gneiss::engine::prepare_scene(assets, "asset://main.scene").error() ==
-        error::invalid_state);
+  check(assets.stopped() && unified->instance_nodes == 3U);
+  check(assets.load<engine::scene>("asset://main.scene", true).error() == error::invalid_state);
 }
 } // namespace
 

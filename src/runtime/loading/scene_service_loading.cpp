@@ -28,7 +28,7 @@ double elapsed(clock_type::time_point start) {
 
 struct scene_service::load_task {
   engine::scene_instantiation_data description;
-  engine::asset_request<engine::scene_instantiation_data> description_request;
+  engine::asset_request<engine::scene> description_request;
   scene_load_completion result;
   std::unique_ptr<scene_domain> candidate;
   gneiss::engine::scene_instances::resource_bindings bindings;
@@ -61,7 +61,7 @@ void scene_service::advance_stop() {
   advance_load();
   if (loading_ && !loading_->stopped())
     return;
-  // 场景已放弃准备请求；共享资产任务由资产管理器负责收尾。
+  // 场景已放弃资产请求；共享资产任务由资产管理器负责收尾。
   shutdown();
 }
 
@@ -89,7 +89,7 @@ scene_service::request_scene(std::string_view uri, std::uint64_t session, std::u
   auto next = std::make_unique<load_task>();
   next->result.progress = {
       .request = ++sequence_, .session = session, .revision = revision, .can_cancel = true};
-  auto prepared = gneiss::engine::prepare_scene(*resources_, uri, true);
+  auto prepared = resources_->load<engine::scene>(uri, true);
   if (!prepared)
     return prepared.error();
   next->description_request = std::move(*prepared);
@@ -231,8 +231,15 @@ void scene_service::advance_load_impl() {
         finish(prepared.error().error, scene_load_phase::failed, prepared.error().message);
       return;
     }
-    value.result.prepare_ms = value.description_request.metrics().decode_ms;
-    value.description = **prepared;
+    const auto prepare_started = clock_type::now();
+    auto data =
+        engine::make_instantiation_data(*prepared, value.description_request.source_bytes());
+    if (!data) {
+      finish(data.error().error, scene_load_phase::failed, data.error().message);
+      return;
+    }
+    value.description = std::move(*data);
+    value.result.prepare_ms = elapsed(prepare_started);
     value.candidate = std::make_unique<scene_domain>();
     const auto initialized = value.candidate->initialize(*resources_);
     if (initialized != gneiss::engine::error::success) {

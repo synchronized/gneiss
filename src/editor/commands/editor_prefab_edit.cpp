@@ -3,10 +3,11 @@
 #include "commands/editor_prefab_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "runtime/application.hpp"
 #include "runtime/loading/prefab_placement.hpp"
-#include "runtime/loading/prefab_preparation.hpp"
 #include <algorithm>
 
 namespace gneiss::editor {
@@ -158,7 +159,7 @@ struct editor_prefab_edit::state {
   gneiss::scene_instance_id scene{};
   scene_document* session{};
   editor_command_history* history{};
-  std::unique_ptr<runtime::prefab_preparation> preparation;
+  engine::asset_request<engine::prefab> preparation;
   gneiss::engine::object_description author;
   gneiss::engine::scene_instantiation_data prepared;
   std::vector<gneiss::engine::render_resource_ref> assets;
@@ -235,12 +236,19 @@ struct editor_prefab_edit::state {
 
   bool poll_preparation() {
 
-    bool complete{};
-    status = preparation->poll(prepared, complete);
-    if (!complete) {
+    auto loaded = preparation.take();
+    if (!loaded && loaded.error().error == engine::error::not_ready)
       return false;
+    status = loaded ? engine::error::success : loaded.error().error;
+    const auto bytes = preparation.source_bytes();
+    preparation.cancel();
+    if (loaded) {
+      auto data = engine::make_instantiation_data(*loaded, bytes);
+      if (data)
+        prepared = std::move(*data);
+      else
+        status = data.error().error;
     }
-    preparation.reset();
     if (status.ok() && !cancelled) {
       auto submitted = application.prepare_assets(prepared.assets, 1U, refreshing);
       if (!submitted)
@@ -310,6 +318,8 @@ gneiss::engine::error editor_prefab_edit::request(runtime::application& applicat
   if (active() || history.is_pending() || !session.is_open()) {
     return gneiss::engine::error::not_ready;
   }
+  if (!application.is_owner_thread() || !application.accepts_requests())
+    return engine::error::invalid_state;
   auto next = std::make_unique<state>(application);
   next->scene = session.scene_handle();
   next->session = &session;
@@ -331,10 +341,13 @@ gneiss::engine::error editor_prefab_edit::request(runtime::application& applicat
     }
     next->author.parent_uuid = found->uuid;
   }
-  status = runtime::prefab_preparation::create(application, executor, uri, next->preparation);
-  if (status.failed()) {
+  status = application.assets().configure(executor);
+  if (status.failed())
     return status;
-  }
+  auto loaded = application.assets().load<engine::prefab>(uri, true);
+  if (!loaded)
+    return loaded.error();
+  next->preparation = std::move(*loaded);
   next->active = next->visible = true;
   state_ = std::move(next);
   return gneiss::engine::error::success;
@@ -350,6 +363,8 @@ gneiss::engine::error editor_prefab_edit::request_remove(runtime::application& a
   if (active() || history.is_pending() || !session.is_open()) {
     return gneiss::engine::error::not_ready;
   }
+  if (!application.is_owner_thread() || !application.accepts_requests())
+    return engine::error::invalid_state;
   auto snapshot = session.capture_nodes();
   if (!snapshot)
     return snapshot.error();
@@ -379,6 +394,8 @@ gneiss::engine::error editor_prefab_edit::request_refresh(runtime::application& 
   if (active() || history.is_pending() || !session.is_open()) {
     return gneiss::engine::error::not_ready;
   }
+  if (!application.is_owner_thread() || !application.accepts_requests())
+    return engine::error::invalid_state;
   auto snapshot = session.capture_nodes();
   if (!snapshot)
     return snapshot.error();
@@ -397,11 +414,13 @@ gneiss::engine::error editor_prefab_edit::request_refresh(runtime::application& 
       next->refresh_targets.push_back(record.instance_uuid);
     }
   }
-  const auto status = runtime::prefab_preparation::create(application, executor, found->prefab_uri,
-                                                          next->preparation);
-  if (status.failed()) {
+  const auto status = application.assets().configure(executor);
+  if (status.failed())
     return status;
-  }
+  auto loaded = application.assets().load<engine::prefab>(found->prefab_uri, true);
+  if (!loaded)
+    return loaded.error();
+  next->preparation = std::move(*loaded);
   next->active = next->visible = next->refreshing = true;
   state_ = std::move(next);
   return gneiss::engine::error::success;
@@ -418,7 +437,7 @@ void editor_prefab_edit::cancel() {
   auto& value = *state_;
   value.cancelled = true;
   if (value.preparation) {
-    value.preparation->cancel();
+    value.preparation.cancel();
   }
   if (value.asset_pending) {
     value.status = engine::error::cancelled;

@@ -4,7 +4,6 @@
 #pragma once
 
 #include "engine/core/error.hpp"
-#include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/asset/render_resource.hpp"
 #include "engine/resource/prefab.hpp"
 #include "engine/resource/scene.hpp"
@@ -14,13 +13,6 @@
 #include <map>
 
 namespace gneiss::engine {
-
-/** 场景侧异步准备入口；不创建 World，不等待视觉内容。宿主继续推进资产 I/O 与任务。
- * 迁移期由资产管理器私有队列调度，取消只放弃本请求的观察权。 */
-GNEISS_API result<asset_request<scene_instantiation_data>>
-prepare_scene(asset_manager&, std::string_view uri, bool reload = false) noexcept;
-GNEISS_API result<asset_request<scene_instantiation_data>>
-prepare_prefab(asset_manager&, std::string_view uri, bool reload = false) noexcept;
 
 struct scene_prepare_limits {
   // 累计读取的源文件字节数；单文件读取上限由 codec 规定。
@@ -37,8 +29,8 @@ struct prefab_instantiation_data {
   std::vector<std::size_t> parent_first;
 };
 
-/** 工作者自有的准备结果；持有不可变 Prefab 引用，不含 World 或后端资源。
- * Prefab v1 不支持嵌套实例；渲染依赖的材质/纹理闭包由资产准备阶段解析。
+/** 实例化自有的数据；持有不可变 Prefab 引用，不含 World 或后端资源。
+ * Prefab v1 不支持嵌套实例；渲染依赖的材质/纹理闭包由视觉资产加载解析。
  * source_bytes 是加载统计，不代表解析后内存用量。 */
 struct scene_instantiation_data {
   scene_description description;
@@ -66,4 +58,11 @@ struct scene_preparation_inputs {
                                                     scene_instantiation_data&, scene_diagnostic&,
                                                     const std::function<bool()>& cancelled,
                                                     scene_prepare_limits limits = {}) noexcept;
+/** 从已加载资产同步整理实例化数据，不读取文件或推进异步队列。 */
+[[nodiscard]] GNEISS_API result<scene_instantiation_data, scene_diagnostic>
+make_instantiation_data(ref<const scene>, std::size_t source_bytes = 0,
+                        scene_prepare_limits limits = {}) noexcept;
+[[nodiscard]] GNEISS_API result<scene_instantiation_data, scene_diagnostic>
+make_instantiation_data(ref<const prefab>, std::size_t source_bytes = 0,
+                        scene_prepare_limits limits = {}) noexcept;
 } // namespace gneiss::engine

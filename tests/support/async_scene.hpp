@@ -3,7 +3,6 @@
 #pragma once
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/scene/detail/scene_loading.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include <chrono>
@@ -15,26 +14,41 @@ prepare_scene_for_test(engine::asset_manager& assets, engine::task_scheduler& ex
                        engine::scene_prepare_limits limits = {}) {
   output = {};
   diagnostic = {};
-  engine::detail::scene_description_request request(assets, std::string(uri), prefab, limits);
-  engine::scene_preparation_inputs inputs;
-  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  for (;;) {
-    if (cancelled && cancelled())
-      return diagnostic.error = engine::error::invalid_state;
-    if (std::chrono::steady_clock::now() >= deadline)
-      return diagnostic.error = engine::error::internal;
-    const auto dispatch = assets.async_files()->dispatch_completions(64);
-    if (dispatch.failed())
-      return diagnostic.error = dispatch;
-    assets.advance();
-    (void)executor.run_ready();
-    const auto status = request.advance(inputs, diagnostic);
-    if (status == engine::error::not_ready)
-      continue;
-    if (status.failed())
-      return status;
-    return engine::prepare_loaded_scene(inputs, prefab ? uri : std::string_view{}, output,
-                                        diagnostic, cancelled, limits);
-  }
+  if (cancelled && cancelled())
+    return diagnostic.error = engine::error::invalid_state;
+  auto load = [&]<class T>() -> engine::error {
+    auto request = assets.load<T>(uri, true);
+    if (!request)
+      return diagnostic.error = request.error();
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    for (;;) {
+      if (cancelled && cancelled())
+        return diagnostic.error = engine::error::invalid_state;
+      if (std::chrono::steady_clock::now() >= deadline)
+        return diagnostic.error = engine::error::internal;
+      const auto dispatch = assets.async_files()->dispatch_completions(64);
+      if (dispatch.failed())
+        return diagnostic.error = dispatch;
+      assets.advance();
+      (void)executor.run_ready();
+      auto loaded = request->take();
+      if (!loaded) {
+        const auto& failure = loaded.error();
+        if (failure.error == engine::error::not_ready)
+          continue;
+        diagnostic = {failure.error, failure.byte_offset, failure.path, failure.message};
+        return diagnostic.error;
+      }
+      auto data = engine::make_instantiation_data(*loaded, request->source_bytes(), limits);
+      if (!data) {
+        diagnostic = std::move(data).error();
+        return diagnostic.error;
+      }
+      output = std::move(*data);
+      return engine::error::success;
+    }
+  };
+  return prefab ? load.template operator()<engine::prefab>()
+                : load.template operator()<engine::scene>();
 }
 }

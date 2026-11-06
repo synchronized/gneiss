@@ -134,11 +134,10 @@ Scene Loader 在 CPU 解码后通过 `resolve_dependencies` 于所属线程非�
 依赖全部成功才登记 Scene 缓存。必要 Prefab 失败返回带依赖 URI 的诊断；最后一个 Scene
 请求观察者消失后，其依赖请求随操作回收，其他观察者不受影响。
 
-实例化数据准备仍由 `function/scene/detail/scene_loading.*` 实现；它直接使用 Scene 内容快照中的
-结构依赖，不再重新请求 Prefab。`scene_preparation_operation` 封装资产请求和完成诊断，
-资产就绪后在所属线程同步整理层级；
-不再提交独立场景准备任务，资产管理器只推进与取消。公开入口位于场景模块，迁移期任务仍由资产管理器私有队列调度；
-管理器不再公开 `prepare_scene/prepare_prefab` 成员。
+Runtime 与编辑器直接使用 `load<scene>` / `load<prefab>`。取得资产后调用
+`make_instantiation_data`，在所属线程同步整理层级、应用覆盖并收集视觉资源清单。
+资产管理器没有场景准备队列；不再提供 `prepare_scene/prepare_prefab` 或
+`asset_request<scene_instantiation_data>`。纯内存编辑继续使用 `prepare_loaded_scene`，不读取文件。
 
 ## 内部异步准备
 
@@ -168,13 +167,14 @@ asset_manager 内部使用任务私有的 CPU 数据请求完成装配，不将�
 
 ## 结构准备与实例化边界
 
-场景模块的 `prepare_scene(assets, uri, reload)` 与 `prepare_prefab(assets, uri, reload)` 返回 `asset_request<scene_instantiation_data>`。
-它异步加载描述和结构依赖、执行层级排序并收集视觉资源清单，不创建 World、实体或场景节点，
-也不等待视觉资源和 GPU。默认复用描述；显式 reload 重新读取。准备结果本身不建立第二份 URI 缓存。
-同一 Prefab 描述可以由多个准备结果和实例共享。取消一个准备请求只放弃它的依赖观察权。
+Scene/Prefab 资产加载与实例化分开：`load<T>` 异步取得资产，`make_instantiation_data`
+同步取得独立实例化数据，再由 `scene_instances::instantiate_prepared` 创建 World 节点。
+同步步骤不等待视觉资源或 GPU、不驱动文件或任务队列，也没有单独的取消协议；
+取消发生在资产请求或上层编辑操作边界。结构数据不建立第二份 URI 缓存。
 
-Runtime 的 `scene_service` 保留活动场景、同步实例化、激活、退场和视觉加载进度，
-消费资产管理器的准备结果，不再自建解码任务 scope。结构可以先激活，视觉内容随后完成。
+Runtime 的 `scene_service` 保留活动场景、同步实例化、激活、退场和视觉加载进度。
+编辑器直接持有普通 Prefab 资产请求，不再经过 Runtime 的专用准备包装。
+结构可以先激活，视觉内容随后完成。
 宿主依次分发文件完成、推进资产管理器，再推进场景与渲染；各层不嵌套驱动文件完成队列。
 
 请求可以复制共享工作，取消和 `take()` 只影响当前观察者。管理器停止会终止在途请求，
@@ -328,13 +328,13 @@ asset_manager 不设统一的单资源输出额度，也不累计描述与负载
 Prefab 文件使用 `load<prefab>()`，需要描述时调用资产的 `snapshot()`；
 显式重载使用 `reload=true`。
 
-场景所属线程用 `scene_description_request` 取得场景及去重后的 Prefab 引用；依赖就绪后同步执行
+场景加载取得资产及其固定 Prefab 依赖快照；所属线程随后同步执行
 层级排序、依赖收集与准备预算检查，不再提交额外 CPU 准备任务。`scene_prepare_limits::source_bytes` 统计累计源文件
 输入字节，不代表解析对象的内存。请求成功 take 后可查询 source_bytes()，缓存命中保留该统计；
 场景加载输入传递累计值，纯内存构造的输入为零。描述不保留源文本，单文件输入限制仍由
 manager 的有界读取保证。保存行为见[场景格式](scene-format.md)。
 
-普通同步加载复用描述缓存；显式重载与后台打开场景/准备 Prefab 会重新加载。
+普通资产加载复用弱缓存；显式重载与后台打开场景/导入 Prefab 会重新加载。
 准备结果只持有取得的 Prefab 引用、父节点优先索引和最大深度，不复制完整描述。
 创建实例时直接采用该引用；缺失引用返回 invalid_argument，不回退到缓存登记。
 场景实例应用覆写所需的可变数据仍由实例单独持有，不修改共享来源。

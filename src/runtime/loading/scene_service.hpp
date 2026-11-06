@@ -14,6 +14,7 @@
 #include "runtime/loading/scene_load_types.hpp"
 #include <optional>
 #include <thread>
+#include <variant>
 
 namespace gneiss::engine {
 class scene_instances;
@@ -72,7 +73,8 @@ private:
     scene_instance_id instance;
     std::string uri;
     bool prefab{};
-    engine::asset_request<engine::scene_instantiation_data> descriptions;
+    std::variant<engine::asset_request<engine::scene>, engine::asset_request<engine::prefab>>
+        descriptions;
     engine::scene_instantiation_data prepared;
     std::vector<engine::render_resource_ref> retained;
     engine::error result{engine::error::not_ready};

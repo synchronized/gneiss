@@ -18,7 +18,6 @@ namespace gneiss::engine {
 class resource_cache;
 class task_executor;
 class render_service;
-struct scene_instantiation_data;
 class progress_notification;
 struct mesh_view;
 struct texture_view;
@@ -28,7 +27,6 @@ class service;
 }
 namespace detail {
 struct asset_construction;
-class scene_preparation_operation;
 }
 }
 
@@ -224,12 +222,6 @@ public:
   [[nodiscard]] GNEISS_API std::size_t cached_count() const noexcept;
 
 private:
-  GNEISS_API result<asset_request<scene_instantiation_data>>
-      enqueue_scene_preparation(std::shared_ptr<detail::scene_preparation_operation>) noexcept;
-  friend GNEISS_API result<asset_request<scene_instantiation_data>>
-  prepare_scene(asset_manager&, std::string_view, bool) noexcept;
-  friend GNEISS_API result<asset_request<scene_instantiation_data>>
-  prepare_prefab(asset_manager&, std::string_view, bool) noexcept;
   friend struct detail::asset_construction;
   std::unique_ptr<detail::asset_construction> impl_;
   resource_cache& cache() noexcept;

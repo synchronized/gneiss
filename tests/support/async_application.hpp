@@ -32,22 +32,30 @@ inline engine::error prepare_scene(runtime::application& app, std::string_view u
     std::this_thread::yield();
     return std::chrono::steady_clock::now() < deadline;
   };
-  auto request = (prefab ? gneiss::engine::prepare_prefab(app.assets(), uri)
-                         : gneiss::engine::prepare_scene(app.assets(), uri));
-  if (!request)
-    return request.error();
-  for (;;) {
-    if (!step())
-      return engine::error::internal;
-    auto loaded = request->take();
-    if (!loaded) {
-      if (loaded.error().error == engine::error::not_ready)
-        continue;
-      return loaded.error().error;
+  auto load = [&]<class T>() -> engine::error {
+    auto request = app.assets().load<T>(uri);
+    if (!request)
+      return request.error();
+    for (;;) {
+      if (!step())
+        return engine::error::internal;
+      auto loaded = request->take();
+      if (!loaded) {
+        if (loaded.error().error == engine::error::not_ready)
+          continue;
+        return loaded.error().error;
+      }
+      auto data = engine::make_instantiation_data(*loaded, request->source_bytes());
+      if (!data)
+        return data.error().error;
+      prepared = std::move(*data);
+      return engine::error::success;
     }
-    prepared = **loaded;
-    break;
-  }
+  };
+  auto loaded_status = prefab ? load.template operator()<engine::prefab>()
+                              : load.template operator()<engine::scene>();
+  if (loaded_status.failed())
+    return loaded_status;
   auto status = engine::error::success;
   bindings.clear();
   for (const auto& source : prepared.assets) {

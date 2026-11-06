@@ -2,8 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/scene/scene_preparation.hpp"
 #include "runtime/application.hpp"
-#include "runtime/loading/prefab_preparation.hpp"
 #include <chrono>
 #include <thread>
 
@@ -19,11 +20,11 @@ bool run(gneiss::engine::execution_mode mode) {
     return false;
   }
   for (int attempt = 0; attempt < 3; ++attempt) {
-    std::unique_ptr<gneiss::runtime::prefab_preparation> request;
+
     const auto uri =
         attempt == 2 ? "asset://prefabs/missing.prefab.json" : "asset://prefabs/test.prefab.json";
-    if (gneiss::runtime::prefab_preparation::create(*application, executor, uri, request) !=
-        gneiss::engine::error::success) {
+    auto request = application->assets().load<gneiss::engine::prefab>(uri, true);
+    if (!request) {
       return false;
     }
     if (attempt == 1) {
@@ -38,7 +39,17 @@ bool run(gneiss::engine::execution_mode mode) {
         (void)executor.run_ready();
       }
       application->advance_scene_load();
-      result = request->poll(output, complete);
+      auto loaded = request->take();
+      if (!loaded) {
+        result = loaded.error().error;
+        complete = result != gneiss::engine::error::not_ready;
+      } else {
+        auto data = gneiss::engine::make_instantiation_data(*loaded, request->source_bytes());
+        result = data ? gneiss::engine::error::success : data.error().error;
+        if (data)
+          output = std::move(*data);
+        complete = true;
+      }
       std::this_thread::yield();
     }
     const auto expected = attempt == 0   ? gneiss::engine::error::success
