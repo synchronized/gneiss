@@ -12,7 +12,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/asset/detail/asset_loader.hpp"
+#include "engine/function/asset/detail/loader_factory.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/material/detail/material_resource_access.hpp"
@@ -55,7 +55,7 @@ struct asset_manager::resource_state {
   struct operation : detail::load_operation {
     std::weak_ptr<detail::asset_entry> entry;
     bool cache_result{true};
-    std::shared_ptr<detail::asset_load_task> loader;
+    std::shared_ptr<asset_loader> loader;
     engine::files::request_id read_request;
     task_handle task;
     double queue_ms{};
@@ -68,7 +68,7 @@ struct asset_manager::resource_state {
     std::shared_ptr<const detail::asset_cache_value> previous;
     std::atomic_bool settled{false};
     error status{error::not_ready};
-    explicit operation(std::shared_ptr<detail::asset_load_task> parser)
+    explicit operation(std::shared_ptr<asset_loader> parser)
         : loader(std::move(parser)) {}
     void decode() {
       const auto started = std::chrono::steady_clock::now();
@@ -389,7 +389,7 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
   if (validate_uri(uri).failed()) {
     return error::invalid_argument;
   }
-  auto task = detail::make_asset_load_task(
+  auto task = detail::make_asset_loader(
       type, std::string(uri), options, [&]() -> result<std::shared_ptr<const asset_decoder>> {
         std::shared_ptr<const asset_decoder> decoder;
         auto status = resolve_decoder(type, fallback, decoder);

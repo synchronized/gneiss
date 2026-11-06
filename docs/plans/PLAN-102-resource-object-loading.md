@@ -114,10 +114,13 @@ engine/function/scene/
 - [x] asset_entry、load_operation 分别定义于 detail 对应头，不再嵌套于缓存类或请求头。
 - [ ] 五个具体资产主头位于 resource 顶层；类型名称与上层 ref<const T> 同步迁移。
 - [ ] 类型加载器收进 function/asset/loaders；asset_loader.hpp 只定义实际共用的加载契约。
+  - [x] 共用字节加载契约抽出，mesh/texture/object 解码实现移入独立 .cpp，三类渲染资源内容采用按类型归档。
+  - [ ] Scene/Prefab 加载和依赖装配迁入类型加载器，最终结果统一为资产对象。
 - [ ] 旧路径零引用且无转发头；边界检查、整库编译和资源生命周期回归通过。
 
-旧 detail/asset_loader.hpp 仍包含 CPU 字节加载任务与具体实现，须拆出共用契约和类型实现；
-仅移动头文件不能视为最终资产装配接口完成。
+asset_loader.hpp 已抽出实际共用的字节加载契约，mesh/texture/object 实现进入 loaders，
+材质内容采用进入 material_loader.cpp。加载结果仍是 CPU 中间值；依赖装配与最终资产返回契约
+尚未统一，不能仅凭文件到位判定最终资产加载器迁移完成。
 Scene/Prefab 主头与对象迁移一起实施，不为目录完整创建没有行为的空壳。
 
 加载器放 function 层，避免 resource 数据层反向依赖服务；修正讨论示意中 resource/loaders 的依赖风险。
@@ -301,3 +304,14 @@ asset_entry 与 load_operation 拆入 detail 对应头，旧缓存包装以 asse
 build/asset-layout-tests.log、build/asset-layout-boundary.log（不入库）。
 本次不改变资源类型名称：类仍为 *_resource，texture/mesh/material 仍是引用别名；
 Scene/Prefab 主对象、最终 asset_loader 契约及 loaders 拆分尚未完成。未运行大场景、跨平台或远端 CI。
+
+2026-11-06：类型加载器拆分首批完成。删除 detail/asset_loader.hpp，抽出 function/asset/asset_loader.hpp
+字节加载契约；具体 mesh_loader、texture_loader、object_loader 隐藏在 loaders 对应 .cpp 的私有
+命名空间，内部 loader_factory 负责现有类型分派。网格、纹理、材质的内容采用实现分别迁至
+mesh_loader.cpp、texture_loader.cpp、material_loader.cpp；材质字段解码仍复用 object_loader。
+管理器不再通过头文件编译各类型解码实现。共用操作、观察者、缓存与加载顺序保持原语义。
+完整 Windows Clang Debug 构建、11 项资源/生命周期/边界回归、改动文件格式检查和 git diff --check
+通过。日志：build/asset-loaders-build.log、build/asset-loaders-build-final.log、
+build/asset-loaders-tests.log（不入库）。未运行大场景、跨平台或远端 CI。
+本步尚未移除 CPU 中间结果、asset_construction::adopt 入口或材质依赖推进逻辑；
+Scene/Prefab Loader、具体资产类型改名与最终 load_operation 契约继续按主线推进。

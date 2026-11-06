@@ -196,6 +196,12 @@ target_sources(
 
     engine/function/input/input_service.cpp
     engine/function/input/input_service.hpp
+    engine/function/asset/asset_loader.hpp
+    engine/function/asset/detail/loader_factory.hpp
+    engine/function/asset/loaders/mesh_loader.cpp
+    engine/function/asset/loaders/texture_loader.cpp
+    engine/function/asset/loaders/object_loader.cpp
+    engine/function/asset/loaders/material_loader.cpp
     engine/function/asset/detail/asset_entry.hpp
     engine/function/asset/detail/load_operation.hpp
     engine/function/asset/detail/asset_decode.cpp
