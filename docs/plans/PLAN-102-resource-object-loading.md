@@ -68,7 +68,8 @@ struct asset_entry {
 - [ ] D. 记录 cached 统一为最终资产弱引用；取消 CPU 描述缓存条目、临时 payload 身份键及兼容桥接。
   - [x] 删除 asset_cache_value 控制块包装，直接弱持有实际对象；统计归入 asset_entry。
   - [x] 内部 CPU 解码不登记资产记录，删除临时 payload 身份键。
-  - [ ] 移除非资产描述的加载兼容路径，将擦除弱引用收窄为最终 asset 类型。
+  - [x] 关闭 mesh_data/texture_data/material_description 的公开加载与缓存入口，内部解码不受影响。
+  - [ ] 迁移 ActionMap 及其他 CPU 类型兼容，将擦除弱引用收窄为最终 asset 类型。
 - [ ] E. 类型加载器共用 load_operation 生命周期；覆盖去重、单观察者取消、旧操作迟到、重载失败、清理与关闭。
 
 缓存槽位当前直接 weak_ptr<const void> 指向实际对象，兼容尚未迁移的纯 CPU 描述；
@@ -389,3 +390,12 @@ Windows Clang Debug 完整构建、14 项资源/场景/Prefab/编辑/边界回�
 Windows Clang Debug 完整构建、11 项资源/场景/生命周期/边界回归与 git diff --check 通过。
 日志：build/asset-payload-index-build.log、build/asset-payload-index-tests.log（不入库）。
 未运行 GPU 大场景、跨平台或远端 CI。CPU 非资产类型兼容与两阶段操作统一仍未完成。
+
+2026-11-06：关闭 mesh_data、texture_data、material_description 的公开 load/store/find_loaded，
+返回 unsupported 且不读取文件或新增索引。渲染 Loader 内部解码保留，材质显式 Decoder 继续有效。
+CPU 测试调用迁移为最终 mesh/texture/material 资产；内存准备夹具直接使用格式解码，不再通过
+管理器建立材质描述缓存。保留并迁移请求合并、单观察者取消、共享结果、统计与关闭回归。
+Windows Clang Debug 完整构建、11 项资源/场景/生命周期/边界回归通过，改动行格式化和
+git diff --check 通过。日志：build/asset-intermediate-formatted-build.log、
+build/asset-intermediate-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+ActionMap 及自定义 CPU 类型兼容仍在，最终弱资产引用和统一操作生命周期尚未完成。

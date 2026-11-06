@@ -10,8 +10,9 @@
 #include "engine/core/serialization/reader.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
-#include "engine/function/meta_registration.hpp"
 #include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/meta_registration.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/platform/files/file_backend.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_file.hpp"
@@ -355,16 +356,19 @@ void decoder_selection() {
       gneiss::test_support::assign_decoded(gneiss::engine::asset_file::serialize_bytes(description),
                                            source->contents, diagnostic) == error::success,
       "material fixture");
+  render_service material_render;
   asset_manager material_assets(gneiss::test_support::test_files(files));
-  asset_ref<const material_description> material;
+  check(material_assets.attach_render(material_render).ok(), "material render");
+  ref<const engine::material> material;
   check(gneiss::test_support::load_asset(material_assets, "asset://material", material) ==
                 error::success &&
-            material->parameters.metallic == 0.25F,
+            material->parameters().metallic == 0.25F,
         "builtin material reflection load");
   auto limited_files =
       std::make_shared<engine::files::service>(engine::files::service_options{.max_file_bytes = 1});
   check(limited_files->mount({"asset://", {source}, {}}).ok(), "limited mount");
   asset_manager limited(limited_files);
+  check(limited.attach_render(material_render).ok(), "limited render");
   auto saved = material;
   check(gneiss::test_support::load_asset(limited, "asset://material", material) ==
                 error::invalid_argument &&

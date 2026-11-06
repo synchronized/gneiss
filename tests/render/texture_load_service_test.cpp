@@ -329,7 +329,7 @@ void cpu_loading(execution_mode mode) {
   check(manager.load<gneiss::engine::texture>("asset://texture", mismatched).error() ==
         error::invalid_argument);
   // 默认装配负载不在最终资产索引中。
-  check(manager.find_loaded<texture_data>("asset://texture").error() == error::not_found);
+  check(manager.find_loaded<texture_data>("asset://texture").error() == error::unsupported);
   const auto previous = resources.share_texture(resource_rid(target));
   check(previous && previous->levels.front().pixels.front() == std::byte{42});
   const auto reads = backend->reads;
@@ -379,109 +379,51 @@ void cpu_loading(execution_mode mode) {
     return request.status() != error::not_ready;
   });
   check(request.status().ok());
-  // 同一管理器显式读取 CPU 数据；默认运行资源装配不登记 CPU 负载。
+  // 中间数据只由 Loader 使用，公开入口不能建立第二份缓存。
   manager.collect_unused();
   const auto cached = manager.cached_count();
-  asset_request<mesh_data> mesh_request;
-  check(gneiss::test_support::assign_value(manager.load<mesh_data>("asset://mesh"), mesh_request)
-            .ok());
-  auto cancelled_cpu = manager.load<mesh_data>("asset://mesh");
-  check(bool(cancelled_cpu));
-  cancelled_cpu->cancel();
-  auto joined_cpu = manager.load<mesh_data>("asset://mesh");
-  check(bool(joined_cpu));
-  asset_ref<const mesh_data> mesh_content;
-  asset_load_metrics metrics;
-  error loaded{error::not_ready};
+  const auto reads_before_rejection = backend->reads;
+  check(manager.load<mesh_data>("asset://mesh").error() == error::unsupported);
+  check(manager.load<texture_data>("asset://texture").error() == error::unsupported);
+  check(manager.load<material_description>("asset://material").error() == error::unsupported);
+  check(manager.find_loaded<mesh_data>("asset://mesh").error() == error::unsupported);
+  check(manager.find_loaded<material_description>("asset://material").error() ==
+        error::unsupported);
+  check(manager.store<mesh_data>("asset://mesh", std::make_shared<const mesh_data>()).error() ==
+        error::unsupported);
+  check(manager.store<texture_data>("asset://texture", std::make_shared<const texture_data>())
+            .error() == error::unsupported);
+  check(manager
+            .store<material_description>("asset://material",
+                                         std::make_shared<const material_description>())
+            .error() == error::unsupported);
+  check(backend->reads == reads_before_rejection && manager.cached_count() == cached);
+
+  auto mesh_request = manager.load<gneiss::engine::mesh>("asset://mesh", true);
+  auto cancelled = manager.load<gneiss::engine::mesh>("asset://mesh");
+  check(mesh_request && cancelled);
+  cancelled->cancel();
+  auto joined = manager.load<gneiss::engine::mesh>("asset://mesh");
+  check(bool(joined));
   until([&] {
     if (backend->callback)
       backend->complete(fixture.files.at(backend->path));
-    auto received = mesh_request.take();
-    if (!received) {
-      loaded = received.error().error;
-      return loaded != error::not_ready;
-    }
-    mesh_content = std::move(*received);
-    metrics = mesh_request.metrics();
-    loaded = error::success;
-    return true;
+    return mesh_request->status() != error::not_ready;
   });
-  check(loaded.ok() && mesh_content->vertices.size() == 3U && !mesh_request);
-  check(metrics.sources.size() == 1U && metrics.bytes == mesh_content->data_bytes());
-  auto joined_result = joined_cpu->take();
-  check(joined_result && joined_result->get() == mesh_content.get());
-  joined_result->reset();
-  check(gneiss::test_support::take_request(mesh_request, mesh_content) == error::invalid_state);
-  manager.collect_unused();
-  check(manager.cached_count() == cached + 1U);
-  asset_ref<const mesh_data> absent_mesh;
-  check(gneiss::test_support::assign_value(manager.find_loaded<mesh_data>("asset://mesh"),
-                                           absent_mesh)
-            .ok());
-  check(absent_mesh.get() == mesh_content.get());
-  absent_mesh.reset();
-  mesh_content.reset();
-  manager.collect_unused();
+  auto mesh_result = mesh_request->take();
+  auto joined_result = joined->take();
+  check(mesh_result && joined_result && *mesh_result == *joined_result);
+  check(mesh_request->metrics().sources.size() == 1U);
+  auto mesh_content = resources.share_mesh(resource_handle(*mesh_result));
+  check(mesh_content && mesh_content->vertices.size() == 3U);
   check(manager.cached_count() == cached);
-  check(manager.find_loaded<mesh_data>("asset://mesh").error() == error::not_found);
 
-  // 运行资源持有负载并不使中间数据成为独立的缓存资产。
-  auto existing = manager.find_loaded<texture_data>("asset://texture");
-  check(!existing && existing.error() == error::not_found);
   fixture.files["cpu_texture"] = fixture.files.at("texture");
-  asset_request<texture_data> texture_request;
-  check(gneiss::test_support::assign_value(manager.load<texture_data>("asset://cpu_texture"),
-                                           texture_request)
-            .ok());
-  asset_ref<const texture_data> texture_content;
-  until([&] {
-    if (backend->callback)
-      backend->complete(fixture.files.at(backend->path));
-    loaded =
-        gneiss::test_support::take_request(texture_request, texture_content, nullptr, &metrics);
-    return loaded != error::not_ready;
-  });
-  check(loaded.ok() && texture_content->levels.front().pixels.front() == std::byte{42});
-  check(metrics.sources.size() == 2U &&
-        metrics.sources.back().identity.uri == "asset://image.ktx2");
-  manager.collect_unused();
-  check(manager.cached_count() == cached + 1U);
-
-  {
-    asset_load_options variant;
-    variant.texture_profile.sampled_transfer_formats[0] = true;
-    const auto before_reads = backend->reads;
-    auto different = manager.load<texture_data>("asset://cpu_texture", variant);
-    check(bool(different));
-    asset_ref<const texture_data> other;
-    until([&] {
-      if (backend->callback)
-        backend->complete(fixture.files.at(backend->path));
-      auto received = different->take();
-      if (!received) {
-        check(received.error().error == error::not_ready);
-        return false;
-      }
-      other = std::move(*received);
-      return true;
-    });
-    check(other.get() != texture_content.get() && backend->reads == before_reads + 2U);
-    auto found_variant = manager.find_loaded<texture_data>("asset://cpu_texture", variant);
-    check(found_variant && found_variant->get() == other.get());
-  }
-  {
-    auto prepared = resources.prepare_texture_data(texture_content.shared());
-    check(prepared && prepared->get() == texture_content.get());
-  }
-  texture_content.reset();
-  manager.collect_unused();
-  check(gneiss::test_support::assign_value(manager.load<texture_data>("asset://cpu_texture"),
-                                           texture_request)
-            .ok());
+  auto texture_request = manager.load<gneiss::engine::texture>("asset://cpu_texture");
+  check(bool(texture_request));
   until([&] { return bool(backend->callback); });
   manager.request_stop();
-  check(gneiss::test_support::take_request(texture_request, texture_content) ==
-        error::invalid_state);
+  check(texture_request->status() == error::invalid_state);
   backend->complete(fixture.files.at("cpu_texture"));
   until([&] { return manager.stopped(); });
   gneiss::engine::ref<const gneiss::engine::texture> rejected;
@@ -491,8 +433,7 @@ void cpu_loading(execution_mode mode) {
   check(manager.configure(scheduler) == error::invalid_state);
   check(manager.attach_render(resources) == error::invalid_state);
   check(manager.load<gneiss::engine::texture>("asset://texture").error() == error::invalid_state);
-  check(gneiss::test_support::assign_value(manager.load<mesh_data>("asset://mesh"), mesh_request) ==
-        error::invalid_state);
+  check(manager.load<gneiss::engine::mesh>("asset://mesh").error() == error::invalid_state);
 }
 void independent_loads(execution_mode mode) {
   task_scheduler scheduler({.mode = mode});

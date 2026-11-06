@@ -45,6 +45,13 @@ gneiss::engine::type_id cache_type(gneiss::engine::render_resource_kind type) no
   }
 }
 
+// 描述和负载不是独立资产；仅供格式编解码及资产 Loader 内部使用。
+bool intermediate_asset_type(type_id type) noexcept {
+  return type == runtime_type_of<scene_description>() ||
+         type == runtime_type_of<prefab_description>() || type == runtime_type_of<mesh_data>() ||
+         type == runtime_type_of<texture_data>() || type == runtime_type_of<material_description>();
+}
+
 } // namespace
 
 namespace gneiss::engine {
@@ -260,7 +267,7 @@ error asset_manager::store_erased(type_id type, std::string_view uri,
                                   std::shared_ptr<const void> value,
                                   std::shared_ptr<const void>& output,
                                   asset_load_options options) noexcept try {
-  if (type == runtime_type_of<scene_description>() || type == runtime_type_of<prefab_description>())
+  if (intermediate_asset_type(type))
     return error::unsupported;
   auto& state = *resource_state_;
   if (state.stopped)
@@ -382,7 +389,7 @@ error asset_manager::resolve_decoder(type_id type, decoder_factory fallback,
 error asset_manager::request(type_id type, std::string_view uri, asset_load_options options,
                              std::shared_ptr<detail::asset_state>& output, decoder_factory fallback,
                              bool cache_result) noexcept try {
-  if (type == runtime_type_of<scene_description>() || type == runtime_type_of<prefab_description>())
+  if (cache_result && intermediate_asset_type(type))
     return error::unsupported;
   auto& state = *resource_state_;
   if (state.stopped) {
@@ -456,7 +463,7 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
 error asset_manager::find_loaded_erased(type_id type, std::string_view uri,
                                         std::shared_ptr<const void>& output,
                                         asset_load_options options) const noexcept try {
-  if (type == runtime_type_of<scene_description>() || type == runtime_type_of<prefab_description>())
+  if (intermediate_asset_type(type))
     return error::unsupported;
   if (resource_state_->stopped || !resource_state_->files)
     return error::invalid_state;

@@ -11,10 +11,11 @@
 并不代表异步解码已完成。`find_loaded<T>(uri)` 与 `store<T>(uri, value)` 返回
 `result<asset_ref<const T>>`。网格和纹理也使用同一个 `load<T>` 与请求类型。
 
-Scene、Prefab 描述和 Texture、Mesh、Material 运行资源均由同一个 `asset_manager` 加载。
+Scene、Prefab、Texture、Mesh、Material 资产对象均由同一个 `asset_manager` 加载。
 `create_mesh/create_texture/create_material` 返回对应资源引用的 result；`create<T>(value)`
 创建不登记 URI 的不可变 CPU 资产。未绑定 Render 时可加载描述，运行资源创建/加载返回 `invalid_state`。
-`store<T>` 只接受 CPU 描述，不允许外部替换运行资源拥有者。
+`store<T>` 暂时支持其他 CPU 类型，不接受 Scene/Prefab 描述、mesh_data、texture_data 或
+material_description，也不允许外部替换运行资源拥有者。
 内存资产解码返回 `result<decoded_asset, asset_diagnostic>`。判断与取值规则见 [Core](core.md#错误状态与值结果)。
 
 `asset_request<T>::take()` 返回 `result<asset_ref<const T>, asset_diagnostic>`。
@@ -124,7 +125,9 @@ GPU 在途使用的安全回收由 Render 及后端负责，详见[运行资源�
 网格使用 `decode_mesh_asset`，纹理使用 `decode_texture_asset` 接收已解析描述与负载；
 材质通过 `adopt_material_asset` 共享已解码描述。各入口不读取文件、不递归加载依赖。
 asset_manager 内部使用任务私有的 CPU 数据请求完成装配，不将这些中间负载登记到最终资产索引。
-显式请求 CPU 数据的工具仍可使用普通 `load<T>`，与运行资源按类型隔离。
+`mesh_data`、`texture_data`、`material_description` 的公开 `load/store/find_loaded` 返回
+`unsupported`；工具需要原始数据时使用对应格式编解码，不建立第二份资产缓存。
+内部材质解码仍支持显式 Decoder，供最终材质 Loader 使用。
 私有 `detail/asset_loader.hpp` 的 Loader 消费字节并给出下一读取 URI：网格一次解码，
 纹理先解码描述，再读取并解码所选负载。管理器只编排 I/O、执行器、请求合并与缓存登记。
 成功领取共享只读 CPU 内容后，asset_manager 内部构造步骤直接交给 Render 共享准备入口，不复制大块负载。
@@ -255,7 +258,7 @@ asset_manager 仅接受 shared_ptr<files::service>。`find_loaded<T>` 只查询�
 普通加载不传递字节额度，按注入文件服务的 max_file_bytes 读取。
 Scene / Prefab、ActionMap 等格式自己的长度校验仍在 codec 中执行，不再通过类型 traits 限制读取。
 
-功能层 `asset_manager` 统一负责 CPU 描述与运行资源加载编排。材质描述通过 `load<material_description>` 加载。
+功能层 `asset_manager` 统一负责资产加载编排。材质通过 `load<material>` 加载，其描述由内部解码请求取得。
 资源服务在所属线程领取描述并请求纹理依赖，工作线程只解码 CPU 数据。
 网格和纹理由 asset_manager 的类型化入口加载，与描述请求共用文件读取、任务调度和关闭流程。
 网格读取后解码一次；纹理先读取并解析描述，再读取负载，按请求携带的设备能力解码。
@@ -305,9 +308,9 @@ World、场景实例及编辑会话仍由场景服务管理，不进入资源缓
 
 | 对象 | 谁持有 | 释放与更新 |
 | --- | --- | --- |
-| Scene CPU 描述 | manager 缓存、加载请求及准备输入 | 场景实例持有自己的可变描述；准备输入释放后，缓存描述可在无外部引用时回收 |
-| Prefab CPU 描述 | manager 缓存、准备结果、Prefab 实例及编辑器历史 | 实例与历史持有旧来源时不会被强制回收；覆写副本与共享来源分开 |
-| Material CPU 描述 | manager 缓存、准备/上传任务、运行期材质 | 运行期更新成功才切换描述与纹理依赖；失败保留旧运行期数据 |
+| Scene 描述快照 | scene 资产、准备输入及实例 | 资产内容重载不改变旧快照，编辑副本独立持有 |
+| Prefab 描述快照 | prefab 资产、准备结果、实例及编辑器历史 | 实例和历史可保留旧快照；覆写副本与共享来源分开 |
+| Material CPU 描述 | 内部加载操作 | 采用后可释放；最终材质持有参数及纹理引用，失败保留旧运行期数据 |
 | ActionMap | manager 缓存、请求；InputService 持有采用后的独立值 | 采用时复制并校验，失败保留原映射；成功后无需长期持有资产引用 |
 
 `stop()` 排空 manager 任务并结束在途请求，不等于立即清空成功缓存；缓存随管理器销毁，

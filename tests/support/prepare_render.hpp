@@ -132,14 +132,14 @@ inline error decode_texture_fixture(const gneiss::test_support::fixture_files& f
     output = std::move(std::get<texture_data>(decoded.content));
   return status;
 }
-inline error prepare_render_for_test(asset_manager& assets,
+inline error prepare_render_for_test(asset_manager&,
                                      const gneiss::test_support::fixture_files& files,
                                      std::span<const render_resource_source> requested,
                                      prepared_batch& output, asset_diagnostic& diagnostic,
                                      const std::function<bool()>& cancelled,
                                      std::size_t maximum_assets = 256U,
                                      std::size_t maximum_bytes = 256U * 1024U * 1024U,
-                                     texture_prepare_profile profile = {}, bool reload = false) {
+                                     texture_prepare_profile profile = {}, bool = false) {
   output = {};
   diagnostic = {};
   if (requested.empty() || requested.size() > maximum_assets)
@@ -158,13 +158,19 @@ inline error prepare_render_for_test(asset_manager& assets,
     decoded_asset decoded;
     error status;
     if (source.type == render_resource_kind::material) {
-      asset_ref<const material_description> material;
-      serialization::diagnostic error;
-      status = load_asset(assets, source.uri, material, reload, &error);
-      if (status.failed()) {
-        diagnostic = {status, error.byte_offset, std::move(error.path), std::move(error.message)};
+      // 内存夹具直接走格式解码，不通过资产管理器创建描述缓存。
+      std::vector<std::byte> bytes;
+      status = files.read_bounded(source.uri, 64U * 1024U * 1024U, bytes);
+      if (status.failed())
         return status;
+      auto parsed = asset_file::deserialize<material_description>(bytes);
+      if (!parsed) {
+        const auto& failure = parsed.error();
+        diagnostic = {failure.error, failure.byte_offset, failure.path, failure.message};
+        return failure.error;
       }
+      asset_ref<const material_description> material{
+          std::make_shared<const material_description>(std::move(*parsed))};
       status = gneiss::test_support::assign_decoded(
           adopt_material_asset(source.uri, std::move(material), sizeof(material_data)), decoded,
           diagnostic);
