@@ -27,17 +27,13 @@ double elapsed(clock_type::time_point start) {
 } // namespace
 
 struct scene_service::load_task {
-  struct cpu_result {
-    gneiss::engine::scene_instantiation_data description;
-  };
-  std::shared_ptr<cpu_result> cpu{std::make_shared<cpu_result>()};
+  engine::scene_instantiation_data description;
   engine::asset_request<engine::scene_instantiation_data> description_request;
   scene_load_completion result;
   std::unique_ptr<scene_domain> candidate;
   gneiss::engine::scene_instances::resource_bindings bindings;
   std::vector<gneiss::engine::render_resource_source> requested;
   std::size_t cursor{};
-  bool preparing{true};
   bool cancelled{};
 };
 
@@ -50,10 +46,7 @@ void scene_service::request_stop() {
     return;
   stopping_ = true;
   reload_.reset();
-  visual_queue_.clear();
-  visual_completion_.reset();
-  if (loading_)
-    loading_->request_stop();
+  visuals_.stop(loading_.get());
   if (pending_)
     pending_->cancelled = true;
 }
@@ -102,11 +95,7 @@ scene_service::request_scene(std::string_view uri, std::uint64_t session, std::u
   next->description_request = std::move(*prepared);
   const auto request = next->result.progress.request;
   pending_ = std::move(next);
-  visual_queue_.clear();
-  visual_cursor_ = 0U;
-  if (visual_pending_) {
-    (void)loading_->cancel();
-  }
+  visuals_.cancel(*loading_);
   return request;
 }
 void scene_service::sample_budget(scene_load_progress& value) const {
@@ -180,10 +169,7 @@ engine::result<scene_load_completion> scene_service::activate(std::uint64_t requ
   result.progress.can_cancel = false;
   retired_ = std::move(active_);
   active_ = std::move(pending_->candidate);
-  visual_queue_ = std::move(pending_->requested);
-  visual_cursor_ = 0U;
-  visual_session_ = result.progress.session;
-  visual_revision_ = result.progress.revision;
+  visuals_.begin(std::move(pending_->requested), result.progress.session, result.progress.revision);
   pending_.reset();
   result.activation_ms = elapsed(start);
   return result;
@@ -218,9 +204,9 @@ void scene_service::instantiate_loaded(load_task& value) {
   auto& progress = value.result.progress;
   progress.phase = scene_load_phase::instantiating;
   progress.completed = 0U;
-  progress.total = value.cpu->description.instance_nodes;
+  progress.total = value.description.instance_nodes;
   const auto built = gneiss::engine::measure(gneiss::engine::loop_stage::scene_build, [&] {
-    return value.candidate->scenes()->instantiate_prepared(std::move(value.cpu->description),
+    return value.candidate->scenes()->instantiate_prepared(std::move(value.description),
                                                            value.bindings);
   });
   if (!built) {
@@ -234,7 +220,7 @@ void scene_service::instantiate_loaded(load_task& value) {
 void scene_service::advance_load_impl() {
   auto& value = *pending_;
   auto& progress = value.result.progress;
-  if (value.preparing) {
+  if (progress.phase == scene_load_phase::preparing) {
     if (value.cancelled) {
       finish(engine::error::invalid_state, scene_load_phase::cancelled);
       return;
@@ -245,16 +231,15 @@ void scene_service::advance_load_impl() {
         finish(prepared.error().error, scene_load_phase::failed, prepared.error().message);
       return;
     }
-    value.preparing = false;
     value.result.prepare_ms = value.description_request.metrics().decode_ms;
-    value.cpu->description = **prepared;
+    value.description = **prepared;
     value.candidate = std::make_unique<scene_domain>();
     const auto initialized = value.candidate->initialize(*resources_);
     if (initialized != gneiss::engine::error::success) {
       finish(initialized, scene_load_phase::failed);
       return;
     }
-    value.requested = std::move(value.cpu->description.assets);
+    value.requested = std::move(value.description.assets);
     progress.phase = scene_load_phase::assets;
     progress.total = value.requested.size();
     return;

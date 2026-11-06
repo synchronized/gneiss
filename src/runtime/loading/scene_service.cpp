@@ -64,57 +64,84 @@ void scene_service::advance() {
   advance_reload();
 }
 
-void scene_service::advance_visuals() {
-  if (!loading_ || visual_completion_) {
+void scene_service::visual_load_state::advance(resource_load_group& group) {
+  if (completion) {
     return;
   }
-  if (visual_pending_) {
-    loading_->advance();
-    gneiss::runtime::asset_load_completion completion;
-    if (!loading_->take(completion)) {
+  if (pending) {
+    group.advance();
+    gneiss::runtime::asset_load_completion finished;
+    if (!group.take(finished)) {
       return;
     }
-    visual_pending_ = false;
-    visual_completion_ = std::move(completion);
+    pending = false;
+    completion = std::move(finished);
     return;
   }
-  if (visual_cursor_ == visual_queue_.size()) {
-    visual_queue_.clear();
-    visual_cursor_ = 0U;
+  if (cursor == queue.size()) {
+    queue.clear();
+    cursor = 0U;
     return;
   }
   std::uint64_t request{};
   const auto submitted =
-      loading_->submit_assets(std::span(visual_queue_).subspan(visual_cursor_, 1U), visual_session_,
-                              visual_revision_, request, false);
+      group.submit_assets(std::span(queue).subspan(cursor, 1U), session, revision, request, false);
   if (submitted == gneiss::engine::error::not_ready) {
     return;
   }
   if (submitted == gneiss::engine::error::success) {
-    visual_pending_ = true;
+    pending = true;
   } else {
-    gneiss::runtime::asset_load_completion completion;
-    completion.result = submitted;
-    completion.results.push_back({.source = visual_queue_[visual_cursor_], .result = submitted});
-    visual_completion_ = std::move(completion);
+    gneiss::runtime::asset_load_completion finished;
+    finished.result = submitted;
+    finished.results.push_back({.source = queue[cursor], .result = submitted});
+    completion = std::move(finished);
   }
-  ++visual_cursor_;
+  ++cursor;
 }
 
-bool scene_service::take_visual_completion(gneiss::runtime::asset_load_completion& output) {
-  if (!visual_completion_) {
+bool scene_service::visual_load_state::take(gneiss::runtime::asset_load_completion& output) {
+  if (!completion) {
     return false;
   }
-  output = std::move(*visual_completion_);
-  visual_completion_.reset();
+  output = std::move(*completion);
+  completion.reset();
   return true;
+}
+
+void scene_service::visual_load_state::begin(std::vector<engine::render_resource_source> sources,
+                                             std::uint64_t next_session,
+                                             std::uint64_t next_revision) {
+  queue = std::move(sources);
+  cursor = 0;
+  session = next_session;
+  revision = next_revision;
+}
+void scene_service::visual_load_state::cancel(resource_load_group& group) {
+  queue.clear();
+  cursor = 0;
+  // 取消回执仍由 advance/take 消费，不能提前清除 pending。
+  if (pending)
+    (void)group.cancel();
+}
+void scene_service::visual_load_state::stop(resource_load_group* group) {
+  queue.clear();
+  completion.reset();
+  if (group)
+    group->request_stop();
+}
+void scene_service::visual_load_state::reset() noexcept { *this = {}; }
+void scene_service::advance_visuals() {
+  if (loading_)
+    visuals_.advance(*loading_);
+}
+bool scene_service::take_visual_completion(asset_load_completion& output) {
+  return visuals_.take(output);
 }
 
 void scene_service::shutdown() noexcept {
   stopping_ = true;
-  visual_queue_.clear();
-  visual_completion_.reset();
-  visual_pending_ = false;
+  visuals_.reset();
   reload_.reset();
   stop_load();
   loading_.reset();
@@ -127,7 +154,7 @@ void scene_service::shutdown() noexcept {
 }
 
 bool scene_service::can_start_load() const noexcept {
-  return !stopping_ && !reload_ && !retired_ && loading_ && (!loading_->busy() || visual_pending_);
+  return !stopping_ && !reload_ && !retired_ && loading_ && (!loading_->busy() || visuals_.pending);
 }
 bool scene_service::loading() const noexcept {
   return pending_ != nullptr || completed_.has_value();

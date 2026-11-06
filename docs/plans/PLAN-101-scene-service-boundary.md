@@ -31,3 +31,13 @@ Application 既有轮询适配保持行为；本轮值返回统一针对 scene_s
 不运行大场景、跨平台、远端 CI 或发布。请求编号只在所属请求组内有效，不跨组使用。
 
 实施结果见[验收记录](../records/2026-11-05-scene-service-boundary.md)。
+
+## 内部状态收尾（2026-11-06）
+
+- [x] load_task 直接持有 scene_instantiation_data，删除无共享使用者的 cpu_result 包装。
+- [x] 使用 progress.phase 判断准备阶段，删除重复 preparing 标记。
+- [x] 视觉队列、游标、请求关联信息、pending 和回执集中到私有 visual_load_state，
+  推进、取消及清理操作随状态收拢，不增加服务。
+- [x] 编译及场景加载、取消、失败、退场和编辑器等 23 项回归通过；见[收尾记录](../records/2026-11-06-scene-state-cleanup.md)。
+
+保持每次最多预留 64 项资源引用、同步实例化、显式激活和旧 World 退场。

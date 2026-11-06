@@ -41,9 +41,7 @@ public:
   void advance();
   /** 激活后的视觉资源独立完成，不影响结构激活结果；所属线程消费诊断。 */
   [[nodiscard]] bool take_visual_completion(gneiss::runtime::asset_load_completion& output);
-  [[nodiscard]] bool visual_loading() const noexcept {
-    return visual_pending_ || !visual_queue_.empty();
-  }
+  [[nodiscard]] bool visual_loading() const noexcept { return visuals_.loading(); }
   [[nodiscard]] engine::result<scene_load_completion> activate(std::uint64_t request);
   /** 请求停止加载，不等待 CPU/I/O；继续 advance 至 stopped，再释放依赖。 */
   void request_stop();
@@ -86,12 +84,22 @@ private:
   void advance_visuals();
   void advance_stop();
   bool stopping_{};
-  std::vector<gneiss::engine::render_resource_source> visual_queue_;
-  std::size_t visual_cursor_{};
-  std::uint64_t visual_session_{};
-  std::uint64_t visual_revision_{};
-  bool visual_pending_{};
-  std::optional<gneiss::runtime::asset_load_completion> visual_completion_;
+  /** 场景视觉加载的私有状态；只借用请求组，不拥有资产或服务。 */
+  struct visual_load_state {
+    std::vector<engine::render_resource_source> queue;
+    std::size_t cursor{};
+    std::uint64_t session{}, revision{};
+    bool pending{};
+    std::optional<asset_load_completion> completion;
+    bool loading() const noexcept { return pending || !queue.empty(); }
+    void begin(std::vector<engine::render_resource_source> sources, std::uint64_t next_session,
+               std::uint64_t next_revision);
+    void advance(resource_load_group& group);
+    bool take(asset_load_completion& output);
+    void cancel(resource_load_group& group);
+    void stop(resource_load_group* group);
+    void reset() noexcept;
+  } visuals_;
   gneiss::engine::asset_manager* resources_{};
   std::unique_ptr<scene_domain> active_;
   std::unique_ptr<scene_domain> retired_;
