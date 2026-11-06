@@ -160,7 +160,8 @@ render_service 不持有资产对象和 URI 缓存；加载器/接入代码提�
   - [x] texture_resource、mesh_resource、material_resource 共享 asset 身份基类。
   - [x] 混合渲染引用改为 ref<const asset>，类型转换校验进程 type_id 并共享原控制块。
   - [x] 引用位置专用编解码与 context 解析器；纹理、网格、材质通过 `$asset` 往返，预留身份并去重收集依赖，不读取文件。
-  - [ ] 请求结果、依赖调度与属性路径收集；具体类型重命名及 Scene/Prefab 接入后续阶段。
+  - [x] 材质既有描述加载接入引用解析；所属线程预留全部纹理身份，去重提交依赖并保留失败引用。
+  - [ ] 请求结果、通用依赖调度与属性路径收集；具体类型重命名及 Scene/Prefab 接入后续阶段。
 - [ ] 2. 纹理闭环：文件→资源→渲染，缺失引用往返、弱缓存和销毁；保留二进制专用编解码。
 - [ ] 3. 材质与网格：反射字段、依赖诊断及重载；删除重复描述/装配入口，仅保留必要负载类型。
 - [ ] 4. Scene/Prefab 作为资产接入统一 load；场景准备迁到场景侧，复用相同引用解析，不新建第二个管理器。
@@ -203,3 +204,12 @@ Core 只依赖窄解析器接口；资产侧预留身份、收集去重依赖，
 日志：build/asset-reference-build-final.log、build/asset-reference-build-verified.log、
 build/asset-reference-tests.log（不入库）。实际类型加载器尚未消费该上下文，依赖异步提交、
 成功引用路径收集、全局类型冲突和依赖环检测留待后续闭环，不将原型描述为统一加载已完成。
+
+2026-11-06：材质加载消费引用解析上下文。删除逐槽等待游标，先预留各槽位强引用，再提交全部
+唯一依赖；请求观察权与材质持有的引用分开保存。首次纹理失败保留身份，文件恢复后重试更新同一
+对象；已有材质重载失败保持旧参数与依赖。新增集成用例覆盖缺失、重复槽位、URI 保存、恢复和
+失败重载。完整 Windows Clang Debug 构建及 7 项资源、场景和序列化回归通过，
+`git diff --check` 通过。日志：build/asset-dependencies-build.log、build/asset-dependencies-tests.log、
+build/asset-dependencies-integration-tests.log（不入库）。未运行大场景、跨平台或远端 CI。
+当前仍由工作线程解码 material_description 的 URI 字段，在所属线程解析为引用；材质文件改用
+`$asset`、删除旧描述转换及通用依赖环检测尚未完成，不能将这一桥接步骤视为整体迁移完成。

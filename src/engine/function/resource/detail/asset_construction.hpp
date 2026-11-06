@@ -72,8 +72,8 @@ struct detail::asset_construction::pending_load {
                asset_request<material_description>>
       cpu;
   asset_ref<const material_description> description;
-  std::array<asset_request<render_resource_ref>, 5> dependencies;
-  std::size_t dependency_cursor{};
+  std::array<texture, 5> texture_references;
+  std::vector<asset_request<render_resource_ref>> dependencies;
   error dependency_error{error::success};
 };
 

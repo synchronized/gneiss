@@ -510,6 +510,75 @@ bool verify_reference_serialization(gneiss::engine::asset_manager& assets) {
     return false;
   return true;
 }
+bool verify_material_dependencies(const memory_file_system& fixture) {
+  using namespace gneiss::engine;
+  auto memory = std::make_shared<memory_file_system>();
+  memory->files = fixture.files;
+  material_description description;
+  description.texture_uris = {"asset://textures/absent.texture.json",
+                              "asset://textures/white.texture.json",
+                              "asset://textures/white.texture.json", "", ""};
+  auto document = asset_file::serialize(description);
+  if (!document)
+    return false;
+  memory->files["materials/dependencies.material.json"] = *document;
+  gneiss::test_support::fixture_files files;
+  if (files.mount("asset://", memory).failed())
+    return false;
+  render_service render;
+  asset_manager assets{files.service};
+  auto& scheduler = gneiss::test_support::render_tasks();
+  if (assets.configure(scheduler).failed() || assets.attach_render(render).failed())
+    return false;
+  auto request = assets.load<material_resource>("asset://materials/dependencies.material.json");
+  if (!request)
+    return false;
+  const auto wait = [&](auto& pending) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (pending.status() == error::not_ready) {
+      (void)scheduler.run_ready();
+      (void)files.service->dispatch_completions(64);
+      assets.advance();
+      if (std::chrono::steady_clock::now() > deadline)
+        throw std::runtime_error("材质依赖回归超时");
+    }
+  };
+  wait(*request);
+  auto resource = request->get<material_resource>();
+  if (request->status() != error::not_found || !resource ||
+      request->diagnostic().message.find(description.texture_uris[0]) == std::string::npos)
+    return false;
+  auto missing = resource->textures()[0];
+  if (!missing || missing->metadata() || resource_uri(missing) != description.texture_uris[0] ||
+      !resource->textures()[1] || !resource->textures()[1]->metadata() ||
+      resource->textures()[1] != resource->textures()[2] || resource->textures()[3])
+    return false;
+  auto saved = serialization::json::serialize(missing);
+  if (!saved || *saved != R"({"$asset":"asset://textures/absent.texture.json"})")
+    return false;
+  // 文件恢复后重试填充同一身份，无须重新构造持有它的材质。
+  memory->files["textures/absent.texture.json"] = memory->files["textures/white.texture.json"];
+  auto retry = assets.load<texture_resource>(description.texture_uris[0]);
+  if (!retry || retry->get<texture_resource>() != missing)
+    return false;
+  wait(*retry);
+  if (retry->status().failed() || !missing->metadata() || resource->textures()[0] != missing)
+    return false;
+  // 已有材质更新失败继续保留旧参数和引用。
+  description.parameters.metallic = 0.8F;
+  description.texture_uris[0] = "asset://textures/another-missing.texture.json";
+  document = asset_file::serialize(description);
+  if (!document)
+    return false;
+  memory->files["materials/dependencies.material.json"] = *document;
+  auto reload =
+      assets.load<material_resource>("asset://materials/dependencies.material.json", true);
+  if (!reload)
+    return false;
+  wait(*reload);
+  return reload->status() == error::not_found && resource->parameters().metallic == 0 &&
+         resource->textures()[0] == missing;
+}
 bool verify_asset_identity() {
   using namespace gneiss::engine;
   unsigned destroyed{};
@@ -603,6 +672,8 @@ int main() try {
       "materials/textured.material.json",
       R"({"format":"gneiss.material","version":6,"parameters":{"color":[1,0.5,0.25,1],"metallic":0.25,"roughness":0.75},"texture_uris":["asset://textures/white.texture.json","","","",""]})");
   add_indexed_mesh(*memory);
+  if (!verify_material_dependencies(*memory))
+    return 96;
 
   gneiss::test_support::fixture_files file_system;
   gneiss::engine::render_service resources;
