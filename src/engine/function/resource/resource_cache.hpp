@@ -14,6 +14,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -22,6 +23,9 @@
 
 namespace gneiss::engine {
 
+namespace detail {
+struct load_operation;
+}
 class resource_cache final {
 public:
   using key =
@@ -47,6 +51,15 @@ public:
     }
   };
 
+  /** 迁移期统一身份记录；cached 仍包装尚未迁移的 CPU 描述。 */
+  struct asset_entry {
+    key identity;
+    std::optional<std::weak_ptr<const entry>> cached;
+    std::shared_ptr<detail::load_operation> loading;
+  };
+  [[nodiscard]] std::shared_ptr<asset_entry> acquire(const key& identity);
+  void clear_loading() noexcept;
+
   using loader = std::function<result<std::shared_ptr<const void>>()>;
 
   /** 所属线程统一加载入口；默认复用，reload 成功后替换，失败保留旧条目。
@@ -62,10 +75,10 @@ public:
   observe(std::string_view uri, type_id type,
           std::shared_ptr<const files::source_domain> source = {},
           std::string parameters = {}) const;
-  [[nodiscard]] std::size_t size() const noexcept { return entries_.size(); }
+  [[nodiscard]] std::size_t size() const noexcept;
 
 private:
-  std::map<key, std::weak_ptr<const entry>> entries_;
+  std::map<key, std::shared_ptr<asset_entry>> entries_;
 };
 
 } // namespace gneiss::engine

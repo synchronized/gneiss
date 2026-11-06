@@ -24,8 +24,8 @@ resource_cache::load(std::string_view uri, type_id type, const loader& decode,
     return error::invalid_argument;
   try {
     const key identity{source, std::string(uri), type, std::move(parameters)};
-    auto found = entries_.find(identity);
-    auto existing = found == entries_.end() ? std::shared_ptr<const entry>{} : found->second.lock();
+    auto record = acquire(identity);
+    auto existing = record->cached ? record->cached->lock() : std::shared_ptr<const entry>{};
     if (existing) {
       if (existing->is_loading)
         return error::invalid_state;
@@ -40,8 +40,8 @@ resource_cache::load(std::string_view uri, type_id type, const loader& decode,
     value->source_bytes = source_bytes;
     value->metrics = std::move(metrics);
     // 加载期间保活旧值并阻止同键递归；失败（包括异常）恢复原条目。
-    const auto previous = found == entries_.end() ? std::weak_ptr<const entry>{} : found->second;
-    entries_.insert_or_assign(identity, value);
+    const auto previous = record->cached;
+    record->cached = value;
     error status;
     try {
       auto decoded = decode();
@@ -55,12 +55,8 @@ resource_cache::load(std::string_view uri, type_id type, const loader& decode,
     } catch (...) {
       status = error::internal;
     }
-    found = entries_.find(identity);
     if (status != error::success) {
-      if (previous.lock())
-        found->second = previous;
-      else
-        entries_.erase(found);
+      record->cached = previous && !previous->expired() ? previous : std::nullopt;
       return status;
     }
     value->is_loading = false;
@@ -72,9 +68,30 @@ resource_cache::load(std::string_view uri, type_id type, const loader& decode,
   }
 }
 
+std::shared_ptr<resource_cache::asset_entry> resource_cache::acquire(const key& identity) {
+  auto found = entries_.find(identity);
+  if (found != entries_.end())
+    return found->second;
+  auto record = std::make_shared<asset_entry>();
+  record->identity = identity;
+  entries_.emplace(identity, record);
+  return record;
+}
+void resource_cache::clear_loading() noexcept {
+  for (auto& [key, record] : entries_)
+    record->loading.reset();
+}
+std::size_t resource_cache::size() const noexcept {
+  return std::ranges::count_if(entries_,
+                               [](const auto& item) { return item.second->cached.has_value(); });
+}
+
 void resource_cache::release_unused() noexcept {
   // 弱索引不拥有资源，销毁由最后一个使用者触发；这里只清理过期键。
-  std::erase_if(entries_, [](const auto& item) { return item.second.expired(); });
+  std::erase_if(entries_, [](const auto& item) {
+    const auto& record = *item.second;
+    return !record.loading && (!record.cached || record.cached->expired());
+  });
 }
 
 std::weak_ptr<const resource_cache::entry>
@@ -83,7 +100,9 @@ resource_cache::observe(std::string_view uri, type_id type,
                         std::string parameters) const {
   const auto found =
       entries_.find(key{std::move(source), std::string(uri), type, std::move(parameters)});
-  return found == entries_.end() ? std::weak_ptr<const entry>{} : found->second;
+  return found == entries_.end() || !found->second->cached
+             ? std::weak_ptr<const entry>{}
+             : *found->second->cached;
 }
 
 } // namespace gneiss::engine

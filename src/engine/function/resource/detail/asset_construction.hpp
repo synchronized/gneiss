@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/resource_cache.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/resource_retirement_queue.hpp"
 #include "engine/resource/texture/texture_view.hpp"
@@ -66,8 +67,8 @@ public:
                                            std::span<const asset_read_record>) noexcept;
 };
 
-struct detail::asset_construction::pending_load {
-  std::shared_ptr<detail::asset_state> state;
+struct detail::asset_construction::pending_load : detail::load_operation {
+  std::weak_ptr<resource_cache::asset_entry> entry;
   std::variant<asset_request<mesh_data>, asset_request<texture_data>,
                asset_request<material_description>>
       cpu;

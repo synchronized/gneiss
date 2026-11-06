@@ -4,6 +4,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/function/resource/resource_cache.hpp"
+#include "engine/function/resource/asset_request.hpp"
 
 #include <array>
 #include <cstddef>
@@ -36,6 +37,28 @@ gneiss::engine::error load_cached(
   return gneiss::engine::error::success;
 }
 int main() try {
+  {
+    using namespace gneiss::engine;
+    resource_cache cache;
+    const resource_cache::key key{{}, "asset://loading", runtime_type_of<int>(), {}};
+    auto record = cache.acquire(key);
+    auto operation = std::make_shared<detail::load_operation>();
+    std::weak_ptr<detail::load_operation> lifetime = operation;
+    record->loading = std::move(operation);
+    cache.release_unused();
+    if (cache.acquire(key) != record || lifetime.expired())
+      return 14;
+    auto failed = cache.load("asset://loading", runtime_type_of<int>(),
+                             []() -> result<std::shared_ptr<const void>> { return error::io; });
+    if (failed || cache.acquire(key) != record || lifetime.expired() || cache.size() != 0)
+      return 15;
+    cache.clear_loading();
+    if (!lifetime.expired())
+      return 16;
+    cache.release_unused();
+    if (cache.acquire(key) == record)
+      return 17;
+  }
   {
     using namespace gneiss::engine;
     resource_cache cache;

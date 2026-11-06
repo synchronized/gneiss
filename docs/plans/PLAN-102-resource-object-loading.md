@@ -5,7 +5,7 @@
 
 ## 状态
 
-实施中：已接入渲染资源共同身份基类与混合强引用，序列化和加载协议仍待实施。日期：2026-11-06。归属：[DEV-052](DEV-052-architecture-cleanup.md)。
+实施中：已接入共同资产身份、引用持久化原型和材质依赖解析；当前优先统一资产记录与在途操作，最终对象类型及文件加载协议尚未完成。日期：2026-11-06。归属：[DEV-052](DEV-052-architecture-cleanup.md)。
 架构决策见 [ADR-107](../decisions/ADR-107-resource-object-loading.md)。以下 API、格式和目录均为目标示意，不代表现有能力。
 
 ## 现状与目标
@@ -30,6 +30,40 @@ PLAN-100 已合并管理器，PLAN-101 已分离场景结构与视觉完成，�
 - 同一资产身份的对象稳定；重载先生成局部内容，成功后在所属线程采用。失败保留旧内容，不引入跨资源版本协议。
 - 场景资产重载不自动改写所有 World 实例；实例是否更新由场景层明确发起。
 - 纹理、网格的大块 CPU 负载允许在后端完成消费后释放；可编辑或需重新编码的资源须保留负载或可重新读取的来源。
+
+## 单一资产记录与迁移主线
+
+最终对象名称表示对象，而不是引用别名；上层使用 `ref<const texture>`、`ref<const mesh>`、
+`ref<const material>`、`ref<const scene>`、`ref<const prefab>`。共享资源默认只读，受控修改入口另行定义。
+
+最终内部结构示意：
+
+```cpp
+struct asset_entry {
+  asset_key key;
+  weak_ref<const asset> cached;
+  std::shared_ptr<load_operation> loading;
+};
+```
+
+一个管理器只维护一张按 asset_key 索引的资产记录表；key 包含来源域、URI、目标类型与影响产物的选项。
+缓存只弱持有最终资产。loading 强持有当前工作，工作保活构建对象；请求是观察者，取消一个请求不取消其他观察者。
+推进用工作列表可以保留，但只是执行队列，不能再作为第二张身份表或扫描去重入口。
+完成、全部观察者取消或停止时清空 loading；清理缓存不得删除仍在加载的记录。
+显式采用新内容后，旧工作可以向自己的观察者返回结果，但不能覆盖当前记录；以当前 operation 身份校验，
+不恢复跨资源版本或事务协议。
+
+落实顺序和独立验收：
+
+- [x] A. 将缓存和 CPU/渲染在途工作归入同一记录表；删除 requests 身份表和渲染 pending 扫描去重。
+- [ ] B. texture/mesh/material 改为对象类型，上层统一 ref<const T>；删除同名引用别名及重复描述装配入口。
+- [ ] C. scene/prefab 成为 asset 派生类型；共享内容与 World 实例分离。
+- [ ] D. 记录 cached 统一为最终资产弱引用；取消 CPU 描述缓存条目、临时 payload 身份键及兼容桥接。
+- [ ] E. 类型加载器共用 load_operation 生命周期；覆盖去重、单观察者取消、旧操作迟到、重载失败、清理与关闭。
+
+A 阶段允许缓存槽位临时弱持有旧 resource_cache::entry，以兼容尚未迁移的纯 CPU 描述；
+这不满足 D 的最终弱资产引用验收。不得新增另一份永久资产索引绕过上述迁移。
+优先完成 A，再继续资源文件格式等支线；完成整个计划要求 A—E 全部通过。
 
 ## 职责和目录
 
@@ -213,3 +247,15 @@ build/asset-reference-tests.log（不入库）。实际类型加载器尚未消�
 build/asset-dependencies-integration-tests.log（不入库）。未运行大场景、跨平台或远端 CI。
 当前仍由工作线程解码 material_description 的 URI 字段，在所属线程解析为引用；材质文件改用
 `$asset`、删除旧描述转换及通用依赖环检测尚未完成，不能将这一桥接步骤视为整体迁移完成。
+
+2026-11-06：主线 A 完成。resource_cache 的单一索引现在保存 asset_entry，缓存槽位与当前
+load_operation 同属一条记录；CPU operation 和渲染 pending_load 共用操作观察状态。
+删除独立 requests 表、CPU 请求 generation 和渲染 pending 身份扫描；推进列表只承担调度。
+显式 store 后以当前操作身份拒绝旧工作更新缓存；记录不强持有资产，加载中记录不会被清理。
+缓存槽位暂以 optional<weak_ptr<const resource_cache::entry>> 区分尚未缓存和已过期缓存，保持
+cached_count 统计口径；这是旧描述/包装层的迁移表示，不是最终 weak_ref<const asset>。
+完整 Windows Clang Debug 构建及 8 项资产、材质、场景、销毁回归通过；补充加载中清理、
+操作释放及 store 后迟到结果的回归。日志：build/asset-entry-build-final.log、
+build/asset-entry-build-verified.log、build/asset-entry-tests.log（不入库）。
+未运行大场景、跨平台或远端 CI。下一阶段按 B/C/D 迁移具体对象、Scene/Prefab 和缓存值，
+E 的通用类型加载生命周期仍未完成。

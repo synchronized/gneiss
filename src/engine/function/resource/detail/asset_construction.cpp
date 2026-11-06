@@ -383,8 +383,11 @@ error asset_construction::adopt(asset_manager& assets, const material_descriptio
 }
 
 void asset_construction::stop_loading() noexcept {
-  for (auto& work : pending)
-    work->state->status = error::invalid_state;
+  for (auto& work : pending) {
+    work->observer->status = error::invalid_state;
+    if (auto entry = work->entry.lock(); entry && entry->loading == work)
+      entry->loading.reset();
+  }
   pending.clear();
 }
 
@@ -393,8 +396,8 @@ void asset_construction::advance(asset_manager& service) {
   const auto count = pending.size();
   for (std::size_t i = 0; i < count; ++i) {
     auto work = pending[i];
-    auto& state = *work->state;
-    if (work->state.use_count() == 1 || state.status != error::not_ready)
+    auto& state = *work->observer;
+    if (work->observer.use_count() == 1 || state.status != error::not_ready)
       continue;
     try {
       if (!work->description) {
@@ -503,11 +506,16 @@ void asset_construction::advance(asset_manager& service) {
       state.status = error::internal;
     }
   }
-  if (std::ranges::any_of(pending,
-                          [](const auto& work) { return work->state->status != error::not_ready; }))
+  if (std::ranges::any_of(
+          pending, [](const auto& work) { return work->observer->status != error::not_ready; }))
     service.notify_progress();
   std::erase_if(pending, [](const auto& work) {
-    return work->state.use_count() == 1 || work->state->status != error::not_ready;
+    const bool finished =
+        work->observer.use_count() == 1 || work->observer->status != error::not_ready;
+    if (finished)
+      if (auto entry = work->entry.lock(); entry && entry->loading == work)
+        entry->loading.reset();
+    return finished;
   });
 }
 

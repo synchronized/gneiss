@@ -576,6 +576,7 @@ void run() {
         "store wins");
   check(wait(first, a) == gneiss::engine::error::success && a->byte == 'c',
         "old subscriber receives old result");
+  assets.collect_unused(); // 失效操作收尾后，清理不能移除仍被持有的新缓存。
   check(gneiss::test_support::assign_value(
             assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
             first) == gneiss::engine::error::success,
@@ -596,6 +597,7 @@ void run() {
             assets.store<value>("asset://new", std::make_shared<const value>(value{'y'})),
             independent) == gneiss::engine::error::success,
         "first-load store");
+  assets.collect_unused(); // 旧操作仍在执行，但已不拥有当前记录的发布权。
   asset_ref<const value> old;
   check(wait(first, old) == gneiss::engine::error::success && old->byte == 'x',
         "first-load old observer");

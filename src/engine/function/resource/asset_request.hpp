@@ -25,6 +25,11 @@ struct asset_state {
   std::size_t source_bytes{};
   asset_load_metrics metrics;
 };
+/** 记录持有当前操作；请求只共享观察状态，执行队列不承担身份查询。 */
+struct load_operation {
+  virtual ~load_operation() = default;
+  std::shared_ptr<asset_state> observer{std::make_shared<asset_state>()};
+};
 }
 /** 统一资产请求；复制共享工作，取消仅放弃本观察者，成功领取一次只读结果。
  * 不驱动队列、不等待 I/O；结果可晚于 manager 销毁。请求对象限所属线程操作。 */
