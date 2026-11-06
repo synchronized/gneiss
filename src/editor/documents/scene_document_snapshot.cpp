@@ -29,46 +29,39 @@ engine::result<prepared_scene_document>
 prepare_scene_document(const scene_document_snapshot& before,
                        std::span<const author_document_change> changes) noexcept try {
   std::vector<engine::render_resource_source> pending;
-  auto scene = std::make_shared<engine::scene_description>(before.description.description);
+  engine::ref<const engine::scene_description> scene =
+      engine::make_ref<const engine::scene_description>(before.description.description);
   engine::scene_preparation_inputs inputs;
   inputs.source_asset = before.description.source_asset;
   for (const auto& [uri, prefab] : before.description.prefabs) {
     inputs.prefabs.emplace(uri, prefab.resource);
     inputs.prefab_assets.emplace(uri, prefab.source_asset);
   }
-  const auto decode = [&](const std::string& json, auto& output) {
-    auto decoded_result =
-        gneiss::engine::asset_file::deserialize<std::remove_cvref_t<decltype(output)>>(
-            std::as_bytes(std::span(json.data(), json.size())));
-    if (!decoded_result) {
-      return decoded_result.error().error;
-    }
-    output = std::move(*decoded_result);
-    return gneiss::engine::error::success;
-  };
   engine::scene_diagnostic diagnostic;
   for (const auto& change : changes) {
     const auto uri = "asset://" + change.path;
     if (uri == before.uri) {
       if (!change.replacement)
         return engine::error::invalid_argument;
-      const auto status = decode(*change.replacement, *scene);
-      if (status.failed())
-        return status;
+      auto decoded = engine::asset_file::deserialize_ref<engine::scene_description>(
+          std::as_bytes(std::span(change.replacement->data(), change.replacement->size())));
+      if (!decoded)
+        return decoded.error().error;
+      scene = std::move(*decoded);
     } else if (uri.ends_with(".prefab.json")) {
       if (!change.replacement) {
         inputs.prefabs.erase(uri);
         inputs.prefab_assets.erase(uri);
         continue;
       }
-      auto prefab = std::make_shared<engine::prefab_description>();
-      const auto status = decode(*change.replacement, *prefab);
-      if (status.failed())
-        return status;
-      inputs.prefabs.insert_or_assign(uri, engine::prefab_asset_ref{std::move(prefab)});
+      auto decoded = engine::asset_file::deserialize_ref<engine::prefab_description>(
+          std::as_bytes(std::span(change.replacement->data(), change.replacement->size())));
+      if (!decoded)
+        return decoded.error().error;
+      inputs.prefabs.insert_or_assign(uri, std::move(*decoded));
     }
   }
-  inputs.scene = engine::asset_ref<const engine::scene_description>{std::move(scene)};
+  inputs.scene = std::move(scene);
   scene_document_snapshot next;
   next.uri = before.uri;
   auto status = engine::prepare_loaded_scene(inputs, {}, next.description, diagnostic, {});

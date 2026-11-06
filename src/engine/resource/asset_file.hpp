@@ -69,6 +69,23 @@ serialize_bytes(const T& object) noexcept {
   serialization::context ctx;
   return serialize_bytes(ctx, object);
 }
+/** 直接保留解码对象的控制块，返回独立只读快照；不登记资产缓存。 */
+template <class T>
+result<ref<const T>, serialization::diagnostic>
+deserialize_ref(const serialization::context& ctx, std::span<const std::byte> bytes) noexcept {
+  static_assert(format_traits<T>::enabled, "该类型没有资源文件格式");
+  auto decoded = deserialize_object(ctx, format_traits<T>::get(), runtime_type_of<T>(), bytes);
+  if (!decoded)
+    return std::move(decoded).error();
+  return decoded->alias(static_cast<const T*>(decoded->get()));
+}
+template <class T>
+result<ref<const T>, serialization::diagnostic>
+deserialize_ref(std::span<const std::byte> bytes) noexcept {
+  serialization::context ctx;
+  return deserialize_ref<T>(ctx, bytes);
+}
+
 template <class T>
 result<T, serialization::diagnostic> deserialize(const serialization::context& ctx,
                                                  std::span<const std::byte> bytes) noexcept try {

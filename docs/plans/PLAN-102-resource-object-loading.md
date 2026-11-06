@@ -5,7 +5,7 @@
 
 ## 状态
 
-实施中：已接入共同资产身份、引用持久化原型和材质依赖解析；资产记录与在途操作已统一，纹理/网格/材质对象命名已迁移；Scene/Prefab 对象及来源保活已接入，旧描述入口与最终文件加载协议尚未完成。日期：2026-11-06。归属：[DEV-052](DEV-052-architecture-cleanup.md)。
+实施中：A—E 资源身份与生命周期主线已落地，Scene/Prefab 文件加载与编辑替换共用只读快照解码。后续仍须核查布局验收、场景准备归属，以及 prepare/reserve/RID 反查等旧入口的删除条件；整个计划尚未完成。日期：2026-11-06。归属：[DEV-052](DEV-052-architecture-cleanup.md)。
 架构决策见 [ADR-107](../decisions/ADR-107-resource-object-loading.md)。以下 API、格式和目录均为目标示意，不代表现有能力。
 
 ## 现状与目标
@@ -59,12 +59,12 @@ struct asset_entry {
 - [x] B. texture/mesh/material 改为对象类型，上层统一 ref<const T>；删除同名引用别名及重复描述装配入口。
   - [x] 三类对象及调用方完成命名迁移，删除同名引用别名，反射注册使用对象类型。
   - [x] 三类资源的程序化创建与文件装配共用内容准备和更新；文件路径保留来源校验，借用视图保留输入校验与复制。
-- [ ] C. scene/prefab 成为 asset 派生类型；共享内容与 World 实例分离。
+- [x] C. scene/prefab 成为 asset 派生类型；共享内容与 World 实例分离。
   - [x] 顶层资产对象与专用 Loader 接入，场景准备通过资产取得描述快照；成功重载保留身份和旧快照。
   - [x] 加载准备结果、World 实例及编辑快照保留来源资产强引用，同时固定实例化描述快照。
   - [x] Scene/Prefab 描述的文件加载与 Decoder 注册入口关闭，文件加载只返回资产对象。
   - [x] 关闭描述 store/find_loaded 入口；纯内存编辑持有独立快照，不登记第二份 URI 缓存。
-  - [ ] 统一纯内存编辑与文件资产采用路径。
+  - [x] 文件 Loader 与编辑器替换共用只读描述快照解码；运行捕获仍构造独立内存描述，统一交给 prepare_loaded_scene，编辑不写回来源资产或 URI 缓存。
 - [x] D. 记录 cached 统一为最终资产弱引用；取消 CPU 描述缓存条目、临时 payload 身份键及兼容桥接。
   - [x] 删除 asset_cache_value 控制块包装，直接弱持有实际对象；统计归入 asset_entry。
   - [x] 内部 CPU 解码不登记资产记录，删除临时 payload 身份键。
@@ -80,7 +80,7 @@ struct asset_entry {
 
 缓存槽位使用 weak_ptr<const asset>，直接共享最终资产控制块；描述与负载不登记资产索引。
 内部解码请求仍允许擦除值，由类型化转换进入资产缓存。不得新增另一份永久资产索引。
-优先完成 A，再继续资源文件格式等支线；完成整个计划要求 A—E 全部通过。
+A—E 是资源身份与生命周期主线；全部通过不等于整个计划完成。目录验收及后文实施顺序中的旧入口删除等仍须逐项核对。
 
 ## 职责和目录
 
@@ -487,3 +487,13 @@ Windows Clang Debug 完整构建与 16 项相关回归通过；改动行格式�
 日志：build/asset-content-adoption-build-final.log、build/asset-content-adoption-tests.log（不入库）。
 B 项完成；C 的 Scene/Prefab 内存编辑与文件资产采用路径仍未完成。
 未运行 GPU 大场景、跨平台或远端 CI。
+
+2026-11-06：Scene/Prefab 快照采用路径统一。asset_file::deserialize_ref 直接返回解码对象的
+只读引用，文件 Loader 与编辑器替换共用格式校验、诊断和控制块，不再移动到第二个描述对象。
+运行捕获保持独立内存描述，三者复用 prepare_loaded_scene；编辑不更新来源资产或 URI 缓存。
+新增只读快照独立解码、释放输入/原引用后保活以及失败输入回归。
+Windows Clang Debug 完整构建、16 项资产/场景/Prefab/编辑器文档/边界回归通过；
+改动行格式化与 git diff --check 通过。日志：build/scene-snapshot-adoption-build.log、
+build/scene-snapshot-adoption-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+C 项完成，A—E 主线完成；计划中的布局验收、场景准备归属与旧入口删除条件仍需核查，
+不将主线完成等同于整个 PLAN-102 完成。

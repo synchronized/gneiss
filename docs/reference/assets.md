@@ -120,6 +120,11 @@ GPU 在途使用的安全回收由 Render 及后端负责，详见[运行资源�
 引用规则见 [ADR-077](../decisions/ADR-077-asset-references.md)，统一索引见
 [ADR-078](../decisions/ADR-078-unified-asset-index.md)。
 
+Scene/Prefab 文件 Loader 与编辑器文件替换使用 `asset_file::deserialize_ref<T>` 取得独立只读描述
+快照，直接保留解码对象的控制块，不再次移动到新分配的对象。该入口与值解码使用相同格式校验和诊断，
+不登记 URI 缓存。文件重载在所属线程更新资产的当前快照；编辑器及运行捕获继续保留独立描述，
+通过 `prepare_loaded_scene` 准备实例，不修改来源资产。已有快照不随重载改变。
+
 ## 内部异步准备
 
 网格使用 `decode_mesh_asset`，纹理使用 `decode_texture_asset` 接收已解析描述与负载；

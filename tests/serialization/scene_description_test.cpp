@@ -286,6 +286,25 @@ int main() try {
       return 41;
     auto restored =
         gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(*bytes);
+    auto snapshot =
+        gneiss::engine::asset_file::deserialize_ref<gneiss::engine::scene_description>(*bytes);
+    gneiss::engine::serialization::context context;
+    auto independent =
+        gneiss::engine::asset_file::deserialize_ref<gneiss::engine::scene_description>(context,
+                                                                                       *bytes);
+    if (!snapshot || !independent || snapshot->get() == independent->get() ||
+        (*snapshot)->uuid != fresh->uuid || (*snapshot)->objects.size() != fresh->objects.size())
+      return 43;
+    auto retained = *snapshot;
+    snapshot =
+        gneiss::engine::serialization::diagnostic{.error = gneiss::engine::error::invalid_state};
+    bytes->clear();
+    if (retained->uuid != fresh->uuid || retained->objects.size() != fresh->objects.size())
+      return 44;
+    auto invalid =
+        gneiss::engine::asset_file::deserialize_ref<gneiss::engine::scene_description>(*bytes);
+    if (invalid)
+      return 45;
     if (!restored || restored->uuid != fresh->uuid ||
         restored->objects.size() != fresh->objects.size())
       return 42;

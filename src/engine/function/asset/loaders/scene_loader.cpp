@@ -9,7 +9,7 @@ template <class T, class D> struct scene_loader final : asset_loader {
   explicit scene_loader(asset_identity identity)
       : asset_loader(identity.uri), source(std::move(identity)) {}
   void decode(const std::vector<std::byte>& bytes) override {
-    auto decoded = asset_file::deserialize<D>(std::span<const std::byte>{bytes});
+    auto decoded = asset_file::deserialize_ref<D>(std::span<const std::byte>{bytes});
     status = decoded ? error::success : decoded.error().error;
     if (decoded)
       value = scene_asset_access::make<T>(source, std::move(*decoded));
