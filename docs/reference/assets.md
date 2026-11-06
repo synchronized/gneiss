@@ -125,6 +125,10 @@ Scene/Prefab 文件 Loader 与编辑器文件替换使用 `asset_file::deseriali
 不登记 URI 缓存。文件重载在所属线程更新资产的当前快照；编辑器及运行捕获继续保留独立描述，
 通过 `prepare_loaded_scene` 准备实例，不修改来源资产。已有快照不随重载改变。
 
+场景结构依赖收集与实例化数据准备由 `function/scene/detail/scene_loading.*` 实现。
+`scene_preparation_operation` 封装依赖请求、任务提交和完成诊断；资产管理器只转发任务完成、
+推进与取消。迁移期 `prepare_scene/prepare_prefab` 仍是管理器入口，不表示已经删除这些接口。
+
 ## 内部异步准备
 
 网格使用 `decode_mesh_asset`，纹理使用 `decode_texture_asset` 接收已解析描述与负载；

@@ -6,7 +6,6 @@
 #include "detail/asset_construction.hpp"
 #include "detail/load_operation.hpp"
 #include "detail/render_load_operation.hpp"
-#include "detail/scene_loading.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/registry.hpp"
@@ -14,6 +13,7 @@
 #include "engine/core/type_id.hpp"
 #include "engine/function/asset/detail/loader_factory.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/detail/scene_loading.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/material/detail/material_resource_access.hpp"
@@ -94,15 +94,7 @@ struct asset_manager::resource_state {
     }
   };
   struct scene_work : detail::load_operation {
-    std::unique_ptr<detail::scene_description_request> descriptions;
-    scene_preparation_inputs inputs;
-    std::shared_ptr<scene_instantiation_data> prepared{
-        std::make_shared<scene_instantiation_data>()};
-    scene_diagnostic diagnostic;
-    std::string prefab_uri;
-    task_handle task;
-    error status{error::invalid_state};
-    bool completed{};
+    std::shared_ptr<detail::scene_preparation_operation> preparation;
   };
   std::vector<std::shared_ptr<scene_work>> scenes;
   std::vector<std::shared_ptr<detail::render_load_operation>> rendering;
@@ -196,7 +188,7 @@ struct asset_manager::resource_state {
     if (executor)
       executor->cancel_scope(scope);
     for (const auto& work : scenes) {
-      work->descriptions.reset();
+      work->preparation->cancel(*executor);
       work->stop();
     }
     for (const auto& work : active) {
@@ -495,11 +487,9 @@ asset_manager::prepare_structure(std::string_view uri, bool prefab, bool reload)
   if (validate_uri(uri).failed())
     return error::invalid_argument;
   auto work = std::make_shared<resource_state::scene_work>();
+  work->preparation = std::make_shared<detail::scene_preparation_operation>(*this, std::string(uri),
+                                                                            prefab, reload);
   work->notification = state.notification;
-  work->descriptions = std::make_unique<detail::scene_description_request>(
-      *this, std::string(uri), prefab, scene_prepare_limits{}, reload);
-  if (prefab)
-    work->prefab_uri = uri;
   state.scenes.push_back(work);
   return asset_request<scene_instantiation_data>{work->observer};
 } catch (const std::bad_alloc&) {
@@ -535,56 +525,24 @@ void asset_manager::advance() {
       }
   for (const auto& completion : completions)
     for (const auto& work : state.scenes)
-      if (work->task.id == completion.task.id) {
-        work->completed = true;
-        work->observer->metrics.decode_ms = completion.execution_ms;
-        work->observer->metrics.queue_ms = completion.queue_ms;
-      }
+      work->preparation->accept(completion);
   detail::advance_load_operations(
       state.scenes,
       [&](const auto& work) {
-        if (work->descriptions) {
-          work->status = work->descriptions->advance(work->inputs, work->diagnostic);
-          if (work->status == error::not_ready) {
-            return;
-          }
-          work->descriptions.reset();
-          if (work->status.failed())
-            work->completed = true;
-        }
-        if (!work->completed && !work->task.id) {
-          work->status = error::invalid_state;
-          const auto submitted = state.executor->submit(
-              {.name = "asset.prepare-scene",
-               .scope = state.scope,
-               .notification = state.notification},
-              [work](const task_context& context) {
-                work->status = prepare_loaded_scene(work->inputs, work->prefab_uri, *work->prepared,
-                                                    work->diagnostic,
-                                                    [&] { return context.stop_requested(); });
-                return task_outcome{.state = work->status.ok() ? task_state::succeeded
-                                                               : task_state::failed};
-              },
-              work->task);
-          if (submitted != submit_result::success && submitted != submit_result::full) {
-            work->status = error::invalid_state;
-            work->completed = true;
-          }
-        }
-        if (!work->completed) {
+        auto prepared =
+            work->preparation->advance(*state.executor, state.scope, state.notification);
+        if (!prepared) {
+          auto diagnostic = std::move(prepared).error();
+          if (diagnostic.error != error::not_ready)
+            work->complete(diagnostic.error, {diagnostic.byte_offset, std::move(diagnostic.path),
+                                              std::move(diagnostic.message), diagnostic.error});
           return;
         }
-        work->complete(work->status,
-                       {work->diagnostic.byte_offset, std::move(work->diagnostic.path),
-                        std::move(work->diagnostic.message), work->status},
-                       std::move(work->prepared), work->inputs.source_bytes,
-                       std::move(work->observer->metrics));
+        const auto bytes = (*prepared)->source_bytes;
+        work->complete(error::success, {}, std::move(*prepared), bytes,
+                       work->preparation->metrics());
       },
-      [&](const auto& work) {
-        if (work->task.id)
-          (void)state.executor->cancel(work->task);
-        work->descriptions.reset();
-      });
+      [&](const auto& work) { work->preparation->cancel(*state.executor); });
   detail::advance_load_operations(
       state.active,
       [&](const auto& work) {

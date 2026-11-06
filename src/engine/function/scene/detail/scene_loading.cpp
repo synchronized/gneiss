@@ -94,4 +94,61 @@ error scene_description_request::advance(scene_preparation_inputs& output,
   diagnostic = {};
   return error::success;
 }
+scene_preparation_operation::scene_preparation_operation(asset_manager& assets, std::string uri,
+                                                         bool prefab, bool reload)
+    : descriptions_(std::make_unique<scene_description_request>(assets, uri, prefab,
+                                                                scene_prepare_limits{}, reload)),
+      prefab_uri_(prefab ? std::move(uri) : std::string{}) {}
+void scene_preparation_operation::accept(const task_completion& completion) noexcept {
+  if (task_.id != completion.task.id)
+    return;
+  completed_ = true;
+  metrics_.decode_ms = completion.execution_ms;
+  metrics_.queue_ms = completion.queue_ms;
+}
+void scene_preparation_operation::cancel(task_executor& executor) noexcept {
+  if (task_.id)
+    (void)executor.cancel(task_);
+  descriptions_.reset();
+}
+result<std::shared_ptr<const scene_instantiation_data>, scene_diagnostic>
+scene_preparation_operation::advance(task_executor& executor, task_scope scope,
+                                     std::shared_ptr<progress_notification> notification) {
+  auto work = shared_from_this();
+  if (work->descriptions_) {
+    work->status_ = work->descriptions_->advance(work->inputs_, work->diagnostic_);
+    if (work->status_ == error::not_ready) {
+      return scene_diagnostic{error::not_ready, 0, {}, {}};
+    }
+    work->descriptions_.reset();
+    if (work->status_.failed())
+      work->completed_ = true;
+  }
+  if (!work->completed_ && !work->task_.id) {
+    work->status_ = error::invalid_state;
+    const auto submitted = executor.submit(
+        {.name = "asset.prepare-scene", .scope = scope, .notification = notification},
+        [work](const task_context& context) {
+          work->status_ =
+              prepare_loaded_scene(work->inputs_, work->prefab_uri_, *work->prepared_,
+                                   work->diagnostic_, [&] { return context.stop_requested(); });
+          return task_outcome{.state =
+                                  work->status_.ok() ? task_state::succeeded : task_state::failed};
+        },
+        work->task_);
+    if (submitted != submit_result::success && submitted != submit_result::full) {
+      work->status_ = error::invalid_state;
+      work->completed_ = true;
+    }
+  }
+  if (!work->completed_) {
+    return scene_diagnostic{error::not_ready, 0, {}, {}};
+  }
+  if (status_.failed()) {
+    diagnostic_.error = status_;
+    return diagnostic_;
+  }
+  return std::shared_ptr<const scene_instantiation_data>{prepared_};
+}
+
 }

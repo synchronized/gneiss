@@ -213,7 +213,8 @@ target_sources(
     engine/function/asset/detail/render_load_operation.cpp
     engine/function/asset/detail/asset_decode.cpp
     engine/function/asset/detail/asset_construction.hpp
-    engine/function/asset/detail/scene_loading.cpp
+    engine/function/scene/detail/scene_loading.cpp
+    engine/function/scene/detail/scene_loading.hpp
     engine/function/asset/detail/asset_construction.cpp
     engine/function/asset/asset_reference_context.hpp
     engine/function/asset/asset_manager.hpp

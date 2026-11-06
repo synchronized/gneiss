@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/asset/detail/scene_loading.hpp"
+#include "engine/function/scene/detail/scene_loading.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include <chrono>

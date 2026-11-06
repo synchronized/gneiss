@@ -497,3 +497,16 @@ Windows Clang Debug 完整构建、16 项资产/场景/Prefab/编辑器文档/�
 build/scene-snapshot-adoption-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
 C 项完成，A—E 主线完成；计划中的布局验收、场景准备归属与旧入口删除条件仍需核查，
 不将主线完成等同于整个 PLAN-102 完成。
+
+2026-11-06：场景准备实现迁入 function/scene/detail。scene_description_request 文件迁移无转发头，
+scene_preparation_operation 封装结构依赖收集、CPU 准备任务、诊断和取消；asset_manager 的
+scene_work 仅保留通用请求状态及场景操作引用，通过结果适配保留队列调度和终态通知。
+prepare_scene/prepare_prefab 入口及其调度所有权暂留管理器，Runtime 调用迁移仍待完成；
+本步仅完成场景专属逻辑归属，不将旧入口删除项标为完成。
+
+该迁移不允许 Scene 引用 asset/detail：边界检查发现初版继承私有 load_operation 后，改为
+场景操作返回普通 result，资产侧薄适配器提交终态；保留原边界规则。
+Windows Clang Debug 完整构建、16 项资产/场景/编辑器文档/边界回归通过；改动格式化、
+git diff --check 通过，旧 scene_loading 路径在源码与测试中零引用。
+日志：build/scene-preparation-boundary-build-final.log、
+build/scene-preparation-boundary-tests-final.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
