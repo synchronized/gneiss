@@ -672,7 +672,8 @@ endforeach()
 foreach(header IN ITEMS "engine/function/render/render_resource_storage.hpp"
     "engine/resource/texture/detail/texture_resource_access.hpp"
     "engine/resource/mesh/detail/mesh_resource_access.hpp"
-    "engine/resource/material/detail/material_resource_access.hpp")
+    "engine/resource/material/detail/material_resource_access.hpp"
+    "engine/resource/scene/detail/scene_asset_access.hpp")
   file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"

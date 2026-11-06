@@ -32,6 +32,11 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "资源私有访问器不得泄漏到普通调用方：${source}")
   endif()
 
+  if(content MATCHES "engine/resource/scene/detail/scene_asset_access[.]hpp" AND
+      NOT source MATCHES "/src/engine/function/asset/loaders/scene_loader[.]cpp$")
+    message(FATAL_ERROR "场景资产私有访问器仅供类型加载器使用：${source}")
+  endif()
+
   if(content MATCHES "engine/function/asset/detail/" AND
       NOT source MATCHES "/src/engine/function/asset/")
     message(FATAL_ERROR "资产加载私有实现不得泄漏到普通调用方：${source}")

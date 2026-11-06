@@ -139,6 +139,9 @@ target_sources(
     engine/resource/mesh/mesh_binary.hpp
     engine/resource/mesh/mesh_decoder.cpp
     engine/resource/mesh.cpp
+    engine/resource/scene.hpp
+    engine/resource/prefab.hpp
+    engine/resource/scene/detail/scene_asset_access.hpp
     engine/resource/mesh.hpp
     engine/resource/texture/detail/texture_resource_access.hpp
     engine/resource/texture/texture_ktx2.cpp
@@ -200,6 +203,7 @@ target_sources(
     engine/function/asset/detail/loader_factory.hpp
     engine/function/asset/loaders/mesh_loader.cpp
     engine/function/asset/loaders/texture_loader.cpp
+    engine/function/asset/loaders/scene_loader.cpp
     engine/function/asset/loaders/object_loader.cpp
     engine/function/asset/loaders/material_loader.cpp
     engine/function/asset/detail/asset_entry.hpp

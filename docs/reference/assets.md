@@ -334,3 +334,17 @@ World、场景实例及编辑会话仍由场景服务管理，不进入资源缓
 Scene v5 与 Prefab v1 同样使用通用格式注册，保持各自 16 MiB 限制。
 格式版本统一要求正整数：非当前正整数版本返回 unsupported，其余非法版本返回
 invalid_argument；不再按资源类型或版本新旧采用不同错误码。重复 format/version 拒绝。
+
+## Scene/Prefab 资产与快照
+
+`resource/scene.hpp` 和 `resource/prefab.hpp` 定义共享资产对象。通过
+`asset_manager::load<scene/prefab>()` 异步加载，返回 `ref<const scene/prefab>`；专用
+`scene_loader` 复用描述的文件格式与反射解码，不创建 World 实例、不等待视觉资源。
+`source()` 保存来源域和 URI，`type()` 标识具体资产类型。
+
+所属线程调用 `snapshot()` 取得只读描述引用，可交给工作线程。成功重载保持资产对象身份，
+替换当前快照；已取出的快照继续保留旧内容，失败不更新内容。快照本身不保活资产身份，
+需要后续共享加载身份的调用方须持有资产引用。World 不会因资产重载自动改变。
+
+场景准备已改为加载资产后取得快照；编辑器、实例化与旧描述加载接口尚处于迁移期，
+最终缓存与引用入口的收敛见 [PLAN-102](../plans/PLAN-102-resource-object-loading.md)。

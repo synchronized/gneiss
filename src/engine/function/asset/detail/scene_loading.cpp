@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "scene_loading.hpp"
+#include "engine/resource/prefab.hpp"
+#include "engine/resource/scene.hpp"
 #include <algorithm>
 namespace gneiss::engine::detail {
 struct scene_description_request::state {
@@ -8,8 +10,8 @@ struct scene_description_request::state {
   std::string uri;
   bool prefab{}, started{}, reload{};
   scene_prepare_limits limits;
-  asset_request<scene_description> scene;
-  asset_request<prefab_description> current;
+  asset_request<engine::scene> scene;
+  asset_request<engine::prefab> current;
   scene_preparation_inputs inputs;
   std::vector<std::string> uris;
   std::size_t cursor{}, bytes{};
@@ -38,7 +40,7 @@ error scene_description_request::advance(scene_preparation_inputs& output,
     if (s.prefab) {
       s.uris.push_back(s.uri);
     } else {
-      auto loaded = s.assets.load<scene_description>(s.uri, s.reload);
+      auto loaded = s.assets.load<engine::scene>(s.uri, s.reload);
       if (!loaded)
         return fail(loaded.error());
       s.scene = std::move(*loaded);
@@ -53,7 +55,7 @@ error scene_description_request::advance(scene_preparation_inputs& output,
                     std::move(failure.message)};
       return diagnostic.error;
     }
-    s.inputs.scene = std::move(*loaded);
+    s.inputs.scene = (*loaded)->snapshot();
     s.bytes = s.scene.source_bytes();
     for (const auto& instance : s.inputs.scene->objects)
       if (instance.prefab && std::ranges::find(s.uris, instance.prefab->uri) == s.uris.end())
@@ -64,7 +66,7 @@ error scene_description_request::advance(scene_preparation_inputs& output,
   if (s.cursor < s.uris.size()) {
     const auto& uri = s.uris[s.cursor];
     if (!s.current) {
-      auto loaded = s.assets.load<prefab_description>(uri, s.reload);
+      auto loaded = s.assets.load<engine::prefab>(uri, s.reload);
       if (!loaded)
         return fail(loaded.error());
       s.current = std::move(*loaded);
@@ -76,7 +78,7 @@ error scene_description_request::advance(scene_preparation_inputs& output,
                     std::move(failure.message)};
       return diagnostic.error;
     }
-    auto value = std::move(*loaded);
+    auto value = (*loaded)->snapshot();
     if (s.current.source_bytes() > s.limits.source_bytes - s.bytes)
       return fail(error::invalid_argument);
     s.bytes += s.current.source_bytes();

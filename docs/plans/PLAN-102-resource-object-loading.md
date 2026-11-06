@@ -60,6 +60,8 @@ struct asset_entry {
   - [x] 三类对象及调用方完成命名迁移，删除同名引用别名，反射注册使用对象类型。
   - [ ] 删除重复描述装配入口，统一对象内容加载。
 - [ ] C. scene/prefab 成为 asset 派生类型；共享内容与 World 实例分离。
+  - [x] 顶层资产对象与专用 Loader 接入，场景准备通过资产取得描述快照；成功重载保留身份和旧快照。
+  - [ ] 实例来源引用、编辑器采用路径及旧描述加载入口完成统一。
 - [ ] D. 记录 cached 统一为最终资产弱引用；取消 CPU 描述缓存条目、临时 payload 身份键及兼容桥接。
 - [ ] E. 类型加载器共用 load_operation 生命周期；覆盖去重、单观察者取消、旧操作迟到、重载失败、清理与关闭。
 
@@ -115,6 +117,8 @@ engine/function/scene/
 - [x] 管理模块迁至 function/asset；代码、构建、测试、现行指南不再使用 function/resource。
 - [x] asset_entry、load_operation 分别定义于 detail 对应头，不再嵌套于缓存类或请求头。
 - [ ] 五个具体资产主头位于 resource 顶层；类型名称与上层 ref<const T> 同步迁移。
+  - [x] 五个资产主头与对象类型已落地，Scene/Prefab 加载返回 ref<const T>。
+  - [ ] Scene/Prefab 的实例来源接口仍使用描述快照，继续迁移引用边界。
 - [ ] 类型加载器收进 function/asset/loaders；asset_loader.hpp 只定义实际共用的加载契约。
   - [x] 共用字节加载契约抽出，mesh/texture/object 解码实现移入独立 .cpp，三类渲染资源内容采用按类型归档。
   - [ ] Scene/Prefab 加载和依赖装配迁入类型加载器，最终结果统一为资产对象。
@@ -326,3 +330,13 @@ Windows Clang Debug 完整构建、15 项资源/场景/序列化/边界回归、
 通过。日志：build/asset-types-build.log、build/asset-types-tests.log（不入库）。
 未运行 GPU 大场景、跨平台或远端 CI。B 的描述装配清理、C 的 Scene/Prefab 对象、D 的最终弱资产
 缓存及 E 的统一加载终态仍未完成，本步不代表 PLAN-102 整体完成。
+
+2026-11-06：Scene/Prefab 资产加载首批接入。新增 resource/scene.hpp、prefab.hpp 的 asset 派生
+对象，scene_loader 复用描述格式与反射解码；场景准备改为 load<scene/prefab> 后取得快照。
+成功重载在所属线程采用内容并保持资产身份；旧快照独立存活，失败不采用，迟到操作无权修改
+当前记录对应对象。增加私有访问器边界和反例。旧描述加载及实例来源接口仍保留，快照不会
+保活资产身份，统一缓存最终值、资源引用持久化和实例来源接口仍需后续迁移。
+Windows Clang Debug 完整构建、13 项资源/场景/序列化/边界回归及改动行格式检查通过。
+新增回归覆盖来源身份、类型匹配与拒绝、成功重载身份稳定、快照隔离、失败重载保留内容。
+日志：build/scene-assets-build-final.log、build/scene-assets-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI；本步不代表 C 或整个计划已完成。

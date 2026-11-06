@@ -124,6 +124,8 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/render/draw_types.hpp
   engine/function/render/render_executor.hpp
   engine/function/render/render_frame_packet.hpp
+  engine/resource/scene.hpp
+  engine/resource/prefab.hpp
   engine/resource/mesh.hpp
   engine/resource/texture.hpp
   engine/resource/material.hpp

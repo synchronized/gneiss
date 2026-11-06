@@ -351,7 +351,8 @@ error asset_manager::register_decoder(const std::shared_ptr<const asset_decoder>
   }
   const auto type = loader->target_type();
   // 内置多阶段 Loader 不接受单缓冲区解码器覆盖。
-  if (type == runtime_type_of<mesh_data>() || type == runtime_type_of<texture_data>())
+  if (type == runtime_type_of<mesh_data>() || type == runtime_type_of<texture_data>() ||
+      type == runtime_type_of<scene>() || type == runtime_type_of<prefab>())
     return error::invalid_argument;
   return state.decoders.emplace(type, loader).second ? error::success : error::invalid_argument;
 } catch (const std::bad_alloc&) {
@@ -389,19 +390,21 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
   if (validate_uri(uri).failed()) {
     return error::invalid_argument;
   }
-  auto task = detail::make_asset_loader(
-      type, std::string(uri), options, [&]() -> result<std::shared_ptr<const asset_decoder>> {
-        std::shared_ptr<const asset_decoder> decoder;
-        auto status = resolve_decoder(type, fallback, decoder);
-        return status.failed() ? result<std::shared_ptr<const asset_decoder>>{status} : decoder;
-      });
-  if (!task)
-    return task.error();
-  state.frozen = true;
   std::shared_ptr<const engine::files::source_domain> domain;
   const auto identified = state.files->resolve_source(uri, domain);
   if (identified != error::success)
     return identified;
+  auto task = detail::make_asset_loader(
+      type, std::string(uri), options,
+      [&]() -> result<std::shared_ptr<const asset_decoder>> {
+        std::shared_ptr<const asset_decoder> decoder;
+        auto status = resolve_decoder(type, fallback, decoder);
+        return status.failed() ? result<std::shared_ptr<const asset_decoder>>{status} : decoder;
+      },
+      domain);
+  if (!task)
+    return task.error();
+  state.frozen = true;
   const auto parameters = asset_load_parameters(options) + (cache_result ? "" : ":payload");
   resource_state::key key{domain, std::string(uri), type, parameters};
   auto entry = cache().acquire(key);
@@ -634,6 +637,8 @@ void asset_manager::advance() {
     if (auto entry = work->entry.lock(); entry && entry->loading == work) {
       entry->loading.reset();
       if (work->status == error::success && work->cache_result) {
+        work->loader->adopt(work->previous ? work->previous->resource : nullptr);
+        work->value = work->loader->value;
         const auto& [domain, uri, type, parameters] = entry->identity;
         auto cached = cache().load(
             uri, type, [&]() -> result<std::shared_ptr<const void>> { return work->value; }, domain,

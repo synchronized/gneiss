@@ -8,12 +8,14 @@
 #include "engine/core/error.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/meta_registration.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/asset/detail/scene_loading.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_file.hpp"
+#include "engine/resource/prefab.hpp"
+#include "engine/resource/scene.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 
 #include <algorithm>
@@ -119,7 +121,7 @@ void run() {
   auto cached_scene = cached_request->take();
   check(bool(cached_scene) &&
         cached_request->source_bytes() == memory->files.at("main.scene").size());
-  check(scene_decodes == 2U && prefab_decodes == 1U);
+  check(scene_decodes == 1U && prefab_decodes == 0U);
   detail::scene_description_request request(assets, "asset://main.scene", false);
   scene_preparation_inputs inputs;
   auto status = error::not_ready;
@@ -129,7 +131,35 @@ void run() {
     status = request.advance(inputs, diagnostic);
     check(executor.run_ready().status == drive_status::success);
   }
-  check(status.ok() && scene_decodes == 3U && prefab_decodes == 2U);
+  check(status.ok() && scene_decodes == 1U && prefab_decodes == 0U);
+  // 资产身份稳定；旧快照不随重载改变，失败重载不破坏当前内容。
+  ref<const engine::scene> scene_asset;
+  check(test_support::load_asset(assets, "asset://main.scene", scene_asset).ok());
+  check(scene_asset->type() == runtime_type_of<engine::scene>());
+  check(scene_asset->source().uri == "asset://main.scene" && bool(scene_asset->source().source));
+  auto snapshot = scene_asset->snapshot();
+  const auto original_file = memory->files["main.scene"];
+  auto edited = *snapshot;
+  edited.objects.front().name = "reloaded";
+  auto encoded = asset_file::serialize_bytes(edited);
+  check(bool(encoded));
+  memory->files["main.scene"] =
+      std::string(reinterpret_cast<const char*>(encoded->data()), encoded->size());
+  ref<const engine::scene> reloaded;
+  check(test_support::load_asset(assets, "asset://main.scene", reloaded, true).ok());
+  check(reloaded == scene_asset && snapshot->objects.front().name != "reloaded");
+  check(reloaded->snapshot()->objects.front().name == "reloaded");
+  memory->files["main.scene"] = "{";
+  ref<const engine::scene> rejected;
+  check(test_support::load_asset(assets, "asset://main.scene", rejected, true).failed());
+  check(scene_asset->snapshot()->objects.front().name == "reloaded");
+  check(assets.find_loaded<engine::scene>("asset://main.scene")->get() == scene_asset.get());
+  memory->files["main.scene"] = original_file;
+  ref<const engine::prefab> prefab_asset;
+  check(test_support::load_asset(assets, "asset://p.prefab", prefab_asset).ok());
+  check(prefab_asset->snapshot()->root_uuid == inputs.prefabs.at("asset://p.prefab")->root_uuid);
+  ref<const asset> erased = prefab_asset;
+  check(asset_cast<engine::prefab>(erased) == prefab_asset && !asset_cast<engine::scene>(erased));
   const auto reads = memory->reads;
   check(prepare_loaded_scene(inputs, {}, output, diagnostic, {}).ok());
   check(memory->reads == reads &&

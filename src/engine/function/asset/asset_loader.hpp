@@ -19,6 +19,8 @@ struct asset_loader {
   explicit asset_loader(std::string path) : uri(std::move(path)), next_uri(uri) {}
   virtual ~asset_loader() = default;
   virtual void decode(const std::vector<std::byte>& bytes) = 0;
+  /** 所属线程采用成功结果；只有仍持有记录更新权的操作才会调用。 */
+  virtual void adopt(const std::shared_ptr<const void>&) noexcept {}
   std::size_t input_bytes{};
   void reject(asset_diagnostic failure) {
     status = failure.error;

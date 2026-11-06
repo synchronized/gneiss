@@ -95,7 +95,7 @@ public:
   [[nodiscard]] GNEISS_API engine::error
   register_decoder(const std::shared_ptr<const asset_decoder>& loader) noexcept;
   /** 无需继承或注册反射；注册失败不改变已有解码器，首次加载后禁止注册；内置 mesh_data/texture_data
-   * 使用专用 Loader，不接受覆盖。 */
+   * 及 scene/prefab 资产使用专用 Loader，不接受覆盖。 */
   template <class T>
   [[nodiscard]] error register_decoder(asset_decode_function<T> function) noexcept {
     if (!function)
