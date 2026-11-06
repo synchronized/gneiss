@@ -349,12 +349,13 @@ error register_builtin_resource_types() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<action_map>{}
-               .schema_version(1)
-               .property<&action_map::actions>(meta::property_id{1}, "actions", required)
-               .serialization(true)
-               .validate<&validate_action_map>()
-               .commit();
+  status =
+      meta::type_builder<action_map_description>{}
+          .schema_version(1)
+          .property<&action_map_description::actions>(meta::property_id{1}, "actions", required)
+          .serialization(true)
+          .validate<&validate_action_map>()
+          .commit();
   if (status.failed())
     return status;
   status = meta::type_builder<scene_description>{}

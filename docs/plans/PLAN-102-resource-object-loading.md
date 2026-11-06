@@ -69,7 +69,8 @@ struct asset_entry {
   - [x] 删除 asset_cache_value 控制块包装，直接弱持有实际对象；统计归入 asset_entry。
   - [x] 内部 CPU 解码不登记资产记录，删除临时 payload 身份键。
   - [x] 关闭 mesh_data/texture_data/material_description 的公开加载与缓存入口，内部解码不受影响。
-  - [ ] 迁移 ActionMap 及其他 CPU 类型兼容，将擦除弱引用收窄为最终 asset 类型。
+  - [x] ActionMap 拆分为共享资产和描述快照；输入服务继续采用独立描述。
+  - [ ] 移除其他 CPU 类型兼容，将擦除弱引用收窄为最终 asset 类型。
 - [ ] E. 类型加载器共用 load_operation 生命周期；覆盖去重、单观察者取消、旧操作迟到、重载失败、清理与关闭。
 
 缓存槽位当前直接 weak_ptr<const void> 指向实际对象，兼容尚未迁移的纯 CPU 描述；
@@ -399,3 +400,13 @@ Windows Clang Debug 完整构建、11 项资源/场景/生命周期/边界回归
 git diff --check 通过。日志：build/asset-intermediate-formatted-build.log、
 build/asset-intermediate-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
 ActionMap 及自定义 CPU 类型兼容仍在，最终弱资产引用和统一操作生命周期尚未完成。
+
+2026-11-06：ActionMap 接入资产对象。action_map 继承 asset，action_map_description 承担原生值、
+反射和 input-map 文件格式；描述 GUID 与文件布局不变。专用 Loader 允许描述显式 Decoder，
+默认走反射；成功重载保持身份并替换快照，失败不采用。Runtime 从快照复制描述给 InputService，
+输入状态不跟随资产自动重载。描述的公开 load/store/find_loaded 返回 unsupported。
+新增回归覆盖身份、来源、成功重载、旧快照隔离与描述入口拒绝，原失败重载、显式 Decoder、
+格式限制和 Runtime 采用回归保持通过。Windows Clang Debug 完整构建、12 项输入/资产/场景/
+Runtime/边界回归通过；改动行格式化与 git diff --check 通过。
+日志：build/action-map-asset-build-final.log、build/action-map-asset-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI。自定义 CPU 类型兼容与统一加载生命周期仍待处理。

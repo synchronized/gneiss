@@ -62,13 +62,13 @@ while (host.poll_input(event).ok()) {
 
 ## 映射资源加载
 
-`action_map` 直接作为共享的只读 CPU 描述，使用 `asset_ref<const action_map>` 和
-`asset_request<action_map>`；不再包裹 action_map_asset。内置 Registry 登记 input-map v1
-编解码能力，普通加载采用 asset_manager 的显式 decoder 优先、反射兜底规则。
-`encode_action_map` 和反射 `serialize` 可生成 v1 文件；普通字段直接绑定原生描述，
-编码与解码均执行业务校验并限制为 1 MiB。入口要求默认注册表已初始化。
+`action_map` 是共享资产对象，使用 `ref<const action_map>` 和 `asset_request<action_map>`。
+`snapshot()` 返回不可变 `action_map_description`；反射和 input-map v1 编解码注册在描述类型上。
+专用 Loader 使用描述的显式 Decoder，未注册时采用反射解码；成功重载保留资产身份，旧快照不变。
+`asset_file::serialize(description)` 生成 v1 文件；编码与解码均执行业务校验并限制为 1 MiB。
+入口要求默认注册表已初始化。描述不能单独通过 manager 加载或登记 URI 缓存。
 
-通用 load/load_sync 默认复用缓存；Application 的显式加载与异步重载仍重新读取。
+`load<action_map>` 默认复用缓存；Application 的显式加载与异步重载仍重新读取。
 加载和解析不修改输入服务，成功后由 Application 在所属线程复制描述并调用 replace_action_map。
 读取、解码或采用失败保留旧映射；动作 ID 的失效规则不变。大小上限为 1 MiB，
 codec 诊断提供 JSON 字节偏移或字段路径。格式约束仍以[输入映射格式](input-map-format.md)为准。

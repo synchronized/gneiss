@@ -47,7 +47,8 @@ gneiss::engine::type_id cache_type(gneiss::engine::render_resource_kind type) no
 
 // 描述和负载不是独立资产；仅供格式编解码及资产 Loader 内部使用。
 bool intermediate_asset_type(type_id type) noexcept {
-  return type == runtime_type_of<scene_description>() ||
+  return type == runtime_type_of<action_map_description>() ||
+         type == runtime_type_of<scene_description>() ||
          type == runtime_type_of<prefab_description>() || type == runtime_type_of<mesh_data>() ||
          type == runtime_type_of<texture_data>() || type == runtime_type_of<material_description>();
 }
@@ -361,7 +362,8 @@ error asset_manager::register_decoder(const std::shared_ptr<const asset_decoder>
     return error::unsupported;
   // 内置多阶段 Loader 不接受单缓冲区解码器覆盖。
   if (type == runtime_type_of<mesh_data>() || type == runtime_type_of<texture_data>() ||
-      type == runtime_type_of<scene>() || type == runtime_type_of<prefab>())
+      type == runtime_type_of<scene>() || type == runtime_type_of<prefab>() ||
+      type == runtime_type_of<action_map>())
     return error::invalid_argument;
   return state.decoders.emplace(type, loader).second ? error::success : error::invalid_argument;
 } catch (const std::bad_alloc&) {
@@ -409,7 +411,11 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
       type, std::string(uri), options,
       [&]() -> result<std::shared_ptr<const asset_decoder>> {
         std::shared_ptr<const asset_decoder> decoder;
-        auto status = resolve_decoder(type, fallback, decoder);
+        auto status =
+            type == runtime_type_of<action_map>()
+                ? resolve_decoder(runtime_type_of<action_map_description>(),
+                                  &detail::make_reflected_decoder<action_map_description>, decoder)
+                : resolve_decoder(type, fallback, decoder);
         return status.failed() ? result<std::shared_ptr<const asset_decoder>>{status} : decoder;
       },
       domain);

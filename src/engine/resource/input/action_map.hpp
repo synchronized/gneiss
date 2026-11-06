@@ -6,6 +6,7 @@
 
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/resource/asset.hpp"
 
 #include <cstdint>
 #include <span>
@@ -37,16 +38,34 @@ struct action_definition final {
 inline constexpr std::size_t maximum_action_map_bytes = 1024U * 1024U;
 
 /** 可共享的只读描述；实时输入状态由 InputService 单独管理。 */
-struct action_map final {
-  inline static constexpr std::string_view type_name = "action_map";
+struct action_map_description final {
+  inline static constexpr std::string_view type_name = "action_map_description";
   inline static constexpr engine::guid type_guid{
       engine::guid::literal("2c8319d2-673f-4a51-9380-7ac502e694b1")};
   inline static constexpr std::size_t maximum_source_bytes = maximum_action_map_bytes;
   std::vector<action_definition> actions;
 };
 
+namespace detail {
+struct action_map_loader;
+}
+/** 共享输入映射资产；输入服务采用独立描述，不跟随重载自动改变。 */
+class action_map final : public asset {
+public:
+  /** 所属线程取得快照；既有快照不随重载改变。 */
+  [[nodiscard]] ref<const action_map_description> snapshot() const noexcept { return content_; }
+
+private:
+  friend struct detail::action_map_loader;
+  action_map(asset_identity source, ref<const action_map_description> content)
+      : asset(runtime_type_of<action_map>()), content_(std::move(content)) {
+    identity_ = std::move(source);
+  }
+  mutable ref<const action_map_description> content_;
+};
+
 /** 原生构造与 JSON 加载共享语义约束；不改变输入映射。 */
-[[nodiscard]] error validate_action_map(const action_map& map) noexcept;
+[[nodiscard]] error validate_action_map(const action_map_description& map) noexcept;
 
 } // namespace gneiss::engine
 

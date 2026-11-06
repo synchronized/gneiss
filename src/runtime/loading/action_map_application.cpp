@@ -33,7 +33,7 @@ gneiss::engine::error action_map_application::poll(gneiss::engine::input_service
   result_ = loaded ? gneiss::engine::error::success : loaded.error().error;
   if (loaded) {
     try {
-      auto map = **loaded;
+      auto map = *(*loaded)->snapshot();
       result_ = target.replace_action_map(std::move(map));
     } catch (const std::bad_alloc&) {
       result_ = gneiss::engine::error::out_of_memory;

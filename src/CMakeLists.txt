@@ -205,6 +205,7 @@ target_sources(
     engine/function/asset/loaders/texture_loader.cpp
     engine/function/asset/loaders/scene_loader.cpp
     engine/function/asset/loaders/object_loader.cpp
+    engine/function/asset/loaders/action_map_loader.cpp
     engine/function/asset/loaders/material_loader.cpp
     engine/function/asset/detail/asset_entry.hpp
     engine/function/asset/detail/load_operation.hpp

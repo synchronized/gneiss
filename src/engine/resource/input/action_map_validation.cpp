@@ -7,7 +7,7 @@
 #include <cmath>
 
 namespace gneiss::engine {
-error validate_action_map(const action_map& map) noexcept {
+error validate_action_map(const action_map_description& map) noexcept {
   if (map.actions.empty()) {
     return error::invalid_argument;
   }

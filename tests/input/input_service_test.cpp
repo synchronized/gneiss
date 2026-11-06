@@ -55,7 +55,7 @@ int main() {
     return 6;
   }
 
-  gneiss::engine::action_map map;
+  gneiss::engine::action_map_description map;
   map.actions.push_back({.name = "move", .bindings = {{26U, 1.0F}}});
   input.clear_focus();
   if (input.replace_action_map(std::move(map)) != gneiss::engine::error::success) {
@@ -79,7 +79,7 @@ int main() {
   using namespace gneiss::engine;
   using namespace gneiss::engine;
   const auto original = action;
-  gneiss::engine::action_map candidate{{{"move", {{26U, 1.0F}}}}};
+  gneiss::engine::action_map_description candidate{{{"move", {{26U, 1.0F}}}}};
   auto invalid = candidate;
   invalid.actions[0].bindings[0].physical_key = 256U;
   if (input.replace_action_map(invalid) != gneiss::engine::error::invalid_argument ||

@@ -231,7 +231,10 @@ CPU 描述类型仍由 load<T> 的 C++ 类型确定。
 `cached_asset` 只是查询时取得的强引用与统计副本，不建立控制块或永久缓存身份。
 渲染资产内部的 CPU 解码不登记资产索引或临时 payload 键，只由父加载操作持有请求；
 同资产请求在最终资产记录上合并，中间解码复用执行队列与取消逻辑。
-ActionMap 使用通用 load<action_map>；需要重新读文件的调用方显式传 reload=true。
+ActionMap 使用 `load<action_map>` 返回共享资产；`snapshot()` 取得不可变
+`action_map_description`。重载保持资产身份和旧快照，InputService 显式复制并校验描述，
+不自动跟随重载。描述使用原有 input-map 文件格式和 GUID；描述的 load/store/find_loaded
+返回 unsupported，显式 Decoder 注册到 action_map_description 供 Loader 使用。
 没有独立批次加载器、资源工厂或 prepare/apply 更新记录，也不在资源对象上保存更新序号。
 Runtime 的 `resource_load_group` 仅为场景与编辑器串行组合单资源请求、汇总显式请求结果；
 它不读文件、不解析依赖、不创建后端资源，且不占用资源服务的全局加载槽位。

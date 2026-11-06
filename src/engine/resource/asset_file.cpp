@@ -63,7 +63,7 @@ constexpr std::string_view retired_fields[]{"prefab_instances"};
 }
 format format_traits<mesh_description>::get() noexcept { return {"gneiss.mesh", 3}; }
 format format_traits<material_description>::get() noexcept { return {"gneiss.material", 6}; }
-format format_traits<action_map>::get() noexcept {
+format format_traits<action_map_description>::get() noexcept {
   return {"gneiss.input-map", 1, maximum_action_map_bytes};
 }
 format format_traits<scene_description>::get() noexcept {
