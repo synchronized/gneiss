@@ -111,6 +111,11 @@ public:
                                              std::shared_ptr<const mesh_data> data) noexcept;
   [[nodiscard]] GNEISS_API bool
   replace_material(rid rid, std::shared_ptr<const material_data> data) noexcept;
+  /** 校验并复制借用视图，返回自有 CPU 内容，不分配 RID。 */
+  [[nodiscard]] GNEISS_API result<std::shared_ptr<const mesh_data>>
+  prepare_mesh_data(const mesh_view& desc) noexcept;
+  [[nodiscard]] GNEISS_API result<std::shared_ptr<const texture_data>>
+  prepare_texture_data(const texture_view& desc) noexcept;
   /** 校验并登记临时 CPU 数据，不分配 RID；任务和帧引用共同决定数据寿命。 */
   [[nodiscard]] GNEISS_API result<std::shared_ptr<const mesh_data>>
   prepare_mesh_data(std::shared_ptr<const mesh_data> resource) noexcept;

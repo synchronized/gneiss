@@ -56,10 +56,9 @@ struct asset_entry {
 落实顺序和独立验收：
 
 - [x] A. 将缓存和 CPU/渲染在途工作归入同一记录表；删除 requests 身份表和渲染 pending 扫描去重。
-- [ ] B. texture/mesh/material 改为对象类型，上层统一 ref<const T>；删除同名引用别名及重复描述装配入口。
+- [x] B. texture/mesh/material 改为对象类型，上层统一 ref<const T>；删除同名引用别名及重复描述装配入口。
   - [x] 三类对象及调用方完成命名迁移，删除同名引用别名，反射注册使用对象类型。
-  - [ ] 删除重复描述装配入口，统一对象内容加载。
-    - 材质程序化创建与文件装配已共用依赖校验、数据准备和内容更新；网格/纹理路径待继续核查。
+  - [x] 三类资源的程序化创建与文件装配共用内容准备和更新；文件路径保留来源校验，借用视图保留输入校验与复制。
 - [ ] C. scene/prefab 成为 asset 派生类型；共享内容与 World 实例分离。
   - [x] 顶层资产对象与专用 Loader 接入，场景准备通过资产取得描述快照；成功重载保留身份和旧快照。
   - [x] 加载准备结果、World 实例及编辑快照保留来源资产强引用，同时固定实例化描述快照。
@@ -479,3 +478,12 @@ E 项完成；B/C 的重复内容采用路径仍待收敛。未运行 GPU 大场
 Windows Clang Debug 完整构建与 14 项相关回归通过；改动行格式化、git diff --check 通过。
 日志：build/asset-material-adoption-build.log、build/asset-material-adoption-tests.log（不入库）。
 B/C 尚未完成；未运行 GPU 大场景、跨平台或远端 CI。
+
+2026-11-06：网格与纹理程序化创建收敛。Render 提取借用视图 prepare 重载，复用原有校验、
+复制和纹理行填充处理，不分配 RID；资产创建先准备内容、预留身份，再复用文件加载的
+update_mesh/update_texture，同步后端内容与上层元信息。文件负载继续共享原缓冲。
+新增回归覆盖借用数据独立复制、纹理填充行打包、网格元信息、非法输入与引用释放后的回收。
+Windows Clang Debug 完整构建与 16 项相关回归通过；改动行格式化、git diff --check 通过。
+日志：build/asset-content-adoption-build-final.log、build/asset-content-adoption-tests.log（不入库）。
+B 项完成；C 的 Scene/Prefab 内存编辑与文件资产采用路径仍未完成。
+未运行 GPU 大场景、跨平台或远端 CI。

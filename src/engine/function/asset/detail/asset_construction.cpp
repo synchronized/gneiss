@@ -191,12 +191,32 @@ result<ref<const engine::material>> asset_construction::reserve_material() noexc
   return create<ref<const engine::material>>([&] { return render_.reserve_material(); });
 }
 result<ref<const engine::mesh>> asset_construction::create_mesh(const mesh_view& desc) noexcept {
-  return create<ref<const engine::mesh>>([&] { return render_.create_mesh(desc); });
+  if (closed_)
+    return error::invalid_state;
+  auto data = render_.prepare_mesh_data(desc);
+  if (!data)
+    return data.error();
+  auto output = reserve_mesh();
+  if (!output)
+    return output.error();
+  if (!update_mesh(*output, std::move(*data)))
+    return error::out_of_memory;
+  return output;
 }
 
 result<ref<const engine::texture>>
 asset_construction::create_texture(const texture_view& desc) noexcept {
-  return create<ref<const engine::texture>>([&] { return render_.create_texture(desc); });
+  if (closed_)
+    return error::invalid_state;
+  auto data = render_.prepare_texture_data(desc);
+  if (!data)
+    return data.error();
+  auto output = reserve_texture();
+  if (!output)
+    return output.error();
+  if (!update_texture(*output, std::move(*data)))
+    return error::out_of_memory;
+  return output;
 }
 
 result<ref<const engine::material>> asset_construction::create_material(

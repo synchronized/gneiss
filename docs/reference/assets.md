@@ -126,6 +126,9 @@ GPU 在途使用的安全回收由 Render 及后端负责，详见[运行资源�
 材质通过 `asset_construction::adopt` 采用已解码描述与已解析纹理引用。各入口不读取文件、不递归加载依赖。
 程序化材质创建和文件材质装配共用 `prepare_material` 的纹理归属校验与数据准备，
 再通过 `update_material` 同步渲染内容、上层参数和纹理强引用；文件装配另外校验描述 URI。
+网格和纹理的程序化创建同样先准备 CPU 内容、再预留身份并通过统一更新入口采用。
+借用视图会先校验并复制，纹理逐行去除输入行填充；文件解码得到的共享负载继续直接保活，
+不为复用创建流程复制大块数据。
 asset_manager 内部使用任务私有的 CPU 数据请求完成装配，不将这些中间负载登记到最终资产索引。
 `mesh_data`、`texture_data`、`material_description` 的公开 `load/store/find_loaded` 返回
 `unsupported`；工具需要原始数据时使用对应格式编解码，不建立第二份资产缓存。

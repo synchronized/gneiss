@@ -184,6 +184,14 @@ engine::error validate_mesh(const mesh_view& desc) noexcept {
 } // namespace
 
 result<rid> render_service::create_mesh(const mesh_view& desc) noexcept {
+  auto data = prepare_mesh_data(desc);
+  if (!data)
+    return data.error();
+  return storage_->meshes_.create(resource_type::mesh, std::move(*data));
+}
+
+result<std::shared_ptr<const mesh_data>>
+render_service::prepare_mesh_data(const mesh_view& desc) noexcept {
   if (!is_valid() || desc.vertices.size() < 3U) {
     return engine::error::invalid_argument;
   }
@@ -206,9 +214,7 @@ result<rid> render_service::create_mesh(const mesh_view& desc) noexcept {
         .uv1 = {uv1.begin(), uv1.end()},
         .colors = {colors.begin(), colors.end()},
     };
-    return storage_->meshes_.create(
-        resource_type::mesh,
-        track(std::make_shared<const mesh_data>(std::move(resource)), storage_->mesh_history_));
+    return prepare_mesh_data(std::make_shared<const mesh_data>(std::move(resource)));
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {
@@ -350,6 +356,14 @@ engine::error render_service::destroy_material(rid material) noexcept {
 }
 
 result<rid> render_service::create_texture(const texture_view& desc) noexcept {
+  auto data = prepare_texture_data(desc);
+  if (!data)
+    return data.error();
+  return storage_->textures_.create(resource_type::texture, std::move(*data));
+}
+
+result<std::shared_ptr<const texture_data>>
+render_service::prepare_texture_data(const texture_view& desc) noexcept {
   if (!is_valid() || desc.format != texture_format::rgba8_unorm ||
       (desc.color_space != texture_color_space::linear &&
        desc.color_space != texture_color_space::srgb) ||
@@ -381,7 +395,7 @@ result<rid> render_service::create_texture(const texture_view& desc) noexcept {
                   desc.pixels.data() + (static_cast<std::size_t>(row) * desc.row_stride_bytes),
                   static_cast<std::size_t>(row_bytes));
     }
-    return create_texture(std::move(resource));
+    return prepare_texture_data(std::move(resource));
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {

@@ -146,6 +146,25 @@ void prepared_source_revisions() {
     }
   }
 }
+void programmatic_texture_content() {
+  render_service render;
+  detail::asset_construction factory{render};
+  std::array<std::uint8_t, 12> pixels{1, 2, 3, 4, 99, 99, 99, 99, 5, 6, 7, 8};
+  texture_view view{.width = 1, .height = 2, .row_stride_bytes = 8, .pixels = pixels};
+  auto created = factory.create_texture(view);
+  check(bool(created));
+  auto content = render.share_texture(resource_handle(*created));
+  check(content && content->levels.front().pixels.size() == 8 &&
+        content->levels.front().pixels[4] == std::byte{5} && (*created)->metadata()->height == 2);
+  pixels[0] = 42;
+  check(content->levels.front().pixels[0] == std::byte{1});
+  view.row_stride_bytes = 3;
+  auto invalid = factory.create_texture(view);
+  check(!invalid && invalid.error() == error::invalid_argument);
+  created = error::invalid_state;
+  check(factory.drain() == 1);
+}
+
 void mesh_data_lifetime() {
   auto source = std::make_shared<memory_files>();
   const std::string text =
@@ -169,6 +188,24 @@ void mesh_data_lifetime() {
   check(mesh->vertices.data() == vertices);
   render_service resources;
   gneiss::engine::detail::asset_construction resources_factory{resources};
+  {
+    mesh_view view{.vertices = mesh->vertices,
+                   .normals = mesh->normals,
+                   .indices = mesh->indices,
+                   .tangents = mesh->tangents,
+                   .uv1 = mesh->uv1,
+                   .colors = mesh->colors};
+    auto created = resources_factory.create_mesh(view);
+    check(bool(created) && (*created)->metadata()->vertices == mesh->vertices.size() &&
+          (*created)->metadata()->has_normals);
+    auto content = resources.share_mesh(resource_handle(*created));
+    check(content && content->vertices.data() != mesh->vertices.data() &&
+          content->vertices[1].position.x == mesh->vertices[1].position.x);
+    view.vertices = {};
+    auto invalid = resources_factory.create_mesh(view);
+    check(!invalid && invalid.error() == error::invalid_argument);
+  }
+  check(resources_factory.drain() == 1);
   gneiss::engine::rid rid{};
   check(gneiss::test_support::assign_value(resources.create_prepared_mesh(mesh), rid) ==
         gneiss::engine::error::success);
@@ -550,6 +587,7 @@ int main() try {
   if (gneiss::engine::initialize_meta().failed())
     return 99;
   prepared_source_revisions();
+  programmatic_texture_content();
   mesh_data_lifetime();
   independent_resource_identity();
   reserved_material_lifetime();
