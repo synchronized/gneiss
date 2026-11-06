@@ -25,7 +25,15 @@
 #include <thread>
 
 namespace gneiss::test_support {
-struct asset_value {
+struct asset_value : gneiss::engine::asset {
+  asset_value(char value = {})
+      : asset(gneiss::engine::runtime_type_of<asset_value>()), byte(value) {}
+  asset_value(const asset_value& other) : asset_value(other.byte) {}
+  asset_value& operator=(const asset_value& other) {
+    byte = other.byte;
+    return *this;
+  }
+
   static constexpr auto type_guid = gneiss::engine::guid::from_bytes({0x98, 1});
   static constexpr std::string_view type_name = "test_asset";
   char byte{};
@@ -45,7 +53,10 @@ void check(bool ok, const char* message) {
     throw std::runtime_error(message);
 }
 using value = gneiss::test_support::asset_value;
-struct unreflected_value {
+struct unreflected_value : asset {
+  unreflected_value(char value = {}) : asset(runtime_type_of<unreflected_value>()), byte(value) {}
+  unreflected_value(const unreflected_value& other) : unreflected_value(other.byte) {}
+
   char byte{};
 };
 class memory_files final : public gneiss::test_support::memory_file_fixture {
@@ -336,6 +347,13 @@ void decoder_selection() {
                 error::unsupported &&
             source->reads == reads,
         "missing decoder fails before IO");
+  const auto cache_before_rejection = unknown.cached_count();
+  check(unknown.load<std::string>("asset://plain").error() == error::unsupported &&
+            unknown.find_loaded<std::string>("asset://plain").error() == error::unsupported &&
+            unknown.store<std::string>("asset://plain", std::make_shared<const std::string>("x"))
+                    .error() == error::unsupported &&
+            source->reads == reads && unknown.cached_count() == cache_before_rejection,
+        "plain values cannot enter the asset index");
   asset_manager native(gneiss::test_support::test_files(files));
   check(
       native.register_decoder<unreflected_value>(

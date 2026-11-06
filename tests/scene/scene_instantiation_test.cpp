@@ -66,15 +66,20 @@ constexpr std::string_view object =
 void unified_resource_index() {
   using namespace gneiss::engine;
   using gneiss::engine::error;
+  struct text_asset final : asset {
+    explicit text_asset(std::string text)
+        : asset(runtime_type_of<text_asset>()), content(std::move(text)) {}
+    std::string content;
+  };
   class text_loader final : public asset_decoder {
   public:
     gneiss::engine::type_id target_type() const noexcept override {
-      return gneiss::engine::runtime_type_of<std::string>();
+      return gneiss::engine::runtime_type_of<text_asset>();
     }
     result<std::shared_ptr<const void>, serialization::diagnostic>
     decode(const std::vector<std::byte>& bytes) const override {
-      return std::shared_ptr<const void>{
-          std::make_shared<std::string>(reinterpret_cast<const char*>(bytes.data()), bytes.size())};
+      return std::shared_ptr<const void>{std::make_shared<text_asset>(
+          std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size()))};
     }
   };
   auto source = std::make_shared<memory_files>();
@@ -88,7 +93,7 @@ void unified_resource_index() {
   if (render.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   check(assets.register_decoder(std::make_shared<text_loader>()) == error::success);
-  asset_ref<const std::string> cpu;
+  asset_ref<const text_asset> cpu;
   check(gneiss::test_support::load_asset(assets, "asset://same", cpu) == error::success);
   prefab_description description;
   description.objects.emplace_back();
@@ -99,7 +104,8 @@ void unified_resource_index() {
           render.reserve_resource({"asset://same", gneiss::engine::render_resource_kind::material}),
           material) == error::success);
   assets.collect_unused();
-  check(assets.cached_count() == 2U && *cpu == "cpu" && resources.live_resource_count() == 1U);
+  check(assets.cached_count() == 2U && cpu->content == "cpu" &&
+        resources.live_resource_count() == 1U);
   prefab.reset();
   assets.collect_unused();
   check(assets.cached_count() == 2U);

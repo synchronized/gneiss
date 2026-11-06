@@ -109,11 +109,13 @@ public:
     }
   }
   /** 默认复用已完成缓存；reload 重新读取并解析，在途同键请求合并。
-   * Scene/Prefab 文件须请求 scene/prefab 对象，描述类型返回 unsupported。
+   * 仅接受 asset 派生类型；描述及普通 CPU 值返回 unsupported。
    * 所属线程调用；执行器须存活至 stop 返回。 */
   template <typename T>
   [[nodiscard]] result<asset_request<T>> load(std::string_view uri,
                                               asset_load_options options) noexcept {
+    if constexpr (!std::derived_from<T, asset>)
+      return error::unsupported;
     if constexpr (render_resource<T>) {
       try {
         if (options.texture_profile != texture_prepare_profile{} &&
@@ -142,10 +144,12 @@ public:
     asset_load_options options{.reload = reload};
     return load<T>(uri, options);
   }
-  /** 只查询已完成缓存，不读取文件或提交任务；未命中返回 not_found。 */
+  /** 只查询资产缓存，不读取文件或提交任务；非资产返回 unsupported，未命中返回 not_found。 */
   template <class T>
   [[nodiscard]] result<asset_ref<const T>> find_loaded(std::string_view uri,
                                                        asset_load_options options) const noexcept {
+    if constexpr (!std::derived_from<T, asset>)
+      return error::unsupported;
     if constexpr (render_resource<T>) {
       if (options.texture_profile != texture_prepare_profile{} &&
           options.texture_profile != profile())
@@ -183,11 +187,14 @@ public:
   } catch (...) {
     return error::internal;
   }
-  /** 所属线程采用已经构造的数据；成功后较早异步请求不能覆盖缓存。 */
+  /** 所属线程采用已构造的非渲染资产；非资产返回 unsupported。
+   * 成功后较早异步请求不能覆盖缓存。 */
   template <class T>
     requires(!render_resource<T>)
   [[nodiscard]] result<asset_ref<const T>>
   store(std::string_view uri, std::shared_ptr<const T> value, asset_load_options options) noexcept {
+    if constexpr (!std::derived_from<T, asset>)
+      return error::unsupported;
     std::shared_ptr<const void> stored;
     const auto status = store_erased(runtime_type_of<T>(), uri, std::move(value), stored, options);
     if (status.failed())

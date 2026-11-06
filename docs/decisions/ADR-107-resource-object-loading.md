@@ -26,6 +26,7 @@ Scene/Prefab 是共享资产，World 实例化与结构更新属于场景逻辑�
 ActionMap 同样使用资产身份与描述快照：action_map 保存共享内容，action_map_description 用于
 反射及文件格式。InputService 显式复制描述并校验，输入状态不随资产重载自动变化。
 GPU 就绪不属于 CPU 加载完成条件；释放由受控通道转交后端所属线程。
+公开 load/find_loaded/store 仅面向 asset 派生类型；普通值由格式编解码处理，内部 Decoder 可返回描述。
 不建立第二个资源管理器、第二套公开解码缓存或跨资产事务。
 
 ## 与既有决策关系

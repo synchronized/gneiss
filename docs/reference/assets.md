@@ -13,9 +13,9 @@
 
 Scene、Prefab、Texture、Mesh、Material 资产对象均由同一个 `asset_manager` 加载。
 `create_mesh/create_texture/create_material` 返回对应资源引用的 result；`create<T>(value)`
-创建不登记 URI 的不可变 CPU 资产。未绑定 Render 时可加载描述，运行资源创建/加载返回 `invalid_state`。
-`store<T>` 暂时支持其他 CPU 类型，不接受 Scene/Prefab 描述、mesh_data、texture_data 或
-material_description，也不允许外部替换运行资源拥有者。
+创建不登记 URI 的不可变 CPU 资产。未绑定 Render 时可加载 Scene/Prefab/ActionMap 等非渲染资产，渲染资源创建/加载返回 `invalid_state`。
+公开 `load/find_loaded/store<T>` 仅接受 asset 派生类型，普通 CPU 值与描述返回 unsupported。
+`store<T>` 不允许外部替换渲染资源拥有者。内部描述 Decoder 不受此限制。
 内存资产解码返回 `result<decoded_asset, asset_diagnostic>`。判断与取值规则见 [Core](core.md#错误状态与值结果)。
 
 `asset_request<T>::take()` 返回 `result<asset_ref<const T>, asset_diagnostic>`。
@@ -66,7 +66,7 @@ HTTP(S) 地址使用 Fetch URL 基址。借用目录不会在后端销毁时被�
 
 | 入口 | 强引用与访问 | 更新规则 |
 | --- | --- | --- |
-| `asset_manager::find_loaded<T>`、`asset_request<T>::take` | `asset_ref<const T>`，直接访问 CPU 描述 | 成功重载替换当前缓存，旧引用继续保活旧数据 |
+| `asset_manager::find_loaded<T>`、`asset_request<T>::take` | `asset_ref<const T>`，直接访问资产对象 | 成功重载替换当前缓存，旧引用继续保活旧数据 |
 | Prefab 描述 | `prefab_asset_ref`，即 `asset_ref<const prefab_description>` | 直接保活描述快照；重载不会修改旧描述 |
 | 资产管理器、场景绑定、编辑器历史 | `mesh`、`material`、`texture` 强引用；混合批次用 `render_resource_ref` 持有类型化引用 | CPU 内容采用即完成，资源身份保持稳定，GPU 更新由 Render 独立处理 |
 
@@ -85,7 +85,7 @@ CPU 数据表位于 `render_service` 私有实现，Loader 与宿主通过其 RI
 
 `asset_manager` 唯一持有最终资产弱索引，按「来源域 + URI + C++ 类型 + 加载参数」区分身份。
 加载参数包含完整纹理 profile；reload 不参与身份。运行资源使用管理器绑定的 profile，
-调用方传入不匹配的显式 profile 会被拒绝。通用 CPU 描述与运行资源共享索引，同 URI 的不同类型独立。
+调用方传入不匹配的显式 profile 会被拒绝。自定义资产与内置资产共享索引，同 URI 的不同资产类型独立。
 管理器只暴露 `cached_count()` 诊断计数，不暴露缓存修改入口。
 类型键使用 `engine::type_id`，由同一 Engine 按规范 C++ 类型名集中分配，
 只在当前运行期有效，不写入资产文件或公共 ABI；约束见 [Core 身份类型](core.md#内部基础身份类型)。
@@ -206,7 +206,7 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 缓存定义与渲染构造实现不进入宿主可见头清单。
 纯 CPU 加载不要求 Render；程序化运行资源创建独立通过 `attach_render(render_service&)` 接入，
 可以先于或晚于异步配置。同一 Render 可重复绑定，替换 Render 被拒绝。
-`load<T>` 返回 `result<asset_request<T>>`，涵盖描述及纹理、网格、材质运行资源。
+`load<T>` 返回 `result<asset_request<T>>`，涵盖 Scene/Prefab/ActionMap 及纹理、网格、材质等资产对象。
 缓存查询统一为 `find_loaded<T>(uri)`，混合查询使用 `find_loaded(render_resource_source, profile)`；
 不读取文件、不等待 GPU，失败返回错误。类型化查询使用管理器配置的纹理 profile。
 混合引用 `render_resource_ref` 直接保存三种类型化强引用之一，不暴露缓存条目。
@@ -222,7 +222,7 @@ Application 通过 `assets()` 暴露统一入口，分发文件完成后推进�
 
 `render_resource.hpp` 声明 `render_resource_source` 及混合资源引用辅助函数；
 场景批量进度和回执位于 Runtime 的 `resource_load_types.hpp`，属于 `gneiss::runtime`。render_resource_kind 当前只枚举 Mesh、Material、Texture，
-CPU 描述类型仍由 load<T> 的 C++ 类型确定。
+自定义资产类型由 load<T> 的 C++ 类型确定。
 `asset_construction_loading.cpp` 保存服务私有的单资源请求状态，`asset_decode` 只解码已有字节。
 `detail::asset_construction` 定义服务私有实现；创建、RID 包装、延迟销毁和内容采用均属于服务。
 网格、纹理从统一 CPU 请求领取共享引用后直接传给对应采用函数，不再重新组装 decoded_asset。
@@ -250,7 +250,7 @@ asset_manager 仅接受 shared_ptr<files::service>。`find_loaded<T>` 只查询�
 `result<T, serialization::diagnostic>(span<const byte>)` 函数，无需类型继承或反射身份。
 仍可继承 asset_decoder 提供有状态解码器；回调必须支持不同输入的并发调用。
 
-普通类型加载优先使用显式 decoder；未注册时，按 type_id 查找冻结 Registry 中的 decode。
+自定义资产加载优先使用显式 decoder；未注册时，按 type_id 查找冻结 Registry 中的 decode。
 没有解码能力时在读取前返回 unsupported；显式解码失败不再回退。适配器在临时对象上解码，
 成功才进入缓存，失败保留既有缓存资源。`asset_request::take()` 返回的失败结果携带 codec 的路径、消息和字节位置。
 
@@ -357,7 +357,7 @@ invalid_argument；不再按资源类型或版本新旧采用不同错误码。�
 
 场景准备、运行实例、捕获结果与编辑历史同时保留来源资产强引用和当次描述快照。
 身份引用保证同 URI 继续共享资产；描述快照固定实例采用的内容，编辑不会写回共享资产。
-纯内存创建的编辑对象允许没有来源资产。其他 CPU 类型缓存仍处于迁移期，
+纯内存创建的编辑对象允许没有来源资产。内部弱引用的类型收窄仍处于迁移期，
 最终缓存与引用入口的收敛见 [PLAN-102](../plans/PLAN-102-resource-object-loading.md)。
 
 Scene/Prefab 描述的 `load/store/find_loaded` 和对应 Decoder 注册返回 `unsupported`。

@@ -70,7 +70,8 @@ struct asset_entry {
   - [x] 内部 CPU 解码不登记资产记录，删除临时 payload 身份键。
   - [x] 关闭 mesh_data/texture_data/material_description 的公开加载与缓存入口，内部解码不受影响。
   - [x] ActionMap 拆分为共享资产和描述快照；输入服务继续采用独立描述。
-  - [ ] 移除其他 CPU 类型兼容，将擦除弱引用收窄为最终 asset 类型。
+  - [x] 公开 load/find_loaded/store 只接受 asset 派生类型；测试自定义资产同步迁移。
+  - [ ] 将内部擦除弱引用收窄为最终 asset 类型。
 - [ ] E. 类型加载器共用 load_operation 生命周期；覆盖去重、单观察者取消、旧操作迟到、重载失败、清理与关闭。
 
 缓存槽位当前直接 weak_ptr<const void> 指向实际对象，兼容尚未迁移的纯 CPU 描述；
@@ -410,3 +411,12 @@ ActionMap 及自定义 CPU 类型兼容仍在，最终弱资产引用和统一�
 Runtime/边界回归通过；改动行格式化与 git diff --check 通过。
 日志：build/action-map-asset-build-final.log、build/action-map-asset-tests.log（不入库）。
 未运行 GPU 大场景、跨平台或远端 CI。自定义 CPU 类型兼容与统一加载生命周期仍待处理。
+
+2026-11-06：关闭公开任意 CPU 值入口。load/find_loaded/store<T> 统一检查 asset 派生关系，
+普通值和描述返回 unsupported；删除逐类型排除中间描述的运行期名单。内部 Decoder 继续处理
+描述，create(value) 仍只构造不登记缓存的不可变值。测试自定义值改为 asset 派生类型，保留
+反射/显式解码、弱缓存、请求合并、迟到操作、失败重载和关闭回归，新增普通字符串入口拒绝且
+不触发 I/O/缓存的断言。Windows Clang Debug 完整构建、12 项资产/场景/输入/Runtime/边界
+回归通过；改动行格式化和 git diff --check 通过。
+日志：build/asset-public-types-build-final.log、build/asset-public-types-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI。内部缓存仍为擦除弱引用，收窄类型与统一操作尚未完成。
