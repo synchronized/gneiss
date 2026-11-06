@@ -30,8 +30,8 @@ struct render_camera_snapshot {
 };
 
 struct render_instance_snapshot {
-  engine::mesh mesh;
-  engine::material material;
+  ref<const engine::mesh> mesh;
+  ref<const engine::material> material;
   math::transform transform;
 };
 

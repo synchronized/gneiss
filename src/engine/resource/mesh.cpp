@@ -5,10 +5,9 @@
 #include "engine/resource/mesh/detail/mesh_resource_access.hpp"
 
 namespace gneiss::engine {
-mesh_resource::mesh_resource(rid value) noexcept
-    : asset(runtime_type_of<mesh_resource>()), rid_(value) {}
-mesh_resource::~mesh_resource() = default;
-rid resource_handle(const mesh& value) noexcept {
+mesh::mesh(rid value) noexcept : asset(runtime_type_of<mesh>()), rid_(value) {}
+mesh::~mesh() = default;
+rid resource_handle(const ref<const mesh>& value) noexcept {
   return value ? detail::mesh_resource_access::handle(*value) : null_rid;
 }
 } // namespace gneiss::engine

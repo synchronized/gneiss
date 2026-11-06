@@ -17,11 +17,11 @@ public:
   result<ref<void>, serialization::diagnostic> resolve(type_id type,
                                                        std::string_view uri) override {
     render_resource_kind kind;
-    if (type == runtime_type_of<texture_resource>())
+    if (type == runtime_type_of<engine::texture>())
       kind = render_resource_kind::texture;
-    else if (type == runtime_type_of<mesh_resource>())
+    else if (type == runtime_type_of<engine::mesh>())
       kind = render_resource_kind::mesh;
-    else if (type == runtime_type_of<material_resource>())
+    else if (type == runtime_type_of<engine::material>())
       kind = render_resource_kind::material;
     else
       return serialization::diagnostic{.error = error::unsupported};
@@ -34,15 +34,15 @@ public:
       dependencies_.push_back(source);
     // 引用绑定只向 ref<const T> 交付所有权；类型擦除接口不修改资源内容。
     if (kind == render_resource_kind::texture) {
-      auto value = reserved->as<texture_resource>();
-      return value.alias(static_cast<void*>(const_cast<texture_resource*>(value.get())));
+      auto value = reserved->as<engine::texture>();
+      return value.alias(static_cast<void*>(const_cast<engine::texture*>(value.get())));
     }
     if (kind == render_resource_kind::mesh) {
-      auto value = reserved->as<mesh_resource>();
-      return value.alias(static_cast<void*>(const_cast<mesh_resource*>(value.get())));
+      auto value = reserved->as<engine::mesh>();
+      return value.alias(static_cast<void*>(const_cast<engine::mesh*>(value.get())));
     }
-    auto value = reserved->as<material_resource>();
-    return value.alias(static_cast<void*>(const_cast<material_resource*>(value.get())));
+    auto value = reserved->as<engine::material>();
+    return value.alias(static_cast<void*>(const_cast<engine::material*>(value.get())));
   }
 };
 }

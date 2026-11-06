@@ -22,9 +22,9 @@ inline engine::error instantiate_prefab(runtime::application& app, scene_instanc
     const auto& object = source->objects[i];
     if (!object.components.get<engine::mesh_renderer_description>())
       continue;
-    bindings[i] = {engine::resource_cast<engine::mesh_resource>(assets.at(
+    bindings[i] = {engine::resource_cast<gneiss::engine::mesh>(assets.at(
                        object.components.get<engine::mesh_renderer_description>()->mesh_uri)),
-                   engine::resource_cast<engine::material_resource>(assets.at(
+                   engine::resource_cast<gneiss::engine::material>(assets.at(
                        object.components.get<engine::mesh_renderer_description>()->material_uri))};
   }
   return gneiss::test_support::take_value(

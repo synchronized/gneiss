@@ -136,7 +136,7 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
                 {"asset://mesh.json", gneiss::engine::render_resource_kind::mesh},
                 app->assets().profile()),
             ready) == gneiss::engine::error::success);
-  check(gneiss::engine::resource_cast<gneiss::engine::mesh_resource>(ready) == binding.mesh);
+  check(gneiss::engine::resource_cast<gneiss::engine::mesh>(ready) == binding.mesh);
   check(gneiss::test_support::take_value(
             app->assets().find_loaded(
                 {"asset://material.json", gneiss::engine::render_resource_kind::material},
@@ -165,8 +165,7 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
     return finished;
   });
   check(loaded.result == gneiss::engine::error::success &&
-        gneiss::engine::resource_cast<gneiss::engine::material_resource>(loaded.assets.front()) ==
-            material);
+        gneiss::engine::resource_cast<gneiss::engine::material>(loaded.assets.front()) == material);
   check(
       gneiss::test_support::take_value(app->scenes()->capture_mesh_binding(completion.scene, node),
                                        binding) == gneiss::engine::error::success &&
@@ -430,9 +429,8 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   check(second.application_logical_bytes > 0U);
   check(app->activate_scene(request, completion) == gneiss::engine::error::success);
   auto reused = binding();
-  check(reused.mesh == gneiss::engine::resource_cast<gneiss::engine::mesh_resource>(mesh) &&
-        reused.material ==
-            gneiss::engine::resource_cast<gneiss::engine::material_resource>(material));
+  check(reused.mesh == gneiss::engine::resource_cast<gneiss::engine::mesh>(mesh) &&
+        reused.material == gneiss::engine::resource_cast<gneiss::engine::material>(material));
   gneiss::engine::world* new_world{};
   check((new_world = app->native_world()) != nullptr && old_world != new_world);
   std::uint64_t count{};
@@ -464,23 +462,21 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   (void)prepare();
   check(app->activate_scene(request, completion) == gneiss::engine::error::success);
   auto changed = binding();
-  check(changed.mesh == gneiss::engine::resource_cast<gneiss::engine::mesh_resource>(mesh) &&
-        changed.material ==
-            gneiss::engine::resource_cast<gneiss::engine::material_resource>(material));
-  check(gneiss::engine::resource_cast<gneiss::engine::material_resource>(
+  check(changed.mesh == gneiss::engine::resource_cast<gneiss::engine::mesh>(mesh) &&
+        changed.material == gneiss::engine::resource_cast<gneiss::engine::material>(material));
+  check(gneiss::engine::resource_cast<gneiss::engine::material>(
             selected(gneiss::engine::render_resource_kind::material, "asset://material.json")) ==
         changed.material);
   check(!poll());
-  check(original.mesh == gneiss::engine::resource_cast<gneiss::engine::mesh_resource>(mesh) &&
-        original.material ==
-            gneiss::engine::resource_cast<gneiss::engine::material_resource>(material));
+  check(original.mesh == gneiss::engine::resource_cast<gneiss::engine::mesh>(mesh) &&
+        original.material == gneiss::engine::resource_cast<gneiss::engine::material>(material));
   // 已缓存资源不因打开场景而隐式重读损坏文件；显式重载独立处理。
   check((new_world = app->native_world()) != nullptr);
   std::ofstream(files.root / "material.json") << "broken";
   (void)prepare();
   check(app->activate_scene(request, completion) == gneiss::engine::error::success);
   drain_visuals(app, scheduler, mode);
-  check(gneiss::engine::resource_cast<gneiss::engine::material_resource>(
+  check(gneiss::engine::resource_cast<gneiss::engine::material>(
             selected(gneiss::engine::render_resource_kind::material, "asset://material.json")) ==
         changed.material);
 }

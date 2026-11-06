@@ -465,7 +465,8 @@ bool verify_reference_serialization(gneiss::engine::asset_manager& assets) {
   asset_reference_context references{assets};
   serialization::context ctx{references};
   auto decode = [&](std::string_view text) {
-    return serialization::json::deserialize<std::vector<texture>>(
+    return serialization::json::deserialize<
+        std::vector<gneiss::engine::ref<const gneiss::engine::texture>>>(
         ctx, std::as_bytes(std::span{text.data(), text.size()}));
   };
   const std::string source =
@@ -481,7 +482,8 @@ bool verify_reference_serialization(gneiss::engine::asset_manager& assets) {
   auto restored = decode(*saved);
   if (!restored || (*restored)[0] != (*values)[0])
     return false;
-  auto no_context = serialization::json::deserialize<std::vector<texture>>(
+  auto no_context = serialization::json::deserialize<
+      std::vector<gneiss::engine::ref<const gneiss::engine::texture>>>(
       std::as_bytes(std::span{source.data(), source.size()}));
   if (no_context || no_context.error().error != error::invalid_state ||
       no_context.error().path != "/0")
@@ -490,16 +492,18 @@ bool verify_reference_serialization(gneiss::engine::asset_manager& assets) {
       decode(R"([{"$asset":"asset://x","other":1}])"))
     return false;
   const std::string other = R"({"$asset":"asset://not-present.mesh.json"})";
-  auto mesh_value = serialization::json::deserialize<mesh>(
-      ctx, std::as_bytes(std::span{other.data(), other.size()}));
+  auto mesh_value =
+      serialization::json::deserialize<gneiss::engine::ref<const gneiss::engine::mesh>>(
+          ctx, std::as_bytes(std::span{other.data(), other.size()}));
   if (!mesh_value || !*mesh_value || references.dependencies().size() != 2)
     return false;
   auto mesh_saved = serialization::json::serialize(ctx, *mesh_value);
   if (!mesh_saved || *mesh_saved != other)
     return false;
   const std::string material_source = R"({"$asset":"asset://not-present.material.json"})";
-  auto material_value = serialization::json::deserialize<material>(
-      ctx, std::as_bytes(std::span{material_source.data(), material_source.size()}));
+  auto material_value =
+      serialization::json::deserialize<gneiss::engine::ref<const gneiss::engine::material>>(
+          ctx, std::as_bytes(std::span{material_source.data(), material_source.size()}));
   if (!material_value || !*material_value || references.dependencies().size() != 3)
     return false;
   auto material_saved = serialization::json::serialize(ctx, *material_value);
@@ -530,7 +534,8 @@ bool verify_material_dependencies(const memory_file_system& fixture) {
   auto& scheduler = gneiss::test_support::render_tasks();
   if (assets.configure(scheduler).failed() || assets.attach_render(render).failed())
     return false;
-  auto request = assets.load<material_resource>("asset://materials/dependencies.material.json");
+  auto request =
+      assets.load<gneiss::engine::material>("asset://materials/dependencies.material.json");
   if (!request)
     return false;
   const auto wait = [&](auto& pending) {
@@ -544,7 +549,7 @@ bool verify_material_dependencies(const memory_file_system& fixture) {
     }
   };
   wait(*request);
-  auto resource = request->get<material_resource>();
+  auto resource = request->get<gneiss::engine::material>();
   if (request->status() != error::not_found || !resource ||
       request->diagnostic().message.find(description.texture_uris[0]) == std::string::npos)
     return false;
@@ -558,8 +563,8 @@ bool verify_material_dependencies(const memory_file_system& fixture) {
     return false;
   // 文件恢复后重试填充同一身份，无须重新构造持有它的材质。
   memory->files["textures/absent.texture.json"] = memory->files["textures/white.texture.json"];
-  auto retry = assets.load<texture_resource>(description.texture_uris[0]);
-  if (!retry || retry->get<texture_resource>() != missing)
+  auto retry = assets.load<gneiss::engine::texture>(description.texture_uris[0]);
+  if (!retry || retry->get<gneiss::engine::texture>() != missing)
     return false;
   wait(*retry);
   if (retry->status().failed() || !missing->metadata() || resource->textures()[0] != missing)
@@ -572,7 +577,7 @@ bool verify_material_dependencies(const memory_file_system& fixture) {
     return false;
   memory->files["materials/dependencies.material.json"] = *document;
   auto reload =
-      assets.load<material_resource>("asset://materials/dependencies.material.json", true);
+      assets.load<gneiss::engine::material>("asset://materials/dependencies.material.json", true);
   if (!reload)
     return false;
   wait(*reload);
@@ -590,8 +595,8 @@ bool verify_asset_identity() {
   std::weak_ptr<const test_asset> weak = original.shared();
   ref<const asset> generic = original;
   auto typed = asset_cast<test_asset>(generic);
-  if (typed != original || asset_cast<texture_resource>(generic) || asset_cast<test_asset>({}) ||
-      generic.shared().owner_before(original.shared()) ||
+  if (typed != original || asset_cast<gneiss::engine::texture>(generic) ||
+      asset_cast<test_asset>({}) || generic.shared().owner_before(original.shared()) ||
       original.shared().owner_before(generic.shared()))
     return false;
   original.reset();
@@ -821,9 +826,9 @@ int main() try {
     auto& other_loader = other_assets;
     if (other_loader.attach_render(other_render).failed())
       throw std::runtime_error("资源管理器渲染绑定失败");
-    const auto mesh_ref = first_mesh.as<gneiss::engine::mesh_resource>();
-    const auto texture_ref = first_texture.as<gneiss::engine::texture_resource>();
-    const auto material_ref = material.as<gneiss::engine::material_resource>();
+    const auto mesh_ref = first_mesh.as<gneiss::engine::mesh>();
+    const auto texture_ref = first_texture.as<gneiss::engine::texture>();
+    const auto material_ref = material.as<gneiss::engine::material>();
     if (!loader.owns(first_mesh) || !loader.owns(first_texture) || !loader.owns(material) ||
         !loader.owns(mesh_ref) || !loader.owns(texture_ref) || !loader.owns(material_ref) ||
         other_loader.owns(first_mesh) || other_loader.owns(first_texture) ||
@@ -980,9 +985,9 @@ int main() try {
       gneiss::engine::resource_rid(reloaded_texture) != old_texture) {
     return 17;
   }
-  if (reloaded_material.as<gneiss::engine::material_resource>()->parameters().color[0] != 0.2F ||
-      reloaded_material.as<gneiss::engine::material_resource>()->textures()[0].get() !=
-          reloaded_texture.as<gneiss::engine::texture_resource>().get())
+  if (reloaded_material.as<gneiss::engine::material>()->parameters().color[0] != 0.2F ||
+      reloaded_material.as<gneiss::engine::material>()->textures()[0].get() !=
+          reloaded_texture.as<gneiss::engine::texture>().get())
     return 37;
   const auto* reloaded_material_resource =
       resources.get_material(gneiss::engine::resource_rid(reloaded_material));
@@ -1082,12 +1087,13 @@ int main() try {
                                         "asset://models/triangle.mesh.json", typed_entry,
                                         diagnostic) != gneiss::engine::error::success)
     return 33;
-  gneiss::engine::mesh typed_mesh = typed_entry.as<gneiss::engine::mesh_resource>();
-  if (!typed_mesh || typed_entry.as<gneiss::engine::texture_resource>())
+  gneiss::engine::ref<const gneiss::engine::mesh> typed_mesh =
+      typed_entry.as<gneiss::engine::mesh>();
+  if (!typed_mesh || typed_entry.as<gneiss::engine::texture>())
     return 34;
-  gneiss::engine::mesh directly_loaded;
+  gneiss::engine::ref<const gneiss::engine::mesh> directly_loaded;
   if (gneiss::test_support::take_value(
-          loader.find_loaded<gneiss::engine::mesh_resource>("asset://models/triangle.mesh.json"),
+          loader.find_loaded<gneiss::engine::mesh>("asset://models/triangle.mesh.json"),
           directly_loaded)
           .failed() ||
       directly_loaded != typed_mesh || !directly_loaded->metadata() ||
@@ -1099,7 +1105,7 @@ int main() try {
       gneiss::engine::resource_kind(copied) != gneiss::engine::render_resource_kind::mesh)
     return 38;
   copied.reset();
-  if (copied || copied.as<gneiss::engine::mesh_resource>())
+  if (copied || copied.as<gneiss::engine::mesh>())
     return 39;
   const auto* identity = typed_mesh.get();
   typed_entry.reset();
@@ -1107,7 +1113,7 @@ int main() try {
   if (gneiss::test_support::load_render(loader, gneiss::engine::render_resource_kind::mesh,
                                         "asset://models/triangle.mesh.json", typed_entry,
                                         diagnostic) != gneiss::engine::error::success ||
-      typed_entry.as<gneiss::engine::mesh_resource>().get() != identity)
+      typed_entry.as<gneiss::engine::mesh>().get() != identity)
     return 35;
   typed_entry.reset();
   typed_mesh.reset();
@@ -1152,9 +1158,9 @@ int main() try {
     using namespace gneiss::engine;
     render_service local;
     gneiss::engine::detail::asset_construction local_factory{local};
-    gneiss::engine::mesh mesh_ref;
-    gneiss::engine::texture texture_ref;
-    gneiss::engine::material material_ref;
+    gneiss::engine::ref<const gneiss::engine::mesh> mesh_ref;
+    gneiss::engine::ref<const gneiss::engine::texture> texture_ref;
+    gneiss::engine::ref<const gneiss::engine::material> material_ref;
     if (gneiss::test_support::take_value(local_factory.reserve_mesh(), mesh_ref).failed() ||
         gneiss::test_support::take_value(local_factory.reserve_texture(), texture_ref).failed())
       return 60;
@@ -1187,7 +1193,7 @@ int main() try {
   {
     gneiss::engine::render_service closing;
     gneiss::engine::detail::asset_construction closing_factory{closing};
-    gneiss::engine::mesh reference;
+    gneiss::engine::ref<const gneiss::engine::mesh> reference;
     if (gneiss::test_support::take_value(closing_factory.reserve_mesh(), reference).failed())
       return 38;
     const auto handle = resource_handle(reference);

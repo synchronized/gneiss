@@ -202,28 +202,28 @@ error register_builtin_resource_types() noexcept {
   auto status = register_component_descriptions();
   if (status.failed())
     return status;
-  status = meta::register_type<texture_resource>(
+  status = meta::register_type<engine::texture>(
       {.guid = guid::literal("601bc0bf-b255-4eb1-a51f-f06b59e3ff3d"),
        .schema_version = 1,
-       .name = "texture_resource",
-       .serialization = {.encode_reference = detail::encode_asset_reference<texture_resource>,
-                         .decode_reference = detail::decode_asset_reference<texture_resource>}});
+       .name = "texture",
+       .serialization = {.encode_reference = detail::encode_asset_reference<engine::texture>,
+                         .decode_reference = detail::decode_asset_reference<engine::texture>}});
   if (status.failed())
     return status;
-  status = meta::register_type<mesh_resource>(
+  status = meta::register_type<engine::mesh>(
       {.guid = guid::literal("3c7a40a9-3b99-4955-810e-819d3b160590"),
        .schema_version = 1,
-       .name = "mesh_resource",
-       .serialization = {.encode_reference = detail::encode_asset_reference<mesh_resource>,
-                         .decode_reference = detail::decode_asset_reference<mesh_resource>}});
+       .name = "mesh",
+       .serialization = {.encode_reference = detail::encode_asset_reference<engine::mesh>,
+                         .decode_reference = detail::decode_asset_reference<engine::mesh>}});
   if (status.failed())
     return status;
-  status = meta::register_type<material_resource>(
+  status = meta::register_type<engine::material>(
       {.guid = guid::literal("c8edeac7-022d-446f-972f-941b5d193b66"),
        .schema_version = 1,
-       .name = "material_resource",
-       .serialization = {.encode_reference = detail::encode_asset_reference<material_resource>,
-                         .decode_reference = detail::decode_asset_reference<material_resource>}});
+       .name = "material",
+       .serialization = {.encode_reference = detail::encode_asset_reference<engine::material>,
+                         .decode_reference = detail::decode_asset_reference<engine::material>}});
   if (status.failed())
     return status;
   status = meta::type_builder<mesh_description>{}

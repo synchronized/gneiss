@@ -40,9 +40,9 @@ bool pending_resources() {
       resources.destroy_mesh(cancelled) != gneiss::engine::error::invalid_handle) {
     return false;
   }
-  gneiss::engine::mesh mesh_owner;
-  gneiss::engine::texture texture_owner;
-  gneiss::engine::material material_owner;
+  gneiss::engine::ref<const gneiss::engine::mesh> mesh_owner;
+  gneiss::engine::ref<const gneiss::engine::texture> texture_owner;
+  gneiss::engine::ref<const gneiss::engine::material> material_owner;
   if (gneiss::test_support::take_value(resources_factory.reserve_mesh(), mesh_owner).failed() ||
       gneiss::test_support::take_value(resources_factory.reserve_texture(), texture_owner).failed())
     return false;
@@ -75,7 +75,7 @@ bool pending_resources() {
   scene.instances.push_back({.mesh = resources_factory.find_mesh(mesh),
                              .material = resources_factory.find_material(material),
                              .transform = {}});
-  gneiss::engine::material pending_owner;
+  gneiss::engine::ref<const gneiss::engine::material> pending_owner;
   if (gneiss::test_support::take_value(resources_factory.reserve_material(), pending_owner)
           .failed())
     return false;
@@ -181,7 +181,7 @@ int main() {
   texture_desc.height = 64U;
   texture_desc.row_stride_bytes = 64U * 4U;
   texture_desc.pixels = pixels;
-  gneiss::engine::texture texture_owner;
+  gneiss::engine::ref<const gneiss::engine::texture> texture_owner;
   if (gneiss::test_support::take_value(resources_factory.create_texture(texture_desc),
                                        texture_owner) != gneiss::engine::error::success) {
     return 1;
@@ -194,7 +194,7 @@ int main() {
       gneiss::engine::mesh_vertex{.position = {0.0F, 1.0F, 0.0F}, .uv = {0.0F, 1.0F}}};
   gneiss::engine::mesh_view mesh_desc;
   mesh_desc.vertices = vertices;
-  gneiss::engine::mesh mesh_owner;
+  gneiss::engine::ref<const gneiss::engine::mesh> mesh_owner;
   if (gneiss::test_support::take_value(resources_factory.create_mesh(mesh_desc), mesh_owner) !=
       gneiss::engine::error::success) {
     return 2;
@@ -202,7 +202,7 @@ int main() {
 
   const auto mesh = resource_handle(mesh_owner);
   auto texture_ref = resources_factory.find_texture(texture);
-  std::array<gneiss::engine::texture, 4> pbr_refs;
+  std::array<gneiss::engine::ref<const gneiss::engine::texture>, 4> pbr_refs;
   material_data material_desc;
   material_desc.base_color_texture = texture;
   std::array<gneiss::engine::rid, 4> pbr_textures{};
@@ -217,7 +217,7 @@ int main() {
   material_desc.normal_texture = pbr_textures[1];
   material_desc.occlusion_texture = pbr_textures[2];
   material_desc.emissive_texture = pbr_textures[3];
-  gneiss::engine::material material_owner;
+  gneiss::engine::ref<const gneiss::engine::material> material_owner;
   if (gneiss::test_support::take_value(
           resources_factory.create_material(
               material_desc.parameters,

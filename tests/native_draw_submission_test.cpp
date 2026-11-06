@@ -12,7 +12,7 @@
 
 namespace {
 struct draw_context {
-  gneiss::engine::texture texture;
+  gneiss::engine::ref<const gneiss::engine::texture> texture;
   unsigned updates = 0;
   unsigned failure = 0;
 };

@@ -5,7 +5,7 @@
 
 ## 状态
 
-实施中：已接入共同资产身份、引用持久化原型和材质依赖解析；当前优先统一资产记录与在途操作，最终对象类型及文件加载协议尚未完成。日期：2026-11-06。归属：[DEV-052](DEV-052-architecture-cleanup.md)。
+实施中：已接入共同资产身份、引用持久化原型和材质依赖解析；资产记录与在途操作已统一，纹理/网格/材质对象命名已迁移；Scene/Prefab 对象及最终文件加载协议尚未完成。日期：2026-11-06。归属：[DEV-052](DEV-052-architecture-cleanup.md)。
 架构决策见 [ADR-107](../decisions/ADR-107-resource-object-loading.md)。以下 API、格式和目录均为目标示意，不代表现有能力。
 
 ## 现状与目标
@@ -57,6 +57,8 @@ struct asset_entry {
 
 - [x] A. 将缓存和 CPU/渲染在途工作归入同一记录表；删除 requests 身份表和渲染 pending 扫描去重。
 - [ ] B. texture/mesh/material 改为对象类型，上层统一 ref<const T>；删除同名引用别名及重复描述装配入口。
+  - [x] 三类对象及调用方完成命名迁移，删除同名引用别名，反射注册使用对象类型。
+  - [ ] 删除重复描述装配入口，统一对象内容加载。
 - [ ] C. scene/prefab 成为 asset 派生类型；共享内容与 World 实例分离。
 - [ ] D. 记录 cached 统一为最终资产弱引用；取消 CPU 描述缓存条目、临时 payload 身份键及兼容桥接。
 - [ ] E. 类型加载器共用 load_operation 生命周期；覆盖去重、单观察者取消、旧操作迟到、重载失败、清理与关闭。
@@ -315,3 +317,12 @@ mesh_loader.cpp、texture_loader.cpp、material_loader.cpp；材质字段解码�
 build/asset-loaders-tests.log（不入库）。未运行大场景、跨平台或远端 CI。
 本步尚未移除 CPU 中间结果、asset_construction::adopt 入口或材质依赖推进逻辑；
 Scene/Prefab Loader、具体资产类型改名与最终 load_operation 契约继续按主线推进。
+
+2026-11-06：纹理、网格、材质具体对象命名迁移完成。texture/mesh/material 现在是 asset 派生类，
+删除同名引用别名；管理器、ECS、场景绑定、UI 与测试显式持有 ref<const T>。反射注册与资源引用
+编解码使用新对象类型，既有类型 GUID 保持不变。私有构造、控制块共享、弱索引、重载身份与延迟
+销毁行为保持原语义，无旧类名兼容别名。同步更新现行资源和渲染参考。
+Windows Clang Debug 完整构建、15 项资源/场景/序列化/边界回归、改动行格式检查及 git diff --check
+通过。日志：build/asset-types-build.log、build/asset-types-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI。B 的描述装配清理、C 的 Scene/Prefab 对象、D 的最终弱资产
+缓存及 E 的统一加载终态仍未完成，本步不代表 PLAN-102 整体完成。

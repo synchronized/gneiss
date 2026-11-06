@@ -246,17 +246,15 @@ void run() {
               .ok());
     bindings.emplace(std::string(gneiss::engine::resource_uri(target)), target);
   }
-  auto material = gneiss::engine::resource_cast<gneiss::engine::material_resource>(
-      bindings.at("asset://m.material"));
+  auto material =
+      gneiss::engine::resource_cast<gneiss::engine::material>(bindings.at("asset://m.material"));
   const auto mesh_rid = gneiss::engine::resource_rid(bindings.at("asset://m.mesh"));
   check(material &&
         gneiss::engine::resource_rid(material) != gneiss::engine::resource_rid(old_material));
   check(resources.get_material(gneiss::engine::resource_rid(material))->parameters.color[1] ==
         1.0F);
-  check(!gneiss::engine::resource_cast<gneiss::engine::mesh_resource>(
-      bindings.at("asset://m.material")));
-  check(!gneiss::engine::resource_cast<gneiss::engine::material_resource>(
-      bindings.at("asset://m.mesh")));
+  check(!gneiss::engine::resource_cast<gneiss::engine::mesh>(bindings.at("asset://m.material")));
+  check(!gneiss::engine::resource_cast<gneiss::engine::material>(bindings.at("asset://m.mesh")));
   gneiss::engine::render_resource_ref uncached;
   check(gneiss::test_support::take_value(candidate_render.find_loaded(requests.front()),
                                          uncached) == gneiss::engine::error::success);
@@ -429,9 +427,9 @@ void run() {
   check(candidate->scenes()->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
                                                "asset://other.material") ==
         gneiss::engine::error::success);
-  const gneiss::engine::mesh_renderer edited{
-      .mesh = candidate_render.find_mesh(mesh_rid),
-      .material = edited_material.as<gneiss::engine::material_resource>()};
+  const gneiss::engine::mesh_renderer edited{.mesh = candidate_render.find_mesh(mesh_rid),
+                                             .material =
+                                                 edited_material.as<gneiss::engine::material>()};
   const std::array material_only{gneiss::engine::mesh_renderer_replacement{
       .entity = ordinary.entity, .expected = edited, .replacement = edited}};
   check(candidate->native_world()->replace_mesh_renderers(material_only) ==
@@ -449,9 +447,9 @@ void run() {
     check(gneiss::test_support::assign_value(
               candidate->scenes()->capture_mesh_binding(new_scene, ordinary.node), before) ==
           gneiss::engine::error::success);
-    binding after{
-        .mesh = before.mesh,
-        .material = gneiss::engine::resource_cast<gneiss::engine::material_resource>(next_version)};
+    binding after{.mesh = before.mesh,
+                  .material =
+                      gneiss::engine::resource_cast<gneiss::engine::material>(next_version)};
     // 空材质槽位合法；捕获保持为空，随后恢复原绑定。
     auto cleared = before;
     cleared.material = {};

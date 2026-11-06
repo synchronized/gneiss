@@ -9,18 +9,18 @@ namespace gneiss::engine::detail {
 /** 仅供资源装配与 Loader 使用；修改操作限所属线程。 */
 struct material_resource_access final {
   template <typename Finalize>
-  static std::shared_ptr<material_resource> make(resource_retirement_queue& queue,
-                                                 Finalize finalize, rid handle) {
-    return queue.make_with_factory<material_resource>(
-        std::move(finalize), [handle] { return material_resource(handle); });
+  static std::shared_ptr<engine::material> make(resource_retirement_queue& queue, Finalize finalize,
+                                                rid handle) {
+    return queue.make_with_factory<engine::material>(std::move(finalize),
+                                                     [handle] { return engine::material(handle); });
   }
-  static rid handle(const material_resource& value) noexcept { return value.rid_; }
-  static void set_source(const material_resource& value, asset_identity source) {
+  static rid handle(const engine::material& value) noexcept { return value.rid_; }
+  static void set_source(const engine::material& value, asset_identity source) {
     value.identity_ = std::move(source);
   }
 
-  static void set_content(const material_resource& value, const material_parameters& parameters,
-                          std::array<texture, 5> dependencies) noexcept {
+  static void set_content(const engine::material& value, const material_parameters& parameters,
+                          std::array<ref<const engine::texture>, 5> dependencies) noexcept {
     value.parameters_ = parameters;
     value.textures_ = std::move(dependencies);
   }

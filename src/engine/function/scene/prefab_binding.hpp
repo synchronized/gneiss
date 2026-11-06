@@ -59,8 +59,8 @@ public:
   /** 同步构造的内部步骤；节点直接可见，资源由调用方传入，失败由调用方的子树守卫清理。 */
   [[nodiscard]] error create_root(scene_node_id parent, const math::transform& transform);
   [[nodiscard]] error create_node(std::size_t index, const object_description& source,
-                                  scene_node_id parent, engine::mesh mesh,
-                                  engine::material material);
+                                  scene_node_id parent, ref<const engine::mesh> mesh,
+                                  ref<const engine::material> material);
   [[nodiscard]] error apply_override(const prefab_property_override& value) noexcept;
 
 private:

@@ -14,8 +14,8 @@ struct camera_component {
 };
 /** 组件直接保活运行资源，必须执行正常的构造、移动和析构。 */
 struct mesh_renderer {
-  engine::mesh mesh{};
-  engine::material material{};
+  ref<const engine::mesh> mesh{};
+  ref<const engine::material> material{};
 };
 struct mesh_renderer_component {
   mesh_renderer value;

@@ -5,8 +5,9 @@
 namespace gneiss::engine::detail {
 // 材质字段仍由通用对象解码器处理；此处只负责所属线程的内容采用。
 error asset_construction::adopt(asset_manager& assets, const material_description& description,
-                                const material& target,
-                                std::array<texture, 5> dependencies) noexcept try {
+                                const ref<const engine::material>& target,
+                                std::array<ref<const engine::texture>, 5> dependencies) noexcept
+    try {
   if (!assets.impl_ || assets.stop_requested())
     return error::invalid_state;
   if (!assets.owns(target))
@@ -31,5 +32,4 @@ error asset_construction::adopt(asset_manager& assets, const material_descriptio
 } catch (...) {
   return error::internal;
 }
-
 }

@@ -80,11 +80,11 @@ create_prefab_binding(world& native_world, asset_manager& loader, prefab_asset_r
       const auto& object = source.objects[addition.new_index];
       mesh_renderer renderer;
       if (object.components.template get<gneiss::engine::mesh_renderer_description>()) {
-        auto mesh = loader.find_loaded<mesh_resource>(
+        auto mesh = loader.find_loaded<gneiss::engine::mesh>(
             object.components.template get<gneiss::engine::mesh_renderer_description>()->mesh_uri);
         if (!mesh)
           return mesh.error();
-        auto material = loader.find_loaded<material_resource>(
+        auto material = loader.find_loaded<gneiss::engine::material>(
             object.components.template get<gneiss::engine::mesh_renderer_description>()
                 ->material_uri);
         if (!material)

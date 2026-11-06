@@ -73,9 +73,9 @@ HTTP(S) 地址使用 Fetch URL 基址。借用目录不会在后端销毁时被�
 零 RID、invalid 类型和空 URI。场景绑定校验所属服务及来源域，ECS 保存类型化资源强引用。
 上传任务和在途渲染帧对具体数据的共享所有权不等同于资产身份引用。
 
-类型化运行对象分别定义在 `resource/mesh/mesh_resource.hpp`、
-`resource/texture/texture_resource.hpp` 和 `resource/material/material_resource.hpp`。
-上层包含所需资源头，保存 `mesh`、`texture`、`material` 强引用；材质持有纹理强引用。
+类型化运行对象分别定义在 `resource/mesh.hpp`、
+`resource/texture.hpp` 和 `resource/material.hpp`。
+上层包含所需资源头，保存 `ref<const mesh>`、`ref<const texture>`、`ref<const material>`；材质持有纹理强引用。
 资源对象析构只处理 CPU 状态与依赖，不调用 Render。管理器的延迟销毁队列先在所属线程
 释放 RID，再析构资源对象；服务关闭后的晚释放只析构 CPU 对象。
 CPU 数据表位于 `render_service` 私有实现，Loader 与宿主通过其 RID 接口操作。
@@ -179,7 +179,7 @@ Runtime 的清理补报为事件，不重复发送请求响应；Editor 仅更�
 `material_description` 是唯一的 CPU 材质描述，包含 `material_parameters parameters` 和
 五槽纹理 URI；解析结果直接使用此类型，不再增加单字段文档包装。
 材质仅读写 v6，字段及默认值见 [Render 资产格式](render-asset-formats.md)。
-`material_resource` 是稳定运行对象，保存 `material_parameters` 和五槽 `texture` 强引用，
+`material` 是稳定运行对象，保存 `material_parameters` 和五槽 `ref<const texture>` 强引用，
 通过只读 `parameters()`、`textures()` 查询；它不再持有描述对象或纹理缓存条目。
 后端 CPU 快照 `material_data` 保存同结构参数及纹理 RID。参数默认白色、不透明、
 metallic=0、roughness=1；这不免除材质文件必填字段的校验。

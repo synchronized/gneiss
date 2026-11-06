@@ -161,8 +161,8 @@ void run_pending_resources() {
   check(native != nullptr);
   auto& resources = native->render();
   auto& resources_factory = native->assets();
-  gneiss::engine::mesh mesh_ref;
-  gneiss::engine::texture texture_ref;
+  gneiss::engine::ref<const gneiss::engine::mesh> mesh_ref;
+  gneiss::engine::ref<const gneiss::engine::texture> texture_ref;
   check(gneiss::test_support::take_value(resources_factory.reserve_mesh(), mesh_ref) ==
         gneiss::engine::error::success);
   check(gneiss::test_support::take_value(resources_factory.reserve_texture(), texture_ref) ==
@@ -175,10 +175,11 @@ void run_pending_resources() {
   material_desc.parameters.emissive[0] = material_desc.parameters.emissive[1] =
       material_desc.parameters.emissive[2] = 1.0F;
   material_desc.emissive_texture = texture;
-  gneiss::engine::material material_ref;
+  gneiss::engine::ref<const gneiss::engine::material> material_ref;
   check(gneiss::engine::error{gneiss::test_support::take_value(
-            resources_factory.create_material(material_desc.parameters,
-                                              {gneiss::engine::texture{}, {}, {}, {}, texture_ref}),
+            resources_factory.create_material(
+                material_desc.parameters,
+                {gneiss::engine::ref<const gneiss::engine::texture>{}, {}, {}, {}, texture_ref}),
             material_ref)} == gneiss::engine::error::success);
   gneiss::engine::scene_node_info info;
   check(gneiss::engine::error{gneiss::test_support::take_value(

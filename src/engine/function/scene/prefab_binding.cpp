@@ -95,8 +95,8 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
     std::string name;
     std::uint64_t entity{};
     scene_node_id node{};
-    engine::mesh mesh;
-    engine::material material;
+    ref<const engine::mesh> mesh;
+    ref<const engine::material> material;
   };
   std::vector<staged_node> staged;
   staged.reserve(effective.objects.size());
@@ -367,8 +367,8 @@ engine::error prefab_binding::create_root(scene_node_id parent, const math::tran
   return error::success;
 }
 engine::error prefab_binding::create_node(std::size_t index, const object_description& source,
-                                          scene_node_id parent, engine::mesh mesh,
-                                          engine::material material) {
+                                          scene_node_id parent, ref<const engine::mesh> mesh,
+                                          ref<const engine::material> material) {
   if (!root_node_ || !prefab_ || index >= nodes_.size() || nodes_[index].creation_attempted)
     return error::invalid_state;
   if (source.uuid != prefab_->objects[index].uuid)

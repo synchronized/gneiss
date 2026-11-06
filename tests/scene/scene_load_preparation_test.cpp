@@ -201,7 +201,7 @@ void run() {
   }
   auto unified = second_prepare->take();
   check(bool(unified) && (*unified)->instance_nodes == 3U);
-  auto no_renderer = assets.load<texture_resource>("asset://image");
+  auto no_renderer = assets.load<gneiss::engine::texture>("asset://image");
   check(!no_renderer && no_renderer.error() == error::invalid_state);
   auto created = assets.create(scene_description{});
   check(bool(created));

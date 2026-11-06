@@ -51,22 +51,22 @@ public:
   /** 只查找 CPU 内容已就绪的缓存，不读取文件、不等待 GPU。 */
   GNEISS_API result<render_resource_ref> find_loaded(const render_resource_source&,
                                                      texture_prepare_profile = {}) const noexcept;
-  GNEISS_API bool owns(const mesh&) const noexcept;
-  GNEISS_API bool owns(const texture&) const noexcept;
-  GNEISS_API bool owns(const material&) const noexcept;
+  GNEISS_API bool owns(const ref<const engine::mesh>&) const noexcept;
+  GNEISS_API bool owns(const ref<const engine::texture>&) const noexcept;
+  GNEISS_API bool owns(const ref<const engine::material>&) const noexcept;
   GNEISS_API bool owns(const render_resource_ref&) const noexcept;
   /** 所属线程创建程序化资源并返回强引用；失败返回错误，不接管外部 RID。 */
-  GNEISS_API result<texture> create_texture(const texture_view&) noexcept;
-  GNEISS_API result<mesh> create_mesh(const mesh_view&) noexcept;
-  GNEISS_API result<material> create_material(const material_parameters&,
-                                              std::array<texture, 5>) noexcept;
-  GNEISS_API result<texture> reserve_texture() noexcept;
-  GNEISS_API result<mesh> reserve_mesh() noexcept;
-  GNEISS_API result<material> reserve_material() noexcept;
+  GNEISS_API result<ref<const engine::texture>> create_texture(const texture_view&) noexcept;
+  GNEISS_API result<ref<const engine::mesh>> create_mesh(const mesh_view&) noexcept;
+  GNEISS_API result<ref<const engine::material>>
+  create_material(const material_parameters&, std::array<ref<const engine::texture>, 5>) noexcept;
+  GNEISS_API result<ref<const engine::texture>> reserve_texture() noexcept;
+  GNEISS_API result<ref<const engine::mesh>> reserve_mesh() noexcept;
+  GNEISS_API result<ref<const engine::material>> reserve_material() noexcept;
   /** 仅锁定本管理器已创建的对象；未知或已释放 RID 返回空。 */
-  GNEISS_API texture find_texture(rid) const noexcept;
-  GNEISS_API mesh find_mesh(rid) const noexcept;
-  GNEISS_API material find_material(rid) const noexcept;
+  GNEISS_API ref<const engine::texture> find_texture(rid) const noexcept;
+  GNEISS_API ref<const engine::mesh> find_mesh(rid) const noexcept;
+  GNEISS_API ref<const engine::material> find_material(rid) const noexcept;
   /** 单资源异步加载；默认复用缓存，同身份的在途请求共享工作（包括 reload）。
    * 输入在返回前复制；提交失败返回错误。每项独立完成，不等待 GPU。 */
   GNEISS_API result<asset_request<render_resource_ref>> load(const render_resource_source&,

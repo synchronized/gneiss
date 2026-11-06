@@ -19,13 +19,13 @@ struct render_resource_source final {
 };
 /** 资源分类属于加载层，不让资源对象反向依赖 render_resource_kind。 */
 template <typename T> struct resource_traits {};
-template <> struct resource_traits<mesh_resource> {
+template <> struct resource_traits<engine::mesh> {
   static constexpr render_resource_kind kind = render_resource_kind::mesh;
 };
-template <> struct resource_traits<texture_resource> {
+template <> struct resource_traits<engine::texture> {
   static constexpr render_resource_kind kind = render_resource_kind::texture;
 };
-template <> struct resource_traits<material_resource> {
+template <> struct resource_traits<engine::material> {
   static constexpr render_resource_kind kind = render_resource_kind::material;
 };
 template <typename T>
@@ -58,27 +58,27 @@ template <class T>
   return value.as<T>();
 }
 [[nodiscard]] inline render_resource_kind resource_kind(const render_resource_ref& value) noexcept {
-  if (value.as<mesh_resource>())
+  if (value.as<engine::mesh>())
     return render_resource_kind::mesh;
-  if (value.as<texture_resource>())
+  if (value.as<engine::texture>())
     return render_resource_kind::texture;
-  if (value.as<material_resource>())
+  if (value.as<engine::material>())
     return render_resource_kind::material;
   return render_resource_kind::invalid;
 }
 [[nodiscard]] inline rid resource_rid(const render_resource_ref& value) noexcept {
-  if (auto asset = value.as<mesh_resource>())
+  if (auto asset = value.as<engine::mesh>())
     return resource_handle(asset);
-  if (auto asset = value.as<texture_resource>())
+  if (auto asset = value.as<engine::texture>())
     return resource_handle(asset);
-  return resource_handle(value.as<material_resource>());
+  return resource_handle(value.as<engine::material>());
 }
 [[nodiscard]] inline std::string_view resource_uri(const render_resource_ref& value) noexcept {
-  if (auto asset = value.as<mesh_resource>())
+  if (auto asset = value.as<engine::mesh>())
     return asset->source().uri;
-  if (auto asset = value.as<texture_resource>())
+  if (auto asset = value.as<engine::texture>())
     return asset->source().uri;
-  if (auto asset = value.as<material_resource>())
+  if (auto asset = value.as<engine::material>())
     return asset->source().uri;
   return {};
 }

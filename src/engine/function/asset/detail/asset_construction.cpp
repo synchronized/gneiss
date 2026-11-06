@@ -40,25 +40,25 @@ template <typename T> std::shared_ptr<T> asset_construction::make(rid handle) {
     auto* render = static_cast<render_service*>(owner);
     if (!render)
       return;
-    if constexpr (std::is_same_v<T, mesh_resource>) {
+    if constexpr (std::is_same_v<T, engine::mesh>) {
       const auto handle = detail::mesh_resource_access::handle(value);
       if (render->mesh_status(handle) != error::invalid_handle)
         (void)render->destroy_mesh(handle);
-    } else if constexpr (std::is_same_v<T, texture_resource>) {
+    } else if constexpr (std::is_same_v<T, engine::texture>) {
       const auto handle = detail::texture_resource_access::handle(value);
       if (render->texture_status(handle) != error::invalid_handle)
         (void)render->destroy_texture(handle);
-    } else if constexpr (std::is_same_v<T, material_resource>) {
+    } else if constexpr (std::is_same_v<T, engine::material>) {
       const auto handle = detail::material_resource_access::handle(value);
       if (render->material_status(handle) != error::invalid_handle)
         (void)render->destroy_material(handle);
     }
   };
-  if constexpr (std::is_same_v<T, mesh_resource>)
+  if constexpr (std::is_same_v<T, engine::mesh>)
     return detail::mesh_resource_access::make(retirement_, finalize, handle);
-  else if constexpr (std::is_same_v<T, texture_resource>)
+  else if constexpr (std::is_same_v<T, engine::texture>)
     return detail::texture_resource_access::make(retirement_, finalize, handle);
-  else if constexpr (std::is_same_v<T, material_resource>)
+  else if constexpr (std::is_same_v<T, engine::material>)
     return detail::material_resource_access::make(retirement_, finalize, handle);
 }
 
@@ -81,31 +81,31 @@ void asset_construction::close() noexcept {
   materials_.clear();
 }
 
-mesh asset_construction::wrap_mesh(rid handle) {
+ref<const engine::mesh> asset_construction::wrap_mesh(rid handle) {
   // 这里只接收本服务刚创建的 RID；先分配索引，再构造拥有者。
   const auto entry = meshes_.try_emplace(handle).first;
-  auto value = make<mesh_resource>(handle);
+  auto value = make<engine::mesh>(handle);
   entry->second = value;
   if (const auto* data = render_.get_mesh(handle))
     update_mesh(handle, *data);
-  return mesh{std::move(value)};
+  return ref<const engine::mesh>{std::move(value)};
 }
 
-texture asset_construction::wrap_texture(rid handle) {
+ref<const engine::texture> asset_construction::wrap_texture(rid handle) {
   // 这里只接收本服务刚创建的 RID；先分配索引，再构造拥有者。
   const auto entry = textures_.try_emplace(handle).first;
-  auto value = make<texture_resource>(handle);
+  auto value = make<engine::texture>(handle);
   entry->second = value;
   if (const auto* data = render_.get_texture(handle))
     update_texture(handle, *data);
-  return texture{std::move(value)};
+  return ref<const engine::texture>{std::move(value)};
 }
 
-material asset_construction::wrap_material(rid handle) {
+ref<const engine::material> asset_construction::wrap_material(rid handle) {
   const auto entry = materials_.try_emplace(handle).first;
-  auto value = make<material_resource>(handle);
+  auto value = make<engine::material>(handle);
   entry->second = value;
-  return material{std::move(value)};
+  return ref<const engine::material>{std::move(value)};
 }
 
 void asset_construction::update_mesh(rid handle, const mesh_data& data) noexcept {
@@ -130,8 +130,9 @@ void asset_construction::update_texture(rid handle, const texture_data& data) no
               data.manifest.empty() ? std::optional{data.format} : std::nullopt, data.color_space});
 }
 
-void asset_construction::update_material(rid handle, const material_data& data,
-                                         std::array<texture, 5> dependencies) noexcept {
+void asset_construction::update_material(
+    rid handle, const material_data& data,
+    std::array<ref<const engine::texture>, 5> dependencies) noexcept {
   const auto found = materials_.find(handle);
   if (found != materials_.end())
     if (auto value = found->second.lock()) {
@@ -149,11 +150,11 @@ result<Ref> asset_construction::create(Create create_rid) noexcept {
     return created.error();
   const auto handle = *created;
   auto cleanup = [&] {
-    if constexpr (std::is_same_v<Ref, mesh>) {
+    if constexpr (std::is_same_v<Ref, ref<const engine::mesh>>) {
       if (render_.mesh_status(handle) != error::invalid_handle)
         (void)render_.destroy_mesh(handle);
       meshes_.erase(handle);
-    } else if constexpr (std::is_same_v<Ref, texture>) {
+    } else if constexpr (std::is_same_v<Ref, ref<const engine::texture>>) {
       if (render_.texture_status(handle) != error::invalid_handle)
         (void)render_.destroy_texture(handle);
       textures_.erase(handle);
@@ -164,9 +165,9 @@ result<Ref> asset_construction::create(Create create_rid) noexcept {
     }
   };
   try {
-    if constexpr (std::is_same_v<Ref, mesh>)
+    if constexpr (std::is_same_v<Ref, ref<const engine::mesh>>)
       return wrap_mesh(handle);
-    else if constexpr (std::is_same_v<Ref, texture>)
+    else if constexpr (std::is_same_v<Ref, ref<const engine::texture>>)
       return wrap_texture(handle);
     else
       return wrap_material(handle);
@@ -179,27 +180,29 @@ result<Ref> asset_construction::create(Create create_rid) noexcept {
   }
 }
 
-result<mesh> asset_construction::reserve_mesh() noexcept {
-  return create<mesh>([&] { return render_.reserve_mesh(); });
+result<ref<const engine::mesh>> asset_construction::reserve_mesh() noexcept {
+  return create<ref<const engine::mesh>>([&] { return render_.reserve_mesh(); });
 }
 
-result<texture> asset_construction::reserve_texture() noexcept {
-  return create<texture>([&] { return render_.reserve_texture(); });
+result<ref<const engine::texture>> asset_construction::reserve_texture() noexcept {
+  return create<ref<const engine::texture>>([&] { return render_.reserve_texture(); });
 }
 
-result<material> asset_construction::reserve_material() noexcept {
-  return create<material>([&] { return render_.reserve_material(); });
+result<ref<const engine::material>> asset_construction::reserve_material() noexcept {
+  return create<ref<const engine::material>>([&] { return render_.reserve_material(); });
 }
-result<mesh> asset_construction::create_mesh(const mesh_view& desc) noexcept {
-  return create<mesh>([&] { return render_.create_mesh(desc); });
-}
-
-result<texture> asset_construction::create_texture(const texture_view& desc) noexcept {
-  return create<texture>([&] { return render_.create_texture(desc); });
+result<ref<const engine::mesh>> asset_construction::create_mesh(const mesh_view& desc) noexcept {
+  return create<ref<const engine::mesh>>([&] { return render_.create_mesh(desc); });
 }
 
-result<material> asset_construction::create_material(const material_parameters& parameters,
-                                                     std::array<texture, 5> dependencies) noexcept {
+result<ref<const engine::texture>>
+asset_construction::create_texture(const texture_view& desc) noexcept {
+  return create<ref<const engine::texture>>([&] { return render_.create_texture(desc); });
+}
+
+result<ref<const engine::material>> asset_construction::create_material(
+    const material_parameters& parameters,
+    std::array<ref<const engine::texture>, 5> dependencies) noexcept {
   if (closed_) {
     return error::invalid_state;
   }
@@ -211,24 +214,26 @@ result<material> asset_construction::create_material(const material_parameters& 
     }
     data.set_texture(i, handle);
   }
-  auto output = create<material>([&] { return render_.create_material(data); });
+  auto output = create<ref<const engine::material>>([&] { return render_.create_material(data); });
   if (output)
     detail::material_resource_access::set_content(**output, parameters, std::move(dependencies));
   return output;
 }
 
-mesh asset_construction::find_mesh(rid handle) const noexcept {
+ref<const engine::mesh> asset_construction::find_mesh(rid handle) const noexcept {
   if (closed_ || render_.mesh_status(handle) == error::invalid_handle)
     return {};
   const auto found = meshes_.find(handle);
-  return found == meshes_.end() ? mesh{} : mesh{found->second.lock()};
+  return found == meshes_.end() ? ref<const engine::mesh>{}
+                                : ref<const engine::mesh>{found->second.lock()};
 }
 
-material asset_construction::find_material(rid handle) const noexcept {
+ref<const engine::material> asset_construction::find_material(rid handle) const noexcept {
   if (closed_ || render_.material_status(handle) == error::invalid_handle)
     return {};
   const auto found = materials_.find(handle);
-  return found == materials_.end() ? material{} : material{found->second.lock()};
+  return found == materials_.end() ? ref<const engine::material>{}
+                                   : ref<const engine::material>{found->second.lock()};
 }
 
 std::size_t asset_construction::drain() noexcept {
@@ -247,14 +252,15 @@ std::size_t asset_construction::drain() noexcept {
   return count;
 }
 
-texture asset_construction::find_texture(rid handle) const noexcept {
+ref<const engine::texture> asset_construction::find_texture(rid handle) const noexcept {
   if (closed_ || render_.texture_status(handle) == error::invalid_handle)
     return {};
   const auto found = textures_.find(handle);
-  return found == textures_.end() ? texture{} : texture{found->second.lock()};
+  return found == textures_.end() ? ref<const engine::texture>{}
+                                  : ref<const engine::texture>{found->second.lock()};
 }
 
-bool asset_construction::update_mesh(const mesh& target,
+bool asset_construction::update_mesh(const ref<const engine::mesh>& target,
                                      std::shared_ptr<const mesh_data> data) noexcept {
   if (closed_ || !target || !data)
     return false;
@@ -267,7 +273,7 @@ bool asset_construction::update_mesh(const mesh& target,
   return true;
 }
 
-bool asset_construction::update_texture(const texture& target,
+bool asset_construction::update_texture(const ref<const engine::texture>& target,
                                         std::shared_ptr<const texture_data> data) noexcept {
   if (closed_ || !target || !data)
     return false;
@@ -280,9 +286,9 @@ bool asset_construction::update_texture(const texture& target,
   return true;
 }
 
-bool asset_construction::update_material(const material& target,
-                                         std::shared_ptr<const material_data> data,
-                                         std::array<texture, 5> dependencies) noexcept {
+bool asset_construction::update_material(
+    const ref<const engine::material>& target, std::shared_ptr<const material_data> data,
+    std::array<ref<const engine::texture>, 5> dependencies) noexcept {
   if (closed_ || !target || !data)
     return false;
   const auto handle = resource_handle(target);
@@ -344,12 +350,12 @@ void asset_construction::advance(asset_manager& service) {
               state.source_bytes = request.source_bytes();
               if constexpr (std::is_same_v<T, asset_request<mesh_data>>) {
                 state.metrics = request.metrics();
-                return adopt(service, loaded->shared(), resource_cast<mesh_resource>(state.target),
+                return adopt(service, loaded->shared(), resource_cast<engine::mesh>(state.target),
                              state.metrics.sources);
               } else if constexpr (std::is_same_v<T, asset_request<texture_data>>) {
                 state.metrics = request.metrics();
                 return adopt(service, loaded->shared(),
-                             resource_cast<texture_resource>(state.target), state.metrics.sources);
+                             resource_cast<engine::texture>(state.target), state.metrics.sources);
               } else {
                 auto description = std::move(*loaded);
                 auto bytes = sizeof(material_data);
@@ -365,14 +371,14 @@ void asset_construction::advance(asset_manager& service) {
                   const auto& uri = description->texture_uris[slot];
                   if (uri.empty())
                     continue;
-                  auto resolved = references.resolve(runtime_type_of<texture_resource>(), uri);
+                  auto resolved = references.resolve(runtime_type_of<engine::texture>(), uri);
                   if (!resolved) {
                     diagnostic = std::move(resolved).error();
                     diagnostic.path = "/texture_uris/" + std::to_string(slot) + diagnostic.path;
                     return diagnostic.error;
                   }
                   work->texture_references[slot] =
-                      resolved->alias(static_cast<const texture_resource*>(resolved->get()));
+                      resolved->alias(static_cast<const engine::texture*>(resolved->get()));
                 }
                 // 先提交全部唯一依赖，再观察完成；一个慢请求不阻止后续请求启动。
                 for (const auto& source : references.dependencies()) {
@@ -412,7 +418,7 @@ void asset_construction::advance(asset_manager& service) {
         if (status.failed()) {
           work->dependency_error = status;
           const auto failure = dependency.diagnostic();
-          const auto uri = resource_uri(dependency.get<texture_resource>());
+          const auto uri = resource_uri(dependency.get<engine::texture>());
           state.diagnostic.path = failure.path.empty() ? std::string(uri) : failure.path;
           state.diagnostic.byte_offset = failure.byte_offset;
           state.diagnostic.message += std::string(uri) + ": " + failure.message + "\n";
@@ -425,7 +431,7 @@ void asset_construction::advance(asset_manager& service) {
         continue;
       }
       state.status =
-          adopt(service, *work->description, resource_cast<material_resource>(state.target),
+          adopt(service, *work->description, resource_cast<engine::material>(state.target),
                 std::move(work->texture_references));
       if (state.status.ok() && work->dependency_error.failed())
         state.status = work->dependency_error;

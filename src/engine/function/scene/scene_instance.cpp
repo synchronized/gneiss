@@ -38,8 +38,8 @@ struct staged_object {
   gneiss::engine::guid uuid;
   std::uint64_t entity{};
   scene_node_id node{};
-  engine::mesh mesh;
-  engine::material material;
+  ref<const engine::mesh> mesh;
+  ref<const engine::material> material;
 };
 error commit_object(world& native_world, const object_description& source, staged_object& target,
                     scene_node_id parent, asset_manager& resources) {
@@ -144,8 +144,8 @@ void scene_instance::initialize_staged(guid uuid, std::size_t count) {
 }
 engine::error scene_instance::create_staged_node(std::size_t index,
                                                  const object_description& source,
-                                                 scene_node_id parent, engine::mesh mesh,
-                                                 engine::material material) {
+                                                 scene_node_id parent, ref<const engine::mesh> mesh,
+                                                 ref<const engine::material> material) {
   if (index >= objects_.size() || objects_[index].node)
     return error::invalid_state;
 
@@ -847,7 +847,7 @@ scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& des
     } else {
       result = engine::error::success;
       {
-        auto loaded = loader_.find_loaded<mesh_resource>(mesh_uri);
+        auto loaded = loader_.find_loaded<engine::mesh>(mesh_uri);
         if (loaded)
           target.mesh = std::move(*loaded);
         else {
@@ -858,7 +858,7 @@ scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& des
       if (result == engine::error::success) {
         result = engine::error::success;
         {
-          auto loaded = loader_.find_loaded<material_resource>(material_uri);
+          auto loaded = loader_.find_loaded<engine::material>(material_uri);
           if (loaded)
             target.material = std::move(*loaded);
           else {
@@ -899,15 +899,17 @@ engine::error scene_instance::set_mesh_renderer(scene_node_id node, std::string_
       return current.error();
     const auto binding = current ? *current : mesh_renderer{};
     // 编辑资产选择不等于重载；未改变的 URI 继续使用节点选定的版本。
-    auto mesh = engine::resource_uri(binding.mesh) == mesh_uri ? binding.mesh : engine::mesh{};
-    auto material = engine::resource_uri(binding.material) == material_uri ? binding.material
-                                                                           : engine::material{};
+    auto mesh =
+        engine::resource_uri(binding.mesh) == mesh_uri ? binding.mesh : ref<const engine::mesh>{};
+    auto material = engine::resource_uri(binding.material) == material_uri
+                        ? binding.material
+                        : ref<const engine::material>{};
 
     auto result = engine::error::success;
     if (!mesh && !mesh_uri.empty()) {
       result = engine::error::success;
       {
-        auto loaded = loader_.find_loaded<mesh_resource>(mesh_uri);
+        auto loaded = loader_.find_loaded<engine::mesh>(mesh_uri);
         if (loaded)
           mesh = std::move(*loaded);
         else {
@@ -919,7 +921,7 @@ engine::error scene_instance::set_mesh_renderer(scene_node_id node, std::string_
     if (result == engine::error::success && !material && !material_uri.empty()) {
       result = engine::error::success;
       {
-        auto loaded = loader_.find_loaded<material_resource>(material_uri);
+        auto loaded = loader_.find_loaded<engine::material>(material_uri);
         if (loaded)
           material = std::move(*loaded);
         else {

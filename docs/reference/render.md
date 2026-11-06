@@ -58,9 +58,8 @@ domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
 
 ## 运行资源身份与销毁
 
-`engine/resource` 下各资源目录的 `mesh_resource.hpp`、`texture_resource.hpp`、
-`material_resource.hpp` 分别定义同名运行对象，
-分别使用 `mesh`、`texture`、`material`（`asset_ref<const T>`）持有。
+`engine/resource` 顶层的 `mesh.hpp`、`texture.hpp`、`material.hpp` 分别定义同名运行对象，
+上层使用 `ref<const mesh>`、`ref<const texture>`、`ref<const material>` 持有。
 各对象只保留对应 `detail::*_resource_access` 一个友元。访问器位于各资源目录的 `detail/`，
 提供构造、RID 查询、来源设置、更新序号校验及元信息/材质内容更新，不返回私有字段的可变引用。
 只有资源自身实现、资源装配和 Loader 可以包含访问器；普通上层使用只读资源接口。

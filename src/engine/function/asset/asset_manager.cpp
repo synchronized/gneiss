@@ -35,11 +35,11 @@ gneiss::engine::type_id cache_type(gneiss::engine::render_resource_kind type) no
   using gneiss::engine::render_resource_kind;
   switch (type) {
   case render_resource_kind::mesh:
-    return gneiss::engine::runtime_type_of<mesh_resource>();
+    return gneiss::engine::runtime_type_of<gneiss::engine::mesh>();
   case render_resource_kind::material:
-    return gneiss::engine::runtime_type_of<material_resource>();
+    return gneiss::engine::runtime_type_of<gneiss::engine::material>();
   case render_resource_kind::texture:
-    return gneiss::engine::runtime_type_of<texture_resource>();
+    return gneiss::engine::runtime_type_of<gneiss::engine::texture>();
   default:
     return gneiss::engine::runtime_type_of<void>();
   }
@@ -742,67 +742,69 @@ result<asset_request<render_resource_ref>> asset_manager::load(const render_reso
   return error::internal;
 }
 
-result<mesh> asset_manager::reserve_mesh() noexcept {
+result<ref<const engine::mesh>> asset_manager::reserve_mesh() noexcept {
   if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->reserve_mesh();
 }
-mesh asset_manager::find_mesh(rid id) const noexcept {
-  return impl_ ? impl_->find_mesh(id) : mesh{};
+ref<const engine::mesh> asset_manager::find_mesh(rid id) const noexcept {
+  return impl_ ? impl_->find_mesh(id) : ref<const engine::mesh>{};
 }
 
-result<texture> asset_manager::reserve_texture() noexcept {
+result<ref<const engine::texture>> asset_manager::reserve_texture() noexcept {
   if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->reserve_texture();
 }
-texture asset_manager::find_texture(rid id) const noexcept {
-  return impl_ ? impl_->find_texture(id) : texture{};
+ref<const engine::texture> asset_manager::find_texture(rid id) const noexcept {
+  return impl_ ? impl_->find_texture(id) : ref<const engine::texture>{};
 }
 
-result<material> asset_manager::reserve_material() noexcept {
+result<ref<const engine::material>> asset_manager::reserve_material() noexcept {
   if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->reserve_material();
 }
-material asset_manager::find_material(rid id) const noexcept {
-  return impl_ ? impl_->find_material(id) : material{};
+ref<const engine::material> asset_manager::find_material(rid id) const noexcept {
+  return impl_ ? impl_->find_material(id) : ref<const engine::material>{};
 }
 
-result<mesh> asset_manager::create_mesh(const mesh_view& data) noexcept {
+result<ref<const engine::mesh>> asset_manager::create_mesh(const mesh_view& data) noexcept {
   if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->create_mesh(data);
 }
-result<texture> asset_manager::create_texture(const texture_view& data) noexcept {
+result<ref<const engine::texture>>
+asset_manager::create_texture(const texture_view& data) noexcept {
   if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->create_texture(data);
 }
-result<material> asset_manager::create_material(const material_parameters& data,
-                                                std::array<texture, 5> deps) noexcept {
+result<ref<const engine::material>>
+asset_manager::create_material(const material_parameters& data,
+                               std::array<ref<const engine::texture>, 5> deps) noexcept {
   if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->create_material(data, std::move(deps));
 }
 
 bool asset_manager::owns(const render_resource_ref& value) const noexcept {
-  if (auto asset = value.as<mesh_resource>())
+  if (auto asset = value.as<engine::mesh>())
     return owns(asset);
-  if (auto asset = value.as<texture_resource>())
+  if (auto asset = value.as<engine::texture>())
     return owns(asset);
-  if (auto asset = value.as<material_resource>())
+  if (auto asset = value.as<engine::material>())
     return owns(asset);
   return false;
 }
 
 namespace {
 render_resource_ref cached_resource(const detail::asset_cache_value& entry) noexcept {
-  if (auto asset = entry.as<mesh_resource>())
+  if (auto asset = entry.as<engine::mesh>())
     return asset;
-  if (auto asset = entry.as<texture_resource>())
+  if (auto asset = entry.as<engine::texture>())
     return asset;
-  if (auto asset = entry.as<material_resource>())
+  if (auto asset = entry.as<engine::material>())
     return asset;
   return {};
 }
@@ -850,18 +852,18 @@ asset_manager::find_loaded(const render_resource_source& source,
     if (status != engine::error::success) {
       return status;
     }
-    const auto matches_profile = [&](const texture_resource& resource) {
+    const auto matches_profile = [&](const engine::texture& resource) {
       const auto rid = detail::texture_resource_access::handle(resource);
       const auto* texture = impl_->render().get_texture(rid);
       return texture &&
              (profile.generation == 0U || texture->manifest.empty() || texture->profile == profile);
     };
     if (source.type == render_resource_kind::texture &&
-        !matches_profile(*current->as<texture_resource>())) {
+        !matches_profile(*current->as<engine::texture>())) {
       return engine::error::not_found;
     }
     if (source.type == render_resource_kind::material) {
-      const auto material = std::static_pointer_cast<const material_resource>(current->resource);
+      const auto material = std::static_pointer_cast<const engine::material>(current->resource);
       for (const auto& texture : material->textures()) {
         if (texture && !matches_profile(*texture)) {
           return engine::error::not_found;
@@ -929,7 +931,7 @@ asset_manager::reserve_resource(const render_resource_source& source) noexcept {
   }
 }
 
-bool asset_manager::owns(const engine::mesh& value) const noexcept {
+bool asset_manager::owns(const ref<const engine::mesh>& value) const noexcept {
   if (!impl_)
     return false;
   if (!value || impl_->render().mesh_status(resource_handle(value)) == error::invalid_handle)
@@ -939,7 +941,7 @@ bool asset_manager::owns(const engine::mesh& value) const noexcept {
   return identity && *identity == value->source();
 }
 
-bool asset_manager::owns(const engine::texture& value) const noexcept {
+bool asset_manager::owns(const ref<const engine::texture>& value) const noexcept {
   if (!impl_)
     return false;
   if (!value || impl_->render().texture_status(resource_handle(value)) == error::invalid_handle)
@@ -949,7 +951,7 @@ bool asset_manager::owns(const engine::texture& value) const noexcept {
   return identity && *identity == value->source();
 }
 
-bool asset_manager::owns(const engine::material& value) const noexcept {
+bool asset_manager::owns(const ref<const engine::material>& value) const noexcept {
   if (!impl_)
     return false;
   if (!value || impl_->render().material_status(resource_handle(value)) == error::invalid_handle)
@@ -958,5 +960,4 @@ bool asset_manager::owns(const engine::material& value) const noexcept {
       identify(value->source().uri, static_cast<std::uint32_t>(render_resource_kind::material));
   return identity && *identity == value->source();
 }
-
 }

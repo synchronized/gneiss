@@ -29,8 +29,8 @@ public:
   /** 同步创建期间预留成员槽位；不保存加载描述、不执行文件读取。 */
   void initialize_staged(guid uuid, std::size_t count = 0);
   [[nodiscard]] error create_staged_node(std::size_t index, const object_description& source,
-                                         scene_node_id parent, engine::mesh mesh,
-                                         engine::material material);
+                                         scene_node_id parent, ref<const engine::mesh> mesh,
+                                         ref<const engine::material> material);
 
   [[nodiscard]] scene_node_id find_node(guid uuid) const noexcept;
   [[nodiscard]] result<scene_description> capture_description() const;

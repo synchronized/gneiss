@@ -110,8 +110,8 @@ gneiss::engine::error prefab_placement::freeze(
     status = find(renderer->material_uri, engine::render_resource_kind::material, material);
     if (status.failed())
       return status;
-    binding.source_nodes[i] = {engine::resource_cast<engine::mesh_resource>(mesh),
-                               engine::resource_cast<engine::material_resource>(material)};
+    binding.source_nodes[i] = {engine::resource_cast<gneiss::engine::mesh>(mesh),
+                               engine::resource_cast<gneiss::engine::material>(material)};
   }
   output = std::move(value);
   return gneiss::engine::error::success;

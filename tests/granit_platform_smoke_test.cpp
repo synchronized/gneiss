@@ -23,7 +23,7 @@ namespace native = gneiss::engine;
 namespace {
 
 struct smoke_context final {
-  native::texture texture;
+  native::ref<const native::texture> texture;
   bool received_key{};
 };
 
@@ -103,8 +103,8 @@ int main() {
   texture_desc.row_stride_bytes = 8;
   texture_desc.pixels = pixels;
   native::rid mesh{}, material{}, plain_material{}, texture{};
-  native::mesh mesh_owner;
-  native::material material_owner, plain_material_owner;
+  native::ref<const native::mesh> mesh_owner;
+  native::ref<const native::material> material_owner, plain_material_owner;
   if (gneiss::test_support::take_value(resources_factory.create_texture(texture_desc),
                                        context.texture)
           .failed()) {

@@ -69,13 +69,13 @@ result<mesh_renderer> mesh_resolve(const mesh_renderer_description& value,
     auto loaded = resources.reserve_resource({value.mesh_uri, render_resource_kind::mesh});
     if (!loaded)
       return loaded.error();
-    result.mesh = resource_cast<mesh_resource>(*loaded);
+    result.mesh = resource_cast<engine::mesh>(*loaded);
   }
   if (!value.material_uri.empty()) {
     auto loaded = resources.reserve_resource({value.material_uri, render_resource_kind::material});
     if (!loaded)
       return loaded.error();
-    result.material = resource_cast<material_resource>(*loaded);
+    result.material = resource_cast<engine::material>(*loaded);
   }
   return result;
 }
@@ -89,7 +89,7 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
     auto loaded = context.resources->reserve_resource({value.mesh_uri, render_resource_kind::mesh});
     if (!loaded)
       return loaded.error();
-    ready.mesh = resource_cast<mesh_resource>(*loaded);
+    ready.mesh = resource_cast<engine::mesh>(*loaded);
   }
   if (value.material_uri.empty())
     ready.material = {};
@@ -100,7 +100,7 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
         context.resources->reserve_resource({value.material_uri, render_resource_kind::material});
     if (!loaded)
       return loaded.error();
-    ready.material = resource_cast<material_resource>(*loaded);
+    ready.material = resource_cast<engine::material>(*loaded);
   }
   if (context.resources && ((ready.mesh && !context.resources->owns(ready.mesh)) ||
                             (ready.material && !context.resources->owns(ready.material))))
@@ -512,11 +512,11 @@ prepared_component_renderer(const component_descriptions& values,
   const auto* renderer = values.get<mesh_renderer_description>();
   return renderer
              ? mesh_renderer{renderer->mesh_uri.empty()
-                                 ? mesh{}
-                                 : resource_cast<mesh_resource>(lookup(renderer->mesh_uri)),
+                                 ? ref<const engine::mesh>{}
+                                 : resource_cast<engine::mesh>(lookup(renderer->mesh_uri)),
                              renderer->material_uri.empty()
-                                 ? material{}
-                                 : resource_cast<material_resource>(lookup(renderer->material_uri))}
+                                 ? ref<const engine::material>{}
+                                 : resource_cast<engine::material>(lookup(renderer->material_uri))}
              : mesh_renderer{};
 }
 }

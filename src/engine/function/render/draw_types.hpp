@@ -18,7 +18,7 @@ struct ui_vertex {
   std::uint32_t color_rgba8{};
 };
 struct ui_draw_command {
-  engine::texture texture;
+  ref<const engine::texture> texture;
   math::vector2 clip_min{};
   math::vector2 clip_max{};
   std::uint32_t first_index{}, index_count{}, vertex_offset{};

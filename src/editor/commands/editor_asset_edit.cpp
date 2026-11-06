@@ -375,11 +375,11 @@ void editor_asset_edit::accept_assets(std::span<const engine::render_resource_re
   for (const auto& lease : assets) {
     if (!next_.mesh && gneiss::engine::resource_uri(lease) == mesh_ &&
         gneiss::engine::resource_kind(lease) == gneiss::engine::render_resource_kind::mesh) {
-      next_.mesh = gneiss::engine::resource_cast<gneiss::engine::mesh_resource>(lease);
+      next_.mesh = gneiss::engine::resource_cast<gneiss::engine::mesh>(lease);
     }
     if (!next_.material && gneiss::engine::resource_uri(lease) == material_ &&
         gneiss::engine::resource_kind(lease) == gneiss::engine::render_resource_kind::material) {
-      next_.material = gneiss::engine::resource_cast<gneiss::engine::material_resource>(lease);
+      next_.material = gneiss::engine::resource_cast<gneiss::engine::material>(lease);
     }
   }
 }

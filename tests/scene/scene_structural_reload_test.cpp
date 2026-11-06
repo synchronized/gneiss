@@ -140,7 +140,7 @@ int main() try {
     return 22;
   auto binding = application->scenes()->capture_mesh_binding(scene, new_child);
   if (!binding || !binding->mesh || !binding->material ||
-      !application->assets().find_loaded<gneiss::engine::material_resource>(
+      !application->assets().find_loaded<gneiss::engine::material>(
           "asset://materials/triangle.material.json"))
     return 23;
   binding = gneiss::engine::error::not_found;

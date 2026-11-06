@@ -298,13 +298,14 @@ void cpu_loading(execution_mode mode) {
       advance();
     }
   };
-  check(gneiss::test_support::take_value(loader.load<texture_resource>("asset://texture"), request)
+  check(gneiss::test_support::take_value(loader.load<gneiss::engine::texture>("asset://texture"),
+                                         request)
             .ok());
   auto target = request.resource();
   asset_request<render_resource_ref> duplicate;
-  check(
-      gneiss::test_support::take_value(loader.load<texture_resource>("asset://texture"), duplicate)
-          .ok());
+  check(gneiss::test_support::take_value(loader.load<gneiss::engine::texture>("asset://texture"),
+                                         duplicate)
+            .ok());
   check(duplicate.resource() == target);
   until([&] { return bool(backend->callback); });
   check(resources.texture_status(resource_rid(target)) == error::not_ready);
@@ -315,35 +316,36 @@ void cpu_loading(execution_mode mode) {
   backend->complete(fixture.files.at("image.ktx2"));
   until([&] { return duplicate.status() != error::not_ready; });
   check(duplicate.status().ok());
-  auto typed_request = manager.load<texture_resource>("asset://texture");
+  auto typed_request = manager.load<gneiss::engine::texture>("asset://texture");
   check(bool(typed_request));
   auto typed = typed_request->take();
-  check(bool(typed) && *typed == resource_cast<texture_resource>(target));
-  auto found_typed = manager.find_loaded<texture_resource>("asset://texture");
+  check(bool(typed) && *typed == resource_cast<gneiss::engine::texture>(target));
+  auto found_typed = manager.find_loaded<gneiss::engine::texture>("asset://texture");
   check(bool(found_typed) && *found_typed == *typed);
   asset_load_options mismatched;
   mismatched.texture_profile.sampled_transfer_formats[0] = true;
-  check(manager.find_loaded<texture_resource>("asset://texture", mismatched).error() ==
+  check(manager.find_loaded<gneiss::engine::texture>("asset://texture", mismatched).error() ==
         error::not_found);
-  check(manager.load<texture_resource>("asset://texture", mismatched).error() ==
+  check(manager.load<gneiss::engine::texture>("asset://texture", mismatched).error() ==
         error::invalid_argument);
   // 默认装配负载不在最终资产索引中。
   check(manager.find_loaded<texture_data>("asset://texture").error() == error::not_found);
   const auto previous = resources.share_texture(resource_rid(target));
   check(previous && previous->levels.front().pixels.front() == std::byte{42});
   const auto reads = backend->reads;
-  check(gneiss::test_support::take_value(loader.load<texture_resource>("asset://texture"), request)
+  check(gneiss::test_support::take_value(loader.load<gneiss::engine::texture>("asset://texture"),
+                                         request)
             .ok());
   check(request.status().ok() && backend->reads == reads);
-  check(gneiss::test_support::take_value(loader.load<texture_resource>("asset://texture", true),
-                                         request)
+  check(gneiss::test_support::take_value(
+            loader.load<gneiss::engine::texture>("asset://texture", true), request)
             .ok());
   until([&] { return bool(backend->callback); });
   backend->complete({}, error::io);
   until([&] { return request.status() != error::not_ready; });
   check(request.status() == error::io && resources.share_texture(resource_rid(target)) == previous);
-  check(gneiss::test_support::take_value(loader.load<texture_resource>("asset://texture", true),
-                                         request)
+  check(gneiss::test_support::take_value(
+            loader.load<gneiss::engine::texture>("asset://texture", true), request)
             .ok());
   until([&] { return bool(backend->callback); });
   request.cancel();
@@ -357,16 +359,17 @@ void cpu_loading(execution_mode mode) {
   fixture.text(
       "material",
       R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,1,1,1]},"texture_uris":["asset://texture","","","",""]})");
-  check(
-      gneiss::test_support::take_value(loader.load<material_resource>("asset://material"), request)
-          .ok());
+  check(gneiss::test_support::take_value(loader.load<gneiss::engine::material>("asset://material"),
+                                         request)
+            .ok());
   until([&] {
     if (backend->callback)
       backend->complete(fixture.files.at(backend->path));
     return request.status() != error::not_ready;
   });
   check(request.status().ok());
-  check(request.get<material_resource>()->textures()[0] == resource_cast<texture_resource>(target));
+  check(request.get<gneiss::engine::material>()->textures()[0] ==
+        resource_cast<gneiss::engine::texture>(target));
   check(gneiss::test_support::take_value(
             loader.load({"asset://mesh", render_resource_kind::mesh}, true), request)
             .ok());
@@ -481,13 +484,13 @@ void cpu_loading(execution_mode mode) {
         error::invalid_state);
   backend->complete(fixture.files.at("cpu_texture"));
   until([&] { return manager.stopped(); });
-  texture rejected;
+  gneiss::engine::ref<const gneiss::engine::texture> rejected;
   check(gneiss::test_support::take_value(manager.reserve_texture(), rejected) ==
             error::invalid_state &&
         !rejected);
   check(manager.configure(scheduler) == error::invalid_state);
   check(manager.attach_render(resources) == error::invalid_state);
-  check(manager.load<texture_resource>("asset://texture").error() == error::invalid_state);
+  check(manager.load<gneiss::engine::texture>("asset://texture").error() == error::invalid_state);
   check(gneiss::test_support::assign_value(manager.load<mesh_data>("asset://mesh"), mesh_request) ==
         error::invalid_state);
 }
@@ -524,23 +527,27 @@ void independent_loads(execution_mode mode) {
     check(service.configure(scheduler).ok());
   }
   check(service.configure(scheduler).ok());
-  material found;
+  gneiss::engine::ref<const gneiss::engine::material> found;
   const auto reads_before_find = source->bytes_read->load();
-  check(gneiss::test_support::take_value(service.find_loaded<material_resource>("asset://a"),
+  check(gneiss::test_support::take_value(service.find_loaded<gneiss::engine::material>("asset://a"),
                                          found) == error::not_found &&
         !found);
   check(source->bytes_read->load() == reads_before_find);
   asset_request<render_resource_ref> first, second, joined, bad, dependent;
-  check(gneiss::test_support::take_value(service.load<material_resource>("asset://a"), first).ok());
+  check(gneiss::test_support::take_value(service.load<gneiss::engine::material>("asset://a"), first)
+            .ok());
   check(
-      gneiss::test_support::take_value(service.load<material_resource>("asset://b"), second).ok());
-  check(gneiss::test_support::take_value(service.load<material_resource>("asset://a", true), joined)
+      gneiss::test_support::take_value(service.load<gneiss::engine::material>("asset://b"), second)
+          .ok());
+  check(gneiss::test_support::take_value(service.load<gneiss::engine::material>("asset://a", true),
+                                         joined)
             .ok());
   check(first.resource() == joined.resource());
   first.cancel();
-  check(gneiss::test_support::take_value(service.load<material_resource>("asset://bad"), bad).ok());
-  check(gneiss::test_support::take_value(service.load<material_resource>("asset://dependent"),
-                                         dependent)
+  check(gneiss::test_support::take_value(service.load<gneiss::engine::material>("asset://bad"), bad)
+            .ok());
+  check(gneiss::test_support::take_value(
+            service.load<gneiss::engine::material>("asset://dependent"), dependent)
             .ok());
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (joined.status() == error::not_ready || second.status() == error::not_ready ||
@@ -553,23 +560,27 @@ void independent_loads(execution_mode mode) {
   }
   check(joined.status().ok() && second.status().ok() && dependent.status().ok());
   check(bad.status().failed() && bad.diagnostic().path == "asset://absent");
-  check(bool(dependent.get<material_resource>()->textures()[0]));
+  check(bool(dependent.get<gneiss::engine::material>()->textures()[0]));
   const auto bytes = source->bytes_read->load();
-  check(gneiss::test_support::take_value(service.load<material_resource>("asset://a"), first).ok());
+  check(gneiss::test_support::take_value(service.load<gneiss::engine::material>("asset://a"), first)
+            .ok());
   check(first.status().ok() && first.resource() == joined.resource());
   check(source->bytes_read->load() == bytes);
-  check(gneiss::test_support::take_value(service.find_loaded<material_resource>("asset://a"), found)
+  check(gneiss::test_support::take_value(service.find_loaded<gneiss::engine::material>("asset://a"),
+                                         found)
             .ok());
-  check(found == first.get<material_resource>());
-  texture wrong_type = dependent.get<material_resource>()->textures()[0];
-  check(gneiss::test_support::take_value(service.find_loaded<texture_resource>("asset://a"),
+  check(found == first.get<gneiss::engine::material>());
+  gneiss::engine::ref<const gneiss::engine::texture> wrong_type =
+      dependent.get<gneiss::engine::material>()->textures()[0];
+  check(gneiss::test_support::take_value(service.find_loaded<gneiss::engine::texture>("asset://a"),
                                          wrong_type) == error::not_found &&
         !wrong_type);
-  check(gneiss::test_support::take_value(service.find_loaded<material_resource>("asset://missing"),
-                                         found) == error::not_found &&
+  check(gneiss::test_support::take_value(
+            service.find_loaded<gneiss::engine::material>("asset://missing"), found) ==
+            error::not_found &&
         !found);
   check(source->bytes_read->load() == bytes);
-  const auto image = dependent.get<material_resource>()->textures()[0];
+  const auto image = dependent.get<gneiss::engine::material>()->textures()[0];
   const auto retained = render.share_texture(resource_handle(image));
   std::array<asset_read_record, 1> stale;
   stale[0].identity.uri = "asset://image.ktx2";
@@ -577,9 +588,9 @@ void independent_loads(execution_mode mode) {
   check(detail::asset_construction::adopt(service, std::make_shared<const texture_data>(), image,
                                           stale) == error::invalid_argument);
   check(render.share_texture(resource_handle(image)) == retained);
-  found = first.get<material_resource>();
+  found = first.get<gneiss::engine::material>();
   service.request_stop();
-  check(gneiss::test_support::take_value(service.find_loaded<material_resource>("asset://a"),
+  check(gneiss::test_support::take_value(service.find_loaded<gneiss::engine::material>("asset://a"),
                                          found) == error::invalid_state &&
         !found);
 }

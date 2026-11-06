@@ -8,8 +8,8 @@
 namespace gneiss::engine {
 /** 作者编辑绑定及撤销快照；持有稳定资源身份，不表示 GPU 已就绪。 */
 struct scene_mesh_binding {
-  engine::mesh mesh;
-  engine::material material;
+  ref<const engine::mesh> mesh;
+  ref<const engine::material> material;
 };
 
 } // namespace gneiss::engine

@@ -16,7 +16,7 @@ template <typename Factory>
 concept can_adopt_texture =
     requires(Factory& factory, gneiss::engine::rid handle) { factory.reference_texture(handle); };
 static_assert(!can_adopt_texture<gneiss::engine::detail::asset_construction>);
-static_assert(!std::is_constructible_v<gneiss::engine::texture_resource, gneiss::engine::rid>);
+static_assert(!std::is_constructible_v<gneiss::engine::texture, gneiss::engine::rid>);
 
 int main() {
   gneiss::engine::render_service resources;
@@ -27,7 +27,7 @@ int main() {
   texture_desc.height = 1U;
   texture_desc.row_stride_bytes = 4U;
   texture_desc.pixels = pixels;
-  gneiss::engine::texture texture;
+  gneiss::engine::ref<const gneiss::engine::texture> texture;
   if (gneiss::test_support::take_value(resources_factory.create_texture(texture_desc), texture) !=
       gneiss::engine::error::success) {
     return 1;
@@ -91,7 +91,7 @@ int main() {
       !draw_list.commands().empty() || draw_list.display_width() != 0.0F) {
     return 7;
   }
-  gneiss::engine::texture rejected = texture;
+  gneiss::engine::ref<const gneiss::engine::texture> rejected = texture;
   if (gneiss::test_support::take_value(resources_factory.create_texture({}), rejected) !=
           gneiss::engine::error::invalid_argument ||
       rejected || !texture)
@@ -107,7 +107,7 @@ int main() {
   detail::asset_construction peer{resources};
   if (peer.find_texture(resource_handle(texture)))
     return 17;
-  gneiss::engine::texture peer_texture;
+  gneiss::engine::ref<const gneiss::engine::texture> peer_texture;
   if (gneiss::test_support::take_value(peer.create_texture(texture_desc), peer_texture).failed() ||
       resource_handle(peer_texture) == resource_handle(texture))
     return 18;
@@ -120,7 +120,7 @@ int main() {
   if (peer.find_texture(peer_handle) || peer.drain() != 1 || peer.drain() != 0 ||
       resources.texture_status(peer_handle) != error::invalid_handle)
     return 21;
-  gneiss::engine::material foreign_material;
+  gneiss::engine::ref<const gneiss::engine::material> foreign_material;
   if (gneiss::test_support::take_value(peer.create_material({}, {texture}), foreign_material) !=
           error::invalid_argument ||
       foreign_material)
@@ -147,7 +147,7 @@ int main() {
       other_resources_factory.update_texture(texture, changed))
     return 10;
 
-  gneiss::engine::material material_ref;
+  gneiss::engine::ref<const gneiss::engine::material> material_ref;
   if (gneiss::test_support::take_value(resources_factory.reserve_material(), material_ref).failed())
     return 11;
   const auto material_handle = resource_handle(material_ref);

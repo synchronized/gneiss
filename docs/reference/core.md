@@ -21,7 +21,7 @@
 `gneiss::engine::result<T, E = error>`（`engine/core/result.hpp`）互斥持有成功值或失败原因：
 
 ```cpp
-auto loaded = resources.load<texture_resource>(uri);
+auto loaded = resources.load<texture>(uri);
 if (!loaded)
   return loaded.error();
 auto request = std::move(*loaded);
