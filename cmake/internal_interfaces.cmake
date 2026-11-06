@@ -52,6 +52,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/material/material_description.hpp
   engine/resource/mesh/mesh_data.hpp
   engine/resource/mesh/mesh_description.hpp
+  engine/resource/asset.hpp
   engine/resource/asset_ref.hpp
   engine/resource/resource_retirement_queue.hpp
   engine/resource/texture/texture_ktx2.hpp

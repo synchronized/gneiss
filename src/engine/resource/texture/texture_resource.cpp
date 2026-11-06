@@ -5,7 +5,8 @@
 #include "engine/resource/texture/detail/texture_resource_access.hpp"
 
 namespace gneiss::engine {
-texture_resource::texture_resource(rid value) noexcept : rid_(value) {}
+texture_resource::texture_resource(rid value) noexcept
+    : asset(runtime_type_of<texture_resource>()), rid_(value) {}
 texture_resource::~texture_resource() = default;
 rid resource_handle(const texture& value) noexcept {
   return value ? detail::texture_resource_access::handle(*value) : null_rid;

@@ -6,7 +6,6 @@
 #include "engine/resource/mesh/mesh_resource.hpp"
 #include "engine/resource/texture/texture_data.hpp"
 #include <concepts>
-#include <variant>
 namespace gneiss::engine {
 enum class render_resource_kind : std::uint32_t {
   invalid = 0U,
@@ -30,7 +29,7 @@ template <> struct resource_traits<material_resource> {
   static constexpr render_resource_kind kind = render_resource_kind::material;
 };
 template <typename T>
-concept render_resource = requires {
+concept render_resource = std::derived_from<T, asset> && requires {
   { resource_traits<T>::kind } -> std::convertible_to<render_resource_kind>;
 };
 
@@ -39,24 +38,20 @@ class render_resource_ref final {
 public:
   render_resource_ref() noexcept = default;
   template <render_resource T> render_resource_ref(asset_ref<const T> value) noexcept {
-    if (value)
-      value_ = std::move(value);
+    value_ = std::move(value);
   }
   template <class T> [[nodiscard]] asset_ref<const T> as() const noexcept {
-    if constexpr (render_resource<T>) {
-      if (const auto* value = std::get_if<asset_ref<const T>>(&value_))
-        return *value;
-    }
-    return {};
+    if constexpr (render_resource<T>)
+      return asset_cast<T>(value_);
+    else
+      return {};
   }
-  [[nodiscard]] explicit operator bool() const noexcept {
-    return std::visit([](const auto& value) { return bool(value); }, value_);
-  }
-  void reset() noexcept { value_ = mesh{}; }
+  [[nodiscard]] explicit operator bool() const noexcept { return bool(value_); }
+  void reset() noexcept { value_.reset(); }
   friend bool operator==(const render_resource_ref&, const render_resource_ref&) = default;
 
 private:
-  std::variant<mesh, texture, material> value_;
+  ref<const asset> value_;
 };
 template <class T>
 [[nodiscard]] asset_ref<const T> resource_cast(const render_resource_ref& value) noexcept {

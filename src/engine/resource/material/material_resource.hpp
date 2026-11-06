@@ -5,7 +5,7 @@
 
 #include "engine/core/export.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/resource/asset_identity.hpp"
+#include "engine/resource/asset.hpp"
 #include "engine/resource/asset_ref.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/texture/texture_resource.hpp"
@@ -17,9 +17,8 @@ struct material_resource_access;
 }
 
 /** 稳定运行身份，与 material_data 的 CPU 内容寿命分离。由资源工厂创建并延迟析构。 */
-class GNEISS_API material_resource final {
+class GNEISS_API material_resource final : public asset {
 public:
-  [[nodiscard]] const asset_identity& source() const noexcept { return identity_; }
   ~material_resource();
   /** 所属线程只读参数与依赖；更新通过 Loader/Render 受控入口执行。 */
   [[nodiscard]] const material_parameters& parameters() const noexcept { return parameters_; }
@@ -31,7 +30,6 @@ private:
   friend struct detail::material_resource_access;
   material_resource(rid value, std::array<texture, 5> dependencies = {}) noexcept;
   rid rid_;
-  mutable asset_identity identity_;
   mutable material_parameters parameters_;
   mutable std::array<texture, 5> textures_;
 };

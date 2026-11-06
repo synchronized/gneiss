@@ -5,7 +5,7 @@
 
 #include "engine/core/export.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/resource/asset_identity.hpp"
+#include "engine/resource/asset.hpp"
 #include "engine/resource/asset_ref.hpp"
 #include <cstddef>
 #include <cstdint>
@@ -24,9 +24,8 @@ struct mesh_metadata {
 };
 
 /** 稳定运行身份，与 mesh_data 的 CPU 内容寿命分离。由资源工厂创建并延迟析构。 */
-class mesh_resource final {
+class mesh_resource final : public asset {
 public:
-  [[nodiscard]] const asset_identity& source() const noexcept { return identity_; }
   GNEISS_API ~mesh_resource();
   /** 所属线程查询轻量信息；未加载时为空，不持有 CPU 数组。 */
   [[nodiscard]] const std::optional<mesh_metadata>& metadata() const noexcept { return metadata_; }
@@ -37,7 +36,6 @@ private:
   friend struct detail::mesh_resource_access;
   GNEISS_API mesh_resource(rid value) noexcept;
   rid rid_;
-  mutable asset_identity identity_;
   mutable std::optional<mesh_metadata> metadata_;
 };
 

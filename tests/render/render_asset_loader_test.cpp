@@ -455,7 +455,38 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
 
 } // namespace
 
-int main() try { // NOLINT(readability-function-cognitive-complexity)：集成测试按返回码定位阶段。
+namespace {
+struct test_asset final : gneiss::engine::asset {
+  test_asset() : asset(gneiss::engine::runtime_type_of<test_asset>()) {}
+};
+bool verify_asset_identity() {
+  using namespace gneiss::engine;
+  unsigned destroyed{};
+  ref<const test_asset> original{
+      std::shared_ptr<const test_asset>(new test_asset, [&](const test_asset* value) {
+        ++destroyed;
+        delete value;
+      })};
+  std::weak_ptr<const test_asset> weak = original.shared();
+  ref<const asset> generic = original;
+  auto typed = asset_cast<test_asset>(generic);
+  if (typed != original || asset_cast<texture_resource>(generic) || asset_cast<test_asset>({}) ||
+      generic.shared().owner_before(original.shared()) ||
+      original.shared().owner_before(generic.shared()))
+    return false;
+  original.reset();
+  generic.reset();
+  if (weak.expired() || destroyed)
+    return false;
+  typed.reset();
+  return weak.expired() && destroyed == 1;
+}
+}
+
+int main() try {
+  if (!verify_asset_identity())
+    return 98;
+  // NOLINT(readability-function-cognitive-complexity)：集成测试按返回码定位阶段。
   if (gneiss::engine::initialize_meta().failed())
     return 99;
   selected_variants();

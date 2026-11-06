@@ -16,17 +16,18 @@
 
 namespace gneiss::engine {
 class resource_cache;
-namespace detail {
-struct asset_construction;
-}
 class task_executor;
 class render_service;
 struct scene_instantiation_data;
 class progress_notification;
 struct mesh_view;
 struct texture_view;
+
 namespace files {
 class service;
+}
+namespace detail {
+struct asset_construction;
 }
 }
 

@@ -5,7 +5,7 @@
 
 #include "engine/core/export.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/resource/asset_identity.hpp"
+#include "engine/resource/asset.hpp"
 #include "engine/resource/asset_ref.hpp"
 #include "engine/resource/texture/texture_description.hpp"
 #include <cstddef>
@@ -25,9 +25,8 @@ struct texture_metadata {
 };
 
 /** 稳定运行身份，与 texture_data 的 CPU 内容寿命分离。由资源工厂创建并延迟析构。 */
-class texture_resource final {
+class texture_resource final : public asset {
 public:
-  [[nodiscard]] const asset_identity& source() const noexcept { return identity_; }
   GNEISS_API ~texture_resource();
   /** 所属线程查询轻量信息；未加载时为空，不持有 CPU 数组。 */
   [[nodiscard]] const std::optional<texture_metadata>& metadata() const noexcept {
@@ -40,7 +39,6 @@ private:
   friend struct detail::texture_resource_access;
   GNEISS_API texture_resource(rid value) noexcept;
   rid rid_;
-  mutable asset_identity identity_;
   mutable std::optional<texture_metadata> metadata_;
 };
 
