@@ -51,10 +51,8 @@ namespace gneiss::engine {
 // 移植示例的类型/位置请求表、合并与只读发布；接入已有执行器，不创建私有线程池。
 struct asset_manager::resource_state {
   resource_cache cache;
-  using key = detail::asset_key;
   struct operation : detail::load_operation {
     std::weak_ptr<detail::asset_entry> entry;
-    bool cache_result{true};
     std::shared_ptr<asset_loader> loader;
     engine::files::request_id read_request;
     task_handle task;
@@ -411,26 +409,29 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
   if (!task)
     return task.error();
   state.frozen = true;
-  const auto parameters = asset_load_parameters(options) + (cache_result ? "" : ":payload");
-  resource_state::key key{domain, std::string(uri), type, parameters};
-  auto entry = cache().acquire(key);
-  if (entry->loading && entry->loading->observer.use_count() > 1) {
-    output = entry->loading->observer;
-    return error::success;
+  std::shared_ptr<detail::asset_entry> entry;
+  std::optional<detail::cached_asset> cached;
+  if (cache_result) {
+    const auto parameters = asset_load_parameters(options);
+    entry = cache().acquire({domain, std::string(uri), type, parameters});
+    if (entry->loading && entry->loading->observer.use_count() > 1) {
+      output = entry->loading->observer;
+      return error::success;
+    }
+    cached = cache().lookup(uri, type, domain, parameters);
+    if (!options.reload && cached) {
+      auto ready = std::make_shared<detail::asset_state>();
+      ready->status = error::success;
+      ready->source_bytes = cached->source_bytes;
+      ready->metrics = cached->metrics;
+      ready->value = cached->resource;
+      output = std::move(ready);
+      return error::success;
+    }
   }
-  const auto cached = cache().lookup(uri, type, domain, parameters);
-  if (cache_result && !options.reload && cached) {
-    auto ready = std::make_shared<detail::asset_state>();
-    ready->status = error::success;
-    ready->source_bytes = cached->source_bytes;
-    ready->metrics = cached->metrics;
-    ready->value = cached->resource;
-    output = std::move(ready);
-    return error::success;
-  }
+  // 内部解码由父资产操作持有；不另建身份、弱缓存或在途索引。
   auto work = std::make_shared<resource_state::operation>(std::move(*task));
   work->entry = entry;
-  work->cache_result = cache_result;
   work->previous = cached ? cached->resource : nullptr;
   state.active.push_back(work);
   try {
@@ -443,7 +444,8 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
     state.active.pop_back();
     throw;
   }
-  entry->loading = work;
+  if (entry)
+    entry->loading = work;
   output = work->observer;
   return error::success;
 } catch (const std::bad_alloc&) {
@@ -643,7 +645,7 @@ void asset_manager::advance() {
     work->loader->metrics.queue_ms = work->queue_ms;
     if (auto entry = work->entry.lock(); entry && entry->loading == work) {
       entry->loading.reset();
-      if (work->status == error::success && work->cache_result) {
+      if (work->status == error::success) {
         work->loader->adopt(work->previous);
         work->value = work->loader->value;
         const auto& [domain, uri, type, parameters] = entry->identity;

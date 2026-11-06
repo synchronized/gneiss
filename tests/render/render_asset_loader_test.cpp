@@ -536,7 +536,12 @@ bool verify_material_dependencies(const memory_file_system& fixture) {
     return false;
   auto request =
       assets.load<gneiss::engine::material>("asset://materials/dependencies.material.json");
-  if (!request)
+  if (!request || assets.cached_count() != 1U)
+    return false;
+  // 同资产请求合并；内部 CPU 解码不再占用额外索引记录。
+  auto duplicate =
+      assets.load<gneiss::engine::material>("asset://materials/dependencies.material.json");
+  if (!duplicate || assets.cached_count() != 1U)
     return false;
   const auto wait = [&](auto& pending) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -549,6 +554,8 @@ bool verify_material_dependencies(const memory_file_system& fixture) {
     }
   };
   wait(*request);
+  if (duplicate->status() != request->status() || assets.cached_count() != 3U)
+    return false;
   auto resource = request->get<gneiss::engine::material>();
   if (request->status() != error::not_found || !resource ||
       request->diagnostic().message.find(description.texture_uris[0]) == std::string::npos)
@@ -564,7 +571,7 @@ bool verify_material_dependencies(const memory_file_system& fixture) {
   // 文件恢复后重试填充同一身份，无须重新构造持有它的材质。
   memory->files["textures/absent.texture.json"] = memory->files["textures/white.texture.json"];
   auto retry = assets.load<gneiss::engine::texture>(description.texture_uris[0]);
-  if (!retry || retry->get<gneiss::engine::texture>() != missing)
+  if (!retry || retry->get<gneiss::engine::texture>() != missing || assets.cached_count() != 3U)
     return false;
   wait(*retry);
   if (retry->status().failed() || !missing->metadata() || resource->textures()[0] != missing)

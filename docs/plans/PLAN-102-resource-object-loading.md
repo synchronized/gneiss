@@ -67,7 +67,8 @@ struct asset_entry {
   - [ ] 统一纯内存编辑与文件资产采用路径。
 - [ ] D. 记录 cached 统一为最终资产弱引用；取消 CPU 描述缓存条目、临时 payload 身份键及兼容桥接。
   - [x] 删除 asset_cache_value 控制块包装，直接弱持有实际对象；统计归入 asset_entry。
-  - [ ] 移除非资产描述的加载兼容路径，将擦除弱引用收窄为最终 asset 类型并清理 payload 键。
+  - [x] 内部 CPU 解码不登记资产记录，删除临时 payload 身份键。
+  - [ ] 移除非资产描述的加载兼容路径，将擦除弱引用收窄为最终 asset 类型。
 - [ ] E. 类型加载器共用 load_operation 生命周期；覆盖去重、单观察者取消、旧操作迟到、重载失败、清理与关闭。
 
 缓存槽位当前直接 weak_ptr<const void> 指向实际对象，兼容尚未迁移的纯 CPU 描述；
@@ -380,3 +381,11 @@ Windows Clang Debug 完整构建、14 项资源/场景/Prefab/编辑/边界回�
 14 项资源/场景/Prefab/编辑/边界回归通过，git diff --check 通过。
 日志：build/scene-description-cache-build-final.log、build/scene-description-cache-tests.log（不入库）。
 未运行 GPU 大场景、跨平台或远端 CI。其他 CPU 类型与临时 payload 缓存仍需迁移，计划尚未完成。
+
+2026-11-06：删除内部 CPU 解码的 :payload 身份键及额外 asset_entry。渲染资产记录继续负责
+同身份在途请求合并；其内部解码仅进入现有执行队列，由父操作持有请求，不建立第二份索引。
+解码完成直接交付中间结果，取消、任务收尾和诊断继续复用现有实现；最终资源登记与重载采用
+保持原路径。新增断言覆盖在途材质只有一条记录、相同依赖复用、失败依赖重试不增加中间记录。
+Windows Clang Debug 完整构建、11 项资源/场景/生命周期/边界回归与 git diff --check 通过。
+日志：build/asset-payload-index-build.log、build/asset-payload-index-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI。CPU 非资产类型兼容与两阶段操作统一仍未完成。
