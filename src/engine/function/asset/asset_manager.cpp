@@ -262,6 +262,8 @@ error asset_manager::store_erased(type_id type, std::string_view uri,
                                   std::shared_ptr<const void> value,
                                   std::shared_ptr<const void>& output,
                                   asset_load_options options) noexcept try {
+  if (type == runtime_type_of<scene_description>() || type == runtime_type_of<prefab_description>())
+    return error::unsupported;
   auto& state = *resource_state_;
   if (state.stopped)
     return error::invalid_state;
@@ -452,6 +454,8 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
 error asset_manager::find_loaded_erased(type_id type, std::string_view uri,
                                         std::shared_ptr<const void>& output,
                                         asset_load_options options) const noexcept try {
+  if (type == runtime_type_of<scene_description>() || type == runtime_type_of<prefab_description>())
+    return error::unsupported;
   if (resource_state_->stopped || !resource_state_->files)
     return error::invalid_state;
   if (validate_uri(uri).failed())

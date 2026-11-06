@@ -349,9 +349,9 @@ invalid_argument；不再按资源类型或版本新旧采用不同错误码。�
 
 场景准备、运行实例、捕获结果与编辑历史同时保留来源资产强引用和当次描述快照。
 身份引用保证同 URI 继续共享资产；描述快照固定实例采用的内容，编辑不会写回共享资产。
-纯内存创建的编辑对象允许没有来源资产。描述的纯内存存储接口仍处于迁移期，
+纯内存创建的编辑对象允许没有来源资产。其他 CPU 类型缓存仍处于迁移期，
 最终缓存与引用入口的收敛见 [PLAN-102](../plans/PLAN-102-resource-object-loading.md)。
 
-Scene/Prefab 的 `load<scene_description/prefab_description>()` 和对应 Decoder 注册返回
-`unsupported`，不读取文件。文件加载统一返回资产对象；反射编解码和纯内存
-`create/store/find_loaded` 描述路径仍可用，后者尚待后续收敛，不代表另一个文件加载入口。
+Scene/Prefab 描述的 `load/store/find_loaded` 和对应 Decoder 注册返回 `unsupported`。
+描述不能单独登记 URI 缓存；文件加载统一返回资产对象。反射编解码与不登记缓存的
+`create(description)` 仍可用；编辑快照由调用方持有，不覆盖文件资产内容。

@@ -219,19 +219,13 @@ bool check_explicit_root(gneiss::engine::world& world, gneiss::engine::asset_man
 
 bool check_failed_camera_prefab(
     gneiss::engine::world& native_world, gneiss::engine::asset_manager& render_loader,
-    gneiss::engine::asset_manager& prefab_loader, const gneiss::engine::prefab_description& source,
+    const gneiss::engine::prefab_description& source,
     const std::vector<gneiss::engine::prefab_property_override>& invalid_overrides) {
   auto description = source;
   description.objects[0].components.set(
       gneiss::engine::camera_description{{1.0F, 0.1F, 100.0F}, true});
-  gneiss::engine::prefab_asset_ref lease;
-  if (gneiss::test_support::assign_value(
-          prefab_loader.store<gneiss::engine::prefab_description>(
-              "asset://prefabs/camera.prefab.json",
-              std::make_shared<const gneiss::engine::prefab_description>(std::move(description))),
-          lease) != gneiss::engine::error::success) {
-    return false;
-  }
+  gneiss::engine::prefab_asset_ref lease{
+      std::make_shared<const gneiss::engine::prefab_description>(std::move(description))};
   std::uint64_t previous{};
   const gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   if (gneiss::engine::error{gneiss::engine::write_identifier<gneiss::entity_id>(
@@ -456,8 +450,8 @@ int main() try {
   if (!check_visible_prefab(native_world, render_loader, first->prefab_lease(), first->root())) {
     return 17;
   }
-  if (!check_failed_camera_prefab(native_world, render_loader, prefab_loader,
-                                  *first->prefab_lease().get(), invalid_overrides)) {
+  if (!check_failed_camera_prefab(native_world, render_loader, *first->prefab_lease().get(),
+                                  invalid_overrides)) {
     return 16;
   }
   if (create_prefab_binding(native_world, render_loader, std::move(invalid_override_lease),

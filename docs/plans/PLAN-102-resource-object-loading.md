@@ -63,7 +63,8 @@ struct asset_entry {
   - [x] 顶层资产对象与专用 Loader 接入，场景准备通过资产取得描述快照；成功重载保留身份和旧快照。
   - [x] 加载准备结果、World 实例及编辑快照保留来源资产强引用，同时固定实例化描述快照。
   - [x] Scene/Prefab 描述的文件加载与 Decoder 注册入口关闭，文件加载只返回资产对象。
-  - [ ] 统一纯内存编辑与文件资产采用路径，移除描述 store/find_loaded 兼容入口。
+  - [x] 关闭描述 store/find_loaded 入口；纯内存编辑持有独立快照，不登记第二份 URI 缓存。
+  - [ ] 统一纯内存编辑与文件资产采用路径。
 - [ ] D. 记录 cached 统一为最终资产弱引用；取消 CPU 描述缓存条目、临时 payload 身份键及兼容桥接。
   - [x] 删除 asset_cache_value 控制块包装，直接弱持有实际对象；统计归入 asset_entry。
   - [ ] 移除非资产描述的加载兼容路径，将擦除弱引用收窄为最终 asset 类型并清理 payload 键。
@@ -371,3 +372,11 @@ build/asset-cache-direct-tests.log（不入库）。未运行 GPU 大场景、�
 Windows Clang Debug 完整构建、14 项资源/场景/Prefab/编辑/边界回归与 git diff --check 通过。
 日志：build/scene-load-entry-build-final.log、build/scene-load-entry-tests.log（不入库）。
 未运行 GPU 大场景、跨平台或远端 CI；C、D 与整个 PLAN-102 尚未完成。
+
+2026-11-06：Scene/Prefab 描述不再登记 URI 缓存。store/find_loaded 对描述类型返回 unsupported；
+剩余测试改为直接持有不可变编辑快照，生产代码没有此类缓存调用。保留不登记缓存的 create，
+不将编辑快照伪装为文件资产。回归覆盖拒绝登记/查询、不增加文件读取与缓存条目、不覆盖已加载
+资产、编辑与原快照隔离，以及资产释放后旧快照仍可用。Windows Clang Debug 完整构建和
+14 项资源/场景/Prefab/编辑/边界回归通过，git diff --check 通过。
+日志：build/scene-description-cache-build-final.log、build/scene-description-cache-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI。其他 CPU 类型与临时 payload 缓存仍需迁移，计划尚未完成。

@@ -93,90 +93,37 @@ private:
 
 bool prepared_description_contract() {
   using namespace gneiss::engine;
-  using namespace gneiss::engine;
-
   gneiss::test_support::fixture_files files;
   auto backend = std::make_shared<memory_file_system>(std::string(valid_prefab));
-  if (files.mount("asset://prefabs/", backend) != gneiss::engine::error::success) {
+  if (files.mount("asset://prefabs/", backend) != error::success)
     return false;
-  }
-
-  gneiss::test_support::fixture_files different_source;
-  if (different_source.mount("asset://prefabs/", backend) != gneiss::engine::error::success) {
-    return false;
-  }
   asset_manager assets(gneiss::test_support::test_files(files));
-  auto& cache = assets;
-  asset_manager other_assets(gneiss::test_support::test_files(different_source));
   constexpr std::string_view uri = "asset://prefabs/lamp.prefab.json";
-  gneiss::engine::prefab_description description;
-  gneiss::engine::serialization::diagnostic diagnostic;
-  if (gneiss::test_support::assign_decoded(
-          gneiss::engine::asset_file::deserialize<gneiss::engine::prefab_description>(valid_prefab),
-          description, diagnostic) != gneiss::engine::error::success) {
+  ref<const prefab> loaded;
+  if (gneiss::test_support::load_asset(assets, uri, loaded).failed())
     return false;
-  }
-  gneiss::engine::prefab_asset_ref legacy;
-  if (gneiss::test_support::load_scene_snapshot(assets, uri, legacy) !=
-      gneiss::engine::error::success) {
+  auto original = loaded->snapshot();
+  auto edited = *original;
+  edited.objects[0].transform.translation[0] = 37.0F;
+  auto local = assets.create(std::move(edited));
+  if (!local || (*local)->objects[0].transform.translation[0] != 37.0F)
     return false;
-  }
-  gneiss::engine::prefab_asset_ref first, reused, changed, foreign;
-  if (gneiss::test_support::assign_value(
-          assets.store<gneiss::engine::prefab_description>(
-              uri, std::make_shared<const gneiss::engine::prefab_description>(description)),
-          first) != gneiss::engine::error::success ||
-      gneiss::test_support::assign_value(
-          assets.store<gneiss::engine::prefab_description>(
-              uri, std::make_shared<const gneiss::engine::prefab_description>(description)),
-          reused) != gneiss::engine::error::success ||
-      first.get() == reused.get() || first.get() == legacy.get() || backend->read_count != 1U) {
+  // 编辑快照不进入 URI 缓存，不覆盖文件资产，也不修改旧快照。
+  if (assets.store<prefab_description>(uri, std::make_shared<const prefab_description>(**local))
+              .error() != error::unsupported ||
+      assets.find_loaded<prefab_description>(uri).error() != error::unsupported ||
+      assets.store<scene_description>(uri, std::make_shared<const scene_description>()).error() !=
+          error::unsupported ||
+      assets.find_loaded<scene_description>(uri).error() != error::unsupported)
     return false;
-  }
-  // 替换当前描述，不改写已实例化场景持有的旧描述。
-  description.objects[0].transform.translation[0] = 37.0F;
-  if (gneiss::test_support::assign_value(
-          assets.store<gneiss::engine::prefab_description>(
-              uri, std::make_shared<const gneiss::engine::prefab_description>(description)),
-          changed) != gneiss::engine::error::success ||
-      changed.get() == first.get() || changed.get()->objects[0].transform.translation[0] != 37.0F ||
-      first.get()->objects[0].transform.translation[0] != 1.0F ||
-      gneiss::test_support::assign_value(
-          other_assets.store<gneiss::engine::prefab_description>(
-              uri, std::make_shared<const gneiss::engine::prefab_description>(description)),
-          foreign) != gneiss::engine::error::success ||
-      foreign.get() == changed.get() || backend->read_count != 1U) {
+  auto cached = assets.find_loaded<prefab>(uri);
+  if (!cached || cached->get() != loaded.get() || backend->read_count != 1U ||
+      assets.cached_count() != 1U || original->objects[0].transform.translation[0] != 1.0F)
     return false;
-  }
-  gneiss::engine::prefab_asset_ref ordinary;
-  if (gneiss::test_support::assign_value(
-          assets.find_loaded<gneiss::engine::prefab_description>(uri), ordinary) !=
-          gneiss::engine::error::success ||
-      ordinary.get() != changed.get()) {
-    return false;
-  }
-  gneiss::engine::prefab_asset_ref failed = first;
-  if (gneiss::test_support::assign_value(
-          assets.store<gneiss::engine::prefab_description>(
-              "asset://unmounted/lamp.prefab.json",
-              std::make_shared<const gneiss::engine::prefab_description>(description)),
-          failed) != gneiss::engine::error::not_found ||
-      failed.get() != first.get()) {
-    return false;
-  }
-  if (gneiss::test_support::assign_value(assets.store<gneiss::engine::prefab_description>(uri, {}),
-                                         failed) != gneiss::engine::error::invalid_argument ||
-      failed.get() != first.get()) {
-    return false;
-  }
-  // 当前缓存无人使用即可回收，旧实例仍持有自身的不可变结构描述。
-  changed = {};
-  foreign = {};
-  reused = {};
-  ordinary = {};
-  legacy = {};
+  cached = error::not_found;
+  loaded.reset();
   assets.collect_unused();
-  return cache.cached_count() == 0U && first.get()->objects[0].transform.translation[0] == 1.0F;
+  return assets.cached_count() == 0U && original->objects[0].transform.translation[0] == 1.0F;
 }
 
 bool explicit_root_contract() {
