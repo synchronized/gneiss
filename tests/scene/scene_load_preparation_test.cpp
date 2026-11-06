@@ -243,6 +243,16 @@ void run() {
   }
   auto unified = second_prepare->take();
   check(bool(unified) && (*unified)->instance_nodes == 3U);
+  // 依赖已有缓存时一次完成，不需要再次驱动 CPU 执行器。
+  detail::scene_preparation_operation immediate(assets, "asset://main.scene", false, false);
+  auto ready = immediate.advance();
+  check(bool(ready) && (*ready)->instance_nodes == 3U && immediate.metrics().queue_ms == 0.0);
+  immediate.cancel();
+  auto completed_structure = immediate.advance();
+  check(bool(completed_structure) && *completed_structure == *ready);
+  detail::scene_preparation_operation cancelled(assets, "asset://main.scene", false, false);
+  cancelled.cancel();
+  check(cancelled.advance().error().error == error::invalid_state);
   auto no_renderer = assets.load<gneiss::engine::texture>("asset://image");
   check(!no_renderer && no_renderer.error() == error::invalid_state);
   auto created = assets.create(scene_description{});

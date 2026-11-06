@@ -521,3 +521,13 @@ Windows Clang Debug 完整构建、17 项资产/场景/Prefab/编辑器/Runtime 
 改动行格式化及 git diff --check 通过。源码与测试中旧成员调用零引用。
 日志：build/scene-entrypoints-build-final.log、build/scene-entrypoints-tests.log（不入库）。
 未运行 GPU 大场景、跨平台或远端 CI；PLAN-102 仍在实施中。
+
+2026-11-06：按用户确认简化场景准备，不再把旧调度搬到新服务。删除 asset.prepare-scene
+CPU 任务、task_handle、完成回执和 enable_shared_from_this；依赖异步加载完成后，所属线程
+一次执行 prepare_loaded_scene。取消只放弃依赖观察；已完成结果保持稳定。
+补充缓存依赖一次完成、无需驱动执行器、已完成结果保留和提前取消回归。
+后续仍需将结构依赖归入资产加载、隐藏公开准备请求并让上层直接实例化；本步未完成这些目标。
+
+Windows Clang Debug 完整构建、17 项资产/场景/编辑器/Runtime/边界回归通过，改动行格式化与
+ git diff --check 通过。日志：build/scene-sync-structure-build-final.log、
+build/scene-sync-structure-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。

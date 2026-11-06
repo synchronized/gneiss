@@ -188,7 +188,7 @@ struct asset_manager::resource_state {
     if (executor)
       executor->cancel_scope(scope);
     for (const auto& work : scenes) {
-      work->preparation->cancel(*executor);
+      work->preparation->cancel();
       work->stop();
     }
     for (const auto& work : active) {
@@ -512,14 +512,10 @@ void asset_manager::advance() {
         work->task = {};
         break;
       }
-  for (const auto& completion : completions)
-    for (const auto& work : state.scenes)
-      work->preparation->accept(completion);
   detail::advance_load_operations(
       state.scenes,
       [&](const auto& work) {
-        auto prepared =
-            work->preparation->advance(*state.executor, state.scope, state.notification);
+        auto prepared = work->preparation->advance();
         if (!prepared) {
           auto diagnostic = std::move(prepared).error();
           if (diagnostic.error != error::not_ready)
@@ -531,7 +527,7 @@ void asset_manager::advance() {
         work->complete(error::success, {}, std::move(*prepared), bytes,
                        work->preparation->metrics());
       },
-      [&](const auto& work) { work->preparation->cancel(*state.executor); });
+      [&](const auto& work) { work->preparation->cancel(); });
   detail::advance_load_operations(
       state.active,
       [&](const auto& work) {

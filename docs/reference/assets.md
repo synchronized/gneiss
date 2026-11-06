@@ -126,8 +126,8 @@ Scene/Prefab 文件 Loader 与编辑器文件替换使用 `asset_file::deseriali
 通过 `prepare_loaded_scene` 准备实例，不修改来源资产。已有快照不随重载改变。
 
 场景结构依赖收集与实例化数据准备由 `function/scene/detail/scene_loading.*` 实现。
-`scene_preparation_operation` 封装依赖请求、任务提交和完成诊断；资产管理器只转发任务完成、
-推进与取消。公开入口位于场景模块，迁移期任务仍由资产管理器私有队列调度；
+`scene_preparation_operation` 封装异步依赖请求和完成诊断，依赖就绪后在所属线程同步整理层级；
+不再提交独立场景准备任务，资产管理器只推进与取消。公开入口位于场景模块，迁移期任务仍由资产管理器私有队列调度；
 管理器不再公开 `prepare_scene/prepare_prefab` 成员。
 
 ## 内部异步准备
@@ -318,8 +318,8 @@ asset_manager 不设统一的单资源输出额度，也不累计描述与负载
 Prefab 文件使用 `load<prefab>()`，需要描述时调用资产的 `snapshot()`；
 显式重载使用 `reload=true`。
 
-场景所属线程用 `scene_description_request` 取得场景及去重后的 Prefab 引用；工作线程只做
-层级排序、依赖收集与准备预算检查。`scene_prepare_limits::source_bytes` 统计累计源文件
+场景所属线程用 `scene_description_request` 取得场景及去重后的 Prefab 引用；依赖就绪后同步执行
+层级排序、依赖收集与准备预算检查，不再提交额外 CPU 准备任务。`scene_prepare_limits::source_bytes` 统计累计源文件
 输入字节，不代表解析对象的内存。请求成功 take 后可查询 source_bytes()，缓存命中保留该统计；
 场景加载输入传递累计值，纯内存构造的输入为零。描述不保留源文本，单文件输入限制仍由
 manager 的有界读取保证。保存行为见[场景格式](scene-format.md)。
