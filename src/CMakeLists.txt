@@ -125,6 +125,7 @@ target_sources(
 target_sources(
   gneiss_engine
   PRIVATE
+    engine/resource/asset_serialization.hpp
     engine/resource/asset.hpp
     engine/resource/asset_ref.hpp
     engine/resource/asset_uri.cpp
@@ -199,6 +200,7 @@ target_sources(
     engine/function/resource/detail/asset_construction.hpp
     engine/function/resource/detail/scene_loading.cpp
     engine/function/resource/detail/asset_construction.cpp
+    engine/function/resource/asset_reference_context.hpp
     engine/function/resource/asset_manager.hpp
     engine/function/resource/asset_manager.cpp
     engine/function/resource/resource_cache.cpp

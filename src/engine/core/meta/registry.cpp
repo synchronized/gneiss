@@ -668,8 +668,8 @@ public:
     if (found == by_cpp_type_.end())
       return error::not_found;
     const auto& codec = found->second->serialization;
-    if (!codec.encode && !codec.decode && !codec.reflected && !codec.polymorphic &&
-        !found->second->object.base_type)
+    if (!codec.encode_reference && !codec.decode_reference && !codec.encode && !codec.decode &&
+        !codec.reflected && !codec.polymorphic && !found->second->object.base_type)
       return error::unsupported;
     return codec;
   } catch (...) {

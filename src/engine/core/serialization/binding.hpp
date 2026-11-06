@@ -12,6 +12,9 @@ class writer;
 /** 类型的持久化策略；回调借用对象及节点，解码返回独立所有者。
  * 回调须支持不同对象的并发操作，所属模块须在注册表使用期间存活。 */
 struct binding {
+  /** 引用位置专用编解码；不改变目标对象自身的持久化策略，空引用由框架处理。 */
+  result<void*, diagnostic> (*encode_reference)(const context&, writer&, const void*){};
+  result<ref<void>, diagnostic> (*decode_reference)(const context&, reader&, const void*){};
   bool reflected = false;
   bool reject_unknown_fields = false;
   /** 声明引用保存实际派生类型；不由继承关系自动开启。 */

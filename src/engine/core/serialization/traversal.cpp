@@ -138,6 +138,12 @@ result<writer::node, serialization::diagnostic> encode_nonobject(const context& 
     auto actual = meta::detail::reference_view_access::dynamic_type(view);
     if (!declared || !actual)
       return failure(error::invalid_argument);
+    if (declared->encode_reference) {
+      auto pointer = cast_base(registry, *actual, target->id(), const_cast<void*>(owned->get()));
+      if (!pointer)
+        return std::move(pointer).error();
+      return declared->encode_reference(ctx, *doc, *pointer);
+    }
     if (!declared->polymorphic && *actual != target->id())
       return failure(error::invalid_argument, "", "未声明多态的引用不能保存派生对象");
     auto adjusted = cast_base(registry, *actual, target->id(), nullptr);
@@ -555,6 +561,14 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
     auto declared = find_serialization(registry, target->id());
     if (!declared)
       return failure(declared.error());
+    if (declared->decode_reference) {
+      auto resolved = declared->decode_reference(ctx, *context_access::input(ctx), input);
+      if (!resolved)
+        return std::move(resolved).error();
+      if (!*resolved)
+        return failure(error::invalid_argument, "", "非空引用解析结果为空");
+      return failure(meta::detail::reference_view_access::assign(view, target->id(), *resolved));
+    }
     auto actual = target->id();
     auto* content = input;
     if (declared->polymorphic) {
