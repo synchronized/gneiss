@@ -64,8 +64,8 @@ struct asset_manager::resource_state {
     bool reading{true}, read_complete{};
     std::shared_ptr<const void> value;
     serialization::diagnostic diagnostic;
-    // 在途重载保活旧缓存条目；失败后旧内容仍可复用。
-    std::shared_ptr<const detail::asset_cache_value> previous;
+    // 在途重载保活旧对象；失败后旧内容仍可复用。
+    std::shared_ptr<const void> previous;
     std::atomic_bool settled{false};
     error status{error::not_ready};
     explicit operation(std::shared_ptr<asset_loader> parser)
@@ -280,7 +280,7 @@ error asset_manager::store_erased(type_id type, std::string_view uri,
     return stored.error();
   state.frozen = true;
   record->loading.reset();
-  output = std::shared_ptr<const void>(stored->shared(), (*stored)->resource.get());
+  output = stored->resource;
   return error::success;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
@@ -412,20 +412,20 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
     output = entry->loading->observer;
     return error::success;
   }
-  const auto cached = cache().observe(uri, type, domain, parameters).lock();
-  if (cache_result && !options.reload && cached && !cached->is_loading) {
+  const auto cached = cache().lookup(uri, type, domain, parameters);
+  if (cache_result && !options.reload && cached) {
     auto ready = std::make_shared<detail::asset_state>();
     ready->status = error::success;
     ready->source_bytes = cached->source_bytes;
     ready->metrics = cached->metrics;
-    ready->value = std::shared_ptr<const void>(cached, cached->resource.get());
+    ready->value = cached->resource;
     output = std::move(ready);
     return error::success;
   }
   auto work = std::make_shared<resource_state::operation>(std::move(*task));
   work->entry = entry;
   work->cache_result = cache_result;
-  work->previous = cached;
+  work->previous = cached ? cached->resource : nullptr;
   state.active.push_back(work);
   try {
     const auto submitted = state.read(work, uri);
@@ -456,11 +456,10 @@ error asset_manager::find_loaded_erased(type_id type, std::string_view uri,
   const auto status = resource_state_->files->resolve_source(uri, source);
   if (status.failed())
     return status;
-  const auto entry =
-      cache().observe(uri, type, std::move(source), asset_load_parameters(options)).lock();
-  if (!entry || entry->is_loading || !entry->resource)
+  const auto entry = cache().lookup(uri, type, std::move(source), asset_load_parameters(options));
+  if (!entry || !entry->resource)
     return error::not_found;
-  output = std::shared_ptr<const void>(entry, entry->resource.get());
+  output = entry->resource;
   return error::success;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
@@ -637,7 +636,7 @@ void asset_manager::advance() {
     if (auto entry = work->entry.lock(); entry && entry->loading == work) {
       entry->loading.reset();
       if (work->status == error::success && work->cache_result) {
-        work->loader->adopt(work->previous ? work->previous->resource : nullptr);
+        work->loader->adopt(work->previous);
         work->value = work->loader->value;
         const auto& [domain, uri, type, parameters] = entry->identity;
         auto cached = cache().load(
@@ -645,7 +644,7 @@ void asset_manager::advance() {
             true, work->source_bytes, parameters, work->loader->metrics);
         work->status = cached ? error::success : cached.error();
         if (cached)
-          work->value = std::shared_ptr<const void>(cached->shared(), (*cached)->resource.get());
+          work->value = cached->resource;
       }
     }
     {
@@ -804,7 +803,7 @@ bool asset_manager::owns(const render_resource_ref& value) const noexcept {
 }
 
 namespace {
-render_resource_ref cached_resource(const detail::asset_cache_value& entry) noexcept {
+render_resource_ref cached_resource(const detail::cached_asset& entry) noexcept {
   if (auto asset = entry.as<engine::mesh>())
     return asset;
   if (auto asset = entry.as<engine::texture>())
@@ -825,14 +824,13 @@ asset_manager::find_loaded(const render_resource_source& source,
     if (!identity)
       return identity.error();
     auto domain = std::move(identity->source);
-    const auto current = cache()
-                             .observe(source.uri, cache_type(source.type), domain,
-                                      asset_load_parameters({.texture_profile = this->profile()}))
-                             .lock();
+    const auto current =
+        cache().lookup(source.uri, cache_type(source.type), domain,
+                       asset_load_parameters({.texture_profile = this->profile()}));
     if (!current) {
       return engine::error::not_found;
     }
-    if (current->type != cache_type(source.type) || current->is_loading) {
+    if (current->type != cache_type(source.type)) {
       return engine::error::invalid_argument;
     }
     render_resource_ref target;
@@ -925,7 +923,7 @@ asset_manager::reserve_resource(const render_resource_source& source) noexcept {
         identity.source, false, 0, asset_load_parameters({.texture_profile = profile()}));
     if (!cached)
       return cached.error();
-    auto resource = cached_resource(**cached);
+    auto resource = cached_resource(*cached);
     if (!owns(resource))
       return error::invalid_handle;
     return resource;

@@ -11,28 +11,24 @@ namespace gneiss::engine::detail {
 struct load_operation;
 using asset_key =
     std::tuple<std::shared_ptr<const files::source_domain>, std::string, type_id, std::string>;
-struct asset_cache_value final : std::enable_shared_from_this<asset_cache_value> {
-  std::string uri;
-  std::shared_ptr<const files::source_domain> source;
-  type_id type{engine::runtime_type_of<void>()};
-  bool is_loading{true}; // 仅在同步创建回调期间阻止同键递归。
+/** 一次查询取得的强引用与统计副本；不创建控制块，不承担资产身份。 */
+struct cached_asset {
+  type_id type{runtime_type_of<void>()};
   std::shared_ptr<const void> resource;
-  mutable asset_load_metrics metrics;
-  mutable std::size_t source_bytes{}; // CPU 文件加载统计；程序创建的对象默认为零。
-  /** 类型化引用保活条目与资源，保证只持有类型化引用时也能命中弱索引。 */
-  template <typename T> [[nodiscard]] asset_ref<const T> as() const noexcept {
-    auto owner = weak_from_this().lock();
-    if (type != runtime_type_of<T>() || !owner)
-      return {};
-    return asset_ref<const T>{
-        std::shared_ptr<const T>(std::move(owner), static_cast<const T*>(resource.get()))};
+  asset_load_metrics metrics;
+  std::size_t source_bytes{};
+  template <class T> [[nodiscard]] ref<const T> as() const noexcept {
+    return type == runtime_type_of<T>() ? ref<const T>{std::static_pointer_cast<const T>(resource)}
+                                        : ref<const T>{};
   }
 };
-
-/** 迁移期统一身份记录；cached 仍包装尚未迁移的 CPU 描述。 */
+/** 身份、弱缓存及在途操作共用一条记录；纯 CPU 类型迁移期间仍允许擦除值。 */
 struct asset_entry {
   asset_key identity;
-  std::optional<std::weak_ptr<const asset_cache_value>> cached;
+  std::optional<std::weak_ptr<const void>> cached;
+  asset_load_metrics metrics;
+  std::size_t source_bytes{};
+  bool constructing{}; // 同步创建回调的递归保护。
   std::shared_ptr<load_operation> loading;
 };
 }

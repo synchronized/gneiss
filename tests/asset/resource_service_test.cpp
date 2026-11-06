@@ -15,10 +15,11 @@
 #include <vector>
 
 template <class Loader>
-gneiss::engine::error load_cached(
-    gneiss::engine::resource_cache& cache, std::string_view uri, gneiss::engine::type_id type,
-    Loader loader, gneiss::engine::asset_ref<const gneiss::engine::detail::asset_cache_value>& output,
-    std::shared_ptr<const gneiss::engine::files::source_domain> source = {}, bool reload = false) {
+gneiss::engine::error
+load_cached(gneiss::engine::resource_cache& cache, std::string_view uri,
+            gneiss::engine::type_id type, Loader loader, std::shared_ptr<const void>& output,
+            std::shared_ptr<const gneiss::engine::files::source_domain> source = {},
+            bool reload = false) {
   auto loaded = cache.load(
       uri, type,
       [&]() -> gneiss::engine::result<std::shared_ptr<const void>> {
@@ -33,10 +34,33 @@ gneiss::engine::error load_cached(
     output = {};
     return loaded.error();
   }
-  output = std::move(*loaded);
+  output = std::move(loaded->resource);
   return gneiss::engine::error::success;
 }
 int main() try {
+  {
+    using namespace gneiss::engine;
+    resource_cache cache;
+    auto owner = std::make_shared<const int>(23);
+    {
+      auto loaded = cache.load("asset://owner", runtime_type_of<int>(),
+                               [&]() -> result<std::shared_ptr<const void>> {
+                                 return std::shared_ptr<const void>{owner};
+                               });
+      if (!loaded || loaded->resource.owner_before(owner) || owner.owner_before(loaded->resource))
+        return 18;
+    }
+    cache.release_unused();
+    if (cache.observe("asset://owner", runtime_type_of<int>()).lock() != owner)
+      return 19;
+    owner.reset();
+    if (!cache.observe("asset://owner", runtime_type_of<int>()).expired())
+      return 20;
+    cache.release_unused();
+    if (cache.size() != 0)
+      return 21;
+  }
+
   {
     using namespace gneiss::engine;
     resource_cache cache;
@@ -68,7 +92,7 @@ int main() try {
       return std::shared_ptr<const void>(std::make_shared<const int>(42));
     };
     auto loaded = cache.load("asset://direct", runtime_type_of<int>(), decode);
-    if (!loaded || *(*loaded)->as<int>() != 42)
+    if (!loaded || *loaded->as<int>() != 42)
       return 10;
     auto failed = cache.load(
         "asset://direct", runtime_type_of<int>(),
@@ -76,7 +100,7 @@ int main() try {
     if (failed || failed.error() != error::io)
       return 11;
     auto cached = cache.load("asset://direct", runtime_type_of<int>(), decode);
-    if (!cached || *cached != *loaded || calls != 1)
+    if (!cached || cached->resource != loaded->resource || calls != 1)
       return 12;
   }
   {
@@ -85,7 +109,7 @@ int main() try {
     resource_cache index;
     auto source_a = std::make_shared<gneiss::engine::files::source_domain>();
     auto source_b = std::make_shared<gneiss::engine::files::source_domain>();
-    asset_ref<const detail::asset_cache_value> a, b, c, again;
+    std::shared_ptr<const void> a, b, c, again;
     const auto integer = [](auto& output) {
       output = std::make_shared<const int>(42);
       return error::success;
@@ -107,7 +131,7 @@ int main() try {
                 .lock()
                 .get() != a.get())
       return 7;
-    auto held = a->as<int>();
+    auto held = std::static_pointer_cast<const int>(a);
     a.reset();
     b.reset();
     c.reset();
@@ -130,8 +154,8 @@ int main() try {
     resource = std::make_shared<int>(42);
     return gneiss::engine::error::success;
   };
-  gneiss::engine::asset_ref<const gneiss::engine::detail::asset_cache_value> first;
-  gneiss::engine::asset_ref<const gneiss::engine::detail::asset_cache_value> second;
+  std::shared_ptr<const void> first;
+  std::shared_ptr<const void> second;
   if (load_cached(cache, "asset://models/triangle.mesh", gneiss::engine::runtime_type_of<int>(),
                   loader, first) != gneiss::engine::error::success ||
       load_cached(cache, "asset://models/triangle.mesh", gneiss::engine::runtime_type_of<int>(),
@@ -146,12 +170,11 @@ int main() try {
   };
   if (load_cached(cache, "asset://models/triangle.mesh", gneiss::engine::runtime_type_of<int>(),
                   reloader, second, {}, true) != gneiss::engine::error::success ||
-      load_count != 2U || first == second ||
-      *static_cast<const int*>(first->resource.get()) != 42 ||
-      *static_cast<const int*>(second->resource.get()) != 84 || cache.size() != 1U) {
+      load_count != 2U || first == second || *static_cast<const int*>(first.get()) != 42 ||
+      *static_cast<const int*>(second.get()) != 84 || cache.size() != 1U) {
     return 3;
   }
-  gneiss::engine::asset_ref<const gneiss::engine::detail::asset_cache_value> failed_reload;
+  std::shared_ptr<const void> failed_reload;
   const auto failed_reloader = [](std::shared_ptr<const void>&) {
     return gneiss::engine::error::io;
   };

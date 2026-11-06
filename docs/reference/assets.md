@@ -66,7 +66,7 @@ HTTP(S) 地址使用 Fetch URL 基址。借用目录不会在后端销毁时被�
 | 入口 | 强引用与访问 | 更新规则 |
 | --- | --- | --- |
 | `asset_manager::find_loaded<T>`、`asset_request<T>::take` | `asset_ref<const T>`，直接访问 CPU 描述 | 成功重载替换当前缓存，旧引用继续保活旧数据 |
-| Prefab 描述 | `prefab_asset_ref`，即 `asset_ref<const prefab_description>` | 别名引用保活缓存条目；重载不会修改旧描述 |
+| Prefab 描述 | `prefab_asset_ref`，即 `asset_ref<const prefab_description>` | 直接保活描述快照；重载不会修改旧描述 |
 | 资产管理器、场景绑定、编辑器历史 | `mesh`、`material`、`texture` 强引用；混合批次用 `render_resource_ref` 持有类型化引用 | CPU 内容采用即完成，资源身份保持稳定，GPU 更新由 Render 独立处理 |
 
 渲染引用通过 `resource_rid`、`resource_kind`、`resource_uri` 访问 RID、类型和 URI；空引用分别返回
@@ -101,11 +101,11 @@ CPU 解码由注入的执行器运行，完成结果在所属线程通过同一�
 请求取消只放弃当前观察者，不使其他引用失效。
 
 统一资产索引只保存弱引用，不延长对象寿命。
-请求结果、类型化资源引用和 Render 共享数据共同保活相应缓存条目；
+请求结果与类型化引用直接共享实际对象的控制块，不再借用缓存包装的控制块；
 最后一个引用释放后查询立即失效，collect_unused / release_unused 仅清理过期索引。
 运行资源实际析构仍通过所属线程销毁队列完成，排队期间不会恢复弱缓存命中。
 Application 只调用一次资产管理器推进和回收；场景运行层不再驱动另一套资源管理器。
-CPU 缓存回收保留在途请求索引；CPU 重载任务暂时持有旧条目，
+CPU 缓存回收保留在途请求索引；CPU 重载任务暂时持有旧对象，
 避免回收与失败重载叠加导致旧内容提前消失。
 已完成但尚未领取的请求也保活结果。关闭通用管理器不使已领取的 CPU 描述引用失效。
 失败不永久缓存，重载失败不替换仍被使用者持有的旧数据；
@@ -224,7 +224,8 @@ CPU 描述类型仍由 load<T> 的 C++ 类型确定。
 `detail::asset_construction` 定义服务私有实现；创建、RID 包装、延迟销毁和内容采用均属于服务。
 网格、纹理从统一 CPU 请求领取共享引用后直接传给对应采用函数，不再重新组装 decoded_asset。
 来源身份检查仍在采用前执行；材质在依赖完成后直接传递已经持有的纹理强引用。
-缓存条目只有同步创建期间的 is_loading 保护，不维护异步加载状态或失败副本。
+资产记录直接弱持有实际对象，并保存统计、同步创建递归保护和当前在途操作。
+`cached_asset` 只是查询时取得的强引用与统计副本，不建立控制块或永久缓存身份。
 ActionMap 使用通用 load<action_map>；需要重新读文件的调用方显式传 reload=true。
 没有独立批次加载器、资源工厂或 prepare/apply 更新记录，也不在资源对象上保存更新序号。
 Runtime 的 `resource_load_group` 仅为场景与编辑器串行组合单资源请求、汇总显式请求结果；

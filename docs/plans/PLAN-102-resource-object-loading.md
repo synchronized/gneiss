@@ -64,10 +64,12 @@ struct asset_entry {
   - [x] 加载准备结果、World 实例及编辑快照保留来源资产强引用，同时固定实例化描述快照。
   - [ ] 移除旧描述加载入口，统一纯内存编辑与文件资产采用路径。
 - [ ] D. 记录 cached 统一为最终资产弱引用；取消 CPU 描述缓存条目、临时 payload 身份键及兼容桥接。
+  - [x] 删除 asset_cache_value 控制块包装，直接弱持有实际对象；统计归入 asset_entry。
+  - [ ] 移除非资产描述的加载兼容路径，将擦除弱引用收窄为最终 asset 类型并清理 payload 键。
 - [ ] E. 类型加载器共用 load_operation 生命周期；覆盖去重、单观察者取消、旧操作迟到、重载失败、清理与关闭。
 
-A 阶段允许缓存槽位临时弱持有 detail::asset_cache_value，以兼容尚未迁移的纯 CPU 描述；
-这不满足 D 的最终弱资产引用验收。不得新增另一份永久资产索引绕过上述迁移。
+缓存槽位当前直接 weak_ptr<const void> 指向实际对象，兼容尚未迁移的纯 CPU 描述；
+额外控制块包装已删除，但这仍不满足 D 的最终弱资产引用验收。不得新增另一份永久资产索引绕过上述迁移。
 优先完成 A，再继续资源文件格式等支线；完成整个计划要求 A—E 全部通过。
 
 ## 职责和目录
@@ -350,3 +352,13 @@ Windows Clang Debug 完整构建、17 项场景/Prefab/编辑/资源/边界回�
 git diff --check 通过。新增断言覆盖准备与实例捕获保留来源身份、释放重载结果后旧引用继续
 命中缓存。日志：build/scene-source-build-final.log、build/scene-source-tests.log（不入库）。
 未运行 GPU 大场景、跨平台或远端 CI。旧描述加载接口与最终缓存包装清理仍未完成。
+
+2026-11-06：缓存控制块包装移除。删除 asset_cache_value 与 enable_shared_from_this/别名引用，
+asset_entry 直接弱持有实际对象，保存统计和同步递归保护；在途操作直接保活旧对象。
+缓存查询返回 cached_asset 值快照，不建立额外控制块。原同对象重载控制块复用分支随之删除。
+新增回归验证查询引用与原对象共享控制块、释放查询结果但原拥有者仍存活时缓存命中、最后拥有者
+释放后立即失效。Windows Clang Debug 完整构建、12 项资源/场景/生命周期/边界回归通过；
+改动行格式化和 git diff --check 通过。日志：build/asset-cache-direct-build-final.log、
+build/asset-cache-direct-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+生产场景准备已无直接 load<scene_description/prefab_description> 调用；通用模板仍允许旧描述
+和其他 CPU 类型，后续清理入口后再将 weak_ptr<const void> 收窄为 asset。D 尚未整体完成。

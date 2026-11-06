@@ -35,17 +35,22 @@ public:
 
   /** 所属线程统一加载入口；默认复用，reload 成功后替换，失败保留旧条目。
    * 回调仅在需要加载时执行；同键递归加载返回 invalid_state。 */
-  [[nodiscard]] result<asset_ref<const detail::asset_cache_value>>
+  [[nodiscard]] result<detail::cached_asset>
   load(std::string_view uri, type_id type, const loader& decode,
        std::shared_ptr<const files::source_domain> source = {}, bool reload = false,
        std::size_t source_bytes = 0, std::string parameters = {},
        asset_load_metrics metrics = {}) noexcept;
   void release_unused() noexcept;
   /** 只观察当前身份，不触发加载；返回的弱引用不会阻止卸载。 */
-  [[nodiscard]] std::weak_ptr<const detail::asset_cache_value>
+  [[nodiscard]] std::weak_ptr<const void>
   observe(std::string_view uri, type_id type,
           std::shared_ptr<const files::source_domain> source = {},
           std::string parameters = {}) const;
+  /** 锁定实际对象并取得统计副本；不建立新的所有者。 */
+  [[nodiscard]] std::optional<detail::cached_asset>
+  lookup(std::string_view uri, type_id type,
+         std::shared_ptr<const files::source_domain> source = {},
+         std::string parameters = {}) const;
   [[nodiscard]] std::size_t size() const noexcept;
 
 private:
