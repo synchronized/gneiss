@@ -160,8 +160,7 @@ struct editor_prefab_edit::state {
   scene_document* session{};
   editor_command_history* history{};
   engine::asset_request<engine::prefab> preparation;
-  gneiss::engine::object_description author;
-  gneiss::engine::scene_instantiation_data prepared;
+  engine::prefab_header_snapshot source;
   std::vector<gneiss::engine::render_resource_ref> assets;
   std::unique_ptr<editor_command> command;
   std::unique_ptr<editor_history_operation> operation;
@@ -190,9 +189,7 @@ struct editor_prefab_edit::state {
     captured.reset();
     before.clear();
     after.clear();
-    prepared.prefabs.clear();
-    prepared.assets.clear();
-    prepared.parent_first.clear();
+    source = {};
     assets.clear();
   }
 
@@ -210,11 +207,11 @@ struct editor_prefab_edit::state {
     }
     if (after.size() < before.size()) {
       std::shared_ptr<const scene_subtree_snapshot> snapshot;
-      status = prefab_placement::freeze(
-          application, prepared.prefabs.at(author.prefab->uri),
+      auto refreshed = source;
+      refreshed.author =
           *std::ranges::find(before[after.size()]->description.objects,
-                             before[after.size()]->root_uuid, &engine::object_description::uuid),
-          assets, snapshot);
+                             before[after.size()]->root_uuid, &engine::object_description::uuid);
+      status = prefab_placement::freeze(application, std::move(refreshed), assets, snapshot);
       if (status.failed()) {
         finish();
         return;
@@ -242,15 +239,19 @@ struct editor_prefab_edit::state {
     status = loaded ? engine::error::success : loaded.error().error;
     const auto bytes = preparation.source_bytes();
     preparation.cancel();
+    std::vector<engine::render_resource_source> requested;
     if (loaded) {
       auto data = engine::make_instantiation_data(*loaded, bytes);
-      if (data)
-        prepared = std::move(*data);
-      else
+      if (data) {
+        auto& prefab = data->prefabs.at(source.author.prefab->uri);
+        source.source = std::move(prefab.resource);
+        source.source_asset = std::move(prefab.source_asset);
+        requested = std::move(data->assets);
+      } else
         status = data.error().error;
     }
     if (status.ok() && !cancelled) {
-      auto submitted = application.prepare_assets(prepared.assets, 1U, refreshing);
+      auto submitted = application.prepare_assets(requested, 1U, refreshing);
       if (!submitted)
         status = submitted.error();
       else {
@@ -324,13 +325,13 @@ gneiss::engine::error editor_prefab_edit::request(runtime::application& applicat
   next->scene = session.scene_handle();
   next->session = &session;
   next->history = &history;
-  next->author.prefab.emplace();
-  auto status = make_editor_uuid(next->author.uuid);
+  next->source.author.prefab.emplace();
+  auto status = make_editor_uuid(next->source.author.uuid);
   if (status.failed()) {
     return status;
   }
-  next->author.name = name;
-  next->author.prefab->uri = uri;
+  next->source.author.name = name;
+  next->source.author.prefab->uri = uri;
   if (parent.is_valid()) {
     auto snapshot = session.capture_nodes();
     if (!snapshot)
@@ -339,7 +340,7 @@ gneiss::engine::error editor_prefab_edit::request(runtime::application& applicat
     if (found == snapshot->nodes.end()) {
       return gneiss::engine::error::invalid_handle;
     }
-    next->author.parent_uuid = found->uuid;
+    next->source.author.parent_uuid = found->uuid;
   }
   status = application.assets().configure(executor);
   if (status.failed())
@@ -407,8 +408,8 @@ gneiss::engine::error editor_prefab_edit::request_refresh(runtime::application& 
   next->scene = session.scene_handle();
   next->session = &session;
   next->history = &history;
-  next->author.prefab.emplace();
-  next->author.prefab->uri = found->prefab_uri;
+  next->source.author.prefab.emplace();
+  next->source.author.prefab->uri = found->prefab_uri;
   for (const auto& record : snapshot->prefab_nodes) {
     if (record.is_instance_root && record.prefab_uri == found->prefab_uri) {
       next->refresh_targets.push_back(record.instance_uuid);
@@ -495,9 +496,8 @@ void editor_prefab_edit::advance() {
                                                value.captured);
       snapshot = value.captured;
     } else {
-      value.status = prefab_placement::freeze(
-          value.application, std::move(value.prepared.prefabs.at(value.author.prefab->uri)),
-          value.author, std::move(value.assets), snapshot);
+      value.status = prefab_placement::freeze(value.application, std::move(value.source),
+                                              std::move(value.assets), snapshot);
     }
     if (value.status.ok()) {
       value.status = value.history->prepare_record();

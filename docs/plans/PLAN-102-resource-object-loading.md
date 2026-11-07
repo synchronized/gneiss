@@ -580,3 +580,18 @@ build/scene-instantiate-asset-tests.log（不入库）。未运行 GPU 大场景
 
 Scene 资产直接实例化入口已完成；Prefab 插入/刷新与独立内存编辑仍保留描述和绑定入口。
 本步不宣布 PLAN-102 全部完成，后续仍须审查 Prefab 入口和计划中的其他删除条件。
+
+
+2026-11-07：Prefab 插入/刷新的冻结入口改为接收现有 prefab_header_snapshot，统一传递
+实例属性、固定描述及资产身份；删除 prefab_instantiation_data 参数和单独 author 参数。
+编辑器只保留此快照和视觉引用，不再长期保存 scene_instantiation_data 的场景描述、Prefab 表、
+父节点顺序等无用状态。make_instantiation_data 暂作为加载完成时的同步校验与清单收集函数。
+
+Windows Clang Debug 完整构建和 14 项相关回归通过；新增捕获后独立重载再冻结回归，验证
+身份仍共享、冻结采用旧描述、覆盖材质保留及撤销/重做行为。补充身份断言后增量构建和
+editor.asset-edit 重跑通过。改动行格式化及 git diff --check 通过。
+日志：build/prefab-source-snapshot-build-verified.log、build/prefab-source-snapshot-tests.log、
+build/prefab-source-snapshot-identity-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+
+本步收敛编辑器快照边界，不改变 Prefab 逐实例应用和撤销语义；底层实例化仍有独立描述及
+绑定入口，纯内存编辑也仍需这些入口。PLAN-102 的其他删除条件尚未全部验收。

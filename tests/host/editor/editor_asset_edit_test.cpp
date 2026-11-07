@@ -422,9 +422,25 @@ void prefab_edits(engine::execution_mode mode) {
         "asset://a.json");
   // 来源刷新快照必须持有覆盖资源，撤销/重做不依赖文件或弱缓存。
   std::shared_ptr<const e::scene_subtree_snapshot> frozen;
-  e::prefab_instantiation_data prepared;
-  prepared.resource = captured_source;
-  check(runtime::prefab_placement::freeze(*app, prepared, captured_author, {}, frozen).ok());
+  e::prefab_header_snapshot frozen_source{captured_author, captured_source,
+                                          captured->resources.at(uuid(5)).source_asset};
+  // 冻结前发生独立来源重载，仍必须采用捕获时的固定描述。
+  auto reloading = app->assets().load<e::prefab>("asset://prefab.json", true);
+  check(bool(reloading));
+  const auto reload_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (reloading->status() == e::error::not_ready) {
+    if (mode == e::execution_mode::cooperative)
+      (void)scheduler.run_ready();
+    app->advance_scene_load();
+    check(std::chrono::steady_clock::now() < reload_deadline);
+    std::this_thread::yield();
+  }
+  auto reloaded = reloading->take();
+  check(bool(reloaded) && (*reloaded)->snapshot() != captured_source);
+  check(frozen_source.source_asset == *reloaded);
+  check(runtime::prefab_placement::freeze(*app, frozen_source, {}, frozen).ok());
+  check(frozen->resources.at(uuid(5)).prefab == captured_source);
+  check(frozen->resources.at(uuid(5)).source_asset == frozen_source.source_asset);
   check(frozen->resources.at(uuid(5)).source_nodes[1].material == changed.material);
   scene_node_id replaced;
   check(runtime::prefab_placement::apply(*app, document.scene_handle(), *frozen, false, true,

@@ -37,8 +37,7 @@ prefab_placement::capture(runtime::application& application, gneiss::engine::gui
 }
 
 gneiss::engine::error prefab_placement::freeze(
-    runtime::application& application, gneiss::engine::prefab_instantiation_data prepared,
-    gneiss::engine::object_description author,
+    runtime::application& application, gneiss::engine::prefab_header_snapshot source,
     std::vector<gneiss::engine::render_resource_ref> assets,
     std::shared_ptr<const engine::scene_subtree_snapshot>& output) noexcept try {
   auto* host = &application;
@@ -49,10 +48,11 @@ gneiss::engine::error prefab_placement::freeze(
     return validation;
   }
   auto value = std::make_shared<engine::scene_subtree_snapshot>();
-  if (!prepared.resource || !author.prefab)
+  auto author = std::move(source.author);
+  if (!source.source || !author.prefab)
     return engine::error::invalid_argument;
   // 快照冻结只确定资源引用；完整覆盖校验留在各实例应用阶段，保留逐实例刷新语义。
-  auto effective = *prepared.resource;
+  auto effective = *source.source;
   for (auto& object : effective.objects) {
     const auto* original = object.components.get<engine::mesh_renderer_description>();
     if (!original)
@@ -80,8 +80,8 @@ gneiss::engine::error prefab_placement::freeze(
   author.parent_uuid = {};
   value->description.objects.push_back(std::move(author));
   auto& binding = value->resources[value->root_uuid];
-  binding.prefab = std::move(prepared.resource);
-  binding.source_asset = std::move(prepared.source_asset);
+  binding.prefab = std::move(source.source);
+  binding.source_asset = std::move(source.source_asset);
   binding.source_nodes.resize(binding.prefab->objects.size());
   const auto find = [&](std::string_view uri, engine::render_resource_kind type,
                         engine::render_resource_ref& result) {

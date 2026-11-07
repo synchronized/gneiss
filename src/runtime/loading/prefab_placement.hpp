@@ -5,7 +5,6 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
-#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include <map>
 
@@ -20,9 +19,9 @@ public:
   capture(runtime::application& application, gneiss::engine::guid uuid,
           gneiss::scene_instance_id scene,
           std::shared_ptr<engine::scene_subtree_snapshot>& snapshot) noexcept;
+  /** 冻结来源身份、固定描述和实例覆盖；不重新获取资产的当前快照。 */
   static gneiss::engine::error
-  freeze(runtime::application& application, gneiss::engine::prefab_instantiation_data prepared,
-         gneiss::engine::object_description author,
+  freeze(runtime::application& application, gneiss::engine::prefab_header_snapshot source,
          std::vector<gneiss::engine::render_resource_ref> assets,
          std::shared_ptr<const engine::scene_subtree_snapshot>& output) noexcept;
   /** 同步创建或删除；替换不保留旧运行实例，output 失败置空。 */
