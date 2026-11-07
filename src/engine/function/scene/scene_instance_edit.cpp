@@ -243,11 +243,34 @@ error scene_instance::set_component_description(scene_node_id node,
         return before.error();
       if (!after)
         return after.error();
-      auto pending = prefab->reference_.overrides;
-      std::erase_if(pending, [&](const auto& v) {
-        return v.key.target.source_node_uuid == member.address.source_node_uuid &&
-               component_description_type(v.key.target.target_type_guid) == value->guid();
-      });
+      auto current_view = (*components->find(value->guid()))->view();
+      if (!current_view)
+        return current_view.error();
+      std::vector<prefab_property_override> touched;
+      auto changed_status = collect_component_overrides(*current_view, *after, {}, touched);
+      if (changed_status.failed())
+        return changed_status;
+      auto overlaps = [](const auto& left, const auto& right) {
+        const auto length = std::min(left.size(), right.size());
+        return std::equal(left.begin(), left.begin() + length, right.begin());
+      };
+      std::vector<prefab_property_override> pending;
+      for (std::size_t i = 0; i < prefab->reference_.overrides.size(); ++i) {
+        const auto& old = prefab->reference_.overrides[i];
+        if (old.key.target.source_node_uuid != member.address.source_node_uuid ||
+            component_description_type(old.key.target.target_type_guid) != value->guid()) {
+          pending.push_back(old);
+          continue;
+        }
+        const bool conflict = std::ranges::any_of(prefab->conflicts_, [&](const auto& item) {
+          return item.section == prefab_override_section::property && item.index == i;
+        });
+        const bool changed = std::ranges::any_of(
+            touched, [&](const auto& item) { return overlaps(old.key.path, item.key.path); });
+        // 修改其他属性时保留尚未解决的覆盖，不能从有效组件反推并丢弃冲突。
+        if (conflict && !changed)
+          pending.push_back(old);
+      }
       auto status = collect_component_overrides(
           *before, *after,
           {.target = {.source_node_uuid = member.address.source_node_uuid,

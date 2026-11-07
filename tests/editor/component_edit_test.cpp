@@ -128,6 +128,15 @@ int main() try {
   check(history.undo().ok() && read().speed == 1);
   check(history.redo().ok() && read().speed == 4);
   check(editor_preparations >= 4);
+  // 属性历史不能覆盖未参与该命令的独立修改。
+  auto independently_changed = read();
+  independently_changed.settings.maximum = 20;
+  check(
+      document.set_component_description(node, e::make_component_description(independently_changed))
+          .ok());
+  check(history.undo().ok() && read().speed == 1 && read().settings.maximum == 20);
+  check(history.redo().ok() && read().speed == 4 && read().settings.maximum == 20);
+
   check(apply({.path = {p{2}}, .data = e::value{std::int64_t{1}}}).ok());
   check(read().mode == movement_mode::run);
   check(apply({.path = {p{3}, p{1}}, .data = e::value{6.0F}}).ok());
@@ -364,6 +373,41 @@ int main() try {
     ImGui::Render();
     ImGui::DestroyContext();
     check(!emitted && status.ok() && initial->amount == 99);
+  }
+  // 缺失稳定元素的旧覆盖仍保留；修改同组件的其他字段不得吞掉冲突。
+  {
+    auto conflict_reference = reference;
+    conflict_reference.uuid = e::guid::from_bytes({85, 99});
+    conflict_reference.prefab->overrides = {
+        {.key = {.target = {.source_node_uuid = root.uuid,
+                            .target_type_guid = movement_description::type_guid},
+                 .path = {p{5}, e::guid::from_bytes({85, 100}), p{2}}},
+         .operation = e::value{7.0F}}};
+    auto created = app->scenes()->instantiate_prefab_ready(
+        document.scene_handle(), conflict_reference, e::prefab_asset_ref{prefab}, bindings, false);
+    check(bool(created));
+    node = *created;
+    target = {.instance_uuid = conflict_reference.uuid,
+              .source_uuid = root.uuid,
+              .component_type = movement_description::type_guid};
+    check(history.clear().ok());
+    check(apply({.path = {p{1}}, .data = e::value{4.0F}}).ok());
+    auto conflict_count = [&] {
+      auto count = app->scenes()->get_node_count(document.scene_handle());
+      check(bool(count));
+      for (std::size_t i = 0; i < *count; ++i) {
+        auto info = app->scenes()->get_node_info(document.scene_handle(), i);
+        check(bool(info));
+        if (info->node == node) {
+          check(info->prefab.has_value());
+          return info->prefab->conflicts.size();
+        }
+      }
+      throw std::runtime_error("未找到冲突实例");
+    };
+    check(conflict_count() == 1 && read().speed == 4);
+    check(history.undo().ok() && conflict_count() == 1 && read().speed == 1);
+    check(history.redo().ok() && conflict_count() == 1 && read().speed == 4);
   }
   return 0;
 } catch (const std::exception& failure) {

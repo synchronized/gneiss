@@ -310,23 +310,46 @@ engine::error edit_component_description(scene_document& document, editor_comman
     });
     if (!changed)
       return changed.error();
-    auto original = serialization::capture_value(before),
-         next = serialization::capture_value(*changed);
+    auto before_view = before->view(), after_view = (*changed)->view();
+    if (!before_view)
+      return before_view.error();
+    if (!after_view)
+      return after_view.error();
+    auto before_property = meta::resolve_path(*before_view, edit.path);
+    auto after_property = meta::resolve_path(*after_view, edit.path);
+    if (!before_property)
+      return before_property.error();
+    if (!after_property)
+      return after_property.error();
+    auto original = serialization::capture_value(*before_property),
+         next = serialization::capture_value(*after_property);
     if (!original)
       return original.error().error;
     if (!next)
       return next.error().error;
     if (*original == *next)
       return error::success;
-    const auto apply = [&document, &world, identity](const engine::value& content) {
-      auto decoded = serialization::restore_value<component_description>(content);
-      if (!decoded)
-        return decoded.error().error;
-      const auto& value = *decoded;
+    const auto apply = [&document, &world, identity,
+                        path = edit.path](const engine::value& content) {
       auto node = locate_component(document, identity);
       if (!node)
         return node.error();
-      auto prepared = prepare_component_editor_value(world, node->first, value);
+      auto current = document.components(node->first);
+      if (!current)
+        return current.error();
+      auto found = current->find(identity.component_type);
+      if (!found)
+        return error::not_found;
+      // 历史只还原本次编辑的路径，不能覆盖之后独立修改的其他属性。
+      auto restored = modify_component(*found, [&](meta::mutable_instance root) -> error {
+        auto target = meta::resolve_path(root, path);
+        if (!target)
+          return target.error();
+        return serialization::apply_value(*target, content).error;
+      });
+      if (!restored)
+        return restored.error();
+      auto prepared = prepare_component_editor_value(world, node->first, *restored);
       return prepared ? document.set_component_description(node->first, *prepared)
                       : prepared.error();
     };
