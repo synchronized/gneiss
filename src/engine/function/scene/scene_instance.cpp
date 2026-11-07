@@ -4,7 +4,6 @@
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/serialization/json.hpp"
-#include "engine/core/serialization/value.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_types.hpp"
@@ -601,9 +600,9 @@ engine::error scene_instance::reparent_node(scene_node_id node, scene_node_id pa
 }
 
 result<prefab_asset_ref> scene_object_resources::prefab_source() const noexcept try {
-  auto restored = serialization::restore_value<prefab_description>(prefab_content);
+  auto restored = restore_prefab_record(prefab_content);
   if (!restored)
-    return restored.error().error;
+    return restored.error();
   return make_ref<const prefab_description>(std::move(*restored));
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
@@ -612,9 +611,9 @@ result<prefab_asset_ref> scene_object_resources::prefab_source() const noexcept 
 }
 
 result<scene_description> scene_subtree_snapshot::description() const noexcept {
-  auto restored = serialization::restore_value<scene_description>(content);
+  auto restored = restore_scene_record(content);
   if (!restored)
-    return restored.error().error;
+    return restored.error();
   return std::move(*restored);
 }
 
@@ -657,9 +656,9 @@ result<scene_subtree_snapshot> scene_instance::capture_subtree(scene_node_id roo
       });
       if (binding == prefab_instances_.end())
         return error::invalid_state;
-      auto source = serialization::capture_value(*(*binding)->prefab_lease());
+      auto source = capture_prefab_record(*(*binding)->prefab_lease());
       if (!source)
-        return source.error().error;
+        return source.error();
       resources.prefab_content = std::move(*source);
       resources.source_asset = (*binding)->source_asset();
       resources.source_nodes.resize((*binding)->node_count());
@@ -676,9 +675,9 @@ result<scene_subtree_snapshot> scene_instance::capture_subtree(scene_node_id roo
       snapshot.resources[author.uuid].renderer = {renderer->mesh, renderer->material};
     }
   }
-  auto content = serialization::capture_value(*description);
+  auto content = capture_scene_record(*description);
   if (!content)
-    return content.error().error;
+    return content.error();
   snapshot.content = std::move(*content);
   return snapshot;
 }

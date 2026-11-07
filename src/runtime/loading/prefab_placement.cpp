@@ -3,7 +3,6 @@
 #include "runtime/loading/prefab_placement.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/core/serialization/value.hpp"
 #include "engine/function/scene/prefab_replay.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/structural_diff.hpp"
@@ -64,14 +63,14 @@ gneiss::engine::error prefab_placement::freeze(
   engine::scene_description description;
   description.uuid = author.uuid;
   description.objects.push_back(std::move(author));
-  auto content = engine::serialization::capture_value(description);
+  auto content = engine::capture_scene_record(description);
   if (!content)
-    return content.error().error;
+    return content.error();
   value->content = std::move(*content);
   auto& binding = value->resources[value->root_uuid];
-  auto frozen_source = engine::serialization::capture_value(*source.source);
+  auto frozen_source = engine::capture_prefab_record(*source.source);
   if (!frozen_source)
-    return frozen_source.error().error;
+    return frozen_source.error();
   binding.prefab_content = std::move(*frozen_source);
   binding.source_asset = std::move(source.source_asset);
   binding.source_nodes.resize(source.source->objects.size());

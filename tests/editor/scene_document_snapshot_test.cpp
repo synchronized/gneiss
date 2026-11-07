@@ -50,5 +50,44 @@ int main() {
     return 5;
   if (frozen->content != before)
     return 6;
+  // 场景身份和层级直接由领域字段表达，候选修改不改变旧版本。
+  auto candidate = before.get();
+  if (candidate.uuid != input.description.uuid || candidate.objects[0].uuid != instance.uuid)
+    return 7;
+  candidate.objects[0].name = "renamed";
+  auto renamed = e::restore_scene_record(e::scene_record{candidate});
+  if (!renamed || renamed->objects[0].name != "renamed" ||
+      before.get().objects[0].name == "renamed")
+    return 8;
+  candidate.objects[0].parent = instance.uuid;
+  if (e::restore_scene_record(e::scene_record{candidate}))
+    return 9;
+  auto prefab_candidate = frozen->prefabs.at(instance.prefab->uri).content.get();
+  prefab_candidate.objects[0].components[0].type = instance.uuid;
+  if (e::restore_prefab_record(e::prefab_record{prefab_candidate}))
+    return 10;
+  prefab_candidate = frozen->prefabs.at(instance.prefab->uri).content.get();
+  prefab_candidate.objects[0].components.push_back(prefab_candidate.objects[0].components[0]);
+  if (e::restore_prefab_record(e::prefab_record{prefab_candidate}))
+    return 11;
+  candidate = before.get();
+  candidate.objects[0].prefab->uri = "invalid";
+  if (e::restore_scene_record(e::scene_record{candidate}))
+    return 12;
+  candidate = before.get();
+  candidate.objects[0].prefab->components.push_back({{}, instance.uuid, {}});
+  if (e::restore_scene_record(e::scene_record{candidate}))
+    return 13;
+  // 即使绕过文件解析，也不能把可变对象引用带入不可变版本。
+  e::prefab_property_override invalid_override;
+  invalid_override.key.target.source_node_uuid = source->root_uuid;
+  invalid_override.key.target.target_type_guid = e::camera_description::type_guid;
+  invalid_override.key.path = {e::meta::property_id{1}};
+  invalid_override.operation =
+      e::set_value_operation{e::value{e::make_ref<e::camera_description>()}};
+  auto unsafe = *restored->scene;
+  unsafe.objects[0].prefab->overrides.push_back(std::move(invalid_override));
+  if (e::capture_scene_record(unsafe))
+    return 14;
   return 0;
 }

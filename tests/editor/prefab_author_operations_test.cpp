@@ -5,7 +5,6 @@
 #include "commands/editor_command_history.hpp"
 #include "commands/prefab_authoring.hpp"
 #include "engine/core/serialization/json.hpp"
-#include "engine/core/serialization/value.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
@@ -208,7 +207,7 @@ int main() try {
   auto mesh_source = std::make_shared<e::prefab_description>(source);
   mesh_source->objects[0].components.set(e::mesh_renderer_description{
       "asset://meshes/missing.gneiss-mesh", "asset://materials/missing.material.json"});
-  auto frozen_source = e::serialization::capture_value(*mesh_source);
+  auto frozen_source = e::capture_prefab_record(*mesh_source);
   check(frozen_source.has_value());
   needs_assets.prefabs.at(first.prefab->uri).content = std::move(*frozen_source);
   // 冻结后修改源内存不能改变历史版本。

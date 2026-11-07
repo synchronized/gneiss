@@ -3,20 +3,21 @@
 #pragma once
 #include "commands/author_document_change.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
+#include "engine/resource/scene/scene_record.hpp"
 #include <map>
 #include <span>
 #include <string>
 namespace gneiss::editor {
 /** 历史冻结来源内容；资产强引用仅负责保活，不用于重新获取当前修订。 */
 struct prefab_document_snapshot {
-  engine::value content;
+  engine::prefab_record content;
   engine::ref<const engine::prefab> source_asset;
   bool operator==(const prefab_document_snapshot& other) const { return content == other.content; }
 };
 /** 作者历史持有不可变值树和资源引用；不保存节点地址，不读取文件。 */
 struct scene_document_snapshot {
   std::string uri;
-  engine::value content;
+  engine::scene_record content;
   std::map<std::string, prefab_document_snapshot> prefabs;
   engine::ref<const engine::scene> source_asset;
   [[nodiscard]] engine::result<engine::scene_description> description() const noexcept;

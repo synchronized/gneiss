@@ -5,7 +5,6 @@
 #include "../support/value_result.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/core/serialization/value.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -296,7 +295,7 @@ int main() try {
     if (object.components.template get<gneiss::engine::mesh_renderer_description>())
       object.components.update<gneiss::engine::mesh_renderer_description>(
           [&](auto& value) { value.mesh_uri = missing_mesh_uri; });
-  auto frozen_missing = gneiss::engine::serialization::capture_value(*missing_description);
+  auto frozen_missing = gneiss::engine::capture_scene_record(*missing_description);
   if (!frozen_missing)
     return 26;
   missing_asset_snapshot.content = std::move(*frozen_missing);

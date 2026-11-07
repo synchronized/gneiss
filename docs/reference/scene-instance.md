@@ -145,13 +145,17 @@ Editor Document 的节点列表只是界面查询缓存。保存与完整子树�
 `capture_description` 采集显式对象，`serialize` 编码为当前格式；来源生成节点不重复输出。
 未知 JSON 扩展字段按对象 UUID 对齐保留，不按旧数组下标绑定。
 `capture_subtree`、`restore_subtree` 使用统一的 `scene_subtree_snapshot`，支持普通父对象包含 Prefab、
-实例根包含自有对象及多个同源实例。快照以不可变 `value content` 保存显式对象和当时使用的 Prefab 源内容，另存外部父 UUID 和实际资源强引用；
+实例根包含自有对象及多个同源实例。快照以不可变 `scene_record` 保存显式对象，以 `prefab_record` 保存当时使用的 Prefab 源内容，另存外部父 UUID 和实际资源强引用；
 来源子节点由模板与覆盖重建，不重复展开成持久化对象。资源按显式对象 UUID 关联，避免同 URI 的不同版本混用。
 
 捕获完成后才删除。撤销保留显式 UUID，节点与实体 ID 重新生成；复制为所有显式对象生成新 UUID，
 修正内部父引用，保留模板内部来源 UUID。恢复只消费内存快照，不查询资源缓存或读取文件。
 `description()` 和 `prefab_source()` 从冻结内容创建独立描述；修改恢复后的描述不会修改历史。
 文档级快照同样冻结场景和 Prefab 内容，刷新前的并发编辑检查比较内容，不依赖源对象地址或 JSON 文本。
+`resource/scene/scene_record.hpp` 中的对象记录显式保存 UUID、父 UUID、名称、变换及 Prefab 引用；
+组件记录保存类型 GUID 和反射冻结的属性 value，当前尚无组件实例 UUID。
+恢复创建独立组件描述并检查类型、重复组件、Prefab 覆盖与场景层级；内存构造记录同样执行校验。
+复制版本共享只读内容，资源保活仍由所属历史显式持有，记录本身不持有 World 或可写组件引用。
 恢复失败清理本次创建的节点，原场景与快照保留；新节点仅在构造成功后并入所属场景成员集合。
 
 普通子树历史与 Prefab 放置／删除历史使用同一快照和恢复入口；不再维护独立的 Prefab 放置快照结构。

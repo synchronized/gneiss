@@ -163,6 +163,8 @@ target_sources(
     engine/resource/material/material_description.hpp
     engine/resource/scene/scene_validation.cpp
     engine/resource/scene/scene_validation.hpp
+    engine/resource/scene/scene_record.hpp
+    engine/resource/scene/scene_record.cpp
     engine/resource/scene/component_description.hpp
     engine/resource/scene/scene_description.hpp
     engine/resource/scene/prefab_description.hpp

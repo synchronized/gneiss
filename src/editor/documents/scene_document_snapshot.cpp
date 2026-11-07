@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/scene_document_snapshot.hpp"
-#include "engine/core/serialization/value.hpp"
 #include "engine/resource/asset_file.hpp"
 namespace gneiss::editor {
 engine::result<scene_document_snapshot>
@@ -9,17 +8,17 @@ make_scene_document_snapshot(std::string uri,
                              const engine::scene_instantiation_data& source) noexcept try {
   scene_document_snapshot snapshot;
   snapshot.uri = std::move(uri);
-  auto content = engine::serialization::capture_value(source.description);
+  auto content = engine::capture_scene_record(source.description);
   if (!content)
-    return content.error().error;
+    return content.error();
   snapshot.content = std::move(*content);
   snapshot.source_asset = source.source_asset;
   for (const auto& [path, prefab] : source.prefabs) {
     if (!prefab.resource)
       return engine::error::invalid_argument;
-    auto content = engine::serialization::capture_value(*prefab.resource);
+    auto content = engine::capture_prefab_record(*prefab.resource);
     if (!content)
-      return content.error().error;
+      return content.error();
     snapshot.prefabs.emplace(path,
                              prefab_document_snapshot{std::move(*content), prefab.source_asset});
   }
@@ -38,10 +37,9 @@ make_scene_document_inputs(const scene_document_snapshot& snapshot) noexcept try
   inputs.scene = engine::make_ref<const engine::scene_description>(std::move(*description));
   inputs.source_asset = snapshot.source_asset;
   for (const auto& [uri, prefab] : snapshot.prefabs) {
-    auto description =
-        engine::serialization::restore_value<engine::prefab_description>(prefab.content);
+    auto description = engine::restore_prefab_record(prefab.content);
     if (!description)
-      return description.error().error;
+      return description.error();
     inputs.prefabs.emplace(
         uri, engine::make_ref<const engine::prefab_description>(std::move(*description)));
     inputs.prefab_assets.emplace(uri, prefab.source_asset);
@@ -54,9 +52,9 @@ make_scene_document_inputs(const scene_document_snapshot& snapshot) noexcept try
 }
 engine::result<engine::scene_description> scene_document_snapshot::description() const noexcept
     try {
-  auto restored = engine::serialization::restore_value<engine::scene_description>(content);
+  auto restored = engine::restore_scene_record(content);
   if (!restored)
-    return restored.error().error;
+    return restored.error();
   return std::move(*restored);
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
