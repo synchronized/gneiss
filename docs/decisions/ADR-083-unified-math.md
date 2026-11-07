@@ -20,3 +20,7 @@ GLM 配置在统一头内固定；不启用对齐 SIMD 类型，不能把对象�
 `gneiss::engine::math`，避免向 Engine 平铺通用运算名称。不保留旧限定名兼容别名，
 调用方、反射注册和通用 value 直接使用新名称。GUID、反射展示名、文件字段与数学约定不变。
 头文件路径、GLM 配置和链接目标不变；`result`、`guid` 和 traits 定制点仍属于 Engine。
+
+数学类型的反射适配集中在 `core/meta/math_registration.cpp`，由 Meta 内置注册统一调用。
+依赖方向为 Meta → Math；Math 只定义数学数据、运算及合法性检查，不依赖反射或序列化。
+World 和资源层不重复注册数学类型。独立 Meta 注册表可直接使用数学反射，不要求初始化应用或 World。

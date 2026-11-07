@@ -3,7 +3,7 @@
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/core/serialization/value.hpp"
 #include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/world/world_reflection.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include <cmath>
 #include <mutex>

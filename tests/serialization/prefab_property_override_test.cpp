@@ -9,7 +9,6 @@
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/prefab_replay.hpp"
 #include "engine/function/world/component_identity.hpp"
-#include "engine/function/world/world_reflection.hpp"
 
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"

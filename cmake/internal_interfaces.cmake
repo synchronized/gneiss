@@ -150,7 +150,6 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/scene/scene_query.hpp
   engine/function/world/world.hpp
   engine/function/world/world_components.hpp
-  engine/function/world/world_reflection.hpp
   engine/function/world/world_types.hpp
   engine/platform/native_window_info.hpp
   engine/platform/window_configuration.hpp

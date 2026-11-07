@@ -7,6 +7,11 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <numbers>
 namespace gneiss::engine::math {
+bool is_valid_camera(const camera_settings& camera) noexcept {
+  return std::isfinite(camera.fov) && std::isfinite(camera.near) && std::isfinite(camera.far) &&
+         camera.fov > 0 && camera.fov < std::numbers::pi_v<float> && camera.near > 0 &&
+         camera.far > camera.near;
+}
 error view_matrix_rh(const transform& value, matrix4& output) noexcept {
   const auto squared = glm::dot(value.rotation, value.rotation);
   if (!std::isfinite(squared) || squared <= 0 || !std::isfinite(value.translation.x) ||
@@ -17,9 +22,7 @@ error view_matrix_rh(const transform& value, matrix4& output) noexcept {
   return error::success;
 }
 error perspective_rh_zo(const camera_settings& camera, float aspect, matrix4& output) noexcept {
-  if (!std::isfinite(aspect) || aspect <= 0 || !std::isfinite(camera.fov) ||
-      !std::isfinite(camera.near) || !std::isfinite(camera.far) || camera.fov <= 0 ||
-      camera.fov >= std::numbers::pi_v<float> || camera.near <= 0 || camera.far <= camera.near)
+  if (!std::isfinite(aspect) || aspect <= 0 || !is_valid_camera(camera))
     return error::invalid_argument;
   output = glm::perspectiveRH_ZO(camera.fov, aspect, camera.near, camera.far);
   return error::success;

@@ -5,7 +5,7 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/asset/detail/asset_decode.hpp"
-#include "engine/function/world/world_reflection.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/material/material_description.hpp"
@@ -145,7 +145,6 @@ void run(std::size_t limit) {
 }
 int main() try {
   check(meta::register_builtin_types().ok());
-  check(register_reflection().ok());
   check(register_builtin_resource_types().ok());
   check(meta::freeze().ok());
   native_material_contract();

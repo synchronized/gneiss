@@ -3,6 +3,9 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/value_edit.hpp"
 namespace gneiss::engine::meta {
+namespace detail {
+error register_math_types(const registry_ref&) noexcept;
+}
 namespace {
 template <class T> const auto& read_content(const T& object) { return object.get(); }
 template <class T, class D> error write_content(T& object, const D& data) {
@@ -184,6 +187,6 @@ error register_builtin_types(const registry_ref& registry) noexcept {
           .commit();
   if (status.failed())
     return status;
-  return error::success;
+  return detail::register_math_types(registry);
 }
 }

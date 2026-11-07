@@ -10,7 +10,6 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 
 #include <array>
@@ -192,14 +191,14 @@ int main() {
   gneiss::engine::value proposed;
   proposed.payload = gneiss::engine::math::vector3{2, 3, 4};
   if (gneiss::engine::meta::write_property(
-          service::transform_property_type(), gneiss::engine::transform_translation_field,
+          service::math::transform::type_guid, gneiss::engine::transform_translation_field,
           &candidate_transform, proposed) != gneiss::engine::error::success ||
       candidate_transform.translation[0] != 2) {
     return 15;
   }
   proposed.payload = gneiss::engine::math::vector3{0, 1, 1};
   if (gneiss::engine::meta::write_property(
-          service::transform_property_type(), gneiss::engine::transform_scale_field,
+          service::math::transform::type_guid, gneiss::engine::transform_scale_field,
           &candidate_transform, proposed) != gneiss::engine::error::invalid_argument ||
       candidate_transform.scale[0] != 1) {
     return 16;

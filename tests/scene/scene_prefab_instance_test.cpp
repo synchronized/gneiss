@@ -9,8 +9,8 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
 

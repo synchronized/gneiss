@@ -8,8 +8,8 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/function/world/world_reflection.hpp"
 #include "runtime/application.hpp"
 #include "runtime/loading/scene_service.hpp"
 #include <algorithm>

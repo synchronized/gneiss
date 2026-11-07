@@ -12,7 +12,7 @@
 #include <vector>
 
 namespace gneiss::engine::meta {
-/** 注册 Meta 基础值类型；不冻结注册表，重复注册按普通类型注册规则报错。 */
+/** 注册 Meta 基础值及数学类型；不冻结注册表，重复注册按普通类型注册规则报错。 */
 GNEISS_API error register_builtin_types(const registry_ref&) noexcept;
 inline error register_builtin_types() noexcept {
   auto registry = default_registry();

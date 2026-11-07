@@ -4,8 +4,8 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/component_adapter.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include <cmath>
 #include <thread>
@@ -16,8 +16,8 @@ int main() {
   engine::world_owner first, second;
   gneiss::entity_id entity, missing;
   gneiss::scene_node_id node;
-  if (engine::meta::register_builtin_types().failed() || engine::register_reflection().failed() ||
-      engine::register_reflection() != engine::error::invalid_argument ||
+  if (engine::meta::register_builtin_types().failed() ||
+      engine::meta::register_builtin_types() != engine::error::invalid_argument ||
       engine::register_builtin_resource_types().failed() ||
       gneiss::engine::meta::freeze().failed() ||
       gneiss::test_support::assign_value(engine::create_native(), first).failed() ||
@@ -25,7 +25,7 @@ int main() {
       first->entity_create(entity).failed() || first->entity_create(missing).failed() ||
       first->node_create({}, entity, node).failed())
     return 1;
-  const auto transform_type = engine::transform_property_type();
+  const auto transform_type = engine::math::transform::type_guid;
   const auto camera_type = engine::camera_description::type_guid;
   gneiss::engine::meta::type_info info;
   if (gneiss::test_support::assign_value(gneiss::engine::meta::describe_type(transform_type), info)

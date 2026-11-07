@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/value_result.hpp"
+#include "engine/core/math/camera.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/serialization/json.hpp"
 #include <array>
 #include <cstdint>
 #include <string>
@@ -102,7 +104,37 @@ bool typed_registration() {
          info.guid == data_guid;
 }
 
+bool math_registration() {
+  namespace e = gneiss::engine;
+  namespace m = e::meta;
+  auto registry = m::create_registry();
+  if (!registry || m::register_builtin_types(*registry).failed() || m::freeze(*registry).failed())
+    return false;
+  auto transform = m::describe_type<e::math::transform>(*registry);
+  auto camera = m::describe_type<e::math::camera_settings>(*registry);
+  if (!transform || !camera || transform->properties.size() != 3 || camera->properties.size() != 3)
+    return false;
+  e::serialization::context context{*registry};
+  e::math::camera_settings settings{1.0F, 0.1F, 100.0F};
+  auto encoded = e::serialization::json::serialize_bytes(context, settings);
+  if (!encoded)
+    return false;
+  auto decoded = e::serialization::json::deserialize<e::math::camera_settings>(context, *encoded);
+  if (!decoded || decoded->fov != settings.fov || decoded->near != settings.near ||
+      decoded->far != settings.far)
+    return false;
+  const std::string invalid = R"({"fov":1,"near":10,"far":1})";
+  auto rejected = e::serialization::json::deserialize<e::math::camera_settings>(
+      context, std::as_bytes(std::span{invalid.data(), invalid.size()}));
+  e::math::transform value;
+  auto status = m::write_property(*registry, e::math::transform::type_guid, m::property_id{3},
+                                  &value, e::value{e::math::vector3{0, 1, 1}});
+  return !rejected && rejected.error().error == e::error::invalid_argument &&
+         status == e::error::invalid_argument && value.scale.x == 1;
+}
 int main() {
+  if (!math_registration())
+    return 30;
   auto empty = gneiss::engine::meta::create_registry();
   if (!empty)
     return 30;

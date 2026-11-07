@@ -131,8 +131,10 @@ setter 应先校验再修改，Core 不回滚第三方回调已经产生的副�
 
 ## 内建组件与生命周期
 
-`register_reflection` 为未冻结 Registry 注册 Transform 和 Camera；重复调用返回 `invalid_argument`。
-World 属性注册和读写统一使用默认表，不再提供独立组件注册表工厂。
+`meta::register_builtin_types` 注册基础值以及 `math::transform`、`math::camera_settings`，
+支持默认表和显式独立表，不冻结注册表；重复注册返回 `invalid_argument`。
+数学注册实现集中在 `core/meta/math_registration.cpp`，不依赖 World 或资源模块。
+`camera_description` 等业务描述由资源内置注册负责，应用初始化依次注册 Meta 和资源类型。
 稳定身份使用 `math::transform::type_guid`、`camera_description::type_guid`。
 
 `function/scene/component_adapter.hpp` 提供 `read_component_property`、`write_component_property`：显式接收 `world&`、

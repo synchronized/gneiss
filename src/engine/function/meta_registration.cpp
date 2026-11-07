@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/meta_registration.hpp"
 #include "engine/core/meta/registration.hpp"
-#include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include <mutex>
 #include <new>
@@ -19,8 +18,6 @@ error initialize_meta(meta_registration_callback callback) noexcept try {
   status = error::internal;
   try {
     status = meta::register_builtin_types();
-    if (status.ok())
-      status = register_reflection();
     if (status.ok())
       status = register_builtin_resource_types();
     if (status.ok() && callback)

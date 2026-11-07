@@ -150,15 +150,6 @@ error register_component_descriptions() noexcept {
           .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<math::camera_settings>{}
-               .property<&math::camera_settings::fov>(meta::property_id{1}, "fov", required)
-               .property<&math::camera_settings::near>(meta::property_id{2}, "near", required)
-               .property<&math::camera_settings::far>(meta::property_id{3}, "far", required)
-               .serialization()
-               .validate<&validate_camera_description>()
-               .commit();
-  if (status.failed())
-    return status;
   status =
       meta::type_builder<camera_description>{}
           .base<component_description_base>()

@@ -208,8 +208,8 @@ Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真�
 
 属性面板和撤销历史使用 `gneiss::engine::value`，其中字符串为自有文本；
 `meta/registry.hpp` 提供同一注册表的创建、注册、冻结、查询和属性读写。
-C++ Builder 注册入口位于 `meta/registration.hpp`，内置组件注册入口是
-`world_reflection.hpp`。元数据名称借用注册表，属性读取结果拥有自己的数据；
+C++ Builder 和 Meta 内置注册入口位于 `meta/registration.hpp`；数学反射实现位于
+`meta/math_registration.cpp`，业务资源注册位于 `resource/builtin_resource_registration.cpp`。元数据名称借用注册表，属性读取结果拥有自己的数据；
 具体文件职责见[反射接口参考](../reference/reflection.md)。
 
 `scene_instance_edit.cpp` 实现单实例的已就绪材质绑定提交；Scene 服务校验入口，实例同步

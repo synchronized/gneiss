@@ -13,8 +13,8 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/function/world/component_identity.hpp"
 
+#include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/function/world/world_reflection.hpp"
 
 #include "engine/function/scene/scene_object.hpp"
 

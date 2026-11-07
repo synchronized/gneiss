@@ -4,8 +4,8 @@
 #include "runtime_property_editor.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/scene/component_adapter.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/function/world/world_reflection.hpp"
 
 #include <algorithm>
 #include <limits>

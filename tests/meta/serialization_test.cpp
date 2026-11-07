@@ -6,7 +6,7 @@
 #include "engine/core/serialization/serialization.hpp"
 #include "engine/core/serialization/value.hpp"
 #include "engine/core/value_edit.hpp"
-#include "engine/function/world/world_reflection.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "engine/resource/asset_decoder.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/material/material_description.hpp"
@@ -284,8 +284,7 @@ int main() {
     return 1;
   if (gneiss::test_support::assign_value(gneiss::engine::meta::default_registry(), registry)
           .failed() ||
-      e::meta::register_builtin_types().failed() || e::register_reflection().failed() ||
-      e::register_builtin_resource_types().failed())
+      e::meta::register_builtin_types().failed() || e::register_builtin_resource_types().failed())
     return 2;
   if (gneiss::test_support::assign_decoded(
           gneiss::engine::asset_file::serialize_bytes(

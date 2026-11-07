@@ -5,8 +5,6 @@
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
 #include <algorithm>
-#include <cmath>
-#include <numbers>
 #include <set>
 namespace gneiss::engine {
 serialization::diagnostic validate_property_override_key(const prefab_property_override_key& key) {
@@ -81,13 +79,6 @@ serialization::diagnostic validate_object_description(const object_description& 
     return {.path = "/components",
             .message = "Prefab 引用与独立组件不能同时定义",
             .error = error::invalid_argument};
-  return {};
-}
-serialization::diagnostic validate_camera_description(const math::camera_settings& value) {
-  if (!std::isfinite(value.fov) || !std::isfinite(value.near) || !std::isfinite(value.far) ||
-      value.fov <= 0.0F || value.fov >= std::numbers::pi_v<float> || value.near <= 0.0F ||
-      value.far <= value.near)
-    return {.message = "相机透视参数范围错误", .error = error::invalid_argument};
   return {};
 }
 serialization::diagnostic

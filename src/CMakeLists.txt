@@ -107,6 +107,7 @@ target_sources(
     engine/core/value.cpp
     engine/core/value_edit.cpp
     engine/core/meta/builtin_registration.cpp
+    engine/core/meta/math_registration.cpp
     engine/core/serialization/detail/json_adapter.hpp
     engine/core/serialization/detail/context_access.hpp
     engine/core/serialization/diagnostic.hpp
@@ -258,8 +259,6 @@ target_sources(
     engine/function/world/world.hpp
     engine/function/world/world_types.hpp
     engine/function/world/world_factory.cpp
-    engine/function/world/world_reflection.hpp
-    engine/function/world/component_reflection.cpp
     engine/function/world/world_state.hpp
     engine/function/meta_registration.cpp
     engine/function/meta_registration.hpp

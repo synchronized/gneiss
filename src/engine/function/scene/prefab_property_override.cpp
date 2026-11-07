@@ -7,7 +7,7 @@
 #include "engine/core/serialization/value.hpp"
 #include "engine/core/utf8.hpp"
 #include "engine/function/scene/scene_object.hpp"
-#include "engine/function/world/world_reflection.hpp"
+#include "engine/function/world/component_identity.hpp"
 
 #include <algorithm>
 #include <cmath>

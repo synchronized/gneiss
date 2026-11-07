@@ -8,8 +8,8 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/function/world/world_reflection.hpp"
 #include "runtime/application.hpp"
 #include <chrono>
 #include <cmath>
@@ -94,7 +94,7 @@ int main() try {
     return 3;
   gneiss::engine::value value{.payload = gneiss::engine::math::vector3{2, 1, 4}};
   if (gneiss::engine::write_component_property(*app->native_world(), target.get(),
-                                               gneiss::engine::transform_property_type(),
+                                               gneiss::engine::math::transform::type_guid,
                                                gneiss::engine::meta::property_id{1}, value)
           .failed())
     return 3;
@@ -144,7 +144,7 @@ int main() try {
       !target_for(*app, scene, target))
     return 6;
   auto translation = gneiss::engine::read_component_property(
-      *app->native_world(), target.get(), gneiss::engine::transform_property_type(),
+      *app->native_world(), target.get(), gneiss::engine::math::transform::type_guid,
       gneiss::engine::meta::property_id{1});
   if (!translation || translation->kind() != gneiss::engine::value_kind::vec3 ||
       std::abs(std::get<gneiss::engine::math::vector3>(translation->payload).x - 2) > 0.0001F)

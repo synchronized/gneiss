@@ -8,15 +8,14 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/function/render/render_service.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/asset/resource_cache.hpp"
+#include "engine/function/meta_registration.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/function/scene/prefab_binding.hpp"
 #include "engine/function/scene/structural_diff.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 #include <stdexcept>
 

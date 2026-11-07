@@ -8,8 +8,8 @@
 #error "Application 重新传递包含了具体服务"
 #endif
 #include "commands/author_property_edit.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/function/world/world_reflection.hpp"
 
 // 与真实宿主使用相同传递依赖；私有头重新泄漏时编译必须失败。
 #if __has_include("engine/resource/texture/detail/texture_resource_access.hpp") ||                 \
