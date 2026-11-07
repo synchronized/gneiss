@@ -44,11 +44,21 @@ int main() try {
   ed::editor_command_history history;
   auto add = [&] { return ed::add_component_description(document, history, uuid, type); };
   auto remove = [&] { return ed::remove_component_description(document, history, uuid, type); };
-  auto current = [&] { return state(world).get<movement_component>(entity(world, node)); };
+  auto current = [&] {
+    node = document.find_node(uuid)->node;
+    return state(world).get<movement_component>(entity(world, node));
+  };
   check(remove() == e::error::not_found && history.size() == 0);
   ed::editor_command_history disabled{0};
   check(ed::add_component_description(document, disabled, uuid, type).failed() && !current());
   check(add().ok() && current()->data.speed == 1);
+  const auto identity = document.components(node)->identity(type);
+  const auto check_identity = [&] {
+    node = document.find_node(uuid)->node;
+    check(document.components(node)->identity(type) == identity);
+    check(e::capture_components(world, node)->identity(type) == identity);
+  };
+  check_identity();
   check(add() == e::error::invalid_state && history.size() == 1);
   check(ed::remove_component_description(document, disabled, uuid, type).failed() && current());
   check(ed::edit_component_description(
@@ -58,20 +68,21 @@ int main() try {
   std::weak_ptr<int> lifetime = current()->lifetime;
   check(remove().ok() && !current() && lifetime.expired() && history.size() == 3);
   check(history.undo().ok() && current()->data.speed == 4);
+  check_identity();
   check(history.redo().ok() && !current());
   check(history.undo().ok());
   check(history.undo().ok() && current()->data.speed == 1);
   check(history.undo().ok() && !current());
   check(history.redo().ok());
   check(history.redo().ok() && current()->data.speed == 4);
+  check_identity();
+  auto before_independent = document.current_version();
   // 历史不删除外部修改后的不同组件。
   check(document
             .set_component_description(node, e::make_component_description(movement_description{5}))
             .ok());
   check(history.redo() == e::error::invalid_state && current()->data.speed == 5);
-  check(document
-            .set_component_description(node, e::make_component_description(movement_description{4}))
-            .ok());
+  check(document.restore_version(document.current_version(), before_independent).ok());
   check(history.redo().ok() && !current());
   auto snapshot = [&] {
     e::scene_description result;
@@ -83,6 +94,7 @@ int main() try {
   auto removed = snapshot();
   check(removed.objects.size() == 1 && removed.objects[0].components.empty());
   check(history.undo().ok() && current()->data.speed == 4);
+  check_identity();
   auto encoded = gneiss::engine::asset_file::serialize_bytes(snapshot());
   check(encoded.has_value());
   auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(*encoded);
@@ -140,6 +152,7 @@ int main() try {
   check(ed::remove_component_description(document, history, uuid, e::camera_description::type_guid)
             .ok());
   check(history.undo().ok());
+  node = document.find_node(uuid)->node;
   check(document.components(node)->get<e::camera_description>() != nullptr);
   // Prefab 根和子节点的结构编辑现在产生显式覆盖。
   auto prefab = std::make_shared<e::prefab_description>();

@@ -10,7 +10,7 @@ inline engine::error open_document(editor::scene_document& document, runtime::ap
   if (world != app.native_world())
     return engine::error::invalid_argument;
   scene_instance_id instance;
-  auto status = load_scene(app, uri, &instance, tasks);
+  auto status = load_scene(app, uri, &instance, tasks, true);
   if (status.failed())
     return status;
   status = document.adopt(app, world, instance, uri);

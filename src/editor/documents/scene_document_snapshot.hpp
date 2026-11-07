@@ -22,6 +22,9 @@ struct scene_document_snapshot {
   engine::ref<const engine::scene> source_asset;
   [[nodiscard]] engine::result<engine::scene_description> description() const noexcept;
   std::map<std::string, engine::render_resource_ref, std::less<>> assets;
+  /** 只检查当前版本和冻结来源；外部文档未提供时保留未解析诊断。 */
+  [[nodiscard]] engine::result<std::vector<engine::object_reference_issue>>
+  reference_issues() const noexcept;
 };
 struct prepared_scene_document {
   scene_document_snapshot snapshot;

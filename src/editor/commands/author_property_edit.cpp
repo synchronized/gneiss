@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "commands/author_property_edit.hpp"
+#include "documents/scene_document_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/component_identity.hpp"
@@ -31,7 +32,7 @@ locate_component(scene_document& document, const component_edit_target& target) 
   return engine::error::not_found;
 }
 template <class T, class Apply>
-engine::error edit_description(editor_command_history& history,
+engine::error edit_description(scene_document& document, editor_command_history& history,
                                const component_edit_target& identity, const property_edit& edit,
                                std::uint64_t serial, const T& before, Apply apply) {
   using namespace engine;
@@ -61,23 +62,13 @@ engine::error edit_description(editor_command_history& history,
     return original.error().error;
   if (*original == *validated)
     return error::success;
-  return history.execute(
-      {.label = "修改组件属性",
-       .undo =
-           [apply, original = std::move(*original)] {
-             auto restored = serialization::restore_value<T>(original);
-             return restored ? apply(*restored) : restored.error().error;
-           },
-       .redo =
-           [apply, validated = std::move(*validated)] {
-             auto restored = serialization::restore_value<T>(validated);
-             return restored ? apply(*restored) : restored.error().error;
-           },
-       .merge_key = serial && !edit.object
-                        ? identity.component_type.string() + ":" + identity.object_uuid.string() +
-                              identity.instance_uuid.string() + identity.source_uuid.string() +
-                              key + ":" + std::to_string(serial)
-                        : std::string{}});
+  return execute_scene_edit(
+      history, document, "修改组件属性", [&] { return apply(candidate); },
+      serial && !edit.object
+          ? identity.component_type.string() + ":" + identity.object_uuid.string() +
+                identity.instance_uuid.string() + identity.source_uuid.string() + key + ":" +
+                std::to_string(serial)
+          : std::string{});
 }
 }
 namespace {
@@ -114,36 +105,10 @@ engine::error component_lifecycle(scene_document& document, editor_command_histo
   // 描述无法保留旧的渲染资源实例；有资源依赖的操作走资产历史。
   if (!dependencies->empty())
     return error::unsupported;
-  auto frozen = serialization::capture_value(*source);
-  if (!frozen)
-    return frozen.error().error;
-  auto add = [&document, object, content = *frozen]() -> error {
-    auto value = serialization::restore_value<component_description>(content);
-    if (!value)
-      return value.error().error;
-    const auto target = document.find_node(object);
-    return target ? document.add_component_description(target->node, *value) : error::not_found;
-  };
-  auto remove = [&document, object, type, content = *frozen]() -> error {
-    const auto target = document.find_node(object);
-    if (!target)
-      return error::not_found;
-    auto current = document.components(target->node);
-    if (!current)
-      return current.error();
-    auto* found = current->find(type);
-    if (!found)
-      return error::not_found;
-    auto current_value = serialization::capture_value(*found);
-    if (!current_value)
-      return current_value.error().error;
-    if (*current_value != content)
-      return error::invalid_state;
-    return document.remove_component_description(target->node, type);
-  };
-  if (adding)
-    return history.execute({.label = "添加组件", .undo = remove, .redo = add, .merge_key = {}});
-  return history.execute({.label = "移除组件", .undo = add, .redo = remove, .merge_key = {}});
+  return execute_scene_edit(history, document, adding ? "添加组件" : "移除组件", [&] {
+    return adding ? document.add_component_description(node->node, *source)
+                  : document.remove_component_description(node->node, type);
+  });
 }
 }
 engine::error add_component_description(scene_document& document, editor_command_history& history,
@@ -199,39 +164,14 @@ engine::error edit_prefab_component_structure(scene_document& document,
       return error::not_found;
     after.removed = !before->added;
   }
-  // 覆盖操作本身不可变；新增组件按内容冻结，避免历史持有可变描述别名。
-  auto freeze_added = [](prefab_component_state& state) -> result<value> {
-    auto content = serialization::capture_value(state.added.value_or(component_description{}));
-    if (!content)
-      return content.error().error;
-    state.added.reset();
-    return *content;
-  };
-  auto before_content = freeze_added(*before);
-  auto after_content = freeze_added(after);
-  if (!before_content)
-    return before_content.error();
-  if (!after_content)
-    return after_content.error();
-  auto apply = [&document, identity](prefab_component_state state, const value& content) {
-    if (content.kind() != value_kind::invalid) {
-      auto added = serialization::restore_value<component_description>(content);
-      if (!added)
-        return added.error().error;
-      state.added = std::move(*added);
-    }
-    auto target = locate_component(document, identity);
-    return target ? document.set_component_override(target->first, identity.component_type, state)
-                  : target.error();
-  };
-  return history.execute(
-      {.label = action == prefab_component_action::add      ? "添加实例组件"
-                : action == prefab_component_action::remove ? "移除实例组件"
-                                                            : "恢复来源组件",
-       .undo = [apply, state = *before,
-                content = *before_content] { return apply(state, content); },
-       .redo = [apply, after, content = *after_content] { return apply(after, content); },
-       .merge_key = {}});
+  return execute_scene_edit(history, document,
+                            action == prefab_component_action::add      ? "添加实例组件"
+                            : action == prefab_component_action::remove ? "移除实例组件"
+                                                                        : "恢复来源组件",
+                            [&] {
+                              return document.set_component_override(
+                                  location->first, identity.component_type, after);
+                            });
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
 } catch (...) {
@@ -259,7 +199,7 @@ engine::error edit_component_description(scene_document& document, editor_comman
       auto location = locate_component(document, identity);
       return location ? document.set_local_transform(location->first, value) : location.error();
     };
-    return edit_description(history, identity, edit, serial, before, apply);
+    return edit_description(document, history, identity, edit, serial, before, apply);
   }
   auto policy = component_editor(identity.component_type);
   if (!policy)
@@ -332,38 +272,16 @@ engine::error edit_component_description(scene_document& document, editor_comman
       return next.error().error;
     if (*original == *next)
       return error::success;
-    const auto apply = [&document, &world, identity,
-                        path = edit.path](const engine::value& content) {
-      auto node = locate_component(document, identity);
-      if (!node)
-        return node.error();
-      auto current = document.components(node->first);
-      if (!current)
-        return current.error();
-      auto found = current->find(identity.component_type);
-      if (!found)
-        return error::not_found;
-      // 历史只还原本次编辑的路径，不能覆盖之后独立修改的其他属性。
-      auto restored = modify_component(*found, [&](meta::mutable_instance root) -> error {
-        auto target = meta::resolve_path(root, path);
-        if (!target)
-          return target.error();
-        return serialization::apply_value(*target, content).error;
-      });
-      if (!restored)
-        return restored.error();
-      auto prepared = prepare_component_editor_value(world, node->first, *restored);
-      return prepared ? document.set_component_description(node->first, *prepared)
-                      : prepared.error();
-    };
+    auto prepared = prepare_component_editor_value(world, location->first, *changed);
+    if (!prepared)
+      return prepared.error();
     std::string key = identity.component_type.string() + identity.object_uuid.string() +
                       identity.instance_uuid.string() + identity.source_uuid.string();
     key += meta::property_path_text(edit.path);
-    return history.execute(
-        {.label = "修改组件属性",
-         .undo = [apply, content = std::move(*original)] { return apply(content); },
-         .redo = [apply, content = std::move(*next)] { return apply(content); },
-         .merge_key = serial && !edit.object ? key + ":" + std::to_string(serial) : std::string{}});
+    return execute_scene_edit(
+        history, document, "修改组件属性",
+        [&] { return document.set_component_description(location->first, *prepared); },
+        serial && !edit.object ? key + ":" + std::to_string(serial) : std::string{});
   }
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;

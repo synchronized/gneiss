@@ -33,6 +33,7 @@ private:
   gneiss::engine::guid source_uuid_;
   gneiss::engine::math::transform before_ = {};
   bool was_dirty_ = false;
+  scene_document::version before_version_, preview_version_;
 };
 
 } // namespace gneiss::editor

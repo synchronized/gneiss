@@ -118,15 +118,7 @@ void run_refresh(gneiss::engine::execution_mode mode) {
       check(std::chrono::steady_clock::now() < deadline);
     }
   };
-  const auto drive_history = [&](gneiss::engine::error expected = gneiss::engine::error::success) {
-    gneiss::engine::error outcome = gneiss::engine::error::not_ready;
-    unsigned turns{};
-    while (history.is_pending()) {
-      outcome = history.advance_pending();
-      check(++turns < 1000U);
-    }
-    check(outcome == expected);
-  };
+
   std::ifstream input(files.root / "prefab.json");
   std::string updated{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
   input.close();
@@ -166,21 +158,21 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   std::ofstream(files.root / "prefab.json") << "broken";
   std::ofstream(files.root / "mesh.json") << "broken";
   std::ofstream(files.root / "material.json") << "broken";
-  check(history.undo() == gneiss::engine::error::not_ready);
-  drive_history();
+  check(history.undo() == gneiss::engine::error::success);
+  check(!history.is_pending());
   check(session.find_prefab_source(first_uuid, source_uuid)->display_name == "Source");
   check(session.find_prefab_source(second_uuid, source_uuid)->display_name == "Source");
   check(session.selection() == session.find_prefab_source(first_uuid, source_uuid)->node);
-  check(history.redo() == gneiss::engine::error::not_ready);
-  drive_history();
+  check(history.redo() == gneiss::engine::error::success);
+  check(!history.is_pending());
   check(session.find_prefab_source(first_uuid, source_uuid)->display_name == "Updated");
   check(session.find_prefab_source(first_uuid, source_uuid)->local_transform.translation[0] ==
         17.0F);
-  const auto preserved = session.selection();
-  check(history.undo() == gneiss::engine::error::not_ready);
+  check(history.undo() == gneiss::engine::error::success);
   history.cancel_pending();
-  drive_history(gneiss::engine::error::invalid_state);
-  check(session.selection() == preserved && !history.can_redo());
+  check(!history.is_pending() && history.can_redo());
+  check(history.redo().ok());
+  const auto preserved = session.selection();
   check(edit.request_refresh(*app, scheduler, session, history,
                              session.find_prefab_root(first_uuid)->node) ==
         gneiss::engine::error::success);
@@ -228,8 +220,8 @@ void run_refresh(gneiss::engine::execution_mode mode) {
             .ok());
   drive();
   check(edit.operation().ok() && history.size() == 1U);
-  check(history.undo() == gneiss::engine::error::not_ready);
-  drive_history();
+  check(history.undo() == gneiss::engine::error::success);
+  check(!history.is_pending());
   check(gneiss::test_support::scene_query(session).prefab_nodes.size() == 298U);
   history.clear();
   check(edit.request_refresh(*app, scheduler, session, history,
@@ -277,15 +269,7 @@ void run(gneiss::engine::execution_mode mode) {
       check(std::chrono::steady_clock::now() < deadline);
     }
   };
-  const auto drive_history = [&](gneiss::engine::error expected = gneiss::engine::error::success) {
-    gneiss::engine::error outcome = gneiss::engine::error::not_ready;
-    unsigned steps{};
-    while (history.is_pending()) {
-      outcome = history.advance_pending();
-      check(++steps < 1000U);
-    }
-    check(outcome == expected);
-  };
+
   // 资源阶段取消立即释放槽位；失效的旧请求不消费另一个请求的回执。
   const auto await_assets = [&] {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -323,31 +307,19 @@ void run(gneiss::engine::execution_mode mode) {
   drive();
   check(edit.operation() == gneiss::engine::error::success &&
         gneiss::test_support::scene_query(session).prefab_nodes.empty());
-  check(history.undo() == gneiss::engine::error::not_ready);
-  drive_history();
+  check(history.undo() == gneiss::engine::error::success);
+  check(!history.is_pending());
   check(gneiss::test_support::scene_query(session).prefab_nodes.size() == 150U);
-  check(history.redo() == gneiss::engine::error::not_ready);
-  drive_history();
+  check(history.redo() == gneiss::engine::error::success);
+  check(!history.is_pending());
   check(gneiss::test_support::scene_query(session).prefab_nodes.empty());
   history.clear();
   check(request() == gneiss::engine::error::success);
-  const auto preparation_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
-  while (edit.active() && edit.phase() != editor::prefab_edit_phase::constructing) {
-    step();
-    check(std::chrono::steady_clock::now() < preparation_deadline);
-  }
-  check(edit.active());
-  std::uint64_t entity_count{};
-  check(gneiss::engine::error{gneiss::test_support::assign_value(
-            app->native_world()->entity_count(), entity_count)} == gneiss::engine::error::success &&
-        entity_count == 0U);
+  // 初次加载仍可在采用文档前取消；版本撤销已经是同步操作。
   edit.cancel();
   drive();
   check(!edit.visible() && gneiss::test_support::scene_query(session).prefab_nodes.empty() &&
         history.size() == 0U);
-  check(gneiss::engine::error{gneiss::test_support::assign_value(
-            app->native_world()->entity_count(), entity_count)} == gneiss::engine::error::success &&
-        entity_count == 0U);
   edit.dismiss();
   check(request() == gneiss::engine::error::success && edit.active());
   check(request() == gneiss::engine::error::not_ready);
@@ -364,22 +336,10 @@ void run(gneiss::engine::execution_mode mode) {
   std::ofstream(files.root / "prefab.json") << "broken";
   std::ofstream(files.root / "mesh.json") << "broken";
   std::ofstream(files.root / "material.json") << "broken";
-  check(history.undo() == gneiss::engine::error::not_ready && history.is_pending());
-  check(gneiss::test_support::scene_query(session).prefab_nodes.size() == 150U);
+  check(history.undo().ok() && !history.is_pending());
   history.cancel_pending();
-  drive_history(gneiss::engine::error::invalid_state);
-  check(gneiss::test_support::scene_query(session).prefab_nodes.size() == 150U &&
-        history.can_undo());
-  check(history.undo() == gneiss::engine::error::not_ready);
-  drive_history();
   check(gneiss::test_support::scene_query(session).prefab_nodes.empty() && history.can_redo());
-  check(history.redo() == gneiss::engine::error::not_ready);
-  check(gneiss::test_support::scene_query(session).prefab_nodes.empty());
-  history.cancel_pending();
-  drive_history(gneiss::engine::error::invalid_state);
-  check(gneiss::test_support::scene_query(session).prefab_nodes.empty() && history.can_redo());
-  check(history.redo() == gneiss::engine::error::not_ready);
-  drive_history();
+  check(history.redo().ok() && !history.is_pending());
   check(gneiss::test_support::scene_query(session).prefab_nodes.size() == 150U &&
         gneiss::test_support::scene_query(session).prefab_nodes.front().instance_uuid == uuid);
   // 删除保存实际版本和覆盖；恢复不依赖来源文件或旧节点 ID。
@@ -401,7 +361,7 @@ void run(gneiss::engine::execution_mode mode) {
   drive();
   check(edit.operation().ok() && deletion_history.size() == 1U &&
         gneiss::test_support::scene_query(session).prefab_nodes.empty());
-  check(deletion_history.undo() == gneiss::engine::error::not_ready);
+  check(deletion_history.undo() == gneiss::engine::error::success);
   while (deletion_history.is_pending())
     check(deletion_history.advance_pending().ok());
   root_node = session.find_prefab_root(uuid)->node;
@@ -416,7 +376,6 @@ void run(gneiss::engine::execution_mode mode) {
 
   check(edit.request_remove(*app, session, deletion_history, root_node) ==
         gneiss::engine::error::success);
-  step();
   edit.cancel();
   drive();
   check(deletion_history.size() == 0U &&
@@ -428,8 +387,8 @@ void run(gneiss::engine::execution_mode mode) {
         gneiss::test_support::scene_query(session).prefab_nodes.empty() &&
         deletion_history.size() == 1U);
   const auto restore_deleted = [&] {
-    check(deletion_history.undo() == gneiss::engine::error::not_ready);
-    gneiss::engine::error restored = gneiss::engine::error::not_ready;
+    check(deletion_history.undo() == gneiss::engine::error::success);
+    gneiss::engine::error restored = gneiss::engine::error::success;
     unsigned turns{};
     while (deletion_history.is_pending()) {
       restored = deletion_history.advance_pending();
@@ -444,7 +403,7 @@ void run(gneiss::engine::execution_mode mode) {
   };
   restore_deleted();
   check(session.find_prefab_root(uuid)->node != root_node);
-  check(deletion_history.redo() == gneiss::engine::error::not_ready);
+  check(deletion_history.redo() == gneiss::engine::error::success);
   while (deletion_history.is_pending()) {
     (void)deletion_history.advance_pending();
   }
@@ -475,11 +434,11 @@ void run(gneiss::engine::execution_mode mode) {
         gneiss::test_support::scene_query(session).prefab_nodes.size() == 150U &&
         history.size() == 1U);
   edit.dismiss();
-  check(history.undo() == gneiss::engine::error::not_ready);
-  // 历史操作在一次 advance 中完成；完成后取消不撤回已经发生的删除。
-  check(history.advance_pending().ok() && !history.is_pending());
+  // 其他历史和直接编辑已改变版本；旧放置历史不能覆盖这些修改。
+  check(history.undo() == gneiss::engine::error::invalid_state);
+  check(!history.is_pending());
   history.cancel_pending();
-  check(gneiss::test_support::scene_query(session).prefab_nodes.empty());
+  check(gneiss::test_support::scene_query(session).prefab_nodes.size() == 150U);
   history.clear();
   std::ofstream(files.root / "prefab.json") << source;
   check(request() == gneiss::engine::error::success);

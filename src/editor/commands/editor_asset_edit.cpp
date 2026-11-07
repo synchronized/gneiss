@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "commands/editor_asset_edit.hpp"
 #include "commands/prefab_authoring.hpp"
+#include "documents/scene_document_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/serialization/json.hpp"
@@ -23,28 +24,11 @@ scene_node_id locate(scene_document& document, const component_edit_target& targ
 
 gneiss::engine::error editor_asset_edit::commit_add(scene_document& session,
                                                     editor_command_history& history) {
-  return history.execute({
-      .label = "创建 Mesh Renderer 节点",
-      .undo =
-          [&session, scene = scene_, uuid = snapshot_.uuid] {
-            if (session.scene_handle() != scene) {
-              return gneiss::engine::error{gneiss::engine::error::invalid_state};
-            }
-            const auto node = session.find_node(uuid);
-            if (!node) {
-              return gneiss::engine::error{gneiss::engine::error::not_found};
-            }
-            return session.destroy_node(node->node);
-          },
-      .redo =
-          [&session, scene = scene_, snapshot = snapshot_, resources = next_] {
-            if (session.scene_handle() != scene) {
-              return gneiss::engine::error{gneiss::engine::error::invalid_state};
-            }
-            auto created = session.create_mesh_node(snapshot, resources);
-            return created ? engine::error{engine::error::success} : created.error();
-          },
-      .merge_key = {},
+  return execute_scene_edit(history, session, "创建 Mesh Renderer 节点", [&] {
+    if (session.scene_handle() != scene_)
+      return engine::error{engine::error::invalid_state};
+    auto created = session.create_mesh_node(snapshot_, next_);
+    return created ? engine::error{engine::error::success} : created.error();
   });
 }
 
@@ -105,10 +89,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
                         node, engine::mesh_renderer_description::type_guid, value)
                   : engine::error{engine::error::not_found};
     };
-    return history.execute({.label = "修改实例网格组件",
-                            .undo = [apply, before = *prefab_before_] { return apply(before); },
-                            .redo = [apply, after] { return apply(after); },
-                            .merge_key = {}});
+    return execute_scene_edit(history, session, "修改实例网格组件", [&] { return apply(after); });
   }
 
   const auto apply = [&session, scene = scene_, target = target_](
@@ -122,12 +103,8 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
     return session.replace_mesh_binding(node, expected, replacement);
   };
   const auto was_dirty = session.is_dirty();
-  const auto operation = history.execute({
-      .label = "替换 Mesh Renderer 资源",
-      .undo = [apply, before = previous_, after = next_] { return apply(after, before); },
-      .redo = [apply, before = previous_, after = next_] { return apply(before, after); },
-      .merge_key = {},
-  });
+  const auto operation = execute_scene_edit(history, session, "替换 Mesh Renderer 资源",
+                                            [&] { return apply(previous_, next_); });
   if (operation.failed() && !was_dirty) {
     session.clear_dirty();
   }
@@ -142,34 +119,11 @@ engine::error editor_asset_edit::request_remove(scene_document& session,
   const auto node = session.find_node(uuid);
   if (!node)
     return engine::error::not_found;
-  const auto scene = session.scene_handle();
-  auto captured = session.capture_mesh_binding(node->node);
-  if (!captured)
-    return captured.error();
-  auto binding = std::move(*captured);
   if (!node->components.get<engine::mesh_renderer_description>())
     return engine::error::not_found;
   const auto was_dirty = session.is_dirty();
-  auto status = history.execute({
-      .label = "移除 Mesh Renderer",
-      .undo =
-          [&session, scene, uuid = uuid, binding] {
-            if (session.scene_handle() != scene)
-              return engine::error::invalid_state;
-            const auto current = session.find_node(uuid);
-            if (!current)
-              return engine::error::not_found;
-            return session.replace_mesh_binding(current->node, {}, binding);
-          },
-      .redo =
-          [&session, scene, uuid = uuid] {
-            if (session.scene_handle() != scene)
-              return engine::error::invalid_state;
-            const auto current = session.find_node(uuid);
-            return current ? session.remove_mesh_renderer(current->node) : engine::error::not_found;
-          },
-      .merge_key = {},
-  });
+  auto status = execute_scene_edit(history, session, "移除 Mesh Renderer",
+                                   [&] { return session.remove_mesh_renderer(node->node); });
   if (status.failed() && !was_dirty)
     session.clear_dirty();
   return status;

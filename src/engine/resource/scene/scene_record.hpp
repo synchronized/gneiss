@@ -69,4 +69,22 @@ struct uuid_mapping {
 remap_scene_record(const scene_record&, guid target_document,
                    std::span<const uuid_mapping>) noexcept;
 
+/** 借用已知文档的对象目录；调用期间有效，不触发外部加载。 */
+struct document_object_view {
+  guid document;
+  std::span<const object_record> objects;
+};
+struct object_reference_issue {
+  guid document;
+  guid object;
+  guid component;
+  object_reference_value target;
+  error status;
+};
+/** 检查组件及覆盖中的对象引用。缺失目标为 not_found，未知外部文档为 not_ready。
+ * 空引用合法；诊断不修改内容，不阻止编辑、删除或保存。
+ */
+[[nodiscard]] GNEISS_API result<std::vector<object_reference_issue>>
+inspect_object_references(document_object_view,
+                          std::span<const document_object_view> external = {}) noexcept;
 }

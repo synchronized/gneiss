@@ -73,6 +73,14 @@ engine::error scene_document_versions::accept(const version& expected,
 } catch (...) {
   return engine::error::internal;
 }
+engine::error scene_document_versions::checkout(const version& expected,
+                                                const version& target) noexcept {
+  if (!current_ || expected != current_ || !target || target.owner_ != current_.owner_)
+    return engine::error::invalid_state;
+  current_ = target;
+  changed();
+  return engine::error::success;
+}
 void scene_document_versions::changed() noexcept {
   // 接受新版本后旧投影不再代表当前内容，即使后来撤销回旧版本也必须明确同步。
   synchronized_.reset();

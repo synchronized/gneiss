@@ -856,6 +856,13 @@ scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& des
         .transform = {},
         .components = {make_component_description(
             engine::mesh_renderer_description{std::string(mesh_uri), std::string(material_uri)})}};
+    if (desc.component_uuid) {
+      auto entries = author.components.entries();
+      entries.front().uuid = desc.component_uuid;
+      auto status = author.components.replace(std::move(entries));
+      if (status.failed())
+        return status;
+    }
     objects_.reserve(objects_.size() + 1U);
     staged_object target{};
     target.uuid = author.uuid;

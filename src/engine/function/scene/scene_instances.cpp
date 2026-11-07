@@ -405,10 +405,10 @@ result<scene_mesh_binding> scene_instances::capture_mesh_binding(scene_instance_
   return error::internal;
 }
 
-engine::error
-scene_instances::replace_mesh_binding(scene_instance_id instance, scene_node_id node,
-                                      const scene_mesh_binding& expected,
-                                      const scene_mesh_binding& replacement) noexcept {
+engine::error scene_instances::replace_mesh_binding(scene_instance_id instance, scene_node_id node,
+                                                    const scene_mesh_binding& expected,
+                                                    const scene_mesh_binding& replacement,
+                                                    guid component_uuid) noexcept {
   const auto owner = native_world_.replace_mesh_renderers({});
   if (owner != engine::error::success) {
     return owner;
@@ -420,7 +420,7 @@ scene_instances::replace_mesh_binding(scene_instance_id instance, scene_node_id 
   auto* value = instances_.get(instance, resource_type::scene_instance);
   return value == nullptr || *value == nullptr
              ? engine::error::invalid_handle
-             : (*value)->replace_mesh_binding(node, expected, replacement);
+             : (*value)->replace_mesh_binding(node, expected, replacement, component_uuid);
 }
 
 engine::error scene_instances::set_mesh_renderer(scene_instance_id instance,

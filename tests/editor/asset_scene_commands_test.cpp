@@ -95,7 +95,7 @@ int main() try {
     return status;
   };
   const auto initial_count = gneiss::test_support::scene_query(session).nodes.size();
-  const auto parent = gneiss::test_support::scene_query(session).nodes.front().node;
+  const auto parent_uuid = gneiss::test_support::scene_query(session).nodes.front().uuid;
   constexpr auto mesh = "asset://models/triangle.mesh.json";
   constexpr auto material = "asset://materials/triangle.material.json";
   constexpr auto prefab = "asset://prefabs/test.prefab.json";
@@ -112,11 +112,26 @@ int main() try {
     return 2;
   }
   const auto uuid = session.selected_node()->uuid;
-  if (session.select(parent).failed() || run_history(true).failed() ||
+  const auto component_type = engine::mesh_renderer_description::type_guid;
+  const auto component_uuid = session.selected_node()->components.identity(component_type);
+  const auto projected_identity = [&] {
+    auto captured = app->scenes()->capture_description(session.scene_handle());
+    if (!captured)
+      return engine::guid{};
+    for (const auto& object : captured->objects)
+      if (object.uuid == uuid)
+        return object.components.identity(component_type);
+    return engine::guid{};
+  };
+  if (!component_uuid || projected_identity() != component_uuid)
+    return 81;
+  if (session.select(session.find_node(parent_uuid)->node).failed() || run_history(true).failed() ||
       session.find_node(uuid).ok() || run_history(false).failed() ||
       session.find_node(uuid).failed() || session.find_node(uuid)->display_name != "Mesh") {
     return 3;
   }
+  if (projected_identity() != component_uuid)
+    return 82;
   if (replace_mesh_assets(
           session, history, uuid,
           {.mesh_uri = mesh, .material_uri = "asset://materials/missing.material.json"})
@@ -138,7 +153,7 @@ int main() try {
   const auto add_temporary_prefab = [&] {
     const std::string name = "Prefab";
     const std::string uri = prefab;
-    return add_prefab_asset(session, history, name, uri, parent);
+    return add_prefab_asset(session, history, name, uri, session.find_node(parent_uuid)->node);
   };
   if (add_temporary_prefab().failed() || session.selected_prefab_node().failed()) {
     return 6;
@@ -146,7 +161,7 @@ int main() try {
   const auto prefab_uuid = session.selected_prefab_node()->instance_uuid;
   if (run_history(true).failed() || session.find_prefab_root(prefab_uuid).ok() ||
       run_history(false).failed() || session.find_prefab_root(prefab_uuid).failed() ||
-      session.find_prefab_root(prefab_uuid)->parent != parent) {
+      session.find_prefab_root(prefab_uuid)->parent != session.find_node(parent_uuid)->node) {
     return 7;
   }
   // 容量耗尽时撤回刚创建的节点/实例，且不能把干净文档标脏。
@@ -163,7 +178,8 @@ int main() try {
                  session.is_dirty());
     return 8;
   }
-  const auto prefab_failed = add_prefab_asset(session, full, "Rollback Prefab", prefab, parent);
+  const auto prefab_failed = add_prefab_asset(session, full, "Rollback Prefab", prefab,
+                                              session.find_node(parent_uuid)->node);
   if (prefab_failed != engine::error::invalid_argument ||
       gneiss::test_support::scene_query(session).prefab_nodes.size() != prefabs ||
       session.is_dirty() || full.can_undo()) {
@@ -241,7 +257,9 @@ int main() try {
       history.undo().failed())
     return 21;
   engine::scene_mesh_binding restored_source;
-  if (gneiss::test_support::take_value(session.capture_mesh_binding(mesh_node), restored_source)
+  if (gneiss::test_support::take_value(
+          session.capture_mesh_binding(session.find_prefab_root(mesh_instance.uuid)->node),
+          restored_source)
           .failed() ||
       restored_source.mesh != before.mesh || restored_source.material != before.material)
     return 22;

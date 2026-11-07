@@ -157,10 +157,10 @@ void run(scenario mode) {
     // 文件变坏或资源加载失败也不能影响历史重放：快照保活资源身份。
     write(files.path / "mesh.json", "broken");
     write(files.path / "material.json", "broken");
-    check(history.undo().ok() && undo_count == 1);
+    check(history.undo().ok() && undo_count == 0);
     node = editing.document.find_prefab_root(instance.uuid);
     check(node && !editing.document.components(node->node)->get<e::mesh_renderer_description>());
-    check(history.redo().ok() && redo_count == 2);
+    check(history.redo().ok() && redo_count == 1);
     node = editing.document.find_prefab_root(instance.uuid);
     check(node && editing.document.components(node->node)->get<e::mesh_renderer_description>());
   } else {

@@ -3,6 +3,7 @@
 
 #include "../../support/async_document.hpp"
 #include "../../support/scene_query.hpp"
+#include "documents/scene_document_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
@@ -54,7 +55,8 @@ int main() try {
     return 1;
   }
   const auto parent = gneiss::test_support::scene_query(session).nodes[0].node;
-  const auto child = gneiss::test_support::scene_query(session).nodes[1].node;
+  const auto child_uuid = gneiss::test_support::scene_query(session).nodes[1].uuid;
+  const auto parent_uuid = gneiss::test_support::scene_query(session).nodes[0].uuid;
   auto parent_transform = gneiss::test_support::scene_query(session).nodes[0].local_transform;
   parent_transform.rotation[2] = 0.70710678F;
   parent_transform.rotation[3] = 0.70710678F;
@@ -65,11 +67,12 @@ int main() try {
     return 2;
   }
   // 同一生产拖动事务覆盖根节点、父子节点及三种操作；每种操作模拟多帧预览。
-  for (const auto target : {child, parent}) {
+  for (const auto target_uuid : {child_uuid, parent_uuid}) {
     for (int mode = 0; mode < 3; ++mode) {
+      const auto target = session.find_node(target_uuid)->node;
       gneiss::editor::editor_command_history history;
       gneiss::editor::transform_gizmo_drag drag;
-      if (session.select(target) != gneiss::engine::error::success) {
+      if (session.select(session.find_node(target_uuid)->node) != gneiss::engine::error::success) {
         return 3;
       }
       const auto before = session.selected_node()->local_transform;
@@ -106,16 +109,18 @@ int main() try {
       }
       const auto after = session.selected_node()->local_transform;
       // 选择变化后预览必须被拒绝，但收尾仍记录原目标而非新选择。
-      if (session.select(target == child ? parent : child) != gneiss::engine::error::success ||
+      if (session.select(
+              session.find_node(target_uuid == child_uuid ? parent_uuid : child_uuid)->node) !=
+              gneiss::engine::error::success ||
           drag.matches_selection(session) ||
           drag.preview(session, {}) != gneiss::engine::error::invalid_state ||
           drag.finish(session, history) != gneiss::engine::error::success || history.size() != 1U ||
           drag.finish(session, history) != gneiss::engine::error::success || history.size() != 1U ||
           history.undo() != gneiss::engine::error::success ||
-          session.select(target) != gneiss::engine::error::success ||
+          session.select(session.find_node(target_uuid)->node) != gneiss::engine::error::success ||
           !near(session.selected_node()->local_transform, before) ||
           history.redo() != gneiss::engine::error::success ||
-          !near(session.selected_node()->local_transform, after)) {
+          !near(session.find_node(target_uuid)->local_transform, after)) {
         return 7;
       }
     }
@@ -161,6 +166,7 @@ int main() try {
     return 13;
   }
   const auto prefab_id = session.selection();
+  const auto prefab_identity = *session.selected_prefab_node();
   const auto prefab_before = session.selected_prefab_node()->local_transform;
   if (application->native_world()->node_get_world_transform(
           gneiss::scene_node_id{prefab_id.get()}, desired) != gneiss::engine::error::success) {
@@ -174,10 +180,19 @@ int main() try {
       session.select({}) != gneiss::engine::error::success || drag.matches_selection(session) ||
       drag.finish(session, history) != gneiss::engine::error::success || history.size() != 1U ||
       history.undo() != gneiss::engine::error::success ||
-      session.select(prefab_id) != gneiss::engine::error::success ||
-      !near(session.selected_prefab_node()->local_transform, prefab_before) ||
+      session.select(
+          session
+              .find_prefab_source(prefab_identity.instance_uuid, prefab_identity.source_node_uuid)
+              ->node) != gneiss::engine::error::success ||
+      !near(session
+                .find_prefab_source(prefab_identity.instance_uuid, prefab_identity.source_node_uuid)
+                ->local_transform,
+            prefab_before) ||
       history.redo() != gneiss::engine::error::success ||
-      near(session.selected_prefab_node()->local_transform, prefab_before)) {
+      near(session
+               .find_prefab_source(prefab_identity.instance_uuid, prefab_identity.source_node_uuid)
+               ->local_transform,
+           prefab_before)) {
     return 15;
   }
   history.clear();
@@ -204,33 +219,11 @@ int main() try {
     return 18;
   }
   // Delete 在拖动收尾后创建独立命令；恢复节点的新句柄仍可通过 UUID 撤销此前拖动。
-  gneiss::editor::scene_subtree_snapshot snapshot;
-  if (session.destroy_subtree(session.selection(), snapshot) != gneiss::engine::error::success ||
-      history.record({
-          .label = "删除测试节点",
-          .undo =
-              [&session, snapshot] {
-                gneiss::scene_node_id restored;
-                const auto operation = session.restore_subtree(snapshot, restored);
-                if (operation != gneiss::engine::error::success) {
-                  std::printf("restore result=%d snapshot=%s\n", (operation).code(),
-                              snapshot.root_uuid.string().c_str());
-                }
-                return operation;
-              },
-          .redo =
-              [&session, uuid] {
-                const auto current = session.find_node(uuid);
-                if (!current) {
-                  return gneiss::engine::error::not_found;
-                }
-                gneiss::editor::scene_subtree_snapshot discarded;
-                return session.destroy_subtree(current->node, discarded);
-              },
-          .merge_key = {},
-      }) != gneiss::engine::error::success) {
+  if (gneiss::editor::execute_scene_edit(history, session, "删除测试节点", [&] {
+        gneiss::editor::scene_subtree_snapshot discarded;
+        return session.destroy_subtree(session.selection(), discarded);
+      }).failed())
     return 19;
-  }
   if (history.size() != 2U) {
     return 20;
   }
@@ -253,6 +246,17 @@ int main() try {
   if (session.find_node(uuid).ok()) {
     return 26;
   }
+  // 拖动期间若有独立编辑，不能以整版本回退覆盖该编辑。
+  if (history.undo().failed() || session.select(session.find_node(uuid)->node).failed() ||
+      drag.begin(session).failed())
+    return 27;
+  const auto current_node = session.find_node(uuid)->node;
+  if (session.rename_node(current_node, "independent").failed())
+    return 28;
+  if (drag.preview(session, matrix) != gneiss::engine::error::invalid_state ||
+      drag.finish(session, history) != gneiss::engine::error::invalid_state ||
+      session.find_node(uuid)->display_name != "independent")
+    return 29;
   std::puts(
       "Gizmo: root/parent TRS, multi-frame, selection, undo/redo and failure recovery passed");
   return 0;

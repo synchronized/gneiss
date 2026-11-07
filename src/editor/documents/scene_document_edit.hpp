@@ -3,6 +3,7 @@
 #pragma once
 #include "commands/editor_command_history.hpp"
 #include "documents/scene_document_snapshot.hpp"
+#include "documents/scene_document_versions.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include <functional>
 #include <memory>
@@ -11,7 +12,17 @@ class application;
 }
 namespace gneiss::editor {
 class scene_document;
-/** 迁移期适配：从运行时捕获；文档权威版本落地后移除此反向入口。 */
+/** 记录已经完成的文档编辑，历史仅持有前后不可变版本。 */
+[[nodiscard]] engine::error record_scene_edit(editor_command_history&, scene_document&,
+                                              const scene_document_versions::version& before,
+                                              std::string label,
+                                              std::string merge_key = {}) noexcept;
+/** 先预留历史空间，再执行一次领域编辑；撤销重做不重放 edit。 */
+[[nodiscard]] engine::error execute_scene_edit(editor_command_history&, scene_document&,
+                                               std::string label,
+                                               const std::function<engine::error()>& edit,
+                                               std::string merge_key = {}) noexcept;
+/** 捕获文档权威内容，不反向读取 World。 */
 [[nodiscard]] engine::result<scene_document_snapshot>
 capture_scene_document(runtime::application&, const scene_document&) noexcept;
 [[nodiscard]] engine::error restore_scene_document(runtime::application&, scene_document&,

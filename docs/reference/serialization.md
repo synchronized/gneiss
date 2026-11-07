@@ -137,7 +137,7 @@ path 使用属性 ID、序列位置和映射键定位失败节点。资产引用
 不复制纹理、网格和材质内容。当前映射反射只支持字符串键；数据树可表达其他允许的稳定标量键。
 
 Prefab 属性覆盖保存路径和 value_operation，操作内容使用 value；原 property_snapshot JSON 中转已删除。
-稳定身份列表使用增删移动操作，普通列表整体 set。组件身份与不可变文档历史的后续迁移见 [PLAN-104](../plans/PLAN-104-value-document-prefab-overrides.md)。
+稳定身份列表使用增删移动操作，普通列表整体 set。组件身份与不可变文档历史的实施范围见 [PLAN-104](../plans/PLAN-104-value-document-prefab-overrides.md)。
 
 ### 值树编辑
 

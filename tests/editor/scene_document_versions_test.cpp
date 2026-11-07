@@ -3,6 +3,7 @@
 #include "documents/scene_document_versions.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/resource/asset_file.hpp"
+#include "engine/resource/scene/detail/scene_asset_access.hpp"
 #include <cstdio>
 namespace e = gneiss::engine;
 namespace ed = gneiss::editor;
@@ -101,5 +102,31 @@ int main() {
   CHECK(no_history.reset(*snapshot).ok());
   CHECK(no_history.accept(no_history.current(), renamed("unrecorded"), "edit").ok());
   CHECK(no_history.size() == 0 && no_history.is_dirty() && !no_history.can_undo());
+  const auto edited = no_history.current();
+  CHECK(no_history.checkout(edited, other.current()) == e::error::invalid_state);
+  CHECK(no_history.checkout(initial, edited) == e::error::invalid_state);
+  CHECK(no_history.current() == edited);
+  CHECK(no_history.accept(edited, renamed("next"), "edit").ok());
+  const auto next = no_history.current();
+  CHECK(no_history.checkout(next, edited).ok() && no_history.current() == edited);
+  CHECK(!no_history.is_synchronized() && no_history.size() == 0);
+  CHECK(no_history.checkout(edited, next).ok() && no_history.current() == next);
+  // 历史专有资产只由旧版本保活；保存点、同步回执不延长它的寿命。
+  ed::scene_document_versions retention;
+  std::weak_ptr<const e::scene> retired_asset;
+  {
+    auto tagged = *snapshot;
+    auto content = e::make_ref<const e::scene_content>(
+        e::scene_content{e::make_ref<const e::scene_description>(input.description), {}});
+    auto asset = e::detail::scene_asset_access::make<e::scene, e::scene_content>({}, content);
+    retired_asset = asset;
+    tagged.source_asset = e::ref<const e::scene>{std::move(asset)};
+    CHECK(retention.reset(tagged).ok());
+    CHECK(retention.report_projection(retention.current(), e::error::success).ok());
+  }
+  CHECK(retention.accept(retention.current(), *snapshot, "replace source").ok());
+  CHECK(!retired_asset.expired());
+  retention.clear_history();
+  CHECK(retired_asset.expired());
   return 0;
 }

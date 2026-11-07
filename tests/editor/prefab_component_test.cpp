@@ -144,17 +144,21 @@ int main() try {
     movement_description edited;
     edited.samples = {4, 5, 6};
     check(document.set_component_description(node, e::make_component_description(edited)).ok());
-    auto changes = document.capture_component_override(node, type);
+    auto changes = document.capture_component_override(
+        document.find_prefab_source(instance.uuid, child_id)->node, type);
     check(changes && changes->properties.size() == 1 &&
           changes->properties[0].key.path.size() == 1 &&
           changes->properties[0].replacement().kind() == e::value_kind::sequence);
     edited.samples.clear();
-    check(document.components(node)->get<movement_description>()->samples.size() == 3);
+    check(document.components(document.find_prefab_source(instance.uuid, child_id)->node)
+              ->get<movement_description>()
+              ->samples.size() == 3);
     check(
         document
             .set_component_description(node, e::make_component_description(movement_description{}))
             .ok());
-    changes = document.capture_component_override(node, type);
+    changes = document.capture_component_override(
+        document.find_prefab_source(instance.uuid, child_id)->node, type);
     check(changes && changes->properties.empty());
   }
   // 编辑入口直接生成同一稳定列表上的多条插入操作，恢复源内容会删除覆盖。
@@ -162,7 +166,8 @@ int main() try {
     movement_description edited;
     edited.waypoints = {{root_id, 4}, {child_id, 8}};
     check(document.set_component_description(node, e::make_component_description(edited)).ok());
-    auto changes = document.capture_component_override(node, type);
+    auto changes = document.capture_component_override(
+        document.find_prefab_source(instance.uuid, child_id)->node, type);
     check(changes && changes->properties.size() == 2);
     check(std::holds_alternative<e::insert_value_operation>(changes->properties[0].operation) &&
           std::holds_alternative<e::insert_value_operation>(changes->properties[1].operation));
@@ -179,7 +184,8 @@ int main() try {
         document
             .set_component_description(node, e::make_component_description(movement_description{}))
             .ok());
-    changes = document.capture_component_override(node, type);
+    changes = document.capture_component_override(
+        document.find_prefab_source(instance.uuid, child_id)->node, type);
     check(changes && changes->properties.empty());
   }
   ed::editor_command_history history;
@@ -194,16 +200,22 @@ int main() try {
                                        {.path = {e::meta::property_id{1}}, .data = e::value{5.0F}},
                                        0)
             .ok());
-  auto state = document.capture_component_override(root_node, type);
+  auto state = document.capture_component_override(
+      document.find_prefab_source(instance.uuid, root_id)->node, type);
   check(state && (*state->added)->get<movement_description>()->speed == 5 &&
         state->properties.empty());
   check(action(ed::prefab_component_action::remove).ok());
-  state = document.capture_component_override(root_node, type);
+  state = document.capture_component_override(
+      document.find_prefab_source(instance.uuid, root_id)->node, type);
   check(state && !state->added && !state->removed && state->properties.empty());
   check(history.undo().ok());
-  check(document.components(root_node)->get<movement_description>()->speed == 5);
+  check(document.components(document.find_prefab_source(instance.uuid, root_id)->node)
+            ->get<movement_description>()
+            ->speed == 5);
   check(history.undo().ok());
-  check(document.components(root_node)->get<movement_description>()->speed == 1);
+  check(document.components(document.find_prefab_source(instance.uuid, root_id)->node)
+            ->get<movement_description>()
+            ->speed == 1);
   check(history.redo().ok());
   check(history.clear().ok());
   target.source_uuid = child_id;
@@ -212,13 +224,21 @@ int main() try {
                                        0)
             .ok());
   check(action(ed::prefab_component_action::remove).ok());
-  state = document.capture_component_override(node, type);
+  state = document.capture_component_override(
+      document.find_prefab_source(instance.uuid, child_id)->node, type);
   check(state && state->removed && state->properties.empty());
-  check(history.undo().ok() && document.components(node)->get<movement_description>()->speed == 7);
+  check(history.undo().ok() &&
+        document.components(document.find_prefab_source(instance.uuid, child_id)->node)
+                ->get<movement_description>()
+                ->speed == 7);
   check(history.redo().ok());
   check(action(ed::prefab_component_action::restore_source).ok());
-  check(document.components(node)->get<movement_description>()->speed == 1);
-  check(history.undo().ok() && !document.components(node)->find(type));
+  check(document.components(document.find_prefab_source(instance.uuid, child_id)->node)
+            ->get<movement_description>()
+            ->speed == 1);
+  check(
+      history.undo().ok() &&
+      !document.components(document.find_prefab_source(instance.uuid, child_id)->node)->find(type));
   // 保存的是增删覆盖，来源资源内容保持不变。
   e::scene_description saved;
   check(gneiss::test_support::assign_value(
@@ -273,7 +293,9 @@ int main() try {
   // 来源新增组件与本地新增相撞：采用来源组件，保留本地覆盖并报告冲突。
   auto updated = std::make_shared<e::prefab_description>(collision);
   check(refresh(e::prefab_asset_ref{updated}).ok());
-  check(document.components(root_node)->get<movement_description>()->speed == 1);
+  check(document.components(document.find_prefab_source(instance.uuid, root_id)->node)
+            ->get<movement_description>()
+            ->speed == 1);
   const auto count = app->scenes()->get_node_count(document.scene_handle());
   check(count.has_value());
   bool found_conflict = false;
@@ -287,18 +309,23 @@ int main() try {
     }
   }
   check(found_conflict);
-  check(!document.components(node)->find(type));
+  check(
+      !document.components(document.find_prefab_source(instance.uuid, child_id)->node)->find(type));
   // 来源对象改名、改默认值不会改变移除覆盖；组件消失后又出现仍隐藏。
   updated = std::make_shared<e::prefab_description>(*source);
   updated->objects[1].name = "renamed";
   updated->objects[1].components.erase(type);
   check(refresh(e::prefab_asset_ref{updated}).ok());
-  check(!document.components(node)->find(type));
+  check(
+      !document.components(document.find_prefab_source(instance.uuid, child_id)->node)->find(type));
   check(refresh(e::prefab_asset_ref{source}).ok());
-  check(!document.components(node)->find(type));
+  check(
+      !document.components(document.find_prefab_source(instance.uuid, child_id)->node)->find(type));
   check(history.clear().ok());
   check(action(ed::prefab_component_action::restore_source).ok());
-  check(document.components(node)->get<movement_description>()->speed == 1);
+  check(document.components(document.find_prefab_source(instance.uuid, child_id)->node)
+            ->get<movement_description>()
+            ->speed == 1);
   check(source->objects[0].components.empty() &&
         source->objects[1].components.get<movement_description>()->speed == 1);
   return 0;

@@ -201,7 +201,8 @@ result<scene_mesh_binding> scene_instance::capture_mesh_binding(scene_node_id no
 
 error scene_instance::replace_mesh_binding(scene_node_id node_value,
                                            const scene_mesh_binding& expected,
-                                           const scene_mesh_binding& replacement) noexcept try {
+                                           const scene_mesh_binding& replacement,
+                                           guid component_uuid) noexcept try {
   if ((replacement.mesh && !loader_.owns(replacement.mesh)) ||
       (replacement.material && !loader_.owns(replacement.material))) {
     return error::invalid_argument;
@@ -264,9 +265,14 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
     return existing.error();
   auto changed = error::success;
   if (!existing) {
-    changed = native_world_.entity_set_mesh_renderer(
-        entity_id{scene_object_entity(native_world_, found->node)},
-        {.mesh = replacement.mesh, .material = replacement.material});
+    changed = add_component({native_world_,
+                             node,
+                             {.mesh = replacement.mesh, .material = replacement.material},
+                             &loader_},
+                            make_component_description(mesh_renderer_description{
+                                std::string(resource_uri(replacement.mesh)),
+                                std::string(resource_uri(replacement.material))}),
+                            component_uuid);
   } else {
     changed = native_world_.replace_mesh_renderers(changes);
   }

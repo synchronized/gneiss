@@ -91,9 +91,11 @@ public:
   capture_mesh_binding(scene_instance_id instance, scene_node_id node) const noexcept;
   /** 仅提交资源引用；expected 为空时恢复已移除组件，不加载资产。
    * 替换既有组件时校验旧引用及 ECS，失败保留原描述和资源。Prefab 只更新实例 URI 覆盖。 */
-  [[nodiscard]] GNEISS_API error replace_mesh_binding(
-      scene_instance_id instance, scene_node_id node, const scene_mesh_binding& expected,
-      const scene_mesh_binding& replacement) noexcept;
+  [[nodiscard]] GNEISS_API error replace_mesh_binding(scene_instance_id instance,
+                                                      scene_node_id node,
+                                                      const scene_mesh_binding& expected,
+                                                      const scene_mesh_binding& replacement,
+                                                      guid component_uuid = {}) noexcept;
   /** 验证普通作者节点或 Prefab 来源节点归属；组件增删仍受各接口限制。 */
   [[nodiscard]] GNEISS_API error validate_editable_node(scene_instance_id instance,
                                                         scene_node_id node) const noexcept;

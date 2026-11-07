@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "commands/runtime_author_apply.hpp"
+#include "documents/scene_document_edit.hpp"
 #include "engine/core/error.hpp"
 
 #include <new>
@@ -53,25 +54,11 @@ apply_runtime_transform_to_author(scene_document& session, editor_command_histor
   const gneiss::engine::guid uuid(runtime_node.uuid);
   const gneiss::engine::guid instance_uuid(runtime_node.prefab_instance_uuid);
   const gneiss::engine::guid source_uuid(runtime_node.prefab_source_node_uuid);
-  const auto before =
-      bool(author_node) ? author_node->local_transform : prefab_node->local_transform;
-  const auto after = runtime_node.local_transform;
-  return history.execute({.label = "应用 Runtime Transform",
-                          .undo =
-                              [&session, uuid, instance_uuid, source_uuid, before] {
-                                const auto node =
-                                    resolve_author_node(session, uuid, instance_uuid, source_uuid);
-                                return !node.is_valid() ? gneiss::engine::error::not_found
-                                                        : session.set_local_transform(node, before);
-                              },
-                          .redo =
-                              [&session, uuid, instance_uuid, source_uuid, after] {
-                                const auto node =
-                                    resolve_author_node(session, uuid, instance_uuid, source_uuid);
-                                return !node.is_valid() ? gneiss::engine::error::not_found
-                                                        : session.set_local_transform(node, after);
-                              },
-                          .merge_key = {}});
+  return execute_scene_edit(history, session, "应用 Runtime Transform", [&] {
+    const auto node = resolve_author_node(session, uuid, instance_uuid, source_uuid);
+    return !node.is_valid() ? gneiss::engine::error::not_found
+                            : session.set_local_transform(node, runtime_node.local_transform);
+  });
 } catch (const std::bad_alloc&) {
   return gneiss::engine::error::out_of_memory;
 } catch (...) {

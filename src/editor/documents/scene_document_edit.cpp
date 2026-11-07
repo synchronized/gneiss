@@ -4,6 +4,120 @@
 #include "documents/scene_document.hpp"
 #include "runtime/application.hpp"
 namespace gneiss::editor {
+namespace {
+struct document_selection {
+  engine::guid object, source;
+  static document_selection capture(scene_document& document) noexcept {
+    if (auto node = document.selected_node())
+      return {node->uuid, {}};
+    if (auto node = document.selected_prefab_node())
+      return {node->instance_uuid, node->source_node_uuid};
+    return {};
+  }
+  void restore(scene_document& document) const noexcept {
+    if (source) {
+      auto node = document.find_prefab_source(object, source);
+      (void)document.select(node ? node->node : scene_node_id{});
+    } else {
+      auto node = document.find_node(object);
+      (void)document.select(node ? node->node : scene_node_id{});
+    }
+  }
+};
+class document_version_command final : public editor_command {
+public:
+  document_version_command(scene_document& document, scene_document::version before,
+                           scene_document::version after, std::string label, std::string key)
+      : document_(document), before_(std::move(before)), after_(std::move(after)),
+        label_(std::move(label)), key_(std::move(key)),
+        selection_before_(document_selection::capture(document)),
+        selection_after_(selection_before_) {}
+  std::string_view label() const noexcept override { return label_; }
+  void complete() noexcept {
+    after_ = document_.current_version();
+    selection_after_ = document_selection::capture(document_);
+  }
+  engine::error undo() noexcept override {
+    auto status = document_.restore_version(after_, before_);
+    if (status.ok())
+      selection_before_.restore(document_);
+    return status;
+  }
+  engine::error redo() noexcept override {
+    auto status = document_.restore_version(before_, after_);
+    if (status.ok())
+      selection_after_.restore(document_);
+    return status;
+  }
+  bool merge_with(const editor_command& next) noexcept override {
+    auto* other = dynamic_cast<const document_version_command*>(&next);
+    if (!other || &other->document_ != &document_ || key_.empty() || key_ != other->key_ ||
+        after_ != other->before_)
+      return false;
+    after_ = other->after_;
+    selection_after_ = other->selection_after_;
+    return true;
+  }
+
+private:
+  scene_document& document_;
+  scene_document::version before_, after_;
+  std::string label_, key_;
+  document_selection selection_before_, selection_after_;
+};
+}
+engine::error record_scene_edit(editor_command_history& history, scene_document& document,
+                                const scene_document_versions::version& before, std::string label,
+                                std::string key) noexcept try {
+  auto after = document.current_version();
+  if (!before || !after)
+    return engine::error::invalid_state;
+  if (before == after)
+    return engine::error::success;
+  return history.record(std::make_unique<document_version_command>(
+      document, before, after, std::move(label), std::move(key)));
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
+engine::error execute_scene_edit(editor_command_history& history, scene_document& document,
+                                 std::string label, const std::function<engine::error()>& edit,
+                                 std::string key) noexcept try {
+  auto before = document.current_version();
+  if (!before || !edit)
+    return engine::error::invalid_state;
+  auto status = history.prepare_record();
+  if (status.failed())
+    return status;
+  auto command = std::make_unique<document_version_command>(document, before, before,
+                                                            std::move(label), std::move(key));
+  try {
+    status = edit();
+  } catch (const std::bad_alloc&) {
+    status = engine::error::out_of_memory;
+  } catch (...) {
+    status = engine::error::internal;
+  }
+  if (status.failed()) {
+    if (document.current_version() != before)
+      (void)document.restore_version(document.current_version(), before);
+    return status;
+  }
+  if (before == document.current_version())
+    return engine::error::success;
+  (void)document.validate_selection();
+  command->complete();
+  status = history.record(std::move(command));
+  if (status.failed())
+    (void)document.restore_version(document.current_version(), before);
+  return status;
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
+
 engine::result<scene_document_snapshot>
 capture_scene_document(runtime::application& app, const scene_document& document) noexcept try {
   if (!document.is_open() || !app.is_owner_thread() || !app.accepts_requests())
@@ -88,21 +202,13 @@ engine::error scene_document_edit::advance(runtime::application& app, scene_docu
   if (current->content != before_->content || current->prefabs != before_->prefabs)
     return finish(error::invalid_state);
   auto status = error{error::success};
-  const auto apply = [&app, &document, selection = selection_](
-                         const std::shared_ptr<scene_document_snapshot>& snapshot, bool undo) {
-    auto result = restore_scene_document(app, document, *snapshot);
-    if (result.ok()) {
-      document.mark_dirty();
-      if (selection)
-        selection(undo);
-    }
-    return result;
-  };
   const bool was_dirty = document.is_dirty();
-  status = history.execute({.label = label_,
-                            .undo = [apply, before = before_] { return apply(before, true); },
-                            .redo = [apply, after = after_] { return apply(after, false); },
-                            .merge_key = {}});
+  status = execute_scene_edit(history, document, label_, [&] {
+    auto result = restore_scene_document(app, document, *after_);
+    if (result.ok() && selection_)
+      selection_(false);
+    return result;
+  });
   if (status.failed() && !was_dirty)
     document.clear_dirty();
   return finish(status);

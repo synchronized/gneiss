@@ -3,6 +3,7 @@
 #include "engine/resource/scene/scene_record.hpp"
 #include "engine/core/serialization/value.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
+#include <algorithm>
 #include <map>
 #include <set>
 namespace gneiss::engine {
@@ -318,4 +319,122 @@ result<scene_record> remap_scene_record(const scene_record& source, guid target_
   return error::internal;
 }
 
+namespace {
+struct reference_inspector {
+  document_object_view document;
+  std::span<const document_object_view> external;
+  std::vector<object_reference_issue> issues;
+  guid object, component;
+  void reference(const object_reference_value& target) {
+    if (!target.document && !target.object)
+      return;
+    auto status = error{error::success};
+    if (!target.document || !target.object) {
+      status = error::invalid_argument;
+    } else {
+      const document_object_view* source = &document;
+      if (target.document != document.document) {
+        auto found = std::ranges::find(external, target.document, &document_object_view::document);
+        source = found == external.end() ? nullptr : &*found;
+      }
+      if (!source)
+        status = error::not_ready;
+      else if (std::ranges::find(source->objects, target.object, &object_record::uuid) ==
+               source->objects.end())
+        status = error::not_found;
+    }
+    if (status.failed())
+      issues.push_back({document.document, object, component, target, status});
+  }
+  error inspect(const value& source) {
+    return std::visit(
+        [&](const auto& item) -> error {
+          using T = std::decay_t<decltype(item)>;
+          if constexpr (std::is_same_v<T, object_reference_value>) {
+            reference(item);
+          } else if constexpr (std::is_same_v<T, record_value>) {
+            if (item.get().type == object_reference_value::type_guid) {
+              auto decoded = serialization::restore_value<object_reference_value>(source);
+              if (!decoded)
+                return decoded.error().error;
+              reference(*decoded);
+            } else {
+              for (const auto& property : item.get().properties) {
+                auto status = inspect(property.content);
+                if (status.failed())
+                  return status;
+              }
+            }
+          } else if constexpr (std::is_same_v<T, sequence_value>) {
+            for (const auto& element : item.get().elements) {
+              auto status = inspect(element);
+              if (status.failed())
+                return status;
+            }
+          } else if constexpr (std::is_same_v<T, map_value>) {
+            for (const auto& entry : item.get().entries) {
+              auto status = inspect(entry.key);
+              if (status.ok())
+                status = inspect(entry.content);
+              if (status.failed())
+                return status;
+            }
+          } else if constexpr (std::is_same_v<T, optional_value>) {
+            if (item.get().content)
+              return inspect(*item.get().content);
+          } else if constexpr (std::is_same_v<T, variant_value>) {
+            return inspect(item.get().content);
+          }
+          return error::success;
+        },
+        source.payload);
+  }
+};
+}
+result<std::vector<object_reference_issue>>
+inspect_object_references(document_object_view document,
+                          std::span<const document_object_view> external) noexcept try {
+  reference_inspector inspector{document, external, {}, {}, {}};
+  for (const auto& object : document.objects) {
+    inspector.object = object.uuid;
+    for (const auto& component : object.components) {
+      inspector.component = component.uuid;
+      auto status = inspector.inspect(component.properties);
+      if (status.failed())
+        return status;
+    }
+    if (!object.prefab)
+      continue;
+    for (const auto& component : object.prefab->components) {
+      if (!component.added)
+        continue;
+      inspector.component = component.component_uuid;
+      auto status = inspector.inspect(component.added->properties);
+      if (status.failed())
+        return status;
+    }
+    for (const auto& entry : object.prefab->overrides) {
+      inspector.component = entry.key.target.component_uuid;
+      auto status = std::visit(
+          [&](const auto& operation) -> error {
+            if constexpr (requires { operation.content; }) {
+              auto status = inspector.inspect(operation.content);
+              if (status.failed())
+                return status;
+            }
+            if constexpr (requires { operation.key; })
+              return inspector.inspect(operation.key);
+            return error::success;
+          },
+          entry.operation);
+      if (status.failed())
+        return status;
+    }
+  }
+  return std::move(inspector.issues);
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
 }

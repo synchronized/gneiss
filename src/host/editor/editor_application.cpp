@@ -322,27 +322,13 @@ void report_startup_failure(std::string_view stage, gneiss::engine::error operat
   std::fputc('\n', stderr);
 }
 
-void synchronize_history_dirty(editor_state& state) noexcept {
-  if (state.editing.history().is_dirty()) {
-    state.editing.document().mark_dirty();
-  } else {
-    state.editing.document().clear_dirty();
-  }
-}
-
 gneiss::engine::error undo_editor_command(editor_state& state) noexcept {
   const auto result = state.editing.history().undo();
-  if (result == gneiss::engine::error::success) {
-    synchronize_history_dirty(state);
-  }
   return result;
 }
 
 gneiss::engine::error redo_editor_command(editor_state& state) noexcept {
   const auto result = state.editing.history().redo();
-  if (result == gneiss::engine::error::success) {
-    synchronize_history_dirty(state);
-  }
   return result;
 }
 
@@ -430,30 +416,18 @@ apply_author_snapshot(editor_state& state, const author_selection& selection,
 
 [[nodiscard]] gneiss::engine::error
 adopt_author_documents(editor_state& state, std::string label,
-                       std::shared_ptr<gneiss::editor::scene_document_snapshot> before,
                        std::shared_ptr<gneiss::editor::scene_document_snapshot> after,
-                       const author_selection& undo_selection,
                        const author_selection& redo_selection, bool history_boundary) {
   if (history_boundary) {
     // 共享来源已经保存；旧快照不能再通过普通撤销恢复旧来源投影。
     (void)state.editing.history().clear(false);
     state.editing.document().mark_dirty();
   }
-  auto status = apply_author_snapshot(state, redo_selection, *after);
-  if (status.failed() || history_boundary)
-    return status;
-  status = state.editing.history().record(
-      {.label = std::move(label),
-       .undo = [&state, undo_selection,
-                before] { return apply_author_snapshot(state, undo_selection, *before); },
-       .redo = [&state, redo_selection,
-                after] { return apply_author_snapshot(state, redo_selection, *after); },
-       .merge_key = {}});
-  if (status.failed()) {
-    (void)apply_author_snapshot(state, undo_selection, *before);
-    synchronize_history_dirty(state);
-  }
-  return status;
+  if (history_boundary)
+    return apply_author_snapshot(state, redo_selection, *after);
+  return gneiss::editor::execute_scene_edit(
+      state.editing.history(), state.editing.document(), std::move(label),
+      [&] { return apply_author_snapshot(state, redo_selection, *after); });
 }
 
 [[nodiscard]] gneiss::engine::error
@@ -519,7 +493,7 @@ record_author_documents(editor_state& state, std::string label,
     const auto content = *source->replacement;
     state.file_operation_saves_scene = false;
     state.pending_file_operation = [&state, receipt, source_uri, content, label = std::move(label),
-                                    before, after, undo_selection, redo_selection,
+                                    before, after, redo_selection,
                                     history_boundary](gneiss::engine::error& value) mutable {
       if (!receipt->complete)
         return false;
@@ -530,14 +504,13 @@ record_author_documents(editor_state& state, std::string label,
       (void)state.author_assets.acknowledge(source_uri, content);
       (void)state.runtime.publish_asset_revision(std::span<const std::string>(&source_uri, 1U));
 #endif
-      value = adopt_author_documents(state, std::move(label), before, after, undo_selection,
-                                     redo_selection, history_boundary);
+      value =
+          adopt_author_documents(state, std::move(label), after, redo_selection, history_boundary);
       return true;
     };
     return gneiss::engine::error::not_ready;
   }
-  return adopt_author_documents(state, std::move(label), before, after, undo_selection,
-                                redo_selection, history_boundary);
+  return adopt_author_documents(state, std::move(label), after, redo_selection, history_boundary);
 }
 
 [[nodiscard]] gneiss::engine::error current_author_scene(editor_state& state,
@@ -999,47 +972,11 @@ bool reparent_with_history(editor_state& state, gneiss::engine::guid source_uuid
   if (previous_parent_uuid == target_uuid) {
     return false;
   }
-  const gneiss::engine::guid source_key{source_uuid};
-  const gneiss::engine::guid target_key{target_uuid};
-  state.history_error = state.editing.document().reparent_node(
-      source->node, !target ? gneiss::scene_node_id{} : target->node);
-  if (state.history_error != gneiss::engine::error::success) {
-    return false;
-  }
-  state.history_error = state.editing.history().record(
-      {.label = "移动节点",
-       .undo =
-           [&state, source_key, previous_parent_uuid] {
-             const auto current = state.editing.document().find_node(source_key);
-             const auto parent = previous_parent_uuid.is_nil()
-                                     ? gneiss::engine::error{gneiss::engine::error::not_found}
-                                     : state.editing.document().find_node(previous_parent_uuid);
-             return !current ? gneiss::engine::error::not_found
-                             : state.editing.document().reparent_node(
-                                   current->node, !parent ? gneiss::scene_node_id{} : parent->node);
-           },
-       .redo =
-           [&state, source_key, target_key] {
-             const auto current = state.editing.document().find_node(source_key);
-             const auto parent = target_key.is_nil()
-                                     ? gneiss::engine::error{gneiss::engine::error::not_found}
-                                     : state.editing.document().find_node(target_key);
-             return !current || (!target_key.is_nil() && !parent)
-                        ? gneiss::engine::error::not_found
-                        : state.editing.document().reparent_node(
-                              current->node, !parent ? gneiss::scene_node_id{} : parent->node);
-           },
-       .merge_key = {}});
-  if (state.history_error != gneiss::engine::error::success) {
-    const auto current = state.editing.document().find_node(source_key);
-    const auto parent = previous_parent_uuid.is_nil()
-                            ? gneiss::engine::error{gneiss::engine::error::not_found}
-                            : state.editing.document().find_node(previous_parent_uuid);
-    if (bool(current)) {
-      (void)state.editing.document().reparent_node(current->node, !parent ? gneiss::scene_node_id{}
-                                                                          : parent->node);
-    }
-  }
+  state.history_error = gneiss::editor::execute_scene_edit(
+      state.editing.history(), state.editing.document(), "移动节点", [&] {
+        return state.editing.document().reparent_node(
+            source->node, !target ? gneiss::scene_node_id{} : target->node);
+      });
   return true;
 }
 
@@ -1067,9 +1004,6 @@ make_runtime_inspector_actions(editor_state& state,
                     editor.editing.document(), editor.editing.history(),
                     {selected.uuid, selected.prefab_instance_uuid, selected.prefab_source_node_uuid,
                      selected.local_transform});
-                if (editor.history_error == gneiss::engine::error::success) {
-                  synchronize_history_dirty(editor);
-                }
               },
           .report_result =
               [](void* context, gneiss::engine::error status) {
@@ -1833,7 +1767,6 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
       const auto operation = state.editing.history().advance_pending();
       if (!state.editing.history().is_pending()) {
         state.asset_scene_result = operation;
-        synchronize_history_dirty(state);
       }
     }
     if (state.editing.prefabs().visible() || state.editing.history().is_pending()) {
@@ -2460,171 +2393,48 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
         ImGui::InputText("Name", state.rename_buffer.data(), state.rename_buffer.size());
         if (ImGui::Button("Apply")) {
           const auto next = std::string{state.rename_buffer.data()};
-          const auto current = state.editing.document().find_node(state.rename_uuid);
-          state.history_error = !current
-                                    ? gneiss::engine::error::not_found
-                                    : state.editing.document().rename_node(current->node, next);
-          if (state.history_error == gneiss::engine::error::success) {
-            const auto uuid = state.rename_uuid;
-            const auto previous = state.rename_previous;
-            state.history_error = state.editing.history().record(
-                {.label = "重命名节点",
-                 .undo =
-                     [&state, uuid, previous] {
-                       const auto node = state.editing.document().find_node(uuid);
-                       return !node ? gneiss::engine::error::not_found
-                                    : state.editing.document().rename_node(node->node, previous);
-                     },
-                 .redo =
-                     [&state, uuid, next] {
-                       const auto node = state.editing.document().find_node(uuid);
-                       return !node ? gneiss::engine::error::not_found
-                                    : state.editing.document().rename_node(node->node, next);
-                     },
-                 .merge_key = {}});
-            if (state.history_error != gneiss::engine::error::success) {
-              if (const auto node = state.editing.document().find_node(uuid); bool(node)) {
-                (void)state.editing.document().rename_node(node->node, previous);
-              }
-            }
-          }
+          state.history_error = gneiss::editor::execute_scene_edit(
+              state.editing.history(), state.editing.document(), "重命名节点", [&] {
+                const auto current = state.editing.document().find_node(state.rename_uuid);
+                return !current ? gneiss::engine::error::not_found
+                                : state.editing.document().rename_node(current->node, next);
+              });
           ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
       }
       if (create_requested) {
-        const auto parent = !selected ? gneiss::scene_node_id{} : selected->node;
-        gneiss::scene_node_id created;
-        state.history_error = state.editing.document().create_node("Node", parent, created);
-        if (state.history_error == gneiss::engine::error::success) {
-          const auto uuid = state.editing.document().selected_node()->uuid;
-          auto snapshot = std::make_shared<gneiss::editor::scene_subtree_snapshot>();
-          state.history_error = state.editing.history().record(
-              {.label = "创建节点",
-               .undo =
-                   [&state, uuid, snapshot] {
-                     const auto current = state.editing.document().find_node(uuid);
-                     return !current ? gneiss::engine::error::not_found
-                                     : state.editing.document().destroy_subtree(current->node,
-                                                                                *snapshot);
-                   },
-               .redo =
-                   [&state, snapshot] {
-                     gneiss::scene_node_id restored;
-                     return state.editing.document().restore_subtree(*snapshot, restored);
-                   },
-               .merge_key = {}});
-          if (state.history_error != gneiss::engine::error::success) {
-            if (const auto current = state.editing.document().find_node(uuid); bool(current)) {
-              (void)state.editing.document().destroy_subtree(current->node, *snapshot);
-            }
-          }
-        }
+        state.history_error = gneiss::editor::execute_scene_edit(
+            state.editing.history(), state.editing.document(), "创建节点", [&] {
+              gneiss::scene_node_id created;
+              return state.editing.document().create_node(
+                  "Node", selected ? selected->node : gneiss::scene_node_id{}, created);
+            });
       }
       if (duplicate_requested) {
-        const auto parent = selected->parent;
-        gneiss::scene_node_id duplicate;
-        state.history_error =
-            state.editing.document().duplicate_subtree(selected->node, parent, duplicate);
-        if (state.history_error == gneiss::engine::error::success) {
-          const auto uuid = state.editing.document().selected_node()->uuid;
-          auto snapshot = std::make_shared<gneiss::editor::scene_subtree_snapshot>();
-          state.history_error = state.editing.history().record(
-              {.label = "复制子树",
-               .undo =
-                   [&state, uuid, snapshot] {
-                     const auto current = state.editing.document().find_node(uuid);
-                     return !current ? gneiss::engine::error::not_found
-                                     : state.editing.document().destroy_subtree(current->node,
-                                                                                *snapshot);
-                   },
-               .redo =
-                   [&state, snapshot] {
-                     gneiss::scene_node_id restored;
-                     return state.editing.document().restore_subtree(*snapshot, restored);
-                   },
-               .merge_key = {}});
-          if (state.history_error != gneiss::engine::error::success) {
-            if (const auto current = state.editing.document().find_node(uuid); bool(current)) {
-              (void)state.editing.document().destroy_subtree(current->node, *snapshot);
-            }
-          }
-        }
+        state.history_error = gneiss::editor::execute_scene_edit(
+            state.editing.history(), state.editing.document(), "复制子树", [&] {
+              gneiss::scene_node_id duplicate;
+              return state.editing.document().duplicate_subtree(selected->node, selected->parent,
+                                                                duplicate);
+            });
       }
       if (delete_requested) {
-        const auto was_dirty = state.editing.document().is_dirty();
-        const auto node = selected->node;
-        gneiss::editor::scene_subtree_snapshot snapshot;
-        state.history_error = state.editing.document().destroy_subtree(node, snapshot);
-        if (state.history_error == gneiss::engine::error::success) {
-          state.history_error = state.editing.history().record(
-              {.label = "删除节点",
-               .undo =
-                   [&state, snapshot] {
-                     gneiss::scene_node_id restored;
-                     return state.editing.document().restore_subtree(snapshot, restored);
-                   },
-               .redo =
-                   [&state, uuid = snapshot.root_uuid] {
-                     const auto current = state.editing.document().find_node(uuid);
-                     if (!current) {
-                       return gneiss::engine::error::not_found;
-                     }
-                     gneiss::editor::scene_subtree_snapshot discarded;
-                     return state.editing.document().destroy_subtree(current->node, discarded);
-                   },
-               .merge_key = {}});
-          if (state.history_error != gneiss::engine::error::success) {
-            gneiss::scene_node_id restored;
-            (void)state.editing.document().restore_subtree(snapshot, restored);
-            if (!was_dirty) {
-              state.editing.document().clear_dirty();
-            }
-          }
-        }
+        state.history_error = gneiss::editor::execute_scene_edit(
+            state.editing.history(), state.editing.document(), "删除节点", [&] {
+              gneiss::editor::scene_subtree_snapshot discarded;
+              return state.editing.document().destroy_subtree(selected->node, discarded);
+            });
       }
       const auto prefab_selected = state.editing.document().selected_prefab_node();
       if (bool(prefab_selected) && prefab_selected->is_instance_root) {
         if (ImGui::Button("Duplicate Prefab")) {
-          const auto original = *prefab_selected;
-          gneiss::scene_node_id duplicate;
-          state.history_error =
-              state.editing.document().duplicate_subtree(original.node, original.parent, duplicate);
-          if (state.history_error.ok()) {
-            auto snapshot = std::make_shared<gneiss::engine::scene_subtree_snapshot>();
-            auto scenes_result = state.editing.document().capture_subtree(duplicate);
-            state.history_error =
-                scenes_result ? gneiss::engine::error::success : scenes_result.error();
-            if (scenes_result) {
-              *snapshot = std::move(*scenes_result);
-            }
-            if (state.history_error.ok()) {
-              state.history_error = state.editing.history().record(
-                  {.label = "复制子树",
-                   .undo =
-                       [&state, snapshot] {
-                         gneiss::scene_node_id root;
-                         auto status_value = state.application->scenes()->find_node(
-                             state.editing.document().scene_handle(), snapshot->root_uuid);
-                         if (!status_value)
-                           return status_value.error();
-                         root = std::move(*status_value);
-
-                         gneiss::editor::scene_subtree_snapshot discarded;
-                         return state.editing.document().destroy_subtree(root, discarded);
-                       },
-                   .redo =
-                       [&state, snapshot] {
-                         gneiss::scene_node_id root;
-                         return state.editing.document().restore_subtree(*snapshot, root);
-                       },
-                   .merge_key = {}});
-            }
-            if (state.history_error.failed()) {
-              gneiss::editor::scene_subtree_snapshot discarded;
-              (void)state.editing.document().destroy_subtree(duplicate, discarded);
-            }
-          }
+          state.history_error = gneiss::editor::execute_scene_edit(
+              state.editing.history(), state.editing.document(), "复制子树", [&] {
+                gneiss::scene_node_id duplicate;
+                return state.editing.document().duplicate_subtree(
+                    prefab_selected->node, prefab_selected->parent, duplicate);
+              });
         }
         ImGui::SameLine();
         if (ImGui::Button("Delete Prefab")) {
@@ -2936,29 +2746,12 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
           ImGui::InputText("Name", state.rename_buffer.data(), state.rename_buffer.size());
           if (ImGui::Button("Apply")) {
             const auto next = std::string{state.rename_buffer.data()};
-            const auto current = state.editing.document().find_prefab_root(state.rename_uuid);
-            state.history_error = !current
-                                      ? gneiss::engine::error::not_found
-                                      : state.editing.document().rename_node(current->node, next);
-            if (state.history_error == gneiss::engine::error::success) {
-              const auto uuid = state.rename_uuid;
-              const auto previous = state.rename_previous;
-              state.history_error = state.editing.history().record(
-                  {.label = "重命名 Prefab 实例",
-                   .undo =
-                       [&state, uuid, previous] {
-                         const auto node = state.editing.document().find_prefab_root(uuid);
-                         return !node ? gneiss::engine::error::not_found
-                                      : state.editing.document().rename_node(node->node, previous);
-                       },
-                   .redo =
-                       [&state, uuid, next] {
-                         const auto node = state.editing.document().find_prefab_root(uuid);
-                         return !node ? gneiss::engine::error::not_found
-                                      : state.editing.document().rename_node(node->node, next);
-                       },
-                   .merge_key = {}});
-            }
+            state.history_error = gneiss::editor::execute_scene_edit(
+                state.editing.history(), state.editing.document(), "重命名 Prefab 实例", [&] {
+                  const auto current = state.editing.document().find_prefab_root(state.rename_uuid);
+                  return !current ? gneiss::engine::error::not_found
+                                  : state.editing.document().rename_node(current->node, next);
+                });
             ImGui::CloseCurrentPopup();
           }
           ImGui::EndPopup();

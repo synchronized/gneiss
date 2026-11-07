@@ -18,7 +18,8 @@ inline engine::task_scheduler& application_tasks() {
 inline engine::error prepare_scene(runtime::application& app, std::string_view uri,
                                    engine::scene_instantiation_data& prepared,
                                    engine::scene_instances::resource_bindings& bindings,
-                                   engine::task_scheduler* tasks = nullptr, bool prefab = false) {
+                                   engine::task_scheduler* tasks = nullptr, bool prefab = false,
+                                   bool reload = false) {
   if (!tasks)
     tasks = &application_tasks();
   const auto attached = app.attach_task_executor(*tasks);
@@ -33,7 +34,7 @@ inline engine::error prepare_scene(runtime::application& app, std::string_view u
     return std::chrono::steady_clock::now() < deadline;
   };
   auto load = [&]<class T>() -> engine::error {
-    auto request = app.assets().load<T>(uri);
+    auto request = app.assets().load<T>(uri, reload);
     if (!request)
       return request.error();
     for (;;) {
@@ -82,14 +83,14 @@ inline engine::error prepare_scene(runtime::application& app, std::string_view u
   return engine::error::success;
 }
 inline engine::error load_scene(runtime::application& app, std::string_view uri,
-                                scene_instance_id* output,
-                                engine::task_scheduler* tasks = nullptr) {
+                                scene_instance_id* output, engine::task_scheduler* tasks = nullptr,
+                                bool reload = false) {
   if (!output)
     return engine::error::invalid_argument;
   *output = {};
   engine::scene_instantiation_data prepared;
   engine::scene_instances::resource_bindings bindings;
-  auto status = prepare_scene(app, uri, prepared, bindings, tasks);
+  auto status = prepare_scene(app, uri, prepared, bindings, tasks, false, reload);
   return status.failed()
              ? status
              : gneiss::test_support::take_value(

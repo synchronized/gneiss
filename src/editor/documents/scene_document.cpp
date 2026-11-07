@@ -1111,6 +1111,7 @@ scene_document::create_mesh_node(const mesh_node_creation& snapshot,
     parent = found->node;
   }
   scene_node_id created;
+  engine::guid component_uuid;
   auto status = edit_content(
       [&](auto& description, auto& next) -> engine::error {
         engine::object_description object;
@@ -1119,6 +1120,7 @@ scene_document::create_mesh_node(const mesh_node_creation& snapshot,
         object.name = snapshot.display_name;
         object.components.set(
             engine::mesh_renderer_description{snapshot.mesh_uri, snapshot.material_uri});
+        component_uuid = object.components.identity(engine::mesh_renderer_description::type_guid);
         description.objects.push_back(std::move(object));
         retain(next, resources);
         return engine::error::success;
@@ -1130,7 +1132,8 @@ scene_document::create_mesh_node(const mesh_node_creation& snapshot,
              .name = snapshot.display_name,
              .parent = parent,
              .mesh_uri = snapshot.mesh_uri,
-             .material_uri = snapshot.material_uri},
+             .material_uri = snapshot.material_uri,
+             .component_uuid = component_uuid},
             resources);
         if (!result)
           return result.error();
@@ -1187,6 +1190,7 @@ scene_document::replace_mesh_binding(scene_node_id node, const engine::scene_mes
     return target.error();
   if (target->source)
     return engine::error::unsupported;
+  engine::guid component_uuid;
   return edit_content(
       [&](auto& description, auto& next) -> engine::error {
         auto object = std::ranges::find(description.objects, target->object,
@@ -1194,11 +1198,13 @@ scene_document::replace_mesh_binding(scene_node_id node, const engine::scene_mes
         object->components.set(engine::mesh_renderer_description{
             std::string(engine::resource_uri(replacement.mesh)),
             std::string(engine::resource_uri(replacement.material))});
+        component_uuid = object->components.identity(engine::mesh_renderer_description::type_guid);
         retain(next, replacement);
         return engine::error::success;
       },
       [&] {
-        return application_->scenes()->replace_mesh_binding(scene_, node, expected, replacement);
+        return application_->scenes()->replace_mesh_binding(scene_, node, expected, replacement,
+                                                            component_uuid);
       });
 }
 
@@ -1283,6 +1289,18 @@ engine::error scene_document::accept_save(const save_receipt& receipt) noexcept 
   } catch (...) {
     return engine::error::internal;
   }
+}
+
+engine::error scene_document::restore_version(const version& expected,
+                                              const version& target) noexcept {
+  if (!is_open())
+    return engine::error::invalid_state;
+  auto status = versions_->checkout(expected, target);
+  if (status.failed())
+    return status;
+  is_dirty_ = versions_->is_dirty();
+  (void)synchronize();
+  return engine::error::success;
 }
 
 engine::error scene_document::edit_component(scene_node_id node, engine::guid type,

@@ -26,6 +26,7 @@ struct mesh_renderer_node_creation {
   scene_node_id parent{};
   std::string_view mesh_uri;
   std::string_view material_uri;
+  guid component_uuid{}; // nil 时由运行时创建新组件身份。
 };
 
 struct prefab_creation {

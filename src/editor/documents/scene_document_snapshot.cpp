@@ -117,4 +117,22 @@ prepare_scene_document(const scene_document_snapshot& before,
   return engine::error::internal;
 }
 
+engine::result<std::vector<engine::object_reference_issue>>
+scene_document_snapshot::reference_issues() const noexcept try {
+  std::vector<engine::document_object_view> documents{{content.get().uuid, content.get().objects}};
+  for (const auto& [uri, source] : prefabs)
+    documents.push_back({source.content.get().uuid, source.content.get().objects});
+  std::vector<engine::object_reference_issue> result;
+  for (const auto& document : documents) {
+    auto issues = engine::inspect_object_references(document, documents);
+    if (!issues)
+      return issues.error();
+    result.insert(result.end(), issues->begin(), issues->end());
+  }
+  return result;
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
 }

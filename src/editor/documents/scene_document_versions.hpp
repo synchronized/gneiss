@@ -34,6 +34,8 @@ public:
   /** expected 必须仍为当前版本。结构非法或分配失败不改变当前内容和历史。 */
   [[nodiscard]] engine::error accept(const version& expected, const scene_document_snapshot&,
                                      std::string label, std::string merge_key = {}) noexcept;
+  /** 切回同一文档的已接受版本；不重新解码，不创建第二条历史。 */
+  [[nodiscard]] engine::error checkout(const version& expected, const version& target) noexcept;
   [[nodiscard]] engine::error undo() noexcept;
   [[nodiscard]] engine::error redo() noexcept;
   void clear_history() noexcept;

@@ -220,6 +220,13 @@ public:
   [[nodiscard]] engine::error accept_content(const scene_document_snapshot&) noexcept;
   [[nodiscard]] engine::error synchronize() noexcept;
   [[nodiscard]] engine::error projection_status() const noexcept;
+  using version = scene_document_versions::version;
+  [[nodiscard]] version current_version() const noexcept {
+    return versions_ ? versions_->current() : version{};
+  }
+  /** 历史切换只接受当前基线；投影失败保留目标版本并由 projection_status 报告。 */
+  [[nodiscard]] engine::error restore_version(const version& expected,
+                                              const version& target) noexcept;
   [[nodiscard]] engine::result<scene_subtree_snapshot>
       capture_subtree(scene_node_id) const noexcept;
   [[nodiscard]] engine::result<engine::prefab_header_snapshot>
@@ -227,7 +234,11 @@ public:
   [[nodiscard]] engine::error apply_prefab(const scene_subtree_snapshot&, bool removing,
                                            bool replacing) noexcept;
   void mark_dirty() noexcept { is_dirty_ = true; }
-  void clear_dirty() noexcept { is_dirty_ = false; }
+  void clear_dirty() noexcept {
+    is_dirty_ = false;
+    if (versions_)
+      (void)versions_->mark_saved(versions_->current());
+  }
 
 private:
   using content_edit =

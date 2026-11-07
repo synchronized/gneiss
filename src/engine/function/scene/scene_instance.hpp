@@ -89,7 +89,8 @@ public:
   /** 捕获当前 ECS 引用；替换普通组件只写 World，Prefab 同时维护显式覆盖。 */
   [[nodiscard]] result<scene_mesh_binding> capture_mesh_binding(scene_node_id node) const noexcept;
   [[nodiscard]] error replace_mesh_binding(scene_node_id node, const scene_mesh_binding& expected,
-                                           const scene_mesh_binding& replacement) noexcept;
+                                           const scene_mesh_binding& replacement,
+                                           guid component_uuid = {}) noexcept;
   [[nodiscard]] bool contains_editable_node(scene_node_id node) const noexcept;
   [[nodiscard]] std::uint64_t node_count() const noexcept { return objects_.size(); }
 

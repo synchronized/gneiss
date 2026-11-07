@@ -125,7 +125,7 @@ int main() try {
 
   write_scene(
       scene_path,
-      R"([{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/triangle.material.json"}}])");
+      R"([{"uuid":"6ac36c36-95c2-4975-9b2a-4fbcc4c7bca1","description":{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/triangle.material.json"}}}])");
   if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, uri, false) !=
           gneiss::engine::error::success ||
       gneiss::test_support::take_value(application->scenes()->find_node(scene, camera_uuid),
@@ -148,7 +148,7 @@ int main() try {
   // 缺失材质也不阻断结构回执；回执到达时视觉加载仍未结束。
   write_scene(
       scene_path,
-      R"([{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/missing.material.json"}}])");
+      R"([{"uuid":"6ac36c36-95c2-4975-9b2a-4fbcc4c7bca1","description":{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/missing.material.json"}}}])");
   if (application->request_scene_reload(scene, uri, false).failed())
     return 24;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);

@@ -54,6 +54,7 @@ int main() try {
   int width = 0;
   int height = 0;
   io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+  const auto first_uuid = session.query_node(first)->uuid;
   const auto draw = [&](ImVec2 size) {
     ImGui::NewFrame();
     begin_transform_gizmo_frame();
@@ -84,8 +85,9 @@ int main() try {
     return 4;
   }
   gneiss::engine::math::transform actual = {};
-  if (session.get_world_transform(first, actual).failed() ||
-      std::abs(actual.translation[0]) > 0.0001F || session.select(first).failed() ||
+  if (session.get_world_transform(session.find_node(first_uuid)->node, actual).failed() ||
+      std::abs(actual.translation[0]) > 0.0001F ||
+      session.select(session.find_node(first_uuid)->node).failed() ||
       drag.begin(session).failed() || drag.preview(session, matrix).failed()) {
     ImGui::DestroyContext();
     return 5;

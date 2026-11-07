@@ -137,6 +137,23 @@ int main() {
   auto original = e::capture_scene_record(e::scene_description{document_id, {linked}});
   if (!original)
     return 15;
+  ed::scene_document_snapshot reference_snapshot;
+  reference_snapshot.content = *original;
+  auto issues = reference_snapshot.reference_issues();
+  if (!issues || issues->size() != 2 || (*issues)[0].status != e::error::not_found ||
+      (*issues)[1].status != e::error::not_ready || (*issues)[0].object != linked.uuid ||
+      (*issues)[0].component != linked.components.identity(linked_description::type_guid))
+    return 62;
+  // 已知外部文档中的目标存在；只检查主文档避免来源内自引用产生额外诊断。
+  const std::array known{e::document_object_view{source->uuid, original->get().objects}};
+  issues = e::inspect_object_references({document_id, original->get().objects}, known);
+  if (!issues || issues->size() != 1 || (*issues)[0].target.object != external_id)
+    return 63;
+  auto erased = original->get();
+  erased.objects[0].uuid = external_id;
+  issues = e::inspect_object_references({document_id, erased.objects}, known);
+  if (!issues || issues->size() != 4)
+    return 64;
   const std::array mapping{e::uuid_mapping{linked.uuid, copied_id}};
   auto copied = e::remap_scene_record(*original, target_document, mapping);
   if (!copied)

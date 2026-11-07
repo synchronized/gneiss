@@ -413,5 +413,6 @@ Mesh JSON 保留版本 3 文件布局，不增加兼容代码。
 
 ## 结构化值与文档迁移
 
-[PLAN-104](PLAN-104-value-document-prefab-overrides.md) 纳入本分支持续实施，优先完成强类型场景记录、唯一编辑入口、版本历史与 World 同步边界。已有 value、快照和冲突回放保留；
-嵌套 Prefab、精细增量投影及精确历史内存预算列为后续独立阶段。该计划尚未完成。
+[PLAN-104](PLAN-104-value-document-prefab-overrides.md) 本轮范围已完成：强类型场景记录、唯一编辑入口、组件实例 UUID、版本历史与 World 同步边界。
+默认构建及 81 项相关回归通过，见[验收记录](../records/2026-11-07-structured-value-editing.md)。
+嵌套 Prefab、精细增量投影及精确历史内存预算仍为后续独立阶段，本项不代表 DEV-052 整个版本已完成或发布。

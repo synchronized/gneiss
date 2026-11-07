@@ -296,6 +296,11 @@ int main() try {
   check(apply({.path = {p{1}}, .data = e::value{e::ref<e::meta::object>{}}}) ==
         e::error::invalid_argument);
   auto read = [&]() -> movement_description {
+    auto location =
+        target.instance_uuid
+            ? document.find_prefab_source(target.instance_uuid, target.source_uuid)->node
+            : document.find_node(target.object_uuid)->node;
+    node = location;
     auto components = document.components(node);
     check(components.has_value());
     check(components->get<movement_description>() != nullptr);
@@ -313,15 +318,16 @@ int main() try {
   check(history.size() == 1 && read().speed == 4 && document.is_dirty());
   check(history.undo().ok() && read().speed == 1);
   check(history.redo().ok() && read().speed == 4);
-  check(editor_preparations >= 4);
+  check(editor_preparations == 2);
   // 属性历史不能覆盖未参与该命令的独立修改。
   auto independently_changed = read();
   independently_changed.settings.maximum = 20;
   check(
       document.set_component_description(node, e::make_component_description(independently_changed))
           .ok());
-  check(history.undo().ok() && read().speed == 1 && read().settings.maximum == 20);
-  check(history.redo().ok() && read().speed == 4 && read().settings.maximum == 20);
+  check(history.undo() == e::error::invalid_state && read().speed == 4 &&
+        read().settings.maximum == 20);
+  check(history.clear(false).ok());
 
   check(apply({.path = {p{2}}, .data = e::value{std::int64_t{1}}}).ok());
   check(read().mode == movement_mode::run);
@@ -381,6 +387,7 @@ int main() try {
   check(override_count() == 2);
   check(history.undo().ok() && override_count() == 1 && read().samples[1] == 2);
   check(history.redo().ok() && override_count() == 2);
+  (void)read();
   // 实际绘制反射控件并点击序列元素的 Restore Source，控件只产生操作值。
   auto current = document.components(node);
   auto current_view = (*current->begin())->view();
@@ -495,7 +502,7 @@ int main() try {
   check(document.destroy_subtree(document.find_prefab_root(reference.uuid)->node, removed_prefab)
             .ok());
   check(document.validate_selection().ok());
-  check(history.undo() == e::error::not_found);
+  check(history.undo() == e::error::invalid_state);
   {
     gneiss::scene_node_id ref_node;
     check(document.create_node("reference", {}, ref_node).ok());
@@ -508,6 +515,7 @@ int main() try {
                                          .component_type = reference_description::type_guid};
     ed::editor_command_history ref_history;
     auto current = [&] {
+      ref_node = document.find_node(id)->node;
       auto list = document.components(ref_node);
       check(bool(list));
       return list->get<reference_description>()->settings;
@@ -583,6 +591,7 @@ int main() try {
     check(history.clear().ok());
     check(apply({.path = {p{1}}, .data = e::value{4.0F}}).ok());
     auto conflict_count = [&] {
+      node = document.find_prefab_source(conflict_reference.uuid, root.uuid)->node;
       auto count = app->scenes()->get_node_count(document.scene_handle());
       check(bool(count));
       for (std::size_t i = 0; i < *count; ++i) {
