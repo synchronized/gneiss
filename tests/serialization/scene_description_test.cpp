@@ -490,7 +490,7 @@ int main() try {
     const std::string object_json =
         R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})";
     auto decode = [](std::string_view text) {
-      return gneiss::engine::serialization::json::deserialize<object_description>(
+      return gneiss::engine::serialization::json::deserialize<game_object_description>(
           std::as_bytes(std::span{text.data(), text.size()}));
     };
     auto empty = decode(object_json);

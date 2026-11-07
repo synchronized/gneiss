@@ -379,7 +379,7 @@ engine::error prefab_binding::create_root(scene_node_id parent, const math::tran
   member.node = root_node_;
   return error::success;
 }
-engine::error prefab_binding::create_node(std::size_t index, const object_description& source,
+engine::error prefab_binding::create_node(std::size_t index, const game_object_description& source,
                                           scene_node_id parent, ref<const engine::mesh> mesh,
                                           ref<const engine::material> material) {
   if (!root_node_ || !prefab_ || index >= nodes_.size() || nodes_[index].creation_attempted)
@@ -413,10 +413,10 @@ scene_node_id prefab_binding::find_node(gneiss::engine::guid source_node_uuid) c
   return found == nodes_.end() ? null_scene_node_id : found->node;
 }
 
-const object_description*
+const game_object_description*
 prefab_binding::find_source_object(gneiss::engine::guid source_node_uuid) const noexcept {
   const auto& objects = prefab_.get()->objects;
-  const auto found = std::ranges::find(objects, source_node_uuid, &object_description::uuid);
+  const auto found = std::ranges::find(objects, source_node_uuid, &game_object_description::uuid);
   return found == objects.end() ? nullptr : &*found;
 }
 

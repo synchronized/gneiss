@@ -282,14 +282,14 @@ engine::result<prefab_author_input> read_prefab_author_input(std::string_view sc
       *diagnostic = {.error = failure.error, .path = failure.path, .message = failure.message};
     return failure.error;
   }
-  auto target = std::ranges::find(scene->objects, instance, &engine::object_description::uuid);
+  auto target = std::ranges::find(scene->objects, instance, &engine::game_object_description::uuid);
   if (target == scene->objects.end() || !target->prefab || target->prefab->uri != uri)
     return engine::error::not_found;
   const auto index = static_cast<std::size_t>(target - scene->objects.begin());
   return prefab_author_input{std::move(*scene), std::move(*prefab), index};
 }
 engine::error project_prefab(const engine::prefab_description& source,
-                             const engine::object_description& instance,
+                             const engine::game_object_description& instance,
                              engine::prefab_description& output,
                              engine::scene_diagnostic* diagnostic) {
   auto status = engine::prepare_prefab_reference(source, *instance.prefab, output, diagnostic);
@@ -460,10 +460,10 @@ engine::error prepare_unpack_prefab(std::string_view scene_json, std::string_vie
     if (!entry.source_node_uuid || !entry.target_node_uuid ||
         !mapping.emplace(entry.source_node_uuid, entry.target_node_uuid).second ||
         !targets.insert(entry.target_node_uuid).second ||
-        std::ranges::find(effective.objects, entry.source_node_uuid, &object_description::uuid) ==
-            effective.objects.end() ||
+        std::ranges::find(effective.objects, entry.source_node_uuid,
+                          &game_object_description::uuid) == effective.objects.end() ||
         std::ranges::find(input->scene.objects, entry.target_node_uuid,
-                          &object_description::uuid) != input->scene.objects.end())
+                          &game_object_description::uuid) != input->scene.objects.end())
       return error::invalid_argument;
   }
   const auto root = mapping.at(effective.root_uuid);
@@ -513,8 +513,8 @@ describe_prefab_overrides(const engine::prefab_reference_description& reference,
   using namespace engine;
   std::vector<prefab_override_entry> entries;
   const auto label = [&](const prefab_property_override_key& key) {
-    auto object =
-        std::ranges::find(source.objects, key.target.source_node_uuid, &object_description::uuid);
+    auto object = std::ranges::find(source.objects, key.target.source_node_uuid,
+                                    &game_object_description::uuid);
     std::string text =
         object == source.objects.end() ? key.target.source_node_uuid.string() : object->name;
     auto type = meta::describe_type(key.target.target_type_guid);
@@ -574,7 +574,7 @@ prepare_restore_prefab_impl(std::string_view scene_json, std::string_view scene_
       std::as_bytes(std::span{scene_json.data(), scene_json.size()}));
   if (!scene)
     return scene.error().error;
-  auto object = std::ranges::find(scene->objects, instance, &object_description::uuid);
+  auto object = std::ranges::find(scene->objects, instance, &game_object_description::uuid);
   if (object == scene->objects.end() || !object->prefab)
     return error::not_found;
   auto& reference = *object->prefab;

@@ -17,7 +17,7 @@ struct object_hierarchy final {
 };
 /** 无指定根时允许森林；指定根时要求全部对象归属该唯一根。 */
 inline result<object_hierarchy, scene_diagnostic>
-inspect_object_hierarchy(std::span<const object_description> objects,
+inspect_object_hierarchy(std::span<const game_object_description> objects,
                          std::optional<guid> root = std::nullopt,
                          std::size_t maximum_depth = std::numeric_limits<std::size_t>::max(),
                          const std::function<bool()>& cancelled = {}) noexcept try {

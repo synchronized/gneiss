@@ -35,9 +35,9 @@ inline scene_node_identity_view scene_object_identity(world& owner, scene_node_i
 }
 /** 从 World 捕获持久化字段，与 configure_scene_object 支持的组件对称。
  * 不保存派生矩阵或后端句柄；Prefab 根只捕获身份、层级与变换。 */
-inline result<object_description> capture_scene_object(world& owner, scene_node_id node,
-                                                       bool components = true) {
-  object_description output;
+inline result<game_object_description> capture_scene_object(world& owner, scene_node_id node,
+                                                            bool components = true) {
+  game_object_description output;
   auto identity = owner.node_identity(node);
   if (!identity)
     return identity.error();
@@ -65,14 +65,15 @@ inline result<object_description> capture_scene_object(world& owner, scene_node_
   return output;
 }
 /** 未注册适配器的描述不得被静默忽略。 */
-inline error validate_scene_components(const object_description& source) noexcept {
+inline error validate_scene_components(const game_object_description& source) noexcept {
   if (source.prefab && !source.components.empty())
     return error::invalid_argument;
   return validate_components(source.components);
 }
 /** 将已解析组件安装到节点；创建失败的回收由调用者负责。 */
 inline error configure_scene_object(world& owner, scene_node_id node,
-                                    const object_description& source, const mesh_renderer& renderer,
+                                    const game_object_description& source,
+                                    const mesh_renderer& renderer,
                                     asset_manager* resources = nullptr) {
   const auto validation = validate_scene_components(source);
   if (validation.failed())
@@ -80,10 +81,9 @@ inline error configure_scene_object(world& owner, scene_node_id node,
   return install_components({owner, node, renderer, resources}, source.components);
 }
 /** 普通对象与 Prefab 共用实例化路径，输入资源仅在组件内长期持有。 */
-inline result<scene_node_id> create_scene_object(world& owner, const object_description& source,
-                                                 scene_node_id parent,
-                                                 const mesh_renderer& renderer,
-                                                 asset_manager* resources = nullptr) {
+inline result<scene_node_id>
+create_scene_object(world& owner, const game_object_description& source, scene_node_id parent,
+                    const mesh_renderer& renderer, asset_manager* resources = nullptr) {
   auto created = owner.object_create(parent, {source.uuid, source.name}, source.transform);
   if (!created)
     return created.error();

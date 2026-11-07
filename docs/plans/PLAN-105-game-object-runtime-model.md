@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-2026-11-07：已确认，开始实施。归属 [DEV-052](DEV-052-architecture-cleanup.md)，
+2026-11-07：实施中，阶段 1 已完成。归属 [DEV-052](DEV-052-architecture-cleanup.md)，
 决策见 [ADR-110](../decisions/ADR-110-game-object-runtime-model.md)。
 承接已完成的 [PLAN-104](PLAN-104-value-document-prefab-overrides.md)，不重新打开其历史验收范围。
 下列结构为目标设计；实施进度以检查项为准，不把重命名等同于运行存储已迁移。
@@ -94,9 +94,9 @@ Prefab 来源查询、Apply/Revert、来源刷新从文档和组合结果获得�
 
 ### 1：命名与文档描述入口
 
-- [ ] object_description 改为 game_object_description，迁移注册、校验、Loader、导入器、编辑器和测试。
-- [ ] 拆出独立描述头，Scene/Prefab 共用；保留已有 optional prefab 结构和互斥校验。
-- [ ] 更新当前接口参考；反射类型 GUID 与文件字段语义不因 C++ 改名改变。
+- [x] object_description 改为 game_object_description，迁移注册、校验、Loader、导入器、编辑器和测试。
+- [x] 拆出独立描述头，Scene/Prefab 共用；保留已有 optional prefab 结构和互斥校验。
+- [x] 更新当前接口参考；反射类型 GUID 与文件字段语义不因 C++ 改名改变。
 
 ### 2：组件身份归属
 
@@ -130,6 +130,9 @@ Prefab 来源查询、Apply/Revert、来源刷新从文档和组合结果获得�
 - [ ] 空句柄、跨 World、generation、重复删除、场景卸载、非法层级。
 - [ ] 核查 Runtime 不依赖 Editor 文档或覆盖写入协议。
 - [ ] 更新 Reference/Record，完成默认构建与相关回归；不运行 GPU 大场景或远端 CI。
+
+阶段 1 默认 Windows Clang Debug 构建与 34 项定向回归通过；依赖边界检查通过，
+详见[阶段记录](../records/2026-11-07-game-object-model.md)。运行存储与组件 UUID 归属尚未迁移。
 
 ## 非目标与代价
 

@@ -139,14 +139,14 @@ gneiss::engine::error prefab_placement::apply(application& app, scene_instance_i
     if (current->objects.size() != description->objects.size())
       return error::invalid_state;
     for (const auto& object : current->objects)
-      if (std::ranges::find(description->objects, object.uuid, &object_description::uuid) ==
+      if (std::ranges::find(description->objects, object.uuid, &game_object_description::uuid) ==
           description->objects.end())
         return error::invalid_state;
     return app.scenes()->destroy_subtree(scene, *root);
   }
   if (replacing) {
     const auto root =
-        std::ranges::find(description->objects, snapshot.root_uuid, &object_description::uuid);
+        std::ranges::find(description->objects, snapshot.root_uuid, &game_object_description::uuid);
     const auto resources = snapshot.resources.find(snapshot.root_uuid);
     if (root == description->objects.end() || resources == snapshot.resources.end())
       return error::invalid_argument;

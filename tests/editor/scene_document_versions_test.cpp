@@ -18,7 +18,7 @@ int main() {
   CHECK(e::initialize_meta().ok());
   e::scene_instantiation_data input;
   input.description.uuid = e::guid::literal("a5352685-908d-459f-85f4-a866df229a10");
-  e::object_description object;
+  e::game_object_description object;
   object.uuid = e::guid::literal("4e62c312-7871-4029-9f19-66af826a0c33");
   object.name = "initial";
   input.description.objects.push_back(object);

@@ -67,8 +67,8 @@ struct structural_diff final {
   }
 };
 
-[[nodiscard]] error build_structural_diff(const std::vector<object_description>& old_objects,
-                                          const std::vector<object_description>& new_objects,
+[[nodiscard]] error build_structural_diff(const std::vector<game_object_description>& old_objects,
+                                          const std::vector<game_object_description>& new_objects,
                                           structural_diff& output) noexcept;
 
 } // namespace gneiss::engine

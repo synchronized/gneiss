@@ -316,7 +316,7 @@ void prefab_edits(engine::execution_mode mode) {
   e::prefab_description prefab;
   prefab.uuid = uuid(1);
   prefab.root_uuid = uuid(2);
-  e::object_description source;
+  e::game_object_description source;
   source.uuid = prefab.root_uuid;
   source.name = "root";
   source.components.set(e::mesh_renderer_description{"asset://mesh.json", "asset://a.json"});
@@ -328,7 +328,7 @@ void prefab_edits(engine::execution_mode mode) {
   write("prefab.json", prefab);
   e::scene_description scene;
   scene.uuid = uuid(4);
-  e::object_description author;
+  e::game_object_description author;
   author.uuid = uuid(5);
   author.name = "first";
   author.prefab.emplace();
@@ -380,7 +380,8 @@ void prefab_edits(engine::execution_mode mode) {
   };
   const auto overrides = [&] {
     const auto current = capture();
-    const auto found = std::ranges::find(current.objects, uuid(5), &e::object_description::uuid);
+    const auto found =
+        std::ranges::find(current.objects, uuid(5), &e::game_object_description::uuid);
     check(found != current.objects.end() && found->prefab.has_value());
     return found->prefab->overrides.size();
   };

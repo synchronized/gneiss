@@ -61,7 +61,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
         return status_value.error();
       const auto& source = status_value->source;
       auto object = std::ranges::find(source->objects, target_.source_uuid,
-                                      &engine::object_description::uuid);
+                                      &engine::game_object_description::uuid);
       if (object == source->objects.end())
         return engine::error::not_found;
       const auto* original = object->components.get<engine::mesh_renderer_description>();

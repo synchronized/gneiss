@@ -133,7 +133,7 @@ Editor Document 保存及完整子树撤销读取文档版本，不反向捕获 
 网格创建输入命名为 `mesh_node_creation`，与撤销快照区分；显式的运行时属性应用操作才能改变文档。
 
 
-`object_description` 只有一份身份、名称、父关系和变换；可选 `prefab` 保存 URI 与相对覆盖。
+`game_object_description` 只有一份身份、名称、父关系和变换；可选 `prefab` 保存 URI 与相对覆盖。
 没有独立的实例描述数组。根名称与变换采用外层对象值，根组件来自模板与实例覆盖。
 具体格式与校验见[场景格式](scene-format.md)。
 

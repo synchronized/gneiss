@@ -29,7 +29,7 @@ public:
   void rollback() noexcept;
   /** 同步创建期间预留成员槽位；不保存加载描述、不执行文件读取。 */
   void initialize_staged(guid uuid, std::size_t count = 0);
-  [[nodiscard]] error create_staged_node(std::size_t index, const object_description& source,
+  [[nodiscard]] error create_staged_node(std::size_t index, const game_object_description& source,
                                          scene_node_id parent, ref<const engine::mesh> mesh,
                                          ref<const engine::material> material);
 
@@ -81,7 +81,7 @@ public:
   [[nodiscard]] result<scene_mesh_binding>
   capture_prefab_instance_binding(guid uuid, std::size_t index) const noexcept;
   [[nodiscard]] result<scene_node_id>
-  instantiate_prefab_ready(const object_description& author, prefab_asset_ref prefab,
+  instantiate_prefab_ready(const game_object_description& author, prefab_asset_ref prefab,
                            std::span<const scene_mesh_binding> bindings, bool replacing,
                            ref<const engine::prefab> source_asset = {}) noexcept;
   [[nodiscard]] error remove_prefab_instance(guid uuid) noexcept;

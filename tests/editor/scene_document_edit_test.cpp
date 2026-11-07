@@ -50,7 +50,7 @@ void run(scenario mode) {
   e::prefab_description source;
   source.uuid = id(1);
   source.root_uuid = id(2);
-  e::object_description root;
+  e::game_object_description root;
   root.uuid = source.root_uuid;
   root.name = "Root";
   root.components.set(e::mesh_renderer_description{
@@ -61,7 +61,7 @@ void run(scenario mode) {
         text(*gneiss::engine::asset_file::serialize_bytes(source)));
   e::scene_description scene;
   scene.uuid = id(3);
-  e::object_description instance;
+  e::game_object_description instance;
   instance.uuid = id(4);
   instance.name = "Instance";
   instance.prefab.emplace();

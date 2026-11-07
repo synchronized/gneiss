@@ -45,7 +45,7 @@ struct scene_capture {
 };
 /** Prefab 来源描述与强引用的成组快照。 */
 struct prefab_header_snapshot {
-  object_description author;
+  game_object_description author;
   prefab_asset_ref source;
   ref<const engine::prefab> source_asset{};
 };
@@ -76,7 +76,7 @@ public:
   capture_prepared(scene_instance_id instance) const noexcept;
   /** 同步实例化；替换先移除旧实例，失败只清理本次新建节点，不恢复旧实例。 */
   [[nodiscard]] GNEISS_API result<scene_node_id>
-  instantiate_prefab_ready(scene_instance_id instance, const object_description& author,
+  instantiate_prefab_ready(scene_instance_id instance, const game_object_description& author,
                            prefab_asset_ref prefab, std::span<const scene_mesh_binding> bindings,
                            bool replacing, ref<const engine::prefab> source_asset = {}) noexcept;
   [[nodiscard]] GNEISS_API error remove_prefab_instance(scene_instance_id instance,

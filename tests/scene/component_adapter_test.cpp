@@ -79,7 +79,7 @@ int main() try {
   e::scene_instances scenes(world, resources);
   e::scene_description source;
   source.uuid = e::guid::from_bytes({1});
-  e::object_description first;
+  e::game_object_description first;
   first.uuid = e::guid::from_bytes({2});
   first.components.set(movement_description{2});
   first.components.set(e::mesh_renderer_description{});
@@ -176,7 +176,7 @@ int main() try {
   prefab->uuid = e::guid::from_bytes({4});
   prefab->root_uuid = first.uuid;
   prefab->objects = source.objects;
-  e::object_description reference;
+  e::game_object_description reference;
   reference.uuid = e::guid::from_bytes({5});
   reference.prefab.emplace();
   reference.prefab->uri = "asset://test.prefab";

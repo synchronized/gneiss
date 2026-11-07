@@ -103,7 +103,7 @@ template<> struct sequence_traits<my_numbers> {
 
 `sequence_identity_traits<Sequence>` 是独立的可选适配，提供 `enabled=true` 与
 `static guid identity(const element&)`。不会根据成员名自动推测身份，也不为普通 vector 生成 ID。
-现有 `vector<object_description>` 使用对象 UUID；声明须在首次生成操作表前可见。
+现有 `vector<game_object_description>` 使用对象 UUID；声明须在首次生成操作表前可见。
 
 视图提供 `has_identity()`、`identity(index)` 与 `find(guid)`；find 每次检查序列身份并线性查找，
 空身份或重复身份返回 invalid_argument，目标消失返回 not_found，不回退位置下标。

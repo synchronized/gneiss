@@ -73,7 +73,7 @@ engine::error import_subtree(const engine::scene_subtree_snapshot& subtree,
     if (object.uuid == subtree.root_uuid)
       object.parent_uuid = subtree.parent_uuid;
     auto existing =
-        std::ranges::find(description.objects, object.uuid, &engine::object_description::uuid);
+        std::ranges::find(description.objects, object.uuid, &engine::game_object_description::uuid);
     if (existing != description.objects.end()) {
       if (!replacing)
         return engine::error::invalid_argument;
@@ -400,7 +400,8 @@ scene_document::locate(scene_node_id node) const noexcept try {
   if (!description)
     return description.error();
   const auto uuid = info->prefab ? info->prefab->instance_uuid : info->uuid;
-  auto object = std::ranges::find(description->objects, uuid, &engine::object_description::uuid);
+  auto object =
+      std::ranges::find(description->objects, uuid, &engine::game_object_description::uuid);
   if (object == description->objects.end())
     return engine::error::not_found;
   if (!object->prefab)
@@ -416,7 +417,7 @@ scene_document::locate(scene_node_id node) const noexcept try {
     return effective.error();
   const auto source_uuid = info->prefab->source_node_uuid;
   auto member = std::ranges::find(effective->description.objects, source_uuid,
-                                  &engine::object_description::uuid);
+                                  &engine::game_object_description::uuid);
   if (member == effective->description.objects.end())
     return engine::error::not_found;
   if (source_uuid == restored->root_uuid) {
@@ -472,7 +473,7 @@ engine::result<scene_query_snapshot> scene_document::capture_nodes() const noexc
       if (!uuid)
         return {};
       auto object =
-          std::ranges::find(description->objects, uuid, &engine::object_description::uuid);
+          std::ranges::find(description->objects, uuid, &engine::game_object_description::uuid);
       if (object == description->objects.end())
         return {};
       engine::guid source;
@@ -506,7 +507,7 @@ engine::result<scene_query_snapshot> scene_document::capture_nodes() const noexc
         auto found = projected.find({object.uuid, member.uuid});
         auto parent = projected.find({object.uuid, member.parent_uuid});
         auto original =
-            std::ranges::find(source->objects, member.uuid, &engine::object_description::uuid);
+            std::ranges::find(source->objects, member.uuid, &engine::game_object_description::uuid);
         prefab_node_record record;
         record.node = found == projected.end() ? scene_node_id{} : found->second.node;
         record.parent = root                        ? explicit_node(object.parent_uuid)
@@ -575,7 +576,7 @@ scene_document::set_local_transform(scene_node_id node,
   return edit_content(
       [&](auto& description, auto& snapshot) -> engine::error {
         auto object = std::ranges::find(description.objects, target->object,
-                                        &engine::object_description::uuid);
+                                        &engine::game_object_description::uuid);
         if (!target->source ||
             target->source == snapshot.prefabs.at(object->prefab->uri).content.get().root_uuid) {
           object->transform = value;
@@ -664,7 +665,7 @@ gneiss::engine::error scene_document::create_node(std::string_view name, scene_n
           if (!root || !root->is_instance_root)
             return engine::error::unsupported;
         }
-        engine::object_description object;
+        engine::game_object_description object;
         object.uuid = uuid;
         object.name = name;
         object.parent_uuid = parent_target->object;
@@ -690,7 +691,7 @@ gneiss::engine::error scene_document::rename_node(scene_node_id node,
   return edit_content(
       [&](auto& description, auto& snapshot) -> engine::error {
         auto object = std::ranges::find(description.objects, target->object,
-                                        &engine::object_description::uuid);
+                                        &engine::game_object_description::uuid);
         if (target->source &&
             target->source != snapshot.prefabs.at(object->prefab->uri).content.get().root_uuid)
           return engine::error::unsupported;
@@ -714,12 +715,12 @@ gneiss::engine::error scene_document::reparent_node(scene_node_id node,
           if (!item.source)
             continue;
           auto object = std::ranges::find(description.objects, item.object,
-                                          &engine::object_description::uuid);
+                                          &engine::game_object_description::uuid);
           if (item.source != snapshot.prefabs.at(object->prefab->uri).content.get().root_uuid)
             return engine::error::unsupported;
         }
         auto object = std::ranges::find(description.objects, target->object,
-                                        &engine::object_description::uuid);
+                                        &engine::game_object_description::uuid);
         object->parent_uuid = destination->object;
         return engine::error::success;
       },
@@ -846,8 +847,8 @@ scene_document::capture_component_override(scene_node_id node, engine::guid type
     auto description = versions_->current().content().description();
     if (!description)
       return description.error();
-    auto object =
-        std::ranges::find(description->objects, target->object, &engine::object_description::uuid);
+    auto object = std::ranges::find(description->objects, target->object,
+                                    &engine::game_object_description::uuid);
     engine::prefab_component_state result;
     for (const auto& item : object->prefab->component_overrides)
       if (item.source_node_uuid == target->source && item.type_guid == type) {
@@ -886,7 +887,7 @@ scene_document::set_component_override(scene_node_id node, engine::guid type,
   return edit_content(
       [&](auto& description, auto& snapshot) -> engine::error {
         auto object = std::ranges::find(description.objects, target->object,
-                                        &engine::object_description::uuid);
+                                        &engine::game_object_description::uuid);
         auto source =
             engine::restore_prefab_record(snapshot.prefabs.at(object->prefab->uri).content);
         if (!source)
@@ -1114,7 +1115,7 @@ scene_document::create_mesh_node(const mesh_node_creation& snapshot,
   engine::guid component_uuid;
   auto status = edit_content(
       [&](auto& description, auto& next) -> engine::error {
-        engine::object_description object;
+        engine::game_object_description object;
         object.uuid = snapshot.uuid;
         object.parent_uuid = snapshot.parent_uuid;
         object.name = snapshot.display_name;
@@ -1194,7 +1195,7 @@ scene_document::replace_mesh_binding(scene_node_id node, const engine::scene_mes
   return edit_content(
       [&](auto& description, auto& next) -> engine::error {
         auto object = std::ranges::find(description.objects, target->object,
-                                        &engine::object_description::uuid);
+                                        &engine::game_object_description::uuid);
         object->components.set(engine::mesh_renderer_description{
             std::string(engine::resource_uri(replacement.mesh)),
             std::string(engine::resource_uri(replacement.material))});
@@ -1318,7 +1319,7 @@ engine::error scene_document::edit_component(scene_node_id node, engine::guid ty
   return edit_content(
       [&](auto& description, auto& snapshot) -> engine::error {
         auto object = std::ranges::find(description.objects, target->object,
-                                        &engine::object_description::uuid);
+                                        &engine::game_object_description::uuid);
         if (mode == 1)
           identity = engine::guid::generate();
         if (target->source) {
@@ -1446,7 +1447,8 @@ scene_document::capture_prefab_header(engine::guid uuid) const noexcept try {
   auto description = snapshot->description();
   if (!description)
     return description.error();
-  auto object = std::ranges::find(description->objects, uuid, &engine::object_description::uuid);
+  auto object =
+      std::ranges::find(description->objects, uuid, &engine::game_object_description::uuid);
   if (object == description->objects.end() || !object->prefab)
     return engine::error::not_found;
   const auto& frozen = snapshot->prefabs.at(object->prefab->uri);

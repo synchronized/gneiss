@@ -51,11 +51,10 @@ scene_instance::capture_prefab_instance_binding(guid uuid, std::size_t index) co
   return scene_mesh_binding{renderer->mesh, renderer->material};
 }
 
-result<scene_node_id>
-scene_instance::instantiate_prefab_ready(const object_description& author, prefab_asset_ref prefab,
-                                         std::span<const scene_mesh_binding> bindings,
-                                         bool replacing,
-                                         ref<const engine::prefab> source_asset) noexcept try {
+result<scene_node_id> scene_instance::instantiate_prefab_ready(
+    const game_object_description& author, prefab_asset_ref prefab,
+    std::span<const scene_mesh_binding> bindings, bool replacing,
+    ref<const engine::prefab> source_asset) noexcept try {
   if (!author.prefab || !author.components.empty() || !prefab ||
       bindings.size() != prefab.get()->objects.size() || !author.uuid ||
       (!replacing && find_node(author.uuid)))

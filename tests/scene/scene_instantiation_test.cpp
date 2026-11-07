@@ -327,7 +327,7 @@ void run() {
   // 同步创建不读文件；替换失败删除旧实例并清理新建残留。
   {
     gneiss::engine::prefab_asset_ref source;
-    gneiss::engine::object_description author;
+    gneiss::engine::game_object_description author;
     check([&]() -> gneiss::engine::error {
       auto captured = candidate->scenes()->capture_prefab_header(
           new_scene, *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000004"));

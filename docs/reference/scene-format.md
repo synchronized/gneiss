@@ -87,7 +87,7 @@
 ## 字段规则
 
 - 身份 UUID 必须使用非零的 36 字符小写规范形式；对象 UUID 在场景内唯一。
-  内存中的场景、对象、Prefab 来源及覆盖键使用 `engine::guid`；`object_description::parent_uuid`
+  内存中的场景、对象、Prefab 来源及覆盖键使用 `engine::guid`；`game_object_description::parent_uuid`
   使用普通 `guid`，nil 表示根。JSON 非 nil 使用 GUID 字符串，nil 使用 null，根的 parent 写 null。
 - `name` 是可选 UTF-8 显示名称；缺失或为空时，工具可回退显示 UUID。
 - `parent` 必须是现有对象 UUID 或 null；层级不能形成循环。
@@ -162,19 +162,22 @@ World 保持不变。旧顶层 `prefab_instances` 也被明确拒绝，不作为
 
 ## 内存描述与初始化
 
-`object_description::transform` 直接使用 `math::transform`，表示相对父对象的局部变换，默认单位变换。
+对象描述定义在 `engine/resource/scene/game_object_description.hpp`，Scene 与 Prefab 共用，
+与反射基类 `meta::object` 分开命名。
+
+`game_object_description::transform` 直接使用 `math::transform`，表示相对父对象的局部变换，默认单位变换。
 文件中的 `transform` 及其 translation、rotation、scale 仍全部必填，默认值不代替格式校验。
 
-`object_description::components` 使用 `component_descriptions`，内部保存 `component_entry { uuid, description }`，description 是 `ref<const component_description_base>`。具体描述继承基类并注册 Meta 继承关系，
+`game_object_description::components` 使用 `component_descriptions`，内部保存 `component_entry { uuid, description }`，description 是 `ref<const component_description_base>`。具体描述继承基类并注册 Meta 继承关系，
 通用引用序列化负责 `$type_guid` / `$content`，列表负责实例 UUID 非空且不重复、每种组件至多一项。替换描述保留 UUID，删除再新增生成新 UUID。
 Scene 的 components 直接注册成员；component_descriptions 通过 sequence_traits 提供只读
 序列访问与整组校验替换。IPC 使用同一 Meta 数组解码，不再依赖组件专用 DOM 适配函数。
-`object_description.prefab` 注册为 optional，引用描述的 uri、overrides、component_overrides
+`game_object_description.prefab` 注册为 optional，引用描述的 uri、overrides、component_overrides
 由反射遍历。组件增删及属性操作均按成员反射；URI、操作内容和跨列表冲突由
 引用描述校验器统一验证。属性操作保持写入顺序，允许同一集合路径上的多条操作，不再排序。
 操作使用 set、insert、erase、move、put_entry、erase_entry 稳定分支名；具体语义见
 [值树编辑](serialization.md#值树编辑)。
-object_description 使用通用反射编解码，不再注册专用 encode/decode；独立 validate_object
+game_object_description 使用通用反射编解码，不再注册专用 encode/decode；独立 validate_object
 检查 UUID 非空及 Prefab 与非空组件互斥，保存和读取都经反射校验钩子调用。
 父节点存在性和层级循环仍由场景整体校验。
 两者均先完成临时数组解码，再由 component_descriptions::replace 检查非空和类型唯一，成功才替换。

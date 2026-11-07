@@ -47,7 +47,7 @@ int main() {
   {
     using namespace gneiss::engine;
     scene_description scene;
-    object_description a, b, c;
+    game_object_description a, b, c;
     a.uuid = source_a;
     a.name = "a";
     b.uuid = source_b;
@@ -125,7 +125,7 @@ int main() {
       return 73;
     prefab_description source;
     source.root_uuid = source_a;
-    object_description root, child;
+    game_object_description root, child;
     root.uuid = source_a;
     child.uuid = source_b;
     child.parent_uuid = source_a;
@@ -155,7 +155,7 @@ int main() {
     constexpr auto missing = guid::literal("6b929783-6346-4ce7-ad7c-a7dd143a602b");
     prefab_description source;
     source.root_uuid = source_a;
-    object_description root, child;
+    game_object_description root, child;
     root.uuid = source_a;
     child.uuid = source_b;
     child.parent_uuid = source_a;
@@ -210,7 +210,7 @@ int main() {
     movement.samples.clear();
     prefab_description source;
     source.root_uuid = source_a;
-    object_description root, child;
+    game_object_description root, child;
     root.uuid = source_a;
     child.uuid = source_b;
     child.parent_uuid = source_a;

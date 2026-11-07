@@ -158,7 +158,7 @@ int main() try {
   auto prefab = std::make_shared<e::prefab_description>();
   prefab->uuid = e::guid::from_bytes({86, 1});
   prefab->root_uuid = e::guid::from_bytes({86, 2});
-  e::object_description root;
+  e::game_object_description root;
   root.uuid = prefab->root_uuid;
   root.components.set(movement_description{});
   prefab->objects.push_back(root);
@@ -166,7 +166,7 @@ int main() try {
   child.uuid = e::guid::from_bytes({86, 4});
   child.parent_uuid = root.uuid;
   prefab->objects.push_back(child);
-  e::object_description reference;
+  e::game_object_description reference;
   reference.uuid = e::guid::from_bytes({86, 3});
   reference.prefab.emplace();
   reference.prefab->uri = "asset://movement.prefab";

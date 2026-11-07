@@ -4,7 +4,7 @@
 #include "documents/scene_document.hpp"
 namespace gneiss::test_support {
 inline engine::result<scene_node_id>
-place_document_prefab(editor::scene_document& document, engine::object_description author,
+place_document_prefab(editor::scene_document& document, engine::game_object_description author,
                       engine::prefab_asset_ref source,
                       std::span<const engine::scene_mesh_binding> bindings, bool replacing) {
   engine::scene_subtree_snapshot snapshot;

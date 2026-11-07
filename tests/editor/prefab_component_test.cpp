@@ -54,7 +54,7 @@ int main() try {
   auto source = std::make_shared<e::prefab_description>();
   source->uuid = e::guid::from_bytes({87, 1});
   source->root_uuid = root_id;
-  e::object_description root;
+  e::game_object_description root;
   root.uuid = root_id;
   source->objects.push_back(root);
   auto child = root;
@@ -125,7 +125,7 @@ int main() try {
   auto& world = *app->native_world();
   ed::scene_document document;
   check(document.create_empty(*app, &world).ok());
-  e::object_description instance;
+  e::game_object_description instance;
   instance.uuid = e::guid::from_bytes({87, 4});
   instance.prefab = reference;
   std::array<e::scene_mesh_binding, 2> bindings{};

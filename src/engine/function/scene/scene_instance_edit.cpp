@@ -67,7 +67,7 @@ error scene_instance::set_component_override(scene_node_id node, guid type,
         return candidate.error();
       const auto& effective = candidate->effective;
       auto status = error{error::success};
-      auto target = std::ranges::find(effective.objects, source, &object_description::uuid);
+      auto target = std::ranges::find(effective.objects, source, &game_object_description::uuid);
       if (target == effective.objects.end())
         return error::not_found;
       const auto* value = target->components.find(type);

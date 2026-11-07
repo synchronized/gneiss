@@ -512,9 +512,9 @@ void run_mixed_subtree() {
   check(copied_description.has_value());
   check(copied_description->objects.size() == 4U && copied.resources.size() == 2U);
   const auto copied_first = std::ranges::find(copied_description->objects, std::string("First"),
-                                              &engine::object_description::name);
+                                              &engine::game_object_description::name);
   const auto copied_child = std::ranges::find(copied_description->objects, std::string("Own child"),
-                                              &engine::object_description::name);
+                                              &engine::game_object_description::name);
   check(copied_first != copied_description->objects.end() &&
         copied_child != copied_description->objects.end());
   check(copied_child->parent_uuid == copied_first->uuid);
@@ -527,7 +527,7 @@ void run_mixed_subtree() {
 
   for (const auto& object : copied_description->objects)
     check(std::ranges::find(original_description->objects, object.uuid,
-                            &engine::object_description::uuid) ==
+                            &engine::game_object_description::uuid) ==
           original_description->objects.end());
   check(*app->native_world()->entity_count() == 604U);
   check(document.restore_subtree(snapshot, parent) == engine::error::invalid_argument);

@@ -88,7 +88,7 @@ struct editor_prefab_edit::state {
         return;
       }
       auto author = std::ranges::find(description->objects, before[after.size()]->root_uuid,
-                                      &engine::object_description::uuid);
+                                      &engine::game_object_description::uuid);
       if (author == description->objects.end()) {
         status = engine::error::invalid_argument;
         finish();

@@ -12,10 +12,10 @@
 
 namespace {
 
-using gneiss::engine::object_description;
+using gneiss::engine::game_object_description;
 
-gneiss::engine::object_description object(gneiss::engine::guid uuid,
-                                          gneiss::engine::guid parent = {}) {
+gneiss::engine::game_object_description object(gneiss::engine::guid uuid,
+                                               gneiss::engine::guid parent = {}) {
   return {.uuid = std::move(uuid),
           .name = "节点",
           .parent_uuid = std::move(parent),

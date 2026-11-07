@@ -134,7 +134,7 @@ template <class Bytes> bool write_bytes(const std::filesystem::path& path, const
     if (!node.mesh_index || data.meshes[*node.mesh_index].primitives.size() <= 1)
       continue;
     for (std::size_t j = 0; j < data.meshes[*node.mesh_index].primitives.size(); ++j) {
-      engine::object_description child;
+      engine::game_object_description child;
       child.uuid = *engine::guid::parse(uuid_for(scene.objects.size()));
       child.parent_uuid = scene.objects[i].uuid;
       if (child.components

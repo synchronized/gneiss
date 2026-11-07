@@ -14,7 +14,7 @@
 namespace gneiss::engine {
 namespace {
 
-engine::error order_nodes(const std::vector<object_description>& objects,
+engine::error order_nodes(const std::vector<game_object_description>& objects,
                           std::vector<std::size_t>& order, std::size_t maximum_depth,
                           const std::function<bool()>& cancelled, std::size_t* out_depth = nullptr,
                           std::optional<guid> root = std::nullopt) {
@@ -40,7 +40,7 @@ public:
   std::map<std::string, engine::render_resource_kind> dependencies;
   std::map<guid, std::size_t> scene_depths;
 
-  engine::error collect(const std::vector<object_description>& objects) {
+  engine::error collect(const std::vector<game_object_description>& objects) {
     using engine::render_resource_kind;
     for (const auto& object : objects) {
       if (cancelled && cancelled())
@@ -58,7 +58,7 @@ public:
     return engine::error::success;
   }
 
-  engine::error add_prefab(const object_description& instance) {
+  engine::error add_prefab(const game_object_description& instance) {
     auto result = engine::error::success;
     auto found = candidate.prefabs.find(instance.prefab->uri);
     if (found == candidate.prefabs.end()) {
@@ -179,7 +179,7 @@ error prepare_loaded_scene(const scene_preparation_inputs& inputs, std::string_v
   else if (prefab_uri.empty())
     status = work.run();
   else {
-    object_description instance;
+    game_object_description instance;
     instance.prefab.emplace();
     instance.prefab->uri = prefab_uri;
     status = work.add_prefab(instance);

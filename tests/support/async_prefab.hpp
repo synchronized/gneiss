@@ -7,7 +7,7 @@
 namespace gneiss::test_support {
 // 测试驱动异步准备；最终实例化只使用已准备描述与引用。
 inline engine::error instantiate_prefab(runtime::application& app, scene_instance_id scene,
-                                        const engine::object_description& author,
+                                        const engine::game_object_description& author,
                                         scene_node_id& root, bool replacing = false,
                                         engine::task_scheduler* tasks = nullptr) {
   root = {};
@@ -34,7 +34,7 @@ inline engine::error create_prefab(runtime::application& app, scene_instance_id 
                                    const engine::prefab_creation& creation, scene_node_id& root,
                                    engine::task_scheduler* tasks = nullptr) {
   root = {};
-  engine::object_description author;
+  engine::game_object_description author;
   author.prefab.emplace();
   author.uuid = creation.instance_uuid;
   author.name = creation.name;
@@ -62,7 +62,7 @@ inline engine::error create_prefab(runtime::application& app, scene_instance_id 
 }
 inline engine::error refresh_prefab(runtime::application& app, scene_instance_id scene,
                                     gneiss::engine::guid uuid, scene_node_id& root) {
-  engine::object_description author;
+  engine::game_object_description author;
   engine::prefab_asset_ref source;
   auto status = [&]() -> gneiss::engine::error {
     auto scene_result = app.scenes()->capture_prefab_header(scene, uuid);

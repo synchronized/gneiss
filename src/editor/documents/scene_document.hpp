@@ -246,7 +246,7 @@ private:
   engine::error edit_content(const content_edit&, const std::function<engine::error()>&) noexcept;
   struct edit_target {
     engine::guid object, source;
-    engine::object_description effective;
+    engine::game_object_description effective;
   };
   engine::result<edit_target> locate(scene_node_id) const noexcept;
   engine::error edit_component(scene_node_id, engine::guid, const engine::component_description&,

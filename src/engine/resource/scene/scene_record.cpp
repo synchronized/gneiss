@@ -42,7 +42,8 @@ result<component_description> restore_component(const component_record& source) 
     return error::invalid_argument;
   return std::move(*restored);
 }
-result<std::vector<object_record>> capture_objects(const std::vector<object_description>& source) {
+result<std::vector<object_record>>
+capture_objects(const std::vector<game_object_description>& source) {
   std::vector<object_record> output;
   output.reserve(source.size());
   for (const auto& object : source) {
@@ -82,11 +83,12 @@ result<std::vector<object_record>> capture_objects(const std::vector<object_desc
   }
   return output;
 }
-result<std::vector<object_description>> restore_objects(const std::vector<object_record>& source) {
-  std::vector<object_description> output;
+result<std::vector<game_object_description>>
+restore_objects(const std::vector<object_record>& source) {
+  std::vector<game_object_description> output;
   output.reserve(source.size());
   for (const auto& record : source) {
-    object_description object;
+    game_object_description object;
     object.uuid = record.uuid;
     object.parent_uuid = record.parent;
     object.name = record.name;
@@ -122,7 +124,7 @@ result<std::vector<object_description>> restore_objects(const std::vector<object
       if (status_prefab.error.failed())
         return status_prefab.error;
     }
-    auto status_object = validate_object_description(object);
+    auto status_object = validate_game_object_description(object);
     if (status_object.error.failed())
       return status_object.error;
     output.push_back(std::move(object));

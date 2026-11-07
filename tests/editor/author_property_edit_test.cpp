@@ -84,19 +84,19 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   if (ed::make_editor_uuid(source->uuid).failed() ||
       ed::make_editor_uuid(source->root_uuid).failed())
     return 37;
-  e::object_description root;
+  e::game_object_description root;
   root.uuid = source->root_uuid;
   root.name = "camera";
   root.components.set(e::camera_description{{1.0F, 0.1F, 100.0F}, true});
   source->objects.push_back(root);
-  e::object_description child;
+  e::game_object_description child;
   if (ed::make_editor_uuid(child.uuid).failed())
     return 52;
   child.name = "child";
   child.parent_uuid = source->root_uuid;
   child.transform.translation.x = 1;
   source->objects.push_back(child);
-  e::object_description author;
+  e::game_object_description author;
   if (ed::make_editor_uuid(author.uuid).failed())
     return 38;
   author.name = "instance";

@@ -77,7 +77,7 @@ validate_prefab_reference_description(const prefab_reference_description& value)
   }
   return {};
 }
-serialization::diagnostic validate_object_description(const object_description& object) {
+serialization::diagnostic validate_game_object_description(const game_object_description& object) {
   if (!object.uuid)
     return {.path = "/uuid", .message = "对象 UUID 不能为空", .error = error::invalid_argument};
   if (object.prefab && !object.components.empty())
@@ -95,7 +95,7 @@ validate_mesh_renderer_description(const mesh_renderer_description& value) {
 }
 
 namespace {
-serialization::diagnostic validate_hierarchy(std::span<const object_description> objects,
+serialization::diagnostic validate_hierarchy(std::span<const game_object_description> objects,
                                              std::optional<guid> root) {
   auto inspected = inspect_object_hierarchy(objects, root);
   if (!inspected) {

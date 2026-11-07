@@ -38,7 +38,7 @@ constexpr std::array migrated_ids{e::type_identity<e::math::vector4>::guid(),
                                   e::action_definition::type_guid,
                                   e::component_description_base::type_guid,
                                   e::prefab_reference_description::type_guid,
-                                  e::object_description::type_guid,
+                                  e::game_object_description::type_guid,
                                   e::type_identity<e::prefab_component_override>::guid(),
                                   e::prefab_property_override_key::type_guid,
                                   e::prefab_property_override::type_guid};

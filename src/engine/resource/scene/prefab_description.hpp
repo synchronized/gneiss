@@ -7,7 +7,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/resource/asset_ref.hpp"
-#include "engine/resource/scene/prefab_property_data.hpp"
+#include "engine/resource/scene/game_object_description.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 
 #include <cstdint>
@@ -25,7 +25,7 @@ struct prefab_description final {
   guid uuid;
   /** 对象树入口；必须指向唯一无父对象。 */
   guid root_uuid;
-  std::vector<object_description> objects;
+  std::vector<game_object_description> objects;
 };
 
 /** 共享只读来源描述；实例的覆写数据另行持有。 */

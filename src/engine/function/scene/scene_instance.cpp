@@ -41,8 +41,8 @@ struct staged_object {
   ref<const engine::mesh> mesh;
   ref<const engine::material> material;
 };
-error commit_object(world& native_world, const object_description& source, staged_object& target,
-                    scene_node_id parent, asset_manager& resources) {
+error commit_object(world& native_world, const game_object_description& source,
+                    staged_object& target, scene_node_id parent, asset_manager& resources) {
   auto created =
       create_scene_object(native_world, source, parent, {target.mesh, target.material}, &resources);
   if (!created)
@@ -52,8 +52,8 @@ error commit_object(world& native_world, const object_description& source, stage
   return error::success;
 }
 
-[[nodiscard]] bool equal_prefab_instances(const object_description& left,
-                                          const object_description& right) {
+[[nodiscard]] bool equal_prefab_instances(const game_object_description& left,
+                                          const game_object_description& right) {
   if (left.uuid != right.uuid || left.name != right.name || left.parent_uuid != right.parent_uuid ||
       left.prefab->uri != right.prefab->uri ||
       left.transform.translation != right.transform.translation ||
@@ -143,7 +143,7 @@ void scene_instance::initialize_staged(guid uuid, std::size_t count) {
   prefab_instances_.reserve(count);
 }
 engine::error scene_instance::create_staged_node(std::size_t index,
-                                                 const object_description& source,
+                                                 const game_object_description& source,
                                                  scene_node_id parent, ref<const engine::mesh> mesh,
                                                  ref<const engine::material> material) {
   if (index >= objects_.size() || objects_[index].node)
@@ -519,11 +519,11 @@ result<scene_node_id> scene_instance::create_node(const node_creation& desc) {
     parent_uuid = scene_object_identity(native_world_, parent->node).uuid;
   }
   try {
-    object_description author{.uuid = uuid,
-                              .name = std::string(name),
-                              .parent_uuid = std::move(parent_uuid),
-                              .transform = desc.local_transform,
-                              .components = {}};
+    game_object_description author{.uuid = uuid,
+                                   .name = std::string(name),
+                                   .parent_uuid = std::move(parent_uuid),
+                                   .transform = desc.local_transform,
+                                   .components = {}};
     objects_.reserve(objects_.size() + 1U);
     staged_object target{.uuid = author.uuid,
                          .entity = UINT64_C(0),
@@ -602,7 +602,7 @@ result<scene_subtree_snapshot> scene_instance::capture_subtree(scene_node_id roo
     return description.error();
   snapshot.root_uuid = scene_object_identity(native_world_, root).uuid;
   const auto root_description =
-      std::ranges::find(description->objects, snapshot.root_uuid, &object_description::uuid);
+      std::ranges::find(description->objects, snapshot.root_uuid, &game_object_description::uuid);
   if (root_description == description->objects.end())
     return error::invalid_state;
   snapshot.parent_uuid = root_description->parent_uuid;
@@ -672,7 +672,7 @@ result<scene_node_id> scene_instance::restore_subtree(const scene_subtree_snapsh
   if (status.failed())
     return status;
   const auto root =
-      std::ranges::find(subtree.objects, snapshot.root_uuid, &object_description::uuid);
+      std::ranges::find(subtree.objects, snapshot.root_uuid, &game_object_description::uuid);
   if (root == subtree.objects.end() || root->parent_uuid ||
       std::ranges::count_if(subtree.objects, [](const auto& o) { return !o.parent_uuid; }) != 1)
     return error::invalid_argument;
@@ -849,7 +849,7 @@ scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& des
   }
 
   try {
-    object_description author{
+    game_object_description author{
         .uuid = uuid,
         .name = std::string(name),
         .parent_uuid = std::move(parent_uuid),

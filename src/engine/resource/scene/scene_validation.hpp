@@ -9,7 +9,7 @@ serialization::diagnostic validate_component_override(const prefab_component_ove
 /** 局部描述校验，供反射注册使用。 */
 serialization::diagnostic
 validate_prefab_reference_description(const prefab_reference_description&);
-serialization::diagnostic validate_object_description(const object_description&);
+serialization::diagnostic validate_game_object_description(const game_object_description&);
 serialization::diagnostic validate_mesh_renderer_description(const mesh_renderer_description&);
 /** 仅检查描述的整体约束，局部字段由各自反射校验器负责。 */
 serialization::diagnostic validate_scene_description(const scene_description&);

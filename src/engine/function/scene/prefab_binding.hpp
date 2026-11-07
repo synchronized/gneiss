@@ -48,7 +48,8 @@ public:
   [[nodiscard]] prefab_asset_ref prefab_lease() const noexcept { return prefab_; }
   [[nodiscard]] ref<const engine::prefab> source_asset() const noexcept { return source_asset_; }
   [[nodiscard]] scene_node_id find_node(guid source_node_uuid) const noexcept;
-  [[nodiscard]] const object_description* find_source_object(guid source_node_uuid) const noexcept;
+  [[nodiscard]] const game_object_description*
+  find_source_object(guid source_node_uuid) const noexcept;
   [[nodiscard]] std::size_t node_count() const noexcept { return nodes_.size(); }
   [[nodiscard]] error get_node_info(std::size_t index, node_info& out_info) const noexcept;
   /** 验证候选来源、覆盖与资源是否可提交，不修改 World。 */
@@ -61,7 +62,7 @@ public:
 
   /** 同步构造的内部步骤；节点直接可见，资源由调用方传入，失败由调用方的子树守卫清理。 */
   [[nodiscard]] error create_root(scene_node_id parent, const math::transform& transform);
-  [[nodiscard]] error create_node(std::size_t index, const object_description& source,
+  [[nodiscard]] error create_node(std::size_t index, const game_object_description& source,
                                   scene_node_id parent, ref<const engine::mesh> mesh,
                                   ref<const engine::material> material);
   [[nodiscard]] error apply_override(const prefab_property_override& value) noexcept;

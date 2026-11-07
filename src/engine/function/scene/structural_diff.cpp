@@ -19,8 +19,8 @@ using object_index =
     std::unordered_map<gneiss::engine::guid, std::size_t, gneiss::engine::guid_hash>;
 
 [[nodiscard]] gneiss::engine::error
-build_index(const std::vector<gneiss::engine::object_description>& objects, object_index& output,
-            std::vector<std::size_t>& depths) {
+build_index(const std::vector<gneiss::engine::game_object_description>& objects,
+            object_index& output, std::vector<std::size_t>& depths) {
   for (const auto& object : objects) {
     const auto status = gneiss::engine::validate_scene_components(object);
     if (status.failed())
@@ -35,8 +35,8 @@ build_index(const std::vector<gneiss::engine::object_description>& objects, obje
 }
 
 [[nodiscard]] gneiss::engine::structural_change
-compare_objects(const gneiss::engine::object_description& old_object,
-                const gneiss::engine::object_description& new_object) {
+compare_objects(const gneiss::engine::game_object_description& old_object,
+                const gneiss::engine::game_object_description& new_object) {
   using gneiss::engine::structural_change;
   auto changes = structural_change::none;
   if (old_object.name != new_object.name) {
@@ -59,8 +59,8 @@ compare_objects(const gneiss::engine::object_description& old_object,
 
 namespace gneiss::engine {
 
-engine::error build_structural_diff(const std::vector<engine::object_description>& old_objects,
-                                    const std::vector<engine::object_description>& new_objects,
+engine::error build_structural_diff(const std::vector<engine::game_object_description>& old_objects,
+                                    const std::vector<engine::game_object_description>& new_objects,
                                     structural_diff& output) noexcept {
   output = {};
   try {

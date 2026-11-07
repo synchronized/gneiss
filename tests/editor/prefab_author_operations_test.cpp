@@ -33,7 +33,7 @@ int main() try {
   e::prefab_description source;
   source.uuid = id(1);
   source.root_uuid = id(2);
-  e::object_description root;
+  e::game_object_description root;
   root.uuid = id(2);
   root.name = "Source Root";
   source.objects.push_back(root);
@@ -45,7 +45,7 @@ int main() try {
   source.objects.push_back(child);
   e::scene_description scene;
   scene.uuid = id(4);
-  e::object_description first;
+  e::game_object_description first;
   first.uuid = id(5);
   first.name = "Instance Root";
   first.transform.translation.x = 8;
@@ -142,7 +142,7 @@ int main() try {
       std::as_bytes(std::span{unpacked_json.data(), unpacked_json.size()}));
   check(unpacked && unpacked->objects.size() == 4);
   auto find = [](auto& objects, e::guid uuid) -> auto& {
-    auto found = std::ranges::find(objects, uuid, &e::object_description::uuid);
+    auto found = std::ranges::find(objects, uuid, &e::game_object_description::uuid);
     check(found != objects.end());
     return *found;
   };

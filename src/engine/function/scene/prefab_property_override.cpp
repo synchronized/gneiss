@@ -218,7 +218,7 @@ error set_prefab_property_override(std::vector<prefab_property_override>& overri
 
 namespace {
 engine::error apply_candidate_object(const prefab_property_override& value,
-                                     const engine::value& native, object_description& object) {
+                                     const engine::value& native, game_object_description& object) {
   auto result = engine::error::success;
   const auto is_type = [&](guid type) { return value.key.target.target_type_guid == type; };
   if (is_type(transform_component_type)) {
@@ -266,7 +266,7 @@ error prepare_prefab_reference(const prefab_description& source,
     if (std::ranges::none_of(*types, [&](const auto& type) { return type.type == key.second; }))
       return fail(error::unsupported, key.first, key.second, {}, "组件类型没有运行适配器");
     keys.push_back(key);
-    auto target = std::ranges::find(candidate.objects, key.first, &object_description::uuid);
+    auto target = std::ranges::find(candidate.objects, key.first, &game_object_description::uuid);
     if (target == candidate.objects.end())
       return fail(error::not_found, key.first, key.second, {}, "覆盖目标对象已不存在");
     if (std::ranges::any_of(reference.overrides, [&](const auto& v) {
@@ -298,7 +298,7 @@ error prepare_prefab_reference(const prefab_description& source,
     const auto& key = entry.key;
     std::string path = meta::property_path_text(key.path);
     auto object = std::ranges::find(candidate.objects, key.target.source_node_uuid,
-                                    &object_description::uuid);
+                                    &game_object_description::uuid);
     auto status = validate_prefab_property_override(entry);
     if (status.failed() || object == candidate.objects.end())
       return fail(status.failed() ? status : error{error::not_found}, key.target.source_node_uuid,
@@ -334,7 +334,7 @@ engine::error prepare_prefab_description(const prefab_description& source,
       return validation;
     }
     auto found = std::ranges::find(candidate.objects, value.key.target.source_node_uuid,
-                                   &object_description::uuid);
+                                   &game_object_description::uuid);
     if (found == candidate.objects.end()) {
       return engine::error::not_found;
     }

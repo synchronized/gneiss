@@ -231,11 +231,11 @@ int main() try {
   auto mesh_prefab = std::make_shared<engine::prefab_description>();
   mesh_prefab->uuid = engine::guid::from_bytes({88, 1});
   mesh_prefab->root_uuid = engine::guid::from_bytes({88, 2});
-  engine::object_description mesh_root;
+  engine::game_object_description mesh_root;
   mesh_root.uuid = mesh_prefab->root_uuid;
   mesh_root.components.set(engine::mesh_renderer_description{mesh, material});
   mesh_prefab->objects.push_back(mesh_root);
-  engine::object_description mesh_instance;
+  engine::game_object_description mesh_instance;
   mesh_instance.uuid = engine::guid::from_bytes({88, 3});
   mesh_instance.prefab.emplace();
   mesh_instance.prefab->uri = "asset://prefabs/memory.prefab.json";

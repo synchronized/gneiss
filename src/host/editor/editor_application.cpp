@@ -1029,10 +1029,10 @@ void draw_component_descriptions(editor_state& state) {
   } else
     return;
   prefab_asset_ref source_asset;
-  const object_description* source_object = nullptr;
+  const game_object_description* source_object = nullptr;
   bool source_transform = false;
   if (identity.instance_uuid) {
-    object_description author;
+    game_object_description author;
     auto scenes_result = state.editing.document().capture_prefab_header(identity.instance_uuid);
     const auto captured = scenes_result ? gneiss::engine::error::success : scenes_result.error();
     if (scenes_result) {
@@ -1043,8 +1043,8 @@ void draw_component_descriptions(editor_state& state) {
       state.inspector_error = captured;
       return;
     }
-    const auto found =
-        std::ranges::find(source_asset->objects, identity.source_uuid, &object_description::uuid);
+    const auto found = std::ranges::find(source_asset->objects, identity.source_uuid,
+                                         &game_object_description::uuid);
     if (found != source_asset->objects.end()) {
       source_object = &*found;
       source_transform = identity.source_uuid != source_asset->root_uuid;

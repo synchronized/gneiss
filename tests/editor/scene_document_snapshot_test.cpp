@@ -25,14 +25,14 @@ int main() {
   auto source = e::make_ref<e::prefab_description>();
   source->uuid = e::guid::literal("131b05a9-2d9d-4e60-ae28-0e99c9772537");
   source->root_uuid = e::guid::literal("c068d77a-9c2c-4096-a712-71f120bbecb4");
-  e::object_description root;
+  e::game_object_description root;
   root.uuid = source->root_uuid;
   root.name = "source";
   root.components.set(e::camera_description{{1.0F, 0.1F, 100.0F}});
   source->objects.push_back(root);
   e::scene_instantiation_data input;
   input.description.uuid = e::guid::literal("0a8fbc96-0ef7-4462-8d8c-16f807cb10cc");
-  e::object_description instance;
+  e::game_object_description instance;
   instance.uuid = e::guid::literal("36fdba8d-ae65-45aa-bcd3-f14fb58dbdb2");
   instance.prefab = e::prefab_reference_description{"asset://camera.prefab.json", {}, {}};
   input.description.objects.push_back(instance);
@@ -113,7 +113,7 @@ int main() {
   const auto target_document = e::guid::literal("fe555990-f953-42ab-9d34-f1ef120b61d1");
   const auto copied_id = e::guid::literal("07f7d2b6-e031-4e48-b7c3-5639c71e1de6");
   const auto external_id = source->root_uuid;
-  e::object_description linked;
+  e::game_object_description linked;
   linked.uuid = instance.uuid;
   linked_description links;
   const e::value internal{e::object_reference_value{document_id, linked.uuid}};

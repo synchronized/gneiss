@@ -51,7 +51,7 @@ replay_prefab_reference(const prefab_description& source,
     const auto& target = entry.key.target;
     auto status = validate_prefab_property_override(entry);
     auto object = std::ranges::find(output.description.objects, target.source_node_uuid,
-                                    &object_description::uuid);
+                                    &game_object_description::uuid);
     if (status.ok() && object == output.description.objects.end())
       status = error::not_found;
     const target_key key{target.source_node_uuid,
@@ -87,7 +87,7 @@ replay_prefab_reference(const prefab_description& source,
   }
   for (const auto& [key, indices] : groups) {
     auto object =
-        std::ranges::find(output.description.objects, key.first, &object_description::uuid);
+        std::ranges::find(output.description.objects, key.first, &game_object_description::uuid);
     const auto component = *object->components.find(key.second);
     auto view = component->view();
     if (!view)
@@ -197,7 +197,7 @@ result<prefab_edit_candidate> prepare_property_edit(const prefab_description& so
     const auto length = std::min(left.size(), right.size());
     return std::equal(left.begin(), left.begin() + length, right.begin());
   };
-  auto object = std::ranges::find(source.objects, source_node, &object_description::uuid);
+  auto object = std::ranges::find(source.objects, source_node, &game_object_description::uuid);
   const auto identity =
       target_type == math::transform::type_guid ? guid{} : object->components.identity(target_type);
   prefab_edit_candidate output{reference, {}};
@@ -239,7 +239,7 @@ prepare_prefab_component_edit(const prefab_description& source,
                               const component_description& replacement) noexcept try {
   if (!source_node || !current || !replacement || current->guid() != replacement->guid())
     return error::invalid_argument;
-  auto object = std::ranges::find(source.objects, source_node, &object_description::uuid);
+  auto object = std::ranges::find(source.objects, source_node, &game_object_description::uuid);
   if (object == source.objects.end())
     return error::not_found;
   const auto* original = object->components.find(replacement->guid());
@@ -301,7 +301,7 @@ result<prefab_edit_candidate> prepare_prefab_component_override(
   if (!source_node || !type || (added && removed) || ((added || removed) && !properties.empty()) ||
       (added && added->guid() != type))
     return error::invalid_argument;
-  if (std::ranges::find(source.objects, source_node, &object_description::uuid) ==
+  if (std::ranges::find(source.objects, source_node, &game_object_description::uuid) ==
       source.objects.end())
     return error::not_found;
   prefab_edit_candidate output{reference, {}};
@@ -314,7 +314,7 @@ result<prefab_edit_candidate> prepare_prefab_component_override(
            component_description_type(value.key.target.target_type_guid) == type;
   });
   if (added || removed) {
-    auto object = std::ranges::find(source.objects, source_node, &object_description::uuid);
+    auto object = std::ranges::find(source.objects, source_node, &game_object_description::uuid);
     guid identity = component_uuid ? component_uuid
                     : removed      ? object->components.identity(type)
                                    : guid::generate();
@@ -361,7 +361,7 @@ prepare_prefab_transform_edit(const prefab_description& source,
                               const math::transform& replacement) noexcept try {
   if (!source_node || source_node == source.root_uuid || !math::is_valid_transform(replacement))
     return error::invalid_argument;
-  auto object = std::ranges::find(source.objects, source_node, &object_description::uuid);
+  auto object = std::ranges::find(source.objects, source_node, &game_object_description::uuid);
   if (object == source.objects.end())
     return error::not_found;
   auto before = meta::instance::from(object->transform);
