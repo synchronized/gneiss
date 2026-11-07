@@ -126,6 +126,8 @@ add_library(
   commands/runtime_author_apply.hpp
   documents/scene_document.cpp
   documents/scene_document.hpp
+  documents/scene_document_edit.cpp
+  documents/scene_document_edit.hpp
   documents/scene_document_snapshot.cpp
   documents/scene_document_snapshot.hpp
   viewport/transform_gizmo_drag.cpp

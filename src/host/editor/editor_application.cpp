@@ -17,7 +17,7 @@
 #include "commands/runtime_author_apply.hpp"
 #include "documents/document_editing.hpp"
 #include "documents/editor_scene_loader.hpp"
-#include "documents/scene_document_snapshot.hpp"
+#include "documents/scene_document_edit.hpp"
 #include "editor_project.hpp"
 #include "editor_theme.hpp"
 #include "editor_ui.hpp"

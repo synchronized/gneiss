@@ -283,6 +283,12 @@ Prefab 覆盖捕获、恢复及有效描述准备共用此查询，相机身份�
 推进承担，命令完成时只释放自身引用。文档不维护额外资源缓存。
 
 文档恢复 `scene_document_edit` 同样使用此入口，快照原有引用保持不变，只准备缺失项。
+`documents/scene_document_snapshot.hpp` 只提供内容及纯候选计算：
+`make_scene_document_snapshot` 冻结已准备描述，`make_scene_document_inputs` 恢复独立领域输入，
+`prepare_scene_document` 计算修改和缺失依赖。这些调用不需要 Application、World 或历史执行器。
+宿主捕获、运行时恢复及异步历史执行位于 `documents/scene_document_edit.hpp`。
+当前捕获仍读取运行时场景，这是迁移期入口，并不表示文档权威版本已经落地。
+
 `capture_scene_document` 返回 `result<scene_document_snapshot>`；`prepare_scene_document` 返回
 `result<prepared_scene_document>`，其中包含 `snapshot` 和 `missing`。同步操作在 `missing`
 非空时拒绝采用；异步恢复补齐资源后才提交历史。

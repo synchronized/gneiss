@@ -3,7 +3,7 @@
 #pragma once
 #include "commands/author_property_edit.hpp"
 #include "documents/scene_document.hpp"
-#include "documents/scene_document_snapshot.hpp"
+#include "documents/scene_document_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"

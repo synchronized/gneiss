@@ -3,7 +3,7 @@
 #pragma once
 #include "async_application.hpp"
 #include "commands/author_file_save.hpp"
-#include "documents/scene_document_snapshot.hpp"
+#include "documents/scene_document_edit.hpp"
 #include "scene_query.hpp"
 #include "value_result.hpp"
 namespace gneiss::test_support {

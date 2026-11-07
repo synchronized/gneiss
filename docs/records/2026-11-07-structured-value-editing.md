@@ -71,3 +71,18 @@ Prefab 冲突刷新、场景保存及文档/子树撤销。未运行 GPU 大场�
 
 验证：默认目标编译通过，10 项相关测试通过。新增回归覆盖独立属性修改与撤销隔离，以及缺失稳定序列元素
 产生冲突后，编辑同组件其他字段、撤销、重做均保留该冲突。
+
+
+## 复审后的依赖边界调整
+
+按确认方案更新 PLAN-104、ADR-109 和 DEV-052：保留 value 基础，强类型场景结构与通用属性内容分开；
+编辑命令、历史版本和 Prefab 持久差异分工；先迁移文档归属，再优化 World 更新粒度。
+嵌套 Prefab、精细增量投影及精确内存预算明确列为后续阶段，不记作已实现。
+
+scene_document_snapshot 仅保留内容冻结/恢复与纯候选计算；新增有类型入口
+make_scene_document_snapshot、make_scene_document_inputs。原有宿主捕获、恢复、资源等待和历史推进
+移入 scene_document_edit，实现对象未增加，内容头文件不再引入文档拥有者、历史或 scene_instances。
+
+默认 Windows Clang Debug 目标编译通过，7 项定向测试通过。新增 scene-document-snapshot 测试不创建
+Application、World 或文件服务，验证候选计算、源修改隔离和无效快照拒绝。未运行 GPU 大场景或远端 CI。
+组件 UUID、强类型文档记录及权威版本仍待迁移，现有反向捕获明确标为迁移期入口。

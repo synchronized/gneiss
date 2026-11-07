@@ -4,7 +4,7 @@
 #include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
 #include "documents/editor_scene_loader.hpp"
-#include "documents/scene_document_snapshot.hpp"
+#include "documents/scene_document_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/serialization/json.hpp"
