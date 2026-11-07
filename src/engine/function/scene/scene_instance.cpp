@@ -482,50 +482,22 @@ engine::error scene_instance::set_prefab_source_transform(scene_node_id node,
       if (runtime.get_node_info(node_index, info) != engine::error::success || info.node != node) {
         continue;
       }
-      const auto* source = runtime.find_source_object(info.address->source_node_uuid);
-      if (source == nullptr) {
-        return engine::error::invalid_state;
-      }
-      auto pending = prefab_reference(index).overrides;
-      const auto type_id = engine::transform_component_type;
-      const std::array candidates{
-          engine::prefab_property_override{
-              .key = {.target = {.source_node_uuid = info.address->source_node_uuid,
-                                 .target_type_guid = type_id},
-                      .path = {transform_translation_field}},
-              .operation = gneiss::engine::value{.payload = transform.translation}},
-          engine::prefab_property_override{
-              .key = {.target = {.source_node_uuid = info.address->source_node_uuid,
-                                 .target_type_guid = type_id},
-                      .path = {transform_rotation_field}},
-              .operation = gneiss::engine::value{.payload = transform.rotation}},
-          engine::prefab_property_override{
-              .key = {.target = {.source_node_uuid = info.address->source_node_uuid,
-                                 .target_type_guid = type_id},
-                      .path = {transform_scale_field}},
-              .operation = gneiss::engine::value{.payload = transform.scale}}};
-      const std::array source_values{engine::value{.payload = source->transform.translation},
-                                     engine::value{.payload = source->transform.rotation},
-                                     engine::value{.payload = source->transform.scale}};
-      for (std::size_t field_index = 0U; field_index < candidates.size(); ++field_index) {
-        const auto result = set_prefab_property_override(pending, candidates[field_index],
-                                                         source_values[field_index]);
-        if (result != engine::error::success) {
-          return result;
-        }
-      }
-      auto reference = prefab_reference(index);
-      reference.overrides = pending;
-      auto replayed = replay_prefab_reference(*runtime.prefab_, reference);
-      if (!replayed)
-        return replayed.error();
+      math::transform current;
+      auto captured = native_world_.node_get_local_transform(node, current);
+      if (captured.failed())
+        return captured;
+      auto prepared =
+          prepare_prefab_transform_edit(*runtime.prefab_, prefab_reference(index),
+                                        info.address->source_node_uuid, current, transform);
+      if (!prepared)
+        return prepared.error();
       const auto result =
           native_world_.node_set_local_transform(gneiss::scene_node_id{node}, transform);
       if (result != engine::error::success) {
         return result;
       }
-      prefab_reference(index).overrides.swap(pending);
-      runtime.conflicts_ = std::move(replayed->conflicts);
+      prefab_reference(index) = std::move(prepared->reference);
+      runtime.conflicts_ = std::move(prepared->conflicts);
       return engine::error::success;
     }
   }

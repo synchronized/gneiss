@@ -137,6 +137,33 @@ int main() try {
     auto invalid = e::prepare_prefab_component_edit(source, reference, object.uuid, current,
                                                     e::make_component_description(next));
     check(!invalid && invalid.error() == e::error::invalid_argument);
+    e::object_description child;
+    child.uuid = e::guid::from_bytes({87, 3});
+    child.parent_uuid = object.uuid;
+    source.objects.push_back(child);
+    auto root_edit = e::prepare_prefab_transform_edit(source, reference, object.uuid,
+                                                      object.transform, object.transform);
+    check(!root_edit && root_edit.error() == e::error::invalid_argument);
+    auto transformed_reference = reference;
+    transformed_reference.overrides.push_back(
+        {{.target = {child.uuid, e::math::transform::type_guid}, .path = {p{99}}}, e::value{3.0F}});
+    auto transform = child.transform;
+    transform.translation.x = 8;
+    auto transformed = e::prepare_prefab_transform_edit(source, transformed_reference, child.uuid,
+                                                        child.transform, transform);
+    check(transformed && transformed->conflicts.size() == 2 &&
+          transformed->reference.overrides.size() == 5);
+    auto effective = e::replay_prefab_reference(source, transformed->reference);
+    check(effective && effective->description.objects[1].transform.translation.x == 8);
+    auto reset_transform = e::prepare_prefab_transform_edit(source, transformed->reference,
+                                                            child.uuid, transform, child.transform);
+    check(reset_transform && reset_transform->reference.overrides.size() == 4 &&
+          reset_transform->conflicts.size() == 2);
+    transform.scale.x = 0;
+    auto invalid_transform =
+        e::prepare_prefab_transform_edit(source, reference, child.uuid, child.transform, transform);
+    check(!invalid_transform && invalid_transform.error() == e::error::invalid_argument);
+    check(source.objects[1].transform.translation.x == 0 && reference.overrides.size() == 3);
     auto removed = reference;
     removed.component_overrides.push_back({object.uuid, movement_description::type_guid, {}});
     auto rejected =

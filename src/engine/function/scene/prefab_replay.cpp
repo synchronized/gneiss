@@ -176,9 +176,53 @@ error collect_component_overrides(meta::instance source, meta::instance candidat
   }
   return error::success;
 }
+result<prefab_edit_candidate> prepare_property_edit(const prefab_description& source,
+                                                    const prefab_reference_description& reference,
+                                                    guid source_node, guid target_type,
+                                                    meta::instance original, meta::instance current,
+                                                    meta::instance replacement) {
+  auto prior = replay_prefab_reference(source, reference);
+  if (!prior)
+    return prior.error();
+  std::vector<prefab_property_override> touched;
+  auto status = collect_component_overrides(current, replacement, {}, touched);
+  if (status.failed())
+    return status;
+  auto overlaps = [](const auto& left, const auto& right) {
+    const auto length = std::min(left.size(), right.size());
+    return std::equal(left.begin(), left.begin() + length, right.begin());
+  };
+  prefab_edit_candidate output{reference, {}};
+  auto& pending = output.reference.overrides;
+  pending.clear();
+  for (std::size_t i = 0; i < reference.overrides.size(); ++i) {
+    const auto& old = reference.overrides[i];
+    if (old.key.target.source_node_uuid != source_node ||
+        component_description_type(old.key.target.target_type_guid) != target_type) {
+      pending.push_back(old);
+      continue;
+    }
+    const bool conflict = std::ranges::any_of(prior->conflicts, [&](const auto& item) {
+      return item.section == prefab_override_section::property && item.index == i;
+    });
+    const bool changed = std::ranges::any_of(
+        touched, [&](const auto& item) { return overlaps(old.key.path, item.key.path); });
+    if (conflict && !changed)
+      pending.push_back(old);
+  }
+  status = collect_component_overrides(original, replacement,
+                                       {.target = {source_node, target_type}, .path = {}}, pending);
+  if (status.failed())
+    return status;
+  auto replayed = replay_prefab_reference(source, output.reference);
+  if (!replayed)
+    return replayed.error();
+  output.conflicts = std::move(replayed->conflicts);
+  return output;
+}
 }
 
-result<prefab_component_edit>
+result<prefab_edit_candidate>
 prepare_prefab_component_edit(const prefab_description& source,
                               const prefab_reference_description& reference, guid source_node,
                               const component_description& current,
@@ -204,7 +248,7 @@ prepare_prefab_component_edit(const prefab_description& source,
   if (valid.failed())
     return valid;
   if (!original) {
-    prefab_component_edit output{reference, {}};
+    prefab_edit_candidate output{reference, {}};
     const auto index = static_cast<std::size_t>(structural - reference.component_overrides.begin());
     output.reference.component_overrides[index].added = replacement;
     auto replayed = replay_prefab_reference(source, output.reference);
@@ -225,9 +269,6 @@ prepare_prefab_component_edit(const prefab_description& source,
     output.conflicts = std::move(replayed->conflicts);
     return output;
   }
-  auto prior = replay_prefab_reference(source, reference);
-  if (!prior)
-    return prior.error();
   auto before = (*original)->view(), after = replacement->view(), current_view = current->view();
   if (!before)
     return before.error();
@@ -235,41 +276,34 @@ prepare_prefab_component_edit(const prefab_description& source,
     return after.error();
   if (!current_view)
     return current_view.error();
-  std::vector<prefab_property_override> touched;
-  auto status = collect_component_overrides(*current_view, *after, {}, touched);
-  if (status.failed())
-    return status;
-  auto overlaps = [](const auto& left, const auto& right) {
-    const auto length = std::min(left.size(), right.size());
-    return std::equal(left.begin(), left.begin() + length, right.begin());
-  };
-  prefab_component_edit output{reference, {}};
-  auto& pending = output.reference.overrides;
-  pending.clear();
-  for (std::size_t i = 0; i < reference.overrides.size(); ++i) {
-    const auto& old = reference.overrides[i];
-    if (old.key.target.source_node_uuid != source_node ||
-        component_description_type(old.key.target.target_type_guid) != replacement->guid()) {
-      pending.push_back(old);
-      continue;
-    }
-    const bool conflict = std::ranges::any_of(prior->conflicts, [&](const auto& item) {
-      return item.section == prefab_override_section::property && item.index == i;
-    });
-    const bool changed = std::ranges::any_of(
-        touched, [&](const auto& item) { return overlaps(old.key.path, item.key.path); });
-    if (conflict && !changed)
-      pending.push_back(old);
-  }
-  status = collect_component_overrides(
-      *before, *after, {.target = {source_node, replacement->guid()}, .path = {}}, pending);
-  if (status.failed())
-    return status;
-  auto replayed = replay_prefab_reference(source, output.reference);
-  if (!replayed)
-    return replayed.error();
-  output.conflicts = std::move(replayed->conflicts);
-  return output;
+  return prepare_property_edit(source, reference, source_node, replacement->guid(), *before,
+                               *current_view, *after);
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+result<prefab_edit_candidate>
+prepare_prefab_transform_edit(const prefab_description& source,
+                              const prefab_reference_description& reference, guid source_node,
+                              const math::transform& current,
+                              const math::transform& replacement) noexcept try {
+  if (!source_node || source_node == source.root_uuid || !math::is_valid_transform(replacement))
+    return error::invalid_argument;
+  auto object = std::ranges::find(source.objects, source_node, &object_description::uuid);
+  if (object == source.objects.end())
+    return error::not_found;
+  auto before = meta::instance::from(object->transform);
+  auto now = meta::instance::from(current);
+  auto after = meta::instance::from(replacement);
+  if (!before)
+    return before.error();
+  if (!now)
+    return now.error();
+  if (!after)
+    return after.error();
+  return prepare_property_edit(source, reference, source_node, math::transform::type_guid, *before,
+                               *now, *after);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {

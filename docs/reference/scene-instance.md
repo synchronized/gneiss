@@ -349,7 +349,7 @@ Render 与场景进度通知。关闭仅释放场景的请求观察者，不停�
 需要外部引用解析而未提供解析能力的描述仍会返回错误。
 
 
-### Prefab 组件的编辑候选
+### Prefab 编辑候选
 
 `prepare_prefab_component_edit` 接收 Prefab 来源描述、当前引用描述、来源对象 UUID、当前组件和替换组件，
 返回新的引用描述及冲突列表。函数不访问 World、文件、资源服务或编辑历史；当前组件与替换组件类型必须一致。
@@ -359,3 +359,8 @@ Render 与场景进度通知。关闭仅释放场景的请求观察者，不停�
 重复修改不会累积同一路径记录，恢复来源值移除差异；未触及的失效覆盖及其他对象覆盖保留。
 输入不变，失败不返回部分候选。`scene_instance::set_component_description` 使用这个入口，成功安装组件后
 采用新的覆盖和冲突列表。目前组件仍按类型定位，本接口不代表组件实例 UUID 或文档权威版本已经迁移。
+
+`prepare_prefab_transform_edit` 接收来源节点的当前及替换变换，与组件入口共用反射差异计算、
+重复覆盖归并和未触及冲突保留规则，返回 `prefab_edit_candidate`。非法变换拒绝接受；
+来源根节点返回 `invalid_argument`，实例根的局部变换由场景对象管理。
+`scene_instance::set_prefab_source_transform` 采用该候选，成功写入运行时后更新覆盖及冲突。
