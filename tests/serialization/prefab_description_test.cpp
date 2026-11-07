@@ -34,7 +34,7 @@ constexpr std::string_view valid_prefab = R"({
       "name":"Prefab Root",
       "parent":null,
       "transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[1,1,1]},
-      "components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/lantern.mesh","material":"asset://materials/lantern.material"}}]
+      "components":[{"uuid":"f2157104-7e8c-43f5-94d9-7658da5c5361","description":{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/lantern.mesh","material":"asset://materials/lantern.material"}}}]
     },
     {
       "uuid":"10000000-0000-4000-8000-000000000003",

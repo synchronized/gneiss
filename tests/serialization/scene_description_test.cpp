@@ -75,10 +75,10 @@ bool format_node_contract() {
 }
 
 constexpr std::string_view valid_scene =
-    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,1,2],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"settings": {"fov": 1.0, "near": 0.1, "far": 100},"is_primary":true}}]},{"uuid":"00000000-0000-4000-8000-000000000003","parent":"00000000-0000-4000-8000-000000000002","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material"}}]}],"unknown":true})";
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,1,2],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"uuid":"2ceec979-6250-498c-966a-3f5923c9e17f","description":{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"settings": {"fov": 1.0, "near": 0.1, "far": 100},"is_primary":true}}}]},{"uuid":"00000000-0000-4000-8000-000000000003","parent":"00000000-0000-4000-8000-000000000002","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"uuid":"852fef5e-cc4e-4571-a4b8-b933c063677a","description":{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material"}}}]}],"unknown":true})";
 
 constexpr std::string_view prefab_scene =
-    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"name":"Lamp","parent":"00000000-0000-4000-8000-000000000002","prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d"},"path":[{"$kind":"property","$content":1}]},"operation":{"$kind":"set","$content":{"content":{"$kind":"vec3","$content":[4,5,6]}}}}]},"transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[2,2,2]},"unknown":true,"uuid":"00000000-0000-4000-8000-000000000010"}]})";
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"name":"Lamp","parent":"00000000-0000-4000-8000-000000000002","prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d","component_uuid":null},"path":[{"$kind":"property","$content":1}]},"operation":{"$kind":"set","$content":{"content":{"$kind":"vec3","$content":[4,5,6]}}}}]},"transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[2,2,2]},"unknown":true,"uuid":"00000000-0000-4000-8000-000000000010"}]})";
 
 [[nodiscard]] std::string replace_once(std::string text, std::string_view source,
                                        std::string_view replacement) {
@@ -415,7 +415,7 @@ int main() try {
       !fails_with(missing_parent, gneiss::engine::error::invalid_argument, "/objects/1/parent") ||
       !fails_with(cycle, gneiss::engine::error::invalid_argument, "/objects/0/parent") ||
       !fails_with(invalid_uri, gneiss::engine::error::invalid_argument,
-                  "/objects/1/components/0/$content") ||
+                  "/objects/1/components/0/description/$content") ||
       !fails_with(invalid_scale, gneiss::engine::error::invalid_argument,
                   "/objects/0/transform/scale") ||
       !fails_with(invalid_rotation, gneiss::engine::error::invalid_argument,
@@ -552,7 +552,7 @@ int main() try {
 
   const auto duplicate_override = replace_once(
       std::string(prefab_scene), R"("overrides":[{)",
-      R"("overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d"},"path":[{"$kind":"property","$content":1}]},"operation":{"$kind":"set","$content":{"content":{"$kind":"vec3","$content":[7,8,9]}}}},{)");
+      R"("overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d","component_uuid":null},"path":[{"$kind":"property","$content":1}]},"operation":{"$kind":"set","$content":{"content":{"$kind":"vec3","$content":[7,8,9]}}}},{)");
   const auto bad_type =
       replace_once(std::string(prefab_scene), "69644f20-b2d2-4e48-8c74-91f4f952ec2d",
                    "69644F20-b2d2-4e48-8c74-91f4f952ec2d");

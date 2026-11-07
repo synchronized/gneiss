@@ -469,15 +469,15 @@ error scene_instances::set_component_override(scene_instance_id instance, scene_
     return error::invalid_handle;
   return (*value)->set_component_override(node, type, state);
 }
-error scene_instances::add_component_description(
-    scene_instance_id instance, scene_node_id node,
-    const component_description& description) noexcept {
+error scene_instances::add_component_description(scene_instance_id instance, scene_node_id node,
+                                                 const component_description& description,
+                                                 guid identity) noexcept {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
   auto* value = instances_.get(instance, resource_type::scene_instance);
   if (!value || !*value)
     return error::invalid_handle;
-  return (*value)->add_component_description(node, description);
+  return (*value)->add_component_description(node, description, identity);
 }
 error scene_instances::remove_component_description(scene_instance_id instance, scene_node_id node,
                                                     guid type) noexcept {

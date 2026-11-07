@@ -4,14 +4,16 @@
 #include "engine/core/value.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 namespace gneiss::engine {
-/** 组件内容按反射冻结；实例 UUID 尚待文件与运行时身份迁移后接入。 */
+/** 组件身份独立于类型，内容按反射冻结。 */
 struct component_record {
+  guid uuid;
   guid type;
   value properties;
   bool operator==(const component_record&) const = default;
 };
 struct component_override_record {
   guid source_node_uuid;
+  guid component_uuid;
   guid type;
   std::optional<component_record> added;
   GNEISS_API bool operator==(const component_override_record&) const;

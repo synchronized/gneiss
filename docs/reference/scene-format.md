@@ -37,7 +37,7 @@
           1
         ]
       },
-      "components": [{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material"}}]
+      "components": [{"uuid":"59bcf740-5382-4020-8d7f-ff064311bb09","description":{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material"}}}]
     },
     {
       "name": "Lamp Instance",
@@ -49,7 +49,7 @@
             "key": {
               "target": {
                 "source_node_uuid": "10000000-0000-4000-8000-000000000002",
-                "target_type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d"
+                "target_type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d","component_uuid":null
               },
               "path": [{"$kind":"property","$content":1}]
             },
@@ -93,7 +93,7 @@
 - `parent` 必须是现有对象 UUID 或 null；层级不能形成循环。
 - 向量与四元数只接受有限、可表示为 float 的 JSON 数字。
 - rotation 顺序为 `(x, y, z, w)` 且必须归一化；scale 的每个分量不能为零。
-- `components` 是数组，可为空。每项包含 `$type_guid`（描述类型的规范 GUID）和 `$content`（JSON 对象）。
+- `components` 是数组，可为空。每项包含非空 `uuid`（组件实例身份）和 `description`；description 使用 `$type_guid`（描述类型）与 `$content`（属性对象）的多态信封。
   根据默认 Meta 注册表查找对应 codec；同一对象同一 GUID 最多一项，未知类型和重复类型报错。
 - 内置 Camera 描述 GUID 为 `11a0217a-2eab-4f61-8011-4a63a26e0101`，MeshRenderer 描述 GUID 为
   `11a0217a-2eab-4f61-8011-4a63a26e0102`。它们与运行时组件 GUID 分离，进程内 type_id 不写入文件。
@@ -165,8 +165,8 @@ World 保持不变。旧顶层 `prefab_instances` 也被明确拒绝，不作为
 `object_description::transform` 直接使用 `math::transform`，表示相对父对象的局部变换，默认单位变换。
 文件中的 `transform` 及其 translation、rotation、scale 仍全部必填，默认值不代替格式校验。
 
-`object_description::components` 使用 `component_descriptions`，内部保存 `ref<const component_description_base>`。具体描述继承基类并注册 Meta 继承关系，
-通用引用序列化负责 `$type_guid` / `$content`，列表负责每种组件至多一项。
+`object_description::components` 使用 `component_descriptions`，内部保存 `component_entry { uuid, description }`，description 是 `ref<const component_description_base>`。具体描述继承基类并注册 Meta 继承关系，
+通用引用序列化负责 `$type_guid` / `$content`，列表负责实例 UUID 非空且不重复、每种组件至多一项。替换描述保留 UUID，删除再新增生成新 UUID。
 Scene 的 components 直接注册成员；component_descriptions 通过 sequence_traits 提供只读
 序列访问与整组校验替换。IPC 使用同一 Meta 数组解码，不再依赖组件专用 DOM 适配函数。
 `object_description.prefab` 注册为 optional，引用描述的 uri、overrides、component_overrides
@@ -204,7 +204,7 @@ Transform、组件和 Prefab 覆盖生成文件；删除或修改的字段不会
 ## Prefab 组件结构覆盖
 
 `prefab.component_overrides` 是可省略数组，缺省为空。每项必须包含 `source_node_uuid`、
-`type_guid` 和 `added`。`added` 为 `{ "$type_guid": "...", "$content": {...} }` 表示新增组件，
+`type_guid`、`component_uuid` 和 `added`。`added` 为 `{ "$type_guid": "...", "$content": {...} }` 表示新增组件，
 内层类型必须匹配外层 `type_guid`；`added: null` 表示移除来源组件。
 按原生成员反射读写，拒绝未知字段和旧的同层多态信封，不做旧格式兼容。
 相同目标键不能重复，也不能同时出现在属性覆盖中。
@@ -213,7 +213,7 @@ Transform、组件和 Prefab 覆盖生成文件；删除或修改的字段不会
 来源同类型组件与新增记录相撞、来源对象消失、属性目标不存在或类型/路径改变时记录冲突。
 加载和重载继续应用其他可用覆盖；冲突按结构/属性列表及原索引定位，原覆盖保留。
 实例查询的 `prefab_origin_view::conflicts` 提供当前冲突，包括已消失节点上的记录。
-来源目标重新出现后再次回放原操作，成功则清除对应冲突。
+相同来源对象和组件 UUID 的目标重新出现后再次回放原操作，成功则清除对应冲突。仅类型相同但 UUID 不同的新组件不继承旧覆盖。
 同一组件的值树操作合并后执行领域校验；不满足跨字段约束时保留该来源组件，
 不回滚其他组件和对象。内存分配或内部错误仍返回失败。编辑入口对本次修改保持严格校验，
 不把新的非法修改保存为冲突。

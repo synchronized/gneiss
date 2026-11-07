@@ -25,13 +25,13 @@
         ]
       },
       "components": [
-        {
+        {"uuid":"b5ba2b31-50e6-46f3-a30b-b04c485b0899","description":{
           "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101",
           "$content": {
             "settings": {"fov": 1.04719755, "near": 0.1, "far": 100},
             "is_primary": true
           }
-        }
+        }}
       ]
     },
     {
@@ -56,13 +56,13 @@
         ]
       },
       "components": [
-        {
+        {"uuid":"aa85e11e-f0e7-459e-bd1e-037a413e242f","description":{
           "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
           "$content": {
             "mesh": "asset://models/temple-box.mesh.json",
             "material": "asset://materials/temple-ground.material.json"
           }
-        }
+        }}
       ]
     },
     {
@@ -87,13 +87,13 @@
         ]
       },
       "components": [
-        {
+        {"uuid":"8eddecb9-0ec8-4276-a9b3-325848d1a0f3","description":{
           "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
           "$content": {
             "mesh": "asset://models/temple-box.mesh.json",
             "material": "asset://materials/temple-stone.material.json"
           }
-        }
+        }}
       ]
     },
     {
@@ -118,13 +118,13 @@
         ]
       },
       "components": [
-        {
+        {"uuid":"a8712138-0949-4019-ba3a-f94446e4d2b5","description":{
           "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
           "$content": {
             "mesh": "asset://models/temple-box.mesh.json",
             "material": "asset://materials/temple-stone.material.json"
           }
-        }
+        }}
       ]
     },
     {
@@ -149,13 +149,13 @@
         ]
       },
       "components": [
-        {
+        {"uuid":"9063858f-f310-4b30-9f67-92610f836d63","description":{
           "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
           "$content": {
             "mesh": "asset://models/temple-box.mesh.json",
             "material": "asset://materials/temple-stone.material.json"
           }
-        }
+        }}
       ]
     },
     {
@@ -180,13 +180,13 @@
         ]
       },
       "components": [
-        {
+        {"uuid":"6da7cba5-dcec-46c2-a9b0-eb00362a7391","description":{
           "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
           "$content": {
             "mesh": "asset://models/temple-box.mesh.json",
             "material": "asset://materials/temple-moss.material.json"
           }
-        }
+        }}
       ]
     },
     {
@@ -211,13 +211,13 @@
         ]
       },
       "components": [
-        {
+        {"uuid":"79a0707b-5058-46b7-945b-c06c99da2c76","description":{
           "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
           "$content": {
             "mesh": "asset://models/temple-box.mesh.json",
             "material": "asset://materials/temple-rune.material.json"
           }
-        }
+        }}
       ]
     },
     {
@@ -242,13 +242,13 @@
         ]
       },
       "components": [
-        {
+        {"uuid":"eb2210e7-1d17-43ee-b4dd-a86828006c77","description":{
           "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
           "$content": {
             "mesh": "asset://models/temple-box.mesh.json",
             "material": "asset://materials/temple-stone.material.json"
           }
-        }
+        }}
       ]
     },
     {
@@ -273,13 +273,13 @@
         ]
       },
       "components": [
-        {
+        {"uuid":"f764cae2-2c75-4fa1-a73c-a0298e8b7264","description":{
           "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
           "$content": {
             "mesh": "asset://models/temple-box.mesh.json",
             "material": "asset://materials/temple-untextured.material.json"
           }
-        }
+        }}
       ]
     }
   ]

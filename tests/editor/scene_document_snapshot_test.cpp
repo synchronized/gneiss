@@ -43,6 +43,11 @@ int main() {
   if (!frozen)
     return 2;
   const auto before = frozen->content;
+  const auto camera_id = root.components.identity(e::camera_description::type_guid);
+  if (!camera_id ||
+      frozen->prefabs.at(instance.prefab->uri).content.get().objects[0].components[0].uuid !=
+          camera_id)
+    return 60;
   input.description.objects.clear();
   source->objects[0].name = "changed";
   source->objects[0].components.set(e::camera_description{{2.0F, 0.2F, 200.0F}});
@@ -89,7 +94,7 @@ int main() {
   if (e::restore_scene_record(e::scene_record{candidate}))
     return 12;
   candidate = before.get();
-  candidate.objects[0].prefab->components.push_back({{}, instance.uuid, {}});
+  candidate.objects[0].prefab->components.push_back({{}, {}, instance.uuid, {}});
   if (e::restore_scene_record(e::scene_record{candidate}))
     return 13;
   // 即使绕过文件解析，也不能把可变对象引用带入不可变版本。
@@ -142,6 +147,9 @@ int main() {
       decoded_copy->objects[0].uuid != copied_id ||
       decoded_original->objects[0].components.get<linked_description>()->links != links.links)
     return 17;
+  if (decoded_copy->objects[0].components.identity(linked_description::type_guid) ==
+      decoded_original->objects[0].components.identity(linked_description::type_guid))
+    return 61;
   auto expected = std::get<e::sequence_value>(links.links.payload).get();
   const e::value remapped{e::object_reference_value{target_document, copied_id}};
   expected.elements[0] = remapped;

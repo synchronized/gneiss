@@ -26,13 +26,13 @@
         ]
       },
       "components": [
-        {
+        {"uuid":"6f7c568f-eaf3-4f56-bd41-b502e23a489f","description":{
           "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101",
           "$content": {
             "settings": {"fov": 1.04719755, "near": 0.1, "far": 1000.0},
             "is_primary": true
           }
-        }
+        }}
       ]
     },
     {
@@ -57,13 +57,13 @@
         ]
       },
       "components": [
-        {
+        {"uuid":"957e0d46-e71e-4b49-9013-b53ab56ff17a","description":{
           "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
           "$content": {
             "mesh": "asset://models/triangle.mesh.json",
             "material": "asset://materials/triangle.material.json"
           }
-        }
+        }}
       ]
     }
   ]

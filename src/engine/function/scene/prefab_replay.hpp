@@ -37,7 +37,8 @@ prepare_prefab_component_edit(const prefab_description&, const prefab_reference_
 GNEISS_API result<prefab_edit_candidate>
 prepare_prefab_component_override(const prefab_description&, const prefab_reference_description&,
                                   guid source_node, guid type, const component_description& added,
-                                  bool removed, std::span<const prefab_property_override>) noexcept;
+                                  bool removed, std::span<const prefab_property_override>,
+                                  guid component_uuid = {}) noexcept;
 /** 来源节点变换的编辑候选；反射生成差异，沿用组件编辑的冲突保留规则。
  * 实例根自身的局部变换由场景对象管理，不属于该来源覆盖入口。
  */

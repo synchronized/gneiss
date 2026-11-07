@@ -5,6 +5,7 @@
 #include "engine/core/guid.hpp"
 
 #include <cstddef>
+#include <random>
 #include <string>
 #include <string_view>
 
@@ -17,6 +18,16 @@ namespace {
 }
 
 } // namespace
+
+guid guid::generate() {
+  byte_array bytes{};
+  std::random_device random;
+  for (auto& byte : bytes)
+    byte = static_cast<std::uint8_t>(random());
+  bytes[6] = static_cast<std::uint8_t>((bytes[6] & 0x0fU) | 0x40U);
+  bytes[8] = static_cast<std::uint8_t>((bytes[8] & 0x3fU) | 0x80U);
+  return guid{bytes};
+}
 
 bool guid::is_nil() const noexcept {
   for (const std::uint8_t byte : bytes_) {

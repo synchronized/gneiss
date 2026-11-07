@@ -58,6 +58,7 @@ struct prefab_component_override final {
   guid source_node_uuid;
   guid type_guid;
   std::optional<component_description> added{};
+  guid component_uuid{};
 };
 struct prefab_reference_description final {
   static constexpr std::string_view type_name = "prefab_reference_description";

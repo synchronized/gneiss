@@ -30,6 +30,8 @@ public:
   constexpr guid() noexcept = default;
   explicit constexpr guid(byte_array bytes) noexcept : bytes_(bytes) {}
 
+  /** 创建随机 UUID v4；随机源失败时抛出，由调用边界转换为 error。 */
+  [[nodiscard]] static guid generate();
   [[nodiscard]] static constexpr guid nil() noexcept { return guid{}; }
   [[nodiscard]] static constexpr guid from_bytes(byte_array bytes) noexcept { return guid{bytes}; }
   /** 标准 UUID 文本解析；接受大小写十六进制，格式错误返回空值。 */

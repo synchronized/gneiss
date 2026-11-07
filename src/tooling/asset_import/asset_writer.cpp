@@ -19,10 +19,10 @@
 namespace gneiss::tooling {
 namespace {
 
-[[nodiscard]] std::string uuid_for(std::size_t index) {
+[[nodiscard]] std::string uuid_for(std::size_t index, bool component = false) {
   std::ostringstream stream;
-  stream << "00000000-0000-4000-8000-" << std::hex << std::setfill('0') << std::setw(12)
-         << index + 1U;
+  stream << (component ? "10000000-0000-4000-8000-" : "00000000-0000-4000-8000-") << std::hex
+         << std::setfill('0') << std::setw(12) << index + 1U;
   return stream.str();
 }
 
@@ -121,8 +121,13 @@ template <class Bytes> bool write_bytes(const std::filesystem::path& path, const
     object.transform = {node.translation, node.rotation, node.scale};
     for (auto child : node.children)
       scene.objects[child].parent_uuid = object.uuid;
-    if (node.mesh_index && data.meshes[*node.mesh_index].primitives.size() == 1)
-      object.components.set(renderer(*node.mesh_index, 0));
+    // 沿用导入对象的确定性索引规则，重复导入相同输入不改变组件身份。
+    if (node.mesh_index && data.meshes[*node.mesh_index].primitives.size() == 1 &&
+        object.components
+            .replace({{*engine::guid::parse(uuid_for(i, true)),
+                       engine::make_component_description(renderer(*node.mesh_index, 0))}})
+            .failed())
+      return false;
   }
   for (std::size_t i = 0; i < data.nodes.size(); ++i) {
     const auto& node = data.nodes[i];
@@ -132,7 +137,11 @@ template <class Bytes> bool write_bytes(const std::filesystem::path& path, const
       engine::object_description child;
       child.uuid = *engine::guid::parse(uuid_for(scene.objects.size()));
       child.parent_uuid = scene.objects[i].uuid;
-      child.components.set(renderer(*node.mesh_index, j));
+      if (child.components
+              .replace({{*engine::guid::parse(uuid_for(scene.objects.size(), true)),
+                         engine::make_component_description(renderer(*node.mesh_index, j))}})
+              .failed())
+        return false;
       scene.objects.push_back(std::move(child));
     }
   }

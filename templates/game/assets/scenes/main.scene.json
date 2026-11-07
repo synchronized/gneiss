@@ -27,14 +27,17 @@
       },
       "components": [
         {
-          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101",
-          "$content": {
-            "settings": {
-              "fov": 1.04719755,
-              "near": 0.1,
-              "far": 1000.0
-            },
-            "is_primary": true
+          "uuid": "b682b466-1c0f-4b43-b3e6-449d2339493c",
+          "description": {
+            "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101",
+            "$content": {
+              "settings": {
+                "fov": 1.04719755,
+                "near": 0.1,
+                "far": 1000.0
+              },
+              "is_primary": true
+            }
           }
         }
       ]

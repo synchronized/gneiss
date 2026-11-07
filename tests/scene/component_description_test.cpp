@@ -55,8 +55,9 @@ std::string scene(std::string_view components) {
          std::string(components) + "}]}";
 }
 std::string entry(e::guid type, std::string_view content) {
-  return std::string(R"({"$type_guid":")") + type.string() + R"(","$content":)" +
-         std::string(content) + "}";
+  return std::string(R"({"uuid":")") + e::guid::generate().string() +
+         R"(","description":{"$type_guid":")" + type.string() + R"(","$content":)" +
+         std::string(content) + "}}";
 }
 int main() try {
   if (e::initialize_meta([]() {
@@ -99,6 +100,35 @@ int main() try {
       !parsed->objects.front().components.get<custom_description>()->enabled ||
       parsed->objects.front().components.get<e::camera_description>())
     return 2;
+  // 实例身份不等于类型；替换保留身份，删后重建获得新身份，文件往返保留身份。
+  const auto identity = parsed->objects.front().components.identity(custom_description::type_guid);
+  if (!identity || identity == custom_description::type_guid)
+    return 50;
+  auto identities = parsed->objects.front().components;
+  identities.set(custom_description{false});
+  if (identities.identity(custom_description::type_guid) != identity)
+    return 51;
+  auto encoded_identities = e::serialization::json::serialize(identities);
+  if (!encoded_identities)
+    return 52;
+  auto restored_identities =
+      e::serialization::json::deserialize<e::component_descriptions>(*encoded_identities);
+  if (!restored_identities ||
+      restored_identities->identity(custom_description::type_guid) != identity)
+    return 53;
+  identities.erase<custom_description>();
+  identities.set(custom_description{});
+  if (identities.identity(custom_description::type_guid) == identity)
+    return 54;
+  auto duplicate_entries = identities.entries();
+  duplicate_entries.push_back(
+      {duplicate_entries.front().uuid, e::make_component_description(reflected_description{})});
+  if (identities.replace(duplicate_entries) != e::error::invalid_argument || identities.size() != 1)
+    return 55;
+  duplicate_entries.resize(1);
+  duplicate_entries.front().uuid = {};
+  if (identities.replace(duplicate_entries) != e::error::invalid_argument)
+    return 56;
   // 组件属性只能整项替换；失败不修改已有组件或共享快照。
   auto guarded = parsed->objects.front();
   auto object_view = e::meta::mutable_instance::from(guarded);
@@ -160,18 +190,18 @@ int main() try {
     return 6;
   auto invalid = gneiss::engine::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + entry(custom_description::type_guid, R"({"enabled":null})") + "]")));
-  if (invalid || invalid.error().path != "/objects/0/components/0/$content/enabled")
+  if (invalid || invalid.error().path != "/objects/0/components/0/description/$content/enabled")
     return 7;
   auto null_component =
       gneiss::engine::asset_file::deserialize<e::scene_description>(bytes(scene("[null]")));
-  if (null_component || null_component.error().path != "/objects/0/components")
+  if (null_component || null_component.error().path != "/objects/0/components/0")
     return 33;
   auto null_after_valid = gneiss::engine::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + custom + ",null]")));
-  if (null_after_valid || null_after_valid.error().path != "/objects/0/components")
+  if (null_after_valid || null_after_valid.error().path != "/objects/0/components/1")
     return 34;
   auto extra_envelope = custom;
-  extra_envelope.insert(1, "\"extra\":true,");
+  extra_envelope.insert(extra_envelope.find("\"$type_guid\""), "\"extra\":true,");
   if (gneiss::engine::asset_file::deserialize<e::scene_description>(
           bytes(scene("[" + extra_envelope + "]"))))
     return 35;
@@ -191,14 +221,16 @@ int main() try {
           e::camera_description::type_guid,
           R"({"vertical_field_of_view_radians":1,"near_plane":0.1,"far_plane":100,"is_primary":false})") +
       "]")));
-  if (old_camera || old_camera.error().path != "/objects/0/components/0/$content/settings")
+  if (old_camera ||
+      old_camera.error().path != "/objects/0/components/0/description/$content/settings")
     return 21;
   auto bad_camera = gneiss::engine::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" +
                   entry(e::camera_description::type_guid,
                         R"({"settings":{"fov":1,"near":"bad","far":100},"is_primary":false})") +
                   "]")));
-  if (bad_camera || bad_camera.error().path != "/objects/0/components/0/$content/settings/near")
+  if (bad_camera ||
+      bad_camera.error().path != "/objects/0/components/0/description/$content/settings/near")
     return 22;
   const auto camera =
       entry(e::camera_description::type_guid,

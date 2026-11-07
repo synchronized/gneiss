@@ -67,7 +67,10 @@ void run(scenario mode) {
   instance.prefab.emplace();
   instance.prefab->uri = "asset://source.prefab.json";
   instance.prefab->component_overrides.push_back(
-      {root.uuid, e::mesh_renderer_description::type_guid, {}});
+      {root.uuid,
+       e::mesh_renderer_description::type_guid,
+       {},
+       root.components.identity(e::mesh_renderer_description::type_guid)});
   scene.objects.push_back(instance);
   const auto json = text(*gneiss::engine::asset_file::serialize_bytes(scene));
   write(files.path / "scene.json", json);

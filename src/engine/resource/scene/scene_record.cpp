@@ -25,13 +25,13 @@ bool object_record::operator==(const object_record& other) const {
          prefab == other.prefab;
 }
 namespace {
-result<component_record> capture_component(const component_description& source) {
-  if (!source)
+result<component_record> capture_component(const component_description& source, guid uuid) {
+  if (!source || !uuid)
     return error::invalid_argument;
   auto content = serialization::capture_value(source);
   if (!content)
     return content.error().error;
-  return component_record{source->guid(), std::move(*content)};
+  return component_record{uuid, source->guid(), std::move(*content)};
 }
 result<component_description> restore_component(const component_record& source) {
   auto restored = serialization::restore_value<component_description>(source.properties);
@@ -51,7 +51,7 @@ result<std::vector<object_record>> capture_objects(const std::vector<object_desc
     record.name = object.name;
     record.transform = object.transform;
     for (const auto& component : object.components) {
-      auto copied = capture_component(component);
+      auto copied = capture_component(component, object.components.identity(component->guid()));
       if (!copied)
         return copied.error();
       record.components.push_back(std::move(*copied));
@@ -66,9 +66,10 @@ result<std::vector<object_record>> capture_objects(const std::vector<object_desc
       for (const auto& entry : object.prefab->component_overrides) {
         component_override_record change;
         change.source_node_uuid = entry.source_node_uuid;
+        change.component_uuid = entry.component_uuid;
         change.type = entry.type_guid;
         if (entry.added) {
-          auto copied = capture_component(*entry.added);
+          auto copied = capture_component(*entry.added, entry.component_uuid);
           if (!copied)
             return copied.error();
           change.added = std::move(*copied);
@@ -89,12 +90,12 @@ result<std::vector<object_description>> restore_objects(const std::vector<object
     object.parent_uuid = record.parent;
     object.name = record.name;
     object.transform = record.transform;
-    std::vector<component_description> components;
+    std::vector<component_entry> components;
     for (const auto& component : record.components) {
       auto restored = restore_component(component);
       if (!restored)
         return restored.error();
-      components.push_back(std::move(*restored));
+      components.push_back({component.uuid, std::move(*restored)});
     }
     auto status = object.components.replace(components);
     if (status.failed())
@@ -106,6 +107,7 @@ result<std::vector<object_description>> restore_objects(const std::vector<object
       for (const auto& entry : record.prefab->components) {
         prefab_component_override change;
         change.source_node_uuid = entry.source_node_uuid;
+        change.component_uuid = entry.component_uuid;
         change.type_guid = entry.type;
         if (entry.added) {
           auto restored = restore_component(*entry.added);
@@ -245,6 +247,7 @@ struct record_remapper {
     auto status = validate_persistent_value(component.properties);
     if (status.failed())
       return status;
+    component.uuid = guid::generate();
     component.properties = rewrite(component.properties);
     return failure.failed() ? failure : validate_persistent_value(component.properties);
   }
@@ -304,6 +307,7 @@ result<scene_record> remap_scene_record(const scene_record& source, guid target_
           auto status = remapper.component(*entry.added);
           if (status.failed())
             return status;
+          entry.component_uuid = entry.added->uuid;
         }
     }
   }

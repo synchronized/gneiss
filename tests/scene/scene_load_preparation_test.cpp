@@ -64,7 +64,7 @@ struct memory_files final : gneiss::test_support::memory_file_fixture {
 
 constexpr std::string_view object = R"({"uuid":"00000000-0000-4000-8000-000000000002",
 "parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
-"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://m.mesh","material":"asset://m.material"}}]})";
+"components":[{"uuid":"ccb2708e-09e4-4d1c-86c6-8ff0f3c19cf4","description":{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://m.mesh","material":"asset://m.material"}}}]})";
 constexpr std::string_view scene_prefix = R"({"format":"gneiss.scene","version":5,
 "scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[)";
 
@@ -213,7 +213,11 @@ void run() {
   for (auto& node : overridden->objects) {
     node.prefab->overrides.push_back(
         {.key = {.target = {.source_node_uuid = source_uuid,
-                            .target_type_guid = mesh_renderer_description::type_guid},
+                            .target_type_guid = mesh_renderer_description::type_guid,
+                            .component_uuid =
+                                inputs.prefabs.at("asset://p.prefab")
+                                    ->objects.front()
+                                    .components.identity(mesh_renderer_description::type_guid)},
                  .path = {meta::property_id{2}}},
          .operation = value{std::string("asset://override.material")}});
   }

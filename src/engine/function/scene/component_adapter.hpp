@@ -194,7 +194,8 @@ prepare_component_editor_value(world&, scene_node_id, const component_descriptio
 GNEISS_API result<std::vector<component_editor_info>> component_editor_types() noexcept;
 GNEISS_API result<component_description> default_component_description(guid type) noexcept;
 /** 只处理单个组件；重复添加返回 invalid_state，缺失删除返回 not_found。 */
-GNEISS_API error add_component(component_context, const component_description&) noexcept;
+GNEISS_API error add_component(component_context, const component_description&,
+                               guid identity = {}) noexcept;
 GNEISS_API error remove_component(component_context, guid type) noexcept;
 GNEISS_API error validate_components(const component_descriptions&) noexcept;
 GNEISS_API result<component_descriptions> capture_components(world&, scene_node_id) noexcept;

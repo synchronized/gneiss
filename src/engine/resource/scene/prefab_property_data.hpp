@@ -34,6 +34,7 @@ struct prefab_property_target final {
   static constexpr guid type_guid = guid::literal("dfdb1dac-6d93-4326-8909-70735ee03e7f");
   guid source_node_uuid;
   guid target_type_guid;
+  guid component_uuid{}; // Transform 为 nil；组件必须使用具体实例身份。
   bool operator==(const prefab_property_target&) const noexcept = default;
 };
 

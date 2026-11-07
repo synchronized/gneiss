@@ -53,11 +53,17 @@ int main() try {
   first.prefab->uri = "asset://prefabs/source.prefab.json";
   first.prefab->component_overrides.push_back(
       {root.uuid, movement_description::type_guid,
-       e::make_component_description(movement_description{4})});
-  first.prefab->component_overrides.push_back({child.uuid, e::camera_description::type_guid, {}});
+       e::make_component_description(movement_description{4}), e::guid::generate()});
+  first.prefab->component_overrides.push_back(
+      {child.uuid,
+       e::camera_description::type_guid,
+       {},
+       child.components.identity(e::camera_description::type_guid)});
   first.prefab->overrides.push_back(
       {.key = {.target = {.source_node_uuid = child.uuid,
-                          .target_type_guid = movement_description::type_guid},
+                          .target_type_guid = movement_description::type_guid,
+                          .component_uuid =
+                              child.components.identity(movement_description::type_guid)},
                .path = {e::meta::property_id{3}, e::meta::property_id{1}}},
        .operation = e::value{6.0F}});
   scene.objects.push_back(first);
@@ -163,7 +169,7 @@ int main() try {
   auto conflict = scene;
   conflict.objects[1].prefab->component_overrides.push_back(
       {root.uuid, movement_description::type_guid,
-       e::make_component_description(movement_description{})});
+       e::make_component_description(movement_description{}), e::guid::generate()});
   check(ed::prepare_apply_prefab(text(*gneiss::engine::asset_file::serialize_bytes(conflict)),
                                  prefab_json, apply, plan, &diagnostic) == e::error::invalid_state);
   check(plan.changes.empty() && diagnostic.path.find(second.uuid.string()) != std::string::npos &&
@@ -171,7 +177,9 @@ int main() try {
   conflict = scene;
   conflict.objects[1].prefab->overrides.push_back(
       {.key = {.target = {.source_node_uuid = child.uuid,
-                          .target_type_guid = e::camera_description::type_guid},
+                          .target_type_guid = e::camera_description::type_guid,
+                          .component_uuid =
+                              child.components.identity(e::camera_description::type_guid)},
                .path = {e::meta::property_id{1}, e::meta::property_id{1}}},
        .operation = e::value{0.8F}});
   check(ed::prepare_apply_prefab(text(*gneiss::engine::asset_file::serialize_bytes(conflict)),

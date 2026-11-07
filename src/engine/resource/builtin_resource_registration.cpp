@@ -89,13 +89,23 @@ error register_component_descriptions() noexcept {
   if (base_status.failed())
     return base_status;
   constexpr auto required = meta::property_flags::required;
-  auto status = meta::type_builder<prefab_property_target>{}
-                    .property<&prefab_property_target::source_node_uuid>(
-                        meta::property_id{1}, "source_node_uuid", required)
-                    .property<&prefab_property_target::target_type_guid>(
-                        meta::property_id{2}, "target_type_guid", required)
-                    .serialization(true)
-                    .commit();
+  auto status =
+      meta::type_builder<component_entry>{}
+          .property<&component_entry::uuid>(meta::property_id{1}, "uuid", required)
+          .property<&component_entry::description>(meta::property_id{2}, "description", required)
+          .serialization()
+          .commit();
+  if (status.failed())
+    return status;
+  status = meta::type_builder<prefab_property_target>{}
+               .property<&prefab_property_target::source_node_uuid>(meta::property_id{1},
+                                                                    "source_node_uuid", required)
+               .property<&prefab_property_target::target_type_guid>(meta::property_id{2},
+                                                                    "target_type_guid", required)
+               .property<&prefab_property_target::component_uuid>(meta::property_id{3},
+                                                                  "component_uuid", required)
+               .serialization(true)
+               .commit();
   if (status.failed())
     return status;
   status =
@@ -121,6 +131,8 @@ error register_component_descriptions() noexcept {
                .property<&prefab_component_override::type_guid>(meta::property_id{2}, "type_guid",
                                                                 required)
                .property<&prefab_component_override::added>(meta::property_id{3}, "added", required)
+               .property<&prefab_component_override::component_uuid>(meta::property_id{4},
+                                                                     "component_uuid", required)
                .serialization(true)
                .validate<&validate_component_override>()
                .commit();

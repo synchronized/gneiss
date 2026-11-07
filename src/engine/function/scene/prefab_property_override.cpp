@@ -271,7 +271,8 @@ error prepare_prefab_reference(const prefab_description& source,
       return fail(error::not_found, key.first, key.second, {}, "覆盖目标对象已不存在");
     if (std::ranges::any_of(reference.overrides, [&](const auto& v) {
           return v.key.target.source_node_uuid == key.first &&
-                 component_description_type(v.key.target.target_type_guid) == key.second;
+                 component_description_type(v.key.target.target_type_guid) == key.second &&
+                 v.key.target.component_uuid == change.component_uuid;
         }))
       return fail(error::invalid_argument, key.first, key.second, {}, "结构覆盖与属性覆盖矛盾");
     if (change.added) {
@@ -280,9 +281,17 @@ error prepare_prefab_reference(const prefab_description& source,
       if (target->components.find(key.second))
         return fail(error::invalid_state, key.first, key.second, {},
                     "来源已存在实例新增的同类型组件");
-      target->components.set(*change.added);
-    } else
+      auto entries = target->components.entries();
+      entries.push_back({change.component_uuid, *change.added});
+      auto status = target->components.replace(entries);
+      if (status.failed())
+        return status;
+    } else {
+      if (!change.component_uuid ||
+          target->components.identity(key.second) != change.component_uuid)
+        return fail(error::not_found, key.first, key.second, {}, "来源组件身份已失效");
       target->components.erase(key.second);
+    }
   }
   // 提前定位每条属性覆盖；成组应用仍在下一步统一校验跨字段约束。
   for (const auto& entry : reference.overrides) {
@@ -297,7 +306,9 @@ error prepare_prefab_reference(const prefab_description& source,
     if (key.target.target_type_guid != transform_component_type) {
       auto* component =
           object->components.find(component_description_type(key.target.target_type_guid));
-      if (!component)
+      if (!component || !key.target.component_uuid ||
+          object->components.identity(component_description_type(key.target.target_type_guid)) !=
+              key.target.component_uuid)
         return fail(error::not_found, key.target.source_node_uuid, key.target.target_type_guid,
                     path, "属性覆盖对应的来源组件已不存在");
       // 路径在顺序应用时定位：前一条 insert 可能刚创建本条操作的目标。
@@ -330,6 +341,11 @@ engine::error prepare_prefab_description(const prefab_description& source,
     if (found->uuid == candidate.root_uuid &&
         value.key.target.target_type_guid == transform_component_type)
       return error::invalid_argument;
+    if (value.key.target.target_type_guid != transform_component_type &&
+        (!value.key.target.component_uuid ||
+         found->components.identity(component_description_type(
+             value.key.target.target_type_guid)) != value.key.target.component_uuid))
+      return error::not_found;
     // 描述类型的全部叶覆盖在同一副本中应用，再检查跨字段约束。
     if (found->components.find(value.key.target.target_type_guid))
       continue;
@@ -381,7 +397,8 @@ engine::error prepare_prefab_description(const prefab_description& source,
 }
 
 result<std::vector<prefab_property_override>>
-prepare_mesh_renderer_overrides(guid source_node, const mesh_renderer_description& original,
+prepare_mesh_renderer_overrides(guid source_node, guid component_uuid,
+                                const mesh_renderer_description& original,
                                 const mesh_renderer_description& replacement,
                                 std::span<const prefab_property_override> existing) noexcept try {
   std::vector<prefab_property_override> pending(existing.begin(), existing.end());
@@ -391,7 +408,8 @@ prepare_mesh_renderer_overrides(guid source_node, const mesh_renderer_descriptio
     auto status = set_prefab_property_override(
         pending,
         {.key = {.target = {.source_node_uuid = source_node,
-                            .target_type_guid = mesh_renderer_description::type_guid},
+                            .target_type_guid = mesh_renderer_description::type_guid,
+                            .component_uuid = component_uuid},
                  .path = {meta::property_id{static_cast<std::uint32_t>(i + 1)}}},
          .operation = engine::value{replacements[i]}},
         engine::value{originals[i]});

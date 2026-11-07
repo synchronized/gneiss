@@ -99,6 +99,7 @@ int main() {
   {
     using namespace gneiss::engine;
     using gneiss::test_support::movement_description;
+    const auto component_id = guid::generate();
     const auto third = guid::literal("49386fe2-09cb-42d8-92de-eeb021178b4b");
     movement_description original;
     original.waypoints = {{source_a, 1}, {source_b, 2}};
@@ -114,7 +115,7 @@ int main() {
     prefab_reference_description reference{.uri = "asset://waypoints.prefab", .overrides = {}};
     for (const auto& edit : *edits)
       reference.overrides.push_back(
-          {{{source_b, movement_description::type_guid}, edit.path}, edit.operation});
+          {{{source_b, movement_description::type_guid, component_id}, edit.path}, edit.operation});
     auto encoded = serialization::json::serialize(reference);
     if (!encoded)
       return 72;
@@ -128,7 +129,8 @@ int main() {
     root.uuid = source_a;
     child.uuid = source_b;
     child.parent_uuid = source_a;
-    child.components.set(original);
+    if (child.components.replace({{component_id, make_component_description(original)}}).failed())
+      return 79;
     source.objects = {root, child};
     prefab_description output;
     if (prepare_prefab_reference(source, *decoded, output).failed() ||
@@ -136,10 +138,11 @@ int main() {
         source.objects[1].components.get<movement_description>()->waypoints != original.waypoints)
       return 74;
     // 后一条编辑允许定位前一条 insert 刚创建的元素。
-    decoded->overrides.push_back({
-        .key = {.target = {source_b, movement_description::type_guid},
-                .path = {meta::property_id{5}, changed.waypoints.back().uuid, meta::property_id{2}}},
-        .operation = value{42.0F}});
+    decoded->overrides.push_back(
+        {.key = {.target = {source_b, movement_description::type_guid, component_id},
+                 .path = {meta::property_id{5}, changed.waypoints.back().uuid,
+                          meta::property_id{2}}},
+         .operation = value{42.0F}});
     if (prepare_prefab_reference(source, *decoded, output).failed() ||
         output.objects[1].components.get<movement_description>()->waypoints.back().distance != 42)
       return 75;
@@ -161,7 +164,8 @@ int main() {
     child.components.set(movement);
     source.objects = {root, child};
     prefab_reference_description reference;
-    const prefab_property_target target{source_b, movement_description::type_guid};
+    const prefab_property_target target{source_b, movement_description::type_guid,
+                                        child.components.identity(movement_description::type_guid)};
     reference.overrides = {
         {{target, {meta::property_id{5}}}, move_value_operation{element, missing}},
         {{target, {meta::property_id{5}, element, meta::property_id{2}}}, value{7.0F}},
@@ -213,6 +217,7 @@ int main() {
     child.components.set(movement_description{});
     source.objects = {root, child};
     prefab_description output;
+    change.key.target.component_uuid = child.components.identity(movement_description::type_guid);
     std::vector<prefab_property_override> changes;
     if (set_prefab_property_override(changes, change, *before).failed())
       return 51;
@@ -275,14 +280,16 @@ int main() {
     const mesh_renderer_description original{"asset://base.mesh", "asset://base.material"};
     const mesh_renderer_description replacement{"asset://next.mesh", "asset://next.material"};
     const std::vector existing{make_translation(source_b, {1, 2, 3})};
-    auto changed = prepare_mesh_renderer_overrides(source_a, original, replacement, existing);
+    auto changed =
+        prepare_mesh_renderer_overrides(source_a, source_b, original, replacement, existing);
     if (!changed || changed->size() != 3 || existing.size() != 1)
       return 20;
-    auto restored = prepare_mesh_renderer_overrides(source_a, original, original, *changed);
+    auto restored =
+        prepare_mesh_renderer_overrides(source_a, source_b, original, original, *changed);
     if (!restored || restored->size() != 1 ||
         restored->front().key.target.source_node_uuid != source_b)
       return 21;
-    auto invalid = prepare_mesh_renderer_overrides({}, original, replacement, existing);
+    auto invalid = prepare_mesh_renderer_overrides({}, source_b, original, replacement, existing);
     if (invalid || invalid.error() != error::invalid_argument || existing.size() != 1)
       return 22;
   }

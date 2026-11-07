@@ -82,11 +82,15 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
         return engine::error::not_found;
       const auto* original = object->components.get<engine::mesh_renderer_description>();
       engine::mesh_renderer_description description{mesh_, material_};
-      if (!original)
+      if (!original) {
         after.added = engine::make_component_description(description);
-      else {
-        auto overrides =
-            engine::prepare_mesh_renderer_overrides(target_.source_uuid, *original, description);
+        after.component_uuid = prefab_before_->component_uuid ? prefab_before_->component_uuid
+                                                              : engine::guid::generate();
+      } else {
+        auto overrides = engine::prepare_mesh_renderer_overrides(
+            target_.source_uuid,
+            object->components.identity(engine::mesh_renderer_description::type_guid), *original,
+            description);
         if (!overrides)
           return overrides.error();
         after.properties = std::move(*overrides);

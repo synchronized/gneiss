@@ -110,6 +110,9 @@ int main() try {
   check(!missing && missing.error() == e::error::not_found);
   auto captured = scenes.capture_prepared(instance);
   check(captured && captured->description.description.objects.size() == 2);
+  check(captured->description.description.objects[0].components.identity(
+            movement_description::type_guid) ==
+        first.components.identity(movement_description::type_guid));
   auto id = entity(world, node);
   auto* component = state(world).get<movement_component>(id);
   check(component && component->data.speed == 2);
@@ -125,6 +128,8 @@ int main() try {
   e::scene_description saved;
   check(gneiss::test_support::assign_value(scenes.capture_description(instance), saved).ok());
   check(saved.objects[0].components.get<movement_description>()->speed == 5);
+  check(saved.objects[0].components.identity(movement_description::type_guid) ==
+        first.components.identity(movement_description::type_guid));
   auto saved_bytes = gneiss::engine::asset_file::serialize_bytes(saved);
   check(saved_bytes.has_value());
   auto restored = gneiss::engine::asset_file::deserialize<e::scene_description>(*saved_bytes);
@@ -177,7 +182,9 @@ int main() try {
   reference.prefab->uri = "asset://test.prefab";
   reference.prefab->overrides.push_back(
       {.key = {.target = {.source_node_uuid = first.uuid,
-                          .target_type_guid = movement_description::type_guid},
+                          .target_type_guid = movement_description::type_guid,
+                          .component_uuid =
+                              first.components.identity(movement_description::type_guid)},
                .path = {e::meta::property_id{1}}},
        .operation = e::value{9.0F}});
   source.objects = {reference};

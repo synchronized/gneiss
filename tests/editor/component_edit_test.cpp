@@ -107,12 +107,17 @@ int main() try {
     e::prefab_reference_description reference;
     reference.uri = "asset://pure.prefab";
     const e::prefab_property_override speed{
-        {.target = {object.uuid, movement_description::type_guid}, .path = {p{1}}}, e::value{2.0F}};
+        {.target = {object.uuid, movement_description::type_guid,
+                    object.components.identity(movement_description::type_guid)},
+         .path = {p{1}}},
+        e::value{2.0F}};
     reference.overrides = {speed, speed};
     reference.overrides[1].operation = e::value{3.0F};
-    reference.overrides.push_back({{.target = {object.uuid, movement_description::type_guid},
-                                    .path = {p{5}, e::guid::from_bytes({87, 99}), p{2}}},
-                                   e::value{7.0F}});
+    reference.overrides.push_back(
+        {{.target = {object.uuid, movement_description::type_guid,
+                     object.components.identity(movement_description::type_guid)},
+          .path = {p{5}, e::guid::from_bytes({87, 99}), p{2}}},
+         e::value{7.0F}});
     auto replayed = e::replay_prefab_reference(source, reference);
     check(replayed && replayed->conflicts.size() == 1);
     const auto current =
@@ -166,7 +171,11 @@ int main() try {
     check(!invalid_transform && invalid_transform.error() == e::error::invalid_argument);
     check(source.objects[1].transform.translation.x == 0 && reference.overrides.size() == 3);
     auto removed = reference;
-    removed.component_overrides.push_back({object.uuid, movement_description::type_guid, {}});
+    removed.component_overrides.push_back(
+        {object.uuid,
+         movement_description::type_guid,
+         {},
+         object.components.identity(movement_description::type_guid)});
     auto rejected =
         e::prepare_prefab_component_edit(source, removed, object.uuid, current, current);
     check(!rejected && rejected.error() == e::error::invalid_state);
@@ -184,7 +193,8 @@ int main() try {
     check(!invalid_remove && invalid_remove.error() == e::error::not_found);
     auto local = reference;
     const auto camera = e::make_component_description(e::camera_description{{1.0F, 0.1F, 100.0F}});
-    local.component_overrides.push_back({object.uuid, e::camera_description::type_guid, camera});
+    local.component_overrides.push_back(
+        {object.uuid, e::camera_description::type_guid, camera, e::guid::generate()});
     auto add_candidate = e::prepare_prefab_component_override(
         source, reference, object.uuid, e::camera_description::type_guid, camera, false, {});
     check(add_candidate && add_candidate->reference.component_overrides.size() == 1 &&
@@ -271,6 +281,11 @@ int main() try {
   check(document
             .add_component_description(node, e::make_component_description(movement_description{}))
             .ok());
+  auto runtime_components = e::capture_components(world, node);
+  auto authored_components = document.components(node);
+  check(runtime_components && authored_components &&
+        runtime_components->identity(movement_description::type_guid) ==
+            authored_components->identity(movement_description::type_guid));
   auto ordinary = document.selected_node()->uuid;
   ed::component_edit_target target{.object_uuid = ordinary,
                                    .component_type = movement_description::type_guid};
@@ -553,7 +568,9 @@ int main() try {
     conflict_reference.uuid = e::guid::from_bytes({85, 99});
     conflict_reference.prefab->overrides = {
         {.key = {.target = {.source_node_uuid = root.uuid,
-                            .target_type_guid = movement_description::type_guid},
+                            .target_type_guid = movement_description::type_guid,
+                            .component_uuid =
+                                root.components.identity(movement_description::type_guid)},
                  .path = {p{5}, e::guid::from_bytes({85, 100}), p{2}}},
          .operation = e::value{7.0F}}};
     auto created = gneiss::test_support::place_document_prefab(

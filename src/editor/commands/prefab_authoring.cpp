@@ -550,7 +550,8 @@ describe_prefab_overrides(const engine::prefab_reference_description& reference,
     entries.push_back({.key = change.key, .label = label(change.key)});
   for (const auto& change : reference.component_overrides) {
     prefab_property_override_key key{.target = {.source_node_uuid = change.source_node_uuid,
-                                                .target_type_guid = change.type_guid},
+                                                .target_type_guid = change.type_guid,
+                                                .component_uuid = change.component_uuid},
                                      .path = {}};
     entries.push_back(
         {.key = key, .component = true, .added = change.added.has_value(), .label = label(key)});

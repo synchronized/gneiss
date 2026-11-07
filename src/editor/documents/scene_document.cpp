@@ -41,16 +41,7 @@ namespace {
   return true;
 }
 
-[[nodiscard]] gneiss::engine::guid make_uuid_value() {
-  std::array<std::uint8_t, 16> bytes{};
-  std::random_device random;
-  for (auto& byte : bytes) {
-    byte = static_cast<std::uint8_t>(random());
-  }
-  bytes[6] = static_cast<std::uint8_t>((bytes[6] & 0x0fU) | 0x40U);
-  bytes[8] = static_cast<std::uint8_t>((bytes[8] & 0x3fU) | 0x80U);
-  return engine::guid::from_bytes(bytes);
-}
+[[nodiscard]] gneiss::engine::guid make_uuid_value() { return engine::guid::generate(); }
 
 engine::scene_mesh_binding binding_for(const engine::component_descriptions& components,
                                        const scene_document_snapshot& snapshot) {
@@ -361,6 +352,16 @@ engine::error scene_document::edit_content(const content_edit& edit,
     if (load)
       prepared->snapshot.assets.insert_or_assign(dependency.uri, load->resource());
   }
+  // 同 URI 的冻结来源由所有实例共享；单实例投影不足以声明整份新来源已同步。
+  const bool changed_shared_source =
+      std::ranges::any_of(prepared->snapshot.prefabs, [&](const auto& entry) {
+        const auto previous = versions_->current().content().prefabs.find(entry.first);
+        return previous != versions_->current().content().prefabs.end() &&
+               previous->second != entry.second &&
+               std::ranges::count_if(description->objects, [&](const auto& object) {
+                 return object.prefab && object.prefab->uri == entry.first;
+               }) > 1;
+      });
   const bool synchronized = versions_->is_synchronized();
   const auto previous_projection = versions_->projection_status();
   status = versions_->accept(versions_->current(), prepared->snapshot, {});
@@ -375,6 +376,8 @@ engine::error scene_document::edit_content(const content_edit& edit,
   } catch (...) {
     projection = engine::error::internal;
   }
+  if (projection.ok() && changed_shared_source)
+    projection = engine::error::not_ready;
   // 增量成功不能掩盖之前的失败；完整 synchronize 才清除未同步状态。
   (void)versions_->report_projection(
       versions_->current(), synchronized || projection.failed() ? projection : previous_projection);
@@ -849,6 +852,7 @@ scene_document::capture_component_override(scene_node_id node, engine::guid type
     for (const auto& item : object->prefab->component_overrides)
       if (item.source_node_uuid == target->source && item.type_guid == type) {
         result.added = item.added;
+        result.component_uuid = item.component_uuid;
         result.removed = !item.added;
       }
     for (const auto& item : object->prefab->overrides)
@@ -878,6 +882,7 @@ scene_document::set_component_override(scene_node_id node, engine::guid type,
     return engine::error::unsupported;
   if (state.added && !*state.added)
     return engine::error::invalid_argument;
+  auto projected = state;
   return edit_content(
       [&](auto& description, auto& snapshot) -> engine::error {
         auto object = std::ranges::find(description.objects, target->object,
@@ -889,9 +894,12 @@ scene_document::set_component_override(scene_node_id node, engine::guid type,
         auto candidate = engine::prepare_prefab_component_override(
             *source, *object->prefab, target->source, type,
             state.added ? *state.added : engine::component_description{}, state.removed,
-            state.properties);
+            state.properties, state.component_uuid);
         if (!candidate)
           return candidate.error();
+        for (const auto& entry : candidate->reference.component_overrides)
+          if (entry.source_node_uuid == target->source && entry.type_guid == type)
+            projected.component_uuid = entry.component_uuid;
         object->prefab = std::move(candidate->reference);
         if (state.resources.mesh)
           snapshot.assets.insert_or_assign(state.resources.mesh->source().uri,
@@ -901,7 +909,9 @@ scene_document::set_component_override(scene_node_id node, engine::guid type,
                                            state.resources.material);
         return engine::error::success;
       },
-      [&] { return application_->scenes()->set_component_override(scene_, node, type, state); });
+      [&] {
+        return application_->scenes()->set_component_override(scene_, node, type, projected);
+      });
 }
 engine::error
 scene_document::add_component_description(scene_node_id node,
@@ -1286,10 +1296,13 @@ engine::error scene_document::edit_component(scene_node_id node, engine::guid ty
     return engine::error::invalid_state;
   if (mode != 1 && !current)
     return engine::error::not_found;
+  engine::guid identity;
   return edit_content(
       [&](auto& description, auto& snapshot) -> engine::error {
         auto object = std::ranges::find(description.objects, target->object,
                                         &engine::object_description::uuid);
+        if (mode == 1)
+          identity = engine::guid::generate();
         if (target->source) {
           auto source =
               engine::restore_prefab_record(snapshot.prefabs.at(object->prefab->uri).content);
@@ -1306,14 +1319,21 @@ engine::error scene_document::edit_component(scene_node_id node, engine::guid ty
                         : engine::prepare_prefab_component_override(
                               *source, *object->prefab, target->source, type,
                               mode == 1 ? value : engine::component_description{},
-                              mode == -1 && local == object->prefab->component_overrides.end(), {});
+                              mode == -1 && local == object->prefab->component_overrides.end(), {},
+                              identity);
           if (!candidate)
             return candidate.error();
           object->prefab = std::move(candidate->reference);
         } else {
           if (mode == -1)
             object->components.erase(type);
-          else
+          else if (mode == 1) {
+            auto entries = object->components.entries();
+            entries.push_back({identity, value});
+            auto status = object->components.replace(std::move(entries));
+            if (status.failed())
+              return status;
+          } else
             object->components.set(value);
           if (value && type == engine::camera_description::type_guid &&
               value->get<engine::camera_description>()->is_primary) {
@@ -1333,7 +1353,7 @@ engine::error scene_document::edit_component(scene_node_id node, engine::guid ty
       },
       [&] {
         if (mode == 1)
-          return application_->scenes()->add_component_description(scene_, node, value);
+          return application_->scenes()->add_component_description(scene_, node, value, identity);
         if (mode == -1)
           return application_->scenes()->remove_component_description(scene_, node, type);
         return application_->scenes()->set_component_description(scene_, node, value);

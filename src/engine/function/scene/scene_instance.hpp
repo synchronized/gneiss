@@ -59,7 +59,8 @@ public:
   [[nodiscard]] error set_component_override(scene_node_id node, guid type,
                                              const prefab_component_state& state) noexcept;
   [[nodiscard]] error add_component_description(scene_node_id node,
-                                                const component_description& value) noexcept;
+                                                const component_description& value,
+                                                guid identity = {}) noexcept;
   [[nodiscard]] error remove_component_description(scene_node_id node, guid type) noexcept;
   /** 替换已有组件；Prefab 同时更新稀疏覆盖，不支持新增或移除。 */
   [[nodiscard]] error set_component_description(scene_node_id node,

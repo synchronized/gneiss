@@ -4,8 +4,10 @@
 #include "engine/core/serialization/value.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/world/component_identity.hpp"
+#include "engine/function/world/world_component_access.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include <cmath>
+#include <map>
 #include <mutex>
 #include <numbers>
 namespace gneiss::engine {
@@ -24,6 +26,18 @@ entity_id entity(world& owner, scene_node_id node) {
   entity_id id;
   (void)owner.node_get_entity(node, id);
   return id;
+}
+// 与实体同寿命的身份元数据，不持有编辑内容或历史。
+struct component_instance_ids {
+  std::map<guid, guid> values;
+};
+component_instance_ids& instance_ids(world& owner, scene_node_id node) {
+  auto state = detail::world_component_access::get(owner);
+  if (!state)
+    throw std::invalid_argument("无效 World");
+  auto id = entity(owner, node).get();
+  auto* identities = (*state)->get<component_instance_ids>(id);
+  return identities ? *identities : (*state)->emplace<component_instance_ids>(id);
 }
 error camera_valid(const camera_description& value) {
   const auto& c = value.settings;
@@ -280,7 +294,8 @@ result<component_description> default_component_description(guid type) noexcept 
 } catch (...) {
   return error::internal;
 }
-error add_component(component_context context, const component_description& value) noexcept try {
+error add_component(component_context context, const component_description& value,
+                    guid identity) noexcept try {
   auto status = valid_target(context);
   if (status.failed())
     return status;
@@ -295,7 +310,19 @@ error add_component(component_context context, const component_description& valu
   if (*current)
     return error::invalid_state;
   status = adapter->validate(value);
-  return status.ok() ? adapter->install(context, value) : status;
+  if (status.failed())
+    return status;
+  auto& ids = instance_ids(context.owner, context.node).values;
+  if (!identity)
+    identity = guid::generate();
+  // 先预留身份存储，安装失败不留下可观察的新组件。
+  auto [entry, inserted] = ids.try_emplace(value->guid(), identity);
+  status = adapter->install(context, value);
+  if (status.ok())
+    entry->second = identity;
+  else if (inserted)
+    ids.erase(entry);
+  return status;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -313,7 +340,10 @@ error remove_component(component_context context, guid type) noexcept try {
     return current.error();
   if (!*current)
     return error::not_found;
-  return adapter->remove(context.owner, context.node);
+  status = adapter->remove(context.owner, context.node);
+  if (status.ok())
+    instance_ids(context.owner, context.node).values.erase(type);
+  return status;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -343,13 +373,23 @@ result<component_descriptions> capture_components(world& owner, scene_node_id no
   if (status.failed())
     return status;
   component_descriptions output;
+  std::vector<component_entry> entries;
+  auto& ids = instance_ids(owner, node).values;
   for (const auto& adapter : adapters()) {
     auto value = adapter.capture(owner, node);
     if (!value)
       return value.error();
-    if (*value)
-      output.set(std::move(**value));
+    if (*value) {
+      auto found = ids.find(adapter.type);
+      if (found == ids.end())
+        found = ids.emplace(adapter.type, guid::generate()).first;
+      entries.push_back({found->second, std::move(**value)});
+    } else
+      ids.erase(adapter.type);
   }
+  status = output.replace(entries);
+  if (status.failed())
+    return status;
   return output;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
@@ -363,8 +403,12 @@ error install_components(component_context context, const component_descriptions
     status = validate_components(values);
   if (status.failed())
     return status;
+  auto& ids = instance_ids(context.owner, context.node).values;
   for (const auto& value : values) {
+    auto [entry, inserted] = ids.try_emplace(value->guid(), values.identity(value->guid()));
     status = find(value->guid())->install(context, value);
+    if (status.failed() && inserted)
+      ids.erase(entry);
     if (status.failed())
       return status;
   }
@@ -388,7 +432,14 @@ error replace_components(component_context context, const component_descriptions
     if (status.failed() && status != error::not_found)
       return status;
   }
-  return install_components(context, values);
+  status = install_components(context, values);
+  if (status.ok()) {
+    auto& ids = instance_ids(context.owner, context.node).values;
+    std::erase_if(ids, [&](const auto& entry) { return !values.find(entry.first); });
+    for (const auto& entry : values.entries())
+      ids.at(entry.description->guid()) = entry.uuid;
+  }
+  return status;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {

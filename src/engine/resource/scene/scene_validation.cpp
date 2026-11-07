@@ -33,6 +33,10 @@ serialization::diagnostic validate_component_override(const prefab_component_ove
     return {.path = "/source_node_uuid",
             .message = "组件覆盖对象不能为空",
             .error = error::invalid_argument};
+  if (!value.component_uuid)
+    return {.path = "/component_uuid",
+            .message = "组件实例身份不能为空",
+            .error = error::invalid_argument};
   if (!value.type_guid)
     return {
         .path = "/type_guid", .message = "组件覆盖类型不能为空", .error = error::invalid_argument};
@@ -59,12 +63,13 @@ validate_prefab_reference_description(const prefab_reference_description& value)
   std::set<std::pair<guid, guid>> components;
   for (std::size_t i = 0; i < value.component_overrides.size(); ++i) {
     const auto& entry = value.component_overrides[i];
-    if (!entry.source_node_uuid || !entry.type_guid ||
+    if (!entry.source_node_uuid || !entry.type_guid || !entry.component_uuid ||
         !components.emplace(entry.source_node_uuid, entry.type_guid).second ||
         (entry.added && (!*entry.added || (*entry.added)->guid() != entry.type_guid)) ||
         std::ranges::any_of(value.overrides, [&](const auto& v) {
           return v.key.target.source_node_uuid == entry.source_node_uuid &&
-                 v.key.target.target_type_guid == entry.type_guid;
+                 v.key.target.target_type_guid == entry.type_guid &&
+                 v.key.target.component_uuid == entry.component_uuid;
         }))
       return {.path = "/component_overrides/" + std::to_string(i),
               .message = "组件覆盖重复或与属性覆盖矛盾",

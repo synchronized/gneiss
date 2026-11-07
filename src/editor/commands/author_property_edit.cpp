@@ -193,6 +193,7 @@ engine::error edit_prefab_component_structure(scene_document& document,
     if (!dependencies->empty())
       return error::unsupported;
     after.added = std::move(*value);
+    after.component_uuid = guid::generate();
   } else if (action == prefab_component_action::remove) {
     if (!component)
       return error::not_found;

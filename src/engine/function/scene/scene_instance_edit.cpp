@@ -25,6 +25,7 @@ result<prefab_component_state> scene_instance::capture_component_override(scene_
       for (const auto& change : prefab->reference_.component_overrides)
         if (change.source_node_uuid == source && change.type_guid == type) {
           state.added = change.added;
+          state.component_uuid = change.component_uuid;
           state.removed = !change.added;
         }
       for (const auto& change : prefab->reference_.overrides)
@@ -58,9 +59,10 @@ error scene_instance::set_component_override(scene_node_id node, guid type,
       if (member.node != node)
         continue;
       const auto source = member.address.source_node_uuid;
-      auto candidate = prepare_prefab_component_override(
-          *prefab->prefab_, prefab->reference_, source, type,
-          state.added ? *state.added : component_description{}, state.removed, state.properties);
+      auto candidate =
+          prepare_prefab_component_override(*prefab->prefab_, prefab->reference_, source, type,
+                                            state.added ? *state.added : component_description{},
+                                            state.removed, state.properties, state.component_uuid);
       if (!candidate)
         return candidate.error();
       const auto& effective = candidate->effective;
@@ -82,7 +84,16 @@ error scene_instance::set_component_override(scene_node_id node, guid type,
               (renderer.material && !loader_.owns(renderer.material)))
             return error::invalid_argument;
         }
-        status = install_components({native_world_, node, renderer, &loader_}, {*value});
+        auto projected = capture_components(native_world_, node);
+        if (!projected)
+          return projected.error();
+        auto entries = projected->entries();
+        std::erase_if(entries,
+                      [&](const auto& entry) { return entry.description->guid() == type; });
+        entries.push_back({target->components.identity(type), *value});
+        status = projected->replace(std::move(entries));
+        if (status.ok())
+          status = replace_components({native_world_, node, renderer, &loader_}, *projected);
       } else {
         auto current = capture_components(native_world_, node);
         if (!current)
@@ -103,7 +114,8 @@ error scene_instance::set_component_override(scene_node_id node, guid type,
   return error::internal;
 }
 error scene_instance::add_component_description(scene_node_id node,
-                                                const component_description& value) noexcept {
+                                                const component_description& value,
+                                                guid identity) noexcept {
   if (!value)
     return error::invalid_argument;
   if (!contains_editable_node(node))
@@ -114,9 +126,10 @@ error scene_instance::add_component_description(scene_node_id node,
       return current.error();
     if (current->find(value->guid()))
       return error::invalid_state;
-    return set_component_override(node, value->guid(), {.added = value});
+    return set_component_override(node, value->guid(),
+                                  {.added = value, .component_uuid = identity});
   }
-  return add_component({native_world_, node, {}, &loader_}, value);
+  return add_component({native_world_, node, {}, &loader_}, value, identity);
 }
 error scene_instance::remove_component_description(scene_node_id node, guid type) noexcept {
   if (!contains_editable_node(node))
@@ -211,11 +224,12 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
       const auto* renderer = source ? source->components.get<mesh_renderer_description>() : nullptr;
       if (!renderer)
         return error::not_found;
-      auto pending =
-          prepare_mesh_renderer_overrides(member.address.source_node_uuid, *renderer,
-                                          {std::string(resource_uri(replacement.mesh)),
-                                           std::string(resource_uri(replacement.material))},
-                                          prefab_reference(index).overrides);
+      auto pending = prepare_mesh_renderer_overrides(
+          member.address.source_node_uuid,
+          source->components.identity(mesh_renderer_description::type_guid), *renderer,
+          {std::string(resource_uri(replacement.mesh)),
+           std::string(resource_uri(replacement.material))},
+          prefab_reference(index).overrides);
       if (!pending)
         return pending.error();
       auto reference = prefab.reference_;

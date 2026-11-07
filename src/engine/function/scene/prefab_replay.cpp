@@ -31,13 +31,14 @@ replay_prefab_reference(const prefab_description& source,
       status = error::invalid_argument;
       diagnostic = location(status, key.first, key.second, {}, "组件结构覆盖重复");
     } else {
-      structural.push_back(key);
       prefab_reference_description single;
       single.component_overrides.push_back(change);
       prefab_description candidate;
       status = prepare_prefab_reference(output.description, single, candidate, &diagnostic);
-      if (status.ok())
+      if (status.ok()) {
         output.description = std::move(candidate);
+        structural.push_back(key);
+      }
     }
     if (fatal(status))
       return status;
@@ -57,6 +58,10 @@ replay_prefab_reference(const prefab_description& source,
                          component_description_type(target.target_type_guid)};
     if (status.ok() && std::ranges::find(structural, key) != structural.end())
       status = error::invalid_argument;
+    if (status.ok() && target.target_type_guid != math::transform::type_guid &&
+        (!target.component_uuid || object->components.identity(component_description_type(
+                                       target.target_type_guid)) != target.component_uuid))
+      status = error::not_found;
     if (status.ok() && object->components.find(target.target_type_guid)) {
       groups[{target.source_node_uuid, target.target_type_guid}].push_back(i);
       continue;
@@ -192,13 +197,17 @@ result<prefab_edit_candidate> prepare_property_edit(const prefab_description& so
     const auto length = std::min(left.size(), right.size());
     return std::equal(left.begin(), left.begin() + length, right.begin());
   };
+  auto object = std::ranges::find(source.objects, source_node, &object_description::uuid);
+  const auto identity =
+      target_type == math::transform::type_guid ? guid{} : object->components.identity(target_type);
   prefab_edit_candidate output{reference, {}};
   auto& pending = output.reference.overrides;
   pending.clear();
   for (std::size_t i = 0; i < reference.overrides.size(); ++i) {
     const auto& old = reference.overrides[i];
     if (old.key.target.source_node_uuid != source_node ||
-        component_description_type(old.key.target.target_type_guid) != target_type) {
+        component_description_type(old.key.target.target_type_guid) != target_type ||
+        old.key.target.component_uuid != identity) {
       pending.push_back(old);
       continue;
     }
@@ -210,8 +219,8 @@ result<prefab_edit_candidate> prepare_property_edit(const prefab_description& so
     if (conflict && !changed)
       pending.push_back(old);
   }
-  status = collect_component_overrides(original, replacement,
-                                       {.target = {source_node, target_type}, .path = {}}, pending);
+  status = collect_component_overrides(
+      original, replacement, {.target = {source_node, target_type, identity}, .path = {}}, pending);
   if (status.failed())
     return status;
   auto replayed = replay_prefab_reference(source, output.reference);
@@ -288,7 +297,7 @@ prepare_prefab_component_edit(const prefab_description& source,
 result<prefab_edit_candidate> prepare_prefab_component_override(
     const prefab_description& source, const prefab_reference_description& reference,
     guid source_node, guid type, const component_description& added, bool removed,
-    std::span<const prefab_property_override> properties) noexcept try {
+    std::span<const prefab_property_override> properties, guid component_uuid) noexcept try {
   if (!source_node || !type || (added && removed) || ((added || removed) && !properties.empty()) ||
       (added && added->guid() != type))
     return error::invalid_argument;
@@ -304,9 +313,19 @@ result<prefab_edit_candidate> prepare_prefab_component_override(
     return value.key.target.source_node_uuid == source_node &&
            component_description_type(value.key.target.target_type_guid) == type;
   });
-  if (added || removed)
+  if (added || removed) {
+    auto object = std::ranges::find(source.objects, source_node, &object_description::uuid);
+    guid identity = component_uuid ? component_uuid
+                    : removed      ? object->components.identity(type)
+                                   : guid::generate();
+    auto prior = std::ranges::find_if(reference.component_overrides, [&](const auto& item) {
+      return item.source_node_uuid == source_node && item.type_guid == type && item.added;
+    });
+    if (added && !component_uuid && prior != reference.component_overrides.end())
+      identity = prior->component_uuid;
     pending.component_overrides.push_back(
-        {source_node, type, added ? std::optional{added} : std::nullopt});
+        {source_node, type, added ? std::optional{added} : std::nullopt, identity});
+  }
   for (const auto& value : properties) {
     if (value.key.target.source_node_uuid != source_node ||
         component_description_type(value.key.target.target_type_guid) != type)

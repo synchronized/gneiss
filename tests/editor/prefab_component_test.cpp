@@ -7,6 +7,7 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
+#include "engine/function/scene/prefab_replay.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
@@ -26,8 +27,8 @@ int main() try {
   constexpr auto root_id = e::guid::from_bytes({87, 2});
   constexpr auto child_id = e::guid::from_bytes({87, 3});
   {
-    e::prefab_component_override added{root_id, type,
-                                       e::make_component_description(movement_description{4})};
+    e::prefab_component_override added{
+        root_id, type, e::make_component_description(movement_description{4}), e::guid::generate()};
     auto text = gneiss::engine::serialization::json::serialize(added);
     check(bool(text) && text->find("\"added\":{") != std::string::npos);
     auto decoded =
@@ -65,7 +66,7 @@ int main() try {
   e::prefab_description effective;
   e::scene_diagnostic diagnostic;
   reference.component_overrides.push_back(
-      {root_id, type, e::make_component_description(movement_description{4})});
+      {root_id, type, e::make_component_description(movement_description{4}), e::guid::generate()});
   check(e::prepare_prefab_reference(*source, reference, effective, &diagnostic).ok());
   check(effective.objects[0].components.get<movement_description>()->speed == 4);
   auto collision = *source;
@@ -76,25 +77,38 @@ int main() try {
         diagnostic.path.find(type.string()) != std::string::npos);
   check(effective.objects[0].components.get<movement_description>()->speed == 4);
   reference.component_overrides.clear();
-  reference.component_overrides.push_back({child_id, type, {}});
+  reference.component_overrides.push_back({child_id, type, {}, child.components.identity(type)});
   check(e::prepare_prefab_reference(*source, reference, effective).ok() &&
         effective.objects[1].components.empty());
+  // 同类型重建是新组件，旧移除覆盖必须冲突，不能删除重建后的组件。
+  auto recreated = *source;
+  recreated.objects[1].components.erase(type);
+  recreated.objects[1].components.set(movement_description{9});
+  check(recreated.objects[1].components.identity(type) != child.components.identity(type));
+  auto stale_removal = e::replay_prefab_reference(recreated, reference);
+  check(stale_removal && stale_removal->conflicts.size() == 1 &&
+        stale_removal->description.objects[1].components.get<movement_description>()->speed == 9);
   auto deleted = *source;
   deleted.objects[1].components.erase(type);
-  check(e::prepare_prefab_reference(deleted, reference, effective).ok());
+  check(e::prepare_prefab_reference(deleted, reference, effective) == e::error::not_found);
   check(e::prepare_prefab_reference(*source, reference, effective).ok() &&
         effective.objects[1].components.empty());
   deleted.objects.pop_back();
   check(e::prepare_prefab_reference(deleted, reference, effective, &diagnostic) ==
         e::error::not_found);
   reference.overrides.push_back(
-      {.key = {.target = {.source_node_uuid = child_id, .target_type_guid = type},
+      {.key = {.target = {.source_node_uuid = child_id,
+                          .target_type_guid = type,
+                          .component_uuid = child.components.identity(type)},
                .path = {e::meta::property_id{1}}},
        .operation = e::value{6.0F}});
   check(e::prepare_prefab_reference(*source, reference, effective) == e::error::invalid_argument);
   reference.component_overrides.clear();
   check(e::prepare_prefab_reference(*source, reference, effective).ok());
   check(effective.objects[1].components.get<movement_description>()->speed == 6);
+  auto stale_property = e::replay_prefab_reference(recreated, reference);
+  check(stale_property && stale_property->conflicts.size() == 1 &&
+        stale_property->description.objects[1].components.get<movement_description>()->speed == 9);
   deleted = *source;
   deleted.objects[1].components.erase(type);
   check(e::prepare_prefab_reference(deleted, reference, effective, &diagnostic) ==
@@ -218,7 +232,10 @@ int main() try {
   check(decoded->objects[0].prefab->component_overrides.size() == 2);
   auto contradictory = saved;
   contradictory.objects[0].prefab->overrides.push_back(
-      {.key = {.target = {.source_node_uuid = root_id, .target_type_guid = type},
+      {.key = {.target = {.source_node_uuid = root_id,
+                          .target_type_guid = type,
+                          .component_uuid =
+                              saved.objects[0].prefab->component_overrides.front().component_uuid},
                .path = {e::meta::property_id{1}}},
        .operation = e::value{2.0F}});
   check(!gneiss::engine::asset_file::serialize_bytes(contradictory));

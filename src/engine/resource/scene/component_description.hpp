@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <functional>
 #include <initializer_list>
+#include <iterator>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
@@ -34,7 +35,15 @@ template <class T>
 component_description make_component_description(T value) {
   return make_ref<const T>(std::move(value));
 }
-/** 每个描述类型至多一项；set 替换整项，复制列表后修改不会影响原列表。 */
+/** 组件的领域身份与多态描述；类型身份由 description 提供，实例身份独立保存。 */
+struct component_entry final {
+  static constexpr std::string_view type_name = "component_entry";
+  static constexpr engine::guid type_guid =
+      engine::guid::literal("ae8b9952-d74e-4195-9324-eb5b24380e4f");
+  engine::guid uuid;
+  component_description description;
+};
+/** 每个描述类型至多一项；替换保留实例身份，删除后新增生成新身份。 */
 class component_descriptions final {
 public:
   component_descriptions() = default;
@@ -42,12 +51,22 @@ public:
     for (const auto& value : values) {
       if (!value || find(value->guid()))
         throw std::invalid_argument("重复组件描述类型");
-      values_.push_back(value);
+      set(value);
     }
   }
   [[nodiscard]] const component_description* find(guid type) const noexcept {
-    auto found = std::ranges::find(values_, type, [](const auto& v) { return v->guid(); });
-    return found == values_.end() ? nullptr : &*found;
+    auto found =
+        std::ranges::find(values_, type, [](const auto& v) { return v.description->guid(); });
+    return found == values_.end() ? nullptr : &found->description;
+  }
+  [[nodiscard]] guid identity(guid type) const noexcept {
+    auto found =
+        std::ranges::find(values_, type, [](const auto& v) { return v.description->guid(); });
+    return found == values_.end() ? guid{} : found->uuid;
+  }
+  [[nodiscard]] const component_description* find_instance(guid uuid) const noexcept {
+    auto found = std::ranges::find(values_, uuid, &component_entry::uuid);
+    return found == values_.end() ? nullptr : &found->description;
   }
   template <class T> [[nodiscard]] const T* get() const noexcept {
     const auto* value = find(type_identity<T>::guid());
@@ -61,11 +80,12 @@ public:
   void set(component_description value) {
     if (!value)
       throw std::invalid_argument("组件描述不能为空");
-    auto found = std::ranges::find(values_, value->guid(), [](const auto& v) { return v->guid(); });
+    auto found = std::ranges::find(values_, value->guid(),
+                                   [](const auto& v) { return v.description->guid(); });
     if (found == values_.end())
-      values_.push_back(std::move(value));
+      values_.push_back({guid::generate(), std::move(value)});
     else
-      *found = std::move(value);
+      found->description = std::move(value);
   }
   /** 在独立候选上编辑并校验；失败不改变集合或原引用，不支持的捕获不回退到浅拷贝。 */
   template <class T, class F> [[nodiscard]] error update(F&& edit) noexcept try {
@@ -101,20 +121,19 @@ public:
     return error::internal;
   }
   void erase(guid type) {
-    std::erase_if(values_, [type](const auto& v) { return v->guid() == type; });
+    std::erase_if(values_, [type](const auto& v) { return v.description->guid() == type; });
   }
-  template <class T> void erase() {
-    std::erase_if(values_, [](const auto& v) { return v->guid() == type_identity<T>::guid(); });
-  }
+  template <class T> void erase() { erase(type_identity<T>::guid()); }
   /** 只读借用；替换、增删后须重新获取借用。 */
-  const std::vector<component_description>& values() const noexcept { return values_; }
-  /** 校验完整候选后替换，失败保持原列表。 */
-  error replace(const std::vector<component_description>& values) noexcept try {
+  const std::vector<component_entry>& entries() const noexcept { return values_; }
+  /** 文件与版本恢复使用显式身份；拒绝 nil、重复 UUID 和重复类型。 */
+  error replace(const std::vector<component_entry>& values) noexcept try {
     for (std::size_t i = 0; i < values.size(); ++i) {
-      if (!values[i])
+      if (!values[i].uuid || !values[i].description)
         return error::invalid_argument;
       for (std::size_t j = 0; j < i; ++j)
-        if (values[j]->guid() == values[i]->guid())
+        if (values[j].uuid == values[i].uuid ||
+            values[j].description->guid() == values[i].description->guid())
           return error::invalid_argument;
     }
     auto candidate = values;
@@ -127,21 +146,49 @@ public:
   }
   [[nodiscard]] bool empty() const noexcept { return values_.empty(); }
   [[nodiscard]] std::size_t size() const noexcept { return values_.size(); }
-  auto begin() const noexcept { return values_.begin(); }
-  auto end() const noexcept { return values_.end(); }
+  /** 算法只读遍历描述；需要实例身份时访问 entries/identity。 */
+  class const_iterator {
+    std::vector<component_entry>::const_iterator iterator_;
+
+  public:
+    using value_type = component_description;
+    using difference_type = std::ptrdiff_t;
+    using iterator_category = std::forward_iterator_tag;
+    const_iterator() = default;
+    explicit const_iterator(std::vector<component_entry>::const_iterator iterator)
+        : iterator_(iterator) {}
+    const component_description& operator*() const { return iterator_->description; }
+    const component_description* operator->() const { return &iterator_->description; }
+    const_iterator& operator++() {
+      ++iterator_;
+      return *this;
+    }
+    const_iterator operator++(int) {
+      auto old = *this;
+      ++*this;
+      return old;
+    }
+    bool operator==(const const_iterator&) const = default;
+  };
+  auto begin() const noexcept { return const_iterator{values_.begin()}; }
+  auto end() const noexcept { return const_iterator{values_.end()}; }
 
 private:
-  std::vector<component_description> values_;
+  std::vector<component_entry> values_;
 };
 }
 namespace gneiss::engine::meta {
+template <> struct sequence_identity_traits<component_descriptions> {
+  static constexpr bool enabled = true;
+  static guid identity(const component_entry& entry) noexcept { return entry.uuid; }
+};
 /** 只读序列访问；解码整组校验后替换，禁止绕过集合约束修改元素。 */
 template <> struct sequence_traits<component_descriptions> {
   static constexpr bool enabled = true;
-  using element = component_description;
+  using element = component_entry;
   static std::size_t size(const component_descriptions& value) { return value.size(); }
   static const element* at(const component_descriptions& value, std::size_t index) {
-    return &value.values()[index];
+    return &value.entries()[index];
   }
   static error replace(component_descriptions& target, const std::vector<element>& values) {
     return target.replace(values);

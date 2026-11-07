@@ -39,6 +39,8 @@ bool prefab_property_override_key_less(const prefab_property_override_key& left,
     return left.target.source_node_uuid < right.target.source_node_uuid;
   if (left.target.target_type_guid != right.target.target_type_guid)
     return left.target.target_type_guid < right.target.target_type_guid;
+  if (left.target.component_uuid != right.target.component_uuid)
+    return left.target.component_uuid < right.target.component_uuid;
   return std::lexicographical_compare(left.path.begin(), left.path.end(), right.path.begin(),
                                       right.path.end(), meta::property_step_less);
 }

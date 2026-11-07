@@ -59,7 +59,7 @@ constexpr std::string_view apply_prefab_json = R"({
 })";
 
 constexpr std::string_view apply_scene_json =
-    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"name":"First","parent":null,"prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d"},"path":[{"$kind":"property","$content":1}]},"operation":{"$kind":"set","$content":{"content":{"$kind":"vec3","$content":[7,8,9]}}}}]},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"uuid":"30000000-0000-4000-8000-000000000001"},{"name":"Second","parent":null,"prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d"},"path":[{"$kind":"property","$content":3}]},"operation":{"$kind":"set","$content":{"content":{"$kind":"vec3","$content":[3,3,3]}}}}]},"transform":{"translation":[4,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"uuid":"30000000-0000-4000-8000-000000000002"}],"unknown_scene":9})";
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"name":"First","parent":null,"prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d","component_uuid":null},"path":[{"$kind":"property","$content":1}]},"operation":{"$kind":"set","$content":{"content":{"$kind":"vec3","$content":[7,8,9]}}}}]},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"uuid":"30000000-0000-4000-8000-000000000001"},{"name":"Second","parent":null,"prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d","component_uuid":null},"path":[{"$kind":"property","$content":3}]},"operation":{"$kind":"set","$content":{"content":{"$kind":"vec3","$content":[3,3,3]}}}}]},"transform":{"translation":[4,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"uuid":"30000000-0000-4000-8000-000000000002"}],"unknown_scene":9})";
 
 struct document_deleter final {
   void operator()(yyjson_doc* document) const noexcept { yyjson_doc_free(document); }
@@ -302,14 +302,15 @@ int main() try {
   auto structural = std::string(apply_scene_json);
   structural.insert(
       structural.find(R"("overrides":)"),
-      R"("component_overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","added":null}],)");
+      R"("component_overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","component_uuid":"6a746699-221a-4cd7-bf27-0677027616ad","added":null}],)");
+  // 来源组件身份已经不存在；应用/解包不得悄悄丢弃这个冲突。
   if (gneiss::editor::prepare_apply_prefab(structural, apply_prefab_json, apply_request, apply_plan)
-          .failed() ||
-      apply_plan.changes.size() != 2 ||
+          .ok() ||
+      !apply_plan.changes.empty() ||
       gneiss::editor::prepare_unpack_prefab(structural, apply_prefab_json, unpack_request,
                                             unpack_changes)
-          .failed() ||
-      unpack_changes.size() != 1)
+          .ok() ||
+      !unpack_changes.empty())
     return 30;
   if (gneiss::editor::prepare_unpack_prefab(apply_scene_json, apply_prefab_json, unpack_request,
                                             unpack_changes) != gneiss::engine::error::success ||

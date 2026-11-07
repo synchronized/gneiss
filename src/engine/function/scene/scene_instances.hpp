@@ -35,6 +35,7 @@ struct prefab_component_state {
   bool removed = false;
   std::vector<prefab_property_override> properties{};
   scene_mesh_binding resources{};
+  guid component_uuid{};
 };
 class scene_instance;
 /** 捕获的实例化输入与资源强引用；不读取文件。 */
@@ -166,8 +167,10 @@ public:
   set_component_override(scene_instance_id instance, scene_node_id node, guid type,
                          const prefab_component_state& state) noexcept;
   /** 普通对象修改 ECS；Prefab 节点写结构覆盖。资源必须已经准备。 */
-  [[nodiscard]] GNEISS_API error add_component_description(
-      scene_instance_id instance, scene_node_id node, const component_description& value) noexcept;
+  [[nodiscard]] GNEISS_API error add_component_description(scene_instance_id instance,
+                                                           scene_node_id node,
+                                                           const component_description& value,
+                                                           guid identity = {}) noexcept;
   [[nodiscard]] GNEISS_API error remove_component_description(scene_instance_id instance,
                                                               scene_node_id node,
                                                               guid type) noexcept;
