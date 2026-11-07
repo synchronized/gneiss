@@ -48,3 +48,17 @@ prefab_structural_reload、editor.component-edit、editor.component-lifecycle、
 editor.prefab-component、editor.prefab-author-operations。实际重载覆盖目标消失后重现、
 新增组件冲突、无效 URI 不进入依赖加载、稳定列表缺失锚点及独立编辑。
 未运行 GPU 大场景或远端 CI。组件 UUID、嵌套 Prefab、文档权威根与历史仍未完成。
+
+
+## 不可变编辑快照
+
+场景文档和子树快照改为保存结构化 value，Prefab 源内容一并冻结。恢复从内存内容创建独立描述，
+不通过源资产指针或 URI 推测历史版本。组件属性、添加/移除和 Prefab 组件结构历史不再直接保留
+可变描述别名；已有覆盖操作继续共享不可变内容，外部资源仍由所属历史强持有。
+
+有类型的 capture_value/restore_value 与视图接口共用实现。修复多态引用恢复的基类地址转换，
+通过注册继承链调整地址并保留拥有者，避免把实际类型 ID 错当成引用声明类型。
+
+验证：Windows Clang Debug 默认目标编译通过；16 项定向测试通过，包含序列化、多态恢复、组件生命周期、
+Prefab 冲突刷新、场景保存及文档/子树撤销。未运行 GPU 大场景或远端 CI。
+文档权威根、组件实例 UUID、嵌套 Prefab 与增量 World 投影尚未完成，仍按 PLAN-104 推进。

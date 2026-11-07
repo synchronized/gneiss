@@ -130,7 +130,9 @@ record 按属性 ID 保存，map 按键比较，二者比较不依赖输入顺�
 `serialization/value.hpp` 提供 `capture_value(context, instance)` 和
 `apply_value(context, mutable_instance, value)`，直接在反射对象和内存数据之间转换，不经过 JSON。
 支持对象、容器、optional、具名 variant 与内嵌多态引用。捕获拒绝循环引用，恢复可部分修改目标，
-业务应在候选描述上恢复和校验后提交。捕获失败返回 diagnostic，恢复返回 diagnostic；
+业务应在候选描述上恢复和校验后提交。有类型入口 `capture_value(context, object)` 与
+`restore_value<T>(context, value)` 共用同一实现，后者创建独立候选，失败不返回部分对象。
+多态引用按实际类型构造，再通过注册继承链转换到声明基类并共享其拥有者。捕获失败返回 diagnostic，恢复返回 diagnostic；
 path 使用属性 ID、序列位置和映射键定位失败节点。资产引用通过注册的 capture_reference 保存身份，恢复由上下文解析，
 不复制纹理、网格和材质内容。当前映射反射只支持字符串键；数据树可表达其他允许的稳定标量键。
 

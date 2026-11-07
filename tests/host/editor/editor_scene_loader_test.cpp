@@ -121,7 +121,9 @@ void run(gneiss::engine::execution_mode mode) {
   auto captured = editor::capture_scene_document(*app, session);
   check(bool(captured));
   auto before = std::move(*captured);
-  auto changed_description = before.description.description;
+  auto restored_description = before.description();
+  check(restored_description.has_value());
+  auto changed_description = std::move(*restored_description);
   const auto original_name = changed_description.objects.front().name;
   changed_description.objects.front().name = "Snapshot edit";
   std::string replacement;
@@ -156,7 +158,7 @@ void run(gneiss::engine::execution_mode mode) {
   auto unresolved = editor::prepare_scene_document(before, std::span(&missing, 1));
   check(unresolved && unresolved->missing.size() == 2);
   check(session.scene_handle() == stable_scene &&
-        after.description.description.objects.front().name == "Snapshot edit");
+        after.description()->objects.front().name == "Snapshot edit");
   // 无效场景的原生查询拒绝，不影响活动场景。
   check(gneiss::engine::error{gneiss::test_support::take_value(
             app->scenes()->get_node_count(gneiss::scene_instance_id{}), count)} ==

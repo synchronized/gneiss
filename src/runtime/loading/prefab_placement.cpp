@@ -3,7 +3,8 @@
 #include "runtime/loading/prefab_placement.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/prefab_property_override.hpp"
+#include "engine/core/serialization/value.hpp"
+#include "engine/function/scene/prefab_replay.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/structural_diff.hpp"
 #include "engine/function/world/world.hpp"
@@ -51,38 +52,29 @@ gneiss::engine::error prefab_placement::freeze(
   auto author = std::move(source.author);
   if (!source.source || !author.prefab)
     return engine::error::invalid_argument;
-  // 快照冻结只确定资源引用；完整覆盖校验留在各实例应用阶段，保留逐实例刷新语义。
-  auto effective = *source.source;
-  for (auto& object : effective.objects) {
-    const auto* original = object.components.get<engine::mesh_renderer_description>();
-    if (!original)
-      continue;
-    auto renderer = *original;
-    for (const auto& override : author.prefab->overrides) {
-      if (override.key.target.source_node_uuid != object.uuid ||
-          override.key.target.target_type_guid != engine::mesh_renderer_description::type_guid)
-        continue;
-      auto root = engine::meta::mutable_instance::from(renderer);
-      if (!root)
-        return root.error();
-      auto target = engine::meta::resolve_path(*root, override.key.path, true);
-      if (!target)
-        return target.error();
-      const auto status = engine::apply_prefab_override_operation(*target, override.operation);
-      if (status.failed())
-        return status;
-    }
-    object.components.set(std::move(renderer));
-  }
+  // 来源冲突与实例化使用同一回放规则，资源取自成功应用后的有效描述。
+  auto replayed = engine::replay_prefab_reference(*source.source, *author.prefab);
+  if (!replayed)
+    return replayed.error();
+  const auto& effective = replayed->description;
   auto status = engine::error::success;
   value->root_uuid = author.uuid;
   value->parent_uuid = author.parent_uuid;
   author.parent_uuid = {};
-  value->description.objects.push_back(std::move(author));
+  engine::scene_description description;
+  description.uuid = author.uuid;
+  description.objects.push_back(std::move(author));
+  auto content = engine::serialization::capture_value(description);
+  if (!content)
+    return content.error().error;
+  value->content = std::move(*content);
   auto& binding = value->resources[value->root_uuid];
-  binding.prefab = std::move(source.source);
+  auto frozen_source = engine::serialization::capture_value(*source.source);
+  if (!frozen_source)
+    return frozen_source.error().error;
+  binding.prefab_content = std::move(*frozen_source);
   binding.source_asset = std::move(source.source_asset);
-  binding.source_nodes.resize(binding.prefab->objects.size());
+  binding.source_nodes.resize(source.source->objects.size());
   const auto find = [&](std::string_view uri, engine::render_resource_kind type,
                         engine::render_resource_ref& result) {
     const auto entry = std::ranges::find_if(assets, [&](const auto& asset) {
@@ -129,6 +121,9 @@ gneiss::engine::error prefab_placement::apply(application& app, scene_instance_i
   output = {};
   if (!app.is_owner_thread() || !app.accepts_requests() || !app.scenes())
     return error::invalid_state;
+  auto description = snapshot.description();
+  if (!description)
+    return description.error();
   if (removing) {
     if (replacing)
       return error::invalid_argument;
@@ -138,28 +133,33 @@ gneiss::engine::error prefab_placement::apply(application& app, scene_instance_i
     auto captured = app.scenes()->capture_subtree(scene, *root);
     if (!captured)
       return captured.error();
-    const auto& current = *captured;
+    auto current = captured->description();
+    if (!current)
+      return current.error();
     // 历史之外新增的对象不在快照中，不能随旧命令静默删除。
-    if (current.description.objects.size() != snapshot.description.objects.size())
+    if (current->objects.size() != description->objects.size())
       return error::invalid_state;
-    for (const auto& object : current.description.objects)
-      if (std::ranges::find(snapshot.description.objects, object.uuid, &object_description::uuid) ==
-          snapshot.description.objects.end())
+    for (const auto& object : current->objects)
+      if (std::ranges::find(description->objects, object.uuid, &object_description::uuid) ==
+          description->objects.end())
         return error::invalid_state;
     return app.scenes()->destroy_subtree(scene, *root);
   }
   if (replacing) {
-    const auto root = std::ranges::find(snapshot.description.objects, snapshot.root_uuid,
-                                        &object_description::uuid);
+    const auto root =
+        std::ranges::find(description->objects, snapshot.root_uuid, &object_description::uuid);
     const auto resources = snapshot.resources.find(snapshot.root_uuid);
-    if (root == snapshot.description.objects.end() || resources == snapshot.resources.end())
+    if (root == description->objects.end() || resources == snapshot.resources.end())
       return error::invalid_argument;
     auto author = *root;
     if (!snapshot.parent_uuid.is_nil())
       author.parent_uuid = snapshot.parent_uuid;
-    auto scene_result = app.scenes()->instantiate_prefab_ready(
-        scene, author, resources->second.prefab, resources->second.source_nodes, true,
-        resources->second.source_asset);
+    auto source = resources->second.prefab_source();
+    if (!source)
+      return source.error();
+    auto scene_result = app.scenes()->instantiate_prefab_ready(scene, author, *source,
+                                                               resources->second.source_nodes, true,
+                                                               resources->second.source_asset);
     if (!scene_result)
       return scene_result.error();
     output = std::move(*scene_result);

@@ -150,8 +150,8 @@ int main() try {
     return 20;
   gneiss::editor::scene_subtree_snapshot snapshot;
   if (session.destroy_subtree(created_node, snapshot) != gneiss::engine::error::success ||
-      snapshot.description.objects.size() != 1U ||
-      snapshot.description.objects.front().name != "Live snapshot" ||
+      snapshot.description()->objects.size() != 1U ||
+      snapshot.description()->objects.front().name != "Live snapshot" ||
       session.find_node(created_uuid).ok() ||
       gneiss::test_support::scene_query(session).nodes.size() != 4U ||
       session.restore_subtree(snapshot, created_node) != gneiss::engine::error::success ||

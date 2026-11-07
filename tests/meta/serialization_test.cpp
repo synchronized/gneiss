@@ -100,6 +100,11 @@ int main() {
           .error.failed() ||
       restored_data != original)
     return 62;
+  auto typed_copy =
+      e::serialization::restore_value<captured_data>(e::serialization::context{*core}, *captured);
+  auto typed_capture = e::serialization::capture_value(e::serialization::context{*core}, original);
+  if (!typed_copy || *typed_copy != original || !typed_capture || *typed_capture != *captured)
+    return 69;
   if (e::serialization::capture_value(e::serialization::context{*core, 1}, *capture_input_view))
     return 63;
   auto bad_record = std::get<e::record_value>(captured->payload).get();
@@ -117,6 +122,16 @@ int main() {
   cycle->next.reset();
   if (cycle_copy || cycle_copy.error().error != e::error::invalid_argument)
     return 64;
+  // 经基类引用捕获实际类型，恢复时保留拥有者并调整基类地址。
+  e::ref<e::meta::object> base = cycle;
+  auto base_snapshot = e::serialization::capture_value(e::serialization::context{*core}, base);
+  if (!base_snapshot)
+    return 70;
+  auto base_copy = e::serialization::restore_value<e::ref<e::meta::object>>(
+      e::serialization::context{*core}, *base_snapshot);
+  if (!base_copy || !*base_copy || base_copy->get() == base.get() ||
+      (*base_copy)->dynamic_type() != e::runtime_type_of<cyclic_data>())
+    return 71;
   const std::vector<e::value_edit> edits{
       {{}, e::set_value_operation{e::value{std::int64_t{7}}}},
       {{e::meta::property_id{3}},

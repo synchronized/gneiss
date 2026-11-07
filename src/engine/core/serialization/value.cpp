@@ -9,6 +9,7 @@
 #include "engine/core/meta/sequence_view.hpp"
 #include "engine/core/meta/variant_view.hpp"
 #include "engine/core/serialization/detail/context_access.hpp"
+#include "engine/core/serialization/detail/traversal.hpp"
 #include <algorithm>
 #include <unordered_set>
 namespace gneiss::engine::serialization {
@@ -365,6 +366,12 @@ struct restore_state {
       auto ops = find_object_ops(registry, type->id());
       if (!ops || !ops->construct)
         return error::unsupported;
+      auto element = target.type().element_type();
+      if (!element)
+        return element.error();
+      auto compatible = detail::cast_base(registry, type->id(), element->id(), nullptr);
+      if (!compatible)
+        return compatible.error().error;
       auto owner = ops->construct();
       if (!owner)
         return error::out_of_memory;
@@ -374,7 +381,10 @@ struct restore_state {
       auto status = write(*child, data, depth + 1);
       if (status.failed())
         return status;
-      return reference_access::assign(target, type->id(), owner);
+      auto adjusted = detail::cast_base(registry, type->id(), element->id(), owner.get());
+      if (!adjusted)
+        return adjusted.error().error;
+      return reference_access::assign(target, element->id(), owner.alias(*adjusted));
     }
     default:
       return error::unsupported;

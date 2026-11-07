@@ -8,6 +8,9 @@
 namespace gneiss::engine::serialization::detail {
 using meta::registry_ref;
 
+result<void*, serialization::diagnostic> cast_base(const registry_ref&, type_id actual,
+                                                   type_id declared, void* pointer);
+
 result<writer::node, serialization::diagnostic>
 encode_view(const context&, const registry_ref&, const meta::instance&, writer*, std::size_t);
 result<writer::node, serialization::diagnostic>

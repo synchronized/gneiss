@@ -7,10 +7,19 @@
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 namespace gneiss::editor {
-/** 作者历史持有的内存描述和资源引用；不保存节点地址，不读取文件。 */
+/** 历史冻结来源内容；资产强引用仅负责保活，不用于重新获取当前修订。 */
+struct prefab_document_snapshot {
+  engine::value content;
+  engine::ref<const engine::prefab> source_asset;
+  bool operator==(const prefab_document_snapshot& other) const { return content == other.content; }
+};
+/** 作者历史持有不可变值树和资源引用；不保存节点地址，不读取文件。 */
 struct scene_document_snapshot {
   std::string uri;
-  engine::scene_instantiation_data description;
+  engine::value content;
+  std::map<std::string, prefab_document_snapshot> prefabs;
+  engine::ref<const engine::scene> source_asset;
+  [[nodiscard]] engine::result<engine::scene_description> description() const noexcept;
   engine::scene_instances::resource_bindings assets;
 };
 [[nodiscard]] engine::result<scene_document_snapshot>
@@ -48,7 +57,7 @@ private:
   scene_instance_id scene_{};
   runtime::application* application_{};
   scene_document* document_{};
-  std::string baseline_, label_;
+  std::string label_;
   std::function<void(bool)> selection_;
   engine::error status_{engine::error::invalid_state};
 };

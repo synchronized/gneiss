@@ -5,6 +5,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/serialization/value.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -127,7 +128,10 @@ int main() try {
                                          persistent_snapshot)
           .failed())
     return 32;
-  for (const auto& object : persistent_snapshot.description.objects)
+  auto persistent_description = persistent_snapshot.description();
+  if (!persistent_description)
+    return 32;
+  for (const auto& object : persistent_description->objects)
     if (object.uuid == temporary_uuid)
       return 33;
   // 持久化对象若被底层直接挂到临时父对象，保存应拒绝悬空引用且不改输出。
@@ -249,7 +253,7 @@ int main() try {
   if (gneiss::test_support::assign_value(
           application->scenes()->capture_subtree(scene, generic_node), subtree_snapshot) !=
           gneiss::engine::error::success ||
-      subtree_snapshot.description.objects.empty() ||
+      subtree_snapshot.description()->objects.empty() ||
       application->scenes()->destroy_subtree(scene, generic_node) !=
           gneiss::engine::error::success) {
     return 15;
@@ -285,10 +289,17 @@ int main() try {
     return 16;
   }
   auto missing_asset_snapshot = subtree_snapshot;
-  for (auto& object : missing_asset_snapshot.description.objects)
+  auto missing_description = missing_asset_snapshot.description();
+  if (!missing_description)
+    return 26;
+  for (auto& object : missing_description->objects)
     if (object.components.template get<gneiss::engine::mesh_renderer_description>())
       object.components.update<gneiss::engine::mesh_renderer_description>(
           [&](auto& value) { value.mesh_uri = missing_mesh_uri; });
+  auto frozen_missing = gneiss::engine::serialization::capture_value(*missing_description);
+  if (!frozen_missing)
+    return 26;
+  missing_asset_snapshot.content = std::move(*frozen_missing);
   if (gneiss::test_support::take_value(
           application->scenes()->restore_subtree(scene, missing_asset_snapshot, camera_node,
                                                  std::span{mappings}.first(2U)),

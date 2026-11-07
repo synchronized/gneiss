@@ -12,4 +12,47 @@ GNEISS_API result<engine::value, diagnostic> capture_value(const meta::instance&
 GNEISS_API diagnostic apply_value(const context&, const meta::mutable_instance&,
                                   const engine::value&) noexcept;
 GNEISS_API diagnostic apply_value(const meta::mutable_instance&, const engine::value&) noexcept;
+
+/** 有类型的捕获入口；与视图入口共享相同 ops 和引用策略。 */
+template <class T>
+  requires(!std::same_as<std::remove_cvref_t<T>, meta::instance> &&
+           !std::same_as<std::remove_cvref_t<T>, meta::mutable_instance>)
+result<engine::value, diagnostic> capture_value(const context& context, const T& source) noexcept {
+  auto registry = context.registry();
+  if (!registry)
+    return diagnostic{.error = registry.error()};
+  auto view = meta::instance::from(*registry, source);
+  if (!view)
+    return diagnostic{.error = view.error()};
+  return capture_value(context, *view);
+}
+template <class T>
+  requires(!std::same_as<std::remove_cvref_t<T>, meta::instance> &&
+           !std::same_as<std::remove_cvref_t<T>, meta::mutable_instance>)
+result<engine::value, diagnostic> capture_value(const T& source) noexcept {
+  return capture_value(context{}, source);
+}
+/** 创建独立候选后恢复；失败不会暴露部分初始化对象。 */
+template <class T>
+result<T, diagnostic> restore_value(const context& context, const engine::value& source) noexcept
+    try {
+  auto registry = context.registry();
+  if (!registry)
+    return diagnostic{.error = registry.error()};
+  T candidate{};
+  auto view = meta::mutable_instance::from(*registry, candidate);
+  if (!view)
+    return diagnostic{.error = view.error()};
+  auto status = apply_value(context, *view, source);
+  if (status.error.failed())
+    return status;
+  return candidate;
+} catch (const std::bad_alloc&) {
+  return diagnostic{.error = error::out_of_memory};
+} catch (...) {
+  return diagnostic{.error = error::internal};
+}
+template <class T> result<T, diagnostic> restore_value(const engine::value& source) noexcept {
+  return restore_value<T>(context{}, source);
+}
 }

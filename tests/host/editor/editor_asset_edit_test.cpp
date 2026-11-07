@@ -416,8 +416,10 @@ void prefab_edits(engine::execution_mode mode) {
   edit.dismiss();
   std::shared_ptr<e::scene_subtree_snapshot> captured;
   check(runtime::prefab_placement::capture(*app, uuid(5), document.scene_handle(), captured).ok());
-  const auto captured_author = captured->description.objects.front();
-  const auto captured_source = captured->resources.at(uuid(5)).prefab;
+  const auto captured_author = captured->description()->objects.front();
+  auto source_snapshot = captured->resources.at(uuid(5)).prefab_source();
+  check(source_snapshot.has_value());
+  const auto captured_source = *source_snapshot;
   check(captured_source->objects[1].components.get<e::mesh_renderer_description>()->material_uri ==
         "asset://a.json");
   // 来源刷新快照必须持有覆盖资源，撤销/重做不依赖文件或弱缓存。
@@ -439,7 +441,8 @@ void prefab_edits(engine::execution_mode mode) {
   check(bool(reloaded) && (*reloaded)->snapshot() != captured_source);
   check(frozen_source.source_asset == *reloaded);
   check(runtime::prefab_placement::freeze(*app, frozen_source, {}, frozen).ok());
-  check(frozen->resources.at(uuid(5)).prefab == captured_source);
+  check(frozen->resources.at(uuid(5)).prefab_content ==
+        captured->resources.at(uuid(5)).prefab_content);
   check(frozen->resources.at(uuid(5)).source_asset == frozen_source.source_asset);
   check(frozen->resources.at(uuid(5)).source_nodes[1].material == changed.material);
   scene_node_id replaced;

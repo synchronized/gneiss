@@ -191,7 +191,7 @@ void run_refresh(gneiss::engine::execution_mode mode) {
       << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,0,0,1]},"texture_uris":["","","","",""]})";
-  // 第二个实例覆盖失效：第一个替换保留，第二个旧实例删除，镜像反映部分结果。
+  // 来源删除被覆盖节点：两个实例均更新，失效覆盖保留为冲突，不删除整个实例。
   const gneiss::engine::guid removed_uuid =
       *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000003");
   const auto second_node = session.find_prefab_source(second_uuid, removed_uuid)->node;
@@ -209,19 +209,20 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   check(edit.request_refresh(*app, scheduler, session, history, first_root) ==
         gneiss::engine::error::success);
   drive();
-  check(edit.operation() == gneiss::engine::error::not_found && history.size() == 0U);
+  check(edit.operation().ok() && history.size() == 1U);
   check(session.find_prefab_root(first_uuid)->node != first_root);
-  check(bool(session.find_prefab_root(second_uuid).failed()));
+  check(bool(session.find_prefab_root(second_uuid)));
   check(bool(session.find_prefab_source(first_uuid, removed_uuid).failed()));
-  check(gneiss::test_support::scene_query(session).prefab_nodes.size() == 149U &&
+  check(gneiss::test_support::scene_query(session).prefab_nodes.size() == 298U &&
         session.is_dirty());
   std::uint64_t count{};
   check(gneiss::test_support::assign_value(app->native_world()->entity_count(), count).ok() &&
-        count == 149U);
+        count == 298U);
   gneiss::engine::math::transform invalidated;
   check(app->native_world()->node_get_local_transform(second_node, invalidated) ==
         gneiss::engine::error::invalid_handle);
-  // 部分失败后仍能再次编辑，并对后续成功操作执行撤销。
+  // 冲突不妨碍后续编辑；撤销刷新恢复当时的源内容。
+  history.clear();
   check(edit.request_refresh(*app, scheduler, session, history,
                              session.find_prefab_root(first_uuid)->node)
             .ok());
@@ -229,7 +230,7 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   check(edit.operation().ok() && history.size() == 1U);
   check(history.undo() == gneiss::engine::error::not_ready);
   drive_history();
-  check(gneiss::test_support::scene_query(session).prefab_nodes.size() == 149U);
+  check(gneiss::test_support::scene_query(session).prefab_nodes.size() == 298U);
   history.clear();
   check(edit.request_refresh(*app, scheduler, session, history,
                              session.find_prefab_root(first_uuid)->node) ==
@@ -523,7 +524,9 @@ void run_mixed_subtree() {
   check(document.set_local_transform(source->node, modified).ok());
   editor::scene_subtree_snapshot snapshot;
   check(document.destroy_subtree(parent, snapshot).ok());
-  check(snapshot.description.objects.size() == 4U && snapshot.resources.size() == 2U);
+  auto original_description = snapshot.description();
+  check(original_description.has_value());
+  check(original_description->objects.size() == 4U && snapshot.resources.size() == 2U);
   std::ofstream(files.root / "prefab.json") << "broken";
   std::ofstream(files.root / "mesh.json") << "broken";
   std::ofstream(files.root / "material.json") << "broken";
@@ -546,13 +549,15 @@ void run_mixed_subtree() {
   check(gneiss::test_support::assign_value(
             app->scenes()->capture_subtree(document.scene_handle(), copy), copied)
             .ok());
-  check(copied.description.objects.size() == 4U && copied.resources.size() == 2U);
-  const auto copied_first = std::ranges::find(copied.description.objects, std::string("First"),
+  auto copied_description = copied.description();
+  check(copied_description.has_value());
+  check(copied_description->objects.size() == 4U && copied.resources.size() == 2U);
+  const auto copied_first = std::ranges::find(copied_description->objects, std::string("First"),
                                               &engine::object_description::name);
-  const auto copied_child = std::ranges::find(copied.description.objects, std::string("Own child"),
+  const auto copied_child = std::ranges::find(copied_description->objects, std::string("Own child"),
                                               &engine::object_description::name);
-  check(copied_first != copied.description.objects.end() &&
-        copied_child != copied.description.objects.end());
+  check(copied_first != copied_description->objects.end() &&
+        copied_child != copied_description->objects.end());
   check(copied_child->parent_uuid == copied_first->uuid);
   const auto copied_source = document.find_prefab_source(copied_first->uuid, source_uuid);
   check(copied_source && copied_source->local_transform.translation[0] == 31);
@@ -561,10 +566,10 @@ void run_mixed_subtree() {
   check(document.set_local_transform(copied_source->node, independent).ok());
   check(document.find_prefab_source(first_uuid, source_uuid)->local_transform.translation[0] == 31);
 
-  for (const auto& object : copied.description.objects)
-    check(std::ranges::find(snapshot.description.objects, object.uuid,
+  for (const auto& object : copied_description->objects)
+    check(std::ranges::find(original_description->objects, object.uuid,
                             &engine::object_description::uuid) ==
-          snapshot.description.objects.end());
+          original_description->objects.end());
   check(*app->native_world()->entity_count() == 604U);
   check(document.restore_subtree(snapshot, parent) == engine::error::invalid_argument);
   check(*app->native_world()->entity_count() == 604U);

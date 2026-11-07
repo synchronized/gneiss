@@ -2,22 +2,73 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/scene_document_snapshot.hpp"
 #include "engine/core/meta/registry.hpp"
-#include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/value.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
 namespace gneiss::editor {
+namespace {
+engine::result<scene_document_snapshot> freeze(std::string uri,
+                                               const engine::scene_instantiation_data& source) {
+  scene_document_snapshot snapshot;
+  snapshot.uri = std::move(uri);
+  auto content = engine::serialization::capture_value(source.description);
+  if (!content)
+    return content.error().error;
+  snapshot.content = std::move(*content);
+  snapshot.source_asset = source.source_asset;
+  for (const auto& [path, prefab] : source.prefabs) {
+    if (!prefab.resource)
+      return engine::error::invalid_argument;
+    auto content = engine::serialization::capture_value(*prefab.resource);
+    if (!content)
+      return content.error().error;
+    snapshot.prefabs.emplace(path,
+                             prefab_document_snapshot{std::move(*content), prefab.source_asset});
+  }
+  return snapshot;
+}
+engine::result<engine::scene_preparation_inputs>
+inputs_from(const scene_document_snapshot& snapshot) {
+  auto description = snapshot.description();
+  if (!description)
+    return description.error();
+  engine::scene_preparation_inputs inputs;
+  inputs.scene = engine::make_ref<const engine::scene_description>(std::move(*description));
+  inputs.source_asset = snapshot.source_asset;
+  for (const auto& [uri, prefab] : snapshot.prefabs) {
+    auto description =
+        engine::serialization::restore_value<engine::prefab_description>(prefab.content);
+    if (!description)
+      return description.error().error;
+    inputs.prefabs.emplace(
+        uri, engine::make_ref<const engine::prefab_description>(std::move(*description)));
+    inputs.prefab_assets.emplace(uri, prefab.source_asset);
+  }
+  return inputs;
+}
+}
+engine::result<engine::scene_description> scene_document_snapshot::description() const noexcept
+    try {
+  auto restored = engine::serialization::restore_value<engine::scene_description>(content);
+  if (!restored)
+    return restored.error().error;
+  return std::move(*restored);
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
 engine::result<scene_document_snapshot>
 capture_scene_document(runtime::application& app, const scene_document& document) noexcept try {
   if (!document.is_open() || !app.is_owner_thread() || !app.accepts_requests())
     return engine::error::invalid_state;
-  scene_document_snapshot next;
-  next.uri = document.uri();
-  auto status_value = app.scenes()->capture_prepared(document.scene_handle());
-  if (!status_value)
-    return status_value.error();
-  next.description = std::move(status_value->description);
-  next.assets = std::move(status_value->assets);
-
+  auto captured = app.scenes()->capture_prepared(document.scene_handle());
+  if (!captured)
+    return captured.error();
+  auto next = freeze(std::string(document.uri()), captured->description);
+  if (!next)
+    return next.error();
+  next->assets = std::move(captured->assets);
   return next;
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
@@ -29,14 +80,11 @@ engine::result<prepared_scene_document>
 prepare_scene_document(const scene_document_snapshot& before,
                        std::span<const author_document_change> changes) noexcept try {
   std::vector<engine::render_resource_source> pending;
-  engine::ref<const engine::scene_description> scene =
-      engine::make_ref<const engine::scene_description>(before.description.description);
-  engine::scene_preparation_inputs inputs;
-  inputs.source_asset = before.description.source_asset;
-  for (const auto& [uri, prefab] : before.description.prefabs) {
-    inputs.prefabs.emplace(uri, prefab.resource);
-    inputs.prefab_assets.emplace(uri, prefab.source_asset);
-  }
+  auto restored = inputs_from(before);
+  if (!restored)
+    return restored.error();
+  auto inputs = std::move(*restored);
+  auto scene = inputs.scene;
   engine::scene_diagnostic diagnostic;
   for (const auto& change : changes) {
     const auto uri = "asset://" + change.path;
@@ -62,20 +110,22 @@ prepare_scene_document(const scene_document_snapshot& before,
     }
   }
   inputs.scene = std::move(scene);
-  scene_document_snapshot next;
-  next.uri = before.uri;
-  auto status = engine::prepare_loaded_scene(inputs, {}, next.description, diagnostic, {});
+  engine::scene_instantiation_data prepared;
+  auto status = engine::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {});
   if (status.failed())
     return status;
-  for (const auto& asset : next.description.assets) {
+  auto next = freeze(before.uri, prepared);
+  if (!next)
+    return next.error();
+  for (const auto& asset : prepared.assets) {
     const auto found = before.assets.find(asset.uri);
     if (found == before.assets.end() || engine::resource_kind(found->second) != asset.type) {
       pending.push_back(asset);
       continue;
     }
-    next.assets.emplace(asset.uri, found->second);
+    next->assets.emplace(asset.uri, found->second);
   }
-  return prepared_scene_document{std::move(next), std::move(pending)};
+  return prepared_scene_document{std::move(*next), std::move(pending)};
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
 } catch (...) {
@@ -88,7 +138,15 @@ engine::error restore_scene_document(runtime::application& app, scene_document& 
       document.uri() != snapshot.uri)
     return engine::error::invalid_state;
   scene_instance_id instance;
-  auto status_value = app.scenes()->instantiate_prepared(snapshot.description, snapshot.assets);
+  auto inputs = inputs_from(snapshot);
+  if (!inputs)
+    return inputs.error();
+  engine::scene_instantiation_data prepared;
+  engine::scene_diagnostic diagnostic;
+  auto prepared_status = engine::prepare_loaded_scene(*inputs, {}, prepared, diagnostic, {});
+  if (prepared_status.failed())
+    return prepared_status;
+  auto status_value = app.scenes()->instantiate_prepared(std::move(prepared), snapshot.assets);
   if (!status_value)
     return status_value.error();
   instance = std::move(*status_value);
@@ -109,7 +167,6 @@ engine::error scene_document_edit::finish(engine::error status) noexcept {
   before_.reset();
   after_.reset();
   selection_ = {};
-  baseline_.clear();
   return status_ = status;
 }
 void scene_document_edit::cancel() noexcept {
@@ -133,11 +190,6 @@ engine::error scene_document_edit::begin(runtime::application& app, scene_docume
     return finish(prepared.error());
   after_ = std::make_shared<scene_document_snapshot>(std::move(prepared->snapshot));
   scene_ = document.scene_handle();
-  auto serialize_result = app.scenes()->serialize(scene_);
-  if (!serialize_result)
-    return finish(serialize_result.error());
-
-  baseline_ = std::move(*serialize_result);
 
   application_ = &app;
   if (!prepared->missing.empty()) {
@@ -181,12 +233,11 @@ engine::error scene_document_edit::advance(runtime::application& app, scene_docu
     for (auto& asset : completed->assets)
       after_->assets.insert_or_assign(std::string(engine::resource_uri(asset)), std::move(asset));
   }
-  // 只在依赖全部就绪后比较当前内容；等待期间不重复编码整场景。
-  // 直接 World/ECS 修改未统一进入修订通知，因此不能只比较编辑器修订号。
-  auto current = app.scenes()->serialize(scene_);
+  // 比较持久化值树，不通过 JSON 编码判断等待期间的修改。
+  auto current = capture_scene_document(app, document);
   if (!current)
     return finish(current.error());
-  if (*current != baseline_)
+  if (current->content != before_->content || current->prefabs != before_->prefabs)
     return finish(error::invalid_state);
   auto status = error{error::success};
   const auto apply = [&app, &document, selection = selection_](

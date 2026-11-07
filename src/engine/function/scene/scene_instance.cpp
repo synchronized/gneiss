@@ -4,6 +4,7 @@
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/value.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_types.hpp"
@@ -599,6 +600,24 @@ engine::error scene_instance::reparent_node(scene_node_id node, scene_node_id pa
   return native_world_.node_reparent(node, parent);
 }
 
+result<prefab_asset_ref> scene_object_resources::prefab_source() const noexcept try {
+  auto restored = serialization::restore_value<prefab_description>(prefab_content);
+  if (!restored)
+    return restored.error().error;
+  return make_ref<const prefab_description>(std::move(*restored));
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+
+result<scene_description> scene_subtree_snapshot::description() const noexcept {
+  auto restored = serialization::restore_value<scene_description>(content);
+  if (!restored)
+    return restored.error().error;
+  return std::move(*restored);
+}
+
 result<scene_subtree_snapshot> scene_instance::capture_subtree(scene_node_id root) const {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
@@ -610,26 +629,25 @@ result<scene_subtree_snapshot> scene_instance::capture_subtree(scene_node_id roo
   auto description = capture_description();
   if (!description)
     return description.error();
-  snapshot.description = std::move(*description);
   snapshot.root_uuid = scene_object_identity(native_world_, root).uuid;
-  const auto root_description = std::ranges::find(snapshot.description.objects, snapshot.root_uuid,
-                                                  &object_description::uuid);
-  if (root_description == snapshot.description.objects.end())
+  const auto root_description =
+      std::ranges::find(description->objects, snapshot.root_uuid, &object_description::uuid);
+  if (root_description == description->objects.end())
     return error::invalid_state;
   snapshot.parent_uuid = root_description->parent_uuid;
   std::unordered_set<guid, guid_hash> included{snapshot.root_uuid};
   bool changed = true;
   while (changed) {
     changed = false;
-    for (const auto& object : snapshot.description.objects)
+    for (const auto& object : description->objects)
       if (object.parent_uuid && included.contains(object.parent_uuid))
         changed |= included.emplace(object.uuid).second;
   }
   if (included.size() > scene_subtree_max_nodes)
     return error::unsupported;
-  std::erase_if(snapshot.description.objects,
+  std::erase_if(description->objects,
                 [&](const auto& value) { return !included.contains(value.uuid); });
-  for (auto& author : snapshot.description.objects) {
+  for (auto& author : description->objects) {
     if (author.uuid == snapshot.root_uuid)
       author.parent_uuid = {};
     if (author.prefab) {
@@ -639,7 +657,10 @@ result<scene_subtree_snapshot> scene_instance::capture_subtree(scene_node_id roo
       });
       if (binding == prefab_instances_.end())
         return error::invalid_state;
-      resources.prefab = (*binding)->prefab_lease();
+      auto source = serialization::capture_value(*(*binding)->prefab_lease());
+      if (!source)
+        return source.error().error;
+      resources.prefab_content = std::move(*source);
       resources.source_asset = (*binding)->source_asset();
       resources.source_nodes.resize((*binding)->node_count());
       for (std::size_t i = 0; i < resources.source_nodes.size(); ++i) {
@@ -655,6 +676,10 @@ result<scene_subtree_snapshot> scene_instance::capture_subtree(scene_node_id roo
       snapshot.resources[author.uuid].renderer = {renderer->mesh, renderer->material};
     }
   }
+  auto content = serialization::capture_value(*description);
+  if (!content)
+    return content.error().error;
+  snapshot.content = std::move(*content);
   return snapshot;
 }
 
@@ -665,7 +690,10 @@ result<scene_node_id> scene_instance::restore_subtree(const scene_subtree_snapsh
     return error::invalid_state;
   if (parent && find_authored_node(parent) == objects_.end())
     return error::invalid_handle;
-  auto subtree = snapshot.description;
+  auto description = snapshot.description();
+  if (!description)
+    return description.error();
+  auto subtree = std::move(*description);
   if (subtree.objects.empty() || subtree.objects.size() > scene_subtree_max_nodes)
     return error::invalid_argument;
   structural_diff order;
@@ -716,11 +744,13 @@ result<scene_node_id> scene_instance::restore_subtree(const scene_subtree_snapsh
     const auto node_parent =
         author.parent_uuid ? staged.find_node(author.parent_uuid) : scene_node_id{};
     if (author.prefab) {
-      if (asset == snapshot.resources.end() || !asset->second.prefab)
+      if (asset == snapshot.resources.end())
         return error::not_found;
-      auto created =
-          staged.instantiate_prefab_ready(author, asset->second.prefab, asset->second.source_nodes,
-                                          false, asset->second.source_asset);
+      auto source = asset->second.prefab_source();
+      if (!source)
+        return source.error();
+      auto created = staged.instantiate_prefab_ready(author, *source, asset->second.source_nodes,
+                                                     false, asset->second.source_asset);
       if (!created)
         return created.error();
       status = error::success;

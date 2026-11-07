@@ -208,9 +208,20 @@ struct editor_prefab_edit::state {
     if (after.size() < before.size()) {
       std::shared_ptr<const scene_subtree_snapshot> snapshot;
       auto refreshed = source;
-      refreshed.author =
-          *std::ranges::find(before[after.size()]->description.objects,
-                             before[after.size()]->root_uuid, &engine::object_description::uuid);
+      auto description = before[after.size()]->description();
+      if (!description) {
+        status = description.error();
+        finish();
+        return;
+      }
+      auto author = std::ranges::find(description->objects, before[after.size()]->root_uuid,
+                                      &engine::object_description::uuid);
+      if (author == description->objects.end()) {
+        status = engine::error::invalid_argument;
+        finish();
+        return;
+      }
+      refreshed.author = *author;
       status = prefab_placement::freeze(application, std::move(refreshed), assets, snapshot);
       if (status.failed()) {
         finish();

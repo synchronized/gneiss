@@ -456,13 +456,16 @@ engine::error scene_document::duplicate_subtree(scene_node_id node, scene_node_i
   if (!snapshot_result)
     return snapshot_result.error();
   snapshot = std::move(*snapshot_result);
+  auto description = snapshot.description();
+  if (!description)
+    return description.error();
   std::vector<engine::guid> targets;
-  targets.reserve(snapshot.description.objects.size());
-  for (std::size_t i = 0; i < snapshot.description.objects.size(); ++i)
+  targets.reserve(description->objects.size());
+  for (std::size_t i = 0; i < description->objects.size(); ++i)
     targets.push_back(make_uuid_value());
   std::vector<engine::uuid_mapping> mappings;
   for (std::size_t i = 0; i < targets.size(); ++i)
-    mappings.push_back({snapshot.description.objects[i].uuid, targets[i]});
+    mappings.push_back({description->objects[i].uuid, targets[i]});
   auto output_result = with_scene(
       [&](auto& service) { return service.restore_subtree(scene_, snapshot, parent, mappings); });
   output = {};
