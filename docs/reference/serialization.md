@@ -116,3 +116,33 @@ JSON 与通用 reader 的返回值模板共用 `detail::decode_typed`：Meta 非
 Mesh JSON 使用 `mesh_description` 注册字段，由 `asset_file` 处理 `gneiss.mesh` 版本 3 格式头；
 字段反射读取后校验三角形列表、数组数量对应和法线归一化，再转换为 `mesh_data`。
 独立二进制 Mesh 编解码保持专用布局。
+
+## 结构化属性值
+
+`core/value.hpp` 的 record、sequence、map、optional、variant 分支共享只读节点，构造时复制输入，
+不暴露可写内容地址。修改需构造替换节点；旧值保持不变。资产身份保存类型 GUID 与 URI，
+文档对象身份保存 document/object GUID；二者都不持有运行时对象。运行时 object 分支仍共享对象，
+不能直接进入持久化文档；`validate_persistent_value` 检查嵌套引用、重复字段/键、非法键和深度。
+
+结构化分支通过 Meta 属性注册和通用 variant 遍历编码，使用 `$kind/$content`。
+record 按属性 ID 保存，map 按键比较，二者比较不依赖输入顺序；sequence 的顺序参与比较。
+
+`serialization/value.hpp` 提供 `capture_value(context, instance)` 和
+`apply_value(context, mutable_instance, value)`，直接在反射对象和内存数据之间转换，不经过 JSON。
+支持对象、容器、optional、具名 variant 与内嵌多态引用。捕获拒绝循环引用，恢复可部分修改目标，
+业务应在候选描述上恢复和校验后提交。资产引用通过注册的 capture_reference 保存身份，恢复由上下文解析，
+不复制纹理、网格和材质内容。当前映射反射只支持字符串键；数据树可表达其他允许的稳定标量键。
+
+Prefab 属性覆盖已直接保存 value；原 property_snapshot JSON 中转已删除。容器结构修改仍整体覆盖，
+稳定身份操作与不可变文档历史的后续迁移见 [PLAN-104](../plans/PLAN-104-value-document-prefab-overrides.md)。
+
+### 值树编辑
+
+`apply_value_edits(root, edits)` 在候选根应用 set、insert、erase、move、put_entry、erase_entry；
+失败返回操作索引和错误，不修改原根。`replay_value_edits` 保留冲突索引，继续应用后续操作。
+这两个入口只校验持久化值结构，领域类型、层级和依赖约束由调用层在采用候选前校验。
+
+序列值保存 fixed/keyed 能力和领域提供的 identities。固定序列允许索引路径；可变有身份序列
+只允许 GUID 路径，增删移动也通过 GUID 指定元素和前置锚点。nil 锚点表示末尾，缺失锚点返回
+not_found，已不存在元素的删除成功。普通可变列表只支持整体替换，不猜测元素身份。
+`diff_values` 为记录、固定序列、稳定身份序列及映射生成编辑；其他变化整体 set。

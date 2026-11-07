@@ -8,6 +8,14 @@
 #include "engine/resource/asset_uri.hpp"
 namespace gneiss::engine::detail {
 template <class T>
+result<asset_reference_value> capture_asset_reference(guid type, const void* pointer) {
+  const auto& uri = static_cast<const T*>(pointer)->source().uri;
+  if (validate_uri(uri).failed())
+    return error::invalid_argument;
+  return asset_reference_value{type, uri};
+}
+
+template <class T>
 result<void*, serialization::diagnostic> encode_asset_reference(const serialization::context&,
                                                                 serialization::writer& out,
                                                                 const void* pointer) {

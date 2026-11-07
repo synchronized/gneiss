@@ -78,7 +78,7 @@ constexpr std::string_view valid_scene =
     R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,1,2],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"settings": {"fov": 1.0, "near": 0.1, "far": 100},"is_primary":true}}]},{"uuid":"00000000-0000-4000-8000-000000000003","parent":"00000000-0000-4000-8000-000000000002","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material"}}]}],"unknown":true})";
 
 constexpr std::string_view prefab_scene =
-    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"name":"Lamp","parent":"00000000-0000-4000-8000-000000000002","prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d"},"path":[{"$kind":"property","$content":1}]},"value":{"$kind":"value","$content":{"$kind":"vec3","$content":[4,5,6]}}}]},"transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[2,2,2]},"unknown":true,"uuid":"00000000-0000-4000-8000-000000000010"}]})";
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"name":"Lamp","parent":"00000000-0000-4000-8000-000000000002","prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d"},"path":[{"$kind":"property","$content":1}]},"value":{"$kind":"vec3","$content":[4,5,6]}}]},"transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[2,2,2]},"unknown":true,"uuid":"00000000-0000-4000-8000-000000000010"}]})";
 
 [[nodiscard]] std::string replace_once(std::string text, std::string_view source,
                                        std::string_view replacement) {
@@ -147,11 +147,10 @@ bool save_validation_contract() {
           [](auto& reference) { reference.overrides[0].key.target.target_type_guid = {}; }) ||
       !rejects_override([](auto& reference) { reference.overrides[0].key.path.front() = {}; }) ||
       !rejects_override([](auto& reference) {
-        std::get<gneiss::engine::value>(reference.overrides[0].value).payload =
-            std::numeric_limits<double>::quiet_NaN();
+        reference.overrides[0].value.payload = std::numeric_limits<double>::quiet_NaN();
       }) ||
       !rejects_override([](auto& reference) {
-        std::get<gneiss::engine::value>(reference.overrides[0].value).payload = std::monostate{};
+        reference.overrides[0].value.payload = e::ref<e::meta::object>{};
       }))
     return false;
   for (const e::value& vector :
@@ -162,8 +161,7 @@ bool save_validation_contract() {
     if (!encoded)
       return false;
     auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(*encoded);
-    if (!decoded ||
-        decoded->objects[1].prefab->overrides[0].value != e::prefab_override_value{vector})
+    if (!decoded || decoded->objects[1].prefab->overrides[0].value != vector)
       return false;
   }
   if (!rejects_override([](auto& reference) {
@@ -430,8 +428,7 @@ int main() try {
           scene, diagnostic) != gneiss::engine::error::success ||
       scene.objects.size() != 2U || scene.objects[1].prefab->overrides.size() != 1U ||
       std::get<gneiss::engine::math::vector3>(
-          std::get<gneiss::engine::value>(scene.objects[1].prefab->overrides[0].value)
-              .payload)[0] != 4.0F ||
+          scene.objects[1].prefab->overrides[0].value.payload)[0] != 4.0F ||
       gneiss::test_support::assign_value(gneiss::engine::asset_file::serialize(scene),
                                          serialized) != gneiss::engine::error::success ||
       serialized.find(R"("$kind":"vec3")") == std::string::npos ||
@@ -555,7 +552,7 @@ int main() try {
 
   const auto duplicate_override = replace_once(
       std::string(prefab_scene), R"("overrides":[{)",
-      R"("overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d"},"path":[{"$kind":"property","$content":1}]},"value":{"$kind":"value","$content":{"$kind":"vec3","$content":[7,8,9]}}},{)");
+      R"("overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d"},"path":[{"$kind":"property","$content":1}]},"value":{"$kind":"vec3","$content":[7,8,9]}},{)");
   const auto bad_type =
       replace_once(std::string(prefab_scene), "69644f20-b2d2-4e48-8c74-91f4f952ec2d",
                    "69644F20-b2d2-4e48-8c74-91f4f952ec2d");
@@ -572,7 +569,7 @@ int main() try {
       !fails_with(bad_type, gneiss::engine::error::invalid_argument,
                   "/objects/1/prefab/overrides/0/key/target/target_type_guid") ||
       !fails_with(bad_value, gneiss::engine::error::invalid_argument,
-                  "/objects/1/prefab/overrides/0/value/$content/$content")) {
+                  "/objects/1/prefab/overrides/0/value/$content")) {
     return 4;
   }
 
@@ -609,7 +606,7 @@ int main() try {
       return 5;
     if (value.find("quaternion") != std::string_view::npos) {
       const auto& q = std::get<gneiss::engine::math::quaternion>(
-          std::get<gneiss::engine::value>(roundtrip.objects[1].prefab->overrides[0].value).payload);
+          roundtrip.objects[1].prefab->overrides[0].value.payload);
       if (q.x != 0.1F || q.y != 0.2F || q.z != 0.3F || q.w != 0.9F)
         return 5;
     }

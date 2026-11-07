@@ -130,9 +130,9 @@ int main() try {
     edited.samples = {4, 5, 6};
     check(document.set_component_description(node, e::make_component_description(edited)).ok());
     auto changes = document.capture_component_override(node, type);
-    check(
-        changes && changes->properties.size() == 1 && changes->properties[0].key.path.size() == 1 &&
-        std::holds_alternative<e::serialization::property_snapshot>(changes->properties[0].value));
+    check(changes && changes->properties.size() == 1 &&
+          changes->properties[0].key.path.size() == 1 &&
+          changes->properties[0].value.kind() == e::value_kind::sequence);
     edited.samples.clear();
     check(document.components(node)->get<movement_description>()->samples.size() == 3);
     check(

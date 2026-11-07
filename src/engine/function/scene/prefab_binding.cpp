@@ -300,8 +300,7 @@ prefab_binding::apply_overrides(std::span<const prefab_property_override> overri
     if (found->node == root_node_ &&
         override_value.key.target.target_type_guid == transform_component_type)
       return error::invalid_argument;
-    if (override_value.key.path.size() > 1 ||
-        std::holds_alternative<serialization::property_snapshot>(override_value.value)) {
+    if (override_value.key.path.size() > 1 || !is_scalar_value_kind(override_value.value.kind())) {
       auto captured = capture_components(native_world_, found->node);
       if (!captured)
         return captured.error();
@@ -329,11 +328,10 @@ prefab_binding::apply_overrides(std::span<const prefab_property_override> overri
             ? engine::write_component_property(
                   native_world_, scene_object_entity(native_world_, found->node),
                   override_value.key.target.target_type_guid, override_value.key.first_property(),
-                  std::get<engine::value>(override_value.value))
+                  override_value.value)
             : edit_runtime_component({native_world_, found->node, {}, &loader_},
                                      override_value.key.target.target_type_guid,
-                                     override_value.key.first_property(),
-                                     std::get<engine::value>(override_value.value));
+                                     override_value.key.first_property(), override_value.value);
     if (result != engine::error::success) {
       return result;
     }

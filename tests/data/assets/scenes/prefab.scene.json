@@ -47,15 +47,12 @@
               ]
             },
             "value": {
-              "$kind": "value",
-              "$content": {
-                "$kind": "vec3",
-                "$content": [
-                  3,
-                  0,
-                  0
-                ]
-              }
+              "$kind": "vec3",
+              "$content": [
+                3,
+                0,
+                0
+              ]
             }
           }
         ]

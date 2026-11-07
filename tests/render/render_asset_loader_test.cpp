@@ -8,6 +8,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/value.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/asset/asset_reference_context.hpp"
@@ -492,6 +493,18 @@ bool verify_reference_serialization(gneiss::engine::asset_manager& assets) {
     return false;
   if (references.requests().size() != 1 || references.dependencies()[0].path != "/0" ||
       references.dependencies()[1].path != "/2")
+    return false;
+  auto source_view = meta::instance::from((*values)[0]);
+  if (!source_view)
+    return false;
+  auto captured = serialization::capture_value(ctx, *source_view);
+  if (!captured || captured->kind() != value_kind::asset_reference ||
+      std::get<asset_reference_value>(captured->payload).uri != "asset://not-present.texture.json")
+    return false;
+  ref<const gneiss::engine::texture> restored_texture;
+  auto destination = meta::mutable_instance::from(restored_texture);
+  if (!destination || serialization::apply_value(ctx, *destination, *captured).failed() ||
+      restored_texture != (*values)[0])
     return false;
   auto saved = serialization::json::serialize(ctx, *values);
   if (!saved || *saved != source)

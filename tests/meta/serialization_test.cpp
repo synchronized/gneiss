@@ -4,12 +4,15 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/serialization/serialization.hpp"
+#include "engine/core/serialization/value.hpp"
+#include "engine/core/value_edit.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/asset_decoder.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include <array>
 #include <limits>
+#include <map>
 #include <optional>
 #include <stdexcept>
 namespace e = gneiss::engine;
@@ -48,13 +51,83 @@ decode_move_only(const e::serialization::context&, e::serialization::reader& inp
     return std::move(decoded).error();
   return move_only{static_cast<int>(std::get<std::int64_t>(decoded->payload))};
 }
+struct captured_data {
+  static constexpr std::string_view type_name = "captured_data";
+  static constexpr e::guid type_guid = e::guid::literal("05db59e0-b757-40d8-b719-295b8f961e08");
+  std::vector<std::optional<int>> values;
+  std::map<std::string, std::vector<int>> groups;
+  bool operator==(const captured_data&) const = default;
+};
+struct cyclic_data : e::meta::object_type<cyclic_data> {
+  static constexpr std::string_view type_name = "cyclic_data";
+  static constexpr e::guid type_guid = e::guid::literal("7ee666e2-3216-43a0-80ca-c6110da175fd");
+  e::ref<cyclic_data> next;
+};
 int main() {
   // Meta 独立注册表即可读写 value，不依赖 World 或资源注册。
   auto core = e::meta::create_registry();
   if (!core || e::meta::register_builtin_types(*core).failed() ||
       e::meta::register_builtin_types(*core) != e::error::invalid_argument ||
+      e::meta::type_builder<cyclic_data>{*core}
+          .base<e::meta::object>()
+          .property<&cyclic_data::next>(e::meta::property_id{1}, "next")
+          .serialization()
+          .commit()
+          .failed() ||
+      e::meta::type_builder<captured_data>{*core}
+          .property<&captured_data::values>(e::meta::property_id{1}, "values")
+          .property<&captured_data::groups>(e::meta::property_id{2}, "groups")
+          .serialization()
+          .commit()
+          .failed() ||
       e::meta::freeze(*core).failed())
     return 30;
+  captured_data capture_input{{1, std::nullopt, 3}, {{"one", {1, 2}}, {"empty", {}}}};
+  auto capture_input_view = e::meta::instance::from(*core, capture_input);
+  if (!capture_input_view)
+    return 60;
+  auto captured =
+      e::serialization::capture_value(e::serialization::context{*core}, *capture_input_view);
+  if (!captured)
+    return 61;
+  const auto original = capture_input;
+  capture_input.values[0] = 100;
+  capture_input.groups.clear();
+  captured_data restored_data;
+  auto target = e::meta::mutable_instance::from(*core, restored_data);
+  if (!target ||
+      e::serialization::apply_value(e::serialization::context{*core}, *target, *captured)
+          .failed() ||
+      restored_data != original)
+    return 62;
+  if (e::serialization::capture_value(e::serialization::context{*core, 1}, *capture_input_view))
+    return 63;
+  auto cycle = e::make_ref<cyclic_data>();
+  cycle->next = cycle;
+  auto cycle_view = e::meta::instance::from(*core, cycle);
+  auto cycle_copy = e::serialization::capture_value(e::serialization::context{*core}, *cycle_view);
+  cycle->next.reset();
+  if (cycle_copy || cycle_copy.error() != e::error::invalid_argument)
+    return 64;
+  const std::vector<e::value_edit> edits{
+      {{}, e::set_value_operation{e::value{std::int64_t{7}}}},
+      {{e::meta::property_id{3}},
+       e::insert_value_operation{cyclic_data::type_guid, {}, e::value{true}}},
+      {{}, e::erase_value_operation{cyclic_data::type_guid}},
+      {{}, e::move_value_operation{cyclic_data::type_guid, captured_data::type_guid}},
+      {{}, e::put_value_operation{e::value{std::string{"x"}}, *captured}},
+      {{}, e::erase_key_operation{e::value{std::string{"y"}}}}};
+  auto saved_edits = e::serialization::json::serialize(e::serialization::context{*core}, edits);
+  if (!saved_edits)
+    return 65;
+  auto restored_edits = e::serialization::json::deserialize<std::vector<e::value_edit>>(
+      e::serialization::context{*core}, std::string_view{*saved_edits});
+  if (!restored_edits || restored_edits->size() != edits.size())
+    return 66;
+  auto resaved_edits =
+      e::serialization::json::serialize(e::serialization::context{*core}, *restored_edits);
+  if (!resaved_edits || *saved_edits != *resaved_edits)
+    return 67;
   // JSON 顶层类型与通用后端使用同一分派，不要求注册标量或 optional。
   const auto round_trip = [&]<class T>(const T& source) {
     e::serialization::context ctx{*core};
@@ -91,7 +164,14 @@ int main() {
                          e::value{e::math::quaternion_xyzw(1, 2, 3, 4)},
                          e::value{matrix3},
                          e::value{matrix4},
-                         e::value{e::ref<e::meta::object>{}}};
+                         e::value{e::ref<e::meta::object>{}},
+                         e::value{e::record_value{}},
+                         e::value{e::sequence_value{}},
+                         e::value{e::map_value{}},
+                         e::value{e::optional_value{}},
+                         e::value{e::variant_value{}},
+                         e::value{e::asset_reference_value{}},
+                         e::value{e::object_reference_value{}}};
   for (const auto& item : cases) {
     auto wire = e::serialization::json::serialize(e::serialization::context{*core}, item);
     if (!wire || wire->find("\"$kind\"") == std::string::npos ||
@@ -102,6 +182,18 @@ int main() {
     if (!restored || *restored != item)
       return 41;
   }
+  const e::value nested{e::record_value{e::record_value_data{
+      probe::type_guid,
+      {{1, e::value{e::sequence_value{e::sequence_value_data{
+               {e::value{e::optional_value{}},
+                e::value{e::optional_value{e::optional_value_data{e::value{std::int64_t{42}}}}},
+                e::value{e::variant_value{e::variant_value_data{"named", e::value{true}}}},
+                e::value{e::asset_reference_value{probe::type_guid, "asset://material"}},
+                e::value{e::object_reference_value{probe::type_guid, probe::type_guid}},
+                e::value{e::map_value{
+                    e::map_value_data{{{e::value{std::string{"key"}}, e::value{2.0F}}}}}}}}}}}}}}};
+  if (!round_trip(nested))
+    return 52;
   auto matrix_wire =
       e::serialization::json::serialize(e::serialization::context{*core}, e::value{matrix3});
   if (!matrix_wire ||

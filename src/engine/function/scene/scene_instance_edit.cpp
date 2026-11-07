@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
+#include "engine/core/serialization/value.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_object.hpp"
@@ -42,8 +43,8 @@ error collect_component_overrides(meta::instance source, meta::instance candidat
     return error::success;
   }
   const auto snapshot = [&]() -> error {
-    auto before = serialization::capture_property(source),
-         after = serialization::capture_property(candidate);
+    auto before = serialization::capture_value(source),
+         after = serialization::capture_value(candidate);
     if (!before)
       return before.error();
     if (!after)

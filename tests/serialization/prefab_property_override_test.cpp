@@ -12,6 +12,7 @@
 
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/value.hpp"
 
 #include <algorithm>
 #include <array>
@@ -101,9 +102,9 @@ int main() {
     movement_description movement;
     auto view = meta::instance::from(movement);
     auto samples = view->property(meta::property_id{4});
-    auto before = serialization::capture_property(*samples);
+    auto before = serialization::capture_value(*samples);
     movement.samples = {8, 9, 10};
-    auto after = serialization::capture_property(*samples);
+    auto after = serialization::capture_value(*samples);
     if (!before || !after)
       return 50;
     prefab_property_override change{.key = {.target = {source_b, movement_description::type_guid},
@@ -134,7 +135,7 @@ int main() {
     auto copy = serialization::json::deserialize<prefab_property_override>(*bytes);
     if (!copy || copy->value != changes.front().value)
       return 54;
-    changes.front().value = serialization::property_snapshot{"[true]"};
+    changes.front().value = value{sequence_value{sequence_value_data{{value{true}}}}};
     if (prepare_prefab_description(source, changes, output).ok() ||
         output.objects[1].components.get<movement_description>()->samples.size() != 3)
       return 55;
@@ -211,8 +212,7 @@ int main() {
   if (gneiss::engine::set_prefab_property_override(overrides, updated, source) !=
           gneiss::engine::error::success ||
       overrides.size() != 2U ||
-      std::get<gneiss::engine::math::vector3>(
-          std::get<gneiss::engine::value>(overrides[0].value).payload)[0] != 3.0F) {
+      std::get<gneiss::engine::math::vector3>(overrides[0].value.payload)[0] != 3.0F) {
     return 3;
   }
 

@@ -103,20 +103,13 @@ error register_component_descriptions() noexcept {
   if (base_status.failed())
     return base_status;
   constexpr auto required = meta::property_flags::required;
-  auto status =
-      meta::type_builder<serialization::property_snapshot>{}
-          .property<&serialization::property_snapshot::json>(meta::property_id{1}, "json", required)
-          .serialization(true)
-          .commit();
-  if (status.failed())
-    return status;
-  status = meta::type_builder<prefab_property_target>{}
-               .property<&prefab_property_target::source_node_uuid>(meta::property_id{1},
-                                                                    "source_node_uuid", required)
-               .property<&prefab_property_target::target_type_guid>(meta::property_id{2},
-                                                                    "target_type_guid", required)
-               .serialization(true)
-               .commit();
+  auto status = meta::type_builder<prefab_property_target>{}
+                    .property<&prefab_property_target::source_node_uuid>(
+                        meta::property_id{1}, "source_node_uuid", required)
+                    .property<&prefab_property_target::target_type_guid>(
+                        meta::property_id{2}, "target_type_guid", required)
+                    .serialization(true)
+                    .commit();
   if (status.failed())
     return status;
   status =
@@ -207,7 +200,8 @@ error register_builtin_resource_types() noexcept {
        .schema_version = 1,
        .name = "texture",
        .serialization = {.encode_reference = detail::encode_asset_reference<engine::texture>,
-                         .decode_reference = detail::decode_asset_reference<engine::texture>}});
+                         .decode_reference = detail::decode_asset_reference<engine::texture>,
+                         .capture_reference = detail::capture_asset_reference<engine::texture>}});
   if (status.failed())
     return status;
   status = meta::register_type<engine::mesh>(
@@ -215,7 +209,8 @@ error register_builtin_resource_types() noexcept {
        .schema_version = 1,
        .name = "mesh",
        .serialization = {.encode_reference = detail::encode_asset_reference<engine::mesh>,
-                         .decode_reference = detail::decode_asset_reference<engine::mesh>}});
+                         .decode_reference = detail::decode_asset_reference<engine::mesh>,
+                         .capture_reference = detail::capture_asset_reference<engine::mesh>}});
   if (status.failed())
     return status;
   status = meta::register_type<engine::material>(
@@ -223,7 +218,8 @@ error register_builtin_resource_types() noexcept {
        .schema_version = 1,
        .name = "material",
        .serialization = {.encode_reference = detail::encode_asset_reference<engine::material>,
-                         .decode_reference = detail::decode_asset_reference<engine::material>}});
+                         .decode_reference = detail::decode_asset_reference<engine::material>,
+                         .capture_reference = detail::capture_asset_reference<engine::material>}});
   if (status.failed())
     return status;
   status = meta::type_builder<mesh_description>{}

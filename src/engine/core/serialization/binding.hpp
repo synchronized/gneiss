@@ -5,6 +5,7 @@
 #include "engine/core/ref.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/serialization/diagnostic.hpp"
+#include "engine/core/value.hpp"
 namespace gneiss::engine::serialization {
 class context;
 class reader;
@@ -23,5 +24,7 @@ struct binding {
   result<ref<void>, diagnostic> (*decode)(const context&, reader&, const void*){};
   /** 编码前和解码完成后校验；不修改对象。 */
   diagnostic (*validate)(const void*){};
+  /** 外部资产引用的内存捕获；与文件编码分离，不读取文件。 */
+  result<asset_reference_value> (*capture_reference)(engine::guid, const void*){};
 };
 }

@@ -113,6 +113,22 @@ bool test_all_value_types() {
   return true;
 }
 
+bool test_structured_values() {
+  const std::vector<e::value> values{
+      {e::sequence_value{
+          e::sequence_value_data{{e::value{true}, e::value{std::string{"nested"}}}}}},
+      {e::optional_value{e::optional_value_data{e::value{std::int64_t{42}}}}},
+      {e::variant_value{e::variant_value_data{"choice", e::value{false}}}},
+      {e::map_value{e::map_value_data{{{e::value{std::string{"key"}}, e::value{true}}}}}},
+      {e::record_value{e::record_value_data{wire_object::type_guid, {{1, e::value{true}}}}}},
+      {e::asset_reference_value{wire_object::type_guid, "asset://materials/main.material"}},
+      {e::object_reference_value{wire_object::type_guid, wire_object::type_guid}},
+  };
+  for (const auto& value : values)
+    if (!round_trip_value(value)) return false;
+  return true;
+}
+
 bool test_results() {
   gneiss::host::ipc_property_write_result success{
       .session_id = 9U,
@@ -191,5 +207,5 @@ int main() {
     return 91;
   if (!test_object_value())
     return 90;
-  return test_results() && test_invalid_messages() ? 0 : 1;
+  return test_structured_values() && test_results() && test_invalid_messages() ? 0 : 1;
 }

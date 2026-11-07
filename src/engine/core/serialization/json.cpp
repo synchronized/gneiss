@@ -6,7 +6,6 @@
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/serialization/detail/json_adapter.hpp"
 #include "engine/core/serialization/detail/traversal.hpp"
-#include "engine/core/serialization/property_snapshot.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -146,7 +145,7 @@ write_value(yyjson_mut_doc* doc, const value& input, const std::string& path) {
             auto text = item.string();
             output = yyjson_mut_strncpy(doc, text.data(), text.size());
           }
-        } else {
+        } else if constexpr (requires { math::components(item); }) {
           output = yyjson_mut_arr(doc);
           if (!output)
             return failure(error::out_of_memory, path);
@@ -156,7 +155,8 @@ write_value(yyjson_mut_doc* doc, const value& input, const std::string& path) {
             if (!yyjson_mut_arr_add_real(doc, output, number))
               return failure(error::out_of_memory, path);
           }
-        }
+        } else
+          return failure(error::unsupported, path);
         if (!output)
           return failure(error::out_of_memory, path);
         return output;
@@ -595,24 +595,4 @@ result<value, serialization::diagnostic> read_value(yyjson_val* node) noexcept {
 }
 }
 
-}
-
-namespace gneiss::engine::serialization {
-result<property_snapshot> capture_property(const meta::instance& source) noexcept try {
-  auto bytes = json::serialize_instance(source);
-  if (!bytes)
-    return bytes.error().error;
-  return property_snapshot{
-      std::string(reinterpret_cast<const char*>(bytes->data()), bytes->size())};
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
-}
-error restore_property(const meta::mutable_instance& target,
-                       const property_snapshot& snapshot) noexcept {
-  return json::deserialize_instance(
-             target, std::as_bytes(std::span{snapshot.json.data(), snapshot.json.size()}))
-      .error;
-}
 }

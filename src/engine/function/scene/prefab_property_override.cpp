@@ -4,6 +4,7 @@
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/value.hpp"
 #include "engine/core/utf8.hpp"
 #include "engine/function/scene/scene_object.hpp"
 #include "engine/function/world/world_reflection.hpp"
@@ -78,17 +79,13 @@ void normalize_zero(gneiss::engine::value& value) noexcept {
 namespace gneiss::engine {
 
 error apply_prefab_override_value(meta::mutable_instance target,
-                                  const prefab_override_value& value) noexcept {
-  if (const auto* scalar = std::get_if<engine::value>(&value))
-    return target.write_value(*scalar);
-  if (const auto* snapshot = std::get_if<serialization::property_snapshot>(&value))
-    return serialization::restore_property(target, *snapshot);
-  return error::invalid_argument;
+                                  const engine::value& value) noexcept {
+  return serialization::apply_value(target, value);
 }
 
 error validate_prefab_property_override(const prefab_property_override& value) noexcept try {
   if (!value.key.target.source_node_uuid || !value.key.target.target_type_guid ||
-      !value.key.first_property().is_valid() || value.value.valueless_by_exception()) {
+      !value.key.first_property().is_valid() || value.value.payload.valueless_by_exception()) {
     return error::invalid_argument;
   }
   auto field =
@@ -124,12 +121,42 @@ error validate_prefab_property_override(const prefab_property_override& value) n
       type = *element;
     }
   }
-  if (const auto* scalar = std::get_if<engine::value>(&value.value);
-      scalar && (!valid_value(*scalar) || type.scalar_kind() != scalar->kind()))
+  if (validate_persistent_value(value.value).failed())
     return error::invalid_argument;
-  if (const auto* snapshot = std::get_if<serialization::property_snapshot>(&value.value);
-      snapshot && snapshot->json.empty())
-    return error::invalid_argument;
+  switch (type.kind()) {
+  case meta::type_kind::scalar:
+    if (!valid_value(value.value) || type.scalar_kind() != value.value.kind())
+      return error::invalid_argument;
+    break;
+  case meta::type_kind::object:
+    if (value.value.kind() != value_kind::record ||
+        std::get<record_value>(value.value.payload).get().type != type.guid())
+      return error::invalid_argument;
+    break;
+  case meta::type_kind::sequence:
+    if (value.value.kind() != value_kind::sequence)
+      return error::invalid_argument;
+    break;
+  case meta::type_kind::associative:
+    if (value.value.kind() != value_kind::map)
+      return error::invalid_argument;
+    break;
+  case meta::type_kind::optional:
+    if (value.value.kind() != value_kind::optional)
+      return error::invalid_argument;
+    break;
+  case meta::type_kind::variant:
+    if (value.value.kind() != value_kind::variant)
+      return error::invalid_argument;
+    break;
+  case meta::type_kind::reference:
+    if (value.value.kind() != value_kind::invalid && value.value.kind() != value_kind::record &&
+        value.value.kind() != value_kind::asset_reference)
+      return error::invalid_argument;
+    break;
+  default:
+    return error::unsupported;
+  }
   return error::success;
 } catch (...) {
   return error::internal;
@@ -137,19 +164,18 @@ error validate_prefab_property_override(const prefab_property_override& value) n
 
 error set_prefab_property_override(std::vector<prefab_property_override>& overrides,
                                    prefab_property_override candidate,
-                                   prefab_override_value source_value) noexcept {
+                                   engine::value source_value) noexcept {
   auto operation = validate_prefab_property_override(candidate);
   if (operation != error::success) {
     return operation;
   }
-  if (source_value.index() != candidate.value.index())
+  if (validate_persistent_value(source_value).failed())
     return error::invalid_argument;
-  if (auto* scalar = std::get_if<engine::value>(&source_value)) {
-    auto& next = std::get<engine::value>(candidate.value);
-    if (!valid_value(*scalar) || scalar->kind() != next.kind())
+  if (is_scalar_value_kind(source_value.kind()) && is_scalar_value_kind(candidate.value.kind())) {
+    if (!valid_value(source_value) || source_value.kind() != candidate.value.kind())
       return error::invalid_argument;
-    normalize_zero(*scalar);
-    normalize_zero(next);
+    normalize_zero(source_value);
+    normalize_zero(candidate.value);
   }
   try {
     const auto found = std::ranges::find(overrides, candidate.key, &prefab_property_override::key);
@@ -304,8 +330,8 @@ engine::error prepare_prefab_description(const prefab_description& source,
     // 描述类型的全部叶覆盖在同一副本中应用，再检查跨字段约束。
     if (found->components.find(value.key.target.target_type_guid))
       continue;
-    const auto* scalar = std::get_if<engine::value>(&value.value);
-    if (!scalar || value.key.path.size() != 1)
+    const auto* scalar = &value.value;
+    if (!is_scalar_value_kind(scalar->kind()) || value.key.path.size() != 1)
       return error::unsupported;
     const auto result = apply_candidate_object(value, *scalar, *found);
     if (result != engine::error::success) {

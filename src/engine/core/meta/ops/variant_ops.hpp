@@ -37,9 +37,28 @@ template <> struct variant_traits<engine::value> {
   static const auto& storage(const engine::value& v) noexcept { return v.payload; }
 };
 template <> struct variant_case_traits<engine::value> {
-  static constexpr std::array<std::string_view, 15> names{
-      "invalid", "bool", "int64", "uint64",     "float32", "float64", "string", "guid",
-      "vec2",    "vec3", "vec4",  "quaternion", "matrix3", "matrix4", "object"};
+  static constexpr std::array<std::string_view, 22> names{"invalid",
+                                                          "bool",
+                                                          "int64",
+                                                          "uint64",
+                                                          "float32",
+                                                          "float64",
+                                                          "string",
+                                                          "guid",
+                                                          "vec2",
+                                                          "vec3",
+                                                          "vec4",
+                                                          "quaternion",
+                                                          "matrix3",
+                                                          "matrix4",
+                                                          "object",
+                                                          "record",
+                                                          "sequence",
+                                                          "map",
+                                                          "optional",
+                                                          "variant",
+                                                          "asset_reference",
+                                                          "object_reference"};
 };
 namespace detail {
 template <class T, std::size_t I = 0> error select_variant(T& value, std::size_t index) {

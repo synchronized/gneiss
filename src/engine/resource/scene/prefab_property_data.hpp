@@ -5,7 +5,6 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/meta/property_path.hpp"
 #include "engine/core/meta/type.hpp"
-#include "engine/core/serialization/property_snapshot.hpp"
 #include "engine/core/value.hpp"
 #include <cstdint>
 #include <string>
@@ -53,13 +52,11 @@ struct prefab_property_override_key final {
   bool operator==(const prefab_property_override_key&) const noexcept = default;
 };
 
-using prefab_override_value = std::variant<engine::value, serialization::property_snapshot>;
-
 struct prefab_property_override final {
   static constexpr std::string_view type_name = "prefab_property_override";
   static constexpr guid type_guid = guid::literal("8a714394-5d76-4aab-9787-46fb7cb53025");
   prefab_property_override_key key;
-  prefab_override_value value;
+  engine::value value;
 };
 
 /** 按稳定作者键比较，用于确定性排序。 */
@@ -68,9 +65,3 @@ prefab_property_override_key_less(const prefab_property_override_key& left,
                                   const prefab_property_override_key& right) noexcept;
 
 } // namespace gneiss::engine
-
-namespace gneiss::engine::meta {
-template <> struct variant_case_traits<prefab_override_value> {
-  static constexpr std::array<std::string_view, 2> names{"value", "snapshot"};
-};
-}

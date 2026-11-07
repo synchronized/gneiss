@@ -55,10 +55,7 @@ validate_prefab_reference_description(const prefab_reference_description& value)
   for (std::size_t i = 0; i < value.overrides.size(); ++i) {
     const auto& entry = value.overrides[i];
     if (validate_property_override_key(entry.key).error.failed() ||
-        (entry.value.valueless_by_exception() ||
-         (std::holds_alternative<engine::value>(entry.value)
-              ? !meta::valid_scalar(std::get<engine::value>(entry.value))
-              : std::get<serialization::property_snapshot>(entry.value).json.empty())))
+        validate_persistent_value(entry.value).failed())
       return {.path = "/overrides/" + std::to_string(i),
               .message = "覆盖作者键或属性值无效",
               .error = error::invalid_argument};

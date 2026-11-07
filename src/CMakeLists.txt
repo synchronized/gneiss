@@ -104,6 +104,8 @@ target_sources(
     engine/core/meta/variant_view.hpp
     engine/core/meta/reference_view.hpp
     engine/core/meta/registry.cpp
+    engine/core/value.cpp
+    engine/core/value_edit.cpp
     engine/core/meta/builtin_registration.cpp
     engine/core/serialization/detail/json_adapter.hpp
     engine/core/serialization/detail/context_access.hpp
@@ -113,6 +115,7 @@ target_sources(
     engine/core/serialization/context.hpp
     engine/core/serialization/serialization.cpp
     engine/core/serialization/serialization.hpp
+    engine/core/serialization/value.cpp
     engine/core/serialization/traversal.cpp
     engine/core/serialization/reader.hpp
     engine/core/serialization/writer.hpp
