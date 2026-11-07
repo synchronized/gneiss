@@ -93,17 +93,19 @@ scene_instance::instantiate_prefab_ready(const object_description& author, prefa
       return removed;
   }
   auto reference = *author.prefab;
-  prefab_description effective;
-  auto status = prepare_prefab_reference(*prefab.get(), *author.prefab, effective);
-  if (status.failed())
-    return status;
+  auto replayed = replay_prefab_reference(*prefab, *author.prefab);
+  if (!replayed)
+    return replayed.error();
+  const auto& effective = replayed->description;
+  auto status = error{error::success};
   structural_diff order;
   status = build_structural_diff({}, effective.objects, order);
   if (status.failed())
     return status;
   prefab_instances_.reserve(prefab_instances_.size() + 1U);
-  auto runtime = std::make_unique<prefab_binding>(native_world_, loader_, std::move(prefab),
-                                                  author.uuid, std::move(source_asset));
+  auto runtime =
+      std::make_unique<prefab_binding>(native_world_, loader_, std::move(prefab), author.uuid,
+                                       std::move(source_asset), std::move(replayed->conflicts));
   status = runtime->create_root(parent, author.transform);
   if (status.failed())
     return status;

@@ -7,6 +7,7 @@
 #include "engine/core/guid.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
+#include "engine/function/scene/prefab_replay.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world_reflection.hpp"
 
@@ -143,6 +144,50 @@ int main() {
     if (prepare_prefab_reference(source, *decoded, output).failed() ||
         output.objects[1].components.get<movement_description>()->waypoints.back().distance != 42)
       return 75;
+  }
+  // 来源变化保留无效覆盖；同一组件内的独立编辑仍然生效。
+  {
+    using namespace gneiss::engine;
+    using gneiss::test_support::movement_description;
+    constexpr auto element = guid::literal("ced4a670-7729-4f65-911d-aebfd4b7400a");
+    constexpr auto missing = guid::literal("6b929783-6346-4ce7-ad7c-a7dd143a602b");
+    prefab_description source;
+    source.root_uuid = source_a;
+    object_description root, child;
+    root.uuid = source_a;
+    child.uuid = source_b;
+    child.parent_uuid = source_a;
+    movement_description movement;
+    movement.waypoints = {{element, 1}};
+    child.components.set(movement);
+    source.objects = {root, child};
+    prefab_reference_description reference;
+    const prefab_property_target target{source_b, movement_description::type_guid};
+    reference.overrides = {
+        {{target, {meta::property_id{5}}}, move_value_operation{element, missing}},
+        {{target, {meta::property_id{5}, element, meta::property_id{2}}}, value{7.0F}},
+        {{target, {meta::property_id{5}}}, erase_value_operation{missing}},
+        {{{missing, movement_description::type_guid}, {meta::property_id{1}}}, value{8.0F}},
+        {{target, {meta::property_id{1}}}, value{4.0F}}};
+    auto replayed = replay_prefab_reference(source, reference);
+    if (!replayed || replayed->conflicts.size() != 2 || replayed->conflicts[0].index != 0 ||
+        replayed->conflicts[1].index != 3 || replayed->conflicts[0].diagnostic.path.empty() ||
+        reference.overrides.size() != 5)
+      return 76;
+    const auto* current = replayed->description.objects[1].components.get<movement_description>();
+    if (current->speed != 4 || current->waypoints[0].distance != 7 ||
+        source.objects[1].components.get<movement_description>()->speed != 1)
+      return 77;
+    // 同一组件跨字段约束失败，只保留来源组件；另一对象的修改仍然生效。
+    reference.overrides = {{{target, {meta::property_id{3}, meta::property_id{1}}}, value{1000.0F}},
+                           make_translation(source_b, {8, 0, 0})};
+    replayed = replay_prefab_reference(source, reference);
+    if (!replayed || replayed->conflicts.size() != 1 || replayed->conflicts[0].index != 0 ||
+        replayed->description.objects[1].transform.translation.x != 8 ||
+        replayed->description.objects[1]
+                .components.get<movement_description>()
+                ->settings.acceleration != 1)
+      return 78;
   }
   // 快照复制不共享原数据；列表长度可改变，应用失败不修改输出。
   {

@@ -462,6 +462,7 @@ std::optional<prefab_origin_view> scene_instance::prefab_origin(scene_node_id no
       continue;
     origin.is_instance_root = runtime.root() == node;
     origin.overrides = reference.overrides;
+    origin.conflicts = runtime.conflicts_;
     origin.source_node_uuid = found->address.source_node_uuid;
     if (const auto* source = runtime.find_source_object(origin.source_node_uuid))
       origin.source_local_transform = source->transform;
@@ -513,12 +514,18 @@ engine::error scene_instance::set_prefab_source_transform(scene_node_id node,
           return result;
         }
       }
+      auto reference = prefab_reference(index);
+      reference.overrides = pending;
+      auto replayed = replay_prefab_reference(*runtime.prefab_, reference);
+      if (!replayed)
+        return replayed.error();
       const auto result =
           native_world_.node_set_local_transform(gneiss::scene_node_id{node}, transform);
       if (result != engine::error::success) {
         return result;
       }
       prefab_reference(index).overrides.swap(pending);
+      runtime.conflicts_ = std::move(replayed->conflicts);
       return engine::error::success;
     }
   }
@@ -986,10 +993,16 @@ engine::error scene_instance::set_camera(scene_node_id node,
         if (status.failed())
           return status;
       }
+      auto reference = prefab_reference(index);
+      reference.overrides = pending;
+      auto replayed = replay_prefab_reference(*runtime.prefab_, reference);
+      if (!replayed)
+        return replayed.error();
       status = native_world_.entity_configure_camera(entity, desc.settings);
       if (status.failed())
         return status;
       prefab_reference(index).overrides.swap(pending);
+      runtime.conflicts_ = std::move(replayed->conflicts);
       return error::success;
     }
   }

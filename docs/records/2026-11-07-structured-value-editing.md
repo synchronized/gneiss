@@ -35,3 +35,16 @@ Prefab 属性覆盖现保存 value_operation；稳定列表按身份生成增删
 
 Windows Clang Debug 默认目标编译通过，17 项相关测试通过。面板测试改为直接绘制目标列表，
 不依赖其恰好位于组件末尾。此阶段尚未改变源重载的冲突策略、组件身份与文档历史。
+
+## 来源冲突回放接入
+
+加载、实例化和来源重载已使用 replay_prefab_reference；失败覆盖保留，独立操作继续应用。
+实例查询返回冲突列表，编辑后重新计算，避免覆盖索引变化导致旧诊断错位。
+同一组件的领域约束在合并操作后校验，失败只保留该来源组件。
+
+Windows Clang Debug 默认目标编译通过；10 项定向测试通过：scene-load-preparation、
+prefab-preparation、prefab_property_override、prefab_binding、scene_prefab_instance、
+prefab_structural_reload、editor.component-edit、editor.component-lifecycle、
+editor.prefab-component、editor.prefab-author-operations。实际重载覆盖目标消失后重现、
+新增组件冲突、无效 URI 不进入依赖加载、稳定列表缺失锚点及独立编辑。
+未运行 GPU 大场景或远端 CI。组件 UUID、嵌套 Prefab、文档权威根与历史仍未完成。

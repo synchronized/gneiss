@@ -237,13 +237,26 @@ int main() try {
           .ok());
   check(e::capture_components(world, loaded_root)->get<movement_description>()->speed == 5);
   check(app->scenes()->unload(loaded).ok());
-  // 所有实例预检查后才提交；冲突保持节点身份、旧组件和覆盖不变。
+  // 来源新增组件与本地新增相撞：采用来源组件，保留本地覆盖并报告冲突。
   auto updated = std::make_shared<e::prefab_description>(collision);
-  check(app->scenes()->reload_prefab_loaded(document.scene_handle(), reference.uri,
-                                            e::prefab_asset_ref{updated},
-                                            &diagnostic) == e::error::invalid_state);
-  check(!diagnostic.path.empty());
-  check(document.components(root_node)->get<movement_description>()->speed == 5);
+  check(app->scenes()
+            ->reload_prefab_loaded(document.scene_handle(), reference.uri,
+                                   e::prefab_asset_ref{updated}, &diagnostic)
+            .ok());
+  check(document.components(root_node)->get<movement_description>()->speed == 1);
+  const auto count = app->scenes()->get_node_count(document.scene_handle());
+  check(count.has_value());
+  bool found_conflict = false;
+  for (std::size_t i = 0; i < *count; ++i) {
+    auto info = app->scenes()->get_node_info(document.scene_handle(), i);
+    check(info.has_value());
+    if (info->node == root_node) {
+      check(info->prefab && info->prefab->conflicts.size() == 1 &&
+            info->prefab->conflicts.front().section == e::prefab_override_section::component);
+      found_conflict = true;
+    }
+  }
+  check(found_conflict);
   check(!document.components(node)->find(type));
   // 来源对象改名、改默认值不会改变移除覆盖；组件消失后又出现仍隐藏。
   updated = std::make_shared<e::prefab_description>(*source);

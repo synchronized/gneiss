@@ -121,10 +121,23 @@ error scene_instance::set_component_override(scene_node_id node, guid type,
           return error::invalid_argument;
         pending.overrides.push_back(value);
       }
-      prefab_description effective;
-      auto status = prepare_prefab_reference(*prefab->prefab_, pending, effective);
-      if (status.failed())
-        return status;
+      auto replayed = replay_prefab_reference(*prefab->prefab_, pending);
+      if (!replayed)
+        return replayed.error();
+      // 本次编辑必须有效，其他对象已有的来源冲突不能阻止编辑。
+      for (const auto& conflict : replayed->conflicts) {
+        const auto edited =
+            conflict.section == prefab_override_section::component
+                ? pending.component_overrides[conflict.index].source_node_uuid == source &&
+                      pending.component_overrides[conflict.index].type_guid == type
+                : pending.overrides[conflict.index].key.target.source_node_uuid == source &&
+                      component_description_type(
+                          pending.overrides[conflict.index].key.target.target_type_guid) == type;
+        if (edited)
+          return conflict.diagnostic.error;
+      }
+      const auto& effective = replayed->description;
+      auto status = error{error::success};
       auto target = std::ranges::find(effective.objects, source, &object_description::uuid);
       if (target == effective.objects.end())
         return error::not_found;
@@ -153,6 +166,7 @@ error scene_instance::set_component_override(scene_node_id node, guid type,
       if (status.failed())
         return status;
       prefab->reference_ = std::move(pending);
+      prefab->conflicts_ = std::move(replayed->conflicts);
       return error::success;
     }
   return error::unsupported;
@@ -242,10 +256,16 @@ error scene_instance::set_component_description(scene_node_id node,
           pending);
       if (status.failed())
         return status;
+      auto reference = prefab->reference_;
+      reference.overrides = pending;
+      auto replayed = replay_prefab_reference(*prefab->prefab_, reference);
+      if (!replayed)
+        return replayed.error();
       status = apply();
       if (status.failed())
         return status;
       prefab->reference_.overrides.swap(pending);
+      prefab->conflicts_ = std::move(replayed->conflicts);
       return error::success;
     }
   }
@@ -300,6 +320,11 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
                                           prefab_reference(index).overrides);
       if (!pending)
         return pending.error();
+      auto reference = prefab.reference_;
+      reference.overrides = *pending;
+      auto replayed = replay_prefab_reference(*prefab.prefab_, reference);
+      if (!replayed)
+        return replayed.error();
       const std::array changes{mesh_renderer_replacement{
           .entity = entity_id{scene_object_entity(native_world_, node)},
           .expected = {.mesh = expected.mesh, .material = expected.material},
@@ -308,6 +333,7 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
       if (status.failed())
         return status;
       prefab_reference(index).overrides.swap(*pending);
+      prefab.conflicts_ = std::move(replayed->conflicts);
       return error::success;
     }
   }

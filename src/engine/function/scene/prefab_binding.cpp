@@ -27,9 +27,11 @@ namespace gneiss::engine {
 
 prefab_binding::prefab_binding(world& native_world, asset_manager& loader, prefab_asset_ref prefab,
                                gneiss::engine::guid instance_uuid,
-                               ref<const engine::prefab> source_asset) noexcept
+                               ref<const engine::prefab> source_asset,
+                               std::vector<prefab_override_conflict> conflicts) noexcept
     : native_world_(native_world), loader_(loader), prefab_(std::move(prefab)),
-      source_asset_(std::move(source_asset)), instance_uuid_(std::move(instance_uuid)) {}
+      source_asset_(std::move(source_asset)), instance_uuid_(std::move(instance_uuid)),
+      conflicts_(std::move(conflicts)) {}
 
 engine::error prefab_binding::validate_reload(const prefab_asset_ref& candidate,
                                               const prefab_reference_description& reference,
@@ -49,11 +51,15 @@ engine::error prefab_binding::validate_reload(const prefab_asset_ref& candidate,
     return result;
   }
 
-  prefab_description effective;
-  result = prepare_prefab_reference(*candidate, reference, effective, diagnostic);
-  if (result.failed())
-    return result;
-  for (const auto& object : effective.objects) {
+  if (diagnostic)
+    *diagnostic = {};
+  auto replayed = replay_prefab_reference(*candidate, reference);
+  if (!replayed) {
+    if (diagnostic)
+      diagnostic->error = replayed.error();
+    return replayed.error();
+  }
+  for (const auto& object : replayed->description.objects) {
     auto dependencies = component_dependencies(object.components);
     if (!dependencies)
       return dependencies.error();
@@ -73,10 +79,10 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
   if (result != engine::error::success) {
     return result;
   }
-  prefab_description effective;
-  result = prepare_prefab_reference(*candidate, reference, effective);
-  if (result.failed())
-    return result;
+  auto replayed = replay_prefab_reference(*candidate, reference);
+  if (!replayed)
+    return replayed.error();
+  const auto& effective = replayed->description;
   auto current = *prefab_;
   for (auto& object : current.objects) {
     auto captured = capture_components(native_world_, find_node(object.uuid));
@@ -279,6 +285,7 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
       return result;
   }
   prefab_ = std::move(candidate);
+  conflicts_ = std::move(replayed->conflicts);
   applied.clear();
   staged.clear();
   loader_.collect_unused();

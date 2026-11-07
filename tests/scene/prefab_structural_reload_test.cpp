@@ -139,15 +139,27 @@ int main() try {
       *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000099");
   write_prefab(prefab_path, replacement_root_uuid, false);
   if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, prefab_uri,
-                                                  true) != gneiss::engine::error::not_found ||
+                                                  true) != gneiss::engine::error::success ||
       find_source(application, scene, first_instance_uuid, source_root_uuid, first_after) !=
+          gneiss::engine::error::not_found ||
+      find_source(application, scene, first_instance_uuid, replacement_root_uuid, first_after) !=
           gneiss::engine::error::success ||
-      first_after.node != first_before.node ||
-      find_source(application, scene, second_instance_uuid, source_root_uuid, second_after) !=
+      !first_after.prefab || first_after.prefab->conflicts.size() != 1 ||
+      first_after.prefab->conflicts[0].diagnostic.error != gneiss::engine::error::not_found ||
+      first_after.prefab->overrides.size() != 1 ||
+      find_source(application, scene, second_instance_uuid, replacement_root_uuid, second_after) !=
           gneiss::engine::error::success ||
-      second_after.node != second_before.node) {
+      !second_after.prefab->conflicts.empty()) {
     return 6;
   }
+  // 来源目标重新出现后，原覆盖自动恢复，冲突消失，不需要重建覆盖记录。
+  write_prefab(prefab_path, source_root_uuid, false);
+  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, prefab_uri, true)
+          .failed() ||
+      find_source(application, scene, first_instance_uuid, source_root_uuid, first_after)
+          .failed() ||
+      first_after.local_transform.translation.x != 3 || !first_after.prefab->conflicts.empty())
+    return 8;
 
   const bool destroyed = application->scenes()->unload(scene) == gneiss::engine::error::success &&
                          application->shutdown() == gneiss::engine::error::success;

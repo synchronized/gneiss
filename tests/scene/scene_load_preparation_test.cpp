@@ -230,11 +230,14 @@ void run() {
     node.prefab->overrides.front().operation = value{std::string{}};
   check(prepare_loaded_scene(overridden_inputs, {}, output, diagnostic, {}).ok());
   check(output.assets.size() == 1 && output.assets.front().type == render_resource_kind::mesh);
-  // 非空但非法的 URI 仍在创建实体或开始资源加载前拒绝。
+  // 非法覆盖保留为冲突，依赖收集使用来源组件，不加载非法 URI。
   overridden->objects.front().prefab->overrides.front().operation =
       value{std::string{"not-an-asset-uri"}};
-  check(prepare_loaded_scene(overridden_inputs, {}, output, diagnostic, {}).failed());
-  check(output.assets.empty());
+  check(prepare_loaded_scene(overridden_inputs, {}, output, diagnostic, {}).ok());
+  check(std::ranges::none_of(output.assets,
+                             [](const auto& asset) { return asset.uri == "not-an-asset-uri"; }));
+  check(std::ranges::any_of(output.assets,
+                            [](const auto& asset) { return asset.uri == "asset://m.material"; }));
   check(prepare_loaded_scene(inputs, {}, output, diagnostic, {}).ok());
   ref<const engine::prefab> newer;
   check(gneiss::test_support::load_asset(assets, "asset://p.prefab", newer, true).ok());

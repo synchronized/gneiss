@@ -5,7 +5,7 @@
 #include "engine/core/error.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/component_adapter.hpp"
-#include "engine/function/scene/prefab_property_override.hpp"
+#include "engine/function/scene/prefab_replay.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
 
 #include <algorithm>
@@ -86,12 +86,10 @@ public:
       found = candidate.prefabs.emplace(instance.prefab->uri, std::move(prefab)).first;
     }
     if (!instance.prefab->overrides.empty() || !instance.prefab->component_overrides.empty()) {
-      prefab_description effective;
-      result = prepare_prefab_reference(*found->second.resource, *instance.prefab, effective,
-                                        diagnostic);
-      if (result.failed())
-        return result;
-      result = collect(effective.objects);
+      auto replayed = replay_prefab_reference(*found->second.resource, *instance.prefab);
+      if (!replayed)
+        return replayed.error();
+      result = collect(replayed->description.objects);
     } else {
       result = collect(found->second.resource->objects);
     }

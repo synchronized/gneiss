@@ -8,7 +8,7 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/scene/prefab_property_override.hpp"
+#include "engine/function/scene/prefab_replay.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/resource/prefab.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
@@ -37,7 +37,8 @@ public:
   };
 
   prefab_binding(world& native_world, asset_manager& loader, prefab_asset_ref prefab,
-                 guid instance_uuid, ref<const engine::prefab> source_asset = {}) noexcept;
+                 guid instance_uuid, ref<const engine::prefab> source_asset = {},
+                 std::vector<prefab_override_conflict> conflicts = {}) noexcept;
   ~prefab_binding() noexcept = default;
 
   prefab_binding(const prefab_binding&) = delete;
@@ -83,6 +84,7 @@ private:
   prefab_reference_description reference_; // 实例来源与覆盖的唯一可变记录。
   scene_node_id root_node_ = null_scene_node_id;
   std::vector<runtime_node> nodes_;
+  std::vector<prefab_override_conflict> conflicts_;
 };
 
 } // namespace gneiss::engine

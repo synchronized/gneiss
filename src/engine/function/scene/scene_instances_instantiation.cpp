@@ -75,13 +75,13 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
         continue;
       }
       const auto lease = prepared.prefabs.at(source.prefab->uri).resource;
-      prefab_description effective;
-      auto prepared_status = prepare_prefab_reference(*lease, *source.prefab, effective);
-      if (prepared_status.failed())
-        return prepared_status;
-      auto prefab =
-          std::make_unique<prefab_binding>(native_world_, loader_, lease, source.uuid,
-                                           prepared.prefabs.at(source.prefab->uri).source_asset);
+      auto replayed = replay_prefab_reference(*lease, *source.prefab);
+      if (!replayed)
+        return replayed.error();
+      const auto& effective = replayed->description;
+      auto prefab = std::make_unique<prefab_binding>(
+          native_world_, loader_, lease, source.uuid,
+          prepared.prefabs.at(source.prefab->uri).source_asset, std::move(replayed->conflicts));
       auto result = prefab->create_root(
           source.parent_uuid ? nodes.at(source.parent_uuid) : null_scene_node_id, source.transform);
       if (result != engine::error::success) {

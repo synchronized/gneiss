@@ -234,6 +234,8 @@ target_sources(
     engine/function/scene/scene_query.hpp
     engine/function/scene/prefab_property_override.cpp
     engine/function/scene/prefab_property_override.hpp
+    engine/function/scene/prefab_replay.cpp
+    engine/function/scene/prefab_replay.hpp
     engine/function/scene/prefab_binding.cpp
     engine/function/scene/prefab_binding.hpp
     engine/function/scene/scene_instance.hpp
