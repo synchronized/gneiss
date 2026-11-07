@@ -86,3 +86,15 @@ make_scene_document_snapshot、make_scene_document_inputs。原有宿主捕获�
 默认 Windows Clang Debug 目标编译通过，7 项定向测试通过。新增 scene-document-snapshot 测试不创建
 Application、World 或文件服务，验证候选计算、源修改隔离和无效快照拒绝。未运行 GPU 大场景或远端 CI。
 组件 UUID、强类型文档记录及权威版本仍待迁移，现有反向捕获明确标为迁移期入口。
+
+
+## 组件候选的引用隔离
+
+核查后发现 component_adapter 的候选回调通过 C++ 拷贝复制描述，内嵌 ref 仍与来源共享。
+新增回归在修复前失败：回调修改引用内容会改变原描述。现由入口统一通过 value 捕获/恢复创建独立候选，
+覆盖 modify_component、edit_component 和 edit_runtime_component，不新增注册表或 JSON 中转。
+不可捕获/恢复的描述直接返回错误，不降级为不安全浅拷贝；本改动不引入外部资产加载或解析器。
+
+验证：默认 Windows Clang Debug 编译通过；两轮 10 项和 8 项定向测试均通过（共 15 个不同测试），
+覆盖候选成功/失败引用隔离、组件适配、运行时属性编辑及 Prefab 回归。未运行大场景或远端 CI。
+这项是领域版本迁移前的正确性修复，不代表组件 UUID 或权威文档版本已经实现。

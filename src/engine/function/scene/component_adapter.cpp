@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/scene/component_adapter.hpp"
+#include "engine/core/serialization/value.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/asset_uri.hpp"
@@ -9,6 +10,16 @@
 #include <numbers>
 namespace gneiss::engine {
 namespace {
+// 独立候选按反射内容恢复，不让内嵌 ref 的浅拷贝改写来源描述。
+result<component_description> copy_candidate(const component_description& source) {
+  auto content = serialization::capture_value(source);
+  if (!content)
+    return content.error().error;
+  auto copied = serialization::restore_value<component_description>(*content);
+  if (!copied)
+    return copied.error().error;
+  return std::move(*copied);
+}
 entity_id entity(world& owner, scene_node_id node) {
   entity_id id;
   (void)owner.node_get_entity(node, id);
@@ -223,7 +234,8 @@ modify_component(const component_description& source,
     return error::unsupported;
   if (!change)
     return error::invalid_argument;
-  return adapter->modify(source, change);
+  auto candidate = copy_candidate(source);
+  return candidate ? adapter->modify(*candidate, change) : candidate.error();
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -440,7 +452,10 @@ error edit_component(component_descriptions& values, guid type, meta::property_i
   const auto* source = values.find(adapter->type);
   if (!source)
     return error::not_found;
-  auto edited = adapter->edit(*source, type, property, input);
+  auto candidate = copy_candidate(*source);
+  if (!candidate)
+    return candidate.error();
+  auto edited = adapter->edit(*candidate, type, property, input);
   if (!edited)
     return edited.error();
   values.set(std::move(*edited));
@@ -489,7 +504,10 @@ error edit_runtime_component(component_context context, guid type, meta::propert
     context.renderer = std::move(*renderer);
   else if (renderer.error() != error::not_found)
     return renderer.error();
-  auto edited = adapter->edit(**current, type, property, input);
+  auto candidate = copy_candidate(**current);
+  if (!candidate)
+    return candidate.error();
+  auto edited = adapter->edit(*candidate, type, property, input);
   return edited ? adapter->install(context, *edited) : edited.error();
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;

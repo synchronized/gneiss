@@ -3,6 +3,7 @@
 #include "../support/movement_component.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
+#include "engine/core/meta/reference_view.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -90,6 +91,35 @@ int main() try {
     return value;
   };
   check(e::register_scene_component(ops).ok());
+  // 候选编辑必须隔离内嵌引用；成功和失败均不得改变旧描述。
+  {
+    auto shared = e::make_ref<reference_settings>();
+    reference_description description;
+    description.settings = shared;
+    auto original = e::make_component_description(description);
+    auto change = [](e::meta::mutable_instance root) -> e::error {
+      auto property = root.property(p{1});
+      if (!property)
+        return property.error();
+      auto reference = property->as_reference();
+      if (!reference)
+        return reference.error();
+      auto target = reference->get();
+      if (!target)
+        return target.error();
+      auto amount = target->property(p{1});
+      return amount ? amount->write_value(e::value{8.0F}) : amount.error();
+    };
+    auto changed = e::modify_component(original, change);
+    check(changed && shared->amount == 1);
+    check((*changed)->get<reference_description>()->settings->amount == 8);
+    check((*changed)->get<reference_description>()->settings != shared);
+    auto failed = e::modify_component(original, [&](e::meta::mutable_instance root) -> e::error {
+      auto result = change(root);
+      return result.failed() ? result : e::error::invalid_argument;
+    });
+    check(!failed && shared->amount == 1);
+  }
   std::shared_ptr<gneiss::runtime::application> app;
   check(gneiss::runtime::application::create({}, app).ok());
   auto& world = *app->native_world();
