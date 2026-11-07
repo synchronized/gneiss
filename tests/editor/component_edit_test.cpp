@@ -367,13 +367,11 @@ int main() try {
   check(read().settings.acceleration == 7 && read().samples[1] == 9);
   check(prefab->objects[0].components.get<movement_description>()->samples[1] == 2);
   auto snapshot = [&] {
-    e::scene_description output;
-    check(gneiss::test_support::assign_value(
-              app->scenes()->capture_description(document.scene_handle()), output)
-              .ok());
-    auto bytes = gneiss::engine::asset_file::serialize_bytes(output);
+    // 持久化覆盖以文档为准，运行实例只接收有效组件。
+    auto bytes = document.serialize();
     check(bytes.has_value());
-    auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(*bytes);
+    auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(
+        std::as_bytes(std::span{bytes->data(), bytes->size()}));
     check(decoded.has_value());
     return *decoded;
   };

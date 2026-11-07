@@ -471,37 +471,11 @@ std::optional<prefab_origin_view> scene_instance::prefab_origin(scene_node_id no
   return std::nullopt;
 }
 
-engine::error scene_instance::set_prefab_source_transform(scene_node_id node,
-                                                          const math::transform& transform) {
-  for (std::size_t index = 0U; index < prefab_instances_.size(); ++index) {
-    auto& runtime = *prefab_instances_[index];
-    if (runtime.root() == node)
-      return error::invalid_argument;
-    prefab_binding::node_info info;
-    for (std::size_t node_index = 0U; node_index < runtime.node_count(); ++node_index) {
-      if (runtime.get_node_info(node_index, info) != engine::error::success || info.node != node) {
-        continue;
-      }
-      math::transform current;
-      auto captured = native_world_.node_get_local_transform(node, current);
-      if (captured.failed())
-        return captured;
-      auto prepared =
-          prepare_prefab_transform_edit(*runtime.prefab_, prefab_reference(index),
-                                        info.address->source_node_uuid, current, transform);
-      if (!prepared)
-        return prepared.error();
-      const auto result =
-          native_world_.node_set_local_transform(gneiss::scene_node_id{node}, transform);
-      if (result != engine::error::success) {
-        return result;
-      }
-      prefab_reference(index) = std::move(prepared->reference);
-      runtime.conflicts_ = std::move(prepared->conflicts);
-      return engine::error::success;
-    }
-  }
-  return engine::error::invalid_handle;
+engine::error scene_instance::set_node_transform(scene_node_id node,
+                                                 const math::transform& transform) {
+  if (!contains_editable_node(node))
+    return error::invalid_handle;
+  return native_world_.node_set_local_transform(node, transform);
 }
 
 result<scene_node_id> scene_instance::create_node(const node_creation& desc) {

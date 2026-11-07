@@ -86,31 +86,44 @@ int main() try {
           gneiss::engine::error::invalid_handle)
     return 13;
 
+  const auto authored_json = application->scenes()->serialize(scene);
+  if (!authored_json)
+    return 2;
+  // 运行时变更只更新有效数据，不生成或改写文档中的 Prefab 覆盖。
   gneiss::engine::math::transform source_transform;
   source_transform.translation[0] = 1.0F;
-  if (application->scenes()->set_prefab_source_transform(
-          scene, prefab_source.node, source_transform) != gneiss::engine::error::success) {
+  if (application->scenes()->set_node_transform(scene, prefab_source.node, source_transform) !=
+      gneiss::engine::error::success) {
     return 2;
   }
   std::string sparse_json;
   if (gneiss::test_support::assign_value(application->scenes()->serialize(scene), sparse_json) !=
           gneiss::engine::error::success ||
-      sparse_json.empty() || sparse_json.find(R"("overrides":[])") == std::string::npos) {
+      sparse_json != *authored_json) {
     return 2;
   }
   source_transform.translation[0] = 4.0F;
-  if (application->scenes()->set_prefab_source_transform(
-          scene, prefab_source.node, source_transform) != gneiss::engine::error::success) {
+  if (application->scenes()->set_node_transform(scene, prefab_source.node, source_transform) !=
+      gneiss::engine::error::success) {
     return 2;
   }
 
+  if (gneiss::test_support::prefab_node_info(*application->scenes(), scene, 1U, prefab_source) !=
+          gneiss::engine::error::success ||
+      prefab_source.local_transform.translation[0] != 4.0F ||
+      gneiss::test_support::assign_value(application->scenes()->serialize(scene), sparse_json) !=
+          gneiss::engine::error::success ||
+      sparse_json != *authored_json)
+    return 2;
+
+  // 重新实例化采用文档中的原始覆盖，丢弃运行时临时修改。
   const auto stale_loaded_root = prefab_root.node;
   if (gneiss::test_support::refresh_prefab(*application, scene, prefab_root.prefab->instance_uuid,
                                            prefab_root.node) != gneiss::engine::error::success ||
       prefab_root.node == gneiss::null_scene_node_id || prefab_root.node == stale_loaded_root ||
       gneiss::test_support::prefab_node_info(*application->scenes(), scene, 1U, prefab_source) !=
           gneiss::engine::error::success ||
-      prefab_source.local_transform.translation[0] != 4.0F) {
+      prefab_source.local_transform.translation[0] != 3.0F) {
     return 2;
   }
 

@@ -595,15 +595,7 @@ scene_document::set_local_transform(scene_node_id node,
         }
         return engine::error::success;
       },
-      [&] {
-        if (target->source && target->source != versions_->current()
-                                                    .content()
-                                                    .prefabs.at(query_prefab_node(node)->prefab_uri)
-                                                    .content.get()
-                                                    .root_uuid)
-          return application_->scenes()->set_prefab_source_transform(scene_, node, value);
-        return world_->node_set_local_transform(node, value);
-      });
+      [&] { return application_->scenes()->set_node_transform(scene_, node, value); });
 }
 
 gneiss::engine::error scene_document::restore_prefab_transform_field(
@@ -885,7 +877,7 @@ scene_document::set_component_override(scene_node_id node, engine::guid type,
     return engine::error::unsupported;
   if (state.added && !*state.added)
     return engine::error::invalid_argument;
-  auto projected = state;
+  engine::component_description projected;
   return edit_content(
       [&](auto& description, auto& snapshot) -> engine::error {
         auto object = std::ranges::find(description.objects, target->object,
@@ -900,9 +892,12 @@ scene_document::set_component_override(scene_node_id node, engine::guid type,
             state.properties, state.component_uuid);
         if (!candidate)
           return candidate.error();
-        for (const auto& entry : candidate->reference.component_overrides)
-          if (entry.source_node_uuid == target->source && entry.type_guid == type)
-            projected.component_uuid = entry.component_uuid;
+        const auto member = std::ranges::find(candidate->effective.objects, target->source,
+                                              &engine::game_object_description::uuid);
+        if (member == candidate->effective.objects.end())
+          return engine::error::not_found;
+        if (const auto* component = member->components.find(type))
+          projected = *component;
         object->prefab = std::move(candidate->reference);
         if (state.resources.mesh)
           snapshot.assets.insert_or_assign(state.resources.mesh->source().uri,
@@ -913,7 +908,30 @@ scene_document::set_component_override(scene_node_id node, engine::guid type,
         return engine::error::success;
       },
       [&] {
-        return application_->scenes()->set_component_override(scene_, node, type, projected);
+        // 文档已完成覆盖组合；运行层只接受最终组件，不重新解释编辑指令。
+        auto current = engine::capture_components(*world_, node);
+        if (!current)
+          return current.error();
+        auto* scenes = application_->scenes();
+        const auto* previous = current->find(type);
+        if (!projected)
+          return previous ? scenes->remove_component_description(scene_, node, type)
+                          : engine::error{engine::error::success};
+        if (previous && (*previous)->uuid != projected->uuid) {
+          auto removed = scenes->remove_component_description(scene_, node, type);
+          if (removed.failed())
+            return removed;
+          previous = nullptr;
+        }
+        auto status =
+            previous ? scenes->set_component_description(scene_, node, projected)
+                     : scenes->add_component_description(scene_, node, projected, projected->uuid);
+        if (status.failed() || type != engine::mesh_renderer_description::type_guid ||
+            (!state.resources.mesh && !state.resources.material))
+          return status;
+        auto binding = scenes->capture_mesh_binding(scene_, node);
+        return binding ? scenes->replace_mesh_binding(scene_, node, *binding, state.resources)
+                       : binding.error();
       });
 }
 engine::error

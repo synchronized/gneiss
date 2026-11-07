@@ -245,15 +245,14 @@ result<std::uint64_t> scene_instances::get_node_count(scene_instance_id instance
   return error::internal;
 }
 
-engine::error
-scene_instances::set_prefab_source_transform(scene_instance_id instance, scene_node_id node_value,
-                                             const math::transform& transform) noexcept {
+engine::error scene_instances::set_node_transform(scene_instance_id instance,
+                                                  scene_node_id node_value,
+                                                  const math::transform& transform) noexcept {
   auto node = node_value;
   try {
     auto* value = instances_.get(instance, resource_type::scene_instance);
-    return value == nullptr || *value == nullptr
-               ? engine::error::invalid_handle
-               : (*value)->set_prefab_source_transform(node, transform);
+    return value == nullptr || *value == nullptr ? engine::error::invalid_handle
+                                                 : (*value)->set_node_transform(node, transform);
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {
@@ -449,26 +448,6 @@ engine::error scene_instances::validate_editable_node(scene_instance_id instance
                                                                : engine::error::invalid_handle;
 }
 
-result<prefab_component_state>
-scene_instances::capture_component_override(scene_instance_id instance, scene_node_id node,
-                                            guid type) noexcept {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto* value = instances_.get(instance, resource_type::scene_instance);
-  if (!value || !*value)
-    return error::invalid_handle;
-  return (*value)->capture_component_override(node, type);
-}
-error scene_instances::set_component_override(scene_instance_id instance, scene_node_id node,
-                                              guid type,
-                                              const prefab_component_state& state) noexcept {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto* value = instances_.get(instance, resource_type::scene_instance);
-  if (!value || !*value)
-    return error::invalid_handle;
-  return (*value)->set_component_override(node, type, state);
-}
 error scene_instances::add_component_description(scene_instance_id instance, scene_node_id node,
                                                  const component_description& description,
                                                  guid identity) noexcept {

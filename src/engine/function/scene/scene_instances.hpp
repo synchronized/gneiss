@@ -138,8 +138,8 @@ public:
   /** 按来源索引捕获当前资源强引用，允许调用方分帧构建历史快照。 */
   [[nodiscard]] GNEISS_API result<scene_mesh_binding>
   capture_prefab_binding(scene_instance_id instance, guid uuid, std::size_t index) const noexcept;
-  [[nodiscard]] GNEISS_API error set_prefab_source_transform(
-      scene_instance_id instance, scene_node_id node, const math::transform& transform) noexcept;
+  [[nodiscard]] GNEISS_API error set_node_transform(scene_instance_id instance, scene_node_id node,
+                                                    const math::transform& transform) noexcept;
   [[nodiscard]] GNEISS_API result<scene_node_id> create_node(scene_instance_id instance,
                                                              const node_creation& desc) noexcept;
   /** 修改显式对象名称，普通对象与 Prefab 根共用；来源内部节点不支持独立重命名。 */
@@ -162,13 +162,7 @@ public:
   [[nodiscard]] GNEISS_API error set_mesh_renderer(scene_instance_id instance, scene_node_id node,
                                                    std::string_view mesh_uri,
                                                    std::string_view material_uri) noexcept;
-  /** 单个来源组件的覆盖快照；包含撤销需要的实际资源引用，调用限所属线程。 */
-  [[nodiscard]] GNEISS_API result<prefab_component_state>
-  capture_component_override(scene_instance_id instance, scene_node_id node, guid type) noexcept;
-  [[nodiscard]] GNEISS_API error
-  set_component_override(scene_instance_id instance, scene_node_id node, guid type,
-                         const prefab_component_state& state) noexcept;
-  /** 普通对象修改 ECS；Prefab 节点写结构覆盖。资源必须已经准备。 */
+  /** 修改运行时组件；调用限所属线程，不修改编辑文档。 */
   [[nodiscard]] GNEISS_API error add_component_description(scene_instance_id instance,
                                                            scene_node_id node,
                                                            const component_description& value,
@@ -176,7 +170,7 @@ public:
   [[nodiscard]] GNEISS_API error remove_component_description(scene_instance_id instance,
                                                               scene_node_id node,
                                                               guid type) noexcept;
-  /** 替换已有组件；Prefab 同时更新稀疏覆盖，不支持新增或移除。 */
+  /** 替换已有运行时组件，不支持新增或移除，不生成 Prefab 覆盖。 */
   [[nodiscard]] GNEISS_API error set_component_description(
       scene_instance_id instance, scene_node_id node, const component_description& value) noexcept;
   [[nodiscard]] GNEISS_API error set_camera(scene_instance_id instance, scene_node_id node,

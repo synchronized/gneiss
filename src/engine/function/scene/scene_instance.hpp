@@ -38,8 +38,7 @@ public:
   [[nodiscard]] result<std::string> serialize() const;
   [[nodiscard]] result<scene_node_info> get_node_info(std::uint64_t index,
                                                       node_query_detail detail) const;
-  [[nodiscard]] error set_prefab_source_transform(scene_node_id node,
-                                                  const math::transform& transform);
+  [[nodiscard]] error set_node_transform(scene_node_id node, const math::transform& transform);
   [[nodiscard]] result<scene_node_id> create_node(const node_creation& desc);
   [[nodiscard]] error set_node_name(scene_node_id node, std::string_view name);
   [[nodiscard]] error reparent_node(scene_node_id node, scene_node_id parent);
@@ -53,16 +52,12 @@ public:
                             const scene_mesh_binding* prepared = nullptr);
   [[nodiscard]] error set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
                                         std::string_view material_uri);
-  /** 普通持久化对象增删组件；不接受 Prefab 来源节点。资源必须已准备。 */
-  [[nodiscard]] result<prefab_component_state> capture_component_override(scene_node_id node,
-                                                                          guid type) noexcept;
-  [[nodiscard]] error set_component_override(scene_node_id node, guid type,
-                                             const prefab_component_state& state) noexcept;
+  /** 修改运行组件，不生成或修改 Prefab 覆盖。 */
   [[nodiscard]] error add_component_description(scene_node_id node,
                                                 const component_description& value,
                                                 guid identity = {}) noexcept;
   [[nodiscard]] error remove_component_description(scene_node_id node, guid type) noexcept;
-  /** 替换已有组件；Prefab 同时更新稀疏覆盖，不支持新增或移除。 */
+  /** 替换已有运行组件，不支持新增或移除。 */
   [[nodiscard]] error set_component_description(scene_node_id node,
                                                 const component_description& value) noexcept;
   [[nodiscard]] error set_camera(scene_node_id node, const camera_description& desc);
@@ -86,7 +81,7 @@ public:
                            ref<const engine::prefab> source_asset = {}) noexcept;
   [[nodiscard]] error remove_prefab_instance(guid uuid) noexcept;
 
-  /** 捕获当前 ECS 引用；替换普通组件只写 World，Prefab 同时维护显式覆盖。 */
+  /** 捕获当前 ECS 引用；替换组件只写 World，不修改来源记录。 */
   [[nodiscard]] result<scene_mesh_binding> capture_mesh_binding(scene_node_id node) const noexcept;
   [[nodiscard]] error replace_mesh_binding(scene_node_id node, const scene_mesh_binding& expected,
                                            const scene_mesh_binding& replacement,

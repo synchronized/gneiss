@@ -113,7 +113,7 @@ Prefab 编辑开始时从组件覆盖快照取得原资源引用；异步加载�
 `meta::type` 绘制通用属性控件；视图不超过描述寿命，不借用 ECS 成员地址。
 
 通用组件编辑在文档描述的独立候选上修改并校验，接受新版本后调用 Scene 的投影入口。
-普通对象写入实际 ECS；Prefab 来源对象同时更新与模板相比的稀疏叶属性覆盖，恢复来源会移除覆盖。
+文档为 Prefab 来源对象生成稀疏覆盖，恢复来源会移除覆盖；投影入口对所有对象只写入有效 ECS 数据，不再生成覆盖。
 历史保存描述快照，通过对象 UUID 或实例/来源 UUID 重新定位，支持撤销、重做和连续修改合并。
 节点/组件不存在时返回错误，不重建组件。Transform、主相机只读规则和资源 URI 异步加载继续使用
 现有语义；通用注册不等于新增组件、删除组件或容器结构编辑能力。
@@ -140,8 +140,9 @@ Editor Document 保存及完整子树撤销读取文档版本，不反向捕获 
 `set_node_name` 支持普通对象与实例根。`reparent_node` 支持显式对象，普通自有对象可挂在实例根下，
 不能挂到模板内部节点。模板内部结构暂不提供增删或重排覆盖。
 `destroy_node` 对所有显式对象统一要求没有实际子节点；完整删除使用 `destroy_subtree`，不按 Prefab 类型切换删除语义。
-组件编辑经 Scene 分别修改普通对象数据或来源覆盖；来源 Transform 编辑通过 `set_prefab_source_transform` 验证并记录稀疏覆盖。
-恢复来源默认值时移除对应覆盖。直接修改 World 组件不会自动形成持久化覆盖。
+`set_node_transform` 及组件增删、替换接口只修改运行时有效数据，不生成 Prefab 覆盖。
+覆盖生成及恢复属于 `scene_document`。运行时临时修改不会更新加载时的 Prefab 引用；重新实例化仍采用文档覆盖。
+当前运行实例仍保留加载时的来源映射和覆盖记录，待 PLAN-105 后续迁移。
 
 `capture_description` 采集显式对象，`serialize` 编码为当前格式；来源生成节点不重复输出。
 未知 JSON 扩展字段按对象 UUID 对齐保留，不按旧数组下标绑定。
@@ -201,7 +202,7 @@ GPU 资源实际回收遵守资源服务及渲染后端的延迟销毁规则，�
 不会自动把 `T{}` 当作有效组件。相机提供默认描述，网格仍需用户选择资源。
 
 `add_component_description` 向对象添加缺失组件，重复添加返回 `invalid_state`；
-`remove_component_description` 删除缺失组件返回 `not_found`。Prefab 根及来源节点写入组件结构覆盖，
+`remove_component_description` 删除缺失组件返回 `not_found`。编辑器文档对 Prefab 根及来源节点记录组件结构覆盖，
 格式及冲突规则见[场景格式](scene-format.md#prefab-组件结构覆盖)。已有组件替换仍使用 `set_component_description`。
 
 编辑器组件增删通过稳定 UUID 重新定位目标，统一记录前后文档版本。撤销恢复组件实例 UUID；
@@ -210,7 +211,7 @@ GPU 资源实际回收遵守资源服务及渲染后端的延迟销毁规则，�
 实施记录见 [PLAN-085](../plans/PLAN-085-component-lifecycle-editor.md)。
 
 
-Prefab 组件历史使用 `capture_component_override` / `set_component_override` 保存、恢复单个组件覆盖，
+Prefab 组件历史使用 `scene_document::capture_component_override` / `scene_document::set_component_override` 保存、恢复单个组件覆盖，
 包含网格资源强引用。面板支持组件添加、移除及 Restore Source；网格恢复来源先通过资产入口异步准备资源。
 同步 Scene 接口不读取文件；资源缺失返回未就绪，调用方准备成功后再提交。
 来源重载先验证受影响实例的完整覆盖，冲突不修改实例及其记录；`reload_prefab_loaded` 可输出路径诊断。
@@ -382,13 +383,13 @@ map 键/值、optional、variant、组件结构覆盖及属性操作值，不读
 
 本次触及路径由当前组件与替换组件的差异确定；来源与替换组件的差异形成持久覆盖。
 重复修改不会累积同一路径记录，恢复来源值移除差异；未触及的失效覆盖及其他对象覆盖保留。
-输入不变，失败不返回部分候选。`scene_instance::set_component_description` 使用这个入口，成功安装组件后
-采用新的覆盖和冲突列表。目前组件仍按类型定位，本接口不代表组件实例 UUID 或文档权威版本已经迁移。
+输入不变，失败不返回部分候选。`scene_document` 使用这个入口更新文档覆盖，
+随后向运行层下发有效组件。运行时 `set_component_description` 不调用覆盖生成入口。
 
 `prepare_prefab_transform_edit` 接收来源节点的当前及替换变换，与组件入口共用反射差异计算、
 重复覆盖归并和未触及冲突保留规则，返回 `prefab_edit_candidate`。非法变换拒绝接受；
 来源根节点返回 `invalid_argument`，实例根的局部变换由场景对象管理。
-`scene_instance::set_prefab_source_transform` 采用该候选，成功写入运行时后更新覆盖及冲突。
+`scene_document::set_local_transform` 采用该候选更新文档，再通过 `set_node_transform` 投影运行时变换。
 
 `prepare_prefab_component_override` 计算组件添加、移除或恢复来源的完整覆盖候选。
 空 added 且 removed=false 表示清除结构覆盖，可携带该组件的属性覆盖；结构覆盖和属性覆盖不能混用。

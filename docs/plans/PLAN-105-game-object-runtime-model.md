@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-2026-11-07：实施中，阶段 1 已完成。归属 [DEV-052](DEV-052-architecture-cleanup.md)，
+2026-11-07：实施中，阶段 1、2 已完成，阶段 3 正在迁移。归属 [DEV-052](DEV-052-architecture-cleanup.md)，
 决策见 [ADR-110](../decisions/ADR-110-game-object-runtime-model.md)。
 承接已完成的 [PLAN-104](PLAN-104-value-document-prefab-overrides.md)，不重新打开其历史验收范围。
 下列结构为目标设计；实施进度以检查项为准，不把重命名等同于运行存储已迁移。
@@ -22,9 +22,9 @@
 ## 当前问题
 
 scene_instance 同时维护场景成员和 prefab_binding，后者持有来源、reference_、conflicts_，
-组件修改路径还会生成覆盖。编辑文档已经权威化，但运行时仍重复承担保存、编辑和来源刷新。
+组件修改已不再生成覆盖。编辑文档已经权威化，但运行时仍承担来源查询、捕获和刷新。
 World 内 scene_tree 拥有独立节点槽位，节点另指向 EnTT 实体。
-component_descriptions 的 component_entry 与具体描述分开保存身份。
+组件身份已收敛到 component_description_base，component_entry 已删除。
 
 ## 已确认模型
 
@@ -113,7 +113,8 @@ Prefab 来源查询、Apply/Revert、来源刷新从文档和组合结果获得�
 - [ ] 引入明确文档对象地址，迁移父关系和来源关联。
 - [ ] 输出有效对象描述与来源映射；建立文档侧投影关联。
 - [ ] 编辑器查询/覆盖/保存/刷新不反向依赖 prefab_binding。
-- [ ] 删除运行组件编辑中的覆盖生成、运行实例的覆盖表和冲突状态。
+- [x] 删除运行组件编辑中的覆盖生成；编辑器下发组合后的有效组件与变换。
+- [ ] 迁移来源查询与刷新后，删除运行实例的覆盖表和冲突状态。
 - [ ] 验证 Prefab 实例化后是普通对象，游戏修改组件不改写来源或文档。
 
 ### 4：统一运行存储
