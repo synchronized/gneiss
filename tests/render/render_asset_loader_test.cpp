@@ -503,7 +503,7 @@ bool verify_reference_serialization(gneiss::engine::asset_manager& assets) {
     return false;
   ref<const gneiss::engine::texture> restored_texture;
   auto destination = meta::mutable_instance::from(restored_texture);
-  if (!destination || serialization::apply_value(ctx, *destination, *captured).failed() ||
+  if (!destination || serialization::apply_value(ctx, *destination, *captured).error.failed() ||
       restored_texture != (*values)[0])
     return false;
   auto saved = serialization::json::serialize(ctx, *values);

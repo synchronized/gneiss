@@ -97,17 +97,25 @@ int main() {
   auto target = e::meta::mutable_instance::from(*core, restored_data);
   if (!target ||
       e::serialization::apply_value(e::serialization::context{*core}, *target, *captured)
-          .failed() ||
+          .error.failed() ||
       restored_data != original)
     return 62;
   if (e::serialization::capture_value(e::serialization::context{*core, 1}, *capture_input_view))
     return 63;
+  auto bad_record = std::get<e::record_value>(captured->payload).get();
+  auto bad_sequence = std::get<e::sequence_value>(bad_record.properties[0].content.payload).get();
+  bad_sequence.elements[0] = e::value{std::string{"wrong"}};
+  bad_record.properties[0].content = e::value{e::sequence_value{bad_sequence}};
+  auto invalid_restore = e::serialization::apply_value(
+      e::serialization::context{*core}, *target, e::value{e::record_value{bad_record}});
+  if (invalid_restore.error != e::error::invalid_argument ||
+      invalid_restore.path != "/properties/1/indices/0") return 68;
   auto cycle = e::make_ref<cyclic_data>();
   cycle->next = cycle;
   auto cycle_view = e::meta::instance::from(*core, cycle);
   auto cycle_copy = e::serialization::capture_value(e::serialization::context{*core}, *cycle_view);
   cycle->next.reset();
-  if (cycle_copy || cycle_copy.error() != e::error::invalid_argument)
+  if (cycle_copy || cycle_copy.error().error != e::error::invalid_argument)
     return 64;
   const std::vector<e::value_edit> edits{
       {{}, e::set_value_operation{e::value{std::int64_t{7}}}},

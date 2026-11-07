@@ -46,9 +46,9 @@ error collect_component_overrides(meta::instance source, meta::instance candidat
     auto before = serialization::capture_value(source),
          after = serialization::capture_value(candidate);
     if (!before)
-      return before.error();
+      return before.error().error;
     if (!after)
-      return after.error();
+      return after.error().error;
     return set_prefab_property_override(output, {key, std::move(*after)}, std::move(*before));
   };
   if (source.kind() == meta::type_kind::sequence) {

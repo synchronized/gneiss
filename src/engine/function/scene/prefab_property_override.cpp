@@ -80,7 +80,7 @@ namespace gneiss::engine {
 
 error apply_prefab_override_value(meta::mutable_instance target,
                                   const engine::value& value) noexcept {
-  return serialization::apply_value(target, value);
+  return serialization::apply_value(target, value).error;
 }
 
 error validate_prefab_property_override(const prefab_property_override& value) noexcept try {
