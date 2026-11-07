@@ -357,7 +357,8 @@ int main() try {
                              *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000003"),
                          .target_type_guid = gneiss::engine::transform_component_type},
               .path = {gneiss::engine::transform_translation_field}},
-      .value = gneiss::engine::value{.payload = gneiss::engine::math::vector3{3.0F, 0.0F, 0.0F}},
+      .operation =
+          gneiss::engine::value{.payload = gneiss::engine::math::vector3{3.0F, 0.0F, 0.0F}},
   }};
   if (create_prefab_binding(native_world, render_loader, std::move(first_lease),
                             *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000001"),
@@ -444,7 +445,8 @@ int main() try {
                              *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000099"),
                          .target_type_guid = gneiss::engine::transform_component_type},
               .path = {gneiss::engine::transform_translation_field}},
-      .value = gneiss::engine::value{.payload = gneiss::engine::math::vector3{3.0F, 0.0F, 0.0F}},
+      .operation =
+          gneiss::engine::value{.payload = gneiss::engine::math::vector3{3.0F, 0.0F, 0.0F}},
   }};
   std::unique_ptr<gneiss::engine::prefab_binding> failed;
   if (!check_visible_prefab(native_world, render_loader, first->prefab_lease(), first->root())) {

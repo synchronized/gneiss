@@ -215,7 +215,7 @@ void run() {
         {.key = {.target = {.source_node_uuid = source_uuid,
                             .target_type_guid = mesh_renderer_description::type_guid},
                  .path = {meta::property_id{2}}},
-         .value = value{std::string("asset://override.material")}});
+         .operation = value{std::string("asset://override.material")}});
   }
   auto overridden_inputs = inputs;
   overridden_inputs.scene = asset_ref<const scene_description>{overridden};
@@ -227,11 +227,11 @@ void run() {
       output.assets, [](const auto& asset) { return asset.uri == "asset://override.material"; }));
   // 空材质表示清除引用；不产生材质依赖。
   for (auto& node : overridden->objects)
-    node.prefab->overrides.front().value = value{std::string{}};
+    node.prefab->overrides.front().operation = value{std::string{}};
   check(prepare_loaded_scene(overridden_inputs, {}, output, diagnostic, {}).ok());
   check(output.assets.size() == 1 && output.assets.front().type == render_resource_kind::mesh);
   // 非空但非法的 URI 仍在创建实体或开始资源加载前拒绝。
-  overridden->objects.front().prefab->overrides.front().value =
+  overridden->objects.front().prefab->overrides.front().operation =
       value{std::string{"not-an-asset-uri"}};
   check(prepare_loaded_scene(overridden_inputs, {}, output, diagnostic, {}).failed());
   check(output.assets.empty());

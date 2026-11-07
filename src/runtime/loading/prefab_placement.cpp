@@ -68,7 +68,7 @@ gneiss::engine::error prefab_placement::freeze(
       auto target = engine::meta::resolve_path(*root, override.key.path, true);
       if (!target)
         return target.error();
-      const auto status = engine::apply_prefab_override_value(*target, override.value);
+      const auto status = engine::apply_prefab_override_operation(*target, override.operation);
       if (status.failed())
         return status;
     }

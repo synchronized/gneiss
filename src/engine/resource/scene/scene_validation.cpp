@@ -50,17 +50,13 @@ validate_prefab_reference_description(const prefab_reference_description& value)
   if (validate_uri(value.uri).failed())
     return {
         .path = "/uri", .message = "Prefab 来源必须包含规范 URI", .error = error::invalid_argument};
-  std::set<prefab_property_override_key, decltype(&prefab_property_override_key_less)> keys(
-      &prefab_property_override_key_less);
   for (std::size_t i = 0; i < value.overrides.size(); ++i) {
     const auto& entry = value.overrides[i];
     if (validate_property_override_key(entry.key).error.failed() ||
-        validate_persistent_value(entry.value).failed())
+        validate_value_operation(entry.operation).failed())
       return {.path = "/overrides/" + std::to_string(i),
               .message = "覆盖作者键或属性值无效",
               .error = error::invalid_argument};
-    if (!keys.insert(entry.key).second)
-      return {.path = "/overrides", .message = "覆盖作者键重复", .error = error::invalid_argument};
   }
   std::set<std::pair<guid, guid>> components;
   for (std::size_t i = 0; i < value.component_overrides.size(); ++i) {

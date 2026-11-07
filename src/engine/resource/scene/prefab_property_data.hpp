@@ -5,7 +5,7 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/meta/property_path.hpp"
 #include "engine/core/meta/type.hpp"
-#include "engine/core/value.hpp"
+#include "engine/core/value_edit.hpp"
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -56,7 +56,12 @@ struct prefab_property_override final {
   static constexpr std::string_view type_name = "prefab_property_override";
   static constexpr guid type_guid = guid::literal("8a714394-5d76-4aab-9787-46fb7cb53025");
   prefab_property_override_key key;
-  engine::value value;
+  value_operation operation;
+  /** 只用于已确认的 set 操作；集合操作通过 operation 访问。 */
+  engine::value& replacement() { return std::get<set_value_operation>(operation).content; }
+  const engine::value& replacement() const {
+    return std::get<set_value_operation>(operation).content;
+  }
 };
 
 /** 按稳定作者键比较，用于确定性排序。 */

@@ -242,14 +242,14 @@
                 }
               ]
             },
-            "value": {
+            "operation":{"$kind":"set","$content":{"content":{
               "$kind": "vec3",
               "$content": [
                 -5,
                 13.0160303,
                 0
               ]
-            }
+            }}}
           }
         ]
       },
@@ -292,14 +292,14 @@
                 }
               ]
             },
-            "value": {
+            "operation":{"$kind":"set","$content":{"content":{
               "$kind": "vec3",
               "$content": [
                 1.15,
                 1.15,
                 1.15
               ]
-            }
+            }}}
           }
         ]
       },
@@ -342,14 +342,14 @@
                 }
               ]
             },
-            "value": {
+            "operation":{"$kind":"set","$content":{"content":{
               "$kind": "vec3",
               "$content": [
                 -9.58200741,
                 20,
                 0
               ]
-            }
+            }}}
           }
         ]
       },

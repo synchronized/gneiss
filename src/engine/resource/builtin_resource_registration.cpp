@@ -84,20 +84,6 @@ diagnostic validate_binding(const action_binding& binding) {
 }
 
 }
-namespace {
-const std::vector<prefab_property_override>&
-reference_overrides(const prefab_reference_description& value) {
-  return value.overrides;
-}
-void set_reference_overrides(prefab_reference_description& value,
-                             const std::vector<prefab_property_override>& overrides) {
-  value.overrides = overrides;
-  std::ranges::sort(value.overrides, [](const auto& a, const auto& b) {
-    return prefab_property_override_key_less(a.key, b.key);
-  });
-}
-
-}
 error register_component_descriptions() noexcept {
   auto base_status = meta::type_builder<component_description_base>{}.polymorphic().commit();
   if (base_status.failed())
@@ -123,7 +109,8 @@ error register_component_descriptions() noexcept {
     return status;
   status = meta::type_builder<prefab_property_override>{}
                .property<&prefab_property_override::key>(meta::property_id{1}, "key", required)
-               .property<&prefab_property_override::value>(meta::property_id{2}, "value", required)
+               .property<&prefab_property_override::operation>(meta::property_id{2}, "operation",
+                                                               required)
                .serialization(true)
                .commit();
   if (status.failed())
@@ -141,8 +128,8 @@ error register_component_descriptions() noexcept {
     return status;
   status = meta::type_builder<prefab_reference_description>{}
                .property<&prefab_reference_description::uri>(meta::property_id{1}, "uri", required)
-               .property<&reference_overrides, &set_reference_overrides>(meta::property_id{2},
-                                                                         "overrides", required)
+               .property<&prefab_reference_description::overrides>(meta::property_id{2},
+                                                                   "overrides", required)
                .property<&prefab_reference_description::component_overrides>(meta::property_id{3},
                                                                              "component_overrides")
                .serialization()

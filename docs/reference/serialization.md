@@ -134,8 +134,8 @@ record 按属性 ID 保存，map 按键比较，二者比较不依赖输入顺�
 path 使用属性 ID、序列位置和映射键定位失败节点。资产引用通过注册的 capture_reference 保存身份，恢复由上下文解析，
 不复制纹理、网格和材质内容。当前映射反射只支持字符串键；数据树可表达其他允许的稳定标量键。
 
-Prefab 属性覆盖已直接保存 value；原 property_snapshot JSON 中转已删除。容器结构修改仍整体覆盖，
-稳定身份操作与不可变文档历史的后续迁移见 [PLAN-104](../plans/PLAN-104-value-document-prefab-overrides.md)。
+Prefab 属性覆盖保存路径和 value_operation，操作内容使用 value；原 property_snapshot JSON 中转已删除。
+稳定身份列表使用增删移动操作，普通列表整体 set。组件身份与不可变文档历史的后续迁移见 [PLAN-104](../plans/PLAN-104-value-document-prefab-overrides.md)。
 
 ### 值树编辑
 

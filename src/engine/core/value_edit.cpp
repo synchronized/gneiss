@@ -225,6 +225,36 @@ error diff(const value& before, const value& after, meta::property_path path,
   return error::success;
 }
 }
+error validate_value_operation(const value_operation& op) noexcept try {
+  if (op.valueless_by_exception())
+    return error::invalid_argument;
+  return std::visit(
+      [](const auto& item) -> error {
+        using T = std::decay_t<decltype(item)>;
+        if constexpr (requires { item.element; })
+          if (!item.element)
+            return error::invalid_argument;
+        if constexpr (requires { item.before; })
+          if (item.before == item.element)
+            return error::invalid_argument;
+        if constexpr (requires { item.key; }) {
+          auto status =
+              validate_persistent_value(value{map_value{map_value_data{{{item.key, value{}}}}}});
+          if (status.failed())
+            return status;
+        }
+        if constexpr (std::is_same_v<T, set_value_operation> ||
+                      std::is_same_v<T, insert_value_operation> ||
+                      std::is_same_v<T, put_value_operation>)
+          return validate_persistent_value(item.content);
+        return error::success;
+      },
+      op);
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
 result<value, value_edit_error> apply_value_edits(const value& root,
                                                   std::span<const value_edit> edits) noexcept try {
   auto status = validate_persistent_value(root);
@@ -232,6 +262,9 @@ result<value, value_edit_error> apply_value_edits(const value& root,
     return value_edit_error{0, status};
   auto candidate = root;
   for (std::size_t i = 0; i < edits.size(); ++i) {
+    status = validate_value_operation(edits[i].operation);
+    if (status.failed())
+      return value_edit_error{i, status};
     auto updated = replace_path(candidate, edits[i].path, [&](const value& target) {
       return apply(target, edits[i].operation);
     });

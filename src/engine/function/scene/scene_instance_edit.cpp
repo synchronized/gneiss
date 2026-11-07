@@ -42,115 +42,21 @@ error collect_component_overrides(meta::instance source, meta::instance candidat
     }
     return error::success;
   }
-  const auto snapshot = [&]() -> error {
-    auto before = serialization::capture_value(source),
-         after = serialization::capture_value(candidate);
-    if (!before)
-      return before.error().error;
-    if (!after)
-      return after.error().error;
-    return set_prefab_property_override(output, {key, std::move(*after)}, std::move(*before));
-  };
-  if (source.kind() == meta::type_kind::sequence) {
-    auto left = source.as_sequence(), right = candidate.as_sequence();
-    if (!left)
-      return left.error();
-    if (!right)
-      return right.error();
-    auto count = left->size(), other = right->size();
-    if (!count)
-      return count.error();
-    if (!other)
-      return other.error();
-    // 无稳定身份的可变序列整体保存，不能把当前下标当成持久身份。
-    if (!left->is_fixed_size() && !left->has_identity())
-      return snapshot();
-    if (left->has_identity()) {
-      bool changed = *count != *other;
-      std::unordered_set<guid, guid_hash> seen;
-      for (std::size_t i = 0; i < *count; ++i) {
-        auto id = left->identity(i);
-        if (!id)
-          return id.error();
-        if (!seen.insert(*id).second)
-          return error::invalid_argument;
-        if (i < *other) {
-          auto next = right->identity(i);
-          if (!next)
-            return next.error();
-          changed |= *next != *id;
-        }
-      }
-      seen.clear();
-      for (std::size_t i = 0; i < *other; ++i) {
-        auto id = right->identity(i);
-        if (!id)
-          return id.error();
-        if (!seen.insert(*id).second)
-          return error::invalid_argument;
-      }
-      if (changed)
-        return snapshot();
-    }
-    if (*count != *other)
-      return error::invalid_argument;
-    for (std::size_t i = 0; i < *count; ++i) {
-      auto a = left->at(i), b = right->at(i);
-      if (!a)
-        return a.error();
-      if (!b)
-        return b.error();
-      auto next = key;
-      if (left->has_identity()) {
-        auto id = left->identity(i);
-        if (!id)
-          return id.error();
-        next.path.emplace_back(*id);
-      } else
-        next.path.emplace_back(i);
-      auto status = collect_component_overrides(*a, *b, std::move(next), output, depth + 1);
-      if (status.failed())
-        return status;
-    }
-    return error::success;
-  }
-  if (source.kind() == meta::type_kind::associative) {
-    auto left = source.as_associative(), right = candidate.as_associative();
-    if (!left)
-      return left.error();
-    if (!right)
-      return right.error();
-    auto keys = left->keys(), other = right->keys();
-    if (!keys)
-      return keys.error();
-    if (!other)
-      return other.error();
-    std::ranges::sort(*keys);
-    std::ranges::sort(*other);
-    if (*keys != *other)
-      return snapshot();
-    for (const auto& name : *keys) {
-      auto a = left->find(name), b = right->find(name);
-      if (!a)
-        return a.error();
-      if (!b)
-        return b.error();
-      auto next = key;
-      next.path.emplace_back(name);
-      auto status = collect_component_overrides(*a, *b, std::move(next), output, depth + 1);
-      if (status.failed())
-        return status;
-    }
-    return error::success;
-  }
-  if (source.kind() != meta::type_kind::scalar)
-    return snapshot();
-  auto before = source.read_value(), after = candidate.read_value();
+  auto before = serialization::capture_value(source),
+       after = serialization::capture_value(candidate);
   if (!before)
-    return before.error();
+    return before.error().error;
   if (!after)
-    return after.error();
-  return set_prefab_property_override(output, {std::move(key), *after}, *before);
+    return after.error().error;
+  auto edits = diff_values(*before, *after);
+  if (!edits)
+    return edits.error();
+  for (auto& edit : *edits) {
+    auto target = key;
+    target.path.insert(target.path.end(), edit.path.begin(), edit.path.end());
+    output.push_back({std::move(target), std::move(edit.operation)});
+  }
+  return error::success;
 }
 }
 result<prefab_component_state> scene_instance::capture_component_override(scene_node_id node,

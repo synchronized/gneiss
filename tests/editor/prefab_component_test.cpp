@@ -89,7 +89,7 @@ int main() try {
   reference.overrides.push_back(
       {.key = {.target = {.source_node_uuid = child_id, .target_type_guid = type},
                .path = {e::meta::property_id{1}}},
-       .value = e::value{6.0F}});
+       .operation = e::value{6.0F}});
   check(e::prepare_prefab_reference(*source, reference, effective) == e::error::invalid_argument);
   reference.component_overrides.clear();
   check(e::prepare_prefab_reference(*source, reference, effective).ok());
@@ -102,7 +102,7 @@ int main() try {
   check(e::prepare_prefab_reference(*source, reference, effective, &diagnostic).failed());
   check(diagnostic.path.find("99") != std::string::npos);
   reference.overrides[0].key.path.front() = e::meta::property_id{1};
-  reference.overrides[0].value = e::value{std::string("wrong")};
+  reference.overrides[0].operation = e::value{std::string("wrong")};
   check(e::prepare_prefab_reference(*source, reference, effective).failed());
   reference.overrides.clear();
   std::shared_ptr<gneiss::runtime::application> app;
@@ -132,9 +132,34 @@ int main() try {
     auto changes = document.capture_component_override(node, type);
     check(changes && changes->properties.size() == 1 &&
           changes->properties[0].key.path.size() == 1 &&
-          changes->properties[0].value.kind() == e::value_kind::sequence);
+          changes->properties[0].replacement().kind() == e::value_kind::sequence);
     edited.samples.clear();
     check(document.components(node)->get<movement_description>()->samples.size() == 3);
+    check(
+        document
+            .set_component_description(node, e::make_component_description(movement_description{}))
+            .ok());
+    changes = document.capture_component_override(node, type);
+    check(changes && changes->properties.empty());
+  }
+  // 编辑入口直接生成同一稳定列表上的多条插入操作，恢复源内容会删除覆盖。
+  {
+    movement_description edited;
+    edited.waypoints = {{root_id, 4}, {child_id, 8}};
+    check(document.set_component_description(node, e::make_component_description(edited)).ok());
+    auto changes = document.capture_component_override(node, type);
+    check(changes && changes->properties.size() == 2);
+    check(std::holds_alternative<e::insert_value_operation>(changes->properties[0].operation) &&
+          std::holds_alternative<e::insert_value_operation>(changes->properties[1].operation));
+    auto encoded = e::serialization::json::serialize(changes->properties);
+    check(bool(encoded));
+    auto decoded = e::serialization::json::deserialize<std::vector<e::prefab_property_override>>(
+        std::string_view{*encoded});
+    check(decoded && decoded->size() == 2);
+    e::prefab_description applied;
+    e::prefab_reference_description replay{.uri = "asset://movement.prefab", .overrides = *decoded};
+    check(e::prepare_prefab_reference(*source, replay, applied).ok());
+    check(applied.objects[1].components.get<movement_description>()->waypoints == edited.waypoints);
     check(
         document
             .set_component_description(node, e::make_component_description(movement_description{}))
@@ -194,7 +219,7 @@ int main() try {
   contradictory.objects[0].prefab->overrides.push_back(
       {.key = {.target = {.source_node_uuid = root_id, .target_type_guid = type},
                .path = {e::meta::property_id{1}}},
-       .value = e::value{2.0F}});
+       .operation = e::value{2.0F}});
   check(!gneiss::engine::asset_file::serialize_bytes(contradictory));
   e::scene_preparation_inputs inputs;
   inputs.scene = e::asset_ref<const e::scene_description>{

@@ -120,7 +120,7 @@ int main() try {
   auto view = (*components->begin())->view();
   check(view.has_value());
   auto fields = view->type().properties();
-  check(fields && fields->size() == 4 && (*fields)[1].type.is_enum());
+  check(fields && fields->size() == 5 && (*fields)[1].type.is_enum());
   check((*fields)[1].type.enum_entries()->size() == 2);
   check(apply({.path = {p{1}}, .data = e::value{3.0F}}, 1).ok());
   check(apply({.path = {p{1}}, .data = e::value{4.0F}}, 1).ok());
@@ -191,6 +191,10 @@ int main() try {
   auto current_view = (*current->begin())->view();
   auto source_view = (*prefab->objects[0].components.begin())->view();
   check(current_view && source_view);
+  // 只绘制本次测试的序列，避免依赖组件其他字段的绘制顺序。
+  current_view = e::meta::resolve_path(*current_view, ed::property_path{p{4}});
+  source_view = e::meta::resolve_path(*source_view, ed::property_path{p{4}});
+  check(current_view && source_view);
   ImGui::CreateContext();
   auto& io = ImGui::GetIO();
   io.IniFilename = nullptr;
@@ -210,8 +214,10 @@ int main() try {
     ImGui::Begin("Components");
     auto pending =
         ed::draw_reflected_properties(*current_view, "Movement", serial, status, {}, &*source_view);
-    if (pending)
+    if (pending) {
+      pending->path.insert(pending->path.begin(), p{4});
       requested = std::move(pending);
+    }
     button = GImGui->LastItemData.Rect.GetCenter();
     ImGui::End();
     ImGui::Render();

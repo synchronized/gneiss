@@ -46,14 +46,14 @@
                 }
               ]
             },
-            "value": {
+            "operation":{"$kind":"set","$content":{"content":{
               "$kind": "vec3",
               "$content": [
                 3,
                 0,
                 0
               ]
-            }
+            }}}
           }
         ]
       },

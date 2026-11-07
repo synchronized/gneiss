@@ -53,9 +53,9 @@
               },
               "path": [{"$kind":"property","$content":1}]
             },
-            "value": {
-              "$kind":"value",
-              "$content":{"$kind":"vec3","$content":[0,1,0]}
+            "operation": {
+              "$kind":"set",
+              "$content":{"content":{"$kind":"vec3","$content":[0,1,0]}}
             }
           }
         ]
@@ -107,17 +107,17 @@
   `prefab` 缺失或为 null 表示普通对象；保存普通对象时写出 `prefab: null`。
 - `parent` 可引用任意显式对象，包括 Prefab 根；不能引用来源内部节点 UUID。普通自有子对象正常保存，
   模板生成的子节点不重复写入列表。模板文件自身暂不允许嵌套 Prefab 引用。
-- 每项覆盖包含必填 `key` 和 `value`。`key.target` 保存非零 `source_node_uuid` 与
+- 每项覆盖包含必填 `key` 和 `operation`。`key.target` 保存非零 `source_node_uuid` 与
   `target_type_guid`；`key.path` 是从目标根开始的完整路径，首步必须是属性 ID，最多 64 步。
-  同一实例内的完整覆盖键不能重复。
+  同一路径允许多条有序操作。
 - 路径步统一为 `$kind/$content`：`property` 使用非零属性 ID；`key` 使用映射字符串键；
   `element` 使用序列元素的非零 GUID；`index` 仅允许固定长度序列的位置下标。
   序列必须显式声明身份能力才能使用 `element`；目标丢失、身份为空或重复均失败，不回退下标。
-- `value` 为带标签联合：`{"$kind":"value","$content":...}` 保存普通引擎值，内容仍使用
-  Value 的 `$kind/$content` 格式；`{"$kind":"snapshot","$content":{"json":"..."}}`
-  保存独立属性 JSON 快照。快照在临时目标上解码并校验，失败不替换输出描述。
-  无身份的可变列表整体覆盖，列表结构变化不会生成持久化下标。序列或映射的结构变化也整体保存。
-  快照不承诺逐元素合并；来源新增的元素会被实例的整列表覆盖替换。
+- `operation` 使用带标签联合：`{"$kind":"set","$content":{"content":...}}` 保存替换值；
+  其内容直接使用 Value 的 `$kind/$content` 格式。其他分支为 insert、erase、move、put_entry、erase_entry。
+  有身份的可变序列按元素 GUID 增删移动；nil 的 before 表示末尾，缺失锚点拒绝应用，已删除元素的 erase 成功。
+  无身份可变列表整体 set，不生成持久化下标；来源新增元素会被实例的整列表替换。
+  同一组件的操作在候选值树上依次执行，再恢复为描述并校验，不经过 JSON 快照。
 - 路径展示文本只用于诊断，不解析为存档地址。旧覆盖键和值格式不再读取。
   相互约束的字段覆盖合并后才执行组件校验；失效覆盖仍保留在来源引用中供用户修复。
 - Prefab 实例身份就是引用对象的 UUID，覆盖键不重复携带实例身份。Prefab 展开后的源节点、Entity
@@ -170,8 +170,10 @@ World 保持不变。旧顶层 `prefab_instances` 也被明确拒绝，不作为
 Scene 的 components 直接注册成员；component_descriptions 通过 sequence_traits 提供只读
 序列访问与整组校验替换。IPC 使用同一 Meta 数组解码，不再依赖组件专用 DOM 适配函数。
 `object_description.prefab` 注册为 optional，引用描述的 uri、overrides、component_overrides
-由反射遍历。组件增删指令同样按成员反射，属性覆盖保留专用 codec；覆盖键重复、URI 和跨列表冲突由
-引用描述校验器统一验证。属性覆盖解码后按作者键排序。
+由反射遍历。组件增删及属性操作均按成员反射；URI、操作内容和跨列表冲突由
+引用描述校验器统一验证。属性操作保持写入顺序，允许同一集合路径上的多条操作，不再排序。
+操作使用 set、insert、erase、move、put_entry、erase_entry 稳定分支名；具体语义见
+[值树编辑](serialization.md#值树编辑)。
 object_description 使用通用反射编解码，不再注册专用 encode/decode；独立 validate_object
 检查 UUID 非空及 Prefab 与非空组件互斥，保存和读取都经反射校验钩子调用。
 父节点存在性和层级循环仍由场景整体校验。

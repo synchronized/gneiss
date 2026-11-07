@@ -179,7 +179,7 @@ int main() try {
       {.key = {.target = {.source_node_uuid = first.uuid,
                           .target_type_guid = movement_description::type_guid},
                .path = {e::meta::property_id{1}}},
-       .value = e::value{9.0F}});
+       .operation = e::value{9.0F}});
   source.objects = {reference};
   e::prefab_asset_ref prefab_ref{prefab};
   check(gneiss::test_support::take_value(

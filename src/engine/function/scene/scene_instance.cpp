@@ -75,7 +75,7 @@ error commit_object(world& native_world, const object_description& source, stage
   }
   for (std::size_t index = 0U; index < left.prefab->overrides.size(); ++index) {
     if (!(left.prefab->overrides[index].key == right.prefab->overrides[index].key) ||
-        !(left.prefab->overrides[index].value == right.prefab->overrides[index].value)) {
+        !(left.prefab->overrides[index].operation == right.prefab->overrides[index].operation)) {
       return false;
     }
   }
@@ -492,17 +492,17 @@ engine::error scene_instance::set_prefab_source_transform(scene_node_id node,
               .key = {.target = {.source_node_uuid = info.address->source_node_uuid,
                                  .target_type_guid = type_id},
                       .path = {transform_translation_field}},
-              .value = gneiss::engine::value{.payload = transform.translation}},
+              .operation = gneiss::engine::value{.payload = transform.translation}},
           engine::prefab_property_override{
               .key = {.target = {.source_node_uuid = info.address->source_node_uuid,
                                  .target_type_guid = type_id},
                       .path = {transform_rotation_field}},
-              .value = gneiss::engine::value{.payload = transform.rotation}},
+              .operation = gneiss::engine::value{.payload = transform.rotation}},
           engine::prefab_property_override{
               .key = {.target = {.source_node_uuid = info.address->source_node_uuid,
                                  .target_type_guid = type_id},
                       .path = {transform_scale_field}},
-              .value = gneiss::engine::value{.payload = transform.scale}}};
+              .operation = gneiss::engine::value{.payload = transform.scale}}};
       const std::array source_values{engine::value{.payload = source->transform.translation},
                                      engine::value{.payload = source->transform.rotation},
                                      engine::value{.payload = source->transform.scale}};
@@ -981,7 +981,7 @@ engine::error scene_instance::set_camera(scene_node_id node,
             {.key = {.target = {.source_node_uuid = info.address->source_node_uuid,
                                 .target_type_guid = camera_component_type},
                      .path = {fields[i]}},
-             .value = engine::value{values[i]}},
+             .operation = engine::value{values[i]}},
             engine::value{originals[i]});
         if (status.failed())
           return status;

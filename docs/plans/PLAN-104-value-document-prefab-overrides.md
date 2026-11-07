@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-2026-11-07：实施中。结构化 value、反射捕获/恢复和独立值树的编辑/diff 已实现；Prefab 属性内容已移除 JSON 快照。组件实例身份、操作式 Prefab 覆盖与统一文档历史仍待接入。
+2026-11-07：实施中。结构化 value、反射捕获/恢复和独立值树的编辑/diff 已实现；Prefab 属性内容已移除 JSON 快照。Prefab 属性覆盖已接入有序 value_operation，稳定列表生成增删移动；组件实例身份、冲突回放与统一文档历史仍待接入。
 阶段验收见[结构化值与反射捕获记录](../records/2026-11-07-structured-value-editing.md)。
 归属 [DEV-052](DEV-052-architecture-cleanup.md)，决策见 [ADR-109](../decisions/ADR-109-value-document-model.md)。
 本计划允许修改子树与文档撤销快照，不保留旧快照体系作为长期平行入口；不要求兼容未发布的旧文件格式。

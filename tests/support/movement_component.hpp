@@ -15,6 +15,21 @@ struct movement_settings {
   float maximum = 10;
   bool operator==(const movement_settings&) const = default;
 };
+struct waypoint {
+  static constexpr std::string_view type_name = "test_waypoint";
+  static constexpr e::guid type_guid = e::guid::literal("84ea93d2-1d22-4342-9970-d2b48c16f246");
+  e::guid uuid;
+  float distance{};
+  bool operator==(const waypoint&) const = default;
+};
+}
+namespace gneiss::engine::meta {
+template <> struct sequence_identity_traits<std::vector<gneiss::test_support::waypoint>> {
+  static constexpr bool enabled = true;
+  static guid identity(const gneiss::test_support::waypoint& v) { return v.uuid; }
+};
+}
+namespace gneiss::test_support {
 struct movement_description
     : e::meta::object_type<movement_description, e::component_description_base> {
   movement_description() = default;
@@ -25,9 +40,10 @@ struct movement_description
   movement_mode mode = movement_mode::walk;
   movement_settings settings{};
   std::vector<float> samples{1, 2};
+  std::vector<waypoint> waypoints;
   bool operator==(const movement_description& other) const {
     return speed == other.speed && mode == other.mode && settings == other.settings &&
-           samples == other.samples;
+           samples == other.samples && waypoints == other.waypoints;
   }
 };
 struct movement_component {
@@ -88,12 +104,20 @@ inline e::error register_movement_meta() {
                .commit();
   if (status.failed())
     return status;
+  status = e::meta::type_builder<waypoint>{}
+               .property<&waypoint::uuid>(e::meta::property_id{1}, "uuid")
+               .property<&waypoint::distance>(e::meta::property_id{2}, "distance")
+               .serialization()
+               .commit();
+  if (status.failed())
+    return status;
   return e::meta::type_builder<movement_description>{}
       .base<e::component_description_base>()
       .property<&movement_description::speed>(e::meta::property_id{1}, "speed")
       .property<&movement_description::mode>(e::meta::property_id{2}, "mode")
       .property<&movement_description::settings>(e::meta::property_id{3}, "settings")
       .property<&movement_description::samples>(e::meta::property_id{4}, "samples")
+      .property<&movement_description::waypoints>(e::meta::property_id{5}, "waypoints")
       .serialization()
       .commit();
 }

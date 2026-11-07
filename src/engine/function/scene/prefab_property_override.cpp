@@ -78,14 +78,20 @@ void normalize_zero(gneiss::engine::value& value) noexcept {
 
 namespace gneiss::engine {
 
-error apply_prefab_override_value(meta::mutable_instance target,
-                                  const engine::value& value) noexcept {
-  return serialization::apply_value(target, value).error;
+error apply_prefab_override_operation(meta::mutable_instance target,
+                                      const value_operation& operation) noexcept {
+  auto captured = serialization::capture_value(target.as_const());
+  if (!captured)
+    return captured.error().error;
+  const std::array edits{value_edit{{}, operation}};
+  auto updated = apply_value_edits(*captured, edits);
+  return updated ? serialization::apply_value(target, *updated).error : updated.error().error;
 }
 
 error validate_prefab_property_override(const prefab_property_override& value) noexcept try {
   if (!value.key.target.source_node_uuid || !value.key.target.target_type_guid ||
-      !value.key.first_property().is_valid() || value.value.payload.valueless_by_exception()) {
+      !value.key.first_property().is_valid() ||
+      validate_value_operation(value.operation).failed()) {
     return error::invalid_argument;
   }
   auto field =
@@ -121,37 +127,47 @@ error validate_prefab_property_override(const prefab_property_override& value) n
       type = *element;
     }
   }
-  if (validate_persistent_value(value.value).failed())
+  if (!std::holds_alternative<set_value_operation>(value.operation)) {
+    if (std::holds_alternative<put_value_operation>(value.operation) ||
+        std::holds_alternative<erase_key_operation>(value.operation))
+      return type.kind() == meta::type_kind::associative ? error::success : error::invalid_argument;
+    return type.kind() == meta::type_kind::sequence && type.has_sequence_identity() &&
+                   !type.is_fixed_sequence()
+               ? error::success
+               : error::invalid_argument;
+  }
+  if (validate_persistent_value(value.replacement()).failed())
     return error::invalid_argument;
   switch (type.kind()) {
   case meta::type_kind::scalar:
-    if (!valid_value(value.value) || type.scalar_kind() != value.value.kind())
+    if (!valid_value(value.replacement()) || type.scalar_kind() != value.replacement().kind())
       return error::invalid_argument;
     break;
   case meta::type_kind::object:
-    if (value.value.kind() != value_kind::record ||
-        std::get<record_value>(value.value.payload).get().type != type.guid())
+    if (value.replacement().kind() != value_kind::record ||
+        std::get<record_value>(value.replacement().payload).get().type != type.guid())
       return error::invalid_argument;
     break;
   case meta::type_kind::sequence:
-    if (value.value.kind() != value_kind::sequence)
+    if (value.replacement().kind() != value_kind::sequence)
       return error::invalid_argument;
     break;
   case meta::type_kind::associative:
-    if (value.value.kind() != value_kind::map)
+    if (value.replacement().kind() != value_kind::map)
       return error::invalid_argument;
     break;
   case meta::type_kind::optional:
-    if (value.value.kind() != value_kind::optional)
+    if (value.replacement().kind() != value_kind::optional)
       return error::invalid_argument;
     break;
   case meta::type_kind::variant:
-    if (value.value.kind() != value_kind::variant)
+    if (value.replacement().kind() != value_kind::variant)
       return error::invalid_argument;
     break;
   case meta::type_kind::reference:
-    if (value.value.kind() != value_kind::invalid && value.value.kind() != value_kind::record &&
-        value.value.kind() != value_kind::asset_reference)
+    if (value.replacement().kind() != value_kind::invalid &&
+        value.replacement().kind() != value_kind::record &&
+        value.replacement().kind() != value_kind::asset_reference)
       return error::invalid_argument;
     break;
   default:
@@ -165,34 +181,32 @@ error validate_prefab_property_override(const prefab_property_override& value) n
 error set_prefab_property_override(std::vector<prefab_property_override>& overrides,
                                    prefab_property_override candidate,
                                    engine::value source_value) noexcept {
+  if (!std::holds_alternative<set_value_operation>(candidate.operation))
+    return error::invalid_argument;
   auto operation = validate_prefab_property_override(candidate);
   if (operation != error::success) {
     return operation;
   }
   if (validate_persistent_value(source_value).failed())
     return error::invalid_argument;
-  if (is_scalar_value_kind(source_value.kind()) && is_scalar_value_kind(candidate.value.kind())) {
-    if (!valid_value(source_value) || source_value.kind() != candidate.value.kind())
+  if (is_scalar_value_kind(source_value.kind()) &&
+      is_scalar_value_kind(candidate.replacement().kind())) {
+    if (!valid_value(source_value) || source_value.kind() != candidate.replacement().kind())
       return error::invalid_argument;
     normalize_zero(source_value);
-    normalize_zero(candidate.value);
+    normalize_zero(candidate.replacement());
   }
   try {
-    const auto found = std::ranges::find(overrides, candidate.key, &prefab_property_override::key);
-    if (candidate.value == source_value) {
-      if (found != overrides.end()) {
-        overrides.erase(found);
-      }
-      return error::success;
-    }
-    if (found != overrides.end()) {
-      found->value = std::move(candidate.value);
-    } else {
-      overrides.push_back(std::move(candidate));
-      std::ranges::sort(overrides, [](const auto& left, const auto& right) {
-        return engine::prefab_property_override_key_less(left.key, right.key);
-      });
-    }
+    auto pending = overrides;
+    // 整项 set 覆盖同一路径及其子路径的旧编辑；其他操作保持原顺序。
+    std::erase_if(pending, [&](const auto& old) {
+      return old.key.target == candidate.key.target &&
+             old.key.path.size() >= candidate.key.path.size() &&
+             std::equal(candidate.key.path.begin(), candidate.key.path.end(), old.key.path.begin());
+    });
+    if (candidate.replacement() != source_value)
+      pending.push_back(std::move(candidate));
+    overrides.swap(pending);
     return error::success;
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
@@ -270,13 +284,8 @@ error prepare_prefab_reference(const prefab_description& source,
       target->components.erase(key.second);
   }
   // 提前定位每条属性覆盖；成组应用仍在下一步统一校验跨字段约束。
-  std::vector<prefab_property_override_key> property_keys;
   for (const auto& entry : reference.overrides) {
     const auto& key = entry.key;
-    if (std::ranges::find(property_keys, key) != property_keys.end())
-      return fail(error::invalid_argument, key.target.source_node_uuid, key.target.target_type_guid,
-                  {}, "属性覆盖键重复");
-    property_keys.push_back(key);
     std::string path = meta::property_path_text(key.path);
     auto object = std::ranges::find(candidate.objects, key.target.source_node_uuid,
                                     &object_description::uuid);
@@ -290,14 +299,7 @@ error prepare_prefab_reference(const prefab_description& source,
       if (!component)
         return fail(error::not_found, key.target.source_node_uuid, key.target.target_type_guid,
                     path, "属性覆盖对应的来源组件已不存在");
-      if (key.target.target_type_guid == (*component)->guid()) {
-        auto root = (*component)->view();
-        auto leaf =
-            root ? meta::resolve_path(*root, key.path, true) : result<meta::instance>{root.error()};
-        if (!leaf)
-          return fail(leaf.error(), key.target.source_node_uuid, key.target.target_type_guid, path,
-                      "属性覆盖路径已失效");
-      }
+      // 路径在顺序应用时定位：前一条 insert 可能刚创建本条操作的目标。
     }
   }
   auto status = prepare_prefab_description(candidate, reference.overrides, output);
@@ -330,7 +332,9 @@ engine::error prepare_prefab_description(const prefab_description& source,
     // 描述类型的全部叶覆盖在同一副本中应用，再检查跨字段约束。
     if (found->components.find(value.key.target.target_type_guid))
       continue;
-    const auto* scalar = &value.value;
+    if (!std::holds_alternative<set_value_operation>(value.operation))
+      return error::unsupported;
+    const auto* scalar = &value.replacement();
     if (!is_scalar_value_kind(scalar->kind()) || value.key.path.size() != 1)
       return error::unsupported;
     const auto result = apply_candidate_object(value, *scalar, *found);
@@ -347,17 +351,17 @@ engine::error prepare_prefab_description(const prefab_description& source,
       if (!std::ranges::any_of(overrides, matches))
         continue;
       auto changed = modify_component(component, [&](meta::mutable_instance root) -> error {
-        for (const auto& entry : overrides) {
-          if (!matches(entry))
-            continue;
-          auto target = meta::resolve_path(root, entry.key.path, true);
-          if (!target)
-            return target.error();
-          auto status = apply_prefab_override_value(*target, entry.value);
-          if (status.failed())
-            return status;
-        }
-        return error::success;
+        auto captured = serialization::capture_value(root.as_const());
+        if (!captured)
+          return captured.error().error;
+        std::vector<value_edit> edits;
+        for (const auto& entry : overrides)
+          if (matches(entry))
+            edits.push_back({entry.key.path, entry.operation});
+        auto updated = apply_value_edits(*captured, edits);
+        if (!updated)
+          return updated.error().error;
+        return serialization::apply_value(root, *updated).error;
       });
       if (!changed)
         return changed.error();
@@ -388,7 +392,7 @@ prepare_mesh_renderer_overrides(guid source_node, const mesh_renderer_descriptio
         {.key = {.target = {.source_node_uuid = source_node,
                             .target_type_guid = mesh_renderer_description::type_guid},
                  .path = {meta::property_id{static_cast<std::uint32_t>(i + 1)}}},
-         .value = engine::value{replacements[i]}},
+         .operation = engine::value{replacements[i]}},
         engine::value{originals[i]});
     if (status.failed())
       return status;

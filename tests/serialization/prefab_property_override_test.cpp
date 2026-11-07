@@ -32,7 +32,7 @@ make_translation(gneiss::engine::guid source_node, gneiss::engine::math::vector3
   return {.key = {.target = {.source_node_uuid = source_node,
                              .target_type_guid = gneiss::engine::transform_component_type},
                   .path = {gneiss::engine::transform_translation_field}},
-          .value = gneiss::engine::value{.payload = value}};
+          .operation = gneiss::engine::value{.payload = value}};
 }
 
 } // namespace
@@ -95,6 +95,55 @@ int main() {
     if (!leaf || leaf->write_value(value{4.0F}).failed() || mapping["a/b"] != 4)
       return 48;
   }
+  // 实际 Prefab 列表通过稳定身份重排、删除、新增；文件保持操作顺序。
+  {
+    using namespace gneiss::engine;
+    using gneiss::test_support::movement_description;
+    const auto third = guid::literal("49386fe2-09cb-42d8-92de-eeb021178b4b");
+    movement_description original;
+    original.waypoints = {{source_a, 1}, {source_b, 2}};
+    auto changed = original;
+    changed.waypoints = {{source_b, 20}, {third, 3}};
+    auto a = meta::instance::from(original), b = meta::instance::from(changed);
+    auto before = serialization::capture_value(*a), after = serialization::capture_value(*b);
+    if (!before || !after)
+      return 70;
+    auto edits = diff_values(*before, *after);
+    if (!edits || edits->size() != 3)
+      return 71;
+    prefab_reference_description reference{.uri = "asset://waypoints.prefab", .overrides = {}};
+    for (const auto& edit : *edits)
+      reference.overrides.push_back(
+          {{{source_b, movement_description::type_guid}, edit.path}, edit.operation});
+    auto encoded = serialization::json::serialize(reference);
+    if (!encoded)
+      return 72;
+    auto decoded =
+        serialization::json::deserialize<prefab_reference_description>(std::string_view{*encoded});
+    if (!decoded)
+      return 73;
+    prefab_description source;
+    source.root_uuid = source_a;
+    object_description root, child;
+    root.uuid = source_a;
+    child.uuid = source_b;
+    child.parent_uuid = source_a;
+    child.components.set(original);
+    source.objects = {root, child};
+    prefab_description output;
+    if (prepare_prefab_reference(source, *decoded, output).failed() ||
+        output.objects[1].components.get<movement_description>()->waypoints != changed.waypoints ||
+        source.objects[1].components.get<movement_description>()->waypoints != original.waypoints)
+      return 74;
+    // 后一条编辑允许定位前一条 insert 刚创建的元素。
+    decoded->overrides.push_back({
+        .key = {.target = {source_b, movement_description::type_guid},
+                .path = {meta::property_id{5}, changed.waypoints.back().uuid, meta::property_id{2}}},
+        .operation = value{42.0F}});
+    if (prepare_prefab_reference(source, *decoded, output).failed() ||
+        output.objects[1].components.get<movement_description>()->waypoints.back().distance != 42)
+      return 75;
+  }
   // 快照复制不共享原数据；列表长度可改变，应用失败不修改输出。
   {
     using namespace gneiss::engine;
@@ -109,7 +158,7 @@ int main() {
       return 50;
     prefab_property_override change{.key = {.target = {source_b, movement_description::type_guid},
                                             .path = {meta::property_id{4}}},
-                                    .value = *after};
+                                    .operation = *after};
     movement.samples.clear();
     prefab_description source;
     source.root_uuid = source_a;
@@ -133,15 +182,15 @@ int main() {
     if (!bytes)
       return 54;
     auto copy = serialization::json::deserialize<prefab_property_override>(*bytes);
-    if (!copy || copy->value != changes.front().value)
+    if (!copy || copy->operation != changes.front().operation)
       return 54;
-    changes.front().value = value{sequence_value{sequence_value_data{{value{true}}}}};
+    changes.front().operation = value{sequence_value{sequence_value_data{{value{true}}}}};
     if (prepare_prefab_description(source, changes, output).ok() ||
         output.objects[1].components.get<movement_description>()->samples.size() != 3)
       return 55;
     changes.front() = change;
     changes.front().key.path.emplace_back(std::size_t{1});
-    changes.front().value = value{2.0F};
+    changes.front().operation = value{2.0F};
     if (validate_prefab_property_override(changes.front()) != error::unsupported)
       return 56;
     changes = {change};
@@ -157,7 +206,7 @@ int main() {
     if (!bytes)
       return 30;
     auto copy = gneiss::engine::serialization::json::deserialize<prefab_property_override>(*bytes);
-    if (!copy || copy->key != original.key || copy->value != original.value)
+    if (!copy || copy->key != original.key || copy->operation != original.operation)
       return 31;
     const std::string json(reinterpret_cast<const char*>(bytes->data()), bytes->size());
     if (json.find(R"("$kind":"property")") == std::string::npos ||
@@ -171,7 +220,7 @@ int main() {
   {
     using namespace gneiss::engine;
     auto invalid = make_translation(source_a, {1, 2, 3});
-    invalid.value = value{ref<meta::object>{}};
+    invalid.operation = value{ref<meta::object>{}};
     if (validate_prefab_property_override(invalid) != error::invalid_argument)
       return 33;
   }
@@ -203,8 +252,8 @@ int main() {
           gneiss::engine::error::success ||
       gneiss::engine::set_prefab_property_override(overrides, first, source) !=
           gneiss::engine::error::success ||
-      overrides.size() != 2U || overrides[0].key.target.source_node_uuid != source_a ||
-      overrides[1].key.target.source_node_uuid != source_b) {
+      overrides.size() != 2U || overrides[0].key.target.source_node_uuid != source_b ||
+      overrides[1].key.target.source_node_uuid != source_a) {
     return 2;
   }
 
@@ -212,7 +261,7 @@ int main() {
   if (gneiss::engine::set_prefab_property_override(overrides, updated, source) !=
           gneiss::engine::error::success ||
       overrides.size() != 2U ||
-      std::get<gneiss::engine::math::vector3>(overrides[0].value.payload)[0] != 3.0F) {
+      std::get<gneiss::engine::math::vector3>(overrides[1].replacement().payload)[0] != 3.0F) {
     return 3;
   }
 
@@ -224,7 +273,7 @@ int main() {
   }
 
   auto wrong_type = make_translation(source_a, {1.0F, 0.0F, 0.0F});
-  wrong_type.value = gneiss::engine::value{1.0F};
+  wrong_type.operation = gneiss::engine::value{1.0F};
   auto invalid_address = make_translation({}, {1.0F, 0.0F, 0.0F});
   auto non_finite =
       make_translation(source_a, {std::numeric_limits<float>::quiet_NaN(), 0.0F, 0.0F});
@@ -241,7 +290,7 @@ int main() {
       .key = {.target = {.source_node_uuid = source_a,
                          .target_type_guid = gneiss::engine::camera_component_type},
               .path = {gneiss::engine::meta::property_id{4}}},
-      .value = gneiss::engine::value{.payload = true}};
+      .operation = gneiss::engine::value{.payload = true}};
   if (gneiss::engine::validate_prefab_property_override(read_only) !=
       gneiss::engine::error::invalid_argument) {
     return 6;

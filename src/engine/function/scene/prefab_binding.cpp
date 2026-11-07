@@ -3,6 +3,7 @@
 
 #include "engine/function/scene/prefab_binding.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/serialization/value.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
@@ -300,7 +301,9 @@ prefab_binding::apply_overrides(std::span<const prefab_property_override> overri
     if (found->node == root_node_ &&
         override_value.key.target.target_type_guid == transform_component_type)
       return error::invalid_argument;
-    if (override_value.key.path.size() > 1 || !is_scalar_value_kind(override_value.value.kind())) {
+    if (override_value.key.path.size() > 1 ||
+        !std::holds_alternative<set_value_operation>(override_value.operation) ||
+        !is_scalar_value_kind(override_value.replacement().kind())) {
       auto captured = capture_components(native_world_, found->node);
       if (!captured)
         return captured.error();
@@ -308,8 +311,12 @@ prefab_binding::apply_overrides(std::span<const prefab_property_override> overri
       if (!source)
         return error::not_found;
       auto changed = modify_component(*source, [&](meta::mutable_instance root) -> error {
-        auto target = meta::resolve_path(root, override_value.key.path, true);
-        return target ? apply_prefab_override_value(*target, override_value.value) : target.error();
+        auto captured_value = serialization::capture_value(root.as_const());
+        if (!captured_value)
+          return captured_value.error().error;
+        const std::array edits{value_edit{override_value.key.path, override_value.operation}};
+        auto updated = apply_value_edits(*captured_value, edits);
+        return updated ? serialization::apply_value(root, *updated).error : updated.error().error;
       });
       if (!changed)
         return changed.error();
@@ -323,15 +330,15 @@ prefab_binding::apply_overrides(std::span<const prefab_property_override> overri
         return status;
       continue;
     }
-    const auto result =
-        override_value.key.target.target_type_guid == transform_component_type
-            ? engine::write_component_property(
-                  native_world_, scene_object_entity(native_world_, found->node),
-                  override_value.key.target.target_type_guid, override_value.key.first_property(),
-                  override_value.value)
-            : edit_runtime_component({native_world_, found->node, {}, &loader_},
-                                     override_value.key.target.target_type_guid,
-                                     override_value.key.first_property(), override_value.value);
+    const auto result = override_value.key.target.target_type_guid == transform_component_type
+                            ? engine::write_component_property(
+                                  native_world_, scene_object_entity(native_world_, found->node),
+                                  override_value.key.target.target_type_guid,
+                                  override_value.key.first_property(), override_value.replacement())
+                            : edit_runtime_component({native_world_, found->node, {}, &loader_},
+                                                     override_value.key.target.target_type_guid,
+                                                     override_value.key.first_property(),
+                                                     override_value.replacement());
     if (result != engine::error::success) {
       return result;
     }

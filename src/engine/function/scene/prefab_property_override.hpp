@@ -34,15 +34,16 @@ validate_prefab_property_override(const prefab_property_override& value) noexcep
 /**
  * 写入或移除一条稀疏覆盖。
  *
- * candidate 与 source_value 规范化后相等时删除对应记录，否则按稳定键更新并确定性排序。
+ * candidate 与 source_value
+ * 规范化后相等时删除对应记录，否则替换该路径及其子路径的旧记录，保留其他操作顺序。
  */
 [[nodiscard]] GNEISS_API error set_prefab_property_override(
     std::vector<prefab_property_override>& overrides, prefab_property_override candidate,
     engine::value source_value) noexcept;
 
-/** 在临时目标上应用叶值或独立快照。 */
-[[nodiscard]] error apply_prefab_override_value(meta::mutable_instance target,
-                                                const engine::value&) noexcept;
+/** 在临时目标上应用单条值树操作。 */
+[[nodiscard]] error apply_prefab_override_operation(meta::mutable_instance target,
+                                                    const value_operation&) noexcept;
 
 /** 计算网格组件的 URI 覆盖；保留其他对象/属性记录。失败不改变输入，不访问 World 或资源服务。 */
 [[nodiscard]] GNEISS_API result<std::vector<prefab_property_override>>
