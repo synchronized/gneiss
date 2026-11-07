@@ -21,9 +21,20 @@
   未修改检查规则、未屏蔽失败。
 - git diff --check 通过；未运行 GPU 大场景、远端 CI 或跨平台矩阵，未推送。
 
+## 阶段 2：继承属性基础能力
+
+- Registry 在冻结时合并完整基类链的属性，记录 declaring_type；拒绝 ID 与名称冲突。
+  先建立候选属性表，校验通过后提交，缺失基类可以补注册后重新冻结。
+- instance 访问与直接 read_property/write_property 按 upcast 链调整声明类型地址，
+  标量、容器、嵌套对象和受约束 setter 共用现有访问与序列化路径。
+- 增加两层继承、非零偏移基类、属性冲突、失败后重试、容器修改、setter 校验、
+  JSON/value 往返和多态引用恢复的回归用例。
+- Windows Clang Debug 默认构建通过；Meta、序列化、Scene/Prefab、组件描述及相关编辑器
+  共 41 项定向回归通过，git diff --check 通过。未运行 GPU 大场景、远端 CI 或跨平台矩阵。
+
 ## 尚未实施
 
-组件 UUID 仍由 component_entry 持有。当前 Meta 会拒绝带属性的基类，先补继承属性访问、
-捕获/恢复和编解码，再迁移 UUID，不在每个组件上重复注册该字段。
+组件 UUID 仍由 component_entry 持有。继承属性基础能力已具备，下一步迁移 UUID 及集合、
+文件和编辑恢复路径，不在每个组件上重复注册该字段。
 运行时仍使用既有 Scene Tree/ECS 与 prefab_binding；上述重命名不代表运行存储已统一。
 其余范围继续以 PLAN-105 检查项为准。

@@ -43,6 +43,8 @@ private:
 /** 名称借用冻结注册表；类型视图持有该注册表，属性标记不属于共享类型。 */
 struct property_info {
   property_id id{};
+  /** 属性声明所属类型；继承访问须先调整到该基类子对象。 */
+  engine::guid declaring_type{};
   property_flags flags = property_flags::none;
   std::string_view name{};
   property_capabilities capabilities = property_capabilities::none;

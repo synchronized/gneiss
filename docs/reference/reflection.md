@@ -444,8 +444,14 @@ reference_view::get 对空引用返回 not_found。引用不是标量；可变 m
 
 多态对象继承 meta::object，具体类可用 object_type<Derived, Base> 提供类型身份与完整对象地址。
 reference_view.get() 返回实际类型视图；ref<const T> 只允许读取目标。
-当前 base 链用于身份校验和指针调整，基类必须没有注册属性；否则 freeze 返回 unsupported，
-避免未实现继承字段合并时静默丢失数据。
+base 链同时用于身份校验、指针调整和继承属性访问。freeze 合并完整继承链的属性，
+按属性 ID 排序；任意祖先与派生类的属性 ID 或名称冲突返回 invalid_argument，不提供遮蔽。
+基类尚未注册返回 not_found；冻结失败不会留下部分合并结果，可补齐注册后重试。
+property_info.declaring_type 表示声明字段的类型；instance 和 read_property/write_property
+自动按注册的 upcast 链调整基类地址，支持基类在完整 C++ 对象中具有非零偏移。
+底层 find_object_property 返回声明类型的原始访问器，调用回调时须传入声明类型的地址；
+普通调用方使用 instance。继承字段同样参与 JSON、value 捕获/恢复，遵守 required、
+read_only 与 setter 校验，不需要在每个派生类重复注册。
 
 重复引用独立保存并恢复为不同对象，不保持内存共享身份。递归活动路径检测循环并报错，
 最多 64 层嵌套；不生成自动 `$root` / `$objects` / `$ref` 对象表。

@@ -122,6 +122,7 @@ struct property_record {
   std::uint32_t flags = 0;
   std::string name;
   property_accessor accessor{};
+  engine::guid declaring_type{};
 };
 
 struct type_record {
@@ -169,6 +170,7 @@ struct type_record {
 [[nodiscard]] property_info describe_record(const registry_ref& registry,
                                             const property_record& property) noexcept {
   return {.id = property_id{property.id},
+          .declaring_type = property.declaring_type,
           .flags = static_cast<property_flags>(property.flags),
           .name = property.name,
           .capabilities = ((property.accessor.getter || property.accessor.object_getter)
@@ -281,7 +283,8 @@ public:
                                       .type_guid = property.type_guid,
                                       .flags = static_cast<std::uint32_t>(property.flags),
                                       .name = std::string(property.name),
-                                      .accessor = {}});
+                                      .accessor = {},
+                                      .declaring_type = desc.guid});
       }
       for (std::size_t i = 0; i < bindings.size(); ++i) {
         const auto& binding = bindings[i];
@@ -356,7 +359,11 @@ public:
       if (is_frozen_) {
         return error::success;
       }
+      // 在临时表中合并属性；冻结失败时保留原始注册内容，可补注册后重试。
+      std::vector<std::vector<property_record>> inherited;
+      inherited.reserve(types_.size());
       for (const auto& type : types_) {
+        auto properties = type->properties;
         auto current = type.get();
         std::set<engine::type_id> chain;
         while (current->object.base_type) {
@@ -366,10 +373,15 @@ public:
           if (base == by_cpp_type_.end())
             return error::not_found;
           current = base->second;
-          // 首阶段基类仅提供身份；拒绝静默遗漏尚未合并的继承属性。
-          if (!current->properties.empty())
-            return error::unsupported;
+          for (const auto& property : current->properties) {
+            if (std::ranges::any_of(properties, [&](const auto& existing) {
+                  return existing.id == property.id || existing.name == property.name;
+                }))
+              return error::invalid_argument;
+            properties.push_back(property);
+          }
         }
+        inherited.push_back(std::move(properties));
         for (const auto& property : type->properties) {
           if (!property.accessor.object_type)
             continue;
@@ -405,6 +417,8 @@ public:
             return error::invalid_argument;
         }
       }
+      for (std::size_t i = 0; i < types_.size(); ++i)
+        types_[i]->properties.swap(inherited[i]);
       std::ranges::sort(types_, [](const auto& left, const auto& right) {
         return left->guid.bytes() < right->guid.bytes();
       });
@@ -434,7 +448,10 @@ public:
     value output;
     error result = error::internal;
     try {
-      result = accessor->getter(accessor->user_data, object, output);
+      auto target = property_target(type_id, property_id, const_cast<void*>(object));
+      if (!target)
+        return target.error();
+      result = accessor->getter(accessor->user_data, *target, output);
     } catch (const std::bad_alloc&) {
       return error::out_of_memory;
     } catch (...) {
@@ -466,7 +483,10 @@ public:
       return error::invalid_argument;
     }
     try {
-      return accessor->setter(accessor->user_data, object, value);
+      auto target = property_target(type_id, property_id, object);
+      if (!target)
+        return target.error();
+      return accessor->setter(accessor->user_data, *target, value);
     } catch (const std::bad_alloc&) {
       return error::out_of_memory;
     } catch (...) {
@@ -689,6 +709,21 @@ public:
   }
 
 private:
+  result<void*> property_target(guid id, std::uint32_t property, void* object) const {
+    std::shared_lock lock(mutex_);
+    const auto* current = find_type_unlocked(id);
+    if (!is_frozen_ || !current)
+      return error::invalid_state;
+    const auto found = std::ranges::find(current->properties, property, &property_record::id);
+    if (found == current->properties.end())
+      return error::not_found;
+    const auto owner = found->declaring_type;
+    while (current->guid != owner) {
+      object = current->object.upcast(object);
+      current = by_cpp_type_.at(current->object.base_type);
+    }
+    return object;
+  }
   registry_ref owner() const {
     return std::const_pointer_cast<type_registry_state>(shared_from_this());
   }

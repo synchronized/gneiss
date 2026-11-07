@@ -82,6 +82,14 @@ result<instance> instance::property(property_id id) const noexcept try {
   auto info = describe_property(registry_, type_, id);
   if (!info)
     return info.error();
+  if (info->declaring_type != type_) {
+    auto ops = find_object_ops(registry_, cpp_type_);
+    if (!ops || !ops->upcast)
+      return ops ? error::invalid_state : ops.error();
+    // upcast 仅调整地址，不修改对象；随后继续使用只读视图。
+    auto base = from_object(registry_, ops->base_type, ops->upcast(const_cast<void*>(data_)));
+    return base ? base->property(id) : result<instance>{base.error()};
+  }
   instance output;
   output.registry_ = registry_;
   output.parent_ = data_;
@@ -173,6 +181,13 @@ result<mutable_instance> mutable_instance::property(property_id id) const noexce
   auto info = describe_property(view_.registry_, view_.type_, id);
   if (!info)
     return info.error();
+  if (info->declaring_type != view_.type_) {
+    auto ops = find_object_ops(view_.registry_, view_.cpp_type_);
+    if (!ops || !ops->upcast)
+      return ops ? error::invalid_state : ops.error();
+    auto base = from_object(view_.registry_, ops->base_type, ops->upcast(data_));
+    return base ? base->property(id) : result<mutable_instance>{base.error()};
+  }
   if (has_flags(info->flags, property_flags::read_only) ||
       !has_flags(info->capabilities, property_capabilities::writable))
     return error::unsupported;

@@ -227,7 +227,7 @@ public:
     codec_.polymorphic = true;
     return *this;
   }
-  /** 注册唯一直接基类；当前基类仅承载身份，冻结时拒绝未合并的继承属性。 */
+  /** 注册唯一直接基类；继承属性参与遍历，冻结时拒绝属性 ID 或名称冲突。 */
   template <class Base> type_builder& base() noexcept {
     static_assert(std::derived_from<object_type, Base> && std::derived_from<Base, meta::object>);
     if (committed_ || object_.base_type) {

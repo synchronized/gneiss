@@ -63,7 +63,155 @@ struct cyclic_data : e::meta::object_type<cyclic_data> {
   static constexpr e::guid type_guid = e::guid::literal("7ee666e2-3216-43a0-80ca-c6110da175fd");
   e::ref<cyclic_data> next;
 };
+// 两层继承且反射基类不是首个基类，验证访问不能假定地址不变。
+struct inherited_base : e::meta::object_type<inherited_base> {
+  static constexpr std::string_view type_name = "inherited_base";
+  static constexpr e::guid type_guid = e::guid::literal("f88fb857-aad7-4310-b537-48ea7dca3505");
+  int number = 4;
+  std::vector<int> values{1, 2};
+  captured_data nested;
+  const captured_data& get_nested() const { return nested; }
+  e::error set_nested(const captured_data& candidate) {
+    if (candidate.values.empty())
+      return e::error::invalid_argument;
+    nested = candidate;
+    return e::error::success;
+  }
+};
+struct inherited_middle : e::meta::object_type<inherited_middle, inherited_base> {
+  static constexpr std::string_view type_name = "inherited_middle";
+  static constexpr e::guid type_guid = e::guid::literal("6e7cddc3-aa9a-4e92-a23b-e45c777f4994");
+  int middle = 5;
+};
+struct unrelated_base {
+  virtual ~unrelated_base() = default;
+  std::uint64_t sentinel = 123;
+};
+struct inherited_leaf : unrelated_base, e::meta::object_type<inherited_leaf, inherited_middle> {
+  static constexpr std::string_view type_name = "inherited_leaf";
+  static constexpr e::guid type_guid = e::guid::literal("3d36e83d-41b0-4e49-81f9-772489155c85");
+  int leaf = 6;
+};
+bool inherited_properties() {
+  using namespace e::meta;
+  auto created = create_registry();
+  if (!created)
+    return false;
+  auto registry = *created;
+  if (type_builder<captured_data>{registry}
+          .property<&captured_data::values>(property_id{1}, "values")
+          .property<&captured_data::groups>(property_id{2}, "groups")
+          .serialization()
+          .commit()
+          .failed())
+    return false;
+  // 先注册派生类；冻结缺少基类时失败，补齐后可以重试。
+  if (type_builder<inherited_leaf>{registry}
+          .base<inherited_middle>()
+          .property<&inherited_leaf::leaf>(property_id{4}, "leaf")
+          .serialization(true)
+          .commit()
+          .failed() ||
+      freeze(registry) != e::error::not_found ||
+      type_builder<inherited_middle>{registry}
+          .base<inherited_base>()
+          .property<&inherited_middle::middle>(property_id{3}, "middle")
+          .serialization()
+          .commit()
+          .failed() ||
+      type_builder<inherited_base>{registry}
+          .polymorphic()
+          .property<&inherited_base::number>(property_id{1}, "number", property_flags::required)
+          .property<&inherited_base::values>(property_id{2}, "values")
+          .property<&inherited_base::get_nested, &inherited_base::set_nested>(property_id{5},
+                                                                              "nested")
+          .serialization()
+          .commit()
+          .failed() ||
+      freeze(registry).failed() || freeze(registry).failed())
+    return false;
+  inherited_leaf input;
+  if (static_cast<void*>(&input) == static_cast<void*>(static_cast<inherited_base*>(&input)))
+    return false;
+  auto view = mutable_instance::from(registry, input);
+  auto properties = describe_type(registry, e::runtime_type_of<inherited_leaf>());
+  if (!view || !properties || properties->properties.size() != 5)
+    return false;
+  auto number = view->property("number");
+  auto values = view->property("values");
+  if (!number || !values || number->write_value(e::value{std::int64_t{42}}).failed() ||
+      input.number != 42 || input.sentinel != 123 || !values->as_sequence())
+    return false;
+  auto read = read_property(registry, inherited_leaf::type_guid, property_id{1}, &input);
+  if (!read || *read != e::value{std::int64_t{42}} ||
+      write_property(registry, inherited_leaf::type_guid, property_id{1}, &input,
+                     e::value{std::int64_t{43}})
+          .failed() ||
+      input.number != 43)
+    return false;
+  auto sequence = values->as_sequence();
+  if (!sequence || sequence->resize(3).failed())
+    return false;
+  auto element = sequence->at(2);
+  if (!element || element->write_value(e::value{std::int64_t{9}}).failed() || input.values[2] != 9)
+    return false;
+  auto nested = view->property("nested");
+  captured_data candidate{{7}, {{"entry", {8}}}};
+  auto candidate_view = instance::from(registry, candidate);
+  if (!nested || !candidate_view || nested->assign(*candidate_view).failed() ||
+      input.nested != candidate)
+    return false;
+  auto nested_values = nested->as_const().property("values");
+  if (!nested_values || !nested_values->as_sequence())
+    return false;
+  candidate.values.clear();
+  if (nested->assign(*candidate_view) != e::error::invalid_argument ||
+      input.nested.values.size() != 1)
+    return false;
+  e::serialization::context ctx{registry};
+  auto json = e::serialization::json::serialize(ctx, input);
+  auto snapshot = e::serialization::capture_value(ctx, input);
+  if (!json || !snapshot)
+    return false;
+  auto decoded = e::serialization::json::deserialize<inherited_leaf>(ctx, *json);
+  auto restored = e::serialization::restore_value<inherited_leaf>(ctx, *snapshot);
+  if (!decoded || !restored || decoded->number != 43 || restored->number != 43 ||
+      decoded->values != input.values || restored->values != input.values || decoded->middle != 5 ||
+      decoded->leaf != 6 ||
+      e::serialization::json::deserialize<inherited_leaf>(ctx, "{\"leaf\":6}"))
+    return false;
+  e::ref<inherited_base> shared = e::make_ref<inherited_leaf>(input);
+  auto shared_json = e::serialization::json::serialize(ctx, shared);
+  if (!shared_json)
+    return false;
+  auto shared_copy = e::serialization::json::deserialize<e::ref<inherited_base>>(ctx, *shared_json);
+  if (!shared_copy || !*shared_copy || (*shared_copy)->number != 43 ||
+      (*shared_copy)->dynamic_type() != e::runtime_type_of<inherited_leaf>() ||
+      (*shared_copy)->values != input.values || shared_copy->get() == shared.get())
+    return false;
+  // ID 冲突与名称冲突均拒绝；失败不能留下已合并的半成品。
+  for (bool same_id : {false, true}) {
+    auto invalid = create_registry();
+    if (!invalid ||
+        type_builder<inherited_base>{*invalid}
+            .property<&inherited_base::number>(property_id{1}, "number")
+            .commit()
+            .failed() ||
+        type_builder<inherited_middle>{*invalid}
+            .base<inherited_base>()
+            .property<&inherited_middle::middle>(property_id{same_id ? 1U : 2U},
+                                                 same_id ? "middle" : "number")
+            .commit()
+            .failed() ||
+        freeze(*invalid) != e::error::invalid_argument ||
+        freeze(*invalid) != e::error::invalid_argument)
+      return false;
+  }
+  return true;
+}
 int main() {
+  if (!inherited_properties())
+    return 90;
   // Meta 独立注册表即可读写 value，不依赖 World 或资源注册。
   auto core = e::meta::create_registry();
   if (!core || e::meta::register_builtin_types(*core).failed() ||
@@ -111,10 +259,11 @@ int main() {
   auto bad_sequence = std::get<e::sequence_value>(bad_record.properties[0].content.payload).get();
   bad_sequence.elements[0] = e::value{std::string{"wrong"}};
   bad_record.properties[0].content = e::value{e::sequence_value{bad_sequence}};
-  auto invalid_restore = e::serialization::apply_value(
-      e::serialization::context{*core}, *target, e::value{e::record_value{bad_record}});
+  auto invalid_restore = e::serialization::apply_value(e::serialization::context{*core}, *target,
+                                                       e::value{e::record_value{bad_record}});
   if (invalid_restore.error != e::error::invalid_argument ||
-      invalid_restore.path != "/properties/1/indices/0") return 68;
+      invalid_restore.path != "/properties/1/indices/0")
+    return 68;
   auto cycle = e::make_ref<cyclic_data>();
   cycle->next = cycle;
   auto cycle_view = e::meta::instance::from(*core, cycle);
