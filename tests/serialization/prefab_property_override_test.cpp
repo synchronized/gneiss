@@ -333,7 +333,7 @@ int main() {
 
   gneiss::engine::prefab_property_override read_only{
       .key = {.target = {.source_node_uuid = source_a,
-                         .target_type_guid = gneiss::engine::camera_component_type},
+                         .target_type_guid = gneiss::engine::camera_description::type_guid},
               .path = {gneiss::engine::meta::property_id{4}}},
       .operation = gneiss::engine::value{.payload = true}};
   if (gneiss::engine::validate_prefab_property_override(read_only) !=

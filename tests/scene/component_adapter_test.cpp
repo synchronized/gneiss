@@ -52,7 +52,7 @@ int main() try {
   check(e::component_description_type(alias) == movement_description::type_guid);
   check(e::component_description_type(movement_description::type_guid) ==
         movement_description::type_guid);
-  check(e::component_description_type(e::camera_component_type) ==
+  check(e::component_description_type(e::camera_description::type_guid) ==
         e::camera_description::type_guid);
   check(e::component_description_type(unknown_description::type_guid) ==
         unknown_description::type_guid);

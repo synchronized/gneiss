@@ -50,23 +50,6 @@ result<std::optional<camera_description>> camera_capture(world& owner, scene_nod
     return status;
   return std::optional<camera_description>{{settings, status.ok() && active == id}};
 }
-result<value> camera_read(const camera_description& input, guid type, meta::property_id property) {
-  if (type == camera_description::type_guid)
-    return meta::read_property(type, property, &input);
-  const camera_properties snapshot{input.settings, input.is_primary};
-  return meta::read_property(type, property, &snapshot);
-}
-error camera_edit(camera_description& value, guid type, meta::property_id property,
-                  const engine::value& input) {
-  if (type == camera_description::type_guid)
-    return meta::write_property(type, property, &value, input);
-  camera_properties properties;
-  properties.settings = value.settings;
-  auto status = meta::write_property(type, property, &properties, input);
-  if (status.ok())
-    value.settings = properties.settings;
-  return status;
-}
 error mesh_valid(const mesh_renderer_description& value) {
   return (value.mesh_uri.empty() || validate_uri(value.mesh_uri).ok()) &&
                  (value.material_uri.empty() || validate_uri(value.material_uri).ok())
@@ -142,9 +125,6 @@ struct adapter_registry {
                return a.settings.fov == b.settings.fov && a.settings.near == b.settings.near &&
                       a.settings.far == b.settings.far && a.is_primary == b.is_primary;
              },
-         .read = camera_read,
-         .edit = camera_edit,
-         .property_type = camera_component_type,
          .create_default = []() -> result<camera_description> {
            return camera_description{{std::numbers::pi_v<float> / 3, 0.1F, 1000.0F}};
          },
@@ -504,6 +484,14 @@ error edit_runtime_component(component_context context, guid type, meta::propert
     context.renderer = std::move(*renderer);
   else if (renderer.error() != error::not_found)
     return renderer.error();
+  auto reflected = meta::describe_type(adapter->type);
+  if (!reflected)
+    return reflected.error();
+  for (const auto& field : reflected->properties) {
+    if (field.id == property &&
+        meta::has_flags(field.flags, meta::property_flags::editor_read_only))
+      return error::unsupported;
+  }
   auto candidate = copy_candidate(**current);
   if (!candidate)
     return candidate.error();

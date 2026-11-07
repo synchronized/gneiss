@@ -6,12 +6,7 @@
 namespace gneiss::engine {
 /** 内建组件的持久化身份；不依赖 Registry、World 或 C ABI。 */
 inline constexpr guid transform_component_type = math::transform::type_guid;
-inline constexpr guid camera_component_type{guid::literal("d13a72f5-71ed-43d6-9898-12063fd37183")};
 inline constexpr meta::property_id transform_translation_field{1};
 inline constexpr meta::property_id transform_rotation_field{2};
 inline constexpr meta::property_id transform_scale_field{3};
-inline constexpr meta::property_id camera_vertical_field_of_view_field{1};
-inline constexpr meta::property_id camera_near_plane_field{2};
-inline constexpr meta::property_id camera_far_plane_field{3};
-inline constexpr meta::property_id camera_is_primary_field{4};
 }

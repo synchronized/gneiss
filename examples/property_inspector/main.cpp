@@ -98,11 +98,27 @@ int main() try {
                                                gneiss::engine::meta::property_id{1}, value)
           .failed())
     return 3;
-  value.payload = 0.25F;
-  if (gneiss::engine::write_component_property(*app->native_world(), target.get(),
-                                               gneiss::engine::camera_property_type(),
-                                               gneiss::engine::meta::property_id{2}, value)
-          .failed())
+  auto node = app->native_world()->entity_node(target);
+  if (!node)
+    return 3;
+  auto components = gneiss::engine::capture_components(*app->native_world(), *node);
+  if (!components)
+    return 3;
+  auto camera = components->find(gneiss::engine::camera_description::type_guid);
+  if (!camera)
+    return 3;
+  auto changed = gneiss::engine::modify_component(
+      *camera, [](gneiss::engine::meta::mutable_instance root) -> gneiss::engine::error {
+        auto settings = root.property(gneiss::engine::meta::property_id{1});
+        if (!settings)
+          return settings.error();
+        auto near = settings->property(gneiss::engine::meta::property_id{2});
+        return near ? near->write_value(gneiss::engine::value{0.25F}) : near.error();
+      });
+  if (!changed)
+    return 3;
+  components->set(*changed);
+  if (gneiss::engine::install_components({*app->native_world(), *node}, *components).failed())
     return 3;
   auto serialized = app->scenes()->serialize(scene);
   if (!serialized || app->scenes()->unload(scene).failed())
@@ -133,11 +149,9 @@ int main() try {
   if (!translation || translation->kind() != gneiss::engine::value_kind::vec3 ||
       std::abs(std::get<gneiss::engine::math::vector3>(translation->payload).x - 2) > 0.0001F)
     return 6;
-  auto near = gneiss::engine::read_component_property(*app->native_world(), target.get(),
-                                                      gneiss::engine::camera_property_type(),
-                                                      gneiss::engine::meta::property_id{2});
-  if (!near || near->kind() != gneiss::engine::value_kind::float32 ||
-      std::abs(std::get<float>(near->payload) - 0.25F) > 0.0001F)
+  gneiss::engine::math::camera_settings settings;
+  if (app->native_world()->entity_get_camera(target, settings).failed() ||
+      std::abs(settings.near - 0.25F) > 0.0001F)
     return 6;
   if (app->scenes()->unload(scene).failed())
     return 6;

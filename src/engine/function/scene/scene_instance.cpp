@@ -988,33 +988,7 @@ engine::error scene_instance::set_camera(scene_node_id node,
       const auto entity = entity_id{scene_object_entity(native_world_, node)};
       if (desc.is_primary != (active == entity))
         return error::unsupported;
-      auto pending = prefab_reference(index).overrides;
-      const std::array fields{camera_vertical_field_of_view_field, camera_near_plane_field,
-                              camera_far_plane_field};
-      const std::array values{desc.settings.fov, desc.settings.near, desc.settings.far};
-      const std::array originals{camera->settings.fov, camera->settings.near, camera->settings.far};
-      for (std::size_t i = 0; i < fields.size(); ++i) {
-        status = set_prefab_property_override(
-            pending,
-            {.key = {.target = {.source_node_uuid = info.address->source_node_uuid,
-                                .target_type_guid = camera_component_type},
-                     .path = {fields[i]}},
-             .operation = engine::value{values[i]}},
-            engine::value{originals[i]});
-        if (status.failed())
-          return status;
-      }
-      auto reference = prefab_reference(index);
-      reference.overrides = pending;
-      auto replayed = replay_prefab_reference(*runtime.prefab_, reference);
-      if (!replayed)
-        return replayed.error();
-      status = native_world_.entity_configure_camera(entity, desc.settings);
-      if (status.failed())
-        return status;
-      prefab_reference(index).overrides.swap(pending);
-      runtime.conflicts_ = std::move(replayed->conflicts);
-      return error::success;
+      return set_component_description(node, make_component_description(desc));
     }
   }
   const auto found = find_ordinary_node(node);

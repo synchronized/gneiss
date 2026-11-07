@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
     return 3;
   auto again = m::default_registry();
   if (!again || *again != *initial || !m::describe_type<sample>() ||
-      !m::describe_type<e::math::transform>() || !m::describe_type<e::camera_properties>() ||
+      !m::describe_type<e::math::transform>() || !m::describe_type<e::camera_description>() ||
       !m::describe_type<e::material_description>())
     return 4;
   sample object;

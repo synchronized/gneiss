@@ -99,7 +99,7 @@ error validate_prefab_property_override(const prefab_property_override& value) n
   if (!field)
     return field.error();
   if (!has_flags(field->capabilities, meta::property_capabilities::writable) ||
-      value.key.path.size() > 64)
+      has_flags(field->flags, meta::property_flags::editor_read_only) || value.key.path.size() > 64)
     return error::invalid_argument;
   auto type = field->type;
   for (const auto& step : std::span{value.key.path}.subspan(1)) {
@@ -110,7 +110,8 @@ error validate_prefab_property_override(const prefab_property_override& value) n
       auto found = std::ranges::find(*properties, *property, &meta::property_info::id);
       if (found == properties->end())
         return error::not_found;
-      if (!has_flags(found->capabilities, meta::property_capabilities::writable))
+      if (!has_flags(found->capabilities, meta::property_capabilities::writable) ||
+          has_flags(found->flags, meta::property_flags::editor_read_only))
         return error::invalid_argument;
       type = found->type;
     } else {

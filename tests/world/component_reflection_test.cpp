@@ -26,20 +26,20 @@ int main() {
       first->node_create({}, entity, node).failed())
     return 1;
   const auto transform_type = engine::transform_property_type();
-  const auto camera_type = engine::camera_property_type();
+  const auto camera_type = engine::camera_description::type_guid;
   gneiss::engine::meta::type_info info;
   if (gneiss::test_support::assign_value(gneiss::engine::meta::describe_type(transform_type), info)
           .failed() ||
       info.properties.size() != 3 ||
       gneiss::test_support::assign_value(gneiss::engine::meta::describe_type(camera_type), info)
           .failed() ||
-      info.properties.size() != 4 ||
+      info.properties.size() != 2 ||
       gneiss::test_support::assign_value(
           gneiss::engine::meta::describe_type<engine::math::transform>(), info)
           .failed() ||
       info.guid != transform_type ||
       gneiss::test_support::assign_value(
-          gneiss::engine::meta::describe_type<engine::camera_properties>(), info)
+          gneiss::engine::meta::describe_type<engine::camera_description>(), info)
           .failed() ||
       info.guid != camera_type)
     return 2;
@@ -85,21 +85,29 @@ int main() {
           .failed() ||
       value.kind() != gneiss::engine::value_kind::boolean || !std::get<bool>(value.payload))
     return 7;
-  value.payload = 0.5F;
-  if (engine::write_component_property(*first, entity.get(), camera_type,
-                                       gneiss::engine::meta::property_id{2}, value)
-          .failed() ||
-      first->entity_get_camera(entity, camera).failed() || std::abs(camera.near - 0.5F) > 0.0001F)
+  // 嵌套参数通过描述的反射视图编辑，不再使用另一份扁平相机类型。
+  auto change_near = [&](float near) -> error {
+    auto captured = engine::capture_components(*first, node);
+    if (!captured)
+      return captured.error();
+    auto changed = engine::modify_component(
+        *captured->find(camera_type), [&](engine::meta::mutable_instance root) -> error {
+          auto settings = root.property(engine::meta::property_id{1});
+          if (!settings)
+            return settings.error();
+          auto field = settings->property(engine::meta::property_id{2});
+          return field ? field->write_value(engine::value{near}) : field.error();
+        });
+    if (!changed)
+      return changed.error();
+    captured->set(*changed);
+    return engine::install_components({*first, node}, *captured);
+  };
+  if (change_near(0.5F).failed() || first->entity_get_camera(entity, camera).failed() ||
+      std::abs(camera.near - 0.5F) > 0.0001F)
     return 8;
-  value.payload = camera.far + 1;
-  if (engine::write_component_property(*first, entity.get(), camera_type,
-                                       gneiss::engine::meta::property_id{2},
-                                       value) != error::invalid_argument ||
-      first->entity_get_camera(entity, camera).failed() || std::abs(camera.near - 0.5F) > 0.0001F ||
-      gneiss::test_support::assign_value(
-          engine::read_component_property(*first, missing.get(), camera_type,
-                                          gneiss::engine::meta::property_id{2}),
-          value) != error::not_found)
+  if (change_near(camera.far + 1) != error::invalid_argument ||
+      first->entity_get_camera(entity, camera).failed() || std::abs(camera.near - 0.5F) > 0.0001F)
     return 9;
   error foreign_read{}, foreign_write{};
   std::thread worker([&] {

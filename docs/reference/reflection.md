@@ -80,9 +80,9 @@ static constexpr guid type_guid =
 类型具有静态身份时可这样注册：
 
 ```cpp
-return gneiss::engine::meta::type_builder<camera_properties>{}
+return gneiss::engine::meta::type_builder<math::transform>{}
     .schema_version(1)
-    .readonly<&camera_properties::is_primary>(camera_is_primary_field, "is_primary")
+    .property<&math::transform::translation>(meta::property_id{1}, "translation")
     .commit();
 ```
 
@@ -133,17 +133,18 @@ setter 应先校验再修改，Core 不回滚第三方回调已经产生的副�
 
 `register_reflection` 为未冻结 Registry 注册 Transform 和 Camera；重复调用返回 `invalid_argument`。
 World 属性注册和读写统一使用默认表，不再提供独立组件注册表工厂。
-稳定身份使用 `transform_component_type`、`camera_component_type` 或对应原生查询函数。
+稳定身份使用 `math::transform::type_guid`、`camera_description::type_guid`。
 
 `function/scene/component_adapter.hpp` 提供 `read_component_property`、`write_component_property`：显式接收 `world&`、
 Entity、类型 GUID 和字段 ID。先通过 World 接口校验线程与实体并定位节点；普通组件通过同一
 适配器捕获、验证和安装，基础反射只操作副本。Transform 保留节点变换入口，确保层级传播。
 Editor、Runtime 和运行时 Prefab 覆盖使用这些组件入口；Core 不依赖 World。
 
-Transform 的反射对象为 `transform`；Camera 为 World 层的 `camera_properties`，包含
-`camera_settings settings` 和只读 `bool is_primary`。活动状态由 World 读出，不在基础 getter 中查询。
-Camera GUID 和字段编号不变，C++ 模板查询使用 `describe_type<camera_properties>`。
-Transform 字段为平移、旋转、缩放；Camera 字段为视场角、近裁剪面、远裁剪面与只读活动状态。
+Transform 的反射对象为 `math::transform`；Camera 直接使用 `camera_description`，包含
+`math::camera_settings settings` 和标记为编辑只读的 `bool is_primary`，不再注册独立属性包装类型。
+相机参数通过 `settings` 的嵌套属性访问；活动状态由 World 捕获，序列化仍保存它。
+组件运行时属性编辑入口拒绝写入标记为 `editor_read_only` 的字段；活动相机切换使用 World 专用接口。
+Transform 字段为平移、旋转、缩放；Camera 的 `settings` 内含 `fov`、`near`、`far`。
 
 Registry 使用原生共享引用管理，不经全局句柄表。独立表在最后一个引用释放时销毁；
 默认表由引擎模块持有至进程退出，不随应用关闭清空。

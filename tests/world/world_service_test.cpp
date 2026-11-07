@@ -11,6 +11,7 @@
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
+#include "engine/resource/scene/scene_description.hpp"
 
 #include <array>
 #include <cstdint>
@@ -203,17 +204,19 @@ int main() {
       candidate_transform.scale[0] != 1) {
     return 16;
   }
-  service::camera_properties candidate_camera{{1, 10, 20}, false};
+  service::camera_description candidate_camera{{1, 10, 20}, false};
   proposed.payload = 30.0F;
   if (gneiss::engine::meta::write_property(
-          service::camera_property_type(), gneiss::engine::camera_near_plane_field,
-          &candidate_camera, proposed) != gneiss::engine::error::success) {
+          gneiss::engine::meta::describe_type<service::math::camera_settings>()->guid,
+          gneiss::engine::meta::property_id{2}, &candidate_camera.settings,
+          proposed) != gneiss::engine::error::success) {
     return 17;
   }
   proposed.payload = 40.0F;
   if (gneiss::engine::meta::write_property(
-          service::camera_property_type(), gneiss::engine::camera_far_plane_field,
-          &candidate_camera, proposed) != gneiss::engine::error::success ||
+          gneiss::engine::meta::describe_type<service::math::camera_settings>()->guid,
+          gneiss::engine::meta::property_id{3}, &candidate_camera.settings,
+          proposed) != gneiss::engine::error::success ||
       candidate_camera.settings.near != 30 || candidate_camera.settings.far != 40) {
     return 18;
   }
