@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/scene_document_snapshot.hpp"
 #include "engine/resource/asset_file.hpp"
+#include <algorithm>
 namespace gneiss::editor {
 engine::result<scene_document_snapshot>
 make_scene_document_snapshot(std::string uri,
@@ -56,6 +57,76 @@ engine::result<engine::scene_description> scene_document_snapshot::description()
   if (!restored)
     return restored.error();
   return std::move(*restored);
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
+engine::result<composed_scene_document>
+compose_scene_document(const scene_document_snapshot& snapshot) noexcept try {
+  auto description = snapshot.description();
+  if (!description)
+    return description.error();
+  std::map<std::string, engine::prefab_description> sources;
+  for (const auto& object : description->objects) {
+    if (!object.prefab || sources.contains(object.prefab->uri))
+      continue;
+    auto found = snapshot.prefabs.find(object.prefab->uri);
+    if (found == snapshot.prefabs.end())
+      return engine::error::not_found;
+    auto restored = engine::restore_prefab_record(found->second.content);
+    if (!restored)
+      return restored.error();
+    sources.emplace(object.prefab->uri, std::move(*restored));
+  }
+  const auto address_of = [&](engine::guid uuid) -> document_object_address {
+    auto object =
+        std::ranges::find(description->objects, uuid, &engine::game_object_description::uuid);
+    return {uuid, object != description->objects.end() && object->prefab
+                      ? sources.at(object->prefab->uri).root_uuid
+                      : engine::guid{}};
+  };
+  composed_scene_document result;
+  for (const auto& object : description->objects) {
+    if (!object.prefab) {
+      composed_document_object entry;
+      entry.address = {object.uuid, {}};
+      entry.parent = address_of(object.parent_uuid);
+      entry.effective = object;
+      result.objects.push_back(std::move(entry));
+      continue;
+    }
+    const auto& source = sources.at(object.prefab->uri);
+    auto replayed = engine::replay_prefab_reference(source, *object.prefab);
+    if (!replayed)
+      return replayed.error();
+    if (!replayed->conflicts.empty())
+      result.conflicts.emplace(object.uuid, std::move(replayed->conflicts));
+    for (auto& member : replayed->description.objects) {
+      const bool root = member.uuid == source.root_uuid;
+      auto original =
+          std::ranges::find(source.objects, member.uuid, &engine::game_object_description::uuid);
+      if (original == source.objects.end())
+        return engine::error::not_found;
+      composed_document_object entry;
+      entry.address = {object.uuid, member.uuid};
+      entry.parent = root ? address_of(object.parent_uuid)
+                          : document_object_address{object.uuid, member.parent_uuid};
+      entry.prefab_uri = object.prefab->uri;
+      entry.source_transform = original->transform;
+      entry.instance_root = root;
+      for (const auto& change : object.prefab->overrides)
+        if (change.key.target.source_node_uuid == member.uuid)
+          entry.overrides.push_back(change.key);
+      if (root) {
+        member.name = object.name;
+        member.transform = object.transform;
+      }
+      entry.effective = std::move(member);
+      result.objects.push_back(std::move(entry));
+    }
+  }
+  return result;
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
 } catch (...) {

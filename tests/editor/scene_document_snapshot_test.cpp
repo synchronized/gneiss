@@ -42,6 +42,68 @@ int main() {
   auto frozen = ed::make_scene_document_snapshot("asset://scene.json", input);
   if (!frozen)
     return 2;
+  // 组合不需要运行实例；同源实例地址不同，根采用外层值，子节点保留来源身份。
+  {
+    auto local = *frozen;
+    auto document = local.description();
+    auto prefab_source = e::restore_prefab_record(local.prefabs.at(instance.prefab->uri).content);
+    if (!document || !prefab_source)
+      return 70;
+    e::game_object_description child;
+    child.uuid = e::guid::generate();
+    child.parent_uuid = root.uuid;
+    child.name = "child";
+    child.transform.translation.x = 2;
+    prefab_source->objects.push_back(child);
+    auto source_record = e::capture_prefab_record(*prefab_source);
+    if (!source_record)
+      return 71;
+    local.prefabs.at(instance.prefab->uri).content = *source_record;
+    document->objects[0].name = "first";
+    document->objects[0].transform.translation.x = 5;
+    auto second = document->objects[0];
+    second.uuid = e::guid::generate();
+    second.name = "second";
+    second.parent_uuid = instance.uuid;
+    document->objects.push_back(second);
+    e::game_object_description ordinary;
+    ordinary.uuid = e::guid::generate();
+    ordinary.parent_uuid = second.uuid;
+    document->objects.push_back(ordinary);
+    // 无效覆盖保留为诊断，不让组合偷偷删除原始编辑记录。
+    document->objects[0].prefab->overrides.push_back(
+        {{.target = {root.uuid, e::camera_description::type_guid,
+                     root.components.identity(e::camera_description::type_guid)},
+          .path = {e::meta::property_id{99}}},
+         e::value{1.0F}});
+    auto record = e::capture_scene_record(*document);
+    if (!record)
+      return 72;
+    local.content = *record;
+    auto composed = ed::compose_scene_document(local);
+    if (!composed || composed->objects.size() != 5 ||
+        composed->conflicts.at(instance.uuid).size() != 1)
+      return 73;
+    const auto& first = composed->objects[0];
+    const auto& first_child = composed->objects[1];
+    const auto& next_root = composed->objects[2];
+    const auto& next_child = composed->objects[3];
+    if (first.address != ed::document_object_address{instance.uuid, root.uuid} ||
+        first.effective.name != "first" || first.effective.transform.translation.x != 5 ||
+        first.source_transform.translation.x != 0 || !first.instance_root ||
+        first_child.parent != first.address || first_child.effective.transform.translation.x != 2 ||
+        next_root.parent != first.address || next_child.parent != next_root.address ||
+        first_child.address == next_child.address ||
+        composed->objects[4].parent != next_root.address || composed->objects[4].address.source ||
+        local.content != *record ||
+        first.effective.components.identity(e::camera_description::type_guid) !=
+            root.components.identity(e::camera_description::type_guid))
+      return 74;
+    local.prefabs.clear();
+    auto missing = ed::compose_scene_document(local);
+    if (missing || missing.error() != e::error::not_found)
+      return 75;
+  }
   const auto before = frozen->content;
   const auto camera_id = root.components.identity(e::camera_description::type_guid);
   if (!camera_id ||

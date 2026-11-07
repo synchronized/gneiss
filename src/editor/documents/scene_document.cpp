@@ -398,35 +398,17 @@ scene_document::locate(scene_node_id node) const noexcept try {
   auto info = query_info([&](const auto& info) { return info.node == node; });
   if (!info)
     return info.error();
-  auto description = versions_->current().content().description();
-  if (!description)
-    return description.error();
-  const auto uuid = info->prefab ? info->prefab->instance_uuid : info->uuid;
-  auto object =
-      std::ranges::find(description->objects, uuid, &engine::game_object_description::uuid);
-  if (object == description->objects.end())
+  auto composed = compose_scene_document(versions_->current().content());
+  if (!composed)
+    return composed.error();
+  const document_object_address address =
+      info->prefab
+          ? document_object_address{info->prefab->instance_uuid, info->prefab->source_node_uuid}
+          : document_object_address{info->uuid, {}};
+  auto found = std::ranges::find(composed->objects, address, &composed_document_object::address);
+  if (found == composed->objects.end())
     return engine::error::not_found;
-  if (!object->prefab)
-    return edit_target{uuid, {}, *object};
-  auto source = versions_->current().content().prefabs.find(object->prefab->uri);
-  if (source == versions_->current().content().prefabs.end())
-    return engine::error::not_found;
-  auto restored = engine::restore_prefab_record(source->second.content);
-  if (!restored)
-    return restored.error();
-  auto effective = engine::replay_prefab_reference(*restored, *object->prefab);
-  if (!effective)
-    return effective.error();
-  const auto source_uuid = info->prefab->source_node_uuid;
-  auto member = std::ranges::find(effective->description.objects, source_uuid,
-                                  &engine::game_object_description::uuid);
-  if (member == effective->description.objects.end())
-    return engine::error::not_found;
-  if (source_uuid == restored->root_uuid) {
-    member->transform = object->transform;
-    member->name = object->name;
-  }
-  return edit_target{uuid, source_uuid, *member};
+  return edit_target{address.object, address.source, std::move(found->effective)};
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
 } catch (...) {
@@ -454,11 +436,10 @@ engine::result<scene_query_snapshot> scene_document::capture_nodes() const noexc
     auto snapshot = capture_content();
     if (!snapshot)
       return snapshot.error();
-    auto description = snapshot->description();
-    if (!description)
-      return description.error();
-    using key = std::pair<engine::guid, engine::guid>;
-    std::map<key, engine::scene_node_info> projected;
+    auto composed = compose_scene_document(*snapshot);
+    if (!composed)
+      return composed.error();
+    std::map<document_object_address, engine::scene_node_info> projected;
     auto count = application_->scenes()->get_node_count(scene_);
     if (count)
       for (std::uint64_t i = 0; i < *count; ++i) {
@@ -466,70 +447,47 @@ engine::result<scene_query_snapshot> scene_document::capture_nodes() const noexc
             application_->scenes()->get_node_info(scene_, i, engine::node_query_detail::identity);
         if (!info)
           continue;
-        key identity = info->prefab
-                           ? key{info->prefab->instance_uuid, info->prefab->source_node_uuid}
-                           : key{info->uuid, {}};
+        document_object_address identity =
+            info->prefab ? document_object_address{info->prefab->instance_uuid,
+                                                   info->prefab->source_node_uuid}
+                         : document_object_address{info->uuid, {}};
         projected.emplace(identity, *info);
       }
-    const auto explicit_node = [&](engine::guid uuid) -> scene_node_id {
-      if (!uuid)
-        return {};
-      auto object =
-          std::ranges::find(description->objects, uuid, &engine::game_object_description::uuid);
-      if (object == description->objects.end())
-        return {};
-      engine::guid source;
-      if (object->prefab)
-        source = snapshot->prefabs.at(object->prefab->uri).content.get().root_uuid;
-      auto found = projected.find({uuid, source});
-      return found == projected.end() ? scene_node_id{} : found->second.node;
-    };
     scene_query_snapshot result;
-    for (const auto& object : description->objects) {
-      if (!object.prefab) {
-        auto found = projected.find({object.uuid, {}});
-        result.nodes.push_back(
-            {.node = explicit_node(object.uuid),
-             .parent = explicit_node(object.parent_uuid),
-             .entity = found == projected.end() ? entity_id{} : found->second.entity,
-             .uuid = object.uuid,
-             .display_name = object.name.empty() ? object.uuid.string() : object.name,
-             .local_transform = object.transform,
-             .components = object.components});
+    for (auto& object : composed->objects) {
+      auto found = projected.find(object.address);
+      auto parent = projected.find(object.parent);
+      const auto node = found == projected.end() ? scene_node_id{} : found->second.node;
+      const auto parent_node = parent == projected.end() ? scene_node_id{} : parent->second.node;
+      const auto entity = found == projected.end() ? entity_id{} : found->second.entity;
+      auto& effective = object.effective;
+      const auto display_uuid = object.instance_root || !object.address.source
+                                    ? object.address.object
+                                    : object.address.source;
+      auto name = effective.name.empty() ? display_uuid.string() : effective.name;
+      if (!object.address.source) {
+        result.nodes.push_back({.node = node,
+                                .parent = parent_node,
+                                .entity = entity,
+                                .uuid = object.address.object,
+                                .display_name = std::move(name),
+                                .local_transform = effective.transform,
+                                .components = std::move(effective.components)});
         continue;
       }
-      auto source = engine::restore_prefab_record(snapshot->prefabs.at(object.prefab->uri).content);
-      if (!source)
-        return source.error();
-      auto effective = engine::replay_prefab_reference(*source, *object.prefab);
-      if (!effective)
-        return effective.error();
-      for (const auto& member : effective->description.objects) {
-        const bool root = member.uuid == source->root_uuid;
-        auto found = projected.find({object.uuid, member.uuid});
-        auto parent = projected.find({object.uuid, member.parent_uuid});
-        auto original =
-            std::ranges::find(source->objects, member.uuid, &engine::game_object_description::uuid);
-        prefab_node_record record;
-        record.node = found == projected.end() ? scene_node_id{} : found->second.node;
-        record.parent = root                        ? explicit_node(object.parent_uuid)
-                        : parent == projected.end() ? scene_node_id{}
-                                                    : parent->second.node;
-        record.entity = found == projected.end() ? entity_id{} : found->second.entity;
-        record.instance_uuid = object.uuid;
-        record.source_node_uuid = member.uuid;
-        record.display_name = root ? object.name : member.name;
-        if (record.display_name.empty())
-          record.display_name = (root ? object.uuid : member.uuid).string();
-        record.prefab_uri = object.prefab->uri;
-        record.local_transform = root ? object.transform : member.transform;
-        record.source_local_transform = original->transform;
-        record.is_instance_root = root;
-        for (const auto& override : object.prefab->overrides)
-          if (override.key.target.source_node_uuid == member.uuid)
-            record.overrides.push_back(override.key);
-        result.prefab_nodes.push_back(std::move(record));
-      }
+      prefab_node_record record;
+      record.node = node;
+      record.parent = parent_node;
+      record.entity = entity;
+      record.instance_uuid = object.address.object;
+      record.source_node_uuid = object.address.source;
+      record.display_name = std::move(name);
+      record.prefab_uri = std::move(object.prefab_uri);
+      record.local_transform = effective.transform;
+      record.source_local_transform = object.source_transform;
+      record.is_instance_root = object.instance_root;
+      record.overrides = std::move(object.overrides);
+      result.prefab_nodes.push_back(std::move(record));
     }
     return result;
   } catch (const std::bad_alloc&) {

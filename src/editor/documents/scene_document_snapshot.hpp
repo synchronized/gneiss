@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "commands/author_document_change.hpp"
+#include "engine/function/scene/prefab_replay.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/resource/scene/scene_record.hpp"
 #include <map>
@@ -26,6 +27,27 @@ struct scene_document_snapshot {
   [[nodiscard]] engine::result<std::vector<engine::object_reference_issue>>
   reference_issues() const noexcept;
 };
+/** 文档内地址：普通对象 source 为空，Prefab 成员由实例 UUID 与来源 UUID 联合定位。 */
+struct document_object_address {
+  engine::guid object, source;
+  auto operator<=>(const document_object_address&) const = default;
+};
+struct composed_document_object {
+  document_object_address address, parent;
+  engine::game_object_description effective;
+  std::string prefab_uri;
+  engine::math::transform source_transform{};
+  bool instance_root = false;
+  std::vector<engine::prefab_property_override_key> overrides;
+};
+/** 临时组合结果，不持有 World 句柄，不作为可编辑权威状态。 */
+struct composed_scene_document {
+  std::vector<composed_document_object> objects;
+  std::map<engine::guid, std::vector<engine::prefab_override_conflict>> conflicts;
+};
+/** 从文档及冻结来源生成有效对象；保留覆盖冲突，不读取文件或运行实例。 */
+[[nodiscard]] engine::result<composed_scene_document>
+compose_scene_document(const scene_document_snapshot&) noexcept;
 struct prepared_scene_document {
   scene_document_snapshot snapshot;
   std::vector<engine::render_resource_source> missing;
