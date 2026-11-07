@@ -38,19 +38,21 @@ if (!captured)
 
 ## 编辑入口边界
 
-Editor 的 `with_scene` 检查文档、线程及 Application 生命周期后，原样返回操作的 `error` 或
-`result<T>`，不通过输出参数中转节点结果。文档的 `create_mesh_node` 接收已准备资源，
-`capture_mesh_binding` 捕获当前文档的节点资源；两者通过 `with_scene` 直接调用 Scene，
-文档关闭或 Application 停止接收请求后返回 `invalid_state`。Application 不提供这些业务转发。
-`replace_mesh_binding(node, expected, replacement)` 通过同一文档边界直接调用 Scene，
-当前资源不匹配 `expected` 时拒绝，失败不标脏；成功后标脏。资源必须已经准备完成。
-历史命令撤销时交换 expected/replacement，重做时使用原方向；Prefab 编辑继续使用组件覆盖入口。
+`scene_document` 持有不可变编辑版本。属性、组件增删、层级、子树和 Prefab 操作先生成领域候选，
+通过校验后接受版本，再更新 World。返回成功表示编辑内容已接受；`projection_status()` 单独报告同步状态。
+同步失败保留文档，保存及后续合法编辑不依赖投影成功。`synchronize()` 可重试完整投影，成功后须重新查询节点 ID。
+完整重建通过 `scene_instances::replace_prepared` 保留场景实例句柄，成功才替换旧投影。
 
-文档不保存节点数组。`capture_nodes()` 返回独立的列表快照，`find_node`、Prefab 查询及
-选择查询返回自有结果值；调用方持有这些值，不能保存临时查询结果内部的指针。
-直接 Scene 修改在下次查询立即可见；旧快照保持原值。查询不自动标记 dirty。
-创建成功后只更新选择和 dirty，不构造 UI 记录，也不因 UI 分配失败回滚创建。
-历史命令按稳定 UUID 撤销，重做复用资源引用。`validate_selection()` 清除已删除的选择。
+`capture_content()`、`serialize()`、保存和子树快照读取文档内容；打开既有实例的 `adopt` 仅在接管时
+捕获一次初始描述。直接修改 World 不进入文档。`capture_nodes()` 根据文档内容及 Prefab 回放生成自有查询结果，
+仅从运行时关联节点/实体 ID；尚未创建或已被底层删除的节点没有有效运行时 ID。
+`find_node`、Prefab 查询及选择查询同样返回自有结果，不能保留临时查询结果内部的指针。
+
+网格绑定的历史保活存放在文档版本的资源引用中，不是第二个加载缓存。
+`replace_mesh_binding` 先校验文档绑定是否匹配 expected，再修改描述和资源引用。
+文档关闭或 Application 停止后拒绝操作；跨线程调用不改变文档。
+当前宿主仍通过 `editor_command_history` 持有局部/子树和整文档历史，统一前后版本历史尚待迁移；
+文档内部的版本状态暂不重复记录另一份撤销栈。
 
 Prefab 编辑开始时从组件覆盖快照取得原资源引用；异步加载完成后的冲突检查继续执行。
 网格/材质 URI 覆盖由 `prepare_mesh_renderer_overrides` 统一计算，保留其他覆盖记录，
@@ -91,7 +93,7 @@ Prefab 编辑开始时从组件覆盖快照取得原资源引用；异步加载�
 
 ## 编辑和保存
 
-World 的节点身份、层级、局部变换与 ECS 组件是当前状态的权威来源。
+运行时 World 的节点身份、层级、局部变换与 ECS 组件描述实际运行状态；编辑内容以 Editor 文档为准。
 `scene_instance` 只长期保存场景 UUID、成员标记和 Prefab 绑定，不维护完整 `scene_description`。
 描述仅用于加载输入、捕获输出和撤销快照。`scene_object.hpp` 委托 Function/Scene 的
 `component_adapter.hpp` 按描述 GUID 安装与捕获组件，内建适配相机与网格渲染组件。
@@ -107,10 +109,10 @@ World 的节点身份、层级、局部变换与 ECS 组件是当前状态的权
 `world_component_access.hpp`，其借用指针只在所属线程及 World 生存期有效；
 普通 Scene/资源接口不暴露 EnTT。节点销毁依靠 ECS 正常析构组件，不另建组件副本表。
 通用扩展示例见 `tests/support/movement_component.hpp`。编辑器通过
-`scene_document::components` 捕获实际组件，用只读 `component_description_base::view()` 和
+`scene_document::components` 恢复文档中的有效组件描述，用只读 `component_description_base::view()` 和
 `meta::type` 绘制通用属性控件；视图不超过描述寿命，不借用 ECS 成员地址。
 
-通用组件编辑在适配器的自有副本上修改并校验，再调用 Scene 的 `set_component_description`。
+通用组件编辑在文档描述的独立候选上修改并校验，接受新版本后调用 Scene 的投影入口。
 普通对象写入实际 ECS；Prefab 来源对象同时更新与模板相比的稀疏叶属性覆盖，恢复来源会移除覆盖。
 历史保存描述快照，通过对象 UUID 或实例/来源 UUID 重新定位，支持撤销、重做和连续修改合并。
 节点/组件不存在时返回错误，不重建组件。Transform、主相机只读规则和资源 URI 异步加载继续使用
@@ -123,13 +125,12 @@ World 的节点身份、层级、局部变换与 ECS 组件是当前状态的权
 直接在 World 创建、挂到场景下的临时对象不会自动写入文件。持久化成员若被底层挂到
 临时或其他场景父节点，捕获返回 `invalid_state`，不生成悬空父引用。
 
-场景资源编辑只接受已准备的资源；加载或替换失败不提交新选择，保存仍使用旧资源 URI。
-目前不支持将未解析的新 URI 作为已接受的场景组件值；失败请求的信息由调用方保留。
-直接绕过场景接口设置无来源身份的渲染资源时，保存失败，不静默写入空 URI。
+运行时资源替换接口校验输入绑定；编辑器文档可接受结构合法但视觉依赖尚未就绪的描述。
+文档保留 URI 和资源身份，投影失败通过 projection_status 报告，不撤销已接受的内容。
+直接修改 World 不改变文档的保存内容。
 
-Editor Document 的节点列表只是界面查询缓存。保存与完整子树撤销从 Scene/World 捕获，
-不从该缓存重建对象；网格创建输入命名为 `mesh_node_creation`，与撤销快照区分。
-编辑与运行使用不同 World/实例；从编辑 World 捕获不会混入另一运行实例的修改。
+Editor Document 保存及完整子树撤销读取文档版本，不反向捕获 World。
+网格创建输入命名为 `mesh_node_creation`，与撤销快照区分；显式的运行时属性应用操作才能改变文档。
 
 
 `object_description` 只有一份身份、名称、父关系和变换；可选 `prefab` 保存 URI 与相对覆盖。
@@ -295,7 +296,7 @@ Prefab 覆盖捕获、恢复及有效描述准备共用此查询，相机身份�
 `make_scene_document_snapshot` 冻结已准备描述，`make_scene_document_inputs` 恢复独立领域输入，
 `prepare_scene_document` 计算修改和缺失依赖。这些调用不需要 Application、World 或历史执行器。
 宿主捕获、运行时恢复及异步历史执行位于 `documents/scene_document_edit.hpp`。
-当前捕获仍读取运行时场景，这是迁移期入口，并不表示文档权威版本已经落地。
+`capture_scene_document` 读取文档版本；`restore_scene_document` 接受内容后尝试同步，失败不反向回滚已接受的编辑。
 
 `capture_scene_document` 返回 `result<scene_document_snapshot>`；`prepare_scene_document` 返回
 `result<prepared_scene_document>`，其中包含 `snapshot` 和 `missing`。同步操作在 `missing`
@@ -304,8 +305,7 @@ Prefab 覆盖捕获、恢复及有效描述准备共用此查询，相机身份�
 `poll_prepared_assets(request)` 限所属线程，仅推进对应资源请求，不驱动文件 I/O；未完成返回
 `not_ready`，不存在或过期编号返回 `invalid_handle`。`discard_prepared_assets(request)` 释放
 该请求的观察权及回执槽位，关闭期间也可清理，绝不影响其他编号；底层在途 I/O 由资源服务回收。
-文档恢复取消、失败或析构都会放弃自己的编号，Application 必须覆盖该操作的完整寿命。
-网格编辑、Prefab 编辑与文档恢复统一按编号领取结果，均不消费其他编号的回执。
+网格编辑和 Prefab 编辑按编号领取结果，不消费其他编号的回执；文档恢复不占用这些编号。
 网格及 Prefab 的资源阶段取消直接放弃请求、结束该阶段，返回 `cancelled`；文档关闭或应用停止
 则清理请求并返回 `invalid_state`。Prefab 文件准备和历史操作仍遵循各自的取消/排空要求。
 Application 负责推进 I/O，编辑命令通过既有 `advance_scene_load` 推进入口后再领取对应结果。

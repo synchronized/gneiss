@@ -54,7 +54,7 @@ int main() try {
           gneiss::test_support::scene_query(session).nodes[0].node) {
     return 1;
   }
-  // 不经过文档修改 Scene：新查询立即可见，旧快照保持独立，不需要同步。
+  // 直接修改运行时不改变文档内容；查询和保存以文档版本为准。
   {
     auto before = session.capture_nodes();
     if (!before)
@@ -65,7 +65,7 @@ int main() try {
             .failed())
       return 31;
     auto latest = session.find_node(original.uuid);
-    if (!latest || latest->display_name != "Direct" ||
+    if (!latest || latest->display_name != original.display_name ||
         before->nodes.front().display_name != original.display_name)
       return 32;
     auto transform = original.local_transform;
@@ -73,7 +73,8 @@ int main() try {
     if (world->node_set_local_transform(original.node, transform).failed())
       return 33;
     latest = session.find_node(original.uuid);
-    if (!latest || latest->local_transform.translation[0] != transform.translation[0])
+    if (!latest ||
+        latest->local_transform.translation[0] != original.local_transform.translation[0])
       return 34;
     if (application->scenes()
             ->set_node_name(session.scene_handle(), original.node, original.display_name)
@@ -83,14 +84,11 @@ int main() try {
     const auto uuid = gneiss::engine::guid::from_bytes({72, 93});
     auto created = application->scenes()->create_node(
         session.scene_handle(), {.uuid = uuid, .name = "Direct child", .parent = original.node});
-    if (!created || !session.find_node(uuid) || session.select(*created).failed())
+    if (!created || session.find_node(uuid) || session.select(*created).ok())
       return 36;
-    auto child = session.find_node(uuid);
-    if (!child || child->parent != original.node ||
-        session.capture_nodes()->nodes.size() != before->nodes.size() + 1)
+    if (session.capture_nodes()->nodes.size() != before->nodes.size())
       return 37;
     if (application->scenes()->destroy_node(session.scene_handle(), *created).failed() ||
-        session.find_node(uuid) || session.validate_selection().failed() || session.selection() ||
         session.is_dirty())
       return 38;
   }

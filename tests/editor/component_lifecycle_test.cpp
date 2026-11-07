@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../support/document_prefab.hpp"
 #include "../support/movement_component.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
@@ -111,9 +112,27 @@ int main() try {
   check(document.add_component_description(node, e::make_component_description(movement_description{
                                                      -1})) == e::error::invalid_argument &&
         !current());
-  check(document.add_component_description(node, e::make_component_description(movement_description{
-                                                     13})) == e::error::invalid_state &&
-        !current());
+  check(
+      document
+          .add_component_description(node, e::make_component_description(movement_description{13}))
+          .ok() &&
+      !current());
+  check(document.projection_status() == e::error::invalid_state);
+  check(document.components(node)->get<movement_description>()->speed == 13);
+  auto failed_content = document.serialize();
+  check(failed_content.ok());
+  check(document.synchronize() == e::error::invalid_state);
+  auto after_failure = document.serialize();
+  check(after_failure && *after_failure == *failed_content);
+  check(document
+            .set_component_description(node, e::make_component_description(movement_description{4}))
+            .ok());
+  check(document.projection_status().failed());
+  const auto previous_node = node;
+  check(document.synchronize().ok());
+  node = document.find_node(uuid)->node;
+  check(node != previous_node && document.projection_status().ok() && current()->data.speed == 4);
+  check(document.remove_component_description(node, type).ok());
   check(add().ok());
   // 相机使用同一默认工厂与历史，不再在面板手写快照。
   check(ed::add_component_description(document, history, uuid, e::camera_description::type_guid)
@@ -141,8 +160,8 @@ int main() try {
   const std::array<e::scene_mesh_binding, 2> bindings{};
   gneiss::scene_node_id prefab_node;
   check(gneiss::test_support::take_value(
-            app->scenes()->instantiate_prefab_ready(document.scene_handle(), reference,
-                                                    e::prefab_asset_ref{prefab}, bindings, false),
+            gneiss::test_support::place_document_prefab(
+                document, reference, e::prefab_asset_ref{prefab}, bindings, false),
             prefab_node)
             .ok());
   check(document.validate_selection().ok());

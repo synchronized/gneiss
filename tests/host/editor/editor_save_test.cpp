@@ -87,8 +87,8 @@ int main() try {
   }
   gneiss::engine::math::transform transform{};
   transform.translation[0] = 7.0F;
-  if (application->native_world()->entity_set_local_transform(
-          session.selected_node()->entity, transform) != gneiss::engine::error::success) {
+  if (session.set_local_transform(session.selected_node()->node, transform) !=
+      gneiss::engine::error::success) {
     return 4;
   }
   session.mark_dirty();
@@ -143,7 +143,7 @@ int main() try {
     return 15;
   }
   created_node = session.find_node(created_uuid)->node;
-  // UI 查询记录故意不刷新；撤销快照必须读取 World 当前值。
+  // 运行时名称变化不得进入文档子树快照。
   if (application->native_world()
           ->node_set_identity(created_node, {created_uuid, "Live snapshot"})
           .failed())
@@ -151,7 +151,7 @@ int main() try {
   gneiss::editor::scene_subtree_snapshot snapshot;
   if (session.destroy_subtree(created_node, snapshot) != gneiss::engine::error::success ||
       snapshot.description()->objects.size() != 1U ||
-      snapshot.description()->objects.front().name != "Live snapshot" ||
+      snapshot.description()->objects.front().name != "Created" ||
       session.find_node(created_uuid).ok() ||
       gneiss::test_support::scene_query(session).nodes.size() != 4U ||
       session.restore_subtree(snapshot, created_node) != gneiss::engine::error::success ||
@@ -171,8 +171,8 @@ int main() try {
   }
 
   transform.translation[0] = 9.0F;
-  if (application->native_world()->entity_set_local_transform(
-          session.selected_node()->entity, transform) != gneiss::engine::error::success) {
+  if (session.set_local_transform(session.selected_node()->node, transform) !=
+      gneiss::engine::error::success) {
     return 9;
   }
   session.mark_dirty();

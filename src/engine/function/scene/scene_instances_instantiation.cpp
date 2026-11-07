@@ -11,6 +11,22 @@
 #include <unordered_map>
 
 namespace gneiss::engine {
+error scene_instances::replace_prepared(scene_instance_id instance,
+                                        scene_instantiation_data prepared,
+                                        const resource_bindings& assets) noexcept {
+  if (!native_world_.is_owner_thread())
+    return error::invalid_state;
+  if (!instances_.get(instance, resource_type::scene_instance))
+    return error::invalid_handle;
+  auto created = instantiate_prepared(std::move(prepared), assets);
+  if (!created)
+    return created.error();
+  // 插入可能扩容 RID 表，必须重新获取槽位地址。
+  auto* target = instances_.get(instance, resource_type::scene_instance);
+  auto* replacement = instances_.get(*created, resource_type::scene_instance);
+  std::swap(*target, *replacement);
+  return unload(*created);
+}
 result<scene_instantiation_result, scene_diagnostic>
 scene_instances::instantiate(ref<const scene> source, std::size_t source_bytes) noexcept try {
   if (!native_world_.is_owner_thread())

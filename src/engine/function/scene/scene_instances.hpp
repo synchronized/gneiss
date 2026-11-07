@@ -67,6 +67,9 @@ public:
    * 失败回收已创建节点；调用期间不支持暂停或取消。 */
   [[nodiscard]] GNEISS_API result<scene_instance_id>
   instantiate_prepared(scene_instantiation_data prepared, const resource_bindings& assets) noexcept;
+  /** 重建投影并保留实例句柄；成功后旧节点句柄失效，失败保留旧投影。 */
+  [[nodiscard]] GNEISS_API error replace_prepared(scene_instance_id, scene_instantiation_data,
+                                                  const resource_bindings&) noexcept;
   /** 捕获纯内存描述和绑定资源强引用；内建视觉绑定不要求就绪，不读取文件。 */
   [[nodiscard]] GNEISS_API result<scene_capture>
   capture_prepared(scene_instance_id instance) const noexcept;

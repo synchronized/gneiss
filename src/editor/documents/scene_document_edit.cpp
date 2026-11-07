@@ -8,14 +8,7 @@ engine::result<scene_document_snapshot>
 capture_scene_document(runtime::application& app, const scene_document& document) noexcept try {
   if (!document.is_open() || !app.is_owner_thread() || !app.accepts_requests())
     return engine::error::invalid_state;
-  auto captured = app.scenes()->capture_prepared(document.scene_handle());
-  if (!captured)
-    return captured.error();
-  auto next = make_scene_document_snapshot(std::string(document.uri()), captured->description);
-  if (!next)
-    return next.error();
-  next->assets = std::move(captured->assets);
-  return next;
+  return document.capture_content();
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
 } catch (...) {
@@ -27,23 +20,7 @@ engine::error restore_scene_document(runtime::application& app, scene_document& 
   if (!app.is_owner_thread() || !app.accepts_requests() || !document.is_open() ||
       document.uri() != snapshot.uri)
     return engine::error::invalid_state;
-  scene_instance_id instance;
-  auto inputs = make_scene_document_inputs(snapshot);
-  if (!inputs)
-    return inputs.error();
-  engine::scene_instantiation_data prepared;
-  engine::scene_diagnostic diagnostic;
-  auto prepared_status = engine::prepare_loaded_scene(*inputs, {}, prepared, diagnostic, {});
-  if (prepared_status.failed())
-    return prepared_status;
-  auto status_value = app.scenes()->instantiate_prepared(std::move(prepared), snapshot.assets);
-  if (!status_value)
-    return status_value.error();
-  instance = std::move(*status_value);
-  auto status = document.adopt(app, app.native_world(), instance, snapshot.uri);
-  if (status.failed())
-    (void)app.scenes()->unload(instance);
-  return status;
+  return document.accept_content(snapshot);
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
 } catch (...) {

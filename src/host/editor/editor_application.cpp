@@ -546,8 +546,7 @@ record_author_documents(editor_state& state, std::string label,
   if (!std::string_view(uri).starts_with("asset://"))
     return gneiss::engine::error::invalid_state;
   output.relative_path = std::string_view(uri).substr(8);
-  auto scene_result =
-      state.application->scenes()->serialize(state.editing.document().scene_handle());
+  auto scene_result = state.editing.document().serialize();
   if (!scene_result)
     return scene_result.error();
   output.content = std::move(*scene_result);
@@ -580,8 +579,7 @@ void draw_prefab_overrides(editor_state& state) {
     return;
   const auto instance = selected->instance_uuid;
   const auto selected_source = selected->source_node_uuid;
-  auto captured = state.application->scenes()->capture_prefab_header(
-      state.editing.document().scene_handle(), instance);
+  auto captured = state.editing.document().capture_prefab_header(instance);
   if (!captured || !captured->author.prefab || !captured->source)
     return;
   const auto& author = captured->author;
@@ -652,8 +650,7 @@ void draw_prefab_conflict(editor_state& state) {
   const auto type = read_id("/components/");
   if (!instance || !object || !type)
     return;
-  auto captured = state.application->scenes()->capture_prefab_header(
-      state.editing.document().scene_handle(), *instance);
+  auto captured = state.editing.document().capture_prefab_header(*instance);
   if (captured && captured->source && captured->author.prefab) {
     const auto& author = captured->author;
     const auto& source = captured->source;
@@ -683,8 +680,7 @@ void draw_prefab_conflict(editor_state& state) {
 }
 
 bool has_prefab_overrides(editor_state& state, gneiss::engine::guid instance) {
-  auto captured = state.application->scenes()->capture_prefab_header(
-      state.editing.document().scene_handle(), instance);
+  auto captured = state.editing.document().capture_prefab_header(instance);
   if (!captured || !captured->author.prefab)
     return false;
   const auto& prefab = *captured->author.prefab;
@@ -1103,8 +1099,7 @@ void draw_component_descriptions(editor_state& state) {
   bool source_transform = false;
   if (identity.instance_uuid) {
     object_description author;
-    auto scenes_result = state.application->scenes()->capture_prefab_header(
-        state.editing.document().scene_handle(), identity.instance_uuid);
+    auto scenes_result = state.editing.document().capture_prefab_header(identity.instance_uuid);
     const auto captured = scenes_result ? gneiss::engine::error::success : scenes_result.error();
     if (scenes_result) {
       author = std::move(scenes_result->author);
@@ -1133,12 +1128,13 @@ void draw_component_descriptions(editor_state& state) {
   };
   auto transform_source = source_view(source_transform ? &source_object->transform : nullptr);
   identity.component_type = transform_component_type;
-  math::transform transform;
-  auto transform_status = state.world->node_get_local_transform(node_id, transform);
-  if (transform_status.failed()) {
-    state.inspector_error = transform_status;
+  const auto ordinary = state.editing.document().query_node(node_id);
+  const auto prefab_node = state.editing.document().query_prefab_node(node_id);
+  if (!ordinary && !prefab_node) {
+    state.inspector_error = error::not_found;
     return;
   }
+  auto transform = ordinary ? ordinary->local_transform : prefab_node->local_transform;
   auto transform_view = meta::instance::from(transform);
   if (!transform_view) {
     state.inspector_error = transform_view.error();
@@ -2596,8 +2592,7 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
               state.editing.document().duplicate_subtree(original.node, original.parent, duplicate);
           if (state.history_error.ok()) {
             auto snapshot = std::make_shared<gneiss::engine::scene_subtree_snapshot>();
-            auto scenes_result = state.application->scenes()->capture_subtree(
-                state.editing.document().scene_handle(), duplicate);
+            auto scenes_result = state.editing.document().capture_subtree(duplicate);
             state.history_error =
                 scenes_result ? gneiss::engine::error::success : scenes_result.error();
             if (scenes_result) {
@@ -2762,6 +2757,19 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
     ImGui::End();
     if (state.editing.prefabs().active() || state.pending_file_operation) {
       return submit_editor_ui(state);
+    }
+
+    if (state.editing.document().is_open() && state.editing.document().projection_status().failed()) {
+      const auto status = state.editing.document().projection_status();
+      ImGui::Begin("Scene synchronization", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+      ImGui::TextUnformatted("Edits are retained. The running scene is not synchronized.");
+      const auto message = status.message();
+      ImGui::TextUnformatted(message.data(), message.data() + message.size());
+      ImGui::BeginDisabled(state.editing.active());
+      if (ImGui::Button("Retry synchronization"))
+        (void)state.editing.document().synchronize();
+      ImGui::EndDisabled();
+      ImGui::End();
     }
 
     if (state.history_error != gneiss::engine::error::success &&

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../support/document_prefab.hpp"
 #include "../support/movement_component.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
@@ -116,14 +117,14 @@ int main() try {
   std::array<e::scene_mesh_binding, 2> bindings{};
   gneiss::scene_node_id root_node;
   check(gneiss::test_support::take_value(
-            app->scenes()->instantiate_prefab_ready(document.scene_handle(), instance,
-                                                    e::prefab_asset_ref{source}, bindings, false),
+            gneiss::test_support::place_document_prefab(
+                document, instance, e::prefab_asset_ref{source}, bindings, false),
             root_node)
             .ok());
   check(document.validate_selection().ok());
   auto child_node = document.find_prefab_source(instance.uuid, child_id);
   check(bool(child_node));
-  const auto node = child_node->node;
+  auto node = child_node->node;
   // 组件列表编辑生成整列表快照，来源描述和快照不会随后续修改而改变。
   {
     movement_description edited;
@@ -237,12 +238,24 @@ int main() try {
           .ok());
   check(e::capture_components(world, loaded_root)->get<movement_description>()->speed == 5);
   check(app->scenes()->unload(loaded).ok());
+  const auto refresh = [&](e::prefab_asset_ref replacement) {
+    auto next = document.capture_content();
+    if (!next)
+      return next.error();
+    auto content = e::capture_prefab_record(*replacement);
+    if (!content)
+      return content.error();
+    next->prefabs.at(reference.uri).content = *content;
+    auto status = document.accept_content(*next);
+    if (status.ok()) {
+      root_node = document.find_prefab_root(instance.uuid)->node;
+      node = document.find_prefab_source(instance.uuid, child_id)->node;
+    }
+    return status;
+  };
   // 来源新增组件与本地新增相撞：采用来源组件，保留本地覆盖并报告冲突。
   auto updated = std::make_shared<e::prefab_description>(collision);
-  check(app->scenes()
-            ->reload_prefab_loaded(document.scene_handle(), reference.uri,
-                                   e::prefab_asset_ref{updated}, &diagnostic)
-            .ok());
+  check(refresh(e::prefab_asset_ref{updated}).ok());
   check(document.components(root_node)->get<movement_description>()->speed == 1);
   const auto count = app->scenes()->get_node_count(document.scene_handle());
   check(count.has_value());
@@ -262,15 +275,9 @@ int main() try {
   updated = std::make_shared<e::prefab_description>(*source);
   updated->objects[1].name = "renamed";
   updated->objects[1].components.erase(type);
-  check(app->scenes()
-            ->reload_prefab_loaded(document.scene_handle(), reference.uri,
-                                   e::prefab_asset_ref{updated})
-            .ok());
+  check(refresh(e::prefab_asset_ref{updated}).ok());
   check(!document.components(node)->find(type));
-  check(app->scenes()
-            ->reload_prefab_loaded(document.scene_handle(), reference.uri,
-                                   e::prefab_asset_ref{source})
-            .ok());
+  check(refresh(e::prefab_asset_ref{source}).ok());
   check(!document.components(node)->find(type));
   check(history.clear().ok());
   check(action(ed::prefab_component_action::restore_source).ok());

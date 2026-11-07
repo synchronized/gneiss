@@ -51,7 +51,7 @@ gneiss::engine::error editor_asset_edit::commit_add(scene_document& session,
 gneiss::engine::error editor_asset_edit::commit(runtime::application& application,
                                                 scene_document& session,
                                                 editor_command_history& history) {
-  if (session.scene_handle() != scene_) {
+  if (!application.is_owner_thread() || session.scene_handle() != scene_) {
     return gneiss::engine::error::invalid_state;
   }
   if (creating_) {
@@ -72,8 +72,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
     engine::prefab_component_state after;
     after.resources = next_;
     {
-      auto status_value =
-          application.scenes()->capture_prefab_header(scene_, target_.instance_uuid);
+      auto status_value = session.capture_prefab_header(target_.instance_uuid);
       if (!status_value)
         return status_value.error();
       const auto& source = status_value->source;
@@ -233,7 +232,7 @@ engine::error editor_asset_edit::request_restore_source(runtime::application& ap
     return engine::error::not_ready;
   if (!target.instance_uuid || !document.uri().starts_with("asset://"))
     return engine::error::invalid_argument;
-  auto status_value = app.scenes()->serialize(document.scene_handle());
+  auto status_value = document.serialize();
   if (!status_value)
     return status_value.error();
   const auto& json = *status_value;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/document_prefab.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
 #include "engine/core/error.hpp"
@@ -104,8 +105,8 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   gneiss::scene_node_id prefab_root;
   const std::array<e::scene_mesh_binding, 2> bindings{};
   if (gneiss::test_support::take_value(
-          app.scenes()->instantiate_prefab_ready(session.scene_handle(), author,
-                                                 e::prefab_asset_ref{source}, bindings, false),
+          gneiss::test_support::place_document_prefab(session, author, e::prefab_asset_ref{source},
+                                                      bindings, false),
           prefab_root)
           .failed() ||
       session.validate_selection().failed())
@@ -129,8 +130,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
     return 41;
   auto snapshot = [&]() {
     std::string json;
-    if (gneiss::test_support::assign_value(app.scenes()->serialize(session.scene_handle()), json)
-            .failed())
+    if (gneiss::test_support::assign_value(session.serialize(), json).failed())
       throw std::runtime_error("serialize");
     auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(
         std::as_bytes(std::span{json.data(), json.size()}));
@@ -224,7 +224,9 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   if (app.scenes()->unload(loaded).failed() || !found_ordinary || !found_prefab || !found_child)
     return 47;
   // 移除后不把旧历史应用到另一个节点。
-  if (app.scenes()->remove_prefab_instance(session.scene_handle(), author.uuid).failed() ||
+  e::scene_subtree_snapshot removed_prefab;
+  if (session.destroy_subtree(session.find_prefab_root(author.uuid)->node, removed_prefab)
+          .failed() ||
       session.validate_selection().failed() || prefab_history.undo() != e::error::not_found)
     return 48;
   return 0;

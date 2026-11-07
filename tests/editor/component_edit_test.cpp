@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../support/document_prefab.hpp"
 #include "../support/movement_component.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
@@ -267,9 +268,9 @@ int main() try {
   check(document.create_empty(*app, &world).ok());
   gneiss::scene_node_id node;
   check(document.create_node("movement", {}, node).ok());
-  check(
-      e::install_components({world, node}, {e::make_component_description(movement_description{})})
-          .ok());
+  check(document
+            .add_component_description(node, e::make_component_description(movement_description{}))
+            .ok());
   auto ordinary = document.selected_node()->uuid;
   ed::component_edit_target target{.object_uuid = ordinary,
                                    .component_type = movement_description::type_guid};
@@ -331,8 +332,8 @@ int main() try {
   reference.prefab->uri = "asset://movement.prefab";
   const std::array<e::scene_mesh_binding, 1> bindings{};
   check(gneiss::test_support::take_value(
-            app->scenes()->instantiate_prefab_ready(document.scene_handle(), reference,
-                                                    e::prefab_asset_ref{prefab}, bindings, false),
+            gneiss::test_support::place_document_prefab(
+                document, reference, e::prefab_asset_ref{prefab}, bindings, false),
             node)
             .ok());
   check(document.validate_selection().ok());
@@ -475,7 +476,9 @@ int main() try {
   check(reloaded && reloaded->get<movement_description>()->mode == movement_mode::run &&
         reloaded->get<movement_description>()->speed == 4);
   check(app->scenes()->unload(loaded).ok());
-  check(app->scenes()->remove_prefab_instance(document.scene_handle(), reference.uuid).ok());
+  e::scene_subtree_snapshot removed_prefab;
+  check(document.destroy_subtree(document.find_prefab_root(reference.uuid)->node, removed_prefab)
+            .ok());
   check(document.validate_selection().ok());
   check(history.undo() == e::error::not_found);
   {
@@ -553,8 +556,8 @@ int main() try {
                             .target_type_guid = movement_description::type_guid},
                  .path = {p{5}, e::guid::from_bytes({85, 100}), p{2}}},
          .operation = e::value{7.0F}}};
-    auto created = app->scenes()->instantiate_prefab_ready(
-        document.scene_handle(), conflict_reference, e::prefab_asset_ref{prefab}, bindings, false);
+    auto created = gneiss::test_support::place_document_prefab(
+        document, conflict_reference, e::prefab_asset_ref{prefab}, bindings, false);
     check(bool(created));
     node = *created;
     target = {.instance_uuid = conflict_reference.uuid,

@@ -4,6 +4,7 @@
 #ifndef GNEISS_EDITOR_DOCUMENTS_SCENE_DOCUMENT_HPP_
 #define GNEISS_EDITOR_DOCUMENTS_SCENE_DOCUMENT_HPP_
 
+#include "documents/scene_document_versions.hpp"
 #include "engine/core/entity_id.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
@@ -15,6 +16,7 @@
 #include "engine/function/world/world.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/scene/scene_description.hpp"
+#include <functional>
 namespace gneiss::runtime {
 class application;
 }
@@ -93,7 +95,7 @@ using engine::scene_subtree_snapshot;
 
 /** 单个场景的编辑文档：保存 URI、选择、脏状态及保存操作状态。
  * 借用 Application，绑定一个运行时场景实例；close 负责卸载该实例。
- * 节点查询返回独立快照，不在文档内缓存；保存和撤销从 World/Scene 捕获。
+ * 文档版本持有编辑内容；World 是投影，保存不读取运行时属性。
  * 不拥有 World 或第二棵运行时场景树；须先于 Application 关闭。
  * 撤销命令由宿主持有的 editor_command_history 管理，并在文档切换时清理。
  */
@@ -187,6 +189,7 @@ public:
   /** 保存回执独立于文档生命周期；完成只写回执，宿主推进后显式接收。 */
   struct save_receipt {
     gneiss::scene_instance_id scene;
+    scene_document_versions::version version;
     std::string uri, content;
     engine::error status{engine::error::not_ready};
     bool complete{};
@@ -210,10 +213,34 @@ public:
   [[nodiscard]] engine::error
   set_component_override(scene_node_id, engine::guid,
                          const engine::prefab_component_state&) noexcept;
+  [[nodiscard]] engine::result<std::string> serialize() const noexcept;
+  /** 当前编辑内容；不从 World 反向捕获。 */
+  [[nodiscard]] engine::result<scene_document_snapshot> capture_content() const noexcept;
+  /** 接受合法内容后尝试同步；返回值表示内容是否接受，同步错误单独查询。 */
+  [[nodiscard]] engine::error accept_content(const scene_document_snapshot&) noexcept;
+  [[nodiscard]] engine::error synchronize() noexcept;
+  [[nodiscard]] engine::error projection_status() const noexcept;
+  [[nodiscard]] engine::result<scene_subtree_snapshot>
+      capture_subtree(scene_node_id) const noexcept;
+  [[nodiscard]] engine::result<engine::prefab_header_snapshot>
+      capture_prefab_header(engine::guid) const noexcept;
+  [[nodiscard]] engine::error apply_prefab(const scene_subtree_snapshot&, bool removing,
+                                           bool replacing) noexcept;
   void mark_dirty() noexcept { is_dirty_ = true; }
   void clear_dirty() noexcept { is_dirty_ = false; }
 
 private:
+  using content_edit =
+      std::function<engine::error(engine::scene_description&, scene_document_snapshot&)>;
+  engine::error edit_content(const content_edit&, const std::function<engine::error()>&) noexcept;
+  struct edit_target {
+    engine::guid object, source;
+    engine::object_description effective;
+  };
+  engine::result<edit_target> locate(scene_node_id) const noexcept;
+  engine::error edit_component(scene_node_id, engine::guid, const engine::component_description&,
+                               int mode) noexcept;
+  std::unique_ptr<scene_document_versions> versions_;
   engine::error encode_scene(std::string& output) const noexcept;
   template <class F>
   std::invoke_result_t<F, engine::scene_instances&> with_scene(F&& action) const noexcept;

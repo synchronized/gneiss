@@ -95,7 +95,7 @@ void run(scenario mode) {
               .rename_node(editing.document.find_prefab_root(instance.uuid)->node, "Changed")
               .ok());
   if (mode == scenario::world_modified) {
-    // 绕过文档的直接 World 写入，同样必须在提交前发现。
+    // 运行时变化不改变文档基线，也不能被下一次编辑带入保存内容。
     const auto node = editing.document.find_prefab_root(instance.uuid);
     check(bool(node));
     auto changed = node->local_transform;
@@ -119,7 +119,7 @@ void run(scenario mode) {
     operation.cancel();
   // 首次推进立即采用合法描述，不驱动文件或资产完成队列。
   e::error status = operation.advance(*editing.application, editing.document, history);
-  if (mode == scenario::success || mode == scenario::failure)
+  if (mode == scenario::success || mode == scenario::failure || mode == scenario::world_modified)
     check(status.ok());
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (status == e::error::not_ready) {
@@ -129,7 +129,7 @@ void run(scenario mode) {
     std::this_thread::yield();
   }
   check(operation.advance(*editing.application, editing.document, history) == status);
-  if (mode == scenario::success || mode == scenario::failure) {
+  if (mode == scenario::success || mode == scenario::failure || mode == scenario::world_modified) {
     check(status.ok() && history.size() == 1 && redo_count == 1);
     auto node = editing.document.find_prefab_root(instance.uuid);
     check(node && editing.document.components(node->node)->get<e::mesh_renderer_description>());
@@ -164,8 +164,7 @@ void run(scenario mode) {
     check(status.failed() && history.size() == 0 && redo_count == 0 && undo_count == 0);
     if (mode == scenario::cancelled)
       check(status == e::error::cancelled);
-    if (mode == scenario::modified || mode == scenario::world_modified ||
-        mode == scenario::closed || mode == scenario::switched)
+    if (mode == scenario::modified || mode == scenario::closed || mode == scenario::switched)
       check(status == e::error::invalid_state);
     if (editing.document.is_open()) {
       const auto node = editing.document.find_prefab_root(instance.uuid);

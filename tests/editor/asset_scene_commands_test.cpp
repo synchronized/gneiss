@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/document_prefab.hpp"
 #include "../support/scene_query.hpp"
 #include "../support/value_result.hpp"
 #include "commands/editor_asset_edit.hpp"
@@ -225,9 +226,8 @@ int main() try {
   scene_node_id mesh_node;
   const std::array mesh_bindings{before};
   if (gneiss::test_support::take_value(
-          app->scenes()->instantiate_prefab_ready(session.scene_handle(), mesh_instance,
-                                                  engine::prefab_asset_ref{mesh_prefab},
-                                                  mesh_bindings, false),
+          gneiss::test_support::place_document_prefab(
+              session, mesh_instance, engine::prefab_asset_ref{mesh_prefab}, mesh_bindings, false),
           mesh_node)
           .failed() ||
       session.validate_selection().failed())

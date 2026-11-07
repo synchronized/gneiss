@@ -15,6 +15,17 @@ namespace {
 using engine::scene_subtree_snapshot;
 using runtime::prefab_placement;
 using prefab_snapshots = std::vector<std::shared_ptr<const scene_subtree_snapshot>>;
+engine::error capture_document_prefab(scene_document& document, engine::guid uuid,
+                                      std::shared_ptr<scene_subtree_snapshot>& output) {
+  auto node = document.find_prefab_root(uuid);
+  if (!node)
+    return node.error();
+  auto captured = document.capture_subtree(node->node);
+  if (!captured)
+    return captured.error();
+  output = std::make_shared<scene_subtree_snapshot>(std::move(*captured));
+  return engine::error::success;
+}
 class prefab_history_operation : public editor_history_operation {
 public:
   prefab_history_operation(runtime::application& application, scene_document& session,
@@ -33,7 +44,7 @@ public:
     if (finished_)
       return error::invalid_state;
     finished_ = true;
-    if (cancelled_ || session_.scene_handle() != scene_)
+    if (cancelled_ || !application_.is_owner_thread() || session_.scene_handle() != scene_)
       return error::invalid_state;
     engine::guid selected_instance, selected_source;
     if (const auto selected = session_.selected_prefab_node()) {
@@ -44,8 +55,9 @@ public:
     auto status = error{error::success};
     // 同一调用内逐个创建；前面的成功不会因后面的失败回滚。
     for (const auto& snapshot : snapshots_) {
-      status =
-          prefab_placement::apply(application_, scene_, *snapshot, removing_, replacing_, root);
+      status = session_.apply_prefab(*snapshot, removing_, replacing_);
+      if (status.ok())
+        root = session_.selection();
       if (status.failed())
         break;
     }
@@ -196,8 +208,7 @@ struct editor_prefab_edit::state {
   void prepare_refresh() {
 
     if (before.size() < refresh_targets.size()) {
-      status =
-          prefab_placement::capture(application, refresh_targets[before.size()], scene, captured);
+      status = capture_document_prefab(*session, refresh_targets[before.size()], captured);
       if (status.failed()) {
         finish();
         return;
@@ -503,8 +514,7 @@ void editor_prefab_edit::advance() {
     }
     std::shared_ptr<const scene_subtree_snapshot> snapshot;
     if (value.removing) {
-      value.status = prefab_placement::capture(value.application, value.target_uuid, value.scene,
-                                               value.captured);
+      value.status = capture_document_prefab(*value.session, value.target_uuid, value.captured);
       snapshot = value.captured;
     } else {
       value.status = prefab_placement::freeze(value.application, std::move(value.source),

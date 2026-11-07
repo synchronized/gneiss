@@ -410,7 +410,7 @@ void run(gneiss::engine::execution_mode mode) {
   scene_node_id retained_parent;
   check(world->node_get_parent(restored_child, retained_parent).ok() &&
         retained_parent == root_node && restored_child != own_child);
-  check(app->scenes()->destroy_node(session.scene_handle(), restored_child).ok());
+  check(session.destroy_node(restored_child).ok());
   check(session.validate_selection().ok());
   deletion_history.clear();
 

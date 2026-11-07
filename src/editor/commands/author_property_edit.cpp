@@ -242,16 +242,18 @@ engine::error edit_component_description(scene_document& document, editor_comman
                                          const property_edit& edit, std::uint64_t serial) noexcept
     try {
   using namespace engine;
+  (void)world;
   if (edit.path.empty() && !edit.object)
     return error::invalid_argument;
   auto location = locate_component(document, identity);
   if (!location)
     return location.error();
   if (identity.component_type == transform_component_type) {
-    math::transform before;
-    auto status = world.node_get_local_transform(location->first, before);
-    if (status.failed())
-      return status;
+    auto ordinary = document.query_node(location->first);
+    auto prefab = document.query_prefab_node(location->first);
+    if (!ordinary && !prefab)
+      return error::not_found;
+    auto before = ordinary ? ordinary->local_transform : prefab->local_transform;
     const auto apply = [&document, identity](const math::transform& value) {
       auto location = locate_component(document, identity);
       return location ? document.set_local_transform(location->first, value) : location.error();
