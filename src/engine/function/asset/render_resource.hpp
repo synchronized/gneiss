@@ -48,6 +48,7 @@ public:
   }
   [[nodiscard]] explicit operator bool() const noexcept { return bool(value_); }
   void reset() noexcept { value_.reset(); }
+  [[nodiscard]] long use_count() const noexcept { return value_.use_count(); }
   friend bool operator==(const render_resource_ref&, const render_resource_ref&) = default;
 
 private:

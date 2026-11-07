@@ -11,6 +11,8 @@ namespace detail {
 struct asset_construction;
 /** 单个渲染资产的解码观察和依赖装配；调度与停止由管理器负责。 */
 struct render_load_operation final : load_operation {
+  render_resource_source source;
+  bool reload{}, started{};
   GNEISS_API void advance(asset_manager&, asset_construction&);
   std::variant<asset_request<mesh_data>, asset_request<texture_data>,
                asset_request<material_description>>

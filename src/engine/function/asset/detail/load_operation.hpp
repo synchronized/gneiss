@@ -10,8 +10,10 @@ namespace gneiss::engine::detail {
 struct load_operation {
   virtual ~load_operation() = default;
   std::weak_ptr<asset_entry> entry;
-  /** 所属线程检查外部订阅；操作本身持有的 observer 不算观察者。 */
-  [[nodiscard]] bool has_observers() const noexcept { return observer.use_count() > 1; }
+  /** 所属线程检查请求或资源拥有者；操作自身的引用不算观察者。 */
+  [[nodiscard]] bool has_observers() const noexcept {
+    return observer.use_count() > 1 || observer->target.use_count() > 1;
+  }
   /** 只有当前记录仍指向本操作时，才允许采用资产内容。 */
   [[nodiscard]] bool is_current() const noexcept {
     auto record = entry.lock();

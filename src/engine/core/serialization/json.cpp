@@ -554,7 +554,7 @@ serialization::diagnostic read_fields(const context& ctx, yyjson_val* input,
   auto binding = find_serialization(*selected, view.type().id());
   if (!binding)
     return failure(binding.error());
-  if (binding->validate) {
+  if (binding->validate && !(ctx.references() && ctx.references()->collecting())) {
     auto status = binding->validate(decoded->get());
     if (status.error.failed())
       return status;

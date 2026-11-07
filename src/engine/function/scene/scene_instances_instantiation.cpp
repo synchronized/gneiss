@@ -22,10 +22,10 @@ scene_instances::instantiate(ref<const scene> source, std::size_t source_bytes) 
     return std::move(prepared).error();
   resource_bindings bindings;
   for (const auto& request : prepared->assets) {
-    auto resource = loader_.reserve_resource(request);
+    auto resource = loader_.load(request);
     if (!resource)
-      return scene_diagnostic{resource.error(), 0, request.uri, "无法预留场景视觉资源引用"};
-    bindings.emplace(request.uri, std::move(*resource));
+      return scene_diagnostic{resource.error(), 0, request.uri, "无法提交场景视觉加载"};
+    bindings.emplace(request.uri, resource->resource());
   }
   scene_instantiation_result output{.instance = {},
                                     .node_count = prepared->instance_nodes,

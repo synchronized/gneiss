@@ -255,7 +255,7 @@ render_service 不持有资产对象和 URI 缓存；加载器/接入代码提�
 - [ ] 5. 迁移编辑器、导入器、工具、示例和测试；移除旧 request_data、prepare_*、reserve_*、RID 反查及桥接。
   - [x] 删除 asset_manager 的 find_mesh/find_texture/find_material(RID)；ImGui 字体直接传递已有强引用。
   - [x] 删除 asset_manager 的匿名 reserve_mesh/texture/material；程序化资产通过 create_* 创建。
-  - [ ] 带来源的 reserve_resource 仍用于引用解析与场景绑定；私有构建器及 Render 的预留是实现能力，不能机械删除。
+  - [x] 删除公开 reserve_resource；引用解析与场景绑定统一提交 load。私有构建器及 Render 的预留仍为内部实现能力。
 - [ ] 6. 更新现行 Reference，检查旧入口零引用、缓存唯一、跨层依赖，完成整体编译和针对性回归。
 
 同一特性分支持续实施；阶段桥接只作为短期实现，不以两套入口并存作为完成。
@@ -620,3 +620,19 @@ Windows Clang Debug 完整编译、9 项 UI/帧保活/加载/场景/头可见性
 普通测试采用 create_*；像素测试直接使用内部构建器，保留未就绪资源的验证场景。
 Windows Clang Debug 完整编译和 9 项资产、纹理、帧保活及头可见性回归通过。
 GPU 像素测试仅编译，未运行；未运行大场景或远端 CI。带来源 reserve_resource 仍待收敛。
+
+## 引用解析与加载入口收敛（已完成）
+
+- 引用收集只记录 URI、类型及属性路径，不创建资源、不读文件。通用反射先做收集遍历，丢弃临时对象；
+  加载器统一提交依赖后再绑定引用。首版接受两次内存遍历，避免保存易失效的容器元素地址。
+- 资源身份仅由 load 创建；加载请求的 resource 可在内容就绪前绑定组件，不能当作成功结果。
+- 请求或外部资源强引用任一存在即继续视觉加载；两者都释放后取消。request_stop 始终终止操作。
+- 场景与 Prefab 直接提交 load、绑定返回引用，不等待视觉完成。视觉资源后台读取在 advance 时启动，
+  同一帧内的重复请求复用操作；不增加独立身份预留入口。
+- 验收覆盖收集无副作用、路径、重复引用、缺失 URI 往返、场景创建不读文件、组件保活加载、
+  放弃全部拥有者后取消、关闭及迟到结果；删除公开 reserve_resource。
+
+2026-11-07：以上三项已落地。收集遍历检查格式与字段结构，注册的对象业务校验延后到绑定完成时执行；
+自定义解码函数仍须遵守收集阶段约束。Windows Clang Debug 完整构建、25 项加载/场景/序列化/编辑器
+及边界回归通过。日志：build/reference-load-final-build.log、build/reference-load-tests.log、
+build/reference-load-extra-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。PLAN-102 整体仍未完成。

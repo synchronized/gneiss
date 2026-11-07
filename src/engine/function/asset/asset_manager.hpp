@@ -27,6 +27,7 @@ class service;
 }
 namespace detail {
 struct asset_construction;
+struct render_load_operation;
 }
 }
 
@@ -42,7 +43,6 @@ public:
    * 首次配置后保留执行器与 profile，停止后拒绝重新装配。 */
   GNEISS_API error configure(task_executor& executor, texture_prepare_profile profile,
                              task_scope scope = {}) noexcept;
-  GNEISS_API result<render_resource_ref> reserve_resource(const render_resource_source&) noexcept;
   /** 只查找 CPU 内容已就绪的缓存，不读取文件、不等待 GPU。 */
   GNEISS_API result<render_resource_ref> find_loaded(const render_resource_source&,
                                                      texture_prepare_profile = {}) const noexcept;
@@ -216,7 +216,9 @@ public:
   [[nodiscard]] GNEISS_API std::size_t cached_count() const noexcept;
 
 private:
+  result<render_resource_ref> acquire_resource(const render_resource_source&) noexcept;
   friend struct detail::asset_construction;
+  friend struct detail::render_load_operation;
   std::unique_ptr<detail::asset_construction> impl_;
   resource_cache& cache() noexcept;
   const resource_cache& cache() const noexcept;

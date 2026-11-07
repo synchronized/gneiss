@@ -6,15 +6,19 @@
 #include "engine/core/result.hpp"
 #include "engine/core/serialization/diagnostic.hpp"
 #include "engine/core/type_id.hpp"
+#include <string>
 #include <unordered_set>
 namespace gneiss::engine::serialization {
 class reader;
-/** 外部引用解析器；只返回指定类型的稳定身份，不读取文件或等待任务。
- * 实现必须保证返回对象与 type 匹配，且存活时间覆盖上下文使用。 */
+/** 外部引用解析器；收集阶段记录需求，绑定阶段返回已提交加载的身份。
+ * 收集阶段可返回空引用；绑定阶段必须保证对象与 type 匹配，不等待内容加载。 */
 class reference_resolver {
 public:
   virtual ~reference_resolver() = default;
-  virtual result<ref<void>, diagnostic> resolve(type_id type, std::string_view uri) = 0;
+  /** 收集遍历允许不绑定对象；临时解码结果必须由调用方丢弃。 */
+  virtual bool collecting() const noexcept { return false; }
+  virtual result<ref<void>, diagnostic> resolve(type_id type, std::string_view uri,
+                                                std::string_view path) = 0;
 };
 namespace detail {
 struct context_access;
@@ -30,8 +34,10 @@ class context final {
   mutable reader* input_{};
   mutable std::size_t depth_{};
   mutable std::size_t operations_{};
+  mutable std::string path_;
 
 public:
+  [[nodiscard]] std::string_view property_path() const noexcept { return path_; }
   context() = default;
   explicit context(reference_resolver& references) noexcept : references_(&references) {}
   [[nodiscard]] reference_resolver* references() const noexcept { return references_; }

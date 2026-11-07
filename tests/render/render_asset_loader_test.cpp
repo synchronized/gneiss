@@ -463,19 +463,35 @@ struct test_asset final : gneiss::engine::asset {
 };
 bool verify_reference_serialization(gneiss::engine::asset_manager& assets) {
   using namespace gneiss::engine;
-  asset_reference_context references{assets};
+  asset_reference_context references;
   serialization::context ctx{references};
   auto decode = [&](std::string_view text) {
-    return serialization::json::deserialize<
-        std::vector<gneiss::engine::ref<const gneiss::engine::texture>>>(
-        ctx, std::as_bytes(std::span{text.data(), text.size()}));
+    using T = std::vector<gneiss::engine::ref<const gneiss::engine::texture>>;
+    auto decode_value = [&](const serialization::context& context) {
+      return serialization::json::deserialize<T>(
+          context, std::as_bytes(std::span{text.data(), text.size()}));
+    };
+    const auto entries = assets.cached_count();
+    auto collected = references.collect(decode_value);
+    if (assets.cached_count() != entries)
+      return result<T, serialization::diagnostic>{
+          serialization::diagnostic{.error = error::internal}};
+    if (collected.error.failed())
+      return result<T, serialization::diagnostic>{collected};
+    auto submitted = references.load(assets);
+    if (submitted.error.failed())
+      return result<T, serialization::diagnostic>{submitted};
+    return decode_value(ctx);
   };
   const std::string source =
       R"([{"$asset":"asset://not-present.texture.json"},null,{"$asset":"asset://not-present.texture.json"}])";
   auto values = decode(source);
   if (!values || values->size() != 3 || !(*values)[0] || (*values)[1] ||
-      (*values)[0] != (*values)[2] || references.dependencies().size() != 1 ||
+      (*values)[0] != (*values)[2] || references.dependencies().size() != 2 ||
       (*values)[0]->metadata())
+    return false;
+  if (references.requests().size() != 1 || references.dependencies()[0].path != "/0" ||
+      references.dependencies()[1].path != "/2")
     return false;
   auto saved = serialization::json::serialize(ctx, *values);
   if (!saved || *saved != source)
@@ -493,19 +509,30 @@ bool verify_reference_serialization(gneiss::engine::asset_manager& assets) {
       decode(R"([{"$asset":"asset://x","other":1}])"))
     return false;
   const std::string other = R"({"$asset":"asset://not-present.mesh.json"})";
+  if (references
+          .record(runtime_type_of<gneiss::engine::mesh>(), "asset://not-present.mesh.json", "")
+          .error.failed() ||
+      references.load(assets).error.failed())
+    return false;
   auto mesh_value =
       serialization::json::deserialize<gneiss::engine::ref<const gneiss::engine::mesh>>(
           ctx, std::as_bytes(std::span{other.data(), other.size()}));
-  if (!mesh_value || !*mesh_value || references.dependencies().size() != 2)
+  if (!mesh_value || !*mesh_value || references.dependencies().size() != 3)
     return false;
   auto mesh_saved = serialization::json::serialize(ctx, *mesh_value);
   if (!mesh_saved || *mesh_saved != other)
     return false;
   const std::string material_source = R"({"$asset":"asset://not-present.material.json"})";
+  if (references
+          .record(runtime_type_of<gneiss::engine::material>(), "asset://not-present.material.json",
+                  "")
+          .error.failed() ||
+      references.load(assets).error.failed())
+    return false;
   auto material_value =
       serialization::json::deserialize<gneiss::engine::ref<const gneiss::engine::material>>(
           ctx, std::as_bytes(std::span{material_source.data(), material_source.size()}));
-  if (!material_value || !*material_value || references.dependencies().size() != 3)
+  if (!material_value || !*material_value || references.dependencies().size() != 4)
     return false;
   auto material_saved = serialization::json::serialize(ctx, *material_value);
   if (!material_saved || *material_saved != material_source)
@@ -706,7 +733,8 @@ int main() try {
     gneiss::engine::render_service reference_render;
     gneiss::engine::asset_manager reference_assets(gneiss::test_support::test_files(file_system));
     const auto reference_reads = memory->read_count;
-    if (reference_assets.attach_render(reference_render).failed() ||
+    if (reference_assets.configure(scheduler).failed() ||
+        reference_assets.attach_render(reference_render).failed() ||
         !verify_reference_serialization(reference_assets) || memory->read_count != reference_reads)
       return 97;
   }

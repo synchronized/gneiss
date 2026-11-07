@@ -57,7 +57,7 @@ engine::error prefab_binding::validate_reload(const prefab_asset_ref& candidate,
     if (!dependencies)
       return dependencies.error();
     for (const auto& source : *dependencies) {
-      auto ready = loader_.reserve_resource(source);
+      auto ready = loader_.identify(source.uri, static_cast<std::uint32_t>(source.type));
       if (!ready)
         return ready.error();
     }

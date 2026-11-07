@@ -4,6 +4,7 @@
 #include "engine/core/serialization/context.hpp"
 namespace gneiss::engine::serialization::detail {
 struct context_access {
+  static auto& path(const context& c) { return c.path_; }
   static auto& active(const context& c) { return c.active_; }
   static auto& input(const context& c) { return c.input_; }
   static auto& depth(const context& c) { return c.depth_; }
@@ -21,6 +22,7 @@ public:
         previous_input_(context_access::input(c)) {
     if (context_access::operations(c)++ == 0) {
       context_access::active(c).clear();
+      context_access::path(c).clear();
       context_access::depth(c) = 0;
     } else if (!fields_only)
       ++context_access::depth(c);
@@ -30,10 +32,22 @@ public:
     context_access::input(context_) = previous_input_;
     if (--context_access::operations(context_) == 0) {
       context_access::active(context_).clear();
+      context_access::path(context_).clear();
       context_access::depth(context_) = 0;
     }
   }
   operation_scope(const operation_scope&) = delete;
+};
+class path_scope {
+  const context& context_;
+  std::size_t size_;
+
+public:
+  path_scope(const context& c, std::string_view segment)
+      : context_(c), size_(context_access::path(c).size()) {
+    context_access::path(c) += segment;
+  }
+  ~path_scope() { context_access::path(context_).resize(size_); }
 };
 class depth_scope {
   const context& context_;

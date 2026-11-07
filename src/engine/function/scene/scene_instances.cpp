@@ -93,14 +93,14 @@ reload_asset(scene_instances& scenes, asset_manager& assets, scene_instance_id i
   auto prepared = make_instantiation_data(source, source_bytes);
   if (!prepared)
     return std::move(prepared).error();
-  // 底层重载通过统一索引取得引用；采用结束前保活预留身份，不等待视觉内容。
+  // 底层重载通过统一索引取得引用；采用结束前保活加载身份，不等待视觉内容。
   std::vector<render_resource_ref> retained;
   retained.reserve(prepared->assets.size());
   for (const auto& request : prepared->assets) {
-    auto resource = assets.reserve_resource(request);
+    auto resource = assets.load(request);
     if (!resource)
-      return scene_diagnostic{resource.error(), 0, request.uri, "无法预留重载资源引用"};
-    retained.push_back(std::move(*resource));
+      return scene_diagnostic{resource.error(), 0, request.uri, "无法提交重载视觉加载"};
+    retained.push_back(resource->resource());
   }
   scene_diagnostic diagnostic;
   if constexpr (std::is_same_v<T, scene>) {

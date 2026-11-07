@@ -234,10 +234,10 @@ void independent_resource_identity() {
   const render_resource_source source_a{"asset://a", render_resource_kind::material};
   const render_resource_source source_b{"asset://b", render_resource_kind::material};
   render_resource_ref a, b;
-  check(gneiss::test_support::take_value(loader.reserve_resource(source_a), a) ==
-        gneiss::engine::error::success);
-  check(gneiss::test_support::take_value(loader.reserve_resource(source_b), b) ==
-        gneiss::engine::error::success);
+  check(gneiss::test_support::take_value(gneiss::test_support::request_resource(loader, source_a),
+                                         a) == gneiss::engine::error::success);
+  check(gneiss::test_support::take_value(gneiss::test_support::request_resource(loader, source_b),
+                                         b) == gneiss::engine::error::success);
   gneiss::test_support::fixture_files different;
   check(different.mount("asset://", std::make_shared<memory_files>()) ==
         gneiss::engine::error::success);
@@ -246,15 +246,15 @@ void independent_resource_identity() {
   if (isolated.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   render_resource_ref conflict;
-  check(gneiss::test_support::take_value(isolated.reserve_resource(source_a), conflict) ==
-            gneiss::engine::error::success &&
+  check(gneiss::test_support::take_value(gneiss::test_support::request_resource(isolated, source_a),
+                                         conflict) == gneiss::engine::error::success &&
         conflict != a && gneiss::engine::resource_rid(conflict) != gneiss::engine::resource_rid(a));
   check(!isolated.owns(a));
   auto& shared = loader;
   if (shared.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
-  check(gneiss::test_support::take_value(shared.reserve_resource(source_a), conflict) ==
-            gneiss::engine::error::success &&
+  check(gneiss::test_support::take_value(gneiss::test_support::request_resource(shared, source_a),
+                                         conflict) == gneiss::engine::error::success &&
         gneiss::engine::resource_rid(conflict) == gneiss::engine::resource_rid(a));
 
   const auto adopt = [&](const auto& source, auto& target) {
@@ -289,8 +289,8 @@ void reserved_material_lifetime() {
     throw std::runtime_error("资源管理器渲染绑定失败");
   const render_resource_source request{"asset://material", render_resource_kind::material};
   render_resource_ref target;
-  check(gneiss::test_support::take_value(loader.reserve_resource(request), target) ==
-        gneiss::engine::error::success);
+  check(gneiss::test_support::take_value(gneiss::test_support::request_resource(loader, request),
+                                         target) == gneiss::engine::error::success);
   const auto rid = gneiss::engine::resource_rid(target);
   decoded_asset prepared;
   prepared.uri = request.uri;
@@ -386,10 +386,22 @@ void cpu_loading(execution_mode mode) {
             .ok());
   until([&] { return bool(backend->callback); });
   request.cancel();
+  // 组件/上层仍持有 target：请求观察者释放后，加载继续且后续订阅复用同一身份。
   advance();
   backend->complete(fixture.files.at("texture"));
+  until([&] { return bool(backend->callback); });
+  auto retained_request = loader.load<gneiss::engine::texture>("asset://texture");
+  check(retained_request && retained_request->resource() == target);
+  backend->complete(fixture.files.at("image.ktx2"));
+  until([&] { return retained_request->status() != error::not_ready; });
+  check(retained_request->status().ok() &&
+        resources.share_texture(resource_rid(target)) != previous);
+  const auto abandoned_reads = backend->reads;
+  auto abandoned = loader.load<gneiss::engine::texture>("asset://abandoned");
+  check(bool(abandoned));
+  abandoned->cancel();
   advance();
-  check(resources.share_texture(resource_rid(target)) == previous);
+  check(backend->reads == abandoned_reads);
   fixture.text(
       "mesh",
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})");

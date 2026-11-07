@@ -15,6 +15,20 @@ inline engine::task_scheduler& asset_tasks() {
   static engine::task_scheduler tasks({.workers = 0, .mode = engine::execution_mode::cooperative});
   return tasks;
 }
+// 测试只取得异步请求提供的身份，不推进 I/O；未配置夹具使用测试共享执行器。
+inline engine::result<engine::render_resource_ref>
+request_resource(engine::asset_manager& assets, const engine::render_resource_source& source) {
+  auto request = assets.load(source);
+  if (!request && request.error() == engine::error::invalid_state) {
+    auto configured = assets.configure(asset_tasks());
+    if (configured.failed())
+      return configured;
+    request = assets.load(source);
+  }
+  if (!request)
+    return request.error();
+  return request->resource();
+}
 // 仅测试宿主驱动异步回调；生产代码不提供等待包装。
 template <class T>
 engine::error load_asset(engine::asset_manager& assets, std::string_view uri,

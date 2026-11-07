@@ -416,7 +416,7 @@ serialization::diagnostic validate_defaults(const context& ctx, const registry_r
   auto binding = find_serialization(registry, id);
   if (!binding)
     return failure(binding.error());
-  if (binding->validate) {
+  if (binding->validate && !(ctx.references() && ctx.references()->collecting())) {
     auto status = binding->validate(object);
     if (status.error.failed())
       return status;
@@ -479,7 +479,8 @@ result<ref<void>, serialization::diagnostic> decode_owned(const context& ctx,
     status = failure(error::internal);
   if (status.error.ok())
     status = validate_identity(registry, actual, object.get());
-  if (status.error.ok() && binding->validate)
+  if (status.error.ok() && binding->validate &&
+      !(ctx.references() && ctx.references()->collecting()))
     status = binding->validate(object.get());
   if (status.error.failed())
     return status;
@@ -502,7 +503,7 @@ serialization::diagnostic decode_nested(const context& ctx, const registry_ref& 
       return std::move(decoded).error();
     if (!*decoded)
       return failure(error::internal);
-    if (binding->validate) {
+    if (binding->validate && !(ctx.references() && ctx.references()->collecting())) {
       auto status = binding->validate(decoded->get());
       if (status.error.failed())
         return status;
@@ -518,7 +519,9 @@ serialization::diagnostic decode_nested(const context& ctx, const registry_ref& 
   auto status = decode_members(ctx, registry, target.type().id(), object, input, depth);
   if (status.error.failed())
     return status;
-  return binding->validate ? binding->validate(object) : serialization::diagnostic{};
+  return binding->validate && !(ctx.references() && ctx.references()->collecting())
+             ? binding->validate(object)
+             : serialization::diagnostic{};
 }
 serialization::diagnostic decode_nonobject(const context&, const registry_ref&,
                                            const mutable_instance&, reader::node, std::size_t);
@@ -565,8 +568,11 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
       auto resolved = declared->decode_reference(ctx, *context_access::input(ctx), input);
       if (!resolved)
         return std::move(resolved).error();
-      if (!*resolved)
+      if (!*resolved) {
+        if (ctx.references() && ctx.references()->collecting())
+          return failure(meta::detail::reference_view_access::reset(view));
         return failure(error::invalid_argument, "", "非空引用解析结果为空");
+      }
       return failure(meta::detail::reference_view_access::assign(view, target->id(), *resolved));
     }
     auto actual = target->id();
@@ -590,6 +596,7 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
     auto compatible = cast_base(registry, actual, target->id(), nullptr);
     if (!compatible)
       return std::move(compatible).error();
+    path_scope reference_path{ctx, declared->polymorphic ? "/$content" : ""};
     auto decoded = decode_owned(ctx, registry, actual, content, depth);
     if (!decoded)
       return declared->polymorphic ? prefix(std::move(decoded).error(), "/$content")
@@ -638,6 +645,7 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
     auto child = variant->value();
     if (!child)
       return failure(child.error());
+    path_scope variant_path{ctx, "/$content"};
     auto decoded = decode_view(ctx, registry, *child, content, depth + 1);
     return decoded.error.failed() ? prefix(std::move(decoded), "/$content") : decoded;
   }
@@ -683,6 +691,7 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
       auto child = v->at(i);
       if (!child)
         return failure(child.error());
+      path_scope element_path{ctx, "/" + std::to_string(i)};
       auto decoded = decode_view(ctx, registry, *child, item, depth + 1);
       if (decoded.error.failed())
         return prefix(std::move(decoded), "/" + std::to_string(i));
@@ -708,6 +717,7 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
       auto child = v->insert(name);
       if (!child)
         return failure(child.error(), field_path(name));
+      path_scope element_path{ctx, field_path(name)};
       auto decoded = decode_view(ctx, registry, *child, entry.data, depth + 1);
       if (decoded.error.failed())
         return prefix(std::move(decoded), field_path(name));
@@ -769,6 +779,7 @@ serialization::diagnostic decode_members(const context& ctx, const registry_ref&
     auto child = view->property(property.id);
     if (!child)
       return failure(child.error(), path);
+    path_scope property_path{ctx, path};
     auto status = has_flags(property.flags, property_flags::enum_name)
                       ? decode_enum_name(ctx, *child, input)
                       : decode_view(ctx, registry, *child, input, depth + 1);

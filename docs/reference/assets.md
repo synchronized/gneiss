@@ -28,8 +28,11 @@ Scene、Prefab、Texture、Mesh、Material 资产对象均由同一个 `asset_ma
 所有类型统一使用弱缓存，无缓存策略参数。内置网格/纹理使用专用 Loader，
 不能用单缓冲区 register_decoder 覆盖；其他类型先用注册解码器，否则使用反射解码。
 
-`asset_manager::reserve_resource(source)` 返回 `result<render_resource_ref>`，
-用于引用解析与场景绑定的带来源身份预留，不代表内容已加载。匿名程序化资源使用 `create_*`。
+公开 reserve_resource 已删除；渲染资产统一通过 load 取得请求及其 resource 身份。
+非空身份不代表内容已就绪；读取在下一次 advance 启动。匿名程序化资源使用 create_*。
+引用上下文先收集类型、URI 与属性路径，再统一提交依赖，最后绑定请求提供的引用。
+通用反射收集遍历丢弃临时对象，绑定遍历使用相同输入；收集不创建资产或访问文件。
+需求记录保留各出现位置，提交按 URI 与类型去重，失败依赖仍保留引用中的 URI。
 `asset_manager::identify(uri, type)` 返回 `result<asset_identity>`，只解析来源身份，不读取资源内容。
 
 ## URI 规则
@@ -135,7 +138,7 @@ Scene Loader 在 CPU 解码后通过 `resolve_dependencies` 于所属线程非�
 请求观察者消失后，其依赖请求随操作回收，其他观察者不受影响。
 
 Runtime 与编辑器直接使用 `load<scene>` / `load<prefab>`。Runtime 打开场景时调用
-`scene_instances::instantiate(scene_ref)`，在所属线程同步整理结构、预留视觉引用并创建节点。
+`scene_instances::instantiate(scene_ref)`，在所属线程同步整理结构、提交视觉加载并绑定引用创建节点。
 编辑器仍可通过 `make_instantiation_data` 获取独立内存数据；Runtime 重载直接传入资产引用。
 资产管理器没有场景准备队列；不再提供 `prepare_scene/prepare_prefab` 或
 `asset_request<scene_instantiation_data>`。纯内存编辑继续使用 `prepare_loaded_scene`，不读取文件。
@@ -156,7 +159,7 @@ asset_manager 内部使用任务私有的 CPU 数据请求完成装配，不将�
 内部 `asset_loader.hpp` 的 Loader 消费字节并给出下一读取 URI：网格一次解码，
 纹理先解码描述，再读取并解码所选负载。管理器只编排 I/O、执行器、请求合并与缓存登记。
 成功领取共享只读 CPU 内容后，asset_manager 内部构造步骤直接交给 Render 共享准备入口，不复制大块负载。
-取消只放弃当前观察者，最后一个观察者消失后取消后续工作，不等待工作线程。
+取消只放弃当前观察者，最后一个请求观察者和资源拥有者均消失后取消后续工作，不等待工作线程。
 内部 `decoded_asset::content` 使用 `std::variant`，只持有一种内容；`kind()` 从内容推导类型。
 材质不重复保存参数与依赖 URI；内容采用前检查空引用、目标类型和来源身份。
 文件服务返回字节后，加载编排层提交 CPU 任务；thread 与 cooperative 使用同一解码实现。
@@ -171,13 +174,13 @@ asset_manager 内部使用任务私有的 CPU 数据请求完成装配，不将�
 Scene/Prefab 资产加载与实例化分开：`load<T>` 异步取得资产；Scene 的
 `scene_instances::instantiate(scene_ref, source_bytes)` 同步返回 `scene_instantiation_result`，
 包含实例 ID、节点数量和待加载视觉资源清单。内部只整理一次结构，不另建准备状态。
-Runtime 不再保存排序结果、资源绑定表或跨帧预留游标。预留与实例化同步执行，
+Runtime 不再保存排序结果、资源绑定表或跨帧预留游标。视觉请求提交与实例化同步执行，
 不再对外产生跨帧的 `assets` 阶段；取消边界是加载中和 ready 后。`instantiate_prepared` 仍用于内存编辑、
 捕获和已持有独立数据的调用；Prefab 插入/刷新仍使用已有描述与绑定入口。
 同步步骤不等待视觉资源或 GPU、不驱动文件或任务队列，也没有单独的取消协议；
 取消发生在资产请求或上层编辑操作边界。结构数据不建立第二份 URI 缓存。
 
-`scene_instances::reload(instance, scene_ref/prefab_ref, source_bytes)` 同步检查结构、预留
+`scene_instances::reload(instance, scene_ref/prefab_ref, source_bytes)` 同步检查结构、提交
 视觉资源身份并应用已加载内容，成功返回后续视觉加载清单。临时强引用只保留到采用结束，
 实例自身持有需要的资源；不读取文件、不等待 GPU。Runtime 重载状态仅保存类型化资产请求、
 目标实例及结果，不再保存准备数据或临时资源数组。纯内存编辑保留描述重载入口。
@@ -249,7 +252,7 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 `asset_request<render_resource_ref>::take()` 返回混合引用值，类型化请求返回对应资源强引用。
 所属线程通过 `status()` 查询；成功表示 CPU 内容与依赖已采用。
 同身份在途请求（含 reload）共享一次加载；请求复制共享观察权，cancel 仅释放当前观察权。
-所有观察者释放后取消未采用工作；再次 reload 须在前次完成后调用，不建立版本覆盖协议。
+所有请求观察者及资源拥有者释放后取消未采用工作；再次 reload 须在前次完成后调用，不建立版本覆盖协议。
 材质依赖失败时材质请求失败，成功的独立资源不回滚。
 Application 通过 `assets()` 暴露统一入口，分发文件完成后推进该管理器。
 管理器停止并排空任务、场景释放资源后，再关闭 Render；迟到的资源引用释放不访问已关闭后端。
@@ -259,7 +262,7 @@ Application 通过 `assets()` 暴露统一入口，分发文件完成后推进�
 `render_resource.hpp` 声明 `render_resource_source` 及混合资源引用辅助函数；
 场景批量进度和回执位于 Runtime 的 `resource_load_types.hpp`，属于 `gneiss::runtime`。render_resource_kind 当前只枚举 Mesh、Material、Texture，
 自定义资产类型由 load<T> 的 C++ 类型确定。
-`asset_construction_loading.cpp` 保存服务私有的单资源请求状态，`asset_decode` 只解码已有字节。
+`detail/render_load_operation.cpp` 保存服务私有的单资源请求状态，`asset_decode` 只解码已有字节。
 `detail::asset_construction` 定义服务私有实现；创建、RID 包装、延迟销毁和内容采用均属于服务。
 网格、纹理从统一 CPU 请求领取共享引用后直接传给对应采用函数，不再重新组装 decoded_asset。
 来源身份检查仍在采用前执行；材质在依赖完成后直接传递已经持有的纹理强引用。
@@ -269,8 +272,8 @@ Application 通过 `assets()` 暴露统一入口，分发文件完成后推进�
 渲染资产内部的 CPU 解码不登记资产索引或临时 payload 键，只由父加载操作持有请求；
 同资产请求在最终资产记录上合并，中间解码复用执行队列与取消逻辑。
 `load_operation` 统一保存记录弱关联并检查观察者；清理仅解除指向自身的当前操作。
-CPU 加载、渲染装配与场景准备通过同一 `complete` 提交终态、解除记录并通知宿主。
-每个操作只提交一次终态；完成后停止或迟到完成不会覆盖结果，也不重复发送完成通知。
+CPU 加载与渲染装配通过同一 `complete` 提交终态、解除记录；宿主唤醒由任务和渲染执行器负责。
+每个操作只提交一次终态；完成后停止或迟到完成不会覆盖结果，不再产生业务层唤醒通知。
 管理器持有 CPU、场景准备和渲染装配执行队列，统一发起停止。`render_load_operation`
 只推进单个渲染资产的解码观察与依赖装配；`asset_construction` 负责创建和采用资源内容，
 不再持有加载队列。三类队列共用 `advance_load_operations`，推进期间追加到当前队列的工作

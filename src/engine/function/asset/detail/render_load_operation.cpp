@@ -22,6 +22,36 @@ void render_load_operation::advance(asset_manager& service, asset_construction& 
     complete(status, std::move(state.diagnostic), {}, state.source_bytes, std::move(state.metrics));
   };
   try {
+    if (!started) {
+      auto begin = [&]<class T>() -> error {
+        auto request = service.decode_data<T>(
+            source.uri, {.reload = reload, .texture_profile = service.profile()});
+        if (!request)
+          return request.error();
+        cpu = std::move(*request);
+        return error::success;
+      };
+      error status;
+      switch (source.type) {
+      case render_resource_kind::mesh:
+        status = begin.template operator()<mesh_data>();
+        break;
+      case render_resource_kind::texture:
+        status = begin.template operator()<texture_data>();
+        break;
+      case render_resource_kind::material:
+        status = begin.template operator()<material_description>();
+        break;
+      default:
+        status = error::invalid_argument;
+        break;
+      }
+      started = true;
+      if (status.failed()) {
+        finish(status);
+        return;
+      }
+    }
     if (!description) {
       serialization::diagnostic diagnostic;
       const auto status = std::visit(
@@ -55,7 +85,20 @@ void render_load_operation::advance(asset_manager& service, asset_construction& 
               }
               state.metrics.bytes = bytes;
               // 工作线程只解码描述；身份解析和依赖提交在管理器所属线程执行。
-              asset_reference_context references{service};
+              asset_reference_context references;
+              for (std::size_t slot = 0; slot < decoded_description->texture_uris.size(); ++slot) {
+                const auto& uri = decoded_description->texture_uris[slot];
+                if (uri.empty())
+                  continue;
+                diagnostic = references.record(runtime_type_of<engine::texture>(), uri,
+                                               "/texture_uris/" + std::to_string(slot));
+                if (diagnostic.error.failed())
+                  return diagnostic.error;
+              }
+              diagnostic = references.load(service);
+              if (diagnostic.error.failed())
+                return diagnostic.error;
+              dependencies = references.requests();
               for (std::size_t slot = 0; slot < decoded_description->texture_uris.size(); ++slot) {
                 const auto& uri = decoded_description->texture_uris[slot];
                 if (uri.empty())
@@ -63,21 +106,10 @@ void render_load_operation::advance(asset_manager& service, asset_construction& 
                 auto resolved = references.resolve(runtime_type_of<engine::texture>(), uri);
                 if (!resolved) {
                   diagnostic = std::move(resolved).error();
-                  diagnostic.path = "/texture_uris/" + std::to_string(slot) + diagnostic.path;
                   return diagnostic.error;
                 }
                 texture_references[slot] =
                     resolved->alias(static_cast<const engine::texture*>(resolved->get()));
-              }
-              // 先提交全部唯一依赖，再观察完成；一个慢请求不阻止后续请求启动。
-              for (const auto& source : references.dependencies()) {
-                auto dependency = service.load(source);
-                if (!dependency) {
-                  dependency_error = dependency.error();
-                  state.diagnostic.message += source.uri + ": 纹理请求失败\n";
-                  continue;
-                }
-                dependencies.push_back(std::move(*dependency));
               }
               description = std::move(decoded_description);
               return error::success;

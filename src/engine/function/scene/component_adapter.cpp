@@ -66,16 +66,16 @@ result<mesh_renderer> mesh_resolve(const mesh_renderer_description& value,
                                    asset_manager& resources) {
   mesh_renderer result;
   if (!value.mesh_uri.empty()) {
-    auto loaded = resources.reserve_resource({value.mesh_uri, render_resource_kind::mesh});
+    auto loaded = resources.load({value.mesh_uri, render_resource_kind::mesh});
     if (!loaded)
       return loaded.error();
-    result.mesh = resource_cast<engine::mesh>(*loaded);
+    result.mesh = loaded->get<engine::mesh>();
   }
   if (!value.material_uri.empty()) {
-    auto loaded = resources.reserve_resource({value.material_uri, render_resource_kind::material});
+    auto loaded = resources.load({value.material_uri, render_resource_kind::material});
     if (!loaded)
       return loaded.error();
-    result.material = resource_cast<engine::material>(*loaded);
+    result.material = loaded->get<engine::material>();
   }
   return result;
 }
@@ -86,21 +86,20 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
   else if (resource_uri(ready.mesh) != value.mesh_uri) {
     if (!context.resources)
       return error::not_ready;
-    auto loaded = context.resources->reserve_resource({value.mesh_uri, render_resource_kind::mesh});
+    auto loaded = context.resources->load({value.mesh_uri, render_resource_kind::mesh});
     if (!loaded)
       return loaded.error();
-    ready.mesh = resource_cast<engine::mesh>(*loaded);
+    ready.mesh = loaded->get<engine::mesh>();
   }
   if (value.material_uri.empty())
     ready.material = {};
   else if (resource_uri(ready.material) != value.material_uri) {
     if (!context.resources)
       return error::not_ready;
-    auto loaded =
-        context.resources->reserve_resource({value.material_uri, render_resource_kind::material});
+    auto loaded = context.resources->load({value.material_uri, render_resource_kind::material});
     if (!loaded)
       return loaded.error();
-    ready.material = resource_cast<engine::material>(*loaded);
+    ready.material = loaded->get<engine::material>();
   }
   if (context.resources && ((ready.mesh && !context.resources->owns(ready.mesh)) ||
                             (ready.material && !context.resources->owns(ready.material))))

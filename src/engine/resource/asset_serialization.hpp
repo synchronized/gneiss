@@ -34,6 +34,6 @@ decode_asset_reference(const serialization::context& ctx, serialization::reader&
   if (!ctx.references())
     return serialization::diagnostic{.message = "资源引用需要解析上下文",
                                      .error = error::invalid_state};
-  return ctx.references()->resolve(runtime_type_of<T>(), input.string(uri));
+  return ctx.references()->resolve(runtime_type_of<T>(), input.string(uri), ctx.property_path());
 }
 }

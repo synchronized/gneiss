@@ -567,6 +567,8 @@ void asset_manager::advance() {
       });
 }
 void asset_manager::collect_unused() noexcept {
+  detail::advance_load_operations(
+      resource_state_->rendering, [](const auto&) {}, [](const auto&) {});
   do {
     cache().release_unused();
   } while (impl_ && impl_->drain() != 0U);
@@ -590,7 +592,7 @@ result<asset_request<render_resource_ref>> asset_manager::load(const render_reso
   asset_request<render_resource_ref> output;
   if (!impl_ || !loading_configured())
     return error::invalid_state;
-  auto reserved = reserve_resource(source);
+  auto reserved = acquire_resource(source);
   if (!reserved)
     return reserved.error();
   auto target = std::move(*reserved);
@@ -614,32 +616,8 @@ result<asset_request<render_resource_ref>> asset_manager::load(const render_reso
   auto work = std::make_shared<detail::render_load_operation>();
   work->observer = state;
   work->entry = entry;
-  switch (source.type) {
-  case render_resource_kind::mesh: {
-    auto loaded = decode_data<mesh_data>(source.uri, {.reload = reload});
-    if (!loaded)
-      return loaded.error();
-    work->cpu = std::move(*loaded);
-    break;
-  }
-  case render_resource_kind::texture: {
-    auto loaded =
-        decode_data<texture_data>(source.uri, {.reload = reload, .texture_profile = profile()});
-    if (!loaded)
-      return loaded.error();
-    work->cpu = std::move(*loaded);
-    break;
-  }
-  case render_resource_kind::material: {
-    auto loaded = decode_data<material_description>(source.uri, {.reload = reload});
-    if (!loaded)
-      return loaded.error();
-    work->cpu = std::move(*loaded);
-    break;
-  }
-  default:
-    return error::invalid_argument;
-  }
+  work->source = source;
+  work->reload = reload;
   resource_state_->rendering.push_back(work);
   entry->loading = work;
   output.state_ = std::move(state);
@@ -757,7 +735,7 @@ asset_manager::find_loaded(const render_resource_source& source,
 }
 
 result<render_resource_ref>
-asset_manager::reserve_resource(const render_resource_source& source) noexcept {
+asset_manager::acquire_resource(const render_resource_source& source) noexcept {
   if (!impl_ || stop_requested())
     return error::invalid_state;
   try {
