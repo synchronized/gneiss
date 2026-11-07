@@ -58,38 +58,12 @@ error scene_instance::set_component_override(scene_node_id node, guid type,
       if (member.node != node)
         continue;
       const auto source = member.address.source_node_uuid;
-      auto pending = prefab->reference_;
-      std::erase_if(pending.component_overrides, [&](const auto& v) {
-        return v.source_node_uuid == source && v.type_guid == type;
-      });
-      std::erase_if(pending.overrides, [&](const auto& v) {
-        return v.key.target.source_node_uuid == source &&
-               component_description_type(v.key.target.target_type_guid) == type;
-      });
-      if (state.added || state.removed)
-        pending.component_overrides.push_back({source, type, state.added});
-      for (const auto& value : state.properties) {
-        if (value.key.target.source_node_uuid != source ||
-            component_description_type(value.key.target.target_type_guid) != type)
-          return error::invalid_argument;
-        pending.overrides.push_back(value);
-      }
-      auto replayed = replay_prefab_reference(*prefab->prefab_, pending);
-      if (!replayed)
-        return replayed.error();
-      // 本次编辑必须有效，其他对象已有的来源冲突不能阻止编辑。
-      for (const auto& conflict : replayed->conflicts) {
-        const auto edited =
-            conflict.section == prefab_override_section::component
-                ? pending.component_overrides[conflict.index].source_node_uuid == source &&
-                      pending.component_overrides[conflict.index].type_guid == type
-                : pending.overrides[conflict.index].key.target.source_node_uuid == source &&
-                      component_description_type(
-                          pending.overrides[conflict.index].key.target.target_type_guid) == type;
-        if (edited)
-          return conflict.diagnostic.error;
-      }
-      const auto& effective = replayed->description;
+      auto candidate = prepare_prefab_component_override(
+          *prefab->prefab_, prefab->reference_, source, type,
+          state.added ? *state.added : component_description{}, state.removed, state.properties);
+      if (!candidate)
+        return candidate.error();
+      const auto& effective = candidate->effective;
       auto status = error{error::success};
       auto target = std::ranges::find(effective.objects, source, &object_description::uuid);
       if (target == effective.objects.end())
@@ -118,8 +92,8 @@ error scene_instance::set_component_override(scene_node_id node, guid type,
       }
       if (status.failed())
         return status;
-      prefab->reference_ = std::move(pending);
-      prefab->conflicts_ = std::move(replayed->conflicts);
+      prefab->reference_ = std::move(candidate->reference);
+      prefab->conflicts_ = std::move(candidate->conflicts);
       return error::success;
     }
   return error::unsupported;

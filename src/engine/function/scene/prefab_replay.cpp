@@ -217,6 +217,7 @@ result<prefab_edit_candidate> prepare_property_edit(const prefab_description& so
   auto replayed = replay_prefab_reference(source, output.reference);
   if (!replayed)
     return replayed.error();
+  output.effective = std::move(replayed->description);
   output.conflicts = std::move(replayed->conflicts);
   return output;
 }
@@ -266,6 +267,7 @@ prepare_prefab_component_edit(const prefab_description& source,
           component_description_type(target.target_type_guid) == replacement->guid())
         return conflict.diagnostic.error;
     }
+    output.effective = std::move(replayed->description);
     output.conflicts = std::move(replayed->conflicts);
     return output;
   }
@@ -278,6 +280,56 @@ prepare_prefab_component_edit(const prefab_description& source,
     return current_view.error();
   return prepare_property_edit(source, reference, source_node, replacement->guid(), *before,
                                *current_view, *after);
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+result<prefab_edit_candidate> prepare_prefab_component_override(
+    const prefab_description& source, const prefab_reference_description& reference,
+    guid source_node, guid type, const component_description& added, bool removed,
+    std::span<const prefab_property_override> properties) noexcept try {
+  if (!source_node || !type || (added && removed) || ((added || removed) && !properties.empty()) ||
+      (added && added->guid() != type))
+    return error::invalid_argument;
+  if (std::ranges::find(source.objects, source_node, &object_description::uuid) ==
+      source.objects.end())
+    return error::not_found;
+  prefab_edit_candidate output{reference, {}};
+  auto& pending = output.reference;
+  std::erase_if(pending.component_overrides, [&](const auto& value) {
+    return value.source_node_uuid == source_node && value.type_guid == type;
+  });
+  std::erase_if(pending.overrides, [&](const auto& value) {
+    return value.key.target.source_node_uuid == source_node &&
+           component_description_type(value.key.target.target_type_guid) == type;
+  });
+  if (added || removed)
+    pending.component_overrides.push_back(
+        {source_node, type, added ? std::optional{added} : std::nullopt});
+  for (const auto& value : properties) {
+    if (value.key.target.source_node_uuid != source_node ||
+        component_description_type(value.key.target.target_type_guid) != type)
+      return error::invalid_argument;
+    pending.overrides.push_back(value);
+  }
+  auto replayed = replay_prefab_reference(source, pending);
+  if (!replayed)
+    return replayed.error();
+  for (const auto& conflict : replayed->conflicts) {
+    const auto edited =
+        conflict.section == prefab_override_section::component
+            ? pending.component_overrides[conflict.index].source_node_uuid == source_node &&
+                  pending.component_overrides[conflict.index].type_guid == type
+            : pending.overrides[conflict.index].key.target.source_node_uuid == source_node &&
+                  component_description_type(
+                      pending.overrides[conflict.index].key.target.target_type_guid) == type;
+    if (edited)
+      return conflict.diagnostic.error;
+  }
+  output.effective = std::move(replayed->description);
+  output.conflicts = std::move(replayed->conflicts);
+  return output;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {

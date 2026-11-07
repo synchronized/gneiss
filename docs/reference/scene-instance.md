@@ -364,3 +364,8 @@ Render 与场景进度通知。关闭仅释放场景的请求观察者，不停�
 重复覆盖归并和未触及冲突保留规则，返回 `prefab_edit_candidate`。非法变换拒绝接受；
 来源根节点返回 `invalid_argument`，实例根的局部变换由场景对象管理。
 `scene_instance::set_prefab_source_transform` 采用该候选，成功写入运行时后更新覆盖及冲突。
+
+`prepare_prefab_component_override` 计算组件添加、移除或恢复来源的完整覆盖候选。
+空 added 且 removed=false 表示清除结构覆盖，可携带该组件的属性覆盖；结构覆盖和属性覆盖不能混用。
+仅本次目标的冲突导致失败，其他目标的冲突保留。`prefab_edit_candidate` 同时包含回放后的有效描述，
+运行时安装直接使用该描述，不再次回放。此入口不加载资源、不访问 World。

@@ -169,9 +169,28 @@ int main() try {
     auto rejected =
         e::prepare_prefab_component_edit(source, removed, object.uuid, current, current);
     check(!rejected && rejected.error() == e::error::invalid_state);
+    auto remove_candidate = e::prepare_prefab_component_override(
+        source, reference, object.uuid, movement_description::type_guid, {}, true, {});
+    check(remove_candidate && remove_candidate->reference.component_overrides.size() == 1 &&
+          remove_candidate->reference.overrides.empty());
+    auto restore_candidate =
+        e::prepare_prefab_component_override(source, remove_candidate->reference, object.uuid,
+                                             movement_description::type_guid, {}, false, {});
+    check(restore_candidate && restore_candidate->reference.component_overrides.empty());
+    auto invalid_remove =
+        e::prepare_prefab_component_override(source, reference, e::guid::from_bytes({87, 100}),
+                                             movement_description::type_guid, {}, true, {});
+    check(!invalid_remove && invalid_remove.error() == e::error::not_found);
     auto local = reference;
     const auto camera = e::make_component_description(e::camera_description{{1.0F, 0.1F, 100.0F}});
     local.component_overrides.push_back({object.uuid, e::camera_description::type_guid, camera});
+    auto add_candidate = e::prepare_prefab_component_override(
+        source, reference, object.uuid, e::camera_description::type_guid, camera, false, {});
+    check(add_candidate && add_candidate->reference.component_overrides.size() == 1 &&
+          add_candidate->conflicts.size() == 1 && reference.component_overrides.empty());
+    auto invalid_add = e::prepare_prefab_component_override(
+        source, reference, object.uuid, e::camera_description::type_guid, camera, true, {});
+    check(!invalid_add && invalid_add.error() == e::error::invalid_argument);
     const auto changed_camera =
         e::make_component_description(e::camera_description{{0.8F, 0.2F, 150.0F}});
     auto local_edit =
