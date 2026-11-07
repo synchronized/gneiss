@@ -12,6 +12,12 @@ static_assert(std::is_nothrow_move_assignable_v<gneiss::engine::value>);
 
 int main() {
   using namespace gneiss::engine;
+  static_assert(!is_scalar_value_kind(value_kind::invalid));
+  static_assert(!is_scalar_value_kind(value_kind::object));
+  static_assert(!is_scalar_value_kind(static_cast<value_kind>(49)));
+  static_assert(!is_scalar_value_kind(static_cast<value_kind>(999)));
+  static_assert(is_scalar_value_kind(value_kind::matrix4));
+  static_assert(is_scalar_value_kind(value_kind::guid));
   value original;
   {
     std::string source(4096, 'x');

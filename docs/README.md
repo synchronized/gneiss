@@ -642,3 +642,6 @@
 
 - [PLAN-102：资源对象与统一加载生命周期](plans/PLAN-102-resource-object-loading.md)
 - [ADR-107：以资源对象为中心的加载与持久化](decisions/ADR-107-resource-object-loading.md)
+
+- [PLAN-104：结构化值、文档版本与 Prefab 覆盖](plans/PLAN-104-value-document-prefab-overrides.md)
+- [ADR-109：不可变文档与操作式覆盖](decisions/ADR-109-value-document-model.md)

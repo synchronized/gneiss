@@ -54,8 +54,8 @@ template <class T, std::size_t Index = 1> constexpr value_kind reflected_value_k
     return value_kind::invalid;
   else if constexpr (std::is_same_v<scalar_storage<T>,
                                     std::variant_alternative_t<Index, value::storage_type>>)
-    return value::kind_index[Index] == value_kind::object ? value_kind::invalid
-                                                          : value::kind_index[Index];
+    return is_scalar_value_kind(value::kind_index[Index]) ? value::kind_index[Index]
+                                                          : value_kind::invalid;
   else
     return reflected_value_kind<T, Index + 1>();
 }

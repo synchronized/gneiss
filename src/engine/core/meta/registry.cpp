@@ -35,7 +35,7 @@ struct type_factory {
     out.id_ = id;
     if (!id && kind == type_kind::scalar && !enumeration) {
       [&]<std::size_t... I>(std::index_sequence<I...>) {
-        ((value::kind_index[I + 1] != value_kind::object && scalar == value::kind_index[I + 1]
+        ((is_scalar_value_kind(value::kind_index[I + 1]) && scalar == value::kind_index[I + 1]
               ? (void)(out.id_ = runtime_type_of<
                            std::variant_alternative_t<I + 1, value::storage_type>>())
               : (void)0),
@@ -62,12 +62,11 @@ namespace {
 }
 
 [[nodiscard]] bool is_valid_property_kind(value_kind kind) noexcept {
-  return kind != value_kind::invalid && kind != value_kind::object &&
-         std::ranges::find(value::kind_index, kind) != value::kind_index.end();
+  return is_scalar_value_kind(kind);
 }
 
 [[nodiscard]] bool is_valid_property_value(const value& value) noexcept {
-  if (value.kind() == value_kind::object || value.payload.valueless_by_exception())
+  if (!is_scalar_value_kind(value.kind()))
     return false;
   return std::visit(
       [](const auto& item) noexcept {
@@ -551,7 +550,7 @@ public:
     // 基础值使用既有 value 类型集合，不另建可变注册表。
     [&]<std::size_t... I>(std::index_sequence<I...>) {
       (([&] {
-         if constexpr (value::kind_index[I + 1] != value_kind::object) {
+         if constexpr (is_scalar_value_kind(value::kind_index[I + 1])) {
            const auto& access =
                detail::ops_of<std::variant_alternative_t<I + 1, value::storage_type>>();
            if (match(access))

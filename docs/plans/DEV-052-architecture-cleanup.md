@@ -410,3 +410,7 @@ Mesh JSON 保留版本 3 文件布局，不增加兼容代码。
 按 [PLAN-102](PLAN-102-resource-object-loading.md) 统一资源对象、引用持久化和依赖加载；已开始资源身份和共享引用迁移。
 
 执行器唤醒职责收敛见 [PLAN-103](PLAN-103-executor-wakeup.md)。
+
+## 结构化值与文档迁移
+
+[PLAN-104](PLAN-104-value-document-prefab-overrides.md) 纳入本分支持续实施，覆盖 value、Prefab 修改操作、子树及文档历史统一。该计划尚未完成。

@@ -34,6 +34,27 @@ enum class value_kind : std::uint32_t {
   // 对象引用
   object = 50,
 };
+/** 可直接通过标量 ops 读写的值类别；新增结构化分支不能自动成为标量。 */
+[[nodiscard]] constexpr bool is_scalar_value_kind(value_kind kind) noexcept {
+  switch (kind) {
+  case value_kind::boolean:
+  case value_kind::int64:
+  case value_kind::uint64:
+  case value_kind::float32:
+  case value_kind::float64:
+  case value_kind::string:
+  case value_kind::guid:
+  case value_kind::vec2:
+  case value_kind::vec3:
+  case value_kind::vec4:
+  case value_kind::quaternion:
+  case value_kind::matrix3:
+  case value_kind::matrix4:
+    return true;
+  default:
+    return false;
+  }
+}
 /** 拥有数据的通用值；复制字符串后不依赖源对象。对象分支仅保存
  * ref<meta::object>，复制共享对象，不隐式深拷贝；不承载任意结构体或裸指针。
  * 字符串构造和复制可能抛出分配异常，调用方在结果码边界转换错误。
