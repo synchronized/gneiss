@@ -282,7 +282,10 @@ error prepare_prefab_reference(const prefab_description& source,
         return fail(error::invalid_state, key.first, key.second, {},
                     "来源已存在实例新增的同类型组件");
       auto entries = target->components.entries();
-      entries.push_back({change.component_uuid, *change.added});
+      auto identified = with_component_identity(*change.added, change.component_uuid);
+      if (!identified)
+        return identified.error();
+      entries.push_back(std::move(*identified));
       auto status = target->components.replace(entries);
       if (status.failed())
         return status;

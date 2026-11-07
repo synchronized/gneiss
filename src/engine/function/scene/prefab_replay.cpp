@@ -260,7 +260,10 @@ prepare_prefab_component_edit(const prefab_description& source,
   if (!original) {
     prefab_edit_candidate output{reference, {}};
     const auto index = static_cast<std::size_t>(structural - reference.component_overrides.begin());
-    output.reference.component_overrides[index].added = replacement;
+    auto identified = with_component_identity(replacement, structural->component_uuid);
+    if (!identified)
+      return identified.error();
+    output.reference.component_overrides[index].added = std::move(*identified);
     auto replayed = replay_prefab_reference(source, output.reference);
     if (!replayed)
       return replayed.error();
@@ -323,8 +326,14 @@ result<prefab_edit_candidate> prepare_prefab_component_override(
     });
     if (added && !component_uuid && prior != reference.component_overrides.end())
       identity = prior->component_uuid;
-    pending.component_overrides.push_back(
-        {source_node, type, added ? std::optional{added} : std::nullopt, identity});
+    std::optional<component_description> identified;
+    if (added) {
+      auto copied = with_component_identity(added, identity);
+      if (!copied)
+        return copied.error();
+      identified = std::move(*copied);
+    }
+    pending.component_overrides.push_back({source_node, type, std::move(identified), identity});
   }
   for (const auto& value : properties) {
     if (value.key.target.source_node_uuid != source_node ||

@@ -309,10 +309,12 @@ engine::error scene_document::synchronize() noexcept try {
       if (selected) {
         if (selected->source) {
           auto node = find_prefab_source(selected->object, selected->source);
-          if (node) selection_ = node->node;
+          if (node)
+            selection_ = node->node;
         } else {
           auto node = find_node(selected->object);
-          if (node) selection_ = node->node;
+          if (node)
+            selection_ = node->node;
         }
       }
     }
@@ -1348,7 +1350,10 @@ engine::error scene_document::edit_component(scene_node_id node, engine::guid ty
             object->components.erase(type);
           else if (mode == 1) {
             auto entries = object->components.entries();
-            entries.push_back({identity, value});
+            auto identified = engine::with_component_identity(value, identity);
+            if (!identified)
+              return identified.error();
+            entries.push_back(std::move(*identified));
             auto status = object->components.replace(std::move(entries));
             if (status.failed())
               return status;

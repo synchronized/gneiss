@@ -11,10 +11,10 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/type_id.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/function/render/render_service.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/asset/detail/asset_construction.hpp"
+#include "engine/function/meta_registration.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/loading/scene_domain.hpp"
@@ -61,7 +61,7 @@ struct memory_files final : gneiss::test_support::memory_file_fixture {
 constexpr std::string_view object =
     R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":null,
 "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
-"components":[{"uuid":"ac333749-72c7-4d50-bb9f-1751770a897c","description":{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://m.mesh","material":"asset://m.material"}}}]})";
+"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://m.mesh","material":"asset://m.material","uuid":"ac333749-72c7-4d50-bb9f-1751770a897c"}}]})";
 
 void unified_resource_index() {
   using namespace gneiss::engine;

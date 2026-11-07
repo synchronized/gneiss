@@ -31,6 +31,9 @@ e::result<void*, e::serialization::diagnostic> encode(const e::serialization::co
                                                       e::serialization::writer& output,
                                                       const custom_description& value) {
   auto root = output.object();
+  auto uuid = output.scalar(e::value{value.uuid});
+  if (!uuid || !output.member(root, "uuid", *uuid))
+    return e::serialization::diagnostic{.error = e::error::out_of_memory};
   if (value.enabled) {
     auto flag = output.scalar(e::value{true});
     if (!flag || !output.member(root, "enabled", *flag))
@@ -41,11 +44,18 @@ e::result<void*, e::serialization::diagnostic> encode(const e::serialization::co
 e::result<custom_description, e::serialization::diagnostic>
 decode(const e::serialization::context&, e::serialization::reader& input, const void* node) {
   ++decode_calls;
-  if (input.is_object(node) && input.size(node) == 0)
-    return custom_description{false};
+  auto uuid = input.scalar(input.member(node, "uuid"), e::value_kind::guid);
+  if (!uuid)
+    return e::serialization::diagnostic{.error = e::error::invalid_argument};
+  custom_description result;
+  result.uuid = std::get<e::guid>(uuid->payload);
+  if (input.is_object(node) && input.size(node) == 1)
+    return result;
   auto flag = input.scalar(input.member(node, "enabled"), e::value_kind::boolean);
-  if (input.is_object(node) && input.size(node) == 1 && flag && std::get<bool>(flag->payload))
-    return custom_description{true};
+  if (input.is_object(node) && input.size(node) == 2 && flag && std::get<bool>(flag->payload)) {
+    result.enabled = true;
+    return result;
+  }
   return e::serialization::diagnostic{
       .path = "/enabled", .message = "缺少布尔字段", .error = e::error::invalid_argument};
 }
@@ -55,9 +65,10 @@ std::string scene(std::string_view components) {
          std::string(components) + "}]}";
 }
 std::string entry(e::guid type, std::string_view content) {
-  return std::string(R"({"uuid":")") + e::guid::generate().string() +
-         R"(","description":{"$type_guid":")" + type.string() + R"(","$content":)" +
-         std::string(content) + "}}";
+  auto fields = std::string(content);
+  fields.insert(1, "\"uuid\":\"" + e::guid::generate().string() + "\"" +
+                       (fields.size() > 2 ? "," : ""));
+  return std::string(R"({"$type_guid":")") + type.string() + R"(","$content":)" + fields + "}";
 }
 int main() try {
   if (e::initialize_meta([]() {
@@ -74,6 +85,16 @@ int main() try {
             .commit();
       }).failed())
     return 1;
+  // 新格式要求组件自身保存 UUID，不保留旧外壳或缺失身份的兼容读取。
+  const auto missing_identity = std::string(R"([{"$type_guid":")") +
+                                reflected_description::type_guid.string() +
+                                R"(","$content":{"speed":3}}])";
+  const auto old_envelope = std::string(R"([{"uuid":")") + e::guid::generate().string() +
+                            R"(","description":)" +
+                            entry(reflected_description::type_guid, R"({"speed":3})") + "}]";
+  if (e::serialization::json::deserialize<e::component_descriptions>(missing_identity) ||
+      e::serialization::json::deserialize<e::component_descriptions>(old_envelope))
+    return 61;
   // 项目组件只注册字段，不写 codec；Scene/Prefab 的 GUID 分派共用默认表。
   const auto reflected = entry(reflected_description::type_guid, R"({"speed":3})");
   auto reflected_scene = gneiss::engine::asset_file::deserialize<e::scene_description>(
@@ -120,13 +141,40 @@ int main() try {
   identities.set(custom_description{});
   if (identities.identity(custom_description::type_guid) == identity)
     return 54;
+  // 改变身份或替换内容都不能修改外部仍持有的描述。
+  auto source = e::make_component_description(reflected_description{});
+  const auto source_uuid = source->uuid;
+  auto rebound = e::with_component_identity(source, e::guid::generate());
+  if (!rebound || source->uuid != source_uuid || (*rebound)->uuid == source_uuid ||
+      rebound->get() == source.get())
+    return 57;
+  e::component_descriptions shared_values{source};
+  auto replacement = e::make_component_description(reflected_description{});
+  const auto replacement_uuid = replacement->uuid;
+  shared_values.set(replacement);
+  if (shared_values.identity(reflected_description::type_guid) != source_uuid ||
+      replacement->uuid != replacement_uuid || source->uuid != source_uuid)
+    return 58;
+  auto stored = e::serialization::json::serialize(shared_values);
+  if (!stored || stored->find("\"description\"") != std::string::npos ||
+      stored->find(source_uuid.string()) == std::string::npos)
+    return 59;
   auto duplicate_entries = identities.entries();
-  duplicate_entries.push_back(
-      {duplicate_entries.front().uuid, e::make_component_description(reflected_description{})});
+  reflected_description duplicate_identity;
+  duplicate_identity.uuid = duplicate_entries.front()->uuid;
+  bool rejected_identity = false;
+  try {
+    identities.set(duplicate_identity);
+  } catch (const std::invalid_argument&) {
+    rejected_identity = true;
+  }
+  if (!rejected_identity || identities.size() != 1)
+    return 60;
+  duplicate_entries.push_back(e::make_component_description(duplicate_identity));
   if (identities.replace(duplicate_entries) != e::error::invalid_argument || identities.size() != 1)
     return 55;
-  duplicate_entries.resize(1);
-  duplicate_entries.front().uuid = {};
+  duplicate_identity.uuid = {};
+  duplicate_entries = {e::make_component_description(duplicate_identity)};
   if (identities.replace(duplicate_entries) != e::error::invalid_argument)
     return 56;
   // 组件属性只能整项替换；失败不修改已有组件或共享快照。
@@ -190,15 +238,15 @@ int main() try {
     return 6;
   auto invalid = gneiss::engine::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + entry(custom_description::type_guid, R"({"enabled":null})") + "]")));
-  if (invalid || invalid.error().path != "/objects/0/components/0/description/$content/enabled")
+  if (invalid || invalid.error().path != "/objects/0/components/0/$content/enabled")
     return 7;
   auto null_component =
       gneiss::engine::asset_file::deserialize<e::scene_description>(bytes(scene("[null]")));
-  if (null_component || null_component.error().path != "/objects/0/components/0")
+  if (null_component || null_component.error().path != "/objects/0/components")
     return 33;
   auto null_after_valid = gneiss::engine::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + custom + ",null]")));
-  if (null_after_valid || null_after_valid.error().path != "/objects/0/components/1")
+  if (null_after_valid || null_after_valid.error().path != "/objects/0/components")
     return 34;
   auto extra_envelope = custom;
   extra_envelope.insert(extra_envelope.find("\"$type_guid\""), "\"extra\":true,");
@@ -221,16 +269,14 @@ int main() try {
           e::camera_description::type_guid,
           R"({"vertical_field_of_view_radians":1,"near_plane":0.1,"far_plane":100,"is_primary":false})") +
       "]")));
-  if (old_camera ||
-      old_camera.error().path != "/objects/0/components/0/description/$content/settings")
+  if (old_camera || old_camera.error().path != "/objects/0/components/0/$content/settings")
     return 21;
   auto bad_camera = gneiss::engine::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" +
                   entry(e::camera_description::type_guid,
                         R"({"settings":{"fov":1,"near":"bad","far":100},"is_primary":false})") +
                   "]")));
-  if (bad_camera ||
-      bad_camera.error().path != "/objects/0/components/0/description/$content/settings/near")
+  if (bad_camera || bad_camera.error().path != "/objects/0/components/0/$content/settings/near")
     return 22;
   const auto camera =
       entry(e::camera_description::type_guid,

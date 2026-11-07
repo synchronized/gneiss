@@ -311,7 +311,7 @@ int main() try {
   auto view = (*components->begin())->view();
   check(view.has_value());
   auto fields = view->type().properties();
-  check(fields && fields->size() == 5 && (*fields)[1].type.is_enum());
+  check(fields && fields->size() == 6 && (*fields)[1].type.is_enum());
   check((*fields)[1].type.enum_entries()->size() == 2);
   check(apply({.path = {p{1}}, .data = e::value{3.0F}}, 1).ok());
   check(apply({.path = {p{1}}, .data = e::value{4.0F}}, 1).ok());

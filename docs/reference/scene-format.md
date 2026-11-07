@@ -37,7 +37,7 @@
           1
         ]
       },
-      "components": [{"uuid":"59bcf740-5382-4020-8d7f-ff064311bb09","description":{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material"}}}]
+      "components": [{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material","uuid":"59bcf740-5382-4020-8d7f-ff064311bb09"}}]
     },
     {
       "name": "Lamp Instance",
@@ -93,7 +93,7 @@
 - `parent` 必须是现有对象 UUID 或 null；层级不能形成循环。
 - 向量与四元数只接受有限、可表示为 float 的 JSON 数字。
 - rotation 顺序为 `(x, y, z, w)` 且必须归一化；scale 的每个分量不能为零。
-- `components` 是数组，可为空。每项包含非空 `uuid`（组件实例身份）和 `description`；description 使用 `$type_guid`（描述类型）与 `$content`（属性对象）的多态信封。
+- `components` 是数组，可为空。每项直接使用 `$type_guid`（描述类型）与 `$content`（属性对象）的多态信封；`$content.uuid` 是非空组件实例身份。
   根据默认 Meta 注册表查找对应 codec；同一对象同一 GUID 最多一项，未知类型和重复类型报错。
 - 内置 Camera 描述 GUID 为 `11a0217a-2eab-4f61-8011-4a63a26e0101`，MeshRenderer 描述 GUID 为
   `11a0217a-2eab-4f61-8011-4a63a26e0102`。它们与运行时组件 GUID 分离，进程内 type_id 不写入文件。
@@ -168,8 +168,12 @@ World 保持不变。旧顶层 `prefab_instances` 也被明确拒绝，不作为
 `game_object_description::transform` 直接使用 `math::transform`，表示相对父对象的局部变换，默认单位变换。
 文件中的 `transform` 及其 translation、rotation、scale 仍全部必填，默认值不代替格式校验。
 
-`game_object_description::components` 使用 `component_descriptions`，内部保存 `component_entry { uuid, description }`，description 是 `ref<const component_description_base>`。具体描述继承基类并注册 Meta 继承关系，
-通用引用序列化负责 `$type_guid` / `$content`，列表负责实例 UUID 非空且不重复、每种组件至多一项。替换描述保留 UUID，删除再新增生成新 UUID。
+`game_object_description::components` 使用 `component_descriptions`，内部直接保存 `ref<const component_description_base>`。实例 UUID 由基类持有，具体描述继承基类并注册 Meta 继承关系，
+通用引用序列化负责 `$type_guid` / `$content`，列表负责实例 UUID 非空且不重复、每种组件至多一项。新建描述生成 UUID，替换描述保留集合中的 UUID；显式复制对象/子树时重新生成身份。
+基类 UUID 使用保留属性编号 `0xffffffff`，参与持久化但标记为 editor_read_only，不能生成普通属性覆盖。
+自定义 codec 须自行保存和恢复基类 UUID；反射字段编解码自动包含该字段。
+`with_component_identity` 在身份不同时通过已注册编解码创建独立副本，需要冻结的默认注册表；
+不修改原引用，相同身份直接共享不可变描述。有类型的 set 在构造不可变引用前调整候选身份。
 Scene 的 components 直接注册成员；component_descriptions 通过 sequence_traits 提供只读
 序列访问与整组校验替换。IPC 使用同一 Meta 数组解码，不再依赖组件专用 DOM 适配函数。
 `game_object_description.prefab` 注册为 optional，引用描述的 uri、overrides、component_overrides

@@ -8,9 +8,9 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/serialization/json.hpp"
-#include "engine/function/meta_registration.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/asset/resource_cache.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_tree.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
@@ -34,7 +34,7 @@ constexpr std::string_view valid_prefab = R"({
       "name":"Prefab Root",
       "parent":null,
       "transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[1,1,1]},
-      "components":[{"uuid":"f2157104-7e8c-43f5-94d9-7658da5c5361","description":{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/lantern.mesh","material":"asset://materials/lantern.material"}}}]
+      "components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/lantern.mesh","material":"asset://materials/lantern.material","uuid":"f2157104-7e8c-43f5-94d9-7658da5c5361"}}]
     },
     {
       "uuid":"10000000-0000-4000-8000-000000000003",

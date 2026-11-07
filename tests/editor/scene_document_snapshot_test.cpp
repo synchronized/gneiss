@@ -167,6 +167,10 @@ int main() {
   if (decoded_copy->objects[0].components.identity(linked_description::type_guid) ==
       decoded_original->objects[0].components.identity(linked_description::type_guid))
     return 61;
+  auto captured_copy = e::capture_scene_record(*decoded_copy);
+  if (!captured_copy || captured_copy->get() != copied->get() ||
+      decoded_original->objects[0].components.get<linked_description>()->uuid != links.uuid)
+    return 65;
   auto expected = std::get<e::sequence_value>(links.links.payload).get();
   const e::value remapped{e::object_reference_value{target_document, copied_id}};
   expected.elements[0] = remapped;

@@ -32,9 +32,25 @@
 - Windows Clang Debug 默认构建通过；Meta、序列化、Scene/Prefab、组件描述及相关编辑器
   共 41 项定向回归通过，git diff --check 通过。未运行 GPU 大场景、远端 CI 或跨平台矩阵。
 
+## 阶段 2：组件 UUID 归属迁移
+
+- UUID 移入 component_description_base；删除 component_entry 和专用迭代器，
+  component_descriptions 直接保存不可变描述引用，并校验 UUID 非空、实例/类型不重复。
+- 基类字段只注册一次，保留属性编号 0xffffffff，标记 editor_read_only。
+  文件直接保存多态引用，UUID 位于 $content 中；不读取旧 uuid/description 包装。
+- 有类型 set 在冻结引用前保留目标身份；类型擦除引用通过已注册编解码复制后调整身份，
+  不修改外部共享描述，相同身份直接共享。自定义 codec 负责保存/恢复基类 UUID。
+- 场景捕获、Prefab 新增/编辑、文档恢复和子树复制同步身份；复制后重新捕获验证
+  组件内部 UUID 与领域快照索引一致。运行时身份表暂时保留，随阶段 4 统一存储继续清理。
+- 导入器仍使用确定性 UUID；迁移样例、文件夹具和相关诊断路径断言。
+- 首轮构建暴露运行实例和导入器的旧包装调用，已全部修复；首轮 42 项回归中
+  三项因属性数量与空引用诊断路径变化失败，更新对应精确断言后重新验收。
+- 最终 Windows Clang Debug 默认构建通过；45 项定向回归全部通过，包含导入器、
+  Scene/Prefab、组件身份/生命周期、共享引用隔离、文档快照和撤销恢复。
+  git diff --check 通过。未运行 GPU 大场景、远端 CI 或跨平台矩阵，未推送。
+
 ## 尚未实施
 
-组件 UUID 仍由 component_entry 持有。继承属性基础能力已具备，下一步迁移 UUID 及集合、
-文件和编辑恢复路径，不在每个组件上重复注册该字段。
-运行时仍使用既有 Scene Tree/ECS 与 prefab_binding；上述重命名不代表运行存储已统一。
+运行时仍使用既有 Scene Tree/ECS 与 prefab_binding。阶段 3 将迁移 Prefab 来源映射和编辑覆盖边界，
+阶段 4 再统一运行存储；本轮组件身份迁移不代表这些目标已完成。
 其余范围继续以 PLAN-105 检查项为准。

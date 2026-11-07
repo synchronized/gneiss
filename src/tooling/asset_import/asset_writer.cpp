@@ -122,12 +122,11 @@ template <class Bytes> bool write_bytes(const std::filesystem::path& path, const
     for (auto child : node.children)
       scene.objects[child].parent_uuid = object.uuid;
     // 沿用导入对象的确定性索引规则，重复导入相同输入不改变组件身份。
-    if (node.mesh_index && data.meshes[*node.mesh_index].primitives.size() == 1 &&
-        object.components
-            .replace({{*engine::guid::parse(uuid_for(i, true)),
-                       engine::make_component_description(renderer(*node.mesh_index, 0))}})
-            .failed())
-      return false;
+    if (node.mesh_index && data.meshes[*node.mesh_index].primitives.size() == 1) {
+      auto component = renderer(*node.mesh_index, 0);
+      component.uuid = *engine::guid::parse(uuid_for(i, true));
+      object.components.set(std::move(component));
+    }
   }
   for (std::size_t i = 0; i < data.nodes.size(); ++i) {
     const auto& node = data.nodes[i];
@@ -137,11 +136,9 @@ template <class Bytes> bool write_bytes(const std::filesystem::path& path, const
       engine::game_object_description child;
       child.uuid = *engine::guid::parse(uuid_for(scene.objects.size()));
       child.parent_uuid = scene.objects[i].uuid;
-      if (child.components
-              .replace({{*engine::guid::parse(uuid_for(scene.objects.size(), true)),
-                         engine::make_component_description(renderer(*node.mesh_index, j))}})
-              .failed())
-        return false;
+      auto component = renderer(*node.mesh_index, j);
+      component.uuid = *engine::guid::parse(uuid_for(scene.objects.size(), true));
+      child.components.set(std::move(component));
       scene.objects.push_back(std::move(child));
     }
   }

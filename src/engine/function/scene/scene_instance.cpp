@@ -858,7 +858,10 @@ scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& des
             engine::mesh_renderer_description{std::string(mesh_uri), std::string(material_uri)})}};
     if (desc.component_uuid) {
       auto entries = author.components.entries();
-      entries.front().uuid = desc.component_uuid;
+      auto identified = with_component_identity(entries.front(), desc.component_uuid);
+      if (!identified)
+        return identified.error();
+      entries.front() = std::move(*identified);
       auto status = author.components.replace(std::move(entries));
       if (status.failed())
         return status;

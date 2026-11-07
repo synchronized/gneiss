@@ -29,7 +29,10 @@ namespace {
 result<component_record> capture_component(const component_description& source, guid uuid) {
   if (!source || !uuid)
     return error::invalid_argument;
-  auto content = serialization::capture_value(source);
+  auto identified = with_component_identity(source, uuid);
+  if (!identified)
+    return identified.error();
+  auto content = serialization::capture_value(*identified);
   if (!content)
     return content.error().error;
   return component_record{uuid, source->guid(), std::move(*content)};
@@ -40,7 +43,7 @@ result<component_description> restore_component(const component_record& source) 
     return restored.error().error;
   if (!*restored || (*restored)->guid() != source.type)
     return error::invalid_argument;
-  return std::move(*restored);
+  return with_component_identity(*restored, source.uuid);
 }
 result<std::vector<object_record>>
 capture_objects(const std::vector<game_object_description>& source) {
@@ -93,12 +96,12 @@ restore_objects(const std::vector<object_record>& source) {
     object.parent_uuid = record.parent;
     object.name = record.name;
     object.transform = record.transform;
-    std::vector<component_entry> components;
+    std::vector<component_description> components;
     for (const auto& component : record.components) {
       auto restored = restore_component(component);
       if (!restored)
         return restored.error();
-      components.push_back({component.uuid, std::move(*restored)});
+      components.push_back(std::move(*restored));
     }
     auto status = object.components.replace(components);
     if (status.failed())
@@ -252,7 +255,16 @@ struct record_remapper {
       return status;
     component.uuid = guid::generate();
     component.properties = rewrite(component.properties);
-    return failure.failed() ? failure : validate_persistent_value(component.properties);
+    if (failure.failed())
+      return failure;
+    auto restored = restore_component(component);
+    if (!restored)
+      return restored.error();
+    auto captured = serialization::capture_value(*restored);
+    if (!captured)
+      return captured.error().error;
+    component.properties = std::move(*captured);
+    return validate_persistent_value(component.properties);
   }
   error operation(value_operation& operation) const {
     auto status = validate_value_operation(operation);

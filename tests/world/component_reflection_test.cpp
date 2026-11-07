@@ -33,7 +33,7 @@ int main() {
       info.properties.size() != 3 ||
       gneiss::test_support::assign_value(gneiss::engine::meta::describe_type(camera_type), info)
           .failed() ||
-      info.properties.size() != 2 ||
+      info.properties.size() != 3 ||
       gneiss::test_support::assign_value(
           gneiss::engine::meta::describe_type<engine::math::transform>(), info)
           .failed() ||

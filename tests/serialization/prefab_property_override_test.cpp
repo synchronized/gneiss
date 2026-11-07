@@ -129,7 +129,8 @@ int main() {
     root.uuid = source_a;
     child.uuid = source_b;
     child.parent_uuid = source_a;
-    if (child.components.replace({{component_id, make_component_description(original)}}).failed())
+    original.uuid = component_id;
+    if (child.components.replace({make_component_description(original)}).failed())
       return 79;
     source.objects = {root, child};
     prefab_description output;

@@ -5,10 +5,10 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/resource/asset_serialization.hpp"
 #include "engine/resource/input/action_map.hpp"
-#include "engine/resource/material/material_description.hpp"
 #include "engine/resource/material.hpp"
-#include "engine/resource/mesh/mesh_description.hpp"
+#include "engine/resource/material/material_description.hpp"
 #include "engine/resource/mesh.hpp"
+#include "engine/resource/mesh/mesh_description.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
 #include "engine/resource/texture.hpp"
 #include <algorithm>
@@ -85,16 +85,14 @@ diagnostic validate_binding(const action_binding& binding) {
 
 }
 error register_component_descriptions() noexcept {
-  auto base_status = meta::type_builder<component_description_base>{}.polymorphic().commit();
-  if (base_status.failed())
-    return base_status;
   constexpr auto required = meta::property_flags::required;
-  auto status =
-      meta::type_builder<component_entry>{}
-          .property<&component_entry::uuid>(meta::property_id{1}, "uuid", required)
-          .property<&component_entry::description>(meta::property_id{2}, "description", required)
-          .serialization()
-          .commit();
+  // 基类身份字段使用保留编号，派生组件业务字段从 1 开始。
+  auto status = meta::type_builder<component_description_base>{}
+                    .polymorphic()
+                    .property<&component_description_base::uuid>(
+                        meta::property_id{0xffffffffU}, "uuid",
+                        required | meta::property_flags::editor_read_only)
+                    .commit();
   if (status.failed())
     return status;
   status = meta::type_builder<prefab_property_target>{}

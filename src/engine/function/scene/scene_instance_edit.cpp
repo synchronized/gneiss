@@ -88,9 +88,11 @@ error scene_instance::set_component_override(scene_node_id node, guid type,
         if (!projected)
           return projected.error();
         auto entries = projected->entries();
-        std::erase_if(entries,
-                      [&](const auto& entry) { return entry.description->guid() == type; });
-        entries.push_back({target->components.identity(type), *value});
+        std::erase_if(entries, [&](const auto& entry) { return entry->guid() == type; });
+        auto identified = with_component_identity(*value, target->components.identity(type));
+        if (!identified)
+          return identified.error();
+        entries.push_back(std::move(*identified));
         status = projected->replace(std::move(entries));
         if (status.ok())
           status = replace_components({native_world_, node, renderer, &loader_}, *projected);

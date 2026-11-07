@@ -314,7 +314,9 @@ error add_component(component_context context, const component_description& valu
     return status;
   auto& ids = instance_ids(context.owner, context.node).values;
   if (!identity)
-    identity = guid::generate();
+    identity = value->uuid;
+  if (!identity)
+    return error::invalid_argument;
   // 先预留身份存储，安装失败不留下可观察的新组件。
   auto [entry, inserted] = ids.try_emplace(value->guid(), identity);
   status = adapter->install(context, value);
@@ -373,7 +375,7 @@ result<component_descriptions> capture_components(world& owner, scene_node_id no
   if (status.failed())
     return status;
   component_descriptions output;
-  std::vector<component_entry> entries;
+  std::vector<component_description> entries;
   auto& ids = instance_ids(owner, node).values;
   for (const auto& adapter : adapters()) {
     auto value = adapter.capture(owner, node);
@@ -383,7 +385,10 @@ result<component_descriptions> capture_components(world& owner, scene_node_id no
       auto found = ids.find(adapter.type);
       if (found == ids.end())
         found = ids.emplace(adapter.type, guid::generate()).first;
-      entries.push_back({found->second, std::move(**value)});
+      auto identified = with_component_identity(**value, found->second);
+      if (!identified)
+        return identified.error();
+      entries.push_back(std::move(*identified));
     } else
       ids.erase(adapter.type);
   }
@@ -437,7 +442,7 @@ error replace_components(component_context context, const component_descriptions
     auto& ids = instance_ids(context.owner, context.node).values;
     std::erase_if(ids, [&](const auto& entry) { return !values.find(entry.first); });
     for (const auto& entry : values.entries())
-      ids.at(entry.description->guid()) = entry.uuid;
+      ids.at(entry->guid()) = entry->uuid;
   }
   return status;
 } catch (const std::bad_alloc&) {

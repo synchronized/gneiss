@@ -53,7 +53,7 @@ struct fixture {
       prefab
           << "{\"uuid\":\"" << uuid << "\",\"name\":\"Source\",\"parent\":"
           << (i == 149U ? "null" : "\"30000000-0000-4000-8000-000000000151\"")
-          << R"(,"transform":{"translation":[1,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"uuid":"ffe75c0a-e663-4389-9b1b-4b1d96a50f6b","description":{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://mesh.json","material":"asset://material.json"}}}]})";
+          << R"(,"transform":{"translation":[1,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://mesh.json","material":"asset://material.json","uuid":"ffe75c0a-e663-4389-9b1b-4b1d96a50f6b"}}]})";
     }
     prefab << "]}";
   }

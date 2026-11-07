@@ -147,7 +147,7 @@ constexpr std::string_view broken_prefab_json = R"({
     "uuid":"10000000-0000-4000-8000-000000000012",
     "parent":null,
     "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
-    "components":[{"uuid":"1df71a7d-57a2-4090-bbb0-dfcd8aeb0e44","description":{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://missing.mesh","material":"asset://missing.material"}}}]
+    "components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://missing.mesh","material":"asset://missing.material","uuid":"1df71a7d-57a2-4090-bbb0-dfcd8aeb0e44"}}]
   }]
 })";
 

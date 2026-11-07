@@ -54,7 +54,7 @@ struct fixture {
     std::ofstream(root / "g.mesh.json")
         << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.8,-0.7,0],[0.8,-0.7,0],[0,0.8,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
     std::ofstream(root / "s.scene.json")
-        << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,2],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"uuid":"06124299-d9b6-484c-b365-af2669a4214d","description":{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"settings": {"fov": 1.04719755, "near": 0.1, "far": 100},"is_primary":true}}}]},{"uuid":"00000000-0000-4000-8000-000000000003","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"uuid":"c2629bbb-e785-4d94-9414-518ad9496590","description":{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://g.mesh.json","material":"asset://m.material.json"}}}]}]})";
+        << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,2],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"settings":{"fov":1.04719755,"near":0.1,"far":100},"is_primary":true,"uuid":"06124299-d9b6-484c-b365-af2669a4214d"}}]},{"uuid":"00000000-0000-4000-8000-000000000003","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://g.mesh.json","material":"asset://m.material.json","uuid":"c2629bbb-e785-4d94-9414-518ad9496590"}}]}]})";
   }
   ~fixture() {
     std::error_code ignored;
@@ -187,8 +187,7 @@ void run_pending_resources() {
   check(gneiss::engine::error{gneiss::test_support::take_value(
             app->scenes()->get_node_info(scene, 1U), info)} == gneiss::engine::error::success);
   check(info.components.get<gneiss::engine::mesh_renderer_description>() != nullptr);
-  const gneiss::engine::mesh_renderer binding{.mesh = mesh_ref,
-                                              .material = material_ref};
+  const gneiss::engine::mesh_renderer binding{.mesh = mesh_ref, .material = material_ref};
   check(gneiss::engine::error{native->native_world()->entity_set_mesh_renderer(
             info.entity, binding)} == gneiss::engine::error::success);
   const auto pixel = [&] {
@@ -556,7 +555,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
         R"({"uuid":"00000000-0000-4000-8000-000000000004","parent":null,"transform":{"translation":[0,0,)";
     object += test.foreground ? "0.2" : "-0.2";
     object +=
-        R"(],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"uuid":"9d570935-e6d2-42e7-8132-e19bafd22f70","description":{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://g.mesh.json","material":"asset://blue.material.json"}}}]})";
+        R"(],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://g.mesh.json","material":"asset://blue.material.json","uuid":"9d570935-e6d2-42e7-8132-e19bafd22f70"}}]})";
     if (test.receiver) {
       constexpr std::string_view scale = "\"scale\":[1,1,1]";
       object.replace(object.find(scale), scale.size(), "\"scale\":[4,4,1]");

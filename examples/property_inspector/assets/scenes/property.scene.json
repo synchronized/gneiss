@@ -25,13 +25,7 @@
         ]
       },
       "components": [
-        {"uuid":"d2b0e787-eb53-478a-9113-d197c7244e2c","description":{
-          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101",
-          "$content": {
-            "settings": {"fov": 1.0471976, "near": 0.1, "far": 100},
-            "is_primary": true
-          }
-        }}
+        {"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"settings":{"fov":1.0471976,"near":0.1,"far":100},"is_primary":true,"uuid":"d2b0e787-eb53-478a-9113-d197c7244e2c"}}
       ]
     }
   ]

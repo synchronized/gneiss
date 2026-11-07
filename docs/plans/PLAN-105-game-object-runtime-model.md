@@ -103,10 +103,10 @@ Prefab 来源查询、Apply/Revert、来源刷新从文档和组合结果获得�
 组件 UUID 迁移先补齐 Meta 的继承属性访问，再调整描述集合与编辑/恢复路径。
 
 - [x] 补齐继承属性枚举、读写、捕获/恢复与 JSON 编解码；通过 upcast 访问基类字段，拒绝继承链中的属性 ID/名称冲突，不静默遗漏字段。
-- [ ] UUID 迁入 component_description_base，删除 component_entry。
-- [ ] 迁移反射基类字段、集合访问、文件、多态恢复和覆盖目标。
-- [ ] 保证编辑/撤销身份保持、新建/复制生成新身份，共享来源不被修改。
-- [ ] 更新样例与工具产物，不兼容未发布旧包装格式。
+- [x] UUID 迁入 component_description_base，删除 component_entry。
+- [x] 迁移反射基类字段、集合访问、文件、多态恢复和覆盖目标。
+- [x] 保证编辑/撤销身份保持、新建/复制生成新身份，共享来源不被修改。
+- [x] 更新样例与工具产物，不兼容未发布旧包装格式。
 
 ### 3：Prefab 组合与编辑边界
 
@@ -131,8 +131,9 @@ Prefab 来源查询、Apply/Revert、来源刷新从文档和组合结果获得�
 - [ ] 更新 Reference/Record，完成默认构建与相关回归；不运行 GPU 大场景或远端 CI。
 
 阶段 1 默认 Windows Clang Debug 构建与 34 项定向回归通过；依赖边界检查通过，
-阶段 2 的 Meta 继承支持已完成，默认构建与 41 项定向回归通过。
-详见[阶段记录](../records/2026-11-07-game-object-model.md)。运行存储与组件 UUID 归属尚未迁移。
+阶段 2 已完成继承支持和组件 UUID 归属迁移，删除 component_entry；
+最终默认构建与 45 项定向回归通过。详见[阶段记录](../records/2026-11-07-game-object-model.md)。
+运行存储与 Prefab 编辑边界尚未迁移。
 
 ## 非目标与代价
 
