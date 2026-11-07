@@ -27,7 +27,7 @@ struct prepared_scene_document {
   scene_document_snapshot snapshot;
   std::vector<engine::render_resource_source> missing;
 };
-/** 只计算内存变更及缺失依赖；missing 非空时必须补齐资源后才能采用快照。 */
+/** 只计算内存变更及缺失依赖；missing 表示尚未持有资源身份，不要求内容加载完成。 */
 [[nodiscard]] engine::result<prepared_scene_document>
 prepare_scene_document(const scene_document_snapshot&,
                        std::span<const author_document_change>) noexcept;

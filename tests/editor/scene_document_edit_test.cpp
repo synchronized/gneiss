@@ -117,7 +117,10 @@ void run(scenario mode) {
   }
   if (mode == scenario::cancelled)
     operation.cancel();
-  e::error status = e::error::not_ready;
+  // 首次推进立即采用合法描述，不驱动文件或资产完成队列。
+  e::error status = operation.advance(*editing.application, editing.document, history);
+  if (mode == scenario::success || mode == scenario::failure)
+    check(status.ok());
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (status == e::error::not_ready) {
     check(std::chrono::steady_clock::now() < deadline);
@@ -126,11 +129,29 @@ void run(scenario mode) {
     std::this_thread::yield();
   }
   check(operation.advance(*editing.application, editing.document, history) == status);
-  if (mode == scenario::success) {
+  if (mode == scenario::success || mode == scenario::failure) {
     check(status.ok() && history.size() == 1 && redo_count == 1);
     auto node = editing.document.find_prefab_root(instance.uuid);
     check(node && editing.document.components(node->node)->get<e::mesh_renderer_description>());
-    // 文件变坏也不能影响历史重放：快照持有已加载资源。
+    auto snapshot = ed::capture_scene_document(*editing.application, editing.document);
+    check(snapshot && snapshot->assets.size() == 2);
+    std::string saved;
+    check(save_document(editing.document, files.path, &saved).ok());
+    check(!saved.empty());
+    if (mode == scenario::failure) {
+      auto missing = editing.application->assets().load(
+          e::render_resource_source{"asset://missing.json", e::render_resource_kind::material});
+      check(bool(missing));
+      while (missing->status() == e::error::not_ready) {
+        check(std::chrono::steady_clock::now() < deadline);
+        editing.application->advance_scene_load();
+        std::this_thread::yield();
+      }
+      check(missing->status().failed());
+      check(bool(ed::capture_scene_document(*editing.application, editing.document)));
+      check(save_document(editing.document, files.path).ok());
+    }
+    // 文件变坏或资源加载失败也不能影响历史重放：快照保活资源身份。
     write(files.path / "mesh.json", "broken");
     write(files.path / "material.json", "broken");
     check(history.undo().ok() && undo_count == 1);
@@ -158,7 +179,7 @@ void run(scenario mode) {
     }
   }
   check(history.clear().ok());
-  // 取消、失败和成功都必须释放槽位；析构未完成操作也不残留请求。
+  // 文档恢复不占用加载组槽位；析构未采用的候选不影响后续请求。
   if (mode == scenario::cancelled) {
     {
       ed::scene_document_edit abandoned;

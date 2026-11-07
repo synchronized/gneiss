@@ -150,7 +150,23 @@ result<scene_capture> scene_instances::capture_prepared(scene_instance_id instan
   if (status.failed())
     return status;
   resource_bindings bindings;
+  // 历史保活实际绑定的资源身份，包括仍在加载或已失败的资源；不重新加载、不要求就绪。
+  for (std::uint64_t index = 0; index < (*value)->node_count(); ++index) {
+    auto node = (*value)->get_node_info(index, node_query_detail::identity);
+    if (!node)
+      return node.error();
+    auto binding = (*value)->capture_mesh_binding(node->node);
+    if (!binding)
+      return binding.error();
+    if (binding->mesh && !resource_uri(binding->mesh).empty())
+      bindings.insert_or_assign(std::string(resource_uri(binding->mesh)), binding->mesh);
+    if (binding->material && !resource_uri(binding->material).empty())
+      bindings.insert_or_assign(std::string(resource_uri(binding->material)), binding->material);
+  }
+  // 自定义组件的其他依赖仍从已有缓存保活，不能因本次改动丢失其引用。
   for (const auto& source : prepared.assets) {
+    if (bindings.contains(source.uri))
+      continue;
     auto loaded = loader_.find_loaded(source);
     if (!loaded)
       return loaded.error();

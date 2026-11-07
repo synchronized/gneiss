@@ -50,10 +50,6 @@ engine::error restore_scene_document(runtime::application& app, scene_document& 
   return engine::error::internal;
 }
 engine::error scene_document_edit::finish(engine::error status) noexcept {
-  if (request_ && application_) {
-    (void)application_->discard_prepared_assets(request_);
-    request_ = 0;
-  }
   before_.reset();
   after_.reset();
   selection_ = {};
@@ -82,13 +78,11 @@ engine::error scene_document_edit::begin(runtime::application& app, scene_docume
   scene_ = document.scene_handle();
 
   application_ = &app;
-  if (!prepared->missing.empty()) {
-    auto loading = app.prepare_assets(prepared->missing, 1);
+  for (const auto& source : prepared->missing) {
+    auto loading = app.assets().load(source);
     if (!loading)
       return finish(loading.error());
-    request_ = loading->request;
-    for (auto& asset : loading->assets)
-      after_->assets.insert_or_assign(std::string(engine::resource_uri(asset)), std::move(asset));
+    after_->assets.insert_or_assign(source.uri, loading->resource());
   }
   document_ = &document;
   label_ = std::move(label);
@@ -110,19 +104,6 @@ engine::error scene_document_edit::advance(runtime::application& app, scene_docu
     return finish(error::invalid_state);
   if (history.is_pending())
     return finish(error::invalid_state);
-  if (request_) {
-    auto completed = app.poll_prepared_assets(request_);
-    if (!completed) {
-      if (completed.error() == error::not_ready)
-        return error::not_ready;
-      return finish(completed.error());
-    }
-    request_ = 0;
-    if (completed->result.failed())
-      return finish(completed->result);
-    for (auto& asset : completed->assets)
-      after_->assets.insert_or_assign(std::string(engine::resource_uri(asset)), std::move(asset));
-  }
   // 比较持久化值树，不通过 JSON 编码判断等待期间的修改。
   auto current = capture_scene_document(app, document);
   if (!current)
