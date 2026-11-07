@@ -743,8 +743,12 @@ result<scene_node_id> scene_instance::restore_subtree(const scene_subtree_snapsh
   for (const auto& entry : order.added) {
     const auto& original = subtree.objects[entry.new_index];
     auto author = copied_description->objects[entry.new_index];
-    if (!mappings.empty() && author.components.template get<camera_description>())
-      author.components.update<camera_description>([&](auto& value) { value.is_primary = false; });
+    if (!mappings.empty() && author.components.template get<camera_description>()) {
+      auto changed = author.components.update<camera_description>(
+          [](auto& value) { value.is_primary = false; });
+      if (changed.failed())
+        return changed;
+    }
     const auto asset = snapshot.resources.find(original.uuid);
     const auto node_parent =
         author.parent_uuid ? staged.find_node(author.parent_uuid) : scene_node_id{};

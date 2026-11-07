@@ -4,10 +4,14 @@
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/object.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/value.hpp"
 #include "engine/core/traits/type_identity.hpp"
 #include <algorithm>
+#include <functional>
 #include <initializer_list>
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 namespace gneiss::engine {
 /** 不可变组件描述的多态基类；编辑时复制具体类型并替换引用。 */
 class component_description_base : public meta::object {
@@ -63,14 +67,38 @@ public:
     else
       *found = std::move(value);
   }
-  template <class T, class F> bool update(F&& edit) {
-    const auto* value = get<T>();
-    if (!value)
-      return false;
-    auto copy = *value;
-    edit(copy);
-    set(make_component_description(std::move(copy)));
-    return true;
+  /** 在独立候选上编辑并校验；失败不改变集合或原引用，不支持的捕获不回退到浅拷贝。 */
+  template <class T, class F> [[nodiscard]] error update(F&& edit) noexcept try {
+    const auto* source = get<T>();
+    if (!source)
+      return error::not_found;
+    auto captured = serialization::capture_value(*source);
+    if (!captured)
+      return captured.error().error;
+    auto candidate = serialization::restore_value<T>(*captured);
+    if (!candidate)
+      return candidate.error().error;
+    if constexpr (std::is_void_v<std::invoke_result_t<F, T&>>) {
+      std::invoke(std::forward<F>(edit), *candidate);
+    } else {
+      static_assert(std::same_as<std::invoke_result_t<F, T&>, error>);
+      auto status = std::invoke(std::forward<F>(edit), *candidate);
+      if (status.failed())
+        return status;
+    }
+    // 回调可替换内嵌引用；提交前再冻结，校验新内容并隔离回调持有的别名。
+    auto edited = serialization::capture_value(*candidate);
+    if (!edited)
+      return edited.error().error;
+    auto accepted = serialization::restore_value<T>(*edited);
+    if (!accepted)
+      return accepted.error().error;
+    set(make_component_description(std::move(*accepted)));
+    return error::success;
+  } catch (const std::bad_alloc&) {
+    return error::out_of_memory;
+  } catch (...) {
+    return error::internal;
   }
   void erase(guid type) {
     std::erase_if(values_, [type](const auto& v) { return v->guid() == type; });

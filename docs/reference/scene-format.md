@@ -182,7 +182,10 @@ object_description 使用通用反射编解码，不再注册专用 encode/decod
 多态信封仅允许 `$type_guid` 和 `$content`，类型 GUID 使用规范小写形式。
 `get<T>()` 借用只读指针，错误类型返回 nullptr；`set(T)` 替换对应类型，`erase<T>()` 删除，
 `update<T>(callback)` 在副本上修改后替换。借用指针不得跨对应条目替换或列表销毁。
-复制列表共享不可变内容；修改副本不改变模板、其他实例或编辑器撤销快照。
+复制列表共享描述引用；`component_descriptions::update<T>` 使用反射值创建独立候选，
+回调成功后再次冻结和校验才替换整项。回调支持 `void` 或 `error` 返回值；缺少组件返回
+`not_found`，无法捕获的自定义 codec 类型返回 `unsupported`，异常转换为错误。
+失败保留原集合；成功也不会保留回调传入的可写引用别名。直接 `set` 接收整项引用，调用方负责其共享语义。
 
 解析/编码前由宿主完成 `initialize_meta`。文件解析只生成 CPU 描述，不创建 World 或 GPU 对象。
 场景功能层解析资产依赖并安装运行时组件；Meta 不依赖 World。

@@ -126,12 +126,14 @@ bool save_validation_contract() {
       !rejects([](auto& scene) { scene.objects[0].transform.rotation.w = 2.0F; }) ||
       !rejects([](auto& scene) { scene.objects[0].transform.scale.y = 0.0F; }) ||
       !rejects([](auto& scene) {
-        scene.objects[0].components.template update<e::camera_description>(
-            [](auto& camera) { camera.settings.near = camera.settings.far; });
+        auto camera = *scene.objects[0].components.template get<e::camera_description>();
+        camera.settings.near = camera.settings.far;
+        scene.objects[0].components.set(std::move(camera));
       }) ||
       !rejects([](auto& scene) {
-        scene.objects[1].components.template update<e::mesh_renderer_description>(
-            [](auto& mesh) { mesh.mesh_uri = "bad"; });
+        auto mesh = *scene.objects[1].components.template get<e::mesh_renderer_description>();
+        mesh.mesh_uri = "bad";
+        scene.objects[1].components.set(std::move(mesh));
       }))
     return false;
   const auto rejects_override = [&](auto change) {

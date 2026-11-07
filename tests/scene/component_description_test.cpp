@@ -128,8 +128,14 @@ int main() try {
       !guarded.components.empty() || parsed->objects.front().components.empty())
     return 40;
   auto copy = *parsed;
-  copy.objects.front().components.update<custom_description>(
-      [](auto& value) { value.enabled = false; });
+  bool invoked = false;
+  if (copy.objects.front().components.update<custom_description>([&](auto& value) {
+        invoked = true;
+        value.enabled = false;
+      }) != e::error::unsupported ||
+      invoked)
+    return 42;
+  copy.objects.front().components.set(custom_description{false});
   if (!parsed->objects.front().components.get<custom_description>()->enabled)
     return 3;
   // false 编码省略 enabled，保存不能把原始 true 字段合并回来。
@@ -205,10 +211,14 @@ int main() try {
   if (!description || description->settings.fov != 1.0F || description->settings.near != 0.1F ||
       description->settings.far != 100.0F)
     return 17;
-  supported->objects.front().components.update<e::camera_description>([](auto& value) {
-    value.settings = {0.8F, 0.2F, 250.0F};
-    value.is_primary = true;
-  });
+  if (supported->objects.front()
+          .components
+          .update<e::camera_description>([](auto& value) {
+            value.settings = {0.8F, 0.2F, 250.0F};
+            value.is_primary = true;
+          })
+          .failed())
+    return 43;
   auto camera_bytes = gneiss::engine::asset_file::serialize_bytes(*supported);
   if (!camera_bytes)
     return 18;

@@ -293,8 +293,11 @@ int main() try {
     return 26;
   for (auto& object : missing_description->objects)
     if (object.components.template get<gneiss::engine::mesh_renderer_description>())
-      object.components.update<gneiss::engine::mesh_renderer_description>(
-          [&](auto& value) { value.mesh_uri = missing_mesh_uri; });
+      if (object.components
+              .update<gneiss::engine::mesh_renderer_description>(
+                  [&](auto& value) { value.mesh_uri = missing_mesh_uri; })
+              .failed())
+        return 26;
   auto frozen_missing = gneiss::engine::capture_scene_record(*missing_description);
   if (!frozen_missing)
     return 26;

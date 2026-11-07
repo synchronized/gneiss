@@ -121,6 +121,33 @@ int main() try {
       return result.failed() ? result : e::error::invalid_argument;
     });
     check(!failed && shared->amount == 1);
+    e::component_descriptions collection{original};
+    auto copied = collection;
+    check(
+        copied.update<reference_description>([](auto& value) { value.settings->amount = 7; }).ok());
+    check(shared->amount == 1 && copied.get<reference_description>()->settings->amount == 7);
+    const auto accepted = *copied.begin();
+    check(copied.update<reference_description>([](auto& value) -> e::error {
+      value.settings->amount = 12;
+      return e::error::cancelled;
+    }) == e::error::cancelled);
+    check(*copied.begin() == accepted &&
+          copied.get<reference_description>()->settings->amount == 7);
+    check(copied.update<reference_description>([](auto& value) { value.settings->amount = -1; }) ==
+          e::error::invalid_argument);
+    check(*copied.begin() == accepted && shared->amount == 1);
+    check(copied.update<reference_description>([](auto& value) {
+      value.settings->amount = 3;
+      throw std::runtime_error("edit rejected");
+    }) == e::error::internal);
+    check(*copied.begin() == accepted);
+    auto replacement = e::make_ref<reference_settings>();
+    replacement->amount = 9;
+    check(copied.update<reference_description>([&](auto& value) { value.settings = replacement; })
+              .ok());
+    replacement->amount = 100;
+    check(copied.get<reference_description>()->settings->amount == 9);
+    check(copied.update<e::camera_description>([](auto&) {}) == e::error::not_found);
   }
   std::shared_ptr<gneiss::runtime::application> app;
   check(gneiss::runtime::application::create({}, app).ok());
