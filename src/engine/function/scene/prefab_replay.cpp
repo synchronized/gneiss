@@ -131,4 +131,148 @@ replay_prefab_reference(const prefab_description& source,
 } catch (...) {
   return error::internal;
 }
+namespace {
+error collect_component_overrides(meta::instance source, meta::instance candidate,
+                                  prefab_property_override_key key,
+                                  std::vector<prefab_property_override>& output,
+                                  unsigned depth = 0) {
+  if (depth > 64 || source.type_id() != candidate.type_id())
+    return error::invalid_argument;
+  if (source.kind() == meta::type_kind::object) {
+    auto properties = source.properties();
+    if (!properties)
+      return properties.error();
+    for (const auto& property : *properties) {
+      // 派生运行状态仍可保存，但不因普通组件编辑生成实例属性覆盖。
+      if (!meta::has_flags(property.capabilities, meta::property_capabilities::writable) ||
+          meta::has_flags(property.flags, meta::property_flags::editor_read_only))
+        continue;
+      auto left = source.property(property.id), right = candidate.property(property.id);
+      if (!left)
+        return left.error();
+      if (!right)
+        return right.error();
+      auto next = key;
+      next.path.emplace_back(property.id);
+      auto status = collect_component_overrides(*left, *right, std::move(next), output, depth + 1);
+      if (status.failed())
+        return status;
+    }
+    return error::success;
+  }
+  auto before = serialization::capture_value(source),
+       after = serialization::capture_value(candidate);
+  if (!before)
+    return before.error().error;
+  if (!after)
+    return after.error().error;
+  auto edits = diff_values(*before, *after);
+  if (!edits)
+    return edits.error();
+  for (auto& edit : *edits) {
+    auto target = key;
+    target.path.insert(target.path.end(), edit.path.begin(), edit.path.end());
+    output.push_back({std::move(target), std::move(edit.operation)});
+  }
+  return error::success;
+}
+}
+
+result<prefab_component_edit>
+prepare_prefab_component_edit(const prefab_description& source,
+                              const prefab_reference_description& reference, guid source_node,
+                              const component_description& current,
+                              const component_description& replacement) noexcept try {
+  if (!source_node || !current || !replacement || current->guid() != replacement->guid())
+    return error::invalid_argument;
+  auto object = std::ranges::find(source.objects, source_node, &object_description::uuid);
+  if (object == source.objects.end())
+    return error::not_found;
+  const auto* original = object->components.find(replacement->guid());
+  auto structural = std::ranges::find_if(reference.component_overrides, [&](const auto& entry) {
+    return entry.source_node_uuid == source_node && entry.type_guid == replacement->guid();
+  });
+  // 编辑已有本地组件不改变其增删语义；移除来源组件不能被属性编辑隐式恢复。
+  if (structural != reference.component_overrides.end() && (!structural->added || original))
+    return error::invalid_state;
+  if (!original && structural == reference.component_overrides.end())
+    return error::not_found;
+  if (structural != reference.component_overrides.end() &&
+      (!*structural->added || (*structural->added)->guid() != replacement->guid()))
+    return error::invalid_argument;
+  auto valid = validate_components(component_descriptions{replacement});
+  if (valid.failed())
+    return valid;
+  if (!original) {
+    prefab_component_edit output{reference, {}};
+    const auto index = static_cast<std::size_t>(structural - reference.component_overrides.begin());
+    output.reference.component_overrides[index].added = replacement;
+    auto replayed = replay_prefab_reference(source, output.reference);
+    if (!replayed)
+      return replayed.error();
+    for (const auto& conflict : replayed->conflicts) {
+      const auto& target =
+          conflict.section == prefab_override_section::component
+              ? prefab_property_target{output.reference.component_overrides[conflict.index]
+                                           .source_node_uuid,
+                                       output.reference.component_overrides[conflict.index]
+                                           .type_guid}
+              : output.reference.overrides[conflict.index].key.target;
+      if (target.source_node_uuid == source_node &&
+          component_description_type(target.target_type_guid) == replacement->guid())
+        return conflict.diagnostic.error;
+    }
+    output.conflicts = std::move(replayed->conflicts);
+    return output;
+  }
+  auto prior = replay_prefab_reference(source, reference);
+  if (!prior)
+    return prior.error();
+  auto before = (*original)->view(), after = replacement->view(), current_view = current->view();
+  if (!before)
+    return before.error();
+  if (!after)
+    return after.error();
+  if (!current_view)
+    return current_view.error();
+  std::vector<prefab_property_override> touched;
+  auto status = collect_component_overrides(*current_view, *after, {}, touched);
+  if (status.failed())
+    return status;
+  auto overlaps = [](const auto& left, const auto& right) {
+    const auto length = std::min(left.size(), right.size());
+    return std::equal(left.begin(), left.begin() + length, right.begin());
+  };
+  prefab_component_edit output{reference, {}};
+  auto& pending = output.reference.overrides;
+  pending.clear();
+  for (std::size_t i = 0; i < reference.overrides.size(); ++i) {
+    const auto& old = reference.overrides[i];
+    if (old.key.target.source_node_uuid != source_node ||
+        component_description_type(old.key.target.target_type_guid) != replacement->guid()) {
+      pending.push_back(old);
+      continue;
+    }
+    const bool conflict = std::ranges::any_of(prior->conflicts, [&](const auto& item) {
+      return item.section == prefab_override_section::property && item.index == i;
+    });
+    const bool changed = std::ranges::any_of(
+        touched, [&](const auto& item) { return overlaps(old.key.path, item.key.path); });
+    if (conflict && !changed)
+      pending.push_back(old);
+  }
+  status = collect_component_overrides(
+      *before, *after, {.target = {source_node, replacement->guid()}, .path = {}}, pending);
+  if (status.failed())
+    return status;
+  auto replayed = replay_prefab_reference(source, output.reference);
+  if (!replayed)
+    return replayed.error();
+  output.conflicts = std::move(replayed->conflicts);
+  return output;
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
 }

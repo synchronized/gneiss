@@ -6,6 +6,7 @@
 #include "engine/core/meta/reference_view.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
+#include "engine/function/scene/prefab_replay.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/resource/asset_file.hpp"
@@ -93,6 +94,70 @@ int main() try {
     return value;
   };
   check(e::register_scene_component(ops).ok());
+  // 覆盖候选只依赖领域描述；这里尚未创建 Application 或 World。
+  {
+    e::prefab_description source;
+    source.uuid = e::guid::from_bytes({87, 1});
+    source.root_uuid = e::guid::from_bytes({87, 2});
+    e::object_description object;
+    object.uuid = source.root_uuid;
+    object.components.set(movement_description{});
+    source.objects.push_back(object);
+    e::prefab_reference_description reference;
+    reference.uri = "asset://pure.prefab";
+    const e::prefab_property_override speed{
+        {.target = {object.uuid, movement_description::type_guid}, .path = {p{1}}}, e::value{2.0F}};
+    reference.overrides = {speed, speed};
+    reference.overrides[1].operation = e::value{3.0F};
+    reference.overrides.push_back({{.target = {object.uuid, movement_description::type_guid},
+                                    .path = {p{5}, e::guid::from_bytes({87, 99}), p{2}}},
+                                   e::value{7.0F}});
+    auto replayed = e::replay_prefab_reference(source, reference);
+    check(replayed && replayed->conflicts.size() == 1);
+    const auto current =
+        *replayed->description.objects[0].components.find(movement_description::type_guid);
+    auto next = *current->get<movement_description>();
+    next.speed = 4;
+    auto prepared = e::prepare_prefab_component_edit(source, reference, object.uuid, current,
+                                                     e::make_component_description(next));
+    check(prepared && prepared->reference.overrides.size() == 2 && prepared->conflicts.size() == 1);
+    check(reference.overrides.size() == 3 &&
+          source.objects[0].components.get<movement_description>()->speed == 1);
+    auto new_current = e::make_component_description(next);
+    next.speed = 5;
+    auto second = e::prepare_prefab_component_edit(
+        source, prepared->reference, object.uuid, new_current, e::make_component_description(next));
+    check(second && second->reference.overrides.size() == 2 && second->conflicts.size() == 1);
+    new_current = e::make_component_description(next);
+    next.speed = 1;
+    auto restored = e::prepare_prefab_component_edit(
+        source, second->reference, object.uuid, new_current, e::make_component_description(next));
+    check(restored && restored->reference.overrides.size() == 1 && restored->conflicts.size() == 1);
+    next.speed = -1;
+    auto invalid = e::prepare_prefab_component_edit(source, reference, object.uuid, current,
+                                                    e::make_component_description(next));
+    check(!invalid && invalid.error() == e::error::invalid_argument);
+    auto removed = reference;
+    removed.component_overrides.push_back({object.uuid, movement_description::type_guid, {}});
+    auto rejected =
+        e::prepare_prefab_component_edit(source, removed, object.uuid, current, current);
+    check(!rejected && rejected.error() == e::error::invalid_state);
+    auto local = reference;
+    const auto camera = e::make_component_description(e::camera_description{{1.0F, 0.1F, 100.0F}});
+    local.component_overrides.push_back({object.uuid, e::camera_description::type_guid, camera});
+    const auto changed_camera =
+        e::make_component_description(e::camera_description{{0.8F, 0.2F, 150.0F}});
+    auto local_edit =
+        e::prepare_prefab_component_edit(source, local, object.uuid, camera, changed_camera);
+    check(local_edit && local_edit->reference.component_overrides.size() == 1 &&
+          local_edit->reference.overrides.size() == reference.overrides.size() &&
+          local_edit->conflicts.size() == 1);
+    check((*local_edit->reference.component_overrides[0].added)
+              ->get<e::camera_description>()
+              ->settings.fov == 0.8F);
+    check((*local.component_overrides[0].added)->get<e::camera_description>()->settings.fov ==
+          1.0F);
+  }
   // 候选编辑必须隔离内嵌引用；成功和失败均不得改变旧描述。
   {
     auto shared = e::make_ref<reference_settings>();

@@ -18,4 +18,16 @@ struct prefab_replay_result {
  * 来源和覆盖列表保持不变，系统错误返回失败，不伪装成可恢复冲突。 */
 GNEISS_API result<prefab_replay_result>
 replay_prefab_reference(const prefab_description&, const prefab_reference_description&) noexcept;
+struct prefab_component_edit {
+  prefab_reference_description reference;
+  std::vector<prefab_override_conflict> conflicts;
+};
+/** 计算来源组件或已有本地组件的持久差异，不访问 World、资源服务或历史。
+ * current 用于确定本次触及路径；未触及的冲突保留，恢复来源值移除对应差异。
+ * 本地新增组件更新其整项描述；不新增、删除或恢复组件，输入不变，失败不返回部分候选。
+ */
+GNEISS_API result<prefab_component_edit>
+prepare_prefab_component_edit(const prefab_description&, const prefab_reference_description&,
+                              guid source_node, const component_description& current,
+                              const component_description& replacement) noexcept;
 }

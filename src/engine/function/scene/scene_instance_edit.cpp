@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
-#include "engine/core/serialization/value.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_object.hpp"
@@ -13,52 +12,6 @@
 #include <unordered_set>
 
 namespace gneiss::engine {
-namespace {
-error collect_component_overrides(meta::instance source, meta::instance candidate,
-                                  prefab_property_override_key key,
-                                  std::vector<prefab_property_override>& output,
-                                  unsigned depth = 0) {
-  if (depth > 64 || source.type_id() != candidate.type_id())
-    return error::invalid_argument;
-  if (source.kind() == meta::type_kind::object) {
-    auto properties = source.properties();
-    if (!properties)
-      return properties.error();
-    for (const auto& property : *properties) {
-      // 派生运行状态仍可保存，但不因普通组件编辑生成实例属性覆盖。
-      if (!meta::has_flags(property.capabilities, meta::property_capabilities::writable) ||
-          meta::has_flags(property.flags, meta::property_flags::editor_read_only))
-        continue;
-      auto left = source.property(property.id), right = candidate.property(property.id);
-      if (!left)
-        return left.error();
-      if (!right)
-        return right.error();
-      auto next = key;
-      next.path.emplace_back(property.id);
-      auto status = collect_component_overrides(*left, *right, std::move(next), output, depth + 1);
-      if (status.failed())
-        return status;
-    }
-    return error::success;
-  }
-  auto before = serialization::capture_value(source),
-       after = serialization::capture_value(candidate);
-  if (!before)
-    return before.error().error;
-  if (!after)
-    return after.error().error;
-  auto edits = diff_values(*before, *after);
-  if (!edits)
-    return edits.error();
-  for (auto& edit : *edits) {
-    auto target = key;
-    target.path.insert(target.path.end(), edit.path.begin(), edit.path.end());
-    output.push_back({std::move(target), std::move(edit.operation)});
-  }
-  return error::success;
-}
-}
 result<prefab_component_state> scene_instance::capture_component_override(scene_node_id node,
                                                                           guid type) noexcept try {
   if (!contains_editable_node(node))
@@ -227,68 +180,16 @@ error scene_instance::set_component_description(scene_node_id node,
     for (const auto& member : prefab->nodes_) {
       if (member.node != node)
         continue;
-      const auto* object = prefab->find_source_object(member.address.source_node_uuid);
-      const auto* source = object ? object->components.find(value->guid()) : nullptr;
-      if (!source) {
-        auto state = capture_component_override(node, value->guid());
-        if (!state)
-          return state.error();
-        if (!state->added)
-          return error::not_found;
-        state->added = value;
-        return set_component_override(node, value->guid(), *state);
-      }
-      auto before = (*source)->view(), after = value->view();
-      if (!before)
-        return before.error();
-      if (!after)
-        return after.error();
-      auto current_view = (*components->find(value->guid()))->view();
-      if (!current_view)
-        return current_view.error();
-      std::vector<prefab_property_override> touched;
-      auto changed_status = collect_component_overrides(*current_view, *after, {}, touched);
-      if (changed_status.failed())
-        return changed_status;
-      auto overlaps = [](const auto& left, const auto& right) {
-        const auto length = std::min(left.size(), right.size());
-        return std::equal(left.begin(), left.begin() + length, right.begin());
-      };
-      std::vector<prefab_property_override> pending;
-      for (std::size_t i = 0; i < prefab->reference_.overrides.size(); ++i) {
-        const auto& old = prefab->reference_.overrides[i];
-        if (old.key.target.source_node_uuid != member.address.source_node_uuid ||
-            component_description_type(old.key.target.target_type_guid) != value->guid()) {
-          pending.push_back(old);
-          continue;
-        }
-        const bool conflict = std::ranges::any_of(prefab->conflicts_, [&](const auto& item) {
-          return item.section == prefab_override_section::property && item.index == i;
-        });
-        const bool changed = std::ranges::any_of(
-            touched, [&](const auto& item) { return overlaps(old.key.path, item.key.path); });
-        // 修改其他属性时保留尚未解决的覆盖，不能从有效组件反推并丢弃冲突。
-        if (conflict && !changed)
-          pending.push_back(old);
-      }
-      auto status = collect_component_overrides(
-          *before, *after,
-          {.target = {.source_node_uuid = member.address.source_node_uuid,
-                      .target_type_guid = value->guid()},
-           .path = {}},
-          pending);
+      auto prepared = prepare_prefab_component_edit(*prefab->prefab_, prefab->reference_,
+                                                    member.address.source_node_uuid,
+                                                    *components->find(value->guid()), value);
+      if (!prepared)
+        return prepared.error();
+      auto status = apply();
       if (status.failed())
         return status;
-      auto reference = prefab->reference_;
-      reference.overrides = pending;
-      auto replayed = replay_prefab_reference(*prefab->prefab_, reference);
-      if (!replayed)
-        return replayed.error();
-      status = apply();
-      if (status.failed())
-        return status;
-      prefab->reference_.overrides.swap(pending);
-      prefab->conflicts_ = std::move(replayed->conflicts);
+      prefab->reference_ = std::move(prepared->reference);
+      prefab->conflicts_ = std::move(prepared->conflicts);
       return error::success;
     }
   }
