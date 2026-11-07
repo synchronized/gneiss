@@ -376,7 +376,10 @@ gneiss::engine::error imgui_adapter::submit(runtime::application& application) {
       }
       const auto texture = static_cast<gneiss::engine::rid>(command.GetTexID());
       gneiss::engine::ui_draw_command converted{};
-      converted.texture = application.assets().find_texture(texture);
+      // 当前适配器只登记字体图集；绘制命令直接共享已有资源，不通过 RID 重建引用。
+      if (texture != gneiss::engine::resource_handle(font_texture_))
+        return gneiss::engine::error::unsupported;
+      converted.texture = font_texture_;
       converted.clip_min[0] = command.ClipRect.x - draw_data->DisplayPos.x;
       converted.clip_min[1] = command.ClipRect.y - draw_data->DisplayPos.y;
       converted.clip_max[0] = command.ClipRect.z - draw_data->DisplayPos.x;

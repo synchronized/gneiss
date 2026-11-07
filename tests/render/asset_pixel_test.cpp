@@ -185,7 +185,7 @@ void run_pending_resources() {
   check(gneiss::engine::error{gneiss::test_support::take_value(
             app->scenes()->get_node_info(scene, 1U), info)} == gneiss::engine::error::success);
   check(info.components.get<gneiss::engine::mesh_renderer_description>() != nullptr);
-  const gneiss::engine::mesh_renderer binding{.mesh = resources_factory.find_mesh(mesh),
+  const gneiss::engine::mesh_renderer binding{.mesh = mesh_ref,
                                               .material = material_ref};
   check(gneiss::engine::error{native->native_world()->entity_set_mesh_renderer(
             info.entity, binding)} == gneiss::engine::error::success);

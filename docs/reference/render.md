@@ -19,14 +19,14 @@ false 表示本轮跳过，失败结果表示执行错误。`render_service::sub
 Mesh、Material 和 Texture 的 CPU 内容表由 Application 的 `render_service` 私有实现拥有。
 调用方通过 `application::render()` 使用 RID 接口，不能借用资源表。
 运行身份、元信息与材质依赖由 Application 的 `asset_manager` 维护，通过 `application::assets()` 借用。
-程序化纹理使用 `resources.create_texture(texture_view)`，返回 `result<texture>`；网格与材质使用对应的创建接口。
+程序化纹理使用 `resources.create_texture(texture_view)`，返回 `result<ref<const texture>>`；网格与材质使用对应的创建接口。
 `reserve_mesh/texture/material()` 返回新预留资源的值结果，`create_mesh/texture` 创建有内容的资源，
-`create_material(parameters, textures, material&)` 显式传入纹理强引用。成功输出拥有者，失败输出为空。
+`create_material(parameters, textures)` 显式传入纹理强引用。成功输出拥有者，失败输出为空。
 不存在外部 RID 接管入口；不同管理器不能接管彼此的资源。
-`find_mesh/texture/material(rid)` 只返回本管理器已有对象的引用，未知或已释放对象返回空。
+管理器不提供 RID 到资产对象的反查；上层直接保存创建或加载得到的强引用。
 普通文件加载通过同一个管理器的 URI 缓存复用对象。上层提取的 RID 仅用于借用，不得手动销毁资源拥有的 RID。
 底层 Render 的裸 RID 创建/销毁接口保留，调用方须自行配对，不能混入强引用所有权。
-UI 使用 `assets.find_texture(rid)` 保活已有纹理，不隐式建立资源拥有者。
+ImGui 适配器直接把自身持有的字体纹理引用写入 UI 绘制命令；当前只登记字体图集，未知纹理 ID 返回 unsupported。
 管理器位于 `engine/function/asset/asset_manager.hpp`；批次加载状态、资源工厂及销毁队列属于其私有实现；更新任务不属于对外接口。
 宿主先停止资产加载并销毁管理器，再关闭 Render；资源对象头不声明 Render 服务类型。
 原生 `render_service::create_mesh(mesh_view, ...)` 会在调用

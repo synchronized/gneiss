@@ -655,26 +655,17 @@ result<ref<const engine::mesh>> asset_manager::reserve_mesh() noexcept {
     return error::invalid_state;
   return impl_->reserve_mesh();
 }
-ref<const engine::mesh> asset_manager::find_mesh(rid id) const noexcept {
-  return impl_ ? impl_->find_mesh(id) : ref<const engine::mesh>{};
-}
 
 result<ref<const engine::texture>> asset_manager::reserve_texture() noexcept {
   if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->reserve_texture();
 }
-ref<const engine::texture> asset_manager::find_texture(rid id) const noexcept {
-  return impl_ ? impl_->find_texture(id) : ref<const engine::texture>{};
-}
 
 result<ref<const engine::material>> asset_manager::reserve_material() noexcept {
   if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->reserve_material();
-}
-ref<const engine::material> asset_manager::find_material(rid id) const noexcept {
-  return impl_ ? impl_->find_material(id) : ref<const engine::material>{};
 }
 
 result<ref<const engine::mesh>> asset_manager::create_mesh(const mesh_view& data) noexcept {

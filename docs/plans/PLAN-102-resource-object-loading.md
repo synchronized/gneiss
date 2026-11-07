@@ -253,6 +253,8 @@ render_service 不持有资产对象和 URI 缓存；加载器/接入代码提�
 - [ ] 3. 材质与网格：反射字段、依赖诊断及重载；删除重复描述/装配入口，仅保留必要负载类型。
 - [ ] 4. Scene/Prefab 作为资产接入统一 load；场景准备迁到场景侧，复用相同引用解析，不新建第二个管理器。
 - [ ] 5. 迁移编辑器、导入器、工具、示例和测试；移除旧 request_data、prepare_*、reserve_*、RID 反查及桥接。
+  - [x] 删除 asset_manager 的 find_mesh/find_texture/find_material(RID)；ImGui 字体直接传递已有强引用。
+  - [ ] 私有 asset_construction 的 RID 索引仍用于所有权校验与测试；reserve_* 仍有调用方，继续核查。
 - [ ] 6. 更新现行 Reference，检查旧入口零引用、缓存唯一、跨层依赖，完成整体编译和针对性回归。
 
 同一特性分支持续实施；阶段桥接只作为短期实现，不以两套入口并存作为完成。
@@ -607,3 +609,8 @@ Windows Clang Debug 完整构建、18 项场景/Prefab 结构重载、编辑器�
 改动行格式化及 git diff --check 通过。日志：build/scene-reload-asset-build-final.log、
 build/scene-reload-asset-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
 本步完成 Runtime 重载边界收敛，PLAN-102 整体删除条件仍未全部验收。
+
+2026-11-07：删除 asset_manager 公开 RID 反查入口；ImGui 字体与测试组件直接保存已有资源强引用，
+场景测试通过 URI 查询当前资产。私有 asset_construction 的索引与预留入口未删除。
+Windows Clang Debug 完整编译、9 项 UI/帧保活/加载/场景/头可见性回归通过。
+未运行 GPU 冒烟、像素测试、大场景或远端 CI；相关测试目标已编译。

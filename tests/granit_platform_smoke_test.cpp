@@ -154,11 +154,8 @@ int main() {
   entity_id camera_entity{}, mesh_entity{}, plain_mesh_entity{};
   scene_node_id camera_node{}, mesh_node{}, plain_mesh_node{};
   const native::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  native::mesh_renderer mesh_renderer{.mesh = resources_factory.find_mesh(mesh),
-                                      .material = resources_factory.find_material(material)};
-  native::mesh_renderer plain_mesh_renderer{.mesh = resources_factory.find_mesh(mesh),
-                                            .material =
-                                                resources_factory.find_material(plain_material)};
+  native::mesh_renderer mesh_renderer{.mesh = mesh_owner, .material = material_owner};
+  native::mesh_renderer plain_mesh_renderer{.mesh = mesh_owner, .material = plain_material_owner};
   native::math::transform camera_transform;
   camera_transform.translation[2] = 2.0F;
   native::math::transform near_transform;
@@ -194,7 +191,7 @@ int main() {
   }
   replacement_mesh = resource_handle(mesh_owner);
   mesh_renderer.mesh = mesh_owner;
-  plain_mesh_renderer.mesh = resources_factory.find_mesh(replacement_mesh);
+  plain_mesh_renderer.mesh = mesh_owner;
   if (world.entity_set_mesh_renderer(mesh_entity, mesh_renderer).failed() ||
       world.entity_set_mesh_renderer(plain_mesh_entity, plain_mesh_renderer).failed()) {
     return 6;

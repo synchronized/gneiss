@@ -58,10 +58,6 @@ public:
   GNEISS_API result<ref<const engine::texture>> reserve_texture() noexcept;
   GNEISS_API result<ref<const engine::mesh>> reserve_mesh() noexcept;
   GNEISS_API result<ref<const engine::material>> reserve_material() noexcept;
-  /** 仅锁定本管理器已创建的对象；未知或已释放 RID 返回空。 */
-  GNEISS_API ref<const engine::texture> find_texture(rid) const noexcept;
-  GNEISS_API ref<const engine::mesh> find_mesh(rid) const noexcept;
-  GNEISS_API ref<const engine::material> find_material(rid) const noexcept;
   /** 单资源异步加载；默认复用缓存，同身份的在途请求共享工作（包括 reload）。
    * 输入在返回前复制；提交失败返回错误。每项独立完成，不等待 GPU。 */
   GNEISS_API result<asset_request<render_resource_ref>> load(const render_resource_source&,

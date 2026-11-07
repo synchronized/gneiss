@@ -271,7 +271,6 @@ void run() {
   }
   auto material =
       gneiss::engine::resource_cast<gneiss::engine::material>(bindings.at("asset://m.material"));
-  const auto mesh_rid = gneiss::engine::resource_rid(bindings.at("asset://m.mesh"));
   check(material &&
         gneiss::engine::resource_rid(material) != gneiss::engine::resource_rid(old_material));
   check(resources.get_material(gneiss::engine::resource_rid(material))->parameters.color[1] ==
@@ -438,9 +437,12 @@ void run() {
                                          ordinary) == gneiss::engine::error::success);
   check(gneiss::test_support::prefab_node_info(*candidate->scenes(), new_scene, 0U, prefab_node) ==
         gneiss::engine::error::success);
+  gneiss::engine::ref<const gneiss::engine::mesh> current_mesh;
+  check(gneiss::test_support::take_value(
+            candidate_render.find_loaded<gneiss::engine::mesh>("asset://m.mesh"), current_mesh)
+            .ok());
   const gneiss::engine::mesh_renderer expected{
-      .mesh = candidate_render.find_mesh(mesh_rid),
-      .material = candidate_render.find_material(selected_material)};
+      .mesh = current_mesh, .material = next_version.as<gneiss::engine::material>()};
   const std::array unchanged{gneiss::engine::mesh_renderer_replacement{
       .entity = ordinary.entity, .expected = expected, .replacement = expected}};
   const auto edit_reads = files->reads;
@@ -464,9 +466,8 @@ void run() {
   check(candidate->scenes()->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
                                                "asset://other.material") ==
         gneiss::engine::error::success);
-  const gneiss::engine::mesh_renderer edited{.mesh = candidate_render.find_mesh(mesh_rid),
-                                             .material =
-                                                 edited_material.as<gneiss::engine::material>()};
+  const gneiss::engine::mesh_renderer edited{
+      .mesh = current_mesh, .material = edited_material.as<gneiss::engine::material>()};
   const std::array material_only{gneiss::engine::mesh_renderer_replacement{
       .entity = ordinary.entity, .expected = edited, .replacement = edited}};
   check(candidate->native_world()->replace_mesh_renderers(material_only) ==
