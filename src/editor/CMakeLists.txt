@@ -130,6 +130,8 @@ add_library(
   documents/scene_document_edit.hpp
   documents/scene_document_snapshot.cpp
   documents/scene_document_snapshot.hpp
+  documents/scene_document_versions.cpp
+  documents/scene_document_versions.hpp
   viewport/transform_gizmo_drag.cpp
   viewport/transform_gizmo_drag.hpp
 )
