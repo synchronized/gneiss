@@ -100,6 +100,13 @@ public:
     const auto frozen = meta::is_frozen();
     return domain_ != 0U && frozen && *frozen;
   }
+  /** 同步应用已加载资产，预留视觉身份并返回后续加载清单；不读取文件或等待 GPU。 */
+  [[nodiscard]] GNEISS_API result<std::vector<render_resource_source>, scene_diagnostic>
+  reload(scene_instance_id instance, ref<const scene> source,
+         std::size_t source_bytes = 0) noexcept;
+  [[nodiscard]] GNEISS_API result<std::vector<render_resource_source>, scene_diagnostic>
+  reload(scene_instance_id instance, ref<const prefab> source,
+         std::size_t source_bytes = 0) noexcept;
   /** 应用已经加载的描述；只要求渲染资源身份有效，不等待内容加载；保持现有节点身份。 */
   [[nodiscard]] GNEISS_API error reload_loaded(scene_instance_id instance,
                                                scene_description description) noexcept;

@@ -136,7 +136,7 @@ Scene Loader 在 CPU 解码后通过 `resolve_dependencies` 于所属线程非�
 
 Runtime 与编辑器直接使用 `load<scene>` / `load<prefab>`。Runtime 打开场景时调用
 `scene_instances::instantiate(scene_ref)`，在所属线程同步整理结构、预留视觉引用并创建节点。
-编辑器和重载路径仍可通过 `make_instantiation_data` 获取独立内存数据。
+编辑器仍可通过 `make_instantiation_data` 获取独立内存数据；Runtime 重载直接传入资产引用。
 资产管理器没有场景准备队列；不再提供 `prepare_scene/prepare_prefab` 或
 `asset_request<scene_instantiation_data>`。纯内存编辑继续使用 `prepare_loaded_scene`，不读取文件。
 
@@ -176,6 +176,11 @@ Runtime 不再保存排序结果、资源绑定表或跨帧预留游标。预留
 捕获和已持有独立数据的调用；Prefab 插入/刷新仍使用已有描述与绑定入口。
 同步步骤不等待视觉资源或 GPU、不驱动文件或任务队列，也没有单独的取消协议；
 取消发生在资产请求或上层编辑操作边界。结构数据不建立第二份 URI 缓存。
+
+`scene_instances::reload(instance, scene_ref/prefab_ref, source_bytes)` 同步检查结构、预留
+视觉资源身份并应用已加载内容，成功返回后续视觉加载清单。临时强引用只保留到采用结束，
+实例自身持有需要的资源；不读取文件、不等待 GPU。Runtime 重载状态仅保存类型化资产请求、
+目标实例及结果，不再保存准备数据或临时资源数组。纯内存编辑保留描述重载入口。
 
 Runtime 的 `scene_service` 保留活动场景、同步实例化、激活、退场和视觉加载进度。
 编辑器直接持有普通 Prefab 资产请求，不再经过 Runtime 的专用准备包装。

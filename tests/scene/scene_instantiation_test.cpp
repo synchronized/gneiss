@@ -214,6 +214,20 @@ void run() {
   check(active->scenes()->unload(second_instance->instance).ok());
   check(active->scenes()->get_node_count(old_scene).ok());
   check(active->scenes()->instantiate({}).error().error == engine::error::invalid_argument);
+  auto scene_reloaded = active->scenes()->reload(old_scene, initial.source_asset);
+  check(bool(scene_reloaded) && scene_reloaded->size() == initial.assets.size());
+  check(files->reads == reads_before_instantiation);
+  check(active->scenes()->reload({}, initial.source_asset).error().error ==
+        engine::error::invalid_handle);
+  check(active->scenes()->reload(old_scene, engine::ref<const engine::scene>{}).error().error ==
+        engine::error::invalid_argument);
+  engine::error foreign_reload;
+  std::thread foreign_thread([&] {
+    auto result = active->scenes()->reload(old_scene, initial.source_asset);
+    foreign_reload = result ? engine::error::success : result.error().error;
+  });
+  foreign_thread.join();
+  check(foreign_reload == engine::error::invalid_state);
   initial_bindings.clear();
   gneiss::engine::scene_node_info old_info;
   check(gneiss::test_support::take_value(active->scenes()->get_node_info(old_scene, 0U),
@@ -292,6 +306,11 @@ void run() {
             candidate->scenes()->instantiate_prepared(std::move(prepared), bindings), new_scene) ==
         gneiss::engine::error::success);
   check(new_scene != gneiss::scene_instance_id{});
+  auto prefab_reloaded = candidate->scenes()->reload(new_scene, expected_prefab_asset);
+  check(bool(prefab_reloaded) && !prefab_reloaded->empty());
+  check(files->reads == reads);
+  check(candidate->scenes()->reload(new_scene, engine::ref<const engine::prefab>{}).error().error ==
+        engine::error::invalid_argument);
   {
     auto captured = candidate->scenes()->capture_prepared(new_scene);
     check(bool(captured));

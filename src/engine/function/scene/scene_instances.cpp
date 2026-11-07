@@ -7,6 +7,7 @@
 #include <atomic>
 #include <limits>
 #include <new>
+#include <type_traits>
 #include <utility>
 
 namespace gneiss::engine {
@@ -80,6 +81,62 @@ scene_instances::scene_instances(world& native_world, asset_manager& loader) noe
       instances_(domain_) {}
 
 scene_instances::~scene_instances() noexcept = default;
+
+namespace {
+template <class T>
+result<std::vector<render_resource_source>, scene_diagnostic>
+reload_asset(scene_instances& scenes, asset_manager& assets, scene_instance_id instance,
+             ref<const T> source, std::size_t source_bytes) {
+  auto valid = scenes.get_node_count(instance);
+  if (!valid)
+    return scene_diagnostic{valid.error(), 0, {}, {}};
+  auto prepared = make_instantiation_data(source, source_bytes);
+  if (!prepared)
+    return std::move(prepared).error();
+  // 底层重载通过统一索引取得引用；采用结束前保活预留身份，不等待视觉内容。
+  std::vector<render_resource_ref> retained;
+  retained.reserve(prepared->assets.size());
+  for (const auto& request : prepared->assets) {
+    auto resource = assets.reserve_resource(request);
+    if (!resource)
+      return scene_diagnostic{resource.error(), 0, request.uri, "无法预留重载资源引用"};
+    retained.push_back(std::move(*resource));
+  }
+  scene_diagnostic diagnostic;
+  if constexpr (std::is_same_v<T, scene>) {
+    diagnostic.error = scenes.reload_loaded(instance, std::move(prepared->description));
+  } else {
+    diagnostic.error = scenes.reload_prefab_loaded(
+        instance, source->source().uri, prepared->prefabs.at(source->source().uri).resource,
+        &diagnostic);
+  }
+  if (diagnostic.error.failed())
+    return diagnostic;
+  return std::move(prepared->assets);
+}
+}
+result<std::vector<render_resource_source>, scene_diagnostic>
+scene_instances::reload(scene_instance_id instance, ref<const scene> source,
+                        std::size_t source_bytes) noexcept try {
+  if (!native_world_.is_owner_thread())
+    return scene_diagnostic{error::invalid_state, 0, {}, {}};
+  return reload_asset(*this, loader_, instance, std::move(source), source_bytes);
+} catch (const std::bad_alloc&) {
+  return scene_diagnostic{error::out_of_memory, 0, {}, {}};
+} catch (...) {
+  return scene_diagnostic{error::internal, 0, {}, {}};
+}
+result<std::vector<render_resource_source>, scene_diagnostic>
+scene_instances::reload(scene_instance_id instance, ref<const prefab> source,
+                        std::size_t source_bytes) noexcept try {
+  if (!native_world_.is_owner_thread())
+    return scene_diagnostic{error::invalid_state, 0, {}, {}};
+  return reload_asset(*this, loader_, instance, std::move(source), source_bytes);
+} catch (const std::bad_alloc&) {
+  return scene_diagnostic{error::out_of_memory, 0, {}, {}};
+} catch (...) {
+  return scene_diagnostic{error::internal, 0, {}, {}};
+}
 
 engine::error scene_instances::reload_loaded(scene_instance_id instance,
                                              scene_description description) noexcept try {

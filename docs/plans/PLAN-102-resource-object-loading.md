@@ -595,3 +595,15 @@ build/prefab-source-snapshot-identity-tests.log（不入库）。未运行 GPU �
 
 本步收敛编辑器快照边界，不改变 Prefab 逐实例应用和撤销语义；底层实例化仍有独立描述及
 绑定入口，纯内存编辑也仍需这些入口。PLAN-102 的其他删除条件尚未全部验收。
+
+
+2026-11-07：Runtime 的 Scene/Prefab 重载统一调用 scene_instances::reload(instance, asset_ref)。
+同步结构整理、视觉身份预留和实例采用收进场景层，成功返回视觉加载清单；Runtime 删除
+重复 URI/类型标记、scene_instantiation_data 和临时资源引用数组，只保存请求、实例及结果。
+纯内存编辑继续使用描述入口；不增加文件读取、GPU 等待或额外加载队列。
+
+Windows Clang Debug 完整构建、18 项场景/Prefab 结构重载、编辑器、Runtime 与边界回归通过。
+新增直接重载成功、无额外文件读取、无效实例、空 Scene/Prefab 引用及非所属线程拒绝检查。
+改动行格式化及 git diff --check 通过。日志：build/scene-reload-asset-build-final.log、
+build/scene-reload-asset-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+本步完成 Runtime 重载边界收敛，PLAN-102 整体删除条件仍未全部验收。

@@ -187,8 +187,6 @@ engine::error scene_service::request_reload(scene_instance_id instance, std::str
 
   auto next = std::make_unique<reload_task>();
   next->instance = instance;
-  next->uri = uri;
-  next->prefab = prefab;
   if (prefab) {
     auto loaded = resources_->load<engine::prefab>(uri, true);
     if (!loaded)
@@ -208,39 +206,25 @@ void scene_service::advance_reload() try {
   if (!reload_ || reload_->result != engine::error::not_ready)
     return;
   auto& value = *reload_;
-  auto prepared = std::visit(
-      [](auto& request)
-          -> engine::result<engine::scene_instantiation_data, engine::scene_diagnostic> {
+  auto reloaded = std::visit(
+      [&](auto& request)
+          -> engine::result<std::vector<engine::render_resource_source>, engine::scene_diagnostic> {
         auto loaded = request.take();
         if (!loaded) {
           auto failure = std::move(loaded).error();
           return engine::scene_diagnostic{failure.error, failure.byte_offset,
                                           std::move(failure.path), std::move(failure.message)};
         }
-        return engine::make_instantiation_data(*loaded, request.source_bytes());
+        return scenes()->reload(value.instance, *loaded, request.source_bytes());
       },
       value.descriptions);
-  if (!prepared) {
-    if (prepared.error().error != engine::error::not_ready)
-      value.result = prepared.error().error;
+  if (!reloaded) {
+    if (reloaded.error().error != engine::error::not_ready)
+      value.result = reloaded.error().error;
     return;
   }
-  value.prepared = std::move(*prepared);
-  // 结构仅需要稳定资源身份，不等待视觉内容加载。
-  for (const auto& source : value.prepared.assets) {
-    auto reserved = resources_->reserve_resource(source);
-    if (!reserved) {
-      value.result = reserved.error();
-      return;
-    }
-    value.retained.push_back(std::move(*reserved));
-  }
-  value.result =
-      value.prefab ? scenes()->reload_prefab_loaded(value.instance, value.uri,
-                                                    value.prepared.prefabs.at(value.uri).resource)
-                   : scenes()->reload_loaded(value.instance, std::move(value.prepared.description));
-  if (value.result.ok())
-    visuals_.begin(std::move(value.prepared.assets), 1, 1);
+  value.result = engine::error::success;
+  visuals_.begin(std::move(*reloaded), 1, 1);
 
 } catch (const std::bad_alloc&) {
   if (reload_)
