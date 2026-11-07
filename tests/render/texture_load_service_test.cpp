@@ -464,7 +464,7 @@ void cpu_loading(execution_mode mode) {
   backend->complete(fixture.files.at("cpu_texture"));
   until([&] { return manager.stopped(); });
   gneiss::engine::ref<const gneiss::engine::texture> rejected;
-  check(gneiss::test_support::take_value(manager.reserve_texture(), rejected) ==
+  check(gneiss::test_support::take_value(manager.create_texture(texture_view{}), rejected) ==
             error::invalid_state &&
         !rejected);
   check(manager.configure(scheduler) == error::invalid_state);

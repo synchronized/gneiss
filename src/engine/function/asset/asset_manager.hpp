@@ -55,9 +55,6 @@ public:
   GNEISS_API result<ref<const engine::mesh>> create_mesh(const mesh_view&) noexcept;
   GNEISS_API result<ref<const engine::material>>
   create_material(const material_parameters&, std::array<ref<const engine::texture>, 5>) noexcept;
-  GNEISS_API result<ref<const engine::texture>> reserve_texture() noexcept;
-  GNEISS_API result<ref<const engine::mesh>> reserve_mesh() noexcept;
-  GNEISS_API result<ref<const engine::material>> reserve_material() noexcept;
   /** 单资源异步加载；默认复用缓存，同身份的在途请求共享工作（包括 reload）。
    * 输入在返回前复制；提交失败返回错误。每项独立完成，不等待 GPU。 */
   GNEISS_API result<asset_request<render_resource_ref>> load(const render_resource_source&,

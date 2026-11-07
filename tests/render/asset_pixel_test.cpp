@@ -7,9 +7,10 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
@@ -160,7 +161,8 @@ void run_pending_resources() {
   auto native = app;
   check(native != nullptr);
   auto& resources = native->render();
-  auto& resources_factory = native->assets();
+  // 此用例直接验证后端未就绪身份与后续内容替换，使用内部构建器保留预留阶段。
+  gneiss::engine::detail::asset_construction resources_factory{resources};
   gneiss::engine::ref<const gneiss::engine::mesh> mesh_ref;
   gneiss::engine::ref<const gneiss::engine::texture> texture_ref;
   check(gneiss::test_support::take_value(resources_factory.reserve_mesh(), mesh_ref) ==

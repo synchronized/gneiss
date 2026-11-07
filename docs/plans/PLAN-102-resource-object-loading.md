@@ -254,7 +254,8 @@ render_service 不持有资产对象和 URI 缓存；加载器/接入代码提�
 - [ ] 4. Scene/Prefab 作为资产接入统一 load；场景准备迁到场景侧，复用相同引用解析，不新建第二个管理器。
 - [ ] 5. 迁移编辑器、导入器、工具、示例和测试；移除旧 request_data、prepare_*、reserve_*、RID 反查及桥接。
   - [x] 删除 asset_manager 的 find_mesh/find_texture/find_material(RID)；ImGui 字体直接传递已有强引用。
-  - [ ] 私有 asset_construction 的 RID 索引仍用于所有权校验与测试；reserve_* 仍有调用方，继续核查。
+  - [x] 删除 asset_manager 的匿名 reserve_mesh/texture/material；程序化资产通过 create_* 创建。
+  - [ ] 带来源的 reserve_resource 仍用于引用解析与场景绑定；私有构建器及 Render 的预留是实现能力，不能机械删除。
 - [ ] 6. 更新现行 Reference，检查旧入口零引用、缓存唯一、跨层依赖，完成整体编译和针对性回归。
 
 同一特性分支持续实施；阶段桥接只作为短期实现，不以两套入口并存作为完成。
@@ -614,3 +615,8 @@ build/scene-reload-asset-tests.log（不入库）。未运行 GPU 大场景、�
 场景测试通过 URI 查询当前资产。私有 asset_construction 的索引与预留入口未删除。
 Windows Clang Debug 完整编译、9 项 UI/帧保活/加载/场景/头可见性回归通过。
 未运行 GPU 冒烟、像素测试、大场景或远端 CI；相关测试目标已编译。
+
+2026-11-07：删除 asset_manager 公开匿名 reserve_mesh/texture/material 入口及转发实现。
+普通测试采用 create_*；像素测试直接使用内部构建器，保留未就绪资源的验证场景。
+Windows Clang Debug 完整编译和 9 项资产、纹理、帧保活及头可见性回归通过。
+GPU 像素测试仅编译，未运行；未运行大场景或远端 CI。带来源 reserve_resource 仍待收敛。

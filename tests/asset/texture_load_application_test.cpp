@@ -241,8 +241,13 @@ void run(gneiss::engine::execution_mode mode) {
   const auto world = app->native_world();
   check(app->request_assets(uris, 2U, 7U, request, true) == gneiss::engine::error::success);
   gneiss::engine::mesh_renderer external;
-  check(gneiss::test_support::take_value(app->assets().reserve_mesh(), external.mesh).ok());
-  check(gneiss::test_support::take_value(app->assets().reserve_material(), external.material).ok());
+  const std::array<gneiss::engine::mesh_vertex, 3> vertices{
+      {{.position = {0, 0, 0}}, {.position = {1, 0, 0}}, {.position = {0, 1, 0}}}};
+  gneiss::engine::mesh_view view{};
+  view.vertices = vertices;
+  check(gneiss::test_support::take_value(app->assets().create_mesh(view), external.mesh).ok());
+  check(gneiss::test_support::take_value(app->assets().create_material({}, {}), external.material)
+            .ok());
   check(gneiss::engine::error{app->native_world()->entity_set_mesh_renderer(
             node.entity, external)} == gneiss::engine::error::success);
   wait();

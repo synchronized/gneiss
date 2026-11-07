@@ -650,24 +650,6 @@ result<asset_request<render_resource_ref>> asset_manager::load(const render_reso
   return error::internal;
 }
 
-result<ref<const engine::mesh>> asset_manager::reserve_mesh() noexcept {
-  if (!impl_ || stop_requested())
-    return error::invalid_state;
-  return impl_->reserve_mesh();
-}
-
-result<ref<const engine::texture>> asset_manager::reserve_texture() noexcept {
-  if (!impl_ || stop_requested())
-    return error::invalid_state;
-  return impl_->reserve_texture();
-}
-
-result<ref<const engine::material>> asset_manager::reserve_material() noexcept {
-  if (!impl_ || stop_requested())
-    return error::invalid_state;
-  return impl_->reserve_material();
-}
-
 result<ref<const engine::mesh>> asset_manager::create_mesh(const mesh_view& data) noexcept {
   if (!impl_ || stop_requested())
     return error::invalid_state;

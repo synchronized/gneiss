@@ -20,7 +20,8 @@ Mesh、Material 和 Texture 的 CPU 内容表由 Application 的 `render_service
 调用方通过 `application::render()` 使用 RID 接口，不能借用资源表。
 运行身份、元信息与材质依赖由 Application 的 `asset_manager` 维护，通过 `application::assets()` 借用。
 程序化纹理使用 `resources.create_texture(texture_view)`，返回 `result<ref<const texture>>`；网格与材质使用对应的创建接口。
-`reserve_mesh/texture/material()` 返回新预留资源的值结果，`create_mesh/texture` 创建有内容的资源，
+资产管理器的 `create_mesh/texture` 创建有内容的资源，不公开匿名预留入口；
+加载过程中的身份预留由内部构建器完成，Render 的 RID 预留接口继续保留。
 `create_material(parameters, textures)` 显式传入纹理强引用。成功输出拥有者，失败输出为空。
 不存在外部 RID 接管入口；不同管理器不能接管彼此的资源。
 管理器不提供 RID 到资产对象的反查；上层直接保存创建或加载得到的强引用。

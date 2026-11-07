@@ -28,8 +28,8 @@ Scene、Prefab、Texture、Mesh、Material 资产对象均由同一个 `asset_ma
 所有类型统一使用弱缓存，无缓存策略参数。内置网格/纹理使用专用 Loader，
 不能用单缓冲区 register_decoder 覆盖；其他类型先用注册解码器，否则使用反射解码。
 
-`asset_manager::reserve_mesh/texture/material()` 返回对应资源引用的 result，
-`reserve_resource(source)` 返回 `result<render_resource_ref>`；它们只预留资源身份，不代表内容已加载。
+`asset_manager::reserve_resource(source)` 返回 `result<render_resource_ref>`，
+用于引用解析与场景绑定的带来源身份预留，不代表内容已加载。匿名程序化资源使用 `create_*`。
 `asset_manager::identify(uri, type)` 返回 `result<asset_identity>`，只解析来源身份，不读取资源内容。
 
 ## URI 规则

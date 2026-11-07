@@ -9,18 +9,19 @@
 #include "engine/core/error.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/function/render/render_service.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/asset/asset_reference_context.hpp"
 #include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/function/asset/resource_cache.hpp"
+#include "engine/function/meta_registration.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
 #include "engine/resource/texture/texture_binary.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
+#include "engine/resource/texture/texture_view.hpp"
 
 #include <granit/asset_tools/texture_builder.hpp>
 
@@ -509,7 +510,9 @@ bool verify_reference_serialization(gneiss::engine::asset_manager& assets) {
   auto material_saved = serialization::json::serialize(ctx, *material_value);
   if (!material_saved || *material_saved != material_source)
     return false;
-  auto anonymous = assets.reserve_texture();
+  const std::array<std::uint8_t, 4> pixel{255, 255, 255, 255};
+  auto anonymous =
+      assets.create_texture({.width = 1, .height = 1, .row_stride_bytes = 4, .pixels = pixel});
   if (!anonymous || serialization::json::serialize(ctx, *anonymous))
     return false;
   return true;
