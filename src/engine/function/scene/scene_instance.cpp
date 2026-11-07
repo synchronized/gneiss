@@ -717,6 +717,15 @@ result<scene_node_id> scene_instance::restore_subtree(const scene_subtree_snapsh
       return error::invalid_argument;
     remap.emplace(source.uuid, std::move(target));
   }
+  std::vector<uuid_mapping> identities;
+  for (const auto& [source, target] : remap)
+    identities.push_back({source, target});
+  auto copied = remap_scene_record(snapshot.content, uuid_, identities);
+  if (!copied)
+    return copied.error();
+  auto copied_description = restore_scene_record(*copied);
+  if (!copied_description)
+    return copied_description.error();
   // 临时成员集合只负责本次创建失败的清理，不注册第二个场景实例。
   scene_instance staged(native_world_, loader_);
   staged.uuid_ = uuid_;
@@ -733,10 +742,7 @@ result<scene_node_id> scene_instance::restore_subtree(const scene_subtree_snapsh
   } camera{native_world_, old_camera};
   for (const auto& entry : order.added) {
     const auto& original = subtree.objects[entry.new_index];
-    auto author = original;
-    author.uuid = remap.at(original.uuid);
-    if (author.parent_uuid)
-      author.parent_uuid = remap.at(author.parent_uuid);
+    auto author = copied_description->objects[entry.new_index];
     if (!mappings.empty() && author.components.template get<camera_description>())
       author.components.update<camera_description>([&](auto& value) { value.is_primary = false; });
     const auto asset = snapshot.resources.find(original.uuid);

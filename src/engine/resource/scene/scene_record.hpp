@@ -54,4 +54,17 @@ capture_prefab_record(const prefab_description&) noexcept;
 restore_scene_record(const scene_record&) noexcept;
 [[nodiscard]] GNEISS_API result<prefab_description>
 restore_prefab_record(const prefab_record&) noexcept;
+/** 显式对象身份映射；不用于组件类型、Prefab 来源节点或普通 GUID 字段。 */
+struct uuid_mapping {
+  guid source_uuid;
+  guid target_uuid;
+};
+/** 复制领域内容：完整映射对象/父关系及指向复制对象的引用。
+ * 跨文档引用、子树外引用及资产身份保持原值；映射必须覆盖全部显式对象。
+ * 不创建运行时对象，不修改输入，不为无身份容器生成身份。
+ */
+[[nodiscard]] GNEISS_API result<scene_record>
+remap_scene_record(const scene_record&, guid target_document,
+                   std::span<const uuid_mapping>) noexcept;
+
 }

@@ -4,6 +4,7 @@
 #pragma once
 #include "engine/core/guid.hpp"
 #include "engine/core/math/transform.hpp"
+#include "engine/resource/scene/scene_record.hpp"
 
 #include "engine/function/scene/scene_types.hpp"
 
@@ -35,10 +36,5 @@ struct prefab_creation {
   math::transform local_transform = {};
 };
 
-/** 子树恢复期间借用；UUID 重写规则与唯一性仍由 Scene 校验。 */
-struct uuid_mapping {
-  guid source_uuid;
-  guid target_uuid;
-};
 
 } // namespace gneiss::engine

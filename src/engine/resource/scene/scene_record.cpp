@@ -3,6 +3,8 @@
 #include "engine/resource/scene/scene_record.hpp"
 #include "engine/core/serialization/value.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
+#include <map>
+#include <set>
 namespace gneiss::engine {
 bool component_override_record::operator==(const component_override_record&) const = default;
 bool prefab_reference_record::operator==(const prefab_reference_record& other) const {
@@ -173,4 +175,143 @@ result<prefab_description> restore_prefab_record(const prefab_record& source) no
 } catch (...) {
   return error::internal;
 }
+namespace {
+struct record_remapper {
+  guid source_document;
+  guid target_document;
+  const std::map<guid, guid>& objects;
+  mutable error failure{error::success};
+  value rewrite(const value& source) const {
+    return std::visit(
+        [&](const auto& item) -> value {
+          using T = std::decay_t<decltype(item)>;
+          if constexpr (std::is_same_v<T, object_reference_value>) {
+            auto copied = item;
+            if (item.document == source_document) {
+              if (auto found = objects.find(item.object); found != objects.end()) {
+                copied.document = target_document;
+                copied.object = found->second;
+              }
+            }
+            return value{copied};
+          } else if constexpr (std::is_same_v<T, record_value>) {
+            // 反射捕获的显式引用结构也按类型恢复，避免硬编码字段编号。
+            if (item.get().type == object_reference_value::type_guid) {
+              auto reference = serialization::restore_value<object_reference_value>(value{item});
+              if (!reference) {
+                failure = reference.error().error;
+                return source;
+              }
+              auto changed = rewrite(value{*reference});
+              auto captured =
+                  serialization::capture_value(std::get<object_reference_value>(changed.payload));
+              if (!captured) {
+                failure = captured.error().error;
+                return source;
+              }
+              return std::move(*captured);
+            }
+            auto copied = item.get();
+            for (auto& field : copied.properties)
+              field.content = rewrite(field.content);
+            return value{record_value{copied}};
+          } else if constexpr (std::is_same_v<T, sequence_value>) {
+            auto copied = item.get();
+            for (auto& element : copied.elements)
+              element = rewrite(element);
+            return value{sequence_value{copied}};
+          } else if constexpr (std::is_same_v<T, map_value>) {
+            auto copied = item.get();
+            for (auto& entry : copied.entries) {
+              entry.key = rewrite(entry.key);
+              entry.content = rewrite(entry.content);
+            }
+            return value{map_value{copied}};
+          } else if constexpr (std::is_same_v<T, optional_value>) {
+            auto copied = item.get();
+            if (copied.content)
+              copied.content = rewrite(*copied.content);
+            return value{optional_value{copied}};
+          } else if constexpr (std::is_same_v<T, variant_value>) {
+            auto copied = item.get();
+            copied.content = rewrite(copied.content);
+            return value{variant_value{copied}};
+          } else
+            return value{item};
+        },
+        source.payload);
+  }
+  error component(component_record& component) const {
+    auto status = validate_persistent_value(component.properties);
+    if (status.failed())
+      return status;
+    component.properties = rewrite(component.properties);
+    return failure.failed() ? failure : validate_persistent_value(component.properties);
+  }
+  error operation(value_operation& operation) const {
+    auto status = validate_value_operation(operation);
+    if (status.failed())
+      return status;
+    std::visit(
+        [&](auto& item) {
+          if constexpr (requires { item.content; })
+            item.content = rewrite(item.content);
+          if constexpr (requires { item.key; })
+            item.key = rewrite(item.key);
+        },
+        operation);
+    return failure.failed() ? failure : validate_value_operation(operation);
+  }
+};
+}
+result<scene_record> remap_scene_record(const scene_record& source, guid target_document,
+                                        std::span<const uuid_mapping> mappings) noexcept try {
+  const auto& original = source.get();
+  if (!original.uuid || !target_document || mappings.size() != original.objects.size())
+    return error::invalid_argument;
+  std::map<guid, guid> objects;
+  std::set<guid> targets;
+  for (const auto& entry : mappings)
+    if (!entry.source_uuid || !entry.target_uuid ||
+        !objects.emplace(entry.source_uuid, entry.target_uuid).second ||
+        !targets.insert(entry.target_uuid).second)
+      return error::invalid_argument;
+  std::set<guid> sources;
+  for (const auto& object : original.objects)
+    if (!objects.contains(object.uuid) || !sources.insert(object.uuid).second ||
+        (object.parent && !objects.contains(object.parent)))
+      return error::invalid_argument;
+  auto candidate = original;
+  candidate.uuid = target_document;
+  record_remapper remapper{original.uuid, target_document, objects};
+  for (auto& object : candidate.objects) {
+    object.uuid = objects.at(object.uuid);
+    if (object.parent)
+      object.parent = objects.at(object.parent);
+    for (auto& component : object.components) {
+      auto status = remapper.component(component);
+      if (status.failed())
+        return status;
+    }
+    if (object.prefab) {
+      for (auto& entry : object.prefab->overrides) {
+        auto status = remapper.operation(entry.operation);
+        if (status.failed())
+          return status;
+      }
+      for (auto& entry : object.prefab->components)
+        if (entry.added) {
+          auto status = remapper.component(*entry.added);
+          if (status.failed())
+            return status;
+        }
+    }
+  }
+  return scene_record{candidate};
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+
 }

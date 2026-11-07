@@ -23,6 +23,7 @@ struct reference_settings : e::meta::object_type<reference_settings> {
   static constexpr std::string_view type_name = "reference_settings";
   static constexpr e::guid type_guid = e::guid::from_bytes({84, 20});
   float amount = 1;
+  e::object_reference_value link;
 };
 struct reference_description
     : e::meta::object_type<reference_description, e::component_description_base> {
@@ -36,6 +37,7 @@ e::error register_reference_meta() {
     return status;
   status = e::meta::type_builder<reference_settings>{}
                .property<&reference_settings::amount>(p{1}, "amount")
+               .property<&reference_settings::link>(p{2}, "link")
                .serialization()
                .validate<[](const reference_settings& v) {
                  return v.amount >= 0 ? e::error::success : e::error::invalid_argument;
@@ -438,6 +440,30 @@ int main() try {
     check(conflict_count() == 1 && read().speed == 4);
     check(history.undo().ok() && conflict_count() == 1 && read().speed == 1);
     check(history.redo().ok() && conflict_count() == 1 && read().speed == 4);
+  }
+  // 真实子树复制通过领域重映射修正内嵌引用，撤销恢复仍保持原身份。
+  {
+    gneiss::scene_node_id original_node;
+    check(document.create_node("linked", {}, original_node).ok());
+    auto original_info = document.query_node(original_node);
+    auto scene_data = app->scenes()->capture_description(document.scene_handle());
+    check(original_info && scene_data);
+    reference_description linked;
+    linked.settings->link = {scene_data->uuid, original_info->uuid};
+    check(document.add_component_description(original_node, e::make_component_description(linked))
+              .ok());
+    gneiss::scene_node_id copied_node;
+    check(document.duplicate_subtree(original_node, {}, copied_node).ok());
+    auto copied_info = document.query_node(copied_node);
+    auto copied_components = document.components(copied_node);
+    auto original_components = document.components(original_node);
+    check(copied_info && copied_components && original_components);
+    const auto* copied = copied_components->get<reference_description>();
+    const auto* original = original_components->get<reference_description>();
+    check(copied && original && copied_info->uuid != original_info->uuid);
+    check(copied->settings->link == e::object_reference_value{scene_data->uuid, copied_info->uuid});
+    check(original->settings->link ==
+          e::object_reference_value{scene_data->uuid, original_info->uuid});
   }
   return 0;
 } catch (const std::exception& failure) {
