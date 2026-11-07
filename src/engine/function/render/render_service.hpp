@@ -69,8 +69,7 @@ public:
                       float rotation) noexcept;
   [[nodiscard]] GNEISS_API error shutdown(render_device_stats& stats) noexcept;
   [[nodiscard]] GNEISS_API error finish_frames() noexcept;
-  GNEISS_API void
-  set_completion_notification(std::shared_ptr<progress_notification> notification) noexcept;
+  GNEISS_API void set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept;
   [[nodiscard]] GNEISS_API result<bool>
   prepare_frame_packet_storage(render_frame_packet& packet) noexcept;
   [[nodiscard]] GNEISS_API result<std::uint64_t>

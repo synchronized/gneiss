@@ -44,7 +44,7 @@ int main() try {
   }
   using namespace gneiss::engine;
   task_scheduler scheduler({.mode = execution_mode::cooperative});
-  const auto scope = scheduler.make_scope();
+  const auto scope = scheduler.make_scope(signal);
   task_handle success;
   task_handle failure;
   task_handle cancelled;
@@ -54,14 +54,14 @@ int main() try {
         .state = context.allows_blocking_wait() ? task_state::failed : task_state::succeeded,
     };
   };
-  if (scheduler.submit({.name = "success", .scope = scope, .notification = signal}, good,
-                       success) != submit_result::success ||
+  if (scheduler.submit({.name = "success", .scope = scope}, good, success) !=
+          submit_result::success ||
       scheduler.submit(
-          {.name = "failure", .scope = scope, .notification = signal},
+          {.name = "failure", .scope = scope},
           [](const task_context&) -> task_outcome { throw std::runtime_error("测试"); },
           failure) != submit_result::success ||
-      scheduler.submit({.name = "cancel", .scope = scope, .notification = signal}, good,
-                       cancelled) != submit_result::success ||
+      scheduler.submit({.name = "cancel", .scope = scope}, good, cancelled) !=
+          submit_result::success ||
       !scheduler.cancel(cancelled)) {
     return 4;
   }
@@ -69,25 +69,34 @@ int main() try {
       !signal->wait(before, 0ms)) {
     return 5;
   }
-  // 宿主引用释放后，未消费回执仍持有独立通知对象，不持有宿主本体。
-  std::weak_ptr<gneiss::engine::progress_notification> weak = signal;
+  auto other_signal = std::make_shared<gneiss::runtime::main_loop_wakeup>();
+  const auto other_scope = scheduler.make_scope(other_signal);
+  task_handle other_task;
+  const auto own_generation = signal->snapshot();
+  if (scheduler.submit({.scope = other_scope}, good, other_task) != submit_result::success ||
+      scheduler.run_ready().executed != 1U || other_signal->snapshot() != 1U ||
+      signal->snapshot() != own_generation || !scheduler.close_scope(other_scope))
+    return 11;
+  // 宿主引用释放后，scope 仍持有独立唤醒对象，不持有宿主本体。
+  std::weak_ptr<gneiss::engine::wakeup_signal> weak = signal;
   signal.reset();
   if (weak.expired()) {
     return 6;
   }
   std::vector<task_completion> results;
-  if (scheduler.poll(scope, results) != 3U || !weak.expired() ||
+  if (scheduler.poll(scope, results) != 3U || weak.expired() ||
       results[0].outcome.state != task_state::succeeded ||
       results[1].outcome.state != task_state::failed ||
-      results[2].outcome.state != task_state::cancelled || !scheduler.close_scope(scope)) {
+      results[2].outcome.state != task_state::cancelled || !scheduler.close_scope(scope) ||
+      !weak.expired()) {
     return 7;
   }
   task_scheduler workers({.workers = 1U});
-  const auto worker_scope = workers.make_scope();
   auto worker_signal = std::make_shared<gneiss::runtime::main_loop_wakeup>();
+  const auto worker_scope = workers.make_scope(worker_signal);
   task_handle worker_task;
   if (workers.submit(
-          {.scope = worker_scope, .notification = worker_signal},
+          {.scope = worker_scope},
           [](const task_context& context) {
             return task_outcome{
                 .state =
@@ -104,6 +113,27 @@ int main() try {
       !workers.close_scope(worker_scope)) {
     return 10;
   }
+  // 任务已运行时撤销宿主引用；关闭等待迟到完成，信号不得引用宿主内存。
+  auto late_signal = std::make_shared<gneiss::runtime::main_loop_wakeup>();
+  std::weak_ptr<wakeup_signal> late_weak = late_signal;
+  const auto late_scope = workers.make_scope(late_signal);
+  std::barrier late_barrier(2);
+  task_handle late_task;
+  if (workers.submit(
+          {.scope = late_scope},
+          [&](const task_context&) {
+            late_barrier.arrive_and_wait();
+            late_barrier.arrive_and_wait();
+            return task_outcome{.state = task_state::succeeded};
+          },
+          late_task) != submit_result::success)
+    return 12;
+  late_barrier.arrive_and_wait();
+  late_signal.reset();
+  const bool retained = !late_weak.expired();
+  late_barrier.arrive_and_wait();
+  if (!workers.close_scope(late_scope) || !retained || !late_weak.expired())
+    return 13;
   return 0;
 } catch (...) {
   return 8;

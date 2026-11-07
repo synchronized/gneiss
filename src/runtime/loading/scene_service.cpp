@@ -32,14 +32,11 @@ gneiss::engine::error scene_service::initialize(gneiss::engine::asset_manager& r
   return gneiss::engine::error::success;
 }
 
-gneiss::engine::error
-scene_service::configure(gneiss::engine::render_service& renderer,
-                         std::shared_ptr<gneiss::engine::progress_notification> notification) {
+gneiss::engine::error scene_service::configure(gneiss::engine::render_service& renderer) {
   if (loading_ || !active_ || stopping_) {
     return gneiss::engine::error::invalid_state;
   }
   renderer_ = &renderer;
-  notification_ = std::move(notification);
   loading_ = std::make_unique<resource_load_group>(*resources_);
   return gneiss::engine::error::success;
 }

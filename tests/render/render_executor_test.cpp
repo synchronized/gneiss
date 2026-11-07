@@ -343,7 +343,7 @@ int main() {
     return 21;
   }
   auto signal = std::make_shared<gneiss::runtime::main_loop_wakeup>();
-  required_executor.set_completion_notification(signal);
+  required_executor.set_completion_wakeup(signal);
   const auto observed = signal->snapshot();
   std::uint64_t notified_sequence{};
   if (gneiss::test_support::assign_value(required_executor.submit_command([](const auto&) {

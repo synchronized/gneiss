@@ -40,10 +40,6 @@ gneiss::engine::error load_cached(
   output = std::move(loaded->resource);
   return gneiss::engine::error::success;
 }
-struct counting_notification final : gneiss::engine::progress_notification {
-  int count{};
-  void notify() noexcept override { ++count; }
-};
 int main() try {
   {
     using namespace gneiss::engine;
@@ -86,26 +82,22 @@ int main() try {
     using namespace gneiss::engine;
     auto record = std::make_shared<detail::asset_entry>();
     auto operation = std::make_shared<detail::load_operation>();
-    auto notification = std::make_shared<counting_notification>();
     operation->entry = record;
-    operation->notification = notification;
     record->loading = operation;
-    if (operation->complete(error::not_ready) || notification->count || !operation->is_current())
+    if (operation->complete(error::not_ready) || !operation->is_current())
       return 28;
     auto value = std::make_shared<const int>(42);
     if (!operation->complete(error::success, {}, value, 16) || record->loading ||
-        notification->count != 1 || operation->observer->value != value ||
-        operation->observer->source_bytes != 16 ||
+        operation->observer->value != value || operation->observer->source_bytes != 16 ||
         operation->observer->diagnostic.error != error::success)
       return 29;
     operation->stop();
-    if (operation->complete(error::io) || notification->count != 1 ||
-        operation->observer->status != error::success || operation->observer->value != value)
+    if (operation->complete(error::io) || operation->observer->status != error::success ||
+        operation->observer->value != value)
       return 30;
     auto stopped = std::make_shared<detail::load_operation>();
-    stopped->notification = notification;
     stopped->stop();
-    if (stopped->complete(error::success, {}, value) || notification->count != 2 ||
+    if (stopped->complete(error::success, {}, value) ||
         stopped->observer->status != error::invalid_state || stopped->observer->value)
       return 31;
   }

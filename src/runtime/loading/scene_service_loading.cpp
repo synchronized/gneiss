@@ -66,7 +66,6 @@ void scene_service::stop_load() noexcept {
   pending_.reset();
   completed_.reset();
   renderer_ = nullptr;
-  notification_.reset();
 }
 void scene_service::check_owner() const {
   if (std::this_thread::get_id() != owner_) {
@@ -178,8 +177,6 @@ void scene_service::advance_load() {
   if (!pending_) {
     return;
   }
-  const auto previous_phase = pending_->result.progress.phase;
-  const auto previous_completed = pending_->result.progress.completed;
   const auto start = clock_type::now();
   try {
     advance_load_impl();
@@ -187,10 +184,6 @@ void scene_service::advance_load() {
     finish(gneiss::engine::error::out_of_memory, scene_load_phase::failed);
   } catch (...) {
     finish(gneiss::engine::error::internal, scene_load_phase::failed);
-  }
-  if (notification_ && (!pending_ || pending_->result.progress.phase != previous_phase ||
-                        pending_->result.progress.completed != previous_completed)) {
-    notification_->notify();
   }
   auto* result = pending_ ? &pending_->result : completed_ ? &*completed_ : nullptr;
   if (result != nullptr) {

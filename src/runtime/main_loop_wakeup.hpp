@@ -5,7 +5,7 @@
 
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
-#include "engine/core/progress_notification.hpp"
+#include "engine/core/wakeup_signal.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -17,7 +17,7 @@ namespace gneiss::runtime {
 
 /** 原生宿主的有限等待；代次在处理队列前读取，避免检查与入睡之间丢通知。
  * 不在 Web/无线程宿主实例化；超时是请求期限，不是系统调度的实时保证。 */
-class main_loop_wakeup final : public gneiss::engine::progress_notification {
+class main_loop_wakeup final : public gneiss::engine::wakeup_signal {
 public:
   [[nodiscard]] std::uint64_t snapshot() const noexcept {
     return generation_.load(std::memory_order_acquire);

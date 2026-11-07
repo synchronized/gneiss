@@ -9,7 +9,7 @@ endif()
 include("${CMAKE_CURRENT_SOURCE_DIR}/../../../../cmake/internal_headers.cmake")
 gneiss_internal_headers(gneiss_task_interface "${CMAKE_CURRENT_SOURCE_DIR}/../../.."
   engine/core/tasks/task_scheduler.hpp
-  engine/core/progress_notification.hpp)
+  engine/core/wakeup_signal.hpp)
 target_link_libraries(gneiss_tasks PUBLIC gneiss_task_interface)
 target_include_directories(gneiss_tasks PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
 target_compile_features(gneiss_tasks PUBLIC cxx_std_20)

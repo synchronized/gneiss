@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/core/progress_notification.hpp"
+#include "engine/core/wakeup_signal.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -66,7 +66,6 @@ struct task_description {
   std::vector<task_handle> prerequisites{};
   task_priority priority{task_priority::background};
   std::chrono::steady_clock::time_point not_before{};
-  std::shared_ptr<progress_notification> notification{};
   // 仅借用到 submit 返回；调度器不得将此指针留给任务或后台线程。
   task_submission_timings* submission_timings{};
 };
@@ -115,7 +114,8 @@ public:
   virtual ~task_executor() = default;
   /** 未声明线程能力的自定义执行器默认按协作模式处理。 */
   [[nodiscard]] virtual execution_mode mode() const noexcept { return execution_mode::cooperative; }
-  [[nodiscard]] virtual task_scope make_scope() = 0;
+  /** 创建独立任务域；先发布终态再唤醒，信号保活至域关闭，不持有宿主。 */
+  [[nodiscard]] virtual task_scope make_scope(std::shared_ptr<wakeup_signal> wakeup = {}) = 0;
   [[nodiscard]] virtual submit_result submit(task_description description, task_function function,
                                              task_handle& output) = 0;
   [[nodiscard]] virtual bool cancel(task_handle task) = 0;
@@ -136,7 +136,7 @@ public:
   ~task_scheduler() override;
   task_scheduler(const task_scheduler&) = delete;
   task_scheduler& operator=(const task_scheduler&) = delete;
-  [[nodiscard]] task_scope make_scope() override;
+  [[nodiscard]] task_scope make_scope(std::shared_ptr<wakeup_signal> wakeup = {}) override;
   [[nodiscard]] serial_queue make_serial_queue(task_scope scope);
   [[nodiscard]] submit_result submit(task_description description, task_function function,
                                      task_handle& output) override;

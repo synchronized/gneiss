@@ -4,8 +4,8 @@
 #ifndef GNEISS_RENDER_RENDER_EXECUTOR_HPP_
 #define GNEISS_RENDER_RENDER_EXECUTOR_HPP_
 
-#include "engine/core/progress_notification.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/wakeup_signal.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_statistics.hpp"
 
@@ -127,7 +127,7 @@ public:
   [[nodiscard]] std::optional<render_command_status> query_command_status() const noexcept;
   [[nodiscard]] render_queue_stats query_stats() const noexcept;
   void record_skipped_frame_build() noexcept;
-  void set_completion_notification(std::shared_ptr<progress_notification> notification) noexcept;
+  void set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept;
   [[nodiscard]] error flush() noexcept;
   void stop() noexcept;
   [[nodiscard]] bool is_running() const noexcept;

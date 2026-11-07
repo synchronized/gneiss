@@ -266,6 +266,18 @@ void decoder_selection() {
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == error::success, "decoder mount");
   source->json = true;
+  const auto adopted_scope = executor.make_scope();
+  {
+    asset_manager scoped(gneiss::test_support::test_files(files));
+    task_scheduler foreign({.mode = execution_mode::cooperative});
+    const auto foreign_scope = foreign.make_scope();
+    check(scoped.configure(executor, {}, foreign_scope) == error::invalid_argument,
+          "foreign scope is rejected without ownership transfer");
+    check(foreign.close_scope(foreign_scope), "caller retains rejected scope");
+    check(scoped.configure(executor, {}, adopted_scope).ok(), "adopt independent scope");
+    check(scoped.configure(executor).ok(), "adopted configuration is idempotent");
+  }
+  check(!executor.idle(adopted_scope), "manager destruction closes adopted scope");
   asset_manager reflected(gneiss::test_support::test_files(files));
   asset_ref<const value> output;
   check(gneiss::test_support::load_asset(reflected, "asset://value", output, true) ==

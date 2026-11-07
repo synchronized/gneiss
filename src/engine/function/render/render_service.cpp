@@ -59,8 +59,8 @@ public:
   error request_environment(std::shared_ptr<const std::vector<std::byte>>, float, float) noexcept;
   [[nodiscard]] engine::error shutdown(granit::renderer_resource_stats& stats) noexcept;
   [[nodiscard]] engine::error finish_frames() noexcept;
-  void set_completion_notification(std::shared_ptr<progress_notification> notification) noexcept {
-    executor_.set_completion_notification(std::move(notification));
+  void set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept {
+    executor_.set_completion_wakeup(std::move(notification));
   }
   [[nodiscard]] result<bool> prepare_frame_packet_storage(render_frame_packet& packet) noexcept;
   [[nodiscard]] result<std::uint64_t>
@@ -1660,9 +1660,8 @@ error render_service::shutdown(render_device_stats& stats) noexcept {
   return status;
 }
 error render_service::finish_frames() noexcept { return impl_->finish_frames(); }
-void render_service::set_completion_notification(
-    std::shared_ptr<progress_notification> notification) noexcept {
-  impl_->set_completion_notification(std::move(notification));
+void render_service::set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept {
+  impl_->set_completion_wakeup(std::move(notification));
 }
 result<bool> render_service::prepare_frame_packet_storage(render_frame_packet& packet) noexcept {
   return impl_->prepare_frame_packet_storage(packet);

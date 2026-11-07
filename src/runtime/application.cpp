@@ -53,7 +53,7 @@ namespace gneiss::runtime {
 struct application::storage {
   explicit storage(const runtime::application_configuration& config)
       : config_(config), owner_thread_(std::this_thread::get_id()) {}
-  std::shared_ptr<gneiss::engine::progress_notification> loop_notification_;
+  std::shared_ptr<gneiss::engine::wakeup_signal> loop_wakeup_;
   runtime::application_configuration config_;
   std::unique_ptr<gneiss::engine::render_service> render_service_ =
       std::make_unique<gneiss::engine::render_service>();
@@ -210,13 +210,16 @@ application::attach_task_executor(gneiss::engine::task_executor& executor) noexc
     gneiss::engine::texture_prepare_profile profile;
     if (storage_->window_service_)
       profile = storage_->render_service_->texture_profile();
-    const auto configured =
-        storage_->asset_manager_->configure(executor, profile, storage_->loop_notification_);
-    if (configured.failed())
+    const auto scope = executor.make_scope(storage_->loop_wakeup_);
+    if (!scope.id)
+      return engine::error::invalid_state;
+    const auto configured = storage_->asset_manager_->configure(executor, profile, scope);
+    if (configured.failed()) {
+      (void)executor.close_scope(scope);
       return configured;
+    }
     auto group = std::make_unique<resource_load_group>(*storage_->asset_manager_);
-    const auto attached = storage_->scene_service_.configure(*storage_->render_service_,
-                                                             storage_->loop_notification_);
+    const auto attached = storage_->scene_service_.configure(*storage_->render_service_);
     if (attached.failed())
       return attached;
     storage_->asset_loading_ = std::move(group);
@@ -366,7 +369,7 @@ gneiss::engine::error application::initialize() noexcept {
     }
     try {
 #ifdef GNEISS_NATIVE_LOOP_WAIT
-      storage_->loop_notification_ = std::make_shared<gneiss::runtime::main_loop_wakeup>();
+      storage_->loop_wakeup_ = std::make_shared<gneiss::runtime::main_loop_wakeup>();
 #endif
     } catch (const std::bad_alloc&) {
       storage_->window_service_.reset();
@@ -384,7 +387,7 @@ gneiss::engine::error application::initialize() noexcept {
       storage_->window_service_.reset();
       return render_result;
     }
-    storage_->render_service_->set_completion_notification(storage_->loop_notification_);
+    storage_->render_service_->set_completion_wakeup(storage_->loop_wakeup_);
   }
   if (storage_->config_.callbacks.initialize != nullptr) {
     auto result = gneiss::engine::error::success;
@@ -746,8 +749,8 @@ gneiss::engine::error application::render_frame() noexcept {
     window.needs_recreate = true;
   }
   // 成功推进队列后先继续排空本地可做工作，队列繁忙且无进展时才等待。
-  if (submit_result && storage_->loop_notification_) {
-    storage_->loop_notification_->notify();
+  if (submit_result && storage_->loop_wakeup_) {
+    storage_->loop_wakeup_->notify();
   }
   return submit_result ? gneiss::engine::error::success : submit_result.error();
 }
@@ -784,8 +787,7 @@ gneiss::engine::error application::run(std::uint64_t max_frame_count) noexcept t
     GNEISS_PROFILE_SCOPE("application.loop");
     const gneiss::engine::loop_frame frame_trace(trace.get(), storage_->frame_index_, trace_origin);
 #ifdef GNEISS_NATIVE_LOOP_WAIT
-    auto* progress =
-        static_cast<gneiss::runtime::main_loop_wakeup*>(storage_->loop_notification_.get());
+    auto* progress = static_cast<gneiss::runtime::main_loop_wakeup*>(storage_->loop_wakeup_.get());
     const auto observed = progress != nullptr ? progress->snapshot() : 0U;
 #endif
     bool should_close = false;

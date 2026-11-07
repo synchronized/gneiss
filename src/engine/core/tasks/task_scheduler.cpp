@@ -40,7 +40,11 @@ struct task_scheduler::implementation {
   std::uint64_t sequence{1U};
   mutable detail::mutex mutex;
   detail::condition wake;
-  std::map<std::uint64_t, bool> scopes;
+  struct scope_state {
+    bool cancelled{};
+    std::shared_ptr<wakeup_signal> wakeup;
+  };
+  std::map<std::uint64_t, scope_state> scopes;
   std::map<std::uint64_t, lane> lanes;
   std::map<std::uint64_t, std::shared_ptr<task>> tasks;
   scheduler_stats counters;
@@ -79,8 +83,8 @@ struct task_scheduler::implementation {
     }
     // 终态无需保留整条前置链；其他任务已单独持有它所需的终态。
     value.dependencies.clear();
-    if (value.description.notification) {
-      value.description.notification->notify();
+    if (const auto& signal = scopes.at(value.description.scope.id).wakeup) {
+      signal->notify();
     }
     wake.notify_all();
   }
@@ -248,20 +252,20 @@ task_scheduler::~task_scheduler() {
   }
 }
 
-task_scope task_scheduler::make_scope() {
+task_scope task_scheduler::make_scope(std::shared_ptr<wakeup_signal> wakeup) {
   std::scoped_lock lock(impl_->mutex);
   if (impl_->stopping || impl_->scopes.size() >= impl_->options.capacity) {
     return {};
   }
   const auto id = impl_->sequence++;
-  impl_->scopes.emplace(id, false);
+  impl_->scopes.emplace(id, implementation::scope_state{false, std::move(wakeup)});
   return {.owner = impl_->owner, .id = id};
 }
 serial_queue task_scheduler::make_serial_queue(task_scope scope) {
   std::scoped_lock lock(impl_->mutex);
   const auto found = impl_->scopes.find(scope.id);
   if (impl_->stopping || scope.owner != impl_->owner || found == impl_->scopes.end() ||
-      found->second || impl_->lanes.size() >= impl_->options.capacity) {
+      found->second.cancelled || impl_->lanes.size() >= impl_->options.capacity) {
     return {};
   }
   const auto id = impl_->sequence++;
@@ -288,7 +292,7 @@ submit_result task_scheduler::submit(task_description description, task_function
       description.prerequisites.size() > 32U) {
     return reject(submit_result::invalid_argument);
   }
-  if (impl_->stopping || scope->second) {
+  if (impl_->stopping || scope->second.cancelled) {
     return reject(submit_result::stopped);
   }
   if (impl_->tasks.size() >= impl_->options.capacity) {
@@ -342,7 +346,7 @@ void task_scheduler::cancel_scope(task_scope scope) {
   if (scope.owner != impl_->owner || !impl_->scopes.contains(scope.id)) {
     return;
   }
-  impl_->scopes[scope.id] = true;
+  impl_->scopes[scope.id].cancelled = true;
   for (auto& [id, value] : impl_->tasks) {
     (void)id;
     if (value->description.scope.id == scope.id) {

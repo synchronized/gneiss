@@ -107,7 +107,6 @@ struct asset_manager::resource_state {
   std::shared_ptr<engine::files::service> files;
   task_executor* executor{};
   texture_prepare_profile profile{};
-  std::shared_ptr<progress_notification> notification;
   task_scope scope{};
   bool frozen{}, stopped{};
   std::map<type_id, std::shared_ptr<const asset_decoder>> decoders;
@@ -279,26 +278,28 @@ bool asset_manager::loading_configured() const noexcept {
   return resource_state_->executor && !stop_requested();
 }
 error asset_manager::configure(task_executor& executor) noexcept {
-  return configure(executor, resource_state_->profile, resource_state_->notification);
+  return configure(executor, resource_state_->profile, resource_state_->scope);
 }
 error asset_manager::configure(task_executor& executor, texture_prepare_profile profile,
-                               std::shared_ptr<progress_notification> notification) noexcept try {
+                               task_scope scope) noexcept try {
   auto& state = *resource_state_;
   if (state.stopped)
     return error::invalid_state;
   if (state.executor) {
     return state.executor == &executor && state.profile == profile &&
-                   state.notification == notification
+                   (!scope.id || (state.scope.id == scope.id && state.scope.owner == scope.owner))
                ? error::success
                : error::invalid_state;
   }
-  const auto scope = executor.make_scope();
+  if (scope.id && !executor.idle(scope))
+    return error::invalid_argument;
+  if (!scope.id)
+    scope = executor.make_scope();
   if (!scope.id)
     return error::invalid_state;
   state.scope = scope;
   state.executor = &executor;
   state.profile = profile;
-  state.notification = std::move(notification);
   return error::success;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
@@ -413,7 +414,6 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
   }
   // 内部解码由父资产操作持有；不另建身份、弱缓存或在途索引。
   auto work = std::make_shared<resource_state::operation>(std::move(*task));
-  work->notification = state.notification;
   work->entry = entry;
   work->conversion = conversion;
   work->previous = cached ? conversion.to_value(cached->resource) : nullptr;
@@ -612,7 +612,6 @@ result<asset_request<render_resource_ref>> asset_manager::load(const render_reso
     return output;
   }
   auto work = std::make_shared<detail::render_load_operation>();
-  work->notification = resource_state_->notification;
   work->observer = state;
   work->entry = entry;
   switch (source.type) {

@@ -36,9 +36,7 @@ public:
   scene_service& operator=(const scene_service&) = delete;
 
   [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::asset_manager& resources);
-  [[nodiscard]] gneiss::engine::error
-  configure(gneiss::engine::render_service& renderer,
-            std::shared_ptr<gneiss::engine::progress_notification> notification);
+  [[nodiscard]] gneiss::engine::error configure(gneiss::engine::render_service& renderer);
   void advance();
   /** 激活后的视觉资源独立完成，不影响结构激活结果；所属线程消费诊断。 */
   [[nodiscard]] bool take_visual_completion(gneiss::runtime::asset_load_completion& output);
@@ -109,7 +107,6 @@ private:
   void sample_budget(scene_load_progress& value) const;
   void check_owner() const;
   gneiss::engine::render_service* renderer_{};
-  std::shared_ptr<gneiss::engine::progress_notification> notification_;
   std::unique_ptr<load_task> pending_;
   std::optional<scene_load_completion> completed_;
   std::uint64_t sequence_{};

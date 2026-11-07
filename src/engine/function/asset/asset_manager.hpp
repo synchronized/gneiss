@@ -4,6 +4,7 @@
 #define GNEISS_ENGINE_ASSET_MANAGER_HPP_
 
 #include "engine/core/result.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/function/asset/asset_loading.hpp"
 #include "engine/function/asset/asset_request.hpp"
@@ -18,7 +19,6 @@ namespace gneiss::engine {
 class resource_cache;
 class task_executor;
 class render_service;
-class progress_notification;
 struct mesh_view;
 struct texture_view;
 
@@ -38,9 +38,10 @@ class asset_manager final {
 public:
   /** 绑定渲染服务；Render 必须覆盖本服务的运行与关闭阶段。 */
   GNEISS_API error attach_render(render_service& render) noexcept;
-  /** 配置 CPU 加载；首次配置后保留执行器与 profile，停止后拒绝重新装配。 */
+  /** 配置 CPU 加载；scope 须独占且空闲；成功后接管关闭责任。省略时内部创建。
+   * 首次配置后保留执行器与 profile，停止后拒绝重新装配。 */
   GNEISS_API error configure(task_executor& executor, texture_prepare_profile profile,
-                             std::shared_ptr<progress_notification> notification = {}) noexcept;
+                             task_scope scope = {}) noexcept;
   GNEISS_API result<render_resource_ref> reserve_resource(const render_resource_source&) noexcept;
   /** 只查找 CPU 内容已就绪的缓存，不读取文件、不等待 GPU。 */
   GNEISS_API result<render_resource_ref> find_loaded(const render_resource_source&,

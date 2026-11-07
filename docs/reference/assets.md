@@ -234,7 +234,8 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 ## 普通资源读取与解码
 
 统一入口 `asset_manager` 位于 `engine/function/resource`，管理描述与运行资源的一份 URI 弱缓存。
-宿主用 `configure(executor, profile, notification)` 一次配置异步加载；
+宿主用 `configure(executor, profile, scope)` 一次配置异步加载；scope 成功交接后由资产管理器关闭，省略则内部创建。
+宿主在创建 scope 时绑定唤醒信号，资产业务层不转发通知；
 仅需执行器时可用 `configure(executor)`，该重载保留已有 profile 与通知配置。
 相同配置可重复调用；更换执行器、profile 或通知对象返回 invalid_state，不改变已有配置。
 配置和停止请求状态只由管理器私有状态持有，渲染装配不保存配置副本。

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/progress_notification.hpp"
 #include "engine/function/asset/asset_request.hpp"
 #include "engine/function/asset/detail/asset_entry.hpp"
 #include <algorithm>
@@ -42,13 +41,10 @@ struct load_operation {
       observer->status = status;
     }
     detach();
-    if (notification)
-      notification->notify();
     return true;
   }
   /** 不替代具体 I/O、任务或依赖取消；已完成结果不再改写。 */
   void stop() noexcept { (void)complete(error::invalid_state); }
-  std::shared_ptr<progress_notification> notification;
   std::shared_ptr<asset_state> observer{std::make_shared<asset_state>()};
 };
 /** 所属线程推进开始时已有的操作；回调可追加队列，不能移除队列元素。
