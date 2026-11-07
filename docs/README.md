@@ -645,3 +645,6 @@
 
 - [PLAN-104：结构化值、文档版本与 Prefab 覆盖](plans/PLAN-104-value-document-prefab-overrides.md)
 - [ADR-109：不可变文档与操作式覆盖](decisions/ADR-109-value-document-model.md)
+
+- [PLAN-105：Game Object 运行模型与 Prefab 编辑边界](plans/PLAN-105-game-object-runtime-model.md)
+- [ADR-110：统一 Game Object 存储](decisions/ADR-110-game-object-runtime-model.md)

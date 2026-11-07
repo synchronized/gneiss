@@ -7,6 +7,9 @@
 
 2026-11-07：已接受；同日复审后调整领域边界与实施顺序，待分阶段实施。实施状态以 [PLAN-104](../plans/PLAN-104-value-document-prefab-overrides.md) 为准。
 
+组件身份外置包装及运行存储边界的后续调整已由 [ADR-110](ADR-110-game-object-runtime-model.md) 接受；
+迁移状态以 PLAN-105 为准，其余文档版本与历史决策继续有效。
+
 ## 背景
 
 复杂属性覆盖依赖 JSON property_snapshot，组件、子树、文档历史维护不同的复制恢复路径。
