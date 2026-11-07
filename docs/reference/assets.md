@@ -134,8 +134,9 @@ Scene Loader 在 CPU 解码后通过 `resolve_dependencies` 于所属线程非�
 依赖全部成功才登记 Scene 缓存。必要 Prefab 失败返回带依赖 URI 的诊断；最后一个 Scene
 请求观察者消失后，其依赖请求随操作回收，其他观察者不受影响。
 
-Runtime 与编辑器直接使用 `load<scene>` / `load<prefab>`。取得资产后调用
-`make_instantiation_data`，在所属线程同步整理层级、应用覆盖并收集视觉资源清单。
+Runtime 与编辑器直接使用 `load<scene>` / `load<prefab>`。Runtime 打开场景时调用
+`scene_instances::instantiate(scene_ref)`，在所属线程同步整理结构、预留视觉引用并创建节点。
+编辑器和重载路径仍可通过 `make_instantiation_data` 获取独立内存数据。
 资产管理器没有场景准备队列；不再提供 `prepare_scene/prepare_prefab` 或
 `asset_request<scene_instantiation_data>`。纯内存编辑继续使用 `prepare_loaded_scene`，不读取文件。
 
@@ -167,8 +168,12 @@ asset_manager 内部使用任务私有的 CPU 数据请求完成装配，不将�
 
 ## 结构准备与实例化边界
 
-Scene/Prefab 资产加载与实例化分开：`load<T>` 异步取得资产，`make_instantiation_data`
-同步取得独立实例化数据，再由 `scene_instances::instantiate_prepared` 创建 World 节点。
+Scene/Prefab 资产加载与实例化分开：`load<T>` 异步取得资产；Scene 的
+`scene_instances::instantiate(scene_ref, source_bytes)` 同步返回 `scene_instantiation_result`，
+包含实例 ID、节点数量和待加载视觉资源清单。内部只整理一次结构，不另建准备状态。
+Runtime 不再保存排序结果、资源绑定表或跨帧预留游标。预留与实例化同步执行，
+不再对外产生跨帧的 `assets` 阶段；取消边界是加载中和 ready 后。`instantiate_prepared` 仍用于内存编辑、
+捕获和已持有独立数据的调用；Prefab 插入/刷新仍使用已有描述与绑定入口。
 同步步骤不等待视觉资源或 GPU、不驱动文件或任务队列，也没有单独的取消协议；
 取消发生在资产请求或上层编辑操作边界。结构数据不建立第二份 URI 缓存。
 

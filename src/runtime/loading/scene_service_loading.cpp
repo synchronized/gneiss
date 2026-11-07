@@ -27,13 +27,10 @@ double elapsed(clock_type::time_point start) {
 } // namespace
 
 struct scene_service::load_task {
-  engine::scene_instantiation_data description;
   engine::asset_request<engine::scene> description_request;
   scene_load_completion result;
   std::unique_ptr<scene_domain> candidate;
-  gneiss::engine::scene_instances::resource_bindings bindings;
   std::vector<gneiss::engine::render_resource_source> requested;
-  std::size_t cursor{};
   bool cancelled{};
 };
 
@@ -200,79 +197,39 @@ void scene_service::advance_load() {
     result->maximum_advance_ms = std::max(result->maximum_advance_ms, elapsed(start));
   }
 }
-void scene_service::instantiate_loaded(load_task& value) {
-  auto& progress = value.result.progress;
-  progress.phase = scene_load_phase::instantiating;
-  progress.completed = 0U;
-  progress.total = value.description.instance_nodes;
-  const auto built = gneiss::engine::measure(gneiss::engine::loop_stage::scene_build, [&] {
-    return value.candidate->scenes()->instantiate_prepared(std::move(value.description),
-                                                           value.bindings);
-  });
-  if (!built) {
-    finish(built.error(), scene_load_phase::failed);
-    return;
-  }
-  value.result.scene = *built;
-  progress.completed = progress.total;
-  progress.phase = scene_load_phase::ready;
-}
 void scene_service::advance_load_impl() {
   auto& value = *pending_;
   auto& progress = value.result.progress;
+  if (value.cancelled) {
+    finish(engine::error::invalid_state, scene_load_phase::cancelled);
+    return;
+  }
   if (progress.phase == scene_load_phase::preparing) {
-    if (value.cancelled) {
-      finish(engine::error::invalid_state, scene_load_phase::cancelled);
-      return;
-    }
     auto prepared = value.description_request.take();
     if (!prepared) {
       if (prepared.error().error != engine::error::not_ready)
         finish(prepared.error().error, scene_load_phase::failed, prepared.error().message);
       return;
     }
-    const auto prepare_started = clock_type::now();
-    auto data =
-        engine::make_instantiation_data(*prepared, value.description_request.source_bytes());
-    if (!data) {
-      finish(data.error().error, scene_load_phase::failed, data.error().message);
-      return;
-    }
-    value.description = std::move(*data);
-    value.result.prepare_ms = elapsed(prepare_started);
     value.candidate = std::make_unique<scene_domain>();
     const auto initialized = value.candidate->initialize(*resources_);
     if (initialized != gneiss::engine::error::success) {
       finish(initialized, scene_load_phase::failed);
       return;
     }
-    value.requested = std::move(value.description.assets);
-    progress.phase = scene_load_phase::assets;
-    progress.total = value.requested.size();
-    return;
-  }
-  if (value.cancelled) {
-    finish(gneiss::engine::error::invalid_state, scene_load_phase::cancelled);
-    return;
-  }
-  if (progress.phase == scene_load_phase::assets) {
-    if (value.cursor == value.requested.size()) {
-      instantiate_loaded(value);
+    progress.phase = scene_load_phase::instantiating;
+    auto built = engine::measure(engine::loop_stage::scene_build, [&] {
+      return value.candidate->scenes()->instantiate(*prepared,
+                                                    value.description_request.source_bytes());
+    });
+    if (!built) {
+      finish(built.error().error, scene_load_phase::failed, built.error().message);
       return;
     }
-    // 只预留稳定引用；视觉内容不参与结构激活条件。
-    const auto end = std::min(value.cursor + 64U, value.requested.size());
-    for (; value.cursor < end; ++value.cursor) {
-      const auto& source = value.requested[value.cursor];
-      auto reserved = resources_->reserve_resource(source);
-      if (!reserved) {
-        finish(reserved.error(), scene_load_phase::failed, "场景资源引用无效");
-        return;
-      }
-      value.bindings.emplace(source.uri, std::move(*reserved));
-    }
-    progress.completed = value.cursor;
-    return;
+    value.result.scene = built->instance;
+    value.requested = std::move(built->assets);
+    progress.completed = progress.total = built->node_count;
+    progress.phase = scene_load_phase::ready;
   }
 }
 

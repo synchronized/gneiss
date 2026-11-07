@@ -298,9 +298,9 @@ void run(gneiss::engine::execution_mode mode) {
         gneiss::engine::render_service::default_memory_limit);
   check((old_world = app->native_world()) != nullptr && old_world == observed);
 
-  // 描述已准备后不复读来源；当前请求使用自己的 CPU 快照，后续请求才重新读取。
+  // 同步实例化完成后不复读来源；当前实例使用自己的快照，后续请求才重新读取。
   check(app->request_scene(uri, 1U, 3U, request).ok());
-  (void)await_phase(scene_load_phase::assets);
+  (void)await_phase(scene_load_phase::ready);
   std::ofstream(files.root / "scene.json", std::ios::app) << ' ';
   (void)await_phase(scene_load_phase::ready);
   check(app->cancel_scene(request).ok());
@@ -324,8 +324,7 @@ void run(gneiss::engine::execution_mode mode) {
   (void)drive();
   // ready 只完成结构，取消仍必须保留已经激活的 World。
   check((observed = app->native_world()) != nullptr);
-  for (const auto phase :
-       {scene_load_phase::preparing, scene_load_phase::assets, scene_load_phase::ready}) {
+  for (const auto phase : {scene_load_phase::preparing, scene_load_phase::ready}) {
     check(app->request_scene(uri, 1U, 5U, request) == gneiss::engine::error::success);
     if (phase != scene_load_phase::preparing) {
       (void)await_phase(phase);

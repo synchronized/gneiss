@@ -203,9 +203,17 @@ void run() {
               .ok());
     initial_bindings.emplace(std::string(engine::resource_uri(reference)), reference);
   }
-  check(gneiss::test_support::take_value(
-            active->scenes()->instantiate_prepared(std::move(initial), initial_bindings), old_scene)
-            .ok());
+  const auto reads_before_instantiation = files->reads;
+  auto direct = active->scenes()->instantiate(initial.source_asset);
+  check(bool(direct) && direct->node_count == initial.instance_nodes);
+  check(direct->assets.size() == initial.assets.size());
+  check(files->reads == reads_before_instantiation);
+  old_scene = direct->instance;
+  auto second_instance = active->scenes()->instantiate(initial.source_asset);
+  check(bool(second_instance) && second_instance->instance != old_scene);
+  check(active->scenes()->unload(second_instance->instance).ok());
+  check(active->scenes()->get_node_count(old_scene).ok());
+  check(active->scenes()->instantiate({}).error().error == engine::error::invalid_argument);
   initial_bindings.clear();
   gneiss::engine::scene_node_info old_info;
   check(gneiss::test_support::take_value(active->scenes()->get_node_info(old_scene, 0U),

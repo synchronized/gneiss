@@ -118,7 +118,7 @@ gneiss::engine::error preload_scene(const std::shared_ptr<gneiss::runtime::appli
 int main(int argc, char** argv) try {
   if (argc < 3 || argc > 6) {
     std::fprintf(stderr, "用法：scene_load_baseline <资产目录> <输出前缀> [thread|cooperative] "
-                         "[initial|switch|repeat|interact|cancel-prepare|cancel-assets|"
+                         "[initial|switch|repeat|interact|cancel-prepare|"
                          "cancel-ready|failure|close] [trace]\n");
     return 2;
   }
@@ -134,8 +134,8 @@ int main(int argc, char** argv) try {
   }
   const std::string_view scenario = argc >= 5 ? argv[4] : "initial";
   if (scenario != "initial" && scenario != "switch" && scenario != "repeat" &&
-      scenario != "interact" && scenario != "cancel-prepare" && scenario != "cancel-assets" &&
-      scenario != "cancel-ready" && scenario != "failure" && scenario != "close") {
+      scenario != "interact" && scenario != "cancel-prepare" && scenario != "cancel-ready" &&
+      scenario != "failure" && scenario != "close") {
     return 2;
   }
   gneiss::engine::task_scheduler scheduler(
@@ -447,9 +447,7 @@ int main(int argc, char** argv) try {
       scene_load_progress progress;
       if (handle->scene_progress(progress)) {
         const bool cancel_phase =
-            scenario == "cancel-assets"
-                ? progress.phase == scene_load_phase::assets && progress.completed > 0U
-                : scenario == "cancel-ready" && progress.phase == scene_load_phase::ready;
+            scenario == "cancel-ready" && progress.phase == scene_load_phase::ready;
         if (cancel_phase && !cancel_requested) {
           cancel_start = clock_type::now();
           result = handle->cancel_scene(request);

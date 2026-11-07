@@ -109,7 +109,6 @@ private:
   void advance_load();
   void advance_load_impl();
   void stop_load() noexcept;
-  void instantiate_loaded(load_task& value);
   void finish(gneiss::engine::error result, scene_load_phase phase, std::string message = {});
   void sample_budget(scene_load_progress& value) const;
   void check_owner() const;

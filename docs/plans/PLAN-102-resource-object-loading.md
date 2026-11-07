@@ -565,3 +565,18 @@ Windows Clang Debug 完整构建通过。17 项相关回归中 16 项首轮通�
 改动行格式化及 git diff --check 通过。日志：build/scene-direct-build-final.log、
 build/scene-direct-build-fix.log、build/scene-direct-tests.log、build/scene-direct-tests-fix.log
 （不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+
+
+2026-11-07：新增 scene_instances::instantiate(ref<const scene>, source_bytes)，所属线程一次
+完成结构整理、视觉身份预留与节点创建，返回实例 ID、节点计数及待加载视觉清单。
+Runtime 场景打开已接入，删除自身保存的实例化数据、绑定表、预留游标和独立实例化辅助函数；
+不重复整理结构、不读取文件或等待 GPU。取消边界保留加载中与 ready 后；预留不再跨帧，
+测试与基准工具移除 cancel-assets 阶段，视觉加载仍在激活后单独推进。
+
+Windows Clang Debug 完整构建、18 项相关回归通过；补充直接实例化不读文件、同资产独立实例、
+卸载隔离与空引用失败检查，应用测试覆盖取消、视觉失败及异步关闭。改动行格式化和
+ git diff --check 通过。日志：build/scene-instantiate-asset-build-final.log、
+build/scene-instantiate-asset-tests.log（不入库）。未运行 GPU 大场景、性能基准、跨平台或远端 CI。
+
+Scene 资产直接实例化入口已完成；Prefab 插入/刷新与独立内存编辑仍保留描述和绑定入口。
+本步不宣布 PLAN-102 全部完成，后续仍须审查 Prefab 入口和计划中的其他删除条件。

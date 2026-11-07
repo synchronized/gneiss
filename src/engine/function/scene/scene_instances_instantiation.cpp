@@ -11,6 +11,36 @@
 #include <unordered_map>
 
 namespace gneiss::engine {
+result<scene_instantiation_result, scene_diagnostic>
+scene_instances::instantiate(ref<const scene> source, std::size_t source_bytes) noexcept try {
+  if (!native_world_.is_owner_thread())
+    return scene_diagnostic{error::invalid_state, 0, {}, {}};
+  if (!is_valid())
+    return scene_diagnostic{error::invalid_argument, 0, {}, {}};
+  auto prepared = make_instantiation_data(std::move(source), source_bytes);
+  if (!prepared)
+    return std::move(prepared).error();
+  resource_bindings bindings;
+  for (const auto& request : prepared->assets) {
+    auto resource = loader_.reserve_resource(request);
+    if (!resource)
+      return scene_diagnostic{resource.error(), 0, request.uri, "无法预留场景视觉资源引用"};
+    bindings.emplace(request.uri, std::move(*resource));
+  }
+  scene_instantiation_result output{.instance = {},
+                                    .node_count = prepared->instance_nodes,
+                                    .assets = std::move(prepared->assets)};
+  auto instance = instantiate_prepared(std::move(*prepared), bindings);
+  if (!instance)
+    return scene_diagnostic{instance.error(), 0, {}, {}};
+  output.instance = *instance;
+  return output;
+} catch (const std::bad_alloc&) {
+  return scene_diagnostic{error::out_of_memory, 0, {}, {}};
+} catch (...) {
+  return scene_diagnostic{error::internal, 0, {}, {}};
+}
+
 result<scene_instance_id>
 scene_instances::instantiate_prepared(scene_instantiation_data prepared,
                                       const resource_bindings& assets) noexcept {

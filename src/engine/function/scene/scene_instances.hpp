@@ -49,10 +49,20 @@ struct prefab_header_snapshot {
   ref<const engine::prefab> source_asset{};
 };
 
+/** 已创建的场景及其视觉加载清单；资源身份已预留，内容加载由调用方调度。 */
+struct scene_instantiation_result {
+  scene_instance_id instance;
+  std::size_t node_count{};
+  std::vector<render_resource_source> assets;
+};
 /** 单个 World 的实例集合，拥有实例与 RID 表；不负责后台加载或活动域切换。 */
 class scene_instances final {
 public:
   using resource_bindings = std::map<std::string, render_resource_ref, std::less<>>;
+  /** 所属线程同步实例化资产：整理一次结构并预留视觉引用，不读取文件或等待 GPU。
+   * 失败清理新建节点；成功结果的视觉清单由调用方继续加载。 */
+  [[nodiscard]] GNEISS_API result<scene_instantiation_result, scene_diagnostic>
+  instantiate(ref<const scene> source, std::size_t source_bytes = 0) noexcept;
   /** 所属线程同步创建整个实例；只消费已准备描述和资源引用，不读取文件。
    * 失败回收已创建节点；调用期间不支持暂停或取消。 */
   [[nodiscard]] GNEISS_API result<scene_instance_id>

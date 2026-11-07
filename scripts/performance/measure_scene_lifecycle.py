@@ -11,7 +11,7 @@ import subprocess
 import time
 
 
-SCENARIOS = ("repeat", "cancel-prepare", "cancel-assets", "cancel-gpu",
+SCENARIOS = ("repeat", "cancel-prepare", "cancel-gpu",
              "cancel-ready", "failure", "interact", "close")
 
 
