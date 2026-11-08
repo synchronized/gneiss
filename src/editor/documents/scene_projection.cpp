@@ -7,9 +7,9 @@ namespace {
 bool same_transform(const engine::math::transform& a, const engine::math::transform& b) {
   return a.translation == b.translation && a.rotation == b.rotation && a.scale == b.scale;
 }
-engine::result<bool> update_transforms(engine::scene_instances& scenes, scene_instance_id scene,
-                                       const scene_document_snapshot& before,
-                                       const scene_document_snapshot& target) {
+engine::result<bool> update_objects(engine::world& world, engine::scene_instances& scenes,
+                                    scene_instance_id scene, const scene_document_snapshot& before,
+                                    const scene_document_snapshot& target) {
   if (before.content.get().uuid != target.content.get().uuid || before.assets != target.assets)
     return false;
   auto previous = compose_scene_document(before);
@@ -29,12 +29,8 @@ engine::result<bool> update_transforms(engine::scene_instances& scenes, scene_in
       return false;
     const auto& a = *found->second;
     if (a.parent != object.parent || a.effective.name != object.effective.name ||
-        a.prefab_uri != object.prefab_uri ||
-        !engine::equal_components(a.effective.components, object.effective.components))
+        a.prefab_uri != object.prefab_uri)
       return false;
-    for (const auto& component : a.effective.components)
-      if (component->uuid != object.effective.components.identity(component->guid()))
-        return false;
   }
   std::map<document_object_address, engine::scene_node_info> nodes;
   auto count = scenes.get_node_count(scene);
@@ -56,6 +52,43 @@ engine::result<bool> update_transforms(engine::scene_instances& scenes, scene_in
         !same_transform(found->second.local_transform, old.at(object.address)->effective.transform))
       return false;
   }
+  struct component_update {
+    scene_node_id node;
+    engine::guid type;
+    engine::component_description value;
+    bool remove{}, add{};
+  };
+  std::vector<component_update> updates;
+  for (const auto& object : next->objects) {
+    const auto& previous_components = old.at(object.address)->effective.components;
+    const auto& components = object.effective.components;
+    const auto node = nodes.at(object.address).node;
+    for (const auto& previous_component : previous_components) {
+      const auto* replacement = components.find(previous_component->guid());
+      if (!replacement || (*replacement)->uuid != previous_component->uuid)
+        updates.push_back({node, previous_component->guid(), {}, true, false});
+    }
+    for (const auto& component : components) {
+      const auto* previous_component = previous_components.find(component->guid());
+      const bool add = !previous_component || (*previous_component)->uuid != component->uuid;
+      if (!add && engine::equal_components({*previous_component}, {component}))
+        continue;
+      auto value = add ? engine::result<engine::component_description>{component}
+                       : engine::prepare_component_editor_value(world, node, component);
+      if (!value)
+        return value.error();
+      updates.push_back({node, component->guid(), std::move(*value), false, add});
+    }
+  }
+  for (const auto& update : updates) {
+    auto status =
+        update.remove ? scenes.remove_component_description(scene, update.node, update.type)
+        : update.add
+            ? scenes.add_component_description(scene, update.node, update.value, update.value->uuid)
+            : scenes.set_component_description(scene, update.node, update.value);
+    if (status.failed())
+      return status;
+  }
   for (const auto& object : next->objects) {
     if (same_transform(old.at(object.address)->effective.transform, object.effective.transform))
       continue;
@@ -67,11 +100,12 @@ engine::result<bool> update_transforms(engine::scene_instances& scenes, scene_in
   return true;
 }
 }
-engine::error project_scene_document(engine::scene_instances& scenes, scene_instance_id scene,
+engine::error project_scene_document(engine::world& world, engine::scene_instances& scenes,
+                                     scene_instance_id scene,
                                      const scene_document_snapshot* baseline,
                                      const scene_document_snapshot& target) noexcept try {
   if (baseline) {
-    auto updated = update_transforms(scenes, scene, *baseline, target);
+    auto updated = update_objects(world, scenes, scene, *baseline, target);
     if (!updated)
       return updated.error();
     if (*updated)

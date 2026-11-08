@@ -318,7 +318,8 @@ int main() try {
   check(history.size() == 1 && read().speed == 4 && document.is_dirty());
   check(history.undo().ok() && read().speed == 1);
   check(history.redo().ok() && read().speed == 4);
-  check(editor_preparations == 2);
+  // 两次编辑以及撤销、重做都走组件编辑适配。
+  check(editor_preparations == 4);
   // 属性历史不能覆盖未参与该命令的独立修改。
   auto independently_changed = read();
   independently_changed.settings.maximum = 20;

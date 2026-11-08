@@ -30,6 +30,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   const auto ordinary_uuid = session.selected_node()->uuid;
   if (session.set_camera(ordinary, {{1.0F, 0.1F, 100.0F}}).failed())
     return 31;
+  const auto stable_entity = session.find_node(ordinary_uuid)->entity;
   ed::editor_command_history history;
   ed::component_edit_target target{.object_uuid = ordinary_uuid,
                                    .component_type = e::camera_description::type_guid};
@@ -46,6 +47,9 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   if (read(session.find_node(ordinary_uuid)->entity).near != 2.0F || history.undo().failed() ||
       read(session.find_node(ordinary_uuid)->entity).near != 0.1F || history.redo().failed())
     return 33;
+  if (session.find_node(ordinary_uuid)->entity != stable_entity ||
+      session.find_node(ordinary_uuid)->node != ordinary)
+    return 41;
   edit.data = e::value{200.0F};
   if (ed::edit_component_description(session, history, world, target, edit, 2) !=
           e::error::invalid_argument ||

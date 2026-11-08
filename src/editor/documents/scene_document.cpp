@@ -294,7 +294,8 @@ engine::error scene_document::synchronize() noexcept try {
     return engine::error::invalid_state;
   const auto version = versions_->current();
   auto selected = locate(selection_);
-  auto status = project_scene_document(*application_->scenes(), scene_, nullptr, version.content());
+  auto status =
+      project_scene_document(*world_, *application_->scenes(), scene_, nullptr, version.content());
   if (status.ok()) {
     selection_ = {};
     if (selected) {
@@ -1279,7 +1280,7 @@ engine::error scene_document::restore_changes(const scene_document_versions::rev
   if (status.failed())
     return status;
   is_dirty_ = versions_->is_dirty();
-  status = project_scene_document(*application_->scenes(), scene_,
+  status = project_scene_document(*world_, *application_->scenes(), scene_,
                                   synchronized ? &before.content() : nullptr, next);
   (void)versions_->report_projection(versions_->current(), status);
   (void)validate_selection();
@@ -1300,7 +1301,7 @@ engine::error scene_document::restore_version(const version& expected,
     return status;
   is_dirty_ = versions_->is_dirty();
   if (synchronized) {
-    status = project_scene_document(*application_->scenes(), scene_, &expected.content(),
+    status = project_scene_document(*world_, *application_->scenes(), scene_, &expected.content(),
                                     target.content());
     (void)versions_->report_projection(target, status);
     (void)validate_selection();

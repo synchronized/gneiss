@@ -240,10 +240,12 @@ int main() try {
       history.undo().ok() &&
       !document.components(document.find_prefab_source(instance.uuid, child_id)->node)->find(type));
   // 保存的是增删覆盖，来源资源内容保持不变。
-  e::scene_description saved;
-  check(gneiss::test_support::assign_value(
-            app->scenes()->capture_description(document.scene_handle()), saved)
-            .ok());
+  auto document_bytes = document.serialize();
+  check(document_bytes.has_value());
+  auto saved_result = gneiss::engine::asset_file::deserialize<e::scene_description>(
+      std::as_bytes(std::span{document_bytes->data(), document_bytes->size()}));
+  check(saved_result.has_value());
+  auto saved = *saved_result;
   check(saved.objects[0].prefab->component_overrides.size() == 2);
   auto bytes = gneiss::engine::asset_file::serialize_bytes(saved);
   check(bytes.has_value());
