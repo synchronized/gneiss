@@ -4,6 +4,37 @@
 #include <algorithm>
 namespace gneiss::editor {
 namespace {
+bool equal_field(const engine::math::transform& a, const engine::math::transform& b) {
+  return a.translation == b.translation && a.rotation == b.rotation && a.scale == b.scale;
+}
+template <class T> bool equal_field(const T& a, const T& b) { return a == b; }
+template <class T> auto diff_field(const T& a, const T& b) {
+  return equal_field(a, b) ? std::optional<document_field_change<T>>{}
+                           : std::optional<document_field_change<T>>{{a, b}};
+}
+template <class T>
+bool apply_field(T& field, const std::optional<document_field_change<T>>& change, bool undo) {
+  if (!change)
+    return true;
+  if (!equal_field(field, undo ? change->after : change->before))
+    return false;
+  field = undo ? change->before : change->after;
+  return true;
+}
+template <class T>
+bool merge_field(std::optional<document_field_change<T>>& field,
+                 const std::optional<document_field_change<T>>& change) {
+  if (!change)
+    return true;
+  if (!field) {
+    field = change;
+    return true;
+  }
+  if (!equal_field(field->after, change->before))
+    return false;
+  field->after = change->after;
+  return true;
+}
 template <class Map, class Changes> void diff_map(const Map& a, const Map& b, Changes& out) {
   for (const auto& [key, value] : a) {
     auto found = b.find(key);
@@ -46,8 +77,14 @@ engine::result<document_patch> make_document_patch(const scene_document_snapshot
       result.objects.push_back({old[i].uuid, old[i], {}, i, 0});
     else {
       const auto index = static_cast<std::size_t>(found - next.begin());
-      if (!(old[i] == *found) || i != index)
+      if (i != index)
         result.objects.push_back({old[i].uuid, old[i], *found, i, index});
+      else if (!(old[i] == *found))
+        result.updates.push_back({old[i].uuid, diff_field(old[i].parent, found->parent),
+                                  diff_field(old[i].name, found->name),
+                                  diff_field(old[i].transform, found->transform),
+                                  diff_field(old[i].components, found->components),
+                                  diff_field(old[i].prefab, found->prefab)});
     }
   }
   for (std::size_t i = 0; i < next.size(); ++i)
@@ -70,7 +107,24 @@ engine::result<document_patch> merge_document_patches(const document_patch& a,
                                                       const document_patch& b) noexcept try {
   if (a.document != b.document || a.uri != b.uri)
     return engine::error::invalid_state;
+  // 结构与属性跨形态合并不猜测中间对象；交由历史保留独立条目。
+  for (const auto& update : a.updates)
+    if (std::ranges::find(b.objects, update.uuid, &document_object_change::uuid) != b.objects.end())
+      return engine::error::invalid_state;
+  for (const auto& update : b.updates)
+    if (std::ranges::find(a.objects, update.uuid, &document_object_change::uuid) != a.objects.end())
+      return engine::error::invalid_state;
   auto result = a;
+  for (const auto& update : b.updates) {
+    auto found = std::ranges::find(result.updates, update.uuid, &document_object_update::uuid);
+    if (found == result.updates.end())
+      result.updates.push_back(update);
+    else if (!merge_field(found->parent, update.parent) || !merge_field(found->name, update.name) ||
+             !merge_field(found->transform, update.transform) ||
+             !merge_field(found->components, update.components) ||
+             !merge_field(found->prefab, update.prefab))
+      return engine::error::invalid_state;
+  }
   for (const auto& change : b.objects) {
     auto found = std::ranges::find(result.objects, change.uuid, &document_object_change::uuid);
     if (found == result.objects.end())
@@ -119,6 +173,15 @@ engine::result<scene_document_snapshot> apply_document_patch(const scene_documen
     return engine::error::invalid_state;
   auto result = input;
   auto data = input.content.get();
+  for (const auto& update : patch.updates) {
+    auto found = std::ranges::find(data.objects, update.uuid, &engine::object_record::uuid);
+    if (found == data.objects.end() || !apply_field(found->parent, update.parent, undo) ||
+        !apply_field(found->name, update.name, undo) ||
+        !apply_field(found->transform, update.transform, undo) ||
+        !apply_field(found->components, update.components, undo) ||
+        !apply_field(found->prefab, update.prefab, undo))
+      return engine::error::invalid_state;
+  }
   for (const auto& change : patch.objects) {
     const auto& expected = undo ? change.after : change.before;
     auto found = std::ranges::find(data.objects, change.uuid, &engine::object_record::uuid);

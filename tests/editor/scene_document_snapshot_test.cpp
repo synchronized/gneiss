@@ -112,8 +112,20 @@ int main() {
     data.objects[0].name = "edited";
     edited.content = e::scene_record{data};
     auto patch = ed::make_document_patch(*frozen, edited);
-    if (!patch || patch->objects.size() != 1 || !patch->prefabs.empty() || !patch->assets.empty())
+    if (!patch || !patch->objects.empty() || patch->updates.size() != 1 ||
+        !patch->prefabs.empty() || !patch->assets.empty())
       return 80;
+    if (!patch->updates[0].name || patch->updates[0].parent || patch->updates[0].transform ||
+        patch->updates[0].components || patch->updates[0].prefab)
+      return 92;
+    auto unrelated = *frozen;
+    auto unrelated_data = unrelated.content.get();
+    unrelated_data.objects[0].transform.translation.x = 42;
+    unrelated.content = e::scene_record{unrelated_data};
+    auto local_apply = ed::apply_document_patch(unrelated, *patch, false);
+    if (!local_apply || local_apply->content.get().objects[0].transform.translation.x != 42 ||
+        local_apply->content.get().objects[0].name != "edited")
+      return 93;
     auto forward = ed::apply_document_patch(*frozen, *patch, false);
     if (!forward || forward->content != edited.content)
       return 81;
@@ -128,7 +140,7 @@ int main() {
     if (!second)
       return 88;
     auto merged = ed::merge_document_patches(*patch, *second);
-    if (!merged || merged->objects.size() != 1)
+    if (!merged || !merged->objects.empty() || merged->updates.size() != 1)
       return 89;
     auto merged_result = ed::apply_document_patch(*frozen, *merged, false);
     if (!merged_result || merged_result->content != last.content)

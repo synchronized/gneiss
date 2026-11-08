@@ -3,11 +3,23 @@
 #pragma once
 #include "documents/scene_document_snapshot.hpp"
 namespace gneiss::editor {
-/** 局部记录只保留变化对象及资源项；对象字段细分由后续迁移继续收敛。 */
+/** 对象插入、删除及顺序变化保留对象记录。 */
 struct document_object_change {
   engine::guid uuid;
   std::optional<engine::object_record> before, after;
   std::size_t before_index{}, after_index{};
+};
+template <class T> struct document_field_change {
+  T before, after;
+};
+/** 存活对象仅保留发生变化的领域字段，不携带其他组件和 Prefab 数据。 */
+struct document_object_update {
+  engine::guid uuid;
+  std::optional<document_field_change<engine::guid>> parent;
+  std::optional<document_field_change<std::string>> name;
+  std::optional<document_field_change<engine::math::transform>> transform;
+  std::optional<document_field_change<std::vector<engine::component_record>>> components;
+  std::optional<document_field_change<std::optional<engine::prefab_reference_record>>> prefab;
 };
 template <class T> struct document_map_change {
   std::string key;
@@ -17,6 +29,7 @@ struct document_patch {
   engine::guid document;
   std::string uri;
   std::vector<document_object_change> objects;
+  std::vector<document_object_update> updates;
   std::vector<document_map_change<prefab_document_snapshot>> prefabs;
   std::vector<document_map_change<engine::render_resource_ref>> assets;
   engine::ref<const engine::scene> before_source, after_source;
