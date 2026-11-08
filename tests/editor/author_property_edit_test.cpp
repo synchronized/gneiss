@@ -4,6 +4,7 @@
 #include "../support/document_prefab.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
+#include "documents/scene_document_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
@@ -306,6 +307,21 @@ int main() try {
   if (const auto status = camera_edits(*app, session, session.find_node(first_uuid)->node);
       status != 0)
     return status;
+  {
+    editor_command_history hierarchy;
+    if (execute_scene_edit(hierarchy, session, "修改层级", [&] {
+          auto status = session.rename_node(first, "renamed");
+          return status.failed() ? status : session.reparent_node(first, second);
+        }).failed())
+      return 41;
+    if (hierarchy.undo().failed() || session.query_node(first)->parent ||
+        hierarchy.redo().failed() || session.query_node(first)->parent != second ||
+        session.query_node(first)->entity != first_entity ||
+        session.query_node(second)->entity != second_entity || session.projection_status().failed())
+      return 42;
+    if (hierarchy.undo().failed())
+      return 43;
+  }
   scene_subtree_snapshot removed;
   if (session.destroy_subtree(session.find_node(first_uuid)->node, removed).failed() ||
       history.undo() != gneiss::engine::error::invalid_state || !history.can_undo()) {

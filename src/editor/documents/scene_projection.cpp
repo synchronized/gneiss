@@ -28,9 +28,17 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
     if (found == old.end())
       return false;
     const auto& a = *found->second;
-    if (a.parent != object.parent || a.effective.name != object.effective.name ||
-        a.prefab_uri != object.prefab_uri)
+    if (a.prefab_uri != object.prefab_uri)
       return false;
+    const bool hierarchy_changed =
+        a.parent != object.parent || a.effective.name != object.effective.name;
+    if (hierarchy_changed && object.address.source && !object.instance_root)
+      return false;
+    if (a.parent != object.parent && object.parent.object) {
+      const auto parent = old.find(object.parent);
+      if (parent == old.end() || (object.parent.source && !parent->second->instance_root))
+        return false;
+    }
   }
   std::map<document_object_address, engine::scene_node_info> nodes;
   auto count = scenes.get_node_count(scene);
@@ -78,6 +86,28 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
       if (!value)
         return value.error();
       updates.push_back({node, component->guid(), std::move(*value), false, add});
+    }
+  }
+  // 先拆开所有变化的父关系，避免合法的父子反转被旧树误判为循环。
+  for (const auto& object : next->objects) {
+    if (old.at(object.address)->parent == object.parent)
+      continue;
+    auto status = scenes.reparent_node(scene, nodes.at(object.address).node, {});
+    if (status.failed())
+      return status;
+  }
+  for (const auto& object : next->objects) {
+    const auto& previous_object = *old.at(object.address);
+    const auto node = nodes.at(object.address).node;
+    if (previous_object.parent != object.parent && object.parent.object) {
+      auto status = scenes.reparent_node(scene, node, nodes.at(object.parent).node);
+      if (status.failed())
+        return status;
+    }
+    if (previous_object.effective.name != object.effective.name) {
+      auto status = scenes.set_node_name(scene, node, object.effective.name);
+      if (status.failed())
+        return status;
     }
   }
   for (const auto& update : updates) {
