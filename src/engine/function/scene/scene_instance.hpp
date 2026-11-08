@@ -1,112 +1,24 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-
 #pragma once
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/meta/registry.hpp"
-#include "engine/function/scene/prefab_binding.hpp"
-#include "engine/function/scene/scene_instances.hpp"
-#include "engine/function/scene/scene_types.hpp"
-#include <map>
-
+#include "engine/function/world/game_object.hpp"
 namespace gneiss::engine {
+/** 场景的非拥有句柄；World 必须比使用期更长，全部访问限所属线程。 */
 class scene_instance final {
 public:
-  scene_instance(world& native_world, asset_manager& loader) noexcept;
-  ~scene_instance() noexcept;
-
-  scene_instance(const scene_instance&) = delete;
-  scene_instance& operator=(const scene_instance&) = delete;
-
-  /** 只记录场景成员；身份在节点中，组件资源在 ECS 中。 */
-  struct node_entry final {
-    scene_node_id node = null_scene_node_id;
-    bool persistent = true; // Prefab 展开成员仅在运行时枚举，不重复保存。
-  };
-
-  void rollback() noexcept;
-  /** 同步创建期间预留成员槽位；不保存加载描述、不执行文件读取。 */
-  void initialize_staged(guid uuid, std::size_t count = 0);
-  [[nodiscard]] error create_staged_node(std::size_t index, const game_object_description& source,
-                                         scene_node_id parent, ref<const engine::mesh> mesh,
-                                         ref<const engine::material> material);
-
-  [[nodiscard]] scene_node_id find_node(guid uuid) const noexcept;
-  [[nodiscard]] result<scene_description> capture_description() const;
-  [[nodiscard]] result<std::string> serialize() const;
-  [[nodiscard]] result<scene_node_info> get_node_info(std::uint64_t index,
-                                                      node_query_detail detail) const;
-  [[nodiscard]] error set_node_transform(scene_node_id node, const math::transform& transform);
-  [[nodiscard]] result<scene_node_id> create_node(const node_creation& desc);
-  [[nodiscard]] error set_node_name(scene_node_id node, std::string_view name);
-  [[nodiscard]] error reparent_node(scene_node_id node, scene_node_id parent);
-  [[nodiscard]] result<scene_subtree_snapshot> capture_subtree(scene_node_id root) const;
-  [[nodiscard]] result<scene_node_id> restore_subtree(const scene_subtree_snapshot& snapshot,
-                                                      scene_node_id parent,
-                                                      std::span<const uuid_mapping> mappings);
-  [[nodiscard]] error destroy_subtree(scene_node_id root);
-  [[nodiscard]] result<scene_node_id>
-  create_mesh_renderer_node(const mesh_renderer_node_creation& desc,
-                            const scene_mesh_binding* prepared = nullptr);
-  [[nodiscard]] error set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
-                                        std::string_view material_uri);
-  /** 修改运行组件，不生成或修改 Prefab 覆盖。 */
-  [[nodiscard]] error add_component_description(scene_node_id node,
-                                                const component_description& value,
-                                                guid identity = {}) noexcept;
-  [[nodiscard]] error remove_component_description(scene_node_id node, guid type) noexcept;
-  /** 替换已有运行组件，不支持新增或移除。 */
-  [[nodiscard]] error set_component_description(scene_node_id node,
-                                                const component_description& value) noexcept;
-  [[nodiscard]] error set_camera(scene_node_id node, const camera_description& desc);
-  [[nodiscard]] error remove_camera(scene_node_id node);
-  [[nodiscard]] error remove_mesh_renderer(scene_node_id node);
-  [[nodiscard]] error destroy_node(scene_node_id node);
-  /** 事务式替换普通场景节点；当前不接受 Prefab 实例容器变化。 */
-  [[nodiscard]] error reload(scene_description candidate);
-  /** 将指定 Prefab URI 的新修订应用到当前 Scene 内全部同源实例。 */
-  [[nodiscard]] error reload_prefab(std::string_view uri, prefab_asset_ref candidate,
-                                    scene_diagnostic* diagnostic);
-
-  /** 单场景 Prefab 实例操作；服务已校验线程与句柄，不修改 Prefab 源资源。 */
-  [[nodiscard]] result<scene_node_id>
-  instantiate_prefab_ready(const game_object_description& author, prefab_asset_ref prefab,
-                           std::span<const scene_mesh_binding> bindings, bool replacing,
-                           ref<const engine::prefab> source_asset = {},
-                           prefab_replacement mode = prefab_replacement::recreate) noexcept;
-  [[nodiscard]] error remove_prefab_instance(guid uuid) noexcept;
-
-  /** 捕获当前 ECS 引用；替换组件只写 World，不修改来源记录。 */
-  [[nodiscard]] result<scene_mesh_binding> capture_mesh_binding(scene_node_id node) const noexcept;
-  [[nodiscard]] error replace_mesh_binding(scene_node_id node, const scene_mesh_binding& expected,
-                                           const scene_mesh_binding& replacement,
-                                           guid component_uuid = {}) noexcept;
-  [[nodiscard]] bool contains_editable_node(scene_node_id node) const noexcept;
-  [[nodiscard]] std::uint64_t node_count() const noexcept { return objects_.size(); }
-
-  [[nodiscard]] scene_node_id staged_node(std::size_t index) const {
-    return objects_.at(index).node;
-  }
-  void append_staged_prefab(std::unique_ptr<prefab_binding> candidate,
-                            prefab_reference_description reference, std::size_t index);
+  scene_instance() noexcept = default;
+  /** 借用既有场景；拒绝失效、跨 World 或跨线程访问。 */
+  [[nodiscard]] static GNEISS_API result<scene_instance> borrow(world&, scene_instance_id) noexcept;
+  [[nodiscard]] world* owner() const noexcept { return owner_; }
+  [[nodiscard]] scene_instance_id id() const noexcept { return id_; }
+  [[nodiscard]] GNEISS_API bool is_valid() const noexcept;
+  [[nodiscard]] GNEISS_API result<std::uint64_t> size() const noexcept;
+  [[nodiscard]] GNEISS_API result<game_object> find(guid uuid) const noexcept;
+  /** 卸载全部成员；复制的场景/对象借用句柄不阻止卸载。 */
+  [[nodiscard]] GNEISS_API error unload() const noexcept;
 
 private:
-  friend class scene_instances;
-  [[nodiscard]] std::vector<node_entry>::iterator find_authored_node(scene_node_id node);
-  [[nodiscard]] std::vector<node_entry>::iterator find_ordinary_node(scene_node_id node);
-  [[nodiscard]] std::vector<node_entry>::const_iterator
-  find_ordinary_node(scene_node_id node) const;
-  [[nodiscard]] std::optional<prefab_origin_view> prefab_origin(scene_node_id node) const;
-  void append_prefab_members(const prefab_binding& prefab);
-  prefab_reference_description& prefab_reference(std::size_t index);
-  const prefab_reference_description& prefab_reference(std::size_t index) const;
-
-  std::vector<node_entry> objects_;
-  std::vector<std::unique_ptr<prefab_binding>> prefab_instances_;
-  guid uuid_;
-
-  world& native_world_;
-  asset_manager& loader_;
+  world* owner_{};
+  scene_instance_id id_{};
 };
 }

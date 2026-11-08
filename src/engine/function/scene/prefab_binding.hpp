@@ -64,7 +64,7 @@ public:
                                   ref<const engine::material> material);
 
 private:
-  friend class scene_instance;
+  friend class scene_instance_state;
   struct runtime_node final {
     prefab_author_address address;
     scene_node_id node = null_scene_node_id;

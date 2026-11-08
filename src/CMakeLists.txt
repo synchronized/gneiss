@@ -242,6 +242,7 @@ target_sources(
     engine/function/scene/prefab_replay.hpp
     engine/function/scene/prefab_binding.cpp
     engine/function/scene/prefab_binding.hpp
+    engine/function/scene/scene_instance_state.hpp
     engine/function/scene/scene_instance.hpp
     engine/function/scene/component_adapter.cpp
     engine/function/scene/scene_instances.cpp

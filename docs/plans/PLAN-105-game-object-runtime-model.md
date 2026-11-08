@@ -135,9 +135,9 @@ Prefab 头快照和冻结迁入编辑文档层，删除 Runtime prefab_placement
 ### 4：统一运行存储
 
 - [x] 实现 game_object 借用句柄及跨 World/generation 校验，场景创建接入该入口。
-- [ ] scene_instance 改为借用句柄，移交成员拥有权。
+- [x] scene_instance 改为借用句柄，场景集合及其成员记录移交 World 拥有。
 - [x] 层级和变换迁入实体存储，删除独立 scene_tree 节点槽位。
-- [ ] World 接管场景成员及卸载；明确销毁子树、重挂接和失效行为。
+- [ ] 完成 World 场景成员操作边界；集合及卸载所有权已迁移，跨场景重挂接限制尚待完成。
 - [ ] 迁移渲染采集、Runtime/IPC、编辑器和测试，删除旧接口。
 
 ### 5：验收与清理

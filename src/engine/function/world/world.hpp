@@ -14,6 +14,7 @@
 
 namespace gneiss::engine {
 class world_state;
+class scene_instances;
 struct world_factory;
 namespace detail {
 struct world_component_access;
@@ -28,6 +29,8 @@ public:
   world(const world&) = delete;
   world& operator=(const world&) = delete;
   [[nodiscard]] GNEISS_API bool is_owner_thread() const noexcept;
+  /** 借用 World 唯一场景集合；尚未初始化时为空。 */
+  [[nodiscard]] scene_instances* scenes() const noexcept { return scenes_.get(); }
   [[nodiscard]] GNEISS_API error entity_create(entity_id& out_entity) noexcept;
   [[nodiscard]] GNEISS_API error entity_destroy(entity_id entity) noexcept;
   [[nodiscard]] GNEISS_API result<bool> entity_is_alive(entity_id entity) noexcept;
@@ -91,9 +94,12 @@ public:
 
 private:
   friend struct engine::world_factory;
+  friend class scene_instances;
   friend struct detail::world_component_access;
   explicit GNEISS_API world(std::uint32_t domain);
   std::unique_ptr<engine::world_state> state_;
+  // 逆序析构：场景先回收实体和资源，随后销毁 ECS。
+  std::unique_ptr<scene_instances> scenes_;
 };
 }
 

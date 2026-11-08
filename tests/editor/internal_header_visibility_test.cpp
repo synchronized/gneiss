@@ -48,7 +48,7 @@
 #if __has_include("engine/platform/io/uv/uv_file_system.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("engine/function/scene/scene_instance.hpp") ||                                   \
+#if __has_include("engine/function/scene/scene_instance_state.hpp") ||                                   \
                   __has_include("engine/function/scene/prefab_binding.hpp")
 #error "宿主获得了场景实例的私有实现头"
 #endif

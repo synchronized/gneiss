@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
-#include "engine/function/scene/scene_instance.hpp"
+#include "engine/function/scene/scene_instance_state.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/scene/scene_types.hpp"
@@ -74,7 +74,7 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
       if (!source.resource)
         return error::invalid_argument;
     }
-    auto instance = std::make_unique<scene_instance>(native_world_, loader_);
+    auto instance = std::make_unique<scene_instance_state>(native_world_, loader_);
     instance->initialize_staged(prepared.description.uuid, prepared.description.objects.size());
     std::unordered_map<guid, scene_node_id, guid_hash> nodes;
     nodes.reserve(prepared.description.objects.size());

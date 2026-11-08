@@ -8,6 +8,7 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world_component_access.hpp"
@@ -70,13 +71,19 @@ int main() try {
   auto loaded_camera =
       gneiss::engine::serialization::json::deserialize<e::camera_description>(*saved_camera);
   check(loaded_camera && loaded_camera->is_primary);
+  auto files = std::make_shared<e::files::service>();
+  e::asset_manager assets(files);
   auto owner = e::create_native();
   check(owner.has_value());
   auto& world = **owner;
-  auto files = std::make_shared<e::files::service>();
-  e::asset_manager assets(files);
   auto& resources = assets;
-  e::scene_instances scenes(world, resources);
+  auto attached = e::scene_instances::attach(world, resources);
+  check(attached.has_value());
+  auto& scenes = **attached;
+  check(world.scenes() == &scenes);
+  auto duplicate = e::scene_instances::attach(world, resources);
+  check(!duplicate && duplicate.error() == e::error::invalid_state);
+  check(!e::scene_instance{}.is_valid());
   e::scene_description source;
   source.uuid = e::guid::from_bytes({1});
   e::game_object_description first;
@@ -98,6 +105,20 @@ int main() try {
   auto created = scenes.instantiate_prepared(std::move(prepared), {});
   check(created.has_value());
   auto instance = *created;
+  auto borrowed = e::scene_instance::borrow(world, instance);
+  check(borrowed && borrowed->is_valid());
+  auto member_count = borrowed->size();
+  check(member_count && *member_count == 2);
+  auto borrowed_copy = *borrowed;
+  auto other_world = e::create_native();
+  check(other_world.has_value());
+  check(e::scene_instances::attach(**other_world, resources).has_value());
+  check(!e::scene_instance::borrow(**other_world, instance));
+  e::error wrong_thread;
+  std::thread scene_worker([&] { wrong_thread = borrowed_copy.unload(); });
+  scene_worker.join();
+  check(wrong_thread == e::error::invalid_state);
+  check(borrowed_copy.is_valid());
   auto found = scenes.find_node(instance, first.uuid);
   check(found.has_value());
   auto node = *found;
@@ -168,7 +189,12 @@ int main() try {
   id = entity(world, node);
   check(state(world).get<movement_component>(id)->data.speed == 5);
   lifetime = state(world).get<movement_component>(id)->lifetime;
-  check(scenes.unload(instance).ok());
+  auto borrowed_object = borrowed_copy.find(first.uuid);
+  check(borrowed_object && borrowed_object->is_valid());
+  check(borrowed_copy.unload().ok());
+  check(!borrowed->is_valid() && !borrowed_copy.is_valid());
+  check(!borrowed_object->is_valid());
+  check(!borrowed_copy.unload().ok());
   check(lifetime.expired());
   // Prefab 覆盖使用同一适配入口，不认识测试组件的类型。
   auto prefab = std::make_shared<e::prefab_description>();
@@ -193,6 +219,7 @@ int main() try {
             .ok());
   check(gneiss::test_support::take_value(scenes.find_node(instance, reference.uuid), node).ok());
   id = entity(world, node);
+  check(!borrowed_copy.is_valid());
   check(state(world).get<movement_component>(id)->data.speed == 9);
   auto next = std::make_shared<e::prefab_description>(*prefab);
   next->objects[0].components.set(movement_description{3});
@@ -203,7 +230,7 @@ int main() try {
   check(saved.objects[0].components.empty());
   check(saved.objects[0].prefab->overrides.size() == 1);
   lifetime = state(world).get<movement_component>(id)->lifetime;
-  check(scenes.unload(instance).ok());
+  owner->reset();
   check(lifetime.expired());
   return 0;
 } catch (const std::exception& error) {

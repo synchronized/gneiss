@@ -17,12 +17,11 @@ gneiss::engine::error scene_domain::initialize(gneiss::engine::asset_manager& re
   if (!next_world)
     return next_world.error();
   try {
-    auto next_scenes = std::make_unique<gneiss::engine::scene_instances>(**next_world, resources);
-    if (!next_scenes->is_valid()) {
-      return gneiss::engine::error::out_of_memory;
+    auto next_scenes = gneiss::engine::scene_instances::attach(**next_world, resources);
+    if (!next_scenes) {
+      return next_scenes.error();
     }
     world_owner_ = std::move(*next_world);
-    scenes_ = std::move(next_scenes);
     return gneiss::engine::error::success;
   } catch (const std::bad_alloc&) {
     return gneiss::engine::error::out_of_memory;

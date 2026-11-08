@@ -3,6 +3,7 @@
 
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_instance.hpp"
+#include "engine/function/scene/scene_instance_state.hpp"
 
 #include <atomic>
 #include <limits>
@@ -11,6 +12,39 @@
 #include <utility>
 
 namespace gneiss::engine {
+result<scene_instance> scene_instance::borrow(world& owner, scene_instance_id id) noexcept {
+  if (!owner.is_owner_thread())
+    return error::invalid_state;
+  if (!owner.scenes())
+    return error::invalid_handle;
+  auto count = owner.scenes()->get_node_count(id);
+  if (!count)
+    return count.error();
+  scene_instance result;
+  result.owner_ = &owner;
+  result.id_ = id;
+  return result;
+}
+bool scene_instance::is_valid() const noexcept { return size().has_value(); }
+result<std::uint64_t> scene_instance::size() const noexcept {
+  if (!owner_ || !owner_->scenes())
+    return error::invalid_handle;
+  return owner_->scenes()->get_node_count(id_);
+}
+result<game_object> scene_instance::find(guid uuid) const noexcept {
+  if (!owner_ || !owner_->scenes())
+    return error::invalid_handle;
+  auto node = owner_->scenes()->find_node(id_, uuid);
+  if (!node)
+    return node.error();
+  return owner_->object(entity_id{node->get()});
+}
+error scene_instance::unload() const noexcept {
+  if (!owner_ || !owner_->scenes())
+    return error::invalid_handle;
+  return owner_->scenes()->unload(id_);
+}
+
 namespace {
 std::uint16_t allocate_domain() noexcept {
   static std::atomic_uint32_t next_domain{UINT32_C(1024)};
@@ -43,6 +77,20 @@ error scene_instances::remove_prefab_instance(scene_instance_id instance,
     return error::invalid_state;
   auto* slot = instances_.get(instance, resource_type::scene_instance);
   return !slot || !*slot ? error::invalid_handle : (*slot)->remove_prefab_instance(uuid);
+}
+
+result<scene_instances*> scene_instances::attach(world& owner, asset_manager& assets) noexcept try {
+  if (!owner.is_owner_thread() || owner.scenes_)
+    return error::invalid_state;
+  auto candidate = std::unique_ptr<scene_instances>(new scene_instances(owner, assets));
+  if (!candidate->is_valid())
+    return error::invalid_state;
+  owner.scenes_ = std::move(candidate);
+  return owner.scenes_.get();
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
 }
 
 scene_instances::scene_instances(world& native_world, asset_manager& loader) noexcept
@@ -143,7 +191,7 @@ result<scene_instance_id> scene_instances::create_empty(guid scene_uuid) noexcep
     return error::invalid_argument;
   if (!scene_uuid)
     return error::invalid_argument;
-  auto instance = std::make_unique<scene_instance>(native_world_, loader_);
+  auto instance = std::make_unique<scene_instance_state>(native_world_, loader_);
   instance->initialize_staged(scene_uuid);
   return instances_.create(resource_type::scene_instance, std::move(instance));
 } catch (const std::bad_alloc&) {
@@ -180,6 +228,8 @@ result<std::string> scene_instances::serialize(scene_instance_id instance) const
 }
 
 engine::error scene_instances::unload(scene_instance_id instance) noexcept {
+  if (!native_world_.is_owner_thread())
+    return error::invalid_state;
   return instances_.destroy(instance, resource_type::scene_instance);
 }
 

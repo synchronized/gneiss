@@ -4,7 +4,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/prefab_replay.hpp"
-#include "engine/function/scene/scene_instance.hpp"
+#include "engine/function/scene/scene_instance_state.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/structural_diff.hpp"
 #include <algorithm>
@@ -13,7 +13,7 @@
 #include <utility>
 
 namespace gneiss::engine {
-result<scene_node_id> scene_instance::instantiate_prefab_ready(
+result<scene_node_id> scene_instance_state::instantiate_prefab_ready(
     const game_object_description& author, prefab_asset_ref prefab,
     std::span<const scene_mesh_binding> bindings, bool replacing,
     ref<const engine::prefab> source_asset, prefab_replacement mode) noexcept try {
@@ -141,7 +141,7 @@ result<scene_node_id> scene_instance::instantiate_prefab_ready(
   return error::internal;
 }
 
-error scene_instance::remove_prefab_instance(gneiss::engine::guid uuid) noexcept {
+error scene_instance_state::remove_prefab_instance(gneiss::engine::guid uuid) noexcept {
   const auto found = std::ranges::find_if(
       prefab_instances_, [&](const auto& value) { return value->instance_uuid_ == uuid; });
   if (found == prefab_instances_.end())

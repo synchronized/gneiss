@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
-#include "engine/function/scene/scene_instance.hpp"
+#include "engine/function/scene/scene_instance_state.hpp"
 #include "engine/function/scene/scene_object.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include <algorithm>
@@ -11,22 +11,23 @@
 #include <unordered_set>
 
 namespace gneiss::engine {
-error scene_instance::add_component_description(scene_node_id node,
-                                                const component_description& value,
-                                                guid identity) noexcept {
+error scene_instance_state::add_component_description(scene_node_id node,
+                                                      const component_description& value,
+                                                      guid identity) noexcept {
   if (!value)
     return error::invalid_argument;
   if (!contains_editable_node(node))
     return error::invalid_handle;
   return add_component({native_world_, node, {}, &loader_}, value, identity);
 }
-error scene_instance::remove_component_description(scene_node_id node, guid type) noexcept {
+error scene_instance_state::remove_component_description(scene_node_id node, guid type) noexcept {
   if (!contains_editable_node(node))
     return error::invalid_handle;
   return remove_component({native_world_, node, {}, &loader_}, type);
 }
-error scene_instance::set_component_description(scene_node_id node,
-                                                const component_description& value) noexcept try {
+error scene_instance_state::set_component_description(scene_node_id node,
+                                                      const component_description& value) noexcept
+    try {
   if (!value)
     return error::invalid_argument;
   if (!contains_editable_node(node))
@@ -47,7 +48,8 @@ error scene_instance::set_component_description(scene_node_id node,
   return error::internal;
 }
 
-result<scene_mesh_binding> scene_instance::capture_mesh_binding(scene_node_id node) const noexcept {
+result<scene_mesh_binding>
+scene_instance_state::capture_mesh_binding(scene_node_id node) const noexcept {
   const auto found = std::ranges::find(objects_, node, &node_entry::node);
   if (found == objects_.end()) {
     return error::invalid_handle;
@@ -59,10 +61,10 @@ result<scene_mesh_binding> scene_instance::capture_mesh_binding(scene_node_id no
   return scene_mesh_binding{renderer->mesh, renderer->material};
 }
 
-error scene_instance::replace_mesh_binding(scene_node_id node_value,
-                                           const scene_mesh_binding& expected,
-                                           const scene_mesh_binding& replacement,
-                                           guid component_uuid) noexcept try {
+error scene_instance_state::replace_mesh_binding(scene_node_id node_value,
+                                                 const scene_mesh_binding& expected,
+                                                 const scene_mesh_binding& replacement,
+                                                 guid component_uuid) noexcept try {
   if ((replacement.mesh && !loader_.owns(replacement.mesh)) ||
       (replacement.material && !loader_.owns(replacement.material))) {
     return error::invalid_argument;
@@ -110,7 +112,7 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
   return error::internal;
 }
 
-bool scene_instance::contains_editable_node(scene_node_id node) const noexcept {
+bool scene_instance_state::contains_editable_node(scene_node_id node) const noexcept {
   return std::ranges::find(objects_, node, &node_entry::node) != objects_.end();
 }
 } // namespace gneiss::engine
