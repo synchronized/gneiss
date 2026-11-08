@@ -168,13 +168,28 @@ bool test_capture_prefab_scene() {
   desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::scene_instance_id scene = {};
-  if (gneiss::engine::error{gneiss::runtime::application::create(desc, application)} !=
-          gneiss::engine::error::success ||
-      gneiss::engine::error{gneiss::test_support::load_scene(*application, scene_uri, &scene)} !=
-          gneiss::engine::error::success) {
+  if (gneiss::runtime::application::create(desc, application).failed())
     return false;
-  }
+  gneiss::engine::scene_instantiation_data prepared;
+  gneiss::engine::scene_instances::resource_bindings resources;
+  if (gneiss::test_support::prepare_scene(*application, scene_uri, prepared, resources).failed())
+    return false;
+  auto empty = application->scenes()->create_empty(gneiss::engine::guid::generate());
+  if (!empty)
+    return false;
+  // 使用无运行 Prefab 绑定的重建路径，证明来源只来自显式回执。
+  auto created = application->scenes()->replace_prepared(*empty, std::move(prepared), resources);
+  if (!created)
+    return false;
+  scene = created->instance;
   gneiss::host::runtime_scene_inspection inspection(5U);
+  if (inspection.set_source_bindings(created->objects).failed())
+    return false;
+  // 错误回执不替换已有绑定。
+  auto invalid = created->objects;
+  invalid.push_back(invalid.front());
+  if (inspection.set_source_bindings(invalid) != gneiss::engine::error::invalid_argument)
+    return false;
   gneiss::host::runtime_scene_snapshot snapshot;
   const auto capture = inspection.capture_scene(*application, scene, false, snapshot);
   const bool valid = capture == gneiss::engine::error::success && snapshot.changes.size() == 3U &&

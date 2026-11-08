@@ -59,7 +59,26 @@ void runtime_scene_inspection::reset(std::uint64_t session_id) noexcept {
   free_values_.clear();
   previous_.clear();
   entities_.clear();
+  sources_.clear();
   is_initialized_ = false;
+}
+
+engine::error runtime_scene_inspection::set_source_bindings(
+    std::span<const engine::scene_object_binding> bindings) noexcept try {
+  std::map<std::uint64_t, engine::scene_object_binding> next;
+  std::set<std::pair<engine::guid, engine::guid>> addresses;
+  for (const auto& binding : bindings) {
+    if (!binding.object || !binding.node || binding.node.get() != binding.entity.get() ||
+        !addresses.emplace(binding.object, binding.source).second ||
+        !next.emplace(binding.entity.get(), binding).second)
+      return engine::error::invalid_argument;
+  }
+  sources_.swap(next);
+  return engine::error::success;
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
 }
 
 gneiss::engine::error
@@ -226,25 +245,25 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
 
       if (info.name.size() > runtime_inspection_max_string_size)
         return gneiss::engine::error::invalid_argument;
-      if (info.prefab && (info.prefab->instance_uuid.is_nil()))
-        return gneiss::engine::error::invalid_argument;
+      const auto source = sources_.find(info.entity.get());
+      const auto* binding = source == sources_.end() ? nullptr : &source->second;
       auto runtime_transform = info.local_transform;
       const auto operation =
           world.entity_get_local_transform(gneiss::entity_id{info.entity.get()}, runtime_transform);
       if (operation != gneiss::engine::error::success) {
         return operation;
       }
-      nodes.push_back({.native_node = info.node.get(),
-                       .native_parent = info.parent.get(),
-                       .native_entity = info.entity.get(),
-                       .uuid = info.uuid,
-                       .prefab_instance_uuid =
-                           info.prefab ? info.prefab->instance_uuid : gneiss::engine::guid{},
-                       .prefab_source_node_uuid =
-                           info.prefab ? info.prefab->source_node_uuid : gneiss::engine::guid{},
-                       .name = std::string{info.name},
-                       .local_transform = runtime_transform,
-                       .components = std::move(info.components)});
+      nodes.push_back(
+          {.native_node = info.node.get(),
+           .native_parent = info.parent.get(),
+           .native_entity = info.entity.get(),
+           .uuid = info.uuid,
+           .prefab_instance_uuid =
+               binding && binding->source ? binding->object : gneiss::engine::guid{},
+           .prefab_source_node_uuid = binding ? binding->source : gneiss::engine::guid{},
+           .name = std::string{info.name},
+           .local_transform = runtime_transform,
+           .components = std::move(info.components)});
     }
     return capture(nodes, force_full, output);
   } catch (const std::bad_alloc&) {

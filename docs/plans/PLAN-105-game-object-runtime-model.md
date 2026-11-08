@@ -107,7 +107,8 @@ Runtime 首次场景实例化复用组合后的有效组件。运行创建仍经
 
 剩余顺序保持明确：
 - Runtime 含 Prefab 的首次实例化、独立实例化及来源重载仍走旧路径，需把来源组合与关联移交外部协调方。
-- Runtime/IPC 来源查询改用协调方持有的实例化关联，不能再从运行节点捕获来源关系。
+- Runtime/IPC 逐帧来源查询已改用显式回执关联；旧重载完成时仍有一次来源反查过渡，
+  需随重载回执迁移一起删除，见[检查关联记录](../records/2026-11-08-runtime-inspection-bindings.md)。
 - 删除旧运行来源刷新、作者捕获及子树接口后，删除 `prefab_binding` 和成员 `persistent` 分类。
 - 将持久父关系贯通为 `object_address`，然后完成整链验收。
 验证记录见[通用应用](../records/2026-11-08-shared-scene-application.md)与[资源消费及投影重建](../records/2026-11-08-explicit-scene-resources.md)。

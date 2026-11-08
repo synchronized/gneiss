@@ -600,6 +600,25 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
               ready = true;
             } else {
               operation = native_application->poll_scene_reload(result, ready);
+              // 迁移期：旧重载尚未返回地址回执，在完成边界收集一次；逐帧检查不再查询来源。
+              if (operation.ok() && ready && result.ok()) {
+                auto count = native_application->scenes()->get_node_count(scene);
+                if (!count)
+                  return count.error();
+                std::vector<gneiss::engine::scene_object_binding> bindings;
+                bindings.reserve(*count);
+                for (std::uint64_t index = 0; index < *count; ++index) {
+                  auto info = native_application->scenes()->get_node_info(
+                      scene, index, gneiss::engine::node_query_detail::identity);
+                  if (!info)
+                    return info.error();
+                  bindings.push_back(
+                      {info->prefab ? info->prefab->instance_uuid : info->uuid,
+                       info->prefab ? info->prefab->source_node_uuid : gneiss::engine::guid{},
+                       info->node, info->entity});
+                }
+                result = scene_inspection.set_source_bindings(bindings);
+              }
             }
             if (ready)
               items.push_back({*structural_reload, result, result.ok()});
@@ -690,6 +709,9 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
     property_editor.reset();
     ++context.inspection_session_id;
     scene_inspection.reset(context.inspection_session_id);
+    const auto associated = scene_inspection.set_source_bindings(loaded.objects);
+    if (associated.failed())
+      return associated;
     if (context.ipc_session)
       context.ipc_session->discard_pending_inspection();
     context.force_full_inspection = true;
