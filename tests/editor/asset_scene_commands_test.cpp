@@ -11,6 +11,7 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 #include <chrono>
@@ -116,13 +117,11 @@ int main() try {
   const auto component_type = engine::mesh_renderer_description::type_guid;
   const auto component_uuid = session.selected_node()->components.identity(component_type);
   const auto projected_identity = [&] {
-    auto captured = app->scenes()->capture_description(session.scene_handle());
-    if (!captured)
+    auto object = session.find_node(uuid);
+    if (!object)
       return engine::guid{};
-    for (const auto& object : captured->objects)
-      if (object.uuid == uuid)
-        return object.components.identity(component_type);
-    return engine::guid{};
+    auto components = engine::capture_components(*app->native_world(), object->node);
+    return components ? components->identity(component_type) : engine::guid{};
   };
   if (!component_uuid || projected_identity() != component_uuid)
     return 81;

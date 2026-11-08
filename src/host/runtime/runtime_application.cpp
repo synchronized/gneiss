@@ -28,6 +28,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -545,6 +546,8 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
   gneiss::scene_instance_id scene = {};
   auto native_result = gneiss::engine::error::success;
   std::string active_scene_uri = project.startup_scene;
+  // 宿主只记录加载回执的依赖 URI，不从运行对象反推作者描述。
+  std::set<std::string, std::less<>> active_prefab_uris;
   const auto inspection_serial =
       static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
   gneiss::host::runtime_scene_inspection scene_inspection(
@@ -562,18 +565,8 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
             first.type == gneiss::host::ipc_asset_type::prefab) {
           structural_ignored =
               first.type == gneiss::host::ipc_asset_type::scene && first.uri != active_scene_uri;
-          if (first.type == gneiss::host::ipc_asset_type::prefab) {
-            gneiss::engine::scene_description description;
-            auto captured_value = native_application->scenes()->capture_description(scene);
-            if (!captured_value)
-              return captured_value.error();
-            description = std::move(*captured_value);
-
-            structural_ignored =
-                std::ranges::none_of(description.objects, [&](const auto& instance) {
-                  return instance.prefab && instance.prefab->uri == first.uri;
-                });
-          }
+          if (first.type == gneiss::host::ipc_asset_type::prefab)
+            structural_ignored = !active_prefab_uris.contains(first.uri);
           // 先准备可分配的回执，再提交请求，避免接受后因分配失败丢失观察状态。
           structural_reload = first;
           const auto accepted =
@@ -685,6 +678,12 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
   scene_loader.after_activate =
       [&](const gneiss::runtime::scene_load_completion& loaded) -> gneiss::engine::error {
     const auto started = std::chrono::steady_clock::now();
+    if (!loaded.content)
+      return gneiss::engine::error::invalid_argument;
+    std::set<std::string, std::less<>> prefab_uris;
+    for (const auto& [uri, dependency] : loaded.content->prefabs)
+      prefab_uris.insert(uri);
+    active_prefab_uris.swap(prefab_uris);
     scene = loaded.scene;
     context.scene = scene;
     active_scene_uri = scene_loader.progress().source.uri;

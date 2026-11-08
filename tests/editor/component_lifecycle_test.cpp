@@ -103,11 +103,11 @@ int main() try {
   check(document.restore_version(document.current_version(), before_independent).ok());
   check(history.redo().ok() && !current());
   auto snapshot = [&] {
-    e::scene_description result;
-    check(gneiss::test_support::assign_value(
-              app->scenes()->capture_description(document.scene_handle()), result)
-              .ok());
-    return result;
+    auto content = document.capture_content();
+    check(content.has_value());
+    auto description = content->description();
+    check(description.has_value());
+    return std::move(*description);
   };
   auto removed = snapshot();
   check(removed.objects.size() == 1 && removed.objects[0].components.empty());

@@ -378,7 +378,7 @@ engine::error scene_instance_state::reload_prefab(std::string_view uri, prefab_a
     }
   }
   if (affected.empty()) {
-    return engine::error::not_found;
+    return engine::error::success; // 依赖仍已加载，但其运行实例可能已被删除。
   }
 
   auto result = engine::error::success;

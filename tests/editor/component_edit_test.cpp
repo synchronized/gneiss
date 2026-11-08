@@ -606,7 +606,9 @@ int main() try {
     gneiss::scene_node_id original_node;
     check(document.create_node("linked", {}, original_node).ok());
     auto original_info = document.query_node(original_node);
-    auto scene_data = app->scenes()->capture_description(document.scene_handle());
+    auto content = document.capture_content();
+    check(content.has_value());
+    auto scene_data = content->description();
     check(original_info && scene_data);
     reference_description linked;
     linked.settings->link = {scene_data->uuid, original_info->uuid};

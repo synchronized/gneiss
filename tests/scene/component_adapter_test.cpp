@@ -291,6 +291,10 @@ int main() try {
   check(gneiss::test_support::assign_value(scenes.capture_description(instance), saved).ok());
   check(saved.objects[0].components.empty());
   check(saved.objects[0].prefab->overrides.size() == 1);
+  auto empty_reload = scenes.create_empty(e::guid::generate());
+  check(empty_reload.has_value());
+  check(scenes.reload_prefab_loaded(*empty_reload, "asset://test.prefab", prefab_ref).ok());
+  check(*scenes.get_node_count(*empty_reload) == 0U);
   lifetime = state(world).get<movement_component>(id)->lifetime;
   owner->reset();
   check(lifetime.expired());
