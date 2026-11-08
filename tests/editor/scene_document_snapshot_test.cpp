@@ -169,6 +169,41 @@ int main() {
     if (!backward || backward->content != frozen->content)
       return 87;
   }
+  // Prefab 覆盖历史区分不存在与显式覆盖，不保留整份引用。
+  {
+    auto changed = *frozen;
+    auto data = changed.content.get();
+    data.objects[0].prefab->overrides.push_back(
+        {{.target = {root.uuid, e::camera_description::type_guid,
+                     root.components.identity(e::camera_description::type_guid)},
+          .path = {e::meta::property_id{99}}},
+         e::value{1.0F}});
+    changed.content = e::scene_record{data};
+    auto patch = ed::make_document_patch(*frozen, changed);
+    if (!patch || !patch->updates[0].prefab || patch->updates[0].prefab->replacement ||
+        patch->updates[0].prefab->overrides.size() != 1 ||
+        patch->updates[0].prefab->overrides[0].before)
+      return 108;
+    auto forward = ed::apply_document_patch(*frozen, *patch, false);
+    if (!forward || forward->content != changed.content)
+      return 109;
+    auto last = changed;
+    data.objects[0].prefab->overrides[0].replacement() = e::value{2.0F};
+    last.content = e::scene_record{data};
+    auto next = ed::make_document_patch(changed, last);
+    if (!next)
+      return 110;
+    auto merged = ed::merge_document_patches(*patch, *next);
+    if (!merged)
+      return 111;
+    auto result = ed::apply_document_patch(*frozen, *merged, false);
+    if (!result || result->content != last.content)
+      return 112;
+    auto restored = ed::apply_document_patch(*result, *merged, true);
+    if (!restored || restored->content != frozen->content ||
+        ed::apply_document_patch(last, *patch, true))
+      return 113;
+  }
   // 组件属性差异只持有变化叶值；其他属性的独立修改不冲突。
   {
     const auto snapshot = [&](float fov, float near_plane) {

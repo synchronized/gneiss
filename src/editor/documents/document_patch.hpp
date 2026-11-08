@@ -30,6 +30,19 @@ struct document_component_changes {
   std::vector<document_component_change> objects;
   std::vector<document_component_update> updates;
 };
+struct document_override_change {
+  engine::prefab_property_override_key key;
+  std::size_t occurrence{};
+  std::optional<engine::value_operation> before, after;
+};
+struct document_prefab_change {
+  // 引用增加、移除或更换来源时才保存完整引用。
+  std::optional<document_field_change<std::optional<engine::prefab_reference_record>>> replacement;
+  std::string uri;
+  std::vector<engine::prefab_property_override_key> before_order, after_order;
+  std::vector<document_override_change> overrides;
+  std::optional<document_field_change<std::vector<engine::component_override_record>>> components;
+};
 /** 存活对象仅保留发生变化的领域字段，不携带其他组件和 Prefab 数据。 */
 struct document_object_update {
   engine::guid uuid;
@@ -37,7 +50,7 @@ struct document_object_update {
   std::optional<document_field_change<std::string>> name;
   std::optional<document_field_change<engine::math::transform>> transform;
   std::optional<document_component_changes> components;
-  std::optional<document_field_change<std::optional<engine::prefab_reference_record>>> prefab;
+  std::optional<document_prefab_change> prefab;
 };
 template <class T> struct document_map_change {
   std::string key;

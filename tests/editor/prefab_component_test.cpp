@@ -277,6 +277,9 @@ int main() try {
           .ok());
   check(e::capture_components(world, loaded_root)->get<movement_description>()->speed == 5);
   check(app->scenes()->unload(loaded).ok());
+  gneiss::scene_node_id unrelated;
+  check(document.create_node("unrelated", {}, unrelated).ok());
+  const auto unrelated_entity = document.query_node(unrelated)->entity;
   const auto refresh = [&](e::prefab_asset_ref replacement) {
     auto next = document.capture_content();
     if (!next)
@@ -287,6 +290,9 @@ int main() try {
     next->prefabs.at(reference.uri).content = *content;
     auto status = document.accept_content(*next);
     if (status.ok()) {
+      check(document.projection_status().ok());
+      check(document.query_node(unrelated).has_value() &&
+            document.query_node(unrelated)->entity == unrelated_entity);
       root_node = document.find_prefab_root(instance.uuid)->node;
       node = document.find_prefab_source(instance.uuid, child_id)->node;
     }
@@ -298,19 +304,14 @@ int main() try {
   check(document.components(document.find_prefab_source(instance.uuid, root_id)->node)
             ->get<movement_description>()
             ->speed == 1);
-  const auto count = app->scenes()->get_node_count(document.scene_handle());
-  check(count.has_value());
-  bool found_conflict = false;
-  for (std::size_t i = 0; i < *count; ++i) {
-    auto info = app->scenes()->get_node_info(document.scene_handle(), i);
-    check(info.has_value());
-    if (info->node == root_node) {
-      check(info->prefab && info->prefab->conflicts.size() == 1 &&
-            info->prefab->conflicts.front().section == e::prefab_override_section::component);
-      found_conflict = true;
-    }
-  }
-  check(found_conflict);
+  // 冲突属于文档组合结果，不从运行实例的历史来源副本读取。
+  auto current_document = document.capture_content();
+  check(current_document.has_value());
+  auto composed = ed::compose_scene_document(*current_document);
+  check(composed.has_value());
+  const auto& conflicts = composed->conflicts.at(instance.uuid);
+  check(conflicts.size() == 1 &&
+        conflicts.front().section == e::prefab_override_section::component);
   check(
       !document.components(document.find_prefab_source(instance.uuid, child_id)->node)->find(type));
   // 来源对象改名、改默认值不会改变移除覆盖；组件消失后又出现仍隐藏。

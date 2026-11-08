@@ -291,10 +291,19 @@ engine::error scene_edit_session::accept_content(const scene_document_snapshot& 
     if (status.failed())
       return status;
   }
-  auto status = document_->accept(document_->current(), snapshot);
+  const auto before = document_->current();
+  const bool synchronized = projection_.is_synchronized(before);
+  const auto selected = projection_.address(selection_);
+  auto status = document_->accept(before, snapshot);
   if (status.failed())
     return status;
-  (void)synchronize();
+  status = project_scene_document(*world_, *application_->scenes(), scene_,
+                                  synchronized ? &before.content() : nullptr, snapshot);
+  (void)report_projection(document_->current(), status);
+  if (selected) {
+    auto found = projection_.objects().find(*selected);
+    selection_ = found == projection_.objects().end() ? scene_node_id{} : found->second.node;
+  }
   return engine::error::success;
 }
 engine::error scene_edit_session::synchronize() noexcept try {

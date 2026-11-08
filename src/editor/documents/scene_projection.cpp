@@ -80,7 +80,7 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
     std::erase_if(previous->objects,
                   [&](const auto& object) { return removed.contains(object.address); });
   }
-  // 新增 Prefab 只创建该实例，不替换已有对象及其他实例。
+  // 新增或结构变化只创建/替换对应 Prefab，其他实例和普通对象保持。
   auto description = target.description();
   if (!description)
     return description.error();
@@ -90,8 +90,35 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
     const bool existing = std::ranges::any_of(previous->objects, [&](const auto& object) {
       return object.address.object == root.address.object && object.address.source;
     });
-    if (existing)
+    const auto belongs = [&](const auto& object) {
+      return object.address.object == root.address.object && object.address.source;
+    };
+    const bool structural_change =
+        existing &&
+        (std::ranges::any_of(previous->objects,
+                             [&](const auto& old) {
+                               if (!belongs(old))
+                                 return false;
+                               auto found = std::ranges::find(next->objects, old.address,
+                                                              &composed_document_object::address);
+                               return found == next->objects.end() ||
+                                      old.prefab_uri != found->prefab_uri ||
+                                      (!old.instance_root &&
+                                       (old.parent != found->parent ||
+                                        old.effective.name != found->effective.name));
+                             }) ||
+         std::ranges::any_of(next->objects, [&](const auto& item) {
+           return belongs(item) &&
+                  std::ranges::find(previous->objects, item.address,
+                                    &composed_document_object::address) == previous->objects.end();
+         }));
+    if (existing && !structural_change)
       continue;
+    document_object_address previous_root;
+    if (existing)
+      for (const auto& item : previous->objects)
+        if (belongs(item) && item.instance_root)
+          previous_root = item.address;
     const auto author = std::ranges::find(description->objects, root.address.object,
                                           &engine::game_object_description::uuid);
     if (author == description->objects.end() || !author->prefab)
@@ -118,9 +145,15 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
     }
     auto created = scenes.instantiate_prefab_ready(
         scene, *author, engine::make_ref<const engine::prefab_description>(std::move(*source)),
-        bindings, false, frozen.source_asset);
+        bindings, existing, frozen.source_asset);
     if (!created)
       return created.error();
+    if (existing) {
+      std::erase_if(previous->objects, belongs);
+      for (auto& object : previous->objects)
+        if (object.parent == previous_root)
+          object.parent = root.address;
+    }
     for (const auto& object : next->objects)
       if (object.address.object == root.address.object && object.address.source)
         previous->objects.push_back(object);

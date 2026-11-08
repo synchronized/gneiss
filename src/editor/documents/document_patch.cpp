@@ -187,6 +187,120 @@ bool merge_components(std::optional<document_component_changes>& a,
   }
   return true;
 }
+using override_key = engine::prefab_property_override_key;
+using overrides = std::vector<engine::prefab_property_override>;
+std::vector<override_key> override_order(const overrides& values) {
+  std::vector<override_key> result;
+  for (const auto& item : values)
+    result.push_back(item.key);
+  return result;
+}
+std::size_t occurrence(const std::vector<override_key>& order, std::size_t index) {
+  return std::size_t(std::count(order.begin(), order.begin() + index, order[index]));
+}
+std::optional<engine::value_operation> override_value(const overrides& values,
+                                                      const override_key& key, std::size_t nth) {
+  for (const auto& item : values)
+    if (item.key == key) {
+      if (nth == 0)
+        return item.operation;
+      --nth;
+    }
+  return {};
+}
+std::optional<document_prefab_change>
+diff_prefab(const std::optional<engine::prefab_reference_record>& a,
+            const std::optional<engine::prefab_reference_record>& b) {
+  if (a == b)
+    return {};
+  document_prefab_change result;
+  if (!a || !b || a->uri != b->uri) {
+    result.replacement =
+        document_field_change<std::optional<engine::prefab_reference_record>>{a, b};
+    return result;
+  }
+  result.uri = a->uri;
+  result.before_order = override_order(a->overrides);
+  result.after_order = override_order(b->overrides);
+  result.components = diff_field(a->components, b->components);
+  for (std::size_t index = 0; index < a->overrides.size(); ++index) {
+    const auto& item = a->overrides[index];
+    const auto nth = occurrence(result.before_order, index);
+    auto next = override_value(b->overrides, item.key, nth);
+    if (next != std::optional{item.operation})
+      result.overrides.push_back({item.key, nth, item.operation, std::move(next)});
+  }
+  for (std::size_t index = 0; index < b->overrides.size(); ++index) {
+    const auto& item = b->overrides[index];
+    const auto nth = occurrence(result.after_order, index);
+    if (!override_value(a->overrides, item.key, nth))
+      result.overrides.push_back({item.key, nth, {}, item.operation});
+  }
+  return result;
+}
+bool apply_prefab(std::optional<engine::prefab_reference_record>& value,
+                  const std::optional<document_prefab_change>& change, bool undo) {
+  if (!change)
+    return true;
+  if (change->replacement)
+    return apply_field(value, change->replacement, undo);
+  if (!value || value->uri != change->uri ||
+      override_order(value->overrides) != (undo ? change->after_order : change->before_order))
+    return false;
+  for (const auto& item : change->overrides)
+    if (override_value(value->overrides, item.key, item.occurrence) !=
+        (undo ? item.after : item.before))
+      return false;
+  const auto& order = undo ? change->before_order : change->after_order;
+  overrides next;
+  for (std::size_t index = 0; index < order.size(); ++index) {
+    const auto nth = occurrence(order, index);
+    auto found = std::ranges::find_if(change->overrides, [&](const auto& item) {
+      return item.key == order[index] && item.occurrence == nth;
+    });
+    auto target = found == change->overrides.end()
+                      ? override_value(value->overrides, order[index], nth)
+                      : (undo ? found->before : found->after);
+    if (!target)
+      return false;
+    next.push_back({order[index], std::move(*target)});
+  }
+  if (!apply_field(value->components, change->components, undo))
+    return false;
+  value->overrides = std::move(next);
+  return true;
+}
+bool merge_prefab(std::optional<document_prefab_change>& a,
+                  const std::optional<document_prefab_change>& b) {
+  if (!b)
+    return true;
+  if (!a) {
+    a = b;
+    return true;
+  }
+  if (a->replacement || b->replacement) {
+    if (!a->replacement || !b->replacement)
+      return false;
+    return merge_field(a->replacement, b->replacement);
+  }
+  if (a->uri != b->uri || a->after_order != b->before_order ||
+      !merge_field(a->components, b->components))
+    return false;
+  for (const auto& item : b->overrides) {
+    auto found = std::ranges::find_if(a->overrides, [&](const auto& old) {
+      return old.key == item.key && old.occurrence == item.occurrence;
+    });
+    if (found == a->overrides.end())
+      a->overrides.push_back(item);
+    else {
+      if (found->after != item.before)
+        return false;
+      found->after = item.after;
+    }
+  }
+  a->after_order = b->after_order;
+  return true;
+}
 template <class Map, class Changes> void diff_map(const Map& a, const Map& b, Changes& out) {
   for (const auto& [key, value] : a) {
     auto found = b.find(key);
@@ -236,7 +350,7 @@ engine::result<document_patch> make_document_patch(const scene_document_snapshot
                                   diff_field(old[i].name, found->name),
                                   diff_field(old[i].transform, found->transform),
                                   diff_components(old[i].components, found->components),
-                                  diff_field(old[i].prefab, found->prefab)});
+                                  diff_prefab(old[i].prefab, found->prefab)});
     }
   }
   for (std::size_t i = 0; i < next.size(); ++i)
@@ -274,7 +388,7 @@ engine::result<document_patch> merge_document_patches(const document_patch& a,
     else if (!merge_field(found->parent, update.parent) || !merge_field(found->name, update.name) ||
              !merge_field(found->transform, update.transform) ||
              !merge_components(found->components, update.components) ||
-             !merge_field(found->prefab, update.prefab))
+             !merge_prefab(found->prefab, update.prefab))
       return engine::error::invalid_state;
   }
   for (const auto& change : b.objects) {
@@ -330,7 +444,7 @@ engine::result<scene_document_snapshot> apply_document_patch(const scene_documen
     if (found == data.objects.end() || !apply_field(found->parent, update.parent, undo) ||
         !apply_field(found->name, update.name, undo) ||
         !apply_field(found->transform, update.transform, undo) ||
-        !apply_field(found->prefab, update.prefab, undo))
+        !apply_prefab(found->prefab, update.prefab, undo))
       return engine::error::invalid_state;
     auto status = apply_components(found->components, update.components, undo);
     if (status.failed())

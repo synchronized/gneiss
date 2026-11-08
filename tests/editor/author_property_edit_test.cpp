@@ -344,6 +344,26 @@ int main() try {
       return 43;
   }
   {
+    editor_command_history rejected;
+    const auto before = session.current_version();
+    const auto status =
+        execute_scene_edit(rejected, session, "模拟分配失败", [&]() -> gneiss::engine::error {
+          auto renamed = session.rename_node(first, "temporary");
+          if (renamed.failed())
+            return renamed;
+          throw std::bad_alloc{};
+        });
+    if (status != gneiss::engine::error::out_of_memory || rejected.size() != 0 ||
+        session.current_version() != before || session.query_node(first)->entity != first_entity ||
+        session.projection_status().failed())
+      return 143;
+    if (execute_scene_edit(rejected, session, "失败后继续",
+                           [&] { return session.rename_node(first, "recovered"); })
+            .failed() ||
+        rejected.undo().failed() || session.current_version() != before)
+      return 144;
+  }
+  {
     editor_command_history structure;
     scene_node_id inserted;
     if (execute_scene_edit(structure, session, "添加对象", [&] {
