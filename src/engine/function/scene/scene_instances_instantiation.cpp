@@ -45,11 +45,13 @@ scene_instances::instantiate(ref<const scene> source, std::size_t source_bytes) 
   }
   scene_instantiation_result output{.instance = {},
                                     .node_count = prepared->instance_nodes,
-                                    .assets = std::move(prepared->assets)};
+                                    .assets = std::move(prepared->assets),
+                                    .bindings = {}};
   auto instance = instantiate_prepared(std::move(*prepared), bindings);
   if (!instance)
     return scene_diagnostic{instance.error(), 0, {}, {}};
   output.instance = *instance;
+  output.bindings = std::move(bindings);
   return output;
 } catch (const std::bad_alloc&) {
   return scene_diagnostic{error::out_of_memory, 0, {}, {}};
@@ -95,9 +97,9 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
       if (!replayed)
         return replayed.error();
       const auto& effective = replayed->description;
-      auto prefab = std::make_unique<prefab_binding>(
-          native_world_, loader_, lease, source.uuid,
-          prepared.prefabs.at(source.prefab->uri).source_asset, std::move(replayed->conflicts));
+      auto prefab =
+          std::make_unique<prefab_binding>(native_world_, loader_, lease, source.uuid,
+                                           prepared.prefabs.at(source.prefab->uri).source_asset);
       auto result = prefab->create_root(
           source.parent_uuid ? nodes.at(source.parent_uuid) : null_scene_node_id, source.transform);
       if (result != engine::error::success) {

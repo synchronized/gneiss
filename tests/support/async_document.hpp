@@ -9,11 +9,20 @@ inline engine::error open_document(editor::scene_edit_session& document, runtime
                                    engine::task_scheduler* tasks = nullptr) {
   if (world != app.native_world())
     return engine::error::invalid_argument;
-  scene_instance_id instance;
-  auto status = load_scene(app, uri, &instance, tasks, true);
+  engine::scene_instantiation_data prepared;
+  engine::scene_instances::resource_bindings bindings;
+  auto status = prepare_scene(app, uri, prepared, bindings, tasks, false, true);
   if (status.failed())
     return status;
-  status = document.adopt(app, world, instance, uri);
+  auto initial = editor::make_scene_document_snapshot(std::string(uri), prepared);
+  if (!initial)
+    return initial.error();
+  initial->assets = bindings;
+  auto created = app.scenes()->instantiate_prepared(std::move(prepared), bindings);
+  if (!created)
+    return created.error();
+  const auto instance = *created;
+  status = document.adopt(app, world, instance, *initial);
   if (status.failed())
     (void)app.scenes()->unload(instance);
   return status;

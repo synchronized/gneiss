@@ -111,11 +111,8 @@ void run(scenario mode) {
     // 关闭文档后推进操作释放自身槽位，再启动新场景加载。
     check(operation.advance(*editing.application, editing.document, history) ==
           e::error::invalid_state);
-    gneiss::scene_instance_id replacement;
-    check(load_scene(*editing.application, "asset://scene.json", &replacement).ok());
-    check(editing.document
-              .adopt(*editing.application, editing.application->native_world(), replacement,
-                     "asset://scene.json")
+    check(open_document(editing.document, *editing.application, editing.application->native_world(),
+                        "asset://scene.json")
               .ok());
   }
   if (mode == scenario::cancelled)

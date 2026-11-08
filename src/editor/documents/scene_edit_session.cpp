@@ -179,24 +179,19 @@ scene_edit_session& scene_edit_session::operator=(scene_edit_session&& other) no
 gneiss::engine::error scene_edit_session::adopt(runtime::application& application,
                                                 gneiss::engine::world* world,
                                                 gneiss::scene_instance_id scene,
-                                                std::string_view uri) noexcept {
+                                                const scene_document_snapshot& initial) noexcept {
   if (edit_base_ || !application.is_owner_thread() || !application.accepts_requests())
     return gneiss::engine::error::invalid_state;
-  if (world != application.native_world() || uri.empty() || !scene)
+  if (world != application.native_world() || initial.uri.empty() || !scene)
     return gneiss::engine::error::invalid_argument;
   try {
     scene_edit_session pending;
-    pending.uri_ = uri;
+    pending.uri_ = initial.uri;
     pending.application_ = &application;
     pending.world_ = world;
     pending.scene_ = scene;
-    auto captured = application.scenes()->capture_prepared(scene);
-    auto initial = captured ? make_scene_document_snapshot(std::string(uri), captured->description)
-                            : engine::result<scene_document_snapshot>{captured.error()};
     pending.document_ = std::make_unique<scene_document>();
-    if (initial)
-      initial->assets = std::move(captured->assets);
-    auto refreshed = initial ? pending.document_->reset(*initial) : initial.error();
+    auto refreshed = pending.document_->reset(initial);
     if (refreshed.ok())
       refreshed = pending.report_projection(pending.document_->current(), engine::error::success);
     if (refreshed != gneiss::engine::error::success) {

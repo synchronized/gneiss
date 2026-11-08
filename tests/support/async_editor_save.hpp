@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "async_application.hpp"
+#include "async_document.hpp"
 #include "commands/author_file_save.hpp"
 #include "documents/scene_document_edit.hpp"
 #include "scene_query.hpp"
@@ -53,10 +53,8 @@ struct author_scene {
     config.writable_assets = true;
     const auto text = root.generic_string();
     config.asset_root = text;
-    scene_instance_id scene;
     return runtime::application::create(config, application).ok() &&
-           load_scene(*application, uri, &scene).ok() &&
-           document.adopt(*application, application->native_world(), scene, uri).ok();
+           open_document(document, *application, application->native_world(), uri).ok();
   }
   std::string content() {
     std::string text;

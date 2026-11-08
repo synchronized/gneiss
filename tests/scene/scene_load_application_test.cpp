@@ -274,6 +274,8 @@ void run(gneiss::engine::execution_mode mode) {
   check(app->activate_scene(first, completion) == gneiss::engine::error::success);
   check(completion.scene != gneiss::scene_instance_id{} &&
         completion.progress.phase == scene_load_phase::applied);
+  check(completion.source && completion.content && completion.content->description &&
+        completion.content == completion.source->content() && !completion.bindings.empty());
   check((observed = app->native_world()) != nullptr && observed != old_world);
   check(app->cancel_scene(first) == gneiss::engine::error::not_ready);
   // 激活后的旧域由 session 延迟退役，期间不能接收下一次打开。
@@ -294,6 +296,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(app->cancel_scene(request) == gneiss::engine::error::success);
   auto [finished, cancelled] = drive();
   check(finished && cancelled.progress.phase == scene_load_phase::cancelled);
+  check(!cancelled.source && !cancelled.content && cancelled.bindings.empty());
   check(cancelled.progress.application_logical_bytes <=
         gneiss::engine::render_service::default_memory_limit);
   check((old_world = app->native_world()) != nullptr && old_world == observed);

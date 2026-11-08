@@ -3,6 +3,7 @@
 
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/scene/prefab_replay.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/structural_diff.hpp"
@@ -66,6 +67,10 @@ result<scene_node_id> scene_instance::instantiate_prefab_ready(
   const auto parent = author.parent_uuid ? find_node(author.parent_uuid) : scene_node_id{};
   if (author.parent_uuid && !parent)
     return error::invalid_handle;
+  auto replayed = replay_prefab_reference(*prefab, *author.prefab);
+  if (!replayed)
+    return replayed.error();
+  const auto& effective = replayed->description;
   // 相同来源根按 UUID 增量更新，保留存活节点及外接子对象。
   if (replacing && mode == prefab_replacement::preserve_nodes &&
       (*previous)->prefab_->uuid == prefab->uuid &&
@@ -76,7 +81,7 @@ result<scene_node_id> scene_instance::instantiate_prefab_ready(
     for (const auto& member : runtime.nodes_)
       if (member.node != runtime.root())
         members.push_back(member.node);
-    auto status = runtime.reload(prefab, *author.prefab);
+    auto status = runtime.reload(prefab, effective);
     if (status.failed())
       return status;
     std::erase_if(objects_, [&](const auto& object) {
@@ -132,19 +137,14 @@ result<scene_node_id> scene_instance::instantiate_prefab_ready(
       return removed;
   }
   auto reference = *author.prefab;
-  auto replayed = replay_prefab_reference(*prefab, *author.prefab);
-  if (!replayed)
-    return replayed.error();
-  const auto& effective = replayed->description;
   auto status = error{error::success};
   structural_diff order;
   status = build_structural_diff({}, effective.objects, order);
   if (status.failed())
     return status;
   prefab_instances_.reserve(prefab_instances_.size() + 1U);
-  auto runtime =
-      std::make_unique<prefab_binding>(native_world_, loader_, std::move(prefab), author.uuid,
-                                       std::move(source_asset), std::move(replayed->conflicts));
+  auto runtime = std::make_unique<prefab_binding>(native_world_, loader_, std::move(prefab),
+                                                  author.uuid, std::move(source_asset));
   status = runtime->create_root(parent, author.transform);
   if (status.failed())
     return status;

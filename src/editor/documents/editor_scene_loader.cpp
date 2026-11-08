@@ -115,7 +115,15 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
   world = application.native_world();
   auto operation = gneiss::engine::error::success;
   if (operation == gneiss::engine::error::success) {
-    operation = editing.document().adopt(application, world, completion.scene, uri_);
+    auto initial = completion.content
+                       ? make_scene_document_snapshot(uri_, *completion.content, completion.source)
+                       : engine::result<scene_document_snapshot>{engine::error::invalid_state};
+    if (!initial)
+      operation = initial.error();
+    else {
+      initial->assets = std::move(completion.bindings);
+      operation = editing.document().adopt(application, world, completion.scene, *initial);
+    }
   }
   if (operation == gneiss::engine::error::success) {
     operation = camera.initialize();

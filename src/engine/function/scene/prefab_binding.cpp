@@ -3,16 +3,11 @@
 
 #include "engine/function/scene/prefab_binding.hpp"
 #include "engine/core/error.hpp"
-#include "engine/core/serialization/value.hpp"
-#include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
 
 #include "engine/core/identifier_conversion.hpp"
-#include "engine/core/meta/registration.hpp"
-#include "engine/function/world/component_identity.hpp"
 
-#include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
 
 #include "engine/function/scene/scene_object.hpp"
@@ -27,14 +22,12 @@ namespace gneiss::engine {
 
 prefab_binding::prefab_binding(world& native_world, asset_manager& loader, prefab_asset_ref prefab,
                                gneiss::engine::guid instance_uuid,
-                               ref<const engine::prefab> source_asset,
-                               std::vector<prefab_override_conflict> conflicts) noexcept
+                               ref<const engine::prefab> source_asset) noexcept
     : native_world_(native_world), loader_(loader), prefab_(std::move(prefab)),
-      source_asset_(std::move(source_asset)), instance_uuid_(std::move(instance_uuid)),
-      conflicts_(std::move(conflicts)) {}
+      source_asset_(std::move(source_asset)), instance_uuid_(std::move(instance_uuid)) {}
 
 engine::error prefab_binding::validate_reload(const prefab_asset_ref& candidate,
-                                              const prefab_reference_description& reference,
+                                              const prefab_description& effective,
                                               scene_diagnostic* diagnostic) {
   if (!candidate || !prefab_ || candidate.get()->uuid != prefab_.get()->uuid ||
       candidate.get()->objects.empty()) {
@@ -53,13 +46,16 @@ engine::error prefab_binding::validate_reload(const prefab_asset_ref& candidate,
 
   if (diagnostic)
     *diagnostic = {};
-  auto replayed = replay_prefab_reference(*candidate, reference);
-  if (!replayed) {
-    if (diagnostic)
-      diagnostic->error = replayed.error();
-    return replayed.error();
-  }
-  for (const auto& object : replayed->description.objects) {
+  if (effective.uuid != candidate->uuid || effective.root_uuid != candidate->root_uuid ||
+      effective.objects.size() != candidate->objects.size())
+    return error::invalid_argument;
+  auto effective_hierarchy = inspect_object_hierarchy(effective.objects, effective.root_uuid);
+  if (!effective_hierarchy)
+    return effective_hierarchy.error().error;
+  for (const auto& object : effective.objects)
+    if (!hierarchy->indices.contains(object.uuid))
+      return error::invalid_argument;
+  for (const auto& object : effective.objects) {
     auto dependencies = component_dependencies(object.components);
     if (!dependencies)
       return dependencies.error();
@@ -73,16 +69,12 @@ engine::error prefab_binding::validate_reload(const prefab_asset_ref& candidate,
 }
 
 engine::error prefab_binding::reload(prefab_asset_ref candidate,
-                                     const prefab_reference_description& reference) {
+                                     const prefab_description& effective) {
 
-  auto result = validate_reload(candidate, reference);
+  auto result = validate_reload(candidate, effective);
   if (result != engine::error::success) {
     return result;
   }
-  auto replayed = replay_prefab_reference(*candidate, reference);
-  if (!replayed)
-    return replayed.error();
-  const auto& effective = replayed->description;
   auto current = *prefab_;
   for (auto& object : current.objects) {
     auto captured = capture_components(native_world_, find_node(object.uuid));
@@ -303,74 +295,10 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
       return result;
   }
   prefab_ = std::move(candidate);
-  conflicts_ = std::move(replayed->conflicts);
   applied.clear();
   staged.clear();
   loader_.collect_unused();
   return engine::error::success;
-}
-
-engine::error
-prefab_binding::apply_overrides(std::span<const prefab_property_override> overrides) noexcept try {
-  for (const auto& override_value : overrides) {
-    const auto validation = validate_prefab_property_override(override_value);
-    if (validation != engine::error::success) {
-      return validation;
-    }
-    const auto found =
-        std::ranges::find(nodes_, override_value.key.target.source_node_uuid,
-                          [](const runtime_node& node) { return node.address.source_node_uuid; });
-    if (found == nodes_.end()) {
-      return engine::error::not_found;
-    }
-    if (found->node == root_node_ &&
-        override_value.key.target.target_type_guid == transform_component_type)
-      return error::invalid_argument;
-    if (override_value.key.path.size() > 1 ||
-        !std::holds_alternative<set_value_operation>(override_value.operation) ||
-        !is_scalar_value_kind(override_value.replacement().kind())) {
-      auto captured = capture_components(native_world_, found->node);
-      if (!captured)
-        return captured.error();
-      const auto* source = captured->find(override_value.key.target.target_type_guid);
-      if (!source)
-        return error::not_found;
-      auto changed = modify_component(*source, [&](meta::mutable_instance root) -> error {
-        auto captured_value = serialization::capture_value(root.as_const());
-        if (!captured_value)
-          return captured_value.error().error;
-        const std::array edits{value_edit{override_value.key.path, override_value.operation}};
-        auto updated = apply_value_edits(*captured_value, edits);
-        return updated ? serialization::apply_value(root, *updated).error : updated.error().error;
-      });
-      if (!changed)
-        return changed.error();
-      auto renderer = native_world_.node_mesh_renderer(found->node);
-      if (!renderer && renderer.error() != error::not_found)
-        return renderer.error();
-      auto status = install_components(
-          {native_world_, found->node, renderer ? *renderer : mesh_renderer{}, &loader_},
-          {*changed});
-      if (status.failed())
-        return status;
-      continue;
-    }
-    const auto result = override_value.key.target.target_type_guid == transform_component_type
-                            ? engine::write_component_property(
-                                  native_world_, scene_object_entity(native_world_, found->node),
-                                  override_value.key.target.target_type_guid,
-                                  override_value.key.first_property(), override_value.replacement())
-                            : edit_runtime_component({native_world_, found->node, {}, &loader_},
-                                                     override_value.key.target.target_type_guid,
-                                                     override_value.key.first_property(),
-                                                     override_value.replacement());
-    if (result != engine::error::success) {
-      return result;
-    }
-  }
-  return engine::error::success;
-} catch (...) {
-  return engine::error::internal;
 }
 
 engine::error prefab_binding::create_root(scene_node_id parent, const math::transform& transform) {
@@ -418,10 +346,6 @@ engine::error prefab_binding::create_node(std::size_t index, const game_object_d
     return created.error();
   target.node = *created;
   return error::success;
-}
-
-engine::error prefab_binding::apply_override(const prefab_property_override& value) noexcept {
-  return apply_overrides(std::span(&value, 1U));
 }
 
 scene_node_id prefab_binding::find_node(gneiss::engine::guid source_node_uuid) const noexcept {

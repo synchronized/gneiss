@@ -590,18 +590,12 @@ int main() try {
     check(history.clear().ok());
     check(apply({.path = {p{1}}, .data = e::value{4.0F}}).ok());
     auto conflict_count = [&] {
-      node = document.find_prefab_source(conflict_reference.uuid, root.uuid)->node;
-      auto count = app->scenes()->get_node_count(document.scene_handle());
-      check(bool(count));
-      for (std::size_t i = 0; i < *count; ++i) {
-        auto info = app->scenes()->get_node_info(document.scene_handle(), i);
-        check(bool(info));
-        if (info->node == node) {
-          check(info->prefab.has_value());
-          return info->prefab->conflicts.size();
-        }
-      }
-      throw std::runtime_error("未找到冲突实例");
+      auto snapshot = document.capture_content();
+      check(bool(snapshot));
+      auto composed = ed::compose_scene_document(*snapshot);
+      check(bool(composed));
+      auto found = composed->conflicts.find(conflict_reference.uuid);
+      return found == composed->conflicts.end() ? std::size_t{} : found->second.size();
     };
     check(conflict_count() == 1 && read().speed == 4);
     check(history.undo().ok() && conflict_count() == 1 && read().speed == 1);

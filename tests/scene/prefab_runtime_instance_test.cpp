@@ -13,6 +13,7 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/scene/prefab_binding.hpp"
+#include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/structural_diff.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
@@ -64,9 +65,13 @@ create_prefab_binding(world& native_world, asset_manager& loader, prefab_asset_r
       return camera_query;
     }
     camera_restore_guard camera_guard{.native_world = native_world, .previous = previous_camera};
+    prefab_description effective;
+    auto prepared = prepare_prefab_description(*prefab, overrides, effective);
+    if (prepared.failed())
+      return prepared;
     auto instance =
         std::make_unique<prefab_binding>(native_world, loader, std::move(prefab), instance_uuid);
-    const auto& source = *instance->prefab_lease().get();
+    const auto& source = effective;
     structural_diff order;
     auto result = build_structural_diff({}, source.objects, order);
     if (result.failed())
@@ -96,17 +101,6 @@ create_prefab_binding(world& native_world, asset_manager& loader, prefab_asset_r
                                      renderer.material);
       if (result.failed())
         return result;
-    }
-    if (result == engine::error::success) {
-      result = error::success;
-      for (const auto& value : overrides) {
-        result = instance->apply_override(value);
-        if (result.failed())
-          break;
-      }
-    }
-    if (result != engine::error::success) {
-      return result;
     }
     out_instance = std::move(instance);
     guard.release();
@@ -204,15 +198,20 @@ bool check_explicit_root(gneiss::engine::world& world, gneiss::engine::asset_man
     return false;
   std::reverse(data.objects.begin(), data.objects.end());
   e::prefab_asset_ref reordered{std::make_shared<const e::prefab_description>(data)};
-  if (instance->reload(reordered, {}).failed() || instance->root() != root ||
+  if (instance->reload(reordered, *reordered).failed() || instance->root() != root ||
       instance->find_node(data.root_uuid) != root)
+    return false;
+  auto mismatched = data;
+  mismatched.objects.front().uuid = e::guid::generate();
+  if (instance->validate_reload(reordered, mismatched) != e::error::invalid_argument ||
+      instance->root() != root)
     return false;
   const auto child = data.objects.back().uuid;
   data.objects.front().parent_uuid = child;
   data.objects.back().parent_uuid = {};
   data.root_uuid = child;
   e::prefab_asset_ref changed{std::make_shared<const e::prefab_description>(data)};
-  return instance->validate_reload(changed, {}) == e::error::unsupported &&
+  return instance->validate_reload(changed, *changed) == e::error::unsupported &&
          instance->root() == root && instance->find_node(original.root_uuid) == root;
 }
 
@@ -378,7 +377,7 @@ int main() try {
     return 14;
   }
   // 相同的相对覆盖可以用于另一实例，不携带实例身份。
-  if (second->reload(second->prefab_lease(), {.uri = {}, .overrides = first_overrides}).failed())
+  if (second->reload(second->prefab_lease(), projected).failed())
     return 15;
 
   const auto first_source_root =
@@ -412,21 +411,21 @@ int main() try {
   auto root_override = first_overrides.front();
   root_override.key.target.source_node_uuid =
       *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000002");
-  if (first->apply_override(root_override) != gneiss::engine::error::invalid_argument)
+  if (prepare_prefab_description(*first->prefab_lease(), std::span(&root_override, 1), projected) !=
+      gneiss::engine::error::invalid_argument)
     return 24;
   auto revision = std::make_shared<gneiss::engine::prefab_description>(*first->prefab_lease());
   revision->objects[0].name = "New source name";
   revision->objects[0].transform.translation = {50.0F, 60.0F, 70.0F};
   revision->objects[0].transform.scale = {7.0F, 8.0F, 9.0F};
+  if (prepare_prefab_description(*revision, first_overrides, projected).failed())
+    return 25;
   if (native_world
           .node_set_identity(first->root(),
                              {*gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000001"),
                               "Instance name"})
           .failed() ||
-      first
-          ->reload(gneiss::engine::prefab_asset_ref{revision},
-                   {.uri = {}, .overrides = first_overrides})
-          .failed() ||
+      first->reload(gneiss::engine::prefab_asset_ref{revision}, projected).failed() ||
       native_world.node_get_local_transform(first->root(), actual_root).failed() ||
       actual_root.translation != first_transform.translation ||
       actual_root.rotation != first_transform.rotation ||

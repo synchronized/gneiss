@@ -3,7 +3,9 @@
 #pragma once
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/asset/render_resource.hpp"
 #include "engine/function/scene/scene_types.hpp"
+#include "engine/resource/scene.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -44,6 +46,10 @@ struct scene_load_completion {
   gneiss::engine::error result{gneiss::engine::error::internal};
   std::string message;
   gneiss::scene_instance_id scene{};
+  /** 本次实例化的不可变输入与实际资源引用；回执消费后不由运行服务额外保活。 */
+  engine::ref<const engine::scene> source;
+  engine::ref<const engine::scene_content> content;
+  std::map<std::string, engine::render_resource_ref, std::less<>> bindings;
   double prepare_ms{};
   double asset_prepare_ms{};
   double maximum_advance_ms{};

@@ -59,6 +59,10 @@ prepare_scene_document(const scene_document_snapshot&,
 /** 从已准备描述冻结内容；纯内存操作，不访问宿主或 World。 */
 [[nodiscard]] engine::result<scene_document_snapshot>
 make_scene_document_snapshot(std::string uri, const engine::scene_instantiation_data&) noexcept;
+/** 使用加载回执冻结的内容构造文档，不读取 World 或当前资产修订。 */
+[[nodiscard]] engine::result<scene_document_snapshot>
+make_scene_document_snapshot(std::string uri, const engine::scene_content&,
+                             engine::ref<const engine::scene> source) noexcept;
 /** 恢复独立的领域输入；资源引用只保活，内容使用冻结值。 */
 [[nodiscard]] engine::result<engine::scene_preparation_inputs>
 make_scene_document_inputs(const scene_document_snapshot&) noexcept;

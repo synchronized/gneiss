@@ -43,6 +43,18 @@ int main() {
   auto frozen = ed::make_scene_document_snapshot("asset://scene.json", input);
   if (!frozen)
     return 2;
+  // 加载内容直接交接文档；拒绝空描述，冻结值不依赖运行时捕获或可变资产当前修订。
+  e::scene_content loaded;
+  loaded.description = e::make_ref<const e::scene_description>(input.description);
+  loaded.prefabs.emplace(
+      instance.prefab->uri,
+      e::scene_prefab_dependency{.resource = {}, .description = source, .source_bytes = 0});
+  auto handed_off = ed::make_scene_document_snapshot("asset://scene.json", loaded, {});
+  if (!handed_off || handed_off->content != frozen->content ||
+      handed_off->prefabs != frozen->prefabs)
+    return 80;
+  if (ed::make_scene_document_snapshot("asset://scene.json", e::scene_content{}, {}))
+    return 81;
   // 组合不需要运行实例；同源实例地址不同，根采用外层值，子节点保留来源身份。
   {
     auto local = *frozen;

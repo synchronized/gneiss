@@ -29,8 +29,6 @@ struct prefab_origin_view {
   math::transform source_local_transform{};
   /** 借用实例覆盖列表，有效期到下次场景修改；查询自动筛选当前源节点。 */
   std::span<const prefab_property_override> overrides;
-  /** 实例全部覆盖冲突，借用到下一次实例修改；目标消失时仍可从实例根查询。 */
-  std::span<const prefab_override_conflict> conflicts;
   [[nodiscard]] bool has_override(guid type, meta::property_id property) const noexcept {
     for (const auto& item : overrides)
       if (item.key.target.source_node_uuid == source_node_uuid &&

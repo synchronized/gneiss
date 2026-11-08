@@ -5,8 +5,8 @@
 #include "engine/core/diagnostics/task_submission.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/render/render_service.hpp"
 #include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "runtime/loading/resource_load_group.hpp"
@@ -130,6 +130,9 @@ void scene_service::finish(gneiss::engine::error result, scene_load_phase phase,
   pending_->result.message = std::move(message);
   sample_budget(pending_->result.progress);
   auto completion = std::move(pending_->result);
+  completion.bindings.clear();
+  completion.content.reset();
+  completion.source.reset();
   const auto cleanup_started = clock_type::now();
   pending_.reset();
   resources_->collect_unused();
@@ -210,6 +213,7 @@ void scene_service::advance_load_impl() {
       finish(initialized, scene_load_phase::failed);
       return;
     }
+    auto content = (*prepared)->content();
     progress.phase = scene_load_phase::instantiating;
     auto built = engine::measure(engine::loop_stage::scene_build, [&] {
       return value.candidate->scenes()->instantiate(*prepared,
@@ -219,6 +223,9 @@ void scene_service::advance_load_impl() {
       finish(built.error().error, scene_load_phase::failed, built.error().message);
       return;
     }
+    value.result.source = *prepared;
+    value.result.content = std::move(content);
+    value.result.bindings = std::move(built->bindings);
     value.result.scene = built->instance;
     value.requested = std::move(built->assets);
     progress.completed = progress.total = built->node_count;

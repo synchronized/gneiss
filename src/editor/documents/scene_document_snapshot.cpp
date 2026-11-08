@@ -29,6 +29,26 @@ make_scene_document_snapshot(std::string uri,
 } catch (...) {
   return engine::error::internal;
 }
+engine::result<scene_document_snapshot>
+make_scene_document_snapshot(std::string uri, const engine::scene_content& content,
+                             engine::ref<const engine::scene> source) noexcept try {
+  if (!content.description)
+    return engine::error::invalid_argument;
+  engine::scene_instantiation_data input;
+  input.description = *content.description;
+  input.source_asset = std::move(source);
+  for (const auto& [path, dependency] : content.prefabs)
+    input.prefabs.emplace(path,
+                          engine::prefab_instantiation_data{.resource = dependency.description,
+                                                            .source_asset = dependency.resource,
+                                                            .maximum_depth = 0,
+                                                            .parent_first = {}});
+  return make_scene_document_snapshot(std::move(uri), input);
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
 engine::result<engine::scene_preparation_inputs>
 make_scene_document_inputs(const scene_document_snapshot& snapshot) noexcept try {
   auto description = snapshot.description();

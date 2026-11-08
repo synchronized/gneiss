@@ -6,6 +6,7 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
+#include "engine/function/scene/prefab_replay.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/resource/asset_file.hpp"
 
@@ -370,6 +371,8 @@ engine::error scene_instance::reload(scene_description candidate) {
 
 engine::error scene_instance::reload_prefab(std::string_view uri, prefab_asset_ref candidate,
                                             scene_diagnostic* diagnostic) {
+  if (!candidate)
+    return error::invalid_argument;
   std::vector<std::size_t> affected;
   affected.reserve(prefab_instances_.size());
   for (std::size_t index = 0U; index < prefab_instances_.size(); ++index) {
@@ -382,13 +385,19 @@ engine::error scene_instance::reload_prefab(std::string_view uri, prefab_asset_r
   }
 
   auto result = engine::error::success;
+  std::vector<prefab_description> effective;
+  effective.reserve(affected.size());
   for (const auto index : affected) {
+    auto replayed = replay_prefab_reference(*candidate, prefab_reference(index));
+    if (!replayed)
+      return replayed.error();
     result =
-        prefab_instances_[index]->validate_reload(candidate, prefab_reference(index), diagnostic);
-    if (result != engine::error::success) {
+        prefab_instances_[index]->validate_reload(candidate, replayed->description, diagnostic);
+    if (result.failed())
       return result;
-    }
+    effective.push_back(std::move(replayed->description));
   }
+  std::size_t effective_index = 0;
   for (const auto index : affected) {
     objects_.reserve(objects_.size() + candidate->objects.size() + 1U);
     auto& prefab = *prefab_instances_[index];
@@ -397,7 +406,7 @@ engine::error scene_instance::reload_prefab(std::string_view uri, prefab_asset_r
     for (const auto& node : prefab.nodes_)
       if (node.node != prefab.root())
         previous.push_back(node.node);
-    result = prefab.reload(candidate, prefab_reference(index));
+    result = prefab.reload(candidate, effective[effective_index++]);
     if (result.ok()) {
       std::erase_if(objects_, [&](const auto& object) {
         return std::ranges::find(previous, object.node) != previous.end();
@@ -462,7 +471,6 @@ std::optional<prefab_origin_view> scene_instance::prefab_origin(scene_node_id no
       continue;
     origin.is_instance_root = runtime.root() == node;
     origin.overrides = reference.overrides;
-    origin.conflicts = runtime.conflicts_;
     origin.source_node_uuid = found->address.source_node_uuid;
     if (const auto* source = runtime.find_source_object(origin.source_node_uuid))
       origin.source_local_transform = source->transform;

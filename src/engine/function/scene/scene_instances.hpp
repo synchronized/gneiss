@@ -55,6 +55,7 @@ struct scene_instantiation_result {
   scene_instance_id instance;
   std::size_t node_count{};
   std::vector<render_resource_source> assets;
+  std::map<std::string, render_resource_ref, std::less<>> bindings;
 };
 /** 显式重建用于丢弃运行状态；编辑投影保留相同来源节点。 */
 enum class prefab_replacement { recreate, preserve_nodes };
