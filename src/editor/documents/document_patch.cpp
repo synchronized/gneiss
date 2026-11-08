@@ -35,6 +35,158 @@ bool merge_field(std::optional<document_field_change<T>>& field,
   field->after = change->after;
   return true;
 }
+// 记录字段递归到叶值；没有稳定身份的容器作为一个属性整体替换。
+void diff_properties(const engine::value& a, const engine::value& b,
+                     engine::meta::property_path path, std::vector<document_value_change>& out) {
+  if (a == b)
+    return;
+  const auto* left = std::get_if<engine::record_value>(&a.payload);
+  const auto* right = std::get_if<engine::record_value>(&b.payload);
+  if (left && right && left->get().type == right->get().type &&
+      left->get().properties.size() == right->get().properties.size() &&
+      std::ranges::all_of(left->get().properties, [&](const auto& field) {
+        return std::ranges::find(right->get().properties, field.id, &engine::value_property::id) !=
+               right->get().properties.end();
+      })) {
+    for (const auto& field : left->get().properties) {
+      auto target =
+          std::ranges::find(right->get().properties, field.id, &engine::value_property::id);
+      auto child = path;
+      child.emplace_back(engine::meta::property_id{field.id});
+      diff_properties(field.content, target->content, std::move(child), out);
+    }
+  } else
+    out.push_back({std::move(path), a, b});
+}
+const engine::value* property_value(const engine::value& root,
+                                    const engine::meta::property_path& path) {
+  const auto* value = &root;
+  for (const auto& step : path) {
+    const auto* id = std::get_if<engine::meta::property_id>(&step);
+    const auto* record = std::get_if<engine::record_value>(&value->payload);
+    if (!id || !record)
+      return nullptr;
+    auto found =
+        std::ranges::find(record->get().properties, id->get(), &engine::value_property::id);
+    if (found == record->get().properties.end())
+      return nullptr;
+    value = &found->content;
+  }
+  return value;
+}
+std::optional<document_component_changes>
+diff_components(const std::vector<engine::component_record>& a,
+                const std::vector<engine::component_record>& b) {
+  if (a == b)
+    return {};
+  document_component_changes result;
+  for (std::size_t i = 0; i < a.size(); ++i) {
+    auto found = std::ranges::find(b, a[i].uuid, &engine::component_record::uuid);
+    if (found == b.end())
+      result.objects.push_back({a[i].uuid, a[i], {}, i, 0});
+    else if (a[i] != *found || i != std::size_t(found - b.begin())) {
+      auto index = std::size_t(found - b.begin());
+      if (i != index || a[i].type != found->type)
+        result.objects.push_back({a[i].uuid, a[i], *found, i, index});
+      else {
+        document_component_update update{a[i].uuid, a[i].type, {}};
+        diff_properties(a[i].properties, found->properties, {}, update.properties);
+        result.updates.push_back(std::move(update));
+      }
+    }
+  }
+  for (std::size_t i = 0; i < b.size(); ++i)
+    if (std::ranges::find(a, b[i].uuid, &engine::component_record::uuid) == a.end())
+      result.objects.push_back({b[i].uuid, {}, b[i], 0, i});
+  return result;
+}
+engine::error apply_components(std::vector<engine::component_record>& values,
+                               const std::optional<document_component_changes>& changes,
+                               bool undo) {
+  if (!changes)
+    return engine::error::success;
+  for (const auto& update : changes->updates) {
+    auto found = std::ranges::find(values, update.uuid, &engine::component_record::uuid);
+    if (found == values.end() || found->type != update.type)
+      return engine::error::invalid_state;
+    std::vector<engine::value_edit> edits;
+    for (const auto& property : update.properties) {
+      const auto* current = property_value(found->properties, property.path);
+      if (!current || *current != (undo ? property.after : property.before))
+        return engine::error::invalid_state;
+      edits.push_back(
+          {property.path, engine::set_value_operation{undo ? property.before : property.after}});
+    }
+    auto applied = engine::apply_value_edits(found->properties, edits);
+    if (!applied)
+      return applied.error().error;
+    found->properties = std::move(*applied);
+  }
+  for (const auto& change : changes->objects) {
+    const auto& expected = undo ? change.after : change.before;
+    auto found = std::ranges::find(values, change.uuid, &engine::component_record::uuid);
+    if (expected ? found == values.end() || *found != *expected ||
+                       std::size_t(found - values.begin()) !=
+                           (undo ? change.after_index : change.before_index)
+                 : found != values.end())
+      return engine::error::invalid_state;
+  }
+  std::erase_if(values, [&](const auto& item) {
+    return std::ranges::find(changes->objects, item.uuid, &document_component_change::uuid) !=
+           changes->objects.end();
+  });
+  std::vector<std::pair<std::size_t, engine::component_record>> insertions;
+  for (const auto& change : changes->objects) {
+    const auto& target = undo ? change.before : change.after;
+    if (target)
+      insertions.emplace_back(undo ? change.before_index : change.after_index, *target);
+  }
+  std::ranges::sort(insertions, {}, &decltype(insertions)::value_type::first);
+  for (auto& [index, item] : insertions) {
+    if (index > values.size())
+      return engine::error::invalid_state;
+    values.insert(values.begin() + index, std::move(item));
+  }
+  return engine::error::success;
+}
+bool merge_components(std::optional<document_component_changes>& a,
+                      const std::optional<document_component_changes>& b) {
+  if (!b)
+    return true;
+  if (!a) {
+    a = b;
+    return true;
+  }
+  if (!a->objects.empty() || !b->objects.empty())
+    return false;
+  for (const auto& update : b->updates) {
+    auto found = std::ranges::find(a->updates, update.uuid, &document_component_update::uuid);
+    if (found == a->updates.end()) {
+      a->updates.push_back(update);
+      continue;
+    }
+    if (found->type != update.type)
+      return false;
+    for (const auto& property : update.properties) {
+      auto old = std::ranges::find(found->properties, property.path, &document_value_change::path);
+      if (old == found->properties.end()) {
+        // 父路径整体替换和子路径变更不混合合并。
+        for (const auto& existing : found->properties) {
+          auto count = std::min(existing.path.size(), property.path.size());
+          if (std::equal(existing.path.begin(), existing.path.begin() + count,
+                         property.path.begin()))
+            return false;
+        }
+        found->properties.push_back(property);
+      } else {
+        if (old->after != property.before)
+          return false;
+        old->after = property.after;
+      }
+    }
+  }
+  return true;
+}
 template <class Map, class Changes> void diff_map(const Map& a, const Map& b, Changes& out) {
   for (const auto& [key, value] : a) {
     auto found = b.find(key);
@@ -83,7 +235,7 @@ engine::result<document_patch> make_document_patch(const scene_document_snapshot
         result.updates.push_back({old[i].uuid, diff_field(old[i].parent, found->parent),
                                   diff_field(old[i].name, found->name),
                                   diff_field(old[i].transform, found->transform),
-                                  diff_field(old[i].components, found->components),
+                                  diff_components(old[i].components, found->components),
                                   diff_field(old[i].prefab, found->prefab)});
     }
   }
@@ -121,7 +273,7 @@ engine::result<document_patch> merge_document_patches(const document_patch& a,
       result.updates.push_back(update);
     else if (!merge_field(found->parent, update.parent) || !merge_field(found->name, update.name) ||
              !merge_field(found->transform, update.transform) ||
-             !merge_field(found->components, update.components) ||
+             !merge_components(found->components, update.components) ||
              !merge_field(found->prefab, update.prefab))
       return engine::error::invalid_state;
   }
@@ -178,9 +330,11 @@ engine::result<scene_document_snapshot> apply_document_patch(const scene_documen
     if (found == data.objects.end() || !apply_field(found->parent, update.parent, undo) ||
         !apply_field(found->name, update.name, undo) ||
         !apply_field(found->transform, update.transform, undo) ||
-        !apply_field(found->components, update.components, undo) ||
         !apply_field(found->prefab, update.prefab, undo))
       return engine::error::invalid_state;
+    auto status = apply_components(found->components, update.components, undo);
+    if (status.failed())
+      return status;
   }
   for (const auto& change : patch.objects) {
     const auto& expected = undo ? change.after : change.before;

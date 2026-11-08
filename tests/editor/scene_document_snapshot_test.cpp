@@ -169,6 +169,51 @@ int main() {
     if (!backward || backward->content != frozen->content)
       return 87;
   }
+  // 组件属性差异只持有变化叶值；其他属性的独立修改不冲突。
+  {
+    const auto snapshot = [&](float fov, float near_plane) {
+      auto local = *frozen;
+      e::scene_description description;
+      description.uuid = local.content.get().uuid;
+      auto object = root;
+      object.components.set(e::camera_description{{fov, near_plane, 100.0F}});
+      description.objects.push_back(object);
+      local.content = *e::capture_scene_record(description);
+      local.prefabs.clear();
+      return local;
+    };
+    auto original = snapshot(1.0F, 0.1F);
+    auto changed = snapshot(1.3F, 0.1F);
+    auto patch = ed::make_document_patch(original, changed);
+    if (!patch || patch->updates.size() != 1 || !patch->updates[0].components)
+      return 100;
+    const auto& components = *patch->updates[0].components;
+    if (!components.objects.empty() || components.updates.size() != 1 ||
+        components.updates[0].properties.size() != 1 ||
+        components.updates[0].properties[0].before != e::value{1.0F} ||
+        components.updates[0].properties[0].after != e::value{1.3F})
+      return 101;
+    auto independent = snapshot(1.0F, 0.2F);
+    auto applied = ed::apply_document_patch(independent, *patch, false);
+    if (!applied || applied->content != snapshot(1.3F, 0.2F).content)
+      return 102;
+    auto reversed = ed::apply_document_patch(*applied, *patch, true);
+    if (!reversed || reversed->content != independent.content ||
+        ed::apply_document_patch(snapshot(1.4F, 0.1F), *patch, false))
+      return 103;
+    auto next = ed::make_document_patch(changed, snapshot(1.6F, 0.1F));
+    if (!next)
+      return 104;
+    auto merged = ed::merge_document_patches(*patch, *next);
+    if (!merged)
+      return 105;
+    auto last = ed::apply_document_patch(original, *merged, false);
+    if (!last || last->content != snapshot(1.6F, 0.1F).content)
+      return 106;
+    auto back = ed::apply_document_patch(*last, *merged, true);
+    if (!back || back->content != original.content)
+      return 107;
+  }
   const auto before = frozen->content;
   const auto camera_id = root.components.identity(e::camera_description::type_guid);
   if (!camera_id ||
