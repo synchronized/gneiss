@@ -213,15 +213,13 @@ C++ Builder 和 Meta 内置注册入口位于 `meta/registration.hpp`；数学�
 `meta/math_registration.cpp`，业务资源注册位于 `resource/builtin_resource_registration.cpp`。元数据名称借用注册表，属性读取结果拥有自己的数据；
 具体文件职责见[反射接口参考](../reference/reflection.md)。
 
-`scene_instance_edit.cpp` 实现单实例的已就绪材质绑定提交；Scene 服务校验入口，实例同步
-更新 ECS、作者描述和资源租约。`scene_mesh_binding.hpp` 与 `render_statistics.hpp` 分别提供
-绑定租约值及渲染统计快照，Application 不通过它们传递包含 Scene 服务或渲染执行器定义。
-需要调用 Scene/World 服务的宿主源码显式包含对应契约；Application 的纹理加载器和内部
-资产加载器访问方法为私有，兼容入口通过 Application 请求/取消方法进入。
+`scene_instance_edit.cpp` 实现普通运行组件的修改，只更新 ECS 与实际资源引用。
+`scene_mesh_binding.hpp` 提供显式网格和材质引用，场景成员不保存编辑历史或作者描述。
 
-`scene_instance_prefab.cpp` 实现本场景 Prefab 实例候选的准备、发布、版本替换、移除及绑定查询。
-Scene 服务完成入口校验后转交实例，不直接修改这些事务的内部容器；Prefab 源资源编辑仍属于
-资产流程。跨场景资产替换继续由 Scene 服务协调，与单场景实例事务的职责不同。
+`scene_composition.cpp` 纯内存组合 Scene/Prefab，输出有效对象、地址和覆盖冲突；
+`scene_application.cpp` 将差异应用为普通 World 成员。`scene_instances_instantiation.cpp`
+统一消费组合结果，同步创建失败时回收本次成员。Runtime 来源协调与 Editor 投影各自持有
+输入和地址关联，不将 Prefab 来源或事务状态放进运行对象。
 
 应用级资源管理器位于 `src/engine/resource/asset_manager.hpp`，由 Application 拥有，
 管理通用 CPU 请求并唯一持有资源索引；Prefab 与 Render Loader 共享该索引。Render Loader 由 Application

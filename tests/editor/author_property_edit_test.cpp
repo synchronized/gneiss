@@ -202,11 +202,10 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   e::scene_diagnostic diagnostic;
   if (e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).failed())
     return 43;
-  gneiss::scene_instance_id loaded;
-  if (gneiss::test_support::take_value(app.scenes()->instantiate_prepared(std::move(prepared), {}),
-                                       loaded)
-          .failed())
+  auto receipt = app.scenes()->instantiate_prepared(std::move(prepared), {});
+  if (!receipt)
     return 44;
+  const auto loaded = receipt->instance;
   bool found_ordinary = false, found_prefab = false, found_child = false;
   std::uint64_t count{};
   if (gneiss::test_support::take_value(app.scenes()->get_node_count(loaded), count).failed())
@@ -215,10 +214,14 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
     e::scene_node_info node;
     if (gneiss::test_support::take_value(app.scenes()->get_node_info(loaded, i), node).failed())
       return 46;
-    if (node.prefab && node.prefab->instance_uuid == author.uuid) {
-      if (node.prefab->source_node_uuid == source->root_uuid)
+    const auto address =
+        std::ranges::find(receipt->objects, node.node, &e::scene_object_binding::node);
+    if (address == receipt->objects.end())
+      return 46;
+    if (address->object == author.uuid) {
+      if (address->source == source->root_uuid)
         found_prefab = read(node.entity).fov == 1.3F && node.local_transform.translation.x == 5;
-      else if (node.prefab->source_node_uuid == child.uuid)
+      else if (address->source == child.uuid)
         found_child = node.local_transform.translation.x == 6;
     } else if (node.uuid == ordinary_uuid) {
       const auto camera = read(node.entity);

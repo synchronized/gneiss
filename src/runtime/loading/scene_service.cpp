@@ -6,6 +6,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/loading/resource_load_group.hpp"
 #include "runtime/loading/scene_domain.hpp"
@@ -184,6 +185,8 @@ engine::error scene_service::request_reload(scene_instance_id instance, std::str
   if (!valid_value)
     return valid_value.error();
 
+  if (!source_ || source_->instance != instance || !source_->synchronized)
+    return engine::error::invalid_state;
   auto next = std::make_unique<reload_task>();
   next->instance = instance;
   if (prefab) {
@@ -249,6 +252,28 @@ scene_service::apply_source(engine::ref<const engine::scene_content> content) {
         same_transform(object.effective.transform, replacement->effective.transform))
       replacement->effective.transform = *transform;
     object.effective.transform = *transform;
+    // 用实际运行状态比较目标，恢复来源指定的名称、组件和父关系。
+    auto identity = native_world()->node_identity(binding->second.node);
+    auto components = engine::capture_components(*native_world(), binding->second.node);
+    if (!identity)
+      return identity.error();
+    if (!components)
+      return components.error();
+    object.effective.name = identity->name;
+    object.effective.components = std::move(*components);
+    engine::object_address parent_address;
+    scene_node_id parent_node;
+    auto parent_status = native_world()->node_get_parent(binding->second.node, parent_node);
+    if (parent_status.failed())
+      return parent_status;
+    if (parent_node) {
+      auto parent = std::ranges::find_if(
+          source_->objects, [&](const auto& entry) { return entry.second.node == parent_node; });
+      if (parent == source_->objects.end())
+        return engine::error::invalid_state;
+      parent_address = parent->first;
+    }
+    object.parent = parent_address;
   }
   engine::scene_instances::resource_bindings bindings;
   for (const auto& request : prepared.assets) {
@@ -298,8 +323,7 @@ void scene_service::advance_reload() try {
             return engine::scene_diagnostic{applied.error(), 0, {}, {}};
           return std::move(*applied);
         }
-        // 迁移期仅支持手动创建、尚未向 Runtime 交接来源回执的旧实例。
-        return scenes()->reload(value.instance, *loaded, request.source_bytes());
+        return engine::scene_diagnostic{engine::error::invalid_state, 0, {}, {}};
       },
       value.descriptions);
   if (!reloaded) {
@@ -310,23 +334,6 @@ void scene_service::advance_reload() try {
   if (source_ && source_->instance == value.instance) {
     for (const auto& [address, binding] : source_->objects)
       value.objects.push_back({address.object, address.source, binding.node, binding.entity});
-  } else {
-    auto count = scenes()->get_node_count(value.instance);
-    if (!count) {
-      value.result = count.error();
-      return;
-    }
-    for (std::uint64_t index = 0; index < *count; ++index) {
-      auto info =
-          scenes()->get_node_info(value.instance, index, engine::node_query_detail::identity);
-      if (!info) {
-        value.result = info.error();
-        return;
-      }
-      value.objects.push_back({info->prefab ? info->prefab->instance_uuid : info->uuid,
-                               info->prefab ? info->prefab->source_node_uuid : engine::guid{},
-                               info->node, info->entity});
-    }
   }
   value.result = engine::error::success;
   visuals_.begin(std::move(*reloaded), 1, 1);

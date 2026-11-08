@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../support/async_prefab.hpp"
+#include "../support/async_application.hpp"
 #include "../support/async_scene_reload.hpp"
-#include "../support/prefab_query.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
 
 #include <filesystem>
@@ -49,24 +49,28 @@ void write_prefab(const std::filesystem::path& path, gneiss::engine::guid root_u
 
 gneiss::engine::error find_source(const std::shared_ptr<gneiss::runtime::application>& application,
                                   gneiss::scene_instance_id scene,
+                                  const std::vector<gneiss::engine::scene_object_binding>& objects,
                                   gneiss::engine::guid instance_uuid,
                                   gneiss::engine::guid source_uuid,
                                   gneiss::engine::scene_node_info& output) {
-  std::uint64_t count = 0U;
-  auto result = gneiss::engine::error{
-      gneiss::test_support::prefab_node_count(*application->scenes(), scene, &count)};
-  for (std::uint64_t index = 0U; result == gneiss::engine::error::success && index < count;
-       ++index) {
-    output = {};
-    result = gneiss::engine::error{
-        gneiss::test_support::prefab_node_info(*application->scenes(), scene, index, output)};
-    if (result == gneiss::engine::error::success && !output.prefab->source_node_uuid.is_nil() &&
-        output.prefab->instance_uuid == instance_uuid &&
-        output.prefab->source_node_uuid == source_uuid) {
+  const auto binding = std::ranges::find_if(objects, [&](const auto& object) {
+    return object.object == instance_uuid && object.source == source_uuid;
+  });
+  if (binding == objects.end())
+    return gneiss::engine::error::not_found;
+  auto count = application->scenes()->get_node_count(scene);
+  if (!count)
+    return count.error();
+  for (std::size_t index = 0; index < *count; ++index) {
+    auto info = application->scenes()->get_node_info(scene, index);
+    if (!info)
+      return info.error();
+    if (info->node == binding->node) {
+      output = *info;
       return gneiss::engine::error::success;
     }
   }
-  return result == gneiss::engine::error::success ? gneiss::engine::error::not_found : result;
+  return gneiss::engine::error::not_found;
 }
 
 } // namespace
@@ -82,79 +86,90 @@ int main() try {
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::scene_instance_id scene = {};
   constexpr std::string_view scene_uri = "asset://scenes/prefab.scene.json";
-  if (gneiss::runtime::application::create(config, application) != gneiss::engine::error::success ||
-      gneiss::engine::error{gneiss::test_support::load_scene(
-          *application, scene_uri, &scene, &scheduler)} != gneiss::engine::error::success) {
+  if (gneiss::runtime::application::create(config, application).failed())
     return 1;
-  }
-
-  gneiss::engine::prefab_creation create;
-  create.instance_uuid = second_instance_uuid;
-  create.prefab_uri = prefab_uri;
-  gneiss::scene_node_id second_root;
-  if (gneiss::test_support::create_prefab(*application, scene, create, second_root, &scheduler)
-          .failed()) {
+  gneiss::engine::scene_instantiation_data prepared;
+  gneiss::engine::scene_instances::resource_bindings assets;
+  if (gneiss::test_support::prepare_scene(*application, scene_uri, prepared, assets, &scheduler)
+          .failed())
+    return 1;
+  auto description = prepared.description;
+  gneiss::engine::game_object_description second;
+  second.uuid = second_instance_uuid;
+  second.prefab = gneiss::engine::prefab_reference_description{std::string(prefab_uri), {}, {}};
+  description.objects.push_back(second);
+  auto bytes = gneiss::engine::asset_file::serialize_bytes(description);
+  if (!bytes)
     return 2;
+  {
+    std::ofstream output(root / "scenes" / "prefab.scene.json", std::ios::binary | std::ios::trunc);
+    output.write(reinterpret_cast<const char*>(bytes->data()),
+                 static_cast<std::streamsize>(bytes->size()));
   }
+  // 释放准备阶段的弱缓存所有者，正式激活重新读取更新后的场景。
+  prepared = {};
+  gneiss::runtime::scene_load_completion loaded;
+  if (gneiss::test_support::activate_scene_for_test(*application, scheduler, scene_uri, loaded)
+          .failed())
+    return 2;
+  scene = loaded.scene;
+  auto objects = loaded.objects;
 
   gneiss::engine::scene_node_info first_before;
   gneiss::engine::scene_node_info second_before;
-  if (find_source(application, scene, first_instance_uuid, source_root_uuid, first_before) !=
-          gneiss::engine::error::success ||
-      find_source(application, scene, second_instance_uuid, source_root_uuid, second_before) !=
-          gneiss::engine::error::success) {
+  if (find_source(application, scene, objects, first_instance_uuid, source_root_uuid,
+                  first_before) != gneiss::engine::error::success ||
+      find_source(application, scene, objects, second_instance_uuid, source_root_uuid,
+                  second_before) != gneiss::engine::error::success) {
     return 3;
   }
 
   const auto prefab_path = root / "prefabs" / "test.prefab.json";
   write_prefab(prefab_path, source_root_uuid, true);
-  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, prefab_uri,
-                                                  true) != gneiss::engine::error::success) {
+  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, prefab_uri, true,
+                                                  &objects) != gneiss::engine::error::success) {
     return 4;
   }
   gneiss::engine::scene_node_info first_after;
   gneiss::engine::scene_node_info second_after;
   gneiss::engine::scene_node_info child;
-  std::uint64_t count = 0U;
-  if (find_source(application, scene, first_instance_uuid, source_root_uuid, first_after) !=
-          gneiss::engine::error::success ||
-      find_source(application, scene, second_instance_uuid, source_root_uuid, second_after) !=
-          gneiss::engine::error::success ||
+
+  if (find_source(application, scene, objects, first_instance_uuid, source_root_uuid,
+                  first_after) != gneiss::engine::error::success ||
+      find_source(application, scene, objects, second_instance_uuid, source_root_uuid,
+                  second_after) != gneiss::engine::error::success ||
       first_after.node != first_before.node || first_after.entity != first_before.entity ||
       second_after.node != second_before.node || second_after.entity != second_before.entity ||
       first_after.name != "Reloaded Root" || second_after.name != "Reloaded Root" ||
       first_after.local_transform.translation[0] != 3.0F ||
       second_after.local_transform.translation[0] != 2.0F ||
-      find_source(application, scene, first_instance_uuid, source_child_uuid, child) !=
+      find_source(application, scene, objects, first_instance_uuid, source_child_uuid, child) !=
           gneiss::engine::error::success ||
-      find_source(application, scene, second_instance_uuid, source_child_uuid, child) !=
+      find_source(application, scene, objects, second_instance_uuid, source_child_uuid, child) !=
           gneiss::engine::error::success ||
-      gneiss::test_support::prefab_node_count(*application->scenes(), scene, &count) !=
-          gneiss::engine::error::success ||
-      count != 6U) {
+      std::ranges::count_if(objects, [](const auto& item) { return bool(item.source); }) != 6U) {
     return 5;
   }
 
   const gneiss::engine::guid replacement_root_uuid =
       *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000099");
   write_prefab(prefab_path, replacement_root_uuid, false);
-  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, prefab_uri,
-                                                  true) != gneiss::engine::error::success ||
-      find_source(application, scene, first_instance_uuid, source_root_uuid, first_after) !=
-          gneiss::engine::error::not_found ||
-      find_source(application, scene, first_instance_uuid, replacement_root_uuid, first_after) !=
-          gneiss::engine::error::success ||
-      !first_after.prefab || first_after.prefab->overrides.size() != 1 ||
-      find_source(application, scene, second_instance_uuid, replacement_root_uuid, second_after) !=
-          gneiss::engine::error::success ||
-      !second_after.prefab) {
+  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, prefab_uri, true,
+                                                  &objects) != gneiss::engine::error::success ||
+      find_source(application, scene, objects, first_instance_uuid, source_root_uuid,
+                  first_after) != gneiss::engine::error::not_found ||
+      find_source(application, scene, objects, first_instance_uuid, replacement_root_uuid,
+                  first_after) != gneiss::engine::error::success ||
+      find_source(application, scene, objects, second_instance_uuid, replacement_root_uuid,
+                  second_after) != gneiss::engine::error::success) {
     return 6;
   }
   // 来源目标重新出现后，原覆盖自动恢复；冲突由组合层报告，运行查询不缓存。
   write_prefab(prefab_path, source_root_uuid, false);
-  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, prefab_uri, true)
+  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, prefab_uri, true,
+                                                  &objects)
           .failed() ||
-      find_source(application, scene, first_instance_uuid, source_root_uuid, first_after)
+      find_source(application, scene, objects, first_instance_uuid, source_root_uuid, first_after)
           .failed() ||
       first_after.local_transform.translation.x != 3)
     return 8;

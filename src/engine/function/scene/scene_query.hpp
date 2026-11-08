@@ -5,40 +5,18 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/math/transform.hpp"
 
-#include "engine/resource/scene/scene_description.hpp"
+#include "engine/resource/scene/component_description.hpp"
 
 #include "engine/core/entity_id.hpp"
 #include "engine/function/scene/scene_types.hpp"
 
-#include "engine/function/scene/prefab_replay.hpp"
-#include "engine/resource/scene/prefab_property_data.hpp"
-#include <optional>
-#include <span>
 #include <string_view>
 
 namespace gneiss::engine {
 
 enum class node_query_detail { identity, components };
 
-/** Prefab 来源关系；不重复节点、实体或运行时变换。 */
-struct prefab_origin_view {
-  bool is_instance_root{};
-  guid instance_uuid;
-  guid source_node_uuid;
-  std::string_view prefab_uri;
-  math::transform source_local_transform{};
-  /** 借用实例覆盖列表，有效期到下次场景修改；查询自动筛选当前源节点。 */
-  std::span<const prefab_property_override> overrides;
-  [[nodiscard]] bool has_override(guid type, meta::property_id property) const noexcept {
-    for (const auto& item : overrides)
-      if (item.key.target.source_node_uuid == source_node_uuid &&
-          item.key.target.target_type_guid == type && item.key.first_property() == property)
-        return true;
-    return false;
-  }
-};
-
-/** 名称与 Prefab 来源借用到下次场景修改或销毁；组件集合是自有只读快照。
+/** 名称借用到下次场景修改或销毁；组件集合是自有只读快照。
  * 查询不延长场景寿命。 */
 struct scene_node_info {
   scene_node_id node{};
@@ -48,7 +26,6 @@ struct scene_node_info {
   std::string_view name;
   math::transform local_transform = {};
   component_descriptions components{};
-  std::optional<prefab_origin_view> prefab;
 };
 
 } // namespace gneiss::engine

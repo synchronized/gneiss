@@ -770,7 +770,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_binding.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/structural_diff.cpp"
 )
 target_include_directories(gneiss_prefab_runtime_instance_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -782,7 +781,7 @@ target_link_libraries(
 target_compile_features(gneiss_prefab_runtime_instance_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_prefab_runtime_instance_test)
 gneiss_target_output_directories(gneiss_prefab_runtime_instance_test)
-add_test(NAME gneiss.prefab_binding COMMAND gneiss_prefab_runtime_instance_test)
+add_test(NAME gneiss.prefab-runtime-application COMMAND gneiss_prefab_runtime_instance_test)
 
 get_target_property(gneiss_scene_fixture_sources gneiss_prefab_runtime_instance_test SOURCES)
 list(REMOVE_ITEM gneiss_scene_fixture_sources scene/prefab_runtime_instance_test.cpp)
@@ -792,7 +791,6 @@ add_executable(gneiss_scene_instantiation_test scene/scene_instantiation_test.cp
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instances.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance_edit.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance_prefab.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instances_instantiation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_composition.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_preparation.cpp")

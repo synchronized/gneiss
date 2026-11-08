@@ -690,7 +690,7 @@ void source_reload_without_world_prefab_state() {
   const auto child_node = find(loaded.objects, child.uuid);
   for (std::size_t i = 0; i < loaded.objects.size(); ++i) {
     auto info = app->scenes()->get_node_info(loaded.scene, i);
-    check(bool(info) && !info->prefab);
+    check(bool(info));
   }
   e::math::transform moved;
   moved.translation.x = 7;

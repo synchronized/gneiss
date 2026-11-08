@@ -12,7 +12,7 @@
 
 namespace gneiss::engine {
 
-/** 创建调用期间借用字符串；成功后场景独立拥有作者数据。 */
+/** 创建调用期间借用字符串；成功后场景独立拥有运行数据。 */
 struct node_creation {
   guid uuid;
   std::string_view name;
@@ -28,14 +28,5 @@ struct mesh_renderer_node_creation {
   std::string_view material_uri;
   guid component_uuid{}; // nil 时由运行时创建新组件身份。
 };
-
-struct prefab_creation {
-  guid instance_uuid;
-  std::string_view name;
-  std::string_view prefab_uri;
-  scene_node_id parent{};
-  math::transform local_transform = {};
-};
-
 
 } // namespace gneiss::engine

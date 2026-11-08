@@ -268,14 +268,14 @@ int main() try {
   inputs.prefabs.emplace(reference.uri, e::prefab_asset_ref{source});
   e::scene_instantiation_data prepared;
   check(e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).ok());
-  gneiss::scene_instance_id loaded;
-  check(gneiss::test_support::take_value(
-            app->scenes()->instantiate_prepared(std::move(prepared), {}), loaded)
-            .ok());
-  gneiss::scene_node_id loaded_root;
-  check(
-      gneiss::test_support::take_value(app->scenes()->find_node(loaded, instance.uuid), loaded_root)
-          .ok());
+  auto receipt = app->scenes()->instantiate_prepared(std::move(prepared), {});
+  check(bool(receipt));
+  const auto loaded = receipt->instance;
+  const auto root_binding = std::ranges::find_if(receipt->objects, [&](const auto& object) {
+    return object.object == instance.uuid && object.source == source->root_uuid;
+  });
+  check(root_binding != receipt->objects.end());
+  auto loaded_root = root_binding->node;
   check(e::capture_components(world, loaded_root)->get<movement_description>()->speed == 5);
   check(app->scenes()->unload(loaded).ok());
   gneiss::scene_node_id unrelated;

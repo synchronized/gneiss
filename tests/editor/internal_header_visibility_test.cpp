@@ -48,8 +48,7 @@
 #if __has_include("engine/platform/io/uv/uv_file_system.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("engine/function/scene/scene_instance_state.hpp") ||                                   \
-                  __has_include("engine/function/scene/prefab_binding.hpp")
+#if __has_include("engine/function/scene/scene_instance_state.hpp")
 #error "宿主获得了场景实例的私有实现头"
 #endif
 #include "engine/resource/scene/prefab_description.hpp"
@@ -63,8 +62,7 @@ static_assert(!std::is_invocable_v<decltype(&gneiss::engine::world::entity_destr
 // 原生描述结构不能退回裸 ID，否则方法签名的类型约束会被绕过。
 static_assert(
     std::is_same_v<decltype(gneiss::engine::node_creation::parent), gneiss::scene_node_id>);
-static_assert(
-    std::is_same_v<decltype(gneiss::engine::prefab_creation::parent), gneiss::scene_node_id>);
+
 static_assert(std::is_same_v<decltype(gneiss::engine::mesh_renderer_node_creation::parent),
                              gneiss::scene_node_id>);
 static_assert(

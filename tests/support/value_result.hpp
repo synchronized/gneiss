@@ -11,11 +11,6 @@ inline engine::error take_value(engine::result<engine::scene_instantiation_resul
   output = value ? value->instance : scene_instance_id{};
   return value ? engine::error{engine::error::success} : value.error();
 }
-inline engine::error take_value(engine::result<engine::prefab_instantiation_result> value,
-                                scene_node_id& output) {
-  output = value ? value->root : scene_node_id{};
-  return value ? engine::error{engine::error::success} : value.error();
-}
 template <class T, class U>
   requires std::is_assignable_v<U&, T&&>
 engine::error take_value(engine::result<T> value, U& output) {

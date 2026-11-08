@@ -10,7 +10,6 @@
 #include "engine/function/scene/scene_types.hpp"
 
 #include <algorithm>
-#include <unordered_map>
 
 namespace gneiss::engine {
 namespace {
@@ -18,17 +17,26 @@ result<scene_instantiation_result>
 instantiate_effective(world& world, scene_instances& scenes, guid uuid,
                       const composed_scene& composed,
                       const scene_instances::resource_bindings& assets) noexcept try {
+  entity_id previous_camera;
+  const auto camera_status = world.get_active_camera(previous_camera);
+  if (camera_status.failed() && camera_status != error::not_ready)
+    return camera_status;
   auto created = scenes.create_empty(uuid);
   if (!created)
     return created.error();
   struct creation_guard {
     scene_instances& owner;
     scene_instance_id instance;
+    engine::world& world;
+    entity_id camera;
     ~creation_guard() {
-      if (instance)
+      if (instance) {
         (void)owner.unload(instance);
+        if (camera.get() != 0)
+          (void)world.set_active_camera(camera);
+      }
     }
-  } guard{scenes, *created};
+  } guard{scenes, *created, world, previous_camera};
   std::map<object_address, scene_object_association> associations;
   auto applied = apply_scene(world, scenes, *created, associations, {}, composed, assets);
   if (!applied)
@@ -137,10 +145,6 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
     return engine::error::invalid_argument;
   }
   try {
-    const auto find_asset = [&](std::string_view uri) {
-      const auto found = assets.find(uri);
-      return found == assets.end() ? engine::render_resource_ref{} : found->second;
-    };
     std::map<std::string, const prefab_description*, std::less<>> sources;
     for (const auto& [uri, source] : prepared.prefabs) {
       if (!source.resource)
@@ -150,77 +154,8 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
     auto composed = compose_scene(prepared.description, sources);
     if (!composed)
       return composed.error();
-    if (prepared.prefabs.empty())
-      return instantiate_effective(native_world_, *this, prepared.description.uuid, *composed,
-                                   assets);
-    std::map<object_address, const composed_object*> effective;
-    for (const auto& object : composed->objects)
-      if (!effective.emplace(object.address, &object).second)
-        return error::invalid_argument;
-    scene_instantiation_result receipt;
-    receipt.objects.reserve(prepared.instance_nodes);
-    auto instance = std::make_unique<scene_instance_state>(native_world_, loader_);
-    instance->initialize_staged(prepared.description.uuid, prepared.description.objects.size());
-    std::unordered_map<guid, scene_node_id, guid_hash> nodes;
-    nodes.reserve(prepared.description.objects.size());
-    for (const auto index : prepared.parent_first) {
-      const auto& source = prepared.description.objects.at(index);
-      if (!source.prefab) {
-        const auto renderer = prepared_component_renderer(source.components, find_asset);
-        const auto result = instance->create_staged_node(
-            index, source, source.parent_uuid ? nodes.at(source.parent_uuid) : null_scene_node_id,
-            renderer.mesh, renderer.material);
-        if (result != engine::error::success) {
-          return result;
-        }
-        const auto node = instance->staged_node(index);
-        nodes.emplace(source.uuid, node);
-        receipt.objects.push_back({source.uuid, {}, node, entity_id{node.get()}});
-        continue;
-      }
-      const auto lease = prepared.prefabs.at(source.prefab->uri).resource;
-      auto prefab =
-          std::make_unique<prefab_binding>(native_world_, loader_, lease, source.uuid,
-                                           prepared.prefabs.at(source.prefab->uri).source_asset);
-      auto result = prefab->create_root(
-          source.parent_uuid ? nodes.at(source.parent_uuid) : null_scene_node_id, source.transform);
-      if (result != engine::error::success) {
-        return result;
-      }
-      scene_subtree_guard guard(native_world_, prefab->root());
-      result = native_world_.node_set_identity(prefab->root(), {source.uuid, source.name});
-      if (result.failed())
-        return result;
-      std::unordered_map<guid, scene_node_id, guid_hash> prefab_nodes;
-      prefab_nodes.reserve(lease.get()->objects.size());
-      for (const auto node_index : prepared.prefabs.at(source.prefab->uri).parent_first) {
-        const auto source_id = lease->objects.at(node_index).uuid;
-        const auto& node = effective.at({source.uuid, source_id})->effective;
-        const auto renderer = prepared_component_renderer(node.components, find_asset);
-        result = prefab->create_node(
-            node_index, node, node.parent_uuid ? prefab_nodes.at(node.parent_uuid) : prefab->root(),
-            renderer.mesh, renderer.material);
-        if (result != engine::error::success) {
-          return result;
-        }
-        prefab_binding::node_info info;
-        result = prefab->get_node_info(node_index, info);
-        if (result != engine::error::success) {
-          return result;
-        }
-        prefab_nodes.emplace(node.uuid, info.node);
-        receipt.objects.push_back({source.uuid, node.uuid, info.node, entity_id{info.node.get()}});
-      }
-      nodes.emplace(source.uuid, prefab->root());
-      instance->append_staged_prefab(std::move(prefab), *source.prefab, index);
-      guard.release();
-    }
-    auto created = instances_.create(resource_type::scene_instance, std::move(instance));
-    if (!created)
-      return created.error();
-    receipt.instance = *created;
-    receipt.node_count = receipt.objects.size();
-    return receipt;
+    return instantiate_effective(native_world_, *this, prepared.description.uuid, *composed,
+                                 assets);
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {

@@ -5,7 +5,6 @@
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/meta/registry.hpp"
-#include "engine/function/scene/prefab_binding.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include <map>
@@ -22,7 +21,6 @@ public:
   /** 只记录场景成员；身份在节点中，组件资源在 ECS 中。 */
   struct node_entry final {
     scene_node_id node = null_scene_node_id;
-    bool persistent = true; // Prefab 展开成员仅在运行时枚举，不重复保存。
   };
 
   /** 查询入口清理已经由 World 删除的成员，不缓存存活状态。 */
@@ -30,10 +28,6 @@ public:
   void rollback() noexcept;
   /** 同步创建期间预留成员槽位；不保存加载描述、不执行文件读取。 */
   void initialize_staged(guid uuid, std::size_t count = 0);
-  [[nodiscard]] error create_staged_node(std::size_t index, const game_object_description& source,
-                                         scene_node_id parent, ref<const engine::mesh> mesh,
-                                         ref<const engine::material> material);
-
   [[nodiscard]] scene_node_id find_node(guid uuid) const noexcept;
   [[nodiscard]] result<scene_node_info> get_node_info(std::uint64_t index,
                                                       node_query_detail detail) const;
@@ -61,19 +55,6 @@ public:
   [[nodiscard]] error remove_camera(scene_node_id node);
   [[nodiscard]] error remove_mesh_renderer(scene_node_id node);
   [[nodiscard]] error destroy_node(scene_node_id node);
-  /** 事务式替换普通场景节点；当前不接受 Prefab 实例容器变化。 */
-  [[nodiscard]] error reload(scene_description candidate);
-  /** 将指定 Prefab URI 的新修订应用到当前 Scene 内全部同源实例。 */
-  [[nodiscard]] error reload_prefab(std::string_view uri, prefab_asset_ref candidate,
-                                    scene_diagnostic* diagnostic);
-
-  /** 单场景 Prefab 实例操作；服务已校验线程与句柄，不修改 Prefab 源资源。 */
-  [[nodiscard]] result<scene_node_id>
-  instantiate_prefab_ready(const game_object_description& author, prefab_asset_ref prefab,
-                           std::span<const scene_mesh_binding> bindings, bool replacing,
-                           ref<const engine::prefab> source_asset = {}) noexcept;
-  [[nodiscard]] error remove_prefab_instance(guid uuid) noexcept;
-
   /** 捕获当前 ECS 引用；替换组件只写 World，不修改来源记录。 */
   [[nodiscard]] result<scene_mesh_binding> capture_mesh_binding(scene_node_id node) const noexcept;
   [[nodiscard]] error replace_mesh_binding(scene_node_id node, const scene_mesh_binding& expected,
@@ -82,25 +63,11 @@ public:
   [[nodiscard]] bool contains_editable_node(scene_node_id node) const noexcept;
   [[nodiscard]] std::uint64_t node_count() const noexcept { return objects_.size(); }
 
-  [[nodiscard]] scene_node_id staged_node(std::size_t index) const {
-    return objects_.at(index).node;
-  }
-  void append_staged_prefab(std::unique_ptr<prefab_binding> candidate,
-                            prefab_reference_description reference, std::size_t index);
-
 private:
-  // 仅供待迁移的旧重载比较；不作为作者保存或文档捕获接口。
-  [[nodiscard]] result<scene_description> capture_reload_baseline() const;
   friend class scene_instances;
   [[nodiscard]] std::vector<node_entry>::iterator find_member(scene_node_id node);
   [[nodiscard]] std::vector<node_entry>::const_iterator find_member(scene_node_id node) const;
-  [[nodiscard]] std::optional<prefab_origin_view> prefab_origin(scene_node_id node) const;
-  void append_prefab_members(const prefab_binding& prefab);
-  prefab_reference_description& prefab_reference(std::size_t index);
-  const prefab_reference_description& prefab_reference(std::size_t index) const;
-
   std::vector<node_entry> objects_;
-  std::vector<std::unique_ptr<prefab_binding>> prefab_instances_;
   guid uuid_;
 
   world& native_world_;

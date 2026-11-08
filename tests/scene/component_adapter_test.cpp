@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/movement_component.hpp"
+#include "../support/scene_application.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
@@ -189,14 +190,27 @@ int main() try {
   check(saved_bytes.has_value());
   auto restored = gneiss::engine::asset_file::deserialize<e::scene_description>(*saved_bytes);
   check(restored.has_value());
+  auto baseline = e::compose_scene(source, {});
+  check(bool(baseline));
+  auto mapping = associations(created->objects);
+  const auto apply = [&](const e::scene_description& description) {
+    auto next = e::compose_scene(description, {});
+    if (!next)
+      return next.error();
+    auto result = e::apply_scene(world, scenes, instance, mapping, *baseline, *next, {});
+    if (!result)
+      return result.error();
+    if (!*result)
+      return e::error{e::error::invalid_state};
+    baseline = std::move(next);
+    return e::error{e::error::success};
+  };
   state(world).get<movement_component>(id)->data.speed = 8;
-  check(scenes.reload_loaded(instance, *restored).ok());
+  check(apply(*restored).ok());
   check(state(world).get<movement_component>(id)->data.speed == 5);
-  // 第二个安装失败：第一个对象的已应用修改也必须恢复。
-  auto failing = *restored;
-  failing.objects[0].components.set(movement_description{7});
-  failing.objects[1].components.set(movement_description{13});
-  check(scenes.reload_loaded(instance, failing) == e::error::invalid_state);
+  // 单组件失败不得破坏已有组件；跨对象应用不再承诺整体回滚。
+  check(scenes.set_component_description(instance, node, e::make_ref<movement_description>(13)) ==
+        e::error::invalid_state);
   check(state(world).get<movement_component>(id)->data.speed == 5);
   e::error foreign;
   std::thread worker([&] {
@@ -211,9 +225,9 @@ int main() try {
   check(e::validate_components(unknown) == e::error::unsupported);
   std::weak_ptr<int> lifetime = state(world).get<movement_component>(id)->lifetime;
   restored->objects[0].components = {};
-  check(scenes.reload_loaded(instance, *restored).ok());
+  check(apply(*restored).ok());
   check(!state(world).get<movement_component>(id) && lifetime.expired());
-  check(scenes.reload_loaded(instance, saved).ok());
+  check(apply(saved).ok());
   lifetime = state(world).get<movement_component>(id)->lifetime;
   // 调用方保留明确描述；运行集合只负责销毁和创建，不承担撤销快照。
   auto saved_components = e::capture_components(world, node);
@@ -270,6 +284,32 @@ int main() try {
   auto detached = dynamic->create({e::guid::from_bytes({23}), "detached"}, {}, *recreated);
   check(detached && detached->reparent({}).ok());
   check(dynamic->unload().ok() && !recreated->is_valid() && !detached->is_valid());
+  // 创建失败回收新场景，同时恢复先前活动相机，避免破坏其他存活场景。
+  e::scene_description camera_scene;
+  camera_scene.uuid = e::guid::generate();
+  e::game_object_description camera_object;
+  camera_object.uuid = e::guid::generate();
+  camera_object.components.set(e::camera_description{{1, 0.1F, 100}, true});
+  camera_scene.objects = {camera_object};
+  auto camera_instance = scenes.instantiate_prepared(prepare(camera_scene), {});
+  check(bool(camera_instance));
+  gneiss::entity_id active_camera;
+  check(world.get_active_camera(active_camera).ok());
+  auto broken_scene = camera_scene;
+  broken_scene.uuid = e::guid::generate();
+  broken_scene.objects.front().uuid = e::guid::generate();
+  e::game_object_description failing_object;
+  failing_object.uuid = e::guid::generate();
+  failing_object.components.set(movement_description{13});
+  broken_scene.objects.push_back(failing_object);
+  const auto entities_before_failure = *world.entity_count();
+  auto failed_creation = scenes.instantiate_prepared(prepare(broken_scene), {});
+  check(!failed_creation && failed_creation.error() == e::error::invalid_state);
+  gneiss::entity_id camera_after_failure;
+  check(world.get_active_camera(camera_after_failure).ok() &&
+        camera_after_failure == active_camera);
+  check(*world.entity_count() == entities_before_failure);
+  check(scenes.unload(camera_instance->instance).ok());
   // Prefab 覆盖使用同一适配入口，不认识测试组件的类型。
   auto prefab = std::make_shared<e::prefab_description>();
   prefab->uuid = e::guid::from_bytes({4});
@@ -288,24 +328,34 @@ int main() try {
        .operation = e::value{9.0F}});
   source.objects = {reference};
   e::prefab_asset_ref prefab_ref{prefab};
-  check(gneiss::test_support::take_value(
-            scenes.instantiate_prepared(prepare(source, prefab_ref), {}), instance)
-            .ok());
-  check(gneiss::test_support::take_value(scenes.find_node(instance, reference.uuid), node).ok());
+  auto prefab_created = scenes.instantiate_prepared(prepare(source, prefab_ref), {});
+  check(bool(prefab_created));
+  instance = prefab_created->instance;
+  auto root_binding =
+      std::ranges::find(prefab_created->objects, first.uuid, &e::scene_object_binding::source);
+  check(root_binding != prefab_created->objects.end());
+  node = root_binding->node;
   id = entity(world, node);
   check(!borrowed_copy.is_valid());
   check(state(world).get<movement_component>(id)->data.speed == 9);
   auto next = std::make_shared<e::prefab_description>(*prefab);
   next->objects[0].components.set(movement_description{3});
-  check(
-      scenes.reload_prefab_loaded(instance, "asset://test.prefab", e::prefab_asset_ref{next}).ok());
+  auto old_composition = e::compose_scene(source, {{"asset://test.prefab", prefab.get()}});
+  auto next_composition = e::compose_scene(source, {{"asset://test.prefab", next.get()}});
+  check(bool(old_composition) && bool(next_composition));
+  auto prefab_mapping = associations(prefab_created->objects);
+  auto applied = e::apply_scene(world, scenes, instance, prefab_mapping, *old_composition,
+                                *next_composition, {});
+  check(applied && *applied);
   check(state(world).get<movement_component>(id)->data.speed == 9);
   check(source.objects[0].components.empty());
   check(source.objects[0].prefab->overrides.size() == 1);
   check(prefab->objects[0].components.get<movement_description>()->speed == 2);
   auto empty_reload = scenes.create_empty(e::guid::generate());
   check(empty_reload.has_value());
-  check(scenes.reload_prefab_loaded(*empty_reload, "asset://test.prefab", prefab_ref).ok());
+  std::map<e::object_address, e::scene_object_association> empty_mapping;
+  auto empty_applied = e::apply_scene(world, scenes, *empty_reload, empty_mapping, {}, {}, {});
+  check(empty_applied && *empty_applied);
   check(*scenes.get_node_count(*empty_reload) == 0U);
   lifetime = state(world).get<movement_component>(id)->lifetime;
   owner->reset();

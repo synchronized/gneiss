@@ -59,15 +59,17 @@ int main() try {
   gneiss::engine::task_scheduler scheduler({.mode = gneiss::engine::execution_mode::cooperative});
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::scene_instance_id scene = {};
+  gneiss::runtime::scene_load_completion loaded;
   gneiss::scene_node_id camera_before;
   gneiss::scene_node_id old_child;
   gneiss::entity_id camera_entity_before;
   constexpr std::string_view uri = "asset://scenes/triangle.scene.json";
   if (gneiss::runtime::application::create(config, application) != gneiss::engine::error::success ||
-      gneiss::test_support::load_scene(*application, uri, &scene, &scheduler) !=
+      gneiss::test_support::activate_scene_for_test(*application, scheduler, uri, loaded) !=
           gneiss::engine::error::success ||
-      gneiss::test_support::take_value(application->scenes()->find_node(scene, camera_uuid),
-                                       camera_before) != gneiss::engine::error::success ||
+      gneiss::test_support::take_value(
+          application->scenes()->find_node(scene = loaded.scene, camera_uuid), camera_before) !=
+          gneiss::engine::error::success ||
       gneiss::test_support::take_value(application->scenes()->find_node(scene, old_child_uuid),
                                        old_child) != gneiss::engine::error::success ||
       application->native_world()->node_get_entity(camera_before, camera_entity_before) !=

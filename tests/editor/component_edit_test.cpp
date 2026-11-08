@@ -480,14 +480,14 @@ int main() try {
   e::scene_instantiation_data prepared;
   e::scene_diagnostic diagnostic;
   check(e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).ok());
-  gneiss::scene_instance_id loaded;
-  check(gneiss::test_support::take_value(
-            app->scenes()->instantiate_prepared(std::move(prepared), {}), loaded)
-            .ok());
-  gneiss::scene_node_id loaded_node;
-  check(gneiss::test_support::take_value(app->scenes()->find_node(loaded, reference.uuid),
-                                         loaded_node)
-            .ok());
+  auto receipt = app->scenes()->instantiate_prepared(std::move(prepared), {});
+  check(bool(receipt));
+  const auto loaded = receipt->instance;
+  const auto root_binding = std::ranges::find_if(receipt->objects, [&](const auto& object) {
+    return object.object == reference.uuid && object.source == prefab->root_uuid;
+  });
+  check(root_binding != receipt->objects.end());
+  auto loaded_node = root_binding->node;
   auto reloaded = e::capture_components(world, loaded_node);
   check(reloaded && reloaded->get<movement_description>()->settings.acceleration == 20 &&
         reloaded->get<movement_description>()->samples[1] == 9);

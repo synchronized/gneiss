@@ -37,10 +37,6 @@ struct scene_instantiation_result {
   std::vector<render_resource_source> assets;
   std::map<std::string, render_resource_ref, std::less<>> bindings;
 };
-struct prefab_instantiation_result {
-  scene_node_id root;
-  std::vector<scene_object_binding> objects;
-};
 /** 单个 World 的实例集合，拥有实例与 RID 表；不负责后台加载或活动域切换。 */
 class scene_instances final {
 public:
@@ -56,13 +52,6 @@ public:
   /** 重建投影并保留实例句柄；成功后旧节点句柄失效，失败保留旧投影。 */
   [[nodiscard]] GNEISS_API result<scene_instantiation_result>
   replace_prepared(scene_instance_id, scene_instantiation_data, const resource_bindings&) noexcept;
-  /** 同步实例化；替换先移除旧实例，失败只清理本次新建节点，不恢复旧实例。 */
-  [[nodiscard]] GNEISS_API result<prefab_instantiation_result>
-  instantiate_prefab_ready(scene_instance_id instance, const game_object_description& author,
-                           prefab_asset_ref prefab, std::span<const scene_mesh_binding> bindings,
-                           bool replacing, ref<const engine::prefab> source_asset = {}) noexcept;
-  [[nodiscard]] GNEISS_API error remove_prefab_instance(scene_instance_id instance,
-                                                        guid uuid) noexcept;
   /** 创建仅消费已加载资源引用，不加载；失败不留下节点。 */
   [[nodiscard]] GNEISS_API result<scene_node_id>
   create_mesh_renderer_node_ready(scene_instance_id instance,
@@ -72,13 +61,13 @@ public:
   [[nodiscard]] GNEISS_API result<scene_mesh_binding>
   capture_mesh_binding(scene_instance_id instance, scene_node_id node) const noexcept;
   /** 仅提交资源引用；expected 为空时恢复已移除组件，不加载资产。
-   * 替换既有组件时校验旧引用及 ECS，失败保留原描述和资源。Prefab 只更新实例 URI 覆盖。 */
+   * 替换既有组件时校验旧引用及 ECS，失败保留原描述和资源。不写入来源描述。 */
   [[nodiscard]] GNEISS_API error replace_mesh_binding(scene_instance_id instance,
                                                       scene_node_id node,
                                                       const scene_mesh_binding& expected,
                                                       const scene_mesh_binding& replacement,
                                                       guid component_uuid = {}) noexcept;
-  /** 验证普通作者节点或 Prefab 来源节点归属；组件增删仍受各接口限制。 */
+  /** 验证运行节点的场景归属。 */
   [[nodiscard]] GNEISS_API error validate_editable_node(scene_instance_id instance,
                                                         scene_node_id node) const noexcept;
   /** 初始化 World 唯一场景集合；返回借用指针，重复初始化拒绝。资源服务须比 World 更晚销毁。 */
@@ -89,19 +78,6 @@ public:
     const auto frozen = meta::is_frozen();
     return domain_ != 0U && frozen && *frozen;
   }
-  /** 同步应用已加载资产，预留视觉身份并返回后续加载清单；不读取文件或等待 GPU。 */
-  [[nodiscard]] GNEISS_API result<std::vector<render_resource_source>, scene_diagnostic>
-  reload(scene_instance_id instance, ref<const scene> source,
-         std::size_t source_bytes = 0) noexcept;
-  [[nodiscard]] GNEISS_API result<std::vector<render_resource_source>, scene_diagnostic>
-  reload(scene_instance_id instance, ref<const prefab> source,
-         std::size_t source_bytes = 0) noexcept;
-  /** 应用已经加载的描述；只要求渲染资源身份有效，不等待内容加载；保持现有节点身份。 */
-  [[nodiscard]] GNEISS_API error reload_loaded(scene_instance_id instance,
-                                               scene_description description) noexcept;
-  [[nodiscard]] GNEISS_API error
-  reload_prefab_loaded(scene_instance_id instance, std::string_view uri, prefab_asset_ref candidate,
-                       scene_diagnostic* diagnostic = nullptr) noexcept;
   [[nodiscard]] GNEISS_API result<scene_instance_id> create_empty(guid scene_uuid) noexcept;
   [[nodiscard]] GNEISS_API error unload(scene_instance_id instance) noexcept;
   [[nodiscard]] GNEISS_API result<scene_node_id> find_node(scene_instance_id instance,
@@ -115,12 +91,12 @@ public:
                                                     const math::transform& transform) noexcept;
   [[nodiscard]] GNEISS_API result<scene_node_id> create_node(scene_instance_id instance,
                                                              const node_creation& desc) noexcept;
-  /** 修改显式对象名称，普通对象与 Prefab 根共用；来源内部节点不支持独立重命名。 */
+  /** 修改运行对象名称。 */
   [[nodiscard]] GNEISS_API error set_node_name(scene_instance_id instance, scene_node_id node,
                                                std::string_view name) noexcept;
   [[nodiscard]] GNEISS_API error reparent_node(scene_instance_id instance, scene_node_id node,
                                                scene_node_id parent) noexcept;
-  /** 删除整棵自有子树或 Prefab 实例，统一清理节点、实体和来源关系。 */
+  /** 删除整棵运行子树，统一清理节点与实体。 */
   [[nodiscard]] GNEISS_API error destroy_subtree(scene_instance_id instance,
                                                  scene_node_id root) noexcept;
   [[nodiscard]] GNEISS_API result<scene_node_id>

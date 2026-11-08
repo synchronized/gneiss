@@ -4,8 +4,8 @@
 #include "../support/async_render.hpp"
 #include "../support/async_scene.hpp"
 #include "../support/memory_file_fixture.hpp"
-#include "../support/prefab_query.hpp"
 #include "../support/prepare_render.hpp"
+#include "../support/scene_application.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
@@ -234,17 +234,21 @@ void run() {
   check(active->scenes()->unload(second_instance->instance).ok());
   check(active->scenes()->get_node_count(old_scene).ok());
   check(active->scenes()->instantiate({}).error().error == engine::error::invalid_argument);
-  auto scene_reloaded = active->scenes()->reload(old_scene, initial.source_asset);
-  check(bool(scene_reloaded) && scene_reloaded->size() == initial.assets.size());
+  auto baseline = gneiss::test_support::compose(initial);
+  check(bool(baseline));
+  auto mapping = gneiss::test_support::associations(direct->objects);
+  auto scene_reloaded = engine::apply_scene(*active->native_world(), *active->scenes(), old_scene,
+                                            mapping, *baseline, *baseline, initial_bindings);
+  check(scene_reloaded && *scene_reloaded);
   check(files->reads == reads_before_instantiation);
-  check(active->scenes()->reload({}, initial.source_asset).error().error ==
-        engine::error::invalid_handle);
-  check(active->scenes()->reload(old_scene, engine::ref<const engine::scene>{}).error().error ==
-        engine::error::invalid_argument);
+  auto invalid_apply = engine::apply_scene(*active->native_world(), *active->scenes(), {}, mapping,
+                                           *baseline, *baseline, initial_bindings);
+  check(!invalid_apply && invalid_apply.error() == engine::error::invalid_handle);
   engine::error foreign_reload;
   std::thread foreign_thread([&] {
-    auto result = active->scenes()->reload(old_scene, initial.source_asset);
-    foreign_reload = result ? engine::error::success : result.error().error;
+    auto result = engine::apply_scene(*active->native_world(), *active->scenes(), old_scene,
+                                      mapping, *baseline, *baseline, initial_bindings);
+    foreign_reload = result ? engine::error::success : result.error();
   });
   foreign_thread.join();
   check(foreign_reload == engine::error::invalid_state);
@@ -322,9 +326,9 @@ void run() {
             candidate->scenes()->instantiate_prepared(std::move(missing_source), bindings),
             rejected_scene) == gneiss::engine::error::invalid_argument &&
         rejected_scene == gneiss::scene_instance_id{});
-  check(gneiss::test_support::take_value(
-            candidate->scenes()->instantiate_prepared(std::move(prepared), bindings), new_scene) ==
-        gneiss::engine::error::success);
+  auto created = candidate->scenes()->instantiate_prepared(std::move(prepared), bindings);
+  check(bool(created));
+  new_scene = created->instance;
   check(new_scene != gneiss::scene_instance_id{});
   // 投影重建使用通用应用：即使输入包含 Prefab，运行节点也不持有来源绑定。
   {
@@ -339,16 +343,11 @@ void run() {
     check(source_address);
     for (std::size_t index = 0; index < rebuilt->node_count; ++index) {
       auto info = candidate->scenes()->get_node_info(*empty, index);
-      check(bool(info) && !info->prefab);
+      check(bool(info));
     }
     check(candidate->scenes()->unload(*empty).ok());
     check(files->reads == reads);
   }
-  auto prefab_reloaded = candidate->scenes()->reload(new_scene, expected_prefab_asset);
-  check(bool(prefab_reloaded) && !prefab_reloaded->empty());
-  check(files->reads == reads);
-  check(candidate->scenes()->reload(new_scene, engine::ref<const engine::prefab>{}).error().error ==
-        engine::error::invalid_argument);
   std::uint64_t unchanged_count{};
   check(gneiss::engine::error{gneiss::test_support::assign_value(
             active->native_world()->entity_count(), unchanged_count)} ==
@@ -357,69 +356,21 @@ void run() {
   check(resources.get_material(gneiss::engine::resource_rid(old_material))->parameters.color[0] ==
         1.0F);
   check(files->reads == reads);
-  // 同步创建不读文件；替换失败删除旧实例并清理新建残留。
+  // 同步创建不读文件；失败清理新建成员，不影响已有场景。
   {
-    auto author =
-        *std::ranges::find_if(instantiation_input.description.objects,
-                              [](const auto& object) { return object.prefab.has_value(); });
-    const auto source = instantiation_input.prefabs.at(author.prefab->uri).resource;
-    std::vector<gneiss::engine::scene_mesh_binding> prefab_bindings(source->objects.size());
-    for (std::size_t i = 0; i < prefab_bindings.size(); ++i) {
-      const auto* renderer = source->objects[i].components.get<engine::mesh_renderer_description>();
-      if (!renderer)
-        continue;
-      prefab_bindings[i] = {
-          engine::resource_cast<engine::mesh>(bindings.at(renderer->mesh_uri)),
-          engine::resource_cast<engine::material>(bindings.at(renderer->material_uri))};
-    }
-    author.uuid = *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000077");
-    const auto reads_before = files->reads;
-    std::uint64_t baseline{};
-    check(gneiss::test_support::assign_value(candidate->native_world()->entity_count(), baseline)
-              .ok());
-    gneiss::scene_node_id root;
-    gneiss::engine::error foreign;
+    const auto baseline_count = *candidate->native_world()->entity_count();
+    engine::error foreign;
     std::thread worker([&] {
-      foreign =
-          gneiss::test_support::take_value(candidate->scenes()->instantiate_prefab_ready(
-                                               new_scene, author, source, prefab_bindings, false),
-                                           root);
+      auto result = candidate->scenes()->instantiate_prepared(instantiation_input, bindings);
+      foreign = result ? engine::error::success : result.error();
     });
     worker.join();
-    check(foreign == gneiss::engine::error::invalid_state && !root);
-    check(gneiss::test_support::take_value(candidate->scenes()->instantiate_prefab_ready(
-                                               old_scene, author, source, prefab_bindings, false),
-                                           root) == gneiss::engine::error::invalid_handle);
-    check(gneiss::test_support::take_value(candidate->scenes()->instantiate_prefab_ready(
-                                               new_scene, author, source, prefab_bindings, false),
-                                           root)
-              .ok());
-    const auto previous_root = root;
-    gneiss::engine::math::transform queried;
-    check(candidate->native_world()->node_get_local_transform(root, queried).ok());
-    check(gneiss::test_support::take_value(candidate->scenes()->instantiate_prefab_ready(
-                                               new_scene, author, source, prefab_bindings, true),
-                                           root)
-              .ok());
-    check(root != previous_root);
-    check(candidate->native_world()->node_get_local_transform(previous_root, queried) ==
-          gneiss::engine::error::invalid_handle);
-    const auto replaced_root = root;
-    // 根变换非法使创建在旧实例已删除后失败。
-    author.transform.scale = {0, 1, 1};
-    check(gneiss::test_support::take_value(candidate->scenes()->instantiate_prefab_ready(
-                                               new_scene, author, source, prefab_bindings, true),
-                                           root)
-              .failed());
-    check(!root && candidate->native_world()->node_get_local_transform(replaced_root, queried) ==
-                       gneiss::engine::error::invalid_handle);
-    std::uint64_t count{};
-    check(
-        gneiss::test_support::assign_value(candidate->native_world()->entity_count(), count).ok() &&
-        count == baseline);
-    check(candidate->scenes()->remove_prefab_instance(new_scene, author.uuid) ==
-          gneiss::engine::error::not_found);
-    check(files->reads == reads_before);
+    check(foreign == engine::error::invalid_state);
+    auto broken = instantiation_input;
+    broken.description.objects.back().transform.scale = {0, 1, 1};
+    check(!candidate->scenes()->instantiate_prepared(std::move(broken), bindings));
+    check(*candidate->native_world()->entity_count() == baseline_count);
+    check(files->reads == reads);
   }
   const auto selected_material = gneiss::engine::resource_rid(material);
   // 多个场景共享相同 URI 的资源身份。
@@ -447,8 +398,19 @@ void run() {
   gneiss::engine::scene_node_info prefab_node;
   check(gneiss::test_support::take_value(candidate->scenes()->get_node_info(new_scene, 0U),
                                          ordinary) == gneiss::engine::error::success);
-  check(gneiss::test_support::prefab_node_info(*candidate->scenes(), new_scene, 0U, prefab_node) ==
-        gneiss::engine::error::success);
+  const auto prefab_member = std::ranges::find_if(
+      created->objects, [](const auto& object) { return bool(object.source); });
+  check(prefab_member != created->objects.end());
+  bool found_prefab_member = false;
+  for (std::size_t index = 0; index < created->node_count; ++index) {
+    auto info = candidate->scenes()->get_node_info(new_scene, index);
+    check(bool(info));
+    if (info->node == prefab_member->node) {
+      prefab_node = *info;
+      found_prefab_member = true;
+    }
+  }
+  check(found_prefab_member);
   gneiss::engine::ref<const gneiss::engine::mesh> current_mesh;
   check(gneiss::test_support::take_value(
             candidate_render.find_loaded<gneiss::engine::mesh>("asset://m.mesh"), current_mesh)
