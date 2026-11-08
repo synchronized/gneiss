@@ -113,6 +113,31 @@ int main() try {
   auto member_count = borrowed->size();
   check(member_count && *member_count == 2);
   auto borrowed_copy = *borrowed;
+  auto another_scene = scenes.instantiate_prepared(prepare(source), {});
+  check(another_scene.has_value());
+  auto another_handle = e::scene_instance::borrow(world, another_scene->instance);
+  check(another_handle.has_value());
+  auto first_object = borrowed->find(first.uuid);
+  auto foreign_parent = another_handle->find(first.uuid);
+  check(first_object && foreign_parent);
+  check(first_object->reparent(*foreign_parent) == e::error::invalid_argument);
+  check(world.node_reparent(created->objects[0].node, another_scene->objects[0].node) ==
+        e::error::invalid_argument);
+  auto unchanged_parent = first_object->parent();
+  check(unchanged_parent && !unchanged_parent->is_valid());
+  // 不能通过未登记的中间对象绕开不同场景的成员边界。
+  auto bridge = world.create_object({e::guid::from_bytes({9}), "bridge"});
+  check(bridge.has_value());
+  check(first_object->reparent(*bridge).ok());
+  check(bridge->reparent(*foreign_parent) == e::error::invalid_argument);
+  check(first_object->reparent({}).ok());
+  check(bridge->destroy().ok());
+  auto parent_bridge =
+      world.create_object({e::guid::from_bytes({10}), "parent bridge"}, {}, *foreign_parent);
+  check(parent_bridge.has_value());
+  check(first_object->reparent(*parent_bridge) == e::error::invalid_argument);
+  check(another_handle->unload().ok());
+  check(first_object->is_valid());
   auto other_world = e::create_native();
   check(other_world.has_value());
   check(e::scene_instances::attach(**other_world, resources).has_value());

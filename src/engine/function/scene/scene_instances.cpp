@@ -115,6 +115,43 @@ scene_instances::scene_instances(world& native_world, asset_manager& loader) noe
 
 scene_instances::~scene_instances() noexcept = default;
 
+error scene_instances::validate_reparent(scene_node_id node, scene_node_id parent) noexcept {
+  if (!parent)
+    return error::success;
+  // 临时/非场景对象可能位于成员之间；检查祖先和整棵移动子树，不能只比较两个根。
+  const scene_instance_state* parent_owner = nullptr;
+  for (auto cursor = parent; cursor && !parent_owner;) {
+    instances_.for_each(resource_type::scene_instance, [&](const instance_ptr& instance) {
+      if (instance->contains_editable_node(cursor))
+        parent_owner = instance.get();
+    });
+    scene_node_id ancestor;
+    if (native_world_.node_get_parent(cursor, ancestor).failed())
+      return error::invalid_handle;
+    cursor = ancestor;
+  }
+  if (!parent_owner)
+    return error::success;
+  bool crosses_scene = false;
+  instances_.for_each(resource_type::scene_instance, [&](const instance_ptr& instance) {
+    if (instance.get() == parent_owner || crosses_scene)
+      return;
+    for (const auto& member : instance->objects_) {
+      for (auto cursor = member.node; cursor;) {
+        if (cursor == node) {
+          crosses_scene = true;
+          return;
+        }
+        scene_node_id ancestor;
+        if (native_world_.node_get_parent(cursor, ancestor).failed())
+          break;
+        cursor = ancestor;
+      }
+    }
+  });
+  return crosses_scene ? error::invalid_argument : error::success;
+}
+
 namespace {
 template <class T>
 result<std::vector<render_resource_source>, scene_diagnostic>

@@ -447,8 +447,16 @@ engine::error world::node_reparent(scene_node_id node_value, scene_node_id paren
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    return thread_result == engine::error::success ? state->scene().reparent(node, parent)
-                                                   : thread_result;
+    if (thread_result.failed())
+      return thread_result;
+    if (!state->scene().get_entity(node) || (parent && !state->scene().get_entity(parent)))
+      return error::invalid_handle;
+    if (scenes_) {
+      const auto membership = scenes_->validate_reparent(node, parent);
+      if (membership.failed())
+        return membership;
+    }
+    return state->scene().reparent(node, parent);
   } catch (...) {
     return engine::error::internal;
   }

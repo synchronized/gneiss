@@ -21,7 +21,7 @@
 
 ## 当前问题
 
-scene_instance 同时维护场景成员和 prefab_binding，后者仍持有来源、reference_，conflicts_ 已删除。
+scene_instance_state 同时维护场景成员和 prefab_binding，后者仍持有来源、reference_，conflicts_ 已删除。
 组件修改已不再生成覆盖。编辑文档已经权威化，但运行时仍承担来源查询、捕获和刷新。
 World 层级已迁入实体组件，独立 scene_tree 槽位已删除；场景成员归属和旧 node_* 接口仍待迁移。
 组件身份已收敛到 component_description_base，component_entry 已删除。
@@ -115,7 +115,7 @@ Prefab 来源查询、Apply/Revert、来源刷新从文档和组合结果获得�
 - [x] 纯内存组合输出有效描述、来源信息和覆盖冲突，供编辑定位与层级查询共用。
 - [x] 实例化回执显式交付对象地址与实体关联；文档侧维护独立投影映射，删除运行来源反查。
 - [ ] 将对象地址贯穿持久文档父关系。
-- [ ] 编辑器查询/覆盖/保存/刷新不反向依赖 prefab_binding。
+- [x] 编辑器查询/覆盖/保存/刷新不反向读取 prefab_binding；结构更新仍待改为通用投影。
 - [x] 删除运行组件编辑中的覆盖生成；编辑器下发组合后的有效组件与变换。
 - [ ] 迁移来源查询与刷新后，删除运行实例的覆盖表和冲突状态。
 - [ ] 验证 Prefab 实例化后是普通对象，游戏修改组件不改写来源或文档。
@@ -138,7 +138,8 @@ Prefab 头快照和冻结迁入编辑文档层，删除 Runtime prefab_placement
 - [x] 实现 game_object 借用句柄及跨 World/generation 校验，场景创建接入该入口。
 - [x] scene_instance 改为借用句柄，场景集合及其成员记录移交 World 拥有。
 - [x] 层级和变换迁入实体存储，删除独立 scene_tree 节点槽位。
-- [ ] 完成 World 场景成员操作边界；集合及卸载所有权已迁移，跨场景重挂接限制尚待完成。
+- [x] World 拒绝不同场景已登记成员的重挂接，包含中间对象与移动子树绕过检查。
+- [ ] 完成 World 场景成员操作边界，统一直接对象销毁、动态成员与集合索引。
 - [ ] 迁移渲染采集、Runtime/IPC、编辑器和测试，删除旧接口。
 
 ### 5：验收与清理
