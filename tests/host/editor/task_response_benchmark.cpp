@@ -4,7 +4,7 @@
 #include "../../support/async_document.hpp"
 #include "asset_background_worker.hpp"
 #include "author_asset_service.hpp"
-#include "documents/scene_document.hpp"
+#include "documents/scene_edit_session.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
@@ -76,7 +76,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   desc.asset_root = asset_text;
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::engine::world* world{};
-  scene_document session;
+  scene_edit_session session;
   require(gneiss::engine::error{gneiss::runtime::application::create(desc, app)} ==
                   gneiss::engine::error::success &&
               (world = app->native_world()) != nullptr,

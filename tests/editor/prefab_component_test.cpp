@@ -123,7 +123,7 @@ int main() try {
   std::shared_ptr<gneiss::runtime::application> app;
   check(gneiss::runtime::application::create({}, app).ok());
   auto& world = *app->native_world();
-  ed::scene_document document;
+  ed::scene_edit_session document;
   check(document.create_empty(*app, &world).ok());
   e::game_object_description instance;
   instance.uuid = e::guid::from_bytes({87, 4});

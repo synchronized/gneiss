@@ -13,7 +13,7 @@ enum class transform_gizmo_operation { translate, rotate, scale };
 
 /** 单次主线程绘制的借用上下文；所有引用必须在调用期间有效，不保存宿主状态。 */
 struct transform_gizmo_context final {
-  scene_document& session;
+  scene_edit_session& session;
   editor_command_history& history;
   transform_gizmo_drag& drag;
   gneiss::engine::math::transform camera = {};

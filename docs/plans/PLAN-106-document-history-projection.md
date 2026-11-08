@@ -21,7 +21,7 @@
 
 目标文件集中于 src/editor/documents；局部历史与投影不下沉 World。
 scene_projection.hpp/.cpp 先接管恢复时的运行更新；scene_document_edit 随后迁移局部记录，
-scene_document_versions 最终仅保留确有需要的快照/保存回执能力或删除。
+旧 scene_document_versions 已删除，纯 scene_document 只保留当前内容和保存点。
 
 ## 已确认语义
 
@@ -64,7 +64,7 @@ scene_document_versions 最终仅保留确有需要的快照/保存回执能力�
 - [ ] 独立维护文档身份关联，删除对 runtime prefab_binding 的编辑查询依赖。
 - [x] 组件 create/update/remove 分开；update 回调保留描述之外的运行状态，未声明时使用既有 install 策略。
 - [ ] 层级增删、重挂接、Prefab 来源刷新按受影响对象更新，删除普通撤销的整场景替换。
-- [ ] scene_edit_session 接管协调与选择，纯文档移除 Application/World 依赖。
+- [x] scene_edit_session 接管协调与选择，纯文档移除 Application/World 依赖及重复历史。
 - [ ] 资源未就绪、部分应用失败、过期完成与重试有明确状态和回归覆盖。
 
 ### D：收尾

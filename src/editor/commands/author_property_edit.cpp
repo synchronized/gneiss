@@ -19,7 +19,7 @@
 namespace gneiss::editor {
 namespace {
 engine::result<std::pair<scene_node_id, entity_id>>
-locate_component(scene_document& document, const component_edit_target& target) {
+locate_component(scene_edit_session& document, const component_edit_target& target) {
   if (target.instance_uuid) {
     const auto node = document.find_prefab_source(target.instance_uuid, target.source_uuid);
     if (node)
@@ -32,7 +32,7 @@ locate_component(scene_document& document, const component_edit_target& target) 
   return engine::error::not_found;
 }
 template <class T, class Apply>
-engine::error edit_description(scene_document& document, editor_command_history& history,
+engine::error edit_description(scene_edit_session& document, editor_command_history& history,
                                const component_edit_target& identity, const property_edit& edit,
                                std::uint64_t serial, const T& before, Apply apply) {
   using namespace engine;
@@ -72,7 +72,7 @@ engine::error edit_description(scene_document& document, editor_command_history&
 }
 }
 namespace {
-engine::error component_lifecycle(scene_document& document, editor_command_history& history,
+engine::error component_lifecycle(scene_edit_session& document, editor_command_history& history,
                                   engine::guid object, engine::guid type, bool adding) {
   using namespace engine;
   const auto node = document.find_node(object);
@@ -111,15 +111,16 @@ engine::error component_lifecycle(scene_document& document, editor_command_histo
   });
 }
 }
-engine::error add_component_description(scene_document& document, editor_command_history& history,
-                                        engine::guid object, engine::guid type) noexcept try {
+engine::error add_component_description(scene_edit_session& document,
+                                        editor_command_history& history, engine::guid object,
+                                        engine::guid type) noexcept try {
   return component_lifecycle(document, history, object, type, true);
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
 } catch (...) {
   return engine::error::internal;
 }
-engine::error remove_component_description(scene_document& document,
+engine::error remove_component_description(scene_edit_session& document,
                                            editor_command_history& history, engine::guid object,
                                            engine::guid type) noexcept try {
   return component_lifecycle(document, history, object, type, false);
@@ -128,7 +129,7 @@ engine::error remove_component_description(scene_document& document,
 } catch (...) {
   return engine::error::internal;
 }
-engine::error edit_prefab_component_structure(scene_document& document,
+engine::error edit_prefab_component_structure(scene_edit_session& document,
                                               editor_command_history& history,
                                               const component_edit_target& identity,
                                               prefab_component_action action) noexcept try {
@@ -177,8 +178,8 @@ engine::error edit_prefab_component_structure(scene_document& document,
 } catch (...) {
   return engine::error::internal;
 }
-engine::error edit_component_description(scene_document& document, editor_command_history& history,
-                                         engine::world& world,
+engine::error edit_component_description(scene_edit_session& document,
+                                         editor_command_history& history, engine::world& world,
                                          const component_edit_target& identity,
                                          const property_edit& edit, std::uint64_t serial) noexcept
     try {

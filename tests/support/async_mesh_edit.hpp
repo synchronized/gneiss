@@ -5,8 +5,9 @@
 #include "commands/editor_asset_edit.hpp"
 namespace gneiss::test_support {
 inline engine::error
-create_mesh_document(runtime::application& app, editor::scene_document& doc, std::string_view name,
-                     std::string_view mesh, std::string_view material, scene_node_id& output,
+create_mesh_document(runtime::application& app, editor::scene_edit_session& doc,
+                     std::string_view name, std::string_view mesh, std::string_view material,
+                     scene_node_id& output,
                      editor::editor_command_history* retained_history = nullptr) {
   output = {};
   editor::editor_command_history temporary_history;

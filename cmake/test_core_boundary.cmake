@@ -573,7 +573,7 @@ foreach(layer IN ITEMS core platform resource function/scene api)
     message(FATAL_ERROR "未拒绝 Engine ${layer} 反向依赖 Runtime")
   endif()
 endforeach()
-foreach(header IN ITEMS editor/documents/scene_document.hpp apps/editor/main.hpp host/runtime/application.hpp tooling/asset_build.hpp)
+foreach(header IN ITEMS editor/documents/scene_document.hpp editor/documents/scene_edit_session.hpp apps/editor/main.hpp host/runtime/application.hpp tooling/asset_build.hpp)
   file(WRITE "${fixture}/src/runtime/probe.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"

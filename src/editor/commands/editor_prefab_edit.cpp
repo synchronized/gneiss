@@ -16,7 +16,7 @@ namespace {
 using engine::scene_subtree_snapshot;
 using runtime::prefab_placement;
 using prefab_snapshots = std::vector<std::shared_ptr<const scene_subtree_snapshot>>;
-engine::error capture_document_prefab(scene_document& document, engine::guid uuid,
+engine::error capture_document_prefab(scene_edit_session& document, engine::guid uuid,
                                       std::shared_ptr<scene_subtree_snapshot>& output) {
   auto node = document.find_prefab_root(uuid);
   if (!node)
@@ -33,12 +33,12 @@ struct editor_prefab_edit::state {
   explicit state(runtime::application& host) : application(host) {}
   runtime::application& application;
   gneiss::scene_instance_id scene{};
-  scene_document* session{};
+  scene_edit_session* session{};
   editor_command_history* history{};
   engine::asset_request<engine::prefab> preparation;
   engine::prefab_header_snapshot source;
   std::vector<gneiss::engine::render_resource_ref> assets;
-  scene_document::version base;
+  scene_edit_session::version base;
   std::shared_ptr<scene_subtree_snapshot> captured;
   bool removing{}, refreshing{};
   std::vector<engine::guid> refresh_targets;
@@ -211,7 +211,7 @@ void editor_prefab_edit::dismiss() noexcept {
 }
 gneiss::engine::error editor_prefab_edit::request(runtime::application& application,
                                                   gneiss::engine::task_executor& executor,
-                                                  scene_document& session,
+                                                  scene_edit_session& session,
                                                   editor_command_history& history,
                                                   std::string_view name, std::string_view uri,
                                                   scene_node_id parent) try {
@@ -258,7 +258,7 @@ gneiss::engine::error editor_prefab_edit::request(runtime::application& applicat
   return gneiss::engine::error::internal;
 }
 gneiss::engine::error editor_prefab_edit::request_remove(runtime::application& application,
-                                                         scene_document& session,
+                                                         scene_edit_session& session,
                                                          editor_command_history& history,
                                                          scene_node_id root) try {
   if (active() || history.is_pending() || !session.is_open()) {
@@ -290,7 +290,7 @@ gneiss::engine::error editor_prefab_edit::request_remove(runtime::application& a
 
 gneiss::engine::error editor_prefab_edit::request_refresh(runtime::application& application,
                                                           gneiss::engine::task_executor& executor,
-                                                          scene_document& session,
+                                                          scene_edit_session& session,
                                                           editor_command_history& history,
                                                           scene_node_id root) try {
   if (active() || history.is_pending() || !session.is_open()) {

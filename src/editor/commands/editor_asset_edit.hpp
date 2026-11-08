@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "commands/author_property_edit.hpp"
-#include "documents/scene_document.hpp"
 #include "documents/scene_document_edit.hpp"
+#include "documents/scene_edit_session.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
@@ -22,25 +22,26 @@ struct mesh_asset_reference final {
 /** 所属线程的一次模态资产替换；命令租约须在 Application 销毁前释放。 */
 class editor_asset_edit final {
 public:
-  gneiss::engine::error request_add(runtime::application& application, scene_document& session,
+  gneiss::engine::error request_add(runtime::application& application, scene_edit_session& session,
                                     editor_command_history& history, std::string_view name,
                                     mesh_asset_reference assets);
-  gneiss::engine::error request(runtime::application& application, scene_document& session,
+  gneiss::engine::error request(runtime::application& application, scene_edit_session& session,
                                 editor_command_history& history, gneiss::engine::guid uuid,
                                 mesh_asset_reference assets);
   /** 普通节点及 Prefab 来源节点共用异步入口；目标按稳定作者身份重新定位。 */
-  engine::error request(runtime::application&, scene_document&, editor_command_history&,
+  engine::error request(runtime::application&, scene_edit_session&, editor_command_history&,
                         const component_edit_target&, mesh_asset_reference);
   /** 异步准备来源网格资源后清除实例组件覆盖。 */
-  engine::error request_restore_source(runtime::application&, scene_document&,
+  engine::error request_restore_source(runtime::application&, scene_edit_session&,
                                        editor_command_history&, const component_edit_target&);
   /** 反射 URI 属性编辑，先校验描述，再复用资源替换请求。 */
-  engine::error request_property(runtime::application&, scene_document&, editor_command_history&,
-                                 const component_edit_target&, const property_edit&);
+  engine::error request_property(runtime::application&, scene_edit_session&,
+                                 editor_command_history&, const component_edit_target&,
+                                 const property_edit&);
   /** 移除组件并把资源强引用保存在历史中；撤销不加载文件。 */
-  gneiss::engine::error request_remove(scene_document& session, editor_command_history& history,
+  gneiss::engine::error request_remove(scene_edit_session& session, editor_command_history& history,
                                        gneiss::engine::guid uuid);
-  void advance(runtime::application& application, scene_document& session,
+  void advance(runtime::application& application, scene_edit_session& session,
                editor_command_history& history);
   void cancel(runtime::application& application);
   void dismiss() noexcept {
@@ -56,16 +57,16 @@ public:
 private:
   void finish(runtime::application& application);
   void accept_assets(std::span<const engine::render_resource_ref> assets);
-  gneiss::engine::error request_impl(runtime::application& application, scene_document& session,
+  gneiss::engine::error request_impl(runtime::application& application, scene_edit_session& session,
                                      editor_command_history& history,
                                      const component_edit_target& target, std::string_view name,
                                      mesh_asset_reference assets, bool creating);
-  gneiss::engine::error commit_add(scene_document& session, editor_command_history& history);
+  gneiss::engine::error commit_add(scene_edit_session& session, editor_command_history& history);
   mesh_node_creation snapshot_;
   bool creating_{};
   std::shared_ptr<scene_document_edit> restore_;
   std::optional<engine::prefab_component_state> prefab_before_{};
-  gneiss::engine::error commit(runtime::application& application, scene_document& session,
+  gneiss::engine::error commit(runtime::application& application, scene_edit_session& session,
                                editor_command_history& history);
   gneiss::engine::scene_mesh_binding previous_, next_;
   gneiss::scene_instance_id scene_{};

@@ -48,7 +48,7 @@ int main() try {
 
   std::shared_ptr<gneiss::runtime::application> author_application;
   gneiss::engine::world* author_world = nullptr;
-  gneiss::editor::scene_document author_session;
+  gneiss::editor::scene_edit_session author_session;
   if (create_application(project.asset_root, author_application) !=
           gneiss::engine::error::success ||
       (author_world = author_application->native_world()) == nullptr ||
@@ -118,7 +118,7 @@ int main() try {
 
   std::shared_ptr<gneiss::runtime::application> runtime_application;
   gneiss::engine::world* runtime_world = nullptr;
-  gneiss::editor::scene_document runtime_session;
+  gneiss::editor::scene_edit_session runtime_session;
   if (create_application(project.asset_root, runtime_application) !=
           gneiss::engine::error::success ||
       (runtime_world = runtime_application->native_world()) == nullptr ||

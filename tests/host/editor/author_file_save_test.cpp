@@ -47,12 +47,12 @@ int main() try {
   for (const auto& entry : std::filesystem::directory_iterator(root))
     if (entry.path().filename().string().find(".gneiss-") != std::string::npos)
       return 4;
-  editor::scene_document document;
+  editor::scene_edit_session document;
   scene_node_id node;
   if (document.create_empty(*app, app->native_world()).failed() ||
       document.create_node("before", {}, node).failed())
     return 5;
-  std::shared_ptr<editor::scene_document::save_receipt> receipt;
+  std::shared_ptr<editor::scene_edit_session::save_receipt> receipt;
   if (document
           .begin_save(*files, "asset://scene.json", gneiss::engine::files::write_mode::create_new,
                       receipt)

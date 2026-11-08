@@ -20,7 +20,7 @@ inline engine::error await_file(gneiss::engine::files::service& files,
   }
   return receipt->status;
 }
-inline engine::error save_document(editor::scene_document& document,
+inline engine::error save_document(editor::scene_edit_session& document,
                                    const std::filesystem::path& root, std::string* saved = nullptr,
                                    std::string_view uri = {}) {
   runtime::application_configuration config;
@@ -31,7 +31,7 @@ inline engine::error save_document(editor::scene_document& document,
   auto status = runtime::application::create(config, application);
   if (status.failed())
     return status;
-  std::shared_ptr<editor::scene_document::save_receipt> receipt;
+  std::shared_ptr<editor::scene_edit_session::save_receipt> receipt;
   status = document.begin_save(*application->async_files(), uri.empty() ? document.uri() : uri,
                                uri.empty() ? gneiss::engine::files::write_mode::replace
                                            : gneiss::engine::files::write_mode::create_new,
@@ -46,7 +46,7 @@ inline engine::error save_document(editor::scene_document& document,
 }
 struct author_scene {
   std::shared_ptr<runtime::application> application;
-  editor::scene_document document;
+  editor::scene_edit_session document;
   editor::scene_document_snapshot before, after;
   bool open(const std::filesystem::path& root, std::string_view uri) {
     runtime::application_configuration config;

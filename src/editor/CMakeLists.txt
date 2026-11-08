@@ -128,14 +128,14 @@ add_library(
   documents/document_patch.hpp
   documents/scene_projection.cpp
   documents/scene_projection.hpp
-  documents/scene_document.cpp
-  documents/scene_document.hpp
+  documents/scene_edit_session.cpp
+  documents/scene_edit_session.hpp
   documents/scene_document_edit.cpp
   documents/scene_document_edit.hpp
   documents/scene_document_snapshot.cpp
   documents/scene_document_snapshot.hpp
-  documents/scene_document_versions.cpp
-  documents/scene_document_versions.hpp
+  documents/scene_document.cpp
+  documents/scene_document.hpp
   viewport/transform_gizmo_drag.cpp
   viewport/transform_gizmo_drag.hpp
 )

@@ -274,7 +274,7 @@ int main() try {
   std::shared_ptr<gneiss::runtime::application> app;
   check(gneiss::runtime::application::create({}, app).ok());
   auto& world = *app->native_world();
-  ed::scene_document document;
+  ed::scene_edit_session document;
   check(document.create_empty(*app, &world).ok());
   gneiss::scene_node_id node;
   check(document.create_node("movement", {}, node).ok());

@@ -4,7 +4,7 @@
 #pragma once
 #include "commands/editor_asset_edit.hpp"
 #include "commands/editor_prefab_edit.hpp"
-#include "documents/scene_document.hpp"
+#include "documents/scene_edit_session.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
@@ -19,7 +19,7 @@ public:
   document_editing() = default;
   document_editing(const document_editing&) = delete;
   document_editing& operator=(const document_editing&) = delete;
-  scene_document& document() noexcept { return document_; }
+  scene_edit_session& document() noexcept { return document_; }
   editor_command_history& history() noexcept { return history_; }
   editor_asset_edit& assets() noexcept { return assets_; }
   editor_prefab_edit& prefabs() noexcept { return prefabs_; }
@@ -34,7 +34,7 @@ public:
                                                    gneiss::engine::world* world);
 
 private:
-  scene_document document_;
+  scene_edit_session document_;
   editor_command_history history_;
   editor_asset_edit assets_;
   editor_prefab_edit prefabs_;

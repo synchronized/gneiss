@@ -178,7 +178,8 @@ Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其
 | Scene 实例集合 | `src/engine/function/scene/scene_instances.hpp` | 通过强类型节点 ID 操作实例；借用所属 World |
 | Scene 私有实例 | `src/engine/function/scene/scene_instance.hpp` | 维护节点、作者描述及所使用资源版本的租约，不向宿主提供头文件 |
 | Prefab 实例操作 | `src/engine/function/scene/scene_instances.hpp` | 消费已准备资源同步创建；直接删除和替换，不使用隐藏候选或发布组；见 [ADR-088](../decisions/ADR-088-prefab-direct-instantiation.md) |
-| 作者文档 | `src/editor/documents/scene_document.hpp` | 借用 Application、拥有文档的场景实例 ID；关闭时卸载，不能晚于 Application 销毁 |
+| 作者文档 | `src/editor/documents/scene_document.hpp` | 不可变内容、版本标识与保存点，不依赖 Application/World |
+| 编辑会话 | `src/editor/documents/scene_edit_session.hpp` | 装配文档、选择与运行投影；关闭时卸载实例，不晚于 Application 销毁 |
 | 反射属性编辑 | `src/editor/commands/author_property_edit.hpp`、`src/host/runtime/runtime_property_editor.hpp` | 作者面板使用默认 Meta 的借用视图与稳定属性路径；运行时调试保持 World 属性协议 |
 | 外部调用 | `src/engine/api/`、`include/gneiss/engine/` | C 适配转换参数并委托，公共 C++ 头仅提供值类型与转换 |
 
@@ -229,7 +230,7 @@ Scene 服务完成入口校验后转交实例，不直接修改这些事务的�
 
 ## Editor 的文档、命令与视口
 
-`src/editor/documents/scene_document.*` 是单个场景的编辑文档，绑定运行时场景，
+`src/editor/documents/scene_edit_session.*` 是单个场景的编辑会话，绑定运行时场景，
 维护 URI、选择、脏状态和节点查询快照；close 卸载该实例，Application 必须比它长寿。
 它不拥有 World，也不负责运行时场景切换。Runtime 的 scene_service 继续管理活动与退役域。
 

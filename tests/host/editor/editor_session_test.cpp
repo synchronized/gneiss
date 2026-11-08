@@ -4,7 +4,7 @@
 #include "../../support/async_prefab_edit.hpp"
 #include "../../support/scene_query.hpp"
 #include "commands/runtime_author_apply.hpp"
-#include "documents/scene_document.hpp"
+#include "documents/scene_edit_session.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
@@ -21,7 +21,7 @@
 
 // 临时输入在返回后销毁；后续 Undo/Redo 必须使用命令持有的身份副本。
 static gneiss::engine::error
-apply_temporary_transform(gneiss::editor::scene_document& session,
+apply_temporary_transform(gneiss::editor::scene_edit_session& session,
                           gneiss::editor::editor_command_history& history,
                           const gneiss::editor::runtime_author_transform& input) {
   const gneiss::engine::guid uuid(input.uuid);
@@ -39,7 +39,7 @@ int main() try {
   desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::engine::world* world = nullptr;
-  gneiss::editor::scene_document session;
+  gneiss::editor::scene_edit_session session;
   if (gneiss::engine::error{gneiss::runtime::application::create(desc, application)} !=
           gneiss::engine::error::success ||
       (world = application->native_world()) == nullptr ||
@@ -94,7 +94,7 @@ int main() try {
   }
   // 原生会话移动只转移一次释放责任；外线程编辑不得改变文档。
   const auto original_scene = session.scene_handle();
-  gneiss::editor::scene_document moved_session{std::move(session)};
+  gneiss::editor::scene_edit_session moved_session{std::move(session)};
   if (session.is_open() || !moved_session.is_open() ||
       moved_session.scene_handle() != original_scene)
     return 20;

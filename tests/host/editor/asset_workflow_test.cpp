@@ -5,7 +5,7 @@
 #include "../../support/async_editor_save.hpp"
 #include "../../support/async_mesh_edit.hpp"
 #include "asset_reimport_queue.hpp"
-#include "documents/scene_document.hpp"
+#include "documents/scene_edit_session.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
@@ -87,7 +87,7 @@ int main() try {
   const auto asset_root = project.asset_root.generic_string();
   desc.asset_root = asset_root;
   gneiss::engine::world* world{};
-  scene_document session;
+  scene_edit_session session;
   scene_node_id node;
   if (gneiss::engine::error{gneiss::runtime::application::create(desc, app)} !=
           gneiss::engine::error::success ||

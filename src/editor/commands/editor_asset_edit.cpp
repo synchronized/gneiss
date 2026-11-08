@@ -12,7 +12,7 @@
 
 namespace gneiss::editor {
 namespace {
-scene_node_id locate(scene_document& document, const component_edit_target& target) {
+scene_node_id locate(scene_edit_session& document, const component_edit_target& target) {
   if (target.instance_uuid) {
     const auto node = document.find_prefab_source(target.instance_uuid, target.source_uuid);
     return node ? node->node : scene_node_id{};
@@ -22,7 +22,7 @@ scene_node_id locate(scene_document& document, const component_edit_target& targ
 }
 }
 
-gneiss::engine::error editor_asset_edit::commit_add(scene_document& session,
+gneiss::engine::error editor_asset_edit::commit_add(scene_edit_session& session,
                                                     editor_command_history& history) {
   return execute_scene_edit(history, session, "创建 Mesh Renderer 节点", [&] {
     if (session.scene_handle() != scene_)
@@ -33,7 +33,7 @@ gneiss::engine::error editor_asset_edit::commit_add(scene_document& session,
 }
 
 gneiss::engine::error editor_asset_edit::commit(runtime::application& application,
-                                                scene_document& session,
+                                                scene_edit_session& session,
                                                 editor_command_history& history) {
   if (!application.is_owner_thread() || session.scene_handle() != scene_) {
     return gneiss::engine::error::invalid_state;
@@ -111,7 +111,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
   return operation;
 }
 
-engine::error editor_asset_edit::request_remove(scene_document& session,
+engine::error editor_asset_edit::request_remove(scene_edit_session& session,
                                                 editor_command_history& history,
                                                 gneiss::engine::guid uuid) try {
   if (active_ || history.is_pending())
@@ -134,20 +134,20 @@ engine::error editor_asset_edit::request_remove(scene_document& session,
 }
 
 gneiss::engine::error editor_asset_edit::request(runtime::application& application,
-                                                 scene_document& session,
+                                                 scene_edit_session& session,
                                                  editor_command_history& history,
                                                  gneiss::engine::guid uuid,
                                                  mesh_asset_reference assets) {
   return request_impl(application, session, history, {.object_uuid = uuid}, {}, assets, false);
 }
-engine::error editor_asset_edit::request(runtime::application& app, scene_document& document,
+engine::error editor_asset_edit::request(runtime::application& app, scene_edit_session& document,
                                          editor_command_history& history,
                                          const component_edit_target& target,
                                          mesh_asset_reference assets) {
   return request_impl(app, document, history, target, {}, assets, false);
 }
 engine::error editor_asset_edit::request_property(runtime::application& app,
-                                                  scene_document& document,
+                                                  scene_edit_session& document,
                                                   editor_command_history& history,
                                                   const component_edit_target& target,
                                                   const property_edit& edit) try {
@@ -183,7 +183,7 @@ engine::error editor_asset_edit::request_property(runtime::application& app,
   return engine::error::internal;
 }
 engine::error editor_asset_edit::request_restore_source(runtime::application& app,
-                                                        scene_document& document,
+                                                        scene_edit_session& document,
                                                         editor_command_history& history,
                                                         const component_edit_target& target) try {
   if (active_ || history.is_pending())
@@ -215,14 +215,14 @@ engine::error editor_asset_edit::request_restore_source(runtime::application& ap
   return engine::error::internal;
 }
 gneiss::engine::error editor_asset_edit::request_add(runtime::application& application,
-                                                     scene_document& session,
+                                                     scene_edit_session& session,
                                                      editor_command_history& history,
                                                      std::string_view name,
                                                      mesh_asset_reference assets) {
   return request_impl(application, session, history, {}, name, assets, true);
 }
 gneiss::engine::error
-editor_asset_edit::request_impl(runtime::application& application, scene_document& session,
+editor_asset_edit::request_impl(runtime::application& application, scene_edit_session& session,
                                 editor_command_history& history,
                                 const component_edit_target& target, std::string_view name,
                                 mesh_asset_reference assets, bool creating) try {
@@ -341,7 +341,7 @@ void editor_asset_edit::accept_assets(std::span<const engine::render_resource_re
   }
 }
 
-void editor_asset_edit::advance(runtime::application& application, scene_document& session,
+void editor_asset_edit::advance(runtime::application& application, scene_edit_session& session,
                                 editor_command_history& history) {
   if (!active_) {
     return;

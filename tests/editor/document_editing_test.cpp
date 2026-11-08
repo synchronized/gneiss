@@ -38,7 +38,7 @@ bool save_codec_contract(gneiss::runtime::application& application) {
                            ("gneiss-save-" + uuid.string())};
   if (!std::filesystem::create_directory(directory.path))
     return false;
-  gneiss::editor::scene_document document;
+  gneiss::editor::scene_edit_session document;
   if (document.create_empty(application, application.native_world()).failed())
     return false;
   gneiss::scene_node_id node;
@@ -105,7 +105,7 @@ private:
 };
 class pending_command final : public gneiss::editor::editor_command {
 public:
-  pending_command(gneiss::editor::scene_document& document, bool& cancelled, bool& released)
+  pending_command(gneiss::editor::scene_edit_session& document, bool& cancelled, bool& released)
       : document_(document), cancelled_(cancelled), released_(released) {}
   ~pending_command() override { released_ = document_.is_open(); }
   std::string_view label() const noexcept override { return "关闭顺序验证"; }
@@ -122,7 +122,7 @@ public:
   }
 
 private:
-  gneiss::editor::scene_document& document_;
+  gneiss::editor::scene_edit_session& document_;
   bool& cancelled_;
   bool& released_;
 };

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "documents/scene_document_versions.hpp"
+#include "documents/scene_document.hpp"
+#include "documents/scene_projection.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/scene/detail/scene_asset_access.hpp"
@@ -24,95 +25,51 @@ int main() {
   input.description.objects.push_back(object);
   auto snapshot = ed::make_scene_document_snapshot("asset://test.scene.json", input);
   CHECK(snapshot);
-  ed::scene_document_versions versions(2);
-  CHECK(!versions.current());
-  CHECK(versions.undo().failed());
-  CHECK(versions.reset(*snapshot).ok());
-  const auto initial = versions.current();
-  CHECK(!versions.is_dirty() && !versions.is_synchronized());
-  CHECK(versions.report_projection(initial, e::error::success).ok());
-  CHECK(versions.is_synchronized());
-  const auto renamed = [&](std::string name) {
-    auto next = versions.current().content();
-    auto data = next.content.get();
-    data.objects[0].name = std::move(name);
-    next.content = e::scene_record{data};
-    return next;
-  };
-  auto candidate = renamed("first");
-  CHECK(versions.accept(initial, candidate, "rename", "name").ok());
-  const auto first = versions.current();
-  candidate.uri = "changed externally";
-  CHECK(first.content().uri == "asset://test.scene.json");
+  ed::scene_document document;
+  ed::scene_projection projection;
+  CHECK(!document.current());
+  CHECK(document.reset(*snapshot).ok());
+  const auto initial = document.current();
+  CHECK(!document.is_dirty() && !projection.is_synchronized(initial));
+  CHECK(projection.report(initial, initial, e::error::success).ok());
+  CHECK(projection.is_synchronized(initial));
+  auto edited = *snapshot;
+  auto data = edited.content.get();
+  data.objects[0].name = "edited";
+  edited.content = e::scene_record{data};
+  CHECK(document.accept(initial, edited).ok());
+  const auto next = document.current();
+  CHECK(document.is_dirty() && !projection.is_synchronized(next));
+  CHECK(projection.report(next, initial, e::error::success) == e::error::invalid_state);
+  CHECK(projection.report(next, next, e::error::io).ok());
+  CHECK(projection.status(next) == e::error::io);
+  CHECK(document.current().content().content.get().objects[0].name == "edited");
   CHECK(initial.content().content.get().objects[0].name == "initial");
-  CHECK(versions.is_dirty() && !versions.is_synchronized());
-  CHECK(versions.report_projection(initial, e::error::success) == e::error::invalid_state);
-  CHECK(versions.report_projection(first, e::error::io).ok());
-  CHECK(versions.projection_status() == e::error::io && versions.current() == first);
-  // 投影失败仍能从当前版本保存内容；这里没有 Application、World 或文件服务。
-  auto description = first.content().description();
-  CHECK(description && description->objects[0].name == "first");
-  CHECK(e::asset_file::serialize_bytes(*description));
-  CHECK(versions.report_projection(first, e::error::success).ok());
-  CHECK(versions.is_synchronized());
-  CHECK(versions.accept(first, renamed("second"), "rename again", "name").ok());
-  CHECK(versions.size() == 1 && versions.undo_label() == "rename again");
-  const auto second = versions.current();
-  CHECK(versions.mark_saved(second).ok());
-  CHECK(!versions.is_dirty());
-  CHECK(versions.accept(second, renamed("third"), "after save", "name").ok());
-  CHECK(versions.size() == 2); // 不能跨越保存点合并。
-  CHECK(versions.undo().ok() && versions.current() == second && !versions.is_dirty());
-  CHECK(!versions.is_synchronized());
-  CHECK(versions.undo().ok() && versions.current() == initial && versions.is_dirty());
-  CHECK(versions.redo().ok() && versions.current() == second);
-  const auto invalid = [&] {
-    auto result = renamed("invalid");
-    auto data = result.content.get();
-    data.objects[0].parent = data.objects[0].uuid;
-    result.content = e::scene_record{data};
-    return result;
-  }();
-  CHECK(versions.accept(second, invalid, "cycle").failed());
-  CHECK(versions.current() == second && versions.can_redo());
-  CHECK(versions.reset(invalid).failed() && versions.current() == second);
-  CHECK(versions.accept(initial, renamed("stale"), "stale").failed());
-  CHECK(versions.accept(second, renamed("branch"), "branch").ok());
-  CHECK(!versions.can_redo());
-  const auto branch = versions.current();
-  // 保存旧版本的异步完成不能清除后续编辑的 dirty。
-  CHECK(versions.mark_saved(second).ok() && versions.is_dirty());
-  CHECK(versions.accept(branch, renamed("fourth"), "fourth").ok());
-  CHECK(versions.size() == 2);
-  CHECK(versions.undo().ok() && versions.current() == branch);
-  CHECK(versions.undo().ok() && versions.current() == second);
-  CHECK(!versions.can_undo() && !versions.is_dirty());
-  // 保存点与同步状态不额外保活已移出历史的整个版本。
-  versions.clear_history();
-  CHECK(versions.current() == second && !versions.can_undo() && !versions.can_redo());
-  CHECK(versions.reset(*snapshot, false).ok());
-  CHECK(versions.is_dirty());
-  CHECK(versions.mark_saved(second).failed());
-  CHECK(versions.report_projection(second, e::error::success).failed());
-  ed::scene_document_versions other;
+  CHECK(document.mark_saved(initial).ok() && document.is_dirty());
+  CHECK(document.mark_saved(next).ok() && !document.is_dirty());
+  CHECK(document.checkout(next, initial).ok() && document.is_dirty());
+  CHECK(document.checkout(initial.stamp(), next.stamp(), edited).ok() && !document.is_dirty());
+  CHECK(!projection.is_synchronized(document.current()));
+  CHECK(projection.report(document.current(), document.current(), e::error::success).ok());
+  CHECK(projection.is_synchronized(document.current()));
+  auto invalid = edited;
+  data.objects[0].parent = data.objects[0].uuid;
+  invalid.content = e::scene_record{data};
+  CHECK(document.accept(document.current(), invalid).failed());
+  CHECK(document.reset(invalid).failed());
+  CHECK(document.current() == next);
+  CHECK(document.accept(initial, edited) == e::error::invalid_state);
+  ed::scene_document other;
   CHECK(other.reset(*snapshot).ok());
-  CHECK(versions.mark_saved(other.current()).failed());
-  CHECK(versions.accept(other.current(), *snapshot, "foreign").failed());
-  ed::scene_document_versions no_history(0);
-  CHECK(no_history.reset(*snapshot).ok());
-  CHECK(no_history.accept(no_history.current(), renamed("unrecorded"), "edit").ok());
-  CHECK(no_history.size() == 0 && no_history.is_dirty() && !no_history.can_undo());
-  const auto edited = no_history.current();
-  CHECK(no_history.checkout(edited, other.current()) == e::error::invalid_state);
-  CHECK(no_history.checkout(initial, edited) == e::error::invalid_state);
-  CHECK(no_history.current() == edited);
-  CHECK(no_history.accept(edited, renamed("next"), "edit").ok());
-  const auto next = no_history.current();
-  CHECK(no_history.checkout(next, edited).ok() && no_history.current() == edited);
-  CHECK(!no_history.is_synchronized() && no_history.size() == 0);
-  CHECK(no_history.checkout(edited, next).ok() && no_history.current() == next);
-  // 历史专有资产只由旧版本保活；保存点、同步回执不延长它的寿命。
-  ed::scene_document_versions retention;
+  CHECK(document.mark_saved(other.current()).failed());
+  CHECK(document.checkout(next, other.current()).failed());
+  CHECK(document.accept(other.current(), edited).failed());
+  CHECK(document.reset(*snapshot, false).ok() && document.is_dirty());
+  CHECK(document.mark_saved(next).failed());
+  CHECK(projection.report(document.current(), next, e::error::success).failed());
+  // 文档自身不保留第二套历史；保存点和投影回执不保活旧内容及资源。
+  ed::scene_document retention;
+  ed::scene_projection retained_projection;
   std::weak_ptr<const e::scene> retired_asset;
   {
     auto tagged = *snapshot;
@@ -122,11 +79,10 @@ int main() {
     retired_asset = asset;
     tagged.source_asset = e::ref<const e::scene>{std::move(asset)};
     CHECK(retention.reset(tagged).ok());
-    CHECK(retention.report_projection(retention.current(), e::error::success).ok());
+    CHECK(retained_projection.report(retention.current(), retention.current(), e::error::success)
+              .ok());
   }
-  CHECK(retention.accept(retention.current(), *snapshot, "replace source").ok());
-  CHECK(!retired_asset.expired());
-  retention.clear_history();
+  CHECK(retention.accept(retention.current(), *snapshot).ok());
   CHECK(retired_asset.expired());
   return 0;
 }

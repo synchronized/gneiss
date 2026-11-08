@@ -8,7 +8,7 @@
 #include "asset_browser_model.hpp"
 #include "asset_import_controller.hpp"
 #include "commands/editor_command_history.hpp"
-#include "documents/scene_document.hpp"
+#include "documents/scene_edit_session.hpp"
 #include "editor_project.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
@@ -72,7 +72,7 @@ void write_text(const std::filesystem::path& path, std::string_view text) {
   output.write(text.data(), static_cast<std::streamsize>(text.size()));
 }
 
-[[nodiscard]] std::size_t count_prefab_name(const gneiss::editor::scene_document& session,
+[[nodiscard]] std::size_t count_prefab_name(const gneiss::editor::scene_edit_session& session,
                                             std::string_view name) {
   return static_cast<std::size_t>(
       std::ranges::count_if(gneiss::test_support::scene_query(session).prefab_nodes,
@@ -142,7 +142,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
 
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::engine::world* world = nullptr;
-  gneiss::editor::scene_document session;
+  gneiss::editor::scene_edit_session session;
   if (create_application(project.asset_root, application) != gneiss::engine::error::success ||
       (world = application->native_world()) == nullptr ||
       gneiss::test_support::open_document(session, *application, world, project.startup_scene) !=
@@ -228,7 +228,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   }
   session.close();
 
-  gneiss::editor::scene_document reloaded;
+  gneiss::editor::scene_edit_session reloaded;
   if (gneiss::test_support::open_document(reloaded, *application, world, project.startup_scene) !=
           gneiss::engine::error::success ||
       reloaded.find_node(snapshot.uuid).failed() ||

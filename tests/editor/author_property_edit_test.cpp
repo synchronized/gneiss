@@ -22,7 +22,7 @@
 #include <stdexcept>
 
 namespace {
-int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_document& session,
+int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_session& session,
                  gneiss::scene_node_id ordinary) {
   namespace e = gneiss::engine;
   namespace ed = gneiss::editor;
@@ -243,7 +243,7 @@ int main() try {
   using namespace gneiss::editor;
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::engine::world* world_handle = nullptr;
-  scene_document session;
+  scene_edit_session session;
   editor_command_history history;
   scene_node_id first;
   scene_node_id second;

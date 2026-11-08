@@ -6,7 +6,7 @@
 
 namespace gneiss::editor {
 
-runtime_launch_state inspect_runtime_launch(const scene_document& session,
+runtime_launch_state inspect_runtime_launch(const scene_edit_session& session,
                                             const std::filesystem::path& project_root,
                                             runtime_launch_request& output) noexcept {
   output = {};

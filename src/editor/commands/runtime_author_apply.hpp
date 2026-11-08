@@ -5,7 +5,7 @@
 #define GNEISS_APPS_EDITOR_RUNTIME_AUTHOR_APPLY_H_
 
 #include "commands/editor_command_history.hpp"
-#include "documents/scene_document.hpp"
+#include "documents/scene_edit_session.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include <string_view>
@@ -22,7 +22,7 @@ struct runtime_author_transform final {
 
 /** 将具有持久化 UUID 映射的 Runtime Transform 作为可撤销命令应用到作者场景。 */
 [[nodiscard]] gneiss::engine::error
-apply_runtime_transform_to_author(scene_document& session, editor_command_history& history,
+apply_runtime_transform_to_author(scene_edit_session& session, editor_command_history& history,
                                   const runtime_author_transform& runtime_node) noexcept;
 
 } // namespace gneiss::editor

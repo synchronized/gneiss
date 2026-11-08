@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "documents/scene_document.hpp"
+#include "documents/scene_edit_session.hpp"
 namespace gneiss::test_support {
 inline engine::result<scene_node_id>
-place_document_prefab(editor::scene_document& document, engine::game_object_description author,
+place_document_prefab(editor::scene_edit_session& document, engine::game_object_description author,
                       engine::prefab_asset_ref source,
                       std::span<const engine::scene_mesh_binding> bindings, bool replacing) {
   engine::scene_subtree_snapshot snapshot;

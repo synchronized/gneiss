@@ -96,14 +96,14 @@ verify_documents(const std::vector<gneiss::editor::author_document_change>& chan
   }
   document_ptr prefab_document{
       yyjson_read(prefab->replacement->data(), prefab->replacement->size(), YYJSON_READ_NOFLAG)};
-  document_ptr scene_document{
+  document_ptr scene_edit_session{
       yyjson_read(scene->replacement->data(), scene->replacement->size(), YYJSON_READ_NOFLAG)};
   auto* prefab_root = prefab_document ? yyjson_doc_get_root(prefab_document.get()) : nullptr;
   auto* prefab_objects = yyjson_obj_get(prefab_root, "objects");
   auto* source_root = yyjson_arr_get(prefab_objects, 0U);
   auto* source_translation =
       yyjson_obj_get(yyjson_obj_get(source_root, "transform"), "translation");
-  auto* scene_root = scene_document ? yyjson_doc_get_root(scene_document.get()) : nullptr;
+  auto* scene_root = scene_edit_session ? yyjson_doc_get_root(scene_edit_session.get()) : nullptr;
   auto* scene_objects = yyjson_obj_get(scene_root, "objects");
   auto* instances = yyjson_obj_get(scene_root, "objects");
   auto* instance = yyjson_arr_get(instances, 1U);
@@ -129,12 +129,12 @@ verify_documents(const std::vector<gneiss::editor::author_document_change>& chan
   }
   document_ptr prefab_document{
       yyjson_read(prefab->replacement->data(), prefab->replacement->size(), YYJSON_READ_NOFLAG)};
-  document_ptr scene_document{
+  document_ptr scene_edit_session{
       yyjson_read(scene->replacement->data(), scene->replacement->size(), YYJSON_READ_NOFLAG)};
   auto* prefab_root = prefab_document ? yyjson_doc_get_root(prefab_document.get()) : nullptr;
   auto* source = yyjson_arr_get(yyjson_obj_get(prefab_root, "objects"), 1U);
   auto* translation = yyjson_obj_get(yyjson_obj_get(source, "transform"), "translation");
-  auto* scene_root = scene_document ? yyjson_doc_get_root(scene_document.get()) : nullptr;
+  auto* scene_root = scene_edit_session ? yyjson_doc_get_root(scene_edit_session.get()) : nullptr;
   auto* instances = yyjson_obj_get(scene_root, "objects");
   auto* first_overrides =
       yyjson_obj_get(yyjson_obj_get(yyjson_arr_get(instances, 0U), "prefab"), "overrides");

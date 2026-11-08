@@ -61,7 +61,7 @@ int main() try {
        });
   if (loader.operation().failed())
     return 1;
-  const auto add_mesh_asset = [&](scene_document& document, editor_command_history& commands,
+  const auto add_mesh_asset = [&](scene_edit_session& document, editor_command_history& commands,
                                   std::string_view name, mesh_asset_reference refs) {
     editor_asset_edit operation;
     auto status = operation.request_add(*app, document, commands, name, refs);
@@ -70,8 +70,9 @@ int main() try {
     wait([&] { return operation.active(); }, [&] { operation.advance(*app, document, commands); });
     return operation.operation();
   };
-  const auto replace_mesh_assets = [&](scene_document& document, editor_command_history& commands,
-                                       gneiss::engine::guid uuid, mesh_asset_reference refs) {
+  const auto replace_mesh_assets = [&](scene_edit_session& document,
+                                       editor_command_history& commands, gneiss::engine::guid uuid,
+                                       mesh_asset_reference refs) {
     editor_asset_edit operation;
     auto status = operation.request(*app, document, commands, uuid, refs);
     if (status.failed())
@@ -79,7 +80,7 @@ int main() try {
     wait([&] { return operation.active(); }, [&] { operation.advance(*app, document, commands); });
     return operation.operation();
   };
-  const auto add_prefab_asset = [&](scene_document& document, editor_command_history& commands,
+  const auto add_prefab_asset = [&](scene_edit_session& document, editor_command_history& commands,
                                     std::string_view name, std::string_view uri,
                                     scene_node_id parent) {
     editor_prefab_edit operation;

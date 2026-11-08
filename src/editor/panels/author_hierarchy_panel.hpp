@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "documents/scene_document.hpp"
+#include "documents/scene_edit_session.hpp"
 #include "engine/core/guid.hpp"
 
 #include <span>

@@ -20,7 +20,7 @@ bool equal(const gneiss::engine::math::transform& left,
 
 } // namespace
 
-gneiss::engine::error transform_gizmo_drag::begin(scene_document& session) noexcept {
+gneiss::engine::error transform_gizmo_drag::begin(scene_edit_session& session) noexcept {
   if (is_active()) {
     return gneiss::engine::error::invalid_state;
   }
@@ -44,7 +44,7 @@ gneiss::engine::error transform_gizmo_drag::begin(scene_document& session) noexc
   }
 }
 
-gneiss::engine::error transform_gizmo_drag::preview(scene_document& session,
+gneiss::engine::error transform_gizmo_drag::preview(scene_edit_session& session,
                                                     const gizmo_matrix& matrix) noexcept {
   if (!matches_selection(session) || session.current_version() != preview_version_) {
     return gneiss::engine::error::invalid_state;
@@ -67,7 +67,7 @@ gneiss::engine::error transform_gizmo_drag::preview(scene_document& session,
   return operation;
 }
 
-gneiss::engine::error transform_gizmo_drag::finish(scene_document& session,
+gneiss::engine::error transform_gizmo_drag::finish(scene_edit_session& session,
                                                    editor_command_history& history) noexcept {
   if (!is_active()) {
     return gneiss::engine::error::success;

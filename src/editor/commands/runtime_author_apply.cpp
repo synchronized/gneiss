@@ -11,7 +11,7 @@
 
 namespace {
 
-gneiss::scene_node_id resolve_author_node(gneiss::editor::scene_document& session,
+gneiss::scene_node_id resolve_author_node(gneiss::editor::scene_edit_session& session,
                                           gneiss::engine::guid uuid,
                                           gneiss::engine::guid instance_uuid,
                                           gneiss::engine::guid source_uuid) noexcept {
@@ -29,7 +29,7 @@ gneiss::scene_node_id resolve_author_node(gneiss::editor::scene_document& sessio
 namespace gneiss::editor {
 
 gneiss::engine::error
-apply_runtime_transform_to_author(scene_document& session, editor_command_history& history,
+apply_runtime_transform_to_author(scene_edit_session& session, editor_command_history& history,
                                   const runtime_author_transform& runtime_node) noexcept try {
   if (runtime_node.uuid.is_nil()) {
     return gneiss::engine::error::invalid_argument;

@@ -6,7 +6,7 @@
 #include "../../support/async_mesh_edit.hpp"
 #include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
-#include "documents/scene_document.hpp"
+#include "documents/scene_edit_session.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
@@ -76,7 +76,7 @@ int main() try {
 
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::engine::world* world = nullptr;
-  gneiss::editor::scene_document session;
+  gneiss::editor::scene_edit_session session;
   if (create_application(root, application) != gneiss::engine::error::success ||
       (world = application->native_world()) == nullptr ||
       gneiss::test_support::open_document(session, *application, world, scene_uri) !=

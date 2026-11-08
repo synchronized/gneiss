@@ -38,7 +38,7 @@ if (!captured)
 
 ## 编辑入口边界
 
-`scene_document` 持有不可变编辑版本。属性、组件增删、层级、子树和 Prefab 操作先生成领域候选，
+`scene_edit_session` 持有不可变编辑版本。属性、组件增删、层级、子树和 Prefab 操作先生成领域候选，
 通过校验后接受版本，再更新 World。返回成功表示编辑内容已接受；`projection_status()` 单独报告同步状态。
 同步失败保留文档，保存及后续合法编辑不依赖投影成功。`synchronize()` 可重试完整投影，成功后须重新查询节点 ID。
 完整重建通过 `scene_instances::replace_prepared` 保留场景实例句柄，成功才替换旧投影。
@@ -51,8 +51,7 @@ if (!captured)
 网格绑定的历史保活存放在文档版本的资源引用中，不是第二个加载缓存。
 `replace_mesh_binding` 先校验文档绑定是否匹配 expected，再修改描述和资源引用。
 文档关闭或 Application 停止后拒绝操作；跨线程调用不改变文档。
-当前宿主仍通过 `editor_command_history` 持有局部/子树和整文档历史，统一前后版本历史尚待迁移；
-文档内部的版本状态暂不重复记录另一份撤销栈。
+宿主通过 `editor_command_history` 持有局部差异历史；纯文档不维护另一份撤销栈。
 
 Prefab 编辑开始时从组件覆盖快照取得原资源引用；异步加载完成后的冲突检查继续执行。
 网格/材质 URI 覆盖由 `prepare_mesh_renderer_overrides` 统一计算，保留其他覆盖记录，
@@ -109,7 +108,7 @@ Prefab 编辑开始时从组件覆盖快照取得原资源引用；异步加载�
 `world_component_access.hpp`，其借用指针只在所属线程及 World 生存期有效；
 普通 Scene/资源接口不暴露 EnTT。节点销毁依靠 ECS 正常析构组件，不另建组件副本表。
 通用扩展示例见 `tests/support/movement_component.hpp`。编辑器通过
-`scene_document::components` 恢复文档中的有效组件描述，用只读 `component_description_base::view()` 和
+`scene_edit_session::components` 恢复文档中的有效组件描述，用只读 `component_description_base::view()` 和
 `meta::type` 绘制通用属性控件；视图不超过描述寿命，不借用 ECS 成员地址。
 
 通用组件编辑在文档描述的独立候选上修改并校验，接受新版本后调用 Scene 的投影入口。
@@ -141,7 +140,7 @@ Editor Document 保存及完整子树撤销读取文档版本，不反向捕获 
 不能挂到模板内部节点。模板内部结构暂不提供增删或重排覆盖。
 `destroy_node` 对所有显式对象统一要求没有实际子节点；完整删除使用 `destroy_subtree`，不按 Prefab 类型切换删除语义。
 `set_node_transform` 及组件增删、替换接口只修改运行时有效数据，不生成 Prefab 覆盖。
-覆盖生成及恢复属于 `scene_document`。运行时临时修改不会更新加载时的 Prefab 引用；重新实例化仍采用文档覆盖。
+覆盖生成及恢复属于 `scene_edit_session`。运行时临时修改不会更新加载时的 Prefab 引用；重新实例化仍采用文档覆盖。
 当前运行实例仍保留加载时的来源映射和覆盖记录，待 PLAN-105 后续迁移。
 
 `capture_description` 采集显式对象，`serialize` 编码为当前格式；来源生成节点不重复输出。
@@ -211,7 +210,7 @@ GPU 资源实际回收遵守资源服务及渲染后端的延迟销毁规则，�
 实施记录见 [PLAN-085](../plans/PLAN-085-component-lifecycle-editor.md)。
 
 
-Prefab 组件历史使用 `scene_document::capture_component_override` / `scene_document::set_component_override` 保存、恢复单个组件覆盖，
+Prefab 组件历史使用 `scene_edit_session::capture_component_override` / `scene_edit_session::set_component_override` 保存、恢复单个组件覆盖，
 包含网格资源强引用。面板支持组件添加、移除及 Restore Source；网格恢复来源先通过资产入口异步准备资源。
 同步 Scene 接口不读取文件；资源缺失返回未就绪，调用方准备成功后再提交。
 来源重载先验证受影响实例的完整覆盖，冲突不修改实例及其记录；`reload_prefab_loaded` 可输出路径诊断。
@@ -387,13 +386,13 @@ map 键/值、optional、variant、组件结构覆盖及属性操作值，不读
 
 本次触及路径由当前组件与替换组件的差异确定；来源与替换组件的差异形成持久覆盖。
 重复修改不会累积同一路径记录，恢复来源值移除差异；未触及的失效覆盖及其他对象覆盖保留。
-输入不变，失败不返回部分候选。`scene_document` 使用这个入口更新文档覆盖，
+输入不变，失败不返回部分候选。`scene_edit_session` 使用这个入口更新文档覆盖，
 随后向运行层下发有效组件。运行时 `set_component_description` 不调用覆盖生成入口。
 
 `prepare_prefab_transform_edit` 接收来源节点的当前及替换变换，与组件入口共用反射差异计算、
 重复覆盖归并和未触及冲突保留规则，返回 `prefab_edit_candidate`。非法变换拒绝接受；
 来源根节点返回 `invalid_argument`，实例根的局部变换由场景对象管理。
-`scene_document::set_local_transform` 采用该候选更新文档，再通过 `set_node_transform` 投影运行时变换。
+`scene_edit_session::set_local_transform` 采用该候选更新文档，再通过 `set_node_transform` 投影运行时变换。
 
 `prepare_prefab_component_override` 计算组件添加、移除或恢复来源的完整覆盖候选。
 空 added 且 removed=false 表示清除结构覆盖，可携带该组件的属性覆盖；结构覆盖和属性覆盖不能混用。
@@ -428,3 +427,10 @@ source 非空时表示该 Prefab 实例内的来源对象；父地址使用相�
 有描述之外的运行状态时应提供 update，仅修改编辑字段；失败必须保留原状态。
 未提供 update 时沿用 install，适用于不存在独立运行状态的组件。加载和添加继续使用 install，
 移除使用 remove。撤销重做通过相同更新入口保留运行状态。
+
+### 文档与编辑会话边界
+
+`scene_document` 只管理不可变内容、版本标识和保存点，不持有 Application、World、选择或撤销栈。
+`scene_edit_session` 装配文档、运行场景、选择及加载保存协调，关闭时卸载运行实例。
+`scene_projection` 管理同步回执；过期回执拒绝，失败不得标记为已同步，回执不保活旧文档内容。
+局部历史继续由 `editor_command_history` 与 `document_patch_command` 唯一持有。

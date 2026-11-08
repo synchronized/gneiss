@@ -62,7 +62,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(app->attach_task_executor(scheduler) == gneiss::engine::error::success);
   gneiss::engine::world* world{};
   check((world = app->native_world()) != nullptr);
-  editor::scene_document session;
+  editor::scene_edit_session session;
   editor::editor_command_history history;
   editor::editor_asset_edit edit;
   check(gneiss::test_support::open_document(session, *app, world, "asset://scene.json",
@@ -338,7 +338,7 @@ void prefab_edits(engine::execution_mode mode) {
   author.name = "second";
   scene.objects.push_back(author);
   write("prefab-scene.json", scene);
-  editor::scene_document document;
+  editor::scene_edit_session document;
   editor::editor_command_history history;
   editor::editor_asset_edit edit;
   check(test_support::open_document(document, *app, app->native_world(),
@@ -469,7 +469,7 @@ void prefab_edits(engine::execution_mode mode) {
   std::shared_ptr<runtime::application> reopened_app;
   check(runtime::application::create(config, reopened_app).ok());
   check(reopened_app->attach_task_executor(scheduler).ok());
-  editor::scene_document reopened;
+  editor::scene_edit_session reopened;
   check(test_support::open_document(reopened, *reopened_app, reopened_app->native_world(),
                                     "asset://saved.json", &scheduler)
             .ok());

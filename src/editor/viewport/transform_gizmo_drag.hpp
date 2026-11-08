@@ -4,7 +4,7 @@
 #pragma once
 
 #include "commands/editor_command_history.hpp"
-#include "documents/scene_document.hpp"
+#include "documents/scene_edit_session.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "viewport/transform_gizmo_math.hpp"
@@ -14,14 +14,14 @@ namespace gneiss::editor {
 /** 单次 Gizmo 拖动的预览与历史收尾；目标身份不随当前选择变化。 */
 class transform_gizmo_drag final {
 public:
-  [[nodiscard]] gneiss::engine::error begin(scene_document& session) noexcept;
-  [[nodiscard]] gneiss::engine::error preview(scene_document& session,
+  [[nodiscard]] gneiss::engine::error begin(scene_edit_session& session) noexcept;
+  [[nodiscard]] gneiss::engine::error preview(scene_edit_session& session,
                                               const gizmo_matrix& matrix) noexcept;
   /** 释放、切换选择或隐藏视图时提交已应用的预览；记录失败回滚原目标。 */
-  [[nodiscard]] gneiss::engine::error finish(scene_document& session,
+  [[nodiscard]] gneiss::engine::error finish(scene_edit_session& session,
                                              editor_command_history& history) noexcept;
   [[nodiscard]] bool is_active() const noexcept { return node_.is_valid(); }
-  [[nodiscard]] bool matches_selection(const scene_document& session) const noexcept {
+  [[nodiscard]] bool matches_selection(const scene_edit_session& session) const noexcept {
     return is_active() && session.selection() == node_;
   }
 
@@ -33,7 +33,7 @@ private:
   gneiss::engine::guid source_uuid_;
   gneiss::engine::math::transform before_ = {};
   bool was_dirty_ = false;
-  scene_document::version before_version_, preview_version_;
+  scene_edit_session::version before_version_, preview_version_;
 };
 
 } // namespace gneiss::editor

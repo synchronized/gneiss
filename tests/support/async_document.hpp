@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "async_application.hpp"
-#include "documents/scene_document.hpp"
+#include "documents/scene_edit_session.hpp"
 namespace gneiss::test_support {
-inline engine::error open_document(editor::scene_document& document, runtime::application& app,
+inline engine::error open_document(editor::scene_edit_session& document, runtime::application& app,
                                    engine::world* world, std::string_view uri,
                                    engine::task_scheduler* tasks = nullptr) {
   if (world != app.native_world())

@@ -27,9 +27,10 @@ inline engine::error finish_history(editor::editor_command_history& history, eng
   }
   return status;
 }
-inline engine::error create_prefab_document(runtime::application& app, editor::scene_document& doc,
-                                            std::string_view name, std::string_view uri,
-                                            scene_node_id parent, scene_node_id& root,
+inline engine::error create_prefab_document(runtime::application& app,
+                                            editor::scene_edit_session& doc, std::string_view name,
+                                            std::string_view uri, scene_node_id parent,
+                                            scene_node_id& root,
                                             engine::task_scheduler* tasks = nullptr) {
   root = {};
   if (!tasks)
@@ -44,7 +45,8 @@ inline engine::error create_prefab_document(runtime::application& app, editor::s
     root = doc.selected_prefab_node()->node;
   return status;
 }
-inline engine::error refresh_prefab_document(runtime::application& app, editor::scene_document& doc,
+inline engine::error refresh_prefab_document(runtime::application& app,
+                                             editor::scene_edit_session& doc,
                                              editor::editor_command_history& history,
                                              scene_node_id root) {
   editor::editor_prefab_edit edit;

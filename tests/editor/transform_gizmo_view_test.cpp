@@ -19,7 +19,7 @@ int main() try {
   using namespace gneiss::editor;
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::engine::world* world_handle = nullptr;
-  scene_document session;
+  scene_edit_session session;
   editor_command_history history;
   transform_gizmo_drag drag;
   scene_node_id first;

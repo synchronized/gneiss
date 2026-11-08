@@ -807,7 +807,7 @@ gneiss::engine::error begin_scene_save(editor_state& state, std::string_view uri
                                        gneiss::engine::files::write_mode mode) {
   if (state.pending_file_operation)
     return gneiss::engine::error::not_ready;
-  std::shared_ptr<gneiss::editor::scene_document::save_receipt> receipt;
+  std::shared_ptr<gneiss::editor::scene_edit_session::save_receipt> receipt;
   const auto status =
       state.editing.document().begin_save(*state.application->async_files(), uri, mode, receipt);
   if (status.failed())
@@ -2569,7 +2569,8 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
       return submit_editor_ui(state);
     }
 
-    if (state.editing.document().is_open() && state.editing.document().projection_status().failed()) {
+    if (state.editing.document().is_open() &&
+        state.editing.document().projection_status().failed()) {
       const auto status = state.editing.document().projection_status();
       ImGui::Begin("Scene synchronization", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
       ImGui::TextUnformatted("Edits are retained. The running scene is not synchronized.");

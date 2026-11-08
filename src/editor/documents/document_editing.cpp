@@ -25,7 +25,7 @@ gneiss::engine::error document_editing::create_empty(runtime::application& appli
                                                      gneiss::engine::world* world) {
   if (active())
     return gneiss::engine::error::not_ready;
-  scene_document candidate;
+  scene_edit_session candidate;
   const auto prepared = candidate.create_empty(application, world);
   if (prepared.failed())
     return prepared;

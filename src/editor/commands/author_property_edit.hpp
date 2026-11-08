@@ -4,7 +4,7 @@
 #pragma once
 
 #include "commands/editor_command_history.hpp"
-#include "documents/scene_document.hpp"
+#include "documents/scene_edit_session.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
@@ -17,21 +17,22 @@ struct component_edit_target {
   engine::guid component_type{};
 };
 enum class prefab_component_action { add, remove, restore_source };
-[[nodiscard]] engine::error edit_prefab_component_structure(scene_document&,
+[[nodiscard]] engine::error edit_prefab_component_structure(scene_edit_session&,
                                                             editor_command_history&,
                                                             const component_edit_target&,
                                                             prefab_component_action) noexcept;
 /** 普通对象的组件增删历史；资源组件仍使用异步资产命令。 */
-[[nodiscard]] engine::error add_component_description(scene_document&, editor_command_history&,
+[[nodiscard]] engine::error add_component_description(scene_edit_session&, editor_command_history&,
                                                       engine::guid object,
                                                       engine::guid type) noexcept;
-[[nodiscard]] engine::error remove_component_description(scene_document&, editor_command_history&,
+[[nodiscard]] engine::error remove_component_description(scene_edit_session&,
+                                                         editor_command_history&,
                                                          engine::guid object,
                                                          engine::guid type) noexcept;
 /** 支持已注册运行组件；资源 URI 交给异步资产命令，主相机状态保持只读。
  * 复制候选并校验，历史按稳定身份重新定位，不借用成员指针。
  * document/world 须存活至历史清空；调用限所属线程。 */
-[[nodiscard]] engine::error edit_component_description(scene_document&, editor_command_history&,
+[[nodiscard]] engine::error edit_component_description(scene_edit_session&, editor_command_history&,
                                                        engine::world&, const component_edit_target&,
                                                        const property_edit&,
                                                        std::uint64_t serial) noexcept;

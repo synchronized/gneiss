@@ -45,7 +45,7 @@ int main() try {
   desc.asset_root = root;
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::engine::world* world = nullptr;
-  gneiss::editor::scene_document session;
+  gneiss::editor::scene_edit_session session;
   if (gneiss::engine::error{gneiss::runtime::application::create(desc, application)} !=
           gneiss::engine::error::success ||
       (world = application->native_world()) == nullptr ||

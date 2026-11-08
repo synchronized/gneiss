@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/scene_document_edit.hpp"
-#include "documents/scene_document.hpp"
+#include "documents/scene_edit_session.hpp"
 #include "runtime/application.hpp"
 namespace gneiss::editor {
 namespace {
 struct document_selection {
   engine::guid object, source;
-  static document_selection capture(scene_document& document) noexcept {
+  static document_selection capture(scene_edit_session& document) noexcept {
     if (auto node = document.selected_node())
       return {node->uuid, {}};
     if (auto node = document.selected_prefab_node())
       return {node->instance_uuid, node->source_node_uuid};
     return {};
   }
-  void restore(scene_document& document) const noexcept {
+  void restore(scene_edit_session& document) const noexcept {
     if (source) {
       auto node = document.find_prefab_source(object, source);
       (void)document.select(node ? node->node : scene_node_id{});
@@ -26,8 +26,8 @@ struct document_selection {
 };
 class document_patch_command final : public editor_command {
 public:
-  document_patch_command(scene_document& document, scene_document::version before,
-                         scene_document::version after, std::string label, std::string key)
+  document_patch_command(scene_edit_session& document, scene_edit_session::version before,
+                         scene_edit_session::version after, std::string label, std::string key)
       : document_(document), before_(before.stamp()), after_(after.stamp()),
         pending_before_(std::move(before)), label_(std::move(label)), key_(std::move(key)),
         selection_before_(document_selection::capture(document)),
@@ -75,16 +75,16 @@ public:
   }
 
 private:
-  scene_document& document_;
-  scene_document_versions::revision before_, after_;
-  scene_document::version pending_before_;
+  scene_edit_session& document_;
+  scene_document::revision before_, after_;
+  scene_edit_session::version pending_before_;
   std::vector<document_patch> patches_;
   std::string label_, key_;
   document_selection selection_before_, selection_after_;
 };
 }
-engine::error record_scene_edit(editor_command_history& history, scene_document& document,
-                                const scene_document_versions::version& before, std::string label,
+engine::error record_scene_edit(editor_command_history& history, scene_edit_session& document,
+                                const scene_document::version& before, std::string label,
                                 std::string key) noexcept try {
   auto after = document.current_version();
   if (!before || !after)
@@ -102,7 +102,7 @@ engine::error record_scene_edit(editor_command_history& history, scene_document&
 } catch (...) {
   return engine::error::internal;
 }
-engine::error execute_scene_edit(editor_command_history& history, scene_document& document,
+engine::error execute_scene_edit(editor_command_history& history, scene_edit_session& document,
                                  std::string label, const std::function<engine::error()>& edit,
                                  std::string key) noexcept try {
   auto before = document.current_version();
@@ -141,7 +141,7 @@ engine::error execute_scene_edit(editor_command_history& history, scene_document
 }
 
 engine::result<scene_document_snapshot>
-capture_scene_document(runtime::application& app, const scene_document& document) noexcept try {
+capture_scene_document(runtime::application& app, const scene_edit_session& document) noexcept try {
   if (!document.is_open() || !app.is_owner_thread() || !app.accepts_requests())
     return engine::error::invalid_state;
   return document.capture_content();
@@ -151,7 +151,7 @@ capture_scene_document(runtime::application& app, const scene_document& document
   return engine::error::internal;
 }
 
-engine::error restore_scene_document(runtime::application& app, scene_document& document,
+engine::error restore_scene_document(runtime::application& app, scene_edit_session& document,
                                      const scene_document_snapshot& snapshot) noexcept try {
   if (!app.is_owner_thread() || !app.accepts_requests() || !document.is_open() ||
       document.uri() != snapshot.uri)
@@ -172,7 +172,7 @@ void scene_document_edit::cancel() noexcept {
   if (status_ == engine::error::not_ready)
     (void)finish(engine::error::cancelled);
 }
-engine::error scene_document_edit::begin(runtime::application& app, scene_document& document,
+engine::error scene_document_edit::begin(runtime::application& app, scene_edit_session& document,
                                          std::span<const author_document_change> changes,
                                          std::string label,
                                          std::function<void(bool)> selection) noexcept try {
@@ -207,7 +207,7 @@ engine::error scene_document_edit::begin(runtime::application& app, scene_docume
 } catch (...) {
   return finish(engine::error::internal);
 }
-engine::error scene_document_edit::advance(runtime::application& app, scene_document& document,
+engine::error scene_document_edit::advance(runtime::application& app, scene_edit_session& document,
                                            editor_command_history& history) noexcept try {
   using engine::error;
   if (status_ != error::not_ready)
