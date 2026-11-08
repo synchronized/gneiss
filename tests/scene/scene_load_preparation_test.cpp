@@ -9,6 +9,7 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/asset/detail/content_dependency.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/platform/files/file_service.hpp"
@@ -199,6 +200,13 @@ void run() {
   ref<const engine::prefab> prefab_asset;
   check(test_support::load_asset(assets, "asset://p.prefab", prefab_asset).ok());
   check(prefab_asset->snapshot()->root_uuid == inputs.prefabs.at("asset://p.prefab")->root_uuid);
+  // 声明依赖没有副作用；通用调度取得固定内容，之后独立重载不改变该结果。
+  const auto before_declaration = memory->reads;
+  detail::content_dependency<engine::prefab, ref<const prefab_description>> dependency(
+      "asset://p.prefab", false, [](const engine::prefab& value) { return value.snapshot(); });
+  check(memory->reads == before_declaration);
+  check(dependency.advance(assets).ok() && dependency.resource() == prefab_asset);
+  const auto dependency_content = dependency.content();
   ref<const asset> erased = prefab_asset;
   check(asset_cast<engine::prefab>(erased) == prefab_asset && !asset_cast<engine::scene>(erased));
   const auto reads = memory->reads;
@@ -247,6 +255,8 @@ void run() {
   check(newer->snapshot() != output.prefabs.at("asset://p.prefab").resource);
   check(loaded_content->prefabs.at("asset://p.prefab").description != newer->snapshot());
   check(loaded_content->prefabs.at("asset://p.prefab").resource == newer);
+  check(dependency.advance(assets).ok() && dependency.resource() == newer);
+  check(dependency.content() == dependency_content && dependency.content() != newer->snapshot());
   const auto before_cached_scene = memory->reads;
   auto cached_structural_request = assets.load<engine::scene>("asset://main.scene");
   check(bool(cached_structural_request));

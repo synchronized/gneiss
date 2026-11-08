@@ -440,3 +440,8 @@ PLAN-106 的文档历史及增量投影继续作为编辑路径。默认构建�
 - A52-05：本批只进行默认构建与相关 CPU 回归；完整跨平台共享/静态矩阵及 GPU 小型工作流尚未验收。
 
 不恢复被删除的运行 Prefab 绑定、第二资产管理器、公开预留入口或作者捕获。
+
+## 新确认资产模型
+
+[PLAN-107](PLAN-107-asset-model-loading-protocol.md) 承接 PLAN-102 的依赖协议与资产内容边界，按
+[ADR-112](../decisions/ADR-112-asset-loading-protocol.md) 推进，先完成 Scene 必需依赖的统一调度原型。

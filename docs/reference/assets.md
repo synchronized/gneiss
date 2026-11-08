@@ -133,7 +133,7 @@ Scene 的 `content()` 同时保留描述、Prefab 资产强引用及其本次加
 独立重载 Prefab 不会改变旧 Scene 内容快照。显式重载 Scene 会重新请求结构依赖；失败不采用
 新的 Scene 内容，但不承诺回滚已经成功重载的独立 Prefab。根文件字节统计仍只计 Scene 文件。
 
-Scene Loader 在 CPU 解码后通过 `resolve_dependencies` 于所属线程非阻塞推进普通资产请求，
+Scene Loader 在 CPU 解码时声明必要依赖；管理器在所属线程统一提交和轮询，全部就绪后调用 Loader 的 `finish()` 装配，
 依赖全部成功才登记 Scene 缓存。必要 Prefab 失败返回带依赖 URI 的诊断；最后一个 Scene
 请求观察者消失后，其依赖请求随操作回收，其他观察者不受影响。
 
@@ -432,3 +432,10 @@ scene_preparation 只做内存校验、来源与需求清单整理，不持有 a
 
 当前引用解析上下文仅支持纹理、网格和材质。Scene Loader 显式处理 Prefab 结构依赖；
 通用 object_loader 尚无任意资产依赖图及环检测，不能按任意对象图加载器使用。
+
+### 类型加载器的必要依赖
+
+asset_loader 的 dependencies 保存声明的必要依赖槽，管理器在解码完成后统一推进。
+Scene Loader 不再直接接收 asset_manager 或维护请求轮询；其 finish 只读取类型化结果装配内容。
+依赖成功时同时取得稳定身份和固定内容，等待其他依赖期间的独立重载不会替换已取得的快照。
+当前此协议已接入 Scene→Prefab；reference 策略、通用依赖图及其他类型接入仍按 PLAN-107 推进。

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/asset/detail/content_dependency.hpp"
 #include "engine/function/asset/detail/loader_factory.hpp"
 #include "engine/resource/scene/detail/scene_asset_access.hpp"
 namespace gneiss::engine::detail {
@@ -9,8 +9,8 @@ template <class T, class D> struct scene_loader final : asset_loader {
   asset_identity source;
   bool reload{};
   ref<scene_content> content;
-  std::map<std::string, asset_request<prefab>, std::less<>> pending;
-  bool dependencies_started{};
+  using prefab_dependency = content_dependency<prefab, ref<const prefab_description>>;
+  std::map<std::string, std::shared_ptr<prefab_dependency>, std::less<>> required;
   explicit scene_loader(asset_identity identity, bool should_reload)
       : asset_loader(identity.uri), source(std::move(identity)), reload(should_reload) {}
   void decode(const std::vector<std::byte>& bytes) override {
@@ -20,6 +20,14 @@ template <class T, class D> struct scene_loader final : asset_loader {
       if constexpr (std::is_same_v<T, scene>) {
         content = make_ref<scene_content>();
         content->description = std::move(*decoded);
+        for (const auto& object : content->description->objects) {
+          if (!object.prefab || required.contains(object.prefab->uri))
+            continue;
+          auto dependency = std::make_shared<prefab_dependency>(
+              object.prefab->uri, reload, [](const prefab& value) { return value.snapshot(); });
+          required.emplace(object.prefab->uri, dependency);
+          dependencies.push_back(std::move(dependency));
+        }
         value = scene_asset_access::make<T>(source, ref<const scene_content>{content});
       } else {
         value = scene_asset_access::make<T>(source, std::move(*decoded));
@@ -29,40 +37,14 @@ template <class T, class D> struct scene_loader final : asset_loader {
     }
     metrics.bytes = input_bytes;
   }
-  error resolve_dependencies(asset_manager& assets) override {
+  error finish() override {
     if constexpr (std::is_same_v<T, scene>) {
-      if (!dependencies_started) {
-        for (const auto& object : content->description->objects) {
-          if (!object.prefab || pending.contains(object.prefab->uri))
-            continue;
-          auto request = assets.load<prefab>(object.prefab->uri, reload);
-          if (!request) {
-            reject({request.error(), 0, object.prefab->uri, "无法加载场景 Prefab 依赖"});
-            return status;
-          }
-          pending.emplace(object.prefab->uri, std::move(*request));
-        }
-        dependencies_started = true;
+      for (const auto& [uri, dependency] : required) {
+        const auto& loaded = dependency->resource();
+        content->prefabs.emplace(uri, scene_prefab_dependency{loaded, dependency->content(),
+                                                              dependency->source_bytes()});
       }
-      for (auto it = pending.begin(); it != pending.end();) {
-        auto loaded = it->second.take();
-        if (!loaded) {
-          if (loaded.error().error == error::not_ready) {
-            ++it;
-            continue;
-          }
-          auto failure = std::move(loaded).error();
-          failure.path = it->first + (failure.path.empty() ? "" : ":" + failure.path);
-          reject(std::move(failure));
-          return status;
-        }
-        content->prefabs.emplace(it->first, scene_prefab_dependency{*loaded, (*loaded)->snapshot(),
-                                                                    it->second.source_bytes()});
-        it = pending.erase(it);
-      }
-      if (!pending.empty())
-        return error::not_ready;
-      // 成功后只留下不可变快照；Loader 不再保留可变入口。
+      required.clear();
       content.reset();
     }
     return error::success;

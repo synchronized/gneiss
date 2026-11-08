@@ -526,10 +526,23 @@ void asset_manager::advance() {
         }
         if (work->status.ok()) {
           try {
-            const auto dependencies = work->loader->resolve_dependencies(*this);
-            if (dependencies == error::not_ready)
+            bool waiting = false;
+            for (const auto& dependency : work->loader->dependencies) {
+              const auto status = dependency->advance(*this);
+              if (status == error::not_ready) {
+                waiting = true;
+              } else if (status.failed()) {
+                work->loader->reject(dependency->diagnostic);
+                work->status = status;
+                break;
+              }
+            }
+            if (work->status.ok() && waiting)
               return;
-            work->status = dependencies;
+            if (work->status.ok())
+              work->status = work->loader->finish();
+            work->loader->dependencies.clear();
+            work->value = work->loader->value;
             work->diagnostic = work->loader->diagnostic;
           } catch (const std::bad_alloc&) {
             work->status = error::out_of_memory;
