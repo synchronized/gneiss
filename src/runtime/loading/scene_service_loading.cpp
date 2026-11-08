@@ -85,7 +85,7 @@ scene_service::request_scene(std::string_view uri, std::uint64_t session, std::u
   auto next = std::make_unique<load_task>();
   next->result.progress = {
       .request = ++sequence_, .session = session, .revision = revision, .can_cancel = true};
-  auto prepared = resources_->load<engine::scene>(uri, true);
+  auto prepared = resources_->reload<engine::scene>(uri);
   if (!prepared)
     return prepared.error();
   next->description_request = std::move(*prepared);

@@ -105,8 +105,7 @@ int main() {
   native::rid mesh{}, material{}, plain_material{}, texture{};
   native::ref<const native::mesh> mesh_owner;
   native::ref<const native::material> material_owner, plain_material_owner;
-  if (gneiss::test_support::take_value(resources_factory.create_texture(texture_desc),
-                                       context.texture)
+  if (gneiss::test_support::take_value(resources_factory.create(texture_desc), context.texture)
           .failed()) {
     std::fprintf(stderr, "测试 Texture 创建失败\n");
     return 2;
@@ -131,10 +130,9 @@ int main() {
     return 11;
   }
 #endif
-  if (gneiss::test_support::take_value(resources_factory.create_mesh(mesh_desc), mesh_owner)
-          .failed() ||
-      gneiss::test_support::take_value(
-          resources_factory.create_material(material_desc.parameters, {}), plain_material_owner)
+  if (gneiss::test_support::take_value(resources_factory.create(mesh_desc), mesh_owner).failed() ||
+      gneiss::test_support::take_value(resources_factory.create(material_desc.parameters, {}),
+                                       plain_material_owner)
           .failed()) {
     std::fprintf(stderr, "测试基础资源创建失败\n");
     return 2;
@@ -143,8 +141,7 @@ int main() {
   plain_material = resource_handle(plain_material_owner);
   material_desc.base_color_texture = texture;
   if (gneiss::test_support::take_value(
-          resources_factory.create_material(material_desc.parameters, {context.texture}),
-          material_owner)
+          resources_factory.create(material_desc.parameters, {context.texture}), material_owner)
           .failed()) {
     std::fprintf(stderr, "测试资源创建失败\n");
     return 2;
@@ -185,8 +182,7 @@ int main() {
   }
   native::rid replacement_mesh{};
   if (resources.destroy_mesh(mesh).failed() ||
-      gneiss::test_support::take_value(resources_factory.create_mesh(mesh_desc), mesh_owner)
-          .failed()) {
+      gneiss::test_support::take_value(resources_factory.create(mesh_desc), mesh_owner).failed()) {
     return 5;
   }
   replacement_mesh = resource_handle(mesh_owner);

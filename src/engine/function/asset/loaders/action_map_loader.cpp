@@ -8,6 +8,9 @@ struct action_map_loader final : asset_loader {
   std::shared_ptr<const asset_decoder> decoder;
   action_map_loader(asset_identity identity, std::shared_ptr<const asset_decoder> parser)
       : asset_loader(identity.uri), source(std::move(identity)), decoder(std::move(parser)) {}
+  std::shared_ptr<const asset> reserve() override {
+    return std::shared_ptr<const action_map>(new action_map(source, {}));
+  }
   void decode(const std::vector<std::byte>& bytes) override {
     auto decoded = decoder->decode(bytes);
     status = decoded ? error::success : decoded.error().error;

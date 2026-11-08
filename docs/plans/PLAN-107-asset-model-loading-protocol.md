@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-2026-11-08：已确认，开始实施。归属 DEV-052，承接 PLAN-102 的真实剩余项。
+2026-11-08：实施完成，Windows 默认编译与定向 CPU 回归通过。归属 DEV-052，承接 PLAN-102 的真实剩余项。
 决策见 [ADR-112](../decisions/ADR-112-asset-loading-protocol.md)。本计划允许调整内部 API 和布局，
 不兼容未发布旧接口；不修改 Granit，不包含远端发布。
 
@@ -23,11 +23,11 @@
 ## 实施阶段与删除条件
 
 1. [x] 统一 Loader 依赖声明与装配协议。先迁移 Scene→Prefab 必需依赖，删除 scene_loader 的提交、轮询状态及 manager 参数。
-2. [ ] 在统一操作中建立依赖边与类型化结果槽；支持 content/reference，检测等待环及最终强引用环，诊断包含 URI 链和属性路径。
-3. [ ] 接入材质、网格、纹理及通用对象；删除各自重复依赖队列和解析器中的类型 switch，不建立第二个管理器。
-4. [ ] 统一 load/reload/create/find 和 asset_request；五类身份与内容边界一致，匿名创建不进入 URI 缓存。
-5. [ ] CPU 资产与后端关联解耦；仅有线程要求的后端释放入队，保留 GPU 在途安全回收。
-6. [ ] 迁移 Editor/Runtime/导入器与样例，更新 Reference，删除旧入口并完成集中验收。
+2. [x] 在统一操作中建立依赖边与类型化结果槽；支持 content/reference，检测等待环及最终强引用环，诊断包含 URI 链和属性路径。
+3. [x] 接入材质、网格、纹理及通用对象；删除各自重复依赖队列和解析器中的类型 switch，不建立第二个管理器。
+4. [x] 统一 load/reload/create/find 和 asset_request；五类身份与内容边界一致，匿名创建不进入 URI 缓存。
+5. [x] CPU 资产与后端关联解耦；仅有线程要求的后端释放入队，保留 GPU 在途安全回收。
+6. [x] 迁移 Editor/Runtime/导入器与样例，更新 Reference，删除旧入口并完成集中验收。
 
 每阶段完成可编译闭环和相关测试后提交。中间实现必须标明已支持的依赖类型，不能把 Scene 原型
 描述为所有 Loader 已统一。本计划替代 PLAN-102 的未决设计方向，后者保留历史审计证据。
@@ -49,4 +49,7 @@
 
 ## 实施记录
 
-第一阶段的实现与验证见 [依赖调度记录](../records/2026-11-08-loader-dependency-protocol.md)。其余阶段尚未完成。
+第一阶段见 [依赖调度记录](../records/2026-11-08-loader-dependency-protocol.md)；
+后续阶段与最终验收见 [资产协议收尾记录](../records/2026-11-08-asset-loading-protocol-completion.md)。
+渲染资产身份仍需绑定 Render 创建 RID；CPU 内容、固定快照和析构已独立，不包含无 Render 装配或流送。
+本计划的集中验收限定 Windows CPU；GPU、大场景和完整跨平台矩阵仍归 DEV-052 版本验收，不在本次运行。

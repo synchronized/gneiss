@@ -11,8 +11,13 @@ struct mesh_resource_access final {
   template <typename Finalize>
   static std::shared_ptr<engine::mesh> make(resource_retirement_queue& queue, Finalize finalize,
                                             rid handle) {
-    return queue.make_with_factory<engine::mesh>(std::move(finalize),
-                                                 [handle] { return engine::mesh(handle); });
+    auto token = queue.make_with_factory<rid>(std::move(finalize), [handle] { return handle; });
+    auto value = std::shared_ptr<engine::mesh>(new engine::mesh(handle));
+    value->retirement_token_ = std::move(token);
+    return value;
+  }
+  static void set_content(const engine::mesh& value, ref<const mesh_data> content) noexcept {
+    value.content_ = std::move(content);
   }
   static rid handle(const engine::mesh& value) noexcept { return value.rid_; }
   static void set_source(const engine::mesh& value, asset_identity source) {

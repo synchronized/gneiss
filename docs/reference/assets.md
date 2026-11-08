@@ -7,29 +7,33 @@
 
 ## 值返回入口
 
-`asset_manager::load<T>(uri, reload)` 返回 `result<asset_request<T>>`，表示是否成功提交请求；
-并不代表异步解码已完成。`find_loaded<T>(uri)` 与 `store<T>(uri, value)` 返回
+`asset_manager::load<T>(uri)` 或 `reload<T>(uri)` 返回 `result<asset_request<T>>`，表示是否成功提交请求；
+并不代表异步解码已完成。`find<T>(uri)` 与 `store<T>(uri, value)` 返回
 `result<asset_ref<const T>>`。网格和纹理也使用同一个 `load<T>` 与请求类型。
 
 Scene、Prefab、Texture、Mesh、Material 资产对象均由同一个 `asset_manager` 加载。
-`create_mesh/create_texture/create_material` 返回对应资源引用的 result；`create<T>(value)`
-创建不登记 URI 的不可变 CPU 资产。未绑定 Render 时可加载 Scene/Prefab/ActionMap 等非渲染资产，渲染资源创建/加载返回 `invalid_state`。
-公开 `load/find_loaded/store<T>` 仅接受 asset 派生类型，普通 CPU 值与描述返回 unsupported。
-`store<T>` 不允许外部替换渲染资源拥有者。内部描述 Decoder 不受此限制。
+`create(texture_view)`、`create(mesh_view)`、`create(material_parameters, textures)`、
+`create(scene_content/scene_description)`、`create(prefab_description)` 返回相应资产强引用的 result，
+匿名创建不登记 URI。Scene 创建校验显式提供的 Prefab 内容，不隐式加载文件。未绑定 Render 时可加载 Scene/Prefab/ActionMap 等非渲染资产，渲染资源创建/加载返回 `invalid_state`。
+公开 `load/find/store<T>` 仅接受 asset 派生类型，普通 CPU 值与描述返回 unsupported。
+`store<T>` 不允许外部替换渲染资源拥有者；采用新的非渲染资产后，被替代的在途操作以 invalid_state 结束，
+不会再采用内容或覆盖新记录。内部描述 Decoder 不受此限制。
 内存资产解码返回 `result<decoded_asset, asset_diagnostic>`。判断与取值规则见 [Core](core.md#错误状态与值结果)。
 
 `asset_request<T>::take()` 返回 `result<asset_ref<const T>, asset_diagnostic>`。
 调用不等待：not_ready 和其他失败不消费请求，成功后请求失效，重复领取返回 invalid_state。
+`snapshot()` 在 take/cancel 前取得该次成功操作的固定 CPU 内容；Scene 返回包含描述和 Prefab 依赖的 scene_content。
+即使身份随后重载，已经完成的请求及取出的快照也不跟随变化。take 返回稳定资产身份，不是历史版本。
 成功后通过请求的 `metrics()` 查询来源快照、解码字节估算、解码与队列耗时，
 `source_bytes()` 返回读取字节总数。已领取引用不受取消或管理器关闭影响。
 
 `load<T>(uri, asset_load_options)` 可指定 reload、texture_profile。
-`find_loaded<T>` 与 `store<T>` 也支持相同 options；查询和采用须匹配加载参数。
+`find<T>` 与 `store<T>` 也支持相同 options；查询和采用须匹配加载参数。
 所有类型统一使用弱缓存，无缓存策略参数。内置网格/纹理使用专用 Loader，
 不能用单缓冲区 register_decoder 覆盖；其他类型先用注册解码器，否则使用反射解码。
 
 公开 reserve_resource 已删除；渲染资产统一通过 load 取得请求及其 resource 身份。
-非空身份不代表内容已就绪；读取在下一次 advance 启动。匿名程序化资源使用 create_*。
+非空身份不代表内容已就绪；读取在下一次 advance 启动。匿名程序化资源使用 create 重载。
 引用上下文先收集类型、URI 与属性路径，再统一提交依赖，最后绑定请求提供的引用。
 通用反射收集遍历丢弃临时对象，绑定遍历使用相同输入；收集不创建资产或访问文件。
 需求记录保留各出现位置，提交按 URI 与类型去重，失败依赖仍保留引用中的 URI。
@@ -69,7 +73,7 @@ HTTP(S) 地址使用 Fetch URL 基址。借用目录不会在后端销毁时被�
 
 | 入口 | 强引用与访问 | 更新规则 |
 | --- | --- | --- |
-| `asset_manager::find_loaded<T>`、`asset_request<T>::take` | `asset_ref<const T>`，直接访问资产对象 | 成功重载替换当前缓存，旧引用继续保活旧数据 |
+| `asset_manager::find<T>`、`asset_request<T>::take` | `asset_ref<const T>`，直接访问资产对象 | 成功重载更新同一资产身份的当前内容；保留旧内容须取得独立快照 |
 | Prefab 描述 | `prefab_asset_ref`，即 `asset_ref<const prefab_description>` | 直接保活描述快照；重载不会修改旧描述 |
 | 资产管理器、场景绑定、编辑器历史 | `mesh`、`material`、`texture` 强引用；混合批次用 `render_resource_ref` 持有类型化引用 | CPU 内容采用即完成，资源身份保持稳定，GPU 更新由 Render 独立处理 |
 
@@ -80,9 +84,9 @@ HTTP(S) 地址使用 Fetch URL 基址。借用目录不会在后端销毁时被�
 类型化运行对象分别定义在 `resource/mesh.hpp`、
 `resource/texture.hpp` 和 `resource/material.hpp`。
 上层包含所需资源头，保存 `ref<const mesh>`、`ref<const texture>`、`ref<const material>`；材质持有纹理强引用。
-资源对象析构只处理 CPU 状态与依赖，不调用 Render。管理器的延迟销毁队列先在所属线程
-释放 RID，再析构资源对象；服务关闭后的晚释放只析构 CPU 对象。
-CPU 数据表位于 `render_service` 私有实现，Loader 与宿主通过其 RID 接口操作。
+资源对象拥有不可变 CPU 内容与依赖；最后一个强引用消失时立即析构，不调用 Render。
+只有 RID 释放令牌进入所属线程销毁队列；服务关闭后的晚释放不访问 Render。
+Render 私有表持有渲染所需内容，Loader 与宿主通过 RID 接口操作，CPU 快照可独立保活。
 功能层资产管理器负责强引用创建、元信息及材质依赖，详见 [Render 资源与服务边界](render.md)。
 
 
@@ -94,12 +98,10 @@ CPU 数据表位于 `render_service` 私有实现，Loader 与宿主通过其 RI
 只在当前运行期有效，不写入资产文件或公共 ABI；约束见 [Core 身份类型](core.md#内部基础身份类型)。
 通用请求表只保留请求顺序和在途观察状态，不保存另一份当前资源。
 通用异步加载默认复用成功缓存；显式 `reload=true` 才重新读取。
-资源表统一通过 `resource_cache::load` 查询、按需执行回调并登记成功结果；
-该入口返回 `result<asset_ref<const entry>>`，创建回调返回 `result<shared_ptr<const void>>`，
-失败不会提供部分构造的缓存条目；显式重载失败
-（包括回调抛异常或返回空资源）保留旧条目，首次失败不残留占位。相同键递归加载返回
-`invalid_state`，不同键的依赖仍可递归加载。Prefab 普通加载和重载共用解析流程；
-渲染预留在缓存未命中时才创建 RID，服务归属与 CPU 内容是否可用由资产管理器检查，完成不等待 GPU。
+记录先预留稳定身份，再由唯一当前操作装配内容；弱缓存条目区分有身份和内容已就绪。
+失败不永久缓存：仍有外部强引用的失败身份保留 URI，下一次加载复用身份重试；
+无使用者的占位随弱索引清理。重载失败保留旧内容及原拥有边。
+渲染预留只在缓存未命中时创建 RID；CPU 完成不等待 GPU，归属由资产管理器检查。
 CPU 解码由注入的执行器运行，完成结果在所属线程通过同一入口登记；协作模式在所属线程执行解码。
 
 请求取消只放弃当前观察者，不使其他引用失效。
@@ -107,7 +109,7 @@ CPU 解码由注入的执行器运行，完成结果在所属线程通过同一�
 统一资产索引只保存弱引用，不延长对象寿命。
 请求结果与类型化引用直接共享实际对象的控制块，不再借用缓存包装的控制块；
 最后一个引用释放后查询立即失效，collect_unused / release_unused 仅清理过期索引。
-运行资源实际析构仍通过所属线程销毁队列完成，排队期间不会恢复弱缓存命中。
+CPU 对象立即析构，只有后端释放令牌排队，排队期间不会恢复弱缓存命中。
 Application 只调用一次资产管理器推进和回收；场景运行层不再驱动另一套资源管理器。
 CPU 缓存回收保留在途请求索引；CPU 重载任务暂时持有旧对象，
 避免回收与失败重载叠加导致旧内容提前消失。
@@ -116,7 +118,7 @@ CPU 缓存回收保留在途请求索引；CPU 重载任务暂时持有旧对象
 若旧数据已无使用者，重载任务结束后也会释放，不额外保留失败回退缓存。输出参数的失败行为以具体接口契约为准。
 
 引用计数并不提供资源数据的线程安全。CPU 数据可按只读契约共享。运行渲染资源的最后释放可在
-任意线程发生，删除器仅入队，由所属线程析构；服务关闭后走 detached 路径。
+任意线程发生，CPU 对象正常析构，RID 令牌由所属线程消费；关闭后令牌不调用旧服务。
 GPU 在途使用的安全回收由 Render 及后端负责，详见[运行资源生命周期](render.md#运行资源身份与销毁)。
 缓存查询与资源采用限所属线程；异步文件服务与 CPU 解码执行器分别负责 I/O 和解码。
 
@@ -153,7 +155,7 @@ Runtime 与编辑器直接使用 `load<scene>` / `load<prefab>`。Runtime 打开
 借用视图会先校验并复制，纹理逐行去除输入行填充；文件解码得到的共享负载继续直接保活，
 不为复用创建流程复制大块数据。
 asset_manager 内部使用任务私有的 CPU 数据请求完成装配，不将这些中间负载登记到最终资产索引。
-`mesh_data`、`texture_data`、`material_description` 的公开 `load/store/find_loaded` 返回
+`mesh_data`、`texture_data`、`material_description` 的公开 `load/store/find` 返回
 `unsupported`；工具需要原始数据时使用对应格式编解码，不建立第二份资产缓存。
 内部材质解码仍支持显式 Decoder，供最终材质 Loader 使用。
 内部 `asset_loader.hpp` 的 Loader 消费字节并给出下一读取 URI：网格一次解码，
@@ -243,17 +245,18 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 相同配置可重复调用；更换执行器、profile 或通知对象返回 invalid_state，不改变已有配置。
 配置和停止请求状态只由管理器私有状态持有，渲染装配不保存配置副本。
 缓存定义与渲染构造实现不进入宿主可见头清单。
-纯 CPU 加载不要求 Render；程序化运行资源创建独立通过 `attach_render(render_service&)` 接入，
+Scene/Prefab/ActionMap 加载不要求 Render；三类渲染资产的身份创建通过 `attach_render(render_service&)` 接入，
 可以先于或晚于异步配置。同一 Render 可重复绑定，替换 Render 被拒绝。
 `load<T>` 返回 `result<asset_request<T>>`，涵盖 Scene/Prefab/ActionMap 及纹理、网格、材质等资产对象。
-缓存查询统一为 `find_loaded<T>(uri)`，混合查询使用 `find_loaded(render_resource_source, profile)`；
+缓存查询统一为 `find<T>(uri)`，混合查询使用 `find(render_resource_source, profile)`；
 不读取文件、不等待 GPU，失败返回错误。类型化查询使用管理器配置的纹理 profile。
 混合引用 `render_resource_ref` 直接保存三种类型化强引用之一，不暴露缓存条目。
 `asset_request<render_resource_ref>::take()` 返回混合引用值，类型化请求返回对应资源强引用。
 所属线程通过 `status()` 查询；成功表示 CPU 内容与依赖已采用。
 同身份在途请求（含 reload）共享一次加载；请求复制共享观察权，cancel 仅释放当前观察权。
 所有请求观察者及资源拥有者释放后取消未采用工作；再次 reload 须在前次完成后调用，不建立版本覆盖协议。
-材质依赖失败时材质请求失败，成功的独立资源不回滚。
+材质的纹理 reference 依赖只要求身份；纹理内容失败不阻止材质采用，URI 保留，纹理请求单独报告错误。
+必要 content 依赖失败仍阻断父资产；已经成功的独立资产不回滚。
 Application 通过 `assets()` 暴露统一入口，分发文件完成后推进该管理器。
 管理器停止并排空任务、场景释放资源后，再关闭 Render；迟到的资源引用释放不访问已关闭后端。
 `collect_unused()` 回收过期弱缓存及待销毁后端资源，外部强引用仍保活对应对象。
@@ -282,7 +285,7 @@ CPU 加载与渲染装配通过同一 `complete` 提交终态、解除记录；�
 渲染装配在采用前检查当前操作身份，旧操作停止不会清除新操作。具体 I/O、CPU 与依赖取消仍由对应阶段执行。
 ActionMap 使用 `load<action_map>` 返回共享资产；`snapshot()` 取得不可变
 `action_map_description`。重载保持资产身份和旧快照，InputService 显式复制并校验描述，
-不自动跟随重载。描述使用原有 input-map 文件格式和 GUID；描述的 load/store/find_loaded
+不自动跟随重载。描述使用原有 input-map 文件格式和 GUID；描述的 load/store/find
 返回 unsupported，显式 Decoder 注册到 action_map_description 供 Loader 使用。
 没有独立批次加载器、资源工厂或 prepare/apply 更新记录，也不在资源对象上保存更新序号。
 Runtime 的 `resource_load_group` 仅为场景与编辑器串行组合单资源请求、汇总显式请求结果；
@@ -293,7 +296,7 @@ asset_manager 的 load 请求通过 files::service 读取有界字节；每阶�
 asset-decode 任务。等待文件期间不轮询 CPU 任务，不使用同步文件适配。
 普通类型解码器只消费字节。宿主先分发文件完成，再由 advance 推进解码结果登记。
 
-asset_manager 仅接受 shared_ptr<files::service>。`find_loaded<T>` 只查询已完成缓存，
+asset_manager 仅接受 shared_ptr<files::service>。`find<T>` 只查询已完成缓存，
 未命中返回 not_found；`load<T>` 返回请求，不阻塞等待文件或解码。
 `register_decoder<T>(function)` 可直接登记
 `result<T, serialization::diagnostic>(span<const byte>)` 函数，无需类型继承或反射身份。
@@ -332,7 +335,7 @@ asset_manager 不设统一的单资源输出额度，也不累计描述与负载
 加载回执的 applied 表示 CPU 内容已被采用，不表示 GPU 已可用；上传与 GPU 生命周期由 Render 独立管理。
 读取失败不上传半成品，更新失败保留旧内容；取消请求放弃观察，迟到文件回调只持有弱引用。
 完整加载链路的实施边界见 [PLAN-052](../plans/PLAN-052-async-render-assets.md)。
-反射 fallback 调用登记的函数，不代表自动遍历属性反序列化。
+反射 fallback 使用类型的序列化配置，已登记属性的类型可使用通用字段遍历。
 
 ### Scene 与 Prefab 描述
 
@@ -349,7 +352,7 @@ Prefab 文件使用 `load<prefab>()`，需要描述时调用资产的 `snapshot(
 manager 的有界读取保证。保存行为见[场景格式](scene-format.md)。
 
 普通资产加载复用弱缓存；显式重载与后台打开场景/导入 Prefab 会重新加载。
-准备结果只持有取得的 Prefab 引用、父节点优先索引和最大深度，不复制完整描述。
+准备结果只持有取得的描述及 Prefab 固定快照，不长期保留父节点排序和最大深度。
 创建实例时直接采用该引用；缺失引用返回 invalid_argument，不回退到缓存登记。
 场景实例应用覆写所需的可变数据仍由实例单独持有，不修改共享来源。
 `store<T>` 用于显式采用已构造的数据，成功后较早请求只能返回各自结果，不能覆盖当前缓存；
@@ -409,7 +412,7 @@ invalid_argument；不再按资源类型或版本新旧采用不同错误码。�
 纯内存创建的编辑对象允许没有来源资产。加载生命周期统一仍处于迁移期，
 最终缓存与引用入口的收敛见 [PLAN-102](../plans/PLAN-102-resource-object-loading.md)。
 
-Scene/Prefab 描述的 `load/store/find_loaded` 和对应 Decoder 注册返回 `unsupported`。
+Scene/Prefab 描述的 `load/store/find` 和对应 Decoder 注册返回 `unsupported`。
 描述不能单独登记 URI 缓存；文件加载统一返回资产对象。反射编解码与不登记缓存的
 `create(description)` 仍可用；编辑快照由调用方持有，不覆盖文件资产内容。
 
@@ -430,12 +433,27 @@ scene_preparation 只做内存校验、来源与需求清单整理，不持有 a
 实例化数据不再保留父节点拓扑排序或最大深度；校验使用临时层级，创建顺序由运行应用决定。
 资产身份与固定快照分别用于保活和隔离重载；纯内存文档可以只有快照。
 
-当前引用解析上下文仅支持纹理、网格和材质。Scene Loader 显式处理 Prefab 结构依赖；
-通用 object_loader 尚无任意资产依赖图及环检测，不能按任意对象图加载器使用。
+引用解析上下文按注册的资产类型加载，内置支持纹理、网格、材质、Scene 与 Prefab。
+Scene Loader 声明 Prefab 的 content 依赖；材质声明纹理的 reference 依赖。
+通用 object_loader 先用序列化上下文收集引用，再由管理器推进依赖，最后在所属线程重新解码并绑定。
+解析器不直接执行文件 I/O，不持有解码时可能移动的容器元素地址。
+自定义资产可通过 register_loader<T> 注册相同协议；需要提前引用时，Loader 必须实现 reserve 返回稳定身份。
+工厂在所属线程调用，decode 在解码执行器运行，finish/adopt 在所属线程执行；首次加载后注册冻结。
+自定义 Loader 必须完整声明会装配为强引用的依赖，不能绕过依赖图偷偷创建拥有环。
+通用反射对象绑定会重解析一次内存字节，避免缓存容器元素地址；不重复读取文件。
+提供 snapshot() 的资产可通过请求固定内容快照；自定义内容捕获必须同样返回独立只读内容。
+渲染资产仍要求先 attach_render 以创建所属服务的 RID；本实现分离 CPU 内容与后端生命周期，
+尚未提供无 Render 的纹理/网格/材质装配或流送。
 
 ### 类型加载器的必要依赖
 
-asset_loader 的 dependencies 保存声明的必要依赖槽，管理器在解码完成后统一推进。
+asset_loader 的 dependencies 保存声明的 content/reference 依赖槽，管理器在解码完成后统一推进。
 Scene Loader 不再直接接收 asset_manager 或维护请求轮询；其 finish 只读取类型化结果装配内容。
-依赖成功时同时取得稳定身份和固定内容，等待其他依赖期间的独立重载不会替换已取得的快照。
-当前此协议已接入 Scene→Prefab；reference 策略、通用依赖图及其他类型接入仍按 PLAN-107 推进。
+content 依赖成功时同时取得稳定身份和固定内容，等待其他依赖期间的独立重载不会替换已取得的快照。
+管理器在提交依赖前检查记录级依赖图，包括在途边与成功内容的拥有边；直接、间接、并发根形成的环返回
+invalid_state，诊断包含 URI 链和属性路径。图只弱引用记录，不延长资产寿命。重载失败保留原拥有边。
+reference 依赖取得身份后即可完成父资产；纹理缺失不会阻止合法材质内容被采用，错误由纹理自己的请求报告。
+文件服务暂时没有请求槽位时，管理器保留操作并重试，不将其误判为成功或消费不存在的结果。
+
+三类渲染资产通过 snapshot() 保留不可变 CPU 内容。最后一个强引用释放时 CPU 对象立即析构，
+销毁队列只持有 RID 释放令牌；Render 仍负责在途 GPU 资源安全回收。服务关闭后快照仍可读取，RID 不再有效。

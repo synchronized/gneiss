@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <tuple>
+#include <vector>
 namespace gneiss::engine::detail {
 struct load_operation;
 using asset_key =
@@ -17,17 +18,26 @@ struct cached_asset {
   std::shared_ptr<const asset> resource;
   asset_load_metrics metrics;
   std::size_t source_bytes{};
+  bool ready{true};
   template <class T> [[nodiscard]] ref<const T> as() const noexcept {
     return type == runtime_type_of<T>() ? ref<const T>{std::static_pointer_cast<const T>(resource)}
                                         : ref<const T>{};
   }
 };
 /** 身份、弱缓存及在途操作共用一条记录；只弱持有最终资产对象。 */
+struct asset_entry;
+struct asset_edge {
+  std::weak_ptr<asset_entry> target;
+  std::string path;
+};
 struct asset_entry {
   asset_key identity;
   std::optional<std::weak_ptr<const asset>> cached;
   asset_load_metrics metrics;
   std::size_t source_bytes{};
+  std::vector<asset_edge> owned_dependencies;
+  std::vector<asset_edge> pending_dependencies;
+  bool ready{};
   bool constructing{}; // 同步创建回调的递归保护。
   std::shared_ptr<load_operation> loading;
 };

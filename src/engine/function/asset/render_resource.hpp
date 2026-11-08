@@ -47,6 +47,7 @@ public:
       return {};
   }
   [[nodiscard]] explicit operator bool() const noexcept { return bool(value_); }
+  [[nodiscard]] ref<const asset> base() const noexcept { return value_; }
   void reset() noexcept { value_.reset(); }
   [[nodiscard]] long use_count() const noexcept { return value_.use_count(); }
   friend bool operator==(const render_resource_ref&, const render_resource_ref&) = default;

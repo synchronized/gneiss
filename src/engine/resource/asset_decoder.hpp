@@ -20,6 +20,10 @@ public:
   [[nodiscard]] virtual type_id target_type() const noexcept = 0;
   [[nodiscard]] virtual result<std::shared_ptr<const void>, serialization::diagnostic>
   decode(const std::vector<std::byte>& bytes) const = 0;
+  virtual result<std::shared_ptr<const void>, serialization::diagnostic>
+  decode(const serialization::context&, const std::vector<std::byte>& bytes) const {
+    return decode(bytes);
+  }
 };
 
 /** 有类型解码函数；失败对象由适配器丢弃，可并发处理不同输入。 */
@@ -31,20 +35,26 @@ public:
   explicit typed_asset_decoder(asset_decode_function<T> function) : function_(function) {}
   type_id target_type() const noexcept override { return runtime_type_of<T>(); }
   result<std::shared_ptr<const void>, serialization::diagnostic>
-  decode(const std::vector<std::byte>& bytes) const override try {
+  decode(const std::vector<std::byte>& bytes) const override {
+    serialization::context context;
+    return decode(context, bytes);
+  }
+  result<std::shared_ptr<const void>, serialization::diagnostic>
+  decode(const serialization::context& context, const std::vector<std::byte>& bytes) const override
+      try {
     if (function_ || asset_file::format_traits<T>::enabled) {
       auto decoded = [&]() -> result<T, serialization::diagnostic> {
         if (function_)
           return function_(bytes);
         if constexpr (asset_file::format_traits<T>::enabled)
-          return asset_file::deserialize<T>(bytes);
+          return asset_file::deserialize<T>(context, bytes);
         return serialization::diagnostic{.error = error::unsupported};
       }();
       if (!decoded)
         return std::move(decoded).error();
       return std::shared_ptr<const void>{std::make_shared<T>(std::move(*decoded))};
     }
-    auto decoded = serialization::json::deserialize<T>(bytes);
+    auto decoded = serialization::json::deserialize<T>(context, bytes);
     if (!decoded)
       return std::move(decoded).error();
     return std::shared_ptr<const void>{std::make_shared<T>(std::move(*decoded))};

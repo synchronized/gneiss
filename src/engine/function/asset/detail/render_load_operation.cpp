@@ -3,22 +3,32 @@
 
 #include "render_load_operation.hpp"
 #include "asset_construction.hpp"
-#include "engine/function/asset/asset_reference_context.hpp"
 #include "engine/function/render/render_service.hpp"
 #include <algorithm>
 #include <limits>
 #include <type_traits>
 
 namespace gneiss::engine::detail {
-void render_load_operation::advance(asset_manager& service, asset_construction& construction) {
+void render_load_operation::advance(asset_manager& service, asset_construction&) {
   auto& state = *observer;
   if (!has_observers() || state.status != error::not_ready)
     return;
   if (!is_current()) {
-    stop();
+    state.diagnostic = {0, source.uri, "加载身份已被替换", error::invalid_state};
+    complete(error::invalid_state, std::move(state.diagnostic));
     return;
   }
   const auto finish = [&](error status) {
+    if (status.ok()) {
+      if (auto resource = state.target.as<texture>())
+        state.snapshot = resource->snapshot().shared();
+      if (auto resource = state.target.as<mesh>())
+        state.snapshot = resource->snapshot().shared();
+      if (auto resource = state.target.as<material>())
+        state.snapshot = resource->snapshot().shared();
+    }
+    if (status.failed() && state.diagnostic.path.empty())
+      state.diagnostic.path = source.uri;
     complete(status, std::move(state.diagnostic), {}, state.source_bytes, std::move(state.metrics));
   };
   try {
@@ -46,11 +56,14 @@ void render_load_operation::advance(asset_manager& service, asset_construction& 
         status = error::invalid_argument;
         break;
       }
-      started = true;
+      if (status == error::not_ready)
+        return;
       if (status.failed()) {
+        state.diagnostic.message = "无法提交 CPU 解码";
         finish(status);
         return;
       }
+      started = true;
     }
     if (!description) {
       serialization::diagnostic diagnostic;
@@ -60,6 +73,8 @@ void render_load_operation::advance(asset_manager& service, asset_construction& 
             auto loaded = request.take();
             if (!loaded) {
               auto failure = std::move(loaded).error();
+              if (failure.message.empty())
+                failure.message = request ? "CPU 请求终态失败" : "CPU 请求已被领取";
               diagnostic = {failure.byte_offset, std::move(failure.path),
                             std::move(failure.message), failure.error};
               return failure.error;
@@ -84,32 +99,15 @@ void render_load_operation::advance(asset_manager& service, asset_construction& 
                 bytes += uri.size();
               }
               state.metrics.bytes = bytes;
-              // 工作线程只解码描述；身份解析和依赖提交在管理器所属线程执行。
-              asset_reference_context references;
               for (std::size_t slot = 0; slot < decoded_description->texture_uris.size(); ++slot) {
                 const auto& uri = decoded_description->texture_uris[slot];
                 if (uri.empty())
                   continue;
-                diagnostic = references.record(runtime_type_of<engine::texture>(), uri,
-                                               "/texture_uris/" + std::to_string(slot));
-                if (diagnostic.error.failed())
-                  return diagnostic.error;
-              }
-              diagnostic = references.load(service);
-              if (diagnostic.error.failed())
-                return diagnostic.error;
-              dependencies = references.requests();
-              for (std::size_t slot = 0; slot < decoded_description->texture_uris.size(); ++slot) {
-                const auto& uri = decoded_description->texture_uris[slot];
-                if (uri.empty())
-                  continue;
-                auto resolved = references.resolve(runtime_type_of<engine::texture>(), uri);
-                if (!resolved) {
-                  diagnostic = std::move(resolved).error();
-                  return diagnostic.error;
-                }
-                texture_references[slot] =
-                    resolved->alias(static_cast<const engine::texture*>(resolved->get()));
+                auto dependency = std::make_shared<reference_dependency<engine::texture>>(
+                    uri, asset_load_options{.texture_profile = service.profile()},
+                    "/texture_uris/" + std::to_string(slot));
+                texture_dependencies[slot] = dependency;
+                dependencies.push_back(std::move(dependency));
               }
               description = std::move(decoded_description);
               return error::success;
@@ -119,8 +117,9 @@ void render_load_operation::advance(asset_manager& service, asset_construction& 
       if (status == error::not_ready)
         return;
       if (status.failed()) {
-        if (!diagnostic.message.empty())
-          state.diagnostic = std::move(diagnostic);
+        if (diagnostic.message.empty())
+          diagnostic.message = "CPU 内容解码或采用失败";
+        state.diagnostic = std::move(diagnostic);
         finish(status);
         return;
       }
@@ -129,33 +128,21 @@ void render_load_operation::advance(asset_manager& service, asset_construction& 
         return;
       }
     }
-    // 请求保持观察权；取消外部观察者不影响材质自身等待。
-    if (std::ranges::any_of(dependencies, [](const auto& dependency) {
-          return dependency.status() == error::not_ready;
-        }))
+    auto dependency_status = service.advance_dependencies(entry.lock(), dependencies);
+    if (dependency_status.error == error::not_ready)
       return;
-    for (const auto& dependency : dependencies) {
-      const auto status = dependency.status();
-      if (status.failed()) {
-        dependency_error = status;
-        const auto failure = dependency.diagnostic();
-        const auto uri = resource_uri(dependency.get<engine::texture>());
-        state.diagnostic.path = failure.path.empty() ? std::string(uri) : failure.path;
-        state.diagnostic.byte_offset = failure.byte_offset;
-        state.diagnostic.message += std::string(uri) + ": " + failure.message + "\n";
-      }
-    }
-    // 首次加载允许纹理占位；已有材质更新失败时保留旧内容。
-    if (dependency_error.failed() &&
-        construction.render().material_status(resource_rid(state.target)).ok()) {
-      finish(dependency_error);
+    if (dependency_status.error.failed()) {
+      state.diagnostic = {dependency_status.byte_offset, std::move(dependency_status.path),
+                          std::move(dependency_status.message), dependency_status.error};
+      finish(dependency_status.error);
       return;
     }
+    for (std::size_t slot = 0; slot < texture_dependencies.size(); ++slot)
+      if (texture_dependencies[slot])
+        texture_references[slot] = texture_dependencies[slot]->resource();
     auto status = asset_construction::adopt(service, *description,
                                             resource_cast<engine::material>(state.target),
                                             std::move(texture_references));
-    if (status.ok() && dependency_error.failed())
-      status = dependency_error;
     finish(status);
   } catch (const std::bad_alloc&) {
     finish(error::out_of_memory);

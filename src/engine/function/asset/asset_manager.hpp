@@ -12,10 +12,18 @@
 #include "engine/resource/asset_identity.hpp"
 #include "engine/resource/mesh/mesh_data.hpp"
 #include "engine/resource/texture/texture_data.hpp"
+#include <functional>
 #include <memory>
 #include <utility>
 
 namespace gneiss::engine {
+struct scene_content;
+struct scene_description;
+struct prefab_description;
+class scene;
+class prefab;
+struct asset_loader;
+struct asset_dependency;
 class resource_cache;
 class task_executor;
 class render_service;
@@ -26,6 +34,7 @@ namespace files {
 class service;
 }
 namespace detail {
+struct asset_entry;
 struct asset_construction;
 struct render_load_operation;
 }
@@ -44,26 +53,26 @@ public:
   GNEISS_API error configure(task_executor& executor, texture_prepare_profile profile,
                              task_scope scope = {}) noexcept;
   /** 只查找 CPU 内容已就绪的缓存，不读取文件、不等待 GPU。 */
-  GNEISS_API result<render_resource_ref> find_loaded(const render_resource_source&,
-                                                     texture_prepare_profile = {}) const noexcept;
+  GNEISS_API result<render_resource_ref> find(const render_resource_source&,
+                                              texture_prepare_profile = {}) const noexcept;
   GNEISS_API bool owns(const ref<const engine::mesh>&) const noexcept;
   GNEISS_API bool owns(const ref<const engine::texture>&) const noexcept;
   GNEISS_API bool owns(const ref<const engine::material>&) const noexcept;
   GNEISS_API bool owns(const render_resource_ref&) const noexcept;
   /** 所属线程创建程序化资源并返回强引用；失败返回错误，不接管外部 RID。 */
-  GNEISS_API result<ref<const engine::texture>> create_texture(const texture_view&) noexcept;
-  GNEISS_API result<ref<const engine::mesh>> create_mesh(const mesh_view&) noexcept;
+  GNEISS_API result<ref<const engine::texture>> create(const texture_view&) noexcept;
+  GNEISS_API result<ref<const engine::mesh>> create(const mesh_view&) noexcept;
   GNEISS_API result<ref<const engine::material>>
-  create_material(const material_parameters&, std::array<ref<const engine::texture>, 5>) noexcept;
+  create(const material_parameters&, std::array<ref<const engine::texture>, 5>) noexcept;
   /** 单资源异步加载；默认复用缓存，同身份的在途请求共享工作（包括 reload）。
    * 输入在返回前复制；提交失败返回错误。每项独立完成，不等待 GPU。 */
   GNEISS_API result<asset_request<render_resource_ref>> load(const render_resource_source&,
-                                                             bool reload = false);
+                                                             asset_load_options options = {});
 
   GNEISS_API texture_prepare_profile profile() const noexcept;
 
   /** 注入同线程文件服务；宿主驱动文件完成分发，advance 只推进 CPU 解码和资源结果。
-   * 不提供同步文件读取；缓存查询使用 find_loaded，服务可由宿主共享持有。
+   * 不提供同步文件读取；缓存查询使用 find，服务可由宿主共享持有。
    * 使用默认注册表，宿主须先 initialize_meta。 */
   explicit GNEISS_API asset_manager(std::shared_ptr<engine::files::service> files);
   GNEISS_API ~asset_manager();
@@ -79,6 +88,17 @@ public:
   /** 迁移期同步关闭兜底：终止观察者并取消文件请求，等待已有 CPU 解码任务收尾。
    * 共享文件服务继续由宿主分发/关闭；独占服务随管理器销毁放弃通知，后端保活实际 I/O。 */
   GNEISS_API void stop() noexcept;
+  using loader_factory =
+      std::function<std::shared_ptr<asset_loader>(asset_identity, asset_load_options)>;
+  /** 注册完整加载协议；工厂在所属线程执行，decode 在工作线程执行；首次加载后冻结。 */
+  /** 按进程类型加载注册资产；仅为异构引用调度使用，与模板入口共用记录。 */
+  GNEISS_API result<asset_request<asset>> load(type_id, std::string_view,
+                                               asset_load_options = {}) noexcept;
+  template <class T>
+    requires std::derived_from<T, asset>
+  error register_loader(loader_factory factory) noexcept {
+    return register_loader(runtime_type_of<T>(), std::move(factory), reference_factory_for<T>());
+  }
   /** 显式注册 CPU 类型；首次请求后冻结注册。来源身份由注入的文件服务确定。 */
   [[nodiscard]] GNEISS_API engine::error
   register_decoder(const std::shared_ptr<const asset_decoder>& loader) noexcept;
@@ -109,8 +129,8 @@ public:
         if (options.texture_profile != texture_prepare_profile{} &&
             options.texture_profile != profile())
           return error::invalid_argument;
-        auto requested = load(render_resource_source{std::string(uri), resource_traits<T>::kind},
-                              options.reload);
+        auto requested =
+            load(render_resource_source{std::string(uri), resource_traits<T>::kind}, options);
         if (!requested)
           return requested.error();
         return asset_request<T>{*requested};
@@ -127,15 +147,23 @@ public:
       return status;
     return asset_request<T>{std::move(state)};
   }
+  template <typename T> [[nodiscard]] result<asset_request<T>> load(std::string_view uri) noexcept {
+    return load<T>(uri, asset_load_options{});
+  }
   template <typename T>
-  [[nodiscard]] result<asset_request<T>> load(std::string_view uri, bool reload = false) noexcept {
-    asset_load_options options{.reload = reload};
+  [[nodiscard]] result<asset_request<T>> reload(std::string_view uri,
+                                                asset_load_options options = {}) noexcept {
+    options.reload = true;
     return load<T>(uri, options);
+  }
+  [[nodiscard]] result<asset_request<render_resource_ref>>
+  reload(const render_resource_source& source) {
+    return load(source, {.reload = true});
   }
   /** 只查询资产缓存，不读取文件或提交任务；非资产返回 unsupported，未命中返回 not_found。 */
   template <class T>
-  [[nodiscard]] result<asset_ref<const T>> find_loaded(std::string_view uri,
-                                                       asset_load_options options) const noexcept {
+  [[nodiscard]] result<asset_ref<const T>> find(std::string_view uri,
+                                                asset_load_options options) const noexcept {
     if constexpr (!std::derived_from<T, asset>)
       return error::unsupported;
     if constexpr (render_resource<T>) {
@@ -143,8 +171,8 @@ public:
           options.texture_profile != profile())
         return error::not_found;
       try {
-        auto found = find_loaded(render_resource_source{std::string(uri), resource_traits<T>::kind},
-                                 profile());
+        auto found =
+            find(render_resource_source{std::string(uri), resource_traits<T>::kind}, profile());
         if (!found)
           return found.error();
         return resource_cast<T>(*found);
@@ -155,7 +183,7 @@ public:
       }
     }
     std::shared_ptr<const asset> value;
-    const auto status = find_loaded_erased(runtime_type_of<T>(), uri, value, options);
+    const auto status = find_erased(runtime_type_of<T>(), uri, value, options);
     if (status.failed())
       return status;
     if constexpr (std::derived_from<T, asset>)
@@ -164,20 +192,14 @@ public:
       return error::unsupported;
   }
   template <class T>
-  [[nodiscard]] result<asset_ref<const T>> find_loaded(std::string_view uri) const noexcept {
+  [[nodiscard]] result<asset_ref<const T>> find(std::string_view uri) const noexcept {
     asset_load_options options;
-    return find_loaded<T>(uri, options);
+    return find<T>(uri, options);
   }
-  /** 构造不带 URI 的不可变 CPU 资产；不登记缓存。 */
-  template <class T>
-    requires(!render_resource<T>)
-  [[nodiscard]] result<asset_ref<const T>> create(T value) noexcept try {
-    return asset_ref<const T>{std::make_shared<const T>(std::move(value))};
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
-  }
+  /** 构造匿名 CPU 资产，不登记 URI 缓存；Scene 的 Prefab 依赖须显式提供。 */
+  [[nodiscard]] GNEISS_API result<ref<const scene>> create(scene_content) noexcept;
+  [[nodiscard]] GNEISS_API result<ref<const scene>> create(scene_description) noexcept;
+  [[nodiscard]] GNEISS_API result<ref<const prefab>> create(prefab_description) noexcept;
   /** 所属线程采用已构造的非渲染资产；非资产返回 unsupported。
    * 成功后较早异步请求不能覆盖缓存。 */
   template <class T>
@@ -216,6 +238,24 @@ public:
   [[nodiscard]] GNEISS_API std::size_t cached_count() const noexcept;
 
 private:
+  using reference_factory = result<asset_request<asset>> (*)(asset_manager&, std::string_view,
+                                                             asset_load_options);
+  GNEISS_API error register_loader(type_id, loader_factory, reference_factory) noexcept;
+  template <class T> static reference_factory reference_factory_for() noexcept {
+    return +[](asset_manager& assets, std::string_view uri,
+               asset_load_options options) -> result<asset_request<asset>> {
+      auto requested = assets.load<T>(uri, options);
+      if (!requested)
+        return requested.error();
+      if constexpr (render_resource<T>)
+        requested->state_->native_address = requested->template get<T>().get();
+      else
+        requested->state_->native_address = requested->resource().get();
+      return asset_request<asset>{requested->state_};
+    };
+  }
+  asset_diagnostic advance_dependencies(const std::shared_ptr<detail::asset_entry>&,
+                                        std::span<const std::shared_ptr<asset_dependency>>);
   result<render_resource_ref> acquire_resource(const render_resource_source&) noexcept;
   friend struct detail::asset_construction;
   friend struct detail::render_load_operation;
@@ -238,6 +278,7 @@ private:
   struct cache_conversion {
     std::shared_ptr<const asset> (*to_asset)(const std::shared_ptr<const void>&){};
     std::shared_ptr<const void> (*to_value)(const std::shared_ptr<const asset>&){};
+    std::shared_ptr<const void> (*snapshot)(const std::shared_ptr<const asset>&){};
   };
   template <class T> static cache_conversion cache_casts() noexcept {
     if constexpr (std::derived_from<T, asset>) {
@@ -246,6 +287,13 @@ private:
               },
               +[](const std::shared_ptr<const asset>& value) -> std::shared_ptr<const void> {
                 return std::static_pointer_cast<const T>(value);
+              },
+              +[](const std::shared_ptr<const asset>& value) -> std::shared_ptr<const void> {
+                if constexpr (requires(const T& v) { detail::capture_asset_content(v); })
+                  return detail::capture_asset_content(*std::static_pointer_cast<const T>(value))
+                      .shared();
+                else
+                  return {};
               }};
     } else
       return {};
@@ -258,8 +306,8 @@ private:
                                                  std::shared_ptr<detail::asset_state>& output,
                                                  decoder_factory fallback,
                                                  cache_conversion conversion) noexcept;
-  GNEISS_API error find_loaded_erased(type_id, std::string_view, std::shared_ptr<const asset>&,
-                                      asset_load_options) const noexcept;
+  GNEISS_API error find_erased(type_id, std::string_view, std::shared_ptr<const asset>&,
+                               asset_load_options) const noexcept;
   GNEISS_API error store_erased(type_id, std::string_view, std::shared_ptr<const asset>,
                                 std::shared_ptr<const asset>&, asset_load_options) noexcept;
   struct resource_state;

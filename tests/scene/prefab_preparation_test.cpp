@@ -23,7 +23,7 @@ bool run(gneiss::engine::execution_mode mode) {
 
     const auto uri =
         attempt == 2 ? "asset://prefabs/missing.prefab.json" : "asset://prefabs/test.prefab.json";
-    auto request = application->assets().load<gneiss::engine::prefab>(uri, true);
+    auto request = application->assets().reload<gneiss::engine::prefab>(uri);
     if (!request) {
       return false;
     }

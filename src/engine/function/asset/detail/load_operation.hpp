@@ -12,7 +12,8 @@ struct load_operation {
   std::weak_ptr<asset_entry> entry;
   /** 所属线程检查请求或资源拥有者；操作自身的引用不算观察者。 */
   [[nodiscard]] bool has_observers() const noexcept {
-    return observer.use_count() > 1 || observer->target.use_count() > 1;
+    return observer.use_count() > 1 || observer->target.use_count() > 1 ||
+           observer->identity.use_count() > identity_owners;
   }
   /** 只有当前记录仍指向本操作时，才允许采用资产内容。 */
   [[nodiscard]] bool is_current() const noexcept {
@@ -21,8 +22,10 @@ struct load_operation {
   }
   /** 清理旧操作不能清除后来提交的新操作。调用方须保活本操作。 */
   void detach() noexcept {
-    if (auto record = entry.lock(); record && record->loading.get() == this)
+    if (auto record = entry.lock(); record && record->loading.get() == this) {
+      record->pending_dependencies.clear();
       record->loading.reset();
+    }
   }
   /** 所属线程提交一次终态；停止或已完成后，迟到结果不能覆盖观察状态。 */
   bool complete(error status, serialization::diagnostic diagnostic = {},
@@ -42,11 +45,16 @@ struct load_operation {
         observer->value = std::move(value);
       observer->status = status;
     }
+    if (status.ok())
+      if (auto record = entry.lock(); record && record->loading.get() == this)
+        record->owned_dependencies = std::move(record->pending_dependencies);
     detach();
     return true;
   }
   /** 不替代具体 I/O、任务或依赖取消；已完成结果不再改写。 */
   void stop() noexcept { (void)complete(error::invalid_state); }
+  // 操作 previous 与观察状态可能共同持有预留身份。
+  long identity_owners{2};
   std::shared_ptr<asset_state> observer{std::make_shared<asset_state>()};
 };
 /** 所属线程推进开始时已有的操作；回调可追加队列，不能移除队列元素。
@@ -61,7 +69,7 @@ void advance_load_operations(std::vector<std::shared_ptr<Operation>>& queue, Adv
       continue;
     if (!work->has_observers()) {
       cancel(work);
-      work->stop();
+      work->complete(error::invalid_state, {.message = "加载已无观察者"});
       continue;
     }
     advance(work);

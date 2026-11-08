@@ -38,7 +38,8 @@ engine::error load_asset(engine::asset_manager& assets, std::string_view uri,
   if (const auto configured = assets.configure(tasks); configured.failed())
     return configured;
   engine::asset_request<T> request;
-  auto status = gneiss::test_support::assign_value(assets.load<T>(uri, reload), request);
+  auto status =
+      gneiss::test_support::assign_value(assets.load<T>(uri, {.reload = reload}), request);
   if (status.failed())
     return status;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);

@@ -533,7 +533,7 @@ gneiss::engine::error application::begin_action_map(std::string_view uri) noexce
   if (!storage_->asset_executor_attached_)
     return gneiss::engine::error::not_ready;
   storage_->input_application_.cancel();
-  auto requested = storage_->asset_manager_->load<gneiss::engine::action_map>(uri, true);
+  auto requested = storage_->asset_manager_->reload<gneiss::engine::action_map>(uri);
   if (!requested)
     return requested.error();
   return storage_->input_application_.begin(std::move(*requested));

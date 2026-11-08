@@ -8,6 +8,7 @@
 #include "runtime/application.hpp"
 #include "value_result.hpp"
 #include <chrono>
+#include <cstdio>
 #include <thread>
 namespace gneiss::test_support {
 // 仅测试使用的宿主驱动器；生产库不提供阻塞包装。应用须在测试退出前释放。
@@ -34,7 +35,7 @@ inline engine::error prepare_scene(runtime::application& app, std::string_view u
     return std::chrono::steady_clock::now() < deadline;
   };
   auto load = [&]<class T>() -> engine::error {
-    auto request = app.assets().load<T>(uri, reload);
+    auto request = app.assets().load<T>(uri, {.reload = reload});
     if (!request)
       return request.error();
     for (;;) {
@@ -44,6 +45,9 @@ inline engine::error prepare_scene(runtime::application& app, std::string_view u
       if (!loaded) {
         if (loaded.error().error == engine::error::not_ready)
           continue;
+        std::fprintf(stderr, "加载 %s 失败: %d %s %s\n", std::string(uri).c_str(),
+                     loaded.error().error.code(), loaded.error().path.c_str(),
+                     loaded.error().message.c_str());
         return loaded.error().error;
       }
       auto data = engine::make_instantiation_data(*loaded, request->source_bytes());
@@ -73,8 +77,11 @@ inline engine::error prepare_scene(runtime::application& app, std::string_view u
       if (status.failed())
         return status;
     }
-    if (completion.result.failed())
+    if (completion.result.failed()) {
+      std::fprintf(stderr, "视觉资产 %s 失败: %d %s %s\n", source.uri.c_str(),
+                   completion.result.code(), completion.path.c_str(), completion.message.c_str());
       return completion.result;
+    }
     for (auto& asset : completion.assets) {
       const auto key = std::string(engine::resource_uri(asset));
       bindings.insert_or_assign(key, std::move(asset));

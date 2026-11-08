@@ -11,8 +11,13 @@ struct texture_resource_access final {
   template <typename Finalize>
   static std::shared_ptr<engine::texture> make(resource_retirement_queue& queue, Finalize finalize,
                                                rid handle) {
-    return queue.make_with_factory<engine::texture>(std::move(finalize),
-                                                    [handle] { return engine::texture(handle); });
+    auto token = queue.make_with_factory<rid>(std::move(finalize), [handle] { return handle; });
+    auto value = std::shared_ptr<engine::texture>(new engine::texture(handle));
+    value->retirement_token_ = std::move(token);
+    return value;
+  }
+  static void set_content(const engine::texture& value, ref<const texture_data> content) noexcept {
+    value.content_ = std::move(content);
   }
   static rid handle(const engine::texture& value) noexcept { return value.rid_; }
   static void set_source(const engine::texture& value, asset_identity source) {

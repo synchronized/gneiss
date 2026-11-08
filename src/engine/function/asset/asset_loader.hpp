@@ -2,7 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/serialization/diagnostic.hpp"
+#include "engine/core/type_id.hpp"
 #include "engine/function/asset/asset_loading.hpp"
+#include "engine/resource/asset.hpp"
 #include "engine/resource/asset_diagnostic.hpp"
 #include <memory>
 #include <string>
@@ -11,6 +13,11 @@ namespace gneiss::engine {
 class asset_manager;
 /** 一次加载声明的必要依赖；调度器推进，Loader 仅在装配时读取结果。 */
 struct asset_dependency {
+  type_id type;
+  std::string uri, path;
+  asset_load_options options;
+  asset_dependency(type_id type, std::string uri, asset_load_options options, std::string path = {})
+      : type(type), uri(std::move(uri)), path(std::move(path)), options(options) {}
   virtual ~asset_dependency() = default;
   virtual error advance(asset_manager&) = 0;
   asset_diagnostic diagnostic;
@@ -25,6 +32,8 @@ struct asset_loader {
   error status{error::not_ready};
   explicit asset_loader(std::string path) : uri(std::move(path)), next_uri(uri) {}
   virtual ~asset_loader() = default;
+  /** 所属线程创建未就绪身份；通用自定义 Loader 可选择不支持提前引用。 */
+  virtual std::shared_ptr<const asset> reserve() { return {}; }
   virtual void decode(const std::vector<std::byte>& bytes) = 0;
   std::vector<std::shared_ptr<asset_dependency>> dependencies;
   /** 全部声明依赖就绪后装配；不提交请求或推进服务。 */

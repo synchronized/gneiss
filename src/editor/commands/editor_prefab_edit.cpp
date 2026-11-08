@@ -255,7 +255,7 @@ gneiss::engine::error editor_prefab_edit::request(runtime::application& applicat
   status = application.assets().configure(executor);
   if (status.failed())
     return status;
-  auto loaded = application.assets().load<engine::prefab>(uri, true);
+  auto loaded = application.assets().reload<engine::prefab>(uri);
   if (!loaded)
     return loaded.error();
   next->preparation = std::move(*loaded);
@@ -330,7 +330,7 @@ gneiss::engine::error editor_prefab_edit::request_refresh(runtime::application& 
   const auto status = application.assets().configure(executor);
   if (status.failed())
     return status;
-  auto loaded = application.assets().load<engine::prefab>(found->prefab_uri, true);
+  auto loaded = application.assets().reload<engine::prefab>(found->prefab_uri);
   if (!loaded)
     return loaded.error();
   next->preparation = std::move(*loaded);

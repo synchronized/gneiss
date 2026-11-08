@@ -150,7 +150,7 @@ void injected_file_service() {
   asset_request<value> first, second;
   asset_ref<const value> loaded, other;
   check(gneiss::test_support::assign_value(
-            assets->find_loaded<
+            assets->find<
                 std::remove_const_t<typename std::remove_cvref_t<decltype(loaded)>::element_type>>(
                 "asset://missing"),
             loaded) == error::not_found,
@@ -170,15 +170,19 @@ void injected_file_service() {
   asset_request<value> full;
   check(gneiss::test_support::assign_value(
             assets->load<typename std::remove_cvref_t<decltype(full)>::value_type>("asset://other"),
-            full) == error::not_ready &&
-            !full,
-        "file capacity propagates");
+            full)
+                .ok() &&
+            full.status() == error::not_ready,
+        "file capacity queues accepted operation");
   for (unsigned i = 0; i < 8; ++i)
     advance_assets_for_test(*assets);
   check(executor.stats().submitted == 0 && decoder->decodes == 0,
         "IO waiting submits no CPU polling task");
   check(backend->last_read_limit == 512U * 1024U * 1024U,
         "loading uses configured file limit without a 64/256 MiB cap");
+  full.cancel();
+  advance_assets_for_test(*assets);
+  check(executor.stats().submitted == 0, "cancel queued read without decoding");
   backend->finish('q');
   advance_assets_for_test(*assets);
   check(executor.stats().submitted == 1 && decoder->decodes == 0,
@@ -190,7 +194,7 @@ void injected_file_service() {
             loaded->byte == 'q',
         "shared decoded result");
   check(gneiss::test_support::assign_value(
-            assets->find_loaded<
+            assets->find<
                 std::remove_const_t<typename std::remove_cvref_t<decltype(other)>::element_type>>(
                 "asset://value"),
             other)
@@ -198,7 +202,7 @@ void injected_file_service() {
             other == loaded,
         "service cache readable synchronously");
   check(gneiss::test_support::assign_value(
-            assets->find_loaded<
+            assets->find<
                 std::remove_const_t<typename std::remove_cvref_t<decltype(other)>::element_type>>(
                 "asset://missing"),
             other) == error::not_found &&
@@ -209,24 +213,26 @@ void injected_file_service() {
             assets->cached_count() == 1,
         "service cache source identity");
   check(gneiss::test_support::assign_value(
-            assets->load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value",
-                                                                                    true),
+            assets->reload<typename std::remove_cvref_t<decltype(first)>::value_type>(
+                "asset://value"),
             first)
             .ok(),
         "cancel service load");
   first.cancel();
+  // 请求与实际使用者全部放弃后才取消；保留资产引用意味着仍需要加载。
+  loaded.reset();
+  other.reset();
   advance_assets_for_test(*assets);
   backend->finish('r');
   advance_assets_for_test(*assets);
   check(executor.stats().submitted == 1, "cancelled IO never decodes");
   check(gneiss::test_support::assign_value(
-            assets->find_loaded<
+            assets->find<
                 std::remove_const_t<typename std::remove_cvref_t<decltype(other)>::element_type>>(
                 "asset://value"),
-            other)
-                .ok() &&
-            other == loaded,
-        "cancel preserves cache");
+            other) == error::not_found &&
+            !other,
+        "all owners released leaves no strong cache");
   check(gneiss::test_support::assign_value(
             assets->load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://late"),
             first)
@@ -325,8 +331,8 @@ void decoder_selection() {
   source->byte = '?';
   previous = output;
   check(gneiss::test_support::assign_value(
-            reflected.load<typename std::remove_cvref_t<decltype(request)>::value_type>(
-                "asset://async", true),
+            reflected.reload<typename std::remove_cvref_t<decltype(request)>::value_type>(
+                "asset://async"),
             request) == error::success,
         "async failure request");
   async_status = error::not_ready;
@@ -366,7 +372,7 @@ void decoder_selection() {
         "missing decoder fails before IO");
   const auto cache_before_rejection = unknown.cached_count();
   check(unknown.load<std::string>("asset://plain").error() == error::unsupported &&
-            unknown.find_loaded<std::string>("asset://plain").error() == error::unsupported &&
+            unknown.find<std::string>("asset://plain").error() == error::unsupported &&
             unknown.store<std::string>("asset://plain", std::make_shared<const std::string>("x"))
                     .error() == error::unsupported &&
             source->reads == reads && unknown.cached_count() == cache_before_rejection,
@@ -461,7 +467,7 @@ void cache_collection() {
         "external reference prevents collection");
   held.reset();
   copy.reset();
-  check(assets.find_loaded<value>("asset://value").error() == gneiss::engine::error::not_found,
+  check(assets.find<value>("asset://value").error() == gneiss::engine::error::not_found,
         "weak CPU cache expires before collection");
   assets.collect_unused();
   check(assets.cached_count() == 0U, "CPU entry collected after last reference");
@@ -493,8 +499,8 @@ void cache_collection() {
   check(copy && copy->byte == 'b', "new content after collection");
   source->byte = '!';
   check(gneiss::test_support::assign_value(
-            assets.load<typename std::remove_cvref_t<decltype(request)>::value_type>(
-                "asset://value", true),
+            assets.reload<typename std::remove_cvref_t<decltype(request)>::value_type>(
+                "asset://value"),
             request) == gneiss::engine::error::success,
         "reload before collection");
   copy.reset();
@@ -508,9 +514,14 @@ void cache_collection() {
   }
   check(reload_status == gneiss::engine::error::invalid_argument,
         "reload fails without replacement");
-  check(assets.find_loaded<value>("asset://value").error() == gneiss::engine::error::not_found,
-        "failed reload does not retain an otherwise unowned old value");
+  auto retained_failure = assets.find<value>("asset://value");
+  check(retained_failure && (*retained_failure)->byte == 'b',
+        "failed request retains its resource identity and previous content");
+  retained_failure->reset();
   request.cancel();
+  auto expired_failure = assets.find<value>("asset://value");
+  check(!expired_failure && expired_failure.error() == error::not_found,
+        "releasing failed observer expires otherwise unowned identity");
   source->byte = 'b';
   check(gneiss::test_support::load_asset(assets, "asset://value", copy) ==
             gneiss::engine::error::success,
@@ -584,14 +595,14 @@ void run() {
         "cached");
   check(wait(first, b) == gneiss::engine::error::success && b == a,
         "cache does not reload implicitly");
+  check(
+      gneiss::test_support::assign_value(
+          assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
+          first) == gneiss::engine::error::success,
+      "reload");
   check(gneiss::test_support::assign_value(
-            assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value",
-                                                                                   true),
-            first) == gneiss::engine::error::success,
-        "reload");
-  check(gneiss::test_support::assign_value(
-            assets.load<typename std::remove_cvref_t<decltype(second)>::value_type>("asset://value",
-                                                                                    true),
+            assets.reload<typename std::remove_cvref_t<decltype(second)>::value_type>(
+                "asset://value"),
             second) == gneiss::engine::error::success,
         "reload subscriber");
   first.cancel();
@@ -600,11 +611,11 @@ void run() {
 
   // 旧请求解码完但尚未分发；显式采用新数据后，旧结果不能回写缓存。
   source->byte = 'c';
-  check(gneiss::test_support::assign_value(
-            assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value",
-                                                                                   true),
-            first) == gneiss::engine::error::success,
-        "old async");
+  check(
+      gneiss::test_support::assign_value(
+          assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
+          first) == gneiss::engine::error::success,
+      "old async");
   advance_assets_for_test(assets); // 文件快照先交给异步来源，解码尚未发布。
   check(executor.run_ready().status == drive_status::success, "old work ready");
   source->byte = 'd';
@@ -613,8 +624,8 @@ void run() {
                 gneiss::engine::error::success &&
             b->byte == 'd',
         "store wins");
-  check(wait(first, a) == gneiss::engine::error::success && a->byte == 'c',
-        "old subscriber receives old result");
+  check(wait(first, a) == error::invalid_state && a->byte == 'a',
+        "superseded reload cannot adopt or change output");
   assets.collect_unused(); // 失效操作收尾后，清理不能移除仍被持有的新缓存。
   check(gneiss::test_support::assign_value(
             assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
@@ -638,8 +649,7 @@ void run() {
         "first-load store");
   assets.collect_unused(); // 旧操作仍在执行，但已不拥有当前记录的发布权。
   asset_ref<const value> old;
-  check(wait(first, old) == gneiss::engine::error::success && old->byte == 'x',
-        "first-load old observer");
+  check(wait(first, old) == error::invalid_state && !old, "superseded first load cannot adopt");
   check(gneiss::test_support::assign_value(
             assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://new"),
             first) == gneiss::engine::error::success,
@@ -648,8 +658,7 @@ void run() {
         "first-load order");
   source->byte = 'z';
   check(gneiss::test_support::assign_value(
-            assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://new",
-                                                                                   true),
+            assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://new"),
             first) == gneiss::engine::error::success,
         "async before failed store");
   advance_assets_for_test(assets); // 文件快照先交给异步来源，解码尚未发布。
@@ -673,41 +682,41 @@ void run() {
                 gneiss::engine::error::invalid_argument &&
             a == b,
         "load failure preserves output");
-  check(gneiss::test_support::assign_value(
-            assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value",
-                                                                                   true),
-            first) == gneiss::engine::error::success,
-        "invalid decode");
+  check(
+      gneiss::test_support::assign_value(
+          assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
+          first) == gneiss::engine::error::success,
+      "invalid decode");
   check(wait(first, a) == gneiss::engine::error::invalid_argument && a == b,
         "async failure preserves output");
   first.cancel();
   source->byte = 'e';
   source->change = true;
-  check(gneiss::test_support::assign_value(
-            assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value",
-                                                                                   true),
-            first) == gneiss::engine::error::success,
-        "changing source");
+  check(
+      gneiss::test_support::assign_value(
+          assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
+          first) == gneiss::engine::error::success,
+      "changing source");
   check(wait(first, a) == gneiss::engine::error::success && a->byte == 'e',
         "source read once without revalidation");
   b = a;
   first.cancel();
   source->change = false;
   source->missing = true;
-  check(gneiss::test_support::assign_value(
-            assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value",
-                                                                                   true),
-            first) == gneiss::engine::error::success,
-        "missing admitted");
+  check(
+      gneiss::test_support::assign_value(
+          assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
+          first) == gneiss::engine::error::success,
+      "missing admitted");
   check(wait(first, a) == gneiss::engine::error::not_found, "missing error");
   first.cancel();
   source->missing = false;
   source->oversized = true;
-  check(gneiss::test_support::assign_value(
-            assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value",
-                                                                                   true),
-            first) == gneiss::engine::error::success,
-        "oversized admitted");
+  check(
+      gneiss::test_support::assign_value(
+          assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
+          first) == gneiss::engine::error::success,
+      "oversized admitted");
   check(wait(first, a) == gneiss::engine::error::invalid_argument, "size limit");
   first.cancel();
   source->oversized = false;
@@ -718,23 +727,25 @@ void run() {
   check(wait(first, a) == gneiss::engine::error::success && a == b,
         "failures retain previous cache");
   source->byte = 'z';
-  check(gneiss::test_support::assign_value(
-            assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value",
-                                                                                   true),
-            first) == gneiss::engine::error::success,
-        "cancel all");
+  check(
+      gneiss::test_support::assign_value(
+          assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
+          first) == gneiss::engine::error::success,
+      "cancel all");
   first.cancel();
   drive();
   check(gneiss::test_support::assign_value(
             assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
             first) == gneiss::engine::error::success,
         "cache after cancellation");
-  check(wait(first, a) == gneiss::engine::error::success && a == b, "cancelled work not published");
-  check(gneiss::test_support::assign_value(
-            assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value",
-                                                                                   true),
-            first) == gneiss::engine::error::success,
-        "close pending");
+  check(wait(first, a) == error::success && a->byte == 'z' && b->byte == 'e',
+        "resource owner keeps reload alive after request cancellation");
+  b = a;
+  check(
+      gneiss::test_support::assign_value(
+          assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
+          first) == gneiss::engine::error::success,
+      "close pending");
   assets.stop();
   check(gneiss::test_support::take_request(first, a) == gneiss::engine::error::invalid_state &&
             a == b,
@@ -745,7 +756,7 @@ void run() {
           second) == gneiss::engine::error::invalid_state,
       "closed rejects");
   check(executor.stats().retained == 0 && executor.stats().running == 0, "scope drained");
-  check(a->byte == 'e', "reference survives shutdown");
+  check(a->byte == 'z', "reference survives shutdown");
 
   task_scheduler stopped({.workers = 0, .mode = execution_mode::cooperative});
   asset_manager rejected(gneiss::test_support::test_files(files));
@@ -790,7 +801,7 @@ void stored_value_supersedes_pending() {
     advance_assets_for_test(assets);
     check(executor.run_ready().status == drive_status::success, "store drive");
   }
-  check(old && old->byte == 'a', "pending observer retains its own result");
+  check(!old && pending.status() == error::invalid_state, "superseded operation cannot adopt");
   asset_ref<const value> current;
   check(gneiss::test_support::load_asset(assets, "asset://stored", current).ok() &&
             current == stored && current->byte == 's',

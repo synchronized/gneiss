@@ -138,7 +138,7 @@ Application 主循环及显式场景/资产轮询入口共用同一宿主推进�
 
 文件服务每个挂载具有稳定来源域，`resolve_source` 仅查询身份。
 来源标记为 Platform 的 `files::source_domain`，不拥有后端或 GPU 资源。
-asset_manager 仅接受文件服务注入；find_loaded<T> 只查询已完成缓存，未命中返回 not_found，
+asset_manager 仅接受文件服务注入；find<T> 只查询已完成缓存，未命中返回 not_found，
 失败保持输出，不读盘或提交任务。旧 VFS 构造、同步加载与迁移适配器已删除。
 
 桌面启用 libuv 的构建中，Application 即使使用协作式 CPU 调度也配置异步 I/O loop。

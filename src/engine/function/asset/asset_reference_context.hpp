@@ -2,26 +2,43 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/serialization/context.hpp"
+#include "engine/function/asset/asset_loader.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include <algorithm>
 namespace gneiss::engine {
-/** 引用需求不拥有资源；路径是出现位置，同一 URI 的不同位置分别保留。 */
 struct asset_reference_requirement {
   type_id type;
-  render_resource_source source;
-  std::string path;
+  std::string uri, path;
 };
-/** 先收集，再由 load 提交请求，最后绑定。收集不依赖服务、不读取文件或创建身份。
- * 通用解码收集时丢弃临时对象，避免保存随后可能移动的属性/容器地址。 */
+/** 先声明，再由调度器提供稳定身份。序列化阶段只解析已取得的引用，不执行 I/O。 */
 class asset_reference_context final : public serialization::reference_resolver {
+  struct reference_slot final : asset_dependency {
+    ref<void> value;
+    reference_slot(type_id type, std::string uri, std::string path)
+        : asset_dependency(type, std::move(uri), {}, std::move(path)) {}
+    error advance(asset_manager& assets) override {
+      if (value)
+        return error::success;
+      auto loaded = assets.load(type, uri, options);
+      if (!loaded) {
+        diagnostic = {loaded.error(), 0, path, uri};
+        return diagnostic.error;
+      }
+      value = loaded->native_reference();
+      if (!value) {
+        diagnostic = {error::unsupported, 0, path, "Loader 未提供稳定身份: " + uri};
+        return diagnostic.error;
+      }
+      return error::success;
+    }
+  };
   std::vector<asset_reference_requirement> requirements_;
-  std::vector<asset_request<render_resource_ref>> requests_;
+  std::vector<std::shared_ptr<asset_dependency>> slots_;
   bool collecting_{};
-
 public:
   const auto& dependencies() const noexcept { return requirements_; }
-  const auto& requests() const noexcept { return requests_; }
+  const auto& slots() const noexcept { return slots_; }
   bool collecting() const noexcept override { return collecting_; }
   template <class Decode> serialization::diagnostic collect(Decode decode) {
     if (collecting_)
@@ -29,49 +46,40 @@ public:
     collecting_ = true;
     struct guard {
       asset_reference_context& owner;
-      std::size_t checkpoint;
+      std::size_t requirements, slots;
       bool committed{};
       ~guard() {
         owner.collecting_ = false;
-        if (!committed)
-          owner.requirements_.resize(checkpoint);
+        if (!committed) {
+          owner.requirements_.resize(requirements);
+          owner.slots_.resize(slots);
+        }
       }
-    } reset{*this, requirements_.size()};
+    } reset{*this, requirements_.size(), slots_.size()};
     serialization::context context{*this};
     auto temporary = decode(context);
     reset.committed = bool(temporary);
     return temporary ? serialization::diagnostic{} : std::move(temporary).error();
   }
   serialization::diagnostic record(type_id type, std::string_view uri, std::string_view path) {
-    render_resource_kind kind;
-    if (type == runtime_type_of<engine::texture>())
-      kind = render_resource_kind::texture;
-    else if (type == runtime_type_of<engine::mesh>())
-      kind = render_resource_kind::mesh;
-    else if (type == runtime_type_of<engine::material>())
-      kind = render_resource_kind::material;
-    else
-      return {.error = error::unsupported};
     if (validate_uri(uri).failed())
       return {.error = error::invalid_argument};
     if (std::ranges::none_of(requirements_, [&](const auto& entry) {
-          return entry.type == type && entry.source.uri == uri && entry.path == path;
+          return entry.type == type && entry.uri == uri && entry.path == path;
         }))
-      requirements_.push_back({type, {std::string(uri), kind}, std::string(path)});
+      requirements_.push_back({type, std::string(uri), std::string(path)});
+    if (std::ranges::none_of(
+            slots_, [&](const auto& slot) { return slot->type == type && slot->uri == uri; }))
+      slots_.push_back(std::make_shared<reference_slot>(type, std::string(uri), std::string(path)));
     return {};
   }
-  /** 仅提交需求，不等待内容；多个属性引用同一资产只保留一个请求。 */
+  /** 独立解码调用方的便利入口；Loader 将 slots 交给管理器依赖图推进。 */
   serialization::diagnostic load(asset_manager& assets) {
-    for (const auto& entry : requirements_) {
-      if (std::ranges::any_of(requests_, [&](const auto& request) {
-            return resource_kind(request.resource()) == entry.source.type &&
-                   resource_uri(request.resource()) == entry.source.uri;
-          }))
-        continue;
-      auto request = assets.load(entry.source);
-      if (!request)
-        return {.path = entry.path, .message = entry.source.uri, .error = request.error()};
-      requests_.push_back(std::move(*request));
+    for (const auto& slot : slots_) {
+      const auto status = slot->advance(assets);
+      if (status.failed())
+        return {slot->diagnostic.byte_offset, slot->diagnostic.path, slot->diagnostic.message,
+                status};
     }
     return {};
   }
@@ -83,22 +91,14 @@ public:
         return status;
       return ref<void>{};
     }
-    for (const auto& request : requests_) {
-      if (resource_uri(request.resource()) != uri)
-        continue;
-      auto cast = [&]<class T>() -> ref<void> {
-        auto value = request.get<T>();
-        return value.alias(static_cast<void*>(const_cast<T*>(value.get())));
-      };
-      if (type == runtime_type_of<engine::texture>() && request.get<engine::texture>())
-        return cast.template operator()<engine::texture>();
-      if (type == runtime_type_of<engine::mesh>() && request.get<engine::mesh>())
-        return cast.template operator()<engine::mesh>();
-      if (type == runtime_type_of<engine::material>() && request.get<engine::material>())
-        return cast.template operator()<engine::material>();
-    }
-    return serialization::diagnostic{.message = "引用尚未由加载流程提交",
-                                     .error = error::not_ready};
+    for (const auto& slot : slots_)
+      if (slot->type == type && slot->uri == uri) {
+        auto value = std::static_pointer_cast<reference_slot>(slot)->value;
+        if (value)
+          return value;
+      }
+    return serialization::diagnostic{
+        .path = std::string(path), .message = "引用尚未由加载流程提交", .error = error::not_ready};
   }
 };
 }

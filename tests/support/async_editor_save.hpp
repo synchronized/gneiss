@@ -6,6 +6,7 @@
 #include "documents/scene_document_edit.hpp"
 #include "scene_query.hpp"
 #include "value_result.hpp"
+#include <cstdio>
 namespace gneiss::test_support {
 // 仅测试驱动回调；生产接口没有同步等待包装。
 template <class Receipt>
@@ -53,8 +54,12 @@ struct author_scene {
     config.writable_assets = true;
     const auto text = root.generic_string();
     config.asset_root = text;
-    return runtime::application::create(config, application).ok() &&
-           open_document(document, *application, application->native_world(), uri).ok();
+    auto status = runtime::application::create(config, application);
+    if (status.ok())
+      status = open_document(document, *application, application->native_world(), uri);
+    if (status.failed())
+      std::fprintf(stderr, "打开文档失败: %s (%d)\n", std::string(uri).c_str(), status.code());
+    return status.ok();
   }
   std::string content() {
     std::string text;

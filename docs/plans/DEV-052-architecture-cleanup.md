@@ -410,9 +410,11 @@ Mesh JSON 保留版本 3 文件布局，不增加兼容代码。
 按 [PLAN-101](PLAN-101-scene-service-boundary.md) 移出通用资源批次转发，
 删除执行器借用，统一场景请求与轮询结果。资产管理、场景实例化和宿主编辑互斥保持各自职责。
 
-### 资源对象与加载重设计（实施中）
+### 资源对象与加载重设计（实现完成）
 
-按 [PLAN-102](PLAN-102-resource-object-loading.md) 统一资源对象、引用持久化和依赖加载；五类资产与共享索引已落地，剩余通用依赖能力和验收条件见该计划。
+按 [PLAN-102](PLAN-102-resource-object-loading.md) 建立五类资产与共享索引，
+[PLAN-107](PLAN-107-asset-model-loading-protocol.md) 完成依赖协议、快照与生命周期收尾；
+Windows 默认编译及相关 CPU 回归通过，完整版本平台矩阵仍待验收。
 
 执行器唤醒职责收敛见 [PLAN-103](PLAN-103-executor-wakeup.md)。
 
@@ -444,4 +446,5 @@ PLAN-106 的文档历史及增量投影继续作为编辑路径。默认构建�
 ## 新确认资产模型
 
 [PLAN-107](PLAN-107-asset-model-loading-protocol.md) 承接 PLAN-102 的依赖协议与资产内容边界，按
-[ADR-112](../decisions/ADR-112-asset-loading-protocol.md) 推进，先完成 Scene 必需依赖的统一调度原型。
+[ADR-112](../decisions/ADR-112-asset-loading-protocol.md) 完成统一调度、依赖环检查、类型化入口和 CPU/后端析构分离。
+验证范围见[收尾记录](../records/2026-11-08-asset-loading-protocol-completion.md)。

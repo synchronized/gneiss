@@ -86,6 +86,91 @@ custom_prefab(std::span<const std::byte> bytes) {
   ++prefab_decodes;
   return gneiss::engine::asset_file::deserialize<prefab_description>(bytes);
 }
+struct linked_asset final : asset {
+  ref<const linked_asset> child;
+  explicit linked_asset(asset_identity source) : asset(runtime_type_of<linked_asset>()) {
+    identity_ = std::move(source);
+  }
+};
+struct linked_loader final : asset_loader {
+  asset_identity source;
+  std::shared_ptr<detail::content_dependency<linked_asset, int>> child;
+  explicit linked_loader(asset_identity identity) : asset_loader(identity.uri), source(identity) {}
+  void decode(const std::vector<std::byte>& bytes) override {
+    value = std::make_shared<linked_asset>(source);
+    if (!bytes.empty()) {
+      std::string uri(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+      child = std::make_shared<detail::content_dependency<linked_asset, int>>(
+          uri, false, [](const linked_asset&) { return 1; });
+      child->path = "/child";
+      dependencies.push_back(child);
+    }
+    status = error::success;
+  }
+  error finish() override {
+    if (child)
+      std::const_pointer_cast<linked_asset>(std::static_pointer_cast<const linked_asset>(value))
+          ->child = child->resource();
+    return error::success;
+  }
+};
+void dependency_cycles() {
+  auto memory = std::make_shared<memory_files>();
+  memory->files = {{"a", "asset://b"},
+                   {"b", "asset://a"},
+                   {"self", "asset://self"},
+                   {"leaf", ""},
+                   {"root", "asset://leaf"}};
+  test_support::fixture_files files;
+  // 单在途文件槽验证多个根及其依赖遇到背压时继续排队，不把未提交请求误当已启动。
+  files.service =
+      std::make_shared<engine::files::service>(engine::files::service_options{.max_requests = 1});
+  check(files.mount("asset://", memory).ok());
+  asset_manager assets(test_support::test_files(files));
+  auto& executor = test_support::asset_tasks();
+  check(assets.configure(executor).ok());
+  check(assets
+            .register_loader<linked_asset>([](auto source, auto) {
+              return std::make_shared<linked_loader>(std::move(source));
+            })
+            .ok());
+  auto a = assets.load<linked_asset>("asset://a");
+  auto b = assets.load<linked_asset>("asset://b");
+  auto self = assets.load<linked_asset>("asset://self");
+  auto root = assets.load<linked_asset>("asset://root");
+  check(bool(a) && bool(b) && bool(self) && bool(root));
+  for (unsigned i = 0; i < 100U; ++i) {
+    check(assets.async_files()->dispatch_completions(64).ok());
+    assets.advance();
+    check(executor.run_ready().status == drive_status::success);
+  }
+  check(a->status() == error::invalid_state && b->status() == error::invalid_state);
+  check(self->status() == error::invalid_state && root->status().ok());
+  check(a->diagnostic().message.find("asset://a") != std::string::npos);
+  check(a->diagnostic().message.find("asset://b") != std::string::npos);
+  check(a->diagnostic().path.find("child") != std::string::npos);
+  auto loaded = root->take();
+  check(bool(loaded) && bool((*loaded)->child));
+  check(memory->reads["leaf"] == 1U);
+  // 成功内容的拥有边也参与检测，不能通过独立重载构造强引用环。
+  memory->files["leaf"] = "asset://root";
+  auto cycle_reload = assets.reload<linked_asset>("asset://leaf");
+  check(bool(cycle_reload));
+  for (unsigned i = 0; i < 100U && cycle_reload->status() == error::not_ready; ++i) {
+    check(assets.async_files()->dispatch_completions(64).ok());
+    assets.advance();
+    check(executor.run_ready().status == drive_status::success);
+  }
+  check(cycle_reload->status() == error::invalid_state);
+  check(!(*loaded)->child->child);
+  cycle_reload->cancel();
+  a->cancel();
+  b->cancel();
+  self->cancel();
+  loaded->reset();
+  assets.collect_unused();
+  check(!assets.find<linked_asset>("asset://root"));
+}
 void run() {
   auto memory = std::make_shared<memory_files>();
   memory->files["main.scene"] = std::string(scene_prefix) + std::string(object) + "," +
@@ -107,6 +192,8 @@ void run() {
     auto first = independent.load<engine::scene>("asset://main.scene");
     auto second = independent.load<engine::scene>("asset://main.scene");
     check(bool(first) && bool(second));
+    check(first->resource() == second->resource() && bool(first->resource()));
+    check(!first->resource()->content());
     first->cancel();
     for (unsigned i = 0; i < 100U && second->status() == error::not_ready; ++i) {
       check(independent.async_files()->dispatch_completions(64).ok());
@@ -118,12 +205,18 @@ void run() {
     auto content = (*result)->content();
     check(content->prefabs.size() == 1U);
     result->reset();
+    // 不清理索引直接复用过期记录，不能继承旧身份的就绪标记。
+    auto fresh = independent.load<engine::scene>("asset://main.scene");
+    check(bool(fresh) && !fresh->resource()->content());
+    check(independent.find<engine::scene>("asset://main.scene").error() == error::not_ready);
+    fresh->cancel();
+    independent.advance();
     independent.collect_unused();
-    check(!independent.find_loaded<engine::scene>("asset://main.scene"));
-    check(bool(independent.find_loaded<engine::prefab>("asset://p.prefab")));
+    check(!independent.find<engine::scene>("asset://main.scene"));
+    check(bool(independent.find<engine::prefab>("asset://p.prefab")));
     content.reset();
     independent.collect_unused();
-    check(!independent.find_loaded<engine::prefab>("asset://p.prefab"));
+    check(!independent.find<engine::prefab>("asset://p.prefab"));
   }
   memory->reads.clear();
   scene_instantiation_data output;
@@ -139,9 +232,8 @@ void run() {
   check(output.source_bytes == bytes);
   check(bool(output.source_asset));
   check(bool(output.prefabs.at("asset://p.prefab").source_asset));
-  check(assets.find_loaded<engine::scene>("asset://main.scene")->get() ==
-        output.source_asset.get());
-  check(assets.find_loaded<engine::prefab>("asset://p.prefab")->get() ==
+  check(assets.find<engine::scene>("asset://main.scene")->get() == output.source_asset.get());
+  check(assets.find<engine::prefab>("asset://p.prefab")->get() ==
         output.prefabs.at("asset://p.prefab").source_asset.get());
   const auto reads_before_rejection = memory->reads;
   auto old_scene = assets.load<scene_description>("asset://main.scene");
@@ -176,6 +268,10 @@ void run() {
   check(scene_asset->type() == runtime_type_of<engine::scene>());
   check(scene_asset->source().uri == "asset://main.scene" && bool(scene_asset->source().source));
   auto snapshot = scene_asset->snapshot();
+  auto fixed_request = assets.load<engine::scene>("asset://main.scene");
+  check(bool(fixed_request) && fixed_request->status().ok());
+  const auto fixed_content = fixed_request->snapshot();
+  check(fixed_content == scene_asset->content());
   const auto original_file = memory->files["main.scene"];
   auto edited = *snapshot;
   edited.objects.front().name = "reloaded";
@@ -187,15 +283,18 @@ void run() {
   check(test_support::load_asset(assets, "asset://main.scene", reloaded, true).ok());
   check(reloaded == scene_asset && snapshot->objects.front().name != "reloaded");
   check(reloaded->snapshot()->objects.front().name == "reloaded");
+  check(fixed_request->snapshot() == fixed_content && fixed_content != reloaded->content());
+  check(fixed_content->description->objects.front().name != "reloaded");
+  check(bool(fixed_request->take()) && !fixed_request->snapshot());
   reloaded.reset();
   assets.collect_unused();
-  auto retained = assets.find_loaded<engine::scene>("asset://main.scene");
+  auto retained = assets.find<engine::scene>("asset://main.scene");
   check(bool(retained) && retained->get() == scene_asset.get());
   memory->files["main.scene"] = "{";
   ref<const engine::scene> rejected;
   check(test_support::load_asset(assets, "asset://main.scene", rejected, true).failed());
   check(scene_asset->snapshot()->objects.front().name == "reloaded");
-  check(assets.find_loaded<engine::scene>("asset://main.scene")->get() == scene_asset.get());
+  check(assets.find<engine::scene>("asset://main.scene")->get() == scene_asset.get());
   memory->files["main.scene"] = original_file;
   ref<const engine::prefab> prefab_asset;
   check(test_support::load_asset(assets, "asset://p.prefab", prefab_asset).ok());
@@ -250,8 +349,16 @@ void run() {
   check(std::ranges::any_of(output.assets,
                             [](const auto& asset) { return asset.uri == "asset://m.material"; }));
   check(prepare_loaded_scene(inputs, {}, output, diagnostic, {}).ok());
+  // 依赖已完成但父操作还未领取时，另一轮重载也不能改变这次结果。
+  detail::content_dependency<engine::prefab, ref<const prefab_description>> delayed_dependency(
+      "asset://p.prefab", true, [](const engine::prefab& value) { return value.snapshot(); });
+  check(delayed_dependency.advance(assets) == error::not_ready);
   ref<const engine::prefab> newer;
+  check(gneiss::test_support::load_asset(assets, "asset://p.prefab", newer).ok());
+  const auto delayed_content = newer->snapshot();
   check(gneiss::test_support::load_asset(assets, "asset://p.prefab", newer, true).ok());
+  check(delayed_dependency.advance(assets).ok());
+  check(delayed_dependency.content() == delayed_content && delayed_content != newer->snapshot());
   check(newer->snapshot() != output.prefabs.at("asset://p.prefab").resource);
   check(loaded_content->prefabs.at("asset://p.prefab").description != newer->snapshot());
   check(loaded_content->prefabs.at("asset://p.prefab").resource == newer);
@@ -296,8 +403,9 @@ void run() {
         error::invalid_argument);
   auto no_renderer = assets.load<gneiss::engine::texture>("asset://image");
   check(!no_renderer && no_renderer.error() == error::invalid_state);
-  auto created = assets.create(scene_description{});
-  check(bool(created));
+  auto created = assets.create(*scene_asset->content());
+  check(bool(created) && (*created)->source().uri.empty());
+  check(!assets.create(scene_description{}));
   memory->reads.clear();
   memory->change_on_verify = true;
   check(prepare() == gneiss::engine::error::success && memory->reads["p.prefab"] == 1U);
@@ -325,13 +433,13 @@ void run() {
   parent.replace(parent.find("null"), 4U, "\"00000000-0000-4000-8000-000000000003\"");
   memory->files["main.scene"] = std::string(scene_prefix) + child + "," + parent + R"(]})";
   check(prepare() == gneiss::engine::error::invalid_argument && output.description.objects.empty());
-  auto stopping = assets.load<engine::scene>("asset://main.scene", true);
+  auto stopping = assets.reload<engine::scene>("asset://main.scene");
   check(bool(stopping));
   assets.request_stop();
   check(stopping->take().error().error == error::invalid_state);
   assets.advance();
   check(assets.stopped() && unified->instance_nodes == 3U);
-  check(assets.load<engine::scene>("asset://main.scene", true).error() == error::invalid_state);
+  check(assets.reload<engine::scene>("asset://main.scene").error() == error::invalid_state);
 }
 } // namespace
 
@@ -339,6 +447,7 @@ int main() try {
   if (gneiss::engine::initialize_meta().failed())
     return 99;
   run();
+  dependency_cycles();
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

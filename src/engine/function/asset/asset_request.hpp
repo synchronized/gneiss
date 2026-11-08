@@ -15,10 +15,21 @@
 
 namespace gneiss::engine {
 namespace detail {
+template <class T>
+  requires requires(const T& value) { value.snapshot(); }
+auto capture_asset_content(const T& value) {
+  if constexpr (requires { value.content(); })
+    return value.content();
+  else
+    return value.snapshot();
+}
 // 移植 Granit 示例 asset_state：请求共享结果，观察者各自拥有取消权。
 struct asset_state {
   std::mutex mutex;
   render_resource_ref target;
+  std::shared_ptr<const asset> identity;
+  const void* native_address{};
+  std::shared_ptr<const void> snapshot;
   error status{error::not_ready};
   std::shared_ptr<const void> value;
   serialization::diagnostic diagnostic;
@@ -60,11 +71,41 @@ public:
             state_->diagnostic.message};
   }
   /** 已预留的运行资源身份；不表示内容或 GPU 已就绪。 */
-  [[nodiscard]] render_resource_ref resource() const noexcept {
-    return state_ ? state_->target : render_resource_ref{};
+  [[nodiscard]] auto resource() const noexcept {
+    if constexpr (std::is_same_v<T, asset>)
+      return state_ ? (state_->target ? state_->target.base() : ref<const asset>{state_->identity})
+                    : ref<const asset>{};
+    else if constexpr (std::is_same_v<T, render_resource_ref>)
+      return state_ ? state_->target : render_resource_ref{};
+    else if constexpr (render_resource<T>)
+      return state_ ? state_->target.template as<T>() : ref<const T>{};
+    else if constexpr (std::derived_from<T, asset>)
+      return state_ && state_->identity ? asset_cast<T>(ref<const asset>{state_->identity})
+                                        : ref<const T>{};
+    else
+      return ref<const T>{};
+  }
+  /** 按注册的实际 C++ 类型借用同一身份，供序列化引用绑定；不复制对象。 */
+  [[nodiscard]] ref<void> native_reference() const noexcept
+    requires std::is_same_v<T, asset>
+  {
+    auto identity = resource();
+    return identity && state_->native_address
+               ? identity.alias(const_cast<void*>(state_->native_address))
+               : ref<void>{};
   }
   template <render_resource U> [[nodiscard]] asset_ref<const U> get() const noexcept {
-    return resource_cast<U>(resource());
+    return state_ ? state_->target.template as<U>() : ref<const U>{};
+  }
+  /** 本次请求完成时的固定 CPU 内容，与身份的当前内容分离；需要保留时须在 take/cancel 前取得。 */
+  template <class U = T>
+    requires(std::same_as<U, T> &&
+             requires(const U& value) { detail::capture_asset_content(value); })
+  [[nodiscard]] auto snapshot() const noexcept {
+    using Ref = decltype(detail::capture_asset_content(std::declval<const U&>()));
+    using Content = typename Ref::element_type;
+    return Ref{std::static_pointer_cast<Content>(state_ ? state_->snapshot
+                                                        : std::shared_ptr<const void>{})};
   }
   void cancel() noexcept { state_.reset(); }
   /** 最近一次成功领取的读取与解码统计；取消不清除已领取统计。 */
@@ -85,6 +126,8 @@ public:
     reference value;
     if constexpr (std::is_same_v<T, render_resource_ref>) {
       value = state->target;
+    } else if constexpr (std::is_same_v<T, asset>) {
+      value = resource();
     } else {
       value = state->target ? state->target.as<T>()
                             : reference{std::static_pointer_cast<const T>(state->value)};

@@ -131,19 +131,18 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
   check(binding.mesh && binding.material);
   auto material = binding.material;
   until([&] { return !app->visual_assets_loading(); });
-  check(failures == 1U);
+  check(failures == (missing_texture ? 0U : 1U));
   gneiss::engine::render_resource_ref ready;
   check(gneiss::test_support::take_value(
-            app->assets().find_loaded(
-                {"asset://mesh.json", gneiss::engine::render_resource_kind::mesh},
-                app->assets().profile()),
+            app->assets().find({"asset://mesh.json", gneiss::engine::render_resource_kind::mesh},
+                               app->assets().profile()),
             ready) == gneiss::engine::error::success);
   check(gneiss::engine::resource_cast<gneiss::engine::mesh>(ready) == binding.mesh);
   check(gneiss::test_support::take_value(
-            app->assets().find_loaded(
+            app->assets().find(
                 {"asset://material.json", gneiss::engine::render_resource_kind::material},
                 app->assets().profile()),
-            ready) == (missing_texture ? engine::error::not_found : engine::error::not_ready));
+            ready) == (missing_texture ? engine::error::success : engine::error::not_ready));
   if (missing_texture) {
     const auto* data = app->render().get_material(engine::resource_handle(material));
     check(data && data->parameters.color.x == 1.0F);
@@ -172,7 +171,7 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
       gneiss::test_support::take_value(app->scenes()->capture_mesh_binding(completion.scene, node),
                                        binding) == gneiss::engine::error::success &&
       binding.material == material);
-  // 更新时依赖失败不能覆盖已有材质，也不能更换其资源身份。
+  // 引用型纹理依赖不阻止材质完成；旧后端快照保持可用。
   const auto old_data = app->render().share_material(engine::resource_handle(material));
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,0,1,1]},"texture_uris":["asset://missing-update.ktx2","","","",""]})";
@@ -182,9 +181,10 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
     check(app->poll_assets(loaded, finished).ok());
     return finished;
   });
-  check(loaded.result.failed());
-  check(loaded.message.find("asset://missing-update.ktx2") != std::string::npos);
-  check(app->render().share_material(engine::resource_handle(material)) == old_data);
+  check(loaded.result.ok());
+  check(material->textures()[0] &&
+        material->textures()[0]->source().uri == "asset://missing-update.ktx2");
+  check(app->render().share_material(engine::resource_handle(material)) != old_data);
   // 已激活场景继续持有稳定资源，关闭会等待所属任务并释放其作用域。
   binding = {};
   material = {};
@@ -255,9 +255,8 @@ void run(gneiss::engine::execution_mode mode) {
   // 结构 ready 时视觉内容尚未读取或上传。
   gneiss::engine::render_resource_ref not_ready;
   check(gneiss::test_support::take_value(
-            app->assets().find_loaded(
-                {"asset://mesh.json", gneiss::engine::render_resource_kind::mesh},
-                app->assets().profile()),
+            app->assets().find({"asset://mesh.json", gneiss::engine::render_resource_kind::mesh},
+                               app->assets().profile()),
             not_ready) == gneiss::engine::error::not_ready);
   check(prepared.cpu_data_bytes == prepared.resident_bytes);
   check(prepared.application_logical_bytes >= prepared.resident_bytes);
@@ -403,8 +402,8 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   auto selected = [&](gneiss::engine::render_resource_kind type, const char* uri) {
     gneiss::engine::render_resource_ref lease;
     check(gneiss::test_support::take_value(
-              app->assets().find_loaded({.uri = uri, .type = type}, app->assets().profile()),
-              lease) == gneiss::engine::error::success);
+              app->assets().find({.uri = uri, .type = type}, app->assets().profile()), lease) ==
+          gneiss::engine::error::success);
     return lease;
   };
   auto binding = [&] {

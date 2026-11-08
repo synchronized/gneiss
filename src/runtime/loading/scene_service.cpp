@@ -190,12 +190,12 @@ engine::error scene_service::request_reload(scene_instance_id instance, std::str
   auto next = std::make_unique<reload_task>();
   next->instance = instance;
   if (prefab) {
-    auto loaded = resources_->load<engine::prefab>(uri, true);
+    auto loaded = resources_->reload<engine::prefab>(uri);
     if (!loaded)
       return loaded.error();
     next->descriptions = std::move(*loaded);
   } else {
-    auto loaded = resources_->load<engine::scene>(uri, true);
+    auto loaded = resources_->reload<engine::scene>(uri);
     if (!loaded)
       return loaded.error();
     next->descriptions = std::move(*loaded);

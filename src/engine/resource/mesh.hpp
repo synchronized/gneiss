@@ -12,6 +12,7 @@
 #include <optional>
 
 namespace gneiss::engine {
+struct mesh_data;
 namespace detail {
 struct mesh_resource_access;
 }
@@ -23,19 +24,23 @@ struct mesh_metadata {
   bool has_uv1{};
 };
 
-/** 稳定运行身份，与 mesh_data 的 CPU 内容寿命分离。由资源工厂创建并延迟析构。 */
+/** 稳定运行身份，与 mesh_data 的 CPU 内容寿命分离。CPU 对象随最后强引用释放，只有后端 RID
+ * 延迟回收。 */
 class mesh final : public asset {
 public:
   GNEISS_API ~mesh();
-  /** 所属线程查询轻量信息；未加载时为空，不持有 CPU 数组。 */
+  /** 所属线程查询轻量信息；未加载时为空，内容保留不可变 CPU 快照。 */
   [[nodiscard]] const std::optional<mesh_metadata>& metadata() const noexcept { return metadata_; }
+  [[nodiscard]] ref<const mesh_data> snapshot() const noexcept { return content_; }
   mesh(const mesh&) = delete;
   mesh& operator=(const mesh&) = delete;
 
 private:
   friend struct detail::mesh_resource_access;
   GNEISS_API mesh(rid value) noexcept;
+  mutable ref<const mesh_data> content_;
   rid rid_;
+  std::shared_ptr<void> retirement_token_;
   mutable std::optional<mesh_metadata> metadata_;
 };
 

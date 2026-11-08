@@ -72,7 +72,7 @@ public:
            source.type != engine::render_resource_kind::texture))
         return error::invalid_argument;
       auto found = reload ? engine::result<engine::render_resource_ref>{error::not_found}
-                          : service_.find_loaded(source, profile());
+                          : service_.find(source, profile());
       if (found) {
         ready.assets.push_back(std::move(*found));
         ready.results.push_back({.source = source, .result = error::success, .applied = true});
@@ -111,7 +111,7 @@ public:
     auto& completion = *completion_;
     auto& item = completion.results[cursor_];
     if (!current_) {
-      auto loaded = service_.load(item.source, reload_);
+      auto loaded = service_.load(item.source, {.reload = reload_});
       if (!loaded)
         item.result = loaded.error();
       else

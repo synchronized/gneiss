@@ -9,6 +9,8 @@
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/mesh.hpp"
 #include "engine/resource/mesh/mesh_description.hpp"
+#include "engine/resource/prefab.hpp"
+#include "engine/resource/scene.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
 #include "engine/resource/texture.hpp"
 #include <algorithm>
@@ -215,6 +217,24 @@ error register_builtin_resource_types() noexcept {
        .serialization = {.encode_reference = detail::encode_asset_reference<engine::material>,
                          .decode_reference = detail::decode_asset_reference<engine::material>,
                          .capture_reference = detail::capture_asset_reference<engine::material>}});
+  if (status.failed())
+    return status;
+  status = meta::register_type<engine::scene>(
+      {.guid = guid::literal("83dc2409-ec41-4eec-85a1-c7563b421a71"),
+       .schema_version = 1,
+       .name = "scene",
+       .serialization = {.encode_reference = detail::encode_asset_reference<engine::scene>,
+                         .decode_reference = detail::decode_asset_reference<engine::scene>,
+                         .capture_reference = detail::capture_asset_reference<engine::scene>}});
+  if (status.failed())
+    return status;
+  status = meta::register_type<engine::prefab>(
+      {.guid = guid::literal("114e020a-d5e0-4941-8d6c-a611caa26448"),
+       .schema_version = 1,
+       .name = "prefab",
+       .serialization = {.encode_reference = detail::encode_asset_reference<engine::prefab>,
+                         .decode_reference = detail::decode_asset_reference<engine::prefab>,
+                         .capture_reference = detail::capture_asset_reference<engine::prefab>}});
   if (status.failed())
     return status;
   status = meta::type_builder<mesh_description>{}

@@ -16,24 +16,33 @@ namespace detail {
 struct material_resource_access;
 }
 
-/** 稳定运行身份，与 material_data 的 CPU 内容寿命分离。由资源工厂创建并延迟析构。 */
+struct material_content {
+  material_parameters parameters;
+  std::array<ref<const texture>, 5> textures;
+};
+/** 稳定运行身份，与 material_data 的 CPU 内容寿命分离。CPU 对象随最后强引用释放，只有后端 RID
+ * 延迟回收。 */
 class GNEISS_API material final : public asset {
 public:
   ~material();
   /** 所属线程只读参数与依赖；更新通过 Loader/Render 受控入口执行。 */
-  [[nodiscard]] const material_parameters& parameters() const noexcept { return parameters_; }
-  [[nodiscard]] const std::array<ref<const texture>, 5>& textures() const noexcept {
-    return textures_;
+  [[nodiscard]] const material_parameters& parameters() const noexcept {
+    return content_ ? content_->parameters : empty_.parameters;
   }
+  [[nodiscard]] const std::array<ref<const texture>, 5>& textures() const noexcept {
+    return content_ ? content_->textures : empty_.textures;
+  }
+  [[nodiscard]] ref<const material_content> snapshot() const noexcept { return content_; }
   material(const material&) = delete;
   material& operator=(const material&) = delete;
 
 private:
   friend struct detail::material_resource_access;
-  material(rid value, std::array<ref<const texture>, 5> dependencies = {}) noexcept;
+  material(rid value) noexcept;
   rid rid_;
-  mutable material_parameters parameters_;
-  mutable std::array<ref<const texture>, 5> textures_;
+  std::shared_ptr<void> retirement_token_;
+  inline static const material_content empty_{};
+  mutable ref<const material_content> content_;
 };
 
 /** Render 内部标识提取；不转移所有权，不表示内容已就绪。 */

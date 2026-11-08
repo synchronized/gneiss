@@ -13,6 +13,12 @@ template <class T, class D> struct scene_loader final : asset_loader {
   std::map<std::string, std::shared_ptr<prefab_dependency>, std::less<>> required;
   explicit scene_loader(asset_identity identity, bool should_reload)
       : asset_loader(identity.uri), source(std::move(identity)), reload(should_reload) {}
+  std::shared_ptr<const asset> reserve() override {
+    if constexpr (std::is_same_v<T, scene>)
+      return scene_asset_access::make<T>(source, ref<const scene_content>{});
+    else
+      return scene_asset_access::make<T>(source, ref<const D>{});
+  }
   void decode(const std::vector<std::byte>& bytes) override {
     auto decoded = asset_file::deserialize_ref<D>(std::span<const std::byte>{bytes});
     status = decoded ? error::success : decoded.error().error;
@@ -20,11 +26,13 @@ template <class T, class D> struct scene_loader final : asset_loader {
       if constexpr (std::is_same_v<T, scene>) {
         content = make_ref<scene_content>();
         content->description = std::move(*decoded);
-        for (const auto& object : content->description->objects) {
+        for (std::size_t index = 0; index < content->description->objects.size(); ++index) {
+          const auto& object = content->description->objects[index];
           if (!object.prefab || required.contains(object.prefab->uri))
             continue;
           auto dependency = std::make_shared<prefab_dependency>(
               object.prefab->uri, reload, [](const prefab& value) { return value.snapshot(); });
+          dependency->path = "/objects/" + std::to_string(index) + "/prefab";
           required.emplace(object.prefab->uri, dependency);
           dependencies.push_back(std::move(dependency));
         }

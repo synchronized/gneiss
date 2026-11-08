@@ -35,20 +35,17 @@ asset_construction::asset_construction(render_service& render)
 asset_construction::~asset_construction() { close(); }
 
 template <typename T> std::shared_ptr<T> asset_construction::make(rid handle) {
-  auto finalize = [](T& value, void* owner) noexcept {
+  auto finalize = [](rid& handle, void* owner) noexcept {
     auto* render = static_cast<render_service*>(owner);
     if (!render)
       return;
     if constexpr (std::is_same_v<T, engine::mesh>) {
-      const auto handle = detail::mesh_resource_access::handle(value);
       if (render->mesh_status(handle) != error::invalid_handle)
         (void)render->destroy_mesh(handle);
     } else if constexpr (std::is_same_v<T, engine::texture>) {
-      const auto handle = detail::texture_resource_access::handle(value);
       if (render->texture_status(handle) != error::invalid_handle)
         (void)render->destroy_texture(handle);
     } else if constexpr (std::is_same_v<T, engine::material>) {
-      const auto handle = detail::material_resource_access::handle(value);
       if (render->material_status(handle) != error::invalid_handle)
         (void)render->destroy_material(handle);
     }
@@ -129,16 +126,6 @@ void asset_construction::update_texture(rid handle, const texture_data& data) no
               data.manifest.empty() ? std::optional{data.format} : std::nullopt, data.color_space});
 }
 
-void asset_construction::update_material(
-    rid handle, const material_data& data,
-    std::array<ref<const engine::texture>, 5> dependencies) noexcept {
-  const auto found = materials_.find(handle);
-  if (found != materials_.end())
-    if (auto value = found->second.lock()) {
-      detail::material_resource_access::set_content(*value, data.parameters,
-                                                    std::move(dependencies));
-    }
-}
 
 template <typename Ref, typename Create>
 result<Ref> asset_construction::create(Create create_rid) noexcept {
@@ -298,6 +285,7 @@ bool asset_construction::update_mesh(const ref<const engine::mesh>& target,
       !render_.replace_mesh(handle, data))
     return false;
   update_mesh(handle, *data);
+  mesh_resource_access::set_content(*target, ref<const mesh_data>{std::move(data)});
   return true;
 }
 
@@ -311,6 +299,7 @@ bool asset_construction::update_texture(const ref<const engine::texture>& target
       !render_.replace_texture(handle, data))
     return false;
   update_texture(handle, *data);
+  texture_resource_access::set_content(*target, ref<const texture_data>{std::move(data)});
   return true;
 }
 
@@ -329,9 +318,16 @@ bool asset_construction::update_material(
         (dependencies[i] && find_texture(handles[i]) != dependencies[i]))
       return false;
   }
+  ref<const material_content> content;
+  try {
+    content =
+        make_ref<material_content>(material_content{data->parameters, std::move(dependencies)});
+  } catch (...) {
+    return false;
+  }
   if (!render_.replace_material(handle, data))
     return false;
-  update_material(handle, *data, std::move(dependencies));
+  material_resource_access::set_content(*target, std::move(content));
   return true;
 }
 

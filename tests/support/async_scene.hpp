@@ -17,7 +17,7 @@ prepare_scene_for_test(engine::asset_manager& assets, engine::task_scheduler& ex
   if (cancelled && cancelled())
     return diagnostic.error = engine::error::invalid_state;
   auto load = [&]<class T>() -> engine::error {
-    auto request = assets.load<T>(uri, true);
+    auto request = assets.reload<T>(uri);
     if (!request)
       return diagnostic.error = request.error();
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);

@@ -19,10 +19,10 @@ false 表示本轮跳过，失败结果表示执行错误。`render_service::sub
 Mesh、Material 和 Texture 的 CPU 内容表由 Application 的 `render_service` 私有实现拥有。
 调用方通过 `application::render()` 使用 RID 接口，不能借用资源表。
 运行身份、元信息与材质依赖由 Application 的 `asset_manager` 维护，通过 `application::assets()` 借用。
-程序化纹理使用 `resources.create_texture(texture_view)`，返回 `result<ref<const texture>>`；网格与材质使用对应的创建接口。
-资产管理器的 `create_mesh/texture` 创建有内容的资源，不公开匿名预留入口；
+程序化纹理使用 `assets.create(texture_view)`，返回 `result<ref<const texture>>`；网格与材质使用对应的创建接口。
+资产管理器的 `create(mesh_view/texture_view)` 创建有内容的资源，不公开匿名预留入口；
 加载过程中的身份预留由内部构建器完成，Render 的 RID 预留接口继续保留。
-`create_material(parameters, textures)` 显式传入纹理强引用。成功输出拥有者，失败输出为空。
+`create(parameters, textures)` 显式传入纹理强引用。成功输出拥有者，失败输出为空。
 不存在外部 RID 接管入口；不同管理器不能接管彼此的资源。
 管理器不提供 RID 到资产对象的反查；上层直接保存创建或加载得到的强引用。
 普通文件加载通过同一个管理器的 URI 缓存复用对象。上层提取的 RID 仅用于借用，不得手动销毁资源拥有的 RID。
@@ -64,7 +64,7 @@ domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
 各对象只保留对应 `detail::*_resource_access` 一个友元。访问器位于各资源目录的 `detail/`，
 提供构造、RID 查询、来源设置、更新序号校验及元信息/材质内容更新，不返回私有字段的可变引用。
 只有资源自身实现、资源装配和 Loader 可以包含访问器；普通上层使用只读资源接口。
-私有构造由 Access 提供的同步工厂完成，销毁队列仍在原节点内持有对象，保持唯一控制块与无分配入队。
+私有构造由 Access 提供的同步工厂完成；CPU 对象使用独立控制块，预分配队列节点只保存 RID。
 
 它们与 CPU 负载 `mesh_data`、`texture_data`、`material_data` 是不同类型；
 混合请求返回 `render_resource_ref`，`as<T>()` 检查类型并取得同一对象的强引用。
@@ -75,12 +75,11 @@ ECS、场景编辑绑定、UI 命令和上层帧快照使用类型化强引用�
 资源 `source()` 保存来源域、URI 和资产类型；程序生成对象没有文件来源。
 Mesh/Texture 的 `metadata()` 在 CPU 内容采用后可读；未加载时为空，容器纹理未知的 Mip/格式字段也为空。
 
-三类运行对象只能经资源销毁队列构造。最后一个强引用释放只将预分配节点入队，
-所属线程在 Application 资产推进、Loader 缓存清理及关闭时消费；不在队列锁内执行析构。
-队列先释放 Render RID，再析构 CPU 资源对象；资源析构自身不调用 Render。
-材质析构释放纹理强引用产生的后续节点会继续排空。纯 CPU 数据仍使用普通 RAII。
-Application 关闭及资源表析构时排空队列并关闭端点、失效全部槽位；关闭后仍存活的外部引用只销毁无服务依赖的外壳，
-不会调用旧服务。GPU 对象继续由 Render 执行器管理，CPU 销毁队列不替代 GPU 完成同步。
+三类资产通过内部工厂构造并拥有后端释放令牌。最后一个强引用释放时，CPU 对象、内容及
+依赖正常析构；令牌将预分配 RID 节点入队，所属线程在资产推进、回收和关闭时消费。
+材质析构立即释放纹理引用，不必等队列处理 CPU 对象。队列锁内不调用 Render。
+关闭时排空队列并失效所有 RID；关闭后外部 CPU 引用及固定快照仍可读取，晚释放不访问旧服务。
+GPU 在途安全回收仍由 Render 及后端负责，RID 释放队列不替代 GPU 完成同步。
 
 ## 当前帧即时 UI 数据
 

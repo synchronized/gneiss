@@ -8,16 +8,22 @@ namespace gneiss::engine::detail {
 template <class T, class Content> class content_dependency final : public asset_dependency {
 public:
   explicit content_dependency(std::string uri, bool reload, Content (*capture)(const T&))
-      : uri_(std::move(uri)), reload_(reload), capture_(capture) {}
+      : asset_dependency(runtime_type_of<T>(), std::move(uri), {.reload = reload}),
+        capture_(capture) {}
   error advance(asset_manager& assets) override {
     if (settled_)
       return diagnostic.error;
     if (!request_) {
-      auto submitted = assets.load<T>(uri_, reload_);
-      if (!submitted)
+      auto submitted = assets.load<T>(uri, options);
+      if (!submitted) {
+        if (submitted.error() == error::not_ready)
+          return error::not_ready;
         return fail({submitted.error(), 0, {}, "无法提交必要资产依赖"});
+      }
       request_.emplace(std::move(*submitted));
     }
+    if constexpr (requires { Content{request_->snapshot()}; })
+      content_ = Content{request_->snapshot()};
     auto loaded = request_->take();
     if (!loaded) {
       if (loaded.error().error == error::not_ready)
@@ -26,7 +32,8 @@ public:
     }
     bytes_ = request_->source_bytes();
     resource_ = std::move(*loaded);
-    content_ = capture_(*resource_);
+    if constexpr (!requires { Content{request_->snapshot()}; })
+      content_ = capture_(*resource_);
     request_.reset();
     settled_ = true;
     return error::success;
@@ -37,14 +44,13 @@ public:
 
 private:
   error fail(asset_diagnostic failure) {
-    failure.path = uri_ + (failure.path.empty() ? "" : ":" + failure.path);
+    failure.path = uri + (failure.path.empty() ? "" : ":" + failure.path);
     diagnostic = std::move(failure);
     request_.reset();
     settled_ = true;
     return diagnostic.error;
   }
-  std::string uri_;
-  bool reload_{}, settled_{};
+  bool settled_{};
   std::optional<asset_request<T>> request_;
   ref<const T> resource_;
   std::size_t bytes_{};

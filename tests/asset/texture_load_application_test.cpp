@@ -158,9 +158,9 @@ void run(gneiss::engine::execution_mode mode) {
   const gneiss::engine::render_resource_source material_source{
       .uri = "asset://m.material", .type = gneiss::engine::render_resource_kind::material};
   gneiss::engine::render_resource_ref selected_before;
-  check(gneiss::test_support::take_value(
-            app->assets().find_loaded(material_source, app->assets().profile()), selected_before) ==
-        gneiss::engine::error::success);
+  check(
+      gneiss::test_support::take_value(app->assets().find(material_source, app->assets().profile()),
+                                       selected_before) == gneiss::engine::error::success);
   // 缓存命中立即返回；混合请求只加载缺失项，缓存资源仍保持同一引用。
   {
     auto cached = app->prepare_assets({&material_source, 1}, 30U);
@@ -193,10 +193,10 @@ void run(gneiss::engine::execution_mode mode) {
   wait();
   check(completion.result == gneiss::engine::error::success);
   gneiss::engine::render_resource_ref selected_after;
-  check(gneiss::test_support::take_value(
-            app->assets().find_loaded(material_source, app->assets().profile()), selected_after) ==
-            gneiss::engine::error::success &&
-        selected_before == selected_after);
+  check(
+      gneiss::test_support::take_value(app->assets().find(material_source, app->assets().profile()),
+                                       selected_after) == gneiss::engine::error::success &&
+      selected_before == selected_after);
   // 恢复后续重载用例的输入；这里不修改场景使用者。
   write_material(true);
   const auto updated = capture(0);
@@ -245,9 +245,8 @@ void run(gneiss::engine::execution_mode mode) {
       {{.position = {0, 0, 0}}, {.position = {1, 0, 0}}, {.position = {0, 1, 0}}}};
   gneiss::engine::mesh_view view{};
   view.vertices = vertices;
-  check(gneiss::test_support::take_value(app->assets().create_mesh(view), external.mesh).ok());
-  check(gneiss::test_support::take_value(app->assets().create_material({}, {}), external.material)
-            .ok());
+  check(gneiss::test_support::take_value(app->assets().create(view), external.mesh).ok());
+  check(gneiss::test_support::take_value(app->assets().create({}, {}), external.material).ok());
   check(gneiss::engine::error{app->native_world()->entity_set_mesh_renderer(
             node.entity, external)} == gneiss::engine::error::success);
   wait();

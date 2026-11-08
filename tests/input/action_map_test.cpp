@@ -31,7 +31,7 @@ gneiss::engine::error load_map_for_test(gneiss::engine::asset_manager& assets,
                                         gneiss::engine::action_map_description& output) {
   gneiss::engine::asset_request<gneiss::engine::action_map> request;
   auto status = gneiss::test_support::assign_value(
-      assets.load<typename std::remove_cvref_t<decltype(request)>::value_type>(uri, true), request);
+      assets.reload<typename std::remove_cvref_t<decltype(request)>::value_type>(uri), request);
   if (status.failed())
     return status;
   gneiss::engine::asset_ref<const gneiss::engine::action_map> value;
@@ -240,8 +240,7 @@ int main() {
       shared->type() != runtime_type_of<action_map>())
     return 26;
   if (assets.load<action_map_description>("asset://input/shared").error() != error::unsupported ||
-      assets.find_loaded<action_map_description>("asset://input/shared").error() !=
-          error::unsupported ||
+      assets.find<action_map_description>("asset://input/shared").error() != error::unsupported ||
       assets.store<action_map_description>("asset://input/shared", old_snapshot.shared()).error() !=
           error::unsupported)
     return 27;
@@ -249,7 +248,7 @@ int main() {
   asset_manager asynchronous(gneiss::test_support::test_files(files));
   asynchronous.configure(executor);
   asset_request<action_map> request;
-  if (gneiss::test_support::assign_value(asynchronous.load<action_map>("asset://input/map", true),
+  if (gneiss::test_support::assign_value(asynchronous.reload<action_map>("asset://input/map"),
                                          request)
           .failed())
     return 14;
@@ -264,7 +263,7 @@ int main() {
     return 16;
   previous = shared;
   backend->first = backend->second = invalid_scale;
-  if (gneiss::test_support::assign_value(asynchronous.load<action_map>("asset://input/map", true),
+  if (gneiss::test_support::assign_value(asynchronous.reload<action_map>("asset://input/map"),
                                          request)
           .failed())
     return 17;
@@ -279,8 +278,8 @@ int main() {
     return 18;
   // 异步读取在打开来源后检查字节上限，不再依赖旧 read_bounded 的参数传递。
   backend->first = backend->second = std::string(maximum_action_map_bytes + 1, ' ');
-  if (gneiss::test_support::assign_value(
-          asynchronous.load<action_map>("asset://input/oversized", true), request)
+  if (gneiss::test_support::assign_value(asynchronous.reload<action_map>("asset://input/oversized"),
+                                         request)
           .failed())
     return 24;
   status = error::not_ready;

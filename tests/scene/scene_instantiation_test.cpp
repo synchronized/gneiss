@@ -302,8 +302,8 @@ void run() {
   check(!gneiss::engine::resource_cast<gneiss::engine::mesh>(bindings.at("asset://m.material")));
   check(!gneiss::engine::resource_cast<gneiss::engine::material>(bindings.at("asset://m.mesh")));
   gneiss::engine::render_resource_ref uncached;
-  check(gneiss::test_support::take_value(candidate_render.find_loaded(requests.front()),
-                                         uncached) == gneiss::engine::error::success);
+  check(gneiss::test_support::take_value(candidate_render.find(requests.front()), uncached) ==
+        gneiss::engine::error::success);
   // 绑定复用稳定资源；另一个 URI 的蓝色材质不影响它。
   files->files["blue.material"] =
       R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,0,1,1]},"texture_uris":["","","","",""]})";
@@ -392,8 +392,8 @@ void run() {
   check(resources.get_material(selected_material) != nullptr &&
         resources.get_material(selected_material)->parameters.color[1] == 1.0F);
   gneiss::engine::render_resource_ref next_version;
-  check(gneiss::test_support::take_value(candidate_render.find_loaded(requests.back()),
-                                         next_version) == gneiss::engine::error::success);
+  check(gneiss::test_support::take_value(candidate_render.find(requests.back()), next_version) ==
+        gneiss::engine::error::success);
   gneiss::engine::scene_node_info ordinary;
   gneiss::engine::scene_node_info prefab_node;
   check(gneiss::test_support::take_value(candidate->scenes()->get_node_info(new_scene, 0U),
@@ -413,7 +413,7 @@ void run() {
   check(found_prefab_member);
   gneiss::engine::ref<const gneiss::engine::mesh> current_mesh;
   check(gneiss::test_support::take_value(
-            candidate_render.find_loaded<gneiss::engine::mesh>("asset://m.mesh"), current_mesh)
+            candidate_render.find<gneiss::engine::mesh>("asset://m.mesh"), current_mesh)
             .ok());
   const gneiss::engine::mesh_renderer expected{
       .mesh = current_mesh, .material = next_version.as<gneiss::engine::material>()};

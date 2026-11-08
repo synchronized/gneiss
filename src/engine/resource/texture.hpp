@@ -13,6 +13,7 @@
 #include <optional>
 
 namespace gneiss::engine {
+struct texture_data;
 namespace detail {
 struct texture_resource_access;
 }
@@ -24,21 +25,25 @@ struct texture_metadata {
   texture_color_space color_space{};
 };
 
-/** 稳定运行身份，与 texture_data 的 CPU 内容寿命分离。由资源工厂创建并延迟析构。 */
+/** 稳定运行身份，与 texture_data 的 CPU 内容寿命分离。CPU 对象随最后强引用释放，只有后端 RID
+ * 延迟回收。 */
 class texture final : public asset {
 public:
   GNEISS_API ~texture();
-  /** 所属线程查询轻量信息；未加载时为空，不持有 CPU 数组。 */
+  /** 所属线程查询轻量信息；未加载时为空，内容保留不可变 CPU 快照。 */
   [[nodiscard]] const std::optional<texture_metadata>& metadata() const noexcept {
     return metadata_;
   }
+  [[nodiscard]] ref<const texture_data> snapshot() const noexcept { return content_; }
   texture(const texture&) = delete;
   texture& operator=(const texture&) = delete;
 
 private:
   friend struct detail::texture_resource_access;
   GNEISS_API texture(rid value) noexcept;
+  mutable ref<const texture_data> content_;
   rid rid_;
+  std::shared_ptr<void> retirement_token_;
   mutable std::optional<texture_metadata> metadata_;
 };
 

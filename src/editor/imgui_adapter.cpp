@@ -235,7 +235,7 @@ gneiss::engine::error imgui_adapter::initialize(runtime::application& applicatio
   texture_desc.height = static_cast<std::uint32_t>(atlas_height);
   texture_desc.row_stride_bytes = texture_desc.width * 4U;
   texture_desc.pixels = premultiplied;
-  auto created = application.assets().create_texture(texture_desc);
+  auto created = application.assets().create(texture_desc);
   if (!created)
     return created.error();
   font_texture_ = std::move(*created);

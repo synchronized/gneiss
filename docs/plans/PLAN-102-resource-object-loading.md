@@ -5,9 +5,10 @@
 
 ## 状态
 
-2026-11-08：实现与删除条件已重新审计。五类资产、统一索引、Scene/Prefab 类型加载器与场景侧准备已落地；
-任意资产引用解析、依赖图环检测及完整验收仍有缺口，计划保持实施中。
-审计证据与保留项见[收尾审计](../records/2026-11-08-asset-boundary-audit.md)。归属 [DEV-052](DEV-052-architecture-cleanup.md)。
+2026-11-08：已由 [PLAN-107](PLAN-107-asset-model-loading-protocol.md) 承接并完成本轮实现收尾。
+五类资产、统一索引、依赖图与 CPU/后端生命周期边界以 PLAN-107 和当前 Reference 为准。
+早期缺口与保留项见[收尾审计](../records/2026-11-08-asset-boundary-audit.md)，保留为历史证据；
+完整跨平台/GPU 验收仍归 [DEV-052](DEV-052-architecture-cleanup.md)。
 架构决策见 [ADR-107](../decisions/ADR-107-resource-object-loading.md)。以下 API、格式和目录均为目标示意，不代表现有能力。
 
 ## 现状与目标

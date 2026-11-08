@@ -19,8 +19,6 @@ public:
   GNEISS_API ref<const engine::material> wrap_material(rid handle);
   GNEISS_API void update_mesh(rid handle, const mesh_data& data) noexcept;
   GNEISS_API void update_texture(rid handle, const texture_data& data) noexcept;
-  GNEISS_API void update_material(rid handle, const material_data& data,
-                                  std::array<ref<const engine::texture>, 5> dependencies) noexcept;
   GNEISS_API std::size_t drain() noexcept;
   bool closed_{};
   GNEISS_API void close() noexcept;

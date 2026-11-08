@@ -26,6 +26,8 @@ private:
 template <class T>
   requires std::derived_from<T, asset>
 [[nodiscard]] ref<const T> asset_cast(const ref<const asset>& value) noexcept {
+  if constexpr (std::is_same_v<T, asset>)
+    return value;
   return value && value->type() == runtime_type_of<T>()
              ? value.alias(static_cast<const T*>(value.get()))
              : ref<const T>{};

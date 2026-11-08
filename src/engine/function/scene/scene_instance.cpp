@@ -286,7 +286,7 @@ scene_instance_state::create_mesh_renderer_node(const mesh_renderer_node_creatio
     } else {
       result = engine::error::success;
       {
-        auto loaded = loader_.find_loaded<engine::mesh>(mesh_uri);
+        auto loaded = loader_.find<engine::mesh>(mesh_uri);
         if (loaded)
           target.mesh = std::move(*loaded);
         else {
@@ -297,7 +297,7 @@ scene_instance_state::create_mesh_renderer_node(const mesh_renderer_node_creatio
       if (result == engine::error::success) {
         result = engine::error::success;
         {
-          auto loaded = loader_.find_loaded<engine::material>(material_uri);
+          auto loaded = loader_.find<engine::material>(material_uri);
           if (loaded)
             target.material = std::move(*loaded);
           else {
@@ -348,7 +348,7 @@ engine::error scene_instance_state::set_mesh_renderer(scene_node_id node, std::s
     if (!mesh && !mesh_uri.empty()) {
       result = engine::error::success;
       {
-        auto loaded = loader_.find_loaded<engine::mesh>(mesh_uri);
+        auto loaded = loader_.find<engine::mesh>(mesh_uri);
         if (loaded)
           mesh = std::move(*loaded);
         else {
@@ -360,7 +360,7 @@ engine::error scene_instance_state::set_mesh_renderer(scene_node_id node, std::s
     if (result == engine::error::success && !material && !material_uri.empty()) {
       result = engine::error::success;
       {
-        auto loaded = loader_.find_loaded<engine::material>(material_uri);
+        auto loaded = loader_.find<engine::material>(material_uri);
         if (loaded)
           material = std::move(*loaded);
         else {

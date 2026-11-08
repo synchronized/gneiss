@@ -33,8 +33,8 @@ foreach(source IN LISTS sources)
   endif()
 
   if(content MATCHES "engine/resource/scene/detail/scene_asset_access[.]hpp" AND
-      NOT source MATCHES "/src/engine/function/asset/loaders/scene_loader[.]cpp$")
-    message(FATAL_ERROR "场景资产私有访问器仅供类型加载器使用：${source}")
+      NOT source MATCHES "/src/engine/function/asset/(loaders/scene_loader|asset_manager)[.]cpp$")
+    message(FATAL_ERROR "场景资产私有访问器仅供类型加载器与资产管理器匿名创建使用：${source}")
   endif()
 
   if(content MATCHES "engine/function/asset/detail/" AND

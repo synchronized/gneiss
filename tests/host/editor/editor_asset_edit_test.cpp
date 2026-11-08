@@ -244,7 +244,7 @@ void run(gneiss::engine::execution_mode mode) {
         history.size() == creation_count);
   gneiss::engine::render_resource_ref unused;
   check(gneiss::test_support::take_value(
-            app->assets().find_loaded(
+            app->assets().find(
                 {.uri = "asset://c.json", .type = gneiss::engine::render_resource_kind::material},
                 app->assets().profile()),
             unused) == gneiss::engine::error::not_found &&
@@ -267,7 +267,7 @@ void run(gneiss::engine::execution_mode mode) {
         session.scene_handle() == new_scene &&
         gneiss::test_support::scene_query(session).nodes.empty() && history.size() == 0U);
   check(gneiss::test_support::take_value(
-            app->assets().find_loaded(
+            app->assets().find(
                 {.uri = "asset://d.json", .type = gneiss::engine::render_resource_kind::material},
                 app->assets().profile()),
             unused) == gneiss::engine::error::not_found);
@@ -431,7 +431,7 @@ void prefab_edits(engine::execution_mode mode) {
   editor::prefab_header_snapshot frozen_source{captured_author, captured_source,
                                                captured->resources.at(uuid(5)).source_asset};
   // 冻结前发生独立来源重载，仍必须采用捕获时的固定描述。
-  auto reloading = app->assets().load<e::prefab>("asset://prefab.json", true);
+  auto reloading = app->assets().reload<e::prefab>("asset://prefab.json");
   check(bool(reloading));
   const auto reload_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (reloading->status() == e::error::not_ready) {

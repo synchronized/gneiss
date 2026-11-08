@@ -106,17 +106,18 @@ bool prepared_description_contract() {
   auto edited = *original;
   edited.objects[0].transform.translation[0] = 37.0F;
   auto local = assets.create(std::move(edited));
-  if (!local || (*local)->objects[0].transform.translation[0] != 37.0F)
+  if (!local || (*local)->snapshot()->objects[0].transform.translation[0] != 37.0F)
     return false;
   // 编辑快照不进入 URI 缓存，不覆盖文件资产，也不修改旧快照。
-  if (assets.store<prefab_description>(uri, std::make_shared<const prefab_description>(**local))
+  if (assets.store<prefab_description>(
+                uri, std::make_shared<const prefab_description>(*(*local)->snapshot()))
               .error() != error::unsupported ||
-      assets.find_loaded<prefab_description>(uri).error() != error::unsupported ||
+      assets.find<prefab_description>(uri).error() != error::unsupported ||
       assets.store<scene_description>(uri, std::make_shared<const scene_description>()).error() !=
           error::unsupported ||
-      assets.find_loaded<scene_description>(uri).error() != error::unsupported)
+      assets.find<scene_description>(uri).error() != error::unsupported)
     return false;
-  auto cached = assets.find_loaded<prefab>(uri);
+  auto cached = assets.find<prefab>(uri);
   if (!cached || cached->get() != loaded.get() || backend->read_count != 1U ||
       assets.cached_count() != 1U || original->objects[0].transform.translation[0] != 1.0F)
     return false;

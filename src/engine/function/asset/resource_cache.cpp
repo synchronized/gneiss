@@ -26,7 +26,8 @@ resource_cache::load(std::string_view uri, type_id type, const loader& decode,
     return error::invalid_state;
   auto existing = record->cached ? record->cached->lock() : std::shared_ptr<const asset>{};
   if (existing && !reload)
-    return detail::cached_asset{type, std::move(existing), record->metrics, record->source_bytes};
+    return detail::cached_asset{type, std::move(existing), record->metrics, record->source_bytes,
+                                record->ready};
   struct construction_guard {
     bool& active;
     explicit construction_guard(bool& value) : active(value) { active = true; }
@@ -43,7 +44,10 @@ resource_cache::load(std::string_view uri, type_id type, const loader& decode,
   detail::cached_asset value{type, std::move(*decoded), metrics, source_bytes};
   record->metrics = std::move(metrics);
   record->source_bytes = source_bytes;
+  if (existing != value.resource)
+    record->owned_dependencies.clear();
   record->cached = value.resource;
+  record->ready = true;
   return value;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
@@ -99,6 +103,7 @@ resource_cache::lookup(std::string_view uri, type_id type,
   auto value = record.cached->lock();
   if (!value)
     return std::nullopt;
-  return detail::cached_asset{type, std::move(value), record.metrics, record.source_bytes};
+  return detail::cached_asset{type, std::move(value), record.metrics, record.source_bytes,
+                              record.ready};
 }
 } // namespace gneiss::engine
