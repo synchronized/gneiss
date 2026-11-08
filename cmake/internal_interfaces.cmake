@@ -147,6 +147,8 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/scene/component_adapter.hpp
   engine/function/world/scene_instance.hpp
   engine/function/scene/scene_instances.hpp
+  engine/function/scene/scene_composition.hpp
+  engine/resource/scene/object_address.hpp
   engine/function/scene/scene_preparation.hpp
   engine/function/scene/scene_query.hpp
   engine/function/world/game_object.hpp

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
+#include "engine/function/scene/scene_composition.hpp"
 #include "engine/function/scene/scene_instance_state.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
@@ -79,10 +80,19 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
       const auto found = assets.find(uri);
       return found == assets.end() ? engine::render_resource_ref{} : found->second;
     };
+    std::map<std::string, const prefab_description*, std::less<>> sources;
     for (const auto& [uri, source] : prepared.prefabs) {
       if (!source.resource)
         return error::invalid_argument;
+      sources.emplace(uri, source.resource.get());
     }
+    auto composed = compose_scene(prepared.description, sources);
+    if (!composed)
+      return composed.error();
+    std::map<object_address, const composed_object*> effective;
+    for (const auto& object : composed->objects)
+      if (!effective.emplace(object.address, &object).second)
+        return error::invalid_argument;
     scene_instantiation_result receipt;
     receipt.objects.reserve(prepared.instance_nodes);
     auto instance = std::make_unique<scene_instance_state>(native_world_, loader_);
@@ -105,10 +115,6 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
         continue;
       }
       const auto lease = prepared.prefabs.at(source.prefab->uri).resource;
-      auto replayed = replay_prefab_reference(*lease, *source.prefab);
-      if (!replayed)
-        return replayed.error();
-      const auto& effective = replayed->description;
       auto prefab =
           std::make_unique<prefab_binding>(native_world_, loader_, lease, source.uuid,
                                            prepared.prefabs.at(source.prefab->uri).source_asset);
@@ -124,7 +130,8 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
       std::unordered_map<guid, scene_node_id, guid_hash> prefab_nodes;
       prefab_nodes.reserve(lease.get()->objects.size());
       for (const auto node_index : prepared.prefabs.at(source.prefab->uri).parent_first) {
-        const auto& node = effective.objects.at(node_index);
+        const auto source_id = lease->objects.at(node_index).uuid;
+        const auto& node = effective.at({source.uuid, source_id})->effective;
         const auto renderer = prepared_component_renderer(node.components, find_asset);
         result = prefab->create_node(
             node_index, node, node.parent_uuid ? prefab_nodes.at(node.parent_uuid) : prefab->root(),

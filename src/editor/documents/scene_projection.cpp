@@ -7,12 +7,12 @@
 namespace gneiss::editor {
 engine::error
 scene_projection::reset(std::span<const engine::scene_object_binding> objects) noexcept try {
-  std::map<document_object_address, object_binding> next;
+  std::map<engine::object_address, object_binding> next;
   std::set<std::uint64_t> entities;
   for (const auto& object : objects) {
     if (!object.object || !object.node || object.entity.get() != object.node.get() ||
         !entities.insert(object.entity.get()).second ||
-        !next.emplace(document_object_address{object.object, object.source},
+        !next.emplace(engine::object_address{object.object, object.source},
                       object_binding{object.node, object.entity})
              .second)
       return engine::error::invalid_argument;
@@ -30,7 +30,7 @@ bool same_transform(const engine::math::transform& a, const engine::math::transf
 }
 engine::result<bool>
 update_objects(engine::world& world, engine::scene_instances& scenes, scene_instance_id scene,
-               std::map<document_object_address, scene_projection::object_binding>& associations,
+               std::map<engine::object_address, scene_projection::object_binding>& associations,
                const scene_document_snapshot& before, const scene_document_snapshot& target,
                bool prepare_editor) {
   if (before.content.get().uuid != target.content.get().uuid)
@@ -41,10 +41,10 @@ update_objects(engine::world& world, engine::scene_instances& scenes, scene_inst
     return previous.error();
   if (!next)
     return next.error();
-  std::map<document_object_address, const composed_document_object*> old;
+  std::map<engine::object_address, const engine::composed_object*> old;
   for (const auto& object : previous->objects)
     old.emplace(object.address, &object);
-  std::map<document_object_address, const composed_document_object*> desired;
+  std::map<engine::object_address, const engine::composed_object*> desired;
   for (const auto& object : next->objects)
     desired.emplace(object.address, &object);
   for (const auto& object : next->objects)
@@ -54,7 +54,7 @@ update_objects(engine::world& world, engine::scene_instances& scenes, scene_inst
     scene_node_id node;
     engine::math::transform local_transform;
   };
-  std::map<document_object_address, projected_object> nodes;
+  std::map<engine::object_address, projected_object> nodes;
   auto count = scenes.get_node_count(scene);
   if (!count)
     return count.error();
@@ -82,7 +82,7 @@ update_objects(engine::world& world, engine::scene_instances& scenes, scene_inst
       return false;
   }
   struct component_update {
-    document_object_address address;
+    engine::object_address address;
     engine::guid type;
     engine::component_description value;
     bool remove{}, add{};
@@ -123,7 +123,7 @@ update_objects(engine::world& world, engine::scene_instances& scenes, scene_inst
       return status;
   }
   // 只销毁消失对象，从叶到根处理；其余实体保持原身份。
-  std::vector<std::pair<std::size_t, document_object_address>> removed;
+  std::vector<std::pair<std::size_t, engine::object_address>> removed;
   for (const auto& object : previous->objects) {
     if (desired.contains(object.address))
       continue;

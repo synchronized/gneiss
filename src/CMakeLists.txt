@@ -231,6 +231,9 @@ target_sources(
     engine/function/scene/scene_object.hpp
     engine/function/world/world_hierarchy.hpp
     engine/function/scene/scene_instances_instantiation.cpp
+    engine/function/scene/scene_composition.cpp
+    engine/function/scene/scene_composition.hpp
+    engine/resource/scene/object_address.hpp
     engine/function/scene/scene_preparation.cpp
     engine/function/scene/scene_preparation.hpp
     engine/function/scene/scene_subtree_snapshot.hpp

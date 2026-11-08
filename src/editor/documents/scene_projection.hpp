@@ -14,13 +14,13 @@ public:
   };
   /** 只接收实例化回执；不从运行对象反推来源。 */
   engine::error reset(std::span<const engine::scene_object_binding>) noexcept;
-  void replace(std::map<document_object_address, object_binding> objects) noexcept {
+  void replace(std::map<engine::object_address, object_binding> objects) noexcept {
     objects_.swap(objects);
   }
-  const std::map<document_object_address, object_binding>& objects() const noexcept {
+  const std::map<engine::object_address, object_binding>& objects() const noexcept {
     return objects_;
   }
-  std::optional<document_object_address> address(scene_node_id node) const noexcept {
+  std::optional<engine::object_address> address(scene_node_id node) const noexcept {
     for (const auto& [address, binding] : objects_)
       if (binding.node == node)
         return address;
@@ -45,7 +45,7 @@ public:
   }
 
 private:
-  std::map<document_object_address, object_binding> objects_;
+  std::map<engine::object_address, object_binding> objects_;
   scene_document::revision attempted_, applied_;
   engine::error status_{engine::error::not_ready};
 };

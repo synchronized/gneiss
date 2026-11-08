@@ -412,7 +412,7 @@ scene_edit_session::locate(scene_node_id node) const noexcept try {
   if (!composed)
     return composed.error();
   const auto address = *identity;
-  auto found = std::ranges::find(composed->objects, address, &composed_document_object::address);
+  auto found = std::ranges::find(composed->objects, address, &engine::composed_object::address);
   if (found == composed->objects.end())
     return engine::error::not_found;
   return edit_target{address.object, address.source, std::move(found->effective)};

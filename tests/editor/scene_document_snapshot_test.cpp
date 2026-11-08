@@ -101,7 +101,7 @@ int main() {
     const auto& first_child = composed->objects[1];
     const auto& next_root = composed->objects[2];
     const auto& next_child = composed->objects[3];
-    if (first.address != ed::document_object_address{instance.uuid, root.uuid} ||
+    if (first.address != e::object_address{instance.uuid, root.uuid} ||
         first.effective.name != "first" || first.effective.transform.translation.x != 5 ||
         first.source_transform.translation.x != 0 || !first.instance_root ||
         first_child.parent != first.address || first_child.effective.transform.translation.x != 2 ||
@@ -112,6 +112,28 @@ int main() {
         first.effective.components.identity(e::camera_description::type_guid) !=
             root.components.identity(e::camera_description::type_guid))
       return 74;
+    // Runtime 和编辑器共享组合规则；缺失/空来源都必须在创建 World 对象前失败。
+    std::map<std::string, const e::prefab_description*, std::less<>> sources;
+    auto missing_source = e::compose_scene(*document, sources);
+    if (missing_source || missing_source.error() != e::error::not_found)
+      return 100;
+    sources.emplace(instance.prefab->uri, nullptr);
+    auto null_source = e::compose_scene(*document, sources);
+    if (null_source || null_source.error() != e::error::not_found)
+      return 101;
+    sources.at(instance.prefab->uri) = &*prefab_source;
+    auto shared = e::compose_scene(*document, sources);
+    if (!shared || shared->objects.size() != composed->objects.size() ||
+        shared->conflicts.at(instance.uuid).size() != 1)
+      return 102;
+    for (std::size_t i = 0; i < shared->objects.size(); ++i) {
+      const auto& actual = shared->objects[i];
+      const auto& expected = composed->objects[i];
+      if (actual.address != expected.address || actual.parent != expected.parent ||
+          actual.effective.name != expected.effective.name ||
+          actual.effective.transform.translation != expected.effective.transform.translation)
+        return 103;
+    }
     local.prefabs.clear();
     auto missing = ed::compose_scene_document(local);
     if (missing || missing.error() != e::error::not_found)
