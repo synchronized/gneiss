@@ -4,11 +4,23 @@
 #include "commands/author_document_change.hpp"
 #include "engine/function/scene/prefab_replay.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
+#include "engine/function/scene/scene_subtree_snapshot.hpp"
 #include "engine/resource/scene/scene_record.hpp"
 #include <map>
 #include <span>
 #include <string>
 namespace gneiss::editor {
+/** 捕获的对象描述和固定 Prefab 来源；不读取资产当前修订。 */
+struct prefab_header_snapshot {
+  engine::game_object_description author;
+  engine::prefab_asset_ref source;
+  engine::ref<const engine::prefab> source_asset;
+};
+/** 冻结 Prefab 文档快照；只使用显式输入资源，不访问 World、文件或资产缓存。 */
+[[nodiscard]] engine::result<engine::scene_subtree_snapshot> freeze_prefab_snapshot(
+    prefab_header_snapshot source,
+    const std::map<std::string, engine::render_resource_ref, std::less<>>& assets) noexcept;
+
 /** 历史冻结来源内容；资产强引用仅负责保活，不用于重新获取当前修订。 */
 struct prefab_document_snapshot {
   engine::prefab_record content;

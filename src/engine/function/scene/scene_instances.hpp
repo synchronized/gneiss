@@ -38,13 +38,6 @@ struct prefab_component_state {
   guid component_uuid{};
 };
 class scene_instance;
-/** Prefab 来源描述与强引用的成组快照。 */
-struct prefab_header_snapshot {
-  game_object_description author;
-  prefab_asset_ref source;
-  ref<const engine::prefab> source_asset{};
-};
-
 /** 已创建的场景及其视觉加载清单；资源身份已预留，内容加载由调用方调度。 */
 struct scene_instantiation_result {
   scene_instance_id instance;

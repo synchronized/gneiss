@@ -8,13 +8,11 @@
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "runtime/application.hpp"
-#include "runtime/loading/prefab_placement.hpp"
 #include <algorithm>
 
 namespace gneiss::editor {
 namespace {
 using engine::scene_subtree_snapshot;
-using runtime::prefab_placement;
 using prefab_snapshots = std::vector<std::shared_ptr<const scene_subtree_snapshot>>;
 engine::error capture_document_prefab(scene_edit_session& document, engine::guid uuid,
                                       std::shared_ptr<scene_subtree_snapshot>& output) {
@@ -36,7 +34,7 @@ struct editor_prefab_edit::state {
   scene_edit_session* session{};
   editor_command_history* history{};
   engine::asset_request<engine::prefab> preparation;
-  engine::prefab_header_snapshot source;
+  prefab_header_snapshot source;
   std::vector<gneiss::engine::render_resource_ref> assets;
   scene_edit_session::version base;
   std::shared_ptr<scene_subtree_snapshot> captured;
@@ -67,6 +65,15 @@ struct editor_prefab_edit::state {
     assets.clear();
   }
 
+  engine::result<scene_subtree_snapshot> freeze(prefab_header_snapshot source) const {
+    if (!base)
+      return engine::error::invalid_state;
+    auto retained = base.content().assets;
+    for (const auto& asset : assets)
+      retained.insert_or_assign(std::string(engine::resource_uri(asset)), asset);
+    return freeze_prefab_snapshot(std::move(source), retained);
+  }
+
   void prepare_refresh() {
 
     if (before.size() < refresh_targets.size()) {
@@ -79,7 +86,6 @@ struct editor_prefab_edit::state {
       return;
     }
     if (after.size() < before.size()) {
-      std::shared_ptr<const scene_subtree_snapshot> snapshot;
       auto refreshed = source;
       auto description = before[after.size()]->description();
       if (!description) {
@@ -95,13 +101,14 @@ struct editor_prefab_edit::state {
         return;
       }
       refreshed.author = *author;
-      status = prefab_placement::freeze(application, std::move(refreshed), assets, snapshot);
-      if (status.failed()) {
+      auto snapshot = freeze(std::move(refreshed));
+      if (!snapshot) {
+        status = snapshot.error();
         finish();
         return;
       }
       // 刷新只更换模板来源，自有子对象由现有实例化入口保留。
-      auto adjusted = std::make_shared<scene_subtree_snapshot>(*snapshot);
+      auto adjusted = std::make_shared<scene_subtree_snapshot>(std::move(*snapshot));
       adjusted->parent_uuid = before[after.size()]->parent_uuid;
       after.push_back(std::move(adjusted));
       return;
@@ -382,8 +389,11 @@ void editor_prefab_edit::advance() {
       value.status = capture_document_prefab(*value.session, value.target_uuid, value.captured);
       snapshot = value.captured;
     } else {
-      value.status = prefab_placement::freeze(value.application, std::move(value.source),
-                                              std::move(value.assets), snapshot);
+      auto frozen = value.freeze(std::move(value.source));
+      if (!frozen)
+        value.status = frozen.error();
+      else
+        snapshot = std::make_shared<scene_subtree_snapshot>(std::move(*frozen));
     }
     if (value.status.ok()) {
       value.status = value.history->prepare_record();

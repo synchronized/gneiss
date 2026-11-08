@@ -37,3 +37,21 @@
 
 默认 Windows Clang Debug 构建及 84 项相关回归通过；git diff --check 通过。
 未运行 GPU 大场景或远端 CI。reference_、运行子树作者捕获及来源重载仍待后续迁移，计划未完成。
+
+## 后续：Prefab 冻结回到编辑文档层
+
+删除 Runtime prefab_placement；其 capture 无生产调用方，apply 仅保留在旧测试中。
+冻结逻辑收敛为 editor::freeze_prefab_snapshot，prefab_header_snapshot 一并迁入编辑文档层。
+输入为固定来源描述和显式资源映射，输出值结果；不访问 Application、World 或资产缓存。
+异步编辑命令从原文档版本保活资源与本次加载结果组装临时映射，缺少引用返回 not_ready。
+
+新增“缓存已加载但显式输入缺失仍失败”检查。测试继续验证独立来源重载不会改变冻结内容，
+冻结不发布文档版本，后续撤销仍操作原编辑历史。原测试曾在历史之外直接替换运行实例，
+本次删除该过时路径；文档应用仍由 Prefab 编辑、来源刷新与投影测试验证。
+
+当前未完成边界仍是运行 Prefab reference_、文档地址到对象的独立关联与场景成员拥有权，
+未将本次删除辅助入口等同于整个计划完成。
+
+本组验证：默认 Windows Clang Debug 构建通过；84 项相关回归中 83 项直接通过，
+资产编辑用例修正只读冻结边界后单独复跑通过。格式检查及 git diff --check 通过；
+未运行 GPU 大场景、远端 CI 或发布。

@@ -41,6 +41,8 @@ World 必须比所有句柄的使用期更长；World 销毁后禁止再调用�
 
 identity、local_transform、world_transform 和 parent 返回值或结果；set_identity、
 set_local_transform、reparent 和 destroy 修改 World 中的同一实体。
+identity 返回的名称是借用视图；节点删除、身份修改或 World 结构变化后须重新查询，
+不能假设其他对象增删不会移动 ECS 组件。
 根节点的 parent 返回成功的空句柄。reparent 接受空父节点、拒绝跨 World 和循环关系。
 重复指定同一父节点是无副作用操作。destroy 删除整棵子树，复制的借用句柄同步失效。
 场景创建已使用该入口；旧 node_* 调用方仍在迁移中。

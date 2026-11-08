@@ -414,8 +414,9 @@ Scene/Prefab 描述的 `load/store/find_loaded` 和对应 Decoder 注册返回 `
 `create(description)` 仍可用；编辑快照由调用方持有，不覆盖文件资产内容。
 
 
-Prefab 插入/刷新期间，编辑器使用 `prefab_header_snapshot` 成组保存实例属性、固定来源描述和
-Prefab 资产身份。`prefab_placement::freeze` 消费此快照，不接受带排序/深度的准备数据，
-也不重新调用资产的 `snapshot()`。结构校验与视觉清单收集结果只在加载完成时临时使用，
+Prefab 插入/刷新期间，编辑器使用 `editor::prefab_header_snapshot` 成组保存实例属性、固定来源描述和
+Prefab 资产身份。`editor::freeze_prefab_snapshot` 消费此快照及显式资源映射，不接受带排序/深度的准备数据，
+也不重新调用资产的 `snapshot()`，不从资产缓存隐式补全缺失引用。资源映射由本次加载结果与
+编辑基线保活的资源组成；缺失依赖返回 not_ready。结构校验与视觉清单收集结果只在加载完成时临时使用，
 编辑操作不再长期保存整份 `scene_instantiation_data`。即使等待视觉加载期间发生独立来源重载，
 本次冻结仍使用原描述；撤销历史保留自身的描述和视觉资源强引用。

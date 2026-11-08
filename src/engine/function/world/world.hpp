@@ -61,7 +61,7 @@ public:
   [[nodiscard]] GNEISS_API error object_destroy(scene_node_id node) noexcept;
   [[nodiscard]] GNEISS_API error node_set_identity(scene_node_id node,
                                                    scene_node_identity identity) noexcept;
-  /** 借用名称与身份，仅在节点存活且元数据未修改期间有效。 */
+  /** 借用名称与身份；节点删除、身份修改或 World 结构变化后须重新查询。 */
   [[nodiscard]] GNEISS_API result<scene_node_identity_view>
   node_identity(scene_node_id node) const noexcept;
   [[nodiscard]] GNEISS_API result<scene_node_id> entity_node(entity_id entity) const noexcept;

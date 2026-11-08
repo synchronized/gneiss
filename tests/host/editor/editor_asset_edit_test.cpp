@@ -4,6 +4,7 @@
 #include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
 #include "commands/editor_asset_edit.hpp"
+#include "documents/scene_document_snapshot.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/rid.hpp"
@@ -12,7 +13,6 @@
 #include "engine/function/world/world.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
-#include "runtime/loading/prefab_placement.hpp"
 #include "runtime/loading/scene_service.hpp"
 #include <algorithm>
 #include <cstdio>
@@ -427,9 +427,8 @@ void prefab_edits(engine::execution_mode mode) {
   check(captured_source->objects[1].components.get<e::mesh_renderer_description>()->material_uri ==
         "asset://a.json");
   // 来源刷新快照必须持有覆盖资源，撤销/重做不依赖文件或弱缓存。
-  std::shared_ptr<const e::scene_subtree_snapshot> frozen;
-  e::prefab_header_snapshot frozen_source{captured_author, captured_source,
-                                          captured->resources.at(uuid(5)).source_asset};
+  editor::prefab_header_snapshot frozen_source{captured_author, captured_source,
+                                               captured->resources.at(uuid(5)).source_asset};
   // 冻结前发生独立来源重载，仍必须采用捕获时的固定描述。
   auto reloading = app->assets().load<e::prefab>("asset://prefab.json", true);
   check(bool(reloading));
@@ -444,17 +443,14 @@ void prefab_edits(engine::execution_mode mode) {
   auto reloaded = reloading->take();
   check(bool(reloaded) && (*reloaded)->snapshot() != captured_source);
   check(frozen_source.source_asset == *reloaded);
-  check(runtime::prefab_placement::freeze(*app, frozen_source, {}, frozen).ok());
+  auto frozen =
+      editor::freeze_prefab_snapshot(frozen_source, document.current_version().content().assets);
+  check(frozen.has_value());
   check(frozen->resources.at(uuid(5)).prefab_content ==
         captured->resources.at(uuid(5)).prefab_content);
   check(frozen->resources.at(uuid(5)).source_asset == frozen_source.source_asset);
   check(frozen->resources.at(uuid(5)).source_nodes[1].material == changed.material);
-  scene_node_id replaced;
-  check(runtime::prefab_placement::apply(*app, document.scene_handle(), *frozen, false, true,
-                                         replaced)
-            .ok());
-  // 测试直接替换了运行实例；必须显式重投影，不能继续使用旧的编辑映射。
-  check(document.synchronize().ok());
+  // 冻结是只读操作，不创建文档版本或绕过历史；随后撤销仍命中原编辑命令。
   check(document.validate_selection().ok());
   check(binding(child).material == changed.material);
   check(history.undo().ok() && binding(root).material == before.material);

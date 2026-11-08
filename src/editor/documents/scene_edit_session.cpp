@@ -1361,7 +1361,7 @@ scene_edit_session::capture_subtree(scene_node_id node) const noexcept try {
 } catch (...) {
   return engine::error::internal;
 }
-engine::result<engine::prefab_header_snapshot>
+engine::result<prefab_header_snapshot>
 scene_edit_session::capture_prefab_header(engine::guid uuid) const noexcept try {
   auto snapshot = capture_content();
   if (!snapshot)
@@ -1377,7 +1377,7 @@ scene_edit_session::capture_prefab_header(engine::guid uuid) const noexcept try 
   auto source = engine::restore_prefab_record(frozen.content);
   if (!source)
     return source.error();
-  return engine::prefab_header_snapshot{
+  return prefab_header_snapshot{
       *object, engine::make_ref<const engine::prefab_description>(std::move(*source)),
       frozen.source_asset};
 } catch (const std::bad_alloc&) {

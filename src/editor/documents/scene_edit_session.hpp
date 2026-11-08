@@ -235,7 +235,7 @@ public:
                                               const version& target) noexcept;
   [[nodiscard]] engine::result<scene_subtree_snapshot>
       capture_subtree(scene_node_id) const noexcept;
-  [[nodiscard]] engine::result<engine::prefab_header_snapshot>
+  [[nodiscard]] engine::result<prefab_header_snapshot>
       capture_prefab_header(engine::guid) const noexcept;
   [[nodiscard]] engine::error apply_prefab(const scene_subtree_snapshot&, bool removing,
                                            bool replacing) noexcept;

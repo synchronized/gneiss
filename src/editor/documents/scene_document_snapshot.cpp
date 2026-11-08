@@ -4,6 +4,67 @@
 #include "engine/resource/asset_file.hpp"
 #include <algorithm>
 namespace gneiss::editor {
+engine::result<engine::scene_subtree_snapshot> freeze_prefab_snapshot(
+    prefab_header_snapshot source,
+    const std::map<std::string, engine::render_resource_ref, std::less<>>& assets) noexcept try {
+  engine::scene_subtree_snapshot value;
+  auto author = std::move(source.author);
+  if (!source.source || !author.prefab)
+    return engine::error::invalid_argument;
+  // 来源冲突与实例化使用同一回放规则，资源取自成功应用后的有效描述。
+  auto replayed = engine::replay_prefab_reference(*source.source, *author.prefab);
+  if (!replayed)
+    return replayed.error();
+  const auto& effective = replayed->description;
+  auto status = engine::error::success;
+  value.root_uuid = author.uuid;
+  value.parent_uuid = author.parent_uuid;
+  author.parent_uuid = {};
+  engine::scene_description description;
+  description.uuid = author.uuid;
+  description.objects.push_back(std::move(author));
+  auto content = engine::capture_scene_record(description);
+  if (!content)
+    return content.error();
+  value.content = std::move(*content);
+  auto& binding = value.resources[value.root_uuid];
+  auto frozen_source = engine::capture_prefab_record(*source.source);
+  if (!frozen_source)
+    return frozen_source.error();
+  binding.prefab_content = std::move(*frozen_source);
+  binding.source_asset = std::move(source.source_asset);
+  binding.source_nodes.resize(source.source->objects.size());
+  const auto find = [&](std::string_view uri, engine::render_resource_kind type,
+                        engine::render_resource_ref& result) {
+    const auto found = assets.find(uri);
+    if (found == assets.end())
+      return engine::error::not_ready;
+    if (!found->second || engine::resource_kind(found->second) != type)
+      return engine::error::invalid_argument;
+    result = found->second;
+    return engine::error::success;
+  };
+  for (std::size_t i = 0; i < binding.source_nodes.size(); ++i) {
+    const auto* renderer = effective.objects[i].components.get<engine::mesh_renderer_description>();
+    if (!renderer)
+      continue;
+    engine::render_resource_ref mesh, material;
+    status = find(renderer->mesh_uri, engine::render_resource_kind::mesh, mesh);
+    if (status.failed())
+      return status;
+    status = find(renderer->material_uri, engine::render_resource_kind::material, material);
+    if (status.failed())
+      return status;
+    binding.source_nodes[i] = {engine::resource_cast<gneiss::engine::mesh>(mesh),
+                               engine::resource_cast<gneiss::engine::material>(material)};
+  }
+  return value;
+} catch (const std::bad_alloc&) {
+  return gneiss::engine::error::out_of_memory;
+} catch (...) {
+  return gneiss::engine::error::internal;
+}
+
 engine::result<scene_document_snapshot>
 make_scene_document_snapshot(std::string uri,
                              const engine::scene_instantiation_data& source) noexcept try {

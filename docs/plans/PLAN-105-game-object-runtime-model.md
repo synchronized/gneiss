@@ -17,7 +17,7 @@
 - 场景对象统一命名 game_object，明确区别于 meta::object。
 - World 拥有 ECS 实体、组件及场景成员；game_object 和 scene_instance 是非拥有访问句柄。
 - 场景树使用同一实体上的层级信息，删除独立节点槽位到实体的第二套生命周期。
-- 文档历史与投影算法解耦；本轮不要求精细增量投影，也不新增通用事务服务。
+- 文档历史与投影算法解耦；按 PLAN-106 保留增量同步，不新增通用事务服务。
 
 ## 当前问题
 
@@ -129,6 +129,7 @@ Prefab 来源查询、Apply/Revert、来源刷新从文档和组合结果获得�
 第三项仍待迁移，不将仍存在 reference_ 的运行绑定称为无 Prefab 状态。
 运行集合的 capture_prepared、capture_prefab_header、capture_prefab_binding 已删除，
 重复实例化改为复用调用方持有的输入；运行场景不再为这些捕获入口保活 Scene 源资产。
+Prefab 头快照和冻结迁入编辑文档层，删除 Runtime prefab_placement；冻结仅消费显式资源引用。
 子树恢复、capture_description 和来源重载仍依赖该记录，必须连同调用方迁移，不能简单移动字段。
 
 ### 4：统一运行存储
