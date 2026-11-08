@@ -12,8 +12,11 @@ public:
     scene_node_id node;
     entity_id entity;
   };
-  /** 仅在投影/接管场景后刷新实际关联；查询不读取运行时来源元数据。 */
-  engine::error refresh(engine::scene_instances&, scene_instance_id) noexcept;
+  /** 只接收实例化回执；不从运行对象反推来源。 */
+  engine::error reset(std::span<const engine::scene_object_binding>) noexcept;
+  void replace(std::map<document_object_address, object_binding> objects) noexcept {
+    objects_.swap(objects);
+  }
   const std::map<document_object_address, object_binding>& objects() const noexcept {
     return objects_;
   }
@@ -51,7 +54,7 @@ private:
  * 失败不表示目标已同步。
  */
 [[nodiscard]] engine::error project_scene_document(engine::world&, engine::scene_instances&,
-                                                   scene_instance_id,
+                                                   scene_instance_id, scene_projection&,
                                                    const scene_document_snapshot* baseline,
                                                    const scene_document_snapshot& target,
                                                    bool prepare_editor = true) noexcept;

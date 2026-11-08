@@ -11,9 +11,9 @@
 #include <unordered_map>
 
 namespace gneiss::engine {
-error scene_instances::replace_prepared(scene_instance_id instance,
-                                        scene_instantiation_data prepared,
-                                        const resource_bindings& assets) noexcept {
+result<scene_instantiation_result>
+scene_instances::replace_prepared(scene_instance_id instance, scene_instantiation_data prepared,
+                                  const resource_bindings& assets) noexcept {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
   if (!instances_.get(instance, resource_type::scene_instance))
@@ -23,9 +23,14 @@ error scene_instances::replace_prepared(scene_instance_id instance,
     return created.error();
   // 插入可能扩容 RID 表，必须重新获取槽位地址。
   auto* target = instances_.get(instance, resource_type::scene_instance);
-  auto* replacement = instances_.get(*created, resource_type::scene_instance);
+  auto* replacement = instances_.get(created->instance, resource_type::scene_instance);
   std::swap(*target, *replacement);
-  return unload(*created);
+  const auto retired = created->instance;
+  created->instance = instance;
+  const auto status = unload(retired);
+  if (status.failed())
+    return status;
+  return std::move(*created);
 }
 result<scene_instantiation_result, scene_diagnostic>
 scene_instances::instantiate(ref<const scene> source, std::size_t source_bytes) noexcept try {
@@ -45,12 +50,14 @@ scene_instances::instantiate(ref<const scene> source, std::size_t source_bytes) 
   }
   scene_instantiation_result output{.instance = {},
                                     .node_count = prepared->instance_nodes,
+                                    .objects = {},
                                     .assets = std::move(prepared->assets),
                                     .bindings = {}};
   auto instance = instantiate_prepared(std::move(*prepared), bindings);
   if (!instance)
     return scene_diagnostic{instance.error(), 0, {}, {}};
-  output.instance = *instance;
+  output.instance = instance->instance;
+  output.objects = std::move(instance->objects);
   output.bindings = std::move(bindings);
   return output;
 } catch (const std::bad_alloc&) {
@@ -59,9 +66,11 @@ scene_instances::instantiate(ref<const scene> source, std::size_t source_bytes) 
   return scene_diagnostic{error::internal, 0, {}, {}};
 }
 
-result<scene_instance_id>
+result<scene_instantiation_result>
 scene_instances::instantiate_prepared(scene_instantiation_data prepared,
                                       const resource_bindings& assets) noexcept {
+  if (!native_world_.is_owner_thread())
+    return error::invalid_state;
   if (!is_valid()) {
     return engine::error::invalid_argument;
   }
@@ -74,6 +83,8 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
       if (!source.resource)
         return error::invalid_argument;
     }
+    scene_instantiation_result receipt;
+    receipt.objects.reserve(prepared.instance_nodes);
     auto instance = std::make_unique<scene_instance_state>(native_world_, loader_);
     instance->initialize_staged(prepared.description.uuid, prepared.description.objects.size());
     std::unordered_map<guid, scene_node_id, guid_hash> nodes;
@@ -88,7 +99,9 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
         if (result != engine::error::success) {
           return result;
         }
-        nodes.emplace(source.uuid, instance->staged_node(index));
+        const auto node = instance->staged_node(index);
+        nodes.emplace(source.uuid, node);
+        receipt.objects.push_back({source.uuid, {}, node, entity_id{node.get()}});
         continue;
       }
       const auto lease = prepared.prefabs.at(source.prefab->uri).resource;
@@ -125,6 +138,7 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
           return result;
         }
         prefab_nodes.emplace(node.uuid, info.node);
+        receipt.objects.push_back({source.uuid, node.uuid, info.node, entity_id{info.node.get()}});
       }
       nodes.emplace(source.uuid, prefab->root());
       instance->append_staged_prefab(std::move(prefab), *source.prefab, index);
@@ -133,7 +147,9 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
     auto created = instances_.create(resource_type::scene_instance, std::move(instance));
     if (!created)
       return created.error();
-    return *created;
+    receipt.instance = *created;
+    receipt.node_count = receipt.objects.size();
+    return receipt;
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {

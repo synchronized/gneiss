@@ -108,7 +108,7 @@ int main() try {
   if (foreign != gneiss::engine::error::invalid_state || session.is_dirty())
     return 22;
   auto native = application;
-  if (session.adopt(*native, world, gneiss::scene_instance_id{}, {}) !=
+  if (session.adopt(*native, world, gneiss::scene_instance_id{}, {}, {}) !=
           gneiss::engine::error::invalid_argument ||
       session.scene_handle() != original_scene)
     return 23;

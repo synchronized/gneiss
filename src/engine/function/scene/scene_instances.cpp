@@ -5,6 +5,7 @@
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_instance_state.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <limits>
 #include <new>
@@ -55,7 +56,7 @@ std::uint16_t allocate_domain() noexcept {
 
 } // namespace
 
-result<scene_node_id> scene_instances::instantiate_prefab_ready(
+result<prefab_instantiation_result> scene_instances::instantiate_prefab_ready(
     scene_instance_id instance, const game_object_description& author, prefab_asset_ref prefab,
     std::span<const scene_mesh_binding> bindings, bool replacing,
     ref<const engine::prefab> source_asset, prefab_replacement mode) noexcept try {
@@ -64,8 +65,23 @@ result<scene_node_id> scene_instances::instantiate_prefab_ready(
   auto* slot = instances_.get(instance, resource_type::scene_instance);
   if (!slot || !*slot)
     return error::invalid_handle;
-  return (*slot)->instantiate_prefab_ready(author, std::move(prefab), bindings, replacing,
-                                           std::move(source_asset), mode);
+  prefab_instantiation_result receipt;
+  receipt.objects.reserve(prefab ? prefab->objects.size() : 0);
+  auto root = (*slot)->instantiate_prefab_ready(author, prefab, bindings, replacing,
+                                                std::move(source_asset), mode);
+  if (!root)
+    return root.error();
+  receipt.root = *root;
+  const auto& candidates = (*slot)->prefab_instances_;
+  const auto found = std::ranges::find_if(
+      candidates, [&](const auto& candidate) { return candidate->root() == *root; });
+  if (found == candidates.end())
+    return error::internal;
+  for (const auto& source : prefab->objects) {
+    const auto node = (*found)->find_node(source.uuid);
+    receipt.objects.push_back({author.uuid, source.uuid, node, entity_id{node.get()}});
+  }
+  return receipt;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {

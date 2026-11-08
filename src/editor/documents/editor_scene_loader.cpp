@@ -122,7 +122,8 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
       operation = initial.error();
     else {
       initial->assets = std::move(completion.bindings);
-      operation = editing.document().adopt(application, world, completion.scene, *initial);
+      operation = editing.document().adopt(application, world, completion.scene, *initial,
+                                           completion.objects);
     }
   }
   if (operation == gneiss::engine::error::success) {

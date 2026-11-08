@@ -111,10 +111,10 @@ public:
   scene_edit_session(scene_edit_session&& other) noexcept;
   scene_edit_session& operator=(scene_edit_session&& other) noexcept;
   /** 接收场景与本次加载的固定文档快照；成功后拥有句柄，不从 World 反推描述。所属线程调用。 */
-  [[nodiscard]] gneiss::engine::error adopt(runtime::application& application,
-                                            gneiss::engine::world* world,
-                                            gneiss::scene_instance_id scene,
-                                            const scene_document_snapshot& initial) noexcept;
+  [[nodiscard]] gneiss::engine::error
+  adopt(runtime::application& application, gneiss::engine::world* world,
+        gneiss::scene_instance_id scene, const scene_document_snapshot& initial,
+        std::span<const engine::scene_object_binding> objects) noexcept;
   [[nodiscard]] gneiss::engine::error create_empty(runtime::application& application,
                                                    gneiss::engine::world* world,
                                                    gneiss::engine::guid scene_uuid) noexcept;

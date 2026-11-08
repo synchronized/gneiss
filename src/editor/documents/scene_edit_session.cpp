@@ -176,22 +176,32 @@ scene_edit_session& scene_edit_session::operator=(scene_edit_session&& other) no
   return *this;
 }
 
-gneiss::engine::error scene_edit_session::adopt(runtime::application& application,
-                                                gneiss::engine::world* world,
-                                                gneiss::scene_instance_id scene,
-                                                const scene_document_snapshot& initial) noexcept {
+gneiss::engine::error
+scene_edit_session::adopt(runtime::application& application, gneiss::engine::world* world,
+                          gneiss::scene_instance_id scene, const scene_document_snapshot& initial,
+                          std::span<const engine::scene_object_binding> objects) noexcept {
   if (edit_base_ || !application.is_owner_thread() || !application.accepts_requests())
     return gneiss::engine::error::invalid_state;
   if (world != application.native_world() || initial.uri.empty() || !scene)
     return gneiss::engine::error::invalid_argument;
   try {
+    const auto count = application.scenes()->get_node_count(scene);
+    if (!count)
+      return count.error();
+    if (*count != objects.size())
+      return engine::error::invalid_argument;
+    for (const auto& binding : objects)
+      if (!world->object(binding.entity))
+        return engine::error::invalid_handle;
     scene_edit_session pending;
     pending.uri_ = initial.uri;
     pending.application_ = &application;
     pending.world_ = world;
     pending.scene_ = scene;
     pending.document_ = std::make_unique<scene_document>();
-    auto refreshed = pending.document_->reset(initial);
+    auto refreshed = pending.projection_.reset(objects);
+    if (refreshed.ok())
+      refreshed = pending.document_->reset(initial);
     if (refreshed.ok())
       refreshed = pending.report_projection(pending.document_->current(), engine::error::success);
     if (refreshed != gneiss::engine::error::success) {
@@ -287,7 +297,7 @@ engine::error scene_edit_session::accept_content(const scene_document_snapshot& 
   auto status = document_->accept(before, snapshot);
   if (status.failed())
     return status;
-  status = project_scene_document(*world_, *application_->scenes(), scene_,
+  status = project_scene_document(*world_, *application_->scenes(), scene_, projection_,
                                   synchronized ? &before.content() : nullptr, snapshot);
   (void)report_projection(document_->current(), status);
   if (selected) {
@@ -301,8 +311,8 @@ engine::error scene_edit_session::synchronize() noexcept try {
     return engine::error::invalid_state;
   const auto version = document_->current();
   auto selected = locate(selection_);
-  auto status =
-      project_scene_document(*world_, *application_->scenes(), scene_, nullptr, version.content());
+  auto status = project_scene_document(*world_, *application_->scenes(), scene_, projection_,
+                                       nullptr, version.content());
   if (status.ok()) {
     selection_ = {};
     if (selected) {
@@ -357,7 +367,7 @@ engine::error scene_edit_session::edit_content(
   status = document_->accept(before, prepared->snapshot);
   if (status.failed())
     return status;
-  auto projection = project_scene_document(*world_, *application_->scenes(), scene_,
+  auto projection = project_scene_document(*world_, *application_->scenes(), scene_, projection_,
                                            synchronized ? &before.content() : nullptr,
                                            document_->current().content(), false);
   if (projection.ok()) {
@@ -416,9 +426,7 @@ engine::error scene_edit_session::report_projection(const version& projected,
                                                     engine::error status) noexcept {
   if (!document_ || document_->current() != projected)
     return engine::error::invalid_state;
-  const auto refreshed = projection_.refresh(*application_->scenes(), scene_);
-  if (status.ok() && refreshed.failed())
-    status = refreshed;
+
   (void)projection_.report(document_->current(), projected, status);
   return status;
 }
@@ -1203,7 +1211,7 @@ engine::error scene_edit_session::restore_changes(const scene_document::revision
   auto status = document_->checkout(expected, target, next);
   if (status.failed())
     return status;
-  status = project_scene_document(*world_, *application_->scenes(), scene_,
+  status = project_scene_document(*world_, *application_->scenes(), scene_, projection_,
                                   synchronized ? &before.content() : nullptr, next);
   (void)report_projection(document_->current(), status);
   (void)validate_selection();
@@ -1223,8 +1231,8 @@ engine::error scene_edit_session::restore_version(const version& expected,
   if (status.failed())
     return status;
   if (synchronized) {
-    status = project_scene_document(*world_, *application_->scenes(), scene_, &expected.content(),
-                                    target.content());
+    status = project_scene_document(*world_, *application_->scenes(), scene_, projection_,
+                                    &expected.content(), target.content());
     (void)report_projection(target, status);
     (void)validate_selection();
   } else {

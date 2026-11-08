@@ -104,7 +104,10 @@ int main() try {
   check(e::register_scene_component(operations()) == e::error::invalid_state);
   auto created = scenes.instantiate_prepared(std::move(prepared), {});
   check(created.has_value());
-  auto instance = *created;
+  check(created->objects.size() == 2);
+  check(created->objects[0].object == first.uuid && !created->objects[0].source);
+  check(created->objects[0].entity.get() == created->objects[0].node.get());
+  auto instance = created->instance;
   auto borrowed = e::scene_instance::borrow(world, instance);
   check(borrowed && borrowed->is_valid());
   auto member_count = borrowed->size();

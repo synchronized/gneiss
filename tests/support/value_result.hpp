@@ -4,7 +4,18 @@
 #include "engine/core/result.hpp"
 #include "engine/core/serialization/binding.hpp"
 #include "engine/function/asset/asset_loading.hpp"
+#include "engine/function/scene/scene_instances.hpp"
 namespace gneiss::test_support {
+inline engine::error take_value(engine::result<engine::scene_instantiation_result> value,
+                                scene_instance_id& output) {
+  output = value ? value->instance : scene_instance_id{};
+  return value ? engine::error{engine::error::success} : value.error();
+}
+inline engine::error take_value(engine::result<engine::prefab_instantiation_result> value,
+                                scene_node_id& output) {
+  output = value ? value->root : scene_node_id{};
+  return value ? engine::error{engine::error::success} : value.error();
+}
 template <class T, class U>
   requires std::is_assignable_v<U&, T&&>
 engine::error take_value(engine::result<T> value, U& output) {

@@ -21,8 +21,8 @@ inline engine::error open_document(editor::scene_edit_session& document, runtime
   auto created = app.scenes()->instantiate_prepared(std::move(prepared), bindings);
   if (!created)
     return created.error();
-  const auto instance = *created;
-  status = document.adopt(app, world, instance, *initial);
+  const auto instance = created->instance;
+  status = document.adopt(app, world, instance, *initial, created->objects);
   if (status.failed())
     (void)app.scenes()->unload(instance);
   return status;

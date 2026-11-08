@@ -130,6 +130,7 @@ void scene_service::finish(gneiss::engine::error result, scene_load_phase phase,
   pending_->result.message = std::move(message);
   sample_budget(pending_->result.progress);
   auto completion = std::move(pending_->result);
+  completion.objects.clear();
   completion.bindings.clear();
   completion.content.reset();
   completion.source.reset();
@@ -225,6 +226,7 @@ void scene_service::advance_load_impl() {
     }
     value.result.source = *prepared;
     value.result.content = std::move(content);
+    value.result.objects = std::move(built->objects);
     value.result.bindings = std::move(built->bindings);
     value.result.scene = built->instance;
     value.requested = std::move(built->assets);

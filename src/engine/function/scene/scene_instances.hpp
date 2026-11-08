@@ -42,8 +42,13 @@ class scene_instance_state;
 struct scene_instantiation_result {
   scene_instance_id instance;
   std::size_t node_count{};
+  std::vector<scene_object_binding> objects;
   std::vector<render_resource_source> assets;
   std::map<std::string, render_resource_ref, std::less<>> bindings;
+};
+struct prefab_instantiation_result {
+  scene_node_id root;
+  std::vector<scene_object_binding> objects;
 };
 /** 显式重建用于丢弃运行状态；编辑投影保留相同来源节点。 */
 enum class prefab_replacement { recreate, preserve_nodes };
@@ -57,13 +62,13 @@ public:
   instantiate(ref<const scene> source, std::size_t source_bytes = 0) noexcept;
   /** 所属线程同步创建整个实例；只消费已准备描述和资源引用，不读取文件。
    * 失败回收已创建节点；调用期间不支持暂停或取消。 */
-  [[nodiscard]] GNEISS_API result<scene_instance_id>
+  [[nodiscard]] GNEISS_API result<scene_instantiation_result>
   instantiate_prepared(scene_instantiation_data prepared, const resource_bindings& assets) noexcept;
   /** 重建投影并保留实例句柄；成功后旧节点句柄失效，失败保留旧投影。 */
-  [[nodiscard]] GNEISS_API error replace_prepared(scene_instance_id, scene_instantiation_data,
-                                                  const resource_bindings&) noexcept;
+  [[nodiscard]] GNEISS_API result<scene_instantiation_result>
+  replace_prepared(scene_instance_id, scene_instantiation_data, const resource_bindings&) noexcept;
   /** 同步实例化；替换先移除旧实例，失败只清理本次新建节点，不恢复旧实例。 */
-  [[nodiscard]] GNEISS_API result<scene_node_id>
+  [[nodiscard]] GNEISS_API result<prefab_instantiation_result>
   instantiate_prefab_ready(scene_instance_id instance, const game_object_description& author,
                            prefab_asset_ref prefab, std::span<const scene_mesh_binding> bindings,
                            bool replacing, ref<const engine::prefab> source_asset = {},

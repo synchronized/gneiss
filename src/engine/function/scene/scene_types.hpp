@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/entity_id.hpp"
 #include "engine/core/guid.hpp"
 #include <compare>
 #include <cstdint>
@@ -44,6 +45,12 @@ inline constexpr std::uint64_t scene_subtree_max_nodes = 4096;
 }
 
 namespace gneiss::engine {
+/** 实例化回执中的来源关联；由调用方保存，不是运行对象属性。 */
+struct scene_object_binding {
+  guid object, source;
+  scene_node_id node;
+  entity_id entity;
+};
 struct scene_node_identity final {
   guid uuid;
   std::string name;

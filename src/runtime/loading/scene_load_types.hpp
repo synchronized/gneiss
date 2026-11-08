@@ -47,6 +47,7 @@ struct scene_load_completion {
   std::string message;
   gneiss::scene_instance_id scene{};
   /** 本次实例化的不可变输入与实际资源引用；回执消费后不由运行服务额外保活。 */
+  std::vector<engine::scene_object_binding> objects;
   engine::ref<const engine::scene> source;
   engine::ref<const engine::scene_content> content;
   std::map<std::string, engine::render_resource_ref, std::less<>> bindings;

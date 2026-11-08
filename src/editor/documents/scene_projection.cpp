@@ -5,44 +5,34 @@
 #include <algorithm>
 #include <set>
 namespace gneiss::editor {
-engine::error scene_projection::refresh(engine::scene_instances& scenes,
-                                        scene_instance_id scene) noexcept try {
+engine::error
+scene_projection::reset(std::span<const engine::scene_object_binding> objects) noexcept try {
   std::map<document_object_address, object_binding> next;
-  auto count = scenes.get_node_count(scene);
-  if (!count) {
-    objects_.clear();
-    return count.error();
-  }
-  for (std::uint64_t index = 0; index < *count; ++index) {
-    auto info = scenes.get_node_info(scene, index, engine::node_query_detail::identity);
-    if (!info) {
-      objects_.clear();
-      return info.error();
-    }
-    const auto address = info->prefab ? document_object_address{info->prefab->instance_uuid,
-                                                                info->prefab->source_node_uuid}
-                                      : document_object_address{info->uuid, {}};
-    if (!next.emplace(address, object_binding{info->node, info->entity}).second) {
-      objects_.clear();
-      return engine::error::invalid_state;
-    }
+  std::set<std::uint64_t> entities;
+  for (const auto& object : objects) {
+    if (!object.object || !object.node || object.entity.get() != object.node.get() ||
+        !entities.insert(object.entity.get()).second ||
+        !next.emplace(document_object_address{object.object, object.source},
+                      object_binding{object.node, object.entity})
+             .second)
+      return engine::error::invalid_argument;
   }
   objects_.swap(next);
   return engine::error::success;
 } catch (const std::bad_alloc&) {
-  objects_.clear();
   return engine::error::out_of_memory;
 } catch (...) {
-  objects_.clear();
   return engine::error::internal;
 }
 namespace {
 bool same_transform(const engine::math::transform& a, const engine::math::transform& b) {
   return a.translation == b.translation && a.rotation == b.rotation && a.scale == b.scale;
 }
-engine::result<bool> update_objects(engine::world& world, engine::scene_instances& scenes,
-                                    scene_instance_id scene, const scene_document_snapshot& before,
-                                    const scene_document_snapshot& target, bool prepare_editor) {
+engine::result<bool>
+update_objects(engine::world& world, engine::scene_instances& scenes, scene_instance_id scene,
+               std::map<document_object_address, scene_projection::object_binding>& associations,
+               const scene_document_snapshot& before, const scene_document_snapshot& target,
+               bool prepare_editor) {
   if (before.content.get().uuid != target.content.get().uuid)
     return false;
   auto previous = compose_scene_document(before);
@@ -93,6 +83,7 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
       return status;
     std::erase_if(previous->objects,
                   [&](const auto& object) { return removed.contains(object.address); });
+    std::erase_if(associations, [&](const auto& entry) { return removed.contains(entry.first); });
   }
   // 普通对象转为 Prefab 时，其旧角色先删除，自有子对象稍后连接到新根。
   for (const auto& root : next->objects) {
@@ -122,6 +113,7 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
     if (status.failed())
       return status;
     std::erase_if(previous->objects, [&](const auto& object) { return object.address == address; });
+    associations.erase(address);
   }
   // 混合子树先创建普通对象的空壳，Prefab 可以引用同次编辑新增的父节点。
   for (const auto& object : next->objects) {
@@ -134,6 +126,7 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
                                               .local_transform = object.effective.transform});
     if (!created)
       return created.error();
+    associations[object.address] = {*created, entity_id{created->get()}};
     auto baseline = object;
     baseline.parent = {};
     baseline.effective.components = {};
@@ -223,6 +216,11 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
         bindings, existing, frozen.source_asset, engine::prefab_replacement::preserve_nodes);
     if (!created)
       return created.error();
+    std::erase_if(associations, [&](const auto& entry) {
+      return entry.first.object == root.address.object && entry.first.source;
+    });
+    for (const auto& binding : created->objects)
+      associations[{binding.object, binding.source}] = {binding.node, binding.entity};
     if (existing) {
       std::erase_if(previous->objects, belongs);
       for (auto& object : previous->objects)
@@ -266,15 +264,21 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
   auto count = scenes.get_node_count(scene);
   if (!count)
     return count.error();
-  for (std::uint64_t i = 0; i < *count; ++i) {
-    auto info = scenes.get_node_info(scene, i, engine::node_query_detail::components);
-    if (!info)
-      return info.error();
-    auto address = info->prefab ? document_object_address{info->prefab->instance_uuid,
-                                                          info->prefab->source_node_uuid}
-                                : document_object_address{info->uuid, {}};
-    nodes.emplace(address, *info);
+  for (const auto& [address, binding] : associations) {
+    auto borrowed = world.object(binding.entity);
+    if (!borrowed)
+      return false;
+    auto transform = borrowed->local_transform();
+    if (!transform)
+      return transform.error();
+    engine::scene_node_info info;
+    info.node = binding.node;
+    info.entity = binding.entity;
+    info.local_transform = *transform;
+    nodes.emplace(address, std::move(info));
   }
+  if (nodes.size() != *count)
+    return false;
   // 所有目标及基线先检查，再开始更新；不把外部变更当作已同步状态。
   if (nodes.size() != old.size())
     return false;
@@ -346,6 +350,7 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
     if (status.failed())
       return status;
     nodes.erase(address);
+    associations.erase(address);
   }
   // 新对象先脱离层级创建，随后统一连接，描述排列不必父节点在前。
   for (const auto& object : next->objects) {
@@ -358,6 +363,7 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
       return created.error();
     engine::scene_node_info info;
     info.node = *created;
+    associations[object.address] = {*created, entity_id{created->get()}};
     nodes.emplace(object.address, std::move(info));
   }
   for (const auto& object : next->objects) {
@@ -420,16 +426,20 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
 }
 }
 engine::error project_scene_document(engine::world& world, engine::scene_instances& scenes,
-                                     scene_instance_id scene,
+                                     scene_instance_id scene, scene_projection& projection,
                                      const scene_document_snapshot* baseline,
                                      const scene_document_snapshot& target,
                                      bool prepare_editor) noexcept try {
   if (baseline) {
-    auto updated = update_objects(world, scenes, scene, *baseline, target, prepare_editor);
+    auto associations = projection.objects();
+    auto updated =
+        update_objects(world, scenes, scene, associations, *baseline, target, prepare_editor);
     if (!updated)
       return updated.error();
-    if (*updated)
+    if (*updated) {
+      projection.replace(std::move(associations));
       return engine::error::success;
+    }
   }
   auto inputs = make_scene_document_inputs(target);
   if (!inputs)
@@ -439,7 +449,10 @@ engine::error project_scene_document(engine::world& world, engine::scene_instanc
   auto status = engine::prepare_loaded_scene(*inputs, {}, prepared, diagnostic, {});
   if (status.failed())
     return status;
-  return scenes.replace_prepared(scene, std::move(prepared), target.assets);
+  auto rebuilt = scenes.replace_prepared(scene, std::move(prepared), target.assets);
+  if (!rebuilt)
+    return rebuilt.error();
+  return projection.reset(rebuilt->objects);
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
 } catch (...) {
