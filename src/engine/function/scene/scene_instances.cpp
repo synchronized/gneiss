@@ -577,14 +577,15 @@ engine::error scene_instances::validate_editable_node(scene_instance_id instance
 
 error scene_instances::add_component_description(scene_instance_id instance, scene_node_id node,
                                                  const component_description& description,
-                                                 guid identity) noexcept {
+                                                 guid identity,
+                                                 const scene_mesh_binding* prepared) noexcept {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
   auto selected = resolve(instance);
   if (!selected)
     return selected.error();
   auto* value = *selected;
-  return value->add_component_description(node, description, identity);
+  return value->add_component_description(node, description, identity, prepared);
 }
 error scene_instances::remove_component_description(scene_instance_id instance, scene_node_id node,
                                                     guid type) noexcept {
@@ -596,16 +597,16 @@ error scene_instances::remove_component_description(scene_instance_id instance, 
   auto* value = *selected;
   return value->remove_component_description(node, type);
 }
-error scene_instances::set_component_description(
-    scene_instance_id instance, scene_node_id node,
-    const component_description& description) noexcept {
+error scene_instances::set_component_description(scene_instance_id instance, scene_node_id node,
+                                                 const component_description& description,
+                                                 const scene_mesh_binding* prepared) noexcept {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
   auto selected = resolve(instance);
   if (!selected)
     return selected.error();
   auto* value = *selected;
-  return value->set_component_description(node, description);
+  return value->set_component_description(node, description, prepared);
 }
 engine::error scene_instances::set_camera(scene_instance_id instance, scene_node_id node_value,
                                           const engine::camera_description& desc) noexcept {

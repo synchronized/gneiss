@@ -13,12 +13,19 @@
 namespace gneiss::engine {
 error scene_instance_state::add_component_description(scene_node_id node,
                                                       const component_description& value,
-                                                      guid identity) noexcept {
+                                                      guid identity,
+                                                      const scene_mesh_binding* prepared) noexcept {
   if (!value)
     return error::invalid_argument;
   if (!contains_editable_node(node))
     return error::invalid_handle;
-  return add_component({native_world_, node, {}, &loader_}, value, identity);
+  if (prepared && ((prepared->mesh && !loader_.owns(prepared->mesh)) ||
+                   (prepared->material && !loader_.owns(prepared->material))))
+    return error::invalid_argument;
+  const mesh_renderer renderer =
+      prepared ? mesh_renderer{prepared->mesh, prepared->material} : mesh_renderer{};
+  return add_component({native_world_, node, renderer, prepared ? nullptr : &loader_}, value,
+                       identity);
 }
 error scene_instance_state::remove_component_description(scene_node_id node, guid type) noexcept {
   if (!contains_editable_node(node))
@@ -26,7 +33,8 @@ error scene_instance_state::remove_component_description(scene_node_id node, gui
   return remove_component({native_world_, node, {}, &loader_}, type);
 }
 error scene_instance_state::set_component_description(scene_node_id node,
-                                                      const component_description& value) noexcept
+                                                      const component_description& value,
+                                                      const scene_mesh_binding* prepared) noexcept
     try {
   if (!value)
     return error::invalid_argument;
@@ -40,7 +48,14 @@ error scene_instance_state::set_component_description(scene_node_id node,
   auto renderer = native_world_.node_mesh_renderer(node);
   if (!renderer && renderer.error() != error::not_found)
     return renderer.error();
-  component_context context{native_world_, node, renderer ? *renderer : mesh_renderer{}, &loader_};
+  if (prepared && ((prepared->mesh && !loader_.owns(prepared->mesh)) ||
+                   (prepared->material && !loader_.owns(prepared->material))))
+    return error::invalid_argument;
+  component_context context{native_world_, node,
+                            prepared   ? mesh_renderer{prepared->mesh, prepared->material}
+                            : renderer ? *renderer
+                                       : mesh_renderer{},
+                            prepared ? nullptr : &loader_};
   return update_component(context, value);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;

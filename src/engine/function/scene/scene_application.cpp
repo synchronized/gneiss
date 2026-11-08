@@ -48,9 +48,9 @@ result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_i
   auto count = scenes.get_node_count(scene);
   if (!count)
     return count.error();
-  std::set<entity_id> entities;
+  std::set<std::uint64_t> entities;
   for (const auto& [address, binding] : associations) {
-    if (binding.node.get() != binding.entity.get() || !entities.insert(binding.entity).second)
+    if (binding.node.get() != binding.entity.get() || !entities.insert(binding.entity.get()).second)
       return error::invalid_argument;
     if (scenes.validate_editable_node(scene, binding.node).failed())
       return false;
@@ -174,12 +174,24 @@ result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_i
         return status;
     }
   }
+  const auto prepared_binding = [&](const composed_object& object) {
+    scene_mesh_binding binding;
+    if (const auto* renderer = object.effective.components.get<mesh_renderer_description>()) {
+      if (auto found = assets.find(renderer->mesh_uri); found != assets.end())
+        binding.mesh = resource_cast<mesh>(found->second);
+      if (auto found = assets.find(renderer->material_uri); found != assets.end())
+        binding.material = resource_cast<material>(found->second);
+    }
+    return binding;
+  };
   for (const auto& update : updates) {
     const auto node = nodes.at(update.address).node;
+    const auto prepared = prepared_binding(*desired.at(update.address));
     auto status = update.remove ? scenes.remove_component_description(scene, node, update.type)
-                  : update.add  ? scenes.add_component_description(scene, node, update.value,
-                                                                   update.value->uuid)
-                                : scenes.set_component_description(scene, node, update.value);
+                  : update.add
+                      ? scenes.add_component_description(scene, node, update.value,
+                                                         update.value->uuid, &prepared)
+                      : scenes.set_component_description(scene, node, update.value, &prepared);
     if (status.failed())
       return status;
   }
@@ -188,11 +200,7 @@ result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_i
     const auto* renderer = object.effective.components.get<mesh_renderer_description>();
     if (!renderer)
       continue;
-    scene_mesh_binding target_binding;
-    if (auto found = assets.find(renderer->mesh_uri); found != assets.end())
-      target_binding.mesh = resource_cast<mesh>(found->second);
-    if (auto found = assets.find(renderer->material_uri); found != assets.end())
-      target_binding.material = resource_cast<material>(found->second);
+    const auto target_binding = prepared_binding(object);
     const auto node = nodes.at(object.address).node;
     auto current = scenes.capture_mesh_binding(scene, node);
     if (!current)

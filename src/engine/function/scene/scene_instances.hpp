@@ -140,17 +140,19 @@ public:
   [[nodiscard]] GNEISS_API error set_mesh_renderer(scene_instance_id instance, scene_node_id node,
                                                    std::string_view mesh_uri,
                                                    std::string_view material_uri) noexcept;
-  /** 修改运行时组件；调用限所属线程，不修改编辑文档。 */
-  [[nodiscard]] GNEISS_API error add_component_description(scene_instance_id instance,
-                                                           scene_node_id node,
-                                                           const component_description& value,
-                                                           guid identity = {}) noexcept;
+  /** 修改运行时组件；调用限所属线程，不修改编辑文档。
+   * prepared 非空时只借用指定资源引用，不发起加载；缺失引用返回 not_ready。 */
+  [[nodiscard]] GNEISS_API error add_component_description(
+      scene_instance_id instance, scene_node_id node, const component_description& value,
+      guid identity = {}, const scene_mesh_binding* prepared = nullptr) noexcept;
   [[nodiscard]] GNEISS_API error remove_component_description(scene_instance_id instance,
                                                               scene_node_id node,
                                                               guid type) noexcept;
-  /** 替换已有运行时组件，不支持新增或移除，不生成 Prefab 覆盖。 */
+  /** 替换已有运行时组件，不支持新增或移除，不生成 Prefab 覆盖。
+   * prepared 的资源消费规则与 add_component_description 相同。 */
   [[nodiscard]] GNEISS_API error set_component_description(
-      scene_instance_id instance, scene_node_id node, const component_description& value) noexcept;
+      scene_instance_id instance, scene_node_id node, const component_description& value,
+      const scene_mesh_binding* prepared = nullptr) noexcept;
   [[nodiscard]] GNEISS_API error set_camera(scene_instance_id instance, scene_node_id node,
                                             const camera_description& desc) noexcept;
   [[nodiscard]] GNEISS_API error remove_camera(scene_instance_id instance,

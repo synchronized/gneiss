@@ -15,6 +15,7 @@
 #include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/scene_application.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/loading/scene_domain.hpp"
@@ -203,6 +204,25 @@ void run() {
               .ok());
     initial_bindings.emplace(std::string(engine::resource_uri(reference)), reference);
   }
+  // 通用应用只消费显式引用；缺失绑定不得隐式创建资产请求或访问文件。
+  {
+    auto empty = active->scenes()->create_empty(engine::guid::generate());
+    check(bool(empty));
+    engine::composed_scene target;
+    engine::composed_object object;
+    object.address.object = engine::guid::generate();
+    object.effective.components.set(engine::mesh_renderer_description{
+        "asset://not-requested.mesh", "asset://not-requested.material"});
+    target.objects.push_back(object);
+    const auto cached = active_assets.cached_count();
+    const auto before_reads = files->reads;
+    std::map<engine::object_address, engine::scene_object_association> associations;
+    auto applied = engine::apply_scene(*active->native_world(), *active->scenes(), *empty,
+                                       associations, {}, target, {});
+    check(!applied && applied.error() == engine::error::not_ready);
+    check(active_assets.cached_count() == cached && files->reads == before_reads);
+    check(active->scenes()->unload(*empty).ok());
+  }
   const auto reads_before_instantiation = files->reads;
   auto direct = active->scenes()->instantiate(initial.source_asset);
   check(bool(direct) && direct->node_count == initial.instance_nodes);
@@ -306,6 +326,24 @@ void run() {
             candidate->scenes()->instantiate_prepared(std::move(prepared), bindings), new_scene) ==
         gneiss::engine::error::success);
   check(new_scene != gneiss::scene_instance_id{});
+  // 投影重建使用通用应用：即使输入包含 Prefab，运行节点也不持有来源绑定。
+  {
+    auto empty = candidate->scenes()->create_empty(engine::guid::generate());
+    check(bool(empty));
+    auto rebuilt = candidate->scenes()->replace_prepared(*empty, instantiation_input, bindings);
+    check(bool(rebuilt) && rebuilt->instance == *empty &&
+          rebuilt->node_count == instantiation_input.instance_nodes);
+    bool source_address = false;
+    for (const auto& object : rebuilt->objects)
+      source_address = source_address || bool(object.source);
+    check(source_address);
+    for (std::size_t index = 0; index < rebuilt->node_count; ++index) {
+      auto info = candidate->scenes()->get_node_info(*empty, index);
+      check(bool(info) && !info->prefab);
+    }
+    check(candidate->scenes()->unload(*empty).ok());
+    check(files->reads == reads);
+  }
   auto prefab_reloaded = candidate->scenes()->reload(new_scene, expected_prefab_asset);
   check(bool(prefab_reloaded) && !prefab_reloaded->empty());
   check(files->reads == reads);
