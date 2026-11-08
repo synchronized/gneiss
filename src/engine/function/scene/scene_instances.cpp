@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/scene/scene_instances.hpp"
-#include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_instance_state.hpp"
+#include "engine/function/world/scene_instance.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -40,6 +40,21 @@ result<game_object> scene_instance::find(guid uuid) const noexcept {
     return node.error();
   return owner_->object(entity_id{node->get()});
 }
+result<game_object> scene_instance::create(scene_node_identity identity,
+                                           const math::transform& transform,
+                                           game_object parent) const noexcept {
+  if (!owner_ || !owner_->scenes())
+    return error::invalid_handle;
+  if (parent.owner() && parent.owner() != owner_)
+    return error::invalid_handle;
+  auto created = owner_->scenes()->create_node(id_, {.uuid = identity.uuid,
+                                                     .name = identity.name,
+                                                     .parent = scene_node_id{parent.entity().get()},
+                                                     .local_transform = transform});
+  if (!created)
+    return created.error();
+  return owner_->object(entity_id{created->get()});
+}
 error scene_instance::unload() const noexcept {
   if (!owner_ || !owner_->scenes())
     return error::invalid_handle;
@@ -62,17 +77,18 @@ result<prefab_instantiation_result> scene_instances::instantiate_prefab_ready(
     ref<const engine::prefab> source_asset, prefab_replacement mode) noexcept try {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  auto* slot = instances_.get(instance, resource_type::scene_instance);
-  if (!slot || !*slot)
-    return error::invalid_handle;
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* slot = *selected;
   prefab_instantiation_result receipt;
   receipt.objects.reserve(prefab ? prefab->objects.size() : 0);
-  auto root = (*slot)->instantiate_prefab_ready(author, prefab, bindings, replacing,
-                                                std::move(source_asset), mode);
+  auto root = slot->instantiate_prefab_ready(author, prefab, bindings, replacing,
+                                             std::move(source_asset), mode);
   if (!root)
     return root.error();
   receipt.root = *root;
-  const auto& candidates = (*slot)->prefab_instances_;
+  const auto& candidates = slot->prefab_instances_;
   const auto found = std::ranges::find_if(
       candidates, [&](const auto& candidate) { return candidate->root() == *root; });
   if (found == candidates.end())
@@ -91,8 +107,11 @@ error scene_instances::remove_prefab_instance(scene_instance_id instance,
                                               gneiss::engine::guid uuid) noexcept {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  auto* slot = instances_.get(instance, resource_type::scene_instance);
-  return !slot || !*slot ? error::invalid_handle : (*slot)->remove_prefab_instance(uuid);
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* slot = *selected;
+  return slot->remove_prefab_instance(uuid);
 }
 
 result<scene_instances*> scene_instances::attach(world& owner, asset_manager& assets) noexcept try {
@@ -114,6 +133,16 @@ scene_instances::scene_instances(world& native_world, asset_manager& loader) noe
       instances_(domain_) {}
 
 scene_instances::~scene_instances() noexcept = default;
+
+result<scene_instance_state*> scene_instances::resolve(scene_instance_id instance) const noexcept {
+  if (!native_world_.is_owner_thread())
+    return error::invalid_state;
+  const auto* slot = instances_.get(instance, resource_type::scene_instance);
+  if (!slot || !*slot)
+    return error::invalid_handle;
+  (*slot)->prune_destroyed_members();
+  return slot->get();
+}
 
 error scene_instances::validate_reparent(scene_node_id node, scene_node_id parent) noexcept {
   if (!parent)
@@ -210,8 +239,11 @@ scene_instances::reload(scene_instance_id instance, ref<const prefab> source,
 
 engine::error scene_instances::reload_loaded(scene_instance_id instance,
                                              scene_description description) noexcept try {
-  auto* value = instances_.get(instance, resource_type::scene_instance);
-  return value && *value ? (*value)->reload(std::move(description)) : error::invalid_handle;
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* value = *selected;
+  return value->reload(std::move(description));
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -228,9 +260,11 @@ engine::error scene_instances::reload_prefab_loaded(scene_instance_id instance,
     return error::invalid_state;
   if (!candidate)
     return error::invalid_argument;
-  auto* value = instances_.get(instance, resource_type::scene_instance);
-  return value && *value ? (*value)->reload_prefab(uri, std::move(candidate), diagnostic)
-                         : error::invalid_handle;
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* value = *selected;
+  return value->reload_prefab(uri, std::move(candidate), diagnostic);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -257,10 +291,11 @@ result<scene_description>
 scene_instances::capture_description(scene_instance_id instance) const noexcept try {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  auto* slot = instances_.get(instance, resource_type::scene_instance);
-  if (!slot || !*slot)
-    return error::invalid_handle;
-  return (*slot)->capture_description();
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* slot = *selected;
+  return slot->capture_description();
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -270,10 +305,11 @@ scene_instances::capture_description(scene_instance_id instance) const noexcept 
 result<std::string> scene_instances::serialize(scene_instance_id instance) const noexcept try {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  auto* slot = instances_.get(instance, resource_type::scene_instance);
-  if (!slot || !*slot)
-    return error::invalid_handle;
-  return (*slot)->serialize();
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* slot = *selected;
+  return slot->serialize();
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -290,10 +326,11 @@ result<scene_node_id> scene_instances::find_node(scene_instance_id instance,
                                                  guid uuid) const noexcept try {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  const auto* slot = instances_.get(instance, resource_type::scene_instance);
-  if (!slot || !*slot)
-    return error::invalid_handle;
-  const auto node = (*slot)->find_node(uuid);
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* slot = *selected;
+  const auto node = slot->find_node(uuid);
   if (node == null_scene_node_id)
     return error::not_found;
   return node;
@@ -307,10 +344,11 @@ result<std::uint64_t> scene_instances::get_node_count(scene_instance_id instance
     try {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  const auto* slot = instances_.get(instance, resource_type::scene_instance);
-  if (!slot || !*slot)
-    return error::invalid_handle;
-  return (*slot)->node_count();
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* slot = *selected;
+  return slot->node_count();
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -322,9 +360,11 @@ engine::error scene_instances::set_node_transform(scene_instance_id instance,
                                                   const math::transform& transform) noexcept {
   auto node = node_value;
   try {
-    auto* value = instances_.get(instance, resource_type::scene_instance);
-    return value == nullptr || *value == nullptr ? engine::error::invalid_handle
-                                                 : (*value)->set_node_transform(node, transform);
+    auto selected = resolve(instance);
+    if (!selected)
+      return selected.error();
+    auto* value = *selected;
+    return value->set_node_transform(node, transform);
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {
@@ -338,10 +378,11 @@ result<scene_node_info> scene_instances::get_node_info(scene_instance_id instanc
     try {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  auto* slot = instances_.get(instance, resource_type::scene_instance);
-  if (!slot || !*slot)
-    return error::invalid_handle;
-  return (*slot)->get_node_info(index, detail);
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* slot = *selected;
+  return slot->get_node_info(index, detail);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -352,10 +393,11 @@ result<scene_node_id> scene_instances::create_node(scene_instance_id instance,
                                                    const node_creation& desc) noexcept try {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  auto* slot = instances_.get(instance, resource_type::scene_instance);
-  if (!slot || !*slot)
-    return error::invalid_handle;
-  return (*slot)->create_node(desc);
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* slot = *selected;
+  return slot->create_node(desc);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -366,9 +408,11 @@ engine::error scene_instances::set_node_name(scene_instance_id instance, scene_n
                                              std::string_view name) noexcept {
   auto node = node_value;
   try {
-    auto* value = instances_.get(instance, resource_type::scene_instance);
-    return value == nullptr || *value == nullptr ? engine::error::invalid_handle
-                                                 : (*value)->set_node_name(node, name);
+    auto selected = resolve(instance);
+    if (!selected)
+      return selected.error();
+    auto* value = *selected;
+    return value->set_node_name(node, name);
   } catch (...) {
     return engine::error::internal;
   }
@@ -379,9 +423,11 @@ engine::error scene_instances::reparent_node(scene_instance_id instance, scene_n
   auto node = node_value;
   auto parent = parent_value;
   try {
-    auto* value = instances_.get(instance, resource_type::scene_instance);
-    return value == nullptr || *value == nullptr ? engine::error::invalid_handle
-                                                 : (*value)->reparent_node(node, parent);
+    auto selected = resolve(instance);
+    if (!selected)
+      return selected.error();
+    auto* value = *selected;
+    return value->reparent_node(node, parent);
   } catch (...) {
     return engine::error::internal;
   }
@@ -392,10 +438,11 @@ result<scene_subtree_snapshot> scene_instances::capture_subtree(scene_instance_i
     try {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  auto* slot = instances_.get(instance, resource_type::scene_instance);
-  if (!slot || !*slot)
-    return error::invalid_handle;
-  return (*slot)->capture_subtree(root);
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* slot = *selected;
+  return slot->capture_subtree(root);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -408,10 +455,11 @@ scene_instances::restore_subtree(scene_instance_id instance, const scene_subtree
                                  std::span<const uuid_mapping> mappings) noexcept try {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  auto* slot = instances_.get(instance, resource_type::scene_instance);
-  if (!slot || !*slot)
-    return error::invalid_handle;
-  return (*slot)->restore_subtree(snapshot, parent, mappings);
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* slot = *selected;
+  return slot->restore_subtree(snapshot, parent, mappings);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -422,9 +470,11 @@ engine::error scene_instances::destroy_subtree(scene_instance_id instance,
                                                scene_node_id root_value) noexcept {
   auto root = root_value;
   try {
-    auto* value = instances_.get(instance, resource_type::scene_instance);
-    return value == nullptr || *value == nullptr ? engine::error::invalid_handle
-                                                 : (*value)->destroy_subtree(root);
+    auto selected = resolve(instance);
+    if (!selected)
+      return selected.error();
+    auto* value = *selected;
+    return value->destroy_subtree(root);
   } catch (...) {
     return engine::error::internal;
   }
@@ -435,10 +485,11 @@ scene_instances::create_mesh_renderer_node(scene_instance_id instance,
                                            const mesh_renderer_node_creation& desc) noexcept try {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  auto* slot = instances_.get(instance, resource_type::scene_instance);
-  if (!slot || !*slot)
-    return error::invalid_handle;
-  return (*slot)->create_mesh_renderer_node(desc);
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* slot = *selected;
+  return slot->create_mesh_renderer_node(desc);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -451,10 +502,11 @@ scene_instances::create_mesh_renderer_node_ready(scene_instance_id instance,
                                                  const scene_mesh_binding& prepared) noexcept try {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  auto* slot = instances_.get(instance, resource_type::scene_instance);
-  if (!slot || !*slot)
-    return error::invalid_handle;
-  return (*slot)->create_mesh_renderer_node(desc, &prepared);
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* slot = *selected;
+  return slot->create_mesh_renderer_node(desc, &prepared);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -466,10 +518,11 @@ result<scene_mesh_binding> scene_instances::capture_mesh_binding(scene_instance_
     try {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  auto* slot = instances_.get(instance, resource_type::scene_instance);
-  if (!slot || !*slot)
-    return error::invalid_handle;
-  return (*slot)->capture_mesh_binding(node);
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* slot = *selected;
+  return slot->capture_mesh_binding(node);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -488,10 +541,11 @@ engine::error scene_instances::replace_mesh_binding(scene_instance_id instance, 
       (replacement.material && !loader_.owns(replacement.material))) {
     return engine::error::invalid_argument;
   }
-  auto* value = instances_.get(instance, resource_type::scene_instance);
-  return value == nullptr || *value == nullptr
-             ? engine::error::invalid_handle
-             : (*value)->replace_mesh_binding(node, expected, replacement, component_uuid);
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* value = *selected;
+  return value->replace_mesh_binding(node, expected, replacement, component_uuid);
 }
 
 engine::error scene_instances::set_mesh_renderer(scene_instance_id instance,
@@ -500,10 +554,11 @@ engine::error scene_instances::set_mesh_renderer(scene_instance_id instance,
                                                  std::string_view material_uri) noexcept {
   auto node = node_value;
   try {
-    auto* value = instances_.get(instance, resource_type::scene_instance);
-    return value == nullptr || *value == nullptr
-               ? engine::error::invalid_handle
-               : (*value)->set_mesh_renderer(node, mesh_uri, material_uri);
+    auto selected = resolve(instance);
+    if (!selected)
+      return selected.error();
+    auto* value = *selected;
+    return value->set_mesh_renderer(node, mesh_uri, material_uri);
   } catch (...) {
     return engine::error::internal;
   }
@@ -512,12 +567,12 @@ engine::error scene_instances::set_mesh_renderer(scene_instance_id instance,
 engine::error scene_instances::validate_editable_node(scene_instance_id instance,
                                                       scene_node_id node_value) const noexcept {
   auto node = node_value;
-  const auto* value = instances_.get(instance, resource_type::scene_instance);
-  if (value == nullptr || *value == nullptr) {
-    return engine::error::invalid_handle;
-  }
-  return (*value)->contains_editable_node(scene_node_id{node}) ? engine::error::success
-                                                               : engine::error::invalid_handle;
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* value = *selected;
+  return value->contains_editable_node(scene_node_id{node}) ? engine::error::success
+                                                            : engine::error::invalid_handle;
 }
 
 error scene_instances::add_component_description(scene_instance_id instance, scene_node_id node,
@@ -525,61 +580,72 @@ error scene_instances::add_component_description(scene_instance_id instance, sce
                                                  guid identity) noexcept {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  auto* value = instances_.get(instance, resource_type::scene_instance);
-  if (!value || !*value)
-    return error::invalid_handle;
-  return (*value)->add_component_description(node, description, identity);
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* value = *selected;
+  return value->add_component_description(node, description, identity);
 }
 error scene_instances::remove_component_description(scene_instance_id instance, scene_node_id node,
                                                     guid type) noexcept {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  auto* value = instances_.get(instance, resource_type::scene_instance);
-  if (!value || !*value)
-    return error::invalid_handle;
-  return (*value)->remove_component_description(node, type);
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* value = *selected;
+  return value->remove_component_description(node, type);
 }
 error scene_instances::set_component_description(
     scene_instance_id instance, scene_node_id node,
     const component_description& description) noexcept {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  auto* value = instances_.get(instance, resource_type::scene_instance);
-  if (!value || !*value)
-    return error::invalid_handle;
-  return (*value)->set_component_description(node, description);
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* value = *selected;
+  return value->set_component_description(node, description);
 }
 engine::error scene_instances::set_camera(scene_instance_id instance, scene_node_id node_value,
                                           const engine::camera_description& desc) noexcept {
   auto node = node_value;
-  auto* value = instances_.get(instance, resource_type::scene_instance);
-  return value == nullptr || *value == nullptr ? engine::error::invalid_handle
-                                               : (*value)->set_camera(node, desc);
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* value = *selected;
+  return value->set_camera(node, desc);
 }
 
 engine::error scene_instances::remove_camera(scene_instance_id instance,
                                              scene_node_id node_value) noexcept {
   auto node = node_value;
-  auto* value = instances_.get(instance, resource_type::scene_instance);
-  return value == nullptr || *value == nullptr ? engine::error::invalid_handle
-                                               : (*value)->remove_camera(node);
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* value = *selected;
+  return value->remove_camera(node);
 }
 
 engine::error scene_instances::remove_mesh_renderer(scene_instance_id instance,
                                                     scene_node_id node_value) noexcept {
   auto node = node_value;
-  auto* value = instances_.get(instance, resource_type::scene_instance);
-  return value == nullptr || *value == nullptr ? engine::error::invalid_handle
-                                               : (*value)->remove_mesh_renderer(node);
+  auto selected = resolve(instance);
+  if (!selected)
+    return selected.error();
+  auto* value = *selected;
+  return value->remove_mesh_renderer(node);
 }
 
 engine::error scene_instances::destroy_node(scene_instance_id instance,
                                             scene_node_id node_value) noexcept {
   auto node = node_value;
   try {
-    auto* value = instances_.get(instance, resource_type::scene_instance);
-    return value == nullptr || *value == nullptr ? engine::error::invalid_handle
-                                                 : (*value)->destroy_node(node);
+    auto selected = resolve(instance);
+    if (!selected)
+      return selected.error();
+    auto* value = *selected;
+    return value->destroy_node(node);
   } catch (...) {
     return engine::error::internal;
   }

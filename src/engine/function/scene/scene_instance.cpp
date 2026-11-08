@@ -158,6 +158,13 @@ engine::error scene_instance_state::create_staged_node(std::size_t index,
   objects_[index].node = *created;
   return error::success;
 }
+void scene_instance_state::prune_destroyed_members() noexcept {
+  const auto alive = [&](scene_node_id node) {
+    return native_world_.object(entity_id{node.get()}).has_value();
+  };
+  std::erase_if(objects_, [&](const auto& member) { return !alive(member.node); });
+  std::erase_if(prefab_instances_, [&](const auto& binding) { return !alive(binding->root()); });
+}
 void scene_instance_state::rollback() noexcept {
   for (const auto& object : objects_) {
     if (object.node)

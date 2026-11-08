@@ -25,6 +25,8 @@ public:
     bool persistent = true; // Prefab 展开成员仅在运行时枚举，不重复保存。
   };
 
+  /** 查询入口清理已经由 World 删除的成员，不缓存存活状态。 */
+  void prune_destroyed_members() noexcept;
   void rollback() noexcept;
   /** 同步创建期间预留成员槽位；不保存加载描述、不执行文件读取。 */
   void initialize_staged(guid uuid, std::size_t count = 0);

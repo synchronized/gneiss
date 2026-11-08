@@ -174,6 +174,7 @@ public:
 
 private:
   friend class world;
+  [[nodiscard]] result<scene_instance_state*> resolve(scene_instance_id) const noexcept;
   /** 已登记成员不能跨场景挂接；创建中的临时对象尚不在成员集合。 */
   [[nodiscard]] error validate_reparent(scene_node_id, scene_node_id) noexcept;
   GNEISS_API scene_instances(world& native_world, asset_manager& loader) noexcept;

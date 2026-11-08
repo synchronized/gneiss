@@ -8,9 +8,9 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/scene_instances.hpp"
-#include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/component_identity.hpp"
+#include "engine/function/world/scene_instance.hpp"
 #include "engine/function/world/world_component_access.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_file.hpp"
@@ -224,6 +224,40 @@ int main() try {
   check(!borrowed_object->is_valid());
   check(!borrowed_copy.unload().ok());
   check(lifetime.expired());
+  // 动态成员经借用场景创建，直接 World 删除后查询清理失效索引。
+  auto dynamic_scene = scenes.create_empty(e::guid::from_bytes({20}));
+  check(dynamic_scene.has_value());
+  auto dynamic = e::scene_instance::borrow(world, *dynamic_scene);
+  check(dynamic.has_value());
+  const auto dynamic_uuid = e::guid::from_bytes({21});
+  auto dynamic_root = dynamic->create({dynamic_uuid, "dynamic root"});
+  check(dynamic_root.has_value());
+  auto dynamic_child =
+      dynamic->create({e::guid::from_bytes({22}), "dynamic child"}, {}, *dynamic_root);
+  check(dynamic_child.has_value());
+  auto dynamic_count = dynamic->size();
+  check(dynamic_count && *dynamic_count == 2);
+  check(world.entity_destroy(dynamic_root->entity()).ok());
+  check(!dynamic_root->is_valid() && !dynamic_child->is_valid());
+  dynamic_count = dynamic->size();
+  check(dynamic_count && *dynamic_count == 0);
+  check(!dynamic->find(dynamic_uuid));
+  auto recreated = dynamic->create({dynamic_uuid, "recreated"});
+  check(recreated && recreated->entity() != dynamic_root->entity());
+  auto dynamic_description = scenes.capture_description(*dynamic_scene);
+  check(dynamic_description && dynamic_description->objects.size() == 1);
+  e::error cross_thread_mutation;
+  std::thread dynamic_worker([&] {
+    cross_thread_mutation = scenes.set_node_name(
+        *dynamic_scene, gneiss::scene_node_id{recreated->entity().get()}, "wrong thread");
+  });
+  dynamic_worker.join();
+  check(cross_thread_mutation == e::error::invalid_state);
+  auto preserved_identity = recreated->identity();
+  check(preserved_identity && preserved_identity->name == "recreated");
+  auto detached = dynamic->create({e::guid::from_bytes({23}), "detached"}, {}, *recreated);
+  check(detached && detached->reparent({}).ok());
+  check(dynamic->unload().ok() && !recreated->is_valid() && !detached->is_valid());
   // Prefab 覆盖使用同一适配入口，不认识测试组件的类型。
   auto prefab = std::make_shared<e::prefab_description>();
   prefab->uuid = e::guid::from_bytes({4});

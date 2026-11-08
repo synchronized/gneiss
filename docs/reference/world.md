@@ -32,7 +32,17 @@ World 销毁后禁止再访问场景句柄，is_valid 也不能检测已经析�
 实例化回执显式返回来源地址到实体的关联，编辑器独立维护投影映射，不从运行来源信息反查。
 World 拒绝不同场景已登记成员之间的重新挂接，返回 invalid_argument；
 检查目标祖先和移动子树，不能通过未登记的中间对象绕开该限制。
-直接对象销毁与成员索引归并、旧节点接口清理仍在 PLAN-105 中实施。
+场景访问入口统一校验线程和句柄，并清理已经由 World 销毁的成员；
+size、find 和枚举不再返回已经失效的成员。存活实体仍以 World 的 generation 校验为准。
+旧节点接口及 Prefab 来源状态清理仍在 PLAN-105 中实施。
+
+借用接口位于 `function/world/scene_instance.hpp`。
+`scene_instance::create(identity, transform, parent)` 显式创建并登记本场景对象，
+返回 game_object；空父对象创建根，其他场景或 World 的父对象被拒绝。
+当前 Prefab 来源内部父节点的创建限制仍随通用投影迁移。
+`world::create_object` 创建的独立对象不自动登记到场景；
+挂在场景成员下时随父子树销毁，脱离后仍由 World 管理。
+需要在脱离父节点后仍随场景卸载的动态对象，应从 scene_instance::create 创建。
 
 ## Entity 生命周期
 
