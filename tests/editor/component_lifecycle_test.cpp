@@ -157,9 +157,8 @@ int main() try {
   check(document
             .set_component_description(node, e::make_component_description(movement_description{4}))
             .ok());
-  check(document.projection_status().failed());
+  // 新编辑统一进入投影；未知基线完整同步成功后自动恢复健康状态。
   const auto previous_node = node;
-  check(document.synchronize().ok());
   node = document.find_node(uuid)->node;
   check(node != previous_node && document.projection_status().ok() && current()->data.speed == 4);
   check(document.remove_component_description(node, type).ok());

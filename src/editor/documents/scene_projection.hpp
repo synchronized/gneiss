@@ -37,5 +37,6 @@ private:
 [[nodiscard]] engine::error project_scene_document(engine::world&, engine::scene_instances&,
                                                    scene_instance_id,
                                                    const scene_document_snapshot* baseline,
-                                                   const scene_document_snapshot& target) noexcept;
+                                                   const scene_document_snapshot& target,
+                                                   bool prepare_editor = true) noexcept;
 }

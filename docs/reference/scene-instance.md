@@ -347,11 +347,11 @@ Render 与场景进度通知。关闭仅释放场景的请求观察者，不停�
 相邻同合并键且版本连续的编辑可合并；保存点阻止跨点合并，新编辑清除 redo 分支，历史保留既有条数限制。
 文档必须比历史活得更久；关闭/切换文档时所属编辑会话清理历史。清理后不再持有历史专有资源引用。
 
-切换版本后通过 `project_scene_document` 更新运行投影。已有成功同步基线，且资源身份不变时，
+普通编辑和历史切换统一通过 `project_scene_document` 更新运行投影。已有成功同步基线时，
 Transform、组件以及显式对象名称和父关系差异原地更新，node/entity 保持。
 父关系批量调整先脱离旧父节点再连接新父节点，避免旧树导致临时循环。普通对象增删只创建或销毁对应实体；删除恢复后实体 ID 改变，无关对象保持身份。
-Prefab 成员集合变化或缺少同步基线
-仍完整重建；scene_instance_id 保持，node/entity 可能改变，调用方按文档身份重新定位。
+新增、删除完整 Prefab 实例局部更新；资源绑定按文档中的强引用恢复。
+已有 Prefab 内部成员集合变化或缺少同步基线仍完整重建；scene_instance_id 保持，node/entity 可能改变，调用方按文档身份重新定位。
 同步失败仍完成文档撤销/重做，通过 `projection_status()` 报告，并可重试同步；保存读取文档。
 Prefab 内部结构增量更新尚未迁移；不等待纹理或网格 GPU 上传完成。
 局部历史的目标与阶段见 [PLAN-106](../plans/PLAN-106-document-history-projection.md)。
@@ -392,7 +392,7 @@ map 键/值、optional、variant、组件结构覆盖及属性操作值，不读
 `prepare_prefab_transform_edit` 接收来源节点的当前及替换变换，与组件入口共用反射差异计算、
 重复覆盖归并和未触及冲突保留规则，返回 `prefab_edit_candidate`。非法变换拒绝接受；
 来源根节点返回 `invalid_argument`，实例根的局部变换由场景对象管理。
-`scene_edit_session::set_local_transform` 采用该候选更新文档，再通过 `set_node_transform` 投影运行时变换。
+`scene_edit_session::set_local_transform` 采用该候选更新文档，再通过统一投影入口更新运行时变换。
 
 `prepare_prefab_component_override` 计算组件添加、移除或恢复来源的完整覆盖候选。
 空 added 且 removed=false 表示清除结构覆盖，可携带该组件的属性覆盖；结构覆盖和属性覆盖不能混用。
@@ -418,7 +418,7 @@ source 非空时表示该 Prefab 实例内的来源对象；父地址使用相�
 正反应用先检查文档身份、旧值和对象顺序，在独立候选中应用并校验，失败不改变原文档。
 连续同键操作合并最初旧值与最终新值，撤销恢复通过同一投影入口更新 World。
 存活且顺序不变的对象按名称、父关系、变换、组件集合与 Prefab 引用分别保留变化字段；
-重命名不会保活该对象的无关组件和来源引用。组件内部属性路径细分、Prefab 结构投影及编辑会话拆分
+重命名不会保活该对象的无关组件和来源引用。组件内部属性路径细分、Prefab 内部结构投影
 尚在 PLAN-106 中推进。
 
 ### 组件原地更新契约

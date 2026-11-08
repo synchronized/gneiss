@@ -313,7 +313,7 @@ int main() try {
           auto status = session.rename_node(first, "renamed");
           return status.failed() ? status : session.reparent_node(first, second);
         }).failed())
-      return 41;
+      return 141;
     if (hierarchy.undo().failed() || session.query_node(first)->parent ||
         hierarchy.redo().failed() || session.query_node(first)->parent != second ||
         session.query_node(first)->entity != first_entity ||

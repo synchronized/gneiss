@@ -3,6 +3,7 @@
 #include "documents/scene_projection.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include <algorithm>
+#include <set>
 namespace gneiss::editor {
 namespace {
 bool same_transform(const engine::math::transform& a, const engine::math::transform& b) {
@@ -10,8 +11,8 @@ bool same_transform(const engine::math::transform& a, const engine::math::transf
 }
 engine::result<bool> update_objects(engine::world& world, engine::scene_instances& scenes,
                                     scene_instance_id scene, const scene_document_snapshot& before,
-                                    const scene_document_snapshot& target) {
-  if (before.content.get().uuid != target.content.get().uuid || before.assets != target.assets)
+                                    const scene_document_snapshot& target, bool prepare_editor) {
+  if (before.content.get().uuid != target.content.get().uuid)
     return false;
   auto previous = compose_scene_document(before);
   auto next = compose_scene_document(target);
@@ -19,6 +20,80 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
     return previous.error();
   if (!next)
     return next.error();
+  // 整个 Prefab 删除只清理它的子树；其他实例和普通对象保留。
+  std::vector<engine::guid> removed_prefabs;
+  for (const auto& root : previous->objects)
+    if (root.instance_root && std::ranges::none_of(next->objects, [&](const auto& object) {
+          return object.address.object == root.address.object && object.address.source;
+        }))
+      removed_prefabs.push_back(root.address.object);
+  for (auto uuid : removed_prefabs) {
+    std::set<document_object_address> removed;
+    for (const auto& object : previous->objects)
+      if (object.address.object == uuid && object.address.source)
+        removed.insert(object.address);
+    if (removed.empty())
+      continue;
+    for (bool changed = true; changed;) {
+      changed = false;
+      for (const auto& object : previous->objects)
+        if (removed.contains(object.parent))
+          changed |= removed.insert(object.address).second;
+    }
+    if (std::ranges::any_of(next->objects,
+                            [&](const auto& object) { return removed.contains(object.address); }))
+      return false;
+    auto status = scenes.remove_prefab_instance(scene, uuid);
+    if (status.failed())
+      return status;
+    std::erase_if(previous->objects,
+                  [&](const auto& object) { return removed.contains(object.address); });
+  }
+  // 新增 Prefab 只创建该实例，不替换已有对象及其他实例。
+  auto description = target.description();
+  if (!description)
+    return description.error();
+  for (const auto& root : next->objects) {
+    if (!root.instance_root)
+      continue;
+    const bool existing = std::ranges::any_of(previous->objects, [&](const auto& object) {
+      return object.address.object == root.address.object && object.address.source;
+    });
+    if (existing)
+      continue;
+    const auto author = std::ranges::find(description->objects, root.address.object,
+                                          &engine::game_object_description::uuid);
+    if (author == description->objects.end() || !author->prefab)
+      return engine::error::invalid_state;
+    if (author->parent_uuid && !scenes.find_node(scene, author->parent_uuid))
+      return false;
+    const auto& frozen = target.prefabs.at(author->prefab->uri);
+    auto source = engine::restore_prefab_record(frozen.content);
+    if (!source)
+      return source.error();
+    auto replayed = engine::replay_prefab_reference(*source, *author->prefab);
+    if (!replayed)
+      return replayed.error();
+    std::vector<engine::scene_mesh_binding> bindings;
+    for (const auto& object : replayed->description.objects) {
+      engine::scene_mesh_binding binding;
+      if (const auto* renderer = object.components.get<engine::mesh_renderer_description>()) {
+        if (auto found = target.assets.find(renderer->mesh_uri); found != target.assets.end())
+          binding.mesh = engine::resource_cast<engine::mesh>(found->second);
+        if (auto found = target.assets.find(renderer->material_uri); found != target.assets.end())
+          binding.material = engine::resource_cast<engine::material>(found->second);
+      }
+      bindings.push_back(std::move(binding));
+    }
+    auto created = scenes.instantiate_prefab_ready(
+        scene, *author, engine::make_ref<const engine::prefab_description>(std::move(*source)),
+        bindings, false, frozen.source_asset);
+    if (!created)
+      return created.error();
+    for (const auto& object : next->objects)
+      if (object.address.object == root.address.object && object.address.source)
+        previous->objects.push_back(object);
+  }
   std::map<document_object_address, const composed_document_object*> old;
   for (const auto& object : previous->objects)
     old.emplace(object.address, &object);
@@ -95,7 +170,8 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
       const bool add = !previous_component || (*previous_component)->uuid != component->uuid;
       if (!add && engine::equal_components({*previous_component}, {component}))
         continue;
-      auto value = add ? engine::result<engine::component_description>{component}
+      auto value = (add || (!prepare_editor && !object.address.source))
+                       ? engine::result<engine::component_description>{component}
                        : engine::prepare_component_editor_value(world, node, component);
       if (!value)
         return value.error();
@@ -170,6 +246,28 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
     if (status.failed())
       return status;
   }
+  // 资源身份来自文档快照；同 URI 的历史引用也不能被当前缓存替代。
+  for (const auto& object : next->objects) {
+    const auto* renderer = object.effective.components.get<engine::mesh_renderer_description>();
+    if (!renderer)
+      continue;
+    engine::scene_mesh_binding target_binding;
+    if (auto found = target.assets.find(renderer->mesh_uri); found != target.assets.end())
+      target_binding.mesh = engine::resource_cast<engine::mesh>(found->second);
+    if (auto found = target.assets.find(renderer->material_uri); found != target.assets.end())
+      target_binding.material = engine::resource_cast<engine::material>(found->second);
+    const auto node = nodes.at(object.address).node;
+    auto current = scenes.capture_mesh_binding(scene, node);
+    if (!current)
+      return current.error();
+    if (current->mesh == target_binding.mesh && current->material == target_binding.material)
+      continue;
+    auto status = scenes.replace_mesh_binding(
+        scene, node, *current, target_binding,
+        object.effective.components.identity(engine::mesh_renderer_description::type_guid));
+    if (status.failed())
+      return status;
+  }
   for (const auto& object : next->objects) {
     if (!old.contains(object.address) ||
         same_transform(old.at(object.address)->effective.transform, object.effective.transform))
@@ -185,9 +283,10 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
 engine::error project_scene_document(engine::world& world, engine::scene_instances& scenes,
                                      scene_instance_id scene,
                                      const scene_document_snapshot* baseline,
-                                     const scene_document_snapshot& target) noexcept try {
+                                     const scene_document_snapshot& target,
+                                     bool prepare_editor) noexcept try {
   if (baseline) {
-    auto updated = update_objects(world, scenes, scene, *baseline, target);
+    auto updated = update_objects(world, scenes, scene, *baseline, target, prepare_editor);
     if (!updated)
       return updated.error();
     if (*updated)

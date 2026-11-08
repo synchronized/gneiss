@@ -248,7 +248,8 @@ public:
 private:
   using content_edit =
       std::function<engine::error(engine::scene_description&, scene_document_snapshot&)>;
-  engine::error edit_content(const content_edit&, const std::function<engine::error()>&) noexcept;
+  engine::error edit_content(const content_edit&,
+                             const std::function<engine::error()>& = {}) noexcept;
   struct edit_target {
     engine::guid object, source;
     engine::game_object_description effective;

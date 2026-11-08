@@ -12,7 +12,6 @@
 #include "engine/function/world/world.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
-#include "runtime/loading/prefab_placement.hpp"
 
 #include "engine/function/world/component_identity.hpp"
 
@@ -326,9 +325,8 @@ engine::error scene_edit_session::synchronize() noexcept try {
     (void)projection_.report(document_->current(), document_->current(), engine::error::internal);
   return engine::error::internal;
 }
-engine::error
-scene_edit_session::edit_content(const content_edit& edit,
-                                 const std::function<engine::error()>& project) noexcept try {
+engine::error scene_edit_session::edit_content(
+    const content_edit& edit, const std::function<engine::error()>& after_projection) noexcept try {
   auto next = capture_content();
   if (!next)
     return next.error();
@@ -350,35 +348,38 @@ scene_edit_session::edit_content(const content_edit& edit,
     if (load)
       prepared->snapshot.assets.insert_or_assign(dependency.uri, load->resource());
   }
-  // 同 URI 的冻结来源由所有实例共享；单实例投影不足以声明整份新来源已同步。
-  const bool changed_shared_source =
-      std::ranges::any_of(prepared->snapshot.prefabs, [&](const auto& entry) {
-        const auto previous = document_->current().content().prefabs.find(entry.first);
-        return previous != document_->current().content().prefabs.end() &&
-               previous->second != entry.second &&
-               std::ranges::count_if(description->objects, [&](const auto& object) {
-                 return object.prefab && object.prefab->uri == entry.first;
-               }) > 1;
-      });
-  const bool synchronized = projection_.is_synchronized(document_->current());
-  const auto previous_projection = projection_.status(document_->current());
-  status = document_->accept(document_->current(), prepared->snapshot);
+  const auto before = document_->current();
+  const bool synchronized = projection_.is_synchronized(before);
+  auto selected =
+      selection_ ? locate(selection_) : engine::result<edit_target>{engine::error::not_found};
+  status = document_->accept(before, prepared->snapshot);
   if (status.failed())
     return status;
   is_dirty_ = true;
-  auto projection = engine::error{engine::error::internal};
-  try {
-    projection = project();
-  } catch (const std::bad_alloc&) {
-    projection = engine::error::out_of_memory;
-  } catch (...) {
-    projection = engine::error::internal;
+  auto projection = project_scene_document(*world_, *application_->scenes(), scene_,
+                                           synchronized ? &before.content() : nullptr,
+                                           document_->current().content(), false);
+  if (projection.ok()) {
+    if (selected) {
+      if (selected->source) {
+        auto found = find_prefab_source(selected->object, selected->source);
+        selection_ = found ? found->node : scene_node_id{};
+      } else {
+        auto found = find_node(selected->object);
+        selection_ = found ? found->node : scene_node_id{};
+      }
+    }
+    if (after_projection) {
+      try {
+        projection = after_projection();
+      } catch (const std::bad_alloc&) {
+        projection = engine::error::out_of_memory;
+      } catch (...) {
+        projection = engine::error::internal;
+      }
+    }
   }
-  if (projection.ok() && changed_shared_source)
-    projection = engine::error::not_ready;
-  // 增量成功不能掩盖之前的失败；完整 synchronize 才清除未同步状态。
-  (void)projection_.report(document_->current(), document_->current(),
-                           synchronized || projection.failed() ? projection : previous_projection);
+  (void)projection_.report(document_->current(), document_->current(), projection);
   return engine::error::success;
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
@@ -530,27 +531,24 @@ scene_edit_session::set_local_transform(scene_node_id node,
   auto target = locate(node);
   if (!target)
     return target.error();
-  return edit_content(
-      [&](auto& description, auto& snapshot) -> engine::error {
-        auto object = std::ranges::find(description.objects, target->object,
-                                        &engine::game_object_description::uuid);
-        if (!target->source ||
-            target->source == snapshot.prefabs.at(object->prefab->uri).content.get().root_uuid) {
-          object->transform = value;
-        } else {
-          auto source =
-              engine::restore_prefab_record(snapshot.prefabs.at(object->prefab->uri).content);
-          if (!source)
-            return source.error();
-          auto candidate = engine::prepare_prefab_transform_edit(
-              *source, *object->prefab, target->source, target->effective.transform, value);
-          if (!candidate)
-            return candidate.error();
-          object->prefab = std::move(candidate->reference);
-        }
-        return engine::error::success;
-      },
-      [&] { return application_->scenes()->set_node_transform(scene_, node, value); });
+  return edit_content([&](auto& description, auto& snapshot) -> engine::error {
+    auto object = std::ranges::find(description.objects, target->object,
+                                    &engine::game_object_description::uuid);
+    if (!target->source ||
+        target->source == snapshot.prefabs.at(object->prefab->uri).content.get().root_uuid) {
+      object->transform = value;
+    } else {
+      auto source = engine::restore_prefab_record(snapshot.prefabs.at(object->prefab->uri).content);
+      if (!source)
+        return source.error();
+      auto candidate = engine::prepare_prefab_transform_edit(
+          *source, *object->prefab, target->source, target->effective.transform, value);
+      if (!candidate)
+        return candidate.error();
+      object->prefab = std::move(candidate->reference);
+    }
+    return engine::error::success;
+  });
 }
 
 gneiss::engine::error scene_edit_session::restore_prefab_transform_field(
@@ -621,8 +619,7 @@ gneiss::engine::error scene_edit_session::create_node(std::string_view name, sce
         return engine::error::success;
       },
       [&] {
-        auto created = application_->scenes()->create_node(
-            scene_, {.uuid = uuid, .name = name, .parent = parent});
+        auto created = application_->scenes()->find_node(scene_, uuid);
         if (!created)
           return created.error();
         out_node = *created;
@@ -636,17 +633,15 @@ gneiss::engine::error scene_edit_session::rename_node(scene_node_id node,
   auto target = locate(node);
   if (!target)
     return target.error();
-  return edit_content(
-      [&](auto& description, auto& snapshot) -> engine::error {
-        auto object = std::ranges::find(description.objects, target->object,
-                                        &engine::game_object_description::uuid);
-        if (target->source &&
-            target->source != snapshot.prefabs.at(object->prefab->uri).content.get().root_uuid)
-          return engine::error::unsupported;
-        object->name = name;
-        return engine::error::success;
-      },
-      [&] { return application_->scenes()->set_node_name(scene_, node, name); });
+  return edit_content([&](auto& description, auto& snapshot) -> engine::error {
+    auto object = std::ranges::find(description.objects, target->object,
+                                    &engine::game_object_description::uuid);
+    if (target->source &&
+        target->source != snapshot.prefabs.at(object->prefab->uri).content.get().root_uuid)
+      return engine::error::unsupported;
+    object->name = name;
+    return engine::error::success;
+  });
 }
 
 gneiss::engine::error scene_edit_session::reparent_node(scene_node_id node,
@@ -657,22 +652,20 @@ gneiss::engine::error scene_edit_session::reparent_node(scene_node_id node,
     return target.error();
   if (!destination)
     return destination.error();
-  return edit_content(
-      [&](auto& description, auto& snapshot) -> engine::error {
-        for (const auto& item : {*target, *destination}) {
-          if (!item.source)
-            continue;
-          auto object = std::ranges::find(description.objects, item.object,
-                                          &engine::game_object_description::uuid);
-          if (item.source != snapshot.prefabs.at(object->prefab->uri).content.get().root_uuid)
-            return engine::error::unsupported;
-        }
-        auto object = std::ranges::find(description.objects, target->object,
-                                        &engine::game_object_description::uuid);
-        object->parent_uuid = destination->object;
-        return engine::error::success;
-      },
-      [&] { return application_->scenes()->reparent_node(scene_, node, parent); });
+  return edit_content([&](auto& description, auto& snapshot) -> engine::error {
+    for (const auto& item : {*target, *destination}) {
+      if (!item.source)
+        continue;
+      auto object = std::ranges::find(description.objects, item.object,
+                                      &engine::game_object_description::uuid);
+      if (item.source != snapshot.prefabs.at(object->prefab->uri).content.get().root_uuid)
+        return engine::error::unsupported;
+    }
+    auto object = std::ranges::find(description.objects, target->object,
+                                    &engine::game_object_description::uuid);
+    object->parent_uuid = destination->object;
+    return engine::error::success;
+  });
 }
 
 engine::error scene_edit_session::destroy_subtree(scene_node_id node,
@@ -680,16 +673,14 @@ engine::error scene_edit_session::destroy_subtree(scene_node_id node,
   auto snapshot = capture_subtree(node);
   if (!snapshot)
     return snapshot.error();
-  const auto result = edit_content(
-      [&](auto& description, auto&) -> engine::error {
-        std::erase_if(description.objects, [&](const auto& object) {
-          return std::ranges::find(snapshot->content.get().objects, object.uuid,
-                                   &engine::object_record::uuid) !=
-                 snapshot->content.get().objects.end();
-        });
-        return engine::error::success;
-      },
-      [&] { return application_->scenes()->destroy_subtree(scene_, node); });
+  const auto result = edit_content([&](auto& description, auto&) -> engine::error {
+    std::erase_if(description.objects, [&](const auto& object) {
+      return std::ranges::find(snapshot->content.get().objects, object.uuid,
+                               &engine::object_record::uuid) !=
+             snapshot->content.get().objects.end();
+    });
+    return engine::error::success;
+  });
   if (result.ok()) {
     output = std::move(*snapshot);
     selection_ = {};
@@ -704,20 +695,18 @@ engine::error scene_edit_session::destroy_subtree(scene_node_id node,
 engine::error scene_edit_session::restore_subtree(const scene_subtree_snapshot& snapshot,
                                                   scene_node_id& output) noexcept {
   output = {};
-  scene_node_id parent;
   if (snapshot.parent_uuid) {
     auto ordinary = find_node(snapshot.parent_uuid);
     auto prefab = find_prefab_root(snapshot.parent_uuid);
     if (!ordinary && !prefab)
       return engine::error::not_found;
-    parent = ordinary ? ordinary->node : prefab->node;
   }
   return edit_content(
       [&](auto& description, auto& next) {
         return import_subtree(snapshot, description, next, false);
       },
       [&] {
-        auto created = application_->scenes()->restore_subtree(scene_, snapshot, parent, {});
+        auto created = application_->scenes()->find_node(scene_, snapshot.root_uuid);
         if (!created)
           return created.error();
         output = *created;
@@ -831,62 +820,30 @@ scene_edit_session::set_component_override(scene_node_id node, engine::guid type
     return engine::error::unsupported;
   if (state.added && !*state.added)
     return engine::error::invalid_argument;
-  engine::component_description projected;
-  return edit_content(
-      [&](auto& description, auto& snapshot) -> engine::error {
-        auto object = std::ranges::find(description.objects, target->object,
-                                        &engine::game_object_description::uuid);
-        auto source =
-            engine::restore_prefab_record(snapshot.prefabs.at(object->prefab->uri).content);
-        if (!source)
-          return source.error();
-        auto candidate = engine::prepare_prefab_component_override(
-            *source, *object->prefab, target->source, type,
-            state.added ? *state.added : engine::component_description{}, state.removed,
-            state.properties, state.component_uuid);
-        if (!candidate)
-          return candidate.error();
-        const auto member = std::ranges::find(candidate->effective.objects, target->source,
-                                              &engine::game_object_description::uuid);
-        if (member == candidate->effective.objects.end())
-          return engine::error::not_found;
-        if (const auto* component = member->components.find(type))
-          projected = *component;
-        object->prefab = std::move(candidate->reference);
-        if (state.resources.mesh)
-          snapshot.assets.insert_or_assign(state.resources.mesh->source().uri,
-                                           state.resources.mesh);
-        if (state.resources.material)
-          snapshot.assets.insert_or_assign(state.resources.material->source().uri,
-                                           state.resources.material);
-        return engine::error::success;
-      },
-      [&] {
-        // 文档已完成覆盖组合；运行层只接受最终组件，不重新解释编辑指令。
-        auto current = engine::capture_components(*world_, node);
-        if (!current)
-          return current.error();
-        auto* scenes = application_->scenes();
-        const auto* previous = current->find(type);
-        if (!projected)
-          return previous ? scenes->remove_component_description(scene_, node, type)
-                          : engine::error{engine::error::success};
-        if (previous && (*previous)->uuid != projected->uuid) {
-          auto removed = scenes->remove_component_description(scene_, node, type);
-          if (removed.failed())
-            return removed;
-          previous = nullptr;
-        }
-        auto status =
-            previous ? scenes->set_component_description(scene_, node, projected)
-                     : scenes->add_component_description(scene_, node, projected, projected->uuid);
-        if (status.failed() || type != engine::mesh_renderer_description::type_guid ||
-            (!state.resources.mesh && !state.resources.material))
-          return status;
-        auto binding = scenes->capture_mesh_binding(scene_, node);
-        return binding ? scenes->replace_mesh_binding(scene_, node, *binding, state.resources)
-                       : binding.error();
-      });
+  return edit_content([&](auto& description, auto& snapshot) -> engine::error {
+    auto object = std::ranges::find(description.objects, target->object,
+                                    &engine::game_object_description::uuid);
+    auto source = engine::restore_prefab_record(snapshot.prefabs.at(object->prefab->uri).content);
+    if (!source)
+      return source.error();
+    auto candidate = engine::prepare_prefab_component_override(
+        *source, *object->prefab, target->source, type,
+        state.added ? *state.added : engine::component_description{}, state.removed,
+        state.properties, state.component_uuid);
+    if (!candidate)
+      return candidate.error();
+    const auto member = std::ranges::find(candidate->effective.objects, target->source,
+                                          &engine::game_object_description::uuid);
+    if (member == candidate->effective.objects.end())
+      return engine::error::not_found;
+    object->prefab = std::move(candidate->reference);
+    if (state.resources.mesh)
+      snapshot.assets.insert_or_assign(state.resources.mesh->source().uri, state.resources.mesh);
+    if (state.resources.material)
+      snapshot.assets.insert_or_assign(state.resources.material->source().uri,
+                                       state.resources.material);
+    return engine::error::success;
+  });
 }
 engine::error
 scene_edit_session::add_component_description(scene_node_id node,
@@ -1079,15 +1036,12 @@ scene_edit_session::create_mesh_node(const mesh_node_creation& snapshot,
   if (engine::resource_uri(resources.mesh) != snapshot.mesh_uri ||
       engine::resource_uri(resources.material) != snapshot.material_uri)
     return engine::error::invalid_argument;
-  scene_node_id parent;
   if (snapshot.parent_uuid) {
     auto found = find_node(snapshot.parent_uuid);
     if (!found)
       return found.error();
-    parent = found->node;
   }
   scene_node_id created;
-  engine::guid component_uuid;
   auto status = edit_content(
       [&](auto& description, auto& next) -> engine::error {
         engine::game_object_description object;
@@ -1096,21 +1050,12 @@ scene_edit_session::create_mesh_node(const mesh_node_creation& snapshot,
         object.name = snapshot.display_name;
         object.components.set(
             engine::mesh_renderer_description{snapshot.mesh_uri, snapshot.material_uri});
-        component_uuid = object.components.identity(engine::mesh_renderer_description::type_guid);
         description.objects.push_back(std::move(object));
         retain(next, resources);
         return engine::error::success;
       },
       [&] {
-        auto result = application_->scenes()->create_mesh_renderer_node_ready(
-            scene_,
-            {.uuid = snapshot.uuid,
-             .name = snapshot.display_name,
-             .parent = parent,
-             .mesh_uri = snapshot.mesh_uri,
-             .material_uri = snapshot.material_uri,
-             .component_uuid = component_uuid},
-            resources);
+        auto result = application_->scenes()->find_node(scene_, snapshot.uuid);
         if (!result)
           return result.error();
         created = *result;
@@ -1167,22 +1112,15 @@ scene_edit_session::replace_mesh_binding(scene_node_id node,
     return target.error();
   if (target->source)
     return engine::error::unsupported;
-  engine::guid component_uuid;
-  return edit_content(
-      [&](auto& description, auto& next) -> engine::error {
-        auto object = std::ranges::find(description.objects, target->object,
-                                        &engine::game_object_description::uuid);
-        object->components.set(engine::mesh_renderer_description{
-            std::string(engine::resource_uri(replacement.mesh)),
-            std::string(engine::resource_uri(replacement.material))});
-        component_uuid = object->components.identity(engine::mesh_renderer_description::type_guid);
-        retain(next, replacement);
-        return engine::error::success;
-      },
-      [&] {
-        return application_->scenes()->replace_mesh_binding(scene_, node, expected, replacement,
-                                                            component_uuid);
-      });
+  return edit_content([&](auto& description, auto& next) -> engine::error {
+    auto object = std::ranges::find(description.objects, target->object,
+                                    &engine::game_object_description::uuid);
+    object->components.set(
+        engine::mesh_renderer_description{std::string(engine::resource_uri(replacement.mesh)),
+                                          std::string(engine::resource_uri(replacement.material))});
+    retain(next, replacement);
+    return engine::error::success;
+  });
 }
 
 engine::result<std::string> scene_edit_session::serialize() const noexcept {
@@ -1330,70 +1268,60 @@ engine::error scene_edit_session::edit_component(scene_node_id node, engine::gui
   if (mode != 1 && !current)
     return engine::error::not_found;
   engine::guid identity;
-  return edit_content(
-      [&](auto& description, auto& snapshot) -> engine::error {
-        auto object = std::ranges::find(description.objects, target->object,
-                                        &engine::game_object_description::uuid);
-        if (mode == 1)
-          identity = engine::guid::generate();
-        if (target->source) {
-          auto source =
-              engine::restore_prefab_record(snapshot.prefabs.at(object->prefab->uri).content);
-          if (!source)
-            return source.error();
-          auto local =
-              std::ranges::find_if(object->prefab->component_overrides, [&](const auto& item) {
-                return item.source_node_uuid == target->source && item.type_guid == type &&
-                       item.added.has_value();
-              });
-          auto candidate =
-              mode == 0 ? engine::prepare_prefab_component_edit(*source, *object->prefab,
-                                                                target->source, *current, value)
-                        : engine::prepare_prefab_component_override(
-                              *source, *object->prefab, target->source, type,
-                              mode == 1 ? value : engine::component_description{},
-                              mode == -1 && local == object->prefab->component_overrides.end(), {},
-                              identity);
-          if (!candidate)
-            return candidate.error();
-          object->prefab = std::move(candidate->reference);
-        } else {
-          if (mode == -1)
-            object->components.erase(type);
-          else if (mode == 1) {
-            auto entries = object->components.entries();
-            auto identified = engine::with_component_identity(value, identity);
-            if (!identified)
-              return identified.error();
-            entries.push_back(std::move(*identified));
-            auto status = object->components.replace(std::move(entries));
+  return edit_content([&](auto& description, auto& snapshot) -> engine::error {
+    auto object = std::ranges::find(description.objects, target->object,
+                                    &engine::game_object_description::uuid);
+    if (mode == 1)
+      identity = engine::guid::generate();
+    if (target->source) {
+      auto source = engine::restore_prefab_record(snapshot.prefabs.at(object->prefab->uri).content);
+      if (!source)
+        return source.error();
+      auto local = std::ranges::find_if(object->prefab->component_overrides, [&](const auto& item) {
+        return item.source_node_uuid == target->source && item.type_guid == type &&
+               item.added.has_value();
+      });
+      auto candidate =
+          mode == 0
+              ? engine::prepare_prefab_component_edit(*source, *object->prefab, target->source,
+                                                      *current, value)
+              : engine::prepare_prefab_component_override(
+                    *source, *object->prefab, target->source, type,
+                    mode == 1 ? value : engine::component_description{},
+                    mode == -1 && local == object->prefab->component_overrides.end(), {}, identity);
+      if (!candidate)
+        return candidate.error();
+      object->prefab = std::move(candidate->reference);
+    } else {
+      if (mode == -1)
+        object->components.erase(type);
+      else if (mode == 1) {
+        auto entries = object->components.entries();
+        auto identified = engine::with_component_identity(value, identity);
+        if (!identified)
+          return identified.error();
+        entries.push_back(std::move(*identified));
+        auto status = object->components.replace(std::move(entries));
+        if (status.failed())
+          return status;
+      } else
+        object->components.set(value);
+      if (value && type == engine::camera_description::type_guid &&
+          value->get<engine::camera_description>()->is_primary) {
+        for (auto& other : description.objects) {
+          if (other.uuid == object->uuid)
+            continue;
+          if (other.components.template get<engine::camera_description>()) {
+            auto status = other.components.template update<engine::camera_description>(
+                [](auto& camera) { camera.is_primary = false; });
             if (status.failed())
               return status;
-          } else
-            object->components.set(value);
-          if (value && type == engine::camera_description::type_guid &&
-              value->get<engine::camera_description>()->is_primary) {
-            for (auto& other : description.objects) {
-              if (other.uuid == object->uuid)
-                continue;
-              if (other.components.template get<engine::camera_description>()) {
-                auto status = other.components.template update<engine::camera_description>(
-                    [](auto& camera) { camera.is_primary = false; });
-                if (status.failed())
-                  return status;
-              }
-            }
           }
         }
-        return engine::error::success;
-      },
-      [&] {
-        if (mode == 1)
-          return application_->scenes()->add_component_description(scene_, node, value, identity);
-        if (mode == -1)
-          return application_->scenes()->remove_component_description(scene_, node, type);
-        return application_->scenes()->set_component_description(scene_, node, value);
-      });
+      }
+    }
+    return engine::error::success;
+  });
 }
 
 engine::result<scene_subtree_snapshot>
@@ -1496,12 +1424,15 @@ engine::error scene_edit_session::apply_prefab(const scene_subtree_snapshot& sna
         return engine::error::success;
       },
       [&] {
-        scene_node_id root;
-        auto status = runtime::prefab_placement::apply(*application_, scene_, snapshot, removing,
-                                                       replacing, root);
-        if (status.ok() && root)
-          selection_ = root;
-        return status;
+        if (removing) {
+          (void)validate_selection();
+          return engine::error{engine::error::success};
+        }
+        auto root = application_->scenes()->find_node(scene_, snapshot.root_uuid);
+        if (!root)
+          return root.error();
+        selection_ = *root;
+        return engine::error{engine::error::success};
       });
 }
 } // namespace gneiss::editor

@@ -417,7 +417,9 @@ void prefab_edits(engine::execution_mode mode) {
         binding(child).material == changed.material);
   edit.dismiss();
   std::shared_ptr<e::scene_subtree_snapshot> captured;
-  check(runtime::prefab_placement::capture(*app, uuid(5), document.scene_handle(), captured).ok());
+  auto captured_document = document.capture_subtree(document.find_prefab_root(uuid(5))->node);
+  check(captured_document.has_value());
+  captured = std::make_shared<e::scene_subtree_snapshot>(std::move(*captured_document));
   const auto captured_author = captured->description()->objects.front();
   auto source_snapshot = captured->resources.at(uuid(5)).prefab_source();
   check(source_snapshot.has_value());
