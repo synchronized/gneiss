@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/scene_projection.hpp"
 #include "engine/function/scene/component_adapter.hpp"
+#include <algorithm>
 namespace gneiss::editor {
 namespace {
 bool same_transform(const engine::math::transform& a, const engine::math::transform& b) {
@@ -18,25 +19,32 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
     return previous.error();
   if (!next)
     return next.error();
-  if (previous->objects.size() != next->objects.size())
-    return false;
   std::map<document_object_address, const composed_document_object*> old;
   for (const auto& object : previous->objects)
     old.emplace(object.address, &object);
+  std::map<document_object_address, const composed_document_object*> desired;
+  for (const auto& object : next->objects)
+    desired.emplace(object.address, &object);
+  for (const auto& object : previous->objects)
+    if (!desired.contains(object.address) && object.address.source)
+      return false;
   for (const auto& object : next->objects) {
     auto found = old.find(object.address);
-    if (found == old.end())
-      return false;
-    const auto& a = *found->second;
-    if (a.prefab_uri != object.prefab_uri)
-      return false;
-    const bool hierarchy_changed =
-        a.parent != object.parent || a.effective.name != object.effective.name;
-    if (hierarchy_changed && object.address.source && !object.instance_root)
-      return false;
-    if (a.parent != object.parent && object.parent.object) {
-      const auto parent = old.find(object.parent);
-      if (parent == old.end() || (object.parent.source && !parent->second->instance_root))
+    if (found == old.end()) {
+      if (object.address.source)
+        return false;
+    } else {
+      const auto& a = *found->second;
+      if (a.prefab_uri != object.prefab_uri)
+        return false;
+      const bool hierarchy_changed =
+          a.parent != object.parent || a.effective.name != object.effective.name;
+      if (hierarchy_changed && object.address.source && !object.instance_root)
+        return false;
+    }
+    if ((found == old.end() || found->second->parent != object.parent) && object.parent.object) {
+      const auto parent = desired.find(object.parent);
+      if (parent == desired.end() || (object.parent.source && !parent->second->instance_root))
         return false;
     }
   }
@@ -54,27 +62,33 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
     nodes.emplace(address, *info);
   }
   // 所有目标及基线先检查，再开始更新；不把外部变更当作已同步状态。
-  for (const auto& object : next->objects) {
+  if (nodes.size() != old.size())
+    return false;
+  for (const auto& object : previous->objects) {
     auto found = nodes.find(object.address);
     if (found == nodes.end() ||
         !same_transform(found->second.local_transform, old.at(object.address)->effective.transform))
       return false;
   }
   struct component_update {
-    scene_node_id node;
+    document_object_address address;
     engine::guid type;
     engine::component_description value;
     bool remove{}, add{};
   };
   std::vector<component_update> updates;
   for (const auto& object : next->objects) {
-    const auto& previous_components = old.at(object.address)->effective.components;
+    const engine::component_descriptions empty;
+    auto previous_object = old.find(object.address);
+    const auto& previous_components =
+        previous_object == old.end() ? empty : previous_object->second->effective.components;
     const auto& components = object.effective.components;
-    const auto node = nodes.at(object.address).node;
+    const auto node =
+        previous_object == old.end() ? scene_node_id{} : nodes.at(object.address).node;
     for (const auto& previous_component : previous_components) {
       const auto* replacement = components.find(previous_component->guid());
       if (!replacement || (*replacement)->uuid != previous_component->uuid)
-        updates.push_back({node, previous_component->guid(), {}, true, false});
+        updates.push_back({object.address, previous_component->guid(), {}, true, false});
     }
     for (const auto& component : components) {
       const auto* previous_component = previous_components.find(component->guid());
@@ -85,42 +99,80 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
                        : engine::prepare_component_editor_value(world, node, component);
       if (!value)
         return value.error();
-      updates.push_back({node, component->guid(), std::move(*value), false, add});
+      updates.push_back({object.address, component->guid(), std::move(*value), false, add});
     }
   }
   // 先拆开所有变化的父关系，避免合法的父子反转被旧树误判为循环。
   for (const auto& object : next->objects) {
-    if (old.at(object.address)->parent == object.parent)
+    if (!old.contains(object.address) || old.at(object.address)->parent == object.parent)
       continue;
     auto status = scenes.reparent_node(scene, nodes.at(object.address).node, {});
     if (status.failed())
       return status;
   }
+  // 只销毁消失对象，从叶到根处理；其余实体保持原身份。
+  std::vector<std::pair<std::size_t, document_object_address>> removed;
+  for (const auto& object : previous->objects) {
+    if (desired.contains(object.address))
+      continue;
+    std::size_t depth = 0;
+    auto parent = object.parent;
+    while (parent.object) {
+      auto found = old.find(parent);
+      if (found == old.end() || ++depth > old.size())
+        return engine::error::invalid_state;
+      parent = found->second->parent;
+    }
+    removed.emplace_back(depth, object.address);
+  }
+  std::ranges::sort(removed, std::greater<>{});
+  for (const auto& [depth, address] : removed) {
+    auto status = scenes.destroy_node(scene, nodes.at(address).node);
+    if (status.failed())
+      return status;
+    nodes.erase(address);
+  }
+  // 新对象先脱离层级创建，随后统一连接，描述排列不必父节点在前。
   for (const auto& object : next->objects) {
-    const auto& previous_object = *old.at(object.address);
+    if (old.contains(object.address))
+      continue;
+    auto created = scenes.create_node(scene, {.uuid = object.effective.uuid,
+                                              .name = object.effective.name,
+                                              .local_transform = object.effective.transform});
+    if (!created)
+      return created.error();
+    engine::scene_node_info info;
+    info.node = *created;
+    nodes.emplace(object.address, std::move(info));
+  }
+  for (const auto& object : next->objects) {
+    auto previous_object = old.find(object.address);
     const auto node = nodes.at(object.address).node;
-    if (previous_object.parent != object.parent && object.parent.object) {
+    if ((previous_object == old.end() || previous_object->second->parent != object.parent) &&
+        object.parent.object) {
       auto status = scenes.reparent_node(scene, node, nodes.at(object.parent).node);
       if (status.failed())
         return status;
     }
-    if (previous_object.effective.name != object.effective.name) {
+    if (previous_object != old.end() &&
+        previous_object->second->effective.name != object.effective.name) {
       auto status = scenes.set_node_name(scene, node, object.effective.name);
       if (status.failed())
         return status;
     }
   }
   for (const auto& update : updates) {
-    auto status =
-        update.remove ? scenes.remove_component_description(scene, update.node, update.type)
-        : update.add
-            ? scenes.add_component_description(scene, update.node, update.value, update.value->uuid)
-            : scenes.set_component_description(scene, update.node, update.value);
+    const auto node = nodes.at(update.address).node;
+    auto status = update.remove ? scenes.remove_component_description(scene, node, update.type)
+                  : update.add  ? scenes.add_component_description(scene, node, update.value,
+                                                                   update.value->uuid)
+                                : scenes.set_component_description(scene, node, update.value);
     if (status.failed())
       return status;
   }
   for (const auto& object : next->objects) {
-    if (same_transform(old.at(object.address)->effective.transform, object.effective.transform))
+    if (!old.contains(object.address) ||
+        same_transform(old.at(object.address)->effective.transform, object.effective.transform))
       continue;
     auto status =
         scenes.set_node_transform(scene, nodes.at(object.address).node, object.effective.transform);

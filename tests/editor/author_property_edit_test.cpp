@@ -322,6 +322,34 @@ int main() try {
     if (hierarchy.undo().failed())
       return 43;
   }
+  {
+    editor_command_history structure;
+    scene_node_id inserted;
+    if (execute_scene_edit(structure, session, "添加对象", [&] {
+          return session.create_node("inserted", {}, inserted);
+        }).failed())
+      return 44;
+    const auto inserted_uuid = session.query_node(inserted)->uuid;
+    if (structure.undo().failed() || session.find_node(inserted_uuid) ||
+        session.query_node(second)->entity != second_entity || structure.redo().failed() ||
+        !session.find_node(inserted_uuid) || session.projection_status().failed())
+      return 45;
+    if (structure.undo().failed())
+      return 46;
+    structure.clear();
+    scene_subtree_snapshot subtree;
+    if (execute_scene_edit(structure, session, "删除对象", [&] {
+          return session.destroy_subtree(first, subtree);
+        }).failed())
+      return 47;
+    if (structure.undo().failed() || session.projection_status().failed() ||
+        !session.find_node(first_uuid) || session.find_node(first_uuid)->entity == first_entity ||
+        session.query_node(second)->entity != second_entity)
+      return 48;
+    if (structure.redo().failed() || session.find_node(first_uuid) || structure.undo().failed() ||
+        session.query_node(second)->entity != second_entity || session.projection_status().failed())
+      return 49;
+  }
   scene_subtree_snapshot removed;
   if (session.destroy_subtree(session.find_node(first_uuid)->node, removed).failed() ||
       history.undo() != gneiss::engine::error::invalid_state || !history.can_undo()) {
