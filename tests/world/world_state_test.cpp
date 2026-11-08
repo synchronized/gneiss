@@ -95,9 +95,33 @@ int run_tests() {
   if (gneiss::test_support::assign_value(tree.create({}, replacement), parent).failed() ||
       gneiss::test_support::assign_value(tree.create(parent, visible), child).failed() ||
       tree.get_entity(child) != visible || tree.destroy(parent).failed() ||
-      tree.get_local(child) != nullptr || !first.destroy_entity(visible) ||
-      first.destroy_entity(visible) || first.entity_count() != 1U)
+      tree.get_local(child) != nullptr || first.is_alive(replacement) ||
+      first.destroy_entity(visible) || first.entity_count() != 0U)
     return 7;
+  // 节点和实体共用身份；跨 World、generation 和重复删除同时失效。
+  const auto root = tree.create({}, 0);
+  const auto leaf =
+      root ? tree.create(*root, 0)
+           : gneiss::engine::result<gneiss::scene_node_id>{gneiss::engine::error::internal};
+  if (!root || !leaf || root->get() != tree.get_entity(*root) || second.scene().get_local(*root) ||
+      second.scene().create(*root, 0).error() != gneiss::engine::error::invalid_handle ||
+      tree.reparent(*leaf, *root).failed() || tree.children(*root)->size() != 1 ||
+      tree.reparent(*root, *leaf) != gneiss::engine::error::invalid_argument)
+    return 8;
+  // 先建子节点，再挂父节点，删除时会触发 EnTT 紧凑组件存储移动。
+  const auto earlier = tree.create({}, 0);
+  const auto later = tree.create({}, 0);
+  if (!earlier || !later || tree.reparent(*earlier, *later).failed() ||
+      !first.destroy_entity(later->get()) || first.is_alive(earlier->get()) ||
+      tree.get_local(*later) || tree.get_local(*earlier))
+    return 9;
+  if (!first.destroy_entity(root->get()) || first.is_alive(leaf->get()) ||
+      tree.destroy(*root) != gneiss::engine::error::invalid_handle || first.entity_count() != 0)
+    return 10;
+  const auto reused = tree.create({}, 0);
+  if (!reused || *reused == *root || *reused == *leaf || tree.get_local(*root) ||
+      tree.get_local(*leaf))
+    return 11;
   return 0;
 }
 

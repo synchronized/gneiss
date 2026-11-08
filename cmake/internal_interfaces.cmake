@@ -149,6 +149,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/scene/scene_instances.hpp
   engine/function/scene/scene_preparation.hpp
   engine/function/scene/scene_query.hpp
+  engine/function/world/game_object.hpp
   engine/function/world/world.hpp
   engine/function/world/world_components.hpp
   engine/function/world/world_types.hpp

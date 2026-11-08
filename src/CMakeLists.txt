@@ -227,9 +227,9 @@ target_sources(
     engine/function/asset/resource_cache.cpp
     engine/function/asset/resource_cache.hpp
     engine/function/scene/scene_types.hpp
-    engine/function/scene/scene_tree.cpp
+    engine/function/world/world_hierarchy.cpp
     engine/function/scene/scene_object.hpp
-    engine/function/scene/scene_tree.hpp
+    engine/function/world/world_hierarchy.hpp
     engine/function/scene/scene_instances_instantiation.cpp
     engine/function/scene/scene_preparation.cpp
     engine/function/scene/scene_preparation.hpp
@@ -257,6 +257,7 @@ target_sources(
     engine/function/world/render_snapshot.cpp
     engine/function/world/render_snapshot.hpp
     engine/function/world/world.cpp
+    engine/function/world/game_object.hpp
     engine/function/world/world.hpp
     engine/function/world/world_types.hpp
     engine/function/world/world_factory.cpp

@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-2026-11-07：实施中，阶段 1、2 已完成，阶段 3 正在迁移。归属 [DEV-052](DEV-052-architecture-cleanup.md)，
+2026-11-07：实施中，阶段 1、2 已完成，阶段 3、4 正在迁移。归属 [DEV-052](DEV-052-architecture-cleanup.md)，
 决策见 [ADR-110](../decisions/ADR-110-game-object-runtime-model.md)。
 承接已完成的 [PLAN-104](PLAN-104-value-document-prefab-overrides.md)，不重新打开其历史验收范围。
 下列结构为目标设计；实施进度以检查项为准，不把重命名等同于运行存储已迁移。
@@ -21,9 +21,9 @@
 
 ## 当前问题
 
-scene_instance 同时维护场景成员和 prefab_binding，后者持有来源、reference_、conflicts_，
+scene_instance 同时维护场景成员和 prefab_binding，后者仍持有来源、reference_，conflicts_ 已删除。
 组件修改已不再生成覆盖。编辑文档已经权威化，但运行时仍承担来源查询、捕获和刷新。
-World 内 scene_tree 拥有独立节点槽位，节点另指向 EnTT 实体。
+World 层级已迁入实体组件，独立 scene_tree 槽位已删除；场景成员归属和旧 node_* 接口仍待迁移。
 组件身份已收敛到 component_description_base，component_entry 已删除。
 
 ## 已确认模型
@@ -59,7 +59,8 @@ World 销毁后禁止再调用借用句柄，World 存活期间删除对象使�
 实体数据：
 - game_object_identity：场景实例内 UUID、名称、scene_instance_id。
 - hierarchy_component：父、子和兄弟关联，所有修改经 World 校验。
-- transform_component：local 与派生 world 缓存、dirty；保留现有 TRS/矩阵数学语义。
+- 层级组件保存 local；world 按查询即时派生，保留现有 TRS 数学语义。
+  本次不引入未经性能需求验证的 world/dirty 缓存，避免增加第二套需要同步的变换状态。
 - component_identities：组件类型到组件实例 UUID；只存身份，不复制属性。
 - camera/mesh_renderer 等实际组件：有效值和资源强引用，不保存覆盖。
 
@@ -130,8 +131,9 @@ Prefab 来源查询、Apply/Revert、来源刷新从文档和组合结果获得�
 
 ### 4：统一运行存储
 
-- [ ] 实现 game_object 与 scene_instance 借用句柄及跨 World/generation 校验。
-- [ ] 层级和变换迁入实体存储，删除独立 scene_tree 节点槽位。
+- [x] 实现 game_object 借用句柄及跨 World/generation 校验，场景创建接入该入口。
+- [ ] scene_instance 改为借用句柄，移交成员拥有权。
+- [x] 层级和变换迁入实体存储，删除独立 scene_tree 节点槽位。
 - [ ] World 接管场景成员及卸载；明确销毁子树、重挂接和失效行为。
 - [ ] 迁移渲染采集、Runtime/IPC、编辑器和测试，删除旧接口。
 
@@ -145,7 +147,7 @@ Prefab 来源查询、Apply/Revert、来源刷新从文档和组合结果获得�
 阶段 1 默认 Windows Clang Debug 构建与 34 项定向回归通过；依赖边界检查通过，
 阶段 2 已完成继承支持和组件 UUID 归属迁移，删除 component_entry；
 最终默认构建与 45 项定向回归通过。详见[阶段记录](../records/2026-11-07-game-object-model.md)。
-运行存储与 Prefab 编辑边界尚未迁移。
+层级实体存储已迁移；场景成员归属与 Prefab 编辑边界尚未完成。
 
 ## 非目标与代价
 

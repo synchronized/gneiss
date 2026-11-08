@@ -32,6 +32,19 @@ World 及其实体只能在创建线程访问；跨线程操作返回 `error::in
 
 `world::entity_count()` 返回 `result<std::uint64_t>`；成功的零值与跨线程访问失败分别表达。
 
+## Game Object 借用
+
+`world::create_object(identity, transform, parent)` 创建有层级的实体并返回 `result<game_object>`。
+`world::object(entity)` 借用已有对象，纯 ECS 实体返回 not_found；失效或跨 World 实体返回 invalid_handle。
+`game_object` 只保存 world* 和 entity_id，复制不保活实体，不保存组件地址。
+World 必须比所有句柄的使用期更长；World 销毁后禁止再调用句柄。
+
+identity、local_transform、world_transform 和 parent 返回值或结果；set_identity、
+set_local_transform、reparent 和 destroy 修改 World 中的同一实体。
+根节点的 parent 返回成功的空句柄。reparent 接受空父节点、拒绝跨 World 和循环关系。
+重复指定同一父节点是无副作用操作。destroy 删除整棵子树，复制的借用句柄同步失效。
+场景创建已使用该入口；旧 node_* 调用方仍在迁移中。
+
 ## ECS 与 System
 
 EnTT `3.15.0` 只用于 World 的内部组件存储。Gneiss 公共头、Entity ID 和 C ABI 不依赖 EnTT。

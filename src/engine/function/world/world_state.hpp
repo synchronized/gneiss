@@ -8,7 +8,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world_components.hpp"
 
-#include "engine/function/scene/scene_tree.hpp"
+#include "engine/function/world/world_hierarchy.hpp"
 
 #include <entt/entity/entity.hpp>
 #include <entt/entity/registry.hpp>
@@ -28,7 +28,7 @@ namespace gneiss::engine {
 class world_state final {
 public:
   explicit world_state(std::uint32_t domain) noexcept
-      : scene_(domain), domain_(domain), owner_thread_(std::this_thread::get_id()) {}
+      : scene_(*this), domain_(domain), owner_thread_(std::this_thread::get_id()) {}
 
   world_state(const world_state&) = delete;
   world_state& operator=(const world_state&) = delete;
@@ -53,7 +53,13 @@ public:
     if (native == entt::null || !registry_.valid(native)) {
       return false;
     }
-    scene_.detach_entity(entity);
+    // 层级组件与实体同寿命。删除子节点时 EnTT 可能移动父组件，不能保存其地址。
+    while (const auto* children = scene_.children(scene_node_id{entity})) {
+      if (children->empty())
+        break;
+      (void)destroy_entity(children->back().get());
+    }
+    scene_.detach(scene_node_id{entity});
 
     registry_.destroy(native);
     if (active_camera_ == entity) {
@@ -92,6 +98,11 @@ public:
   template <typename Component> [[nodiscard]] Component* get(std::uint64_t entity) noexcept {
     const auto native = decode(entity);
     return !is_alive(entity) ? nullptr : registry_.try_get<Component>(native);
+  }
+
+  template <typename Component>
+  [[nodiscard]] const Component* get(std::uint64_t entity) const noexcept {
+    return !is_alive(entity) ? nullptr : registry_.try_get<Component>(decode(entity));
   }
 
   template <class Component> error remove(std::uint64_t entity) {
@@ -161,8 +172,8 @@ public:
     });
   }
 
-  [[nodiscard]] scene_tree& scene() noexcept { return scene_; }
-  [[nodiscard]] const scene_tree& scene() const noexcept { return scene_; }
+  [[nodiscard]] world_hierarchy& scene() noexcept { return scene_; }
+  [[nodiscard]] const world_hierarchy& scene() const noexcept { return scene_; }
   [[nodiscard]] std::uint64_t encode_entity(entt::entity entity) const noexcept {
     return encode(entity);
   }
@@ -185,7 +196,7 @@ private:
   }
 
   entt::registry registry_;
-  scene_tree scene_;
+  world_hierarchy scene_;
   std::uint32_t domain_;
   std::thread::id owner_thread_;
   std::size_t entity_count_ = 0;

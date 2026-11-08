@@ -84,14 +84,22 @@ inline error configure_scene_object(world& owner, scene_node_id node,
 inline result<scene_node_id>
 create_scene_object(world& owner, const game_object_description& source, scene_node_id parent,
                     const mesh_renderer& renderer, asset_manager* resources = nullptr) {
-  auto created = owner.object_create(parent, {source.uuid, source.name}, source.transform);
+  game_object parent_object;
+  if (parent) {
+    auto borrowed = owner.object(entity_id{parent.get()});
+    if (!borrowed)
+      return borrowed.error();
+    parent_object = *borrowed;
+  }
+  auto created = owner.create_object({source.uuid, source.name}, source.transform, parent_object);
   if (!created)
     return created.error();
-  const auto status = configure_scene_object(owner, *created, source, renderer, resources);
+  const scene_node_id node{created->entity().get()};
+  const auto status = configure_scene_object(owner, node, source, renderer, resources);
   if (status.failed()) {
-    (void)owner.object_destroy(*created);
+    (void)created->destroy();
     return status;
   }
-  return *created;
+  return node;
 }
 } // namespace gneiss::engine

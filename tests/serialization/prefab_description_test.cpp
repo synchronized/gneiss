@@ -11,7 +11,7 @@
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/asset/resource_cache.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/scene_tree.hpp"
+#include "engine/function/world/world_state.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
@@ -328,7 +328,8 @@ int main() try {
   }
 
   // 实例根作为源根的父节点，沿用 Scene Tree 的父子变换组合约定。
-  gneiss::engine::scene_tree tree(1U);
+  gneiss::engine::world_state owner(1U);
+  auto& tree = owner.scene();
   gneiss::scene_node_id instance_root = gneiss::scene_node_id{};
   gneiss::scene_node_id source_root = gneiss::null_scene_node_id;
   gneiss::engine::math::transform instance_transform = gneiss::engine::math::transform{};

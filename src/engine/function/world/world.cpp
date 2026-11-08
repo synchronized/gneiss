@@ -29,6 +29,69 @@ result<world_state*> detail::world_component_access::get(world& owner) noexcept 
 world::world(std::uint32_t domain) : state_(std::make_unique<world_state>(domain)) {}
 world::~world() noexcept = default;
 bool world::is_owner_thread() const noexcept { return state_->is_owner_thread(); }
+result<game_object> world::create_object(scene_node_identity identity,
+                                         const math::transform& transform,
+                                         game_object parent) noexcept {
+  if (parent.owner() && parent.owner() != this)
+    return error::invalid_handle;
+  auto created =
+      object_create(scene_node_id{parent.entity().get()}, std::move(identity), transform);
+  if (!created)
+    return created.error();
+  return game_object{*this, entity_id{created->get()}};
+}
+result<game_object> world::object(entity_id entity) noexcept {
+  auto node = entity_node(entity);
+  if (!node)
+    return node.error();
+  return game_object{*this, entity};
+}
+bool game_object::is_valid() const noexcept {
+  return owner_ && owner_->entity_node(entity_).has_value();
+}
+result<scene_node_identity_view> game_object::identity() const noexcept {
+  return owner_ ? owner_->node_identity(scene_node_id{entity_.get()})
+                : result<scene_node_identity_view>{error::invalid_handle};
+}
+error game_object::set_identity(scene_node_identity identity) const noexcept {
+  return owner_ ? owner_->node_set_identity(scene_node_id{entity_.get()}, std::move(identity))
+                : error::invalid_handle;
+}
+result<math::transform> game_object::local_transform() const noexcept {
+  if (!owner_)
+    return error::invalid_handle;
+  math::transform value;
+  auto status = owner_->node_get_local_transform(scene_node_id{entity_.get()}, value);
+  return status.ok() ? result<math::transform>{value} : result<math::transform>{status};
+}
+result<math::transform> game_object::world_transform() const noexcept {
+  if (!owner_)
+    return error::invalid_handle;
+  math::transform value;
+  auto status = owner_->node_get_world_transform(scene_node_id{entity_.get()}, value);
+  return status.ok() ? result<math::transform>{value} : result<math::transform>{status};
+}
+error game_object::set_local_transform(const math::transform& transform) const noexcept {
+  return owner_ ? owner_->node_set_local_transform(scene_node_id{entity_.get()}, transform)
+                : error::invalid_handle;
+}
+result<game_object> game_object::parent() const noexcept {
+  if (!owner_)
+    return error::invalid_handle;
+  scene_node_id parent;
+  auto status = owner_->node_get_parent(scene_node_id{entity_.get()}, parent);
+  if (status.failed())
+    return status;
+  return parent ? owner_->object(entity_id{parent.get()}) : result<game_object>{game_object{}};
+}
+error game_object::reparent(game_object parent) const noexcept {
+  if (!owner_ || (parent.owner_ && parent.owner_ != owner_))
+    return error::invalid_handle;
+  return owner_->node_reparent(scene_node_id{entity_.get()}, scene_node_id{parent.entity_.get()});
+}
+error game_object::destroy() const noexcept {
+  return owner_ ? owner_->object_destroy(scene_node_id{entity_.get()}) : error::invalid_handle;
+}
 result<scene_node_id> world::object_create(scene_node_id parent, scene_node_identity identity,
                                            const math::transform& transform) noexcept {
   entity_id entity;
@@ -43,8 +106,6 @@ result<scene_node_id> world::object_create(scene_node_id parent, scene_node_iden
     status = node_set_identity(node, std::move(identity));
   if (status.failed()) {
     (void)entity_destroy(entity);
-    if (node)
-      (void)node_destroy(node);
     return status;
   }
   return node;
@@ -52,17 +113,6 @@ result<scene_node_id> world::object_create(scene_node_id parent, scene_node_iden
 error world::object_destroy(scene_node_id node) noexcept {
   if (!is_owner_thread())
     return error::invalid_state;
-  const auto* children = state_->scene().children(node);
-  if (!children)
-    return error::invalid_handle;
-  while (!children->empty()) {
-    const auto status = object_destroy(children->back());
-    if (status.failed())
-      return status;
-  }
-  const auto entity = state_->scene().get_entity(node);
-  if (entity != 0)
-    (void)state_->destroy_entity(entity);
   return state_->scene().destroy(node);
 }
 error world::node_set_identity(scene_node_id node, scene_node_identity identity) noexcept {

@@ -5,8 +5,9 @@
 #include "engine/core/entity_id.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/render/render_snapshot.hpp"
+#include "engine/function/scene/scene_types.hpp"
+#include "engine/function/world/game_object.hpp"
 #include "engine/function/world/world_types.hpp"
 #include <memory>
 #include <span>
@@ -46,6 +47,12 @@ public:
   [[nodiscard]] GNEISS_API error entity_set_mesh_renderer(entity_id entity,
                                                           const mesh_renderer& renderer) noexcept;
   [[nodiscard]] GNEISS_API error entity_remove_mesh_renderer(entity_id entity) noexcept;
+  /** 创建有层级的实体；parent 为空时为根，失败不留下部分对象。 */
+  [[nodiscard]] GNEISS_API result<game_object> create_object(scene_node_identity identity,
+                                                             const math::transform& transform = {},
+                                                             game_object parent = {}) noexcept;
+  /** 将本 World 中有层级组件的实体借用为对象，纯 ECS 实体返回 not_found。 */
+  [[nodiscard]] GNEISS_API result<game_object> object(entity_id entity) noexcept;
   /** 创建节点与关联实体；失败不留下部分对象。限所属线程。 */
   [[nodiscard]] GNEISS_API result<scene_node_id>
   object_create(scene_node_id parent, scene_node_identity identity,

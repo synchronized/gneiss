@@ -4,7 +4,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_tree.hpp"
+#include "engine/function/world/world_state.hpp"
 
 #include <algorithm>
 #include <array>
@@ -70,12 +70,13 @@ bool approximately_equal(const gneiss::engine::math::transform& left,
 }
 
 int run_tests() {
-  gneiss::engine::scene_tree tree{17};
+  gneiss::engine::world_state owner{17};
+  auto& tree = owner.scene();
   gneiss::scene_node_id root{};
   gneiss::scene_node_id child{};
   gneiss::scene_node_id grandchild{};
   gneiss::scene_node_id other_root{};
-  constexpr std::uint64_t entity = 42;
+  const auto entity = owner.create_entity();
   if (gneiss::test_support::assign_value(tree.create({}, {}), root) !=
           gneiss::engine::error::success ||
       gneiss::test_support::assign_value(tree.create(root, {}), child) !=

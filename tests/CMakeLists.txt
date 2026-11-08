@@ -295,10 +295,10 @@ add_test(NAME gneiss.native-scene-lifecycle COMMAND gneiss_native_scene_lifecycl
 add_executable(
   gneiss_scene_tree_transform_test
   scene/scene_tree_transform_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_tree.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/world/world_hierarchy.cpp"
 )
 target_include_directories(gneiss_scene_tree_transform_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_link_libraries(gneiss_scene_tree_transform_test PRIVATE gneiss::engine)
+target_link_libraries(gneiss_scene_tree_transform_test PRIVATE gneiss::engine EnTT::EnTT)
 target_compile_features(gneiss_scene_tree_transform_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_scene_tree_transform_test)
 gneiss_target_output_directories(gneiss_scene_tree_transform_test)
@@ -393,7 +393,7 @@ set_tests_properties(gneiss.granit_platform_smoke PROPERTIES TIMEOUT 30)
 add_executable(
   gneiss_world_state_test
   world/world_state_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_tree.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/world/world_hierarchy.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/world/system_scheduler.cpp"
 )
 target_include_directories(gneiss_world_state_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -414,7 +414,7 @@ add_test(NAME gneiss.component_reflection COMMAND gneiss_component_reflection_te
 add_executable(
   gneiss_render_snapshot_test
   world/render_snapshot_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_tree.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/world/world_hierarchy.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/world/render_snapshot.cpp"
 )
 target_include_directories(gneiss_render_snapshot_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -506,11 +506,11 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/function/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_tree.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/world/world_hierarchy.cpp"
 )
 target_include_directories(gneiss_prefab_description_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_prefab_description_test PRIVATE GNEISS_BUILDING_LIBRARY)
-target_link_libraries(gneiss_prefab_description_test PRIVATE gneiss::engine gneiss_yyjson)
+target_link_libraries(gneiss_prefab_description_test PRIVATE gneiss::engine gneiss_yyjson EnTT::EnTT)
 target_compile_features(gneiss_prefab_description_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_prefab_description_test)
 gneiss_target_output_directories(gneiss_prefab_description_test)
