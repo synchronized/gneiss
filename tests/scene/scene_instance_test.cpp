@@ -170,40 +170,31 @@ int main() try {
       gneiss::engine::error::invalid_handle) {
     return 3;
   }
-  // 失败的资源选择不提交；原来的持久化 URI 和组件必须完整保留。
-  std::string accepted_scene;
-  std::string after_failed_edit;
-  if (gneiss::test_support::assign_value(application->scenes()->serialize(scene), accepted_scene)
-          .failed() ||
-      application->scenes()
-          ->set_mesh_renderer(scene, triangle, missing_mesh_uri, material_uri)
-          .ok() ||
-      gneiss::test_support::assign_value(application->scenes()->serialize(scene), after_failed_edit)
-          .failed() ||
-      accepted_scene != after_failed_edit)
+  // 失败的资源选择不提交；检查实际引用和组件，而不是将 World 编码成文件。
+  auto accepted_binding = application->scenes()->capture_mesh_binding(scene, triangle);
+  if (!accepted_binding || application->scenes()
+                               ->set_mesh_renderer(scene, triangle, missing_mesh_uri, material_uri)
+                               .ok())
     return 30;
-
-  // 挂在保存节点下的临时对象不自动成为保存成员。
+  auto after_binding = application->scenes()->capture_mesh_binding(scene, triangle);
+  if (!after_binding || after_binding->mesh != accepted_binding->mesh ||
+      after_binding->material != accepted_binding->material)
+    return 30;
+  // 未登记对象允许参与运行层级，不自动增加场景成员。
   const auto temporary_uuid = gneiss::engine::guid::from_bytes({91, 82, 1});
   auto temporary =
       application->native_world()->object_create(camera_node, {temporary_uuid, "Temporary"}, {});
-  if (!temporary)
+  if (!temporary || *application->scenes()->get_node_count(scene) != 2U)
     return 31;
-  if (gneiss::test_support::assign_value(application->scenes()->serialize(scene), after_failed_edit)
-          .failed() ||
-      after_failed_edit != accepted_scene)
-    return 32;
-  // 持久化对象若被底层直接挂到临时父对象，保存应拒绝悬空引用且不改输出。
   if (application->native_world()->node_reparent(triangle, *temporary).failed() ||
-      gneiss::test_support::assign_value(application->scenes()->serialize(scene),
-                                         after_failed_edit) !=
-          gneiss::engine::error::invalid_state ||
-      after_failed_edit != accepted_scene ||
       application->native_world()->node_reparent(triangle, camera_node).failed() ||
       application->native_world()->object_destroy(*temporary).failed())
     return 34;
-
-  // 同一源文件的运行实例属于另一个 World，修改它不能影响编辑场景保存。
+  // 同一来源的另一个 World 可以独立修改，原 World 的身份不受影响。
+  auto camera_before = application->native_world()->node_identity(camera_node);
+  if (!camera_before)
+    return 35;
+  const auto camera_name = camera_before->name;
   gneiss::scene_instance_id play_scene;
   gneiss::scene_node_id play_camera;
   if (gneiss::test_support::load_scene(*second_application, scene_uri, &play_scene).failed() ||
@@ -213,9 +204,7 @@ int main() try {
       second_application->scenes()
           ->set_node_name(play_scene, play_camera, "Play Camera")
           .failed() ||
-      gneiss::test_support::assign_value(application->scenes()->serialize(scene), after_failed_edit)
-          .failed() ||
-      after_failed_edit != accepted_scene ||
+      application->native_world()->node_identity(camera_node)->name != camera_name ||
       second_application->scenes()->unload(play_scene).failed())
     return 35;
 
@@ -351,7 +340,6 @@ int main() try {
   transform.translation[0] = 5.0F;
   gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   camera.near = 0.25F;
-  std::string json;
   if (application->native_world()->node_get_entity(camera_node, camera_entity) !=
           gneiss::engine::error::success ||
       application->native_world()->entity_set_local_transform(camera_entity, transform) !=
@@ -361,22 +349,23 @@ int main() try {
       application->native_world()
           ->node_set_identity(camera_node, {camera_uuid, "Runtime Camera"})
           .failed() ||
-      gneiss::test_support::assign_value(application->scenes()->serialize(scene), json) !=
-          gneiss::engine::error::success ||
-      json.empty()) {
+      !application->native_world()->node_identity(camera_node)) {
     return 7;
   }
-  if (json.find(R"("name":"Runtime Camera")") == std::string::npos ||
-      json.find(R"("translation":[5.0,0.0,0.0])") == std::string::npos ||
-      json.find(R"("near":0.25)") == std::string::npos ||
-      json.find(created_uuid.string()) == std::string::npos ||
-      json.find(R"("name":"Created Mesh")") == std::string::npos ||
-      json.find(generic_uuid.string()) == std::string::npos ||
-      json.find(R"("name":"Group")") == std::string::npos ||
-      gneiss::test_support::assign_value(second_application->scenes()->serialize(scene), json) !=
-          gneiss::engine::error::invalid_handle) {
+  auto runtime_camera = application->scenes()->get_node_info(scene, 0);
+  auto runtime_mesh = application->native_world()->node_identity(created_node);
+  auto runtime_group = application->native_world()->node_identity(generic_node);
+  if (!runtime_camera || runtime_camera->node != camera_node ||
+      runtime_camera->name != "Runtime Camera" ||
+      runtime_camera->local_transform.translation.x != 5.0F ||
+      !runtime_camera->components.get<gneiss::engine::camera_description>() ||
+      runtime_camera->components.get<gneiss::engine::camera_description>()->settings.near !=
+          0.25F ||
+      !runtime_mesh || runtime_mesh->uuid != created_uuid || runtime_mesh->name != "Created Mesh" ||
+      !runtime_group || runtime_group->name != "Group" ||
+      second_application->scenes()->get_node_count(scene).error() !=
+          gneiss::engine::error::invalid_handle)
     return 8;
-  }
   if (application->scenes()->destroy_node(scene, camera_node) !=
           gneiss::engine::error::invalid_state ||
       application->scenes()->destroy_node(scene, created_node) != gneiss::engine::error::success ||
@@ -403,9 +392,6 @@ int main() try {
       gneiss::test_support::take_value(application->scenes()->get_node_count(empty_scene),
                                        empty_count) != gneiss::engine::error::success ||
       empty_count != 0U ||
-      gneiss::test_support::assign_value(application->scenes()->serialize(empty_scene), json) !=
-          gneiss::engine::error::success ||
-      json.empty() ||
       application->scenes()->unload(empty_scene) != gneiss::engine::error::success) {
     return 13;
   }

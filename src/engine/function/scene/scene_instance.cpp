@@ -8,7 +8,6 @@
 #include "engine/function/scene/prefab_replay.hpp"
 #include "engine/function/scene/scene_instance_state.hpp"
 #include "engine/function/scene/scene_types.hpp"
-#include "engine/resource/asset_file.hpp"
 
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/meta/registration.hpp"
@@ -170,7 +169,7 @@ scene_node_id scene_instance_state::find_node(gneiss::engine::guid uuid) const n
 }
 
 engine::error scene_instance_state::reload(scene_description candidate) {
-  auto captured = capture_description();
+  auto captured = capture_reload_baseline();
   if (!captured)
     return captured.error();
   const auto& current = *captured;
@@ -810,7 +809,7 @@ engine::error scene_instance_state::destroy_node(scene_node_id node) {
   return destroy_subtree(node);
 }
 
-result<scene_description> scene_instance_state::capture_description() const {
+result<scene_description> scene_instance_state::capture_reload_baseline() const {
   scene_description current;
   current.uuid = uuid_;
   current.objects.reserve(objects_.size());
@@ -841,16 +840,6 @@ result<scene_description> scene_instance_state::capture_description() const {
     current.objects.push_back(std::move(*captured));
   }
   return current;
-}
-
-result<std::string> scene_instance_state::serialize() const {
-  auto current = capture_description();
-  if (!current)
-    return current.error();
-  auto encoded = gneiss::engine::asset_file::serialize(*current);
-  if (!encoded)
-    return encoded.error().error;
-  return std::move(*encoded);
 }
 
 } // namespace gneiss::engine

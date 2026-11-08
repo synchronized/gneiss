@@ -287,35 +287,6 @@ result<scene_instance_id> scene_instances::create_empty(guid scene_uuid) noexcep
   return error::internal;
 }
 
-result<scene_description>
-scene_instances::capture_description(scene_instance_id instance) const noexcept try {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* slot = *selected;
-  return slot->capture_description();
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
-}
-
-result<std::string> scene_instances::serialize(scene_instance_id instance) const noexcept try {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* slot = *selected;
-  return slot->serialize();
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
-}
-
 engine::error scene_instances::unload(scene_instance_id instance) noexcept {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;

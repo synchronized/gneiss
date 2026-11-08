@@ -35,8 +35,6 @@ public:
                                          ref<const engine::material> material);
 
   [[nodiscard]] scene_node_id find_node(guid uuid) const noexcept;
-  [[nodiscard]] result<scene_description> capture_description() const;
-  [[nodiscard]] result<std::string> serialize() const;
   [[nodiscard]] result<scene_node_info> get_node_info(std::uint64_t index,
                                                       node_query_detail detail) const;
   [[nodiscard]] error set_node_transform(scene_node_id node, const math::transform& transform);
@@ -91,6 +89,8 @@ public:
                             prefab_reference_description reference, std::size_t index);
 
 private:
+  // 仅供待迁移的旧重载比较；不作为作者保存或文档捕获接口。
+  [[nodiscard]] result<scene_description> capture_reload_baseline() const;
   friend class scene_instances;
   [[nodiscard]] std::vector<node_entry>::iterator find_member(scene_node_id node);
   [[nodiscard]] std::vector<node_entry>::const_iterator find_member(scene_node_id node) const;

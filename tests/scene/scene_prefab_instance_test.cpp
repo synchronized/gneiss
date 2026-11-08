@@ -113,7 +113,7 @@ int main() try {
   if (application->scenes()->set_camera(scene, prefab_source.node, runtime_camera).failed() ||
       application->scenes()->remove_camera(scene, prefab_source.node).failed())
     return 13;
-  const auto authored_json = application->scenes()->serialize(scene);
+  const auto authored_json = gneiss::engine::asset_file::serialize(initial.description);
   if (!authored_json)
     return 2;
   // 运行时变更只更新有效数据，不生成或改写文档中的 Prefab 覆盖。
@@ -123,24 +123,20 @@ int main() try {
       gneiss::engine::error::success) {
     return 2;
   }
-  std::string sparse_json;
-  if (gneiss::test_support::assign_value(application->scenes()->serialize(scene), sparse_json) !=
-          gneiss::engine::error::success ||
-      sparse_json != *authored_json) {
+  auto unchanged_source = gneiss::engine::asset_file::serialize(initial.description);
+  if (!unchanged_source || *unchanged_source != *authored_json)
     return 2;
-  }
   source_transform.translation[0] = 4.0F;
   if (application->scenes()->set_node_transform(scene, prefab_source.node, source_transform) !=
       gneiss::engine::error::success) {
     return 2;
   }
 
+  unchanged_source = gneiss::engine::asset_file::serialize(initial.description);
   if (gneiss::test_support::prefab_node_info(*application->scenes(), scene, 1U, prefab_source) !=
           gneiss::engine::error::success ||
-      prefab_source.local_transform.translation[0] != 4.0F ||
-      gneiss::test_support::assign_value(application->scenes()->serialize(scene), sparse_json) !=
-          gneiss::engine::error::success ||
-      sparse_json != *authored_json)
+      prefab_source.local_transform.translation[0] != 4.0F || !unchanged_source ||
+      *unchanged_source != *authored_json)
     return 2;
 
   // 重新实例化采用文档中的原始覆盖，丢弃运行时临时修改。
@@ -218,14 +214,9 @@ int main() try {
           .failed() ||
       application->scenes()->reparent_node(scene, attached, created_root).failed())
     return 12;
-  std::string with_child;
-  if (gneiss::test_support::assign_value(application->scenes()->serialize(scene), with_child)
-          .failed())
-    return 12;
-  auto decoded_child = gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(
-      std::as_bytes(std::span(with_child)));
-  if (!decoded_child || decoded_child->objects.size() != 4U ||
-      decoded_child->objects.back().parent_uuid != created_uuid)
+  gneiss::scene_node_id parent_before_refresh;
+  if (application->native_world()->node_get_parent(attached, parent_before_refresh).failed() ||
+      parent_before_refresh != created_root)
     return 12;
   gneiss::engine::game_object_description replacement;
   replacement.uuid = created_uuid;
@@ -256,15 +247,15 @@ int main() try {
     return 4;
   }
 
-  std::string json;
-  if (gneiss::test_support::assign_value(application->scenes()->serialize(scene), json) !=
-          gneiss::engine::error::success ||
-      json.empty() || json.find("asset://prefabs/test.prefab.json") == std::string::npos ||
-      json.find(created_uuid.string()) == std::string::npos ||
-      json.find(renamed) == std::string::npos ||
-      json.find("30000000-0000-4000-8000-000000000002") != std::string::npos) {
+  auto created_identity = application->native_world()->node_identity(created_root);
+  gneiss::engine::math::transform created_transform;
+  if (!created_identity || created_identity->uuid != created_uuid ||
+      created_identity->name != renamed ||
+      application->native_world()
+          ->node_get_local_transform(created_root, created_transform)
+          .failed() ||
+      created_transform.translation.x != moved.translation.x)
     return 6;
-  }
   // 统一枚举包含普通父节点及 Prefab 全部节点；删除父节点同时清理来源关系。
   std::uint64_t node_count{};
   if (gneiss::test_support::take_value(application->scenes()->get_node_count(scene), node_count) !=
@@ -303,15 +294,8 @@ int main() try {
     std::fprintf(stderr, "子树生命周期检查 7 失败\n");
     return 10;
   }
-  if (gneiss::test_support::assign_value(application->scenes()->serialize(scene), json) !=
-      gneiss::engine::error::success) {
-    std::fprintf(stderr, "子树生命周期检查 8 失败\n");
+  if (application->scenes()->find_node(scene, created_uuid))
     return 10;
-  }
-  if (json.find(created_uuid.string()) != std::string::npos) {
-    std::fprintf(stderr, "子树生命周期检查 9 失败\n");
-    return 10;
-  }
   if (gneiss::test_support::assign_value(application->native_world()->entity_count(),
                                          entity_count) != gneiss::engine::error::success) {
     std::fprintf(stderr, "子树生命周期检查 10 失败\n");

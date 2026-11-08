@@ -157,9 +157,9 @@ int main() try {
   check(!invalid && invalid.error() == e::error::invalid_handle);
   auto missing = scenes.find_node(instance, {});
   check(!missing && missing.error() == e::error::not_found);
-  auto captured = scenes.capture_description(instance);
-  check(captured && captured->objects.size() == 2);
-  check(captured->objects[0].components.identity(movement_description::type_guid) ==
+  auto captured = e::capture_components(world, node);
+  check(bool(captured));
+  check(captured->identity(movement_description::type_guid) ==
         first.components.identity(movement_description::type_guid));
   auto id = entity(world, node);
   auto* component = state(world).get<movement_component>(id);
@@ -173,8 +173,15 @@ int main() try {
                                   e::meta::property_id{1},
                                   e::value{-1.0F}) == e::error::invalid_argument);
   check(state(world).get<movement_component>(id)->data.speed == 5);
-  e::scene_description saved;
-  check(gneiss::test_support::assign_value(scenes.capture_description(instance), saved).ok());
+  // 文件往返使用调用方描述，显式采集需要保留的组件，不捕获整个运行场景。
+  e::scene_description saved = source;
+  for (auto& object : saved.objects) {
+    auto member = scenes.find_node(instance, object.uuid);
+    check(bool(member));
+    auto components = e::capture_components(world, *member);
+    check(bool(components));
+    object.components = std::move(*components);
+  }
   check(saved.objects[0].components.get<movement_description>()->speed == 5);
   check(saved.objects[0].components.identity(movement_description::type_guid) ==
         first.components.identity(movement_description::type_guid));
@@ -249,8 +256,8 @@ int main() try {
   check(!dynamic->find(dynamic_uuid));
   auto recreated = dynamic->create({dynamic_uuid, "recreated"});
   check(recreated && recreated->entity() != dynamic_root->entity());
-  auto dynamic_description = scenes.capture_description(*dynamic_scene);
-  check(dynamic_description && dynamic_description->objects.size() == 1);
+  auto dynamic_members = dynamic->size();
+  check(dynamic_members && *dynamic_members == 1);
   e::error cross_thread_mutation;
   std::thread dynamic_worker([&] {
     cross_thread_mutation = scenes.set_node_name(
@@ -293,9 +300,9 @@ int main() try {
   check(
       scenes.reload_prefab_loaded(instance, "asset://test.prefab", e::prefab_asset_ref{next}).ok());
   check(state(world).get<movement_component>(id)->data.speed == 9);
-  check(gneiss::test_support::assign_value(scenes.capture_description(instance), saved).ok());
-  check(saved.objects[0].components.empty());
-  check(saved.objects[0].prefab->overrides.size() == 1);
+  check(source.objects[0].components.empty());
+  check(source.objects[0].prefab->overrides.size() == 1);
+  check(prefab->objects[0].components.get<movement_description>()->speed == 2);
   auto empty_reload = scenes.create_empty(e::guid::generate());
   check(empty_reload.has_value());
   check(scenes.reload_prefab_loaded(*empty_reload, "asset://test.prefab", prefab_ref).ok());

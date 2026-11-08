@@ -10,7 +10,9 @@
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -24,7 +26,8 @@ constexpr std::string_view scene_uri = "asset://scenes/property.scene.json";
 const auto camera_uuid = *gneiss::engine::guid::parse("37cff772-2e8d-4bc7-9ed2-f94435926d4e");
 bool open_scene(gneiss::engine::task_scheduler& scheduler, std::string_view root,
                 std::shared_ptr<gneiss::runtime::application>& app,
-                gneiss::scene_instance_id& scene) {
+                gneiss::scene_instance_id& scene,
+                gneiss::engine::scene_description* description = nullptr) {
   gneiss::runtime::application_configuration config;
   config.asset_root = root;
   if (gneiss::runtime::application::create(config, app).failed() ||
@@ -49,6 +52,8 @@ bool open_scene(gneiss::engine::task_scheduler& scheduler, std::string_view root
   if (app->activate_scene(request, completion).failed())
     return false;
   scene = completion.scene;
+  if (description)
+    *description = *completion.content->description;
   return true;
 }
 bool target_for(gneiss::runtime::application& app, gneiss::scene_instance_id scene,
@@ -87,7 +92,8 @@ int main() try {
       (void)app->shutdown();
     }
   }};
-  if (!open_scene(scheduler, GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT, app, scene))
+  gneiss::engine::scene_description description;
+  if (!open_scene(scheduler, GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT, app, scene, &description))
     return 2;
   gneiss::entity_id target{};
   if (!target_for(*app, scene, target))
@@ -120,7 +126,19 @@ int main() try {
   components->set(*changed);
   if (gneiss::engine::install_components({*app->native_world(), *node}, *components).failed())
     return 3;
-  auto serialized = app->scenes()->serialize(scene);
+  // 保存以加载时的描述为基础，只写回本示例明确修改的相机属性。
+  auto author = std::ranges::find(description.objects, camera_uuid,
+                                  &gneiss::engine::game_object_description::uuid);
+  if (author == description.objects.end())
+    return 4;
+  auto local = app->native_world()->object(target);
+  auto transform = local ? local->local_transform()
+                         : gneiss::engine::result<gneiss::engine::math::transform>{local.error()};
+  if (!transform)
+    return 4;
+  author->transform = *transform;
+  author->components = *components;
+  auto serialized = gneiss::engine::asset_file::serialize(description);
   if (!serialized || app->scenes()->unload(scene).failed())
     return 4;
   auto json = std::move(*serialized);

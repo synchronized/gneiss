@@ -5,28 +5,29 @@
 
 ## 运行期身份与所有权
 
-`scene_instances` 拥有 `scene_instance`，对外使用非拥有的 `scene_instance_id`。
+World 拥有 `scene_instances` 及内部成员状态；`scene_instance` 是借用句柄，
+`scene_instance_id` 是非拥有的集合标识。
 节点统一使用 `scene_node_id`，校验所属域和槽位代次；不能跨 World 使用，也不保活对象。
 持久化身份使用 UUID，文件不保存运行期 ID。
 
 World 拥有场景树和 ECS；场景实例记录自己的全部节点并负责统一删除。
 ECS 组件持有 mesh/material 等引擎资源强引用，不保存第三方后端对象。
-`prefab_binding` 保存模板资源、实例 URI/覆盖与来源 UUID 到实际节点的非拥有映射，借用 World 和资源服务。
+旧手动实例化路径的 `prefab_binding` 保存模板资源、实例 URI/覆盖与来源 UUID 到实际节点的非拥有映射，借用 World 和资源服务。
 它不在析构时销毁节点，也不保留创建期间的有效描述副本；投影由无状态的 `prepare_prefab_description` 处理。
 
 ## 原生结果接口
 
-`scene_instances` 的创建、查询和捕获接口返回 `result<T>`，失败时只返回错误，不提供部分输出。
+`scene_instances` 的创建和查询接口返回 `result<T>`，失败时只返回错误，不提供部分输出。
 原地修改、删除和卸载继续返回 `error`。调用方先检查结果，再取得值：
 
 ```cpp
 auto created = scenes.create_empty(scene_uuid);
 if (!created)
   return created.error();
-auto captured = scenes.capture_description(*created);
-if (!captured)
-  return captured.error();
-// *captured 是自有场景描述，可用于后续编码。
+auto count = scenes.get_node_count(*created);
+if (!count)
+  return count.error();
+// 查询运行成员；持久化使用调用方的描述或编辑器文档。
 ```
 
 运行集合不提供从实例反向构造实例化输入或 Prefab 作者头的入口；
@@ -95,13 +96,13 @@ Prefab 编辑开始时从组件覆盖快照取得原资源引用；异步加载�
 
 运行时 World 的节点身份、层级、局部变换与 ECS 组件描述实际运行状态；编辑内容以 Editor 文档为准。
 `scene_instance` 只长期保存场景 UUID、成员标记和 Prefab 绑定，不维护完整 `scene_description`。
-描述仅用于加载输入、捕获输出和撤销快照。`scene_object.hpp` 委托 Function/Scene 的
+场景描述用于加载输入；文档持久化和撤销快照归 Editor 管理。`scene_object.hpp` 委托 Function/Scene 的
 `component_adapter.hpp` 按描述 GUID 安装与捕获组件，内建适配相机与网格渲染组件。
 扩展组件注册 `component_operations<T>`，提供验证、安装、捕获、删除、比较操作；
 属性覆盖默认使用 Meta，资源依赖枚举默认为空。Meta 仍只负责描述数据的反射与编码。
 
 注册须在首次组件查询之前完成；重复 GUID 返回 `invalid_argument`，冻结后注册返回
-`invalid_state`，缺少适配的描述返回 `unsupported`，不会在实例化或保存时静默丢弃。
+`invalid_state`，缺少适配的描述返回 `unsupported`，不会在实例化或组件采集时静默丢弃。
 运行组件回调只在 World 所属线程调用；验证、比较、描述编辑与依赖枚举须可并发调用。
 安装不得读取文件或阻塞等待，失败不得改变目标组件，并须能用捕获描述恢复旧值。
 
@@ -121,9 +122,9 @@ Prefab 编辑开始时从组件覆盖快照取得原资源引用；异步加载�
 当前通用面板支持已有反射控件的对象、序列元素和标量（含枚举）。Prefab 覆盖不支持改变序列长度、
 关联容器或 optional 状态；不支持的修改在提交前拒绝。多字段覆盖在同一副本上应用后才验证整体。
 
-保存只收集显式登记的持久化成员；Prefab 展开子节点通过源引用与覆盖表达。
-直接在 World 创建、挂到场景下的临时对象不会自动写入文件。持久化成员若被底层挂到
-临时或其他场景父节点，捕获返回 `invalid_state`，不生成悬空父引用。
+保存读取文档对象；Prefab 展开子节点通过源引用与覆盖表达。
+直接在 World 创建或修改对象不会自动写入文件。需要保存运行值时，由明确的编辑操作
+选择对象/属性并应用到文档，不使用运行集合的整场景捕获。
 
 运行时资源替换接口校验输入绑定；编辑器文档可接受结构合法但视觉依赖尚未就绪的描述。
 文档保留 URI 和资源身份，投影失败通过 projection_status 报告，不撤销已接受的内容。
@@ -145,10 +146,11 @@ Editor Document 保存及完整子树撤销读取文档版本，不反向捕获 
 覆盖生成及恢复属于 `scene_edit_session`。运行时临时修改不会更新加载时的 Prefab 引用；重新实例化仍采用文档覆盖。
 `prefab_binding` 不执行属性覆盖，不保存冲突列表，reload 接收组合后的有效描述。
 冲突从文档组合结果查询，不从 scene_node_info 查询。
-当前运行实例仍保留加载时的来源映射和覆盖记录，用于旧运行捕获/重载入口，待 PLAN-105 后续迁移。
+当前运行实例仍保留加载时的来源映射和覆盖记录，用于旧手动实例化/重载入口，待 PLAN-105 后续迁移。
 
-`capture_description` 采集显式对象，`serialize` 编码为当前格式；来源生成节点不重复输出。
-未知 JSON 扩展字段按对象 UUID 对齐保留，不按旧数组下标绑定。
+运行集合不提供 `capture_description` 或 `serialize`。组件读取使用 `capture_components`，
+身份、变换和层级通过运行查询取得；这些查询不推导 Prefab 作者意图。
+源文件编码使用显式描述或 Editor 文档，不能把运行成员列表当作保存权威。
 Editor 的 `scene_edit_session::capture_subtree/restore_subtree` 使用
 `gneiss::editor::scene_subtree_snapshot`（`editor/documents/scene_document_snapshot.hpp`），
 支持普通父对象包含 Prefab、
@@ -188,6 +190,9 @@ Runtime 宿主按场景激活回执的 Prefab 依赖 URI 筛选文件重载通�
 场景描述解析、层级和 Prefab 描述准备失败仍中止结构操作；本规则不包含缺失 Prefab 或未知组件占位。
 
 
+正式 Runtime 来源刷新持有激活时的固定内容和地址关联，使用共享组合/应用；
+根角色改变不更换仍存活对象的实体。来源未修改的变换保留游戏运行值。
+以下接口仍是待迁移的旧手动路径，不用于正式激活场景：
 `reload_loaded` 应用已加载场景描述；当前要求 Prefab 引用声明保持一致，来源变更另走
 `reload_prefab_loaded`。来源重载按 UUID 匹配节点，组件差异以当前 ECS 捕获值为准，目标值来自新描述及覆盖；保留匹配节点身份、实例根值和合法覆盖。
 原地重载不允许更换模板根 UUID；失去目标的覆盖返回错误，不静默绑定到其他节点。

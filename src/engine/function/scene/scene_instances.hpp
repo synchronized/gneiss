@@ -106,10 +106,6 @@ public:
   [[nodiscard]] GNEISS_API error unload(scene_instance_id instance) noexcept;
   [[nodiscard]] GNEISS_API result<scene_node_id> find_node(scene_instance_id instance,
                                                            guid uuid) const noexcept;
-  /** 采集当前作者描述及运行期变换；成功才返回完整描述，不编码或读取文件。 */
-  [[nodiscard]] GNEISS_API result<scene_description>
-  capture_description(scene_instance_id instance) const noexcept;
-  [[nodiscard]] GNEISS_API result<std::string> serialize(scene_instance_id instance) const noexcept;
   [[nodiscard]] GNEISS_API result<std::uint64_t>
   get_node_count(scene_instance_id instance) const noexcept;
   [[nodiscard]] GNEISS_API result<scene_node_info>
