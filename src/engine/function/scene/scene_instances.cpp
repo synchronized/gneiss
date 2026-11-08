@@ -21,37 +21,6 @@ std::uint16_t allocate_domain() noexcept {
 
 } // namespace
 
-result<prefab_header_snapshot> scene_instances::capture_prefab_header(scene_instance_id instance,
-                                                                      guid uuid) const noexcept
-    try {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto* slot = instances_.get(instance, resource_type::scene_instance);
-  if (!slot || !*slot)
-    return error::invalid_handle;
-  return (*slot)->capture_prefab_instance_header(uuid);
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
-}
-
-result<scene_mesh_binding> scene_instances::capture_prefab_binding(scene_instance_id instance,
-                                                                   guid uuid,
-                                                                   std::size_t index) const noexcept
-    try {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto* slot = instances_.get(instance, resource_type::scene_instance);
-  if (!slot || !*slot)
-    return error::invalid_handle;
-  return (*slot)->capture_prefab_instance_binding(uuid, index);
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
-}
-
 result<scene_node_id> scene_instances::instantiate_prefab_ready(
     scene_instance_id instance, const game_object_description& author, prefab_asset_ref prefab,
     std::span<const scene_mesh_binding> bindings, bool replacing,

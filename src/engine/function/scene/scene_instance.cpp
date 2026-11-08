@@ -617,7 +617,7 @@ result<scene_subtree_snapshot> scene_instance::capture_subtree(scene_node_id roo
       resources.source_asset = (*binding)->source_asset();
       resources.source_nodes.resize((*binding)->node_count());
       for (std::size_t i = 0; i < resources.source_nodes.size(); ++i) {
-        auto node_binding = capture_prefab_instance_binding(author.uuid, i);
+        auto node_binding = capture_mesh_binding((*binding)->nodes_[i].node);
         if (!node_binding)
           return node_binding.error();
         resources.source_nodes[i] = std::move(*node_binding);

@@ -29,8 +29,8 @@ if (!captured)
 // *captured 是自有场景描述，可用于后续编码。
 ```
 
-`capture_prepared` 返回 `result<scene_capture>`，将实例化描述与资源绑定一起返回；
-`capture_prefab_header` 返回 `result<prefab_header_snapshot>`，包含对象描述与 Prefab 强引用。
+运行集合不提供从实例反向构造实例化输入或 Prefab 作者头的入口；
+重复实例化由调用方保留已加载描述与资源引用。编辑器的 Prefab 头捕获只读取文档。
 `get_node_info` 返回的 `scene_node_info` 仍包含借用字段，结果包装不延长场景寿命。
 单实例与集合层共用值结果接口，集合层只校验线程、句柄并转发；不再构造输出参数再包装结果。
 集合管理实现在 `scene_instances.cpp`，单实例实现在 `scene_instance.cpp`，
@@ -78,8 +78,8 @@ Prefab 编辑开始时从组件覆盖快照取得原资源引用；异步加载�
 4. 全部成功后返回场景实例 ID；失败回收本次创建的节点及 ECS 组件。
 
 同步创建阶段不跨帧，也不支持中途取消；文件和资产准备阶段可取消。
-`create_empty` 创建无节点场景，不读取文件。`capture_prepared` 捕获内存描述及实际绑定的资源引用，
-供旧运行捕获调用方使用；编辑器接管已不使用它。它不读取文件，也不创建隐藏的备份实例。
+`create_empty` 创建无节点场景，不读取文件。重复实例化可复用同一不可变输入和资源绑定，
+不从 World 反推来源描述或创建隐藏的备份实例。
 
 ## 对象与来源查询
 

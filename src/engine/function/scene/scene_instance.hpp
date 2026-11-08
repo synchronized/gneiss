@@ -14,7 +14,6 @@ namespace gneiss::engine {
 class scene_instance final {
 public:
   scene_instance(world& native_world, asset_manager& loader) noexcept;
-  ref<const engine::scene> source_asset;
   ~scene_instance() noexcept;
 
   scene_instance(const scene_instance&) = delete;
@@ -71,10 +70,6 @@ public:
                                     scene_diagnostic* diagnostic);
 
   /** 单场景 Prefab 实例操作；服务已校验线程与句柄，不修改 Prefab 源资源。 */
-  [[nodiscard]] result<prefab_header_snapshot>
-  capture_prefab_instance_header(guid uuid) const noexcept;
-  [[nodiscard]] result<scene_mesh_binding>
-  capture_prefab_instance_binding(guid uuid, std::size_t index) const noexcept;
   [[nodiscard]] result<scene_node_id>
   instantiate_prefab_ready(const game_object_description& author, prefab_asset_ref prefab,
                            std::span<const scene_mesh_binding> bindings, bool replacing,

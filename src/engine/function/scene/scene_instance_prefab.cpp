@@ -13,45 +13,6 @@
 #include <utility>
 
 namespace gneiss::engine {
-result<prefab_header_snapshot>
-scene_instance::capture_prefab_instance_header(guid uuid) const noexcept try {
-  const auto found = std::ranges::find_if(
-      prefab_instances_, [&](const auto& value) { return value->instance_uuid_ == uuid; });
-  if (found == prefab_instances_.end())
-    return error::not_found;
-  const auto index = static_cast<std::size_t>(found - prefab_instances_.begin());
-  auto captured = capture_scene_object(native_world_, (*found)->root(), false);
-  if (!captured)
-    return captured.error();
-  auto copy = std::move(*captured);
-  copy.prefab = (*found)->reference_;
-  return prefab_header_snapshot{std::move(copy), prefab_instances_[index]->prefab_lease(),
-                                prefab_instances_[index]->source_asset()};
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
-}
-
-result<scene_mesh_binding>
-scene_instance::capture_prefab_instance_binding(guid uuid, std::size_t index) const noexcept {
-  const auto found = std::ranges::find_if(
-      prefab_instances_, [&](const auto& value) { return value->instance_uuid_ == uuid; });
-  if (found == prefab_instances_.end()) {
-    return error::not_found;
-  }
-  if (index >= (*found)->nodes_.size()) {
-    return error::not_found;
-  }
-  const auto& node = (*found)->nodes_[index];
-  auto renderer = native_world_.node_mesh_renderer(node.node);
-  if (!renderer) {
-    return renderer.error() == error::not_found ? result<scene_mesh_binding>{scene_mesh_binding{}}
-                                                : result<scene_mesh_binding>{renderer.error()};
-  }
-  return scene_mesh_binding{renderer->mesh, renderer->material};
-}
-
 result<scene_node_id> scene_instance::instantiate_prefab_ready(
     const game_object_description& author, prefab_asset_ref prefab,
     std::span<const scene_mesh_binding> bindings, bool replacing,

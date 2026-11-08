@@ -4,8 +4,8 @@
 #include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
-#include "engine/function/meta_registration.hpp"
 #include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
@@ -108,10 +108,9 @@ int main() try {
   check(!invalid && invalid.error() == e::error::invalid_handle);
   auto missing = scenes.find_node(instance, {});
   check(!missing && missing.error() == e::error::not_found);
-  auto captured = scenes.capture_prepared(instance);
-  check(captured && captured->description.description.objects.size() == 2);
-  check(captured->description.description.objects[0].components.identity(
-            movement_description::type_guid) ==
+  auto captured = scenes.capture_description(instance);
+  check(captured && captured->objects.size() == 2);
+  check(captured->objects[0].components.identity(movement_description::type_guid) ==
         first.components.identity(movement_description::type_guid));
   auto id = entity(world, node);
   auto* component = state(world).get<movement_component>(id);

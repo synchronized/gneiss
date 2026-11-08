@@ -38,11 +38,6 @@ struct prefab_component_state {
   guid component_uuid{};
 };
 class scene_instance;
-/** 捕获的实例化输入与资源强引用；不读取文件。 */
-struct scene_capture {
-  scene_instantiation_data description;
-  std::map<std::string, render_resource_ref, std::less<>> assets;
-};
 /** Prefab 来源描述与强引用的成组快照。 */
 struct prefab_header_snapshot {
   game_object_description author;
@@ -74,9 +69,6 @@ public:
   /** 重建投影并保留实例句柄；成功后旧节点句柄失效，失败保留旧投影。 */
   [[nodiscard]] GNEISS_API error replace_prepared(scene_instance_id, scene_instantiation_data,
                                                   const resource_bindings&) noexcept;
-  /** 捕获纯内存描述和绑定资源强引用；内建视觉绑定不要求就绪，不读取文件。 */
-  [[nodiscard]] GNEISS_API result<scene_capture>
-  capture_prepared(scene_instance_id instance) const noexcept;
   /** 同步实例化；替换先移除旧实例，失败只清理本次新建节点，不恢复旧实例。 */
   [[nodiscard]] GNEISS_API result<scene_node_id>
   instantiate_prefab_ready(scene_instance_id instance, const game_object_description& author,
@@ -136,12 +128,6 @@ public:
   [[nodiscard]] GNEISS_API result<scene_node_info>
   get_node_info(scene_instance_id instance, std::uint64_t index,
                 node_query_detail detail = node_query_detail::components) const noexcept;
-  /** 捕获当前 Prefab 来源描述与属性覆盖，不读文件；成功才返回完整快照。 */
-  [[nodiscard]] GNEISS_API result<prefab_header_snapshot>
-  capture_prefab_header(scene_instance_id instance, guid uuid) const noexcept;
-  /** 按来源索引捕获当前资源强引用，允许调用方分帧构建历史快照。 */
-  [[nodiscard]] GNEISS_API result<scene_mesh_binding>
-  capture_prefab_binding(scene_instance_id instance, guid uuid, std::size_t index) const noexcept;
   [[nodiscard]] GNEISS_API error set_node_transform(scene_instance_id instance, scene_node_id node,
                                                     const math::transform& transform) noexcept;
   [[nodiscard]] GNEISS_API result<scene_node_id> create_node(scene_instance_id instance,

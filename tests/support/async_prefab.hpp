@@ -61,19 +61,8 @@ inline engine::error create_prefab(runtime::application& app, scene_instance_id 
   return instantiate_prefab(app, scene, author, root, false, tasks);
 }
 inline engine::error refresh_prefab(runtime::application& app, scene_instance_id scene,
-                                    gneiss::engine::guid uuid, scene_node_id& root) {
-  engine::game_object_description author;
-  engine::prefab_asset_ref source;
-  auto status = [&]() -> gneiss::engine::error {
-    auto scene_result = app.scenes()->capture_prefab_header(scene, uuid);
-    if (!scene_result)
-      return scene_result.error();
-    author = std::move(scene_result->author);
-    source = std::move(scene_result->source);
-    return gneiss::engine::error::success;
-  }();
-  if (status.failed())
-    return status;
+                                    const engine::game_object_description& author,
+                                    scene_node_id& root) {
   return instantiate_prefab(app, scene, author, root, true);
 }
 }

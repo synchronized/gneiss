@@ -290,6 +290,7 @@ void run() {
   check(gneiss::engine::resource_rid(unrelated) != gneiss::engine::resource_rid(material));
   const auto reads = files->reads;
   gneiss::scene_instance_id new_scene{};
+  const auto instantiation_input = prepared;
   auto expected_scene_asset = prepared.source_asset;
   auto expected_prefab_asset = prepared.prefabs.begin()->second.source_asset;
   check(bool(expected_scene_asset) && bool(expected_prefab_asset));
@@ -310,12 +311,6 @@ void run() {
   check(files->reads == reads);
   check(candidate->scenes()->reload(new_scene, engine::ref<const engine::prefab>{}).error().error ==
         engine::error::invalid_argument);
-  {
-    auto captured = candidate->scenes()->capture_prepared(new_scene);
-    check(bool(captured));
-    check(captured->description.source_asset == expected_scene_asset);
-    check(captured->description.prefabs.begin()->second.source_asset == expected_prefab_asset);
-  }
   std::uint64_t unchanged_count{};
   check(gneiss::engine::error{gneiss::test_support::assign_value(
             active->native_world()->entity_count(), unchanged_count)} ==
@@ -326,24 +321,19 @@ void run() {
   check(files->reads == reads);
   // 同步创建不读文件；替换失败删除旧实例并清理新建残留。
   {
-    gneiss::engine::prefab_asset_ref source;
-    gneiss::engine::game_object_description author;
-    check([&]() -> gneiss::engine::error {
-      auto captured = candidate->scenes()->capture_prefab_header(
-          new_scene, *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000004"));
-      if (!captured)
-        return captured.error();
-      author = std::move(captured->author);
-      source = std::move(captured->source);
-      return gneiss::engine::error::success;
-    }()
-                       .ok());
-    std::vector<gneiss::engine::scene_mesh_binding> prefab_bindings(source.get()->objects.size());
-    for (std::size_t i = 0; i < prefab_bindings.size(); ++i)
-      check(gneiss::test_support::assign_value(
-                candidate->scenes()->capture_prefab_binding(new_scene, author.uuid, i),
-                prefab_bindings[i])
-                .ok());
+    auto author =
+        *std::ranges::find_if(instantiation_input.description.objects,
+                              [](const auto& object) { return object.prefab.has_value(); });
+    const auto source = instantiation_input.prefabs.at(author.prefab->uri).resource;
+    std::vector<gneiss::engine::scene_mesh_binding> prefab_bindings(source->objects.size());
+    for (std::size_t i = 0; i < prefab_bindings.size(); ++i) {
+      const auto* renderer = source->objects[i].components.get<engine::mesh_renderer_description>();
+      if (!renderer)
+        continue;
+      prefab_bindings[i] = {
+          engine::resource_cast<engine::mesh>(bindings.at(renderer->mesh_uri)),
+          engine::resource_cast<engine::material>(bindings.at(renderer->material_uri))};
+    }
     author.uuid = *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000077");
     const auto reads_before = files->reads;
     std::uint64_t baseline{};
@@ -396,28 +386,12 @@ void run() {
   const auto selected_material = gneiss::engine::resource_rid(material);
   // 多个场景共享相同 URI 的资源身份。
   gneiss::scene_instance_id additional{};
-  check([&]() -> gneiss::engine::error {
-    auto scene_result = candidate->scenes()->capture_prepared(new_scene);
-    if (!scene_result)
-      return scene_result.error();
-    prepared = std::move(scene_result->description);
-    bindings = std::move(scene_result->assets);
-    return gneiss::engine::error::success;
-  }()
-                     .ok());
+  prepared = instantiation_input;
   check(gneiss::test_support::take_value(
             candidate->scenes()->instantiate_prepared(std::move(prepared), bindings), additional)
             .ok());
   gneiss::scene_instance_id duplicate_scene{};
-  check([&]() -> gneiss::engine::error {
-    auto scene_result = candidate->scenes()->capture_prepared(new_scene);
-    if (!scene_result)
-      return scene_result.error();
-    prepared = std::move(scene_result->description);
-    bindings = std::move(scene_result->assets);
-    return gneiss::engine::error::success;
-  }()
-                     .ok());
+  prepared = instantiation_input;
   check(
       gneiss::test_support::take_value(
           candidate->scenes()->instantiate_prepared(std::move(prepared), bindings), duplicate_scene)

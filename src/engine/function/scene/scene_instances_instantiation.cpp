@@ -75,7 +75,6 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
         return error::invalid_argument;
     }
     auto instance = std::make_unique<scene_instance>(native_world_, loader_);
-    instance->source_asset = prepared.source_asset;
     instance->initialize_staged(prepared.description.uuid, prepared.description.objects.size());
     std::unordered_map<guid, scene_node_id, guid_hash> nodes;
     nodes.reserve(prepared.description.objects.size());
@@ -141,60 +140,4 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
     return engine::error::internal;
   }
 }
-result<scene_capture> scene_instances::capture_prepared(scene_instance_id instance) const noexcept
-    try {
-  const auto* value = instances_.get(instance, resource_type::scene_instance);
-  if (!value || !*value)
-    return error::invalid_handle;
-  auto captured = (*value)->capture_description();
-  if (!captured)
-    return captured.error();
-  auto scene = std::make_shared<scene_description>(std::move(*captured));
-  scene_preparation_inputs inputs;
-  inputs.scene = asset_ref<const scene_description>{scene};
-  inputs.source_asset = (*value)->source_asset;
-  for (const auto& prefab : scene->objects) {
-    if (!prefab.prefab)
-      continue;
-    auto header = (*value)->capture_prefab_instance_header(prefab.uuid);
-    if (!header)
-      return header.error();
-    inputs.prefab_assets.insert_or_assign(prefab.prefab->uri, header->source_asset);
-    inputs.prefabs.insert_or_assign(prefab.prefab->uri, std::move(header->source));
-  }
-  scene_instantiation_data prepared;
-  scene_diagnostic diagnostic;
-  auto status = prepare_loaded_scene(inputs, {}, prepared, diagnostic, {});
-  if (status.failed())
-    return status;
-  resource_bindings bindings;
-  // 历史保活实际绑定的资源身份，包括仍在加载或已失败的资源；不重新加载、不要求就绪。
-  for (std::uint64_t index = 0; index < (*value)->node_count(); ++index) {
-    auto node = (*value)->get_node_info(index, node_query_detail::identity);
-    if (!node)
-      return node.error();
-    auto binding = (*value)->capture_mesh_binding(node->node);
-    if (!binding)
-      return binding.error();
-    if (binding->mesh && !resource_uri(binding->mesh).empty())
-      bindings.insert_or_assign(std::string(resource_uri(binding->mesh)), binding->mesh);
-    if (binding->material && !resource_uri(binding->material).empty())
-      bindings.insert_or_assign(std::string(resource_uri(binding->material)), binding->material);
-  }
-  // 自定义组件的其他依赖仍从已有缓存保活，不能因本次改动丢失其引用。
-  for (const auto& source : prepared.assets) {
-    if (bindings.contains(source.uri))
-      continue;
-    auto loaded = loader_.find_loaded(source);
-    if (!loaded)
-      return loaded.error();
-    bindings.emplace(source.uri, std::move(*loaded));
-  }
-  return scene_capture{std::move(prepared), std::move(bindings)};
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
-}
-
 } // namespace gneiss::engine

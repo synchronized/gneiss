@@ -127,7 +127,9 @@ Prefab 来源查询、Apply/Revert、来源刷新从文档和组合结果获得�
 
 前两项已完成，见[验收记录](../records/2026-11-08-prefab-runtime-boundary.md)。
 第三项仍待迁移，不将仍存在 reference_ 的运行绑定称为无 Prefab 状态。
-运行 API 的旧捕获、子树恢复和来源重载仍依赖该记录，必须连同调用方迁移，不能简单移动字段。
+运行集合的 capture_prepared、capture_prefab_header、capture_prefab_binding 已删除，
+重复实例化改为复用调用方持有的输入；运行场景不再为这些捕获入口保活 Scene 源资产。
+子树恢复、capture_description 和来源重载仍依赖该记录，必须连同调用方迁移，不能简单移动字段。
 
 ### 4：统一运行存储
 

@@ -27,3 +27,13 @@
 - scene_instance 旧来源重载仍解释 reference_；运行捕获和子树恢复仍依赖来源记录。
 - 编辑投影仍借助 Prefab 绑定更新成员；下一阶段需要用通用对象差异更新代替，并一起删除旧作者捕获/来源重载入口。
 - 本批不代表 PLAN-105 整体完成，未实施统一实体存储，也未修改 Granit。
+
+## 后续：删除运行作者捕获入口
+
+删除 scene_instances::capture_prepared、capture_prefab_header、capture_prefab_binding 及其
+单实例实现。重复创建从调用方持有的不可变实例化输入和资源绑定开始；来源刷新测试也显式传入
+原始或已修改的对象描述，不从运行实例重建作者数据。运行 Scene 移除仅用于旧捕获的源资产强引用。
+子树内资源捕获复用普通节点的 capture_mesh_binding，不再单独维护 Prefab 索引入口。
+
+默认 Windows Clang Debug 构建及 84 项相关回归通过；git diff --check 通过。
+未运行 GPU 大场景或远端 CI。reference_、运行子树作者捕获及来源重载仍待后续迁移，计划未完成。

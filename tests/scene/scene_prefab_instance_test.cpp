@@ -40,6 +40,16 @@ int main() try {
     return 1;
   }
 
+  // 重建消费调用方持有的源描述，不从运行对象反推来源覆盖。
+  gneiss::engine::scene_instantiation_data initial;
+  gneiss::engine::scene_instances::resource_bindings initial_assets;
+  if (gneiss::test_support::prepare_scene(*application, scene_uri, initial, initial_assets)
+          .failed())
+    return 1;
+  const auto original = std::ranges::find_if(
+      initial.description.objects, [](const auto& object) { return object.prefab.has_value(); });
+  if (original == initial.description.objects.end())
+    return 1;
   std::uint64_t prefab_node_count = 0;
   gneiss::engine::scene_node_info prefab_root;
   gneiss::engine::scene_node_info prefab_source;
@@ -118,8 +128,8 @@ int main() try {
 
   // 重新实例化采用文档中的原始覆盖，丢弃运行时临时修改。
   const auto stale_loaded_root = prefab_root.node;
-  if (gneiss::test_support::refresh_prefab(*application, scene, prefab_root.prefab->instance_uuid,
-                                           prefab_root.node) != gneiss::engine::error::success ||
+  if (gneiss::test_support::refresh_prefab(*application, scene, *original, prefab_root.node) !=
+          gneiss::engine::error::success ||
       prefab_root.node == gneiss::null_scene_node_id || prefab_root.node == stale_loaded_root ||
       gneiss::test_support::prefab_node_info(*application->scenes(), scene, 1U, prefab_source) !=
           gneiss::engine::error::success ||
@@ -200,9 +210,16 @@ int main() try {
   if (!decoded_child || decoded_child->objects.size() != 4U ||
       decoded_child->objects.back().parent_uuid != created_uuid)
     return 12;
+  gneiss::engine::game_object_description replacement;
+  replacement.uuid = created_uuid;
+  replacement.name = renamed;
+  replacement.parent_uuid = anchor_uuid;
+  replacement.transform = moved;
+  replacement.prefab.emplace();
+  replacement.prefab->uri = prefab_uri;
   const auto stale_root = created_root;
   gneiss::entity_id stale_entity;
-  if (gneiss::test_support::refresh_prefab(*application, scene, created_uuid, created_root) !=
+  if (gneiss::test_support::refresh_prefab(*application, scene, replacement, created_root) !=
           gneiss::engine::error::success ||
       created_root == gneiss::null_scene_node_id || created_root == stale_root ||
       application->native_world()->node_get_entity(stale_root, stale_entity) !=
