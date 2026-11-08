@@ -54,12 +54,16 @@ int main() try {
   };
   draw();
   const bool valid = error.ok() && ImGui::GetDrawData()->TotalVtxCount > 0;
-  // 模拟点击实际面板的最后一个恢复按钮，验证独立值、路径及不直接写对象。
+  // 单独绘制目标属性，避免把组件末尾的只读身份字段误当成恢复按钮。
   const auto restore = [&](auto current, auto source, gneiss::engine::meta::property_id property,
                            gneiss::engine::value expected) {
     auto current_view = gneiss::engine::meta::instance::from(current);
     auto source_view = gneiss::engine::meta::instance::from(source);
     if (!current_view || !source_view)
+      return false;
+    auto current_property = current_view->property(property);
+    auto source_property = source_view->property(property);
+    if (!current_property || !source_property)
       return false;
     std::optional<property_edit> requested;
     ImVec2 button;
@@ -68,8 +72,8 @@ int main() try {
       ImGui::SetNextWindowPos({0, 0});
       ImGui::SetNextWindowSize({1000, 700});
       ImGui::Begin("Restore test");
-      auto edit =
-          draw_reflected_properties(*current_view, "Component", serial, error, {}, &*source_view);
+      auto edit = draw_reflected_properties(*current_property, "Property", serial, error, {},
+                                            &*source_property);
       if (edit)
         requested = std::move(edit);
       button = GImGui->LastItemData.Rect.GetCenter();
@@ -88,9 +92,8 @@ int main() try {
     if (!unchanged || !original)
       return false;
     auto actual = unchanged->read_value();
-    return requested && requested->path == property_path{property} &&
-           requested->data.payload == expected.payload && actual &&
-           actual->payload != expected.payload;
+    return requested && requested->path.empty() && requested->data.payload == expected.payload &&
+           actual && actual->payload != expected.payload;
   };
   namespace e = gneiss::engine;
   auto changed_transform = transform;

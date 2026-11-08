@@ -62,7 +62,7 @@ scene_document_versions 最终仅保留确有需要的快照/保存回执能力�
 
 - [x] 普通对象添加、删除及恢复按对象增量更新，无关实体身份保持。
 - [ ] 独立维护文档身份关联，删除对 runtime prefab_binding 的编辑查询依赖。
-- [ ] 组件 create/update/remove 分开，更新编辑字段不能抹掉无关运行时状态。
+- [x] 组件 create/update/remove 分开；update 回调保留描述之外的运行状态，未声明时使用既有 install 策略。
 - [ ] 层级增删、重挂接、Prefab 来源刷新按受影响对象更新，删除普通撤销的整场景替换。
 - [ ] scene_edit_session 接管协调与选择，纯文档移除 Application/World 依赖。
 - [ ] 资源未就绪、部分应用失败、过期完成与重试有明确状态和回归覆盖。

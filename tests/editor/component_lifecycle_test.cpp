@@ -22,7 +22,19 @@ void check(bool ok, std::source_location at = std::source_location::current()) {
 }
 int main() try {
   check(e::initialize_meta(register_movement_meta).ok());
-  check(e::register_scene_component(operations()).ok());
+  auto ops = operations();
+  ops.update = [](e::component_context& context,
+                  const movement_description& description) -> e::error {
+    if (description.speed == 13)
+      return e::error::invalid_state;
+    auto* component =
+        state(context.owner).get<movement_component>(entity(context.owner, context.node));
+    if (!component)
+      return e::error::not_found;
+    component->data = description;
+    return e::error::success;
+  };
+  check(e::register_scene_component(ops).ok());
   auto choices = e::component_editor_types();
   check(choices && choices->size() == 3);
   for (const auto& choice : *choices) {
@@ -61,10 +73,16 @@ int main() try {
   check_identity();
   check(add() == e::error::invalid_state && history.size() == 1);
   check(ed::remove_component_description(document, disabled, uuid, type).failed() && current());
+  std::weak_ptr<int> retained_runtime = current()->lifetime;
   check(ed::edit_component_description(
             document, history, world, {.object_uuid = uuid, .component_type = type},
             {.path = {e::meta::property_id{1}}, .data = e::value{4.0F}}, 0)
             .ok());
+  check(retained_runtime.lock() == current()->lifetime);
+  check(history.undo().ok() && current()->data.speed == 1 &&
+        retained_runtime.lock() == current()->lifetime);
+  check(history.redo().ok() && current()->data.speed == 4 &&
+        retained_runtime.lock() == current()->lifetime);
   std::weak_ptr<int> lifetime = current()->lifetime;
   check(remove().ok() && !current() && lifetime.expired() && history.size() == 3);
   check(history.undo().ok() && current()->data.speed == 4);

@@ -24,6 +24,9 @@ struct component_adapter {
   guid property_type;
   std::function<error(const component_description&)> validate;
   std::function<error(component_context&, const component_description&)> install;
+  /** 已有组件的编辑更新，保留未在描述中表达的运行状态；失败不修改组件。
+   * 未提供时使用 install，适用于没有额外运行状态的组件。 */
+  std::function<error(component_context&, const component_description&)> update;
   std::function<result<std::optional<component_description>>(world&, scene_node_id)> capture;
   std::function<error(world&, scene_node_id)> remove;
   std::function<bool(const component_description&, const component_description&)> equal;
@@ -44,9 +47,12 @@ struct component_adapter {
 };
 /** 启动期注册；重复 GUID 拒绝，首次查询后冻结。纯描述回调须支持并发只读调用。 */
 GNEISS_API error register_scene_component(component_adapter adapter) noexcept;
+/** 更新已有组件，保持组件 UUID；不存在时返回 not_found，不隐式创建。 */
+GNEISS_API error update_component(component_context, const component_description&) noexcept;
 template <class T> struct component_operations {
   error (*validate)(const T&){};
   error (*install)(component_context&, const T&){};
+  error (*update)(component_context&, const T&){};
   result<std::optional<T>> (*capture)(world&, scene_node_id){};
   error (*remove)(world&, scene_node_id){};
   bool (*equal)(const T&, const T&){};
@@ -75,6 +81,13 @@ template <class T> component_adapter make_component_adapter(component_operations
           [ops](component_context& context, const component_description& value) {
             const auto* typed = value ? value->get<T>() : nullptr;
             return typed ? ops.install(context, *typed) : error{error::invalid_argument};
+          },
+      .update =
+          [ops](component_context& context, const component_description& value) {
+            const auto* typed = value ? value->get<T>() : nullptr;
+            if (!typed)
+              return error{error::invalid_argument};
+            return ops.update ? ops.update(context, *typed) : ops.install(context, *typed);
           },
       .capture = [ops](world& owner,
                        scene_node_id node) -> result<std::optional<component_description>> {

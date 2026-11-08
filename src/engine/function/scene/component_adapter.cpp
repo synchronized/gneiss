@@ -294,6 +294,29 @@ result<component_description> default_component_description(guid type) noexcept 
 } catch (...) {
   return error::internal;
 }
+error update_component(component_context context, const component_description& value) noexcept try {
+  auto status = valid_target(context);
+  if (status.failed())
+    return status;
+  if (!value)
+    return error::invalid_argument;
+  const auto* adapter = find(value->guid());
+  if (!adapter)
+    return error::unsupported;
+  status = adapter->validate(value);
+  if (status.failed())
+    return status;
+  auto current = adapter->capture(context.owner, context.node);
+  if (!current)
+    return current.error();
+  if (!*current)
+    return error::not_found;
+  return adapter->update ? adapter->update(context, value) : adapter->install(context, value);
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
 error add_component(component_context context, const component_description& value,
                     guid identity) noexcept try {
   auto status = valid_target(context);

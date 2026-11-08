@@ -40,7 +40,7 @@ error scene_instance::set_component_description(scene_node_id node,
   if (!renderer && renderer.error() != error::not_found)
     return renderer.error();
   component_context context{native_world_, node, renderer ? *renderer : mesh_renderer{}, &loader_};
-  return install_components(context, component_descriptions{value});
+  return update_component(context, value);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {

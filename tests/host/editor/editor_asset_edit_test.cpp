@@ -372,11 +372,12 @@ void prefab_edits(engine::execution_mode mode) {
                                  {.path = {e::meta::property_id{2}}, .data = e::value{uri}});
   };
   const auto capture = [&] {
-    e::scene_description current;
-    check(gneiss::test_support::assign_value(
-              app->scenes()->capture_description(document.scene_handle()), current)
-              .ok());
-    return current;
+    auto bytes = document.serialize();
+    check(bytes.has_value());
+    auto current = e::asset_file::deserialize<e::scene_description>(
+        std::as_bytes(std::span{bytes->data(), bytes->size()}));
+    check(current.has_value());
+    return *current;
   };
   const auto overrides = [&] {
     const auto current = capture();
