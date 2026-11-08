@@ -208,12 +208,17 @@ int main() try {
   check(!state(world).get<movement_component>(id) && lifetime.expired());
   check(scenes.reload_loaded(instance, saved).ok());
   lifetime = state(world).get<movement_component>(id)->lifetime;
-  e::scene_subtree_snapshot snapshot;
-  check(gneiss::test_support::assign_value(scenes.capture_subtree(instance, node), snapshot).ok());
+  // 调用方保留明确描述；运行集合只负责销毁和创建，不承担撤销快照。
+  auto saved_components = e::capture_components(world, node);
+  check(bool(saved_components));
+  const auto old_node = node;
   check(scenes.destroy_subtree(instance, node).ok());
-  check(lifetime.expired());
-  check(gneiss::test_support::take_value(scenes.restore_subtree(instance, snapshot, {}, {}), node)
-            .ok());
+  check(lifetime.expired() && !world.object(gneiss::entity_id{old_node.get()}));
+  auto recreated_node = scenes.create_node(instance, {.uuid = first.uuid, .name = first.name});
+  check(bool(recreated_node) && *recreated_node != old_node);
+  node = *recreated_node;
+  for (const auto& component : *saved_components)
+    check(scenes.add_component_description(instance, node, component).ok());
   id = entity(world, node);
   check(state(world).get<movement_component>(id)->data.speed == 5);
   lifetime = state(world).get<movement_component>(id)->lifetime;

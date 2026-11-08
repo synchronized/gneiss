@@ -229,7 +229,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   if (app.scenes()->unload(loaded).failed() || !found_ordinary || !found_prefab || !found_child)
     return 47;
   // 移除后不把旧历史应用到另一个节点。
-  e::scene_subtree_snapshot removed_prefab;
+  gneiss::editor::scene_subtree_snapshot removed_prefab;
   if (session.destroy_subtree(session.find_prefab_root(author.uuid)->node, removed_prefab)
           .failed() ||
       session.validate_selection().failed() || prefab_history.undo() != e::error::invalid_state)

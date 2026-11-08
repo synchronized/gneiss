@@ -12,7 +12,6 @@
 
 namespace gneiss::editor {
 namespace {
-using engine::scene_subtree_snapshot;
 using prefab_snapshots = std::vector<std::shared_ptr<const scene_subtree_snapshot>>;
 engine::error capture_document_prefab(scene_edit_session& document, engine::guid uuid,
                                       std::shared_ptr<scene_subtree_snapshot>& output) {

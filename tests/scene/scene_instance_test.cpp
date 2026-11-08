@@ -42,10 +42,6 @@ int main() try {
       *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000004");
   const gneiss::engine::guid generic_uuid =
       *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000005");
-  const gneiss::engine::guid copied_generic_uuid =
-      *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000006");
-  const gneiss::engine::guid copied_triangle_uuid =
-      *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000007");
   constexpr std::string_view mesh_uri = "asset://models/triangle.mesh.json";
   constexpr std::string_view material_uri = "asset://materials/triangle.material.json";
   constexpr std::string_view missing_mesh_uri = "asset://models/missing.mesh.json";
@@ -187,26 +183,16 @@ int main() try {
       accepted_scene != after_failed_edit)
     return 30;
 
-  // 挂在保存节点下的临时对象不自动成为保存成员；子树快照也不包含它。
+  // 挂在保存节点下的临时对象不自动成为保存成员。
   const auto temporary_uuid = gneiss::engine::guid::from_bytes({91, 82, 1});
   auto temporary =
       application->native_world()->object_create(camera_node, {temporary_uuid, "Temporary"}, {});
   if (!temporary)
     return 31;
-  gneiss::engine::scene_subtree_snapshot persistent_snapshot;
   if (gneiss::test_support::assign_value(application->scenes()->serialize(scene), after_failed_edit)
           .failed() ||
-      after_failed_edit != accepted_scene ||
-      gneiss::test_support::assign_value(application->scenes()->capture_subtree(scene, camera_node),
-                                         persistent_snapshot)
-          .failed())
+      after_failed_edit != accepted_scene)
     return 32;
-  auto persistent_description = persistent_snapshot.description();
-  if (!persistent_description)
-    return 32;
-  for (const auto& object : persistent_description->objects)
-    if (object.uuid == temporary_uuid)
-      return 33;
   // 持久化对象若被底层直接挂到临时父对象，保存应拒绝悬空引用且不改输出。
   if (application->native_world()->node_reparent(triangle, *temporary).failed() ||
       gneiss::test_support::assign_value(application->scenes()->serialize(scene),
@@ -315,90 +301,38 @@ int main() try {
       triangle_info.local_transform.translation[1] != 2.0F || !triangle_info.components.empty()) {
     return 13;
   }
-  // 捕获非根子树时不能保留快照外的父引用；恢复时由显式 parent 重新挂接。
-  if (application->scenes()->reparent_node(scene, generic_node, camera_node) !=
-      gneiss::engine::error::success) {
+  // 运行删除递归清理成员；重建消费显式描述和资源引用，不从 World 保存作者快照。
+  if (application->scenes()->reparent_node(scene, generic_node, camera_node).failed())
     return 29;
-  }
-  gneiss::engine::scene_subtree_snapshot subtree_snapshot;
+  auto retained = application->scenes()->capture_mesh_binding(scene, triangle);
+  if (!retained)
+    return 15;
   const auto old_generic_node = generic_node;
   const auto old_triangle_node = triangle;
-  if (gneiss::test_support::assign_value(
-          application->scenes()->capture_subtree(scene, generic_node), subtree_snapshot) !=
-          gneiss::engine::error::success ||
-      subtree_snapshot.description()->objects.empty() ||
-      application->scenes()->destroy_subtree(scene, generic_node) !=
-          gneiss::engine::error::success) {
+  if (application->scenes()->destroy_subtree(scene, generic_node).failed())
     return 15;
-  }
-  if (application->native_world()->node_get_parent(old_generic_node, generic_node) !=
-          gneiss::engine::error::invalid_handle ||
-      application->native_world()->node_get_parent(old_triangle_node, triangle) !=
-          gneiss::engine::error::invalid_handle) {
+  if (application->native_world()->object(gneiss::entity_id{old_generic_node.get()}) ||
+      application->native_world()->object(gneiss::entity_id{old_triangle_node.get()}))
     return 17;
-  }
-  if (gneiss::test_support::take_value(
-          application->scenes()->restore_subtree(scene, subtree_snapshot, camera_node, {}),
-          generic_node) != gneiss::engine::error::success) {
+  generic_desc.name = "Group";
+  generic_desc.parent = camera_node;
+  auto recreated = application->scenes()->create_node(scene, generic_desc);
+  if (!recreated || *recreated == old_generic_node)
     return 18;
-  }
-  if (generic_node == old_generic_node) {
-    return 19;
-  }
-  if (gneiss::test_support::take_value(application->scenes()->find_node(scene, triangle_uuid),
-                                       triangle) != gneiss::engine::error::success) {
+  generic_node = *recreated;
+  auto child_desc = create_desc;
+  child_desc.uuid = triangle_uuid;
+  child_desc.name = "Triangle";
+  child_desc.parent = generic_node;
+  auto rebuilt =
+      application->scenes()->create_mesh_renderer_node_ready(scene, child_desc, *retained);
+  if (!rebuilt || *rebuilt == old_triangle_node)
     return 20;
-  }
-  if (triangle == old_triangle_node) {
+  triangle = *rebuilt;
+  auto rebuilt_binding = application->scenes()->capture_mesh_binding(scene, triangle);
+  if (!rebuilt_binding || rebuilt_binding->mesh != retained->mesh ||
+      rebuilt_binding->material != retained->material)
     return 21;
-  }
-  const gneiss::engine::uuid_mapping mappings[] = {{generic_uuid, copied_generic_uuid},
-                                                   {triangle_uuid, copied_triangle_uuid}};
-  gneiss::scene_node_id copied_root;
-  if (gneiss::test_support::take_value(
-          application->scenes()->restore_subtree(scene, subtree_snapshot, camera_node,
-                                                 std::span{mappings}.first(1U)),
-          copied_root) != gneiss::engine::error::invalid_argument) {
-    return 16;
-  }
-  auto missing_asset_snapshot = subtree_snapshot;
-  auto missing_description = missing_asset_snapshot.description();
-  if (!missing_description)
-    return 26;
-  for (auto& object : missing_description->objects)
-    if (object.components.template get<gneiss::engine::mesh_renderer_description>())
-      if (object.components
-              .update<gneiss::engine::mesh_renderer_description>(
-                  [&](auto& value) { value.mesh_uri = missing_mesh_uri; })
-              .failed())
-        return 26;
-  auto frozen_missing = gneiss::engine::capture_scene_record(*missing_description);
-  if (!frozen_missing)
-    return 26;
-  missing_asset_snapshot.content = std::move(*frozen_missing);
-  if (gneiss::test_support::take_value(
-          application->scenes()->restore_subtree(scene, missing_asset_snapshot, camera_node,
-                                                 std::span{mappings}.first(2U)),
-          copied_root) != gneiss::engine::error::not_found ||
-      gneiss::test_support::take_value(application->scenes()->get_node_count(scene), node_count) !=
-          gneiss::engine::error::success ||
-      node_count != 4U) {
-    return 26;
-  }
-  const auto copy_result = gneiss::test_support::take_value(
-      application->scenes()->restore_subtree(scene, subtree_snapshot, camera_node,
-                                             std::span{mappings}.first(2U)),
-      copied_root);
-  if (copy_result != gneiss::engine::error::success) {
-    return 22;
-  }
-  if (copied_root == gneiss::null_scene_node_id) {
-    return 22;
-  }
-  if (application->scenes()->destroy_subtree(scene, copied_root) !=
-      gneiss::engine::error::success) {
-    return 23;
-  }
   if (application->scenes()->reparent_node(scene, triangle, camera_node) !=
       gneiss::engine::error::success) {
     return 24;

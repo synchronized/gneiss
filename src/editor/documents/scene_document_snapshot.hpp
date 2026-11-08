@@ -3,13 +3,30 @@
 #pragma once
 #include "commands/author_document_change.hpp"
 #include "engine/function/scene/scene_composition.hpp"
+#include "engine/function/scene/scene_mesh_binding.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
-#include "engine/function/scene/scene_subtree_snapshot.hpp"
+#include "engine/resource/prefab.hpp"
 #include "engine/resource/scene/scene_record.hpp"
 #include <map>
 #include <span>
 #include <string>
 namespace gneiss::editor {
+/** 子树历史保活的实际资源；按文档对象 UUID 关联，不保存运行节点。 */
+struct scene_object_resources {
+  engine::scene_mesh_binding renderer;
+  engine::prefab_record prefab_content;
+  [[nodiscard]] engine::result<engine::prefab_asset_ref> prefab_source() const noexcept;
+  std::vector<engine::scene_mesh_binding> source_nodes;
+  engine::ref<const engine::prefab> source_asset;
+};
+/** 文档子树快照：只冻结描述和值，不捕获 ECS 或运行对象身份。 */
+struct scene_subtree_snapshot {
+  engine::scene_record content;
+  [[nodiscard]] engine::result<engine::scene_description> description() const noexcept;
+  engine::guid root_uuid;
+  engine::guid parent_uuid;
+  std::map<engine::guid, scene_object_resources> resources;
+};
 /** 捕获的对象描述和固定 Prefab 来源；不读取资产当前修订。 */
 struct prefab_header_snapshot {
   engine::game_object_description author;
@@ -17,7 +34,7 @@ struct prefab_header_snapshot {
   engine::ref<const engine::prefab> source_asset;
 };
 /** 冻结 Prefab 文档快照；只使用显式输入资源，不访问 World、文件或资产缓存。 */
-[[nodiscard]] engine::result<engine::scene_subtree_snapshot> freeze_prefab_snapshot(
+[[nodiscard]] engine::result<scene_subtree_snapshot> freeze_prefab_snapshot(
     prefab_header_snapshot source,
     const std::map<std::string, engine::render_resource_ref, std::less<>>& assets) noexcept;
 

@@ -416,10 +416,11 @@ void prefab_edits(engine::execution_mode mode) {
   check(edit.operation().failed() && history.size() == count &&
         binding(child).material == changed.material);
   edit.dismiss();
-  std::shared_ptr<e::scene_subtree_snapshot> captured;
+  std::shared_ptr<gneiss::editor::scene_subtree_snapshot> captured;
   auto captured_document = document.capture_subtree(document.find_prefab_root(uuid(5))->node);
   check(captured_document.has_value());
-  captured = std::make_shared<e::scene_subtree_snapshot>(std::move(*captured_document));
+  captured =
+      std::make_shared<gneiss::editor::scene_subtree_snapshot>(std::move(*captured_document));
   const auto captured_author = captured->description()->objects.front();
   auto source_snapshot = captured->resources.at(uuid(5)).prefab_source();
   check(source_snapshot.has_value());

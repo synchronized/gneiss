@@ -13,7 +13,6 @@
 #include "engine/function/scene/scene_mesh_binding.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/scene/scene_query.hpp"
-#include "engine/function/scene/scene_subtree_snapshot.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 #include "engine/resource/scene/scene_description.hpp"
@@ -125,12 +124,6 @@ public:
                                                std::string_view name) noexcept;
   [[nodiscard]] GNEISS_API error reparent_node(scene_instance_id instance, scene_node_id node,
                                                scene_node_id parent) noexcept;
-  [[nodiscard]] GNEISS_API result<scene_subtree_snapshot>
-  capture_subtree(scene_instance_id instance, scene_node_id root) const noexcept;
-  /** 只消费内存描述和资源强引用；失败回收本次创建的节点，不读取文件。 */
-  [[nodiscard]] GNEISS_API result<scene_node_id>
-  restore_subtree(scene_instance_id instance, const scene_subtree_snapshot& snapshot,
-                  scene_node_id parent, std::span<const uuid_mapping> mappings) noexcept;
   /** 删除整棵自有子树或 Prefab 实例，统一清理节点、实体和来源关系。 */
   [[nodiscard]] GNEISS_API error destroy_subtree(scene_instance_id instance,
                                                  scene_node_id root) noexcept;

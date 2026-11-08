@@ -433,39 +433,6 @@ engine::error scene_instances::reparent_node(scene_instance_id instance, scene_n
   }
 }
 
-result<scene_subtree_snapshot> scene_instances::capture_subtree(scene_instance_id instance,
-                                                                scene_node_id root) const noexcept
-    try {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* slot = *selected;
-  return slot->capture_subtree(root);
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
-}
-
-result<scene_node_id>
-scene_instances::restore_subtree(scene_instance_id instance, const scene_subtree_snapshot& snapshot,
-                                 scene_node_id parent,
-                                 std::span<const uuid_mapping> mappings) noexcept try {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* slot = *selected;
-  return slot->restore_subtree(snapshot, parent, mappings);
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
-}
-
 engine::error scene_instances::destroy_subtree(scene_instance_id instance,
                                                scene_node_id root_value) noexcept {
   auto root = root_value;

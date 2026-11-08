@@ -43,10 +43,6 @@ public:
   [[nodiscard]] result<scene_node_id> create_node(const node_creation& desc);
   [[nodiscard]] error set_node_name(scene_node_id node, std::string_view name);
   [[nodiscard]] error reparent_node(scene_node_id node, scene_node_id parent);
-  [[nodiscard]] result<scene_subtree_snapshot> capture_subtree(scene_node_id root) const;
-  [[nodiscard]] result<scene_node_id> restore_subtree(const scene_subtree_snapshot& snapshot,
-                                                      scene_node_id parent,
-                                                      std::span<const uuid_mapping> mappings);
   [[nodiscard]] error destroy_subtree(scene_node_id root);
   [[nodiscard]] result<scene_node_id>
   create_mesh_renderer_node(const mesh_renderer_node_creation& desc,

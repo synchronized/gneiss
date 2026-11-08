@@ -7,7 +7,7 @@ inline engine::result<scene_node_id>
 place_document_prefab(editor::scene_edit_session& document, engine::game_object_description author,
                       engine::prefab_asset_ref source,
                       std::span<const engine::scene_mesh_binding> bindings, bool replacing) {
-  engine::scene_subtree_snapshot snapshot;
+  gneiss::editor::scene_subtree_snapshot snapshot;
   snapshot.root_uuid = author.uuid;
   snapshot.parent_uuid = author.parent_uuid;
   author.parent_uuid = {};

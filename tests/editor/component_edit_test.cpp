@@ -497,7 +497,7 @@ int main() try {
   check(reloaded && reloaded->get<movement_description>()->mode == movement_mode::run &&
         reloaded->get<movement_description>()->speed == 4);
   check(app->scenes()->unload(loaded).ok());
-  e::scene_subtree_snapshot removed_prefab;
+  gneiss::editor::scene_subtree_snapshot removed_prefab;
   check(document.destroy_subtree(document.find_prefab_root(reference.uuid)->node, removed_prefab)
             .ok());
   check(document.validate_selection().ok());

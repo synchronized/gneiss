@@ -74,7 +74,7 @@ void retain(scene_document_snapshot& snapshot, const engine::scene_mesh_binding&
   if (binding.material)
     snapshot.assets.insert_or_assign(binding.material->source().uri, binding.material);
 }
-engine::error import_subtree(const engine::scene_subtree_snapshot& subtree,
+engine::error import_subtree(const scene_subtree_snapshot& subtree,
                              engine::scene_description& description,
                              scene_document_snapshot& snapshot, bool replacing) {
   auto incoming = subtree.description();
@@ -751,7 +751,7 @@ engine::error scene_edit_session::duplicate_subtree(scene_node_id node, scene_no
   if (!frozen)
     return frozen.error();
   snapshot.content = std::move(*frozen);
-  std::map<engine::guid, engine::scene_object_resources> resources;
+  std::map<engine::guid, scene_object_resources> resources;
   for (const auto& pair : mapping) {
     if (auto item = snapshot.resources.find(pair.source_uuid); item != snapshot.resources.end())
       resources.emplace(pair.target_uuid, item->second);

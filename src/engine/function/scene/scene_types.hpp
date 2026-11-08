@@ -41,10 +41,6 @@ private:
 }
 
 namespace gneiss::engine {
-inline constexpr std::uint64_t scene_subtree_max_nodes = 4096;
-}
-
-namespace gneiss::engine {
 /** 实例化回执中的来源关联；由调用方保存，不是运行对象属性。 */
 struct scene_object_binding {
   guid object, source;

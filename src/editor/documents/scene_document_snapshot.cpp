@@ -4,10 +4,29 @@
 #include "engine/resource/asset_file.hpp"
 #include <algorithm>
 namespace gneiss::editor {
-engine::result<engine::scene_subtree_snapshot> freeze_prefab_snapshot(
+engine::result<engine::prefab_asset_ref> scene_object_resources::prefab_source() const noexcept
+    try {
+  auto restored = engine::restore_prefab_record(prefab_content);
+  if (!restored)
+    return restored.error();
+  return engine::make_ref<const engine::prefab_description>(std::move(*restored));
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
+
+engine::result<engine::scene_description> scene_subtree_snapshot::description() const noexcept {
+  auto restored = engine::restore_scene_record(content);
+  if (!restored)
+    return restored.error();
+  return std::move(*restored);
+}
+
+engine::result<scene_subtree_snapshot> freeze_prefab_snapshot(
     prefab_header_snapshot source,
     const std::map<std::string, engine::render_resource_ref, std::less<>>& assets) noexcept try {
-  engine::scene_subtree_snapshot value;
+  scene_subtree_snapshot value;
   auto author = std::move(source.author);
   if (!source.source || !author.prefab)
     return engine::error::invalid_argument;

@@ -13,7 +13,6 @@
 #include "engine/core/math/transform.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
-#include "engine/function/scene/scene_subtree_snapshot.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/platform/files/file_service.hpp"
@@ -102,7 +101,6 @@ struct mesh_node_creation final {
   std::string material_uri;
 };
 
-using engine::scene_subtree_snapshot;
 
 /** 场景编辑会话：装配纯文档、运行投影、选择及保存协调。
  * 借用 Application，绑定一个运行时场景实例；close 负责卸载该实例。

@@ -170,7 +170,9 @@ Runtime 首次场景实例化复用组合后的有效组件。运行创建仍经
 运行集合的 capture_prepared、capture_prefab_header、capture_prefab_binding 已删除，
 重复实例化改为复用调用方持有的输入；运行场景不再为这些捕获入口保活 Scene 源资产。
 Prefab 头快照和冻结迁入编辑文档层，删除 Runtime prefab_placement；冻结仅消费显式资源引用。
-子树恢复、capture_description 和来源重载仍依赖该记录，必须连同调用方迁移，不能简单移动字段。
+运行层子树捕获/恢复已删除，快照及其辅助函数归属 Editor 文档模块，
+见[子树归属记录](../records/2026-11-08-editor-subtree-ownership.md)。
+capture_description 和旧来源重载仍依赖该记录，必须连同调用方迁移，不能简单移动字段。
 宿主重载筛选已改读激活回执依赖，编辑器测试已区分文档捕获与运行组件查询，
 见[调用方迁移记录](../records/2026-11-08-scene-source-callers.md)。
 

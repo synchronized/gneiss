@@ -238,7 +238,6 @@ target_sources(
     engine/resource/scene/object_address.hpp
     engine/function/scene/scene_preparation.cpp
     engine/function/scene/scene_preparation.hpp
-    engine/function/scene/scene_subtree_snapshot.hpp
     engine/function/scene/scene_creation.hpp
     engine/function/scene/scene_query.hpp
     engine/function/scene/prefab_property_override.cpp
