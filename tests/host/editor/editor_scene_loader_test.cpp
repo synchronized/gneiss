@@ -37,7 +37,8 @@ void run(gneiss::engine::execution_mode mode) {
   runtime::application_configuration desc;
   const std::string root = GNEISS_EDITOR_TEST_ASSET_ROOT;
   desc.asset_root = root;
-  check(runtime::application::create(desc, app) == gneiss::engine::error::success);
+  check(gneiss::test_support::assign_value(runtime::application::create(desc), app) ==
+        gneiss::engine::error::success);
   check(app->attach_task_executor(scheduler) == gneiss::engine::error::success);
   editor::document_editing editing;
   auto& session = editing.document();

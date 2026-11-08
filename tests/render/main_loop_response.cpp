@@ -114,7 +114,8 @@ gneiss::engine::error advance_scene(gneiss::runtime::application& app, response_
   active = app.scene_progress(progress);
   if (result == gneiss::engine::error::success && active &&
       progress.phase == scene_load_phase::ready) {
-    result = app.activate_scene(state.scene_request, completion);
+    result =
+        gneiss::test_support::assign_value(app.activate_scene(state.scene_request), completion);
     if (result == gneiss::engine::error::success) {
       result = gneiss::engine::error{gneiss::test_support::take_value(
           app.scenes()->get_node_count(completion.scene), state.nodes)};
@@ -306,13 +307,14 @@ int main(int argc, char** argv) try {
   desc.window.height = 240U;
   desc.callbacks.update = [&](const auto&) { return native_update(*app, state); };
   desc.callbacks.close_requested = [&]() { return close_requested(state); };
-  if (gneiss::runtime::application::create(desc, app).failed() ||
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)
+          .failed() ||
       app->attach_task_executor(state.scheduler) != gneiss::engine::error::success) {
     return 1;
   }
-  if (!asset_root.empty() &&
-      app->request_scene("asset://scenes/scene.scene.json", 1U, 1U, state.scene_request) !=
-          gneiss::engine::error::success) {
+  if (!asset_root.empty() && gneiss::test_support::take_value(
+                                 app->request_scene("asset://scenes/scene.scene.json", 1U, 1U),
+                                 state.scene_request) != gneiss::engine::error::success) {
     return 1;
   }
   auto* const window = FindWindowA(nullptr, title.c_str());

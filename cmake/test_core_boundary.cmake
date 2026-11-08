@@ -738,3 +738,22 @@ foreach(path IN ITEMS "serialization/binding.hpp" "meta/type_definition.hpp")
   endif()
   file(WRITE "${fixture}/src/engine/core/${path}" "// 已清理探针\n")
 endforeach()
+
+# 批次不得获得共享资产管理器的推进与关闭责任。
+file(MAKE_DIRECTORY "${fixture}/src/runtime/loading")
+foreach(operation IN ITEMS advance collect_unused stop request_stop)
+  file(WRITE "${fixture}/src/runtime/loading/resource_load_group.hpp" "void probe() { service_.${operation}(); }\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  file(WRITE "${fixture}/src/runtime/loading/resource_load_group.hpp" "// 批次只观察请求\n")
+  if(status EQUAL 0)
+    message(FATAL_ERROR "边界检查未拒绝资源批次调用 ${operation}")
+  endif()
+endforeach()
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+  RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "清理后的批次边界正例未通过")
+endif()

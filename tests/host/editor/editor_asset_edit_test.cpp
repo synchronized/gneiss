@@ -57,8 +57,8 @@ void run(gneiss::engine::execution_mode mode) {
   gneiss::runtime::application_configuration desc;
   const auto root = files.root.string();
   desc.asset_root = root;
-  check(gneiss::engine::error{gneiss::runtime::application::create(desc, app)} ==
-        gneiss::engine::error::success);
+  check(gneiss::engine::error{gneiss::test_support::assign_value(
+            gneiss::runtime::application::create(desc), app)} == gneiss::engine::error::success);
   check(app->attach_task_executor(scheduler) == gneiss::engine::error::success);
   gneiss::engine::world* world{};
   check((world = app->native_world()) != nullptr);
@@ -299,7 +299,7 @@ void prefab_edits(engine::execution_mode mode) {
   runtime::application_configuration config;
   const auto root_path = files.root.string();
   config.asset_root = root_path;
-  check(runtime::application::create(config, app).ok());
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
   check(app->attach_task_executor(scheduler).ok());
   const auto uuid = [](unsigned n) {
     e::guid::byte_array bytes{};
@@ -468,7 +468,8 @@ void prefab_edits(engine::execution_mode mode) {
   // 文件保存后通过实际异步场景加载链重建；两实例的差异必须保留。
   write("saved.json", capture());
   std::shared_ptr<runtime::application> reopened_app;
-  check(runtime::application::create(config, reopened_app).ok());
+  check(
+      gneiss::test_support::assign_value(runtime::application::create(config), reopened_app).ok());
   check(reopened_app->attach_task_executor(scheduler).ok());
   editor::scene_edit_session reopened;
   check(test_support::open_document(reopened, *reopened_app, reopened_app->native_world(),

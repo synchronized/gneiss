@@ -86,8 +86,8 @@ void run_asset_reload() {
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
-  check(gneiss::engine::error{runtime::application::create(desc, app)} ==
-        gneiss::engine::error::success);
+  check(gneiss::engine::error{gneiss::test_support::assign_value(
+            runtime::application::create(desc), app)} == gneiss::engine::error::success);
   check(app->attach_task_executor(scheduler).ok());
   const auto reload = [&](std::span<const gneiss::engine::render_resource_source> requests) {
     std::uint64_t request{};
@@ -152,8 +152,8 @@ void run_pending_resources() {
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
-  check(gneiss::engine::error{runtime::application::create(desc, app)} ==
-        gneiss::engine::error::success);
+  check(gneiss::engine::error{gneiss::test_support::assign_value(
+            runtime::application::create(desc), app)} == gneiss::engine::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance_id scene{};
   check(gneiss::engine::error{gneiss::test_support::load_scene(*app, uri, &scene)} ==
@@ -340,15 +340,16 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
-  check(gneiss::engine::error{runtime::application::create(desc, app)} ==
-        gneiss::engine::error::success);
+  check(gneiss::engine::error{gneiss::test_support::assign_value(
+            runtime::application::create(desc), app)} == gneiss::engine::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance_id scene{};
   if (async) {
     using namespace runtime;
     check(app->attach_task_executor(scheduler) == gneiss::engine::error::success);
     std::uint64_t request{};
-    check(app->request_scene(uri, 1U, 1U, request) == gneiss::engine::error::success);
+    check(gneiss::test_support::take_value(app->request_scene(uri, 1U, 1U), request) ==
+          gneiss::engine::error::success);
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
     while (true) {
       check(std::chrono::steady_clock::now() < deadline);
@@ -362,7 +363,8 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
       scene_load_progress progress;
       check(app->scene_progress(progress));
       if (progress.phase == scene_load_phase::ready) {
-        check(app->activate_scene(request, completion) == gneiss::engine::error::success);
+        check(gneiss::test_support::assign_value(app->activate_scene(request), completion) ==
+              gneiss::engine::error::success);
         check(completion.progress.texture_payload_bytes == 0U);
         auto native = app;
         gneiss::engine::frame_image initial;
@@ -453,8 +455,8 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
-  check(gneiss::engine::error{runtime::application::create(desc, app)} ==
-        gneiss::engine::error::success);
+  check(gneiss::engine::error{gneiss::test_support::assign_value(
+            runtime::application::create(desc), app)} == gneiss::engine::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance_id scene{};
   check(gneiss::engine::error{gneiss::test_support::load_scene(*app, uri, &scene)} ==
@@ -575,8 +577,8 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
-  check(gneiss::engine::error{runtime::application::create(desc, app)} ==
-        gneiss::engine::error::success);
+  check(gneiss::engine::error{gneiss::test_support::assign_value(
+            runtime::application::create(desc), app)} == gneiss::engine::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance_id scene{};
   check(gneiss::engine::error{gneiss::test_support::load_scene(*app, uri, &scene)} ==
@@ -652,8 +654,8 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
-  check(gneiss::engine::error{runtime::application::create(desc, app)} ==
-        gneiss::engine::error::success);
+  check(gneiss::engine::error{gneiss::test_support::assign_value(
+            runtime::application::create(desc), app)} == gneiss::engine::error::success);
   check(app->attach_task_executor(scheduler) == gneiss::engine::error::success);
   gneiss::scene_instance_id scene{};
   constexpr std::string_view uri = "asset://s.scene.json";
@@ -779,8 +781,8 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
-  check(gneiss::engine::error{runtime::application::create(desc, app)} ==
-        gneiss::engine::error::success);
+  check(gneiss::engine::error{gneiss::test_support::assign_value(
+            runtime::application::create(desc), app)} == gneiss::engine::error::success);
   check(app->attach_task_executor(scheduler) == gneiss::engine::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance_id scene{};
@@ -797,7 +799,8 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
   const auto load = [&](std::uint64_t revision, bool cancel) {
     const auto old_scene = scene;
     std::uint64_t request{};
-    check(app->request_scene(uri, 1U, revision, request) == gneiss::engine::error::success);
+    check(gneiss::test_support::take_value(app->request_scene(uri, 1U, revision), request) ==
+          gneiss::engine::error::success);
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     bool requested_cancel{};
     scene_load_completion completion;
@@ -822,7 +825,8 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
           check(app->cancel_scene(request) == gneiss::engine::error::success);
           requested_cancel = true;
         } else {
-          check(app->activate_scene(request, completion) == gneiss::engine::error::success);
+          check(gneiss::test_support::assign_value(app->activate_scene(request), completion) ==
+                gneiss::engine::error::success);
           scene = completion.scene;
           auto native = app;
           while (native->visual_assets_loading()) {

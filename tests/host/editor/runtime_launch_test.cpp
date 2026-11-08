@@ -4,6 +4,7 @@
 #include "../../support/async_document.hpp"
 #include "../../support/async_editor_save.hpp"
 #include "../../support/scene_query.hpp"
+#include "../../support/value_result.hpp"
 #include "commands/runtime_author_apply.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
@@ -30,7 +31,8 @@ create_application(const std::filesystem::path& asset_root,
   const auto root = asset_root.generic_string();
   gneiss::runtime::application_configuration desc;
   desc.asset_root = root;
-  return gneiss::engine::error{gneiss::runtime::application::create(desc, output)};
+  return gneiss::engine::error{
+      gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), output)};
 }
 
 } // namespace

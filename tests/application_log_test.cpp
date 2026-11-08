@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime/application.hpp"
+#include "support/value_result.hpp"
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -55,7 +56,8 @@ int main() {
   gneiss::runtime::application_configuration config;
   config.callbacks.log = [&](const event_view& event) { capture(event, state); };
   std::shared_ptr<gneiss::runtime::application> application;
-  if (gneiss::runtime::application::create(config, application).failed())
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
+          .failed())
     return 1;
   state.application = application.get();
   std::string category = "game", text = "ready";
@@ -101,7 +103,8 @@ int main() {
 
   // 无回调时仍执行消息校验；有效日志允许无接收方。
   config = {};
-  if (gneiss::runtime::application::create(config, application).failed() ||
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
+          .failed() ||
       application->submit_log({.category = "test", .message = "ready"}).failed() ||
       application->submit_log({}) != error::invalid_argument ||
       application->submit_log({.severity = static_cast<level>(0xffffffffU), .category = "test"}) !=
@@ -117,7 +120,8 @@ int main() {
     ++throwing_calls;
     throw 1;
   };
-  if (gneiss::runtime::application::create(config, application).failed() ||
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
+          .failed() ||
       application->submit_log({.category = "test", .message = "throw"}).failed() ||
       application->submit_log({.category = "test", .message = "throw"}).failed() ||
       application->shutdown().failed())
@@ -128,7 +132,8 @@ int main() {
 
   owned_capture.check_reentrancy = false;
   config.callbacks.log = [&](const event_view& event) { capture(event, owned_capture); };
-  if (gneiss::runtime::application::create(config, application).failed())
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
+          .failed())
     return 10;
   error submitted;
   std::thread worker([&] {
@@ -149,7 +154,8 @@ int main() {
 
   empty_capture.check_reentrancy = false;
   config.callbacks.log = [&](const event_view& event) { capture(event, empty_capture); };
-  if (gneiss::runtime::application::create(config, application).failed() ||
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
+          .failed() ||
       application->submit_log({.source = "application", .category = "empty"}).failed() ||
       application->shutdown().failed())
     return 13;

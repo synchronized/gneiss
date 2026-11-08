@@ -5,6 +5,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "runtime/application.hpp"
 #include "support/async_input.hpp"
+#include "support/value_result.hpp"
 #include <thread>
 #include <type_traits>
 
@@ -22,8 +23,9 @@ int main() {
   gneiss::engine::action_id action;
   gneiss::engine::action_state state{};
   gneiss::engine::input_event event{};
-  if (gneiss::runtime::application::create(config, app).failed() || action.value != 0 ||
-      app->get_action_state(action, state) != error::invalid_handle ||
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app)
+          .failed() ||
+      action.value != 0 || app->get_action_state(action, state) != error::invalid_handle ||
       app->poll_input(event) != error::not_ready || app->keyboard_state().modifiers != 0 ||
       app->pointer_state().buttons != 0 ||
       gneiss::test_support::load_input_for_test(*app, scheduler, uri).failed() ||
@@ -36,7 +38,8 @@ int main() {
       gneiss::test_support::load_input_for_test(
           *app, scheduler, "asset://input/missing.input-map.json") != error::not_found ||
       app->get_action_state(original, state).failed() ||
-      gneiss::runtime::application::create(config, other).failed() ||
+      gneiss::test_support::assign_value(gneiss::runtime::application::create(config), other)
+          .failed() ||
       gneiss::test_support::load_input_for_test(*other, scheduler, uri).failed() ||
       other->get_action_state(original, state) != error::invalid_handle) {
     return 2;

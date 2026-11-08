@@ -29,7 +29,8 @@ inline engine::error save_document(editor::scene_edit_session& document,
   const auto root_text = root.generic_string();
   config.asset_root = root_text;
   std::shared_ptr<runtime::application> application;
-  auto status = runtime::application::create(config, application);
+  auto status =
+      gneiss::test_support::assign_value(runtime::application::create(config), application);
   if (status.failed())
     return status;
   std::shared_ptr<editor::scene_edit_session::save_receipt> receipt;
@@ -54,7 +55,8 @@ struct author_scene {
     config.writable_assets = true;
     const auto text = root.generic_string();
     config.asset_root = text;
-    auto status = runtime::application::create(config, application);
+    auto status =
+        gneiss::test_support::assign_value(runtime::application::create(config), application);
     if (status.ok())
       status = open_document(document, *application, application->native_world(), uri);
     if (status.failed())

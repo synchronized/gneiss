@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/async_editor_save.hpp"
+#include "../../support/value_result.hpp"
 #include <fstream>
 #include <iterator>
 namespace {
@@ -20,7 +21,7 @@ int main() try {
   const auto text = root.generic_string();
   config.asset_root = text;
   std::shared_ptr<runtime::application> app;
-  if (runtime::application::create(config, app).failed())
+  if (gneiss::test_support::assign_value(runtime::application::create(config), app).failed())
     return 1;
   auto files = app->async_files();
   auto save = [&](editor::author_document_change change) {

@@ -517,12 +517,15 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
                                          : gneiss::engine::execution_mode::thread_pool});
   context.tasks = &task_scheduler;
   std::shared_ptr<gneiss::runtime::application> application;
-  auto operation = gneiss::runtime::application::create(desc, application);
+  auto created = gneiss::runtime::application::create(desc);
+  auto operation =
+      created ? gneiss::engine::error{gneiss::engine::error::success} : created.error();
   if (operation != gneiss::engine::error::success) {
     log.write("ERROR", "application_create", static_cast<gneiss::engine::error>(operation),
               "Application 创建失败", asset_root);
     return 3;
   }
+  application = std::move(*created);
   context.application = application.get();
   log.write("INFO", "application_create", gneiss::engine::error::success, "Application 创建完成");
   if (application->attach_task_executor(task_scheduler) != gneiss::engine::error::success) {

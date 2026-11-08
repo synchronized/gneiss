@@ -177,7 +177,8 @@ int main(int argc, char** argv) try {
   desc.window.title = title;
   desc.window.high_dpi = false;
   desc.callbacks.update = [&](const auto&) { return native_update(*app, state); };
-  if (runtime::application::create(desc, app) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(runtime::application::create(desc), app) !=
+          gneiss::engine::error::success ||
       app->attach_task_executor(scheduler) != gneiss::engine::error::success) {
     return 1;
   }

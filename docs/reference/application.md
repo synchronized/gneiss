@@ -6,8 +6,9 @@
 ## 原生入口与所有权
 
 仓内宿主使用 `src/runtime/application.hpp` 的 `gneiss::runtime::application`，
-配置为 `application_configuration`。`application::create(config, output)` 创建已初始化对象，
-通过 `std::shared_ptr` 返回；失败保留原 output，不创建 Application RID 或注册表项。
+配置为 `application_configuration`。`application::create(config)` 返回
+`engine::result<std::shared_ptr<application>>`；成功值拥有已初始化对象，失败返回错误并清理部分初始化状态。
+调用方检查结果后移出拥有引用；不创建 Application RID 或注册表项。
 完整 Application C API 与公共创建描述已删除。动态游戏模块也已撤销。
 
 Application 拥有 World、平台状态、资源服务及可选窗口。`native_world()` 返回借用对象，
@@ -17,6 +18,13 @@ Application 拥有 World、平台状态、资源服务及可选窗口。`native_
 
 原生配置中的字符串在创建期间借用，回调由 Application 保存；回调捕获的借用对象必须
 存活至关闭结束。不要让回调强捕获自身 Application，避免引用环。
+
+## 场景值返回入口
+
+`request_scene(uri, session, revision)` 返回 `result<uint64_t>`：成功值是请求编号，不表示场景已加载。
+`activate_scene(request)` 返回 `result<scene_load_completion>`：成功值包含激活后的场景及来源内容。
+两者均保留所属线程、关闭状态及场景互斥检查；未满足启动或激活条件返回 not_ready。
+`poll_scene(completion, ready)` 暂保留消费式轮询接口，与前两者的提交/激活职责不同。
 
 ## 主循环
 
@@ -46,3 +54,11 @@ Application 私有持有 `engine::window_service`，负责窗口生命周期及�
 无窗口模式返回配置尺寸。最小化时尺寸可能为零，恢复后再提交渲染。
 
 日志回调在消费线程执行，其关闭与借用规则见[日志参考](logging.md)。
+
+## 加载推进责任
+
+文件完成分发、资产管理器推进及回收统一由 Application 的 advance_resource_io 执行。
+run、场景/资产轮询等宿主入口按其契约调用该函数；不承诺多个入口在同一帧只推进一次。
+resource_load_group 只提交单资产请求并汇总结果，不推进或关闭共享管理器。
+poll_prepared_assets 也通过 Application 先分发文件并推进资产，再消费对应批次。
+关闭时 Application 请求资产管理器停止并推进排空；Scene 和批次只放弃自己的请求与实例。

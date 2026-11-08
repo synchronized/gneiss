@@ -30,12 +30,16 @@ bool open_scene(gneiss::engine::task_scheduler& scheduler, std::string_view root
                 gneiss::engine::scene_description* description = nullptr) {
   gneiss::runtime::application_configuration config;
   config.asset_root = root;
-  if (gneiss::runtime::application::create(config, app).failed() ||
-      app->attach_task_executor(scheduler).failed())
+  auto created = gneiss::runtime::application::create(config);
+  if (!created)
     return false;
-  std::uint64_t request{};
-  if (app->request_scene(scene_uri, 1, 1, request).failed())
+  app = std::move(*created);
+  if (app->attach_task_executor(scheduler).failed())
     return false;
+  auto submitted = app->request_scene(scene_uri, 1, 1);
+  if (!submitted)
+    return false;
+  const auto request = *submitted;
   gneiss::runtime::scene_load_completion completion;
   // 命令行示例的宿主循环；解码与 I/O 都从异步请求取得。
   for (;;) {
@@ -49,8 +53,10 @@ bool open_scene(gneiss::engine::task_scheduler& scheduler, std::string_view root
         progress.phase == gneiss::runtime::scene_load_phase::ready && app->can_activate_scene())
       break;
   }
-  if (app->activate_scene(request, completion).failed())
+  auto activated = app->activate_scene(request);
+  if (!activated)
     return false;
+  completion = std::move(*activated);
   scene = completion.scene;
   if (description)
     *description = *completion.content->description;

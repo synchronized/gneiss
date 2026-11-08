@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../support/value_result.hpp"
 #include "editor_ui.hpp"
 #include "engine/core/error.hpp"
 #include "runtime/application.hpp"
@@ -61,7 +62,7 @@ int main() try {
   config.user_root = root_text;
   config.asset_root = root_text;
   std::shared_ptr<runtime::application> app;
-  if (runtime::application::create(config, app).failed())
+  if (gneiss::test_support::assign_value(runtime::application::create(config), app).failed())
     return 1;
   auto files = app->async_files();
   gneiss::engine::files::request_id forbidden;

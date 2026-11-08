@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime/application.hpp"
+#include "support/value_result.hpp"
 #include <memory>
 
 #include <chrono>
@@ -44,7 +45,8 @@ int main() {
     state.changed.notify_all();
   };
   std::shared_ptr<gneiss::runtime::application> application;
-  if (gneiss::runtime::application::create(config, application).failed() ||
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
+          .failed() ||
       application->run(1U) != gneiss::engine::error::internal || state.diagnostic_count != 1U) {
     return 1;
   }

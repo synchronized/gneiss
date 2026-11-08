@@ -3,6 +3,7 @@
 #pragma once
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "runtime/application.hpp"
+#include "value_result.hpp"
 #include <chrono>
 #include <thread>
 namespace gneiss::test_support {
@@ -13,7 +14,7 @@ inline engine::error activate_scene_for_test(runtime::application& app,
   if (attached.failed() && attached != engine::error::invalid_state)
     return attached;
   std::uint64_t request{};
-  auto status = app.request_scene(uri, 1, 1, request);
+  auto status = gneiss::test_support::take_value(app.request_scene(uri, 1, 1), request);
   if (status.failed())
     return status;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
@@ -23,7 +24,7 @@ inline engine::error activate_scene_for_test(runtime::application& app,
     runtime::scene_load_progress progress;
     if (app.scene_progress(progress)) {
       if (progress.phase == runtime::scene_load_phase::ready) {
-        status = app.activate_scene(request, output);
+        status = gneiss::test_support::assign_value(app.activate_scene(request), output);
         if (status.failed())
           return status;
         do {

@@ -69,8 +69,8 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   gneiss::runtime::application_configuration desc;
   const auto path = files.root.string();
   desc.asset_root = path;
-  check(gneiss::engine::error{gneiss::runtime::application::create(desc, app)} ==
-        gneiss::engine::error::success);
+  check(gneiss::engine::error{gneiss::test_support::assign_value(
+            gneiss::runtime::application::create(desc), app)} == gneiss::engine::error::success);
   check(app->attach_task_executor(scheduler) == gneiss::engine::error::success);
   gneiss::engine::world* world{};
   check((world = app->native_world()) != nullptr);
@@ -257,8 +257,8 @@ void run(gneiss::engine::execution_mode mode) {
   gneiss::runtime::application_configuration desc;
   const auto root = files.root.string();
   desc.asset_root = root;
-  check(gneiss::engine::error{gneiss::runtime::application::create(desc, app)} ==
-        gneiss::engine::error::success);
+  check(gneiss::engine::error{gneiss::test_support::assign_value(
+            gneiss::runtime::application::create(desc), app)} == gneiss::engine::error::success);
   check(app->attach_task_executor(scheduler) == gneiss::engine::error::success);
   gneiss::engine::world* world{};
   check((world = app->native_world()) != nullptr);
@@ -470,7 +470,7 @@ void run_mixed_subtree() {
   runtime::application_configuration config;
   const auto path = files.root.string();
   config.asset_root = path;
-  check(runtime::application::create(config, app).ok());
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
   check(app->attach_task_executor(scheduler).ok());
   editor::scene_edit_session document;
   check(test_support::open_document(document, *app, app->native_world(), "asset://scene.json",

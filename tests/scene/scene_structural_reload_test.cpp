@@ -65,7 +65,8 @@ int main() try {
   gneiss::scene_node_id old_child;
   gneiss::entity_id camera_entity_before;
   constexpr std::string_view uri = "asset://scenes/triangle.scene.json";
-  if (gneiss::runtime::application::create(config, application) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config),
+                                         application) != gneiss::engine::error::success ||
       gneiss::test_support::activate_scene_for_test(*application, scheduler, uri, loaded) !=
           gneiss::engine::error::success ||
       gneiss::test_support::take_value(

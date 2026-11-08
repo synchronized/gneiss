@@ -3,11 +3,12 @@
 
 #include "../../support/async_application.hpp"
 #include "../../support/movement_component.hpp"
+#include "../../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/meta_registration.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "runtime_property_editor.hpp"
 #include "runtime_scene_inspection.hpp"
 
@@ -168,7 +169,8 @@ bool test_capture_prefab_scene() {
   desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::scene_instance_id scene = {};
-  if (gneiss::runtime::application::create(desc, application).failed())
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), application)
+          .failed())
     return false;
   gneiss::engine::scene_instantiation_data prepared;
   gneiss::engine::scene_instances::resource_bindings resources;

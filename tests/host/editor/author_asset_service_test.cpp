@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../support/value_result.hpp"
 #include "author_asset_service.hpp"
 #include "engine/core/error.hpp"
 #include "engine/platform/files/file_backend.hpp"
@@ -148,7 +149,9 @@ void run(std::size_t workers,
   const auto root_text = files.root.generic_string();
   config.asset_root = root_text;
   std::shared_ptr<gneiss::runtime::application> app;
-  require(gneiss::runtime::application::create(config, app).ok(), "测试文件宿主创建失败");
+  require(
+      gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app).ok(),
+      "测试文件宿主创建失败");
   auto io = app->async_files();
   author_asset_service service(scheduler);
   require(service.initialize(io) == gneiss::engine::error::success, "启动失败");

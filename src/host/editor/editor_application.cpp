@@ -2953,11 +2953,14 @@ int run_editor(int argc, char** argv) {
   desc.environment_rotation_radians =
       project.environment.rotation_degrees * 0.01745329251994329577F;
 
-  auto operation = gneiss::runtime::application::create(desc, application);
+  auto created = gneiss::runtime::application::create(desc);
+  auto operation =
+      created ? gneiss::engine::error{gneiss::engine::error::success} : created.error();
   if (operation != gneiss::engine::error::success) {
     report_startup_failure("Editor Application 创建", operation, path_utf8(project.project_root));
     return 1;
   }
+  application = std::move(*created);
   operation = application->attach_task_executor(state.task_scheduler);
   if (operation != gneiss::engine::error::success) {
     return 2;

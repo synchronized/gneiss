@@ -9,8 +9,10 @@ int main() {
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::runtime::application_configuration desc;
   desc.callbacks.update = [&](const auto&) { return example::update(*app, state); };
-  if (gneiss::runtime::application::create(desc, app).failed())
+  auto created = gneiss::runtime::application::create(desc);
+  if (!created)
     return 1;
+  app = std::move(*created);
   auto* world = app->native_world();
   gneiss::scene_node_id node;
   if (world->entity_create(state.entity).failed() ||

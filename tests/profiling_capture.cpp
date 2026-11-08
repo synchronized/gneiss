@@ -4,6 +4,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "runtime/application.hpp"
+#include "support/value_result.hpp"
 #include <tracy/Tracy.hpp>
 
 #include <chrono>
@@ -58,7 +59,9 @@ int main(int argc, char** argv) try {
   gneiss::runtime::application_configuration description;
   description.callbacks.update = [&](const auto& time) { return update(time, state); };
   std::shared_ptr<gneiss::runtime::application> application;
-  if (gneiss::runtime::application::create(description, application).failed() ||
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
+                                         application)
+          .failed() ||
       application->run(128).failed()) {
     return 3;
   }

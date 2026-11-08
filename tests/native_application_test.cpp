@@ -7,6 +7,7 @@
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 #include "runtime/loading/scene_service.hpp"
+#include "support/value_result.hpp"
 
 #include <atomic>
 #include <cstdio>
@@ -42,7 +43,8 @@ void test_loop_callback_exceptions() {
     ++updates;
     return gneiss::engine::error::success;
   };
-  check(runtime::application::create(config, app) == gneiss::engine::error::success);
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
+        gneiss::engine::error::success);
   check(app->run(1) == gneiss::engine::error::out_of_memory);
   fail = false;
   check(app->run(1) == gneiss::engine::error::success && updates == 1U);
@@ -51,7 +53,8 @@ void test_loop_callback_exceptions() {
   config.callbacks.update = [](const gneiss::engine::frame_time&) -> gneiss::engine::error {
     throw std::runtime_error("更新失败");
   };
-  check(runtime::application::create(config, app) == gneiss::engine::error::success);
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
+        gneiss::engine::error::success);
   check(app->run(1) == gneiss::engine::error::internal);
   check(app->shutdown() == gneiss::engine::error::success);
   app.reset();
@@ -61,7 +64,8 @@ void test_loop_callback_exceptions() {
     return gneiss::engine::error::success;
   };
   config.callbacks.close_requested = []() -> bool { throw std::bad_alloc{}; };
-  check(runtime::application::create(config, app) == gneiss::engine::error::success);
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
+        gneiss::engine::error::success);
   check(app->run(1) == gneiss::engine::error::out_of_memory);
   check(app->shutdown() == gneiss::engine::error::success);
   app.reset();
@@ -75,7 +79,8 @@ void test_loop_callback_exceptions() {
         event.result == gneiss::engine::error::initialization_failed && !event.message.empty();
     throw std::runtime_error("诊断失败");
   };
-  check(runtime::application::create(config, app) == gneiss::engine::error::initialization_failed);
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
+        gneiss::engine::error::initialization_failed);
   check(delivered_diagnostics == 1U && valid_diagnostic && !app);
 }
 
@@ -83,7 +88,8 @@ void test_asset_request_boundaries() {
   using namespace gneiss;
   runtime::application_configuration config;
   std::shared_ptr<runtime::application> app;
-  check(runtime::application::create(config, app) == gneiss::engine::error::success);
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
+        gneiss::engine::error::success);
   gneiss::runtime::asset_load_progress progress;
   check(!app->asset_progress(progress));
   check(app->cancel_assets() == gneiss::engine::error::not_ready);
@@ -93,13 +99,14 @@ void test_asset_request_boundaries() {
     runtime::scene_load_completion scene_completion;
     scene_completion.scene = gneiss::scene_instance_id{29};
     runtime::scene_load_progress scene_progress;
-    check(app->request_scene("project://missing.scene", 1, 1, request) ==
-              gneiss::engine::error::invalid_state &&
+    check(gneiss::test_support::take_value(app->request_scene("project://missing.scene", 1, 1),
+                                           request) == gneiss::engine::error::invalid_state &&
           request == 0);
     check(app->poll_scene(scene_completion, ready) == gneiss::engine::error::invalid_state &&
           !ready);
     check(app->cancel_scene(1) == gneiss::engine::error::invalid_state);
-    check(app->activate_scene(1, scene_completion) == gneiss::engine::error::invalid_state);
+    check(gneiss::test_support::assign_value(app->activate_scene(1), scene_completion) ==
+          gneiss::engine::error::invalid_state);
     check(!app->scene_progress(scene_progress) &&
           scene_completion.scene == gneiss::scene_instance_id{29});
     gneiss::runtime::asset_load_completion completion;
@@ -129,8 +136,8 @@ void test_platform_callbacks() {
     throw std::runtime_error("初始化失败");
   };
   platform_config.callbacks.shutdown = [&] { ++shutdowns; };
-  check(gneiss::runtime::application::create(platform_config, app) ==
-        gneiss::engine::error::internal);
+  check(gneiss::test_support::assign_value(gneiss::runtime::application::create(platform_config),
+                                           app) == gneiss::engine::error::internal);
   check(!app && shutdowns == 1U);
   platform_config.callbacks.initialize = [] { return gneiss::engine::error::success; };
   unsigned polls{};
@@ -139,8 +146,8 @@ void test_platform_callbacks() {
     close = true;
     return gneiss::engine::error::success;
   };
-  check(gneiss::runtime::application::create(platform_config, app) ==
-        gneiss::engine::error::success);
+  check(gneiss::test_support::assign_value(gneiss::runtime::application::create(platform_config),
+                                           app) == gneiss::engine::error::success);
   check(app->run(3U) == gneiss::engine::error::success && polls == 1U);
   app.reset();
   check(shutdowns == 2U);
@@ -151,8 +158,8 @@ void test_platform_callbacks() {
     ++shutdowns;
     throw std::runtime_error("关闭失败");
   };
-  check(gneiss::runtime::application::create(platform_config, app) ==
-        gneiss::engine::error::success);
+  check(gneiss::test_support::assign_value(gneiss::runtime::application::create(platform_config),
+                                           app) == gneiss::engine::error::success);
   check(app->run(1U) == gneiss::engine::error::out_of_memory);
   check(app->shutdown() == gneiss::engine::error::internal);
   check(!app->accepts_requests());
@@ -188,8 +195,10 @@ int main() try {
   };
   // 不经 C API 和句柄注册表，真实对象仍使用同一创建、主循环及析构实现。
   std::shared_ptr<gneiss::runtime::application> app;
-  check(gneiss::runtime::application::create(config, app) == gneiss::engine::error::success &&
-        app != nullptr);
+  auto created = gneiss::runtime::application::create(config);
+  check(created && *created);
+  app = std::move(*created);
+  check(!*created && app);
   for (unsigned index = 0; index < 2U; ++index) {
     check(app->submit_log({.category = "native-test", .message = "原生日志"}) ==
           gneiss::engine::error::success);
@@ -197,13 +206,13 @@ int main() try {
   auto invalid = config;
   invalid.environment_intensity = -1.0F;
   auto retained = app;
-  check(gneiss::runtime::application::create(invalid, app) ==
-        gneiss::engine::error::invalid_argument);
+  auto rejected = gneiss::runtime::application::create(invalid);
+  check(!rejected && rejected.error() == gneiss::engine::error::invalid_argument);
   check(app == retained && state.initializations == 1U);
   invalid = config;
   invalid.environment_asset = "invalid-uri";
-  check(gneiss::runtime::application::create(invalid, app) ==
-        gneiss::engine::error::invalid_argument);
+  rejected = gneiss::runtime::application::create(invalid);
+  check(!rejected && rejected.error() == gneiss::engine::error::invalid_argument);
   check(app == retained && state.initializations == 1U);
   retained.reset();
   check(app->run(3U) == gneiss::engine::error::success && state.frames == 3U);
@@ -220,7 +229,7 @@ int main() try {
   // 失败创建不替换原对象；失败初始化的部分资源必须恰好清理一次。
   auto previous = app;
   state.fail = true;
-  check(gneiss::runtime::application::create(config, app) ==
+  check(gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app) ==
         gneiss::engine::error::initialization_failed);
   check(app == previous && state.initializations == 2U && state.shutdowns == 1U);
   previous.reset();
@@ -234,7 +243,8 @@ int main() try {
   check(delivered.load() == 2U && valid_log.load());
   // 释放最后一个拥有者触发关闭，关闭回调恰好一次。
   state.fail = false;
-  check(gneiss::runtime::application::create(config, app) == gneiss::engine::error::success);
+  check(gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app) ==
+        gneiss::engine::error::success);
   app.reset();
   check(state.shutdowns == 3U);
   test_asset_request_boundaries();

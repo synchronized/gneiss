@@ -3,6 +3,7 @@
 
 #include "../support/async_application.hpp"
 #include "../support/async_scene_reload.hpp"
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
@@ -86,7 +87,8 @@ int main() try {
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::scene_instance_id scene = {};
   constexpr std::string_view scene_uri = "asset://scenes/prefab.scene.json";
-  if (gneiss::runtime::application::create(config, application).failed())
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
+          .failed())
     return 1;
   gneiss::engine::scene_instantiation_data prepared;
   gneiss::engine::scene_instances::resource_bindings assets;

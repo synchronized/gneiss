@@ -5,6 +5,7 @@
 #include "../../support/async_mesh_edit.hpp"
 #include "../../support/async_prefab_edit.hpp"
 #include "../../support/scene_query.hpp"
+#include "../../support/value_result.hpp"
 #include "asset_browser_model.hpp"
 #include "asset_import_controller.hpp"
 #include "commands/editor_command_history.hpp"
@@ -59,7 +60,8 @@ create_application(const std::filesystem::path& asset_root,
   const auto root = asset_root.generic_string();
   gneiss::runtime::application_configuration desc;
   desc.asset_root = root;
-  return gneiss::engine::error{gneiss::runtime::application::create(desc, output)};
+  return gneiss::engine::error{
+      gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), output)};
 }
 
 [[nodiscard]] std::string read_text(const std::filesystem::path& path) {

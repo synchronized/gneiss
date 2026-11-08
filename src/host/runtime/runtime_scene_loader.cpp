@@ -56,13 +56,10 @@ gneiss::engine::error runtime_scene_loader::request(ipc_scene_request source,
   if (source.session == progress_.source.session && source.revision <= progress_.source.revision) {
     return gneiss::engine::error::invalid_state;
   }
-  std::uint64_t accepted{};
-  const auto result =
-      application_.request_scene(source.uri, source.session, source.revision, accepted);
-  if (result != gneiss::engine::error::success) {
-    return result;
-  }
-  request_ = accepted;
+  const auto result = application_.request_scene(source.uri, source.session, source.revision);
+  if (!result)
+    return result.error();
+  request_ = *result;
   request_id_ = request_id;
   result_ = gneiss::engine::error::success;
   progress_ = {.source = std::move(source), .can_cancel = true, .message = "正在准备场景描述"};
@@ -89,10 +86,10 @@ runtime_scene_loader::activate(::gneiss::runtime::scene_load_completion& complet
       return stopped;
     }
   }
-  const auto result = application_.activate_scene(request_, completion);
-  if (result != gneiss::engine::error::success) {
-    return result;
-  }
+  auto result = application_.activate_scene(request_);
+  if (!result)
+    return result.error();
+  completion = std::move(*result);
   // 激活后的任意模块副作用不在场景事务的自动回滚承诺内。
   return after_activate ? after_activate(completion) : gneiss::engine::error::success;
 }

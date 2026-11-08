@@ -51,7 +51,7 @@ create_application(const std::filesystem::path& root,
   const auto root_text = root.generic_string();
   gneiss::runtime::application_configuration desc;
   desc.asset_root = root_text;
-  return gneiss::runtime::application::create(desc, output);
+  return gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), output);
 }
 
 } // namespace

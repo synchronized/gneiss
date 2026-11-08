@@ -103,9 +103,9 @@ public:
   } catch (...) {
     return engine::error::internal;
   }
+  /** 只推进批次观察状态；宿主先推进共享资产管理器。 */
   void advance() {
     using engine::error;
-    service_.advance();
     if (!completion_ || completion_->state != runtime::asset_load_state::preparing)
       return;
     auto& completion = *completion_;

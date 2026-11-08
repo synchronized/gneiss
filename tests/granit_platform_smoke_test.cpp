@@ -78,7 +78,8 @@ int main() {
   config.callbacks.update = [&](const native::frame_time&) {
     return submit_ui(*application, context);
   };
-  const auto create_result = gneiss::runtime::application::create(config, application);
+  const auto create_result =
+      gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application);
   if (create_result.failed()) {
     std::fprintf(stderr, "Application 创建失败：%d\n", create_result.code());
     return 1;

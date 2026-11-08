@@ -37,6 +37,11 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "场景资产私有访问器仅供类型加载器与资产管理器匿名创建使用：${source}")
   endif()
 
+  if(source MATCHES "/src/runtime/loading/resource_load_group[.]hpp$" AND
+      content MATCHES "service_[.](advance|collect_unused|stop|request_stop)[ \t\r\n]*[(]")
+    message(FATAL_ERROR "资源批次只观察请求，不推进或关闭共享资产管理器：${source}")
+  endif()
+
   if(content MATCHES "engine/function/asset/detail/" AND
       NOT source MATCHES "/src/engine/function/asset/")
     message(FATAL_ERROR "资产加载私有实现不得泄漏到普通调用方：${source}")

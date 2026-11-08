@@ -4,6 +4,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "runtime/application.hpp"
 #include "support/async_input.hpp"
+#include "support/value_result.hpp"
 #include <cstdio>
 #include <source_location>
 #include <stdexcept>
@@ -42,7 +43,7 @@ void loop() {
       app->request_exit();
     return engine::error::success;
   };
-  check(runtime::application::create(config, app).ok());
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
   std::uint32_t width{}, height{};
   check(app->get_window_size(width, height).ok() && width == 1280 && height == 720);
   engine::input_event event;
@@ -55,12 +56,12 @@ void loop() {
   check(shutdowns == 1);
   close = allow = true;
   updates = closes = 0;
-  check(runtime::application::create(config, app).ok());
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
   check(app->run(8).ok() && updates == 0 && closes == 1);
   app.reset();
   allow = false;
   closes = 0;
-  check(runtime::application::create(config, app).ok());
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
   check(app->run(8).ok() && updates == 3 && closes == 3);
   app.reset();
   check(shutdowns == 3);
@@ -70,7 +71,7 @@ void action_maps() {
   runtime::application_configuration config;
   config.asset_root = GNEISS_TEST_ASSET_ROOT;
   std::shared_ptr<runtime::application> app, other;
-  check(runtime::application::create(config, app).ok());
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
   constexpr auto uri = "asset://input/default.input-map.json";
   engine::action_id action;
   engine::action_state state;
@@ -84,7 +85,7 @@ void action_maps() {
   check(app->get_action_state(action, state) == engine::error::invalid_handle);
   // 使用当前仍有效的动作验证跨 Application 拒绝，避免只验证旧代次。
   check(app->find_action("move_horizontal", action).ok());
-  check(runtime::application::create(config, other).ok());
+  check(gneiss::test_support::assign_value(runtime::application::create(config), other).ok());
   check(gneiss::test_support::load_input_for_test(*other, scheduler, uri).ok());
   check(other->get_action_state(action, state) == engine::error::invalid_handle);
 }
@@ -100,14 +101,15 @@ void creation_failures() {
   };
   config.enable_window = true;
   config.window.width = 0;
-  check(runtime::application::create(config, app) == engine::error::invalid_argument);
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
+        engine::error::invalid_argument);
   // 配置校验在创建对象前返回结果，不经过运行期诊断回调。
   check(!app && diagnostics == 0);
   config.enable_window = false;
   config.window.width = 1280;
   config.asset_root = "gneiss-test-directory-does-not-exist";
   // 挂载只配置来源；缺失目录在实际异步读取时报告，不在创建阶段同步探测。
-  check(runtime::application::create(config, app).ok());
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
   engine::task_scheduler scheduler({.workers = 0, .mode = engine::execution_mode::cooperative});
   check(test_support::load_input_for_test(
             *app, scheduler, "asset://input/missing.input-map.json") == engine::error::not_found);
@@ -115,7 +117,8 @@ void creation_failures() {
   config.asset_root = {};
   config.callbacks.initialize = [] { return engine::error::not_found; };
   diagnostics = 0;
-  check(runtime::application::create(config, app) == engine::error::not_found);
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
+        engine::error::not_found);
   check(!app && diagnostics == 1 && reported == engine::error::not_found);
 }
 }

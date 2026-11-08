@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/async_application.hpp"
 #include "../support/scene_application.hpp"
+#include "../support/value_result.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/world/world.hpp"
 #include <cstdio>
@@ -19,7 +20,8 @@ int main() try {
   gneiss::runtime::application_configuration configuration;
   configuration.asset_root = GNEISS_TEST_ASSET_ROOT;
   std::shared_ptr<gneiss::runtime::application> app;
-  check(gneiss::runtime::application::create(configuration, app).ok());
+  check(gneiss::test_support::assign_value(gneiss::runtime::application::create(configuration), app)
+            .ok());
   e::scene_instantiation_data prepared;
   e::scene_instances::resource_bindings assets;
   check(gneiss::test_support::prepare_scene(*app, "asset://scenes/prefab.scene.json", prepared,

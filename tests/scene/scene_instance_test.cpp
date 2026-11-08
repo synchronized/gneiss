@@ -21,7 +21,8 @@ std::shared_ptr<gneiss::runtime::application> create_application(std::string_vie
   gneiss::runtime::application_configuration desc;
   desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
-  return (gneiss::runtime::application::create(desc, application) == gneiss::engine::error::success)
+  return (gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
+                                             application) == gneiss::engine::error::success)
              ? application
              : nullptr;
 }

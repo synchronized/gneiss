@@ -3,6 +3,7 @@
 
 #include "../../support/async_prefab_edit.hpp"
 #include "../../support/scene_query.hpp"
+#include "../../support/value_result.hpp"
 #include "commands/runtime_author_apply.hpp"
 #include "documents/scene_edit_session.hpp"
 #include "engine/core/error.hpp"
@@ -40,7 +41,8 @@ int main() try {
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::engine::world* world = nullptr;
   gneiss::editor::scene_edit_session session;
-  if (gneiss::engine::error{gneiss::runtime::application::create(desc, application)} !=
+  if (gneiss::engine::error{gneiss::test_support::assign_value(
+          gneiss::runtime::application::create(desc), application)} !=
           gneiss::engine::error::success ||
       (world = application->native_world()) == nullptr ||
       gneiss::test_support::open_document(session, *application, world, scene_uri) !=

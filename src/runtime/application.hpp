@@ -4,8 +4,8 @@
 #ifndef GNEISS_RUNTIME_APPLICATION_HPP_
 #define GNEISS_RUNTIME_APPLICATION_HPP_
 
-#include "engine/core/error.hpp"
 #include "engine/core/input/input_types.hpp"
+#include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/scene_types.hpp"
@@ -51,10 +51,10 @@ class scene_service;
  * 私有装配存储位于实现文件；此内部模块接口随源码构建，不属于安装 SDK。 */
 class application final {
 public:
-  /** 校验原生配置并创建已初始化的真实业务对象；失败不改变 output，不创建对外句柄。 */
-  [[nodiscard]] static GNEISS_API gneiss::engine::error
-  create(const runtime::application_configuration& config,
-         std::shared_ptr<application>& output) noexcept;
+  /** 返回已初始化对象的拥有引用；失败返回错误并清理部分初始化的资源。
+   * 创建、运行及最后释放均限所属线程，不创建对外句柄。 */
+  [[nodiscard]] static GNEISS_API engine::result<std::shared_ptr<application>>
+  create(const application_configuration& config) noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::error
   set_view_camera(const gneiss::engine::view_camera* camera) noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::error
@@ -66,10 +66,8 @@ public:
   [[nodiscard]] GNEISS_API bool has_asset_loading_service() const noexcept;
   /** 借用加载协调服务；必须在 Application 生命周期内、所属线程使用。 */
   [[nodiscard]] GNEISS_API runtime::scene_service& scene_loading_service() noexcept;
-  [[nodiscard]] GNEISS_API gneiss::engine::error request_scene(std::string_view uri,
-                                                               std::uint64_t session,
-                                                               std::uint64_t revision,
-                                                               std::uint64_t& request);
+  [[nodiscard]] GNEISS_API engine::result<std::uint64_t>
+  request_scene(std::string_view uri, std::uint64_t session, std::uint64_t revision);
   [[nodiscard]] GNEISS_API bool scene_progress(runtime::scene_load_progress& progress) const;
   [[nodiscard]] GNEISS_API gneiss::engine::error
   poll_scene(runtime::scene_load_completion& completion, bool& ready);
@@ -95,8 +93,8 @@ public:
   [[nodiscard]] GNEISS_API bool visual_assets_loading() const noexcept;
   [[nodiscard]] GNEISS_API bool can_activate_scene() const noexcept;
   [[nodiscard]] GNEISS_API runtime::scene_retirement_statistics scene_retirement() const noexcept;
-  [[nodiscard]] GNEISS_API gneiss::engine::error
-  activate_scene(std::uint64_t request, runtime::scene_load_completion& completion);
+  [[nodiscard]] GNEISS_API engine::result<scene_load_completion>
+  activate_scene(std::uint64_t request);
 
 private:
   resource_load_group* loading_assets() noexcept;

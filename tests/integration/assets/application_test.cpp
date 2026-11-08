@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "runtime/application.hpp"
@@ -37,7 +38,8 @@ void close_pending_window(const char* assets) {
     return gneiss::engine::error::success;
   };
   std::shared_ptr<runtime::application> app;
-  check(runtime::application::create(config, app) == gneiss::engine::error::success,
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
+            gneiss::engine::error::success,
         "window create");
   check(app->attach_task_executor(scheduler) == gneiss::engine::error::success, "window attach");
   std::promise<void> release, entered;
@@ -115,7 +117,9 @@ void run(const char* assets, bool cooperative) {
     }
     return gneiss::engine::error::success;
   };
-  check(runtime::application::create(config, app) == gneiss::engine::error::success, "create");
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
+            gneiss::engine::error::success,
+        "create");
   check(app->begin_action_map("asset://input/default.input-map.json") ==
             gneiss::engine::error::not_ready,
         "requires executor");
@@ -221,7 +225,8 @@ void run(const char* assets, bool cooperative) {
         "shutdown rejects requests");
   // 资产管理器关闭只排空自身 scope，不能关闭借用的宿主调度器。
   app.reset();
-  check(runtime::application::create(config, app) == gneiss::engine::error::success,
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
+            gneiss::engine::error::success,
         "recreate application");
   check(app->attach_task_executor(scheduler) == gneiss::engine::error::success, "reuse executor");
   check(app->begin_action_map("asset://input/default.input-map.json") ==

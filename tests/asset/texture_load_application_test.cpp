@@ -73,7 +73,8 @@ void run(gneiss::engine::execution_mode mode) {
   const auto root = files.root.string();
   runtime::application_configuration desc;
   desc.asset_root = root;
-  check(runtime::application::create(desc, app) == gneiss::engine::error::success);
+  check(gneiss::test_support::assign_value(runtime::application::create(desc), app) ==
+        gneiss::engine::error::success);
   // 原生取消入口在无服务和无在途请求时返回未就绪。
   check(app->cancel_assets() == gneiss::engine::error::not_ready);
   check(app->attach_task_executor(scheduler) == gneiss::engine::error::success);
@@ -88,8 +89,8 @@ void run(gneiss::engine::execution_mode mode) {
   bool scene_ready{};
   check(app->poll_scene(scene_completion, scene_ready).ok() && !scene_ready);
   std::uint64_t scene_request{};
-  check(app->request_scene("asset://unused.scene.json", 1, 1, scene_request) ==
-        engine::error::not_ready);
+  check(gneiss::test_support::take_value(app->request_scene("asset://unused.scene.json", 1, 1),
+                                         scene_request) == engine::error::not_ready);
   check(scene_request == 0);
   check(app->cancel_scene(request) == engine::error::not_ready);
   // 错误编号不能轮询、取消或丢弃当前请求。

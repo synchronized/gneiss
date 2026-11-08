@@ -122,7 +122,7 @@ int main() try {
   check(e::prepare_prefab_reference(*source, reference, effective).failed());
   reference.overrides.clear();
   std::shared_ptr<gneiss::runtime::application> app;
-  check(gneiss::runtime::application::create({}, app).ok());
+  check(gneiss::test_support::assign_value(gneiss::runtime::application::create({}), app).ok());
   auto& world = *app->native_world();
   ed::scene_edit_session document;
   check(document.create_empty(*app, &world).ok());

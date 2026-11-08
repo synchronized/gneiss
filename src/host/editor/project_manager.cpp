@@ -257,7 +257,9 @@ gneiss::engine::error run_project_manager(bool smoke, editor_project& output) no
     desc.window.height = 420U;
     desc.window.resizable = false;
     desc.window.high_dpi = false;
-    auto operation = gneiss::runtime::application::create(desc, application);
+    auto created = gneiss::runtime::application::create(desc);
+    auto operation =
+        created ? gneiss::engine::error{gneiss::engine::error::success} : created.error();
     if (operation != gneiss::engine::error::success) {
       const auto message = operation.message();
       std::fprintf(
@@ -266,6 +268,7 @@ gneiss::engine::error run_project_manager(bool smoke, editor_project& output) no
           operation.code(), static_cast<int>(message.size()), message.data());
       return operation;
     }
+    application = std::move(*created);
     state.application = application.get();
     operation = state.ui.initialize(*application);
     if (operation != gneiss::engine::error::success) {

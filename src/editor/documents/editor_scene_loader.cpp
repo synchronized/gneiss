@@ -68,7 +68,10 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
   if (queued_) {
     // 先回收旧域再提交，菜单回调本身不做加载工作。
     queued_ = false;
-    operation_ = application.request_scene(uri_, 1U, ++revision_, request_);
+    auto submitted = application.request_scene(uri_, 1U, ++revision_);
+    request_ = submitted ? *submitted : 0;
+    operation_ =
+        submitted ? gneiss::engine::error{gneiss::engine::error::success} : submitted.error();
     active_ = operation_ == gneiss::engine::error::success;
     if (!active_) {
       progress_.phase = scene_load_phase::failed;
@@ -83,13 +86,7 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
     active_ = progress_.cleanup_pending;
     return gneiss::engine::error::success;
   }
-  bool available{};
-  available = application.scene_progress(progress_);
-  const auto queried = gneiss::engine::error::success;
-  if (queried != gneiss::engine::error::success) {
-    return queried;
-  }
-  if (!available) {
+  if (!application.scene_progress(progress_)) {
     return gneiss::engine::error::success;
   }
   if (progress_.cleanup_complete && progress_.phase == scene_load_phase::cancelled) {
@@ -99,13 +96,13 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
   if (progress_.phase != scene_load_phase::ready) {
     return gneiss::engine::error::success;
   }
-  const auto activated = application.activate_scene(request_, completion);
-  if (activated == gneiss::engine::error::not_ready) {
-    return gneiss::engine::error::success;
+  auto activated = application.activate_scene(request_);
+  if (!activated) {
+    return activated.error() == gneiss::engine::error::not_ready
+               ? gneiss::engine::error{gneiss::engine::error::success}
+               : activated.error();
   }
-  if (activated != gneiss::engine::error::success) {
-    return activated;
-  }
+  completion = std::move(*activated);
 
   // 激活后旧域仍存活至下一次推进；先释放依赖旧 World 的编辑器状态。
   const auto closed = editing.close();

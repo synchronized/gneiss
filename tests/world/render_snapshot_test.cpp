@@ -13,7 +13,8 @@
 
 int run_host_tests() {
   std::shared_ptr<gneiss::runtime::application> application;
-  if (gneiss::runtime::application::create({}, application).failed()) {
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create({}), application)
+          .failed()) {
     return 20;
   }
   gneiss::engine::view_camera view;

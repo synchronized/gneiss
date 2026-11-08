@@ -91,7 +91,8 @@ int main() {
   config.callbacks.update = [&](const gneiss::engine::frame_time&) {
     return update(*app, context);
   };
-  if (gneiss::runtime::application::create(config, app).failed()) {
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app)
+          .failed()) {
     return 1;
   }
   const std::array<std::uint8_t, 4> pixels{255, 255, 255, 255};

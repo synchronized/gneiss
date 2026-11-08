@@ -129,7 +129,8 @@ int main() try {
   if (gneiss::engine::initialize_meta().failed())
     return 99;
   std::shared_ptr<gneiss::runtime::application> application;
-  if (gneiss::runtime::application::create({}, application) != gneiss::engine::error::success)
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create({}), application) !=
+      gneiss::engine::error::success)
     return 1;
   if (!save_codec_contract(*application))
     return 12;

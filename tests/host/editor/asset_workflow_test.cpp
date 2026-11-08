@@ -4,6 +4,7 @@
 #include "../../support/async_document.hpp"
 #include "../../support/async_editor_save.hpp"
 #include "../../support/async_mesh_edit.hpp"
+#include "../../support/value_result.hpp"
 #include "asset_reimport_queue.hpp"
 #include "documents/scene_edit_session.hpp"
 #include "engine/core/error.hpp"
@@ -89,8 +90,8 @@ int main() try {
   gneiss::engine::world* world{};
   scene_edit_session session;
   scene_node_id node;
-  if (gneiss::engine::error{gneiss::runtime::application::create(desc, app)} !=
-          gneiss::engine::error::success ||
+  if (gneiss::engine::error{gneiss::test_support::assign_value(
+          gneiss::runtime::application::create(desc), app)} != gneiss::engine::error::success ||
       (world = app->native_world()) == nullptr ||
       gneiss::test_support::open_document(session, *app, world, project.startup_scene) !=
           gneiss::engine::error::success ||

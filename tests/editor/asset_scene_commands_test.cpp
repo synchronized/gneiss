@@ -37,7 +37,9 @@ int main() try {
   auto& history = editing.history();
   editor_camera camera;
   editor_scene_loader loader;
-  if (gneiss::engine::error{gneiss::runtime::application::create(desc, app)}.failed() ||
+  if (gneiss::engine::error{
+          gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)}
+          .failed() ||
       (world = app->native_world()) == nullptr || app->attach_task_executor(scheduler).failed() ||
       camera.initialize().failed() ||
       loader.request(*app, editing, "asset://scenes/triangle.scene.json").failed()) {

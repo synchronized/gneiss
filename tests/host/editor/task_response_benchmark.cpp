@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../support/async_document.hpp"
+#include "../../support/value_result.hpp"
 #include "asset_background_worker.hpp"
 #include "author_asset_service.hpp"
 #include "documents/scene_edit_session.hpp"
@@ -77,8 +78,8 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::engine::world* world{};
   scene_edit_session session;
-  require(gneiss::engine::error{gneiss::runtime::application::create(desc, app)} ==
-                  gneiss::engine::error::success &&
+  require(gneiss::engine::error{gneiss::test_support::assign_value(
+              gneiss::runtime::application::create(desc), app)} == gneiss::engine::error::success &&
               (world = app->native_world()) != nullptr,
           "基准应用创建失败");
   require(authors.initialize(app->async_files()) == gneiss::engine::error::success,

@@ -122,8 +122,8 @@ int main() { // NOLINT(bugprone-exception-escape)
   gneiss::scene_instance_id scene = {};
   std::uint64_t entity_count = 0;
   constexpr std::string_view scene_uri = "asset://scenes/scene.scene.json";
-  if (gneiss::runtime::application::create(description, application) !=
-          gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
+                                         application) != gneiss::engine::error::success ||
       gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
           gneiss::engine::error::success ||
       gneiss::test_support::assign_value(application->native_world()->entity_count(),
@@ -148,8 +148,8 @@ int main() { // NOLINT(bugprone-exception-escape)
   application.reset();
   scene = gneiss::scene_instance_id{};
   entity_count = 0;
-  if (gneiss::runtime::application::create(description, application) !=
-          gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
+                                         application) != gneiss::engine::error::success ||
       gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
           gneiss::engine::error::success ||
       gneiss::test_support::assign_value(application->native_world()->entity_count(),

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "imgui_adapter.hpp"
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
@@ -142,7 +143,8 @@ int main() {
     return update(&time, &value);
   };
   std::shared_ptr<gneiss::runtime::application> application;
-  if (gneiss::runtime::application::create(config, application) != gneiss::engine::error::success) {
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config),
+                                         application) != gneiss::engine::error::success) {
     return 1;
   }
   value.application = application.get();

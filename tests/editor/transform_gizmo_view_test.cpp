@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
@@ -25,7 +26,9 @@ int main() try {
   scene_node_id first;
   scene_node_id second;
   gneiss::runtime::application_configuration desc;
-  if (gneiss::engine::error{gneiss::runtime::application::create(desc, app)}.failed() ||
+  if (gneiss::engine::error{
+          gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)}
+          .failed() ||
       (world_handle = app->native_world()) == nullptr ||
       session.create_empty(*app, world_handle).failed() ||
       session.create_node("First", {}, first).failed() ||

@@ -94,16 +94,18 @@ int run_example(int argc, char** argv) {
     if (native_application && native_application->accepts_requests())
       (void)native_application->shutdown();
   }};
-  auto create_result = gneiss::runtime::application::create(config, native_application);
-  if (create_result.failed()) {
+  auto create_result = gneiss::runtime::application::create(config);
+  if (!create_result) {
     return 1;
   }
+  native_application = std::move(*create_result);
   if (native_application->attach_task_executor(scheduler).failed() ||
       native_application->begin_action_map(input_map_uri).failed())
     return 2;
-  std::uint64_t scene_request{};
-  if (native_application->request_scene(scene_uri, 1, 1, scene_request).failed())
+  auto submitted = native_application->request_scene(scene_uri, 1, 1);
+  if (!submitted)
     return 2;
+  const auto scene_request = *submitted;
   gneiss::scene_instance_id scene{};
   gneiss::runtime::scene_load_completion completion;
   // 启动阶段继续处理窗口事件和文件完成；不调用同步场景加载。
@@ -120,8 +122,10 @@ int run_example(int argc, char** argv) {
       if (native_application->scene_progress(progress) &&
           progress.phase == gneiss::runtime::scene_load_phase::ready &&
           native_application->can_activate_scene()) {
-        if (native_application->activate_scene(scene_request, completion).failed())
+        auto activated = native_application->activate_scene(scene_request);
+        if (!activated)
           return 2;
+        completion = std::move(*activated);
         scene = completion.scene;
       }
     }

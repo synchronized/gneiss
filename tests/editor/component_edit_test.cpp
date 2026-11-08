@@ -272,7 +272,7 @@ int main() try {
     check(copied.update<e::camera_description>([](auto&) {}) == e::error::not_found);
   }
   std::shared_ptr<gneiss::runtime::application> app;
-  check(gneiss::runtime::application::create({}, app).ok());
+  check(gneiss::test_support::assign_value(gneiss::runtime::application::create({}), app).ok());
   auto& world = *app->native_world();
   ed::scene_edit_session document;
   check(document.create_empty(*app, &world).ok());

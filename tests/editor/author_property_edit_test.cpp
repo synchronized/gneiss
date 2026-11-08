@@ -251,7 +251,9 @@ int main() try {
   scene_node_id first;
   scene_node_id second;
   gneiss::runtime::application_configuration desc;
-  if (gneiss::engine::error{gneiss::runtime::application::create(desc, app)}.failed() ||
+  if (gneiss::engine::error{
+          gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)}
+          .failed() ||
       (world_handle = app->native_world()) == nullptr ||
       session.create_empty(*app, world_handle).failed() ||
       session.create_node("first", {}, first).failed() ||

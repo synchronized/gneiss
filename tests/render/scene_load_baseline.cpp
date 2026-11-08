@@ -73,7 +73,7 @@ gneiss::engine::error preload_scene(const std::shared_ptr<gneiss::runtime::appli
                                     std::string_view uri, gneiss::scene_instance_id& scene) {
   using namespace gneiss::runtime;
   std::uint64_t request{};
-  auto result = app->request_scene(uri, 1U, 1U, request);
+  auto result = gneiss::test_support::take_value(app->request_scene(uri, 1U, 1U), request);
   const auto deadline = clock_type::now() + std::chrono::minutes(15);
   while (result == gneiss::engine::error::success && clock_type::now() < deadline) {
     if (cooperative) {
@@ -98,7 +98,7 @@ gneiss::engine::error preload_scene(const std::shared_ptr<gneiss::runtime::appli
     }
     if (result == gneiss::engine::error::success && active &&
         progress.phase == scene_load_phase::ready) {
-      result = app->activate_scene(request, completion);
+      result = gneiss::test_support::assign_value(app->activate_scene(request), completion);
       if (result == gneiss::engine::error::success) {
         scene = completion.scene;
         // 消费预载终态并回收旧域，之后才能发起被测切换。
@@ -158,8 +158,8 @@ int main(int argc, char** argv) try {
   if (scenario == "interact") {
     desc.window.visible = true;
   }
-  if (gneiss::engine::error{gneiss::runtime::application::create(desc, app)} !=
-          gneiss::engine::error::success ||
+  if (gneiss::engine::error{gneiss::test_support::assign_value(
+          gneiss::runtime::application::create(desc), app)} != gneiss::engine::error::success ||
       gneiss::engine::error{app->run(3U)} != gneiss::engine::error::success) {
     return 3;
   }
@@ -275,7 +275,7 @@ int main(int argc, char** argv) try {
     using namespace gneiss::runtime;
     std::uint64_t request{};
     if (result == gneiss::engine::error::success) {
-      result = app->request_scene(source_uri, 1U, 1U, request);
+      result = gneiss::test_support::take_value(app->request_scene(source_uri, 1U, 1U), request);
     }
     if (result == gneiss::engine::error::success && scenario == "cancel-prepare") {
       cancel_start = clock_type::now();
@@ -434,7 +434,8 @@ int main(int argc, char** argv) try {
           if (retirement.live_resources != previous_resources || retirement.pending)
             return gneiss::engine::error::invalid_state;
           if (completed_switches < 3U) {
-            result = handle->request_scene(source_uri, 1U, completed_switches + 1U, request);
+            result = gneiss::test_support::take_value(
+                handle->request_scene(source_uri, 1U, completed_switches + 1U), request);
             scene = gneiss::scene_instance_id{};
             // 超时属于单次请求，不能让后续切换消耗前两次加载已经占用的期限。
             deadline = clock_type::now() + std::chrono::minutes(15);
@@ -453,7 +454,7 @@ int main(int argc, char** argv) try {
           result = handle->cancel_scene(request);
           cancel_requested = result == gneiss::engine::error::success;
         } else if (!cancel_requested && progress.phase == scene_load_phase::ready) {
-          result = handle->activate_scene(request, completion);
+          result = gneiss::test_support::assign_value(handle->activate_scene(request), completion);
           scene = completion.scene;
           ++completed_switches;
           maximum_activation_ms = std::max(maximum_activation_ms, completion.activation_ms);

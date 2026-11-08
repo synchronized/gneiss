@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/asset/asset_manager.hpp"
@@ -14,8 +15,8 @@ bool run(gneiss::engine::execution_mode mode) {
   gneiss::runtime::application_configuration description;
   description.asset_root = root;
   std::shared_ptr<gneiss::runtime::application> application;
-  if (gneiss::runtime::application::create(description, application) !=
-          gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
+                                         application) != gneiss::engine::error::success ||
       application->attach_task_executor(executor) != gneiss::engine::error::success) {
     return false;
   }
