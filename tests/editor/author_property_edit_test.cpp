@@ -309,6 +309,7 @@ int main() try {
     return status;
   {
     editor_command_history hierarchy;
+    const auto original_name = session.query_node(first)->display_name;
     session.clear_dirty();
     if (execute_scene_edit(
             hierarchy, session, "修改层级",
@@ -325,7 +326,7 @@ int main() try {
         session.query_node(first)->entity != first_entity ||
         session.query_node(second)->entity != second_entity || session.projection_status().failed())
       return 42;
-    // 多步命令不可只合并第一段差异，重做和反向顺序必须覆盖全部修改。
+    // 多步命令生成一次最终差异，合并必须覆盖全部修改。
     if (execute_scene_edit(
             hierarchy, session, "再次修改层级",
             [&] {
@@ -334,13 +335,12 @@ int main() try {
             },
             "hierarchy")
             .failed() ||
-        hierarchy.size() != 2 || hierarchy.undo().failed() ||
-        session.query_node(first)->parent != second ||
-        session.query_node(first)->display_name != "renamed" || hierarchy.redo().failed() ||
+        hierarchy.size() != 1 || hierarchy.undo().failed() || session.query_node(first)->parent ||
+        session.query_node(first)->display_name != original_name || hierarchy.redo().failed() ||
         session.query_node(first)->parent ||
         session.query_node(first)->display_name != "renamed-again" || hierarchy.undo().failed())
       return 142;
-    if (hierarchy.undo().failed() || session.is_dirty())
+    if (session.is_dirty())
       return 43;
   }
   {
@@ -351,6 +351,8 @@ int main() try {
           auto renamed = session.rename_node(first, "temporary");
           if (renamed.failed())
             return renamed;
+          if (session.current_version() != before)
+            return gneiss::engine::error::internal;
           throw std::bad_alloc{};
         });
     if (status != gneiss::engine::error::out_of_memory || rejected.size() != 0 ||

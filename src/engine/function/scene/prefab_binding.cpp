@@ -213,6 +213,21 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
     }
   };
 
+  // 先拆开变化父关系，允许合法的父子反转而不被旧树误判循环。
+  std::unordered_map<guid, scene_node_id, guid_hash> previous_parents;
+  for (const auto& update : diff.updated) {
+    auto& target = staged[update.new_index];
+    if (target.node == root_node_ || !has_change(update.changes, structural_change::parent))
+      continue;
+    scene_node_id parent;
+    result = native_world_.node_get_parent(target.node, parent);
+    if (result.failed())
+      return result;
+    previous_parents.emplace(target.address.source_node_uuid, parent);
+    result = native_world_.node_reparent(target.node, {});
+    if (result.failed())
+      return result;
+  }
   for (const auto& update : diff.updated) {
     auto& target = staged[update.new_index];
     update_snapshot snapshot{};
@@ -220,6 +235,9 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
     snapshot.new_index = update.new_index;
     snapshot.changes = update.changes;
     result = native_world_.node_get_parent(gneiss::scene_node_id{target.node}, snapshot.parent);
+    if (auto parent = previous_parents.find(target.address.source_node_uuid);
+        parent != previous_parents.end())
+      snapshot.parent = parent->second;
     if (result == engine::error::success) {
       result = native_world_.node_get_local_transform(gneiss::scene_node_id{target.node},
                                                       snapshot.transform);

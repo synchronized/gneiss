@@ -71,22 +71,97 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
         if (removed.contains(object.parent))
           changed |= removed.insert(object.address).second;
     }
-    if (std::ranges::any_of(next->objects,
-                            [&](const auto& object) { return removed.contains(object.address); }))
-      return false;
+    // 删除实例时，自有对象可以在同一编辑中移到实例外；先脱离再删除来源子树。
+    for (auto& object : previous->objects) {
+      if (!removed.contains(object.address) ||
+          std::ranges::find(next->objects, object.address, &composed_document_object::address) ==
+              next->objects.end())
+        continue;
+      if (!object.address.source || object.instance_root) {
+        auto node = scenes.find_node(scene, object.address.object);
+        if (!node)
+          return node.error();
+        auto status = scenes.reparent_node(scene, *node, {});
+        if (status.failed())
+          return status;
+        object.parent = {};
+      }
+      removed.erase(object.address);
+    }
     auto status = scenes.remove_prefab_instance(scene, uuid);
     if (status.failed())
       return status;
     std::erase_if(previous->objects,
                   [&](const auto& object) { return removed.contains(object.address); });
   }
+  // 普通对象转为 Prefab 时，其旧角色先删除，自有子对象稍后连接到新根。
+  for (const auto& root : next->objects) {
+    if (!root.instance_root)
+      continue;
+    auto old =
+        std::ranges::find(previous->objects, document_object_address{root.address.object, {}},
+                          &composed_document_object::address);
+    if (old == previous->objects.end())
+      continue;
+    const auto address = old->address;
+    for (auto& child : previous->objects) {
+      if (child.parent != address || (child.address.source && !child.instance_root))
+        continue;
+      auto node = scenes.find_node(scene, child.address.object);
+      if (!node)
+        return node.error();
+      auto status = scenes.reparent_node(scene, *node, {});
+      if (status.failed())
+        return status;
+      child.parent = {};
+    }
+    auto node = scenes.find_node(scene, address.object);
+    if (!node)
+      return node.error();
+    auto status = scenes.destroy_node(scene, *node);
+    if (status.failed())
+      return status;
+    std::erase_if(previous->objects, [&](const auto& object) { return object.address == address; });
+  }
+  // 混合子树先创建普通对象的空壳，Prefab 可以引用同次编辑新增的父节点。
+  for (const auto& object : next->objects) {
+    if (object.address.source ||
+        std::ranges::find(previous->objects, object.address, &composed_document_object::address) !=
+            previous->objects.end())
+      continue;
+    auto created = scenes.create_node(scene, {.uuid = object.effective.uuid,
+                                              .name = object.effective.name,
+                                              .local_transform = object.effective.transform});
+    if (!created)
+      return created.error();
+    auto baseline = object;
+    baseline.parent = {};
+    baseline.effective.components = {};
+    previous->objects.push_back(std::move(baseline));
+  }
   // 新增或结构变化只创建/替换对应 Prefab，其他实例和普通对象保持。
   auto description = target.description();
   if (!description)
     return description.error();
-  for (const auto& root : next->objects) {
-    if (!root.instance_root)
-      continue;
+  std::vector<const composed_document_object*> roots;
+  for (const auto& object : next->objects)
+    if (object.instance_root)
+      roots.push_back(&object);
+  const auto depth = [&](const composed_document_object* object) {
+    std::size_t result = 0;
+    while (object->parent.object && result <= next->objects.size()) {
+      auto parent =
+          std::ranges::find(next->objects, object->parent, &composed_document_object::address);
+      if (parent == next->objects.end())
+        break;
+      object = &*parent;
+      ++result;
+    }
+    return result;
+  };
+  std::ranges::stable_sort(roots, {}, depth);
+  for (const auto* root_ptr : roots) {
+    const auto& root = *root_ptr;
     const bool existing = std::ranges::any_of(previous->objects, [&](const auto& object) {
       return object.address.object == root.address.object && object.address.source;
     });
@@ -145,7 +220,7 @@ engine::result<bool> update_objects(engine::world& world, engine::scene_instance
     }
     auto created = scenes.instantiate_prefab_ready(
         scene, *author, engine::make_ref<const engine::prefab_description>(std::move(*source)),
-        bindings, existing, frozen.source_asset);
+        bindings, existing, frozen.source_asset, engine::prefab_replacement::preserve_nodes);
     if (!created)
       return created.error();
     if (existing) {

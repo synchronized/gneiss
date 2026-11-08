@@ -98,17 +98,24 @@ engine::error execute_scene_edit(editor_command_history& history, scene_edit_ses
     return status;
   auto command = std::make_unique<document_patch_command>(document, before, before,
                                                           std::move(label), std::move(key));
-  if (document.prepare_history_)
+  if (document.edit_base_)
     return engine::error::invalid_state;
-  scene_edit_session::history_preparation prepare = [&](const auto& from, const auto& to) {
-    return command->prepare(from, to);
+  auto candidate = document.document_->make_candidate();
+  if (!candidate)
+    return candidate.error();
+  const auto selection = document_selection::capture(document);
+  auto authority = std::move(document.document_);
+  document.edit_base_ = authority.get();
+  document.document_ = std::move(*candidate);
+  // 候选运行投影属于编辑预览；失败不发布文档，恢复预览基线。
+  const auto discard = [&](scene_edit_session* session) {
+    if (session->document_ && session->document_->current() != before)
+      (void)session->restore_version(session->document_->current(), before);
+    session->document_ = std::move(authority);
+    session->edit_base_ = nullptr;
+    selection.restore(*session);
   };
-  document.prepare_history_ = &prepare;
-  const auto reset_preparation = [&](scene_edit_session* session) {
-    session->prepare_history_ = nullptr;
-  };
-  std::unique_ptr<scene_edit_session, decltype(reset_preparation)> scope(&document,
-                                                                         reset_preparation);
+  std::unique_ptr<scene_edit_session, decltype(discard)> scope(&document, discard);
   try {
     status = edit();
   } catch (const std::bad_alloc&) {
@@ -116,14 +123,27 @@ engine::error execute_scene_edit(editor_command_history& history, scene_edit_ses
   } catch (...) {
     status = engine::error::internal;
   }
-  scope.reset();
-  if (status.failed()) {
-    if (document.current_version() != before)
-      (void)document.restore_version(document.current_version(), before);
+  if (status.failed())
     return status;
-  }
-  if (before == document.current_version())
+  if (!document.document_)
+    return engine::error::invalid_state;
+  const auto after = document.document_->current();
+  if (before == after) {
+    document.document_ = std::move(authority);
+    document.edit_base_ = nullptr;
+    (void)scope.release();
     return engine::error::success;
+  }
+  status = command->prepare(before.content(), after.content());
+  if (status.failed())
+    return status;
+  // 最终候选已校验，历史差异与容量已准备；发布只交换不可变版本，不再分配。
+  status = authority->checkout(before, after);
+  if (status.failed())
+    return status;
+  document.document_ = std::move(authority);
+  document.edit_base_ = nullptr;
+  (void)scope.release();
   (void)document.validate_selection();
   status = command->complete();
   if (status.ok())

@@ -10,8 +10,8 @@
 
 ## 当前批次
 
-2026-11-08：新增 [PLAN-106](PLAN-106-document-history-projection.md)，迁移局部文档历史与增量投影，
-与 PLAN-105 的运行对象边界共同推进。
+2026-11-08：[PLAN-106](PLAN-106-document-history-projection.md) 已完成局部文档历史与增量投影，
+验收范围和保留的恢复边界以该计划为准；这不表示 DEV-052 整个版本已完成。
 
 已完成容器视图按 sequence、associative、optional 分拆，并增加 reference_view，
 见[本批验收记录](../records/2026-11-04-meta-views.md)。

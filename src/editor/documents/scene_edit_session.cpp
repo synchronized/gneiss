@@ -180,7 +180,7 @@ gneiss::engine::error scene_edit_session::adopt(runtime::application& applicatio
                                                 gneiss::engine::world* world,
                                                 gneiss::scene_instance_id scene,
                                                 std::string_view uri) noexcept {
-  if (!application.is_owner_thread() || !application.accepts_requests())
+  if (edit_base_ || !application.is_owner_thread() || !application.accepts_requests())
     return gneiss::engine::error::invalid_state;
   if (world != application.native_world() || uri.empty() || !scene)
     return gneiss::engine::error::invalid_argument;
@@ -216,7 +216,7 @@ gneiss::engine::error scene_edit_session::adopt(runtime::application& applicatio
 gneiss::engine::error scene_edit_session::create_empty(runtime::application& application,
                                                        gneiss::engine::world* world,
                                                        gneiss::engine::guid scene_uuid) noexcept {
-  if (!application.is_owner_thread() || !application.accepts_requests())
+  if (edit_base_ || !application.is_owner_thread() || !application.accepts_requests())
     return gneiss::engine::error::invalid_state;
   if (world != application.native_world() || scene_uuid.is_nil())
     return gneiss::engine::error::invalid_argument;
@@ -286,11 +286,6 @@ engine::error scene_edit_session::accept_content(const scene_document_snapshot& 
     return engine::error::invalid_state;
   if (snapshot.uri != uri_)
     return engine::error::invalid_argument;
-  if (prepare_history_) {
-    auto status = (*prepare_history_)(document_->current().content(), snapshot);
-    if (status.failed())
-      return status;
-  }
   const auto before = document_->current();
   const bool synchronized = projection_.is_synchronized(before);
   const auto selected = projection_.address(selection_);
@@ -364,11 +359,6 @@ engine::error scene_edit_session::edit_content(
   const bool synchronized = projection_.is_synchronized(before);
   auto selected =
       selection_ ? locate(selection_) : engine::result<edit_target>{engine::error::not_found};
-  if (prepare_history_) {
-    status = (*prepare_history_)(before.content(), prepared->snapshot);
-    if (status.failed())
-      return status;
-  }
   status = document_->accept(before, prepared->snapshot);
   if (status.failed())
     return status;
@@ -1147,6 +1137,8 @@ engine::error scene_edit_session::begin_save(gneiss::engine::files::service& fil
                                              std::string_view uri,
                                              gneiss::engine::files::write_mode mode,
                                              std::shared_ptr<save_receipt>& output) noexcept {
+  if (edit_base_)
+    return engine::error::invalid_state;
   output.reset();
   if (!is_open() || !uri.starts_with("asset://") || engine::validate_uri(uri).failed())
     return engine::error::invalid_argument;
@@ -1177,6 +1169,8 @@ engine::error scene_edit_session::begin_save(gneiss::engine::files::service& fil
   }
 }
 engine::error scene_edit_session::accept_save(const save_receipt& receipt) noexcept {
+  if (edit_base_)
+    return engine::error::invalid_state;
   if (!receipt.complete)
     return engine::error::not_ready;
   if (receipt.status.failed())

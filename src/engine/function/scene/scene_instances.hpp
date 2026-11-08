@@ -56,6 +56,8 @@ struct scene_instantiation_result {
   std::size_t node_count{};
   std::vector<render_resource_source> assets;
 };
+/** 显式重建用于丢弃运行状态；编辑投影保留相同来源节点。 */
+enum class prefab_replacement { recreate, preserve_nodes };
 /** 单个 World 的实例集合，拥有实例与 RID 表；不负责后台加载或活动域切换。 */
 class scene_instances final {
 public:
@@ -78,7 +80,8 @@ public:
   [[nodiscard]] GNEISS_API result<scene_node_id>
   instantiate_prefab_ready(scene_instance_id instance, const game_object_description& author,
                            prefab_asset_ref prefab, std::span<const scene_mesh_binding> bindings,
-                           bool replacing, ref<const engine::prefab> source_asset = {}) noexcept;
+                           bool replacing, ref<const engine::prefab> source_asset = {},
+                           prefab_replacement mode = prefab_replacement::recreate) noexcept;
   [[nodiscard]] GNEISS_API error remove_prefab_instance(scene_instance_id instance,
                                                         guid uuid) noexcept;
   /** 创建仅消费已加载资源引用，不加载；失败不留下节点。 */

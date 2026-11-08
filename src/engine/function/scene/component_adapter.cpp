@@ -453,21 +453,27 @@ error replace_components(component_context context, const component_descriptions
     status = validate_components(values);
   if (status.failed())
     return status;
-  for (const auto& adapter : adapters()) {
-    if (values.find(adapter.type))
+  auto current = capture_components(context.owner, context.node);
+  if (!current)
+    return current.error();
+  for (const auto& previous : *current) {
+    const auto* next = values.find(previous->guid());
+    if (next && (*next)->uuid == previous->uuid)
       continue;
-    status = adapter.remove(context.owner, context.node);
-    if (status.failed() && status != error::not_found)
+    status = remove_component(context, previous->guid());
+    if (status.failed())
       return status;
   }
-  status = install_components(context, values);
-  if (status.ok()) {
-    auto& ids = instance_ids(context.owner, context.node).values;
-    std::erase_if(ids, [&](const auto& entry) { return !values.find(entry.first); });
-    for (const auto& entry : values.entries())
-      ids.at(entry->guid()) = entry->uuid;
+  for (const auto& next : values) {
+    const auto* previous = current->find(next->guid());
+    const bool surviving = previous && (*previous)->uuid == next->uuid;
+    if (surviving && equal_components({*previous}, {next}))
+      continue;
+    status = surviving ? update_component(context, next) : install_components(context, {next});
+    if (status.failed())
+      return status;
   }
-  return status;
+  return error::success;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {

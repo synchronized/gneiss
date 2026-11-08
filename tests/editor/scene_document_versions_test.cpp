@@ -1,11 +1,31 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "documents/document_patch.hpp"
 #include "documents/scene_document.hpp"
 #include "documents/scene_projection.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/scene/detail/scene_asset_access.hpp"
 #include <cstdio>
+#include <cstdlib>
+#include <new>
+namespace {
+thread_local std::size_t fail_allocation_at_least = 0;
+}
+void* operator new(std::size_t size) {
+  if (fail_allocation_at_least && size >= fail_allocation_at_least) {
+    fail_allocation_at_least = 0;
+    throw std::bad_alloc{};
+  }
+  if (auto* memory = std::malloc(size ? size : 1))
+    return memory;
+  throw std::bad_alloc{};
+}
+void operator delete(void* memory) noexcept { std::free(memory); }
+void operator delete(void* memory, std::size_t) noexcept { std::free(memory); }
+void* operator new[](std::size_t size) { return ::operator new(size); }
+void operator delete[](void* memory) noexcept { ::operator delete(memory); }
+void operator delete[](void* memory, std::size_t) noexcept { ::operator delete(memory); }
 namespace e = gneiss::engine;
 namespace ed = gneiss::editor;
 #define CHECK(expression)                                                                          \
@@ -37,6 +57,31 @@ int main() {
   auto data = edited.content.get();
   data.objects[0].name = "edited";
   edited.content = e::scene_record{data};
+  {
+    auto candidate = document.make_candidate();
+    CHECK(candidate);
+    CHECK((*candidate)->accept(initial, edited).ok());
+    CHECK(document.current() == initial && !document.is_dirty());
+    const auto prepared = (*candidate)->current();
+    CHECK(document.checkout(initial, prepared).ok());
+    CHECK(document.current() == prepared && document.is_dirty());
+    CHECK(document.checkout(prepared, initial).ok());
+  }
+  // 注入准备阶段真实分配失败；候选和历史差异失败均不发布到权威文档。
+  fail_allocation_at_least = sizeof(ed::scene_document);
+  auto failed_candidate = document.make_candidate();
+  fail_allocation_at_least = 0;
+  CHECK(!failed_candidate && failed_candidate.error() == e::error::out_of_memory);
+  CHECK(document.current() == initial && !document.is_dirty());
+  auto patch_before = initial.content();
+  auto patch_after = edited;
+  patch_before.uri = patch_after.uri = "asset://" + std::string(256, 'a');
+  // 跳过 MSVC 调试 STL 在 noexcept 默认构造中分配的迭代器代理，定向失败 URI 存储。
+  fail_allocation_at_least = 256;
+  auto failed_patch = ed::make_document_patch(patch_before, patch_after);
+  fail_allocation_at_least = 0;
+  CHECK(!failed_patch && failed_patch.error() == e::error::out_of_memory);
+  CHECK(document.current() == initial && !document.is_dirty());
   CHECK(document.accept(initial, edited).ok());
   const auto next = document.current();
   CHECK(document.is_dirty() && !projection.is_synchronized(next));

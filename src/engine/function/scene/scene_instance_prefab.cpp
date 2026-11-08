@@ -3,8 +3,8 @@
 
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/scene_instance.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/structural_diff.hpp"
 #include <algorithm>
 #include <new>
@@ -54,7 +54,7 @@ scene_instance::capture_prefab_instance_binding(guid uuid, std::size_t index) co
 result<scene_node_id> scene_instance::instantiate_prefab_ready(
     const game_object_description& author, prefab_asset_ref prefab,
     std::span<const scene_mesh_binding> bindings, bool replacing,
-    ref<const engine::prefab> source_asset) noexcept try {
+    ref<const engine::prefab> source_asset, prefab_replacement mode) noexcept try {
   if (!author.prefab || !author.components.empty() || !prefab ||
       bindings.size() != prefab.get()->objects.size() || !author.uuid ||
       (!replacing && find_node(author.uuid)))
@@ -66,6 +66,46 @@ result<scene_node_id> scene_instance::instantiate_prefab_ready(
   const auto parent = author.parent_uuid ? find_node(author.parent_uuid) : scene_node_id{};
   if (author.parent_uuid && !parent)
     return error::invalid_handle;
+  // 相同来源根按 UUID 增量更新，保留存活节点及外接子对象。
+  if (replacing && mode == prefab_replacement::preserve_nodes &&
+      (*previous)->prefab_->uuid == prefab->uuid &&
+      (*previous)->prefab_->root_uuid == prefab->root_uuid) {
+    auto& runtime = **previous;
+    objects_.reserve(objects_.size() + prefab->objects.size());
+    std::vector<scene_node_id> members;
+    for (const auto& member : runtime.nodes_)
+      if (member.node != runtime.root())
+        members.push_back(member.node);
+    auto status = runtime.reload(prefab, *author.prefab);
+    if (status.failed())
+      return status;
+    std::erase_if(objects_, [&](const auto& object) {
+      return std::ranges::find(members, object.node) != members.end();
+    });
+    append_prefab_members(runtime);
+    runtime.reference_ = *author.prefab;
+    runtime.source_asset_ = std::move(source_asset);
+    status = native_world_.node_reparent(runtime.root(), parent);
+    if (status.ok())
+      status = native_world_.node_set_identity(runtime.root(), {author.uuid, author.name});
+    if (status.ok())
+      status = native_world_.node_set_local_transform(runtime.root(), author.transform);
+    if (status.failed())
+      return status;
+    for (std::size_t index = 0; index < prefab->objects.size(); ++index) {
+      const auto node = runtime.find_node(prefab->objects[index].uuid);
+      auto current = capture_mesh_binding(node);
+      if (!current) {
+        if (current.error() == error::not_found)
+          continue;
+        return current.error();
+      }
+      status = replace_mesh_binding(node, *current, bindings[index]);
+      if (status.failed())
+        return status;
+    }
+    return runtime.root();
+  }
   // 自有子对象不属于模板；刷新时保留其身份和局部变换。
   std::vector<scene_node_id> attached;
   if (replacing) {

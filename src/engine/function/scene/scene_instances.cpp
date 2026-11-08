@@ -55,14 +55,14 @@ result<scene_mesh_binding> scene_instances::capture_prefab_binding(scene_instanc
 result<scene_node_id> scene_instances::instantiate_prefab_ready(
     scene_instance_id instance, const game_object_description& author, prefab_asset_ref prefab,
     std::span<const scene_mesh_binding> bindings, bool replacing,
-    ref<const engine::prefab> source_asset) noexcept try {
+    ref<const engine::prefab> source_asset, prefab_replacement mode) noexcept try {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
   auto* slot = instances_.get(instance, resource_type::scene_instance);
   if (!slot || !*slot)
     return error::invalid_handle;
   return (*slot)->instantiate_prefab_ready(author, std::move(prefab), bindings, replacing,
-                                           std::move(source_asset));
+                                           std::move(source_asset), mode);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {

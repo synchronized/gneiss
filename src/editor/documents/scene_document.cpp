@@ -13,6 +13,17 @@ engine::error validate(const scene_document_snapshot& snapshot) noexcept {
   return engine::prepare_loaded_scene(*inputs, {}, prepared, diagnostic, {});
 }
 }
+engine::result<std::unique_ptr<scene_document>> scene_document::make_candidate() const noexcept
+    try {
+  if (!current_)
+    return engine::error::invalid_state;
+  auto candidate = std::make_unique<scene_document>();
+  candidate->current_ = current_;
+  candidate->saved_ = saved_;
+  return candidate;
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+}
 engine::error scene_document::reset(const scene_document_snapshot& snapshot, bool saved) noexcept
     try {
   const auto status = validate(snapshot);

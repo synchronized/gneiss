@@ -32,6 +32,8 @@ public:
   };
 
   scene_document() noexcept = default;
+  /** 创建短期编辑候选；共享不可变基线，候选变化不发布到原文档。 */
+  [[nodiscard]] engine::result<std::unique_ptr<scene_document>> make_candidate() const noexcept;
   scene_document(const scene_document&) = delete;
   scene_document& operator=(const scene_document&) = delete;
   /** 校验初始内容；成功才替换整个文档，旧回执随之失效。 */
