@@ -123,7 +123,6 @@ struct editor_prefab_edit::state {
         if (applied.failed())
           return applied;
       }
-      (void)session->synchronize();
       if (selected) {
         auto node =
             session->find_prefab_source(selected->instance_uuid, selected->source_node_uuid);

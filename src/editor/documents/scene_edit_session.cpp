@@ -761,7 +761,7 @@ scene_edit_session::components(scene_node_id node) const noexcept {
     return target.error();
   return target->effective.components;
 }
-engine::result<engine::prefab_component_state>
+engine::result<prefab_component_state>
 scene_edit_session::capture_component_override(scene_node_id node, engine::guid type) noexcept {
   try {
     auto target = locate(node);
@@ -774,7 +774,7 @@ scene_edit_session::capture_component_override(scene_node_id node, engine::guid 
       return description.error();
     auto object = std::ranges::find(description->objects, target->object,
                                     &engine::game_object_description::uuid);
-    engine::prefab_component_state result;
+    prefab_component_state result;
     for (const auto& item : object->prefab->component_overrides)
       if (item.source_node_uuid == target->source && item.type_guid == type) {
         result.added = item.added;
@@ -800,7 +800,7 @@ scene_edit_session::capture_component_override(scene_node_id node, engine::guid 
 }
 engine::error
 scene_edit_session::set_component_override(scene_node_id node, engine::guid type,
-                                           const engine::prefab_component_state& state) noexcept {
+                                           const prefab_component_state& state) noexcept {
   auto target = locate(node);
   if (!target)
     return target.error();

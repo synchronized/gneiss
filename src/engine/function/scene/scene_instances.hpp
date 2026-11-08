@@ -29,14 +29,6 @@
 
 namespace gneiss::engine {
 
-/** 单个 Prefab 组件的编辑快照；历史持有资源强引用，描述不是运行时权威副本。 */
-struct prefab_component_state {
-  std::optional<component_description> added{};
-  bool removed = false;
-  std::vector<prefab_property_override> properties{};
-  scene_mesh_binding resources{};
-  guid component_uuid{};
-};
 class scene_instance_state;
 /** 已创建的场景及其视觉加载清单；资源身份已预留，内容加载由调用方调度。 */
 struct scene_instantiation_result {
@@ -50,8 +42,6 @@ struct prefab_instantiation_result {
   scene_node_id root;
   std::vector<scene_object_binding> objects;
 };
-/** 显式重建用于丢弃运行状态；编辑投影保留相同来源节点。 */
-enum class prefab_replacement { recreate, preserve_nodes };
 /** 单个 World 的实例集合，拥有实例与 RID 表；不负责后台加载或活动域切换。 */
 class scene_instances final {
 public:
@@ -71,8 +61,7 @@ public:
   [[nodiscard]] GNEISS_API result<prefab_instantiation_result>
   instantiate_prefab_ready(scene_instance_id instance, const game_object_description& author,
                            prefab_asset_ref prefab, std::span<const scene_mesh_binding> bindings,
-                           bool replacing, ref<const engine::prefab> source_asset = {},
-                           prefab_replacement mode = prefab_replacement::recreate) noexcept;
+                           bool replacing, ref<const engine::prefab> source_asset = {}) noexcept;
   [[nodiscard]] GNEISS_API error remove_prefab_instance(scene_instance_id instance,
                                                         guid uuid) noexcept;
   /** 创建仅消费已加载资源引用，不加载；失败不留下节点。 */

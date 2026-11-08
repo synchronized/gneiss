@@ -127,6 +127,13 @@ void run_refresh(gneiss::engine::execution_mode mode) {
     updated.replace(position, 6U, "Updated");
     position += 7U;
   }
+  // 来源层级变化也走同一增量路径，保留子对象和两个实例的身份。
+  const auto moved_uuid = engine::guid::literal("30000000-0000-4000-8000-000000000004");
+  const auto moved_node = session.find_prefab_source(first_uuid, moved_uuid)->node;
+  const auto moved_start = updated.find(moved_uuid.string());
+  const auto parent_start = updated.find("30000000-0000-4000-8000-000000000151", moved_start);
+  check(moved_start != std::string::npos && parent_start != std::string::npos);
+  updated.replace(parent_start, 36U, source_uuid.string());
   std::ofstream(files.root / "prefab.json") << updated;
   check(edit.request_refresh(*app, scheduler, session, history, first) ==
         gneiss::engine::error::success);
@@ -145,15 +152,20 @@ void run_refresh(gneiss::engine::execution_mode mode) {
                  gneiss::test_support::scene_query(session).prefab_nodes.size(), history.size());
   check(edit.operation() == gneiss::engine::error::success && history.size() == 1U &&
         gneiss::test_support::scene_query(session).prefab_nodes.size() == 300U);
-  check(session.find_prefab_root(first_uuid)->node != first &&
-        session.find_prefab_root(second_uuid)->node != second);
+  check(session.find_prefab_root(first_uuid)->node == first &&
+        session.find_prefab_root(second_uuid)->node == second);
   check(session.find_prefab_source(first_uuid, source_uuid)->local_transform.translation[0] ==
         17.0F);
   check(session.find_prefab_source(second_uuid, source_uuid)->local_transform.translation[0] ==
         1.0F);
   check(session.find_prefab_source(first_uuid, source_uuid)->display_name == "Updated");
+  check(session.find_prefab_source(first_uuid, moved_uuid)->node == moved_node);
+  scene_node_id moved_parent;
+  check(world->node_get_parent(moved_node, moved_parent).ok() && moved_parent == old_selected);
+
   check(session.find_prefab_source(second_uuid, source_uuid)->display_name == "Updated");
-  check(session.selection() == session.find_prefab_source(first_uuid, source_uuid)->node);
+  check(session.selection() == old_selected &&
+        session.find_prefab_source(first_uuid, source_uuid)->node == old_selected);
   // 历史保留真实资源版本；即使所有源文件失效也能撤销和重做。
   std::ofstream(files.root / "prefab.json") << "broken";
   std::ofstream(files.root / "mesh.json") << "broken";
@@ -161,8 +173,12 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   check(history.undo() == gneiss::engine::error::success);
   check(!history.is_pending());
   check(session.find_prefab_source(first_uuid, source_uuid)->display_name == "Source");
+  check(session.find_prefab_source(first_uuid, moved_uuid)->node == moved_node);
+  check(world->node_get_parent(moved_node, moved_parent).ok() && moved_parent == first);
+
   check(session.find_prefab_source(second_uuid, source_uuid)->display_name == "Source");
-  check(session.selection() == session.find_prefab_source(first_uuid, source_uuid)->node);
+  check(session.selection() == old_selected &&
+        session.find_prefab_source(first_uuid, source_uuid)->node == old_selected);
   check(history.redo() == gneiss::engine::error::success);
   check(!history.is_pending());
   check(session.find_prefab_source(first_uuid, source_uuid)->display_name == "Updated");
@@ -202,7 +218,7 @@ void run_refresh(gneiss::engine::execution_mode mode) {
         gneiss::engine::error::success);
   drive();
   check(edit.operation().ok() && history.size() == 1U);
-  check(session.find_prefab_root(first_uuid)->node != first_root);
+  check(session.find_prefab_root(first_uuid)->node == first_root);
   check(bool(session.find_prefab_root(second_uuid)));
   check(bool(session.find_prefab_source(first_uuid, removed_uuid).failed()));
   check(gneiss::test_support::scene_query(session).prefab_nodes.size() == 298U &&
@@ -504,13 +520,11 @@ void run_mixed_subtree() {
   check(own != restored_query.nodes.end() && own->parent == new_first && own->node != child);
   scene_node_id copy;
   check(document.duplicate_subtree(restored, {}, copy).ok() && copy != restored);
-  engine::scene_subtree_snapshot copied;
-  check(gneiss::test_support::assign_value(
-            app->scenes()->capture_subtree(document.scene_handle(), copy), copied)
-            .ok());
-  auto copied_description = copied.description();
+  auto copied = document.capture_subtree(copy);
+  check(copied.has_value());
+  auto copied_description = copied->description();
   check(copied_description.has_value());
-  check(copied_description->objects.size() == 4U && copied.resources.size() == 2U);
+  check(copied_description->objects.size() == 4U && copied->resources.size() == 2U);
   const auto copied_first = std::ranges::find(copied_description->objects, std::string("First"),
                                               &engine::game_object_description::name);
   const auto copied_child = std::ranges::find(copied_description->objects, std::string("Own child"),

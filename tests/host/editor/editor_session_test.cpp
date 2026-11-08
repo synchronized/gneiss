@@ -243,11 +243,11 @@ int main() try {
     return 11;
   auto moved = session.selected_prefab_node()->local_transform;
   moved.translation[1] = 3.0F;
-  const auto stale_root = prefab_root;
+  const auto retained_root = prefab_root;
   if (session.set_local_transform(prefab_root, moved) != gneiss::engine::error::success ||
       gneiss::test_support::refresh_prefab_document(*application, session, history, prefab_root) !=
           gneiss::engine::error::success ||
-      session.selected_prefab_node()->node == stale_root ||
+      session.selected_prefab_node()->node != retained_root ||
       session.selected_prefab_node().failed() ||
       session.selected_prefab_node()->display_name != "Restored Lamp" ||
       session.selected_prefab_node()->local_transform.translation[1] != 3.0F ||

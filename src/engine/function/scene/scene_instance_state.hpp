@@ -75,8 +75,7 @@ public:
   [[nodiscard]] result<scene_node_id>
   instantiate_prefab_ready(const game_object_description& author, prefab_asset_ref prefab,
                            std::span<const scene_mesh_binding> bindings, bool replacing,
-                           ref<const engine::prefab> source_asset = {},
-                           prefab_replacement mode = prefab_replacement::recreate) noexcept;
+                           ref<const engine::prefab> source_asset = {}) noexcept;
   [[nodiscard]] error remove_prefab_instance(guid uuid) noexcept;
 
   /** 捕获当前 ECS 引用；替换组件只写 World，不修改来源记录。 */

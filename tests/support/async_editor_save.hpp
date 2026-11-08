@@ -58,8 +58,7 @@ struct author_scene {
   }
   std::string content() {
     std::string text;
-    (void)gneiss::test_support::assign_value(
-        application->scenes()->serialize(document.scene_handle()), text);
+    (void)gneiss::test_support::assign_value(document.serialize(), text);
     return text;
   }
   bool apply(const std::vector<editor::author_document_change>& changes, bool save_source) {

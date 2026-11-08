@@ -41,226 +41,20 @@ update_objects(engine::world& world, engine::scene_instances& scenes, scene_inst
     return previous.error();
   if (!next)
     return next.error();
-  // 整个 Prefab 删除只清理它的子树；其他实例和普通对象保留。
-  std::vector<engine::guid> removed_prefabs;
-  for (const auto& root : previous->objects)
-    if (root.instance_root && std::ranges::none_of(next->objects, [&](const auto& object) {
-          return object.address.object == root.address.object && object.address.source;
-        }))
-      removed_prefabs.push_back(root.address.object);
-  for (auto uuid : removed_prefabs) {
-    std::set<document_object_address> removed;
-    for (const auto& object : previous->objects)
-      if (object.address.object == uuid && object.address.source)
-        removed.insert(object.address);
-    if (removed.empty())
-      continue;
-    for (bool changed = true; changed;) {
-      changed = false;
-      for (const auto& object : previous->objects)
-        if (removed.contains(object.parent))
-          changed |= removed.insert(object.address).second;
-    }
-    // 删除实例时，自有对象可以在同一编辑中移到实例外；先脱离再删除来源子树。
-    for (auto& object : previous->objects) {
-      if (!removed.contains(object.address) ||
-          std::ranges::find(next->objects, object.address, &composed_document_object::address) ==
-              next->objects.end())
-        continue;
-      if (!object.address.source || object.instance_root) {
-        auto node = scenes.find_node(scene, object.address.object);
-        if (!node)
-          return node.error();
-        auto status = scenes.reparent_node(scene, *node, {});
-        if (status.failed())
-          return status;
-        object.parent = {};
-      }
-      removed.erase(object.address);
-    }
-    auto status = scenes.remove_prefab_instance(scene, uuid);
-    if (status.failed())
-      return status;
-    std::erase_if(previous->objects,
-                  [&](const auto& object) { return removed.contains(object.address); });
-    std::erase_if(associations, [&](const auto& entry) { return removed.contains(entry.first); });
-  }
-  // 普通对象转为 Prefab 时，其旧角色先删除，自有子对象稍后连接到新根。
-  for (const auto& root : next->objects) {
-    if (!root.instance_root)
-      continue;
-    auto old =
-        std::ranges::find(previous->objects, document_object_address{root.address.object, {}},
-                          &composed_document_object::address);
-    if (old == previous->objects.end())
-      continue;
-    const auto address = old->address;
-    for (auto& child : previous->objects) {
-      if (child.parent != address || (child.address.source && !child.instance_root))
-        continue;
-      auto node = scenes.find_node(scene, child.address.object);
-      if (!node)
-        return node.error();
-      auto status = scenes.reparent_node(scene, *node, {});
-      if (status.failed())
-        return status;
-      child.parent = {};
-    }
-    auto node = scenes.find_node(scene, address.object);
-    if (!node)
-      return node.error();
-    auto status = scenes.destroy_node(scene, *node);
-    if (status.failed())
-      return status;
-    std::erase_if(previous->objects, [&](const auto& object) { return object.address == address; });
-    associations.erase(address);
-  }
-  // 混合子树先创建普通对象的空壳，Prefab 可以引用同次编辑新增的父节点。
-  for (const auto& object : next->objects) {
-    if (object.address.source ||
-        std::ranges::find(previous->objects, object.address, &composed_document_object::address) !=
-            previous->objects.end())
-      continue;
-    auto created = scenes.create_node(scene, {.uuid = object.effective.uuid,
-                                              .name = object.effective.name,
-                                              .local_transform = object.effective.transform});
-    if (!created)
-      return created.error();
-    associations[object.address] = {*created, entity_id{created->get()}};
-    auto baseline = object;
-    baseline.parent = {};
-    baseline.effective.components = {};
-    previous->objects.push_back(std::move(baseline));
-  }
-  // 新增或结构变化只创建/替换对应 Prefab，其他实例和普通对象保持。
-  auto description = target.description();
-  if (!description)
-    return description.error();
-  std::vector<const composed_document_object*> roots;
-  for (const auto& object : next->objects)
-    if (object.instance_root)
-      roots.push_back(&object);
-  const auto depth = [&](const composed_document_object* object) {
-    std::size_t result = 0;
-    while (object->parent.object && result <= next->objects.size()) {
-      auto parent =
-          std::ranges::find(next->objects, object->parent, &composed_document_object::address);
-      if (parent == next->objects.end())
-        break;
-      object = &*parent;
-      ++result;
-    }
-    return result;
-  };
-  std::ranges::stable_sort(roots, {}, depth);
-  for (const auto* root_ptr : roots) {
-    const auto& root = *root_ptr;
-    const bool existing = std::ranges::any_of(previous->objects, [&](const auto& object) {
-      return object.address.object == root.address.object && object.address.source;
-    });
-    const auto belongs = [&](const auto& object) {
-      return object.address.object == root.address.object && object.address.source;
-    };
-    const bool structural_change =
-        existing &&
-        (std::ranges::any_of(previous->objects,
-                             [&](const auto& old) {
-                               if (!belongs(old))
-                                 return false;
-                               auto found = std::ranges::find(next->objects, old.address,
-                                                              &composed_document_object::address);
-                               return found == next->objects.end() ||
-                                      old.prefab_uri != found->prefab_uri ||
-                                      (!old.instance_root &&
-                                       (old.parent != found->parent ||
-                                        old.effective.name != found->effective.name));
-                             }) ||
-         std::ranges::any_of(next->objects, [&](const auto& item) {
-           return belongs(item) &&
-                  std::ranges::find(previous->objects, item.address,
-                                    &composed_document_object::address) == previous->objects.end();
-         }));
-    if (existing && !structural_change)
-      continue;
-    document_object_address previous_root;
-    if (existing)
-      for (const auto& item : previous->objects)
-        if (belongs(item) && item.instance_root)
-          previous_root = item.address;
-    const auto author = std::ranges::find(description->objects, root.address.object,
-                                          &engine::game_object_description::uuid);
-    if (author == description->objects.end() || !author->prefab)
-      return engine::error::invalid_state;
-    if (author->parent_uuid && !scenes.find_node(scene, author->parent_uuid))
-      return false;
-    const auto& frozen = target.prefabs.at(author->prefab->uri);
-    auto source = engine::restore_prefab_record(frozen.content);
-    if (!source)
-      return source.error();
-    auto replayed = engine::replay_prefab_reference(*source, *author->prefab);
-    if (!replayed)
-      return replayed.error();
-    std::vector<engine::scene_mesh_binding> bindings;
-    for (const auto& object : replayed->description.objects) {
-      engine::scene_mesh_binding binding;
-      if (const auto* renderer = object.components.get<engine::mesh_renderer_description>()) {
-        if (auto found = target.assets.find(renderer->mesh_uri); found != target.assets.end())
-          binding.mesh = engine::resource_cast<engine::mesh>(found->second);
-        if (auto found = target.assets.find(renderer->material_uri); found != target.assets.end())
-          binding.material = engine::resource_cast<engine::material>(found->second);
-      }
-      bindings.push_back(std::move(binding));
-    }
-    auto created = scenes.instantiate_prefab_ready(
-        scene, *author, engine::make_ref<const engine::prefab_description>(std::move(*source)),
-        bindings, existing, frozen.source_asset, engine::prefab_replacement::preserve_nodes);
-    if (!created)
-      return created.error();
-    std::erase_if(associations, [&](const auto& entry) {
-      return entry.first.object == root.address.object && entry.first.source;
-    });
-    for (const auto& binding : created->objects)
-      associations[{binding.object, binding.source}] = {binding.node, binding.entity};
-    if (existing) {
-      std::erase_if(previous->objects, belongs);
-      for (auto& object : previous->objects)
-        if (object.parent == previous_root)
-          object.parent = root.address;
-    }
-    for (const auto& object : next->objects)
-      if (object.address.object == root.address.object && object.address.source)
-        previous->objects.push_back(object);
-  }
   std::map<document_object_address, const composed_document_object*> old;
   for (const auto& object : previous->objects)
     old.emplace(object.address, &object);
   std::map<document_object_address, const composed_document_object*> desired;
   for (const auto& object : next->objects)
     desired.emplace(object.address, &object);
-  for (const auto& object : previous->objects)
-    if (!desired.contains(object.address) && object.address.source)
-      return false;
-  for (const auto& object : next->objects) {
-    auto found = old.find(object.address);
-    if (found == old.end()) {
-      if (object.address.source)
-        return false;
-    } else {
-      const auto& a = *found->second;
-      if (a.prefab_uri != object.prefab_uri)
-        return false;
-      const bool hierarchy_changed =
-          a.parent != object.parent || a.effective.name != object.effective.name;
-      if (hierarchy_changed && object.address.source && !object.instance_root)
-        return false;
-    }
-    if ((found == old.end() || found->second->parent != object.parent) && object.parent.object) {
-      const auto parent = desired.find(object.parent);
-      if (parent == desired.end() || (object.parent.source && !parent->second->instance_root))
-        return false;
-    }
-  }
-  std::map<document_object_address, engine::scene_node_info> nodes;
+  for (const auto& object : next->objects)
+    if (object.parent.object && !desired.contains(object.parent))
+      return engine::error::invalid_state;
+  struct projected_object {
+    scene_node_id node;
+    engine::math::transform local_transform;
+  };
+  std::map<document_object_address, projected_object> nodes;
   auto count = scenes.get_node_count(scene);
   if (!count)
     return count.error();
@@ -271,9 +65,8 @@ update_objects(engine::world& world, engine::scene_instances& scenes, scene_inst
     auto transform = borrowed->local_transform();
     if (!transform)
       return transform.error();
-    engine::scene_node_info info;
+    projected_object info;
     info.node = binding.node;
-    info.entity = binding.entity;
     info.local_transform = *transform;
     nodes.emplace(address, std::move(info));
   }
@@ -325,7 +118,7 @@ update_objects(engine::world& world, engine::scene_instances& scenes, scene_inst
   for (const auto& object : next->objects) {
     if (!old.contains(object.address) || old.at(object.address)->parent == object.parent)
       continue;
-    auto status = scenes.reparent_node(scene, nodes.at(object.address).node, {});
+    auto status = world.node_reparent(nodes.at(object.address).node, {});
     if (status.failed())
       return status;
   }
@@ -346,7 +139,7 @@ update_objects(engine::world& world, engine::scene_instances& scenes, scene_inst
   }
   std::ranges::sort(removed, std::greater<>{});
   for (const auto& [depth, address] : removed) {
-    auto status = scenes.destroy_node(scene, nodes.at(address).node);
+    auto status = world.object_destroy(nodes.at(address).node);
     if (status.failed())
       return status;
     nodes.erase(address);
@@ -356,12 +149,14 @@ update_objects(engine::world& world, engine::scene_instances& scenes, scene_inst
   for (const auto& object : next->objects) {
     if (old.contains(object.address))
       continue;
-    auto created = scenes.create_node(scene, {.uuid = object.effective.uuid,
+    auto created = scenes.create_node(scene, {.uuid = object.address.source && !object.instance_root
+                                                          ? engine::guid::generate()
+                                                          : object.address.object,
                                               .name = object.effective.name,
                                               .local_transform = object.effective.transform});
     if (!created)
       return created.error();
-    engine::scene_node_info info;
+    projected_object info;
     info.node = *created;
     associations[object.address] = {*created, entity_id{created->get()}};
     nodes.emplace(object.address, std::move(info));
@@ -371,13 +166,16 @@ update_objects(engine::world& world, engine::scene_instances& scenes, scene_inst
     const auto node = nodes.at(object.address).node;
     if ((previous_object == old.end() || previous_object->second->parent != object.parent) &&
         object.parent.object) {
-      auto status = scenes.reparent_node(scene, node, nodes.at(object.parent).node);
+      auto status = world.node_reparent(node, nodes.at(object.parent).node);
       if (status.failed())
         return status;
     }
     if (previous_object != old.end() &&
         previous_object->second->effective.name != object.effective.name) {
-      auto status = scenes.set_node_name(scene, node, object.effective.name);
+      auto identity = world.node_identity(node);
+      if (!identity)
+        return identity.error();
+      auto status = world.node_set_identity(node, {identity->uuid, object.effective.name});
       if (status.failed())
         return status;
     }

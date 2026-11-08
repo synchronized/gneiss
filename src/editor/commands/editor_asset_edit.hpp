@@ -65,7 +65,7 @@ private:
   mesh_node_creation snapshot_;
   bool creating_{};
   std::shared_ptr<scene_document_edit> restore_;
-  std::optional<engine::prefab_component_state> prefab_before_{};
+  std::optional<prefab_component_state> prefab_before_{};
   gneiss::engine::error commit(runtime::application& application, scene_edit_session& session,
                                editor_command_history& history);
   gneiss::engine::scene_mesh_binding previous_, next_;

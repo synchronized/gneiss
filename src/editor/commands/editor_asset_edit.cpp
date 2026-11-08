@@ -53,7 +53,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
     const auto& current = *captured;
     if (current.mesh != previous_.mesh || current.material != previous_.material)
       return engine::error::invalid_state;
-    engine::prefab_component_state after;
+    prefab_component_state after;
     after.resources = next_;
     {
       auto status_value = session.capture_prefab_header(target_.instance_uuid);
@@ -80,8 +80,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
         after.properties = std::move(*overrides);
       }
     }
-    auto apply = [&session, scene = scene_,
-                  target = target_](const engine::prefab_component_state& value) {
+    auto apply = [&session, scene = scene_, target = target_](const prefab_component_state& value) {
       if (session.scene_handle() != scene)
         return engine::error{engine::error::invalid_state};
       auto node = locate(session, target);

@@ -74,7 +74,7 @@ std::uint16_t allocate_domain() noexcept {
 result<prefab_instantiation_result> scene_instances::instantiate_prefab_ready(
     scene_instance_id instance, const game_object_description& author, prefab_asset_ref prefab,
     std::span<const scene_mesh_binding> bindings, bool replacing,
-    ref<const engine::prefab> source_asset, prefab_replacement mode) noexcept try {
+    ref<const engine::prefab> source_asset) noexcept try {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
   auto selected = resolve(instance);
@@ -83,8 +83,8 @@ result<prefab_instantiation_result> scene_instances::instantiate_prefab_ready(
   auto* slot = *selected;
   prefab_instantiation_result receipt;
   receipt.objects.reserve(prefab ? prefab->objects.size() : 0);
-  auto root = slot->instantiate_prefab_ready(author, prefab, bindings, replacing,
-                                             std::move(source_asset), mode);
+  auto root =
+      slot->instantiate_prefab_ready(author, prefab, bindings, replacing, std::move(source_asset));
   if (!root)
     return root.error();
   receipt.root = *root;

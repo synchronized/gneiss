@@ -32,6 +32,14 @@ class application;
 
 namespace gneiss::editor {
 class editor_command_history;
+/** 单个 Prefab 组件的编辑快照；只属于文档与历史，不进入运行场景。 */
+struct prefab_component_state {
+  std::optional<engine::component_description> added{};
+  bool removed = false;
+  std::vector<engine::prefab_property_override> properties{};
+  engine::scene_mesh_binding resources{};
+  engine::guid component_uuid{};
+};
 
 /** 将资产根内的本地路径转换为规范 asset URI；路径越界时拒绝。 */
 [[nodiscard]] gneiss::engine::error make_asset_uri(const std::filesystem::path& asset_root,
@@ -211,11 +219,10 @@ public:
   [[nodiscard]] engine::error
   add_component_description(scene_node_id, const engine::component_description&) noexcept;
   [[nodiscard]] engine::error remove_component_description(scene_node_id, engine::guid) noexcept;
-  [[nodiscard]] engine::result<engine::prefab_component_state>
+  [[nodiscard]] engine::result<prefab_component_state>
       capture_component_override(scene_node_id, engine::guid) noexcept;
-  [[nodiscard]] engine::error
-  set_component_override(scene_node_id, engine::guid,
-                         const engine::prefab_component_state&) noexcept;
+  [[nodiscard]] engine::error set_component_override(scene_node_id, engine::guid,
+                                                     const prefab_component_state&) noexcept;
   [[nodiscard]] engine::result<std::string> serialize() const noexcept;
   /** 当前编辑内容；不从 World 反向捕获。 */
   [[nodiscard]] engine::result<scene_document_snapshot> capture_content() const noexcept;
