@@ -8,6 +8,21 @@ namespace gneiss::editor {
 class scene_projection final {
 public:
   using version = scene_document::version;
+  struct object_binding {
+    scene_node_id node;
+    entity_id entity;
+  };
+  /** 仅在投影/接管场景后刷新实际关联；查询不读取运行时来源元数据。 */
+  engine::error refresh(engine::scene_instances&, scene_instance_id) noexcept;
+  const std::map<document_object_address, object_binding>& objects() const noexcept {
+    return objects_;
+  }
+  std::optional<document_object_address> address(scene_node_id node) const noexcept {
+    for (const auto& [address, binding] : objects_)
+      if (binding.node == node)
+        return address;
+    return {};
+  }
   bool is_synchronized(const version& current) const noexcept {
     return current && applied_ == current.stamp() && status_.ok();
   }
@@ -27,6 +42,7 @@ public:
   }
 
 private:
+  std::map<document_object_address, object_binding> objects_;
   scene_document::revision attempted_, applied_;
   engine::error status_{engine::error::not_ready};
 };

@@ -196,10 +196,9 @@ gneiss::engine::error scene_edit_session::adopt(runtime::application& applicatio
     pending.document_ = std::make_unique<scene_document>();
     if (initial)
       initial->assets = std::move(captured->assets);
-    const auto refreshed = initial ? pending.document_->reset(*initial) : initial.error();
+    auto refreshed = initial ? pending.document_->reset(*initial) : initial.error();
     if (refreshed.ok())
-      (void)pending.projection_.report(pending.document_->current(), pending.document_->current(),
-                                       engine::error::success);
+      refreshed = pending.report_projection(pending.document_->current(), engine::error::success);
     if (refreshed != gneiss::engine::error::success) {
       // 失败时仍由调用方持有场景，不改变当前文档。
       pending.scene_ = {};
@@ -245,10 +244,14 @@ gneiss::engine::error scene_edit_session::create_empty(runtime::application& app
   }
   close();
   document_ = std::move(versions);
-  (void)projection_.report(document_->current(), document_->current(), engine::error::success);
   application_ = &application;
   scene_ = *created;
   world_ = world;
+  const auto projected = report_projection(document_->current(), engine::error::success);
+  if (projected.failed()) {
+    close();
+    return projected;
+  }
   return gneiss::engine::error::success;
 }
 
@@ -315,16 +318,14 @@ engine::error scene_edit_session::synchronize() noexcept try {
       }
     }
   }
-  (void)projection_.report(document_->current(), version, status);
-  return status;
+  return report_projection(version, status);
 } catch (const std::bad_alloc&) {
   if (document_)
-    (void)projection_.report(document_->current(), document_->current(),
-                             engine::error::out_of_memory);
+    (void)report_projection(document_->current(), engine::error::out_of_memory);
   return engine::error::out_of_memory;
 } catch (...) {
   if (document_)
-    (void)projection_.report(document_->current(), document_->current(), engine::error::internal);
+    (void)report_projection(document_->current(), engine::error::internal);
   return engine::error::internal;
 }
 engine::error scene_edit_session::edit_content(
@@ -385,7 +386,7 @@ engine::error scene_edit_session::edit_content(
       }
     }
   }
-  (void)projection_.report(document_->current(), document_->current(), projection);
+  (void)report_projection(document_->current(), projection);
   return engine::error::success;
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
@@ -398,16 +399,15 @@ scene_edit_session::locate(scene_node_id node) const noexcept try {
     return engine::error::invalid_state;
   if (!node)
     return engine::error::invalid_handle;
-  auto info = query_info([&](const auto& info) { return info.node == node; });
-  if (!info)
-    return info.error();
+  auto identity = projection_.address(node);
+  entity_id entity;
+  if (!identity || world_->node_get_entity(node, entity).failed() ||
+      entity != projection_.objects().at(*identity).entity)
+    return engine::error::not_found;
   auto composed = compose_scene_document(document_->current().content());
   if (!composed)
     return composed.error();
-  const document_object_address address =
-      info->prefab
-          ? document_object_address{info->prefab->instance_uuid, info->prefab->source_node_uuid}
-          : document_object_address{info->uuid, {}};
+  const auto address = *identity;
   auto found = std::ranges::find(composed->objects, address, &composed_document_object::address);
   if (found == composed->objects.end())
     return engine::error::not_found;
@@ -418,22 +418,15 @@ scene_edit_session::locate(scene_node_id node) const noexcept try {
   return engine::error::internal;
 }
 
-template <class F>
-engine::result<engine::scene_node_info>
-scene_edit_session::query_info(F&& predicate) const noexcept {
-  return with_scene([&](auto& scenes) -> engine::result<engine::scene_node_info> {
-    auto count = scenes.get_node_count(scene_);
-    if (!count)
-      return count.error();
-    for (std::uint64_t index = 0; index < *count; ++index) {
-      auto info = scenes.get_node_info(scene_, index, engine::node_query_detail::identity);
-      if (!info)
-        return info.error();
-      if (predicate(*info))
-        return scenes.get_node_info(scene_, index, engine::node_query_detail::identity);
-    }
-    return engine::error::not_found;
-  });
+engine::error scene_edit_session::report_projection(const version& projected,
+                                                    engine::error status) noexcept {
+  if (!document_ || document_->current() != projected)
+    return engine::error::invalid_state;
+  const auto refreshed = projection_.refresh(*application_->scenes(), scene_);
+  if (status.ok() && refreshed.failed())
+    status = refreshed;
+  (void)projection_.report(document_->current(), projected, status);
+  return status;
 }
 engine::result<scene_query_snapshot> scene_edit_session::capture_nodes() const noexcept {
   try {
@@ -443,20 +436,7 @@ engine::result<scene_query_snapshot> scene_edit_session::capture_nodes() const n
     auto composed = compose_scene_document(*snapshot);
     if (!composed)
       return composed.error();
-    std::map<document_object_address, engine::scene_node_info> projected;
-    auto count = application_->scenes()->get_node_count(scene_);
-    if (count)
-      for (std::uint64_t i = 0; i < *count; ++i) {
-        auto info =
-            application_->scenes()->get_node_info(scene_, i, engine::node_query_detail::identity);
-        if (!info)
-          continue;
-        document_object_address identity =
-            info->prefab ? document_object_address{info->prefab->instance_uuid,
-                                                   info->prefab->source_node_uuid}
-                         : document_object_address{info->uuid, {}};
-        projected.emplace(identity, *info);
-      }
+    const auto& projected = projection_.objects();
     scene_query_snapshot result;
     for (auto& object : composed->objects) {
       auto found = projected.find(object.address);
@@ -897,6 +877,7 @@ void scene_edit_session::close() noexcept {
   if (is_open())
     (void)with_scene([&](auto& service) { return service.unload(scene_); });
   document_.reset();
+  projection_ = {};
   scene_ = {};
   application_ = nullptr;
   world_ = 0;
@@ -1226,7 +1207,7 @@ engine::error scene_edit_session::restore_changes(const scene_document::revision
     return status;
   status = project_scene_document(*world_, *application_->scenes(), scene_,
                                   synchronized ? &before.content() : nullptr, next);
-  (void)projection_.report(document_->current(), document_->current(), status);
+  (void)report_projection(document_->current(), status);
   (void)validate_selection();
   return engine::error::success;
 } catch (const std::bad_alloc&) {
@@ -1246,7 +1227,7 @@ engine::error scene_edit_session::restore_version(const version& expected,
   if (synchronized) {
     status = project_scene_document(*world_, *application_->scenes(), scene_, &expected.content(),
                                     target.content());
-    (void)projection_.report(document_->current(), target, status);
+    (void)report_projection(target, status);
     (void)validate_selection();
   } else {
     (void)synchronize();

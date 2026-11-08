@@ -63,7 +63,8 @@ scene_projection.hpp/.cpp 先接管恢复时的运行更新；scene_document_edi
 - [x] 对象集合和资源不变时，组件增删、编辑属性、显式对象名称和父关系原地同步，撤销重做保持实体。
 
 - [x] 普通对象添加、删除及恢复按对象增量更新，无关实体身份保持。
-- [ ] 独立维护文档身份关联，删除对 runtime prefab_binding 的编辑查询依赖。
+- [x] 独立维护文档身份关联，删除对 runtime prefab_binding 的编辑查询依赖。
+  既有运行场景在投影边界适配来源身份，查询只使用投影映射。
 - [x] 组件 create/update/remove 分开；update 回调保留描述之外的运行状态，未声明时使用既有 install 策略。
 - [ ] 层级增删、重挂接、Prefab 来源刷新按受影响对象更新，删除普通撤销的整场景替换。
 - [x] scene_edit_session 接管协调与选择，纯文档移除 Application/World 依赖及重复历史。

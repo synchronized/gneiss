@@ -275,8 +275,7 @@ private:
 
   gneiss::engine::world* world_ = nullptr;
   // 借用宿主；宿主必须在关闭/销毁 Application 前关闭编辑文档。
-  template <class F>
-  engine::result<engine::scene_node_info> query_info(F&& predicate) const noexcept;
+  engine::error report_projection(const version&, engine::error) noexcept;
   runtime::application* application_{};
   gneiss::scene_instance_id scene_{};
   scene_node_id selection_;

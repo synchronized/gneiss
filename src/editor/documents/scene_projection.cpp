@@ -5,6 +5,37 @@
 #include <algorithm>
 #include <set>
 namespace gneiss::editor {
+engine::error scene_projection::refresh(engine::scene_instances& scenes,
+                                        scene_instance_id scene) noexcept try {
+  std::map<document_object_address, object_binding> next;
+  auto count = scenes.get_node_count(scene);
+  if (!count) {
+    objects_.clear();
+    return count.error();
+  }
+  for (std::uint64_t index = 0; index < *count; ++index) {
+    auto info = scenes.get_node_info(scene, index, engine::node_query_detail::identity);
+    if (!info) {
+      objects_.clear();
+      return info.error();
+    }
+    const auto address = info->prefab ? document_object_address{info->prefab->instance_uuid,
+                                                                info->prefab->source_node_uuid}
+                                      : document_object_address{info->uuid, {}};
+    if (!next.emplace(address, object_binding{info->node, info->entity}).second) {
+      objects_.clear();
+      return engine::error::invalid_state;
+    }
+  }
+  objects_.swap(next);
+  return engine::error::success;
+} catch (const std::bad_alloc&) {
+  objects_.clear();
+  return engine::error::out_of_memory;
+} catch (...) {
+  objects_.clear();
+  return engine::error::internal;
+}
 namespace {
 bool same_transform(const engine::math::transform& a, const engine::math::transform& b) {
   return a.translation == b.translation && a.rotation == b.rotation && a.scale == b.scale;

@@ -453,6 +453,8 @@ void prefab_edits(engine::execution_mode mode) {
   check(runtime::prefab_placement::apply(*app, document.scene_handle(), *frozen, false, true,
                                          replaced)
             .ok());
+  // 测试直接替换了运行实例；必须显式重投影，不能继续使用旧的编辑映射。
+  check(document.synchronize().ok());
   check(document.validate_selection().ok());
   check(binding(child).material == changed.material);
   check(history.undo().ok() && binding(root).material == before.material);
