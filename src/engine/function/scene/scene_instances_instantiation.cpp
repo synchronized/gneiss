@@ -108,7 +108,14 @@ scene_instances::instantiate(ref<const scene> source, std::size_t source_bytes) 
                                     .objects = {},
                                     .assets = std::move(prepared->assets),
                                     .bindings = {}};
-  auto instance = instantiate_prepared(std::move(*prepared), bindings);
+  std::map<std::string, const prefab_description*, std::less<>> sources;
+  for (const auto& [uri, dependency] : prepared->prefabs)
+    sources.emplace(uri, dependency.resource.get());
+  auto composed = compose_scene(prepared->description, sources);
+  if (!composed)
+    return scene_diagnostic{composed.error(), 0, {}, {}};
+  auto instance =
+      instantiate_effective(native_world_, *this, prepared->description.uuid, *composed, bindings);
   if (!instance)
     return scene_diagnostic{instance.error(), 0, {}, {}};
   output.instance = instance->instance;

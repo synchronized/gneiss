@@ -154,12 +154,11 @@ int main() try {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   for (;;) {
     (void)scheduler.run_ready();
-    bool ready{};
-    gneiss::engine::error result;
-    if (application->poll_scene_reload(result, ready).failed())
+    auto completed = application->poll_scene_reload();
+    if (!completed)
       return 25;
-    if (ready) {
-      if (result.failed() || !application->visual_assets_loading())
+    if (*completed) {
+      if ((**completed).result.failed() || !application->visual_assets_loading())
         return 26;
       break;
     }

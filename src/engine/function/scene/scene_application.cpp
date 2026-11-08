@@ -143,11 +143,10 @@ result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_i
   for (const auto& object : next.objects) {
     if (old.contains(object.address))
       continue;
-    auto created = scenes.create_node(scene, {.uuid = object.address.source && !object.instance_root
-                                                          ? guid::generate()
-                                                          : object.address.object,
-                                              .name = object.effective.name,
-                                              .local_transform = object.effective.transform});
+    auto created = scenes.create_node(
+        scene, {.uuid = object.address.source ? guid::generate() : object.address.object,
+                .name = object.effective.name,
+                .local_transform = object.effective.transform});
     if (!created)
       return created.error();
     projected_object info;

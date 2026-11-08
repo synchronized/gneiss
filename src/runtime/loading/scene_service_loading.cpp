@@ -161,6 +161,12 @@ engine::result<scene_load_completion> scene_service::activate(std::uint64_t requ
       pending_->result.progress.phase != scene_load_phase::ready) {
     return gneiss::engine::error::not_ready;
   }
+  auto source = std::make_unique<source_state>();
+  source->instance = pending_->result.scene;
+  source->content = pending_->result.content;
+  for (const auto& binding : pending_->result.objects)
+    source->objects.emplace(engine::object_address{binding.object, binding.source},
+                            engine::scene_object_association{binding.node, binding.entity});
   const auto start = clock_type::now();
   sample_budget(pending_->result.progress);
   auto result = std::move(pending_->result);
@@ -169,6 +175,7 @@ engine::result<scene_load_completion> scene_service::activate(std::uint64_t requ
   result.progress.can_cancel = false;
   retired_ = std::move(active_);
   active_ = std::move(pending_->candidate);
+  source_ = std::move(source);
   visuals_.begin(std::move(pending_->requested), result.progress.session, result.progress.revision);
   pending_.reset();
   result.activation_ms = elapsed(start);

@@ -265,23 +265,15 @@ gneiss::engine::error application::request_scene_reload(scene_instance_id instan
   return engine::error::internal;
 }
 
-gneiss::engine::error application::poll_scene_reload(engine::error& result, bool& ready) noexcept
+engine::result<std::optional<scene_reload_completion>> application::poll_scene_reload() noexcept
     try {
-  ready = false;
   if (!is_owner_thread() || !accepts_requests())
     return engine::error::invalid_state;
   const auto status = advance_resource_io();
   if (status.failed())
     return status;
   storage_->scene_service_.advance();
-  auto completed = storage_->scene_service_.poll_reload();
-  if (!completed)
-    return completed.error();
-  if (*completed) {
-    result = (**completed).result;
-    ready = true;
-  }
-  return engine::error::success;
+  return storage_->scene_service_.poll_reload();
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
 } catch (...) {

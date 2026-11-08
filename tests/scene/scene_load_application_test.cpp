@@ -9,6 +9,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 #include "runtime/application.hpp"
@@ -16,6 +17,7 @@
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -629,8 +631,122 @@ void asynchronous_shutdown(gneiss::engine::execution_mode mode) {
   }
 }
 
+void source_reload_without_world_prefab_state() {
+  namespace e = gneiss::engine;
+  fixture files;
+  e::task_scheduler scheduler({.mode = e::execution_mode::cooperative});
+  std::shared_ptr<application> app;
+  application_configuration config;
+  const auto directory = files.root.string();
+  config.asset_root = directory;
+  check(application::create(config, app).ok());
+  check(app->attach_task_executor(scheduler).ok());
+  const auto write = [&](std::string_view name, const auto& data) {
+    auto encoded = e::asset_file::serialize_bytes(data);
+    check(bool(encoded));
+    std::ofstream file(files.root / name, std::ios::binary | std::ios::trunc);
+    file.write(reinterpret_cast<const char*>(encoded->data()),
+               static_cast<std::streamsize>(encoded->size()));
+    check(bool(file));
+  };
+  e::prefab_description prefab;
+  prefab.uuid = e::guid::generate();
+  e::game_object_description root, child;
+  root.uuid = e::guid::generate();
+  root.name = "root";
+  child.uuid = e::guid::generate();
+  child.parent_uuid = root.uuid;
+  child.name = "child";
+  prefab.root_uuid = root.uuid;
+  prefab.objects = {root, child};
+  write("source.prefab", prefab);
+  e::scene_description document;
+  document.uuid = e::guid::generate();
+  e::game_object_description instance;
+  instance.uuid = e::guid::generate();
+  instance.prefab = e::prefab_reference_description{"asset://source.prefab", {}, {}};
+  document.objects.push_back(instance);
+  write("source.scene", document);
+  std::uint64_t request{};
+  check(app->request_scene("asset://source.scene", 1, 1, request).ok());
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  for (;;) {
+    check(std::chrono::steady_clock::now() < deadline);
+    (void)scheduler.run_ready();
+    app->advance_scene_load();
+    scene_load_progress progress;
+    if (app->scene_progress(progress) && progress.phase == scene_load_phase::ready)
+      break;
+    std::this_thread::yield();
+  }
+  scene_load_completion loaded;
+  check(app->activate_scene(request, loaded).ok());
+  const auto find = [](const auto& bindings, e::guid source) {
+    auto found = std::ranges::find(bindings, source, &e::scene_object_binding::source);
+    check(found != bindings.end());
+    return found->node;
+  };
+  const auto root_node = find(loaded.objects, root.uuid);
+  const auto child_node = find(loaded.objects, child.uuid);
+  for (std::size_t i = 0; i < loaded.objects.size(); ++i) {
+    auto info = app->scenes()->get_node_info(loaded.scene, i);
+    check(bool(info) && !info->prefab);
+  }
+  e::math::transform moved;
+  moved.translation.x = 7;
+  check(app->scenes()->set_node_transform(loaded.scene, root_node, moved).ok());
+  const auto reload = [&] {
+    app->advance_scene_load();
+    check(app->request_scene_reload(loaded.scene, "asset://source.prefab", true).ok());
+    const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    for (;;) {
+      check(std::chrono::steady_clock::now() < until);
+      (void)scheduler.run_ready();
+      auto completion = app->poll_scene_reload();
+      check(bool(completion));
+      if (*completion)
+        return std::move(**completion);
+      std::this_thread::yield();
+    }
+  };
+  prefab.objects[1].name = "updated";
+  e::game_object_description extra;
+  extra.uuid = e::guid::generate();
+  extra.parent_uuid = root.uuid;
+  prefab.objects.push_back(extra);
+  write("source.prefab", prefab);
+  auto changed = reload();
+  check(changed.result.ok() && changed.objects.size() == 3);
+  check(find(changed.objects, root.uuid) == root_node &&
+        find(changed.objects, child.uuid) == child_node);
+  check(app->native_world()->node_identity(child_node)->name == "updated");
+  auto object = app->native_world()->object(entity_id{root_node.get()});
+  check(object && object->local_transform()->translation.x == 7);
+  prefab.objects.erase(prefab.objects.begin() + 1);
+  write("source.prefab", prefab);
+  changed = reload();
+  check(changed.result.ok() && changed.objects.size() == 2 &&
+        !app->native_world()->object(entity_id{child_node.get()}));
+  const auto extra_node = find(changed.objects, extra.uuid);
+  prefab.root_uuid = extra.uuid;
+  prefab.objects[0].parent_uuid = extra.uuid;
+  prefab.objects[1].parent_uuid = {};
+  write("source.prefab", prefab);
+  changed = reload();
+  check(changed.result.ok() && find(changed.objects, root.uuid) == root_node &&
+        find(changed.objects, extra.uuid) == extra_node);
+  scene_node_id parent;
+  check(app->native_world()->node_get_parent(root_node, parent).ok() && parent == extra_node);
+  std::ofstream(files.root / "source.prefab") << "broken";
+  check(reload().result.failed());
+  write("source.prefab", prefab);
+  check(reload().result.ok());
+  check(app->shutdown().ok());
+}
+
 } // namespace
 int main() try {
+  source_reload_without_world_prefab_state();
   asynchronous_shutdown(gneiss::engine::execution_mode::thread_pool);
   asynchronous_shutdown(gneiss::engine::execution_mode::cooperative);
   visual_failure(gneiss::engine::execution_mode::thread_pool);

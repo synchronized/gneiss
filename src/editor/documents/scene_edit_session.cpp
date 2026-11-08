@@ -29,6 +29,19 @@
 
 namespace gneiss::editor {
 namespace {
+// 文档 UUID 只能通过投影关联查找，不能作为运行对象 UUID 使用。
+engine::result<scene_node_id> document_root(const scene_edit_session& session, engine::guid uuid) {
+  auto snapshot = session.capture_nodes();
+  if (!snapshot)
+    return snapshot.error();
+  for (const auto& object : snapshot->nodes)
+    if (object.uuid == uuid)
+      return object.node;
+  for (const auto& object : snapshot->prefab_nodes)
+    if (object.instance_uuid == uuid && object.is_instance_root)
+      return object.node;
+  return engine::error::not_found;
+}
 [[nodiscard]] bool is_within(const std::filesystem::path& root,
                              const std::filesystem::path& path) noexcept {
   auto root_part = root.begin();
@@ -607,7 +620,7 @@ gneiss::engine::error scene_edit_session::create_node(std::string_view name, sce
         return engine::error::success;
       },
       [&] {
-        auto created = application_->scenes()->find_node(scene_, uuid);
+        auto created = document_root(*this, uuid);
         if (!created)
           return created.error();
         out_node = *created;
@@ -694,7 +707,7 @@ engine::error scene_edit_session::restore_subtree(const scene_subtree_snapshot& 
         return import_subtree(snapshot, description, next, false);
       },
       [&] {
-        auto created = application_->scenes()->find_node(scene_, snapshot.root_uuid);
+        auto created = document_root(*this, snapshot.root_uuid);
         if (!created)
           return created.error();
         output = *created;
@@ -1043,7 +1056,7 @@ scene_edit_session::create_mesh_node(const mesh_node_creation& snapshot,
         return engine::error::success;
       },
       [&] {
-        auto result = application_->scenes()->find_node(scene_, snapshot.uuid);
+        auto result = document_root(*this, snapshot.uuid);
         if (!result)
           return result.error();
         created = *result;
@@ -1413,7 +1426,7 @@ engine::error scene_edit_session::apply_prefab(const scene_subtree_snapshot& sna
           (void)validate_selection();
           return engine::error{engine::error::success};
         }
-        auto root = application_->scenes()->find_node(scene_, snapshot.root_uuid);
+        auto root = document_root(*this, snapshot.root_uuid);
         if (!root)
           return root.error();
         selection_ = *root;

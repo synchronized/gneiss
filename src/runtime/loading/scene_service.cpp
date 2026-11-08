@@ -14,6 +14,7 @@
 #include <chrono>
 #include <iterator>
 #include <map>
+#include <type_traits>
 #include <utility>
 
 namespace gneiss::runtime {
@@ -140,6 +141,7 @@ void scene_service::shutdown() noexcept {
   stopping_ = true;
   visuals_.reset();
   reload_.reset();
+  source_.reset();
   stop_load();
   loading_.reset();
   retired_.reset();
@@ -199,6 +201,74 @@ engine::error scene_service::request_reload(scene_instance_id instance, std::str
   return engine::error::success;
 }
 
+engine::result<std::vector<engine::render_resource_source>>
+scene_service::apply_source(engine::ref<const engine::scene_content> content) {
+  if (!source_ || !source_->synchronized || !content || !content->description ||
+      content->description->uuid != source_->content->description->uuid)
+    return engine::error::invalid_state;
+  engine::scene_preparation_inputs inputs;
+  inputs.scene = content->description;
+  for (const auto& [uri, dependency] : content->prefabs) {
+    inputs.prefabs.emplace(uri, dependency.description);
+    inputs.prefab_assets.emplace(uri, dependency.resource);
+  }
+  engine::scene_instantiation_data prepared;
+  engine::scene_diagnostic diagnostic;
+  auto status = engine::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {});
+  if (status.failed())
+    return status;
+  const auto compose = [](const engine::scene_content& source) {
+    std::map<std::string, const engine::prefab_description*, std::less<>> prefabs;
+    for (const auto& [uri, dependency] : source.prefabs)
+      prefabs.emplace(uri, dependency.description.get());
+    return engine::compose_scene(*source.description, prefabs);
+  };
+  auto previous = compose(*source_->content);
+  auto next = compose(*content);
+  if (!previous)
+    return previous.error();
+  if (!next)
+    return next.error();
+  // 来源未修改的变换保留游戏运行值；来源修改才覆盖该值。
+  const auto same_transform = [](const auto& a, const auto& b) {
+    return a.translation == b.translation && a.rotation == b.rotation && a.scale == b.scale;
+  };
+  for (auto& object : previous->objects) {
+    const auto binding = source_->objects.find(object.address);
+    if (binding == source_->objects.end())
+      return engine::error::invalid_state;
+    auto runtime = native_world()->object(binding->second.entity);
+    if (!runtime)
+      return runtime.error();
+    auto transform = runtime->local_transform();
+    if (!transform)
+      return transform.error();
+    auto replacement =
+        std::ranges::find(next->objects, object.address, &engine::composed_object::address);
+    if (replacement != next->objects.end() &&
+        same_transform(object.effective.transform, replacement->effective.transform))
+      replacement->effective.transform = *transform;
+    object.effective.transform = *transform;
+  }
+  engine::scene_instances::resource_bindings bindings;
+  for (const auto& request : prepared.assets) {
+    auto resource = resources_->load(request);
+    if (!resource)
+      return resource.error();
+    bindings.emplace(request.uri, resource->resource());
+  }
+  source_->synchronized = false;
+  auto applied = engine::apply_scene(*native_world(), *scenes(), source_->instance,
+                                     source_->objects, *previous, *next, bindings);
+  if (!applied)
+    return applied.error();
+  if (!*applied)
+    return engine::error::invalid_state;
+  source_->content = std::move(content);
+  source_->synchronized = true;
+  return std::move(prepared.assets);
+}
+
 void scene_service::advance_reload() try {
   if (!reload_ || reload_->result != engine::error::not_ready)
     return;
@@ -212,6 +282,23 @@ void scene_service::advance_reload() try {
           return engine::scene_diagnostic{failure.error, failure.byte_offset,
                                           std::move(failure.path), std::move(failure.message)};
         }
+        if (source_ && source_->instance == value.instance) {
+          engine::ref<const engine::scene_content> content;
+          if constexpr (std::is_same_v<std::remove_cvref_t<decltype(**loaded)>, engine::scene>) {
+            content = (*loaded)->content();
+          } else {
+            auto replacement = engine::make_ref<engine::scene_content>(*source_->content);
+            auto dependency = replacement->prefabs.find((*loaded)->source().uri);
+            if (dependency != replacement->prefabs.end())
+              dependency->second = {*loaded, (*loaded)->snapshot(), request.source_bytes()};
+            content = std::move(replacement);
+          }
+          auto applied = apply_source(std::move(content));
+          if (!applied)
+            return engine::scene_diagnostic{applied.error(), 0, {}, {}};
+          return std::move(*applied);
+        }
+        // 迁移期仅支持手动创建、尚未向 Runtime 交接来源回执的旧实例。
         return scenes()->reload(value.instance, *loaded, request.source_bytes());
       },
       value.descriptions);
@@ -219,6 +306,27 @@ void scene_service::advance_reload() try {
     if (reloaded.error().error != engine::error::not_ready)
       value.result = reloaded.error().error;
     return;
+  }
+  if (source_ && source_->instance == value.instance) {
+    for (const auto& [address, binding] : source_->objects)
+      value.objects.push_back({address.object, address.source, binding.node, binding.entity});
+  } else {
+    auto count = scenes()->get_node_count(value.instance);
+    if (!count) {
+      value.result = count.error();
+      return;
+    }
+    for (std::uint64_t index = 0; index < *count; ++index) {
+      auto info =
+          scenes()->get_node_info(value.instance, index, engine::node_query_detail::identity);
+      if (!info) {
+        value.result = info.error();
+        return;
+      }
+      value.objects.push_back({info->prefab ? info->prefab->instance_uuid : info->uuid,
+                               info->prefab ? info->prefab->source_node_uuid : engine::guid{},
+                               info->node, info->entity});
+    }
   }
   value.result = engine::error::success;
   visuals_.begin(std::move(*reloaded), 1, 1);
@@ -237,7 +345,7 @@ engine::result<std::optional<scene_reload_completion>> scene_service::poll_reloa
     return engine::error::invalid_state;
   if (reload_->result == engine::error::not_ready)
     return std::optional<scene_reload_completion>{};
-  scene_reload_completion completed{reload_->result};
+  scene_reload_completion completed{reload_->result, std::move(reload_->objects)};
   reload_.reset();
   return std::optional{completed};
 }

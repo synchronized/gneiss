@@ -46,7 +46,7 @@ struct scene_load_completion {
   gneiss::engine::error result{gneiss::engine::error::internal};
   std::string message;
   gneiss::scene_instance_id scene{};
-  /** 本次实例化的不可变输入与实际资源引用；回执消费后不由运行服务额外保活。 */
+  /** 本次实例化的不可变输入与实际资源引用；Runtime 为来源热更新保留固定内容与地址关联。 */
   std::vector<engine::scene_object_binding> objects;
   engine::ref<const engine::scene> source;
   engine::ref<const engine::scene_content> content;
@@ -61,6 +61,7 @@ struct scene_load_completion {
 /** 实例结构重载的终态；外层 result 表示轮询操作是否有效。 */
 struct scene_reload_completion {
   engine::error result{engine::error::success};
+  std::vector<engine::scene_object_binding> objects;
 };
 
 struct scene_retirement_statistics {

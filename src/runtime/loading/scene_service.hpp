@@ -7,6 +7,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/scene/scene_application.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/loading/resource_load_types.hpp"
@@ -67,11 +68,22 @@ public:
   [[nodiscard]] engine::result<std::optional<scene_reload_completion>> poll_reload();
 
 private:
+  // 仅为已激活场景的来源热更新保留输入；World 不持有作者内容或覆盖。
+  struct source_state {
+    scene_instance_id instance;
+    engine::ref<const engine::scene_content> content;
+    std::map<engine::object_address, engine::scene_object_association> objects;
+    bool synchronized = true;
+  };
+  std::unique_ptr<source_state> source_;
+  engine::result<std::vector<engine::render_resource_source>>
+  apply_source(engine::ref<const engine::scene_content> content);
   struct reload_task {
     scene_instance_id instance;
     std::variant<engine::asset_request<engine::scene>, engine::asset_request<engine::prefab>>
         descriptions;
     engine::error result{engine::error::not_ready};
+    std::vector<engine::scene_object_binding> objects;
   };
   void advance_reload();
   std::unique_ptr<reload_task> reload_;

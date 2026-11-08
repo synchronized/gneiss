@@ -174,6 +174,10 @@ Prefab 头快照和冻结迁入编辑文档层，删除 Runtime prefab_placement
 宿主重载筛选已改读激活回执依赖，编辑器测试已区分文档捕获与运行组件查询，
 见[调用方迁移记录](../records/2026-11-08-scene-source-callers.md)。
 
+正式 Runtime 激活及来源热重载已接入共享组合/应用，IPC 直接接收对象关联回执；
+手动 instantiate_prepared、运行捕获及对应测试仍使用旧路径，继续作为本阶段删除目标。
+详见[Runtime 来源迁移记录](../records/2026-11-08-runtime-source-application.md)。
+
 ### 4：统一运行存储
 
 - [x] 实现 game_object 借用句柄及跨 World/generation 校验，场景创建接入该入口。

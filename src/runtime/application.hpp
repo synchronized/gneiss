@@ -134,8 +134,8 @@ public:
   [[nodiscard]] GNEISS_API engine::error request_scene_reload(scene_instance_id instance,
                                                               std::string_view uri,
                                                               bool prefab = false) noexcept;
-  [[nodiscard]] GNEISS_API engine::error poll_scene_reload(engine::error& result,
-                                                           bool& ready) noexcept;
+  [[nodiscard]] GNEISS_API engine::result<std::optional<scene_reload_completion>>
+  poll_scene_reload() noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::scene_instances* scenes() noexcept;
   [[nodiscard]] GNEISS_API const gneiss::engine::keyboard_state& keyboard_state() const noexcept;
   [[nodiscard]] GNEISS_API const gneiss::engine::pointer_state& pointer_state() const noexcept;
