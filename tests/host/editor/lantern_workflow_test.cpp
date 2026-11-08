@@ -214,7 +214,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   const auto created = session.selected_node();
   const gneiss::editor::mesh_node_creation snapshot{
       .uuid = created->uuid,
-      .parent_uuid = {},
+      .parent = {},
       .display_name = created->display_name,
       .mesh_uri = created->components.get<gneiss::engine::mesh_renderer_description>()->mesh_uri,
       .material_uri =

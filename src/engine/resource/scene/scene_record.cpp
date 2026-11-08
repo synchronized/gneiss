@@ -52,7 +52,7 @@ capture_objects(const std::vector<game_object_description>& source) {
   for (const auto& object : source) {
     object_record record;
     record.uuid = object.uuid;
-    record.parent = object.parent_uuid;
+    record.parent = object.parent;
     record.name = object.name;
     record.transform = object.transform;
     for (const auto& component : object.components) {
@@ -93,7 +93,7 @@ restore_objects(const std::vector<object_record>& source) {
   for (const auto& record : source) {
     game_object_description object;
     object.uuid = record.uuid;
-    object.parent_uuid = record.parent;
+    object.parent = record.parent;
     object.name = record.name;
     object.transform = record.transform;
     std::vector<component_description> components;
@@ -297,15 +297,15 @@ result<scene_record> remap_scene_record(const scene_record& source, guid target_
   std::set<guid> sources;
   for (const auto& object : original.objects)
     if (!objects.contains(object.uuid) || !sources.insert(object.uuid).second ||
-        (object.parent && !objects.contains(object.parent)))
+        (object.parent.object && !objects.contains(object.parent.object)))
       return error::invalid_argument;
   auto candidate = original;
   candidate.uuid = target_document;
   record_remapper remapper{original.uuid, target_document, objects};
   for (auto& object : candidate.objects) {
     object.uuid = objects.at(object.uuid);
-    if (object.parent)
-      object.parent = objects.at(object.parent);
+    if (object.parent.object)
+      object.parent.object = objects.at(object.parent.object);
     for (auto& component : object.components) {
       auto status = remapper.component(component);
       if (status.failed())

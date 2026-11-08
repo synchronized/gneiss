@@ -95,7 +95,7 @@ struct scene_query_snapshot final {
 /** 创建网格节点的输入，不是当前场景的持久化快照。 */
 struct mesh_node_creation final {
   gneiss::engine::guid uuid;
-  gneiss::engine::guid parent_uuid;
+  gneiss::engine::object_address parent;
   std::string display_name;
   std::string mesh_uri;
   std::string material_uri;

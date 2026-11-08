@@ -14,18 +14,21 @@ compose_scene(const scene_description& description,
     if (source == sources.end() || !source->second)
       return error::not_found;
   }
-  const auto address_of = [&](guid uuid) -> object_address {
-    auto object = std::ranges::find(description.objects, uuid, &game_object_description::uuid);
-    return {uuid, object != description.objects.end() && object->prefab
-                      ? sources.at(object->prefab->uri)->root_uuid
-                      : guid{}};
+  const auto address_of = [&](object_address address) -> object_address {
+    if (address.source || !address.object)
+      return address;
+    auto object =
+        std::ranges::find(description.objects, address.object, &game_object_description::uuid);
+    if (object != description.objects.end() && object->prefab)
+      address.source = sources.at(object->prefab->uri)->root_uuid;
+    return address;
   };
   composed_scene result;
   for (const auto& object : description.objects) {
     if (!object.prefab) {
       composed_object entry;
       entry.address = {object.uuid, {}};
-      entry.parent = address_of(object.parent_uuid);
+      entry.parent = address_of(object.parent);
       entry.effective = object;
       result.objects.push_back(std::move(entry));
       continue;
@@ -45,7 +48,7 @@ compose_scene(const scene_description& description,
       composed_object entry;
       entry.address = {object.uuid, member.uuid};
       entry.parent =
-          root ? address_of(object.parent_uuid) : object_address{object.uuid, member.parent_uuid};
+          root ? address_of(object.parent) : object_address{object.uuid, member.parent.object};
       entry.prefab_uri = object.prefab->uri;
       entry.source_transform = original->transform;
       entry.instance_root = root;
@@ -59,6 +62,25 @@ compose_scene(const scene_description& description,
       entry.effective = std::move(member);
       result.objects.push_back(std::move(entry));
     }
+  }
+  // 完整来源已经提供，父地址必须能解析；在应用前拒绝丢失成员与循环。
+  std::map<object_address, object_address> parents;
+  for (const auto& object : result.objects)
+    if (!object.address.object || !parents.emplace(object.address, object.parent).second)
+      return error::invalid_argument;
+  for (const auto& object : result.objects) {
+    auto parent = object.parent;
+    std::size_t depth = 0;
+    while (parent.object) {
+      auto found = parents.find(parent);
+      if (found == parents.end())
+        return error::not_found;
+      if (++depth > parents.size())
+        return error::invalid_argument;
+      parent = found->second;
+    }
+    if (parent.source)
+      return error::invalid_argument;
   }
   return result;
 } catch (const std::bad_alloc&) {

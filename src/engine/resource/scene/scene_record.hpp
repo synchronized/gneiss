@@ -27,7 +27,7 @@ struct prefab_reference_record {
 /** 场景领域字段显式表达，不能通过通用属性路径修改身份或父子关系。 */
 struct object_record {
   guid uuid;
-  guid parent;
+  object_address parent;
   std::string name;
   math::transform transform;
   std::vector<component_record> components;

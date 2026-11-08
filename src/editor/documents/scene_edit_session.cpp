@@ -42,6 +42,18 @@ engine::result<scene_node_id> document_root(const scene_edit_session& session, e
       return object.node;
   return engine::error::not_found;
 }
+engine::result<scene_node_id> document_node(const scene_edit_session& session,
+                                            engine::object_address address) {
+  if (!address.object)
+    return address.source ? engine::result<scene_node_id>{engine::error::invalid_argument}
+                          : engine::result<scene_node_id>{scene_node_id{}};
+  if (!address.source)
+    return document_root(session, address.object);
+  auto member = session.find_prefab_source(address.object, address.source);
+  if (!member)
+    return member.error();
+  return member->node;
+}
 [[nodiscard]] bool is_within(const std::filesystem::path& root,
                              const std::filesystem::path& path) noexcept {
   auto root_part = root.begin();
@@ -84,7 +96,7 @@ engine::error import_subtree(const scene_subtree_snapshot& subtree,
     if (object.prefab && !subtree.resources.contains(object.uuid))
       return engine::error::not_found;
     if (object.uuid == subtree.root_uuid)
-      object.parent_uuid = subtree.parent_uuid;
+      object.parent = subtree.parent;
     auto existing =
         std::ranges::find(description.objects, object.uuid, &engine::game_object_description::uuid);
     if (existing != description.objects.end()) {
@@ -607,15 +619,10 @@ gneiss::engine::error scene_edit_session::create_node(std::string_view name, sce
     return status;
   return edit_content(
       [&](auto& description, auto&) -> engine::error {
-        if (parent_target->source) {
-          auto root = query_prefab_node(parent);
-          if (!root || !root->is_instance_root)
-            return engine::error::unsupported;
-        }
         engine::game_object_description object;
         object.uuid = uuid;
         object.name = name;
-        object.parent_uuid = parent_target->object;
+        object.parent = {parent_target->object, parent_target->source};
         description.objects.push_back(std::move(object));
         return engine::error::success;
       },
@@ -654,17 +661,12 @@ gneiss::engine::error scene_edit_session::reparent_node(scene_node_id node,
   if (!destination)
     return destination.error();
   return edit_content([&](auto& description, auto& snapshot) -> engine::error {
-    for (const auto& item : {*target, *destination}) {
-      if (!item.source)
-        continue;
-      auto object = std::ranges::find(description.objects, item.object,
-                                      &engine::game_object_description::uuid);
-      if (item.source != snapshot.prefabs.at(object->prefab->uri).content.get().root_uuid)
-        return engine::error::unsupported;
-    }
     auto object = std::ranges::find(description.objects, target->object,
                                     &engine::game_object_description::uuid);
-    object->parent_uuid = destination->object;
+    if (target->source &&
+        target->source != snapshot.prefabs.at(object->prefab->uri).content.get().root_uuid)
+      return engine::error::unsupported;
+    object->parent = {destination->object, destination->source};
     return engine::error::success;
   });
 }
@@ -696,12 +698,9 @@ engine::error scene_edit_session::destroy_subtree(scene_node_id node,
 engine::error scene_edit_session::restore_subtree(const scene_subtree_snapshot& snapshot,
                                                   scene_node_id& output) noexcept {
   output = {};
-  if (snapshot.parent_uuid) {
-    auto ordinary = find_node(snapshot.parent_uuid);
-    auto prefab = find_prefab_root(snapshot.parent_uuid);
-    if (!ordinary && !prefab)
-      return engine::error::not_found;
-  }
+  auto parent = document_node(*this, snapshot.parent);
+  if (!parent)
+    return parent.error();
   return edit_content(
       [&](auto& description, auto& next) {
         return import_subtree(snapshot, description, next, false);
@@ -724,11 +723,6 @@ engine::error scene_edit_session::duplicate_subtree(scene_node_id node, scene_no
   auto target = parent ? locate(parent) : engine::result<edit_target>{edit_target{}};
   if (!target)
     return target.error();
-  if (target->source) {
-    auto info = query_prefab_node(parent);
-    if (!info || !info->is_instance_root)
-      return engine::error::unsupported;
-  }
   auto snapshot = std::move(*captured);
   std::vector<engine::uuid_mapping> mapping;
   for (const auto& object : snapshot.content.get().objects)
@@ -759,7 +753,7 @@ engine::error scene_edit_session::duplicate_subtree(scene_node_id node, scene_no
       snapshot.root_uuid = pair.target_uuid;
   }
   snapshot.resources = std::move(resources);
-  snapshot.parent_uuid = target->object;
+  snapshot.parent = {target->object, target->source};
   return restore_subtree(snapshot, output);
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
@@ -1037,17 +1031,15 @@ scene_edit_session::create_mesh_node(const mesh_node_creation& snapshot,
   if (engine::resource_uri(resources.mesh) != snapshot.mesh_uri ||
       engine::resource_uri(resources.material) != snapshot.material_uri)
     return engine::error::invalid_argument;
-  if (snapshot.parent_uuid) {
-    auto found = find_node(snapshot.parent_uuid);
-    if (!found)
-      return found.error();
-  }
+  auto parent = document_node(*this, snapshot.parent);
+  if (!parent)
+    return parent.error();
   scene_node_id created;
   auto status = edit_content(
       [&](auto& description, auto& next) -> engine::error {
         engine::game_object_description object;
         object.uuid = snapshot.uuid;
-        object.parent_uuid = snapshot.parent_uuid;
+        object.parent = snapshot.parent;
         object.name = snapshot.display_name;
         object.components.set(
             engine::mesh_renderer_description{snapshot.mesh_uri, snapshot.material_uri});
@@ -1077,7 +1069,8 @@ gneiss::engine::error scene_edit_session::destroy_node(scene_node_id node) noexc
   if (!target)
     return target.error();
   for (const auto& object : document_->current().content().content.get().objects)
-    if (object.parent == target->object)
+    if (object.parent.object == target->object &&
+        (!object.parent.source || object.parent.source == target->source))
       return engine::error::invalid_state;
   scene_subtree_snapshot ignored;
   return destroy_subtree(node, ignored);
@@ -1344,15 +1337,15 @@ scene_edit_session::capture_subtree(scene_node_id node) const noexcept try {
   for (bool changed = true; changed;) {
     changed = false;
     for (const auto& object : description->objects)
-      if (included.contains(object.parent_uuid))
+      if (included.contains(object.parent.object))
         changed |= included.insert(object.uuid).second;
   }
   std::erase_if(description->objects,
                 [&](const auto& object) { return !included.contains(object.uuid); });
   for (auto& object : description->objects) {
     if (object.uuid == result.root_uuid) {
-      result.parent_uuid = object.parent_uuid;
-      object.parent_uuid = {};
+      result.parent = object.parent;
+      object.parent = {};
     }
     if (!object.prefab && !object.components.template get<engine::mesh_renderer_description>())
       continue;

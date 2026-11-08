@@ -34,7 +34,7 @@ int main() try {
   root.uuid = e::guid::generate();
   root.name = "Root";
   child.uuid = e::guid::generate();
-  child.parent_uuid = root.uuid;
+  child.parent.object = root.uuid;
   child.name = "Child";
   child.transform.translation = {0, 2, 0};
   source->root_uuid = root.uuid;

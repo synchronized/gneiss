@@ -420,7 +420,11 @@ Mesh JSON 保留版本 3 文件布局，不增加兼容代码。
 默认构建及 81 项相关回归通过，见[验收记录](../records/2026-11-07-structured-value-editing.md)。
 嵌套 Prefab、精细增量投影及精确历史内存预算仍为后续独立阶段，本项不代表 DEV-052 整个版本已完成或发布。
 
-## Game Object 运行模型（实施中）
+## Game Object 运行模型（已完成）
 
 按 [PLAN-105](PLAN-105-game-object-runtime-model.md) 迁移组件身份归属、统一对象命名与运行存储，
 将 Prefab 覆盖移回文档与组合阶段；具体边界见 [ADR-110](../decisions/ADR-110-game-object-runtime-model.md)。
+
+PLAN-105 已完成统一实体存储、组件身份、共享组合/应用和持久父地址；删除运行 Prefab 绑定与作者捕获。
+PLAN-106 的文档历史及增量投影继续作为编辑路径。默认构建与相关回归见
+[最终验收记录](../records/2026-11-08-game-object-model-complete.md)。本次没有执行版本发布。

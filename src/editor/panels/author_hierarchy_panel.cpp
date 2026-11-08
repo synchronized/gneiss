@@ -16,11 +16,19 @@ engine::guid payload_uuid(const void* data) noexcept {
   return result;
 }
 
+void draw_scene_node(const author_hierarchy_view&, author_hierarchy_request&,
+                     const scene_node_record&);
+
 void draw_prefab_node(const author_hierarchy_view& view, author_hierarchy_request& request,
                       const prefab_node_record& node) {
   const auto& nodes = view.prefab_nodes;
-  const auto has_children = std::ranges::any_of(
-      nodes, [node_id = node.node](const auto& candidate) { return candidate.parent == node_id; });
+  const auto has_children =
+      std::ranges::any_of(
+          nodes,
+          [node_id = node.node](const auto& candidate) { return candidate.parent == node_id; }) ||
+      std::ranges::any_of(view.nodes, [node_id = node.node](const auto& candidate) {
+        return candidate.parent == node_id;
+      });
   auto flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
                ImGuiTreeNodeFlags_FramePadding;
   if (!has_children) {
@@ -45,14 +53,28 @@ void draw_prefab_node(const author_hierarchy_view& view, author_hierarchy_reques
         .action = author_hierarchy_action::select,
         .node = node.node,
         .uuid = {},
-        .parent_uuid = {},
+        .parent = {},
     };
   }
   if (ImGui::IsItemHovered()) {
     ImGui::SetTooltip("%s\n%s", node.prefab_uri.c_str(),
                       !node.is_instance_root ? "Prefab source node" : "Prefab instance root");
   }
+  if (ImGui::BeginDragDropTarget()) {
+    if (const auto* payload = ImGui::AcceptDragDropPayload("GNEISS_SCENE_NODE_UUID");
+        payload && payload->Data && payload->DataSize == sizeof(engine::guid)) {
+      request = {.action = author_hierarchy_action::reparent,
+                 .node = {},
+                 .uuid = payload_uuid(payload->Data),
+                 .parent = {node.instance_uuid, node.source_node_uuid}};
+    }
+    ImGui::EndDragDropTarget();
+  }
   if (has_children && is_open) {
+    for (const auto& child : view.nodes) {
+      if (child.parent == node.node)
+        draw_scene_node(view, request, child);
+    }
     for (const auto& child : nodes) {
       if (child.parent == node.node) {
         draw_prefab_node(view, request, child);
@@ -72,7 +94,7 @@ void draw_node_menu(const author_hierarchy_view& view, author_hierarchy_request&
           .action = author_hierarchy_action::rename,
           .node = node.node,
           .uuid = node.uuid,
-          .parent_uuid = {},
+          .parent = {},
       };
     }
     if (ImGui::MenuItem("Duplicate", "Ctrl+D")) {
@@ -80,7 +102,7 @@ void draw_node_menu(const author_hierarchy_view& view, author_hierarchy_request&
           .action = author_hierarchy_action::duplicate,
           .node = node.node,
           .uuid = node.uuid,
-          .parent_uuid = {},
+          .parent = {},
       };
     }
     if (ImGui::MenuItem("Delete", "Delete")) {
@@ -88,7 +110,7 @@ void draw_node_menu(const author_hierarchy_view& view, author_hierarchy_request&
           .action = author_hierarchy_action::remove,
           .node = node.node,
           .uuid = node.uuid,
-          .parent_uuid = {},
+          .parent = {},
       };
     }
     ImGui::Separator();
@@ -98,7 +120,7 @@ void draw_node_menu(const author_hierarchy_view& view, author_hierarchy_request&
           .action = author_hierarchy_action::create_prefab,
           .node = node.node,
           .uuid = node.uuid,
-          .parent_uuid = {},
+          .parent = {},
       };
     }
     ImGui::EndDisabled();
@@ -133,7 +155,7 @@ void draw_scene_node(const author_hierarchy_view& view, author_hierarchy_request
         .action = author_hierarchy_action::select,
         .node = node.node,
         .uuid = {},
-        .parent_uuid = {},
+        .parent = {},
     };
   }
   draw_node_menu(view, request, node);
@@ -150,7 +172,7 @@ void draw_scene_node(const author_hierarchy_view& view, author_hierarchy_request
           .action = author_hierarchy_action::reparent,
           .node = {},
           .uuid = payload_uuid(payload->Data),
-          .parent_uuid = target_uuid,
+          .parent = {target_uuid, {}},
       };
     }
     ImGui::EndDragDropTarget();
@@ -195,7 +217,7 @@ author_hierarchy_request draw_author_hierarchy(const author_hierarchy_view& view
           .action = author_hierarchy_action::reparent,
           .node = {},
           .uuid = payload_uuid(payload->Data),
-          .parent_uuid = {},
+          .parent = {},
       };
     }
     ImGui::EndDragDropTarget();

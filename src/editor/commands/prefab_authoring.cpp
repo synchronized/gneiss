@@ -151,8 +151,8 @@ collect_subtree(yyjson_val* objects, gneiss::engine::guid root_uuid,
       auto* object = yyjson_arr_get(objects, index);
       auto* parent = yyjson_obj_get(object, "parent");
       const auto uuid = uuid_member(object, "uuid");
-      if (uuid && yyjson_is_str(parent) &&
-          included.contains(uuid_member(object, "parent").value_or(gneiss::engine::guid{})) &&
+      if (uuid && yyjson_is_obj(parent) &&
+          included.contains(uuid_member(parent, "object").value_or(gneiss::engine::guid{})) &&
           included.emplace(*uuid).second) {
         changed = true;
       }
@@ -200,9 +200,11 @@ collect_subtree(yyjson_val* objects, gneiss::engine::guid root_uuid,
     }
   }
   auto* identity = make_identity_transform(document.get());
-  if (prefab_root == nullptr || identity == nullptr ||
-      !yyjson_mut_obj_put(prefab_root, yyjson_mut_strcpy(document.get(), "parent"),
-                          yyjson_mut_null(document.get())) ||
+  auto* parent = yyjson_mut_obj(document.get());
+  if (prefab_root == nullptr || identity == nullptr || parent == nullptr ||
+      !yyjson_mut_obj_add_null(document.get(), parent, "object") ||
+      !yyjson_mut_obj_add_null(document.get(), parent, "source") ||
+      !yyjson_mut_obj_put(prefab_root, yyjson_mut_strcpy(document.get(), "parent"), parent) ||
       !yyjson_mut_obj_put(prefab_root, yyjson_mut_strcpy(document.get(), "transform"), identity) ||
       !put_string(document.get(), prefab_envelope, "format", "gneiss.prefab") ||
       !yyjson_mut_obj_put(prefab_envelope, yyjson_mut_strcpy(document.get(), "version"),
@@ -466,23 +468,27 @@ engine::error prepare_unpack_prefab(std::string_view scene_json, std::string_vie
                           &game_object_description::uuid) != input->scene.objects.end())
       return error::invalid_argument;
   }
-  const auto root = mapping.at(effective.root_uuid);
   input->scene.objects.erase(input->scene.objects.begin() +
                              static_cast<std::ptrdiff_t>(input->target));
   for (auto& object : input->scene.objects)
-    if (object.parent_uuid == instance.uuid)
-      object.parent_uuid = root;
+    if (object.parent.object == instance.uuid) {
+      const auto source_parent = object.parent.source ? object.parent.source : effective.root_uuid;
+      auto found = mapping.find(source_parent);
+      if (found == mapping.end())
+        return error::not_found;
+      object.parent = {found->second, {}};
+    }
   for (auto& object : effective.objects) {
     const auto source_id = object.uuid;
     object.uuid = mapping.at(source_id);
     if (source_id == effective.root_uuid) {
       object.name = instance.name;
-      object.parent_uuid = instance.parent_uuid;
+      object.parent = instance.parent;
       object.transform = instance.transform;
     } else {
-      if (!object.parent_uuid)
+      if (!object.parent.object)
         return error::invalid_argument;
-      object.parent_uuid = mapping.at(object.parent_uuid);
+      object.parent.object = mapping.at(object.parent.object);
     }
     object.prefab.reset();
     input->scene.objects.push_back(std::move(object));

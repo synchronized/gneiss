@@ -58,7 +58,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
       scene << ',';
     }
     scene << "{\"uuid\":\"" << id
-          << "\",\"name\":\"item\",\"parent\":null,"
+          << "\",\"name\":\"item\",\"parent\":{\"object\":null,\"source\":null},"
              "\"prefab\":{\"uri\":\"asset://item-"
           << index
           << ".prefab.json\","

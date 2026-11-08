@@ -145,7 +145,7 @@ int main() try {
     check(!invalid && invalid.error() == e::error::invalid_argument);
     e::game_object_description child;
     child.uuid = e::guid::from_bytes({87, 3});
-    child.parent_uuid = object.uuid;
+    child.parent.object = object.uuid;
     source.objects.push_back(child);
     auto root_edit = e::prepare_prefab_transform_edit(source, reference, object.uuid,
                                                       object.transform, object.transform);

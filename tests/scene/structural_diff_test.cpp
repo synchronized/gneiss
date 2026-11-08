@@ -18,7 +18,7 @@ gneiss::engine::game_object_description object(gneiss::engine::guid uuid,
                                                gneiss::engine::guid parent = {}) {
   return {.uuid = std::move(uuid),
           .name = "节点",
-          .parent_uuid = std::move(parent),
+          .parent = {std::move(parent), {}},
           .transform = {},
           .components = {}};
 }
@@ -57,7 +57,7 @@ bool test_updates() {
   previous.components.set(gneiss::engine::camera_description{{1.0F, 0.1F, 10.0F}, false});
   auto current = previous;
   current.name = "新名称";
-  current.parent_uuid = *gneiss::engine::guid::parse("16c26687-cd61-552d-bfaf-1b33cc112979");
+  current.parent.object = *gneiss::engine::guid::parse("16c26687-cd61-552d-bfaf-1b33cc112979");
   current.transform.translation[0] = 2.0F;
   current.components.erase<gneiss::engine::camera_description>();
   current.components.set(

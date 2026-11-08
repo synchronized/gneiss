@@ -42,24 +42,24 @@ const gneiss::engine::guid instance_uuid =
     *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000001");
 
 constexpr std::string_view scene_json =
-    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","unknown_scene":"preserved","objects":[{"uuid":"10000000-0000-4000-8000-000000000001","name":"Lamp","parent":null,"transform":{"translation":[2,3,4],"rotation":[0,0,0,1],"scale":[2,2,2]},"components":[],"unknown_object":7},{"uuid":"10000000-0000-4000-8000-000000000002","name":"Shade","parent":"10000000-0000-4000-8000-000000000001","transform":{"translation":[0,1,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"uuid":"10000000-0000-4000-8000-000000000003","name":"Floor","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]}]})";
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","unknown_scene":"preserved","objects":[{"uuid":"10000000-0000-4000-8000-000000000001","name":"Lamp","parent":{"object":null,"source":null},"transform":{"translation":[2,3,4],"rotation":[0,0,0,1],"scale":[2,2,2]},"components":[],"unknown_object":7},{"uuid":"10000000-0000-4000-8000-000000000002","name":"Shade","parent":{"object":"10000000-0000-4000-8000-000000000001","source":null},"transform":{"translation":[0,1,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"uuid":"10000000-0000-4000-8000-000000000003","name":"Floor","parent":{"object":null,"source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]}]})";
 
 constexpr std::string_view apply_prefab_json = R"({
   "format":"gneiss.prefab","version":1,
   "prefab_uuid":"20000000-0000-4000-8000-000000000001","root_uuid":"10000000-0000-4000-8000-000000000001",
   "objects":[
-    {"uuid":"10000000-0000-4000-8000-000000000001","name":"Lamp","parent":null,
+    {"uuid":"10000000-0000-4000-8000-000000000001","name":"Lamp","parent":{"object":null,"source":null},
      "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
      "components":[]},
     {"uuid":"10000000-0000-4000-8000-000000000002","name":"Shade",
-     "parent":"10000000-0000-4000-8000-000000000001",
+     "parent":{"object":"10000000-0000-4000-8000-000000000001","source":null},
      "transform":{"translation":[0,1,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
      "components":[],"unknown_source":true}
   ]
 })";
 
 constexpr std::string_view apply_scene_json =
-    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"name":"First","parent":null,"prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d","component_uuid":null},"path":[{"$kind":"property","$content":1}]},"operation":{"$kind":"set","$content":{"content":{"$kind":"vec3","$content":[7,8,9]}}}}]},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"uuid":"30000000-0000-4000-8000-000000000001"},{"name":"Second","parent":null,"prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d","component_uuid":null},"path":[{"$kind":"property","$content":3}]},"operation":{"$kind":"set","$content":{"content":{"$kind":"vec3","$content":[3,3,3]}}}}]},"transform":{"translation":[4,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"uuid":"30000000-0000-4000-8000-000000000002"}],"unknown_scene":9})";
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"name":"First","parent":{"object":null,"source":null},"prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d","component_uuid":null},"path":[{"$kind":"property","$content":1}]},"operation":{"$kind":"set","$content":{"content":{"$kind":"vec3","$content":[7,8,9]}}}}]},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"uuid":"30000000-0000-4000-8000-000000000001"},{"name":"Second","parent":{"object":null,"source":null},"prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d","component_uuid":null},"path":[{"$kind":"property","$content":3}]},"operation":{"$kind":"set","$content":{"content":{"$kind":"vec3","$content":[3,3,3]}}}}]},"transform":{"translation":[4,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"uuid":"30000000-0000-4000-8000-000000000002"}],"unknown_scene":9})";
 
 struct document_deleter final {
   void operator()(yyjson_doc* document) const noexcept { yyjson_doc_free(document); }
@@ -160,8 +160,9 @@ verify_unpack_change(const std::vector<gneiss::editor::author_document_change>& 
   auto* unpacked_root = yyjson_arr_get(objects, 1U);
   auto* source_root = yyjson_arr_get(objects, 1U);
   auto* source_child = yyjson_arr_get(objects, 2U);
-  auto* const source_root_parent = yyjson_obj_get(source_root, "parent");
-  auto* const source_child_parent = yyjson_obj_get(source_child, "parent");
+  auto* const source_root_parent = yyjson_obj_get(yyjson_obj_get(source_root, "parent"), "object");
+  auto* const source_child_parent =
+      yyjson_obj_get(yyjson_obj_get(source_child, "parent"), "object");
   auto* translation = yyjson_obj_get(yyjson_obj_get(source_child, "transform"), "translation");
   return yyjson_arr_size(objects) == 3U &&
          yyjson_obj_get(yyjson_arr_get(objects, 0U), "prefab") != nullptr &&
@@ -181,7 +182,7 @@ create_rejections_are_valid(const gneiss::editor::create_prefab_author_request& 
   auto nested_scene = std::string(scene_json);
   nested_scene.insert(
       nested_scene.rfind(']'),
-      R"(,{"uuid":"40000000-0000-4000-8000-000000000001","name":"Nested","parent":"10000000-0000-4000-8000-000000000002","prefab":{"uri":"asset://prefabs/other.prefab.json","overrides":[]},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})");
+      R"(,{"uuid":"40000000-0000-4000-8000-000000000001","name":"Nested","parent":{"object":"10000000-0000-4000-8000-000000000002","source":null},"prefab":{"uri":"asset://prefabs/other.prefab.json","overrides":[]},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})");
   if (gneiss::editor::prepare_create_prefab(nested_scene, request, changes) !=
           gneiss::engine::error::unsupported ||
       !changes.empty()) {
@@ -330,7 +331,7 @@ int main() try {
   auto attached_scene = std::string(apply_scene_json);
   attached_scene.insert(
       attached_scene.rfind(']'),
-      R"(,{"uuid":"60000000-0000-4000-8000-000000000001","name":"Own child","parent":"30000000-0000-4000-8000-000000000001","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]})");
+      R"(,{"uuid":"60000000-0000-4000-8000-000000000001","name":"Own child","parent":{"object":"30000000-0000-4000-8000-000000000001","source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]})");
   if (gneiss::editor::prepare_unpack_prefab(attached_scene, apply_prefab_json, unpack_request,
                                             unpack_changes)
           .failed())
@@ -339,7 +340,7 @@ int main() try {
   document_ptr attached_document{yyjson_read(attached_output.data(), attached_output.size(), 0)};
   auto* attached_objects = yyjson_obj_get(yyjson_doc_get_root(attached_document.get()), "objects");
   auto* attached_child = yyjson_arr_get(attached_objects, 1U);
-  auto* attached_parent = yyjson_obj_get(attached_child, "parent");
+  auto* attached_parent = yyjson_obj_get(yyjson_obj_get(attached_child, "parent"), "object");
   if (!yyjson_is_str(attached_parent) ||
       std::string_view(yyjson_get_str(attached_parent)) != mappings[0].target_node_uuid.string())
     return 14;

@@ -43,7 +43,7 @@ struct fixture {
     std::ofstream(root / "b.json")
         << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,1,0,1]},"texture_uris":["","","","",""]})";
     std::ofstream(root / "scene.json")
-        << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://mesh.json","material":"asset://a.json","uuid":"5d6259bd-68fa-4f9c-b079-c8dc79041fdc"}}]}]})";
+        << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":{"object":null,"source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://mesh.json","material":"asset://a.json","uuid":"5d6259bd-68fa-4f9c-b079-c8dc79041fdc"}}]}]})";
   }
   ~fixture() {
     std::error_code ignored;
@@ -198,7 +198,7 @@ void run(gneiss::engine::execution_mode mode) {
   auto prepared = session.capture_mesh_binding(selected);
   check(bool(prepared));
   editor::mesh_node_creation creation{.uuid = created_uuid,
-                                      .parent_uuid = {},
+                                      .parent = {},
                                       .display_name = "duplicate",
                                       .mesh_uri = std::string(new_assets.mesh_uri),
                                       .material_uri = std::string(new_assets.material_uri)};
@@ -322,7 +322,7 @@ void prefab_edits(engine::execution_mode mode) {
   source.components.set(e::mesh_renderer_description{"asset://mesh.json", "asset://a.json"});
   prefab.objects.push_back(source);
   source.uuid = uuid(3);
-  source.parent_uuid = prefab.root_uuid;
+  source.parent.object = prefab.root_uuid;
   source.name = "child";
   prefab.objects.push_back(source);
   write("prefab.json", prefab);

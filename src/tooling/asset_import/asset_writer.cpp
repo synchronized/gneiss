@@ -120,7 +120,7 @@ template <class Bytes> bool write_bytes(const std::filesystem::path& path, const
     object.name = node.name;
     object.transform = {node.translation, node.rotation, node.scale};
     for (auto child : node.children)
-      scene.objects[child].parent_uuid = object.uuid;
+      scene.objects[child].parent.object = object.uuid;
     // 沿用导入对象的确定性索引规则，重复导入相同输入不改变组件身份。
     if (node.mesh_index && data.meshes[*node.mesh_index].primitives.size() == 1) {
       auto component = renderer(*node.mesh_index, 0);
@@ -135,7 +135,7 @@ template <class Bytes> bool write_bytes(const std::filesystem::path& path, const
     for (std::size_t j = 0; j < data.meshes[*node.mesh_index].primitives.size(); ++j) {
       engine::game_object_description child;
       child.uuid = *engine::guid::parse(uuid_for(scene.objects.size()));
-      child.parent_uuid = scene.objects[i].uuid;
+      child.parent.object = scene.objects[i].uuid;
       auto component = renderer(*node.mesh_index, j);
       component.uuid = *engine::guid::parse(uuid_for(scene.objects.size(), true));
       child.components.set(std::move(component));

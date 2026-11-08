@@ -24,7 +24,7 @@ struct scene_subtree_snapshot {
   engine::scene_record content;
   [[nodiscard]] engine::result<engine::scene_description> description() const noexcept;
   engine::guid root_uuid;
-  engine::guid parent_uuid;
+  engine::object_address parent;
   std::map<engine::guid, scene_object_resources> resources;
 };
 /** 捕获的对象描述和固定 Prefab 来源；不读取资产当前修订。 */

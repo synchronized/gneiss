@@ -51,7 +51,7 @@ inline result<game_object_description> capture_scene_object(world& owner, scene_
     auto parent_identity = owner.node_identity(parent);
     if (!parent_identity)
       return parent_identity.error();
-    output.parent_uuid = parent_identity->uuid;
+    output.parent.object = parent_identity->uuid;
   }
   status = owner.node_get_local_transform(node, output.transform);
   if (status.failed())

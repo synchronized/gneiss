@@ -42,7 +42,7 @@ compare_objects(const gneiss::engine::game_object_description& old_object,
   if (old_object.name != new_object.name) {
     changes = changes | structural_change::name;
   }
-  if (old_object.parent_uuid != new_object.parent_uuid) {
+  if (old_object.parent != new_object.parent) {
     changes = changes | structural_change::parent;
   }
   if (old_object.transform.translation != new_object.transform.translation ||

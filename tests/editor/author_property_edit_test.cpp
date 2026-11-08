@@ -98,7 +98,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   if (ed::make_editor_uuid(child.uuid).failed())
     return 52;
   child.name = "child";
-  child.parent_uuid = source->root_uuid;
+  child.parent.object = source->root_uuid;
   child.transform.translation.x = 1;
   source->objects.push_back(child);
   e::game_object_description author;

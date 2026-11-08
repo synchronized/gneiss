@@ -39,7 +39,7 @@ int main() try {
   source.objects.push_back(root);
   auto child = root;
   child.uuid = id(3);
-  child.parent_uuid = root.uuid;
+  child.parent.object = root.uuid;
   child.components.set(movement_description{});
   child.components.set(*e::default_component_description(e::camera_description::type_guid));
   source.objects.push_back(child);
@@ -74,7 +74,7 @@ int main() try {
   scene.objects.push_back(second);
   auto own = root;
   own.uuid = id(7);
-  own.parent_uuid = first.uuid;
+  own.parent = {first.uuid, child.uuid};
   scene.objects.push_back(own);
   const auto prefab_json = text(*gneiss::engine::asset_file::serialize_bytes(source));
   const auto scene_json = text(*gneiss::engine::asset_file::serialize_bytes(scene));
@@ -106,7 +106,7 @@ int main() try {
         restored->objects[0].prefab->component_overrides.empty());
   check(restored->objects[0].name == first.name &&
         restored->objects[0].transform.translation.x == 8);
-  check(restored->objects[2].parent_uuid == first.uuid);
+  check(restored->objects[2].parent.object == first.uuid);
   for (const auto& entry : *entries) {
     auto single =
         ed::prepare_restore_prefab(scene_json, "scenes/main.scene.json", first.uuid, &entry);
@@ -151,10 +151,10 @@ int main() try {
   check(!unpacked_root.prefab && unpacked_root.name == first.name &&
         unpacked_root.transform.translation.x == 8);
   check(unpacked_root.components.get<movement_description>()->speed == 4);
-  check(unpacked_child.parent_uuid == id(8) &&
+  check(unpacked_child.parent.object == id(8) &&
         !unpacked_child.components.get<e::camera_description>());
   check(unpacked_child.components.get<movement_description>()->settings.acceleration == 6);
-  check(find(unpacked->objects, own.uuid).parent_uuid == id(8));
+  check(find(unpacked->objects, own.uuid).parent == e::object_address{id(9), {}});
   check(find(unpacked->objects, second.uuid).prefab.has_value());
   ed::apply_prefab_author_plan plan;
   check(ed::prepare_apply_prefab(scene_json, prefab_json, apply, plan, &diagnostic).ok());

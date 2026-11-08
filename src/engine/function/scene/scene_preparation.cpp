@@ -6,6 +6,7 @@
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/prefab_replay.hpp"
+#include "engine/function/scene/scene_composition.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
 
 #include <algorithm>
@@ -38,7 +39,6 @@ public:
   scene_prepare_limits limits;
   scene_instantiation_data candidate;
   std::map<std::string, engine::render_resource_kind> dependencies;
-  std::map<guid, std::size_t> scene_depths;
 
   engine::error collect(const std::vector<game_object_description>& objects) {
     using engine::render_resource_kind;
@@ -95,11 +95,6 @@ public:
     }
     if (result.failed())
       return result;
-    const auto parent_depth = instance.parent_uuid ? scene_depths.at(instance.parent_uuid) : 0U;
-    if (parent_depth >= limits.hierarchy_depth ||
-        found->second.maximum_depth > limits.hierarchy_depth - parent_depth) {
-      return engine::error::invalid_argument;
-    }
     // 来源根直接作为实例根，共享描述不等于共享实例。
     const auto count = found->second.resource->objects.size();
     if (count > limits.nodes - candidate.instance_nodes) {
@@ -126,11 +121,6 @@ public:
     if (result != engine::error::success) {
       return result;
     }
-    for (const auto index : candidate.parent_first) {
-      const auto& object = candidate.description.objects[index];
-      scene_depths.emplace(object.uuid,
-                           object.parent_uuid ? scene_depths.at(object.parent_uuid) + 1U : 1U);
-    }
     for (const auto& instance : candidate.description.objects) {
       if (!instance.prefab)
         continue;
@@ -146,6 +136,25 @@ public:
   engine::error finish() {
     if (cancelled && cancelled()) {
       return engine::error::invalid_state;
+    }
+    std::map<std::string, const prefab_description*, std::less<>> sources;
+    for (const auto& [uri, prefab] : candidate.prefabs)
+      sources.emplace(uri, prefab.resource.get());
+    auto composed = compose_scene(candidate.description, sources);
+    if (!composed)
+      return composed.error();
+    std::map<object_address, object_address> parents;
+    for (const auto& object : composed->objects)
+      parents.emplace(object.address, object.parent);
+    for (const auto& object : composed->objects) {
+      std::size_t depth = 1;
+      auto parent = object.parent;
+      while (parent.object) {
+        ++depth;
+        parent = parents.at(parent);
+      }
+      if (depth > limits.hierarchy_depth)
+        return error::invalid_argument;
     }
     for (const auto& [asset_uri, type] : dependencies) {
       candidate.assets.push_back({.uri = asset_uri, .type = type});
@@ -167,8 +176,7 @@ error prepare_loaded_scene(const scene_preparation_inputs& inputs, std::string_v
                    .cancelled = cancelled,
                    .limits = limits,
                    .candidate = {},
-                   .dependencies = {},
-                   .scene_depths = {}};
+                   .dependencies = {}};
   work.candidate.source_bytes = inputs.source_bytes;
   work.candidate.source_asset = inputs.source_asset;
   auto status = error::success;

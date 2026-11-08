@@ -6,7 +6,7 @@
     {
       "uuid": "30000000-0000-4000-8000-000000000011",
       "name": "Anchor",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "transform": {
         "translation": [
           0,
@@ -29,7 +29,7 @@
     },
     {
       "name": "Lamp Instance",
-      "parent": "30000000-0000-4000-8000-000000000011",
+      "parent": {"object":"30000000-0000-4000-8000-000000000011","source":null},
       "prefab": {
         "uri": "asset://prefabs/test.prefab.json",
         "overrides": [

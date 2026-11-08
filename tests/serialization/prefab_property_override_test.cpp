@@ -128,7 +128,7 @@ int main() {
     game_object_description root, child;
     root.uuid = source_a;
     child.uuid = source_b;
-    child.parent_uuid = source_a;
+    child.parent.object = source_a;
     original.uuid = component_id;
     if (child.components.replace({make_component_description(original)}).failed())
       return 79;
@@ -159,7 +159,7 @@ int main() {
     game_object_description root, child;
     root.uuid = source_a;
     child.uuid = source_b;
-    child.parent_uuid = source_a;
+    child.parent.object = source_a;
     movement_description movement;
     movement.waypoints = {{element, 1}};
     child.components.set(movement);
@@ -214,7 +214,7 @@ int main() {
     game_object_description root, child;
     root.uuid = source_a;
     child.uuid = source_b;
-    child.parent_uuid = source_a;
+    child.parent.object = source_a;
     child.components.set(movement_description{});
     source.objects = {root, child};
     prefab_description output;

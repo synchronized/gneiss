@@ -117,7 +117,7 @@ int main() {
   CHECK(projection.report(document.current(), document.current(), e::error::success).ok());
   CHECK(projection.is_synchronized(document.current()));
   auto invalid = edited;
-  data.objects[0].parent = data.objects[0].uuid;
+  data.objects[0].parent = {data.objects[0].uuid, {}};
   invalid.content = e::scene_record{data};
   CHECK(document.accept(document.current(), invalid).failed());
   CHECK(document.reset(invalid).failed());

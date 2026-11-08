@@ -181,7 +181,7 @@ int main() try {
   prefab->objects.push_back(root);
   auto child = root;
   child.uuid = e::guid::from_bytes({86, 4});
-  child.parent_uuid = root.uuid;
+  child.parent.object = root.uuid;
   prefab->objects.push_back(child);
   e::game_object_description reference;
   reference.uuid = e::guid::from_bytes({86, 3});

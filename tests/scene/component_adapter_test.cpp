@@ -94,7 +94,7 @@ int main() try {
   source.objects.push_back(first);
   auto second = first;
   second.uuid = e::guid::from_bytes({3});
-  second.parent_uuid = first.uuid;
+  second.parent.object = first.uuid;
   source.objects.push_back(second);
   // 真实文件格式解码后进入统一准备与同步实例化路径。
   auto encoded = gneiss::engine::asset_file::serialize_bytes(source);

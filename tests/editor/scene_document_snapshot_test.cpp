@@ -4,6 +4,7 @@
 #include "documents/scene_document_snapshot.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/function/meta_registration.hpp"
+#include "engine/resource/asset_file.hpp"
 namespace e = gneiss::engine;
 namespace ed = gneiss::editor;
 struct linked_description
@@ -64,7 +65,7 @@ int main() {
       return 70;
     e::game_object_description child;
     child.uuid = e::guid::generate();
-    child.parent_uuid = root.uuid;
+    child.parent.object = root.uuid;
     child.name = "child";
     child.transform.translation.x = 2;
     prefab_source->objects.push_back(child);
@@ -77,11 +78,11 @@ int main() {
     auto second = document->objects[0];
     second.uuid = e::guid::generate();
     second.name = "second";
-    second.parent_uuid = instance.uuid;
+    second.parent.object = instance.uuid;
     document->objects.push_back(second);
     e::game_object_description ordinary;
     ordinary.uuid = e::guid::generate();
-    ordinary.parent_uuid = second.uuid;
+    ordinary.parent = {second.uuid, child.uuid};
     document->objects.push_back(ordinary);
     // 无效覆盖保留为诊断，不让组合偷偷删除原始编辑记录。
     document->objects[0].prefab->overrides.push_back(
@@ -107,7 +108,7 @@ int main() {
         first_child.parent != first.address || first_child.effective.transform.translation.x != 2 ||
         next_root.parent != first.address || next_child.parent != next_root.address ||
         first_child.address == next_child.address ||
-        composed->objects[4].parent != next_root.address || composed->objects[4].address.source ||
+        composed->objects[4].parent != next_child.address || composed->objects[4].address.source ||
         local.content != *record ||
         first.effective.components.identity(e::camera_description::type_guid) !=
             root.components.identity(e::camera_description::type_guid))
@@ -134,6 +135,41 @@ int main() {
           actual.effective.transform.translation != expected.effective.transform.translation)
         return 103;
     }
+    // 文件、冻结记录、复制及历史都保留来源父节点，不退化成实例根。
+    auto bytes = e::asset_file::serialize_bytes(*document);
+    if (!bytes)
+      return 110;
+    auto decoded = e::asset_file::deserialize<e::scene_description>(*bytes);
+    if (!decoded || decoded->objects.back().parent != ordinary.parent)
+      return 111;
+    std::vector<e::uuid_mapping> mapping;
+    for (const auto& object : document->objects)
+      mapping.push_back({object.uuid, e::guid::generate()});
+    auto copied = e::remap_scene_record(*record, e::guid::generate(), mapping);
+    if (!copied || copied->get().objects.back().parent !=
+                       e::object_address{mapping[1].target_uuid, child.uuid})
+      return 112;
+    auto changed = local;
+    auto changed_data = changed.content.get();
+    changed_data.objects.back().parent.source = root.uuid;
+    changed.content = e::scene_record{changed_data};
+    auto patch = ed::make_document_patch(local, changed);
+    if (!patch || patch->updates.size() != 1 || !patch->updates[0].parent)
+      return 113;
+    auto forward = ed::apply_document_patch(local, *patch, false);
+    if (!forward || forward->content != changed.content)
+      return 114;
+    auto backward = ed::apply_document_patch(*forward, *patch, true);
+    if (!backward || backward->content != local.content)
+      return 115;
+    auto invalid = *document;
+    invalid.objects.back().parent.source = e::guid::generate();
+    auto missing_parent = e::compose_scene(invalid, sources);
+    if (missing_parent || missing_parent.error() != e::error::not_found)
+      return 116;
+    invalid.objects.back().parent = {{}, child.uuid};
+    if (e::compose_scene(invalid, sources))
+      return 117;
     local.prefabs.clear();
     auto missing = ed::compose_scene_document(local);
     if (missing || missing.error() != e::error::not_found)
@@ -319,7 +355,7 @@ int main() {
   if (!renamed || renamed->objects[0].name != "renamed" ||
       before.get().objects[0].name == "renamed")
     return 8;
-  candidate.objects[0].parent = instance.uuid;
+  candidate.objects[0].parent = {instance.uuid, {}};
   if (e::restore_scene_record(e::scene_record{candidate}))
     return 9;
   auto prefab_candidate = frozen->prefabs.at(instance.prefab->uri).content.get();
@@ -431,7 +467,7 @@ int main() {
   auto tree = original->get();
   e::object_record child;
   child.uuid = external_id;
-  child.parent = linked.uuid;
+  child.parent = {linked.uuid, {}};
   child.prefab.emplace();
   child.prefab->uri = "asset://camera.prefab.json";
   child.prefab->overrides.push_back(
@@ -442,7 +478,7 @@ int main() {
   const auto copied_child = e::guid::literal("68656d91-8dfd-4c01-a36f-02706e98510a");
   std::array mappings{mapping[0], e::uuid_mapping{external_id, copied_child}};
   auto tree_copy = e::remap_scene_record(e::scene_record{tree}, target_document, mappings);
-  if (!tree_copy || tree_copy->get().objects[1].parent != copied_id ||
+  if (!tree_copy || tree_copy->get().objects[1].parent.object != copied_id ||
       tree_copy->get().objects[1].prefab->overrides[0].replacement() != remapped ||
       tree_copy->get().objects[1].prefab->overrides[0].key.target.source_node_uuid !=
           source->root_uuid)

@@ -39,18 +39,23 @@ inspect_object_hierarchy(std::span<const game_object_description> objects,
   for (std::size_t i = 0; i < objects.size(); ++i) {
     if (cancelled && cancelled())
       return scene_diagnostic{.error = error::invalid_state};
-    const auto parent = objects[i].parent_uuid;
+    const auto parent = objects[i].parent.object;
+    if (!parent && objects[i].parent.source)
+      return fail("/objects/" + std::to_string(i) + "/parent", "来源父地址缺少实例 UUID");
     if (!parent)
       output.parent_first.push_back(i);
     else {
       const auto found = output.indices.find(parent);
       if (found == output.indices.end())
         return fail("/objects/" + std::to_string(i) + "/parent", "父对象不存在");
+      if (objects[i].parent.source && (root || !objects[found->second].prefab))
+        return fail("/objects/" + std::to_string(i) + "/parent", "来源父地址必须指向 Prefab 实例");
       children[found->second].push_back(i);
     }
   }
   if (root) {
-    if (!*root || !output.indices.contains(*root) || objects[output.indices.at(*root)].parent_uuid)
+    if (!*root || !output.indices.contains(*root) ||
+        objects[output.indices.at(*root)].parent.object)
       return fail("/root_uuid", "指定根必须存在且无父对象");
     if (output.parent_first.size() != 1)
       return fail("/objects", "Prefab 必须且只能包含一个根节点");

@@ -37,8 +37,8 @@ engine::result<scene_subtree_snapshot> freeze_prefab_snapshot(
   const auto& effective = replayed->description;
   auto status = engine::error::success;
   value.root_uuid = author.uuid;
-  value.parent_uuid = author.parent_uuid;
-  author.parent_uuid = {};
+  value.parent = author.parent;
+  author.parent = {};
   engine::scene_description description;
   description.uuid = author.uuid;
   description.objects.push_back(std::move(author));

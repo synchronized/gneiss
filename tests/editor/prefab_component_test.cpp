@@ -60,7 +60,7 @@ int main() try {
   source->objects.push_back(root);
   auto child = root;
   child.uuid = child_id;
-  child.parent_uuid = root_id;
+  child.parent.object = root_id;
   child.components.set(movement_description{});
   source->objects.push_back(child);
   e::prefab_reference_description reference{.uri = "asset://movement.prefab", .overrides = {}};
@@ -328,14 +328,14 @@ int main() try {
   // 来源成员增删与父子反转保留仍然存在的来源节点。
   e::game_object_description extra_source;
   extra_source.uuid = e::guid::generate();
-  extra_source.parent_uuid = child_id;
+  extra_source.parent.object = child_id;
   extra_source.name = "extra";
   updated->objects.push_back(extra_source);
   check(refresh(e::prefab_asset_ref{updated}).ok());
   const auto extra_node = document.find_prefab_source(instance.uuid, extra_source.uuid)->node;
   updated = std::make_shared<e::prefab_description>(*updated);
-  updated->objects[1].parent_uuid = extra_source.uuid;
-  updated->objects.back().parent_uuid = root_id;
+  updated->objects[1].parent.object = extra_source.uuid;
+  updated->objects.back().parent.object = root_id;
   check(refresh(e::prefab_asset_ref{updated}).ok());
   check(document.find_prefab_source(instance.uuid, extra_source.uuid)->node == extra_node);
   check(refresh(e::prefab_asset_ref{source}).ok());
@@ -357,10 +357,10 @@ int main() try {
     parent.uuid = e::guid::generate();
     auto extra = description->objects.front();
     extra.uuid = e::guid::generate();
-    extra.parent_uuid = parent.uuid;
+    extra.parent.object = parent.uuid;
     e::game_object_description attached;
     attached.uuid = e::guid::generate();
-    attached.parent_uuid = extra.uuid;
+    attached.parent = {extra.uuid, child_id};
     description->objects.push_back(attached);
     description->objects.push_back(extra);
     description->objects.push_back(parent);
@@ -376,13 +376,41 @@ int main() try {
     check(!document.find_prefab_root(extra.uuid));
     check(mixed_history.redo().ok() && document.projection_status().ok());
     const auto retained = document.find_node(attached.uuid)->node;
+    check(document.query_node(retained)->parent ==
+          document.find_prefab_source(extra.uuid, child_id)->node);
+    // 同一实例内切换来源父节点，撤销与重做只重挂接自有节点。
+    check(ed::execute_scene_edit(mixed_history, document, "移动自有节点", [&] {
+            return document.reparent_node(retained, document.find_prefab_root(extra.uuid)->node);
+          }).ok());
+    check(mixed_history.undo().ok() && document.projection_status().ok());
+    check(document.find_node(attached.uuid)->node == retained);
+    check(document.query_node(retained)->parent ==
+          document.find_prefab_source(extra.uuid, child_id)->node);
+    check(mixed_history.redo().ok() && document.projection_status().ok());
+    check(document.query_node(retained)->parent == document.find_prefab_root(extra.uuid)->node);
+    // 新建、复制、子树删除恢复均保留具体来源父地址。
+    const auto source_parent = document.find_prefab_source(extra.uuid, child_id)->node;
+    gneiss::scene_node_id created;
+    check(document.create_node("自有子节点", source_parent, created).ok());
+    check(document.query_node(created)->parent == source_parent);
+    gneiss::scene_node_id duplicate;
+    check(document.duplicate_subtree(created, source_parent, duplicate).ok());
+    check(duplicate != created && document.query_node(duplicate)->parent == source_parent);
+    ed::scene_subtree_snapshot subtree;
+    check(document.destroy_subtree(duplicate, subtree).ok());
+    check(subtree.parent == e::object_address{extra.uuid, child_id});
+    gneiss::scene_node_id restored;
+    check(document.restore_subtree(subtree, restored).ok());
+    check(document.query_node(restored)->parent == source_parent);
+    check(document.destroy_subtree(restored, subtree).ok());
+    check(document.destroy_subtree(created, subtree).ok());
     // 删除 Prefab，同时将自有子节点移到新父对象，子节点实体保持。
     auto detached = document.capture_content();
     auto data = detached->content.get();
     std::erase_if(data.objects, [&](const auto& object) { return object.uuid == extra.uuid; });
     for (auto& object : data.objects)
       if (object.uuid == attached.uuid)
-        object.parent = parent.uuid;
+        object.parent = {parent.uuid, {}};
     detached->content = e::scene_record{data};
     check(document.accept_content(*detached).ok() && document.projection_status().ok());
     check(document.find_node(attached.uuid)->node == retained);

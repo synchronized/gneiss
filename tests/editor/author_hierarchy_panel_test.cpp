@@ -66,7 +66,8 @@ int main() try {
   // UI 只复制身份并返回请求，递归绘制时没有修改父子关系。
   if (request.action != author_hierarchy_action::reparent ||
       request.uuid != *gneiss::engine::guid::parse("2b10c37c-4b8f-5008-8c93-9af49a7a8c23") ||
-      request.parent_uuid != *gneiss::engine::guid::parse("40d434b6-1126-562c-af15-1722f9e1a8c9") ||
+      request.parent.object !=
+          *gneiss::engine::guid::parse("40d434b6-1126-562c-af15-1722f9e1a8c9") ||
       nodes[0].parent.is_valid() || nodes[1].parent.is_valid()) {
     ImGui::DestroyContext();
     return 3;
@@ -75,7 +76,7 @@ int main() try {
   nodes[1].uuid = {};
   const bool owned =
       request.uuid == *gneiss::engine::guid::parse("2b10c37c-4b8f-5008-8c93-9af49a7a8c23") &&
-      request.parent_uuid == *gneiss::engine::guid::parse("40d434b6-1126-562c-af15-1722f9e1a8c9");
+      request.parent.object == *gneiss::engine::guid::parse("40d434b6-1126-562c-af15-1722f9e1a8c9");
   ImGui::DestroyContext();
   return owned ? 0 : 4;
 } catch (...) {

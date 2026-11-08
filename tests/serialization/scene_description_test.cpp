@@ -75,10 +75,10 @@ bool format_node_contract() {
 }
 
 constexpr std::string_view valid_scene =
-    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,1,2],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"settings":{"fov":1.0,"near":0.1,"far":100},"is_primary":true,"uuid":"2ceec979-6250-498c-966a-3f5923c9e17f"}}]},{"uuid":"00000000-0000-4000-8000-000000000003","parent":"00000000-0000-4000-8000-000000000002","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material","uuid":"852fef5e-cc4e-4571-a4b8-b933c063677a"}}]}],"unknown":true})";
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":{"object":null,"source":null},"transform":{"translation":[0,1,2],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"settings":{"fov":1.0,"near":0.1,"far":100},"is_primary":true,"uuid":"2ceec979-6250-498c-966a-3f5923c9e17f"}}]},{"uuid":"00000000-0000-4000-8000-000000000003","parent":{"object":"00000000-0000-4000-8000-000000000002","source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material","uuid":"852fef5e-cc4e-4571-a4b8-b933c063677a"}}]}],"unknown":true})";
 
 constexpr std::string_view prefab_scene =
-    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"name":"Lamp","parent":"00000000-0000-4000-8000-000000000002","prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d","component_uuid":null},"path":[{"$kind":"property","$content":1}]},"operation":{"$kind":"set","$content":{"content":{"$kind":"vec3","$content":[4,5,6]}}}}]},"transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[2,2,2]},"unknown":true,"uuid":"00000000-0000-4000-8000-000000000010"}]})";
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":{"object":null,"source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"name":"Lamp","parent":{"object":"00000000-0000-4000-8000-000000000002","source":null},"prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"key":{"target":{"source_node_uuid":"10000000-0000-4000-8000-000000000002","target_type_guid":"69644f20-b2d2-4e48-8c74-91f4f952ec2d","component_uuid":null},"path":[{"$kind":"property","$content":1}]},"operation":{"$kind":"set","$content":{"content":{"$kind":"vec3","$content":[4,5,6]}}}}]},"transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[2,2,2]},"unknown":true,"uuid":"00000000-0000-4000-8000-000000000010"}]})";
 
 [[nodiscard]] std::string replace_once(std::string text, std::string_view source,
                                        std::string_view replacement) {
@@ -118,7 +118,7 @@ bool save_validation_contract() {
     return !text && text.error().error == e::error::invalid_argument && !bytes &&
            bytes.error().error == e::error::invalid_argument;
   };
-  if (!rejects([](auto& scene) { scene.objects[0].parent_uuid = scene.objects[1].uuid; }) ||
+  if (!rejects([](auto& scene) { scene.objects[0].parent.object = scene.objects[1].uuid; }) ||
       !rejects([](auto& scene) { scene.objects[1].uuid = scene.objects[0].uuid; }) ||
       !rejects([](auto& scene) {
         scene.objects[0].transform.translation.x = std::numeric_limits<float>::infinity();
@@ -170,7 +170,7 @@ bool save_validation_contract() {
       }))
     return false;
   // Scene 仍允许多根，不因 Prefab 的唯一根约束变成只能保存一棵树。
-  parsed->objects[1].parent_uuid = {};
+  parsed->objects[1].parent.object = {};
   auto forest = gneiss::engine::asset_file::serialize_bytes(*parsed);
   return forest &&
          static_cast<bool>(gneiss::engine::asset_file::deserialize<e::scene_description>(*forest));
@@ -179,8 +179,8 @@ bool save_validation_contract() {
 bool guid_identity_contract() {
   namespace e = gneiss::engine;
   auto parsed = gneiss::engine::asset_file::deserialize<e::scene_description>(valid_scene);
-  if (!parsed || parsed->objects[0].parent_uuid ||
-      parsed->objects[1].parent_uuid != parsed->objects[0].uuid)
+  if (!parsed || parsed->objects[0].parent.object ||
+      parsed->objects[1].parent.object != parsed->objects[0].uuid)
     return false;
   const auto original = *parsed;
   // 内存身份修改必须反映到文件；不沿用 输入文件中的旧场景 UUID。
@@ -190,9 +190,9 @@ bool guid_identity_contract() {
     return false;
   auto restored = gneiss::engine::asset_file::deserialize<e::scene_description>(*encoded);
   if (!restored || restored->uuid != parsed->uuid ||
-      restored->objects[1].parent_uuid != parsed->objects[0].uuid)
+      restored->objects[1].parent.object != parsed->objects[0].uuid)
     return false;
-  parsed->objects[0].parent_uuid = e::guid{};
+  parsed->objects[0].parent.object = e::guid{};
   if (!gneiss::engine::asset_file::serialize(*parsed))
     return false;
   *parsed = original;
@@ -212,8 +212,9 @@ bool guid_identity_contract() {
       return false;
   }
   const auto nil_parent =
-      replace_once(std::string(valid_scene), R"("parent":"00000000-0000-4000-8000-000000000002")",
-                   R"("parent":null)");
+      replace_once(std::string(valid_scene),
+                   R"("parent":{"object":"00000000-0000-4000-8000-000000000002","source":null})",
+                   R"("parent":{"object":null,"source":null})");
   if (!gneiss::engine::asset_file::deserialize<e::scene_description>(nil_parent))
     return false;
   const auto null_identity =
@@ -389,10 +390,12 @@ int main() try {
       replace_once(std::string(valid_scene), "00000000-0000-4000-8000-000000000003",
                    "00000000-0000-4000-8000-000000000002");
   const auto missing_parent =
-      replace_once(std::string(valid_scene), R"("parent":"00000000-0000-4000-8000-000000000002")",
-                   R"("parent":"00000000-0000-4000-8000-000000000099")");
-  const auto cycle = replace_once(std::string(valid_scene), R"("parent":null)",
-                                  R"("parent":"00000000-0000-4000-8000-000000000003")");
+      replace_once(std::string(valid_scene),
+                   R"("parent":{"object":"00000000-0000-4000-8000-000000000002","source":null})",
+                   R"("parent":{"object":"00000000-0000-4000-8000-000000000099","source":null})");
+  const auto cycle =
+      replace_once(std::string(valid_scene), R"("parent":{"object":null,"source":null})",
+                   R"("parent":{"object":"00000000-0000-4000-8000-000000000003","source":null})");
   const auto invalid_uri = replace_once(std::string(valid_scene), "asset://models/triangle.mesh",
                                         "asset://models/../triangle.mesh");
   // 单位变换默认值不允许掩盖文件中缺失的必填分量。
@@ -488,7 +491,7 @@ int main() try {
     using namespace gneiss::engine;
     // 通用入口与场景入口遵循相同的对象校验；缺失组件默认空列表。
     const std::string object_json =
-        R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})";
+        R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":{"object":null,"source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})";
     auto decode = [](std::string_view text) {
       return gneiss::engine::serialization::json::deserialize<game_object_description>(
           std::as_bytes(std::span{text.data(), text.size()}));

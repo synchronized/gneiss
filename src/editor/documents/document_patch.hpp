@@ -46,7 +46,7 @@ struct document_prefab_change {
 /** 存活对象仅保留发生变化的领域字段，不携带其他组件和 Prefab 数据。 */
 struct document_object_update {
   engine::guid uuid;
-  std::optional<document_field_change<engine::guid>> parent;
+  std::optional<document_field_change<engine::object_address>> parent;
   std::optional<document_field_change<std::string>> name;
   std::optional<document_field_change<engine::math::transform>> transform;
   std::optional<document_component_changes> components;

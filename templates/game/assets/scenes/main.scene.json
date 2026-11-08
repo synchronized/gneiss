@@ -6,7 +6,7 @@
     {
       "uuid": "10000000-0000-4000-8000-000000000002",
       "name": "Main Camera",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "transform": {
         "translation": [
           0.0,

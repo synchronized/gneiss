@@ -18,7 +18,7 @@
     {
       "uuid": "00000000-0000-4000-8000-000000000002",
       "name": "Triangle",
-      "parent": null,
+      "parent": {"object": null, "source": null},
       "transform": {
         "translation": [
           0,
@@ -87,10 +87,13 @@
 ## 字段规则
 
 - 身份 UUID 必须使用非零的 36 字符小写规范形式；对象 UUID 在场景内唯一。
-  内存中的场景、对象、Prefab 来源及覆盖键使用 `engine::guid`；`game_object_description::parent_uuid`
-  使用普通 `guid`，nil 表示根。JSON 非 nil 使用 GUID 字符串，nil 使用 null，根的 parent 写 null。
+  内存中的场景、对象、Prefab 来源及覆盖键使用 `engine::guid`；`game_object_description::parent`
+  使用 `object_address {object, source}`。每个 GUID 非 nil 时写字符串，nil 写 null。
+  根的 parent 为 `{"object":null,"source":null}`，普通父对象为 `{"object":"<uuid>","source":null}`。
 - `name` 是可选 UTF-8 显示名称；缺失或为空时，工具可回退显示 UUID。
-- `parent` 必须是现有对象 UUID 或 null；层级不能形成循环。
+- `parent.object` 必须引用显式对象或为 nil；`source` 非 nil 时，object 必须是 Prefab 实例。
+  引用 Prefab 时，source 为 nil 表示来源根，非 nil 表示具体来源成员。禁止 source 非空而 object 为空。
+  文件检查显式对象层级；加载来源后组合再检查成员存在性及完整层级，缺失成员报错，不回退到根。
 - 向量与四元数只接受有限、可表示为 float 的 JSON 数字。
 - rotation 顺序为 `(x, y, z, w)` 且必须归一化；scale 的每个分量不能为零。
 - `components` 是数组，可为空。每项直接使用 `$type_guid`（描述类型）与 `$content`（属性对象）的多态信封；`$content.uuid` 是非空组件实例身份。
@@ -105,8 +108,9 @@
 - `objects` 是唯一对象列表。对象可通过 `prefab: {uri, overrides}` 引用模板；`uri` 必须是规范资产
   URI，`overrides` 必须是数组。此时组件来自模板，拒绝同时提供非空 `components`。
   `prefab` 缺失或为 null 表示普通对象；保存普通对象时写出 `prefab: null`。
-- `parent` 可引用任意显式对象，包括 Prefab 根；不能引用来源内部节点 UUID。普通自有子对象正常保存，
-  模板生成的子节点不重复写入列表。模板文件自身暂不允许嵌套 Prefab 引用。
+- 普通自有对象可挂到任意 Prefab 成员，parent 使用实例 UUID 和来源节点 UUID 共同定位。
+  复制实例只重映射 parent.object，来源 UUID 保持；解包将完整父地址转换为新普通对象地址。
+  自有子对象正常保存，模板生成的子节点不重复写入列表。模板文件自身暂不允许嵌套 Prefab 引用。
 - 每项覆盖包含必填 `key` 和 `operation`。`key.target` 保存非零 `source_node_uuid` 与
   `target_type_guid`；`key.path` 是从目标根开始的完整路径，首步必须是属性 ID，最多 64 步。
   同一路径允许多条有序操作。
@@ -141,7 +145,8 @@ settings、其三个参数及 is_primary 均必填。
 
 Prefab v1 顶层必须包含 `prefab_uuid`、`root_uuid` 和 `objects`。`prefab_uuid` 是资产身份，
 `root_uuid` 是对象树入口，两者独立；内存中均为 `guid`，文件中为非零规范小写 UUID。
-`root_uuid` 必须指向唯一 `parent: null` 的对象，其他对象沿父链必须能到达该根。
+`root_uuid` 必须指向唯一 parent.object/source 均为 null 的对象，其他对象沿父链必须能到达该根。
+Prefab 文件内父关系只使用本地对象 UUID，parent.source 必须为 null。
 拒绝缺失根、多个根、孤立对象、缺失父节点、重复 UUID 和环。对象数组不要求父对象在前，
 根身份不由数组顺序决定。未发布的旧文件直接补充该字段，不提供缺失时的推断回退。
 

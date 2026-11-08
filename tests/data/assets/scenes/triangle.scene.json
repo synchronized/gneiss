@@ -6,7 +6,7 @@
     {
       "uuid": "00000000-0000-4000-8000-000000000002",
       "name": "Camera",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "transform": {
         "translation": [
           0.0,
@@ -31,7 +31,7 @@
     },
     {
       "uuid": "00000000-0000-4000-8000-000000000003",
-      "parent": "00000000-0000-4000-8000-000000000002",
+      "parent": {"object":"00000000-0000-4000-8000-000000000002","source":null},
       "transform": {
         "translation": [
           0.0,

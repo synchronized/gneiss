@@ -147,18 +147,24 @@ error register_component_descriptions() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status =
-      meta::type_builder<game_object_description>{}
-          .property<&game_object_description::uuid>(meta::property_id{1}, "uuid", required)
-          .property<&game_object_description::name>(meta::property_id{2}, "name")
-          .property<&game_object_description::parent_uuid>(meta::property_id{3}, "parent", required)
-          .property<&game_object_description::transform>(meta::property_id{4}, "transform",
-                                                         required)
-          .property<&game_object_description::components>(meta::property_id{5}, "components")
-          .property<&game_object_description::prefab>(meta::property_id{6}, "prefab")
-          .serialization()
-          .validate<&validate_game_object_description>()
-          .commit();
+  status = meta::type_builder<object_address>{}
+               .property<&object_address::object>(meta::property_id{1}, "object", required)
+               .property<&object_address::source>(meta::property_id{2}, "source", required)
+               .serialization()
+               .commit();
+  if (status.failed())
+    return status;
+  status = meta::type_builder<game_object_description>{}
+               .property<&game_object_description::uuid>(meta::property_id{1}, "uuid", required)
+               .property<&game_object_description::name>(meta::property_id{2}, "name")
+               .property<&game_object_description::parent>(meta::property_id{3}, "parent", required)
+               .property<&game_object_description::transform>(meta::property_id{4}, "transform",
+                                                              required)
+               .property<&game_object_description::components>(meta::property_id{5}, "components")
+               .property<&game_object_description::prefab>(meta::property_id{6}, "prefab")
+               .serialization()
+               .validate<&validate_game_object_description>()
+               .commit();
   if (status.failed())
     return status;
   status =

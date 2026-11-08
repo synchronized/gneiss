@@ -51,9 +51,9 @@ struct fixture {
         prefab << ',';
       }
       prefab
-          << "{\"uuid\":\"" << uuid << "\",\"name\":\"Source\",\"parent\":"
+          << "{\"uuid\":\"" << uuid << "\",\"name\":\"Source\",\"parent\":{\"object\":"
           << (i == 149U ? "null" : "\"30000000-0000-4000-8000-000000000151\"")
-          << R"(,"transform":{"translation":[1,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://mesh.json","material":"asset://material.json","uuid":"ffe75c0a-e663-4389-9b1b-4b1d96a50f6b"}}]})";
+          << R"(,"source":null},"transform":{"translation":[1,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://mesh.json","material":"asset://material.json","uuid":"ffe75c0a-e663-4389-9b1b-4b1d96a50f6b"}}]})";
     }
     prefab << "]}";
   }
@@ -531,7 +531,7 @@ void run_mixed_subtree() {
                                               &engine::game_object_description::name);
   check(copied_first != copied_description->objects.end() &&
         copied_child != copied_description->objects.end());
-  check(copied_child->parent_uuid == copied_first->uuid);
+  check(copied_child->parent.object == copied_first->uuid);
   const auto copied_source = document.find_prefab_source(copied_first->uuid, source_uuid);
   check(copied_source && copied_source->local_transform.translation[0] == 31);
   auto independent = copied_source->local_transform;

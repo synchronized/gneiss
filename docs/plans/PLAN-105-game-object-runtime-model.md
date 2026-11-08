@@ -5,10 +5,10 @@
 
 ## 状态与范围
 
-2026-11-07：实施中，阶段 1、2 已完成，阶段 3、4 正在迁移。归属 [DEV-052](DEV-052-architecture-cleanup.md)，
+2026-11-08：已完成，本地构建及相关回归通过。归属 [DEV-052](DEV-052-architecture-cleanup.md)，
 决策见 [ADR-110](../decisions/ADR-110-game-object-runtime-model.md)。
-承接已完成的 [PLAN-104](PLAN-104-value-document-prefab-overrides.md)，不重新打开其历史验收范围。
-下列结构为目标设计；实施进度以检查项为准，不把重命名等同于运行存储已迁移。
+承接已完成的 [PLAN-104](PLAN-104-value-document-prefab-overrides.md)，历史与投影由
+[PLAN-106](PLAN-106-document-history-projection.md) 完成；本计划不代表整个版本发布。
 
 ## 目标
 
@@ -19,12 +19,13 @@
 - 场景树使用同一实体上的层级信息，删除独立节点槽位到实体的第二套生命周期。
 - 文档历史与投影算法解耦；按 PLAN-106 保留增量同步，不新增通用事务服务。
 
-## 当前问题
+## 迁移结果
 
-scene_instance_state 同时维护场景成员和 prefab_binding，后者仍持有来源、reference_，conflicts_ 已删除。
-组件修改已不再生成覆盖。编辑文档已经权威化，但运行时仍承担来源查询、捕获和刷新。
-World 层级已迁入实体组件，独立 scene_tree 槽位已删除；场景成员归属和旧 node_* 接口仍待迁移。
-组件身份已收敛到 component_description_base，component_entry 已删除。
+World 拥有实体、层级和场景成员；借用句柄负责访问，不再保留独立 Scene Tree 生命周期。
+组件身份归 component_description_base。运行实例只保存有效成员，旧 prefab_binding、
+来源覆盖缓存、作者捕获及专用运行 Prefab 创建/删除/重载接口均已删除。
+Editor 管理文档和历史，Runtime 热重载协调器持有显式固定来源和地址回执。
+持久父关系已使用 object_address，普通自有对象可以引用具体 Prefab 成员。
 
 ## 已确认模型
 
@@ -94,24 +95,9 @@ Prefab 来源查询、Apply/Revert、来源刷新从文档和组合结果获得�
 
 职责划分以 [ADR-110](../decisions/ADR-110-game-object-runtime-model.md) 为准。
 
-当前第 1 项已接通：Engine 提供 `compose_scene` 与 `object_address`，编辑器只恢复冻结输入后调用，
-Runtime 首次场景实例化复用组合后的有效组件。运行创建仍经过旧 `prefab_binding`，
-准备阶段的依赖收集与独立 Prefab 实例化/重载也仍有旧路径；第 2、3 项没有因此完成。
-后续应继续贯通通用应用及其调用方，不能把共享组合函数视为长期来源状态已删除。
-验证见[共享组合记录](../records/2026-11-08-shared-scene-composition.md)。
-
-通用应用已接通编辑器增量更新、普通场景首次实例化及编辑器重建路径：
-`apply_scene` 接收前后有效对象、地址关联及显式资源引用，组件安装不再隐式请求资产；
-编辑值准备回调仍在编辑器调用侧。编辑器重建即使包含 Prefab 也只建立普通运行对象，
-来源地址通过实例化回执交给投影，不建立新的 `prefab_binding`。
-
-剩余顺序保持明确：
-- Runtime 含 Prefab 的首次实例化、独立实例化及来源重载仍走旧路径，需把来源组合与关联移交外部协调方。
-- Runtime/IPC 逐帧来源查询已改用显式回执关联；旧重载完成时仍有一次来源反查过渡，
-  需随重载回执迁移一起删除，见[检查关联记录](../records/2026-11-08-runtime-inspection-bindings.md)。
-- 删除旧运行来源刷新、作者捕获及子树接口后，删除 `prefab_binding` 和成员 `persistent` 分类。
-- 将持久父关系贯通为 `object_address`，然后完成整链验收。
-验证记录见[通用应用](../records/2026-11-08-shared-scene-application.md)与[资源消费及投影重建](../records/2026-11-08-explicit-scene-resources.md)。
+共享组合与通用应用已覆盖 Runtime 首次加载、独立实例化、来源刷新及 Editor 重建/增量投影。
+`apply_scene` 只接收前后有效对象、地址关联和显式资源引用；来源协调归调用方。
+持久父地址已贯通反射、文件、校验、复制、解包、创建与重挂接，以及局部历史恢复。
 
 组合类型是可丢弃中间数据，不作为第二份文档；不为了减少结构数量而混合作者与运行语义。
 
@@ -151,7 +137,7 @@ Runtime 首次场景实例化复用组合后的有效组件。运行创建仍经
 - [x] 组合结果使用明确文档对象地址，表达普通对象及单层 Prefab 成员的父关系。
 - [x] 纯内存组合输出有效描述、来源信息和覆盖冲突，供编辑定位与层级查询共用。
 - [x] 实例化回执显式交付对象地址与实体关联；文档侧维护独立投影映射，删除运行来源反查。
-- [ ] 将对象地址贯穿持久文档父关系。
+- [x] 将对象地址贯穿持久文档父关系。
 - [x] 编辑器查询/覆盖/保存/刷新不反向读取 prefab_binding；结构更新统一按组合对象地址增量投影。
 - [x] 删除运行组件编辑中的覆盖生成；编辑器下发组合后的有效组件与变换。
 - [x] 迁移来源查询与刷新后，删除运行实例的覆盖表和冲突状态。
@@ -167,7 +153,7 @@ Runtime 首次场景实例化复用组合后的有效组件。运行创建仍经
 运行创建/删除/重载、私有捕获基线和 persistent 分类。运行集合只保存普通成员。
 Runtime 需要热重载时持有显式来源与地址关联，Editor 查询/保存/历史只读取文档。
 详见[运行路径统一记录](../records/2026-11-08-flat-runtime-scene-members.md)。
-持久文档父关系仍待贯穿对象地址，阶段 3 尚未整体完成。
+持久父地址已贯通，阶段 3 已完成；整链验证见阶段 5。
 
 ### 4：统一运行存储
 
@@ -182,15 +168,17 @@ Runtime 需要热重载时持有显式来源与地址关联，Editor 查询/保�
 
 ### 5：验收与清理
 
-- [ ] 文件往返、覆盖冲突、历史恢复、来源刷新与资源保活。
-- [ ] 空句柄、跨 World、generation、重复删除、场景卸载、非法层级。
-- [ ] 核查 Runtime 不依赖 Editor 文档或覆盖写入协议。
-- [ ] 更新 Reference/Record，完成默认构建与相关回归；不运行 GPU 大场景或远端 CI。
+- [x] 文件往返、覆盖冲突、历史恢复、来源刷新与资源保活。
+- [x] 空句柄、跨 World、generation、重复删除、场景卸载、非法层级。
+- [x] 核查 Runtime 不依赖 Editor 文档或覆盖写入协议。
+- [x] 更新 Reference/Record，完成默认构建与相关回归；不运行 GPU 大场景或远端 CI。
 
 阶段 1 默认 Windows Clang Debug 构建与 34 项定向回归通过；依赖边界检查通过，
 阶段 2 已完成继承支持和组件 UUID 归属迁移，删除 component_entry；
 最终默认构建与 45 项定向回归通过。详见[阶段记录](../records/2026-11-07-game-object-model.md)。
-层级实体存储、场景成员归属与 Prefab 编辑边界已迁移；持久父地址与最终验收尚未完成。
+层级实体存储、场景成员归属、Prefab 编辑边界及持久父地址均已迁移。
+最终验收覆盖 86 项相关回归；首轮遗留失败修复后按受影响测试复验通过，默认构建通过。
+详见[最终验收记录](../records/2026-11-08-game-object-model-complete.md)。
 
 ## 非目标与代价
 

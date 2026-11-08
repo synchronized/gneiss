@@ -60,7 +60,7 @@ struct memory_files final : gneiss::test_support::memory_file_fixture {
   }
 };
 constexpr std::string_view object =
-    R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":null,
+    R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":{"object":null,"source":null},
 "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
 "components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://m.mesh","material":"asset://m.material","uuid":"ac333749-72c7-4d50-bb9f-1751770a897c"}}]})";
 
@@ -267,7 +267,7 @@ void run() {
       R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,1,0,1]},"texture_uris":["","","","",""]})";
   files->files["s.scene"].insert(
       files->files["s.scene"].size() - 2U,
-      R"(,{"uuid":"00000000-0000-4000-8000-000000000004","prefab":{"uri":"asset://p.prefab","overrides":[]},"parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})");
+      R"(,{"uuid":"00000000-0000-4000-8000-000000000004","prefab":{"uri":"asset://p.prefab","overrides":[]},"parent":{"object":null,"source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})");
   gneiss::engine::scene_instantiation_data prepared;
   gneiss::engine::scene_diagnostic scene_error;
   check(gneiss::test_support::prepare_scene_for_test(active_assets, executor, false,

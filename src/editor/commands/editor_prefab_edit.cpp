@@ -108,7 +108,7 @@ struct editor_prefab_edit::state {
       }
       // 刷新只更换模板来源，自有子对象由现有实例化入口保留。
       auto adjusted = std::make_shared<scene_subtree_snapshot>(std::move(*snapshot));
-      adjusted->parent_uuid = before[after.size()]->parent_uuid;
+      adjusted->parent = before[after.size()]->parent;
       after.push_back(std::move(adjusted));
       return;
     }
@@ -242,10 +242,15 @@ gneiss::engine::error editor_prefab_edit::request(runtime::application& applicat
     if (!snapshot)
       return snapshot.error();
     const auto found = std::ranges::find(snapshot->nodes, parent, &scene_node_record::node);
-    if (found == snapshot->nodes.end()) {
-      return gneiss::engine::error::invalid_handle;
+    if (found != snapshot->nodes.end()) {
+      next->source.author.parent = {found->uuid, {}};
+    } else {
+      const auto source =
+          std::ranges::find(snapshot->prefab_nodes, parent, &prefab_node_record::node);
+      if (source == snapshot->prefab_nodes.end())
+        return engine::error::invalid_handle;
+      next->source.author.parent = {source->instance_uuid, source->source_node_uuid};
     }
-    next->source.author.parent_uuid = found->uuid;
   }
   status = application.assets().configure(executor);
   if (status.failed())

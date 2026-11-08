@@ -948,32 +948,28 @@ void request_document_action(editor_state& state, gneiss::editor::document_actio
 }
 
 bool reparent_with_history(editor_state& state, gneiss::engine::guid source_uuid,
-                           gneiss::engine::guid target_uuid) {
-  const auto source = state.editing.document().find_node(source_uuid);
-  const auto target = target_uuid.is_nil() ? gneiss::engine::error{gneiss::engine::error::not_found}
-                                           : state.editing.document().find_node(target_uuid);
-  if (!source || (!target_uuid.is_nil() && !target) ||
-      (bool(target) && source->node == target->node)) {
+                           gneiss::engine::object_address destination) {
+  auto& document = state.editing.document();
+  const auto source = document.find_node(source_uuid);
+  if (!source)
     return false;
-  }
-  gneiss::engine::guid previous_parent_uuid;
-  if (source->parent.is_valid()) {
-    auto query = state.editing.document().capture_nodes();
-    if (!query)
+  gneiss::scene_node_id parent;
+  if (destination.source) {
+    const auto target = document.find_prefab_source(destination.object, destination.source);
+    if (!target)
       return false;
-    const auto parent =
-        std::ranges::find(query->nodes, source->parent, &gneiss::editor::scene_node_record::node);
-    if (parent != query->nodes.end()) {
-      previous_parent_uuid = parent->uuid;
-    }
+    parent = target->node;
+  } else if (destination.object) {
+    const auto target = document.find_node(destination.object);
+    if (!target)
+      return false;
+    parent = target->node;
   }
-  if (previous_parent_uuid == target_uuid) {
+  if (source->node == parent || source->parent == parent)
     return false;
-  }
-  state.history_error = gneiss::editor::execute_scene_edit(
-      state.editing.history(), state.editing.document(), "移动节点", [&] {
-        return state.editing.document().reparent_node(
-            source->node, !target ? gneiss::scene_node_id{} : target->node);
+  state.history_error =
+      gneiss::editor::execute_scene_edit(state.editing.history(), document, "移动节点", [&] {
+        return document.reparent_node(source->node, parent);
       });
   return true;
 }
@@ -2497,7 +2493,7 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
         break;
       }
       case tree_action::reparent:
-        (void)reparent_with_history(state, tree_request.uuid, tree_request.parent_uuid);
+        (void)reparent_with_history(state, tree_request.uuid, tree_request.parent);
         break;
       }
       if (state.pending_prefab_author_action != prefab_author_action::none &&

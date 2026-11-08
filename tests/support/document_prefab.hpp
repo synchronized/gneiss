@@ -9,8 +9,8 @@ place_document_prefab(editor::scene_edit_session& document, engine::game_object_
                       std::span<const engine::scene_mesh_binding> bindings, bool replacing) {
   gneiss::editor::scene_subtree_snapshot snapshot;
   snapshot.root_uuid = author.uuid;
-  snapshot.parent_uuid = author.parent_uuid;
-  author.parent_uuid = {};
+  snapshot.parent = author.parent;
+  author.parent = {};
   engine::scene_description description;
   description.uuid = document.capture_content()->content.get().uuid;
   description.objects.push_back(author);

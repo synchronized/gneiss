@@ -147,7 +147,7 @@ result<scene_node_id> scene_instance_state::create_node(const node_creation& des
   try {
     game_object_description author{.uuid = uuid,
                                    .name = std::string(name),
-                                   .parent_uuid = std::move(parent_uuid),
+                                   .parent = {std::move(parent_uuid), {}},
                                    .transform = desc.local_transform,
                                    .components = {}};
     objects_.reserve(objects_.size() + 1U);
@@ -261,7 +261,7 @@ scene_instance_state::create_mesh_renderer_node(const mesh_renderer_node_creatio
     game_object_description author{
         .uuid = uuid,
         .name = std::string(name),
-        .parent_uuid = std::move(parent_uuid),
+        .parent = {std::move(parent_uuid), {}},
         .transform = {},
         .components = {make_component_description(
             engine::mesh_renderer_description{std::string(mesh_uri), std::string(material_uri)})}};

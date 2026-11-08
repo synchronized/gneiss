@@ -58,7 +58,7 @@ struct fixture {
     std::ofstream(root / "material.json")
         << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,0,0,1]},"texture_uris":["","","","",""]})";
     std::ofstream(root / "scene.json")
-        << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://mesh.json","material":"asset://material.json","uuid":"b415ac68-8f28-4fc4-8bf1-7fb1169d485a"}}]}]})";
+        << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":{"object":null,"source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://mesh.json","material":"asset://material.json","uuid":"b415ac68-8f28-4fc4-8bf1-7fb1169d485a"}}]}]})";
   }
   ~fixture() {
     std::error_code ignored;
@@ -515,8 +515,8 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
   }
   std::ofstream(files.root / "scene.json")
       << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[)"
-      << R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://mesh.json","material":"asset://material.json","uuid":"3c65d64c-c47c-40f1-b0d6-34af2619a4eb"}}]},)"
-      << R"({"uuid":"00000000-0000-4000-8000-000000000003","parent":null,"transform":{"translation":[1,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://mesh.json","material":"asset://other.json","uuid":"8bc198c9-d44b-4726-8080-c13a800efd97"}}]}]})";
+      << R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":{"object":null,"source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://mesh.json","material":"asset://material.json","uuid":"3c65d64c-c47c-40f1-b0d6-34af2619a4eb"}}]},)"
+      << R"({"uuid":"00000000-0000-4000-8000-000000000003","parent":{"object":null,"source":null},"transform":{"translation":[1,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://mesh.json","material":"asset://other.json","uuid":"8bc198c9-d44b-4726-8080-c13a800efd97"}}]}]})";
   gneiss::engine::task_scheduler scheduler({.workers = 1U, .mode = mode});
   std::shared_ptr<application> app;
   application_configuration desc;
@@ -655,7 +655,7 @@ void source_reload_without_world_prefab_state() {
   root.uuid = e::guid::generate();
   root.name = "root";
   child.uuid = e::guid::generate();
-  child.parent_uuid = root.uuid;
+  child.parent.object = root.uuid;
   child.name = "child";
   prefab.root_uuid = root.uuid;
   prefab.objects = {root, child};
@@ -712,7 +712,7 @@ void source_reload_without_world_prefab_state() {
   prefab.objects[1].name = "updated";
   e::game_object_description extra;
   extra.uuid = e::guid::generate();
-  extra.parent_uuid = root.uuid;
+  extra.parent.object = root.uuid;
   prefab.objects.push_back(extra);
   write("source.prefab", prefab);
   auto changed = reload();
@@ -729,8 +729,8 @@ void source_reload_without_world_prefab_state() {
         !app->native_world()->object(entity_id{child_node.get()}));
   const auto extra_node = find(changed.objects, extra.uuid);
   prefab.root_uuid = extra.uuid;
-  prefab.objects[0].parent_uuid = extra.uuid;
-  prefab.objects[1].parent_uuid = {};
+  prefab.objects[0].parent.object = extra.uuid;
+  prefab.objects[1].parent.object = {};
   write("source.prefab", prefab);
   changed = reload();
   check(changed.result.ok() && find(changed.objects, root.uuid) == root_node &&

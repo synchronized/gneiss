@@ -4,6 +4,7 @@
 #include "engine/core/math/camera.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/resource/scene/component_description.hpp"
+#include "engine/resource/scene/object_address.hpp"
 #include "engine/resource/scene/prefab_property_data.hpp"
 #include <optional>
 #include <string>
@@ -54,7 +55,7 @@ struct game_object_description final {
   static constexpr guid type_guid = guid::literal("d37553e3-45c8-4a29-ae26-ada3069d81ec");
   gneiss::engine::guid uuid;
   std::string name;
-  gneiss::engine::guid parent_uuid{};
+  object_address parent{};
   /** 相对父对象的局部变换；默认单位变换。 */
   math::transform transform{};
   component_descriptions components;

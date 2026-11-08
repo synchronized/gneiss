@@ -32,14 +32,14 @@ constexpr std::string_view valid_prefab = R"({
     {
       "uuid":"10000000-0000-4000-8000-000000000002",
       "name":"Prefab Root",
-      "parent":null,
+      "parent":{"object":null,"source":null},
       "transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[1,1,1]},
       "components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/lantern.mesh","material":"asset://materials/lantern.material","uuid":"f2157104-7e8c-43f5-94d9-7658da5c5361"}}]
     },
     {
       "uuid":"10000000-0000-4000-8000-000000000003",
       "name":"Child",
-      "parent":"10000000-0000-4000-8000-000000000002",
+      "parent":{"object":"10000000-0000-4000-8000-000000000002","source":null},
       "transform":{"translation":[0,1,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
       "components":[]
     }
@@ -142,8 +142,8 @@ bool explicit_root_contract() {
     return false;
   // 根选择写回文件，不能保留 输入文件中的旧 root_uuid。
   parsed->root_uuid = child;
-  parsed->objects[0].parent_uuid = {};
-  parsed->objects[1].parent_uuid = child;
+  parsed->objects[0].parent.object = {};
+  parsed->objects[1].parent.object = child;
   text = gneiss::engine::asset_file::serialize(*parsed);
   if (!text)
     return false;
@@ -166,8 +166,9 @@ bool explicit_root_contract() {
                               R"("root_uuid":"10000000-0000-4000-8000-000000000002",)", "");
   if (gneiss::engine::asset_file::deserialize<e::prefab_description>(missing))
     return false;
-  const auto cycle = replace_once(std::string(valid_prefab), R"("parent":null)",
-                                  R"("parent":"10000000-0000-4000-8000-000000000003")");
+  const auto cycle =
+      replace_once(std::string(valid_prefab), R"("parent":{"object":null,"source":null})",
+                   R"("parent":{"object":"10000000-0000-4000-8000-000000000003","source":null})");
   if (gneiss::engine::asset_file::deserialize<e::prefab_description>(cycle))
     return false;
   const auto duplicate =
@@ -188,9 +189,9 @@ bool save_tree_contract() {
     return !encoded && encoded.error().error == e::error::invalid_argument;
   };
   return rejects([](auto& prefab) { prefab.root_uuid = {}; }) &&
-         rejects([](auto& prefab) { prefab.objects[1].parent_uuid = {}; }) &&
-         rejects([](auto& prefab) { prefab.objects[1].parent_uuid = prefab.objects[1].uuid; }) &&
-         rejects([](auto& prefab) { prefab.objects[1].parent_uuid = prefab.uuid; }) &&
+         rejects([](auto& prefab) { prefab.objects[1].parent.object = {}; }) &&
+         rejects([](auto& prefab) { prefab.objects[1].parent.object = prefab.objects[1].uuid; }) &&
+         rejects([](auto& prefab) { prefab.objects[1].parent.object = prefab.uuid; }) &&
          rejects([](auto& prefab) { prefab.objects[1].uuid = prefab.objects[0].uuid; });
 }
 
@@ -260,7 +261,7 @@ int main() try {
   if (gneiss::test_support::assign_decoded(
           gneiss::engine::asset_file::deserialize<gneiss::engine::prefab_description>(valid_prefab),
           prefab, diagnostic) != gneiss::engine::error::success ||
-      prefab.objects.size() != 2U || prefab.objects[1].parent_uuid != prefab.objects[0].uuid) {
+      prefab.objects.size() != 2U || prefab.objects[1].parent.object != prefab.objects[0].uuid) {
     return 1;
   }
   std::string serialized;
@@ -310,8 +311,9 @@ int main() try {
   }
 
   const auto multiple_roots =
-      replace_once(std::string(valid_prefab), R"("parent":"10000000-0000-4000-8000-000000000002")",
-                   R"("parent":null)");
+      replace_once(std::string(valid_prefab),
+                   R"("parent":{"object":"10000000-0000-4000-8000-000000000002","source":null})",
+                   R"("parent":{"object":null,"source":null})");
   auto rejected =
       gneiss::engine::asset_file::deserialize<gneiss::engine::prefab_description>(multiple_roots);
   if (rejected || rejected.error().error != gneiss::engine::error::invalid_argument ||

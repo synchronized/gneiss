@@ -5,7 +5,7 @@
   "objects": [
     {
       "uuid": "20000000-0000-4000-8000-000000000040",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "name": "Lantern Pivot",
       "transform": {
         "translation": [
@@ -29,7 +29,7 @@
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000001",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "name": "Gallery Camera",
       "transform": {
         "translation": [
@@ -55,7 +55,7 @@
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000002",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "name": "Stone Floor",
       "transform": {
         "translation": [
@@ -81,7 +81,7 @@
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000003",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "name": "Northwest Pillar",
       "transform": {
         "translation": [
@@ -107,7 +107,7 @@
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000004",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "name": "Northeast Pillar",
       "transform": {
         "translation": [
@@ -133,7 +133,7 @@
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000005",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "name": "Southwest Pillar",
       "transform": {
         "translation": [
@@ -159,7 +159,7 @@
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000006",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "name": "Southeast Pillar",
       "transform": {
         "translation": [
@@ -184,7 +184,7 @@
       ]
     },
     {
-      "parent": "20000000-0000-4000-8000-000000000040",
+      "parent": {"object":"20000000-0000-4000-8000-000000000040","source":null},
       "name": "Left Lantern",
       "prefab": {
         "uri": "asset://prefabs/lantern.prefab.json",
@@ -234,7 +234,7 @@
       "uuid": "20000000-0000-4000-8000-000000000010"
     },
     {
-      "parent": "20000000-0000-4000-8000-000000000040",
+      "parent": {"object":"20000000-0000-4000-8000-000000000040","source":null},
       "name": "Center Lantern",
       "prefab": {
         "uri": "asset://prefabs/lantern.prefab.json",
@@ -284,7 +284,7 @@
       "uuid": "20000000-0000-4000-8000-000000000020"
     },
     {
-      "parent": "20000000-0000-4000-8000-000000000040",
+      "parent": {"object":"20000000-0000-4000-8000-000000000040","source":null},
       "name": "Right Lantern",
       "prefab": {
         "uri": "asset://prefabs/lantern.prefab.json",
