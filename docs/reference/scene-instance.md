@@ -137,9 +137,10 @@ Editor Document 保存及完整子树撤销读取文档版本，不反向捕获 
 没有独立的实例描述数组。根名称与变换采用外层对象值，根组件来自模板与实例覆盖。
 具体格式与校验见[场景格式](scene-format.md)。
 
-`set_node_name` 支持普通对象与实例根。`reparent_node` 支持显式对象，普通自有对象可挂在实例根下，
-不能挂到模板内部节点。模板内部结构暂不提供增删或重排覆盖。
-`destroy_node` 对所有显式对象统一要求没有实际子节点；完整删除使用 `destroy_subtree`，不按 Prefab 类型切换删除语义。
+`set_node_name`、`reparent_node`、动态子对象创建和相机操作统一按场景成员校验，
+普通对象、Prefab 根和展开成员使用相同规则。运行时可以删除来源成员或调整其层级，
+但不自动生成文档中的结构覆盖。跨场景父关系仍拒绝。
+`destroy_node` 对所有成员统一要求没有实际子节点；完整删除使用 `destroy_subtree`。
 `set_node_transform` 及组件增删、替换接口只修改运行时有效数据，不生成 Prefab 覆盖。
 覆盖生成及恢复属于 `scene_edit_session`。运行时临时修改不会更新加载时的 Prefab 引用；重新实例化仍采用文档覆盖。
 `prefab_binding` 不执行属性覆盖，不保存冲突列表，reload 接收组合后的有效描述。

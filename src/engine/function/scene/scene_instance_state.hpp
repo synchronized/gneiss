@@ -94,10 +94,8 @@ public:
 
 private:
   friend class scene_instances;
-  [[nodiscard]] std::vector<node_entry>::iterator find_authored_node(scene_node_id node);
-  [[nodiscard]] std::vector<node_entry>::iterator find_ordinary_node(scene_node_id node);
-  [[nodiscard]] std::vector<node_entry>::const_iterator
-  find_ordinary_node(scene_node_id node) const;
+  [[nodiscard]] std::vector<node_entry>::iterator find_member(scene_node_id node);
+  [[nodiscard]] std::vector<node_entry>::const_iterator find_member(scene_node_id node) const;
   [[nodiscard]] std::optional<prefab_origin_view> prefab_origin(scene_node_id node) const;
   void append_prefab_members(const prefab_binding& prefab);
   prefab_reference_description& prefab_reference(std::size_t index);

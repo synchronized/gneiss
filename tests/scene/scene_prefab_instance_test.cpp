@@ -92,10 +92,27 @@ int main() try {
   // 名称与删除入口按操作语义区分，不按 Prefab 类型区分。
   if (application->scenes()->destroy_node(scene, prefab_root.node) !=
           gneiss::engine::error::invalid_state ||
-      application->scenes()->set_node_name(scene, prefab_source.node, "Forbidden") !=
-          gneiss::engine::error::invalid_handle)
+      application->scenes()->set_node_name(scene, prefab_source.node, "Runtime name") !=
+          gneiss::engine::error::success)
     return 13;
 
+  // 来源节点与普通对象一样允许动态子对象、相机和重挂接；不写入来源。
+  auto dynamic =
+      application->scenes()->create_node(scene, {.uuid = gneiss::engine::guid::generate(),
+                                                 .name = "Dynamic child",
+                                                 .parent = prefab_source.node});
+  if (!dynamic || application->scenes()->reparent_node(scene, *dynamic, {}).failed() ||
+      application->scenes()->reparent_node(scene, *dynamic, prefab_source.node).failed() ||
+      application->scenes()->destroy_node(scene, *dynamic).failed())
+    return 13;
+  gneiss::engine::camera_description runtime_camera;
+  runtime_camera.settings.fov = 1.0F;
+  runtime_camera.settings.near = 0.1F;
+  runtime_camera.settings.far = 100.0F;
+  runtime_camera.is_primary = true;
+  if (application->scenes()->set_camera(scene, prefab_source.node, runtime_camera).failed() ||
+      application->scenes()->remove_camera(scene, prefab_source.node).failed())
+    return 13;
   const auto authored_json = application->scenes()->serialize(scene);
   if (!authored_json)
     return 2;
@@ -304,6 +321,19 @@ int main() try {
     std::fprintf(stderr, "子树生命周期检查 11 失败\n");
     return 10;
   }
+  // 来源成员也可以独立删除；删除成员不要求销毁整个 Prefab 根。
+  create_desc.parent = {};
+  create_desc.instance_uuid = gneiss::engine::guid::generate();
+  if (gneiss::test_support::create_prefab(*application, scene, create_desc, created_root)
+          .failed() ||
+      gneiss::test_support::prefab_node_info(*application->scenes(), scene, 1U, prefab_source)
+          .failed() ||
+      application->scenes()->destroy_subtree(scene, prefab_source.node).failed())
+    return 14;
+  auto remaining = application->scenes()->get_node_count(scene);
+  if (!remaining || *remaining != 1U ||
+      application->scenes()->destroy_node(scene, created_root).failed())
+    return 14;
   if (application->scenes()->unload(scene) != gneiss::engine::error::success ||
       gneiss::test_support::assign_value(application->native_world()->entity_count(),
                                          entity_count) != gneiss::engine::error::success ||

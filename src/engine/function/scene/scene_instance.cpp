@@ -98,24 +98,12 @@ scene_instance_state::scene_instance_state(world& native_world, asset_manager& l
 scene_instance_state::~scene_instance_state() noexcept { rollback(); }
 
 std::vector<scene_instance_state::node_entry>::iterator
-scene_instance_state::find_authored_node(scene_node_id node) {
-  return std::ranges::find_if(
-      objects_, [node](const auto& value) { return value.node == node && value.persistent; });
-}
-std::vector<scene_instance_state::node_entry>::iterator
-scene_instance_state::find_ordinary_node(scene_node_id node) {
-  auto found = find_authored_node(node);
-  return std::ranges::any_of(prefab_instances_, [node](const auto& p) { return p->root() == node; })
-             ? objects_.end()
-             : found;
+scene_instance_state::find_member(scene_node_id node) {
+  return std::ranges::find(objects_, node, &node_entry::node);
 }
 std::vector<scene_instance_state::node_entry>::const_iterator
-scene_instance_state::find_ordinary_node(scene_node_id node) const {
-  auto found = std::ranges::find_if(
-      objects_, [node](const auto& value) { return value.node == node && value.persistent; });
-  return std::ranges::any_of(prefab_instances_, [node](const auto& p) { return p->root() == node; })
-             ? objects_.end()
-             : found;
+scene_instance_state::find_member(scene_node_id node) const {
+  return std::ranges::find(objects_, node, &node_entry::node);
 }
 prefab_reference_description& scene_instance_state::prefab_reference(std::size_t index) {
   return prefab_instances_.at(index)->reference_;
@@ -503,7 +491,7 @@ result<scene_node_id> scene_instance_state::create_node(const node_creation& des
   }
   gneiss::engine::guid parent_uuid{};
   if (desc.parent != null_scene_node_id) {
-    const auto parent = find_authored_node(desc.parent);
+    const auto parent = find_member(desc.parent);
     if (parent == objects_.end()) {
       return engine::error::invalid_handle;
     }
@@ -538,7 +526,7 @@ result<scene_node_id> scene_instance_state::create_node(const node_creation& des
 }
 
 engine::error scene_instance_state::set_node_name(scene_node_id node, std::string_view name) {
-  const auto found = find_authored_node(node);
+  const auto found = find_member(node);
   if (found == objects_.end()) {
     return engine::error::invalid_handle;
   }
@@ -553,11 +541,11 @@ engine::error scene_instance_state::set_node_name(scene_node_id node, std::strin
 }
 
 engine::error scene_instance_state::reparent_node(scene_node_id node, scene_node_id parent) {
-  const auto found = find_authored_node(node);
+  const auto found = find_member(node);
   if (found == objects_.end()) {
     return engine::error::invalid_handle;
   }
-  if (parent && find_authored_node(parent) == objects_.end())
+  if (parent && find_member(parent) == objects_.end())
     return error::invalid_handle;
   return native_world_.node_reparent(node, parent);
 }
@@ -650,7 +638,7 @@ scene_instance_state::restore_subtree(const scene_subtree_snapshot& snapshot, sc
                                       std::span<const uuid_mapping> mappings) {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  if (parent && find_authored_node(parent) == objects_.end())
+  if (parent && find_member(parent) == objects_.end())
     return error::invalid_handle;
   auto description = snapshot.description();
   if (!description)
@@ -773,9 +761,6 @@ engine::error scene_instance_state::destroy_subtree(scene_node_id root) {
   const auto root_member = std::ranges::find(objects_, root, &node_entry::node);
   if (root_member == objects_.end())
     return error::invalid_handle;
-  const auto origin = prefab_origin(root);
-  if (origin && !origin->is_instance_root)
-    return error::invalid_state;
   try {
     std::vector<scene_node_id> removed;
     removed.reserve(objects_.size());
@@ -832,7 +817,7 @@ scene_instance_state::create_mesh_renderer_node(const mesh_renderer_node_creatio
   }
   gneiss::engine::guid parent_uuid{};
   if (desc.parent != null_scene_node_id) {
-    const auto parent = find_authored_node(desc.parent);
+    const auto parent = find_member(desc.parent);
     if (parent == objects_.end()) {
       return engine::error::invalid_handle;
     }
@@ -910,7 +895,7 @@ scene_instance_state::create_mesh_renderer_node(const mesh_renderer_node_creatio
 
 engine::error scene_instance_state::set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
                                                       std::string_view material_uri) {
-  const auto found = find_ordinary_node(node);
+  const auto found = find_member(node);
   if (found == objects_.end()) {
     return engine::error::invalid_handle;
   }
@@ -971,28 +956,7 @@ engine::error scene_instance_state::set_mesh_renderer(scene_node_id node, std::s
 
 engine::error scene_instance_state::set_camera(scene_node_id node,
                                                const engine::camera_description& desc) try {
-  // Prefab 的相机参数只写实例覆盖，不修改共享来源描述或活动相机。
-  for (std::size_t index = 0; index < prefab_instances_.size(); ++index) {
-    auto& runtime = *prefab_instances_[index];
-    for (std::size_t n = 0; n < runtime.node_count(); ++n) {
-      prefab_binding::node_info info;
-      if (runtime.get_node_info(n, info).failed() || info.node != node)
-        continue;
-      const auto* source = runtime.find_source_object(info.address->source_node_uuid);
-      const auto* camera = source ? source->components.get<camera_description>() : nullptr;
-      if (!camera)
-        return set_component_description(node, make_component_description(desc));
-      entity_id active;
-      auto status = native_world_.get_active_camera(active);
-      if (status.failed() && status != error::not_ready)
-        return status;
-      const auto entity = entity_id{scene_object_entity(native_world_, node)};
-      if (desc.is_primary != (active == entity))
-        return error::unsupported;
-      return set_component_description(node, make_component_description(desc));
-    }
-  }
-  const auto found = find_ordinary_node(node);
+  const auto found = find_member(node);
   if (found == objects_.end()) {
     return engine::error::invalid_handle;
   }
@@ -1016,7 +980,7 @@ engine::error scene_instance_state::set_camera(scene_node_id node,
 }
 
 engine::error scene_instance_state::remove_camera(scene_node_id node) {
-  const auto found = find_ordinary_node(node);
+  const auto found = find_member(node);
   if (found == objects_.end()) {
     return engine::error::invalid_handle;
   }
@@ -1025,7 +989,7 @@ engine::error scene_instance_state::remove_camera(scene_node_id node) {
 }
 
 engine::error scene_instance_state::remove_mesh_renderer(scene_node_id node) {
-  const auto found = find_ordinary_node(node);
+  const auto found = find_member(node);
   if (found == objects_.end()) {
     return engine::error::invalid_handle;
   }
@@ -1039,7 +1003,7 @@ engine::error scene_instance_state::remove_mesh_renderer(scene_node_id node) {
 }
 
 engine::error scene_instance_state::destroy_node(scene_node_id node) {
-  if (find_authored_node(node) == objects_.end())
+  if (find_member(node) == objects_.end())
     return error::invalid_handle;
   // 单节点删除始终要求没有实际子节点；整棵实例使用 destroy_subtree。
   for (const auto& member : objects_) {

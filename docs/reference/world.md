@@ -39,7 +39,7 @@ size、find 和枚举不再返回已经失效的成员。存活实体仍以 Worl
 借用接口位于 `function/world/scene_instance.hpp`。
 `scene_instance::create(identity, transform, parent)` 显式创建并登记本场景对象，
 返回 game_object；空父对象创建根，其他场景或 World 的父对象被拒绝。
-当前 Prefab 来源内部父节点的创建限制仍随通用投影迁移。
+Prefab 展开的成员同样可以作为动态对象的父节点；运行结构修改不写入编辑文档。
 `world::create_object` 创建的独立对象不自动登记到场景；
 挂在场景成员下时随父子树销毁，脱离后仍由 World 管理。
 需要在脱离父节点后仍随场景卸载的动态对象，应从 scene_instance::create 创建。
