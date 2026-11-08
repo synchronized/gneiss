@@ -46,6 +46,8 @@ public:
                                        const scene_document_snapshot&) noexcept;
   [[nodiscard]] version current() const noexcept { return current_; }
   [[nodiscard]] bool is_dirty() const noexcept;
+  /** 显式使保存点失效；普通编辑通过版本变化自动变脏。 */
+  void mark_dirty() noexcept { saved_.reset(); }
   /** 保存完成时传回实际写出的版本；后续编辑保持 dirty，其他文档的回执被拒绝。 */
   [[nodiscard]] engine::error mark_saved(const version&) noexcept;
 

@@ -408,7 +408,6 @@ apply_author_snapshot(editor_state& state, const author_selection& selection,
   const auto status = gneiss::editor::restore_scene_document(*state.application,
                                                              state.editing.document(), snapshot);
   if (status.ok()) {
-    state.editing.document().mark_dirty();
     restore_author_selection(state, selection);
   }
   return status;
@@ -421,7 +420,6 @@ adopt_author_documents(editor_state& state, std::string label,
   if (history_boundary) {
     // 共享来源已经保存；旧快照不能再通过普通撤销恢复旧来源投影。
     (void)state.editing.history().clear(false);
-    state.editing.document().mark_dirty();
   }
   if (history_boundary)
     return apply_author_snapshot(state, redo_selection, *after);

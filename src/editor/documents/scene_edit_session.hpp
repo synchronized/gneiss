@@ -135,7 +135,7 @@ public:
   [[nodiscard]] engine::error
   replace_mesh_binding(scene_node_id node, const engine::scene_mesh_binding& expected,
                        const engine::scene_mesh_binding& replacement) noexcept;
-  [[nodiscard]] bool is_dirty() const noexcept { return is_dirty_; }
+  [[nodiscard]] bool is_dirty() const noexcept { return document_ && document_->is_dirty(); }
   [[nodiscard]] std::string_view uri() const noexcept { return uri_; }
   [[nodiscard]] engine::result<scene_node_record> query_node(scene_node_id node) const noexcept;
   [[nodiscard]] engine::result<prefab_node_record>
@@ -239,9 +239,11 @@ public:
       capture_prefab_header(engine::guid) const noexcept;
   [[nodiscard]] engine::error apply_prefab(const scene_subtree_snapshot&, bool removing,
                                            bool replacing) noexcept;
-  void mark_dirty() noexcept { is_dirty_ = true; }
+  void mark_dirty() noexcept {
+    if (document_)
+      document_->mark_dirty();
+  }
   void clear_dirty() noexcept {
-    is_dirty_ = false;
     if (document_)
       (void)document_->mark_saved(document_->current());
   }
@@ -279,7 +281,6 @@ private:
   gneiss::scene_instance_id scene_{};
   scene_node_id selection_;
   std::string uri_;
-  bool is_dirty_ = false;
 };
 
 } // namespace gneiss::editor

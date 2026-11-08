@@ -309,6 +309,7 @@ int main() try {
     return status;
   {
     editor_command_history hierarchy;
+    session.clear_dirty();
     if (execute_scene_edit(
             hierarchy, session, "修改层级",
             [&] {
@@ -318,8 +319,9 @@ int main() try {
             "hierarchy")
             .failed())
       return 141;
-    if (hierarchy.undo().failed() || session.query_node(first)->parent ||
-        hierarchy.redo().failed() || session.query_node(first)->parent != second ||
+    if (hierarchy.undo().failed() || session.is_dirty() || session.query_node(first)->parent ||
+        hierarchy.redo().failed() || !session.is_dirty() ||
+        session.query_node(first)->parent != second ||
         session.query_node(first)->entity != first_entity ||
         session.query_node(second)->entity != second_entity || session.projection_status().failed())
       return 42;
@@ -338,7 +340,7 @@ int main() try {
         session.query_node(first)->parent ||
         session.query_node(first)->display_name != "renamed-again" || hierarchy.undo().failed())
       return 142;
-    if (hierarchy.undo().failed())
+    if (hierarchy.undo().failed() || session.is_dirty())
       return 43;
   }
   {

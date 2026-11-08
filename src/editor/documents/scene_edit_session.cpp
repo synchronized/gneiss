@@ -172,7 +172,6 @@ scene_edit_session& scene_edit_session::operator=(scene_edit_session&& other) no
     scene_ = std::exchange(other.scene_, scene_instance_id{});
     selection_ = std::exchange(other.selection_, {});
     uri_ = std::move(other.uri_);
-    is_dirty_ = std::exchange(other.is_dirty_, false);
   }
   return *this;
 }
@@ -250,7 +249,6 @@ gneiss::engine::error scene_edit_session::create_empty(runtime::application& app
   application_ = &application;
   scene_ = *created;
   world_ = world;
-  is_dirty_ = true;
   return gneiss::engine::error::success;
 }
 
@@ -293,7 +291,6 @@ engine::error scene_edit_session::accept_content(const scene_document_snapshot& 
   auto status = document_->accept(document_->current(), snapshot);
   if (status.failed())
     return status;
-  is_dirty_ = true;
   (void)synchronize();
   return engine::error::success;
 }
@@ -365,7 +362,6 @@ engine::error scene_edit_session::edit_content(
   status = document_->accept(before, prepared->snapshot);
   if (status.failed())
     return status;
-  is_dirty_ = true;
   auto projection = project_scene_document(*world_, *application_->scenes(), scene_,
                                            synchronized ? &before.content() : nullptr,
                                            document_->current().content(), false);
@@ -898,7 +894,6 @@ gneiss::engine::error scene_edit_session::remove_mesh_renderer(scene_node_id nod
 void scene_edit_session::close() noexcept {
   selection_ = {};
   uri_.clear();
-  is_dirty_ = false;
   if (is_open())
     (void)with_scene([&](auto& service) { return service.unload(scene_); });
   document_.reset();
@@ -1199,15 +1194,10 @@ engine::error scene_edit_session::accept_save(const save_receipt& receipt) noexc
   if (!is_open() || scene_ != receipt.scene)
     return engine::error::invalid_state;
   try {
-    std::string current;
-    const auto status = encode_scene(current);
-    if (status.failed())
-      return status;
     auto saved = document_->mark_saved(receipt.version);
     if (saved.failed())
       return saved;
     uri_ = receipt.uri;
-    is_dirty_ = current != receipt.content;
     return engine::error::success;
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
@@ -1234,7 +1224,6 @@ engine::error scene_edit_session::restore_changes(const scene_document::revision
   auto status = document_->checkout(expected, target, next);
   if (status.failed())
     return status;
-  is_dirty_ = document_->is_dirty();
   status = project_scene_document(*world_, *application_->scenes(), scene_,
                                   synchronized ? &before.content() : nullptr, next);
   (void)projection_.report(document_->current(), document_->current(), status);
@@ -1254,7 +1243,6 @@ engine::error scene_edit_session::restore_version(const version& expected,
   auto status = document_->checkout(expected, target);
   if (status.failed())
     return status;
-  is_dirty_ = document_->is_dirty();
   if (synchronized) {
     status = project_scene_document(*world_, *application_->scenes(), scene_, &expected.content(),
                                     target.content());
