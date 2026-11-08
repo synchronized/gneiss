@@ -93,9 +93,14 @@ gneiss::engine::error transform_gizmo_drag::finish(scene_edit_session& session,
       return session.restore_version(session.current_version(), before_version);
     return gneiss::engine::error::success;
   }
-  auto operation = gneiss::engine::error::success;
+  // 预览不直接成为历史；恢复编辑基线，再通过统一入口提交最终值。
+  auto operation = session.restore_version(session.current_version(), before_version);
+  if (operation.failed())
+    return operation;
   try {
-    operation = record_scene_edit(history, session, before_version, "变换节点");
+    operation = execute_scene_edit(history, session, "变换节点", [&] {
+      return session.set_local_transform(original_node, after);
+    });
   } catch (const std::bad_alloc&) {
     operation = gneiss::engine::error::out_of_memory;
   }

@@ -31,6 +31,7 @@ class application;
 #include <vector>
 
 namespace gneiss::editor {
+class editor_command_history;
 
 /** 将资产根内的本地路径转换为规范 asset URI；路径越界时拒绝。 */
 [[nodiscard]] gneiss::engine::error make_asset_uri(const std::filesystem::path& asset_root,
@@ -246,6 +247,13 @@ public:
   }
 
 private:
+  friend engine::error execute_scene_edit(editor_command_history&, scene_edit_session&, std::string,
+                                          const std::function<engine::error()>&,
+                                          std::string) noexcept;
+  using history_preparation =
+      std::function<engine::error(const scene_document_snapshot&, const scene_document_snapshot&)>;
+  // 仅在执行历史命令期间借用；候选接受前准备局部反向记录。
+  const history_preparation* prepare_history_{};
   using content_edit =
       std::function<engine::error(engine::scene_description&, scene_document_snapshot&)>;
   engine::error edit_content(const content_edit&,

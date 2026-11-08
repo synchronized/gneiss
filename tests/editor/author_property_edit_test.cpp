@@ -309,16 +309,35 @@ int main() try {
     return status;
   {
     editor_command_history hierarchy;
-    if (execute_scene_edit(hierarchy, session, "修改层级", [&] {
-          auto status = session.rename_node(first, "renamed");
-          return status.failed() ? status : session.reparent_node(first, second);
-        }).failed())
+    if (execute_scene_edit(
+            hierarchy, session, "修改层级",
+            [&] {
+              auto status = session.rename_node(first, "renamed");
+              return status.failed() ? status : session.reparent_node(first, second);
+            },
+            "hierarchy")
+            .failed())
       return 141;
     if (hierarchy.undo().failed() || session.query_node(first)->parent ||
         hierarchy.redo().failed() || session.query_node(first)->parent != second ||
         session.query_node(first)->entity != first_entity ||
         session.query_node(second)->entity != second_entity || session.projection_status().failed())
       return 42;
+    // 多步命令不可只合并第一段差异，重做和反向顺序必须覆盖全部修改。
+    if (execute_scene_edit(
+            hierarchy, session, "再次修改层级",
+            [&] {
+              auto status = session.rename_node(first, "renamed-again");
+              return status.failed() ? status : session.reparent_node(first, {});
+            },
+            "hierarchy")
+            .failed() ||
+        hierarchy.size() != 2 || hierarchy.undo().failed() ||
+        session.query_node(first)->parent != second ||
+        session.query_node(first)->display_name != "renamed" || hierarchy.redo().failed() ||
+        session.query_node(first)->parent ||
+        session.query_node(first)->display_name != "renamed-again" || hierarchy.undo().failed())
+      return 142;
     if (hierarchy.undo().failed())
       return 43;
   }

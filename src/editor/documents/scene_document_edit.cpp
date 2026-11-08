@@ -29,22 +29,27 @@ public:
   document_patch_command(scene_edit_session& document, scene_edit_session::version before,
                          scene_edit_session::version after, std::string label, std::string key)
       : document_(document), before_(before.stamp()), after_(after.stamp()),
-        pending_before_(std::move(before)), label_(std::move(label)), key_(std::move(key)),
+        label_(std::move(label)), key_(std::move(key)),
         selection_before_(document_selection::capture(document)),
         selection_after_(selection_before_) {}
   std::string_view label() const noexcept override { return label_; }
-  engine::error complete() noexcept {
-    auto after = document_.current_version();
-    auto patch = make_document_patch(pending_before_.content(), after.content());
+  engine::error prepare(const scene_document_snapshot& before,
+                        const scene_document_snapshot& after) noexcept {
+    auto patch = make_document_patch(before, after);
     if (!patch)
       return patch.error();
     try {
       patches_.push_back(std::move(*patch));
+      return engine::error::success;
     } catch (...) {
       return engine::error::out_of_memory;
     }
+  }
+  engine::error complete() noexcept {
+    auto after = document_.current_version();
+    if (patches_.empty())
+      return engine::error::invalid_state;
     after_ = after.stamp();
-    pending_before_ = {};
     selection_after_ = document_selection::capture(document_);
     return engine::error::success;
   }
@@ -63,7 +68,7 @@ public:
   bool merge_with(const editor_command& next) noexcept override {
     auto* other = dynamic_cast<const document_patch_command*>(&next);
     if (!other || &other->document_ != &document_ || key_.empty() || key_ != other->key_ ||
-        after_ != other->before_)
+        after_ != other->before_ || patches_.size() != 1 || other->patches_.size() != 1)
       return false;
     auto merged = merge_document_patches(patches_.front(), other->patches_.front());
     if (!merged)
@@ -77,30 +82,10 @@ public:
 private:
   scene_edit_session& document_;
   scene_document::revision before_, after_;
-  scene_edit_session::version pending_before_;
   std::vector<document_patch> patches_;
   std::string label_, key_;
   document_selection selection_before_, selection_after_;
 };
-}
-engine::error record_scene_edit(editor_command_history& history, scene_edit_session& document,
-                                const scene_document::version& before, std::string label,
-                                std::string key) noexcept try {
-  auto after = document.current_version();
-  if (!before || !after)
-    return engine::error::invalid_state;
-  if (before == after)
-    return engine::error::success;
-  auto command = std::make_unique<document_patch_command>(document, before, after, std::move(label),
-                                                          std::move(key));
-  auto status = command->complete();
-  if (status.failed())
-    return status;
-  return history.record(std::move(command));
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 engine::error execute_scene_edit(editor_command_history& history, scene_edit_session& document,
                                  std::string label, const std::function<engine::error()>& edit,
@@ -113,6 +98,17 @@ engine::error execute_scene_edit(editor_command_history& history, scene_edit_ses
     return status;
   auto command = std::make_unique<document_patch_command>(document, before, before,
                                                           std::move(label), std::move(key));
+  if (document.prepare_history_)
+    return engine::error::invalid_state;
+  scene_edit_session::history_preparation prepare = [&](const auto& from, const auto& to) {
+    return command->prepare(from, to);
+  };
+  document.prepare_history_ = &prepare;
+  const auto reset_preparation = [&](scene_edit_session* session) {
+    session->prepare_history_ = nullptr;
+  };
+  std::unique_ptr<scene_edit_session, decltype(reset_preparation)> scope(&document,
+                                                                         reset_preparation);
   try {
     status = edit();
   } catch (const std::bad_alloc&) {
@@ -120,6 +116,7 @@ engine::error execute_scene_edit(editor_command_history& history, scene_edit_ses
   } catch (...) {
     status = engine::error::internal;
   }
+  scope.reset();
   if (status.failed()) {
     if (document.current_version() != before)
       (void)document.restore_version(document.current_version(), before);

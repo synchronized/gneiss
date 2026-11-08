@@ -12,11 +12,6 @@ class application;
 }
 namespace gneiss::editor {
 class scene_edit_session;
-/** 记录已经完成的文档编辑，历史持有局部对象差异及轻量版本标识，不保留整份前后内容。 */
-[[nodiscard]] engine::error record_scene_edit(editor_command_history&, scene_edit_session&,
-                                              const scene_document::version& before,
-                                              std::string label,
-                                              std::string merge_key = {}) noexcept;
 /** 先预留历史空间，再执行一次领域编辑；撤销重做不重放 edit。 */
 [[nodiscard]] engine::error execute_scene_edit(editor_command_history&, scene_edit_session&,
                                                std::string label,

@@ -285,6 +285,11 @@ engine::error scene_edit_session::accept_content(const scene_document_snapshot& 
     return engine::error::invalid_state;
   if (snapshot.uri != uri_)
     return engine::error::invalid_argument;
+  if (prepare_history_) {
+    auto status = (*prepare_history_)(document_->current().content(), snapshot);
+    if (status.failed())
+      return status;
+  }
   auto status = document_->accept(document_->current(), snapshot);
   if (status.failed())
     return status;
@@ -352,6 +357,11 @@ engine::error scene_edit_session::edit_content(
   const bool synchronized = projection_.is_synchronized(before);
   auto selected =
       selection_ ? locate(selection_) : engine::result<edit_target>{engine::error::not_found};
+  if (prepare_history_) {
+    status = (*prepare_history_)(before.content(), prepared->snapshot);
+    if (status.failed())
+      return status;
+  }
   status = document_->accept(before, prepared->snapshot);
   if (status.failed())
     return status;
