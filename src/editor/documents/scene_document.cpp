@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "documents/scene_document.hpp"
+#include "documents/scene_projection.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/serialization/json.hpp"
@@ -293,29 +294,18 @@ engine::error scene_document::synchronize() noexcept try {
     return engine::error::invalid_state;
   const auto version = versions_->current();
   auto selected = locate(selection_);
-  auto inputs = make_scene_document_inputs(version.content());
-  if (!inputs) {
-    (void)versions_->report_projection(version, inputs.error());
-    return inputs.error();
-  }
-  engine::scene_instantiation_data prepared;
-  engine::scene_diagnostic diagnostic;
-  auto status = engine::prepare_loaded_scene(*inputs, {}, prepared, diagnostic, {});
+  auto status = project_scene_document(*application_->scenes(), scene_, nullptr, version.content());
   if (status.ok()) {
-    status = application_->scenes()->replace_prepared(scene_, std::move(prepared),
-                                                      version.content().assets);
-    if (status.ok()) {
-      selection_ = {};
-      if (selected) {
-        if (selected->source) {
-          auto node = find_prefab_source(selected->object, selected->source);
-          if (node)
-            selection_ = node->node;
-        } else {
-          auto node = find_node(selected->object);
-          if (node)
-            selection_ = node->node;
-        }
+    selection_ = {};
+    if (selected) {
+      if (selected->source) {
+        auto node = find_prefab_source(selected->object, selected->source);
+        if (node)
+          selection_ = node->node;
+      } else {
+        auto node = find_node(selected->object);
+        if (node)
+          selection_ = node->node;
       }
     }
   }
@@ -1274,11 +1264,19 @@ engine::error scene_document::restore_version(const version& expected,
                                               const version& target) noexcept {
   if (!is_open())
     return engine::error::invalid_state;
+  const bool synchronized = versions_->is_synchronized();
   auto status = versions_->checkout(expected, target);
   if (status.failed())
     return status;
   is_dirty_ = versions_->is_dirty();
-  (void)synchronize();
+  if (synchronized) {
+    status = project_scene_document(*application_->scenes(), scene_, &expected.content(),
+                                    target.content());
+    (void)versions_->report_projection(target, status);
+    (void)validate_selection();
+  } else {
+    (void)synchronize();
+  }
   return engine::error::success;
 }
 

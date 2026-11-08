@@ -250,6 +250,8 @@ int main() try {
       session.create_node("second", {}, second).failed() || session.select(first).failed()) {
     return 1;
   }
+  const auto first_entity = session.query_node(first)->entity;
+  const auto second_entity = session.query_node(second)->entity;
   const auto first_uuid = session.selected_node()->uuid;
   const auto is_x = [&](float expected) {
     gneiss::engine::math::transform local{};
@@ -276,6 +278,10 @@ int main() try {
       history.redo().failed() || !is_x(6.0F)) {
     return 4;
   }
+  if (session.find_node(first_uuid)->node != first ||
+      session.query_node(first)->entity != first_entity ||
+      session.query_node(second)->entity != second_entity)
+    return 40;
   if (session.select(session.find_node(first_uuid)->node).failed()) {
     return 5;
   }

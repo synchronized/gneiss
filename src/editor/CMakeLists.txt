@@ -124,6 +124,8 @@ add_library(
   commands/author_property_edit.hpp
   commands/runtime_author_apply.cpp
   commands/runtime_author_apply.hpp
+  documents/scene_projection.cpp
+  documents/scene_projection.hpp
   documents/scene_document.cpp
   documents/scene_document.hpp
   documents/scene_document_edit.cpp
