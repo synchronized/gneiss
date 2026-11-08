@@ -2,16 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "documents/scene_document.hpp"
-#include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/scene/scene_application.hpp"
 namespace gneiss::editor {
 /** 投影回执只保留轻量版本标识，不保活旧文档；失败后不能冒充已同步。 */
 class scene_projection final {
 public:
   using version = scene_document::version;
-  struct object_binding {
-    scene_node_id node;
-    entity_id entity;
-  };
+  using object_binding = engine::scene_object_association;
   /** 只接收实例化回执；不从运行对象反推来源。 */
   engine::error reset(std::span<const engine::scene_object_binding>) noexcept;
   void replace(std::map<engine::object_address, object_binding> objects) noexcept {

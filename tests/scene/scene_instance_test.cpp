@@ -5,9 +5,11 @@
 #include "../support/value_result.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/scene/scene_application.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
+#include <thread>
 
 #include <cstdint>
 #include <string>
@@ -67,6 +69,78 @@ int main() try {
       gneiss::test_support::take_value(application->scenes()->find_node(scene, camera_uuid),
                                        camera_node) != gneiss::engine::error::success) {
     return 1;
+  }
+  // 通用应用不依赖编辑器或 Prefab 状态，空基线创建，后续更新保持存活实体。
+  {
+    namespace e = gneiss::engine;
+    auto& world = *application->native_world();
+    auto& scenes = *application->scenes();
+    auto empty = scenes.create_empty(e::guid::generate());
+    if (!empty)
+      return 100;
+    std::map<e::object_address, e::scene_object_association> bindings;
+    e::composed_scene initial;
+    e::composed_object parent, child;
+    parent.address.object = e::guid::generate();
+    parent.effective.name = "parent";
+    child.address.object = e::guid::generate();
+    child.parent = parent.address;
+    child.effective.name = "child";
+    // 输入无需父先子后。
+    initial.objects = {child, parent};
+    auto applied = e::apply_scene(world, scenes, *empty, bindings, {}, initial, {});
+    if (!applied || !*applied || bindings.size() != 2)
+      return 101;
+    const auto child_id = bindings.at(child.address).entity;
+    const auto parent_id = bindings.at(parent.address).entity;
+    auto next = initial;
+    next.objects[0].parent = {};
+    next.objects[0].effective.name = "renamed";
+    next.objects[0].effective.transform.translation.x = 3;
+    next.objects[1].parent = child.address;
+    applied = e::apply_scene(world, scenes, *empty, bindings, initial, next, {});
+    if (!applied || !*applied || bindings.at(child.address).entity != child_id ||
+        bindings.at(parent.address).entity != parent_id)
+      return 102;
+    auto actual = world.object(child_id);
+    if (!actual || actual->identity()->name != "renamed" ||
+        actual->local_transform()->translation.x != 3)
+      return 103;
+    auto cyclic = next;
+    cyclic.objects[0].parent = parent.address;
+    applied = e::apply_scene(world, scenes, *empty, bindings, next, cyclic, {});
+    if (applied || applied.error() != e::error::invalid_argument)
+      return 104;
+    e::error threaded;
+    std::thread worker([&] {
+      auto result = e::apply_scene(world, scenes, *empty, bindings, next, next, {});
+      threaded = result ? e::error::success : result.error();
+    });
+    worker.join();
+    if (threaded != e::error::invalid_state)
+      return 105;
+    applied = e::apply_scene(*second_application->native_world(), scenes, *empty, bindings, next,
+                             next, {});
+    if (applied || applied.error() != e::error::invalid_argument)
+      return 106;
+    auto invalid_bindings = bindings;
+    invalid_bindings.at(parent.address) = invalid_bindings.at(child.address);
+    applied = e::apply_scene(world, scenes, *empty, invalid_bindings, next, next, {});
+    if (applied || applied.error() != e::error::invalid_argument)
+      return 109;
+    auto stale = next;
+    stale.objects[0].effective.transform.translation.x = 99;
+    applied = e::apply_scene(world, scenes, *empty, bindings, stale, next, {});
+    if (!applied || *applied || actual->local_transform()->translation.x != 3)
+      return 110;
+    auto reduced = next;
+    reduced.objects.pop_back();
+    applied = e::apply_scene(world, scenes, *empty, bindings, next, reduced, {});
+    if (!applied || !*applied || bindings.size() != 1 || world.object(parent_id) ||
+        bindings.at(child.address).entity != child_id)
+      return 107;
+    if (scenes.unload(*empty).failed() || world.object(child_id))
+      return 108;
   }
   gneiss::engine::scene_node_info camera_info;
   gneiss::engine::scene_node_info triangle_info;
