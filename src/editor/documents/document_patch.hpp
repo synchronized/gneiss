@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+#pragma once
+#include "documents/scene_document_snapshot.hpp"
+namespace gneiss::editor {
+/** 局部记录只保留变化对象及资源项；对象字段细分由后续迁移继续收敛。 */
+struct document_object_change {
+  engine::guid uuid;
+  std::optional<engine::object_record> before, after;
+  std::size_t before_index{}, after_index{};
+};
+template <class T> struct document_map_change {
+  std::string key;
+  std::optional<T> before, after;
+};
+struct document_patch {
+  engine::guid document;
+  std::string uri;
+  std::vector<document_object_change> objects;
+  std::vector<document_map_change<prefab_document_snapshot>> prefabs;
+  std::vector<document_map_change<engine::render_resource_ref>> assets;
+  engine::ref<const engine::scene> before_source, after_source;
+  bool source_changed{};
+};
+[[nodiscard]] engine::result<document_patch>
+make_document_patch(const scene_document_snapshot&, const scene_document_snapshot&) noexcept;
+/** 合并连续差异；保留最初旧值与最终新值，拒绝不连续的同项变更。 */
+[[nodiscard]] engine::result<document_patch> merge_document_patches(const document_patch&,
+                                                                    const document_patch&) noexcept;
+/** 校验旧值后在独立候选应用；失败不修改输入，不访问 World。 */
+[[nodiscard]] engine::result<scene_document_snapshot>
+apply_document_patch(const scene_document_snapshot&, const document_patch&, bool undo) noexcept;
+}

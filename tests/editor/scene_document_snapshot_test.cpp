@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "documents/document_patch.hpp"
 #include "documents/scene_document_snapshot.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/function/meta_registration.hpp"
@@ -103,6 +104,58 @@ int main() {
     auto missing = ed::compose_scene_document(local);
     if (missing || missing.error() != e::error::not_found)
       return 75;
+  }
+  // 局部历史不记录未变化对象；前后应用与旧值冲突均在纯文档层验证。
+  {
+    auto edited = *frozen;
+    auto data = edited.content.get();
+    data.objects[0].name = "edited";
+    edited.content = e::scene_record{data};
+    auto patch = ed::make_document_patch(*frozen, edited);
+    if (!patch || patch->objects.size() != 1 || !patch->prefabs.empty() || !patch->assets.empty())
+      return 80;
+    auto forward = ed::apply_document_patch(*frozen, *patch, false);
+    if (!forward || forward->content != edited.content)
+      return 81;
+    auto backward = ed::apply_document_patch(*forward, *patch, true);
+    if (!backward || backward->content != frozen->content)
+      return 82;
+    auto last = edited;
+    auto last_data = last.content.get();
+    last_data.objects[0].name = "last";
+    last.content = e::scene_record{last_data};
+    auto second = ed::make_document_patch(edited, last);
+    if (!second)
+      return 88;
+    auto merged = ed::merge_document_patches(*patch, *second);
+    if (!merged || merged->objects.size() != 1)
+      return 89;
+    auto merged_result = ed::apply_document_patch(*frozen, *merged, false);
+    if (!merged_result || merged_result->content != last.content)
+      return 90;
+    auto merged_undo = ed::apply_document_patch(*merged_result, *merged, true);
+    if (!merged_undo || merged_undo->content != frozen->content)
+      return 91;
+    if (ed::apply_document_patch(*forward, *patch, false))
+      return 83;
+    auto wrong = *frozen;
+    wrong.uri = "asset://other.scene.json";
+    if (ed::apply_document_patch(wrong, *patch, false))
+      return 84;
+    // 插入和顺序调整必须可逆，恢复不能依赖临时 vector 下标身份。
+    auto extra = data.objects[0];
+    extra.uuid = e::guid::generate();
+    data.objects.insert(data.objects.begin(), extra);
+    edited.content = e::scene_record{data};
+    patch = ed::make_document_patch(*frozen, edited);
+    if (!patch)
+      return 85;
+    forward = ed::apply_document_patch(*frozen, *patch, false);
+    if (!forward || forward->content != edited.content)
+      return 86;
+    backward = ed::apply_document_patch(*forward, *patch, true);
+    if (!backward || backward->content != frozen->content)
+      return 87;
   }
   const auto before = frozen->content;
   const auto camera_id = root.components.identity(e::camera_description::type_guid);

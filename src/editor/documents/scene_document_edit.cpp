@@ -24,36 +24,51 @@ struct document_selection {
     }
   }
 };
-class document_version_command final : public editor_command {
+class document_patch_command final : public editor_command {
 public:
-  document_version_command(scene_document& document, scene_document::version before,
-                           scene_document::version after, std::string label, std::string key)
-      : document_(document), before_(std::move(before)), after_(std::move(after)),
-        label_(std::move(label)), key_(std::move(key)),
+  document_patch_command(scene_document& document, scene_document::version before,
+                         scene_document::version after, std::string label, std::string key)
+      : document_(document), before_(before.stamp()), after_(after.stamp()),
+        pending_before_(std::move(before)), label_(std::move(label)), key_(std::move(key)),
         selection_before_(document_selection::capture(document)),
         selection_after_(selection_before_) {}
   std::string_view label() const noexcept override { return label_; }
-  void complete() noexcept {
-    after_ = document_.current_version();
+  engine::error complete() noexcept {
+    auto after = document_.current_version();
+    auto patch = make_document_patch(pending_before_.content(), after.content());
+    if (!patch)
+      return patch.error();
+    try {
+      patches_.push_back(std::move(*patch));
+    } catch (...) {
+      return engine::error::out_of_memory;
+    }
+    after_ = after.stamp();
+    pending_before_ = {};
     selection_after_ = document_selection::capture(document_);
+    return engine::error::success;
   }
   engine::error undo() noexcept override {
-    auto status = document_.restore_version(after_, before_);
+    auto status = document_.restore_changes(after_, before_, patches_, true);
     if (status.ok())
       selection_before_.restore(document_);
     return status;
   }
   engine::error redo() noexcept override {
-    auto status = document_.restore_version(before_, after_);
+    auto status = document_.restore_changes(before_, after_, patches_, false);
     if (status.ok())
       selection_after_.restore(document_);
     return status;
   }
   bool merge_with(const editor_command& next) noexcept override {
-    auto* other = dynamic_cast<const document_version_command*>(&next);
+    auto* other = dynamic_cast<const document_patch_command*>(&next);
     if (!other || &other->document_ != &document_ || key_.empty() || key_ != other->key_ ||
         after_ != other->before_)
       return false;
+    auto merged = merge_document_patches(patches_.front(), other->patches_.front());
+    if (!merged)
+      return false;
+    patches_.front() = std::move(*merged);
     after_ = other->after_;
     selection_after_ = other->selection_after_;
     return true;
@@ -61,7 +76,9 @@ public:
 
 private:
   scene_document& document_;
-  scene_document::version before_, after_;
+  scene_document_versions::revision before_, after_;
+  scene_document::version pending_before_;
+  std::vector<document_patch> patches_;
   std::string label_, key_;
   document_selection selection_before_, selection_after_;
 };
@@ -74,8 +91,12 @@ engine::error record_scene_edit(editor_command_history& history, scene_document&
     return engine::error::invalid_state;
   if (before == after)
     return engine::error::success;
-  return history.record(std::make_unique<document_version_command>(
-      document, before, after, std::move(label), std::move(key)));
+  auto command = std::make_unique<document_patch_command>(document, before, after, std::move(label),
+                                                          std::move(key));
+  auto status = command->complete();
+  if (status.failed())
+    return status;
+  return history.record(std::move(command));
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
 } catch (...) {
@@ -90,8 +111,8 @@ engine::error execute_scene_edit(editor_command_history& history, scene_document
   auto status = history.prepare_record();
   if (status.failed())
     return status;
-  auto command = std::make_unique<document_version_command>(document, before, before,
-                                                            std::move(label), std::move(key));
+  auto command = std::make_unique<document_patch_command>(document, before, before,
+                                                          std::move(label), std::move(key));
   try {
     status = edit();
   } catch (const std::bad_alloc&) {
@@ -107,8 +128,9 @@ engine::error execute_scene_edit(editor_command_history& history, scene_document
   if (before == document.current_version())
     return engine::error::success;
   (void)document.validate_selection();
-  command->complete();
-  status = history.record(std::move(command));
+  status = command->complete();
+  if (status.ok())
+    status = history.record(std::move(command));
   if (status.failed())
     (void)document.restore_version(document.current_version(), before);
   return status;

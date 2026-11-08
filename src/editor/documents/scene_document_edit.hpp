@@ -12,7 +12,7 @@ class application;
 }
 namespace gneiss::editor {
 class scene_document;
-/** 记录已经完成的文档编辑，历史仅持有前后不可变版本。 */
+/** 记录已经完成的文档编辑，历史持有局部对象差异及轻量版本标识，不保留整份前后内容。 */
 [[nodiscard]] engine::error record_scene_edit(editor_command_history&, scene_document&,
                                               const scene_document_versions::version& before,
                                               std::string label,

@@ -4,6 +4,7 @@
 #ifndef GNEISS_EDITOR_DOCUMENTS_SCENE_DOCUMENT_HPP_
 #define GNEISS_EDITOR_DOCUMENTS_SCENE_DOCUMENT_HPP_
 
+#include "documents/document_patch.hpp"
 #include "documents/scene_document_versions.hpp"
 #include "engine/core/entity_id.hpp"
 #include "engine/core/error.hpp"
@@ -225,6 +226,9 @@ public:
     return versions_ ? versions_->current() : version{};
   }
   /** 历史切换只接受当前基线；投影失败保留目标版本并由 projection_status 报告。 */
+  [[nodiscard]] engine::error restore_changes(const scene_document_versions::revision& expected,
+                                              const scene_document_versions::revision& target,
+                                              std::span<const document_patch>, bool undo) noexcept;
   [[nodiscard]] engine::error restore_version(const version& expected,
                                               const version& target) noexcept;
   [[nodiscard]] engine::result<scene_subtree_snapshot>

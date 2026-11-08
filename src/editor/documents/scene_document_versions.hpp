@@ -12,17 +12,22 @@ namespace gneiss::editor {
  */
 class scene_document_versions final {
 public:
+  struct revision {
+    std::shared_ptr<const std::byte> owner, state;
+    bool operator==(const revision&) const = default;
+  };
   class version final {
   public:
     version() noexcept = default;
     explicit operator bool() const noexcept { return content_ != nullptr; }
     /** 借用不可变内容；调用方必须持有有效 version。 */
     const scene_document_snapshot& content() const noexcept { return *content_; }
-    bool operator==(const version&) const noexcept = default;
+    bool operator==(const version& other) const noexcept { return stamp() == other.stamp(); }
+    revision stamp() const noexcept { return {owner_, state_}; }
 
   private:
     friend class scene_document_versions;
-    std::shared_ptr<const std::byte> owner_;
+    std::shared_ptr<const std::byte> owner_, state_;
     std::shared_ptr<const scene_document_snapshot> content_;
   };
 
@@ -36,6 +41,9 @@ public:
                                      std::string label, std::string merge_key = {}) noexcept;
   /** 切回同一文档的已接受版本；不重新解码，不创建第二条历史。 */
   [[nodiscard]] engine::error checkout(const version& expected, const version& target) noexcept;
+  /** 用局部历史重建目标内容；轻量标识不保留整份旧文档。 */
+  [[nodiscard]] engine::error checkout(const revision& expected, const revision& target,
+                                       const scene_document_snapshot&) noexcept;
   [[nodiscard]] engine::error undo() noexcept;
   [[nodiscard]] engine::error redo() noexcept;
   void clear_history() noexcept;
@@ -59,7 +67,8 @@ private:
     std::string label, merge_key;
   };
   version current_;
-  std::weak_ptr<const scene_document_snapshot> saved_, synchronized_;
+  std::weak_ptr<const std::byte> saved_;
+  std::weak_ptr<const scene_document_snapshot> synchronized_;
   std::vector<entry> entries_;
   std::size_t cursor_{};
   std::size_t capacity_;

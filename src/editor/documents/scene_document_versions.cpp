@@ -20,6 +20,7 @@ engine::error scene_document_versions::reset(const scene_document_snapshot& snap
     return status;
   version next;
   next.owner_ = std::make_shared<const std::byte>();
+  next.state_ = std::make_shared<const std::byte>();
   // 复制外壳，避免调用方继续改写 map/URI；领域内容已经是冻结值。
   next.content_ = std::make_shared<const scene_document_snapshot>(snapshot);
   current_ = std::move(next);
@@ -27,7 +28,7 @@ engine::error scene_document_versions::reset(const scene_document_snapshot& snap
   cursor_ = 0;
   saved_.reset();
   if (saved)
-    saved_ = current_.content_;
+    saved_ = current_.state_;
   synchronized_.reset();
   projection_status_ = engine::error::not_ready;
   return engine::error::success;
@@ -49,11 +50,12 @@ engine::error scene_document_versions::accept(const version& expected,
     return status;
   version next;
   next.owner_ = current_.owner_;
+  next.state_ = std::make_shared<const std::byte>();
   next.content_ = std::make_shared<const scene_document_snapshot>(snapshot);
   // 先完成所有可能分配的操作；失败不能丢失 redo 或改变当前版本。
   auto entries = entries_;
   const bool merge = !merge_key.empty() && cursor_ == entries.size() && cursor_ != 0 &&
-                     entries.back().merge_key == merge_key && saved_.lock() != current_.content_;
+                     entries.back().merge_key == merge_key && saved_.lock() != current_.state_;
   entries.resize(cursor_);
   if (merge) {
     entries.back().after = next;
@@ -80,6 +82,29 @@ engine::error scene_document_versions::checkout(const version& expected,
   current_ = target;
   changed();
   return engine::error::success;
+}
+engine::error scene_document_versions::checkout(const revision& expected, const revision& target,
+                                                const scene_document_snapshot& snapshot) noexcept
+    try {
+  if (!current_ || current_.stamp() != expected || !target.state || target.owner != current_.owner_)
+    return engine::error::invalid_state;
+  if (snapshot.uri != current_.content().uri ||
+      snapshot.content.get().uuid != current_.content().content.get().uuid)
+    return engine::error::invalid_argument;
+  auto status = validate(snapshot);
+  if (status.failed())
+    return status;
+  version next;
+  next.owner_ = target.owner;
+  next.state_ = target.state;
+  next.content_ = std::make_shared<const scene_document_snapshot>(snapshot);
+  current_ = std::move(next);
+  changed();
+  return engine::error::success;
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
 }
 void scene_document_versions::changed() noexcept {
   // 接受新版本后旧投影不再代表当前内容，即使后来撤销回旧版本也必须明确同步。
@@ -111,12 +136,12 @@ std::string_view scene_document_versions::redo_label() const noexcept {
   return can_redo() ? std::string_view(entries_[cursor_].label) : std::string_view{};
 }
 bool scene_document_versions::is_dirty() const noexcept {
-  return current_ && saved_.lock() != current_.content_;
+  return current_ && saved_.lock() != current_.state_;
 }
 engine::error scene_document_versions::mark_saved(const version& saved) noexcept {
   if (!saved || saved.owner_ != current_.owner_)
     return engine::error::invalid_state;
-  saved_ = saved.content_;
+  saved_ = saved.state_;
   return engine::error::success;
 }
 engine::error scene_document_versions::report_projection(const version& projected,

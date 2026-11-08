@@ -1260,6 +1260,36 @@ engine::error scene_document::accept_save(const save_receipt& receipt) noexcept 
   }
 }
 
+engine::error scene_document::restore_changes(const scene_document_versions::revision& expected,
+                                              const scene_document_versions::revision& target,
+                                              std::span<const document_patch> changes,
+                                              bool undo) noexcept try {
+  if (!is_open() || versions_->current().stamp() != expected)
+    return engine::error::invalid_state;
+  auto before = versions_->current();
+  auto next = before.content();
+  for (std::size_t i = 0; i < changes.size(); ++i) {
+    auto result = apply_document_patch(next, changes[undo ? changes.size() - 1 - i : i], undo);
+    if (!result)
+      return result.error();
+    next = std::move(*result);
+  }
+  const bool synchronized = versions_->is_synchronized();
+  auto status = versions_->checkout(expected, target, next);
+  if (status.failed())
+    return status;
+  is_dirty_ = versions_->is_dirty();
+  status = project_scene_document(*application_->scenes(), scene_,
+                                  synchronized ? &before.content() : nullptr, next);
+  (void)versions_->report_projection(versions_->current(), status);
+  (void)validate_selection();
+  return engine::error::success;
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
+
 engine::error scene_document::restore_version(const version& expected,
                                               const version& target) noexcept {
   if (!is_open())
