@@ -221,15 +221,15 @@ C++ Builder 和 Meta 内置注册入口位于 `meta/registration.hpp`；数学�
 统一消费组合结果，同步创建失败时回收本次成员。Runtime 来源协调与 Editor 投影各自持有
 输入和地址关联，不将 Prefab 来源或事务状态放进运行对象。
 
-应用级资源管理器位于 `src/engine/resource/asset_manager.hpp`，由 Application 拥有，
-管理通用 CPU 请求并唯一持有资源索引；Prefab 与 Render Loader 共享该索引。Render Loader 由 Application
-独立拥有，上传通道由应用加载流程装配。资源描述解析同在 resource，不依赖运行时实例化。
-管理器不进入安装 SDK，也不拥有编辑状态；缓存实现尚未全部统一到泛型请求。
+应用级资产管理器位于 `src/engine/function/asset/asset_manager.hpp`，由 Application 拥有。
+`asset_entry` 统一持有最终资产弱引用与在途操作，类型 Loader 位于同层 loaders 目录。
+Render 管理后端 RID；资产管理器不拥有 World 或编辑文档，不建立第二套 CPU 描述缓存。
+运行数据和引用快照的具体边界见[资产参考](../reference/assets.md)。
 
 ## Editor 的文档、命令与视口
 
 `src/editor/documents/scene_edit_session.*` 是单个场景的编辑会话，绑定运行时场景，
-维护 URI、选择、脏状态和节点查询快照；close 卸载该实例，Application 必须比它长寿。
+维护 URI、选择和投影查询；脏状态由 scene_document 版本与保存点计算；close 卸载该实例，Application 必须比它长寿。
 它不拥有 World，也不负责运行时场景切换。Runtime 的 scene_service 继续管理活动与退役域。
 
 已有编辑操作与历史实现位于 `commands/`，相机、网格与 Gizmo 位于 `viewport/`，
@@ -286,9 +286,9 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 `engine/function/asset/asset_request.hpp` 提供移动所有的 `asset_request<T>`；结果为
 `asset_ref<const T>`，取消只放弃当前观察者，不取消独立订阅。成功领取一次，失败保留请求。
 同目录的 `asset_loading.hpp` 定义加载参数与统计；所有 CPU 类型统一使用 `asset_request<T>`。
-格式步骤位于 `detail/asset_loader.hpp`，调用与缓存契约见[资产参考](../reference/assets.md)。
-`asset_manager` 移植 Granit 示例的共享请求与类型 Loader 模型，固定持有本实例的 VFS 来源；
-任务经宿主执行器运行，结果由 `advance_resources()` 发布，同步成功使较早异步失去缓存写入权。
+共用加载契约位于 `function/asset/asset_loader.hpp`，调用与缓存契约见[资产参考](../reference/assets.md)。
+`asset_manager` 移植 Granit 示例的共享请求与类型 Loader 模型，通过注入的异步文件服务读取；
+任务经宿主执行器运行，结果由 `asset_manager::advance()` 采用，只有当前在途操作有写入权。
 `runtime/loading/action_map_application` 领取结果、复制映射并应用 InputService。
 输入实时服务不访问文件或管理请求；公共 ABI 与安装头不暴露这些内部对象。
 
@@ -296,7 +296,7 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 
 - `resource/asset_decoder.hpp`：消费内存字节的类型解码契约，不要求字段反射。
 - `resource/material/material_description.hpp`：集中定义透明模式、共用材质参数和可序列化的 CPU 描述；编解码接口独立放在 codec。
-- `core/meta/serialization.hpp`：材质及输入映射使用统一反射编解码入口。
+- `core/serialization/json.hpp`：材质及输入映射使用统一反射编解码入口。
 - `resource/mesh/mesh_data.hpp`：CPU 网格数组；描述与二进制解码位于同目录。
 - `resource/texture/texture_data.hpp`：CPU mip、容器负载及解码能力快照，不依赖 KTX2 codec。
 - `engine/platform/files/`：异步文件读写与平台后端。
@@ -306,33 +306,33 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 不再提供按来源、URI 和内容摘要去重的独立 CPU 文档缓存，见
 [ADR-076](../decisions/ADR-076-remove-cpu-document-cache.md)。
 
-统一强引用位于 `resource/asset_ref.hpp`。Prefab 引用直接访问描述并保活缓存拥有者；
-渲染资产使用同一种缓存条目引用，专用 Mesh/Material/Texture lease 类已删除。
+统一强引用位于 `resource/asset_ref.hpp`。Scene/Prefab 引用保活资产身份，并按需获取固定描述快照；
+渲染资产使用同一种资源强引用，专用 Mesh/Material/Texture lease 类已删除。
 身份、回收、重载和线程规则见[资产引用契约](../reference/assets.md#缓存与生命周期)。
 
 ## 资源目录
 
-`engine/resource` 根目录管理通用资产请求、强引用、身份、URI、缓存和解码入口。
+`engine/resource` 根目录定义资产对象、强引用、身份、URI 和解码契约；请求、缓存与加载实现属于 function/asset。
 `builtin_resource_registration.hpp/.cpp` 注册内置资源的反射身份与 codec，不是 URI 资源索引。
 
 | 子目录 | 职责 |
 | --- | --- |
-| material | 材质描述、参数、状态及 JSON codec |
+| material | 材质描述、参数及私有访问器 |
 | texture | 纹理描述、采样值、CPU 数据、PNG/KTX2/运行容器解码 |
 | mesh | 网格 CPU 数据、描述解码与二进制格式 |
-| scene | 场景和 Prefab 描述、独立 codec、覆写值 |
+| scene | 场景和 Prefab 描述、校验、冻结记录及覆盖值 |
 | input | 输入映射描述、语义校验与 codec |
 | detail | 仅供资源实现复用的 JSON 解析辅助 |
 
 描述头定义数据，codec 负责解析和序列化，`asset_manager` 负责异步读取和共享请求。
 资源命名空间仍为 `gneiss::engine`；目录不增加命名空间层次。
-`function/render/render_asset_preparation` 负责已读输入的渲染批次组织，
-`function/render/resource_retirement_queue` 负责渲染资源延迟销毁。CPU 解码不调用渲染服务。
+`function/asset/detail/asset_decode` 负责已读输入解码，类型 Loader 负责装配；
+`resource/resource_retirement_queue.hpp` 定义延迟销毁队列，由私有资产构建器消费。CPU 解码不调用渲染服务。
 
 资源头文件按实际使用边界收敛：`texture_description.hpp` 集中纹理枚举、采样参数和来源描述，
 `mesh_data.hpp` 集中网格数据与切线校验。各 codec 仅依赖序列化值类型，
-`register_*_reflection` 的声明统一位于 `builtin_resource_registration.hpp`。
-材质字节解码统一使用 `meta::deserialize<material_description>`，返回 `result<material_description, serialization_diagnostic>`；
+`register_builtin_resource_types` 的声明位于 `builtin_resource_registration.hpp`。
+材质文件通过 `asset_file::deserialize<material_description>` 解码，返回 `result<material_description, serialization::diagnostic>`；
 成功值与失败诊断互斥，详见[类型编解码](../reference/reflection.md#类型编解码)。
 
 CPU 网格的法线、切线、附加 UV 和颜色直接使用 `math::vector3/4/2/4`；
@@ -344,12 +344,9 @@ AABB 的默认值是原点退化盒；包含和相交均包含边界，无效边
 
 ## 场景对象运行时状态
 
-`scene_tree` 节点保存 UUID、名称、父子关系、局部变换和关联实体 ID。
-ECS 保存相机、网格渲染组件及 mesh/material 强引用；普通 `scene_instance` 的成员记录仅保存节点 ID。
-Prefab 记录额外保存实例根、来源描述和来源节点映射，不保存实体、父节点、名称或资源绑定副本。
-
-普通对象与 Prefab 使用 `scene_object.hpp` 的共用创建入口，World 统一创建节点与实体，失败不留下部分对象；
-`world::object_destroy` 递归释放子树关联实体与节点。底层 `node_destroy` 仍只操作树，不能替代对象销毁。
-资源查询从 ECS 获取，保存从当前节点和组件捕获；文件描述独立保留，重载回滚使用操作内的临时快照。
-节点名称与 UUID 的借用视图在元数据修改或节点销毁后失效；来源 UUID 在不同 Prefab 实例间可重复。
-决策见 [ADR-090](../decisions/ADR-090-scene-object-storage.md)。
+World 拥有实体、层级及场景成员，game_object/scene_instance 为借用句柄。
+ECS 组件保存有效值及资源强引用；运行实例不持有 Prefab 绑定、覆盖或作者描述。
+纯组合生成有效对象，通用应用负责创建和更新，来源地址通过回执交给 Runtime 协调器或 Editor 投影。
+保存与历史读取文档，不能从 World 自动还原作者意图。
+句柄失效和来源边界见[场景参考](../reference/scene-instance.md)与
+[ADR-110](../decisions/ADR-110-game-object-runtime-model.md)。

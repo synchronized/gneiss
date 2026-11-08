@@ -120,9 +120,7 @@ make_scene_document_snapshot(std::string uri, const engine::scene_content& conte
   for (const auto& [path, dependency] : content.prefabs)
     input.prefabs.emplace(path,
                           engine::prefab_instantiation_data{.resource = dependency.description,
-                                                            .source_asset = dependency.resource,
-                                                            .maximum_depth = 0,
-                                                            .parent_first = {}});
+                                                            .source_asset = dependency.resource});
   return make_scene_document_snapshot(std::move(uri), input);
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;

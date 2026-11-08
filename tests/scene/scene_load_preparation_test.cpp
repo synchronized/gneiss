@@ -133,8 +133,7 @@ void run() {
   };
   check(prepare() == gneiss::engine::error::success);
   check(output.prefabs.size() == 1U && output.assets.size() == 2U && output.instance_nodes == 3U);
-  check(memory->reads["p.prefab"] == 1U &&
-        output.parent_first == std::vector<std::size_t>({0U, 1U, 2U}));
+  check(memory->reads["p.prefab"] == 1U);
   const auto bytes = memory->files.at("main.scene").size() + memory->files.at("p.prefab").size();
   check(output.source_bytes == bytes);
   check(bool(output.source_asset));
@@ -303,19 +302,19 @@ void run() {
   check(scene_asset->content() == before_failed_reload);
   check(prepare() == gneiss::engine::error::not_found && output.prefabs.empty());
 
-  // 输入顺序不是父节点优先；输出索引保留作者对象顺序并提供独立拓扑顺序。
+  // 输入顺序不要求父节点优先；准备保留描述顺序，实际应用负责父子创建顺序。
   auto child = std::string(object);
   child.replace(child.find("000000000002"), 12U, "000000000003");
   child.replace(child.find("null"), 4U, "\"00000000-0000-4000-8000-000000000002\"");
   memory->files["main.scene"] =
       std::string(scene_prefix) + child + "," + std::string(object) + R"(]})";
-  check(prepare() == gneiss::engine::error::success &&
-        output.parent_first == std::vector<std::size_t>({1U, 0U}));
+  check(prepare() == gneiss::engine::error::success && output.description.objects.size() == 2U &&
+        output.description.objects[0].parent.object == output.description.objects[1].uuid);
   check(prepare({.hierarchy_depth = 1U}) == gneiss::engine::error::invalid_argument);
   auto parent = std::string(object);
   parent.replace(parent.find("null"), 4U, "\"00000000-0000-4000-8000-000000000003\"");
   memory->files["main.scene"] = std::string(scene_prefix) + child + "," + parent + R"(]})";
-  check(prepare() == gneiss::engine::error::invalid_argument && output.parent_first.empty());
+  check(prepare() == gneiss::engine::error::invalid_argument && output.description.objects.empty());
   auto stopping = assets.load<engine::scene>("asset://main.scene", true);
   check(bool(stopping));
   assets.request_stop();

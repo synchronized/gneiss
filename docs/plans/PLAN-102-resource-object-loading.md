@@ -5,7 +5,9 @@
 
 ## 状态
 
-实施中：A—E 资源身份与生命周期主线已落地，Scene/Prefab 文件加载与编辑替换共用只读快照解码。后续仍须核查布局验收、场景准备归属，以及 prepare/reserve/RID 反查等旧入口的删除条件；整个计划尚未完成。日期：2026-11-06。归属：[DEV-052](DEV-052-architecture-cleanup.md)。
+2026-11-08：实现与删除条件已重新审计。五类资产、统一索引、Scene/Prefab 类型加载器与场景侧准备已落地；
+任意资产引用解析、依赖图环检测及完整验收仍有缺口，计划保持实施中。
+审计证据与保留项见[收尾审计](../records/2026-11-08-asset-boundary-audit.md)。归属 [DEV-052](DEV-052-architecture-cleanup.md)。
 架构决策见 [ADR-107](../decisions/ADR-107-resource-object-loading.md)。以下 API、格式和目录均为目标示意，不代表现有能力。
 
 ## 现状与目标
@@ -129,18 +131,17 @@ engine/function/scene/
 
 - [x] 管理模块迁至 function/asset；代码、构建、测试、现行指南不再使用 function/resource。
 - [x] asset_entry、load_operation 分别定义于 detail 对应头，不再嵌套于缓存类或请求头。
-- [ ] 五个具体资产主头位于 resource 顶层；类型名称与上层 ref<const T> 同步迁移。
+- [x] 五个具体资产主头位于 resource 顶层；类型名称与上层 ref<const T> 同步迁移。
   - [x] 五个资产主头与对象类型已落地，Scene/Prefab 加载返回 ref<const T>。
-  - [ ] Scene/Prefab 的实例来源接口仍使用描述快照，继续迁移引用边界。
-- [ ] 类型加载器收进 function/asset/loaders；asset_loader.hpp 只定义实际共用的加载契约。
+  - [x] Scene/Prefab 入口使用资产引用；固定描述快照用于隔离后续重载，纯内存编辑允许无文件资产。
+- [x] 类型加载器收进 function/asset/loaders；asset_loader.hpp 只定义实际共用的加载契约。
   - [x] 共用字节加载契约抽出，mesh/texture/object 解码实现移入独立 .cpp，三类渲染资源内容采用按类型归档。
-  - [ ] Scene/Prefab 加载和依赖装配迁入类型加载器，最终结果统一为资产对象。
+  - [x] Scene/Prefab 加载和依赖装配迁入类型加载器，最终结果统一为资产对象。
 - [ ] 旧路径零引用且无转发头；边界检查、整库编译和资源生命周期回归通过。
 
-asset_loader.hpp 已抽出实际共用的字节加载契约，mesh/texture/object 实现进入 loaders，
-材质内容采用进入 material_loader.cpp。加载结果仍是 CPU 中间值；依赖装配与最终资产返回契约
-尚未统一，不能仅凭文件到位判定最终资产加载器迁移完成。
-Scene/Prefab 主头与对象迁移一起实施，不为目录完整创建没有行为的空壳。
+asset_loader.hpp 定义共用字节加载契约；类型实现位于 loaders。
+Scene Loader 负责必要 Prefab 加载与固定内容装配，场景层校验并实例化。
+网格、纹理解码临时负载不登记最终缓存，最终对象身份仍由统一 asset_entry 管理。
 
 加载器放 function 层，避免 resource 数据层反向依赖服务；修正讨论示意中 resource/loaders 的依赖风险。
 序列化框架不依赖 asset_manager 或 render_service，类型描述和转换由资源注册提供。
@@ -251,8 +252,8 @@ render_service 不持有资产对象和 URI 缓存；加载器/接入代码提�
   - [ ] 请求结果、通用依赖调度与属性路径收集；具体类型重命名及 Scene/Prefab 接入后续阶段。
 - [ ] 2. 纹理闭环：文件→资源→渲染，缺失引用往返、弱缓存和销毁；保留二进制专用编解码。
 - [ ] 3. 材质与网格：反射字段、依赖诊断及重载；删除重复描述/装配入口，仅保留必要负载类型。
-- [ ] 4. Scene/Prefab 作为资产接入统一 load；场景准备迁到场景侧，复用相同引用解析，不新建第二个管理器。
-- [ ] 5. 迁移编辑器、导入器、工具、示例和测试；移除旧 request_data、prepare_*、reserve_*、RID 反查及桥接。
+- [x] 4. Scene/Prefab 作为资产接入统一 load；场景准备迁到场景侧，复用相同引用解析，不新建第二个管理器。
+- [x] 5. 迁移编辑器、导入器、工具、示例和测试；移除旧 request_data、管理器 prepare_scene/prepare_prefab、公开 reserve_* 和 RID 反查；场景纯内存校验与私有构建能力保留。
   - [x] 删除 asset_manager 的 find_mesh/find_texture/find_material(RID)；ImGui 字体直接传递已有强引用。
   - [x] 删除 asset_manager 的匿名 reserve_mesh/texture/material；程序化资产通过 create_* 创建。
   - [x] 删除公开 reserve_resource；引用解析与场景绑定统一提交 load。私有构建器及 Render 的预留仍为内部实现能力。
@@ -636,3 +637,15 @@ GPU 像素测试仅编译，未运行；未运行大场景或远端 CI。带来�
 自定义解码函数仍须遵守收集阶段约束。Windows Clang Debug 完整构建、25 项加载/场景/序列化/编辑器
 及边界回归通过。日志：build/reference-load-final-build.log、build/reference-load-tests.log、
 build/reference-load-extra-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。PLAN-102 整体仍未完成。
+
+## 2026-11-08：审计后剩余范围
+
+布局与旧入口检查已完成；场景准备数据的 parent_first/maximum_depth 已无运行消费者，本批删除。
+scene_instantiation_data 仍用于交接描述、固定来源、视觉需求和计数，不能等同于重复资产缓存。
+详细证据及验证见[审计记录](../records/2026-11-08-asset-boundary-audit.md)。
+
+未完成项不因目录整理而勾选：
+- asset_reference_context 目前只解析 texture/mesh/material，尚不支持任意 asset 派生类型的依赖解析。
+- object_loader 没有通用依赖调度与依赖边；并发根请求的直接/间接环检测尚未实现。
+- JSON/二进制资源引用一致性须按实际支持后端逐项验收，不能以纹理/网格二进制负载测试代替。
+- 描述/负载的保留边界和更新失败时旧内容语义需要完整验收矩阵；本次没有把所有剩余项标成完成。

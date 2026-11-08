@@ -125,7 +125,7 @@ GPU 在途使用的安全回收由 Render 及后端负责，详见[运行资源�
 
 Scene/Prefab 文件 Loader 与编辑器文件替换使用 `asset_file::deserialize_ref<T>` 取得独立只读描述
 快照，直接保留解码对象的控制块，不再次移动到新分配的对象。该入口与值解码使用相同格式校验和诊断，
-不登记 URI 缓存。文件重载在所属线程更新资产的当前快照；编辑器及运行捕获继续保留独立描述，
+不登记 URI 缓存。文件重载在所属线程更新资产的当前快照；编辑器及 Runtime 来源协调器保留固定描述，
 通过 `prepare_loaded_scene` 准备实例，不修改来源资产。已有快照不随重载改变。
 
 `load<scene>` 在成功前加载描述引用的必要 Prefab（同一 URI 去重），不加载网格、材质或纹理。
@@ -139,7 +139,7 @@ Scene Loader 在 CPU 解码后通过 `resolve_dependencies` 于所属线程非�
 
 Runtime 与编辑器直接使用 `load<scene>` / `load<prefab>`。Runtime 打开场景时调用
 `scene_instances::instantiate(scene_ref)`，在所属线程同步整理结构、提交视觉加载并绑定引用创建节点。
-编辑器仍可通过 `make_instantiation_data` 获取独立内存数据；Runtime 重载直接传入资产引用。
+编辑器仍可通过 `make_instantiation_data` 获取独立内存数据；Runtime 重载由外部协调器读取固定内容、组合并调用通用运行应用。
 资产管理器没有场景准备队列；不再提供 `prepare_scene/prepare_prefab` 或
 `asset_request<scene_instantiation_data>`。纯内存编辑继续使用 `prepare_loaded_scene`，不读取文件。
 
@@ -420,3 +420,15 @@ Prefab 资产身份。`editor::freeze_prefab_snapshot` 消费此快照及显式�
 编辑基线保活的资源组成；缺失依赖返回 not_ready。结构校验与视觉清单收集结果只在加载完成时临时使用，
 编辑操作不再长期保存整份 `scene_instantiation_data`。即使等待视觉加载期间发生独立来源重载，
 本次冻结仍使用原描述；撤销历史保留自身的描述和视觉资源强引用。
+
+## 加载与实例化边界
+
+asset_entry 是唯一 URI/类型/来源域/选项索引，持有最终资产弱引用及当前 load_operation。
+执行队列、请求观察状态和私有 RID 归属索引不构成第二个 URI 资产缓存。
+Scene/Prefab Loader 装配文件内容与必要来源，不创建 World 实体；视觉依赖由场景使用时独立提交。
+scene_preparation 只做内存校验、来源与需求清单整理，不持有 asset_manager，不推进文件服务。
+实例化数据不再保留父节点拓扑排序或最大深度；校验使用临时层级，创建顺序由运行应用决定。
+资产身份与固定快照分别用于保活和隔离重载；纯内存文档可以只有快照。
+
+当前引用解析上下文仅支持纹理、网格和材质。Scene Loader 显式处理 Prefab 结构依赖；
+通用 object_loader 尚无任意资产依赖图及环检测，不能按任意对象图加载器使用。

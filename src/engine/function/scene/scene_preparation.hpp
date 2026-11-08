@@ -25,8 +25,6 @@ struct scene_prepare_limits {
 struct prefab_instantiation_data {
   asset_ref<const prefab_description> resource;
   ref<const prefab> source_asset{};
-  std::size_t maximum_depth{};
-  std::vector<std::size_t> parent_first;
 };
 
 /** 实例化自有的数据；持有不可变 Prefab 引用，不含 World 或后端资源。
@@ -35,7 +33,6 @@ struct prefab_instantiation_data {
 struct scene_instantiation_data {
   scene_description description;
   ref<const scene> source_asset{};
-  std::vector<std::size_t> parent_first;
   std::map<std::string, prefab_instantiation_data> prefabs;
   std::vector<render_resource_source> assets;
   std::size_t instance_nodes{};
@@ -52,7 +49,7 @@ struct scene_preparation_inputs {
   ref<const engine::scene> source_asset{};
   std::map<std::string, ref<const prefab>> prefab_assets{};
 };
-/** 纯 CPU 排序和依赖收集；prefab_uri 非空表示仅准备一个 Prefab。 */
+/** 纯 CPU 层级校验和依赖收集；prefab_uri 非空表示仅准备一个 Prefab。 */
 [[nodiscard]] GNEISS_API error prepare_loaded_scene(const scene_preparation_inputs&,
                                                     std::string_view prefab_uri,
                                                     scene_instantiation_data&, scene_diagnostic&,

@@ -3,31 +3,25 @@
 
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/core/error.hpp"
-#include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/prefab_replay.hpp"
 #include "engine/function/scene/scene_composition.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
 
 #include <algorithm>
-#include <unordered_map>
 
 namespace gneiss::engine {
 namespace {
 
-engine::error order_nodes(const std::vector<game_object_description>& objects,
-                          std::vector<std::size_t>& order, std::size_t maximum_depth,
-                          const std::function<bool()>& cancelled, std::size_t* out_depth = nullptr,
-                          std::optional<guid> root = std::nullopt) {
+engine::error validate_hierarchy(const std::vector<game_object_description>& objects,
+                                 std::size_t maximum_depth, const std::function<bool()>& cancelled,
+                                 scene_diagnostic& diagnostic,
+                                 std::optional<guid> root = std::nullopt) {
   auto hierarchy = inspect_object_hierarchy(objects, root, maximum_depth, cancelled);
-  if (!hierarchy)
-    return hierarchy.error().error;
-  if (out_depth) {
-    *out_depth = 0;
-    for (auto depth : hierarchy->depths)
-      *out_depth = std::max(*out_depth, depth + 1);
+  if (!hierarchy) {
+    diagnostic = std::move(hierarchy).error();
+    return diagnostic.error;
   }
-  order = std::move(hierarchy->parent_first);
   return error::success;
 }
 
@@ -77,8 +71,8 @@ public:
         return engine::error::invalid_argument;
       }
       if (result == engine::error::success) {
-        result = order_nodes(prefab.resource->objects, prefab.parent_first, limits.hierarchy_depth,
-                             cancelled, &prefab.maximum_depth, prefab.resource->root_uuid);
+        result = validate_hierarchy(prefab.resource->objects, limits.hierarchy_depth, cancelled,
+                                    *diagnostic, prefab.resource->root_uuid);
       }
       if (result != engine::error::success) {
         return result;
@@ -113,8 +107,8 @@ public:
     if (candidate.instance_nodes > limits.nodes) {
       return engine::error::invalid_argument;
     }
-    result = order_nodes(candidate.description.objects, candidate.parent_first,
-                         limits.hierarchy_depth, cancelled);
+    result = validate_hierarchy(candidate.description.objects, limits.hierarchy_depth, cancelled,
+                                *diagnostic);
     if (result == engine::error::success) {
       result = collect(candidate.description.objects);
     }
