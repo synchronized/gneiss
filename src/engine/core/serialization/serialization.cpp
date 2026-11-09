@@ -3,7 +3,7 @@
 #include "engine/core/serialization/serialization.hpp"
 #include "engine/core/serialization/detail/traversal.hpp"
 namespace gneiss::engine::serialization {
-result<void, diagnostic> write(const context& ctx, const meta::const_instance& view,
+result<void, diagnostic> write(const write_context& ctx, const meta::const_instance& view,
                                writer& output) noexcept try {
   auto registry = ctx.registry();
   if (!registry)
@@ -23,7 +23,7 @@ result<void, diagnostic> write(const context& ctx, const meta::const_instance& v
 } catch (...) {
   return diagnostic{.error = error::internal};
 }
-result<void, diagnostic> read_into(const context& ctx, reader& input,
+result<void, diagnostic> read_into(const read_context& ctx, reader& input,
                                    const meta::instance& view) noexcept try {
   auto registry = ctx.registry();
   if (!registry)
@@ -42,7 +42,7 @@ result<void, diagnostic> read_into(const context& ctx, reader& input,
 } catch (...) {
   return diagnostic{.error = error::internal};
 }
-result<ref<void>, serialization::diagnostic> decode_object(const context& ctx, type_id id,
+result<ref<void>, serialization::diagnostic> decode_object(const read_context& ctx, type_id id,
                                                            reader& input) noexcept try {
   auto registry = ctx.registry();
   if (!registry)
@@ -57,11 +57,11 @@ result<ref<void>, serialization::diagnostic> decode_object(const context& ctx, t
   return serialization::diagnostic{.error = error::internal};
 }
 result<void, diagnostic> write(const meta::const_instance& view, writer& output) noexcept {
-  context ctx{view.registry()};
+  write_context ctx{view.registry()};
   return write(ctx, view, output);
 }
 result<void, diagnostic> read_into(reader& input, const meta::instance& view) noexcept {
-  context ctx{view.registry()};
+  read_context ctx{view.registry()};
   return read_into(ctx, input, view);
 }
 }

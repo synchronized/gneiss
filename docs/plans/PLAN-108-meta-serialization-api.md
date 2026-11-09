@@ -350,7 +350,7 @@ Binary 后续有真实任务时新增 binary.hpp/.cpp。本轮不创建空文件
 4c. [x] 属性局部 builder：支持 property(...)(extensions...)，迁移并删除 property_metadata 旧入口。
 5. [ ] 策略拆分：替换 binding；先迁移已有 codec/引用，再做字段覆盖；
    迁移 editor_read_only/enum_name，分类迁移 validate，删除旧 flags 和 reflected 开关。
-6. [ ] 序列化入口：read/write contexts 和私有操作状态，统一 encode/decode/read_into/write；
+6. [x] 序列化入口：read/write contexts 和私有操作状态，统一 encode/decode/read_into/write；
    JSON、特殊 codec、引用收集/绑定全部迁移，删除旧入口，不新增阻塞解析。
 7. [ ] 快照及领域接入：capture/apply/restore 使用新句柄和策略；验证 value 不共享可变历史状态；
    接入资产、场景/Prefab、IPC、编辑器、导入器和示例，不新增平行规则。
@@ -414,7 +414,8 @@ Mesh/Texture 描述校验已移到所属资源模块并接入文件边界，详�
 [Archive 入口记录](../records/2026-11-09-serialization-archive-api.md)。
 JSON 入口和调用已迁移到 encode/decode/read_into，见
 [JSON 入口记录](../records/2026-11-09-serialization-json-api.md)。
-read_context/write_context 分离尚未完成。
+read_context/write_context 已分离，JSON、快照、codec、引用收集/绑定和资源格式入口已迁移，
+旧 context 类型已删除；编译与 CPU 验证见[读写上下文记录](../records/2026-11-09-serialization-direction-context.md)。
 
 ## 九、验收矩阵
 

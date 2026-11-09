@@ -8,23 +8,24 @@
 #include "engine/core/serialization/writer.hpp"
 namespace gneiss::engine::serialization {
 /** context 与视图必须绑定同一注册表；后端和对象均借用。失败时 writer 可能保留未完成输出。 */
-GNEISS_API result<void, diagnostic> write(const context&, const meta::const_instance&,
+GNEISS_API result<void, diagnostic> write(const write_context&, const meta::const_instance&,
                                           writer&) noexcept;
 /** 写入调用方目标；失败不保证恢复。需要原子替换时使用返回独立对象的模板入口。 */
-GNEISS_API result<void, diagnostic> read_into(const context&, reader&,
+GNEISS_API result<void, diagnostic> read_into(const read_context&, reader&,
                                               const meta::instance&) noexcept;
 GNEISS_API result<void, diagnostic> write(const meta::const_instance&, writer&) noexcept;
 GNEISS_API result<void, diagnostic> read_into(reader&, const meta::instance&) noexcept;
-GNEISS_API result<ref<void>, serialization::diagnostic> decode_object(const context&, type_id,
+GNEISS_API result<ref<void>, serialization::diagnostic> decode_object(const read_context&, type_id,
                                                                       reader&) noexcept;
 inline result<ref<void>, serialization::diagnostic> decode_object(type_id id,
                                                                   reader& input) noexcept {
-  context ctx;
+  read_context ctx;
   return decode_object(ctx, id, input);
 }
 
 template <class T>
-result<void, diagnostic> write(const context& ctx, const T& value, writer& output) noexcept try {
+result<void, diagnostic> write(const write_context& ctx, const T& value, writer& output) noexcept
+    try {
   auto registry = ctx.registry();
   if (!registry)
     return diagnostic{.error = registry.error()};
@@ -38,11 +39,11 @@ result<void, diagnostic> write(const context& ctx, const T& value, writer& outpu
   return diagnostic{.error = error::internal};
 }
 template <class T> result<void, diagnostic> write(const T& value, writer& output) noexcept {
-  context ctx;
+  write_context ctx;
   return write(ctx, value, output);
 }
 template <class T>
-result<T, serialization::diagnostic> decode(const context& ctx, reader& input) noexcept try {
+result<T, serialization::diagnostic> decode(const read_context& ctx, reader& input) noexcept try {
   return detail::decode_typed<T>(
       ctx, [&](const meta::instance& view) { return read_into(ctx, input, view); },
       [&](type_id id) { return decode_object(ctx, id, input); });
@@ -52,7 +53,7 @@ result<T, serialization::diagnostic> decode(const context& ctx, reader& input) n
   return serialization::diagnostic{.error = error::internal};
 }
 template <class T> result<T, serialization::diagnostic> decode(reader& input) noexcept {
-  context ctx;
+  read_context ctx;
   return decode<T>(ctx, input);
 }
 }

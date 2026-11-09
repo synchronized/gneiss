@@ -114,18 +114,19 @@ bool math_registration() {
   if (!transform || !camera || transform.properties().size() != 3 ||
       camera.properties().size() != 3)
     return false;
-  e::serialization::context context{*registry};
+  e::serialization::write_context context{*registry};
+  e::serialization::read_context read_context{*registry};
   e::math::camera_settings settings{1.0F, 0.1F, 100.0F};
   auto encoded = e::serialization::json::encode_bytes(context, settings);
   if (!encoded)
     return false;
-  auto decoded = e::serialization::json::decode<e::math::camera_settings>(context, *encoded);
+  auto decoded = e::serialization::json::decode<e::math::camera_settings>(read_context, *encoded);
   if (!decoded || decoded->fov != settings.fov || decoded->near != settings.near ||
       decoded->far != settings.far)
     return false;
   const std::string invalid = R"({"fov":1,"near":10,"far":1})";
   auto unchecked = e::serialization::json::decode<e::math::camera_settings>(
-      context, std::as_bytes(std::span{invalid.data(), invalid.size()}));
+      read_context, std::as_bytes(std::span{invalid.data(), invalid.size()}));
   e::math::transform value;
   auto status = m::write_property(*registry, e::math::transform::type_guid, m::property_id{3},
                                   &value, e::value{e::math::vector3{0, 1, 1}});

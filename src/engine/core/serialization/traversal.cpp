@@ -65,9 +65,10 @@ result<void*, serialization::diagnostic> cast_base(const registry_ref& registry,
   }
   return failure(error::invalid_argument, "", "继承链过深或存在环");
 }
-result<writer::node, serialization::diagnostic>
-encode_members(const context& ctx, const registry_ref&, type_id, const void*, writer*, std::size_t);
-result<writer::node, serialization::diagnostic> encode_nested(const context& ctx,
+result<writer::node, serialization::diagnostic> encode_members(const write_context& ctx,
+                                                               const registry_ref&, type_id,
+                                                               const void*, writer*, std::size_t);
+result<writer::node, serialization::diagnostic> encode_nested(const write_context& ctx,
                                                               const registry_ref& registry,
                                                               type_id id, const void* object,
                                                               writer* doc, std::size_t depth) {
@@ -98,11 +99,11 @@ result<writer::node, serialization::diagnostic> encode_nested(const context& ctx
   return encode_members(ctx, registry, id, object, doc, depth);
 }
 result<writer::node, serialization::diagnostic>
-encode_nonobject(const context&, const registry_ref&, const const_instance&, writer*, std::size_t,
-                 const reference_policy*);
+encode_nonobject(const write_context&, const registry_ref&, const const_instance&, writer*,
+                 std::size_t, const reference_policy*);
 /** 对象递归使用轻量栈帧，不携带各容器分支的临时状态。 */
 result<writer::node, serialization::diagnostic>
-encode_view(const context& ctx, const registry_ref& registry, const const_instance& view,
+encode_view(const write_context& ctx, const registry_ref& registry, const const_instance& view,
             writer* doc, std::size_t depth, const reference_policy* override) {
   depth_scope scope{ctx, depth};
   if (view.kind() == type_kind::object) {
@@ -114,7 +115,7 @@ encode_view(const context& ctx, const registry_ref& registry, const const_instan
   return encode_nonobject(ctx, registry, view, doc, depth, override);
 }
 result<writer::node, serialization::diagnostic>
-encode_nonobject(const context& ctx, const registry_ref& registry, const const_instance& view,
+encode_nonobject(const write_context& ctx, const registry_ref& registry, const const_instance& view,
                  writer* doc, std::size_t depth, const reference_policy* override) {
   depth_scope scope{ctx, depth};
   const auto value_type = view.type();
@@ -284,7 +285,7 @@ result<writer::node, serialization::diagnostic> encode_enum_name(const const_ins
     return failure(error::out_of_memory);
   return name;
 }
-serialization::diagnostic decode_enum_name(const context& ctx, const instance& view,
+serialization::diagnostic decode_enum_name(const read_context& ctx, const instance& view,
                                            reader::node input) {
   const auto type = view.type();
   const auto entries = type.enum_entries();
@@ -297,7 +298,7 @@ serialization::diagnostic decode_enum_name(const context& ctx, const instance& v
   auto status = view.assign(found->data);
   return status.failed() ? failure(status) : serialization::diagnostic{};
 }
-result<writer::node, serialization::diagnostic> encode_members(const context& ctx,
+result<writer::node, serialization::diagnostic> encode_members(const write_context& ctx,
                                                                const registry_ref& registry,
                                                                type_id id, const void* object,
                                                                writer* doc, std::size_t depth) {
@@ -336,9 +337,9 @@ result<writer::node, serialization::diagnostic> encode_members(const context& ct
   }
   return root;
 }
-serialization::diagnostic validate_defaults(const context& ctx, const registry_ref&, type_id,
+serialization::diagnostic validate_defaults(const read_context& ctx, const registry_ref&, type_id,
                                             const void*, std::size_t);
-serialization::diagnostic validate_view(const context& ctx, const registry_ref& registry,
+serialization::diagnostic validate_view(const read_context& ctx, const registry_ref& registry,
                                         const const_instance& view, std::size_t depth) {
   depth_scope scope{ctx, depth};
   const auto value_type = view.type();
@@ -421,7 +422,7 @@ serialization::diagnostic validate_view(const context& ctx, const registry_ref& 
   }
   return {};
 }
-serialization::diagnostic validate_defaults(const context& ctx, const registry_ref& registry,
+serialization::diagnostic validate_defaults(const read_context& ctx, const registry_ref& registry,
                                             type_id id, const void* object, std::size_t depth) {
   depth_scope scope{ctx, depth};
   if (depth > ctx.maximum_depth())
@@ -457,10 +458,10 @@ serialization::diagnostic validate_defaults(const context& ctx, const registry_r
   }
   return {};
 }
-serialization::diagnostic decode_members(const context& ctx, const registry_ref&, type_id, void*,
-                                         reader::node, std::size_t,
+serialization::diagnostic decode_members(const read_context& ctx, const registry_ref&, type_id,
+                                         void*, reader::node, std::size_t,
                                          std::span<const std::string_view>);
-result<ref<void>, serialization::diagnostic> decode_owned(const context& ctx,
+result<ref<void>, serialization::diagnostic> decode_owned(const read_context& ctx,
                                                           const registry_ref& registry,
                                                           type_id actual, reader::node content,
                                                           std::size_t depth, bool root) {
@@ -501,7 +502,7 @@ result<ref<void>, serialization::diagnostic> decode_owned(const context& ctx,
     return status;
   return object;
 }
-serialization::diagnostic decode_nested(const context& ctx, const registry_ref& registry,
+serialization::diagnostic decode_nested(const read_context& ctx, const registry_ref& registry,
                                         const instance& target, reader::node input,
                                         std::size_t depth) {
   depth_scope scope{ctx, depth};
@@ -536,9 +537,10 @@ serialization::diagnostic decode_nested(const context& ctx, const registry_ref& 
              ? binding->validation.validate(object)
              : serialization::diagnostic{};
 }
-serialization::diagnostic decode_nonobject(const context&, const registry_ref&, const instance&,
-                                           reader::node, std::size_t, const reference_policy*);
-serialization::diagnostic decode_view(const context& ctx, const registry_ref& registry,
+serialization::diagnostic decode_nonobject(const read_context&, const registry_ref&,
+                                           const instance&, reader::node, std::size_t,
+                                           const reference_policy*);
+serialization::diagnostic decode_view(const read_context& ctx, const registry_ref& registry,
                                       const instance& view, reader::node input, std::size_t depth,
                                       const reference_policy* override) {
   depth_scope scope{ctx, depth};
@@ -546,7 +548,7 @@ serialization::diagnostic decode_view(const context& ctx, const registry_ref& re
     return decode_nested(ctx, registry, view, input, depth);
   return decode_nonobject(ctx, registry, view, input, depth, override);
 }
-serialization::diagnostic decode_nonobject(const context& ctx, const registry_ref& registry,
+serialization::diagnostic decode_nonobject(const read_context& ctx, const registry_ref& registry,
                                            const instance& view, reader::node input,
                                            std::size_t depth, const reference_policy* override) {
   depth_scope scope{ctx, depth};
@@ -739,7 +741,7 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
   }
   return failure(error::unsupported);
 }
-serialization::diagnostic decode_members(const context& ctx, const registry_ref& registry,
+serialization::diagnostic decode_members(const read_context& ctx, const registry_ref& registry,
                                          type_id id, void* object, reader::node root,
                                          std::size_t depth,
                                          std::span<const std::string_view> ignored) {

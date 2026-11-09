@@ -13,22 +13,22 @@ struct operation_state {
   std::string path;
 };
 struct context_access {
-  static auto& state(const context& c) { return c.state_; }
-  static auto& path(const context& c) { return c.state_->path; }
-  static auto& active(const context& c) { return c.state_->active; }
-  static auto& input(const context& c) { return c.state_->input; }
-  static auto& depth(const context& c) { return c.state_->depth; }
+  static auto& state(const context_base& c) { return c.state_; }
+  static auto& path(const context_base& c) { return c.state_->path; }
+  static auto& active(const context_base& c) { return c.state_->active; }
+  static auto& input(const context_base& c) { return c.state_->input; }
+  static auto& depth(const context_base& c) { return c.state_->depth; }
 };
 /** 嵌套入口沿用已有状态；最外层结束时销毁状态，包括失败路径。 */
 class operation_scope {
-  const context& context_;
+  const context_base& context_;
   operation_state local_;
   operation_state* previous_;
   std::size_t previous_depth_{};
   reader* previous_input_{};
 
 public:
-  explicit operation_scope(const context& c, bool fields_only = false)
+  explicit operation_scope(const context_base& c, bool fields_only = false)
       : context_(c), previous_(context_access::state(c)) {
     if (!previous_)
       context_access::state(c) = &local_;
@@ -49,22 +49,22 @@ public:
   operation_scope(const operation_scope&) = delete;
 };
 class path_scope {
-  const context& context_;
+  const context_base& context_;
   std::size_t size_;
 
 public:
-  path_scope(const context& c, std::string_view segment)
+  path_scope(const context_base& c, std::string_view segment)
       : context_(c), size_(context_access::path(c).size()) {
     context_access::path(c) += segment;
   }
   ~path_scope() { context_access::path(context_).resize(size_); }
 };
 class depth_scope {
-  const context& context_;
+  const context_base& context_;
   std::size_t previous_;
 
 public:
-  depth_scope(const context& c, std::size_t depth)
+  depth_scope(const context_base& c, std::size_t depth)
       : context_(c), previous_(context_access::depth(c)) {
     context_access::depth(c) = depth;
   }
@@ -72,11 +72,11 @@ public:
   depth_scope(const depth_scope&) = delete;
 };
 class active_reference {
-  const context& context_;
+  const context_base& context_;
   const void* address_;
 
 public:
-  active_reference(const context& c, const void* address) : context_(c), address_(address) {}
+  active_reference(const context_base& c, const void* address) : context_(c), address_(address) {}
   ~active_reference() { context_access::active(context_).erase(address_); }
   active_reference(const active_reference&) = delete;
 };

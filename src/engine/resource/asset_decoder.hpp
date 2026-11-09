@@ -22,7 +22,7 @@ public:
   [[nodiscard]] virtual result<std::shared_ptr<const void>, serialization::diagnostic>
   decode(const std::vector<std::byte>& bytes) const = 0;
   virtual result<std::shared_ptr<const void>, serialization::diagnostic>
-  decode(const serialization::context&, const std::vector<std::byte>& bytes) const {
+  decode(const serialization::read_context&, const std::vector<std::byte>& bytes) const {
     return decode(bytes);
   }
 };
@@ -37,12 +37,12 @@ public:
   type_id target_type() const noexcept override { return runtime_type_of<T>(); }
   result<std::shared_ptr<const void>, serialization::diagnostic>
   decode(const std::vector<std::byte>& bytes) const override {
-    serialization::context context;
+    serialization::read_context context;
     return decode(context, bytes);
   }
   result<std::shared_ptr<const void>, serialization::diagnostic>
-  decode(const serialization::context& context, const std::vector<std::byte>& bytes) const override
-      try {
+  decode(const serialization::read_context& context,
+         const std::vector<std::byte>& bytes) const override try {
     if (function_ || asset_file::format_traits<T>::enabled) {
       auto decoded = [&]() -> result<T, serialization::diagnostic> {
         if (function_)

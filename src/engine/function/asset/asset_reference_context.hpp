@@ -36,6 +36,7 @@ class asset_reference_context final : public serialization::reference_resolver {
   std::vector<asset_reference_requirement> requirements_;
   std::vector<std::shared_ptr<asset_dependency>> slots_;
   bool collecting_{};
+
 public:
   const auto& dependencies() const noexcept { return requirements_; }
   const auto& slots() const noexcept { return slots_; }
@@ -56,7 +57,7 @@ public:
         }
       }
     } reset{*this, requirements_.size(), slots_.size()};
-    serialization::context context{*this};
+    serialization::read_context context{*this};
     auto temporary = decode(context);
     reset.committed = bool(temporary);
     return temporary ? serialization::diagnostic{} : std::move(temporary).error();

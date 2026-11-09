@@ -256,7 +256,7 @@ void injected_file_service() {
 }
 error register_test_assets() {
   gneiss::engine::serialization::content_codec codec;
-  codec.decode = [](const serialization::context&, serialization::reader& input,
+  codec.decode = [](const serialization::read_context&, serialization::reader& input,
                     const void* node) -> result<ref<void>, serialization::diagnostic> {
     if (!input.is_string(node) || input.string(node) == "?")
       return serialization::diagnostic{7U, "/value", "invalid value", error::invalid_argument};

@@ -47,14 +47,16 @@ bool format_node_contract() {
           .failed() ||
       m::freeze(*registry).failed())
     return false;
-  e::serialization::context ctx{*registry};
+  e::serialization::write_context ctx{*registry};
+  e::serialization::read_context read_ctx{*registry};
+
   const auto encode = [&](const format_probe& object) {
     auto view = m::view(*registry, std::as_const(object));
     return e::asset_file::serialize_instance(ctx, probe_format, *view);
   };
   const auto decode = [&](std::span<const std::byte> input) {
-    return e::asset_file::deserialize_object(ctx, probe_format, e::runtime_type_of<format_probe>(),
-                                             input);
+    return e::asset_file::deserialize_object(read_ctx, probe_format,
+                                             e::runtime_type_of<format_probe>(), input);
   };
   auto encoded = encode(format_probe{"ok"});
   if (!encoded)
@@ -370,9 +372,9 @@ int main() try {
         gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(*bytes);
     auto snapshot =
         gneiss::engine::asset_file::deserialize_ref<gneiss::engine::scene_description>(*bytes);
-    gneiss::engine::serialization::context context;
+    gneiss::engine::serialization::read_context read_context;
     auto independent =
-        gneiss::engine::asset_file::deserialize_ref<gneiss::engine::scene_description>(context,
+        gneiss::engine::asset_file::deserialize_ref<gneiss::engine::scene_description>(read_context,
                                                                                        *bytes);
     if (!snapshot || !independent || snapshot->get() == independent->get() ||
         (*snapshot)->uuid != fresh->uuid || (*snapshot)->objects.size() != fresh->objects.size())

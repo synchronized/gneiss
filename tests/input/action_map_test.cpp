@@ -163,14 +163,16 @@ int main() {
   const asset_file::format exact{"gneiss.input-map", 1, saved_bytes->size()};
   auto short_limit = exact;
   --short_limit.maximum_bytes;
-  serialization::context ctx;
+  serialization::write_context ctx;
+  serialization::read_context read_ctx;
+
   auto view = meta::view(std::as_const(map));
   if (!view || !asset_file::serialize_instance(ctx, exact, *view) ||
-      !asset_file::deserialize_object(ctx, exact, runtime_type_of<action_map_description>(),
+      !asset_file::deserialize_object(read_ctx, exact, runtime_type_of<action_map_description>(),
                                       *saved_bytes) ||
       asset_file::serialize_instance(ctx, short_limit, *view) ||
-      asset_file::deserialize_object(ctx, short_limit, runtime_type_of<action_map_description>(),
-                                     *saved_bytes))
+      asset_file::deserialize_object(read_ctx, short_limit,
+                                     runtime_type_of<action_map_description>(), *saved_bytes))
     return 31;
   auto roundtrip = gneiss::engine::asset_file::deserialize<action_map_description>(*saved_bytes);
   if (!roundtrip || roundtrip->actions.front().name != "move" ||

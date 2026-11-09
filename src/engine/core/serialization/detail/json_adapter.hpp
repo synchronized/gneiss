@@ -11,20 +11,21 @@ using meta::instance;
 using meta::registry_ref;
 /** 只遍历根字段，跳过根 codec，保留嵌套 codec 及同一 context 的限制。 */
 GNEISS_API result<yyjson_mut_val*, serialization::diagnostic>
-write_fields_object(const context&, yyjson_mut_doc*, type_id, const void*) noexcept;
+write_fields_object(const write_context&, yyjson_mut_doc*, type_id, const void*) noexcept;
 GNEISS_API result<ref<void>, serialization::diagnostic>
-read_fields_object(const context&, yyjson_val*, type_id,
+read_fields_object(const read_context&, yyjson_val*, type_id,
                    std::span<const std::string_view>) noexcept;
 GNEISS_API result<yyjson_mut_val*, serialization::diagnostic>
-write_value(const context&, yyjson_mut_doc*, const value&) noexcept;
-GNEISS_API result<value, serialization::diagnostic> read_value(const context&,
+write_value(const write_context&, yyjson_mut_doc*, const value&) noexcept;
+GNEISS_API result<value, serialization::diagnostic> read_value(const read_context&,
                                                                yyjson_val*) noexcept;
-GNEISS_API result<yyjson_mut_val*, serialization::diagnostic> write(const context&, yyjson_mut_doc*,
-                                                                    const const_instance&) noexcept;
-GNEISS_API serialization::diagnostic read(const context&, yyjson_val*, const instance&) noexcept;
 GNEISS_API result<yyjson_mut_val*, serialization::diagnostic>
-write_fields(const context&, yyjson_mut_doc*, const const_instance&) noexcept;
-GNEISS_API serialization::diagnostic read_fields(const context&, yyjson_val*, const instance&,
+write(const write_context&, yyjson_mut_doc*, const const_instance&) noexcept;
+GNEISS_API serialization::diagnostic read(const read_context&, yyjson_val*,
+                                          const instance&) noexcept;
+GNEISS_API result<yyjson_mut_val*, serialization::diagnostic>
+write_fields(const write_context&, yyjson_mut_doc*, const const_instance&) noexcept;
+GNEISS_API serialization::diagnostic read_fields(const read_context&, yyjson_val*, const instance&,
                                                  std::span<const std::string_view> = {}) noexcept;
 /** 内部 JSON 适配边界；普通业务使用 serialize/deserialize。节点只在所属文档存活期间有效。 */
 

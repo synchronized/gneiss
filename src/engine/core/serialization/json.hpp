@@ -16,14 +16,14 @@ using meta::instance;
 using meta::registry_ref;
 /** 类型擦除入口；调用方保证对象类型。反射访问始终使用传入的冻结注册表。 */
 GNEISS_API result<std::vector<std::byte>, serialization::diagnostic>
-encode_object(const context&, type_id, const void*) noexcept;
+encode_object(const write_context&, type_id, const void*) noexcept;
 GNEISS_API result<ref<void>, serialization::diagnostic>
-decode_object(const context&, type_id, std::span<const std::byte>) noexcept;
+decode_object(const read_context&, type_id, std::span<const std::byte>) noexcept;
 
 /** 编解码任意反射视图；解码调用方提供临时目标，失败不承诺恢复目标。 */
 GNEISS_API result<std::vector<std::byte>, serialization::diagnostic>
-encode_instance(const context&, const const_instance&) noexcept;
-GNEISS_API result<void, serialization::diagnostic> read_into(const context&, const instance&,
+encode_instance(const write_context&, const const_instance&) noexcept;
+GNEISS_API result<void, serialization::diagnostic> read_into(const read_context&, const instance&,
                                                              std::span<const std::byte>) noexcept;
 /** 使用视图绑定的注册表，包含独立注册表；不重新查询默认表。 */
 GNEISS_API result<std::vector<std::byte>, serialization::diagnostic>
@@ -33,7 +33,7 @@ GNEISS_API result<void, serialization::diagnostic> read_into(const instance&,
 /** 返回编码后的字节；未知类型不隐式注册。 */
 template <class T>
 [[nodiscard]] result<std::vector<std::byte>, serialization::diagnostic>
-encode_bytes(const context& ctx, const T& object) noexcept try {
+encode_bytes(const write_context& ctx, const T& object) noexcept try {
   auto registry = ctx.registry();
   if (!registry)
     return serialization::diagnostic{.error = registry.error()};
@@ -48,7 +48,7 @@ encode_bytes(const context& ctx, const T& object) noexcept try {
 }
 /** 解码返回独立对象；失败不向调用方暴露半成品。 */
 template <class T>
-[[nodiscard]] result<T, serialization::diagnostic> decode(const context& ctx,
+[[nodiscard]] result<T, serialization::diagnostic> decode(const read_context& ctx,
                                                           std::span<const std::byte> bytes) noexcept
     try {
   return serialization::detail::decode_typed<T>(
@@ -63,24 +63,24 @@ template <class T>
 template <class T>
 [[nodiscard]] result<std::vector<std::byte>, serialization::diagnostic>
 encode_bytes(const T& object) noexcept {
-  context ctx;
+  write_context ctx;
   return encode_bytes(ctx, object);
 }
 template <class T>
 [[nodiscard]] result<T, serialization::diagnostic>
 decode(std::span<const std::byte> bytes) noexcept {
-  context ctx;
+  read_context ctx;
   return decode<T>(ctx, bytes);
 }
 /** 使用默认注册表的类型擦除与字段遍历入口；不隐式注册或冻结。 */
 [[nodiscard]] inline result<std::vector<std::byte>, serialization::diagnostic>
 encode_object(type_id type, const void* object) noexcept {
-  context ctx;
+  write_context ctx;
   return encode_object(ctx, type, object);
 }
 [[nodiscard]] inline result<ref<void>, serialization::diagnostic>
 decode_object(type_id type, std::span<const std::byte> bytes) noexcept {
-  context ctx;
+  read_context ctx;
   return decode_object(ctx, type, bytes);
 }
 /** JSON 文本便捷入口；与字节入口具有相同的校验及诊断语义。 */
@@ -89,7 +89,7 @@ template <class T>
   return decode<T>(std::as_bytes(std::span{json.data(), json.size()}));
 }
 template <class T>
-[[nodiscard]] result<std::string, serialization::diagnostic> encode(const context& ctx,
+[[nodiscard]] result<std::string, serialization::diagnostic> encode(const write_context& ctx,
                                                                     const T& object) noexcept try {
   auto bytes = encode_bytes(ctx, object);
   if (!bytes)
@@ -104,11 +104,11 @@ template <class T>
 /** 默认注册表文本入口；不隐式注册或冻结。 */
 template <class T>
 [[nodiscard]] result<std::string, serialization::diagnostic> encode(const T& object) noexcept {
-  context ctx;
+  write_context ctx;
   return encode(ctx, object);
 }
 template <class T>
-[[nodiscard]] result<T, serialization::diagnostic> decode(const context& ctx,
+[[nodiscard]] result<T, serialization::diagnostic> decode(const read_context& ctx,
                                                           std::string_view text) noexcept {
   return decode<T>(ctx, std::as_bytes(std::span{text.data(), text.size()}));
 }

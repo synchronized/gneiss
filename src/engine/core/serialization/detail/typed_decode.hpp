@@ -6,7 +6,7 @@
 namespace gneiss::engine::serialization::detail {
 /** 所有格式共用类型分派；对象仍由注册工厂构造，不要求默认构造。 */
 template <class T, class DecodeView, class DecodeObject>
-result<T, diagnostic> decode_typed(const context& ctx, DecodeView&& decode_view,
+result<T, diagnostic> decode_typed(const read_context& ctx, DecodeView&& decode_view,
                                    DecodeObject&& decode_object) {
   auto registry = ctx.registry();
   if (!registry)

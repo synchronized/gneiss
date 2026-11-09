@@ -29,13 +29,15 @@ auto restored = ser::decode<scene_description>(input_reader);
 所有显式上下文重载采用 context-first：
 
 ```cpp
-ser::context ctx;                         // 使用默认注册表
-ser::context isolated{registry, 64};      // 指定注册表与最大嵌套深度
-auto text = ser::json::encode(ctx, description);
-auto restored = ser::json::decode<scene_description>(ctx, json_text);
-auto status = ser::write(ctx, description, output_writer);
+ser::write_context write;                // 使用默认注册表
+ser::read_context read{registry, 64};    // 指定注册表与最大嵌套深度
+auto text = ser::json::encode(write, description);
+auto restored = ser::json::decode<scene_description>(read, json_text);
+auto status = ser::write(write, description, output_writer);
 ```
 
+编码和 capture_value 只接受 write_context；解码、apply_value 和 restore_value 只接受 read_context。
+两个方向不能互换；只有 read_context 可借用 reference_resolver，编码不持有解析器。
 无 context 的类型模板使用默认注册表；视图重载使用视图绑定的注册表。
 显式 context 与视图必须绑定同一注册表，否则返回 invalid_argument，不修改读取目标。
 显式空注册表返回 invalid_handle，不回退默认表；context 不自动注册或冻结类型。
@@ -49,8 +51,8 @@ auto status = ser::write(ctx, description, output_writer);
 
 类型注册字段后默认支持共享遍历；未知字段处理通过 object_policy 扩展声明。
 特殊类型通过 `.extend(serialization::codec<Encode, Decode>)` 注册 content_codec，按方向优先于字段遍历。
-编码签名为 `(const context&, writer&, const T&) -> result<writer::node, diagnostic>`；
-解码签名为 `(const context&, reader&, reader::node) -> result<T, diagnostic>`。
+编码签名为 `(const write_context&, writer&, const T&) -> result<writer::node, diagnostic>`；
+解码签名为 `(const read_context&, reader&, reader::node) -> result<T, diagnostic>`。
 允许 nullptr 表示缺少某方向，该方向回退到字段遍历；解码仍需要类型构造能力。
 自定义编码返回对象节点，解码返回独立对象；异常由序列化边界转换为错误。
 Meta 不包含 JSON 类型或格式专用回调，reader/writer 不承担类型 codec 注册。

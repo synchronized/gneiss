@@ -158,15 +158,20 @@ int main() {
             .ok());
   CHECK(m::register_builtin_types(*r).ok());
   CHECK(m::freeze(*r).ok());
-  s::context ctx{*r};
+  s::write_context ctx{*r};
+  s::read_context read_ctx{*r};
   CHECK(ctx.property_path().empty());
-  static_assert(!std::is_copy_constructible_v<s::context>);
+  static_assert(!std::is_copy_constructible_v<s::write_context>);
+  static_assert(!std::is_copy_constructible_v<s::read_context>);
+  static_assert(!std::is_constructible_v<s::write_context, s::reference_resolver&>);
+  static_assert(!std::is_convertible_v<const s::read_context&, const s::write_context&>);
+  static_assert(!std::is_convertible_v<const s::write_context&, const s::read_context&>);
   // 顶层可空值与 JSON 共用类型分派，空值不走对象工厂。
   for (const auto optional : {std::optional<int>{}, std::optional<int>{17}}) {
     memory_writer encoded;
     CHECK(s::write(ctx, optional, encoded).has_value());
     memory_reader decoded{encoded.root_value};
-    auto restored = s::decode<std::optional<int>>(ctx, decoded);
+    auto restored = s::decode<std::optional<int>>(read_ctx, decoded);
     CHECK(restored && *restored == optional);
   }
   record original{{1, 2, 3}, {{"a/b~c", 42}}, "hello", e::make_ref<derived>(), 12};
@@ -176,13 +181,13 @@ int main() {
   record target_record;
   auto target_view = m::view(*r, target_record);
   CHECK(target_view);
-  CHECK(s::read_into(ctx, input, *target_view));
+  CHECK(s::read_into(read_ctx, input, *target_view));
   CHECK(target_record.required == original.required && target_record.numbers == original.numbers);
   memory_writer borrowed_output;
   CHECK(s::write(target_view->as_const(), borrowed_output));
   memory_reader borrowed_input{borrowed_output.root_value};
   CHECK(s::read_into(borrowed_input, *target_view));
-  auto copy = s::decode<record>(ctx, input);
+  auto copy = s::decode<record>(read_ctx, input);
   CHECK(copy && copy->numbers == original.numbers && copy->names == original.names &&
         copy->label == original.label);
   CHECK(copy->object && copy->object.get() != original.object.get() && copy->required == 12);
@@ -190,19 +195,19 @@ int main() {
   // 后端读错类型后返回相同字段路径，不发布半成品。
   auto required = output.root_value->members.back().second;
   required->data = e::value{std::string{"bad"}};
-  auto bad = s::decode<record>(ctx, input);
+  auto bad = s::decode<record>(read_ctx, input);
   CHECK(!bad && bad.error().path == "/required" && bad.error().error == e::error::invalid_argument);
-  CHECK(ctx.property_path().empty());
+  CHECK(read_ctx.property_path().empty());
   required->data = e::value{std::int64_t{12}};
   output.root_value->members.emplace_back("required", required);
-  auto duplicate = s::decode<record>(ctx, input);
+  auto duplicate = s::decode<record>(read_ctx, input);
   CHECK(!duplicate && duplicate.error().path == "/required");
   output.root_value->members.pop_back();
   output.root_value->members.back().first = "unknown";
-  auto unknown = s::decode<record>(ctx, input);
+  auto unknown = s::decode<record>(read_ctx, input);
   CHECK(!unknown && unknown.error().path == "/unknown");
   output.root_value->members.pop_back();
-  auto missing = s::decode<record>(ctx, input);
+  auto missing = s::decode<record>(read_ctx, input);
   CHECK(!missing && missing.error().path == "/required");
   memory_writer failed;
   failed.fail_members = true;
@@ -217,44 +222,51 @@ int main() {
   memory_writer recovered;
   CHECK(s::write(ctx, original, recovered).has_value());
   CHECK(ctx.property_path().empty());
-  s::context shallow{*r, 0};
+  s::write_context shallow{*r, 0};
+  s::read_context read_shallow{*r, 0};
   memory_writer limited;
   CHECK(failed_with(s::write(shallow, original, limited), e::error::invalid_argument));
   memory_reader recovered_input{recovered.root_value};
-  CHECK(!s::decode<record>(shallow, recovered_input));
-  CHECK(s::decode<record>(ctx, recovered_input));
+  CHECK(!s::decode<record>(read_shallow, recovered_input));
+  CHECK(s::decode<record>(read_ctx, recovered_input));
   auto other = m::create_registry();
   CHECK(other && m::freeze(*other).ok());
-  s::context mismatched{*other};
+  s::write_context mismatched{*other};
+  s::read_context read_mismatched{*other};
   auto view = m::view(*r, original);
   CHECK(view);
   CHECK(failed_with(s::write(mismatched, view->as_const(), limited), e::error::invalid_argument));
-  CHECK(failed_with(s::read_into(mismatched, recovered_input, *view), e::error::invalid_argument));
+  CHECK(failed_with(s::read_into(read_mismatched, recovered_input, *view),
+                    e::error::invalid_argument));
   CHECK(original.required == 12);
-  s::context invalid{m::registry_ref{}};
+  s::write_context invalid{m::registry_ref{}};
+
   CHECK(failed_with(s::write(invalid, original, limited), e::error::invalid_handle));
+  s::read_context read_invalid{m::registry_ref{}};
+  CHECK(failed_with(s::read_into(read_invalid, recovered_input, *view), e::error::invalid_handle));
+  CHECK(read_invalid.property_path().empty());
 
   original.object.reset();
   original.label.reset();
   memory_writer empty;
   CHECK(s::write(ctx, original, empty).has_value());
   memory_reader empty_input{empty.root_value};
-  auto empty_copy = s::decode<record>(ctx, empty_input);
+  auto empty_copy = s::decode<record>(read_ctx, empty_input);
   CHECK(empty_copy && !empty_copy->object && !empty_copy->label);
   memory_writer scalar_output;
   CHECK(s::write(ctx, std::int64_t{99}, scalar_output).has_value());
   memory_reader scalar_input{scalar_output.root_value};
-  auto scalar = s::decode<std::int64_t>(ctx, scalar_input);
+  auto scalar = s::decode<std::int64_t>(read_ctx, scalar_input);
   CHECK(scalar && *scalar == 99);
   memory_writer optional_output;
   CHECK(s::write(ctx, std::optional<std::int64_t>{3}, optional_output).has_value());
   memory_reader optional_input{optional_output.root_value};
-  auto optional = s::decode<std::optional<std::int64_t>>(ctx, optional_input);
+  auto optional = s::decode<std::optional<std::int64_t>>(read_ctx, optional_input);
   CHECK(optional && *optional && **optional == 3);
   memory_writer variant_output;
   CHECK(s::write(ctx, choice{std::string{"variant"}}, variant_output).has_value());
   memory_reader variant_input{variant_output.root_value};
-  auto variant = s::decode<choice>(ctx, variant_input);
+  auto variant = s::decode<choice>(read_ctx, variant_input);
   CHECK(variant && std::get<std::string>(*variant) == "variant");
   // 通用 variant 遍历在无 JSON 的后端上处理 value 标量和对象内容。
   std::vector<e::value> values{e::value{std::int64_t{42}}, e::value{std::string{"hello"}},
@@ -262,7 +274,7 @@ int main() {
   memory_writer value_output;
   CHECK(s::write(ctx, values, value_output).has_value());
   memory_reader value_input{value_output.root_value};
-  auto value_copy = s::decode<std::vector<e::value>>(ctx, value_input);
+  auto value_copy = s::decode<std::vector<e::value>>(read_ctx, value_input);
   CHECK(value_copy && value_copy->size() == values.size());
   CHECK((*value_copy)[0] == values[0] && (*value_copy)[1] == values[1] &&
         (*value_copy)[2] == values[2]);
@@ -271,7 +283,7 @@ int main() {
   CHECK(object_copy && object_copy.get() != object_source.get());
   CHECK(dynamic_cast<derived*>(object_copy.get())->number == 7);
   value_output.root_value->elements[0]->members[0].second->data = e::value{std::string{"unknown"}};
-  auto unknown_kind = s::decode<std::vector<e::value>>(ctx, value_input);
+  auto unknown_kind = s::decode<std::vector<e::value>>(read_ctx, value_input);
   CHECK(!unknown_kind && unknown_kind.error().error == e::error::invalid_argument);
   return 0;
 }

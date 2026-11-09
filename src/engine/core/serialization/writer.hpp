@@ -5,7 +5,6 @@
 #include "engine/core/serialization/diagnostic.hpp"
 #include "engine/core/value.hpp"
 namespace gneiss::engine::serialization {
-class context;
 /** 后端拥有节点；句柄只能用于创建它的 writer，不能在 writer 销毁后保存。 */
 class writer {
 public:

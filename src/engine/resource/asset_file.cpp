@@ -105,7 +105,7 @@ format format_traits<texture_description>::get() noexcept {
           .validate = &validate_description<texture_description, validate_texture_description>};
 }
 result<std::vector<std::byte>, diagnostic>
-serialize_instance(const serialization::context& ctx, format format,
+serialize_instance(const serialization::write_context& ctx, format format,
                    const meta::const_instance& view) noexcept try {
   if (format.validate) {
     auto validation = format.validate(view);
@@ -137,8 +137,8 @@ serialize_instance(const serialization::context& ctx, format format,
 } catch (...) {
   return diagnostic{.error = error::internal};
 }
-result<ref<void>, diagnostic> deserialize_object(const serialization::context& ctx, format format,
-                                                 type_id id,
+result<ref<void>, diagnostic> deserialize_object(const serialization::read_context& ctx,
+                                                 format format, type_id id,
                                                  std::span<const std::byte> bytes) noexcept try {
   if (bytes.size() > format.maximum_bytes)
     return invalid("", "资源描述超过文件大小上限");

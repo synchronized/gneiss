@@ -16,7 +16,7 @@ result<asset_reference_value> capture_asset_reference(guid type, const void* poi
 }
 
 template <class T>
-result<void*, serialization::diagnostic> encode_asset_reference(const serialization::context&,
+result<void*, serialization::diagnostic> encode_asset_reference(const serialization::write_context&,
                                                                 serialization::writer& out,
                                                                 const void* pointer) {
   const auto& uri = static_cast<const T*>(pointer)->source().uri;
@@ -31,7 +31,7 @@ result<void*, serialization::diagnostic> encode_asset_reference(const serializat
 }
 template <class T>
 result<ref<void>, serialization::diagnostic>
-decode_asset_reference(const serialization::context& ctx, serialization::reader& input,
+decode_asset_reference(const serialization::read_context& ctx, serialization::reader& input,
                        const void* node) {
   if (!input.is_object(node) || input.size(node) != 1)
     return serialization::diagnostic{.message = "资源引用必须只有 $asset 字段",

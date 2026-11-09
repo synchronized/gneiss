@@ -247,17 +247,17 @@ public:
 };
 /** 嵌套 codec 借用同一个环检测上下文，临时 reader 不改变外层输入生命周期。 */
 struct scoped_reader {
-  const serialization::context& context;
+  const serialization::read_context& context;
   reader* previous;
   json_reader backend;
-  explicit scoped_reader(const serialization::context& ctx)
+  explicit scoped_reader(const serialization::read_context& ctx)
       : context(ctx), previous(context_access::input(ctx)) {
     context_access::input(ctx) = &backend;
   }
   ~scoped_reader() { context_access::input(context) = previous; }
 };
 result<yyjson_mut_val*, serialization::diagnostic>
-encode_view(const context& ctx, const registry_ref& registry, const const_instance& view,
+encode_view(const write_context& ctx, const registry_ref& registry, const const_instance& view,
             yyjson_mut_doc* doc, std::size_t depth) {
   json_writer output{doc};
   auto encoded = serialization::detail::encode_view(ctx, registry, view, &output, depth);
@@ -267,21 +267,21 @@ encode_view(const context& ctx, const registry_ref& registry, const const_instan
 }
 
 result<yyjson_mut_val*, serialization::diagnostic>
-encode_members(const context& ctx, const registry_ref& registry, type_id id, const void* object,
-               yyjson_mut_doc* doc, std::size_t depth) {
+encode_members(const write_context& ctx, const registry_ref& registry, type_id id,
+               const void* object, yyjson_mut_doc* doc, std::size_t depth) {
   json_writer output{doc};
   auto encoded = serialization::detail::encode_members(ctx, registry, id, object, &output, depth);
   if (!encoded)
     return std::move(encoded).error();
   return static_cast<yyjson_mut_val*>(*encoded);
 }
-serialization::diagnostic decode_view(const context& ctx, const registry_ref& registry,
+serialization::diagnostic decode_view(const read_context& ctx, const registry_ref& registry,
                                       const instance& view, yyjson_val* input, std::size_t depth) {
   scoped_reader scope{ctx};
   return serialization::detail::decode_view(ctx, registry, view, input, depth);
 }
 
-serialization::diagnostic decode_members(const context& ctx, const registry_ref& registry,
+serialization::diagnostic decode_members(const read_context& ctx, const registry_ref& registry,
                                          type_id id, void* object, yyjson_val* input,
                                          std::size_t depth,
                                          std::span<const std::string_view> ignored = {}) {
@@ -291,7 +291,7 @@ serialization::diagnostic decode_members(const context& ctx, const registry_ref&
 
 }
 result<std::vector<std::byte>, serialization::diagnostic>
-encode_instance(const context& ctx, const const_instance& view) noexcept try {
+encode_instance(const write_context& ctx, const const_instance& view) noexcept try {
   auto selected = ctx.registry();
   if (!selected)
     return failure(selected.error());
@@ -321,7 +321,7 @@ encode_instance(const context& ctx, const const_instance& view) noexcept try {
 } catch (...) {
   return failure(error::internal);
 }
-result<void, serialization::diagnostic> read_into(const context& ctx, const instance& view,
+result<void, serialization::diagnostic> read_into(const read_context& ctx, const instance& view,
                                                   std::span<const std::byte> bytes) noexcept try {
   auto selected = ctx.registry();
   if (!selected)
@@ -347,7 +347,7 @@ result<void, serialization::diagnostic> read_into(const context& ctx, const inst
   return failure(error::internal);
 }
 result<std::vector<std::byte>, serialization::diagnostic>
-encode_object(const context& ctx, type_id id, const void* object) noexcept {
+encode_object(const write_context& ctx, type_id id, const void* object) noexcept {
   auto registry = ctx.registry();
   if (!registry)
     return failure(registry.error());
@@ -357,7 +357,7 @@ encode_object(const context& ctx, type_id id, const void* object) noexcept {
   return encode_instance(ctx, *view);
 }
 result<ref<void>, serialization::diagnostic>
-decode_object(const context& ctx, type_id id, std::span<const std::byte> bytes) noexcept try {
+decode_object(const read_context& ctx, type_id id, std::span<const std::byte> bytes) noexcept try {
   auto registry = ctx.registry();
   if (!registry)
     return failure(registry.error());
@@ -383,8 +383,8 @@ decode_object(const context& ctx, type_id id, std::span<const std::byte> bytes) 
 }
 
 namespace gneiss::engine::serialization::json::detail {
-result<yyjson_mut_val*, serialization::diagnostic> write(const context& ctx, yyjson_mut_doc* doc,
-                                                         const const_instance& view) noexcept try {
+result<yyjson_mut_val*, serialization::diagnostic>
+write(const write_context& ctx, yyjson_mut_doc* doc, const const_instance& view) noexcept try {
   if (!doc)
     return failure(error::invalid_argument);
   auto selected = ctx.registry();
@@ -400,8 +400,8 @@ result<yyjson_mut_val*, serialization::diagnostic> write(const context& ctx, yyj
 } catch (...) {
   return failure(error::internal);
 }
-serialization::diagnostic read(const context& ctx, yyjson_val* input, const instance& view) noexcept
-    try {
+serialization::diagnostic read(const read_context& ctx, yyjson_val* input,
+                               const instance& view) noexcept try {
   auto selected = ctx.registry();
   if (!selected)
     return failure(selected.error());
@@ -421,12 +421,12 @@ namespace gneiss::engine::serialization::json {
 using namespace meta;
 result<std::vector<std::byte>, serialization::diagnostic>
 encode_instance(const const_instance& view) noexcept {
-  context ctx{view.registry()};
+  write_context ctx{view.registry()};
   return encode_instance(ctx, view);
 }
 result<void, serialization::diagnostic> read_into(const instance& view,
                                                   std::span<const std::byte> bytes) noexcept {
-  context ctx{view.registry()};
+  read_context ctx{view.registry()};
   return read_into(ctx, view, bytes);
 }
 }
@@ -435,7 +435,7 @@ namespace gneiss::engine::serialization::json {
 using namespace meta;
 namespace detail {
 result<yyjson_mut_val*, serialization::diagnostic>
-write_fields_object(const context& ctx, yyjson_mut_doc* doc, type_id id,
+write_fields_object(const write_context& ctx, yyjson_mut_doc* doc, type_id id,
                     const void* object) noexcept try {
   auto selected = ctx.registry();
   if (!selected)
@@ -455,7 +455,7 @@ write_fields_object(const context& ctx, yyjson_mut_doc* doc, type_id id,
   return failure(error::internal);
 }
 result<ref<void>, serialization::diagnostic>
-read_fields_object(const context& ctx, yyjson_val* input, type_id id,
+read_fields_object(const read_context& ctx, yyjson_val* input, type_id id,
                    std::span<const std::string_view> ignored) noexcept try {
   auto selected = ctx.registry();
   if (!selected)
@@ -483,7 +483,7 @@ read_fields_object(const context& ctx, yyjson_val* input, type_id id,
   return failure(error::internal);
 }
 result<yyjson_mut_val*, serialization::diagnostic>
-write_value(const context& ctx, yyjson_mut_doc* doc, const value& v) noexcept try {
+write_value(const write_context& ctx, yyjson_mut_doc* doc, const value& v) noexcept try {
   auto registry = ctx.registry();
   if (!registry)
     return failure(registry.error());
@@ -496,8 +496,8 @@ write_value(const context& ctx, yyjson_mut_doc* doc, const value& v) noexcept tr
 } catch (...) {
   return failure(error::internal);
 }
-result<value, serialization::diagnostic> read_value(const context& ctx, yyjson_val* node) noexcept
-    try {
+result<value, serialization::diagnostic> read_value(const read_context& ctx,
+                                                    yyjson_val* node) noexcept try {
   auto registry = ctx.registry();
   if (!registry)
     return failure(registry.error());
@@ -515,7 +515,8 @@ result<value, serialization::diagnostic> read_value(const context& ctx, yyjson_v
   return failure(error::internal);
 }
 result<yyjson_mut_val*, serialization::diagnostic>
-write_fields(const context& ctx, yyjson_mut_doc* doc, const const_instance& view) noexcept try {
+write_fields(const write_context& ctx, yyjson_mut_doc* doc, const const_instance& view) noexcept
+    try {
   auto selected = ctx.registry();
   if (!selected)
     return failure(selected.error());
@@ -538,7 +539,8 @@ write_fields(const context& ctx, yyjson_mut_doc* doc, const const_instance& view
 } catch (...) {
   return failure(error::internal);
 }
-serialization::diagnostic read_fields(const context& ctx, yyjson_val* input, const instance& view,
+serialization::diagnostic read_fields(const read_context& ctx, yyjson_val* input,
+                                      const instance& view,
                                       std::span<const std::string_view> ignored) noexcept try {
   auto selected = ctx.registry();
   if (!selected)
@@ -564,30 +566,30 @@ serialization::diagnostic read_fields(const context& ctx, yyjson_val* input, con
 }
 result<yyjson_mut_val*, serialization::diagnostic> write(yyjson_mut_doc* doc,
                                                          const const_instance& view) noexcept {
-  context ctx{view.registry()};
+  write_context ctx{view.registry()};
   return write(ctx, doc, view);
 }
 serialization::diagnostic read(yyjson_val* input, const instance& view) noexcept {
-  context ctx{view.registry()};
+  read_context ctx{view.registry()};
   return read(ctx, input, view);
 }
 result<yyjson_mut_val*, serialization::diagnostic>
 write_fields(yyjson_mut_doc* doc, const const_instance& view) noexcept {
-  context ctx{view.registry()};
+  write_context ctx{view.registry()};
   return write_fields(ctx, doc, view);
 }
 serialization::diagnostic read_fields(yyjson_val* input, const instance& view,
                                       std::span<const std::string_view> ignored) noexcept {
-  context ctx{view.registry()};
+  read_context ctx{view.registry()};
   return read_fields(ctx, input, view, ignored);
 }
 result<yyjson_mut_val*, serialization::diagnostic> write_value(yyjson_mut_doc* doc,
                                                                const value& v) noexcept {
-  context ctx;
+  write_context ctx;
   return write_value(ctx, doc, v);
 }
 result<value, serialization::diagnostic> read_value(yyjson_val* node) noexcept {
-  context ctx;
+  read_context ctx;
   return read_value(ctx, node);
 }
 }

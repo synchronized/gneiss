@@ -6,18 +6,19 @@
 #include <functional>
 #include <optional>
 namespace gneiss::engine::serialization {
-class context;
+class read_context;
+class write_context;
 class reader;
 class writer;
 /** 特殊内容编解码。未提供的方向采用普通字段遍历；回调借用上下文和后端。 */
 struct content_codec {
-  result<void*, diagnostic> (*encode)(const context&, writer&, const void*){};
-  result<ref<void>, diagnostic> (*decode)(const context&, reader&, const void*){};
+  result<void*, diagnostic> (*encode)(const write_context&, writer&, const void*){};
+  result<ref<void>, diagnostic> (*decode)(const read_context&, reader&, const void*){};
 };
 /** 引用位置策略，不改变对象自身的内容格式。空引用由框架处理。 */
 struct reference_policy {
-  result<void*, diagnostic> (*encode)(const context&, writer&, const void*){};
-  result<ref<void>, diagnostic> (*decode)(const context&, reader&, const void*){};
+  result<void*, diagnostic> (*encode)(const write_context&, writer&, const void*){};
+  result<ref<void>, diagnostic> (*decode)(const read_context&, reader&, const void*){};
   bool polymorphic = false;
   result<asset_reference_value> (*capture)(engine::guid, const void*){};
 };
@@ -118,7 +119,7 @@ inline constexpr auto codec = []<class T>() -> result<content_codec> {
   if constexpr (!std::is_null_pointer_v<decltype(Encode)>) {
     const auto encode = Encode;
     if (encode)
-      output.encode = [](const context& ctx, writer& out,
+      output.encode = [](const write_context& ctx, writer& out,
                          const void* object) -> result<void*, diagnostic> {
         return std::invoke(Encode, ctx, out, *static_cast<const T*>(object));
       };
@@ -126,7 +127,7 @@ inline constexpr auto codec = []<class T>() -> result<content_codec> {
   if constexpr (!std::is_null_pointer_v<decltype(Decode)>) {
     const auto decode = Decode;
     if (decode)
-      output.decode = [](const context& ctx, reader& in,
+      output.decode = [](const read_context& ctx, reader& in,
                          const void* node) -> result<ref<void>, diagnostic> {
         auto decoded = std::invoke(Decode, ctx, in, node);
         if (!decoded)

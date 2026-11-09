@@ -25,7 +25,7 @@ bool supports_field_snapshot(const meta::type& type) {
   return false;
 }
 struct capture_state {
-  const context& ctx;
+  const write_context& ctx;
   std::unordered_set<const void*> active;
   diagnostic failure;
   result<engine::value> read(const const_instance& source, std::size_t depth,
@@ -211,7 +211,7 @@ struct capture_state {
   }
 };
 struct restore_state {
-  const context& ctx;
+  const read_context& ctx;
   diagnostic failure;
   error write(const instance& target, const engine::value& data, std::size_t depth,
               bool sequence_candidate = false, const reference_policy* override = nullptr) {
@@ -448,7 +448,7 @@ struct restore_state {
   }
 };
 }
-result<engine::value, diagnostic> capture_value(const context& ctx,
+result<engine::value, diagnostic> capture_value(const write_context& ctx,
                                                 const meta::const_instance& source) noexcept try {
   detail::operation_scope operation{ctx};
   auto registry = ctx.registry();
@@ -469,7 +469,7 @@ result<engine::value, diagnostic> capture_value(const context& ctx,
 } catch (...) {
   return diagnostic{.error = error::internal};
 }
-diagnostic apply_value(const context& ctx, const meta::instance& target,
+diagnostic apply_value(const read_context& ctx, const meta::instance& target,
                        const engine::value& data) noexcept try {
   detail::operation_scope operation{ctx};
   auto registry = ctx.registry();
@@ -489,11 +489,11 @@ diagnostic apply_value(const context& ctx, const meta::instance& target,
   return {.error = error::internal};
 }
 result<engine::value, diagnostic> capture_value(const meta::const_instance& source) noexcept {
-  context ctx{source.registry()};
+  write_context ctx{source.registry()};
   return capture_value(ctx, source);
 }
 diagnostic apply_value(const meta::instance& target, const engine::value& data) noexcept {
-  context ctx{target.registry()};
+  read_context ctx{target.registry()};
   return apply_value(ctx, target, data);
 }
 }

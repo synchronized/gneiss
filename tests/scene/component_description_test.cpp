@@ -29,7 +29,7 @@ struct custom_description
 std::span<const std::byte> bytes(std::string_view value) {
   return std::as_bytes(std::span{value.data(), value.size()});
 }
-e::result<void*, e::serialization::diagnostic> encode(const e::serialization::context&,
+e::result<void*, e::serialization::diagnostic> encode(const e::serialization::write_context&,
                                                       e::serialization::writer& output,
                                                       const custom_description& value) {
   auto root = output.object();
@@ -44,7 +44,7 @@ e::result<void*, e::serialization::diagnostic> encode(const e::serialization::co
   return root;
 }
 e::result<custom_description, e::serialization::diagnostic>
-decode(const e::serialization::context&, e::serialization::reader& input, const void* node) {
+decode(const e::serialization::read_context&, e::serialization::reader& input, const void* node) {
   ++decode_calls;
   auto uuid = input.scalar(input.member(node, "uuid"), e::value_kind::guid);
   if (!uuid)

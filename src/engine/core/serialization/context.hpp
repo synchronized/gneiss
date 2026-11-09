@@ -22,28 +22,46 @@ public:
 namespace detail {
 struct context_access;
 struct operation_state;
-}
 /** 不可复制的调用上下文；配置只读，运行状态私有。可顺序复用，不可并发共用。 */
-class context final {
-  friend struct detail::context_access;
+class context_base {
+  friend struct context_access;
   meta::registry_ref registry_;
-  reference_resolver* references_{};
   bool use_default_ = true;
   std::size_t maximum_depth_ = 64;
-  mutable detail::operation_state* state_{};
+  mutable operation_state* state_{};
 
 public:
   [[nodiscard]] GNEISS_API std::string_view property_path() const noexcept;
-  context() = default;
-  explicit context(reference_resolver& references) noexcept : references_(&references) {}
-  [[nodiscard]] reference_resolver* references() const noexcept { return references_; }
+
+protected:
+  context_base() = default;
+  ~context_base() = default;
+
+public:
   /** 显式空注册表仍无效，不回退到默认表。 */
-  explicit context(meta::registry_ref registry, std::size_t maximum_depth = 64) noexcept
+  explicit context_base(meta::registry_ref registry, std::size_t maximum_depth = 64) noexcept
       : registry_(std::move(registry)), use_default_(false), maximum_depth_(maximum_depth) {}
-  explicit context(std::size_t maximum_depth) noexcept : maximum_depth_(maximum_depth) {}
-  context(const context&) = delete;
-  context& operator=(const context&) = delete;
+  explicit context_base(std::size_t maximum_depth) noexcept : maximum_depth_(maximum_depth) {}
+  context_base(const context_base&) = delete;
+  context_base& operator=(const context_base&) = delete;
   [[nodiscard]] GNEISS_API result<meta::registry_ref> registry() const noexcept;
   [[nodiscard]] std::size_t maximum_depth() const noexcept { return maximum_depth_; }
+};
+}
+/** 解码配置；解析器由调用方持有，必须覆盖整个读取操作。 */
+class read_context final : public detail::context_base {
+  reference_resolver* references_{};
+
+public:
+  using context_base::context_base;
+  read_context() = default;
+  explicit read_context(reference_resolver& references) noexcept : references_(&references) {}
+  [[nodiscard]] reference_resolver* references() const noexcept { return references_; }
+};
+/** 编码配置；不接受解码专用的外部引用解析器。 */
+class write_context final : public detail::context_base {
+public:
+  using context_base::context_base;
+  write_context() = default;
 };
 }

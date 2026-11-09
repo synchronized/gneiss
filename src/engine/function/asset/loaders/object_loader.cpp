@@ -11,7 +11,7 @@ struct object_loader final : asset_loader {
   asset_reference_context references;
   std::vector<std::byte> deferred_bytes;
   void decode(const std::vector<std::byte>& bytes) override {
-    diagnostic = references.collect([&](const serialization::context& context) {
+    diagnostic = references.collect([&](const serialization::read_context& context) {
       auto decoded = decoder->decode(context, bytes);
       if (decoded)
         value = *decoded;
@@ -27,7 +27,7 @@ struct object_loader final : asset_loader {
   error finish() override {
     if (deferred_bytes.empty())
       return error::success;
-    serialization::context context{references};
+    serialization::read_context context{references};
     auto decoded = decoder->decode(context, deferred_bytes);
     if (!decoded) {
       diagnostic = std::move(decoded).error();

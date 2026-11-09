@@ -72,11 +72,12 @@ bool explicit_registration() {
   auto item = sequence->at(0);
   if (!item || item->assign(4.0F).failed() || model.items.values[0] != 4.0F)
     return false;
-  e::serialization::context context{*registry};
+  e::serialization::write_context context{*registry};
+  e::serialization::read_context read_context{*registry};
   auto encoded = e::serialization::json::encode_bytes(context, model);
   if (!encoded)
     return false;
-  auto decoded = e::serialization::json::decode<external_model>(context, *encoded);
+  auto decoded = e::serialization::json::decode<external_model>(read_context, *encoded);
   return decoded && decoded->items.values == model.items.values;
 }
 struct runtime_child {
@@ -137,11 +138,12 @@ bool runtime_only_registration() {
   if (!number || !field || number->assign(7.0F).failed() || object.child.number != 7 ||
       field.get(*foreign).error() != e::error::invalid_argument)
     return false;
-  e::serialization::context context{*registry};
+  e::serialization::write_context context{*registry};
+  e::serialization::read_context read_context{*registry};
   auto encoded = e::serialization::json::encode_bytes(context, object);
   if (!encoded)
     return false;
-  auto decoded = e::serialization::json::decode<runtime_parent>(context, *encoded);
+  auto decoded = e::serialization::json::decode<runtime_parent>(read_context, *encoded);
   if (!decoded || decoded->child.number != 7 ||
       e::serialization::capture_value(context, object).error().error != e::error::unsupported)
     return false;

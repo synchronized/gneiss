@@ -62,14 +62,15 @@ struct tracked {
 };
 e::error reject(const tracked&) { return e::error::invalid_argument; }
 e::result<void*, gneiss::engine::serialization::diagnostic>
-custom_encode(const e::serialization::context&, e::serialization::writer& output, const sample&) {
+custom_encode(const e::serialization::write_context&, e::serialization::writer& output,
+              const sample&) {
   auto root = output.object();
   if (!root || !output.member(root, "custom", output.string("yes")))
     return gneiss::engine::serialization::diagnostic{.error = e::error::out_of_memory};
   return root;
 }
 e::result<sample, gneiss::engine::serialization::diagnostic>
-custom_decode(const e::serialization::context&, e::serialization::reader&, const void*) {
+custom_decode(const e::serialization::read_context&, e::serialization::reader&, const void*) {
   return sample{};
 }
 enum class named_number : std::int32_t { negative = -7, positive = 9 };
@@ -97,27 +98,27 @@ bool enum_json_contract() {
       m::freeze(*registry).failed())
     return false;
   auto encoded = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::context{*registry}, enum_sample{});
+      gneiss::engine::serialization::write_context{*registry}, enum_sample{});
   if (!encoded)
     return false;
   const std::string_view text(reinterpret_cast<const char*>(encoded->data()), encoded->size());
   if (text.find(R"("named":"negative")") == text.npos || text.find(R"("numeric":-7)") == text.npos)
     return false;
   auto decoded = gneiss::engine::serialization::json::decode<enum_sample>(
-      gneiss::engine::serialization::context{*registry}, *encoded);
+      gneiss::engine::serialization::read_context{*registry}, *encoded);
   if (!decoded || decoded->named != named_number::negative ||
       decoded->numeric != named_number::negative)
     return false;
   for (const auto invalid : {R"({"named":-7})", R"({"named":"unknown"})", R"({"named":null})"}) {
     auto rejected = gneiss::engine::serialization::json::decode<enum_sample>(
-        gneiss::engine::serialization::context{*registry}, bytes(invalid));
+        gneiss::engine::serialization::read_context{*registry}, bytes(invalid));
     if (rejected || rejected.error().path != "/named")
       return false;
   }
   enum_sample unknown;
   unknown.named = static_cast<named_number>(10);
   return !gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::context{*registry}, unknown);
+      gneiss::engine::serialization::write_context{*registry}, unknown);
 }
 struct reference_fields {
   static constexpr std::string_view type_name = "reference_fields";
@@ -151,7 +152,8 @@ bool field_reference_contract() {
       return false;
     reference_fields input{e::make_ref<sample>(), e::make_ref<sample>(), 42};
     input.overridden_reference->enabled = false;
-    const ser::context ctx{registry};
+    const ser::write_context ctx{registry};
+    ser::read_context read_ctx{registry};
     auto encoded = ser::json::encode_bytes(ctx, input);
     if (!encoded)
       return false;
@@ -161,12 +163,12 @@ bool field_reference_contract() {
     if (text.find(plain) == text.npos || text.find("$type_guid") == text.npos ||
         text.find("transient") != text.npos)
       return false;
-    auto decoded = ser::json::decode<reference_fields>(ctx, *encoded);
+    auto decoded = ser::json::decode<reference_fields>(read_ctx, *encoded);
     auto snapshot = ser::capture_value(ctx, input);
     if (!decoded || !snapshot || !decoded->default_reference || !decoded->overridden_reference ||
         decoded->overridden_reference->enabled || decoded->transient != 7)
       return false;
-    auto restored = ser::restore_value<reference_fields>(ctx, *snapshot);
+    auto restored = ser::restore_value<reference_fields>(read_ctx, *snapshot);
     if (!restored || !restored->overridden_reference || restored->overridden_reference->enabled ||
         restored->transient != 7 || restored->overridden_reference == input.overridden_reference)
       return false;
@@ -180,8 +182,8 @@ bool field_reference_contract() {
     auto null_snapshot = ser::capture_value(ctx, input);
     if (!nulls || !null_snapshot)
       return false;
-    auto empty = ser::json::decode<reference_fields>(ctx, *nulls);
-    auto restored_empty = ser::restore_value<reference_fields>(ctx, *null_snapshot);
+    auto empty = ser::json::decode<reference_fields>(read_ctx, *nulls);
+    auto restored_empty = ser::restore_value<reference_fields>(read_ctx, *null_snapshot);
     if (!empty || !restored_empty || empty->default_reference || empty->overridden_reference ||
         restored_empty->default_reference || restored_empty->overridden_reference)
       return false;
@@ -196,12 +198,12 @@ bool asymmetric_reference_snapshot_contract() {
       return false;
     ser::reference_policy policy;
     if (decode_only)
-      policy.decode = [](const ser::context&, ser::reader&,
+      policy.decode = [](const ser::read_context&, ser::reader&,
                          const void*) -> e::result<e::ref<void>, ser::diagnostic> {
         return e::ref<void>{e::make_ref<sample>()};
       };
     else
-      policy.encode = [](const ser::context&, ser::writer& out,
+      policy.encode = [](const ser::write_context&, ser::writer& out,
                          const void*) -> e::result<void*, ser::diagnostic> {
         return out.string("asset://sample");
       };
@@ -212,7 +214,8 @@ bool asymmetric_reference_snapshot_contract() {
             .failed() ||
         m::freeze(*registry).failed())
       return false;
-    ser::context ctx{*registry};
+    ser::write_context ctx{*registry};
+    ser::read_context read_ctx{*registry};
     auto captured = ser::capture_value(ctx, e::make_ref<sample>());
     if (captured || captured.error().error != e::error::unsupported)
       return false;
@@ -225,9 +228,9 @@ bool asymmetric_reference_snapshot_contract() {
 bool external_field_contract() {
   namespace ser = e::serialization;
   const ser::reference_policy external{
-      .encode = [](const ser::context&, ser::writer& out, const void*)
+      .encode = [](const ser::write_context&, ser::writer& out, const void*)
           -> e::result<void*, ser::diagnostic> { return out.string("asset://sample"); },
-      .decode = [](const ser::context&, ser::reader& in,
+      .decode = [](const ser::read_context&, ser::reader& in,
                    const void* node) -> e::result<e::ref<void>, ser::diagnostic> {
         if (!in.is_string(node) || in.string(node) != "asset://sample")
           return ser::diagnostic{.error = e::error::invalid_argument};
@@ -253,7 +256,8 @@ bool external_field_contract() {
             .failed() ||
         m::freeze(*registry).failed())
       return false;
-    const ser::context ctx{*registry};
+    const ser::write_context ctx{*registry};
+    ser::read_context read_ctx{*registry};
     reference_fields input{e::make_ref<sample>(), e::make_ref<sample>()};
     auto json = ser::json::encode_bytes(ctx, input);
     auto captured = ser::capture_value(ctx, input);
@@ -262,7 +266,7 @@ bool external_field_contract() {
     const std::string text(reinterpret_cast<const char*>(json->data()), json->size());
     const auto expected =
         external_default ? R"("default":"asset://sample")" : R"("override":"asset://sample")";
-    if (text.find(expected) == text.npos || !ser::json::decode<reference_fields>(ctx, *json))
+    if (text.find(expected) == text.npos || !ser::json::decode<reference_fields>(read_ctx, *json))
       return false;
     const auto* record = std::get_if<e::record_value>(&captured->payload);
     if (!record || record->get().properties.size() != 2)
@@ -273,7 +277,7 @@ bool external_field_contract() {
         !std::holds_alternative<e::record_value>(
             record->get().properties[1U - external_index].content.payload))
       return false;
-    auto restored = ser::restore_value<reference_fields>(ctx, *captured);
+    auto restored = ser::restore_value<reference_fields>(read_ctx, *captured);
     if (restored || restored.error().error != e::error::invalid_state)
       return false; // 外部身份不能静默还原为空对象，必须提供解析器。
   }
@@ -298,7 +302,7 @@ int main() try {
   if (register_sample(registry).failed())
     return 2;
   if (gneiss::engine::serialization::json::encode_bytes(
-          gneiss::engine::serialization::context{registry}, sample{})
+          gneiss::engine::serialization::write_context{registry}, sample{})
           .error()
           .error != e::error::not_ready)
     return 3;
@@ -316,14 +320,14 @@ int main() try {
   original.identity = sample::type_guid;
   original.rotation = {0.9F, 0.1F, 0.2F, 0.3F};
   auto encoded = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::context{registry}, original);
+      gneiss::engine::serialization::write_context{registry}, original);
   if (!encoded)
     return 5;
   const std::string_view text{reinterpret_cast<const char*>(encoded->data()), encoded->size()};
   if (text.find("computed") != std::string_view::npos)
     return 6;
   auto decoded = gneiss::engine::serialization::json::decode<sample>(
-      gneiss::engine::serialization::context{registry}, *encoded);
+      gneiss::engine::serialization::read_context{registry}, *encoded);
   if (!decoded || decoded->signed_number != original.signed_number ||
       decoded->unsigned_number != original.unsigned_number || decoded->name != original.name ||
       decoded->identity != original.identity || decoded->position != original.position ||
@@ -331,7 +335,7 @@ int main() try {
     return 7;
   original.identity = {};
   auto nil_encoded = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::context{registry}, original);
+      gneiss::engine::serialization::write_context{registry}, original);
   if (!nil_encoded)
     return 40;
   const std::string nil_text(reinterpret_cast<const char*>(nil_encoded->data()),
@@ -339,22 +343,22 @@ int main() try {
   if (nil_text.find("\"identity\":null") == std::string::npos)
     return 42;
   auto zero_string = gneiss::engine::serialization::json::decode<sample>(
-      gneiss::engine::serialization::context{registry},
+      gneiss::engine::serialization::read_context{registry},
       bytes(R"({"enabled":true,"identity":"00000000-0000-0000-0000-000000000000"})"));
   if (!zero_string || zero_string->identity)
     return 43;
   auto nil_decoded = gneiss::engine::serialization::json::decode<sample>(
-      gneiss::engine::serialization::context{registry}, *nil_encoded);
+      gneiss::engine::serialization::read_context{registry}, *nil_encoded);
   if (!nil_decoded || nil_decoded->identity)
     return 41;
   auto defaults = gneiss::engine::serialization::json::decode<sample>(
-      gneiss::engine::serialization::context{registry},
+      gneiss::engine::serialization::read_context{registry},
       bytes(R"({"enabled":false,"unknown":1,"computed":99})"));
   if (!defaults || defaults->enabled || defaults->name != "默认" || defaults->speed != 1)
     return 8;
   const auto fails = [&](std::string_view json, std::string_view path) {
     auto result = gneiss::engine::serialization::json::decode<sample>(
-        gneiss::engine::serialization::context{registry}, bytes(json));
+        gneiss::engine::serialization::read_context{registry}, bytes(json));
     return !result && result.error().error == e::error::invalid_argument &&
            result.error().path == path;
   };
@@ -384,28 +388,28 @@ int main() try {
     return 33;
   original.uv.y = std::numeric_limits<float>::infinity();
   auto invalid_uv = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::context{registry}, original);
+      gneiss::engine::serialization::write_context{registry}, original);
   if (invalid_uv || invalid_uv.error().path != "/uv")
     return 34;
   original.uv = {0.25F, 0.75F};
   original.speed = std::numeric_limits<float>::infinity();
   auto invalid = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::context{registry}, original);
+      gneiss::engine::serialization::write_context{registry}, original);
   // getter 产生非法属性值沿用 Meta 的 internal 语义，并保留字段位置。
   if (invalid || invalid.error().error != e::error::internal || invalid.error().path != "/speed")
     return 10;
   original.speed = -1;
   invalid = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::context{registry}, original);
+      gneiss::engine::serialization::write_context{registry}, original);
   if (invalid || invalid.error().path != "/speed")
     return 11;
   auto failed = gneiss::engine::serialization::json::decode_object(
-      gneiss::engine::serialization::context{registry}, e::runtime_type_of<tracked>(),
+      gneiss::engine::serialization::read_context{registry}, e::runtime_type_of<tracked>(),
       bytes(R"({"value":1})"));
   if (failed || tracked::alive != 0)
     return 12;
   auto failed_field = gneiss::engine::serialization::json::decode_object(
-      gneiss::engine::serialization::context{registry}, e::runtime_type_of<tracked>(),
+      gneiss::engine::serialization::read_context{registry}, e::runtime_type_of<tracked>(),
       bytes(R"({"value":"bad"})"));
   if (failed_field || tracked::alive != 0)
     return 13;
@@ -414,7 +418,7 @@ int main() try {
   if (!other || register_sample(*other, "a/b~c").failed() || m::freeze(*other).failed())
     return 14;
   auto escaped = gneiss::engine::serialization::json::decode<sample>(
-      gneiss::engine::serialization::context{*other}, bytes(R"({"enabled":true,"a/b~c":2})"));
+      gneiss::engine::serialization::read_context{*other}, bytes(R"({"enabled":true,"a/b~c":2})"));
   if (escaped || escaped.error().path != "/a~1b~0c")
     return 15;
   // 无 registry 的视图编解码必须保留隔离表的字段名，不能查询默认表。
@@ -444,10 +448,10 @@ int main() try {
     return 17;
   auto task = std::async(std::launch::async, [&] {
     return static_cast<bool>(gneiss::engine::serialization::json::decode<sample>(
-        gneiss::engine::serialization::context{registry}, *encoded));
+        gneiss::engine::serialization::read_context{registry}, *encoded));
   });
   if (!gneiss::engine::serialization::json::decode<sample>(
-          gneiss::engine::serialization::context{registry}, *encoded) ||
+          gneiss::engine::serialization::read_context{registry}, *encoded) ||
       !task.get())
     return 18;
   auto custom = m::create_registry();
@@ -459,12 +463,12 @@ int main() try {
       m::freeze(*custom).failed())
     return 19;
   auto custom_output = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::context{*custom}, sample{});
+      gneiss::engine::serialization::write_context{*custom}, sample{});
   if (!custom_output ||
       std::string_view(reinterpret_cast<const char*>(custom_output->data()),
                        custom_output->size()) != R"({"custom":"yes"})" ||
       !gneiss::engine::serialization::json::decode<sample>(
-          gneiss::engine::serialization::context{*custom}, bytes("{}")))
+          gneiss::engine::serialization::read_context{*custom}, bytes("{}")))
     return 20;
   auto fallback = m::create_registry();
   if (!fallback ||
@@ -476,7 +480,7 @@ int main() try {
       m::freeze(*fallback).failed())
     return 22;
   auto fallback_decoded = gneiss::engine::serialization::json::decode<sample>(
-      gneiss::engine::serialization::context{*fallback}, bytes(R"({"enabled":false})"));
+      gneiss::engine::serialization::read_context{*fallback}, bytes(R"({"enabled":false})"));
   if (!fallback_decoded || fallback_decoded->enabled)
     return 23;
   // Meta 接受不透明扩展；序列化边界负责拒绝冲突的字段策略。
@@ -499,9 +503,10 @@ int main() try {
             .failed() ||
         m::freeze(*registry).failed())
       return 24;
-    const e::serialization::context ctx{*registry};
+    const e::serialization::write_context ctx{*registry};
+    e::serialization::read_context read_ctx{*registry};
     auto encoded = e::serialization::json::encode_bytes(ctx, sample{});
-    auto decoded = e::serialization::json::decode<sample>(ctx, bytes(R"({"enabled":true})"));
+    auto decoded = e::serialization::json::decode<sample>(read_ctx, bytes(R"({"enabled":true})"));
     if (encoded || decoded || encoded.error().error != e::error::invalid_argument ||
         decoded.error().error != e::error::invalid_argument || encoded.error().path != "/enabled" ||
         decoded.error().path != "/enabled")
