@@ -18,6 +18,8 @@ public:
   [[nodiscard]] GNEISS_API bool is_valid() const noexcept;
   explicit operator bool() const noexcept { return is_valid(); }
   [[nodiscard]] GNEISS_API result<scene_node_identity_view> identity() const;
+  /** 只修改运行名称，保留对象身份，不写编辑文档。 */
+  [[nodiscard]] GNEISS_API error set_name(std::string_view name) const;
   [[nodiscard]] GNEISS_API error set_identity(scene_node_identity identity) const;
   [[nodiscard]] GNEISS_API result<math::transform> local_transform() const;
   [[nodiscard]] GNEISS_API result<math::transform> world_transform() const;

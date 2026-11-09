@@ -273,13 +273,22 @@ int main() try {
   check(!dynamic->find(dynamic_uuid));
   auto recreated = dynamic->create({dynamic_uuid, "recreated"});
   check(recreated && recreated->entity() != dynamic_root->entity());
+  const auto recreated_entity = recreated->entity();
+  check(recreated->set_name("renamed").ok());
+  auto renamed = recreated->identity();
+  check(renamed && renamed->uuid == dynamic_uuid && renamed->name == "renamed");
+  auto transform = recreated->local_transform();
+  check(transform.has_value());
+  transform->translation.x = 7.0F;
+  check(recreated->set_local_transform(*transform).ok());
+  check(recreated->entity() == recreated_entity);
+  auto moved = recreated->world_transform();
+  check(moved && moved->translation.x == 7.0F);
+  check(recreated->set_name("recreated").ok());
   auto dynamic_members = dynamic->size();
   check(dynamic_members && *dynamic_members == 1);
   e::error cross_thread_mutation;
-  std::thread dynamic_worker([&] {
-    cross_thread_mutation = scenes.set_node_name(
-        *dynamic_scene, gneiss::scene_node_id{recreated->entity().get()}, "wrong thread");
-  });
+  std::thread dynamic_worker([&] { cross_thread_mutation = recreated->set_name("wrong thread"); });
   dynamic_worker.join();
   check(cross_thread_mutation == e::error::invalid_state);
   auto preserved_identity = recreated->identity();
@@ -287,6 +296,11 @@ int main() try {
   auto detached = dynamic->create({e::guid::from_bytes({23}), "detached"}, {}, *recreated);
   check(detached && detached->reparent({}).ok());
   check(dynamic->unload().ok() && !recreated->is_valid() && !detached->is_valid());
+  check(recreated->set_name("deleted") == e::error::invalid_handle);
+  check(recreated->set_local_transform({}) == e::error::invalid_handle);
+  check(!recreated->local_transform());
+  check(e::game_object{}.set_name("empty") == e::error::invalid_handle);
+
   // 创建失败回收新场景，同时恢复先前活动相机，避免破坏其他存活场景。
   e::scene_description camera_scene;
   camera_scene.uuid = e::guid::generate();

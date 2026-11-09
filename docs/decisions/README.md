@@ -121,3 +121,5 @@ Reference 和实现为准。
 - [ADR-113：Meta 借用访问与序列化策略边界](ADR-113-meta-serialization-boundaries.md)
 
 - [ADR-114：预期错误、异常边界与进程 OOM](ADR-114-exception-boundaries.md)
+
+- [ADR-115：World 运行对象入口与场景归属](ADR-115-world-scene-ownership.md)

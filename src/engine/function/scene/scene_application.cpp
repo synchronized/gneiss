@@ -216,8 +216,10 @@ result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_i
     if (!old.contains(object.address) ||
         same_transform(old.at(object.address)->effective.transform, object.effective.transform))
       continue;
-    auto status =
-        scenes.set_node_transform(scene, nodes.at(object.address).node, object.effective.transform);
+    auto target = world.object(entity_id{nodes.at(object.address).node.get()});
+    if (!target)
+      return target.error();
+    auto status = target->set_local_transform(object.effective.transform);
     if (status.failed())
       return status;
   }

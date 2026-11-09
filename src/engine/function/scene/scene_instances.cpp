@@ -175,19 +175,6 @@ result<std::uint64_t> scene_instances::get_node_count(scene_instance_id instance
   return slot->node_count();
 }
 
-engine::error scene_instances::set_node_transform(scene_instance_id instance,
-                                                  scene_node_id node_value,
-                                                  const math::transform& transform) {
-  auto node = node_value;
-  {
-    auto selected = resolve(instance);
-    if (!selected)
-      return selected.error();
-    auto* value = *selected;
-    return value->set_node_transform(node, transform);
-  }
-}
-
 result<scene_node_info> scene_instances::get_node_info(scene_instance_id instance,
                                                        std::uint64_t index,
                                                        node_query_detail detail) const {
@@ -209,18 +196,6 @@ result<scene_node_id> scene_instances::create_node(scene_instance_id instance,
     return selected.error();
   auto* slot = *selected;
   return slot->create_node(desc);
-}
-
-engine::error scene_instances::set_node_name(scene_instance_id instance, scene_node_id node_value,
-                                             std::string_view name) {
-  auto node = node_value;
-  {
-    auto selected = resolve(instance);
-    if (!selected)
-      return selected.error();
-    auto* value = *selected;
-    return value->set_node_name(node, name);
-  }
 }
 
 engine::error scene_instances::reparent_node(scene_instance_id instance, scene_node_id node_value,

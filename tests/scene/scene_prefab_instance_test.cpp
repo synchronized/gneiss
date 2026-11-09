@@ -51,7 +51,7 @@ int main() try {
   check(second_mapping.at(member->address).node != child);
   auto second_identity = app->native_world()->node_identity(second_mapping.at(member->parent).node);
   check(second_identity && second_identity->uuid != identity->uuid);
-  check(app->scenes()->set_node_name(created->instance, child, "Runtime edit").ok());
+  check(app->native_world()->object(gneiss::entity_id{child.get()})->set_name("Runtime edit").ok());
   check(app->scenes()->reparent_node(created->instance, child, {}).ok());
   check(app->native_world()->node_get_parent(child, parent).ok() && !parent);
   check(member->effective.transform.translation.x == 3);

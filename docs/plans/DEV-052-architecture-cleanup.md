@@ -12,6 +12,8 @@
 版本范围见 [VER-052](VER-052-0.52.0-architecture-cleanup.md)，本次证据见
 [Runtime/Editor 收尾记录](../records/2026-11-09-runtime-editor-boundary-cleanup.md)。
 
+新增 World/Scene 入口与归属收敛见 [PLAN-110](PLAN-110-world-scene-ownership.md)，当前开始实施。
+
 ## 本次三项收尾（已完成）
 
 - Application 的 create、request_scene、activate_scene 改为 result 拥有值，同步迁移宿主、示例与测试。

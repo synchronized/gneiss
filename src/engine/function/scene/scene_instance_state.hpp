@@ -31,9 +31,7 @@ public:
   [[nodiscard]] scene_node_id find_node(guid uuid) const;
   [[nodiscard]] result<scene_node_info> get_node_info(std::uint64_t index,
                                                       node_query_detail detail) const;
-  [[nodiscard]] error set_node_transform(scene_node_id node, const math::transform& transform);
   [[nodiscard]] result<scene_node_id> create_node(const node_creation& desc);
-  [[nodiscard]] error set_node_name(scene_node_id node, std::string_view name);
   [[nodiscard]] error reparent_node(scene_node_id node, scene_node_id parent);
   [[nodiscard]] error destroy_subtree(scene_node_id root);
   [[nodiscard]] result<scene_node_id>

@@ -263,6 +263,7 @@ target_sources(
     engine/function/world/system_scheduler.hpp
     engine/function/world/render_snapshot.cpp
     engine/function/world/render_snapshot.hpp
+    engine/function/world/game_object.cpp
     engine/function/world/world.cpp
     engine/function/world/game_object.hpp
     engine/function/world/world.hpp

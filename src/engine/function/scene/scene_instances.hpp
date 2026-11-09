@@ -86,13 +86,8 @@ public:
   [[nodiscard]] GNEISS_API result<scene_node_info>
   get_node_info(scene_instance_id instance, std::uint64_t index,
                 node_query_detail detail = node_query_detail::components) const;
-  [[nodiscard]] GNEISS_API error set_node_transform(scene_instance_id instance, scene_node_id node,
-                                                    const math::transform& transform);
   [[nodiscard]] GNEISS_API result<scene_node_id> create_node(scene_instance_id instance,
                                                              const node_creation& desc);
-  /** 修改运行对象名称。 */
-  [[nodiscard]] GNEISS_API error set_node_name(scene_instance_id instance, scene_node_id node,
-                                               std::string_view name);
   [[nodiscard]] GNEISS_API error reparent_node(scene_instance_id instance, scene_node_id node,
                                                scene_node_id parent);
   /** 删除整棵运行子树，统一清理节点与实体。 */

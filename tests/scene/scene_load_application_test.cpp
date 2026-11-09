@@ -719,7 +719,7 @@ void source_reload_without_world_prefab_state() {
   }
   e::math::transform moved;
   moved.translation.x = 7;
-  check(app->scenes()->set_node_transform(loaded.scene, root_node, moved).ok());
+  check(app->native_world()->object(entity_id{root_node.get()})->set_local_transform(moved).ok());
   const auto reload = [&] {
     app->advance_scene_load();
     check(app->request_scene_reload(loaded.scene, "asset://source.prefab", true).ok());

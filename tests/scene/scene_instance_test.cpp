@@ -202,8 +202,9 @@ int main() try {
       gneiss::test_support::take_value(
           second_application->scenes()->find_node(play_scene, camera_uuid), play_camera)
           .failed() ||
-      second_application->scenes()
-          ->set_node_name(play_scene, play_camera, "Play Camera")
+      second_application->native_world()
+          ->object(gneiss::entity_id{play_camera.get()})
+          ->set_name("Play Camera")
           .failed() ||
       application->native_world()->node_identity(camera_node)->name != camera_name ||
       second_application->scenes()->unload(play_scene).failed())
@@ -279,8 +280,9 @@ int main() try {
   gneiss::scene_node_id generic_node;
   if (gneiss::test_support::take_value(application->scenes()->create_node(scene, generic_desc),
                                        generic_node) != gneiss::engine::error::success ||
-      application->scenes()->set_node_name(scene, generic_node, "Group") !=
-          gneiss::engine::error::success ||
+      application->native_world()
+              ->object(gneiss::entity_id{generic_node.get()})
+              ->set_name("Group") != gneiss::engine::error::success ||
       application->scenes()->reparent_node(scene, triangle, generic_node) !=
           gneiss::engine::error::success ||
       application->scenes()->reparent_node(scene, generic_node, triangle) !=

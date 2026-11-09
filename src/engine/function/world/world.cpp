@@ -46,52 +46,6 @@ result<game_object> world::object(entity_id entity) noexcept {
     return node.error();
   return game_object{*this, entity};
 }
-bool game_object::is_valid() const noexcept {
-  return owner_ && owner_->entity_node(entity_).has_value();
-}
-result<scene_node_identity_view> game_object::identity() const {
-  return owner_ ? owner_->node_identity(scene_node_id{entity_.get()})
-                : result<scene_node_identity_view>{error::invalid_handle};
-}
-error game_object::set_identity(scene_node_identity identity) const {
-  return owner_ ? owner_->node_set_identity(scene_node_id{entity_.get()}, std::move(identity))
-                : error::invalid_handle;
-}
-result<math::transform> game_object::local_transform() const {
-  if (!owner_)
-    return error::invalid_handle;
-  math::transform value;
-  auto status = owner_->node_get_local_transform(scene_node_id{entity_.get()}, value);
-  return status.ok() ? result<math::transform>{value} : result<math::transform>{status};
-}
-result<math::transform> game_object::world_transform() const {
-  if (!owner_)
-    return error::invalid_handle;
-  math::transform value;
-  auto status = owner_->node_get_world_transform(scene_node_id{entity_.get()}, value);
-  return status.ok() ? result<math::transform>{value} : result<math::transform>{status};
-}
-error game_object::set_local_transform(const math::transform& transform) const {
-  return owner_ ? owner_->node_set_local_transform(scene_node_id{entity_.get()}, transform)
-                : error::invalid_handle;
-}
-result<game_object> game_object::parent() const {
-  if (!owner_)
-    return error::invalid_handle;
-  scene_node_id parent;
-  auto status = owner_->node_get_parent(scene_node_id{entity_.get()}, parent);
-  if (status.failed())
-    return status;
-  return parent ? owner_->object(entity_id{parent.get()}) : result<game_object>{game_object{}};
-}
-error game_object::reparent(game_object parent) const {
-  if (!owner_ || (parent.owner_ && parent.owner_ != owner_))
-    return error::invalid_handle;
-  return owner_->node_reparent(scene_node_id{entity_.get()}, scene_node_id{parent.entity_.get()});
-}
-error game_object::destroy() const {
-  return owner_ ? owner_->object_destroy(scene_node_id{entity_.get()}) : error::invalid_handle;
-}
 result<scene_node_id> world::object_create(scene_node_id parent, scene_node_identity identity,
                                            const math::transform& transform) {
   entity_id entity;

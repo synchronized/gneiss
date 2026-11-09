@@ -126,13 +126,6 @@ result<scene_node_info> scene_instance_state::get_node_info(std::uint64_t index,
   return out_info;
 }
 
-engine::error scene_instance_state::set_node_transform(scene_node_id node,
-                                                       const math::transform& transform) {
-  if (!contains_editable_node(node))
-    return error::invalid_handle;
-  return native_world_.node_set_local_transform(node, transform);
-}
-
 result<scene_node_id> scene_instance_state::create_node(const node_creation& desc) {
   const auto uuid = desc.uuid;
   const auto name = desc.name;
@@ -168,19 +161,6 @@ result<scene_node_id> scene_instance_state::create_node(const node_creation& des
     }
     objects_.push_back({target.node});
     return target.node;
-  }
-}
-
-engine::error scene_instance_state::set_node_name(scene_node_id node, std::string_view name) {
-  const auto found = find_member(node);
-  if (found == objects_.end()) {
-    return engine::error::invalid_handle;
-  }
-  auto identity = native_world_.node_identity(node);
-  if (!identity)
-    return identity.error();
-  {
-    return native_world_.node_set_identity(node, {identity->uuid, std::string(name)});
   }
 }
 
