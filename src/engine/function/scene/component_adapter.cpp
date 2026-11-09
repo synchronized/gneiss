@@ -6,8 +6,7 @@
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world_component_access.hpp"
-#include "engine/resource/asset_uri.hpp"
-#include <cmath>
+#include "engine/resource/scene/scene_validation.hpp"
 #include <map>
 #include <mutex>
 #include <numbers>
@@ -41,11 +40,7 @@ component_instance_ids& instance_ids(world& owner, scene_node_id node) {
   return identities ? *identities : (*state)->emplace<component_instance_ids>(id);
 }
 error camera_valid(const camera_description& value) {
-  const auto& c = value.settings;
-  return std::isfinite(c.fov) && std::isfinite(c.near) && std::isfinite(c.far) && c.fov > 0 &&
-                 c.fov < std::numbers::pi_v<float> && c.near > 0 && c.far > c.near
-             ? error::success
-             : error::invalid_argument;
+  return validate_camera_description(value).error;
 }
 error camera_install(component_context& context, const camera_description& value) {
   return context.owner.entity_set_camera(entity(context.owner, context.node), value.settings,
@@ -66,10 +61,7 @@ result<std::optional<camera_description>> camera_capture(world& owner, scene_nod
   return std::optional<camera_description>{{settings, status.ok() && active == id}};
 }
 error mesh_valid(const mesh_renderer_description& value) {
-  return (value.mesh_uri.empty() || validate_uri(value.mesh_uri).ok()) &&
-                 (value.material_uri.empty() || validate_uri(value.material_uri).ok())
-             ? error::success
-             : error::invalid_argument;
+  return validate_mesh_renderer_description(value).error;
 }
 result<mesh_renderer> mesh_resolve(const mesh_renderer_description& value,
                                    asset_manager& resources) {

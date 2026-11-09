@@ -182,7 +182,7 @@ struct capture_state {
                    : result<engine::value>{ref.error()};
       }
       // 自定义外部引用不能静默按内嵌对象复制。
-      if (binding->encode)
+      if (binding->encode || binding->decode)
         return error::unsupported;
       if (!binding->polymorphic && reference_slot->actual_type() != target_type.id())
         return error::invalid_argument;

@@ -328,7 +328,7 @@ application 自动调用无参入口，重复无参调用返回首次结果。�
 任一步失败均释放临时父对象，调用方不会接收到半成品。访问器和校验器不得依赖外部回滚。
 
 相机描述的 C++ 数据为 `camera_description { math::camera_settings settings; bool is_primary; }`。
-`camera_settings` 的身份通过外部 traits 定义，参数注册和校验与相机组件一起安装，数学类型本身不依赖 Meta。
+`camera_settings` 的身份通过外部 traits 定义，数学属性由 Meta 内置注册；透视参数校验由资源组件领域入口和 World 采用时执行，数学类型本身不依赖 Meta。
 Camera 直接绑定 settings 和 is_primary，文件内容为：
 
 ```json

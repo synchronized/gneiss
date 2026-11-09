@@ -111,6 +111,7 @@ error register_component_descriptions() noexcept {
   if (status.failed())
     return status;
   status = meta::registration<camera_description>{}
+               .metadata(component_validation<camera_description, &validate_camera_description>)
                .base<component_description_base>()
                .property<&camera_description::settings>(meta::property_id{1}, "settings")(
                    gneiss::engine::serialization::field_policy{.required = true})
@@ -126,7 +127,8 @@ error register_component_descriptions() noexcept {
           gneiss::engine::serialization::field_policy{.required = true})
       .property<&mesh_renderer_description::material_uri>(meta::property_id{2}, "material")(
           gneiss::engine::serialization::field_policy{.required = true})
-      .extend(gneiss::engine::serialization::validation<&validate_mesh_renderer_description>)
+      .metadata(
+          component_validation<mesh_renderer_description, &validate_mesh_renderer_description>)
       .commit();
 }
 error register_builtin_resource_types() noexcept {

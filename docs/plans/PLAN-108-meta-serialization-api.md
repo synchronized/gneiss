@@ -404,7 +404,9 @@ Mesh/Texture 描述校验已移到所属资源模块并接入文件边界，详�
 [材质校验记录](../records/2026-11-09-material-domain-validation.md)。
 对象描述、Prefab 引用和覆盖键已由领域入口递归校验，见
 [场景局部校验记录](../records/2026-11-09-scene-local-validation.md)。
-组件和数学值等校验的分类迁移尚未完成。
+组件领域校验与相机范围检查已迁移到资源领域，变换 setter 的内存约束保留；
+通用 validation_policy 仍支持用户定义的内容约束，不再登记引擎领域校验，见
+[组件领域校验记录](../records/2026-11-09-component-domain-validation.md)。
 
 ## 九、验收矩阵
 

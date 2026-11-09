@@ -124,12 +124,13 @@ bool math_registration() {
       decoded->far != settings.far)
     return false;
   const std::string invalid = R"({"fov":1,"near":10,"far":1})";
-  auto rejected = e::serialization::json::deserialize<e::math::camera_settings>(
+  auto unchecked = e::serialization::json::deserialize<e::math::camera_settings>(
       context, std::as_bytes(std::span{invalid.data(), invalid.size()}));
   e::math::transform value;
   auto status = m::write_property(*registry, e::math::transform::type_guid, m::property_id{3},
                                   &value, e::value{e::math::vector3{0, 1, 1}});
-  return !rejected && rejected.error().error == e::error::invalid_argument &&
+  // 通用解码只恢复字段；相机采用边界显式检查透视范围。
+  return unchecked && !e::math::is_valid_camera(*unchecked) &&
          status == e::error::invalid_argument && value.scale.x == 1;
 }
 bool frozen_lookup() {

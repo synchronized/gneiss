@@ -188,6 +188,40 @@ bool field_reference_contract() {
   }
   return true;
 }
+bool asymmetric_reference_snapshot_contract() {
+  namespace ser = e::serialization;
+  for (bool decode_only : {false, true}) {
+    auto registry = m::create_registry();
+    if (!registry)
+      return false;
+    ser::reference_policy policy;
+    if (decode_only)
+      policy.decode = [](const ser::context&, ser::reader&,
+                         const void*) -> e::result<e::ref<void>, ser::diagnostic> {
+        return e::ref<void>{e::make_ref<sample>()};
+      };
+    else
+      policy.encode = [](const ser::context&, ser::writer& out,
+                         const void*) -> e::result<void*, ser::diagnostic> {
+        return out.string("asset://sample");
+      };
+    if (m::registration<sample>{*registry}
+            .property<&sample::enabled>(m::property_id{1}, "enabled")
+            .metadata(policy)
+            .commit()
+            .failed() ||
+        m::freeze(*registry).failed())
+      return false;
+    ser::context ctx{*registry};
+    auto captured = ser::capture_value(ctx, e::make_ref<sample>());
+    if (captured || captured.error().error != e::error::unsupported)
+      return false;
+    e::ref<sample> empty;
+    if (!ser::capture_value(ctx, empty))
+      return false;
+  }
+  return true;
+}
 bool external_field_contract() {
   namespace ser = e::serialization;
   const ser::reference_policy external{
@@ -247,6 +281,8 @@ bool external_field_contract() {
 }
 bool nested_json_contract();
 int main() try {
+  if (!asymmetric_reference_snapshot_contract())
+    return 29;
   if (!external_field_contract())
     return 28;
   if (!field_reference_contract())

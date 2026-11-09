@@ -108,6 +108,28 @@ constexpr std::string_view prefab_scene =
   return matched;
 }
 
+bool component_validation_contract() {
+  namespace e = gneiss::engine;
+  const auto rejects_domain = [](const e::component_description& input) {
+    // 通用快照与 JSON 允许尚未采用的描述，领域边界负责拒绝。
+    auto snapshot = e::serialization::capture_value(input);
+    auto text = e::serialization::json::serialize_bytes(input);
+    if (!snapshot || !text)
+      return false;
+    auto decoded = e::serialization::json::deserialize<e::component_description>(*text);
+    auto restored = e::serialization::restore_value<e::component_description>(*snapshot);
+    if (!decoded || !restored || e::validate_component_description(*decoded).error.ok() ||
+        e::validate_component_description(*restored).error.ok())
+      return false;
+    e::prefab_component_override added{.source_node_uuid = e::guid::generate(),
+                                       .type_guid = input->guid(),
+                                       .added = input,
+                                       .component_uuid = input->uuid};
+    return e::validate_component_override(added).error == e::error::invalid_argument;
+  };
+  return rejects_domain(e::make_component_description(e::camera_description{{1, 10, 1}})) &&
+         rejects_domain(e::make_component_description(e::mesh_renderer_description{"bad", ""}));
+}
 bool save_validation_contract() {
   namespace e = gneiss::engine;
   auto parsed = gneiss::engine::asset_file::deserialize<e::scene_description>(valid_scene);
@@ -330,6 +352,8 @@ int main() try {
     return 99;
   if (!domain_validation_boundary_contract())
     return 96;
+  if (!component_validation_contract())
+    return 88;
   if (!save_validation_contract())
     return 11;
   if (!guid_identity_contract())
@@ -477,7 +501,7 @@ int main() try {
       !fails_with(missing_parent, gneiss::engine::error::invalid_argument, "/objects/1/parent") ||
       !fails_with(cycle, gneiss::engine::error::invalid_argument, "/objects/0/parent") ||
       !fails_with(invalid_uri, gneiss::engine::error::invalid_argument,
-                  "/objects/1/components/0/$content") ||
+                  "/objects/1/components/0") ||
       !fails_with(invalid_scale, gneiss::engine::error::invalid_argument,
                   "/objects/0/transform/scale") ||
       !fails_with(invalid_rotation, gneiss::engine::error::invalid_argument,

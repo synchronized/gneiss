@@ -16,14 +16,7 @@ error set_transform(math::transform& object, const Property& value) {
   object = updated;
   return error::success;
 }
-error validate_transform(const math::transform& value) {
-  return math::is_valid_transform(value) ? error::success : error::invalid_argument;
-}
-serialization::diagnostic validate_camera(const math::camera_settings& value) {
-  if (!math::is_valid_camera(value))
-    return {.message = "相机透视参数范围错误", .error = error::invalid_argument};
-  return {};
-}
+
 }
 namespace detail {
 // 仅由内置注册入口调用，不额外暴露数学注册的初始化步骤。
@@ -41,7 +34,6 @@ error register_math_types(const registry_ref& registry) noexcept {
                               &set_transform<&math::transform::scale, math::vector3>>(
                         property_id{3},
                         "scale")(gneiss::engine::serialization::field_policy{.required = true})
-                    .extend(gneiss::engine::serialization::validation<&validate_transform>)
                     .commit();
   if (status.failed())
     return status;
@@ -52,7 +44,6 @@ error register_math_types(const registry_ref& registry) noexcept {
           gneiss::engine::serialization::field_policy{.required = true})
       .property<&math::camera_settings::far>(property_id{3}, "far")(
           gneiss::engine::serialization::field_policy{.required = true})
-      .extend(gneiss::engine::serialization::validation<&validate_camera>)
       .commit();
 }
 }

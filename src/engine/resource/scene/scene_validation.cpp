@@ -7,6 +7,21 @@
 #include <algorithm>
 #include <set>
 namespace gneiss::engine {
+serialization::diagnostic validate_component_description(const component_description& value) {
+  if (!value || !value->uuid)
+    return {.path = "/uuid", .error = error::invalid_argument};
+  const auto type = value->dynamic_type();
+  if (!type.registered())
+    return {.message = "组件描述类型未注册", .error = error::not_found};
+  const auto* policy = type.extension<component_validation_policy>();
+  return policy && policy->validate ? policy->validate(*value) : serialization::diagnostic{};
+}
+serialization::diagnostic validate_camera_description(const camera_description& value) {
+  if (!math::is_valid_camera(value.settings))
+    return {
+        .path = "/settings", .message = "相机透视参数范围错误", .error = error::invalid_argument};
+  return {};
+}
 serialization::diagnostic validate_property_override_key(const prefab_property_override_key& key) {
   if (!key.target.source_node_uuid)
     return {.path = "/target/source_node_uuid", .error = error::invalid_argument};
@@ -44,6 +59,12 @@ serialization::diagnostic validate_component_override(const prefab_component_ove
     return {.path = "/added",
             .message = "新增组件必须非空且匹配覆盖类型",
             .error = error::invalid_argument};
+  if (value.added) {
+    auto status = validate_component_description(*value.added);
+    if (status.error.failed())
+      status.path.insert(0, "/added");
+    return status;
+  }
   return {};
 }
 
@@ -87,6 +108,17 @@ validate_prefab_reference_description(const prefab_reference_description& value)
 serialization::diagnostic validate_game_object_description(const game_object_description& object) {
   if (!object.uuid)
     return {.path = "/uuid", .message = "对象 UUID 不能为空", .error = error::invalid_argument};
+  if (!math::is_valid_transform(object.transform))
+    return {.path = "/transform", .message = "对象变换无效", .error = error::invalid_argument};
+  std::size_t index = 0;
+  for (const auto& component : object.components) {
+    auto status = validate_component_description(component);
+    if (status.error.failed()) {
+      status.path.insert(0, "/components/" + std::to_string(index));
+      return status;
+    }
+    ++index;
+  }
   if (object.prefab && !object.components.empty())
     return {.path = "/components",
             .message = "Prefab 引用与独立组件不能同时定义",
