@@ -16,7 +16,7 @@ template <bool Mutable> class basic_optional_view {
       return target_;
   }
   const optional_ops* ops() const noexcept {
-    return readonly().access_->template get<optional_ops>();
+    return readonly().access()->template get<optional_ops>();
   }
   target_type target_;
 
@@ -33,9 +33,9 @@ public:
     if constexpr (Mutable) {
       if (!ops()->get_mut)
         return error::unsupported;
-      return instance::from_access(v.registry_, ops()->element(), ops()->get_mut(target_.data_));
+      return instance::from_access(v.registry(), ops()->element(), ops()->get_mut(target_.data_));
     } else {
-      return const_instance::from_access(v.registry_, ops()->element(), ops()->get(v.data_));
+      return const_instance::from_access(v.registry(), ops()->element(), ops()->get(v.data_));
     }
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;

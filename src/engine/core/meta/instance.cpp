@@ -3,13 +3,6 @@
 #include "engine/core/meta/instance.hpp"
 #include <algorithm>
 namespace gneiss::engine::meta {
-meta::type const_instance::type() const noexcept {
-  if (access_) {
-    return detail::resolve_type(registry_, *access_);
-  }
-  auto found = cpp_type_ ? find_type(registry_, cpp_type_) : find_type(registry_, type_);
-  return found;
-}
 bool type::is_fixed_sequence() const noexcept {
   const auto* ops = access_ ? access_->get<sequence_ops>() : nullptr;
   return ops && ops->fixed_size;
@@ -39,10 +32,7 @@ result<const_instance> const_instance::from_object(registry_ref registry, engine
   if (type.kind() != type_kind::object)
     return error::not_found;
   const_instance output;
-  output.registry_ = std::move(registry);
-  output.type_ = type.guid();
-  output.cpp_type_ = id;
-  output.kind_ = type_kind::object;
+  output.type_ = std::move(type);
   output.data_ = object;
   return output;
 }
@@ -56,31 +46,28 @@ result<const_instance> const_instance::member(std::string_view name) const noexc
   return found ? found.get(*this) : result<const_instance>{error::not_found};
 }
 result<const_instance> const_instance::member(property_id id) const noexcept try {
-  if (kind_ == type_kind::invalid)
+  if (kind() == type_kind::invalid)
     return error::invalid_state;
-  if (kind_ != type_kind::object)
+  if (kind() != type_kind::object)
     return error::unsupported;
   auto info = type().find_property(id);
   if (!info)
     return error::not_found;
-  if (info.declaring_type_id() != cpp_type_) {
-    auto ops = find_object_ops(registry_, cpp_type_);
+  if (info.declaring_type_id() != type_id()) {
+    auto ops = find_object_ops(registry(), type_id());
     if (!ops || !ops->upcast)
       return ops ? error::invalid_state : ops.error();
     // upcast 仅调整地址，不修改对象；随后继续使用只读视图。
-    auto base = from_object(registry_, ops->base_type, ops->upcast(const_cast<void*>(data_)));
+    auto base = from_object(registry(), ops->base_type, ops->upcast(const_cast<void*>(data_)));
     return base ? base->member(id) : result<const_instance>{base.error()};
   }
   const_instance output;
-  output.registry_ = registry_;
   output.parent_ = data_;
-  output.parent_type_ = cpp_type_;
+  output.parent_type_ = type_id();
   output.property_ = id;
-  output.type_ = info.type().guid();
-  output.cpp_type_ = info.type().id();
-  output.enumeration_ = info.type().is_enum();
+  output.type_ = info.type();
   if (info.type().kind() != type_kind::scalar && info.type().kind() != type_kind::invalid) {
-    auto binding = find_object_property(registry_, cpp_type_, id);
+    auto binding = find_object_property(registry(), type_id(), id);
     if (!binding)
       return binding.error();
     if (!binding->object_getter)
@@ -88,14 +75,9 @@ result<const_instance> const_instance::member(property_id id) const noexcept try
     output.data_ = binding->object_getter(data_);
     if (!output.data_)
       return error::internal;
-    output.cpp_type_ = info.type().id();
-    output.kind_ = binding->access ? binding->access->kind() : type_kind::object;
-    output.access_ = binding->access;
   } else {
     if (info.type().scalar_kind() == value_kind::invalid)
       return error::unsupported;
-    output.kind_ = type_kind::scalar;
-    output.scalar_kind_ = info.type().scalar_kind();
   }
   return output;
 } catch (const std::bad_alloc&) {
@@ -104,33 +86,33 @@ result<const_instance> const_instance::member(property_id id) const noexcept try
   return error::internal;
 }
 result<value> const_instance::read_value() const noexcept try {
-  if (kind_ == type_kind::invalid)
+  if (kind() == type_kind::invalid)
     return error::invalid_state;
-  if (kind_ == type_kind::variant && cpp_type_ == runtime_type_of<value>() && data_)
+  if (kind() == type_kind::variant && type_id() == runtime_type_of<value>() && data_)
     return *static_cast<const value*>(data_);
-  if (kind_ == type_kind::reference && access_) {
-    const auto* ops = access_->get<reference_ops>();
+  if (kind() == type_kind::reference && access()) {
+    const auto* ops = access()->get<reference_ops>();
     return ops && ops->read_object ? result<value>{value{ops->read_object(data_)}}
                                    : result<value>{error::unsupported};
   }
-  if (kind_ != type_kind::scalar)
+  if (kind() != type_kind::scalar)
     return error::unsupported;
-  if (access_ && access_->get<scalar_ops>()->read) {
-    auto output = access_->get<scalar_ops>()->read(data_);
-    if (output.kind() != scalar_kind_ || !valid_scalar(output))
+  if (data_ && access() && access()->get<scalar_ops>()->read) {
+    auto output = access()->get<scalar_ops>()->read(data_);
+    if (output.kind() != scalar_kind() || !valid_scalar(output))
       return error::internal;
     return output;
   }
-  return read_property(registry_, parent_type_, property_, parent_);
+  return read_property(registry(), parent_type_, property_, parent_);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
   return error::internal;
 }
 result<const void*> const_instance::object_data() const noexcept {
-  if (kind_ == type_kind::invalid)
+  if (kind() == type_kind::invalid)
     return error::invalid_state;
-  if (kind_ != type_kind::object)
+  if (kind() != type_kind::object)
     return error::unsupported;
   return data_;
 }
@@ -163,11 +145,11 @@ result<instance> instance::member(property_id id) const noexcept try {
   auto info = view_.type().find_property(id);
   if (!info)
     return error::not_found;
-  if (info.declaring_type_id() != view_.cpp_type_) {
-    auto ops = find_object_ops(view_.registry_, view_.cpp_type_);
+  if (info.declaring_type_id() != view_.type_id()) {
+    auto ops = find_object_ops(view_.registry(), view_.type_id());
     if (!ops || !ops->upcast)
       return ops ? error::invalid_state : ops.error();
-    auto base = from_object(view_.registry_, ops->base_type, ops->upcast(data_));
+    auto base = from_object(view_.registry(), ops->base_type, ops->upcast(data_));
     return base ? base->member(id) : result<instance>{base.error()};
   }
   if (!has_flags(info.capabilities(), property_capabilities::writable))
@@ -176,7 +158,7 @@ result<instance> instance::member(property_id id) const noexcept try {
   output.parent_ = data_;
   output.view_ = std::move(*child);
   if (info.type().kind() != type_kind::scalar && info.type().kind() != type_kind::invalid) {
-    auto binding = find_object_property(view_.registry_, view_.cpp_type_, id);
+    auto binding = find_object_property(view_.registry(), view_.type_id(), id);
     if (!binding)
       return binding.error();
     if (binding->object_setter)
@@ -197,12 +179,12 @@ result<instance> instance::member(property_id id) const noexcept try {
 error instance::assign(const value& input) const noexcept try {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
-  if (kind() == type_kind::variant && view_.cpp_type_ == runtime_type_of<value>() && data_) {
+  if (kind() == type_kind::variant && view_.type_id() == runtime_type_of<value>() && data_) {
     *static_cast<value*>(data_) = input;
     return error::success;
   }
-  if (kind() == type_kind::reference && view_.access_) {
-    const auto* ops = view_.access_->get<reference_ops>();
+  if (kind() == type_kind::reference && view_.access()) {
+    const auto* ops = view_.access()->get<reference_ops>();
     if (!data_ || !ops || !ops->write_object)
       return error::unsupported;
     const auto* object = std::get_if<ref<meta::object>>(&input.payload);
@@ -210,12 +192,12 @@ error instance::assign(const value& input) const noexcept try {
   }
   if (kind() != type_kind::scalar)
     return error::unsupported;
-  if (view_.access_ && view_.access_->get<scalar_ops>()->write) {
-    if (input.kind() != view_.scalar_kind_ || !valid_scalar(input))
+  if (data_ && view_.access() && view_.access()->get<scalar_ops>()->write) {
+    if (input.kind() != view_.scalar_kind() || !valid_scalar(input))
       return error::invalid_argument;
-    return view_.access_->get<scalar_ops>()->write(data_, input);
+    return view_.access()->get<scalar_ops>()->write(data_, input);
   }
-  return write_property(view_.registry_, view_.parent_type_, view_.property_, parent_, input);
+  return write_property(view_.registry(), view_.parent_type_, view_.property_, parent_, input);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -232,21 +214,21 @@ error instance::assign(const const_instance& source) const noexcept try {
   if (kind() == type_kind::invalid || source.kind() == type_kind::invalid)
     return error::invalid_state;
   if (requires_replacement()) {
-    if (view_.cpp_type_ != source.cpp_type_)
+    if (view_.type_id() != source.type_id())
       return error::invalid_argument;
-    auto binding = find_object_property(view_.registry_, view_.parent_type_, view_.property_);
+    auto binding = find_object_property(view_.registry(), view_.parent_type_, view_.property_);
     if (!binding)
       return binding.error();
     return binding->object_setter(parent_, source.data_);
   }
   if ((kind() != type_kind::object && kind() != type_kind::reference) || source.kind() != kind())
     return error::unsupported;
-  if (view_.cpp_type_ != source.cpp_type_)
+  if (view_.type_id() != source.type_id())
     return error::invalid_argument;
-  if (!view_.access_ || !view_.access_->copy_assign)
+  if (!view_.access() || !view_.access()->copy_assign)
     return error::unsupported;
   if (data_ != source.data_)
-    view_.access_->copy_assign(data_, source.data_);
+    view_.access()->copy_assign(data_, source.data_);
   return error::success;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
@@ -257,26 +239,26 @@ error instance::assign_object(engine::type_id id, void* source) const noexcept t
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (requires_replacement()) {
-    if (!source || id != view_.cpp_type_)
+    if (!source || id != view_.type_id())
       return error::invalid_argument;
-    auto binding = find_object_property(view_.registry_, view_.parent_type_, view_.property_);
+    auto binding = find_object_property(view_.registry(), view_.parent_type_, view_.property_);
     if (!binding)
       return binding.error();
     return binding->object_setter(parent_, source);
   }
   if (kind() != type_kind::object)
     return error::unsupported;
-  if (!source || id != view_.cpp_type_)
+  if (!source || id != view_.type_id())
     return error::invalid_argument;
   if (source == data_)
     return error::success;
-  if (view_.access_ && view_.access_->move_assign) {
-    view_.access_->move_assign(data_, source);
+  if (view_.access() && view_.access()->move_assign) {
+    view_.access()->move_assign(data_, source);
     return error::success;
   }
   if (!parent_)
     return error::unsupported;
-  auto binding = find_object_property(view_.registry_, view_.parent_type_, view_.property_);
+  auto binding = find_object_property(view_.registry(), view_.parent_type_, view_.property_);
   if (!binding)
     return binding.error();
   if (!binding->object_assign)
@@ -298,14 +280,8 @@ result<const_instance> const_instance::from_access(registry_ref registry,
   if (!description)
     return error::invalid_state;
   const_instance out;
-  out.registry_ = std::move(registry);
   out.data_ = data;
-  out.type_ = description.guid();
-  out.cpp_type_ = description.id();
-  out.kind_ = description.kind();
-  out.scalar_kind_ = description.scalar_kind();
-  out.enumeration_ = description.is_enum();
-  out.access_ = &access;
+  out.type_ = std::move(description);
   return out;
 }
 result<instance> instance::from_access(registry_ref registry, const detail::type_ops& access,
@@ -390,14 +366,14 @@ error instance::replace(const std::function<error(const instance&)>& initialize)
   const auto& target = *this;
   if (!requires_replacement() || !initialize)
     return error::invalid_argument;
-  auto binding = find_object_property(target.view_.registry_, target.view_.parent_type_,
+  auto binding = find_object_property(target.view_.registry(), target.view_.parent_type_,
                                       target.view_.property_);
   if (!binding)
     return binding.error();
   auto storage = binding->object_construct();
   if (!storage)
     return error::out_of_memory;
-  auto temporary = instance::from_access(target.view_.registry_, *binding->access, storage.get());
+  auto temporary = instance::from_access(target.view_.registry(), *binding->access, storage.get());
   if (!temporary)
     return temporary.error();
   auto status = initialize(*temporary);
@@ -430,7 +406,7 @@ namespace gneiss::engine::meta {
 result<const_instance> property::get(const const_instance& object) const noexcept {
   if (!record_)
     return error::invalid_state;
-  if (registry_ != object.registry_)
+  if (registry_ != object.registry())
     return error::invalid_argument;
   auto info = object.type().find_property(id());
   if (!info)
@@ -443,7 +419,7 @@ result<instance> property::get(const instance& object) const noexcept {
   if (!record_)
     return error::invalid_state;
   const auto& view = object.as_const();
-  if (registry_ != view.registry_)
+  if (registry_ != view.registry())
     return error::invalid_argument;
   auto info = view.type().find_property(id());
   if (!info)

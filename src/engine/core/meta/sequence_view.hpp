@@ -17,7 +17,7 @@ template <bool Mutable> class basic_sequence_view {
       return target_;
   }
   const sequence_ops* ops() const noexcept {
-    return readonly().access_->template get<sequence_ops>();
+    return readonly().access()->template get<sequence_ops>();
   }
   target_type target_;
 
@@ -40,10 +40,10 @@ public:
     if constexpr (Mutable) {
       if (!ops()->at_mut)
         return error::unsupported;
-      return instance::from_access(v.registry_, ops()->element(),
+      return instance::from_access(v.registry(), ops()->element(),
                                    ops()->at_mut(target_.data_, index));
     } else
-      return const_instance::from_access(v.registry_, ops()->element(), ops()->at(v.data_, index));
+      return const_instance::from_access(v.registry(), ops()->element(), ops()->at(v.data_, index));
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {
@@ -102,7 +102,7 @@ public:
     if (!initialize)
       return error::invalid_argument;
     return ops()->replace(target_.data_, [&](void* data, const detail::type_ops& access) {
-      auto candidate = instance::from_access(readonly().registry_, access, data);
+      auto candidate = instance::from_access(readonly().registry(), access, data);
       return candidate ? initialize(*candidate) : candidate.error();
     });
   } catch (const std::bad_alloc&) {

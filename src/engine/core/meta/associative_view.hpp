@@ -16,7 +16,7 @@ template <bool Mutable> class basic_associative_view {
       return target_;
   }
   const associative_ops* ops() const noexcept {
-    return readonly().access_->template get<associative_ops>();
+    return readonly().access()->template get<associative_ops>();
   }
   target_type target_;
 
@@ -49,12 +49,12 @@ public:
       auto* p = ops()->find_mut(target_.data_, key);
       if (!p)
         return error::not_found;
-      return instance::from_access(v.registry_, ops()->element(), p);
+      return instance::from_access(v.registry(), ops()->element(), p);
     } else {
       auto* p = ops()->find(v.data_, key);
       if (!p)
         return error::not_found;
-      return const_instance::from_access(v.registry_, ops()->element(), p);
+      return const_instance::from_access(v.registry(), ops()->element(), p);
     }
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
@@ -69,7 +69,7 @@ public:
     auto v = readonly();
     if (!ops()->insert)
       return error::unsupported;
-    return instance::from_access(v.registry_, ops()->element(), ops()->insert(target_.data_, key));
+    return instance::from_access(v.registry(), ops()->element(), ops()->insert(target_.data_, key));
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {

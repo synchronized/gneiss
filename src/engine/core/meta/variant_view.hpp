@@ -16,7 +16,7 @@ template <bool Mutable> class basic_variant_view {
       return target_;
   }
   const variant_ops* ops() const noexcept {
-    return readonly().access_->template get<variant_ops>();
+    return readonly().access()->template get<variant_ops>();
   }
   target_type target_;
 
@@ -26,7 +26,7 @@ public:
   result<meta::type> alternative(std::size_t i) const noexcept {
     if (i >= alternative_count())
       return error::invalid_argument;
-    return detail::resolve_type(readonly().registry_, *ops()->alternatives[i]);
+    return detail::resolve_type(readonly().registry(), *ops()->alternatives[i]);
   }
   bool valueless() const noexcept { return ops()->valueless(readonly().data_); }
   result<std::size_t> index() const noexcept {
@@ -40,10 +40,10 @@ public:
       return i.error();
     auto view = readonly();
     if constexpr (Mutable)
-      return instance::from_access(view.registry_, *ops()->alternatives[*i],
+      return instance::from_access(view.registry(), *ops()->alternatives[*i],
                                    ops()->get_mut(target_.data_));
     else
-      return const_instance::from_access(view.registry_, *ops()->alternatives[*i],
+      return const_instance::from_access(view.registry(), *ops()->alternatives[*i],
                                          ops()->get(view.data_));
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;

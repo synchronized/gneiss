@@ -30,7 +30,7 @@ class instance;
 class const_instance {
 public:
   const_instance() = default;
-  [[nodiscard]] const registry_ref& registry() const noexcept { return registry_; }
+  [[nodiscard]] const registry_ref& registry() const noexcept { return type_.registry_; }
   /** 类型擦除入口：调用方保证 object 的实际类型匹配 id，且地址在视图使用期间稳定。 */
   static GNEISS_API result<const_instance> from_object(registry_ref registry, engine::type_id id,
                                                        const void* object) noexcept;
@@ -40,11 +40,11 @@ public:
       return registry.error();
     return from_object(*registry, id, object);
   }
-  [[nodiscard]] GNEISS_API meta::type type() const noexcept;
-  [[nodiscard]] type_kind kind() const noexcept { return kind_; }
-  [[nodiscard]] value_kind scalar_kind() const noexcept { return scalar_kind_; }
-  [[nodiscard]] engine::guid guid() const noexcept { return type_; }
-  [[nodiscard]] engine::type_id type_id() const noexcept { return cpp_type_; }
+  [[nodiscard]] meta::type type() const noexcept { return type_; }
+  [[nodiscard]] type_kind kind() const noexcept { return type_.kind(); }
+  [[nodiscard]] value_kind scalar_kind() const noexcept { return type_.scalar_kind(); }
+  [[nodiscard]] engine::guid guid() const noexcept { return type_.guid(); }
+  [[nodiscard]] engine::type_id type_id() const noexcept { return type_.id(); }
   [[nodiscard]] GNEISS_API result<sequence_view> as_sequence() const noexcept;
   [[nodiscard]] GNEISS_API result<associative_view> as_associative() const noexcept;
   [[nodiscard]] GNEISS_API result<optional_view> as_optional() const noexcept;
@@ -70,13 +70,8 @@ private:
   template <bool> friend class basic_reference_view;
   static GNEISS_API result<const_instance> from_access(registry_ref, const detail::type_ops&,
                                                        const void*) noexcept;
-  const detail::type_ops* access_{};
-  registry_ref registry_;
-  engine::guid type_{};
-  engine::type_id cpp_type_{};
-  bool enumeration_ = false;
-  type_kind kind_ = type_kind::invalid;
-  value_kind scalar_kind_ = value_kind::invalid;
+  [[nodiscard]] const detail::type_ops* access() const noexcept { return type_.access_; }
+  meta::type type_;
   const void* data_{};
   const void* parent_{};
   engine::type_id parent_type_{};

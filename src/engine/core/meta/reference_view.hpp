@@ -17,7 +17,7 @@ template <bool Mutable> class basic_reference_view {
       return target_;
   }
   const reference_ops* ops() const noexcept {
-    return readonly().access_->template get<reference_ops>();
+    return readonly().access()->template get<reference_ops>();
   }
   target_type target_;
 
@@ -52,7 +52,7 @@ public:
       auto owned = owner();
       if (!owned)
         return owned.error();
-      return instance::from_object(v.registry_, actual_type(), const_cast<void*>(owned->get()));
+      return instance::from_object(v.registry(), actual_type(), const_cast<void*>(owned->get()));
     } else {
       auto* p = ops()->get(v.data_);
       if (!p)
@@ -60,7 +60,7 @@ public:
       auto owned = owner();
       if (!owned)
         return owned.error();
-      return const_instance::from_object(v.registry_, actual_type(), owned->get());
+      return const_instance::from_object(v.registry(), actual_type(), owned->get());
     }
   }
   [[nodiscard]] reference_view as_const() const noexcept { return reference_view{readonly()}; }

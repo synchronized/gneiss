@@ -273,6 +273,9 @@ static_assert(can_borrow<object&> && can_borrow<const object&>);
 static_assert(!can_borrow<object> && !can_borrow<const object>);
 static_assert(can_mutate<object&> && !can_mutate<const object&> && !can_mutate<object>);
 static_assert(!std::is_constructible_v<m::instance, m::const_instance>);
+// 实例仅保存类型句柄和访问位置，不重复缓存类型身份。
+static_assert(sizeof(m::const_instance) <= sizeof(m::type) + 4 * sizeof(void*));
+static_assert(sizeof(m::instance) <= sizeof(m::const_instance) + 2 * sizeof(void*));
 static_assert(
     std::same_as<decltype(m::view(std::declval<const object&>())), e::result<m::const_instance>>);
 static_assert(
