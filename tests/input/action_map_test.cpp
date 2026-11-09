@@ -5,6 +5,7 @@
 #include "../support/memory_file_fixture.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/serialization/binding.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/asset/asset_manager.hpp"
@@ -144,7 +145,7 @@ int main() {
     return 7;
   using namespace gneiss::engine;
   // 编码、解码与资源加载共用默认表；字段保持 input-map v1 布局。
-  auto codec = meta::find_serialization(runtime_type_of<action_map_description>());
+  auto codec = serialization::find_serialization(runtime_type_of<action_map_description>());
   if (!codec || !codec->reflected || codec->decode || codec->encode)
     return 9;
   serialization::diagnostic diagnostic;

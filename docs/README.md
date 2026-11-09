@@ -662,3 +662,4 @@
 - [PLAN-108 运行期类型身份](records/2026-11-09-meta-runtime-identity.md)
 - [PLAN-108 视图访问边界](records/2026-11-09-meta-access-boundary.md)
 - [PLAN-108 扩展元数据基础](records/2026-11-09-meta-extension-metadata.md)
+- [PLAN-108 序列化策略存储迁移](records/2026-11-09-serialization-policy-storage.md)

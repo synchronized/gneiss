@@ -4,6 +4,7 @@
 #include "engine/core/meta/detail/type_ops.hpp"
 #include "engine/core/meta/object.hpp"
 #include "engine/core/meta/registry.hpp"
+#include "engine/core/serialization/binding.hpp"
 #include "engine/core/traits/type_identity.hpp"
 #include <functional>
 #include <new>
@@ -361,13 +362,20 @@ public:
       }
       if constexpr (std::derived_from<object_type, meta::object>)
         object_.as_object = [](void* p) -> meta::object* { return static_cast<object_type*>(p); };
+      // 迁移期序列化快捷入口也使用统一扩展存储。
+      if (codec_.encode_reference || codec_.decode_reference || codec_.reflected ||
+          codec_.polymorphic || codec_.encode || codec_.decode || codec_.validate ||
+          codec_.capture_reference) {
+        auto status = extensions_.insert(codec_);
+        if (status.failed())
+          return status;
+      }
       return register_type<object_type>(registry_,
                                         {.guid = guid_,
                                          .schema_version = version_,
                                          .name = name_,
                                          .properties = properties,
                                          .object = object_,
-                                         .serialization = codec_,
                                          .extensions = extensions_},
                                         bindings);
     } catch (const std::bad_alloc&) {

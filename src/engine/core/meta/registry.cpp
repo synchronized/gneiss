@@ -135,7 +135,6 @@ struct type_record {
   std::vector<property_record> properties;
   std::vector<std::size_t> property_names;
   object_ops object{};
-  serialization::binding serialization{};
   meta::metadata extensions{};
 };
 
@@ -268,7 +267,6 @@ public:
       record->schema_version = desc.schema_version;
       record->name.assign(desc.name);
       record->object = desc.object;
-      record->serialization = desc.serialization;
       record->extensions = desc.extensions;
       record->properties.reserve(desc.properties.size());
       for (const auto& property : desc.properties) {
@@ -706,22 +704,6 @@ public:
     return error::internal;
   }
 
-  result<serialization::binding> find_serialization(engine::type_id id) const noexcept try {
-    std::shared_lock lock(mutex_);
-    if (!is_frozen_)
-      return error::not_ready;
-    const auto found = by_cpp_type_.find(id);
-    if (found == by_cpp_type_.end())
-      return error::not_found;
-    const auto& codec = found->second->serialization;
-    if (!codec.encode_reference && !codec.decode_reference && !codec.encode && !codec.decode &&
-        !codec.reflected && !codec.polymorphic && !found->second->object.base_type)
-      return error::unsupported;
-    return codec;
-  } catch (...) {
-    return error::internal;
-  }
-
   template <class Key>
   result<property_binding> find_object_property(Key type, property_id id) const noexcept try {
     auto binding = find_accessor(type, id.get());
@@ -943,21 +925,11 @@ error write_property(const registry_ref& registry, guid type, property_id proper
 result<object_ops> find_object_ops(const registry_ref& registry, type_id id) noexcept {
   return registry ? registry->find_object_ops(id) : error::invalid_handle;
 }
-result<serialization::binding> find_serialization(const registry_ref& registry,
-                                                  type_id id) noexcept {
-  return registry ? registry->find_serialization(id) : error::invalid_handle;
-}
-}
-
-namespace gneiss::engine::meta {
 result<property_binding> find_object_property(const registry_ref& registry, guid type,
                                               property_id id) noexcept {
   return registry ? registry->find_object_property(type, id)
                   : result<property_binding>{error::invalid_handle};
 }
-}
-
-namespace gneiss::engine::meta {
 result<property_range> properties(const registry_ref& registry, engine::guid id) noexcept {
   return registry ? registry->properties(id) : result<property_range>{error::invalid_argument};
 }

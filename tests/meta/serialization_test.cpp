@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/serialization/binding.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/serialization/serialization.hpp"
 #include "engine/core/serialization/value.hpp"
@@ -469,7 +470,8 @@ int main() {
     return 6;
   gneiss::engine::serialization::binding binding;
   if (gneiss::test_support::assign_value(
-          gneiss::engine::meta::find_serialization(registry, e::runtime_type_of<probe>()), binding)
+          gneiss::engine::serialization::find_serialization(registry, e::runtime_type_of<probe>()),
+          binding)
           .failed() ||
       !binding.encode || !binding.decode)
     return 7;

@@ -6,6 +6,7 @@
 #include "engine/core/meta/reference_view.hpp"
 #include "engine/core/meta/sequence_view.hpp"
 #include "engine/core/meta/variant_view.hpp"
+#include "engine/core/serialization/binding.hpp"
 #include "engine/core/serialization/detail/context_access.hpp"
 #include "engine/core/serialization/detail/traversal.hpp"
 #include <algorithm>

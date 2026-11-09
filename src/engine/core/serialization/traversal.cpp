@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/serialization/detail/traversal.hpp"
+#include "engine/core/serialization/binding.hpp"
 #include <algorithm>
 namespace gneiss::engine::serialization::detail {
 using namespace meta;

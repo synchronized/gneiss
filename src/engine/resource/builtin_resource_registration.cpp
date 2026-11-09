@@ -192,49 +192,54 @@ error register_builtin_resource_types() noexcept {
   auto status = register_component_descriptions();
   if (status.failed())
     return status;
-  status = meta::register_type<engine::texture>(
-      {.guid = guid::literal("601bc0bf-b255-4eb1-a51f-f06b59e3ff3d"),
-       .schema_version = 1,
-       .name = "texture",
-       .serialization = {.encode_reference = detail::encode_asset_reference<engine::texture>,
-                         .decode_reference = detail::decode_asset_reference<engine::texture>,
-                         .capture_reference = detail::capture_asset_reference<engine::texture>}});
+  status = meta::registration<engine::texture>{}
+               .guid(guid::literal("601bc0bf-b255-4eb1-a51f-f06b59e3ff3d"))
+               .name("texture")
+               .metadata(serialization::binding{
+                   .encode_reference = detail::encode_asset_reference<engine::texture>,
+                   .decode_reference = detail::decode_asset_reference<engine::texture>,
+                   .capture_reference = detail::capture_asset_reference<engine::texture>})
+               .commit();
   if (status.failed())
     return status;
-  status = meta::register_type<engine::mesh>(
-      {.guid = guid::literal("3c7a40a9-3b99-4955-810e-819d3b160590"),
-       .schema_version = 1,
-       .name = "mesh",
-       .serialization = {.encode_reference = detail::encode_asset_reference<engine::mesh>,
-                         .decode_reference = detail::decode_asset_reference<engine::mesh>,
-                         .capture_reference = detail::capture_asset_reference<engine::mesh>}});
+  status = meta::registration<engine::mesh>{}
+               .guid(guid::literal("3c7a40a9-3b99-4955-810e-819d3b160590"))
+               .name("mesh")
+               .metadata(serialization::binding{
+                   .encode_reference = detail::encode_asset_reference<engine::mesh>,
+                   .decode_reference = detail::decode_asset_reference<engine::mesh>,
+                   .capture_reference = detail::capture_asset_reference<engine::mesh>})
+               .commit();
   if (status.failed())
     return status;
-  status = meta::register_type<engine::material>(
-      {.guid = guid::literal("c8edeac7-022d-446f-972f-941b5d193b66"),
-       .schema_version = 1,
-       .name = "material",
-       .serialization = {.encode_reference = detail::encode_asset_reference<engine::material>,
-                         .decode_reference = detail::decode_asset_reference<engine::material>,
-                         .capture_reference = detail::capture_asset_reference<engine::material>}});
+  status = meta::registration<engine::material>{}
+               .guid(guid::literal("c8edeac7-022d-446f-972f-941b5d193b66"))
+               .name("material")
+               .metadata(serialization::binding{
+                   .encode_reference = detail::encode_asset_reference<engine::material>,
+                   .decode_reference = detail::decode_asset_reference<engine::material>,
+                   .capture_reference = detail::capture_asset_reference<engine::material>})
+               .commit();
   if (status.failed())
     return status;
-  status = meta::register_type<engine::scene>(
-      {.guid = guid::literal("83dc2409-ec41-4eec-85a1-c7563b421a71"),
-       .schema_version = 1,
-       .name = "scene",
-       .serialization = {.encode_reference = detail::encode_asset_reference<engine::scene>,
-                         .decode_reference = detail::decode_asset_reference<engine::scene>,
-                         .capture_reference = detail::capture_asset_reference<engine::scene>}});
+  status = meta::registration<engine::scene>{}
+               .guid(guid::literal("83dc2409-ec41-4eec-85a1-c7563b421a71"))
+               .name("scene")
+               .metadata(serialization::binding{
+                   .encode_reference = detail::encode_asset_reference<engine::scene>,
+                   .decode_reference = detail::decode_asset_reference<engine::scene>,
+                   .capture_reference = detail::capture_asset_reference<engine::scene>})
+               .commit();
   if (status.failed())
     return status;
-  status = meta::register_type<engine::prefab>(
-      {.guid = guid::literal("114e020a-d5e0-4941-8d6c-a611caa26448"),
-       .schema_version = 1,
-       .name = "prefab",
-       .serialization = {.encode_reference = detail::encode_asset_reference<engine::prefab>,
-                         .decode_reference = detail::decode_asset_reference<engine::prefab>,
-                         .capture_reference = detail::capture_asset_reference<engine::prefab>}});
+  status = meta::registration<engine::prefab>{}
+               .guid(guid::literal("114e020a-d5e0-4941-8d6c-a611caa26448"))
+               .name("prefab")
+               .metadata(serialization::binding{
+                   .encode_reference = detail::encode_asset_reference<engine::prefab>,
+                   .decode_reference = detail::decode_asset_reference<engine::prefab>,
+                   .capture_reference = detail::capture_asset_reference<engine::prefab>})
+               .commit();
   if (status.failed())
     return status;
   status = meta::registration<mesh_description>{}

@@ -47,9 +47,6 @@ inline result<object_ops> find_object_ops(type_id id) noexcept {
   auto registry = default_registry();
   return registry ? find_object_ops(*registry, id) : result<object_ops>{registry.error()};
 }
-/** 冻结后查询函数表，未登记能力返回 unsupported。 */
-[[nodiscard]] GNEISS_API result<serialization::binding> find_serialization(const registry_ref&,
-                                                                           type_id) noexcept;
 /** 冻结后返回类型数量；未冻结返回 not_ready。 */
 [[nodiscard]] GNEISS_API result<std::uint32_t> type_count(const registry_ref& registry) noexcept;
 /** 按稳定 GUID 字节顺序枚举冻结注册对象，返回保活注册表的类型句柄。 */
@@ -151,12 +148,6 @@ inline result<meta::type> find_type(engine::guid id) noexcept {
   if (!registry)
     return registry.error();
   return is_frozen(*registry);
-}
-[[nodiscard]] inline result<serialization::binding> find_serialization(type_id type) noexcept {
-  auto registry = default_registry();
-  if (!registry)
-    return registry.error();
-  return find_serialization(*registry, type);
 }
 [[nodiscard]] inline result<std::uint32_t> type_count() noexcept {
   auto registry = default_registry();

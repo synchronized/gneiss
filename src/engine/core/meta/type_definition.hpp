@@ -4,7 +4,6 @@
 #pragma once
 #include "engine/core/meta/ops/object_ops.hpp"
 #include "engine/core/meta/property.hpp"
-#include "engine/core/serialization/binding.hpp"
 namespace gneiss::engine::meta {
 struct type_definition {
   engine::guid guid{};
@@ -14,7 +13,6 @@ struct type_definition {
   std::string_view name{};
   std::span<const property_definition> properties{};
   object_ops object{};
-  serialization::binding serialization{};
   meta::metadata extensions{};
 };
 }

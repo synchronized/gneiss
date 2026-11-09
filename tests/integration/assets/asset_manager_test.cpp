@@ -261,10 +261,11 @@ error register_test_assets() {
       return serialization::diagnostic{7U, "/value", "invalid value", error::invalid_argument};
     return ref<void>{std::make_shared<value>(value{'r'})};
   };
-  return meta::register_type<value>({.guid = guid::from_bytes({0x98, 1}),
-                                     .schema_version = 1U,
-                                     .name = "test_asset",
-                                     .serialization = codec});
+  return meta::registration<value>{}
+      .guid(guid::from_bytes({0x98, 1}))
+      .name("test_asset")
+      .metadata(codec)
+      .commit();
 }
 void decoder_selection() {
   auto& executor = gneiss::test_support::asset_tasks();

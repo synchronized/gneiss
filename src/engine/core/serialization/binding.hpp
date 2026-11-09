@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/meta/registry.hpp"
 #include "engine/core/ref.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/serialization/diagnostic.hpp"
@@ -27,4 +28,30 @@ struct binding {
   /** 外部资产引用的内存捕获；与文件编码分离，不读取文件。 */
   result<asset_reference_value> (*capture_reference)(engine::guid, const void*){};
 };
+/** 迁移期策略查询；存储属于 Meta 的通用扩展，解释属于 Serialization。 */
+inline result<binding> find_serialization(const meta::registry_ref& registry, type_id id) noexcept {
+  auto type = meta::find_type(registry, id);
+  if (!type)
+    return type.error();
+  const auto* policy = type->extension<binding>();
+  auto object = meta::find_object_ops(registry, id);
+  if ((!policy || (!policy->encode_reference && !policy->decode_reference && !policy->encode &&
+                   !policy->decode && !policy->reflected && !policy->polymorphic)) &&
+      (!object || !object->base_type))
+    return error::unsupported;
+  return policy ? *policy : binding{};
+}
+inline result<binding> find_serialization(type_id id) noexcept {
+  auto type = meta::find_type(id);
+  if (!type)
+    return type.error();
+  const auto* policy = type->extension<binding>();
+  auto object = meta::find_object_ops(id);
+  if ((!policy || (!policy->encode_reference && !policy->decode_reference && !policy->encode &&
+                   !policy->decode && !policy->reflected && !policy->polymorphic)) &&
+      (!object || !object->base_type))
+    return error::unsupported;
+  return policy ? *policy : binding{};
+}
+
 }

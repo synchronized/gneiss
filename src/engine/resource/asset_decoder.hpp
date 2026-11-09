@@ -4,6 +4,7 @@
 
 #pragma once
 #include "engine/core/error.hpp"
+#include "engine/core/serialization/binding.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/resource/asset_file.hpp"
@@ -72,7 +73,7 @@ template <class T> result<std::shared_ptr<const asset_decoder>> make_reflected_d
   if (!type)
     return type.error() == error::not_found ? error::unsupported : type.error();
   if (type->kind() == meta::type_kind::object) {
-    auto binding = meta::find_serialization(runtime_type_of<T>());
+    auto binding = serialization::find_serialization(runtime_type_of<T>());
     if (!binding)
       return binding.error() == error::not_found ? error::unsupported : binding.error();
     if (!binding->decode && !binding->reflected)

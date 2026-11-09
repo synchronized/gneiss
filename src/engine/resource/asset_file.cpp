@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "asset_file.hpp"
+#include "engine/core/serialization/binding.hpp"
 #include "engine/core/serialization/detail/json_adapter.hpp"
 #include "engine/resource/input/action_map.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
@@ -125,7 +126,7 @@ result<ref<void>, diagnostic> deserialize_object(const serialization::context& c
   auto registry = ctx.registry();
   if (!registry)
     return diagnostic{.error = registry.error()};
-  auto binding = meta::find_serialization(*registry, id);
+  auto binding = serialization::find_serialization(*registry, id);
   if (!binding)
     return diagnostic{.error = binding.error()};
   if (binding->validate) {

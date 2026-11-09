@@ -188,7 +188,7 @@ Registry 使用原生共享引用管理，不经全局句柄表。独立表在�
 但至少具备一个方向。同一 builder 不允许重复设置。
 每个类型当前只登记一组编解码函数，自定义文件格式标识及版本由 codec 自行校验，不提供任意 capability 或通用对象工厂。
 
-`find_serialization` 按运行期 type_id 查询冻结 Registry 中的函数表，不登记重复的格式名称。
+`serialization::find_serialization` 按运行期 type_id 查询冻结 Registry 中的扩展函数表，不登记重复的格式名称。
 `serialization::json::serialize_bytes<T>` 返回 `result<vector<byte>, serialization::diagnostic>`，`deserialize<T>` 返回
 `result<T, serialization::diagnostic>`。成功结果拥有值，失败结果仅携带错误码、路径、字节偏移和消息。
 `serialization::diagnostic.error` 保存错误码；bad_alloc 转为 out_of_memory，其余异常转为 internal。
@@ -594,7 +594,7 @@ instance::assign 对可直接访问的引用槽接受兼容对象或空引用，
 `deserialize<T>` 接受文本或字节。两种入口均提供 context-first 和默认上下文版本。
 Meta 不再提供含糊的 serialize/deserialize 入口。
 
-注册表只保存通用 encode/decode、构造、继承、校验和字段遍历策略。
+注册表保存构造、继承和不可变扩展元数据；Serialization 从扩展解释编解码与校验策略。
 `serialization()` 启用字段遍历，`serialization<Encode, Decode>()` 提供特殊类型的通用操作。
 资源二进制协议通过 asset_decoder 显式注入解码函数。
 
@@ -605,7 +605,8 @@ Meta 不再提供含糊的 serialize/deserialize 入口。
 `type_definition.object` 保存 `meta::object_ops`，通过 `find_object_ops` 查询。
 注册表冻结前返回 not_ready，未知类型返回 not_found，空注册表返回 invalid_handle。
 已登记但没有相应能力的类型返回空函数项；调用前须检查函数项。
-`type_definition.serialization` 保存 `serialization::binding`，仍通过 find_serialization 查询。
+`serialization::binding` 存在类型扩展元数据中，通过
+`serialization::find_serialization` 查询；`type_definition` 不定义专用序列化字段。
 两者由同一注册表保存；继承关系不自动启用多态保存策略，校验时机保持不变。
 
 ### 类型与属性扩展元数据
