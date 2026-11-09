@@ -51,11 +51,11 @@ inline result<object_ops> find_object_ops(type_id id) noexcept {
  */
 [[nodiscard]] GNEISS_API result<value> read_property(const registry_ref& registry,
                                                      engine::guid type, property_id property,
-                                                     const void* object) noexcept;
+                                                     const void* object);
 /** 输入在调用期间借用；沿用访问器的校验、线程与错误语义，不跨线程投递。 */
 [[nodiscard]] GNEISS_API error write_property(const registry_ref& registry, engine::guid type,
                                               property_id property, void* object,
-                                              const value& value) noexcept;
+                                              const value& value);
 
 /** 查询嵌套成员访问器；地址借用和线程约束与父对象一致，非对象属性返回 unsupported。 */
 GNEISS_API result<property_binding> find_object_property(const registry_ref&, guid,
@@ -63,9 +63,9 @@ GNEISS_API result<property_binding> find_object_property(const registry_ref&, gu
 
 /** 原生实例按进程类型身份访问；不要求持久 GUID。 */
 GNEISS_API result<value> read_property(const registry_ref&, engine::type_id, property_id,
-                                       const void*) noexcept;
+                                       const void*);
 GNEISS_API error write_property(const registry_ref&, engine::type_id, property_id, void*,
-                                const value&) noexcept;
+                                const value&);
 GNEISS_API result<property_binding> find_object_property(const registry_ref&, engine::type_id,
                                                          property_id) noexcept;
 
@@ -146,14 +146,14 @@ inline meta::type find_type(engine::guid id) noexcept {
   return find_property(*registry, type, property);
 }
 [[nodiscard]] inline result<value> read_property(guid type, property_id property,
-                                                 const void* object) noexcept {
+                                                 const void* object) {
   auto registry = default_registry();
   if (!registry)
     return registry.error();
   return read_property(*registry, type, property, object);
 }
 [[nodiscard]] inline error write_property(guid type, property_id property, void* object,
-                                          const value& input) noexcept {
+                                          const value& input) {
   auto registry = default_registry();
   if (!registry)
     return registry.error();

@@ -20,27 +20,19 @@ template <bool Mutable> class basic_associative_view {
   target_type target_;
 
 public:
-  [[nodiscard]] result<std::size_t> size() const noexcept try {
+  [[nodiscard]] result<std::size_t> size() const {
     auto v = readonly();
     return ops()->size(v.data_);
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
-  [[nodiscard]] result<std::vector<std::string>> keys() const noexcept try {
+  [[nodiscard]] result<std::vector<std::string>> keys() const {
     auto v = readonly();
     auto keys = ops()->keys(v.data_);
     for (const auto& key : keys)
       if (!valid_scalar(value{key}))
         return error::invalid_argument;
     return keys;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
-  [[nodiscard]] result<target_type> find(std::string_view key) const noexcept try {
+  [[nodiscard]] result<target_type> find(std::string_view key) const {
     auto v = readonly();
     if constexpr (Mutable) {
       if (!ops()->find_mut)
@@ -55,14 +47,10 @@ public:
         return error::not_found;
       return const_instance::from_access(v.registry(), ops()->element(), p);
     }
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
-  [[nodiscard]] result<target_type> insert(std::string_view key) const noexcept
+  [[nodiscard]] result<target_type> insert(std::string_view key) const
     requires(Mutable)
-  try {
+  {
     if (!valid_scalar(value{std::string(key)}))
       return error::invalid_argument;
     auto v = readonly();
@@ -70,31 +58,21 @@ public:
       return error::unsupported;
     return instance::from_access(v.registry(), ops()->element(),
                                  ops()->insert(target_.mutable_data(), key));
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
-  [[nodiscard]] error erase(std::string_view key) const noexcept
+  [[nodiscard]] error erase(std::string_view key) const
     requires(Mutable)
-  try {
+  {
     if (!ops()->erase)
       return error::unsupported;
     return ops()->erase(target_.mutable_data(), key) ? error::success : error::not_found;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
-  [[nodiscard]] error clear() const noexcept
+  [[nodiscard]] error clear() const
     requires(Mutable)
-  try {
+  {
     if (!ops()->clear)
       return error::unsupported;
     ops()->clear(target_.mutable_data());
     return error::success;
-  } catch (...) {
-    return error::internal;
   }
 };
 }

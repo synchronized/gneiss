@@ -48,3 +48,20 @@ metadata::insert、类型/枚举 builder、register_type/register_enum 不再逐
 commit 返回。默认表回调异常测试改为子进程致命验证，普通失败保留首次结果的测试继续通过。
 Editor 及相关目标编译通过，17 项定向测试通过。
 本批不代表 read_property、instance、容器访问、registry 创建/冻结、序列化及其他模块已完成迁移。
+
+## 属性、容器与序列化调用链追加验收
+
+read_property/write_property、property::get、instance 的成员访问与赋值、各类容器视图，
+以及 Serialization/JSON/value 入口移除重复异常转码，并同步调整 noexcept。
+getter/setter、traits、codec 抛出的异常直接传播；非法值、缺少能力、越界等预期失败仍返回错误。
+序列适配增加可选 max_size，resize 先检查上限；不再笼统捕获 length_error，避免吞掉元素构造异常。
+纯句柄和不执行回调的能力查询保留 noexcept。
+
+Windows Clang Debug：Editor 与相关目标编译通过，13 项定向 CPU 测试全部通过。
+故障注入覆盖属性 getter/setter 的 bad_alloc/其他异常、codec 分配异常、序列适配器异常，
+并验证容量越界返回 invalid_argument、失败时不交付属性快照。原容器与 JSON 正常往返测试继续通过。
+一次提前执行旧测试导致 Windows 可执行文件占用，停止旧进程后重新构建、顺序执行全部 13 项通过；
+该次失败不计为验收结果。
+
+本批未运行 GPU、大场景和远端 CI。注册表创建/冻结/查询、核心 value 辅助操作、原生 JSON 分配失败
+分类及外层资产/编辑器调用链仍需迁移；不能将本批 C++ 回调传播等同于全项目异常策略完成。

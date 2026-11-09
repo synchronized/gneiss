@@ -95,8 +95,9 @@ template<> struct sequence_traits<my_numbers> {
 }
 ```
 
-适配器可抛出异常，const_instance/容器视图边界将 bad_alloc 映射为 out_of_memory，其他异常按现有接口
-规则返回错误；不承诺回滚自定义回调产生的修改。只读适配可用于遍历和编码，不能因此推断其支持解码。
+适配器抛出的异常（包括 bad_alloc）通过 instance/容器视图向外传播；预期的越界、缺少能力等仍返回错误。
+sequence_traits 可提供 max_size；resize 在调用适配器前拒绝超过此上限的数量，不再将任意 length_error
+误判为容量越界。不承诺回滚自定义回调产生的修改。只读适配可用于遍历和编码，不能因此推断其支持解码。
 容器结构修改后的借用视图失效规则保持不变。
 
 ## 稳定元素地址
@@ -122,7 +123,7 @@ Prefab 的目标定位与无身份列表快照规则见[场景文件格式](scen
 可写视图增加 select(index)，默认构造并替换当前分支。同一分支再次 select 也重置内容。
 不支持默认构造的分支返回 unsupported，越界返回 invalid_argument。
 valueless_by_exception 状态下 index/value 返回 invalid_state；select 可用于恢复。
-构造异常映射为 out_of_memory 或 internal，不承诺恢复旧分支。
+构造异常直接传播，不承诺恢复旧分支。
 切换分支、赋值或移动宿主后，必须重新获取内部视图。
 
 文件标签必须在第一次使用该类型的 Meta 操作前显式配置，在所有使用它的翻译单元保持一致：

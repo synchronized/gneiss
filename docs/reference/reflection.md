@@ -159,8 +159,9 @@ getter 输出 `value&`，字符串复制进值；setter 接收 `const value&`，
 不再存在借用值和拥有值之间的转换。`read_property` 返回 `result<value>`，成功快照拥有数据，失败不交付部分值；
 `write_property` 直接传递同一份 const 值。
 
-未绑定字段或缺少对应方向的访问器返回 `unsupported`。getter 抛异常或返回非法类别/值时返回
-`internal`，`read_property` 不交付属性快照。setter 异常也转换为 `internal`；getter/setter 的分配异常转换为 `out_of_memory`。
+未绑定字段或缺少对应方向的访问器返回 `unsupported`。getter 返回非法类别/值时返回
+`internal`，`read_property` 不交付属性快照。getter/setter 抛出的异常（包括 bad_alloc）直接传播，
+由执行边界按致命异常策略处理，不转换为普通属性错误。
 基础 getter 接收 `const void* object`，setter 接收 `void* object`。对象仅在调用期间借用，Registry
 不复制、不持有对象，也不解释 World/Entity 标识。调用方必须保证对象实际类型、寿命及线程访问合法。
 空对象返回 `invalid_argument`；不支持运行期校验任意 void* 的实际类型。
@@ -205,7 +206,8 @@ Registry 使用原生共享引用管理，不经全局句柄表。独立表在�
 `serialization::find_policies` 按运行期 type_id 查询冻结 Registry 中的扩展函数表，不登记重复的格式名称。
 `serialization::json::encode_bytes<T>` 返回 `result<vector<byte>, serialization::diagnostic>`，`deserialize<T>` 返回
 `result<T, serialization::diagnostic>`。成功结果拥有值，失败结果仅携带错误码、路径、字节偏移和消息。
-`serialization::diagnostic.error` 保存错误码；bad_alloc 转为 out_of_memory，其余异常转为 internal。
+`serialization::diagnostic.error` 保存预期失败的错误码；C++ 分配、访问器和 codec 异常直接传播。
+底层原生分配失败的错误码分类仍在 PLAN-109 中迁移，不代表全部 OOM 路径已经统一。
 Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `result<ref<void>, serialization::diagnostic>`，
 模板接口按已登记的运行期类型 ID 找到回调后移出具体对象，不要求默认构造或移动赋值。
 未冻结返回 not_ready，未知类型返回 not_found，空 Registry 返回 invalid_handle。
@@ -252,7 +254,7 @@ null 不等于缺失。只读属性不输出，也不从输入写入；read_only
 `.extend(serialization::validation<Fn>)` 接受返回 error 或 serialization::diagnostic 的只读校验函数。
 成功诊断的 error 为 success。编码前、解码填充结束后各校验一次，适用于自定义 codec 与反射 JSON。
 解码在独立临时对象中写属性，失败析构临时对象；访问器不得产生需要回滚的外部副作用。
-校验器和 codec 异常在分派边界转换为 out_of_memory 或 internal。
+校验器和 codec 异常直接传播；临时对象和序列化操作上下文通过 RAII 清理，不承诺回滚回调的外部副作用。
 
 类型擦除入口 `serialize_object(registry, type_id, object)` /
 `deserialize_object(registry, type_id, bytes)` 与模板入口共用分派；对象指针必须匹配类型。
@@ -279,7 +281,7 @@ Scene / Prefab 的结构编解码继续使用专用实现。
 `serialization::find_policies` 返回 `result<serialization::type_policies>`。
 句柄保活冻结 Registry；名称借用该表，不保活业务对象。
 `read_property` 返回 `result<value>`；成功快照拥有字符串等数据，可在 Registry 释放后使用。
-getter 失败、异常或返回不匹配／无效值时仅返回错误，不交付部分属性快照。
+getter 显式失败或返回不匹配／无效值时返回错误；抛出的异常直接传播，两者均不交付部分属性快照。
 写属性仍返回 error；编解码与序列化模板返回 result。
 
 ## 无 GUID 对象边界

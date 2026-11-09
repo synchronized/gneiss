@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../support/throws.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/meta/object_type.hpp"
 #include "engine/core/meta/registration.hpp"
@@ -482,10 +483,12 @@ int main() {
       !binding.content.encode || !binding.content.decode)
     return 7;
   probe object;
-  if (gneiss::test_support::assign_decoded(
-          gneiss::engine::serialization::json::encode_bytes(
-              gneiss::engine::serialization::write_context{registry}, object),
-          output, diagnostic) != e::error::out_of_memory ||
+  if (!gneiss::test_support::throws<std::bad_alloc>([&] {
+        (void)(gneiss::test_support::assign_decoded(
+            gneiss::engine::serialization::json::encode_bytes(
+                gneiss::engine::serialization::write_context{registry}, object),
+            output, diagnostic));
+      }) ||
       output.size() != 1 || output[0] != std::byte{42})
     return 8;
   if (gneiss::test_support::assign_decoded(

@@ -21,15 +21,11 @@ template <bool Mutable> class basic_sequence_view {
   target_type target_;
 
 public:
-  [[nodiscard]] result<std::size_t> size() const noexcept try {
+  [[nodiscard]] result<std::size_t> size() const {
     auto v = readonly();
     return ops()->size(v.data_);
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
-  [[nodiscard]] result<target_type> at(std::size_t index) const noexcept try {
+  [[nodiscard]] result<target_type> at(std::size_t index) const {
     auto v = readonly();
     auto count = size();
     if (!count)
@@ -43,14 +39,10 @@ public:
                                    ops()->at_mut(target_.mutable_data(), index));
     } else
       return const_instance::from_access(v.registry(), ops()->element(), ops()->at(v.data_, index));
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
   [[nodiscard]] bool is_fixed_size() const noexcept { return ops()->fixed_size; }
   [[nodiscard]] bool has_identity() const noexcept { return ops()->identity != nullptr; }
-  [[nodiscard]] result<guid> identity(std::size_t index) const noexcept try {
+  [[nodiscard]] result<guid> identity(std::size_t index) const {
     if (!has_identity())
       return error::unsupported;
     auto count = size();
@@ -60,11 +52,9 @@ public:
       return error::not_found;
     auto id = ops()->identity(readonly().data_, index);
     return id ? result<guid>{id} : result<guid>{error::invalid_argument};
-  } catch (...) {
-    return error::internal;
   }
   /** 拒绝空身份或重号；查找失败不回退下标。 */
-  [[nodiscard]] result<target_type> find(guid id) const noexcept try {
+  [[nodiscard]] result<target_type> find(guid id) const {
     if (!id)
       return error::invalid_argument;
     if (!has_identity())
@@ -84,18 +74,13 @@ public:
         found = i;
     }
     return found == *count ? result<target_type>{error::not_found} : at(found);
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
   [[nodiscard]] bool is_resizable() const noexcept { return ops()->resize != nullptr; }
   [[nodiscard]] bool supports_replacement() const noexcept { return ops()->replace != nullptr; }
   /** 在临时序列上初始化，再通过容器约束校验并替换；不开放原集合可写元素。 */
-  [[nodiscard]] error
-  replace(const std::function<error(const instance&)>& initialize) const noexcept
+  [[nodiscard]] error replace(const std::function<error(const instance&)>& initialize) const
     requires(Mutable)
-  try {
+  {
     if (!ops()->replace)
       return error::unsupported;
     if (!initialize)
@@ -104,27 +89,19 @@ public:
       auto candidate = instance::from_access(readonly().registry(), access, data);
       return candidate ? initialize(*candidate) : candidate.error();
     });
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
-  [[nodiscard]] error resize(std::size_t count) const noexcept
+  [[nodiscard]] error resize(std::size_t count) const
     requires(Mutable)
-  try {
+  {
     auto v = readonly();
     if (!ops()->resize)
       return count == ops()->size(v.data_)
                  ? error::success
                  : (ops()->fixed_size ? error::invalid_argument : error::unsupported);
+    if (ops()->max_size && count > ops()->max_size(v.data_))
+      return error::invalid_argument;
     ops()->resize(target_.mutable_data(), count);
     return error::success;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (const std::length_error&) {
-    return error::invalid_argument;
-  } catch (...) {
-    return error::internal;
   }
 };
 }

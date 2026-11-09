@@ -22,13 +22,13 @@ template <bool Mutable> class basic_reference_view {
 
 public:
   /** 当前目标的运行类型；空引用仍遵循引用适配器的声明类型约定。 */
-  engine::type_id actual_type() const noexcept {
+  engine::type_id actual_type() const {
     return ops()->dynamic_type(readonly().registry(), readonly().data_).id();
   }
   /** 显式共享控制块，返回的只读强引用保活目标。 */
-  result<ref<const void>> owner() const noexcept { return ops()->owner(readonly().data_); }
+  result<ref<const void>> owner() const { return ops()->owner(readonly().data_); }
   /** 类型擦除赋值：调用方保证 owner 地址是 id 对应类型，id 必须等于声明目标类型。 */
-  error assign_owner(engine::type_id id, const ref<void>& owner) const noexcept
+  error assign_owner(engine::type_id id, const ref<void>& owner) const
     requires(Mutable)
   {
     if (ops()->element().id != id)
@@ -38,11 +38,9 @@ public:
   }
 
 public:
-  [[nodiscard]] result<bool> has_value() const noexcept {
-    return ops()->get(readonly().data_) != nullptr;
-  }
+  [[nodiscard]] result<bool> has_value() const { return ops()->get(readonly().data_) != nullptr; }
   /** ref<const T> 的可写视图仍不能修改目标，可经 as_const().get() 读取。 */
-  [[nodiscard]] result<target_type> get() const noexcept {
+  [[nodiscard]] result<target_type> get() const {
     auto v = readonly();
     if constexpr (Mutable) {
       if (!ops()->get_mut)
@@ -66,13 +64,13 @@ public:
   }
   [[nodiscard]] reference_view as_const() const noexcept { return reference_view{readonly()}; }
   /** 共享源控制块；仅允许相同引用类型，不复制目标。 */
-  [[nodiscard]] error assign(const reference_view& source) const noexcept
+  [[nodiscard]] error assign(const reference_view& source) const
     requires(Mutable)
   {
     return target_.assign(source.target_);
   }
   /** 只清空当前引用；最后一次释放遵循原删除器。 */
-  [[nodiscard]] error reset() const noexcept
+  [[nodiscard]] error reset() const
     requires(Mutable)
   {
     ops()->reset(target_.mutable_data());

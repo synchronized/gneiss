@@ -45,9 +45,9 @@ public:
   }
   [[nodiscard]] const_instance as_const() const noexcept;
   [[nodiscard]] property_range properties() const noexcept { return type_.properties(); }
-  [[nodiscard]] GNEISS_API result<basic_instance> member(property_id) const noexcept;
-  [[nodiscard]] GNEISS_API result<basic_instance> member(std::string_view) const noexcept;
-  [[nodiscard]] GNEISS_API result<value> read_value() const noexcept;
+  [[nodiscard]] GNEISS_API result<basic_instance> member(property_id) const;
+  [[nodiscard]] GNEISS_API result<basic_instance> member(std::string_view) const;
+  [[nodiscard]] GNEISS_API result<value> read_value() const;
   [[nodiscard]] GNEISS_API result<pointer> object_data() const noexcept;
   [[nodiscard]] GNEISS_API result<basic_sequence_view<Mutable>> as_sequence() const noexcept;
   [[nodiscard]] GNEISS_API result<basic_associative_view<Mutable>> as_associative() const noexcept;
@@ -59,24 +59,19 @@ public:
   {
     return parent_ && !writable_ && kind() != type_kind::scalar;
   }
-  [[nodiscard]] GNEISS_API error
-  replace(const std::function<error(const instance&)>&) const noexcept
+  [[nodiscard]] GNEISS_API error replace(const std::function<error(const instance&)>&) const
     requires(Mutable);
-  [[nodiscard]] GNEISS_API error assign(const value&) const noexcept
+  [[nodiscard]] GNEISS_API error assign(const value&) const
     requires(Mutable);
   template <class T>
     requires(Mutable && detail::reflected_value_kind<std::remove_cv_t<T>>() != value_kind::invalid)
-  [[nodiscard]] error assign(const T& input) const noexcept try {
+  [[nodiscard]] error assign(const T& input) const {
     return assign(detail::scalar_value(input));
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
   /** 普通对象按值复制；引用共享控制块；受约束属性调用 setter。 */
-  [[nodiscard]] GNEISS_API error assign(const const_instance&) const noexcept
+  [[nodiscard]] GNEISS_API error assign(const const_instance&) const
     requires(Mutable);
-  [[nodiscard]] GNEISS_API error assign_object(engine::type_id, void*) const noexcept
+  [[nodiscard]] GNEISS_API error assign_object(engine::type_id, void*) const
     requires(Mutable);
 
 private:

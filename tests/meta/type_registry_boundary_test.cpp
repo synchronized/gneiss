@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/throws.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registration.hpp"
@@ -267,9 +268,10 @@ int main() try {
     return 13;
   }
   proposed.payload = 99.0F;
-  if (gneiss::engine::meta::write_property(state, type_id, gneiss::engine::meta::property_id{2U},
-                                           &candidate,
-                                           proposed) != gneiss::engine::error::internal ||
+  if (!gneiss::test_support::throws<std::runtime_error>([&] {
+        (void)(gneiss::engine::meta::write_property(
+            state, type_id, gneiss::engine::meta::property_id{2U}, &candidate, proposed));
+      }) ||
       candidate != 2) {
     return 14;
   }
@@ -281,10 +283,12 @@ int main() try {
     return 15;
   }
   gneiss::engine::value value;
-  if (gneiss::test_support::assign_value(
-          gneiss::engine::meta::read_property(state, type_id, gneiss::engine::meta::property_id{1U},
-                                              &candidate),
-          value) != gneiss::engine::error::internal ||
+  if (!gneiss::test_support::throws<std::runtime_error>([&] {
+        (void)(gneiss::test_support::assign_value(
+            gneiss::engine::meta::read_property(state, type_id,
+                                                gneiss::engine::meta::property_id{1U}, &candidate),
+            value));
+      }) ||
       value.kind() != gneiss::engine::value_kind::invalid) {
     return 5;
   }

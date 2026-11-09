@@ -13,7 +13,7 @@
 #include <utility>
 #include <vector>
 namespace gneiss::engine::meta {
-/** 专门化以适配自定义序列；size/at 必需，at_mut/resize/replace 可选。元素地址仅借用。
+/** 专门化以适配自定义序列；size/at 必需，at_mut/resize/max_size/replace 可选。元素地址仅借用。
  * replace(T&, const vector<element>&) 返回 error，负责整组校验，失败保持原集合。 */
 template <class T> struct sequence_traits {
   static constexpr bool enabled = false;
@@ -26,6 +26,11 @@ template <class T> struct indexed_sequence_traits {
   static constexpr bool enabled = true;
   using element = typename T::value_type;
   static std::size_t size(const T& v) { return v.size(); }
+  static std::size_t max_size(const T& v)
+    requires requires { v.max_size(); }
+  {
+    return v.max_size();
+  }
   static const element* at(const T& v, std::size_t i) { return std::addressof(v[i]); }
   static element* at_mut(T& v, std::size_t i) { return std::addressof(v[i]); }
 };
@@ -48,6 +53,7 @@ struct sequence_ops {
   const void* (*at)(const void*, std::size_t);
   void* (*at_mut)(void*, std::size_t){};
   void (*resize)(void*, std::size_t){};
+  std::size_t (*max_size)(const void*){};
   bool fixed_size = false;
   guid (*identity)(const void*, std::size_t){};
   error (*replace)(void*, const std::function<error(void*, const detail::type_ops&)>&){};
@@ -71,6 +77,8 @@ template <class T> const sequence_ops& sequence_ops_of() {
       };
     if constexpr (requires(T& v) { traits::resize(v, std::size_t{}); })
       ops.resize = [](void* p, std::size_t n) { traits::resize(*static_cast<T*>(p), n); };
+    if constexpr (requires(const T& v) { traits::max_size(v); })
+      ops.max_size = [](const void* p) { return traits::max_size(*static_cast<const T*>(p)); };
     if constexpr (sequence_identity_traits<T>::enabled)
       ops.identity = [](const void* p, std::size_t i) {
         return sequence_identity_traits<T>::identity(*traits::at(*static_cast<const T*>(p), i));

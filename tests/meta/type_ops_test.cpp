@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../support/throws.hpp"
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/serialization/policy.hpp"
 #include <cstdio>
+#include <stdexcept>
 
 namespace e = gneiss::engine;
 namespace m = e::meta;
@@ -19,6 +21,7 @@ namespace m = e::meta;
 struct numbers {
   std::vector<float> values{1, 2};
   bool fail_resize = false;
+  bool fail_length = false;
 };
 struct readonly_numbers {
   std::array<float, 2> values{3, 4};
@@ -37,6 +40,8 @@ template <> struct sequence_traits<numbers> {
   static void resize(numbers& v, std::size_t n) {
     if (v.fail_resize)
       throw std::bad_alloc{};
+    if (v.fail_length)
+      throw std::length_error{"element construction"};
     v.values.resize(n);
   }
 };
@@ -148,9 +153,18 @@ int main() {
   CHECK(sequence->at(2)->assign(e::value{9.0F}).ok());
   CHECK(sequence->at(3).error() == e::error::not_found);
   source.sequence.fail_resize = true;
-  CHECK(sequence->resize(4) == e::error::out_of_memory);
+  CHECK(gneiss::test_support::throws<std::bad_alloc>([&] { (void)sequence->resize(4); }));
   CHECK(source.sequence.values.size() == 3);
   source.sequence.fail_resize = false;
+  source.sequence.fail_length = true;
+  CHECK(gneiss::test_support::throws<std::length_error>([&] { (void)sequence->resize(4); }));
+  CHECK(*sequence->size() == 3);
+  source.sequence.fail_length = false;
+  std::vector<float> bounded{1.0F};
+  auto bounded_view = m::view(*registry, bounded);
+  CHECK(bounded_view);
+  CHECK(bounded_view->as_sequence()->resize(bounded.max_size() + 1) == e::error::invalid_argument);
+  CHECK(bounded.size() == 1);
   auto mapping = view->member("mapping")->as_associative();
   CHECK(mapping && *mapping->keys() == std::vector<std::string>({"a", "z"}));
   CHECK(mapping->find("missing").error() == e::error::not_found);

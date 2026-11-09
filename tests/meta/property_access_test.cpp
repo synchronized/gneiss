@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/throws.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
 #include <array>
@@ -189,21 +190,24 @@ int main() try {
       value.kind() != gneiss::engine::value_kind::string ||
       std::get<std::string>(value.payload) != "主相机")
     return 9;
-  // 回调抛异常转换为内部错误；读取保留原输出，setter 不修改目标。
+  // 回调异常向外传播；该夹具在抛出前不修改输出和目标。
   fixture.fail_get = true;
-  if (gneiss::test_support::assign_value(
-          gneiss::engine::meta::read_property(registry, camera_type,
-                                              gneiss::engine::meta::property_id{1}, target),
-          value) != error::internal ||
+  if (!gneiss::test_support::throws<std::runtime_error>([&] {
+        (void)(gneiss::test_support::assign_value(
+            gneiss::engine::meta::read_property(registry, camera_type,
+                                                gneiss::engine::meta::property_id{1}, target),
+            value));
+      }) ||
       value.kind() != gneiss::engine::value_kind::string ||
       std::get<std::string>(value.payload) != "主相机")
     return 10;
   fixture.fail_get = false;
   fixture.fail_set = true;
   value.payload = 100.0F;
-  if (gneiss::engine::meta::write_property(registry, camera_type,
-                                           gneiss::engine::meta::property_id{1}, target,
-                                           value) != error::internal ||
+  if (!gneiss::test_support::throws<std::runtime_error>([&] {
+        (void)(gneiss::engine::meta::write_property(
+            registry, camera_type, gneiss::engine::meta::property_id{1}, target, value));
+      }) ||
       std::abs(fixture.field_of_view - 90) > 0.001F)
     return 11;
   // 原生快照拥有文本，不依赖 getter 后续返回值及 Registry 生命周期。
@@ -222,16 +226,19 @@ int main() try {
     return 13;
   fixture.fail_allocate = true;
   gneiss::engine::value preserved{std::string{"preserved"}};
-  if (gneiss::test_support::assign_value(
-          gneiss::engine::meta::read_property(registry, camera_type,
-                                              gneiss::engine::meta::property_id{1}, target),
-          preserved) != error::out_of_memory ||
+  if (!gneiss::test_support::throws<std::bad_alloc>([&] {
+        (void)(gneiss::test_support::assign_value(
+            gneiss::engine::meta::read_property(registry, camera_type,
+                                                gneiss::engine::meta::property_id{1}, target),
+            preserved));
+      }) ||
       std::get<std::string>(preserved.payload) != "preserved")
     return 16;
   value.payload = 120.0F;
-  if (gneiss::engine::meta::write_property(registry, camera_type,
-                                           gneiss::engine::meta::property_id{1}, target,
-                                           value) != error::out_of_memory ||
+  if (!gneiss::test_support::throws<std::bad_alloc>([&] {
+        (void)(gneiss::engine::meta::write_property(
+            registry, camera_type, gneiss::engine::meta::property_id{1}, target, value));
+      }) ||
       fixture.field_of_view != 90.0F)
     return 17;
   const std::weak_ptr lifetime = registry;

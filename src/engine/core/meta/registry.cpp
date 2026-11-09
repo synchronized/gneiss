@@ -447,7 +447,7 @@ public:
 
   template <class Key>
   [[nodiscard]] result<value> get_property(Key type_id, std::uint32_t property_id,
-                                           const void* object) const noexcept {
+                                           const void* object) const {
     if (!object)
       return error::invalid_argument;
     auto accessor = find_accessor(type_id, property_id);
@@ -457,17 +457,10 @@ public:
       return error::unsupported;
     }
     value output;
-    error result = error::internal;
-    try {
-      auto target = property_target(type_id, property_id, const_cast<void*>(object));
-      if (!target)
-        return target.error();
-      result = accessor->getter(accessor->user_data, *target, output);
-    } catch (const std::bad_alloc&) {
-      return error::out_of_memory;
-    } catch (...) {
-      return error::internal;
-    }
+    auto target = property_target(type_id, property_id, const_cast<void*>(object));
+    if (!target)
+      return target.error();
+    auto result = accessor->getter(accessor->user_data, *target, output);
     if (result != error::success) {
       return result;
     }
@@ -479,7 +472,7 @@ public:
 
   template <class Key>
   [[nodiscard]] error set_property(Key type_id, std::uint32_t property_id, void* object,
-                                   const value& value) const noexcept {
+                                   const value& value) const {
     if (!is_valid_property_value(value)) {
       return error::invalid_argument;
     }
@@ -494,16 +487,10 @@ public:
     if (value.kind() != accessor->kind) {
       return error::invalid_argument;
     }
-    try {
-      auto target = property_target(type_id, property_id, object);
-      if (!target)
-        return target.error();
-      return accessor->setter(accessor->user_data, *target, value);
-    } catch (const std::bad_alloc&) {
-      return error::out_of_memory;
-    } catch (...) {
-      return error::internal;
-    }
+    auto target = property_target(type_id, property_id, object);
+    if (!target)
+      return target.error();
+    return accessor->setter(accessor->user_data, *target, value);
   }
 
   [[nodiscard]] result<bool> is_frozen() const noexcept {
@@ -868,11 +855,11 @@ property find_property(const registry_ref& registry, guid id, property_id field)
   return owner ? owner.find_property(field) : property{};
 }
 result<value> read_property(const registry_ref& registry, engine::type_id type,
-                            property_id property, const void* object) noexcept {
+                            property_id property, const void* object) {
   return registry ? registry->get_property(type, property.get(), object) : error::invalid_handle;
 }
 error write_property(const registry_ref& registry, engine::type_id type, property_id property,
-                     void* object, const value& input) noexcept {
+                     void* object, const value& input) {
   return registry ? registry->set_property(type, property.get(), object, input)
                   : error::invalid_handle;
 }
@@ -882,12 +869,12 @@ result<property_binding> find_object_property(const registry_ref& registry, engi
                   : result<property_binding>{error::invalid_handle};
 }
 result<value> read_property(const registry_ref& registry, guid type, property_id property,
-                            const void* object) noexcept {
+                            const void* object) {
   return registry ? registry->get_property(type, property.get(), object) : error::invalid_handle;
 }
 
 error write_property(const registry_ref& registry, guid type, property_id property, void* object,
-                     const value& input) noexcept {
+                     const value& input) {
   return registry ? registry->set_property(type, property.get(), object, input)
                   : error::invalid_handle;
 }

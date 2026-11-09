@@ -4,7 +4,7 @@
 #include "engine/core/serialization/detail/traversal.hpp"
 namespace gneiss::engine::serialization {
 result<void, diagnostic> write(const write_context& ctx, const meta::const_instance& view,
-                               writer& output) noexcept try {
+                               writer& output) {
   auto registry = ctx.registry();
   if (!registry)
     return diagnostic{.error = registry.error()};
@@ -18,13 +18,9 @@ result<void, diagnostic> write(const write_context& ctx, const meta::const_insta
   if (!output.root(*encoded))
     return diagnostic{.error = error::out_of_memory};
   return {};
-} catch (const std::bad_alloc&) {
-  return diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return diagnostic{.error = error::internal};
 }
 result<void, diagnostic> read_into(const read_context& ctx, reader& input,
-                                   const meta::instance& view) noexcept try {
+                                   const meta::instance& view) {
   auto registry = ctx.registry();
   if (!registry)
     return serialization::diagnostic{.error = registry.error()};
@@ -37,13 +33,9 @@ result<void, diagnostic> read_into(const read_context& ctx, reader& input,
   if (status.error.failed())
     return status;
   return {};
-} catch (const std::bad_alloc&) {
-  return diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return diagnostic{.error = error::internal};
 }
 result<ref<void>, serialization::diagnostic> decode_object(const read_context& ctx, type_id id,
-                                                           reader& input) noexcept try {
+                                                           reader& input) {
   auto registry = ctx.registry();
   if (!registry)
     return serialization::diagnostic{.error = registry.error()};
@@ -51,16 +43,12 @@ result<ref<void>, serialization::diagnostic> decode_object(const read_context& c
   detail::context_access::input(ctx) = &input;
   return detail::decode_owned(ctx, *registry, id, input.root(), detail::context_access::depth(ctx),
                               true);
-} catch (const std::bad_alloc&) {
-  return serialization::diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return serialization::diagnostic{.error = error::internal};
 }
-result<void, diagnostic> write(const meta::const_instance& view, writer& output) noexcept {
+result<void, diagnostic> write(const meta::const_instance& view, writer& output) {
   write_context ctx{view.registry()};
   return write(ctx, view, output);
 }
-result<void, diagnostic> read_into(reader& input, const meta::instance& view) noexcept {
+result<void, diagnostic> read_into(reader& input, const meta::instance& view) {
   read_context ctx{view.registry()};
   return read_into(ctx, input, view);
 }

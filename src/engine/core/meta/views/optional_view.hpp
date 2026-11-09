@@ -20,12 +20,8 @@ template <bool Mutable> class basic_optional_view {
   target_type target_;
 
 public:
-  [[nodiscard]] result<bool> has_value() const noexcept try {
-    return ops()->has_value(readonly().data_);
-  } catch (...) {
-    return error::internal;
-  }
-  [[nodiscard]] result<target_type> get() const noexcept try {
+  [[nodiscard]] result<bool> has_value() const { return ops()->has_value(readonly().data_); }
+  [[nodiscard]] result<target_type> get() const {
     auto v = readonly();
     if (!ops()->has_value(v.data_))
       return error::not_found;
@@ -37,34 +33,24 @@ public:
     } else {
       return const_instance::from_access(v.registry(), ops()->element(), ops()->get(v.data_));
     }
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
-  [[nodiscard]] error reset() const noexcept
+  [[nodiscard]] error reset() const
     requires(Mutable)
-  try {
+  {
     if (!ops()->reset)
       return error::unsupported;
     ops()->reset(target_.mutable_data());
     return error::success;
-  } catch (...) {
-    return error::internal;
   }
-  [[nodiscard]] result<target_type> ensure() const noexcept
+  [[nodiscard]] result<target_type> ensure() const
     requires(Mutable)
-  try {
+  {
     if (!ops()->has_value(readonly().data_)) {
       if (!ops()->ensure)
         return error::unsupported;
       ops()->ensure(target_.mutable_data());
     }
     return get();
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 };
 }

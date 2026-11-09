@@ -27,13 +27,13 @@ public:
       return error::invalid_argument;
     return detail::resolve_type(readonly().registry(), *ops()->alternatives[i]);
   }
-  bool valueless() const noexcept { return ops()->valueless(readonly().data_); }
-  result<std::size_t> index() const noexcept {
+  bool valueless() const { return ops()->valueless(readonly().data_); }
+  result<std::size_t> index() const {
     if (valueless())
       return error::invalid_state;
     return ops()->index(readonly().data_);
   }
-  result<target_type> value() const noexcept try {
+  result<target_type> value() const {
     auto i = index();
     if (!i)
       return i.error();
@@ -44,19 +44,11 @@ public:
     else
       return const_instance::from_access(view.registry(), *ops()->alternatives[*i],
                                          ops()->get(view.data_));
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
-  error select(std::size_t i) const noexcept
+  error select(std::size_t i) const
     requires(Mutable)
-  try {
+  {
     return ops()->select(target_.mutable_data(), i);
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 };
 }

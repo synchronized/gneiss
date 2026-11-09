@@ -50,8 +50,7 @@ result<basic_instance<Mutable>> basic_instance<Mutable>::from_access(registry_re
   return output;
 }
 template <bool Mutable>
-result<basic_instance<Mutable>>
-basic_instance<Mutable>::member(std::string_view name) const noexcept {
+result<basic_instance<Mutable>> basic_instance<Mutable>::member(std::string_view name) const {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (kind() != type_kind::object)
@@ -60,7 +59,7 @@ basic_instance<Mutable>::member(std::string_view name) const noexcept {
   return field ? member(field.id()) : result<basic_instance>{error::not_found};
 }
 template <bool Mutable>
-result<basic_instance<Mutable>> basic_instance<Mutable>::member(property_id id) const noexcept try {
+result<basic_instance<Mutable>> basic_instance<Mutable>::member(property_id id) const {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (kind() != type_kind::object || !data_)
@@ -109,10 +108,6 @@ result<basic_instance<Mutable>> basic_instance<Mutable>::member(property_id id) 
   if (!output.data_)
     return error::internal;
   return output;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 template <bool Mutable>
 result<typename basic_instance<Mutable>::pointer>
@@ -128,7 +123,7 @@ basic_instance<Mutable>::object_data() const noexcept {
   } else
     return data_;
 }
-template <bool Mutable> result<value> basic_instance<Mutable>::read_value() const noexcept try {
+template <bool Mutable> result<value> basic_instance<Mutable>::read_value() const {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (kind() == type_kind::variant && type_id() == runtime_type_of<value>() && data_)
@@ -147,15 +142,11 @@ template <bool Mutable> result<value> basic_instance<Mutable>::read_value() cons
     return output;
   }
   return read_property(registry(), parent_type_, property_, parent_);
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 template <bool Mutable>
-error basic_instance<Mutable>::assign(const value& input) const noexcept
+error basic_instance<Mutable>::assign(const value& input) const
   requires(Mutable)
-try {
+{
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (kind() == type_kind::variant && type_id() == runtime_type_of<value>() && mutable_data()) {
@@ -177,15 +168,11 @@ try {
     return access()->template get<scalar_ops>()->write(mutable_data(), input);
   }
   return write_property(registry(), parent_type_, property_, mutable_parent(), input);
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 template <bool Mutable>
-error basic_instance<Mutable>::assign(const const_instance& source) const noexcept
+error basic_instance<Mutable>::assign(const const_instance& source) const
   requires(Mutable)
-try {
+{
   if (kind() == type_kind::invalid || source.kind() == type_kind::invalid)
     return error::invalid_state;
   if (requires_replacement()) {
@@ -205,15 +192,11 @@ try {
   if (mutable_data() != source.data_)
     access()->copy_assign(mutable_data(), source.data_);
   return error::success;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 template <bool Mutable>
-error basic_instance<Mutable>::assign_object(engine::type_id id, void* source) const noexcept
+error basic_instance<Mutable>::assign_object(engine::type_id id, void* source) const
   requires(Mutable)
-try {
+{
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (requires_replacement()) {
@@ -243,17 +226,13 @@ try {
     return error::unsupported;
   binding->object_assign(mutable_parent(), source);
   return error::success;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 
 template <bool Mutable>
 error basic_instance<Mutable>::replace(
-    const std::function<error(const instance&)>& initialize) const noexcept
+    const std::function<error(const instance&)>& initialize) const
   requires(Mutable)
-try {
+{
   const auto& target = *this;
   if (!requires_replacement() || !initialize)
     return error::invalid_argument;
@@ -268,10 +247,6 @@ try {
     return temporary.error();
   auto status = initialize(*temporary);
   return status.failed() ? status : binding->object_setter(target.mutable_parent(), storage.get());
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 template <bool Mutable>
 result<basic_sequence_view<Mutable>> basic_instance<Mutable>::as_sequence() const noexcept {
@@ -330,7 +305,7 @@ result<basic_variant_view<Mutable>> basic_instance<Mutable>::as_variant() const 
 }
 template class basic_instance<false>;
 template class basic_instance<true>;
-result<const_instance> property::get(const const_instance& object) const noexcept {
+result<const_instance> property::get(const const_instance& object) const {
   if (!record_)
     return error::invalid_state;
   if (registry_ != object.registry())
@@ -342,7 +317,7 @@ result<const_instance> property::get(const const_instance& object) const noexcep
     return error::invalid_argument;
   return object.member(id());
 }
-result<instance> property::get(const instance& object) const noexcept {
+result<instance> property::get(const instance& object) const {
   if (!record_)
     return error::invalid_state;
   const auto& view = object.as_const();

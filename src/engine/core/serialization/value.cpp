@@ -449,7 +449,7 @@ struct restore_state {
 };
 }
 result<engine::value, diagnostic> capture_value(const write_context& ctx,
-                                                const meta::const_instance& source) noexcept try {
+                                                const meta::const_instance& source) {
   detail::operation_scope operation{ctx};
   auto registry = ctx.registry();
   if (!registry)
@@ -464,13 +464,9 @@ result<engine::value, diagnostic> capture_value(const write_context& ctx,
   if (status.failed())
     return diagnostic{.error = status};
   return std::move(*captured);
-} catch (const std::bad_alloc&) {
-  return diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return diagnostic{.error = error::internal};
 }
 diagnostic apply_value(const read_context& ctx, const meta::instance& target,
-                       const engine::value& data) noexcept try {
+                       const engine::value& data) {
   detail::operation_scope operation{ctx};
   auto registry = ctx.registry();
   if (!registry)
@@ -483,16 +479,12 @@ diagnostic apply_value(const read_context& ctx, const meta::instance& target,
   restore_state state{ctx, {}};
   status = state.write(target, data, 0);
   return status.failed() ? state.failure : diagnostic{};
-} catch (const std::bad_alloc&) {
-  return {.error = error::out_of_memory};
-} catch (...) {
-  return {.error = error::internal};
 }
-result<engine::value, diagnostic> capture_value(const meta::const_instance& source) noexcept {
+result<engine::value, diagnostic> capture_value(const meta::const_instance& source) {
   write_context ctx{source.registry()};
   return capture_value(ctx, source);
 }
-diagnostic apply_value(const meta::instance& target, const engine::value& data) noexcept {
+diagnostic apply_value(const meta::instance& target, const engine::value& data) {
   read_context ctx{target.registry()};
   return apply_value(ctx, target, data);
 }

@@ -29,7 +29,7 @@ class property_id final {
 public:
   constexpr property_id() noexcept = default;
   explicit constexpr property_id(std::uint32_t value) noexcept : value_(value) {}
-  [[nodiscard]] constexpr std::uint32_t get() const noexcept { return value_; }
+  [[nodiscard]] constexpr std::uint32_t get() const { return value_; }
   [[nodiscard]] constexpr bool is_valid() const noexcept { return value_ != 0; }
   friend constexpr bool operator==(property_id, property_id) noexcept = default;
 
@@ -110,8 +110,8 @@ public:
   [[nodiscard]] GNEISS_API engine::type_id declaring_type_id() const noexcept;
   [[nodiscard]] GNEISS_API meta::type type() const noexcept;
   [[nodiscard]] GNEISS_API property_capabilities capabilities() const noexcept;
-  [[nodiscard]] GNEISS_API result<const_instance> get(const const_instance&) const noexcept;
-  [[nodiscard]] GNEISS_API result<instance> get(const instance&) const noexcept;
+  [[nodiscard]] GNEISS_API result<const_instance> get(const const_instance&) const;
+  [[nodiscard]] GNEISS_API result<instance> get(const instance&) const;
 
 private:
   friend class property_range;

@@ -6,19 +6,17 @@
 namespace gneiss::engine::serialization {
 /** 捕获独立的数据树；内嵌引用按内容捕获，外部引用由注册策略转换为身份。 */
 GNEISS_API result<engine::value, diagnostic> capture_value(const write_context&,
-                                                           const meta::const_instance&) noexcept;
-GNEISS_API result<engine::value, diagnostic> capture_value(const meta::const_instance&) noexcept;
+                                                           const meta::const_instance&);
+GNEISS_API result<engine::value, diagnostic> capture_value(const meta::const_instance&);
 /** 恢复到候选对象；失败可留下部分修改，提交与回滚由编辑操作控制。 */
-GNEISS_API diagnostic apply_value(const read_context&, const meta::instance&,
-                                  const engine::value&) noexcept;
-GNEISS_API diagnostic apply_value(const meta::instance&, const engine::value&) noexcept;
+GNEISS_API diagnostic apply_value(const read_context&, const meta::instance&, const engine::value&);
+GNEISS_API diagnostic apply_value(const meta::instance&, const engine::value&);
 
 /** 有类型的捕获入口；与视图入口共享相同 ops 和引用策略。 */
 template <class T>
   requires(!std::same_as<std::remove_cvref_t<T>, meta::const_instance> &&
            !std::same_as<std::remove_cvref_t<T>, meta::instance>)
-result<engine::value, diagnostic> capture_value(const write_context& context,
-                                                const T& source) noexcept {
+result<engine::value, diagnostic> capture_value(const write_context& context, const T& source) {
   auto registry = context.registry();
   if (!registry)
     return diagnostic{.error = registry.error()};
@@ -30,13 +28,12 @@ result<engine::value, diagnostic> capture_value(const write_context& context,
 template <class T>
   requires(!std::same_as<std::remove_cvref_t<T>, meta::const_instance> &&
            !std::same_as<std::remove_cvref_t<T>, meta::instance>)
-result<engine::value, diagnostic> capture_value(const T& source) noexcept {
+result<engine::value, diagnostic> capture_value(const T& source) {
   return capture_value(write_context{}, source);
 }
 /** 创建独立候选后恢复；失败不会暴露部分初始化对象。 */
 template <class T>
-result<T, diagnostic> restore_value(const read_context& context,
-                                    const engine::value& source) noexcept try {
+result<T, diagnostic> restore_value(const read_context& context, const engine::value& source) {
   auto registry = context.registry();
   if (!registry)
     return diagnostic{.error = registry.error()};
@@ -48,12 +45,8 @@ result<T, diagnostic> restore_value(const read_context& context,
   if (status.error.failed())
     return status;
   return candidate;
-} catch (const std::bad_alloc&) {
-  return diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return diagnostic{.error = error::internal};
 }
-template <class T> result<T, diagnostic> restore_value(const engine::value& source) noexcept {
+template <class T> result<T, diagnostic> restore_value(const engine::value& source) {
   return restore_value<T>(read_context{}, source);
 }
 }
