@@ -109,11 +109,8 @@ int main() try {
                                           field_of_view) != error::invalid_state)
     return 2;
   gneiss::engine::meta::property info;
-  if (gneiss::test_support::assign_value(
-          gneiss::engine::meta::find_property(registry, camera_type,
-                                              gneiss::engine::meta::property_id{1}),
-          info)
-          .failed() ||
+  if (!(info = gneiss::engine::meta::find_property(registry, camera_type,
+                                                   gneiss::engine::meta::property_id{1})) ||
       info.type().scalar_kind() != gneiss::engine::value_kind::float32 ||
       info.capabilities() != (gneiss::engine::meta::property_capabilities::readable |
                               gneiss::engine::meta::property_capabilities::writable))

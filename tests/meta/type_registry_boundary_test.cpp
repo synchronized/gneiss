@@ -64,10 +64,8 @@ bool native_values() {
     return false;
   }
   gneiss::engine::meta::property field;
-  if (gneiss::test_support::assign_value(
-          gneiss::engine::meta::find_property(registry, native_id,
-                                              gneiss::engine::meta::property_id{1}),
-          field) != gneiss::engine::error::not_ready ||
+  if ((field = gneiss::engine::meta::find_property(registry, native_id,
+                                                   gneiss::engine::meta::property_id{1})) ||
       !field.name().empty()) {
     return false;
   }
@@ -87,33 +85,27 @@ bool native_values() {
           .failed()) {
     return false;
   }
-  if (gneiss::test_support::assign_value(
-          gneiss::engine::meta::find_property(registry, native_id,
-                                              gneiss::engine::meta::property_id{1}),
-          field)
-          .failed() ||
+  if (!(field = gneiss::engine::meta::find_property(registry, native_id,
+                                                    gneiss::engine::meta::property_id{1})) ||
       field.name() != "text" || field.id() != gneiss::engine::meta::property_id{1} ||
       field.type().scalar_kind() != gneiss::engine::value_kind::string ||
       !gneiss::engine::meta::has_flags(field.capabilities(),
                                        gneiss::engine::meta::property_capabilities::writable) ||
-      gneiss::test_support::assign_value(
-          gneiss::engine::meta::find_property(registry, native_id,
-                                              gneiss::engine::meta::property_id{99}),
-          field) != gneiss::engine::error::not_found ||
-      field.name() != "text" ||
-      gneiss::test_support::assign_value(
-          gneiss::engine::meta::find_property({}, native_id, gneiss::engine::meta::property_id{1}),
-          field) != gneiss::engine::error::invalid_handle ||
-      field.name() != "text") {
+      (field = gneiss::engine::meta::find_property(registry, native_id,
+                                                   gneiss::engine::meta::property_id{99})) ||
+      !field.name().empty() ||
+      (field = gneiss::engine::meta::find_property({}, native_id,
+                                                   gneiss::engine::meta::property_id{1})) ||
+      !field.name().empty()) {
     return false;
   }
   gneiss::engine::error foreign;
   std::thread reader([&] {
     gneiss::engine::meta::property borrowed;
-    foreign = gneiss::test_support::assign_value(
-        gneiss::engine::meta::find_property(registry, native_id,
-                                            gneiss::engine::meta::property_id{1}),
-        borrowed);
+    foreign = ((borrowed = gneiss::engine::meta::find_property(
+                    registry, native_id, gneiss::engine::meta::property_id{1}))
+                   ? gneiss::engine::error::success
+                   : gneiss::engine::error::not_found);
   });
   reader.join();
   if (foreign.failed()) {

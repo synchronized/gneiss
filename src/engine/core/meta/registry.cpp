@@ -611,31 +611,6 @@ public:
   } catch (...) {
     return error::internal;
   }
-  template <class Owner, class Key>
-  result<property> lookup_property(Owner id, Key key) const noexcept try {
-    std::shared_lock lock(mutex_);
-    if (!is_frozen_)
-      return error::not_ready;
-    const auto* record = find_type_unlocked(id);
-    if (!record)
-      return error::not_found;
-    const property_record* found = nullptr;
-    if constexpr (std::is_same_v<Key, property_id>) {
-      found = find_property_unlocked(*record, key.get());
-    } else {
-      const auto match = std::ranges::lower_bound(
-          record->property_names, key, {},
-          [&](std::size_t index) -> std::string_view { return record->properties[index].name; });
-      if (match != record->property_names.end() && record->properties[*match].name == key)
-        found = &record->properties[*match];
-    }
-    if (!found)
-      return error::not_found;
-    return property_range{owner(), found, 1}[0];
-  } catch (...) {
-    return error::internal;
-  }
-
   template <class Key> result<property_range> properties(Key id) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
@@ -879,8 +854,9 @@ result<std::uint32_t> type_count(const registry_ref& state) noexcept {
 result<meta::type> type_at(const registry_ref& registry, std::uint32_t index) noexcept {
   return registry ? registry->type_at(index) : result<meta::type>{error::invalid_handle};
 }
-result<property> find_property(const registry_ref& registry, guid id, property_id field) noexcept {
-  return registry ? registry->lookup_property(id, field) : result<property>{error::invalid_handle};
+property find_property(const registry_ref& registry, guid id, property_id field) noexcept {
+  auto owner = find_type(registry, id);
+  return owner ? owner->find_property(field) : property{};
 }
 result<value> read_property(const registry_ref& registry, engine::type_id type,
                             property_id property, const void* object) noexcept {

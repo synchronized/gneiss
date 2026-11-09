@@ -167,8 +167,8 @@ bool frozen_lookup() {
   if (m::register_type(*registry,
                        {.guid = id, .schema_version = 1, .name = "indexed", .properties = fields})
           .failed() ||
-      m::find_property(*registry, id, m::property_id{1}).error() != e::error::not_ready ||
-      m::freeze(*registry).failed() || m::freeze(*registry).failed())
+      m::find_property(*registry, id, m::property_id{1}) || m::freeze(*registry).failed() ||
+      m::freeze(*registry).failed())
     return false;
   auto type = m::find_type(*registry, id);
   if (!type)
@@ -276,16 +276,11 @@ int main() {
                                          info)
           .failed() ||
       info.name() != "Object" || info.schema_version() != 1 || info.properties()->size() != 1 ||
-      gneiss::test_support::assign_value(
-          gneiss::engine::meta::find_property(registry, object_type,
-                                              gneiss::engine::meta::property_id{1}),
-          metadata)
-          .failed() ||
+      !(metadata = gneiss::engine::meta::find_property(registry, object_type,
+                                                       gneiss::engine::meta::property_id{1})) ||
       metadata.name() != "value" ||
-      gneiss::test_support::assign_value(
-          gneiss::engine::meta::find_property(registry, object_type,
-                                              gneiss::engine::meta::property_id{2}),
-          metadata) != error::not_found)
+      gneiss::engine::meta::find_property(registry, object_type,
+                                          gneiss::engine::meta::property_id{2}))
     return 7;
   gneiss::engine::value value;
   if (gneiss::test_support::assign_value(

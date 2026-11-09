@@ -65,8 +65,8 @@ int main() try {
         e::component_editor_route::mesh_assets);
   const auto primary =
       e::meta::find_property(e::camera_description::type_guid, e::meta::property_id{4});
-  check(primary && gneiss::engine::is_edit_read_only(*primary));
-  check(gneiss::engine::meta::has_flags(primary->capabilities(),
+  check(primary && gneiss::engine::is_edit_read_only(primary));
+  check(gneiss::engine::meta::has_flags(primary.capabilities(),
                                         gneiss::engine::meta::property_capabilities::writable));
   e::camera_description camera{{1, 0.1F, 100}, true};
   auto saved_camera = gneiss::engine::serialization::json::serialize_bytes(camera);

@@ -51,8 +51,8 @@ inline result<object_ops> find_object_ops(type_id id) noexcept {
 /** 冻结属性范围；保活注册表，查询不复制属性数组。 */
 GNEISS_API result<property_range> properties(const registry_ref&, engine::guid) noexcept;
 /** 字段名称借用已冻结 Registry。 */
-[[nodiscard]] GNEISS_API result<property>
-find_property(const registry_ref& registry, engine::guid type, property_id property) noexcept;
+[[nodiscard]] GNEISS_API property find_property(const registry_ref& registry, engine::guid type,
+                                                property_id property) noexcept;
 /** 读取自有快照。冻结后的 Registry 可共享，对象的类型、寿命和线程访问由调用方保证。
  */
 [[nodiscard]] GNEISS_API result<value> read_property(const registry_ref& registry,
@@ -150,10 +150,10 @@ inline result<meta::type> find_type(engine::guid id) noexcept {
   auto registry = default_registry();
   return registry ? type_at(*registry, index) : result<meta::type>{registry.error()};
 }
-[[nodiscard]] inline result<property> find_property(guid type, property_id property) noexcept {
+[[nodiscard]] inline meta::property find_property(guid type, property_id property) noexcept {
   auto registry = default_registry();
   if (!registry)
-    return registry.error();
+    return {};
   return find_property(*registry, type, property);
 }
 [[nodiscard]] inline result<value> read_property(guid type, property_id property,
