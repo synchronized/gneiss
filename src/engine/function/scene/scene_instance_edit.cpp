@@ -59,8 +59,7 @@ error scene_instance_state::set_component_description(scene_node_id node,
 }
 
 result<scene_mesh_binding> scene_instance_state::capture_mesh_binding(scene_node_id node) const {
-  const auto found = std::ranges::find(objects_, node, &node_entry::node);
-  if (found == objects_.end()) {
+  if (!contains_editable_node(node)) {
     return error::invalid_handle;
   }
   auto renderer = native_world_.node_mesh_renderer(node);
@@ -117,7 +116,4 @@ error scene_instance_state::replace_mesh_binding(scene_node_id node_value,
   return error::success;
 }
 
-bool scene_instance_state::contains_editable_node(scene_node_id node) const noexcept {
-  return std::ranges::find(objects_, node, &node_entry::node) != objects_.end();
-}
 } // namespace gneiss::engine

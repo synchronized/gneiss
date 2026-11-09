@@ -66,6 +66,8 @@ result<scene_node_id> world_hierarchy::create(scene_node_id parent, std::uint64_
     if (create_entity)
       entity = owner_.create_entity();
     owner_.emplace<node>(entity).parent = parent;
+    if (parent && owner_.scene_of(parent))
+      owner_.assign_scene(scene_node_id{entity}, owner_.scene_of(parent));
     const scene_node_id id{entity};
     // 插入组件可能移动存储，重新查询父节点。
     if (parent)
@@ -119,6 +121,8 @@ engine::error world_hierarchy::reparent(scene_node_id node_id, scene_node_id par
   if (target == nullptr || (parent != null_scene_node_id && find(parent) == nullptr)) {
     return engine::error::invalid_handle;
   }
+  if (parent && owner_.scene_of(node_id) != owner_.scene_of(parent))
+    return error::invalid_argument;
   if (node_id == parent || is_descendant(node_id, parent)) {
     return engine::error::invalid_argument;
   }

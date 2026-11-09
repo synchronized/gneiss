@@ -93,45 +93,7 @@ result<scene_instance_state*> scene_instances::resolve(scene_instance_id instanc
   const auto* slot = instances_.get(instance, resource_type::scene_instance);
   if (!slot || !*slot)
     return error::invalid_handle;
-  (*slot)->prune_destroyed_members();
   return slot->get();
-}
-
-error scene_instances::validate_reparent(scene_node_id node, scene_node_id parent) noexcept {
-  if (!parent)
-    return error::success;
-  // 临时/非场景对象可能位于成员之间；检查祖先和整棵移动子树，不能只比较两个根。
-  const scene_instance_state* parent_owner = nullptr;
-  for (auto cursor = parent; cursor && !parent_owner;) {
-    instances_.for_each(resource_type::scene_instance, [&](const instance_ptr& instance) {
-      if (instance->contains_editable_node(cursor))
-        parent_owner = instance.get();
-    });
-    scene_node_id ancestor;
-    if (native_world_.node_get_parent(cursor, ancestor).failed())
-      return error::invalid_handle;
-    cursor = ancestor;
-  }
-  if (!parent_owner)
-    return error::success;
-  bool crosses_scene = false;
-  instances_.for_each(resource_type::scene_instance, [&](const instance_ptr& instance) {
-    if (instance.get() == parent_owner || crosses_scene)
-      return;
-    for (const auto& member : instance->objects_) {
-      for (auto cursor = member.node; cursor;) {
-        if (cursor == node) {
-          crosses_scene = true;
-          return;
-        }
-        scene_node_id ancestor;
-        if (native_world_.node_get_parent(cursor, ancestor).failed())
-          break;
-        cursor = ancestor;
-      }
-    }
-  });
-  return crosses_scene ? error::invalid_argument : error::success;
 }
 
 result<scene_instance_id> scene_instances::create_empty(guid scene_uuid) {
@@ -142,8 +104,10 @@ result<scene_instance_id> scene_instances::create_empty(guid scene_uuid) {
   if (!scene_uuid)
     return error::invalid_argument;
   auto instance = std::make_unique<scene_instance_state>(native_world_, loader_);
-  instance->initialize_staged(scene_uuid);
-  return instances_.create(resource_type::scene_instance, std::move(instance));
+  auto created = instances_.create(resource_type::scene_instance, std::move(instance));
+  if (created)
+    (*instances_.get(*created, resource_type::scene_instance))->bind(*created);
+  return created;
 }
 
 engine::error scene_instances::unload(scene_instance_id instance) noexcept {

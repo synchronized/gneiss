@@ -11,6 +11,8 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/function/world/world_component_access.hpp"
+#include "engine/function/world/world_state.hpp"
 
 #include "engine/function/scene/scene_object.hpp"
 
@@ -53,73 +55,82 @@ scene_instance_state::scene_instance_state(world& native_world, asset_manager& l
 
 scene_instance_state::~scene_instance_state() noexcept { rollback(); }
 
-std::vector<scene_instance_state::node_entry>::iterator
-scene_instance_state::find_member(scene_node_id node) {
-  return std::ranges::find(objects_, node, &node_entry::node);
+world_state& scene_instance_state::storage() const noexcept {
+  auto state = detail::world_component_access::get(native_world_);
+  if (!state)
+    fatal(fatal_reason::unhandled_exception);
+  return **state;
 }
-std::vector<scene_instance_state::node_entry>::const_iterator
-scene_instance_state::find_member(scene_node_id node) const {
-  return std::ranges::find(objects_, node, &node_entry::node);
+std::vector<scene_node_id> scene_instance_state::members() const {
+  std::vector<scene_node_id> result;
+  storage().each_scene_member(id_, [&](scene_node_id node) { result.push_back(node); });
+  std::ranges::sort(result, {}, [](scene_node_id node) { return node.get(); });
+  return result;
 }
-void scene_instance_state::initialize_staged(guid uuid, std::size_t count) {
-  uuid_ = uuid;
-  objects_.resize(count);
+std::uint64_t scene_instance_state::node_count() const noexcept {
+  std::uint64_t count{};
+  storage().each_scene_member(id_, [&](scene_node_id) { ++count; });
+  return count;
 }
-void scene_instance_state::prune_destroyed_members() noexcept {
-  const auto alive = [&](scene_node_id node) {
-    return native_world_.object(entity_id{node.get()}).has_value();
-  };
-  std::erase_if(objects_, [&](const auto& member) { return !alive(member.node); });
+bool scene_instance_state::contains_editable_node(scene_node_id node) const noexcept {
+  return id_ && storage().scene_of(node) == id_;
+}
+void scene_instance_state::adopt(scene_node_id node) {
+  try {
+    storage().assign_scene(node, id_);
+  } catch (...) {
+    (void)native_world_.object_destroy(node);
+    throw;
+  }
 }
 void scene_instance_state::rollback() noexcept try {
-  for (const auto& object : objects_) {
-    if (object.node)
-      (void)native_world_.object_destroy(object.node);
-  }
-  objects_.clear();
+  storage().destroy_scene_members(id_);
   loader_.collect_unused();
 } catch (...) {
   gneiss::engine::fatal_current_exception();
 }
-scene_node_id scene_instance_state::find_node(gneiss::engine::guid uuid) const {
-  for (const auto& object : objects_)
-    if (scene_object_identity(native_world_, object.node).uuid == uuid)
-      return object.node;
-  return {};
+scene_node_id scene_instance_state::find_node(guid uuid) const {
+  scene_node_id found;
+  storage().each_scene_member(id_, [&](scene_node_id node) {
+    if (scene_object_identity(native_world_, node).uuid == uuid)
+      found = node;
+  });
+  return found;
 }
 
 result<scene_node_info> scene_instance_state::get_node_info(std::uint64_t index,
                                                             node_query_detail detail) const {
-  if (index >= objects_.size()) {
+  const auto nodes = members();
+  if (index >= nodes.size()) {
     return engine::error::not_found;
   }
-  const auto& object = objects_[static_cast<std::size_t>(index)];
+  const auto node = nodes[static_cast<std::size_t>(index)];
   std::uint64_t entity = UINT64_C(0);
   auto result = engine::write_identifier<entity_id>(entity, [&](auto& native_output) {
-    return native_world_.node_get_entity(gneiss::scene_node_id{object.node}, native_output);
+    return native_world_.node_get_entity(gneiss::scene_node_id{node}, native_output);
   });
   if (result != engine::error::success || entity == UINT64_C(0)) {
     return result == engine::error::success ? engine::error::invalid_handle : result;
   }
   scene_node_id parent = null_scene_node_id;
-  result = native_world_.node_get_parent(gneiss::scene_node_id{object.node}, parent);
+  result = native_world_.node_get_parent(gneiss::scene_node_id{node}, parent);
   if (result != engine::error::success) {
     return result;
   }
   scene_node_info out_info{};
-  out_info.node = scene_node_id{object.node};
+  out_info.node = scene_node_id{node};
   out_info.parent = scene_node_id{parent};
   out_info.entity = entity_id{entity};
-  out_info.uuid = scene_object_identity(native_world_, object.node).uuid;
-  out_info.name = scene_object_identity(native_world_, object.node).name;
+  out_info.uuid = scene_object_identity(native_world_, node).uuid;
+  out_info.name = scene_object_identity(native_world_, node).name;
   if (detail != node_query_detail::identity) {
-    auto components = capture_components(native_world_, object.node);
+    auto components = capture_components(native_world_, node);
     if (!components)
       return components.error();
     out_info.components = std::move(*components);
   }
   if (detail == node_query_detail::components) {
-    result = native_world_.node_get_local_transform(object.node, out_info.local_transform);
+    result = native_world_.node_get_local_transform(node, out_info.local_transform);
     if (result.failed())
       return result;
   }
@@ -134,11 +145,10 @@ result<scene_node_id> scene_instance_state::create_node(const node_creation& des
   }
   gneiss::engine::guid parent_uuid{};
   if (desc.parent != null_scene_node_id) {
-    const auto parent = find_member(desc.parent);
-    if (parent == objects_.end()) {
+    if (!contains_editable_node(desc.parent)) {
       return engine::error::invalid_handle;
     }
-    parent_uuid = scene_object_identity(native_world_, parent->node).uuid;
+    parent_uuid = scene_object_identity(native_world_, desc.parent).uuid;
   }
   {
     game_object_description author{.uuid = uuid,
@@ -146,7 +156,6 @@ result<scene_node_id> scene_instance_state::create_node(const node_creation& des
                                    .parent = {std::move(parent_uuid), {}},
                                    .transform = desc.local_transform,
                                    .components = {}};
-    objects_.reserve(objects_.size() + 1U);
     staged_object target{.uuid = author.uuid,
                          .entity = UINT64_C(0),
                          .node = null_scene_node_id,
@@ -159,50 +168,27 @@ result<scene_node_id> scene_instance_state::create_node(const node_creation& des
       }
       return result;
     }
-    objects_.push_back({target.node});
+    adopt(target.node);
     return target.node;
   }
 }
 
 engine::error scene_instance_state::reparent_node(scene_node_id node, scene_node_id parent) {
-  const auto found = find_member(node);
-  if (found == objects_.end()) {
+  if (!contains_editable_node(node)) {
     return engine::error::invalid_handle;
   }
-  if (parent && find_member(parent) == objects_.end())
+  if (parent && !contains_editable_node(parent))
     return error::invalid_handle;
   return native_world_.node_reparent(node, parent);
 }
 
 engine::error scene_instance_state::destroy_subtree(scene_node_id root) {
-  const auto root_member = std::ranges::find(objects_, root, &node_entry::node);
-  if (root_member == objects_.end())
+  if (!contains_editable_node(root))
     return error::invalid_handle;
-  {
-    std::vector<scene_node_id> removed;
-    removed.reserve(objects_.size());
-    for (const auto& member : objects_) {
-      auto current = member.node;
-      while (current) {
-        if (current == root) {
-          removed.push_back(member.node);
-          break;
-        }
-        const auto status = native_world_.node_get_parent(current, current);
-        if (status.failed())
-          return status;
-      }
-    }
-    const auto contains = [&](scene_node_id node) {
-      return std::ranges::find(removed, node) != removed.end();
-    };
-    const auto status = native_world_.object_destroy(root);
-    if (status.failed())
-      return status;
-    std::erase_if(objects_, [&](const auto& object) { return contains(object.node); });
+  const auto status = native_world_.object_destroy(root);
+  if (status.ok())
     loader_.collect_unused();
-    return error::success;
-  }
+  return status;
 }
 
 result<scene_node_id>
@@ -225,11 +211,10 @@ scene_instance_state::create_mesh_renderer_node(const mesh_renderer_node_creatio
   }
   gneiss::engine::guid parent_uuid{};
   if (desc.parent != null_scene_node_id) {
-    const auto parent = find_member(desc.parent);
-    if (parent == objects_.end()) {
+    if (!contains_editable_node(desc.parent)) {
       return engine::error::invalid_handle;
     }
-    parent_uuid = scene_object_identity(native_world_, parent->node).uuid;
+    parent_uuid = scene_object_identity(native_world_, desc.parent).uuid;
   }
 
   {
@@ -250,7 +235,6 @@ scene_instance_state::create_mesh_renderer_node(const mesh_renderer_node_creatio
       if (status.failed())
         return status;
     }
-    objects_.reserve(objects_.size() + 1U);
     staged_object target{};
     target.uuid = author.uuid;
 
@@ -292,15 +276,14 @@ scene_instance_state::create_mesh_renderer_node(const mesh_renderer_node_creatio
       }
       return result;
     }
-    objects_.push_back({target.node});
+    adopt(target.node);
     return target.node;
   }
 }
 
 engine::error scene_instance_state::set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
                                                       std::string_view material_uri) {
-  const auto found = find_member(node);
-  if (found == objects_.end()) {
+  if (!contains_editable_node(node)) {
     return engine::error::invalid_handle;
   }
   {
@@ -345,7 +328,7 @@ engine::error scene_instance_state::set_mesh_renderer(scene_node_id node, std::s
     }
     const engine::mesh_renderer renderer{.mesh = mesh, .material = material};
     result = native_world_.entity_set_mesh_renderer(
-        gneiss::entity_id{scene_object_entity(native_world_, found->node)}, renderer);
+        gneiss::entity_id{scene_object_entity(native_world_, node)}, renderer);
     if (result != engine::error::success) {
       return result;
     }
@@ -356,18 +339,17 @@ engine::error scene_instance_state::set_mesh_renderer(scene_node_id node, std::s
 
 engine::error scene_instance_state::set_camera(scene_node_id node,
                                                const engine::camera_description& desc) {
-  const auto found = find_member(node);
-  if (found == objects_.end()) {
+  if (!contains_editable_node(node)) {
     return engine::error::invalid_handle;
   }
   const auto result = native_world_.entity_configure_camera(
-      gneiss::entity_id{scene_object_entity(native_world_, found->node)}, desc.settings);
+      gneiss::entity_id{scene_object_entity(native_world_, node)}, desc.settings);
   if (result != engine::error::success) {
     return result;
   }
   if (desc.is_primary) {
     const auto active_result = native_world_.set_active_camera(
-        gneiss::entity_id{scene_object_entity(native_world_, found->node)});
+        gneiss::entity_id{scene_object_entity(native_world_, node)});
     if (active_result != engine::error::success) {
       return active_result;
     }
@@ -376,21 +358,19 @@ engine::error scene_instance_state::set_camera(scene_node_id node,
 }
 
 engine::error scene_instance_state::remove_camera(scene_node_id node) {
-  const auto found = find_member(node);
-  if (found == objects_.end()) {
+  if (!contains_editable_node(node)) {
     return engine::error::invalid_handle;
   }
   return native_world_.entity_remove_camera(
-      gneiss::entity_id{scene_object_entity(native_world_, found->node)});
+      gneiss::entity_id{scene_object_entity(native_world_, node)});
 }
 
 engine::error scene_instance_state::remove_mesh_renderer(scene_node_id node) {
-  const auto found = find_member(node);
-  if (found == objects_.end()) {
+  if (!contains_editable_node(node)) {
     return engine::error::invalid_handle;
   }
   const auto result = native_world_.entity_remove_mesh_renderer(
-      gneiss::entity_id{scene_object_entity(native_world_, found->node)});
+      gneiss::entity_id{scene_object_entity(native_world_, node)});
   if (result != engine::error::success) {
     return result;
   }
@@ -399,17 +379,11 @@ engine::error scene_instance_state::remove_mesh_renderer(scene_node_id node) {
 }
 
 engine::error scene_instance_state::destroy_node(scene_node_id node) {
-  if (find_member(node) == objects_.end())
+  if (!contains_editable_node(node))
     return error::invalid_handle;
-  // 单节点删除始终要求没有实际子节点；整棵实例使用 destroy_subtree。
-  for (const auto& member : objects_) {
-    scene_node_id parent;
-    const auto status = native_world_.node_get_parent(member.node, parent);
-    if (status.failed())
-      return status;
-    if (parent == node)
-      return error::invalid_state;
-  }
+  const auto* children = storage().scene().children(node);
+  if (children && !children->empty())
+    return error::invalid_state;
   return destroy_subtree(node);
 }
 

@@ -172,6 +172,45 @@ public:
     });
   }
 
+  [[nodiscard]] scene_instance_id scene_of(scene_node_id node) const noexcept {
+    const auto* member = get<scene_membership>(node.get());
+    return member ? member->scene : scene_instance_id{};
+  }
+  void assign_scene(scene_node_id node, scene_instance_id scene) {
+    emplace_or_replace<scene_membership>(node.get(), scene);
+  }
+  template <class Function>
+  void each_scene_member(scene_instance_id scene, Function&& function) const {
+    if (!scene)
+      return;
+    registry_.view<const scene_membership>().each([&](entt::entity entity, const auto& member) {
+      if (member.scene == scene)
+        function(scene_node_id{encode(entity)});
+    });
+  }
+  /** 不保存查询快照；每次删除后重新取成员，避免 EnTT 删除使迭代器失效。 */
+  void destroy_scene_members(scene_instance_id scene) {
+    for (;;) {
+      scene_node_id first;
+      each_scene_member(scene, [&](scene_node_id node) {
+        if (!first)
+          first = node;
+      });
+      if (!first)
+        break;
+      (void)destroy_entity(first.get());
+    }
+  }
+  /** 替换场景保留外层句柄时交换归属，单次遍历且不分配。 */
+  void swap_scene_members(scene_instance_id first, scene_instance_id second) {
+    registry_.view<scene_membership>().each([&](auto& member) {
+      if (member.scene == first)
+        member.scene = second;
+      else if (member.scene == second)
+        member.scene = first;
+    });
+  }
+
   [[nodiscard]] world_hierarchy& scene() noexcept { return scene_; }
   [[nodiscard]] const world_hierarchy& scene() const noexcept { return scene_; }
   [[nodiscard]] std::uint64_t encode_entity(entt::entity entity) const noexcept {

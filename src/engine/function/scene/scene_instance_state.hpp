@@ -18,16 +18,9 @@ public:
   scene_instance_state(const scene_instance_state&) = delete;
   scene_instance_state& operator=(const scene_instance_state&) = delete;
 
-  /** 只记录场景成员；身份在节点中，组件资源在 ECS 中。 */
-  struct node_entry final {
-    scene_node_id node = null_scene_node_id;
-  };
-
-  /** 查询入口清理已经由 World 删除的成员，不缓存存活状态。 */
-  void prune_destroyed_members() noexcept;
   void rollback() noexcept;
-  /** 同步创建期间预留成员槽位；不保存加载描述、不执行文件读取。 */
-  void initialize_staged(guid uuid, std::size_t count = 0);
+  /** 实例槽位创建后绑定身份；成员归属保存在 World 的 ECS 中。 */
+  void bind(scene_instance_id id) noexcept { id_ = id; }
   [[nodiscard]] scene_node_id find_node(guid uuid) const;
   [[nodiscard]] result<scene_node_info> get_node_info(std::uint64_t index,
                                                       node_query_detail detail) const;
@@ -59,14 +52,14 @@ public:
                                            const scene_mesh_binding& replacement,
                                            guid component_uuid = {});
   [[nodiscard]] bool contains_editable_node(scene_node_id node) const noexcept;
-  [[nodiscard]] std::uint64_t node_count() const noexcept { return objects_.size(); }
+  [[nodiscard]] std::uint64_t node_count() const noexcept;
 
 private:
   friend class scene_instances;
-  [[nodiscard]] std::vector<node_entry>::iterator find_member(scene_node_id node);
-  [[nodiscard]] std::vector<node_entry>::const_iterator find_member(scene_node_id node) const;
-  std::vector<node_entry> objects_;
-  guid uuid_;
+  [[nodiscard]] world_state& storage() const noexcept;
+  [[nodiscard]] std::vector<scene_node_id> members() const;
+  void adopt(scene_node_id node);
+  scene_instance_id id_;
 
   world& native_world_;
   asset_manager& loader_;

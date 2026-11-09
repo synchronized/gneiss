@@ -165,3 +165,22 @@ scene_prefab_instance、scene-load-application、editor.session 共 5 项 CPU �
 覆盖改名保留 UUID、变换保留 entity_id、跨线程拒绝、销毁后句柄失效及文档不受运行编辑影响。
 格式检查与 git diff --check 通过；未运行 GPU、大场景、远端 CI 或跨平台矩阵。
 第一阶段其余入口和第二至第五阶段未完成，下一步集中迁移场景归属与层级校验。
+
+## 第二批实施记录：统一成员归属
+
+已删除 scene_instance_state 的独立成员列表、失效成员清理和集合层归属扫描。
+World 的 ECS 使用 scene_membership 保存归属；创建子对象继承父节点归属，
+reparent 在层级入口统一检查归属。查询与卸载直接消费 ECS，临时枚举结果不形成第二份权威状态。
+替换场景时交换新旧实体的归属，再释放旧实例，保持外部场景句柄有效。
+当前行为及枚举失效约束见[场景实例参考](../reference/scene-instance.md)。
+
+Windows Clang Debug：Editor、Runtime 和相关 CPU 测试目标编译通过；component-adapter、
+scene_instance、scene_prefab_instance、scene-load-application、editor.session、scene-instantiation、
+world_state、scene_tree_transform 共 8 项测试通过。覆盖子对象继承归属、跨场景拒绝、
+底层删除后成员查询、场景替换保留句柄及独立实例卸载隔离。格式检查与 git diff --check 通过。
+未运行 GPU、大场景、远端 CI 或跨平台矩阵。
+
+第二阶段尚未全部完成：槽位仍由 World 拥有的 scene_instances 管理，显式子树迁移接口尚未实现。
+场景状态仍承担组件装配并借用 asset_manager，需在后续阶段移除；本批不表示整体计划完成。
+当前成员查询采用扫描，按序号查询会构造临时枚举；后续对象入口收敛时统一批量遍历，
+避免调用方重复扫描，不重新引入长期成员副本。

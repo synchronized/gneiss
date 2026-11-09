@@ -132,15 +132,18 @@ int main() try {
   // 不能通过未登记的中间对象绕开不同场景的成员边界。
   auto bridge = world.create_object({e::guid::from_bytes({9}), "bridge"});
   check(bridge.has_value());
-  check(first_object->reparent(*bridge).ok());
+  check(first_object->reparent(*bridge) == e::error::invalid_argument);
   check(bridge->reparent(*foreign_parent) == e::error::invalid_argument);
   check(first_object->reparent({}).ok());
   check(bridge->destroy().ok());
   auto parent_bridge =
       world.create_object({e::guid::from_bytes({10}), "parent bridge"}, {}, *foreign_parent);
   check(parent_bridge.has_value());
+  auto inherited_count = another_handle->size();
+  check(inherited_count && *inherited_count == 3);
   check(first_object->reparent(*parent_bridge) == e::error::invalid_argument);
   check(another_handle->unload().ok());
+  check(!parent_bridge->is_valid());
   check(first_object->is_valid());
   auto other_world = e::create_native();
   check(other_world.has_value());
@@ -374,6 +377,29 @@ int main() try {
   auto empty_applied = e::apply_scene(world, scenes, *empty_reload, empty_mapping, {}, {}, {});
   check(empty_applied && *empty_applied);
   check(*scenes.get_node_count(*empty_reload) == 0U);
+  // 替换保留场景句柄，但旧实体释放，归属不能停留在临时实例 ID 上。
+  e::scene_description replacement_source;
+  replacement_source.uuid = e::guid::generate();
+  replacement_source.objects = {first};
+  auto replacing = scenes.instantiate_prepared(prepare(replacement_source), {});
+  auto independent = scenes.instantiate_prepared(prepare(replacement_source), {});
+  check(replacing && independent);
+  auto stable = e::scene_instance::borrow(world, replacing->instance);
+  auto other = e::scene_instance::borrow(world, independent->instance);
+  check(stable && other);
+  auto old_object = stable->find(first.uuid);
+  auto other_object = other->find(first.uuid);
+  check(old_object && other_object);
+  replacement_source.objects.front().name = "replacement";
+  auto replaced = scenes.replace_prepared(replacing->instance, prepare(replacement_source), {});
+  check(replaced && replaced->instance == replacing->instance && stable->is_valid());
+  check(!old_object->is_valid() && other_object->is_valid());
+  auto new_object = stable->find(first.uuid);
+  check(new_object && new_object->identity()->name == "replacement");
+  check(*stable->size() == 1 && *other->size() == 1);
+  check(stable->unload().ok());
+  check(!new_object->is_valid() && other_object->is_valid());
+  check(other->unload().ok() && !other_object->is_valid());
   lifetime = state(world).get<movement_component>(id)->lifetime;
   owner->reset();
   check(lifetime.expired());

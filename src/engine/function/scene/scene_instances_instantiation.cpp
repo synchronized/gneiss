@@ -8,6 +8,7 @@
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/scene/scene_types.hpp"
+#include "engine/function/world/world_state.hpp"
 
 #include <algorithm>
 
@@ -79,7 +80,10 @@ scene_instances::replace_prepared(scene_instance_id instance, scene_instantiatio
   // 插入可能扩容 RID 表，必须重新获取槽位地址。
   auto* target = instances_.get(instance, resource_type::scene_instance);
   auto* replacement = instances_.get(created->instance, resource_type::scene_instance);
+  (*target)->storage().swap_scene_members(instance, created->instance);
   std::swap(*target, *replacement);
+  (*target)->bind(instance);
+  (*replacement)->bind(created->instance);
   const auto retired = created->instance;
   created->instance = instance;
   const auto status = unload(retired);

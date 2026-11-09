@@ -17,6 +17,20 @@
 
 namespace {
 
+gneiss::engine::result<gneiss::engine::scene_node_info>
+find_info(gneiss::engine::scene_instances& scenes, gneiss::scene_instance_id scene,
+          gneiss::scene_node_id node) {
+  auto count = scenes.get_node_count(scene);
+  if (!count)
+    return count.error();
+  for (std::uint64_t index = 0; index < *count; ++index) {
+    auto info = scenes.get_node_info(scene, index);
+    if (!info || info->node == node)
+      return info;
+  }
+  return gneiss::engine::error::not_found;
+}
+
 std::shared_ptr<gneiss::runtime::application> create_application(std::string_view asset_root) {
   gneiss::runtime::application_configuration desc;
   desc.asset_root = asset_root;
@@ -181,11 +195,11 @@ int main() try {
   if (!after_binding || after_binding->mesh != accepted_binding->mesh ||
       after_binding->material != accepted_binding->material)
     return 30;
-  // 未登记对象允许参与运行层级，不自动增加场景成员。
+  // 通过 World 创建的子对象继承父对象的场景归属。
   const auto temporary_uuid = gneiss::engine::guid::from_bytes({91, 82, 1});
   auto temporary =
       application->native_world()->object_create(camera_node, {temporary_uuid, "Temporary"}, {});
-  if (!temporary || *application->scenes()->get_node_count(scene) != 2U)
+  if (!temporary || *application->scenes()->get_node_count(scene) != 3U)
     return 31;
   if (application->native_world()->node_reparent(triangle, *temporary).failed() ||
       application->native_world()->node_reparent(triangle, camera_node).failed() ||
@@ -227,7 +241,7 @@ int main() try {
       gneiss::test_support::assign_value(application->native_world()->entity_count(),
                                          entity_count) != gneiss::engine::error::success ||
       entity_count != 3U ||
-      gneiss::test_support::take_value(application->scenes()->get_node_info(scene, 2U),
+      gneiss::test_support::take_value(find_info(*application->scenes(), scene, created_node),
                                        triangle_info) != gneiss::engine::error::success ||
       triangle_info.node != created_node || triangle_info.parent != camera_node ||
       triangle_info.name != "Created Mesh") {
@@ -287,7 +301,7 @@ int main() try {
           gneiss::engine::error::success ||
       application->scenes()->reparent_node(scene, generic_node, triangle) !=
           gneiss::engine::error::invalid_argument ||
-      gneiss::test_support::take_value(application->scenes()->get_node_info(scene, 3U),
+      gneiss::test_support::take_value(find_info(*application->scenes(), scene, generic_node),
                                        triangle_info) != gneiss::engine::error::success ||
       triangle_info.node != generic_node || triangle_info.name != "Group" ||
       triangle_info.local_transform.translation[1] != 2.0F || !triangle_info.components.empty()) {

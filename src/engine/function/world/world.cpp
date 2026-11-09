@@ -363,11 +363,6 @@ engine::error world::node_reparent(scene_node_id node_value, scene_node_id paren
       return thread_result;
     if (!state->scene().get_entity(node) || (parent && !state->scene().get_entity(parent)))
       return error::invalid_handle;
-    if (scenes_) {
-      const auto membership = scenes_->validate_reparent(node, parent);
-      if (membership.failed())
-        return membership;
-    }
     return state->scene().reparent(node, parent);
   }
 }
