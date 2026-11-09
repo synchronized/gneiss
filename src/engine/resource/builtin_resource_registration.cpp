@@ -55,7 +55,6 @@ error register_component_descriptions() noexcept {
           .property_metadata(meta::property_id{2},
                              gneiss::engine::serialization::field_policy{.required = true})
           .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
-          .extend(gneiss::engine::serialization::validation<&validate_property_override_key>)
           .commit();
   if (status.failed())
     return status;
@@ -88,7 +87,6 @@ error register_component_descriptions() noexcept {
           .property_metadata(meta::property_id{4},
                              gneiss::engine::serialization::field_policy{.required = true})
           .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
-          .extend(gneiss::engine::serialization::validation<&validate_component_override>)
           .commit();
   if (status.failed())
     return status;
@@ -102,7 +100,6 @@ error register_component_descriptions() noexcept {
                              gneiss::engine::serialization::field_policy{.required = true})
           .property<&prefab_reference_description::component_overrides>(meta::property_id{3},
                                                                         "component_overrides")
-          .extend(gneiss::engine::serialization::validation<&validate_prefab_reference_description>)
           .commit();
   if (status.failed())
     return status;
@@ -129,7 +126,6 @@ error register_component_descriptions() noexcept {
                                   gneiss::engine::serialization::field_policy{.required = true})
                .property<&game_object_description::components>(meta::property_id{5}, "components")
                .property<&game_object_description::prefab>(meta::property_id{6}, "prefab")
-               .extend(gneiss::engine::serialization::validation<&validate_game_object_description>)
                .commit();
   if (status.failed())
     return status;

@@ -54,8 +54,12 @@ validate_prefab_reference_description(const prefab_reference_description& value)
         .path = "/uri", .message = "Prefab 来源必须包含规范 URI", .error = error::invalid_argument};
   for (std::size_t i = 0; i < value.overrides.size(); ++i) {
     const auto& entry = value.overrides[i];
-    if (validate_property_override_key(entry.key).error.failed() ||
-        validate_value_operation(entry.operation).failed())
+    auto key_status = validate_property_override_key(entry.key);
+    if (key_status.error.failed()) {
+      key_status.path.insert(0, "/overrides/" + std::to_string(i) + "/key");
+      return key_status;
+    }
+    if (validate_value_operation(entry.operation).failed())
       return {.path = "/overrides/" + std::to_string(i),
               .message = "覆盖作者键或属性值无效",
               .error = error::invalid_argument};
@@ -63,9 +67,12 @@ validate_prefab_reference_description(const prefab_reference_description& value)
   std::set<std::pair<guid, guid>> components;
   for (std::size_t i = 0; i < value.component_overrides.size(); ++i) {
     const auto& entry = value.component_overrides[i];
-    if (!entry.source_node_uuid || !entry.type_guid || !entry.component_uuid ||
-        !components.emplace(entry.source_node_uuid, entry.type_guid).second ||
-        (entry.added && (!*entry.added || (*entry.added)->guid() != entry.type_guid)) ||
+    auto component_status = validate_component_override(entry);
+    if (component_status.error.failed()) {
+      component_status.path.insert(0, "/component_overrides/" + std::to_string(i));
+      return component_status;
+    }
+    if (!components.emplace(entry.source_node_uuid, entry.type_guid).second ||
         std::ranges::any_of(value.overrides, [&](const auto& v) {
           return v.key.target.source_node_uuid == entry.source_node_uuid &&
                  v.key.target.target_type_guid == entry.type_guid &&
@@ -84,6 +91,12 @@ serialization::diagnostic validate_game_object_description(const game_object_des
     return {.path = "/components",
             .message = "Prefab 引用与独立组件不能同时定义",
             .error = error::invalid_argument};
+  if (object.prefab) {
+    auto status = validate_prefab_reference_description(*object.prefab);
+    if (status.error.failed())
+      status.path.insert(0, "/prefab");
+    return status;
+  }
   return {};
 }
 serialization::diagnostic
@@ -97,6 +110,13 @@ validate_mesh_renderer_description(const mesh_renderer_description& value) {
 namespace {
 serialization::diagnostic validate_hierarchy(std::span<const game_object_description> objects,
                                              std::optional<guid> root) {
+  for (std::size_t i = 0; i < objects.size(); ++i) {
+    auto status = validate_game_object_description(objects[i]);
+    if (status.error.failed()) {
+      status.path.insert(0, "/objects/" + std::to_string(i));
+      return status;
+    }
+  }
   auto inspected = inspect_object_hierarchy(objects, root);
   if (!inspected) {
     auto diagnostic = std::move(inspected).error();

@@ -112,7 +112,9 @@ auto loaded = asset_file::deserialize<scene_description>(file_bytes);
 Material、Action Map、Scene、Prefab、Texture 的格式名、版本、大小限制集中在 asset_file.cpp。
 读写复用反射字段，文件头只作用于最外层，不传播到嵌套描述对象。
 format 的可选 validate 回调在写入前、读取独立对象后检查领域约束；Scene/Prefab 的整体身份、
-层级和主相机检查由此入口执行，不再注册到通用序列化。Action Map 的动作名称、绑定和按键/scale
+层级和主相机检查由此入口执行，并递归校验对象 UUID、Prefab 引用与覆盖键，
+这些规则不再注册到通用序列化。文档恢复继续显式校验局部描述和整体结构。
+Action Map 的动作名称、绑定和按键/scale
 约束也由文件边界执行；输入服务采用与自定义解码器加载后显式复用同一领域校验。
 Mesh 描述的拓扑、数组对应关系和法线约束，以及 Texture 的来源、用途与颜色空间约束，
 由所属资源模块校验并接入文件边界；直接解码纹理负载也先校验描述。

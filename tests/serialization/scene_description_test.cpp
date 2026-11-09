@@ -15,6 +15,7 @@
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 #include "engine/resource/scene/scene_record.hpp"
+#include "engine/resource/scene/scene_validation.hpp"
 
 #include <array>
 #include <cstddef>
@@ -295,6 +296,23 @@ bool domain_validation_boundary_contract() {
       prefab_load.error().path != "/root_uuid" ||
       e::restore_prefab_record(e::prefab_record{e::prefab_record_data{prefab.uuid, {}, {}}}))
     return false;
+  // 局部对象和 Prefab 引用也由领域递归校验；通用内容可以暂时不合法。
+  scene.uuid = e::guid::generate();
+  scene.objects.emplace_back();
+  plain = e::serialization::json::serialize(scene);
+  auto local_save = e::asset_file::serialize(scene);
+  if (!plain || !e::serialization::json::deserialize<e::scene_description>(*plain) || local_save ||
+      local_save.error().path != "/objects/0/uuid")
+    return false;
+  scene.objects[0].uuid = e::guid::generate();
+  scene.objects[0].prefab.emplace();
+  scene.objects[0].prefab->uri = "invalid";
+  plain = e::serialization::json::serialize(scene);
+  local_save = e::asset_file::serialize(scene);
+  if (!plain || !e::serialization::json::deserialize<e::scene_description>(*plain) || local_save ||
+      local_save.error().path != "/objects/0/prefab/uri")
+    return false;
+  scene.objects.clear();
   // 层级约束也由领域入口负责，而不是编码对象图的过程中顺带检查。
   scene.uuid = e::guid::generate();
   e::game_object_description object;
@@ -515,12 +533,14 @@ int main() try {
     conflict.component_overrides.push_back(
         {.source_node_uuid = conflict.overrides[0].key.target.source_node_uuid,
          .type_guid = conflict.overrides[0].key.target.target_type_guid});
-    if (gneiss::engine::serialization::json::serialize_bytes(conflict))
+    if (!gneiss::engine::serialization::json::serialize_bytes(conflict) ||
+        validate_prefab_reference_description(conflict).error.ok())
       return 101;
     conflict = *restored;
     conflict.uri = "asset://../bad";
-    auto rejected = gneiss::engine::serialization::json::serialize_bytes(conflict);
-    if (rejected || rejected.error().path != "/uri")
+    auto rejected = validate_prefab_reference_description(conflict);
+    if (rejected.error.ok() || rejected.path != "/uri" ||
+        !gneiss::engine::serialization::json::serialize_bytes(conflict))
       return 102;
   }
   if (!fails_with(replace_once(std::string(prefab_scene),
@@ -531,7 +551,7 @@ int main() try {
 
   {
     using namespace gneiss::engine;
-    // 通用入口与场景入口遵循相同的对象校验；缺失组件默认空列表。
+    // 通用入口检查结构，领域入口检查对象语义；缺失组件默认空列表。
     const std::string object_json =
         R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":{"object":null,"source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})";
     auto decode = [](std::string_view text) {
@@ -561,11 +581,11 @@ int main() try {
       return 106;
     auto invalid_uuid = decode(replace_once(
         object_json, R"("uuid":"00000000-0000-4000-8000-000000000002")", R"("uuid":null)"));
-    if (invalid_uuid || invalid_uuid.error().path != "/uuid")
+    if (!invalid_uuid || validate_game_object_description(*invalid_uuid).path != "/uuid")
       return 107;
     empty->uuid = {};
     auto invalid_encoded = gneiss::engine::serialization::json::serialize_bytes(*empty);
-    if (invalid_encoded || invalid_encoded.error().path != "/uuid")
+    if (!invalid_encoded || validate_game_object_description(*empty).path != "/uuid")
       return 107;
     auto invalid_components = decode(replace_once(object_json, "{", R"({"components":{},)"));
     if (invalid_components || invalid_components.error().path != "/components")
@@ -576,7 +596,7 @@ int main() try {
       return 109;
     conflict.components = normal->objects[0].components;
     auto rejected = gneiss::engine::serialization::json::serialize_bytes(conflict);
-    if (rejected || rejected.error().path != "/components")
+    if (!rejected || validate_game_object_description(conflict).path != "/components")
       return 109;
     auto component_bytes = gneiss::engine::serialization::json::serialize_bytes(normal->objects[0]);
     if (!component_bytes)
@@ -587,7 +607,8 @@ int main() try {
         replace_once(component_json, R"("prefab":null)",
                      R"("prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[]})");
     auto conflict_decoded = decode(component_json);
-    if (conflict_decoded || conflict_decoded.error().path != "/components")
+    if (!conflict_decoded ||
+        validate_game_object_description(*conflict_decoded).path != "/components")
       return 110;
     auto missing = gneiss::engine::asset_file::deserialize<scene_description>(
         replace_once(std::string(prefab_scene), R"(,"components":[])", ""));

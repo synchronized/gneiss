@@ -355,7 +355,9 @@ Mesh/Texture 描述校验已移到所属资源模块并接入文件边界，详�
 [网格纹理校验记录](../records/2026-11-09-mesh-texture-domain-validation.md)。
 材质参数与采样约束已集中到资源领域，文件、资产采用和渲染创建复用，见
 [材质校验记录](../records/2026-11-09-material-domain-validation.md)。
-局部对象、组件和数学值等校验的分类迁移尚未完成。
+对象描述、Prefab 引用和覆盖键已由领域入口递归校验，见
+[场景局部校验记录](../records/2026-11-09-scene-local-validation.md)。
+组件和数学值等校验的分类迁移尚未完成。
 
 ## 九、验收矩阵
 
