@@ -170,8 +170,7 @@ result<instance> instance::member(property_id id) const noexcept try {
     auto base = from_object(view_.registry_, ops->base_type, ops->upcast(data_));
     return base ? base->member(id) : result<instance>{base.error()};
   }
-  if (has_flags(info->flags(), property_flags::read_only) ||
-      !has_flags(info->capabilities(), property_capabilities::writable))
+  if (!has_flags(info->capabilities(), property_capabilities::writable))
     return error::unsupported;
   instance output;
   output.parent_ = data_;

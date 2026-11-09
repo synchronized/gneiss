@@ -120,7 +120,9 @@ bool inherited_properties() {
           .failed() ||
       registration<inherited_base>{registry}
           .metadata(gneiss::engine::serialization::reference_policy{.polymorphic = true})
-          .property<&inherited_base::number>(property_id{1}, "number", property_flags::required)
+          .property<&inherited_base::number>(property_id{1}, "number")
+          .property_metadata(property_id{1},
+                             gneiss::engine::serialization::field_policy{.required = true})
           .property<&inherited_base::values>(property_id{2}, "values")
           .property<&inherited_base::get_nested, &inherited_base::set_nested>(property_id{5},
                                                                               "nested")

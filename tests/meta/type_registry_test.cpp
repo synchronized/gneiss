@@ -148,7 +148,7 @@ bool frozen_lookup() {
   for (std::uint32_t i = 0; i < 128; ++i) {
     names.push_back("field_" + std::to_string(i));
     fields.push_back(
-        {m::property_id{(127 - i) * 3 + 1}, id, m::property_flags::none, names.back()});
+        {m::property_id{(127 - i) * 3 + 1}, id, m::property_access::read_write, names.back()});
   }
   if (m::register_type(*registry,
                        {.guid = id, .schema_version = 1, .name = "indexed", .properties = fields})
@@ -193,8 +193,8 @@ int main() {
   constexpr engine::guid object_type{engine::guid::from_bytes({0x20})};
   constexpr engine::guid scalar_type{engine::guid::from_bytes({0x10})};
   const gneiss::engine::meta::property_definition field{
-      gneiss::engine::meta::property_id{1}, scalar_type, gneiss::engine::meta::property_flags::none,
-      "value"};
+      gneiss::engine::meta::property_id{1}, scalar_type,
+      gneiss::engine::meta::property_access::read_write, "value"};
   const std::array duplicate_fields{field, field};
   gneiss::engine::meta::type_definition object{object_type, {}, 1, "Object", {&field, 1}};
   gneiss::engine::meta::type_definition scalar{scalar_type, {}, 1, "Scalar", {}};

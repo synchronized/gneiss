@@ -36,7 +36,9 @@ std::span<const std::byte> bytes(std::string_view text) {
 }
 e::error register_sample(const m::registry_ref& registry, std::string_view name = "name") {
   return m::registration<sample>{registry}
-      .property<&sample::enabled>(m::property_id{1}, "enabled", m::property_flags::required)
+      .property<&sample::enabled>(m::property_id{1}, "enabled")
+      .property_metadata(m::property_id{1},
+                         gneiss::engine::serialization::field_policy{.required = true})
       .property<&sample::signed_number>(m::property_id{2}, "signed")
       .property<&sample::unsigned_number>(m::property_id{3}, "unsigned")
       .property<&sample::speed>(m::property_id{4}, "speed")
@@ -86,8 +88,10 @@ bool enum_json_contract() {
           .commit()
           .failed() ||
       m::registration<enum_sample>{*registry}
-          .property<&enum_sample::named>(m::property_id{1}, "named",
-                                         m::property_flags::enum_name | m::property_flags::required)
+          .property<&enum_sample::named>(m::property_id{1}, "named")
+          .property_metadata(
+              m::property_id{1},
+              gneiss::engine::serialization::field_policy{.required = true, .enum_name = true})
           .property<&enum_sample::numeric>(m::property_id{2}, "numeric")
           .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
           .commit()
@@ -311,13 +315,29 @@ int main() try {
       gneiss::engine::serialization::context{*fallback}, bytes(R"({"enabled":false})"));
   if (!fallback_decoded || fallback_decoded->enabled)
     return 23;
-  auto invalid_flags = m::create_registry();
-  if (!invalid_flags || m::registration<sample>{*invalid_flags}
-                                .property<&sample::enabled>(m::property_id{1}, "enabled",
-                                                            m::property_flags::read_only |
-                                                                m::property_flags::required)
-                                .commit() != e::error::invalid_argument)
-    return 24;
+  // Meta 接受不透明扩展；序列化边界负责拒绝冲突的字段策略。
+  for (bool invalid_enum : {false, true}) {
+    auto registry = m::create_registry();
+    if (!registry ||
+        m::registration<sample>{*registry}
+            .property<&sample::enabled>(m::property_id{1}, "enabled",
+                                        invalid_enum ? m::property_access::read_write
+                                                     : m::property_access::read_only)
+            .property_metadata(m::property_id{1},
+                               e::serialization::field_policy{.required = !invalid_enum,
+                                                              .enum_name = invalid_enum})
+            .commit()
+            .failed() ||
+        m::freeze(*registry).failed())
+      return 24;
+    const e::serialization::context ctx{*registry};
+    auto encoded = e::serialization::json::serialize_bytes(ctx, sample{});
+    auto decoded = e::serialization::json::deserialize<sample>(ctx, bytes(R"({"enabled":true})"));
+    if (encoded || decoded || encoded.error().error != e::error::invalid_argument ||
+        decoded.error().error != e::error::invalid_argument || encoded.error().path != "/enabled" ||
+        decoded.error().path != "/enabled")
+      return 25;
+  }
   return 0;
 } catch (...) {
   return 99;

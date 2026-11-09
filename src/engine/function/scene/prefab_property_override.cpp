@@ -3,6 +3,7 @@
 
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/property_edit_policy.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/serialization/value.hpp"
 #include "engine/core/utf8.hpp"
@@ -101,8 +102,7 @@ error validate_prefab_property_override(const prefab_property_override& value) n
   if (!field)
     return field.error();
   if (!has_flags(field->capabilities(), meta::property_capabilities::writable) ||
-      has_flags(field->flags(), meta::property_flags::editor_read_only) ||
-      value.key.path.size() > 64)
+      gneiss::engine::is_edit_read_only(*field) || value.key.path.size() > 64)
     return error::invalid_argument;
   auto type = field->type();
   for (const auto& step : std::span{value.key.path}.subspan(1)) {
@@ -114,7 +114,7 @@ error validate_prefab_property_override(const prefab_property_override& value) n
       if (found == properties->end())
         return error::not_found;
       if (!has_flags(found->capabilities(), meta::property_capabilities::writable) ||
-          has_flags(found->flags(), meta::property_flags::editor_read_only))
+          gneiss::engine::is_edit_read_only(*found))
         return error::invalid_argument;
       type = found->type();
     } else {

@@ -90,7 +90,7 @@ e::error register_tree(const m::registry_ref& r) {
       .property<&tree::groups>(m::property_id{2}, "groups")
       .property<&tree::labels>(m::property_id{3}, "labels")
       .property<&tree::maybe>(m::property_id{4}, "maybe")
-      .property<&tree::readonly>(m::property_id{5}, "readonly", m::property_flags::read_only)
+      .property<&tree::readonly>(m::property_id{5}, "readonly", m::property_access::read_only)
       .property<&tree::children>(m::property_id{6}, "children")
       .property<&tree::custom_items>(m::property_id{7}, "custom_items")
       .commit();

@@ -97,7 +97,7 @@ template <class T> class registration {
     property_id id;
     std::string name;
     engine::guid guid;
-    property_flags flags;
+    property_access access;
     property_binding binding;
     meta::metadata extensions{};
   };
@@ -157,14 +157,14 @@ public:
   }
   template <auto Member>
   registration& property(property_id id, std::string_view name,
-                         property_flags flags = property_flags::none) noexcept {
+                         property_access access = property_access::read_write) noexcept {
     static_assert(std::is_member_object_pointer_v<decltype(Member)>);
     using property_type = std::remove_cvref_t<std::invoke_result_t<decltype(Member), object_type&>>;
     if constexpr (detail::reflected_value_kind<property_type>() == value_kind::invalid) {
       static_assert(std::is_class_v<property_type> && std::is_move_assignable_v<property_type>,
                     "Nested properties must be assignable value objects");
       return add<property_type>(
-          id, name, flags,
+          id, name, access,
           {.object_type = runtime_type_of<property_type>(),
            .object_getter = [](const void* object) -> const void* {
              return std::addressof(std::invoke(Member, *static_cast<const object_type*>(object)));
@@ -179,7 +179,7 @@ public:
                },
            .access = &detail::ops_of<property_type>()});
     } else
-      return add<property_type>(id, name, flags,
+      return add<property_type>(id, name, access,
                                 {.kind = detail::reflected_value_kind<property_type>(),
                                  .getter = [](void*, const void* object, value& output) -> error {
                                    output = detail::scalar_value(std::invoke(
@@ -197,7 +197,7 @@ public:
   }
   template <auto Getter, auto Setter>
   registration& property(property_id id, std::string_view name,
-                         property_flags flags = property_flags::none) noexcept {
+                         property_access access = property_access::read_write) noexcept {
     using property_type =
         std::remove_cvref_t<std::invoke_result_t<decltype(Getter), const object_type&>>;
     if constexpr (detail::reflected_value_kind<property_type>() == value_kind::invalid) {
@@ -207,7 +207,7 @@ public:
                     "Object getters must borrow a const lvalue, not a temporary");
       static_assert(std::is_default_constructible_v<property_type>);
       return add<property_type>(
-          id, name, flags,
+          id, name, access,
           {.object_type = runtime_type_of<property_type>(),
            .object_getter = [](const void* object) -> const void* {
              return std::addressof(std::invoke(Getter, *static_cast<const object_type*>(object)));
@@ -227,7 +227,7 @@ public:
            .access = &detail::ops_of<property_type>()});
     } else
       return add<property_type>(
-          id, name, flags,
+          id, name, access,
           {.kind = detail::reflected_value_kind<property_type>(),
            .getter = [](void*, const void* object, value& output) -> error {
              output = detail::scalar_value(
@@ -250,7 +250,7 @@ public:
   template <auto Getter> registration& readonly(property_id id, std::string_view name) noexcept {
     using property_type =
         std::remove_cvref_t<std::invoke_result_t<decltype(Getter), const object_type&>>;
-    return add<property_type>(id, name, property_flags::read_only,
+    return add<property_type>(id, name, property_access::read_only,
                               {.kind = detail::reflected_value_kind<property_type>(),
                                .getter = [](void*, const void* object, value& output) -> error {
                                  output = detail::scalar_value(
@@ -300,7 +300,7 @@ public:
       properties.reserve(entries_.size());
       bindings.reserve(entries_.size());
       for (const auto& item : entries_) {
-        properties.push_back({item.id, item.guid, item.flags, item.name, item.extensions});
+        properties.push_back({item.id, item.guid, item.access, item.name, item.extensions});
         bindings.push_back(item.binding);
       }
       if constexpr (std::derived_from<object_type, meta::object>)
@@ -324,7 +324,7 @@ public:
 
 private:
   template <class Property>
-  registration& add(property_id id, std::string_view name, property_flags flags,
+  registration& add(property_id id, std::string_view name, property_access access,
                     property_binding binding) noexcept {
     if (committed_ || status_.failed())
       return *this;
@@ -332,13 +332,14 @@ private:
       binding.access = &detail::ops_of<Property>();
       if constexpr (std::is_enum_v<Property>)
         binding.enum_type = runtime_type_of<Property>();
-      if (has_flags(flags, property_flags::read_only)) {
+      if (access == property_access::read_only) {
         binding.setter = nullptr;
         binding.object_mutator = nullptr;
         binding.object_assign = nullptr;
       }
       entries_.push_back({id, std::string(name),
-                          type_identity<detail::scalar_storage<Property>>::guid(), flags, binding});
+                          type_identity<detail::scalar_storage<Property>>::guid(), access,
+                          binding});
     } catch (const std::bad_alloc&) {
       status_ = error::out_of_memory;
     } catch (...) {

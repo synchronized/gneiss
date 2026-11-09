@@ -47,7 +47,7 @@ Meta 的类型与函数统一位于 `gneiss::engine::meta`，不保留旧命名�
 GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按主机端序解释。
 
 `property_definition.type_guid` 表示字段值的语义类型，无需事先注册该类型。
-`property_flags::read_only` 禁止为字段绑定 setter。
+`property_access::read_only` 禁止为字段绑定 setter。
 
 `create_registry()` 返回 `result<registry_ref>` 所有者；`register_type` 深拷贝名称和字段描述。
 类型自身的稳定身份为 `type_definition.guid`、`type::guid()`；注册输入另有可选的运行期 `type_id`。
@@ -132,7 +132,7 @@ return gneiss::engine::meta::registration<math::transform>{}
 显式名称或 GUID 与非空 traits 身份冲突时返回 `invalid_argument`。`type_of<T>` 解析规范化 C++ 类型，未注册对象返回 not_found，基础值无需重复登记。
 模板去除顶层 cv/ref；注册 `void` 或传入不匹配的非空 `type_id` 返回 `invalid_argument`。
 不对应 C++ 类型的描述保留空 `type_id`，仍可按 GUID 查询。运行期 ID 不进入文件或 IPC。
-`property_definition` 的编号和标志分别使用 `property_id` 与 `property_flags`；`bind_property` 接收强类型字段编号。
+`property_definition` 的编号和内存访问约束分别使用 `property_id` 与 `property_access`；`bind_property` 接收强类型字段编号。
 查询以 result 返回值或错误；未冻结返回 `not_ready`，未知身份或越界索引返回 `not_found`，空引用返回
 `invalid_handle`。类型查询输出拥有字段数组，名称借用 Registry，不能超过 Registry 生命周期。
 
@@ -169,7 +169,7 @@ Editor、Runtime 和运行时 Prefab 覆盖使用这些组件入口；Core 不�
 Transform 的反射对象为 `math::transform`；Camera 直接使用 `camera_description`，包含
 `math::camera_settings settings` 和标记为编辑只读的 `bool is_primary`，不再注册独立属性包装类型。
 相机参数通过 `settings` 的嵌套属性访问；活动状态由 World 捕获，序列化仍保存它。
-组件运行时属性编辑入口拒绝写入标记为 `editor_read_only` 的字段；活动相机切换使用 World 专用接口。
+组件运行时属性编辑入口拒绝写入标记为 `property_edit_policy{.read_only = true}` 的字段；活动相机切换使用 World 专用接口。
 Transform 字段为平移、旋转、缩放；Camera 的 `settings` 内含 `fov`、`near`、`far`。
 
 Registry 使用原生共享引用管理，不经全局句柄表。独立表在最后一个引用释放时销毁；
@@ -215,9 +215,11 @@ codec 文件只提供编解码入口。首次失败立即返回，不回滚已�
 // math::camera_settings 已独立注册 fov / near / far 和参数校验。
 meta::registration<camera_description>{}
     .property<&camera_description::settings>(
-        meta::property_id{1}, "settings", meta::property_flags::required)
+        meta::property_id{1}, "settings")
+    .property_metadata(meta::property_id{1}, serialization::field_policy{.required = true})
     .property<&camera_description::is_primary>(
-        meta::property_id{4}, "is_primary", meta::property_flags::required)
+        meta::property_id{4}, "is_primary")
+    .property_metadata(meta::property_id{4}, serialization::field_policy{.required = true})
     .commit();
 ```
 
@@ -227,8 +229,8 @@ vector2、vector3、vector4、quaternion；数学值按分量数组保存，GUID
 沿用已有属性访问边界：整数严格校验范围，浮点必须有限，字符串为无 NUL 的合法 UTF-8，
 GUID 值不能为 nil。四元数的归一化等业务约束由类型校验器决定。
 
-缺失普通字段保留 T 的默认值；`property_flags::required` 字段缺失返回 invalid_argument。
-null 不等于缺失。只读属性不输出，也不从输入写入；read_only 与 required 不能组合。
+缺失普通字段保留 T 的默认值；`serialization::field_policy::required` 字段缺失返回 invalid_argument。
+null 不等于缺失。只读属性不输出，也不从输入写入；read_only 与 required 不能组合，序列化入口返回带字段路径的 invalid_argument；Meta 注册不解释该格式策略。
 未知字段忽略，重复 JSON 键拒绝；普通类型不会自动保留未知字段。
 字段错误路径使用 JSON Pointer 转义，语法错误提供字节偏移。
 沿用属性访问语义：getter 返回非法值为 internal，输入值非法为 invalid_argument。
@@ -535,7 +537,7 @@ Meta 注册表仅属于当前进程。通过 IPC 接收场景组件描述的宿�
 
 ### 枚举名称的 JSON 表达
 
-属性标记 `property_flags::enum_name` 使 JSON 使用枚举注册项的名称。C++ 属性保持枚举类型，
+字段扩展 `serialization::field_policy{.enum_name = true}` 使 JSON 使用枚举注册项的名称。C++ 属性保持枚举类型，
 类型视图仍可查询枚举列表，`read_value()` 仍返回底层 int64/uint64。未标记属性保持数字编码。
 名称编码拒绝未注册值；解码只接受已注册名称，拒绝数字、null 和未知名称，诊断定位到属性路径。
 该标记用于枚举属性，不是任意容器或对象的格式转换选项。

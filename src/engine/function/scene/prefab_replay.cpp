@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/scene/prefab_replay.hpp"
+#include "engine/core/property_edit_policy.hpp"
 #include "engine/core/serialization/value.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/world/component_identity.hpp"
@@ -150,7 +151,7 @@ error collect_component_overrides(meta::const_instance source, meta::const_insta
     for (const auto& property : *properties) {
       // 派生运行状态仍可保存，但不因普通组件编辑生成实例属性覆盖。
       if (!meta::has_flags(property.capabilities(), meta::property_capabilities::writable) ||
-          meta::has_flags(property.flags(), meta::property_flags::editor_read_only))
+          gneiss::engine::is_edit_read_only(property))
         continue;
       auto left = property.get(source), right = property.get(candidate);
       if (!left)

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/scene/component_adapter.hpp"
+#include "engine/core/property_edit_policy.hpp"
 #include "engine/core/serialization/value.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/world/component_identity.hpp"
@@ -576,8 +577,7 @@ error edit_runtime_component(component_context context, guid type, meta::propert
   if (!properties)
     return properties.error();
   for (const auto& field : *properties) {
-    if (field.id() == property &&
-        meta::has_flags(field.flags(), meta::property_flags::editor_read_only))
+    if (field.id() == property && gneiss::engine::is_edit_read_only(field))
       return error::unsupported;
   }
   auto candidate = copy_candidate(**current);

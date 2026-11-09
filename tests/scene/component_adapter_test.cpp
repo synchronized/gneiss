@@ -4,6 +4,7 @@
 #include "../support/scene_application.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/property_edit_policy.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/meta_registration.hpp"
@@ -64,8 +65,9 @@ int main() try {
         e::component_editor_route::mesh_assets);
   const auto primary =
       e::meta::find_property(e::camera_description::type_guid, e::meta::property_id{4});
-  check(primary && e::meta::has_flags(primary->flags(), e::meta::property_flags::editor_read_only));
-  check(!e::meta::has_flags(primary->flags(), e::meta::property_flags::read_only));
+  check(primary && gneiss::engine::is_edit_read_only(*primary));
+  check(gneiss::engine::meta::has_flags(primary->capabilities(),
+                                        gneiss::engine::meta::property_capabilities::writable));
   e::camera_description camera{{1, 0.1F, 100}, true};
   auto saved_camera = gneiss::engine::serialization::json::serialize_bytes(camera);
   check(saved_camera.has_value());

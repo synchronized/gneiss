@@ -245,7 +245,10 @@ describe_type/describe_property、type_info/property_info 已删除；
 binding 存储和查询已迁到扩展/Serialization，见[存储迁移记录](../records/2026-11-09-serialization-policy-storage.md)；
 旧 binding、注册快捷方法及 reflected 开关已删除，默认字段遍历和消费调用已迁移，
 见[策略拆分记录](../records/2026-11-09-serialization-policy-split.md)。
-字段策略覆盖、flags 清理及领域校验分类尚未完成。
+required/enum_name 已迁至 field_policy，编辑限制已迁至 property_edit_policy；
+Meta 改用内存访问约束 property_access，旧 flags 已删除，见
+[字段策略记录](../records/2026-11-09-property-policy-separation.md)。
+字段引用策略覆盖及领域校验分类尚未完成。
 
 ## 九、验收矩阵
 

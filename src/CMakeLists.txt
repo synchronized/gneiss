@@ -87,6 +87,7 @@ target_sources(
     engine/core/math/camera.hpp
     engine/core/meta/registration.hpp
     engine/core/meta/metadata.hpp
+    engine/core/property_edit_policy.hpp
     engine/core/meta/property.hpp
     engine/core/meta/type.hpp
     engine/core/meta/type_types.hpp

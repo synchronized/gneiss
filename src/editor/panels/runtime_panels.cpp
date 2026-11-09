@@ -3,6 +3,7 @@
 
 #include "panels/runtime_panels.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/property_edit_policy.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/component_identity.hpp"
@@ -233,8 +234,7 @@ void draw_runtime_inspector(const runtime_scene_node& node,
                                  .field_id = property.id().get()};
         const auto* pending = actions.find_edit ? actions.find_edit(actions.context, key) : nullptr;
         const bool readonly =
-            engine::meta::has_flags(property.flags(),
-                                    engine::meta::property_flags::editor_read_only) ||
+            gneiss::engine::is_edit_read_only(property) ||
             !engine::meta::has_flags(property.capabilities(),
                                      engine::meta::property_capabilities::writable);
         ImGui::BeginDisabled(!editable || readonly || !supported ||

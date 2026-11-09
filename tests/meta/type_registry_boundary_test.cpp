@@ -33,11 +33,11 @@ bool native_values() {
   gneiss::engine::meta::registry_ref registry;
   const gneiss::engine::guid id{gneiss::engine::guid::from_bytes({7})};
   const gneiss::engine::guid native_id{gneiss::engine::guid::from_bytes({7})};
-  const std::array fields{
-      gneiss::engine::meta::property_definition{.id = gneiss::engine::meta::property_id{1},
-                                                .type_guid = id,
-                                                .flags = gneiss::engine::meta::property_flags::none,
-                                                .name = "text"}};
+  const std::array fields{gneiss::engine::meta::property_definition{
+      .id = gneiss::engine::meta::property_id{1},
+      .type_guid = id,
+      .access = gneiss::engine::meta::property_access::read_write,
+      .name = "text"}};
   std::string text = "初始文本";
   const gneiss::engine::meta::property_binding binding{
       .kind = gneiss::engine::value_kind::string,
@@ -207,13 +207,14 @@ int main() try {
       gneiss::engine::meta::property_definition{
           .id = gneiss::engine::meta::property_id{1U},
           .type_guid = type_id,
-          .flags = gneiss::engine::meta::property_flags::none,
+          .access = gneiss::engine::meta::property_access::read_write,
           .name = "value",
       },
-      gneiss::engine::meta::property_definition{.id = gneiss::engine::meta::property_id{2U},
-                                                .type_guid = type_id,
-                                                .flags = gneiss::engine::meta::property_flags::none,
-                                                .name = "candidate"},
+      gneiss::engine::meta::property_definition{
+          .id = gneiss::engine::meta::property_id{2U},
+          .type_guid = type_id,
+          .access = gneiss::engine::meta::property_access::read_write,
+          .name = "candidate"},
   };
   const gneiss::engine::meta::type_definition definition{
       .guid = type_id,

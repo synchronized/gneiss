@@ -783,7 +783,7 @@ int main() try {
           .property<&object::get_label, &object::set_label>(m::property_id{2}, "label")
           .readonly<&object::readonly>(m::property_id{3}, "computed")
           .property<&object::config>(m::property_id{4}, "readonly_config",
-                                     m::property_flags::read_only)
+                                     m::property_access::read_only)
           .commit()
           .failed() ||
       m::freeze(registry).failed())

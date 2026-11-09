@@ -36,20 +36,12 @@ private:
   std::uint32_t value_ = 0;
 };
 inline constexpr property_id null_property_id{};
-// NOLINTNEXTLINE(performance-enum-size): 保留完整 ABI 标志位。
-enum class property_flags : std::uint32_t {
-  none = 0,
-  read_only = 1,
-  required = 2,
-  editor_read_only = 4,
-  /** JSON 使用已注册枚举项名称；不改变 C++ 属性类型和 value 的整数表示。 */
-  enum_name = 8
-};
+/** 注册时约束内存读写；消费侧查询实际 capabilities。 */
+enum class property_access : std::uint8_t { read_write, read_only };
 // NOLINTNEXTLINE(performance-enum-size): 保留完整 ABI 标志位。
 enum class property_capabilities : std::uint32_t { none = 0, readable = 1, writable = 2 };
 template <typename T>
-concept property_flag_type =
-    std::same_as<T, property_flags> || std::same_as<T, property_capabilities>;
+concept property_flag_type = std::same_as<T, property_capabilities>;
 template <property_flag_type T> [[nodiscard]] constexpr T operator|(T left, T right) noexcept {
   return static_cast<T>(static_cast<std::uint32_t>(left) | static_cast<std::uint32_t>(right));
 }
@@ -68,7 +60,7 @@ template <property_flag_type T> [[nodiscard]] constexpr bool has_flags(T value, 
 struct property_definition {
   property_id id{};
   engine::guid type_guid{};
-  property_flags flags = property_flags::none;
+  property_access access = property_access::read_write;
   std::string_view name{};
   meta::metadata extensions{};
 };
@@ -113,7 +105,6 @@ public:
   [[nodiscard]] GNEISS_API engine::guid declaring_type() const noexcept;
   [[nodiscard]] GNEISS_API engine::type_id declaring_type_id() const noexcept;
   [[nodiscard]] GNEISS_API meta::type type() const noexcept;
-  [[nodiscard]] GNEISS_API property_flags flags() const noexcept;
   [[nodiscard]] GNEISS_API property_capabilities capabilities() const noexcept;
   [[nodiscard]] GNEISS_API result<const_instance> get(const const_instance&) const noexcept;
   [[nodiscard]] GNEISS_API result<instance> get(const instance&) const noexcept;

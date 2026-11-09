@@ -312,15 +312,18 @@ result<writer::node, serialization::diagnostic> encode_members(const context& ct
   if (!root)
     return failure(error::out_of_memory);
   for (const auto& property : *properties) {
-    if (has_flags(property.flags(), property_flags::read_only))
+    auto policy = policy_of(property);
+    if (!policy)
+      return failure(policy.error(), field_path(property.name()), "字段序列化策略与访问能力不兼容");
+    if (!gneiss::engine::meta::has_flags(property.capabilities(),
+                                         gneiss::engine::meta::property_capabilities::writable))
       continue;
     const auto path = field_path(property.name());
     auto child = property.get(*view);
     if (!child)
       return failure(child.error(), path);
-    auto encoded = has_flags(property.flags(), property_flags::enum_name)
-                       ? encode_enum_name(*child, doc)
-                       : encode_view(ctx, registry, *child, doc, depth + 1);
+    auto encoded = policy->enum_name ? encode_enum_name(*child, doc)
+                                     : encode_view(ctx, registry, *child, doc, depth + 1);
     if (!encoded)
       return prefix(std::move(encoded).error(), path);
     if (!doc->member(root, property.name(), *encoded))
@@ -434,7 +437,8 @@ serialization::diagnostic validate_defaults(const context& ctx, const registry_r
     return failure(properties.error());
   for (const auto& property : *properties) {
     if (property.type().kind() == type_kind::scalar ||
-        has_flags(property.flags(), property_flags::read_only))
+        !gneiss::engine::meta::has_flags(property.capabilities(),
+                                         gneiss::engine::meta::property_capabilities::writable))
       continue;
     auto child = property.get(*view);
     if (!child)
@@ -759,12 +763,16 @@ serialization::diagnostic decode_members(const context& ctx, const registry_ref&
   for (const auto& property : *properties) {
     if (std::ranges::find(ignored, property.name()) != ignored.end())
       return failure(error::invalid_argument, field_path(property.name()), "反射字段占用格式头");
-    if (has_flags(property.flags(), property_flags::read_only))
+    auto policy = policy_of(property);
+    if (!policy)
+      return failure(policy.error(), field_path(property.name()), "字段序列化策略与访问能力不兼容");
+    if (!gneiss::engine::meta::has_flags(property.capabilities(),
+                                         gneiss::engine::meta::property_capabilities::writable))
       continue;
     auto* input = context_access::input(ctx)->member(root, property.name());
     const auto path = field_path(property.name());
     if (!input) {
-      if (has_flags(property.flags(), property_flags::required))
+      if (policy->required)
         return failure(error::invalid_argument, path, "缺少必填属性");
       if (property.type().kind() != type_kind::scalar) {
         auto child = property.get(view->as_const());
@@ -780,9 +788,8 @@ serialization::diagnostic decode_members(const context& ctx, const registry_ref&
     if (!child)
       return failure(child.error(), path);
     path_scope property_path{ctx, path};
-    auto status = has_flags(property.flags(), property_flags::enum_name)
-                      ? decode_enum_name(ctx, *child, input)
-                      : decode_view(ctx, registry, *child, input, depth + 1);
+    auto status = policy->enum_name ? decode_enum_name(ctx, *child, input)
+                                    : decode_view(ctx, registry, *child, input, depth + 1);
     if (status.error.failed())
       return prefix(std::move(status), path);
   }

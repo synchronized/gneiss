@@ -119,7 +119,7 @@ bool valid_binding(const property_binding& binding) noexcept {
 struct property_record {
   std::uint32_t id = 0U;
   engine::guid type_guid{};
-  std::uint32_t flags = 0;
+  property_access access = property_access::read_write;
   std::string name;
   property_accessor accessor{};
   engine::guid declaring_type{};
@@ -140,11 +140,8 @@ struct type_record {
 
 [[nodiscard]] bool validate_property(const property_definition& property) noexcept {
   return property.id.is_valid() &&
-         !has_flags(property.flags, property_flags::read_only | property_flags::required) &&
-         (static_cast<std::uint32_t>(property.flags) &
-          ~static_cast<std::uint32_t>(property_flags::read_only | property_flags::required |
-                                      property_flags::editor_read_only |
-                                      property_flags::enum_name)) == 0U &&
+         (property.access == property_access::read_write ||
+          property.access == property_access::read_only) &&
          !property.name.empty() &&
          property.name.size() <= std::numeric_limits<std::uint32_t>::max() &&
          is_valid_name(property.name);
@@ -246,7 +243,7 @@ public:
       for (std::size_t i = 0; i < bindings.size(); ++i) {
         const auto& binding = bindings[i];
         if (!valid_binding(binding) ||
-            (has_flags(desc.properties[i].flags, property_flags::read_only) &&
+            (desc.properties[i].access == property_access::read_only &&
              (binding.setter || binding.object_mutator || binding.object_setter)))
           return error::invalid_argument;
       }
@@ -272,7 +269,7 @@ public:
       for (const auto& property : desc.properties) {
         record->properties.push_back({.id = property.id.get(),
                                       .type_guid = property.type_guid,
-                                      .flags = static_cast<std::uint32_t>(property.flags),
+                                      .access = property.access,
                                       .name = std::string(property.name),
                                       .accessor = {},
                                       .declaring_type = desc.guid,
@@ -317,7 +314,7 @@ public:
       if (found == type->properties.end()) {
         return error::not_found;
       }
-      if ((found->flags & static_cast<std::uint32_t>(property_flags::read_only)) != 0U &&
+      if (found->access == property_access::read_only &&
           (desc.setter != nullptr || desc.object_mutator != nullptr ||
            desc.object_setter != nullptr)) {
         return error::invalid_argument;
@@ -953,10 +950,7 @@ meta::type property::type() const noexcept {
   return record_ ? record_type(registry_, *static_cast<const property_record*>(record_))
                  : meta::type{};
 }
-property_flags property::flags() const noexcept {
-  return record_ ? static_cast<property_flags>(static_cast<const property_record*>(record_)->flags)
-                 : property_flags::none;
-}
+
 property_capabilities property::capabilities() const noexcept {
   return record_ ? record_capabilities(*static_cast<const property_record*>(record_))
                  : property_capabilities::none;

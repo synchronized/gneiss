@@ -38,7 +38,9 @@ bool format_node_contract() {
   auto registry = m::create_registry();
   if (!registry ||
       m::registration<format_probe>{*registry}
-          .property<&format_probe::text>(m::property_id{1}, "text", m::property_flags::required)
+          .property<&format_probe::text>(m::property_id{1}, "text")
+          .property_metadata(m::property_id{1},
+                             gneiss::engine::serialization::field_policy{.required = true})
           .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
           .commit()
           .failed() ||

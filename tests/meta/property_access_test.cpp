@@ -59,16 +59,16 @@ int main() try {
   camera_fixture fixture;
   const std::array fields{
       gneiss::engine::meta::property_definition{gneiss::engine::meta::property_id{1}, float_type,
-                                                gneiss::engine::meta::property_flags::none,
+                                                gneiss::engine::meta::property_access::read_write,
                                                 "field_of_view"},
       gneiss::engine::meta::property_definition{gneiss::engine::meta::property_id{2}, string_type,
-                                                gneiss::engine::meta::property_flags::read_only,
+                                                gneiss::engine::meta::property_access::read_only,
                                                 "label"},
       gneiss::engine::meta::property_definition{gneiss::engine::meta::property_id{3}, float_type,
-                                                gneiss::engine::meta::property_flags::none,
+                                                gneiss::engine::meta::property_access::read_write,
                                                 "unbound"},
       gneiss::engine::meta::property_definition{gneiss::engine::meta::property_id{4}, float_type,
-                                                gneiss::engine::meta::property_flags::none,
+                                                gneiss::engine::meta::property_access::read_write,
                                                 "malformed"}};
   gneiss::engine::meta::registry_ref registry;
   if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), registry)

@@ -20,6 +20,21 @@ struct reference_policy {
   bool polymorphic = false;
   result<asset_reference_value> (*capture)(engine::guid, const void*){};
 };
+/** 字段持久化规则；不改变 Meta 的内存访问能力。 */
+struct field_policy {
+  bool required = false;
+  bool enum_name = false;
+};
+/** 字段规则由序列化边界校验，Meta 只保存扩展。 */
+inline result<field_policy> policy_of(const meta::property& property) noexcept {
+  const auto* extension = property.extension<field_policy>();
+  const auto policy = extension ? *extension : field_policy{};
+  if ((policy.required &&
+       !meta::has_flags(property.capabilities(), meta::property_capabilities::writable)) ||
+      (policy.enum_name && !property.type().is_enum()))
+    return error::invalid_argument;
+  return policy;
+}
 struct object_policy {
   bool reject_unknown_fields = false;
 };

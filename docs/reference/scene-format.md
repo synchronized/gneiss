@@ -175,7 +175,7 @@ World 保持不变。旧顶层 `prefab_instances` 也被明确拒绝，不作为
 
 `game_object_description::components` 使用 `component_descriptions`，内部直接保存 `ref<const component_description_base>`。实例 UUID 由基类持有，具体描述继承基类并注册 Meta 继承关系，
 通用引用序列化负责 `$type_guid` / `$content`，列表负责实例 UUID 非空且不重复、每种组件至多一项。新建描述生成 UUID，替换描述保留集合中的 UUID；显式复制对象/子树时重新生成身份。
-基类 UUID 使用保留属性编号 `0xffffffff`，参与持久化但标记为 editor_read_only，不能生成普通属性覆盖。
+基类 UUID 使用保留属性编号 `0xffffffff`，参与持久化但设置 property_edit_policy 的 read_only，不能生成普通属性覆盖。
 自定义 codec 须自行保存和恢复基类 UUID；反射字段编解码自动包含该字段。
 `with_component_identity` 在身份不同时通过已注册编解码创建独立副本，需要冻结的默认注册表；
 不修改原引用，相同身份直接共享不可变描述。有类型的 set 在构造不可变引用前调整候选身份。

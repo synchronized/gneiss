@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "panels/reflected_property_editor.hpp"
+#include "engine/core/property_edit_policy.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "viewport/editor_rotation_math.hpp"
 #include <cstring>
@@ -177,8 +178,7 @@ void draw_value(const meta::const_instance& view, const std::string& name, prope
           ImGui::PushID(static_cast<int>(property.id().get()));
           const bool writable =
               !(path.size() == 1 && std::ranges::find(readonly, property.id()) != readonly.end()) &&
-              !meta::has_flags(property.flags(), meta::property_flags::read_only) &&
-              !meta::has_flags(property.flags(), meta::property_flags::editor_read_only) &&
+              !gneiss::engine::is_edit_read_only(property) &&
               meta::has_flags(property.capabilities(), meta::property_capabilities::writable);
           ImGui::BeginDisabled(!writable);
           std::optional<meta::const_instance> original;

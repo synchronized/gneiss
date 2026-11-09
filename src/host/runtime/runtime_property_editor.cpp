@@ -3,6 +3,7 @@
 
 #include "runtime_property_editor.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/property_edit_policy.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
@@ -102,7 +103,7 @@ gneiss::engine::error runtime_property_editor::execute(const ipc_property_write&
       std::ranges::find(*properties, property_field, &gneiss::engine::meta::property::id);
   if (field == properties->end() ||
       !has_flags(field->capabilities(), gneiss::engine::meta::property_capabilities::writable) ||
-      has_flags(field->flags(), gneiss::engine::meta::property_flags::editor_read_only)) {
+      gneiss::engine::is_edit_read_only(*field)) {
     response.code = field == properties->end() ? gneiss::engine::error::not_found.code()
                                                : gneiss::engine::error::unsupported.code();
     response.message = "属性不存在或不可写";

@@ -4,6 +4,7 @@
 #include "commands/author_property_edit.hpp"
 #include "documents/scene_document_edit.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/property_edit_policy.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
@@ -226,8 +227,9 @@ engine::error edit_component_description(scene_edit_session& document,
         auto field = std::ranges::find(*fields, *id, &meta::property::id);
         if (field == fields->end())
           return error::not_found;
-        if (has_flags(field->flags(), meta::property_flags::editor_read_only) ||
-            has_flags(field->flags(), meta::property_flags::read_only))
+        if (gneiss::engine::is_edit_read_only(*field) ||
+            !gneiss::engine::meta::has_flags(field->capabilities(),
+                                             gneiss::engine::meta::property_capabilities::writable))
           return error::unsupported;
         type = field->type();
       } else {
