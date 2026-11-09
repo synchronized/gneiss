@@ -21,12 +21,12 @@ public:
       engine::guid::literal("8bbd9682-e941-46a2-936a-b4ad959b2546");
   /** 组件实例身份；新建生成，编辑与文件恢复保持。 */
   engine::guid uuid = engine::guid::generate();
-  [[nodiscard]] engine::guid guid() const noexcept { return dynamic_type().guid(); }
-  template <class T> const T* get() const noexcept {
+  [[nodiscard]] engine::guid guid() const { return dynamic_type().guid(); }
+  template <class T> const T* get() const {
     return dynamic_type().id() == runtime_type_of<T>() ? static_cast<const T*>(dynamic_address())
                                                        : nullptr;
   }
-  result<meta::const_instance> view() const noexcept {
+  result<meta::const_instance> view() const {
     return meta::const_instance::from_object(dynamic_type().id(), dynamic_address());
   }
 };
@@ -40,7 +40,7 @@ component_description make_component_description(T value) {
 }
 /** 在独立对象上指定身份，不修改调用方持有的不可变描述。 */
 inline result<component_description> with_component_identity(const component_description& source,
-                                                             guid identity) noexcept {
+                                                             guid identity) {
   if (!source || !identity)
     return error::invalid_argument;
   if (source->uuid == identity)
@@ -67,11 +67,11 @@ public:
       set(value);
     }
   }
-  [[nodiscard]] const component_description* find(guid type) const noexcept {
+  [[nodiscard]] const component_description* find(guid type) const {
     auto found = std::ranges::find(values_, type, [](const auto& v) { return v->guid(); });
     return found == values_.end() ? nullptr : &*found;
   }
-  [[nodiscard]] guid identity(guid type) const noexcept {
+  [[nodiscard]] guid identity(guid type) const {
     auto found = std::ranges::find(values_, type, [](const auto& v) { return v->guid(); });
     return found == values_.end() ? guid{} : (*found)->uuid;
   }
@@ -79,7 +79,7 @@ public:
     auto found = std::ranges::find(values_, uuid, [](const auto& value) { return value->uuid; });
     return found == values_.end() ? nullptr : &*found;
   }
-  template <class T> [[nodiscard]] const T* get() const noexcept {
+  template <class T> [[nodiscard]] const T* get() const {
     const auto* value = find(type_identity<T>::guid());
     return value ? (*value)->template get<T>() : nullptr;
   }
@@ -108,7 +108,7 @@ public:
       *found = std::move(*accepted);
   }
   /** 在独立候选上编辑并校验；失败不改变集合或原引用，不支持的捕获不回退到浅拷贝。 */
-  template <class T, class F> [[nodiscard]] error update(F&& edit) noexcept try {
+  template <class T, class F> [[nodiscard]] error update(F&& edit) {
     const auto* source = get<T>();
     if (!source)
       return error::not_found;
@@ -139,10 +139,6 @@ public:
       return validation.error;
     set(std::move(committed));
     return error::success;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
   void erase(guid type) {
     std::erase_if(values_, [type](const auto& v) { return v->guid() == type; });
@@ -151,7 +147,7 @@ public:
   /** 只读借用；替换、增删后须重新获取借用。 */
   const std::vector<component_description>& entries() const noexcept { return values_; }
   /** 文件与版本恢复使用显式身份；拒绝 nil、重复 UUID 和重复类型。 */
-  error replace(const std::vector<component_description>& values) noexcept try {
+  error replace(const std::vector<component_description>& values) {
     for (std::size_t i = 0; i < values.size(); ++i) {
       if (!values[i] || !values[i]->uuid)
         return error::invalid_argument;
@@ -162,10 +158,6 @@ public:
     auto candidate = values;
     values_.swap(candidate);
     return error::success;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
   [[nodiscard]] bool empty() const noexcept { return values_.empty(); }
   [[nodiscard]] std::size_t size() const noexcept { return values_.size(); }

@@ -20,16 +20,16 @@ namespace gneiss::engine {
 /** 只修改私有描述，失败保持 output 不变；不读文件、不创建实体、不发送通知。 */
 [[nodiscard]] error prepare_prefab_description(const prefab_description& source,
                                                std::span<const prefab_property_override> overrides,
-                                               prefab_description& output) noexcept;
+                                               prefab_description& output);
 
 /** 应用结构与属性覆盖；诊断按来源 UUID、类型 GUID 和属性路径定位。 */
-[[nodiscard]] GNEISS_API error
-prepare_prefab_reference(const prefab_description&, const prefab_reference_description&,
-                         prefab_description&, scene_diagnostic* diagnostic = nullptr) noexcept;
+[[nodiscard]] GNEISS_API error prepare_prefab_reference(const prefab_description&,
+                                                        const prefab_reference_description&,
+                                                        prefab_description&,
+                                                        scene_diagnostic* diagnostic = nullptr);
 
 /** 验证作者键、值、字段存在性、类型和可写能力。Registry 必须已经冻结。 */
-[[nodiscard]] error
-validate_prefab_property_override(const prefab_property_override& value) noexcept;
+[[nodiscard]] error validate_prefab_property_override(const prefab_property_override& value);
 
 /**
  * 写入或移除一条稀疏覆盖。
@@ -49,7 +49,7 @@ set_prefab_property_override(std::vector<prefab_property_override>& overrides,
 prepare_mesh_renderer_overrides(guid source_node, guid component_uuid,
                                 const mesh_renderer_description& original,
                                 const mesh_renderer_description& replacement,
-                                std::span<const prefab_property_override> existing = {}) noexcept;
+                                std::span<const prefab_property_override> existing = {});
 
 } // namespace gneiss::engine
 

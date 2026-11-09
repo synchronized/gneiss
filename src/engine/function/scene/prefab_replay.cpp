@@ -19,7 +19,7 @@ scene_diagnostic location(error status, guid object, guid type, std::string path
 }
 result<prefab_replay_result>
 replay_prefab_reference(const prefab_description& source,
-                        const prefab_reference_description& reference) noexcept try {
+                        const prefab_reference_description& reference) {
   prefab_replay_result output{source, {}};
   using target_key = std::pair<guid, guid>;
   std::vector<target_key> structural;
@@ -132,10 +132,6 @@ replay_prefab_reference(const prefab_description& source,
     return std::pair{a.section, a.index} < std::pair{b.section, b.index};
   });
   return output;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 namespace {
 error collect_component_overrides(meta::const_instance source, meta::const_instance candidate,
@@ -238,7 +234,7 @@ result<prefab_edit_candidate>
 prepare_prefab_component_edit(const prefab_description& source,
                               const prefab_reference_description& reference, guid source_node,
                               const component_description& current,
-                              const component_description& replacement) noexcept try {
+                              const component_description& replacement) {
   if (!source_node || !current || !replacement || current->guid() != replacement->guid())
     return error::invalid_argument;
   auto object = std::ranges::find(source.objects, source_node, &game_object_description::uuid);
@@ -294,15 +290,11 @@ prepare_prefab_component_edit(const prefab_description& source,
     return current_view.error();
   return prepare_property_edit(source, reference, source_node, replacement->guid(), *before,
                                *current_view, *after);
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 result<prefab_edit_candidate> prepare_prefab_component_override(
     const prefab_description& source, const prefab_reference_description& reference,
     guid source_node, guid type, const component_description& added, bool removed,
-    std::span<const prefab_property_override> properties, guid component_uuid) noexcept try {
+    std::span<const prefab_property_override> properties, guid component_uuid) {
   if (!source_node || !type || (added && removed) || ((added || removed) && !properties.empty()) ||
       (added && added->guid() != type))
     return error::invalid_argument;
@@ -360,16 +352,11 @@ result<prefab_edit_candidate> prepare_prefab_component_override(
   output.effective = std::move(replayed->description);
   output.conflicts = std::move(replayed->conflicts);
   return output;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 result<prefab_edit_candidate>
 prepare_prefab_transform_edit(const prefab_description& source,
                               const prefab_reference_description& reference, guid source_node,
-                              const math::transform& current,
-                              const math::transform& replacement) noexcept try {
+                              const math::transform& current, const math::transform& replacement) {
   if (!source_node || source_node == source.root_uuid || !math::is_valid_transform(replacement))
     return error::invalid_argument;
   auto object = std::ranges::find(source.objects, source_node, &game_object_description::uuid);
@@ -386,9 +373,5 @@ prepare_prefab_transform_edit(const prefab_description& source,
     return after.error();
   return prepare_property_edit(source, reference, source_node, math::transform::type_guid, *before,
                                *now, *after);
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 }

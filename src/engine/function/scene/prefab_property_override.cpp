@@ -12,7 +12,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <new>
 #include <string_view>
 #include <type_traits>
 
@@ -88,7 +87,7 @@ error apply_prefab_override_operation(meta::instance target, const value_operati
   return updated ? serialization::apply_value(target, *updated).error : updated.error().error;
 }
 
-error validate_prefab_property_override(const prefab_property_override& value) noexcept try {
+error validate_prefab_property_override(const prefab_property_override& value) {
   if (!value.key.target.source_node_uuid || !value.key.target.target_type_guid ||
       !value.key.first_property().is_valid() ||
       validate_value_operation(value.operation).failed()) {
@@ -177,8 +176,6 @@ error validate_prefab_property_override(const prefab_property_override& value) n
     return error::unsupported;
   }
   return error::success;
-} catch (...) {
-  return error::internal;
 }
 
 error set_prefab_property_override(std::vector<prefab_property_override>& overrides,
@@ -198,7 +195,7 @@ error set_prefab_property_override(std::vector<prefab_property_override>& overri
     normalize_zero(source_value);
     normalize_zero(candidate.replacement());
   }
-  try {
+  {
     auto pending = overrides;
     // 整项 set 覆盖同一路径及其子路径的旧编辑；其他操作保持原顺序。
     std::erase_if(pending, [&](const auto& old) {
@@ -210,10 +207,6 @@ error set_prefab_property_override(std::vector<prefab_property_override>& overri
       pending.push_back(std::move(candidate));
     overrides.swap(pending);
     return error::success;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 }
 
@@ -242,8 +235,7 @@ engine::error apply_candidate_object(const prefab_property_override& value,
 
 error prepare_prefab_reference(const prefab_description& source,
                                const prefab_reference_description& reference,
-                               prefab_description& output, scene_diagnostic* diagnostic) noexcept
-    try {
+                               prefab_description& output, scene_diagnostic* diagnostic) {
   if (diagnostic)
     *diagnostic = {};
   const auto fail = [&](error status, guid object, guid type, std::string suffix,
@@ -322,15 +314,11 @@ error prepare_prefab_reference(const prefab_description& source,
   if (status.failed() && diagnostic)
     *diagnostic = {.error = status, .message = "Prefab 覆盖后的组件校验失败"};
   return status;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 
 engine::error prepare_prefab_description(const prefab_description& source,
                                          std::span<const prefab_property_override> overrides,
-                                         prefab_description& output) noexcept try {
+                                         prefab_description& output) {
   auto candidate = source;
   for (const auto& value : overrides) {
     const auto validation = validate_prefab_property_override(value);
@@ -394,17 +382,13 @@ engine::error prepare_prefab_description(const prefab_description& source,
   }
   output = std::move(candidate);
   return engine::error::success;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 
 result<std::vector<prefab_property_override>>
 prepare_mesh_renderer_overrides(guid source_node, guid component_uuid,
                                 const mesh_renderer_description& original,
                                 const mesh_renderer_description& replacement,
-                                std::span<const prefab_property_override> existing) noexcept try {
+                                std::span<const prefab_property_override> existing) {
   std::vector<prefab_property_override> pending(existing.begin(), existing.end());
   const std::array originals{original.mesh_uri, original.material_uri};
   const std::array replacements{replacement.mesh_uri, replacement.material_uri};
@@ -421,10 +405,6 @@ prepare_mesh_renderer_overrides(guid source_node, guid component_uuid,
       return status;
   }
   return pending;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 
 } // namespace gneiss::engine

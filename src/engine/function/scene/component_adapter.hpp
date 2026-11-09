@@ -190,8 +190,7 @@ template <class T> error register_scene_component(component_operations<T> ops) n
   return error::internal;
 }
 GNEISS_API result<component_description>
-modify_component(const component_description&,
-                 const std::function<error(meta::instance)>&) noexcept;
+modify_component(const component_description&, const std::function<error(meta::instance)>&);
 struct component_editor_info {
   guid type;
   bool addable = false;
@@ -204,7 +203,7 @@ GNEISS_API result<component_editor_info> component_editor(guid type) noexcept;
 GNEISS_API result<component_description>
 prepare_component_editor_value(world&, scene_node_id, const component_description&) noexcept;
 /** 返回冻结注册表的自有摘要；显示名称仍从 Meta 查询。 */
-GNEISS_API result<std::vector<component_editor_info>> component_editor_types() noexcept;
+GNEISS_API result<std::vector<component_editor_info>> component_editor_types();
 GNEISS_API result<component_description> default_component_description(guid type) noexcept;
 /** 只处理单个组件；重复添加返回 invalid_state，缺失删除返回 not_found。 */
 GNEISS_API error add_component(component_context, const component_description&,

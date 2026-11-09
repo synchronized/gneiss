@@ -17,7 +17,7 @@ struct prefab_replay_result {
 /** 在新来源上回放；独立覆盖继续执行，组件跨字段校验失败仅拒绝该组件的候选。
  * 来源和覆盖列表保持不变，系统错误返回失败，不伪装成可恢复冲突。 */
 GNEISS_API result<prefab_replay_result>
-replay_prefab_reference(const prefab_description&, const prefab_reference_description&) noexcept;
+replay_prefab_reference(const prefab_description&, const prefab_reference_description&);
 struct prefab_edit_candidate {
   prefab_reference_description reference;
   std::vector<prefab_override_conflict> conflicts;
@@ -30,7 +30,7 @@ struct prefab_edit_candidate {
 GNEISS_API result<prefab_edit_candidate>
 prepare_prefab_component_edit(const prefab_description&, const prefab_reference_description&,
                               guid source_node, const component_description& current,
-                              const component_description& replacement) noexcept;
+                              const component_description& replacement);
 /** 替换一个组件的结构/属性覆盖；空 added 且 removed=false 表示恢复来源。
  * 不访问 World 或资源；只拒绝本次目标的冲突，保留其他目标的失效覆盖。
  */
@@ -38,12 +38,12 @@ GNEISS_API result<prefab_edit_candidate>
 prepare_prefab_component_override(const prefab_description&, const prefab_reference_description&,
                                   guid source_node, guid type, const component_description& added,
                                   bool removed, std::span<const prefab_property_override>,
-                                  guid component_uuid = {}) noexcept;
+                                  guid component_uuid = {});
 /** 来源节点变换的编辑候选；反射生成差异，沿用组件编辑的冲突保留规则。
  * 实例根自身的局部变换由场景对象管理，不属于该来源覆盖入口。
  */
 GNEISS_API result<prefab_edit_candidate>
 prepare_prefab_transform_edit(const prefab_description&, const prefab_reference_description&,
                               guid source_node, const math::transform& current,
-                              const math::transform& replacement) noexcept;
+                              const math::transform& replacement);
 }

@@ -43,6 +43,44 @@ int main() {
   if (gneiss::engine::register_scene_component(gneiss::test_support::operations()).failed())
     return 1;
 
+  // 编辑回调异常必须传播，候选的修改不得污染来源或组件集合。
+  {
+    using namespace gneiss::engine;
+    using gneiss::test_support::movement_description;
+    component_descriptions components;
+    components.set(movement_description{1});
+    const auto original = *components.find(movement_description::type_guid);
+    bool propagated = false;
+    try {
+      (void)components.update<movement_description>([](auto& candidate) {
+        candidate.speed = 99;
+        throw std::bad_alloc{};
+      });
+    } catch (const std::bad_alloc&) {
+      propagated = true;
+    }
+    if (!propagated || components.get<movement_description>()->speed != 1 ||
+        *components.find(movement_description::type_guid) != original)
+      return 180;
+    propagated = false;
+    try {
+      (void)modify_component(original, [](meta::instance candidate) -> error {
+        auto speed = candidate.member(meta::property_id{1});
+        if (!speed || speed->assign(value{99.0F}).failed())
+          return error::invalid_argument;
+        throw std::runtime_error("测试编辑回调异常");
+      });
+    } catch (const std::runtime_error&) {
+      propagated = true;
+    }
+    if (!propagated || original->get<movement_description>()->speed != 1)
+      return 181;
+    if (components.update<movement_description>([](auto& candidate) { candidate.speed = 2; })
+            .failed() ||
+        components.get<movement_description>()->speed != 2)
+      return 182;
+  }
+
   // 同一地址跨插入、删除其他元素和重排仍定位原 UUID；丢失和重号明确失败。
   {
     using namespace gneiss::engine;

@@ -211,9 +211,8 @@ error register_scene_component(component_adapter adapter) noexcept try {
 } catch (...) {
   return error::internal;
 }
-result<component_description>
-modify_component(const component_description& source,
-                 const std::function<error(meta::instance)>& change) noexcept try {
+result<component_description> modify_component(const component_description& source,
+                                               const std::function<error(meta::instance)>& change) {
   if (!source)
     return error::invalid_argument;
   const auto* adapter = find(source->guid());
@@ -223,21 +222,13 @@ modify_component(const component_description& source,
     return error::invalid_argument;
   auto candidate = copy_candidate(source);
   return candidate ? adapter->modify(*candidate, change) : candidate.error();
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-result<std::vector<component_editor_info>> component_editor_types() noexcept try {
+result<std::vector<component_editor_info>> component_editor_types() {
   std::vector<component_editor_info> output;
   for (const auto& adapter : adapters())
     output.push_back(
         {adapter.type, bool(adapter.create_default), adapter.removable, adapter.editor_route});
   return output;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 guid component_description_type(guid type) noexcept {
   const auto* adapter = find(type, true);
