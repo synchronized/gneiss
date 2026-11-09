@@ -30,20 +30,6 @@ result<property_range> type::properties() const noexcept {
     return error::unsupported;
   return meta::properties(registry_, guid_);
 }
-result<property> type::find_property(property_id id) const noexcept {
-  auto entries = properties();
-  if (!entries)
-    return entries.error();
-  auto found = std::ranges::find(*entries, id, &meta::property::id);
-  return found == entries->end() ? result<property>{error::not_found} : *found;
-}
-result<property> type::find_property(std::string_view name) const noexcept {
-  auto entries = properties();
-  if (!entries)
-    return entries.error();
-  auto found = std::ranges::find(*entries, name, &meta::property::name);
-  return found == entries->end() ? result<property>{error::not_found} : *found;
-}
 bool type::is_fixed_sequence() const noexcept {
   const auto* ops = access_ ? access_->get<sequence_ops>() : nullptr;
   return ops && ops->fixed_size;
@@ -79,11 +65,8 @@ result<const_instance> const_instance::from_object(registry_ref registry, engine
 }
 result<property_range> const_instance::properties() const noexcept { return type().properties(); }
 result<const_instance> const_instance::member(std::string_view name) const noexcept {
-  auto entries = properties();
-  if (!entries)
-    return entries.error();
-  auto found = std::ranges::find(*entries, name, &meta::property::name);
-  return found == entries->end() ? result<const_instance>{error::not_found} : (*found).get(*this);
+  auto found = type().find_property(name);
+  return found ? found->get(*this) : result<const_instance>{found.error()};
 }
 result<const_instance> const_instance::member(property_id id) const noexcept try {
   if (kind_ == type_kind::invalid)
@@ -175,11 +158,8 @@ result<instance> instance::from_object(registry_ref registry, engine::type_id id
   return output;
 }
 result<instance> instance::member(std::string_view name) const noexcept {
-  auto entries = view_.properties();
-  if (!entries)
-    return entries.error();
-  auto found = std::ranges::find(*entries, name, &meta::property::name);
-  return found == entries->end() ? result<instance>{error::not_found} : (*found).get(*this);
+  auto found = view_.type().find_property(name);
+  return found ? found->get(*this) : result<instance>{found.error()};
 }
 result<instance> instance::member(property_id id) const noexcept try {
   if (kind() == type_kind::invalid)

@@ -235,7 +235,8 @@ describe_type/describe_property、type_info/property_info 已删除；
 默认构建及 40 项 CPU 回归见[旧查询删除记录](../records/2026-11-09-meta-query-removal.md)。
 阶段 3 已迁移 instance/const_instance、view/member/assign，默认构建和 35 项 CPU 回归通过，
 见[实例门面迁移记录](../records/2026-11-09-meta-instance-api.md)；阶段 4 已统一 registration<T>、显式身份设置并验证公开 sequence_traits；
-无 GUID 对象注册、冻结索引及内部访问边界仍待完成。验证见
+冻结属性索引已接入，见[索引记录](../records/2026-11-09-meta-frozen-index.md)；
+无 GUID 对象注册及内部访问边界仍待完成。验证见
 [注册入口记录](../records/2026-11-09-meta-registration.md)。调用点审计与验证见
 [首批记录](../records/2026-11-09-meta-property-handles.md)。
 

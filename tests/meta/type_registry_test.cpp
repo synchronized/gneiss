@@ -133,7 +133,46 @@ bool math_registration() {
   return !rejected && rejected.error().error == e::error::invalid_argument &&
          status == e::error::invalid_argument && value.scale.x == 1;
 }
+bool frozen_lookup() {
+  namespace e = gneiss::engine;
+  namespace m = e::meta;
+  auto registry = m::create_registry();
+  if (!registry)
+    return false;
+  constexpr auto id = e::guid::literal("ae3d9e6b-f246-4f8e-bb9d-5b6c38e1d402");
+  std::vector<std::string> names;
+  std::vector<m::property_definition> fields;
+  names.reserve(128);
+  fields.reserve(128);
+  // 注册顺序、ID 顺序与名称顺序各不相同。
+  for (std::uint32_t i = 0; i < 128; ++i) {
+    names.push_back("field_" + std::to_string(i));
+    fields.push_back(
+        {m::property_id{(127 - i) * 3 + 1}, id, m::property_flags::none, names.back()});
+  }
+  if (m::register_type(*registry,
+                       {.guid = id, .schema_version = 1, .name = "indexed", .properties = fields})
+          .failed() ||
+      m::find_property(*registry, id, m::property_id{1}).error() != e::error::not_ready ||
+      m::freeze(*registry).failed() || m::freeze(*registry).failed())
+    return false;
+  auto type = m::find_type(*registry, id);
+  if (!type)
+    return false;
+  for (const auto& field : fields) {
+    auto by_id = type->find_property(field.id);
+    auto by_name = type->find_property(field.name);
+    if (!by_id || !by_name || by_id->name() != field.name || by_name->id() != field.id)
+      return false;
+  }
+  return type->find_property(m::property_id{2}).error() == e::error::not_found &&
+         type->find_property(m::property_id{999}).error() == e::error::not_found &&
+         type->find_property("").error() == e::error::not_found &&
+         type->find_property("field_128").error() == e::error::not_found;
+}
 int main() {
+  if (!frozen_lookup())
+    return 32;
   if (!math_registration())
     return 30;
   auto empty = gneiss::engine::meta::create_registry();

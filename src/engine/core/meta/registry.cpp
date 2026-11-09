@@ -131,6 +131,7 @@ struct type_record {
   std::uint32_t schema_version = 0;
   std::string name;
   std::vector<property_record> properties;
+  std::vector<std::size_t> property_names;
   object_ops object{};
   serialization::binding serialization{};
 };
@@ -403,17 +404,26 @@ public:
             return error::invalid_argument;
         }
       }
-      for (std::size_t i = 0; i < types_.size(); ++i)
+      // 名称索引使用排序后的槽位；所有分配均在提交冻结状态前完成。
+      std::vector<std::vector<std::size_t>> names;
+      names.reserve(inherited.size());
+      for (auto& properties : inherited) {
+        std::ranges::sort(properties, {}, &property_record::id);
+        std::vector<std::size_t> indices(properties.size());
+        for (std::size_t i = 0; i < indices.size(); ++i)
+          indices[i] = i;
+        std::ranges::sort(indices, [&](std::size_t left, std::size_t right) {
+          return properties[left].name < properties[right].name;
+        });
+        names.push_back(std::move(indices));
+      }
+      for (std::size_t i = 0; i < types_.size(); ++i) {
         types_[i]->properties.swap(inherited[i]);
+        types_[i]->property_names.swap(names[i]);
+      }
       std::ranges::sort(types_, [](const auto& left, const auto& right) {
         return left->guid.bytes() < right->guid.bytes();
       });
-      for (auto& type : types_) {
-        std::ranges::sort(type->properties,
-                          [](const property_record& left, const property_record& right) {
-                            return left.id < right.id;
-                          });
-      }
       is_frozen_ = true;
       return error::success;
     } catch (...) {
@@ -530,16 +540,17 @@ public:
       return error::not_ready;
     if (!key)
       return error::not_found;
-    for (const auto& record : types_) {
-      bool matches;
-      if constexpr (std::is_same_v<Key, engine::guid>)
-        matches = record->guid == key;
-      else
-        matches = record->type_id == key;
-      if (matches)
-        return detail::type_factory::make(owner(), nullptr, record->type_id, record->guid,
-                                          type_kind::object, value_kind::invalid, false);
+    const type_record* record = nullptr;
+    if constexpr (std::is_same_v<Key, engine::guid>) {
+      record = find_type_unlocked(key);
+    } else {
+      const auto found = by_cpp_type_.find(key);
+      if (found != by_cpp_type_.end())
+        record = found->second;
     }
+    if (record)
+      return detail::type_factory::make(owner(), nullptr, record->type_id, record->guid,
+                                        type_kind::object, value_kind::invalid, false);
     if constexpr (std::is_same_v<Key, engine::type_id>) {
       auto entry = enums_.find(key);
       if (entry != enums_.end())
@@ -626,6 +637,30 @@ public:
     return {};
   }
 
+  template <class Key> result<property> lookup_property(guid id, Key key) const noexcept try {
+    std::shared_lock lock(mutex_);
+    if (!is_frozen_)
+      return error::not_ready;
+    const auto* record = find_type_unlocked(id);
+    if (!record)
+      return error::not_found;
+    const property_record* found = nullptr;
+    if constexpr (std::is_same_v<Key, property_id>) {
+      found = find_property_unlocked(*record, key.get());
+    } else {
+      const auto match = std::ranges::lower_bound(
+          record->property_names, key, {},
+          [&](std::size_t index) -> std::string_view { return record->properties[index].name; });
+      if (match != record->property_names.end() && record->properties[*match].name == key)
+        found = &record->properties[*match];
+    }
+    if (!found)
+      return error::not_found;
+    return property_range{owner(), found, 1}[0];
+  } catch (...) {
+    return error::internal;
+  }
+
   result<property_range> properties(guid id) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
@@ -685,8 +720,8 @@ private:
     const auto* current = find_type_unlocked(id);
     if (!is_frozen_ || !current)
       return error::invalid_state;
-    const auto found = std::ranges::find(current->properties, property, &property_record::id);
-    if (found == current->properties.end())
+    const auto* found = find_property_unlocked(*current, property);
+    if (!found)
       return error::not_found;
     const auto owner = found->declaring_type;
     while (current->guid != owner) {
@@ -709,13 +744,9 @@ private:
       if (type == nullptr) {
         return error::not_found;
       }
-      const auto found =
-          std::ranges::find_if(type->properties, [property_id](const property_record& property) {
-            return property.id == property_id;
-          });
-      if (found == type->properties.end()) {
+      const auto* found = find_property_unlocked(*type, property_id);
+      if (!found)
         return error::not_found;
-      }
       if (found->accessor.kind == value_kind::invalid && !found->accessor.object_type) {
         return error::unsupported;
       }
@@ -725,13 +756,20 @@ private:
     }
   }
 
-  [[nodiscard]] type_record* find_type_unlocked(guid id) noexcept {
-    const auto found =
-        std::ranges::find_if(types_, [id](const auto& type) { return type->guid == id; });
-    return found == types_.end() ? nullptr : found->get();
+  static const property_record* find_property_unlocked(const type_record& type,
+                                                       std::uint32_t id) noexcept {
+    const auto found = std::ranges::lower_bound(type.properties, id, {}, &property_record::id);
+    return found != type.properties.end() && found->id == id ? &*found : nullptr;
   }
-
+  [[nodiscard]] type_record* find_type_unlocked(guid id) noexcept {
+    return const_cast<type_record*>(std::as_const(*this).find_type_unlocked(id));
+  }
   [[nodiscard]] const type_record* find_type_unlocked(guid id) const noexcept {
+    if (is_frozen_) {
+      const auto found = std::ranges::lower_bound(
+          types_, id.bytes(), {}, [](const auto& type) { return type->guid.bytes(); });
+      return found != types_.end() && (*found)->guid == id ? found->get() : nullptr;
+    }
     const auto found =
         std::ranges::find_if(types_, [id](const auto& type) { return type->guid == id; });
     return found == types_.end() ? nullptr : found->get();
@@ -757,6 +795,20 @@ result<registry_ref> default_registry() noexcept try {
   return error::internal;
 }
 
+result<property> type::find_property(property_id id) const noexcept {
+  if (kind_ == type_kind::invalid)
+    return error::invalid_state;
+  if (kind_ != type_kind::object)
+    return error::unsupported;
+  return registry_->lookup_property(guid_, id);
+}
+result<property> type::find_property(std::string_view name) const noexcept {
+  if (kind_ == type_kind::invalid)
+    return error::invalid_state;
+  if (kind_ != type_kind::object)
+    return error::unsupported;
+  return registry_->lookup_property(guid_, name);
+}
 std::uint32_t type::schema_version() const noexcept {
   return registry_ ? registry_->schema_version(guid()) : 0;
 }
@@ -817,8 +869,7 @@ result<meta::type> type_at(const registry_ref& registry, std::uint32_t index) no
   return registry ? registry->type_at(index) : result<meta::type>{error::invalid_handle};
 }
 result<property> find_property(const registry_ref& registry, guid id, property_id field) noexcept {
-  auto type = find_type(registry, id);
-  return type ? type->find_property(field) : result<property>{type.error()};
+  return registry ? registry->lookup_property(id, field) : result<property>{error::invalid_handle};
 }
 result<value> read_property(const registry_ref& registry, guid type, property_id property,
                             const void* object) noexcept {
