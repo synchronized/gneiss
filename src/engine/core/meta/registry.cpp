@@ -167,42 +167,28 @@ struct type_record {
   }
   return true;
 }
-[[nodiscard]] property_info describe_record(const registry_ref& registry,
-                                            const property_record& property) noexcept {
-  return {.id = property_id{property.id},
-          .declaring_type = property.declaring_type,
-          .flags = static_cast<property_flags>(property.flags),
-          .name = property.name,
-          .capabilities = ((property.accessor.getter || property.accessor.object_getter)
-                               ? property_capabilities::readable
-                               : property_capabilities::none) |
-                          ((property.accessor.setter || property.accessor.object_mutator ||
-                            property.accessor.object_setter)
-                               ? property_capabilities::writable
-                               : property_capabilities::none),
-          .type = property.accessor.access
-                      ? detail::type_factory::make(registry, *property.accessor.access)
-                      : detail::type_factory::make(
-                            registry, nullptr,
-                            property.accessor.enum_type ? property.accessor.enum_type
-                                                        : property.accessor.object_type,
-                            property.type_guid,
-                            property.accessor.object_type                   ? type_kind::object
-                            : property.accessor.kind != value_kind::invalid ? type_kind::scalar
-                                                                            : type_kind::invalid,
-                            property.accessor.kind, bool(property.accessor.enum_type))};
+[[nodiscard]] property_capabilities record_capabilities(const property_record& property) noexcept {
+  return ((property.accessor.getter || property.accessor.object_getter)
+              ? property_capabilities::readable
+              : property_capabilities::none) |
+         ((property.accessor.setter || property.accessor.object_mutator ||
+           property.accessor.object_setter)
+              ? property_capabilities::writable
+              : property_capabilities::none);
 }
-
-[[nodiscard]] type_info describe_record(const registry_ref& registry, const type_record& record) {
-  type_info pending{.guid = record.guid,
-                    .type_id = record.type_id,
-                    .schema_version = record.schema_version,
-                    .name = record.name,
-                    .properties = {}};
-  pending.properties.reserve(record.properties.size());
-  for (const auto& property : record.properties)
-    pending.properties.push_back(describe_record(registry, property));
-  return pending;
+[[nodiscard]] meta::type record_type(const registry_ref& registry,
+                                     const property_record& property) noexcept {
+  return property.accessor.access
+             ? detail::type_factory::make(registry, *property.accessor.access)
+             : detail::type_factory::make(
+                   registry, nullptr,
+                   property.accessor.enum_type ? property.accessor.enum_type
+                                               : property.accessor.object_type,
+                   property.type_guid,
+                   property.accessor.object_type                   ? type_kind::object
+                   : property.accessor.kind != value_kind::invalid ? type_kind::scalar
+                                                                   : type_kind::invalid,
+                   property.accessor.kind, bool(property.accessor.enum_type));
 }
 
 } // namespace
@@ -610,45 +596,24 @@ public:
   } catch (...) {
     return error::internal;
   }
-  [[nodiscard]] result<type_info> describe_type(guid id) const noexcept try {
-    std::shared_lock lock(mutex_);
-    if (!is_frozen_)
-      return error::not_ready;
-    const auto* record = find_type_unlocked(id);
-    if (!record)
-      return error::not_found;
-    return describe_record(owner(), *record);
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
-  }
-
-  [[nodiscard]] result<type_info> describe_type(engine::type_id id) const noexcept try {
-    std::shared_lock lock(mutex_);
-    if (!is_frozen_)
-      return error::not_ready;
-    const auto found = by_cpp_type_.find(id);
-    if (found == by_cpp_type_.end())
-      return error::not_found;
-    return describe_record(owner(), *found->second);
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
-  }
-
-  [[nodiscard]] result<type_info> describe_type_at(std::uint32_t index) const noexcept try {
+  result<meta::type> type_at(std::uint32_t index) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
       return error::not_ready;
     if (index >= types_.size())
       return error::not_found;
-    return describe_record(owner(), *types_[index]);
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
+    const auto& record = *types_[index];
+    return detail::type_factory::make(owner(), nullptr, record.type_id, record.guid,
+                                      type_kind::object, value_kind::invalid, false);
   } catch (...) {
     return error::internal;
+  }
+  std::uint32_t schema_version(guid id) const noexcept try {
+    std::shared_lock lock(mutex_);
+    const auto* record = is_frozen_ ? find_type_unlocked(id) : nullptr;
+    return record ? record->schema_version : 0;
+  } catch (...) {
+    return 0;
   }
 
   std::string_view type_name(guid id) const noexcept try {
@@ -669,22 +634,6 @@ public:
     if (!record)
       return error::not_found;
     return property_range{owner(), record->properties.data(), record->properties.size()};
-  } catch (...) {
-    return error::internal;
-  }
-
-  [[nodiscard]] result<property_info> describe_property(guid id,
-                                                        property_id property) const noexcept try {
-    std::shared_lock lock(mutex_);
-    if (!is_frozen_)
-      return error::not_ready;
-    const auto* record = find_type_unlocked(id);
-    if (!record)
-      return error::not_found;
-    const auto found = std::ranges::find(record->properties, property.get(), &property_record::id);
-    if (found == record->properties.end())
-      return error::not_found;
-    return describe_record(owner(), *found);
   } catch (...) {
     return error::internal;
   }
@@ -808,6 +757,9 @@ result<registry_ref> default_registry() noexcept try {
   return error::internal;
 }
 
+std::uint32_t type::schema_version() const noexcept {
+  return registry_ ? registry_->schema_version(guid()) : 0;
+}
 std::string_view type::name() const noexcept {
   return registry_ ? registry_->type_name(guid()) : std::string_view{};
 }
@@ -861,20 +813,13 @@ result<bool> is_frozen(const registry_ref& state) noexcept {
 result<std::uint32_t> type_count(const registry_ref& state) noexcept {
   return state ? state->type_count() : error::invalid_handle;
 }
-result<type_info> describe_type(const registry_ref& registry, guid id) noexcept {
-  return registry ? registry->describe_type(id) : error::invalid_handle;
+result<meta::type> type_at(const registry_ref& registry, std::uint32_t index) noexcept {
+  return registry ? registry->type_at(index) : result<meta::type>{error::invalid_handle};
 }
-result<type_info> describe_type(const registry_ref& registry, engine::type_id id) noexcept {
-  return registry ? registry->describe_type(id) : error::invalid_handle;
+result<property> find_property(const registry_ref& registry, guid id, property_id field) noexcept {
+  auto type = find_type(registry, id);
+  return type ? type->find_property(field) : result<property>{type.error()};
 }
-result<type_info> describe_type_at(const registry_ref& registry, std::uint32_t index) noexcept {
-  return registry ? registry->describe_type_at(index) : error::invalid_handle;
-}
-result<property_info> describe_property(const registry_ref& registry, guid type,
-                                        property_id property) noexcept {
-  return registry ? registry->describe_property(type, property) : error::invalid_handle;
-}
-
 result<value> read_property(const registry_ref& registry, guid type, property_id property,
                             const void* object) noexcept {
   return registry ? registry->get_property(type, property.get(), object) : error::invalid_handle;
@@ -920,7 +865,7 @@ engine::guid property::declaring_type() const noexcept {
   return record_ ? static_cast<const property_record*>(record_)->declaring_type : engine::guid{};
 }
 meta::type property::type() const noexcept {
-  return record_ ? describe_record(registry_, *static_cast<const property_record*>(record_)).type
+  return record_ ? record_type(registry_, *static_cast<const property_record*>(record_))
                  : meta::type{};
 }
 property_flags property::flags() const noexcept {
@@ -928,8 +873,7 @@ property_flags property::flags() const noexcept {
                  : property_flags::none;
 }
 property_capabilities property::capabilities() const noexcept {
-  return record_ ? describe_record(registry_, *static_cast<const property_record*>(record_))
-                       .capabilities
+  return record_ ? record_capabilities(*static_cast<const property_record*>(record_))
                  : property_capabilities::none;
 }
 }

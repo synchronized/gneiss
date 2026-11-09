@@ -108,15 +108,15 @@ int main() try {
                                           gneiss::engine::meta::property_id{3},
                                           field_of_view) != error::invalid_state)
     return 2;
-  gneiss::engine::meta::property_info info;
+  gneiss::engine::meta::property info;
   if (gneiss::test_support::assign_value(
-          gneiss::engine::meta::describe_property(registry, camera_type,
-                                                  gneiss::engine::meta::property_id{1}),
+          gneiss::engine::meta::find_property(registry, camera_type,
+                                              gneiss::engine::meta::property_id{1}),
           info)
           .failed() ||
-      info.type.scalar_kind() != gneiss::engine::value_kind::float32 ||
-      info.capabilities != (gneiss::engine::meta::property_capabilities::readable |
-                            gneiss::engine::meta::property_capabilities::writable))
+      info.type().scalar_kind() != gneiss::engine::value_kind::float32 ||
+      info.capabilities() != (gneiss::engine::meta::property_capabilities::readable |
+                              gneiss::engine::meta::property_capabilities::writable))
     return 3;
   // 同一绑定访问两个独立对象，不把对象地址存入 user_data。
   camera_fixture another;
@@ -239,7 +239,7 @@ int main() try {
     return 17;
   const std::weak_ptr lifetime = registry;
   registry.reset();
-  if (lifetime.expired() || info.type.scalar_kind() != gneiss::engine::value_kind::float32)
+  if (lifetime.expired() || info.type().scalar_kind() != gneiss::engine::value_kind::float32)
     return 18;
   info = {};
   return lifetime.expired() &&

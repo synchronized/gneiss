@@ -189,13 +189,14 @@ bool enum_registration() {
           e::error::invalid_argument ||
       m::freeze(registry).failed())
     return false;
-  auto type = m::describe_type<enum_object>(registry);
-  if (!type || type->properties[0].type.id() != e::runtime_type_of<mode>() ||
-      type->properties[0].type.enum_entries()->size() != 2 ||
-      type->properties[0].type.enum_entries()->data() !=
-          type->properties[1].type.enum_entries()->data() ||
-      (*type->properties[0].type.enum_entries())[0].name != "First" ||
-      std::get<std::int64_t>((*type->properties[0].type.enum_entries())[0].data.payload) != -1)
+  auto type = m::type_of<enum_object>(registry);
+  if (!type || (*type->properties())[0].type().id() != e::runtime_type_of<mode>() ||
+      (*type->properties())[0].type().enum_entries()->size() != 2 ||
+      (*type->properties())[0].type().enum_entries()->data() !=
+          (*type->properties())[1].type().enum_entries()->data() ||
+      (*(*type->properties())[0].type().enum_entries())[0].name != "First" ||
+      std::get<std::int64_t>((*(*type->properties())[0].type().enum_entries())[0].data.payload) !=
+          -1)
     return false;
   if (unknown_view->type().enum_entries().error() != e::error::not_found)
     return false;

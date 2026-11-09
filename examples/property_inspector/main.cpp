@@ -79,13 +79,16 @@ int main() try {
   if (!count)
     return 1;
   for (std::uint32_t i = 0; i < *count; ++i) {
-    auto type = gneiss::engine::meta::describe_type_at(i);
+    auto type = gneiss::engine::meta::type_at(i);
     if (!type)
       return 1;
-    std::printf("类型 %.*s\n", static_cast<int>(type->name.size()), type->name.data());
-    for (const auto& field : type->properties)
-      std::printf("  字段 %u: %.*s\n", field.id.get(), static_cast<int>(field.name.size()),
-                  field.name.data());
+    std::printf("类型 %.*s\n", static_cast<int>(type->name().size()), type->name().data());
+    auto properties = type->properties();
+    if (!properties)
+      return 1;
+    for (const auto& field : *properties)
+      std::printf("  字段 %u: %.*s\n", field.id().get(), static_cast<int>(field.name().size()),
+                  field.name().data());
   }
   gneiss::engine::task_scheduler scheduler(
       {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});

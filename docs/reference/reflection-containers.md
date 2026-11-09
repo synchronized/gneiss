@@ -15,7 +15,7 @@
 自动成员绑定仍要求成员可移动赋值。vector<bool>、set、非字符串键及返回临时容器的 getter
 不在内置支持范围。自定义序列/映射可使用下述 traits 适配；根 from 也可直接借用容器。
 
-成员 `property_info.type.kind()` 提供结构类别；`scalar_kind()` 提供标量类别，容器为 invalid。
+成员 `property::type().kind()` 提供结构类别；`scalar_kind()` 提供标量类别，容器为 invalid。
 `object_type` 对借用成员记录实际 C++ 类型 ID。容器没有人为生成的稳定 GUID；
 冻结时沿元素操作表检查对象叶子的 GUID 与运行期 ID，漏注册返回 not_found。
 递归对象（如 vector<Node>）只检查叶子身份，不在冻结阶段展开无限对象树。

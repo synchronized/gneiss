@@ -17,7 +17,7 @@ IPC 使用 guid::string 的标准带连字符字符串编码 GUID，不传输原
 ## 身份与注册
 
 Meta 的类型与函数统一位于 `gneiss::engine::meta`，不保留旧命名空间别名。
-`type_definition.properties` 和 `type_info.properties` 分别保存注册描述和查询结果。
+`type_definition.properties` 保存注册描述；查询返回保活注册表的 `type` 和 `property_range`。
 数学属性直接使用 `engine::math::vector3`、`engine::math::quaternion`，不提供属性专用别名。
 属性编号与存档、IPC 中既有的 `"field_id"` 格式键保持不变。
 
@@ -27,7 +27,7 @@ Meta 的类型与函数统一位于 `gneiss::engine::meta`，不保留旧命名�
 | --- | --- |
 | `meta/type_types.hpp` | 类型分类与枚举项 |
 | `meta/property.hpp` | 属性 ID、标志、注册描述与访问器绑定 |
-| `meta/type.hpp` | `type` 查询视图、`type_info` 与 `property_info` |
+| `meta/type.hpp` | `type` 查询句柄 |
 | `meta/type_definition.hpp` | 注册输入，组合对象能力与序列化绑定 |
 | `meta/ops/object_ops.hpp` | 构造、基类指针转换和反射对象转换 |
 | `meta/registry_fwd.hpp` | 注册表前置声明与 `registry_ref` 所有者 |
@@ -50,7 +50,7 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 `property_flags::read_only` 禁止为字段绑定 setter。
 
 `create_registry()` 返回 `result<registry_ref>` 所有者；`register_type` 深拷贝名称和字段描述。
-类型自身的稳定身份为 `type_definition.guid`、`type_info.guid`；注册输入另有可选的运行期 `type_id`。
+类型自身的稳定身份为 `type_definition.guid`、`type::guid()`；注册输入另有可选的运行期 `type_id`。
 重复 GUID 或重复非空运行期 ID 的注册返回 `error::invalid_argument`，不覆盖已有记录。
 注册名称不得为空或包含内嵌空字符，必须是合法 UTF-8；重复字段编号或名称也会被拒绝。
 
@@ -66,8 +66,9 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 属性句柄可继续查询类型、访问能力或通过 `get(instance)` 访问对象。
 名称、属性范围与借用对象寿命分别遵循其所属句柄和实例的约束。
 
-旧 `describe_type` / `describe_property` 信息结构入口仍供迁移中的测试及示例使用，
-生产调用已迁移到句柄；这些旧入口尚未删除。
+`type_count()` / `type_at(index)` 枚举已注册对象，保持 GUID 字节顺序；
+`type::schema_version()` 返回注册版本，无注册版本时为零。
+`find_property(type_guid, property_id)` 是获取同一属性句柄的便利入口，不生成元数据副本。
 
 ## C++ 类型注册
 
@@ -114,10 +115,10 @@ return gneiss::engine::meta::type_builder<math::transform>{}
 
 ## 查询与属性值
 
-`type_count`、`describe_type_at` 枚举冻结元数据；`describe_type`、`describe_property` 直接查询记录。
-`describe_type` 支持稳定 GUID 和运行期 `type_id` 两种入口，指向同一份记录。
+`type_count`、`type_at` 枚举冻结类型；`find_type`、`find_property` 返回句柄。
+`find_type` 支持稳定 GUID 和运行期 `type_id` 两种入口，指向同一份记录。
 `register_type<T>` 从 `type_identity<std::remove_cvref_t<T>>` 补齐名称、GUID 和运行期 ID；
-显式名称或 GUID 与非空 traits 身份冲突时返回 `invalid_argument`。`describe_type<T>` 使用 `runtime_type_of<T>()` 查询。
+显式名称或 GUID 与非空 traits 身份冲突时返回 `invalid_argument`。`type_of<T>` 解析规范化 C++ 类型，未注册对象返回 not_found，基础值无需重复登记。
 模板去除顶层 cv/ref；注册 `void` 或传入不匹配的非空 `type_id` 返回 `invalid_argument`。
 不对应 C++ 类型的描述保留空 `type_id`，仍可按 GUID 查询。运行期 ID 不进入文件或 IPC。
 `property_definition` 的编号和标志分别使用 `property_id` 与 `property_flags`；`bind_property` 接收强类型字段编号。
@@ -245,9 +246,9 @@ Scene / Prefab 的结构编解码继续使用专用实现。
 
 ## 元数据与属性值查询
 
-`describe_type`（GUID、type_id、模板）、`describe_type_at` 返回 `result<type_info>`；
-`describe_property` 返回 `result<property_info>`，`find_serialization` 返回 `result<serialization::binding>`。
-描述内的名称仍借用冻结 Registry，其有效期不超过 Registry 的生命周期。
+`find_type`、`type_of<T>`、`type_at` 返回 `result<type>`；
+`find_property` 返回 `result<property>`，`find_serialization` 返回 `result<serialization::binding>`。
+句柄保活冻结 Registry；名称借用该表，不保活业务对象。
 `read_property` 返回 `result<value>`；成功快照拥有字符串等数据，可在 Registry 释放后使用。
 getter 失败、异常或返回不匹配／无效值时仅返回错误，不交付部分属性快照。
 写属性仍返回 error；编解码与序列化模板返回 result。
@@ -257,7 +258,7 @@ getter 失败、异常或返回不匹配／无效值时仅返回错误，不交�
 `meta::default_registry()` 返回进程共享的 `result<registry_ref>`，只创建表，不登记内置类型、不冻结。
 定义位于 engine 编译单元；各模块应链接同一引擎，不能把引擎静态复制到多个动态库后期待共享状态。
 未冻结时查询返回 `not_ready`。`meta::type_builder<T>{}`、`register_type<T>(definition)`、
-`describe_type<T>()`、属性访问和 `serialization::json::serialize(object)` / `serialization::json::deserialize<T>(bytes)` 使用默认表；
+`type_of<T>()`、属性访问和 `serialization::json::serialize(object)` / `serialization::json::deserialize<T>(bytes)` 使用默认表；
 显式 registry 重载保持原行为。
 
 业务模块不得直接调用 `meta::default_registry()`；默认表获取集中在 Meta 内部，
@@ -277,13 +278,13 @@ application 自动调用无参入口，重复无参调用返回首次结果。�
 已启动后再提供 callback 返回 `invalid_state`。不支持运行期扩充、重置默认表或插件热卸载。
 独立 registry 仍可通过 `create_registry()` 创建并按原接口注册、冻结，不受默认表状态影响。
 
-`type_info::type_id` 提供已注册 C++ 类型的进程内身份，供 GUID 分派后进行类型检查；不会持久化。
+`type::id()` 提供已注册 C++ 类型的进程内身份，供 GUID 分派后进行类型检查；不会持久化。
 默认启动也注册 Camera、MeshRenderer 的描述类型与 codec，文件协议见[场景格式](scene-format.md)。
 
 ## 嵌套值对象
 
 成员绑定 `.property<&T::member>()` 可指向独立注册的 C++ 值对象。
-`property_info.type.id()` 为成员的运行期类型 ID，`type.guid()` 为其稳定身份，
+`property::type().id()` 为成员的运行期类型 ID，`type.guid()` 为其稳定身份，
 `type.kind()` 为 object；它不占用通用 value 的新类别。冻结时检查子类型已登记且两种身份匹配，
 缺失子类型返回 not_found，身份不匹配返回 invalid_argument。登记顺序不限。
 
@@ -331,7 +332,7 @@ for (auto property : *fields) {
 派生对象上的继承属性继续通过实例访问完成基类地址调整。
 句柄不持有目标对象；只读访问、getter 临时值与可写访问规则同下述实例视图。
 实例现命名为只读 const_instance、可写 instance；旧 mutable_instance 名称与静态 from 模板工厂已移除。
-底层 describe_type/describe_property 的信息结构仍在，后续迁移查询调用方再收敛。
+元数据查询统一返回 type/property 句柄，不再提供复制信息结构的查询接口。
 
 ## 实例视图
 
@@ -416,13 +417,13 @@ vec2、vec4 和 quaternion 保持独立分支，矩阵按列优先数组保存�
 
 `enum_entries()` 从冻结注册表借用同一份枚举项；未冻结返回 not_ready，未注册返回
 not_found，非枚举返回 unsupported，默认无效视图返回 invalid_state。借用结果不得超过
-类型视图或注册表的生命周期。`properties()` 返回对象属性快照；`element_type()` 返回
+类型视图或注册表的生命周期。`properties()` 返回保活注册表的属性范围；`element_type()` 返回
 序列元素类型或引用静态目标类型，关联容器返回映射值类型。
 
 属性面板的 `draw_property_value` 接收类型视图和 value，检查存储类别匹配后从类型查询
 枚举选项。枚举容器元素也走此路径；注册表无需为每个属性复制枚举列表。
-保留 type_info 快照；property_info 的声明类型统一由 `type` 字段提供，不再重复保存
-kind/category/object_type/enum_type/choices/type_guid。属性保留 id、name、flags 和 capabilities。
+property 句柄通过 type() 返回属性值类型，不重复保存
+kind/category/object_type/enum_type/choices/type_guid。属性提供 id、name、flags 和 capabilities 查询。
 属性类型持有原注册表，不新增注册表或循环所有权。
 
 ### 不依赖实例的类型查询
@@ -482,7 +483,7 @@ reference_view.get() 返回实际类型视图；ref<const T> 只允许读取目�
 base 链同时用于身份校验、指针调整和继承属性访问。freeze 合并完整继承链的属性，
 按属性 ID 排序；任意祖先与派生类的属性 ID 或名称冲突返回 invalid_argument，不提供遮蔽。
 基类尚未注册返回 not_found；冻结失败不会留下部分合并结果，可补齐注册后重试。
-property_info.declaring_type 表示声明字段的类型；const_instance 和 read_property/write_property
+property::declaring_type() 表示声明字段的类型；const_instance 和 read_property/write_property
 自动按注册的 upcast 链调整基类地址，支持基类在完整 C++ 对象中具有非零偏移。
 底层 find_object_property 返回声明类型的原始访问器，调用回调时须传入声明类型的地址；
 普通调用方使用 const_instance。继承字段同样参与 JSON、value 捕获/恢复，遵守 required、

@@ -130,10 +130,10 @@ bool nested_json_contract() {
       gneiss::engine::serialization::context{*defaults_registry}, bytes("{}"));
   if (invalid_default || invalid_default.error().path != "/item/value")
     return false;
-  auto metadata = m::describe_type<parent>(*registry);
-  if (!metadata || metadata->properties[0].type.id() != e::runtime_type_of<child>() ||
-      metadata->properties[0].type.guid() != child::type_guid ||
-      metadata->properties[0].type.scalar_kind() != e::value_kind::invalid)
+  auto metadata = m::type_of<parent>(*registry);
+  if (!metadata || (*metadata->properties())[0].type().id() != e::runtime_type_of<child>() ||
+      (*metadata->properties())[0].type().guid() != child::type_guid ||
+      (*metadata->properties())[0].type().scalar_kind() != e::value_kind::invalid)
     return false;
   {
     parent original;

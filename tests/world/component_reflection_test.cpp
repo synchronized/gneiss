@@ -27,21 +27,21 @@ int main() {
     return 1;
   const auto transform_type = engine::math::transform::type_guid;
   const auto camera_type = engine::camera_description::type_guid;
-  gneiss::engine::meta::type_info info;
-  if (gneiss::test_support::assign_value(gneiss::engine::meta::describe_type(transform_type), info)
+  gneiss::engine::meta::type info;
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::find_type(transform_type), info)
           .failed() ||
-      info.properties.size() != 3 ||
-      gneiss::test_support::assign_value(gneiss::engine::meta::describe_type(camera_type), info)
+      info.properties()->size() != 3 ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::find_type(camera_type), info)
           .failed() ||
-      info.properties.size() != 3 ||
+      info.properties()->size() != 3 ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::type_of<engine::math::transform>(),
+                                         info)
+          .failed() ||
+      info.guid() != transform_type ||
       gneiss::test_support::assign_value(
-          gneiss::engine::meta::describe_type<engine::math::transform>(), info)
+          gneiss::engine::meta::type_of<engine::camera_description>(), info)
           .failed() ||
-      info.guid != transform_type ||
-      gneiss::test_support::assign_value(
-          gneiss::engine::meta::describe_type<engine::camera_description>(), info)
-          .failed() ||
-      info.guid != camera_type)
+      info.guid() != camera_type)
     return 2;
   gneiss::engine::value value;
   if (gneiss::test_support::assign_value(

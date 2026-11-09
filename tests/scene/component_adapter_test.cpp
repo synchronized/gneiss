@@ -63,9 +63,9 @@ int main() try {
   check(e::component_editor(e::mesh_renderer_description::type_guid)->route ==
         e::component_editor_route::mesh_assets);
   const auto primary =
-      e::meta::describe_property(e::camera_description::type_guid, e::meta::property_id{4});
-  check(primary && e::meta::has_flags(primary->flags, e::meta::property_flags::editor_read_only));
-  check(!e::meta::has_flags(primary->flags, e::meta::property_flags::read_only));
+      e::meta::find_property(e::camera_description::type_guid, e::meta::property_id{4});
+  check(primary && e::meta::has_flags(primary->flags(), e::meta::property_flags::editor_read_only));
+  check(!e::meta::has_flags(primary->flags(), e::meta::property_flags::read_only));
   e::camera_description camera{{1, 0.1F, 100}, true};
   auto saved_camera = gneiss::engine::serialization::json::serialize_bytes(camera);
   check(saved_camera.has_value());

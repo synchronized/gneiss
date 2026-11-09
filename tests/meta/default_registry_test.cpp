@@ -67,7 +67,7 @@ e::error throw_registration() { throw std::runtime_error("注册失败"); }
 int main(int argc, char** argv) {
   auto initial = m::default_registry();
   if (!initial || !m::is_frozen() || *m::is_frozen() ||
-      m::describe_type<sample>().error() != e::error::not_ready)
+      m::type_of<sample>().error() != e::error::not_ready)
     return 1;
   if (argc > 1) {
     const bool throws = std::string_view(argv[1]) == "throw";
@@ -82,9 +82,8 @@ int main(int argc, char** argv) {
       e::initialize_meta(register_project) != e::error::invalid_state || calls != 1)
     return 3;
   auto again = m::default_registry();
-  if (!again || *again != *initial || !m::describe_type<sample>() ||
-      !m::describe_type<e::math::transform>() || !m::describe_type<e::camera_description>() ||
-      !m::describe_type<e::material_description>())
+  if (!again || *again != *initial || !m::type_of<sample>() || !m::type_of<e::math::transform>() ||
+      !m::type_of<e::camera_description>() || !m::type_of<e::material_description>())
     return 4;
   sample object;
   auto view = m::const_instance::from_object(e::runtime_type_of<sample>(), &object);
@@ -120,8 +119,7 @@ int main(int argc, char** argv) {
   for (int i = 0; i < 4; ++i) {
     threads.emplace_back([&] {
       auto shared = m::default_registry();
-      if (!shared || *shared != *initial || e::initialize_meta().failed() ||
-          !m::describe_type<sample>())
+      if (!shared || *shared != *initial || e::initialize_meta().failed() || !m::type_of<sample>())
         good = false;
     });
   }

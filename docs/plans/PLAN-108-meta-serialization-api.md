@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-2026-11-09：实施中，首批迁移属性范围与句柄及遍历调用方；实例读写门面已迁移；注册查询清理、策略和上下文尚未完成。
+2026-11-09：实施中，属性范围、句柄、实例门面及旧查询清理已完成；注册适配、策略和上下文尚未完成。
 归属 [DEV-052](DEV-052-architecture-cleanup.md)，长期边界见
 [ADR-113](../decisions/ADR-113-meta-serialization-boundaries.md)。
 本文是目标 API 与迁移步骤的权威来源；代码示意均为目标接口，不表示已实现。
@@ -206,7 +206,7 @@ Binary 后续有真实任务时新增 binary.hpp/.cpp。本轮不创建空文件
 
 1. [x] 基线：列出 type_info/property_info、旧 instance、binding、context、validate 的全部生产调用点；
    记录现有 JSON/快照格式和错误行为，建立成功、失败、生命周期基线。
-2. [ ] 属性句柄：实现 type_of、property 范围与 get；继承、getter 和只读边界验证；
+2. [x] 属性句柄：实现 type_of、property 范围与 get；继承、getter 和只读边界验证；
    同时迁移 Inspector 与遍历，不保留第二套公共属性元数据查询。
 3. [x] 实例 API：采用 instance/const_instance、view/member/assign；迁移所有调用、测试和路径解析。
    删除 mutable_instance 旧名；编译验证 const 拒绝写、临时对象拒绝借用。
@@ -227,10 +227,10 @@ Binary 后续有真实任务时新增 binary.hpp/.cpp。本轮不创建空文件
 
 已替换 type/instance 的复制属性列表返回为 property_range，并接入 property::get。
 JSON 遍历、value 捕获、Inspector、Prefab 路径查询使用新范围。
-阶段 2 尚未整体完成：生产查询已迁移到 type/name/find_property 句柄；
-底层 describe_type/describe_property 及其测试、枚举示例仍返回信息结构，
-属性访问仍复用现有实例校验与 getter/setter 路径；尚未宣称所有元数据查询已经删除。
-生产调用迁移与 35 项 CPU 回归见[查询迁移记录](../records/2026-11-09-meta-query-handles.md)。
+阶段 2 已完成：生产、测试与示例统一使用 type/property 句柄，
+describe_type/describe_property、type_info/property_info 已删除；
+枚举通过 type_at，版本通过 type::schema_version 查询，getter/setter 校验保留。
+默认构建及 40 项 CPU 回归见[旧查询删除记录](../records/2026-11-09-meta-query-removal.md)。
 阶段 3 已迁移 instance/const_instance、view/member/assign，默认构建和 35 项 CPU 回归通过，
 见[实例门面迁移记录](../records/2026-11-09-meta-instance-api.md)；阶段 4 起仍待实施。调用点审计与验证见
 [首批记录](../records/2026-11-09-meta-property-handles.md)。

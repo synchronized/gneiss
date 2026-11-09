@@ -206,14 +206,14 @@ int main() {
   service::camera_description candidate_camera{{1, 10, 20}, false};
   proposed.payload = 30.0F;
   if (gneiss::engine::meta::write_property(
-          gneiss::engine::meta::describe_type<service::math::camera_settings>()->guid,
+          gneiss::engine::meta::type_of<service::math::camera_settings>()->guid(),
           gneiss::engine::meta::property_id{2}, &candidate_camera.settings,
           proposed) != gneiss::engine::error::success) {
     return 17;
   }
   proposed.payload = 40.0F;
   if (gneiss::engine::meta::write_property(
-          gneiss::engine::meta::describe_type<service::math::camera_settings>()->guid,
+          gneiss::engine::meta::type_of<service::math::camera_settings>()->guid(),
           gneiss::engine::meta::property_id{3}, &candidate_camera.settings,
           proposed) != gneiss::engine::error::success ||
       candidate_camera.settings.near != 30 || candidate_camera.settings.far != 40) {

@@ -11,6 +11,7 @@
 
 struct reflected_object {};
 struct other_object {};
+struct unregistered_object {};
 
 bool typed_registration() {
   namespace e = gneiss::engine;
@@ -24,11 +25,10 @@ bool typed_registration() {
   const e::guid data_guid{e::guid::from_bytes({0x20})};
   const gneiss::engine::meta::type_definition definition{
       .guid = object_guid, .schema_version = 1, .name = "Object", .properties = {}};
-  gneiss::engine::meta::type_info info{.guid = data_guid};
-  if (gneiss::test_support::assign_value(
-          gneiss::engine::meta::describe_type<reflected_object>(registry), info) !=
-          error::not_ready ||
-      info.guid != data_guid ||
+  gneiss::engine::meta::type info;
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::type_of<reflected_object>(registry),
+                                         info) != error::not_ready ||
+      info.guid() != e::guid{} ||
       gneiss::engine::meta::register_type<reflected_object>(registry, definition).failed())
     return false;
   auto alternate = definition;
@@ -57,27 +57,27 @@ bool typed_registration() {
           .failed() ||
       count != 3 ||
       gneiss::test_support::assign_value(
-          gneiss::engine::meta::describe_type<const reflected_object&>(registry), info)
+          gneiss::engine::meta::type_of<const reflected_object&>(registry), info)
           .failed() ||
-      info.guid != object_guid ||
-      gneiss::test_support::assign_value(gneiss::engine::meta::describe_type(registry, object_guid),
+      info.guid() != object_guid ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::find_type(registry, object_guid),
                                          info)
           .failed() ||
-      info.name != "Object" ||
-      gneiss::test_support::assign_value(
-          gneiss::engine::meta::describe_type<other_object>(registry), info)
+      info.name() != "Object" ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::type_of<other_object>(registry),
+                                         info)
           .failed() ||
-      info.guid != other_guid ||
-      gneiss::test_support::assign_value(gneiss::engine::meta::describe_type_at(registry, 1), info)
+      info.guid() != other_guid ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::type_at(registry, 1), info)
           .failed() ||
-      info.guid != data_guid)
+      info.guid() != data_guid)
     return false;
-  if (gneiss::test_support::assign_value(
-          gneiss::engine::meta::describe_type(registry, e::type_id{}), info) != error::not_found ||
-      info.guid != data_guid ||
-      gneiss::test_support::assign_value(gneiss::engine::meta::describe_type<double>(registry),
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::find_type(registry, e::type_id{}),
                                          info) != error::not_found ||
-      info.guid != data_guid ||
+      info.guid() != data_guid ||
+      gneiss::test_support::assign_value(
+          gneiss::engine::meta::type_of<unregistered_object>(registry), info) != error::not_found ||
+      info.guid() != data_guid ||
       gneiss::engine::meta::register_type<reflected_object>(registry, definition) !=
           error::invalid_state)
     return false;
@@ -85,11 +85,11 @@ bool typed_registration() {
   std::array<std::thread, 4> readers;
   for (std::size_t i = 0; i < readers.size(); ++i) {
     readers[i] = std::thread([&, i] {
-      gneiss::engine::meta::type_info metadata;
+      gneiss::engine::meta::type metadata;
       queried[i] = gneiss::test_support::assign_value(
-                       gneiss::engine::meta::describe_type<reflected_object>(registry), metadata) ==
+                       gneiss::engine::meta::type_of<reflected_object>(registry), metadata) ==
                        error::success &&
-                   metadata.guid == object_guid;
+                   metadata.guid() == object_guid;
     });
   }
   for (auto& reader : readers)
@@ -99,9 +99,9 @@ bool typed_registration() {
       return false;
   registry.reset();
   return gneiss::test_support::assign_value(
-             gneiss::engine::meta::describe_type<reflected_object>(registry), info) ==
+             gneiss::engine::meta::type_of<reflected_object>(registry), info) ==
              error::invalid_handle &&
-         info.guid == data_guid;
+         info.guid() == data_guid;
 }
 
 bool math_registration() {
@@ -110,9 +110,10 @@ bool math_registration() {
   auto registry = m::create_registry();
   if (!registry || m::register_builtin_types(*registry).failed() || m::freeze(*registry).failed())
     return false;
-  auto transform = m::describe_type<e::math::transform>(*registry);
-  auto camera = m::describe_type<e::math::camera_settings>(*registry);
-  if (!transform || !camera || transform->properties.size() != 3 || camera->properties.size() != 3)
+  auto transform = m::type_of<e::math::transform>(*registry);
+  auto camera = m::type_of<e::math::camera_settings>(*registry);
+  if (!transform || !camera || transform->properties()->size() != 3 ||
+      camera->properties()->size() != 3)
     return false;
   e::serialization::context context{*registry};
   e::math::camera_settings settings{1.0F, 0.1F, 100.0F};
@@ -215,24 +216,24 @@ int main() {
           .failed() ||
       count != 2)
     return 6;
-  gneiss::engine::meta::type_info info;
-  gneiss::engine::meta::property_info metadata;
-  if (gneiss::test_support::assign_value(gneiss::engine::meta::describe_type_at(registry, 0), info)
+  gneiss::engine::meta::type info;
+  gneiss::engine::meta::property metadata;
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::type_at(registry, 0), info)
           .failed() ||
-      info.guid != scalar_type ||
-      gneiss::test_support::assign_value(gneiss::engine::meta::describe_type(registry, object_type),
+      info.guid() != scalar_type ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::find_type(registry, object_type),
                                          info)
           .failed() ||
-      info.name != "Object" || info.schema_version != 1 || info.properties.size() != 1 ||
+      info.name() != "Object" || info.schema_version() != 1 || info.properties()->size() != 1 ||
       gneiss::test_support::assign_value(
-          gneiss::engine::meta::describe_property(registry, object_type,
-                                                  gneiss::engine::meta::property_id{1}),
+          gneiss::engine::meta::find_property(registry, object_type,
+                                              gneiss::engine::meta::property_id{1}),
           metadata)
           .failed() ||
-      metadata.name != "value" ||
+      metadata.name() != "value" ||
       gneiss::test_support::assign_value(
-          gneiss::engine::meta::describe_property(registry, object_type,
-                                                  gneiss::engine::meta::property_id{2}),
+          gneiss::engine::meta::find_property(registry, object_type,
+                                              gneiss::engine::meta::property_id{2}),
           metadata) != error::not_found)
     return 7;
   gneiss::engine::value value;
@@ -257,7 +258,7 @@ int main() {
     return 10;
   const std::weak_ptr lifetime = registry;
   registry.reset();
-  if (lifetime.expired() || metadata.name != "value")
+  if (lifetime.expired() || metadata.name() != "value")
     return 12;
   metadata = {};
   info = {};

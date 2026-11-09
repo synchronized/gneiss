@@ -169,8 +169,8 @@ int main() try {
   tree source;
   auto root = m::view(*r, source);
   CHECK(root);
-  auto info = m::describe_property(*r, tree::type_guid, m::property_id{1});
-  CHECK(info && info->type.kind() == m::type_kind::sequence && !info->type.guid());
+  auto info = m::find_property(*r, tree::type_guid, m::property_id{1});
+  CHECK(info && info->type().kind() == m::type_kind::sequence && !info->type().guid());
   auto items = root->member("items");
   CHECK(items);
   CHECK(items->read_value().error() == e::error::unsupported);
