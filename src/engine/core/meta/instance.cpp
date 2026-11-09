@@ -294,22 +294,17 @@ result<const_instance> const_instance::from_access(registry_ref registry,
                                                    const void* data) noexcept {
   if (!data)
     return error::invalid_argument;
-  // 内存视图只借用当前存储；对象分支在实际访问时校验注册。
-  // 注册属性仍在 freeze 时检查全部叶类型。
+  auto description = detail::resolve_type(registry, access);
+  if (!description)
+    return description.error();
   const_instance out;
-  if (access.kind() == type_kind::object) {
-    auto object = from_object(registry, access.id, data);
-    if (!object)
-      return object.error();
-    out = std::move(*object);
-  } else {
-    out.registry_ = std::move(registry);
-    out.data_ = data;
-    out.type_ = access.guid;
-    out.cpp_type_ = access.id;
-    out.kind_ = access.kind();
-    out.scalar_kind_ = access.scalar_kind();
-  }
+  out.registry_ = std::move(registry);
+  out.data_ = data;
+  out.type_ = description->guid();
+  out.cpp_type_ = description->id();
+  out.kind_ = description->kind();
+  out.scalar_kind_ = description->scalar_kind();
+  out.enumeration_ = description->is_enum();
   out.access_ = &access;
   return out;
 }

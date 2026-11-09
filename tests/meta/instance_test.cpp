@@ -291,7 +291,7 @@ struct query_model {
 };
 bool type_queries() {
   auto registry = m::create_registry();
-  if (!registry || m::type_of<float>(*registry).error() != e::error::not_ready ||
+  if (!registry || !m::type_of<float>(*registry) ||
       m::find_type(*registry, query_model::type_guid).error() != e::error::not_ready)
     return false;
   if (m::enum_builder<mode>{*registry}.value("first", mode::first).commit().failed() ||
@@ -335,8 +335,7 @@ bool type_queries() {
       element->enum_entries()->data() != enumeration->enum_entries()->data())
     return false;
   auto scalar = m::type_of<float>(*registry);
-  if (!scalar || !m::find_type(*registry, scalar->guid()) ||
-      m::type_of<settings>(*registry).error() != e::error::not_found ||
+  if (!scalar || !m::find_type(*registry, scalar->guid()) || !m::type_of<settings>(*registry) ||
       m::find_type(*registry, e::runtime_type_of<settings>()).error() != e::error::not_found ||
       m::find_type(*registry, e::guid{}).error() != e::error::not_found ||
       m::find_type(m::registry_ref{}, e::runtime_type_of<float>()).error() !=
@@ -772,7 +771,7 @@ int main() try {
     return 1;
   auto registry = *created;
   object source;
-  if (m::view(registry, std::as_const(source)).error() != e::error::not_ready)
+  if (!m::view(registry, std::as_const(source)))
     return 2;
   if (m::registration<settings>{registry}
           .property<&settings::get_speed, &settings::set_speed>(m::property_id{1}, "speed")
@@ -883,7 +882,7 @@ int main() try {
     return 21;
   auto independent = m::create_registry();
   if (!independent || m::freeze(*independent).failed() ||
-      m::view(*independent, std::as_const(source)).error() != e::error::not_found)
+      !m::view(*independent, std::as_const(source)))
     return 22;
   // 返回的子视图延长元数据寿命，不依赖根视图对象自身。
   auto weak = std::weak_ptr<m::type_registry_state>(registry);

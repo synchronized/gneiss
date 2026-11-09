@@ -520,21 +520,14 @@ public:
 
   result<meta::type> resolve_access(const detail::type_ops& access) const noexcept try {
     std::shared_lock lock(mutex_);
-    if (!is_frozen_)
-      return error::not_ready;
-    auto status = detail::visit_type_leaves(access, [&](const detail::type_ops& leaf) {
-      if (leaf.enumeration && !enums_.contains(leaf.id))
-        return error::not_found;
-      if (leaf.kind() == type_kind::object && !by_cpp_type_.contains(leaf.id))
-        return error::not_found;
-      return error::success;
-    });
-    if (status.failed())
-      return status;
-    if (access.kind() == type_kind::object) {
-      const auto& record = *by_cpp_type_.at(access.id);
-      return detail::type_factory::make(owner(), &access, record.type_id, record.guid,
-                                        type_kind::object, value_kind::invalid, false);
+    // 原生能力不依赖注册；只在冻结后关联已发布的对象描述。
+    if (is_frozen_ && access.kind() == type_kind::object) {
+      const auto found = by_cpp_type_.find(access.id);
+      if (found != by_cpp_type_.end()) {
+        const auto& record = *found->second;
+        return detail::type_factory::make(owner(), &access, record.type_id, record.guid,
+                                          type_kind::object, value_kind::invalid, false);
+      }
     }
     return detail::type_factory::make(owner(), access);
   } catch (...) {

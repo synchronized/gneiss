@@ -66,8 +66,7 @@ e::error fail_registration() { return e::error::unsupported; }
 e::error throw_registration() { throw std::runtime_error("注册失败"); }
 int main(int argc, char** argv) {
   auto initial = m::default_registry();
-  if (!initial || !m::is_frozen() || *m::is_frozen() ||
-      m::type_of<sample>().error() != e::error::not_ready)
+  if (!initial || !m::is_frozen() || *m::is_frozen() || !m::type_of<sample>())
     return 1;
   if (argc > 1) {
     const bool throws = std::string_view(argv[1]) == "throw";

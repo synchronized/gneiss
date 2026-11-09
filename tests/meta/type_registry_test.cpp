@@ -27,7 +27,8 @@ bool typed_registration() {
       .guid = object_guid, .schema_version = 1, .name = "Object", .properties = {}};
   gneiss::engine::meta::type info;
   if (gneiss::test_support::assign_value(gneiss::engine::meta::type_of<reflected_object>(registry),
-                                         info) != error::not_ready ||
+                                         info)
+          .failed() ||
       info.guid() != e::guid{} ||
       gneiss::engine::meta::register_type<reflected_object>(registry, definition).failed())
     return false;
@@ -76,8 +77,9 @@ bool typed_registration() {
                                          info) != error::not_found ||
       info.guid() != data_guid ||
       gneiss::test_support::assign_value(
-          gneiss::engine::meta::type_of<unregistered_object>(registry), info) != error::not_found ||
-      info.guid() != data_guid ||
+          gneiss::engine::meta::type_of<unregistered_object>(registry), info)
+          .failed() ||
+      info.id() != e::runtime_type_of<unregistered_object>() || info.guid() ||
       gneiss::engine::meta::register_type<reflected_object>(registry, definition) !=
           error::invalid_state)
     return false;
@@ -101,7 +103,7 @@ bool typed_registration() {
   return gneiss::test_support::assign_value(
              gneiss::engine::meta::type_of<reflected_object>(registry), info) ==
              error::invalid_handle &&
-         info.guid() == data_guid;
+         info.id() == e::runtime_type_of<unregistered_object>();
 }
 
 bool math_registration() {

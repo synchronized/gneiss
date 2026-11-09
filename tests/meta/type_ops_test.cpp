@@ -235,14 +235,25 @@ int main() {
   CHECK(non_default_variant);
   CHECK(non_default_variant->as_variant()->select(1) == e::error::unsupported);
   CHECK(std::get<0>(cannot_construct) == 4);
-  // 内存视图可访问当前整数分支；未注册对象的访问和完整类型查询仍被拒绝。
+  // 原生类型能力与注册独立；未注册对象可以借用，但不能伪装成空对象持久化。
   auto empty_registry = m::create_registry();
   CHECK(empty_registry && m::freeze(*empty_registry).ok());
   auto lazy = m::view(*empty_registry, cannot_construct);
   CHECK(lazy && lazy->as_variant()->value()->read_value()->kind() == e::value_kind::int64);
   cannot_construct.emplace<1>(1.0F);
-  CHECK(lazy->as_variant()->value().error() == e::error::not_found);
-  CHECK(m::type_of<decltype(cannot_construct)>(*empty_registry).error() == e::error::not_found);
+  auto unknown_object = lazy->as_variant()->value();
+  CHECK(unknown_object && unknown_object->kind() == m::type_kind::object);
+  CHECK(unknown_object->as_const().properties().error() == e::error::not_found);
+  CHECK(m::type_of<decltype(cannot_construct)>(*empty_registry));
+  auto rejected_object = gneiss::engine::serialization::json::serialize_bytes(
+      gneiss::engine::serialization::context{*empty_registry}, std::get<1>(cannot_construct));
+  CHECK(!rejected_object);
+  std::vector<non_default> unknown_elements;
+  unknown_elements.emplace_back(1.0F);
+  auto unknown_sequence = m::type_of<decltype(unknown_elements)>(*empty_registry);
+  CHECK(unknown_sequence && unknown_sequence->element_type());
+  auto unknown_view = m::view(*empty_registry, unknown_elements);
+  CHECK(unknown_view && unknown_view->as_sequence()->at(0));
   throwing_choice throwing_source{std::in_place_index<1>};
   throwing_choice valueless{1};
   try {
