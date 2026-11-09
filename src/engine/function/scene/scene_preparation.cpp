@@ -161,8 +161,7 @@ public:
 
 error prepare_loaded_scene(const scene_preparation_inputs& inputs, std::string_view prefab_uri,
                            scene_instantiation_data& output, scene_diagnostic& diagnostic,
-                           const std::function<bool()>& cancelled,
-                           scene_prepare_limits limits) noexcept try {
+                           const std::function<bool()>& cancelled, scene_prepare_limits limits) {
   output = {};
   diagnostic = {};
   preparation work{.inputs = inputs,
@@ -192,17 +191,11 @@ error prepare_loaded_scene(const scene_preparation_inputs& inputs, std::string_v
     output = std::move(work.candidate);
   diagnostic.error = status;
   return status;
-} catch (const std::bad_alloc&) {
-  diagnostic.error = error::out_of_memory;
-  return diagnostic.error;
-} catch (...) {
-  diagnostic.error = error::internal;
-  return diagnostic.error;
 }
 
 result<scene_instantiation_data, scene_diagnostic>
 make_instantiation_data(ref<const scene> source, std::size_t source_bytes,
-                        scene_prepare_limits limits) noexcept try {
+                        scene_prepare_limits limits) {
   if (!source)
     return scene_diagnostic{error::invalid_argument, 0, {}, {}};
   auto content = source->content();
@@ -224,14 +217,10 @@ make_instantiation_data(ref<const scene> source, std::size_t source_bytes,
   if (status.failed())
     return diagnostic;
   return output;
-} catch (const std::bad_alloc&) {
-  return scene_diagnostic{error::out_of_memory, 0, {}, {}};
-} catch (...) {
-  return scene_diagnostic{error::internal, 0, {}, {}};
 }
 result<scene_instantiation_data, scene_diagnostic>
 make_instantiation_data(ref<const prefab> source, std::size_t source_bytes,
-                        scene_prepare_limits limits) noexcept try {
+                        scene_prepare_limits limits) {
   if (!source)
     return scene_diagnostic{error::invalid_argument, 0, {}, {}};
   const auto& uri = source->source().uri;
@@ -245,10 +234,6 @@ make_instantiation_data(ref<const prefab> source, std::size_t source_bytes,
   if (status.failed())
     return diagnostic;
   return output;
-} catch (const std::bad_alloc&) {
-  return scene_diagnostic{error::out_of_memory, 0, {}, {}};
-} catch (...) {
-  return scene_diagnostic{error::internal, 0, {}, {}};
 }
 
 } // namespace gneiss::engine

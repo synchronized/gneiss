@@ -127,3 +127,19 @@ Windows Clang Debug：Editor 和相关测试目标编译通过，5 项定向 CPU
 
 Scene 组合/准备与编辑器外层仍有旧转码；组件适配器其余运行时接口、资产/文件服务及
 跨线程/C 回调仍待审计。不能将本批局部传播验证视为 PLAN-109 全部完成。
+
+## Scene 准备与文档快照追加验收
+
+Scene 组合、实例化数据准备、层级检查，以及 Scene/Prefab 记录捕获、恢复、身份重映射和
+引用检查移除异常转码与错误 noexcept。编辑器文档快照的冻结、恢复、组合及变更准备同步迁移；
+文档提交前的内部校验辅助函数不再以 noexcept 截断传播。缺失引用、无效层级及显式取消仍返回错误。
+这些入口原有捕获不承担清理或回滚；局部候选继续由 RAII 管理。
+
+新增 Scene 准备测试，在层级检查调用取消回调时分别抛出 bad_alloc 和 runtime_error，
+验证异常传播、output 没有部分候选，以及正常重试成功。显式返回 true 的取消仍返回 invalid_state。
+prepare_loaded_scene 保留入口清空 output 的既有行为，不承诺恢复调用前的 output。
+
+Windows Clang Debug：Editor 与相关目标编译通过；Scene/Prefab 准备、编辑器文档编辑和快照
+共 4 项定向 CPU 测试通过。格式检查及 git diff --check 通过。
+未运行 GPU、大场景、远端 CI 或跨平台矩阵。文档提交/历史、运行时实例与投影、
+组件适配器剩余接口、资产和文件边界仍待审计，PLAN-109 继续实施。

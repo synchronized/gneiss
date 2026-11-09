@@ -20,7 +20,7 @@ inline result<object_hierarchy, scene_diagnostic>
 inspect_object_hierarchy(std::span<const game_object_description> objects,
                          std::optional<guid> root = std::nullopt,
                          std::size_t maximum_depth = std::numeric_limits<std::size_t>::max(),
-                         const std::function<bool()>& cancelled = {}) noexcept try {
+                         const std::function<bool()>& cancelled = {}) {
   const auto fail = [](std::string path,
                        std::string message) -> result<object_hierarchy, scene_diagnostic> {
     return scene_diagnostic{
@@ -80,9 +80,5 @@ inspect_object_hierarchy(std::span<const game_object_description> objects,
         return fail("/objects/" + std::to_string(i) + "/parent", "对象层级形成循环");
   }
   return output;
-} catch (const std::bad_alloc&) {
-  return scene_diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return scene_diagnostic{.error = error::internal};
 }
 }

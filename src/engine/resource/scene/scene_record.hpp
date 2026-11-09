@@ -48,14 +48,10 @@ struct prefab_record_data {
 /** 只读领域版本；复制共享内容，构造冻结输入，不持有可写组件引用。 */
 using scene_record = immutable_value_storage<scene_record_data>;
 using prefab_record = immutable_value_storage<prefab_record_data>;
-[[nodiscard]] GNEISS_API result<scene_record>
-capture_scene_record(const scene_description&) noexcept;
-[[nodiscard]] GNEISS_API result<prefab_record>
-capture_prefab_record(const prefab_description&) noexcept;
-[[nodiscard]] GNEISS_API result<scene_description>
-restore_scene_record(const scene_record&) noexcept;
-[[nodiscard]] GNEISS_API result<prefab_description>
-restore_prefab_record(const prefab_record&) noexcept;
+[[nodiscard]] GNEISS_API result<scene_record> capture_scene_record(const scene_description&);
+[[nodiscard]] GNEISS_API result<prefab_record> capture_prefab_record(const prefab_description&);
+[[nodiscard]] GNEISS_API result<scene_description> restore_scene_record(const scene_record&);
+[[nodiscard]] GNEISS_API result<prefab_description> restore_prefab_record(const prefab_record&);
 /** 显式对象身份映射；不用于组件类型、Prefab 来源节点或普通 GUID 字段。 */
 struct uuid_mapping {
   guid source_uuid;
@@ -66,8 +62,7 @@ struct uuid_mapping {
  * 不创建运行时对象，不修改输入，不为无身份容器生成身份。
  */
 [[nodiscard]] GNEISS_API result<scene_record>
-remap_scene_record(const scene_record&, guid target_document,
-                   std::span<const uuid_mapping>) noexcept;
+remap_scene_record(const scene_record&, guid target_document, std::span<const uuid_mapping>);
 
 /** 借用已知文档的对象目录；调用期间有效，不触发外部加载。 */
 struct document_object_view {
@@ -86,5 +81,5 @@ struct object_reference_issue {
  */
 [[nodiscard]] GNEISS_API result<std::vector<object_reference_issue>>
 inspect_object_references(document_object_view,
-                          std::span<const document_object_view> external = {}) noexcept;
+                          std::span<const document_object_view> external = {});
 }

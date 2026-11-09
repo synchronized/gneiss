@@ -54,12 +54,12 @@ struct scene_preparation_inputs {
                                                     std::string_view prefab_uri,
                                                     scene_instantiation_data&, scene_diagnostic&,
                                                     const std::function<bool()>& cancelled,
-                                                    scene_prepare_limits limits = {}) noexcept;
+                                                    scene_prepare_limits limits = {});
 /** 从已加载资产同步整理实例化数据，不读取文件或推进异步队列。 */
 [[nodiscard]] GNEISS_API result<scene_instantiation_data, scene_diagnostic>
 make_instantiation_data(ref<const scene>, std::size_t source_bytes = 0,
-                        scene_prepare_limits limits = {}) noexcept;
+                        scene_prepare_limits limits = {});
 [[nodiscard]] GNEISS_API result<scene_instantiation_data, scene_diagnostic>
 make_instantiation_data(ref<const prefab>, std::size_t source_bytes = 0,
-                        scene_prepare_limits limits = {}) noexcept;
+                        scene_prepare_limits limits = {});
 } // namespace gneiss::engine

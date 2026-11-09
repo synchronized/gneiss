@@ -312,6 +312,31 @@ void run() {
   check(prepare_loaded_scene(inputs, {}, output, diagnostic, {}).ok());
   check(memory->reads == reads &&
         output.prefabs.at("asset://p.prefab").resource == inputs.prefabs.at("asset://p.prefab"));
+  // 取消回调抛出的异常不是取消结果；层级检查也须传播，且不发布部分候选。
+  for (const bool allocation : {false, true}) {
+    unsigned calls = 0;
+    bool propagated = false;
+    try {
+      (void)prepare_loaded_scene(inputs, {}, output, diagnostic, [&]() -> bool {
+        if (++calls == 2) {
+          if (allocation)
+            throw std::bad_alloc{};
+          throw std::runtime_error("测试层级检查回调异常");
+        }
+        return false;
+      });
+    } catch (const std::bad_alloc&) {
+      propagated = allocation;
+    } catch (const std::runtime_error&) {
+      propagated = !allocation;
+    }
+    check(propagated && calls == 2 && output.description.objects.empty() && output.prefabs.empty());
+    check(prepare_loaded_scene(inputs, {}, output, diagnostic, {}).ok());
+  }
+  check(prepare_loaded_scene(inputs, {}, output, diagnostic, [] { return true; }) ==
+        error::invalid_state);
+  check(output.description.objects.empty() && output.prefabs.empty());
+  check(prepare_loaded_scene(inputs, {}, output, diagnostic, {}).ok());
   // 只收集每个实例最终生效的资源；全被覆盖的来源材质不再是加载依赖。
   auto overridden = std::make_shared<scene_description>(*inputs.scene);
   std::erase_if(overridden->objects, [](const auto& node) { return !node.prefab; });

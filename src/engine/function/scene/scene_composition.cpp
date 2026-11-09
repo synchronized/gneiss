@@ -5,8 +5,7 @@
 namespace gneiss::engine {
 result<composed_scene>
 compose_scene(const scene_description& description,
-              const std::map<std::string, const prefab_description*, std::less<>>& sources) noexcept
-    try {
+              const std::map<std::string, const prefab_description*, std::less<>>& sources) {
   for (const auto& object : description.objects) {
     if (!object.prefab)
       continue;
@@ -83,9 +82,5 @@ compose_scene(const scene_description& description,
       return error::invalid_argument;
   }
   return result;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 }

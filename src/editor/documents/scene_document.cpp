@@ -4,7 +4,7 @@
 #include <new>
 namespace gneiss::editor {
 namespace {
-engine::error validate(const scene_document_snapshot& snapshot) noexcept {
+engine::error validate(const scene_document_snapshot& snapshot) {
   auto inputs = make_scene_document_inputs(snapshot);
   if (!inputs)
     return inputs.error();

@@ -4,19 +4,14 @@
 #include "engine/resource/asset_file.hpp"
 #include <algorithm>
 namespace gneiss::editor {
-engine::result<engine::prefab_asset_ref> scene_object_resources::prefab_source() const noexcept
-    try {
+engine::result<engine::prefab_asset_ref> scene_object_resources::prefab_source() const {
   auto restored = engine::restore_prefab_record(prefab_content);
   if (!restored)
     return restored.error();
   return engine::make_ref<const engine::prefab_description>(std::move(*restored));
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 
-engine::result<engine::scene_description> scene_subtree_snapshot::description() const noexcept {
+engine::result<engine::scene_description> scene_subtree_snapshot::description() const {
   auto restored = engine::restore_scene_record(content);
   if (!restored)
     return restored.error();
@@ -25,7 +20,7 @@ engine::result<engine::scene_description> scene_subtree_snapshot::description() 
 
 engine::result<scene_subtree_snapshot> freeze_prefab_snapshot(
     prefab_header_snapshot source,
-    const std::map<std::string, engine::render_resource_ref, std::less<>>& assets) noexcept try {
+    const std::map<std::string, engine::render_resource_ref, std::less<>>& assets) {
   scene_subtree_snapshot value;
   auto author = std::move(source.author);
   if (!source.source || !author.prefab)
@@ -78,15 +73,10 @@ engine::result<scene_subtree_snapshot> freeze_prefab_snapshot(
                                engine::resource_cast<gneiss::engine::material>(material)};
   }
   return value;
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::error::out_of_memory;
-} catch (...) {
-  return gneiss::engine::error::internal;
 }
 
 engine::result<scene_document_snapshot>
-make_scene_document_snapshot(std::string uri,
-                             const engine::scene_instantiation_data& source) noexcept try {
+make_scene_document_snapshot(std::string uri, const engine::scene_instantiation_data& source) {
   scene_document_snapshot snapshot;
   snapshot.uri = std::move(uri);
   auto content = engine::capture_scene_record(source.description);
@@ -104,14 +94,10 @@ make_scene_document_snapshot(std::string uri,
                              prefab_document_snapshot{std::move(*content), prefab.source_asset});
   }
   return snapshot;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 engine::result<scene_document_snapshot>
 make_scene_document_snapshot(std::string uri, const engine::scene_content& content,
-                             engine::ref<const engine::scene> source) noexcept try {
+                             engine::ref<const engine::scene> source) {
   if (!content.description)
     return engine::error::invalid_argument;
   engine::scene_instantiation_data input;
@@ -122,13 +108,9 @@ make_scene_document_snapshot(std::string uri, const engine::scene_content& conte
                           engine::prefab_instantiation_data{.resource = dependency.description,
                                                             .source_asset = dependency.resource});
   return make_scene_document_snapshot(std::move(uri), input);
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 engine::result<engine::scene_preparation_inputs>
-make_scene_document_inputs(const scene_document_snapshot& snapshot) noexcept try {
+make_scene_document_inputs(const scene_document_snapshot& snapshot) {
   auto description = snapshot.description();
   if (!description)
     return description.error();
@@ -144,24 +126,15 @@ make_scene_document_inputs(const scene_document_snapshot& snapshot) noexcept try
     inputs.prefab_assets.emplace(uri, prefab.source_asset);
   }
   return inputs;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
-engine::result<engine::scene_description> scene_document_snapshot::description() const noexcept
-    try {
+engine::result<engine::scene_description> scene_document_snapshot::description() const {
   auto restored = engine::restore_scene_record(content);
   if (!restored)
     return restored.error();
   return std::move(*restored);
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 engine::result<engine::composed_scene>
-compose_scene_document(const scene_document_snapshot& snapshot) noexcept try {
+compose_scene_document(const scene_document_snapshot& snapshot) {
   auto description = snapshot.description();
   if (!description)
     return description.error();
@@ -181,14 +154,10 @@ compose_scene_document(const scene_document_snapshot& snapshot) noexcept try {
   for (const auto& [uri, source] : sources)
     borrowed.emplace(uri, &source);
   return engine::compose_scene(*description, borrowed);
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 engine::result<prepared_scene_document>
 prepare_scene_document(const scene_document_snapshot& before,
-                       std::span<const author_document_change> changes) noexcept try {
+                       std::span<const author_document_change> changes) {
   std::vector<engine::render_resource_source> pending;
   auto restored = make_scene_document_inputs(before);
   if (!restored)
@@ -236,14 +205,10 @@ prepare_scene_document(const scene_document_snapshot& before,
     next->assets.emplace(asset.uri, found->second);
   }
   return prepared_scene_document{std::move(*next), std::move(pending)};
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 
 engine::result<std::vector<engine::object_reference_issue>>
-scene_document_snapshot::reference_issues() const noexcept try {
+scene_document_snapshot::reference_issues() const {
   std::vector<engine::document_object_view> documents{{content.get().uuid, content.get().objects}};
   for (const auto& [uri, source] : prefabs)
     documents.push_back({source.content.get().uuid, source.content.get().objects});
@@ -255,9 +220,5 @@ scene_document_snapshot::reference_issues() const noexcept try {
     result.insert(result.end(), issues->begin(), issues->end());
   }
   return result;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 }

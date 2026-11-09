@@ -15,14 +15,14 @@ namespace gneiss::editor {
 struct scene_object_resources {
   engine::scene_mesh_binding renderer;
   engine::prefab_record prefab_content;
-  [[nodiscard]] engine::result<engine::prefab_asset_ref> prefab_source() const noexcept;
+  [[nodiscard]] engine::result<engine::prefab_asset_ref> prefab_source() const;
   std::vector<engine::scene_mesh_binding> source_nodes;
   engine::ref<const engine::prefab> source_asset;
 };
 /** 文档子树快照：只冻结描述和值，不捕获 ECS 或运行对象身份。 */
 struct scene_subtree_snapshot {
   engine::scene_record content;
-  [[nodiscard]] engine::result<engine::scene_description> description() const noexcept;
+  [[nodiscard]] engine::result<engine::scene_description> description() const;
   engine::guid root_uuid;
   engine::object_address parent;
   std::map<engine::guid, scene_object_resources> resources;
@@ -36,7 +36,7 @@ struct prefab_header_snapshot {
 /** 冻结 Prefab 文档快照；只使用显式输入资源，不访问 World、文件或资产缓存。 */
 [[nodiscard]] engine::result<scene_subtree_snapshot> freeze_prefab_snapshot(
     prefab_header_snapshot source,
-    const std::map<std::string, engine::render_resource_ref, std::less<>>& assets) noexcept;
+    const std::map<std::string, engine::render_resource_ref, std::less<>>& assets);
 
 /** 历史冻结来源内容；资产强引用仅负责保活，不用于重新获取当前修订。 */
 struct prefab_document_snapshot {
@@ -50,31 +50,30 @@ struct scene_document_snapshot {
   engine::scene_record content;
   std::map<std::string, prefab_document_snapshot> prefabs;
   engine::ref<const engine::scene> source_asset;
-  [[nodiscard]] engine::result<engine::scene_description> description() const noexcept;
+  [[nodiscard]] engine::result<engine::scene_description> description() const;
   std::map<std::string, engine::render_resource_ref, std::less<>> assets;
   /** 只检查当前版本和冻结来源；外部文档未提供时保留未解析诊断。 */
   [[nodiscard]] engine::result<std::vector<engine::object_reference_issue>>
-  reference_issues() const noexcept;
+  reference_issues() const;
 };
 /** 从文档及冻结来源生成有效对象；保留覆盖冲突，不读取文件或运行实例。 */
 [[nodiscard]] engine::result<engine::composed_scene>
-compose_scene_document(const scene_document_snapshot&) noexcept;
+compose_scene_document(const scene_document_snapshot&);
 struct prepared_scene_document {
   scene_document_snapshot snapshot;
   std::vector<engine::render_resource_source> missing;
 };
 /** 只计算内存变更及缺失依赖；missing 表示尚未持有资源身份，不要求内容加载完成。 */
 [[nodiscard]] engine::result<prepared_scene_document>
-prepare_scene_document(const scene_document_snapshot&,
-                       std::span<const author_document_change>) noexcept;
+prepare_scene_document(const scene_document_snapshot&, std::span<const author_document_change>);
 /** 从已准备描述冻结内容；纯内存操作，不访问宿主或 World。 */
 [[nodiscard]] engine::result<scene_document_snapshot>
-make_scene_document_snapshot(std::string uri, const engine::scene_instantiation_data&) noexcept;
+make_scene_document_snapshot(std::string uri, const engine::scene_instantiation_data&);
 /** 使用加载回执冻结的内容构造文档，不读取 World 或当前资产修订。 */
 [[nodiscard]] engine::result<scene_document_snapshot>
 make_scene_document_snapshot(std::string uri, const engine::scene_content&,
-                             engine::ref<const engine::scene> source) noexcept;
+                             engine::ref<const engine::scene> source);
 /** 恢复独立的领域输入；资源引用只保活，内容使用冻结值。 */
 [[nodiscard]] engine::result<engine::scene_preparation_inputs>
-make_scene_document_inputs(const scene_document_snapshot&) noexcept;
+make_scene_document_inputs(const scene_document_snapshot&);
 }

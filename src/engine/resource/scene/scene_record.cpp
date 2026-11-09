@@ -135,27 +135,19 @@ restore_objects(const std::vector<object_record>& source) {
   return output;
 }
 }
-result<scene_record> capture_scene_record(const scene_description& source) noexcept try {
+result<scene_record> capture_scene_record(const scene_description& source) {
   auto objects = capture_objects(source.objects);
   if (!objects)
     return objects.error();
   return scene_record{scene_record_data{source.uuid, std::move(*objects)}};
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-result<prefab_record> capture_prefab_record(const prefab_description& source) noexcept try {
+result<prefab_record> capture_prefab_record(const prefab_description& source) {
   auto objects = capture_objects(source.objects);
   if (!objects)
     return objects.error();
   return prefab_record{prefab_record_data{source.uuid, source.root_uuid, std::move(*objects)}};
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-result<scene_description> restore_scene_record(const scene_record& source) noexcept try {
+result<scene_description> restore_scene_record(const scene_record& source) {
   auto objects = restore_objects(source.get().objects);
   if (!objects)
     return objects.error();
@@ -164,12 +156,8 @@ result<scene_description> restore_scene_record(const scene_record& source) noexc
   if (status.error.failed())
     return status.error;
   return result;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-result<prefab_description> restore_prefab_record(const prefab_record& source) noexcept try {
+result<prefab_description> restore_prefab_record(const prefab_record& source) {
   auto objects = restore_objects(source.get().objects);
   if (!objects)
     return objects.error();
@@ -178,10 +166,6 @@ result<prefab_description> restore_prefab_record(const prefab_record& source) no
   if (status.error.failed())
     return status.error;
   return result;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 namespace {
 struct record_remapper {
@@ -283,7 +267,7 @@ struct record_remapper {
 };
 }
 result<scene_record> remap_scene_record(const scene_record& source, guid target_document,
-                                        std::span<const uuid_mapping> mappings) noexcept try {
+                                        std::span<const uuid_mapping> mappings) {
   const auto& original = source.get();
   if (!original.uuid || !target_document || mappings.size() != original.objects.size())
     return error::invalid_argument;
@@ -327,10 +311,6 @@ result<scene_record> remap_scene_record(const scene_record& source, guid target_
     }
   }
   return scene_record{candidate};
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 
 namespace {
@@ -407,7 +387,7 @@ struct reference_inspector {
 }
 result<std::vector<object_reference_issue>>
 inspect_object_references(document_object_view document,
-                          std::span<const document_object_view> external) noexcept try {
+                          std::span<const document_object_view> external) {
   reference_inspector inspector{document, external, {}, {}, {}};
   for (const auto& object : document.objects) {
     inspector.object = object.uuid;
@@ -446,9 +426,5 @@ inspect_object_references(document_object_view document,
     }
   }
   return std::move(inspector.issues);
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 }
