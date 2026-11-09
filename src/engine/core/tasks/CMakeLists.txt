@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
+include("${CMAKE_CURRENT_SOURCE_DIR}/../fatal.cmake")
 option(GNEISS_TASK_THREADS "启用任务工作线程后端" ON)
 add_library(gneiss_tasks STATIC task_scheduler.cpp task_scheduler.hpp task_platform.hpp)
 if(COMMAND gneiss_target_profiling)
@@ -10,7 +11,7 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/../../../../cmake/internal_headers.cmake")
 gneiss_internal_headers(gneiss_task_interface "${CMAKE_CURRENT_SOURCE_DIR}/../../.."
   engine/core/tasks/task_scheduler.hpp
   engine/core/wakeup_signal.hpp)
-target_link_libraries(gneiss_tasks PUBLIC gneiss_task_interface)
+target_link_libraries(gneiss_tasks PUBLIC gneiss_task_interface PRIVATE gneiss_fatal)
 target_include_directories(gneiss_tasks PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
 target_compile_features(gneiss_tasks PUBLIC cxx_std_20)
 target_compile_definitions(gneiss_tasks PRIVATE GNEISS_TASK_THREADS=$<BOOL:${GNEISS_TASK_THREADS}>)

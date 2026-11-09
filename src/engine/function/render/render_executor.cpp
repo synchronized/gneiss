@@ -3,6 +3,7 @@
 
 #include "engine/function/render/render_executor.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/fatal.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -68,7 +69,7 @@ struct threaded_render_executor::state final {
   void run() noexcept;
 };
 
-void threaded_render_executor::state::run() noexcept {
+void threaded_render_executor::state::run() noexcept try {
   for (;;) {
     queued_task task;
     {
@@ -94,11 +95,7 @@ void threaded_render_executor::state::run() noexcept {
                                                    task.enqueued_at)
               .count();
       const auto execution_started = std::chrono::steady_clock::now();
-      try {
-        frame_completion.status = frame_callback(task.packet, frame_completion.execution);
-      } catch (...) {
-        frame_completion.status = engine::error::internal;
-      }
+      frame_completion.status = frame_callback(task.packet, frame_completion.execution);
       frame_completion.execution.render_thread_ms =
           std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() -
                                                    execution_started)
@@ -120,11 +117,7 @@ void threaded_render_executor::state::run() noexcept {
           }};
       reporter.report(render_command_stage::preparing, 0U, 0U);
       const auto command_started = std::chrono::steady_clock::now();
-      try {
-        command_completion.status = task.command(reporter);
-      } catch (...) {
-        command_completion.status = engine::error::internal;
-      }
+      command_completion.status = task.command(reporter);
       command_completion.execution_ms = std::chrono::duration<double, std::milli>(
                                             std::chrono::steady_clock::now() - command_started)
                                             .count();
@@ -207,6 +200,8 @@ void threaded_render_executor::state::run() noexcept {
       }
     }
   }
+} catch (...) {
+  fatal_current_exception();
 }
 
 void threaded_render_executor::set_completion_wakeup(

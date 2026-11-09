@@ -66,7 +66,9 @@ inline void cooperative_scheduler_contract() {
   task_handle failed;
   check(scheduler.submit(
             {.scope = scope},
-            [](const auto&) -> task_outcome { throw std::runtime_error("预期异常"); },
+            [](const auto&) -> task_outcome {
+              return {.state = task_state::failed, .error = "预期失败"};
+            },
             failed) == submit_result::success);
   task_handle dependent;
   check(scheduler.submit(

@@ -1111,3 +1111,27 @@ target_compile_features(gneiss_value_edit_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_value_edit_test)
 gneiss_target_output_directories(gneiss_value_edit_test)
 add_test(NAME gneiss.value_edit COMMAND gneiss_value_edit_test)
+
+if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
+  add_executable(gneiss_fatal_test core/fatal_test.cpp)
+  target_link_libraries(gneiss_fatal_test PRIVATE gneiss_fatal gneiss_tasks)
+  gneiss_target_compile_warnings(gneiss_fatal_test)
+  gneiss_target_output_directories(gneiss_fatal_test)
+  foreach(mode direct host oom terminate worker worker-oom cooperative)
+    add_test(NAME gneiss.fatal-${mode} COMMAND "${CMAKE_COMMAND}"
+      "-DPROGRAM=$<TARGET_FILE:gneiss_fatal_test>" "-DMODE=${mode}"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/core/check_fatal.cmake")
+    set_tests_properties(gneiss.fatal-${mode} PROPERTIES TIMEOUT 15)
+  endforeach()
+endif()
+
+target_link_libraries(gneiss_render_executor_test PRIVATE gneiss_fatal)
+
+if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
+  foreach(mode render-frame render-command)
+    add_test(NAME gneiss.fatal-${mode} COMMAND "${CMAKE_COMMAND}"
+      "-DPROGRAM=$<TARGET_FILE:gneiss_render_executor_test>" "-DMODE=${mode}"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/core/check_fatal.cmake")
+    set_tests_properties(gneiss.fatal-${mode} PROPERTIES TIMEOUT 15)
+  endforeach()
+endif()

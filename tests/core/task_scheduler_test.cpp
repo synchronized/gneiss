@@ -139,8 +139,9 @@ void serial_failure_and_cancellation() {
         return task_outcome{};
       });
   const auto failed =
-      launch(scheduler, {.scope = scope, .serial = lane},
-             [](const auto&) -> task_outcome { throw std::runtime_error("fixture"); });
+      launch(scheduler, {.scope = scope, .serial = lane}, [](const auto&) -> task_outcome {
+        return {.state = task_state::failed, .error = "fixture"};
+      });
   const auto last = launch(scheduler, {.scope = scope, .serial = lane}, [&](const auto&) {
     ++entered;
     return task_outcome{};
@@ -154,7 +155,7 @@ void serial_failure_and_cancellation() {
               status.outcome.state == task_state::dependency_failed,
           "取消未传播依赖");
   require(scheduler.query(failed, status) && status.outcome.state == task_state::failed,
-          "异常未转失败");
+          "显式任务失败未保留");
   require(scheduler.query(last, status) && status.outcome.state == task_state::succeeded &&
               entered == 1U,
           "串行失败阻止后续独立任务");

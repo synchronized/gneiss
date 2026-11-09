@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Gneiss contributors
+include_guard(GLOBAL)
+include("${CMAKE_CURRENT_LIST_DIR}/../../../cmake/internal_headers.cmake")
+gneiss_internal_headers(gneiss_fatal_interface "${CMAKE_CURRENT_LIST_DIR}/../.." engine/core/fatal.hpp)
+add_library(gneiss_fatal STATIC "${CMAKE_CURRENT_LIST_DIR}/fatal.cpp")
+target_link_libraries(gneiss_fatal PUBLIC gneiss_fatal_interface)
+set_target_properties(gneiss_fatal PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(EMSCRIPTEN)
+  target_compile_options(gneiss_fatal PRIVATE -fexceptions)
+endif()
+if(COMMAND gneiss_target_compile_warnings)
+  gneiss_target_compile_warnings(gneiss_fatal)
+endif()

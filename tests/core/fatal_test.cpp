@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+#include "engine/core/fatal.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
+#include <chrono>
+#include <new>
+#include <stdexcept>
+#include <string_view>
+#include <thread>
+
+using namespace gneiss::engine;
+void throw_unexpected() { throw std::runtime_error("fixture"); }
+int main(int argc, char** argv) {
+  if (argc != 2)
+    return 2;
+  const std::string_view mode{argv[1]};
+  if (mode == "direct")
+    fatal(fatal_reason::out_of_memory);
+  if (mode == "terminate") {
+    install_fatal_handler();
+    []() noexcept { throw_unexpected(); }();
+  }
+  if (mode == "host" || mode == "oom") {
+    try {
+      if (mode == "oom")
+        throw std::bad_alloc{};
+      throw std::runtime_error("fixture");
+    } catch (...) {
+      fatal_current_exception();
+    }
+  }
+  const bool worker = mode == "worker" || mode == "worker-oom";
+  task_scheduler scheduler(
+      {.workers = 1, .mode = worker ? execution_mode::thread_pool : execution_mode::cooperative});
+  const auto scope = scheduler.make_scope();
+  task_handle task;
+  if (scheduler.submit(
+          {.scope = scope},
+          [mode](const auto&) -> task_outcome {
+            if (mode == "worker-oom")
+              throw std::bad_alloc{};
+            throw std::runtime_error("fixture");
+          },
+          task) != submit_result::success)
+    return 3;
+  if (!worker)
+    static_cast<void>(scheduler.run_ready());
+  // 子进程的致命执行不能返回；超时由父测试兜底。
+  std::this_thread::sleep_for(std::chrono::seconds(5));
+  return 0;
+}

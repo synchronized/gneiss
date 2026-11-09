@@ -11,4 +11,5 @@ target_compile_features(gneiss_core_values INTERFACE cxx_std_20)
 target_compile_definitions(gneiss_core_values INTERFACE
   $<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:GNEISS_STATIC_DEFINE>)
 
+include(fatal.cmake)
 add_subdirectory(tasks)

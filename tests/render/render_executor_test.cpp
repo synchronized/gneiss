@@ -10,6 +10,8 @@
 #include <condition_variable>
 #include <cstdint>
 #include <mutex>
+#include <stdexcept>
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -66,7 +68,26 @@ bool resumable_command_allows_frames(gneiss::engine::error terminal) {
 }
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
+  if (argc == 2) {
+    using namespace gneiss::engine;
+    const std::string_view mode{argv[1]};
+    threaded_render_executor fatal_executor;
+    if (fatal_executor
+            .initialize([](auto&, auto&) -> error { throw std::runtime_error("frame fixture"); })
+            .failed())
+      return 90;
+    if (mode == "render-frame") {
+      if (!fatal_executor.submit_frame({}))
+        return 91;
+    } else {
+      if (!fatal_executor.submit_command(
+              [](const auto&) -> error { throw std::runtime_error("command fixture"); }))
+        return 92;
+    }
+    static_cast<void>(fatal_executor.flush());
+    return 0;
+  }
   if (!resumable_command_allows_frames(gneiss::engine::error::success) ||
       !resumable_command_allows_frames(gneiss::engine::error::io)) {
     return 24;

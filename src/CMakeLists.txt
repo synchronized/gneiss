@@ -6,6 +6,7 @@ add_subdirectory(engine/core)
 
 add_library(gneiss_engine)
 add_library(gneiss::engine ALIAS gneiss_engine)
+target_link_libraries(gneiss_engine PRIVATE gneiss_fatal)
 if(COMMAND gneiss_enable_asset_libuv)
   gneiss_enable_asset_libuv(gneiss_engine)
 endif()

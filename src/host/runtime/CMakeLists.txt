@@ -169,3 +169,5 @@ foreach(test IN ITEMS gneiss_runtime_scene_inspection_test)
     target_include_directories(${test} PRIVATE "${PROJECT_SOURCE_DIR}/src")
   endif()
 endforeach()
+
+target_link_libraries(gneiss_runtime PRIVATE gneiss_fatal)

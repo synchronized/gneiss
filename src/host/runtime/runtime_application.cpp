@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_application.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_types.hpp"
@@ -831,11 +832,6 @@ int gneiss::host::run_runtime_application(int argc, char** argv) {
     }
     return run_runtime(options, log);
   } catch (...) {
-    constexpr std::string_view fatal =
-        "level=FATAL process=runtime stage=unhandled_exception result=-1 "
-        "message=\"Runtime 未处理异常\" context=\"\"\n";
-    std::fwrite(fatal.data(), sizeof(char), fatal.size(), stderr);
-    std::fflush(stderr);
-    return 99;
+    gneiss::engine::fatal_current_exception();
   }
 }

@@ -5,7 +5,10 @@
 
 ## 状态与范围
 
-2026-11-09：方案已确认，实施待开始。本次仅建立计划，不改变运行行为。
+2026-11-09：实施中。已建立 fatal、四个自有应用入口的 terminate 兜底、任务执行和渲染线程边界。
+普通任务失败保留显式返回，意外异常终止；Debug 子进程和 Release 优化探针通过。
+Meta/Serialization、文件 C 回调及其他模块仍须沿调用链迁移，不能视为全项目策略已经完成。
+阶段证据见 [执行边界记录](../records/2026-11-09-exception-boundaries.md)。
 长期决策见 [ADR-114](../decisions/ADR-114-exception-boundaries.md)。
 本计划独立于 [PLAN-108](PLAN-108-meta-serialization-api.md)，覆盖项目自有代码的错误处理契约，
 不把 PLAN-108 的类型访问与序列化迁移扩展成全项目异常改造。

@@ -4,6 +4,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/core/tasks/task_platform.hpp"
 
 #include <algorithm>
@@ -167,10 +168,8 @@ struct task_scheduler::implementation {
       if (!terminal(outcome.state) || outcome.state == task_state::dependency_failed) {
         outcome = {.state = task_state::failed, .error = "任务返回非法终态"};
       }
-    } catch (const std::exception& error) {
-      outcome = {.state = task_state::failed, .error = error.what()};
     } catch (...) {
-      outcome = {.state = task_state::failed, .error = "任务发生未知异常"};
+      fatal_current_exception();
     }
     // 运行任务的终态由任务体决定；迟到的取消不能撤销已经提交的业务操作。
     function = {};
@@ -236,7 +235,13 @@ task_scheduler::task_scheduler(scheduler_options options)
   try {
     for (std::size_t i = 0; options.mode == execution_mode::thread_pool && i < options.workers;
          ++i) {
-      impl_->threads.start([this] { impl_->run(); });
+      impl_->threads.start([this] {
+        try {
+          impl_->run();
+        } catch (...) {
+          fatal_current_exception();
+        }
+      });
     }
   } catch (...) {
     stop();
@@ -248,7 +253,7 @@ task_scheduler::~task_scheduler() {
     stop();
   } catch (...) {
     // 从自身工作线程销毁违反所有权契约，无法安全释放仍被执行中的对象。
-    std::terminate();
+    fatal_current_exception();
   }
 }
 

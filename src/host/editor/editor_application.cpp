@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "editor_application.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/component_identity.hpp"
@@ -3104,7 +3105,7 @@ int run_editor_application(int argc, char** argv) noexcept {
   try {
     return run_editor(argc, argv);
   } catch (...) {
-    return 99;
+    gneiss::engine::fatal_current_exception();
   }
 }
 

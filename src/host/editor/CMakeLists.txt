@@ -441,3 +441,7 @@ foreach(test IN ITEMS gneiss_editor_prefab_edit_test gneiss_editor_asset_edit_te
     target_include_directories(${test} PRIVATE "${PROJECT_SOURCE_DIR}/src")
   endif()
 endforeach()
+
+target_link_libraries(gneiss_editor PRIVATE gneiss_fatal)
+
+target_link_libraries(gneiss_project PRIVATE gneiss_fatal)
