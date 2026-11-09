@@ -8,7 +8,7 @@ meta::type const_instance::type() const noexcept {
     return detail::resolve_type(registry_, *access_);
   }
   auto found = cpp_type_ ? find_type(registry_, cpp_type_) : find_type(registry_, type_);
-  return found ? *found : meta::type{};
+  return found;
 }
 bool type::is_fixed_sequence() const noexcept {
   const auto* ops = access_ ? access_->get<sequence_ops>() : nullptr;
@@ -30,14 +30,19 @@ result<const_instance> const_instance::from_object(registry_ref registry, engine
                                                    const void* object) noexcept {
   if (!object)
     return error::invalid_argument;
+  auto frozen = is_frozen(registry);
+  if (!frozen)
+    return frozen.error();
+  if (!*frozen)
+    return error::not_ready;
   auto type = find_type(registry, id);
   if (!type)
-    return type.error();
-  if (type->kind() != type_kind::object)
+    return error::not_found;
+  if (type.kind() != type_kind::object)
     return error::not_found;
   const_instance output;
   output.registry_ = std::move(registry);
-  output.type_ = type->guid();
+  output.type_ = type.guid();
   output.cpp_type_ = id;
   output.kind_ = type_kind::object;
   output.data_ = object;

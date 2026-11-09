@@ -36,7 +36,7 @@ serialization::diagnostic validate_identity(const registry_ref& registry, type_i
     return {};
   auto type = find_type(registry, id);
   auto* object = ops->as_object(const_cast<void*>(address));
-  if (!type || !object || object->dynamic_type() != id || object->dynamic_guid() != type->guid() ||
+  if (!type || !object || object->dynamic_type() != id || object->dynamic_guid() != type.guid() ||
       object->dynamic_address() != address)
     return failure(error::invalid_argument, "", "对象实际身份与注册类型不符");
   return {};
@@ -163,11 +163,11 @@ encode_nonobject(const context& ctx, const registry_ref& registry, const const_i
       return content;
     auto actual_type = find_type(registry, *actual);
     if (!actual_type)
-      return failure(actual_type.error());
-    if (!actual_type->guid())
+      return failure(error::not_found);
+    if (!actual_type.guid())
       return failure(error::unsupported, "", "多态持久化需要稳定类型 GUID");
     auto* entry = doc->object();
-    const auto guid = actual_type->guid().string();
+    const auto guid = actual_type.guid().string();
     if (!entry || !doc->member(entry, "$type_guid", doc->string(guid)) ||
         !doc->member(entry, "$content", *content))
       return failure(error::out_of_memory);
@@ -603,8 +603,8 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
         return failure(error::invalid_argument, "/$type_guid");
       auto type = find_type(registry, *guid);
       if (!type)
-        return failure(type.error(), "/$type_guid");
-      actual = type->id();
+        return failure(gneiss::engine::error{gneiss::engine::error::not_found}, "/$type_guid");
+      actual = type.id();
     }
     auto compatible = cast_base(registry, actual, target->id(), nullptr);
     if (!compatible)

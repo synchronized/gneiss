@@ -120,8 +120,7 @@ bool runtime_only_registration() {
       m::freeze(*registry).failed())
     return false;
   auto type = m::type_of<runtime_parent>(*registry);
-  if (!type || type.guid() || type.name() != "runtime_parent" ||
-      m::find_type(*registry, e::guid{}).error() != e::error::not_found)
+  if (!type || type.guid() || type.name() != "runtime_parent" || m::find_type(*registry, e::guid{}))
     return false;
   runtime_parent object;
   runtime_other other;

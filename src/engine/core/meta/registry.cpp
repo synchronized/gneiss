@@ -171,8 +171,7 @@ bool valid_binding(const property_binding& binding) noexcept {
   const auto id =
       property.accessor.enum_type ? property.accessor.enum_type : property.accessor.object_type;
   if (id) {
-    auto found = find_type(registry, id);
-    return found ? *found : meta::type{};
+    return find_type(registry, id);
   }
   meta::type output;
   [&]<std::size_t... I>(std::index_sequence<I...>) {
@@ -539,12 +538,12 @@ public:
     return detail::type_factory::make(owner(), &access);
   }
 
-  template <class Key> result<meta::type> lookup_type(Key key) const noexcept try {
+  template <class Key> meta::type lookup_type(Key key) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
-      return error::not_ready;
+      return {};
     if (!key)
-      return error::not_found;
+      return {};
     const type_record* record = nullptr;
     if constexpr (std::is_same_v<Key, engine::guid>) {
       record = find_type_unlocked(key);
@@ -587,16 +586,16 @@ public:
         for (std::size_t depth = 0; access && depth <= 64; ++depth) {
           if (match(*access)) {
             if (access->enumeration && !enums_.contains(access->id))
-              return error::not_found;
+              return {};
             return detail::type_factory::make(owner(), access);
           }
           access = access->element_ops() ? &access->element() : nullptr;
         }
       }
     }
-    return error::not_found;
+    return {};
   } catch (...) {
-    return error::internal;
+    return {};
   }
 
   result<meta::type> type_at(std::uint32_t index) const noexcept try {
@@ -805,11 +804,11 @@ std::uint32_t type::schema_version() const noexcept {
 std::string_view type::name() const noexcept {
   return record_ ? std::string_view{record_->name} : std::string_view{};
 }
-result<meta::type> find_type(const registry_ref& registry, engine::type_id id) noexcept {
-  return registry ? registry->lookup_type(id) : result<meta::type>{error::invalid_handle};
+meta::type find_type(const registry_ref& registry, engine::type_id id) noexcept {
+  return registry ? registry->lookup_type(id) : meta::type{};
 }
-result<meta::type> find_type(const registry_ref& registry, engine::guid id) noexcept {
-  return registry ? registry->lookup_type(id) : result<meta::type>{error::invalid_handle};
+meta::type find_type(const registry_ref& registry, engine::guid id) noexcept {
+  return registry ? registry->lookup_type(id) : meta::type{};
 }
 namespace detail {
 meta::type resolve_type(const registry_ref& registry, const type_ops& access) noexcept {
@@ -855,7 +854,7 @@ result<meta::type> type_at(const registry_ref& registry, std::uint32_t index) no
 }
 property find_property(const registry_ref& registry, guid id, property_id field) noexcept {
   auto owner = find_type(registry, id);
-  return owner ? owner->find_property(field) : property{};
+  return owner ? owner.find_property(field) : property{};
 }
 result<value> read_property(const registry_ref& registry, engine::type_id type,
                             property_id property, const void* object) noexcept {

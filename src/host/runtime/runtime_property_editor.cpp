@@ -87,12 +87,12 @@ gneiss::engine::error runtime_property_editor::execute(const ipc_property_write&
   const gneiss::engine::meta::property_id property_field{command.field_id};
   auto description = gneiss::engine::meta::find_type(property_type);
   if (!description) {
-    response.code = description.error().code();
+    response.code = gneiss::engine::error{gneiss::engine::error::not_found}.code();
     response.message = "属性不存在或不可写";
     output = std::move(response);
     return gneiss::engine::error::success;
   }
-  auto properties = description->properties();
+  auto properties = description.properties();
   if (!properties) {
     response.code = properties.error().code();
     response.message = "属性不存在或不可写";

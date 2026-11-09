@@ -28,12 +28,8 @@ int main() {
   const auto transform_type = engine::math::transform::type_guid;
   const auto camera_type = engine::camera_description::type_guid;
   gneiss::engine::meta::type info;
-  if (gneiss::test_support::assign_value(gneiss::engine::meta::find_type(transform_type), info)
-          .failed() ||
-      info.properties()->size() != 3 ||
-      gneiss::test_support::assign_value(gneiss::engine::meta::find_type(camera_type), info)
-          .failed() ||
-      info.properties()->size() != 3 ||
+  if (!(info = gneiss::engine::meta::find_type(transform_type)) || info.properties()->size() != 3 ||
+      !(info = gneiss::engine::meta::find_type(camera_type)) || info.properties()->size() != 3 ||
       !(info = gneiss::engine::meta::type_of<engine::math::transform>()) ||
       info.guid() != transform_type ||
       !(info = gneiss::engine::meta::type_of<engine::camera_description>()) ||

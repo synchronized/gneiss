@@ -128,21 +128,16 @@ bool native_values() {
     return false;
   }
   gneiss::engine::meta::type metadata;
-  if (gneiss::test_support::assign_value(gneiss::engine::meta::find_type(registry, native_id),
-                                         metadata)
-          .failed() ||
+  if (!(metadata = gneiss::engine::meta::find_type(registry, native_id)) ||
       metadata.properties()->size() != 1 ||
       (*metadata.properties())[0].type().scalar_kind() != gneiss::engine::value_kind::string ||
       metadata.guid() != native_id ||
       (*metadata.properties())[0].type().guid() !=
           gneiss::engine::type_identity<std::string>::guid() ||
-      gneiss::test_support::assign_value(
-          gneiss::engine::meta::find_type(registry, gneiss::engine::guid{}), metadata) !=
-          gneiss::engine::error::not_found ||
+      gneiss::engine::meta::find_type(registry, gneiss::engine::guid{}) ||
       metadata.guid() != native_id || metadata.properties()->size() != 1 ||
-      gneiss::test_support::assign_value(gneiss::engine::meta::find_type({}, native_id),
-                                         metadata) != gneiss::engine::error::invalid_handle ||
-      metadata.guid() != native_id || metadata.properties()->size() != 1) {
+      gneiss::engine::meta::find_type({}, native_id) || metadata.guid() != native_id ||
+      metadata.properties()->size() != 1) {
     return false;
   }
   if (gneiss::test_support::assign_value(gneiss::engine::meta::type_at(registry, 0), metadata)
@@ -245,9 +240,8 @@ int main() try {
     return 3;
   }
   gneiss::engine::meta::type info;
-  if (gneiss::test_support::assign_value(gneiss::engine::meta::find_type(state, type_id), info) !=
-          gneiss::engine::error::success ||
-      info.name() != "sample" || info.properties()->size() != 2U) {
+  if (!(info = gneiss::engine::meta::find_type(state, type_id)) || info.name() != "sample" ||
+      info.properties()->size() != 2U) {
     return 4;
   }
   if (gneiss::engine::meta::write_property(state, type_id, gneiss::engine::meta::property_id{1U},

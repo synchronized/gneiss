@@ -97,8 +97,8 @@ error validate_prefab_property_override(const prefab_property_override& value) n
   }
   auto owner = meta::find_type(value.key.target.target_type_guid);
   if (!owner)
-    return owner.error();
-  auto field = owner->find_property(value.key.first_property());
+    return gneiss::engine::error{gneiss::engine::error::not_found};
+  auto field = owner.find_property(value.key.first_property());
   if (!field)
     return error::not_found;
   if (!has_flags(field.capabilities(), meta::property_capabilities::writable) ||

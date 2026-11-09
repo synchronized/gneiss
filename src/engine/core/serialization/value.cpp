@@ -387,16 +387,16 @@ struct restore_state {
           return error::invalid_argument;
         auto type = find_type(registry, asset->type);
         auto element = target.type().element_type();
-        if (!type || !element || type->id() != element->id())
+        if (!type || !element || type.id() != element->id())
           return error::invalid_argument;
         if (asset->uri.empty())
           return reference_slot->reset();
         if (!ctx.references())
           return error::invalid_state;
-        auto owner = ctx.references()->resolve(type->id(), asset->uri, ctx.property_path());
+        auto owner = ctx.references()->resolve(type.id(), asset->uri, ctx.property_path());
         if (!owner)
           return owner.error().error;
-        return reference_slot->assign_owner(type->id(), *owner);
+        return reference_slot->assign_owner(type.id(), *owner);
       }
       if (policy->capture || policy->decode || policy->encode)
         return error::unsupported;
@@ -405,28 +405,28 @@ struct restore_state {
         return error::invalid_argument;
       auto type = find_type(registry, record->get().type);
       if (!type)
-        return type.error();
-      auto ops = find_object_ops(registry, type->id());
+        return gneiss::engine::error{gneiss::engine::error::not_found};
+      auto ops = find_object_ops(registry, type.id());
       if (!ops || !ops->construct)
         return error::unsupported;
       auto element = target.type().element_type();
       if (!element)
         return element.error();
-      if (!policy->polymorphic && type->id() != element->id())
+      if (!policy->polymorphic && type.id() != element->id())
         return error::invalid_argument;
-      auto compatible = detail::cast_base(registry, type->id(), element->id(), nullptr);
+      auto compatible = detail::cast_base(registry, type.id(), element->id(), nullptr);
       if (!compatible)
         return compatible.error().error;
       auto owner = ops->construct();
       if (!owner)
         return error::out_of_memory;
-      auto child = instance::from_object(registry, type->id(), owner.get());
+      auto child = instance::from_object(registry, type.id(), owner.get());
       if (!child)
         return child.error();
       auto status = write(*child, data, depth + 1);
       if (status.failed())
         return status;
-      auto adjusted = detail::cast_base(registry, type->id(), element->id(), owner.get());
+      auto adjusted = detail::cast_base(registry, type.id(), element->id(), owner.get());
       if (!adjusted)
         return adjusted.error().error;
       return reference_slot->assign_owner(element->id(), owner.alias(*adjusted));

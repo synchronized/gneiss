@@ -11,9 +11,9 @@
 #include <memory>
 
 namespace gneiss::engine::meta {
-/** 查询冻结注册表；未登记对象/枚举返回 not_found，基础值不需重复登记。 */
-GNEISS_API result<meta::type> find_type(const registry_ref&, engine::type_id) noexcept;
-GNEISS_API result<meta::type> find_type(const registry_ref&, engine::guid) noexcept;
+/** 查询冻结注册表；未发布或未找到返回空句柄，基础值不需重复登记。 */
+GNEISS_API meta::type find_type(const registry_ref&, engine::type_id) noexcept;
+GNEISS_API meta::type find_type(const registry_ref&, engine::guid) noexcept;
 namespace detail {
 GNEISS_API meta::type resolve_type(const registry_ref&, const type_ops&) noexcept;
 }
@@ -93,16 +93,16 @@ template <class T> meta::type type_of() noexcept {
   auto registry = default_registry();
   return type_of<T>(registry ? *registry : registry_ref{});
 }
-inline result<meta::type> find_type(engine::type_id id) noexcept {
+inline meta::type find_type(engine::type_id id) noexcept {
   auto registry = default_registry();
   if (!registry)
-    return registry.error();
+    return {};
   return find_type(*registry, id);
 }
-inline result<meta::type> find_type(engine::guid id) noexcept {
+inline meta::type find_type(engine::guid id) noexcept {
   auto registry = default_registry();
   if (!registry)
-    return registry.error();
+    return {};
   return find_type(*registry, id);
 }
 /** 以下重载使用默认注册表；错误与显式 registry 接口一致，不隐式冻结。 */

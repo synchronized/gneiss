@@ -260,7 +260,8 @@ Scene / Prefab 的结构编解码继续使用专用实现。
 
 ## 元数据与属性值查询
 
-`type_of<T>` 直接返回 `type`；`find_type`、`type_at` 暂时返回 `result<type>`；
+`type_of<T>`、`find_type` 直接返回 `type`；运行期查询未命中或注册表未发布时返回空句柄。
+`type_at` 暂时返回 `result<type>`；
 注册表级与类型句柄上的 `find_property` 均返回可判空的 `property`；
 无冻结记录、未知类型或未知属性返回空句柄。属性读取和写入另行报告操作失败。
 `serialization::find_policies` 返回 `result<serialization::type_policies>`。

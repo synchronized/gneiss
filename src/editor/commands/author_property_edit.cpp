@@ -218,10 +218,10 @@ engine::error edit_component_description(scene_edit_session& document,
     auto before = *current;
     auto type = meta::find_type(identity.component_type);
     if (!type)
-      return type.error();
+      return gneiss::engine::error{gneiss::engine::error::not_found};
     for (const auto& step : edit.path) {
       if (const auto* id = std::get_if<meta::property_id>(&step)) {
-        auto fields = type->properties();
+        auto fields = type.properties();
         if (!fields)
           return fields.error();
         auto field = std::ranges::find(*fields, *id, &meta::property::id);
@@ -233,9 +233,10 @@ engine::error edit_component_description(scene_edit_session& document,
           return error::unsupported;
         type = field->type();
       } else {
-        type = type->element_type();
-        if (!type)
-          return type.error();
+        auto element = type.element_type();
+        if (!element)
+          return element.error();
+        type = *element;
       }
     }
     auto changed = modify_component(before, [&](meta::instance root) -> error {

@@ -572,8 +572,8 @@ error edit_runtime_component(component_context context, guid type, meta::propert
     return renderer.error();
   auto reflected = meta::find_type(adapter->type);
   if (!reflected)
-    return reflected.error();
-  auto properties = reflected->properties();
+    return gneiss::engine::error{gneiss::engine::error::not_found};
+  auto properties = reflected.properties();
   if (!properties)
     return properties.error();
   for (const auto& field : *properties) {

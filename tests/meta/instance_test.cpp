@@ -290,8 +290,7 @@ struct query_model {
 };
 bool type_queries() {
   auto registry = m::create_registry();
-  if (!registry || !m::type_of<float>(*registry) ||
-      m::find_type(*registry, query_model::type_guid).error() != e::error::not_ready)
+  if (!registry || !m::type_of<float>(*registry) || m::find_type(*registry, query_model::type_guid))
     return false;
   if (m::enum_builder<mode>{*registry}.value("first", mode::first).commit().failed() ||
       m::registration<query_model>{*registry}
@@ -310,7 +309,7 @@ bool type_queries() {
   auto typed = m::type_of<const query_model&>(*registry);
   auto by_id = m::find_type(*registry, e::runtime_type_of<query_model>());
   auto by_guid = m::find_type(*registry, query_model::type_guid);
-  if (!typed || !by_id || !by_guid || typed.guid() != by_id->guid() || typed.id() != by_guid->id())
+  if (!typed || !by_id || !by_guid || typed.guid() != by_id.guid() || typed.id() != by_guid.id())
     return false;
   auto named = typed.find_property("count");
   auto numbered = typed.find_property(m::property_id{2});
@@ -325,17 +324,16 @@ bool type_queries() {
       (*props)[1].type().id() != e::runtime_type_of<std::int8_t>())
     return false;
   auto sequence = m::find_type(*registry, e::runtime_type_of<std::vector<mode>>());
-  auto element = sequence ? sequence->element_type() : e::result<m::type>{sequence.error()};
+  auto element = sequence ? sequence.element_type() : e::result<m::type>{e::error::not_found};
   auto enumeration = m::find_type(*registry, e::runtime_type_of<mode>());
   if (!element || !element->is_enum() || !enumeration ||
-      element->enum_entries().data() != enumeration->enum_entries().data())
+      element->enum_entries().data() != enumeration.enum_entries().data())
     return false;
   auto scalar = m::type_of<float>(*registry);
   if (!scalar || !m::find_type(*registry, scalar.guid()) || !m::type_of<settings>(*registry) ||
-      m::find_type(*registry, e::runtime_type_of<settings>()).error() != e::error::not_found ||
-      m::find_type(*registry, e::guid{}).error() != e::error::not_found ||
-      m::find_type(m::registry_ref{}, e::runtime_type_of<float>()).error() !=
-          e::error::invalid_handle)
+      m::find_type(*registry, e::runtime_type_of<settings>()) ||
+      m::find_type(*registry, e::guid{}) ||
+      m::find_type(m::registry_ref{}, e::runtime_type_of<float>()))
     return false;
   // 类型视图保活注册表，但不要求对象实例存活。
   std::weak_ptr<m::type_registry_state> weak = *registry;

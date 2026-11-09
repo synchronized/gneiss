@@ -524,10 +524,10 @@ describe_prefab_overrides(const engine::prefab_reference_description& reference,
     std::string text =
         object == source.objects.end() ? key.target.source_node_uuid.string() : object->name;
     auto type = meta::find_type(key.target.target_type_guid);
-    text += " / " + (type ? std::string(type->name()) : key.target.target_type_guid.string());
+    text += " / " + (type ? std::string(type.name()) : key.target.target_type_guid.string());
     if (!key.first_property().is_valid())
       return text;
-    auto property = type ? type->find_property(key.first_property()) : meta::property{};
+    auto property = type ? type.find_property(key.first_property()) : meta::property{};
     text += " / " +
             (property ? std::string(property.name()) : std::to_string(key.first_property().get()));
     auto current = property ? property.type() : meta::type{};

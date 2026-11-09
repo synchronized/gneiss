@@ -71,18 +71,14 @@ bool typed_registration() {
           .failed() ||
       count != 3 || !(info = gneiss::engine::meta::type_of<const reflected_object&>(registry)) ||
       !info || !info.registered() || info.guid() != object_guid ||
-      gneiss::test_support::assign_value(gneiss::engine::meta::find_type(registry, object_guid),
-                                         info)
-          .failed() ||
-      info.name() != "Object" || !(info = gneiss::engine::meta::type_of<other_object>(registry)) ||
+      !(info = gneiss::engine::meta::find_type(registry, object_guid)) || info.name() != "Object" ||
+      !(info = gneiss::engine::meta::type_of<other_object>(registry)) ||
       info.guid() != other_guid ||
       gneiss::test_support::assign_value(gneiss::engine::meta::type_at(registry, 1), info)
           .failed() ||
       !info.registered() || info.guid() != data_guid)
     return false;
-  if (gneiss::test_support::assign_value(gneiss::engine::meta::find_type(registry, e::type_id{}),
-                                         info) != error::not_found ||
-      info.guid() != data_guid ||
+  if (gneiss::engine::meta::find_type(registry, e::type_id{}) || info.guid() != data_guid ||
       !(info = gneiss::engine::meta::type_of<unregistered_object>(registry)) ||
       info.id() != e::runtime_type_of<unregistered_object>() || info.registered() || info.guid() ||
       gneiss::engine::meta::register_type<reflected_object>(registry, definition) !=
@@ -163,13 +159,13 @@ bool frozen_lookup() {
   if (!type)
     return false;
   for (const auto& field : fields) {
-    auto by_id = type->find_property(field.id);
-    auto by_name = type->find_property(field.name);
+    auto by_id = type.find_property(field.id);
+    auto by_name = type.find_property(field.name);
     if (!by_id || !by_name || by_id.name() != field.name || by_name.id() != field.id)
       return false;
   }
-  return !type->find_property(m::property_id{2}) && !type->find_property(m::property_id{999}) &&
-         !type->find_property("") && !type->find_property("field_128");
+  return !type.find_property(m::property_id{2}) && !type.find_property(m::property_id{999}) &&
+         !type.find_property("") && !type.find_property("field_128");
 }
 int main() {
   if (!frozen_lookup())
@@ -261,10 +257,8 @@ int main() {
   if (gneiss::test_support::assign_value(gneiss::engine::meta::type_at(registry, 0), info)
           .failed() ||
       info.guid() != scalar_type ||
-      gneiss::test_support::assign_value(gneiss::engine::meta::find_type(registry, object_type),
-                                         info)
-          .failed() ||
-      info.name() != "Object" || info.schema_version() != 1 || info.properties()->size() != 1 ||
+      !(info = gneiss::engine::meta::find_type(registry, object_type)) || info.name() != "Object" ||
+      info.schema_version() != 1 || info.properties()->size() != 1 ||
       !(metadata = gneiss::engine::meta::find_property(registry, object_type,
                                                        gneiss::engine::meta::property_id{1})) ||
       metadata.name() != "value" ||
