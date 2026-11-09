@@ -84,9 +84,7 @@ int main() try {
       return 1;
     std::printf("类型 %.*s\n", static_cast<int>(type->name().size()), type->name().data());
     auto properties = type->properties();
-    if (!properties)
-      return 1;
-    for (const auto& field : *properties)
+    for (const auto& field : properties)
       std::printf("  字段 %u: %.*s\n", field.id().get(), static_cast<int>(field.name().size()),
                   field.name().data());
   }

@@ -150,9 +150,9 @@ template <class T>
   requires(!std::is_lvalue_reference_v<T>)
 void view(const registry_ref&, T&&) = delete;
 }
-#include "engine/core/meta/associative_view.hpp"
-#include "engine/core/meta/optional_view.hpp"
-#include "engine/core/meta/reference_view.hpp"
-#include "engine/core/meta/sequence_view.hpp"
+#include "engine/core/meta/views/associative_view.hpp"
+#include "engine/core/meta/views/optional_view.hpp"
+#include "engine/core/meta/views/reference_view.hpp"
+#include "engine/core/meta/views/sequence_view.hpp"
 
-#include "engine/core/meta/variant_view.hpp"
+#include "engine/core/meta/views/variant_view.hpp"

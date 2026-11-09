@@ -27,9 +27,9 @@ foreach(source IN LISTS sources)
       content MATCHES "yyjson|json_serialization|json_bytes_serialization")
     message(FATAL_ERROR "Meta 类型注册不得包含 JSON 专用操作：${source}")
   endif()
-  if(source MATCHES "/src/engine/core/meta/(registration|registry|type_definition|type|property|instance|metadata)[.](hpp|cpp)$" AND
-      content MATCHES "engine/core/serialization/")
-    message(FATAL_ERROR "Meta 注册和内存访问不得依赖 Serialization：${source}")
+  if(source MATCHES "/src/engine/core/meta/" AND
+      content MATCHES "engine/core/serialization/|engine/(resource|function)/|editor/")
+    message(FATAL_ERROR "Meta 不得依赖 Serialization、资产、功能层或编辑器：${source}")
   endif()
   if(content MATCHES "engine/resource/(mesh|texture|material)/detail/[a-z_]+_resource_access[.]hpp" AND
       NOT source MATCHES "/src/engine/(resource/(mesh|texture|material)|function/asset/(detail/asset_construction|asset_manager))[.]cpp$")

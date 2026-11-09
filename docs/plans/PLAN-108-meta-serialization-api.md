@@ -5,13 +5,12 @@
 
 ## 状态与范围
 
-2026-11-09：实施中，属性范围、句柄、实例门面及旧查询清理已完成；注册适配与访问边界已完成；策略和上下文尚未完成。
-新增句柄布局、属性局部 builder 与动态类型门面整理，方向已同意，实施待开始；
-类型能力与注册数据分离、dynamic_type 直接返回 type 的方向已确认；
-本轮补充查询错误分级，尚未实施，不将目标方案写成现有行为。
+2026-11-09：已完成。阶段 1–8 及补充 4a–4c 已交付，旧入口与旧视图路径已删除。
+最终验收：编辑器及相关目标编译、47 项定向 CPU 测试、34 个头文件独立编译通过，见
+[最终验收记录](../records/2026-11-09-plan108-final-acceptance.md)。未执行 GPU、大场景、跨平台或远端发布。
 归属 [DEV-052](DEV-052-architecture-cleanup.md)，长期边界见
 [ADR-113](../decisions/ADR-113-meta-serialization-boundaries.md)。
-本文是目标 API 与迁移步骤的权威来源；代码示意均为目标接口，不表示已实现。
+本文保留已确认目标与实施步骤；当前接口以 Reference 为准，实际执行证据见验收记录。
 不限制内部改动范围，但保留现有已确认的数据语义，不重建并行实现，不修改 Granit。
 
 ## 目标与非目标
@@ -23,7 +22,7 @@
 运行期动态注册、脚本绑定、资产加载模型重做、GPU/流送功能及远端发布。
 Binary 作为后续消费者验证架构方向，本计划不能以不存在的 Binary 实现宣告跨格式验收。
 
-## 现状与修正
+## 迁移前基线与修正
 
 | 现有证据 | 处理 |
 | --- | --- |
@@ -97,7 +96,7 @@ TRY(x.assign(3.0f));
 - 继续保留按路径解析能力，持久路径遵循已有稳定元素身份规则；不引入 XPath 字符串身份。
 - 普通调用方不使用 type_info/type_definition；定义结构限注册层，内部存储限 detail。
 
-### 句柄与实例布局补充（方向已同意，尚未实施）
+### 句柄与实例布局补充（已实施）
 
 源码核查：type 目前重复保存 registry、access、id、guid、kind、scalar_kind 和 enumeration；
 const_instance 同样重复携带类型信息，可写 instance 又在完整只读视图外保存 data/parent。
@@ -162,7 +161,7 @@ meta::type object::dynamic_type(const registry_ref&) const noexcept;
 dynamic_address 继续承担多重继承下完整对象地址取得。持久化使用调用上下文的注册表，
 不能通过默认门面绕过显式 registry。value 对象引用与 reference_ops 同步迁移。
 
-### 查询与操作的错误分级（已确认方向，尚未实施）
+### 查询与操作的错误分级（已实施）
 
 不因为接口属于 Meta 就统一套 result/error。按“查询缺失是正常状态”与“请求执行失败”区分，
 调用方已知 registered 不需要重复处理没有注册记录的错误；但不能据此假定对象操作不会失败。
@@ -325,6 +324,8 @@ core/serialization/
   context.hpp / diagnostic.hpp
   reader.hpp / writer.hpp / serialization.hpp
   policy.hpp               内容、引用与字段策略
+  builtin_registration.hpp/.cpp / math_registration.cpp
+                           内置类型与持久化策略的组合注册
   json.hpp/.cpp
   value.hpp/.cpp            结构化快照入口
   detail/                  格式适配、遍历与操作状态
@@ -348,20 +349,20 @@ Binary 后续有真实任务时新增 binary.hpp/.cpp。本轮不创建空文件
    精简 type/property，提供 bool/registered，迁移查询返回形式，删除已替代 result 查询入口。
 4b. [x] 实例轻量化：统一只读/可写访问位置，精简容器视图；迁移动态类型门面，删除重复身份查询。
 4c. [x] 属性局部 builder：支持 property(...)(extensions...)，迁移并删除 property_metadata 旧入口。
-5. [ ] 策略拆分：替换 binding；先迁移已有 codec/引用，再做字段覆盖；
+5. [x] 策略拆分：替换 binding；先迁移已有 codec/引用，再做字段覆盖；
    迁移 editor_read_only/enum_name，分类迁移 validate，删除旧 flags 和 reflected 开关。
 6. [x] 序列化入口：read/write contexts 和私有操作状态，统一 encode/decode/read_into/write；
    JSON、特殊 codec、引用收集/绑定全部迁移，删除旧入口，不新增阻塞解析。
-7. [ ] 快照及领域接入：capture/apply/restore 使用新句柄和策略；验证 value 不共享可变历史状态；
+7. [x] 快照及领域接入：capture/apply/restore 使用新句柄和策略；验证 value 不共享可变历史状态；
    接入资产、场景/Prefab、IPC、编辑器、导入器和示例，不新增平行规则。
-8. [ ] 布局与收尾：移动文件、更新接口文档、删除旧头/接口/冗余类型；完成定向 CPU 验收并记录真实剩余限制。
+8. [x] 布局与收尾：移动文件、更新接口文档、删除旧头/接口/冗余类型；完成定向 CPU 验收并记录真实剩余限制。
 
 阶段 4 原有完成状态不代表新增 4a–4c 已完成；新增步骤按 4a → 4b → 4c 实施，
 与剩余策略及上下文工作在同一分支收敛，不建立第二条长期兼容实现。
 每阶段交付可编译闭环并本地提交，同一特性分支推进，不按子步骤创建 PR。
 迁移期间允许短暂内部适配，但该阶段结束须移除；禁止以长期兼容别名掩盖读写语义变化。
 
-### 首批迁移状态
+### 实施证据
 
 已替换 type/instance 的复制属性列表返回为 property_range，并接入 property::get。
 JSON 遍历、value 捕获、Inspector、Prefab 路径查询使用新范围。
@@ -417,6 +418,13 @@ JSON 入口和调用已迁移到 encode/decode/read_into，见
 [JSON 入口记录](../records/2026-11-09-serialization-json-api.md)。
 read_context/write_context 已分离，JSON、快照、codec、引用收集/绑定和资源格式入口已迁移，
 旧 context 类型已删除；编译与 CPU 验证见[读写上下文记录](../records/2026-11-09-serialization-direction-context.md)。
+
+
+阶段 5、7、8 已完成：所有领域校验采用入口已接入，快照、资产引用、IPC、编辑历史与示例
+使用统一门面。容器视图集中到 meta/views；内置类型与持久化策略组合注册归 Serialization，
+Meta 全目录不依赖 Serialization、资源或编辑器，边界反例覆盖新增目录。
+最终剩余限制属于已声明非目标：无 Binary 后端、插件卸载或未知类型保留能力；
+本次也未扩大跨平台/GPU 验证。详见最终验收记录，不留长期旧 API 兼容层。
 
 ## 九、验收矩阵
 

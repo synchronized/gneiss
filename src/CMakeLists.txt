@@ -98,16 +98,17 @@ target_sources(
     engine/core/meta/object.hpp
     engine/core/meta/object_type.hpp
     engine/core/meta/instance.hpp
-    engine/core/meta/sequence_view.hpp
-    engine/core/meta/associative_view.hpp
-    engine/core/meta/optional_view.hpp
-    engine/core/meta/variant_view.hpp
-    engine/core/meta/reference_view.hpp
+    engine/core/meta/views/sequence_view.hpp
+    engine/core/meta/views/associative_view.hpp
+    engine/core/meta/views/optional_view.hpp
+    engine/core/meta/views/variant_view.hpp
+    engine/core/meta/views/reference_view.hpp
     engine/core/meta/registry.cpp
     engine/core/value.cpp
     engine/core/value_edit.cpp
-    engine/core/meta/builtin_registration.cpp
-    engine/core/meta/math_registration.cpp
+    engine/core/serialization/builtin_registration.hpp
+    engine/core/serialization/builtin_registration.cpp
+    engine/core/serialization/math_registration.cpp
     engine/core/serialization/detail/json_adapter.hpp
     engine/core/serialization/detail/context_access.hpp
     engine/core/serialization/diagnostic.hpp

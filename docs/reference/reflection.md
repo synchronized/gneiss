@@ -26,15 +26,15 @@ Meta 的类型与函数统一位于 `gneiss::engine::meta`，不保留旧命名�
 | 文件 | 职责与主要类型 |
 | --- | --- |
 | `meta/type_types.hpp` | 类型分类与枚举项 |
-| `meta/property.hpp` | 属性 ID、标志、注册描述与访问器绑定 |
+| `meta/property.hpp` | 属性 ID、内存访问约束、注册描述与借用句柄 |
 | `meta/type.hpp` | `type` 查询句柄 |
-| `meta/type_definition.hpp` | 注册输入，组合对象能力与序列化绑定 |
+| `meta/type_definition.hpp` | 注册输入，组合对象能力与不透明扩展元数据 |
 | `meta/ops/object_ops.hpp` | 构造、基类指针转换和反射对象转换 |
 | `meta/registry_fwd.hpp` | 注册表前置声明与 `registry_ref` 所有者 |
 | `meta/registry.hpp` | 创建/注册/冻结、属性访问及能力查询 |
 | `meta/registry.cpp` | 唯一注册表的私有存储与实现 |
 | `meta/registration.hpp` | C++ Builder 注册入口与模板身份适配 |
-| `meta/builtin_registration.cpp` | 内建 meta::object 多态根类型注册 |
+| `serialization/builtin_registration.cpp` | 基础值、数学类型及持久化策略的组合注册 |
 | `serialization/diagnostic.hpp` | 编解码错误、路径与位置 |
 | `serialization/policy.hpp` | 内容编解码、引用表示、对象及校验策略 |
 | `serialization/json.hpp` | JSON 文本、字节与对象入口 |
@@ -53,7 +53,7 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 类型自身的稳定身份为 `type_definition.guid`、`type::guid()`；注册输入另有可选的运行期 `type_id`。
 重复非空 GUID 或重复非空运行期 ID 的注册返回 `error::invalid_argument`，不覆盖已有记录。
 普通 C++ 对象可仅注册运行期 type_id；GUID 与 type_id 不能同时为空。
-多个无 GUID 类型通过 type_id 区分，nil GUID 查询始终返回 not_found。
+多个无 GUID 类型通过 type_id 区分，nil GUID 的 find_type 查询返回空句柄。
 注册名称不得为空或包含内嵌空字符，必须是合法 UTF-8；重复字段编号或名称也会被拒绝。
 
 `bind_property` 绑定原生函数指针、类别和借用上下文；相同完整绑定可重复调用。
@@ -74,7 +74,7 @@ invalid_argument。注册器只在显式 commit 时提交，重复 commit 返回
 `name()` 借用注册对象名称；空句柄或没有注册名称的类型返回空字符串。
 `type::find_property(property_id)` / `type::find_property(name)` 直接返回可判空的属性句柄，
 缺少记录或属性时返回空句柄，不复制整份属性列表。
-空类型查询返回 `invalid_state`，非对象类型返回 `unsupported`，不存在的属性返回 `not_found`。
+空类型、非对象类型和不存在的属性均返回空属性句柄；需要数据的实际读写操作继续返回错误。
 属性句柄可继续查询类型、访问能力或通过 `get(instance)` 访问对象。
 名称、属性范围与借用对象寿命分别遵循其所属句柄和实例的约束。
 
@@ -97,7 +97,7 @@ static constexpr guid type_guid =
 `type_identity<T>` 优先读取类内静态 `type_name` 和 `type_guid`，也允许外部特化；
 未声明名称时回退到 `type_name<T>`，未声明 GUID 时为空。cv/ref 委托规范化类型。
 当前 bool、float、vector3、quaternion 的 traits 提供内建字段原有的稳定 GUID；
-其他属性类型使用 builder 前须提供相应 GUID 特化，不能按编译器名称临时生成。
+普通内存类型可仅有运行期身份；需要持久化动态类型身份时须提供固定 GUID，不能按编译器名称临时生成。
 
 `registration.hpp` 是普通 C++ 类型注册的主要入口，通过 `registration<T>` 使用现有 Registry，
 没有第二套运行期状态。动态描述仍可使用 `registry.hpp` 的非模板注册函数。
@@ -135,8 +135,9 @@ return gneiss::engine::meta::registration<math::transform>{}
 模板去除顶层 cv/ref；注册 `void` 或传入不匹配的非空 `type_id` 返回 `invalid_argument`。
 不对应 C++ 类型的描述保留空 `type_id`，仍可按 GUID 查询。运行期 ID 不进入文件或 IPC。
 `property_definition` 的编号和内存访问约束分别使用 `property_id` 与 `property_access`；`bind_property` 接收强类型字段编号。
-查询以 result 返回值或错误；未冻结返回 `not_ready`，未知身份或越界索引返回 `not_found`，空引用返回
-`invalid_handle`。类型查询输出拥有字段数组，名称借用 Registry，不能超过 Registry 生命周期。
+find_type/find_property 返回可判空句柄，type_of 提供未注册原生类型能力；枚举数量和按索引查询
+仍返回 result，未冻结为 not_ready，越界为 not_found。属性范围不复制字段数组，
+范围和句柄保活注册表；借用名称不能超过持有者寿命。
 
 原生属性值支持布尔、int64、uint64、float、double、UTF-8 字符串、稳定 GUID、三维向量和四元数。
 浮点与数学值必须有限，字符串必须为无内嵌空字符的合法 UTF-8，GUID 值允许 nil；类型或对象身份是否允许 nil，由对应注册/业务规则校验。
@@ -157,10 +158,10 @@ setter 应先校验再修改，Core 不回滚第三方回调已经产生的副�
 
 ## 内建组件与生命周期
 
-`meta::register_builtin_types` 注册基础值以及 `math::transform`、`math::camera_settings`，
+`serialization::register_builtin_types` 注册基础值以及 `math::transform`、`math::camera_settings`，
 支持默认表和显式独立表，不冻结注册表；重复注册返回 `invalid_argument`。
-数学注册实现集中在 `core/meta/math_registration.cpp`，不依赖 World 或资源模块。
-`camera_description` 等业务描述由资源内置注册负责，应用初始化依次注册 Meta 和资源类型。
+数学注册实现集中在 `core/serialization/math_registration.cpp`，不依赖 World 或资源模块。
+`camera_description` 等业务描述由资源内置注册负责，应用初始化依次注册基础类型及其序列化策略、资源类型。
 稳定身份使用 `math::transform::type_guid`、`camera_description::type_guid`。
 
 `function/scene/component_adapter.hpp` 提供 `read_component_property`、`write_component_property`：显式接收 `world&`、
@@ -205,7 +206,7 @@ Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `
 的类型及 codec，统一使用默认表。注册集中在 `resource/builtin_resource_registration.cpp`；
 codec 文件只提供编解码入口。首次失败立即返回，不回滚已注册内容；重复注册失败。
 组件描述随资源入口一起登记。冻结前依次登记 Meta 内置类型、World 基础值和资源类型；默认 initialize_meta 已按依赖顺序集中调用，
-无需资源消费者重复注册。Meta 的 register_builtin_types 提供默认表和显式表版本，独立注册表可据此读写 engine::value，无需加载资源模块。
+无需资源消费者重复注册。Serialization 的 register_builtin_types 提供默认表和显式表版本，独立注册表可据此读写 engine::value，无需加载资源模块。
 材质直接注册 parameters、texture_uris 及嵌套字段，格式包装器只处理格式头；实际格式见[材质格式](render-asset-formats.md#material)。
 
 ## 反射 JSON 与对象校验
@@ -328,7 +329,7 @@ application 自动调用无参入口，重复无参调用返回首次结果。�
 任一步失败均释放临时父对象，调用方不会接收到半成品。访问器和校验器不得依赖外部回滚。
 
 相机描述的 C++ 数据为 `camera_description { math::camera_settings settings; bool is_primary; }`。
-`camera_settings` 的身份通过外部 traits 定义，数学属性由 Meta 内置注册；透视参数校验由资源组件领域入口和 World 采用时执行，数学类型本身不依赖 Meta。
+`camera_settings` 的身份通过外部 traits 定义，数学属性由 Serialization 内置组合注册；透视参数校验由资源组件领域入口和 World 采用时执行，数学类型本身不依赖 Meta。
 Camera 直接绑定 settings 和 is_primary，文件内容为：
 
 ```json
@@ -611,8 +612,8 @@ instance::assign 对可直接访问的引用槽接受兼容对象或空引用，
 ## 序列化格式边界
 
 序列化实现位于 `engine/core/serialization/json.cpp`，普通调用包含 `serialization/json.hpp`。
-`serialization::json::encode` 返回 JSON 文本，`serialize_bytes` 返回相同 JSON 的字节；
-`deserialize<T>` 接受文本或字节。两种入口均提供 context-first 和默认上下文版本。
+`serialization::json::encode` 返回 JSON 文本，`encode_bytes` 返回相同 JSON 的字节；
+`decode<T>` 接受文本或字节。两种入口均提供 context-first 和默认上下文版本。
 Meta 不再提供含糊的 serialize/deserialize 入口。
 
 注册表保存构造、继承和不可变扩展元数据；Serialization 从扩展解释编解码与校验策略。

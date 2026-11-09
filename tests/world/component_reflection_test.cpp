@@ -3,6 +3,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/serialization/builtin_registration.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
@@ -16,8 +17,9 @@ int main() {
   engine::world_owner first, second;
   gneiss::entity_id entity, missing;
   gneiss::scene_node_id node;
-  if (engine::meta::register_builtin_types().failed() ||
-      engine::meta::register_builtin_types() != engine::error::invalid_argument ||
+  if (gneiss::engine::serialization::register_builtin_types().failed() ||
+      gneiss::engine::serialization::register_builtin_types() !=
+          engine::error::invalid_argument ||
       engine::register_builtin_resource_types().failed() ||
       gneiss::engine::meta::freeze().failed() ||
       gneiss::test_support::assign_value(engine::create_native(), first).failed() ||

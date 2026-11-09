@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/serialization/value.hpp"
-#include "engine/core/meta/associative_view.hpp"
-#include "engine/core/meta/optional_view.hpp"
-#include "engine/core/meta/reference_view.hpp"
-#include "engine/core/meta/sequence_view.hpp"
-#include "engine/core/meta/variant_view.hpp"
+#include "engine/core/meta/views/associative_view.hpp"
+#include "engine/core/meta/views/optional_view.hpp"
+#include "engine/core/meta/views/reference_view.hpp"
+#include "engine/core/meta/views/sequence_view.hpp"
+#include "engine/core/meta/views/variant_view.hpp"
 #include "engine/core/serialization/detail/context_access.hpp"
 #include "engine/core/serialization/detail/traversal.hpp"
 #include "engine/core/serialization/policy.hpp"

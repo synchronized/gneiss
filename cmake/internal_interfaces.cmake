@@ -81,11 +81,11 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/meta/object.hpp
   engine/core/meta/object_type.hpp
   engine/core/meta/instance.hpp
-    engine/core/meta/sequence_view.hpp
-    engine/core/meta/associative_view.hpp
-    engine/core/meta/optional_view.hpp
-    engine/core/meta/variant_view.hpp
-    engine/core/meta/reference_view.hpp
+    engine/core/meta/views/sequence_view.hpp
+    engine/core/meta/views/associative_view.hpp
+    engine/core/meta/views/optional_view.hpp
+    engine/core/meta/views/variant_view.hpp
+    engine/core/meta/views/reference_view.hpp
   engine/core/meta/detail/type_ops.hpp
   engine/core/meta/ops/ops_fwd.hpp
   engine/core/meta/ops/scalar_ops.hpp
@@ -96,6 +96,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/meta/ops/reference_ops.hpp
 
   engine/resource/asset_file.hpp
+  engine/core/serialization/builtin_registration.hpp
   engine/core/serialization/context.hpp
   engine/core/serialization/detail/typed_decode.hpp
   engine/core/serialization/value.hpp

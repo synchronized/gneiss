@@ -3,6 +3,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/math/camera.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/serialization/builtin_registration.hpp"
 #include "engine/core/serialization/json.hpp"
 #include <array>
 #include <cstdint>
@@ -107,7 +108,8 @@ bool math_registration() {
   namespace e = gneiss::engine;
   namespace m = e::meta;
   auto registry = m::create_registry();
-  if (!registry || m::register_builtin_types(*registry).failed() || m::freeze(*registry).failed())
+  if (!registry || gneiss::engine::serialization::register_builtin_types(*registry).failed() ||
+      m::freeze(*registry).failed())
     return false;
   auto transform = m::type_of<e::math::transform>(*registry);
   auto camera = m::type_of<e::math::camera_settings>(*registry);

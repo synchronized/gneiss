@@ -740,7 +740,8 @@ foreach(path IN ITEMS "serialization/policy.hpp" "meta/type_definition.hpp")
 endforeach()
 
 # 注册与内存访问仅使用通用扩展元数据，不可反向依赖序列化策略。
-foreach(path IN ITEMS "registration.hpp" "registry.cpp" "type_definition.hpp" "instance.hpp")
+foreach(path IN ITEMS "registration.hpp" "registry.cpp" "type_definition.hpp" "instance.hpp"
+    "builtin_registration.cpp" "math_registration.cpp" "views/sequence_view.hpp")
   file(WRITE "${fixture}/src/engine/core/meta/${path}" "#include <engine/core/serialization/policy.hpp>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"

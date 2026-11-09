@@ -5,7 +5,7 @@
 
 ## 状态
 
-2026-11-09：接受目标方向，部分已实施，完整收敛尚未完成。详见
+2026-11-09：已接受并实施，定向 CPU 验收通过；跨平台和 GPU 验收不属于本轮范围。详见
 [PLAN-108](../plans/PLAN-108-meta-serialization-api.md)。
 延续 ADR-109 的结构化值和 ADR-112 的资产引用语义；不修改历史已完成记录。
 
@@ -40,7 +40,11 @@ content/reference 协议。动态内嵌类型显式携带 GUID，引用环返回
 dynamic_type 直接返回支持 bool 的 type，类型有效与 registered 状态独立。纯查询使用直接值、
 可空句柄或空范围；访问、修改、注册和持久化的真实失败继续返回 result/error/diagnostic。
 序列化不得把未注册类型的空属性范围当成合法空对象。目标细节和验收仅在 PLAN-108 第二节维护。
-上述新增接口尚未实施；不改变 Meta/Serialization 依赖方向及 PLAN-109 的异常政策。
+上述句柄及注册接口已经实施，验收进度见 PLAN-108；不改变 PLAN-109 的异常政策。
+
+内置值和数学类型的注册同时声明持久化策略，由 Serialization 的 builtin_registration
+统一组织。Meta 注册器仅保存任意扩展，不通过回调反向调用 Serialization，也不保留旧初始化别名。
+纯内存操作继续通过原生 type_of/view 和用户显式注册使用，不要求运行序列化初始化。
 
 ## 取舍
 

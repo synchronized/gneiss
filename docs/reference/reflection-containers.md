@@ -26,7 +26,7 @@ array 的 is_resizable() 为 false，resize 仅接受原长度；JSON 长度必�
 关联视图通过 keys() 获取排序后的自有键列表，通过 find(key) 获取值实例；键不可通过视图修改。
 可写关联视图提供 insert、erase、clear，insert 已存在键时保留原值。
 
-序列、关联与引用视图分别定义在 meta/sequence_view.hpp、associative_view.hpp、
+序列、关联与引用视图分别定义在 meta/views/sequence_view.hpp、associative_view.hpp、
 reference_view.hpp；每类通过 basic_*_view<Mutable> 区分读写，不共用跨类别 container_view。
 instance.hpp 汇集这些视图，原有容器调用方无需更换 include。引用视图语义见
 [引用属性访问](reflection.md#引用属性访问)。

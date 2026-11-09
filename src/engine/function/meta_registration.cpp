@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/meta_registration.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/serialization/builtin_registration.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include <mutex>
 #include <new>
@@ -17,7 +18,7 @@ error initialize_meta(meta_registration_callback callback) noexcept try {
   // 包含 callback 异常在内的失败必须留下明确终态，不允许后续调用误报成功。
   status = error::internal;
   try {
-    status = meta::register_builtin_types();
+    status = gneiss::engine::serialization::register_builtin_types();
     if (status.ok())
       status = register_builtin_resource_types();
     if (status.ok() && callback)

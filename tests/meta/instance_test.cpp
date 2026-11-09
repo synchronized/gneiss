@@ -3,6 +3,7 @@
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/object_type.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/serialization/builtin_registration.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/serialization/policy.hpp"
 #include <future>
@@ -47,7 +48,7 @@ bool object_values() {
   }
 
   auto registry = m::create_registry();
-  if (!registry || m::register_builtin_types(*registry).failed() ||
+  if (!registry || gneiss::engine::serialization::register_builtin_types(*registry).failed() ||
       m::registration<shared_probe>{*registry}
           .property<&shared_probe::number>(m::property_id{1}, "number")
           .property<&shared_probe::nested>(m::property_id{2}, "nested")

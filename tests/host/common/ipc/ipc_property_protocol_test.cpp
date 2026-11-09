@@ -4,6 +4,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/meta/object_type.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/serialization/builtin_registration.hpp"
 #include "ipc_property_protocol.hpp"
 
 #include <array>
@@ -23,7 +24,7 @@ struct wire_object : m::object_type<wire_object> {
   int count = 9;
 };
 bool test_object_value() {
-  if (m::register_builtin_types().failed() ||
+  if (gneiss::engine::serialization::register_builtin_types().failed() ||
       m::registration<wire_object>{}
           .property<&wire_object::count>(m::property_id{1}, "count")
           .commit()

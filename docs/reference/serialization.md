@@ -5,6 +5,13 @@
 
 实现位于 `src/engine/core/serialization`，使用 Meta 的类型和属性访问，不维护第二套注册表。
 
+## 内置注册
+
+`builtin_registration.hpp` 的 `serialization::register_builtin_types()` 注册基础值、数学类型
+及其持久化策略；显式注册表重载也可用。入口不冻结表，重复调用按普通重复注册报错。
+应用的 initialize_meta 统一调用它，再注册资源及用户类型，最后冻结。
+Meta 只提供通用注册器与扩展存储，不依赖这些持久化策略。
+
 ## 调用入口
 
 普通 JSON 使用 `json.hpp`：
@@ -139,7 +146,7 @@ Mesh 描述的拓扑、数组对应关系和法线约束，以及 Texture 的来
 内容编解码、引用表示和对象约束分别由 content_codec、reference_policy、object_policy、
 validation_policy 表达，定义在 `policy.hpp`。Meta 仅保存这些扩展，不解释内容。
 类型构造与继承转换属于 Meta 的 object_ops，不存放于编解码绑定。
-内建反射对象根类型的注册实现在 `meta/builtin_registration.cpp`；value 是内建 variant 包装，
+内建反射对象根类型的注册实现在 `serialization/builtin_registration.cpp`；value 是内建 variant 包装，
 无需登记自己的字段或 codec。JSON 节点适配位于 `detail/json_adapter.hpp`，
 命名空间为 `serialization::json::detail`；普通调用方使用文本、字节或 reader/writer 入口。
 

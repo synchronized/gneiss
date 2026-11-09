@@ -5,7 +5,7 @@
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
 #include "engine/core/meta/object_type.hpp"
-#include "engine/core/meta/reference_view.hpp"
+#include "engine/core/meta/views/reference_view.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/serialization/policy.hpp"
 #include "engine/function/meta_registration.hpp"

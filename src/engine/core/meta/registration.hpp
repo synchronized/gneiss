@@ -12,13 +12,6 @@
 #include <vector>
 
 namespace gneiss::engine::meta {
-/** 注册 Meta 基础值及数学类型；不冻结注册表，重复注册按普通类型注册规则报错。 */
-GNEISS_API error register_builtin_types(const registry_ref&) noexcept;
-inline error register_builtin_types() noexcept {
-  auto registry = default_registry();
-  return registry ? register_builtin_types(*registry) : registry.error();
-}
-
 /** 从规范化 C++ 类型提取身份；显式身份与 traits 冲突时拒绝注册。 */
 template <class T>
 [[nodiscard]] error register_type(const registry_ref& registry, type_definition definition,

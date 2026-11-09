@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/object_type.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/serialization/builtin_registration.hpp"
 #include "engine/core/serialization/policy.hpp"
 #include "engine/core/serialization/serialization.hpp"
 #include <cstdio>
@@ -156,7 +157,7 @@ int main() {
             .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
             .commit()
             .ok());
-  CHECK(m::register_builtin_types(*r).ok());
+  CHECK(gneiss::engine::serialization::register_builtin_types(*r).ok());
   CHECK(m::freeze(*r).ok());
   s::write_context ctx{*r};
   s::read_context read_ctx{*r};

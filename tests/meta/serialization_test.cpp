@@ -3,6 +3,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/meta/object_type.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/serialization/builtin_registration.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/serialization/policy.hpp"
 #include "engine/core/serialization/serialization.hpp"
@@ -215,8 +216,8 @@ int main() {
     return 90;
   // Meta 独立注册表即可读写 value，不依赖 World 或资源注册。
   auto core = e::meta::create_registry();
-  if (!core || e::meta::register_builtin_types(*core).failed() ||
-      e::meta::register_builtin_types(*core) != e::error::invalid_argument ||
+  if (!core || gneiss::engine::serialization::register_builtin_types(*core).failed() ||
+      gneiss::engine::serialization::register_builtin_types(*core) != e::error::invalid_argument ||
       e::meta::registration<cyclic_data>{*core}
           .base<e::meta::object>()
           .property<&cyclic_data::next>(e::meta::property_id{1}, "next")
@@ -422,7 +423,8 @@ int main() {
     return 35;
   auto invalid = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::write_context{*core}, e::value{});
-  if (!invalid || e::meta::register_builtin_types(*core) != e::error::invalid_state)
+  if (!invalid ||
+      gneiss::engine::serialization::register_builtin_types(*core) != e::error::invalid_state)
     return 33;
 
   gneiss::engine::meta::registry_ref registry;
@@ -437,7 +439,8 @@ int main() {
     return 1;
   if (gneiss::test_support::assign_value(gneiss::engine::meta::default_registry(), registry)
           .failed() ||
-      e::meta::register_builtin_types().failed() || e::register_builtin_resource_types().failed())
+      gneiss::engine::serialization::register_builtin_types().failed() ||
+      e::register_builtin_resource_types().failed())
     return 2;
   if (gneiss::test_support::assign_decoded(
           gneiss::engine::asset_file::serialize_bytes(
