@@ -104,6 +104,7 @@ public:
   [[nodiscard]] GNEISS_API property_id id() const noexcept;
   [[nodiscard]] GNEISS_API std::string_view name() const noexcept;
   [[nodiscard]] GNEISS_API engine::guid declaring_type() const noexcept;
+  [[nodiscard]] GNEISS_API engine::type_id declaring_type_id() const noexcept;
   [[nodiscard]] GNEISS_API meta::type type() const noexcept;
   [[nodiscard]] GNEISS_API property_flags flags() const noexcept;
   [[nodiscard]] GNEISS_API property_capabilities capabilities() const noexcept;

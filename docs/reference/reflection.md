@@ -51,13 +51,16 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 
 `create_registry()` 返回 `result<registry_ref>` 所有者；`register_type` 深拷贝名称和字段描述。
 类型自身的稳定身份为 `type_definition.guid`、`type::guid()`；注册输入另有可选的运行期 `type_id`。
-重复 GUID 或重复非空运行期 ID 的注册返回 `error::invalid_argument`，不覆盖已有记录。
+重复非空 GUID 或重复非空运行期 ID 的注册返回 `error::invalid_argument`，不覆盖已有记录。
+普通 C++ 对象可仅注册运行期 type_id；GUID 与 type_id 不能同时为空。
+多个无 GUID 类型通过 type_id 区分，nil GUID 查询始终返回 not_found。
 注册名称不得为空或包含内嵌空字符，必须是合法 UTF-8；重复字段编号或名称也会被拒绝。
 
 `bind_property` 绑定原生函数指针、类别和借用上下文；相同完整绑定可重复调用。
 `freeze` 按 GUID 字节顺序和字段编号排序，之后禁止注册与绑定。重复冻结幂等成功。
 冻结时同时建立包含继承属性的名称槽位索引，准备完成后统一提交；失败保留原注册内容，允许补齐后重试。
 冻结后的已注册对象按 GUID 二分查询或运行期 ID 索引查询，属性按 ID/名称二分查询。
+无 GUID 类型按进程类型 ID 排序，此顺序只用于当前进程枚举，不得持久化。
 基础值、枚举及容器类型继续使用各自的既有解析路径，不承诺所有类型查找都已索引化。
 
 无静态身份的外部类型可通过 `registration<T>{}.name("名称").guid(id)` 补充身份；
@@ -260,6 +263,15 @@ Scene / Prefab 的结构编解码继续使用专用实现。
 `read_property` 返回 `result<value>`；成功快照拥有字符串等数据，可在 Registry 释放后使用。
 getter 失败、异常或返回不匹配／无效值时仅返回错误，不交付部分属性快照。
 写属性仍返回 error；编解码与序列化模板返回 result。
+
+## 无 GUID 对象边界
+
+`registration<T>{}.name("名称")` 可以注册没有持久 GUID 的 C++ 对象；名称已有 traits 时可省略。
+`type_of<T>`、view、member、getter/setter、嵌套对象按运行期 type_id 访问，
+不能通过 nil GUID 查找这些类型。普通静态类型 JSON 内容不携带身份，可正常编解码。
+多态 `$type_guid/$content` 必须有非空 GUID，否则编码返回 unsupported。
+对象 value 快照使用稳定 GUID 标识结构，capture/apply 对无 GUID 对象返回 unsupported；
+不把进程 type_id 写入文件，也不把所有 nil GUID 对象视为同一种快照。
 
 ## 默认注册表与启动
 
@@ -491,7 +503,8 @@ reference_view.get() 返回实际类型视图；ref<const T> 只允许读取目�
 base 链同时用于身份校验、指针调整和继承属性访问。freeze 合并完整继承链的属性，
 按属性 ID 排序；任意祖先与派生类的属性 ID 或名称冲突返回 invalid_argument，不提供遮蔽。
 基类尚未注册返回 not_found；冻结失败不会留下部分合并结果，可补齐注册后重试。
-property::declaring_type() 表示声明字段的类型；const_instance 和 read_property/write_property
+property::declaring_type() 提供声明类型的可选 GUID，declaring_type_id() 提供运行期身份；
+原生实例用运行期身份定位父对象及继承字段，const_instance 和 read_property/write_property
 自动按注册的 upcast 链调整基类地址，支持基类在完整 C++ 对象中具有非零偏移。
 底层 find_object_property 返回声明类型的原始访问器，调用回调时须传入声明类型的地址；
 普通调用方使用 const_instance。继承字段同样参与 JSON、value 捕获/恢复，遵守 required、

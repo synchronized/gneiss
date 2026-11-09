@@ -73,6 +73,14 @@ find_property(const registry_ref& registry, engine::guid type, property_id prope
 GNEISS_API result<property_binding> find_object_property(const registry_ref&, guid,
                                                          property_id) noexcept;
 
+/** 原生实例按进程类型身份访问；不要求持久 GUID。 */
+GNEISS_API result<value> read_property(const registry_ref&, engine::type_id, property_id,
+                                       const void*) noexcept;
+GNEISS_API error write_property(const registry_ref&, engine::type_id, property_id, void*,
+                                const value&) noexcept;
+GNEISS_API result<property_binding> find_object_property(const registry_ref&, engine::type_id,
+                                                         property_id) noexcept;
+
 inline error register_enum(engine::type_id id, value_kind kind,
                            std::span<const enum_entry> entries) noexcept {
   auto registry = default_registry();

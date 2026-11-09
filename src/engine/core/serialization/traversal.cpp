@@ -165,6 +165,8 @@ result<writer::node, serialization::diagnostic> encode_nonobject(const context& 
     auto actual_type = find_type(registry, *actual);
     if (!actual_type)
       return failure(actual_type.error());
+    if (!actual_type->guid())
+      return failure(error::unsupported, "", "多态持久化需要稳定类型 GUID");
     auto* entry = doc->object();
     const auto guid = actual_type->guid().string();
     if (!entry || !doc->member(entry, "$type_guid", doc->string(guid)) ||

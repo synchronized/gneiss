@@ -36,6 +36,8 @@ struct capture_state {
     case type_kind::scalar:
       return source.read_value();
     case type_kind::object: {
+      if (!source.guid())
+        return error::unsupported;
       auto policy = find_serialization(property_access::registry(source), source.type_id());
       if (policy && !policy->reflected && (policy->encode || policy->decode))
         return error::unsupported;
@@ -207,6 +209,8 @@ struct restore_state {
     case type_kind::scalar:
       return target.assign(data);
     case type_kind::object: {
+      if (!target.type().guid())
+        return error::unsupported;
       auto record = std::get_if<record_value>(&data.payload);
       if (!record || record->get().type != target.type().guid())
         return error::invalid_argument;

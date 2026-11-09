@@ -23,13 +23,6 @@ result<std::span<const enum_entry>> type::enum_entries() const noexcept {
     return error::unsupported;
   return meta::enum_entries(registry_, id_);
 }
-result<property_range> type::properties() const noexcept {
-  if (kind_ == type_kind::invalid)
-    return error::invalid_state;
-  if (kind_ != type_kind::object)
-    return error::unsupported;
-  return meta::properties(registry_, guid_);
-}
 bool type::is_fixed_sequence() const noexcept {
   const auto* ops = access_ ? access_->get<sequence_ops>() : nullptr;
   return ops && ops->fixed_size;
@@ -76,7 +69,7 @@ result<const_instance> const_instance::member(property_id id) const noexcept try
   auto info = type().find_property(id);
   if (!info)
     return info.error();
-  if (info->declaring_type() != type_) {
+  if (info->declaring_type_id() != cpp_type_) {
     auto ops = find_object_ops(registry_, cpp_type_);
     if (!ops || !ops->upcast)
       return ops ? error::invalid_state : ops.error();
@@ -87,13 +80,13 @@ result<const_instance> const_instance::member(property_id id) const noexcept try
   const_instance output;
   output.registry_ = registry_;
   output.parent_ = data_;
-  output.parent_type_ = type_;
+  output.parent_type_ = cpp_type_;
   output.property_ = id;
   output.type_ = info->type().guid();
   output.cpp_type_ = info->type().id();
   output.enumeration_ = info->type().is_enum();
   if (info->type().kind() != type_kind::scalar && info->type().kind() != type_kind::invalid) {
-    auto binding = find_object_property(registry_, type_, id);
+    auto binding = find_object_property(registry_, cpp_type_, id);
     if (!binding)
       return binding.error();
     if (!binding->object_getter)
@@ -172,7 +165,7 @@ result<instance> instance::member(property_id id) const noexcept try {
   auto info = view_.type().find_property(id);
   if (!info)
     return info.error();
-  if (info->declaring_type() != view_.type_) {
+  if (info->declaring_type_id() != view_.cpp_type_) {
     auto ops = find_object_ops(view_.registry_, view_.cpp_type_);
     if (!ops || !ops->upcast)
       return ops ? error::invalid_state : ops.error();
@@ -186,7 +179,7 @@ result<instance> instance::member(property_id id) const noexcept try {
   output.parent_ = data_;
   output.view_ = std::move(*child);
   if (info->type().kind() != type_kind::scalar && info->type().kind() != type_kind::invalid) {
-    auto binding = find_object_property(view_.registry_, view_.type_, id);
+    auto binding = find_object_property(view_.registry_, view_.cpp_type_, id);
     if (!binding)
       return binding.error();
     if (binding->object_setter)
@@ -477,7 +470,8 @@ result<const_instance> property::get(const const_instance& object) const noexcep
   auto info = object.type().find_property(id());
   if (!info)
     return info.error();
-  if (info->declaring_type() != declaring_type())
+  if (info->declaring_type_id() != declaring_type_id() ||
+      info->declaring_type() != declaring_type())
     return error::invalid_argument;
   return object.member(id());
 }
@@ -490,7 +484,8 @@ result<instance> property::get(const instance& object) const noexcept {
   auto info = view.type().find_property(id());
   if (!info)
     return info.error();
-  if (info->declaring_type() != declaring_type())
+  if (info->declaring_type_id() != declaring_type_id() ||
+      info->declaring_type() != declaring_type())
     return error::invalid_argument;
   return object.member(id());
 }

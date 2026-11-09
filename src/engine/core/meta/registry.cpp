@@ -123,6 +123,7 @@ struct property_record {
   std::string name;
   property_accessor accessor{};
   engine::guid declaring_type{};
+  engine::type_id declaring_id{};
 };
 
 struct type_record {
@@ -148,7 +149,7 @@ struct type_record {
          is_valid_name(property.name);
 }
 [[nodiscard]] bool validate_type(const type_definition& desc) noexcept {
-  if (!static_cast<bool>(desc.guid) || desc.schema_version == 0U || desc.name.empty() ||
+  if ((!desc.guid && !desc.type_id) || desc.schema_version == 0U || desc.name.empty() ||
       desc.name.size() > std::numeric_limits<std::uint32_t>::max() ||
       desc.properties.size() > std::numeric_limits<std::uint32_t>::max() ||
       !is_valid_name(desc.name)) {
@@ -230,7 +231,8 @@ public:
     for (std::size_t i = 0; i < desc.properties.size(); ++i) {
       if (!desc.properties[i].type_guid &&
           (bindings.size() != desc.properties.size() || !bindings[i].access ||
-           (bindings[i].access->kind() != type_kind::sequence &&
+           (bindings[i].access->kind() != type_kind::object &&
+            bindings[i].access->kind() != type_kind::sequence &&
             bindings[i].access->kind() != type_kind::associative &&
             bindings[i].access->kind() != type_kind::optional &&
             bindings[i].access->kind() != type_kind::reference &&
@@ -253,7 +255,8 @@ public:
       if (is_frozen_) {
         return error::invalid_state;
       }
-      if (find_type_unlocked(desc.guid) || (desc.type_id && by_cpp_type_.contains(desc.type_id))) {
+      if ((desc.guid && find_type_unlocked(desc.guid)) ||
+          (desc.type_id && by_cpp_type_.contains(desc.type_id))) {
         return error::invalid_argument;
       }
 
@@ -271,7 +274,8 @@ public:
                                       .flags = static_cast<std::uint32_t>(property.flags),
                                       .name = std::string(property.name),
                                       .accessor = {},
-                                      .declaring_type = desc.guid});
+                                      .declaring_type = desc.guid,
+                                      .declaring_id = desc.type_id});
       }
       for (std::size_t i = 0; i < bindings.size(); ++i) {
         const auto& binding = bindings[i];
@@ -422,7 +426,9 @@ public:
         types_[i]->property_names.swap(names[i]);
       }
       std::ranges::sort(types_, [](const auto& left, const auto& right) {
-        return left->guid.bytes() < right->guid.bytes();
+        if (left->guid != right->guid)
+          return left->guid.bytes() < right->guid.bytes();
+        return left->type_id < right->type_id;
       });
       is_frozen_ = true;
       return error::success;
@@ -431,7 +437,8 @@ public:
     }
   }
 
-  [[nodiscard]] result<value> get_property(guid type_id, std::uint32_t property_id,
+  template <class Key>
+  [[nodiscard]] result<value> get_property(Key type_id, std::uint32_t property_id,
                                            const void* object) const noexcept {
     if (!object)
       return error::invalid_argument;
@@ -462,7 +469,8 @@ public:
     return output;
   }
 
-  [[nodiscard]] error set_property(guid type_id, std::uint32_t property_id, void* object,
+  template <class Key>
+  [[nodiscard]] error set_property(Key type_id, std::uint32_t property_id, void* object,
                                    const value& value) const noexcept {
     if (!is_valid_property_value(value)) {
       return error::invalid_argument;
@@ -619,7 +627,7 @@ public:
   } catch (...) {
     return error::internal;
   }
-  std::uint32_t schema_version(guid id) const noexcept try {
+  template <class Key> std::uint32_t schema_version(Key id) const noexcept try {
     std::shared_lock lock(mutex_);
     const auto* record = is_frozen_ ? find_type_unlocked(id) : nullptr;
     return record ? record->schema_version : 0;
@@ -627,7 +635,7 @@ public:
     return 0;
   }
 
-  std::string_view type_name(guid id) const noexcept try {
+  template <class Key> std::string_view type_name(Key id) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
       return {};
@@ -637,7 +645,8 @@ public:
     return {};
   }
 
-  template <class Key> result<property> lookup_property(guid id, Key key) const noexcept try {
+  template <class Owner, class Key>
+  result<property> lookup_property(Owner id, Key key) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
       return error::not_ready;
@@ -661,7 +670,7 @@ public:
     return error::internal;
   }
 
-  result<property_range> properties(guid id) const noexcept try {
+  template <class Key> result<property_range> properties(Key id) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
       return error::not_ready;
@@ -701,7 +710,8 @@ public:
     return error::internal;
   }
 
-  result<property_binding> find_object_property(guid type, property_id id) const noexcept try {
+  template <class Key>
+  result<property_binding> find_object_property(Key type, property_id id) const noexcept try {
     auto binding = find_accessor(type, id.get());
     if (!binding)
       return binding.error();
@@ -715,7 +725,8 @@ public:
   }
 
 private:
-  result<void*> property_target(guid id, std::uint32_t property, void* object) const {
+  template <class Key>
+  result<void*> property_target(Key id, std::uint32_t property, void* object) const {
     std::shared_lock lock(mutex_);
     const auto* current = find_type_unlocked(id);
     if (!is_frozen_ || !current)
@@ -724,7 +735,7 @@ private:
     if (!found)
       return error::not_found;
     const auto owner = found->declaring_type;
-    while (current->guid != owner) {
+    while (found->declaring_id ? current->type_id != found->declaring_id : current->guid != owner) {
       object = current->object.upcast(object);
       current = by_cpp_type_.at(current->object.base_type);
     }
@@ -733,7 +744,8 @@ private:
   registry_ref owner() const {
     return std::const_pointer_cast<type_registry_state>(shared_from_this());
   }
-  [[nodiscard]] result<property_accessor> find_accessor(guid type_id,
+  template <class Key>
+  [[nodiscard]] result<property_accessor> find_accessor(Key type_id,
                                                         std::uint32_t property_id) const noexcept {
     try {
       std::shared_lock lock(mutex_);
@@ -761,10 +773,16 @@ private:
     const auto found = std::ranges::lower_bound(type.properties, id, {}, &property_record::id);
     return found != type.properties.end() && found->id == id ? &*found : nullptr;
   }
+  [[nodiscard]] const type_record* find_type_unlocked(engine::type_id id) const noexcept {
+    const auto found = by_cpp_type_.find(id);
+    return found == by_cpp_type_.end() ? nullptr : found->second;
+  }
   [[nodiscard]] type_record* find_type_unlocked(guid id) noexcept {
     return const_cast<type_record*>(std::as_const(*this).find_type_unlocked(id));
   }
   [[nodiscard]] const type_record* find_type_unlocked(guid id) const noexcept {
+    if (!id)
+      return nullptr;
     if (is_frozen_) {
       const auto found = std::ranges::lower_bound(
           types_, id.bytes(), {}, [](const auto& type) { return type->guid.bytes(); });
@@ -800,20 +818,28 @@ result<property> type::find_property(property_id id) const noexcept {
     return error::invalid_state;
   if (kind_ != type_kind::object)
     return error::unsupported;
-  return registry_->lookup_property(guid_, id);
+  return id_ ? registry_->lookup_property(id_, id) : registry_->lookup_property(guid_, id);
 }
 result<property> type::find_property(std::string_view name) const noexcept {
   if (kind_ == type_kind::invalid)
     return error::invalid_state;
   if (kind_ != type_kind::object)
     return error::unsupported;
-  return registry_->lookup_property(guid_, name);
+  return id_ ? registry_->lookup_property(id_, name) : registry_->lookup_property(guid_, name);
+}
+result<property_range> type::properties() const noexcept {
+  if (kind_ == type_kind::invalid)
+    return error::invalid_state;
+  if (kind_ != type_kind::object)
+    return error::unsupported;
+  return id_ ? registry_->properties(id_) : registry_->properties(guid_);
 }
 std::uint32_t type::schema_version() const noexcept {
-  return registry_ ? registry_->schema_version(guid()) : 0;
+  return registry_ ? (id_ ? registry_->schema_version(id_) : registry_->schema_version(guid())) : 0;
 }
 std::string_view type::name() const noexcept {
-  return registry_ ? registry_->type_name(guid()) : std::string_view{};
+  return registry_ ? (id_ ? registry_->type_name(id_) : registry_->type_name(guid()))
+                   : std::string_view{};
 }
 result<meta::type> find_type(const registry_ref& registry, engine::type_id id) noexcept {
   return registry ? registry->lookup_type(id) : result<meta::type>{error::invalid_handle};
@@ -871,6 +897,20 @@ result<meta::type> type_at(const registry_ref& registry, std::uint32_t index) no
 result<property> find_property(const registry_ref& registry, guid id, property_id field) noexcept {
   return registry ? registry->lookup_property(id, field) : result<property>{error::invalid_handle};
 }
+result<value> read_property(const registry_ref& registry, engine::type_id type,
+                            property_id property, const void* object) noexcept {
+  return registry ? registry->get_property(type, property.get(), object) : error::invalid_handle;
+}
+error write_property(const registry_ref& registry, engine::type_id type, property_id property,
+                     void* object, const value& input) noexcept {
+  return registry ? registry->set_property(type, property.get(), object, input)
+                  : error::invalid_handle;
+}
+result<property_binding> find_object_property(const registry_ref& registry, engine::type_id type,
+                                              property_id id) noexcept {
+  return registry ? registry->find_object_property(type, id)
+                  : result<property_binding>{error::invalid_handle};
+}
 result<value> read_property(const registry_ref& registry, guid type, property_id property,
                             const void* object) noexcept {
   return registry ? registry->get_property(type, property.get(), object) : error::invalid_handle;
@@ -911,6 +951,9 @@ property_id property::id() const noexcept {
 std::string_view property::name() const noexcept {
   return record_ ? std::string_view{static_cast<const property_record*>(record_)->name}
                  : std::string_view{};
+}
+engine::type_id property::declaring_type_id() const noexcept {
+  return record_ ? static_cast<const property_record*>(record_)->declaring_id : engine::type_id{};
 }
 engine::guid property::declaring_type() const noexcept {
   return record_ ? static_cast<const property_record*>(record_)->declaring_type : engine::guid{};

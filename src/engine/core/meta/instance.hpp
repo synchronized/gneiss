@@ -81,7 +81,7 @@ private:
   value_kind scalar_kind_ = value_kind::invalid;
   const void* data_{};
   const void* parent_{};
-  engine::guid parent_type_{};
+  engine::type_id parent_type_{};
   property_id property_{};
 };
 /** 显式可写借用视图。setter 校验规则保持不变，不自动回滚外部副作用。

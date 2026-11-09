@@ -4,6 +4,7 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/sequence_view.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/value.hpp"
 namespace e = gneiss::engine;
 struct sample {
   inline static constexpr std::string_view type_name = "sample";
@@ -80,7 +81,83 @@ bool explicit_registration() {
   auto decoded = e::serialization::json::deserialize<external_model>(context, *encoded);
   return decoded && decoded->items.values == model.items.values;
 }
+struct runtime_child {
+  static constexpr std::string_view type_name = "runtime_child";
+  float number = 1;
+};
+struct runtime_parent {
+  static constexpr std::string_view type_name = "runtime_parent";
+  runtime_child child;
+};
+struct runtime_other {
+  static constexpr std::string_view type_name = "runtime_other";
+  float number = 2;
+};
+struct runtime_poly : e::meta::object_type<runtime_poly> {
+  static constexpr std::string_view type_name = "runtime_poly";
+  static constexpr e::guid type_guid{};
+  float number = 3;
+};
+bool runtime_only_registration() {
+  namespace m = e::meta;
+  auto registry = m::create_registry();
+  if (!registry ||
+      m::registration<runtime_child>{*registry}
+          .property<&runtime_child::number>(m::property_id{1}, "number")
+          .serialization()
+          .commit()
+          .failed() ||
+      m::registration<runtime_parent>{*registry}
+          .property<&runtime_parent::child>(m::property_id{1}, "child")
+          .serialization()
+          .commit()
+          .failed() ||
+      m::registration<runtime_other>{*registry}
+          .property<&runtime_other::number>(m::property_id{1}, "number")
+          .commit()
+          .failed() ||
+      m::registration<runtime_poly>{*registry}
+          .property<&runtime_poly::number>(m::property_id{1}, "number")
+          .polymorphic()
+          .serialization()
+          .commit()
+          .failed() ||
+      m::registration<runtime_child>{*registry}.commit() != e::error::invalid_argument ||
+      m::freeze(*registry).failed())
+    return false;
+  auto type = m::type_of<runtime_parent>(*registry);
+  if (!type || type->guid() || type->name() != "runtime_parent" ||
+      m::find_type(*registry, e::guid{}).error() != e::error::not_found)
+    return false;
+  runtime_parent object;
+  runtime_other other;
+  auto root = m::view(*registry, object);
+  auto foreign = m::view(*registry, other);
+  if (!root || !foreign)
+    return false;
+  auto child = root->member("child");
+  if (!child)
+    return false;
+  auto number = child->member("number");
+  auto field = child->type().find_property(m::property_id{1});
+  if (!number || !field || number->assign(7.0F).failed() || object.child.number != 7 ||
+      field->get(*foreign).error() != e::error::invalid_argument)
+    return false;
+  e::serialization::context context{*registry};
+  auto encoded = e::serialization::json::serialize_bytes(context, object);
+  if (!encoded)
+    return false;
+  auto decoded = e::serialization::json::deserialize<runtime_parent>(context, *encoded);
+  if (!decoded || decoded->child.number != 7 ||
+      e::serialization::capture_value(context, object).error().error != e::error::unsupported)
+    return false;
+  auto poly = e::make_ref<runtime_poly>();
+  auto rejected = e::serialization::json::serialize_bytes(context, poly);
+  return !rejected && rejected.error().error == e::error::unsupported;
+}
 int main() {
+  if (!runtime_only_registration())
+    return 13;
   if (!explicit_registration())
     return 12;
   gneiss::engine::meta::registry_ref registry;

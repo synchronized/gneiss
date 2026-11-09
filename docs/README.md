@@ -659,3 +659,4 @@
 - [PLAN-108 旧元数据查询删除](records/2026-11-09-meta-query-removal.md)
 - [PLAN-108 注册入口收敛](records/2026-11-09-meta-registration.md)
 - [PLAN-108 冻结查询索引](records/2026-11-09-meta-frozen-index.md)
+- [PLAN-108 运行期类型身份](records/2026-11-09-meta-runtime-identity.md)
