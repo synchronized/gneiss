@@ -222,28 +222,29 @@ void draw_runtime_inspector(const runtime_scene_node& node,
     ImGui::PushID(component->guid().string().c_str());
     if (ImGui::CollapsingHeader(std::string(type->name).c_str())) {
       for (const auto& property : *properties) {
-        auto child = view->property(property.id);
+        auto child = property.get(*view);
         if (!child)
           continue;
         auto value = child->read_value();
         const bool supported = value && value->kind() != engine::value_kind::invalid;
         const auto observed = value ? *value : engine::value{};
-        runtime_property_key key{
-            .object = node.id, .type_id = component->guid().bytes(), .field_id = property.id.get()};
+        runtime_property_key key{.object = node.id,
+                                 .type_id = component->guid().bytes(),
+                                 .field_id = property.id().get()};
         const auto* pending = actions.find_edit ? actions.find_edit(actions.context, key) : nullptr;
         const bool readonly =
-            engine::meta::has_flags(property.flags,
+            engine::meta::has_flags(property.flags(),
                                     engine::meta::property_flags::editor_read_only) ||
-            !engine::meta::has_flags(property.capabilities,
+            !engine::meta::has_flags(property.capabilities(),
                                      engine::meta::property_capabilities::writable);
         ImGui::BeginDisabled(!editable || readonly || !supported ||
                              (pending && pending->state == runtime_property_edit_state::pending));
         std::uint64_t serial{};
         engine::error status;
-        ImGui::PushID(static_cast<int>(property.id.get()));
+        ImGui::PushID(static_cast<int>(property.id().get()));
         if (supported && value->kind() == engine::value_kind::object) {
-          auto edit =
-              draw_reflected_properties(*child, std::string(property.name).c_str(), serial, status);
+          auto edit = draw_reflected_properties(*child, std::string(property.name()).c_str(),
+                                                serial, status);
           if (edit && edit->path.empty() && !edit->object)
             actions.report_result(
                 actions.context,
@@ -251,8 +252,8 @@ void draw_runtime_inspector(const runtime_scene_node& node,
                                        pending && pending->revision ? pending->revision : 1U,
                                        std::move(edit->data)));
         } else if (supported) {
-          if (draw_property_value(std::string(property.name).c_str(), *value, child->type(), serial,
-                                  status)) {
+          if (draw_property_value(std::string(property.name()).c_str(), *value, child->type(),
+                                  serial, status)) {
             // 转换同一种标量，协议不支持的嵌套/容器属性仅展示。
             auto input = *value;
             actions.report_result(
@@ -262,7 +263,7 @@ void draw_runtime_inspector(const runtime_scene_node& node,
                                        std::move(input)));
           }
         } else {
-          (void)draw_reflected_properties(*child, std::string(property.name).c_str(), serial,
+          (void)draw_reflected_properties(*child, std::string(property.name()).c_str(), serial,
                                           status);
         }
         ImGui::PopID();

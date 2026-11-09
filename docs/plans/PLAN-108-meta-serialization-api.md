@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-2026-11-09：设计待实施。用户要求结合从零设计及后续两轮修正整理完整计划；本次只提交设计文档。
+2026-11-09：实施中，首批迁移属性范围与句柄及遍历调用方；实例读写命名、策略和上下文尚未迁移。
 归属 [DEV-052](DEV-052-architecture-cleanup.md)，长期边界见
 [ADR-113](../decisions/ADR-113-meta-serialization-boundaries.md)。
 本文是目标 API 与迁移步骤的权威来源；代码示意均为目标接口，不表示已实现。
@@ -204,7 +204,7 @@ Binary 后续有真实任务时新增 binary.hpp/.cpp。本轮不创建空文件
 
 ## 八、实施阶段与删除条件
 
-1. [ ] 基线：列出 type_info/property_info、旧 instance、binding、context、validate 的全部生产调用点；
+1. [x] 基线：列出 type_info/property_info、旧 instance、binding、context、validate 的全部生产调用点；
    记录现有 JSON/快照格式和错误行为，建立成功、失败、生命周期基线。
 2. [ ] 属性句柄：实现 type_of、property 范围与 get；继承、getter 和只读边界验证；
    同时迁移 Inspector 与遍历，不保留第二套公共属性元数据查询。
@@ -222,6 +222,15 @@ Binary 后续有真实任务时新增 binary.hpp/.cpp。本轮不创建空文件
 
 每阶段交付可编译闭环并本地提交，同一特性分支推进，不按子步骤创建 PR。
 迁移期间允许短暂内部适配，但该阶段结束须移除；禁止以长期兼容别名掩盖读写语义变化。
+
+### 首批迁移状态
+
+已替换 type/instance 的复制属性列表返回为 property_range，并接入 property::get。
+JSON 遍历、value 捕获、Inspector、Prefab 路径查询使用新范围。
+阶段 2 尚未整体完成：底层 describe_type/describe_property 仍返回信息结构，
+属性访问仍复用现有实例校验与 getter/setter 路径；尚未宣称所有元数据查询已经删除。
+阶段 3 起仍待实施。调用点审计与验证见
+[首批记录](../records/2026-11-09-meta-property-handles.md)。
 
 ## 九、验收矩阵
 

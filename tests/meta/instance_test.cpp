@@ -289,8 +289,8 @@ bool type_queries() {
       typed->id() != by_guid->id())
     return false;
   auto props = typed->properties();
-  if (!props || props->size() != 2 || (*props)[0].type.kind() != m::type_kind::sequence ||
-      (*props)[1].type.id() != e::runtime_type_of<std::int8_t>())
+  if (!props || props->size() != 2 || (*props)[0].type().kind() != m::type_kind::sequence ||
+      (*props)[1].type().id() != e::runtime_type_of<std::int8_t>())
     return false;
   auto sequence = m::find_type(*registry, e::runtime_type_of<std::vector<mode>>());
   auto element = sequence ? sequence->element_type() : e::result<m::type>{sequence.error()};
@@ -652,7 +652,78 @@ bool bound_property_contract() {
       gneiss::engine::serialization::context{*registry}, *encoded);
   return copy && copy->values == object.values && copy->child.number == object.child.number;
 }
+struct property_child : offset_base, m::object_type<property_child, shared_probe> {
+  static constexpr std::string_view type_name = "property_child";
+  static constexpr e::guid type_guid = e::guid::literal("925efcc2-a21f-44d6-9c12-0f0f7e383a2c");
+};
+bool property_handles() {
+  auto register_probe = [](const m::registry_ref& registry) {
+    return m::type_builder<shared_probe>{registry}
+               .property<&shared_probe::number>(m::property_id{1}, "number")
+               .commit()
+               .ok() &&
+           m::type_builder<shared_holder>{registry}
+               .property<&shared_holder::item>(m::property_id{1}, "item")
+               .commit()
+               .ok() &&
+           m::type_builder<property_child>{registry}.base<shared_probe>().commit().ok() &&
+           m::freeze(registry).ok();
+  };
+  auto first = m::create_registry(), second = m::create_registry();
+  if (!first || !second || !register_probe(*first) || !register_probe(*second))
+    return false;
+  shared_probe probe;
+  shared_holder wrong;
+  auto view = m::mutable_instance::from(*first, probe);
+  auto foreign = m::instance::from(*second, probe);
+  auto unrelated = m::instance::from(*first, wrong);
+  auto type = m::type_of<shared_probe>(*first);
+  if (!view || !foreign || !unrelated || !type)
+    return false;
+  auto fields = type->properties();
+  if (!fields || fields->size() != 1)
+    return false;
+  auto field = (*fields)[0];
+  auto member = field.get(*view);
+  if (!member || member->write_value(e::value{std::int64_t{23}}).failed() || probe.number != 23)
+    return false;
+  if (field.get(*foreign).error() != e::error::invalid_argument ||
+      field.get(*unrelated).error() != e::error::invalid_argument ||
+      m::property{}.get(view->as_const()).error() != e::error::invalid_state)
+    return false;
+  {
+    property_child child;
+    auto derived = m::mutable_instance::from(*first, child);
+    if (!derived)
+      return false;
+    auto inherited = field.get(*derived);
+    if (!inherited || inherited->write_value(e::value{std::int64_t{42}}).failed() ||
+        child.number != 42)
+      return false;
+    auto inherited_fields = derived->as_const().properties();
+    if (!inherited_fields || (*inherited_fields)[0].declaring_type() != shared_probe::type_guid)
+      return false;
+  }
+  // 范围、迭代器和独立句柄均保活表，但没有持有 probe。
+  std::weak_ptr<m::type_registry_state> weak = *first;
+  auto iterator = fields->begin();
+  *first = {};
+  *view = {};
+  *unrelated = {};
+  *type = {};
+  *fields = {};
+  *member = {};
+  if (weak.expired() || iterator->name() != "number" || field.name() != "number")
+    return false;
+  iterator = {};
+  if (weak.expired())
+    return false;
+  field = {};
+  return weak.expired();
+}
 int main() try {
+  if (!property_handles())
+    return 43;
   if (!bound_property_contract())
     return 42;
   if (!polymorphic_references())
@@ -691,6 +762,12 @@ int main() try {
   auto entries = root->properties();
   if (!entries || entries->size() != 4)
     return 5;
+  {
+    auto writable_root = m::mutable_instance::from(registry, source);
+    if (!writable_root || !(*entries)[2].get(*root) ||
+        (*entries)[2].get(*writable_root).error() != e::error::unsupported)
+      return 44;
+  }
   auto config = root->property("config");
   if (!config || config->guid() != settings::type_guid || config->kind() != m::type_kind::object)
     return 6;
@@ -793,7 +870,7 @@ int main() try {
   if (weak.expired())
     return 24;
   // 属性快照中的类型也持有注册表，清空后最后一个元数据所有者才释放。
-  entries->clear();
+  *entries = {};
   if (!weak.expired())
     return 32;
   return 0;

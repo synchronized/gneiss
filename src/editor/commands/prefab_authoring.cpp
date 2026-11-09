@@ -535,10 +535,10 @@ describe_prefab_overrides(const engine::prefab_reference_description& reference,
       if (auto* id = std::get_if<meta::property_id>(&step)) {
         auto fields = current.properties();
         if (fields) {
-          auto found = std::ranges::find(*fields, *id, &meta::property_info::id);
+          auto found = std::ranges::find(*fields, *id, &meta::property::id);
           if (found != fields->end()) {
-            text += "." + std::string(found->name);
-            current = found->type;
+            text += "." + std::string(found->name());
+            current = found->type();
             continue;
           }
         }

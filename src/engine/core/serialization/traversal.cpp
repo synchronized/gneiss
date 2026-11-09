@@ -310,18 +310,18 @@ result<writer::node, serialization::diagnostic> encode_members(const context& ct
   if (!root)
     return failure(error::out_of_memory);
   for (const auto& property : *properties) {
-    if (has_flags(property.flags, property_flags::read_only))
+    if (has_flags(property.flags(), property_flags::read_only))
       continue;
-    const auto path = field_path(property.name);
-    auto child = view->property(property.id);
+    const auto path = field_path(property.name());
+    auto child = property.get(*view);
     if (!child)
       return failure(child.error(), path);
-    auto encoded = has_flags(property.flags, property_flags::enum_name)
+    auto encoded = has_flags(property.flags(), property_flags::enum_name)
                        ? encode_enum_name(*child, doc)
                        : encode_view(ctx, registry, *child, doc, depth + 1);
     if (!encoded)
       return prefix(std::move(encoded).error(), path);
-    if (!doc->member(root, property.name, *encoded))
+    if (!doc->member(root, property.name(), *encoded))
       return failure(error::out_of_memory);
   }
   return root;
@@ -430,15 +430,15 @@ serialization::diagnostic validate_defaults(const context& ctx, const registry_r
   if (!properties)
     return failure(properties.error());
   for (const auto& property : *properties) {
-    if (property.type.kind() == type_kind::scalar ||
-        has_flags(property.flags, property_flags::read_only))
+    if (property.type().kind() == type_kind::scalar ||
+        has_flags(property.flags(), property_flags::read_only))
       continue;
-    auto child = view->property(property.id);
+    auto child = property.get(*view);
     if (!child)
-      return failure(child.error(), field_path(property.name));
+      return failure(child.error(), field_path(property.name()));
     auto status = validate_view(ctx, registry, *child, depth + 1);
     if (status.error.failed())
-      return prefix(std::move(status), field_path(property.name));
+      return prefix(std::move(status), field_path(property.name()));
   }
   return {};
 }
@@ -751,23 +751,23 @@ serialization::diagnostic decode_members(const context& ctx, const registry_ref&
     if (std::ranges::find(ignored, name) != ignored.end())
       continue;
     if (codec->reject_unknown_fields &&
-        std::ranges::none_of(*properties, [&](const auto& p) { return p.name == name; }))
+        std::ranges::none_of(*properties, [&](const auto& p) { return p.name() == name; }))
       return failure(error::invalid_argument, field_path(name), "未知字段");
     if (!names.insert(name).second)
       return failure(error::invalid_argument, field_path(name), "重复属性名");
   }
   for (const auto& property : *properties) {
-    if (std::ranges::find(ignored, property.name) != ignored.end())
-      return failure(error::invalid_argument, field_path(property.name), "反射字段占用格式头");
-    if (has_flags(property.flags, property_flags::read_only))
+    if (std::ranges::find(ignored, property.name()) != ignored.end())
+      return failure(error::invalid_argument, field_path(property.name()), "反射字段占用格式头");
+    if (has_flags(property.flags(), property_flags::read_only))
       continue;
-    auto* input = context_access::input(ctx)->member(root, property.name);
-    const auto path = field_path(property.name);
+    auto* input = context_access::input(ctx)->member(root, property.name());
+    const auto path = field_path(property.name());
     if (!input) {
-      if (has_flags(property.flags, property_flags::required))
+      if (has_flags(property.flags(), property_flags::required))
         return failure(error::invalid_argument, path, "缺少必填属性");
-      if (property.type.kind() != type_kind::scalar) {
-        auto child = view->as_const().property(property.id);
+      if (property.type().kind() != type_kind::scalar) {
+        auto child = property.get(view->as_const());
         if (!child)
           return failure(child.error(), path);
         auto status = validate_view(ctx, registry, *child, depth + 1);
@@ -776,11 +776,11 @@ serialization::diagnostic decode_members(const context& ctx, const registry_ref&
       }
       continue;
     }
-    auto child = view->property(property.id);
+    auto child = property.get(*view);
     if (!child)
       return failure(child.error(), path);
     path_scope property_path{ctx, path};
-    auto status = has_flags(property.flags, property_flags::enum_name)
+    auto status = has_flags(property.flags(), property_flags::enum_name)
                       ? decode_enum_name(ctx, *child, input)
                       : decode_view(ctx, registry, *child, input, depth + 1);
     if (status.error.failed())

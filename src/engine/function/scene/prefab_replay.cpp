@@ -149,16 +149,16 @@ error collect_component_overrides(meta::instance source, meta::instance candidat
       return properties.error();
     for (const auto& property : *properties) {
       // 派生运行状态仍可保存，但不因普通组件编辑生成实例属性覆盖。
-      if (!meta::has_flags(property.capabilities, meta::property_capabilities::writable) ||
-          meta::has_flags(property.flags, meta::property_flags::editor_read_only))
+      if (!meta::has_flags(property.capabilities(), meta::property_capabilities::writable) ||
+          meta::has_flags(property.flags(), meta::property_flags::editor_read_only))
         continue;
-      auto left = source.property(property.id), right = candidate.property(property.id);
+      auto left = property.get(source), right = property.get(candidate);
       if (!left)
         return left.error();
       if (!right)
         return right.error();
       auto next = key;
-      next.path.emplace_back(property.id);
+      next.path.emplace_back(property.id());
       auto status = collect_component_overrides(*left, *right, std::move(next), output, depth + 1);
       if (status.failed())
         return status;

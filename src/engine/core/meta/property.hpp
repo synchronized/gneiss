@@ -4,12 +4,15 @@
 #pragma once
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/core/meta/registry_fwd.hpp"
 #include "engine/core/meta/type_types.hpp"
 #include "engine/core/ref.hpp"
+#include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/core/value.hpp"
 #include <concepts>
 #include <cstdint>
+#include <iterator>
 #include <span>
 #include <string>
 #include <string_view>
@@ -89,3 +92,79 @@ struct property_binding {
   const detail::type_ops* access{}; // 静态只读操作表，不持有对象。
 };
 } // namespace gneiss::engine::meta
+
+namespace gneiss::engine::meta {
+class type;
+class instance;
+class mutable_instance;
+class property_range;
+/** 冻结属性句柄；保活注册表，不持有被访问对象。 */
+class property final {
+public:
+  property() = default;
+  [[nodiscard]] GNEISS_API property_id id() const noexcept;
+  [[nodiscard]] GNEISS_API std::string_view name() const noexcept;
+  [[nodiscard]] GNEISS_API engine::guid declaring_type() const noexcept;
+  [[nodiscard]] GNEISS_API meta::type type() const noexcept;
+  [[nodiscard]] GNEISS_API property_flags flags() const noexcept;
+  [[nodiscard]] GNEISS_API property_capabilities capabilities() const noexcept;
+  [[nodiscard]] GNEISS_API result<instance> get(const instance&) const noexcept;
+  [[nodiscard]] GNEISS_API result<mutable_instance> get(const mutable_instance&) const noexcept;
+
+private:
+  friend class property_range;
+  property(registry_ref registry, const void* record)
+      : registry_(std::move(registry)), record_(record) {}
+  registry_ref registry_;
+  const void* record_{};
+};
+/** 借用冻结属性数组并保活注册表；遍历不分配、不复制属性列表。 */
+class property_range final {
+public:
+  class iterator {
+  public:
+    using value_type = property;
+    using difference_type = std::ptrdiff_t;
+    using iterator_category = std::forward_iterator_tag;
+    iterator() = default;
+    [[nodiscard]] GNEISS_API property operator*() const noexcept;
+    struct arrow_proxy {
+      property value;
+      const property* operator->() const noexcept { return &value; }
+    };
+    [[nodiscard]] arrow_proxy operator->() const noexcept { return {**this}; }
+    iterator& operator++() noexcept {
+      ++index_;
+      return *this;
+    }
+    iterator operator++(int) noexcept {
+      auto previous = *this;
+      ++*this;
+      return previous;
+    }
+    friend bool operator==(const iterator&, const iterator&) = default;
+
+  private:
+    friend class property_range;
+    iterator(registry_ref registry, const void* records, std::size_t index)
+        : registry_(std::move(registry)), records_(records), index_(index) {}
+    registry_ref registry_;
+    const void* records_{};
+    std::size_t index_{};
+  };
+  property_range() = default;
+  [[nodiscard]] iterator begin() const noexcept { return {registry_, records_, 0}; }
+  [[nodiscard]] iterator end() const noexcept { return {registry_, records_, size_}; }
+  [[nodiscard]] GNEISS_API property operator[](std::size_t index) const noexcept;
+  [[nodiscard]] std::size_t size() const noexcept { return size_; }
+  [[nodiscard]] bool empty() const noexcept { return size_ == 0; }
+
+private:
+  friend class type_registry_state;
+  property_range(registry_ref registry, const void* records, std::size_t size)
+      : registry_(std::move(registry)), records_(records), size_(size) {}
+  registry_ref registry_;
+  const void* records_{};
+  std::size_t size_{};
+};
+}

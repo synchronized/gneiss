@@ -299,6 +299,28 @@ Camera 直接绑定 settings 和 is_primary，文件内容为：
 未发布的原扁平相机描述不再读取；仓库资产与生成脚本同步更新。
 World 运行期属性与 IPC 仍保留既有名称，这些协议不等于资产文件中的嵌套结构。
 
+## 属性句柄与范围
+
+`type::properties()` 与只读实例的 `properties()` 返回 `result<property_range>`。
+范围和迭代器保活冻结注册表，直接访问冻结属性数组，不为每次遍历复制属性列表。
+范围只读；下标访问要求 index 小于 size，end 不能解引用。
+
+```cpp
+auto fields = root->properties();
+if (!fields) return fields.error();
+for (auto property : *fields) {
+  auto member = property.get(*root);
+  if (!member) return member.error();
+  // property.name()/type()/flags()/capabilities() 查询同一份冻结定义。
+}
+```
+
+`property::get` 校验注册表及字段声明类型；即使属性 ID 相同，也不能用于不相关类型。
+派生对象上的继承属性继续通过实例访问完成基类地址调整。
+句柄不持有目标对象；只读访问、getter 临时值与可写访问规则同下述实例视图。
+目前实例仍命名为只读 instance、可写 mutable_instance；PLAN-108 的新命名尚未迁移。
+底层 describe_type/describe_property 的信息结构仍在，后续迁移查询调用方再收敛。
+
 ## 实例视图
 
 `meta/instance.hpp` 提供只读 `instance` 和可写 `mutable_instance`，不新增对象所有者或注册表。

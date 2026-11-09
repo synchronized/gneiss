@@ -168,26 +168,26 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
         status = properties.error();
       else
         for (const auto& property : *properties) {
-          auto child = view.property(property.id);
+          auto child = property.get(view);
           if (!child) {
             status = child.error();
             continue;
           }
-          path.emplace_back(property.id);
-          ImGui::PushID(static_cast<int>(property.id.get()));
+          path.emplace_back(property.id());
+          ImGui::PushID(static_cast<int>(property.id().get()));
           const bool writable =
-              !(path.size() == 1 && std::ranges::find(readonly, property.id) != readonly.end()) &&
-              !meta::has_flags(property.flags, meta::property_flags::read_only) &&
-              !meta::has_flags(property.flags, meta::property_flags::editor_read_only) &&
-              meta::has_flags(property.capabilities, meta::property_capabilities::writable);
+              !(path.size() == 1 && std::ranges::find(readonly, property.id()) != readonly.end()) &&
+              !meta::has_flags(property.flags(), meta::property_flags::read_only) &&
+              !meta::has_flags(property.flags(), meta::property_flags::editor_read_only) &&
+              meta::has_flags(property.capabilities(), meta::property_capabilities::writable);
           ImGui::BeginDisabled(!writable);
           std::optional<meta::instance> original;
           if (source && writable) {
-            auto member = source->property(property.id);
+            auto member = source->property(property.id());
             if (member)
               original = *member;
           }
-          draw_value(*child, std::string(property.name), path, pending, serial, status, readonly,
+          draw_value(*child, std::string(property.name()), path, pending, serial, status, readonly,
                      original ? &*original : nullptr, depth + 1);
           ImGui::EndDisabled();
           ImGui::PopID();

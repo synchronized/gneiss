@@ -223,13 +223,13 @@ engine::error edit_component_description(scene_edit_session& document,
         auto fields = type->properties();
         if (!fields)
           return fields.error();
-        auto field = std::ranges::find(*fields, *id, &meta::property_info::id);
+        auto field = std::ranges::find(*fields, *id, &meta::property::id);
         if (field == fields->end())
           return error::not_found;
-        if (has_flags(field->flags, meta::property_flags::editor_read_only) ||
-            has_flags(field->flags, meta::property_flags::read_only))
+        if (has_flags(field->flags(), meta::property_flags::editor_read_only) ||
+            has_flags(field->flags(), meta::property_flags::read_only))
           return error::unsupported;
-        type = field->type;
+        type = field->type();
       } else {
         type = type->element_type();
         if (!type)

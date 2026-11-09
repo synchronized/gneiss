@@ -23,15 +23,12 @@ result<std::span<const enum_entry>> type::enum_entries() const noexcept {
     return error::unsupported;
   return meta::enum_entries(registry_, id_);
 }
-result<std::vector<property_info>> type::properties() const noexcept {
+result<property_range> type::properties() const noexcept {
   if (kind_ == type_kind::invalid)
     return error::invalid_state;
   if (kind_ != type_kind::object)
     return error::unsupported;
-  auto info = id_ ? describe_type(registry_, id_) : describe_type(registry_, guid_);
-  if (!info)
-    return info.error();
-  return std::move(info->properties);
+  return meta::properties(registry_, guid_);
 }
 bool type::is_fixed_sequence() const noexcept {
   const auto* ops = access_ ? access_->get<sequence_ops>() : nullptr;
@@ -64,15 +61,13 @@ result<instance> instance::from_object(registry_ref registry, engine::type_id id
   output.data_ = object;
   return output;
 }
-result<std::vector<property_info>> instance::properties() const noexcept {
-  return type().properties();
-}
+result<property_range> instance::properties() const noexcept { return type().properties(); }
 result<instance> instance::property(std::string_view name) const noexcept {
   auto entries = properties();
   if (!entries)
     return entries.error();
-  auto found = std::ranges::find(*entries, name, &property_info::name);
-  return found == entries->end() ? result<instance>{error::not_found} : property(found->id);
+  auto found = std::ranges::find(*entries, name, &meta::property::name);
+  return found == entries->end() ? result<instance>{error::not_found} : (*found).get(*this);
 }
 result<instance> instance::property(property_id id) const noexcept try {
   if (kind_ == type_kind::invalid)
@@ -167,8 +162,8 @@ result<mutable_instance> mutable_instance::property(std::string_view name) const
   auto entries = view_.properties();
   if (!entries)
     return entries.error();
-  auto found = std::ranges::find(*entries, name, &property_info::name);
-  return found == entries->end() ? result<mutable_instance>{error::not_found} : property(found->id);
+  auto found = std::ranges::find(*entries, name, &meta::property::name);
+  return found == entries->end() ? result<mutable_instance>{error::not_found} : (*found).get(*this);
 }
 result<mutable_instance> mutable_instance::property(property_id id) const noexcept try {
   if (kind() == type_kind::invalid)
@@ -476,5 +471,33 @@ result<mutable_variant_view> mutable_instance::as_variant() const noexcept {
   if (!data_ || kind() != type_kind::variant)
     return error::unsupported;
   return mutable_variant_view{*this};
+}
+}
+
+namespace gneiss::engine::meta {
+result<instance> property::get(const instance& object) const noexcept {
+  if (!record_)
+    return error::invalid_state;
+  if (registry_ != object.registry_)
+    return error::invalid_argument;
+  auto info = describe_property(registry_, object.guid(), id());
+  if (!info)
+    return info.error();
+  if (info->declaring_type != declaring_type())
+    return error::invalid_argument;
+  return object.property(id());
+}
+result<mutable_instance> property::get(const mutable_instance& object) const noexcept {
+  if (!record_)
+    return error::invalid_state;
+  const auto& view = object.as_const();
+  if (registry_ != view.registry_)
+    return error::invalid_argument;
+  auto info = describe_property(registry_, view.guid(), id());
+  if (!info)
+    return info.error();
+  if (info->declaring_type != declaring_type())
+    return error::invalid_argument;
+  return object.property(id());
 }
 }

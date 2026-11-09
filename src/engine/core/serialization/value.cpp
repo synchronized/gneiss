@@ -44,16 +44,16 @@ struct capture_state {
       if (!fields)
         return fields.error();
       for (const auto& field : *fields) {
-        if (!has_flags(field.capabilities, property_capabilities::writable))
+        if (!has_flags(field.capabilities(), property_capabilities::writable))
           continue;
-        detail::path_scope path{ctx, "/properties/" + std::to_string(field.id.get())};
-        auto child = source.property(field.id);
+        detail::path_scope path{ctx, "/properties/" + std::to_string(field.id().get())};
+        auto child = field.get(source);
         if (!child)
           return child.error();
         auto item = read(*child, depth + 1);
         if (!item)
           return item.error();
-        record.properties.push_back({field.id.get(), std::move(*item)});
+        record.properties.push_back({field.id().get(), std::move(*item)});
       }
       std::ranges::sort(record.properties, {}, &value_property::id);
       return engine::value{record_value{record}};
@@ -226,8 +226,8 @@ struct restore_state {
       if (!fields)
         return fields.error();
       for (const auto& field : *fields)
-        if (has_flags(field.capabilities, property_capabilities::writable) &&
-            !seen.contains(field.id.get()))
+        if (has_flags(field.capabilities(), property_capabilities::writable) &&
+            !seen.contains(field.id().get()))
           return error::invalid_argument;
       auto binding = find_serialization(property_access::registry(target), target.type().id());
       if (binding && binding->validate) {

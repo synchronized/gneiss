@@ -65,6 +65,8 @@ template <class T>
 [[nodiscard]] result<type_info> describe_type(const registry_ref& registry) noexcept {
   return describe_type(registry, runtime_type_of<T>());
 }
+/** 冻结属性范围；保活注册表，查询不复制属性数组。 */
+GNEISS_API result<property_range> properties(const registry_ref&, engine::guid) noexcept;
 /** 字段名称借用已冻结 Registry。 */
 [[nodiscard]] GNEISS_API result<property_info>
 describe_property(const registry_ref& registry, engine::guid type, property_id property) noexcept;

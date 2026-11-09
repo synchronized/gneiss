@@ -107,13 +107,13 @@ error validate_prefab_property_override(const prefab_property_override& value) n
       auto properties = type.properties();
       if (!properties)
         return properties.error();
-      auto found = std::ranges::find(*properties, *property, &meta::property_info::id);
+      auto found = std::ranges::find(*properties, *property, &meta::property::id);
       if (found == properties->end())
         return error::not_found;
-      if (!has_flags(found->capabilities, meta::property_capabilities::writable) ||
-          has_flags(found->flags, meta::property_flags::editor_read_only))
+      if (!has_flags(found->capabilities(), meta::property_capabilities::writable) ||
+          has_flags(found->flags(), meta::property_flags::editor_read_only))
         return error::invalid_argument;
-      type = found->type;
+      type = found->type();
     } else {
       if (type.kind() != (std::holds_alternative<std::string>(step) ? meta::type_kind::associative
                                                                     : meta::type_kind::sequence))

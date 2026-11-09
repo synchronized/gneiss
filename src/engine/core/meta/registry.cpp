@@ -651,6 +651,18 @@ public:
     return error::internal;
   }
 
+  result<property_range> properties(guid id) const noexcept try {
+    std::shared_lock lock(mutex_);
+    if (!is_frozen_)
+      return error::not_ready;
+    const auto* record = find_type_unlocked(id);
+    if (!record)
+      return error::not_found;
+    return property_range{owner(), record->properties.data(), record->properties.size()};
+  } catch (...) {
+    return error::internal;
+  }
+
   [[nodiscard]] result<property_info> describe_property(guid id,
                                                         property_id property) const noexcept try {
     std::shared_lock lock(mutex_);
@@ -874,5 +886,43 @@ result<property_binding> find_object_property(const registry_ref& registry, guid
                                               property_id id) noexcept {
   return registry ? registry->find_object_property(type, id)
                   : result<property_binding>{error::invalid_handle};
+}
+}
+
+namespace gneiss::engine::meta {
+result<property_range> properties(const registry_ref& registry, engine::guid id) noexcept {
+  return registry ? registry->properties(id) : result<property_range>{error::invalid_argument};
+}
+property property_range::iterator::operator*() const noexcept {
+  return property{registry_, static_cast<const property_record*>(records_) + index_};
+}
+property_id property::id() const noexcept {
+  return record_ ? property_id{static_cast<const property_record*>(record_)->id} : property_id{};
+}
+std::string_view property::name() const noexcept {
+  return record_ ? std::string_view{static_cast<const property_record*>(record_)->name}
+                 : std::string_view{};
+}
+engine::guid property::declaring_type() const noexcept {
+  return record_ ? static_cast<const property_record*>(record_)->declaring_type : engine::guid{};
+}
+meta::type property::type() const noexcept {
+  return record_ ? describe_record(registry_, *static_cast<const property_record*>(record_)).type
+                 : meta::type{};
+}
+property_flags property::flags() const noexcept {
+  return record_ ? static_cast<property_flags>(static_cast<const property_record*>(record_)->flags)
+                 : property_flags::none;
+}
+property_capabilities property::capabilities() const noexcept {
+  return record_ ? describe_record(registry_, *static_cast<const property_record*>(record_))
+                       .capabilities
+                 : property_capabilities::none;
+}
+}
+
+namespace gneiss::engine::meta {
+property property_range::operator[](std::size_t index) const noexcept {
+  return property{registry_, static_cast<const property_record*>(records_) + index};
 }
 }

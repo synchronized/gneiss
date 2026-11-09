@@ -66,7 +66,7 @@ public:
   [[nodiscard]] GNEISS_API result<optional_view> as_optional() const noexcept;
   [[nodiscard]] GNEISS_API result<variant_view> as_variant() const noexcept;
   [[nodiscard]] GNEISS_API result<reference_view> as_reference() const noexcept;
-  [[nodiscard]] GNEISS_API result<std::vector<property_info>> properties() const noexcept;
+  [[nodiscard]] GNEISS_API result<property_range> properties() const noexcept;
   [[nodiscard]] GNEISS_API result<instance> property(property_id id) const noexcept;
   [[nodiscard]] GNEISS_API result<instance> property(std::string_view name) const noexcept;
   /** 标量按值复制；可变目标的 ref<meta::object 派生类> 共享强引用，不深拷贝。const
@@ -77,6 +77,7 @@ public:
 
 private:
   friend class mutable_instance;
+  friend class meta::property;
   friend struct detail::property_view_access;
   template <bool> friend class basic_sequence_view;
   template <bool> friend class basic_associative_view;
