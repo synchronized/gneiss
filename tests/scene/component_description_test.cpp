@@ -74,13 +74,13 @@ std::string entry(e::guid type, std::string_view content) {
 }
 int main() try {
   if (e::initialize_meta([]() {
-        auto status = e::meta::registration<reflected_description>{}
+        auto status = e::meta::registration::type<reflected_description>()
                           .base<e::component_description_base>()
                           .property<&reflected_description::speed>(e::meta::property_id{1}, "speed")
                           .commit();
         if (status.failed())
           return status;
-        return e::meta::registration<custom_description>{}
+        return e::meta::registration::type<custom_description>()
             .base<e::component_description_base>()
             .extend(gneiss::engine::serialization::codec<&encode, &decode>)
             .commit();

@@ -25,7 +25,7 @@ struct wire_object : m::object_type<wire_object> {
 };
 bool test_object_value() {
   if (gneiss::engine::serialization::register_builtin_types().failed() ||
-      m::registration<wire_object>{}
+      m::registration::type<wire_object>()
           .property<&wire_object::count>(m::property_id{1}, "count")
           .commit()
           .failed() ||

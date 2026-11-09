@@ -3,7 +3,7 @@
 
 # 反射容器视图
 
-`registration<T>::property<&T::member>` 自动识别以下直接成员，不需要单独注册容器类型：
+`registration::type<T>().property<&T::member>` 自动识别以下直接成员，不需要单独注册容器类型：
 
 | C++ 类型 | kind / 访问入口 | JSON |
 | --- | --- | --- |

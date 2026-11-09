@@ -124,21 +124,21 @@ struct variant_document {
 int main() {
   auto registry = m::create_registry();
   CHECK(registry);
-  CHECK(m::registration<document>{*registry}
+  CHECK(m::registration::type<document>(*registry)
             .property<&document::sequence>(m::property_id{1}, "sequence")
             .property<&document::mapping>(m::property_id{2}, "mapping")
             .commit()
             .ok());
-  CHECK(m::registration<non_default>{*registry}
+  CHECK(m::registration::type<non_default>(*registry)
             .property<&non_default::number>(m::property_id{1}, "number")
             .commit()
             .ok());
-  CHECK(m::registration<variant_document>{*registry}
+  CHECK(m::registration::type<variant_document>(*registry)
             .property<&variant_document::entries>(m::property_id{1}, "entries")
             .property<&variant_document::selected>(m::property_id{2}, "selected")
             .commit()
             .ok());
-  CHECK(m::registration<throwing_value>{*registry}.commit().ok());
+  CHECK(m::registration::type<throwing_value>(*registry).commit().ok());
   CHECK(m::freeze(*registry).ok());
   document source;
   auto view = m::view(*registry, source);

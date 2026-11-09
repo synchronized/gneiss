@@ -63,7 +63,7 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 无 GUID 类型按进程类型 ID 排序，此顺序只用于当前进程枚举，不得持久化。
 基础值、枚举及容器类型继续使用各自的既有解析路径，不承诺所有类型查找都已索引化。
 
-无静态身份的外部类型可通过 `registration<T>{}.name("名称").guid(id)` 补充身份；
+无静态身份的外部类型可通过 `registration::type<T>().name("名称").guid(id)` 补充身份；
 名称由注册器复制持有，再由 commit 深拷贝到注册表。与非空 traits 身份冲突时返回
 invalid_argument。注册器只在显式 commit 时提交，重复 commit 返回 invalid_state。
 字段仍使用 `.property<&T::member>(property_id, name)`，稳定编号不按字段顺序自动生成。
@@ -99,13 +99,22 @@ static constexpr guid type_guid =
 当前 bool、float、vector3、quaternion 的 traits 提供内建字段原有的稳定 GUID；
 普通内存类型可仅有运行期身份；需要持久化动态类型身份时须提供固定 GUID，不能按编译器名称临时生成。
 
-`registration.hpp` 是普通 C++ 类型注册的主要入口，通过 `registration<T>` 使用现有 Registry，
+`registration.hpp` 是普通 C++ 类型注册的主要入口，通过 `registration::type<T>()` 使用现有 Registry，
 没有第二套运行期状态。动态描述仍可使用 `registry.hpp` 的非模板注册函数。
+枚举使用 `registration::enumeration<E>()`；`enum` 是 C++ 关键字，不能作为函数名。
+两个入口均可传入独立 `registry_ref`，省略时使用默认注册表，返回的 builder 实现位于 `detail`。
+两种 builder 共享 `.name()`、`.guid()`、`.schema_version()`、`.metadata()`、`.extend()` 和 `.commit()`；
+类型 builder 提供属性和基类注册，枚举 builder 提供 `.value(name, E)`。
+枚举名称和 GUID 可从 traits 提取或显式补充；无名称、无 GUID 的枚举仍可登记显示项。
+登记后的枚举类型支持 `type::name/guid/schema_version/extension/enum_entries` 查询，
+非空 GUID 可用于 `find_type`，并与普通类型共用唯一性约束。
+枚举仍按整数读写，不新增逐枚举项 metadata，也不会自动以显示项约束值域。
+
 调用序列化模板须直接包含 `serialization.hpp`。不保留旧头文件转发层或 get/set 属性入口。
 类型具有静态身份时可这样注册：
 
 ```cpp
-return gneiss::engine::meta::registration<math::transform>{}
+return gneiss::engine::meta::registration::type<math::transform>()
     .schema_version(1)
     .property<&math::transform::translation>(meta::property_id{1}, "translation")
     .commit();
@@ -187,7 +196,7 @@ Registry 使用原生共享引用管理，不经全局句柄表。独立表在�
 
 `serialization/policy.hpp` 提供独立的 content_codec、reference_policy、object_policy 和 validation_policy，
 `serialization/diagnostic.hpp` 提供拥有错误位置文本的 `serialization::diagnostic`。能力与类型、字段一起登记到同一 Registry，不依赖资源层。
-`registration<T>::extend(serialization::codec<Encode, Decode>)` 推导类型适配；任一函数可为 nullptr，
+`registration::type<T>().extend(serialization::codec<Encode, Decode>)` 推导类型适配；任一函数可为 nullptr，
 但至少具备一个方向。同一 builder 不允许重复设置。
 每个类型当前只登记一组编解码函数，自定义文件格式标识及版本由 codec 自行校验，不提供任意 capability 或通用对象工厂。
 
@@ -216,7 +225,7 @@ codec 文件只提供编解码入口。首次失败立即返回，不回滚已�
 
 ```cpp
 // math::camera_settings 已独立注册 fov / near / far 和参数校验。
-meta::registration<camera_description>{}
+meta::registration::type<camera_description>()
     .property<&camera_description::settings>(
         meta::property_id{1}, "settings")
     (serialization::field_policy{.required = true})
@@ -273,7 +282,7 @@ getter 失败、异常或返回不匹配／无效值时仅返回错误，不交�
 
 ## 无 GUID 对象边界
 
-`registration<T>{}.name("名称")` 可以注册没有持久 GUID 的 C++ 对象；名称已有 traits 时可省略。
+`registration::type<T>().name("名称")` 可以注册没有持久 GUID 的 C++ 对象；名称已有 traits 时可省略。
 `type_of<T>`、view、member、getter/setter、嵌套对象按运行期 type_id 访问，
 不能通过 nil GUID 查找这些类型。普通静态类型 JSON 内容不携带身份，可正常编解码。
 多态 `$type_guid/$content` 必须有非空 GUID，否则编码返回 unsupported。
@@ -284,7 +293,7 @@ getter 失败、异常或返回不匹配／无效值时仅返回错误，不交�
 
 `meta::default_registry()` 返回进程共享的 `result<registry_ref>`，只创建表，不登记内置类型、不冻结。
 定义位于 engine 编译单元；各模块应链接同一引擎，不能把引擎静态复制到多个动态库后期待共享状态。
-未冻结时查询返回 `not_ready`。`meta::registration<T>{}`、`register_type<T>(definition)`、
+未冻结时查询返回 `not_ready`。`meta::registration::type<T>()`、`register_type<T>(definition)`、
 `type_of<T>()`、属性访问和 `serialization::json::encode(object)` / `serialization::json::decode<T>(bytes)` 使用默认表；
 显式 registry 重载保持原行为。
 
@@ -515,7 +524,7 @@ reference_view::get 对空引用返回 not_found。引用不是标量；可变 m
 成功后才调用 setter。普通成员继续使用 `assign`，序列化不访问 Meta 私有状态。
 
 默认反射 JSON 按值内联引用：空引用输出 null，普通 ref<T> 输出目标字段。
-声明类型通过 registration<T>::polymorphic() 显式启用多态后，输出
+声明类型通过 registration::type<T>().polymorphic() 显式启用多态后，输出
 `{"$type_guid":"实际类型 GUID","$content":{...}}`。具体类型通过 base<Base>() 注册
 安全基类转换，未知/无关类型在构造前拒绝；未声明多态的引用不能保存派生对象。
 具体类型可使用反射字段或已有自定义 JSON codec，后者仍需输出 JSON 对象。
@@ -569,7 +578,7 @@ Texture 描述注册 source、color_space、usage 三个必填字段；后两者
 
 ### 非标量 getter/setter 属性
 
-`registration<T>::property<Getter, Setter>(id, name)` 支持嵌套对象、序列、关联容器和引用。
+`registration::type<T>().property<Getter, Setter>(id, name)` 支持嵌套对象、序列、关联容器和引用。
 非标量 getter 必须返回稳定的 const U&，不接受临时值；setter 接收完整 const U&，返回 error
 或 void，负责先校验再修改，失败须保持旧属性。未知 U 仍需按原规则注册。
 
@@ -633,7 +642,7 @@ Meta 不再提供含糊的 serialize/deserialize 入口。
 
 ### 类型与属性扩展元数据
 
-`registration<T>::metadata(value)` 为类型登记扩展；
+`registration::type<T>().metadata(value)` 为类型登记扩展；
 `property(...)(extension, ...)` 或 `readonly(...)(extension, ...)` 为当前属性登记扩展。
 property 返回借用注册器及字段索引的局部代理；后续字段扩容不影响索引，
 注册器移动或销毁后代理失效。类型 metadata/extend 与字段 operator() 的作用域分开，

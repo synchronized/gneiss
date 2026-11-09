@@ -137,17 +137,17 @@ bool failed_with(const e::result<void, s::diagnostic>& status, e::error expected
 int main() {
   auto r = m::create_registry();
   CHECK(r);
-  CHECK(m::registration<base>{*r}
+  CHECK(m::registration::type<base>(*r)
             .metadata(gneiss::engine::serialization::reference_policy{.polymorphic = true})
             .commit()
             .ok());
-  CHECK(m::registration<derived>{*r}
+  CHECK(m::registration::type<derived>(*r)
             .base<base>()
             .property<&derived::number>(m::property_id{1}, "number")
             .property<&derived::next>(m::property_id{2}, "next")
             .commit()
             .ok());
-  CHECK(m::registration<record>{*r}
+  CHECK(m::registration::type<record>(*r)
             .property<&record::numbers>(m::property_id{1}, "numbers")
             .property<&record::names>(m::property_id{2}, "names")
             .property<&record::label>(m::property_id{3}, "label")

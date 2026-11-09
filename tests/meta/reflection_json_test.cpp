@@ -36,7 +36,7 @@ std::span<const std::byte> bytes(std::string_view text) {
   return std::as_bytes(std::span{text.data(), text.size()});
 }
 e::error register_sample(const m::registry_ref& registry, std::string_view name = "name") {
-  return m::registration<sample>{registry}
+  return m::registration::type<sample>(registry)
       .property<&sample::enabled>(m::property_id{1}, "enabled")(
           gneiss::engine::serialization::field_policy{.required = true})
       .property<&sample::signed_number>(m::property_id{2}, "signed")
@@ -83,12 +83,12 @@ struct enum_sample {
 bool enum_json_contract() {
   auto registry = m::create_registry();
   if (!registry ||
-      m::enum_builder<named_number>{*registry}
+      m::registration::enumeration<named_number>(*registry)
           .value("negative", named_number::negative)
           .value("positive", named_number::positive)
           .commit()
           .failed() ||
-      m::registration<enum_sample>{*registry}
+      m::registration::type<enum_sample>(*registry)
           .property<&enum_sample::named>(m::property_id{1}, "named")(
               gneiss::engine::serialization::field_policy{.required = true, .enum_name = true})
           .property<&enum_sample::numeric>(m::property_id{2}, "numeric")
@@ -134,12 +134,12 @@ bool field_reference_contract() {
     if (!created)
       return false;
     const auto registry = *created;
-    if (m::registration<sample>{registry}
+    if (m::registration::type<sample>(registry)
             .property<&sample::enabled>(m::property_id{1}, "enabled")
             .metadata(ser::reference_policy{.polymorphic = type_polymorphic})
             .commit()
             .failed() ||
-        m::registration<reference_fields>{registry}
+        m::registration::type<reference_fields>(registry)
             .property<&reference_fields::default_reference>(m::property_id{1}, "default")
             .property<&reference_fields::overridden_reference>(m::property_id{2},
                                                                "override")(ser::field_policy{
@@ -207,7 +207,7 @@ bool asymmetric_reference_snapshot_contract() {
                          const void*) -> e::result<void*, ser::diagnostic> {
         return out.string("asset://sample");
       };
-    if (m::registration<sample>{*registry}
+    if (m::registration::type<sample>(*registry)
             .property<&sample::enabled>(m::property_id{1}, "enabled")
             .metadata(policy)
             .commit()
@@ -242,12 +242,12 @@ bool external_field_contract() {
   for (bool external_default : {false, true}) {
     auto registry = m::create_registry();
     if (!registry ||
-        m::registration<sample>{*registry}
+        m::registration::type<sample>(*registry)
             .property<&sample::enabled>(m::property_id{1}, "enabled")
             .metadata(external_default ? external : ser::reference_policy{})
             .commit()
             .failed() ||
-        m::registration<reference_fields>{*registry}
+        m::registration::type<reference_fields>(*registry)
             .property<&reference_fields::default_reference>(m::property_id{1}, "default")
             .property<&reference_fields::overridden_reference>(m::property_id{2},
                                                                "override")(ser::field_policy{
@@ -306,7 +306,7 @@ int main() try {
           .error()
           .error != e::error::not_ready)
     return 3;
-  if (m::registration<tracked>{registry}
+  if (m::registration::type<tracked>(registry)
           .property<&tracked::value>(m::property_id{1}, "value")
           .extend(gneiss::engine::serialization::validation<&reject>)
           .commit()
@@ -456,7 +456,7 @@ int main() try {
     return 18;
   auto custom = m::create_registry();
   if (!custom ||
-      m::registration<sample>{*custom}
+      m::registration::type<sample>(*custom)
           .extend(gneiss::engine::serialization::codec<&custom_encode, &custom_decode>)
           .commit()
           .failed() ||
@@ -472,7 +472,7 @@ int main() try {
     return 20;
   auto fallback = m::create_registry();
   if (!fallback ||
-      m::registration<sample>{*fallback}
+      m::registration::type<sample>(*fallback)
           .property<&sample::enabled>(m::property_id{1}, "enabled")
           .extend(gneiss::engine::serialization::codec<&custom_encode, nullptr>)
           .commit()
@@ -495,7 +495,7 @@ int main() try {
       policy.reference = e::serialization::reference_policy{};
     auto registry = m::create_registry();
     if (!registry ||
-        m::registration<sample>{*registry}
+        m::registration::type<sample>(*registry)
             .property<&sample::enabled>(m::property_id{1}, "enabled",
                                         invalid_case != 0 ? m::property_access::read_write
                                                           : m::property_access::read_only)(policy)

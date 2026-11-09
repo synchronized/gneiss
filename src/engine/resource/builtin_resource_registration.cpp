@@ -19,7 +19,7 @@ namespace gneiss::engine {
 error register_component_descriptions() noexcept {
   // 基类身份字段使用保留编号，派生组件业务字段从 1 开始。
   auto status =
-      meta::registration<component_description_base>{}
+      meta::registration::type<component_description_base>()
           .metadata(gneiss::engine::serialization::reference_policy{.polymorphic = true})
           .property<&component_description_base::uuid>(meta::property_id{0xffffffffU}, "uuid")(
               property_edit_policy{.read_only = true})(
@@ -28,7 +28,7 @@ error register_component_descriptions() noexcept {
   if (status.failed())
     return status;
   status =
-      meta::registration<prefab_property_target>{}
+      meta::registration::type<prefab_property_target>()
           .property<&prefab_property_target::source_node_uuid>(meta::property_id{1},
                                                                "source_node_uuid")(
               gneiss::engine::serialization::field_policy{.required = true})
@@ -43,7 +43,7 @@ error register_component_descriptions() noexcept {
   if (status.failed())
     return status;
   status =
-      meta::registration<prefab_property_override_key>{}
+      meta::registration::type<prefab_property_override_key>()
           .property<&prefab_property_override_key::target>(meta::property_id{1}, "target")(
               gneiss::engine::serialization::field_policy{.required = true})
           .property<&prefab_property_override_key::path>(meta::property_id{2}, "path")(
@@ -53,7 +53,7 @@ error register_component_descriptions() noexcept {
   if (status.failed())
     return status;
   status =
-      meta::registration<prefab_property_override>{}
+      meta::registration::type<prefab_property_override>()
           .property<&prefab_property_override::key>(meta::property_id{1}, "key")(
               gneiss::engine::serialization::field_policy{.required = true})
           .property<&prefab_property_override::operation>(meta::property_id{2}, "operation")(
@@ -63,7 +63,7 @@ error register_component_descriptions() noexcept {
   if (status.failed())
     return status;
   status =
-      meta::registration<prefab_component_override>{}
+      meta::registration::type<prefab_component_override>()
           .property<&prefab_component_override::source_node_uuid>(meta::property_id{1},
                                                                   "source_node_uuid")(
               gneiss::engine::serialization::field_policy{.required = true})
@@ -79,7 +79,7 @@ error register_component_descriptions() noexcept {
   if (status.failed())
     return status;
   status =
-      meta::registration<prefab_reference_description>{}
+      meta::registration::type<prefab_reference_description>()
           .property<&prefab_reference_description::uri>(meta::property_id{1}, "uri")(
               gneiss::engine::serialization::field_policy{.required = true})
           .property<&prefab_reference_description::overrides>(meta::property_id{2}, "overrides")(
@@ -89,7 +89,7 @@ error register_component_descriptions() noexcept {
           .commit();
   if (status.failed())
     return status;
-  status = meta::registration<object_address>{}
+  status = meta::registration::type<object_address>()
                .property<&object_address::object>(meta::property_id{1}, "object")(
                    gneiss::engine::serialization::field_policy{.required = true})
                .property<&object_address::source>(meta::property_id{2}, "source")(
@@ -97,7 +97,7 @@ error register_component_descriptions() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::registration<game_object_description>{}
+  status = meta::registration::type<game_object_description>()
                .property<&game_object_description::uuid>(meta::property_id{1}, "uuid")(
                    gneiss::engine::serialization::field_policy{.required = true})
                .property<&game_object_description::name>(meta::property_id{2}, "name")
@@ -110,7 +110,7 @@ error register_component_descriptions() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::registration<camera_description>{}
+  status = meta::registration::type<camera_description>()
                .metadata(component_validation<camera_description, &validate_camera_description>)
                .base<component_description_base>()
                .property<&camera_description::settings>(meta::property_id{1}, "settings")(
@@ -121,7 +121,7 @@ error register_component_descriptions() noexcept {
                .commit();
   if (status.failed())
     return status;
-  return meta::registration<mesh_renderer_description>{}
+  return meta::registration::type<mesh_renderer_description>()
       .base<component_description_base>()
       .property<&mesh_renderer_description::mesh_uri>(meta::property_id{1}, "mesh")(
           gneiss::engine::serialization::field_policy{.required = true})
@@ -135,7 +135,7 @@ error register_builtin_resource_types() noexcept {
   auto status = register_component_descriptions();
   if (status.failed())
     return status;
-  status = meta::registration<engine::texture>{}
+  status = meta::registration::type<engine::texture>()
                .guid(guid::literal("601bc0bf-b255-4eb1-a51f-f06b59e3ff3d"))
                .name("texture")
                .metadata(serialization::reference_policy{
@@ -145,7 +145,7 @@ error register_builtin_resource_types() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::registration<engine::mesh>{}
+  status = meta::registration::type<engine::mesh>()
                .guid(guid::literal("3c7a40a9-3b99-4955-810e-819d3b160590"))
                .name("mesh")
                .metadata(serialization::reference_policy{
@@ -155,7 +155,7 @@ error register_builtin_resource_types() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::registration<engine::material>{}
+  status = meta::registration::type<engine::material>()
                .guid(guid::literal("c8edeac7-022d-446f-972f-941b5d193b66"))
                .name("material")
                .metadata(serialization::reference_policy{
@@ -165,7 +165,7 @@ error register_builtin_resource_types() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::registration<engine::scene>{}
+  status = meta::registration::type<engine::scene>()
                .guid(guid::literal("83dc2409-ec41-4eec-85a1-c7563b421a71"))
                .name("scene")
                .metadata(serialization::reference_policy{
@@ -175,7 +175,7 @@ error register_builtin_resource_types() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::registration<engine::prefab>{}
+  status = meta::registration::type<engine::prefab>()
                .guid(guid::literal("114e020a-d5e0-4941-8d6c-a611caa26448"))
                .name("prefab")
                .metadata(serialization::reference_policy{
@@ -186,7 +186,7 @@ error register_builtin_resource_types() noexcept {
   if (status.failed())
     return status;
   status =
-      meta::registration<mesh_description>{}
+      meta::registration::type<mesh_description>()
           .property<&mesh_description::topology>(meta::property_id{1}, "topology")(
               gneiss::engine::serialization::field_policy{.required = true})
           .property<&mesh_description::vertices>(meta::property_id{2}, "vertices")(
@@ -199,47 +199,47 @@ error register_builtin_resource_types() noexcept {
           .commit();
   if (status.failed())
     return status;
-  status = meta::enum_builder<material_alpha_mode>{}
+  status = meta::registration::enumeration<material_alpha_mode>()
                .value("opaque", material_alpha_mode::opaque)
                .value("mask", material_alpha_mode::mask)
                .value("blend", material_alpha_mode::blend)
                .commit();
   if (status.failed())
     return status;
-  status = meta::enum_builder<texture_filter>{}
+  status = meta::registration::enumeration<texture_filter>()
                .value("nearest", texture_filter::nearest)
                .value("linear", texture_filter::linear)
                .commit();
   if (status.failed())
     return status;
-  status = meta::enum_builder<texture_mip_filter>{}
+  status = meta::registration::enumeration<texture_mip_filter>()
                .value("none", texture_mip_filter::none)
                .value("nearest", texture_mip_filter::nearest)
                .value("linear", texture_mip_filter::linear)
                .commit();
   if (status.failed())
     return status;
-  status = meta::enum_builder<texture_address>{}
+  status = meta::registration::enumeration<texture_address>()
                .value("repeat", texture_address::repeat)
                .value("clamp", texture_address::clamp)
                .value("mirror", texture_address::mirror)
                .commit();
   if (status.failed())
     return status;
-  status = meta::enum_builder<texture_color_space>{}
+  status = meta::registration::enumeration<texture_color_space>()
                .value("linear", texture_color_space::linear)
                .value("srgb", texture_color_space::srgb)
                .commit();
   if (status.failed())
     return status;
-  status = meta::enum_builder<texture_usage>{}
+  status = meta::registration::enumeration<texture_usage>()
                .value("default", texture_usage::default_usage)
                .value("normal", texture_usage::normal)
                .commit();
   if (status.failed())
     return status;
   status =
-      meta::registration<texture_description>{}
+      meta::registration::type<texture_description>()
           .property<&texture_description::uri>(meta::property_id{1}, "source")(
               gneiss::engine::serialization::field_policy{.required = true})
           .property<&texture_description::color_space>(meta::property_id{2}, "color_space")(
@@ -251,7 +251,7 @@ error register_builtin_resource_types() noexcept {
   if (status.failed())
     return status;
   status =
-      meta::registration<texture_sampling>{}
+      meta::registration::type<texture_sampling>()
           .property<&texture_sampling::uv_set>(meta::property_id{1}, "uv_set")
           .property<&texture_sampling::mag_filter>(meta::property_id{2}, "mag_filter")
           .property<&texture_sampling::min_filter>(meta::property_id{3}, "min_filter")
@@ -263,7 +263,7 @@ error register_builtin_resource_types() noexcept {
   if (status.failed())
     return status;
   status =
-      meta::registration<material_parameters>{}
+      meta::registration::type<material_parameters>()
           .property<&material_parameters::color>(meta::property_id{1}, "color")
           .property<&material_parameters::metallic>(meta::property_id{2}, "metallic")
           .property<&material_parameters::roughness>(meta::property_id{3}, "roughness")
@@ -280,7 +280,7 @@ error register_builtin_resource_types() noexcept {
   if (status.failed())
     return status;
   status =
-      meta::registration<material_description>{}
+      meta::registration::type<material_description>()
           .schema_version(6)
           .property<&material_description::parameters>(meta::property_id{1}, "parameters")(
               gneiss::engine::serialization::field_policy{.required = true})
@@ -292,7 +292,7 @@ error register_builtin_resource_types() noexcept {
     return status;
 
   status =
-      meta::registration<action_binding>{}
+      meta::registration::type<action_binding>()
           .property<&action_binding::physical_key>(meta::property_id{1}, "key")(
               gneiss::engine::serialization::field_policy{.required = true})
           .property<&action_binding::scale>(meta::property_id{2}, "scale")(
@@ -302,7 +302,7 @@ error register_builtin_resource_types() noexcept {
   if (status.failed())
     return status;
   status =
-      meta::registration<action_definition>{}
+      meta::registration::type<action_definition>()
           .property<&action_definition::name>(meta::property_id{1}, "name")(
               gneiss::engine::serialization::field_policy{.required = true})
           .property<&action_definition::bindings>(meta::property_id{2}, "bindings")(
@@ -312,7 +312,7 @@ error register_builtin_resource_types() noexcept {
   if (status.failed())
     return status;
   status =
-      meta::registration<action_map_description>{}
+      meta::registration::type<action_map_description>()
           .schema_version(1)
           .property<&action_map_description::actions>(meta::property_id{1}, "actions")(
               gneiss::engine::serialization::field_policy{.required = true})
@@ -320,7 +320,7 @@ error register_builtin_resource_types() noexcept {
           .commit();
   if (status.failed())
     return status;
-  status = meta::registration<scene_description>{}
+  status = meta::registration::type<scene_description>()
                .property<&scene_description::uuid>(meta::property_id{1}, "scene_uuid")(
                    gneiss::engine::serialization::field_policy{.required = true})
                .property<&scene_description::objects>(meta::property_id{2}, "objects")(
@@ -328,7 +328,7 @@ error register_builtin_resource_types() noexcept {
                .commit();
   if (status.failed())
     return status;
-  return meta::registration<prefab_description>{}
+  return meta::registration::type<prefab_description>()
       .property<&prefab_description::uuid>(meta::property_id{1}, "prefab_uuid")(
           gneiss::engine::serialization::field_policy{.required = true})
       .property<&prefab_description::root_uuid>(meta::property_id{2}, "root_uuid")(

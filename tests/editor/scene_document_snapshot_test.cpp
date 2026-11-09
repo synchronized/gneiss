@@ -15,7 +15,7 @@ struct linked_description
   e::value links;
 };
 e::error register_links() {
-  return e::meta::registration<linked_description>{}
+  return e::meta::registration::type<linked_description>()
       .base<e::component_description_base>()
       .property<&linked_description::links>(e::meta::property_id{1}, "links")
       .commit();

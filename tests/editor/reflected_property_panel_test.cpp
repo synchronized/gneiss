@@ -116,7 +116,9 @@ int main() try {
   const std::array entries{e::meta::enum_entry{"First", e::value{std::int64_t{0}}},
                            e::meta::enum_entry{"Second", e::value{std::int64_t{1}}}};
   if (!registry ||
-      e::meta::register_enum(*registry, e::runtime_type_of<choice>(), e::value_kind::int64, entries)
+      e::meta::register_enum(*registry, {.type_id = e::runtime_type_of<choice>(),
+                                         .kind = e::value_kind::int64,
+                                         .entries = entries})
           .failed() ||
       e::meta::freeze(*registry).failed())
     return 15;

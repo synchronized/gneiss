@@ -86,7 +86,7 @@ struct tree {
   ~tree() { --alive; }
 };
 e::error register_tree(const m::registry_ref& r) {
-  return m::registration<tree>{r}
+  return m::registration::type<tree>(r)
       .property<&tree::items>(m::property_id{1}, "items")
       .property<&tree::groups>(m::property_id{2}, "groups")
       .property<&tree::labels>(m::property_id{3}, "labels")
@@ -107,16 +107,16 @@ int main() try {
   CHECK(r);
   CHECK(register_tree(*r).ok());
   CHECK(m::freeze(*r) == e::error::not_found);
-  CHECK(m::registration<child>{*r}
+  CHECK(m::registration::type<child>(*r)
             .property<&child::speed>(m::property_id{1}, "speed")
             .extend(gneiss::engine::serialization::validation<&child::validate>)
             .commit()
             .ok());
-  CHECK((m::registration<custom>{*r}
+  CHECK((m::registration::type<custom>(*r)
              .extend(gneiss::engine::serialization::codec<&encode_custom, &decode_custom>)
              .commit()
              .ok()));
-  CHECK((m::registration<optional_description>{*r}
+  CHECK((m::registration::type<optional_description>(*r)
              .property<&optional_description::item>(m::property_id{1}, "item")
              .property<&optional_description::get_number, &optional_description::set_number>(
                  m::property_id{2}, "number")

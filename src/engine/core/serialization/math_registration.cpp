@@ -22,7 +22,7 @@ error set_transform(math::transform& object, const Property& value) {
 namespace detail {
 // 仅由内置注册入口调用，不额外暴露数学注册的初始化步骤。
 error register_math_types(const registry_ref& registry) noexcept {
-  auto status = registration<math::transform>{registry}
+  auto status = registration::type<math::transform>(registry)
                     .property<&get_transform<&math::transform::translation>,
                               &set_transform<&math::transform::translation, math::vector3>>(
                         property_id{1}, "translation")(field_policy{.required = true})
@@ -35,7 +35,7 @@ error register_math_types(const registry_ref& registry) noexcept {
                     .commit();
   if (status.failed())
     return status;
-  return registration<math::camera_settings>{registry}
+  return registration::type<math::camera_settings>(registry)
       .property<&math::camera_settings::fov>(property_id{1}, "fov")(field_policy{.required = true})
       .property<&math::camera_settings::near>(property_id{2},
                                               "near")(field_policy{.required = true})

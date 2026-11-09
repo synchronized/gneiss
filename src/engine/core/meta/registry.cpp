@@ -195,8 +195,13 @@ bool valid_scalar(const value& input) noexcept { return is_valid_property_value(
 
 class type_registry_state final : public std::enable_shared_from_this<type_registry_state> {
 public:
-  error register_enum(engine::type_id id, value_kind kind, std::span<const enum_entry> entries,
-                      const detail::type_ops* native) noexcept try {
+  error register_enum(const enum_definition& definition) noexcept try {
+    const auto id = definition.type_id;
+    const auto kind = definition.kind;
+    const auto entries = definition.entries;
+    const auto* native = definition.native;
+    if (!definition.name.empty() && !is_valid_name(definition.name))
+      return error::invalid_argument;
     if (!id || entries.empty() || (kind != value_kind::int64 && kind != value_kind::uint64))
       return error::invalid_argument;
     if (native && (native->id != id || !native->enumeration || native->scalar_kind() != kind))
@@ -211,11 +216,17 @@ public:
     std::unique_lock lock(mutex_);
     if (is_frozen_)
       return error::invalid_state;
-    if (enums_.contains(id))
+    if (enums_.contains(id) || by_cpp_type_.contains(id) ||
+        (definition.guid &&
+         (find_type_unlocked(definition.guid) || find_enum_unlocked(definition.guid))))
       return error::invalid_argument;
     type_record record;
     record.type_id = id;
     record.native = native;
+    record.guid = definition.guid;
+    record.name = definition.name;
+    record.schema_version = definition.schema_version;
+    record.extensions = definition.extensions;
     record.enumeration = true;
     record.scalar = kind;
     record.entries.assign(entries.begin(), entries.end());
@@ -259,8 +270,9 @@ public:
       if (is_frozen_) {
         return error::invalid_state;
       }
-      if ((desc.guid && find_type_unlocked(desc.guid)) ||
-          (desc.type_id && by_cpp_type_.contains(desc.type_id))) {
+      if ((desc.guid && (find_type_unlocked(desc.guid) || find_enum_unlocked(desc.guid))) ||
+          (desc.type_id &&
+           (by_cpp_type_.contains(desc.type_id) || enums_.contains(desc.type_id)))) {
         return error::invalid_argument;
       }
 
@@ -553,6 +565,8 @@ public:
     const type_record* record = nullptr;
     if constexpr (std::is_same_v<Key, engine::guid>) {
       record = find_type_unlocked(key);
+      if (!record)
+        record = find_enum_unlocked(key);
     } else {
       const auto found = by_cpp_type_.find(key);
       if (found != by_cpp_type_.end())
@@ -690,6 +704,15 @@ private:
     const auto found = std::ranges::lower_bound(type.properties, id, {}, &property_record::id);
     return found != type.properties.end() && found->id == id ? &*found : nullptr;
   }
+  [[nodiscard]] const type_record* find_enum_unlocked(guid id) const noexcept {
+    if (!id)
+      return nullptr;
+    for (const auto& [key, record] : enums_) {
+      if (record.guid == id)
+        return &record;
+    }
+    return nullptr;
+  }
   [[nodiscard]] const type_record* find_type_unlocked(engine::type_id id) const noexcept {
     const auto found = by_cpp_type_.find(id);
     return found == by_cpp_type_.end() ? nullptr : found->second;
@@ -738,10 +761,10 @@ engine::type_id type::id() const noexcept {
   return access_ ? access_->id : record_ ? record_->type_id : engine::type_id{};
 }
 engine::guid type::guid() const noexcept {
-  return is_enum() ? engine::guid{}
-         : record_ ? record_->guid
-         : access_ ? access_->guid
-                   : engine::guid{};
+  return record_     ? record_->guid
+         : is_enum() ? engine::guid{}
+         : access_   ? access_->guid
+                     : engine::guid{};
 }
 value_kind type::scalar_kind() const noexcept {
   return access_ ? access_->scalar_kind() : record_ ? record_->scalar : value_kind::invalid;
@@ -823,9 +846,8 @@ result<registry_ref> create_registry() noexcept {
     return error::internal;
   }
 }
-error register_enum(const registry_ref& state, engine::type_id id, value_kind kind,
-                    std::span<const enum_entry> entries, const detail::type_ops* native) noexcept {
-  return state ? state->register_enum(id, kind, entries, native) : error::invalid_handle;
+error register_enum(const registry_ref& state, const enum_definition& definition) noexcept {
+  return state ? state->register_enum(definition) : error::invalid_handle;
 }
 error register_type(const registry_ref& state, const type_definition& desc) noexcept {
   return state ? state->register_type(desc) : error::invalid_handle;

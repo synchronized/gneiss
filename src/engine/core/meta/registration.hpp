@@ -12,10 +12,8 @@
 #include <vector>
 
 namespace gneiss::engine::meta {
-/** 从规范化 C++ 类型提取身份；显式身份与 traits 冲突时拒绝注册。 */
-template <class T>
-[[nodiscard]] error register_type(const registry_ref& registry, type_definition definition,
-                                  std::span<const property_binding> bindings = {}) noexcept {
+namespace detail {
+template <class T, class Definition> error complete_identity(Definition& definition) noexcept {
   using type = std::remove_cvref_t<T>;
   const auto guid = type_identity<type>::guid();
   const auto name = type_identity<type>::name();
@@ -31,8 +29,17 @@ template <class T>
     return error::invalid_argument;
   definition.type_id = id;
   definition.native = &detail::ops_of<type>();
-  return register_type(registry, definition, bindings);
+  return error::success;
 }
+}
+/** 从规范化 C++ 类型提取身份；显式身份与 traits 冲突时拒绝注册。 */
+template <class T>
+[[nodiscard]] error register_type(const registry_ref& registry, type_definition definition,
+                                  std::span<const property_binding> bindings = {}) noexcept {
+  auto status = detail::complete_identity<T>(definition);
+  return status.failed() ? status : register_type(registry, definition, bindings);
+}
+
 template <class T>
 [[nodiscard]] error register_type(type_definition definition,
                                   std::span<const property_binding> bindings = {}) noexcept {
@@ -41,7 +48,8 @@ template <class T>
     return registry.error();
   return register_type<T>(*registry, definition, bindings);
 }
-/** C++ 枚举的类型安全注册；只保存显示项，不自动约束枚举业务值域。 */
+namespace detail {
+/** C++ 枚举的类型安全注册；保存类型身份、扩展及显示项，不自动约束枚举业务值域。 */
 template <class E>
   requires std::is_enum_v<E>
 class enum_builder {
@@ -54,6 +62,53 @@ public:
       status_ = registry.error();
   }
   explicit enum_builder(registry_ref registry) noexcept : registry_(std::move(registry)) {}
+  /** 显式补充身份；与已有 traits 冲突时由 commit 拒绝。名称在注册期间自有。 */
+  enum_builder& name(std::string_view name) noexcept {
+    if (committed_ || status_.failed())
+      return *this;
+    try {
+      name_ = name;
+    } catch (const std::bad_alloc&) {
+      status_ = error::out_of_memory;
+    } catch (...) {
+      status_ = error::internal;
+    }
+    return *this;
+  }
+  enum_builder& guid(engine::guid guid) noexcept {
+    if (!committed_ && !status_.failed())
+      guid_ = guid;
+    return *this;
+  }
+  /** 类型扩展由消费模块解释，注册器仅按类型保存不可变副本。 */
+  template <class Extension> enum_builder& metadata(Extension value) noexcept {
+    if (!committed_ && status_.ok())
+      status_ = extensions_.insert(std::move(value));
+    return *this;
+  }
+  enum_builder& schema_version(std::uint32_t version) noexcept {
+    if (committed_ || status_.failed())
+      return *this;
+    version_ = version;
+    return *this;
+  }
+  /** 按注册对象类型生成扩展；生成错误记录到 commit，不引入消费模块依赖。 */
+  template <class Factory> enum_builder& extend(Factory factory) noexcept {
+    if (committed_ || status_.failed())
+      return *this;
+    try {
+      auto extension = factory.template operator()<E>();
+      if (!extension)
+        status_ = extension.error();
+      else
+        status_ = extensions_.insert(std::move(*extension));
+    } catch (const std::bad_alloc&) {
+      status_ = error::out_of_memory;
+    } catch (...) {
+      status_ = error::internal;
+    }
+    return *this;
+  }
   enum_builder& value(std::string_view name, E input) noexcept {
     if (committed_ || status_.failed())
       return *this;
@@ -72,20 +127,36 @@ public:
     committed_ = true;
     if (status_.failed())
       return status_;
-    return register_enum(registry_, runtime_type_of<E>(), detail::reflected_value_kind<E>(),
-                         entries_, &detail::ops_of<E>());
+    try {
+      enum_definition definition{.guid = guid_,
+                                 .schema_version = version_,
+                                 .name = name_,
+                                 .kind = detail::reflected_value_kind<E>(),
+                                 .entries = entries_,
+                                 .extensions = extensions_};
+      auto status = detail::complete_identity<E>(definition);
+      return status.failed() ? status : register_enum(registry_, definition);
+    } catch (const std::bad_alloc&) {
+      return error::out_of_memory;
+    } catch (...) {
+      return error::internal;
+    }
   }
 
 private:
   registry_ref registry_;
   std::vector<enum_entry> entries_;
+  std::string name_;
+  engine::guid guid_{};
+  std::uint32_t version_ = 1;
+  meta::metadata extensions_{};
   error status_ = error::success;
   bool committed_ = false;
 };
 /** 注册期间拥有字段名称；不持有实例。需外部同步，commit 后不可复用。
  * 访问器只在调用期间借用对象，setter 须先校验再修改，失败保持原对象。
  * 分配错误记录为结果码，commit 失败不在 Registry 留下类型。 */
-template <class T> class registration {
+template <class T> class type_builder {
   using object_type = std::remove_cvref_t<T>;
   struct entry {
     property_id id;
@@ -114,37 +185,37 @@ public:
     property_builder readonly(property_id id, std::string_view name) noexcept {
       return owner_->template readonly<Getter>(id, name);
     }
-    template <class Base> registration& base() noexcept { return owner_->template base<Base>(); }
-    template <class Extension> registration& metadata(Extension value) noexcept {
+    template <class Base> type_builder& base() noexcept { return owner_->template base<Base>(); }
+    template <class Extension> type_builder& metadata(Extension value) noexcept {
       return owner_->metadata(std::move(value));
     }
-    template <class Factory> registration& extend(Factory factory) noexcept {
+    template <class Factory> type_builder& extend(Factory factory) noexcept {
       return owner_->extend(std::move(factory));
     }
-    registration& name(std::string_view name) noexcept { return owner_->name(name); }
-    registration& guid(engine::guid guid) noexcept { return owner_->guid(guid); }
-    registration& schema_version(std::uint32_t version) noexcept {
+    type_builder& name(std::string_view name) noexcept { return owner_->name(name); }
+    type_builder& guid(engine::guid guid) noexcept { return owner_->guid(guid); }
+    type_builder& schema_version(std::uint32_t version) noexcept {
       return owner_->schema_version(version);
     }
     [[nodiscard]] error commit() noexcept { return owner_->commit(); }
 
   private:
-    friend class registration;
-    property_builder(registration& owner, std::size_t index) noexcept
+    friend class type_builder;
+    property_builder(type_builder& owner, std::size_t index) noexcept
         : owner_(&owner), index_(index) {}
-    registration* owner_;
+    type_builder* owner_;
     std::size_t index_;
   };
-  registration() noexcept {
+  type_builder() noexcept {
     auto registry = default_registry();
     if (registry)
       registry_ = std::move(*registry);
     else
       status_ = registry.error();
   }
-  explicit registration(registry_ref registry) noexcept : registry_(std::move(registry)) {}
+  explicit type_builder(registry_ref registry) noexcept : registry_(std::move(registry)) {}
   /** 显式补充身份；与已有 traits 冲突时由 commit 拒绝。名称在注册期间自有。 */
-  registration& name(std::string_view name) noexcept {
+  type_builder& name(std::string_view name) noexcept {
     if (committed_ || status_.failed())
       return *this;
     try {
@@ -156,18 +227,18 @@ public:
     }
     return *this;
   }
-  registration& guid(engine::guid guid) noexcept {
+  type_builder& guid(engine::guid guid) noexcept {
     if (!committed_ && !status_.failed())
       guid_ = guid;
     return *this;
   }
   /** 类型扩展由消费模块解释，注册器仅按类型保存不可变副本。 */
-  template <class Extension> registration& metadata(Extension value) noexcept {
+  template <class Extension> type_builder& metadata(Extension value) noexcept {
     if (!committed_ && status_.ok())
       status_ = extensions_.insert(std::move(value));
     return *this;
   }
-  registration& schema_version(std::uint32_t version) noexcept {
+  type_builder& schema_version(std::uint32_t version) noexcept {
     if (committed_ || status_.failed())
       return *this;
     version_ = version;
@@ -277,7 +348,7 @@ public:
                                }});
   }
   /** 注册唯一直接基类；继承属性参与遍历，冻结时拒绝属性 ID 或名称冲突。 */
-  template <class Base> registration& base() noexcept {
+  template <class Base> type_builder& base() noexcept {
     static_assert(std::derived_from<object_type, Base> && std::derived_from<Base, meta::object>);
     if (committed_ || object_.base_type) {
       status_ = error::invalid_state;
@@ -290,7 +361,7 @@ public:
     return *this;
   }
   /** 按注册对象类型生成扩展；生成错误记录到 commit，不引入消费模块依赖。 */
-  template <class Factory> registration& extend(Factory factory) noexcept {
+  template <class Factory> type_builder& extend(Factory factory) noexcept {
     if (committed_ || status_.failed())
       return *this;
     try {
@@ -385,4 +456,29 @@ private:
   error status_ = error::success;
   bool committed_ = false;
 };
+} // namespace detail
+namespace registration {
+/** 注册非枚举类型；借用显式注册表，省略时使用默认表。 */
+template <class T>
+  requires(!std::is_enum_v<std::remove_cvref_t<T>>)
+auto type() noexcept {
+  return detail::type_builder<T>{};
+}
+template <class T>
+  requires(!std::is_enum_v<std::remove_cvref_t<T>>)
+auto type(registry_ref registry) noexcept {
+  return detail::type_builder<T>{std::move(registry)};
+}
+/** 注册枚举显示项及类型元数据，不改变枚举的整数表示。 */
+template <class E>
+  requires std::is_enum_v<std::remove_cvref_t<E>>
+auto enumeration() noexcept {
+  return detail::enum_builder<std::remove_cvref_t<E>>{};
+}
+template <class E>
+  requires std::is_enum_v<std::remove_cvref_t<E>>
+auto enumeration(registry_ref registry) noexcept {
+  return detail::enum_builder<std::remove_cvref_t<E>>{std::move(registry)};
+}
+}
 }

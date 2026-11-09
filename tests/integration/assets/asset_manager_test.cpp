@@ -262,7 +262,7 @@ error register_test_assets() {
       return serialization::diagnostic{7U, "/value", "invalid value", error::invalid_argument};
     return ref<void>{std::make_shared<value>(value{'r'})};
   };
-  return meta::registration<value>{}
+  return meta::registration::type<value>()
       .guid(guid::from_bytes({0x98, 1}))
       .name("test_asset")
       .metadata(codec)

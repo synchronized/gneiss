@@ -49,12 +49,12 @@ bool object_values() {
 
   auto registry = m::create_registry();
   if (!registry || gneiss::engine::serialization::register_builtin_types(*registry).failed() ||
-      m::registration<shared_probe>{*registry}
+      m::registration::type<shared_probe>(*registry)
           .property<&shared_probe::number>(m::property_id{1}, "number")
           .property<&shared_probe::nested>(m::property_id{2}, "nested")
           .commit()
           .failed() ||
-      m::registration<shared_holder>{*registry}
+      m::registration::type<shared_holder>(*registry)
           .property<&shared_holder::item>(m::property_id{1}, "item")
           .property<&shared_holder::another>(m::property_id{2}, "another")
           .commit()
@@ -181,29 +181,71 @@ bool enum_registration() {
   auto unknown_view = m::view(registry, std::as_const(unknown));
   if (!unknown_view || !unknown_view->type().enum_entries().empty())
     return false;
-  if (m::registration<enum_object>{registry}
+  if (m::registration::type<enum_object>(registry)
           .property<&enum_object::left>(m::property_id{1}, "left")
           .property<&enum_object::right>(m::property_id{2}, "right")
           .commit()
           .failed())
     return false;
-  if (m::enum_builder<mode>{registry}
+  if (m::registration::enumeration<mode>(registry)
               .value("same", mode::first)
               .value("same", mode::second)
               .commit() != e::error::invalid_argument ||
-      m::enum_builder<mode>{registry}
+      m::registration::enumeration<mode>(registry)
               .value("one", mode::first)
               .value("alias", mode::first)
               .commit() != e::error::invalid_argument)
     return false;
-  m::enum_builder<mode> builder{registry};
+  auto builder = m::registration::enumeration<mode>(registry);
   std::string label = "First";
-  builder.value(label, mode::first).value("Second", mode::second);
+  constexpr auto mode_guid = e::guid::literal("63054283-3bd1-4b50-9167-3417bb04a85f");
+  builder.name("Mode")
+      .guid(mode_guid)
+      .schema_version(3)
+      .metadata(std::string{"mode metadata"})
+      .value(label, mode::first)
+      .value("Second", mode::second);
   label = "changed";
-  if (builder.commit().failed() || builder.commit() != e::error::invalid_state ||
-      m::enum_builder<mode>{registry}.value("duplicate", mode::first).commit() !=
+  if (builder.commit().failed())
+    return false;
+  // 枚举和普通类型共用身份唯一性，失败不能留下部分注册数据。
+  struct collision_type {};
+  if (m::registration::type<collision_type>(registry).name("collision").guid(mode_guid).commit() !=
+          e::error::invalid_argument ||
+      m::registration::enumeration<unknown_mode>(registry)
+              .guid(mode_guid)
+              .value("value", unknown_mode::value)
+              .commit() != e::error::invalid_argument ||
+      m::type_of<collision_type>(registry).registered() ||
+      m::type_of<unknown_mode>(registry).registered())
+    return false;
+  constexpr auto other_guid = e::guid::literal("b48fa732-f59e-4770-8be8-e5ad255bb3a5");
+  if (m::registration::type<collision_type>(registry)
+          .name("collision")
+          .guid(other_guid)
+          .commit()
+          .failed() ||
+      m::registration::enumeration<unknown_mode>(registry)
+              .guid(other_guid)
+              .value("value", unknown_mode::value)
+              .commit() != e::error::invalid_argument ||
+      m::registration::enumeration<unknown_mode>(registry)
+              .metadata(1)
+              .metadata(2)
+              .value("value", unknown_mode::value)
+              .commit() != e::error::invalid_argument ||
+      m::type_of<unknown_mode>(registry).registered())
+    return false;
+  if (builder.commit() != e::error::invalid_state ||
+      m::registration::enumeration<mode>(registry).value("duplicate", mode::first).commit() !=
           e::error::invalid_argument ||
       m::freeze(registry).failed())
+    return false;
+  const auto enum_type = m::type_of<mode>(registry);
+  const auto* extension = enum_type.extension<std::string>();
+  if (!enum_type.registered() || enum_type.guid() != mode_guid || enum_type.name() != "Mode" ||
+      enum_type.schema_version() != 3 || !extension || *extension != "mode metadata" ||
+      m::find_type(registry, mode_guid).id() != enum_type.id())
     return false;
   auto type = m::type_of<enum_object>(registry);
   if (!type || type.properties()[0].type().id() != e::runtime_type_of<mode>() ||
@@ -241,7 +283,7 @@ bool enum_registration() {
       field->assign(e::value{std::int64_t{128}}) != e::error::invalid_argument ||
       object.left != mode::second)
     return false;
-  return m::enum_builder<mode>{registry}.value("late", mode::first).commit() ==
+  return m::registration::enumeration<mode>(registry).value("late", mode::first).commit() ==
          e::error::invalid_state;
 }
 struct settings {
@@ -302,8 +344,8 @@ bool type_queries() {
   auto registry = m::create_registry();
   if (!registry || !m::type_of<float>(*registry) || m::find_type(*registry, query_model::type_guid))
     return false;
-  if (m::enum_builder<mode>{*registry}.value("first", mode::first).commit().failed() ||
-      m::registration<query_model>{*registry}
+  if (m::registration::enumeration<mode>(*registry).value("first", mode::first).commit().failed() ||
+      m::registration::type<query_model>(*registry)
           .property<&query_model::modes>(m::property_id{1}, "modes")
           .property<&query_model::count>(m::property_id{2}, "count")
           .commit()
@@ -374,11 +416,11 @@ bool registered_native_queries() {
   using reference = e::ref<settings>;
   using variant = std::variant<float, int>;
   const auto before = m::type_of<sequence>(registry);
-  if (m::registration<sequence>{registry}.name("sequence").commit().failed() ||
-      m::registration<mapping>{registry}.name("mapping").commit().failed() ||
-      m::registration<optional>{registry}.name("optional").commit().failed() ||
-      m::registration<reference>{registry}.name("reference").commit().failed() ||
-      m::registration<variant>{registry}.name("variant").commit().failed())
+  if (m::registration::type<sequence>(registry).name("sequence").commit().failed() ||
+      m::registration::type<mapping>(registry).name("mapping").commit().failed() ||
+      m::registration::type<optional>(registry).name("optional").commit().failed() ||
+      m::registration::type<reference>(registry).name("reference").commit().failed() ||
+      m::registration::type<variant>(registry).name("variant").commit().failed())
     return false;
   const auto runtime_guid = e::guid::literal("947510ef-4f5b-4ac1-a608-a01134927f40");
   if (m::register_type(registry, {.guid = runtime_guid, .schema_version = 1, .name = "runtime"})
@@ -436,12 +478,12 @@ bool reference_properties() {
   if (!made)
     return false;
   auto registry = *made;
-  if (m::registration<reference_target>{registry}
+  if (m::registration::type<reference_target>(registry)
           .property<&reference_target::number>(m::property_id{1}, "number")
           .property<&reference_target::next>(m::property_id{2}, "next")
           .commit()
           .failed() ||
-      m::registration<reference_owner>{registry}
+      m::registration::type<reference_owner>(registry)
           .property<&reference_owner::target>(m::property_id{1}, "target")
           .property<&reference_owner::readonly>(m::property_id{2}, "readonly")
           .commit()
@@ -563,16 +605,16 @@ bool polymorphic_references() {
   if (!created)
     return false;
   auto registry = *created;
-  if (m::registration<polymorphic_base>{registry}
+  if (m::registration::type<polymorphic_base>(registry)
           .metadata(gneiss::engine::serialization::reference_policy{.polymorphic = true})
           .commit()
           .failed() ||
-      m::registration<polymorphic_child>{registry}
+      m::registration::type<polymorphic_child>(registry)
           .base<polymorphic_base>()
           .property<&polymorphic_child::number>(m::property_id{1}, "number")
           .commit()
           .failed() ||
-      m::registration<reference_target>{registry}
+      m::registration::type<reference_target>(registry)
           .property<&reference_target::number>(m::property_id{1}, "number")
           .commit()
           .failed() ||
@@ -708,11 +750,11 @@ struct bound_properties {
 bool bound_property_contract() {
   auto registry = m::create_registry();
   if (!registry ||
-      m::registration<checked_value>{*registry}
+      m::registration::type<checked_value>(*registry)
           .property<&checked_value::number>(m::property_id{1}, "number")
           .commit()
           .failed() ||
-      m::registration<bound_properties>{*registry}
+      m::registration::type<bound_properties>(*registry)
           .property<&bound_properties::get_values, &bound_properties::set_values>(m::property_id{1},
                                                                                   "values")
           .property<&bound_properties::get_child, &bound_properties::set_child>(m::property_id{2},
@@ -774,15 +816,15 @@ struct property_child : offset_base, m::object_type<property_child, shared_probe
 };
 bool property_handles() {
   auto register_probe = [](const m::registry_ref& registry) {
-    return m::registration<shared_probe>{registry}
+    return m::registration::type<shared_probe>(registry)
                .property<&shared_probe::number>(m::property_id{1}, "number")
                .commit()
                .ok() &&
-           m::registration<shared_holder>{registry}
+           m::registration::type<shared_holder>(registry)
                .property<&shared_holder::item>(m::property_id{1}, "item")
                .commit()
                .ok() &&
-           m::registration<property_child>{registry}.base<shared_probe>().commit().ok() &&
+           m::registration::type<property_child>(registry).base<shared_probe>().commit().ok() &&
            m::freeze(registry).ok();
   };
   auto first = m::create_registry(), second = m::create_registry();
@@ -856,11 +898,11 @@ int main() try {
   object source;
   if (!m::view(registry, std::as_const(source)))
     return 2;
-  if (m::registration<settings>{registry}
+  if (m::registration::type<settings>(registry)
           .property<&settings::get_speed, &settings::set_speed>(m::property_id{1}, "speed")
           .commit()
           .failed() ||
-      m::registration<object>{registry}
+      m::registration::type<object>(registry)
           .property<&object::config>(m::property_id{1}, "config")
           .property<&object::get_label, &object::set_label>(m::property_id{2}, "label")
           .readonly<&object::readonly>(m::property_id{3}, "computed")

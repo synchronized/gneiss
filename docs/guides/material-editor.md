@@ -35,7 +35,7 @@ Material Editor 按反射字段展开 parameters、sampling 和 texture_uris。
 枚举下拉框由 C++ 枚举类型的反射注册提供。例如：
 
 ```cpp
-meta::enum_builder<material_alpha_mode>{}
+meta::registration::enumeration<material_alpha_mode>()
     .value("opaque", material_alpha_mode::opaque)
     .value("mask", material_alpha_mode::mask)
     .value("blend", material_alpha_mode::blend)

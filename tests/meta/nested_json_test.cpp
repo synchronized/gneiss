@@ -32,12 +32,12 @@ gneiss::engine::serialization::diagnostic check(const child& value) {
   return {};
 }
 e::error register_parent(const m::registry_ref& registry) {
-  return m::registration<parent>{registry}
+  return m::registration::type<parent>(registry)
       .property<&parent::item>(m::property_id{1}, "a/b")
       .commit();
 }
 e::error register_child(const m::registry_ref& registry) {
-  return m::registration<child>{registry}
+  return m::registration::type<child>(registry)
       .property<&child::value>(m::property_id{1}, "value")(
           gneiss::engine::serialization::field_policy{.required = true})
       .extend(gneiss::engine::serialization::validation<&check>)
@@ -95,14 +95,14 @@ template <> struct chain<0> {
 };
 template <unsigned Depth> e::error register_chain(const m::registry_ref& registry) {
   if constexpr (Depth == 0)
-    return m::registration<chain<0>>{registry}
+    return m::registration::type<chain<0>>(registry)
         .property<&chain<0>::value>(m::property_id{1}, "value")
         .commit();
   else {
     auto status = register_chain<Depth - 1>(registry);
     if (status.failed())
       return status;
-    return m::registration<chain<Depth>>{registry}
+    return m::registration::type<chain<Depth>>(registry)
         .template property<&chain<Depth>::nested>(m::property_id{1}, "nested")(
             gneiss::engine::serialization::field_policy{.required = true})
         .commit();
@@ -117,7 +117,7 @@ bool nested_json_contract() {
     return false;
   auto defaults_registry = m::create_registry();
   if (!defaults_registry || register_child(*defaults_registry).failed() ||
-      m::registration<invalid_parent>{*defaults_registry}
+      m::registration::type<invalid_parent>(*defaults_registry)
           .property<&invalid_parent::item>(m::property_id{1}, "item")
           .commit()
           .failed() ||
@@ -177,7 +177,7 @@ bool nested_json_contract() {
   }
   auto custom = m::create_registry();
   if (!custom || register_parent(*custom).failed() ||
-      m::registration<child>{*custom}
+      m::registration::type<child>(*custom)
           .extend(gneiss::engine::serialization::codec<&encode_custom, &decode_custom>)
           .extend(gneiss::engine::serialization::validation<&check>)
           .commit()
@@ -210,7 +210,7 @@ bool nested_json_contract() {
   // 默认字段遍历使用独立表的字段名和校验。
   auto node_registry = m::create_registry();
   if (!node_registry || register_parent(*node_registry).failed() ||
-      m::registration<child>{*node_registry}
+      m::registration::type<child>(*node_registry)
           .property<&child::value>(m::property_id{1}, "isolated")(
               gneiss::engine::serialization::field_policy{.required = true})
           .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
@@ -277,7 +277,7 @@ bool nested_json_contract() {
     return false;
   auto reentrant = m::create_registry();
   if (!reentrant ||
-      m::registration<child>{*reentrant}
+      m::registration::type<child>(*reentrant)
           .extend(gneiss::engine::serialization::codec<&encode_reentrant, &decode_reentrant>)
           .commit()
           .failed() ||

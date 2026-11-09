@@ -92,25 +92,25 @@ inline e::component_operations<movement_description> operations() {
 }
 
 inline e::error register_movement_meta() {
-  auto status = e::meta::enum_builder<movement_mode>{}
+  auto status = e::meta::registration::enumeration<movement_mode>()
                     .value("Walk", movement_mode::walk)
                     .value("Run", movement_mode::run)
                     .commit();
   if (status.failed())
     return status;
-  status = e::meta::registration<movement_settings>{}
+  status = e::meta::registration::type<movement_settings>()
                .property<&movement_settings::acceleration>(e::meta::property_id{1}, "acceleration")
                .property<&movement_settings::maximum>(e::meta::property_id{2}, "maximum")
                .commit();
   if (status.failed())
     return status;
-  status = e::meta::registration<waypoint>{}
+  status = e::meta::registration::type<waypoint>()
                .property<&waypoint::uuid>(e::meta::property_id{1}, "uuid")
                .property<&waypoint::distance>(e::meta::property_id{2}, "distance")
                .commit();
   if (status.failed())
     return status;
-  return e::meta::registration<movement_description>{}
+  return e::meta::registration::type<movement_description>()
       .base<e::component_description_base>()
       .property<&movement_description::speed>(e::meta::property_id{1}, "speed")
       .property<&movement_description::mode>(e::meta::property_id{2}, "mode")
