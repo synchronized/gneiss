@@ -6,8 +6,7 @@ namespace gneiss::engine::meta {
 /** 借用视图；不延长目标寿命，结构修改后需重新获取元素视图。 */
 template <bool Mutable> class basic_optional_view {
   using target_type = std::conditional_t<Mutable, instance, const_instance>;
-  friend class const_instance;
-  friend class instance;
+  template <bool> friend class basic_instance;
   explicit basic_optional_view(target_type target) : target_(std::move(target)) {}
   const_instance readonly() const noexcept {
     if constexpr (Mutable)
@@ -33,7 +32,8 @@ public:
     if constexpr (Mutable) {
       if (!ops()->get_mut)
         return error::unsupported;
-      return instance::from_access(v.registry(), ops()->element(), ops()->get_mut(target_.data_));
+      return instance::from_access(v.registry(), ops()->element(),
+                                   ops()->get_mut(target_.mutable_data()));
     } else {
       return const_instance::from_access(v.registry(), ops()->element(), ops()->get(v.data_));
     }
@@ -47,7 +47,7 @@ public:
   try {
     if (!ops()->reset)
       return error::unsupported;
-    ops()->reset(target_.data_);
+    ops()->reset(target_.mutable_data());
     return error::success;
   } catch (...) {
     return error::internal;
@@ -58,7 +58,7 @@ public:
     if (!ops()->has_value(readonly().data_)) {
       if (!ops()->ensure)
         return error::unsupported;
-      ops()->ensure(target_.data_);
+      ops()->ensure(target_.mutable_data());
     }
     return get();
   } catch (const std::bad_alloc&) {

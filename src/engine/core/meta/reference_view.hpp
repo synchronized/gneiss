@@ -6,8 +6,7 @@ namespace gneiss::engine::meta {
 /** 借用引用槽位，不自动保活目标。重置/替换后须重新获取目标视图。 */
 template <bool Mutable> class basic_reference_view {
   using target_type = std::conditional_t<Mutable, instance, const_instance>;
-  friend class const_instance;
-  friend class instance;
+  template <bool> friend class basic_instance;
   template <bool> friend class basic_reference_view;
   explicit basic_reference_view(target_type target) : target_(std::move(target)) {}
   const_instance readonly() const noexcept {
@@ -34,7 +33,7 @@ public:
   {
     if (ops()->element().id != id)
       return error::invalid_argument;
-    ops()->set(target_.data_, owner);
+    ops()->set(target_.mutable_data(), owner);
     return error::success;
   }
 
@@ -48,7 +47,7 @@ public:
     if constexpr (Mutable) {
       if (!ops()->get_mut)
         return error::unsupported;
-      auto* p = ops()->get_mut(target_.data_);
+      auto* p = ops()->get_mut(target_.mutable_data());
       if (!p)
         return error::not_found;
       auto owned = owner();
@@ -76,7 +75,7 @@ public:
   [[nodiscard]] error reset() const noexcept
     requires(Mutable)
   {
-    ops()->reset(target_.data_);
+    ops()->reset(target_.mutable_data());
     return error::success;
   }
 };

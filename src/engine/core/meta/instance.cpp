@@ -17,8 +17,10 @@ type type::element_type() const noexcept {
   return detail::resolve_type(registry_, access_->element());
 }
 
-result<const_instance> const_instance::from_object(registry_ref registry, engine::type_id id,
-                                                   const void* object) noexcept {
+template <bool Mutable>
+result<basic_instance<Mutable>> basic_instance<Mutable>::from_object(registry_ref registry,
+                                                                     engine::type_id id,
+                                                                     pointer object) noexcept {
   if (!object)
     return error::invalid_argument;
   auto frozen = is_frozen(registry);
@@ -26,79 +28,120 @@ result<const_instance> const_instance::from_object(registry_ref registry, engine
     return frozen.error();
   if (!*frozen)
     return error::not_ready;
-  auto type = find_type(registry, id);
-  if (!type)
+  auto description = find_type(registry, id);
+  if (!description || description.kind() != type_kind::object)
     return error::not_found;
-  if (type.kind() != type_kind::object)
-    return error::not_found;
-  const_instance output;
-  output.type_ = std::move(type);
+  basic_instance output;
+  output.type_ = std::move(description);
   output.data_ = object;
   return output;
 }
-property_range const_instance::properties() const noexcept { return type().properties(); }
-result<const_instance> const_instance::member(std::string_view name) const noexcept {
-  if (kind() == type_kind::invalid)
+template <bool Mutable>
+result<basic_instance<Mutable>> basic_instance<Mutable>::from_access(registry_ref registry,
+                                                                     const detail::type_ops& access,
+                                                                     pointer data) noexcept {
+  if (!data)
+    return error::invalid_argument;
+  basic_instance output;
+  output.type_ = detail::resolve_type(registry, access);
+  if (!output.type_)
     return error::invalid_state;
-  if (kind() != type_kind::object)
-    return error::unsupported;
-  auto found = type().find_property(name);
-  return found ? found.get(*this) : result<const_instance>{error::not_found};
+  output.data_ = data;
+  return output;
 }
-result<const_instance> const_instance::member(property_id id) const noexcept try {
+template <bool Mutable>
+result<basic_instance<Mutable>>
+basic_instance<Mutable>::member(std::string_view name) const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (kind() != type_kind::object)
     return error::unsupported;
-  auto info = type().find_property(id);
-  if (!info)
+  const auto field = type_.find_property(name);
+  return field ? member(field.id()) : result<basic_instance>{error::not_found};
+}
+template <bool Mutable>
+result<basic_instance<Mutable>> basic_instance<Mutable>::member(property_id id) const noexcept try {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::object || !data_)
+    return error::unsupported;
+  if constexpr (Mutable)
+    if (!writable_)
+      return error::unsupported;
+  const auto field = type_.find_property(id);
+  if (!field)
     return error::not_found;
-  if (info.declaring_type_id() != type_id()) {
+  if (field.declaring_type_id() != type_id()) {
     auto ops = find_object_ops(registry(), type_id());
     if (!ops || !ops->upcast)
       return ops ? error::invalid_state : ops.error();
-    // upcast 仅调整地址，不修改对象；随后继续使用只读视图。
     auto base = from_object(registry(), ops->base_type, ops->upcast(const_cast<void*>(data_)));
-    return base ? base->member(id) : result<const_instance>{base.error()};
+    return base ? base->member(id) : result<basic_instance>{base.error()};
   }
-  const_instance output;
+  if constexpr (Mutable)
+    if (!has_flags(field.capabilities(), property_capabilities::writable))
+      return error::unsupported;
+  basic_instance output;
+  output.type_ = field.type();
   output.parent_ = data_;
   output.parent_type_ = type_id();
   output.property_ = id;
-  output.type_ = info.type();
-  if (info.type().kind() != type_kind::scalar && info.type().kind() != type_kind::invalid) {
-    auto binding = find_object_property(registry(), type_id(), id);
-    if (!binding)
-      return binding.error();
-    if (!binding->object_getter)
+  if (output.kind() == type_kind::scalar) {
+    if (output.scalar_kind() == value_kind::invalid)
       return error::unsupported;
-    output.data_ = binding->object_getter(data_);
-    if (!output.data_)
-      return error::internal;
-  } else {
-    if (info.type().scalar_kind() == value_kind::invalid)
-      return error::unsupported;
+    return output;
   }
+  auto binding = find_object_property(registry(), type_id(), id);
+  if (!binding)
+    return binding.error();
+  if (!binding->object_getter)
+    return error::unsupported;
+  output.data_ = binding->object_getter(data_);
+  if constexpr (Mutable) {
+    if (binding->object_setter)
+      output.writable_ = false;
+    else {
+      if (!binding->object_mutator)
+        return error::unsupported;
+      output.data_ = binding->object_mutator(mutable_data());
+    }
+  }
+  if (!output.data_)
+    return error::internal;
   return output;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
   return error::internal;
 }
-result<value> const_instance::read_value() const noexcept try {
+template <bool Mutable>
+result<typename basic_instance<Mutable>::pointer>
+basic_instance<Mutable>::object_data() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::object)
+    return error::unsupported;
+  if constexpr (Mutable) {
+    if (!mutable_data())
+      return error::unsupported;
+    return mutable_data();
+  } else
+    return data_;
+}
+template <bool Mutable> result<value> basic_instance<Mutable>::read_value() const noexcept try {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (kind() == type_kind::variant && type_id() == runtime_type_of<value>() && data_)
     return *static_cast<const value*>(data_);
   if (kind() == type_kind::reference && access()) {
-    const auto* ops = access()->get<reference_ops>();
+    const auto* ops = access()->template get<reference_ops>();
     return ops && ops->read_object ? result<value>{value{ops->read_object(data_)}}
                                    : result<value>{error::unsupported};
   }
   if (kind() != type_kind::scalar)
     return error::unsupported;
-  if (data_ && access() && access()->get<scalar_ops>()->read) {
-    auto output = access()->get<scalar_ops>()->read(data_);
+  if (data_ && access() && access()->template get<scalar_ops>()->read) {
+    auto output = access()->template get<scalar_ops>()->read(data_);
     if (output.kind() != scalar_kind() || !valid_scalar(output))
       return error::internal;
     return output;
@@ -109,161 +152,96 @@ result<value> const_instance::read_value() const noexcept try {
 } catch (...) {
   return error::internal;
 }
-result<const void*> const_instance::object_data() const noexcept {
+template <bool Mutable>
+error basic_instance<Mutable>::assign(const value& input) const noexcept
+  requires(Mutable)
+try {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
-  if (kind() != type_kind::object)
-    return error::unsupported;
-  return data_;
-}
-result<instance> instance::from_object(registry_ref registry, engine::type_id id,
-                                       void* object) noexcept {
-  auto view = const_instance::from_object(std::move(registry), id, object);
-  if (!view)
-    return view.error();
-  instance output;
-  output.view_ = std::move(*view);
-  output.data_ = object;
-  return output;
-}
-result<instance> instance::member(std::string_view name) const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (kind() != type_kind::object)
-    return error::unsupported;
-  auto found = view_.type().find_property(name);
-  return found ? found.get(*this) : result<instance>{error::not_found};
-}
-result<instance> instance::member(property_id id) const noexcept try {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (!data_)
-    return error::unsupported;
-  auto child = view_.member(id);
-  if (!child)
-    return child.error();
-  auto info = view_.type().find_property(id);
-  if (!info)
-    return error::not_found;
-  if (info.declaring_type_id() != view_.type_id()) {
-    auto ops = find_object_ops(view_.registry(), view_.type_id());
-    if (!ops || !ops->upcast)
-      return ops ? error::invalid_state : ops.error();
-    auto base = from_object(view_.registry(), ops->base_type, ops->upcast(data_));
-    return base ? base->member(id) : result<instance>{base.error()};
-  }
-  if (!has_flags(info.capabilities(), property_capabilities::writable))
-    return error::unsupported;
-  instance output;
-  output.parent_ = data_;
-  output.view_ = std::move(*child);
-  if (info.type().kind() != type_kind::scalar && info.type().kind() != type_kind::invalid) {
-    auto binding = find_object_property(view_.registry(), view_.type_id(), id);
-    if (!binding)
-      return binding.error();
-    if (binding->object_setter)
-      return output;
-    if (!binding->object_mutator)
-      return error::unsupported;
-    output.data_ = binding->object_mutator(data_);
-    if (!output.data_)
-      return error::internal;
-    output.view_.data_ = output.data_;
-  }
-  return output;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
-}
-error instance::assign(const value& input) const noexcept try {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (kind() == type_kind::variant && view_.type_id() == runtime_type_of<value>() && data_) {
-    *static_cast<value*>(data_) = input;
+  if (kind() == type_kind::variant && type_id() == runtime_type_of<value>() && mutable_data()) {
+    *static_cast<value*>(mutable_data()) = input;
     return error::success;
   }
-  if (kind() == type_kind::reference && view_.access()) {
-    const auto* ops = view_.access()->get<reference_ops>();
-    if (!data_ || !ops || !ops->write_object)
+  if (kind() == type_kind::reference && access()) {
+    const auto* ops = access()->template get<reference_ops>();
+    if (!mutable_data() || !ops || !ops->write_object)
       return error::unsupported;
     const auto* object = std::get_if<ref<meta::object>>(&input.payload);
-    return object ? ops->write_object(data_, *object) : error::invalid_argument;
+    return object ? ops->write_object(mutable_data(), *object) : error::invalid_argument;
   }
   if (kind() != type_kind::scalar)
     return error::unsupported;
-  if (data_ && view_.access() && view_.access()->get<scalar_ops>()->write) {
-    if (input.kind() != view_.scalar_kind() || !valid_scalar(input))
+  if (mutable_data() && access() && access()->template get<scalar_ops>()->write) {
+    if (input.kind() != scalar_kind() || !valid_scalar(input))
       return error::invalid_argument;
-    return view_.access()->get<scalar_ops>()->write(data_, input);
+    return access()->template get<scalar_ops>()->write(mutable_data(), input);
   }
-  return write_property(view_.registry(), view_.parent_type_, view_.property_, parent_, input);
+  return write_property(registry(), parent_type_, property_, mutable_parent(), input);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
   return error::internal;
 }
-result<void*> instance::object_data() const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (kind() != type_kind::object || !data_)
-    return error::unsupported;
-  return data_;
-}
-error instance::assign(const const_instance& source) const noexcept try {
+template <bool Mutable>
+error basic_instance<Mutable>::assign(const const_instance& source) const noexcept
+  requires(Mutable)
+try {
   if (kind() == type_kind::invalid || source.kind() == type_kind::invalid)
     return error::invalid_state;
   if (requires_replacement()) {
-    if (view_.type_id() != source.type_id())
+    if (type_id() != source.type_id())
       return error::invalid_argument;
-    auto binding = find_object_property(view_.registry(), view_.parent_type_, view_.property_);
+    auto binding = find_object_property(registry(), parent_type_, property_);
     if (!binding)
       return binding.error();
-    return binding->object_setter(parent_, source.data_);
+    return binding->object_setter(mutable_parent(), source.data_);
   }
   if ((kind() != type_kind::object && kind() != type_kind::reference) || source.kind() != kind())
     return error::unsupported;
-  if (view_.type_id() != source.type_id())
+  if (type_id() != source.type_id())
     return error::invalid_argument;
-  if (!view_.access() || !view_.access()->copy_assign)
+  if (!access() || !access()->copy_assign)
     return error::unsupported;
-  if (data_ != source.data_)
-    view_.access()->copy_assign(data_, source.data_);
+  if (mutable_data() != source.data_)
+    access()->copy_assign(mutable_data(), source.data_);
   return error::success;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
   return error::internal;
 }
-error instance::assign_object(engine::type_id id, void* source) const noexcept try {
+template <bool Mutable>
+error basic_instance<Mutable>::assign_object(engine::type_id id, void* source) const noexcept
+  requires(Mutable)
+try {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (requires_replacement()) {
-    if (!source || id != view_.type_id())
+    if (!source || id != type_id())
       return error::invalid_argument;
-    auto binding = find_object_property(view_.registry(), view_.parent_type_, view_.property_);
+    auto binding = find_object_property(registry(), parent_type_, property_);
     if (!binding)
       return binding.error();
-    return binding->object_setter(parent_, source);
+    return binding->object_setter(mutable_parent(), source);
   }
   if (kind() != type_kind::object)
     return error::unsupported;
-  if (!source || id != view_.type_id())
+  if (!source || id != type_id())
     return error::invalid_argument;
-  if (source == data_)
+  if (source == mutable_data())
     return error::success;
-  if (view_.access() && view_.access()->move_assign) {
-    view_.access()->move_assign(data_, source);
+  if (access() && access()->move_assign) {
+    access()->move_assign(mutable_data(), source);
     return error::success;
   }
-  if (!parent_)
+  if (!mutable_parent())
     return error::unsupported;
-  auto binding = find_object_property(view_.registry(), view_.parent_type_, view_.property_);
+  auto binding = find_object_property(registry(), parent_type_, property_);
   if (!binding)
     return binding.error();
   if (!binding->object_assign)
     return error::unsupported;
-  binding->object_assign(parent_, source);
+  binding->object_assign(mutable_parent(), source);
   return error::success;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
@@ -271,138 +249,87 @@ error instance::assign_object(engine::type_id id, void* source) const noexcept t
   return error::internal;
 }
 
-result<const_instance> const_instance::from_access(registry_ref registry,
-                                                   const detail::type_ops& access,
-                                                   const void* data) noexcept {
-  if (!data)
-    return error::invalid_argument;
-  auto description = detail::resolve_type(registry, access);
-  if (!description)
-    return error::invalid_state;
-  const_instance out;
-  out.data_ = data;
-  out.type_ = std::move(description);
-  return out;
-}
-result<instance> instance::from_access(registry_ref registry, const detail::type_ops& access,
-                                       void* data) noexcept {
-  auto view = const_instance::from_access(std::move(registry), access, data);
-  if (!view)
-    return view.error();
-  instance out;
-  out.view_ = std::move(*view);
-  out.data_ = data;
-  return out;
-}
-result<sequence_view> const_instance::as_sequence() const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (kind() != type_kind::sequence)
-    return error::unsupported;
-  return sequence_view{*this};
-}
-result<mutable_sequence_view> instance::as_sequence() const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (!data_)
-    return error::unsupported;
-  if (kind() != type_kind::sequence)
-    return error::unsupported;
-  return mutable_sequence_view{*this};
-}
-result<associative_view> const_instance::as_associative() const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (kind() != type_kind::associative)
-    return error::unsupported;
-  return associative_view{*this};
-}
-result<mutable_associative_view> instance::as_associative() const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (!data_)
-    return error::unsupported;
-  if (kind() != type_kind::associative)
-    return error::unsupported;
-  return mutable_associative_view{*this};
-}
-result<optional_view> const_instance::as_optional() const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (kind() != type_kind::optional)
-    return error::unsupported;
-  return optional_view{*this};
-}
-result<mutable_optional_view> instance::as_optional() const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (!data_)
-    return error::unsupported;
-  if (kind() != type_kind::optional)
-    return error::unsupported;
-  return mutable_optional_view{*this};
-}
-result<reference_view> const_instance::as_reference() const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (kind() != type_kind::reference)
-    return error::unsupported;
-  return reference_view{*this};
-}
-result<mutable_reference_view> instance::as_reference() const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (!data_)
-    return error::unsupported;
-  if (kind() != type_kind::reference)
-    return error::unsupported;
-  return mutable_reference_view{*this};
-}
-}
-
-namespace gneiss::engine::meta {
-error instance::replace(const std::function<error(const instance&)>& initialize) const noexcept
-    try {
+template <bool Mutable>
+error basic_instance<Mutable>::replace(
+    const std::function<error(const instance&)>& initialize) const noexcept
+  requires(Mutable)
+try {
   const auto& target = *this;
   if (!requires_replacement() || !initialize)
     return error::invalid_argument;
-  auto binding = find_object_property(target.view_.registry(), target.view_.parent_type_,
-                                      target.view_.property_);
+  auto binding = find_object_property(target.registry(), target.parent_type_, target.property_);
   if (!binding)
     return binding.error();
   auto storage = binding->object_construct();
   if (!storage)
     return error::out_of_memory;
-  auto temporary = instance::from_access(target.view_.registry(), *binding->access, storage.get());
+  auto temporary = instance::from_access(target.registry(), *binding->access, storage.get());
   if (!temporary)
     return temporary.error();
   auto status = initialize(*temporary);
-  return status.failed() ? status : binding->object_setter(target.parent_, storage.get());
+  return status.failed() ? status : binding->object_setter(target.mutable_parent(), storage.get());
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
   return error::internal;
 }
-}
-
-namespace gneiss::engine::meta {
-result<variant_view> const_instance::as_variant() const noexcept {
+template <bool Mutable>
+result<basic_sequence_view<Mutable>> basic_instance<Mutable>::as_sequence() const noexcept {
   if (kind() == type_kind::invalid)
-    return error::invalid_argument;
-  if (kind() != type_kind::variant)
+    return error::invalid_state;
+  if (kind() != type_kind::sequence || !data_)
     return error::unsupported;
-  return variant_view{*this};
+  if constexpr (Mutable)
+    if (!writable_)
+      return error::unsupported;
+  return basic_sequence_view<Mutable>{*this};
 }
-result<mutable_variant_view> instance::as_variant() const noexcept {
+template <bool Mutable>
+result<basic_associative_view<Mutable>> basic_instance<Mutable>::as_associative() const noexcept {
   if (kind() == type_kind::invalid)
-    return error::invalid_argument;
-  if (!data_ || kind() != type_kind::variant)
+    return error::invalid_state;
+  if (kind() != type_kind::associative || !data_)
     return error::unsupported;
-  return mutable_variant_view{*this};
+  if constexpr (Mutable)
+    if (!writable_)
+      return error::unsupported;
+  return basic_associative_view<Mutable>{*this};
 }
+template <bool Mutable>
+result<basic_optional_view<Mutable>> basic_instance<Mutable>::as_optional() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::optional || !data_)
+    return error::unsupported;
+  if constexpr (Mutable)
+    if (!writable_)
+      return error::unsupported;
+  return basic_optional_view<Mutable>{*this};
 }
-
-namespace gneiss::engine::meta {
+template <bool Mutable>
+result<basic_reference_view<Mutable>> basic_instance<Mutable>::as_reference() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::reference || !data_)
+    return error::unsupported;
+  if constexpr (Mutable)
+    if (!writable_)
+      return error::unsupported;
+  return basic_reference_view<Mutable>{*this};
+}
+template <bool Mutable>
+result<basic_variant_view<Mutable>> basic_instance<Mutable>::as_variant() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::variant || !data_)
+    return error::unsupported;
+  if constexpr (Mutable)
+    if (!writable_)
+      return error::unsupported;
+  return basic_variant_view<Mutable>{*this};
+}
+template class basic_instance<false>;
+template class basic_instance<true>;
 result<const_instance> property::get(const const_instance& object) const noexcept {
   if (!record_)
     return error::invalid_state;

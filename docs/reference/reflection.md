@@ -363,10 +363,13 @@ for (auto property : fields) {
 
 ## 实例视图
 
-`meta/instance.hpp` 提供只读 `const_instance` 和可写 `instance`，不新增对象所有者或注册表。
+`meta/instance.hpp` 提供 `basic_instance<Mutable>`；只读 `const_instance` 与可写 `instance`
+分别是 false/true 特化。两者共用类型句柄及访问位置布局，不新增对象所有者或注册表。
+写操作仅在 Mutable 为 true 时可用；as_const() 借用原位置，不复制业务对象。
 根视图通过 `meta::view(registry, object)` 创建，也可省略 registry 使用默认表；
 可写对象返回 result<instance>，const 对象返回 result<const_instance>，需要主动只读时传 std::as_const(object)；仅接受实际对象的左值，
-不接受临时对象。根类型必须已登记，注册表必须冻结。
+不接受临时对象。模板 view 可访问未注册类型的原生能力；属性访问需要已发布的注册数据。
+运行期 from_object 入口要求已注册对象类型和冻结注册表。
 
 ```cpp
 auto root = meta::view(registry, std::as_const(camera));

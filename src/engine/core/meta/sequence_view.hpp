@@ -7,8 +7,7 @@ namespace gneiss::engine::meta {
 /** 借用视图；不延长目标寿命，结构修改后需重新获取元素视图。 */
 template <bool Mutable> class basic_sequence_view {
   using target_type = std::conditional_t<Mutable, instance, const_instance>;
-  friend class const_instance;
-  friend class instance;
+  template <bool> friend class basic_instance;
   explicit basic_sequence_view(target_type target) : target_(std::move(target)) {}
   const_instance readonly() const noexcept {
     if constexpr (Mutable)
@@ -41,7 +40,7 @@ public:
       if (!ops()->at_mut)
         return error::unsupported;
       return instance::from_access(v.registry(), ops()->element(),
-                                   ops()->at_mut(target_.data_, index));
+                                   ops()->at_mut(target_.mutable_data(), index));
     } else
       return const_instance::from_access(v.registry(), ops()->element(), ops()->at(v.data_, index));
   } catch (const std::bad_alloc&) {
@@ -101,7 +100,7 @@ public:
       return error::unsupported;
     if (!initialize)
       return error::invalid_argument;
-    return ops()->replace(target_.data_, [&](void* data, const detail::type_ops& access) {
+    return ops()->replace(target_.mutable_data(), [&](void* data, const detail::type_ops& access) {
       auto candidate = instance::from_access(readonly().registry(), access, data);
       return candidate ? initialize(*candidate) : candidate.error();
     });
@@ -118,7 +117,7 @@ public:
       return count == ops()->size(v.data_)
                  ? error::success
                  : (ops()->fixed_size ? error::invalid_argument : error::unsupported);
-    ops()->resize(target_.data_, count);
+    ops()->resize(target_.mutable_data(), count);
     return error::success;
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;

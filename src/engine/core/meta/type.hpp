@@ -49,7 +49,7 @@ public:
   [[nodiscard]] GNEISS_API type element_type() const noexcept;
 
 private:
-  friend class const_instance;
+  template <bool> friend class basic_instance;
   friend struct detail::type_factory;
   registry_ref registry_;
   const detail::type_ops* access_{};

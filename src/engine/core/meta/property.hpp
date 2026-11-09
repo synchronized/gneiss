@@ -89,8 +89,9 @@ struct property_binding {
 
 namespace gneiss::engine::meta {
 class type;
-class const_instance;
-class instance;
+template <bool Mutable> class basic_instance;
+using const_instance = basic_instance<false>;
+using instance = basic_instance<true>;
 class property_range;
 /** 冻结属性句柄；保活注册表，不持有被访问对象。 */
 class property final {

@@ -6,8 +6,7 @@ namespace gneiss::engine::meta {
 /** 借用视图；不延长目标寿命，结构修改后需重新获取元素视图。 */
 template <bool Mutable> class basic_associative_view {
   using target_type = std::conditional_t<Mutable, instance, const_instance>;
-  friend class const_instance;
-  friend class instance;
+  template <bool> friend class basic_instance;
   explicit basic_associative_view(target_type target) : target_(std::move(target)) {}
   const_instance readonly() const noexcept {
     if constexpr (Mutable)
@@ -46,7 +45,7 @@ public:
     if constexpr (Mutable) {
       if (!ops()->find_mut)
         return error::unsupported;
-      auto* p = ops()->find_mut(target_.data_, key);
+      auto* p = ops()->find_mut(target_.mutable_data(), key);
       if (!p)
         return error::not_found;
       return instance::from_access(v.registry(), ops()->element(), p);
@@ -69,7 +68,8 @@ public:
     auto v = readonly();
     if (!ops()->insert)
       return error::unsupported;
-    return instance::from_access(v.registry(), ops()->element(), ops()->insert(target_.data_, key));
+    return instance::from_access(v.registry(), ops()->element(),
+                                 ops()->insert(target_.mutable_data(), key));
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {
@@ -80,7 +80,7 @@ public:
   try {
     if (!ops()->erase)
       return error::unsupported;
-    return ops()->erase(target_.data_, key) ? error::success : error::not_found;
+    return ops()->erase(target_.mutable_data(), key) ? error::success : error::not_found;
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {
@@ -91,7 +91,7 @@ public:
   try {
     if (!ops()->clear)
       return error::unsupported;
-    ops()->clear(target_.data_);
+    ops()->clear(target_.mutable_data());
     return error::success;
   } catch (...) {
     return error::internal;
