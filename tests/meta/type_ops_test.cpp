@@ -154,10 +154,10 @@ int main() {
   auto mapping = view->member("mapping")->as_associative();
   CHECK(mapping && *mapping->keys() == std::vector<std::string>({"a", "z"}));
   CHECK(mapping->find("missing").error() == e::error::not_found);
-  auto encoded = gneiss::engine::serialization::json::serialize_bytes(
+  auto encoded = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*registry}, source);
   CHECK(encoded);
-  auto decoded = gneiss::engine::serialization::json::deserialize<document>(
+  auto decoded = gneiss::engine::serialization::json::decode<document>(
       gneiss::engine::serialization::context{*registry}, *encoded);
   CHECK(decoded && decoded->sequence.values == source.sequence.values &&
         decoded->mapping.values == source.mapping.values);
@@ -200,26 +200,26 @@ int main() {
   auto variant = selected_instance->as_variant();
   CHECK(variant && variant->alternative_count() == 2 && *variant->index() == 0);
   CHECK(variant->alternative(0) && variant->alternative(2).error() == e::error::invalid_argument);
-  auto choice_bytes = gneiss::engine::serialization::json::serialize_bytes(
+  auto choice_bytes = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*registry}, selected);
   CHECK(choice_bytes);
-  auto reordered = gneiss::engine::serialization::json::deserialize<reordered_choice>(
+  auto reordered = gneiss::engine::serialization::json::decode<reordered_choice>(
       gneiss::engine::serialization::context{*registry}, *choice_bytes);
   CHECK(reordered && reordered->index() == 1 && std::get<1>(*reordered) == 42);
   CHECK(variant->select(1).ok());
   CHECK(variant->value()->assign(e::value{std::string{"hello"}}).ok());
   CHECK(std::get<1>(selected) == "hello");
   CHECK(variant->select(2) == e::error::invalid_argument && *variant->index() == 1);
-  auto text_bytes = gneiss::engine::serialization::json::serialize_bytes(
+  auto text_bytes = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*registry}, selected);
   CHECK(text_bytes);
-  auto text_copy = gneiss::engine::serialization::json::deserialize<choice>(
+  auto text_copy = gneiss::engine::serialization::json::decode<choice>(
       gneiss::engine::serialization::context{*registry}, *text_bytes);
   CHECK(text_copy && *text_copy == selected);
   for (std::string_view invalid : {R"({"$kind":"missing","$content":1})", R"({"$kind":"number"})",
                                    R"({"$kind":"number","$content":"wrong"})",
                                    R"({"$kind":"number","$content":1,"extra":2})"}) {
-    auto decoded_choice = gneiss::engine::serialization::json::deserialize<choice>(
+    auto decoded_choice = gneiss::engine::serialization::json::decode<choice>(
         gneiss::engine::serialization::context{*registry},
         std::as_bytes(std::span(invalid.data(), invalid.size())));
     CHECK(!decoded_choice && decoded_choice.error().error == e::error::invalid_argument);
@@ -227,7 +227,7 @@ int main() {
   std::variant<int, double> unlabelled{3};
   auto unlabelled_view = m::view(*registry, unlabelled);
   CHECK(unlabelled_view && unlabelled_view->as_variant()->select(1).ok());
-  auto unlabelled_bytes = gneiss::engine::serialization::json::serialize_bytes(
+  auto unlabelled_bytes = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*registry}, unlabelled);
   CHECK(!unlabelled_bytes && unlabelled_bytes.error().error == e::error::unsupported);
   std::variant<int, non_default> cannot_construct{4};
@@ -245,7 +245,7 @@ int main() {
   CHECK(unknown_object && unknown_object->kind() == m::type_kind::object);
   CHECK(unknown_object->as_const().properties().empty());
   CHECK(m::type_of<decltype(cannot_construct)>(*empty_registry));
-  auto rejected_object = gneiss::engine::serialization::json::serialize_bytes(
+  auto rejected_object = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*empty_registry}, std::get<1>(cannot_construct));
   CHECK(!rejected_object);
   std::vector<non_default> unknown_elements;
@@ -267,16 +267,16 @@ int main() {
   CHECK(valueless_view && valueless_view->valueless());
   CHECK(valueless_view->index().error() == e::error::invalid_state);
   CHECK(valueless_view->value().error() == e::error::invalid_state);
-  auto failed_bytes = gneiss::engine::serialization::json::serialize_bytes(
+  auto failed_bytes = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*registry}, valueless);
   CHECK(!failed_bytes && failed_bytes.error().error == e::error::invalid_state);
   CHECK(valueless_view->select(0).ok() && !valueless_view->valueless());
   variant_document nested{{choice{std::int32_t{7}}, choice{std::string{"text"}}},
                           choice{std::string{"selected"}}};
-  auto nested_bytes = gneiss::engine::serialization::json::serialize_bytes(
+  auto nested_bytes = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*registry}, nested);
   CHECK(nested_bytes);
-  auto nested_copy = gneiss::engine::serialization::json::deserialize<variant_document>(
+  auto nested_copy = gneiss::engine::serialization::json::decode<variant_document>(
       gneiss::engine::serialization::context{*registry}, *nested_bytes);
   CHECK(nested_copy && nested_copy->entries == nested.entries &&
         nested_copy->selected == nested.selected);

@@ -18,8 +18,8 @@ result<T, diagnostic> decode_typed(const context& ctx, DecodeView&& decode_view,
       if (!view)
         return diagnostic{.error = view.error()};
       auto status = decode_view(*view);
-      if (status.error.failed())
-        return status;
+      if (!status)
+        return std::move(status).error();
       return object;
     }
   }

@@ -412,7 +412,9 @@ Mesh/Texture 描述校验已移到所属资源模块并接入文件边界，详�
 [操作状态记录](../records/2026-11-09-serialization-operation-state.md)。
 格式无关入口已改为 write/read_into/decode，write/read_into 返回 result<void, diagnostic>，见
 [Archive 入口记录](../records/2026-11-09-serialization-archive-api.md)。
-read_context/write_context 分离及 JSON 入口和调用迁移尚未完成。
+JSON 入口和调用已迁移到 encode/decode/read_into，见
+[JSON 入口记录](../records/2026-11-09-serialization-json-api.md)。
+read_context/write_context 分离尚未完成。
 
 ## 九、验收矩阵
 

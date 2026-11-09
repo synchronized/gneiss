@@ -291,7 +291,7 @@ serialization::diagnostic decode_members(const context& ctx, const registry_ref&
 
 }
 result<std::vector<std::byte>, serialization::diagnostic>
-serialize_instance(const context& ctx, const const_instance& view) noexcept try {
+encode_instance(const context& ctx, const const_instance& view) noexcept try {
   auto selected = ctx.registry();
   if (!selected)
     return failure(selected.error());
@@ -321,8 +321,8 @@ serialize_instance(const context& ctx, const const_instance& view) noexcept try 
 } catch (...) {
   return failure(error::internal);
 }
-serialization::diagnostic deserialize_instance(const context& ctx, const instance& view,
-                                               std::span<const std::byte> bytes) noexcept try {
+result<void, serialization::diagnostic> read_into(const context& ctx, const instance& view,
+                                                  std::span<const std::byte> bytes) noexcept try {
   auto selected = ctx.registry();
   if (!selected)
     return failure(selected.error());
@@ -336,25 +336,28 @@ serialization::diagnostic deserialize_instance(const context& ctx, const instanc
       yyjson_read(reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0), &yyjson_doc_free);
   if (!doc)
     return failure(error::invalid_argument);
-  return decode_view(ctx, registry, view, yyjson_doc_get_root(doc.get()),
-                     context_access::depth(ctx));
+  auto status =
+      decode_view(ctx, registry, view, yyjson_doc_get_root(doc.get()), context_access::depth(ctx));
+  if (status.error.failed())
+    return status;
+  return {};
 } catch (const std::bad_alloc&) {
   return failure(error::out_of_memory);
 } catch (...) {
   return failure(error::internal);
 }
 result<std::vector<std::byte>, serialization::diagnostic>
-serialize_object(const context& ctx, type_id id, const void* object) noexcept {
+encode_object(const context& ctx, type_id id, const void* object) noexcept {
   auto registry = ctx.registry();
   if (!registry)
     return failure(registry.error());
   auto view = const_instance::from_object(*registry, id, object);
   if (!view)
     return failure(view.error());
-  return serialize_instance(ctx, *view);
+  return encode_instance(ctx, *view);
 }
 result<ref<void>, serialization::diagnostic>
-deserialize_object(const context& ctx, type_id id, std::span<const std::byte> bytes) noexcept try {
+decode_object(const context& ctx, type_id id, std::span<const std::byte> bytes) noexcept try {
   auto registry = ctx.registry();
   if (!registry)
     return failure(registry.error());
@@ -417,14 +420,14 @@ serialization::diagnostic read(const context& ctx, yyjson_val* input, const inst
 namespace gneiss::engine::serialization::json {
 using namespace meta;
 result<std::vector<std::byte>, serialization::diagnostic>
-serialize_instance(const const_instance& view) noexcept {
+encode_instance(const const_instance& view) noexcept {
   context ctx{view.registry()};
-  return serialize_instance(ctx, view);
+  return encode_instance(ctx, view);
 }
-serialization::diagnostic deserialize_instance(const instance& view,
-                                               std::span<const std::byte> bytes) noexcept {
+result<void, serialization::diagnostic> read_into(const instance& view,
+                                                  std::span<const std::byte> bytes) noexcept {
   context ctx{view.registry()};
-  return deserialize_instance(ctx, view, bytes);
+  return read_into(ctx, view, bytes);
 }
 }
 

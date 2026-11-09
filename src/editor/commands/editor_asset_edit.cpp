@@ -172,7 +172,7 @@ engine::error editor_asset_edit::request_property(runtime::application& app,
                            std::get<meta::property_id>(edit.path.front()), &description, edit.data);
   if (status.failed())
     return status;
-  auto valid = gneiss::engine::serialization::json::serialize_bytes(description);
+  auto valid = gneiss::engine::serialization::json::encode_bytes(description);
   if (!valid)
     return valid.error().error;
   return request(app, document, history, target, {description.mesh_uri, description.material_uri});

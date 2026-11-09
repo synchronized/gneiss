@@ -93,8 +93,8 @@ int main() try {
   const auto old_envelope = std::string(R"([{"uuid":")") + e::guid::generate().string() +
                             R"(","description":)" +
                             entry(reflected_description::type_guid, R"({"speed":3})") + "}]";
-  if (e::serialization::json::deserialize<e::component_descriptions>(missing_identity) ||
-      e::serialization::json::deserialize<e::component_descriptions>(old_envelope))
+  if (e::serialization::json::decode<e::component_descriptions>(missing_identity) ||
+      e::serialization::json::decode<e::component_descriptions>(old_envelope))
     return 61;
   // 项目组件只注册字段，不写 codec；Scene/Prefab 的 GUID 分派共用默认表。
   const auto reflected = entry(reflected_description::type_guid, R"({"speed":3})");
@@ -130,11 +130,11 @@ int main() try {
   identities.set(custom_description{false});
   if (identities.identity(custom_description::type_guid) != identity)
     return 51;
-  auto encoded_identities = e::serialization::json::serialize(identities);
+  auto encoded_identities = e::serialization::json::encode(identities);
   if (!encoded_identities)
     return 52;
   auto restored_identities =
-      e::serialization::json::deserialize<e::component_descriptions>(*encoded_identities);
+      e::serialization::json::decode<e::component_descriptions>(*encoded_identities);
   if (!restored_identities ||
       restored_identities->identity(custom_description::type_guid) != identity)
     return 53;
@@ -156,7 +156,7 @@ int main() try {
   if (shared_values.identity(reflected_description::type_guid) != source_uuid ||
       replacement->uuid != replacement_uuid || source->uuid != source_uuid)
     return 58;
-  auto stored = e::serialization::json::serialize(shared_values);
+  auto stored = e::serialization::json::encode(shared_values);
   if (!stored || stored->find("\"description\"") != std::string::npos ||
       stored->find(source_uuid.string()) == std::string::npos)
     return 59;
@@ -189,21 +189,18 @@ int main() try {
       property->as_sequence()->resize(2) != e::error::unsupported ||
       !property->as_const().as_sequence())
     return 38;
-  auto collection_bytes = gneiss::engine::serialization::json::serialize_bytes(guarded.components);
+  auto collection_bytes = gneiss::engine::serialization::json::encode_bytes(guarded.components);
   if (!collection_bytes ||
-      !gneiss::engine::serialization::json::deserialize<e::component_descriptions>(
-          *collection_bytes))
+      !gneiss::engine::serialization::json::decode<e::component_descriptions>(*collection_bytes))
     return 41;
   auto original = *guarded.components.begin();
-  auto null_status =
-      gneiss::engine::serialization::json::deserialize_instance(*property, bytes("[null]"));
-  auto duplicate_status = gneiss::engine::serialization::json::deserialize_instance(
+  auto null_status = gneiss::engine::serialization::json::read_into(*property, bytes("[null]"));
+  auto duplicate_status = gneiss::engine::serialization::json::read_into(
       *property, bytes("[" + custom + "," + custom + "]"));
-  if (null_status.error.ok() || duplicate_status.error.ok() || guarded.components.size() != 1 ||
+  if (null_status.has_value() || duplicate_status.has_value() || guarded.components.size() != 1 ||
       *guarded.components.begin() != original)
     return 39;
-  if (gneiss::engine::serialization::json::deserialize_instance(*property, bytes("[]"))
-          .error.failed() ||
+  if (gneiss::engine::serialization::json::read_into(*property, bytes("[]")).failed() ||
       !guarded.components.empty() || parsed->objects.front().components.empty())
     return 40;
   auto copy = *parsed;
@@ -267,8 +264,7 @@ int main() try {
   if (unsupported || unsupported.error() != e::error::unsupported)
     return 10;
   // 未发布的旧扁平 Camera 格式不再接受。
-  auto old_camera = gneiss::engine::serialization::json::deserialize<
-      e::scene_description>(bytes(scene(
+  auto old_camera = gneiss::engine::serialization::json::decode<e::scene_description>(bytes(scene(
       "[" +
       entry(
           e::camera_description::type_guid,

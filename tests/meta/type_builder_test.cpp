@@ -73,10 +73,10 @@ bool explicit_registration() {
   if (!item || item->assign(4.0F).failed() || model.items.values[0] != 4.0F)
     return false;
   e::serialization::context context{*registry};
-  auto encoded = e::serialization::json::serialize_bytes(context, model);
+  auto encoded = e::serialization::json::encode_bytes(context, model);
   if (!encoded)
     return false;
-  auto decoded = e::serialization::json::deserialize<external_model>(context, *encoded);
+  auto decoded = e::serialization::json::decode<external_model>(context, *encoded);
   return decoded && decoded->items.values == model.items.values;
 }
 struct runtime_child {
@@ -138,15 +138,15 @@ bool runtime_only_registration() {
       field.get(*foreign).error() != e::error::invalid_argument)
     return false;
   e::serialization::context context{*registry};
-  auto encoded = e::serialization::json::serialize_bytes(context, object);
+  auto encoded = e::serialization::json::encode_bytes(context, object);
   if (!encoded)
     return false;
-  auto decoded = e::serialization::json::deserialize<runtime_parent>(context, *encoded);
+  auto decoded = e::serialization::json::decode<runtime_parent>(context, *encoded);
   if (!decoded || decoded->child.number != 7 ||
       e::serialization::capture_value(context, object).error().error != e::error::unsupported)
     return false;
   auto poly = e::make_ref<runtime_poly>();
-  auto rejected = e::serialization::json::serialize_bytes(context, poly);
+  auto rejected = e::serialization::json::encode_bytes(context, poly);
   return !rejected && rejected.error().error == e::error::unsupported;
 }
 struct display_metadata {

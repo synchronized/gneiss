@@ -44,11 +44,7 @@ template <class T> result<void, diagnostic> write(const T& value, writer& output
 template <class T>
 result<T, serialization::diagnostic> decode(const context& ctx, reader& input) noexcept try {
   return detail::decode_typed<T>(
-      ctx,
-      [&](const meta::instance& view) {
-        auto status = read_into(ctx, input, view);
-        return status ? diagnostic{} : std::move(status).error();
-      },
+      ctx, [&](const meta::instance& view) { return read_into(ctx, input, view); },
       [&](type_id id) { return decode_object(ctx, id, input); });
 } catch (const std::bad_alloc&) {
   return serialization::diagnostic{.error = error::out_of_memory};

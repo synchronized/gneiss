@@ -307,9 +307,8 @@ int main() {
   // 通用 JSON 只负责结构；领域入口拒绝不可用的输入绑定。
   action_map_description unchecked;
   unchecked.actions = {{.name = "bad", .bindings = {{.physical_key = 4, .scale = 0}}}};
-  auto unchecked_bytes = serialization::json::serialize_bytes(unchecked);
-  if (!unchecked_bytes ||
-      !serialization::json::deserialize<action_map_description>(*unchecked_bytes) ||
+  auto unchecked_bytes = serialization::json::encode_bytes(unchecked);
+  if (!unchecked_bytes || !serialization::json::decode<action_map_description>(*unchecked_bytes) ||
       validate_action_map(unchecked).error != error::invalid_argument ||
       asset_file::serialize_bytes(unchecked))
     return 32;

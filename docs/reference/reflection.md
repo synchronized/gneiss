@@ -191,7 +191,7 @@ Registry 使用原生共享引用管理，不经全局句柄表。独立表在�
 每个类型当前只登记一组编解码函数，自定义文件格式标识及版本由 codec 自行校验，不提供任意 capability 或通用对象工厂。
 
 `serialization::find_policies` 按运行期 type_id 查询冻结 Registry 中的扩展函数表，不登记重复的格式名称。
-`serialization::json::serialize_bytes<T>` 返回 `result<vector<byte>, serialization::diagnostic>`，`deserialize<T>` 返回
+`serialization::json::encode_bytes<T>` 返回 `result<vector<byte>, serialization::diagnostic>`，`deserialize<T>` 返回
 `result<T, serialization::diagnostic>`。成功结果拥有值，失败结果仅携带错误码、路径、字节偏移和消息。
 `serialization::diagnostic.error` 保存错误码；bad_alloc 转为 out_of_memory，其余异常转为 internal。
 Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `result<ref<void>, serialization::diagnostic>`，
@@ -284,7 +284,7 @@ getter 失败、异常或返回不匹配／无效值时仅返回错误，不交�
 `meta::default_registry()` 返回进程共享的 `result<registry_ref>`，只创建表，不登记内置类型、不冻结。
 定义位于 engine 编译单元；各模块应链接同一引擎，不能把引擎静态复制到多个动态库后期待共享状态。
 未冻结时查询返回 `not_ready`。`meta::registration<T>{}`、`register_type<T>(definition)`、
-`type_of<T>()`、属性访问和 `serialization::json::serialize(object)` / `serialization::json::deserialize<T>(bytes)` 使用默认表；
+`type_of<T>()`、属性访问和 `serialization::json::encode(object)` / `serialization::json::decode<T>(bytes)` 使用默认表；
 显式 registry 重载保持原行为。
 
 业务模块不得直接调用 `meta::default_registry()`；默认表获取集中在 Meta 内部，
@@ -611,7 +611,7 @@ instance::assign 对可直接访问的引用槽接受兼容对象或空引用，
 ## 序列化格式边界
 
 序列化实现位于 `engine/core/serialization/json.cpp`，普通调用包含 `serialization/json.hpp`。
-`serialization::json::serialize` 返回 JSON 文本，`serialize_bytes` 返回相同 JSON 的字节；
+`serialization::json::encode` 返回 JSON 文本，`serialize_bytes` 返回相同 JSON 的字节；
 `deserialize<T>` 接受文本或字节。两种入口均提供 context-first 和默认上下文版本。
 Meta 不再提供含糊的 serialize/deserialize 入口。
 

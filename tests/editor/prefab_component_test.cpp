@@ -11,6 +11,7 @@
 #include "engine/function/scene/prefab_replay.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/resource/asset_file.hpp"
+#include "engine/resource/scene/scene_validation.hpp"
 #include "runtime/application.hpp"
 #include <cstdio>
 #include <source_location>
@@ -30,27 +31,28 @@ int main() try {
   {
     e::prefab_component_override added{
         root_id, type, e::make_component_description(movement_description{4}), e::guid::generate()};
-    auto text = gneiss::engine::serialization::json::serialize(added);
+    auto text = gneiss::engine::serialization::json::encode(added);
     check(bool(text) && text->find("\"added\":{") != std::string::npos);
-    auto decoded =
-        gneiss::engine::serialization::json::deserialize<e::prefab_component_override>(*text);
+    auto decoded = gneiss::engine::serialization::json::decode<e::prefab_component_override>(*text);
     check(decoded && decoded->added && (*decoded->added)->get<movement_description>()->speed == 4);
     added.added.reset();
-    text = gneiss::engine::serialization::json::serialize(added);
+    text = gneiss::engine::serialization::json::encode(added);
     check(bool(text) && text->find("\"added\":null") != std::string::npos);
-    decoded = gneiss::engine::serialization::json::deserialize<e::prefab_component_override>(*text);
+    decoded = gneiss::engine::serialization::json::decode<e::prefab_component_override>(*text);
     check(decoded && !decoded->added);
     const auto prefix = "{\"source_node_uuid\":\"" + root_id.string() + "\",\"type_guid\":\"" +
                         type.string() + "\"";
-    check(!gneiss::engine::serialization::json::deserialize<e::prefab_component_override>(prefix +
-                                                                                          "}"));
-    check(!gneiss::engine::serialization::json::deserialize<e::prefab_component_override>(
+    check(!gneiss::engine::serialization::json::decode<e::prefab_component_override>(prefix + "}"));
+    check(!gneiss::engine::serialization::json::decode<e::prefab_component_override>(
         "{\"source_node_uuid\":\"" + root_id.string() + "\",\"$type_guid\":\"" + type.string() +
         "\"}"));
     added.added = e::component_description{};
-    check(!gneiss::engine::serialization::json::serialize_bytes(added));
+    // engaged optional 的空引用会与缺失 optional 共用 null，格式层仍拒绝该歧义。
+    check(!gneiss::engine::serialization::json::encode_bytes(added));
+    check(e::validate_component_override(added).error == e::error::invalid_argument);
     added.added = e::make_component_description(e::camera_description{});
-    check(!gneiss::engine::serialization::json::serialize_bytes(added));
+    check(bool(gneiss::engine::serialization::json::encode_bytes(added)));
+    check(e::validate_component_override(added).error == e::error::invalid_argument);
   }
   auto source = std::make_shared<e::prefab_description>();
   source->uuid = e::guid::from_bytes({87, 1});
@@ -172,9 +174,9 @@ int main() try {
     check(changes && changes->properties.size() == 2);
     check(std::holds_alternative<e::insert_value_operation>(changes->properties[0].operation) &&
           std::holds_alternative<e::insert_value_operation>(changes->properties[1].operation));
-    auto encoded = e::serialization::json::serialize(changes->properties);
+    auto encoded = e::serialization::json::encode(changes->properties);
     check(bool(encoded));
-    auto decoded = e::serialization::json::deserialize<std::vector<e::prefab_property_override>>(
+    auto decoded = e::serialization::json::decode<std::vector<e::prefab_property_override>>(
         std::string_view{*encoded});
     check(decoded && decoded->size() == 2);
     e::prefab_description applied;

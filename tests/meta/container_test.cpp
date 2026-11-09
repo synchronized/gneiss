@@ -129,7 +129,7 @@ int main() try {
   CHECK(optional_root);
   CHECK(optional_root->member("number")->as_optional().error() == e::error::unsupported);
   CHECK(*optional_root->as_const().member("number")->as_optional()->has_value());
-  auto rejected_number = gneiss::engine::serialization::json::deserialize<optional_description>(
+  auto rejected_number = gneiss::engine::serialization::json::decode<optional_description>(
       gneiss::engine::serialization::context{*r}, bytes(R"({"number":-1})"));
   CHECK(!rejected_number && rejected_number.error().path == "/number");
   auto slot = optional_root->member("item")->as_optional();
@@ -138,33 +138,33 @@ int main() try {
   CHECK(optional_root->member("item")->read_value().error() == e::error::unsupported);
   CHECK(slot->ensure() && optional.item.has_value());
   CHECK(slot->get()->member("speed")->assign(e::value{4.0f}).ok());
-  auto optional_json = gneiss::engine::serialization::json::serialize_bytes(
+  auto optional_json = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*r}, optional);
   CHECK(optional_json);
-  auto optional_copy = gneiss::engine::serialization::json::deserialize<optional_description>(
+  auto optional_copy = gneiss::engine::serialization::json::decode<optional_description>(
       gneiss::engine::serialization::context{*r}, *optional_json);
   CHECK(optional_copy && optional_copy->item->speed == 4);
   optional_copy->item->speed = 9;
   CHECK(optional.item->speed == 4);
   CHECK(slot->reset().ok() && !optional.item);
-  auto optional_default = gneiss::engine::serialization::json::deserialize<optional_description>(
+  auto optional_default = gneiss::engine::serialization::json::decode<optional_description>(
       gneiss::engine::serialization::context{*r}, bytes("{}"));
   CHECK(optional_default && optional_default->number == 3 && !optional_default->item);
-  auto optional_null = gneiss::engine::serialization::json::deserialize<optional_description>(
+  auto optional_null = gneiss::engine::serialization::json::decode<optional_description>(
       gneiss::engine::serialization::context{*r}, bytes(R"({"number":null})"));
   CHECK(optional_null && !optional_null->number);
-  auto optional_bad = gneiss::engine::serialization::json::deserialize<optional_description>(
+  auto optional_bad = gneiss::engine::serialization::json::decode<optional_description>(
       gneiss::engine::serialization::context{*r}, bytes(R"({"item":{"speed":-1}})"));
   CHECK(!optional_bad && optional_bad.error().path == "/item");
   optional.values.emplace(std::initializer_list<float>{1, 2});
-  optional_json = gneiss::engine::serialization::json::serialize_bytes(
+  optional_json = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*r}, optional);
   CHECK(optional_json);
-  optional_copy = gneiss::engine::serialization::json::deserialize<optional_description>(
+  optional_copy = gneiss::engine::serialization::json::decode<optional_description>(
       gneiss::engine::serialization::context{*r}, *optional_json);
   CHECK(optional_copy && optional_copy->values == optional.values);
   optional.identifier.emplace();
-  CHECK(!gneiss::engine::serialization::json::serialize_bytes(
+  CHECK(!gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*r}, optional));
   tree source;
   auto root = m::view(*r, source);
@@ -205,13 +205,13 @@ int main() try {
   auto maybe = root->member("maybe")->as_sequence();
   CHECK(maybe && maybe->resize(1).ok() && source.maybe.size() == 1);
   source.labels = {{"z", "last"}, {"a", "first"}};
-  auto encoded = gneiss::engine::serialization::json::serialize_bytes(
+  auto encoded = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*r}, source);
   CHECK(encoded);
   const std::string json(reinterpret_cast<const char*>(encoded->data()), encoded->size());
   CHECK(json.find("\"labels\":{\"a\":\"first\",\"z\":\"last\"}") != std::string::npos);
   CHECK(json.find("readonly") == std::string::npos);
-  auto restored = gneiss::engine::serialization::json::deserialize<tree>(
+  auto restored = gneiss::engine::serialization::json::decode<tree>(
       gneiss::engine::serialization::context{*r}, *encoded);
   CHECK(restored);
   CHECK(restored->items.size() == 2 && restored->items[0].speed == 2 &&
@@ -219,34 +219,34 @@ int main() try {
   CHECK(restored->custom_items.size() == 1 && restored->custom_items[0].number == 42);
   CHECK(restored->groups == source.groups && restored->labels == source.labels &&
         restored->maybe == source.maybe);
-  auto empty = gneiss::engine::serialization::json::deserialize<tree>(
+  auto empty = gneiss::engine::serialization::json::decode<tree>(
       gneiss::engine::serialization::context{*r}, bytes(R"({"items":[],"groups":{},"maybe":[]})"));
   CHECK(empty && empty->items.empty() && empty->groups.empty() && empty->maybe.empty());
-  auto defaults = gneiss::engine::serialization::json::deserialize<tree>(
+  auto defaults = gneiss::engine::serialization::json::decode<tree>(
       gneiss::engine::serialization::context{*r}, bytes("{}"));
   CHECK(defaults && defaults->items.size() == 1 && defaults->groups.contains("old"));
   const auto alive_before_failure = tree::alive;
-  auto bad = gneiss::engine::serialization::json::deserialize<tree>(
+  auto bad = gneiss::engine::serialization::json::decode<tree>(
       gneiss::engine::serialization::context{*r}, bytes(R"({"groups":{"a/b~":[true]}})"));
   CHECK(!bad && bad.error().path == "/groups/a~1b~0/0");
-  bad = gneiss::engine::serialization::json::deserialize<tree>(
+  bad = gneiss::engine::serialization::json::decode<tree>(
       gneiss::engine::serialization::context{*r}, bytes(R"({"items":[{"speed":-1}]})"));
   CHECK(!bad && bad.error().path == "/items/0");
-  bad = gneiss::engine::serialization::json::deserialize<tree>(
+  bad = gneiss::engine::serialization::json::decode<tree>(
       gneiss::engine::serialization::context{*r}, bytes(R"({"labels":{"x":"a","x":"b"}})"));
   CHECK(!bad && bad.error().path == "/labels/x");
-  bad = gneiss::engine::serialization::json::deserialize<tree>(
+  bad = gneiss::engine::serialization::json::decode<tree>(
       gneiss::engine::serialization::context{*r}, bytes(R"({"items":{}})"));
   CHECK(!bad && bad.error().path == "/items");
   CHECK(tree::alive == alive_before_failure);
   source.items[0].speed = -1;
-  CHECK(!gneiss::engine::serialization::json::serialize_bytes(
+  CHECK(!gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*r}, source));
   source.items[0].speed = 2;
   std::string deep = "{}";
   for (int i = 0; i < 35; ++i)
     deep = "{\"children\":[" + deep + "]}";
-  CHECK(!gneiss::engine::serialization::json::deserialize<tree>(
+  CHECK(!gneiss::engine::serialization::json::decode<tree>(
       gneiss::engine::serialization::context{*r}, bytes(deep)));
   CHECK(tree::alive == alive_before_failure);
   // 读任务期间没有修改目标；视图本身不提供线程同步。

@@ -55,7 +55,7 @@ public:
         return std::move(decoded).error();
       return std::shared_ptr<const void>{std::make_shared<T>(std::move(*decoded))};
     }
-    auto decoded = serialization::json::deserialize<T>(context, bytes);
+    auto decoded = serialization::json::decode<T>(context, bytes);
     if (!decoded)
       return std::move(decoded).error();
     return std::shared_ptr<const void>{std::make_shared<T>(std::move(*decoded))};

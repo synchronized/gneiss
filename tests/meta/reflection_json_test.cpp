@@ -96,27 +96,27 @@ bool enum_json_contract() {
           .failed() ||
       m::freeze(*registry).failed())
     return false;
-  auto encoded = gneiss::engine::serialization::json::serialize_bytes(
+  auto encoded = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*registry}, enum_sample{});
   if (!encoded)
     return false;
   const std::string_view text(reinterpret_cast<const char*>(encoded->data()), encoded->size());
   if (text.find(R"("named":"negative")") == text.npos || text.find(R"("numeric":-7)") == text.npos)
     return false;
-  auto decoded = gneiss::engine::serialization::json::deserialize<enum_sample>(
+  auto decoded = gneiss::engine::serialization::json::decode<enum_sample>(
       gneiss::engine::serialization::context{*registry}, *encoded);
   if (!decoded || decoded->named != named_number::negative ||
       decoded->numeric != named_number::negative)
     return false;
   for (const auto invalid : {R"({"named":-7})", R"({"named":"unknown"})", R"({"named":null})"}) {
-    auto rejected = gneiss::engine::serialization::json::deserialize<enum_sample>(
+    auto rejected = gneiss::engine::serialization::json::decode<enum_sample>(
         gneiss::engine::serialization::context{*registry}, bytes(invalid));
     if (rejected || rejected.error().path != "/named")
       return false;
   }
   enum_sample unknown;
   unknown.named = static_cast<named_number>(10);
-  return !gneiss::engine::serialization::json::serialize_bytes(
+  return !gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*registry}, unknown);
 }
 struct reference_fields {
@@ -152,7 +152,7 @@ bool field_reference_contract() {
     reference_fields input{e::make_ref<sample>(), e::make_ref<sample>(), 42};
     input.overridden_reference->enabled = false;
     const ser::context ctx{registry};
-    auto encoded = ser::json::serialize_bytes(ctx, input);
+    auto encoded = ser::json::encode_bytes(ctx, input);
     if (!encoded)
       return false;
     std::string text(reinterpret_cast<const char*>(encoded->data()), encoded->size());
@@ -161,7 +161,7 @@ bool field_reference_contract() {
     if (text.find(plain) == text.npos || text.find("$type_guid") == text.npos ||
         text.find("transient") != text.npos)
       return false;
-    auto decoded = ser::json::deserialize<reference_fields>(ctx, *encoded);
+    auto decoded = ser::json::decode<reference_fields>(ctx, *encoded);
     auto snapshot = ser::capture_value(ctx, input);
     if (!decoded || !snapshot || !decoded->default_reference || !decoded->overridden_reference ||
         decoded->overridden_reference->enabled || decoded->transient != 7)
@@ -176,11 +176,11 @@ bool field_reference_contract() {
       return false;
     input.default_reference.reset();
     input.overridden_reference.reset();
-    auto nulls = ser::json::serialize_bytes(ctx, input);
+    auto nulls = ser::json::encode_bytes(ctx, input);
     auto null_snapshot = ser::capture_value(ctx, input);
     if (!nulls || !null_snapshot)
       return false;
-    auto empty = ser::json::deserialize<reference_fields>(ctx, *nulls);
+    auto empty = ser::json::decode<reference_fields>(ctx, *nulls);
     auto restored_empty = ser::restore_value<reference_fields>(ctx, *null_snapshot);
     if (!empty || !restored_empty || empty->default_reference || empty->overridden_reference ||
         restored_empty->default_reference || restored_empty->overridden_reference)
@@ -255,14 +255,14 @@ bool external_field_contract() {
       return false;
     const ser::context ctx{*registry};
     reference_fields input{e::make_ref<sample>(), e::make_ref<sample>()};
-    auto json = ser::json::serialize_bytes(ctx, input);
+    auto json = ser::json::encode_bytes(ctx, input);
     auto captured = ser::capture_value(ctx, input);
     if (!json || !captured)
       return false;
     const std::string text(reinterpret_cast<const char*>(json->data()), json->size());
     const auto expected =
         external_default ? R"("default":"asset://sample")" : R"("override":"asset://sample")";
-    if (text.find(expected) == text.npos || !ser::json::deserialize<reference_fields>(ctx, *json))
+    if (text.find(expected) == text.npos || !ser::json::decode<reference_fields>(ctx, *json))
       return false;
     const auto* record = std::get_if<e::record_value>(&captured->payload);
     if (!record || record->get().properties.size() != 2)
@@ -297,7 +297,7 @@ int main() try {
   auto registry = *created;
   if (register_sample(registry).failed())
     return 2;
-  if (gneiss::engine::serialization::json::serialize_bytes(
+  if (gneiss::engine::serialization::json::encode_bytes(
           gneiss::engine::serialization::context{registry}, sample{})
           .error()
           .error != e::error::not_ready)
@@ -315,14 +315,14 @@ int main() try {
   original.name = std::string("中文\"\\");
   original.identity = sample::type_guid;
   original.rotation = {0.9F, 0.1F, 0.2F, 0.3F};
-  auto encoded = gneiss::engine::serialization::json::serialize_bytes(
+  auto encoded = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{registry}, original);
   if (!encoded)
     return 5;
   const std::string_view text{reinterpret_cast<const char*>(encoded->data()), encoded->size()};
   if (text.find("computed") != std::string_view::npos)
     return 6;
-  auto decoded = gneiss::engine::serialization::json::deserialize<sample>(
+  auto decoded = gneiss::engine::serialization::json::decode<sample>(
       gneiss::engine::serialization::context{registry}, *encoded);
   if (!decoded || decoded->signed_number != original.signed_number ||
       decoded->unsigned_number != original.unsigned_number || decoded->name != original.name ||
@@ -330,7 +330,7 @@ int main() try {
       decoded->rotation != original.rotation || decoded->uv != original.uv)
     return 7;
   original.identity = {};
-  auto nil_encoded = gneiss::engine::serialization::json::serialize_bytes(
+  auto nil_encoded = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{registry}, original);
   if (!nil_encoded)
     return 40;
@@ -338,22 +338,22 @@ int main() try {
                              nil_encoded->size());
   if (nil_text.find("\"identity\":null") == std::string::npos)
     return 42;
-  auto zero_string = gneiss::engine::serialization::json::deserialize<sample>(
+  auto zero_string = gneiss::engine::serialization::json::decode<sample>(
       gneiss::engine::serialization::context{registry},
       bytes(R"({"enabled":true,"identity":"00000000-0000-0000-0000-000000000000"})"));
   if (!zero_string || zero_string->identity)
     return 43;
-  auto nil_decoded = gneiss::engine::serialization::json::deserialize<sample>(
+  auto nil_decoded = gneiss::engine::serialization::json::decode<sample>(
       gneiss::engine::serialization::context{registry}, *nil_encoded);
   if (!nil_decoded || nil_decoded->identity)
     return 41;
-  auto defaults = gneiss::engine::serialization::json::deserialize<sample>(
+  auto defaults = gneiss::engine::serialization::json::decode<sample>(
       gneiss::engine::serialization::context{registry},
       bytes(R"({"enabled":false,"unknown":1,"computed":99})"));
   if (!defaults || defaults->enabled || defaults->name != "默认" || defaults->speed != 1)
     return 8;
   const auto fails = [&](std::string_view json, std::string_view path) {
-    auto result = gneiss::engine::serialization::json::deserialize<sample>(
+    auto result = gneiss::engine::serialization::json::decode<sample>(
         gneiss::engine::serialization::context{registry}, bytes(json));
     return !result && result.error().error == e::error::invalid_argument &&
            result.error().path == path;
@@ -383,28 +383,28 @@ int main() try {
       uv->assign(e::value{e::math::vector3{2, 3, 4}}).ok())
     return 33;
   original.uv.y = std::numeric_limits<float>::infinity();
-  auto invalid_uv = gneiss::engine::serialization::json::serialize_bytes(
+  auto invalid_uv = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{registry}, original);
   if (invalid_uv || invalid_uv.error().path != "/uv")
     return 34;
   original.uv = {0.25F, 0.75F};
   original.speed = std::numeric_limits<float>::infinity();
-  auto invalid = gneiss::engine::serialization::json::serialize_bytes(
+  auto invalid = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{registry}, original);
   // getter 产生非法属性值沿用 Meta 的 internal 语义，并保留字段位置。
   if (invalid || invalid.error().error != e::error::internal || invalid.error().path != "/speed")
     return 10;
   original.speed = -1;
-  invalid = gneiss::engine::serialization::json::serialize_bytes(
+  invalid = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{registry}, original);
   if (invalid || invalid.error().path != "/speed")
     return 11;
-  auto failed = gneiss::engine::serialization::json::deserialize_object(
+  auto failed = gneiss::engine::serialization::json::decode_object(
       gneiss::engine::serialization::context{registry}, e::runtime_type_of<tracked>(),
       bytes(R"({"value":1})"));
   if (failed || tracked::alive != 0)
     return 12;
-  auto failed_field = gneiss::engine::serialization::json::deserialize_object(
+  auto failed_field = gneiss::engine::serialization::json::decode_object(
       gneiss::engine::serialization::context{registry}, e::runtime_type_of<tracked>(),
       bytes(R"({"value":"bad"})"));
   if (failed_field || tracked::alive != 0)
@@ -413,7 +413,7 @@ int main() try {
   auto other = m::create_registry();
   if (!other || register_sample(*other, "a/b~c").failed() || m::freeze(*other).failed())
     return 14;
-  auto escaped = gneiss::engine::serialization::json::deserialize<sample>(
+  auto escaped = gneiss::engine::serialization::json::decode<sample>(
       gneiss::engine::serialization::context{*other}, bytes(R"({"enabled":true,"a/b~c":2})"));
   if (escaped || escaped.error().path != "/a~1b~0c")
     return 15;
@@ -421,13 +421,13 @@ int main() try {
   sample isolated_value;
   auto isolated_view = m::view(*other, isolated_value);
   if (!isolated_view ||
-      gneiss::engine::serialization::json::deserialize_instance(
+      gneiss::engine::serialization::json::read_into(
           *isolated_view, bytes(R"({"enabled":true,"a/b~c":"isolated"})"))
-          .error.failed() ||
+          .failed() ||
       isolated_value.name != "isolated")
     return 90;
   auto isolated_bytes =
-      gneiss::engine::serialization::json::serialize_instance(isolated_view->as_const());
+      gneiss::engine::serialization::json::encode_instance(isolated_view->as_const());
   if (!isolated_bytes || std::string_view(reinterpret_cast<const char*>(isolated_bytes->data()),
                                           isolated_bytes->size())
                                  .find("a/b~c") == std::string_view::npos)
@@ -443,10 +443,10 @@ int main() try {
   if (!weak.expired() || !loader || !(*loader)->decode(*encoded))
     return 17;
   auto task = std::async(std::launch::async, [&] {
-    return static_cast<bool>(gneiss::engine::serialization::json::deserialize<sample>(
+    return static_cast<bool>(gneiss::engine::serialization::json::decode<sample>(
         gneiss::engine::serialization::context{registry}, *encoded));
   });
-  if (!gneiss::engine::serialization::json::deserialize<sample>(
+  if (!gneiss::engine::serialization::json::decode<sample>(
           gneiss::engine::serialization::context{registry}, *encoded) ||
       !task.get())
     return 18;
@@ -458,12 +458,12 @@ int main() try {
           .failed() ||
       m::freeze(*custom).failed())
     return 19;
-  auto custom_output = gneiss::engine::serialization::json::serialize_bytes(
+  auto custom_output = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*custom}, sample{});
   if (!custom_output ||
       std::string_view(reinterpret_cast<const char*>(custom_output->data()),
                        custom_output->size()) != R"({"custom":"yes"})" ||
-      !gneiss::engine::serialization::json::deserialize<sample>(
+      !gneiss::engine::serialization::json::decode<sample>(
           gneiss::engine::serialization::context{*custom}, bytes("{}")))
     return 20;
   auto fallback = m::create_registry();
@@ -475,7 +475,7 @@ int main() try {
           .failed() ||
       m::freeze(*fallback).failed())
     return 22;
-  auto fallback_decoded = gneiss::engine::serialization::json::deserialize<sample>(
+  auto fallback_decoded = gneiss::engine::serialization::json::decode<sample>(
       gneiss::engine::serialization::context{*fallback}, bytes(R"({"enabled":false})"));
   if (!fallback_decoded || fallback_decoded->enabled)
     return 23;
@@ -500,8 +500,8 @@ int main() try {
         m::freeze(*registry).failed())
       return 24;
     const e::serialization::context ctx{*registry};
-    auto encoded = e::serialization::json::serialize_bytes(ctx, sample{});
-    auto decoded = e::serialization::json::deserialize<sample>(ctx, bytes(R"({"enabled":true})"));
+    auto encoded = e::serialization::json::encode_bytes(ctx, sample{});
+    auto decoded = e::serialization::json::decode<sample>(ctx, bytes(R"({"enabled":true})"));
     if (encoded || decoded || encoded.error().error != e::error::invalid_argument ||
         decoded.error().error != e::error::invalid_argument || encoded.error().path != "/enabled" ||
         decoded.error().path != "/enabled")

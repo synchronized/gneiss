@@ -49,17 +49,16 @@ void native_material_contract() {
   auto restored = gneiss::engine::asset_file::deserialize<material_description>(*encoded);
   check(restored && restored->parameters.color == material->parameters.color);
   // 同一资源描述作为普通对象或嵌套元素时不携带文件头。
-  auto plain = serialization::json::serialize(*material);
+  auto plain = serialization::json::encode(*material);
   check(plain && plain->find("\"format\"") == std::string::npos &&
         plain->find("\"version\"") == std::string::npos);
-  auto plain_copy =
-      serialization::json::deserialize<material_description>(std::string_view{*plain});
+  auto plain_copy = serialization::json::decode<material_description>(std::string_view{*plain});
   check(plain_copy && plain_copy->parameters.color == material->parameters.color);
   check(!asset_file::deserialize<material_description>(std::string_view{*plain}));
-  auto nested = serialization::json::serialize(std::vector<material_description>{*material});
+  auto nested = serialization::json::encode(std::vector<material_description>{*material});
   check(nested && nested->find("\"format\"") == std::string::npos);
-  auto nested_copy = serialization::json::deserialize<std::vector<material_description>>(
-      std::string_view{*nested});
+  auto nested_copy =
+      serialization::json::decode<std::vector<material_description>>(std::string_view{*nested});
   check(nested_copy && nested_copy->size() == 1 &&
         nested_copy->front().parameters.color == material->parameters.color);
   const std::string text(reinterpret_cast<const char*>(encoded->data()), encoded->size());

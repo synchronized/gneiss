@@ -11,10 +11,10 @@ using namespace engine;
 result<value> edit_reference_snapshot(const value& source, const property_edit& edit) noexcept try {
   if (source.kind() != value_kind::object)
     return error::invalid_argument;
-  auto encoded = gneiss::engine::serialization::json::serialize_bytes(source);
+  auto encoded = gneiss::engine::serialization::json::encode_bytes(source);
   if (!encoded)
     return encoded.error().error;
-  auto copy = gneiss::engine::serialization::json::deserialize<value>(*encoded);
+  auto copy = gneiss::engine::serialization::json::decode<value>(*encoded);
   if (!copy)
     return copy.error().error;
   auto owner = std::get<ref<meta::object>>(copy->payload);
@@ -35,7 +35,7 @@ result<value> edit_reference_snapshot(const value& source, const property_edit& 
   }();
   if (status.failed())
     return status;
-  auto checked = gneiss::engine::serialization::json::serialize_bytes(*copy);
+  auto checked = gneiss::engine::serialization::json::encode_bytes(*copy);
   return checked ? result<value>{std::move(*copy)} : result<value>{checked.error().error};
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
@@ -78,7 +78,7 @@ void draw_value(const meta::const_instance& view, const std::string& name, prope
     if (ImGui::BeginPopupContextItem()) {
       ImGui::BeginDisabled(!editable);
       if (ImGui::MenuItem("Copy Object Reference Content")) {
-        auto bytes = gneiss::engine::serialization::json::serialize_bytes(*held);
+        auto bytes = gneiss::engine::serialization::json::encode_bytes(*held);
         if (bytes) {
           auto text = std::string{"gneiss-reference:\n"} +
                       std::string(reinterpret_cast<const char*>(bytes->data()), bytes->size());
@@ -92,7 +92,7 @@ void draw_value(const meta::const_instance& view, const std::string& name, prope
       if (ImGui::MenuItem("Paste Object Reference Content", nullptr, false,
                           text.starts_with(prefix))) {
         const auto body = text.substr(prefix.size());
-        auto decoded = gneiss::engine::serialization::json::deserialize<value>(
+        auto decoded = gneiss::engine::serialization::json::decode<value>(
             std::as_bytes(std::span{body.data(), body.size()}));
         if (!decoded || decoded->kind() != value_kind::object)
           status = decoded ? error::invalid_argument : decoded.error().error;
@@ -135,10 +135,9 @@ void draw_value(const meta::const_instance& view, const std::string& name, prope
       if (ImGui::MenuItem("Copy Object")) {
         auto address = view.object_data();
         auto bytes =
-            address
-                ? gneiss::engine::serialization::json::serialize_object(value_type.id(), *address)
-                : result<std::vector<std::byte>, serialization::diagnostic>{
-                      serialization::diagnostic{.error = address.error()}};
+            address ? gneiss::engine::serialization::json::encode_object(value_type.id(), *address)
+                    : result<std::vector<std::byte>, serialization::diagnostic>{
+                          serialization::diagnostic{.error = address.error()}};
         if (bytes) {
           auto text =
               prefix + std::string(reinterpret_cast<const char*>(bytes->data()), bytes->size());
@@ -152,7 +151,7 @@ void draw_value(const meta::const_instance& view, const std::string& name, prope
       const bool reset = ImGui::MenuItem("Reset Object to Defaults");
       if (paste || reset) {
         const auto content = reset ? std::string_view{"{}"} : text.substr(prefix.size());
-        auto decoded = gneiss::engine::serialization::json::deserialize_object(
+        auto decoded = gneiss::engine::serialization::json::decode_object(
             value_type.id(), std::as_bytes(std::span{content.data(), content.size()}));
         if (!decoded)
           status = decoded.error().error;

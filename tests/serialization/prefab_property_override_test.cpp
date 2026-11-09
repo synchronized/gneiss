@@ -116,11 +116,11 @@ int main() {
     for (const auto& edit : *edits)
       reference.overrides.push_back(
           {{{source_b, movement_description::type_guid, component_id}, edit.path}, edit.operation});
-    auto encoded = serialization::json::serialize(reference);
+    auto encoded = serialization::json::encode(reference);
     if (!encoded)
       return 72;
     auto decoded =
-        serialization::json::deserialize<prefab_reference_description>(std::string_view{*encoded});
+        serialization::json::decode<prefab_reference_description>(std::string_view{*encoded});
     if (!decoded)
       return 73;
     prefab_description source;
@@ -228,10 +228,10 @@ int main() {
             std::vector<float>{8, 9, 10} ||
         source.objects[1].components.get<movement_description>()->samples.size() != 2)
       return 53;
-    auto bytes = serialization::json::serialize_bytes(changes.front());
+    auto bytes = serialization::json::encode_bytes(changes.front());
     if (!bytes)
       return 54;
-    auto copy = serialization::json::deserialize<prefab_property_override>(*bytes);
+    auto copy = serialization::json::decode<prefab_property_override>(*bytes);
     if (!copy || copy->operation != changes.front().operation)
       return 54;
     changes.front().operation = value{sequence_value{sequence_value_data{{value{true}}}}};
@@ -252,10 +252,10 @@ int main() {
     using namespace gneiss::engine;
     auto original = make_translation(source_a, {1, 2, 3});
     original.key.path = {meta::property_id{2}, std::size_t{3}, std::string("a/b"), source_b};
-    auto bytes = gneiss::engine::serialization::json::serialize_bytes(original);
+    auto bytes = gneiss::engine::serialization::json::encode_bytes(original);
     if (!bytes)
       return 30;
-    auto copy = gneiss::engine::serialization::json::deserialize<prefab_property_override>(*bytes);
+    auto copy = gneiss::engine::serialization::json::decode<prefab_property_override>(*bytes);
     if (!copy || copy->key != original.key || copy->operation != original.operation)
       return 31;
     const std::string json(reinterpret_cast<const char*>(bytes->data()), bytes->size());

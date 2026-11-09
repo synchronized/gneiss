@@ -133,9 +133,9 @@ int main() try {
   // 通用序列化保留结构；文件与负载采用边界执行领域约束。
   mesh_description invalid_mesh;
   invalid_mesh.topology = "triangle_list";
-  auto mesh_content = serialization::json::serialize_bytes(invalid_mesh);
+  auto mesh_content = serialization::json::encode_bytes(invalid_mesh);
   check(bool(mesh_content));
-  check(bool(serialization::json::deserialize<mesh_description>(*mesh_content)));
+  check(bool(serialization::json::decode<mesh_description>(*mesh_content)));
   check(!asset_file::serialize_bytes(invalid_mesh));
   auto invalid_mesh_file = asset_file::deserialize<mesh_description>(bytes(
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[],"uvs":[],"normals":[]})"));
@@ -143,9 +143,9 @@ int main() try {
   texture_description invalid_texture{.uri = "asset://image.png",
                                       .color_space = texture_color_space::srgb,
                                       .usage = texture_usage::normal};
-  auto texture_content = serialization::json::serialize_bytes(invalid_texture);
+  auto texture_content = serialization::json::encode_bytes(invalid_texture);
   check(bool(texture_content));
-  check(bool(serialization::json::deserialize<texture_description>(*texture_content)));
+  check(bool(serialization::json::decode<texture_description>(*texture_content)));
   check(!asset_file::serialize_bytes(invalid_texture));
   auto payload = detail::decode_texture_payload(invalid_texture, {}, {});
   check(!payload && payload.error().path == "/usage");
@@ -153,9 +153,9 @@ int main() try {
   check(validate_texture_description(invalid_texture).path == "/color_space");
   material_description invalid_material;
   invalid_material.parameters.roughness = 2.0F;
-  auto material_content = serialization::json::serialize_bytes(invalid_material);
+  auto material_content = serialization::json::encode_bytes(invalid_material);
   check(bool(material_content));
-  check(bool(serialization::json::deserialize<material_description>(*material_content)));
+  check(bool(serialization::json::decode<material_description>(*material_content)));
   auto material_file = asset_file::serialize_bytes(invalid_material);
   check(!material_file && material_file.error().path == "/parameters/roughness");
   invalid_material.parameters.roughness = 0.5F;

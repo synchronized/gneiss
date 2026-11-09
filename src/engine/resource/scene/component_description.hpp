@@ -43,10 +43,10 @@ inline result<component_description> with_component_identity(const component_des
     return error::invalid_argument;
   if (source->uuid == identity)
     return source;
-  auto encoded = serialization::json::serialize_bytes(source);
+  auto encoded = serialization::json::encode_bytes(source);
   if (!encoded)
     return encoded.error().error;
-  auto copied = serialization::json::deserialize<ref<component_description_base>>(*encoded);
+  auto copied = serialization::json::decode<ref<component_description_base>>(*encoded);
   if (!copied)
     return copied.error().error;
   if (!*copied)

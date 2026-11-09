@@ -169,22 +169,21 @@ bool inherited_properties() {
       input.nested.values.size() != 1)
     return false;
   e::serialization::context ctx{registry};
-  auto json = e::serialization::json::serialize(ctx, input);
+  auto json = e::serialization::json::encode(ctx, input);
   auto snapshot = e::serialization::capture_value(ctx, input);
   if (!json || !snapshot)
     return false;
-  auto decoded = e::serialization::json::deserialize<inherited_leaf>(ctx, *json);
+  auto decoded = e::serialization::json::decode<inherited_leaf>(ctx, *json);
   auto restored = e::serialization::restore_value<inherited_leaf>(ctx, *snapshot);
   if (!decoded || !restored || decoded->number != 43 || restored->number != 43 ||
       decoded->values != input.values || restored->values != input.values || decoded->middle != 5 ||
-      decoded->leaf != 6 ||
-      e::serialization::json::deserialize<inherited_leaf>(ctx, "{\"leaf\":6}"))
+      decoded->leaf != 6 || e::serialization::json::decode<inherited_leaf>(ctx, "{\"leaf\":6}"))
     return false;
   e::ref<inherited_base> shared = e::make_ref<inherited_leaf>(input);
-  auto shared_json = e::serialization::json::serialize(ctx, shared);
+  auto shared_json = e::serialization::json::encode(ctx, shared);
   if (!shared_json)
     return false;
-  auto shared_copy = e::serialization::json::deserialize<e::ref<inherited_base>>(ctx, *shared_json);
+  auto shared_copy = e::serialization::json::decode<e::ref<inherited_base>>(ctx, *shared_json);
   if (!shared_copy || !*shared_copy || (*shared_copy)->number != 43 ||
       (*shared_copy)->dynamic_type().id() != e::runtime_type_of<inherited_leaf>() ||
       (*shared_copy)->values != input.values || shared_copy->get() == shared.get())
@@ -287,32 +286,32 @@ int main() {
       {{}, e::move_value_operation{cyclic_data::type_guid, captured_data::type_guid}},
       {{}, e::put_value_operation{e::value{std::string{"x"}}, *captured}},
       {{}, e::erase_key_operation{e::value{std::string{"y"}}}}};
-  auto saved_edits = e::serialization::json::serialize(e::serialization::context{*core}, edits);
+  auto saved_edits = e::serialization::json::encode(e::serialization::context{*core}, edits);
   if (!saved_edits)
     return 65;
-  auto restored_edits = e::serialization::json::deserialize<std::vector<e::value_edit>>(
+  auto restored_edits = e::serialization::json::decode<std::vector<e::value_edit>>(
       e::serialization::context{*core}, std::string_view{*saved_edits});
   if (!restored_edits || restored_edits->size() != edits.size())
     return 66;
   auto resaved_edits =
-      e::serialization::json::serialize(e::serialization::context{*core}, *restored_edits);
+      e::serialization::json::encode(e::serialization::context{*core}, *restored_edits);
   if (!resaved_edits || *saved_edits != *resaved_edits)
     return 67;
   // JSON 顶层类型与通用后端使用同一分派，不要求注册标量或 optional。
   const auto round_trip = [&]<class T>(const T& source) {
     e::serialization::context ctx{*core};
-    auto encoded = e::serialization::json::serialize(ctx, source);
+    auto encoded = e::serialization::json::encode(ctx, source);
     if (!encoded)
       return false;
-    auto decoded = e::serialization::json::deserialize<T>(ctx, std::string_view{*encoded});
+    auto decoded = e::serialization::json::decode<T>(ctx, std::string_view{*encoded});
     return decoded && *decoded == source;
   };
   if (!round_trip(std::int64_t{-42}) || !round_trip(std::optional<int>{}) ||
       !round_trip(std::optional<int>{17}) || !round_trip(std::monostate{}) ||
       !round_trip(e::math::matrix3{2}) || !round_trip(e::math::quaternion_xyzw(1, 2, 3, 4)))
     return 50;
-  if (e::serialization::json::deserialize<std::optional<int>>(e::serialization::context{*core},
-                                                              std::string_view{R"("invalid")"}))
+  if (e::serialization::json::decode<std::optional<int>>(e::serialization::context{*core},
+                                                         std::string_view{R"("invalid")"}))
     return 51;
   e::math::matrix3 matrix3{};
   e::math::matrix4 matrix4{};
@@ -343,12 +342,12 @@ int main() {
                          e::value{e::asset_reference_value{}},
                          e::value{e::object_reference_value{}}};
   for (const auto& item : cases) {
-    auto wire = e::serialization::json::serialize(e::serialization::context{*core}, item);
+    auto wire = e::serialization::json::encode(e::serialization::context{*core}, item);
     if (!wire || wire->find("\"$kind\"") == std::string::npos ||
         wire->find("\"$content\"") == std::string::npos)
       return 40;
-    auto restored = e::serialization::json::deserialize<e::value>(e::serialization::context{*core},
-                                                                  std::string_view{*wire});
+    auto restored = e::serialization::json::decode<e::value>(e::serialization::context{*core},
+                                                             std::string_view{*wire});
     if (!restored || *restored != item)
       return 41;
   }
@@ -365,21 +364,21 @@ int main() {
   if (!round_trip(nested))
     return 52;
   auto matrix_wire =
-      e::serialization::json::serialize(e::serialization::context{*core}, e::value{matrix3});
+      e::serialization::json::encode(e::serialization::context{*core}, e::value{matrix3});
   if (!matrix_wire ||
       matrix_wire->find("[1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]") == std::string::npos)
     return 42;
-  auto bad_matrix = e::serialization::json::deserialize<e::value>(
+  auto bad_matrix = e::serialization::json::decode<e::value>(
       e::serialization::context{*core},
       std::string_view{R"({"$kind":"matrix3","$content":[1,2]})"});
   if (bad_matrix)
     return 43;
-  auto old_format = e::serialization::json::deserialize<e::value>(
+  auto old_format = e::serialization::json::decode<e::value>(
       e::serialization::context{*core}, std::string_view{R"({"kind":"bool","value":true})"});
   if (old_format)
     return 44;
   e::math::components(matrix4)[2] = std::numeric_limits<float>::infinity();
-  if (e::serialization::json::serialize(e::serialization::context{*core}, e::value{matrix4}))
+  if (e::serialization::json::encode(e::serialization::context{*core}, e::value{matrix4}))
     return 45;
   e::value edited{true};
   auto value_view = e::meta::view(*core, edited);
@@ -396,25 +395,24 @@ int main() {
   if (variant->select(cases.size()) != e::error::invalid_argument)
     return 50;
   const e::value source{std::string{"独立 Meta"}};
-  auto encoded = gneiss::engine::serialization::json::serialize_bytes(
+  auto encoded = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*core}, source);
   if (!encoded)
     return 31;
-  auto restored_value = gneiss::engine::serialization::json::deserialize<e::value>(
+  auto restored_value = gneiss::engine::serialization::json::decode<e::value>(
       gneiss::engine::serialization::context{*core}, *encoded);
   if (!restored_value || *restored_value != source)
     return 32;
   // 显式 JSON 文本/字节入口共享格式，独立注册表不会退回默认表。
-  auto text =
-      e::serialization::json::serialize(gneiss::engine::serialization::context{*core}, source);
+  auto text = e::serialization::json::encode(gneiss::engine::serialization::context{*core}, source);
   if (!text ||
       *text != std::string(reinterpret_cast<const char*>(encoded->data()), encoded->size()))
     return 34;
-  auto from_text = e::serialization::json::deserialize<e::value>(
+  auto from_text = e::serialization::json::decode<e::value>(
       gneiss::engine::serialization::context{*core}, std::string_view{*text});
   if (!from_text || *from_text != source)
     return 35;
-  auto invalid = gneiss::engine::serialization::json::serialize_bytes(
+  auto invalid = gneiss::engine::serialization::json::encode_bytes(
       gneiss::engine::serialization::context{*core}, e::value{});
   if (!invalid || e::meta::register_builtin_types(*core) != e::error::invalid_state)
     return 33;
@@ -474,13 +472,13 @@ int main() {
     return 7;
   probe object;
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::serialization::json::serialize_bytes(
+          gneiss::engine::serialization::json::encode_bytes(
               gneiss::engine::serialization::context{registry}, object),
           output, diagnostic) != e::error::out_of_memory ||
       output.size() != 1 || output[0] != std::byte{42})
     return 8;
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::serialization::json::deserialize<std::remove_cvref_t<decltype(object)>>(
+          gneiss::engine::serialization::json::decode<std::remove_cvref_t<decltype(object)>>(
               gneiss::engine::serialization::context{registry}, bytes("bad")),
           object, diagnostic) != e::error::invalid_argument ||
       object.number != 3)
@@ -551,13 +549,13 @@ int main() {
       gneiss::engine::meta::freeze(no_codec).failed())
     return 17;
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::serialization::json::serialize_bytes(
+          gneiss::engine::serialization::json::encode_bytes(
               gneiss::engine::serialization::context{no_codec}, object),
           output, diagnostic)
           .failed())
     return 18;
   auto default_decoded =
-      e::serialization::json::deserialize<probe>(e::serialization::context{no_codec}, output);
+      e::serialization::json::decode<probe>(e::serialization::context{no_codec}, output);
   if (!default_decoded || default_decoded->number != object.number)
     return 18;
   auto owned_registry = e::meta::create_registry();
@@ -568,17 +566,17 @@ int main() {
           .failed() ||
       e::meta::freeze(*owned_registry).failed())
     return 19;
-  auto owned = gneiss::engine::serialization::json::deserialize<move_only>(
+  auto owned = gneiss::engine::serialization::json::decode<move_only>(
       gneiss::engine::serialization::context{*owned_registry}, bytes(R"({"number":65})"));
   if (!owned || !owned->number || *owned->number != 65)
     return 20;
-  auto rejected = gneiss::engine::serialization::json::deserialize<move_only>(
+  auto rejected = gneiss::engine::serialization::json::decode<move_only>(
       gneiss::engine::serialization::context{*owned_registry}, bytes("{}"));
   if (rejected || rejected.error().error != e::error::invalid_argument ||
       rejected.error().byte_offset != 3 || rejected.error().path != "/number")
     return 21;
   // 反射创建的拥有者可共享/擦除为 const；借用视图不承担所有权。
-  auto shared_object = gneiss::engine::serialization::json::deserialize_object(
+  auto shared_object = gneiss::engine::serialization::json::decode_object(
       gneiss::engine::serialization::context{*owned_registry}, e::runtime_type_of<move_only>(),
       bytes(R"({"number":65})"));
   if (!shared_object || !*shared_object)

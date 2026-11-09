@@ -11,9 +11,9 @@
 
 ```cpp
 namespace ser = gneiss::engine::serialization;
-auto text = ser::json::serialize(description);
-auto bytes = ser::json::serialize_bytes(description);
-auto restored = ser::json::deserialize<scene_description>(json_text);
+auto text = ser::json::encode(description);
+auto bytes = ser::json::encode_bytes(description);
+auto restored = ser::json::decode<scene_description>(json_text);
 ```
 
 使用其他后端时包含 `serialization.hpp`，传入实现了 reader/writer 的对象：
@@ -31,8 +31,8 @@ auto restored = ser::decode<scene_description>(input_reader);
 ```cpp
 ser::context ctx;                         // 使用默认注册表
 ser::context isolated{registry, 64};      // 指定注册表与最大嵌套深度
-auto text = ser::json::serialize(ctx, description);
-auto restored = ser::json::deserialize<scene_description>(ctx, json_text);
+auto text = ser::json::encode(ctx, description);
+auto restored = ser::json::decode<scene_description>(ctx, json_text);
 auto status = ser::write(ctx, description, output_writer);
 ```
 
@@ -103,7 +103,7 @@ scalar 和通用类型 codec 可返回带诊断的错误。
 
 ## 资源文件边界
 
-普通 `serialization::json::serialize(description)` 只保存描述内容，不添加文件头。
+普通 `serialization::json::encode(description)` 只保存描述内容，不添加文件头。
 完整资源文件包含 `engine/resource/asset_file.hpp`：
 
 ```cpp

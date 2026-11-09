@@ -70,10 +70,10 @@ int main() try {
   check(gneiss::engine::meta::has_flags(primary.capabilities(),
                                         gneiss::engine::meta::property_capabilities::writable));
   e::camera_description camera{{1, 0.1F, 100}, true};
-  auto saved_camera = gneiss::engine::serialization::json::serialize_bytes(camera);
+  auto saved_camera = gneiss::engine::serialization::json::encode_bytes(camera);
   check(saved_camera.has_value());
   auto loaded_camera =
-      gneiss::engine::serialization::json::deserialize<e::camera_description>(*saved_camera);
+      gneiss::engine::serialization::json::decode<e::camera_description>(*saved_camera);
   check(loaded_camera && loaded_camera->is_primary);
   auto files = std::make_shared<e::files::service>();
   e::asset_manager assets(files);

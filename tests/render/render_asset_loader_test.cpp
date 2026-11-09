@@ -468,8 +468,8 @@ bool verify_reference_serialization(gneiss::engine::asset_manager& assets) {
   auto decode = [&](std::string_view text) {
     using T = std::vector<gneiss::engine::ref<const gneiss::engine::texture>>;
     auto decode_value = [&](const serialization::context& context) {
-      return serialization::json::deserialize<T>(
-          context, std::as_bytes(std::span{text.data(), text.size()}));
+      return serialization::json::decode<T>(context,
+                                            std::as_bytes(std::span{text.data(), text.size()}));
     };
     const auto entries = assets.cached_count();
     auto collected = references.collect(decode_value);
@@ -505,15 +505,15 @@ bool verify_reference_serialization(gneiss::engine::asset_manager& assets) {
   if (!destination || serialization::apply_value(ctx, *destination, *captured).error.failed() ||
       restored_texture != (*values)[0])
     return false;
-  auto saved = serialization::json::serialize(ctx, *values);
+  auto saved = serialization::json::encode(ctx, *values);
   if (!saved || *saved != source)
     return false;
   auto restored = decode(*saved);
   if (!restored || (*restored)[0] != (*values)[0])
     return false;
-  auto no_context = serialization::json::deserialize<
-      std::vector<gneiss::engine::ref<const gneiss::engine::texture>>>(
-      std::as_bytes(std::span{source.data(), source.size()}));
+  auto no_context =
+      serialization::json::decode<std::vector<gneiss::engine::ref<const gneiss::engine::texture>>>(
+          std::as_bytes(std::span{source.data(), source.size()}));
   if (no_context || no_context.error().error != error::invalid_state ||
       no_context.error().path != "/0")
     return false;
@@ -526,12 +526,11 @@ bool verify_reference_serialization(gneiss::engine::asset_manager& assets) {
           .error.failed() ||
       references.load(assets).error.failed())
     return false;
-  auto mesh_value =
-      serialization::json::deserialize<gneiss::engine::ref<const gneiss::engine::mesh>>(
-          ctx, std::as_bytes(std::span{other.data(), other.size()}));
+  auto mesh_value = serialization::json::decode<gneiss::engine::ref<const gneiss::engine::mesh>>(
+      ctx, std::as_bytes(std::span{other.data(), other.size()}));
   if (!mesh_value || !*mesh_value || references.dependencies().size() != 3)
     return false;
-  auto mesh_saved = serialization::json::serialize(ctx, *mesh_value);
+  auto mesh_saved = serialization::json::encode(ctx, *mesh_value);
   if (!mesh_saved || *mesh_saved != other)
     return false;
   const std::string material_source = R"({"$asset":"asset://not-present.material.json"})";
@@ -542,11 +541,11 @@ bool verify_reference_serialization(gneiss::engine::asset_manager& assets) {
       references.load(assets).error.failed())
     return false;
   auto material_value =
-      serialization::json::deserialize<gneiss::engine::ref<const gneiss::engine::material>>(
+      serialization::json::decode<gneiss::engine::ref<const gneiss::engine::material>>(
           ctx, std::as_bytes(std::span{material_source.data(), material_source.size()}));
   if (!material_value || !*material_value || references.dependencies().size() != 4)
     return false;
-  auto material_saved = serialization::json::serialize(ctx, *material_value);
+  auto material_saved = serialization::json::encode(ctx, *material_value);
   if (!material_saved || *material_saved != material_source)
     return false;
   const auto round_trip = [&]<class T>(std::string_view uri) {
@@ -554,7 +553,7 @@ bool verify_reference_serialization(gneiss::engine::asset_manager& assets) {
     serialization::context codec{context};
     const std::string text = "{\"$asset\":\"" + std::string(uri) + "\"}";
     auto decode = [&](const serialization::context& input) {
-      return serialization::json::deserialize<ref<const T>>(
+      return serialization::json::decode<ref<const T>>(
           input, std::as_bytes(std::span{text.data(), text.size()}));
     };
     if (context.collect(decode).error.failed() || context.load(assets).error.failed())
@@ -562,7 +561,7 @@ bool verify_reference_serialization(gneiss::engine::asset_manager& assets) {
     auto decoded = decode(codec);
     if (!decoded || !*decoded || (*decoded)->snapshot())
       return false;
-    auto encoded = serialization::json::serialize(codec, *decoded);
+    auto encoded = serialization::json::encode(codec, *decoded);
     return encoded && *encoded == text;
   };
   if (!round_trip.template operator()<gneiss::engine::scene>("asset://missing.scene") ||
@@ -571,7 +570,7 @@ bool verify_reference_serialization(gneiss::engine::asset_manager& assets) {
   const std::array<std::uint8_t, 4> pixel{255, 255, 255, 255};
   auto anonymous =
       assets.create(texture_view{.width = 1, .height = 1, .row_stride_bytes = 4, .pixels = pixel});
-  if (!anonymous || serialization::json::serialize(ctx, *anonymous))
+  if (!anonymous || serialization::json::encode(ctx, *anonymous))
     return false;
   return true;
 }
@@ -633,7 +632,7 @@ bool verify_material_dependencies(const memory_file_system& fixture) {
       !resource->textures()[1] || !resource->textures()[1]->metadata() ||
       resource->textures()[1] != resource->textures()[2] || resource->textures()[3])
     return false;
-  auto saved = serialization::json::serialize(missing);
+  auto saved = serialization::json::encode(missing);
   if (!saved || *saved != R"({"$asset":"asset://textures/absent.texture.json"})")
     return false;
   // 文件恢复后重试填充同一身份，无须重新构造持有它的材质。

@@ -85,7 +85,7 @@ int main() try {
     check(model.replace_object({p{1}}, *wrong) == e::error::invalid_argument, "wrong type");
     check(model.replace_object({p{1}, p{3}}, *source) == e::error::unsupported,
           "scalar replacement rejected");
-    auto defaults = gneiss::engine::serialization::json::deserialize<e::material_parameters>(
+    auto defaults = gneiss::engine::serialization::json::decode<e::material_parameters>(
         std::as_bytes(std::span{"{}", std::size_t{2}}));
     check(bool(defaults), "decode defaults");
     auto default_view = e::meta::view(std::as_const(*defaults));
