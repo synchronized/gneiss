@@ -1,15 +1,22 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../support/throws.hpp"
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/serialization/detail/json_adapter.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/serialization/policy.hpp"
 #include "engine/core/serialization/serialization.hpp"
 #include "engine/core/serialization/value.hpp"
 #include "engine/resource/asset_decoder.hpp"
+#include <cstdio>
+#include <cstdlib>
 #include <future>
 #include <limits>
+#include <memory>
+#include <new>
 #include <stdexcept>
+#include <yyjson.h>
 namespace e = gneiss::engine;
 namespace m = e::meta;
 struct sample {
@@ -284,7 +291,56 @@ bool external_field_contract() {
   return true;
 }
 bool nested_json_contract();
+// 原生 C 分配器返回空，C++ 适配器在 C 调用结束后传播 bad_alloc。
+bool native_allocation_contract() {
+  // 格式错误必须保持可恢复，不能因原生 writer 返回空而误判 OOM。
+  auto registry = m::create_registry();
+  if (!registry)
+    return false;
+  const e::serialization::content_codec invalid_text{
+      .encode = [](const e::serialization::write_context&, e::serialization::writer& out,
+                   const void*) -> e::result<void*, e::serialization::diagnostic> {
+        const char invalid_utf8 = static_cast<char>(0xff);
+        return out.string(std::string_view{&invalid_utf8, 1});
+      }};
+  if (m::registration::type<sample>(*registry).metadata(invalid_text).commit().failed() ||
+      m::freeze(*registry).failed())
+    return false;
+  auto encoded =
+      e::serialization::json::encode_bytes(e::serialization::write_context{*registry}, sample{});
+  if (encoded || encoded.error().error != e::error::invalid_argument) {
+    std::fprintf(stderr, "invalid string: %d\n", encoded ? 0 : encoded.error().error.code());
+    return false;
+  }
+  float number = 7;
+  auto view = m::view(*registry, number);
+  const std::string invalid_json = "{";
+  auto decoded = e::serialization::json::read_into(
+      e::serialization::read_context{*registry}, *view,
+      std::as_bytes(std::span(invalid_json.data(), invalid_json.size())));
+  if (decoded || decoded.error().error != e::error::invalid_argument || number != 7) {
+    std::fprintf(stderr, "invalid input: %d\n", decoded ? 0 : decoded.error().error.code());
+    return false;
+  }
+  bool fail = false;
+  yyjson_alc allocator{[](void* ctx, std::size_t n) -> void* {
+                         return *static_cast<bool*>(ctx) ? nullptr : std::malloc(n);
+                       },
+                       [](void* ctx, void* p, std::size_t, std::size_t n) -> void* {
+                         return *static_cast<bool*>(ctx) ? nullptr : std::realloc(p, n);
+                       },
+                       [](void*, void* p) { std::free(p); }, &fail};
+  std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> doc(
+      yyjson_mut_doc_new(&allocator), &yyjson_mut_doc_free);
+  if (!doc)
+    return false;
+  fail = true;
+  return gneiss::test_support::throws<std::bad_alloc>(
+      [&] { (void)e::serialization::json::detail::write_value(doc.get(), e::value{1.0F}); });
+}
 int main() try {
+  if (!native_allocation_contract())
+    return 40;
   if (!asymmetric_reference_snapshot_contract())
     return 29;
   if (!external_field_contract())

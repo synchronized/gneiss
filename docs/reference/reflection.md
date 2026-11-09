@@ -58,6 +58,7 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 
 `bind_property` 绑定原生函数指针、类别和借用上下文；相同完整绑定可重复调用。
 `freeze` 按 GUID 字节顺序和字段编号排序，之后禁止注册与绑定。重复冻结幂等成功。
+独立表创建、字段绑定与冻结不吞掉 C++ 异常；冻结使用临时索引，失败或抛异常均不发布半成品。
 冻结时同时建立包含继承属性的名称槽位索引，准备完成后统一提交；失败保留原注册内容，允许补齐后重试。
 冻结后的已注册对象按 GUID 二分查询或运行期 ID 索引查询，属性按 ID/名称二分查询。
 无 GUID 类型按进程类型 ID 排序，此顺序只用于当前进程枚举，不得持久化。
@@ -207,7 +208,9 @@ Registry 使用原生共享引用管理，不经全局句柄表。独立表在�
 `serialization::json::encode_bytes<T>` 返回 `result<vector<byte>, serialization::diagnostic>`，`deserialize<T>` 返回
 `result<T, serialization::diagnostic>`。成功结果拥有值，失败结果仅携带错误码、路径、字节偏移和消息。
 `serialization::diagnostic.error` 保存预期失败的错误码；C++ 分配、访问器和 codec 异常直接传播。
-底层原生分配失败的错误码分类仍在 PLAN-109 中迁移，不代表全部 OOM 路径已经统一。
+JSON 适配层在 yyjson 返回分配失败后抛出 bad_alloc，不从 C 分配回调抛异常。
+语法错误和无法编码的 JSON 值仍返回 invalid_argument；通用 reader/writer 自身返回的错误遵循其接口契约。
+默认注册表与其他模块的分配失败分类仍在 PLAN-109 中迁移。
 Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `result<ref<void>, serialization::diagnostic>`，
 模板接口按已登记的运行期类型 ID 找到回调后移出具体对象，不要求默认构造或移动赋值。
 未冻结返回 not_ready，未知类型返回 not_found，空 Registry 返回 invalid_handle。

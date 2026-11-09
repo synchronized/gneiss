@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <limits>
+#include <new>
 #include <unordered_set>
 #include <yyjson.h>
 
@@ -147,17 +148,17 @@ write_value(yyjson_mut_doc* doc, const value& input, const std::string& path) {
         } else if constexpr (requires { math::components(item); }) {
           output = yyjson_mut_arr(doc);
           if (!output)
-            return failure(error::out_of_memory, path);
+            throw std::bad_alloc{};
           for (float number : math::components(item)) {
             if (!std::isfinite(number))
               return failure(error::invalid_argument, path, "不能保存非有限分量");
             if (!yyjson_mut_arr_add_real(doc, output, number))
-              return failure(error::out_of_memory, path);
+              throw std::bad_alloc{};
           }
         } else
           return failure(error::unsupported, path);
         if (!output)
-          return failure(error::out_of_memory, path);
+          throw std::bad_alloc{};
         return output;
       },
       input.payload);
@@ -169,10 +170,17 @@ class json_writer final : public serialization::writer {
 
 public:
   explicit json_writer(yyjson_mut_doc* doc) : doc_(doc) {}
-  node object() override { return yyjson_mut_obj(doc_); }
-  node array() override { return yyjson_mut_arr(doc_); }
-  node null() override { return yyjson_mut_null(doc_); }
-  node string(std::string_view s) override { return yyjson_mut_strncpy(doc_, s.data(), s.size()); }
+  static node allocated(yyjson_mut_val* value) {
+    if (!value)
+      throw std::bad_alloc{};
+    return value;
+  }
+  node object() override { return allocated(yyjson_mut_obj(doc_)); }
+  node array() override { return allocated(yyjson_mut_arr(doc_)); }
+  node null() override { return allocated(yyjson_mut_null(doc_)); }
+  node string(std::string_view s) override {
+    return allocated(yyjson_mut_strncpy(doc_, s.data(), s.size()));
+  }
   result<node, serialization::diagnostic> scalar(const value& v) override {
     auto result = write_value(doc_, v, "");
     if (!result)
@@ -182,8 +190,8 @@ public:
   bool member(node o, std::string_view key, node v) override {
     if (!o || !v)
       return false;
-    auto name = yyjson_mut_strncpy(doc_, key.data(), key.size());
-    return name && yyjson_mut_obj_add(val(o), name, val(v));
+    auto name = allocated(yyjson_mut_strncpy(doc_, key.data(), key.size()));
+    return yyjson_mut_obj_add(val(o), val(name), val(v));
   }
   bool append(node a, node v) override { return a && v && yyjson_mut_arr_append(val(a), val(v)); }
   bool is_object(node n) const override { return yyjson_mut_is_obj(val(n)); }
@@ -304,16 +312,20 @@ encode_instance(const write_context& ctx, const const_instance& view) {
   std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> doc(yyjson_mut_doc_new(nullptr),
                                                                       &yyjson_mut_doc_free);
   if (!doc)
-    return failure(error::out_of_memory);
+    throw std::bad_alloc{};
   auto root = encode_view(ctx, registry, view, doc.get(), context_access::depth(ctx));
   if (!root)
     return std::move(root).error();
   yyjson_mut_doc_set_root(doc.get(), *root);
   std::size_t size{};
-  std::unique_ptr<char, decltype(&std::free)> text(yyjson_mut_write(doc.get(), 0, &size),
-                                                   &std::free);
-  if (!text)
-    return failure(error::out_of_memory);
+  yyjson_write_err diagnostic{};
+  std::unique_ptr<char, decltype(&std::free)> text(
+      yyjson_mut_write_opts(doc.get(), 0, nullptr, &size, &diagnostic), &std::free);
+  if (!text) {
+    if (diagnostic.code == YYJSON_WRITE_ERROR_MEMORY_ALLOCATION)
+      throw std::bad_alloc{};
+    return failure(error::invalid_argument, "", diagnostic.msg ? diagnostic.msg : "无效 JSON 值");
+  }
   auto bytes = std::as_bytes(std::span(text.get(), size));
   return std::vector<std::byte>(bytes.begin(), bytes.end());
 }
@@ -328,10 +340,17 @@ result<void, serialization::diagnostic> read_into(const read_context& ctx, const
   operation_scope operation{ctx};
   if (context_access::depth(ctx) > ctx.maximum_depth())
     return failure(error::invalid_argument, "", "嵌套深度超限");
+  yyjson_read_err diagnostic{};
   std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> doc(
-      yyjson_read(reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0), &yyjson_doc_free);
-  if (!doc)
-    return failure(error::invalid_argument);
+      yyjson_read_opts(reinterpret_cast<char*>(const_cast<std::byte*>(bytes.data())), bytes.size(),
+                       0, nullptr, &diagnostic),
+      &yyjson_doc_free);
+  if (!doc) {
+    if (diagnostic.code == YYJSON_READ_ERROR_MEMORY_ALLOCATION)
+      throw std::bad_alloc{};
+    return serialization::diagnostic{
+        diagnostic.pos, "", diagnostic.msg ? diagnostic.msg : "无效 JSON", error::invalid_argument};
+  }
   auto status =
       decode_view(ctx, registry, view, yyjson_doc_get_root(doc.get()), context_access::depth(ctx));
   if (status.error.failed())
@@ -359,11 +378,12 @@ result<ref<void>, serialization::diagnostic> decode_object(const read_context& c
       yyjson_read_opts(reinterpret_cast<char*>(const_cast<std::byte*>(bytes.data())), bytes.size(),
                        0, nullptr, &diagnostic),
       &yyjson_doc_free);
-  if (!doc)
+  if (!doc) {
+    if (diagnostic.code == YYJSON_READ_ERROR_MEMORY_ALLOCATION)
+      throw std::bad_alloc{};
     return serialization::diagnostic{
-        diagnostic.pos, "", diagnostic.msg ? diagnostic.msg : "无效 JSON",
-        diagnostic.code == YYJSON_READ_ERROR_MEMORY_ALLOCATION ? error::out_of_memory
-                                                               : error::invalid_argument};
+        diagnostic.pos, "", diagnostic.msg ? diagnostic.msg : "无效 JSON", error::invalid_argument};
+  }
   scoped_reader scope{ctx};
   return serialization::detail::decode_owned(ctx, *registry, id, yyjson_doc_get_root(doc.get()),
                                              context_access::depth(ctx), true);

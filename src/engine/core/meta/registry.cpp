@@ -303,146 +303,137 @@ public:
   }
 
   [[nodiscard]] error bind_property(guid type_id, std::uint32_t property_id,
-                                    const property_binding& desc) noexcept {
+                                    const property_binding& desc) {
     if (!valid_binding(desc)) {
       return error::invalid_argument;
     }
-    try {
-      std::unique_lock lock(mutex_);
-      if (is_frozen_) {
-        return error::invalid_state;
-      }
-      auto* type = find_type_unlocked(type_id);
-      if (type == nullptr) {
-        return error::not_found;
-      }
-      auto found =
-          std::ranges::find_if(type->properties, [property_id](const property_record& property) {
-            return property.id == property_id;
-          });
-      if (found == type->properties.end()) {
-        return error::not_found;
-      }
-      if (found->access == property_access::read_only &&
-          (desc.setter != nullptr || desc.object_mutator != nullptr ||
-           desc.object_setter != nullptr)) {
-        return error::invalid_argument;
-      }
-      const auto& requested = desc;
-      if (found->accessor.kind != value_kind::invalid || found->accessor.object_type) {
-        const auto& current = found->accessor;
-        return current.kind == requested.kind && current.getter == requested.getter &&
-                       current.setter == requested.setter &&
-                       current.user_data == requested.user_data &&
-                       current.object_type == requested.object_type &&
-                       current.object_getter == requested.object_getter &&
-                       current.object_mutator == requested.object_mutator &&
-                       current.object_assign == requested.object_assign &&
-                       current.object_setter == requested.object_setter &&
-                       current.object_construct == requested.object_construct &&
-                       current.access == requested.access &&
-                       current.enum_type == requested.enum_type
-                   ? error::success
-                   : error::invalid_argument;
-      }
-      found->accessor = requested;
-      return error::success;
-    } catch (...) {
-      return error::internal;
+    std::unique_lock lock(mutex_);
+    if (is_frozen_) {
+      return error::invalid_state;
     }
+    auto* type = find_type_unlocked(type_id);
+    if (type == nullptr) {
+      return error::not_found;
+    }
+    auto found =
+        std::ranges::find_if(type->properties, [property_id](const property_record& property) {
+          return property.id == property_id;
+        });
+    if (found == type->properties.end()) {
+      return error::not_found;
+    }
+    if (found->access == property_access::read_only &&
+        (desc.setter != nullptr || desc.object_mutator != nullptr ||
+         desc.object_setter != nullptr)) {
+      return error::invalid_argument;
+    }
+    const auto& requested = desc;
+    if (found->accessor.kind != value_kind::invalid || found->accessor.object_type) {
+      const auto& current = found->accessor;
+      return current.kind == requested.kind && current.getter == requested.getter &&
+                     current.setter == requested.setter &&
+                     current.user_data == requested.user_data &&
+                     current.object_type == requested.object_type &&
+                     current.object_getter == requested.object_getter &&
+                     current.object_mutator == requested.object_mutator &&
+                     current.object_assign == requested.object_assign &&
+                     current.object_setter == requested.object_setter &&
+                     current.object_construct == requested.object_construct &&
+                     current.access == requested.access && current.enum_type == requested.enum_type
+                 ? error::success
+                 : error::invalid_argument;
+    }
+    found->accessor = requested;
+    return error::success;
   }
 
-  [[nodiscard]] error freeze() noexcept {
-    try {
-      std::unique_lock lock(mutex_);
-      if (is_frozen_) {
-        return error::success;
-      }
-      // 在临时表中合并属性；冻结失败时保留原始注册内容，可补注册后重试。
-      std::vector<std::vector<property_record>> inherited;
-      inherited.reserve(types_.size());
-      for (const auto& type : types_) {
-        auto properties = type->properties;
-        auto current = type.get();
-        std::set<engine::type_id> chain;
-        while (current->object.base_type) {
-          if (!chain.insert(current->type_id).second || !current->object.upcast)
-            return error::invalid_argument;
-          auto base = by_cpp_type_.find(current->object.base_type);
-          if (base == by_cpp_type_.end())
-            return error::not_found;
-          current = base->second;
-          for (const auto& property : current->properties) {
-            if (std::ranges::any_of(properties, [&](const auto& existing) {
-                  return existing.id == property.id || existing.name == property.name;
-                }))
-              return error::invalid_argument;
-            properties.push_back(property);
-          }
-        }
-        inherited.push_back(std::move(properties));
-        for (const auto& property : type->properties) {
-          if (!property.accessor.object_type)
-            continue;
-          if (property.accessor.access) {
-            const auto* access = property.accessor.access;
-            if (access->id != property.accessor.object_type || access->guid != property.type_guid)
-              return error::invalid_argument;
-            auto status = detail::visit_type_leaves(*access, [&](const detail::type_ops& leaf) {
-              if (leaf.kind() != type_kind::object)
-                return error::success;
-              const auto found = by_cpp_type_.find(leaf.id);
-              if (found == by_cpp_type_.end())
-                return error::not_found;
-              return found->second->guid == leaf.guid ? error::success : error::invalid_argument;
-            });
-            if (status.failed())
-              return status;
-            continue;
-          }
-          const auto found = by_cpp_type_.find(property.accessor.object_type);
-          if (found == by_cpp_type_.end())
-            return error::not_found;
-          if (found->second->guid != property.type_guid)
-            return error::invalid_argument;
-        }
-      }
-      for (auto& type : types_) {
-        for (auto& property : type->properties) {
-          const auto found = enums_.find(property.accessor.enum_type);
-          if (found == enums_.end())
-            continue;
-          if (found->second.scalar != property.accessor.kind)
-            return error::invalid_argument;
-        }
-      }
-      // 名称索引使用排序后的槽位；所有分配均在提交冻结状态前完成。
-      std::vector<std::vector<std::size_t>> names;
-      names.reserve(inherited.size());
-      for (auto& properties : inherited) {
-        std::ranges::sort(properties, {}, &property_record::id);
-        std::vector<std::size_t> indices(properties.size());
-        for (std::size_t i = 0; i < indices.size(); ++i)
-          indices[i] = i;
-        std::ranges::sort(indices, [&](std::size_t left, std::size_t right) {
-          return properties[left].name < properties[right].name;
-        });
-        names.push_back(std::move(indices));
-      }
-      for (std::size_t i = 0; i < types_.size(); ++i) {
-        types_[i]->properties.swap(inherited[i]);
-        types_[i]->property_names.swap(names[i]);
-      }
-      std::ranges::sort(types_, [](const auto& left, const auto& right) {
-        if (left->guid != right->guid)
-          return left->guid.bytes() < right->guid.bytes();
-        return left->type_id < right->type_id;
-      });
-      is_frozen_ = true;
+  [[nodiscard]] error freeze() {
+    std::unique_lock lock(mutex_);
+    if (is_frozen_) {
       return error::success;
-    } catch (...) {
-      return error::internal;
     }
+    // 在临时表中合并属性；冻结失败时保留原始注册内容，可补注册后重试。
+    std::vector<std::vector<property_record>> inherited;
+    inherited.reserve(types_.size());
+    for (const auto& type : types_) {
+      auto properties = type->properties;
+      auto current = type.get();
+      std::set<engine::type_id> chain;
+      while (current->object.base_type) {
+        if (!chain.insert(current->type_id).second || !current->object.upcast)
+          return error::invalid_argument;
+        auto base = by_cpp_type_.find(current->object.base_type);
+        if (base == by_cpp_type_.end())
+          return error::not_found;
+        current = base->second;
+        for (const auto& property : current->properties) {
+          if (std::ranges::any_of(properties, [&](const auto& existing) {
+                return existing.id == property.id || existing.name == property.name;
+              }))
+            return error::invalid_argument;
+          properties.push_back(property);
+        }
+      }
+      inherited.push_back(std::move(properties));
+      for (const auto& property : type->properties) {
+        if (!property.accessor.object_type)
+          continue;
+        if (property.accessor.access) {
+          const auto* access = property.accessor.access;
+          if (access->id != property.accessor.object_type || access->guid != property.type_guid)
+            return error::invalid_argument;
+          auto status = detail::visit_type_leaves(*access, [&](const detail::type_ops& leaf) {
+            if (leaf.kind() != type_kind::object)
+              return error::success;
+            const auto found = by_cpp_type_.find(leaf.id);
+            if (found == by_cpp_type_.end())
+              return error::not_found;
+            return found->second->guid == leaf.guid ? error::success : error::invalid_argument;
+          });
+          if (status.failed())
+            return status;
+          continue;
+        }
+        const auto found = by_cpp_type_.find(property.accessor.object_type);
+        if (found == by_cpp_type_.end())
+          return error::not_found;
+        if (found->second->guid != property.type_guid)
+          return error::invalid_argument;
+      }
+    }
+    for (auto& type : types_) {
+      for (auto& property : type->properties) {
+        const auto found = enums_.find(property.accessor.enum_type);
+        if (found == enums_.end())
+          continue;
+        if (found->second.scalar != property.accessor.kind)
+          return error::invalid_argument;
+      }
+    }
+    // 名称索引使用排序后的槽位；所有分配均在提交冻结状态前完成。
+    std::vector<std::vector<std::size_t>> names;
+    names.reserve(inherited.size());
+    for (auto& properties : inherited) {
+      std::ranges::sort(properties, {}, &property_record::id);
+      std::vector<std::size_t> indices(properties.size());
+      for (std::size_t i = 0; i < indices.size(); ++i)
+        indices[i] = i;
+      std::ranges::sort(indices, [&](std::size_t left, std::size_t right) {
+        return properties[left].name < properties[right].name;
+      });
+      names.push_back(std::move(indices));
+    }
+    for (std::size_t i = 0; i < types_.size(); ++i) {
+      types_[i]->properties.swap(inherited[i]);
+      types_[i]->property_names.swap(names[i]);
+    }
+    std::ranges::sort(types_, [](const auto& left, const auto& right) {
+      if (left->guid != right->guid)
+        return left->guid.bytes() < right->guid.bytes();
+      return left->type_id < right->type_id;
+    });
+    is_frozen_ = true;
+    return error::success;
   }
 
   template <class Key>
@@ -814,15 +805,7 @@ meta::type resolve_type(const registry_ref& registry, const type_ops& access) no
   return registry ? registry->resolve_access(access) : type_factory::make({}, &access);
 }
 }
-result<registry_ref> create_registry() noexcept {
-  try {
-    return std::make_shared<type_registry_state>();
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
-  }
-}
+result<registry_ref> create_registry() { return std::make_shared<type_registry_state>(); }
 error register_enum(const registry_ref& state, const enum_definition& definition) {
   return state ? state->register_enum(definition) : error::invalid_handle;
 }
@@ -835,12 +818,10 @@ error register_type(const registry_ref& state, const type_definition& desc,
 }
 
 error bind_property(const registry_ref& state, guid type_id, property_id property,
-                    const property_binding& desc) noexcept {
+                    const property_binding& desc) {
   return state ? state->bind_property(type_id, property.get(), desc) : error::invalid_handle;
 }
-error freeze(const registry_ref& state) noexcept {
-  return state ? state->freeze() : error::invalid_handle;
-}
+error freeze(const registry_ref& state) { return state ? state->freeze() : error::invalid_handle; }
 result<bool> is_frozen(const registry_ref& state) noexcept {
   return state ? state->is_frozen() : error::invalid_handle;
 }

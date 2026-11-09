@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../support/throws.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/math/camera.hpp"
 #include "engine/core/meta/registration.hpp"
@@ -7,6 +8,7 @@
 #include "engine/core/serialization/json.hpp"
 #include <array>
 #include <cstdint>
+#include <stdexcept>
 #include <string>
 #include <thread>
 
@@ -171,7 +173,44 @@ bool frozen_lookup() {
   return !type.find_property(m::property_id{2}) && !type.find_property(m::property_id{999}) &&
          !type.find_property("") && !type.find_property("field_128");
 }
+// 冻结时扩展能力查询抛异常，不能伪装为普通注册错误；临时状态不发布。
+bool freeze_exception_contract() {
+  namespace e = gneiss::engine;
+  namespace m = e::meta;
+  auto registry = m::create_registry();
+  if (!registry)
+    return false;
+  static bool fail = true;
+  static const m::sequence_ops sequence{
+      .element = []() -> const m::detail::type_ops& {
+        if (fail)
+          throw std::runtime_error{"type capability"};
+        return m::detail::ops_of<float>();
+      },
+      .size = [](const void*) -> std::size_t { return 0; },
+      .at = [](const void*, std::size_t) -> const void* { return nullptr; }};
+  static const m::detail::type_ops access{.id = e::runtime_type_of<std::vector<float>>(),
+                                          .category = &sequence};
+  const m::property_definition field{.id = m::property_id{1}, .name = "values"};
+  const m::type_definition definition{.guid = e::guid::from_bytes({0x79}),
+                                      .schema_version = 1,
+                                      .name = "freeze_failure",
+                                      .properties = {&field, 1}};
+  const m::property_binding binding{.object_type = access.id,
+                                    .object_getter = [](const void* p) { return p; },
+                                    .access = &access};
+  if (m::register_type(*registry, definition, {&binding, 1}).failed())
+    return false;
+  if (!gneiss::test_support::throws<std::runtime_error>([&] { (void)m::freeze(*registry); }))
+    return false;
+  if (*m::is_frozen(*registry))
+    return false;
+  fail = false;
+  return m::freeze(*registry).ok() && *m::is_frozen(*registry);
+}
 int main() {
+  if (!freeze_exception_contract())
+    return 33;
   if (!frozen_lookup())
     return 32;
   if (!math_registration())

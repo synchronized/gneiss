@@ -9,7 +9,8 @@
 普通任务失败保留显式返回，意外异常终止；Debug 子进程和 Release 优化探针通过。
 已迁移 metadata、类型/枚举 builder、注册表写入及内置注册/启动初始化调用链，
 预期错误保留返回值，扩展回调和分配异常直接传播。已进一步迁移属性读写、instance、各容器视图及
-序列化/JSON/value 入口的重复捕获与 noexcept；注册表创建/冻结/查询、底层原生分配失败分类仍待审计。
+序列化/JSON/value 入口的重复捕获与 noexcept。独立表创建、绑定、冻结及原生 JSON 分配失败已迁移；
+默认表与注册表查询、核心 value 辅助操作仍待审计。
 文件 C 回调及其他模块仍须沿调用链迁移，不能视为全项目策略已经完成。
 阶段证据见 [执行边界记录](../records/2026-11-09-exception-boundaries.md)。
 长期决策见 [ADR-114](../decisions/ADR-114-exception-boundaries.md)。
