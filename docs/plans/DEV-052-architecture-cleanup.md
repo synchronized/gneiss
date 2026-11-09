@@ -7,6 +7,7 @@
 
 2026-11-09：PLAN-105、PLAN-106、PLAN-107 及本次三项收尾已完成。
 原生值返回全仓审计与完整版本平台验收尚未完成；具体剩余项以本文末尾清单为准。
+新增 [PLAN-108](PLAN-108-meta-serialization-api.md) 的 Meta/序列化 API 收敛范围，当前仅设计完成、尚未实施。
 版本范围见 [VER-052](VER-052-0.52.0-architecture-cleanup.md)，本次证据见
 [Runtime/Editor 收尾记录](../records/2026-11-09-runtime-editor-boundary-cleanup.md)。
 
@@ -451,6 +452,9 @@ Application 创建、场景请求及激活已值返回；五类资产的统一�
 不恢复运行 Prefab 绑定、第二资产管理器或作者捕获。
 
 ### 代码待办与需要评估的保留接口
+
+- 按 [PLAN-108](PLAN-108-meta-serialization-api.md) 推进属性句柄、实例门面、序列化策略与上下文收敛；
+  保留已实现的分类 Ops、value 数据树与快照语义，不重复立项重建。
 
 - A52-02：继续收敛 Application::request_assets、poll_scene、poll_assets 的输出参数；轮询必须区分未完成与失败。
 - A52-02：审计 capture_frame、窗口尺寸、输入查询及 World 的 entity_create、node_create、

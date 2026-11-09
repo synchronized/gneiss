@@ -648,3 +648,6 @@
 
 - [PLAN-105：Game Object 运行模型与 Prefab 编辑边界](plans/PLAN-105-game-object-runtime-model.md)
 - [ADR-110：统一 Game Object 存储](decisions/ADR-110-game-object-runtime-model.md)
+
+- [PLAN-108：Meta 访问 API 与序列化策略收敛](plans/PLAN-108-meta-serialization-api.md)
+- [ADR-113：Meta 借用访问与序列化策略边界](decisions/ADR-113-meta-serialization-boundaries.md)
