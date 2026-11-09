@@ -151,6 +151,18 @@ int main() try {
   check(!payload && payload.error().path == "/usage");
   invalid_texture.color_space = static_cast<texture_color_space>(99);
   check(validate_texture_description(invalid_texture).path == "/color_space");
+  material_description invalid_material;
+  invalid_material.parameters.roughness = 2.0F;
+  auto material_content = serialization::json::serialize_bytes(invalid_material);
+  check(bool(material_content));
+  check(bool(serialization::json::deserialize<material_description>(*material_content)));
+  auto material_file = asset_file::serialize_bytes(invalid_material);
+  check(!material_file && material_file.error().path == "/parameters/roughness");
+  invalid_material.parameters.roughness = 0.5F;
+  invalid_material.parameters.sampling[2].uv_set = 2;
+  auto invalid_adoption =
+      adopt_material_asset("asset://bad", make_ref<material_description>(invalid_material), 1);
+  check(!invalid_adoption && invalid_adoption.error().path == "/parameters/sampling/2");
   return 0;
 } catch (...) {
   return 1;

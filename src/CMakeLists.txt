@@ -160,6 +160,7 @@ target_sources(
     engine/resource/texture/png_decoder.hpp
     engine/resource/material/detail/material_resource_access.hpp
     engine/resource/material.cpp
+    engine/resource/material/material_description.cpp
     engine/resource/material.hpp
     engine/resource/material/material_description.hpp
     engine/resource/scene/scene_validation.cpp

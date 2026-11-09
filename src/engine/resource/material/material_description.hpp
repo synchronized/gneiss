@@ -38,4 +38,9 @@ struct material_description final {
   material_parameters parameters;
   std::array<std::string, 5> texture_uris;
 };
+/** 材质参数的领域约束，供文件、编辑提交和渲染资源采用复用。 */
+[[nodiscard]] GNEISS_API serialization::diagnostic
+validate_material_parameters(const material_parameters&) noexcept;
+[[nodiscard]] GNEISS_API serialization::diagnostic
+validate_material_description(const material_description&) noexcept;
 }

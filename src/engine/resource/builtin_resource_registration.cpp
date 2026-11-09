@@ -15,43 +15,7 @@
 #include "engine/resource/scene.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
 #include "engine/resource/texture.hpp"
-#include <algorithm>
-#include <cmath>
 namespace gneiss::engine {
-namespace {
-using diagnostic = serialization::diagnostic;
-
-diagnostic invalid_description(std::string path, std::string message = {}) {
-  return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};
-}
-
-diagnostic validate_sampling(const texture_sampling& v) {
-  return valid_sampling(v) ? diagnostic{} : invalid_description("", "采样值越界");
-}
-diagnostic validate_parameters(const material_parameters& v) {
-  const auto unit = [](float n) { return std::isfinite(n) && n >= 0 && n <= 1; };
-  for (std::size_t i = 0; i < 4; ++i)
-    if (!unit(v.color[i]))
-      return invalid_description("/color/" + std::to_string(i));
-  if (!unit(v.metallic))
-    return invalid_description("/metallic");
-  if (!unit(v.roughness))
-    return invalid_description("/roughness");
-  if (!unit(v.occlusion_strength))
-    return invalid_description("/occlusion_strength");
-  if (!std::isfinite(v.normal_scale))
-    return invalid_description("/normal_scale");
-  for (float n : math::components(v.emissive))
-    if (!unit(n))
-      return invalid_description("/emissive");
-  if (!std::isfinite(v.alpha_cutoff) || v.alpha_cutoff < 0)
-    return invalid_description("/alpha_cutoff");
-  if (v.alpha_mode > material_alpha_mode::blend)
-    return invalid_description("/alpha_mode");
-  return {};
-}
-
-}
 error register_component_descriptions() noexcept {
   // 基类身份字段使用保留编号，派生组件业务字段从 1 开始。
   auto status =
@@ -329,7 +293,6 @@ error register_builtin_resource_types() noexcept {
           .property<&texture_sampling::address_u>(meta::property_id{5}, "address_u")
           .property<&texture_sampling::address_v>(meta::property_id{6}, "address_v")
           .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
-          .extend(gneiss::engine::serialization::validation<&validate_sampling>)
           .commit();
   if (status.failed())
     return status;
@@ -347,7 +310,6 @@ error register_builtin_resource_types() noexcept {
           .property<&material_parameters::alpha_cutoff>(meta::property_id{9}, "alpha_cutoff")
           .property<&material_parameters::sampling>(meta::property_id{10}, "sampling")
           .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
-          .extend(gneiss::engine::serialization::validation<&validate_parameters>)
           .commit();
   if (status.failed())
     return status;

@@ -4,6 +4,7 @@
 #include "engine/core/serialization/detail/json_adapter.hpp"
 #include "engine/core/serialization/policy.hpp"
 #include "engine/resource/input/action_map.hpp"
+#include "engine/resource/material/material_description.hpp"
 #include "engine/resource/mesh/mesh_description.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 #include "engine/resource/scene/scene_description.hpp"
@@ -78,7 +79,11 @@ format format_traits<mesh_description>::get() noexcept {
           .version = 3,
           .validate = &validate_description<mesh_description, validate_mesh_description>};
 }
-format format_traits<material_description>::get() noexcept { return {"gneiss.material", 6}; }
+format format_traits<material_description>::get() noexcept {
+  return {.name = "gneiss.material",
+          .version = 6,
+          .validate = &validate_description<material_description, validate_material_description>};
+}
 format format_traits<action_map_description>::get() noexcept {
   return {"gneiss.input-map",
           1,

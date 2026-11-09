@@ -65,7 +65,7 @@ error material_editor_model::apply(const property_path& path, const value* input
   for (const auto& uri : candidate.texture_uris)
     if (!uri.empty() && validate_uri(uri).failed())
       return error::invalid_argument;
-  // 完整编码同时执行嵌套类型和整材质校验，不发布半成品。
+  // 文件保存边界执行领域校验后编码，不发布半成品。
   auto encoded = gneiss::engine::asset_file::serialize_bytes(candidate);
   if (!encoded)
     return encoded.error().error;

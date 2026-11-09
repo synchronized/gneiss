@@ -353,7 +353,9 @@ Action Map 的领域校验已移出通用遍历，文件、输入服务与自定
 [输入映射校验记录](../records/2026-11-09-action-map-domain-validation.md)。
 Mesh/Texture 描述校验已移到所属资源模块并接入文件边界，详见
 [网格纹理校验记录](../records/2026-11-09-mesh-texture-domain-validation.md)。
-局部对象、组件、数学值和其他资产校验的分类迁移尚未完成。
+材质参数与采样约束已集中到资源领域，文件、资产采用和渲染创建复用，见
+[材质校验记录](../records/2026-11-09-material-domain-validation.md)。
+局部对象、组件和数学值等校验的分类迁移尚未完成。
 
 ## 九、验收矩阵
 

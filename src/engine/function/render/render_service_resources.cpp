@@ -313,24 +313,13 @@ render_service::prepare_mesh_data(std::shared_ptr<const mesh_data> resource) noe
 
 result<std::shared_ptr<const material_data>>
 render_service::prepare_material_data(const material_data& value) noexcept {
-  const auto& parameters = value.parameters;
-  if (!is_valid() || !std::ranges::all_of(math::components(parameters.color), valid_color) ||
-      !valid_color(parameters.metallic) || !valid_color(parameters.roughness)) {
+  if (!is_valid())
     return engine::error::invalid_argument;
-  }
-  if (!std::isfinite(parameters.normal_scale) || !valid_color(parameters.occlusion_strength) ||
-      !std::ranges::all_of(math::components(parameters.emissive), valid_color) ||
-      parameters.alpha_mode > material_alpha_mode::blend ||
-      !std::isfinite(parameters.alpha_cutoff) || parameters.alpha_cutoff < 0.0F) {
-    return engine::error::invalid_argument;
-  }
+  const auto validation = validate_material_parameters(value.parameters);
+  if (validation.error.failed())
+    return validation.error;
   for (const auto texture : value.texture_handles()) {
     if (texture != null_rid && texture_status(texture) == engine::error::invalid_handle) {
-      return engine::error::invalid_argument;
-    }
-  }
-  for (const auto& sample : value.parameters.sampling) {
-    if (!engine::valid_sampling(sample)) {
       return engine::error::invalid_argument;
     }
   }
