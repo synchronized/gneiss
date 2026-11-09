@@ -1116,6 +1116,24 @@ gneiss_target_compile_warnings(gneiss_value_edit_test)
 gneiss_target_output_directories(gneiss_value_edit_test)
 add_test(NAME gneiss.value_edit COMMAND gneiss_value_edit_test)
 
+# 本地替换分配器只用于故障注入，不影响 Engine 或其他测试进程。
+if(NOT EMSCRIPTEN)
+  add_executable(gneiss_value_allocation_test core/value_allocation_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/engine/core/value.cpp"
+    "${PROJECT_SOURCE_DIR}/src/engine/core/value_edit.cpp"
+    "${PROJECT_SOURCE_DIR}/src/engine/core/guid.cpp")
+  target_link_libraries(gneiss_value_allocation_test PRIVATE gneiss_native_interface gneiss_fatal)
+  target_compile_definitions(gneiss_value_allocation_test PRIVATE GNEISS_STATIC_DEFINE)
+  target_compile_features(gneiss_value_allocation_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_value_allocation_test)
+  gneiss_target_output_directories(gneiss_value_allocation_test)
+  add_test(NAME gneiss.value-allocation COMMAND gneiss_value_allocation_test)
+  add_test(NAME gneiss.value-allocation-oom COMMAND "${CMAKE_COMMAND}"
+    "-DPROGRAM=$<TARGET_FILE:gneiss_value_allocation_test>" "-DMODE=allocation-boundary"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/core/check_fatal.cmake")
+endif()
+
+
 if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
   add_executable(gneiss_fatal_test core/fatal_test.cpp)
   target_link_libraries(gneiss_fatal_test PRIVATE gneiss_fatal gneiss_tasks)

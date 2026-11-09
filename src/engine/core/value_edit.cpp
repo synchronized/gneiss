@@ -225,7 +225,7 @@ error diff(const value& before, const value& after, meta::property_path path,
   return error::success;
 }
 }
-error validate_value_operation(const value_operation& op) noexcept try {
+error validate_value_operation(const value_operation& op) {
   if (op.valueless_by_exception())
     return error::invalid_argument;
   return std::visit(
@@ -250,13 +250,9 @@ error validate_value_operation(const value_operation& op) noexcept try {
         return error::success;
       },
       op);
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 result<value, value_edit_error> apply_value_edits(const value& root,
-                                                  std::span<const value_edit> edits) noexcept try {
+                                                  std::span<const value_edit> edits) {
   auto status = validate_persistent_value(root);
   if (status.failed())
     return value_edit_error{0, status};
@@ -276,13 +272,8 @@ result<value, value_edit_error> apply_value_edits(const value& root,
     candidate = std::move(*updated);
   }
   return candidate;
-} catch (const std::bad_alloc&) {
-  return value_edit_error{0, error::out_of_memory};
-} catch (...) {
-  return value_edit_error{0, error::internal};
 }
-result<value_edit_replay> replay_value_edits(const value& root,
-                                             std::span<const value_edit> edits) noexcept try {
+result<value_edit_replay> replay_value_edits(const value& root, std::span<const value_edit> edits) {
   auto status = validate_persistent_value(root);
   if (status.failed())
     return status;
@@ -298,12 +289,8 @@ result<value_edit_replay> replay_value_edits(const value& root,
     }
   }
   return output;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-result<std::vector<value_edit>> diff_values(const value& before, const value& after) noexcept try {
+result<std::vector<value_edit>> diff_values(const value& before, const value& after) {
   auto status = validate_persistent_value(before);
   if (status.ok())
     status = validate_persistent_value(after);
@@ -313,9 +300,5 @@ result<std::vector<value_edit>> diff_values(const value& before, const value& af
   status = diff(before, after, {}, edits, 0);
   return status.ok() ? result<std::vector<value_edit>>{std::move(edits)}
                      : result<std::vector<value_edit>>{status};
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 }

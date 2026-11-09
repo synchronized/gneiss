@@ -14,6 +14,11 @@ GUID 对应 value_kind::guid（7）；数学类别为 20–25，对象为 50。k
 字符串由值持有，复制后不依赖原对象或注册表；修改副本不改变原字符串。构造和复制可能抛出分配异常，
 移动不复制字符串。读取字段时复制文本，写入字段时传 const value&；调用方不得保存输入引用超过调用期。
 
+`validate_persistent_value`、`validate_value_operation`、`apply_value_edits`、`replay_value_edits`
+和 `diff_values` 的分配异常向调用方传播，不转换为普通错误或 Prefab 冲突。非法数据、无效路径、
+缺失目标等预期失败仍返回错误。编辑操作构造独立候选，失败或异常均不修改输入根和共享的原始节点。
+
+
 通用值不校验 UTF-8、内嵌零或浮点有限性，这些规则由反射、资产和 IPC 的具体边界执行。
 它不是可存任意 C++ 结构体的 any，也不持有借用对象指针或容器；结构体仍通过 meta::instance 访问。
 

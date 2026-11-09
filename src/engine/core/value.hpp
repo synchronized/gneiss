@@ -72,9 +72,11 @@ template <class T> class immutable_value_storage {
 public:
   immutable_value_storage() noexcept = default;
   explicit immutable_value_storage(const T& data) : data_(std::make_shared<const T>(data)) {}
-  const T& get() const noexcept {
+  const T& get() const {
+    if (data_)
+      return *data_;
     static const T empty{};
-    return data_ ? *data_ : empty;
+    return empty;
   }
   bool operator==(const immutable_value_storage& other) const {
     return data_ == other.data_ || get() == other.get();
@@ -263,5 +265,5 @@ struct variant_value_data {
 };
 /** 检查可持久化数据树；拒绝运行时对象引用、重复字段/键和超深嵌套。 */
 [[nodiscard]] GNEISS_API error validate_persistent_value(const value&,
-                                                         std::size_t maximum_depth = 64) noexcept;
+                                                         std::size_t maximum_depth = 64);
 } // namespace gneiss::engine

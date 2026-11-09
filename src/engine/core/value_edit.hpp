@@ -56,23 +56,22 @@ struct value_edit {
   value_operation operation;
   bool operator==(const value_edit&) const = default;
 };
-GNEISS_API error validate_value_operation(const value_operation&) noexcept;
+GNEISS_API error validate_value_operation(const value_operation&);
 struct value_edit_error {
   std::size_t operation{};
   engine::error error{engine::error::success};
 };
 /** 候选根上执行整组操作；失败不发布候选，原根及共享节点始终保持不变。 */
 GNEISS_API result<value, value_edit_error> apply_value_edits(const value&,
-                                                             std::span<const value_edit>) noexcept;
+                                                             std::span<const value_edit>);
 struct value_edit_replay {
   value root;
   std::vector<value_edit_error> conflicts;
 };
 /** Prefab 重放：保留失败操作的索引，其他独立操作继续执行。 */
-GNEISS_API result<value_edit_replay> replay_value_edits(const value&,
-                                                        std::span<const value_edit>) noexcept;
+GNEISS_API result<value_edit_replay> replay_value_edits(const value&, std::span<const value_edit>);
 /** 普通列表整体替换，有稳定身份的列表按身份增删移动；引用只比较身份。 */
-GNEISS_API result<std::vector<value_edit>> diff_values(const value&, const value&) noexcept;
+GNEISS_API result<std::vector<value_edit>> diff_values(const value&, const value&);
 }
 
 namespace gneiss::engine::meta {

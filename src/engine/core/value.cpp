@@ -91,11 +91,7 @@ error validate(const value& input, std::size_t depth, std::size_t maximum) {
       input.payload);
 }
 }
-error validate_persistent_value(const value& data, std::size_t depth) noexcept try {
+error validate_persistent_value(const value& data, std::size_t depth) {
   return validate(data, 0, depth);
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 }

@@ -79,8 +79,7 @@ void normalize_zero(gneiss::engine::value& value) noexcept {
 
 namespace gneiss::engine {
 
-error apply_prefab_override_operation(meta::instance target,
-                                      const value_operation& operation) noexcept {
+error apply_prefab_override_operation(meta::instance target, const value_operation& operation) {
   auto captured = serialization::capture_value(target.as_const());
   if (!captured)
     return captured.error().error;
@@ -183,8 +182,7 @@ error validate_prefab_property_override(const prefab_property_override& value) n
 }
 
 error set_prefab_property_override(std::vector<prefab_property_override>& overrides,
-                                   prefab_property_override candidate,
-                                   engine::value source_value) noexcept {
+                                   prefab_property_override candidate, engine::value source_value) {
   if (!std::holds_alternative<set_value_operation>(candidate.operation))
     return error::invalid_argument;
   auto operation = validate_prefab_property_override(candidate);
