@@ -3,6 +3,7 @@
 
 #pragma once
 #include "engine/core/guid.hpp"
+#include "engine/core/serialization/diagnostic.hpp"
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -41,4 +42,7 @@ struct texture_description final {
   texture_color_space color_space{};
   texture_usage usage{};
 };
+/** 文件读写及原生采用前的领域校验；不修改输入。 */
+[[nodiscard]] GNEISS_API serialization::diagnostic
+validate_texture_description(const texture_description&) noexcept;
 } // namespace gneiss::engine

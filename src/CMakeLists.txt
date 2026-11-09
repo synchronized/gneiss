@@ -140,6 +140,7 @@ target_sources(
     engine/resource/mesh/mesh_binary.cpp
     engine/resource/mesh/mesh_binary.hpp
     engine/resource/mesh/mesh_decoder.cpp
+    engine/resource/mesh/mesh_description.cpp
     engine/resource/mesh.cpp
     engine/resource/scene.hpp
     engine/resource/prefab.hpp
@@ -151,6 +152,7 @@ target_sources(
     engine/resource/texture/texture_binary.cpp
     engine/resource/texture/texture_binary.hpp
     engine/resource/texture/texture_decoder.cpp
+    engine/resource/texture/texture_description.cpp
     engine/resource/texture.cpp
     engine/resource/texture.hpp
     engine/resource/texture/texture_view.hpp

@@ -253,6 +253,8 @@ Scene/Prefab 整体校验已移至文件格式边界，文档恢复保持显式�
 [领域根校验记录](../records/2026-11-09-scene-domain-validation.md)。
 Action Map 的领域校验已移出通用遍历，文件、输入服务与自定义解码加载统一检查，见
 [输入映射校验记录](../records/2026-11-09-action-map-domain-validation.md)。
+Mesh/Texture 描述校验已移到所属资源模块并接入文件边界，详见
+[网格纹理校验记录](../records/2026-11-09-mesh-texture-domain-validation.md)。
 局部对象、组件、数学值和其他资产校验的分类迁移尚未完成。
 
 ## 九、验收矩阵

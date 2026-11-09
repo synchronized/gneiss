@@ -41,6 +41,9 @@ encode_texture(const texture_description& source) noexcept try {
 result<texture_data, asset_diagnostic>
 decode_texture_payload(const texture_description& source, const std::vector<std::byte>& image_bytes,
                        texture_prepare_profile profile) noexcept try {
+  auto validation = validate_texture_description(source);
+  if (validation.error.failed())
+    return convert(std::move(validation));
   texture_data output;
   asset_diagnostic diagnostic;
   const auto failure = [&](error status) {

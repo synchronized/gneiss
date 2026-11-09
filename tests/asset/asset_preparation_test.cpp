@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/value_result.hpp"
-#include "engine/function/meta_registration.hpp"
 #include "engine/function/asset/detail/asset_decode.hpp"
+#include "engine/function/meta_registration.hpp"
+#include "engine/resource/asset_file.hpp"
 #include "engine/resource/material/material_description.hpp"
+#include "engine/resource/mesh/mesh_description.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
 #include <cstring>
 #include <limits>
@@ -128,6 +130,27 @@ int main() try {
                                                diagnostic) == error::invalid_argument);
     check(diagnostic.path == "/usage");
   }
+  // 通用序列化保留结构；文件与负载采用边界执行领域约束。
+  mesh_description invalid_mesh;
+  invalid_mesh.topology = "triangle_list";
+  auto mesh_content = serialization::json::serialize_bytes(invalid_mesh);
+  check(bool(mesh_content));
+  check(bool(serialization::json::deserialize<mesh_description>(*mesh_content)));
+  check(!asset_file::serialize_bytes(invalid_mesh));
+  auto invalid_mesh_file = asset_file::deserialize<mesh_description>(bytes(
+      R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[],"uvs":[],"normals":[]})"));
+  check(!invalid_mesh_file && invalid_mesh_file.error().path == "/vertices");
+  texture_description invalid_texture{.uri = "asset://image.png",
+                                      .color_space = texture_color_space::srgb,
+                                      .usage = texture_usage::normal};
+  auto texture_content = serialization::json::serialize_bytes(invalid_texture);
+  check(bool(texture_content));
+  check(bool(serialization::json::deserialize<texture_description>(*texture_content)));
+  check(!asset_file::serialize_bytes(invalid_texture));
+  auto payload = detail::decode_texture_payload(invalid_texture, {}, {});
+  check(!payload && payload.error().path == "/usage");
+  invalid_texture.color_space = static_cast<texture_color_space>(99);
+  check(validate_texture_description(invalid_texture).path == "/color_space");
   return 0;
 } catch (...) {
   return 1;

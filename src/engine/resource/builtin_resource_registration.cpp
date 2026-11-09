@@ -17,31 +17,12 @@
 #include "engine/resource/texture.hpp"
 #include <algorithm>
 #include <cmath>
-#include <limits>
 namespace gneiss::engine {
 namespace {
 using diagnostic = serialization::diagnostic;
 
 diagnostic invalid_description(std::string path, std::string message = {}) {
   return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};
-}
-diagnostic validate_mesh(const mesh_description& v) {
-  if (v.topology != "triangle_list")
-    return invalid_description("/topology", "只支持 triangle_list");
-  const auto count = v.vertices.size();
-  if (count < 3 || count % 3 != 0 || count > std::numeric_limits<std::uint32_t>::max())
-    return invalid_description("/vertices", "顶点必须组成非空三角形列表");
-  if (v.uvs.size() != count)
-    return invalid_description("/uvs", "UV 数量必须与顶点数量一致");
-  if (v.normals.size() != count)
-    return invalid_description("/normals", "法线数量必须与顶点数量一致");
-  for (std::size_t i = 0; i < count; ++i) {
-    const auto& n = v.normals[i];
-    const auto length = std::sqrt(n.x * n.x + n.y * n.y + n.z * n.z);
-    if (!std::isfinite(length) || std::abs(length - 1.0F) > 1.0e-4F)
-      return invalid_description("/normals/" + std::to_string(i), "法线必须归一化");
-  }
-  return {};
 }
 
 diagnostic validate_sampling(const texture_sampling& v) {
@@ -67,13 +48,6 @@ diagnostic validate_parameters(const material_parameters& v) {
     return invalid_description("/alpha_cutoff");
   if (v.alpha_mode > material_alpha_mode::blend)
     return invalid_description("/alpha_mode");
-  return {};
-}
-diagnostic validate_texture(const texture_description& v) {
-  if (v.uri.empty())
-    return invalid_description("/source", "纹理 source 必须是非空 URI");
-  if (v.usage == texture_usage::normal && v.color_space != texture_color_space::linear)
-    return invalid_description("/usage", "法线纹理必须使用 linear");
   return {};
 }
 
@@ -287,7 +261,6 @@ error register_builtin_resource_types() noexcept {
           .property_metadata(meta::property_id{4},
                              gneiss::engine::serialization::field_policy{.required = true})
           .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
-          .extend(gneiss::engine::serialization::validation<&validate_mesh>)
           .commit();
   if (status.failed())
     return status;
@@ -344,7 +317,6 @@ error register_builtin_resource_types() noexcept {
               meta::property_id{3},
               gneiss::engine::serialization::field_policy{.required = true, .enum_name = true})
           .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
-          .extend(gneiss::engine::serialization::validation<&validate_texture>)
           .commit();
   if (status.failed())
     return status;

@@ -4,9 +4,11 @@
 #include "engine/core/serialization/detail/json_adapter.hpp"
 #include "engine/core/serialization/policy.hpp"
 #include "engine/resource/input/action_map.hpp"
+#include "engine/resource/mesh/mesh_description.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
+#include "engine/resource/texture/texture_description.hpp"
 #include <array>
 #include <cstdlib>
 #include <yyjson.h>
@@ -71,7 +73,11 @@ diagnostic validate_description(const meta::const_instance& source) {
                  : diagnostic{.error = address.error()};
 }
 }
-format format_traits<mesh_description>::get() noexcept { return {"gneiss.mesh", 3}; }
+format format_traits<mesh_description>::get() noexcept {
+  return {.name = "gneiss.mesh",
+          .version = 3,
+          .validate = &validate_description<mesh_description, validate_mesh_description>};
+}
 format format_traits<material_description>::get() noexcept { return {"gneiss.material", 6}; }
 format format_traits<action_map_description>::get() noexcept {
   return {"gneiss.input-map",
@@ -88,7 +94,11 @@ format format_traits<prefab_description>::get() noexcept {
   return {"gneiss.prefab", 1, prefab_description::maximum_source_bytes, retired_fields,
           &validate_description<prefab_description, validate_prefab_description>};
 }
-format format_traits<texture_description>::get() noexcept { return {"gneiss.texture", 2}; }
+format format_traits<texture_description>::get() noexcept {
+  return {.name = "gneiss.texture",
+          .version = 2,
+          .validate = &validate_description<texture_description, validate_texture_description>};
+}
 result<std::vector<std::byte>, diagnostic>
 serialize_instance(const serialization::context& ctx, format format,
                    const meta::const_instance& view) noexcept try {

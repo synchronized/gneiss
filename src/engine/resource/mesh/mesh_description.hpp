@@ -3,6 +3,7 @@
 #pragma once
 #include "engine/core/guid.hpp"
 #include "engine/core/math/types.hpp"
+#include "engine/core/serialization/diagnostic.hpp"
 #include <string>
 #include <string_view>
 #include <vector>
@@ -16,4 +17,7 @@ struct mesh_description {
   std::vector<math::vector2> uvs;
   std::vector<math::vector3> normals;
 };
+/** 文件读写及原生采用前的领域校验；不修改输入。 */
+[[nodiscard]] GNEISS_API serialization::diagnostic
+validate_mesh_description(const mesh_description&) noexcept;
 }
