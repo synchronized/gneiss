@@ -33,11 +33,14 @@ content/reference 协议。动态内嵌类型显式携带 GUID，引用环返回
 
 ## 句柄整理补充
 
-2026-11-09：同意将 type/property 收敛为保活注册表的稳定记录句柄，精简 instance 的重复类型与
-读写成员，并增加属性局部 metadata builder；对象动态类型门面返回反射类型的方向已同意。
-这些新增接口尚未实施，不能据此描述当前能力。
-动态查询失败形式、冻结后的结构类型记录归一化和跨表比较仍需按 PLAN-108 第二节确认。
-确认前保留现有 result 查询与冻结行为；本补充不改变 Meta/Serialization 的依赖方向。
+2026-11-09：同意分离每个 C++ 类型的静态能力与 registry 中可选的注册数据；未注册类型仍
+能访问本身已有的 Ops，属性、metadata 和枚举显示项属于注册数据。取消先前惰性创建注册记录
+的建议，不因首次访问容器组合修改冻结表。精简 type/property/instance，采用属性局部 metadata builder。
+
+dynamic_type 直接返回支持 bool 的 type，类型有效与 registered 状态独立。纯查询使用直接值、
+可空句柄或空范围；访问、修改、注册和持久化的真实失败继续返回 result/error/diagnostic。
+序列化不得把未注册类型的空属性范围当成合法空对象。目标细节和验收仅在 PLAN-108 第二节维护。
+上述新增接口尚未实施；不改变 Meta/Serialization 依赖方向及 PLAN-109 的异常政策。
 
 ## 取舍
 
