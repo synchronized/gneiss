@@ -22,7 +22,8 @@ template <class T> meta::type type_of(const registry_ref& registry) noexcept {
 }
 /** 深拷贝枚举显示项；同一 C++ 类型只登记一次，冻结后禁止修改。 */
 [[nodiscard]] GNEISS_API error register_enum(const registry_ref&, engine::type_id, value_kind,
-                                             std::span<const enum_entry>) noexcept;
+                                             std::span<const enum_entry>,
+                                             const detail::type_ops* native = nullptr) noexcept;
 /** 创建独立注册表，成功结果持有共享所有者。 */
 [[nodiscard]] GNEISS_API result<registry_ref> create_registry() noexcept;
 /** 进程共享的默认注册表；仅创建，不自动注册或冻结，由引擎模块持有至退出。 */
@@ -73,12 +74,12 @@ GNEISS_API error write_property(const registry_ref&, engine::type_id, property_i
 GNEISS_API result<property_binding> find_object_property(const registry_ref&, engine::type_id,
                                                          property_id) noexcept;
 
-inline error register_enum(engine::type_id id, value_kind kind,
-                           std::span<const enum_entry> entries) noexcept {
+inline error register_enum(engine::type_id id, value_kind kind, std::span<const enum_entry> entries,
+                           const detail::type_ops* native = nullptr) noexcept {
   auto registry = default_registry();
   if (!registry)
     return registry.error();
-  return register_enum(*registry, id, kind, entries);
+  return register_enum(*registry, id, kind, entries, native);
 }
 inline result<property_binding> find_object_property(guid type, property_id property) noexcept {
   auto registry = default_registry();

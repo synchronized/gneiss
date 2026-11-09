@@ -49,13 +49,14 @@ struct type_record {
   bool enumeration = false;
   value_kind scalar = value_kind::invalid;
   std::vector<enum_entry> entries;
+  const type_ops* native{};
 };
 struct type_factory {
   static meta::type make(registry_ref registry, const type_ops* access,
                          const type_record* record = nullptr) {
     meta::type out;
     out.registry_ = std::move(registry);
-    out.access_ = access;
+    out.access_ = access ? access : record ? record->native : nullptr;
     out.record_ = record;
     return out;
   }
@@ -137,7 +138,8 @@ bool valid_binding(const property_binding& binding) noexcept {
   if ((!desc.guid && !desc.type_id) || desc.schema_version == 0U || desc.name.empty() ||
       desc.name.size() > std::numeric_limits<std::uint32_t>::max() ||
       desc.properties.size() > std::numeric_limits<std::uint32_t>::max() ||
-      !is_valid_name(desc.name)) {
+      !is_valid_name(desc.name) ||
+      (desc.native && (desc.native->id != desc.type_id || desc.native->enumeration))) {
     return false;
   }
   for (std::size_t index = 0; index < desc.properties.size(); ++index) {
@@ -193,9 +195,11 @@ bool valid_scalar(const value& input) noexcept { return is_valid_property_value(
 
 class type_registry_state final : public std::enable_shared_from_this<type_registry_state> {
 public:
-  error register_enum(engine::type_id id, value_kind kind,
-                      std::span<const enum_entry> entries) noexcept try {
+  error register_enum(engine::type_id id, value_kind kind, std::span<const enum_entry> entries,
+                      const detail::type_ops* native) noexcept try {
     if (!id || entries.empty() || (kind != value_kind::int64 && kind != value_kind::uint64))
+      return error::invalid_argument;
+    if (native && (native->id != id || !native->enumeration || native->scalar_kind() != kind))
       return error::invalid_argument;
     for (std::size_t i = 0; i < entries.size(); ++i) {
       if (!is_valid_name(entries[i].name) || entries[i].data.kind() != kind)
@@ -211,6 +215,7 @@ public:
       return error::invalid_argument;
     type_record record;
     record.type_id = id;
+    record.native = native;
     record.enumeration = true;
     record.scalar = kind;
     record.entries.assign(entries.begin(), entries.end());
@@ -262,6 +267,7 @@ public:
       auto record = std::make_unique<type_record>();
       record->guid = desc.guid;
       record->type_id = desc.type_id;
+      record->native = desc.native;
       record->schema_version = desc.schema_version;
       record->name.assign(desc.name);
       record->object = desc.object;
@@ -818,8 +824,8 @@ result<registry_ref> create_registry() noexcept {
   }
 }
 error register_enum(const registry_ref& state, engine::type_id id, value_kind kind,
-                    std::span<const enum_entry> entries) noexcept {
-  return state ? state->register_enum(id, kind, entries) : error::invalid_handle;
+                    std::span<const enum_entry> entries, const detail::type_ops* native) noexcept {
+  return state ? state->register_enum(id, kind, entries, native) : error::invalid_handle;
 }
 error register_type(const registry_ref& state, const type_definition& desc) noexcept {
   return state ? state->register_type(desc) : error::invalid_handle;

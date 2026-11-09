@@ -352,6 +352,58 @@ bool type_queries() {
   return !weak.expired() && typed.properties().size() == 2 &&
          typed.name() == query_model::type_name && named.name() == "count";
 }
+// 原生描述由注册记录借用；查询过程不写入冻结注册表。
+bool registered_native_queries() {
+  auto created = m::create_registry();
+  if (!created)
+    return false;
+  const auto registry = *created;
+  using sequence = std::array<float, 2>;
+  using mapping = std::map<std::string, float>;
+  using optional = std::optional<float>;
+  using reference = e::ref<settings>;
+  using variant = std::variant<float, int>;
+  const auto before = m::type_of<sequence>(registry);
+  if (m::registration<sequence>{registry}.name("sequence").commit().failed() ||
+      m::registration<mapping>{registry}.name("mapping").commit().failed() ||
+      m::registration<optional>{registry}.name("optional").commit().failed() ||
+      m::registration<reference>{registry}.name("reference").commit().failed() ||
+      m::registration<variant>{registry}.name("variant").commit().failed())
+    return false;
+  const auto runtime_guid = e::guid::literal("947510ef-4f5b-4ac1-a608-a01134927f40");
+  if (m::register_type(registry, {.guid = runtime_guid, .schema_version = 1, .name = "runtime"})
+          .failed() ||
+      m::freeze(registry).failed())
+    return false;
+  auto check = [&]<class T>() {
+    const auto native = m::type_of<T>(registry);
+    const auto lookup = m::find_type(registry, e::runtime_type_of<T>());
+    return native == lookup && native.registered() && lookup.registered() &&
+           native.kind() == lookup.kind() && native.scalar_kind() == lookup.scalar_kind() &&
+           native.element_type() == lookup.element_type();
+  };
+  if (!check.template operator()<sequence>() || !check.template operator()<mapping>() ||
+      !check.template operator()<optional>() || !check.template operator()<reference>() ||
+      !check.template operator()<variant>() || before.registered() ||
+      !m::find_type(registry, e::runtime_type_of<sequence>()).is_fixed_sequence())
+    return false;
+  const auto runtime = m::find_type(registry, runtime_guid);
+  if (!runtime || !runtime.registered() || runtime.id() || runtime.element_type() ||
+      runtime.kind() != m::type_kind::object)
+    return false;
+  const auto count = m::type_count(registry);
+  if (!count)
+    return false;
+  for (std::uint32_t i = 0; i < *count; ++i) {
+    const auto entry = m::type_at(registry, i);
+    if (!entry)
+      return false;
+    if (entry->id() == e::runtime_type_of<sequence>() &&
+        (!entry->is_fixed_sequence() || entry->element_type() != m::type_of<float>(registry)))
+      return false;
+  }
+  return true;
+}
 struct reference_target {
   inline static int alive = 0;
   reference_target() { ++alive; }
@@ -767,7 +819,7 @@ int main() try {
     return 41;
   if (!reference_properties())
     return 40;
-  if (!type_queries())
+  if (!type_queries() || !registered_native_queries())
     return 31;
   if (!enum_registration())
     return 30;

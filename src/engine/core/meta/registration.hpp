@@ -37,6 +37,7 @@ template <class T>
   if (!id || (definition.type_id && definition.type_id != id))
     return error::invalid_argument;
   definition.type_id = id;
+  definition.native = &detail::ops_of<type>();
   return register_type(registry, definition, bindings);
 }
 template <class T>
@@ -79,7 +80,7 @@ public:
     if (status_.failed())
       return status_;
     return register_enum(registry_, runtime_type_of<E>(), detail::reflected_value_kind<E>(),
-                         entries_);
+                         entries_, &detail::ops_of<E>());
   }
 
 private:

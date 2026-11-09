@@ -14,5 +14,7 @@ struct type_definition {
   std::span<const property_definition> properties{};
   object_ops object{};
   meta::metadata extensions{};
+  /** 模板注册填充的静态能力；运行期定义可留空，不拥有描述或对象。 */
+  const detail::type_ops* native{};
 };
 }
