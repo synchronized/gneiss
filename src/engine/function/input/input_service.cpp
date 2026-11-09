@@ -53,8 +53,8 @@ void input_service::clear_focus() noexcept {
 }
 
 error input_service::replace_action_map(action_map_description map) noexcept {
-  if (const auto valid = validate_action_map(map); valid.failed()) {
-    return valid;
+  if (const auto valid = validate_action_map(map); valid.error.failed()) {
+    return valid.error;
   }
   std::vector<engine::action_state> states;
   try {

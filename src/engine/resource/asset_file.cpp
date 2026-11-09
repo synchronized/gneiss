@@ -74,7 +74,11 @@ diagnostic validate_description(const meta::const_instance& source) {
 format format_traits<mesh_description>::get() noexcept { return {"gneiss.mesh", 3}; }
 format format_traits<material_description>::get() noexcept { return {"gneiss.material", 6}; }
 format format_traits<action_map_description>::get() noexcept {
-  return {"gneiss.input-map", 1, maximum_action_map_bytes};
+  return {"gneiss.input-map",
+          1,
+          maximum_action_map_bytes,
+          {},
+          &validate_description<action_map_description, validate_action_map>};
 }
 format format_traits<scene_description>::get() noexcept {
   return {"gneiss.scene", 5, scene_description::maximum_source_bytes, retired_fields,

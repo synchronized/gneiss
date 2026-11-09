@@ -20,6 +20,11 @@ struct action_map_loader final : asset_loader {
         status = error::internal;
         return;
       }
+      diagnostic = validate_action_map(*content);
+      if (diagnostic.error.failed()) {
+        status = diagnostic.error;
+        return;
+      }
       value = std::shared_ptr<const action_map>(
           new action_map(source, ref<const action_map_description>{std::move(content)}));
     } else

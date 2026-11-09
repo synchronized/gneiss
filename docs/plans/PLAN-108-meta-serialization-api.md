@@ -251,6 +251,8 @@ Meta 改用内存访问约束 property_access，旧 flags 已删除，见
 字段引用策略覆盖与 save 行为已接入文件遍历及快照，详见[字段覆盖记录](../records/2026-11-09-field-reference-policy.md)。
 Scene/Prefab 整体校验已移至文件格式边界，文档恢复保持显式校验，见
 [领域根校验记录](../records/2026-11-09-scene-domain-validation.md)。
+Action Map 的领域校验已移出通用遍历，文件、输入服务与自定义解码加载统一检查，见
+[输入映射校验记录](../records/2026-11-09-action-map-domain-validation.md)。
 局部对象、组件、数学值和其他资产校验的分类迁移尚未完成。
 
 ## 九、验收矩阵

@@ -304,5 +304,26 @@ int main() {
       load_map_for_test(custom, executor, "asset://input/map", map).failed() ||
       map.actions.front().name != "override")
     return 19;
+  // 通用 JSON 只负责结构；领域入口拒绝不可用的输入绑定。
+  action_map_description unchecked;
+  unchecked.actions = {{.name = "bad", .bindings = {{.physical_key = 4, .scale = 0}}}};
+  auto unchecked_bytes = serialization::json::serialize_bytes(unchecked);
+  if (!unchecked_bytes ||
+      !serialization::json::deserialize<action_map_description>(*unchecked_bytes) ||
+      validate_action_map(unchecked).error != error::invalid_argument ||
+      asset_file::serialize_bytes(unchecked))
+    return 32;
+  const auto invalid_decode =
+      +[](std::span<const std::byte>) -> result<action_map_description, serialization::diagnostic> {
+    action_map_description output;
+    output.actions = {{.name = "bad", .bindings = {{.physical_key = 4, .scale = 0}}}};
+    return output;
+  };
+  asset_manager invalid_custom(gneiss::test_support::test_files(files));
+  invalid_custom.configure(executor);
+  if (invalid_custom.register_decoder<action_map_description>(invalid_decode).failed() ||
+      load_map_for_test(invalid_custom, executor, "asset://input/invalid-custom", map) !=
+          error::invalid_argument)
+    return 33;
   return 0;
 }

@@ -7,29 +7,39 @@
 #include <cmath>
 
 namespace gneiss::engine {
-error validate_action_map(const action_map_description& map) noexcept {
+serialization::diagnostic validate_action_map(const action_map_description& map) noexcept try {
   if (map.actions.empty()) {
-    return error::invalid_argument;
+    return {
+        .path = "/actions", .message = "输入映射必须包含动作", .error = error::invalid_argument};
   }
   for (std::size_t index = 0; index < map.actions.size(); ++index) {
     const auto& action = map.actions[index];
+    const auto path = "/actions/" + std::to_string(index);
     if (action.name.empty() || action.bindings.empty()) {
-      return error::invalid_argument;
+      return {.path = path, .message = "动作必须有名称和绑定", .error = error::invalid_argument};
     }
     for (std::size_t previous = 0; previous < index; ++previous) {
       if (map.actions[previous].name == action.name) {
-        return error::invalid_argument;
+        return {
+            .path = path + "/name", .message = "动作名称重复", .error = error::invalid_argument};
       }
     }
-    for (const auto& binding : action.bindings) {
+    for (std::size_t binding_index = 0; binding_index < action.bindings.size(); ++binding_index) {
+      const auto& binding = action.bindings[binding_index];
       if (binding.physical_key == 0U || binding.physical_key >= 256U ||
           !std::isfinite(binding.scale) || binding.scale == 0.0F || binding.scale < -1.0F ||
           binding.scale > 1.0F) {
-        return error::invalid_argument;
+        return {.path = path + "/bindings/" + std::to_string(binding_index),
+                .message = "按键或 scale 超出有效范围",
+                .error = error::invalid_argument};
       }
     }
   }
-  return error::success;
+  return {};
+} catch (const std::bad_alloc&) {
+  return {.error = error::out_of_memory};
+} catch (...) {
+  return {.error = error::internal};
 }
 
 } // namespace gneiss::engine

@@ -77,16 +77,6 @@ diagnostic validate_texture(const texture_description& v) {
   return {};
 }
 
-diagnostic action_map_invalid(std::string path, std::string message = {}) {
-  return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};
-}
-diagnostic validate_binding(const action_binding& binding) {
-  if (binding.physical_key == 0 || binding.physical_key >= 256 || !std::isfinite(binding.scale) ||
-      binding.scale == 0 || binding.scale < -1 || binding.scale > 1)
-    return action_map_invalid("", "按键或 scale 超出有效范围");
-  return {};
-}
-
 }
 error register_component_descriptions() noexcept {
   // 基类身份字段使用保留编号，派生组件业务字段从 1 开始。
@@ -412,7 +402,6 @@ error register_builtin_resource_types() noexcept {
           .property_metadata(meta::property_id{2},
                              gneiss::engine::serialization::field_policy{.required = true})
           .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
-          .extend(gneiss::engine::serialization::validation<&validate_binding>)
           .commit();
   if (status.failed())
     return status;
@@ -435,7 +424,6 @@ error register_builtin_resource_types() noexcept {
           .property_metadata(meta::property_id{1},
                              gneiss::engine::serialization::field_policy{.required = true})
           .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
-          .extend(gneiss::engine::serialization::validation<&validate_action_map>)
           .commit();
   if (status.failed())
     return status;

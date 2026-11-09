@@ -4,8 +4,8 @@
 #ifndef GNEISS_ASSET_ACTION_MAP_HPP_
 #define GNEISS_ASSET_ACTION_MAP_HPP_
 
-#include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/core/serialization/diagnostic.hpp"
 #include "engine/resource/asset.hpp"
 
 #include <cstdint>
@@ -65,7 +65,8 @@ private:
 };
 
 /** 原生构造与 JSON 加载共享语义约束；不改变输入映射。 */
-[[nodiscard]] error validate_action_map(const action_map_description& map) noexcept;
+[[nodiscard]] serialization::diagnostic
+validate_action_map(const action_map_description& map) noexcept;
 
 } // namespace gneiss::engine
 
