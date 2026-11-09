@@ -60,6 +60,32 @@ public:
 private:
   std::variant<T, E> storage_;
 };
+/** 无返回值且带自定义诊断；默认构造表示成功，不构造 E。 */
+template <class E> class [[nodiscard]] result<void, E> final {
+public:
+  result() noexcept = default;
+  result(E failure) noexcept(std::is_nothrow_move_constructible_v<E>)
+      : storage_(std::in_place_index<1>, std::move(failure)) {}
+  bool has_value() const noexcept { return storage_.index() == 0; }
+  bool ok() const noexcept { return has_value(); }
+  bool failed() const noexcept { return !has_value(); }
+  explicit operator bool() const noexcept { return has_value(); }
+  E& error() & {
+    assert(failed());
+    return std::get<1>(storage_);
+  }
+  const E& error() const& {
+    assert(failed());
+    return std::get<1>(storage_);
+  }
+  E&& error() && {
+    assert(failed());
+    return std::get<1>(std::move(storage_));
+  }
+
+private:
+  std::variant<std::monostate, E> storage_;
+};
 /** 无返回值时一般直接返回 error；泛型算法需要统一形态时使用 result<void>。 */
 template <> class [[nodiscard]] result<void> final {
 public:

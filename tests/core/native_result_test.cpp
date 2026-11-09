@@ -60,6 +60,27 @@ int main() {
   if (!done || failed || failed.error() != error::cancelled)
     return 8;
 
+  {
+    result<void, move_only> empty;
+    if (!empty || move_only::alive != 0)
+      return 9;
+    result<void, move_only> failure = move_only{17};
+    if (failure || failure.error().value != 17 || move_only::alive != 1)
+      return 10;
+    auto payload = std::move(failure).error();
+    if (payload.value != 17)
+      return 11;
+  }
+  if (move_only::alive != 0)
+    return 12;
+  result<void, std::string> detail = std::string{"failed"};
+  const auto copy = detail;
+  if (copy || copy.error() != "failed")
+    return 13;
+  detail = result<void, std::string>{};
+  if (!detail)
+    return 14;
+
   return error::dependency_failed.message() == "dependency failed" &&
                  error::success.message() == "success" &&
                  error::cancelled.message() == "operation cancelled" &&

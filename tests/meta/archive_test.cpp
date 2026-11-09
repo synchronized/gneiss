@@ -130,6 +130,9 @@ struct record {
   e::ref<base> object;
   std::int64_t required = 0;
 };
+bool failed_with(const e::result<void, s::diagnostic>& status, e::error expected) {
+  return !status && status.error().error == expected;
+}
 int main() {
   auto r = m::create_registry();
   CHECK(r);
@@ -161,16 +164,25 @@ int main() {
   // 顶层可空值与 JSON 共用类型分派，空值不走对象工厂。
   for (const auto optional : {std::optional<int>{}, std::optional<int>{17}}) {
     memory_writer encoded;
-    CHECK(s::serialize(ctx, optional, encoded).error.ok());
+    CHECK(s::write(ctx, optional, encoded).has_value());
     memory_reader decoded{encoded.root_value};
-    auto restored = s::deserialize<std::optional<int>>(ctx, decoded);
+    auto restored = s::decode<std::optional<int>>(ctx, decoded);
     CHECK(restored && *restored == optional);
   }
   record original{{1, 2, 3}, {{"a/b~c", 42}}, "hello", e::make_ref<derived>(), 12};
   memory_writer output;
-  CHECK(s::serialize(ctx, original, output).error.ok());
+  CHECK(s::write(ctx, original, output).has_value());
   memory_reader input{output.root_value};
-  auto copy = s::deserialize<record>(ctx, input);
+  record target_record;
+  auto target_view = m::view(*r, target_record);
+  CHECK(target_view);
+  CHECK(s::read_into(ctx, input, *target_view));
+  CHECK(target_record.required == original.required && target_record.numbers == original.numbers);
+  memory_writer borrowed_output;
+  CHECK(s::write(target_view->as_const(), borrowed_output));
+  memory_reader borrowed_input{borrowed_output.root_value};
+  CHECK(s::read_into(borrowed_input, *target_view));
+  auto copy = s::decode<record>(ctx, input);
   CHECK(copy && copy->numbers == original.numbers && copy->names == original.names &&
         copy->label == original.label);
   CHECK(copy->object && copy->object.get() != original.object.get() && copy->required == 12);
@@ -178,78 +190,79 @@ int main() {
   // 后端读错类型后返回相同字段路径，不发布半成品。
   auto required = output.root_value->members.back().second;
   required->data = e::value{std::string{"bad"}};
-  auto bad = s::deserialize<record>(ctx, input);
+  auto bad = s::decode<record>(ctx, input);
   CHECK(!bad && bad.error().path == "/required" && bad.error().error == e::error::invalid_argument);
   CHECK(ctx.property_path().empty());
   required->data = e::value{std::int64_t{12}};
   output.root_value->members.emplace_back("required", required);
-  auto duplicate = s::deserialize<record>(ctx, input);
+  auto duplicate = s::decode<record>(ctx, input);
   CHECK(!duplicate && duplicate.error().path == "/required");
   output.root_value->members.pop_back();
   output.root_value->members.back().first = "unknown";
-  auto unknown = s::deserialize<record>(ctx, input);
+  auto unknown = s::decode<record>(ctx, input);
   CHECK(!unknown && unknown.error().path == "/unknown");
   output.root_value->members.pop_back();
-  auto missing = s::deserialize<record>(ctx, input);
+  auto missing = s::decode<record>(ctx, input);
   CHECK(!missing && missing.error().path == "/required");
   memory_writer failed;
   failed.fail_members = true;
-  CHECK(s::serialize(ctx, original, failed).error == e::error::out_of_memory && !failed.root_value);
+  CHECK(failed_with(s::write(ctx, original, failed), e::error::out_of_memory) &&
+        !failed.root_value);
   auto* target = dynamic_cast<derived*>(original.object.get());
   target->next = original.object;
   memory_writer cyclic;
-  CHECK(s::serialize(ctx, original, cyclic).error == e::error::invalid_argument);
+  CHECK(failed_with(s::write(ctx, original, cyclic), e::error::invalid_argument));
   CHECK(ctx.property_path().empty());
   target->next.reset();
   memory_writer recovered;
-  CHECK(s::serialize(ctx, original, recovered).error.ok());
+  CHECK(s::write(ctx, original, recovered).has_value());
   CHECK(ctx.property_path().empty());
   s::context shallow{*r, 0};
   memory_writer limited;
-  CHECK(s::serialize(shallow, original, limited).error == e::error::invalid_argument);
+  CHECK(failed_with(s::write(shallow, original, limited), e::error::invalid_argument));
   memory_reader recovered_input{recovered.root_value};
-  CHECK(!s::deserialize<record>(shallow, recovered_input));
-  CHECK(s::deserialize<record>(ctx, recovered_input));
+  CHECK(!s::decode<record>(shallow, recovered_input));
+  CHECK(s::decode<record>(ctx, recovered_input));
   auto other = m::create_registry();
   CHECK(other && m::freeze(*other).ok());
   s::context mismatched{*other};
   auto view = m::view(*r, original);
   CHECK(view);
-  CHECK(s::serialize(mismatched, view->as_const(), limited).error == e::error::invalid_argument);
-  CHECK(s::deserialize(mismatched, recovered_input, *view).error == e::error::invalid_argument);
+  CHECK(failed_with(s::write(mismatched, view->as_const(), limited), e::error::invalid_argument));
+  CHECK(failed_with(s::read_into(mismatched, recovered_input, *view), e::error::invalid_argument));
   CHECK(original.required == 12);
   s::context invalid{m::registry_ref{}};
-  CHECK(s::serialize(invalid, original, limited).error == e::error::invalid_handle);
+  CHECK(failed_with(s::write(invalid, original, limited), e::error::invalid_handle));
 
   original.object.reset();
   original.label.reset();
   memory_writer empty;
-  CHECK(s::serialize(ctx, original, empty).error.ok());
+  CHECK(s::write(ctx, original, empty).has_value());
   memory_reader empty_input{empty.root_value};
-  auto empty_copy = s::deserialize<record>(ctx, empty_input);
+  auto empty_copy = s::decode<record>(ctx, empty_input);
   CHECK(empty_copy && !empty_copy->object && !empty_copy->label);
   memory_writer scalar_output;
-  CHECK(s::serialize(ctx, std::int64_t{99}, scalar_output).error.ok());
+  CHECK(s::write(ctx, std::int64_t{99}, scalar_output).has_value());
   memory_reader scalar_input{scalar_output.root_value};
-  auto scalar = s::deserialize<std::int64_t>(ctx, scalar_input);
+  auto scalar = s::decode<std::int64_t>(ctx, scalar_input);
   CHECK(scalar && *scalar == 99);
   memory_writer optional_output;
-  CHECK(s::serialize(ctx, std::optional<std::int64_t>{3}, optional_output).error.ok());
+  CHECK(s::write(ctx, std::optional<std::int64_t>{3}, optional_output).has_value());
   memory_reader optional_input{optional_output.root_value};
-  auto optional = s::deserialize<std::optional<std::int64_t>>(ctx, optional_input);
+  auto optional = s::decode<std::optional<std::int64_t>>(ctx, optional_input);
   CHECK(optional && *optional && **optional == 3);
   memory_writer variant_output;
-  CHECK(s::serialize(ctx, choice{std::string{"variant"}}, variant_output).error.ok());
+  CHECK(s::write(ctx, choice{std::string{"variant"}}, variant_output).has_value());
   memory_reader variant_input{variant_output.root_value};
-  auto variant = s::deserialize<choice>(ctx, variant_input);
+  auto variant = s::decode<choice>(ctx, variant_input);
   CHECK(variant && std::get<std::string>(*variant) == "variant");
   // 通用 variant 遍历在无 JSON 的后端上处理 value 标量和对象内容。
   std::vector<e::value> values{e::value{std::int64_t{42}}, e::value{std::string{"hello"}},
                                e::value{e::ref<m::object>{}}, e::value{e::make_ref<derived>()}};
   memory_writer value_output;
-  CHECK(s::serialize(ctx, values, value_output).error.ok());
+  CHECK(s::write(ctx, values, value_output).has_value());
   memory_reader value_input{value_output.root_value};
-  auto value_copy = s::deserialize<std::vector<e::value>>(ctx, value_input);
+  auto value_copy = s::decode<std::vector<e::value>>(ctx, value_input);
   CHECK(value_copy && value_copy->size() == values.size());
   CHECK((*value_copy)[0] == values[0] && (*value_copy)[1] == values[1] &&
         (*value_copy)[2] == values[2]);
@@ -258,7 +271,7 @@ int main() {
   CHECK(object_copy && object_copy.get() != object_source.get());
   CHECK(dynamic_cast<derived*>(object_copy.get())->number == 7);
   value_output.root_value->elements[0]->members[0].second->data = e::value{std::string{"unknown"}};
-  auto unknown_kind = s::deserialize<std::vector<e::value>>(ctx, value_input);
+  auto unknown_kind = s::decode<std::vector<e::value>>(ctx, value_input);
   CHECK(!unknown_kind && unknown_kind.error().error == e::error::invalid_argument);
   return 0;
 }

@@ -410,7 +410,9 @@ Mesh/Texture 描述校验已移到所属资源模块并接入文件边界，详�
 
 阶段 6 已将递归状态移到最外层操作栈，嵌套入口共享、退出自动销毁，见
 [操作状态记录](../records/2026-11-09-serialization-operation-state.md)。
-read_context/write_context 分离、入口重命名与调用迁移尚未完成。
+格式无关入口已改为 write/read_into/decode，write/read_into 返回 result<void, diagnostic>，见
+[Archive 入口记录](../records/2026-11-09-serialization-archive-api.md)。
+read_context/write_context 分离及 JSON 入口和调用迁移尚未完成。
 
 ## 九、验收矩阵
 

@@ -19,11 +19,12 @@ auto restored = ser::json::deserialize<scene_description>(json_text);
 使用其他后端时包含 `serialization.hpp`，传入实现了 reader/writer 的对象：
 
 ```cpp
-auto status = ser::serialize(description, output_writer);
-auto restored = ser::deserialize<scene_description>(input_reader);
+auto status = ser::write(description, output_writer);
+auto restored = ser::decode<scene_description>(input_reader);
 ```
 
-写入返回 `serialization::diagnostic`，其 error 为 success 时成功；
+写入以及 read_into 返回 `result<void, serialization::diagnostic>`，布尔为真表示成功；
+失败时通过 error() 获取诊断，不能在成功时读取 error()。
 构造对象的读取返回 `result<T, serialization::diagnostic>`。
 所有显式上下文重载采用 context-first：
 
@@ -32,7 +33,7 @@ ser::context ctx;                         // 使用默认注册表
 ser::context isolated{registry, 64};      // 指定注册表与最大嵌套深度
 auto text = ser::json::serialize(ctx, description);
 auto restored = ser::json::deserialize<scene_description>(ctx, json_text);
-auto status = ser::serialize(ctx, description, output_writer);
+auto status = ser::write(ctx, description, output_writer);
 ```
 
 无 context 的类型模板使用默认注册表；视图重载使用视图绑定的注册表。
