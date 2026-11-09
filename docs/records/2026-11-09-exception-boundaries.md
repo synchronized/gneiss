@@ -80,3 +80,18 @@ read_into 使用带错误信息的解析入口，避免将分配失败误判为�
 Windows Clang Debug：Editor 与相关目标编译通过，8 项定向 CPU 测试全部通过；
 clang-format 和 git diff --check 通过。未运行 GPU、大场景、远端 CI 或跨平台矩阵。
 PLAN-109 仍未完成：默认表/查询、核心 value 辅助操作、资产/文件回调及上层执行链继续按计划审计。
+
+## 默认表与查询调用链追加验收
+
+默认注册表创建与注册表查询移除兜底异常转码，不再将锁/分配/类型能力异常伪装为 internal 或空句柄。
+同步调整 type_of/find_type、property.type、element_type、dynamic_type、instance 创建、默认注册 builder、
+序列化 context 与策略查询的 noexcept；纯句柄身份、名称与范围读取仍保持不抛异常。
+正常未命中、未冻结、无效句柄继续遵循原有返回语义。
+
+增加自定义元素能力故障注入，覆盖属性类型的 element_type 与注册表扫描查询，异常传播后正常查询仍可用；
+编译期断言覆盖默认表/默认 builder 可抛异常和纯句柄读取不抛异常。
+Windows Clang Debug：Editor 与相关目标编译通过，10 项定向 CPU 测试全部通过。
+格式检查与 git diff --check 通过，未运行 GPU、大场景、远端 CI 或跨平台矩阵。
+
+Meta/Serialization 目录已无原有 catch 兜底，但此结论不代表全项目计划完成：
+核心 value 辅助操作、原生类型身份初始化、资产/文件服务、上层消费者与跨线程/C 回调仍需审计。

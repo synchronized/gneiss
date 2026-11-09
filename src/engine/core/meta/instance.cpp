@@ -11,16 +11,15 @@ bool type::has_sequence_identity() const noexcept {
   const auto* ops = access_ ? access_->get<sequence_ops>() : nullptr;
   return ops && ops->identity;
 }
-type type::element_type() const noexcept {
+type type::element_type() const {
   if (!access_ || !access_->element_ops())
     return {};
   return detail::resolve_type(registry_, access_->element());
 }
 
 template <bool Mutable>
-result<basic_instance<Mutable>> basic_instance<Mutable>::from_object(registry_ref registry,
-                                                                     engine::type_id id,
-                                                                     pointer object) noexcept {
+result<basic_instance<Mutable>>
+basic_instance<Mutable>::from_object(registry_ref registry, engine::type_id id, pointer object) {
   if (!object)
     return error::invalid_argument;
   auto frozen = is_frozen(registry);
@@ -39,7 +38,7 @@ result<basic_instance<Mutable>> basic_instance<Mutable>::from_object(registry_re
 template <bool Mutable>
 result<basic_instance<Mutable>> basic_instance<Mutable>::from_access(registry_ref registry,
                                                                      const detail::type_ops& access,
-                                                                     pointer data) noexcept {
+                                                                     pointer data) {
   if (!data)
     return error::invalid_argument;
   basic_instance output;

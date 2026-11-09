@@ -54,7 +54,7 @@ template <class E>
   requires std::is_enum_v<E>
 class enum_builder {
 public:
-  enum_builder() noexcept {
+  enum_builder() {
     auto registry = default_registry();
     if (registry)
       registry_ = std::move(*registry);
@@ -180,7 +180,7 @@ public:
     type_builder* owner_;
     std::size_t index_;
   };
-  type_builder() noexcept {
+  type_builder() {
     auto registry = default_registry();
     if (registry)
       registry_ = std::move(*registry);
@@ -412,7 +412,7 @@ namespace registration {
 /** 注册非枚举类型；借用显式注册表，省略时使用默认表。 */
 template <class T>
   requires(!std::is_enum_v<std::remove_cvref_t<T>>)
-auto type() noexcept {
+auto type() {
   return detail::type_builder<T>{};
 }
 template <class T>
@@ -423,7 +423,7 @@ auto type(registry_ref registry) noexcept {
 /** 注册枚举显示项及类型元数据，不改变枚举的整数表示。 */
 template <class E>
   requires std::is_enum_v<std::remove_cvref_t<E>>
-auto enumeration() noexcept {
+auto enumeration() {
   return detail::enum_builder<std::remove_cvref_t<E>>{};
 }
 template <class E>

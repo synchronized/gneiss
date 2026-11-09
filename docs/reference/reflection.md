@@ -210,7 +210,7 @@ Registry 使用原生共享引用管理，不经全局句柄表。独立表在�
 `serialization::diagnostic.error` 保存预期失败的错误码；C++ 分配、访问器和 codec 异常直接传播。
 JSON 适配层在 yyjson 返回分配失败后抛出 bad_alloc，不从 C 分配回调抛异常。
 语法错误和无法编码的 JSON 值仍返回 invalid_argument；通用 reader/writer 自身返回的错误遵循其接口契约。
-默认注册表与其他模块的分配失败分类仍在 PLAN-109 中迁移。
+其他模块的分配失败分类仍在 PLAN-109 中迁移。
 Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `result<ref<void>, serialization::diagnostic>`，
 模板接口按已登记的运行期类型 ID 找到回调后移出具体对象，不要求默认构造或移动赋值。
 未冻结返回 not_ready，未知类型返回 not_found，空 Registry 返回 invalid_handle。
@@ -274,6 +274,9 @@ Scene / Prefab 的结构编解码继续使用专用实现。
 `is_frozen(registry)` 返回 `result<bool>`，`type_count(registry)` 返回 `result<std::uint32_t>`；
 无效注册表返回 invalid_handle，未冻结注册表的类型数量查询返回 not_ready。
 成功的 false 或零数量不代表操作失败。
+默认表首次创建、查询锁和自定义类型能力查询产生的 C++ 异常向外传播，不伪装为查询未命中。
+`type_of`、`find_type`、`property.type()`、`element_type()`、`dynamic_type()` 与实例创建不承诺 noexcept；
+直接读取既有句柄的名称、身份、属性范围等操作仍保持不抛异常。
 
 ## 元数据与属性值查询
 

@@ -37,9 +37,8 @@ public:
   [[nodiscard]] engine::guid guid() const noexcept { return type_.guid(); }
   [[nodiscard]] engine::type_id type_id() const noexcept { return type_.id(); }
   /** 类型擦除入口，调用方保证类型与地址匹配且目标仍然存活。 */
-  static GNEISS_API result<basic_instance> from_object(registry_ref, engine::type_id,
-                                                       pointer) noexcept;
-  static result<basic_instance> from_object(engine::type_id id, pointer object) noexcept {
+  static GNEISS_API result<basic_instance> from_object(registry_ref, engine::type_id, pointer);
+  static result<basic_instance> from_object(engine::type_id id, pointer object) {
     auto registry = default_registry();
     return registry ? from_object(*registry, id, object) : result<basic_instance>{registry.error()};
   }
@@ -76,17 +75,17 @@ public:
 
 private:
   template <bool> friend class basic_instance;
-  template <class T> friend result<const_instance> view(const registry_ref&, const T&) noexcept;
+  template <class T> friend result<const_instance> view(const registry_ref&, const T&);
   template <class T>
     requires(!std::is_const_v<T>)
-  friend result<instance> view(const registry_ref&, T&) noexcept;
+  friend result<instance> view(const registry_ref&, T&);
   template <bool> friend class basic_sequence_view;
   template <bool> friend class basic_associative_view;
   template <bool> friend class basic_optional_view;
   template <bool> friend class basic_variant_view;
   template <bool> friend class basic_reference_view;
   static GNEISS_API result<basic_instance> from_access(registry_ref, const detail::type_ops&,
-                                                       pointer) noexcept;
+                                                       pointer);
   [[nodiscard]] const detail::type_ops* access() const noexcept { return type_.access_; }
   [[nodiscard]] void* mutable_data() const noexcept
     requires(Mutable)
@@ -117,24 +116,23 @@ template <bool Mutable> const_instance basic_instance<Mutable>::as_const() const
 }
 
 /** 借用只读左值，视图保活注册表但不保活目标对象。 */
-template <class T>
-result<const_instance> view(const registry_ref& registry, const T& object) noexcept {
+template <class T> result<const_instance> view(const registry_ref& registry, const T& object) {
   return const_instance::from_access(registry, detail::ops_of<std::remove_cv_t<T>>(),
                                      std::addressof(object));
 }
 /** 借用可写左值，沿用目标 getter/setter 与失效规则。 */
 template <class T>
   requires(!std::is_const_v<T>)
-result<instance> view(const registry_ref& registry, T& object) noexcept {
+result<instance> view(const registry_ref& registry, T& object) {
   return instance::from_access(registry, detail::ops_of<T>(), std::addressof(object));
 }
-template <class T> result<const_instance> view(const T& object) noexcept {
+template <class T> result<const_instance> view(const T& object) {
   auto registry = default_registry();
   return registry ? view(*registry, object) : result<const_instance>{registry.error()};
 }
 template <class T>
   requires(!std::is_const_v<T>)
-result<instance> view(T& object) noexcept {
+result<instance> view(T& object) {
   auto registry = default_registry();
   return registry ? view(*registry, object) : result<instance>{registry.error()};
 }

@@ -7,7 +7,7 @@ namespace gneiss::engine::serialization {
 std::string_view detail::context_base::property_path() const noexcept {
   return state_ ? std::string_view{state_->path} : std::string_view{};
 }
-result<meta::registry_ref> detail::context_base::registry() const noexcept {
+result<meta::registry_ref> detail::context_base::registry() const {
   if (use_default_)
     return meta::default_registry();
   if (!registry_)

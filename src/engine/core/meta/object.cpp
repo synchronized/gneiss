@@ -3,11 +3,11 @@
 #include "engine/core/meta/object.hpp"
 #include "engine/core/meta/registry.hpp"
 namespace gneiss::engine::meta {
-meta::type object::dynamic_type(const registry_ref& registry) const noexcept {
+meta::type object::dynamic_type(const registry_ref& registry) const {
   const auto* ops = dynamic_ops();
   return ops ? detail::resolve_type(registry, *ops) : meta::type{};
 }
-meta::type object::dynamic_type() const noexcept {
+meta::type object::dynamic_type() const {
   auto registry = default_registry();
   return dynamic_type(registry ? *registry : registry_ref{});
 }

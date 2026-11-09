@@ -44,7 +44,7 @@ public:
   explicit context_base(std::size_t maximum_depth) noexcept : maximum_depth_(maximum_depth) {}
   context_base(const context_base&) = delete;
   context_base& operator=(const context_base&) = delete;
-  [[nodiscard]] GNEISS_API result<meta::registry_ref> registry() const noexcept;
+  [[nodiscard]] GNEISS_API result<meta::registry_ref> registry() const;
   [[nodiscard]] std::size_t maximum_depth() const noexcept { return maximum_depth_; }
 };
 }

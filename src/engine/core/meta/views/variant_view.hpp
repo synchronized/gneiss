@@ -22,7 +22,7 @@ template <bool Mutable> class basic_variant_view {
 public:
   std::size_t alternative_count() const noexcept { return ops()->alternatives.size(); }
   std::span<const std::string_view> names() const noexcept { return ops()->names; }
-  result<meta::type> alternative(std::size_t i) const noexcept {
+  result<meta::type> alternative(std::size_t i) const {
     if (i >= alternative_count())
       return error::invalid_argument;
     return detail::resolve_type(readonly().registry(), *ops()->alternatives[i]);

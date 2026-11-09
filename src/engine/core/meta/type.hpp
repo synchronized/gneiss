@@ -46,7 +46,7 @@ public:
   friend GNEISS_API bool operator==(const type&, const type&) noexcept;
   /** 无元素能力返回空句柄。
    * sequence/optional/reference 返回元素或静态目标类型，associative 返回映射值类型。 */
-  [[nodiscard]] GNEISS_API type element_type() const noexcept;
+  [[nodiscard]] GNEISS_API type element_type() const;
 
 private:
   template <bool> friend class basic_instance;
@@ -56,6 +56,6 @@ private:
   const detail::type_record* record_{};
 };
 namespace detail {
-GNEISS_API meta::type resolve_type(const registry_ref&, const type_ops&) noexcept;
+GNEISS_API meta::type resolve_type(const registry_ref&, const type_ops&);
 }
 } // namespace gneiss::engine::meta

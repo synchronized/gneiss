@@ -31,7 +31,7 @@ struct field_policy {
   std::optional<reference_policy> reference{};
 };
 /** 字段规则由序列化边界校验，Meta 只保存扩展。 */
-inline result<field_policy> policy_of(const meta::property& property) noexcept {
+inline result<field_policy> policy_of(const meta::property& property) {
   const auto* extension = property.extension<field_policy>();
   const auto policy = extension ? *extension : field_policy{};
   if ((policy.required &&
@@ -68,8 +68,7 @@ inline type_policies policies_of(const meta::type& type) noexcept {
     result.validation = *p;
   return result;
 }
-inline result<type_policies> find_policies(const meta::registry_ref& registry,
-                                           type_id id) noexcept {
+inline result<type_policies> find_policies(const meta::registry_ref& registry, type_id id) {
   auto frozen = meta::is_frozen(registry);
   if (!frozen)
     return frozen.error();
@@ -78,7 +77,7 @@ inline result<type_policies> find_policies(const meta::registry_ref& registry,
   auto type = meta::find_type(registry, id);
   return type ? result<type_policies>{policies_of(type)} : result<type_policies>{error::not_found};
 }
-inline result<type_policies> find_policies(type_id id) noexcept {
+inline result<type_policies> find_policies(type_id id) {
   auto frozen = meta::is_frozen();
   if (!frozen)
     return frozen.error();
@@ -88,9 +87,8 @@ inline result<type_policies> find_policies(type_id id) noexcept {
   return type ? result<type_policies>{policies_of(type)} : result<type_policies>{error::not_found};
 }
 /** 引用位置统一选择：字段显式覆盖 > 被引用类型默认 > 内嵌默认。 */
-inline result<reference_policy>
-reference_policy_for(const meta::type& reference,
-                     const reference_policy* override = nullptr) noexcept {
+inline result<reference_policy> reference_policy_for(const meta::type& reference,
+                                                     const reference_policy* override = nullptr) {
   if (reference.kind() != meta::type_kind::reference)
     return error::invalid_argument;
   auto target = reference.element_type();

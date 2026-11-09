@@ -25,6 +25,13 @@ static_assert(sizeof(gneiss::engine::meta::type) ==
 static_assert(
     std::same_as<decltype(gneiss::engine::meta::type_of<int>()), gneiss::engine::meta::type>);
 
+// 默认表可能首次分配；查询可能调用自定义能力，不应提前 terminate。
+static_assert(!noexcept(gneiss::engine::meta::default_registry()));
+static_assert(!noexcept(gneiss::engine::meta::type_of<reflected_object>()));
+static_assert(!noexcept(gneiss::engine::meta::registration::type<reflected_object>()));
+static_assert(noexcept(gneiss::engine::meta::type{}.id()));
+static_assert(noexcept(gneiss::engine::meta::type{}.name()));
+
 bool typed_registration() {
   namespace e = gneiss::engine;
   using e::error;
@@ -206,7 +213,20 @@ bool freeze_exception_contract() {
   if (*m::is_frozen(*registry))
     return false;
   fail = false;
-  return m::freeze(*registry).ok() && *m::is_frozen(*registry);
+  if (m::freeze(*registry).failed() || !*m::is_frozen(*registry))
+    return false;
+  fail = true;
+  // 查询自定义元素能力时抛异常不能变成“未找到”，也不能在视图 noexcept 内终止。
+  auto property = m::find_type(*registry, definition.guid).find_property(field.id);
+  if (!property || !gneiss::test_support::throws<std::runtime_error>([&] {
+        (void)property.type().element_type();
+      }) ||
+      !gneiss::test_support::throws<std::runtime_error>(
+          [&] { (void)m::find_type(*registry, e::runtime_type_of<unregistered_object>()); }))
+    return false;
+  fail = false;
+  return property.type().element_type() &&
+         !m::find_type(*registry, e::runtime_type_of<unregistered_object>());
 }
 int main() {
   if (!freeze_exception_contract())
