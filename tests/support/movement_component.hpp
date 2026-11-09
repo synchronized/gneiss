@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/core/meta/object_type.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/world/world_component_access.hpp"

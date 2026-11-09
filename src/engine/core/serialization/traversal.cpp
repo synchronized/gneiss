@@ -36,7 +36,8 @@ serialization::diagnostic validate_identity(const registry_ref& registry, type_i
     return {};
   auto type = find_type(registry, id);
   auto* object = ops->as_object(const_cast<void*>(address));
-  if (!type || !object || object->dynamic_type() != id || object->dynamic_guid() != type.guid() ||
+  const auto actual = object ? object->dynamic_type(registry) : meta::type{};
+  if (!type || !actual || actual.id() != id || actual.guid() != type.guid() ||
       object->dynamic_address() != address)
     return failure(error::invalid_argument, "", "对象实际身份与注册类型不符");
   return {};

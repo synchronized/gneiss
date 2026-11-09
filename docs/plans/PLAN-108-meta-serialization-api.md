@@ -317,7 +317,7 @@ content/reference 就绪语义仍由资产加载操作决定。Codec 内禁止�
 core/meta/
   type.hpp / property.hpp / instance.hpp
   registration.hpp / registry.hpp
-  property_path.hpp / object.hpp
+  property_path.hpp / object.hpp / object_type.hpp
   ops/                     分类能力与公开适配契约
   views/                   容器、optional、reference、variant 视图
   detail/                  存储、句柄构造、适配生成实现

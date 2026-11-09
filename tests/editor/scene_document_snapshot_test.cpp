@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/document_patch.hpp"
 #include "documents/scene_document_snapshot.hpp"
+#include "engine/core/meta/object_type.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/resource/asset_file.hpp"

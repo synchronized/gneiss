@@ -14,9 +14,6 @@ namespace gneiss::engine::meta {
 /** 查询冻结注册表；未发布或未找到返回空句柄，基础值不需重复登记。 */
 GNEISS_API meta::type find_type(const registry_ref&, engine::type_id) noexcept;
 GNEISS_API meta::type find_type(const registry_ref&, engine::guid) noexcept;
-namespace detail {
-GNEISS_API meta::type resolve_type(const registry_ref&, const type_ops&) noexcept;
-}
 template <class T> meta::type type_of(const registry_ref& registry) noexcept {
   return detail::resolve_type(registry, detail::ops_of<std::remove_cvref_t<T>>());
 }

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
+#include "engine/core/meta/object_type.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "ipc_property_protocol.hpp"
 

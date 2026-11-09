@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/core/meta/object.hpp"
 #include "engine/core/meta/ops/associative_ops.hpp"
 #include "engine/core/meta/ops/optional_ops.hpp"
 #include "engine/core/meta/ops/reference_ops.hpp"

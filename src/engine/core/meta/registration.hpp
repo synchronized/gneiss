@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/meta/detail/type_ops.hpp"
-#include "engine/core/meta/object.hpp"
+#include "engine/core/meta/object_type.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/traits/type_identity.hpp"
 #include <functional>

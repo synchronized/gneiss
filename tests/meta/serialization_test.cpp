@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/value_result.hpp"
+#include "engine/core/meta/object_type.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/serialization/policy.hpp"
@@ -186,7 +187,7 @@ bool inherited_properties() {
     return false;
   auto shared_copy = e::serialization::json::deserialize<e::ref<inherited_base>>(ctx, *shared_json);
   if (!shared_copy || !*shared_copy || (*shared_copy)->number != 43 ||
-      (*shared_copy)->dynamic_type() != e::runtime_type_of<inherited_leaf>() ||
+      (*shared_copy)->dynamic_type().id() != e::runtime_type_of<inherited_leaf>() ||
       (*shared_copy)->values != input.values || shared_copy->get() == shared.get())
     return false;
   // ID 冲突与名称冲突均拒绝；失败不能留下已合并的半成品。
@@ -277,7 +278,7 @@ int main() {
   auto base_copy = e::serialization::restore_value<e::ref<e::meta::object>>(
       e::serialization::context{*core}, *base_snapshot);
   if (!base_copy || !*base_copy || base_copy->get() == base.get() ||
-      (*base_copy)->dynamic_type() != e::runtime_type_of<cyclic_data>())
+      (*base_copy)->dynamic_type().id() != e::runtime_type_of<cyclic_data>())
     return 71;
   const std::vector<e::value_edit> edits{
       {{}, e::set_value_operation{e::value{std::int64_t{7}}}},

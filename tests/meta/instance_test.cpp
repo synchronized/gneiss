@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/instance.hpp"
+#include "engine/core/meta/object_type.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/serialization/policy.hpp"
@@ -545,6 +546,12 @@ struct polymorphic_child : offset_base, m::object_type<polymorphic_child, polymo
   static constexpr e::guid type_guid = e::guid::from_bytes({94, 31});
   std::int64_t number = 7;
 };
+struct missing_dynamic_type : m::object {
+  const void* dynamic_address() const noexcept override { return this; }
+
+protected:
+  const m::detail::type_ops* dynamic_ops() const noexcept override { return nullptr; }
+};
 bool polymorphic_references() {
   auto created = m::create_registry();
   if (!created)
@@ -564,6 +571,17 @@ bool polymorphic_references() {
           .commit()
           .failed() ||
       m::freeze(registry).failed())
+    return false;
+  polymorphic_child native;
+  const m::object& base = native;
+  const auto detached = base.dynamic_type(m::registry_ref{});
+  const auto registered = base.dynamic_type(registry);
+  auto other = m::create_registry();
+  if (!other || !detached || detached.registered() || !registered.registered() ||
+      registered != m::type_of<polymorphic_child>(registry) ||
+      base.dynamic_type(*other).registered() || base.dynamic_type(*other).id() != detached.id() ||
+      detached.guid() != polymorphic_child::type_guid || base.dynamic_address() != &native ||
+      !base.dynamic_type() || missing_dynamic_type{}.dynamic_type(registry))
     return false;
   auto ops = m::find_object_ops(registry, e::runtime_type_of<polymorphic_child>());
   if (!ops || ops->base_type != e::runtime_type_of<polymorphic_base>() || !ops->construct ||
@@ -587,7 +605,7 @@ bool polymorphic_references() {
   auto decoded = gneiss::engine::serialization::json::deserialize<e::ref<const polymorphic_base>>(
       gneiss::engine::serialization::context{registry}, *encoded);
   if (!decoded || !*decoded ||
-      (*decoded)->dynamic_type() != e::runtime_type_of<polymorphic_child>() ||
+      (*decoded)->dynamic_type().id() != e::runtime_type_of<polymorphic_child>() ||
       (*decoded).get() == original.get() ||
       static_cast<const polymorphic_child*>((*decoded)->dynamic_address())->number != 42)
     return false;

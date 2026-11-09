@@ -3,6 +3,7 @@
 #include "../support/movement_component.hpp"
 #include "../support/scene_application.hpp"
 #include "../support/value_result.hpp"
+#include "engine/core/meta/object_type.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/property_edit_policy.hpp"
 #include "engine/core/serialization/json.hpp"

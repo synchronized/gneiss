@@ -79,6 +79,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/wakeup_signal.hpp
   engine/core/meta/property_path.hpp
   engine/core/meta/object.hpp
+  engine/core/meta/object_type.hpp
   engine/core/meta/instance.hpp
     engine/core/meta/sequence_view.hpp
     engine/core/meta/associative_view.hpp

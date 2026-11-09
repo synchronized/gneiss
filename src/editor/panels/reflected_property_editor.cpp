@@ -20,7 +20,7 @@ result<value> edit_reference_snapshot(const value& source, const property_edit& 
   auto owner = std::get<ref<meta::object>>(copy->payload);
   if (!owner)
     return error::not_found;
-  auto root = meta::instance::from_object(owner->dynamic_type(),
+  auto root = meta::instance::from_object(owner->dynamic_type().id(),
                                           const_cast<void*>(owner->dynamic_address()));
   if (!root)
     return root.error();
@@ -71,7 +71,8 @@ void draw_value(const meta::const_instance& view, const std::string& name, prope
     } else if (editable) {
       const auto& owner = std::get<ref<meta::object>>(held->payload);
       if (owner)
-        target = meta::const_instance::from_object(owner->dynamic_type(), owner->dynamic_address());
+        target =
+            meta::const_instance::from_object(owner->dynamic_type().id(), owner->dynamic_address());
     }
     const bool expanded = ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
     if (ImGui::BeginPopupContextItem()) {

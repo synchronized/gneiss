@@ -516,7 +516,12 @@ reference_view::get 对空引用返回 not_found。引用不是标量；可变 m
 安全基类转换，未知/无关类型在构造前拒绝；未声明多态的引用不能保存派生对象。
 具体类型可使用反射字段或已有自定义 JSON codec，后者仍需输出 JSON 对象。
 
-多态对象继承 meta::object，具体类可用 object_type<Derived, Base> 提供类型身份与完整对象地址。
+多态对象继承 meta::object（object.hpp），具体类可用 object_type<Derived, Base>
+（object_type.hpp）提供静态类型能力与完整对象地址。对象不保存注册表或类型句柄。
+dynamic_type() 返回 meta::type；带 registry_ref 的重载使用指定注册表。
+未注册对象仍返回有效的静态类型，registered() 为 false；没有静态描述时返回空句柄。
+持久身份使用 dynamic_type().guid()，不再提供独立 dynamic_guid()。
+引用视图使用自己的注册表解析动态类型，多继承引用仍通过 dynamic_address() 取得完整对象地址。
 reference_view.get() 返回实际类型视图；ref<const T> 只允许读取目标。
 base 链同时用于身份校验、指针调整和继承属性访问。freeze 合并完整继承链的属性，
 按属性 ID 排序；任意祖先与派生类的属性 ID 或名称冲突返回 invalid_argument，不提供遮蔽。

@@ -55,4 +55,7 @@ private:
   const detail::type_ops* access_{};
   const detail::type_record* record_{};
 };
+namespace detail {
+GNEISS_API meta::type resolve_type(const registry_ref&, const type_ops&) noexcept;
+}
 } // namespace gneiss::engine::meta

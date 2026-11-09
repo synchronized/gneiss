@@ -21,13 +21,13 @@ public:
       engine::guid::literal("8bbd9682-e941-46a2-936a-b4ad959b2546");
   /** 组件实例身份；新建生成，编辑与文件恢复保持。 */
   engine::guid uuid = engine::guid::generate();
-  [[nodiscard]] engine::guid guid() const noexcept { return dynamic_guid(); }
+  [[nodiscard]] engine::guid guid() const noexcept { return dynamic_type().guid(); }
   template <class T> const T* get() const noexcept {
-    return dynamic_type() == runtime_type_of<T>() ? static_cast<const T*>(dynamic_address())
-                                                  : nullptr;
+    return dynamic_type().id() == runtime_type_of<T>() ? static_cast<const T*>(dynamic_address())
+                                                       : nullptr;
   }
   result<meta::const_instance> view() const noexcept {
-    return meta::const_instance::from_object(dynamic_type(), dynamic_address());
+    return meta::const_instance::from_object(dynamic_type().id(), dynamic_address());
   }
 };
 using component_description = ref<const component_description_base>;

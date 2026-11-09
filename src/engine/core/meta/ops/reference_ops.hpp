@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/meta/object.hpp"
 #include "engine/core/meta/ops/ops_fwd.hpp"
+#include "engine/core/meta/type.hpp"
 #include "engine/core/ref.hpp"
 #include "engine/core/result.hpp"
 #include <cstddef>
@@ -17,7 +17,7 @@ struct reference_ops {
   ref<const void> (*owner)(const void*){};
   void (*set)(void*, const ref<void>&){};
   void (*reset)(void*){};
-  engine::type_id (*dynamic_type)(const void*){};
+  meta::type (*dynamic_type)(const registry_ref&, const void*){};
   /** 仅可变 meta::object 引用支持 value 传递；不移除目标 const。 */
   ref<meta::object> (*read_object)(const void*){};
   error (*write_object)(void*, const ref<meta::object>&){};
@@ -45,12 +45,13 @@ template <class T> const reference_ops& reference_ops_of() {
       else
         return v;
     };
-    ops.dynamic_type = [](const void* p) -> engine::type_id {
+    ops.dynamic_type = [](const registry_ref& registry, const void* p) -> meta::type {
       const auto& v = *static_cast<const T*>(p);
       if constexpr (std::derived_from<std::remove_const_t<E>, meta::object>)
-        return v ? v->dynamic_type() : runtime_type_of<std::remove_const_t<E>>();
+        return v ? v->dynamic_type(registry)
+                 : resolve_type(registry, ops_of<std::remove_const_t<E>>());
       else
-        return runtime_type_of<std::remove_const_t<E>>();
+        return resolve_type(registry, ops_of<std::remove_const_t<E>>());
     };
     ops.set = [](void* p, const ref<void>& v) {
       *static_cast<T*>(p) = v.template alias<E>(static_cast<E*>(v.get()));

@@ -3,6 +3,7 @@
 #pragma once
 #include "engine/core/math/camera.hpp"
 #include "engine/core/math/transform.hpp"
+#include "engine/core/meta/object_type.hpp"
 #include "engine/resource/scene/component_description.hpp"
 #include "engine/resource/scene/object_address.hpp"
 #include "engine/resource/scene/prefab_property_data.hpp"
