@@ -155,7 +155,47 @@ bool runtime_only_registration() {
   auto rejected = e::serialization::json::serialize_bytes(context, poly);
   return !rejected && rejected.error().error == e::error::unsupported;
 }
+struct display_metadata {
+  std::string label;
+};
+bool extension_registration() {
+  namespace m = e::meta;
+  auto registry = m::create_registry();
+  if (!registry)
+    return false;
+  if (m::registration<sample>{*registry}
+              .metadata(display_metadata{"first"})
+              .metadata(display_metadata{"duplicate"})
+              .commit() != e::error::invalid_argument ||
+      m::registration<sample>{*registry}
+              .property_metadata(m::property_id{9}, display_metadata{"missing"})
+              .commit() != e::error::not_found)
+    return false;
+  display_metadata label{"original"};
+  m::registration<sample> builder{*registry};
+  builder.metadata(label)
+      .property<&sample::speed>(m::property_id{1}, "speed")
+      .property_metadata(m::property_id{1}, display_metadata{"Speed"});
+  label.label = "changed";
+  if (builder.commit().failed() || m::freeze(*registry).failed())
+    return false;
+  auto type = m::type_of<sample>(*registry);
+  if (!type)
+    return false;
+  auto field = type->find_property(m::property_id{1});
+  const auto* type_data = type->extension<display_metadata>();
+  const auto* field_data = field ? field->extension<display_metadata>() : nullptr;
+  if (!type_data || type_data->label != "original" || !field_data || field_data->label != "Speed" ||
+      type->extension<int>() || field->extension<int>())
+    return false;
+  registry->reset();
+  // 类型和属性句柄继续保活不可变元数据。
+  return type->extension<display_metadata>() == type_data &&
+         field->extension<display_metadata>() == field_data;
+}
 int main() {
+  if (!extension_registration())
+    return 14;
   if (!runtime_only_registration())
     return 13;
   if (!explicit_registration())

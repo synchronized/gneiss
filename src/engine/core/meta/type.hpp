@@ -16,6 +16,11 @@ struct type_factory;
 class type {
 public:
   type() = default;
+  /** 借用冻结扩展元数据；缺少此类扩展返回 nullptr。 */
+  template <class T> [[nodiscard]] const T* extension() const noexcept {
+    return static_cast<const T*>(extension(runtime_type_of<T>()));
+  }
+  [[nodiscard]] GNEISS_API const void* extension(engine::type_id) const noexcept;
   [[nodiscard]] type_kind kind() const noexcept { return kind_; }
   [[nodiscard]] bool is_enum() const noexcept { return enumeration_; }
   [[nodiscard]] engine::type_id id() const noexcept { return id_; }

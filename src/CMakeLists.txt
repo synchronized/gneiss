@@ -86,13 +86,12 @@ target_sources(
     engine/core/math/camera.cpp
     engine/core/math/camera.hpp
     engine/core/meta/registration.hpp
+    engine/core/meta/metadata.hpp
     engine/core/meta/property.hpp
     engine/core/meta/type.hpp
     engine/core/meta/type_types.hpp
     engine/core/meta/type_definition.hpp
     engine/core/meta/registry.hpp
-    engine/core/meta/property.hpp
-    engine/core/meta/type.hpp
     engine/core/meta/instance.cpp
     engine/core/meta/object.hpp
     engine/core/meta/instance.hpp

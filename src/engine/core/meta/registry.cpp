@@ -124,6 +124,7 @@ struct property_record {
   property_accessor accessor{};
   engine::guid declaring_type{};
   engine::type_id declaring_id{};
+  meta::metadata extensions{};
 };
 
 struct type_record {
@@ -135,6 +136,7 @@ struct type_record {
   std::vector<std::size_t> property_names;
   object_ops object{};
   serialization::binding serialization{};
+  meta::metadata extensions{};
 };
 
 [[nodiscard]] bool validate_property(const property_definition& property) noexcept {
@@ -267,6 +269,7 @@ public:
       record->name.assign(desc.name);
       record->object = desc.object;
       record->serialization = desc.serialization;
+      record->extensions = desc.extensions;
       record->properties.reserve(desc.properties.size());
       for (const auto& property : desc.properties) {
         record->properties.push_back({.id = property.id.get(),
@@ -275,7 +278,8 @@ public:
                                       .name = std::string(property.name),
                                       .accessor = {},
                                       .declaring_type = desc.guid,
-                                      .declaring_id = desc.type_id});
+                                      .declaring_id = desc.type_id,
+                                      .extensions = property.extensions});
       }
       for (std::size_t i = 0; i < bindings.size(); ++i) {
         const auto& binding = bindings[i];
@@ -635,6 +639,14 @@ public:
     return 0;
   }
 
+  template <class Key> const void* extension(Key id, engine::type_id key) const noexcept try {
+    std::shared_lock lock(mutex_);
+    const auto* record = is_frozen_ ? find_type_unlocked(id) : nullptr;
+    return record ? record->extensions.find(key) : nullptr;
+  } catch (...) {
+    return nullptr;
+  }
+
   template <class Key> std::string_view type_name(Key id) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
@@ -833,6 +845,13 @@ result<property_range> type::properties() const noexcept {
   if (kind_ != type_kind::object)
     return error::unsupported;
   return id_ ? registry_->properties(id_) : registry_->properties(guid_);
+}
+const void* type::extension(engine::type_id key) const noexcept {
+  return registry_ ? (id_ ? registry_->extension(id_, key) : registry_->extension(guid_, key))
+                   : nullptr;
+}
+const void* property::extension(engine::type_id key) const noexcept {
+  return record_ ? static_cast<const property_record*>(record_)->extensions.find(key) : nullptr;
 }
 std::uint32_t type::schema_version() const noexcept {
   return registry_ ? (id_ ? registry_->schema_version(id_) : registry_->schema_version(guid())) : 0;

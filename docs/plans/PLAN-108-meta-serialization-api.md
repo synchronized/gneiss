@@ -241,6 +241,9 @@ describe_type/describe_property、type_info/property_info 已删除；
 [注册入口记录](../records/2026-11-09-meta-registration.md)。调用点审计与验证见
 [首批记录](../records/2026-11-09-meta-property-handles.md)。
 
+阶段 5 已加入类型/字段扩展元数据基础，见[实现记录](../records/2026-11-09-meta-extension-metadata.md)；
+旧 binding、flags 和策略消费迁移尚未完成。
+
 ## 九、验收矩阵
 
 | 范围 | 必须覆盖 |

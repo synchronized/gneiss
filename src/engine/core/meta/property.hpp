@@ -4,6 +4,7 @@
 #pragma once
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/core/meta/metadata.hpp"
 #include "engine/core/meta/registry_fwd.hpp"
 #include "engine/core/meta/type_types.hpp"
 #include "engine/core/ref.hpp"
@@ -69,6 +70,7 @@ struct property_definition {
   engine::guid type_guid{};
   property_flags flags = property_flags::none;
   std::string_view name{};
+  meta::metadata extensions{};
 };
 /** 回调借用实际类型的对象指针；调用方保证对象存活、类型正确和线程访问合法。
  * setter 必须先校验再修改，失败保持对象；注册表不复制对象或回滚任意回调副作用。
@@ -101,6 +103,11 @@ class property_range;
 class property final {
 public:
   property() = default;
+  /** 借用冻结扩展元数据；缺少此类扩展返回 nullptr，寿命受句柄保护。 */
+  template <class T> [[nodiscard]] const T* extension() const noexcept {
+    return static_cast<const T*>(extension(runtime_type_of<T>()));
+  }
+  [[nodiscard]] GNEISS_API const void* extension(engine::type_id) const noexcept;
   [[nodiscard]] GNEISS_API property_id id() const noexcept;
   [[nodiscard]] GNEISS_API std::string_view name() const noexcept;
   [[nodiscard]] GNEISS_API engine::guid declaring_type() const noexcept;

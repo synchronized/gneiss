@@ -607,3 +607,13 @@ Meta 不再提供含糊的 serialize/deserialize 入口。
 已登记但没有相应能力的类型返回空函数项；调用前须检查函数项。
 `type_definition.serialization` 保存 `serialization::binding`，仍通过 find_serialization 查询。
 两者由同一注册表保存；继承关系不自动启用多态保存策略，校验时机保持不变。
+
+### 类型与属性扩展元数据
+
+`registration<T>::metadata(value)` 为类型登记扩展；
+`property_metadata(id, value)` 为已声明属性登记扩展。
+扩展以其 C++ 类型为键保存独立的只读值，同类重复登记返回 invalid_argument，
+属性不存在返回 not_found；失败在 commit 返回，不登记半个类型。
+`type::extension<E>()` 和 `property::extension<E>()` 返回借用指针，缺失时为 nullptr。
+句柄保活元数据；元数据结构中的借用指针仍由提供者负责寿命。
+Meta 不解释扩展内容；其用途及策略优先级由消费模块定义。

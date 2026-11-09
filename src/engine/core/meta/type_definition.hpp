@@ -15,5 +15,6 @@ struct type_definition {
   std::span<const property_definition> properties{};
   object_ops object{};
   serialization::binding serialization{};
+  meta::metadata extensions{};
 };
 }

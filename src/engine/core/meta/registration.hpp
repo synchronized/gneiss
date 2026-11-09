@@ -99,6 +99,7 @@ template <class T> class registration {
     engine::guid guid;
     property_flags flags;
     property_binding binding;
+    meta::metadata extensions{};
   };
 
 public:
@@ -126,6 +127,26 @@ public:
   registration& guid(engine::guid guid) noexcept {
     if (!committed_ && !status_.failed())
       guid_ = guid;
+    return *this;
+  }
+  /** 类型扩展由消费模块解释，注册器仅按类型保存不可变副本。 */
+  template <class Extension> registration& metadata(Extension value) noexcept {
+    if (!committed_ && status_.ok())
+      status_ = extensions_.insert(std::move(value));
+    return *this;
+  }
+  /** 为指定已登记字段附加扩展；字段不存在或同类扩展重复均失败。 */
+  template <class Extension>
+  registration& property_metadata(property_id id, Extension value) noexcept {
+    if (committed_ || status_.failed())
+      return *this;
+    for (auto& entry : entries_) {
+      if (entry.id == id) {
+        status_ = entry.extensions.insert(std::move(value));
+        return *this;
+      }
+    }
+    status_ = error::not_found;
     return *this;
   }
   registration& schema_version(std::uint32_t version) noexcept {
@@ -335,7 +356,7 @@ public:
       properties.reserve(entries_.size());
       bindings.reserve(entries_.size());
       for (const auto& item : entries_) {
-        properties.push_back({item.id, item.guid, item.flags, item.name});
+        properties.push_back({item.id, item.guid, item.flags, item.name, item.extensions});
         bindings.push_back(item.binding);
       }
       if constexpr (std::derived_from<object_type, meta::object>)
@@ -346,7 +367,8 @@ public:
                                          .name = name_,
                                          .properties = properties,
                                          .object = object_,
-                                         .serialization = codec_},
+                                         .serialization = codec_,
+                                         .extensions = extensions_},
                                         bindings);
     } catch (const std::bad_alloc&) {
       return error::out_of_memory;
@@ -381,6 +403,7 @@ private:
   }
   object_ops object_{};
   serialization::binding codec_{};
+  meta::metadata extensions_{};
   bool has_serialization_ = false;
   registry_ref registry_;
   std::vector<entry> entries_;
