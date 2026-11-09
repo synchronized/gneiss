@@ -207,6 +207,10 @@ int main() try {
       !guarded.components.empty() || parsed->objects.front().components.empty())
     return 40;
   auto copy = *parsed;
+  auto incomplete = e::serialization::restore_value<custom_description>(
+      e::value{e::record_value{e::record_value_data{custom_description::type_guid, {}}}});
+  if (incomplete || incomplete.error().error != e::error::unsupported)
+    return 62;
   bool invoked = false;
   if (copy.objects.front().components.update<custom_description>([&](auto& value) {
         invoked = true;

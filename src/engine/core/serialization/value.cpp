@@ -14,6 +14,16 @@
 namespace gneiss::engine::serialization {
 namespace {
 using namespace meta;
+// 自定义 codec 的派生对象不能仅因继承身份字段就被当作完整字段快照。
+bool supports_field_snapshot(const meta::type& type) {
+  const auto policy = policies_of(type);
+  if (!policy.content.encode && !policy.content.decode)
+    return true;
+  for (const auto& field : type.properties())
+    if (field.declaring_type_id() == type.id())
+      return true;
+  return false;
+}
 struct capture_state {
   const context& ctx;
   std::unordered_set<const void*> active;
@@ -37,12 +47,11 @@ struct capture_state {
     case type_kind::object: {
       if (!source.guid())
         return error::unsupported;
-      auto policy = find_policies(source.registry(), source.type_id());
       record_value_data record{source.guid(), {}};
       auto fields = source.properties();
       if (!source.type().registered())
         return error::not_found;
-      if (policy && fields.empty() && (policy->content.encode || policy->content.decode))
+      if (!supports_field_snapshot(source.type()))
         return error::unsupported;
       for (const auto& field : fields) {
         auto field_policy = policy_of(field);
@@ -225,6 +234,8 @@ struct restore_state {
       return target.assign(data);
     case type_kind::object: {
       if (!target.type().guid())
+        return error::unsupported;
+      if (!supports_field_snapshot(target.type()))
         return error::unsupported;
       auto record = std::get_if<record_value>(&data.payload);
       if (!record || record->get().type != target.type().guid())
