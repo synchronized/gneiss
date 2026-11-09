@@ -4,6 +4,7 @@
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/serialization/diagnostic.hpp"
 #include <functional>
+#include <optional>
 namespace gneiss::engine::serialization {
 class context;
 class reader;
@@ -22,16 +23,21 @@ struct reference_policy {
 };
 /** 字段持久化规则；不改变 Meta 的内存访问能力。 */
 struct field_policy {
+  bool save = true;
   bool required = false;
   bool enum_name = false;
+  /** 仅覆盖直接引用字段；容器元素沿用元素类型策略。 */
+  std::optional<reference_policy> reference{};
 };
 /** 字段规则由序列化边界校验，Meta 只保存扩展。 */
 inline result<field_policy> policy_of(const meta::property& property) noexcept {
   const auto* extension = property.extension<field_policy>();
   const auto policy = extension ? *extension : field_policy{};
   if ((policy.required &&
-       !meta::has_flags(property.capabilities(), meta::property_capabilities::writable)) ||
-      (policy.enum_name && !property.type().is_enum()))
+       (!policy.save ||
+        !meta::has_flags(property.capabilities(), meta::property_capabilities::writable))) ||
+      (policy.enum_name && !property.type().is_enum()) ||
+      (policy.reference && property.type().kind() != meta::type_kind::reference))
     return error::invalid_argument;
   return policy;
 }
@@ -69,6 +75,20 @@ inline result<type_policies> find_policies(const meta::registry_ref& registry,
 inline result<type_policies> find_policies(type_id id) noexcept {
   auto type = meta::find_type(id);
   return type ? result<type_policies>{policies_of(*type)} : result<type_policies>{type.error()};
+}
+/** 引用位置统一选择：字段显式覆盖 > 被引用类型默认 > 内嵌默认。 */
+inline result<reference_policy>
+reference_policy_for(const meta::type& reference,
+                     const reference_policy* override = nullptr) noexcept {
+  if (reference.kind() != meta::type_kind::reference)
+    return error::invalid_argument;
+  auto target = reference.element_type();
+  if (!target || target->kind() != meta::type_kind::object)
+    return error::unsupported;
+  if (override)
+    return *override;
+  const auto* policy = target->extension<reference_policy>();
+  return policy ? *policy : reference_policy{};
 }
 /** 与 Meta 注册器 extend 配合；按注册对象类型生成校验适配。 */
 template <auto Validate>

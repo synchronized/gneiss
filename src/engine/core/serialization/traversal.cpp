@@ -97,12 +97,12 @@ result<writer::node, serialization::diagnostic> encode_nested(const context& ctx
   return encode_members(ctx, registry, id, object, doc, depth);
 }
 result<writer::node, serialization::diagnostic>
-encode_nonobject(const context&, const registry_ref&, const const_instance&, writer*, std::size_t);
+encode_nonobject(const context&, const registry_ref&, const const_instance&, writer*, std::size_t,
+                 const reference_policy*);
 /** 对象递归使用轻量栈帧，不携带各容器分支的临时状态。 */
-result<writer::node, serialization::diagnostic> encode_view(const context& ctx,
-                                                            const registry_ref& registry,
-                                                            const const_instance& view, writer* doc,
-                                                            std::size_t depth) {
+result<writer::node, serialization::diagnostic>
+encode_view(const context& ctx, const registry_ref& registry, const const_instance& view,
+            writer* doc, std::size_t depth, const reference_policy* override) {
   depth_scope scope{ctx, depth};
   if (view.kind() == type_kind::object) {
     auto p = view.object_data();
@@ -110,12 +110,11 @@ result<writer::node, serialization::diagnostic> encode_view(const context& ctx,
       return failure(p.error());
     return encode_nested(ctx, registry, view.type().id(), *p, doc, depth);
   }
-  return encode_nonobject(ctx, registry, view, doc, depth);
+  return encode_nonobject(ctx, registry, view, doc, depth, override);
 }
-result<writer::node, serialization::diagnostic> encode_nonobject(const context& ctx,
-                                                                 const registry_ref& registry,
-                                                                 const const_instance& view,
-                                                                 writer* doc, std::size_t depth) {
+result<writer::node, serialization::diagnostic>
+encode_nonobject(const context& ctx, const registry_ref& registry, const const_instance& view,
+                 writer* doc, std::size_t depth, const reference_policy* override) {
   depth_scope scope{ctx, depth};
   const auto value_type = view.type();
   if (value_type.kind() == type_kind::empty)
@@ -134,17 +133,17 @@ result<writer::node, serialization::diagnostic> encode_nonobject(const context& 
       return failure(target.error());
     if (target->kind() != type_kind::object)
       return failure(error::unsupported, "", "内嵌引用目标必须是注册对象");
-    auto declared = find_policies(registry, target->id());
+    auto declared = reference_policy_for(value_type, override);
     auto actual = result<engine::type_id>{reference_slot->actual_type()};
     if (!declared || !actual)
       return failure(error::invalid_argument);
-    if (declared->reference.encode) {
+    if (declared->encode) {
       auto pointer = cast_base(registry, *actual, target->id(), const_cast<void*>(owned->get()));
       if (!pointer)
         return std::move(pointer).error();
-      return declared->reference.encode(ctx, *doc, *pointer);
+      return declared->encode(ctx, *doc, *pointer);
     }
-    if (!declared->reference.polymorphic && *actual != target->id())
+    if (!declared->polymorphic && *actual != target->id())
       return failure(error::invalid_argument, "", "未声明多态的引用不能保存派生对象");
     auto adjusted = cast_base(registry, *actual, target->id(), nullptr);
     if (!adjusted)
@@ -160,7 +159,7 @@ result<writer::node, serialization::diagnostic> encode_nonobject(const context& 
 
     if (!content)
       return std::move(content).error();
-    if (!declared->reference.polymorphic)
+    if (!declared->polymorphic)
       return content;
     auto actual_type = find_type(registry, *actual);
     if (!actual_type)
@@ -315,15 +314,18 @@ result<writer::node, serialization::diagnostic> encode_members(const context& ct
     auto policy = policy_of(property);
     if (!policy)
       return failure(policy.error(), field_path(property.name()), "字段序列化策略与访问能力不兼容");
-    if (!gneiss::engine::meta::has_flags(property.capabilities(),
+    if (!policy->save ||
+        !gneiss::engine::meta::has_flags(property.capabilities(),
                                          gneiss::engine::meta::property_capabilities::writable))
       continue;
     const auto path = field_path(property.name());
     auto child = property.get(*view);
     if (!child)
       return failure(child.error(), path);
-    auto encoded = policy->enum_name ? encode_enum_name(*child, doc)
-                                     : encode_view(ctx, registry, *child, doc, depth + 1);
+    auto encoded = policy->enum_name
+                       ? encode_enum_name(*child, doc)
+                       : encode_view(ctx, registry, *child, doc, depth + 1,
+                                     policy->reference ? &*policy->reference : nullptr);
     if (!encoded)
       return prefix(std::move(encoded).error(), path);
     if (!doc->member(root, property.name(), *encoded))
@@ -436,7 +438,10 @@ serialization::diagnostic validate_defaults(const context& ctx, const registry_r
   if (!properties)
     return failure(properties.error());
   for (const auto& property : *properties) {
-    if (property.type().kind() == type_kind::scalar ||
+    auto policy = policy_of(property);
+    if (!policy)
+      return failure(policy.error(), field_path(property.name()));
+    if (!policy->save || property.type().kind() == type_kind::scalar ||
         !gneiss::engine::meta::has_flags(property.capabilities(),
                                          gneiss::engine::meta::property_capabilities::writable))
       continue;
@@ -529,22 +534,23 @@ serialization::diagnostic decode_nested(const context& ctx, const registry_ref& 
              : serialization::diagnostic{};
 }
 serialization::diagnostic decode_nonobject(const context&, const registry_ref&, const instance&,
-                                           reader::node, std::size_t);
+                                           reader::node, std::size_t, const reference_policy*);
 serialization::diagnostic decode_view(const context& ctx, const registry_ref& registry,
-                                      const instance& view, reader::node input, std::size_t depth) {
+                                      const instance& view, reader::node input, std::size_t depth,
+                                      const reference_policy* override) {
   depth_scope scope{ctx, depth};
   if (view.kind() == type_kind::object && !view.requires_replacement())
     return decode_nested(ctx, registry, view, input, depth);
-  return decode_nonobject(ctx, registry, view, input, depth);
+  return decode_nonobject(ctx, registry, view, input, depth, override);
 }
 serialization::diagnostic decode_nonobject(const context& ctx, const registry_ref& registry,
                                            const instance& view, reader::node input,
-                                           std::size_t depth) {
+                                           std::size_t depth, const reference_policy* override) {
   depth_scope scope{ctx, depth};
   if (view.requires_replacement()) {
     serialization::diagnostic diagnostic;
     auto status = view.replace([&](const instance& temporary) {
-      diagnostic = decode_view(ctx, registry, temporary, input, depth);
+      diagnostic = decode_view(ctx, registry, temporary, input, depth, override);
       return diagnostic.error;
     });
     return diagnostic.error.failed()
@@ -566,11 +572,11 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
     auto target = value_type.element_type();
     if (!target || target->kind() != type_kind::object)
       return failure(error::unsupported);
-    auto declared = find_policies(registry, target->id());
+    auto declared = reference_policy_for(value_type, override);
     if (!declared)
       return failure(declared.error());
-    if (declared->reference.decode) {
-      auto resolved = declared->reference.decode(ctx, *context_access::input(ctx), input);
+    if (declared->decode) {
+      auto resolved = declared->decode(ctx, *context_access::input(ctx), input);
       if (!resolved)
         return std::move(resolved).error();
       if (!*resolved) {
@@ -582,7 +588,7 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
     }
     auto actual = target->id();
     auto* content = input;
-    if (declared->reference.polymorphic) {
+    if (declared->polymorphic) {
       auto* tag = context_access::input(ctx)->member(input, "$type_guid");
       content = context_access::input(ctx)->member(input, "$content");
       if (!context_access::input(ctx)->is_object(input) ||
@@ -601,11 +607,11 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
     auto compatible = cast_base(registry, actual, target->id(), nullptr);
     if (!compatible)
       return std::move(compatible).error();
-    path_scope reference_path{ctx, declared->reference.polymorphic ? "/$content" : ""};
+    path_scope reference_path{ctx, declared->polymorphic ? "/$content" : ""};
     auto decoded = decode_owned(ctx, registry, actual, content, depth);
     if (!decoded)
-      return declared->reference.polymorphic ? prefix(std::move(decoded).error(), "/$content")
-                                             : std::move(decoded).error();
+      return declared->polymorphic ? prefix(std::move(decoded).error(), "/$content")
+                                   : std::move(decoded).error();
     auto object = std::move(*decoded);
     auto adjusted = cast_base(registry, actual, target->id(), object.get());
     if (!adjusted)
@@ -766,7 +772,8 @@ serialization::diagnostic decode_members(const context& ctx, const registry_ref&
     auto policy = policy_of(property);
     if (!policy)
       return failure(policy.error(), field_path(property.name()), "字段序列化策略与访问能力不兼容");
-    if (!gneiss::engine::meta::has_flags(property.capabilities(),
+    if (!policy->save ||
+        !gneiss::engine::meta::has_flags(property.capabilities(),
                                          gneiss::engine::meta::property_capabilities::writable))
       continue;
     auto* input = context_access::input(ctx)->member(root, property.name());
@@ -788,8 +795,10 @@ serialization::diagnostic decode_members(const context& ctx, const registry_ref&
     if (!child)
       return failure(child.error(), path);
     path_scope property_path{ctx, path};
-    auto status = policy->enum_name ? decode_enum_name(ctx, *child, input)
-                                    : decode_view(ctx, registry, *child, input, depth + 1);
+    auto status = policy->enum_name
+                      ? decode_enum_name(ctx, *child, input)
+                      : decode_view(ctx, registry, *child, input, depth + 1,
+                                    policy->reference ? &*policy->reference : nullptr);
     if (status.error.failed())
       return prefix(std::move(status), path);
   }

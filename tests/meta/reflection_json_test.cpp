@@ -5,6 +5,7 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/serialization/policy.hpp"
 #include "engine/core/serialization/serialization.hpp"
+#include "engine/core/serialization/value.hpp"
 #include "engine/resource/asset_decoder.hpp"
 #include <future>
 #include <limits>
@@ -121,8 +122,142 @@ bool enum_json_contract() {
   return !gneiss::engine::serialization::json::serialize_bytes(
       gneiss::engine::serialization::context{*registry}, unknown);
 }
+struct reference_fields {
+  static constexpr std::string_view type_name = "reference_fields";
+  static constexpr e::guid type_guid = e::guid::literal("42e05d27-c830-4468-bb31-3320d7ea8aaf");
+  e::ref<sample> default_reference;
+  e::ref<sample> overridden_reference;
+  int transient = 7;
+};
+bool field_reference_contract() {
+  namespace ser = e::serialization;
+  for (bool type_polymorphic : {false, true}) {
+    auto created = m::create_registry();
+    if (!created)
+      return false;
+    const auto registry = *created;
+    if (m::registration<sample>{registry}
+            .property<&sample::enabled>(m::property_id{1}, "enabled")
+            .metadata(ser::reference_policy{.polymorphic = type_polymorphic})
+            .commit()
+            .failed() ||
+        m::registration<reference_fields>{registry}
+            .property<&reference_fields::default_reference>(m::property_id{1}, "default")
+            .property<&reference_fields::overridden_reference>(m::property_id{2}, "override")
+            .property_metadata(
+                m::property_id{2},
+                ser::field_policy{.reference =
+                                      ser::reference_policy{.polymorphic = !type_polymorphic}})
+            .property<&reference_fields::transient>(m::property_id{3}, "transient")
+            .property_metadata(m::property_id{3}, ser::field_policy{.save = false})
+            .commit()
+            .failed() ||
+        m::freeze(registry).failed())
+      return false;
+    reference_fields input{e::make_ref<sample>(), e::make_ref<sample>(), 42};
+    input.overridden_reference->enabled = false;
+    const ser::context ctx{registry};
+    auto encoded = ser::json::serialize_bytes(ctx, input);
+    if (!encoded)
+      return false;
+    std::string text(reinterpret_cast<const char*>(encoded->data()), encoded->size());
+    const std::string_view plain =
+        type_polymorphic ? R"("override":{"enabled":false})" : R"("default":{"enabled":true})";
+    if (text.find(plain) == text.npos || text.find("$type_guid") == text.npos ||
+        text.find("transient") != text.npos)
+      return false;
+    auto decoded = ser::json::deserialize<reference_fields>(ctx, *encoded);
+    auto snapshot = ser::capture_value(ctx, input);
+    if (!decoded || !snapshot || !decoded->default_reference || !decoded->overridden_reference ||
+        decoded->overridden_reference->enabled || decoded->transient != 7)
+      return false;
+    auto restored = ser::restore_value<reference_fields>(ctx, *snapshot);
+    if (!restored || !restored->overridden_reference || restored->overridden_reference->enabled ||
+        restored->transient != 7 || restored->overridden_reference == input.overridden_reference)
+      return false;
+    // 捕获的数据与随后修改的引用对象隔离。
+    input.overridden_reference->enabled = true;
+    if (restored->overridden_reference->enabled)
+      return false;
+    input.default_reference.reset();
+    input.overridden_reference.reset();
+    auto nulls = ser::json::serialize_bytes(ctx, input);
+    auto null_snapshot = ser::capture_value(ctx, input);
+    if (!nulls || !null_snapshot)
+      return false;
+    auto empty = ser::json::deserialize<reference_fields>(ctx, *nulls);
+    auto restored_empty = ser::restore_value<reference_fields>(ctx, *null_snapshot);
+    if (!empty || !restored_empty || empty->default_reference || empty->overridden_reference ||
+        restored_empty->default_reference || restored_empty->overridden_reference)
+      return false;
+  }
+  return true;
+}
+bool external_field_contract() {
+  namespace ser = e::serialization;
+  const ser::reference_policy external{
+      .encode = [](const ser::context&, ser::writer& out, const void*)
+          -> e::result<void*, ser::diagnostic> { return out.string("asset://sample"); },
+      .decode = [](const ser::context&, ser::reader& in,
+                   const void* node) -> e::result<e::ref<void>, ser::diagnostic> {
+        if (!in.is_string(node) || in.string(node) != "asset://sample")
+          return ser::diagnostic{.error = e::error::invalid_argument};
+        return e::ref<void>{e::make_ref<sample>()};
+      },
+      .capture = [](e::guid type, const void*) -> e::result<e::asset_reference_value> {
+        return e::asset_reference_value{type, "asset://sample"};
+      }};
+  for (bool external_default : {false, true}) {
+    auto registry = m::create_registry();
+    if (!registry ||
+        m::registration<sample>{*registry}
+            .property<&sample::enabled>(m::property_id{1}, "enabled")
+            .metadata(external_default ? external : ser::reference_policy{})
+            .commit()
+            .failed() ||
+        m::registration<reference_fields>{*registry}
+            .property<&reference_fields::default_reference>(m::property_id{1}, "default")
+            .property<&reference_fields::overridden_reference>(m::property_id{2}, "override")
+            .property_metadata(m::property_id{2},
+                               ser::field_policy{.reference = external_default
+                                                                  ? ser::reference_policy{}
+                                                                  : external})
+            .commit()
+            .failed() ||
+        m::freeze(*registry).failed())
+      return false;
+    const ser::context ctx{*registry};
+    reference_fields input{e::make_ref<sample>(), e::make_ref<sample>()};
+    auto json = ser::json::serialize_bytes(ctx, input);
+    auto captured = ser::capture_value(ctx, input);
+    if (!json || !captured)
+      return false;
+    const std::string text(reinterpret_cast<const char*>(json->data()), json->size());
+    const auto expected =
+        external_default ? R"("default":"asset://sample")" : R"("override":"asset://sample")";
+    if (text.find(expected) == text.npos || !ser::json::deserialize<reference_fields>(ctx, *json))
+      return false;
+    const auto* record = std::get_if<e::record_value>(&captured->payload);
+    if (!record || record->get().properties.size() != 2)
+      return false;
+    const auto external_index = external_default ? 0U : 1U;
+    if (!std::holds_alternative<e::asset_reference_value>(
+            record->get().properties[external_index].content.payload) ||
+        !std::holds_alternative<e::record_value>(
+            record->get().properties[1U - external_index].content.payload))
+      return false;
+    auto restored = ser::restore_value<reference_fields>(ctx, *captured);
+    if (restored || restored.error().error != e::error::invalid_state)
+      return false; // 外部身份不能静默还原为空对象，必须提供解析器。
+  }
+  return true;
+}
 bool nested_json_contract();
 int main() try {
+  if (!external_field_contract())
+    return 28;
+  if (!field_reference_contract())
+    return 27;
   if (!enum_json_contract())
     return 26;
   if (!nested_json_contract())
@@ -316,16 +451,22 @@ int main() try {
   if (!fallback_decoded || fallback_decoded->enabled)
     return 23;
   // Meta 接受不透明扩展；序列化边界负责拒绝冲突的字段策略。
-  for (bool invalid_enum : {false, true}) {
+  for (int invalid_case : {0, 1, 2, 3}) {
+    const bool invalid_enum = invalid_case == 1;
+    e::serialization::field_policy policy{.required = invalid_case == 0, .enum_name = invalid_enum};
+    if (invalid_case == 2) {
+      policy.save = false;
+      policy.required = true;
+    }
+    if (invalid_case == 3)
+      policy.reference = e::serialization::reference_policy{};
     auto registry = m::create_registry();
     if (!registry ||
         m::registration<sample>{*registry}
             .property<&sample::enabled>(m::property_id{1}, "enabled",
-                                        invalid_enum ? m::property_access::read_write
-                                                     : m::property_access::read_only)
-            .property_metadata(m::property_id{1},
-                               e::serialization::field_policy{.required = !invalid_enum,
-                                                              .enum_name = invalid_enum})
+                                        invalid_case != 0 ? m::property_access::read_write
+                                                          : m::property_access::read_only)
+            .property_metadata(m::property_id{1}, policy)
             .commit()
             .failed() ||
         m::freeze(*registry).failed())

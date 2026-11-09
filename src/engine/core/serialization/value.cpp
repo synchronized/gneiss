@@ -18,13 +18,15 @@ struct capture_state {
   const context& ctx;
   std::unordered_set<const void*> active;
   diagnostic failure;
-  result<engine::value> read(const const_instance& source, std::size_t depth) {
-    auto result = read_impl(source, depth);
+  result<engine::value> read(const const_instance& source, std::size_t depth,
+                             const reference_policy* override = nullptr) {
+    auto result = read_impl(source, depth, override);
     if (!result && failure.error.ok())
       failure = {.path = std::string(ctx.property_path()), .error = result.error()};
     return result;
   }
-  result<engine::value> read_impl(const const_instance& source, std::size_t depth) {
+  result<engine::value> read_impl(const const_instance& source, std::size_t depth,
+                                  const reference_policy* override) {
     if (depth > ctx.maximum_depth())
       return error::invalid_argument;
     switch (source.kind()) {
@@ -43,13 +45,18 @@ struct capture_state {
       if (policy && fields->empty() && (policy->content.encode || policy->content.decode))
         return error::unsupported;
       for (const auto& field : *fields) {
-        if (!has_flags(field.capabilities(), property_capabilities::writable))
+        auto field_policy = policy_of(field);
+        if (!field_policy)
+          return field_policy.error();
+        if (!field_policy->save ||
+            !has_flags(field.capabilities(), property_capabilities::writable))
           continue;
         detail::path_scope path{ctx, "/properties/" + std::to_string(field.id().get())};
         auto child = field.get(source);
         if (!child)
           return child.error();
-        auto item = read(*child, depth + 1);
+        auto item =
+            read(*child, depth + 1, field_policy->reference ? &*field_policy->reference : nullptr);
         if (!item)
           return item.error();
         record.properties.push_back({field.id().get(), std::move(*item)});
@@ -159,18 +166,26 @@ struct capture_state {
       auto target_type = source.type().element_type();
       if (!target_type)
         return target_type.error();
-      auto binding = find_policies(source.registry(), target_type->id());
+      auto binding = reference_policy_for(source.type(), override);
+      if (!binding)
+        return binding.error();
       auto owner = reference_slot->owner();
       if (!owner)
         return owner.error();
-      if (binding && binding->reference.capture) {
-        auto ref = binding->reference.capture(target_type->guid(), owner->get());
+      if (binding->capture) {
+        auto address = detail::cast_base(source.registry(), reference_slot->actual_type(),
+                                         target_type->id(), const_cast<void*>(owner->get()));
+        if (!address)
+          return address.error().error;
+        auto ref = binding->capture(target_type->guid(), *address);
         return ref ? result<engine::value>{engine::value{*ref}}
                    : result<engine::value>{ref.error()};
       }
       // 自定义外部引用不能静默按内嵌对象复制。
-      if (binding && binding->reference.encode)
+      if (binding->encode)
         return error::unsupported;
+      if (!binding->polymorphic && reference_slot->actual_type() != target_type->id())
+        return error::invalid_argument;
       if (!active.insert(owner->get()).second)
         return error::invalid_argument;
       struct guard {
@@ -190,18 +205,19 @@ struct restore_state {
   const context& ctx;
   diagnostic failure;
   error write(const instance& target, const engine::value& data, std::size_t depth,
-              bool sequence_candidate = false) {
-    auto status = write_impl(target, data, depth, sequence_candidate);
+              bool sequence_candidate = false, const reference_policy* override = nullptr) {
+    auto status = write_impl(target, data, depth, sequence_candidate, override);
     if (status.failed() && failure.error.ok())
       failure = {.path = std::string(ctx.property_path()), .error = status};
     return status;
   }
   error write_impl(const instance& target, const engine::value& data, std::size_t depth,
-                   bool sequence_candidate) {
+                   bool sequence_candidate, const reference_policy* override) {
     if (depth > ctx.maximum_depth())
       return error::invalid_argument;
     if (target.requires_replacement())
-      return target.replace([&](const instance& temp) { return write(temp, data, depth); });
+      return target.replace(
+          [&](const instance& temp) { return write(temp, data, depth, false, override); });
     switch (target.kind()) {
     case type_kind::empty:
       return data.kind() == value_kind::invalid ? error::success : error::invalid_argument;
@@ -218,20 +234,34 @@ struct restore_state {
         if (!field.id || !seen.insert(field.id).second)
           return error::invalid_argument;
         detail::path_scope path{ctx, "/properties/" + std::to_string(field.id)};
-        auto child = target.member(property_id{field.id});
+        auto descriptor = target.type().find_property(property_id{field.id});
+        if (!descriptor)
+          return descriptor.error();
+        auto field_policy = policy_of(*descriptor);
+        if (!field_policy)
+          return field_policy.error();
+        if (!field_policy->save)
+          return error::invalid_argument;
+        auto child = descriptor->get(target);
         if (!child)
           return child.error();
-        auto status = write(*child, field.content, depth + 1);
+        auto status = write(*child, field.content, depth + 1, false,
+                            field_policy->reference ? &*field_policy->reference : nullptr);
         if (status.failed())
           return status;
       }
       auto fields = target.as_const().properties();
       if (!fields)
         return fields.error();
-      for (const auto& field : *fields)
-        if (has_flags(field.capabilities(), property_capabilities::writable) &&
+      for (const auto& field : *fields) {
+        auto field_policy = policy_of(field);
+        if (!field_policy)
+          return field_policy.error();
+        if (field_policy->save &&
+            has_flags(field.capabilities(), property_capabilities::writable) &&
             !seen.contains(field.id().get()))
           return error::invalid_argument;
+      }
       auto binding = find_policies(target.registry(), target.type().id());
       if (binding && binding->validation.validate) {
         auto address = target.object_data();
@@ -349,7 +379,12 @@ struct restore_state {
       if (data.kind() == value_kind::invalid)
         return reference_slot->reset();
       const auto& registry = target.registry();
+      auto policy = reference_policy_for(target.type(), override);
+      if (!policy)
+        return policy.error();
       if (auto asset = std::get_if<asset_reference_value>(&data.payload)) {
+        if (!policy->capture)
+          return error::invalid_argument;
         auto type = find_type(registry, asset->type);
         auto element = target.type().element_type();
         if (!type || !element || type->id() != element->id())
@@ -363,6 +398,8 @@ struct restore_state {
           return owner.error().error;
         return reference_slot->assign_owner(type->id(), *owner);
       }
+      if (policy->capture || policy->decode || policy->encode)
+        return error::unsupported;
       auto record = std::get_if<record_value>(&data.payload);
       if (!record)
         return error::invalid_argument;
@@ -375,6 +412,8 @@ struct restore_state {
       auto element = target.type().element_type();
       if (!element)
         return element.error();
+      if (!policy->polymorphic && type->id() != element->id())
+        return error::invalid_argument;
       auto compatible = detail::cast_base(registry, type->id(), element->id(), nullptr);
       if (!compatible)
         return compatible.error().error;

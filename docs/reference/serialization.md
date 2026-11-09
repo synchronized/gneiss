@@ -55,6 +55,23 @@ auto status = ser::serialize(ctx, description, output_writer);
 Meta 不包含 JSON 类型或格式专用回调，reader/writer 不承担类型 codec 注册。
 value 通过 variant_traits 接入通用 variant 遍历，对象分支复用通用多态引用，无专用 codec。
 
+## 字段策略与引用优先级
+
+通过 property_metadata(property_id, serialization::field_policy{...}) 设置字段持久化行为：
+
+- save 默认为 true；false 时文件与快照均不保存该字段，解码忽略输入中的该字段，恢复保留默认值。
+- required 默认为 false；true 时文件缺少字段报错，不能与 save=false 或内存只读组合。
+- enum_name 仅用于直接枚举字段，按注册枚举名称读写。
+- reference 是可选的引用策略。未设置时继承被引用类型策略；设置空 reference_policy 则显式恢复普通内嵌。
+
+引用选择统一遵循字段覆盖、被引用类型默认、框架内嵌默认的优先级。
+字段覆盖仅支持直接引用字段；容器字段配置 reference 返回 invalid_argument，容器元素仍遵循元素类型默认策略。
+类型内容 codec 不受引用位置策略覆盖。内嵌多态仍使用 $type_guid/$content，外部引用按策略读写身份。
+
+capture_value/apply_value 使用同一策略选择；外部引用通过 capture 回调保存资产身份并由 resolver 恢复，
+缺少 resolver 明确失败。内嵌引用捕获独立内容，恢复不保留原共享别名。
+自定义外部引用没有 capture 适配时不能静默作为内嵌对象捕获。
+
 ## 后端契约
 
 reader/writer 提供对象、数组、空值、字符串及基础值操作。

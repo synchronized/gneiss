@@ -248,7 +248,8 @@ binding 存储和查询已迁到扩展/Serialization，见[存储迁移记录](.
 required/enum_name 已迁至 field_policy，编辑限制已迁至 property_edit_policy；
 Meta 改用内存访问约束 property_access，旧 flags 已删除，见
 [字段策略记录](../records/2026-11-09-property-policy-separation.md)。
-字段引用策略覆盖及领域校验分类尚未完成。
+字段引用策略覆盖与 save 行为已接入文件遍历及快照，详见[字段覆盖记录](../records/2026-11-09-field-reference-policy.md)。
+领域校验分类尚未完成。
 
 ## 九、验收矩阵
 
