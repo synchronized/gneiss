@@ -176,13 +176,11 @@ bool frozen_lookup() {
   for (const auto& field : fields) {
     auto by_id = type->find_property(field.id);
     auto by_name = type->find_property(field.name);
-    if (!by_id || !by_name || by_id->name() != field.name || by_name->id() != field.id)
+    if (!by_id || !by_name || by_id.name() != field.name || by_name.id() != field.id)
       return false;
   }
-  return type->find_property(m::property_id{2}).error() == e::error::not_found &&
-         type->find_property(m::property_id{999}).error() == e::error::not_found &&
-         type->find_property("").error() == e::error::not_found &&
-         type->find_property("field_128").error() == e::error::not_found;
+  return !type->find_property(m::property_id{2}) && !type->find_property(m::property_id{999}) &&
+         !type->find_property("") && !type->find_property("field_128");
 }
 int main() {
   if (!frozen_lookup())

@@ -72,7 +72,8 @@ invalid_argument。注册器只在显式 commit 时提交，重复 commit 返回
 
 普通消费者通过 `find_type` / `type_of<T>` 获取保活注册表的 `meta::type`。
 `name()` 借用注册对象名称；空句柄或没有注册名称的类型返回空字符串。
-`find_property(property_id)` / `find_property(name)` 返回属性句柄，不复制整份属性列表。
+`type::find_property(property_id)` / `type::find_property(name)` 直接返回可判空的属性句柄，
+缺少记录或属性时返回空句柄，不复制整份属性列表。
 空类型查询返回 `invalid_state`，非对象类型返回 `unsupported`，不存在的属性返回 `not_found`。
 属性句柄可继续查询类型、访问能力或通过 `get(instance)` 访问对象。
 名称、属性范围与借用对象寿命分别遵循其所属句柄和实例的约束。
@@ -259,7 +260,8 @@ Scene / Prefab 的结构编解码继续使用专用实现。
 ## 元数据与属性值查询
 
 `find_type`、`type_of<T>`、`type_at` 返回 `result<type>`；
-`find_property` 返回 `result<property>`，`serialization::find_policies` 返回 `result<serialization::type_policies>`。
+注册表级 `find_property` 暂时返回 `result<property>`；`type::find_property` 返回可判空的 `property`。
+`serialization::find_policies` 返回 `result<serialization::type_policies>`。
 句柄保活冻结 Registry；名称借用该表，不保活业务对象。
 `read_property` 返回 `result<value>`；成功快照拥有字符串等数据，可在 Registry 释放后使用。
 getter 失败、异常或返回不匹配／无效值时仅返回错误，不交付部分属性快照。

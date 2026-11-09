@@ -316,11 +316,9 @@ bool type_queries() {
   auto named = typed->find_property("count");
   auto numbered = typed->find_property(m::property_id{2});
   if (typed->name() != query_model::type_name || !named || !numbered ||
-      named->id() != numbered->id() || named->type().id() != e::runtime_type_of<std::int8_t>() ||
-      typed->find_property("missing").error() != e::error::not_found ||
-      typed->find_property(m::property_id{}).error() != e::error::not_found ||
-      m::type{}.find_property("count").error() != e::error::invalid_state ||
-      default_float->find_property("count").error() != e::error::unsupported ||
+      named.id() != numbered.id() || named.type().id() != e::runtime_type_of<std::int8_t>() ||
+      typed->find_property("missing") || typed->find_property(m::property_id{}) ||
+      m::type{}.find_property("count") || default_float->find_property("count") ||
       !m::type{}.name().empty())
     return false;
   auto props = typed->properties();
@@ -344,7 +342,7 @@ bool type_queries() {
   std::weak_ptr<m::type_registry_state> weak = *registry;
   registry = e::error::not_found;
   return !weak.expired() && typed->properties()->size() == 2 &&
-         typed->name() == query_model::type_name && named->name() == "count";
+         typed->name() == query_model::type_name && named.name() == "count";
 }
 struct reference_target {
   inline static int alive = 0;

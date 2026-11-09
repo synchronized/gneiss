@@ -100,11 +100,11 @@ error validate_prefab_property_override(const prefab_property_override& value) n
     return owner.error();
   auto field = owner->find_property(value.key.first_property());
   if (!field)
-    return field.error();
-  if (!has_flags(field->capabilities(), meta::property_capabilities::writable) ||
-      gneiss::engine::is_edit_read_only(*field) || value.key.path.size() > 64)
+    return error::not_found;
+  if (!has_flags(field.capabilities(), meta::property_capabilities::writable) ||
+      gneiss::engine::is_edit_read_only(field) || value.key.path.size() > 64)
     return error::invalid_argument;
-  auto type = field->type();
+  auto type = field.type();
   for (const auto& step : std::span{value.key.path}.subspan(1)) {
     if (const auto* property = std::get_if<meta::property_id>(&step)) {
       auto properties = type.properties();

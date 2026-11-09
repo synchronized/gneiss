@@ -783,31 +783,31 @@ std::span<const enum_entry> type::enum_entries() const noexcept {
   return record_ && is_enum() ? std::span<const enum_entry>{record_->entries}
                               : std::span<const enum_entry>{};
 }
-result<property> type::find_property(property_id property) const noexcept {
+property type::find_property(property_id property) const noexcept {
   if (!*this)
-    return error::invalid_state;
+    return {};
   if (kind() != type_kind::object)
-    return error::unsupported;
+    return {};
   if (!record_)
-    return error::not_found;
+    return {};
   const auto found =
       std::ranges::lower_bound(record_->properties, property.get(), {}, &property_record::id);
   if (found == record_->properties.end() || found->id != property.get())
-    return error::not_found;
+    return {};
   return meta::property{registry_, &*found};
 }
-result<property> type::find_property(std::string_view name) const noexcept {
+property type::find_property(std::string_view name) const noexcept {
   if (!*this)
-    return error::invalid_state;
+    return {};
   if (kind() != type_kind::object)
-    return error::unsupported;
+    return {};
   if (!record_)
-    return error::not_found;
+    return {};
   const auto found = std::ranges::lower_bound(
       record_->property_names, name, {},
       [&](std::size_t index) -> std::string_view { return record_->properties[index].name; });
   if (found == record_->property_names.end() || record_->properties[*found].name != name)
-    return error::not_found;
+    return {};
   return meta::property{registry_, &record_->properties[*found]};
 }
 result<property_range> type::properties() const noexcept {

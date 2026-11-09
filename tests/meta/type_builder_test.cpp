@@ -136,7 +136,7 @@ bool runtime_only_registration() {
   auto number = child->member("number");
   auto field = child->type().find_property(m::property_id{1});
   if (!number || !field || number->assign(7.0F).failed() || object.child.number != 7 ||
-      field->get(*foreign).error() != e::error::invalid_argument)
+      field.get(*foreign).error() != e::error::invalid_argument)
     return false;
   e::serialization::context context{*registry};
   auto encoded = e::serialization::json::serialize_bytes(context, object);
@@ -179,14 +179,14 @@ bool extension_registration() {
     return false;
   auto field = type->find_property(m::property_id{1});
   const auto* type_data = type->extension<display_metadata>();
-  const auto* field_data = field ? field->extension<display_metadata>() : nullptr;
+  const auto* field_data = field ? field.extension<display_metadata>() : nullptr;
   if (!type_data || type_data->label != "original" || !field_data || field_data->label != "Speed" ||
-      type->extension<int>() || field->extension<int>())
+      type->extension<int>() || field.extension<int>())
     return false;
   registry->reset();
   // 类型和属性句柄继续保活不可变元数据。
   return type->extension<display_metadata>() == type_data &&
-         field->extension<display_metadata>() == field_data;
+         field.extension<display_metadata>() == field_data;
 }
 int main() {
   if (!extension_registration())

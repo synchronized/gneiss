@@ -46,8 +46,12 @@ result<const_instance> const_instance::from_object(registry_ref registry, engine
 }
 result<property_range> const_instance::properties() const noexcept { return type().properties(); }
 result<const_instance> const_instance::member(std::string_view name) const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::object)
+    return error::unsupported;
   auto found = type().find_property(name);
-  return found ? found->get(*this) : result<const_instance>{found.error()};
+  return found ? found.get(*this) : result<const_instance>{error::not_found};
 }
 result<const_instance> const_instance::member(property_id id) const noexcept try {
   if (kind_ == type_kind::invalid)
@@ -56,8 +60,8 @@ result<const_instance> const_instance::member(property_id id) const noexcept try
     return error::unsupported;
   auto info = type().find_property(id);
   if (!info)
-    return info.error();
-  if (info->declaring_type_id() != cpp_type_) {
+    return error::not_found;
+  if (info.declaring_type_id() != cpp_type_) {
     auto ops = find_object_ops(registry_, cpp_type_);
     if (!ops || !ops->upcast)
       return ops ? error::invalid_state : ops.error();
@@ -70,10 +74,10 @@ result<const_instance> const_instance::member(property_id id) const noexcept try
   output.parent_ = data_;
   output.parent_type_ = cpp_type_;
   output.property_ = id;
-  output.type_ = info->type().guid();
-  output.cpp_type_ = info->type().id();
-  output.enumeration_ = info->type().is_enum();
-  if (info->type().kind() != type_kind::scalar && info->type().kind() != type_kind::invalid) {
+  output.type_ = info.type().guid();
+  output.cpp_type_ = info.type().id();
+  output.enumeration_ = info.type().is_enum();
+  if (info.type().kind() != type_kind::scalar && info.type().kind() != type_kind::invalid) {
     auto binding = find_object_property(registry_, cpp_type_, id);
     if (!binding)
       return binding.error();
@@ -82,14 +86,14 @@ result<const_instance> const_instance::member(property_id id) const noexcept try
     output.data_ = binding->object_getter(data_);
     if (!output.data_)
       return error::internal;
-    output.cpp_type_ = info->type().id();
+    output.cpp_type_ = info.type().id();
     output.kind_ = binding->access ? binding->access->kind() : type_kind::object;
     output.access_ = binding->access;
   } else {
-    if (info->type().scalar_kind() == value_kind::invalid)
+    if (info.type().scalar_kind() == value_kind::invalid)
       return error::unsupported;
     output.kind_ = type_kind::scalar;
-    output.scalar_kind_ = info->type().scalar_kind();
+    output.scalar_kind_ = info.type().scalar_kind();
   }
   return output;
 } catch (const std::bad_alloc&) {
@@ -139,8 +143,12 @@ result<instance> instance::from_object(registry_ref registry, engine::type_id id
   return output;
 }
 result<instance> instance::member(std::string_view name) const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::object)
+    return error::unsupported;
   auto found = view_.type().find_property(name);
-  return found ? found->get(*this) : result<instance>{found.error()};
+  return found ? found.get(*this) : result<instance>{error::not_found};
 }
 result<instance> instance::member(property_id id) const noexcept try {
   if (kind() == type_kind::invalid)
@@ -152,20 +160,20 @@ result<instance> instance::member(property_id id) const noexcept try {
     return child.error();
   auto info = view_.type().find_property(id);
   if (!info)
-    return info.error();
-  if (info->declaring_type_id() != view_.cpp_type_) {
+    return error::not_found;
+  if (info.declaring_type_id() != view_.cpp_type_) {
     auto ops = find_object_ops(view_.registry_, view_.cpp_type_);
     if (!ops || !ops->upcast)
       return ops ? error::invalid_state : ops.error();
     auto base = from_object(view_.registry_, ops->base_type, ops->upcast(data_));
     return base ? base->member(id) : result<instance>{base.error()};
   }
-  if (!has_flags(info->capabilities(), property_capabilities::writable))
+  if (!has_flags(info.capabilities(), property_capabilities::writable))
     return error::unsupported;
   instance output;
   output.parent_ = data_;
   output.view_ = std::move(*child);
-  if (info->type().kind() != type_kind::scalar && info->type().kind() != type_kind::invalid) {
+  if (info.type().kind() != type_kind::scalar && info.type().kind() != type_kind::invalid) {
     auto binding = find_object_property(view_.registry_, view_.cpp_type_, id);
     if (!binding)
       return binding.error();
@@ -424,9 +432,8 @@ result<const_instance> property::get(const const_instance& object) const noexcep
     return error::invalid_argument;
   auto info = object.type().find_property(id());
   if (!info)
-    return info.error();
-  if (info->declaring_type_id() != declaring_type_id() ||
-      info->declaring_type() != declaring_type())
+    return error::not_found;
+  if (info.declaring_type_id() != declaring_type_id() || info.declaring_type() != declaring_type())
     return error::invalid_argument;
   return object.member(id());
 }
@@ -438,9 +445,8 @@ result<instance> property::get(const instance& object) const noexcept {
     return error::invalid_argument;
   auto info = view.type().find_property(id());
   if (!info)
-    return info.error();
-  if (info->declaring_type_id() != declaring_type_id() ||
-      info->declaring_type() != declaring_type())
+    return error::not_found;
+  if (info.declaring_type_id() != declaring_type_id() || info.declaring_type() != declaring_type())
     return error::invalid_argument;
   return object.member(id());
 }

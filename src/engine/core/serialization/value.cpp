@@ -236,13 +236,13 @@ struct restore_state {
         detail::path_scope path{ctx, "/properties/" + std::to_string(field.id)};
         auto descriptor = target.type().find_property(property_id{field.id});
         if (!descriptor)
-          return descriptor.error();
-        auto field_policy = policy_of(*descriptor);
+          return error::not_found;
+        auto field_policy = policy_of(descriptor);
         if (!field_policy)
           return field_policy.error();
         if (!field_policy->save)
           return error::invalid_argument;
-        auto child = descriptor->get(target);
+        auto child = descriptor.get(target);
         if (!child)
           return child.error();
         auto status = write(*child, field.content, depth + 1, false,
