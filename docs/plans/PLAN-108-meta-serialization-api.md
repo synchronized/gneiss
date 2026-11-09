@@ -249,7 +249,9 @@ required/enum_name 已迁至 field_policy，编辑限制已迁至 property_edit_
 Meta 改用内存访问约束 property_access，旧 flags 已删除，见
 [字段策略记录](../records/2026-11-09-property-policy-separation.md)。
 字段引用策略覆盖与 save 行为已接入文件遍历及快照，详见[字段覆盖记录](../records/2026-11-09-field-reference-policy.md)。
-领域校验分类尚未完成。
+Scene/Prefab 整体校验已移至文件格式边界，文档恢复保持显式校验，见
+[领域根校验记录](../records/2026-11-09-scene-domain-validation.md)。
+局部对象、组件、数学值和其他资产校验的分类迁移尚未完成。
 
 ## 九、验收矩阵
 

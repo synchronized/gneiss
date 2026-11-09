@@ -17,6 +17,8 @@ struct format {
   std::uint64_t version;
   std::size_t maximum_bytes = std::numeric_limits<std::size_t>::max();
   std::span<const std::string_view> rejected_fields{};
+  /** 文件读写边界的领域校验，不参与通用对象序列化。 */
+  serialization::diagnostic (*validate)(const meta::const_instance&){};
 };
 template <class T> struct format_traits {
   static constexpr bool enabled = false;

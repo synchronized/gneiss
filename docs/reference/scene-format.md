@@ -243,10 +243,12 @@ Transform、组件和 Prefab 覆盖生成文件；删除或修改的字段不会
 
 ## 编解码与校验职责
 
-Scene/Prefab 使用显式 JSON 字节入口，字符串输入可调用 `serialization::json::deserialize<T>(string_view)`，
-字符串输出可调用 `serialization::json::serialize(value)`；统一返回 serialization::diagnostic。
-资源格式包装负责 format/version、文件字节上限与已移除字段检查；scene_validation 负责整体
-层级与主相机约束，局部对象和组件由各自注册校验器检查。保存和加载使用相同规则。
+Scene/Prefab 文件通过 asset_file::deserialize/serialize 读写，错误使用 serialization::diagnostic。
+资源格式包装负责 format/version、文件字节上限与已移除字段检查，并显式调用 scene_validation
+检查场景身份、整体层级和主相机约束。文档领域的 restore_scene_record/restore_prefab_record
+同样显式校验，保存和加载采用相同领域规则。
+普通 serialization::json 仅读写内容，不检查上述整体场景约束，不应作为文件加载或文档提交的替代。
+局部对象和组件约束暂仍由各自注册校验器检查，尚未完成全部领域校验迁移。
 Prefab 不再维护派生 dependencies 或 source_schema_version 字段；运行时依赖继续由
 component_dependencies 收集，不在反序列化中硬编码扫描 MeshRenderer。
 

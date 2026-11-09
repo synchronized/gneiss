@@ -110,7 +110,9 @@ auto loaded = asset_file::deserialize<scene_description>(file_bytes);
 
 资源入口提供 context-first 及默认上下文版本；`format_traits<T>` 选择文件格式。
 Material、Action Map、Scene、Prefab、Texture 的格式名、版本、大小限制集中在 asset_file.cpp。
-读写复用反射字段与校验，文件头只作用于最外层，不传播到嵌套描述对象。
+读写复用反射字段，文件头只作用于最外层，不传播到嵌套描述对象。
+format 的可选 validate 回调在写入前、读取独立对象后检查领域约束；Scene/Prefab 的整体身份、
+层级和主相机检查由此入口执行，不再注册到通用序列化。其他局部类型校验尚在迁移。
 错误版本、重复格式头、超出文件大小及已移除字段由文件边界拒绝；普通对象没有这些文件约束。
 导入器输出、编辑器保存和内置资源的 asset_decoder 默认路径使用文件入口。
 未知文件类型仍可给 asset_manager 显式注册字节解码函数，不在 Meta 注册文件协议。

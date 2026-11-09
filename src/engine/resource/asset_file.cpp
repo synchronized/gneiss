@@ -6,6 +6,7 @@
 #include "engine/resource/input/action_map.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 #include "engine/resource/scene/scene_description.hpp"
+#include "engine/resource/scene/scene_validation.hpp"
 #include <array>
 #include <cstdlib>
 #include <yyjson.h>
@@ -61,6 +62,14 @@ add_asset_header(yyjson_mut_doc* doc, yyjson_mut_val* root, format format) {
 using diagnostic = serialization::diagnostic;
 namespace {
 constexpr std::string_view retired_fields[]{"prefab_instances"};
+template <class T, auto Validate>
+diagnostic validate_description(const meta::const_instance& source) {
+  if (source.type().id() != runtime_type_of<T>())
+    return diagnostic{.error = error::invalid_argument};
+  auto address = source.object_data();
+  return address ? Validate(*static_cast<const T*>(*address))
+                 : diagnostic{.error = address.error()};
+}
 }
 format format_traits<mesh_description>::get() noexcept { return {"gneiss.mesh", 3}; }
 format format_traits<material_description>::get() noexcept { return {"gneiss.material", 6}; }
@@ -68,15 +77,22 @@ format format_traits<action_map_description>::get() noexcept {
   return {"gneiss.input-map", 1, maximum_action_map_bytes};
 }
 format format_traits<scene_description>::get() noexcept {
-  return {"gneiss.scene", 5, scene_description::maximum_source_bytes, retired_fields};
+  return {"gneiss.scene", 5, scene_description::maximum_source_bytes, retired_fields,
+          &validate_description<scene_description, validate_scene_description>};
 }
 format format_traits<prefab_description>::get() noexcept {
-  return {"gneiss.prefab", 1, prefab_description::maximum_source_bytes, retired_fields};
+  return {"gneiss.prefab", 1, prefab_description::maximum_source_bytes, retired_fields,
+          &validate_description<prefab_description, validate_prefab_description>};
 }
 format format_traits<texture_description>::get() noexcept { return {"gneiss.texture", 2}; }
 result<std::vector<std::byte>, diagnostic>
 serialize_instance(const serialization::context& ctx, format format,
                    const meta::const_instance& view) noexcept try {
+  if (format.validate) {
+    auto validation = format.validate(view);
+    if (validation.error.failed())
+      return validation;
+  }
   std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> doc(yyjson_mut_doc_new(nullptr),
                                                                       &yyjson_mut_doc_free);
   if (!doc)
@@ -126,6 +142,14 @@ result<ref<void>, diagnostic> deserialize_object(const serialization::context& c
   auto registry = ctx.registry();
   if (!registry)
     return diagnostic{.error = registry.error()};
+  if (format.validate) {
+    auto view = meta::const_instance::from_object(*registry, id, decoded->get());
+    if (!view)
+      return diagnostic{.error = view.error()};
+    auto validation = format.validate(*view);
+    if (validation.error.failed())
+      return validation;
+  }
   auto binding = serialization::find_policies(*registry, id);
   if (!binding)
     return diagnostic{.error = binding.error()};

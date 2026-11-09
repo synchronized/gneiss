@@ -14,6 +14,7 @@
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/scene/scene_description.hpp"
+#include "engine/resource/scene/scene_record.hpp"
 
 #include <array>
 #include <cstddef>
@@ -267,6 +268,42 @@ private:
   std::string content_;
 };
 
+bool domain_validation_boundary_contract() {
+  namespace e = gneiss::engine;
+  e::scene_description scene; // nil 身份可编码，但不是可采用的场景。
+  auto plain = e::serialization::json::serialize(scene);
+  if (!plain || !e::serialization::json::deserialize<e::scene_description>(*plain))
+    return false;
+  auto invalid_save = e::asset_file::serialize(scene);
+  auto invalid_load = e::asset_file::deserialize<e::scene_description>(
+      R"({"format":"gneiss.scene","version":5,"scene_uuid":null,"objects":[]})");
+  if (invalid_save || invalid_load || invalid_save.error().path != "/scene_uuid" ||
+      invalid_load.error().path != "/scene_uuid" ||
+      e::restore_scene_record(e::scene_record{e::scene_record_data{}}))
+    return false;
+  e::prefab_description prefab;
+  prefab.uuid = e::guid::generate();
+  auto prefab_plain = e::serialization::json::serialize(prefab);
+  if (!prefab_plain || !e::serialization::json::deserialize<e::prefab_description>(*prefab_plain))
+    return false;
+  auto prefab_save = e::asset_file::serialize(prefab);
+  auto prefab_text = *prefab_plain;
+  prefab_text.pop_back();
+  prefab_text += R"(,"format":"gneiss.prefab","version":1})";
+  auto prefab_load = e::asset_file::deserialize<e::prefab_description>(prefab_text);
+  if (prefab_save || prefab_load || prefab_save.error().path != "/root_uuid" ||
+      prefab_load.error().path != "/root_uuid" ||
+      e::restore_prefab_record(e::prefab_record{e::prefab_record_data{prefab.uuid, {}, {}}}))
+    return false;
+  // 层级约束也由领域入口负责，而不是编码对象图的过程中顺带检查。
+  scene.uuid = e::guid::generate();
+  e::game_object_description object;
+  object.uuid = e::guid::generate();
+  scene.objects = {object, object};
+  plain = e::serialization::json::serialize(scene);
+  return plain && e::serialization::json::deserialize<e::scene_description>(*plain) &&
+         !e::asset_file::serialize(scene);
+}
 } // namespace
 
 int main() try {
@@ -274,6 +311,8 @@ int main() try {
     return 97;
   if (gneiss::engine::initialize_meta().failed())
     return 99;
+  if (!domain_validation_boundary_contract())
+    return 96;
   if (!save_validation_contract())
     return 11;
   if (!guid_identity_contract())

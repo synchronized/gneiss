@@ -11,7 +11,7 @@ serialization::diagnostic
 validate_prefab_reference_description(const prefab_reference_description&);
 serialization::diagnostic validate_game_object_description(const game_object_description&);
 serialization::diagnostic validate_mesh_renderer_description(const mesh_renderer_description&);
-/** 仅检查描述的整体约束，局部字段由各自反射校验器负责。 */
+/** 文件与文档恢复边界调用整体约束；局部字段校验仍待从反射迁移。 */
 serialization::diagnostic validate_scene_description(const scene_description&);
 serialization::diagnostic validate_prefab_description(const prefab_description&);
 }

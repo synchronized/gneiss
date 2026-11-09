@@ -446,7 +446,6 @@ error register_builtin_resource_types() noexcept {
                .property<&scene_description::objects>(meta::property_id{2}, "objects")
                .property_metadata(meta::property_id{2},
                                   gneiss::engine::serialization::field_policy{.required = true})
-               .extend(gneiss::engine::serialization::validation<&validate_scene_description>)
                .commit();
   if (status.failed())
     return status;
@@ -460,7 +459,6 @@ error register_builtin_resource_types() noexcept {
       .property<&prefab_description::objects>(meta::property_id{3}, "objects")
       .property_metadata(meta::property_id{3},
                          gneiss::engine::serialization::field_policy{.required = true})
-      .extend(gneiss::engine::serialization::validation<&validate_prefab_description>)
       .commit();
 }
 }
