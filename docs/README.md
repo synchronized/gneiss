@@ -664,3 +664,6 @@
 - [PLAN-108 扩展元数据基础](records/2026-11-09-meta-extension-metadata.md)
 - [PLAN-108 序列化策略存储迁移](records/2026-11-09-serialization-policy-storage.md)
 - [PLAN-108 策略拆分与默认字段遍历](records/2026-11-09-serialization-policy-split.md)
+
+- [PLAN-109：异常边界与进程内存耗尽策略收敛](plans/PLAN-109-exception-boundaries.md)
+- [ADR-114：预期错误、异常边界与进程 OOM](decisions/ADR-114-exception-boundaries.md)

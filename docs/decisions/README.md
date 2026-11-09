@@ -119,3 +119,5 @@ Reference 和实现为准。
 - [ADR-106：统一资产服务与场景实例化分离](ADR-106-unified-asset-service.md)
 
 - [ADR-113：Meta 借用访问与序列化策略边界](ADR-113-meta-serialization-boundaries.md)
+
+- [ADR-114：预期错误、异常边界与进程 OOM](ADR-114-exception-boundaries.md)
