@@ -227,8 +227,10 @@ Binary 后续有真实任务时新增 binary.hpp/.cpp。本轮不创建空文件
 
 已替换 type/instance 的复制属性列表返回为 property_range，并接入 property::get。
 JSON 遍历、value 捕获、Inspector、Prefab 路径查询使用新范围。
-阶段 2 尚未整体完成：底层 describe_type/describe_property 仍返回信息结构，
+阶段 2 尚未整体完成：生产查询已迁移到 type/name/find_property 句柄；
+底层 describe_type/describe_property 及其测试、枚举示例仍返回信息结构，
 属性访问仍复用现有实例校验与 getter/setter 路径；尚未宣称所有元数据查询已经删除。
+生产调用迁移与 35 项 CPU 回归见[查询迁移记录](../records/2026-11-09-meta-query-handles.md)。
 阶段 3 已迁移 instance/const_instance、view/member/assign，默认构建和 35 项 CPU 回归通过，
 见[实例门面迁移记录](../records/2026-11-09-meta-instance-api.md)；阶段 4 起仍待实施。调用点审计与验证见
 [首批记录](../records/2026-11-09-meta-property-handles.md)。

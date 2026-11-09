@@ -655,3 +655,4 @@
 - [PLAN-108 首批属性句柄迁移](records/2026-11-09-meta-property-handles.md)
 
 - [PLAN-108 实例读写 API 迁移](records/2026-11-09-meta-instance-api.md)
+- [PLAN-108 生产元数据查询迁移](records/2026-11-09-meta-query-handles.md)

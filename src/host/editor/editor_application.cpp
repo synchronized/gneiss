@@ -1090,7 +1090,7 @@ void draw_component_descriptions(editor_state& state) {
     if (ImGui::BeginPopup("prefab_components")) {
       if (types)
         for (const auto& type : *types) {
-          auto metadata = meta::describe_type(type.type);
+          auto metadata = meta::find_type(type.type);
           auto change = state.editing.document().capture_component_override(node_id, type.type);
           if (!metadata || !change)
             continue;
@@ -1098,7 +1098,7 @@ void draw_component_descriptions(editor_state& state) {
           const bool from_source = source_object && source_object->components.find(type.type);
           identity.component_type = type.type;
           ImGui::PushID(type.type.string().c_str());
-          const std::string name(metadata->name);
+          const std::string name(metadata->name());
           bool acted = false;
           auto invoke = [&](prefab_component_action action) {
             state.history_error =
@@ -1127,7 +1127,7 @@ void draw_component_descriptions(editor_state& state) {
   for (const auto& component : *components) {
     identity.component_type = component->guid();
     auto view = component->view();
-    auto type = meta::describe_type(component->guid());
+    auto type = meta::find_type(component->guid());
     if (!view || !type) {
       state.inspector_error = !view ? view.error() : type.error();
       continue;
@@ -1151,7 +1151,7 @@ void draw_component_descriptions(editor_state& state) {
     ImGui::PushID(component->guid().string().c_str());
     ImGui::BeginDisabled(state.editing.assets().active() || state.editing.history().is_pending());
     auto edit = gneiss::editor::draw_reflected_properties(
-        *view, std::string(type->name).c_str(), state.property_edit_serial, state.inspector_error,
+        *view, std::string(type->name()).c_str(), state.property_edit_serial, state.inspector_error,
         {}, original ? &*original : nullptr);
     if (edit) {
       state.inspector_error =
@@ -2774,11 +2774,11 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
             const bool exists = current->find(choice.type) != nullptr;
             if (exists ? !choice.removable : !choice.addable || !choice.removable)
               continue;
-            auto type = gneiss::engine::meta::describe_type(choice.type);
+            auto type = gneiss::engine::meta::find_type(choice.type);
             if (!type)
               continue;
-            const auto label = std::string(exists ? "Remove " : "Add ") + std::string(type->name) +
-                               "##" + choice.type.string();
+            const auto label = std::string(exists ? "Remove " : "Add ") +
+                               std::string(type->name()) + "##" + choice.type.string();
             if (ImGui::MenuItem(label.c_str())) {
               state.history_error =
                   exists ? gneiss::editor::remove_component_description(

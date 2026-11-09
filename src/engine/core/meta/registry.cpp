@@ -651,6 +651,16 @@ public:
     return error::internal;
   }
 
+  std::string_view type_name(guid id) const noexcept try {
+    std::shared_lock lock(mutex_);
+    if (!is_frozen_)
+      return {};
+    const auto* record = find_type_unlocked(id);
+    return record ? std::string_view{record->name} : std::string_view{};
+  } catch (...) {
+    return {};
+  }
+
   result<property_range> properties(guid id) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
@@ -798,6 +808,9 @@ result<registry_ref> default_registry() noexcept try {
   return error::internal;
 }
 
+std::string_view type::name() const noexcept {
+  return registry_ ? registry_->type_name(guid()) : std::string_view{};
+}
 result<meta::type> find_type(const registry_ref& registry, engine::type_id id) noexcept {
   return registry ? registry->lookup_type(id) : result<meta::type>{error::invalid_handle};
 }

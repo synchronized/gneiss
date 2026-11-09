@@ -569,12 +569,15 @@ error edit_runtime_component(component_context context, guid type, meta::propert
     context.renderer = std::move(*renderer);
   else if (renderer.error() != error::not_found)
     return renderer.error();
-  auto reflected = meta::describe_type(adapter->type);
+  auto reflected = meta::find_type(adapter->type);
   if (!reflected)
     return reflected.error();
-  for (const auto& field : reflected->properties) {
-    if (field.id == property &&
-        meta::has_flags(field.flags, meta::property_flags::editor_read_only))
+  auto properties = reflected->properties();
+  if (!properties)
+    return properties.error();
+  for (const auto& field : *properties) {
+    if (field.id() == property &&
+        meta::has_flags(field.flags(), meta::property_flags::editor_read_only))
       return error::unsupported;
   }
   auto candidate = copy_candidate(**current);

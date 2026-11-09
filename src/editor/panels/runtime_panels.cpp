@@ -216,11 +216,11 @@ void draw_runtime_inspector(const runtime_scene_node& node,
     if (!view)
       continue;
     auto properties = view->properties();
-    auto type = gneiss::engine::meta::describe_type(component->guid());
+    auto type = gneiss::engine::meta::find_type(component->guid());
     if (!properties || !type)
       continue;
     ImGui::PushID(component->guid().string().c_str());
-    if (ImGui::CollapsingHeader(std::string(type->name).c_str())) {
+    if (ImGui::CollapsingHeader(std::string(type->name()).c_str())) {
       for (const auto& property : *properties) {
         auto child = property.get(*view);
         if (!child)

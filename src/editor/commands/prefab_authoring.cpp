@@ -523,14 +523,15 @@ describe_prefab_overrides(const engine::prefab_reference_description& reference,
                                     &game_object_description::uuid);
     std::string text =
         object == source.objects.end() ? key.target.source_node_uuid.string() : object->name;
-    auto type = meta::describe_type(key.target.target_type_guid);
-    text += " / " + (type ? std::string(type->name) : key.target.target_type_guid.string());
+    auto type = meta::find_type(key.target.target_type_guid);
+    text += " / " + (type ? std::string(type->name()) : key.target.target_type_guid.string());
     if (!key.first_property().is_valid())
       return text;
-    auto property = meta::describe_property(key.target.target_type_guid, key.first_property());
+    auto property =
+        type ? type->find_property(key.first_property()) : result<meta::property>{type.error()};
     text += " / " +
-            (property ? std::string(property->name) : std::to_string(key.first_property().get()));
-    auto current = property ? property->type : meta::type{};
+            (property ? std::string(property->name()) : std::to_string(key.first_property().get()));
+    auto current = property ? property->type() : meta::type{};
     for (const auto& step : std::span{key.path}.subspan(1)) {
       if (auto* id = std::get_if<meta::property_id>(&step)) {
         auto fields = current.properties();

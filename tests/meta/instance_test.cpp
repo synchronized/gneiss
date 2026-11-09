@@ -299,6 +299,16 @@ bool type_queries() {
   if (!typed || !by_id || !by_guid || typed->guid() != by_id->guid() ||
       typed->id() != by_guid->id())
     return false;
+  auto named = typed->find_property("count");
+  auto numbered = typed->find_property(m::property_id{2});
+  if (typed->name() != query_model::type_name || !named || !numbered ||
+      named->id() != numbered->id() || named->type().id() != e::runtime_type_of<std::int8_t>() ||
+      typed->find_property("missing").error() != e::error::not_found ||
+      typed->find_property(m::property_id{}).error() != e::error::not_found ||
+      m::type{}.find_property("count").error() != e::error::invalid_state ||
+      default_float->find_property("count").error() != e::error::unsupported ||
+      !m::type{}.name().empty())
+    return false;
   auto props = typed->properties();
   if (!props || props->size() != 2 || (*props)[0].type().kind() != m::type_kind::sequence ||
       (*props)[1].type().id() != e::runtime_type_of<std::int8_t>())
@@ -320,7 +330,8 @@ bool type_queries() {
   // 类型视图保活注册表，但不要求对象实例存活。
   std::weak_ptr<m::type_registry_state> weak = *registry;
   registry = e::error::not_found;
-  return !weak.expired() && typed->properties()->size() == 2;
+  return !weak.expired() && typed->properties()->size() == 2 &&
+         typed->name() == query_model::type_name && named->name() == "count";
 }
 struct reference_target {
   inline static int alive = 0;

@@ -57,6 +57,18 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 `bind_property` 绑定原生函数指针、类别和借用上下文；相同完整绑定可重复调用。
 `freeze` 按 GUID 字节顺序和字段编号排序，之后禁止注册与绑定。重复冻结幂等成功。
 
+## 类型句柄查询
+
+普通消费者通过 `find_type` / `type_of<T>` 获取保活注册表的 `meta::type`。
+`name()` 借用注册对象名称；空句柄或没有注册名称的类型返回空字符串。
+`find_property(property_id)` / `find_property(name)` 返回属性句柄，不复制整份属性列表。
+空类型查询返回 `invalid_state`，非对象类型返回 `unsupported`，不存在的属性返回 `not_found`。
+属性句柄可继续查询类型、访问能力或通过 `get(instance)` 访问对象。
+名称、属性范围与借用对象寿命分别遵循其所属句柄和实例的约束。
+
+旧 `describe_type` / `describe_property` 信息结构入口仍供迁移中的测试及示例使用，
+生产调用已迁移到句柄；这些旧入口尚未删除。
+
 ## C++ 类型注册
 
 固定类型 GUID 推荐使用编译期字符串：
