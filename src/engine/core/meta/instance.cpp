@@ -4,22 +4,12 @@
 #include <algorithm>
 namespace gneiss::engine::meta {
 meta::type const_instance::type() const noexcept {
-  meta::type out;
-  out.registry_ = registry_;
-  out.access_ = access_;
-  out.id_ = cpp_type_;
-  out.guid_ = type_;
-  out.kind_ = kind_;
-  out.scalar_ = scalar_kind_;
-  out.enumeration_ = enumeration_ || (access_ && access_->enumeration);
-  return out;
-}
-result<std::span<const enum_entry>> type::enum_entries() const noexcept {
-  if (kind_ == type_kind::invalid)
-    return error::invalid_state;
-  if (!is_enum())
-    return error::unsupported;
-  return meta::enum_entries(registry_, id_);
+  if (access_) {
+    auto found = detail::resolve_type(registry_, *access_);
+    return found ? *found : meta::type{};
+  }
+  auto found = cpp_type_ ? find_type(registry_, cpp_type_) : find_type(registry_, type_);
+  return found ? *found : meta::type{};
 }
 bool type::is_fixed_sequence() const noexcept {
   const auto* ops = access_ ? access_->get<sequence_ops>() : nullptr;
@@ -30,7 +20,7 @@ bool type::has_sequence_identity() const noexcept {
   return ops && ops->identity;
 }
 result<type> type::element_type() const noexcept {
-  if (kind_ == type_kind::invalid)
+  if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (!access_ || !access_->element_ops())
     return error::unsupported;

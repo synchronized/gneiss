@@ -11,6 +11,7 @@
 namespace gneiss::engine::meta {
 namespace detail {
 struct type_factory;
+struct type_record;
 }
 /** 只读类型视图；持有注册表，不持有对象。借出的元数据不得超过本视图寿命。 */
 class type {
@@ -21,11 +22,14 @@ public:
     return static_cast<const T*>(extension(runtime_type_of<T>()));
   }
   [[nodiscard]] GNEISS_API const void* extension(engine::type_id) const noexcept;
-  [[nodiscard]] type_kind kind() const noexcept { return kind_; }
-  [[nodiscard]] bool is_enum() const noexcept { return enumeration_; }
-  [[nodiscard]] engine::type_id id() const noexcept { return id_; }
-  [[nodiscard]] engine::guid guid() const noexcept { return enumeration_ ? engine::guid{} : guid_; }
-  [[nodiscard]] value_kind scalar_kind() const noexcept { return scalar_; }
+  [[nodiscard]] explicit operator bool() const noexcept { return access_ || record_; }
+  /** 是否关联冻结注册数据；原生类型有效并不要求已注册。 */
+  [[nodiscard]] bool registered() const noexcept { return record_ != nullptr; }
+  [[nodiscard]] GNEISS_API type_kind kind() const noexcept;
+  [[nodiscard]] GNEISS_API bool is_enum() const noexcept;
+  [[nodiscard]] GNEISS_API engine::type_id id() const noexcept;
+  [[nodiscard]] GNEISS_API engine::guid guid() const noexcept;
+  [[nodiscard]] GNEISS_API value_kind scalar_kind() const noexcept;
   [[nodiscard]] GNEISS_API result<std::span<const enum_entry>> enum_entries() const noexcept;
   /** 注册对象名称；没有注册名称时返回空字符串，借用期间须保活句柄。 */
   [[nodiscard]] GNEISS_API std::string_view name() const noexcept;
@@ -44,10 +48,6 @@ private:
   friend struct detail::type_factory;
   registry_ref registry_;
   const detail::type_ops* access_{};
-  engine::type_id id_{};
-  engine::guid guid_{};
-  type_kind kind_ = type_kind::invalid;
-  value_kind scalar_ = value_kind::invalid;
-  bool enumeration_ = false;
+  const detail::type_record* record_{};
 };
 } // namespace gneiss::engine::meta

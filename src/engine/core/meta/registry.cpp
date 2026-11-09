@@ -37,37 +37,34 @@ struct property_record {
   meta::metadata extensions{};
 };
 
+struct type_record {
+  engine::guid guid{};
+  engine::type_id type_id{};
+  std::uint32_t schema_version = 0;
+  std::string name;
+  std::vector<property_record> properties;
+  std::vector<std::size_t> property_names;
+  object_ops object{};
+  meta::metadata extensions{};
+  bool enumeration = false;
+  value_kind scalar = value_kind::invalid;
+  std::vector<enum_entry> entries;
+};
 struct type_factory {
-  static meta::type make(registry_ref registry, const type_ops* access, engine::type_id id,
-                         engine::guid guid, type_kind kind, value_kind scalar, bool enumeration) {
+  static meta::type make(registry_ref registry, const type_ops* access,
+                         const type_record* record = nullptr) {
     meta::type out;
     out.registry_ = std::move(registry);
     out.access_ = access;
-    out.id_ = id;
-    if (!id && kind == type_kind::scalar && !enumeration) {
-      [&]<std::size_t... I>(std::index_sequence<I...>) {
-        ((is_scalar_value_kind(value::kind_index[I + 1]) && scalar == value::kind_index[I + 1]
-              ? (void)(out.id_ = runtime_type_of<
-                           std::variant_alternative_t<I + 1, value::storage_type>>())
-              : (void)0),
-         ...);
-      }(std::make_index_sequence<std::variant_size_v<value::storage_type> - 1>{});
-    }
-    out.guid_ = guid;
-    out.kind_ = kind;
-    out.scalar_ = scalar;
-    out.enumeration_ = enumeration;
+    out.record_ = record;
     return out;
-  }
-  static meta::type make(registry_ref registry, const type_ops& access) {
-    return make(std::move(registry), &access, access.id, access.guid, access.kind(),
-                access.scalar_kind(), access.enumeration);
   }
 };
 }
 
 namespace {
 using detail::property_record;
+using detail::type_record;
 
 [[nodiscard]] bool is_valid_name(std::string_view text) noexcept {
   return text.find('\0') == std::string_view::npos && utf8::is_valid(text);
@@ -128,17 +125,6 @@ bool valid_binding(const property_binding& binding) noexcept {
                               (!binding.enum_type || binding.access->id == binding.enum_type)));
 }
 
-struct type_record {
-  engine::guid guid{};
-  engine::type_id type_id{};
-  std::uint32_t schema_version = 0;
-  std::string name;
-  std::vector<property_record> properties;
-  std::vector<std::size_t> property_names;
-  object_ops object{};
-  meta::metadata extensions{};
-};
-
 [[nodiscard]] bool validate_property(const property_definition& property) noexcept {
   return property.id.is_valid() &&
          (property.access == property_access::read_write ||
@@ -179,17 +165,28 @@ struct type_record {
 }
 [[nodiscard]] meta::type record_type(const registry_ref& registry,
                                      const property_record& property) noexcept {
-  return property.accessor.access
-             ? detail::type_factory::make(registry, *property.accessor.access)
-             : detail::type_factory::make(
-                   registry, nullptr,
-                   property.accessor.enum_type ? property.accessor.enum_type
-                                               : property.accessor.object_type,
-                   property.type_guid,
-                   property.accessor.object_type                   ? type_kind::object
-                   : property.accessor.kind != value_kind::invalid ? type_kind::scalar
-                                                                   : type_kind::invalid,
-                   property.accessor.kind, bool(property.accessor.enum_type));
+  if (property.accessor.access) {
+    auto found = detail::resolve_type(registry, *property.accessor.access);
+    return found ? *found : meta::type{};
+  }
+  const auto id =
+      property.accessor.enum_type ? property.accessor.enum_type : property.accessor.object_type;
+  if (id) {
+    auto found = find_type(registry, id);
+    return found ? *found : meta::type{};
+  }
+  meta::type output;
+  [&]<std::size_t... I>(std::index_sequence<I...>) {
+    (([&] {
+       if constexpr (is_scalar_value_kind(value::kind_index[I + 1])) {
+         if (property.accessor.kind == value::kind_index[I + 1])
+           output = detail::type_factory::make(
+               registry, &detail::ops_of<std::variant_alternative_t<I + 1, value::storage_type>>());
+       }
+     }()),
+     ...);
+  }(std::make_index_sequence<std::variant_size_v<value::storage_type> - 1>{});
+  return output;
 }
 
 } // namespace
@@ -214,7 +211,12 @@ public:
       return error::invalid_state;
     if (enums_.contains(id))
       return error::invalid_argument;
-    enums_.emplace(id, enum_record{kind, {entries.begin(), entries.end()}});
+    type_record record;
+    record.type_id = id;
+    record.enumeration = true;
+    record.scalar = kind;
+    record.entries.assign(entries.begin(), entries.end());
+    enums_.emplace(id, std::move(record));
     return error::success;
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
@@ -404,7 +406,7 @@ public:
           const auto found = enums_.find(property.accessor.enum_type);
           if (found == enums_.end())
             continue;
-          if (found->second.kind != property.accessor.kind)
+          if (found->second.scalar != property.accessor.kind)
             return error::invalid_argument;
         }
       }
@@ -521,16 +523,19 @@ public:
 
   result<meta::type> resolve_access(const detail::type_ops& access) const noexcept try {
     std::shared_lock lock(mutex_);
-    // 原生能力不依赖注册；只在冻结后关联已发布的对象描述。
-    if (is_frozen_ && access.kind() == type_kind::object) {
-      const auto found = by_cpp_type_.find(access.id);
-      if (found != by_cpp_type_.end()) {
-        const auto& record = *found->second;
-        return detail::type_factory::make(owner(), &access, record.type_id, record.guid,
-                                          type_kind::object, value_kind::invalid, false);
+    const type_record* record = nullptr;
+    if (is_frozen_) {
+      if (access.enumeration) {
+        const auto found = enums_.find(access.id);
+        if (found != enums_.end())
+          record = &found->second;
+      } else {
+        const auto found = by_cpp_type_.find(access.id);
+        if (found != by_cpp_type_.end())
+          record = found->second;
       }
     }
-    return detail::type_factory::make(owner(), access);
+    return detail::type_factory::make(owner(), &access, record);
   } catch (...) {
     return error::internal;
   }
@@ -550,13 +555,11 @@ public:
         record = found->second;
     }
     if (record)
-      return detail::type_factory::make(owner(), nullptr, record->type_id, record->guid,
-                                        type_kind::object, value_kind::invalid, false);
+      return detail::type_factory::make(owner(), nullptr, record);
     if constexpr (std::is_same_v<Key, engine::type_id>) {
       auto entry = enums_.find(key);
       if (entry != enums_.end())
-        return detail::type_factory::make(owner(), nullptr, key, {}, type_kind::scalar,
-                                          entry->second.kind, true);
+        return detail::type_factory::make(owner(), nullptr, &entry->second);
     }
     const detail::type_ops* found = nullptr;
     auto match = [&](const detail::type_ops& access) {
@@ -578,7 +581,7 @@ public:
        ...);
     }(std::make_index_sequence<std::variant_size_v<value::storage_type> - 1>{});
     if (found)
-      return detail::type_factory::make(owner(), *found);
+      return detail::type_factory::make(owner(), found);
     for (const auto& record : types_) {
       for (const auto& property : record->properties) {
         const auto* access = property.accessor.access;
@@ -586,7 +589,7 @@ public:
           if (match(*access)) {
             if (access->enumeration && !enums_.contains(access->id))
               return error::not_found;
-            return detail::type_factory::make(owner(), *access);
+            return detail::type_factory::make(owner(), access);
           }
           access = access->element_ops() ? &access->element() : nullptr;
         }
@@ -615,37 +618,10 @@ public:
     if (index >= types_.size())
       return error::not_found;
     const auto& record = *types_[index];
-    return detail::type_factory::make(owner(), nullptr, record.type_id, record.guid,
-                                      type_kind::object, value_kind::invalid, false);
+    return detail::type_factory::make(owner(), nullptr, &record);
   } catch (...) {
     return error::internal;
   }
-  template <class Key> std::uint32_t schema_version(Key id) const noexcept try {
-    std::shared_lock lock(mutex_);
-    const auto* record = is_frozen_ ? find_type_unlocked(id) : nullptr;
-    return record ? record->schema_version : 0;
-  } catch (...) {
-    return 0;
-  }
-
-  template <class Key> const void* extension(Key id, engine::type_id key) const noexcept try {
-    std::shared_lock lock(mutex_);
-    const auto* record = is_frozen_ ? find_type_unlocked(id) : nullptr;
-    return record ? record->extensions.find(key) : nullptr;
-  } catch (...) {
-    return nullptr;
-  }
-
-  template <class Key> std::string_view type_name(Key id) const noexcept try {
-    std::shared_lock lock(mutex_);
-    if (!is_frozen_)
-      return {};
-    const auto* record = find_type_unlocked(id);
-    return record ? std::string_view{record->name} : std::string_view{};
-  } catch (...) {
-    return {};
-  }
-
   template <class Owner, class Key>
   result<property> lookup_property(Owner id, Key key) const noexcept try {
     std::shared_lock lock(mutex_);
@@ -781,11 +757,7 @@ private:
   mutable std::shared_mutex mutex_;
   std::vector<std::unique_ptr<type_record>> types_;
   std::map<engine::type_id, type_record*> by_cpp_type_;
-  struct enum_record {
-    value_kind kind;
-    std::vector<enum_entry> entries;
-  };
-  std::map<engine::type_id, enum_record> enums_;
+  std::map<engine::type_id, type_record> enums_;
   bool is_frozen_ = false;
 };
 
@@ -798,40 +770,82 @@ result<registry_ref> default_registry() noexcept try {
   return error::internal;
 }
 
-result<property> type::find_property(property_id id) const noexcept {
-  if (kind_ == type_kind::invalid)
+type_kind type::kind() const noexcept {
+  return access_   ? access_->kind()
+         : record_ ? (record_->enumeration ? type_kind::scalar : type_kind::object)
+                   : type_kind::invalid;
+}
+bool type::is_enum() const noexcept {
+  return access_ ? access_->enumeration : record_ && record_->enumeration;
+}
+engine::type_id type::id() const noexcept {
+  return access_ ? access_->id : record_ ? record_->type_id : engine::type_id{};
+}
+engine::guid type::guid() const noexcept {
+  return is_enum() ? engine::guid{}
+         : record_ ? record_->guid
+         : access_ ? access_->guid
+                   : engine::guid{};
+}
+value_kind type::scalar_kind() const noexcept {
+  return access_ ? access_->scalar_kind() : record_ ? record_->scalar : value_kind::invalid;
+}
+result<std::span<const enum_entry>> type::enum_entries() const noexcept {
+  if (!*this)
     return error::invalid_state;
-  if (kind_ != type_kind::object)
+  if (!is_enum())
     return error::unsupported;
-  return id_ ? registry_->lookup_property(id_, id) : registry_->lookup_property(guid_, id);
+  if (!record_)
+    return error::not_found;
+  return std::span<const enum_entry>{record_->entries};
+}
+result<property> type::find_property(property_id property) const noexcept {
+  if (!*this)
+    return error::invalid_state;
+  if (kind() != type_kind::object)
+    return error::unsupported;
+  if (!record_)
+    return error::not_found;
+  const auto found =
+      std::ranges::lower_bound(record_->properties, property.get(), {}, &property_record::id);
+  if (found == record_->properties.end() || found->id != property.get())
+    return error::not_found;
+  return meta::property{registry_, &*found};
 }
 result<property> type::find_property(std::string_view name) const noexcept {
-  if (kind_ == type_kind::invalid)
+  if (!*this)
     return error::invalid_state;
-  if (kind_ != type_kind::object)
+  if (kind() != type_kind::object)
     return error::unsupported;
-  return id_ ? registry_->lookup_property(id_, name) : registry_->lookup_property(guid_, name);
+  if (!record_)
+    return error::not_found;
+  const auto found = std::ranges::lower_bound(
+      record_->property_names, name, {},
+      [&](std::size_t index) -> std::string_view { return record_->properties[index].name; });
+  if (found == record_->property_names.end() || record_->properties[*found].name != name)
+    return error::not_found;
+  return meta::property{registry_, &record_->properties[*found]};
 }
 result<property_range> type::properties() const noexcept {
-  if (kind_ == type_kind::invalid)
+  if (!*this)
     return error::invalid_state;
-  if (kind_ != type_kind::object)
+  if (kind() != type_kind::object)
     return error::unsupported;
-  return id_ ? registry_->properties(id_) : registry_->properties(guid_);
+  if (!record_)
+    return error::not_found;
+  return property_range{registry_, record_->properties.data(), record_->properties.size()};
 }
 const void* type::extension(engine::type_id key) const noexcept {
-  return registry_ ? (id_ ? registry_->extension(id_, key) : registry_->extension(guid_, key))
-                   : nullptr;
+  return record_ ? record_->extensions.find(key) : nullptr;
 }
 const void* property::extension(engine::type_id key) const noexcept {
   return record_ ? record_->extensions.find(key) : nullptr;
 }
 std::uint32_t type::schema_version() const noexcept {
-  return registry_ ? (id_ ? registry_->schema_version(id_) : registry_->schema_version(guid())) : 0;
+  return record_ ? record_->schema_version : 0;
 }
 std::string_view type::name() const noexcept {
-  return registry_ ? (id_ ? registry_->type_name(id_) : registry_->type_name(guid()))
-                   : std::string_view{};
+  return record_ ? std::string_view{record_->name} : std::string_view{};
 }
 result<meta::type> find_type(const registry_ref& registry, engine::type_id id) noexcept {
   return registry ? registry->lookup_type(id) : result<meta::type>{error::invalid_handle};

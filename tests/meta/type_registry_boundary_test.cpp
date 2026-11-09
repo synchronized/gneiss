@@ -35,7 +35,7 @@ bool native_values() {
   const gneiss::engine::guid native_id{gneiss::engine::guid::from_bytes({7})};
   const std::array fields{gneiss::engine::meta::property_definition{
       .id = gneiss::engine::meta::property_id{1},
-      .type_guid = id,
+      .type_guid = gneiss::engine::type_identity<std::string>::guid(),
       .access = gneiss::engine::meta::property_access::read_write,
       .name = "text"}};
   std::string text = "初始文本";
@@ -141,7 +141,9 @@ bool native_values() {
           .failed() ||
       metadata.properties()->size() != 1 ||
       (*metadata.properties())[0].type().scalar_kind() != gneiss::engine::value_kind::string ||
-      metadata.guid() != native_id || (*metadata.properties())[0].type().guid() != native_id ||
+      metadata.guid() != native_id ||
+      (*metadata.properties())[0].type().guid() !=
+          gneiss::engine::type_identity<std::string>::guid() ||
       gneiss::test_support::assign_value(
           gneiss::engine::meta::find_type(registry, gneiss::engine::guid{}), metadata) !=
           gneiss::engine::error::not_found ||

@@ -177,7 +177,7 @@ bool enum_registration() {
   enum class unknown_mode { value };
   unknown_mode unknown{};
   auto unknown_view = m::view(registry, std::as_const(unknown));
-  if (!unknown_view || unknown_view->type().enum_entries().error() != e::error::not_ready)
+  if (!unknown_view || unknown_view->type().enum_entries().error() != e::error::not_found)
     return false;
   if (m::registration<enum_object>{registry}
           .property<&enum_object::left>(m::property_id{1}, "left")

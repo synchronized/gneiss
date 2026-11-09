@@ -16,6 +16,9 @@ struct unregistered_object {};
 static_assert(sizeof(gneiss::engine::meta::property) ==
               sizeof(gneiss::engine::meta::registry_ref) + sizeof(void*));
 
+static_assert(sizeof(gneiss::engine::meta::type) ==
+              sizeof(gneiss::engine::meta::registry_ref) + 2 * sizeof(void*));
+
 bool typed_registration() {
   namespace e = gneiss::engine;
   using e::error;
@@ -34,6 +37,10 @@ bool typed_registration() {
           .failed() ||
       info.guid() != e::guid{} ||
       gneiss::engine::meta::register_type<reflected_object>(registry, definition).failed())
+    return false;
+  const auto before_freeze = info;
+  if (!before_freeze || before_freeze.registered() || !before_freeze.name().empty() ||
+      gneiss::engine::meta::type{} || gneiss::engine::meta::type{}.registered())
     return false;
   auto alternate = definition;
   alternate.guid = other_guid;
@@ -56,6 +63,8 @@ bool typed_registration() {
   if (gneiss::engine::meta::register_type(registry, alternate).failed() ||
       gneiss::engine::meta::freeze(registry).failed())
     return false;
+  if (before_freeze.registered() || !before_freeze.name().empty())
+    return false;
   std::uint32_t count = 0;
   if (gneiss::test_support::assign_value(gneiss::engine::meta::type_count(registry), count)
           .failed() ||
@@ -63,7 +72,7 @@ bool typed_registration() {
       gneiss::test_support::assign_value(
           gneiss::engine::meta::type_of<const reflected_object&>(registry), info)
           .failed() ||
-      info.guid() != object_guid ||
+      !info || !info.registered() || info.guid() != object_guid ||
       gneiss::test_support::assign_value(gneiss::engine::meta::find_type(registry, object_guid),
                                          info)
           .failed() ||
@@ -74,7 +83,7 @@ bool typed_registration() {
       info.guid() != other_guid ||
       gneiss::test_support::assign_value(gneiss::engine::meta::type_at(registry, 1), info)
           .failed() ||
-      info.guid() != data_guid)
+      !info.registered() || info.guid() != data_guid)
     return false;
   if (gneiss::test_support::assign_value(gneiss::engine::meta::find_type(registry, e::type_id{}),
                                          info) != error::not_found ||
@@ -82,7 +91,7 @@ bool typed_registration() {
       gneiss::test_support::assign_value(
           gneiss::engine::meta::type_of<unregistered_object>(registry), info)
           .failed() ||
-      info.id() != e::runtime_type_of<unregistered_object>() || info.guid() ||
+      info.id() != e::runtime_type_of<unregistered_object>() || info.registered() || info.guid() ||
       gneiss::engine::meta::register_type<reflected_object>(registry, definition) !=
           error::invalid_state)
     return false;
