@@ -104,6 +104,44 @@ template <class T> class registration {
   };
 
 public:
+  /** 借用注册器及稳定字段索引；注册器移动/销毁后失效，不隐式提交。
+   * operator() 仅附加当前字段扩展，metadata/extend 仍作用于类型。 */
+  class property_builder {
+  public:
+    template <class... Extensions> property_builder& operator()(Extensions... values) noexcept {
+      (owner_->add_extension(index_, std::move(values)), ...);
+      return *this;
+    }
+    template <auto... Accessors>
+    property_builder property(property_id id, std::string_view name,
+                              property_access access = property_access::read_write) noexcept {
+      return owner_->template property<Accessors...>(id, name, access);
+    }
+    template <auto Getter>
+    property_builder readonly(property_id id, std::string_view name) noexcept {
+      return owner_->template readonly<Getter>(id, name);
+    }
+    template <class Base> registration& base() noexcept { return owner_->template base<Base>(); }
+    template <class Extension> registration& metadata(Extension value) noexcept {
+      return owner_->metadata(std::move(value));
+    }
+    template <class Factory> registration& extend(Factory factory) noexcept {
+      return owner_->extend(std::move(factory));
+    }
+    registration& name(std::string_view name) noexcept { return owner_->name(name); }
+    registration& guid(engine::guid guid) noexcept { return owner_->guid(guid); }
+    registration& schema_version(std::uint32_t version) noexcept {
+      return owner_->schema_version(version);
+    }
+    [[nodiscard]] error commit() noexcept { return owner_->commit(); }
+
+  private:
+    friend class registration;
+    property_builder(registration& owner, std::size_t index) noexcept
+        : owner_(&owner), index_(index) {}
+    registration* owner_;
+    std::size_t index_;
+  };
   registration() noexcept {
     auto registry = default_registry();
     if (registry)
@@ -136,20 +174,6 @@ public:
       status_ = extensions_.insert(std::move(value));
     return *this;
   }
-  /** 为指定已登记字段附加扩展；字段不存在或同类扩展重复均失败。 */
-  template <class Extension>
-  registration& property_metadata(property_id id, Extension value) noexcept {
-    if (committed_ || status_.failed())
-      return *this;
-    for (auto& entry : entries_) {
-      if (entry.id == id) {
-        status_ = entry.extensions.insert(std::move(value));
-        return *this;
-      }
-    }
-    status_ = error::not_found;
-    return *this;
-  }
   registration& schema_version(std::uint32_t version) noexcept {
     if (committed_ || status_.failed())
       return *this;
@@ -157,8 +181,8 @@ public:
     return *this;
   }
   template <auto Member>
-  registration& property(property_id id, std::string_view name,
-                         property_access access = property_access::read_write) noexcept {
+  property_builder property(property_id id, std::string_view name,
+                            property_access access = property_access::read_write) noexcept {
     static_assert(std::is_member_object_pointer_v<decltype(Member)>);
     using property_type = std::remove_cvref_t<std::invoke_result_t<decltype(Member), object_type&>>;
     if constexpr (detail::reflected_value_kind<property_type>() == value_kind::invalid) {
@@ -197,8 +221,8 @@ public:
                                  }});
   }
   template <auto Getter, auto Setter>
-  registration& property(property_id id, std::string_view name,
-                         property_access access = property_access::read_write) noexcept {
+  property_builder property(property_id id, std::string_view name,
+                            property_access access = property_access::read_write) noexcept {
     using property_type =
         std::remove_cvref_t<std::invoke_result_t<decltype(Getter), const object_type&>>;
     if constexpr (detail::reflected_value_kind<property_type>() == value_kind::invalid) {
@@ -248,7 +272,7 @@ public:
              }
            }});
   }
-  template <auto Getter> registration& readonly(property_id id, std::string_view name) noexcept {
+  template <auto Getter> property_builder readonly(property_id id, std::string_view name) noexcept {
     using property_type =
         std::remove_cvref_t<std::invoke_result_t<decltype(Getter), const object_type&>>;
     return add<property_type>(id, name, property_access::read_only,
@@ -324,11 +348,21 @@ public:
   }
 
 private:
-  template <class Property>
-  registration& add(property_id id, std::string_view name, property_access access,
-                    property_binding binding) noexcept {
+  template <class Extension> void add_extension(std::size_t index, Extension value) noexcept {
     if (committed_ || status_.failed())
-      return *this;
+      return;
+    if (index >= entries_.size()) {
+      status_ = error::invalid_state;
+      return;
+    }
+    status_ = entries_[index].extensions.insert(std::move(value));
+  }
+  template <class Property>
+  property_builder add(property_id id, std::string_view name, property_access access,
+                       property_binding binding) noexcept {
+    const auto index = entries_.size();
+    if (committed_ || status_.failed())
+      return {*this, index};
     try {
       binding.access = &detail::ops_of<Property>();
       if constexpr (std::is_enum_v<Property>)
@@ -346,7 +380,7 @@ private:
     } catch (...) {
       status_ = error::internal;
     }
-    return *this;
+    return {*this, index};
   }
   object_ops object_{};
   meta::metadata extensions_{};

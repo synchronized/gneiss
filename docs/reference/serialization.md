@@ -57,7 +57,7 @@ value 通过 variant_traits 接入通用 variant 遍历，对象分支复用通�
 
 ## 字段策略与引用优先级
 
-通过 property_metadata(property_id, serialization::field_policy{...}) 设置字段持久化行为：
+通过 property(...)(serialization::field_policy{...}) 设置当前字段的持久化行为：
 
 - save 默认为 true；false 时文件与快照均不保存该字段，解码忽略输入中的该字段，恢复保留默认值。
 - required 默认为 false；true 时文件缺少字段报错，不能与 save=false 或内存只读组合。

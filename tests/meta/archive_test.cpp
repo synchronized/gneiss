@@ -148,9 +148,8 @@ int main() {
             .property<&record::names>(m::property_id{2}, "names")
             .property<&record::label>(m::property_id{3}, "label")
             .property<&record::object>(m::property_id{4}, "object")
-            .property<&record::required>(m::property_id{5}, "required")
-            .property_metadata(m::property_id{5},
-                               gneiss::engine::serialization::field_policy{.required = true})
+            .property<&record::required>(m::property_id{5}, "required")(
+                gneiss::engine::serialization::field_policy{.required = true})
             .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
             .commit()
             .ok());

@@ -37,9 +37,8 @@ std::span<const std::byte> bytes(std::string_view text) {
 }
 e::error register_sample(const m::registry_ref& registry, std::string_view name = "name") {
   return m::registration<sample>{registry}
-      .property<&sample::enabled>(m::property_id{1}, "enabled")
-      .property_metadata(m::property_id{1},
-                         gneiss::engine::serialization::field_policy{.required = true})
+      .property<&sample::enabled>(m::property_id{1}, "enabled")(
+          gneiss::engine::serialization::field_policy{.required = true})
       .property<&sample::signed_number>(m::property_id{2}, "signed")
       .property<&sample::unsigned_number>(m::property_id{3}, "unsigned")
       .property<&sample::speed>(m::property_id{4}, "speed")
@@ -89,9 +88,7 @@ bool enum_json_contract() {
           .commit()
           .failed() ||
       m::registration<enum_sample>{*registry}
-          .property<&enum_sample::named>(m::property_id{1}, "named")
-          .property_metadata(
-              m::property_id{1},
+          .property<&enum_sample::named>(m::property_id{1}, "named")(
               gneiss::engine::serialization::field_policy{.required = true, .enum_name = true})
           .property<&enum_sample::numeric>(m::property_id{2}, "numeric")
           .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
@@ -143,13 +140,11 @@ bool field_reference_contract() {
             .failed() ||
         m::registration<reference_fields>{registry}
             .property<&reference_fields::default_reference>(m::property_id{1}, "default")
-            .property<&reference_fields::overridden_reference>(m::property_id{2}, "override")
-            .property_metadata(
-                m::property_id{2},
-                ser::field_policy{.reference =
-                                      ser::reference_policy{.polymorphic = !type_polymorphic}})
-            .property<&reference_fields::transient>(m::property_id{3}, "transient")
-            .property_metadata(m::property_id{3}, ser::field_policy{.save = false})
+            .property<&reference_fields::overridden_reference>(m::property_id{2},
+                                                               "override")(ser::field_policy{
+                .reference = ser::reference_policy{.polymorphic = !type_polymorphic}})
+            .property<&reference_fields::transient>(m::property_id{3},
+                                                    "transient")(ser::field_policy{.save = false})
             .commit()
             .failed() ||
         m::freeze(registry).failed())
@@ -217,11 +212,9 @@ bool external_field_contract() {
             .failed() ||
         m::registration<reference_fields>{*registry}
             .property<&reference_fields::default_reference>(m::property_id{1}, "default")
-            .property<&reference_fields::overridden_reference>(m::property_id{2}, "override")
-            .property_metadata(m::property_id{2},
-                               ser::field_policy{.reference = external_default
-                                                                  ? ser::reference_policy{}
-                                                                  : external})
+            .property<&reference_fields::overridden_reference>(m::property_id{2},
+                                                               "override")(ser::field_policy{
+                .reference = external_default ? ser::reference_policy{} : external})
             .commit()
             .failed() ||
         m::freeze(*registry).failed())
@@ -465,8 +458,7 @@ int main() try {
         m::registration<sample>{*registry}
             .property<&sample::enabled>(m::property_id{1}, "enabled",
                                         invalid_case != 0 ? m::property_access::read_write
-                                                          : m::property_access::read_only)
-            .property_metadata(m::property_id{1}, policy)
+                                                          : m::property_access::read_only)(policy)
             .commit()
             .failed() ||
         m::freeze(*registry).failed())

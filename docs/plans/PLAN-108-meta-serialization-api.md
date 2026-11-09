@@ -347,7 +347,7 @@ Binary 后续有真实任务时新增 binary.hpp/.cpp。本轮不创建空文件
 4a. [x] 句柄布局补充：分离静态类型能力与可选注册记录，覆盖全部类别及未注册类型；
    精简 type/property，提供 bool/registered，迁移查询返回形式，删除已替代 result 查询入口。
 4b. [x] 实例轻量化：统一只读/可写访问位置，精简容器视图；迁移动态类型门面，删除重复身份查询。
-4c. [ ] 属性局部 builder：支持 property(...)(extensions...)，迁移并删除 property_metadata 旧入口。
+4c. [x] 属性局部 builder：支持 property(...)(extensions...)，迁移并删除 property_metadata 旧入口。
 5. [ ] 策略拆分：替换 binding；先迁移已有 codec/引用，再做字段覆盖；
    迁移 editor_read_only/enum_name，分类迁移 validate，删除旧 flags 和 reflected 开关。
 6. [ ] 序列化入口：read/write contexts 和私有操作状态，统一 encode/decode/read_into/write；
@@ -383,7 +383,8 @@ find_property、enum_entries 和 properties 已迁移为直接句柄或范围查
 属性范围与注册边界验证见[记录](../records/2026-11-09-meta-property-ranges.md)。
 element_type、类型比较及注册记录的原生能力已收敛。阶段 4b 已统一 basic_instance<Mutable>，
 容器视图复用访问位置，dynamic_type 返回类型句柄。验证见
-[实例布局记录](../records/2026-11-09-meta-basic-instance.md)。阶段 4c 尚未完成。
+[实例布局记录](../records/2026-11-09-meta-basic-instance.md)。阶段 4c 已支持属性局部扩展并删除旧入口，见
+[属性注册记录](../records/2026-11-09-meta-property-builder.md)。
 
 阶段 5 已加入类型/字段扩展元数据基础，见[实现记录](../records/2026-11-09-meta-extension-metadata.md)；
 binding 存储和查询已迁到扩展/Serialization，见[存储迁移记录](../records/2026-11-09-serialization-policy-storage.md)；

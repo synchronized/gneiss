@@ -28,36 +28,30 @@ serialization::diagnostic validate_camera(const math::camera_settings& value) {
 namespace detail {
 // 仅由内置注册入口调用，不额外暴露数学注册的初始化步骤。
 error register_math_types(const registry_ref& registry) noexcept {
-  auto status =
-      registration<math::transform>{registry}
-          .property<&get_transform<&math::transform::translation>,
-                    &set_transform<&math::transform::translation, math::vector3>>(property_id{1},
-                                                                                  "translation")
-          .property_metadata(property_id{1},
-                             gneiss::engine::serialization::field_policy{.required = true})
-          .property<&get_transform<&math::transform::rotation>,
-                    &set_transform<&math::transform::rotation, math::quaternion>>(property_id{2},
-                                                                                  "rotation")
-          .property_metadata(property_id{2},
-                             gneiss::engine::serialization::field_policy{.required = true})
-          .property<&get_transform<&math::transform::scale>,
-                    &set_transform<&math::transform::scale, math::vector3>>(property_id{3}, "scale")
-          .property_metadata(property_id{3},
-                             gneiss::engine::serialization::field_policy{.required = true})
-          .extend(gneiss::engine::serialization::validation<&validate_transform>)
-          .commit();
+  auto status = registration<math::transform>{registry}
+                    .property<&get_transform<&math::transform::translation>,
+                              &set_transform<&math::transform::translation, math::vector3>>(
+                        property_id{1}, "translation")(
+                        gneiss::engine::serialization::field_policy{.required = true})
+                    .property<&get_transform<&math::transform::rotation>,
+                              &set_transform<&math::transform::rotation, math::quaternion>>(
+                        property_id{2},
+                        "rotation")(gneiss::engine::serialization::field_policy{.required = true})
+                    .property<&get_transform<&math::transform::scale>,
+                              &set_transform<&math::transform::scale, math::vector3>>(
+                        property_id{3},
+                        "scale")(gneiss::engine::serialization::field_policy{.required = true})
+                    .extend(gneiss::engine::serialization::validation<&validate_transform>)
+                    .commit();
   if (status.failed())
     return status;
   return registration<math::camera_settings>{registry}
-      .property<&math::camera_settings::fov>(property_id{1}, "fov")
-      .property_metadata(property_id{1},
-                         gneiss::engine::serialization::field_policy{.required = true})
-      .property<&math::camera_settings::near>(property_id{2}, "near")
-      .property_metadata(property_id{2},
-                         gneiss::engine::serialization::field_policy{.required = true})
-      .property<&math::camera_settings::far>(property_id{3}, "far")
-      .property_metadata(property_id{3},
-                         gneiss::engine::serialization::field_policy{.required = true})
+      .property<&math::camera_settings::fov>(property_id{1}, "fov")(
+          gneiss::engine::serialization::field_policy{.required = true})
+      .property<&math::camera_settings::near>(property_id{2}, "near")(
+          gneiss::engine::serialization::field_policy{.required = true})
+      .property<&math::camera_settings::far>(property_id{3}, "far")(
+          gneiss::engine::serialization::field_policy{.required = true})
       .extend(gneiss::engine::serialization::validation<&validate_camera>)
       .commit();
 }

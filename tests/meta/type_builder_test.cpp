@@ -162,14 +162,18 @@ bool extension_registration() {
               .metadata(display_metadata{"duplicate"})
               .commit() != e::error::invalid_argument ||
       m::registration<sample>{*registry}
-              .property_metadata(m::property_id{9}, display_metadata{"missing"})
-              .commit() != e::error::not_found)
+              .property<&sample::speed>(m::property_id{1}, "speed")(display_metadata{"first"},
+                                                                    display_metadata{"duplicate"})
+              .commit() != e::error::invalid_argument)
     return false;
   display_metadata label{"original"};
   m::registration<sample> builder{*registry};
-  builder.metadata(label)
-      .property<&sample::speed>(m::property_id{1}, "speed")
-      .property_metadata(m::property_id{1}, display_metadata{"Speed"});
+  builder.metadata(label);
+  auto speed = builder.property<&sample::speed>(m::property_id{1}, "speed");
+  // 后续字段使存储扩容，早先代理仍须写入原字段。
+  for (std::uint32_t id = 2; id != 40; ++id)
+    builder.property<&sample::speed>(m::property_id{id}, "speed_" + std::to_string(id));
+  speed(display_metadata{"Speed"});
   label.label = "changed";
   if (builder.commit().failed() || m::freeze(*registry).failed())
     return false;

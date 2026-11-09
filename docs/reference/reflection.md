@@ -218,10 +218,10 @@ codec 文件只提供编解码入口。首次失败立即返回，不回滚已�
 meta::registration<camera_description>{}
     .property<&camera_description::settings>(
         meta::property_id{1}, "settings")
-    .property_metadata(meta::property_id{1}, serialization::field_policy{.required = true})
+    (serialization::field_policy{.required = true})
     .property<&camera_description::is_primary>(
         meta::property_id{4}, "is_primary")
-    .property_metadata(meta::property_id{4}, serialization::field_policy{.required = true})
+    (serialization::field_policy{.required = true})
     .commit();
 ```
 
@@ -633,9 +633,12 @@ Meta 不再提供含糊的 serialize/deserialize 入口。
 ### 类型与属性扩展元数据
 
 `registration<T>::metadata(value)` 为类型登记扩展；
-`property_metadata(id, value)` 为已声明属性登记扩展。
+`property(...)(extension, ...)` 或 `readonly(...)(extension, ...)` 为当前属性登记扩展。
+property 返回借用注册器及字段索引的局部代理；后续字段扩容不影响索引，
+注册器移动或销毁后代理失效。类型 metadata/extend 与字段 operator() 的作用域分开，
+不附加扩展时可直接继续 property 或 commit；代理销毁不隐式提交。
 扩展以其 C++ 类型为键保存独立的只读值，同类重复登记返回 invalid_argument，
-属性不存在返回 not_found；失败在 commit 返回，不登记半个类型。
+失败在 commit 返回，不登记半个类型。
 `type::extension<E>()` 和 `property::extension<E>()` 返回借用指针，缺失时为 nullptr。
 句柄保活元数据；元数据结构中的借用指针仍由提供者负责寿命。
 Meta 不解释扩展内容；其用途及策略优先级由消费模块定义。
