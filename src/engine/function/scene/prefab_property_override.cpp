@@ -127,8 +127,8 @@ error validate_prefab_property_override(const prefab_property_override& value) n
         return error::invalid_argument;
       auto element = type.element_type();
       if (!element)
-        return element.error();
-      type = *element;
+        return error::unsupported;
+      type = element;
     }
   }
   if (!std::holds_alternative<set_value_operation>(value.operation)) {

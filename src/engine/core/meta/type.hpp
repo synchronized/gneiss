@@ -42,8 +42,11 @@ public:
   [[nodiscard]] GNEISS_API property find_property(std::string_view) const noexcept;
   [[nodiscard]] GNEISS_API bool is_fixed_sequence() const noexcept;
   [[nodiscard]] GNEISS_API bool has_sequence_identity() const noexcept;
-  /** sequence/optional/reference 返回元素或静态目标类型，associative 返回映射值类型。 */
-  [[nodiscard]] GNEISS_API result<type> element_type() const noexcept;
+  /** 同注册表内按类型身份比较；跨表比较身份时显式使用 id/guid。 */
+  friend GNEISS_API bool operator==(const type&, const type&) noexcept;
+  /** 无元素能力返回空句柄。
+   * sequence/optional/reference 返回元素或静态目标类型，associative 返回映射值类型。 */
+  [[nodiscard]] GNEISS_API type element_type() const noexcept;
 
 private:
   friend class const_instance;

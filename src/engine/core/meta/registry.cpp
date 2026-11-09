@@ -776,6 +776,15 @@ property_range type::properties() const noexcept {
     return {};
   return property_range{registry_, record_->properties.data(), record_->properties.size()};
 }
+bool operator==(const type& left, const type& right) noexcept {
+  if (!left || !right)
+    return bool(left) == bool(right);
+  if (left.registry_ != right.registry_)
+    return false;
+  if (left.id() || right.id())
+    return left.id() == right.id();
+  return left.guid() == right.guid();
+}
 const void* type::extension(engine::type_id key) const noexcept {
   return record_ ? record_->extensions.find(key) : nullptr;
 }

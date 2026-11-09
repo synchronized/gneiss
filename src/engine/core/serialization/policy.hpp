@@ -93,11 +93,11 @@ reference_policy_for(const meta::type& reference,
   if (reference.kind() != meta::type_kind::reference)
     return error::invalid_argument;
   auto target = reference.element_type();
-  if (!target || target->kind() != meta::type_kind::object)
+  if (!target || target.kind() != meta::type_kind::object)
     return error::unsupported;
   if (override)
     return *override;
-  const auto* policy = target->extension<reference_policy>();
+  const auto* policy = target.extension<reference_policy>();
   return policy ? *policy : reference_policy{};
 }
 /** 与 Meta 注册器 extend 配合；按注册对象类型生成校验适配。 */

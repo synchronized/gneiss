@@ -235,8 +235,8 @@ engine::error edit_component_description(scene_edit_session& document,
       } else {
         auto element = type.element_type();
         if (!element)
-          return element.error();
-        type = *element;
+          return error::unsupported;
+        type = element;
       }
     }
     auto changed = modify_component(before, [&](meta::instance root) -> error {

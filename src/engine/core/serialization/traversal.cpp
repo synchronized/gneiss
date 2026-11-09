@@ -130,22 +130,22 @@ encode_nonobject(const context& ctx, const registry_ref& registry, const const_i
       return doc->null();
     auto target = value_type.element_type();
     if (!target)
-      return failure(target.error());
-    if (target->kind() != type_kind::object)
+      return failure(error::unsupported);
+    if (target.kind() != type_kind::object)
       return failure(error::unsupported, "", "内嵌引用目标必须是注册对象");
     auto declared = reference_policy_for(value_type, override);
     auto actual = result<engine::type_id>{reference_slot->actual_type()};
     if (!declared || !actual)
       return failure(error::invalid_argument);
     if (declared->encode) {
-      auto pointer = cast_base(registry, *actual, target->id(), const_cast<void*>(owned->get()));
+      auto pointer = cast_base(registry, *actual, target.id(), const_cast<void*>(owned->get()));
       if (!pointer)
         return std::move(pointer).error();
       return declared->encode(ctx, *doc, *pointer);
     }
-    if (!declared->polymorphic && *actual != target->id())
+    if (!declared->polymorphic && *actual != target.id())
       return failure(error::invalid_argument, "", "未声明多态的引用不能保存派生对象");
-    auto adjusted = cast_base(registry, *actual, target->id(), nullptr);
+    auto adjusted = cast_base(registry, *actual, target.id(), nullptr);
     if (!adjusted)
       return std::move(adjusted).error();
     auto binding = find_policies(registry, *actual);
@@ -572,7 +572,7 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
       return status.failed() ? failure(status) : serialization::diagnostic{};
     }
     auto target = value_type.element_type();
-    if (!target || target->kind() != type_kind::object)
+    if (!target || target.kind() != type_kind::object)
       return failure(error::unsupported);
     auto declared = reference_policy_for(value_type, override);
     if (!declared)
@@ -586,9 +586,9 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
           return failure(reference_slot->reset());
         return failure(error::invalid_argument, "", "非空引用解析结果为空");
       }
-      return failure(reference_slot->assign_owner(target->id(), *resolved));
+      return failure(reference_slot->assign_owner(target.id(), *resolved));
     }
-    auto actual = target->id();
+    auto actual = target.id();
     auto* content = input;
     if (declared->polymorphic) {
       auto* tag = context_access::input(ctx)->member(input, "$type_guid");
@@ -606,7 +606,7 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
         return failure(gneiss::engine::error{gneiss::engine::error::not_found}, "/$type_guid");
       actual = type.id();
     }
-    auto compatible = cast_base(registry, actual, target->id(), nullptr);
+    auto compatible = cast_base(registry, actual, target.id(), nullptr);
     if (!compatible)
       return std::move(compatible).error();
     path_scope reference_path{ctx, declared->polymorphic ? "/$content" : ""};
@@ -615,10 +615,10 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
       return declared->polymorphic ? prefix(std::move(decoded).error(), "/$content")
                                    : std::move(decoded).error();
     auto object = std::move(*decoded);
-    auto adjusted = cast_base(registry, actual, target->id(), object.get());
+    auto adjusted = cast_base(registry, actual, target.id(), object.get());
     if (!adjusted)
       return std::move(adjusted).error();
-    auto assigned = reference_slot->assign_owner(target->id(), object.alias(*adjusted));
+    auto assigned = reference_slot->assign_owner(target.id(), object.alias(*adjusted));
     return assigned.failed() ? failure(assigned) : serialization::diagnostic{};
   }
   if (depth > ctx.maximum_depth() && value_type.kind() != type_kind::scalar)

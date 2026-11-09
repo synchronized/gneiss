@@ -445,12 +445,14 @@ vec2、vec4 和 quaternion 保持独立分支，矩阵按列优先数组保存�
 `enum_entries()` 直接返回只读 span，借用冻结注册表中的枚举项；没有注册记录、非枚举或
 无效类型返回空范围。通过 `is_enum()`、`registered()` 和类型句柄的 bool 判断区分这些状态。
 借用结果不得超过类型视图或注册表的生命周期。`properties()` 返回保活注册表的属性范围；`element_type()` 返回
-序列元素类型或引用静态目标类型，关联容器返回映射值类型。
+序列元素类型或引用静态目标类型，关联容器返回映射值类型；无元素能力返回空类型句柄。
+类型句柄的相等比较包含注册表身份：有运行期 ID 时比较 ID，否则比较 GUID；
+两个空句柄相等。跨表判断同一种 C++ 类型或持久类型时，显式比较 id() 或 guid()。
 
 属性面板的 `draw_property_value` 接收类型视图和 value，检查存储类别匹配后从类型查询
 枚举选项。枚举容器元素也走此路径；注册表无需为每个属性复制枚举列表。
 property 句柄通过 type() 返回属性值类型，不重复保存
-kind/category/object_type/enum_type/choices/type_guid。属性提供 id、name、flags 和 capabilities 查询。
+kind/category/object_type/enum_type/choices/type_guid。属性提供 id、name 和 capabilities 查询。
 属性类型持有原注册表，不新增注册表或循环所有权。
 
 ### 不依赖实例的类型查询

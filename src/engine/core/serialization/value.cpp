@@ -165,7 +165,7 @@ struct capture_state {
         return engine::value{};
       auto target_type = source.type().element_type();
       if (!target_type)
-        return target_type.error();
+        return error::unsupported;
       auto binding = reference_policy_for(source.type(), override);
       if (!binding)
         return binding.error();
@@ -174,17 +174,17 @@ struct capture_state {
         return owner.error();
       if (binding->capture) {
         auto address = detail::cast_base(source.registry(), reference_slot->actual_type(),
-                                         target_type->id(), const_cast<void*>(owner->get()));
+                                         target_type.id(), const_cast<void*>(owner->get()));
         if (!address)
           return address.error().error;
-        auto ref = binding->capture(target_type->guid(), *address);
+        auto ref = binding->capture(target_type.guid(), *address);
         return ref ? result<engine::value>{engine::value{*ref}}
                    : result<engine::value>{ref.error()};
       }
       // 自定义外部引用不能静默按内嵌对象复制。
       if (binding->encode)
         return error::unsupported;
-      if (!binding->polymorphic && reference_slot->actual_type() != target_type->id())
+      if (!binding->polymorphic && reference_slot->actual_type() != target_type.id())
         return error::invalid_argument;
       if (!active.insert(owner->get()).second)
         return error::invalid_argument;
@@ -387,7 +387,7 @@ struct restore_state {
           return error::invalid_argument;
         auto type = find_type(registry, asset->type);
         auto element = target.type().element_type();
-        if (!type || !element || type.id() != element->id())
+        if (!type || !element || type.id() != element.id())
           return error::invalid_argument;
         if (asset->uri.empty())
           return reference_slot->reset();
@@ -411,10 +411,10 @@ struct restore_state {
         return error::unsupported;
       auto element = target.type().element_type();
       if (!element)
-        return element.error();
-      if (!policy->polymorphic && type.id() != element->id())
+        return error::unsupported;
+      if (!policy->polymorphic && type.id() != element.id())
         return error::invalid_argument;
-      auto compatible = detail::cast_base(registry, type.id(), element->id(), nullptr);
+      auto compatible = detail::cast_base(registry, type.id(), element.id(), nullptr);
       if (!compatible)
         return compatible.error().error;
       auto owner = ops->construct();
@@ -426,10 +426,10 @@ struct restore_state {
       auto status = write(*child, data, depth + 1);
       if (status.failed())
         return status;
-      auto adjusted = detail::cast_base(registry, type.id(), element->id(), owner.get());
+      auto adjusted = detail::cast_base(registry, type.id(), element.id(), owner.get());
       if (!adjusted)
         return adjusted.error().error;
-      return reference_slot->assign_owner(element->id(), owner.alias(*adjusted));
+      return reference_slot->assign_owner(element.id(), owner.alias(*adjusted));
     }
     default:
       return error::unsupported;

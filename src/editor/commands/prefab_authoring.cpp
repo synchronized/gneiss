@@ -547,7 +547,7 @@ describe_prefab_overrides(const engine::prefab_reference_description& reference,
       } else {
         text += "[" + meta::property_step_text(step) + "]";
         auto element = current.element_type();
-        current = element ? *element : meta::type{};
+        current = element;
       }
     }
     return text;

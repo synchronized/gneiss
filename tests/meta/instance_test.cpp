@@ -218,9 +218,9 @@ bool enum_registration() {
   if (!sequence || sequence->type().is_enum())
     return false;
   auto element_type = sequence->type().element_type();
-  if (!element_type || !element_type->is_enum() || element_type->id() != e::runtime_type_of<mode>())
+  if (!element_type || !element_type.is_enum() || element_type.id() != e::runtime_type_of<mode>())
     return false;
-  auto entries = element_type->enum_entries();
+  auto entries = element_type.enum_entries();
   auto elements = sequence->as_sequence();
   if (entries.size() != 2 || !elements)
     return false;
@@ -309,7 +309,7 @@ bool type_queries() {
   auto typed = m::type_of<const query_model&>(*registry);
   auto by_id = m::find_type(*registry, e::runtime_type_of<query_model>());
   auto by_guid = m::find_type(*registry, query_model::type_guid);
-  if (!typed || !by_id || !by_guid || typed.guid() != by_id.guid() || typed.id() != by_guid.id())
+  if (!typed || !by_id || !by_guid || typed != by_id || typed != by_guid)
     return false;
   auto named = typed.find_property("count");
   auto numbered = typed.find_property(m::property_id{2});
@@ -325,16 +325,26 @@ bool type_queries() {
       props[1].type().id() != e::runtime_type_of<std::int8_t>())
     return false;
   auto sequence = m::find_type(*registry, e::runtime_type_of<std::vector<mode>>());
-  auto element = sequence ? sequence.element_type() : e::result<m::type>{e::error::not_found};
+  auto element = sequence.element_type();
   auto enumeration = m::find_type(*registry, e::runtime_type_of<mode>());
-  if (!element || !element->is_enum() || !enumeration ||
-      element->enum_entries().data() != enumeration.enum_entries().data())
+  if (!element || !element.is_enum() || !enumeration ||
+      element.enum_entries().data() != enumeration.enum_entries().data())
     return false;
   auto scalar = m::type_of<float>(*registry);
   if (!scalar || !m::find_type(*registry, scalar.guid()) || !m::type_of<settings>(*registry) ||
       m::find_type(*registry, e::runtime_type_of<settings>()) ||
       m::find_type(*registry, e::guid{}) ||
       m::find_type(m::registry_ref{}, e::runtime_type_of<float>()))
+    return false;
+  // 类型句柄比较含注册表身份，不依赖模板静态描述的地址。
+  auto isolated = m::create_registry();
+  if (!isolated || m::type_of<float>(*isolated) == scalar ||
+      m::type_of<float>(*isolated).id() != scalar.id() || scalar == typed ||
+      m::type{} != m::type{} || scalar == m::type{} || m::type{}.element_type() ||
+      scalar.element_type() || element != enumeration)
+    return false;
+  const auto unregistered = m::type_of<settings>(*registry);
+  if (!unregistered || unregistered.registered() || unregistered != m::type_of<settings>(*registry))
     return false;
   // 类型视图保活注册表，但不要求对象实例存活。
   std::weak_ptr<m::type_registry_state> weak = *registry;
@@ -386,7 +396,7 @@ bool reference_properties() {
       field->read_value().error() != e::error::unsupported)
     return false;
   auto target_type = field->type().element_type();
-  if (!target_type || target_type->id() != e::runtime_type_of<reference_target>())
+  if (!target_type || target_type.id() != e::runtime_type_of<reference_target>())
     return false;
   auto target = e::make_ref<reference_target>();
   auto source = m::view(registry, std::as_const(target));

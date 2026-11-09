@@ -18,11 +18,9 @@ bool type::has_sequence_identity() const noexcept {
   const auto* ops = access_ ? access_->get<sequence_ops>() : nullptr;
   return ops && ops->identity;
 }
-result<type> type::element_type() const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
+type type::element_type() const noexcept {
   if (!access_ || !access_->element_ops())
-    return error::unsupported;
+    return {};
   return detail::resolve_type(registry_, access_->element());
 }
 
