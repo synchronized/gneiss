@@ -222,7 +222,7 @@ auto status = meta::registration<camera_settings>()
 - 自定义容器通过公开 traits/适配入口生成相同 Ops，不要求用户包含 detail/type_ops.hpp。
 - 首版用一个测试自定义容器验证扩展点，保留现有内置容器支持；不预建多个无人使用的适配框架。
 
-### 属性局部 metadata builder（方向已同意，尚未实施）
+### 属性局部 metadata builder（已实施）
 
 借鉴 Caors 的属性局部绑定形式，保留本项目类型化扩展，不复制字符串键元数据系统：
 
@@ -407,6 +407,10 @@ Mesh/Texture 描述校验已移到所属资源模块并接入文件边界，详�
 组件领域校验与相机范围检查已迁移到资源领域，变换 setter 的内存约束保留；
 通用 validation_policy 仍支持用户定义的内容约束，不再登记引擎领域校验，见
 [组件领域校验记录](../records/2026-11-09-component-domain-validation.md)。
+
+阶段 6 已将递归状态移到最外层操作栈，嵌套入口共享、退出自动销毁，见
+[操作状态记录](../records/2026-11-09-serialization-operation-state.md)。
+read_context/write_context 分离、入口重命名与调用迁移尚未完成。
 
 ## 九、验收矩阵
 

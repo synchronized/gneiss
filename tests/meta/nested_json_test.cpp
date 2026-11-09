@@ -281,12 +281,13 @@ bool nested_json_contract() {
   auto recursive_write = e::serialization::json::serialize_bytes(recursion, child{1});
   auto recursive_read =
       e::serialization::json::deserialize<child>(recursion, bytes(R"({"again":1})"));
-  if (recursive_write || recursive_read ||
+  if (!recursion.property_path().empty() || recursive_write || recursive_read ||
       recursive_write.error().error != e::error::invalid_argument ||
       recursive_read.error().error != e::error::invalid_argument)
     return false;
   if (!e::serialization::json::serialize_bytes(recursion, child{0}) ||
-      !e::serialization::json::deserialize<child>(recursion, bytes("{}")))
+      !e::serialization::json::deserialize<child>(recursion, bytes("{}")) ||
+      !recursion.property_path().empty())
     return false;
   auto deep = m::create_registry();
   if (!deep || register_chain<65>(*deep).failed() || m::freeze(*deep).failed())

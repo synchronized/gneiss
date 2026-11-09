@@ -79,7 +79,9 @@ reader/writer 提供对象、数组、空值、字符串及基础值操作。
 文件中的空值仍由有效节点表示。writer 创建的节点由 writer 后端管理。
 reader 的键名和游标借用输入，不能超过输入及 reader 的生命周期。
 context 的配置只读，递归状态私有；即使参数是 const 引用，也不能并发共用同一 context。
-context 不可复制，可在操作完成或失败后顺序复用；外层入口退出会清理深度、循环引用及 reader 状态。
+context 不可复制，可在操作完成或失败后顺序复用。路径、深度、循环引用及 reader
+由最外层入口的栈上 operation_state 持有，context 仅在操作期间借用该状态。
+嵌套入口复用状态并在返回时恢复深度和 reader；外层退出销毁状态，property_path() 返回空。
 嵌套 codec 必须传递已有 context；新建 context 或使用无 context 入口会开始独立操作。
 共享可变后端实例的并发访问也由调用方负责同步。
 

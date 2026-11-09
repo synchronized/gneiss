@@ -2,39 +2,49 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/serialization/context.hpp"
+#include <string>
+#include <unordered_set>
 namespace gneiss::engine::serialization::detail {
-struct context_access {
-  static auto& path(const context& c) { return c.path_; }
-  static auto& active(const context& c) { return c.active_; }
-  static auto& input(const context& c) { return c.input_; }
-  static auto& depth(const context& c) { return c.depth_; }
-  static auto& operations(const context& c) { return c.operations_; }
+/** 每次最外层操作拥有的状态；嵌套 codec 入口借用，不进入公开配置对象。 */
+struct operation_state {
+  std::unordered_set<const void*> active;
+  reader* input{};
+  std::size_t depth{};
+  std::string path;
 };
-/** 嵌套入口沿用已有深度；外层结束（包括失败）清理所有运行状态。 */
+struct context_access {
+  static auto& state(const context& c) { return c.state_; }
+  static auto& path(const context& c) { return c.state_->path; }
+  static auto& active(const context& c) { return c.state_->active; }
+  static auto& input(const context& c) { return c.state_->input; }
+  static auto& depth(const context& c) { return c.state_->depth; }
+};
+/** 嵌套入口沿用已有状态；最外层结束时销毁状态，包括失败路径。 */
 class operation_scope {
   const context& context_;
-  std::size_t previous_depth_;
-  reader* previous_input_;
+  operation_state local_;
+  operation_state* previous_;
+  std::size_t previous_depth_{};
+  reader* previous_input_{};
 
 public:
   explicit operation_scope(const context& c, bool fields_only = false)
-      : context_(c), previous_depth_(context_access::depth(c)),
-        previous_input_(context_access::input(c)) {
-    if (context_access::operations(c)++ == 0) {
-      context_access::active(c).clear();
-      context_access::path(c).clear();
-      context_access::depth(c) = 0;
-    } else if (!fields_only)
-      ++context_access::depth(c);
+      : context_(c), previous_(context_access::state(c)) {
+    if (!previous_)
+      context_access::state(c) = &local_;
+    else {
+      previous_depth_ = previous_->depth;
+      previous_input_ = previous_->input;
+      if (!fields_only)
+        ++previous_->depth;
+    }
   }
   ~operation_scope() {
-    context_access::depth(context_) = previous_depth_;
-    context_access::input(context_) = previous_input_;
-    if (--context_access::operations(context_) == 0) {
-      context_access::active(context_).clear();
-      context_access::path(context_).clear();
-      context_access::depth(context_) = 0;
+    if (previous_) {
+      previous_->depth = previous_depth_;
+      previous_->input = previous_input_;
     }
+    context_access::state(context_) = previous_;
   }
   operation_scope(const operation_scope&) = delete;
 };

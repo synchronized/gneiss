@@ -156,6 +156,7 @@ int main() {
   CHECK(m::register_builtin_types(*r).ok());
   CHECK(m::freeze(*r).ok());
   s::context ctx{*r};
+  CHECK(ctx.property_path().empty());
   static_assert(!std::is_copy_constructible_v<s::context>);
   // 顶层可空值与 JSON 共用类型分派，空值不走对象工厂。
   for (const auto optional : {std::optional<int>{}, std::optional<int>{17}}) {
@@ -179,6 +180,7 @@ int main() {
   required->data = e::value{std::string{"bad"}};
   auto bad = s::deserialize<record>(ctx, input);
   CHECK(!bad && bad.error().path == "/required" && bad.error().error == e::error::invalid_argument);
+  CHECK(ctx.property_path().empty());
   required->data = e::value{std::int64_t{12}};
   output.root_value->members.emplace_back("required", required);
   auto duplicate = s::deserialize<record>(ctx, input);
@@ -197,9 +199,11 @@ int main() {
   target->next = original.object;
   memory_writer cyclic;
   CHECK(s::serialize(ctx, original, cyclic).error == e::error::invalid_argument);
+  CHECK(ctx.property_path().empty());
   target->next.reset();
   memory_writer recovered;
   CHECK(s::serialize(ctx, original, recovered).error.ok());
+  CHECK(ctx.property_path().empty());
   s::context shallow{*r, 0};
   memory_writer limited;
   CHECK(s::serialize(shallow, original, limited).error == e::error::invalid_argument);

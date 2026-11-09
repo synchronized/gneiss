@@ -6,8 +6,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/serialization/diagnostic.hpp"
 #include "engine/core/type_id.hpp"
-#include <string>
-#include <unordered_set>
+#include <string_view>
 namespace gneiss::engine::serialization {
 class reader;
 /** 外部引用解析器；收集阶段记录需求，绑定阶段返回已提交加载的身份。
@@ -22,6 +21,7 @@ public:
 };
 namespace detail {
 struct context_access;
+struct operation_state;
 }
 /** 不可复制的调用上下文；配置只读，运行状态私有。可顺序复用，不可并发共用。 */
 class context final {
@@ -30,14 +30,10 @@ class context final {
   reference_resolver* references_{};
   bool use_default_ = true;
   std::size_t maximum_depth_ = 64;
-  mutable std::unordered_set<const void*> active_{};
-  mutable reader* input_{};
-  mutable std::size_t depth_{};
-  mutable std::size_t operations_{};
-  mutable std::string path_;
+  mutable detail::operation_state* state_{};
 
 public:
-  [[nodiscard]] std::string_view property_path() const noexcept { return path_; }
+  [[nodiscard]] GNEISS_API std::string_view property_path() const noexcept;
   context() = default;
   explicit context(reference_resolver& references) noexcept : references_(&references) {}
   [[nodiscard]] reference_resolver* references() const noexcept { return references_; }
