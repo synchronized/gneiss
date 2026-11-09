@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/serialization/detail/traversal.hpp"
-#include "engine/core/meta/detail/property_view_access.hpp"
-#include "engine/core/meta/detail/reference_view_access.hpp"
 #include <algorithm>
 namespace gneiss::engine::serialization::detail {
 using namespace meta;
@@ -124,7 +122,10 @@ result<writer::node, serialization::diagnostic> encode_nonobject(const context& 
   if (value_type.kind() == type_kind::empty)
     return doc->null();
   if (value_type.kind() == type_kind::reference) {
-    auto owned = meta::detail::reference_view_access::owner(view);
+    auto reference_slot = view.as_reference();
+    if (!reference_slot)
+      return failure(reference_slot.error());
+    auto owned = reference_slot->owner();
     if (!owned)
       return failure(owned.error());
     if (!*owned)
@@ -135,7 +136,7 @@ result<writer::node, serialization::diagnostic> encode_nonobject(const context& 
     if (target->kind() != type_kind::object)
       return failure(error::unsupported, "", "内嵌引用目标必须是注册对象");
     auto declared = find_serialization(registry, target->id());
-    auto actual = meta::detail::reference_view_access::dynamic_type(view);
+    auto actual = result<engine::type_id>{reference_slot->actual_type()};
     if (!declared || !actual)
       return failure(error::invalid_argument);
     if (declared->encode_reference) {
@@ -337,7 +338,10 @@ serialization::diagnostic validate_view(const context& ctx, const registry_ref& 
   if (value_type.kind() == type_kind::empty)
     return {};
   if (value_type.kind() == type_kind::reference) {
-    auto owner = meta::detail::reference_view_access::owner(view);
+    auto reference_slot = view.as_reference();
+    if (!reference_slot)
+      return failure(reference_slot.error());
+    auto owner = reference_slot->owner();
     return owner && !*owner ? serialization::diagnostic{}
                             : failure(error::unsupported, "", "非空缺省引用必须显式保存");
   }
@@ -530,8 +534,7 @@ serialization::diagnostic decode_nonobject(const context&, const registry_ref&, 
 serialization::diagnostic decode_view(const context& ctx, const registry_ref& registry,
                                       const instance& view, reader::node input, std::size_t depth) {
   depth_scope scope{ctx, depth};
-  if (view.kind() == type_kind::object &&
-      !meta::detail::property_view_access::requires_replacement(view))
+  if (view.kind() == type_kind::object && !view.requires_replacement())
     return decode_nested(ctx, registry, view, input, depth);
   return decode_nonobject(ctx, registry, view, input, depth);
 }
@@ -539,9 +542,9 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
                                            const instance& view, reader::node input,
                                            std::size_t depth) {
   depth_scope scope{ctx, depth};
-  if (meta::detail::property_view_access::requires_replacement(view)) {
+  if (view.requires_replacement()) {
     serialization::diagnostic diagnostic;
-    auto status = meta::detail::property_view_access::replace(view, [&](const instance& temporary) {
+    auto status = view.replace([&](const instance& temporary) {
       diagnostic = decode_view(ctx, registry, temporary, input, depth);
       return diagnostic.error;
     });
@@ -554,8 +557,11 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
     return context_access::input(ctx)->is_null(input) ? serialization::diagnostic{}
                                                       : failure(error::invalid_argument);
   if (value_type.kind() == type_kind::reference) {
+    auto reference_slot = view.as_reference();
+    if (!reference_slot)
+      return failure(reference_slot.error());
     if (context_access::input(ctx)->is_null(input)) {
-      auto status = meta::detail::reference_view_access::reset(view);
+      auto status = reference_slot->reset();
       return status.failed() ? failure(status) : serialization::diagnostic{};
     }
     auto target = value_type.element_type();
@@ -570,10 +576,10 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
         return std::move(resolved).error();
       if (!*resolved) {
         if (ctx.references() && ctx.references()->collecting())
-          return failure(meta::detail::reference_view_access::reset(view));
+          return failure(reference_slot->reset());
         return failure(error::invalid_argument, "", "非空引用解析结果为空");
       }
-      return failure(meta::detail::reference_view_access::assign(view, target->id(), *resolved));
+      return failure(reference_slot->assign_owner(target->id(), *resolved));
     }
     auto actual = target->id();
     auto* content = input;
@@ -605,8 +611,7 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
     auto adjusted = cast_base(registry, actual, target->id(), object.get());
     if (!adjusted)
       return std::move(adjusted).error();
-    auto assigned =
-        meta::detail::reference_view_access::assign(view, target->id(), object.alias(*adjusted));
+    auto assigned = reference_slot->assign_owner(target->id(), object.alias(*adjusted));
     return assigned.failed() ? failure(assigned) : serialization::diagnostic{};
   }
   if (depth > ctx.maximum_depth() && value_type.kind() != type_kind::scalar)

@@ -67,6 +67,21 @@ bool object_values() {
   auto field = view->member("item");
   if (!field || field->kind() != m::type_kind::reference)
     return false;
+  // 显式保活独立于槽位；错误类型赋值不得改变原引用。
+  auto slot = field->as_reference();
+  if (!slot || view->registry() != *registry ||
+      slot->actual_type() != e::runtime_type_of<shared_probe>())
+    return false;
+  auto retained = slot->owner();
+  auto original = holder.item;
+  if (!retained || retained->get() != original.get() ||
+      slot->assign_owner(e::runtime_type_of<unrelated_probe>(), original) !=
+          e::error::invalid_argument ||
+      holder.item != original || slot->reset().failed() || holder.item ||
+      retained->get() != original.get() ||
+      slot->assign_owner(e::runtime_type_of<shared_probe>(), original).failed() ||
+      holder.item != original)
+    return false;
   auto read = field->read_value();
   if (!read || read->kind() != e::value_kind::object)
     return false;

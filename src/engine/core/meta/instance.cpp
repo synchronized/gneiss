@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/instance.hpp"
-#include "engine/core/meta/detail/property_view_access.hpp"
-#include "engine/core/meta/detail/reference_view_access.hpp"
 #include <algorithm>
 namespace gneiss::engine::meta {
 meta::type const_instance::type() const noexcept {
@@ -234,7 +232,7 @@ result<void*> instance::object_data() const noexcept {
 error instance::assign(const const_instance& source) const noexcept try {
   if (kind() == type_kind::invalid || source.kind() == type_kind::invalid)
     return error::invalid_state;
-  if (detail::property_view_access::requires_replacement(*this)) {
+  if (requires_replacement()) {
     if (view_.cpp_type_ != source.cpp_type_)
       return error::invalid_argument;
     auto binding = find_object_property(view_.registry_, view_.parent_type_, view_.property_);
@@ -259,7 +257,7 @@ error instance::assign(const const_instance& source) const noexcept try {
 error instance::assign_object(engine::type_id id, void* source) const noexcept try {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
-  if (detail::property_view_access::requires_replacement(*this)) {
+  if (requires_replacement()) {
     if (!source || id != view_.cpp_type_)
       return error::invalid_argument;
     auto binding = find_object_property(view_.registry_, view_.parent_type_, view_.property_);
@@ -392,38 +390,11 @@ result<mutable_reference_view> instance::as_reference() const noexcept {
 }
 }
 
-namespace gneiss::engine::meta::detail {
-result<engine::type_id> reference_view_access::dynamic_type(const const_instance& view) noexcept {
-  auto reference = view.as_reference();
-  if (!reference)
-    return reference.error();
-  return reference->actual_type();
-}
-result<ref<const void>> reference_view_access::owner(const const_instance& view) noexcept {
-  auto reference = view.as_reference();
-  if (!reference)
-    return reference.error();
-  return reference->owner();
-}
-error reference_view_access::assign(const instance& view, engine::type_id id,
-                                    const ref<void>& owner) noexcept {
-  auto reference = view.as_reference();
-  if (!reference)
-    return reference.error();
-  return reference->assign_owner(id, owner);
-}
-error reference_view_access::reset(const instance& view) noexcept {
-  auto reference = view.as_reference();
-  if (!reference)
-    return reference.error();
-  return reference->reset();
-}
-}
-
-namespace gneiss::engine::meta::detail {
-error property_view_access::replace(
-    const instance& target, const std::function<error(const instance&)>& initialize) noexcept try {
-  if (!requires_replacement(target) || !initialize)
+namespace gneiss::engine::meta {
+error instance::replace(const std::function<error(const instance&)>& initialize) const noexcept
+    try {
+  const auto& target = *this;
+  if (!requires_replacement() || !initialize)
     return error::invalid_argument;
   auto binding = find_object_property(target.view_.registry_, target.view_.parent_type_,
                                       target.view_.property_);

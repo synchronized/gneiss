@@ -3,6 +3,7 @@
 #pragma once
 #include "engine/core/meta/detail/type_ops.hpp"
 #include "engine/core/meta/registry.hpp"
+#include <functional>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
@@ -19,9 +20,6 @@ using mutable_optional_view = basic_optional_view<true>;
 template <bool Mutable> class basic_reference_view;
 using reference_view = basic_reference_view<false>;
 using mutable_reference_view = basic_reference_view<true>;
-namespace detail {
-struct property_view_access;
-}
 template <bool Mutable> class basic_variant_view;
 using variant_view = basic_variant_view<false>;
 using mutable_variant_view = basic_variant_view<true>;
@@ -32,6 +30,7 @@ class instance;
 class const_instance {
 public:
   const_instance() = default;
+  [[nodiscard]] const registry_ref& registry() const noexcept { return registry_; }
   /** 类型擦除入口：调用方保证 object 的实际类型匹配 id，且地址在视图使用期间稳定。 */
   static GNEISS_API result<const_instance> from_object(registry_ref registry, engine::type_id id,
                                                        const void* object) noexcept;
@@ -64,7 +63,6 @@ private:
   template <class T> friend result<const_instance> view(const registry_ref&, const T&) noexcept;
   friend class instance;
   friend class meta::property;
-  friend struct detail::property_view_access;
   template <bool> friend class basic_sequence_view;
   template <bool> friend class basic_associative_view;
   template <bool> friend class basic_optional_view;
@@ -89,6 +87,14 @@ private:
 class instance {
 public:
   instance() = default;
+  [[nodiscard]] const registry_ref& registry() const noexcept { return view_.registry(); }
+  /** 受 setter 约束的复合属性必须整体替换，不提供可写成员地址。 */
+  [[nodiscard]] bool requires_replacement() const noexcept {
+    return parent_ && !data_ && kind() != type_kind::scalar;
+  }
+  /** 在独立候选中初始化，成功后调用 setter；失败不修改属性。 */
+  [[nodiscard]] GNEISS_API error
+  replace(const std::function<error(const instance&)>& initialize) const noexcept;
   static GNEISS_API result<instance> from_object(registry_ref registry, engine::type_id id,
                                                  void* object) noexcept;
   static result<instance> from_object(engine::type_id id, void* object) noexcept {
@@ -131,7 +137,6 @@ private:
   template <class T>
     requires(!std::is_const_v<T>)
   friend result<instance> view(const registry_ref&, T&) noexcept;
-  friend struct detail::property_view_access;
   template <bool> friend class basic_sequence_view;
   template <bool> friend class basic_associative_view;
   template <bool> friend class basic_optional_view;

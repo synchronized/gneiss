@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/serialization/serialization.hpp"
-#include "engine/core/meta/detail/property_view_access.hpp"
 #include "engine/core/serialization/detail/traversal.hpp"
 namespace gneiss::engine::serialization {
 serialization::diagnostic serialize(const context& ctx, const meta::const_instance& view,
@@ -9,7 +8,7 @@ serialization::diagnostic serialize(const context& ctx, const meta::const_instan
   auto registry = ctx.registry();
   if (!registry)
     return {.error = registry.error()};
-  if (*registry != meta::detail::property_view_access::registry(view))
+  if (*registry != view.registry())
     return {.error = error::invalid_argument};
   detail::operation_scope operation{ctx};
   auto encoded =
@@ -29,7 +28,7 @@ serialization::diagnostic deserialize(const context& ctx, reader& input,
     return serialization::diagnostic{.error = registry.error()};
   detail::operation_scope operation{ctx};
   detail::context_access::input(ctx) = &input;
-  if (*registry != meta::detail::property_view_access::registry(view))
+  if (*registry != view.registry())
     return {.error = error::invalid_argument};
   return detail::decode_view(ctx, *registry, view, input.root(),
                              detail::context_access::depth(ctx));
@@ -53,11 +52,11 @@ result<ref<void>, serialization::diagnostic> deserialize_object(const context& c
   return serialization::diagnostic{.error = error::internal};
 }
 serialization::diagnostic serialize(const meta::const_instance& view, writer& output) noexcept {
-  context ctx{meta::detail::property_view_access::registry(view)};
+  context ctx{view.registry()};
   return serialize(ctx, view, output);
 }
 serialization::diagnostic deserialize(reader& input, const meta::instance& view) noexcept {
-  context ctx{meta::detail::property_view_access::registry(view)};
+  context ctx{view.registry()};
   return deserialize(ctx, input, view);
 }
 }

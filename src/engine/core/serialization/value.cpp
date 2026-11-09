@@ -2,8 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/serialization/value.hpp"
 #include "engine/core/meta/associative_view.hpp"
-#include "engine/core/meta/detail/property_view_access.hpp"
-#include "engine/core/meta/detail/reference_view_access.hpp"
 #include "engine/core/meta/optional_view.hpp"
 #include "engine/core/meta/reference_view.hpp"
 #include "engine/core/meta/sequence_view.hpp"
@@ -15,8 +13,6 @@
 namespace gneiss::engine::serialization {
 namespace {
 using namespace meta;
-using property_access = meta::detail::property_view_access;
-using reference_access = meta::detail::reference_view_access;
 struct capture_state {
   const context& ctx;
   std::unordered_set<const void*> active;
@@ -38,7 +34,7 @@ struct capture_state {
     case type_kind::object: {
       if (!source.guid())
         return error::unsupported;
-      auto policy = find_serialization(property_access::registry(source), source.type_id());
+      auto policy = find_serialization(source.registry(), source.type_id());
       if (policy && !policy->reflected && (policy->encode || policy->decode))
         return error::unsupported;
       record_value_data record{source.guid(), {}};
@@ -148,6 +144,9 @@ struct capture_state {
           variant_value{variant_value_data{std::string(view->names()[*index]), std::move(*item)}}};
     }
     case type_kind::reference: {
+      auto reference_slot = source.as_reference();
+      if (!reference_slot)
+        return reference_slot.error();
       auto view = source.as_reference();
       if (!view)
         return view.error();
@@ -159,8 +158,8 @@ struct capture_state {
       auto target_type = source.type().element_type();
       if (!target_type)
         return target_type.error();
-      auto binding = find_serialization(property_access::registry(source), target_type->id());
-      auto owner = reference_access::owner(source);
+      auto binding = find_serialization(source.registry(), target_type->id());
+      auto owner = reference_slot->owner();
       if (!owner)
         return owner.error();
       if (binding && binding->capture_reference) {
@@ -200,9 +199,8 @@ struct restore_state {
                    bool sequence_candidate) {
     if (depth > ctx.maximum_depth())
       return error::invalid_argument;
-    if (property_access::requires_replacement(target))
-      return property_access::replace(
-          target, [&](const instance& temp) { return write(temp, data, depth); });
+    if (target.requires_replacement())
+      return target.replace([&](const instance& temp) { return write(temp, data, depth); });
     switch (target.kind()) {
     case type_kind::empty:
       return data.kind() == value_kind::invalid ? error::success : error::invalid_argument;
@@ -233,7 +231,7 @@ struct restore_state {
         if (has_flags(field.capabilities(), property_capabilities::writable) &&
             !seen.contains(field.id().get()))
           return error::invalid_argument;
-      auto binding = find_serialization(property_access::registry(target), target.type().id());
+      auto binding = find_serialization(target.registry(), target.type().id());
       if (binding && binding->validate) {
         auto address = target.object_data();
         if (!address)
@@ -344,22 +342,25 @@ struct restore_state {
       return child ? write(*child, item->get().content, depth + 1) : child.error();
     }
     case type_kind::reference: {
+      auto reference_slot = target.as_reference();
+      if (!reference_slot)
+        return reference_slot.error();
       if (data.kind() == value_kind::invalid)
-        return reference_access::reset(target);
-      const auto& registry = property_access::registry(target);
+        return reference_slot->reset();
+      const auto& registry = target.registry();
       if (auto asset = std::get_if<asset_reference_value>(&data.payload)) {
         auto type = find_type(registry, asset->type);
         auto element = target.type().element_type();
         if (!type || !element || type->id() != element->id())
           return error::invalid_argument;
         if (asset->uri.empty())
-          return reference_access::reset(target);
+          return reference_slot->reset();
         if (!ctx.references())
           return error::invalid_state;
         auto owner = ctx.references()->resolve(type->id(), asset->uri, ctx.property_path());
         if (!owner)
           return owner.error().error;
-        return reference_access::assign(target, type->id(), *owner);
+        return reference_slot->assign_owner(type->id(), *owner);
       }
       auto record = std::get_if<record_value>(&data.payload);
       if (!record)
@@ -388,7 +389,7 @@ struct restore_state {
       auto adjusted = detail::cast_base(registry, type->id(), element->id(), owner.get());
       if (!adjusted)
         return adjusted.error().error;
-      return reference_access::assign(target, element->id(), owner.alias(*adjusted));
+      return reference_slot->assign_owner(element->id(), owner.alias(*adjusted));
     }
     default:
       return error::unsupported;
@@ -402,7 +403,7 @@ result<engine::value, diagnostic> capture_value(const context& ctx,
   auto registry = ctx.registry();
   if (!registry)
     return diagnostic{.error = registry.error()};
-  if (*registry != property_access::registry(source))
+  if (*registry != source.registry())
     return diagnostic{.error = error::invalid_argument};
   capture_state state{ctx, {}, {}};
   auto captured = state.read(source, 0);
@@ -423,7 +424,7 @@ diagnostic apply_value(const context& ctx, const meta::instance& target,
   auto registry = ctx.registry();
   if (!registry)
     return {.error = registry.error()};
-  if (*registry != property_access::registry(target))
+  if (*registry != target.registry())
     return {.error = error::invalid_argument};
   auto status = validate_persistent_value(data, ctx.maximum_depth());
   if (status.failed())
@@ -437,11 +438,11 @@ diagnostic apply_value(const context& ctx, const meta::instance& target,
   return {.error = error::internal};
 }
 result<engine::value, diagnostic> capture_value(const meta::const_instance& source) noexcept {
-  context ctx{property_access::registry(source)};
+  context ctx{source.registry()};
   return capture_value(ctx, source);
 }
 diagnostic apply_value(const meta::instance& target, const engine::value& data) noexcept {
-  context ctx{property_access::registry(target)};
+  context ctx{target.registry()};
   return apply_value(ctx, target, data);
 }
 }

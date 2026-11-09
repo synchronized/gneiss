@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-2026-11-09：实施中，属性范围、句柄、实例门面及旧查询清理已完成；注册适配、策略和上下文尚未完成。
+2026-11-09：实施中，属性范围、句柄、实例门面及旧查询清理已完成；注册适配与访问边界已完成；策略和上下文尚未完成。
 归属 [DEV-052](DEV-052-architecture-cleanup.md)，长期边界见
 [ADR-113](../decisions/ADR-113-meta-serialization-boundaries.md)。
 本文是目标 API 与迁移步骤的权威来源；代码示意均为目标接口，不表示已实现。
@@ -212,7 +212,7 @@ Binary 后续有真实任务时新增 binary.hpp/.cpp。本轮不创建空文件
    同时迁移 Inspector 与遍历，不保留第二套公共属性元数据查询。
 3. [x] 实例 API：采用 instance/const_instance、view/member/assign；迁移所有调用、测试和路径解析。
    删除 mutable_instance 旧名；编译验证 const 拒绝写、临时对象拒绝借用。
-4. [ ] 注册与适配：builder commit、默认/显式注册上下文、traits 适配契约、冻结属性索引；
+4. [x] 注册与适配：builder commit、默认/显式注册上下文、traits 适配契约、冻结属性索引；
    移除普通消费代码对注册定义及 detail Ops 的依赖。
 5. [ ] 策略拆分：替换 binding；先迁移已有 codec/引用，再做字段覆盖；
    迁移 editor_read_only/enum_name，分类迁移 validate，删除旧 flags 和 reflected 开关。
@@ -237,7 +237,7 @@ describe_type/describe_property、type_info/property_info 已删除；
 见[实例门面迁移记录](../records/2026-11-09-meta-instance-api.md)；阶段 4 已统一 registration<T>、显式身份设置并验证公开 sequence_traits；
 冻结属性索引已接入，见[索引记录](../records/2026-11-09-meta-frozen-index.md)；
 无 GUID 对象注册、嵌套访问及持久化身份边界已实现，见
-[运行期身份记录](../records/2026-11-09-meta-runtime-identity.md)；内部访问边界仍待清理。验证见
+[运行期身份记录](../records/2026-11-09-meta-runtime-identity.md)；序列化已改用正式实例与引用视图接口，两个私有访问辅助头已删除，见[访问边界记录](../records/2026-11-09-meta-access-boundary.md)。验证见
 [注册入口记录](../records/2026-11-09-meta-registration.md)。调用点审计与验证见
 [首批记录](../records/2026-11-09-meta-property-handles.md)。
 

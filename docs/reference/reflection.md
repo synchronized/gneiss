@@ -490,7 +490,12 @@ reference_view::get 对空引用返回 not_found。引用不是标量；可变 m
 不同目标类型（包括 const 差异）返回 invalid_argument，不隐式推断派生转换。
 引用视图的 `reset()` 释放当前引用，不影响其他强引用；视图不会自动延长目标寿命，
 重置/替换后应重新获取目标视图。
-控制块保活和解码回填仅供内部 `detail::reference_view_access` 使用。修改目标会被所有共享拥有者观察到，不提供写时复制。
+通过 `reference_view::owner()` 显式保活目标；`actual_type()` 查询实际运行类型。
+可写视图的 `assign_owner(id, owner)` 仅接受声明目标类型的 ID，调用方须保证擦除指针与 ID 匹配。
+修改目标会被所有共享拥有者观察到，不提供写时复制。
+实例的 `registry()` 返回所持有的注册表；受 setter 约束的复合属性通过
+`requires_replacement()` 判断整体替换要求，`replace(initialize)` 在独立候选上初始化，
+成功后才调用 setter。普通成员继续使用 `assign`，序列化不访问 Meta 私有状态。
 
 默认反射 JSON 按值内联引用：空引用输出 null，普通 ref<T> 输出目标字段。
 声明类型通过 registration<T>::polymorphic() 显式启用多态后，输出

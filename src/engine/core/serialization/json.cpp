@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/serialization/json.hpp"
-#include "engine/core/meta/detail/property_view_access.hpp"
-#include "engine/core/meta/detail/reference_view_access.hpp"
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/serialization/detail/json_adapter.hpp"
 #include "engine/core/serialization/detail/traversal.hpp"
@@ -297,7 +295,7 @@ serialize_instance(const context& ctx, const const_instance& view) noexcept try 
   if (!selected)
     return failure(selected.error());
   const auto& registry = *selected;
-  if (registry != meta::detail::property_view_access::registry(view))
+  if (registry != view.registry())
     return failure(error::invalid_argument);
   operation_scope operation{ctx};
   if (context_access::depth(ctx) > ctx.maximum_depth())
@@ -328,7 +326,7 @@ serialization::diagnostic deserialize_instance(const context& ctx, const instanc
   if (!selected)
     return failure(selected.error());
   const auto& registry = *selected;
-  if (registry != meta::detail::property_view_access::registry(view))
+  if (registry != view.registry())
     return failure(error::invalid_argument);
   operation_scope operation{ctx};
   if (context_access::depth(ctx) > ctx.maximum_depth())
@@ -389,7 +387,7 @@ result<yyjson_mut_val*, serialization::diagnostic> write(const context& ctx, yyj
   if (!selected)
     return failure(selected.error());
   const auto& registry = *selected;
-  if (registry != meta::detail::property_view_access::registry(view))
+  if (registry != view.registry())
     return failure(error::invalid_argument);
   operation_scope operation{ctx};
   return encode_view(ctx, registry, view, doc, context_access::depth(ctx));
@@ -404,7 +402,7 @@ serialization::diagnostic read(const context& ctx, yyjson_val* input, const inst
   if (!selected)
     return failure(selected.error());
   const auto& registry = *selected;
-  if (registry != meta::detail::property_view_access::registry(view))
+  if (registry != view.registry())
     return failure(error::invalid_argument);
   operation_scope operation{ctx};
   return decode_view(ctx, registry, view, input, context_access::depth(ctx));
@@ -419,12 +417,12 @@ namespace gneiss::engine::serialization::json {
 using namespace meta;
 result<std::vector<std::byte>, serialization::diagnostic>
 serialize_instance(const const_instance& view) noexcept {
-  context ctx{meta::detail::property_view_access::registry(view)};
+  context ctx{view.registry()};
   return serialize_instance(ctx, view);
 }
 serialization::diagnostic deserialize_instance(const instance& view,
                                                std::span<const std::byte> bytes) noexcept {
-  context ctx{meta::detail::property_view_access::registry(view)};
+  context ctx{view.registry()};
   return deserialize_instance(ctx, view, bytes);
 }
 }
@@ -519,7 +517,7 @@ write_fields(const context& ctx, yyjson_mut_doc* doc, const const_instance& view
   auto selected = ctx.registry();
   if (!selected)
     return failure(selected.error());
-  if (*selected != meta::detail::property_view_access::registry(view))
+  if (*selected != view.registry())
     return failure(error::invalid_argument);
   auto address = view.object_data();
   if (!address)
@@ -543,7 +541,7 @@ serialization::diagnostic read_fields(const context& ctx, yyjson_val* input, con
   auto selected = ctx.registry();
   if (!selected)
     return failure(selected.error());
-  if (*selected != meta::detail::property_view_access::registry(view))
+  if (*selected != view.registry())
     return failure(error::invalid_argument);
   auto decoded = read_fields_object(ctx, input, view.type().id(), ignored);
   if (!decoded)
@@ -564,21 +562,21 @@ serialization::diagnostic read_fields(const context& ctx, yyjson_val* input, con
 }
 result<yyjson_mut_val*, serialization::diagnostic> write(yyjson_mut_doc* doc,
                                                          const const_instance& view) noexcept {
-  context ctx{meta::detail::property_view_access::registry(view)};
+  context ctx{view.registry()};
   return write(ctx, doc, view);
 }
 serialization::diagnostic read(yyjson_val* input, const instance& view) noexcept {
-  context ctx{meta::detail::property_view_access::registry(view)};
+  context ctx{view.registry()};
   return read(ctx, input, view);
 }
 result<yyjson_mut_val*, serialization::diagnostic>
 write_fields(yyjson_mut_doc* doc, const const_instance& view) noexcept {
-  context ctx{meta::detail::property_view_access::registry(view)};
+  context ctx{view.registry()};
   return write_fields(ctx, doc, view);
 }
 serialization::diagnostic read_fields(yyjson_val* input, const instance& view,
                                       std::span<const std::string_view> ignored) noexcept {
-  context ctx{meta::detail::property_view_access::registry(view)};
+  context ctx{view.registry()};
   return read_fields(ctx, input, view, ignored);
 }
 result<yyjson_mut_val*, serialization::diagnostic> write_value(yyjson_mut_doc* doc,
