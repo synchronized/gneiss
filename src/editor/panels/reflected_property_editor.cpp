@@ -273,12 +273,11 @@ bool draw_property_value(const char* name, value& data, const meta::type& type,
   }
   std::span<const meta::enum_entry> choices;
   if (type.is_enum()) {
-    auto entries = type.enum_entries();
-    if (!entries) {
-      status = entries.error();
+    if (!type.registered()) {
+      status = error::not_found;
       return false;
     }
-    choices = *entries;
+    choices = type.enum_entries();
   }
   bool changed = false;
   error operation = error::success;

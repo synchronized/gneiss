@@ -270,12 +270,13 @@ encode_nonobject(const context& ctx, const registry_ref& registry, const const_i
 }
 result<writer::node, serialization::diagnostic> encode_enum_name(const const_instance& view,
                                                                  writer* doc) {
-  auto entries = view.type().enum_entries();
+  const auto type = view.type();
+  const auto entries = type.enum_entries();
   auto scalar = view.read_value();
-  if (!entries || !scalar)
+  if (!type.is_enum() || !type.registered() || !scalar)
     return failure(error::invalid_argument, "", "属性必须是已注册枚举");
-  const auto found = std::ranges::find(*entries, *scalar, &enum_entry::data);
-  if (found == entries->end())
+  const auto found = std::ranges::find(entries, *scalar, &enum_entry::data);
+  if (found == entries.end())
     return failure(error::invalid_argument, "", "未知枚举值");
   auto* name = doc->string(found->name);
   if (!name)
@@ -284,12 +285,13 @@ result<writer::node, serialization::diagnostic> encode_enum_name(const const_ins
 }
 serialization::diagnostic decode_enum_name(const context& ctx, const instance& view,
                                            reader::node input) {
-  auto entries = view.type().enum_entries();
-  if (!entries || !context_access::input(ctx)->is_string(input))
+  const auto type = view.type();
+  const auto entries = type.enum_entries();
+  if (!type.is_enum() || !type.registered() || !context_access::input(ctx)->is_string(input))
     return failure(error::invalid_argument, "", "属性必须是枚举名称");
   const auto name = context_access::input(ctx)->string(input);
-  const auto found = std::ranges::find(*entries, name, &enum_entry::name);
-  if (found == entries->end())
+  const auto found = std::ranges::find(entries, name, &enum_entry::name);
+  if (found == entries.end())
     return failure(error::invalid_argument, "", "未知枚举名称");
   auto status = view.assign(found->data);
   return status.failed() ? failure(status) : serialization::diagnostic{};

@@ -436,9 +436,9 @@ vec2、vec4 和 quaternion 保持独立分支，矩阵按列优先数组保存�
 `is_enum()` 区分 C++ 枚举与整数，`id()` 保留枚举自己的运行期类型身份。
 枚举尚无独立稳定 GUID 注册入口，因此类型视图的枚举 `guid()` 为空，不冒用整数 GUID。
 
-`enum_entries()` 从冻结注册表借用同一份枚举项；未冻结返回 not_ready，未注册返回
-not_found，非枚举返回 unsupported，默认无效视图返回 invalid_state。借用结果不得超过
-类型视图或注册表的生命周期。`properties()` 返回保活注册表的属性范围；`element_type()` 返回
+`enum_entries()` 直接返回只读 span，借用冻结注册表中的枚举项；没有注册记录、非枚举或
+无效类型返回空范围。通过 `is_enum()`、`registered()` 和类型句柄的 bool 判断区分这些状态。
+借用结果不得超过类型视图或注册表的生命周期。`properties()` 返回保活注册表的属性范围；`element_type()` 返回
 序列元素类型或引用静态目标类型，关联容器返回映射值类型。
 
 属性面板的 `draw_property_value` 接收类型视图和 value，检查存储类别匹配后从类型查询

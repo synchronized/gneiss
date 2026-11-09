@@ -30,7 +30,8 @@ public:
   [[nodiscard]] GNEISS_API engine::type_id id() const noexcept;
   [[nodiscard]] GNEISS_API engine::guid guid() const noexcept;
   [[nodiscard]] GNEISS_API value_kind scalar_kind() const noexcept;
-  [[nodiscard]] GNEISS_API result<std::span<const enum_entry>> enum_entries() const noexcept;
+  /** 借用已注册枚举项；无注册记录或非枚举返回空范围，寿命受本句柄保护。 */
+  [[nodiscard]] GNEISS_API std::span<const enum_entry> enum_entries() const noexcept;
   /** 注册对象名称；没有注册名称时返回空字符串，借用期间须保活句柄。 */
   [[nodiscard]] GNEISS_API std::string_view name() const noexcept;
   /** 未登记版本的类型返回零。 */

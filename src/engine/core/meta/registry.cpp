@@ -600,17 +600,6 @@ public:
     return error::internal;
   }
 
-  result<std::span<const enum_entry>> enum_entries(engine::type_id id) const noexcept try {
-    std::shared_lock lock(mutex_);
-    if (!is_frozen_)
-      return error::not_ready;
-    const auto found = enums_.find(id);
-    if (found == enums_.end())
-      return error::not_found;
-    return std::span<const enum_entry>{found->second.entries};
-  } catch (...) {
-    return error::internal;
-  }
   result<meta::type> type_at(std::uint32_t index) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
@@ -790,14 +779,9 @@ engine::guid type::guid() const noexcept {
 value_kind type::scalar_kind() const noexcept {
   return access_ ? access_->scalar_kind() : record_ ? record_->scalar : value_kind::invalid;
 }
-result<std::span<const enum_entry>> type::enum_entries() const noexcept {
-  if (!*this)
-    return error::invalid_state;
-  if (!is_enum())
-    return error::unsupported;
-  if (!record_)
-    return error::not_found;
-  return std::span<const enum_entry>{record_->entries};
+std::span<const enum_entry> type::enum_entries() const noexcept {
+  return record_ && is_enum() ? std::span<const enum_entry>{record_->entries}
+                              : std::span<const enum_entry>{};
 }
 result<property> type::find_property(property_id property) const noexcept {
   if (!*this)
@@ -866,11 +850,6 @@ result<registry_ref> create_registry() noexcept {
   } catch (...) {
     return error::internal;
   }
-}
-result<std::span<const enum_entry>> enum_entries(const registry_ref& state,
-                                                 engine::type_id id) noexcept {
-  return state ? state->enum_entries(id)
-               : result<std::span<const enum_entry>>{error::invalid_handle};
 }
 error register_enum(const registry_ref& state, engine::type_id id, value_kind kind,
                     std::span<const enum_entry> entries) noexcept {

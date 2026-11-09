@@ -177,7 +177,7 @@ bool enum_registration() {
   enum class unknown_mode { value };
   unknown_mode unknown{};
   auto unknown_view = m::view(registry, std::as_const(unknown));
-  if (!unknown_view || unknown_view->type().enum_entries().error() != e::error::not_found)
+  if (!unknown_view || !unknown_view->type().enum_entries().empty())
     return false;
   if (m::registration<enum_object>{registry}
           .property<&enum_object::left>(m::property_id{1}, "left")
@@ -205,14 +205,13 @@ bool enum_registration() {
     return false;
   auto type = m::type_of<enum_object>(registry);
   if (!type || (*type->properties())[0].type().id() != e::runtime_type_of<mode>() ||
-      (*type->properties())[0].type().enum_entries()->size() != 2 ||
-      (*type->properties())[0].type().enum_entries()->data() !=
-          (*type->properties())[1].type().enum_entries()->data() ||
-      (*(*type->properties())[0].type().enum_entries())[0].name != "First" ||
-      std::get<std::int64_t>((*(*type->properties())[0].type().enum_entries())[0].data.payload) !=
-          -1)
+      (*type->properties())[0].type().enum_entries().size() != 2 ||
+      (*type->properties())[0].type().enum_entries().data() !=
+          (*type->properties())[1].type().enum_entries().data() ||
+      (*type->properties())[0].type().enum_entries()[0].name != "First" ||
+      std::get<std::int64_t>((*type->properties())[0].type().enum_entries()[0].data.payload) != -1)
     return false;
-  if (unknown_view->type().enum_entries().error() != e::error::not_found)
+  if (!unknown_view->type().enum_entries().empty())
     return false;
   std::vector<mode> modes{mode::first};
   auto sequence = m::view(registry, std::as_const(modes));
@@ -223,19 +222,19 @@ bool enum_registration() {
     return false;
   auto entries = element_type->enum_entries();
   auto elements = sequence->as_sequence();
-  if (!entries || entries->size() != 2 || !elements)
+  if (entries.size() != 2 || !elements)
     return false;
   auto element = elements->at(0);
-  if (!element || !element->type().is_enum() || !element->type().enum_entries())
+  if (!element || !element->type().is_enum() || element->type().enum_entries().empty())
     return false;
-  if (m::type{}.enum_entries().error() != e::error::invalid_state)
+  if (!m::type{}.enum_entries().empty())
     return false;
   enum_object object;
   auto view = m::view(registry, object);
   if (!view)
     return false;
   auto field = view->member("left");
-  if (!field || !field->type().is_enum() || !field->type().enum_entries() ||
+  if (!field || !field->type().is_enum() || field->type().enum_entries().empty() ||
       field->assign(e::value{std::int64_t{2}}).failed() || object.left != mode::second ||
       field->assign(e::value{std::int64_t{128}}) != e::error::invalid_argument ||
       object.left != mode::second)
@@ -332,7 +331,7 @@ bool type_queries() {
   auto element = sequence ? sequence->element_type() : e::result<m::type>{sequence.error()};
   auto enumeration = m::find_type(*registry, e::runtime_type_of<mode>());
   if (!element || !element->is_enum() || !enumeration ||
-      element->enum_entries()->data() != enumeration->enum_entries()->data())
+      element->enum_entries().data() != enumeration->enum_entries().data())
     return false;
   auto scalar = m::type_of<float>(*registry);
   if (!scalar || !m::find_type(*registry, scalar->guid()) || !m::type_of<settings>(*registry) ||
