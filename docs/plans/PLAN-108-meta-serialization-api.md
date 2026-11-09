@@ -407,6 +407,7 @@ Mesh/Texture 描述校验已移到所属资源模块并接入文件边界，详�
 组件领域校验与相机范围检查已迁移到资源领域，变换 setter 的内存约束保留；
 通用 validation_policy 仍支持用户定义的内容约束，不再登记引擎领域校验，见
 [组件领域校验记录](../records/2026-11-09-component-domain-validation.md)。
+组件集合的直接更新也在提交前显式执行领域校验，见[采用校验记录](../records/2026-11-09-component-update-validation.md)。
 
 阶段 6 已将递归状态移到最外层操作栈，嵌套入口共享、退出自动销毁，见
 [操作状态记录](../records/2026-11-09-serialization-operation-state.md)。

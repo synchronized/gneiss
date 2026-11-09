@@ -15,7 +15,6 @@ inline constexpr component_validation_policy component_validation{
       return typed ? std::invoke(Validate, *typed)
                    : serialization::diagnostic{.error = error::invalid_argument};
     }};
-GNEISS_API serialization::diagnostic validate_component_description(const component_description&);
 GNEISS_API serialization::diagnostic validate_camera_description(const camera_description&);
 GNEISS_API serialization::diagnostic
 validate_property_override_key(const prefab_property_override_key&);

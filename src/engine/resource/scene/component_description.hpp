@@ -31,6 +31,8 @@ public:
   }
 };
 using component_description = ref<const component_description_base>;
+/** 提交组件编辑前执行领域规则；结构编解码本身不承担这些规则。 */
+GNEISS_API serialization::diagnostic validate_component_description(const component_description&);
 template <class T>
   requires std::derived_from<T, component_description_base>
 component_description make_component_description(T value) {
@@ -131,7 +133,11 @@ public:
     auto accepted = serialization::restore_value<T>(*edited);
     if (!accepted)
       return accepted.error().error;
-    set(make_component_description(std::move(*accepted)));
+    auto committed = make_component_description(std::move(*accepted));
+    auto validation = validate_component_description(committed);
+    if (validation.error.failed())
+      return validation.error;
+    set(std::move(committed));
     return error::success;
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;

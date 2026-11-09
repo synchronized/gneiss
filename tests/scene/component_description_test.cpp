@@ -298,6 +298,20 @@ int main() try {
           })
           .failed())
     return 43;
+  // 通用捕获允许结构完整的非法值；组件编辑必须在提交前执行领域校验。
+  auto& components = supported->objects.front().components;
+  const auto retained_camera = *components.find(e::camera_description::type_guid);
+  auto rejected = components.update<e::camera_description>(
+      [](auto& value) { value.settings.near = value.settings.far + 1.0F; });
+  if (rejected != e::error::invalid_argument ||
+      *components.find(e::camera_description::type_guid) != retained_camera ||
+      components.get<e::camera_description>()->settings.near != 0.2F)
+    return 63;
+  auto rejected_camera_identity =
+      components.update<e::camera_description>([](auto& value) { value.uuid = {}; });
+  if (rejected_camera_identity != e::error::invalid_argument ||
+      *components.find(e::camera_description::type_guid) != retained_camera)
+    return 64;
   auto camera_bytes = gneiss::engine::asset_file::serialize_bytes(*supported);
   if (!camera_bytes)
     return 18;
