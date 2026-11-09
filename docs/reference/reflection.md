@@ -340,17 +340,18 @@ World 运行期属性与 IPC 仍保留既有名称，这些协议不等于资产
 
 ## 属性句柄与范围
 
-`type::properties()` 与只读实例的 `properties()` 返回 `result<property_range>`。
+`type::properties()` 与只读实例的 `properties()` 直接返回 `property_range`。
+未注册、无效或非对象类型返回空范围；空范围不等于已注册空对象，通过 `registered()` 区分。
+序列化、快照和编辑等操作在需要注册数据时显式检查，仍返回操作错误。
 范围和迭代器保活冻结注册表，直接访问冻结属性数组，不为每次遍历复制属性列表。
 范围只读；下标访问要求 index 小于 size，end 不能解引用。
 
 ```cpp
 auto fields = root->properties();
-if (!fields) return fields.error();
-for (auto property : *fields) {
+for (auto property : fields) {
   auto member = property.get(*root);
   if (!member) return member.error();
-  // property.name()/type()/flags()/capabilities() 查询同一份冻结定义。
+  // property.name()/type()/capabilities() 查询同一份冻结定义。
 }
 ```
 

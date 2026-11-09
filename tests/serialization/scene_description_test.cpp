@@ -512,7 +512,7 @@ int main() try {
     if (!reference || !*reference->has_value())
       return 98;
     auto contents = reference->get();
-    if (!contents || contents->properties()->size() != 3 ||
+    if (!contents || contents->properties().size() != 3 ||
         *contents->member("overrides")->as_sequence()->size() != 1)
       return 98;
     auto copied = scene.objects[1];

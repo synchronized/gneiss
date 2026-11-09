@@ -243,7 +243,7 @@ int main() {
   cannot_construct.emplace<1>(1.0F);
   auto unknown_object = lazy->as_variant()->value();
   CHECK(unknown_object && unknown_object->kind() == m::type_kind::object);
-  CHECK(unknown_object->as_const().properties().error() == e::error::not_found);
+  CHECK(unknown_object->as_const().properties().empty());
   CHECK(m::type_of<decltype(cannot_construct)>(*empty_registry));
   auto rejected_object = gneiss::engine::serialization::json::serialize_bytes(
       gneiss::engine::serialization::context{*empty_registry}, std::get<1>(cannot_construct));

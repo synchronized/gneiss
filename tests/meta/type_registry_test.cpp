@@ -111,8 +111,8 @@ bool math_registration() {
     return false;
   auto transform = m::type_of<e::math::transform>(*registry);
   auto camera = m::type_of<e::math::camera_settings>(*registry);
-  if (!transform || !camera || transform.properties()->size() != 3 ||
-      camera.properties()->size() != 3)
+  if (!transform || !camera || transform.properties().size() != 3 ||
+      camera.properties().size() != 3)
     return false;
   e::serialization::context context{*registry};
   e::math::camera_settings settings{1.0F, 0.1F, 100.0F};
@@ -258,7 +258,7 @@ int main() {
           .failed() ||
       info.guid() != scalar_type ||
       !(info = gneiss::engine::meta::find_type(registry, object_type)) || info.name() != "Object" ||
-      info.schema_version() != 1 || info.properties()->size() != 1 ||
+      info.schema_version() != 1 || info.properties().size() != 1 ||
       !(metadata = gneiss::engine::meta::find_property(registry, object_type,
                                                        gneiss::engine::meta::property_id{1})) ||
       metadata.name() != "value" ||

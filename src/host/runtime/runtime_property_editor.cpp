@@ -93,19 +93,19 @@ gneiss::engine::error runtime_property_editor::execute(const ipc_property_write&
     return gneiss::engine::error::success;
   }
   auto properties = description.properties();
-  if (!properties) {
-    response.code = properties.error().code();
+  if (!description.registered()) {
+    response.code = gneiss::engine::error::not_found.code();
     response.message = "属性不存在或不可写";
     output = std::move(response);
     return gneiss::engine::error::success;
   }
   const auto field =
-      std::ranges::find(*properties, property_field, &gneiss::engine::meta::property::id);
-  if (field == properties->end() ||
+      std::ranges::find(properties, property_field, &gneiss::engine::meta::property::id);
+  if (field == properties.end() ||
       !has_flags(field->capabilities(), gneiss::engine::meta::property_capabilities::writable) ||
       gneiss::engine::is_edit_read_only(*field)) {
-    response.code = field == properties->end() ? gneiss::engine::error::not_found.code()
-                                               : gneiss::engine::error::unsupported.code();
+    response.code = field == properties.end() ? gneiss::engine::error::not_found.code()
+                                              : gneiss::engine::error::unsupported.code();
     response.message = "属性不存在或不可写";
     output = std::move(response);
     return gneiss::engine::error::success;

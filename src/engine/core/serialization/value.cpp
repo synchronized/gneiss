@@ -40,11 +40,11 @@ struct capture_state {
       auto policy = find_policies(source.registry(), source.type_id());
       record_value_data record{source.guid(), {}};
       auto fields = source.properties();
-      if (!fields)
-        return fields.error();
-      if (policy && fields->empty() && (policy->content.encode || policy->content.decode))
+      if (!source.type().registered())
+        return error::not_found;
+      if (policy && fields.empty() && (policy->content.encode || policy->content.decode))
         return error::unsupported;
-      for (const auto& field : *fields) {
+      for (const auto& field : fields) {
         auto field_policy = policy_of(field);
         if (!field_policy)
           return field_policy.error();
@@ -251,9 +251,9 @@ struct restore_state {
           return status;
       }
       auto fields = target.as_const().properties();
-      if (!fields)
-        return fields.error();
-      for (const auto& field : *fields) {
+      if (!target.type().registered())
+        return error::not_found;
+      for (const auto& field : fields) {
         auto field_policy = policy_of(field);
         if (!field_policy)
           return field_policy.error();

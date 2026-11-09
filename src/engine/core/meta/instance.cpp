@@ -48,7 +48,7 @@ result<const_instance> const_instance::from_object(registry_ref registry, engine
   output.data_ = object;
   return output;
 }
-result<property_range> const_instance::properties() const noexcept { return type().properties(); }
+property_range const_instance::properties() const noexcept { return type().properties(); }
 result<const_instance> const_instance::member(std::string_view name) const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;

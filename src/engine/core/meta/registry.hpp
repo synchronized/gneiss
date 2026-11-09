@@ -48,8 +48,6 @@ inline result<object_ops> find_object_ops(type_id id) noexcept {
 [[nodiscard]] GNEISS_API result<std::uint32_t> type_count(const registry_ref& registry) noexcept;
 /** 按稳定 GUID 字节顺序枚举冻结注册对象，返回保活注册表的类型句柄。 */
 [[nodiscard]] GNEISS_API result<meta::type> type_at(const registry_ref&, std::uint32_t) noexcept;
-/** 冻结属性范围；保活注册表，查询不复制属性数组。 */
-GNEISS_API result<property_range> properties(const registry_ref&, engine::guid) noexcept;
 /** 字段名称借用已冻结 Registry。 */
 [[nodiscard]] GNEISS_API property find_property(const registry_ref& registry, engine::guid type,
                                                 property_id property) noexcept;

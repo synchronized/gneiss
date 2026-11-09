@@ -135,7 +135,7 @@ bool inherited_properties() {
     return false;
   auto view = gneiss::engine::meta::view(registry, input);
   auto properties = find_type(registry, e::runtime_type_of<inherited_leaf>());
-  if (!view || !properties || properties.properties()->size() != 5)
+  if (!view || !properties || properties.properties().size() != 5)
     return false;
   auto number = view->member("number");
   auto values = view->member("values");

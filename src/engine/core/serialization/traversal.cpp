@@ -307,12 +307,12 @@ result<writer::node, serialization::diagnostic> encode_members(const context& ct
   if (!view)
     return failure(view.error());
   auto properties = view->properties();
-  if (!properties)
-    return failure(properties.error());
+  if (!view->type().registered())
+    return failure(error::not_found);
   auto* root = doc->object();
   if (!root)
     return failure(error::out_of_memory);
-  for (const auto& property : *properties) {
+  for (const auto& property : properties) {
     auto policy = policy_of(property);
     if (!policy)
       return failure(policy.error(), field_path(property.name()), "字段序列化策略与访问能力不兼容");
@@ -437,9 +437,9 @@ serialization::diagnostic validate_defaults(const context& ctx, const registry_r
   if (!view)
     return failure(view.error());
   auto properties = view->properties();
-  if (!properties)
-    return failure(properties.error());
-  for (const auto& property : *properties) {
+  if (!view->type().registered())
+    return failure(error::not_found);
+  for (const auto& property : properties) {
     auto policy = policy_of(property);
     if (!policy)
       return failure(policy.error(), field_path(property.name()));
@@ -749,8 +749,8 @@ serialization::diagnostic decode_members(const context& ctx, const registry_ref&
   if (!view)
     return failure(view.error());
   auto properties = view->as_const().properties();
-  if (!properties)
-    return failure(properties.error());
+  if (!view->type().registered())
+    return failure(error::not_found);
   if (!context_access::input(ctx)->is_object(root))
     return failure(error::invalid_argument, "", "根值必须是对象");
   auto codec = find_policies(registry, id);
@@ -763,12 +763,12 @@ serialization::diagnostic decode_members(const context& ctx, const registry_ref&
     if (std::ranges::find(ignored, name) != ignored.end())
       continue;
     if (codec->object.reject_unknown_fields &&
-        std::ranges::none_of(*properties, [&](const auto& p) { return p.name() == name; }))
+        std::ranges::none_of(properties, [&](const auto& p) { return p.name() == name; }))
       return failure(error::invalid_argument, field_path(name), "未知字段");
     if (!names.insert(name).second)
       return failure(error::invalid_argument, field_path(name), "重复属性名");
   }
-  for (const auto& property : *properties) {
+  for (const auto& property : properties) {
     if (std::ranges::find(ignored, property.name()) != ignored.end())
       return failure(error::invalid_argument, field_path(property.name()), "反射字段占用格式头");
     auto policy = policy_of(property);

@@ -108,10 +108,10 @@ error validate_prefab_property_override(const prefab_property_override& value) n
   for (const auto& step : std::span{value.key.path}.subspan(1)) {
     if (const auto* property = std::get_if<meta::property_id>(&step)) {
       auto properties = type.properties();
-      if (!properties)
-        return properties.error();
-      auto found = std::ranges::find(*properties, *property, &meta::property::id);
-      if (found == properties->end())
+      if (!type.registered())
+        return error::not_found;
+      auto found = std::ranges::find(properties, *property, &meta::property::id);
+      if (found == properties.end())
         return error::not_found;
       if (!has_flags(found->capabilities(), meta::property_capabilities::writable) ||
           gneiss::engine::is_edit_read_only(*found))

@@ -574,9 +574,9 @@ error edit_runtime_component(component_context context, guid type, meta::propert
   if (!reflected)
     return gneiss::engine::error{gneiss::engine::error::not_found};
   auto properties = reflected.properties();
-  if (!properties)
-    return properties.error();
-  for (const auto& field : *properties) {
+  if (!reflected.registered())
+    return error::not_found;
+  for (const auto& field : properties) {
     if (field.id() == property && gneiss::engine::is_edit_read_only(field))
       return error::unsupported;
   }

@@ -36,7 +36,8 @@ public:
   [[nodiscard]] GNEISS_API std::string_view name() const noexcept;
   /** 未登记版本的类型返回零。 */
   [[nodiscard]] GNEISS_API std::uint32_t schema_version() const noexcept;
-  [[nodiscard]] GNEISS_API result<property_range> properties() const noexcept;
+  /** 未注册或非对象类型返回空范围；是否注册由 registered 判断。 */
+  [[nodiscard]] GNEISS_API property_range properties() const noexcept;
   [[nodiscard]] GNEISS_API property find_property(property_id) const noexcept;
   [[nodiscard]] GNEISS_API property find_property(std::string_view) const noexcept;
   [[nodiscard]] GNEISS_API bool is_fixed_sequence() const noexcept;

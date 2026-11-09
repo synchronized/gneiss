@@ -204,12 +204,12 @@ bool enum_registration() {
       m::freeze(registry).failed())
     return false;
   auto type = m::type_of<enum_object>(registry);
-  if (!type || (*type.properties())[0].type().id() != e::runtime_type_of<mode>() ||
-      (*type.properties())[0].type().enum_entries().size() != 2 ||
-      (*type.properties())[0].type().enum_entries().data() !=
-          (*type.properties())[1].type().enum_entries().data() ||
-      (*type.properties())[0].type().enum_entries()[0].name != "First" ||
-      std::get<std::int64_t>((*type.properties())[0].type().enum_entries()[0].data.payload) != -1)
+  if (!type || type.properties()[0].type().id() != e::runtime_type_of<mode>() ||
+      type.properties()[0].type().enum_entries().size() != 2 ||
+      type.properties()[0].type().enum_entries().data() !=
+          type.properties()[1].type().enum_entries().data() ||
+      type.properties()[0].type().enum_entries()[0].name != "First" ||
+      std::get<std::int64_t>(type.properties()[0].type().enum_entries()[0].data.payload) != -1)
     return false;
   if (!unknown_view->type().enum_entries().empty())
     return false;
@@ -317,11 +317,12 @@ bool type_queries() {
       named.id() != numbered.id() || named.type().id() != e::runtime_type_of<std::int8_t>() ||
       typed.find_property("missing") || typed.find_property(m::property_id{}) ||
       m::type{}.find_property("count") || default_float.find_property("count") ||
-      !m::type{}.name().empty())
+      !m::type{}.name().empty() || !m::type{}.properties().empty() ||
+      !default_float.properties().empty())
     return false;
   auto props = typed.properties();
-  if (!props || props->size() != 2 || (*props)[0].type().kind() != m::type_kind::sequence ||
-      (*props)[1].type().id() != e::runtime_type_of<std::int8_t>())
+  if (props.empty() || props.size() != 2 || props[0].type().kind() != m::type_kind::sequence ||
+      props[1].type().id() != e::runtime_type_of<std::int8_t>())
     return false;
   auto sequence = m::find_type(*registry, e::runtime_type_of<std::vector<mode>>());
   auto element = sequence ? sequence.element_type() : e::result<m::type>{e::error::not_found};
@@ -338,7 +339,7 @@ bool type_queries() {
   // 类型视图保活注册表，但不要求对象实例存活。
   std::weak_ptr<m::type_registry_state> weak = *registry;
   registry = e::error::not_found;
-  return !weak.expired() && typed.properties()->size() == 2 &&
+  return !weak.expired() && typed.properties().size() == 2 &&
          typed.name() == query_model::type_name && named.name() == "count";
 }
 struct reference_target {
@@ -708,9 +709,9 @@ bool property_handles() {
   if (!view || !foreign || !unrelated || !type)
     return false;
   auto fields = type.properties();
-  if (!fields || fields->size() != 1)
+  if (fields.empty() || fields.size() != 1)
     return false;
-  auto field = (*fields)[0];
+  auto field = fields[0];
   auto member = field.get(*view);
   if (!member || member->assign(23).failed() || probe.number != 23)
     return false;
@@ -727,17 +728,17 @@ bool property_handles() {
     if (!inherited || inherited->assign(e::value{std::int64_t{42}}).failed() || child.number != 42)
       return false;
     auto inherited_fields = derived->as_const().properties();
-    if (!inherited_fields || (*inherited_fields)[0].declaring_type() != shared_probe::type_guid)
+    if (inherited_fields.empty() || inherited_fields[0].declaring_type() != shared_probe::type_guid)
       return false;
   }
   // 范围、迭代器和独立句柄均保活表，但没有持有 probe。
   std::weak_ptr<m::type_registry_state> weak = *first;
-  auto iterator = fields->begin();
+  auto iterator = fields.begin();
   *first = {};
   *view = {};
   *unrelated = {};
   type = {};
-  *fields = {};
+  fields = {};
   *member = {};
   if (weak.expired() || iterator->name() != "number" || field.name() != "number")
     return false;
@@ -786,12 +787,12 @@ int main() try {
       root->type_id() != e::runtime_type_of<object>())
     return 4;
   auto entries = root->properties();
-  if (!entries || entries->size() != 4)
+  if (entries.empty() || entries.size() != 4)
     return 5;
   {
     auto writable_root = m::view(registry, source);
-    if (!writable_root || !(*entries)[2].get(*root) ||
-        (*entries)[2].get(*writable_root).error() != e::error::unsupported)
+    if (!writable_root || !entries[2].get(*root) ||
+        entries[2].get(*writable_root).error() != e::error::unsupported)
       return 44;
   }
   auto config = root->member("config");
@@ -896,7 +897,7 @@ int main() try {
   if (weak.expired())
     return 24;
   // 属性快照中的类型也持有注册表，清空后最后一个元数据所有者才释放。
-  *entries = {};
+  entries = {};
   if (!weak.expired())
     return 32;
   return 0;

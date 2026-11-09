@@ -146,9 +146,9 @@ error collect_component_overrides(meta::const_instance source, meta::const_insta
     return error::invalid_argument;
   if (source.kind() == meta::type_kind::object) {
     auto properties = source.properties();
-    if (!properties)
-      return properties.error();
-    for (const auto& property : *properties) {
+    if (!source.type().registered())
+      return error::not_found;
+    for (const auto& property : properties) {
       // 派生运行状态仍可保存，但不因普通组件编辑生成实例属性覆盖。
       if (!meta::has_flags(property.capabilities(), meta::property_capabilities::writable) ||
           gneiss::engine::is_edit_read_only(property))

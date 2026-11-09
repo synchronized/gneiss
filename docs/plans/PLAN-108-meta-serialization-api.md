@@ -377,6 +377,12 @@ describe_type/describe_property、type_info/property_info 已删除；
 [注册入口记录](../records/2026-11-09-meta-registration.md)。调用点审计与验证见
 [首批记录](../records/2026-11-09-meta-property-handles.md)。
 
+阶段 4a 已精简 type 为注册表、静态 Ops 与可选记录三个成员；type_of/find_type、
+find_property、enum_entries 和 properties 已迁移为直接句柄或范围查询。
+类型查询验证见[记录](../records/2026-11-09-meta-type-lookup.md)，
+属性范围与注册边界验证见[记录](../records/2026-11-09-meta-property-ranges.md)。
+其余能力查询、类型比较及阶段 4b–4c 尚未完成。
+
 阶段 5 已加入类型/字段扩展元数据基础，见[实现记录](../records/2026-11-09-meta-extension-metadata.md)；
 binding 存储和查询已迁到扩展/Serialization，见[存储迁移记录](../records/2026-11-09-serialization-policy-storage.md)；
 旧 binding、注册快捷方法及 reflected 开关已删除，默认字段遍历和消费调用已迁移，

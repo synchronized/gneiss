@@ -50,7 +50,7 @@ public:
   [[nodiscard]] GNEISS_API result<optional_view> as_optional() const noexcept;
   [[nodiscard]] GNEISS_API result<variant_view> as_variant() const noexcept;
   [[nodiscard]] GNEISS_API result<reference_view> as_reference() const noexcept;
-  [[nodiscard]] GNEISS_API result<property_range> properties() const noexcept;
+  [[nodiscard]] GNEISS_API property_range properties() const noexcept;
   [[nodiscard]] GNEISS_API result<const_instance> member(property_id id) const noexcept;
   [[nodiscard]] GNEISS_API result<const_instance> member(std::string_view name) const noexcept;
   /** 标量按值复制；可变目标的 ref<meta::object 派生类> 共享强引用，不深拷贝。const

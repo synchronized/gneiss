@@ -165,10 +165,10 @@ void draw_value(const meta::const_instance& view, const std::string& name, prope
       return;
     if (value_type.kind() == meta::type_kind::object) {
       auto properties = view.properties();
-      if (!properties)
-        status = properties.error();
+      if (!value_type.registered())
+        status = error::not_found;
       else
-        for (const auto& property : *properties) {
+        for (const auto& property : properties) {
           auto child = property.get(view);
           if (!child) {
             status = child.error();

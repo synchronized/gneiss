@@ -609,18 +609,6 @@ public:
   } catch (...) {
     return error::internal;
   }
-  template <class Key> result<property_range> properties(Key id) const noexcept try {
-    std::shared_lock lock(mutex_);
-    if (!is_frozen_)
-      return error::not_ready;
-    const auto* record = find_type_unlocked(id);
-    if (!record)
-      return error::not_found;
-    return property_range{owner(), record->properties.data(), record->properties.size()};
-  } catch (...) {
-    return error::internal;
-  }
-
   result<object_ops> find_object_ops(engine::type_id id) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
@@ -783,13 +771,9 @@ property type::find_property(std::string_view name) const noexcept {
     return {};
   return meta::property{registry_, &record_->properties[*found]};
 }
-result<property_range> type::properties() const noexcept {
-  if (!*this)
-    return error::invalid_state;
-  if (kind() != type_kind::object)
-    return error::unsupported;
-  if (!record_)
-    return error::not_found;
+property_range type::properties() const noexcept {
+  if (kind() != type_kind::object || !record_)
+    return {};
   return property_range{registry_, record_->properties.data(), record_->properties.size()};
 }
 const void* type::extension(engine::type_id key) const noexcept {
@@ -887,9 +871,6 @@ result<property_binding> find_object_property(const registry_ref& registry, guid
                                               property_id id) noexcept {
   return registry ? registry->find_object_property(type, id)
                   : result<property_binding>{error::invalid_handle};
-}
-result<property_range> properties(const registry_ref& registry, engine::guid id) noexcept {
-  return registry ? registry->properties(id) : result<property_range>{error::invalid_argument};
 }
 property property_range::iterator::operator*() const noexcept {
   return property{registry_, records_ + index_};

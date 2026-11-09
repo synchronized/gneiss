@@ -222,10 +222,10 @@ engine::error edit_component_description(scene_edit_session& document,
     for (const auto& step : edit.path) {
       if (const auto* id = std::get_if<meta::property_id>(&step)) {
         auto fields = type.properties();
-        if (!fields)
-          return fields.error();
-        auto field = std::ranges::find(*fields, *id, &meta::property::id);
-        if (field == fields->end())
+        if (!type.registered())
+          return error::not_found;
+        auto field = std::ranges::find(fields, *id, &meta::property::id);
+        if (field == fields.end())
           return error::not_found;
         if (gneiss::engine::is_edit_read_only(*field) ||
             !gneiss::engine::meta::has_flags(field->capabilities(),
