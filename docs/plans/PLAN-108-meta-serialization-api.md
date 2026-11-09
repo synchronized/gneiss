@@ -6,6 +6,8 @@
 ## 状态与范围
 
 2026-11-09：实施中，属性范围、句柄、实例门面及旧查询清理已完成；注册适配与访问边界已完成；策略和上下文尚未完成。
+新增句柄布局、属性局部 builder 与动态类型门面整理，方向已同意，实施待开始；
+查询失败和冻结后结构类型解析的取舍见第二节补充，不将候选方案写成现有行为。
 归属 [DEV-052](DEV-052-architecture-cleanup.md)，长期边界见
 [ADR-113](../decisions/ADR-113-meta-serialization-boundaries.md)。
 本文是目标 API 与迁移步骤的权威来源；代码示意均为目标接口，不表示已实现。
@@ -65,7 +67,8 @@ result<meta::const_instance> meta::view(const T& object);
 // 禁止绑定临时对象；显式注册表版本仍可用于隔离测试和工具。
 ```
 
-所有可能失败的解析均返回 result，不用空句柄吞掉未注册类型错误。
+现有计划中的可失败解析均返回 result。新增 dynamic_type 便利门面是否允许无效句柄是下文
+列出的待确认例外；确认前保持当前错误契约，不提前推广到其他查询接口。
 以下 TRY 仅为传播 result 的伪代码，不要求项目新增宏：
 
 ```cpp
@@ -93,6 +96,72 @@ TRY(x.assign(3.0f));
 - 继续保留按路径解析能力，持久路径遵循已有稳定元素身份规则；不引入 XPath 字符串身份。
 - 普通调用方不使用 type_info/type_definition；定义结构限注册层，内部存储限 detail。
 
+### 句柄与实例布局补充（方向已同意，尚未实施）
+
+源码核查：type 目前重复保存 registry、access、id、guid、kind、scalar_kind 和 enumeration；
+const_instance 同样重复携带类型信息，可写 instance 又在完整只读视图外保存 data/parent。
+property 已经是 registry + record，但 record 使用 const void*。各容器 view 保存完整实例视图，
+因此应优先缩小实例，而非为每种容器另造轻量所有权协议。
+
+目标结构示意：
+
+```cpp
+class type {
+  registry_ref registry_;
+  const detail::type_record* record_{};
+};
+class property {
+  registry_ref registry_;
+  const detail::property_record* record_{};
+};
+// 两种模式互斥：可寻址对象/成员，或者必须经过 getter/setter 的属性位置。
+template<bool Mutable> class basic_instance {
+  meta::type type_;
+  // location：对象地址，或父对象地址 + 冻结 property_record。
+  // 用明确的 tagged representation，不能把 getter 临时结果当稳定地址。
+  detail::instance_location<Mutable> location_;
+};
+using const_instance = basic_instance<false>;
+using instance = basic_instance<true>;
+```
+
+类型身份、类别、标量类别与 Ops 从唯一类型记录取得；record 指针在句柄存活期间稳定。
+统一记录必须覆盖对象、枚举、标量和 sequence/associative/optional/reference/variant，
+不能只替换现有对象记录指针而丢失其他类型能力。分类 Ops 继续复用现有静态表。
+只读转换借用同一位置，不再额外保存一组可写/只读指针；setter 约束、只读传播、基类地址调整、
+失败不发布 getter 临时对象等契约保持。首版不增加属性代理的隐式嵌套写回。
+
+继续使用 registry_ref 保活注册表，不改为裸 registry 指针，不让实例视图保活业务对象。
+property_range 保活表并借用稳定范围；迭代器是否持有共享所有者先保持当前安全语义，
+不为了减少引用计数改变迭代器寿命契约。sizeof 仅记录目标平台实测值，不写跨平台固定字节承诺。
+
+动态类型的目标门面为返回反射类型而非仅返回进程 type_id：
+
+```cpp
+meta::type object::dynamic_type() const noexcept;
+meta::type object::dynamic_type(const registry_ref&) const noexcept;
+```
+
+内部保留实际 C++ 类型身份查询钩子，门面通过所选注册表解析；对象不新增 registry/type 成员，
+不隐式注册或冻结。dynamic_guid 可由解析后的 type.guid 代替；dynamic_address 继续承担多重继承
+下完整对象地址取得。持久化使用调用上下文的注册表，不能通过默认门面绕过显式 registry。
+上述返回形式尚受下面决策 A 约束；必须同步核对 value 对象引用和 reference_ops 的调用。
+
+### 需要确认的取舍与推荐
+
+以下仅阻塞新增布局子阶段的相关实现，不阻塞已经确认的领域校验拆分。
+
+| 决策 | 推荐方案 | 优点 | 代价/缺点 | 备选方案及代价 |
+| --- | --- | --- | --- | --- |
+| A：dynamic_type 查询失败 | 按用户希望提供直接 type 门面；未注册/表未就绪返回无效 type，作为明确的便利查询例外。需要精确诊断的序列化仍用上下文 registry + 实际 type_id 的 result 查询 | 对象侧调用简短；不保存重复身份；错误敏感路径仍保留 not_found/not_ready 等信息 | 便利门面不能区分失败原因；与现有统一 result 规则存在例外，必须确认并写明 | 全部返回 result<type>：错误统一，但访问链需要解包；仅允许已注册对象并断言：调用简洁，却限制对象在初始化前存在，不推荐 |
+| B：冻结后首次访问未预登记的结构类型 | 显式注册元数据仍冻结；允许内部惰性归一化不可变类型记录。已知字段类型在 freeze 预建，后续仅为结构类型补记录；对象/枚举叶子仍须已注册 | 保留 type_of<vector<T>> 等便利用法；句柄始终只有 registry + record；不改变业务元数据 | 首次解析可能分配/加锁/失败；缓存随 registry 存活；须处理递归类型、并发首次解析与失败清理 | 所有类型 freeze 前显式登记：实现和只读语义简单，但每种容器/包装组合都要登记，属于使用方式变化；在 type 中另带 ops/身份则偏离本次精简目标 |
+| C：类型句柄相等语义（如提供比较） | 使用 registry 身份 + record 身份；跨表比较 C++ 类型显式使用 id，比较持久类型使用 guid | 不把两个不同策略/字段集合的注册表句柄误认为同一反射定义 | 跨表同一 C++ 类型的句柄不相等；调用方需明确比较目的 | 只按 type_id：跨表方便，但忽略注册定义；只按 guid：无法覆盖无持久身份的运行类型，不推荐 |
+
+B 的缓存不开放运行期注册、修改属性或替换 Ops，不改变本计划的运行期动态注册非目标。
+实现前先固定 A/B 的行为；C 可随句柄比较接口一并确认，不为了比较额外增加全局类型表。
+已明确无需再次讨论的边界：保活 registry、借用业务对象、保留 getter/setter 访问位置、
+不增加插件卸载或任意 C++ 对象拥有容器、不改变文件格式。
+
 ## 三、注册与自定义 Ops
 
 ```cpp
@@ -114,6 +183,29 @@ auto status = meta::registration<camera_settings>()
 - sequence/associative/optional/reference/variant 保持不同类别与视图。
 - 自定义容器通过公开 traits/适配入口生成相同 Ops，不要求用户包含 detail/type_ops.hpp。
 - 首版用一个测试自定义容器验证扩展点，保留现有内置容器支持；不预建多个无人使用的适配框架。
+
+### 属性局部 metadata builder（方向已同意，尚未实施）
+
+借鉴 Caors 的属性局部绑定形式，保留本项目类型化扩展，不复制字符串键元数据系统：
+
+```cpp
+auto status = meta::registration<camera_settings>{}
+    .property<&camera_settings::fov>(meta::property_id{1}, "fov")(
+        serialization::field_policy{.required = true},
+        property_edit_policy{.read_only = true})
+    .property<&camera_settings::near>(meta::property_id{2}, "near")(
+        serialization::field_policy{.required = true})
+    .commit();
+```
+
+property 返回 property_builder，其 operator()(extensions...) 只修改该属性，并返回可继续
+注册/提交的 builder。未附加扩展时也可直接继续 property/commit；不能要求空括号作为结束符。
+代理保存 builder 借用和稳定属性索引，不保存可能因 entries 扩容失效的指针；不得超过父 builder
+寿命使用。注册器不依赖“最近一次属性”的隐式状态；临时注册器链必须在完整表达式内安全工作。
+同类扩展重复仍报错，失败由 commit 统一报告，不在代理析构时提交。类型级 metadata 保持显式。
+
+收益是属性与其策略相邻、无需重复 property_id；代价是增加小型注册代理和链式转发实现。
+迁移所有 property_metadata 调用后删除旧重复指定 ID 的便利接口，不增加两套元数据存储。
 
 ## 四、序列化 API 与上下文
 
@@ -214,6 +306,10 @@ Binary 后续有真实任务时新增 binary.hpp/.cpp。本轮不创建空文件
    删除 mutable_instance 旧名；编译验证 const 拒绝写、临时对象拒绝借用。
 4. [x] 注册与适配：builder commit、默认/显式注册上下文、traits 适配契约、冻结属性索引；
    移除普通消费代码对注册定义及 detail Ops 的依赖。
+4a. [ ] 句柄布局补充：确认 A/B，统一稳定 type_record，覆盖全部类型类别与无 GUID 类型；
+   type/property 收敛为 registry + 强类型记录指针，按 C 定义需要的比较行为。
+4b. [ ] 实例轻量化：统一只读/可写访问位置，精简容器视图；迁移动态类型门面，删除重复身份查询。
+4c. [ ] 属性局部 builder：支持 property(...)(extensions...)，迁移并删除 property_metadata 旧入口。
 5. [ ] 策略拆分：替换 binding；先迁移已有 codec/引用，再做字段覆盖；
    迁移 editor_read_only/enum_name，分类迁移 validate，删除旧 flags 和 reflected 开关。
 6. [ ] 序列化入口：read/write contexts 和私有操作状态，统一 encode/decode/read_into/write；
@@ -222,6 +318,8 @@ Binary 后续有真实任务时新增 binary.hpp/.cpp。本轮不创建空文件
    接入资产、场景/Prefab、IPC、编辑器、导入器和示例，不新增平行规则。
 8. [ ] 布局与收尾：移动文件、更新接口文档、删除旧头/接口/冗余类型；完成定向 CPU 验收并记录真实剩余限制。
 
+阶段 4 原有完成状态不代表新增 4a–4c 已完成；新增步骤按 4a → 4b → 4c 实施，
+与剩余策略及上下文工作在同一分支收敛，不建立第二条长期兼容实现。
 每阶段交付可编译闭环并本地提交，同一特性分支推进，不按子步骤创建 PR。
 迁移期间允许短暂内部适配，但该阶段结束须移除；禁止以长期兼容别名掩盖读写语义变化。
 
@@ -261,9 +359,9 @@ Mesh/Texture 描述校验已移到所属资源模块并接入文件边界，详�
 
 | 范围 | 必须覆盖 |
 | --- | --- |
-| type/property | 冻结前后、查找失败、继承基类地址调整、getter 临时值、只读属性、范围寿命 |
+| type/property | 冻结前后、查找失败、继承基类地址调整、getter 临时值、只读属性、范围寿命；全部类型类别使用稳定记录，跨表隔离与比较，句柄复制不复制元数据，实测布局 |
 | instance/views | const 写入编译拒绝、运行只读拒绝、嵌套结构、容器元素失效约定、自定义容器 |
-| 注册 | traits 身份、冲突/重号/重复注册、显式隔离注册表、默认入口、无持久 GUID 的运行类型 |
+| 注册 | traits 身份、冲突/重号/重复注册、显式隔离注册表、默认入口、无持久 GUID 的运行类型；局部 metadata 归属、重复扩展、无括号链、临时链、扩容与 commit 失败；结构记录并发首次解析及递归类型 |
 | 策略 | 同类型字段不同引用方式、类型默认与字段覆盖、未知动态类型、未注册/缺 GUID、空引用与引用环 |
 | 序列化 | 普通字段零自定义 codec、特殊 codec、深度限制、错误路径、context 复用、decode 失败不暴露候选 |
 | 资产 | 收集不暴露临时结果、绑定不等待 I/O、内容未就绪仍保存身份、缺失依赖与环保持既有语义 |
@@ -280,9 +378,10 @@ Mesh/Texture 描述校验已移到所属资源模块并接入文件边界，详�
 按依赖顺序实施，避免同时维护两套 API。属性句柄保活注册表仍不保活目标，
 未赋址 getter 的嵌套修改首版明确拒绝；未知字段保留/插件缺失恢复不是本计划新增能力。
 
-当前没有需要用户继续拍板的阻塞决策。仅实现细节如稳定属性范围的容器类型可在相同契约下选择；
+原阶段无需新增用户决策；新增句柄整理的 A/B 需确认，C 随比较接口确认，见第二节。
+仅实现细节如稳定属性范围的容器类型可在相同契约下选择；
 若涉及存档语义、引用身份或领域边界变化，先补充此计划和 ADR，不能伪装成命名整理。
 
-完成条件：上述八阶段全部交付，生产调用统一到目标 API；旧 binding/旧语义入口清除；
+完成条件：上述八阶段及新增 4a–4c 全部交付，生产调用统一到目标 API；旧 binding/旧语义入口清除；
 资产和编辑历史既有行为通过定向验收；Reference 描述已实现 API，Record 记录执行结果。
 本计划完成不自动等于 DEV-052 发布完成。
