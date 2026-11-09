@@ -41,25 +41,25 @@ error material_editor_model::set_value(const material_property_path& path, const
   return apply(path, &input, nullptr, serial);
 }
 error material_editor_model::replace_object(const property_path& path,
-                                            const meta::instance& source) noexcept {
+                                            const meta::const_instance& source) noexcept {
   return apply(path, nullptr, &source, 0);
 }
 error material_editor_model::apply(const property_path& path, const value* input,
-                                   const meta::instance* source, std::uint64_t serial) noexcept
-    try {
+                                   const meta::const_instance* source,
+                                   std::uint64_t serial) noexcept try {
   if (input && input->kind() == value_kind::object)
     return error::unsupported;
   if (!current_ || path.empty())
     return error::invalid_argument;
   auto candidate = current_->description;
-  auto target = meta::mutable_instance::from(candidate);
+  auto target = meta::view(candidate);
   if (!target)
     return target.error();
   std::string key = meta::property_path_text(path);
   target = meta::resolve_path(*target, path);
   if (!target)
     return target.error();
-  auto status = source ? target->assign(*source) : target->write_value(*input);
+  auto status = source ? target->assign(*source) : target->assign(*input);
   if (status.failed())
     return status;
   for (const auto& uri : candidate.texture_uris)

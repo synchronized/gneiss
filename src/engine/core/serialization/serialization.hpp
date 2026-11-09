@@ -8,13 +8,13 @@
 #include "engine/core/serialization/writer.hpp"
 namespace gneiss::engine::serialization {
 /** context 与视图必须绑定同一注册表；后端和对象均借用。失败时 writer 可能保留未完成输出。 */
-GNEISS_API serialization::diagnostic serialize(const context&, const meta::instance&,
+GNEISS_API serialization::diagnostic serialize(const context&, const meta::const_instance&,
                                                writer&) noexcept;
 /** 写入调用方目标；失败不保证恢复。需要原子替换时使用返回独立对象的模板入口。 */
 GNEISS_API serialization::diagnostic deserialize(const context&, reader&,
-                                                 const meta::mutable_instance&) noexcept;
-GNEISS_API serialization::diagnostic serialize(const meta::instance&, writer&) noexcept;
-GNEISS_API serialization::diagnostic deserialize(reader&, const meta::mutable_instance&) noexcept;
+                                                 const meta::instance&) noexcept;
+GNEISS_API serialization::diagnostic serialize(const meta::const_instance&, writer&) noexcept;
+GNEISS_API serialization::diagnostic deserialize(reader&, const meta::instance&) noexcept;
 GNEISS_API result<ref<void>, serialization::diagnostic> deserialize_object(const context&, type_id,
                                                                            reader&) noexcept;
 inline result<ref<void>, serialization::diagnostic> deserialize_object(type_id id,
@@ -29,7 +29,7 @@ serialization::diagnostic serialize(const context& ctx, const T& value, writer& 
   auto registry = ctx.registry();
   if (!registry)
     return {.error = registry.error()};
-  auto view = meta::instance::from(*registry, value);
+  auto view = meta::view(*registry, std::as_const(value));
   if (!view)
     return {.error = view.error()};
   return serialize(ctx, *view, output);
@@ -45,7 +45,7 @@ template <class T> serialization::diagnostic serialize(const T& value, writer& o
 template <class T>
 result<T, serialization::diagnostic> deserialize(const context& ctx, reader& input) noexcept try {
   return detail::decode_typed<T>(
-      ctx, [&](const meta::mutable_instance& view) { return deserialize(ctx, input, view); },
+      ctx, [&](const meta::instance& view) { return deserialize(ctx, input, view); },
       [&](type_id id) { return deserialize_object(ctx, id, input); });
 } catch (const std::bad_alloc&) {
   return serialization::diagnostic{.error = error::out_of_memory};

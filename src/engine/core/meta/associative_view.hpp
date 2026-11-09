@@ -5,11 +5,11 @@
 namespace gneiss::engine::meta {
 /** 借用视图；不延长目标寿命，结构修改后需重新获取元素视图。 */
 template <bool Mutable> class basic_associative_view {
-  using target_type = std::conditional_t<Mutable, mutable_instance, instance>;
+  using target_type = std::conditional_t<Mutable, instance, const_instance>;
+  friend class const_instance;
   friend class instance;
-  friend class mutable_instance;
   explicit basic_associative_view(target_type target) : target_(std::move(target)) {}
-  instance readonly() const noexcept {
+  const_instance readonly() const noexcept {
     if constexpr (Mutable)
       return target_.as_const();
     else
@@ -49,12 +49,12 @@ public:
       auto* p = ops()->find_mut(target_.data_, key);
       if (!p)
         return error::not_found;
-      return mutable_instance::from_access(v.registry_, ops()->element(), p);
+      return instance::from_access(v.registry_, ops()->element(), p);
     } else {
       auto* p = ops()->find(v.data_, key);
       if (!p)
         return error::not_found;
-      return instance::from_access(v.registry_, ops()->element(), p);
+      return const_instance::from_access(v.registry_, ops()->element(), p);
     }
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
@@ -69,8 +69,7 @@ public:
     auto v = readonly();
     if (!ops()->insert)
       return error::unsupported;
-    return mutable_instance::from_access(v.registry_, ops()->element(),
-                                         ops()->insert(target_.data_, key));
+    return instance::from_access(v.registry_, ops()->element(), ops()->insert(target_.data_, key));
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {

@@ -8,13 +8,13 @@ struct reference_view_access;
 }
 /** 借用引用槽位，不自动保活目标。重置/替换后须重新获取目标视图。 */
 template <bool Mutable> class basic_reference_view {
-  using target_type = std::conditional_t<Mutable, mutable_instance, instance>;
+  using target_type = std::conditional_t<Mutable, instance, const_instance>;
+  friend class const_instance;
   friend class instance;
-  friend class mutable_instance;
   friend struct detail::reference_view_access;
   template <bool> friend class basic_reference_view;
   explicit basic_reference_view(target_type target) : target_(std::move(target)) {}
-  instance readonly() const noexcept {
+  const_instance readonly() const noexcept {
     if constexpr (Mutable)
       return target_.as_const();
     else
@@ -51,8 +51,7 @@ public:
       auto owned = owner();
       if (!owned)
         return owned.error();
-      return mutable_instance::from_object(v.registry_, actual_type(),
-                                           const_cast<void*>(owned->get()));
+      return instance::from_object(v.registry_, actual_type(), const_cast<void*>(owned->get()));
     } else {
       auto* p = ops()->get(v.data_);
       if (!p)
@@ -60,7 +59,7 @@ public:
       auto owned = owner();
       if (!owned)
         return owned.error();
-      return instance::from_object(v.registry_, actual_type(), owned->get());
+      return const_instance::from_object(v.registry_, actual_type(), owned->get());
     }
   }
   [[nodiscard]] reference_view as_const() const noexcept { return reference_view{readonly()}; }

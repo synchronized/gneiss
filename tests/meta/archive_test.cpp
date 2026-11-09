@@ -204,7 +204,7 @@ int main() {
   auto other = m::create_registry();
   CHECK(other && m::freeze(*other).ok());
   s::context mismatched{*other};
-  auto view = m::mutable_instance::from(*r, original);
+  auto view = m::view(*r, original);
   CHECK(view);
   CHECK(s::serialize(mismatched, view->as_const(), limited).error == e::error::invalid_argument);
   CHECK(s::deserialize(mismatched, recovered_input, *view).error == e::error::invalid_argument);

@@ -19,8 +19,8 @@ result<value> edit_reference_snapshot(const value& source, const property_edit& 
   auto owner = std::get<ref<meta::object>>(copy->payload);
   if (!owner)
     return error::not_found;
-  auto root = meta::mutable_instance::from_object(owner->dynamic_type(),
-                                                  const_cast<void*>(owner->dynamic_address()));
+  auto root = meta::instance::from_object(owner->dynamic_type(),
+                                          const_cast<void*>(owner->dynamic_address()));
   if (!root)
     return root.error();
   auto target = meta::resolve_path(*root, edit.path);
@@ -28,8 +28,8 @@ result<value> edit_reference_snapshot(const value& source, const property_edit& 
     return target.error();
   auto status = [&]() -> error {
     if (!edit.object)
-      return target->write_value(edit.data);
-    auto replacement = meta::instance::from_object(edit.object_type, edit.object.get());
+      return target->assign(edit.data);
+    auto replacement = meta::const_instance::from_object(edit.object_type, edit.object.get());
     return replacement ? target->assign(*replacement) : replacement.error();
   }();
   if (status.failed())
@@ -49,10 +49,10 @@ int resize_text(ImGuiInputTextCallbackData* data) {
   data->Buf = text.data();
   return 0;
 }
-void draw_value(const meta::instance& view, const std::string& name, property_path& path,
+void draw_value(const meta::const_instance& view, const std::string& name, property_path& path,
                 std::optional<property_edit>& pending, std::uint64_t& serial, error& status,
                 std::span<const meta::property_id> readonly = {},
-                const meta::instance* source = nullptr, std::size_t depth = 0) {
+                const meta::const_instance* source = nullptr, std::size_t depth = 0) {
   if (depth > 64) {
     status = error::invalid_argument;
     return;
@@ -62,7 +62,7 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
   if (value_type.kind() == meta::type_kind::reference ||
       (held && held->kind() == value_kind::object)) {
     const bool editable = held && held->kind() == value_kind::object;
-    result<meta::instance> target = error::not_found;
+    result<meta::const_instance> target = error::not_found;
     if (value_type.kind() == meta::type_kind::reference) {
       auto reference = view.as_reference();
       if (reference)
@@ -70,7 +70,7 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
     } else if (editable) {
       const auto& owner = std::get<ref<meta::object>>(held->payload);
       if (owner)
-        target = meta::instance::from_object(owner->dynamic_type(), owner->dynamic_address());
+        target = meta::const_instance::from_object(owner->dynamic_type(), owner->dynamic_address());
     }
     const bool expanded = ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
     if (ImGui::BeginPopupContextItem()) {
@@ -181,9 +181,9 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
               !meta::has_flags(property.flags(), meta::property_flags::editor_read_only) &&
               meta::has_flags(property.capabilities(), meta::property_capabilities::writable);
           ImGui::BeginDisabled(!writable);
-          std::optional<meta::instance> original;
+          std::optional<meta::const_instance> original;
           if (source && writable) {
-            auto member = source->property(property.id());
+            auto member = source->member(property.id());
             if (member)
               original = *member;
           }
@@ -210,7 +210,7 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
             }
             path.emplace_back(i);
             ImGui::PushID(static_cast<int>(i));
-            std::optional<meta::instance> original;
+            std::optional<meta::const_instance> original;
             if (source) {
               auto sequence_source = source->as_sequence();
               if (sequence_source) {
@@ -239,7 +239,7 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
   auto displayed_type = view.type();
   if (displayed_type.kind() == meta::type_kind::variant) {
     auto variant = view.as_variant();
-    auto child = variant ? variant->value() : result<meta::instance>{variant.error()};
+    auto child = variant ? variant->value() : result<meta::const_instance>{variant.error()};
     if (!child) {
       status = child.error();
       return;
@@ -354,10 +354,11 @@ bool draw_property_value(const char* name, value& data, const meta::type& type,
   return changed && operation.ok();
 }
 
-std::optional<property_edit> draw_reflected_properties(const meta::instance& view, const char* name,
-                                                       std::uint64_t& serial, error& status,
+std::optional<property_edit> draw_reflected_properties(const meta::const_instance& view,
+                                                       const char* name, std::uint64_t& serial,
+                                                       error& status,
                                                        std::span<const meta::property_id> readonly,
-                                                       const meta::instance* source) {
+                                                       const meta::const_instance* source) {
   if (source && source->type().id() != view.type().id()) {
     status = error::invalid_argument;
     return {};

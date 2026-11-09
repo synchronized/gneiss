@@ -42,7 +42,7 @@ validate_prefab_property_override(const prefab_property_override& value) noexcep
     engine::value source_value) noexcept;
 
 /** 在临时目标上应用单条值树操作。 */
-[[nodiscard]] error apply_prefab_override_operation(meta::mutable_instance target,
+[[nodiscard]] error apply_prefab_override_operation(meta::instance target,
                                                     const value_operation&) noexcept;
 
 /** 计算网格组件的 URI 覆盖；保留其他对象/属性记录。失败不改变输入，不访问 World 或资源服务。 */

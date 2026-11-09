@@ -653,3 +653,5 @@
 - [ADR-113：Meta 借用访问与序列化策略边界](decisions/ADR-113-meta-serialization-boundaries.md)
 
 - [PLAN-108 首批属性句柄迁移](records/2026-11-09-meta-property-handles.md)
+
+- [PLAN-108 实例读写 API 迁移](records/2026-11-09-meta-instance-api.md)

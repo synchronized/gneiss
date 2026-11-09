@@ -32,9 +32,9 @@ instance.hpp 汇集这些视图，原有容器调用方无需更换 include。�
 [引用属性访问](reflection.md#引用属性访问)。
 
 ```cpp
-auto root = meta::instance::from(registry, object);
+auto root = meta::view(registry, std::as_const(object));
 if (!root) return root.error();
-auto items = root->property("items");
+auto items = root->member("items");
 if (!items) return items.error();
 auto sequence = items->as_sequence();
 if (!sequence) return sequence.error();
@@ -43,7 +43,7 @@ if (!element) return element.error();
 auto snapshot = element->read_value(); // 仅当元素为标量时成功
 ```
 
-容器调用 read_value/write_value 返回 unsupported；不隐式复制整个容器。
+容器调用 read_value 或标量 assign 返回 unsupported；不隐式复制整个容器。
 标量元素沿用属性的有限数值、UTF-8 无 NUL 字符串校验；GUID 值允许 nil，业务身份是否非空由所属类型校验。
 结构修改、元素删除 及父对象移动后，必须重新获取受影响的元素视图；
 视图不检测悬空地址。视图保留注册表寿命，但不延长容器或元素寿命，调用方负责线程同步。
@@ -95,7 +95,7 @@ template<> struct sequence_traits<my_numbers> {
 }
 ```
 
-适配器可抛出异常，instance/容器视图边界将 bad_alloc 映射为 out_of_memory，其他异常按现有接口
+适配器可抛出异常，const_instance/容器视图边界将 bad_alloc 映射为 out_of_memory，其他异常按现有接口
 规则返回错误；不承诺回滚自定义回调产生的修改。只读适配可用于遍历和编码，不能因此推断其支持解码。
 容器结构修改后的借用视图失效规则保持不变。
 

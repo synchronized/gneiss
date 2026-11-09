@@ -18,7 +18,7 @@ public:
   engine::error open(std::string uri, std::string content) noexcept;
   engine::error set_value(const material_property_path&, const engine::value&,
                           std::uint64_t edit_serial = 0) noexcept;
-  engine::error replace_object(const property_path&, const engine::meta::instance&) noexcept;
+  engine::error replace_object(const property_path&, const engine::meta::const_instance&) noexcept;
   engine::error undo() noexcept { return history_.undo(); }
   engine::error redo() noexcept { return history_.redo(); }
   bool can_undo() const noexcept { return history_.can_undo(); }
@@ -36,8 +36,8 @@ public:
   const engine::material_description& description() const noexcept { return current_->description; }
 
 private:
-  engine::error apply(const property_path&, const engine::value*, const engine::meta::instance*,
-                      std::uint64_t) noexcept;
+  engine::error apply(const property_path&, const engine::value*,
+                      const engine::meta::const_instance*, std::uint64_t) noexcept;
   struct snapshot {
     engine::material_description description;
     std::string encoded;

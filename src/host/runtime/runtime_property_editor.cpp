@@ -84,21 +84,27 @@ gneiss::engine::error runtime_property_editor::execute(const ipc_property_write&
 
   const gneiss::engine::guid property_type{gneiss::engine::guid::from_bytes(key.type_id)};
   const gneiss::engine::meta::property_id property_field{command.field_id};
-  auto description = gneiss::engine::meta::describe_type(property_type);
+  auto description = gneiss::engine::meta::find_type(property_type);
   if (!description) {
     response.code = description.error().code();
     response.message = "属性不存在或不可写";
     output = std::move(response);
     return gneiss::engine::error::success;
   }
-  const auto field = std::ranges::find(description->properties, property_field,
-                                       &gneiss::engine::meta::property_info::id);
-  if (field == description->properties.end() ||
-      !has_flags(field->capabilities, gneiss::engine::meta::property_capabilities::writable) ||
-      has_flags(field->flags, gneiss::engine::meta::property_flags::editor_read_only)) {
-    response.code = field == description->properties.end()
-                        ? gneiss::engine::error::not_found.code()
-                        : gneiss::engine::error::unsupported.code();
+  auto properties = description->properties();
+  if (!properties) {
+    response.code = properties.error().code();
+    response.message = "属性不存在或不可写";
+    output = std::move(response);
+    return gneiss::engine::error::success;
+  }
+  const auto field =
+      std::ranges::find(*properties, property_field, &gneiss::engine::meta::property::id);
+  if (field == properties->end() ||
+      !has_flags(field->capabilities(), gneiss::engine::meta::property_capabilities::writable) ||
+      has_flags(field->flags(), gneiss::engine::meta::property_flags::editor_read_only)) {
+    response.code = field == properties->end() ? gneiss::engine::error::not_found.code()
+                                               : gneiss::engine::error::unsupported.code();
     response.message = "属性不存在或不可写";
     output = std::move(response);
     return gneiss::engine::error::success;

@@ -78,7 +78,7 @@ void normalize_zero(gneiss::engine::value& value) noexcept {
 
 namespace gneiss::engine {
 
-error apply_prefab_override_operation(meta::mutable_instance target,
+error apply_prefab_override_operation(meta::instance target,
                                       const value_operation& operation) noexcept {
   auto captured = serialization::capture_value(target.as_const());
   if (!captured)
@@ -370,7 +370,7 @@ engine::error prepare_prefab_description(const prefab_description& source,
       };
       if (!std::ranges::any_of(overrides, matches))
         continue;
-      auto changed = modify_component(component, [&](meta::mutable_instance root) -> error {
+      auto changed = modify_component(component, [&](meta::instance root) -> error {
         auto captured = serialization::capture_value(root.as_const());
         if (!captured)
           return captured.error().error;

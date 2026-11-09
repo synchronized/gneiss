@@ -21,13 +21,13 @@ struct capture_state {
   const context& ctx;
   std::unordered_set<const void*> active;
   diagnostic failure;
-  result<engine::value> read(const instance& source, std::size_t depth) {
+  result<engine::value> read(const const_instance& source, std::size_t depth) {
     auto result = read_impl(source, depth);
     if (!result && failure.error.ok())
       failure = {.path = std::string(ctx.property_path()), .error = result.error()};
     return result;
   }
-  result<engine::value> read_impl(const instance& source, std::size_t depth) {
+  result<engine::value> read_impl(const const_instance& source, std::size_t depth) {
     if (depth > ctx.maximum_depth())
       return error::invalid_argument;
     switch (source.kind()) {
@@ -187,25 +187,25 @@ struct capture_state {
 struct restore_state {
   const context& ctx;
   diagnostic failure;
-  error write(const mutable_instance& target, const engine::value& data, std::size_t depth,
+  error write(const instance& target, const engine::value& data, std::size_t depth,
               bool sequence_candidate = false) {
     auto status = write_impl(target, data, depth, sequence_candidate);
     if (status.failed() && failure.error.ok())
       failure = {.path = std::string(ctx.property_path()), .error = status};
     return status;
   }
-  error write_impl(const mutable_instance& target, const engine::value& data, std::size_t depth,
+  error write_impl(const instance& target, const engine::value& data, std::size_t depth,
                    bool sequence_candidate) {
     if (depth > ctx.maximum_depth())
       return error::invalid_argument;
     if (property_access::requires_replacement(target))
       return property_access::replace(
-          target, [&](const mutable_instance& temp) { return write(temp, data, depth); });
+          target, [&](const instance& temp) { return write(temp, data, depth); });
     switch (target.kind()) {
     case type_kind::empty:
       return data.kind() == value_kind::invalid ? error::success : error::invalid_argument;
     case type_kind::scalar:
-      return target.write_value(data);
+      return target.assign(data);
     case type_kind::object: {
       auto record = std::get_if<record_value>(&data.payload);
       if (!record || record->get().type != target.type().guid())
@@ -215,7 +215,7 @@ struct restore_state {
         if (!field.id || !seen.insert(field.id).second)
           return error::invalid_argument;
         detail::path_scope path{ctx, "/properties/" + std::to_string(field.id)};
-        auto child = target.property(property_id{field.id});
+        auto child = target.member(property_id{field.id});
         if (!child)
           return child.error();
         auto status = write(*child, field.content, depth + 1);
@@ -249,8 +249,8 @@ struct restore_state {
                                   data_view->get().keyed != view->has_identity()))
         return error::invalid_argument;
       if (view->supports_replacement()) {
-        auto status = view->replace(
-            [&](const mutable_instance& temp) { return write(temp, data, depth, true); });
+        auto status =
+            view->replace([&](const instance& temp) { return write(temp, data, depth, true); });
         if (status.failed())
           return status;
         for (std::size_t i = 0; i < data_view->get().identities.size(); ++i) {
@@ -375,7 +375,7 @@ struct restore_state {
       auto owner = ops->construct();
       if (!owner)
         return error::out_of_memory;
-      auto child = mutable_instance::from_object(registry, type->id(), owner.get());
+      auto child = instance::from_object(registry, type->id(), owner.get());
       if (!child)
         return child.error();
       auto status = write(*child, data, depth + 1);
@@ -393,7 +393,7 @@ struct restore_state {
 };
 }
 result<engine::value, diagnostic> capture_value(const context& ctx,
-                                                const meta::instance& source) noexcept try {
+                                                const meta::const_instance& source) noexcept try {
   detail::operation_scope operation{ctx};
   auto registry = ctx.registry();
   if (!registry)
@@ -413,7 +413,7 @@ result<engine::value, diagnostic> capture_value(const context& ctx,
 } catch (...) {
   return diagnostic{.error = error::internal};
 }
-diagnostic apply_value(const context& ctx, const meta::mutable_instance& target,
+diagnostic apply_value(const context& ctx, const meta::instance& target,
                        const engine::value& data) noexcept try {
   detail::operation_scope operation{ctx};
   auto registry = ctx.registry();
@@ -432,11 +432,11 @@ diagnostic apply_value(const context& ctx, const meta::mutable_instance& target,
 } catch (...) {
   return {.error = error::internal};
 }
-result<engine::value, diagnostic> capture_value(const meta::instance& source) noexcept {
+result<engine::value, diagnostic> capture_value(const meta::const_instance& source) noexcept {
   context ctx{property_access::registry(source)};
   return capture_value(ctx, source);
 }
-diagnostic apply_value(const meta::mutable_instance& target, const engine::value& data) noexcept {
+diagnostic apply_value(const meta::instance& target, const engine::value& data) noexcept {
   context ctx{property_access::registry(target)};
   return apply_value(ctx, target, data);
 }

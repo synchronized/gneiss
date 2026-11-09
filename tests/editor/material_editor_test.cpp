@@ -70,7 +70,7 @@ int main() try {
   {
     auto parameters = model.description().parameters;
     parameters.roughness = 0.6F;
-    auto source = e::meta::instance::from(parameters);
+    auto source = e::meta::view(std::as_const(parameters));
     check(bool(source) && model.replace_object({p{1}}, *source).ok(), "replace object");
     check(model.description().parameters.roughness == 0.6F && parameters.roughness == 0.6F,
           "copy does not consume source");
@@ -81,20 +81,20 @@ int main() try {
     check(model.replace_object({p{1}}, *source).failed() &&
               model.description().parameters.roughness == 0.6F,
           "invalid replacement atomic");
-    auto wrong = e::meta::instance::from(model.description());
+    auto wrong = e::meta::view(std::as_const(model.description()));
     check(model.replace_object({p{1}}, *wrong) == e::error::invalid_argument, "wrong type");
     check(model.replace_object({p{1}, p{3}}, *source) == e::error::unsupported,
           "scalar replacement rejected");
     auto defaults = gneiss::engine::serialization::json::deserialize<e::material_parameters>(
         std::as_bytes(std::span{"{}", std::size_t{2}}));
     check(bool(defaults), "decode defaults");
-    auto default_view = e::meta::instance::from(*defaults);
+    auto default_view = e::meta::view(std::as_const(*defaults));
     check(model.replace_object({p{1}}, *default_view).ok() && !model.is_dirty(),
           "reset object defaults");
     check(model.undo().ok() && model.description().parameters.roughness == 0.6F, "reset undo");
     e::texture_sampling sampling;
     sampling.uv_set = 1;
-    auto sampling_view = e::meta::instance::from(sampling);
+    auto sampling_view = e::meta::view(std::as_const(sampling));
     check(model.replace_object({p{1}, p{10}, std::size_t{2}}, *sampling_view).ok() &&
               model.description().parameters.sampling[2].uv_set == 1,
           "replace array object");

@@ -56,7 +56,7 @@ int main() {
     scene.objects = {a, b};
     const meta::property_path path{meta::property_id{2}, source_b, meta::property_id{2}};
     const auto read = [&]() -> result<value> {
-      auto root = meta::instance::from(scene);
+      auto root = meta::view(std::as_const(scene));
       if (!root)
         return root.error();
       auto leaf = meta::resolve_path(*root, path, true);
@@ -82,17 +82,17 @@ int main() {
     scene.objects.front().uuid = {};
     if (read().error() != error::invalid_argument)
       return 45;
-    auto root = meta::instance::from(scene);
+    auto root = meta::view(std::as_const(scene));
     const meta::property_path index{meta::property_id{2}, std::size_t{0}};
     if (meta::resolve_path(*root, index, true).error() != error::unsupported)
       return 46;
     if (!meta::resolve_path(*root, index))
       return 47;
     std::map<std::string, float> mapping{{"a/b", 3}};
-    auto map = meta::mutable_instance::from(mapping);
+    auto map = meta::view(mapping);
     const meta::property_path map_path{std::string("a/b")};
     auto leaf = meta::resolve_path(*map, map_path, true);
-    if (!leaf || leaf->write_value(value{4.0F}).failed() || mapping["a/b"] != 4)
+    if (!leaf || leaf->assign(value{4.0F}).failed() || mapping["a/b"] != 4)
       return 48;
   }
   // 实际 Prefab 列表通过稳定身份重排、删除、新增；文件保持操作顺序。
@@ -105,7 +105,7 @@ int main() {
     original.waypoints = {{source_a, 1}, {source_b, 2}};
     auto changed = original;
     changed.waypoints = {{source_b, 20}, {third, 3}};
-    auto a = meta::instance::from(original), b = meta::instance::from(changed);
+    auto a = meta::view(std::as_const(original)), b = meta::view(std::as_const(changed));
     auto before = serialization::capture_value(*a), after = serialization::capture_value(*b);
     if (!before || !after)
       return 70;
@@ -198,8 +198,8 @@ int main() {
     using namespace gneiss::engine;
     using gneiss::test_support::movement_description;
     movement_description movement;
-    auto view = meta::instance::from(movement);
-    auto samples = view->property(meta::property_id{4});
+    auto view = meta::view(std::as_const(movement));
+    auto samples = view->member(meta::property_id{4});
     auto before = serialization::capture_value(*samples);
     movement.samples = {8, 9, 10};
     auto after = serialization::capture_value(*samples);

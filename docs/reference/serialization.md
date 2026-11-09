@@ -38,7 +38,7 @@ auto status = ser::serialize(ctx, description, output_writer);
 无 context 的类型模板使用默认注册表；视图重载使用视图绑定的注册表。
 显式 context 与视图必须绑定同一注册表，否则返回 invalid_argument，不修改读取目标。
 显式空注册表返回 invalid_handle，不回退默认表；context 不自动注册或冻结类型。
-无效输入、未注册类型及后端错误不返回半成品对象；写入已有 mutable_instance 的重载不承诺回滚。
+无效输入、未注册类型及后端错误不返回半成品对象；写入已有 instance 的重载不承诺回滚。
 
 ## 共享遍历
 
@@ -110,7 +110,7 @@ Material、Action Map、Scene、Prefab、Texture 的格式名、版本、大小�
 ## 类型分派与资源文件
 
 JSON 与通用 reader 的返回值模板共用 `detail::decode_typed`：Meta 非对象类别通过临时实例解码，
-对象类别通过注册的构造或解码能力创建，因此保留非默认构造对象支持。编码统一从 instance 遍历。
+对象类别通过注册的构造或解码能力创建，因此保留非默认构造对象支持。编码统一从 const_instance 遍历。
 向量、四元数和矩阵共用固定长度分量读取，保留有限 float 校验和实际类型。
 
 Mesh JSON 使用 `mesh_description` 注册字段，由 `asset_file` 处理 `gneiss.mesh` 版本 3 格式头；
@@ -127,8 +127,8 @@ Mesh JSON 使用 `mesh_description` 注册字段，由 `asset_file` 处理 `gnei
 结构化分支通过 Meta 属性注册和通用 variant 遍历编码，使用 `$kind/$content`。
 record 按属性 ID 保存，map 按键比较，二者比较不依赖输入顺序；sequence 的顺序参与比较。
 
-`serialization/value.hpp` 提供 `capture_value(context, instance)` 和
-`apply_value(context, mutable_instance, value)`，直接在反射对象和内存数据之间转换，不经过 JSON。
+`serialization/value.hpp` 提供 `capture_value(context, const_instance)` 和
+`apply_value(context, instance, value)`，直接在反射对象和内存数据之间转换，不经过 JSON。
 支持对象、容器、optional、具名 variant 与内嵌多态引用。捕获拒绝循环引用，恢复可部分修改目标，
 业务应在候选描述上恢复和校验后提交。有类型入口 `capture_value(context, object)` 与
 `restore_value<T>(context, value)` 共用同一实现，后者创建独立候选，失败不返回部分对象。

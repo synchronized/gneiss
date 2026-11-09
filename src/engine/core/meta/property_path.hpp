@@ -50,7 +50,7 @@ result<View> resolve_path(View root, std::span<const property_step> path, bool p
   for (const auto& step : path) {
     result<View> next = error::unsupported;
     if (const auto* property = std::get_if<property_id>(&step))
-      next = root.property(*property);
+      next = root.member(*property);
     else if (const auto* key = std::get_if<std::string>(&step)) {
       auto map = root.as_associative();
       if (!map)

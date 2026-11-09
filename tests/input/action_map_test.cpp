@@ -7,8 +7,8 @@
 #include "engine/core/error.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/meta_registration.hpp"
 #include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
@@ -163,7 +163,7 @@ int main() {
   auto short_limit = exact;
   --short_limit.maximum_bytes;
   serialization::context ctx;
-  auto view = meta::instance::from(map);
+  auto view = meta::view(std::as_const(map));
   if (!view || !asset_file::serialize_instance(ctx, exact, *view) ||
       !asset_file::deserialize_object(ctx, exact, runtime_type_of<action_map_description>(),
                                       *saved_bytes) ||

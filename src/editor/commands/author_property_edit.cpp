@@ -38,7 +38,7 @@ engine::error edit_description(scene_edit_session& document, editor_command_hist
   using namespace engine;
   error status = error::success;
   auto candidate = before;
-  auto target = meta::mutable_instance::from(candidate);
+  auto target = meta::view(candidate);
   if (!target)
     return target.error();
   std::string key = meta::property_path_text(edit.path);
@@ -46,12 +46,12 @@ engine::error edit_description(scene_edit_session& document, editor_command_hist
   if (!target)
     return target.error();
   if (edit.object) {
-    auto source = meta::instance::from_object(edit.object_type, edit.object.get());
+    auto source = meta::const_instance::from_object(edit.object_type, edit.object.get());
     if (!source)
       return source.error();
     status = target->assign(*source);
   } else
-    status = target->write_value(edit.data);
+    status = target->assign(edit.data);
   if (status.failed())
     return status;
   auto validated = serialization::capture_value(candidate);
@@ -236,20 +236,20 @@ engine::error edit_component_description(scene_edit_session& document,
           return type.error();
       }
     }
-    auto changed = modify_component(before, [&](meta::mutable_instance root) -> error {
+    auto changed = modify_component(before, [&](meta::instance root) -> error {
       auto target = meta::resolve_path(root, edit.path);
       if (!target)
         return target.error();
       if (!edit.object) {
         if (edit.data.kind() != value_kind::object)
-          return target->write_value(edit.data);
+          return target->assign(edit.data);
         auto captured = serialization::capture_value(edit.data);
         if (!captured)
           return captured.error().error;
         auto owned = serialization::restore_value<value>(*captured);
-        return owned ? target->write_value(*owned) : owned.error().error;
+        return owned ? target->assign(*owned) : owned.error().error;
       }
-      auto source = meta::instance::from_object(edit.object_type, edit.object.get());
+      auto source = meta::const_instance::from_object(edit.object_type, edit.object.get());
       return source ? target->assign(*source) : source.error();
     });
     if (!changed)

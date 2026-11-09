@@ -108,14 +108,14 @@ bool parse_uuid(yyjson_val* value, bool optional, gneiss::engine::guid& output) 
 // Scene 和 IPC 共用组件数组反射编解码与业务校验。
 bool add_components(yyjson_mut_doc* doc, yyjson_mut_val* node,
                     const gneiss::engine::component_descriptions& components) {
-  auto view = gneiss::engine::meta::instance::from(components);
+  auto view = gneiss::engine::meta::view(std::as_const(components));
   if (!view)
     return false;
   auto array = gneiss::engine::serialization::json::detail::write(doc, *view);
   return array && yyjson_mut_obj_add_val(doc, node, "components", *array);
 }
 bool parse_components(yyjson_val* node, gneiss::engine::component_descriptions& output) {
-  auto view = gneiss::engine::meta::mutable_instance::from(output);
+  auto view = gneiss::engine::meta::view(output);
   return view && gneiss::engine::serialization::json::detail::read(
                      yyjson_obj_get(node, "components"), *view)
                      .error.ok();

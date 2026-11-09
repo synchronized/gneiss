@@ -15,15 +15,15 @@ int main() try {
   if (gneiss::engine::initialize_meta().failed())
     return 6;
   gneiss::engine::camera_description camera{{1.0F, 0.1F, 100.0F}};
-  auto camera_view = gneiss::engine::meta::instance::from(camera);
+  auto camera_view = gneiss::engine::meta::view(std::as_const(camera));
   if (!camera_view)
     return 7;
   gneiss::engine::math::transform transform;
-  auto transform_view = gneiss::engine::meta::instance::from(transform);
+  auto transform_view = gneiss::engine::meta::view(std::as_const(transform));
   if (!transform_view)
     return 8;
   gneiss::engine::mesh_renderer_description mesh{"asset://mesh.json", "asset://material.json"};
-  auto mesh_view = gneiss::engine::meta::instance::from(mesh);
+  auto mesh_view = gneiss::engine::meta::view(std::as_const(mesh));
   if (!mesh_view)
     return 9;
   unsigned writes = 0;
@@ -57,12 +57,12 @@ int main() try {
   // 单独绘制目标属性，避免把组件末尾的只读身份字段误当成恢复按钮。
   const auto restore = [&](auto current, auto source, gneiss::engine::meta::property_id property,
                            gneiss::engine::value expected) {
-    auto current_view = gneiss::engine::meta::instance::from(current);
-    auto source_view = gneiss::engine::meta::instance::from(source);
+    auto current_view = gneiss::engine::meta::view(std::as_const(current));
+    auto source_view = gneiss::engine::meta::view(std::as_const(source));
     if (!current_view || !source_view)
       return false;
-    auto current_property = current_view->property(property);
-    auto source_property = source_view->property(property);
+    auto current_property = current_view->member(property);
+    auto source_property = source_view->member(property);
     if (!current_property || !source_property)
       return false;
     std::optional<property_edit> requested;
@@ -87,8 +87,8 @@ int main() try {
     frame();
     io.AddMouseButtonEvent(0, false);
     frame();
-    auto unchanged = current_view->property(property);
-    auto original = source_view->property(property);
+    auto unchanged = current_view->member(property);
+    auto original = source_view->member(property);
     if (!unchanged || !original)
       return false;
     auto actual = unchanged->read_value();
@@ -121,12 +121,12 @@ int main() try {
       e::meta::freeze(*registry).failed())
     return 15;
   std::vector<choice> choices{choice::second};
-  auto choices_view = e::meta::instance::from(*registry, choices);
+  auto choices_view = e::meta::view(*registry, std::as_const(choices));
   if (!choices_view || draw_reflected_properties(*choices_view, "Enum elements", serial, error) ||
       !error.ok())
     return 16;
   e::value uv{e::math::vector2{0.25F, 0.75F}};
-  auto uv_view = e::meta::instance::from(std::get<e::math::vector2>(uv.payload));
+  auto uv_view = e::meta::view(std::as_const(std::get<e::math::vector2>(uv.payload)));
   if (!uv_view)
     return 14;
   if (draw_property_value("UV", uv, uv_view->type(), serial, error) || !error.ok() ||

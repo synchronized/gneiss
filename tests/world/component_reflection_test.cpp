@@ -91,12 +91,12 @@ int main() {
     if (!captured)
       return captured.error();
     auto changed = engine::modify_component(
-        *captured->find(camera_type), [&](engine::meta::mutable_instance root) -> error {
-          auto settings = root.property(engine::meta::property_id{1});
+        *captured->find(camera_type), [&](engine::meta::instance root) -> error {
+          auto settings = root.member(engine::meta::property_id{1});
           if (!settings)
             return settings.error();
-          auto field = settings->property(engine::meta::property_id{2});
-          return field ? field->write_value(engine::value{near}) : field.error();
+          auto field = settings->member(engine::meta::property_id{2});
+          return field ? field->assign(engine::value{near}) : field.error();
         });
     if (!changed)
       return changed.error();

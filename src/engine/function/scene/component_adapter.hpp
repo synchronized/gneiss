@@ -35,7 +35,7 @@ struct component_adapter {
                                               const value&)>
       edit;
   std::function<result<component_description>(const component_description&,
-                                              const std::function<error(meta::mutable_instance)>&)>
+                                              const std::function<error(meta::instance)>&)>
       modify;
   std::function<std::vector<render_resource_source>(const component_description&)> dependencies;
   std::function<result<component_description>()> create_default;
@@ -110,8 +110,8 @@ template <class T> component_adapter make_component_adapter(component_operations
           return error::invalid_argument;
         if (ops.read)
           return ops.read(*typed, type, property);
-        auto root = meta::instance::from(*typed);
-        auto field = root ? root->property(property) : result<meta::instance>{root.error()};
+        auto root = meta::view(std::as_const(*typed));
+        auto field = root ? root->member(property) : result<meta::const_instance>{root.error()};
         return field ? field->read_value() : result<value>{field.error()};
       },
       .edit = [ops](const component_description& source, guid type, meta::property_id property,
@@ -122,11 +122,11 @@ template <class T> component_adapter make_component_adapter(component_operations
         auto status = [&]() -> error {
           if (ops.edit)
             return ops.edit(copy, type, property, input);
-          auto root = meta::mutable_instance::from(copy);
+          auto root = meta::view(copy);
           if (!root)
             return root.error();
-          auto field = root->property(property);
-          return field ? field->write_value(input) : field.error();
+          auto field = root->member(property);
+          return field ? field->assign(input) : field.error();
         }();
         if (status.ok())
           status = ops.validate(copy);
@@ -135,12 +135,12 @@ template <class T> component_adapter make_component_adapter(component_operations
         return make_component_description(std::move(copy));
       },
       .modify = [ops](const component_description& source,
-                      const std::function<error(meta::mutable_instance)>& change)
+                      const std::function<error(meta::instance)>& change)
           -> result<component_description> {
         if (!source || !source->get<T>())
           return error::invalid_argument;
         auto copy = *source->get<T>();
-        auto view = meta::mutable_instance::from(copy);
+        auto view = meta::view(copy);
         if (!view)
           return view.error();
         auto status = change(*view);
@@ -191,7 +191,7 @@ template <class T> error register_scene_component(component_operations<T> ops) n
 }
 GNEISS_API result<component_description>
 modify_component(const component_description&,
-                 const std::function<error(meta::mutable_instance)>&) noexcept;
+                 const std::function<error(meta::instance)>&) noexcept;
 struct component_editor_info {
   guid type;
   bool addable = false;

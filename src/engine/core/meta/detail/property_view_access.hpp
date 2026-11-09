@@ -6,16 +6,17 @@
 namespace gneiss::engine::meta::detail {
 /** 受约束属性的解码暂存；不向调用方暴露可写成员地址。 */
 struct property_view_access {
-  static const registry_ref& registry(const instance& view) noexcept { return view.registry_; }
-  static const registry_ref& registry(const mutable_instance& view) noexcept {
+  static const registry_ref& registry(const const_instance& view) noexcept {
+    return view.registry_;
+  }
+  static const registry_ref& registry(const instance& view) noexcept {
     return view.view_.registry_;
   }
 
-  static bool requires_replacement(const mutable_instance& view) noexcept {
+  static bool requires_replacement(const instance& view) noexcept {
     return view.parent_ && !view.data_ && view.kind() != type_kind::scalar;
   }
-  static GNEISS_API error
-  replace(const mutable_instance&,
-          const std::function<error(const mutable_instance&)>& initialize) noexcept;
+  static GNEISS_API error replace(const instance&,
+                                  const std::function<error(const instance&)>& initialize) noexcept;
 };
 }

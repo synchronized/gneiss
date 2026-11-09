@@ -221,8 +221,8 @@ int main() try {
     reference_description description;
     description.settings = shared;
     auto original = e::make_component_description(description);
-    auto change = [](e::meta::mutable_instance root) -> e::error {
-      auto property = root.property(p{1});
+    auto change = [](e::meta::instance root) -> e::error {
+      auto property = root.member(p{1});
       if (!property)
         return property.error();
       auto reference = property->as_reference();
@@ -231,14 +231,14 @@ int main() try {
       auto target = reference->get();
       if (!target)
         return target.error();
-      auto amount = target->property(p{1});
-      return amount ? amount->write_value(e::value{8.0F}) : amount.error();
+      auto amount = target->member(p{1});
+      return amount ? amount->assign(e::value{8.0F}) : amount.error();
     };
     auto changed = e::modify_component(original, change);
     check(changed && shared->amount == 1);
     check((*changed)->get<reference_description>()->settings->amount == 8);
     check((*changed)->get<reference_description>()->settings != shared);
-    auto failed = e::modify_component(original, [&](e::meta::mutable_instance root) -> e::error {
+    auto failed = e::modify_component(original, [&](e::meta::instance root) -> e::error {
       auto result = change(root);
       return result.failed() ? result : e::error::invalid_argument;
     });
@@ -553,7 +553,7 @@ int main() try {
     unsigned char* pixels;
     int width, height;
     ref_io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-    auto ref_view = e::meta::instance::from(input);
+    auto ref_view = e::meta::view(std::as_const(input));
     check(bool(ref_view));
     std::uint64_t serial = 0;
     e::error status = e::error::success;
@@ -561,7 +561,7 @@ int main() try {
     ImGui::Begin("References");
     auto emitted = ed::draw_reflected_properties(*ref_view, "Object", serial, status);
     e::ref<reference_settings> empty;
-    auto empty_view = e::meta::instance::from(empty);
+    auto empty_view = e::meta::view(std::as_const(empty));
     check(bool(empty_view));
     (void)ed::draw_reflected_properties(*empty_view, "Empty", serial, status);
     ImGui::End();

@@ -26,8 +26,8 @@ public:
     return dynamic_type() == runtime_type_of<T>() ? static_cast<const T*>(dynamic_address())
                                                   : nullptr;
   }
-  result<meta::instance> view() const noexcept {
-    return meta::instance::from_object(dynamic_type(), dynamic_address());
+  result<meta::const_instance> view() const noexcept {
+    return meta::const_instance::from_object(dynamic_type(), dynamic_address());
   }
 };
 using component_description = ref<const component_description_base>;

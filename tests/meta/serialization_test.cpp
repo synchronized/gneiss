@@ -133,13 +133,13 @@ bool inherited_properties() {
   inherited_leaf input;
   if (static_cast<void*>(&input) == static_cast<void*>(static_cast<inherited_base*>(&input)))
     return false;
-  auto view = mutable_instance::from(registry, input);
+  auto view = gneiss::engine::meta::view(registry, input);
   auto properties = describe_type(registry, e::runtime_type_of<inherited_leaf>());
   if (!view || !properties || properties->properties.size() != 5)
     return false;
-  auto number = view->property("number");
-  auto values = view->property("values");
-  if (!number || !values || number->write_value(e::value{std::int64_t{42}}).failed() ||
+  auto number = view->member("number");
+  auto values = view->member("values");
+  if (!number || !values || number->assign(e::value{std::int64_t{42}}).failed() ||
       input.number != 42 || input.sentinel != 123 || !values->as_sequence())
     return false;
   auto read = read_property(registry, inherited_leaf::type_guid, property_id{1}, &input);
@@ -153,15 +153,15 @@ bool inherited_properties() {
   if (!sequence || sequence->resize(3).failed())
     return false;
   auto element = sequence->at(2);
-  if (!element || element->write_value(e::value{std::int64_t{9}}).failed() || input.values[2] != 9)
+  if (!element || element->assign(e::value{std::int64_t{9}}).failed() || input.values[2] != 9)
     return false;
-  auto nested = view->property("nested");
+  auto nested = view->member("nested");
   captured_data candidate{{7}, {{"entry", {8}}}};
-  auto candidate_view = instance::from(registry, candidate);
+  auto candidate_view = gneiss::engine::meta::view(registry, std::as_const(candidate));
   if (!nested || !candidate_view || nested->assign(*candidate_view).failed() ||
       input.nested != candidate)
     return false;
-  auto nested_values = nested->as_const().property("values");
+  auto nested_values = nested->as_const().member("values");
   if (!nested_values || !nested_values->as_sequence())
     return false;
   candidate.values.clear();
@@ -231,7 +231,7 @@ int main() {
       e::meta::freeze(*core).failed())
     return 30;
   captured_data capture_input{{1, std::nullopt, 3}, {{"one", {1, 2}}, {"empty", {}}}};
-  auto capture_input_view = e::meta::instance::from(*core, capture_input);
+  auto capture_input_view = e::meta::view(*core, std::as_const(capture_input));
   if (!capture_input_view)
     return 60;
   auto captured =
@@ -242,7 +242,7 @@ int main() {
   capture_input.values[0] = 100;
   capture_input.groups.clear();
   captured_data restored_data;
-  auto target = e::meta::mutable_instance::from(*core, restored_data);
+  auto target = e::meta::view(*core, restored_data);
   if (!target ||
       e::serialization::apply_value(e::serialization::context{*core}, *target, *captured)
           .error.failed() ||
@@ -266,7 +266,7 @@ int main() {
     return 68;
   auto cycle = e::make_ref<cyclic_data>();
   cycle->next = cycle;
-  auto cycle_view = e::meta::instance::from(*core, cycle);
+  auto cycle_view = e::meta::view(*core, std::as_const(cycle));
   auto cycle_copy = e::serialization::capture_value(e::serialization::context{*core}, *cycle_view);
   cycle->next.reset();
   if (cycle_copy || cycle_copy.error().error != e::error::invalid_argument)
@@ -384,14 +384,14 @@ int main() {
   if (e::serialization::json::serialize(e::serialization::context{*core}, e::value{matrix4}))
     return 45;
   e::value edited{true};
-  auto value_view = e::meta::mutable_instance::from(*core, edited);
+  auto value_view = e::meta::view(*core, edited);
   if (!value_view || value_view->kind() != e::meta::type_kind::variant)
     return 46;
   auto variant = value_view->as_variant();
   if (!variant || variant->alternative_count() != cases.size() || variant->select(12).failed())
     return 47;
   auto selected = variant->value();
-  if (!selected || selected->write_value(e::value{matrix3}).failed() || edited != e::value{matrix3})
+  if (!selected || selected->assign(e::value{matrix3}).failed() || edited != e::value{matrix3})
     return 48;
   if (variant->select(0).failed() || edited.kind() != e::value_kind::invalid)
     return 49;

@@ -5,11 +5,11 @@
 namespace gneiss::engine::meta {
 /** 借用视图；不延长目标寿命，结构修改后需重新获取元素视图。 */
 template <bool Mutable> class basic_optional_view {
-  using target_type = std::conditional_t<Mutable, mutable_instance, instance>;
+  using target_type = std::conditional_t<Mutable, instance, const_instance>;
+  friend class const_instance;
   friend class instance;
-  friend class mutable_instance;
   explicit basic_optional_view(target_type target) : target_(std::move(target)) {}
-  instance readonly() const noexcept {
+  const_instance readonly() const noexcept {
     if constexpr (Mutable)
       return target_.as_const();
     else
@@ -33,10 +33,9 @@ public:
     if constexpr (Mutable) {
       if (!ops()->get_mut)
         return error::unsupported;
-      return mutable_instance::from_access(v.registry_, ops()->element(),
-                                           ops()->get_mut(target_.data_));
+      return instance::from_access(v.registry_, ops()->element(), ops()->get_mut(target_.data_));
     } else {
-      return instance::from_access(v.registry_, ops()->element(), ops()->get(v.data_));
+      return const_instance::from_access(v.registry_, ops()->element(), ops()->get(v.data_));
     }
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;

@@ -45,7 +45,7 @@ bool format_node_contract() {
     return false;
   e::serialization::context ctx{*registry};
   const auto encode = [&](const format_probe& object) {
-    auto view = m::instance::from(*registry, object);
+    auto view = m::view(*registry, std::as_const(object));
     return e::asset_file::serialize_instance(ctx, probe_format, *view);
   };
   const auto decode = [&](std::span<const std::byte> input) {
@@ -445,15 +445,15 @@ int main() try {
         std::string(valid_scene), R"("components":[)", R"("prefab":null,"components":[)"));
     if (!null_prefab || null_prefab->objects[0].prefab)
       return 97;
-    auto slot = meta::instance::from(scene.objects[1]);
+    auto slot = meta::view(std::as_const(scene.objects[1]));
     if (!slot)
       return 98;
-    auto reference = slot->property("prefab")->as_optional();
+    auto reference = slot->member("prefab")->as_optional();
     if (!reference || !*reference->has_value())
       return 98;
     auto contents = reference->get();
     if (!contents || contents->properties()->size() != 3 ||
-        *contents->property("overrides")->as_sequence()->size() != 1)
+        *contents->member("overrides")->as_sequence()->size() != 1)
       return 98;
     auto copied = scene.objects[1];
     copied.prefab->uri = "asset://prefabs/copy.prefab.json";

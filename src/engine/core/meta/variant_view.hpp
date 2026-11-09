@@ -5,11 +5,11 @@
 namespace gneiss::engine::meta {
 /** 借用当前分支；select 后所有旧分支视图失效。未配置标签不影响内存访问。 */
 template <bool Mutable> class basic_variant_view {
-  using target_type = std::conditional_t<Mutable, mutable_instance, instance>;
+  using target_type = std::conditional_t<Mutable, instance, const_instance>;
+  friend class const_instance;
   friend class instance;
-  friend class mutable_instance;
   explicit basic_variant_view(target_type target) : target_(std::move(target)) {}
-  instance readonly() const noexcept {
+  const_instance readonly() const noexcept {
     if constexpr (Mutable)
       return target_.as_const();
     else
@@ -40,11 +40,11 @@ public:
       return i.error();
     auto view = readonly();
     if constexpr (Mutable)
-      return mutable_instance::from_access(view.registry_, *ops()->alternatives[*i],
-                                           ops()->get_mut(target_.data_));
-    else
       return instance::from_access(view.registry_, *ops()->alternatives[*i],
-                                   ops()->get(view.data_));
+                                   ops()->get_mut(target_.data_));
+    else
+      return const_instance::from_access(view.registry_, *ops()->alternatives[*i],
+                                         ops()->get(view.data_));
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {

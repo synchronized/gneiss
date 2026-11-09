@@ -73,10 +73,9 @@ format format_traits<prefab_description>::get() noexcept {
   return {"gneiss.prefab", 1, prefab_description::maximum_source_bytes, retired_fields};
 }
 format format_traits<texture_description>::get() noexcept { return {"gneiss.texture", 2}; }
-result<std::vector<std::byte>, diagnostic> serialize_instance(const serialization::context& ctx,
-                                                              format format,
-                                                              const meta::instance& view) noexcept
-    try {
+result<std::vector<std::byte>, diagnostic>
+serialize_instance(const serialization::context& ctx, format format,
+                   const meta::const_instance& view) noexcept try {
   std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> doc(yyjson_mut_doc_new(nullptr),
                                                                       &yyjson_mut_doc_free);
   if (!doc)

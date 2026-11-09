@@ -120,12 +120,12 @@ int main() try {
   if (!camera)
     return 3;
   auto changed = gneiss::engine::modify_component(
-      *camera, [](gneiss::engine::meta::mutable_instance root) -> gneiss::engine::error {
-        auto settings = root.property(gneiss::engine::meta::property_id{1});
+      *camera, [](gneiss::engine::meta::instance root) -> gneiss::engine::error {
+        auto settings = root.member(gneiss::engine::meta::property_id{1});
         if (!settings)
           return settings.error();
-        auto near = settings->property(gneiss::engine::meta::property_id{2});
-        return near ? near->write_value(gneiss::engine::value{0.25F}) : near.error();
+        auto near = settings->member(gneiss::engine::meta::property_id{2});
+        return near ? near->assign(gneiss::engine::value{0.25F}) : near.error();
       });
   if (!changed)
     return 3;

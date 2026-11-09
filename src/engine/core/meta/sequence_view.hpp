@@ -6,11 +6,11 @@
 namespace gneiss::engine::meta {
 /** 借用视图；不延长目标寿命，结构修改后需重新获取元素视图。 */
 template <bool Mutable> class basic_sequence_view {
-  using target_type = std::conditional_t<Mutable, mutable_instance, instance>;
+  using target_type = std::conditional_t<Mutable, instance, const_instance>;
+  friend class const_instance;
   friend class instance;
-  friend class mutable_instance;
   explicit basic_sequence_view(target_type target) : target_(std::move(target)) {}
-  instance readonly() const noexcept {
+  const_instance readonly() const noexcept {
     if constexpr (Mutable)
       return target_.as_const();
     else
@@ -40,10 +40,10 @@ public:
     if constexpr (Mutable) {
       if (!ops()->at_mut)
         return error::unsupported;
-      return mutable_instance::from_access(v.registry_, ops()->element(),
-                                           ops()->at_mut(target_.data_, index));
+      return instance::from_access(v.registry_, ops()->element(),
+                                   ops()->at_mut(target_.data_, index));
     } else
-      return instance::from_access(v.registry_, ops()->element(), ops()->at(v.data_, index));
+      return const_instance::from_access(v.registry_, ops()->element(), ops()->at(v.data_, index));
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {
@@ -94,7 +94,7 @@ public:
   [[nodiscard]] bool supports_replacement() const noexcept { return ops()->replace != nullptr; }
   /** 在临时序列上初始化，再通过容器约束校验并替换；不开放原集合可写元素。 */
   [[nodiscard]] error
-  replace(const std::function<error(const mutable_instance&)>& initialize) const noexcept
+  replace(const std::function<error(const instance&)>& initialize) const noexcept
     requires(Mutable)
   try {
     if (!ops()->replace)
@@ -102,7 +102,7 @@ public:
     if (!initialize)
       return error::invalid_argument;
     return ops()->replace(target_.data_, [&](void* data, const detail::type_ops& access) {
-      auto candidate = mutable_instance::from_access(readonly().registry_, access, data);
+      auto candidate = instance::from_access(readonly().registry_, access, data);
       return candidate ? initialize(*candidate) : candidate.error();
     });
   } catch (const std::bad_alloc&) {

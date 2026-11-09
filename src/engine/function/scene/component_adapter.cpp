@@ -220,7 +220,7 @@ error register_scene_component(component_adapter adapter) noexcept try {
 }
 result<component_description>
 modify_component(const component_description& source,
-                 const std::function<error(meta::mutable_instance)>& change) noexcept try {
+                 const std::function<error(meta::instance)>& change) noexcept try {
   if (!source)
     return error::invalid_argument;
   const auto* adapter = find(source->guid());
@@ -640,10 +640,10 @@ result<value> read_component_property(world& world, std::uint64_t entity, guid t
   auto status = world.entity_get_local_transform(entity_id{entity}, object);
   if (status.failed())
     return status;
-  auto root = meta::instance::from(object);
+  auto root = meta::view(std::as_const(object));
   if (!root)
     return root.error();
-  auto member = root->property(field);
+  auto member = root->member(field);
   return member ? member->read_value() : result<value>{member.error()};
 }
 error write_component_property(world& world, std::uint64_t entity, guid type,
@@ -653,11 +653,11 @@ error write_component_property(world& world, std::uint64_t entity, guid type,
     return node ? edit_runtime_component({world, *node}, type, field, value) : node.error();
   }
   return access_component(world, entity, type, true, [&](auto* object) {
-    auto root = meta::mutable_instance::from(*object);
+    auto root = meta::view(*object);
     if (!root)
       return root.error();
-    auto member = root->property(field);
-    return member ? member->write_value(value) : member.error();
+    auto member = root->member(field);
+    return member ? member->assign(value) : member.error();
   });
 }
 }

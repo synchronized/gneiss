@@ -14,7 +14,7 @@ result<T, diagnostic> decode_typed(const context& ctx, DecodeView&& decode_view,
   if constexpr (std::is_default_constructible_v<T>) {
     if (meta::detail::ops_of<T>().kind() != meta::type_kind::object) {
       T object{};
-      auto view = meta::mutable_instance::from(*registry, object);
+      auto view = meta::view(*registry, object);
       if (!view)
         return diagnostic{.error = view.error()};
       auto status = decode_view(*view);

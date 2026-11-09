@@ -4,7 +4,7 @@
 #include "engine/core/meta/detail/property_view_access.hpp"
 #include "engine/core/serialization/detail/traversal.hpp"
 namespace gneiss::engine::serialization {
-serialization::diagnostic serialize(const context& ctx, const meta::instance& view,
+serialization::diagnostic serialize(const context& ctx, const meta::const_instance& view,
                                     writer& output) noexcept try {
   auto registry = ctx.registry();
   if (!registry)
@@ -23,7 +23,7 @@ serialization::diagnostic serialize(const context& ctx, const meta::instance& vi
   return {.error = error::internal};
 }
 serialization::diagnostic deserialize(const context& ctx, reader& input,
-                                      const meta::mutable_instance& view) noexcept try {
+                                      const meta::instance& view) noexcept try {
   auto registry = ctx.registry();
   if (!registry)
     return serialization::diagnostic{.error = registry.error()};
@@ -52,13 +52,12 @@ result<ref<void>, serialization::diagnostic> deserialize_object(const context& c
 } catch (...) {
   return serialization::diagnostic{.error = error::internal};
 }
-serialization::diagnostic serialize(const meta::instance& view, writer& output) noexcept {
+serialization::diagnostic serialize(const meta::const_instance& view, writer& output) noexcept {
   context ctx{meta::detail::property_view_access::registry(view)};
   return serialize(ctx, view, output);
 }
-serialization::diagnostic deserialize(reader& input, const meta::mutable_instance& view) noexcept {
+serialization::diagnostic deserialize(reader& input, const meta::instance& view) noexcept {
   context ctx{meta::detail::property_view_access::registry(view)};
   return deserialize(ctx, input, view);
 }
-
 }

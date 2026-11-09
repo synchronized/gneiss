@@ -179,10 +179,10 @@ int main() try {
     return 56;
   // 组件属性只能整项替换；失败不修改已有组件或共享快照。
   auto guarded = parsed->objects.front();
-  auto object_view = e::meta::mutable_instance::from(guarded);
+  auto object_view = e::meta::view(guarded);
   if (!object_view)
     return 37;
-  auto property = object_view->property("components");
+  auto property = object_view->member("components");
   if (!property || !property->as_sequence() || !property->as_sequence()->supports_replacement() ||
       property->as_sequence()->at(0).error() != e::error::unsupported ||
       property->as_sequence()->resize(2) != e::error::unsupported ||

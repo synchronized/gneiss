@@ -47,7 +47,7 @@ template <> struct format_traits<texture_description> {
   static GNEISS_API format get() noexcept;
 };
 GNEISS_API result<std::vector<std::byte>, serialization::diagnostic>
-serialize_instance(const serialization::context&, format, const meta::instance&) noexcept;
+serialize_instance(const serialization::context&, format, const meta::const_instance&) noexcept;
 GNEISS_API result<ref<void>, serialization::diagnostic>
 deserialize_object(const serialization::context&, format, type_id,
                    std::span<const std::byte>) noexcept;
@@ -58,7 +58,7 @@ serialize_bytes(const serialization::context& ctx, const T& object) noexcept {
   auto registry = ctx.registry();
   if (!registry)
     return serialization::diagnostic{.error = registry.error()};
-  auto view = meta::instance::from(*registry, object);
+  auto view = meta::view(*registry, std::as_const(object));
   if (!view)
     return serialization::diagnostic{.error = view.error()};
   return serialize_instance(ctx, format_traits<T>::get(), *view);

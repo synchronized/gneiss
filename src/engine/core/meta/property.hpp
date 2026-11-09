@@ -95,8 +95,8 @@ struct property_binding {
 
 namespace gneiss::engine::meta {
 class type;
+class const_instance;
 class instance;
-class mutable_instance;
 class property_range;
 /** 冻结属性句柄；保活注册表，不持有被访问对象。 */
 class property final {
@@ -108,8 +108,8 @@ public:
   [[nodiscard]] GNEISS_API meta::type type() const noexcept;
   [[nodiscard]] GNEISS_API property_flags flags() const noexcept;
   [[nodiscard]] GNEISS_API property_capabilities capabilities() const noexcept;
+  [[nodiscard]] GNEISS_API result<const_instance> get(const const_instance&) const noexcept;
   [[nodiscard]] GNEISS_API result<instance> get(const instance&) const noexcept;
-  [[nodiscard]] GNEISS_API result<mutable_instance> get(const mutable_instance&) const noexcept;
 
 private:
   friend class property_range;

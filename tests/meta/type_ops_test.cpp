@@ -142,17 +142,17 @@ int main() {
   CHECK(m::type_builder<throwing_value>{*registry}.commit().ok());
   CHECK(m::freeze(*registry).ok());
   document source;
-  auto view = m::mutable_instance::from(*registry, source);
+  auto view = m::view(*registry, source);
   CHECK(view);
-  auto sequence = view->property("sequence")->as_sequence();
+  auto sequence = view->member("sequence")->as_sequence();
   CHECK(sequence && sequence->resize(3).ok());
-  CHECK(sequence->at(2)->write_value(e::value{9.0F}).ok());
+  CHECK(sequence->at(2)->assign(e::value{9.0F}).ok());
   CHECK(sequence->at(3).error() == e::error::not_found);
   source.sequence.fail_resize = true;
   CHECK(sequence->resize(4) == e::error::out_of_memory);
   CHECK(source.sequence.values.size() == 3);
   source.sequence.fail_resize = false;
-  auto mapping = view->property("mapping")->as_associative();
+  auto mapping = view->member("mapping")->as_associative();
   CHECK(mapping && *mapping->keys() == std::vector<std::string>({"a", "z"}));
   CHECK(mapping->find("missing").error() == e::error::not_found);
   auto encoded = gneiss::engine::serialization::json::serialize_bytes(
@@ -162,19 +162,19 @@ int main() {
       gneiss::engine::serialization::context{*registry}, *encoded);
   CHECK(decoded && decoded->sequence.values == source.sequence.values &&
         decoded->mapping.values == source.mapping.values);
-  CHECK(mapping->insert("added")->write_value(e::value{5.0F}).ok());
+  CHECK(mapping->insert("added")->assign(e::value{5.0F}).ok());
   CHECK(mapping->erase("added").ok());
   CHECK(mapping->clear().ok() && source.mapping.values.empty());
 
   readonly_numbers readonly;
-  auto readonly_view = m::mutable_instance::from(*registry, readonly);
+  auto readonly_view = m::view(*registry, readonly);
   CHECK(readonly_view);
   auto readable = readonly_view->as_const().as_sequence();
   CHECK(readable && std::get<float>(readable->at(0)->read_value()->payload) == 3);
   CHECK(readonly_view->as_sequence()->at(0).error() == e::error::unsupported);
   CHECK(readonly_view->as_sequence()->resize(3) == e::error::unsupported);
   dictionary<false> readonly_mapping;
-  auto map_view = m::mutable_instance::from(*registry, readonly_mapping);
+  auto map_view = m::view(*registry, readonly_mapping);
   CHECK(map_view && map_view->as_const().as_associative()->find("a"));
   CHECK(map_view->as_associative()->find("a").error() == e::error::unsupported);
   CHECK(map_view->as_associative()->insert("b").error() == e::error::unsupported);
@@ -183,20 +183,20 @@ int main() {
 
   std::vector<non_default> values;
   values.emplace_back(7.0F);
-  auto values_view = m::mutable_instance::from(*registry, values);
-  CHECK(values_view && values_view->as_sequence()->at(0)->property("number"));
+  auto values_view = m::view(*registry, values);
+  CHECK(values_view && values_view->as_sequence()->at(0)->member("number"));
   CHECK(values_view->as_sequence()->resize(2) == e::error::unsupported);
   std::map<std::string, non_default> non_default_map;
   non_default_map.try_emplace("x", 7.0F);
-  auto non_default_map_view = m::mutable_instance::from(*registry, non_default_map);
+  auto non_default_map_view = m::view(*registry, non_default_map);
   CHECK(non_default_map_view && non_default_map_view->as_associative()->find("x"));
   CHECK(non_default_map_view->as_associative()->insert("y").error() == e::error::unsupported);
   std::array<non_default, 1> fixed{non_default{8.0F}};
-  auto fixed_view = m::mutable_instance::from(*registry, fixed);
+  auto fixed_view = m::view(*registry, fixed);
   CHECK(fixed_view && fixed_view->as_sequence()->at(0));
   CHECK(fixed_view->as_sequence()->resize(2) == e::error::invalid_argument);
   choice selected{std::int32_t{42}};
-  auto selected_instance = m::mutable_instance::from(*registry, selected);
+  auto selected_instance = m::view(*registry, selected);
   CHECK(selected_instance);
   auto variant = selected_instance->as_variant();
   CHECK(variant && variant->alternative_count() == 2 && *variant->index() == 0);
@@ -208,7 +208,7 @@ int main() {
       gneiss::engine::serialization::context{*registry}, *choice_bytes);
   CHECK(reordered && reordered->index() == 1 && std::get<1>(*reordered) == 42);
   CHECK(variant->select(1).ok());
-  CHECK(variant->value()->write_value(e::value{std::string{"hello"}}).ok());
+  CHECK(variant->value()->assign(e::value{std::string{"hello"}}).ok());
   CHECK(std::get<1>(selected) == "hello");
   CHECK(variant->select(2) == e::error::invalid_argument && *variant->index() == 1);
   auto text_bytes = gneiss::engine::serialization::json::serialize_bytes(
@@ -226,20 +226,20 @@ int main() {
     CHECK(!decoded_choice && decoded_choice.error().error == e::error::invalid_argument);
   }
   std::variant<int, double> unlabelled{3};
-  auto unlabelled_view = m::mutable_instance::from(*registry, unlabelled);
+  auto unlabelled_view = m::view(*registry, unlabelled);
   CHECK(unlabelled_view && unlabelled_view->as_variant()->select(1).ok());
   auto unlabelled_bytes = gneiss::engine::serialization::json::serialize_bytes(
       gneiss::engine::serialization::context{*registry}, unlabelled);
   CHECK(!unlabelled_bytes && unlabelled_bytes.error().error == e::error::unsupported);
   std::variant<int, non_default> cannot_construct{4};
-  auto non_default_variant = m::mutable_instance::from(*registry, cannot_construct);
+  auto non_default_variant = m::view(*registry, cannot_construct);
   CHECK(non_default_variant);
   CHECK(non_default_variant->as_variant()->select(1) == e::error::unsupported);
   CHECK(std::get<0>(cannot_construct) == 4);
   // 内存视图可访问当前整数分支；未注册对象的访问和完整类型查询仍被拒绝。
   auto empty_registry = m::create_registry();
   CHECK(empty_registry && m::freeze(*empty_registry).ok());
-  auto lazy = m::mutable_instance::from(*empty_registry, cannot_construct);
+  auto lazy = m::view(*empty_registry, cannot_construct);
   CHECK(lazy && lazy->as_variant()->value()->read_value()->kind() == e::value_kind::int64);
   cannot_construct.emplace<1>(1.0F);
   CHECK(lazy->as_variant()->value().error() == e::error::not_found);
@@ -251,7 +251,7 @@ int main() {
     CHECK(false);
   } catch (int) {
   }
-  auto valueless_instance = m::mutable_instance::from(*registry, valueless);
+  auto valueless_instance = m::view(*registry, valueless);
   CHECK(valueless_instance);
   auto valueless_view = valueless_instance->as_variant();
   CHECK(valueless_view && valueless_view->valueless());

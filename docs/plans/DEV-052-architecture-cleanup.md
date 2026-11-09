@@ -7,7 +7,7 @@
 
 2026-11-09：PLAN-105、PLAN-106、PLAN-107 及本次三项收尾已完成。
 原生值返回全仓审计与完整版本平台验收尚未完成；具体剩余项以本文末尾清单为准。
-新增 [PLAN-108](PLAN-108-meta-serialization-api.md) 的 Meta/序列化 API 收敛范围，当前开始实施属性句柄，实例 API 与策略收敛尚未完成。
+新增 [PLAN-108](PLAN-108-meta-serialization-api.md) 的 Meta/序列化 API 收敛范围，属性句柄与实例 API 已迁移，旧查询清理与策略收敛尚未完成。
 版本范围见 [VER-052](VER-052-0.52.0-architecture-cleanup.md)，本次证据见
 [Runtime/Editor 收尾记录](../records/2026-11-09-runtime-editor-boundary-cleanup.md)。
 

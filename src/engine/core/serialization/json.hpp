@@ -11,8 +11,8 @@
 #include <utility>
 #include <vector>
 namespace gneiss::engine::serialization::json {
+using meta::const_instance;
 using meta::instance;
-using meta::mutable_instance;
 using meta::registry_ref;
 /** 类型擦除入口；调用方保证对象类型。反射访问始终使用传入的冻结注册表。 */
 GNEISS_API result<std::vector<std::byte>, serialization::diagnostic>
@@ -22,13 +22,13 @@ deserialize_object(const context&, type_id, std::span<const std::byte>) noexcept
 
 /** 编解码任意反射视图；解码调用方提供临时目标，失败不承诺恢复目标。 */
 GNEISS_API result<std::vector<std::byte>, serialization::diagnostic>
-serialize_instance(const context&, const instance&) noexcept;
-GNEISS_API serialization::diagnostic deserialize_instance(const context&, const mutable_instance&,
+serialize_instance(const context&, const const_instance&) noexcept;
+GNEISS_API serialization::diagnostic deserialize_instance(const context&, const instance&,
                                                           std::span<const std::byte>) noexcept;
 /** 使用视图绑定的注册表，包含独立注册表；不重新查询默认表。 */
 GNEISS_API result<std::vector<std::byte>, serialization::diagnostic>
-serialize_instance(const instance&) noexcept;
-GNEISS_API serialization::diagnostic deserialize_instance(const mutable_instance&,
+serialize_instance(const const_instance&) noexcept;
+GNEISS_API serialization::diagnostic deserialize_instance(const instance&,
                                                           std::span<const std::byte>) noexcept;
 /** 返回编码后的字节；未知类型不隐式注册。 */
 template <class T>
@@ -37,7 +37,7 @@ serialize_bytes(const context& ctx, const T& object) noexcept try {
   auto registry = ctx.registry();
   if (!registry)
     return serialization::diagnostic{.error = registry.error()};
-  auto view = instance::from(*registry, object);
+  auto view = gneiss::engine::meta::view(*registry, std::as_const(object));
   if (!view)
     return serialization::diagnostic{.error = view.error()};
   return serialize_instance(ctx, *view);
@@ -51,7 +51,7 @@ template <class T>
 [[nodiscard]] result<T, serialization::diagnostic>
 deserialize(const context& ctx, std::span<const std::byte> bytes) noexcept try {
   return serialization::detail::decode_typed<T>(
-      ctx, [&](const mutable_instance& view) { return deserialize_instance(ctx, view, bytes); },
+      ctx, [&](const instance& view) { return deserialize_instance(ctx, view, bytes); },
       [&](type_id id) { return deserialize_object(ctx, id, bytes); });
 } catch (const std::bad_alloc&) {
   return serialization::diagnostic{.error = error::out_of_memory};

@@ -61,10 +61,10 @@ bool object_values() {
       m::freeze(*registry).failed())
     return false;
   shared_holder holder{e::make_ref<shared_probe>()};
-  auto view = m::mutable_instance::from(*registry, holder);
+  auto view = m::view(*registry, holder);
   if (!view)
     return false;
-  auto field = view->property("item");
+  auto field = view->member("item");
   if (!field || field->kind() != m::type_kind::reference)
     return false;
   auto read = field->read_value();
@@ -78,15 +78,15 @@ bool object_values() {
   if (dynamic_cast<shared_probe*>(owner.get())->number != 19)
     return false;
   e::value wrong{e::ref<m::object>{e::make_ref<unrelated_probe>()}};
-  if (field->write_value(wrong) != e::error::invalid_argument || holder.item->number != 19 ||
-      field->write_value(e::value{true}) != e::error::invalid_argument)
+  if (field->assign(wrong) != e::error::invalid_argument || holder.item->number != 19 ||
+      field->assign(e::value{true}) != e::error::invalid_argument)
     return false;
   e::value empty{e::ref<m::object>{}};
-  if (field->write_value(empty).failed() || holder.item || field->write_value(copy).failed() ||
+  if (field->assign(empty).failed() || holder.item || field->assign(copy).failed() ||
       holder.item.get() != owner.get())
     return false;
   e::ref<const shared_probe> readonly = holder.item;
-  auto const_view = m::instance::from(*registry, readonly);
+  auto const_view = m::view(*registry, std::as_const(readonly));
   if (!const_view || const_view->read_value().error() != e::error::unsupported)
     return false;
   // value 对象按内容恢复独立对象，普通 ref 的内联序列化仍有效。
@@ -162,7 +162,7 @@ bool enum_registration() {
   const auto& registry = *made;
   enum class unknown_mode { value };
   unknown_mode unknown{};
-  auto unknown_view = m::instance::from(registry, unknown);
+  auto unknown_view = m::view(registry, std::as_const(unknown));
   if (!unknown_view || unknown_view->type().enum_entries().error() != e::error::not_ready)
     return false;
   if (m::type_builder<enum_object>{registry}
@@ -200,7 +200,7 @@ bool enum_registration() {
   if (unknown_view->type().enum_entries().error() != e::error::not_found)
     return false;
   std::vector<mode> modes{mode::first};
-  auto sequence = m::instance::from(registry, modes);
+  auto sequence = m::view(registry, std::as_const(modes));
   if (!sequence || sequence->type().is_enum())
     return false;
   auto element_type = sequence->type().element_type();
@@ -216,13 +216,13 @@ bool enum_registration() {
   if (m::type{}.enum_entries().error() != e::error::invalid_state)
     return false;
   enum_object object;
-  auto view = m::mutable_instance::from(registry, object);
+  auto view = m::view(registry, object);
   if (!view)
     return false;
-  auto field = view->property("left");
+  auto field = view->member("left");
   if (!field || !field->type().is_enum() || !field->type().enum_entries() ||
-      field->write_value(e::value{std::int64_t{2}}).failed() || object.left != mode::second ||
-      field->write_value(e::value{std::int64_t{128}}) != e::error::invalid_argument ||
+      field->assign(e::value{std::int64_t{2}}).failed() || object.left != mode::second ||
+      field->assign(e::value{std::int64_t{128}}) != e::error::invalid_argument ||
       object.left != mode::second)
     return false;
   return m::enum_builder<mode>{registry}.value("late", mode::first).commit() ==
@@ -250,13 +250,24 @@ struct object {
   float readonly() const { return config.speed * 2; }
 };
 template <class T>
-concept can_borrow = requires(T&& value) { m::instance::from(std::forward<T>(value)); };
+concept can_borrow = requires(T&& value) { m::view(std::as_const(std::forward<T>(value))); };
 template <class T>
-concept can_mutate = requires(T&& value) { m::mutable_instance::from(std::forward<T>(value)); };
+concept can_mutate = requires(T&& value) {
+  { m::view(std::forward<T>(value)) } -> std::same_as<e::result<m::instance>>;
+};
 static_assert(can_borrow<object&> && can_borrow<const object&>);
 static_assert(!can_borrow<object> && !can_borrow<const object>);
 static_assert(can_mutate<object&> && !can_mutate<const object&> && !can_mutate<object>);
-static_assert(!std::is_constructible_v<m::mutable_instance, m::instance>);
+static_assert(!std::is_constructible_v<m::instance, m::const_instance>);
+static_assert(
+    std::same_as<decltype(m::view(std::declval<const object&>())), e::result<m::const_instance>>);
+static_assert(
+    std::same_as<decltype(m::view(std::declval<const m::registry_ref&>(), std::declval<object&>())),
+                 e::result<m::instance>>);
+static_assert(std::same_as<decltype(m::view(std::declval<const m::registry_ref&>(),
+                                            std::declval<const object&>())),
+                           e::result<m::const_instance>>);
+
 struct query_model {
   static constexpr std::string_view type_name = "query_model";
   static constexpr e::guid type_guid = e::guid::from_bytes({94, 4});
@@ -348,10 +359,10 @@ bool reference_properties() {
       m::freeze(registry).failed())
     return false;
   reference_owner owner;
-  auto root = m::mutable_instance::from(registry, owner);
+  auto root = m::view(registry, owner);
   if (!root)
     return false;
-  auto field = root->property("target");
+  auto field = root->member("target");
   if (!field || field->kind() != m::type_kind::reference ||
       field->as_reference()->get().error() != e::error::not_found ||
       field->read_value().error() != e::error::unsupported)
@@ -360,17 +371,17 @@ bool reference_properties() {
   if (!target_type || target_type->id() != e::runtime_type_of<reference_target>())
     return false;
   auto target = e::make_ref<reference_target>();
-  auto source = m::instance::from(registry, target);
+  auto source = m::view(registry, std::as_const(target));
   if (!source || field->assign(*source).failed() || owner.target.get() != target.get())
     return false;
   auto pointed = field->as_reference()->get();
   if (!pointed)
     return false;
-  auto number = pointed->property("number");
-  if (!number || number->write_value(e::value{std::int64_t{42}}).failed() || target->number != 42)
+  auto number = pointed->member("number");
+  if (!number || number->assign(e::value{std::int64_t{42}}).failed() || target->number != 42)
     return false;
   owner.readonly = target;
-  auto readonly = root->property("readonly");
+  auto readonly = root->member("readonly");
   if (!readonly || readonly->as_reference()->get().error() != e::error::unsupported ||
       !readonly->as_const().as_reference()->get() ||
       field->assign(readonly->as_const()) != e::error::invalid_argument)
@@ -378,10 +389,10 @@ bool reference_properties() {
   auto reference = field->as_reference();
   if (!reference || !reference->has_value() || !*reference->has_value() ||
       root->as_reference().error() != e::error::unsupported ||
-      m::instance{}.as_reference().error() != e::error::invalid_state)
+      m::const_instance{}.as_reference().error() != e::error::invalid_state)
     return false;
   e::ref<reference_target> copied;
-  auto copied_instance = m::mutable_instance::from(registry, copied);
+  auto copied_instance = m::view(registry, copied);
   if (!copied_instance)
     return false;
   auto copied_view = copied_instance->as_reference();
@@ -496,12 +507,12 @@ bool polymorphic_references() {
       (*decoded).get() == original.get() ||
       static_cast<const polymorphic_child*>((*decoded)->dynamic_address())->number != 42)
     return false;
-  auto view = m::instance::from(registry, *decoded);
+  auto view = m::view(registry, std::as_const(*decoded));
   if (!view)
     return false;
   auto target = view->as_reference()->get();
   if (!target || target->type().id() != e::runtime_type_of<polymorphic_child>() ||
-      !target->property("number"))
+      !target->member("number"))
     return false;
   std::string text(reinterpret_cast<const char*>(encoded->data()), encoded->size());
   auto position = text.find(polymorphic_child::type_guid.string());
@@ -520,7 +531,7 @@ bool polymorphic_references() {
   if (unknown || unknown.error().error != e::error::not_found)
     return false;
   auto before = original.get();
-  auto destination = m::mutable_instance::from(registry, original);
+  auto destination = m::view(registry, original);
   if (!destination ||
       gneiss::engine::serialization::json::deserialize_instance(
           gneiss::engine::serialization::context{registry}, *destination,
@@ -606,16 +617,16 @@ bool bound_property_contract() {
       m::freeze(*registry).failed())
     return false;
   bound_properties object;
-  auto root = m::mutable_instance::from(*registry, object);
+  auto root = m::view(*registry, object);
   if (!root)
     return false;
-  auto values = root->property("values"), child = root->property("child");
+  auto values = root->member("values"), child = root->member("child");
   if (!values || !child || values->as_sequence().error() != e::error::unsupported ||
       child->object_data().error() != e::error::unsupported ||
-      child->property("number").error() != e::error::unsupported ||
-      !values->as_const().as_sequence() || !child->as_const().property("number"))
+      child->member("number").error() != e::error::unsupported ||
+      !values->as_const().as_sequence() || !child->as_const().member("number"))
     return false;
-  auto decode = [&](const m::mutable_instance& target, std::string_view json) {
+  auto decode = [&](const m::instance& target, std::string_view json) {
     return gneiss::engine::serialization::json::deserialize_instance(
         gneiss::engine::serialization::context{*registry}, target,
         std::as_bytes(std::span{json.data(), json.size()}));
@@ -635,14 +646,14 @@ bool bound_property_contract() {
   if (decode(*child, R"({"number":8})").error.failed() || object.child.number != 8)
     return false;
   std::vector<std::int64_t> next{5};
-  auto source = m::instance::from(*registry, next);
+  auto source = m::view(*registry, std::as_const(next));
   if (!source || values->assign(*source).failed() || object.values != next)
     return false;
   next[0] = -5;
   if (values->assign(*source) != e::error::invalid_argument || object.values[0] != 5)
     return false;
   std::vector<float> wrong{1};
-  if (values->assign(*m::instance::from(*registry, wrong)) != e::error::invalid_argument)
+  if (values->assign(*m::view(*registry, std::as_const(wrong))) != e::error::invalid_argument)
     return false;
   auto encoded = gneiss::engine::serialization::json::serialize_bytes(
       gneiss::engine::serialization::context{*registry}, object);
@@ -674,9 +685,9 @@ bool property_handles() {
     return false;
   shared_probe probe;
   shared_holder wrong;
-  auto view = m::mutable_instance::from(*first, probe);
-  auto foreign = m::instance::from(*second, probe);
-  auto unrelated = m::instance::from(*first, wrong);
+  auto view = m::view(*first, probe);
+  auto foreign = m::view(*second, std::as_const(probe));
+  auto unrelated = m::view(*first, std::as_const(wrong));
   auto type = m::type_of<shared_probe>(*first);
   if (!view || !foreign || !unrelated || !type)
     return false;
@@ -685,7 +696,7 @@ bool property_handles() {
     return false;
   auto field = (*fields)[0];
   auto member = field.get(*view);
-  if (!member || member->write_value(e::value{std::int64_t{23}}).failed() || probe.number != 23)
+  if (!member || member->assign(23).failed() || probe.number != 23)
     return false;
   if (field.get(*foreign).error() != e::error::invalid_argument ||
       field.get(*unrelated).error() != e::error::invalid_argument ||
@@ -693,12 +704,11 @@ bool property_handles() {
     return false;
   {
     property_child child;
-    auto derived = m::mutable_instance::from(*first, child);
+    auto derived = m::view(*first, child);
     if (!derived)
       return false;
     auto inherited = field.get(*derived);
-    if (!inherited || inherited->write_value(e::value{std::int64_t{42}}).failed() ||
-        child.number != 42)
+    if (!inherited || inherited->assign(e::value{std::int64_t{42}}).failed() || child.number != 42)
       return false;
     auto inherited_fields = derived->as_const().properties();
     if (!inherited_fields || (*inherited_fields)[0].declaring_type() != shared_probe::type_guid)
@@ -739,7 +749,7 @@ int main() try {
     return 1;
   auto registry = *created;
   object source;
-  if (m::instance::from(registry, source).error() != e::error::not_ready)
+  if (m::view(registry, std::as_const(source)).error() != e::error::not_ready)
     return 2;
   if (m::type_builder<settings>{registry}
           .property<&settings::get_speed, &settings::set_speed>(m::property_id{1}, "speed")
@@ -755,7 +765,7 @@ int main() try {
           .failed() ||
       m::freeze(registry).failed())
     return 3;
-  auto root = m::instance::from(registry, std::as_const(source));
+  auto root = m::view(registry, std::as_const(source));
   if (!root || root->kind() != m::type_kind::object || root->guid() != object::type_guid ||
       root->type_id() != e::runtime_type_of<object>())
     return 4;
@@ -763,46 +773,46 @@ int main() try {
   if (!entries || entries->size() != 4)
     return 5;
   {
-    auto writable_root = m::mutable_instance::from(registry, source);
+    auto writable_root = m::view(registry, source);
     if (!writable_root || !(*entries)[2].get(*root) ||
         (*entries)[2].get(*writable_root).error() != e::error::unsupported)
       return 44;
   }
-  auto config = root->property("config");
+  auto config = root->member("config");
   if (!config || config->guid() != settings::type_guid || config->kind() != m::type_kind::object)
     return 6;
-  auto speed = config->property(m::property_id{1});
+  auto speed = config->member(m::property_id{1});
   if (!speed || speed->kind() != m::type_kind::scalar ||
       speed->scalar_kind() != e::value_kind::float32 ||
       std::get<float>(speed->read_value()->payload) != 1)
     return 7;
-  if (speed->property("x").error() != e::error::unsupported ||
-      root->property("missing").error() != e::error::not_found ||
+  if (speed->member("x").error() != e::error::unsupported ||
+      root->member("missing").error() != e::error::not_found ||
       root->read_value().error() != e::error::unsupported ||
       speed->object_data().error() != e::error::unsupported)
     return 8;
-  auto writable = m::mutable_instance::from(registry, source);
+  auto writable = m::view(registry, source);
   if (!writable)
     return 9;
-  auto editable_config = writable->property("config");
+  auto editable_config = writable->member("config");
   if (!editable_config)
     return 10;
-  auto editable_speed = editable_config->property("speed");
-  if (!editable_speed || editable_speed->write_value(e::value{3.0F}).failed() ||
+  auto editable_speed = editable_config->member("speed");
+  if (!editable_speed || editable_speed->assign(e::value{3.0F}).failed() ||
       source.config.speed != 3)
     return 11;
-  if (editable_speed->write_value(e::value{-1.0F}) != e::error::invalid_argument ||
+  if (editable_speed->assign(e::value{-1.0F}) != e::error::invalid_argument ||
       source.config.speed != 3 ||
-      editable_speed->write_value(e::value{true}) != e::error::invalid_argument)
+      editable_speed->assign(e::value{true}) != e::error::invalid_argument)
     return 12;
-  if (writable->property("computed").error() != e::error::unsupported)
+  if (writable->member("computed").error() != e::error::unsupported)
     return 13;
-  if (writable->property("readonly_config").error() != e::error::unsupported)
+  if (writable->member("readonly_config").error() != e::error::unsupported)
     return 28;
-  auto computed = writable->as_const().property("computed");
+  auto computed = writable->as_const().member("computed");
   if (!computed || std::get<float>(computed->read_value()->payload) != 6)
     return 14;
-  auto label = root->property("label");
+  auto label = root->member("label");
   if (!label)
     return 15;
   auto snapshot = label->read_value();
@@ -812,8 +822,8 @@ int main() try {
   if (std::get<std::string>(snapshot->payload) != "old!" ||
       std::get<std::string>(label->read_value()->payload) != "new!")
     return 17;
-  auto edit_label = writable->property("label");
-  if (!edit_label || edit_label->write_value(e::value{std::string("written")}).failed() ||
+  auto edit_label = writable->member("label");
+  if (!edit_label || edit_label->assign(e::value{std::string("written")}).failed() ||
       source.label != "written")
     return 18;
   settings replacement{9};
@@ -822,19 +832,19 @@ int main() try {
       editable_config->assign_object(e::runtime_type_of<settings>(), &replacement).failed() ||
       source.config.speed != 9)
     return 19;
-  if (m::instance{}.read_value().error() != e::error::invalid_state ||
-      m::mutable_instance{}.write_value(e::value{1.0F}) != e::error::invalid_state)
+  if (m::const_instance{}.read_value().error() != e::error::invalid_state ||
+      m::instance{}.assign(e::value{1.0F}) != e::error::invalid_state)
     return 20;
   {
     settings other{7};
-    auto borrowed = m::instance::from(registry, other);
+    auto borrowed = m::view(registry, std::as_const(other));
     if (!borrowed || editable_config->assign(*borrowed).failed() || source.config.speed != 7 ||
         other.speed != 7 || editable_config->assign(*root) != e::error::invalid_argument ||
         editable_speed->assign(*borrowed) != e::error::unsupported ||
-        m::mutable_instance{}.assign(*borrowed) != e::error::invalid_state)
+        m::instance{}.assign(*borrowed) != e::error::invalid_state)
       return 25;
     object copy;
-    auto destination = m::mutable_instance::from(registry, copy);
+    auto destination = m::view(registry, copy);
     if (!destination || destination->assign(*root).failed() || copy.label != source.label ||
         destination->assign(destination->as_const()).failed())
       return 26;
@@ -850,7 +860,7 @@ int main() try {
     return 21;
   auto independent = m::create_registry();
   if (!independent || m::freeze(*independent).failed() ||
-      m::instance::from(*independent, source).error() != e::error::not_found)
+      m::view(*independent, std::as_const(source)).error() != e::error::not_found)
     return 22;
   // 返回的子视图延长元数据寿命，不依赖根视图对象自身。
   auto weak = std::weak_ptr<m::type_registry_state>(registry);

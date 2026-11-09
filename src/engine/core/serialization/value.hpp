@@ -6,29 +6,29 @@
 namespace gneiss::engine::serialization {
 /** 捕获独立的数据树；内嵌引用按内容捕获，外部引用由注册策略转换为身份。 */
 GNEISS_API result<engine::value, diagnostic> capture_value(const context&,
-                                                           const meta::instance&) noexcept;
-GNEISS_API result<engine::value, diagnostic> capture_value(const meta::instance&) noexcept;
+                                                           const meta::const_instance&) noexcept;
+GNEISS_API result<engine::value, diagnostic> capture_value(const meta::const_instance&) noexcept;
 /** 恢复到候选对象；失败可留下部分修改，提交与回滚由编辑操作控制。 */
-GNEISS_API diagnostic apply_value(const context&, const meta::mutable_instance&,
+GNEISS_API diagnostic apply_value(const context&, const meta::instance&,
                                   const engine::value&) noexcept;
-GNEISS_API diagnostic apply_value(const meta::mutable_instance&, const engine::value&) noexcept;
+GNEISS_API diagnostic apply_value(const meta::instance&, const engine::value&) noexcept;
 
 /** 有类型的捕获入口；与视图入口共享相同 ops 和引用策略。 */
 template <class T>
-  requires(!std::same_as<std::remove_cvref_t<T>, meta::instance> &&
-           !std::same_as<std::remove_cvref_t<T>, meta::mutable_instance>)
+  requires(!std::same_as<std::remove_cvref_t<T>, meta::const_instance> &&
+           !std::same_as<std::remove_cvref_t<T>, meta::instance>)
 result<engine::value, diagnostic> capture_value(const context& context, const T& source) noexcept {
   auto registry = context.registry();
   if (!registry)
     return diagnostic{.error = registry.error()};
-  auto view = meta::instance::from(*registry, source);
+  auto view = meta::view(*registry, std::as_const(source));
   if (!view)
     return diagnostic{.error = view.error()};
   return capture_value(context, *view);
 }
 template <class T>
-  requires(!std::same_as<std::remove_cvref_t<T>, meta::instance> &&
-           !std::same_as<std::remove_cvref_t<T>, meta::mutable_instance>)
+  requires(!std::same_as<std::remove_cvref_t<T>, meta::const_instance> &&
+           !std::same_as<std::remove_cvref_t<T>, meta::instance>)
 result<engine::value, diagnostic> capture_value(const T& source) noexcept {
   return capture_value(context{}, source);
 }
@@ -40,7 +40,7 @@ result<T, diagnostic> restore_value(const context& context, const engine::value&
   if (!registry)
     return diagnostic{.error = registry.error()};
   T candidate{};
-  auto view = meta::mutable_instance::from(*registry, candidate);
+  auto view = meta::view(*registry, candidate);
   if (!view)
     return diagnostic{.error = view.error()};
   auto status = apply_value(context, *view, source);

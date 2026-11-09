@@ -250,7 +250,7 @@ getter 失败、异常或返回不匹配／无效值时仅返回错误，不交�
 
 业务模块不得直接调用 `meta::default_registry()`；默认表获取集中在 Meta 内部，
 普通调用使用无 registry 的查询、注册、序列化及视图入口。
-`instance::from_object(type_id, address)` 和可写版本使用默认表，错误按 result 返回。
+`const_instance::from_object(type_id, address)` 和可写版本使用默认表，错误按 result 返回。
 `serialize_instance(view)`、`deserialize_instance(view, bytes)` 及内部 DOM 适配使用
 视图自身绑定的注册表，不重新获取默认表，因此独立表的字段与 codec 语义保持不变。
 Meta 内部递归与 codec 回调仍保留显式上下文；注册表机制测试允许直接验证默认表。
@@ -318,26 +318,27 @@ for (auto property : *fields) {
 `property::get` 校验注册表及字段声明类型；即使属性 ID 相同，也不能用于不相关类型。
 派生对象上的继承属性继续通过实例访问完成基类地址调整。
 句柄不持有目标对象；只读访问、getter 临时值与可写访问规则同下述实例视图。
-目前实例仍命名为只读 instance、可写 mutable_instance；PLAN-108 的新命名尚未迁移。
+实例现命名为只读 const_instance、可写 instance；旧 mutable_instance 名称与静态 from 模板工厂已移除。
 底层 describe_type/describe_property 的信息结构仍在，后续迁移查询调用方再收敛。
 
 ## 实例视图
 
-`meta/instance.hpp` 提供只读 `instance` 和可写 `mutable_instance`，不新增对象所有者或注册表。
-根视图通过 `from(registry, object)` 创建，也可省略 registry 使用默认表；仅接受实际对象的左值，
+`meta/instance.hpp` 提供只读 `const_instance` 和可写 `instance`，不新增对象所有者或注册表。
+根视图通过 `meta::view(registry, object)` 创建，也可省略 registry 使用默认表；
+可写对象返回 result<instance>，const 对象返回 result<const_instance>，需要主动只读时传 std::as_const(object)；仅接受实际对象的左值，
 不接受临时对象。根类型必须已登记，注册表必须冻结。
 
 ```cpp
-auto root = meta::instance::from(registry, camera);
+auto root = meta::view(registry, std::as_const(camera));
 if (!root) return root.error();
-auto settings = root->property("settings");
+auto settings = root->member("settings");
 if (!settings) return settings.error();
-auto near = settings->property("near");
+auto near = settings->member("near");
 if (!near) return near.error();
 auto snapshot = near->read_value(); // result<value>，拥有读取结果
 ```
 
-`property(name)` 和 `property(property_id)` 返回同一种视图。对象支持 `properties()` 枚举，
+`member(name)` 和 `member(property_id)` 返回同一种视图。对象支持 `properties()` 枚举，
 基础属性支持 `read_value()`；`kind()` 区分 invalid、empty、scalar、object、sequence、associative、optional、reference、variant；
 `scalar_kind()` 区分基础值类别。`guid()` 返回静态稳定身份，容器通常为空；
 `type_id()` 为对象、容器和容器元素提供运行期身份，普通标量属性仍通过 value_kind/GUID 标识。
@@ -347,9 +348,9 @@ auto snapshot = near->read_value(); // result<value>，拥有读取结果
 再次 read_value 则读取父对象当前值。基础属性的 object_data 返回 unsupported。
 对象视图的 object_data 返回借用的对象地址，不复制嵌套对象。
 
-`mutable_instance::from` 只接受可写左值；`as_const()` 转为只读视图，不提供反向转换。
-可写 property 拒绝只读/无 setter 的属性，通过 write_value 执行原 setter 的校验与错误语义。
-只读属性仍可通过 as_const().property 读取。单字段编辑不自动执行整对象跨字段校验，业务方应在
+`meta::view(T&)` 返回可写视图；`as_const()` 转为只读视图，不提供反向转换。
+可写 member 拒绝只读/无 setter 的属性，通过 assign 执行原 setter 的校验与错误语义。
+只读属性仍可通过 as_const().member 读取。单字段编辑不自动执行整对象跨字段校验，业务方应在
 完成编辑后执行对应验证。嵌套自定义 codec 的整体赋值通过 assign_object 接入，先校验类型 ID，
 成功后移动源内容；该接口不提供失败回滚，不应用于承诺原子编辑的业务对象。
 
@@ -396,7 +397,7 @@ vec2、vec4 和 quaternion 保持独立分支，矩阵按列优先数组保存�
 
 ## 类型视图
 
-`meta::instance::type()`（包括可写实例）返回轻量 `meta::type`。视图持有原注册表，
+`meta::const_instance::type()`（包括可写实例）返回轻量 `meta::type`。视图持有原注册表，
 不拥有业务对象；`kind()` 查询结构类别，`scalar_kind()` 查询 value 的承载类别，
 `is_enum()` 区分 C++ 枚举与整数，`id()` 保留枚举自己的运行期类型身份。
 枚举尚无独立稳定 GUID 注册入口，因此类型视图的枚举 `guid()` 为空，不冒用整数 GUID。
@@ -424,7 +425,7 @@ kind/category/object_type/enum_type/choices/type_guid。属性保留 id、name�
 运行期身份；GUID 查询不把枚举当成其底层整数。窄整数的 ID 保留 C++ 类型身份，其 GUID
 沿用现有整数存储类别，因此 GUID 查询返回规范的 64 位承载类型。
 
-面板和 JSON 序列化通过类型视图判断结构和标量类别；具体读写仍由 instance 完成。
+面板和 JSON 序列化通过类型视图判断结构和标量类别；具体读写仍由 const_instance 完成。
 包含自定义 getter/setter 的属性不会因新增类型操作表而绕过访问器。
 
 ## 对象所有权
@@ -434,7 +435,7 @@ kind/category/object_type/enum_type/choices/type_guid。属性保留 id、name�
 整对象编辑载荷共用该拥有者；复制保留同一控制块，转换为 const/void 不改变删除器。
 
 `make_ref` 创建普通 CPU 对象；需要线程限定销毁的资源继续使用资源工厂的自定义删除器。
-`get()` 和 `meta::instance` 是借用入口，调用方须保留拥有者，不能由借用指针重新创建所有权。
+`get()` 和 `meta::const_instance` 是借用入口，调用方须保留拥有者，不能由借用指针重新创建所有权。
 共享引用不保证对象数据线程安全，引用环须由弱引用或对象 ID 打破。
 
 引用属性的持久化支持范围见下节；不代表任意共享对象图均可自动编解码。
@@ -446,8 +447,8 @@ kind/category/object_type/enum_type/choices/type_guid。属性保留 id、name�
 注册 `ref<T>` 成员后，`property.type.kind()` 为 `type_kind::reference`，
 `element_type()` 返回静态目标类型；目标对象类型仍需注册。ref<void> 不支持字段反射。
 
-通过 `instance::as_reference()` 获取 `reference_view`，再用 `get()` 获取只读借用目标。
-`mutable_instance::as_reference()` 返回可写引用视图，get 仅对 ref<T> 的可写目标有效；
+通过 `const_instance::as_reference()` 获取 `reference_view`，再用 `get()` 获取只读借用目标。
+`instance::as_reference()` 返回可写引用视图，get 仅对 ref<T> 的可写目标有效；
 ref<const T> 返回 unsupported，可通过引用视图的 as_const().get() 读取。
 has_value 检查是否非空；视图本身不持有目标强引用。
 reference_view::get 对空引用返回 not_found。引用不是标量；可变 meta::object 目标支持 value 强引用传递，其他引用的 read_value 返回 unsupported。
@@ -469,10 +470,10 @@ reference_view.get() 返回实际类型视图；ref<const T> 只允许读取目�
 base 链同时用于身份校验、指针调整和继承属性访问。freeze 合并完整继承链的属性，
 按属性 ID 排序；任意祖先与派生类的属性 ID 或名称冲突返回 invalid_argument，不提供遮蔽。
 基类尚未注册返回 not_found；冻结失败不会留下部分合并结果，可补齐注册后重试。
-property_info.declaring_type 表示声明字段的类型；instance 和 read_property/write_property
+property_info.declaring_type 表示声明字段的类型；const_instance 和 read_property/write_property
 自动按注册的 upcast 链调整基类地址，支持基类在完整 C++ 对象中具有非零偏移。
 底层 find_object_property 返回声明类型的原始访问器，调用回调时须传入声明类型的地址；
-普通调用方使用 instance。继承字段同样参与 JSON、value 捕获/恢复，遵守 required、
+普通调用方使用 const_instance。继承字段同样参与 JSON、value 捕获/恢复，遵守 required、
 read_only 与 setter 校验，不需要在每个派生类重复注册。
 
 重复引用独立保存并恢复为不同对象，不保持内存共享身份。递归活动路径检测循环并报错，
@@ -511,7 +512,7 @@ Texture 描述注册 source、color_space、usage 三个必填字段；后两者
 非标量 getter 必须返回稳定的 const U&，不接受临时值；setter 接收完整 const U&，返回 error
 或 void，负责先校验再修改，失败须保持旧属性。未知 U 仍需按原规则注册。
 
-此绑定的 mutable_instance 支持 assign/assign_object 整项替换，但不提供可写对象地址、
+此绑定的 instance 支持 assign/assign_object 整项替换，但不提供可写对象地址、
 可写容器/引用视图或可写子属性；通过 as_const() 读取嵌套内容。属性替换后重新获取借用视图。
 反序列化先创建独立默认候选并完成解码，然后调用 setter；解析失败不调用 setter。
 setter 返回的业务错误定位到属性，嵌套解码错误保留具体子路径。
@@ -522,7 +523,7 @@ setter 返回的业务错误定位到属性，嵌套解码错误保留具体子�
 
 `std::optional<T>` 对应独立 `type_kind::optional` 和 `optional_ops`，不改变值所有权，
 也不引入共享引用。`type::element_type()` 返回 T 的类型。
-通过 `instance::as_optional()` 获取只读借用视图，提供 `has_value()`、`get()`；
+通过 `const_instance::as_optional()` 获取只读借用视图，提供 `has_value()`、`get()`；
 可写视图增加 `ensure()` 和 `reset()`。空值的 `get()` 返回 not_found；T 无默认构造时，
 空槽位的 ensure 返回 unsupported。清空、替换或移动宿主后须重新获取内部视图。
 optional 本身不支持 read_value，须先 get 后读取内部值。
@@ -539,13 +540,13 @@ Variant 的标签与视图规则见[Variant 分支反射](reflection-containers.
 
 对象分支的共享、比较和持久化规则见[通用值](value.md#对象强引用)。
 
-instance::read_value 对可变目标的 ref<T>（T 派生自 meta::object）返回共享强引用；
-mutable_instance::write_value 对可直接访问的引用槽接受兼容对象或空引用，错误类型不改变旧引用。
+const_instance::read_value 对可变目标的 ref<T>（T 派生自 meta::object）返回共享强引用；
+instance::assign 对可直接访问的引用槽接受兼容对象或空引用，错误类型不改变旧引用。
 需要 setter 整项替换的属性仍使用 assign，避免绕过业务校验。
 这些属性仍为 reference 类别，不变成 scalar。ref<const T> 不转换为可变对象引用；
-普通结构体继续使用 instance，const 引用仍可通过 reference_view 访问。
+普通结构体继续使用 const_instance，const 引用仍可通过 reference_view 访问。
 
-原生 value 槽位也支持 instance::read_value/write_value；复制对象分支仍共享引用，不意味着生成快照。
+原生 value 槽位也支持 const_instance::read_value 与 instance::assign；复制对象分支仍共享引用，不意味着生成快照。
 
 ## 序列化格式边界
 

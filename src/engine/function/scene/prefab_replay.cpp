@@ -111,7 +111,7 @@ replay_prefab_reference(const prefab_description& source,
                                            meta::property_path_text(edits[conflict.operation].path),
                                            "覆盖路径、元素或锚点已失效")});
     }
-    auto changed = modify_component(component, [&](meta::mutable_instance candidate) {
+    auto changed = modify_component(component, [&](meta::instance candidate) {
       return serialization::apply_value(candidate, replayed->root).error;
     });
     if (changed)
@@ -137,7 +137,7 @@ replay_prefab_reference(const prefab_description& source,
   return error::internal;
 }
 namespace {
-error collect_component_overrides(meta::instance source, meta::instance candidate,
+error collect_component_overrides(meta::const_instance source, meta::const_instance candidate,
                                   prefab_property_override_key key,
                                   std::vector<prefab_property_override>& output,
                                   unsigned depth = 0) {
@@ -184,8 +184,9 @@ error collect_component_overrides(meta::instance source, meta::instance candidat
 result<prefab_edit_candidate> prepare_property_edit(const prefab_description& source,
                                                     const prefab_reference_description& reference,
                                                     guid source_node, guid target_type,
-                                                    meta::instance original, meta::instance current,
-                                                    meta::instance replacement) {
+                                                    meta::const_instance original,
+                                                    meta::const_instance current,
+                                                    meta::const_instance replacement) {
   auto prior = replay_prefab_reference(source, reference);
   if (!prior)
     return prior.error();
@@ -373,9 +374,9 @@ prepare_prefab_transform_edit(const prefab_description& source,
   auto object = std::ranges::find(source.objects, source_node, &game_object_description::uuid);
   if (object == source.objects.end())
     return error::not_found;
-  auto before = meta::instance::from(object->transform);
-  auto now = meta::instance::from(current);
-  auto after = meta::instance::from(replacement);
+  auto before = meta::view(std::as_const(object->transform));
+  auto now = meta::view(std::as_const(current));
+  auto after = meta::view(std::as_const(replacement));
   if (!before)
     return before.error();
   if (!now)

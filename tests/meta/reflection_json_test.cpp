@@ -207,13 +207,13 @@ int main() try {
       !fails(R"({"enabled":true,"uv":[1,1e100]})", "/uv/1") ||
       !fails(R"({"enabled":true,"uv":[1,"bad"]})", "/uv/1"))
     return 31;
-  auto view = m::mutable_instance::from(registry, original);
+  auto view = m::view(registry, original);
   if (!view)
     return 32;
-  auto uv = view->property(m::property_id{11});
+  auto uv = view->member(m::property_id{11});
   if (!uv || uv->read_value()->kind() != e::value_kind::vec2 ||
-      uv->write_value(e::value{e::math::vector2{2, 3}}).failed() || original.uv.x != 2 ||
-      uv->write_value(e::value{e::math::vector3{2, 3, 4}}).ok())
+      uv->assign(e::value{e::math::vector2{2, 3}}).failed() || original.uv.x != 2 ||
+      uv->assign(e::value{e::math::vector3{2, 3, 4}}).ok())
     return 33;
   original.uv.y = std::numeric_limits<float>::infinity();
   auto invalid_uv = gneiss::engine::serialization::json::serialize_bytes(
@@ -252,7 +252,7 @@ int main() try {
     return 15;
   // 无 registry 的视图编解码必须保留隔离表的字段名，不能查询默认表。
   sample isolated_value;
-  auto isolated_view = m::mutable_instance::from(*other, isolated_value);
+  auto isolated_view = m::view(*other, isolated_value);
   if (!isolated_view ||
       gneiss::engine::serialization::json::deserialize_instance(
           *isolated_view, bytes(R"({"enabled":true,"a/b~c":"isolated"})"))

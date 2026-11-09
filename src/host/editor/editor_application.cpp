@@ -1044,10 +1044,10 @@ void draw_component_descriptions(editor_state& state) {
       source_transform = identity.source_uuid != source_asset->root_uuid;
     }
   }
-  const auto source_view = [&](const auto* value) -> std::optional<meta::instance> {
+  const auto source_view = [&](const auto* value) -> std::optional<meta::const_instance> {
     if (!value)
       return {};
-    auto view = meta::instance::from(*value);
+    auto view = meta::view(std::as_const(*value));
     if (!view) {
       state.inspector_error = view.error();
       return {};
@@ -1063,7 +1063,7 @@ void draw_component_descriptions(editor_state& state) {
     return;
   }
   auto transform = ordinary ? ordinary->local_transform : prefab_node->local_transform;
-  auto transform_view = meta::instance::from(transform);
+  auto transform_view = meta::view(std::as_const(transform));
   if (!transform_view) {
     state.inspector_error = transform_view.error();
     return;
@@ -1132,7 +1132,7 @@ void draw_component_descriptions(editor_state& state) {
       state.inspector_error = !view ? view.error() : type.error();
       continue;
     }
-    std::optional<meta::instance> original;
+    std::optional<meta::const_instance> original;
     if (source_object) {
       if (const auto* source = source_object->components.find(component->guid())) {
         auto original_view = (*source)->view();

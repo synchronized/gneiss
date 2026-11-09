@@ -5,7 +5,7 @@
 #include "engine/core/meta/detail/reference_view_access.hpp"
 #include <algorithm>
 namespace gneiss::engine::meta {
-meta::type instance::type() const noexcept {
+meta::type const_instance::type() const noexcept {
   meta::type out;
   out.registry_ = registry_;
   out.access_ = access_;
@@ -46,14 +46,14 @@ result<type> type::element_type() const noexcept {
   return detail::resolve_type(registry_, access_->element());
 }
 
-result<instance> instance::from_object(registry_ref registry, engine::type_id id,
-                                       const void* object) noexcept {
+result<const_instance> const_instance::from_object(registry_ref registry, engine::type_id id,
+                                                   const void* object) noexcept {
   if (!object)
     return error::invalid_argument;
   auto type = describe_type(registry, id);
   if (!type)
     return type.error();
-  instance output;
+  const_instance output;
   output.registry_ = std::move(registry);
   output.type_ = type->guid;
   output.cpp_type_ = id;
@@ -61,15 +61,15 @@ result<instance> instance::from_object(registry_ref registry, engine::type_id id
   output.data_ = object;
   return output;
 }
-result<property_range> instance::properties() const noexcept { return type().properties(); }
-result<instance> instance::property(std::string_view name) const noexcept {
+result<property_range> const_instance::properties() const noexcept { return type().properties(); }
+result<const_instance> const_instance::member(std::string_view name) const noexcept {
   auto entries = properties();
   if (!entries)
     return entries.error();
   auto found = std::ranges::find(*entries, name, &meta::property::name);
-  return found == entries->end() ? result<instance>{error::not_found} : (*found).get(*this);
+  return found == entries->end() ? result<const_instance>{error::not_found} : (*found).get(*this);
 }
-result<instance> instance::property(property_id id) const noexcept try {
+result<const_instance> const_instance::member(property_id id) const noexcept try {
   if (kind_ == type_kind::invalid)
     return error::invalid_state;
   if (kind_ != type_kind::object)
@@ -83,9 +83,9 @@ result<instance> instance::property(property_id id) const noexcept try {
       return ops ? error::invalid_state : ops.error();
     // upcast 仅调整地址，不修改对象；随后继续使用只读视图。
     auto base = from_object(registry_, ops->base_type, ops->upcast(const_cast<void*>(data_)));
-    return base ? base->property(id) : result<instance>{base.error()};
+    return base ? base->member(id) : result<const_instance>{base.error()};
   }
-  instance output;
+  const_instance output;
   output.registry_ = registry_;
   output.parent_ = data_;
   output.parent_type_ = type_;
@@ -117,7 +117,7 @@ result<instance> instance::property(property_id id) const noexcept try {
 } catch (...) {
   return error::internal;
 }
-result<value> instance::read_value() const noexcept try {
+result<value> const_instance::read_value() const noexcept try {
   if (kind_ == type_kind::invalid)
     return error::invalid_state;
   if (kind_ == type_kind::variant && cpp_type_ == runtime_type_of<value>() && data_)
@@ -141,36 +141,36 @@ result<value> instance::read_value() const noexcept try {
 } catch (...) {
   return error::internal;
 }
-result<const void*> instance::object_data() const noexcept {
+result<const void*> const_instance::object_data() const noexcept {
   if (kind_ == type_kind::invalid)
     return error::invalid_state;
   if (kind_ != type_kind::object)
     return error::unsupported;
   return data_;
 }
-result<mutable_instance> mutable_instance::from_object(registry_ref registry, engine::type_id id,
-                                                       void* object) noexcept {
-  auto view = instance::from_object(std::move(registry), id, object);
+result<instance> instance::from_object(registry_ref registry, engine::type_id id,
+                                       void* object) noexcept {
+  auto view = const_instance::from_object(std::move(registry), id, object);
   if (!view)
     return view.error();
-  mutable_instance output;
+  instance output;
   output.view_ = std::move(*view);
   output.data_ = object;
   return output;
 }
-result<mutable_instance> mutable_instance::property(std::string_view name) const noexcept {
+result<instance> instance::member(std::string_view name) const noexcept {
   auto entries = view_.properties();
   if (!entries)
     return entries.error();
   auto found = std::ranges::find(*entries, name, &meta::property::name);
-  return found == entries->end() ? result<mutable_instance>{error::not_found} : (*found).get(*this);
+  return found == entries->end() ? result<instance>{error::not_found} : (*found).get(*this);
 }
-result<mutable_instance> mutable_instance::property(property_id id) const noexcept try {
+result<instance> instance::member(property_id id) const noexcept try {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (!data_)
     return error::unsupported;
-  auto child = view_.property(id);
+  auto child = view_.member(id);
   if (!child)
     return child.error();
   auto info = describe_property(view_.registry_, view_.type_, id);
@@ -181,12 +181,12 @@ result<mutable_instance> mutable_instance::property(property_id id) const noexce
     if (!ops || !ops->upcast)
       return ops ? error::invalid_state : ops.error();
     auto base = from_object(view_.registry_, ops->base_type, ops->upcast(data_));
-    return base ? base->property(id) : result<mutable_instance>{base.error()};
+    return base ? base->member(id) : result<instance>{base.error()};
   }
   if (has_flags(info->flags, property_flags::read_only) ||
       !has_flags(info->capabilities, property_capabilities::writable))
     return error::unsupported;
-  mutable_instance output;
+  instance output;
   output.parent_ = data_;
   output.view_ = std::move(*child);
   if (info->type.kind() != type_kind::scalar && info->type.kind() != type_kind::invalid) {
@@ -208,7 +208,7 @@ result<mutable_instance> mutable_instance::property(property_id id) const noexce
 } catch (...) {
   return error::internal;
 }
-error mutable_instance::write_value(const value& input) const noexcept try {
+error instance::assign(const value& input) const noexcept try {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (kind() == type_kind::variant && view_.cpp_type_ == runtime_type_of<value>() && data_) {
@@ -235,14 +235,14 @@ error mutable_instance::write_value(const value& input) const noexcept try {
 } catch (...) {
   return error::internal;
 }
-result<void*> mutable_instance::object_data() const noexcept {
+result<void*> instance::object_data() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (kind() != type_kind::object || !data_)
     return error::unsupported;
   return data_;
 }
-error mutable_instance::assign(const instance& source) const noexcept try {
+error instance::assign(const const_instance& source) const noexcept try {
   if (kind() == type_kind::invalid || source.kind() == type_kind::invalid)
     return error::invalid_state;
   if (detail::property_view_access::requires_replacement(*this)) {
@@ -267,7 +267,7 @@ error mutable_instance::assign(const instance& source) const noexcept try {
 } catch (...) {
   return error::internal;
 }
-error mutable_instance::assign_object(engine::type_id id, void* source) const noexcept try {
+error instance::assign_object(engine::type_id id, void* source) const noexcept try {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (detail::property_view_access::requires_replacement(*this)) {
@@ -303,13 +303,14 @@ error mutable_instance::assign_object(engine::type_id id, void* source) const no
   return error::internal;
 }
 
-result<instance> instance::from_access(registry_ref registry, const detail::type_ops& access,
-                                       const void* data) noexcept {
+result<const_instance> const_instance::from_access(registry_ref registry,
+                                                   const detail::type_ops& access,
+                                                   const void* data) noexcept {
   if (!data)
     return error::invalid_argument;
   // 内存视图只借用当前存储；对象分支在实际访问时校验注册。
   // 注册属性仍在 freeze 时检查全部叶类型。
-  instance out;
+  const_instance out;
   if (access.kind() == type_kind::object) {
     auto object = from_object(registry, access.id, data);
     if (!object)
@@ -326,25 +327,24 @@ result<instance> instance::from_access(registry_ref registry, const detail::type
   out.access_ = &access;
   return out;
 }
-result<mutable_instance> mutable_instance::from_access(registry_ref registry,
-                                                       const detail::type_ops& access,
-                                                       void* data) noexcept {
-  auto view = instance::from_access(std::move(registry), access, data);
+result<instance> instance::from_access(registry_ref registry, const detail::type_ops& access,
+                                       void* data) noexcept {
+  auto view = const_instance::from_access(std::move(registry), access, data);
   if (!view)
     return view.error();
-  mutable_instance out;
+  instance out;
   out.view_ = std::move(*view);
   out.data_ = data;
   return out;
 }
-result<sequence_view> instance::as_sequence() const noexcept {
+result<sequence_view> const_instance::as_sequence() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (kind() != type_kind::sequence)
     return error::unsupported;
   return sequence_view{*this};
 }
-result<mutable_sequence_view> mutable_instance::as_sequence() const noexcept {
+result<mutable_sequence_view> instance::as_sequence() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (!data_)
@@ -353,14 +353,14 @@ result<mutable_sequence_view> mutable_instance::as_sequence() const noexcept {
     return error::unsupported;
   return mutable_sequence_view{*this};
 }
-result<associative_view> instance::as_associative() const noexcept {
+result<associative_view> const_instance::as_associative() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (kind() != type_kind::associative)
     return error::unsupported;
   return associative_view{*this};
 }
-result<mutable_associative_view> mutable_instance::as_associative() const noexcept {
+result<mutable_associative_view> instance::as_associative() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (!data_)
@@ -369,14 +369,14 @@ result<mutable_associative_view> mutable_instance::as_associative() const noexce
     return error::unsupported;
   return mutable_associative_view{*this};
 }
-result<optional_view> instance::as_optional() const noexcept {
+result<optional_view> const_instance::as_optional() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (kind() != type_kind::optional)
     return error::unsupported;
   return optional_view{*this};
 }
-result<mutable_optional_view> mutable_instance::as_optional() const noexcept {
+result<mutable_optional_view> instance::as_optional() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (!data_)
@@ -385,14 +385,14 @@ result<mutable_optional_view> mutable_instance::as_optional() const noexcept {
     return error::unsupported;
   return mutable_optional_view{*this};
 }
-result<reference_view> instance::as_reference() const noexcept {
+result<reference_view> const_instance::as_reference() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (kind() != type_kind::reference)
     return error::unsupported;
   return reference_view{*this};
 }
-result<mutable_reference_view> mutable_instance::as_reference() const noexcept {
+result<mutable_reference_view> instance::as_reference() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (!data_)
@@ -404,26 +404,26 @@ result<mutable_reference_view> mutable_instance::as_reference() const noexcept {
 }
 
 namespace gneiss::engine::meta::detail {
-result<engine::type_id> reference_view_access::dynamic_type(const instance& view) noexcept {
+result<engine::type_id> reference_view_access::dynamic_type(const const_instance& view) noexcept {
   auto reference = view.as_reference();
   if (!reference)
     return reference.error();
   return reference->actual_type();
 }
-result<ref<const void>> reference_view_access::owner(const instance& view) noexcept {
+result<ref<const void>> reference_view_access::owner(const const_instance& view) noexcept {
   auto reference = view.as_reference();
   if (!reference)
     return reference.error();
   return reference->owner();
 }
-error reference_view_access::assign(const mutable_instance& view, engine::type_id id,
+error reference_view_access::assign(const instance& view, engine::type_id id,
                                     const ref<void>& owner) noexcept {
   auto reference = view.as_reference();
   if (!reference)
     return reference.error();
   return reference->assign_owner(id, owner);
 }
-error reference_view_access::reset(const mutable_instance& view) noexcept {
+error reference_view_access::reset(const instance& view) noexcept {
   auto reference = view.as_reference();
   if (!reference)
     return reference.error();
@@ -433,8 +433,7 @@ error reference_view_access::reset(const mutable_instance& view) noexcept {
 
 namespace gneiss::engine::meta::detail {
 error property_view_access::replace(
-    const mutable_instance& target,
-    const std::function<error(const mutable_instance&)>& initialize) noexcept try {
+    const instance& target, const std::function<error(const instance&)>& initialize) noexcept try {
   if (!requires_replacement(target) || !initialize)
     return error::invalid_argument;
   auto binding = find_object_property(target.view_.registry_, target.view_.parent_type_,
@@ -444,8 +443,7 @@ error property_view_access::replace(
   auto storage = binding->object_construct();
   if (!storage)
     return error::out_of_memory;
-  auto temporary =
-      mutable_instance::from_access(target.view_.registry_, *binding->access, storage.get());
+  auto temporary = instance::from_access(target.view_.registry_, *binding->access, storage.get());
   if (!temporary)
     return temporary.error();
   auto status = initialize(*temporary);
@@ -458,14 +456,14 @@ error property_view_access::replace(
 }
 
 namespace gneiss::engine::meta {
-result<variant_view> instance::as_variant() const noexcept {
+result<variant_view> const_instance::as_variant() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_argument;
   if (kind() != type_kind::variant)
     return error::unsupported;
   return variant_view{*this};
 }
-result<mutable_variant_view> mutable_instance::as_variant() const noexcept {
+result<mutable_variant_view> instance::as_variant() const noexcept {
   if (kind() == type_kind::invalid)
     return error::invalid_argument;
   if (!data_ || kind() != type_kind::variant)
@@ -475,7 +473,7 @@ result<mutable_variant_view> mutable_instance::as_variant() const noexcept {
 }
 
 namespace gneiss::engine::meta {
-result<instance> property::get(const instance& object) const noexcept {
+result<const_instance> property::get(const const_instance& object) const noexcept {
   if (!record_)
     return error::invalid_state;
   if (registry_ != object.registry_)
@@ -485,9 +483,9 @@ result<instance> property::get(const instance& object) const noexcept {
     return info.error();
   if (info->declaring_type != declaring_type())
     return error::invalid_argument;
-  return object.property(id());
+  return object.member(id());
 }
-result<mutable_instance> property::get(const mutable_instance& object) const noexcept {
+result<instance> property::get(const instance& object) const noexcept {
   if (!record_)
     return error::invalid_state;
   const auto& view = object.as_const();
@@ -498,6 +496,6 @@ result<mutable_instance> property::get(const mutable_instance& object) const noe
     return info.error();
   if (info->declaring_type != declaring_type())
     return error::invalid_argument;
-  return object.property(id());
+  return object.member(id());
 }
 }

@@ -273,7 +273,7 @@ bool test_registered_component_inspection() {
       !received.get<e::mesh_renderer_description>()->mesh_uri.empty())
     return false;
   auto reflected = (*received.find(movement_description::type_guid))->view();
-  if (!reflected || !reflected->property("speed"))
+  if (!reflected || !reflected->member("speed"))
     return false;
   gneiss::host::runtime_property_editor editor;
   if (editor.initialize(world, inspection, 83).failed())

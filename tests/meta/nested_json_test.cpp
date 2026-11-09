@@ -261,7 +261,7 @@ bool nested_json_contract() {
     return false;
   // 注册表不匹配必须在写入调用方目标之前失败。
   child destination{19};
-  auto destination_view = m::mutable_instance::from(*node_registry, destination);
+  auto destination_view = m::view(*node_registry, destination);
   e::serialization::context mismatch{*custom};
   if (!destination_view ||
       e::serialization::json::deserialize_instance(mismatch, *destination_view,
