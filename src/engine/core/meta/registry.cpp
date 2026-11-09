@@ -26,6 +26,17 @@
 
 namespace gneiss::engine::meta {
 namespace detail {
+struct property_record {
+  std::uint32_t id = 0U;
+  engine::guid type_guid{};
+  property_access access = property_access::read_write;
+  std::string name;
+  property_binding accessor{};
+  engine::guid declaring_type{};
+  engine::type_id declaring_id{};
+  meta::metadata extensions{};
+};
+
 struct type_factory {
   static meta::type make(registry_ref registry, const type_ops* access, engine::type_id id,
                          engine::guid guid, type_kind kind, value_kind scalar, bool enumeration) {
@@ -56,6 +67,7 @@ struct type_factory {
 }
 
 namespace {
+using detail::property_record;
 
 [[nodiscard]] bool is_valid_name(std::string_view text) noexcept {
   return text.find('\0') == std::string_view::npos && utf8::is_valid(text);
@@ -115,17 +127,6 @@ bool valid_binding(const property_binding& binding) noexcept {
                               binding.access->enumeration == bool(binding.enum_type) &&
                               (!binding.enum_type || binding.access->id == binding.enum_type)));
 }
-
-struct property_record {
-  std::uint32_t id = 0U;
-  engine::guid type_guid{};
-  property_access access = property_access::read_write;
-  std::string name;
-  property_accessor accessor{};
-  engine::guid declaring_type{};
-  engine::type_id declaring_id{};
-  meta::metadata extensions{};
-};
 
 struct type_record {
   engine::guid guid{};
@@ -823,7 +824,7 @@ const void* type::extension(engine::type_id key) const noexcept {
                    : nullptr;
 }
 const void* property::extension(engine::type_id key) const noexcept {
-  return record_ ? static_cast<const property_record*>(record_)->extensions.find(key) : nullptr;
+  return record_ ? record_->extensions.find(key) : nullptr;
 }
 std::uint32_t type::schema_version() const noexcept {
   return registry_ ? (id_ ? registry_->schema_version(id_) : registry_->schema_version(guid())) : 0;
@@ -924,34 +925,31 @@ result<property_range> properties(const registry_ref& registry, engine::guid id)
   return registry ? registry->properties(id) : result<property_range>{error::invalid_argument};
 }
 property property_range::iterator::operator*() const noexcept {
-  return property{registry_, static_cast<const property_record*>(records_) + index_};
+  return property{registry_, records_ + index_};
 }
 property_id property::id() const noexcept {
-  return record_ ? property_id{static_cast<const property_record*>(record_)->id} : property_id{};
+  return record_ ? property_id{record_->id} : property_id{};
 }
 std::string_view property::name() const noexcept {
-  return record_ ? std::string_view{static_cast<const property_record*>(record_)->name}
-                 : std::string_view{};
+  return record_ ? std::string_view{record_->name} : std::string_view{};
 }
 engine::type_id property::declaring_type_id() const noexcept {
-  return record_ ? static_cast<const property_record*>(record_)->declaring_id : engine::type_id{};
+  return record_ ? record_->declaring_id : engine::type_id{};
 }
 engine::guid property::declaring_type() const noexcept {
-  return record_ ? static_cast<const property_record*>(record_)->declaring_type : engine::guid{};
+  return record_ ? record_->declaring_type : engine::guid{};
 }
 meta::type property::type() const noexcept {
-  return record_ ? record_type(registry_, *static_cast<const property_record*>(record_))
-                 : meta::type{};
+  return record_ ? record_type(registry_, *record_) : meta::type{};
 }
 
 property_capabilities property::capabilities() const noexcept {
-  return record_ ? record_capabilities(*static_cast<const property_record*>(record_))
-                 : property_capabilities::none;
+  return record_ ? record_capabilities(*record_) : property_capabilities::none;
 }
 }
 
 namespace gneiss::engine::meta {
 property property_range::operator[](std::size_t index) const noexcept {
-  return property{registry_, static_cast<const property_record*>(records_) + index};
+  return property{registry_, records_ + index};
 }
 }

@@ -22,6 +22,7 @@
 namespace gneiss::engine::meta {
 namespace detail {
 struct type_ops;
+struct property_record;
 }
 /** 类型内部的字段身份，零无效。 */
 class property_id final {
@@ -95,6 +96,8 @@ class property_range;
 class property final {
 public:
   property() = default;
+  /** 是否指向已发布的属性记录；不表示目标对象仍然存活。 */
+  [[nodiscard]] explicit operator bool() const noexcept { return record_ != nullptr; }
   /** 借用冻结扩展元数据；缺少此类扩展返回 nullptr，寿命受句柄保护。 */
   template <class T> [[nodiscard]] const T* extension() const noexcept {
     return static_cast<const T*>(extension(runtime_type_of<T>()));
@@ -111,10 +114,10 @@ public:
 
 private:
   friend class property_range;
-  property(registry_ref registry, const void* record)
+  property(registry_ref registry, const detail::property_record* record)
       : registry_(std::move(registry)), record_(record) {}
   registry_ref registry_;
-  const void* record_{};
+  const detail::property_record* record_{};
 };
 /** 借用冻结属性数组并保活注册表；遍历不分配、不复制属性列表。 */
 class property_range final {
@@ -144,10 +147,10 @@ public:
 
   private:
     friend class property_range;
-    iterator(registry_ref registry, const void* records, std::size_t index)
+    iterator(registry_ref registry, const detail::property_record* records, std::size_t index)
         : registry_(std::move(registry)), records_(records), index_(index) {}
     registry_ref registry_;
-    const void* records_{};
+    const detail::property_record* records_{};
     std::size_t index_{};
   };
   property_range() = default;
@@ -159,10 +162,10 @@ public:
 
 private:
   friend class type_registry_state;
-  property_range(registry_ref registry, const void* records, std::size_t size)
+  property_range(registry_ref registry, const detail::property_record* records, std::size_t size)
       : registry_(std::move(registry)), records_(records), size_(size) {}
   registry_ref registry_;
-  const void* records_{};
+  const detail::property_record* records_{};
   std::size_t size_{};
 };
 }

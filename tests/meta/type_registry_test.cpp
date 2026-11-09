@@ -13,6 +13,9 @@ struct reflected_object {};
 struct other_object {};
 struct unregistered_object {};
 
+static_assert(sizeof(gneiss::engine::meta::property) ==
+              sizeof(gneiss::engine::meta::registry_ref) + sizeof(void*));
+
 bool typed_registration() {
   namespace e = gneiss::engine;
   using e::error;

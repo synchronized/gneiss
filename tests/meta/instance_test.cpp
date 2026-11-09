@@ -721,7 +721,7 @@ bool property_handles() {
   if (!member || member->assign(23).failed() || probe.number != 23)
     return false;
   if (field.get(*foreign).error() != e::error::invalid_argument ||
-      field.get(*unrelated).error() != e::error::invalid_argument ||
+      field.get(*unrelated).error() != e::error::invalid_argument || !field || m::property{} ||
       m::property{}.get(view->as_const()).error() != e::error::invalid_state)
     return false;
   {
