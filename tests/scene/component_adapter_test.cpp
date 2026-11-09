@@ -11,6 +11,7 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/scene_instance.hpp"
@@ -103,7 +104,7 @@ int main() try {
   check(decoded.has_value());
   auto prepared = prepare(*decoded);
   check(e::register_scene_component(operations()) == e::error::invalid_state);
-  auto created = scenes.instantiate_prepared(std::move(prepared), {});
+  auto created = e::instantiate_scene(world, std::move(prepared), {});
   check(created.has_value());
   check(created->objects.size() == 2);
   check(created->objects[0].object == first.uuid && !created->objects[0].source);
@@ -114,7 +115,7 @@ int main() try {
   auto member_count = borrowed->size();
   check(member_count && *member_count == 2);
   auto borrowed_copy = *borrowed;
-  auto another_scene = scenes.instantiate_prepared(prepare(source), {});
+  auto another_scene = e::instantiate_scene(world, prepare(source), {});
   check(another_scene.has_value());
   auto another_handle = e::scene_instance::borrow(world, another_scene->instance);
   check(another_handle.has_value());
@@ -308,7 +309,7 @@ int main() try {
   camera_object.uuid = e::guid::generate();
   camera_object.components.set(e::camera_description{{1, 0.1F, 100}, true});
   camera_scene.objects = {camera_object};
-  auto camera_instance = scenes.instantiate_prepared(prepare(camera_scene), {});
+  auto camera_instance = e::instantiate_scene(world, prepare(camera_scene), {});
   check(bool(camera_instance));
   gneiss::entity_id active_camera;
   check(world.get_active_camera(active_camera).ok());
@@ -320,7 +321,7 @@ int main() try {
   failing_object.components.set(movement_description{13});
   broken_scene.objects.push_back(failing_object);
   const auto entities_before_failure = *world.entity_count();
-  auto failed_creation = scenes.instantiate_prepared(prepare(broken_scene), {});
+  auto failed_creation = e::instantiate_scene(world, prepare(broken_scene), {});
   check(!failed_creation && failed_creation.error() == e::error::invalid_state);
   gneiss::entity_id camera_after_failure;
   check(world.get_active_camera(camera_after_failure).ok() &&
@@ -345,7 +346,7 @@ int main() try {
        .operation = e::value{9.0F}});
   source.objects = {reference};
   e::prefab_asset_ref prefab_ref{prefab};
-  auto prefab_created = scenes.instantiate_prepared(prepare(source, prefab_ref), {});
+  auto prefab_created = e::instantiate_scene(world, prepare(source, prefab_ref), {});
   check(bool(prefab_created));
   instance = prefab_created->instance;
   auto root_binding =
@@ -378,8 +379,8 @@ int main() try {
   e::scene_description replacement_source;
   replacement_source.uuid = e::guid::generate();
   replacement_source.objects = {first};
-  auto replacing = scenes.instantiate_prepared(prepare(replacement_source), {});
-  auto independent = scenes.instantiate_prepared(prepare(replacement_source), {});
+  auto replacing = e::instantiate_scene(world, prepare(replacement_source), {});
+  auto independent = e::instantiate_scene(world, prepare(replacement_source), {});
   check(replacing && independent);
   auto stable = e::scene_instance::borrow(world, replacing->instance);
   auto other = e::scene_instance::borrow(world, independent->instance);
@@ -388,8 +389,13 @@ int main() try {
   auto other_object = other->find(first.uuid);
   check(old_object && other_object);
   replacement_source.objects.front().name = "replacement";
-  auto replaced = scenes.replace_prepared(replacing->instance, prepare(replacement_source), {});
-  check(replaced && replaced->instance == replacing->instance && stable->is_valid());
+  auto replaced = e::instantiate_scene(world, prepare(replacement_source), {});
+  check(replaced.has_value());
+  check(scenes.unload(replacing->instance).ok());
+  check(!stable->is_valid());
+  check(replaced->instance != replacing->instance);
+  stable = e::scene_instance::borrow(world, replaced->instance);
+  check(stable && stable->is_valid());
   check(!old_object->is_valid() && other_object->is_valid());
   auto new_object = stable->find(first.uuid);
   check(new_object && new_object->identity()->name == "replacement");

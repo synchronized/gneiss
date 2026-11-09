@@ -791,7 +791,6 @@ add_executable(gneiss_scene_instantiation_test scene/scene_instantiation_test.cp
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instances.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instantiation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instances_instantiation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_composition.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_preparation.cpp")
 # 测试直接构造私有 manager，编译其实现而不向 DLL 公共 ABI 导出内部类型。

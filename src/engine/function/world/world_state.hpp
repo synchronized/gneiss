@@ -201,16 +201,6 @@ public:
       (void)destroy_entity(first.get());
     }
   }
-  /** 替换场景保留外层句柄时交换归属，单次遍历且不分配。 */
-  void swap_scene_members(scene_instance_id first, scene_instance_id second) {
-    registry_.view<scene_membership>().each([&](auto& member) {
-      if (member.scene == first)
-        member.scene = second;
-      else if (member.scene == second)
-        member.scene = first;
-    });
-  }
-
   [[nodiscard]] world_hierarchy& scene() noexcept { return scene_; }
   [[nodiscard]] const world_hierarchy& scene() const noexcept { return scene_; }
   [[nodiscard]] std::uint64_t encode_entity(entt::entity entity) const noexcept {

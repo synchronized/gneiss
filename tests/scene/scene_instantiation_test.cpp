@@ -196,7 +196,7 @@ void run() {
   check(test_support::prepare_scene_for_test(active_assets, executor, false, "asset://s.scene",
                                              initial, initial_error, {})
             .ok());
-  engine::scene_instances::resource_bindings initial_bindings;
+  engine::scene_resource_bindings initial_bindings;
   for (const auto& request : initial.assets) {
     engine::render_resource_ref reference;
     engine::asset_diagnostic error;
@@ -290,7 +290,7 @@ void run() {
   check(gneiss::test_support::prepare_render_for_test(candidate_assets, vfs, requests, batch,
                                                       diagnostic,
                                                       {}) == gneiss::engine::error::success);
-  gneiss::engine::scene_instances::resource_bindings bindings;
+  gneiss::engine::scene_resource_bindings bindings;
   for (auto& asset : batch.assets) {
     gneiss::engine::render_resource_ref target;
     check(gneiss::test_support::adopt_render_for_test(candidate_render, std::move(asset), target)
@@ -327,10 +327,12 @@ void run() {
   missing_source.prefabs.begin()->second.resource.reset();
   gneiss::scene_instance_id rejected_scene{};
   check(gneiss::test_support::take_value(
-            candidate->scenes()->instantiate_prepared(std::move(missing_source), bindings),
+            gneiss::engine::instantiate_scene(*candidate->native_world(), std::move(missing_source),
+                                              bindings),
             rejected_scene) == gneiss::engine::error::invalid_argument &&
         rejected_scene == gneiss::scene_instance_id{});
-  auto created = candidate->scenes()->instantiate_prepared(std::move(prepared), bindings);
+  auto created =
+      gneiss::engine::instantiate_scene(*candidate->native_world(), std::move(prepared), bindings);
   check(bool(created));
   new_scene = created->instance;
   check(new_scene != gneiss::scene_instance_id{});
@@ -338,18 +340,21 @@ void run() {
   {
     auto empty = candidate->scenes()->create_empty(engine::guid::generate());
     check(bool(empty));
-    auto rebuilt = candidate->scenes()->replace_prepared(*empty, instantiation_input, bindings);
-    check(bool(rebuilt) && rebuilt->instance == *empty &&
+    auto rebuilt =
+        engine::instantiate_scene(*candidate->native_world(), instantiation_input, bindings);
+    check(bool(rebuilt));
+    check(candidate->scenes()->unload(*empty).ok());
+    check(bool(rebuilt) && rebuilt->instance != *empty &&
           rebuilt->node_count == instantiation_input.instance_nodes);
     bool source_address = false;
     for (const auto& object : rebuilt->objects)
       source_address = source_address || bool(object.source);
     check(source_address);
     for (std::size_t index = 0; index < rebuilt->node_count; ++index) {
-      auto info = candidate->scenes()->get_node_info(*empty, index);
+      auto info = candidate->scenes()->get_node_info(rebuilt->instance, index);
       check(bool(info));
     }
-    check(candidate->scenes()->unload(*empty).ok());
+    check(candidate->scenes()->unload(rebuilt->instance).ok());
     check(files->reads == reads);
   }
   std::uint64_t unchanged_count{};
@@ -365,14 +370,16 @@ void run() {
     const auto baseline_count = *candidate->native_world()->entity_count();
     engine::error foreign;
     std::thread worker([&] {
-      auto result = candidate->scenes()->instantiate_prepared(instantiation_input, bindings);
+      auto result = gneiss::engine::instantiate_scene(*candidate->native_world(),
+                                                      instantiation_input, bindings);
       foreign = result ? engine::error::success : result.error();
     });
     worker.join();
     check(foreign == engine::error::invalid_state);
     auto broken = instantiation_input;
     broken.description.objects.back().transform.scale = {0, 1, 1};
-    check(!candidate->scenes()->instantiate_prepared(std::move(broken), bindings));
+    check(!gneiss::engine::instantiate_scene(*candidate->native_world(), std::move(broken),
+                                             bindings));
     check(*candidate->native_world()->entity_count() == baseline_count);
     check(files->reads == reads);
   }
@@ -381,14 +388,17 @@ void run() {
   gneiss::scene_instance_id additional{};
   prepared = instantiation_input;
   check(gneiss::test_support::take_value(
-            candidate->scenes()->instantiate_prepared(std::move(prepared), bindings), additional)
+            gneiss::engine::instantiate_scene(*candidate->native_world(), std::move(prepared),
+                                              bindings),
+            additional)
             .ok());
   gneiss::scene_instance_id duplicate_scene{};
   prepared = instantiation_input;
-  check(
-      gneiss::test_support::take_value(
-          candidate->scenes()->instantiate_prepared(std::move(prepared), bindings), duplicate_scene)
-          .ok());
+  check(gneiss::test_support::take_value(
+            gneiss::engine::instantiate_scene(*candidate->native_world(), std::move(prepared),
+                                              bindings),
+            duplicate_scene)
+            .ok());
   check(candidate->scenes()->unload(duplicate_scene) == gneiss::engine::error::success);
   check(candidate->scenes()->unload(additional) == gneiss::engine::error::success);
   material = {};
@@ -563,8 +573,8 @@ void run() {
   const auto failure_reads = files->reads;
   gneiss::scene_instance_id failed_instance{};
   check(gneiss::test_support::take_value(
-            candidate->scenes()->instantiate_prepared(std::move(prepared), {}), failed_instance) ==
-        gneiss::engine::error::invalid_argument);
+            gneiss::engine::instantiate_scene(*candidate->native_world(), std::move(prepared), {}),
+            failed_instance) == gneiss::engine::error::invalid_argument);
   check(failed_instance == gneiss::scene_instance_id{});
   check(files->reads == failure_reads);
   check(gneiss::engine::error{gneiss::test_support::assign_value(

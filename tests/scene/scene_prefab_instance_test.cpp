@@ -4,6 +4,7 @@
 #include "../support/scene_application.hpp"
 #include "../support/value_result.hpp"
 #include "engine/function/meta_registration.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/world/world.hpp"
 #include <cstdio>
 #include <source_location>
@@ -23,13 +24,13 @@ int main() try {
   check(gneiss::test_support::assign_value(gneiss::runtime::application::create(configuration), app)
             .ok());
   e::scene_instantiation_data prepared;
-  e::scene_instances::resource_bindings assets;
+  e::scene_resource_bindings assets;
   check(gneiss::test_support::prepare_scene(*app, "asset://scenes/prefab.scene.json", prepared,
                                             assets)
             .ok());
   auto composition = gneiss::test_support::compose(prepared);
   check(bool(composition));
-  auto created = app->scenes()->instantiate_prepared(prepared, assets);
+  auto created = gneiss::engine::instantiate_scene(*app->native_world(), prepared, assets);
   check(created && created->node_count == 3 && created->objects.size() == 3);
   auto mapping = gneiss::test_support::associations(created->objects);
   const auto source_id = *e::guid::parse("30000000-0000-4000-8000-000000000002");
@@ -45,7 +46,7 @@ int main() try {
   auto identity = app->native_world()->node_identity(root);
   check(identity && identity->uuid != member->address.object &&
         identity->uuid != member->parent.source);
-  auto second = app->scenes()->instantiate_prepared(prepared, assets);
+  auto second = gneiss::engine::instantiate_scene(*app->native_world(), prepared, assets);
   check(bool(second));
   auto second_mapping = gneiss::test_support::associations(second->objects);
   check(second_mapping.at(member->address).node != child);

@@ -8,6 +8,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/fatal.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
@@ -203,7 +204,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   e::scene_diagnostic diagnostic;
   if (e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).failed())
     return 43;
-  auto receipt = app.scenes()->instantiate_prepared(std::move(prepared), {});
+  auto receipt = gneiss::engine::instantiate_scene(*app.native_world(), std::move(prepared), {});
   if (!receipt)
     return 44;
   const auto loaded = receipt->instance;

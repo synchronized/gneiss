@@ -3,8 +3,21 @@
 #pragma once
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
+#include "engine/function/scene/scene_preparation.hpp"
 namespace gneiss::engine {
 class asset_manager;
+/** 已创建的场景及其视觉加载清单；资源身份已预留，内容加载由调用方调度。 */
+struct scene_instantiation_result {
+  scene_instance_id instance;
+  std::size_t node_count{};
+  std::vector<scene_object_binding> objects;
+  std::vector<render_resource_source> assets;
+  std::map<std::string, render_resource_ref, std::less<>> bindings;
+};
+/** 只消费已加载描述和资源引用，组合后同步装配；失败释放新建实例。 */
+GNEISS_API result<scene_instantiation_result> instantiate_scene(world&, scene_instantiation_data,
+                                                                const scene_resource_bindings&);
+
 /** 所属线程组合并装配场景；视觉资源异步加载，不等待 GPU。资产服务仅在调用期间借用。 */
 GNEISS_API result<scene_instantiation_result, scene_diagnostic>
 instantiate_scene(world&, asset_manager&, ref<const scene>, std::size_t source_bytes = 0);

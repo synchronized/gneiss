@@ -8,6 +8,7 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/meta_registration.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "runtime_property_editor.hpp"
 #include "runtime_scene_inspection.hpp"
@@ -173,15 +174,18 @@ bool test_capture_prefab_scene() {
           .failed())
     return false;
   gneiss::engine::scene_instantiation_data prepared;
-  gneiss::engine::scene_instances::resource_bindings resources;
+  gneiss::engine::scene_resource_bindings resources;
   if (gneiss::test_support::prepare_scene(*application, scene_uri, prepared, resources).failed())
     return false;
   auto empty = application->scenes()->create_empty(gneiss::engine::guid::generate());
   if (!empty)
     return false;
   // 使用无运行 Prefab 绑定的重建路径，证明来源只来自显式回执。
-  auto created = application->scenes()->replace_prepared(*empty, std::move(prepared), resources);
+  auto created = gneiss::engine::instantiate_scene(*application->native_world(),
+                                                   std::move(prepared), resources);
   if (!created)
+    return false;
+  if (application->scenes()->unload(*empty).failed())
     return false;
   scene = created->instance;
   gneiss::host::runtime_scene_inspection inspection(5U);

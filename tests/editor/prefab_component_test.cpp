@@ -9,6 +9,7 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/prefab_replay.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
@@ -270,7 +271,7 @@ int main() try {
   inputs.prefabs.emplace(reference.uri, e::prefab_asset_ref{source});
   e::scene_instantiation_data prepared;
   check(e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).ok());
-  auto receipt = app->scenes()->instantiate_prepared(std::move(prepared), {});
+  auto receipt = gneiss::engine::instantiate_scene(*app->native_world(), std::move(prepared), {});
   check(bool(receipt));
   const auto loaded = receipt->instance;
   const auto root_binding = std::ranges::find_if(receipt->objects, [&](const auto& object) {

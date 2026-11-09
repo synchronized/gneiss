@@ -4,6 +4,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "runtime/application.hpp"
 #include "value_result.hpp"
@@ -18,7 +19,7 @@ inline engine::task_scheduler& application_tasks() {
 }
 inline engine::error prepare_scene(runtime::application& app, std::string_view uri,
                                    engine::scene_instantiation_data& prepared,
-                                   engine::scene_instances::resource_bindings& bindings,
+                                   engine::scene_resource_bindings& bindings,
                                    engine::task_scheduler* tasks = nullptr, bool prefab = false,
                                    bool reload = false) {
   if (!tasks)
@@ -96,11 +97,12 @@ inline engine::error load_scene(runtime::application& app, std::string_view uri,
     return engine::error::invalid_argument;
   *output = {};
   engine::scene_instantiation_data prepared;
-  engine::scene_instances::resource_bindings bindings;
+  engine::scene_resource_bindings bindings;
   auto status = prepare_scene(app, uri, prepared, bindings, tasks, false, reload);
-  return status.failed()
-             ? status
-             : gneiss::test_support::take_value(
-                   app.scenes()->instantiate_prepared(std::move(prepared), bindings), *output);
+  return status.failed() ? status
+                         : gneiss::test_support::take_value(
+                               gneiss::engine::instantiate_scene(*app.native_world(),
+                                                                 std::move(prepared), bindings),
+                               *output);
 }
 }

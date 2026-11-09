@@ -7,6 +7,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/component_adapter.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/loading/resource_load_group.hpp"
 #include "runtime/loading/scene_domain.hpp"
@@ -275,7 +276,7 @@ scene_service::apply_source(engine::ref<const engine::scene_content> content) {
     }
     object.parent = parent_address;
   }
-  engine::scene_instances::resource_bindings bindings;
+  engine::scene_resource_bindings bindings;
   for (const auto& request : prepared.assets) {
     auto resource = resources_->load(request);
     if (!resource)

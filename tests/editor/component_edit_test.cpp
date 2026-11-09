@@ -12,6 +12,7 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/prefab_replay.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "panels/reflected_property_editor.hpp"
@@ -488,7 +489,7 @@ int main() try {
   e::scene_instantiation_data prepared;
   e::scene_diagnostic diagnostic;
   check(e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).ok());
-  auto receipt = app->scenes()->instantiate_prepared(std::move(prepared), {});
+  auto receipt = gneiss::engine::instantiate_scene(*app->native_world(), std::move(prepared), {});
   check(bool(receipt));
   const auto loaded = receipt->instance;
   const auto root_binding = std::ranges::find_if(receipt->objects, [&](const auto& object) {

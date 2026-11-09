@@ -48,10 +48,11 @@ private:
 };
 /** 将目标文档投影到场景；baseline 仅可传入已成功同步的版本。
  * 资源身份不变时，普通对象增删、变换、组件及显式层级差异增量更新。
+ * 完整重建成功时更新 scene，旧场景及对象句柄失效。
  * 失败不表示目标已同步。
  */
 [[nodiscard]] engine::error project_scene_document(engine::world&, engine::scene_instances&,
-                                                   scene_instance_id, scene_projection&,
+                                                   scene_instance_id&, scene_projection&,
                                                    const scene_document_snapshot* baseline,
                                                    const scene_document_snapshot& target,
                                                    bool prepare_editor = true);

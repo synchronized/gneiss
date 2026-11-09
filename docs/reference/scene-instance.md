@@ -45,7 +45,7 @@ if (!count)
 `instantiate_scene(world, assets, source)` 位于 `scene_instantiation.hpp/.cpp`，
 只在调用期间借用资产管理器：从已加载 Scene 生成实例化输入，提交视觉资源请求，
 再同步创建对象。组件中的资源身份可以先存在，内容继续异步加载；不等待 GPU 上传。
-已准备输入仍通过 `instantiate_prepared` / `replace_prepared` 消费。
+已准备输入通过独立的 `instantiate_scene` 消费；场景集合不负责描述解析或组件装配。
 按 URI 创建网格对象和设置网格绑定也在显式装配入口中，不是场景实例方法。
 
 组件增删改直接使用 `add_component` / `remove_component` / `update_component` 和短期借用的
@@ -58,7 +58,7 @@ if (!count)
 `scene_edit_session` 持有不可变编辑版本。属性、组件增删、层级、子树和 Prefab 操作先生成领域候选，
 通过校验后接受版本，再更新 World。返回成功表示编辑内容已接受；`projection_status()` 单独报告同步状态。
 同步失败保留文档，保存及后续合法编辑不依赖投影成功。`synchronize()` 可重试完整投影，成功后须重新查询节点 ID。
-完整重建通过 `scene_instances::replace_prepared` 保留场景实例句柄，成功才替换旧投影。
+完整重建先创建新场景并校验投影映射，成功后卸载旧场景、更新编辑会话的场景句柄及投影。旧场景和对象句柄失效；普通增量编辑仍保留未删除对象的 ID。
 
 `capture_content()`、`serialize()`、保存和子树快照读取文档内容。`adopt` 接收显式的初始文档快照，
 不从运行实例捕获作者描述；编辑器加载入口使用完成回执中的固定 Scene/Prefab 内容与实际资源引用构造快照。

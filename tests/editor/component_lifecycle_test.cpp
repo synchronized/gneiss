@@ -7,6 +7,7 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
@@ -124,9 +125,10 @@ int main() try {
   e::scene_diagnostic diagnostic;
   check(e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).ok());
   gneiss::scene_instance_id loaded;
-  check(gneiss::test_support::take_value(
-            app->scenes()->instantiate_prepared(std::move(prepared), {}), loaded)
-            .ok());
+  check(
+      gneiss::test_support::take_value(
+          gneiss::engine::instantiate_scene(*app->native_world(), std::move(prepared), {}), loaded)
+          .ok());
   gneiss::scene_node_id loaded_node;
   check(gneiss::test_support::take_value(app->scenes()->find_node(loaded, uuid), loaded_node).ok());
   check(state(world).get<movement_component>(entity(world, loaded_node))->data.speed == 4);
@@ -153,7 +155,10 @@ int main() try {
   check(document.components(node)->get<movement_description>()->speed == 13);
   auto failed_content = document.serialize();
   check(failed_content.ok());
+  const auto previous_scene = document.scene_handle();
   check(document.synchronize() == e::error::invalid_state);
+  check(document.scene_handle() == previous_scene);
+  check(app->scenes()->get_node_count(previous_scene).has_value());
   auto after_failure = document.serialize();
   check(after_failure && *after_failure == *failed_content);
   check(document
@@ -162,6 +167,8 @@ int main() try {
   // 新编辑统一进入投影；未知基线完整同步成功后自动恢复健康状态。
   const auto previous_node = node;
   node = document.find_node(uuid)->node;
+  check(document.scene_handle() != previous_scene);
+  check(!app->scenes()->get_node_count(previous_scene));
   check(node != previous_node && document.projection_status().ok() && current()->data.speed == 4);
   check(document.remove_component_description(node, type).ok());
   check(add().ok());

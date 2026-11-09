@@ -9,15 +9,11 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid_table.hpp"
 #include "engine/function/scene/scene_creation.hpp"
-#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/scene/scene_query.hpp"
 #include "engine/function/scene/scene_types.hpp"
-#include "engine/resource/scene/prefab_description.hpp"
-#include "engine/resource/scene/scene_description.hpp"
 
 #include "engine/function/world/world.hpp"
 
-#include <map>
 #include <memory>
 #include <span>
 #include <string>
@@ -27,25 +23,9 @@
 namespace gneiss::engine {
 
 class scene_instance_state;
-/** 已创建的场景及其视觉加载清单；资源身份已预留，内容加载由调用方调度。 */
-struct scene_instantiation_result {
-  scene_instance_id instance;
-  std::size_t node_count{};
-  std::vector<scene_object_binding> objects;
-  std::vector<render_resource_source> assets;
-  std::map<std::string, render_resource_ref, std::less<>> bindings;
-};
 /** 单个 World 的实例集合，拥有实例与 RID 表；不负责后台加载或活动域切换。 */
 class scene_instances final {
 public:
-  using resource_bindings = std::map<std::string, render_resource_ref, std::less<>>;
-  /** 所属线程同步创建整个实例；只消费已准备描述和资源引用，不读取文件。
-   * 失败回收已创建节点；调用期间不支持暂停或取消。 */
-  [[nodiscard]] GNEISS_API result<scene_instantiation_result>
-  instantiate_prepared(scene_instantiation_data prepared, const resource_bindings& assets);
-  /** 重建投影并保留实例句柄；成功后旧节点句柄失效，失败保留旧投影。 */
-  [[nodiscard]] GNEISS_API result<scene_instantiation_result>
-  replace_prepared(scene_instance_id, scene_instantiation_data, const resource_bindings&);
   /** 验证运行节点的场景归属。 */
   [[nodiscard]] GNEISS_API error validate_editable_node(scene_instance_id instance,
                                                         scene_node_id node) const noexcept;

@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-2026-11-09：实施中。对象改名/变换入口、ECS 成员归属及场景资产服务解耦已完成；
+2026-11-10：实施中；以下目标按本次确认修订。对象改名/变换入口、ECS 成员归属及场景资产服务解耦已完成；
 槽位和层级入口、纯组合与实例化接口的进一步收敛仍待实施。
 沿用当前特性分支，不重新实现 ECS、资产缓存或编辑历史。
 本计划细化并收敛 PLAN-105/106/107 的接口边界，不将历史任务完成等同于本计划已实现。
@@ -38,44 +38,62 @@ Scene 目录同时容纳组合、实例化、运行编辑、差异和 Prefab 覆
 删除实体使旧 game_object 失效；不新建与 entity_id 同生命周期的另一种对象 ID。
 描述 UUID 只在其描述/实例地址域中唯一，不能拿它直接充当全局运行身份。
 
-### 目标 API（示意，实施时复用现有命名及结果类型）
+### 2026-11-10 确认的目标 API
+
+以下定义替代早期示意。名称与错误类型在实施时遵循现有基础类型，职责不得为迁就旧调用而改变。
 
 ```cpp
 class world {
 public:
-    scene_instance create_scene();
-    game_object create_object(scene_instance, const object_options& = {});
-    game_object find(entity_id) const;
-    void update(float delta_time);
-};
-class game_object {
-public:
-    bool valid() const noexcept;
-    entity_id id() const noexcept;
-    result<void> set_name(std::string_view);
-    game_object parent() const;
-    children_view children() const;
-    result<void> reparent(game_object);
-    math::transform local_transform() const;
-    result<void> set_local_transform(const math::transform&);
-    template<class T> T* component() const;
-    template<class T, class... Args> result<void> add_component(Args&&...);
-    template<class T> bool remove_component();
-    void destroy();
+  result<scene_instance> create_scene();
+  game_object find(entity_id) const;
+  scene_instance find(scene_instance_id) const;
+  result<void> transfer_subtree(game_object root, scene_instance destination,
+                                game_object parent = {});
+  void update(float delta_time);
 };
 class scene_instance {
 public:
-    objects_view objects() const;
-    roots_view roots() const;
-    game_object create_object(const object_options& = {});
-    void unload();
+  bool valid() const noexcept;
+  scene_instance_id id() const noexcept;
+  result<game_object> create_object(const object_options& = {}, game_object parent = {}) const;
+  object_range objects() const;
+  object_range roots() const;
+  result<void> unload() const;
+};
+class game_object {
+public:
+  bool valid() const noexcept;
+  entity_id id() const noexcept;
+  scene_instance scene() const;
+  std::string_view name() const;
+  result<void> set_name(std::string_view) const;
+  game_object parent() const;
+  object_range children() const;
+  result<void> reparent(game_object) const;
+  math::transform local_transform() const;
+  result<void> set_local_transform(const math::transform&) const;
+  math::matrix4 world_matrix() const;
+  template<class T> T* try_component() const;
+  template<class T, class... Args> result<void> add_component(Args&&...) const;
+  template<class T> result<void> remove_component() const;
+  result<void> destroy() const;
 };
 ```
 
-简单查询使用值、指针或空句柄；需要区分失效/跨线程/非法输入时保留 error/result。
-不为符合示意强行删除现有错误信息。遵循 PLAN-109，内存与意外异常不逐函数转码。
-组件借用在删除/存储变化后重新获取；层级、归属及维护不变量的变换不能绕过专门接口任意改写。
-纯 ECS 辅助实体不必具备对象身份和层级。
+World 唯一拥有 ECS 和场景槽位；scene_instances 收入私有实现，删除独立堆对象
+scene_instance_state 层。GameObject/SceneInstance 只保存 World 指针及带代次的 ID。
+普通对象的名称、层级、归属和局部变换由受控私有数据维护，不允许通用组件入口任意修改。
+简单查询要求有效句柄和所属线程；可失败修改用 result。World 销毁后不能再调用借用句柄的 valid。
+范围是薄遍历接口，结构修改后重新获取，不建立新容器框架。
+
+每实体同一 C++ 组件最多一份；组件强引用正常析构。普通组件借用遵循 ECS 失效规则，
+需要脏标记的写操作提供专门入口。世界变换以矩阵表达，避免将含剪切的组合强行分解成 TRS。
+纯 ECS 辅助实体可没有对象层级，但必须明确归属和回收责任；场景生成的辅助实体随场景卸载。
+
+运行对象不强制保存描述 UUID；来源查找使用本次实例化的来源地址映射。
+描述对象/组件 UUID 用于文件和编辑历史，entity_id/scene_instance_id 表示运行寿命。
+不增加同寿命的 instance_id；嵌套 Prefab 来源地址必须表达完整实例路径。
 
 ### 场景归属
 
@@ -87,30 +105,48 @@ public:
 
 ## 描述、加载与装配
 
-复用已有 game_object_description、component_description_base 的 UUID、可选 Prefab 来源，
-不为改名字复制一套结构。Scene 支持多根，Prefab 有唯一 root_uuid；nil GUID 的 JSON 使用 null。
-带 Prefab 来源的描述代表实例根；放置属性属于实例，内部差异放覆盖记录，不存第二份展开子树。
-运行组件只接收展开后的完整内容，不保存 Prefab 覆盖。
+四项已确认决定：完整重建允许场景句柄变化；实例化必须指定目标场景；运行对象不强制保留
+来源 UUID；装配不激活相机或场景。禁止为保留旧行为新增 replace_members 或通用发布协议。
 
 ```text
-异步加载 Scene → 发现并递归异步加载 Prefab → 结构依赖就绪
-    → compose（纯内存）→ instantiate（所属线程同步创建对象）
-    → 视觉资产内容可继续异步加载
+asset_manager 异步取得 Scene 和必需 Prefab 固定内容
+  → compose：纯内存展开 Prefab、应用覆盖
+  → instantiate：向指定场景创建对象、安装组件和解析引用
+  → 应用在安全点决定更新/渲染范围及相机
 ```
 
-compose 输入描述与已加载固定 Prefab 查询视图；不读文件、不阻塞、不管理加载请求。
-循环依赖在调度中检测，不能形成互等。复用资产记录去重和弱缓存。
-复用当前 composed_scene/实例化数据，逐步收敛为一份临时完整描述，不增加 resolved_scene 平行模型。
-实例化回执给出实例、来源地址到对象的关联和诊断；普通 Runtime 不需要关联时即可释放，
-热重载协调器或 Editor 按用途保留，World 不持有来源快照。
+compose_scene / compose_prefab 输入描述及已加载 prefab_sources 借用视图，输出 composed_scene。
+必需来源缺失返回错误，不发起加载。组合对象只保留来源地址、父索引、名称、局部变换和完整组件。
+组合报告携带冲突；Inspector 专用来源变换、URI、覆盖列表不进入运行对象。
+scene_instantiation_data 收敛掉：加载统计归加载结果，依赖归资产内容，完整对象归 composed_scene。
+组合内容固定，装配不能修改共享描述。Scene 可多根，Prefab 唯一根。
 
-实例化先检查重复身份、非法父引用、循环；再创建对象、连接父子、装配组件和解析引用。
-必需 Prefab 缺失拒绝实例化；视觉资源失败保留对象并诊断、按组件规则降级。
-可选组件只有声明可跳过策略才能跳过，不能默默遗漏。失败清理本次创建对象不等于跨场景事务。
+```cpp
+struct instantiation_result {
+  std::vector<game_object> roots;
+  std::vector<object_binding> objects; // 来源地址 → 本次创建对象
+  std::vector<scene_issue> issues;
+};
+result<instantiation_result, scene_diagnostic> instantiate(
+    scene_instance destination, const composed_scene&, asset_manager&,
+    game_object parent = {});
+```
 
-组件装配提供按描述类型注册的入口，纯数据可默认映射，资源/对象引用显式解析。
-资源解析获得稳定强引用并触发异步加载，不等待内容。运行装配注册不兼任 Inspector、撤销和 IPC。
-增加组件不修改 World/场景集合的类型分支；Editor 更新能力可以复用转换函数但独立注册。
+新场景由调用方 create_scene；失败由调用方卸载新建空场景。Prefab 使用相同入口进入已有场景。
+顺序：预校验 → 创建全部对象和映射 → 连接父子/设置基础数据 → 安装组件及解析引用 → 返回回执。
+parent 必须属于目标场景，组合根挂在它下面。结构或必需组件失败只清理本次新对象，
+不清空目标原有对象，不回滚共享资产加载。可选组件及视觉资源按明确规则降级并诊断。
+视觉引用可以先存在，内容异步就绪；不等待文件或 GPU。
+
+内部 component_build_context 借用目标对象、asset_manager 和本次 object_resolver，
+不再硬编码 mesh_renderer 字段；组件自己解析所需资源。对象解析器只查映射，
+无明确实例绑定的外部对象引用报告未解析，不能按 UUID 随意选择实例。
+运行注册仅包含装配/更新/解析所需能力；Inspector 路由、默认编辑值、差异、历史和编辑状态策略
+迁到编辑器注册，可共享转换函数，不新增运行状态副本。
+
+相机安装只写组件，不设置全局活动相机。默认相机标记作为应用/视口选择提示。
+应用负责激活、更新/渲染范围及旧场景关闭；不强制一场景一 World。
+scene_domain 若只包装 World 则删除；Play 等独立运行会话确需隔离时才创建另一 World。
 
 ## 编辑器与 IPC
 
@@ -118,6 +154,9 @@ compose 输入描述与已加载固定 Prefab 查询视图；不读文件、不�
 属性操作不重建无关实体；删除保存描述子树，撤销重建该子树，entity_id 可以变化。
 选择/历史使用文档地址，投影负责地址到运行句柄。预览失败保留已接受文档并标记不同步、允许重试。
 Runtime 不建立编辑文档。IPC 调用已有应用操作，不增加对象模型、历史或修改规则。
+完整重建由编辑会话创建新实例并校验映射，再更新会话场景/投影并卸载旧实例。
+场景 ID 和重建实体 ID 允许变化，选择/历史使用文档地址重新定位。
+过渡共存实例只能在安全点切换，不能意外参与更新或渲染；不向 World 增加候选发布协议。
 
 ## 目标文件布局
 
@@ -130,13 +169,19 @@ Runtime 不建立编辑文档。IPC 调用已有应用操作，不增加对象�
 
 ## 实施与验收
 
-1. [ ] 统一对象入口：迁移名称、变换、层级、组件调用；移除重复 scene/object/node 转发。
-   首批删除场景层改名和变换转发，GameObject 实现直接访问 World 内部层级，独立源文件。
-2. [ ] 统一 membership：场景槽位归 World，替换 scene_instance_state 的成员列表；
-   将父子关系、场景归属及跨场景移动的检查放在同一处，删除旧归属扫描路径。
-3. [ ] 分离装配：异步结构依赖、纯组合、实例化与资源解析；运行场景状态不持有 asset_manager。
-4. [ ] 统一组件入口与消费者：Editor、Runtime、IPC 使用运行对象/装配边界；保持文档权威。
-5. [ ] 删除旧类型/入口和无职责包装，整理目录与接口文档，完成编译及定向 CPU 验证。
+按以下顺序推进，未完成项不可描述为现有能力：
+
+1. [x] 取消保句柄替换协议；编辑会话完整重建后更新自己的场景句柄、投影和选择。
+2. [ ] 组合与装配分开；以 composed_scene 为唯一完整输入，实现显式目标场景和 parent 的 instantiate。
+   覆盖已有非空场景、Prefab 重复实例化、引用前向解析和仅清理本次创建对象。
+3. [ ] World 收拢场景槽位，移除公开集合及独立状态层；统一 GameObject 创建/层级入口。
+4. [ ] 迁移运行来源身份到外部回执，补齐对象遍历和同 World 整棵子树迁移。
+5. [ ] 拆分运行组件装配与编辑器注册，消除上下文中的网格特例。
+6. [ ] 分离相机安装和激活；迁移应用/视口安全点调度，整理 scene_domain。
+7. [ ] 清理旧 node/entity 业务入口、重复准备模型及目录；完成编译与定向 CPU 验证。
+
+保句柄替换协议已删除。内部继续组合的 instantiate_scene 自由函数仍是迁移中间态，
+临时入口按上述第二项收敛，不能将其当作最终 API。
 
 关键验收：
 
@@ -165,7 +210,7 @@ Windows Clang Debug：Editor、Runtime 和相关测试目标编译通过；compo
 scene_prefab_instance、scene-load-application、editor.session 共 5 项 CPU 测试通过。
 覆盖改名保留 UUID、变换保留 entity_id、跨线程拒绝、销毁后句柄失效及文档不受运行编辑影响。
 格式检查与 git diff --check 通过；未运行 GPU、大场景、远端 CI 或跨平台矩阵。
-第一阶段其余入口和第二至第五阶段未完成，下一步集中迁移场景归属与层级校验。
+当时第一阶段其余入口和第二至第五阶段未完成，下一步集中迁移场景归属与层级校验。
 
 ## 第二批实施记录：统一成员归属
 
@@ -207,3 +252,21 @@ editor.component-lifecycle、editor.session。纯组件和 Prefab 应用夹具�
 本批完成装配边界中对资产服务的长期借用清理，不表示第三阶段及整体计划全部完成。
 instantiate_prepared / replace_prepared 仍在场景集合，仍需收敛为独立实例化与槽位替换边界；
 层级操作的旧 node 接口、显式子树跨场景迁移和最终目录整理仍未完成。
+
+
+## 2026-11-10 修订后首批实施
+
+删除 scene_instances 的 instantiate_prepared / replace_prepared，已准备输入暂由
+scene_instantiation 的自由函数消费；移除 swap_scene_members，不新增 replace_members 协议。
+编辑器完整投影在新实例和映射校验成功后释放旧实例，更新会话的 scene_handle。
+失败保留旧实例；普通增量更新继续保留存活实体。异步编辑请求已有场景身份校验，
+旧实例上的未完成操作在重建后拒绝继续应用。
+
+Editor、Runtime 及定向测试目标通过 Windows Clang Debug 编译；组件适配、场景实例化、
+编辑会话、编辑组件生命周期/编辑/Prefab/属性、Prefab 实例、结构重载及运行场景检查共 10 项 CPU 测试通过。
+新增断言覆盖失败保留旧场景、完整重建使旧场景失效，以及独立实例不受卸载影响。
+未运行 GPU、大场景、远端 CI 或其他平台验证。
+
+下一步为显式目标场景的 additive instantiate：不能直接将当前 apply_scene 当作追加接口，
+因为它按整场景目标执行增删同步；需独立追踪本次创建对象并仅清理这些对象。
+World 场景槽位、来源身份外移、组件注册拆分和相机激活分离均尚未完成。

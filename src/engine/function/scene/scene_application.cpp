@@ -14,7 +14,7 @@ bool same_transform(const math::transform& a, const math::transform& b) {
 result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_id scene,
                          std::map<object_address, scene_object_association>& associations,
                          const composed_scene& previous, const composed_scene& next,
-                         const scene_instances::resource_bindings& assets,
+                         const scene_resource_bindings& assets,
                          const scene_component_preparer& prepare) {
   if (!world.is_owner_thread())
     return error::invalid_state;

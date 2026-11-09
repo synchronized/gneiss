@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/scene_projection.hpp"
 #include "engine/function/scene/component_adapter.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include <algorithm>
 #include <set>
 namespace gneiss::editor {
@@ -20,7 +21,7 @@ engine::error scene_projection::reset(std::span<const engine::scene_object_bindi
   return engine::error::success;
 }
 engine::error project_scene_document(engine::world& world, engine::scene_instances& scenes,
-                                     scene_instance_id scene, scene_projection& projection,
+                                     scene_instance_id& scene, scene_projection& projection,
                                      const scene_document_snapshot* baseline,
                                      const scene_document_snapshot& target, bool prepare_editor) {
   if (baseline) {
@@ -57,9 +58,42 @@ engine::error project_scene_document(engine::world& world, engine::scene_instanc
   auto status = engine::prepare_loaded_scene(*inputs, {}, prepared, diagnostic, {});
   if (status.failed())
     return status;
-  auto rebuilt = scenes.replace_prepared(scene, std::move(prepared), target.assets);
+  if (world.scenes() != &scenes)
+    return engine::error::invalid_argument;
+  auto current = scenes.get_node_count(scene);
+  if (!current)
+    return current.error();
+  entity_id previous_camera;
+  status = world.get_active_camera(previous_camera);
+  if (status.failed() && status != engine::error::not_ready)
+    return status;
+  auto rebuilt = engine::instantiate_scene(world, std::move(prepared), target.assets);
   if (!rebuilt)
     return rebuilt.error();
-  return projection.reset(rebuilt->objects);
+  struct candidate_guard {
+    engine::scene_instances& scenes;
+    engine::world& world;
+    scene_instance_id candidate;
+    entity_id camera;
+    ~candidate_guard() {
+      if (candidate) {
+        (void)scenes.unload(candidate);
+        if (camera.get())
+          (void)world.set_active_camera(camera);
+      }
+    }
+  } guard{scenes, world, rebuilt->instance, previous_camera};
+  scene_projection replacement;
+  status = replacement.reset(rebuilt->objects);
+  if (status.failed())
+    return status;
+  auto associations = replacement.objects();
+  status = scenes.unload(scene);
+  if (status.failed())
+    return status;
+  scene = rebuilt->instance;
+  guard.candidate = {};
+  projection.replace(std::move(associations));
+  return engine::error::success;
 }
 }

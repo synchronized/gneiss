@@ -9,6 +9,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
@@ -91,7 +92,7 @@ int main() try {
           .failed())
     return 1;
   gneiss::engine::scene_instantiation_data prepared;
-  gneiss::engine::scene_instances::resource_bindings assets;
+  gneiss::engine::scene_resource_bindings assets;
   if (gneiss::test_support::prepare_scene(*application, scene_uri, prepared, assets, &scheduler)
           .failed())
     return 1;

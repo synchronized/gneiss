@@ -14,6 +14,9 @@
 
 namespace gneiss::engine {
 
+/** 装配期间借用的视觉资源身份；不属于运行场景集合。 */
+using scene_resource_bindings = std::map<std::string, render_resource_ref, std::less<>>;
+
 struct scene_prepare_limits {
   // 累计读取的源文件字节数；单文件读取上限由 codec 规定。
   std::size_t source_bytes{16U * 1024U * 1024U};
