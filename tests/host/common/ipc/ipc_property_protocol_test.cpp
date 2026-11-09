@@ -23,7 +23,7 @@ struct wire_object : m::object_type<wire_object> {
 };
 bool test_object_value() {
   if (m::register_builtin_types().failed() ||
-      m::type_builder<wire_object>{}
+      m::registration<wire_object>{}
           .property<&wire_object::count>(m::property_id{1}, "count")
           .serialization()
           .commit()
@@ -125,7 +125,8 @@ bool test_structured_values() {
       {e::object_reference_value{wire_object::type_guid, wire_object::type_guid}},
   };
   for (const auto& value : values)
-    if (!round_trip_value(value)) return false;
+    if (!round_trip_value(value))
+      return false;
   return true;
 }
 

@@ -60,7 +60,7 @@ e::error register_project() {
   // 内置类型已注册但尚未冻结；查询不得提前冻结。
   if (m::type_count().error() != e::error::not_ready)
     return e::error::internal;
-  return m::type_builder<sample>{}.property<&sample::speed>(m::property_id{1}, "speed").commit();
+  return m::registration<sample>{}.property<&sample::speed>(m::property_id{1}, "speed").commit();
 }
 e::error fail_registration() { return e::error::unsupported; }
 e::error throw_registration() { throw std::runtime_error("注册失败"); }
@@ -101,7 +101,7 @@ int main(int argc, char** argv) {
   if (!encoded || !gneiss::engine::asset_file::deserialize<e::material_description>(*encoded))
     return 7;
   if (m::register_type<sample>({.schema_version = 1}).ok() ||
-      m::type_builder<sample>{}.commit().ok())
+      m::registration<sample>{}.commit().ok())
     return 8;
   auto isolated = m::create_registry();
   if (!isolated || *isolated == *initial ||

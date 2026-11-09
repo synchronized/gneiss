@@ -97,12 +97,14 @@ TRY(x.assign(3.0f));
 
 ```cpp
 auto status = meta::registration<camera_settings>()
-    .property("fov", &camera_settings::fov)
-    .property("near", &camera_settings::near)
-    .property("far", &camera_settings::far)
+    .property<&camera_settings::fov>(meta::property_id{1}, "fov")
+    .property<&camera_settings::near>(meta::property_id{2}, "near")
+    .property<&camera_settings::far>(meta::property_id{3}, "far")
     .commit();
 ```
 
+- 字段保留显式 property_id 和编译期成员指针，不自动从顺序或名称生成身份；
+  复用现有访问器，不为接收运行期成员指针增加捕获状态。
 - traits 已定义名称/GUID 时直接使用，允许未定义时显式补充；冲突必须报错，禁止默默覆盖。
 - 注册失败在 commit 明确返回，不依靠析构隐式提交；重复注册、重复属性 ID/名称必须有诊断。
 - 默认注册表路径不暴露 default_registry 调用；显式 registry 上下文保留。
@@ -232,7 +234,9 @@ describe_type/describe_property、type_info/property_info 已删除；
 枚举通过 type_at，版本通过 type::schema_version 查询，getter/setter 校验保留。
 默认构建及 40 项 CPU 回归见[旧查询删除记录](../records/2026-11-09-meta-query-removal.md)。
 阶段 3 已迁移 instance/const_instance、view/member/assign，默认构建和 35 项 CPU 回归通过，
-见[实例门面迁移记录](../records/2026-11-09-meta-instance-api.md)；阶段 4 起仍待实施。调用点审计与验证见
+见[实例门面迁移记录](../records/2026-11-09-meta-instance-api.md)；阶段 4 已统一 registration<T>、显式身份设置并验证公开 sequence_traits；
+无 GUID 对象注册、冻结索引及内部访问边界仍待完成。验证见
+[注册入口记录](../records/2026-11-09-meta-registration.md)。调用点审计与验证见
 [首批记录](../records/2026-11-09-meta-property-handles.md)。
 
 ## 九、验收矩阵

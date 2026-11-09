@@ -57,6 +57,11 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 `bind_property` 绑定原生函数指针、类别和借用上下文；相同完整绑定可重复调用。
 `freeze` 按 GUID 字节顺序和字段编号排序，之后禁止注册与绑定。重复冻结幂等成功。
 
+无静态身份的外部类型可通过 `registration<T>{}.name("名称").guid(id)` 补充身份；
+名称由注册器复制持有，再由 commit 深拷贝到注册表。与非空 traits 身份冲突时返回
+invalid_argument。注册器只在显式 commit 时提交，重复 commit 返回 invalid_state。
+字段仍使用 `.property<&T::member>(property_id, name)`，稳定编号不按字段顺序自动生成。
+
 ## 类型句柄查询
 
 普通消费者通过 `find_type` / `type_of<T>` 获取保活注册表的 `meta::type`。
@@ -87,13 +92,13 @@ static constexpr guid type_guid =
 当前 bool、float、vector3、quaternion 的 traits 提供内建字段原有的稳定 GUID；
 其他属性类型使用 builder 前须提供相应 GUID 特化，不能按编译器名称临时生成。
 
-`registration.hpp` 是普通 C++ 类型注册的主要入口，通过 `type_builder<T>` 使用现有 Registry，
+`registration.hpp` 是普通 C++ 类型注册的主要入口，通过 `registration<T>` 使用现有 Registry，
 没有第二套运行期状态。动态描述仍可使用 `registry.hpp` 的非模板注册函数。
 调用序列化模板须直接包含 `serialization.hpp`。不保留旧头文件转发层或 get/set 属性入口。
 类型具有静态身份时可这样注册：
 
 ```cpp
-return gneiss::engine::meta::type_builder<math::transform>{}
+return gneiss::engine::meta::registration<math::transform>{}
     .schema_version(1)
     .property<&math::transform::translation>(meta::property_id{1}, "translation")
     .commit();
@@ -173,7 +178,7 @@ Registry 使用原生共享引用管理，不经全局句柄表。独立表在�
 
 `serialization/binding.hpp` 提供可选 `serialization::binding`，
 `serialization/diagnostic.hpp` 提供拥有错误位置文本的 `serialization::diagnostic`。能力与类型、字段一起登记到同一 Registry，不依赖资源层。
-`type_builder<T>::serialization<Encode, Decode>()` 推导类型适配；任一函数可为 nullptr，
+`registration<T>::serialization<Encode, Decode>()` 推导类型适配；任一函数可为 nullptr，
 但至少具备一个方向。同一 builder 不允许重复设置。
 每个类型当前只登记一组编解码函数，自定义文件格式标识及版本由 codec 自行校验，不提供任意 capability 或通用对象工厂。
 
@@ -196,13 +201,13 @@ codec 文件只提供编解码入口。首次失败立即返回，不回滚已�
 
 ## 反射 JSON 与对象校验
 
-`type_builder<T>.serialization()` 显式启用共享字段遍历，要求 T 可默认构造。
+`registration<T>.serialization()` 显式启用共享字段遍历，要求 T 可默认构造。
 已登记的自定义 encode/decode 按方向优先；只有缺少该方向函数时才回退到反射 JSON。
 同一 Builder 可各调用一次自定义和反射注册，两者顺序不限；未启用反射的类型保持原行为。
 
 ```cpp
 // math::camera_settings 已独立注册 fov / near / far 和参数校验。
-meta::type_builder<camera_description>{}
+meta::registration<camera_description>{}
     .property<&camera_description::settings>(
         meta::property_id{1}, "settings", meta::property_flags::required)
     .property<&camera_description::is_primary>(
@@ -257,7 +262,7 @@ getter 失败、异常或返回不匹配／无效值时仅返回错误，不交�
 
 `meta::default_registry()` 返回进程共享的 `result<registry_ref>`，只创建表，不登记内置类型、不冻结。
 定义位于 engine 编译单元；各模块应链接同一引擎，不能把引擎静态复制到多个动态库后期待共享状态。
-未冻结时查询返回 `not_ready`。`meta::type_builder<T>{}`、`register_type<T>(definition)`、
+未冻结时查询返回 `not_ready`。`meta::registration<T>{}`、`register_type<T>(definition)`、
 `type_of<T>()`、属性访问和 `serialization::json::serialize(object)` / `serialization::json::deserialize<T>(bytes)` 使用默认表；
 显式 registry 重载保持原行为。
 
@@ -473,7 +478,7 @@ reference_view::get 对空引用返回 not_found。引用不是标量；可变 m
 控制块保活和解码回填仅供内部 `detail::reference_view_access` 使用。修改目标会被所有共享拥有者观察到，不提供写时复制。
 
 默认反射 JSON 按值内联引用：空引用输出 null，普通 ref<T> 输出目标字段。
-声明类型通过 type_builder<T>::polymorphic() 显式启用多态后，输出
+声明类型通过 registration<T>::polymorphic() 显式启用多态后，输出
 `{"$type_guid":"实际类型 GUID","$content":{...}}`。具体类型通过 base<Base>() 注册
 安全基类转换，未知/无关类型在构造前拒绝；未声明多态的引用不能保存派生对象。
 具体类型可使用反射字段或已有自定义 JSON codec，后者仍需输出 JSON 对象。
@@ -521,7 +526,7 @@ Texture 描述注册 source、color_space、usage 三个必填字段；后两者
 
 ### 非标量 getter/setter 属性
 
-`type_builder<T>::property<Getter, Setter>(id, name)` 支持嵌套对象、序列、关联容器和引用。
+`registration<T>::property<Getter, Setter>(id, name)` 支持嵌套对象、序列、关联容器和引用。
 非标量 getter 必须返回稳定的 const U&，不接受临时值；setter 接收完整 const U&，返回 error
 或 void，负责先校验再修改，失败须保持旧属性。未知 U 仍需按原规则注册。
 

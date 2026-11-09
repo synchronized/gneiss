@@ -97,21 +97,21 @@ inline e::error register_movement_meta() {
                     .commit();
   if (status.failed())
     return status;
-  status = e::meta::type_builder<movement_settings>{}
+  status = e::meta::registration<movement_settings>{}
                .property<&movement_settings::acceleration>(e::meta::property_id{1}, "acceleration")
                .property<&movement_settings::maximum>(e::meta::property_id{2}, "maximum")
                .serialization()
                .commit();
   if (status.failed())
     return status;
-  status = e::meta::type_builder<waypoint>{}
+  status = e::meta::registration<waypoint>{}
                .property<&waypoint::uuid>(e::meta::property_id{1}, "uuid")
                .property<&waypoint::distance>(e::meta::property_id{2}, "distance")
                .serialization()
                .commit();
   if (status.failed())
     return status;
-  return e::meta::type_builder<movement_description>{}
+  return e::meta::registration<movement_description>{}
       .base<e::component_description_base>()
       .property<&movement_description::speed>(e::meta::property_id{1}, "speed")
       .property<&movement_description::mode>(e::meta::property_id{2}, "mode")

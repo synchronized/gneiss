@@ -34,7 +34,7 @@ std::span<const std::byte> bytes(std::string_view text) {
   return std::as_bytes(std::span{text.data(), text.size()});
 }
 e::error register_sample(const m::registry_ref& registry, std::string_view name = "name") {
-  return m::type_builder<sample>{registry}
+  return m::registration<sample>{registry}
       .property<&sample::enabled>(m::property_id{1}, "enabled", m::property_flags::required)
       .property<&sample::signed_number>(m::property_id{2}, "signed")
       .property<&sample::unsigned_number>(m::property_id{3}, "unsigned")
@@ -85,7 +85,7 @@ bool enum_json_contract() {
           .value("positive", named_number::positive)
           .commit()
           .failed() ||
-      m::type_builder<enum_sample>{*registry}
+      m::registration<enum_sample>{*registry}
           .property<&enum_sample::named>(m::property_id{1}, "named",
                                          m::property_flags::enum_name | m::property_flags::required)
           .property<&enum_sample::numeric>(m::property_id{2}, "numeric")
@@ -134,7 +134,7 @@ int main() try {
           .error()
           .error != e::error::not_ready)
     return 3;
-  if (m::type_builder<tracked>{registry}
+  if (m::registration<tracked>{registry}
           .property<&tracked::value>(m::property_id{1}, "value")
           .serialization()
           .validate<&reject>()
@@ -285,7 +285,7 @@ int main() try {
     return 18;
   auto custom = m::create_registry();
   if (!custom ||
-      m::type_builder<sample>{*custom}
+      m::registration<sample>{*custom}
           .serialization()
           .serialization<&custom_encode, &custom_decode>()
           .commit()
@@ -302,7 +302,7 @@ int main() try {
     return 20;
   auto fallback = m::create_registry();
   if (!fallback ||
-      m::type_builder<sample>{*fallback}
+      m::registration<sample>{*fallback}
           .property<&sample::enabled>(m::property_id{1}, "enabled")
           .serialization<&custom_encode, nullptr>()
           .serialization()
@@ -315,7 +315,7 @@ int main() try {
   if (!fallback_decoded || fallback_decoded->enabled)
     return 23;
   auto invalid_flags = m::create_registry();
-  if (!invalid_flags || m::type_builder<sample>{*invalid_flags}
+  if (!invalid_flags || m::registration<sample>{*invalid_flags}
                                 .property<&sample::enabled>(m::property_id{1}, "enabled",
                                                             m::property_flags::read_only |
                                                                 m::property_flags::required)

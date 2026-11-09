@@ -37,7 +37,7 @@ e::error register_reference_meta() {
   auto status = register_movement_meta();
   if (status.failed())
     return status;
-  status = e::meta::type_builder<reference_settings>{}
+  status = e::meta::registration<reference_settings>{}
                .property<&reference_settings::amount>(p{1}, "amount")
                .property<&reference_settings::link>(p{2}, "link")
                .serialization()
@@ -47,7 +47,7 @@ e::error register_reference_meta() {
                .commit();
   if (status.failed())
     return status;
-  return e::meta::type_builder<reference_description>{}
+  return e::meta::registration<reference_description>{}
       .base<e::component_description_base>()
       .property<&reference_description::settings>(p{1}, "settings")
       .serialization()

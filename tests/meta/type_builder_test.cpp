@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/meta/sequence_view.hpp"
+#include "engine/core/serialization/json.hpp"
 namespace e = gneiss::engine;
 struct sample {
   inline static constexpr std::string_view type_name = "sample";
@@ -16,7 +18,71 @@ struct sample {
     return e::error::success;
   }
 };
+// 无静态身份的外部类型，通过注册器补充名称和 GUID。
+struct custom_sequence {
+  std::vector<float> values;
+};
+struct external_model {
+  custom_sequence items;
+};
+namespace gneiss::engine::meta {
+template <> struct sequence_traits<custom_sequence> {
+  static constexpr bool enabled = true;
+  using element = float;
+  static std::size_t size(const custom_sequence& value) { return value.values.size(); }
+  static const float* at(const custom_sequence& value, std::size_t i) { return &value.values[i]; }
+  static float* at_mut(custom_sequence& value, std::size_t i) { return &value.values[i]; }
+  static void resize(custom_sequence& value, std::size_t n) { value.values.resize(n); }
+};
+}
+bool explicit_registration() {
+  namespace m = e::meta;
+  auto registry = m::create_registry();
+  if (!registry)
+    return false;
+  constexpr auto id = e::guid::literal("86c6b34e-bdc8-4bce-850c-9d574df83951");
+  if (m::registration<sample>{*registry}.name("conflict").commit() != e::error::invalid_argument ||
+      m::registration<sample>{*registry}.guid(id).commit() != e::error::invalid_argument)
+    return false;
+  m::registration<external_model> builder{*registry};
+  {
+    std::string name = "external_model";
+    builder.name(name)
+        .guid(id)
+        .schema_version(3)
+        .property<&external_model::items>(m::property_id{1}, "items")
+        .serialization();
+  }
+  if (builder.commit().failed() || builder.commit() != e::error::invalid_state ||
+      m::freeze(*registry).failed())
+    return false;
+  auto type = m::type_of<external_model>(*registry);
+  if (!type || type->name() != "external_model" || type->guid() != id ||
+      type->schema_version() != 3)
+    return false;
+  external_model model{{{1.0F, 2.0F}}};
+  auto root = m::view(*registry, model);
+  if (!root)
+    return false;
+  auto member = root->member("items");
+  if (!member)
+    return false;
+  auto sequence = member->as_sequence();
+  if (!sequence || *sequence->size() != 2 || sequence->at(2).error() != e::error::not_found)
+    return false;
+  auto item = sequence->at(0);
+  if (!item || item->assign(4.0F).failed() || model.items.values[0] != 4.0F)
+    return false;
+  e::serialization::context context{*registry};
+  auto encoded = e::serialization::json::serialize_bytes(context, model);
+  if (!encoded)
+    return false;
+  auto decoded = e::serialization::json::deserialize<external_model>(context, *encoded);
+  return decoded && decoded->items.values == model.items.values;
+}
 int main() {
+  if (!explicit_registration())
+    return 12;
   gneiss::engine::meta::registry_ref registry;
   if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), registry)
           .failed())
@@ -28,13 +94,13 @@ int main() {
   if (gneiss::engine::meta::register_type<sample>(
           registry, {.schema_version = 1, .name = "conflict"}) != e::error::invalid_argument)
     return 3;
-  if (gneiss::engine::meta::type_builder<sample>{registry}
+  if (gneiss::engine::meta::registration<sample>{registry}
           .property<&sample::speed>(gneiss::engine::meta::property_id{1}, "speed")
           .readonly<&sample::active>(gneiss::engine::meta::property_id{1}, "active")
           .commit() != e::error::invalid_argument)
     return 4;
   // 前一次失败不得留下类型；名称由 builder 拥有。
-  gneiss::engine::meta::type_builder<const sample&> builder{registry};
+  gneiss::engine::meta::registration<const sample&> builder{registry};
   {
     std::string name = "speed";
     builder.property<&sample::get_speed, &sample::set_speed>(gneiss::engine::meta::property_id{1},

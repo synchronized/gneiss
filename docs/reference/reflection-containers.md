@@ -3,7 +3,7 @@
 
 # 反射容器视图
 
-`type_builder<T>::property<&T::member>` 自动识别以下直接成员，不需要单独注册容器类型：
+`registration<T>::property<&T::member>` 自动识别以下直接成员，不需要单独注册容器类型：
 
 | C++ 类型 | kind / 访问入口 | JSON |
 | --- | --- | --- |
@@ -65,7 +65,7 @@ ref 表保留共享引用保活和赋值语义；目前只内置适配引擎 `re
 
 在第一次生成该类型的反射操作表前专门化 `meta::sequence_traits<T>` 或
 `meta::associative_traits<T>`；特化应放在所有使用该类型反射的翻译单元可见的同一头文件中。
-类型不能同时声明为序列和映射。对象属性、名称与 GUID 仍由 type_builder 注册。
+类型不能同时声明为序列和映射。对象属性、名称与 GUID 仍由 registration 注册。
 
 | traits | 必需成员 | 可选成员 |
 | --- | --- | --- |

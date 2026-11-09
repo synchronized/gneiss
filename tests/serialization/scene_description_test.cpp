@@ -36,7 +36,7 @@ bool format_node_contract() {
   namespace m = e::meta;
   auto registry = m::create_registry();
   if (!registry ||
-      m::type_builder<format_probe>{*registry}
+      m::registration<format_probe>{*registry}
           .property<&format_probe::text>(m::property_id{1}, "text", m::property_flags::required)
           .serialization(true)
           .commit()

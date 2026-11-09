@@ -89,7 +89,7 @@ diagnostic validate_binding(const action_binding& binding) {
 error register_component_descriptions() noexcept {
   constexpr auto required = meta::property_flags::required;
   // 基类身份字段使用保留编号，派生组件业务字段从 1 开始。
-  auto status = meta::type_builder<component_description_base>{}
+  auto status = meta::registration<component_description_base>{}
                     .polymorphic()
                     .property<&component_description_base::uuid>(
                         meta::property_id{0xffffffffU}, "uuid",
@@ -97,7 +97,7 @@ error register_component_descriptions() noexcept {
                     .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<prefab_property_target>{}
+  status = meta::registration<prefab_property_target>{}
                .property<&prefab_property_target::source_node_uuid>(meta::property_id{1},
                                                                     "source_node_uuid", required)
                .property<&prefab_property_target::target_type_guid>(meta::property_id{2},
@@ -109,7 +109,7 @@ error register_component_descriptions() noexcept {
   if (status.failed())
     return status;
   status =
-      meta::type_builder<prefab_property_override_key>{}
+      meta::registration<prefab_property_override_key>{}
           .property<&prefab_property_override_key::target>(meta::property_id{1}, "target", required)
           .property<&prefab_property_override_key::path>(meta::property_id{2}, "path", required)
           .serialization(true)
@@ -117,7 +117,7 @@ error register_component_descriptions() noexcept {
           .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<prefab_property_override>{}
+  status = meta::registration<prefab_property_override>{}
                .property<&prefab_property_override::key>(meta::property_id{1}, "key", required)
                .property<&prefab_property_override::operation>(meta::property_id{2}, "operation",
                                                                required)
@@ -125,7 +125,7 @@ error register_component_descriptions() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<prefab_component_override>{}
+  status = meta::registration<prefab_component_override>{}
                .property<&prefab_component_override::source_node_uuid>(meta::property_id{1},
                                                                        "source_node_uuid", required)
                .property<&prefab_component_override::type_guid>(meta::property_id{2}, "type_guid",
@@ -138,7 +138,7 @@ error register_component_descriptions() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<prefab_reference_description>{}
+  status = meta::registration<prefab_reference_description>{}
                .property<&prefab_reference_description::uri>(meta::property_id{1}, "uri", required)
                .property<&prefab_reference_description::overrides>(meta::property_id{2},
                                                                    "overrides", required)
@@ -149,14 +149,14 @@ error register_component_descriptions() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<object_address>{}
+  status = meta::registration<object_address>{}
                .property<&object_address::object>(meta::property_id{1}, "object", required)
                .property<&object_address::source>(meta::property_id{2}, "source", required)
                .serialization()
                .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<game_object_description>{}
+  status = meta::registration<game_object_description>{}
                .property<&game_object_description::uuid>(meta::property_id{1}, "uuid", required)
                .property<&game_object_description::name>(meta::property_id{2}, "name")
                .property<&game_object_description::parent>(meta::property_id{3}, "parent", required)
@@ -170,7 +170,7 @@ error register_component_descriptions() noexcept {
   if (status.failed())
     return status;
   status =
-      meta::type_builder<camera_description>{}
+      meta::registration<camera_description>{}
           .base<component_description_base>()
           .property<&camera_description::settings>(meta::property_id{1}, "settings", required)
           .property<&camera_description::is_primary>(
@@ -179,7 +179,7 @@ error register_component_descriptions() noexcept {
           .commit();
   if (status.failed())
     return status;
-  return meta::type_builder<mesh_renderer_description>{}
+  return meta::registration<mesh_renderer_description>{}
       .base<component_description_base>()
       .property<&mesh_renderer_description::mesh_uri>(meta::property_id{1}, "mesh", required)
       .property<&mesh_renderer_description::material_uri>(meta::property_id{2}, "material",
@@ -237,7 +237,7 @@ error register_builtin_resource_types() noexcept {
                          .capture_reference = detail::capture_asset_reference<engine::prefab>}});
   if (status.failed())
     return status;
-  status = meta::type_builder<mesh_description>{}
+  status = meta::registration<mesh_description>{}
                .property<&mesh_description::topology>(meta::property_id{1}, "topology",
                                                       meta::property_flags::required)
                .property<&mesh_description::vertices>(meta::property_id{2}, "vertices",
@@ -290,7 +290,7 @@ error register_builtin_resource_types() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<texture_description>{}
+  status = meta::registration<texture_description>{}
                .property<&texture_description::uri>(meta::property_id{1}, "source",
                                                     meta::property_flags::required)
                .property<&texture_description::color_space>(meta::property_id{2}, "color_space",
@@ -304,7 +304,7 @@ error register_builtin_resource_types() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<texture_sampling>{}
+  status = meta::registration<texture_sampling>{}
                .property<&texture_sampling::uv_set>(meta::property_id{1}, "uv_set")
                .property<&texture_sampling::mag_filter>(meta::property_id{2}, "mag_filter")
                .property<&texture_sampling::min_filter>(meta::property_id{3}, "min_filter")
@@ -316,7 +316,7 @@ error register_builtin_resource_types() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<material_parameters>{}
+  status = meta::registration<material_parameters>{}
                .property<&material_parameters::color>(meta::property_id{1}, "color")
                .property<&material_parameters::metallic>(meta::property_id{2}, "metallic")
                .property<&material_parameters::roughness>(meta::property_id{3}, "roughness")
@@ -333,7 +333,7 @@ error register_builtin_resource_types() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<material_description>{}
+  status = meta::registration<material_description>{}
                .schema_version(6)
                .property<&material_description::parameters>(meta::property_id{1}, "parameters",
                                                             meta::property_flags::required)
@@ -345,7 +345,7 @@ error register_builtin_resource_types() noexcept {
     return status;
 
   constexpr auto required = meta::property_flags::required;
-  status = meta::type_builder<action_binding>{}
+  status = meta::registration<action_binding>{}
                .property<&action_binding::physical_key>(meta::property_id{1}, "key", required)
                .property<&action_binding::scale>(meta::property_id{2}, "scale", required)
                .serialization(true)
@@ -353,7 +353,7 @@ error register_builtin_resource_types() noexcept {
                .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<action_definition>{}
+  status = meta::registration<action_definition>{}
                .property<&action_definition::name>(meta::property_id{1}, "name", required)
                .property<&action_definition::bindings>(meta::property_id{2}, "bindings", required)
                .serialization(true)
@@ -361,7 +361,7 @@ error register_builtin_resource_types() noexcept {
   if (status.failed())
     return status;
   status =
-      meta::type_builder<action_map_description>{}
+      meta::registration<action_map_description>{}
           .schema_version(1)
           .property<&action_map_description::actions>(meta::property_id{1}, "actions", required)
           .serialization(true)
@@ -369,7 +369,7 @@ error register_builtin_resource_types() noexcept {
           .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<scene_description>{}
+  status = meta::registration<scene_description>{}
                .property<&scene_description::uuid>(meta::property_id{1}, "scene_uuid",
                                                    meta::property_flags::required)
                .property<&scene_description::objects>(meta::property_id{2}, "objects",
@@ -379,7 +379,7 @@ error register_builtin_resource_types() noexcept {
                .commit();
   if (status.failed())
     return status;
-  return meta::type_builder<prefab_description>{}
+  return meta::registration<prefab_description>{}
       .property<&prefab_description::uuid>(meta::property_id{1}, "prefab_uuid",
                                            meta::property_flags::required)
       .property<&prefab_description::root_uuid>(meta::property_id{2}, "root_uuid",

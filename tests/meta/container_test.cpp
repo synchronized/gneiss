@@ -84,7 +84,7 @@ struct tree {
   ~tree() { --alive; }
 };
 e::error register_tree(const m::registry_ref& r) {
-  return m::type_builder<tree>{r}
+  return m::registration<tree>{r}
       .property<&tree::items>(m::property_id{1}, "items")
       .property<&tree::groups>(m::property_id{2}, "groups")
       .property<&tree::labels>(m::property_id{3}, "labels")
@@ -106,15 +106,15 @@ int main() try {
   CHECK(r);
   CHECK(register_tree(*r).ok());
   CHECK(m::freeze(*r) == e::error::not_found);
-  CHECK(m::type_builder<child>{*r}
+  CHECK(m::registration<child>{*r}
             .property<&child::speed>(m::property_id{1}, "speed")
             .serialization()
             .validate<&child::validate>()
             .commit()
             .ok());
   CHECK(
-      (m::type_builder<custom>{*r}.serialization<&encode_custom, &decode_custom>().commit().ok()));
-  CHECK((m::type_builder<optional_description>{*r}
+      (m::registration<custom>{*r}.serialization<&encode_custom, &decode_custom>().commit().ok()));
+  CHECK((m::registration<optional_description>{*r}
              .property<&optional_description::item>(m::property_id{1}, "item")
              .property<&optional_description::get_number, &optional_description::set_number>(
                  m::property_id{2}, "number")

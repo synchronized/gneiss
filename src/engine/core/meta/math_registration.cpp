@@ -28,7 +28,7 @@ serialization::diagnostic validate_camera(const math::camera_settings& value) {
 namespace detail {
 // 仅由内置注册入口调用，不额外暴露数学注册的初始化步骤。
 error register_math_types(const registry_ref& registry) noexcept {
-  auto status = type_builder<math::transform>{registry}
+  auto status = registration<math::transform>{registry}
                     .property<&get_transform<&math::transform::translation>,
                               &set_transform<&math::transform::translation, math::vector3>>(
                         property_id{1}, "translation", property_flags::required)
@@ -43,7 +43,7 @@ error register_math_types(const registry_ref& registry) noexcept {
                     .commit();
   if (status.failed())
     return status;
-  return type_builder<math::camera_settings>{registry}
+  return registration<math::camera_settings>{registry}
       .property<&math::camera_settings::fov>(property_id{1}, "fov", property_flags::required)
       .property<&math::camera_settings::near>(property_id{2}, "near", property_flags::required)
       .property<&math::camera_settings::far>(property_id{3}, "far", property_flags::required)

@@ -131,15 +131,15 @@ struct record {
 int main() {
   auto r = m::create_registry();
   CHECK(r);
-  CHECK(m::type_builder<base>{*r}.polymorphic().commit().ok());
-  CHECK(m::type_builder<derived>{*r}
+  CHECK(m::registration<base>{*r}.polymorphic().commit().ok());
+  CHECK(m::registration<derived>{*r}
             .base<base>()
             .property<&derived::number>(m::property_id{1}, "number")
             .property<&derived::next>(m::property_id{2}, "next")
             .serialization()
             .commit()
             .ok());
-  CHECK(m::type_builder<record>{*r}
+  CHECK(m::registration<record>{*r}
             .property<&record::numbers>(m::property_id{1}, "numbers")
             .property<&record::names>(m::property_id{2}, "names")
             .property<&record::label>(m::property_id{3}, "label")

@@ -123,23 +123,23 @@ struct variant_document {
 int main() {
   auto registry = m::create_registry();
   CHECK(registry);
-  CHECK(m::type_builder<document>{*registry}
+  CHECK(m::registration<document>{*registry}
             .property<&document::sequence>(m::property_id{1}, "sequence")
             .property<&document::mapping>(m::property_id{2}, "mapping")
             .serialization()
             .commit()
             .ok());
-  CHECK(m::type_builder<non_default>{*registry}
+  CHECK(m::registration<non_default>{*registry}
             .property<&non_default::number>(m::property_id{1}, "number")
             .commit()
             .ok());
-  CHECK(m::type_builder<variant_document>{*registry}
+  CHECK(m::registration<variant_document>{*registry}
             .property<&variant_document::entries>(m::property_id{1}, "entries")
             .property<&variant_document::selected>(m::property_id{2}, "selected")
             .serialization()
             .commit()
             .ok());
-  CHECK(m::type_builder<throwing_value>{*registry}.commit().ok());
+  CHECK(m::registration<throwing_value>{*registry}.commit().ok());
   CHECK(m::freeze(*registry).ok());
   document source;
   auto view = m::view(*registry, source);

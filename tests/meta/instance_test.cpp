@@ -46,13 +46,13 @@ bool object_values() {
 
   auto registry = m::create_registry();
   if (!registry || m::register_builtin_types(*registry).failed() ||
-      m::type_builder<shared_probe>{*registry}
+      m::registration<shared_probe>{*registry}
           .property<&shared_probe::number>(m::property_id{1}, "number")
           .property<&shared_probe::nested>(m::property_id{2}, "nested")
           .serialization()
           .commit()
           .failed() ||
-      m::type_builder<shared_holder>{*registry}
+      m::registration<shared_holder>{*registry}
           .property<&shared_holder::item>(m::property_id{1}, "item")
           .property<&shared_holder::another>(m::property_id{2}, "another")
           .serialization()
@@ -165,7 +165,7 @@ bool enum_registration() {
   auto unknown_view = m::view(registry, std::as_const(unknown));
   if (!unknown_view || unknown_view->type().enum_entries().error() != e::error::not_ready)
     return false;
-  if (m::type_builder<enum_object>{registry}
+  if (m::registration<enum_object>{registry}
           .property<&enum_object::left>(m::property_id{1}, "left")
           .property<&enum_object::right>(m::property_id{2}, "right")
           .commit()
@@ -281,7 +281,7 @@ bool type_queries() {
       m::find_type(*registry, query_model::type_guid).error() != e::error::not_ready)
     return false;
   if (m::enum_builder<mode>{*registry}.value("first", mode::first).commit().failed() ||
-      m::type_builder<query_model>{*registry}
+      m::registration<query_model>{*registry}
           .property<&query_model::modes>(m::property_id{1}, "modes")
           .property<&query_model::count>(m::property_id{2}, "count")
           .commit()
@@ -356,13 +356,13 @@ bool reference_properties() {
   if (!made)
     return false;
   auto registry = *made;
-  if (m::type_builder<reference_target>{registry}
+  if (m::registration<reference_target>{registry}
           .property<&reference_target::number>(m::property_id{1}, "number")
           .property<&reference_target::next>(m::property_id{2}, "next")
           .serialization()
           .commit()
           .failed() ||
-      m::type_builder<reference_owner>{registry}
+      m::registration<reference_owner>{registry}
           .property<&reference_owner::target>(m::property_id{1}, "target")
           .property<&reference_owner::readonly>(m::property_id{2}, "readonly")
           .serialization()
@@ -479,14 +479,14 @@ bool polymorphic_references() {
   if (!created)
     return false;
   auto registry = *created;
-  if (m::type_builder<polymorphic_base>{registry}.polymorphic().commit().failed() ||
-      m::type_builder<polymorphic_child>{registry}
+  if (m::registration<polymorphic_base>{registry}.polymorphic().commit().failed() ||
+      m::registration<polymorphic_child>{registry}
           .base<polymorphic_base>()
           .property<&polymorphic_child::number>(m::property_id{1}, "number")
           .serialization()
           .commit()
           .failed() ||
-      m::type_builder<reference_target>{registry}
+      m::registration<reference_target>{registry}
           .property<&reference_target::number>(m::property_id{1}, "number")
           .serialization()
           .commit()
@@ -613,12 +613,12 @@ struct bound_properties {
 bool bound_property_contract() {
   auto registry = m::create_registry();
   if (!registry ||
-      m::type_builder<checked_value>{*registry}
+      m::registration<checked_value>{*registry}
           .property<&checked_value::number>(m::property_id{1}, "number")
           .serialization()
           .commit()
           .failed() ||
-      m::type_builder<bound_properties>{*registry}
+      m::registration<bound_properties>{*registry}
           .property<&bound_properties::get_values, &bound_properties::set_values>(m::property_id{1},
                                                                                   "values")
           .property<&bound_properties::get_child, &bound_properties::set_child>(m::property_id{2},
@@ -681,15 +681,15 @@ struct property_child : offset_base, m::object_type<property_child, shared_probe
 };
 bool property_handles() {
   auto register_probe = [](const m::registry_ref& registry) {
-    return m::type_builder<shared_probe>{registry}
+    return m::registration<shared_probe>{registry}
                .property<&shared_probe::number>(m::property_id{1}, "number")
                .commit()
                .ok() &&
-           m::type_builder<shared_holder>{registry}
+           m::registration<shared_holder>{registry}
                .property<&shared_holder::item>(m::property_id{1}, "item")
                .commit()
                .ok() &&
-           m::type_builder<property_child>{registry}.base<shared_probe>().commit().ok() &&
+           m::registration<property_child>{registry}.base<shared_probe>().commit().ok() &&
            m::freeze(registry).ok();
   };
   auto first = m::create_registry(), second = m::create_registry();
@@ -763,11 +763,11 @@ int main() try {
   object source;
   if (m::view(registry, std::as_const(source)).error() != e::error::not_ready)
     return 2;
-  if (m::type_builder<settings>{registry}
+  if (m::registration<settings>{registry}
           .property<&settings::get_speed, &settings::set_speed>(m::property_id{1}, "speed")
           .commit()
           .failed() ||
-      m::type_builder<object>{registry}
+      m::registration<object>{registry}
           .property<&object::config>(m::property_id{1}, "config")
           .property<&object::get_label, &object::set_label>(m::property_id{2}, "label")
           .readonly<&object::readonly>(m::property_id{3}, "computed")

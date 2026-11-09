@@ -91,7 +91,7 @@ private:
 /** 注册期间拥有字段名称；不持有实例。需外部同步，commit 后不可复用。
  * 访问器只在调用期间借用对象，setter 须先校验再修改，失败保持原对象。
  * 分配错误记录为结果码，commit 失败不在 Registry 留下类型。 */
-template <class T> class type_builder {
+template <class T> class registration {
   using object_type = std::remove_cvref_t<T>;
   struct entry {
     property_id id;
@@ -102,20 +102,40 @@ template <class T> class type_builder {
   };
 
 public:
-  type_builder() noexcept {
+  registration() noexcept {
     auto registry = default_registry();
     if (registry)
       registry_ = std::move(*registry);
     else
       status_ = registry.error();
   }
-  explicit type_builder(registry_ref registry) noexcept : registry_(std::move(registry)) {}
-  type_builder& schema_version(std::uint32_t version) noexcept {
+  explicit registration(registry_ref registry) noexcept : registry_(std::move(registry)) {}
+  /** 显式补充身份；与已有 traits 冲突时由 commit 拒绝。名称在注册期间自有。 */
+  registration& name(std::string_view name) noexcept {
+    if (committed_ || status_.failed())
+      return *this;
+    try {
+      name_ = name;
+    } catch (const std::bad_alloc&) {
+      status_ = error::out_of_memory;
+    } catch (...) {
+      status_ = error::internal;
+    }
+    return *this;
+  }
+  registration& guid(engine::guid guid) noexcept {
+    if (!committed_ && !status_.failed())
+      guid_ = guid;
+    return *this;
+  }
+  registration& schema_version(std::uint32_t version) noexcept {
+    if (committed_ || status_.failed())
+      return *this;
     version_ = version;
     return *this;
   }
   template <auto Member>
-  type_builder& property(property_id id, std::string_view name,
+  registration& property(property_id id, std::string_view name,
                          property_flags flags = property_flags::none) noexcept {
     static_assert(std::is_member_object_pointer_v<decltype(Member)>);
     using property_type = std::remove_cvref_t<std::invoke_result_t<decltype(Member), object_type&>>;
@@ -155,7 +175,7 @@ public:
                                  }});
   }
   template <auto Getter, auto Setter>
-  type_builder& property(property_id id, std::string_view name,
+  registration& property(property_id id, std::string_view name,
                          property_flags flags = property_flags::none) noexcept {
     using property_type =
         std::remove_cvref_t<std::invoke_result_t<decltype(Getter), const object_type&>>;
@@ -206,7 +226,7 @@ public:
              }
            }});
   }
-  template <auto Getter> type_builder& readonly(property_id id, std::string_view name) noexcept {
+  template <auto Getter> registration& readonly(property_id id, std::string_view name) noexcept {
     using property_type =
         std::remove_cvref_t<std::invoke_result_t<decltype(Getter), const object_type&>>;
     return add<property_type>(id, name, property_flags::read_only,
@@ -218,7 +238,7 @@ public:
                                }});
   }
   /** 以本类型声明的引用始终保存实际类型信封；不自动启用派生类的多态声明。 */
-  type_builder& polymorphic() noexcept {
+  registration& polymorphic() noexcept {
     static_assert(std::derived_from<object_type, meta::object>);
     if (committed_) {
       status_ = error::invalid_state;
@@ -228,7 +248,7 @@ public:
     return *this;
   }
   /** 注册唯一直接基类；继承属性参与遍历，冻结时拒绝属性 ID 或名称冲突。 */
-  template <class Base> type_builder& base() noexcept {
+  template <class Base> registration& base() noexcept {
     static_assert(std::derived_from<object_type, Base> && std::derived_from<Base, meta::object>);
     if (committed_ || object_.base_type) {
       status_ = error::invalid_state;
@@ -241,7 +261,7 @@ public:
     return *this;
   }
   /** 启用格式无关字段遍历；缺失的非必填字段保留默认值，只读字段不持久化。 */
-  type_builder& serialization(bool reject_unknown_fields = false) noexcept {
+  registration& serialization(bool reject_unknown_fields = false) noexcept {
     static_assert(std::is_default_constructible_v<object_type>);
     if (committed_ || status_.failed())
       return *this;
@@ -255,7 +275,7 @@ public:
     return *this;
   }
   /** 校验返回 error 或 serialization::diagnostic；不修改对象。 */
-  template <auto Validate> type_builder& validate() noexcept {
+  template <auto Validate> registration& validate() noexcept {
     if (committed_ || status_.failed())
       return *this;
     if (codec_.validate) {
@@ -272,7 +292,7 @@ public:
     return *this;
   }
   /** 通用有类型 codec；借用上下文与后端，允许 nullptr 表示缺少某个方向。 */
-  template <auto Encode, auto Decode> type_builder& serialization() noexcept {
+  template <auto Encode, auto Decode> registration& serialization() noexcept {
     if (committed_ || status_.failed())
       return *this;
     if (has_serialization_) {
@@ -321,7 +341,9 @@ public:
       if constexpr (std::derived_from<object_type, meta::object>)
         object_.as_object = [](void* p) -> meta::object* { return static_cast<object_type*>(p); };
       return register_type<object_type>(registry_,
-                                        {.schema_version = version_,
+                                        {.guid = guid_,
+                                         .schema_version = version_,
+                                         .name = name_,
                                          .properties = properties,
                                          .object = object_,
                                          .serialization = codec_},
@@ -335,7 +357,7 @@ public:
 
 private:
   template <class Property>
-  type_builder& add(property_id id, std::string_view name, property_flags flags,
+  registration& add(property_id id, std::string_view name, property_flags flags,
                     property_binding binding) noexcept {
     if (committed_ || status_.failed())
       return *this;
@@ -362,6 +384,8 @@ private:
   bool has_serialization_ = false;
   registry_ref registry_;
   std::vector<entry> entries_;
+  std::string name_;
+  engine::guid guid_{};
   std::uint32_t version_ = 1;
   error status_ = error::success;
   bool committed_ = false;

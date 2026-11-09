@@ -98,7 +98,7 @@ bool inherited_properties() {
   if (!created)
     return false;
   auto registry = *created;
-  if (type_builder<captured_data>{registry}
+  if (registration<captured_data>{registry}
           .property<&captured_data::values>(property_id{1}, "values")
           .property<&captured_data::groups>(property_id{2}, "groups")
           .serialization()
@@ -106,20 +106,20 @@ bool inherited_properties() {
           .failed())
     return false;
   // 先注册派生类；冻结缺少基类时失败，补齐后可以重试。
-  if (type_builder<inherited_leaf>{registry}
+  if (registration<inherited_leaf>{registry}
           .base<inherited_middle>()
           .property<&inherited_leaf::leaf>(property_id{4}, "leaf")
           .serialization(true)
           .commit()
           .failed() ||
       freeze(registry) != e::error::not_found ||
-      type_builder<inherited_middle>{registry}
+      registration<inherited_middle>{registry}
           .base<inherited_base>()
           .property<&inherited_middle::middle>(property_id{3}, "middle")
           .serialization()
           .commit()
           .failed() ||
-      type_builder<inherited_base>{registry}
+      registration<inherited_base>{registry}
           .polymorphic()
           .property<&inherited_base::number>(property_id{1}, "number", property_flags::required)
           .property<&inherited_base::values>(property_id{2}, "values")
@@ -193,11 +193,11 @@ bool inherited_properties() {
   for (bool same_id : {false, true}) {
     auto invalid = create_registry();
     if (!invalid ||
-        type_builder<inherited_base>{*invalid}
+        registration<inherited_base>{*invalid}
             .property<&inherited_base::number>(property_id{1}, "number")
             .commit()
             .failed() ||
-        type_builder<inherited_middle>{*invalid}
+        registration<inherited_middle>{*invalid}
             .base<inherited_base>()
             .property<&inherited_middle::middle>(property_id{same_id ? 1U : 2U},
                                                  same_id ? "middle" : "number")
@@ -216,13 +216,13 @@ int main() {
   auto core = e::meta::create_registry();
   if (!core || e::meta::register_builtin_types(*core).failed() ||
       e::meta::register_builtin_types(*core) != e::error::invalid_argument ||
-      e::meta::type_builder<cyclic_data>{*core}
+      e::meta::registration<cyclic_data>{*core}
           .base<e::meta::object>()
           .property<&cyclic_data::next>(e::meta::property_id{1}, "next")
           .serialization()
           .commit()
           .failed() ||
-      e::meta::type_builder<captured_data>{*core}
+      e::meta::registration<captured_data>{*core}
           .property<&captured_data::values>(e::meta::property_id{1}, "values")
           .property<&captured_data::groups>(e::meta::property_id{2}, "groups")
           .serialization()
@@ -440,26 +440,26 @@ int main() {
               gneiss::engine::serialization::context{registry}, material),
           output, diagnostic) != e::error::not_ready)
     return 3;
-  if (gneiss::engine::meta::type_builder<probe>{registry}
+  if (gneiss::engine::meta::registration<probe>{registry}
           .serialization<nullptr, nullptr>()
           .commit() != e::error::invalid_argument)
     return 4;
-  if (gneiss::engine::meta::type_builder<probe>{registry}
+  if (gneiss::engine::meta::registration<probe>{registry}
           .serialization<static_cast<decltype(&bad_encode)>(nullptr),
                          static_cast<decltype(&bad_decode)>(nullptr)>()
           .commit() != e::error::invalid_argument)
     return 25;
-  if (gneiss::engine::meta::type_builder<probe>{registry}
+  if (gneiss::engine::meta::registration<probe>{registry}
           .serialization<&bad_encode, &bad_decode>()
           .serialization<&bad_encode, &bad_decode>()
           .commit() != e::error::invalid_argument)
     return 5;
-  if (gneiss::engine::meta::type_builder<probe>{registry}
+  if (gneiss::engine::meta::registration<probe>{registry}
           .serialization<&bad_encode, &bad_decode>()
           .commit()
           .failed())
     return 5;
-  if (e::meta::type_builder<move_only>{}
+  if (e::meta::registration<move_only>{}
           .serialization<nullptr, &decode_move_only>()
           .commit()
           .failed())
@@ -545,7 +545,7 @@ int main() {
   gneiss::engine::meta::registry_ref no_codec;
   if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), no_codec)
           .failed() ||
-      gneiss::engine::meta::type_builder<probe>{no_codec}.commit().failed() ||
+      gneiss::engine::meta::registration<probe>{no_codec}.commit().failed() ||
       gneiss::engine::meta::freeze(no_codec).failed())
     return 17;
   if (gneiss::test_support::assign_decoded(
@@ -556,7 +556,7 @@ int main() {
     return 18;
   auto owned_registry = e::meta::create_registry();
   if (!owned_registry ||
-      e::meta::type_builder<move_only>{*owned_registry}
+      e::meta::registration<move_only>{*owned_registry}
           .serialization<nullptr, &decode_move_only>()
           .commit()
           .failed() ||

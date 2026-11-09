@@ -657,3 +657,4 @@
 - [PLAN-108 实例读写 API 迁移](records/2026-11-09-meta-instance-api.md)
 - [PLAN-108 生产元数据查询迁移](records/2026-11-09-meta-query-handles.md)
 - [PLAN-108 旧元数据查询删除](records/2026-11-09-meta-query-removal.md)
+- [PLAN-108 注册入口收敛](records/2026-11-09-meta-registration.md)
