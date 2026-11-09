@@ -9,7 +9,7 @@ namespace gneiss::runtime {
 
 scene_domain::~scene_domain() noexcept = default;
 
-gneiss::engine::error scene_domain::initialize(gneiss::engine::asset_manager& resources) {
+gneiss::engine::error scene_domain::initialize() {
   if (world_owner_) {
     return gneiss::engine::error::invalid_state;
   }
@@ -17,7 +17,7 @@ gneiss::engine::error scene_domain::initialize(gneiss::engine::asset_manager& re
   if (!next_world)
     return next_world.error();
   {
-    auto next_scenes = gneiss::engine::scene_instances::attach(**next_world, resources);
+    auto next_scenes = gneiss::engine::scene_instances::attach(**next_world);
     if (!next_scenes) {
       return next_scenes.error();
     }

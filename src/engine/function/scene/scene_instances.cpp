@@ -71,19 +71,18 @@ std::uint16_t allocate_domain() noexcept {
 
 } // namespace
 
-result<scene_instances*> scene_instances::attach(world& owner, asset_manager& assets) {
+result<scene_instances*> scene_instances::attach(world& owner) {
   if (!owner.is_owner_thread() || owner.scenes_)
     return error::invalid_state;
-  auto candidate = std::unique_ptr<scene_instances>(new scene_instances(owner, assets));
+  auto candidate = std::unique_ptr<scene_instances>(new scene_instances(owner));
   if (!candidate->is_valid())
     return error::invalid_state;
   owner.scenes_ = std::move(candidate);
   return owner.scenes_.get();
 }
 
-scene_instances::scene_instances(world& native_world, asset_manager& loader) noexcept
-    : native_world_(native_world), loader_(loader), domain_(allocate_domain()),
-      instances_(domain_) {}
+scene_instances::scene_instances(world& native_world) noexcept
+    : native_world_(native_world), domain_(allocate_domain()), instances_(domain_) {}
 
 scene_instances::~scene_instances() noexcept = default;
 
@@ -103,7 +102,7 @@ result<scene_instance_id> scene_instances::create_empty(guid scene_uuid) {
     return error::invalid_argument;
   if (!scene_uuid)
     return error::invalid_argument;
-  auto instance = std::make_unique<scene_instance_state>(native_world_, loader_);
+  auto instance = std::make_unique<scene_instance_state>(native_world_);
   auto created = instances_.create(resource_type::scene_instance, std::move(instance));
   if (created)
     (*instances_.get(*created, resource_type::scene_instance))->bind(*created);
@@ -187,75 +186,6 @@ engine::error scene_instances::destroy_subtree(scene_instance_id instance,
   }
 }
 
-result<scene_node_id>
-scene_instances::create_mesh_renderer_node(scene_instance_id instance,
-                                           const mesh_renderer_node_creation& desc) {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* slot = *selected;
-  return slot->create_mesh_renderer_node(desc);
-}
-
-result<scene_node_id>
-scene_instances::create_mesh_renderer_node_ready(scene_instance_id instance,
-                                                 const mesh_renderer_node_creation& desc,
-                                                 const scene_mesh_binding& prepared) {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* slot = *selected;
-  return slot->create_mesh_renderer_node(desc, &prepared);
-}
-
-result<scene_mesh_binding> scene_instances::capture_mesh_binding(scene_instance_id instance,
-                                                                 scene_node_id node) const {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* slot = *selected;
-  return slot->capture_mesh_binding(node);
-}
-
-engine::error scene_instances::replace_mesh_binding(scene_instance_id instance, scene_node_id node,
-                                                    const scene_mesh_binding& expected,
-                                                    const scene_mesh_binding& replacement,
-                                                    guid component_uuid) {
-  const auto owner = native_world_.replace_mesh_renderers({});
-  if (owner != engine::error::success) {
-    return owner;
-  }
-  if ((replacement.mesh && !loader_.owns(replacement.mesh)) ||
-      (replacement.material && !loader_.owns(replacement.material))) {
-    return engine::error::invalid_argument;
-  }
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* value = *selected;
-  return value->replace_mesh_binding(node, expected, replacement, component_uuid);
-}
-
-engine::error scene_instances::set_mesh_renderer(scene_instance_id instance,
-                                                 scene_node_id node_value,
-                                                 std::string_view mesh_uri,
-                                                 std::string_view material_uri) {
-  auto node = node_value;
-  {
-    auto selected = resolve(instance);
-    if (!selected)
-      return selected.error();
-    auto* value = *selected;
-    return value->set_mesh_renderer(node, mesh_uri, material_uri);
-  }
-}
-
 engine::error scene_instances::validate_editable_node(scene_instance_id instance,
                                                       scene_node_id node_value) const noexcept {
   auto node = node_value;
@@ -265,68 +195,6 @@ engine::error scene_instances::validate_editable_node(scene_instance_id instance
   auto* value = *selected;
   return value->contains_editable_node(scene_node_id{node}) ? engine::error::success
                                                             : engine::error::invalid_handle;
-}
-
-error scene_instances::add_component_description(scene_instance_id instance, scene_node_id node,
-                                                 const component_description& description,
-                                                 guid identity,
-                                                 const scene_mesh_binding* prepared) {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* value = *selected;
-  return value->add_component_description(node, description, identity, prepared);
-}
-error scene_instances::remove_component_description(scene_instance_id instance, scene_node_id node,
-                                                    guid type) {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* value = *selected;
-  return value->remove_component_description(node, type);
-}
-error scene_instances::set_component_description(scene_instance_id instance, scene_node_id node,
-                                                 const component_description& description,
-                                                 const scene_mesh_binding* prepared) {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* value = *selected;
-  return value->set_component_description(node, description, prepared);
-}
-engine::error scene_instances::set_camera(scene_instance_id instance, scene_node_id node_value,
-                                          const engine::camera_description& desc) {
-  auto node = node_value;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* value = *selected;
-  return value->set_camera(node, desc);
-}
-
-engine::error scene_instances::remove_camera(scene_instance_id instance, scene_node_id node_value) {
-  auto node = node_value;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* value = *selected;
-  return value->remove_camera(node);
-}
-
-engine::error scene_instances::remove_mesh_renderer(scene_instance_id instance,
-                                                    scene_node_id node_value) {
-  auto node = node_value;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* value = *selected;
-  return value->remove_mesh_renderer(node);
 }
 
 engine::error scene_instances::destroy_node(scene_instance_id instance, scene_node_id node_value) {

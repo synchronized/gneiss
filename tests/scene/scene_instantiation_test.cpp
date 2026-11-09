@@ -16,6 +16,7 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/scene/scene_application.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/loading/scene_domain.hpp"
@@ -183,10 +184,10 @@ void run() {
   auto active = std::make_unique<runtime::scene_domain>();
   check(active->native_world() == nullptr && active->native_world() == nullptr &&
         active->scenes() == nullptr);
-  check(active->initialize(active_render) == gneiss::engine::error::success);
+  check(active->initialize() == gneiss::engine::error::success);
   const auto initialized_world = active->native_world();
   auto* initialized_scenes = active->scenes();
-  check(active->initialize(active_render) == gneiss::engine::error::invalid_state);
+  check(active->initialize() == gneiss::engine::error::invalid_state);
   check(active->native_world() == initialized_world && active->scenes() == initialized_scenes);
 
   gneiss::scene_instance_id old_scene{};
@@ -224,16 +225,19 @@ void run() {
     check(active->scenes()->unload(*empty).ok());
   }
   const auto reads_before_instantiation = files->reads;
-  auto direct = active->scenes()->instantiate(initial.source_asset);
+  auto direct =
+      engine::instantiate_scene(*active->native_world(), active_assets, initial.source_asset);
   check(bool(direct) && direct->node_count == initial.instance_nodes);
   check(direct->assets.size() == initial.assets.size());
   check(files->reads == reads_before_instantiation);
   old_scene = direct->instance;
-  auto second_instance = active->scenes()->instantiate(initial.source_asset);
+  auto second_instance =
+      engine::instantiate_scene(*active->native_world(), active_assets, initial.source_asset);
   check(bool(second_instance) && second_instance->instance != old_scene);
   check(active->scenes()->unload(second_instance->instance).ok());
   check(active->scenes()->get_node_count(old_scene).ok());
-  check(active->scenes()->instantiate({}).error().error == engine::error::invalid_argument);
+  check(engine::instantiate_scene(*active->native_world(), active_assets, {}).error().error ==
+        engine::error::invalid_argument);
   auto baseline = gneiss::test_support::compose(initial);
   check(bool(baseline));
   auto mapping = gneiss::test_support::associations(direct->objects);
@@ -274,7 +278,7 @@ void run() {
                                                      "asset://s.scene", prepared, scene_error,
                                                      {}) == gneiss::engine::error::success);
   auto candidate = std::make_unique<runtime::scene_domain>();
-  check(candidate->initialize(candidate_render) == gneiss::engine::error::success);
+  check(candidate->initialize() == gneiss::engine::error::success);
   check(!gneiss::engine::render_resource_ref{});
   check(!gneiss::engine::render_resource_ref{});
   const std::array requests{
@@ -420,15 +424,15 @@ void run() {
   const std::array unchanged{gneiss::engine::mesh_renderer_replacement{
       .entity = ordinary.entity, .expected = expected, .replacement = expected}};
   const auto edit_reads = files->reads;
-  check(candidate->scenes()->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
-                                               "asset://m.material") ==
-        gneiss::engine::error::success);
+  check(gneiss::engine::set_mesh_renderer(*candidate->native_world(), candidate_assets, new_scene,
+                                          ordinary.node, "asset://m.mesh",
+                                          "asset://m.material") == gneiss::engine::error::success);
   check(files->reads == edit_reads);
   check(candidate->native_world()->replace_mesh_renderers(unchanged) ==
         gneiss::engine::error::success);
-  check(candidate->scenes()->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
-                                               "asset://missing.material") ==
-        gneiss::engine::error::not_found);
+  check(gneiss::engine::set_mesh_renderer(
+            *candidate->native_world(), candidate_assets, new_scene, ordinary.node,
+            "asset://m.mesh", "asset://missing.material") == gneiss::engine::error::not_found);
   check(candidate->native_world()->replace_mesh_renderers(unchanged) ==
         gneiss::engine::error::success);
   files->files["other.material"] = files->files["m.material"];
@@ -437,9 +441,9 @@ void run() {
                                           gneiss::engine::render_resource_kind::material,
                                           "asset://other.material", edited_material,
                                           diagnostic) == gneiss::engine::error::success);
-  check(candidate->scenes()->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
-                                               "asset://other.material") ==
-        gneiss::engine::error::success);
+  check(gneiss::engine::set_mesh_renderer(
+            *candidate->native_world(), candidate_assets, new_scene, ordinary.node,
+            "asset://m.mesh", "asset://other.material") == gneiss::engine::error::success);
   const gneiss::engine::mesh_renderer edited{
       .mesh = current_mesh, .material = edited_material.as<gneiss::engine::material>()};
   const std::array material_only{gneiss::engine::mesh_renderer_replacement{
@@ -457,32 +461,40 @@ void run() {
     binding before;
     const auto binding_reads = files->reads;
     check(gneiss::test_support::assign_value(
-              candidate->scenes()->capture_mesh_binding(new_scene, ordinary.node), before) ==
-          gneiss::engine::error::success);
+              gneiss::engine::capture_mesh_binding(*candidate->native_world(), new_scene,
+                                                   ordinary.node),
+              before) == gneiss::engine::error::success);
     binding after{.mesh = before.mesh,
                   .material =
                       gneiss::engine::resource_cast<gneiss::engine::material>(next_version)};
     // 空材质槽位合法；捕获保持为空，随后恢复原绑定。
     auto cleared = before;
     cleared.material = {};
-    check(
-        candidate->scenes()->replace_mesh_binding(new_scene, ordinary.node, before, cleared).ok());
-    auto empty_binding = candidate->scenes()->capture_mesh_binding(new_scene, ordinary.node);
+    check(gneiss::engine::replace_mesh_binding(*candidate->native_world(), new_scene, ordinary.node,
+                                               before, cleared, {}, &candidate_assets)
+              .ok());
+    auto empty_binding =
+        gneiss::engine::capture_mesh_binding(*candidate->native_world(), new_scene, ordinary.node);
     check(empty_binding && empty_binding->mesh == before.mesh && !empty_binding->material);
-    check(
-        candidate->scenes()->replace_mesh_binding(new_scene, ordinary.node, cleared, before).ok());
+    check(gneiss::engine::replace_mesh_binding(*candidate->native_world(), new_scene, ordinary.node,
+                                               cleared, before, {}, &candidate_assets)
+              .ok());
     gneiss::engine::error worker_result{};
     std::thread edit_worker([&] {
       worker_result =
-          candidate->scenes()->replace_mesh_binding(new_scene, ordinary.node, before, after);
+          gneiss::engine::replace_mesh_binding(*candidate->native_world(), new_scene, ordinary.node,
+                                               before, after, {}, &candidate_assets);
     });
     edit_worker.join();
     check(worker_result == gneiss::engine::error::invalid_state);
-    check(candidate->scenes()->replace_mesh_binding(new_scene, ordinary.node, before, after) ==
+    check(gneiss::engine::replace_mesh_binding(*candidate->native_world(), new_scene, ordinary.node,
+                                               before, after, {}, &candidate_assets) ==
           gneiss::engine::error::success);
-    check(candidate->scenes()->replace_mesh_binding(new_scene, ordinary.node, before, after) ==
+    check(gneiss::engine::replace_mesh_binding(*candidate->native_world(), new_scene, ordinary.node,
+                                               before, after, {}, &candidate_assets) ==
           gneiss::engine::error::invalid_state);
-    check(candidate->scenes()->replace_mesh_binding(new_scene, ordinary.node, after, before) ==
+    check(gneiss::engine::replace_mesh_binding(*candidate->native_world(), new_scene, ordinary.node,
+                                               after, before, {}, &candidate_assets) ==
           gneiss::engine::error::success);
     const gneiss::engine::mesh_renderer_node_creation creation{
         .uuid = *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000099"),
@@ -493,23 +505,26 @@ void run() {
     };
     gneiss::scene_node_id created{};
     check(gneiss::test_support::take_value(
-              candidate->scenes()->create_mesh_renderer_node_ready(new_scene, creation, cleared),
+              gneiss::engine::create_mesh_renderer_node(
+                  *candidate->native_world(), candidate_assets, new_scene, creation, &cleared),
               created) == gneiss::engine::error::invalid_argument &&
           !created.is_valid());
     check(gneiss::test_support::take_value(
-              candidate->scenes()->create_mesh_renderer_node_ready(new_scene, creation, before),
+              gneiss::engine::create_mesh_renderer_node(
+                  *candidate->native_world(), candidate_assets, new_scene, creation, &before),
               created) == gneiss::engine::error::success);
     const auto created_node = created;
     check(gneiss::test_support::take_value(
-              candidate->scenes()->create_mesh_renderer_node_ready(new_scene, creation, before),
+              gneiss::engine::create_mesh_renderer_node(
+                  *candidate->native_world(), candidate_assets, new_scene, creation, &before),
               created) == gneiss::engine::error::invalid_argument &&
           !created.is_valid());
     check(candidate->scenes()->destroy_node(new_scene, gneiss::scene_node_id{created_node}) ==
           gneiss::engine::error::success);
     check(files->reads == binding_reads);
   }
-  check(candidate->scenes()->remove_mesh_renderer(new_scene, ordinary.node) ==
-        gneiss::engine::error::success);
+  check(candidate->native_world()->entity_remove_mesh_renderer(
+            gneiss::entity_id{ordinary.node.get()}) == gneiss::engine::error::success);
   const auto snapshot_reads = files->reads;
   check(files->reads == snapshot_reads);
   active.swap(candidate);
@@ -532,7 +547,7 @@ void run() {
                                                      "asset://s.scene", prepared, scene_error,
                                                      {}) == gneiss::engine::error::success);
   candidate = std::make_unique<runtime::scene_domain>();
-  check(candidate->initialize(candidate_render) == gneiss::engine::error::success);
+  check(candidate->initialize() == gneiss::engine::error::success);
   // 空绑定表可预留尚未加载的资源身份；使用非法 URI 验证失败回收。
   bool invalid_dependency = false;
   for (auto& description : prepared.description.objects) {

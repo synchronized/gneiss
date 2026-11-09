@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/scene/scene_application.hpp"
 #include "engine/function/scene/component_adapter.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include <algorithm>
 #include <set>
 namespace gneiss::engine {
@@ -186,11 +187,10 @@ result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_i
   for (const auto& update : updates) {
     const auto node = nodes.at(update.address).node;
     const auto prepared = prepared_binding(*desired.at(update.address));
-    auto status = update.remove ? scenes.remove_component_description(scene, node, update.type)
-                  : update.add
-                      ? scenes.add_component_description(scene, node, update.value,
-                                                         update.value->uuid, &prepared)
-                      : scenes.set_component_description(scene, node, update.value, &prepared);
+    component_context context{world, node, {prepared.mesh, prepared.material}};
+    auto status = update.remove ? remove_component(context, update.type)
+                  : update.add  ? add_component(context, update.value, update.value->uuid)
+                                : update_component(context, update.value);
     if (status.failed())
       return status;
   }
@@ -201,13 +201,13 @@ result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_i
       continue;
     const auto target_binding = prepared_binding(object);
     const auto node = nodes.at(object.address).node;
-    auto current = scenes.capture_mesh_binding(scene, node);
+    auto current = capture_mesh_binding(world, scene, node);
     if (!current)
       return current.error();
     if (current->mesh == target_binding.mesh && current->material == target_binding.material)
       continue;
-    auto status = scenes.replace_mesh_binding(
-        scene, node, *current, target_binding,
+    auto status = replace_mesh_binding(
+        world, scene, node, *current, target_binding,
         object.effective.components.identity(mesh_renderer_description::type_guid));
     if (status.failed())
       return status;

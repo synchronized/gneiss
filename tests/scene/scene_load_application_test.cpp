@@ -9,6 +9,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
@@ -127,9 +128,9 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
                                                            "00000000-0000-4000-8000-000000000002")),
             node) == gneiss::engine::error::success);
   gneiss::engine::scene_mesh_binding binding;
-  check(
-      gneiss::test_support::take_value(app->scenes()->capture_mesh_binding(completion.scene, node),
-                                       binding) == gneiss::engine::error::success);
+  check(gneiss::test_support::take_value(
+            gneiss::engine::capture_mesh_binding(*app->native_world(), completion.scene, node),
+            binding) == gneiss::engine::error::success);
   check(binding.mesh && binding.material);
   auto material = binding.material;
   until([&] { return !app->visual_assets_loading(); });
@@ -169,10 +170,10 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
   });
   check(loaded.result == gneiss::engine::error::success &&
         gneiss::engine::resource_cast<gneiss::engine::material>(loaded.assets.front()) == material);
-  check(
-      gneiss::test_support::take_value(app->scenes()->capture_mesh_binding(completion.scene, node),
-                                       binding) == gneiss::engine::error::success &&
-      binding.material == material);
+  check(gneiss::test_support::take_value(
+            gneiss::engine::capture_mesh_binding(*app->native_world(), completion.scene, node),
+            binding) == gneiss::engine::error::success &&
+        binding.material == material);
   // 引用型纹理依赖不阻止材质完成；旧后端快照保持可用。
   const auto old_data = app->render().share_material(engine::resource_handle(material));
   std::ofstream(files.root / "material.json")
@@ -430,8 +431,8 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
                                            node) == gneiss::engine::error::success);
     gneiss::engine::scene_mesh_binding value;
     check(gneiss::test_support::take_value(
-              app->scenes()->capture_mesh_binding(completion.scene, node), value) ==
-          gneiss::engine::error::success);
+              gneiss::engine::capture_mesh_binding(*app->native_world(), completion.scene, node),
+              value) == gneiss::engine::error::success);
     return value;
   };
   (void)prepare();

@@ -4,15 +4,16 @@
 #pragma once
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
-#include "engine/core/meta/registry.hpp"
-#include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/scene/scene_creation.hpp"
+#include "engine/function/scene/scene_query.hpp"
 #include "engine/function/scene/scene_types.hpp"
-#include <map>
+#include "engine/function/world/world.hpp"
+#include <vector>
 
 namespace gneiss::engine {
 class scene_instance_state final {
 public:
-  scene_instance_state(world& native_world, asset_manager& loader) noexcept;
+  scene_instance_state(world& native_world) noexcept;
   ~scene_instance_state() noexcept;
 
   scene_instance_state(const scene_instance_state&) = delete;
@@ -27,30 +28,7 @@ public:
   [[nodiscard]] result<scene_node_id> create_node(const node_creation& desc);
   [[nodiscard]] error reparent_node(scene_node_id node, scene_node_id parent);
   [[nodiscard]] error destroy_subtree(scene_node_id root);
-  [[nodiscard]] result<scene_node_id>
-  create_mesh_renderer_node(const mesh_renderer_node_creation& desc,
-                            const scene_mesh_binding* prepared = nullptr);
-  [[nodiscard]] error set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
-                                        std::string_view material_uri);
-  /** 修改运行组件，不生成或修改 Prefab 覆盖。 */
-  [[nodiscard]] error add_component_description(scene_node_id node,
-                                                const component_description& value,
-                                                guid identity = {},
-                                                const scene_mesh_binding* prepared = nullptr);
-  [[nodiscard]] error remove_component_description(scene_node_id node, guid type);
-  /** 替换已有运行组件，不支持新增或移除。 */
-  [[nodiscard]] error set_component_description(scene_node_id node,
-                                                const component_description& value,
-                                                const scene_mesh_binding* prepared = nullptr);
-  [[nodiscard]] error set_camera(scene_node_id node, const camera_description& desc);
-  [[nodiscard]] error remove_camera(scene_node_id node);
-  [[nodiscard]] error remove_mesh_renderer(scene_node_id node);
   [[nodiscard]] error destroy_node(scene_node_id node);
-  /** 捕获当前 ECS 引用；替换组件只写 World，不修改来源记录。 */
-  [[nodiscard]] result<scene_mesh_binding> capture_mesh_binding(scene_node_id node) const;
-  [[nodiscard]] error replace_mesh_binding(scene_node_id node, const scene_mesh_binding& expected,
-                                           const scene_mesh_binding& replacement,
-                                           guid component_uuid = {});
   [[nodiscard]] bool contains_editable_node(scene_node_id node) const noexcept;
   [[nodiscard]] std::uint64_t node_count() const noexcept;
 
@@ -62,6 +40,5 @@ private:
   scene_instance_id id_;
 
   world& native_world_;
-  asset_manager& loader_;
 };
 }

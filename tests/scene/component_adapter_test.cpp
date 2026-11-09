@@ -15,7 +15,6 @@
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/scene_instance.hpp"
 #include "engine/function/world/world_component_access.hpp"
-#include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_file.hpp"
 #include <cstdio>
 #include <source_location>
@@ -75,17 +74,15 @@ int main() try {
   auto loaded_camera =
       gneiss::engine::serialization::json::decode<e::camera_description>(*saved_camera);
   check(loaded_camera && loaded_camera->is_primary);
-  auto files = std::make_shared<e::files::service>();
-  e::asset_manager assets(files);
+  // 纯场景和组件操作不需要文件服务、渲染服务或资产管理器。
   auto owner = e::create_native();
   check(owner.has_value());
   auto& world = **owner;
-  auto& resources = assets;
-  auto attached = e::scene_instances::attach(world, resources);
+  auto attached = e::scene_instances::attach(world);
   check(attached.has_value());
   auto& scenes = **attached;
   check(world.scenes() == &scenes);
-  auto duplicate = e::scene_instances::attach(world, resources);
+  auto duplicate = e::scene_instances::attach(world);
   check(!duplicate && duplicate.error() == e::error::invalid_state);
   check(!e::scene_instance{}.is_valid());
   e::scene_description source;
@@ -147,7 +144,7 @@ int main() try {
   check(first_object->is_valid());
   auto other_world = e::create_native();
   check(other_world.has_value());
-  check(e::scene_instances::attach(**other_world, resources).has_value());
+  check(e::scene_instances::attach(**other_world).has_value());
   check(!e::scene_instance::borrow(**other_world, instance));
   e::error wrong_thread;
   std::thread scene_worker([&] { wrong_thread = borrowed_copy.unload(); });
@@ -215,7 +212,7 @@ int main() try {
   check(apply(*restored).ok());
   check(state(world).get<movement_component>(id)->data.speed == 5);
   // 单组件失败不得破坏已有组件；跨对象应用不再承诺整体回滚。
-  check(scenes.set_component_description(instance, node, e::make_ref<movement_description>(13)) ==
+  check(e::update_component({world, node}, e::make_ref<movement_description>(13)) ==
         e::error::invalid_state);
   check(state(world).get<movement_component>(id)->data.speed == 5);
   e::error foreign;
@@ -245,7 +242,7 @@ int main() try {
   check(bool(recreated_node) && *recreated_node != old_node);
   node = *recreated_node;
   for (const auto& component : *saved_components)
-    check(scenes.add_component_description(instance, node, component).ok());
+    check(e::add_component({world, node}, component).ok());
   id = entity(world, node);
   check(state(world).get<movement_component>(id)->data.speed == 5);
   lifetime = state(world).get<movement_component>(id)->lifetime;

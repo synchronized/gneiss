@@ -9,6 +9,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
@@ -142,7 +143,8 @@ int main() try {
 
   if (visual_failures != 1)
     return 22;
-  auto binding = application->scenes()->capture_mesh_binding(scene, new_child);
+  auto binding =
+      gneiss::engine::capture_mesh_binding(*application->native_world(), scene, new_child);
   if (!binding || !binding->mesh || !binding->material ||
       !application->assets().find<gneiss::engine::material>(
           "asset://materials/triangle.material.json"))

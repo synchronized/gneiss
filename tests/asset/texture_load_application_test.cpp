@@ -8,6 +8,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 #include "runtime/loading/scene_service.hpp"
@@ -145,8 +146,9 @@ void run(gneiss::engine::execution_mode mode) {
     check(gneiss::engine::error{gneiss::test_support::take_value(
               app->scenes()->get_node_info(scene, index), info)} == gneiss::engine::error::success);
     gneiss::engine::scene_mesh_binding value;
-    check(gneiss::test_support::take_value(app->scenes()->capture_mesh_binding(scene, info.node),
-                                           value) == gneiss::engine::error::success);
+    check(gneiss::test_support::take_value(
+              gneiss::engine::capture_mesh_binding(*app->native_world(), scene, info.node),
+              value) == gneiss::engine::error::success);
     return value;
   };
   const auto initial = capture(0);

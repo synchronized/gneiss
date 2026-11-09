@@ -38,8 +38,20 @@ if (!count)
 重复实例化由调用方保留已加载描述与资源引用。编辑器的 Prefab 头捕获只读取文档。
 `get_node_info` 返回的 `scene_node_info` 仍包含借用字段，结果包装不延长场景寿命。
 单实例与集合层共用值结果接口，集合层只校验线程、句柄并转发；不再构造输出参数再包装结果。
-集合管理实现在 `scene_instances.cpp`，单实例实现在 `scene_instance.cpp`，
-组件编辑位于 `scene_instance_edit.cpp`；实例化通过共享组合与应用入口。
+集合管理实现在 `scene_instances.cpp`，单实例实现在 `scene_instance.cpp`。
+两者都不持有或借用资产管理器；`scene_instances::attach(world)` 和运行域初始化不需要资产服务。
+卸载通过 ECS 析构组件并释放资源强引用，不调用资产缓存清理。
+
+`instantiate_scene(world, assets, source)` 位于 `scene_instantiation.hpp/.cpp`，
+只在调用期间借用资产管理器：从已加载 Scene 生成实例化输入，提交视觉资源请求，
+再同步创建对象。组件中的资源身份可以先存在，内容继续异步加载；不等待 GPU 上传。
+已准备输入仍通过 `instantiate_prepared` / `replace_prepared` 消费。
+按 URI 创建网格对象和设置网格绑定也在显式装配入口中，不是场景实例方法。
+
+组件增删改直接使用 `add_component` / `remove_component` / `update_component` 和短期借用的
+`component_context`；传入准备好的引用时不查询资产管理器。场景增量应用先验证对象归属，
+再调用组件适配器；直接操作 World 不隐含某个编辑文档的场景限制。
+相机配置、移除以及网格组件移除使用 World 原生接口，不再由场景集合重复转发。
 
 ## 编辑入口边界
 
@@ -409,7 +421,7 @@ map 键/值、optional、variant、组件结构覆盖及属性操作值，不读
 本次触及路径由当前组件与替换组件的差异确定；来源与替换组件的差异形成持久覆盖。
 重复修改不会累积同一路径记录，恢复来源值移除差异；未触及的失效覆盖及其他对象覆盖保留。
 输入不变，失败不返回部分候选。`scene_edit_session` 使用这个入口更新文档覆盖，
-随后向运行层下发有效组件。运行时 `set_component_description` 不调用覆盖生成入口。
+随后向运行层下发有效组件。运行时 `update_component` 不调用覆盖生成入口。
 
 `prepare_prefab_transform_edit` 接收来源节点的当前及替换变换，与组件入口共用反射差异计算、
 重复覆盖归并和未触及冲突保留规则，返回 `prefab_edit_candidate`。非法变换拒绝接受；

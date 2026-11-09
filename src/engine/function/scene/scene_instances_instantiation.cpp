@@ -91,43 +91,6 @@ scene_instances::replace_prepared(scene_instance_id instance, scene_instantiatio
     return status;
   return std::move(*created);
 }
-result<scene_instantiation_result, scene_diagnostic>
-scene_instances::instantiate(ref<const scene> source, std::size_t source_bytes) {
-  if (!native_world_.is_owner_thread())
-    return scene_diagnostic{error::invalid_state, 0, {}, {}};
-  if (!is_valid())
-    return scene_diagnostic{error::invalid_argument, 0, {}, {}};
-  auto prepared = make_instantiation_data(std::move(source), source_bytes);
-  if (!prepared)
-    return std::move(prepared).error();
-  resource_bindings bindings;
-  for (const auto& request : prepared->assets) {
-    auto resource = loader_.load(request);
-    if (!resource)
-      return scene_diagnostic{resource.error(), 0, request.uri, "无法提交场景视觉加载"};
-    bindings.emplace(request.uri, resource->resource());
-  }
-  scene_instantiation_result output{.instance = {},
-                                    .node_count = prepared->instance_nodes,
-                                    .objects = {},
-                                    .assets = std::move(prepared->assets),
-                                    .bindings = {}};
-  std::map<std::string, const prefab_description*, std::less<>> sources;
-  for (const auto& [uri, dependency] : prepared->prefabs)
-    sources.emplace(uri, dependency.resource.get());
-  auto composed = compose_scene(prepared->description, sources);
-  if (!composed)
-    return scene_diagnostic{composed.error(), 0, {}, {}};
-  auto instance =
-      instantiate_effective(native_world_, *this, prepared->description.uuid, *composed, bindings);
-  if (!instance)
-    return scene_diagnostic{instance.error(), 0, {}, {}};
-  output.instance = instance->instance;
-  output.objects = std::move(instance->objects);
-  output.bindings = std::move(bindings);
-  return output;
-}
-
 result<scene_instantiation_result>
 scene_instances::instantiate_prepared(scene_instantiation_data prepared,
                                       const resource_bindings& assets) {

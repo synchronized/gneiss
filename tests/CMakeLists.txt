@@ -790,7 +790,7 @@ add_executable(gneiss_scene_instantiation_test scene/scene_instantiation_test.cp
   "${PROJECT_SOURCE_DIR}/src/runtime/loading/scene_domain.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instances.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance_edit.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instantiation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instances_instantiation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_composition.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_preparation.cpp")

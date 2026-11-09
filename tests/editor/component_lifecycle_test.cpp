@@ -130,8 +130,10 @@ int main() try {
   gneiss::scene_node_id loaded_node;
   check(gneiss::test_support::take_value(app->scenes()->find_node(loaded, uuid), loaded_node).ok());
   check(state(world).get<movement_component>(entity(world, loaded_node))->data.speed == 4);
-  check(app->scenes()->remove_component_description(document.scene_handle(), loaded_node, type) ==
+  check(app->scenes()->validate_editable_node(document.scene_handle(), loaded_node) ==
         e::error::invalid_handle);
+  check(state(world).get<movement_component>(entity(world, loaded_node)) != nullptr);
+  check(e::remove_component({world, loaded_node}, type).ok());
   check(app->scenes()->unload(loaded).ok());
   e::error cross_thread = e::error::success;
   std::thread worker([&] { cross_thread = e::remove_component({world, node}, type); });

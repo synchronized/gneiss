@@ -5,12 +5,13 @@
 
 ## 状态与范围
 
-2026-11-09：实施中。首批对象改名/变换入口迁移已完成；membership、层级、组件与装配仍待实施。
+2026-11-09：实施中。对象改名/变换入口、ECS 成员归属及场景资产服务解耦已完成；
+槽位和层级入口、纯组合与实例化接口的进一步收敛仍待实施。
 沿用当前特性分支，不重新实现 ECS、资产缓存或编辑历史。
 本计划细化并收敛 PLAN-105/106/107 的接口边界，不将历史任务完成等同于本计划已实现。
 长期决策见 [ADR-115](../decisions/ADR-115-world-scene-ownership.md)。
 
-## 现状与目标
+## 制定时现状与目标
 
 World 已唯一拥有 ECS，world_hierarchy 借用实体上的层级组件，game_object 是非拥有句柄。
 但 world 同时暴露 entity/object/node 操作；scene_instances 和 scene_instance_state 重复转发
@@ -184,3 +185,25 @@ world_state、scene_tree_transform 共 8 项测试通过。覆盖子对象继承
 场景状态仍承担组件装配并借用 asset_manager，需在后续阶段移除；本批不表示整体计划完成。
 当前成员查询采用扫描，按序号查询会构造临时枚举；后续对象入口收敛时统一批量遍历，
 避免调用方重复扫描，不重新引入长期成员副本。
+
+## 第三批实施记录：移出资源解析与组件操作
+
+scene_instance_state 和 scene_instances 已移除 asset_manager 引用；attach 与 scene_domain 初始化
+只接收运行对象所需参数。普通节点直接通过 World 创建，不再构造描述和 staged_object 绕行装配。
+销毁和卸载只清理实体，资源引用随组件析构，不再清理资产缓存。
+
+显式 instantiate_scene(world, assets, source) 负责视觉资源请求和实例化衔接，
+资产管理器仅在调用期间借用。按 URI 创建网格对象、更新网格及绑定引用也移到显式装配入口。
+场景集合的相机、网格、通用组件编辑转发已删除；增量应用直接使用现有组件适配操作。
+scene_instance_edit.cpp 删除，未创建新的服务或长期状态对象。
+Runtime、场景增量应用及测试调用已迁移；当前接口见[场景实例参考](../reference/scene-instance.md)。
+
+Windows Clang Debug：Editor、Runtime 及相关测试目标编译通过；10 项 CPU 测试通过：
+component-adapter、prefab-runtime-application、scene-instantiation、scene_instance、
+scene_prefab_instance、scene_structural_reload、scene-load-application、texture-load-application、
+editor.component-lifecycle、editor.session。纯组件和 Prefab 应用夹具不再构造资产或文件服务。
+格式检查与 git diff --check 通过；未运行 GPU、大场景、远端 CI 或跨平台矩阵。
+
+本批完成装配边界中对资产服务的长期借用清理，不表示第三阶段及整体计划全部完成。
+instantiate_prepared / replace_prepared 仍在场景集合，仍需收敛为独立实例化与槽位替换边界；
+层级操作的旧 node 接口、显式子树跨场景迁移和最终目录整理仍未完成。

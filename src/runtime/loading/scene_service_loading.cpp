@@ -7,6 +7,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "runtime/loading/resource_load_group.hpp"
@@ -212,7 +213,7 @@ void scene_service::advance_load_impl() {
       return;
     }
     value.candidate = std::make_unique<scene_domain>();
-    const auto initialized = value.candidate->initialize(*resources_);
+    const auto initialized = value.candidate->initialize();
     if (initialized != gneiss::engine::error::success) {
       finish(initialized, scene_load_phase::failed);
       return;
@@ -220,8 +221,8 @@ void scene_service::advance_load_impl() {
     auto content = (*prepared)->content();
     progress.phase = scene_load_phase::instantiating;
     auto built = engine::measure(engine::loop_stage::scene_build, [&] {
-      return value.candidate->scenes()->instantiate(*prepared,
-                                                    value.description_request.source_bytes());
+      return engine::instantiate_scene(*value.candidate->native_world(), *resources_, *prepared,
+                                       value.description_request.source_bytes());
     });
     if (!built) {
       finish(built.error().error, scene_load_phase::failed, built.error().message);

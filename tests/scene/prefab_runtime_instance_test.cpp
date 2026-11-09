@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/scene_application.hpp"
-#include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/platform/files/file_service.hpp"
 #include <cstdio>
 #include <source_location>
 #include <stdexcept>
@@ -18,12 +16,10 @@ void check(bool value, std::source_location where = std::source_location::curren
 }
 int main() try {
   check(e::initialize_meta().ok());
-  auto files = std::make_shared<e::files::service>();
-  e::asset_manager assets(files);
   auto owner = e::create_native();
   check(bool(owner));
   auto& world = **owner;
-  auto attached = e::scene_instances::attach(world, assets);
+  auto attached = e::scene_instances::attach(world);
   check(bool(attached));
   auto& scenes = **attached;
   auto instance = scenes.create_empty(e::guid::generate());

@@ -25,7 +25,7 @@ gneiss::engine::error scene_service::initialize(gneiss::engine::asset_manager& r
     return gneiss::engine::error::invalid_state;
   }
   auto next = std::make_unique<scene_domain>();
-  const auto result = next->initialize(resources);
+  const auto result = next->initialize();
   if (result != gneiss::engine::error::success) {
     return result;
   }

@@ -7,6 +7,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_application.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 #include <thread>
@@ -16,6 +17,17 @@
 #include <string_view>
 
 namespace {
+gneiss::engine::error set_camera(gneiss::engine::world& owner, gneiss::scene_instance_id scene,
+                                 gneiss::scene_node_id node,
+                                 const gneiss::engine::camera_description& desc) {
+  auto status = owner.scenes()->validate_editable_node(scene, node);
+  if (status.failed())
+    return status;
+  status = owner.entity_configure_camera(gneiss::entity_id{node.get()}, desc.settings);
+  if (status.failed() || !desc.is_primary)
+    return status;
+  return owner.set_active_camera(gneiss::entity_id{node.get()});
+}
 
 gneiss::engine::result<gneiss::engine::scene_node_info>
 find_info(gneiss::engine::scene_instances& scenes, gneiss::scene_instance_id scene,
@@ -186,12 +198,15 @@ int main() try {
     return 3;
   }
   // 失败的资源选择不提交；检查实际引用和组件，而不是将 World 编码成文件。
-  auto accepted_binding = application->scenes()->capture_mesh_binding(scene, triangle);
-  if (!accepted_binding || application->scenes()
-                               ->set_mesh_renderer(scene, triangle, missing_mesh_uri, material_uri)
-                               .ok())
+  auto accepted_binding =
+      gneiss::engine::capture_mesh_binding(*application->native_world(), scene, triangle);
+  if (!accepted_binding ||
+      gneiss::engine::set_mesh_renderer(*application->native_world(), application->assets(), scene,
+                                        triangle, missing_mesh_uri, material_uri)
+          .ok())
     return 30;
-  auto after_binding = application->scenes()->capture_mesh_binding(scene, triangle);
+  auto after_binding =
+      gneiss::engine::capture_mesh_binding(*application->native_world(), scene, triangle);
   if (!after_binding || after_binding->mesh != accepted_binding->mesh ||
       after_binding->material != accepted_binding->material)
     return 30;
@@ -232,8 +247,9 @@ int main() try {
   create_desc.material_uri = material_uri;
   gneiss::scene_node_id created_node;
   if (gneiss::test_support::take_value(
-          application->scenes()->create_mesh_renderer_node(scene, create_desc), created_node) !=
-          gneiss::engine::error::success ||
+          gneiss::engine::create_mesh_renderer_node(*application->native_world(),
+                                                    application->assets(), scene, create_desc),
+          created_node) != gneiss::engine::error::success ||
       created_node == gneiss::null_scene_node_id ||
       gneiss::test_support::take_value(application->scenes()->get_node_count(scene), node_count) !=
           gneiss::engine::error::success ||
@@ -255,7 +271,8 @@ int main() try {
     if (!renderer || application->native_world()->node_get_entity(created_node, entity).failed() ||
         application->native_world()->entity_remove_mesh_renderer(entity).failed() ||
         gneiss::test_support::assign_value(
-            application->scenes()->capture_mesh_binding(scene, created_node), binding)
+            gneiss::engine::capture_mesh_binding(*application->native_world(), scene, created_node),
+            binding)
             .failed() ||
         binding.mesh || binding.material ||
         application->native_world()->entity_set_mesh_renderer(entity, *renderer).failed())
@@ -263,28 +280,30 @@ int main() try {
   }
   gneiss::engine::camera_description author_camera{{1.04719755F, 0.2F, 1000.0F}, false};
   author_camera.settings.near = -1.0F;
-  if (application->scenes()->set_camera(scene, created_node, author_camera) !=
+  if (set_camera(*application->native_world(), scene, created_node, author_camera) !=
           gneiss::engine::error::invalid_argument ||
-      application->scenes()->set_camera(gneiss::scene_instance_id{}, created_node, author_camera) !=
-          gneiss::engine::error::invalid_handle ||
-      application->scenes()->set_camera(scene, gneiss::scene_node_id{UINT64_MAX}, author_camera) !=
-          gneiss::engine::error::invalid_handle) {
+      set_camera(*application->native_world(), gneiss::scene_instance_id{}, created_node,
+                 author_camera) != gneiss::engine::error::invalid_handle ||
+      set_camera(*application->native_world(), scene, gneiss::scene_node_id{UINT64_MAX},
+                 author_camera) != gneiss::engine::error::invalid_handle) {
     return 34;
   }
   author_camera.settings.near = 0.2F;
-  if (application->scenes()->set_camera(scene, created_node, author_camera) !=
+  if (set_camera(*application->native_world(), scene, created_node, author_camera) !=
           gneiss::engine::error::success ||
-      application->scenes()->remove_camera(scene, created_node) != gneiss::engine::error::success ||
-      application->scenes()->remove_camera(scene, created_node) !=
+      application->native_world()->entity_remove_camera(gneiss::entity_id{created_node.get()}) !=
+          gneiss::engine::error::success ||
+      application->native_world()->entity_remove_camera(gneiss::entity_id{created_node.get()}) !=
           gneiss::engine::error::not_found ||
-      application->scenes()->remove_mesh_renderer(scene, created_node) !=
-          gneiss::engine::error::success ||
-      application->scenes()->remove_mesh_renderer(scene, created_node) !=
-          gneiss::engine::error::not_found) {
+      application->native_world()->entity_remove_mesh_renderer(
+          gneiss::entity_id{created_node.get()}) != gneiss::engine::error::success ||
+      application->native_world()->entity_remove_mesh_renderer(
+          gneiss::entity_id{created_node.get()}) != gneiss::engine::error::not_found) {
     return 27;
   }
-  if (application->scenes()->set_mesh_renderer(scene, created_node, mesh_uri, material_uri) !=
-      gneiss::engine::error::success) {
+  if (gneiss::engine::set_mesh_renderer(*application->native_world(), application->assets(), scene,
+                                        created_node, mesh_uri,
+                                        material_uri) != gneiss::engine::error::success) {
     return 28;
   }
   gneiss::engine::node_creation generic_desc;
@@ -310,7 +329,8 @@ int main() try {
   // 运行删除递归清理成员；重建消费显式描述和资源引用，不从 World 保存作者快照。
   if (application->scenes()->reparent_node(scene, generic_node, camera_node).failed())
     return 29;
-  auto retained = application->scenes()->capture_mesh_binding(scene, triangle);
+  auto retained =
+      gneiss::engine::capture_mesh_binding(*application->native_world(), scene, triangle);
   if (!retained)
     return 15;
   const auto old_generic_node = generic_node;
@@ -330,12 +350,13 @@ int main() try {
   child_desc.uuid = triangle_uuid;
   child_desc.name = "Triangle";
   child_desc.parent = generic_node;
-  auto rebuilt =
-      application->scenes()->create_mesh_renderer_node_ready(scene, child_desc, *retained);
+  auto rebuilt = gneiss::engine::create_mesh_renderer_node(
+      *application->native_world(), application->assets(), scene, child_desc, &*retained);
   if (!rebuilt || *rebuilt == old_triangle_node)
     return 20;
   triangle = *rebuilt;
-  auto rebuilt_binding = application->scenes()->capture_mesh_binding(scene, triangle);
+  auto rebuilt_binding =
+      gneiss::engine::capture_mesh_binding(*application->native_world(), scene, triangle);
   if (!rebuilt_binding || rebuilt_binding->mesh != retained->mesh ||
       rebuilt_binding->material != retained->material)
     return 21;
@@ -344,12 +365,14 @@ int main() try {
     return 24;
   }
   if (gneiss::test_support::take_value(
-          application->scenes()->create_mesh_renderer_node(scene, create_desc), triangle) !=
-      gneiss::engine::error::invalid_argument) {
+          gneiss::engine::create_mesh_renderer_node(*application->native_world(),
+                                                    application->assets(), scene, create_desc),
+          triangle) != gneiss::engine::error::invalid_argument) {
     return 5;
   }
-  if (application->scenes()->set_mesh_renderer(scene, created_node, missing_mesh_uri,
-                                               material_uri) != gneiss::engine::error::not_found) {
+  if (gneiss::engine::set_mesh_renderer(*application->native_world(), application->assets(), scene,
+                                        created_node, missing_mesh_uri,
+                                        material_uri) != gneiss::engine::error::not_found) {
     return 6;
   }
   gneiss::entity_id camera_entity;
