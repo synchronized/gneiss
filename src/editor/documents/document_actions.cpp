@@ -5,7 +5,7 @@
 #include "engine/core/error.hpp"
 #include <utility>
 namespace gneiss::editor {
-document_action document_actions::request(document_action action, bool dirty) noexcept {
+document_action document_actions::request(document_action action, bool dirty) {
   if (action == document_action::none)
     return action;
   if (dirty) {

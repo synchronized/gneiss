@@ -28,14 +28,11 @@ constexpr std::uint16_t index_size = 4;
 constexpr std::uint64_t vertex_offset = header_size;
 
 void fail(mesh_binary_diagnostic& diagnostic, mesh_binary_error result, std::size_t offset,
-          std::string_view message) noexcept {
+          std::string_view message) {
   diagnostic.error = result;
   diagnostic.byte_offset = offset;
-  try {
+  {
     diagnostic.message = message;
-  } catch (...) {
-    diagnostic.message.clear();
-    diagnostic.error = mesh_binary_error::out_of_memory;
   }
 }
 
@@ -71,10 +68,10 @@ bool is_mesh_binary(std::span<const std::byte> bytes) noexcept {
 }
 
 result<std::vector<std::byte>, mesh_binary_diagnostic>
-encode_mesh_binary(const mesh_binary_data& data) noexcept try {
+encode_mesh_binary(const mesh_binary_data& data) {
   std::vector<std::byte> output;
   mesh_binary_diagnostic diagnostic;
-  try {
+  {
     if (data.vertices.empty() || data.vertices.size() > std::numeric_limits<std::uint32_t>::max() ||
         data.indices.size() < 3U || data.indices.size() % 3U != 0U ||
         data.indices.size() > std::numeric_limits<std::uint32_t>::max()) {
@@ -171,23 +168,15 @@ encode_mesh_binary(const mesh_binary_data& data) noexcept try {
       writer.write_le(index);
     }
     return output;
-  } catch (const std::bad_alloc&) {
-    fail(diagnostic, mesh_binary_error::out_of_memory, 0, "内存不足");
-    return diagnostic;
-  } catch (...) {
-    fail(diagnostic, mesh_binary_error::invalid_data, 0, "Mesh 编码内部错误");
-    return diagnostic;
   }
-} catch (...) {
-  return mesh_binary_diagnostic{mesh_binary_error::out_of_memory, 0, {}};
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): 校验顺序与二进制布局一致。
 result<mesh_binary_data, mesh_binary_diagnostic>
-decode_mesh_binary(std::span<const std::byte> bytes) noexcept try {
+decode_mesh_binary(std::span<const std::byte> bytes) {
   mesh_binary_data output;
   mesh_binary_diagnostic diagnostic;
-  try {
+  {
     const binary_reader reader{bytes};
     // 各读取位置由下面的 Header、表及数据区边界检查保证有效。
     if (bytes.size() < header_size || !is_mesh_binary(bytes)) {
@@ -302,15 +291,7 @@ decode_mesh_binary(std::span<const std::byte> bytes) noexcept try {
       }
     }
     return output;
-  } catch (const std::bad_alloc&) {
-    fail(diagnostic, mesh_binary_error::out_of_memory, 0, "内存不足");
-    return diagnostic;
-  } catch (...) {
-    fail(diagnostic, mesh_binary_error::invalid_data, 0, "Mesh 解码内部错误");
-    return diagnostic;
   }
-} catch (...) {
-  return mesh_binary_diagnostic{mesh_binary_error::out_of_memory, 0, {}};
 }
 
 std::string dump_mesh_binary_json(const mesh_binary_data& data) {

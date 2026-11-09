@@ -11,7 +11,7 @@ enum class document_action { none, new_scene, open_scene, exit_editor };
 class document_actions final {
 public:
   /** 干净文档返回可执行动作；需要确认时仅记录动作。 */
-  [[nodiscard]] document_action request(document_action action, bool dirty) noexcept;
+  [[nodiscard]] document_action request(document_action action, bool dirty);
   /** 在途编辑取消后的退出请求仍按原流程等待用户确认。 */
   void defer(document_action action) noexcept;
   [[nodiscard]] bool pending() const noexcept { return pending_ != document_action::none; }

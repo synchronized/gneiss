@@ -41,13 +41,8 @@ invoke_import(const asset_reimport_queue::import_function& importer,
               const std::filesystem::path& project, const std::filesystem::path& assets,
               const std::filesystem::path& source) {
   editor_import_report report;
-  try {
+  {
     report = importer(project, assets, source);
-  } catch (const std::exception& error) {
-    report = diagnostic_report(editor_import_result::import_failed,
-                               std::string{"重新导入异常："} + error.what());
-  } catch (...) {
-    report = diagnostic_report(editor_import_result::import_failed, "重新导入发生未知异常");
   }
   if (report.source_path.empty()) {
     report.source_path = source;
@@ -152,8 +147,8 @@ asset_reimport_queue::asset_reimport_queue(asset_reimport_queue_options options,
 asset_reimport_queue::~asset_reimport_queue() = default;
 
 gneiss::engine::error asset_reimport_queue::notify(const std::filesystem::path& relative_path,
-                                                   clock::time_point now) noexcept {
-  try {
+                                                   clock::time_point now) {
+  {
     if (!is_safe_relative_path(relative_path)) {
       return gneiss::engine::error::invalid_argument;
     }
@@ -173,8 +168,6 @@ gneiss::engine::error asset_reimport_queue::notify(const std::filesystem::path& 
     existing->second.observed_hash.clear();
     implementation_->emit(asset_reimport_state::waiting, normalized);
     return gneiss::engine::error::success;
-  } catch (...) {
-    return gneiss::engine::error::out_of_memory;
   }
 }
 
@@ -191,7 +184,7 @@ gneiss::engine::error asset_reimport_queue::rescan_result() const noexcept {
 std::size_t asset_reimport_queue::tick(const std::filesystem::path& project_root,
                                        const std::filesystem::path& asset_root,
                                        clock::time_point now, std::size_t max_imports,
-                                       std::size_t max_candidates) noexcept {
+                                       std::size_t max_candidates) {
   if (project_root.empty() || asset_root.empty() || max_imports == 0U || max_candidates == 0U) {
     return 0U;
   }
@@ -272,7 +265,7 @@ std::size_t asset_reimport_queue::tick(const std::filesystem::path& project_root
       iterator = implementation_->candidates.erase(iterator);
     }
     implementation_->finish_rescan();
-  } catch (...) {
+  } catch (const std::filesystem::filesystem_error&) {
     if (is_rescanning()) {
       implementation_->rescan_operation = gneiss::engine::error::io;
       implementation_->rescan_active = false;
@@ -285,8 +278,8 @@ std::size_t asset_reimport_queue::tick(const std::filesystem::path& project_root
 }
 
 std::size_t asset_reimport_queue::poll_events(std::vector<asset_reimport_event>& output,
-                                              std::size_t max_count) noexcept {
-  try {
+                                              std::size_t max_count) {
+  {
     const auto count = std::min(max_count, implementation_->events.size());
     output.reserve(output.size() + count);
     for (std::size_t index = 0; index < count; ++index) {
@@ -294,8 +287,6 @@ std::size_t asset_reimport_queue::poll_events(std::vector<asset_reimport_event>&
       implementation_->events.pop_front();
     }
     return count;
-  } catch (...) {
-    return 0U;
   }
 }
 

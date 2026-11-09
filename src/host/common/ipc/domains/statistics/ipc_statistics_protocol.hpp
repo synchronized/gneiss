@@ -30,17 +30,17 @@ struct ipc_runtime_statistics final {
 
 [[nodiscard]] gneiss::engine::error
 encode_ipc_runtime_statistics(const ipc_runtime_statistics& statistics,
-                              std::vector<std::uint8_t>& output) noexcept;
+                              std::vector<std::uint8_t>& output);
 [[nodiscard]] gneiss::engine::error
 decode_ipc_runtime_statistics(std::span<const std::uint8_t> payload,
-                              ipc_runtime_statistics& output) noexcept;
+                              ipc_runtime_statistics& output);
 
 [[nodiscard]] gneiss::engine::error
 encode_ipc_statistics_v2(const ipc_runtime_statistics& statistics,
-                         gneiss::engine::ipc_envelope& output) noexcept;
+                         gneiss::engine::ipc_envelope& output);
 [[nodiscard]] gneiss::engine::error
 decode_ipc_statistics_v2(const gneiss::engine::ipc_envelope& envelope,
-                         ipc_runtime_statistics& output) noexcept;
+                         ipc_runtime_statistics& output);
 [[nodiscard]] std::span<const gneiss::engine::ipc_operation_descriptor>
 ipc_statistics_operations() noexcept;
 

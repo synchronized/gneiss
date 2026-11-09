@@ -176,7 +176,7 @@ struct runtime_process::implementation final {
     return true;
   }
 
-  void append_event_unique(gneiss::host::runtime_log_record event) noexcept {
+  void append_event_unique(gneiss::host::runtime_log_record event) {
     const auto duplicate = std::ranges::any_of(console.entries(), [&](const auto& entry) {
       return entry.kind == gneiss::editor::console_entry_kind::structured &&
              entry.session_id == runtime_session_id && entry.event.sequence == event.sequence &&
@@ -187,7 +187,7 @@ struct runtime_process::implementation final {
     }
   }
 
-  void request_inspection_resync() noexcept {
+  void request_inspection_resync() {
     if (inspection_resync_pending || !ipc_session.is_authenticated()) {
       return;
     }
@@ -196,7 +196,7 @@ struct runtime_process::implementation final {
     }
   }
 
-  void apply_inspection_batch(ipc_inspection_batch&& batch) noexcept {
+  void apply_inspection_batch(ipc_inspection_batch&& batch) {
     gneiss::editor::runtime_scene_batch converted;
     auto applied = to_runtime_scene_batch(std::move(batch), converted);
     if (applied == gneiss::engine::error::success) {
@@ -231,7 +231,7 @@ struct runtime_process::implementation final {
     }
   }
 
-  void update_ipc() noexcept {
+  void update_ipc() {
     const auto now = std::chrono::steady_clock::now();
     std::vector<runtime_ipc_event> events;
     const auto updated = ipc_session.update(process.is_running(), events);
@@ -396,7 +396,7 @@ struct runtime_process::implementation final {
     }
   }
 
-  void append_console_lines(std::vector<gneiss::host::runtime_log_line>& lines) noexcept {
+  void append_console_lines(std::vector<gneiss::host::runtime_log_line>& lines) {
     for (auto& line : lines) {
       gneiss::host::runtime_log_record event;
       if (!line.was_truncated && gneiss::host::parse_runtime_log_line(line.text, event) ==
@@ -465,7 +465,7 @@ runtime_process::~runtime_process() {
 
 gneiss::engine::error
 runtime_process::start(const std::filesystem::path& executable,
-                       const gneiss::editor::runtime_launch_request& request) noexcept {
+                       const gneiss::editor::runtime_launch_request& request) {
   if (!implementation_ || is_busy() || executable.empty() || request.project_root.empty()) {
     return gneiss::engine::error::invalid_state;
   }
@@ -530,14 +530,12 @@ runtime_process::start(const std::filesystem::path& executable,
       implementation_->output_finished = false;
     }
     return started;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
+  } catch (const std::filesystem::filesystem_error&) {
     return gneiss::engine::error::io;
   }
 }
 
-gneiss::engine::error runtime_process::request_stop() noexcept {
+gneiss::engine::error runtime_process::request_stop() {
   if (!implementation_) {
     return gneiss::engine::error::not_ready;
   }
@@ -562,12 +560,12 @@ gneiss::engine::error runtime_process::request_stop() noexcept {
       return gneiss::engine::error::io;
     }
     return gneiss::engine::error::success;
-  } catch (...) {
+  } catch (const std::filesystem::filesystem_error&) {
     return gneiss::engine::error::io;
   }
 }
 
-gneiss::engine::error runtime_process::request_pause() noexcept {
+gneiss::engine::error runtime_process::request_pause() {
   if (!implementation_ || !implementation_->ipc_session.is_authenticated() ||
       implementation_->control_state != runtime_control_state::running) {
     return gneiss::engine::error::not_ready;
@@ -575,7 +573,7 @@ gneiss::engine::error runtime_process::request_pause() noexcept {
   return implementation_->ipc_session.request_pause();
 }
 
-gneiss::engine::error runtime_process::request_resume() noexcept {
+gneiss::engine::error runtime_process::request_resume() {
   if (!implementation_ || !implementation_->ipc_session.is_authenticated() ||
       implementation_->control_state != runtime_control_state::paused) {
     return gneiss::engine::error::not_ready;
@@ -586,7 +584,7 @@ gneiss::engine::error runtime_process::request_resume() noexcept {
 gneiss::engine::error
 runtime_process::request_property_write(gneiss::editor::runtime_property_key key,
                                         std::uint64_t expected_revision,
-                                        gneiss::engine::value value) noexcept {
+                                        gneiss::engine::value value) {
   if (!implementation_ || !implementation_->ipc_session.is_authenticated() ||
       !implementation_->ipc_session.supports_property_editing() ||
       (implementation_->control_state != runtime_control_state::running &&
@@ -609,7 +607,7 @@ runtime_process::request_property_write(gneiss::editor::runtime_property_key key
 }
 
 gneiss::engine::error
-runtime_process::publish_asset_revision(std::span<const std::string> output_uris) noexcept {
+runtime_process::publish_asset_revision(std::span<const std::string> output_uris) {
   if (!implementation_) {
     return gneiss::engine::error::invalid_argument;
   }
@@ -620,7 +618,7 @@ runtime_process::publish_asset_revision(std::span<const std::string> output_uris
     if (!implementation_->asset_queue_fits(output_uris)) {
       return gneiss::engine::error::not_ready;
     }
-    try {
+    {
       std::vector<ipc_asset_revision> render_assets;
       std::vector<ipc_asset_revision> structural_assets;
       for (const auto& uri : output_uris) {
@@ -664,10 +662,6 @@ runtime_process::publish_asset_revision(std::span<const std::string> output_uris
       implementation_->asset_reload.state = runtime_asset_reload_state::waiting;
       implementation_->asset_reload.message = "等待 Runtime 应用资产修订";
       return gneiss::engine::error::success;
-    } catch (const std::bad_alloc&) {
-      return gneiss::engine::error::out_of_memory;
-    } catch (...) {
-      return gneiss::engine::error::internal;
     }
   };
   const auto operation = publish();
@@ -682,7 +676,7 @@ bool runtime_process::supports_scene_loading() const noexcept {
 const ipc_scene_progress& runtime_process::scene_load_status() const noexcept {
   return implementation_->scene_load;
 }
-gneiss::engine::error runtime_process::load_scene(std::string_view uri) noexcept try {
+gneiss::engine::error runtime_process::load_scene(std::string_view uri) {
   if (!supports_scene_loading())
     return gneiss::engine::error::not_ready;
   auto& state = *implementation_;
@@ -698,8 +692,6 @@ gneiss::engine::error runtime_process::load_scene(std::string_view uri) noexcept
       .source = std::move(source), .can_cancel = true, .message = "等待 Runtime 接受场景切换"};
   state.scene_requested = true;
   return gneiss::engine::error::success;
-} catch (...) {
-  return gneiss::engine::error::out_of_memory;
 }
 gneiss::engine::error runtime_process::cancel_scene_load() noexcept {
   if (!implementation_ || !implementation_->scene_load.can_cancel)
@@ -730,7 +722,7 @@ gneiss::engine::error runtime_process::cancel_asset_reload() noexcept {
   return result;
 }
 
-gneiss::engine::error runtime_process::retry_asset_reload() noexcept {
+gneiss::engine::error runtime_process::retry_asset_reload() {
   if (!implementation_ ||
       implementation_->asset_reload.state != runtime_asset_reload_state::failed ||
       implementation_->asset_revision_in_flight != 0U || implementation_->known_assets.empty() ||
@@ -746,16 +738,13 @@ gneiss::engine::error runtime_process::retry_asset_reload() noexcept {
     implementation_->asset_reload.message = "等待 Runtime 重新同步资产";
     implementation_->asset_reload.state = runtime_asset_reload_state::waiting;
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    implementation_->pending_asset_batches.clear();
-    return gneiss::engine::error::out_of_memory;
   } catch (...) {
     implementation_->pending_asset_batches.clear();
-    return gneiss::engine::error::internal;
+    throw;
   }
 }
 
-void runtime_process::update() noexcept {
+void runtime_process::update() {
   if (!implementation_) {
     return;
   }

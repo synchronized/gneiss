@@ -32,14 +32,14 @@ const world_hierarchy::node* world_hierarchy::find(scene_node_id id) const noexc
   return std::as_const(owner_).get<node>(id.get());
 }
 
-error world_hierarchy::set_identity(scene_node_id id, scene_node_identity identity) noexcept {
+error world_hierarchy::set_identity(scene_node_id id, scene_node_identity identity) {
   auto* target = find(id);
   if (!target)
     return error::invalid_handle;
   target->identity = std::move(identity);
   return error::success;
 }
-result<scene_node_identity_view> world_hierarchy::identity(scene_node_id id) const noexcept {
+result<scene_node_identity_view> world_hierarchy::identity(scene_node_id id) const {
   const auto* target = find(id);
   if (!target)
     return error::invalid_handle;
@@ -50,7 +50,7 @@ const std::vector<scene_node_id>* world_hierarchy::children(scene_node_id id) co
   return target ? &target->children : nullptr;
 }
 
-result<scene_node_id> world_hierarchy::create(scene_node_id parent, std::uint64_t entity) noexcept {
+result<scene_node_id> world_hierarchy::create(scene_node_id parent, std::uint64_t entity) {
   if (parent && !find(parent))
     return error::invalid_handle;
   if (entity && !owner_.is_alive(entity))
@@ -71,14 +71,11 @@ result<scene_node_id> world_hierarchy::create(scene_node_id parent, std::uint64_
     if (parent)
       find(parent)->children.push_back(id);
     return id;
-  } catch (const std::bad_alloc&) {
-    if (create_entity && entity)
-      (void)owner_.destroy_entity(entity);
-    return error::out_of_memory;
   } catch (...) {
+    // 局部状态清理后传播意外异常，不作为普通操作失败继续执行。
     if (create_entity && entity)
       (void)owner_.destroy_entity(entity);
-    return error::internal;
+    throw;
   }
 }
 
@@ -94,7 +91,7 @@ void world_hierarchy::detach(scene_node_id id) noexcept {
     remove_child(target->parent, id);
 }
 
-error world_hierarchy::destroy(scene_node_id id) noexcept {
+error world_hierarchy::destroy(scene_node_id id) {
   if (!find(id))
     return error::invalid_handle;
   return owner_.destroy_entity(id.get()) ? error::success : error::invalid_handle;
@@ -117,7 +114,7 @@ bool world_hierarchy::is_descendant(scene_node_id ancestor,
   return false;
 }
 
-engine::error world_hierarchy::reparent(scene_node_id node_id, scene_node_id parent) noexcept {
+engine::error world_hierarchy::reparent(scene_node_id node_id, scene_node_id parent) {
   auto* target = find(node_id);
   if (target == nullptr || (parent != null_scene_node_id && find(parent) == nullptr)) {
     return engine::error::invalid_handle;
@@ -127,17 +124,13 @@ engine::error world_hierarchy::reparent(scene_node_id node_id, scene_node_id par
   }
   if (target->parent == parent)
     return error::success;
-  try {
+  {
     if (parent != null_scene_node_id) {
       find(parent)->children.push_back(node_id);
     }
     remove_child(target->parent, node_id);
     target->parent = parent;
     return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 

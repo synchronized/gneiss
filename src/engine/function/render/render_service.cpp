@@ -55,19 +55,17 @@ public:
                                          std::span<const std::byte> environment_asset = {},
                                          float environment_intensity = 1.0F,
                                          float environment_rotation_radians = 0.0F,
-                                         log_dispatcher* log = nullptr) noexcept;
-  error request_environment(std::shared_ptr<const std::vector<std::byte>>, float, float) noexcept;
-  [[nodiscard]] engine::error shutdown(granit::renderer_resource_stats& stats) noexcept;
-  [[nodiscard]] engine::error finish_frames() noexcept;
+                                         log_dispatcher* log = nullptr);
+  error request_environment(std::shared_ptr<const std::vector<std::byte>>, float, float);
+  [[nodiscard]] engine::error shutdown(granit::renderer_resource_stats& stats);
+  [[nodiscard]] engine::error finish_frames();
   void set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept {
     executor_.set_completion_wakeup(std::move(notification));
   }
-  [[nodiscard]] result<bool> prepare_frame_packet_storage(render_frame_packet& packet) noexcept;
+  [[nodiscard]] result<bool> prepare_frame_packet_storage(render_frame_packet& packet);
   [[nodiscard]] result<std::uint64_t>
-  submit(render_frame_packet packet,
-         render_frame_policy policy = render_frame_policy::replaceable) noexcept;
-  [[nodiscard]] result<std::optional<render_frame_completion>>
-  try_take_required_completion() noexcept;
+  submit(render_frame_packet packet, render_frame_policy policy = render_frame_policy::replaceable);
+  [[nodiscard]] result<std::optional<render_frame_completion>> try_take_required_completion();
   [[nodiscard]] render_queue_stats query_performance_stats() const noexcept;
   /** 仅在 initialize 完成后由宿主读取；设备重建必须重新发布。 */
   [[nodiscard]] texture_prepare_profile texture_profile() const noexcept {
@@ -78,11 +76,11 @@ private:
   [[nodiscard]] engine::error initialize_gpu(const native_window_info& window,
                                              std::span<const std::byte> environment_asset,
                                              float environment_intensity,
-                                             float environment_rotation_radians) noexcept;
-  [[nodiscard]] engine::error shutdown_gpu(granit::renderer_resource_stats& stats) noexcept;
+                                             float environment_rotation_radians);
+  [[nodiscard]] engine::error shutdown_gpu(granit::renderer_resource_stats& stats);
   [[nodiscard]] engine::error execute_frame(render_frame_packet& packet,
-                                            render_execution_result& output) noexcept;
-  [[nodiscard]] engine::error collect_completions() noexcept;
+                                            render_execution_result& output);
+  [[nodiscard]] engine::error collect_completions();
 
   struct texture_mirror final {
     const texture_data* source{};
@@ -121,26 +119,24 @@ private:
     granit::material_instance material;
   };
 
-  [[nodiscard]] granit::result create_mesh_mirror(const mesh_data& source,
-                                                  mesh_mirror& output) noexcept;
+  [[nodiscard]] granit::result create_mesh_mirror(const mesh_data& source, mesh_mirror& output);
 
-  [[nodiscard]] granit::result initialize_pipeline() noexcept;
-  [[nodiscard]] granit::result
-  create_texture_mirror(const texture_data& source, texture_mirror& output,
-                        engine::rid rid = null_rid,
-                        granit::async_operation* operation = nullptr) noexcept;
+  [[nodiscard]] granit::result initialize_pipeline();
+  [[nodiscard]] granit::result create_texture_mirror(const texture_data& source,
+                                                     texture_mirror& output,
+                                                     engine::rid rid = null_rid,
+                                                     granit::async_operation* operation = nullptr);
   void log_texture(engine::rid rid, const char* stage, granit::result result, std::uint32_t variant,
-                   granit::texture_format format, std::uint32_t mips, std::uint64_t bytes) noexcept;
+                   granit::texture_format format, std::uint32_t mips, std::uint64_t bytes);
   [[nodiscard]] granit::result
   create_material_mirror(const material_data& source,
                          const std::array<granit_texture_view, 5>& textures,
-                         material_mirror& output) noexcept;
-  [[nodiscard]] granit::result ensure_default_textures() noexcept;
+                         material_mirror& output);
+  [[nodiscard]] granit::result ensure_default_textures();
   [[nodiscard]] granit::result prepare_ui_draw_list(const ui_draw_list& ui,
                                                     const render_resource_snapshot& resources,
-                                                    std::uint32_t width,
-                                                    std::uint32_t height) noexcept;
-  void release_invalid_textures(const render_resource_snapshot& resources) noexcept;
+                                                    std::uint32_t width, std::uint32_t height);
+  void release_invalid_textures(const render_resource_snapshot& resources);
   void release_invalid_meshes(const render_resource_snapshot& resources) noexcept;
   void release_invalid_materials(const render_resource_snapshot& resources) noexcept;
 
@@ -281,7 +277,7 @@ granit::result append_mesh_geometry(const mesh_data& source, std::vector<gpu_ver
 
 } // namespace
 
-granit::result render_service::implementation::initialize_pipeline() noexcept {
+granit::result render_service::implementation::initialize_pipeline() {
   if (const auto result = pbr_assets_.initialize_embedded(); result != GRANIT_SUCCESS)
     return granit::from_native(result);
   if (const auto result = pbr_library_.initialize(renderer_, pbr_assets_.shader_archive());
@@ -302,7 +298,7 @@ granit::result render_service::implementation::initialize_pipeline() noexcept {
 void render_service::implementation::log_texture(engine::rid rid, const char* stage,
                                                  granit::result result, std::uint32_t variant,
                                                  granit::texture_format format, std::uint32_t mips,
-                                                 std::uint64_t bytes) noexcept {
+                                                 std::uint64_t bytes) {
   if (log_ == nullptr) {
     return;
   }
@@ -344,7 +340,7 @@ void render_service::implementation::log_texture(engine::rid rid, const char* st
 granit::result
 render_service::implementation::create_texture_mirror(const texture_data& source,
                                                       texture_mirror& output, engine::rid rid,
-                                                      granit::async_operation* operation) noexcept {
+                                                      granit::async_operation* operation) {
   if (source.profile.generation != 0U && source.profile != texture_profile_) {
     return granit::result::invalid_argument;
   }
@@ -481,7 +477,7 @@ render_service::implementation::create_texture_mirror(const texture_data& source
 
 granit::result render_service::implementation::create_material_mirror(
     const material_data& source, const std::array<granit_texture_view, 5>& textures,
-    material_mirror& output) noexcept {
+    material_mirror& output) {
   output.textures = textures;
   const auto& color = source.parameters.color;
   constexpr std::array addresses{granit::address_mode::repeat, granit::address_mode::clamp_to_edge,
@@ -581,8 +577,8 @@ granit::result render_service::implementation::create_material_mirror(
 }
 
 granit::result render_service::implementation::create_mesh_mirror(const mesh_data& source,
-                                                                  mesh_mirror& output) noexcept {
-  try {
+                                                                  mesh_mirror& output) {
+  {
 
     std::vector<gpu_vertex> vertices;
     std::vector<std::uint32_t> indices;
@@ -663,19 +659,15 @@ granit::result render_service::implementation::create_mesh_mirror(const mesh_dat
       output.vertex_offset = 0;
     }
     return result;
-  } catch (const std::bad_alloc&) {
-    return granit::result::out_of_memory;
-  } catch (...) {
-    return granit::result::unknown;
   }
 }
 
-granit::result render_service::implementation::ensure_default_textures() noexcept {
+granit::result render_service::implementation::ensure_default_textures() {
   if (default_white_srgb_.view.valid() && default_white_linear_.view.valid() &&
       default_normal_linear_.view.valid()) {
     return granit::result::success;
   }
-  try {
+  {
     texture_data white_srgb{.width = 1,
                             .height = 1,
                             .format = texture_format::rgba8_unorm,
@@ -697,21 +689,18 @@ granit::result render_service::implementation::ensure_default_textures() noexcep
     if (result.ok())
       result = create_texture_mirror(normal_linear, default_normal_linear_);
     return result;
-  } catch (const std::bad_alloc&) {
-    return granit::result::out_of_memory;
-  } catch (...) {
-    return granit::result::unknown;
   }
 }
 
-granit::result render_service::implementation::prepare_ui_draw_list(
-    const ui_draw_list& ui, const render_resource_snapshot& resources, std::uint32_t width,
-    std::uint32_t height) noexcept {
+granit::result
+render_service::implementation::prepare_ui_draw_list(const ui_draw_list& ui,
+                                                     const render_resource_snapshot& resources,
+                                                     std::uint32_t width, std::uint32_t height) {
   auto result = ui_canvas_.clear();
   if (result.failed() || ui.commands().empty()) {
     return result;
   }
-  try {
+  {
     std::vector<granit_canvas_vertex> vertices;
     vertices.reserve(ui.vertices().size());
     for (const auto& vertex : ui.vertices()) {
@@ -756,10 +745,6 @@ granit::result render_service::implementation::prepare_ui_draw_list(
     }
     return ranges.empty() ? granit::result::success
                           : ui_canvas_.append_batch(vertices, indices, ranges);
-  } catch (const std::bad_alloc&) {
-    return granit::result::out_of_memory;
-  } catch (...) {
-    return granit::result::unknown;
   }
 }
 
@@ -800,7 +785,7 @@ void render_service::implementation::refresh_texture(rid handle,
 }
 
 void render_service::implementation::release_invalid_textures(
-    const render_resource_snapshot& resources) noexcept {
+    const render_resource_snapshot& resources) {
   for (auto iterator = pending_textures_.begin(); iterator != pending_textures_.end();) {
     granit::async_operation_status status;
     const auto result = iterator->second.operation.get_status(status);
@@ -843,10 +828,10 @@ void render_service::implementation::release_invalid_materials(
 
 engine::error render_service::implementation::initialize(
     const native_window_info& window, std::span<const std::byte> environment_asset,
-    float environment_intensity, float environment_rotation_radians, log_dispatcher* log) noexcept {
+    float environment_intensity, float environment_rotation_radians, log_dispatcher* log) {
   log_ = log;
-  const auto executor_result = executor_.initialize(
-      [this](render_frame_packet& packet, render_execution_result& output) noexcept {
+  const auto executor_result =
+      executor_.initialize([this](render_frame_packet& packet, render_execution_result& output) {
         const auto result = execute_frame(packet, output);
         output.needs_recreate = packet.window.needs_recreate;
         return result;
@@ -887,8 +872,7 @@ engine::error render_service::implementation::initialize(
 }
 
 error render_service::implementation::request_environment(
-    std::shared_ptr<const std::vector<std::byte>> bytes, float intensity, float rotation) noexcept
-    try {
+    std::shared_ptr<const std::vector<std::byte>> bytes, float intensity, float rotation) {
   if (!bytes || bytes->empty() || !std::isfinite(intensity) || !std::isfinite(rotation))
     return error::invalid_argument;
   auto submitted = executor_.submit_command(
@@ -913,13 +897,9 @@ error render_service::implementation::request_environment(
         return map_result(status);
       });
   return submitted ? error::success : submitted.error();
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 
-engine::error render_service::implementation::collect_completions() noexcept {
+engine::error render_service::implementation::collect_completions() {
   while (auto command = executor_.try_take_command_completion()) {
     if (command->status.failed())
       return command->status;
@@ -948,7 +928,7 @@ engine::error render_service::implementation::collect_completions() noexcept {
 }
 
 result<bool>
-render_service::implementation::prepare_frame_packet_storage(render_frame_packet& packet) noexcept {
+render_service::implementation::prepare_frame_packet_storage(render_frame_packet& packet) {
   const auto completion_result = collect_completions();
   if (completion_result != engine::error::success) {
     return completion_result;
@@ -968,7 +948,7 @@ render_service::implementation::prepare_frame_packet_storage(render_frame_packet
 }
 
 result<std::uint64_t> render_service::implementation::submit(render_frame_packet packet,
-                                                             render_frame_policy policy) noexcept {
+                                                             render_frame_policy policy) {
   const auto completion_result = collect_completions();
   if (completion_result != engine::error::success) {
     return completion_result;
@@ -979,7 +959,7 @@ result<std::uint64_t> render_service::implementation::submit(render_frame_packet
 }
 
 result<std::optional<render_frame_completion>>
-render_service::implementation::try_take_required_completion() noexcept {
+render_service::implementation::try_take_required_completion() {
   const auto status = collect_completions();
   if (status.failed())
     return status;
@@ -994,7 +974,7 @@ render_queue_stats render_service::implementation::query_performance_stats() con
   return executor_.query_stats();
 }
 
-engine::error render_service::implementation::finish_frames() noexcept {
+engine::error render_service::implementation::finish_frames() {
   const auto flushed = executor_.flush();
   if (flushed != engine::error::success) {
     return flushed;
@@ -1009,8 +989,7 @@ engine::error render_service::implementation::finish_frames() noexcept {
   return result;
 }
 
-engine::error
-render_service::implementation::shutdown(granit::renderer_resource_stats& stats) noexcept {
+engine::error render_service::implementation::shutdown(granit::renderer_resource_stats& stats) {
   if (!executor_.is_running()) {
     stats = {};
     return engine::error::success;
@@ -1046,7 +1025,7 @@ render_service::implementation::shutdown(granit::renderer_resource_stats& stats)
 
 engine::error render_service::implementation::initialize_gpu(
     const native_window_info& window, std::span<const std::byte> environment_asset,
-    float environment_intensity, float environment_rotation_radians) noexcept {
+    float environment_intensity, float environment_rotation_radians) {
   auto result = renderer_.initialize({.application_name = "Gneiss",
                                       .enable_validation = false,
                                       .presentation = granit::presentation_mode::enabled});
@@ -1142,8 +1121,7 @@ engine::error render_service::implementation::initialize_gpu(
   return map_result(result);
 }
 
-engine::error
-render_service::implementation::shutdown_gpu(granit::renderer_resource_stats& stats) noexcept {
+engine::error render_service::implementation::shutdown_gpu(granit::renderer_resource_stats& stats) {
   static_cast<void>(pipeline_.reset());
   static_cast<void>(environment_.reset());
   environment_info_ = {};
@@ -1195,7 +1173,7 @@ render_service::implementation::shutdown_gpu(granit::renderer_resource_stats& st
 engine::error
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 render_service::implementation::execute_frame(render_frame_packet& packet,
-                                              render_execution_result& output) noexcept {
+                                              render_execution_result& output) {
   output.gpu_timing_supported = gpu_timing_supported_;
   output.environment_asset_requested = environment_asset_requested_;
   output.environment_fallback = environment_fallback_;
@@ -1225,7 +1203,7 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
   release_invalid_textures(resources);
   release_invalid_materials(resources);
   release_invalid_meshes(resources);
-  try {
+  {
     for (const auto& instance : snapshot.instances) {
       if (resources.mesh_pending(resource_handle(instance.mesh))) {
         continue;
@@ -1299,10 +1277,6 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
         }
       }
     }
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 
   const auto ui_result = prepare_ui_draw_list(packet.ui, resources, window.width, window.height);
@@ -1311,7 +1285,7 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
   auto result = debug_draw_.clear();
   if (result.failed())
     return map_result(result);
-  try {
+  {
     std::vector<granit::debug_draw_line> lines;
     lines.reserve(packet.debug.lines().size());
     for (const auto& line : packet.debug.lines()) {
@@ -1331,8 +1305,6 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
       if (result.failed())
         return map_result(result);
     }
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
   }
 
   granit::scene_snapshot scene;
@@ -1360,7 +1332,7 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
     view.viewport_width = static_cast<float>(window.width);
     view.viewport_height = static_cast<float>(window.height);
     view.layer_mask = UINT64_MAX;
-    try {
+    {
       renderables.reserve(snapshot.instances.size());
       bindings.reserve(snapshot.instances.size());
       for (std::size_t index = 0; index < snapshot.instances.size(); ++index) {
@@ -1402,8 +1374,6 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
              .material = material_mirrors_.at(resource_handle(instance.material)).material.ref(),
              .variant = variant});
       }
-    } catch (const std::bad_alloc&) {
-      return engine::error::out_of_memory;
     }
   }
   granit::scene_snapshot_desc scene_desc{};
@@ -1420,7 +1390,7 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
                                    .count();
 
   if (packet.readback) {
-    try {
+    {
       granit::texture target;
       auto captured =
           target.initialize(renderer_, {.format = granit::texture_format::rgba8_unorm,
@@ -1498,10 +1468,6 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
       packet.readback->width = window.width;
       packet.readback->height = window.height;
       return engine::error::success;
-    } catch (const std::bad_alloc&) {
-      return engine::error::out_of_memory;
-    } catch (...) {
-      return engine::error::internal;
     }
   }
 
@@ -1594,20 +1560,20 @@ render_service::~render_service() {
   close_resources();
 }
 error render_service::request_environment(std::shared_ptr<const std::vector<std::byte>> bytes,
-                                          float intensity, float rotation) noexcept {
+                                          float intensity, float rotation) {
   return impl_->request_environment(std::move(bytes), intensity, rotation);
 }
 
 error render_service::initialize(const native_window_info& window,
                                  std::span<const std::byte> environment_asset,
                                  float environment_intensity, float environment_rotation_radians,
-                                 log_dispatcher* log) noexcept {
+                                 log_dispatcher* log) {
   if (!is_valid())
     return error::invalid_state;
   return impl_->initialize(window, environment_asset, environment_intensity,
                            environment_rotation_radians, log);
 }
-error render_service::shutdown(render_device_stats& stats) noexcept {
+error render_service::shutdown(render_device_stats& stats) {
   granit::renderer_resource_stats native{
       .total_live_count = stats.total_live_count,
       .buffer_count = stats.buffer_count,
@@ -1659,19 +1625,18 @@ error render_service::shutdown(render_device_stats& stats) noexcept {
   };
   return status;
 }
-error render_service::finish_frames() noexcept { return impl_->finish_frames(); }
+error render_service::finish_frames() { return impl_->finish_frames(); }
 void render_service::set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept {
   impl_->set_completion_wakeup(std::move(notification));
 }
-result<bool> render_service::prepare_frame_packet_storage(render_frame_packet& packet) noexcept {
+result<bool> render_service::prepare_frame_packet_storage(render_frame_packet& packet) {
   return impl_->prepare_frame_packet_storage(packet);
 }
 result<std::uint64_t> render_service::submit(render_frame_packet packet,
-                                             render_frame_policy policy) noexcept {
+                                             render_frame_policy policy) {
   return impl_->submit(std::move(packet), policy);
 }
-result<std::optional<render_frame_completion>>
-render_service::try_take_required_completion() noexcept {
+result<std::optional<render_frame_completion>> render_service::try_take_required_completion() {
   return impl_->try_take_required_completion();
 }
 render_queue_stats render_service::query_performance_stats() const noexcept {

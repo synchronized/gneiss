@@ -28,7 +28,7 @@ public:
   void rollback() noexcept;
   /** 同步创建期间预留成员槽位；不保存加载描述、不执行文件读取。 */
   void initialize_staged(guid uuid, std::size_t count = 0);
-  [[nodiscard]] scene_node_id find_node(guid uuid) const noexcept;
+  [[nodiscard]] scene_node_id find_node(guid uuid) const;
   [[nodiscard]] result<scene_node_info> get_node_info(std::uint64_t index,
                                                       node_query_detail detail) const;
   [[nodiscard]] error set_node_transform(scene_node_id node, const math::transform& transform);
@@ -42,24 +42,24 @@ public:
   [[nodiscard]] error set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
                                         std::string_view material_uri);
   /** 修改运行组件，不生成或修改 Prefab 覆盖。 */
-  [[nodiscard]] error
-  add_component_description(scene_node_id node, const component_description& value,
-                            guid identity = {},
-                            const scene_mesh_binding* prepared = nullptr) noexcept;
-  [[nodiscard]] error remove_component_description(scene_node_id node, guid type) noexcept;
+  [[nodiscard]] error add_component_description(scene_node_id node,
+                                                const component_description& value,
+                                                guid identity = {},
+                                                const scene_mesh_binding* prepared = nullptr);
+  [[nodiscard]] error remove_component_description(scene_node_id node, guid type);
   /** 替换已有运行组件，不支持新增或移除。 */
-  [[nodiscard]] error
-  set_component_description(scene_node_id node, const component_description& value,
-                            const scene_mesh_binding* prepared = nullptr) noexcept;
+  [[nodiscard]] error set_component_description(scene_node_id node,
+                                                const component_description& value,
+                                                const scene_mesh_binding* prepared = nullptr);
   [[nodiscard]] error set_camera(scene_node_id node, const camera_description& desc);
   [[nodiscard]] error remove_camera(scene_node_id node);
   [[nodiscard]] error remove_mesh_renderer(scene_node_id node);
   [[nodiscard]] error destroy_node(scene_node_id node);
   /** 捕获当前 ECS 引用；替换组件只写 World，不修改来源记录。 */
-  [[nodiscard]] result<scene_mesh_binding> capture_mesh_binding(scene_node_id node) const noexcept;
+  [[nodiscard]] result<scene_mesh_binding> capture_mesh_binding(scene_node_id node) const;
   [[nodiscard]] error replace_mesh_binding(scene_node_id node, const scene_mesh_binding& expected,
                                            const scene_mesh_binding& replacement,
-                                           guid component_uuid = {}) noexcept;
+                                           guid component_uuid = {});
   [[nodiscard]] bool contains_editable_node(scene_node_id node) const noexcept;
   [[nodiscard]] std::uint64_t node_count() const noexcept { return objects_.size(); }
 

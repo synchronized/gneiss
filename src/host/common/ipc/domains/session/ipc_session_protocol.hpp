@@ -58,31 +58,29 @@ struct ipc_session_shutdown final {
   std::int32_t exit_code = 0;
 };
 
+[[nodiscard]] gneiss::engine::error encode_ipc_session_hello(const ipc_session_hello& message,
+                                                             bool response,
+                                                             std::uint32_t request_id,
+                                                             gneiss::engine::ipc_envelope& output);
 [[nodiscard]] gneiss::engine::error
-encode_ipc_session_hello(const ipc_session_hello& message, bool response, std::uint32_t request_id,
-                         gneiss::engine::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::error
-decode_ipc_session_hello(const gneiss::engine::ipc_envelope& envelope,
-                         ipc_session_hello& output) noexcept;
+decode_ipc_session_hello(const gneiss::engine::ipc_envelope& envelope, ipc_session_hello& output);
 
 [[nodiscard]] gneiss::engine::error
 encode_ipc_session_heartbeat(const ipc_session_heartbeat& message, bool response,
-                             std::uint32_t request_id,
-                             gneiss::engine::ipc_envelope& output) noexcept;
+                             std::uint32_t request_id, gneiss::engine::ipc_envelope& output);
 [[nodiscard]] gneiss::engine::error
 decode_ipc_session_heartbeat(const gneiss::engine::ipc_envelope& envelope,
                              ipc_session_heartbeat& output) noexcept;
 
+[[nodiscard]] gneiss::engine::error encode_ipc_session_error(const ipc_session_error& message,
+                                                             std::uint32_t request_id,
+                                                             gneiss::engine::ipc_envelope& output);
 [[nodiscard]] gneiss::engine::error
-encode_ipc_session_error(const ipc_session_error& message, std::uint32_t request_id,
-                         gneiss::engine::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::error
-decode_ipc_session_error(const gneiss::engine::ipc_envelope& envelope,
-                         ipc_session_error& output) noexcept;
+decode_ipc_session_error(const gneiss::engine::ipc_envelope& envelope, ipc_session_error& output);
 
 [[nodiscard]] gneiss::engine::error
 encode_ipc_session_shutdown(const ipc_session_shutdown& message,
-                            gneiss::engine::ipc_envelope& output) noexcept;
+                            gneiss::engine::ipc_envelope& output);
 [[nodiscard]] gneiss::engine::error
 decode_ipc_session_shutdown(const gneiss::engine::ipc_envelope& envelope,
                             ipc_session_shutdown& output) noexcept;
@@ -91,7 +89,7 @@ decode_ipc_session_shutdown(const gneiss::engine::ipc_envelope& envelope,
 [[nodiscard]] gneiss::engine::error negotiate_ipc_session_hello(
     const ipc_session_hello& request, std::string_view expected_token,
     std::span<const gneiss::engine::ipc_domain_capability> supported_domains,
-    ipc_session_hello& acknowledgment) noexcept;
+    ipc_session_hello& acknowledgment);
 
 /** 返回 Session 域的固定方向与消息语义规则。 */
 [[nodiscard]] std::span<const gneiss::engine::ipc_operation_descriptor>

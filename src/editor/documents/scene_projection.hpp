@@ -10,7 +10,7 @@ public:
   using version = scene_document::version;
   using object_binding = engine::scene_object_association;
   /** 只接收实例化回执；不从运行对象反推来源。 */
-  engine::error reset(std::span<const engine::scene_object_binding>) noexcept;
+  engine::error reset(std::span<const engine::scene_object_binding>);
   void replace(std::map<engine::object_address, object_binding> objects) noexcept {
     objects_.swap(objects);
   }
@@ -54,5 +54,5 @@ private:
                                                    scene_instance_id, scene_projection&,
                                                    const scene_document_snapshot* baseline,
                                                    const scene_document_snapshot& target,
-                                                   bool prepare_editor = true) noexcept;
+                                                   bool prepare_editor = true);
 }

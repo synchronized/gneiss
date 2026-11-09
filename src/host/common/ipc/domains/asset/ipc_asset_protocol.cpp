@@ -155,12 +155,12 @@ using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mu
 } // namespace
 
 gneiss::engine::error encode_ipc_asset_request(const ipc_asset_reload_request& request,
-                                               std::vector<std::uint8_t>& output) noexcept {
+                                               std::vector<std::uint8_t>& output) {
   if (request.session_id == 0U || request.revision == 0U || !valid_asset_group(request.assets) ||
       request.assets.size() > max_asset_count) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     std::set<std::string> uris;
     mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
     auto* root = document ? yyjson_mut_obj(document.get()) : nullptr;
@@ -188,19 +188,15 @@ gneiss::engine::error encode_ipc_asset_request(const ipc_asset_reload_request& r
       return gneiss::engine::error::out_of_memory;
     }
     return write_document(document.get(), root, output);
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
 gneiss::engine::error decode_ipc_asset_request(std::span<const std::uint8_t> payload,
-                                               ipc_asset_reload_request& output) noexcept {
+                                               ipc_asset_reload_request& output) {
   if (payload.size() > ipc_asset_max_payload_size) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     document_ptr document(yyjson_read(reinterpret_cast<const char*>(payload.data()), payload.size(),
                                       YYJSON_READ_NOFLAG),
                           &yyjson_doc_free);
@@ -235,15 +231,11 @@ gneiss::engine::error decode_ipc_asset_request(std::span<const std::uint8_t> pay
     }
     output = std::move(parsed);
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
 gneiss::engine::error encode_ipc_asset_result(const ipc_asset_reload_result& response,
-                                              std::vector<std::uint8_t>& output) noexcept {
+                                              std::vector<std::uint8_t>& output) {
   const auto status = status_name(response.status);
   if (response.session_id == 0U || response.revision == 0U || status.empty() ||
       response.message.size() > max_message_size ||
@@ -251,7 +243,7 @@ gneiss::engine::error encode_ipc_asset_result(const ipc_asset_reload_result& res
       (response.can_cancel && response.status != ipc_asset_apply_status::preparing)) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
     auto* root = document ? yyjson_mut_obj(document.get()) : nullptr;
     if (root == nullptr ||
@@ -294,19 +286,15 @@ gneiss::engine::error encode_ipc_asset_result(const ipc_asset_reload_result& res
       }
     }
     return write_document(document.get(), root, output);
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
 gneiss::engine::error decode_ipc_asset_result(std::span<const std::uint8_t> payload,
-                                              ipc_asset_reload_result& output) noexcept {
+                                              ipc_asset_reload_result& output) {
   if (payload.size() > ipc_asset_max_payload_size) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     document_ptr document(yyjson_read(reinterpret_cast<const char*>(payload.data()), payload.size(),
                                       YYJSON_READ_NOFLAG),
                           &yyjson_doc_free);
@@ -362,10 +350,6 @@ gneiss::engine::error decode_ipc_asset_result(std::span<const std::uint8_t> payl
     }
     output = std::move(parsed);
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
@@ -398,7 +382,7 @@ constexpr std::array asset_operations{
 } // namespace
 
 gneiss::engine::error encode_ipc_asset_cancel(std::uint64_t session, std::uint64_t revision,
-                                              gneiss::engine::ipc_envelope& output) noexcept try {
+                                              gneiss::engine::ipc_envelope& output) {
   if (session == 0U || revision == 0U)
     return gneiss::engine::error::invalid_argument;
   mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
@@ -416,10 +400,6 @@ gneiss::engine::error encode_ipc_asset_cancel(std::uint64_t session, std::uint64
             .request_id = 0U,
             .payload = std::move(payload)};
   return gneiss::engine::error::success;
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::error::out_of_memory;
-} catch (...) {
-  return gneiss::engine::error::internal;
 }
 gneiss::engine::error decode_ipc_asset_cancel(const gneiss::engine::ipc_envelope& envelope,
                                               ipc_asset_reload_request& output) noexcept {
@@ -442,7 +422,7 @@ gneiss::engine::error decode_ipc_asset_cancel(const gneiss::engine::ipc_envelope
 gneiss::engine::error encode_ipc_asset_request_v2(const ipc_asset_reload_request& request,
                                                   ipc_asset_operation operation,
                                                   std::uint32_t request_id,
-                                                  gneiss::engine::ipc_envelope& output) noexcept {
+                                                  gneiss::engine::ipc_envelope& output) {
   if (request_id == 0U || !known_operation(static_cast<std::uint16_t>(operation))) {
     return gneiss::engine::error::invalid_argument;
   }
@@ -460,7 +440,7 @@ gneiss::engine::error encode_ipc_asset_request_v2(const ipc_asset_reload_request
 }
 
 gneiss::engine::error decode_ipc_asset_request_v2(const gneiss::engine::ipc_envelope& envelope,
-                                                  ipc_asset_reload_request& output) noexcept {
+                                                  ipc_asset_reload_request& output) {
   if (envelope.domain != gneiss::engine::ipc_domain::asset ||
       !known_operation(envelope.operation) ||
       envelope.kind != gneiss::engine::ipc_message_kind::request || envelope.request_id == 0U) {
@@ -472,7 +452,7 @@ gneiss::engine::error decode_ipc_asset_request_v2(const gneiss::engine::ipc_enve
 gneiss::engine::error encode_ipc_asset_result_v2(const ipc_asset_reload_result& response,
                                                  ipc_asset_operation operation,
                                                  std::uint32_t request_id,
-                                                 gneiss::engine::ipc_envelope& output) noexcept {
+                                                 gneiss::engine::ipc_envelope& output) {
   const bool progress = operation == ipc_asset_operation::progress;
   if (progress ? (request_id != 0U || (response.status != ipc_asset_apply_status::preparing &&
                                        response.status != ipc_asset_apply_status::uploading))
@@ -496,7 +476,7 @@ gneiss::engine::error encode_ipc_asset_result_v2(const ipc_asset_reload_result& 
 }
 
 gneiss::engine::error decode_ipc_asset_result_v2(const gneiss::engine::ipc_envelope& envelope,
-                                                 ipc_asset_reload_result& output) noexcept {
+                                                 ipc_asset_reload_result& output) {
   const bool progress =
       envelope.operation == static_cast<std::uint16_t>(ipc_asset_operation::progress);
   if (envelope.domain != gneiss::engine::ipc_domain::asset ||

@@ -152,7 +152,7 @@ struct runtime_context final {
   return true;
 }
 
-gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, void* user_data) try {
+gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, void* user_data) {
   if (time == nullptr || user_data == nullptr) {
     return gneiss::engine::error::invalid_argument;
   }
@@ -453,10 +453,6 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
     }
   }
   return gneiss::engine::error::success;
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::error::out_of_memory;
-} catch (...) {
-  return gneiss::engine::error::internal;
 }
 
 void write_application_log(const gneiss::engine::event_view& source, runtime_context& context) {
@@ -656,16 +652,11 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
                       "texture_load", completion.result, metrics);
           }
           return gneiss::engine::error{gneiss::engine::error::success};
-        } catch (const std::bad_alloc&) {
-          (void)application->discard_prepared_assets(context.asset_request);
-          context.asset_request = 0;
-          structural_reload.reset();
-          return gneiss::engine::error{gneiss::engine::error::out_of_memory};
         } catch (...) {
           (void)application->discard_prepared_assets(context.asset_request);
           context.asset_request = 0;
           structural_reload.reset();
-          return gneiss::engine::error{gneiss::engine::error::internal};
+          throw;
         }
       });
   context.asset_reloader = &asset_reloader;

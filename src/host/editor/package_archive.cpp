@@ -85,7 +85,7 @@ constexpr std::array<std::uint32_t, 64U> sha256_constants = {
 
 class sha256 final {
 public:
-  void update(const std::uint8_t* data, std::size_t size) noexcept {
+  void update(const std::uint8_t* data, std::size_t size) {
     total_size_ += size;
     while (size > 0U) {
       const auto count = std::min(size, block_.size() - block_size_);
@@ -100,7 +100,7 @@ public:
     }
   }
 
-  [[nodiscard]] std::array<std::uint8_t, 32U> finish() noexcept {
+  [[nodiscard]] std::array<std::uint8_t, 32U> finish() {
     const auto bit_size = static_cast<std::uint64_t>(total_size_) * 8U;
     block_[block_size_++] = 0x80U;
     if (block_size_ > 56U) {
@@ -263,7 +263,7 @@ struct zip_entry final {
 gneiss::engine::error write_package_manifest(const std::filesystem::path& package_root,
                                              const gneiss::host::project_description& project,
                                              gneiss::host::project_build_profile profile,
-                                             std::string_view entrypoint) noexcept {
+                                             std::string_view entrypoint) {
   try {
     std::vector<package_file> files;
     auto operation = collect_files(package_root, files);
@@ -320,15 +320,13 @@ gneiss::engine::error write_package_manifest(const std::filesystem::path& packag
       return gneiss::engine::error::io;
     }
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
+  } catch (const std::filesystem::filesystem_error&) {
     return gneiss::engine::error::io;
   }
 }
 
 gneiss::engine::error write_deterministic_zip(const std::filesystem::path& package_root,
-                                              const std::filesystem::path& archive) noexcept {
+                                              const std::filesystem::path& archive) {
   try {
     std::vector<package_file> files;
     auto operation = collect_files(package_root, files);
@@ -417,14 +415,12 @@ gneiss::engine::error write_deterministic_zip(const std::filesystem::path& packa
     write_u32(output, static_cast<std::uint32_t>(central_offset));
     write_u16(output, 0U);
     return output ? gneiss::engine::error::success : gneiss::engine::error::io;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
+  } catch (const std::filesystem::filesystem_error&) {
     return gneiss::engine::error::io;
   }
 }
 
-gneiss::engine::error verify_package_manifest(const std::filesystem::path& package_root) noexcept {
+gneiss::engine::error verify_package_manifest(const std::filesystem::path& package_root) {
   try {
     std::ifstream stream(package_root / "gneiss.package.json", std::ios::binary);
     const std::string json{std::istreambuf_iterator<char>(stream),
@@ -477,9 +473,7 @@ gneiss::engine::error verify_package_manifest(const std::filesystem::path& packa
       }
     }
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
+  } catch (const std::filesystem::filesystem_error&) {
     return gneiss::engine::error::io;
   }
 }

@@ -17,17 +17,17 @@ public:
   [[nodiscard]] world* owner() const noexcept { return owner_; }
   [[nodiscard]] GNEISS_API bool is_valid() const noexcept;
   explicit operator bool() const noexcept { return is_valid(); }
-  [[nodiscard]] GNEISS_API result<scene_node_identity_view> identity() const noexcept;
-  [[nodiscard]] GNEISS_API error set_identity(scene_node_identity identity) const noexcept;
-  [[nodiscard]] GNEISS_API result<math::transform> local_transform() const noexcept;
-  [[nodiscard]] GNEISS_API result<math::transform> world_transform() const noexcept;
-  [[nodiscard]] GNEISS_API error set_local_transform(const math::transform&) const noexcept;
+  [[nodiscard]] GNEISS_API result<scene_node_identity_view> identity() const;
+  [[nodiscard]] GNEISS_API error set_identity(scene_node_identity identity) const;
+  [[nodiscard]] GNEISS_API result<math::transform> local_transform() const;
+  [[nodiscard]] GNEISS_API result<math::transform> world_transform() const;
+  [[nodiscard]] GNEISS_API error set_local_transform(const math::transform&) const;
   /** 无父节点时返回成功的空句柄；失效对象返回 invalid_handle。 */
-  [[nodiscard]] GNEISS_API result<game_object> parent() const noexcept;
+  [[nodiscard]] GNEISS_API result<game_object> parent() const;
   /** 空 parent 表示根；拒绝跨 World 及循环层级。 */
-  [[nodiscard]] GNEISS_API error reparent(game_object parent) const noexcept;
+  [[nodiscard]] GNEISS_API error reparent(game_object parent) const;
   /** 销毁整棵子树，所有指向其中实体的借用句柄同时失效。 */
-  [[nodiscard]] GNEISS_API error destroy() const noexcept;
+  [[nodiscard]] GNEISS_API error destroy() const;
   friend bool operator==(game_object, game_object) noexcept = default;
 
 private:

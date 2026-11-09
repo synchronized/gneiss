@@ -74,39 +74,39 @@ diagnostic validate_description(const meta::const_instance& source) {
                  : diagnostic{.error = address.error()};
 }
 }
-format format_traits<mesh_description>::get() noexcept {
+format format_traits<mesh_description>::get() {
   return {.name = "gneiss.mesh",
           .version = 3,
           .validate = &validate_description<mesh_description, validate_mesh_description>};
 }
-format format_traits<material_description>::get() noexcept {
+format format_traits<material_description>::get() {
   return {.name = "gneiss.material",
           .version = 6,
           .validate = &validate_description<material_description, validate_material_description>};
 }
-format format_traits<action_map_description>::get() noexcept {
+format format_traits<action_map_description>::get() {
   return {"gneiss.input-map",
           1,
           maximum_action_map_bytes,
           {},
           &validate_description<action_map_description, validate_action_map>};
 }
-format format_traits<scene_description>::get() noexcept {
+format format_traits<scene_description>::get() {
   return {"gneiss.scene", 5, scene_description::maximum_source_bytes, retired_fields,
           &validate_description<scene_description, validate_scene_description>};
 }
-format format_traits<prefab_description>::get() noexcept {
+format format_traits<prefab_description>::get() {
   return {"gneiss.prefab", 1, prefab_description::maximum_source_bytes, retired_fields,
           &validate_description<prefab_description, validate_prefab_description>};
 }
-format format_traits<texture_description>::get() noexcept {
+format format_traits<texture_description>::get() {
   return {.name = "gneiss.texture",
           .version = 2,
           .validate = &validate_description<texture_description, validate_texture_description>};
 }
 result<std::vector<std::byte>, diagnostic>
 serialize_instance(const serialization::write_context& ctx, format format,
-                   const meta::const_instance& view) noexcept try {
+                   const meta::const_instance& view) {
   if (format.validate) {
     auto validation = format.validate(view);
     if (validation.error.failed())
@@ -132,14 +132,10 @@ serialize_instance(const serialization::write_context& ctx, format format,
     return invalid("", "资源描述超过文件大小上限");
   auto bytes = std::as_bytes(std::span{text.get(), length});
   return std::vector<std::byte>(bytes.begin(), bytes.end());
-} catch (const std::bad_alloc&) {
-  return diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return diagnostic{.error = error::internal};
 }
 result<ref<void>, diagnostic> deserialize_object(const serialization::read_context& ctx,
                                                  format format, type_id id,
-                                                 std::span<const std::byte> bytes) noexcept try {
+                                                 std::span<const std::byte> bytes) {
   if (bytes.size() > format.maximum_bytes)
     return invalid("", "资源描述超过文件大小上限");
   yyjson_read_err err{};
@@ -178,9 +174,5 @@ result<ref<void>, diagnostic> deserialize_object(const serialization::read_conte
       return validation;
   }
   return decoded;
-} catch (const std::bad_alloc&) {
-  return diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return diagnostic{.error = error::internal};
 }
 }

@@ -61,7 +61,7 @@ namespace gneiss::engine {
 
 engine::error build_structural_diff(const std::vector<engine::game_object_description>& old_objects,
                                     const std::vector<engine::game_object_description>& new_objects,
-                                    structural_diff& output) noexcept {
+                                    structural_diff& output) {
   output = {};
   try {
     object_index old_index;
@@ -109,12 +109,10 @@ engine::error build_structural_diff(const std::vector<engine::game_object_descri
       return left.depth != right.depth ? left.depth > right.depth : left.uuid < right.uuid;
     });
     return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    output = {};
-    return engine::error::out_of_memory;
   } catch (...) {
+    // 局部状态清理后传播意外异常，不作为普通操作失败继续执行。
     output = {};
-    return engine::error::internal;
+    throw;
   }
 }
 

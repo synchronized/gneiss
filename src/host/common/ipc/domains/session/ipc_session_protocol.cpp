@@ -113,12 +113,12 @@ namespace gneiss::host {
 
 gneiss::engine::error encode_ipc_session_hello(const ipc_session_hello& message, bool response,
                                                std::uint32_t request_id,
-                                               gneiss::engine::ipc_envelope& output) noexcept {
+                                               gneiss::engine::ipc_envelope& output) {
   if ((!response && (message.token.empty() || message.token.size() > max_token_size)) ||
       (response && !message.token.empty()) || request_id == 0U || !valid_domains(message.domains)) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
     auto* root = document ? yyjson_mut_obj(document.get()) : nullptr;
     auto* domains = document ? yyjson_mut_arr(document.get()) : nullptr;
@@ -154,22 +154,18 @@ gneiss::engine::error encode_ipc_session_hello(const ipc_session_hello& message,
       output = std::move(encoded);
     }
     return operation;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
 gneiss::engine::error decode_ipc_session_hello(const gneiss::engine::ipc_envelope& envelope,
-                                               ipc_session_hello& output) noexcept {
+                                               ipc_session_hello& output) {
   if (!matches(envelope, ipc_session_operation::hello) ||
       (envelope.kind != gneiss::engine::ipc_message_kind::request &&
        envelope.kind != gneiss::engine::ipc_message_kind::response) ||
       envelope.request_id == 0U || envelope.payload.size() > ipc_session_max_payload_size) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     auto document = read_document(envelope);
     auto* root = document ? yyjson_doc_get_root(document.get()) : nullptr;
     auto* token = yyjson_is_obj(root) ? yyjson_obj_get(root, "token") : nullptr;
@@ -207,20 +203,16 @@ gneiss::engine::error decode_ipc_session_hello(const gneiss::engine::ipc_envelop
     }
     output = std::move(decoded);
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
 gneiss::engine::error encode_ipc_session_heartbeat(const ipc_session_heartbeat& message,
                                                    bool response, std::uint32_t request_id,
-                                                   gneiss::engine::ipc_envelope& output) noexcept {
+                                                   gneiss::engine::ipc_envelope& output) {
   if (request_id == 0U) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
     auto* root = document ? yyjson_mut_obj(document.get()) : nullptr;
     if (!document || root == nullptr ||
@@ -239,10 +231,6 @@ gneiss::engine::error encode_ipc_session_heartbeat(const ipc_session_heartbeat& 
       output = std::move(encoded);
     }
     return operation;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
@@ -266,11 +254,11 @@ gneiss::engine::error decode_ipc_session_heartbeat(const gneiss::engine::ipc_env
 
 gneiss::engine::error encode_ipc_session_error(const ipc_session_error& message,
                                                std::uint32_t request_id,
-                                               gneiss::engine::ipc_envelope& output) noexcept {
+                                               gneiss::engine::ipc_envelope& output) {
   if (request_id == 0U || message.message.size() > max_error_message_size) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
     auto* root = document ? yyjson_mut_obj(document.get()) : nullptr;
     if (!document || root == nullptr ||
@@ -290,21 +278,17 @@ gneiss::engine::error encode_ipc_session_error(const ipc_session_error& message,
       output = std::move(encoded);
     }
     return operation;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
 gneiss::engine::error decode_ipc_session_error(const gneiss::engine::ipc_envelope& envelope,
-                                               ipc_session_error& output) noexcept {
+                                               ipc_session_error& output) {
   if (!matches(envelope, ipc_session_operation::protocol_error) ||
       envelope.kind != gneiss::engine::ipc_message_kind::error || envelope.request_id == 0U ||
       envelope.payload.size() > ipc_session_max_payload_size) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     auto document = read_document(envelope);
     auto* root = document ? yyjson_doc_get_root(document.get()) : nullptr;
     auto* code = yyjson_is_obj(root) ? yyjson_obj_get(root, "code") : nullptr;
@@ -318,16 +302,12 @@ gneiss::engine::error decode_ipc_session_error(const gneiss::engine::ipc_envelop
                               .message = {yyjson_get_str(message), yyjson_get_len(message)}};
     output = std::move(decoded);
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
 gneiss::engine::error encode_ipc_session_shutdown(const ipc_session_shutdown& message,
-                                                  gneiss::engine::ipc_envelope& output) noexcept {
-  try {
+                                                  gneiss::engine::ipc_envelope& output) {
+  {
     mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
     auto* root = document ? yyjson_mut_obj(document.get()) : nullptr;
     if (!document || root == nullptr ||
@@ -345,10 +325,6 @@ gneiss::engine::error encode_ipc_session_shutdown(const ipc_session_shutdown& me
       output = std::move(encoded);
     }
     return operation;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
@@ -374,13 +350,13 @@ gneiss::engine::error decode_ipc_session_shutdown(const gneiss::engine::ipc_enve
 gneiss::engine::error negotiate_ipc_session_hello(
     const ipc_session_hello& request, std::string_view expected_token,
     std::span<const gneiss::engine::ipc_domain_capability> supported_domains,
-    ipc_session_hello& acknowledgment) noexcept {
+    ipc_session_hello& acknowledgment) {
   if (expected_token.empty() || request.token.empty() || request.token.size() > max_token_size ||
       !valid_domains(request.domains) || !valid_domains(supported_domains) ||
       !constant_time_equal(request.token, expected_token)) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     ipc_session_hello accepted;
     accepted.domains.reserve(request.domains.size());
     for (const auto requested : request.domains) {
@@ -393,10 +369,6 @@ gneiss::engine::error negotiate_ipc_session_hello(
     }
     acknowledgment = std::move(accepted);
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 

@@ -615,7 +615,7 @@ build_report build_assets(const build_request& request, const processor_registry
       return fail(build_result::io_error, "无法提交资产构建目录");
     }
     return report;
-  } catch (...) {
+  } catch (const std::filesystem::filesystem_error&) {
     return fail(build_result::io_error, "资产构建发生未预期的文件系统错误");
   }
 }

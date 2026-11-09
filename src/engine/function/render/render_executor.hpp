@@ -111,16 +111,16 @@ public:
   threaded_render_executor& operator=(const threaded_render_executor&) = delete;
 
   [[nodiscard]] error initialize(render_frame_callback callback,
-                                 std::size_t maximum_pending_frames = 3U) noexcept;
+                                 std::size_t maximum_pending_frames = 3U);
   [[nodiscard]] result<std::uint64_t>
   submit_frame(render_frame_packet packet,
-               render_frame_policy policy = render_frame_policy::replaceable) noexcept;
+               render_frame_policy policy = render_frame_policy::replaceable);
   /** resumable 命令返回 NOT_READY 时保留同一序号排到队尾，后续帧和命令可先执行。
    * 回调须自行保存进度并最终返回终态；flush/stop 会等它结束，不强制销毁在途资源。
    * once 的 NOT_READY 仍是一次完成结果。 */
   [[nodiscard]] result<std::uint64_t>
   submit_command(render_command_callback command,
-                 render_command_policy policy = render_command_policy::once) noexcept;
+                 render_command_policy policy = render_command_policy::once);
   /** 线程安全领取；空队列返回空值，执行错误保存在完成记录的 status 中。 */
   [[nodiscard]] std::optional<render_frame_completion> try_take_frame_completion() noexcept;
   [[nodiscard]] std::optional<render_command_completion> try_take_command_completion() noexcept;

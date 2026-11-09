@@ -20,7 +20,7 @@ bool equal(const gneiss::engine::math::transform& left,
 
 } // namespace
 
-gneiss::engine::error transform_gizmo_drag::begin(scene_edit_session& session) noexcept {
+gneiss::engine::error transform_gizmo_drag::begin(scene_edit_session& session) {
   if (is_active()) {
     return gneiss::engine::error::invalid_state;
   }
@@ -29,7 +29,7 @@ gneiss::engine::error transform_gizmo_drag::begin(scene_edit_session& session) n
   if (!node && (!prefab || prefab->is_instance_root)) {
     return gneiss::engine::error::not_ready;
   }
-  try {
+  {
     uuid_ = bool(node) ? node->uuid : engine::guid{};
     instance_uuid_ = !node ? prefab->instance_uuid : engine::guid{};
     source_uuid_ = !node ? prefab->source_node_uuid : engine::guid{};
@@ -39,13 +39,11 @@ gneiss::engine::error transform_gizmo_drag::begin(scene_edit_session& session) n
     before_version_ = preview_version_ = session.current_version();
     node_ = session.selection();
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
   }
 }
 
 gneiss::engine::error transform_gizmo_drag::preview(scene_edit_session& session,
-                                                    const gizmo_matrix& matrix) noexcept {
+                                                    const gizmo_matrix& matrix) {
   if (!matches_selection(session) || session.current_version() != preview_version_) {
     return gneiss::engine::error::invalid_state;
   }
@@ -68,7 +66,7 @@ gneiss::engine::error transform_gizmo_drag::preview(scene_edit_session& session,
 }
 
 gneiss::engine::error transform_gizmo_drag::finish(scene_edit_session& session,
-                                                   editor_command_history& history) noexcept {
+                                                   editor_command_history& history) {
   if (!is_active()) {
     return gneiss::engine::error::success;
   }
@@ -97,12 +95,10 @@ gneiss::engine::error transform_gizmo_drag::finish(scene_edit_session& session,
   auto operation = session.restore_version(session.current_version(), before_version);
   if (operation.failed())
     return operation;
-  try {
+  {
     operation = execute_scene_edit(history, session, "变换节点", [&] {
       return session.set_local_transform(original_node, after);
     });
-  } catch (const std::bad_alloc&) {
-    operation = gneiss::engine::error::out_of_memory;
   }
   if (operation != gneiss::engine::error::success) {
     const auto rollback = session.restore_version(session.current_version(), before_version);

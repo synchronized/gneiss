@@ -34,7 +34,7 @@ public:
   [[nodiscard]] const std::optional<texture_metadata>& metadata() const noexcept {
     return metadata_;
   }
-  [[nodiscard]] ref<const texture_data> snapshot() const noexcept { return content_; }
+  [[nodiscard]] ref<const texture_data> snapshot() const { return content_; }
   texture(const texture&) = delete;
   texture& operator=(const texture&) = delete;
 

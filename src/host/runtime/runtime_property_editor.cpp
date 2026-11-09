@@ -21,7 +21,7 @@ runtime_property_editor::~runtime_property_editor() { reset(); }
 
 gneiss::engine::error runtime_property_editor::initialize(gneiss::engine::world& world,
                                                           runtime_scene_inspection& inspection,
-                                                          std::uint64_t session_id) noexcept {
+                                                          std::uint64_t session_id) {
   if (session_id == 0U || initialized_) {
     return gneiss::engine::error::invalid_argument;
   }
@@ -46,7 +46,7 @@ void runtime_property_editor::reset() noexcept {
 }
 
 gneiss::engine::error runtime_property_editor::execute(const ipc_property_write& command,
-                                                       ipc_property_write_result& output) noexcept {
+                                                       ipc_property_write_result& output) {
   if (!initialized_ || inspection_ == nullptr || command.command_id == 0U) {
     return gneiss::engine::error::invalid_state;
   }

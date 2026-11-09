@@ -15,18 +15,18 @@ public:
   material_editor_model() = default;
   material_editor_model(const material_editor_model&) = delete;
   material_editor_model& operator=(const material_editor_model&) = delete;
-  engine::error open(std::string uri, std::string content) noexcept;
+  engine::error open(std::string uri, std::string content);
   engine::error set_value(const material_property_path&, const engine::value&,
                           std::uint64_t edit_serial = 0) noexcept;
   engine::error replace_object(const property_path&, const engine::meta::const_instance&) noexcept;
-  engine::error undo() noexcept { return history_.undo(); }
-  engine::error redo() noexcept { return history_.redo(); }
+  engine::error undo() { return history_.undo(); }
+  engine::error redo() { return history_.redo(); }
   bool can_undo() const noexcept { return history_.can_undo(); }
   bool can_redo() const noexcept { return history_.can_redo(); }
   /** 丢弃未保存修改；保存期间不允许丢弃或切换文件。 */
   engine::error discard() noexcept;
-  engine::error begin_save(engine::files::service&) noexcept;
-  void advance() noexcept;
+  engine::error begin_save(engine::files::service&);
+  void advance();
   bool saving() const noexcept { return receipt_ != nullptr; }
   engine::error save_status() const noexcept { return save_status_; }
   bool is_dirty() const noexcept;
@@ -37,7 +37,7 @@ public:
 
 private:
   engine::error apply(const property_path&, const engine::value*,
-                      const engine::meta::const_instance*, std::uint64_t) noexcept;
+                      const engine::meta::const_instance*, std::uint64_t);
   struct snapshot {
     engine::material_description description;
     std::string encoded;

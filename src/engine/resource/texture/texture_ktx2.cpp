@@ -58,19 +58,16 @@ constexpr std::array<std::byte, 92U> linear_dfd = {
   return offset <= size && length <= size - static_cast<std::size_t>(offset);
 }
 
-[[nodiscard]] texture_ktx2_diagnostic fail(texture_ktx2_error error,
-                                           std::string_view message) noexcept {
-  try {
+[[nodiscard]] texture_ktx2_diagnostic fail(texture_ktx2_error error, std::string_view message) {
+  {
     return {error, std::string{message}};
-  } catch (...) {
-    return {texture_ktx2_error::out_of_memory, {}};
   }
 }
 
 } // namespace
 
 result<std::vector<std::byte>, texture_ktx2_diagnostic>
-encode_texture_ktx2(const texture_ktx2& texture) noexcept try {
+encode_texture_ktx2(const texture_ktx2& texture) {
   std::vector<std::byte> output;
   if (texture.levels.empty() || texture.levels.size() > 32U) {
     return fail(texture_ktx2_error::invalid_argument, "KTX2 Mip 数量无效");
@@ -86,7 +83,7 @@ encode_texture_ktx2(const texture_ktx2& texture) noexcept try {
     width = std::max(1U, width / 2U);
     height = std::max(1U, height / 2U);
   }
-  try {
+  {
     const auto index_size = texture.levels.size() * level_entry_size;
     const auto dfd_offset = header_size + index_size;
     auto data_offset = dfd_offset + linear_dfd.size();
@@ -120,17 +117,11 @@ encode_texture_ktx2(const texture_ktx2& texture) noexcept try {
       writer.write_bytes(level.pixels);
     }
     return output;
-  } catch (const std::bad_alloc&) {
-    return fail(texture_ktx2_error::out_of_memory, "KTX2 编码内存不足");
-  } catch (...) {
-    return fail(texture_ktx2_error::invalid_argument, "KTX2 编码失败");
   }
-} catch (...) {
-  return texture_ktx2_diagnostic{texture_ktx2_error::out_of_memory, {}};
 }
 
 result<texture_ktx2, texture_ktx2_diagnostic>
-decode_texture_ktx2(std::span<const std::byte> bytes) noexcept try {
+decode_texture_ktx2(std::span<const std::byte> bytes) {
   texture_ktx2 output;
   const binary_reader reader{bytes};
   // 各读取位置由下面的 Header、表及数据区边界检查保证有效。
@@ -166,7 +157,7 @@ decode_texture_ktx2(std::span<const std::byte> bytes) noexcept try {
   if ((format == rgba8_srgb && transfer != 2U) || (format == rgba8_unorm && transfer != 1U)) {
     return fail(texture_ktx2_error::invalid_container, "KTX2 格式与传递函数不一致");
   }
-  try {
+  {
     output.transfer = format == rgba8_srgb ? texture_transfer::srgb : texture_transfer::linear;
     output.levels.reserve(levels);
     auto level_width = width;
@@ -189,13 +180,7 @@ decode_texture_ktx2(std::span<const std::byte> bytes) noexcept try {
       level_height = std::max(1U, level_height / 2U);
     }
     return output;
-  } catch (const std::bad_alloc&) {
-    return fail(texture_ktx2_error::out_of_memory, "KTX2 解码内存不足");
-  } catch (...) {
-    return fail(texture_ktx2_error::invalid_container, "KTX2 解码失败");
   }
-} catch (...) {
-  return texture_ktx2_diagnostic{texture_ktx2_error::out_of_memory, {}};
 }
 
 } // namespace gneiss::engine

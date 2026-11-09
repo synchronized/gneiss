@@ -35,9 +35,9 @@ enum class runtime_scene_sequence_result : std::uint8_t {
 class runtime_scene_sequence_tracker final {
 public:
   [[nodiscard]] gneiss::engine::error begin(std::uint64_t session_id,
-                                            std::uint64_t first_sequence = 1U) noexcept;
+                                            std::uint64_t first_sequence = 1U);
   void reset() noexcept;
-  [[nodiscard]] runtime_scene_sequence_result observe(runtime_scene_stamp stamp) noexcept;
+  [[nodiscard]] runtime_scene_sequence_result observe(runtime_scene_stamp stamp);
   [[nodiscard]] std::uint64_t session_id() const noexcept { return session_id_; }
   [[nodiscard]] std::uint64_t next_sequence() const noexcept { return next_sequence_; }
 

@@ -66,12 +66,12 @@ struct document_patch {
   engine::ref<const engine::scene> before_source, after_source;
   bool source_changed{};
 };
-[[nodiscard]] engine::result<document_patch>
-make_document_patch(const scene_document_snapshot&, const scene_document_snapshot&) noexcept;
+[[nodiscard]] engine::result<document_patch> make_document_patch(const scene_document_snapshot&,
+                                                                 const scene_document_snapshot&);
 /** 合并连续差异；保留最初旧值与最终新值，拒绝不连续的同项变更。 */
 [[nodiscard]] engine::result<document_patch> merge_document_patches(const document_patch&,
-                                                                    const document_patch&) noexcept;
+                                                                    const document_patch&);
 /** 校验旧值后在独立候选应用；失败不修改输入，不访问 World。 */
 [[nodiscard]] engine::result<scene_document_snapshot>
-apply_document_patch(const scene_document_snapshot&, const document_patch&, bool undo) noexcept;
+apply_document_patch(const scene_document_snapshot&, const document_patch&, bool undo);
 }

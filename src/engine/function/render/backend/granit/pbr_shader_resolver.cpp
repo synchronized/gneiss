@@ -28,18 +28,18 @@ granit_result pbr_shader_resolver::validate() noexcept {
   return GRANIT_SUCCESS;
 }
 
-granit_result pbr_shader_resolver::initialize(std::span<const std::byte> bytes) noexcept {
+granit_result pbr_shader_resolver::initialize(std::span<const std::byte> bytes) {
   reset();
   try {
     archive_.assign(bytes.begin(), bytes.end());
     return validate();
   } catch (...) {
     reset();
-    return GRANIT_ERROR_OUT_OF_MEMORY;
+    throw;
   }
 }
 
-granit_result pbr_shader_resolver::initialize_embedded() noexcept {
+granit_result pbr_shader_resolver::initialize_embedded() {
   reset();
   try {
     const auto bytes = std::as_bytes(std::span{shader_library_bytes});
@@ -47,7 +47,7 @@ granit_result pbr_shader_resolver::initialize_embedded() noexcept {
     return validate();
   } catch (...) {
     reset();
-    return GRANIT_ERROR_OUT_OF_MEMORY;
+    throw;
   }
 }
 

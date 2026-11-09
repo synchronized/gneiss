@@ -37,9 +37,9 @@ public:
   /** 使用本次异步读取的结果比较基线；不执行 I/O。 */
   [[nodiscard]] author_asset_change observe(const std::filesystem::path& relative_path,
                                             bool document_dirty, gneiss::engine::error operation,
-                                            std::uint64_t fingerprint) noexcept;
+                                            std::uint64_t fingerprint);
   [[nodiscard]] gneiss::engine::error acknowledge_content(std::string_view uri,
-                                                          std::string_view content) noexcept;
+                                                          std::string_view content);
   void establish_baseline(std::string_view uri, std::uint64_t value);
   void accept_fingerprint(std::string_view uri, std::uint64_t value);
   [[nodiscard]] std::vector<std::string> known_uris() const;

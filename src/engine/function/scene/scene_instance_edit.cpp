@@ -14,7 +14,7 @@ namespace gneiss::engine {
 error scene_instance_state::add_component_description(scene_node_id node,
                                                       const component_description& value,
                                                       guid identity,
-                                                      const scene_mesh_binding* prepared) noexcept {
+                                                      const scene_mesh_binding* prepared) {
   if (!value)
     return error::invalid_argument;
   if (!contains_editable_node(node))
@@ -27,15 +27,14 @@ error scene_instance_state::add_component_description(scene_node_id node,
   return add_component({native_world_, node, renderer, prepared ? nullptr : &loader_}, value,
                        identity);
 }
-error scene_instance_state::remove_component_description(scene_node_id node, guid type) noexcept {
+error scene_instance_state::remove_component_description(scene_node_id node, guid type) {
   if (!contains_editable_node(node))
     return error::invalid_handle;
   return remove_component({native_world_, node, {}, &loader_}, type);
 }
 error scene_instance_state::set_component_description(scene_node_id node,
                                                       const component_description& value,
-                                                      const scene_mesh_binding* prepared) noexcept
-    try {
+                                                      const scene_mesh_binding* prepared) {
   if (!value)
     return error::invalid_argument;
   if (!contains_editable_node(node))
@@ -57,14 +56,9 @@ error scene_instance_state::set_component_description(scene_node_id node,
                                        : mesh_renderer{},
                             prepared ? nullptr : &loader_};
   return update_component(context, value);
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 
-result<scene_mesh_binding>
-scene_instance_state::capture_mesh_binding(scene_node_id node) const noexcept {
+result<scene_mesh_binding> scene_instance_state::capture_mesh_binding(scene_node_id node) const {
   const auto found = std::ranges::find(objects_, node, &node_entry::node);
   if (found == objects_.end()) {
     return error::invalid_handle;
@@ -79,7 +73,7 @@ scene_instance_state::capture_mesh_binding(scene_node_id node) const noexcept {
 error scene_instance_state::replace_mesh_binding(scene_node_id node_value,
                                                  const scene_mesh_binding& expected,
                                                  const scene_mesh_binding& replacement,
-                                                 guid component_uuid) noexcept try {
+                                                 guid component_uuid) {
   if ((replacement.mesh && !loader_.owns(replacement.mesh)) ||
       (replacement.material && !loader_.owns(replacement.material))) {
     return error::invalid_argument;
@@ -121,10 +115,6 @@ error scene_instance_state::replace_mesh_binding(scene_node_id node_value,
     return changed;
   }
   return error::success;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 
 bool scene_instance_state::contains_editable_node(scene_node_id node) const noexcept {

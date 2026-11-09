@@ -6,6 +6,7 @@
 #include "commands/author_property_edit.hpp"
 #include "documents/scene_document_edit.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/component_identity.hpp"
@@ -242,6 +243,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
 }
 
 int main() try {
+  gneiss::engine::install_fatal_handler();
   using namespace gneiss;
   using namespace gneiss::editor;
   std::shared_ptr<gneiss::runtime::application> app;
@@ -351,18 +353,21 @@ int main() try {
   {
     editor_command_history rejected;
     const auto before = session.current_version();
-    const auto status =
-        execute_scene_edit(rejected, session, "模拟分配失败", [&]() -> gneiss::engine::error {
-          auto renamed = session.rename_node(first, "temporary");
-          if (renamed.failed())
-            return renamed;
-          if (session.current_version() != before)
-            return gneiss::engine::error::internal;
-          throw std::bad_alloc{};
-        });
-    if (status != gneiss::engine::error::out_of_memory || rejected.size() != 0 ||
-        session.current_version() != before || session.query_node(first)->entity != first_entity ||
-        session.projection_status().failed())
+    bool propagated = false;
+    try {
+      (void)execute_scene_edit(rejected, session, "模拟分配失败", [&]() -> gneiss::engine::error {
+        auto renamed = session.rename_node(first, "temporary");
+        if (renamed.failed())
+          return renamed;
+        if (session.current_version() != before)
+          return gneiss::engine::error::internal;
+        throw std::bad_alloc{};
+      });
+    } catch (const std::bad_alloc&) {
+      propagated = true;
+    }
+    if (!propagated || rejected.size() != 0 || session.current_version() != before ||
+        session.query_node(first)->entity != first_entity || session.projection_status().failed())
       return 143;
     if (execute_scene_edit(rejected, session, "失败后继续",
                            [&] { return session.rename_node(first, "recovered"); })

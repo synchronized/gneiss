@@ -78,8 +78,8 @@ public:
   [[nodiscard]] gneiss::engine::error prepare(runtime_property_key key,
                                               std::uint64_t expected_revision,
                                               gneiss::engine::value value, clock::time_point now,
-                                              runtime_property_write& output) noexcept;
-  [[nodiscard]] gneiss::engine::error accept(runtime_property_write_result response) noexcept;
+                                              runtime_property_write& output);
+  [[nodiscard]] gneiss::engine::error accept(runtime_property_write_result response);
   void expire(clock::time_point now, std::chrono::milliseconds timeout) noexcept;
   [[nodiscard]] const runtime_property_edit* find(const runtime_property_key& key) const noexcept;
   [[nodiscard]] std::uint64_t session_id() const noexcept { return session_id_; }

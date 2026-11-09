@@ -10,7 +10,7 @@ namespace gneiss::host {
 
 gneiss::engine::error
 make_scene_snapshot_events(const ipc_inspection_batch& batch,
-                           std::vector<gneiss::engine::ipc_envelope>& output) noexcept {
+                           std::vector<gneiss::engine::ipc_envelope>& output) {
   return encode_ipc_inspection_batch_v2(batch, output);
 }
 

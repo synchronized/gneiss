@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/resource/texture/png_decoder.hpp"
 
 #include <array>
@@ -20,7 +21,7 @@ thread_local std::size_t allocation_failures{};
 
 // 针对 1×1 RGBA 像素与超出 SSO 的诊断文本持续拒绝分配。
 // MSVC Debug 的字符串／vector 代理可在 noexcept 构造或移动中分配，
-// 不能用“所有 new 失败”模拟这两个可恢复边界；这里保留代理分配与迭代器检查。
+// 只注入这两个分配点并验证异常传播，保留代理分配与迭代器检查。
 void* operator new(std::size_t size) {
   if ((fail_allocations == allocation_target::pixel_buffer && size == 4U) ||
       (fail_allocations == allocation_target::diagnostic_text && size >= 32U)) {
@@ -38,8 +39,7 @@ void operator delete(void* memory, [[maybe_unused]] std::size_t size) noexcept {
 }
 
 int main() {
-  // 旧代码在诊断分配失败时会越过 noexcept；固定退出码防止弹出系统崩溃窗口。
-  std::set_terminate([] { std::_Exit(99); });
+  gneiss::engine::install_fatal_handler();
   constexpr std::array<std::uint8_t, 68> png{
       0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
       0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x04, 0x00, 0x00,
@@ -63,18 +63,26 @@ int main() {
     return 4;
   allocation_failures = 0U;
   fail_allocations = allocation_target::pixel_buffer;
-  auto allocation_result = decode_png(bytes);
+  bool pixel_threw = false;
+  try {
+    (void)decode_png(bytes);
+  } catch (const std::bad_alloc&) {
+    pixel_threw = true;
+  }
   fail_allocations = allocation_target::none;
-  if (!allocation_failures || allocation_result ||
-      allocation_result.error().error != error::out_of_memory)
+  if (!allocation_failures || !pixel_threw)
     return 5;
   const std::vector<std::byte> empty_bytes;
   allocation_failures = 0U;
   fail_allocations = allocation_target::diagnostic_text;
-  auto empty_result = decode_png(empty_bytes);
+  bool diagnostic_threw = false;
+  try {
+    (void)decode_png(empty_bytes);
+  } catch (const std::bad_alloc&) {
+    diagnostic_threw = true;
+  }
   fail_allocations = allocation_target::none;
-  const auto expected = allocation_failures ? error::out_of_memory : error::invalid_argument;
-  if (empty_result || empty_result.error().error != expected)
+  if (bool(allocation_failures) != diagnostic_threw)
     return 6;
   auto empty = decode_png(empty_bytes);
   if (empty || empty.error().error != error::invalid_argument || empty.error().message.empty())

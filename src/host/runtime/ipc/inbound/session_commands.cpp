@@ -12,7 +12,7 @@ namespace gneiss::host {
 namespace {
 
 gneiss::engine::error handle_heartbeat(const gneiss::engine::ipc_envelope& envelope,
-                                       runtime_command_context& context) noexcept {
+                                       runtime_command_context& context) {
   ipc_session_heartbeat heartbeat;
   const auto operation = decode_ipc_session_heartbeat(envelope, heartbeat);
   if (operation != gneiss::engine::error::success) {
@@ -24,7 +24,7 @@ gneiss::engine::error handle_heartbeat(const gneiss::engine::ipc_envelope& envel
 }
 
 gneiss::engine::error handle_protocol_error(const gneiss::engine::ipc_envelope& envelope,
-                                            runtime_command_context&) noexcept {
+                                            runtime_command_context&) {
   ipc_session_error error;
   const auto operation = decode_ipc_session_error(envelope, error);
   return operation == gneiss::engine::error::success ? gneiss::engine::error(error.code)

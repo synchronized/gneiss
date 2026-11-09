@@ -24,12 +24,11 @@ public:
   explicit runtime_asset_reloader(begin_function begin, poll_function poll);
   /** 所有资产只经 begin/poll 处理；接受后 execute 返回 not_ready。
    * 只有 advance 消费成功终态后才更新已应用修订；轮询失败生成失败回执并释放请求。 */
-  [[nodiscard]] gneiss::engine::error advance(ipc_asset_reload_result& response,
-                                              bool& ready) noexcept;
+  [[nodiscard]] gneiss::engine::error advance(ipc_asset_reload_result& response, bool& ready);
 
   /** 应用新修订并生成权威结果；旧修订不会再次调用底层资源请求。 */
   [[nodiscard]] gneiss::engine::error execute(const ipc_asset_reload_request& request,
-                                              ipc_asset_reload_result& response) noexcept;
+                                              ipc_asset_reload_result& response);
 
   [[nodiscard]] std::uint64_t session_id() const noexcept { return session_id_; }
   [[nodiscard]] std::uint64_t applied_revision() const noexcept { return applied_revision_; }

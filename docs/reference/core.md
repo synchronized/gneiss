@@ -113,7 +113,7 @@ auto request = std::move(*loaded);
 
 `binary_writer.hpp` 的 `binary_writer` 借用 `std::vector<std::byte>`，追加小端无符号整数、
 32 位浮点数、字节区间及零填充。容器仍归调用方所有；输入区间不得引用输出容器存储。
-分配异常由 codec 捕获，不承诺多次写入的事务性。
+分配异常直接传播至执行边界，不承诺多次写入的事务性。
 `binary_reader.hpp` 的 `binary_reader` 借用只读 span，顺序读取维护游标，按偏移读取不改变游标。
 读取返回 result，越界为 invalid_argument；失败不推进游标，范围检查避免加法溢出。
 返回的字节 span 不拥有数据，不能超过源存储生命周期。浮点读写保留位模式，有限性由 codec 校验。

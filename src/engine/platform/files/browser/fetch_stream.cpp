@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "fetch_stream.hpp"
+#include "engine/core/fatal.hpp"
 #include <emscripten/threading.h>
 #include <limits>
 #include <memory>
@@ -24,7 +25,7 @@ error translate(int status) {
   case 4:
     return error::cancelled;
   case 5:
-    return error::out_of_memory;
+    return error::io; // JS 异常不能可靠区分内存不足与流 API 失败。
   default:
     return error::io;
   }
@@ -46,7 +47,7 @@ public:
     if (const auto previous = std::exchange(handle, 0))
       gneiss_fetch_stream_close(previous);
   }
-  static void received(void* context, int status, std::size_t count, int eof) {
+  static void received(void* context, int status, std::size_t count, int eof) try {
     std::unique_ptr<reading> pending(static_cast<reading*>(context));
     auto& self = *pending->owner;
     self.busy = false;
@@ -65,6 +66,8 @@ public:
     if (eof)
       self.close();
     pending->callback({error::success, {std::move(pending->bytes), offset, eof != 0}});
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
   error read_next(std::size_t maximum_bytes, files::callback<block> callback) override {
     if (!emscripten_is_main_runtime_thread())
@@ -86,7 +89,7 @@ public:
 struct opening {
   files::callback<std::shared_ptr<backend_stream>> callback;
   std::shared_ptr<fetch_stream> stream = std::make_shared<fetch_stream>();
-  static void opened(void* context, int status, int handle) {
+  static void opened(void* context, int status, int handle) try {
     std::unique_ptr<opening> pending(static_cast<opening*>(context));
     pending->stream->handle = handle;
     const auto result = translate(status);
@@ -94,6 +97,8 @@ struct opening {
       pending->callback({result, {}});
     else
       pending->callback({result, std::move(pending->stream)});
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
 };
 }

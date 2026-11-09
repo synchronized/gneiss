@@ -19,7 +19,7 @@ constexpr gneiss::engine::ipc_message_kind_mask known_kind_mask =
 
 namespace gneiss::engine {
 
-error ipc_domain_registry::register_domain(const ipc_domain_descriptor& descriptor) noexcept {
+error ipc_domain_registry::register_domain(const ipc_domain_descriptor& descriptor) {
   if (static_cast<std::uint16_t>(descriptor.domain) == 0U || descriptor.version == 0U ||
       descriptor.max_payload_size == 0U ||
       descriptor.max_payload_size > ipc_envelope_max_payload_size ||
@@ -42,7 +42,7 @@ error ipc_domain_registry::register_domain(const ipc_domain_descriptor& descript
       return error::invalid_argument;
     }
   }
-  try {
+  {
     registered_domain registered{
         .domain = descriptor.domain,
         .version = descriptor.version,
@@ -53,10 +53,6 @@ error ipc_domain_registry::register_domain(const ipc_domain_descriptor& descript
         .handler_context = descriptor.handler_context};
     domains_.push_back(std::move(registered));
     return error::success;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 }
 
@@ -74,7 +70,7 @@ ipc_dispatcher::ipc_dispatcher(const ipc_domain_registry& registry) noexcept
     : registry_(&registry) {}
 
 ipc_dispatch_outcome ipc_dispatcher::dispatch(const ipc_envelope& envelope,
-                                              const ipc_dispatch_context& context) const noexcept {
+                                              const ipc_dispatch_context& context) const {
   if (validate_ipc_envelope(envelope) != error::success) {
     return {.rejection = ipc_dispatch_rejection::invalid_envelope};
   }

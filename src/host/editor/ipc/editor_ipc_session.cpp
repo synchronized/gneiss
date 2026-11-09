@@ -49,12 +49,12 @@ struct editor_ipc_session::implementation final {
   std::uint32_t next_request_id = 2U;
 
   gneiss::engine::error dispatch(const gneiss::engine::ipc_envelope& envelope,
-                                 runtime_ipc_event& output) noexcept {
+                                 runtime_ipc_event& output) {
     return router.dispatch(envelope, is_authenticated, negotiated_domains, output);
   }
 
   gneiss::engine::error accept_hello(const gneiss::engine::ipc_envelope& envelope,
-                                     std::chrono::steady_clock::time_point now) noexcept {
+                                     std::chrono::steady_clock::time_point now) {
     runtime_ipc_event decoded;
     auto operation = dispatch(envelope, decoded);
     ipc_session_hello acknowledgment_message;
@@ -90,7 +90,7 @@ struct editor_ipc_session::implementation final {
     return gneiss::engine::error::success;
   }
 
-  gneiss::engine::error send(gneiss::engine::ipc_envelope envelope) noexcept {
+  gneiss::engine::error send(gneiss::engine::ipc_envelope envelope) {
     return server.send(envelope);
   }
 };
@@ -104,12 +104,12 @@ editor_ipc_session::~editor_ipc_session() {
   }
 }
 
-gneiss::engine::error editor_ipc_session::start() noexcept {
+gneiss::engine::error editor_ipc_session::start() {
   if (!implementation_ || !implementation_->router.is_ready() ||
       implementation_->server.state() != gneiss::engine::ipc_transport_state::stopped) {
     return gneiss::engine::error::invalid_state;
   }
-  try {
+  {
     implementation_->negotiated_domains.clear();
     implementation_->token = make_session_token();
     implementation_->is_authenticated = false;
@@ -122,14 +122,10 @@ gneiss::engine::error editor_ipc_session::start() noexcept {
       implementation_->handshake.reset(std::chrono::steady_clock::now());
     }
     return operation;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
-gneiss::engine::error editor_ipc_session::stop() noexcept {
+gneiss::engine::error editor_ipc_session::stop() {
   if (!implementation_) {
     return gneiss::engine::error::not_ready;
   }
@@ -147,14 +143,14 @@ gneiss::engine::error editor_ipc_session::stop() noexcept {
 }
 
 gneiss::engine::error editor_ipc_session::update(bool is_peer_running,
-                                                 std::vector<runtime_ipc_event>& output) noexcept {
+                                                 std::vector<runtime_ipc_event>& output) {
   if (!implementation_) {
     return gneiss::engine::error::invalid_state;
   }
   const auto now = std::chrono::steady_clock::now();
   std::vector<gneiss::engine::ipc_transport_event> events;
   (void)implementation_->server.poll_events(events);
-  try {
+  {
     auto transport_failure = gneiss::engine::error::success;
     for (auto& event : events) {
       if (event.type == gneiss::engine::ipc_transport_event_type::error ||
@@ -213,14 +209,10 @@ gneiss::engine::error editor_ipc_session::update(bool is_peer_running,
     }
     return implementation_->heartbeat.expired(now) ? gneiss::engine::error::not_ready
                                                    : gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
-gneiss::engine::error editor_ipc_session::request_stop() noexcept {
+gneiss::engine::error editor_ipc_session::request_stop() {
   if (!is_authenticated()) {
     return gneiss::engine::error::not_ready;
   }
@@ -230,7 +222,7 @@ gneiss::engine::error editor_ipc_session::request_stop() noexcept {
                                                      : operation;
 }
 
-gneiss::engine::error editor_ipc_session::request_pause() noexcept {
+gneiss::engine::error editor_ipc_session::request_pause() {
   if (!is_authenticated()) {
     return gneiss::engine::error::not_ready;
   }
@@ -240,7 +232,7 @@ gneiss::engine::error editor_ipc_session::request_pause() noexcept {
                                                      : operation;
 }
 
-gneiss::engine::error editor_ipc_session::request_resume() noexcept {
+gneiss::engine::error editor_ipc_session::request_resume() {
   if (!is_authenticated()) {
     return gneiss::engine::error::not_ready;
   }
@@ -250,7 +242,7 @@ gneiss::engine::error editor_ipc_session::request_resume() noexcept {
                                                      : operation;
 }
 
-gneiss::engine::error editor_ipc_session::request_inspection_resync() noexcept {
+gneiss::engine::error editor_ipc_session::request_inspection_resync() {
   if (!is_authenticated()) {
     return gneiss::engine::error::not_ready;
   }
@@ -260,8 +252,7 @@ gneiss::engine::error editor_ipc_session::request_inspection_resync() noexcept {
                                                      : operation;
 }
 
-gneiss::engine::error
-editor_ipc_session::send_property_write(const ipc_property_write& value) noexcept {
+gneiss::engine::error editor_ipc_session::send_property_write(const ipc_property_write& value) {
   if (!is_authenticated() || !supports_property_editing()) {
     return gneiss::engine::error::not_ready;
   }
@@ -272,7 +263,7 @@ editor_ipc_session::send_property_write(const ipc_property_write& value) noexcep
 }
 
 gneiss::engine::error editor_ipc_session::send_asset_cancel(std::uint64_t session,
-                                                            std::uint64_t revision) noexcept {
+                                                            std::uint64_t revision) {
   if (!is_authenticated() || !supports_asset_reload())
     return gneiss::engine::error::not_ready;
   gneiss::engine::ipc_envelope envelope;
@@ -281,9 +272,8 @@ gneiss::engine::error editor_ipc_session::send_asset_cancel(std::uint64_t sessio
                                                    : encoded;
 }
 
-gneiss::engine::error
-editor_ipc_session::send_asset_reload(const ipc_asset_reload_request& command,
-                                      ipc_asset_operation operation) noexcept {
+gneiss::engine::error editor_ipc_session::send_asset_reload(const ipc_asset_reload_request& command,
+                                                            ipc_asset_operation operation) {
   if (!is_authenticated() || !supports_asset_reload()) {
     return gneiss::engine::error::not_ready;
   }
@@ -305,7 +295,7 @@ bool editor_ipc_session::supports_scene_loading() const noexcept {
              implementation_->negotiated_domains.end();
 }
 gneiss::engine::error editor_ipc_session::send_scene_request(const ipc_scene_request& value,
-                                                             bool cancel) noexcept {
+                                                             bool cancel) {
   if (!is_authenticated() || !supports_scene_loading())
     return gneiss::engine::error::not_ready;
   gneiss::engine::ipc_envelope envelope;
@@ -324,7 +314,7 @@ bool editor_ipc_session::supports_asset_reload() const noexcept {
   return implementation_ && implementation_->supports_asset_reload;
 }
 
-gneiss::engine::ipc_endpoint editor_ipc_session::endpoint() const noexcept {
+gneiss::engine::ipc_endpoint editor_ipc_session::endpoint() const {
   return implementation_ ? implementation_->server.endpoint() : gneiss::engine::ipc_endpoint{};
 }
 

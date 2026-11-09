@@ -16,7 +16,7 @@ class world_state;
 [[nodiscard]] error build_render_snapshot(world_state& world, std::uint32_t viewport_width,
                                           std::uint32_t viewport_height,
                                           render_snapshot& out_snapshot,
-                                          const view_camera* camera = nullptr) noexcept;
+                                          const view_camera* camera = nullptr);
 
 } // namespace gneiss::engine
 

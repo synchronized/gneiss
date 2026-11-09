@@ -58,7 +58,7 @@ asset_browser_result asset_browser_model::refresh(const std::filesystem::path& p
   if (project_root.empty() || asset_root.empty()) {
     return asset_browser_result::invalid_argument;
   }
-  try {
+  {
     const auto canonical_project = std::filesystem::weakly_canonical(project_root);
     const auto canonical_assets = std::filesystem::weakly_canonical(asset_root);
     if (!std::filesystem::is_directory(canonical_project) ||
@@ -141,8 +141,6 @@ asset_browser_result asset_browser_model::refresh(const std::filesystem::path& p
     entries_ = std::move(pending);
     diagnostic_.clear();
     return asset_browser_result::success;
-  } catch (...) {
-    return asset_browser_result::io_error;
   }
 }
 

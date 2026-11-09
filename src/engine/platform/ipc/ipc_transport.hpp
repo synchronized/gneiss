@@ -55,14 +55,14 @@ public:
   ipc_transport(const ipc_transport&) = delete;
   ipc_transport& operator=(const ipc_transport&) = delete;
 
-  [[nodiscard]] error start_server() noexcept;
-  [[nodiscard]] error start_client(const ipc_endpoint& endpoint) noexcept;
-  [[nodiscard]] error send(const ipc_envelope& envelope) noexcept;
-  [[nodiscard]] error stop() noexcept;
+  [[nodiscard]] error start_server();
+  [[nodiscard]] error start_client(const ipc_endpoint& endpoint);
+  [[nodiscard]] error send(const ipc_envelope& envelope);
+  [[nodiscard]] error stop();
 
   [[nodiscard]] std::size_t poll_events(std::vector<ipc_transport_event>& output,
-                                        std::size_t max_count = 64U) noexcept;
-  [[nodiscard]] ipc_endpoint endpoint() const noexcept;
+                                        std::size_t max_count = 64U);
+  [[nodiscard]] ipc_endpoint endpoint() const;
   [[nodiscard]] ipc_transport_state state() const noexcept;
   [[nodiscard]] std::size_t dropped_event_count() const noexcept;
   [[nodiscard]] std::size_t pending_write_count() const noexcept;

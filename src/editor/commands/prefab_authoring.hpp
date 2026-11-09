@@ -59,7 +59,7 @@ struct prefab_override_entry {
 };
 [[nodiscard]] engine::result<std::vector<prefab_override_entry>>
 describe_prefab_overrides(const engine::prefab_reference_description&,
-                          const engine::prefab_description&) noexcept;
+                          const engine::prefab_description&);
 /** 空 entry 恢复整个实例；不写来源，生成父场景内存变更供快照历史使用。 */
 [[nodiscard]] engine::result<std::vector<author_document_change>>
 prepare_restore_prefab(std::string_view scene_json, std::string_view scene_path,
@@ -79,20 +79,20 @@ prepare_restore_prefab_component(std::string_view scene_json, std::string_view s
  */
 [[nodiscard]] gneiss::engine::error
 prepare_create_prefab(std::string_view scene_json, const create_prefab_author_request& request,
-                      std::vector<author_document_change>& out_changes) noexcept;
+                      std::vector<author_document_change>& out_changes);
 
 /** 应用完整组件/属性覆盖并检查当前场景全部同源实例；只生成计划，不写文件。 */
 [[nodiscard]] gneiss::engine::error
 prepare_apply_prefab(std::string_view scene_json, std::string_view prefab_json,
                      const apply_prefab_author_request& request, apply_prefab_author_plan& out_plan,
-                     engine::scene_diagnostic* diagnostic = nullptr) noexcept;
+                     engine::scene_diagnostic* diagnostic = nullptr);
 
 /** 将指定 Prefab 实例的当前可见投影物化为拥有新 UUID 的普通场景子树。 */
 [[nodiscard]] gneiss::engine::error
 prepare_unpack_prefab(std::string_view scene_json, std::string_view prefab_json,
                       const unpack_prefab_author_request& request,
                       std::vector<author_document_change>& out_changes,
-                      engine::scene_diagnostic* diagnostic = nullptr) noexcept;
+                      engine::scene_diagnostic* diagnostic = nullptr);
 
 } // namespace gneiss::editor
 

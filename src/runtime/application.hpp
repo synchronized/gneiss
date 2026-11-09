@@ -54,15 +54,14 @@ public:
   /** 返回已初始化对象的拥有引用；失败返回错误并清理部分初始化的资源。
    * 创建、运行及最后释放均限所属线程，不创建对外句柄。 */
   [[nodiscard]] static GNEISS_API engine::result<std::shared_ptr<application>>
-  create(const application_configuration& config) noexcept;
+  create(const application_configuration& config);
   [[nodiscard]] GNEISS_API gneiss::engine::error
-  set_view_camera(const gneiss::engine::view_camera* camera) noexcept;
+  set_view_camera(const gneiss::engine::view_camera* camera);
   [[nodiscard]] GNEISS_API gneiss::engine::error
-  capture_frame(std::uint32_t width, std::uint32_t height,
-                gneiss::engine::frame_image& output) noexcept;
-  [[nodiscard]] GNEISS_API gneiss::engine::render_queue_stats render_statistics() const noexcept;
+  capture_frame(std::uint32_t width, std::uint32_t height, gneiss::engine::frame_image& output);
+  [[nodiscard]] GNEISS_API gneiss::engine::render_queue_stats render_statistics() const;
   [[nodiscard]] GNEISS_API gneiss::engine::error
-  attach_task_executor(gneiss::engine::task_executor& executor) noexcept;
+  attach_task_executor(gneiss::engine::task_executor& executor);
   [[nodiscard]] GNEISS_API bool has_asset_loading_service() const noexcept;
   /** 借用加载协调服务；必须在 Application 生命周期内、所属线程使用。 */
   [[nodiscard]] GNEISS_API runtime::scene_service& scene_loading_service() noexcept;
@@ -79,7 +78,7 @@ public:
                  bool reload = false);
   [[nodiscard]] GNEISS_API engine::result<asset_load_completion>
   poll_prepared_assets(std::uint64_t request);
-  [[nodiscard]] GNEISS_API engine::error discard_prepared_assets(std::uint64_t request) noexcept;
+  [[nodiscard]] GNEISS_API engine::error discard_prepared_assets(std::uint64_t request);
   [[nodiscard]] GNEISS_API gneiss::engine::error
   request_assets(std::span<const gneiss::engine::render_resource_source> sources,
                  std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
@@ -87,7 +86,7 @@ public:
   [[nodiscard]] GNEISS_API gneiss::engine::error
   poll_assets(gneiss::runtime::asset_load_completion& completion, bool& ready);
   [[nodiscard]] GNEISS_API bool
-  asset_progress(gneiss::runtime::asset_load_progress& progress) const noexcept;
+  asset_progress(gneiss::runtime::asset_load_progress& progress) const;
   [[nodiscard]] GNEISS_API gneiss::engine::error cancel_assets(std::uint64_t request = 0) noexcept;
   GNEISS_API void advance_scene_load();
   [[nodiscard]] GNEISS_API bool visual_assets_loading() const noexcept;
@@ -100,7 +99,7 @@ private:
   resource_load_group* loading_assets() noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::error advance_resource_io();
   explicit GNEISS_API application(const runtime::application_configuration& config);
-  [[nodiscard]] GNEISS_API gneiss::engine::error initialize() noexcept;
+  [[nodiscard]] GNEISS_API gneiss::engine::error initialize();
   GNEISS_API void report_visual_completion();
 
 public:
@@ -113,11 +112,11 @@ public:
 
   /** 所属线程、run 之外请求关闭；拒绝新操作，不等待文件和 CPU 任务。
    * 继续调用 advance_shutdown，返回 not_ready 时让出执行权；终态后可销毁宿主执行器。 */
-  [[nodiscard]] GNEISS_API gneiss::engine::error request_shutdown() noexcept;
+  [[nodiscard]] GNEISS_API gneiss::engine::error request_shutdown();
   /** 非阻塞推进文件/CPU 收尾；最终设备销毁仍使用 Render 的既有关闭流程。 */
-  [[nodiscard]] GNEISS_API gneiss::engine::error advance_shutdown() noexcept;
-  [[nodiscard]] GNEISS_API gneiss::engine::error shutdown() noexcept;
-  [[nodiscard]] GNEISS_API gneiss::engine::error run(std::uint64_t max_frame_count) noexcept;
+  [[nodiscard]] GNEISS_API gneiss::engine::error advance_shutdown();
+  [[nodiscard]] GNEISS_API gneiss::engine::error shutdown();
+  [[nodiscard]] GNEISS_API gneiss::engine::error run(std::uint64_t max_frame_count);
   [[nodiscard]] GNEISS_API bool is_owner_thread() const noexcept;
   [[nodiscard]] GNEISS_API bool accepts_requests() const noexcept;
   /** 借用活动 World；场景切换或关闭后必须重新获取，禁止解引用旧指针。 */
@@ -129,11 +128,10 @@ public:
   [[nodiscard]] GNEISS_API std::shared_ptr<gneiss::engine::files::service>
   async_files() const noexcept;
   /** 异步重载现有实例的结构；prefab 指定是否更新该实例中的同源 Prefab。 */
-  [[nodiscard]] GNEISS_API engine::error request_scene_reload(scene_instance_id instance,
-                                                              std::string_view uri,
-                                                              bool prefab = false) noexcept;
+  [[nodiscard]] GNEISS_API engine::error
+  request_scene_reload(scene_instance_id instance, std::string_view uri, bool prefab = false);
   [[nodiscard]] GNEISS_API engine::result<std::optional<scene_reload_completion>>
-  poll_scene_reload() noexcept;
+  poll_scene_reload();
   [[nodiscard]] GNEISS_API gneiss::engine::scene_instances* scenes() noexcept;
   [[nodiscard]] GNEISS_API const gneiss::engine::keyboard_state& keyboard_state() const noexcept;
   [[nodiscard]] GNEISS_API const gneiss::engine::pointer_state& pointer_state() const noexcept;
@@ -142,7 +140,7 @@ public:
   [[nodiscard]] GNEISS_API gneiss::engine::error
   get_window_size(std::uint32_t& out_width, std::uint32_t& out_height) const noexcept;
   /** 仅所属线程；成功只表示已接受，主循环在 update 前应用。未启用后端返回 UNSUPPORTED。 */
-  [[nodiscard]] GNEISS_API gneiss::engine::error begin_action_map(std::string_view uri) noexcept;
+  [[nodiscard]] GNEISS_API gneiss::engine::error begin_action_map(std::string_view uri);
   /** NOT_READY 表示在途；成功表示已应用。失败保留原映射。 */
   [[nodiscard]] GNEISS_API gneiss::engine::error action_map_status() const noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::error cancel_action_map() noexcept;
@@ -153,21 +151,21 @@ public:
                    gneiss::engine::action_state& out_state) const noexcept;
   [[nodiscard]] GNEISS_API bool can_submit_draw_lists() const noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::error
-  submit_ui_draw_list(const gneiss::engine::ui_draw_view& desc) noexcept;
+  submit_ui_draw_list(const gneiss::engine::ui_draw_view& desc);
   [[nodiscard]] GNEISS_API gneiss::engine::error
-  submit_debug_draw_list(std::span<const gneiss::engine::debug_line> lines) noexcept;
+  submit_debug_draw_list(std::span<const gneiss::engine::debug_line> lines);
   GNEISS_API void report(gneiss::engine::severity severity, gneiss::engine::category category,
                          gneiss::engine::error result, std::string_view module,
-                         std::string_view message) noexcept;
+                         std::string_view message);
   [[nodiscard]] GNEISS_API gneiss::engine::error
-  submit_log(const gneiss::engine::message_view& message) noexcept;
+  submit_log(const gneiss::engine::message_view& message);
   GNEISS_API void request_exit() noexcept;
   GNEISS_API void set_paused(bool value) noexcept;
 
 private:
   [[nodiscard]] GNEISS_API std::uint64_t now_ns() const;
-  [[nodiscard]] GNEISS_API gneiss::engine::error poll_events(bool& out_should_close) noexcept;
-  [[nodiscard]] GNEISS_API gneiss::engine::error render_frame() noexcept;
+  [[nodiscard]] GNEISS_API gneiss::engine::error poll_events(bool& out_should_close);
+  [[nodiscard]] GNEISS_API gneiss::engine::error render_frame();
 
   struct storage;
   std::unique_ptr<storage> storage_;

@@ -5,15 +5,15 @@
 namespace gneiss::editor {
 engine::error begin_author_file_save(gneiss::engine::files::service& files,
                                      author_document_change change,
-                                     std::shared_ptr<author_file_save>& output) noexcept {
+                                     std::shared_ptr<author_file_save>& output) {
   output.reset();
   if (change.path.empty() || !change.replacement)
     return engine::error::invalid_argument;
-  try {
+  {
     auto receipt = std::make_shared<author_file_save>();
     auto write = [&files, receipt, uri = "asset://" + change.path, content = *change.replacement,
                   exists = change.baseline.has_value()]() {
-      try {
+      {
         const auto bytes = std::as_bytes(std::span{content.data(), content.size()});
         gneiss::engine::files::request_id request;
         auto status = files.write(
@@ -30,10 +30,6 @@ engine::error begin_author_file_save(gneiss::engine::files::service& files,
           receipt->complete = true;
         }
         return status;
-      } catch (...) {
-        receipt->status = engine::error::out_of_memory;
-        receipt->complete = true;
-        return receipt->status;
       }
     };
     engine::error status;
@@ -60,10 +56,6 @@ engine::error begin_author_file_save(gneiss::engine::files::service& files,
     if (status.ok())
       output = std::move(receipt);
     return status;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 }

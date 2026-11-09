@@ -15,8 +15,8 @@ namespace gneiss::engine {
 /** 校验并持有标准 PBR Shader Library 字节；GPU 变体解析由 Granit 负责。 */
 class pbr_shader_resolver final {
 public:
-  [[nodiscard]] granit_result initialize(std::span<const std::byte> bytes) noexcept;
-  [[nodiscard]] granit_result initialize_embedded() noexcept;
+  [[nodiscard]] granit_result initialize(std::span<const std::byte> bytes);
+  [[nodiscard]] granit_result initialize_embedded();
   /** 仅在借用 shader_archive 的 GPU Library 销毁后调用。 */
   void reset() noexcept;
   [[nodiscard]] bool valid() const noexcept;

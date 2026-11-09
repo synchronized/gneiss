@@ -37,6 +37,7 @@ struct test_service_config {
   int event_id;
   gneiss::engine::error initialize_result;
   std::size_t live_resources = 0;
+  bool throw_initialize = false;
 };
 
 class test_service final : public gneiss::engine::service {
@@ -48,8 +49,10 @@ public:
   [[nodiscard]] std::span<const service_kind> dependencies() const noexcept override {
     return config_.dependencies;
   }
-  [[nodiscard]] gneiss::engine::error initialize() noexcept override {
+  [[nodiscard]] gneiss::engine::error initialize() override {
     events_.push(config_.event_id);
+    if (config_.throw_initialize)
+      throw 42;
     return config_.initialize_result;
   }
   void shutdown() noexcept override { events_.push(-config_.event_id); }
@@ -63,6 +66,29 @@ private:
 };
 
 int run_tests() {
+  {
+    event_log events;
+    gneiss::engine::service_registry registry;
+    if (registry
+            .add(std::make_unique<test_service>(
+                test_service_config{.kind = service_kind::platform,
+                                    .dependencies = {},
+                                    .event_id = 1,
+                                    .initialize_result = gneiss::engine::error::success,
+                                    .throw_initialize = true},
+                events))
+            .failed())
+      return 20;
+    bool propagated = false;
+    try {
+      (void)registry.initialize();
+    } catch (int value) {
+      propagated = value == 42;
+    }
+    if (!propagated || !events.matches({1, -1}) || registry.is_initialized(service_kind::platform))
+      return 21;
+  }
+
   const std::array platform_dependency{service_kind::platform};
   const std::array render_dependencies{service_kind::platform, service_kind::resource};
   event_log events;

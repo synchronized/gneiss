@@ -30,7 +30,7 @@ editor_ipc_router::editor_ipc_router() noexcept {
 gneiss::engine::error editor_ipc_router::dispatch(
     const gneiss::engine::ipc_envelope& envelope, bool is_authenticated,
     const std::vector<gneiss::engine::ipc_domain_capability>& negotiated_domains,
-    runtime_ipc_event& output) noexcept {
+    runtime_ipc_event& output) {
   if (!is_ready_) {
     return gneiss::engine::error::invalid_state;
   }

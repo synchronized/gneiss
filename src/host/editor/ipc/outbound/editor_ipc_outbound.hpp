@@ -17,9 +17,9 @@ make_pause_command(std::uint32_t request_id, gneiss::engine::ipc_envelope& outpu
 make_resume_command(std::uint32_t request_id, gneiss::engine::ipc_envelope& output) noexcept;
 [[nodiscard]] gneiss::engine::error
 make_stop_command(std::uint32_t request_id, gneiss::engine::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::error
-make_heartbeat_command(std::uint64_t nonce, std::uint32_t request_id,
-                       gneiss::engine::ipc_envelope& output) noexcept;
+[[nodiscard]] gneiss::engine::error make_heartbeat_command(std::uint64_t nonce,
+                                                           std::uint32_t request_id,
+                                                           gneiss::engine::ipc_envelope& output);
 [[nodiscard]] gneiss::engine::error
 make_inspection_resync_command(std::uint32_t request_id,
                                gneiss::engine::ipc_envelope& output) noexcept;

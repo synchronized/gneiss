@@ -46,9 +46,9 @@ struct component_adapter {
       prepare_editor;
 };
 /** 启动期注册；重复 GUID 拒绝，首次查询后冻结。纯描述回调须支持并发只读调用。 */
-GNEISS_API error register_scene_component(component_adapter adapter) noexcept;
+GNEISS_API error register_scene_component(component_adapter adapter);
 /** 更新已有组件，保持组件 UUID；不存在时返回 not_found，不隐式创建。 */
-GNEISS_API error update_component(component_context, const component_description&) noexcept;
+GNEISS_API error update_component(component_context, const component_description&);
 template <class T> struct component_operations {
   error (*validate)(const T&){};
   error (*install)(component_context&, const T&){};
@@ -182,12 +182,8 @@ template <class T> component_adapter make_component_adapter(component_operations
                    : result<component_description>{prepared.error()};
       }};
 }
-template <class T> error register_scene_component(component_operations<T> ops) noexcept try {
+template <class T> error register_scene_component(component_operations<T> ops) {
   return register_scene_component(make_component_adapter(ops));
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 GNEISS_API result<component_description>
 modify_component(const component_description&, const std::function<error(meta::instance)>&);
@@ -201,38 +197,34 @@ struct component_editor_info {
 GNEISS_API guid component_description_type(guid property_type) noexcept;
 GNEISS_API result<component_editor_info> component_editor(guid type) noexcept;
 GNEISS_API result<component_description>
-prepare_component_editor_value(world&, scene_node_id, const component_description&) noexcept;
+prepare_component_editor_value(world&, scene_node_id, const component_description&);
 /** 返回冻结注册表的自有摘要；显示名称仍从 Meta 查询。 */
 GNEISS_API result<std::vector<component_editor_info>> component_editor_types();
-GNEISS_API result<component_description> default_component_description(guid type) noexcept;
+GNEISS_API result<component_description> default_component_description(guid type);
 /** 只处理单个组件；重复添加返回 invalid_state，缺失删除返回 not_found。 */
-GNEISS_API error add_component(component_context, const component_description&,
-                               guid identity = {}) noexcept;
-GNEISS_API error remove_component(component_context, guid type) noexcept;
-GNEISS_API error validate_components(const component_descriptions&) noexcept;
-GNEISS_API result<component_descriptions> capture_components(world&, scene_node_id) noexcept;
-GNEISS_API error install_components(component_context, const component_descriptions&) noexcept;
+GNEISS_API error add_component(component_context, const component_description&, guid identity = {});
+GNEISS_API error remove_component(component_context, guid type);
+GNEISS_API error validate_components(const component_descriptions&);
+GNEISS_API result<component_descriptions> capture_components(world&, scene_node_id);
+GNEISS_API error install_components(component_context, const component_descriptions&);
 /** 同步替换组件集合；失败由调用方用捕获快照恢复，不改变节点身份。 */
-GNEISS_API error replace_components(component_context, const component_descriptions&) noexcept;
+GNEISS_API error replace_components(component_context, const component_descriptions&);
 GNEISS_API bool equal_components(const component_descriptions&, const component_descriptions&);
 GNEISS_API result<std::vector<render_resource_source>>
-component_dependencies(const component_descriptions&) noexcept;
-GNEISS_API error edit_component(component_descriptions&, guid, meta::property_id,
-                                const value&) noexcept;
-GNEISS_API result<value> read_runtime_component(world&, scene_node_id, guid,
-                                                meta::property_id) noexcept;
-GNEISS_API error edit_runtime_component(component_context, guid, meta::property_id,
-                                        const value&) noexcept;
+component_dependencies(const component_descriptions&);
+GNEISS_API error edit_component(component_descriptions&, guid, meta::property_id, const value&);
+GNEISS_API result<value> read_runtime_component(world&, scene_node_id, guid, meta::property_id);
+GNEISS_API error edit_runtime_component(component_context, guid, meta::property_id, const value&);
 /** 内建渲染依赖桥接；类型判断仅在组件适配实现中。 */
 GNEISS_API result<mesh_renderer> resolve_component_renderer(const component_descriptions&,
-                                                            asset_manager&) noexcept;
+                                                            asset_manager&);
 GNEISS_API mesh_renderer prepared_component_renderer(
     const component_descriptions&, const std::function<render_resource_ref(std::string_view)>&);
 /** 在 World 所属线程定位节点组件；读出副本后访问，写入成功才提交。不会保留对象指针。
  * 失败保持既有组件；普通组件使用已注册适配器；未知组件类型返回
  * unsupported。值及字符串由调用方持有。 */
 [[nodiscard]] GNEISS_API result<value> read_component_property(world& world, std::uint64_t entity,
-                                                               guid, meta::property_id) noexcept;
+                                                               guid, meta::property_id);
 [[nodiscard]] GNEISS_API error write_component_property(world& world, std::uint64_t entity, guid,
-                                                        meta::property_id, const value&) noexcept;
+                                                        meta::property_id, const value&);
 }

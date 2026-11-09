@@ -11,6 +11,6 @@ namespace gneiss::tooling {
 
 /** 离线检查封装、Manifest 和全部变体负载摘要；成功时输出变体及 Mip 布局。 */
 [[nodiscard]] bool inspect_runtime_texture(std::span<const std::byte> bytes, std::string& summary,
-                                           std::string& diagnostic) noexcept;
+                                           std::string& diagnostic);
 
 } // namespace gneiss::tooling

@@ -120,20 +120,15 @@ engine::error import_subtree(const scene_subtree_snapshot& subtree,
 }
 } // namespace
 
-gneiss::engine::error make_editor_uuid(engine::guid& output) noexcept {
-  try {
+gneiss::engine::error make_editor_uuid(engine::guid& output) {
+  {
     output = make_uuid_value();
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
 gneiss::engine::error make_asset_uri(const std::filesystem::path& asset_root,
-                                     const std::filesystem::path& path,
-                                     std::string& output) noexcept {
+                                     const std::filesystem::path& path, std::string& output) {
   if (asset_root.empty() || path.empty()) {
     return gneiss::engine::error::invalid_argument;
   }
@@ -158,10 +153,8 @@ gneiss::engine::error make_asset_uri(const std::filesystem::path& asset_root,
     }
     output = std::move(uri);
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::io;
+  } catch (const std::filesystem::filesystem_error&) {
+    return engine::error::io;
   }
 }
 
@@ -174,8 +167,7 @@ bool scene_edit_session::is_open() const noexcept {
   return scenes && document_ && bool(document_->current());
 }
 template <class F>
-std::invoke_result_t<F, engine::scene_instances&>
-scene_edit_session::with_scene(F&& action) const noexcept {
+std::invoke_result_t<F, engine::scene_instances&> scene_edit_session::with_scene(F&& action) const {
   if (!is_open())
     return engine::error::invalid_state;
   auto* service = application_->scenes();
@@ -204,12 +196,12 @@ scene_edit_session& scene_edit_session::operator=(scene_edit_session&& other) no
 gneiss::engine::error
 scene_edit_session::adopt(runtime::application& application, gneiss::engine::world* world,
                           gneiss::scene_instance_id scene, const scene_document_snapshot& initial,
-                          std::span<const engine::scene_object_binding> objects) noexcept {
+                          std::span<const engine::scene_object_binding> objects) {
   if (edit_base_ || !application.is_owner_thread() || !application.accepts_requests())
     return gneiss::engine::error::invalid_state;
   if (world != application.native_world() || initial.uri.empty() || !scene)
     return gneiss::engine::error::invalid_argument;
-  try {
+  {
     const auto count = application.scenes()->get_node_count(scene);
     if (!count)
       return count.error();
@@ -236,16 +228,12 @@ scene_edit_session::adopt(runtime::application& application, gneiss::engine::wor
     }
     *this = std::move(pending);
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
 gneiss::engine::error scene_edit_session::create_empty(runtime::application& application,
                                                        gneiss::engine::world* world,
-                                                       gneiss::engine::guid scene_uuid) noexcept {
+                                                       gneiss::engine::guid scene_uuid) {
   if (edit_base_ || !application.is_owner_thread() || !application.accepts_requests())
     return gneiss::engine::error::invalid_state;
   if (world != application.native_world() || scene_uuid.is_nil())
@@ -264,8 +252,9 @@ gneiss::engine::error scene_edit_session::create_empty(runtime::application& app
   try {
     versions = std::make_unique<scene_document>();
   } catch (...) {
+    // 局部状态清理后传播意外异常，不作为普通操作失败继续执行。
     (void)application.scenes()->unload(*created);
-    return engine::error::out_of_memory;
+    throw;
   }
   const auto status = versions->reset(*frozen, false);
   if (status.failed()) {
@@ -286,32 +275,24 @@ gneiss::engine::error scene_edit_session::create_empty(runtime::application& app
 }
 
 gneiss::engine::error scene_edit_session::create_empty(runtime::application& application,
-                                                       gneiss::engine::world* world) noexcept {
-  try {
+                                                       gneiss::engine::world* world) {
+  {
     return create_empty(application, world, make_uuid_value());
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
-engine::result<scene_document_snapshot> scene_edit_session::capture_content() const noexcept try {
+engine::result<scene_document_snapshot> scene_edit_session::capture_content() const {
   if (!is_open())
     return engine::error::invalid_state;
   auto snapshot = document_->current().content();
   snapshot.uri = uri_;
   return snapshot;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 engine::error scene_edit_session::projection_status() const noexcept {
   return document_ ? projection_.status(document_->current())
                    : engine::error{engine::error::invalid_state};
 }
-engine::error scene_edit_session::accept_content(const scene_document_snapshot& snapshot) noexcept {
+engine::error scene_edit_session::accept_content(const scene_document_snapshot& snapshot) {
   if (!is_open())
     return engine::error::invalid_state;
   if (snapshot.uri != uri_)
@@ -331,7 +312,7 @@ engine::error scene_edit_session::accept_content(const scene_document_snapshot& 
   }
   return engine::error::success;
 }
-engine::error scene_edit_session::synchronize() noexcept try {
+engine::error scene_edit_session::synchronize() try {
   if (!is_open())
     return engine::error::invalid_state;
   const auto version = document_->current();
@@ -353,17 +334,15 @@ engine::error scene_edit_session::synchronize() noexcept try {
     }
   }
   return report_projection(version, status);
-} catch (const std::bad_alloc&) {
-  if (document_)
-    (void)report_projection(document_->current(), engine::error::out_of_memory);
-  return engine::error::out_of_memory;
 } catch (...) {
+  // 局部状态清理后传播意外异常，不作为普通操作失败继续执行。
   if (document_)
     (void)report_projection(document_->current(), engine::error::internal);
-  return engine::error::internal;
+  throw;
 }
-engine::error scene_edit_session::edit_content(
-    const content_edit& edit, const std::function<engine::error()>& after_projection) noexcept try {
+engine::error
+scene_edit_session::edit_content(const content_edit& edit,
+                                 const std::function<engine::error()>& after_projection) {
   auto next = capture_content();
   if (!next)
     return next.error();
@@ -406,24 +385,16 @@ engine::error scene_edit_session::edit_content(
       }
     }
     if (after_projection) {
-      try {
+      {
         projection = after_projection();
-      } catch (const std::bad_alloc&) {
-        projection = engine::error::out_of_memory;
-      } catch (...) {
-        projection = engine::error::internal;
       }
     }
   }
   (void)report_projection(document_->current(), projection);
   return engine::error::success;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 engine::result<scene_edit_session::edit_target>
-scene_edit_session::locate(scene_node_id node) const noexcept try {
+scene_edit_session::locate(scene_node_id node) const {
   if (!is_open())
     return engine::error::invalid_state;
   if (!node)
@@ -441,10 +412,6 @@ scene_edit_session::locate(scene_node_id node) const noexcept try {
   if (found == composed->objects.end())
     return engine::error::not_found;
   return edit_target{address.object, address.source, std::move(found->effective)};
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 
 engine::error scene_edit_session::report_projection(const version& projected,
@@ -455,8 +422,8 @@ engine::error scene_edit_session::report_projection(const version& projected,
   (void)projection_.report(document_->current(), projected, status);
   return status;
 }
-engine::result<scene_query_snapshot> scene_edit_session::capture_nodes() const noexcept {
-  try {
+engine::result<scene_query_snapshot> scene_edit_session::capture_nodes() const {
+  {
     auto snapshot = capture_content();
     if (!snapshot)
       return snapshot.error();
@@ -501,22 +468,18 @@ engine::result<scene_query_snapshot> scene_edit_session::capture_nodes() const n
       result.prefab_nodes.push_back(std::move(record));
     }
     return result;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 
 gneiss::engine::error
 scene_edit_session::get_world_transform(scene_node_id node,
-                                        gneiss::engine::math::transform& output) const noexcept {
+                                        gneiss::engine::math::transform& output) const {
   auto snapshot = capture_nodes();
   if (!snapshot)
     return snapshot.error();
   engine::math::transform result;
   std::set<scene_node_id> seen;
-  try {
+  {
     while (node) {
       if (!seen.insert(node).second)
         return engine::error::invalid_state;
@@ -533,14 +496,12 @@ scene_edit_session::get_world_transform(scene_node_id node,
     }
     output = result;
     return engine::error::success;
-  } catch (...) {
-    return engine::error::out_of_memory;
   }
 }
 
 gneiss::engine::error
 scene_edit_session::set_local_transform(scene_node_id node,
-                                        const gneiss::engine::math::transform& value) noexcept {
+                                        const gneiss::engine::math::transform& value) {
   auto target = locate(node);
   if (!target)
     return target.error();
@@ -564,9 +525,9 @@ scene_edit_session::set_local_transform(scene_node_id node,
   });
 }
 
-gneiss::engine::error scene_edit_session::restore_prefab_transform_field(
-    scene_node_id node, std::uint32_t field_id,
-    gneiss::engine::math::transform& out_previous) noexcept {
+gneiss::engine::error
+scene_edit_session::restore_prefab_transform_field(scene_node_id node, std::uint32_t field_id,
+                                                   gneiss::engine::math::transform& out_previous) {
   const auto found = query_prefab_node(node);
   if (!found || found->is_instance_root) {
     return gneiss::engine::error::invalid_argument;
@@ -593,8 +554,9 @@ gneiss::engine::error scene_edit_session::restore_prefab_transform_field(
   return operation;
 }
 
-gneiss::engine::error scene_edit_session::restore_prefab_transform(
-    scene_node_id node, gneiss::engine::math::transform& out_previous) noexcept {
+gneiss::engine::error
+scene_edit_session::restore_prefab_transform(scene_node_id node,
+                                             gneiss::engine::math::transform& out_previous) {
   const auto found = query_prefab_node(node);
   if (!found || found->is_instance_root) {
     return gneiss::engine::error::invalid_argument;
@@ -608,7 +570,7 @@ gneiss::engine::error scene_edit_session::restore_prefab_transform(
 }
 
 gneiss::engine::error scene_edit_session::create_node(std::string_view name, scene_node_id parent,
-                                                      scene_node_id& out_node) noexcept {
+                                                      scene_node_id& out_node) {
   out_node = {};
   auto parent_target = parent ? locate(parent) : engine::result<edit_target>{edit_target{}};
   if (!parent_target)
@@ -636,8 +598,7 @@ gneiss::engine::error scene_edit_session::create_node(std::string_view name, sce
       });
 }
 
-gneiss::engine::error scene_edit_session::rename_node(scene_node_id node,
-                                                      std::string_view name) noexcept {
+gneiss::engine::error scene_edit_session::rename_node(scene_node_id node, std::string_view name) {
   auto target = locate(node);
   if (!target)
     return target.error();
@@ -652,8 +613,7 @@ gneiss::engine::error scene_edit_session::rename_node(scene_node_id node,
   });
 }
 
-gneiss::engine::error scene_edit_session::reparent_node(scene_node_id node,
-                                                        scene_node_id parent) noexcept {
+gneiss::engine::error scene_edit_session::reparent_node(scene_node_id node, scene_node_id parent) {
   auto target = locate(node);
   auto destination = parent ? locate(parent) : engine::result<edit_target>{edit_target{}};
   if (!target)
@@ -672,7 +632,7 @@ gneiss::engine::error scene_edit_session::reparent_node(scene_node_id node,
 }
 
 engine::error scene_edit_session::destroy_subtree(scene_node_id node,
-                                                  scene_subtree_snapshot& output) noexcept try {
+                                                  scene_subtree_snapshot& output) {
   auto snapshot = capture_subtree(node);
   if (!snapshot)
     return snapshot.error();
@@ -689,14 +649,10 @@ engine::error scene_edit_session::destroy_subtree(scene_node_id node,
     selection_ = {};
   }
   return result;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 
 engine::error scene_edit_session::restore_subtree(const scene_subtree_snapshot& snapshot,
-                                                  scene_node_id& output) noexcept {
+                                                  scene_node_id& output) {
   output = {};
   auto parent = document_node(*this, snapshot.parent);
   if (!parent)
@@ -716,7 +672,7 @@ engine::error scene_edit_session::restore_subtree(const scene_subtree_snapshot& 
 }
 
 engine::error scene_edit_session::duplicate_subtree(scene_node_id node, scene_node_id parent,
-                                                    scene_node_id& output) noexcept try {
+                                                    scene_node_id& output) {
   auto captured = capture_subtree(node);
   if (!captured)
     return captured.error();
@@ -755,22 +711,18 @@ engine::error scene_edit_session::duplicate_subtree(scene_node_id node, scene_no
   snapshot.resources = std::move(resources);
   snapshot.parent = {target->object, target->source};
   return restore_subtree(snapshot, output);
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 
 engine::result<engine::component_descriptions>
-scene_edit_session::components(scene_node_id node) const noexcept {
+scene_edit_session::components(scene_node_id node) const {
   auto target = locate(node);
   if (!target)
     return target.error();
   return target->effective.components;
 }
 engine::result<prefab_component_state>
-scene_edit_session::capture_component_override(scene_node_id node, engine::guid type) noexcept {
-  try {
+scene_edit_session::capture_component_override(scene_node_id node, engine::guid type) {
+  {
     auto target = locate(node);
     if (!target)
       return target.error();
@@ -799,15 +751,10 @@ scene_edit_session::capture_component_override(scene_node_id node, engine::guid 
       result.resources = *binding;
     }
     return result;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
-engine::error
-scene_edit_session::set_component_override(scene_node_id node, engine::guid type,
-                                           const prefab_component_state& state) noexcept {
+engine::error scene_edit_session::set_component_override(scene_node_id node, engine::guid type,
+                                                         const prefab_component_state& state) {
   auto target = locate(node);
   if (!target)
     return target.error();
@@ -842,41 +789,38 @@ scene_edit_session::set_component_override(scene_node_id node, engine::guid type
 }
 engine::error
 scene_edit_session::add_component_description(scene_node_id node,
-                                              const engine::component_description& value) noexcept {
+                                              const engine::component_description& value) {
   return value ? edit_component(node, value->guid(), value, 1)
                : engine::error{engine::error::invalid_argument};
 }
 engine::error scene_edit_session::remove_component_description(scene_node_id node,
-                                                               engine::guid type) noexcept {
+                                                               engine::guid type) {
   return edit_component(node, type, {}, -1);
 }
 engine::error
 scene_edit_session::set_component_description(scene_node_id node,
-                                              const engine::component_description& value) noexcept {
+                                              const engine::component_description& value) {
   return value ? edit_component(node, value->guid(), value, 0)
                : engine::error{engine::error::invalid_argument};
 }
 
 gneiss::engine::error
-scene_edit_session::set_camera(scene_node_id node,
-                               const gneiss::engine::camera_description& desc) noexcept {
-  try {
+scene_edit_session::set_camera(scene_node_id node, const gneiss::engine::camera_description& desc) {
+  {
     auto current = components(node);
     if (!current)
       return current.error();
     return edit_component(node, engine::camera_description::type_guid,
                           engine::make_component_description(desc),
                           current->get<engine::camera_description>() ? 0 : 1);
-  } catch (...) {
-    return engine::error::out_of_memory;
   }
 }
 
-gneiss::engine::error scene_edit_session::remove_camera(scene_node_id node) noexcept {
+gneiss::engine::error scene_edit_session::remove_camera(scene_node_id node) {
   return remove_component_description(node, engine::camera_description::type_guid);
 }
 
-gneiss::engine::error scene_edit_session::remove_mesh_renderer(scene_node_id node) noexcept {
+gneiss::engine::error scene_edit_session::remove_mesh_renderer(scene_node_id node) {
   return remove_component_description(node, engine::mesh_renderer_description::type_guid);
 }
 
@@ -892,8 +836,7 @@ void scene_edit_session::close() noexcept {
   world_ = 0;
 }
 
-engine::result<scene_node_record> scene_edit_session::query_node(scene_node_id node) const noexcept
-    try {
+engine::result<scene_node_record> scene_edit_session::query_node(scene_node_id node) const {
   auto snapshot = capture_nodes();
   if (!snapshot)
     return snapshot.error();
@@ -901,13 +844,8 @@ engine::result<scene_node_record> scene_edit_session::query_node(scene_node_id n
     if (item.node == node && node)
       return std::move(item);
   return engine::error::not_found;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
-engine::result<prefab_node_record>
-scene_edit_session::query_prefab_node(scene_node_id node) const noexcept try {
+engine::result<prefab_node_record> scene_edit_session::query_prefab_node(scene_node_id node) const {
   auto snapshot = capture_nodes();
   if (!snapshot)
     return snapshot.error();
@@ -915,13 +853,8 @@ scene_edit_session::query_prefab_node(scene_node_id node) const noexcept try {
     if (item.node == node && node)
       return std::move(item);
   return engine::error::not_found;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
-engine::result<scene_node_record> scene_edit_session::find_node(engine::guid uuid) const noexcept
-    try {
+engine::result<scene_node_record> scene_edit_session::find_node(engine::guid uuid) const {
   auto snapshot = capture_nodes();
   if (!snapshot)
     return snapshot.error();
@@ -929,13 +862,8 @@ engine::result<scene_node_record> scene_edit_session::find_node(engine::guid uui
     if (item.uuid == uuid)
       return std::move(item);
   return engine::error::not_found;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
-engine::result<prefab_node_record>
-scene_edit_session::find_prefab_root(engine::guid uuid) const noexcept try {
+engine::result<prefab_node_record> scene_edit_session::find_prefab_root(engine::guid uuid) const {
   auto snapshot = capture_nodes();
   if (!snapshot)
     return snapshot.error();
@@ -943,13 +871,9 @@ scene_edit_session::find_prefab_root(engine::guid uuid) const noexcept try {
     if (item.instance_uuid == uuid && item.is_instance_root)
       return std::move(item);
   return engine::error::not_found;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 engine::result<prefab_node_record>
-scene_edit_session::find_prefab_source(engine::guid uuid, engine::guid source) const noexcept try {
+scene_edit_session::find_prefab_source(engine::guid uuid, engine::guid source) const {
   auto snapshot = capture_nodes();
   if (!snapshot)
     return snapshot.error();
@@ -957,18 +881,14 @@ scene_edit_session::find_prefab_source(engine::guid uuid, engine::guid source) c
     if (item.instance_uuid == uuid && item.source_node_uuid == source)
       return std::move(item);
   return engine::error::not_found;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
-engine::result<scene_node_record> scene_edit_session::selected_node() const noexcept {
+engine::result<scene_node_record> scene_edit_session::selected_node() const {
   return query_node(selection_);
 }
-engine::result<prefab_node_record> scene_edit_session::selected_prefab_node() const noexcept {
+engine::result<prefab_node_record> scene_edit_session::selected_prefab_node() const {
   return query_prefab_node(selection_);
 }
-engine::error scene_edit_session::select(scene_node_id node) noexcept {
+engine::error scene_edit_session::select(scene_node_id node) {
   if (!is_open())
     return engine::error::invalid_state;
   if (node) {
@@ -985,7 +905,7 @@ engine::error scene_edit_session::select(scene_node_id node) noexcept {
   selection_ = node;
   return engine::error::success;
 }
-engine::error scene_edit_session::validate_selection() noexcept {
+engine::error scene_edit_session::validate_selection() {
   if (!is_open())
     return engine::error::invalid_state;
   if (!selection_)
@@ -1001,8 +921,8 @@ engine::error scene_edit_session::validate_selection() noexcept {
 }
 
 engine::result<engine::scene_mesh_binding>
-scene_edit_session::capture_mesh_binding(scene_node_id node) const noexcept {
-  try {
+scene_edit_session::capture_mesh_binding(scene_node_id node) const {
+  {
     auto values = components(node);
     if (!values)
       return values.error();
@@ -1016,14 +936,12 @@ scene_edit_session::capture_mesh_binding(scene_node_id node) const noexcept {
     if (auto found = assets.find(renderer->material_uri); found != assets.end())
       result.material = engine::resource_cast<engine::material>(found->second);
     return result;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 
 engine::result<scene_node_id>
 scene_edit_session::create_mesh_node(const mesh_node_creation& snapshot,
-                                     const engine::scene_mesh_binding& resources) noexcept try {
+                                     const engine::scene_mesh_binding& resources) {
   if (!is_open())
     return engine::error::invalid_state;
   if (snapshot.uuid.is_nil())
@@ -1058,13 +976,9 @@ scene_edit_session::create_mesh_node(const mesh_node_creation& snapshot,
   if (status.failed())
     return status;
   return created;
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::error::out_of_memory;
-} catch (...) {
-  return gneiss::engine::error::internal;
 }
 
-gneiss::engine::error scene_edit_session::destroy_node(scene_node_id node) noexcept {
+gneiss::engine::error scene_edit_session::destroy_node(scene_node_id node) {
   auto target = locate(node);
   if (!target)
     return target.error();
@@ -1076,10 +990,10 @@ gneiss::engine::error scene_edit_session::destroy_node(scene_node_id node) noexc
   return destroy_subtree(node, ignored);
 }
 
-gneiss::engine::error
-scene_edit_session::set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
-                                      std::string_view material_uri) noexcept {
-  try {
+gneiss::engine::error scene_edit_session::set_mesh_renderer(scene_node_id node,
+                                                            std::string_view mesh_uri,
+                                                            std::string_view material_uri) {
+  {
     auto current = components(node);
     if (!current)
       return current.error();
@@ -1087,15 +1001,13 @@ scene_edit_session::set_mesh_renderer(scene_node_id node, std::string_view mesh_
                           engine::make_component_description(engine::mesh_renderer_description{
                               std::string(mesh_uri), std::string(material_uri)}),
                           current->get<engine::mesh_renderer_description>() ? 0 : 1);
-  } catch (...) {
-    return engine::error::out_of_memory;
   }
 }
 
 engine::error
 scene_edit_session::replace_mesh_binding(scene_node_id node,
                                          const engine::scene_mesh_binding& expected,
-                                         const engine::scene_mesh_binding& replacement) noexcept {
+                                         const engine::scene_mesh_binding& replacement) {
   auto current = capture_mesh_binding(node);
   if (!current)
     return current.error();
@@ -1117,14 +1029,14 @@ scene_edit_session::replace_mesh_binding(scene_node_id node,
   });
 }
 
-engine::result<std::string> scene_edit_session::serialize() const noexcept {
+engine::result<std::string> scene_edit_session::serialize() const {
   std::string output;
   auto status = encode_scene(output);
   return status.ok() ? engine::result<std::string>{std::move(output)}
                      : engine::result<std::string>{status};
 }
 
-engine::error scene_edit_session::encode_scene(std::string& output) const noexcept try {
+engine::error scene_edit_session::encode_scene(std::string& output) const {
   auto snapshot = capture_content();
   if (!snapshot)
     return snapshot.error();
@@ -1136,22 +1048,18 @@ engine::error scene_edit_session::encode_scene(std::string& output) const noexce
     return encoded.error().error;
   output.assign(reinterpret_cast<const char*>(encoded->data()), encoded->size());
   return engine::error::success;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 
 engine::error scene_edit_session::begin_save(gneiss::engine::files::service& files,
                                              std::string_view uri,
                                              gneiss::engine::files::write_mode mode,
-                                             std::shared_ptr<save_receipt>& output) noexcept {
+                                             std::shared_ptr<save_receipt>& output) {
   if (edit_base_)
     return engine::error::invalid_state;
   output.reset();
   if (!is_open() || !uri.starts_with("asset://") || engine::validate_uri(uri).failed())
     return engine::error::invalid_argument;
-  try {
+  {
     auto receipt = std::make_shared<save_receipt>();
     receipt->scene = scene_;
     receipt->version = document_->current();
@@ -1171,13 +1079,9 @@ engine::error scene_edit_session::begin_save(gneiss::engine::files::service& fil
     if (status.ok())
       output = std::move(receipt);
     return status;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
-engine::error scene_edit_session::accept_save(const save_receipt& receipt) noexcept {
+engine::error scene_edit_session::accept_save(const save_receipt& receipt) {
   if (edit_base_)
     return engine::error::invalid_state;
   if (!receipt.complete)
@@ -1186,23 +1090,19 @@ engine::error scene_edit_session::accept_save(const save_receipt& receipt) noexc
     return receipt.status;
   if (!is_open() || scene_ != receipt.scene)
     return engine::error::invalid_state;
-  try {
+  {
     auto saved = document_->mark_saved(receipt.version);
     if (saved.failed())
       return saved;
     uri_ = receipt.uri;
     return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 
 engine::error scene_edit_session::restore_changes(const scene_document::revision& expected,
                                                   const scene_document::revision& target,
                                                   std::span<const document_patch> changes,
-                                                  bool undo) noexcept try {
+                                                  bool undo) {
   if (!is_open() || document_->current().stamp() != expected)
     return engine::error::invalid_state;
   auto before = document_->current();
@@ -1222,14 +1122,9 @@ engine::error scene_edit_session::restore_changes(const scene_document::revision
   (void)report_projection(document_->current(), status);
   (void)validate_selection();
   return engine::error::success;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 
-engine::error scene_edit_session::restore_version(const version& expected,
-                                                  const version& target) noexcept {
+engine::error scene_edit_session::restore_version(const version& expected, const version& target) {
   if (!is_open())
     return engine::error::invalid_state;
   const bool synchronized = projection_.is_synchronized(document_->current());
@@ -1249,7 +1144,7 @@ engine::error scene_edit_session::restore_version(const version& expected,
 
 engine::error scene_edit_session::edit_component(scene_node_id node, engine::guid type,
                                                  const engine::component_description& value,
-                                                 int mode) noexcept {
+                                                 int mode) {
   auto target = locate(node);
   if (!target)
     return target.error();
@@ -1316,7 +1211,7 @@ engine::error scene_edit_session::edit_component(scene_node_id node, engine::gui
 }
 
 engine::result<scene_subtree_snapshot>
-scene_edit_session::capture_subtree(scene_node_id node) const noexcept try {
+scene_edit_session::capture_subtree(scene_node_id node) const {
   auto target = locate(node);
   if (!target)
     return target.error();
@@ -1370,13 +1265,9 @@ scene_edit_session::capture_subtree(scene_node_id node) const noexcept try {
     return content.error();
   result.content = std::move(*content);
   return result;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 engine::result<prefab_header_snapshot>
-scene_edit_session::capture_prefab_header(engine::guid uuid) const noexcept try {
+scene_edit_session::capture_prefab_header(engine::guid uuid) const {
   auto snapshot = capture_content();
   if (!snapshot)
     return snapshot.error();
@@ -1394,13 +1285,9 @@ scene_edit_session::capture_prefab_header(engine::guid uuid) const noexcept try 
   return prefab_header_snapshot{
       *object, engine::make_ref<const engine::prefab_description>(std::move(*source)),
       frozen.source_asset};
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 engine::error scene_edit_session::apply_prefab(const scene_subtree_snapshot& snapshot,
-                                               bool removing, bool replacing) noexcept {
+                                               bool removing, bool replacing) {
   return edit_content(
       [&](auto& description, auto& next) -> engine::error {
         if (!removing)

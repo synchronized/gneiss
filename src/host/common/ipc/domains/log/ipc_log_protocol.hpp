@@ -17,10 +17,10 @@ namespace gneiss::host {
 inline constexpr std::uint16_t ipc_log_domain_version = 1U;
 enum class ipc_log_operation : std::uint16_t { event = 1U };
 
+[[nodiscard]] gneiss::engine::error encode_ipc_log_event(std::string_view event,
+                                                         gneiss::engine::ipc_envelope& output);
 [[nodiscard]] gneiss::engine::error
-encode_ipc_log_event(std::string_view event, gneiss::engine::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::error
-decode_ipc_log_event(const gneiss::engine::ipc_envelope& envelope, std::string& output) noexcept;
+decode_ipc_log_event(const gneiss::engine::ipc_envelope& envelope, std::string& output);
 [[nodiscard]] std::span<const gneiss::engine::ipc_operation_descriptor>
 ipc_log_operations() noexcept;
 

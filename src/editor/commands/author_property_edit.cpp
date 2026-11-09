@@ -114,26 +114,18 @@ engine::error component_lifecycle(scene_edit_session& document, editor_command_h
 }
 engine::error add_component_description(scene_edit_session& document,
                                         editor_command_history& history, engine::guid object,
-                                        engine::guid type) noexcept try {
+                                        engine::guid type) {
   return component_lifecycle(document, history, object, type, true);
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 engine::error remove_component_description(scene_edit_session& document,
                                            editor_command_history& history, engine::guid object,
-                                           engine::guid type) noexcept try {
+                                           engine::guid type) {
   return component_lifecycle(document, history, object, type, false);
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 engine::error edit_prefab_component_structure(scene_edit_session& document,
                                               editor_command_history& history,
                                               const component_edit_target& identity,
-                                              prefab_component_action action) noexcept try {
+                                              prefab_component_action action) {
   using namespace engine;
   if (!identity.instance_uuid || !identity.source_uuid)
     return error::invalid_argument;
@@ -174,16 +166,11 @@ engine::error edit_prefab_component_structure(scene_edit_session& document,
                               return document.set_component_override(
                                   location->first, identity.component_type, after);
                             });
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 engine::error edit_component_description(scene_edit_session& document,
                                          editor_command_history& history, engine::world& world,
                                          const component_edit_target& identity,
-                                         const property_edit& edit, std::uint64_t serial) noexcept
-    try {
+                                         const property_edit& edit, std::uint64_t serial) {
   using namespace engine;
   (void)world;
   if (edit.path.empty() && !edit.object)
@@ -287,9 +274,5 @@ engine::error edit_component_description(scene_edit_session& document,
         [&] { return document.set_component_description(location->first, *prepared); },
         serial && !edit.object ? key + ":" + std::to_string(serial) : std::string{});
   }
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 } // namespace gneiss::editor

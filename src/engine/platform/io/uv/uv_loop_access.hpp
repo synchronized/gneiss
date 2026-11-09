@@ -18,7 +18,7 @@ class uv_loop_access final {
 public:
   using task = std::function<void(uv_loop_t*)>;
 
-  [[nodiscard]] static error post(uv_loop_executor& executor, task operation) noexcept;
+  [[nodiscard]] static error post(uv_loop_executor& executor, task operation);
 };
 
 } // namespace gneiss::engine

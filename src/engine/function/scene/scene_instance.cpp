@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/scene_instance_state.hpp"
 #include "engine/function/scene/scene_types.hpp"
@@ -70,15 +71,17 @@ void scene_instance_state::prune_destroyed_members() noexcept {
   };
   std::erase_if(objects_, [&](const auto& member) { return !alive(member.node); });
 }
-void scene_instance_state::rollback() noexcept {
+void scene_instance_state::rollback() noexcept try {
   for (const auto& object : objects_) {
     if (object.node)
       (void)native_world_.object_destroy(object.node);
   }
   objects_.clear();
   loader_.collect_unused();
+} catch (...) {
+  gneiss::engine::fatal_current_exception();
 }
-scene_node_id scene_instance_state::find_node(gneiss::engine::guid uuid) const noexcept {
+scene_node_id scene_instance_state::find_node(gneiss::engine::guid uuid) const {
   for (const auto& object : objects_)
     if (scene_object_identity(native_world_, object.node).uuid == uuid)
       return object.node;
@@ -144,7 +147,7 @@ result<scene_node_id> scene_instance_state::create_node(const node_creation& des
     }
     parent_uuid = scene_object_identity(native_world_, parent->node).uuid;
   }
-  try {
+  {
     game_object_description author{.uuid = uuid,
                                    .name = std::string(name),
                                    .parent = {std::move(parent_uuid), {}},
@@ -165,10 +168,6 @@ result<scene_node_id> scene_instance_state::create_node(const node_creation& des
     }
     objects_.push_back({target.node});
     return target.node;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 
@@ -180,10 +179,8 @@ engine::error scene_instance_state::set_node_name(scene_node_id node, std::strin
   auto identity = native_world_.node_identity(node);
   if (!identity)
     return identity.error();
-  try {
+  {
     return native_world_.node_set_identity(node, {identity->uuid, std::string(name)});
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
   }
 }
 
@@ -201,7 +198,7 @@ engine::error scene_instance_state::destroy_subtree(scene_node_id root) {
   const auto root_member = std::ranges::find(objects_, root, &node_entry::node);
   if (root_member == objects_.end())
     return error::invalid_handle;
-  try {
+  {
     std::vector<scene_node_id> removed;
     removed.reserve(objects_.size());
     for (const auto& member : objects_) {
@@ -225,8 +222,6 @@ engine::error scene_instance_state::destroy_subtree(scene_node_id root) {
     std::erase_if(objects_, [&](const auto& object) { return contains(object.node); });
     loader_.collect_unused();
     return error::success;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
   }
 }
 
@@ -257,7 +252,7 @@ scene_instance_state::create_mesh_renderer_node(const mesh_renderer_node_creatio
     parent_uuid = scene_object_identity(native_world_, parent->node).uuid;
   }
 
-  try {
+  {
     game_object_description author{
         .uuid = uuid,
         .name = std::string(name),
@@ -319,10 +314,6 @@ scene_instance_state::create_mesh_renderer_node(const mesh_renderer_node_creatio
     }
     objects_.push_back({target.node});
     return target.node;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 
@@ -332,7 +323,7 @@ engine::error scene_instance_state::set_mesh_renderer(scene_node_id node, std::s
   if (found == objects_.end()) {
     return engine::error::invalid_handle;
   }
-  try {
+  {
     auto current = native_world_.node_mesh_renderer(node);
     if (!current && current.error() != error::not_found)
       return current.error();
@@ -380,15 +371,11 @@ engine::error scene_instance_state::set_mesh_renderer(scene_node_id node, std::s
     }
     loader_.collect_unused();
     return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 
 engine::error scene_instance_state::set_camera(scene_node_id node,
-                                               const engine::camera_description& desc) try {
+                                               const engine::camera_description& desc) {
   const auto found = find_member(node);
   if (found == objects_.end()) {
     return engine::error::invalid_handle;
@@ -406,10 +393,6 @@ engine::error scene_instance_state::set_camera(scene_node_id node,
     }
   }
   return engine::error::success;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 
 engine::error scene_instance_state::remove_camera(scene_node_id node) {

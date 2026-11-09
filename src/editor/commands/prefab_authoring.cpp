@@ -305,9 +305,9 @@ std::string json_text(const std::vector<std::byte>& bytes) {
 
 } // namespace
 
-gneiss::engine::error
-prepare_create_prefab(std::string_view scene_json, const create_prefab_author_request& request,
-                      std::vector<author_document_change>& out_changes) noexcept {
+gneiss::engine::error prepare_create_prefab(std::string_view scene_json,
+                                            const create_prefab_author_request& request,
+                                            std::vector<author_document_change>& out_changes) {
   out_changes.clear();
   if (scene_json.empty() || request.scene_path.empty() || request.prefab_path.empty() ||
       request.scene_path == request.prefab_path || !request.root_uuid || !request.prefab_uuid ||
@@ -364,18 +364,17 @@ prepare_create_prefab(std::string_view scene_json, const create_prefab_author_re
                        .replacement = std::move(replacement_scene)});
     out_changes.swap(changes);
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
   } catch (...) {
+    // 局部状态清理后传播意外异常，不作为普通操作失败继续执行。
     out_changes.clear();
-    return gneiss::engine::error::internal;
+    throw;
   }
 }
 
 engine::error prepare_apply_prefab(std::string_view scene_json, std::string_view prefab_json,
                                    const apply_prefab_author_request& request,
                                    apply_prefab_author_plan& out_plan,
-                                   engine::scene_diagnostic* diagnostic) noexcept try {
+                                   engine::scene_diagnostic* diagnostic) try {
   using namespace engine;
   out_plan = {};
   if (diagnostic)
@@ -425,18 +424,16 @@ engine::error prepare_apply_prefab(std::string_view scene_json, std::string_view
                           .replacement = json_text(*scene_bytes)});
   out_plan = std::move(plan);
   return error::success;
-} catch (const std::bad_alloc&) {
-  out_plan = {};
-  return engine::error::out_of_memory;
 } catch (...) {
+  // 局部状态清理后传播意外异常，不作为普通操作失败继续执行。
   out_plan = {};
-  return engine::error::internal;
+  throw;
 }
 
 engine::error prepare_unpack_prefab(std::string_view scene_json, std::string_view prefab_json,
                                     const unpack_prefab_author_request& request,
                                     std::vector<author_document_change>& out_changes,
-                                    engine::scene_diagnostic* diagnostic) noexcept try {
+                                    engine::scene_diagnostic* diagnostic) try {
   using namespace engine;
   out_changes.clear();
   if (diagnostic)
@@ -505,17 +502,15 @@ engine::error prepare_unpack_prefab(std::string_view scene_json, std::string_vie
                          .baseline = std::string(scene_json),
                          .replacement = json_text(*bytes)});
   return error::success;
-} catch (const std::bad_alloc&) {
-  out_changes.clear();
-  return engine::error::out_of_memory;
 } catch (...) {
+  // 局部状态清理后传播意外异常，不作为普通操作失败继续执行。
   out_changes.clear();
-  return engine::error::internal;
+  throw;
 }
 
 engine::result<std::vector<prefab_override_entry>>
 describe_prefab_overrides(const engine::prefab_reference_description& reference,
-                          const engine::prefab_description& source) noexcept try {
+                          const engine::prefab_description& source) {
   using namespace engine;
   std::vector<prefab_override_entry> entries;
   const auto label = [&](const prefab_property_override_key& key) {
@@ -563,16 +558,12 @@ describe_prefab_overrides(const engine::prefab_reference_description& reference,
         {.key = key, .component = true, .added = change.added.has_value(), .label = label(key)});
   }
   return entries;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 
 engine::result<std::vector<author_document_change>>
 prepare_restore_prefab_impl(std::string_view scene_json, std::string_view scene_path,
                             engine::guid instance, const prefab_override_entry* entry,
-                            bool whole_component) noexcept try {
+                            bool whole_component) {
   using namespace engine;
   if (scene_path.empty() || !instance)
     return error::invalid_argument;
@@ -614,10 +605,6 @@ prepare_restore_prefab_impl(std::string_view scene_json, std::string_view scene_
   return std::vector<author_document_change>{{.path = std::string(scene_path),
                                               .baseline = std::string(scene_json),
                                               .replacement = json_text(*encoded)}};
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 
 engine::result<std::vector<author_document_change>>

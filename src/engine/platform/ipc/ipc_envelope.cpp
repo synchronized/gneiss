@@ -67,12 +67,11 @@ error validate_ipc_envelope(const ipc_envelope& envelope) noexcept {
   return error::success;
 }
 
-error encode_ipc_envelope(const ipc_envelope& envelope,
-                          std::vector<std::uint8_t>& output) noexcept {
+error encode_ipc_envelope(const ipc_envelope& envelope, std::vector<std::uint8_t>& output) {
   if (validate_ipc_envelope(envelope) != error::success) {
     return error::invalid_argument;
   }
-  try {
+  {
     std::vector<std::uint8_t> encoded(ipc_envelope_header_size + envelope.payload.size());
     write_u32(encoded.data(), envelope_magic);
     write_u16(encoded.data() + 4U, envelope.protocol_major);
@@ -86,15 +85,11 @@ error encode_ipc_envelope(const ipc_envelope& envelope,
     std::ranges::copy(envelope.payload, encoded.begin() + ipc_envelope_header_size);
     output = std::move(encoded);
     return error::success;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 }
 
 error ipc_envelope_decoder::append(std::span<const std::uint8_t> bytes,
-                                   std::vector<ipc_envelope>& output) noexcept {
+                                   std::vector<ipc_envelope>& output) {
   if (has_failed_) {
     return error::invalid_state;
   }
@@ -148,14 +143,10 @@ error ipc_envelope_decoder::append(std::span<const std::uint8_t> bytes,
       buffer_.erase(buffer_.begin(), buffer_.begin() + static_cast<std::ptrdiff_t>(offset));
     }
     return error::success;
-  } catch (const std::bad_alloc&) {
-    has_failed_ = true;
-    buffer_.clear();
-    return error::out_of_memory;
   } catch (...) {
     has_failed_ = true;
     buffer_.clear();
-    return error::internal;
+    throw;
   }
 }
 

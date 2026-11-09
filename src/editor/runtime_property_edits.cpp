@@ -38,7 +38,7 @@ gneiss::engine::error runtime_property_edits::prepare(runtime_property_key key,
                                                       std::uint64_t expected_revision,
                                                       gneiss::engine::value value,
                                                       clock::time_point now,
-                                                      runtime_property_write& output) noexcept {
+                                                      runtime_property_write& output) {
   if (session_id_ == 0U || !key.object.is_valid() || key.field_id == 0U ||
       expected_revision == 0U || next_command_id_ == 0U) {
     return gneiss::engine::error::invalid_state;
@@ -47,7 +47,7 @@ gneiss::engine::error runtime_property_edits::prepare(runtime_property_key key,
   if (existing != edits_.end() && existing->second.state == runtime_property_edit_state::pending) {
     return gneiss::engine::error::not_ready;
   }
-  try {
+  {
     const auto command_id = next_command_id_++;
     runtime_property_write command{.session_id = session_id_,
                                    .command_id = command_id,
@@ -66,15 +66,10 @@ gneiss::engine::error runtime_property_edits::prepare(runtime_property_key key,
     pending_.emplace(command_id, pending_edit{key, now});
     output = std::move(command);
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
-gneiss::engine::error
-runtime_property_edits::accept(runtime_property_write_result response) noexcept {
+gneiss::engine::error runtime_property_edits::accept(runtime_property_write_result response) {
   if (response.session_id != session_id_) {
     return gneiss::engine::error::invalid_state;
   }

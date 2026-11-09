@@ -21,7 +21,7 @@ bool is_finite(float value) noexcept { return std::isfinite(value); }
 
 } // namespace
 
-error ui_draw_list::replace(const ui_draw_view& desc, const render_service& resources) noexcept {
+error ui_draw_list::replace(const ui_draw_view& desc, const render_service& resources) {
   if (!is_finite(desc.display_width) || desc.display_width <= 0.0F ||
       !is_finite(desc.display_height) || desc.display_height <= 0.0F ||
       !is_finite(desc.framebuffer_scale_x) || desc.framebuffer_scale_x <= 0.0F ||
@@ -58,7 +58,7 @@ error ui_draw_list::replace(const ui_draw_view& desc, const render_service& reso
       }
     }
   }
-  try {
+  {
     std::vector<ui_vertex> vertices;
     std::vector<std::uint32_t> indices;
     std::vector<ui_draw_command> commands;
@@ -79,10 +79,6 @@ error ui_draw_list::replace(const ui_draw_view& desc, const render_service& reso
     indices_ = std::move(indices);
     commands_ = std::move(commands);
     return error::success;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 }
 

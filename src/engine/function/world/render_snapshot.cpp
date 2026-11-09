@@ -11,11 +11,11 @@
 namespace gneiss::engine {
 error build_render_snapshot(world_state& world, std::uint32_t viewport_width,
                             std::uint32_t viewport_height, render_snapshot& out_snapshot,
-                            const view_camera* camera) noexcept {
+                            const view_camera* camera) {
   if (viewport_width == 0U || viewport_height == 0U) {
     return error::invalid_argument;
   }
-  try {
+  {
     render_snapshot snapshot;
     view_camera selected;
     bool has_camera = camera != nullptr;
@@ -65,10 +65,6 @@ error build_render_snapshot(world_state& world, std::uint32_t viewport_width,
         });
     out_snapshot = std::move(snapshot);
     return error::success;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 }
 

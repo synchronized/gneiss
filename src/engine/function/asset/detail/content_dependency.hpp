@@ -38,7 +38,7 @@ public:
     settled_ = true;
     return error::success;
   }
-  const ref<const T>& resource() const noexcept { return resource_; }
+  const ref<const T>& resource() const { return resource_; }
   std::size_t source_bytes() const noexcept { return bytes_; }
   const Content& content() const noexcept { return content_; }
 

@@ -3,6 +3,7 @@
 #include "documents/document_patch.hpp"
 #include "documents/scene_document.hpp"
 #include "documents/scene_projection.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/scene/detail/scene_asset_access.hpp"
@@ -36,6 +37,7 @@ namespace ed = gneiss::editor;
     }                                                                                              \
   } while (false)
 int main() {
+  gneiss::engine::install_fatal_handler();
   CHECK(e::initialize_meta().ok());
   e::scene_instantiation_data input;
   input.description.uuid = e::guid::literal("a5352685-908d-459f-85f4-a866df229a10");
@@ -88,18 +90,28 @@ int main() {
   }
   // 注入准备阶段真实分配失败；候选和历史差异失败均不发布到权威文档。
   fail_allocation_at_least = sizeof(ed::scene_document);
-  auto failed_candidate = document.make_candidate();
+  bool candidate_threw = false;
+  try {
+    (void)document.make_candidate();
+  } catch (const std::bad_alloc&) {
+    candidate_threw = true;
+  }
   fail_allocation_at_least = 0;
-  CHECK(!failed_candidate && failed_candidate.error() == e::error::out_of_memory);
+  CHECK(candidate_threw);
   CHECK(document.current() == initial && !document.is_dirty());
   auto patch_before = initial.content();
   auto patch_after = edited;
   patch_before.uri = patch_after.uri = "asset://" + std::string(256, 'a');
   // 跳过 MSVC 调试 STL 在 noexcept 默认构造中分配的迭代器代理，定向失败 URI 存储。
   fail_allocation_at_least = 256;
-  auto failed_patch = ed::make_document_patch(patch_before, patch_after);
+  bool patch_threw = false;
+  try {
+    (void)ed::make_document_patch(patch_before, patch_after);
+  } catch (const std::bad_alloc&) {
+    patch_threw = true;
+  }
   fail_allocation_at_least = 0;
-  CHECK(!failed_patch && failed_patch.error() == e::error::out_of_memory);
+  CHECK(patch_threw);
   CHECK(document.current() == initial && !document.is_dirty());
   CHECK(document.accept(initial, edited).ok());
   const auto next = document.current();

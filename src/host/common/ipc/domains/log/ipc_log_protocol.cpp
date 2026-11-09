@@ -22,11 +22,11 @@ constexpr std::array log_operations{gneiss::engine::ipc_operation_descriptor{
 namespace gneiss::host {
 
 gneiss::engine::error encode_ipc_log_event(std::string_view event,
-                                           gneiss::engine::ipc_envelope& output) noexcept {
+                                           gneiss::engine::ipc_envelope& output) {
   if (event.size() > max_log_event_size) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     gneiss::engine::ipc_envelope encoded{
         .domain = gneiss::engine::ipc_domain::log,
         .operation = static_cast<std::uint16_t>(ipc_log_operation::event),
@@ -36,30 +36,22 @@ gneiss::engine::error encode_ipc_log_event(std::string_view event,
                     reinterpret_cast<const std::uint8_t*>(event.data()) + event.size()}};
     output = std::move(encoded);
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
 gneiss::engine::error decode_ipc_log_event(const gneiss::engine::ipc_envelope& envelope,
-                                           std::string& output) noexcept {
+                                           std::string& output) {
   if (envelope.domain != gneiss::engine::ipc_domain::log ||
       envelope.operation != static_cast<std::uint16_t>(ipc_log_operation::event) ||
       envelope.kind != gneiss::engine::ipc_message_kind::event || envelope.request_id != 0U ||
       envelope.payload.size() > max_log_event_size) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     std::string decoded(reinterpret_cast<const char*>(envelope.payload.data()),
                         envelope.payload.size());
     output = std::move(decoded);
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 

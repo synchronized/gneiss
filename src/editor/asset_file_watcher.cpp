@@ -3,6 +3,7 @@
 
 #include "asset_file_watcher.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/fatal.hpp"
 
 #include "uv_loop_access.hpp"
 #include "uv_loop_executor.hpp"
@@ -56,8 +57,8 @@ struct asset_file_watcher::implementation final {
   std::atomic_size_t dropped_events = 0U;
   std::atomic_bool running = false;
 
-  void emit(asset_file_event event) noexcept {
-    try {
+  void emit(asset_file_event event) {
+    {
       const std::scoped_lock lock(event_mutex);
       if (event_capacity == 0U) {
         dropped_events.fetch_add(1U, std::memory_order_relaxed);
@@ -68,13 +69,11 @@ struct asset_file_watcher::implementation final {
         dropped_events.fetch_add(1U, std::memory_order_relaxed);
       }
       events.push_back(std::move(event));
-    } catch (...) {
-      dropped_events.fetch_add(1U, std::memory_order_relaxed);
     }
   }
 
-  [[nodiscard]] gneiss::engine::error
-  watch_directory(uv_loop_t* loop, const std::filesystem::path& directory) noexcept {
+  [[nodiscard]] gneiss::engine::error watch_directory(uv_loop_t* loop,
+                                                      const std::filesystem::path& directory) {
     try {
       const auto key = path_utf8(directory.lexically_normal());
       if (watched_directories.contains(key)) {
@@ -111,14 +110,12 @@ struct asset_file_watcher::implementation final {
         return operation;
       }
       return gneiss::engine::error::success;
-    } catch (const std::bad_alloc&) {
-      return gneiss::engine::error::out_of_memory;
-    } catch (...) {
+    } catch (const std::filesystem::filesystem_error&) {
       return gneiss::engine::error::io;
     }
   }
 
-  [[nodiscard]] gneiss::engine::error refresh_directories(uv_loop_t* loop) noexcept {
+  [[nodiscard]] gneiss::engine::error refresh_directories(uv_loop_t* loop) {
     try {
       auto operation = watch_directory(loop, source_root);
       if (operation != gneiss::engine::error::success) {
@@ -134,13 +131,13 @@ struct asset_file_watcher::implementation final {
         }
       }
       return gneiss::engine::error::success;
-    } catch (...) {
+    } catch (const std::filesystem::filesystem_error&) {
       return gneiss::engine::error::io;
     }
   }
 
   static void on_file_event(uv_fs_event_t* handle, const char* filename, int flags,
-                            int status) noexcept {
+                            int status) noexcept try {
     auto* watch = static_cast<directory_watch*>(handle->data);
     auto* self = watch->owner;
     const auto operation = gneiss::engine::from_uv_status(status);
@@ -170,6 +167,8 @@ struct asset_file_watcher::implementation final {
             {.kind = asset_file_event_kind::error, .relative_path = ".", .operation = refresh});
       }
     }
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
 
   void close_watches() noexcept {
@@ -192,7 +191,7 @@ asset_file_watcher::~asset_file_watcher() {
 }
 
 gneiss::engine::error asset_file_watcher::start(const std::filesystem::path& source_root,
-                                                bool allow_missing) noexcept {
+                                                bool allow_missing) {
   if (!implementation_ || source_root.empty() || implementation_->running.load()) {
     return gneiss::engine::error::invalid_argument;
   }
@@ -236,14 +235,12 @@ gneiss::engine::error asset_file_watcher::start(const std::filesystem::path& sou
     }
     implementation_->running.store(true, std::memory_order_release);
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
+  } catch (const std::filesystem::filesystem_error&) {
     return gneiss::engine::error::io;
   }
 }
 
-gneiss::engine::error asset_file_watcher::stop() noexcept {
+gneiss::engine::error asset_file_watcher::stop() {
   if (!implementation_ || !implementation_->running.exchange(false, std::memory_order_acq_rel)) {
     return gneiss::engine::error::not_ready;
   }
@@ -257,11 +254,11 @@ gneiss::engine::error asset_file_watcher::stop() noexcept {
 }
 
 std::size_t asset_file_watcher::poll_events(std::vector<asset_file_event>& output,
-                                            std::size_t max_count) noexcept {
+                                            std::size_t max_count) {
   if (!implementation_ || max_count == 0U) {
     return 0U;
   }
-  try {
+  {
     const std::scoped_lock lock(implementation_->event_mutex);
     const auto count = (std::min)(max_count, implementation_->events.size());
     output.reserve(output.size() + count);
@@ -270,8 +267,6 @@ std::size_t asset_file_watcher::poll_events(std::vector<asset_file_event>& outpu
       implementation_->events.pop_front();
     }
     return count;
-  } catch (...) {
-    return 0U;
   }
 }
 

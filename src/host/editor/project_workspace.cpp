@@ -261,7 +261,7 @@ std::filesystem::path default_editor_state_path() {
 }
 
 gneiss::engine::error load_recent_projects(const std::filesystem::path& state_file,
-                                           std::vector<editor_project>& output) noexcept {
+                                           std::vector<editor_project>& output) {
   try {
     output.clear();
     std::ifstream stream(state_file, std::ios::binary);
@@ -290,15 +290,13 @@ gneiss::engine::error load_recent_projects(const std::filesystem::path& state_fi
       }
     }
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
+  } catch (const std::filesystem::filesystem_error&) {
     return gneiss::engine::error::io;
   }
 }
 
 gneiss::engine::error remember_recent_project(const std::filesystem::path& state_file,
-                                              const editor_project& project) noexcept {
+                                              const editor_project& project) {
   try {
     std::vector<editor_project> projects;
     const auto load_result = load_recent_projects(state_file, projects);
@@ -314,16 +312,13 @@ gneiss::engine::error remember_recent_project(const std::filesystem::path& state
       projects.resize(maximum_recent_projects);
     }
     return write_recent_projects(state_file, projects);
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
+  } catch (const std::filesystem::filesystem_error&) {
     return gneiss::engine::error::io;
   }
 }
 
 gneiss::engine::error create_editor_project(const std::filesystem::path& project_root,
-                                            std::string_view name,
-                                            editor_project& output) noexcept {
+                                            std::string_view name, editor_project& output) {
 #if defined(GNEISS_EDITOR_GAME_TEMPLATE_DIR)
   const auto installed_template = sdk_template_root();
   std::error_code error;
@@ -342,8 +337,7 @@ gneiss::engine::error create_editor_project(const std::filesystem::path& project
 
 gneiss::engine::error create_editor_project(const std::filesystem::path& project_root,
                                             const std::filesystem::path& template_root,
-                                            std::string_view name,
-                                            editor_project& output) noexcept {
+                                            std::string_view name, editor_project& output) {
   if (project_root.empty() || name.empty()) {
     return gneiss::engine::error::invalid_argument;
   }
@@ -412,16 +406,14 @@ gneiss::engine::error create_editor_project(const std::filesystem::path& project
       return gneiss::engine::error::io;
     }
     return load_editor_project(project_root, output);
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
+  } catch (const std::filesystem::filesystem_error&) {
     return gneiss::engine::error::io;
   }
 }
 
 gneiss::engine::error export_editor_project(const editor_project& project,
                                             const std::filesystem::path& runtime_executable,
-                                            const std::filesystem::path& output_root) noexcept {
+                                            const std::filesystem::path& output_root) {
   return export_editor_project(project, {.runtime_executable = runtime_executable,
                                          .output_root = output_root,
                                          .profile = gneiss::host::project_build_profile::debug,
@@ -430,14 +422,14 @@ gneiss::engine::error export_editor_project(const editor_project& project,
 }
 
 gneiss::engine::error export_editor_project(const editor_project& project,
-                                            const project_export_options& options) noexcept {
+                                            const project_export_options& options) {
   project_export_report report;
   return export_editor_project(project, options, report);
 }
 
 gneiss::engine::error export_editor_project(const editor_project& project,
                                             const project_export_options& options,
-                                            project_export_report& report) noexcept {
+                                            project_export_report& report) {
   report = {};
   if (project.project_root.empty() || options.runtime_executable.empty() ||
       options.output_root.empty()) {
@@ -607,9 +599,7 @@ gneiss::engine::error export_editor_project(const editor_project& project,
     }
     report.operation = gneiss::engine::error::success;
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
+  } catch (const std::filesystem::filesystem_error&) {
     return gneiss::engine::error::io;
   }
 }

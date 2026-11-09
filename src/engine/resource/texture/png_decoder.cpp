@@ -25,21 +25,20 @@ void clear_image(decoded_png& image) noexcept {
   image.pixels.clear();
 }
 
-engine::error fail(int error, std::string& message) noexcept {
-  try {
+engine::error fail(int error, std::string& message) {
+  {
     const char* text = spng_strerror(error);
     message = text != nullptr ? text : "PNG 解码失败";
-  } catch (...) {
-    message.clear();
-    return engine::error::out_of_memory;
   }
-  return error == SPNG_EMEM ? engine::error::out_of_memory : engine::error::invalid_argument;
+  if (error == SPNG_EMEM)
+    throw std::bad_alloc{};
+  return engine::error::invalid_argument;
 }
 
 } // namespace
 
 result<decoded_png, asset_diagnostic> decode_png(const std::vector<std::byte>& bytes,
-                                                 std::size_t byte_limit) noexcept try {
+                                                 std::size_t byte_limit) {
   decoded_png out_image;
   asset_diagnostic diagnostic;
   auto& out_message = diagnostic.message;
@@ -58,7 +57,7 @@ result<decoded_png, asset_diagnostic> decode_png(const std::vector<std::byte>& b
   }
   context_ptr context(spng_ctx_new(0), &spng_ctx_free);
   if (!context) {
-    return failure(engine::error::out_of_memory);
+    throw std::bad_alloc{};
   }
   int result = spng_set_image_limits(context.get(), maximum_dimension, maximum_dimension);
   if (result == 0) {
@@ -94,11 +93,6 @@ result<decoded_png, asset_diagnostic> decode_png(const std::vector<std::byte>& b
     return failure(fail(result, out_message));
   }
   return out_image;
-
-} catch (const std::bad_alloc&) {
-  return asset_diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return asset_diagnostic{.error = error::internal};
 }
 
 } // namespace gneiss::engine

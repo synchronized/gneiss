@@ -14,8 +14,7 @@ runtime_asset_reloader::runtime_asset_reloader(begin_function begin, poll_functi
     : begin_(std::move(begin)), poll_(std::move(poll)), owner_thread_(std::this_thread::get_id()) {}
 
 gneiss::engine::error runtime_asset_reloader::execute(const ipc_asset_reload_request& request,
-                                                      ipc_asset_reload_result& response) noexcept
-    try {
+                                                      ipc_asset_reload_result& response) {
   response = {.session_id = request.session_id,
               .revision = request.revision,
               .status = ipc_asset_apply_status::failed,
@@ -64,7 +63,7 @@ gneiss::engine::error runtime_asset_reloader::execute(const ipc_asset_reload_req
       pending_.reset();
     } catch (...) {
       pending_.reset();
-      applied = gneiss::engine::error::out_of_memory;
+      throw;
     }
   } else {
     response.message = "不支持混合场景结构与渲染资产的重载批次";
@@ -83,14 +82,10 @@ gneiss::engine::error runtime_asset_reloader::execute(const ipc_asset_reload_req
   }
   response.message = std::string{"资产修订应用失败："} + std::string{applied.message()};
   return gneiss::engine::error::success;
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::error::out_of_memory;
-} catch (...) {
-  return gneiss::engine::error::internal;
 }
 
 gneiss::engine::error runtime_asset_reloader::advance(ipc_asset_reload_result& response,
-                                                      bool& ready) noexcept try {
+                                                      bool& ready) {
   ready = false;
   if (std::this_thread::get_id() != owner_thread_) {
     return gneiss::engine::error::invalid_state;
@@ -102,12 +97,8 @@ gneiss::engine::error runtime_asset_reloader::advance(ipc_asset_reload_result& r
   bool completed{};
   std::vector<ipc_asset_item_result> items;
   auto operation = gneiss::engine::error{gneiss::engine::error::success};
-  try {
+  {
     operation = poll_(applied, items, completed);
-  } catch (const std::bad_alloc&) {
-    operation = gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    operation = gneiss::engine::error::internal;
   }
   if (operation == gneiss::engine::error::not_ready)
     return gneiss::engine::error::success;
@@ -139,10 +130,6 @@ gneiss::engine::error runtime_asset_reloader::advance(ipc_asset_reload_result& r
   pending_.reset();
   ready = true;
   return gneiss::engine::error::success;
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::error::out_of_memory;
-} catch (...) {
-  return gneiss::engine::error::internal;
 }
 
 } // namespace gneiss::host

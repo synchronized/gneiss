@@ -31,7 +31,7 @@ public:
   GNEISS_API ~mesh();
   /** 所属线程查询轻量信息；未加载时为空，内容保留不可变 CPU 快照。 */
   [[nodiscard]] const std::optional<mesh_metadata>& metadata() const noexcept { return metadata_; }
-  [[nodiscard]] ref<const mesh_data> snapshot() const noexcept { return content_; }
+  [[nodiscard]] ref<const mesh_data> snapshot() const { return content_; }
   mesh(const mesh&) = delete;
   mesh& operator=(const mesh&) = delete;
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/platform/files/browser/fetch_file_backend.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/platform/files/file_path.hpp"
 #include "fetch_stream.hpp"
 #include <algorithm>
@@ -50,12 +51,14 @@ struct fetch_operation : std::enable_shared_from_this<fetch_operation> {
   files::range range{};
   std::size_t limit{};
   bool ranged{}, head{}, finished{};
-  static void error(emscripten_fetch_t* fetch) {
+  static void error(emscripten_fetch_t* fetch) try {
     auto* self = static_cast<fetch_operation*>(fetch->userData);
     if (self->finished)
       return;
     auto owner = self->keep_alive;
     self->finish(fetch, fetch->status == 404 ? error::not_found : error::io);
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
   void finish(emscripten_fetch_t* fetch, error status, files::bytes bytes = {},
               files::info info = {}) {
@@ -83,12 +86,12 @@ struct fetch_operation : std::enable_shared_from_this<fetch_operation> {
            number(std::string_view(text).substr(slash + 1), total) && first == range.offset &&
            last == range.offset + range.size - 1 && total > last;
   }
-  static void headers_received(emscripten_fetch_t* fetch) noexcept {
+  static void headers_received(emscripten_fetch_t* fetch) noexcept try {
     auto* self = static_cast<fetch_operation*>(fetch->userData);
     if (self->finished || self->head || fetch->readyState != 2)
       return;
     auto owner = self->keep_alive;
-    try {
+    {
       if (self->ranged && fetch->status == 200) {
         self->finish(fetch, error::unsupported);
         return;
@@ -101,11 +104,11 @@ struct fetch_operation : std::enable_shared_from_this<fetch_operation> {
       const auto text = header(fetch, "content-length");
       if (!text.empty() && (!number(text, length) || length > self->limit))
         self->finish(fetch, error::invalid_argument);
-    } catch (...) {
-      self->finish(fetch, error::out_of_memory);
     }
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
-  static void progress(emscripten_fetch_t* fetch) {
+  static void progress(emscripten_fetch_t* fetch) try {
     auto* self = static_cast<fetch_operation*>(fetch->userData);
     if (self->finished || self->head)
       return;
@@ -113,13 +116,15 @@ struct fetch_operation : std::enable_shared_from_this<fetch_operation> {
     if (fetch->totalBytes > self->limit || fetch->numBytes > self->limit ||
         fetch->dataOffset > self->limit - static_cast<std::size_t>(fetch->numBytes))
       self->finish(fetch, error::invalid_argument);
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
-  static void success(emscripten_fetch_t* fetch) noexcept {
+  static void success(emscripten_fetch_t* fetch) noexcept try {
     auto* self = static_cast<fetch_operation*>(fetch->userData);
     if (self->finished)
       return;
     auto owner = self->keep_alive;
-    try {
+    {
       if (self->head) {
         files::info info;
         const auto length = header(fetch, "content-length");
@@ -154,9 +159,9 @@ struct fetch_operation : std::enable_shared_from_this<fetch_operation> {
       if (!bytes.empty())
         std::memcpy(bytes.data(), fetch->data, bytes.size());
       self->finish(fetch, error::success, std::move(bytes));
-    } catch (...) {
-      self->finish(fetch, error::out_of_memory);
     }
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
   error begin() {
     if (!emscripten_is_main_runtime_thread())
@@ -177,7 +182,7 @@ struct fetch_operation : std::enable_shared_from_this<fetch_operation> {
     keep_alive = shared_from_this();
     if (!emscripten_fetch(&attributes, url.c_str())) {
       keep_alive.reset();
-      return error::out_of_memory;
+      fatal(fatal_reason::out_of_memory);
     }
     return error::success;
   }

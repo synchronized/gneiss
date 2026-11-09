@@ -29,9 +29,9 @@ public:
 
   [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::world& world,
                                                  runtime_scene_inspection& inspection,
-                                                 std::uint64_t session_id) noexcept;
+                                                 std::uint64_t session_id);
   [[nodiscard]] gneiss::engine::error execute(const ipc_property_write& command,
-                                              ipc_property_write_result& output) noexcept;
+                                              ipc_property_write_result& output);
   void reset() noexcept;
 
 private:

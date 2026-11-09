@@ -5,8 +5,7 @@
 #include <algorithm>
 #include <set>
 namespace gneiss::editor {
-engine::error
-scene_projection::reset(std::span<const engine::scene_object_binding> objects) noexcept try {
+engine::error scene_projection::reset(std::span<const engine::scene_object_binding> objects) {
   std::map<engine::object_address, object_binding> next;
   std::set<std::uint64_t> entities;
   for (const auto& object : objects) {
@@ -19,16 +18,11 @@ scene_projection::reset(std::span<const engine::scene_object_binding> objects) n
   }
   objects_.swap(next);
   return engine::error::success;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 engine::error project_scene_document(engine::world& world, engine::scene_instances& scenes,
                                      scene_instance_id scene, scene_projection& projection,
                                      const scene_document_snapshot* baseline,
-                                     const scene_document_snapshot& target,
-                                     bool prepare_editor) noexcept try {
+                                     const scene_document_snapshot& target, bool prepare_editor) {
   if (baseline) {
     auto associations = projection.objects();
     auto previous = compose_scene_document(*baseline);
@@ -67,9 +61,5 @@ engine::error project_scene_document(engine::world& world, engine::scene_instanc
   if (!rebuilt)
     return rebuilt.error();
   return projection.reset(rebuilt->objects);
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 }

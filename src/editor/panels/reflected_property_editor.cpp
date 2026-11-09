@@ -8,7 +8,7 @@
 #include <imgui.h>
 namespace gneiss::editor {
 using namespace engine;
-result<value> edit_reference_snapshot(const value& source, const property_edit& edit) noexcept try {
+result<value> edit_reference_snapshot(const value& source, const property_edit& edit) {
   if (source.kind() != value_kind::object)
     return error::invalid_argument;
   auto encoded = gneiss::engine::serialization::json::encode_bytes(source);
@@ -37,10 +37,6 @@ result<value> edit_reference_snapshot(const value& source, const property_edit& 
     return status;
   auto checked = gneiss::engine::serialization::json::encode_bytes(*copy);
   return checked ? result<value>{std::move(*copy)} : result<value>{checked.error().error};
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 
 namespace {

@@ -257,7 +257,7 @@ write_report write_assets_in_place(const import_ir& data,
       return {.success = false, .diagnostic = "写出 Scene 失败"};
     }
     return {.success = true, .diagnostic = {}};
-  } catch (const std::exception& error) {
+  } catch (const std::filesystem::filesystem_error& error) {
     return {.success = false, .diagnostic = std::string{"资产写出失败："} + error.what()};
   }
 }
@@ -267,7 +267,7 @@ bool remove_quietly(const std::filesystem::path& path) noexcept {
     std::error_code error;
     std::filesystem::remove_all(path, error);
     return !error;
-  } catch (...) {
+  } catch (const std::filesystem::filesystem_error&) {
     // 清理是尽力而为；调用方的主错误和恢复流程优先。
     return false;
   }
@@ -320,7 +320,7 @@ write_report write_assets(const import_ir& data, const std::filesystem::path& ou
     old_output_moved = false;
     remove_quietly(backup);
     return {.success = true, .diagnostic = {}};
-  } catch (const std::exception& error) {
+  } catch (const std::filesystem::filesystem_error& error) {
     remove_quietly(staging);
     if (old_output_moved && !destination.empty() && !backup.empty() &&
         !std::filesystem::exists(destination)) {

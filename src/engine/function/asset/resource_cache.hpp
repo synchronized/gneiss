@@ -38,8 +38,7 @@ public:
   [[nodiscard]] result<detail::cached_asset>
   load(std::string_view uri, type_id type, const loader& decode,
        std::shared_ptr<const files::source_domain> source = {}, bool reload = false,
-       std::size_t source_bytes = 0, std::string parameters = {},
-       asset_load_metrics metrics = {}) noexcept;
+       std::size_t source_bytes = 0, std::string parameters = {}, asset_load_metrics metrics = {});
   void release_unused() noexcept;
   /** 只观察当前身份，不触发加载；返回的弱引用不会阻止卸载。 */
   [[nodiscard]] std::weak_ptr<const asset>

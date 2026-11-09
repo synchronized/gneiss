@@ -42,9 +42,9 @@ std::span<const gneiss::engine::ipc_domain_capability> ipc_v2_domain_capabilitie
   return capabilities;
 }
 
-gneiss::engine::error
-register_ipc_v2_domains(gneiss::engine::ipc_domain_handler handler, void* handler_context,
-                        gneiss::engine::ipc_domain_registry& output) noexcept {
+gneiss::engine::error register_ipc_v2_domains(gneiss::engine::ipc_domain_handler handler,
+                                              void* handler_context,
+                                              gneiss::engine::ipc_domain_registry& output) {
   if (handler == nullptr) {
     return gneiss::engine::error::invalid_argument;
   }

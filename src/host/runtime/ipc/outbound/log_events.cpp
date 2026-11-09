@@ -14,16 +14,12 @@
 namespace gneiss::host {
 
 gneiss::engine::error make_log_event(const gneiss::engine::event_view& event,
-                                     gneiss::engine::ipc_envelope& output) noexcept {
-  try {
+                                     gneiss::engine::ipc_envelope& output) {
+  {
     std::string encoded_event;
     const auto operation = gneiss::host::encode_runtime_log_event(event, encoded_event);
     return operation == gneiss::engine::error::success ? encode_ipc_log_event(encoded_event, output)
                                                        : operation;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 

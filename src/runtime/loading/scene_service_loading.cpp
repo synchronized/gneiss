@@ -189,12 +189,8 @@ void scene_service::advance_load() {
     return;
   }
   const auto start = clock_type::now();
-  try {
+  {
     advance_load_impl();
-  } catch (const std::bad_alloc&) {
-    finish(gneiss::engine::error::out_of_memory, scene_load_phase::failed);
-  } catch (...) {
-    finish(gneiss::engine::error::internal, scene_load_phase::failed);
   }
   auto* result = pending_ ? &pending_->result : completed_ ? &*completed_ : nullptr;
   if (result != nullptr) {

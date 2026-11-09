@@ -25,7 +25,7 @@ public:
   [[nodiscard]] gneiss::engine::error
   dispatch(const gneiss::engine::ipc_envelope& envelope, bool is_authenticated,
            const std::vector<gneiss::engine::ipc_domain_capability>& negotiated_domains,
-           runtime_ipc_event& output) noexcept;
+           runtime_ipc_event& output);
   [[nodiscard]] bool is_ready() const noexcept;
 
 private:

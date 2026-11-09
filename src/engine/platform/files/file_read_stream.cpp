@@ -79,7 +79,7 @@ error read_stream::cancel() noexcept {
   }
   return status;
 }
-error read_stream::read_sequential(files::callback<block> callback) noexcept try {
+error read_stream::read_sequential(files::callback<block> callback) {
   auto& s = *state_;
   if (s.source)
     return s.next(std::move(callback));
@@ -101,10 +101,8 @@ error read_stream::read_sequential(files::callback<block> callback) noexcept try
         }
         current->source = std::move(opened.data);
         error submitted;
-        try {
+        {
           submitted = current->next(callback);
-        } catch (...) {
-          submitted = error::out_of_memory;
         }
         if (submitted.failed())
           callback({submitted, {}});
@@ -112,10 +110,8 @@ error read_stream::read_sequential(files::callback<block> callback) noexcept try
       s.request);
   s.pending = status.ok();
   return status;
-} catch (...) {
-  return error::out_of_memory;
 }
-error read_stream::read_next(files::callback<block> callback) noexcept try {
+error read_stream::read_next(files::callback<block> callback) {
   auto& s = *state_;
   if (!callback)
     return error::invalid_argument;
@@ -151,9 +147,5 @@ error read_stream::read_next(files::callback<block> callback) noexcept try {
   if (status.ok())
     s.pending = true;
   return status;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 }

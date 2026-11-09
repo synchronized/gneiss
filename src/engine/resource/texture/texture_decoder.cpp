@@ -14,33 +14,23 @@ asset_diagnostic convert(serialization::diagnostic d) {
   return {d.error, d.byte_offset, std::move(d.path), std::move(d.message)};
 }
 }
-result<texture_description, asset_diagnostic>
-parse_texture(const std::vector<std::byte>& bytes) try {
+result<texture_description, asset_diagnostic> parse_texture(const std::vector<std::byte>& bytes) {
   auto decoded = asset_file::deserialize<texture_description>(bytes);
   if (!decoded)
     return convert(std::move(decoded).error());
   return std::move(*decoded);
-} catch (const std::bad_alloc&) {
-  return asset_diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return asset_diagnostic{.error = error::internal};
 }
 
-result<std::vector<std::byte>, asset_diagnostic>
-encode_texture(const texture_description& source) noexcept try {
+result<std::vector<std::byte>, asset_diagnostic> encode_texture(const texture_description& source) {
   auto encoded = asset_file::serialize_bytes(source);
   if (!encoded)
     return convert(std::move(encoded).error());
   return std::move(*encoded);
-} catch (const std::bad_alloc&) {
-  return asset_diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return asset_diagnostic{.error = error::internal};
 }
 
 result<texture_data, asset_diagnostic>
 decode_texture_payload(const texture_description& source, const std::vector<std::byte>& image_bytes,
-                       texture_prepare_profile profile) noexcept try {
+                       texture_prepare_profile profile) {
   auto validation = validate_texture_description(source);
   if (validation.error.failed())
     return convert(std::move(validation));
@@ -196,10 +186,5 @@ decode_texture_payload(const texture_description& source, const std::vector<std:
   }
 
   return output;
-
-} catch (const std::bad_alloc&) {
-  return asset_diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return asset_diagnostic{.error = error::internal};
 }
 }

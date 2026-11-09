@@ -12,21 +12,17 @@ namespace gneiss::engine {
 
 service_registry::~service_registry() noexcept { (void)shutdown(); }
 
-engine::error service_registry::add(std::unique_ptr<service> value) noexcept {
+engine::error service_registry::add(std::unique_ptr<service> value) {
   if (value == nullptr || is_initializing_or_initialized_ || find(value->kind()) != nullptr) {
     return engine::error::invalid_argument;
   }
-  try {
+  {
     entries_.push_back({.value = std::move(value), .is_initialized = false});
     return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 
-engine::error service_registry::initialize() noexcept {
+engine::error service_registry::initialize() {
   if (is_initializing_or_initialized_) {
     return engine::error::invalid_state;
   }
@@ -35,12 +31,9 @@ engine::error service_registry::initialize() noexcept {
 
   try {
     initialization_order_.reserve(entries_.size());
-  } catch (const std::bad_alloc&) {
-    is_initializing_or_initialized_ = false;
-    return engine::error::out_of_memory;
   } catch (...) {
     is_initializing_or_initialized_ = false;
-    return engine::error::internal;
+    throw;
   }
 
   try {
@@ -52,16 +45,14 @@ engine::error service_registry::initialize() noexcept {
           continue;
         }
 
+        // 调用前登记，异常也必须回收当前服务的部分初始化状态。
+        candidate.is_initialized = true;
+        initialization_order_.push_back(index);
         const auto result = candidate.value->initialize();
         if (result != engine::error::success) {
-          // 即使初始化只完成了一部分，也由 Registry 统一调用 shutdown 回收。
-          candidate.is_initialized = true;
-          initialization_order_.push_back(index);
           rollback();
           return result;
         }
-        candidate.is_initialized = true;
-        initialization_order_.push_back(index);
         made_progress = true;
       }
 
@@ -70,12 +61,9 @@ engine::error service_registry::initialize() noexcept {
         return engine::error::dependency_failed;
       }
     }
-  } catch (const std::bad_alloc&) {
-    rollback();
-    return engine::error::out_of_memory;
   } catch (...) {
     rollback();
-    return engine::error::internal;
+    throw;
   }
   return engine::error::success;
 }

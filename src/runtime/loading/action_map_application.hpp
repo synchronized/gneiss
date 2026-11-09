@@ -19,11 +19,11 @@ public:
   action_map_application(const action_map_application&) = delete;
   action_map_application& operator=(const action_map_application&) = delete;
   [[nodiscard]] gneiss::engine::error
-  begin(gneiss::engine::asset_request<gneiss::engine::action_map> request) noexcept;
+  begin(gneiss::engine::asset_request<gneiss::engine::action_map> request);
   void cancel() noexcept;
   [[nodiscard]] gneiss::engine::error status() const noexcept { return result_; }
   /** 不推进调度器或等待 I/O；加载完成后最多替换一次。失败保留原映射与 action_id。 */
-  [[nodiscard]] gneiss::engine::error poll(gneiss::engine::input_service& target) noexcept;
+  [[nodiscard]] gneiss::engine::error poll(gneiss::engine::input_service& target);
   [[nodiscard]] action_map_apply_state state() const noexcept { return state_; }
 
 private:

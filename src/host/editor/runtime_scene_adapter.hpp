@@ -14,9 +14,8 @@ namespace gneiss::host {
 
 /** 消费已解码批次；成功移动节点文本，失败保持 output 不变，输入可被消费。 */
 [[nodiscard]] inline gneiss::engine::error
-to_runtime_scene_batch(ipc_inspection_batch&& input,
-                       gneiss::editor::runtime_scene_batch& output) noexcept {
-  try {
+to_runtime_scene_batch(ipc_inspection_batch&& input, gneiss::editor::runtime_scene_batch& output) {
+  {
     gneiss::editor::runtime_scene_batch converted{
         .stamp = {input.stamp.session_id, input.stamp.sequence},
         .is_full = input.is_full,
@@ -51,10 +50,6 @@ to_runtime_scene_batch(ipc_inspection_batch&& input,
     }
     output = std::move(converted);
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 

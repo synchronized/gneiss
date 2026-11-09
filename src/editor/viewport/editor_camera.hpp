@@ -28,11 +28,11 @@ public:
   editor_camera(const editor_camera&) = delete;
   editor_camera& operator=(const editor_camera&) = delete;
 
-  [[nodiscard]] gneiss::engine::error initialize() noexcept;
+  [[nodiscard]] gneiss::engine::error initialize();
   void shutdown() noexcept;
 
   [[nodiscard]] bool is_valid() const noexcept { return initialized_; }
-  [[nodiscard]] gneiss::engine::error update(const editor_camera_input& input) noexcept;
+  [[nodiscard]] gneiss::engine::error update(const editor_camera_input& input);
   [[nodiscard]] gneiss::engine::error focus(const gneiss::engine::math::transform& target,
                                             float distance = 5.0F) noexcept;
   [[nodiscard]] const gneiss::engine::math::transform& current_transform() const noexcept {

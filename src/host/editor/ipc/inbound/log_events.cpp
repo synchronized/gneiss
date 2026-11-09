@@ -9,7 +9,7 @@
 namespace gneiss::host {
 
 gneiss::engine::error decode_runtime_log_event(const gneiss::engine::ipc_envelope& envelope,
-                                               runtime_ipc_event& output) noexcept {
+                                               runtime_ipc_event& output) {
   return gneiss::host::detail::decode_value<runtime_log_event>(
       envelope, output, [&](auto& value) { return decode_ipc_log_event(envelope, value); });
 }

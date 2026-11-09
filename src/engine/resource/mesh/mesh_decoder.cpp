@@ -6,8 +6,7 @@
 #include "mesh_binary.hpp"
 #include "mesh_description.hpp"
 namespace gneiss::engine::detail {
-[[nodiscard]] result<mesh_data, asset_diagnostic>
-parse_mesh(const std::vector<std::byte>& bytes) try {
+[[nodiscard]] result<mesh_data, asset_diagnostic> parse_mesh(const std::vector<std::byte>& bytes) {
   auto decoded = asset_file::deserialize<mesh_description>(bytes);
   if (!decoded) {
     auto diagnostic = std::move(decoded).error();
@@ -20,14 +19,10 @@ parse_mesh(const std::vector<std::byte>& bytes) try {
     output.vertices.push_back({decoded->vertices[i], decoded->uvs[i]});
   output.normals = std::move(decoded->normals);
   return output;
-} catch (const std::bad_alloc&) {
-  return asset_diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return asset_diagnostic{.error = error::internal};
 }
 
 [[nodiscard]] result<mesh_data, asset_diagnostic>
-parse_binary_mesh(const std::vector<std::byte>& bytes) try {
+parse_binary_mesh(const std::vector<std::byte>& bytes) {
   mesh_data output;
   auto& out_vertices = output.vertices;
   auto& out_normals = output.normals;
@@ -67,10 +62,5 @@ parse_binary_mesh(const std::vector<std::byte>& bytes) try {
   }
   out_indices = std::move(data.indices);
   return output;
-
-} catch (const std::bad_alloc&) {
-  return asset_diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return asset_diagnostic{.error = error::internal};
 }
 }

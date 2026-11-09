@@ -151,7 +151,7 @@ import_asset_report import_project_asset(const import_asset_request& request) {
             .output_directory = output_directory,
             .output_uris = collect_output_uris(inspected.data, source_key),
             .diagnostic = std::move(inspected.diagnostic)};
-  } catch (const std::exception& error) {
+  } catch (const std::filesystem::filesystem_error& error) {
     return failure(import_asset_result::source_unavailable,
                    std::string{"解析导入路径失败："} + error.what());
   }
@@ -188,7 +188,7 @@ import_asset_report import_project_asset_and_update_index(const import_asset_req
           std::error_code ignored;
           std::filesystem::remove_all(path, ignored);
         }
-      } catch (...) {
+      } catch (const std::filesystem::filesystem_error&) {
         // 清理失败不得覆盖原始导入结果，也不得在析构期间抛出。
       }
     }
@@ -289,7 +289,7 @@ import_asset_report import_project_asset_and_update_index(const import_asset_req
     std::filesystem::remove_all(backup, ignored);
     imported.output_directory = std::move(destination);
     return imported;
-  } catch (const std::exception& error) {
+  } catch (const std::filesystem::filesystem_error& error) {
     const auto restored = rollback();
     return failure(import_asset_result::write_failed,
                    std::string{"导入事务失败："} + error.what() +
@@ -349,7 +349,7 @@ asset_index_report rebuild_asset_index(const std::filesystem::path& source_root,
       }
     }
     return save_asset_index(index_path, rebuilt);
-  } catch (const std::exception& error) {
+  } catch (const std::filesystem::filesystem_error& error) {
     return {.result = asset_index_result::io_error,
             .diagnostic = std::string{"重建资产索引失败："} + error.what()};
   }

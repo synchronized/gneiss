@@ -22,10 +22,9 @@ struct decoded_png final {
 };
 
 /** CPU 解码并返回独立像素数据；失败仅返回诊断。
- * 诊断或像素分配失败返回 out_of_memory，可并发处理不同输入。 */
+ * 诊断或像素分配异常向上传播；显式字节预算拒绝仍返回 out_of_memory，可并发处理不同输入。 */
 [[nodiscard]] GNEISS_API result<decoded_png, asset_diagnostic>
-decode_png(const std::vector<std::byte>& bytes,
-           std::size_t byte_limit = 256U * 1024U * 1024U) noexcept;
+decode_png(const std::vector<std::byte>& bytes, std::size_t byte_limit = 256U * 1024U * 1024U);
 
 } // namespace gneiss::engine
 

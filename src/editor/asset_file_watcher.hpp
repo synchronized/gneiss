@@ -44,10 +44,10 @@ public:
    * 启动新的监听会清除上一轮未消费事件；丢失计数在对象生命周期内累计。
    */
   [[nodiscard]] gneiss::engine::error start(const std::filesystem::path& source_root,
-                                            bool allow_missing = false) noexcept;
-  [[nodiscard]] gneiss::engine::error stop() noexcept;
+                                            bool allow_missing = false);
+  [[nodiscard]] gneiss::engine::error stop();
   [[nodiscard]] std::size_t poll_events(std::vector<asset_file_event>& output,
-                                        std::size_t max_count = 64U) noexcept;
+                                        std::size_t max_count = 64U);
   [[nodiscard]] bool is_running() const noexcept;
   [[nodiscard]] std::size_t dropped_event_count() const noexcept;
 

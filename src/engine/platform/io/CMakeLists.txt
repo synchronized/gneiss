@@ -18,7 +18,7 @@ add_library(
 target_link_libraries(
   gneiss_io_uv
   PUBLIC gneiss_core_values
-  PRIVATE gneiss::libuv
+  PRIVATE gneiss::libuv gneiss_fatal
 )
 target_include_directories(gneiss_io_uv PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/uv")
 target_compile_features(gneiss_io_uv PUBLIC cxx_std_20)
@@ -50,7 +50,7 @@ if(GNEISS_BUILD_TESTING)
   add_test(NAME gneiss.io.uv-file-reader COMMAND gneiss_uv_file_reader_test)
 
   add_executable(gneiss_uv_loop_executor_test "${PROJECT_SOURCE_DIR}/tests/platform/io/uv/uv_loop_executor_test.cpp")
-  target_link_libraries(gneiss_uv_loop_executor_test PRIVATE gneiss_io_uv)
+  target_link_libraries(gneiss_uv_loop_executor_test PRIVATE gneiss_io_uv gneiss_fatal)
   target_compile_features(gneiss_uv_loop_executor_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_uv_loop_executor_test)
   gneiss_target_output_directories(gneiss_uv_loop_executor_test)
@@ -70,4 +70,15 @@ if(GNEISS_BUILD_TESTING)
   gneiss_target_output_directories(gneiss_uv_result_test)
   add_test(NAME gneiss.io.uv-result COMMAND gneiss_uv_result_test)
 
+endif()
+
+if(GNEISS_BUILD_TESTING)
+  foreach(mode IN ITEMS oom unexpected)
+    add_test(NAME gneiss.io.uv-callback-fatal-${mode}
+      COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:gneiss_uv_loop_executor_test>
+      -DMODE=${mode} -P ${PROJECT_SOURCE_DIR}/tests/core/check_fatal.cmake)
+  endforeach()
+  add_test(NAME gneiss.io.uv-status-fatal-oom
+    COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:gneiss_uv_result_test>
+    -DMODE=oom -P ${PROJECT_SOURCE_DIR}/tests/core/check_fatal.cmake)
 endif()

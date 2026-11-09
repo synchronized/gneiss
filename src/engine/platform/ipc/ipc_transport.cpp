@@ -3,6 +3,7 @@
 
 #include "ipc_transport.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/fatal.hpp"
 
 #include "uv_loop_access.hpp"
 #include "uv_loop_executor.hpp"
@@ -66,8 +67,8 @@ struct ipc_transport::implementation final {
            event.envelope.kind == ipc_message_kind::event;
   }
 
-  void emit(ipc_transport_event event) noexcept {
-    try {
+  void emit(ipc_transport_event event) {
+    {
       const std::scoped_lock lock(event_mutex);
       if (event_capacity == 0U) {
         dropped_events.fetch_add(1U, std::memory_order_relaxed);
@@ -94,41 +95,44 @@ struct ipc_transport::implementation final {
         dropped_events.fetch_add(1U, std::memory_order_relaxed);
       }
       events.push_back(std::move(event));
-    } catch (...) {
-      dropped_events.fetch_add(1U, std::memory_order_relaxed);
     }
   }
 
-  void emit_status(ipc_transport_event_type type, error operation = error::success) noexcept {
+  void emit_status(ipc_transport_event_type type, error operation = error::success) {
     ipc_transport_event event;
     event.type = type;
     event.operation = operation;
     emit(std::move(event));
   }
 
-  static void allocate_read_buffer(uv_handle_t* handle, std::size_t, uv_buf_t* buffer) noexcept {
+  static void allocate_read_buffer(uv_handle_t* handle, std::size_t, uv_buf_t* buffer) noexcept
+      try {
     auto* self = static_cast<implementation*>(handle->data);
     *buffer =
         uv_buf_init(self->read_buffer.data(), static_cast<unsigned int>(self->read_buffer.size()));
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
 
-  static void on_stream_closed(uv_handle_t* handle) noexcept {
+  static void on_stream_closed(uv_handle_t* handle) noexcept try {
     auto* self = static_cast<implementation*>(handle->data);
     self->stream_initialized = false;
     self->envelope_decoder.reset();
     if (!self->is_stopping && self->current_mode == mode::server && self->listener_initialized) {
       self->current_state.store(ipc_transport_state::listening, std::memory_order_release);
     }
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
 
-  void close_stream() noexcept {
+  void close_stream() {
     if (stream_initialized && uv_is_closing(reinterpret_cast<uv_handle_t*>(&stream)) == 0) {
       (void)uv_read_stop(reinterpret_cast<uv_stream_t*>(&stream));
       uv_close(reinterpret_cast<uv_handle_t*>(&stream), on_stream_closed);
     }
   }
 
-  static void on_read(uv_stream_t* source, ssize_t count, const uv_buf_t* buffer) noexcept {
+  static void on_read(uv_stream_t* source, ssize_t count, const uv_buf_t* buffer) noexcept try {
     auto* self = static_cast<implementation*>(source->data);
     if (count > 0) {
       const auto bytes = std::span(reinterpret_cast<const std::uint8_t*>(buffer->base),
@@ -159,9 +163,11 @@ struct ipc_transport::implementation final {
       }
       self->close_stream();
     }
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
 
-  error begin_read() noexcept {
+  error begin_read() {
     const auto operation = engine::from_uv_status(
         uv_read_start(reinterpret_cast<uv_stream_t*>(&stream), allocate_read_buffer, on_read));
     if (operation == error::success) {
@@ -171,11 +177,13 @@ struct ipc_transport::implementation final {
     return operation;
   }
 
-  static void delete_rejected_connection(uv_handle_t* handle) noexcept {
+  static void delete_rejected_connection(uv_handle_t* handle) noexcept try {
     delete reinterpret_cast<rejected_connection*>(handle);
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
 
-  static void on_connection(uv_stream_t* server, int status) noexcept {
+  static void on_connection(uv_stream_t* server, int status) noexcept try {
     auto* self = static_cast<implementation*>(server->data);
     if (status < 0 || self->is_stopping) {
       if (status < 0 && !self->is_stopping) {
@@ -184,10 +192,11 @@ struct ipc_transport::implementation final {
       return;
     }
     if (self->stream_initialized) {
-      auto* rejected = new (std::nothrow) rejected_connection;
-      if (rejected == nullptr || uv_tcp_init(server->loop, &rejected->stream) != 0) {
+      auto* rejected = new rejected_connection;
+      const auto initialized = engine::from_uv_status(uv_tcp_init(server->loop, &rejected->stream));
+      if (initialized.failed()) {
         delete rejected;
-        self->emit_status(ipc_transport_event_type::error, error::out_of_memory);
+        self->emit_status(ipc_transport_event_type::error, initialized);
         return;
       }
       if (uv_accept(server, reinterpret_cast<uv_stream_t*>(&rejected->stream)) != 0) {
@@ -217,9 +226,11 @@ struct ipc_transport::implementation final {
       self->emit_status(ipc_transport_event_type::error, reading);
       self->close_stream();
     }
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
 
-  static void on_connect(uv_connect_t* request, int status) noexcept {
+  static void on_connect(uv_connect_t* request, int status) noexcept try {
     auto* self = static_cast<implementation*>(request->data);
     if (self->is_stopping) {
       return;
@@ -236,29 +247,28 @@ struct ipc_transport::implementation final {
       self->emit_status(ipc_transport_event_type::error, reading);
       self->close_stream();
     }
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
 
-  static void on_write(uv_write_t* request, int status) noexcept {
+  static void on_write(uv_write_t* request, int status) noexcept try {
     auto* write = static_cast<write_request*>(request->data);
     write->owner->pending_writes.fetch_sub(1U, std::memory_order_release);
     if (status < 0 && !write->owner->is_stopping) {
       write->owner->emit_status(ipc_transport_event_type::error, engine::from_uv_status(status));
     }
     delete write;
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
 
-  void write(std::vector<std::uint8_t> bytes) noexcept {
+  void write(std::vector<std::uint8_t> bytes) {
     if (!stream_initialized || uv_is_closing(reinterpret_cast<uv_handle_t*>(&stream)) != 0) {
       pending_writes.fetch_sub(1U, std::memory_order_release);
       emit_status(ipc_transport_event_type::error, error::not_ready);
       return;
     }
-    auto* write = new (std::nothrow) write_request;
-    if (write == nullptr) {
-      pending_writes.fetch_sub(1U, std::memory_order_release);
-      emit_status(ipc_transport_event_type::error, error::out_of_memory);
-      return;
-    }
+    auto* write = new write_request;
     write->owner = this;
     write->bytes = std::move(bytes);
     write->request.data = write;
@@ -273,7 +283,7 @@ struct ipc_transport::implementation final {
     }
   }
 
-  error enqueue(std::vector<std::uint8_t> bytes, bool log) noexcept {
+  error enqueue(std::vector<std::uint8_t> bytes, bool log) {
     // 在同一个 CAS 中为非日志消息保留容量，避免并发日志发送占满控制通道。
     const auto limit =
         write_capacity - (log ? (std::min)(write_capacity / 4U, std::size_t{16U}) : 0U);
@@ -295,7 +305,7 @@ struct ipc_transport::implementation final {
     return operation;
   }
 
-  void reset_for_start(mode selected_mode) noexcept {
+  void reset_for_start(mode selected_mode) {
     const std::scoped_lock lock(event_mutex);
     events.clear();
     dropped_events.store(0U, std::memory_order_relaxed);
@@ -318,7 +328,7 @@ ipc_transport::~ipc_transport() {
   }
 }
 
-error ipc_transport::start_server() noexcept {
+error ipc_transport::start_server() {
   if (!implementation_ || implementation_->event_capacity == 0U ||
       implementation_->write_capacity == 0U) {
     return error::invalid_argument;
@@ -333,7 +343,7 @@ error ipc_transport::start_server() noexcept {
     return operation;
   }
 
-  try {
+  {
     auto completion = std::make_shared<std::promise<error>>();
     auto completed = completion->get_future();
     operation = uv_loop_access::post(implementation_->executor, [state = implementation_.get(),
@@ -376,10 +386,6 @@ error ipc_transport::start_server() noexcept {
     if (operation == error::success) {
       operation = completed.get();
     }
-  } catch (const std::bad_alloc&) {
-    operation = error::out_of_memory;
-  } catch (...) {
-    operation = error::internal;
   }
   if (operation != error::success) {
     (void)implementation_->executor.stop();
@@ -388,7 +394,7 @@ error ipc_transport::start_server() noexcept {
   return operation;
 }
 
-error ipc_transport::start_client(const ipc_endpoint& endpoint) noexcept {
+error ipc_transport::start_client(const ipc_endpoint& endpoint) {
   if (!implementation_ || implementation_->event_capacity == 0U ||
       implementation_->write_capacity == 0U || endpoint.address != "127.0.0.1" ||
       endpoint.port == 0U) {
@@ -404,7 +410,7 @@ error ipc_transport::start_client(const ipc_endpoint& endpoint) noexcept {
     return operation;
   }
 
-  try {
+  {
     auto completion = std::make_shared<std::promise<error>>();
     auto completed = completion->get_future();
     operation = uv_loop_access::post(implementation_->executor, [state = implementation_.get(),
@@ -436,10 +442,6 @@ error ipc_transport::start_client(const ipc_endpoint& endpoint) noexcept {
     if (operation == error::success) {
       operation = completed.get();
     }
-  } catch (const std::bad_alloc&) {
-    operation = error::out_of_memory;
-  } catch (...) {
-    operation = error::internal;
   }
   if (operation != error::success) {
     (void)implementation_->executor.stop();
@@ -448,7 +450,7 @@ error ipc_transport::start_client(const ipc_endpoint& endpoint) noexcept {
   return operation;
 }
 
-error ipc_transport::send(const ipc_envelope& envelope) noexcept {
+error ipc_transport::send(const ipc_envelope& envelope) {
   if (!implementation_ || implementation_->current_state.load(std::memory_order_acquire) !=
                               ipc_transport_state::connected) {
     return error::not_ready;
@@ -466,7 +468,7 @@ std::size_t ipc_transport::pending_write_count() const noexcept {
   return implementation_ ? implementation_->pending_writes.load(std::memory_order_acquire) : 0U;
 }
 
-error ipc_transport::stop() noexcept {
+error ipc_transport::stop() {
   if (!implementation_ || !implementation_->executor.is_running()) {
     return error::not_ready;
   }
@@ -492,11 +494,11 @@ error ipc_transport::stop() noexcept {
 }
 
 std::size_t ipc_transport::poll_events(std::vector<ipc_transport_event>& output,
-                                       std::size_t max_count) noexcept {
+                                       std::size_t max_count) {
   if (!implementation_ || max_count == 0U) {
     return 0U;
   }
-  try {
+  {
     const std::scoped_lock lock(implementation_->event_mutex);
     const auto count = (std::min)(max_count, implementation_->events.size());
     output.reserve(output.size() + count);
@@ -505,19 +507,15 @@ std::size_t ipc_transport::poll_events(std::vector<ipc_transport_event>& output,
       implementation_->events.pop_front();
     }
     return count;
-  } catch (...) {
-    return 0U;
   }
 }
 
-ipc_endpoint ipc_transport::endpoint() const noexcept {
+ipc_endpoint ipc_transport::endpoint() const {
   if (!implementation_) {
     return {};
   }
-  try {
+  {
     return implementation_->local_endpoint;
-  } catch (...) {
-    return {};
   }
 }
 

@@ -7,7 +7,7 @@
 #include <cmath>
 
 namespace gneiss::engine {
-serialization::diagnostic validate_action_map(const action_map_description& map) noexcept try {
+serialization::diagnostic validate_action_map(const action_map_description& map) {
   if (map.actions.empty()) {
     return {
         .path = "/actions", .message = "输入映射必须包含动作", .error = error::invalid_argument};
@@ -36,10 +36,6 @@ serialization::diagnostic validate_action_map(const action_map_description& map)
     }
   }
   return {};
-} catch (const std::bad_alloc&) {
-  return {.error = error::out_of_memory};
-} catch (...) {
-  return {.error = error::internal};
 }
 
 } // namespace gneiss::engine

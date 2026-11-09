@@ -3,6 +3,7 @@
 
 #include "../support/scope_exit.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -175,9 +176,10 @@ int run_example(int argc, char** argv) {
 }
 
 int main(int argc, char** argv) {
+  gneiss::engine::install_fatal_handler();
   try {
     return run_example(argc, argv);
   } catch (...) {
-    return 99;
+    gneiss::engine::fatal_current_exception();
   }
 }

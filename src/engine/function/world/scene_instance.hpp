@@ -16,7 +16,7 @@ public:
   [[nodiscard]] GNEISS_API result<game_object> find(guid uuid) const noexcept;
   /** 创建本场景成员；父对象必须属于本场景，空父对象创建根。 */
   [[nodiscard]] GNEISS_API result<game_object>
-  create(scene_node_identity, const math::transform& = {}, game_object parent = {}) const noexcept;
+  create(scene_node_identity, const math::transform& = {}, game_object parent = {}) const;
   /** 卸载全部成员；复制的场景/对象借用句柄不阻止卸载。 */
   [[nodiscard]] GNEISS_API error unload() const noexcept;
 

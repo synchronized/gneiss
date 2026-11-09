@@ -9,7 +9,7 @@
 namespace gneiss::host {
 
 gneiss::engine::error make_shutdown_event(std::int32_t exit_code,
-                                          gneiss::engine::ipc_envelope& output) noexcept {
+                                          gneiss::engine::ipc_envelope& output) {
   return encode_ipc_session_shutdown({.exit_code = exit_code}, output);
 }
 

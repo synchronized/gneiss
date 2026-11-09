@@ -46,7 +46,7 @@ public:
   /** 请求停止加载，不等待 CPU/I/O；继续 advance 至 stopped，再释放依赖。 */
   void request_stop();
   [[nodiscard]] bool stopped() const noexcept;
-  void shutdown() noexcept;
+  void shutdown();
 
   [[nodiscard]] bool can_start_load() const noexcept;
   [[nodiscard]] bool can_activate() const noexcept;

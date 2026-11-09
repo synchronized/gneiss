@@ -9,7 +9,7 @@ serialization::diagnostic invalid_description(std::string path, std::string mess
   return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};
 }
 }
-serialization::diagnostic validate_texture_description(const texture_description& v) noexcept try {
+serialization::diagnostic validate_texture_description(const texture_description& v) {
   if (v.uri.empty())
     return invalid_description("/source", "纹理 source 必须是非空 URI");
   if (v.color_space != texture_color_space::linear && v.color_space != texture_color_space::srgb)
@@ -19,9 +19,5 @@ serialization::diagnostic validate_texture_description(const texture_description
   if (v.usage == texture_usage::normal && v.color_space != texture_color_space::linear)
     return invalid_description("/usage", "法线纹理必须使用 linear");
   return {};
-} catch (const std::bad_alloc&) {
-  return {.error = error::out_of_memory};
-} catch (...) {
-  return {.error = error::internal};
 }
 }

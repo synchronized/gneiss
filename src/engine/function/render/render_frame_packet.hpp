@@ -43,8 +43,7 @@ public:
 private:
   friend error capture_render_frame_packet(const native_window_info&, render_snapshot,
                                            const render_service&, const ui_draw_list&,
-                                           const debug_draw_list&,
-                                           struct render_frame_packet&) noexcept;
+                                           const debug_draw_list&, struct render_frame_packet&);
 
   std::unordered_map<rid, std::shared_ptr<const mesh_data>> meshes_;
   std::unordered_map<rid, std::shared_ptr<const material_data>> materials_;
@@ -79,7 +78,7 @@ struct render_frame_packet final {
 [[nodiscard]] error
 capture_render_frame_packet(const native_window_info& window, render_snapshot scene,
                             const render_service& resources, const ui_draw_list& ui,
-                            const debug_draw_list& debug, render_frame_packet& out_packet) noexcept;
+                            const debug_draw_list& debug, render_frame_packet& out_packet);
 
 } // namespace gneiss::engine
 

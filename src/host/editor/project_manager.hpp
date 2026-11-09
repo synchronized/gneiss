@@ -10,8 +10,7 @@
 namespace gneiss::host {
 
 /** 运行独立工程选择窗口；关闭窗口但未选择工程时返回 not_ready。 */
-[[nodiscard]] gneiss::engine::error run_project_manager(bool smoke,
-                                                        editor_project& output) noexcept;
+[[nodiscard]] gneiss::engine::error run_project_manager(bool smoke, editor_project& output);
 
 } // namespace gneiss::host
 

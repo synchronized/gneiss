@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/scope_exit.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/rid.hpp"
@@ -73,6 +74,7 @@ bool target_for(gneiss::runtime::application& app, gneiss::scene_instance_id sce
 }
 }
 int main() try {
+  gneiss::engine::install_fatal_handler();
   if (gneiss::engine::initialize_meta().failed())
     return 99;
   auto count = gneiss::engine::meta::type_count();
@@ -188,5 +190,5 @@ int main() try {
   std::puts("属性修改、保存与重新加载成功");
   return 0;
 } catch (...) {
-  return 99;
+  gneiss::engine::fatal_current_exception();
 }

@@ -88,7 +88,6 @@ void run() {
             gneiss::engine::error::success);
     }
     check(executor.stop() == gneiss::engine::error::success);
-    check(executor.failed_task_count() == 0U);
   }
   // 回执不借用解析器或执行器；停机排空后仍可接收，成功只交付一次。
   std::string output;

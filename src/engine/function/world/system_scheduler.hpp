@@ -19,7 +19,7 @@ using system_callback = engine::error (*)(world_state& world, void* user_data) n
 /** 按注册顺序串行执行 System；调用方负责外部同步。 */
 class system_scheduler final {
 public:
-  [[nodiscard]] engine::error add(system_id id, system_callback callback, void* user_data) noexcept;
+  [[nodiscard]] engine::error add(system_id id, system_callback callback, void* user_data);
   [[nodiscard]] engine::error run(world_state& world) noexcept;
   [[nodiscard]] std::size_t size() const noexcept { return systems_.size(); }
 

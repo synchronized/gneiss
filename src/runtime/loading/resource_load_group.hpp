@@ -51,7 +51,7 @@ public:
   /** 就绪项立即返回；缺失项进入同一加载组，回执包含全部请求的资源。 */
   engine::result<asset_load_completion>
   prepare_assets(std::span<const engine::render_resource_source> sources, std::uint64_t session,
-                 std::uint64_t revision, bool reload, bool allow_load) try {
+                 std::uint64_t revision, bool reload, bool allow_load) {
     using engine::error;
     if (stopping_)
       return error::invalid_state;
@@ -98,10 +98,6 @@ public:
     ready.request = request;
     ready.state = asset_load_state::preparing;
     return ready;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
   /** 只推进批次观察状态；宿主先推进共享资产管理器。 */
   void advance() {

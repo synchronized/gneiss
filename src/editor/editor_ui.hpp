@@ -29,9 +29,9 @@ public:
   editor_layout& operator=(const editor_layout&) = delete;
   [[nodiscard]] engine::error initialize(std::shared_ptr<gneiss::engine::files::service> files,
                                          std::string_view project_key,
-                                         editor_panel_visibility& visibility) noexcept;
-  [[nodiscard]] engine::error advance(editor_panel_visibility& visibility) noexcept;
-  [[nodiscard]] engine::error save(const editor_panel_visibility& visibility) noexcept;
+                                         editor_panel_visibility& visibility);
+  [[nodiscard]] engine::error advance(editor_panel_visibility& visibility);
+  [[nodiscard]] engine::error save(const editor_panel_visibility& visibility);
   [[nodiscard]] bool loading() const noexcept { return read_ != nullptr; }
   [[nodiscard]] bool saving() const noexcept { return write_ && !write_->complete; }
   [[nodiscard]] engine::error save_result() const noexcept;

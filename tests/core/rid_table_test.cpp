@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/core/rid_table.hpp"
 
 #include <cstdint>
@@ -22,6 +23,7 @@ struct fallible_resource {
 } // namespace
 
 int main() {
+  gneiss::engine::install_fatal_handler();
   using gneiss::engine::resource_type;
   using table = gneiss::engine::rid_table<test_resource>;
 
@@ -58,8 +60,13 @@ int main() {
   if (closed || closed.error() != gneiss::engine::error::invalid_argument)
     return 7;
   gneiss::engine::rid_table<fallible_resource> fallible{3};
-  auto failed = fallible.create(resource_type::test_resource, 0);
-  if (failed || failed.error() != gneiss::engine::error::internal || fallible.live_count() != 0)
+  bool propagated = false;
+  try {
+    (void)fallible.create(resource_type::test_resource, 0);
+  } catch (const std::runtime_error&) {
+    propagated = true;
+  }
+  if (!propagated || fallible.live_count() != 0)
     return 8;
   auto recovered = fallible.create(resource_type::test_resource, 1);
   if (!recovered || fallible.live_count() != 1)

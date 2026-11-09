@@ -42,9 +42,9 @@ struct mesh_binary_diagnostic final {
 
 [[nodiscard]] GNEISS_API bool is_mesh_binary(std::span<const std::byte> bytes) noexcept;
 [[nodiscard]] GNEISS_API result<std::vector<std::byte>, mesh_binary_diagnostic>
-encode_mesh_binary(const mesh_binary_data& data) noexcept;
+encode_mesh_binary(const mesh_binary_data& data);
 [[nodiscard]] GNEISS_API result<mesh_binary_data, mesh_binary_diagnostic>
-decode_mesh_binary(std::span<const std::byte> bytes) noexcept;
+decode_mesh_binary(std::span<const std::byte> bytes);
 [[nodiscard]] GNEISS_API std::string dump_mesh_binary_json(const mesh_binary_data& data);
 
 } // namespace gneiss::engine

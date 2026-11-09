@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/fatal.hpp"
 #include "engine/core/log/log_dispatcher.hpp"
+#include <new>
+#include <string_view>
 
 #include <array>
 #include <atomic>
@@ -73,16 +76,13 @@ bool verify_failure_and_shutdown() {
       valid = valid && event.message.context == 9U && event.thread_id != 0U &&
               event.timestamp_ns != 0U && event.sequence == calls &&
               active->submit({.category = "nested"}) == gneiss::engine::error::invalid_state;
-      if (calls == 1U) {
-        throw std::runtime_error("测试回调异常隔离");
-      }
     });
     active = &dispatcher;
     if (dispatcher.submit({.context = 9U, .category = "test"}) != gneiss::engine::error::success ||
         dispatcher.submit({.context = 9U, .category = "test"}) != gneiss::engine::error::success) {
       return false;
     }
-    // 不主动 flush，验证析构排空队列且异常不会阻止后续投递。
+    // 不主动 flush，验证析构排空队列。
   }
   return rejected == 2U && calls == 2U && valid;
 }
@@ -132,7 +132,20 @@ bool verify_validation_and_concurrency() {
 
 } // namespace
 
-int main() try {
+int main(int argc, char** argv) try {
+  gneiss::engine::install_fatal_handler();
+  if (argc > 1) {
+    const bool oom = std::string_view(argv[1]) == "oom";
+    gneiss::engine::log_dispatcher dispatcher([oom](const auto&) {
+      if (oom)
+        throw std::bad_alloc{};
+      throw std::runtime_error("unexpected callback");
+    });
+    if (dispatcher.submit({.category = "fatal-test"}).failed())
+      return 10;
+    dispatcher.flush();
+    return 0;
+  }
   if (!verify_failure_and_shutdown() || !verify_validation_and_concurrency()) {
     return 5;
   }

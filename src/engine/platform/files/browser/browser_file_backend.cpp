@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/platform/files/browser/browser_file_backend.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/platform/files/file_path.hpp"
 #include <cerrno>
 #include <charconv>
@@ -67,7 +68,7 @@ error error_result() {
   if (errno == EEXIST)
     return error::invalid_state;
   if (errno == ENOMEM)
-    return error::out_of_memory;
+    fatal(fatal_reason::out_of_memory);
   return error::io;
 }
 struct descriptor {
@@ -127,12 +128,14 @@ struct browser_backend::implementation : std::enable_shared_from_this<implementa
     completion_callback callback;
     bool populate{};
   };
-  static void synced(void* context, int error) {
+  static void synced(void* context, int error) try {
     std::unique_ptr<sync_request> request(static_cast<sync_request*>(context));
     request->owner->busy = false;
     if (request->populate)
       request->owner->ready = !error;
     request->callback(error ? error::io : error::success);
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
   error sync(bool populate, completion_callback callback) {
     auto request = std::make_unique<sync_request>(

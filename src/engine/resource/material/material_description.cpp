@@ -8,7 +8,7 @@ serialization::diagnostic invalid_description(std::string path, std::string mess
   return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};
 }
 }
-serialization::diagnostic validate_material_parameters(const material_parameters& v) noexcept try {
+serialization::diagnostic validate_material_parameters(const material_parameters& v) {
   const auto unit = [](float n) { return std::isfinite(n) && n >= 0 && n <= 1; };
   for (std::size_t i = 0; i < 4; ++i)
     if (!unit(v.color[i]))
@@ -32,20 +32,11 @@ serialization::diagnostic validate_material_parameters(const material_parameters
     if (!valid_sampling(v.sampling[i]))
       return invalid_description("/sampling/" + std::to_string(i), "采样值越界");
   return {};
-} catch (const std::bad_alloc&) {
-  return {.error = error::out_of_memory};
-} catch (...) {
-  return {.error = error::internal};
 }
-serialization::diagnostic validate_material_description(const material_description& v) noexcept
-    try {
+serialization::diagnostic validate_material_description(const material_description& v) {
   auto diagnostic = validate_material_parameters(v.parameters);
   if (diagnostic.error.failed())
     diagnostic.path.insert(0, "/parameters");
   return diagnostic;
-} catch (const std::bad_alloc&) {
-  return {.error = error::out_of_memory};
-} catch (...) {
-  return {.error = error::internal};
 }
 }

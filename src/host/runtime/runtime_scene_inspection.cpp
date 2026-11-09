@@ -4,9 +4,9 @@
 #include "runtime_scene_inspection.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
@@ -64,7 +64,7 @@ void runtime_scene_inspection::reset(std::uint64_t session_id) noexcept {
 }
 
 engine::error runtime_scene_inspection::set_source_bindings(
-    std::span<const engine::scene_object_binding> bindings) noexcept try {
+    std::span<const engine::scene_object_binding> bindings) {
   std::map<std::uint64_t, engine::scene_object_binding> next;
   std::set<std::pair<engine::guid, engine::guid>> addresses;
   for (const auto& binding : bindings) {
@@ -75,19 +75,15 @@ engine::error runtime_scene_inspection::set_source_bindings(
   }
   sources_.swap(next);
   return engine::error::success;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 
 gneiss::engine::error
 runtime_scene_inspection::capture(std::span<const runtime_scene_source_node> nodes, bool force_full,
-                                  runtime_scene_snapshot& output) noexcept {
+                                  runtime_scene_snapshot& output) {
   if (session_id_ == 0U || nodes.size() > runtime_inspection_max_nodes) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     std::set<std::array<gneiss::engine::guid, 3>> author_keys;
     std::set<std::uint64_t> native_nodes;
     for (const auto& node : nodes) {
@@ -207,17 +203,13 @@ runtime_scene_inspection::capture(std::span<const runtime_scene_source_node> nod
     is_initialized_ = true;
     output = std::move(pending);
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
 gneiss::engine::error
 runtime_scene_inspection::capture_scene(::gneiss::runtime::application& application,
                                         gneiss::scene_instance_id scene, bool force_full,
-                                        runtime_scene_snapshot& output) noexcept {
+                                        runtime_scene_snapshot& output) {
   if (!application.is_owner_thread() || !application.accepts_requests())
     return gneiss::engine::error::invalid_state;
   if (!scene.is_valid()) {
@@ -233,7 +225,7 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
     return gneiss::engine::error::out_of_memory;
   }
   auto& world = *application.native_world();
-  try {
+  {
     std::vector<runtime_scene_source_node> nodes;
     nodes.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0U; index < count; ++index) {
@@ -266,10 +258,6 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
            .components = std::move(info.components)});
     }
     return capture(nodes, force_full, output);
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 

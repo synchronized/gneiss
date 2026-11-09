@@ -3,6 +3,7 @@
 
 #include "uv_path_resolver.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/fatal.hpp"
 
 #include "uv_loop_access.hpp"
 #include "uv_result.hpp"
@@ -27,30 +28,28 @@ struct uv_path_operation::state {
       active->fetch_sub(1U, std::memory_order_relaxed);
     }
   }
-  void finish(int code) noexcept {
+  void finish(int code) {
     status = from_uv_status(code);
     if (code == 0) {
-      try {
+      {
         if (request.ptr == nullptr) {
           status = error::internal;
         } else {
           resolved = static_cast<const char*>(request.ptr);
         }
-      } catch (const std::bad_alloc&) {
-        status = error::out_of_memory;
-      } catch (...) {
-        status = error::internal;
       }
     }
     uv_fs_req_cleanup(&request);
     release();
     ready.store(true, std::memory_order_release);
   }
-  static void completed(uv_fs_t* request) noexcept {
+  static void completed(uv_fs_t* request) noexcept try {
     auto* pending = static_cast<state*>(request->data);
     // 回调保留自身直到清理完成；消费者可在任意时刻放弃结果。
     auto lifetime = std::move(pending->in_flight);
     pending->finish(static_cast<int>(request->result));
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
 };
 
@@ -77,12 +76,12 @@ uv_path_resolver::uv_path_resolver(uv_loop_executor& executor, std::size_t capac
     : executor_(executor), active_(std::make_shared<std::atomic_size_t>(0U)), capacity_(capacity) {}
 
 error uv_path_resolver::begin(std::string_view path,
-                              std::unique_ptr<uv_path_operation>& output) const noexcept {
+                              std::unique_ptr<uv_path_operation>& output) const {
   output.reset();
   if (path.empty() || path.find('\0') != std::string_view::npos || capacity_ == 0U) {
     return error::invalid_argument;
   }
-  try {
+  {
     auto pending = std::make_shared<uv_path_operation::state>();
     pending->active = active_;
     auto active = active_->load(std::memory_order_relaxed);
@@ -108,10 +107,6 @@ error uv_path_resolver::begin(std::string_view path,
       output = std::move(operation);
     }
     return submitted;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 }
 } // namespace gneiss::engine

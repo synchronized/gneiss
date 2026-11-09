@@ -23,11 +23,10 @@ public:
   uv_file_reader& operator=(const uv_file_reader&) = delete;
 
   /** 失败清空输出；长度从已打开对象取得。仅接受普通文件。 */
-  [[nodiscard]] static error open(std::string_view path,
-                                  std::unique_ptr<uv_file_reader>& output) noexcept;
+  [[nodiscard]] static error open(std::string_view path, std::unique_ptr<uv_file_reader>& output);
   [[nodiscard]] std::uint64_t size() const noexcept { return size_; }
   /** 精确读取；越界为 invalid_argument，提前 EOF 为 io；失败后输出内容未定义。 */
-  [[nodiscard]] error read_at(std::uint64_t offset, std::span<std::byte> output) const noexcept;
+  [[nodiscard]] error read_at(std::uint64_t offset, std::span<std::byte> output) const;
   /** 查询打开对象的当前长度，不按路径重新打开。 */
   [[nodiscard]] error current_size(std::uint64_t& output) const noexcept;
 

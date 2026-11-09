@@ -25,8 +25,7 @@ enum class bc7_encode_result : std::uint8_t { success, invalid_argument, out_of_
 /** 把紧密 RGBA8 图像确定性编码为 BC7；不足 4×4 的边缘复制最外侧像素。 */
 [[nodiscard]] bc7_encode_result encode_bc7_rgba8(std::uint32_t width, std::uint32_t height,
                                                  std::span<const std::byte> rgba, bool perceptual,
-                                                 bc7_image& output,
-                                                 std::string& diagnostic) noexcept;
+                                                 bc7_image& output, std::string& diagnostic);
 
 } // namespace gneiss::tooling
 

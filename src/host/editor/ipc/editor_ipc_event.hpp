@@ -47,13 +47,12 @@ using runtime_ipc_event =
 
 [[nodiscard]] gneiss::engine::error
 decode_runtime_session_event(const gneiss::engine::ipc_envelope& envelope,
-                             runtime_ipc_event& output) noexcept;
+                             runtime_ipc_event& output);
 [[nodiscard]] gneiss::engine::error
 decode_runtime_control_event(const gneiss::engine::ipc_envelope& envelope,
                              runtime_ipc_event& output) noexcept;
 [[nodiscard]] gneiss::engine::error
-decode_runtime_log_event(const gneiss::engine::ipc_envelope& envelope,
-                         runtime_ipc_event& output) noexcept;
+decode_runtime_log_event(const gneiss::engine::ipc_envelope& envelope, runtime_ipc_event& output);
 [[nodiscard]] gneiss::engine::error
 decode_runtime_inspection_event(const gneiss::engine::ipc_envelope& envelope,
                                 runtime_ipc_event& output) noexcept;

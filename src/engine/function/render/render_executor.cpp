@@ -217,30 +217,26 @@ threaded_render_executor::threaded_render_executor() = default;
 threaded_render_executor::~threaded_render_executor() { stop(); }
 
 engine::error threaded_render_executor::initialize(render_frame_callback callback,
-                                                   std::size_t maximum_pending_frames) noexcept {
+                                                   std::size_t maximum_pending_frames) {
   if (!callback || maximum_pending_frames == 0U || state_) {
     return engine::error::invalid_argument;
   }
-  try {
+  {
     auto candidate = std::make_unique<state>();
     candidate->frame_callback = std::move(callback);
     candidate->maximum_pending_frames = maximum_pending_frames;
     candidate->worker = std::thread(&state::run, candidate.get());
     state_ = std::move(candidate);
     return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::initialization_failed;
   }
 }
 
 result<std::uint64_t> threaded_render_executor::submit_frame(render_frame_packet packet,
-                                                             render_frame_policy policy) noexcept {
+                                                             render_frame_policy policy) {
   if (!state_) {
     return engine::error::not_ready;
   }
-  try {
+  {
     std::lock_guard lock(state_->mutex);
     if (state_->stopping) {
       return engine::error::not_ready;
@@ -285,23 +281,18 @@ result<std::uint64_t> threaded_render_executor::submit_frame(render_frame_packet
         std::max(state_->stats.pending_high_watermark, state_->pending.size());
     state_->work_ready.notify_one();
     return sequence;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 
-result<std::uint64_t>
-threaded_render_executor::submit_command(render_command_callback command,
-                                         render_command_policy policy) noexcept {
+result<std::uint64_t> threaded_render_executor::submit_command(render_command_callback command,
+                                                               render_command_policy policy) {
   if (!state_) {
     return engine::error::not_ready;
   }
   if (!command) {
     return engine::error::invalid_argument;
   }
-  try {
+  {
     std::lock_guard lock(state_->mutex);
     if (state_->stopping ||
         state_->pending.size() >= state_->maximum_pending_frames + std::size_t{8U}) {
@@ -321,10 +312,6 @@ threaded_render_executor::submit_command(render_command_callback command,
         std::max(state_->stats.pending_high_watermark, state_->pending.size());
     state_->work_ready.notify_one();
     return sequence;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 

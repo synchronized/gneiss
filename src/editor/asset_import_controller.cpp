@@ -68,7 +68,7 @@ editor_import_report reimport_source_asset_controlled(
     }
     report.result = editor_import_result::success;
     return report;
-  } catch (const std::exception& error) {
+  } catch (const std::filesystem::filesystem_error& error) {
     return failure(editor_import_result::io_error,
                    std::string{"重新导入源资产失败："} + error.what());
   }
@@ -111,7 +111,7 @@ editor_import_report import_external_asset_controlled(
       return failure(editor_import_result::io_error, "提交工程源资产失败");
     }
     return reimport_source_asset_controlled(project, asset_root, destination, control);
-  } catch (const std::exception& error) {
+  } catch (const std::filesystem::filesystem_error& error) {
     return failure(editor_import_result::io_error,
                    std::string{"导入外部源资产失败："} + error.what());
   }

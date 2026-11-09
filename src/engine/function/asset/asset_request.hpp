@@ -71,7 +71,7 @@ public:
             state_->diagnostic.message};
   }
   /** 已预留的运行资源身份；不表示内容或 GPU 已就绪。 */
-  [[nodiscard]] auto resource() const noexcept {
+  [[nodiscard]] auto resource() const {
     if constexpr (std::is_same_v<T, asset>)
       return state_ ? (state_->target ? state_->target.base() : ref<const asset>{state_->identity})
                     : ref<const asset>{};
@@ -86,7 +86,7 @@ public:
       return ref<const T>{};
   }
   /** 按注册的实际 C++ 类型借用同一身份，供序列化引用绑定；不复制对象。 */
-  [[nodiscard]] ref<void> native_reference() const noexcept
+  [[nodiscard]] ref<void> native_reference() const
     requires std::is_same_v<T, asset>
   {
     auto identity = resource();
@@ -94,14 +94,14 @@ public:
                ? identity.alias(const_cast<void*>(state_->native_address))
                : ref<void>{};
   }
-  template <render_resource U> [[nodiscard]] asset_ref<const U> get() const noexcept {
+  template <render_resource U> [[nodiscard]] asset_ref<const U> get() const {
     return state_ ? state_->target.template as<U>() : ref<const U>{};
   }
   /** 本次请求完成时的固定 CPU 内容，与身份的当前内容分离；需要保留时须在 take/cancel 前取得。 */
   template <class U = T>
     requires(std::same_as<U, T> &&
              requires(const U& value) { detail::capture_asset_content(value); })
-  [[nodiscard]] auto snapshot() const noexcept {
+  [[nodiscard]] auto snapshot() const {
     using Ref = decltype(detail::capture_asset_content(std::declval<const U&>()));
     using Content = typename Ref::element_type;
     return Ref{std::static_pointer_cast<Content>(state_ ? state_->snapshot
@@ -113,7 +113,7 @@ public:
   /** 最近一次成功领取的源文件字节数；尚未成功领取时为零，成功后可在请求失效时查询。 */
   [[nodiscard]] std::size_t source_bytes() const noexcept { return source_bytes_; }
   /** 非阻塞领取；not_ready 保留请求，成功后请求失效。失败携带解析诊断。 */
-  [[nodiscard]] result<reference, asset_diagnostic> take() noexcept try {
+  [[nodiscard]] result<reference, asset_diagnostic> take() {
     if (!state_)
       return asset_diagnostic{error::invalid_state, 0, {}, {}};
     auto state = state_;
@@ -138,10 +138,6 @@ public:
     metrics_ = state->metrics;
     state_.reset();
     return value;
-  } catch (const std::bad_alloc&) {
-    return asset_diagnostic{error::out_of_memory, 0, {}, {}};
-  } catch (...) {
-    return asset_diagnostic{error::internal, 0, {}, {}};
   }
 
 private:

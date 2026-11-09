@@ -323,12 +323,12 @@ void report_startup_failure(std::string_view stage, gneiss::engine::error operat
   std::fputc('\n', stderr);
 }
 
-gneiss::engine::error undo_editor_command(editor_state& state) noexcept {
+gneiss::engine::error undo_editor_command(editor_state& state) {
   const auto result = state.editing.history().undo();
   return result;
 }
 
-gneiss::engine::error redo_editor_command(editor_state& state) noexcept {
+gneiss::engine::error redo_editor_command(editor_state& state) {
   const auto result = state.editing.history().redo();
   return result;
 }
@@ -377,7 +377,7 @@ read_author_asset(editor_state& state, std::string uri,
   return error::not_ready;
 }
 
-void restore_author_selection(editor_state& state, const author_selection& selection) noexcept {
+void restore_author_selection(editor_state& state, const author_selection& selection) {
   gneiss::engine::result<gneiss::editor::scene_node_record> scene_node{
       gneiss::engine::error::not_found};
   gneiss::engine::result<gneiss::editor::prefab_node_record> prefab_node{
@@ -405,7 +405,7 @@ void restore_author_selection(editor_state& state, const author_selection& selec
 
 [[nodiscard]] gneiss::engine::error
 apply_author_snapshot(editor_state& state, const author_selection& selection,
-                      const gneiss::editor::scene_document_snapshot& snapshot) noexcept {
+                      const gneiss::editor::scene_document_snapshot& snapshot) {
   const auto status = gneiss::editor::restore_scene_document(*state.application,
                                                              state.editing.document(), snapshot);
   if (status.ok()) {
@@ -513,7 +513,7 @@ record_author_documents(editor_state& state, std::string label,
 }
 
 [[nodiscard]] gneiss::engine::error current_author_scene(editor_state& state,
-                                                         author_scene_document& output) noexcept {
+                                                         author_scene_document& output) {
   const auto& uri = state.editing.document().uri();
   if (!std::string_view(uri).starts_with("asset://"))
     return gneiss::engine::error::invalid_state;
@@ -847,7 +847,7 @@ gneiss::engine::error save_document(editor_state& state) {
                           gneiss::engine::files::write_mode::replace);
 }
 
-gneiss::engine::error launch_runtime(editor_state& state, bool save_changes) noexcept {
+gneiss::engine::error launch_runtime(editor_state& state, bool save_changes) {
 #if defined(GNEISS_EDITOR_HAS_RUNTIME)
   if (save_changes) {
     const auto status = save_document(state);
@@ -873,7 +873,7 @@ gneiss::engine::error launch_runtime(editor_state& state, bool save_changes) noe
 #endif
 }
 
-void request_runtime_launch(editor_state& state) noexcept {
+void request_runtime_launch(editor_state& state) {
   gneiss::editor::runtime_launch_request request;
   const auto launch_state =
       gneiss::editor::inspect_runtime_launch(state.editing.document(), state.project_root, request);
@@ -1453,7 +1453,7 @@ void draw_asset_browser(editor_state& state) {
 
 #endif
 
-bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVec2& size) noexcept {
+bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVec2& size) {
   return gneiss::editor::draw_transform_gizmo(
       {
           .session = state.editing.document(),
@@ -2833,15 +2833,12 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
       return grid_result;
     }
     return submit_editor_ui(state);
-  } catch (const std::bad_alloc&) {
-    // C++ 异常不得越过 C ABI 回调边界。
-    return gneiss::engine::error::out_of_memory;
   } catch (...) {
-    return gneiss::engine::error::internal;
+    gneiss::engine::fatal_current_exception();
   }
 }
 
-uint8_t handle_close_requested(void* user_data) noexcept {
+uint8_t handle_close_requested(void* user_data) noexcept try {
   if (!user_data) {
     return 1U;
   }
@@ -2877,6 +2874,8 @@ uint8_t handle_close_requested(void* user_data) noexcept {
   }
   state.document_actions.defer(gneiss::editor::document_action::exit_editor);
   return 0U;
+} catch (...) {
+  gneiss::engine::fatal_current_exception();
 }
 
 int run_editor(int argc, char** argv) {

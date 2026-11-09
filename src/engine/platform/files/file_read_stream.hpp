@@ -15,12 +15,12 @@ public:
   GNEISS_API ~read_stream();
   read_stream(const read_stream&) = delete;
   read_stream& operator=(const read_stream&) = delete;
-  GNEISS_API error read_next(files::callback<block> callback) noexcept;
+  GNEISS_API error read_next(files::callback<block> callback);
   /** 取消当前块，不回退已交付位置；成功后仍经所属线程通知 cancelled。 */
   GNEISS_API error cancel() noexcept;
 
 private:
-  GNEISS_API error read_sequential(files::callback<block>) noexcept;
+  GNEISS_API error read_sequential(files::callback<block>);
   struct state;
   std::shared_ptr<state> state_;
 };

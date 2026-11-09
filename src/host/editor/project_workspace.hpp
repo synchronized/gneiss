@@ -34,40 +34,38 @@ struct project_export_report final {
 [[nodiscard]] std::filesystem::path default_editor_state_path();
 
 /** 加载并校验最近工程；失效工程会被忽略。 */
-[[nodiscard]] gneiss::engine::error
-load_recent_projects(const std::filesystem::path& state_file,
-                     std::vector<editor_project>& output) noexcept;
+[[nodiscard]] gneiss::engine::error load_recent_projects(const std::filesystem::path& state_file,
+                                                         std::vector<editor_project>& output);
 
 /** 将工程移动到最近工程列表首位，最多保留十项。 */
 [[nodiscard]] gneiss::engine::error remember_recent_project(const std::filesystem::path& state_file,
-                                                            const editor_project& project) noexcept;
+                                                            const editor_project& project);
 
 /** 在不存在的目录中创建可立即打开的最小工程。 */
 [[nodiscard]] gneiss::engine::error create_editor_project(const std::filesystem::path& project_root,
                                                           std::string_view name,
-                                                          editor_project& output) noexcept;
+                                                          editor_project& output);
 
 /** 从指定模板创建工程；模板目录必须包含 gneiss.project.json。 */
 [[nodiscard]] gneiss::engine::error
 create_editor_project(const std::filesystem::path& project_root,
                       const std::filesystem::path& template_root, std::string_view name,
-                      editor_project& output) noexcept;
+                      editor_project& output);
 
 /** 将工程与 Runtime 依赖导出为可运行目录；不覆盖既有目标。 */
 [[nodiscard]] gneiss::engine::error
 export_editor_project(const editor_project& project,
                       const std::filesystem::path& runtime_executable,
-                      const std::filesystem::path& output_root) noexcept;
+                      const std::filesystem::path& output_root);
 
 /** 按指定配置导出带清单的目录包，并可同时生成确定性 ZIP。 */
-[[nodiscard]] gneiss::engine::error
-export_editor_project(const editor_project& project,
-                      const project_export_options& options) noexcept;
+[[nodiscard]] gneiss::engine::error export_editor_project(const editor_project& project,
+                                                          const project_export_options& options);
 
 /** 按指定配置导出，并返回资产构建统计。 */
 [[nodiscard]] gneiss::engine::error export_editor_project(const editor_project& project,
                                                           const project_export_options& options,
-                                                          project_export_report& report) noexcept;
+                                                          project_export_report& report);
 
 } // namespace gneiss::host
 

@@ -24,14 +24,14 @@ public:
   void set_keyboard(const keyboard_state& state) noexcept { keyboard_ = state; }
   void set_pointer(const pointer_state& state) noexcept { pointer_ = state; }
   void clear_focus() noexcept;
-  [[nodiscard]] error replace_action_map(action_map_description map) noexcept;
+  [[nodiscard]] error replace_action_map(action_map_description map);
   [[nodiscard]] error find_action(std::string_view name, action_id& out_action) const noexcept;
   [[nodiscard]] error get_action_state(action_id action, action_state& out_state) const noexcept;
   [[nodiscard]] const keyboard_state& keyboard() const noexcept { return keyboard_; }
   [[nodiscard]] const pointer_state& pointer() const noexcept { return pointer_; }
 
 private:
-  void apply(const input_event& event) noexcept;
+  void apply(const input_event& event);
   void update_actions() noexcept;
 
   std::array<input_event, event_capacity> events_{};

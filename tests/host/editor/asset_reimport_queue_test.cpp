@@ -3,6 +3,7 @@
 
 #include "asset_reimport_queue.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/fatal.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -29,6 +30,7 @@ using queue = gneiss::editor::asset_reimport_queue;
 } // namespace
 
 int main() { // NOLINT(bugprone-exception-escape)
+  gneiss::engine::install_fatal_handler();
   const auto fixture_root = std::filesystem::path{GNEISS_EDITOR_TEST_GLTF_ROOT};
   // 导入器返回规范路径；临时目录可能含短路径或目录联接，相对路径必须使用同一基准。
   const auto root = std::filesystem::weakly_canonical(std::filesystem::temp_directory_path()) /
@@ -124,13 +126,22 @@ int main() { // NOLINT(bugprone-exception-escape)
                  [&](const auto& project, const auto& asset_root, const auto& source) {
                    ++attempts;
                    if (source == second.source_path && failure_mode == 1) {
-                     throw std::runtime_error("test importer failure");
+                     return gneiss::editor::editor_import_report{
+                         .result = gneiss::editor::editor_import_result::import_failed,
+                         .source_path = source,
+                         .import = {},
+                         .diagnostic = "test importer failure"};
                    }
                    if (failure_mode == 2) {
-                     throw 42;
+                     return gneiss::editor::editor_import_report{
+                         .result = gneiss::editor::editor_import_result::import_failed,
+                         .source_path = source,
+                         .import = {},
+                         .diagnostic = "explicit failure"};
                    }
                    return gneiss::editor::reimport_source_asset(project, asset_root, source);
                  });
+  // 可恢复导入失败显式返回结果，不使用异常代替。
   // 带后缀的第二个源按名称先处理，用来确认失败不会挡住随后健康的候选。
   if (failing_relative >= relative ||
       isolated.notify(failing_relative, start) != gneiss::engine::error::success ||
@@ -183,6 +194,27 @@ int main() { // NOLINT(bugprone-exception-escape)
   if (!has_state(events, gneiss::editor::asset_reimport_state::failed)) {
     return failed(17);
   }
+
+  // 意外导入器异常向任务边界传播，不伪装成失败回执。
+  std::ofstream(second.source_path, std::ios::app) << ' ';
+  queue exceptional(
+      {.debounce = std::chrono::milliseconds{0},
+       .stable_read_delay = std::chrono::milliseconds{1},
+       .capacity = 16U},
+      [](const auto&, const auto&, const auto&) -> gneiss::editor::editor_import_report {
+        throw std::runtime_error("unexpected importer failure");
+      });
+  if (exceptional.notify(failing_relative, later).failed())
+    return failed(18);
+  (void)exceptional.tick(root, assets, later);
+  bool propagated = false;
+  try {
+    (void)exceptional.tick(root, assets, later + std::chrono::milliseconds{1});
+  } catch (const std::runtime_error&) {
+    propagated = true;
+  }
+  if (!propagated)
+    return failed(19);
 
   // 模拟监听事件完全丢失：不 notify，容量为 1 的队列仍应检查两个索引源。
   std::ofstream(initial.source_path, std::ios::app) << ' ';

@@ -52,13 +52,13 @@ struct ipc_envelope final {
 
 /** 将信封编码为固定网络字节序；成功时完整替换 output。 */
 [[nodiscard]] error encode_ipc_envelope(const ipc_envelope& envelope,
-                                        std::vector<std::uint8_t>& output) noexcept;
+                                        std::vector<std::uint8_t>& output);
 
 /** 有界增量 IPC v2 信封解码器；结构失败后必须 reset() 才能继续使用。 */
 class ipc_envelope_decoder final {
 public:
   [[nodiscard]] error append(std::span<const std::uint8_t> bytes,
-                             std::vector<ipc_envelope>& output) noexcept;
+                             std::vector<ipc_envelope>& output);
   void reset() noexcept;
   [[nodiscard]] bool has_failed() const noexcept;
   [[nodiscard]] std::size_t buffered_size() const noexcept;

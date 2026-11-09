@@ -32,7 +32,7 @@ public:
   [[nodiscard]] const std::array<ref<const texture>, 5>& textures() const noexcept {
     return content_ ? content_->textures : empty_.textures;
   }
-  [[nodiscard]] ref<const material_content> snapshot() const noexcept { return content_; }
+  [[nodiscard]] ref<const material_content> snapshot() const { return content_; }
   material(const material&) = delete;
   material& operator=(const material&) = delete;
 

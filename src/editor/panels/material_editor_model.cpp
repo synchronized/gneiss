@@ -7,7 +7,7 @@
 #include "engine/resource/material/material_description.hpp"
 namespace gneiss::editor {
 using namespace engine;
-error material_editor_model::open(std::string uri, std::string content) noexcept try {
+error material_editor_model::open(std::string uri, std::string content) {
   if (saving() || is_dirty())
     return error::invalid_state;
   if (!uri.starts_with("asset://") || validate_uri(uri).failed())
@@ -31,10 +31,6 @@ error material_editor_model::open(std::string uri, std::string content) noexcept
   baseline_ = std::move(baseline);
   save_status_ = error::success;
   return error::success;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 error material_editor_model::set_value(const material_property_path& path, const value& input,
                                        std::uint64_t serial) noexcept {
@@ -45,8 +41,7 @@ error material_editor_model::replace_object(const property_path& path,
   return apply(path, nullptr, &source, 0);
 }
 error material_editor_model::apply(const property_path& path, const value* input,
-                                   const meta::const_instance* source,
-                                   std::uint64_t serial) noexcept try {
+                                   const meta::const_instance* source, std::uint64_t serial) {
   if (input && input->kind() == value_kind::object)
     return error::unsupported;
   if (!current_ || path.empty())
@@ -86,10 +81,6 @@ error material_editor_model::apply(const property_path& path, const value* input
                                  return error::success;
                                },
                            .merge_key = serial ? std::to_string(serial) + key : std::string{}});
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 bool material_editor_model::is_dirty() const noexcept {
   return current_ && saved_ && current_->encoded != saved_->encoded;
@@ -102,7 +93,7 @@ error material_editor_model::discard() noexcept {
     current_ = saved_;
   return status;
 }
-error material_editor_model::begin_save(files::service& files) noexcept try {
+error material_editor_model::begin_save(files::service& files) {
   if (!current_ || saving())
     return error::invalid_state;
   auto status = begin_author_file_save(
@@ -114,12 +105,8 @@ error material_editor_model::begin_save(files::service& files) noexcept try {
     save_status_ = error::not_ready;
   }
   return status;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-void material_editor_model::advance() noexcept {
+void material_editor_model::advance() {
   if (!receipt_ || !receipt_->complete)
     return;
   save_status_ = receipt_->status;

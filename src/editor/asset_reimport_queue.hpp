@@ -59,7 +59,7 @@ public:
 
   /** 加入相对于工程 sources 的候选路径；重复通知会重置防抖期限。 */
   [[nodiscard]] gneiss::engine::error notify(const std::filesystem::path& relative_path,
-                                             clock::time_point now = clock::now()) noexcept;
+                                             clock::time_point now = clock::now());
 
   /** 请求检查索引中的全部源文件；执行中再次请求会合并为下一轮，不自动重试失败导入。 */
   void request_rescan() noexcept;
@@ -74,10 +74,10 @@ public:
   [[nodiscard]] std::size_t tick(const std::filesystem::path& project_root,
                                  const std::filesystem::path& asset_root,
                                  clock::time_point now = clock::now(), std::size_t max_imports = 1U,
-                                 std::size_t max_candidates = 8U) noexcept;
+                                 std::size_t max_candidates = 8U);
 
   [[nodiscard]] std::size_t poll_events(std::vector<asset_reimport_event>& output,
-                                        std::size_t max_count = 64U) noexcept;
+                                        std::size_t max_count = 64U);
   [[nodiscard]] std::size_t pending_count() const noexcept;
   [[nodiscard]] std::size_t dropped_candidate_count() const noexcept;
 

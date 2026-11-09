@@ -60,9 +60,9 @@ const texture_data* render_resource_snapshot::get_texture(rid texture) const noe
 engine::error capture_render_frame_packet(const native_window_info& window, render_snapshot scene,
                                           const render_service& resources, const ui_draw_list& ui,
                                           const debug_draw_list& debug,
-                                          render_frame_packet& out_packet) noexcept {
+                                          render_frame_packet& out_packet) {
   const auto capture_started = std::chrono::steady_clock::now();
-  try {
+  {
     render_frame_packet candidate = std::move(out_packet);
     candidate.resources.meshes_.clear();
     candidate.resources.materials_.clear();
@@ -129,10 +129,6 @@ engine::error capture_render_frame_packet(const native_window_info& window, rend
     candidate.capture.copied_payload_bytes = copied_payload_bytes;
     out_packet = std::move(candidate);
     return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 

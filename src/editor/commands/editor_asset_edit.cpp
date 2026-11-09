@@ -112,7 +112,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
 
 engine::error editor_asset_edit::request_remove(scene_edit_session& session,
                                                 editor_command_history& history,
-                                                gneiss::engine::guid uuid) try {
+                                                gneiss::engine::guid uuid) {
   if (active_ || history.is_pending())
     return engine::error::not_ready;
   const auto node = session.find_node(uuid);
@@ -126,10 +126,6 @@ engine::error editor_asset_edit::request_remove(scene_edit_session& session,
   if (status.failed() && !was_dirty)
     session.clear_dirty();
   return status;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 
 gneiss::engine::error editor_asset_edit::request(runtime::application& application,
@@ -149,7 +145,7 @@ engine::error editor_asset_edit::request_property(runtime::application& app,
                                                   scene_edit_session& document,
                                                   editor_command_history& history,
                                                   const component_edit_target& target,
-                                                  const property_edit& edit) try {
+                                                  const property_edit& edit) {
   using namespace engine;
   if (active_ || history.is_pending())
     return error::not_ready;
@@ -176,15 +172,11 @@ engine::error editor_asset_edit::request_property(runtime::application& app,
   if (!valid)
     return valid.error().error;
   return request(app, document, history, target, {description.mesh_uri, description.material_uri});
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 engine::error editor_asset_edit::request_restore_source(runtime::application& app,
                                                         scene_edit_session& document,
                                                         editor_command_history& history,
-                                                        const component_edit_target& target) try {
+                                                        const component_edit_target& target) {
   if (active_ || history.is_pending())
     return engine::error::not_ready;
   if (!target.instance_uuid || !document.uri().starts_with("asset://"))
@@ -208,10 +200,6 @@ engine::error editor_asset_edit::request_restore_source(runtime::application& ap
   cancelled_ = false;
   operation_ = engine::error::not_ready;
   return engine::error::success;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 gneiss::engine::error editor_asset_edit::request_add(runtime::application& application,
                                                      scene_edit_session& session,
@@ -315,16 +303,12 @@ editor_asset_edit::request_impl(runtime::application& application, scene_edit_se
   active_ = true;
   visible_ = true;
   return operation_;
-} catch (const std::bad_alloc&) {
-  previous_ = {};
-  next_ = {};
-  prefab_before_.reset();
-  return operation_ = gneiss::engine::error::out_of_memory;
 } catch (...) {
+  // 局部状态清理后传播意外异常，不作为普通操作失败继续执行。
   previous_ = {};
   next_ = {};
   prefab_before_.reset();
-  return operation_ = gneiss::engine::error::internal;
+  throw;
 }
 
 void editor_asset_edit::accept_assets(std::span<const engine::render_resource_ref> assets) {

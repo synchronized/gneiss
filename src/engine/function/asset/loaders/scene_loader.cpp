@@ -57,7 +57,7 @@ template <class T, class D> struct scene_loader final : asset_loader {
     }
     return error::success;
   }
-  void adopt(const std::shared_ptr<const void>& previous) noexcept override {
+  void adopt(const std::shared_ptr<const void>& previous) override {
     if (!previous)
       return;
     auto target = std::static_pointer_cast<const T>(previous);

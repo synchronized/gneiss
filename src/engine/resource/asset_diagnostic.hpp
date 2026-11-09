@@ -19,16 +19,12 @@ struct asset_diagnostic final {
 
 namespace gneiss::engine::detail {
 inline void fail(asset_diagnostic& diagnostic, engine::error result, std::string_view path,
-                 std::string_view message, std::size_t offset = 0) noexcept {
+                 std::string_view message, std::size_t offset = 0) {
   diagnostic.error = result;
   diagnostic.byte_offset = offset;
-  try {
+  {
     diagnostic.path = path;
     diagnostic.message = message;
-  } catch (...) {
-    diagnostic.error = engine::error::out_of_memory;
-    diagnostic.path.clear();
-    diagnostic.message.clear();
   }
 }
 }

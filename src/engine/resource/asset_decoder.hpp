@@ -42,7 +42,7 @@ public:
   }
   result<std::shared_ptr<const void>, serialization::diagnostic>
   decode(const serialization::read_context& context,
-         const std::vector<std::byte>& bytes) const override try {
+         const std::vector<std::byte>& bytes) const override {
     if (function_ || asset_file::format_traits<T>::enabled) {
       auto decoded = [&]() -> result<T, serialization::diagnostic> {
         if (function_)
@@ -59,10 +59,6 @@ public:
     if (!decoded)
       return std::move(decoded).error();
     return std::shared_ptr<const void>{std::make_shared<T>(std::move(*decoded))};
-  } catch (const std::bad_alloc&) {
-    return serialization::diagnostic{.error = error::out_of_memory};
-  } catch (...) {
-    return serialization::diagnostic{.error = error::internal};
   }
 
 private:

@@ -21,7 +21,7 @@ struct runtime_launch_request final {
 /** 检查作者会话是否可以从磁盘启动；脏场景必须先显式保存。 */
 [[nodiscard]] runtime_launch_state inspect_runtime_launch(const scene_edit_session& session,
                                                           const std::filesystem::path& project_root,
-                                                          runtime_launch_request& output) noexcept;
+                                                          runtime_launch_request& output);
 
 } // namespace gneiss::editor
 

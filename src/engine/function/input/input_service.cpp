@@ -52,17 +52,13 @@ void input_service::clear_focus() noexcept {
   update_actions();
 }
 
-error input_service::replace_action_map(action_map_description map) noexcept {
+error input_service::replace_action_map(action_map_description map) {
   if (const auto valid = validate_action_map(map); valid.error.failed()) {
     return valid.error;
   }
   std::vector<engine::action_state> states;
-  try {
+  {
     states.assign(map.actions.size(), engine::action_state{});
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
   action_map_ = std::move(map);
   action_states_ = std::move(states);
@@ -120,7 +116,7 @@ void input_service::update_actions() noexcept {
   }
 }
 
-void input_service::apply(const input_event& event) noexcept {
+void input_service::apply(const input_event& event) {
   if (event.type == event_type::key && event.data.key.physical_key < 256U) {
     const auto key = event.data.key.physical_key;
     const auto mask = UINT64_C(1) << (key % 64U);

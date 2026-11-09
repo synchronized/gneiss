@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/platform/files/native_file_backend.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/platform/files/file_path.hpp"
 #include "engine/platform/io/uv/uv_loop_access.hpp"
 #include "engine/platform/io/uv/uv_result.hpp"
@@ -48,12 +49,14 @@ struct operation : std::enable_shared_from_this<operation> {
   files::info info;
   directory_page page;
 
-  static void completed(uv_fs_t* req) noexcept {
+  static void completed(uv_fs_t* req) noexcept try {
     auto* self = static_cast<operation*>(req->data);
     auto owner = self->keep_alive;
     self->advance();
+  } catch (...) {
+    fatal_current_exception();
   }
-  void submitted(int code) noexcept {
+  void submitted(int code) {
     if (code < 0) {
       if (step == stage::close) {
         // 仅异步关闭提交失败时，在 I/O 线程释放已打开描述符；不向调用方提供同步接口。
@@ -69,7 +72,7 @@ struct operation : std::enable_shared_from_this<operation> {
       advance();
     }
   }
-  void finish(error value) noexcept {
+  void finish(error value) {
     if (temporary_created) {
       status = value;
       temporary_created = false;
@@ -88,7 +91,7 @@ struct operation : std::enable_shared_from_this<operation> {
     else if (on_list)
       on_list({value, value.ok() ? std::move(page) : directory_page{}});
   }
-  void close(error value) noexcept {
+  void close(error value) {
     status = value;
     if (descriptor < 0) {
       finish(status);
@@ -150,7 +153,7 @@ struct operation : std::enable_shared_from_this<operation> {
                   ? uv_fs_read(loop, &request, descriptor, &buffer, 1, offset, completed)
                   : uv_fs_write(loop, &request, descriptor, &buffer, 1, offset, completed));
   }
-  void advance() noexcept {
+  void advance() {
     const auto value = request.result;
     try {
       if (step == stage::directory && value >= 0) {
@@ -290,15 +293,12 @@ struct operation : std::enable_shared_from_this<operation> {
         close(error::internal);
         break;
       }
-    } catch (const std::bad_alloc&) {
-      uv_fs_req_cleanup(&request);
-      close(error::out_of_memory);
     } catch (...) {
       uv_fs_req_cleanup(&request);
-      close(error::internal);
+      throw;
     }
   }
-  void begin(uv_loop_t* target) noexcept {
+  void begin(uv_loop_t* target) {
     loop = target;
     keep_alive = shared_from_this();
     request.data = this;

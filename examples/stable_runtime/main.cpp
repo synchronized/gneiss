@@ -3,6 +3,7 @@
 
 #include "../support/scope_exit.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -270,6 +271,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
 } // namespace
 
 int main(int argc, char** argv) {
+  gneiss::engine::install_fatal_handler();
   if (argc > 2 || (argc == 2 && std::string_view{argv[1]} != "--smoke" &&
                    std::string_view{argv[1]} != "--measure")) {
     std::fprintf(stderr, "用法：gneiss_stable_runtime_consumer [--smoke|--measure]\n");
@@ -279,7 +281,6 @@ int main(int argc, char** argv) {
     const auto argument = argc == 2 ? std::string_view{argv[1]} : std::string_view{};
     return run_sample(argv[0], argument == "--smoke", argument == "--measure");
   } catch (...) {
-    std::fprintf(stderr, "稳定运行时样例失败：阶段=未处理异常\n");
-    return 99;
+    gneiss::engine::fatal_current_exception();
   }
 }

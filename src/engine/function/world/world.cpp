@@ -31,8 +31,7 @@ world::world(std::uint32_t domain) : state_(std::make_unique<world_state>(domain
 world::~world() noexcept = default;
 bool world::is_owner_thread() const noexcept { return state_->is_owner_thread(); }
 result<game_object> world::create_object(scene_node_identity identity,
-                                         const math::transform& transform,
-                                         game_object parent) noexcept {
+                                         const math::transform& transform, game_object parent) {
   if (parent.owner() && parent.owner() != this)
     return error::invalid_handle;
   auto created =
@@ -50,33 +49,33 @@ result<game_object> world::object(entity_id entity) noexcept {
 bool game_object::is_valid() const noexcept {
   return owner_ && owner_->entity_node(entity_).has_value();
 }
-result<scene_node_identity_view> game_object::identity() const noexcept {
+result<scene_node_identity_view> game_object::identity() const {
   return owner_ ? owner_->node_identity(scene_node_id{entity_.get()})
                 : result<scene_node_identity_view>{error::invalid_handle};
 }
-error game_object::set_identity(scene_node_identity identity) const noexcept {
+error game_object::set_identity(scene_node_identity identity) const {
   return owner_ ? owner_->node_set_identity(scene_node_id{entity_.get()}, std::move(identity))
                 : error::invalid_handle;
 }
-result<math::transform> game_object::local_transform() const noexcept {
+result<math::transform> game_object::local_transform() const {
   if (!owner_)
     return error::invalid_handle;
   math::transform value;
   auto status = owner_->node_get_local_transform(scene_node_id{entity_.get()}, value);
   return status.ok() ? result<math::transform>{value} : result<math::transform>{status};
 }
-result<math::transform> game_object::world_transform() const noexcept {
+result<math::transform> game_object::world_transform() const {
   if (!owner_)
     return error::invalid_handle;
   math::transform value;
   auto status = owner_->node_get_world_transform(scene_node_id{entity_.get()}, value);
   return status.ok() ? result<math::transform>{value} : result<math::transform>{status};
 }
-error game_object::set_local_transform(const math::transform& transform) const noexcept {
+error game_object::set_local_transform(const math::transform& transform) const {
   return owner_ ? owner_->node_set_local_transform(scene_node_id{entity_.get()}, transform)
                 : error::invalid_handle;
 }
-result<game_object> game_object::parent() const noexcept {
+result<game_object> game_object::parent() const {
   if (!owner_)
     return error::invalid_handle;
   scene_node_id parent;
@@ -85,16 +84,16 @@ result<game_object> game_object::parent() const noexcept {
     return status;
   return parent ? owner_->object(entity_id{parent.get()}) : result<game_object>{game_object{}};
 }
-error game_object::reparent(game_object parent) const noexcept {
+error game_object::reparent(game_object parent) const {
   if (!owner_ || (parent.owner_ && parent.owner_ != owner_))
     return error::invalid_handle;
   return owner_->node_reparent(scene_node_id{entity_.get()}, scene_node_id{parent.entity_.get()});
 }
-error game_object::destroy() const noexcept {
+error game_object::destroy() const {
   return owner_ ? owner_->object_destroy(scene_node_id{entity_.get()}) : error::invalid_handle;
 }
 result<scene_node_id> world::object_create(scene_node_id parent, scene_node_identity identity,
-                                           const math::transform& transform) noexcept {
+                                           const math::transform& transform) {
   entity_id entity;
   auto status = entity_create(entity);
   if (status.failed())
@@ -116,12 +115,12 @@ error world::object_destroy(scene_node_id node) noexcept {
     return error::invalid_state;
   return state_->scene().destroy(node);
 }
-error world::node_set_identity(scene_node_id node, scene_node_identity identity) noexcept {
+error world::node_set_identity(scene_node_id node, scene_node_identity identity) {
   if (!is_owner_thread())
     return error::invalid_state;
   return state_->scene().set_identity(node, std::move(identity));
 }
-result<scene_node_identity_view> world::node_identity(scene_node_id node) const noexcept {
+result<scene_node_identity_view> world::node_identity(scene_node_id node) const {
   if (!is_owner_thread())
     return error::invalid_state;
   return state_->scene().identity(node);
@@ -133,7 +132,7 @@ result<scene_node_id> world::entity_node(entity_id entity) const noexcept {
     return error::invalid_handle;
   return state_->scene().node_for_entity(entity.get());
 }
-result<mesh_renderer> world::node_mesh_renderer(scene_node_id node) noexcept {
+result<mesh_renderer> world::node_mesh_renderer(scene_node_id node) {
   if (!is_owner_thread())
     return error::invalid_state;
   if (!state_->scene().get_local(node))
@@ -145,11 +144,11 @@ result<mesh_renderer> world::node_mesh_renderer(scene_node_id node) noexcept {
   return component->value;
 }
 
-engine::error world::entity_create(entity_id& out_entity_value) noexcept {
+engine::error world::entity_create(entity_id& out_entity_value) {
   std::uint64_t out_entity = out_entity_value.get();
   const auto operation_result = [&]() -> engine::error {
     out_entity = UINT64_C(0);
-    try {
+    {
       auto* state = state_.get();
       const auto thread_result =
           (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -158,18 +157,14 @@ engine::error world::entity_create(entity_id& out_entity_value) noexcept {
       }
       out_entity = state->create_entity();
       return engine::error::success;
-    } catch (const std::bad_alloc&) {
-      return engine::error::out_of_memory;
-    } catch (...) {
-      return engine::error::internal;
     }
   }();
   out_entity_value = entity_id{out_entity};
   return operation_result;
 }
-engine::error world::entity_destroy(entity_id entity_value) noexcept {
+engine::error world::entity_destroy(entity_id entity_value) {
   std::uint64_t entity = entity_value.get();
-  try {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -177,13 +172,11 @@ engine::error world::entity_destroy(entity_id entity_value) noexcept {
       return thread_result;
     }
     return state->destroy_entity(entity) ? engine::error::success : engine::error::invalid_handle;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
-result<bool> world::entity_is_alive(entity_id entity_value) noexcept {
+result<bool> world::entity_is_alive(entity_id entity_value) {
   std::uint64_t entity = entity_value.get();
-  try {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -191,12 +184,10 @@ result<bool> world::entity_is_alive(entity_id entity_value) noexcept {
       return thread_result;
     }
     return state->is_alive(entity);
-  } catch (...) {
-    return engine::error::internal;
   }
 }
-result<std::uint64_t> world::entity_count() noexcept {
-  try {
+result<std::uint64_t> world::entity_count() {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -204,17 +195,15 @@ result<std::uint64_t> world::entity_count() noexcept {
       return thread_result;
     }
     return static_cast<std::uint64_t>(state->entity_count());
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 engine::error world::entity_set_camera(entity_id entity_value, const math::camera_settings& camera,
-                                       bool primary) noexcept {
+                                       bool primary) {
   std::uint64_t entity = entity_value.get();
   if (!is_valid_camera(camera.fov, camera.near, camera.far)) {
     return engine::error::invalid_argument;
   }
-  try {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -231,19 +220,15 @@ engine::error world::entity_set_camera(entity_id entity_value, const math::camer
     }
     state->clear_active_camera(entity);
     return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 engine::error world::entity_configure_camera(entity_id entity_value,
-                                             const math::camera_settings& desc) noexcept {
+                                             const math::camera_settings& desc) {
   std::uint64_t entity = entity_value.get();
   if (!is_valid_camera(desc.fov, desc.near, desc.far)) {
     return engine::error::invalid_argument;
   }
-  try {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -255,16 +240,11 @@ engine::error world::entity_configure_camera(entity_id entity_value,
     }
     state->emplace_or_replace<camera_component>(entity, desc);
     return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
-engine::error world::entity_get_camera(entity_id entity_value,
-                                       math::camera_settings& out_camera) noexcept {
+engine::error world::entity_get_camera(entity_id entity_value, math::camera_settings& out_camera) {
   std::uint64_t entity = entity_value.get();
-  try {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -281,38 +261,32 @@ engine::error world::entity_get_camera(entity_id entity_value,
     out_camera = {
         .fov = component->value.fov, .near = component->value.near, .far = component->value.far};
     return engine::error::success;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
-engine::error world::entity_remove_camera(entity_id entity_value) noexcept {
+engine::error world::entity_remove_camera(entity_id entity_value) {
   std::uint64_t entity = entity_value.get();
-  try {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
     return thread_result == engine::error::success ? state->clear_camera(entity) : thread_result;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
-engine::error world::set_active_camera(entity_id entity_value) noexcept {
+engine::error world::set_active_camera(entity_id entity_value) {
   std::uint64_t entity = entity_value.get();
-  try {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
     return thread_result == engine::error::success ? state->set_active_camera(entity)
                                                    : thread_result;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
-engine::error world::get_active_camera(entity_id& out_entity_value) noexcept {
+engine::error world::get_active_camera(entity_id& out_entity_value) {
   std::uint64_t out_entity = out_entity_value.get();
   const auto operation_result = [&]() -> engine::error {
     out_entity = UINT64_C(0);
-    try {
+    {
       auto* state = state_.get();
       const auto thread_result =
           (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -321,16 +295,14 @@ engine::error world::get_active_camera(entity_id& out_entity_value) noexcept {
       }
       out_entity = state->active_camera();
       return out_entity == UINT64_C(0) ? engine::error::not_ready : engine::error::success;
-    } catch (...) {
-      return engine::error::internal;
     }
   }();
   out_entity_value = entity_id{out_entity};
   return operation_result;
 }
 engine::error
-world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replacements) noexcept {
-  try {
+world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replacements) {
+  {
     auto* state = state_.get();
     const auto validated =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -358,17 +330,13 @@ world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replace
       };
     }
     return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 engine::error world::entity_set_mesh_renderer(entity_id entity_value,
-                                              const mesh_renderer& renderer) noexcept {
+                                              const mesh_renderer& renderer) {
   std::uint64_t entity = entity_value.get();
 
-  try {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -381,33 +349,27 @@ engine::error world::entity_set_mesh_renderer(entity_id entity_value,
     state->emplace_or_replace<mesh_renderer_component>(
         entity, mesh_renderer{renderer.mesh, renderer.material});
     return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 
-engine::error world::entity_remove_mesh_renderer(entity_id entity_value) noexcept {
+engine::error world::entity_remove_mesh_renderer(entity_id entity_value) {
   std::uint64_t entity = entity_value.get();
-  try {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
     return thread_result == engine::error::success ? state->clear_mesh_renderer(entity)
                                                    : thread_result;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 engine::error world::node_create(scene_node_id parent_value, entity_id entity_value,
-                                 scene_node_id& out_node_value) noexcept {
+                                 scene_node_id& out_node_value) {
   scene_node_id parent = parent_value;
   std::uint64_t entity = entity_value.get();
   scene_node_id out_node = out_node_value;
   const auto operation_result = [&]() -> engine::error {
     out_node = null_scene_node_id;
-    try {
+    {
       auto* state = state_.get();
       const auto thread_result =
           (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -422,28 +384,24 @@ engine::error world::node_create(scene_node_id parent_value, entity_id entity_va
         return created.error();
       out_node = *created;
       return error::success;
-    } catch (...) {
-      return engine::error::internal;
     }
   }();
   out_node_value = scene_node_id{out_node};
   return operation_result;
 }
-engine::error world::node_destroy(scene_node_id node_value) noexcept {
+engine::error world::node_destroy(scene_node_id node_value) {
   scene_node_id node = node_value;
-  try {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
     return thread_result == engine::error::success ? state->scene().destroy(node) : thread_result;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
-engine::error world::node_reparent(scene_node_id node_value, scene_node_id parent_value) noexcept {
+engine::error world::node_reparent(scene_node_id node_value, scene_node_id parent_value) {
   scene_node_id node = node_value;
   scene_node_id parent = parent_value;
-  try {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -457,27 +415,23 @@ engine::error world::node_reparent(scene_node_id node_value, scene_node_id paren
         return membership;
     }
     return state->scene().reparent(node, parent);
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 engine::error world::node_set_local_transform(scene_node_id node_value,
-                                              const math::transform& transform) noexcept {
+                                              const math::transform& transform) {
   scene_node_id node = node_value;
-  try {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
     return thread_result == engine::error::success ? state->scene().set_local(node, transform)
                                                    : thread_result;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 engine::error world::node_get_local_transform(scene_node_id node_value,
-                                              math::transform& out_transform) noexcept {
+                                              math::transform& out_transform) {
   scene_node_id node = node_value;
-  try {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -490,14 +444,12 @@ engine::error world::node_get_local_transform(scene_node_id node_value,
     }
     out_transform = *transform;
     return engine::error::success;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 engine::error world::node_get_world_transform(scene_node_id node_value,
-                                              math::transform& out_transform) noexcept {
+                                              math::transform& out_transform) {
   scene_node_id node = node_value;
-  try {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -508,17 +460,14 @@ engine::error world::node_get_world_transform(scene_node_id node_value,
       return value.error();
     out_transform = *value;
     return error::success;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
-engine::error world::node_get_entity(scene_node_id node_value,
-                                     entity_id& out_entity_value) noexcept {
+engine::error world::node_get_entity(scene_node_id node_value, entity_id& out_entity_value) {
   scene_node_id node = node_value;
   std::uint64_t out_entity = out_entity_value.get();
   const auto operation_result = [&]() -> engine::error {
     out_entity = UINT64_C(0);
-    try {
+    {
       auto* state = state_.get();
       const auto thread_result =
           (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -531,20 +480,17 @@ engine::error world::node_get_entity(scene_node_id node_value,
       }
       out_entity = state->scene().get_entity(node);
       return engine::error::success;
-    } catch (...) {
-      return engine::error::internal;
     }
   }();
   out_entity_value = entity_id{out_entity};
   return operation_result;
 }
-engine::error world::node_get_parent(scene_node_id node_value,
-                                     scene_node_id& out_parent_value) noexcept {
+engine::error world::node_get_parent(scene_node_id node_value, scene_node_id& out_parent_value) {
   scene_node_id node = node_value;
   scene_node_id out_parent = out_parent_value;
   const auto operation_result = [&]() -> engine::error {
     out_parent = null_scene_node_id;
-    try {
+    {
       auto* state = state_.get();
       const auto thread_result =
           (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -556,18 +502,16 @@ engine::error world::node_get_parent(scene_node_id node_value,
       }
       out_parent = state->scene().get_parent(node);
       return engine::error::success;
-    } catch (...) {
-      return engine::error::internal;
     }
   }();
   out_parent_value = scene_node_id{out_parent};
   return operation_result;
 }
 engine::error world::entity_get_local_transform(entity_id entity_value,
-                                                math::transform& out_transform) noexcept {
+                                                math::transform& out_transform) {
   std::uint64_t entity = entity_value.get();
   out_transform = {};
-  try {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -583,14 +527,12 @@ engine::error world::entity_get_local_transform(entity_id entity_value,
     }
     out_transform = *transform;
     return engine::error::success;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 engine::error world::entity_set_local_transform(entity_id entity_value,
-                                                const math::transform& transform) noexcept {
+                                                const math::transform& transform) {
   std::uint64_t entity = entity_value.get();
-  try {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -601,15 +543,12 @@ engine::error world::entity_set_local_transform(entity_id entity_value,
       return engine::error::invalid_handle;
     }
     return state->scene().set_local_for_entity(entity, transform);
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 engine::error world::get_render_snapshot(std::uint32_t viewport_width,
                                          std::uint32_t viewport_height,
-                                         render_snapshot& out_snapshot,
-                                         const view_camera* camera) noexcept {
-  try {
+                                         render_snapshot& out_snapshot, const view_camera* camera) {
+  {
     auto* state = state_.get();
     const auto thread_result =
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
@@ -617,8 +556,6 @@ engine::error world::get_render_snapshot(std::uint32_t viewport_width,
       return thread_result;
     }
     return build_render_snapshot(*state, viewport_width, viewport_height, out_snapshot, camera);
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 }

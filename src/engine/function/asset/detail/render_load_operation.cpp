@@ -31,7 +31,7 @@ void render_load_operation::advance(asset_manager& service, asset_construction&)
       state.diagnostic.path = source.uri;
     complete(status, std::move(state.diagnostic), {}, state.source_bytes, std::move(state.metrics));
   };
-  try {
+  {
     if (!started) {
       auto begin = [&]<class T>() -> error {
         auto request = service.decode_data<T>(
@@ -144,10 +144,6 @@ void render_load_operation::advance(asset_manager& service, asset_construction&)
                                             resource_cast<engine::material>(state.target),
                                             std::move(texture_references));
     finish(status);
-  } catch (const std::bad_alloc&) {
-    finish(error::out_of_memory);
-  } catch (...) {
-    finish(error::internal);
   }
 }
 } // namespace gneiss::engine::detail

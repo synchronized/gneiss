@@ -16,12 +16,12 @@ class scene_edit_session;
 [[nodiscard]] engine::error execute_scene_edit(editor_command_history&, scene_edit_session&,
                                                std::string label,
                                                const std::function<engine::error()>& edit,
-                                               std::string merge_key = {}) noexcept;
+                                               std::string merge_key = {});
 /** 捕获文档权威内容，不反向读取 World。 */
 [[nodiscard]] engine::result<scene_document_snapshot>
-capture_scene_document(runtime::application&, const scene_edit_session&) noexcept;
+capture_scene_document(runtime::application&, const scene_edit_session&);
 [[nodiscard]] engine::error restore_scene_document(runtime::application&, scene_edit_session&,
-                                                   const scene_document_snapshot&) noexcept;
+                                                   const scene_document_snapshot&);
 /** 一次文档内存变更；所属线程 begin/advance，不驱动 I/O，不写来源文件。
  * application、document、history 须覆盖操作及历史命令寿命；取消或析构释放候选资源引用。
  */
@@ -33,14 +33,13 @@ public:
   scene_document_edit& operator=(const scene_document_edit&) = delete;
   engine::error begin(runtime::application&, scene_edit_session&,
                       std::span<const author_document_change>, std::string label,
-                      std::function<void(bool undo)> selection = {}) noexcept;
+                      std::function<void(bool undo)> selection = {});
   /** not_ready 表示等待；终态重复调用不重复提交。 */
-  engine::error advance(runtime::application&, scene_edit_session&,
-                        editor_command_history&) noexcept;
+  engine::error advance(runtime::application&, scene_edit_session&, editor_command_history&);
   void cancel() noexcept;
 
 private:
-  engine::error finish(engine::error) noexcept;
+  engine::error finish(engine::error);
   std::shared_ptr<scene_document_snapshot> before_, after_;
   scene_instance_id scene_{};
   runtime::application* application_{};

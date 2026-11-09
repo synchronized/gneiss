@@ -3,6 +3,7 @@
 
 #include "uv_result.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/fatal.hpp"
 
 #include <uv.h>
 
@@ -15,7 +16,7 @@ error from_uv_status(int value) noexcept {
   case UV_EINVAL:
     return error::invalid_argument;
   case UV_ENOMEM:
-    return error::out_of_memory;
+    fatal(fatal_reason::out_of_memory);
   case UV_ENOSYS:
     return error::unsupported;
   case UV_EEXIST:

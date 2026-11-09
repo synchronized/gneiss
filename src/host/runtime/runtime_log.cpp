@@ -153,8 +153,8 @@ runtime_log::runtime_log(const std::filesystem::path& path) : path_(path) {
 
 void runtime_log::write(std::string_view level, std::string_view stage,
                         gneiss::engine::error operation, std::string_view message,
-                        std::string_view context) noexcept {
-  try {
+                        std::string_view context) {
+  {
     const std::scoped_lock lock(mutex_);
     const auto event = format_event(level, stage, operation, message, context);
     auto* stream = level == "INFO" ? stdout : stderr;
@@ -174,16 +174,11 @@ void runtime_log::write(std::string_view level, std::string_view stage,
       std::fwrite(warning.data(), sizeof(char), warning.size(), stderr);
       std::fflush(stderr);
     }
-  } catch (...) {
-    constexpr std::string_view warning = "level=WARNING process=runtime stage=log_format result=-1 "
-                                         "message=\"日志事件格式化失败\" context=\"\"\n";
-    std::fwrite(warning.data(), sizeof(char), warning.size(), stderr);
-    std::fflush(stderr);
   }
 }
 
-void runtime_log::write(const gneiss::engine::event_view& source) noexcept {
-  try {
+void runtime_log::write(const gneiss::engine::event_view& source) {
+  {
     const std::scoped_lock lock(mutex_);
     const auto event = format_structured_event(source);
     std::string protocol;
@@ -209,11 +204,6 @@ void runtime_log::write(const gneiss::engine::event_view& source) noexcept {
       std::fwrite(warning.data(), sizeof(char), warning.size(), stderr);
       std::fflush(stderr);
     }
-  } catch (...) {
-    constexpr std::string_view warning = "level=WARNING process=runtime stage=log_format result=-1 "
-                                         "message=\"日志事件格式化失败\" context=\"\"\n";
-    std::fwrite(warning.data(), sizeof(char), warning.size(), stderr);
-    std::fflush(stderr);
   }
 }
 

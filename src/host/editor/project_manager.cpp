@@ -107,7 +107,7 @@ engine::error begin_project_job(project_manager_state& state, std::filesystem::p
 
 gneiss::engine::error update_project_manager(project_manager_state& state,
                                              const gneiss::engine::frame_time& time) {
-  try {
+  {
     if (state.pending) {
       std::vector<engine::task_completion> completed;
       state.scheduler.poll(state.scope, completed);
@@ -221,17 +221,13 @@ gneiss::engine::error update_project_manager(project_manager_state& state,
     ImGui::EndChild();
     ImGui::End();
     return state.ui.submit(*state.application);
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
 } // namespace
 
-gneiss::engine::error run_project_manager(bool smoke, editor_project& output) noexcept {
-  try {
+gneiss::engine::error run_project_manager(bool smoke, editor_project& output) {
+  {
     project_manager_state state;
     state.output = &output;
     state.state_file = default_editor_state_path();
@@ -306,10 +302,6 @@ gneiss::engine::error run_project_manager(bool smoke, editor_project& output) no
       return operation;
     }
     return state.selected ? gneiss::engine::error::success : gneiss::engine::error::not_ready;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 

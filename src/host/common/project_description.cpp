@@ -77,7 +77,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
       std::u8string(reinterpret_cast<const char8_t*>(value.data()), value.size()));
 }
 
-[[nodiscard]] bool valid_relative_directory(std::string_view value) noexcept {
+[[nodiscard]] bool valid_relative_directory(std::string_view value) {
   if (value.empty() || value.front() == '/' || value.back() == '/') {
     return false;
   }
@@ -105,13 +105,11 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
 
 [[nodiscard]] gneiss::engine::error fail(project_load_report& report, project_load_stage stage,
                                          gneiss::engine::error operation,
-                                         const std::filesystem::path& context) noexcept {
+                                         const std::filesystem::path& context) {
   report.operation = operation;
   report.stage = stage;
-  try {
+  {
     report.context = context;
-  } catch (...) {
-    report.context.clear();
   }
   return operation;
 }
@@ -183,7 +181,7 @@ std::string_view project_load_stage_name(project_load_stage stage) noexcept {
 
 gneiss::engine::error load_project_description(const std::filesystem::path& project_root,
                                                project_description& output,
-                                               project_load_report& report) noexcept {
+                                               project_load_report& report) {
   report = {};
   if (project_root.empty()) {
     return fail(report, project_load_stage::argument, gneiss::engine::error::invalid_argument,
@@ -327,10 +325,7 @@ gneiss::engine::error load_project_description(const std::filesystem::path& proj
     output = std::move(pending);
     report = {};
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return fail(report, project_load_stage::none, gneiss::engine::error::out_of_memory,
-                project_root);
-  } catch (...) {
+  } catch (const std::filesystem::filesystem_error&) {
     return fail(report, project_load_stage::none, gneiss::engine::error::io, project_root);
   }
 }

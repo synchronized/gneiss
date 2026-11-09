@@ -23,9 +23,9 @@ class world_hierarchy final {
 public:
   explicit world_hierarchy(world_state& owner) noexcept : owner_(owner) {}
 
-  [[nodiscard]] result<scene_node_id> create(scene_node_id parent, std::uint64_t entity) noexcept;
-  [[nodiscard]] error destroy(scene_node_id node) noexcept;
-  [[nodiscard]] error reparent(scene_node_id node, scene_node_id parent) noexcept;
+  [[nodiscard]] result<scene_node_id> create(scene_node_id parent, std::uint64_t entity);
+  [[nodiscard]] error destroy(scene_node_id node);
+  [[nodiscard]] error reparent(scene_node_id node, scene_node_id parent);
   [[nodiscard]] error set_local(scene_node_id node, const math::transform& transform) noexcept;
   [[nodiscard]] const math::transform* get_local(scene_node_id node) const noexcept;
   [[nodiscard]] result<math::transform> get_world(scene_node_id node) const noexcept;
@@ -36,8 +36,8 @@ public:
                                            const math::transform& transform) noexcept;
   [[nodiscard]] std::uint64_t get_entity(scene_node_id node) const noexcept;
   [[nodiscard]] scene_node_id get_parent(scene_node_id node) const noexcept;
-  [[nodiscard]] error set_identity(scene_node_id node, scene_node_identity identity) noexcept;
-  [[nodiscard]] result<scene_node_identity_view> identity(scene_node_id node) const noexcept;
+  [[nodiscard]] error set_identity(scene_node_id node, scene_node_identity identity);
+  [[nodiscard]] result<scene_node_identity_view> identity(scene_node_id node) const;
   [[nodiscard]] const std::vector<scene_node_id>* children(scene_node_id node) const noexcept;
 
 private:

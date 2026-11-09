@@ -3,6 +3,7 @@
 
 #include "log_dispatcher.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/fatal.hpp"
 #include "log.hpp"
 
 #include <chrono>
@@ -51,14 +52,14 @@ log_dispatcher::~log_dispatcher() noexcept {
   }
 }
 
-engine::error log_dispatcher::submit(const message_view& message) noexcept {
+engine::error log_dispatcher::submit(const message_view& message) {
   if (is_in_log_callback) {
     return engine::error::invalid_state;
   }
   if (validate_message(message).failed()) {
     return engine::error::invalid_argument;
   }
-  try {
+  {
     owned_event event;
     event.context = message.context;
     event.severity = message.severity;
@@ -82,10 +83,6 @@ engine::error log_dispatcher::submit(const message_view& message) noexcept {
     }
     ready_.notify_one();
     return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 
@@ -94,7 +91,7 @@ void log_dispatcher::flush() noexcept {
   drained_.wait(lock, [this] { return queue_.empty() && !is_delivering_ && dropped_count_ == 0U; });
 }
 
-void log_dispatcher::run() noexcept {
+void log_dispatcher::run() noexcept try {
   for (;;) {
     owned_event event;
     {
@@ -122,9 +119,11 @@ void log_dispatcher::run() noexcept {
     }
   }
   drained_.notify_all();
+} catch (...) {
+  gneiss::engine::fatal_current_exception();
 }
 
-void log_dispatcher::deliver(const owned_event& event) noexcept {
+void log_dispatcher::deliver(const owned_event& event) {
   const event_view borrowed{
       .message =
           {
@@ -145,12 +144,13 @@ void log_dispatcher::deliver(const owned_event& event) noexcept {
     is_in_log_callback = false;
   } catch (...) {
     is_in_log_callback = false;
+    throw;
   }
 }
 
-log_dispatcher::owned_event log_dispatcher::make_drop_event(std::uint64_t count) noexcept {
+log_dispatcher::owned_event log_dispatcher::make_drop_event(std::uint64_t count) {
   owned_event event;
-  try {
+  {
     event.severity = level::warning;
     event.sequence = next_sequence_++;
     event.timestamp_ns = current_time_ns();
@@ -159,10 +159,6 @@ log_dispatcher::owned_event log_dispatcher::make_drop_event(std::uint64_t count)
     event.category = "backpressure";
     event.message = "日志队列已满，丢弃 " + std::to_string(count) + " 个事件";
     event.result = engine::error::not_ready;
-  } catch (...) {
-    event.source.clear();
-    event.category.clear();
-    event.message.clear();
   }
   return event;
 }

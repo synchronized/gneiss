@@ -40,7 +40,7 @@ struct material_description final {
 };
 /** 材质参数的领域约束，供文件、编辑提交和渲染资源采用复用。 */
 [[nodiscard]] GNEISS_API serialization::diagnostic
-validate_material_parameters(const material_parameters&) noexcept;
+validate_material_parameters(const material_parameters&);
 [[nodiscard]] GNEISS_API serialization::diagnostic
-validate_material_description(const material_description&) noexcept;
+validate_material_description(const material_description&);
 }

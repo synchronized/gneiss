@@ -410,6 +410,9 @@ if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME)
 endif()
 
 if(EMSCRIPTEN)
+  # C++ 内部异常传播必须在编译与最终链接时同时启用。
+  target_compile_options(gneiss_engine PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-fexceptions>)
+  target_link_options(gneiss_engine PUBLIC -fexceptions)
   target_sources(gneiss_engine PRIVATE
     engine/platform/files/browser/fetch_stream.cpp
     engine/platform/files/browser/fetch_file_backend.cpp

@@ -23,7 +23,7 @@ struct runtime_author_transform final {
 /** 将具有持久化 UUID 映射的 Runtime Transform 作为可撤销命令应用到作者场景。 */
 [[nodiscard]] gneiss::engine::error
 apply_runtime_transform_to_author(scene_edit_session& session, editor_command_history& history,
-                                  const runtime_author_transform& runtime_node) noexcept;
+                                  const runtime_author_transform& runtime_node);
 
 } // namespace gneiss::editor
 

@@ -9,7 +9,7 @@
 namespace gneiss::host {
 
 gneiss::engine::error make_state_event(ipc_control_state state,
-                                       gneiss::engine::ipc_envelope& output) noexcept {
+                                       gneiss::engine::ipc_envelope& output) {
   return encode_ipc_control_state(state, output);
 }
 

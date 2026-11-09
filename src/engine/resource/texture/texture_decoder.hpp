@@ -8,10 +8,10 @@
 #include "texture_description.hpp"
 namespace gneiss::engine::detail {
 [[nodiscard]] GNEISS_API result<std::vector<std::byte>, asset_diagnostic>
-encode_texture(const texture_description& description) noexcept;
+encode_texture(const texture_description& description);
 [[nodiscard]] GNEISS_API result<texture_description, asset_diagnostic>
 parse_texture(const std::vector<std::byte>& bytes);
 [[nodiscard]] result<texture_data, asset_diagnostic>
 decode_texture_payload(const texture_description& source, const std::vector<std::byte>& image_bytes,
-                       texture_prepare_profile profile) noexcept;
+                       texture_prepare_profile profile);
 }

@@ -7,14 +7,14 @@ namespace gneiss::editor {
 namespace {
 struct document_selection {
   engine::guid object, source;
-  static document_selection capture(scene_edit_session& document) noexcept {
+  static document_selection capture(scene_edit_session& document) {
     if (auto node = document.selected_node())
       return {node->uuid, {}};
     if (auto node = document.selected_prefab_node())
       return {node->instance_uuid, node->source_node_uuid};
     return {};
   }
-  void restore(scene_edit_session& document) const noexcept {
+  void restore(scene_edit_session& document) const {
     if (source) {
       auto node = document.find_prefab_source(object, source);
       (void)document.select(node ? node->node : scene_node_id{});
@@ -34,15 +34,13 @@ public:
         selection_after_(selection_before_) {}
   std::string_view label() const noexcept override { return label_; }
   engine::error prepare(const scene_document_snapshot& before,
-                        const scene_document_snapshot& after) noexcept {
+                        const scene_document_snapshot& after) {
     auto patch = make_document_patch(before, after);
     if (!patch)
       return patch.error();
-    try {
+    {
       patches_.push_back(std::move(*patch));
       return engine::error::success;
-    } catch (...) {
-      return engine::error::out_of_memory;
     }
   }
   engine::error complete() noexcept {
@@ -53,19 +51,19 @@ public:
     selection_after_ = document_selection::capture(document_);
     return engine::error::success;
   }
-  engine::error undo() noexcept override {
+  engine::error undo() override {
     auto status = document_.restore_changes(after_, before_, patches_, true);
     if (status.ok())
       selection_before_.restore(document_);
     return status;
   }
-  engine::error redo() noexcept override {
+  engine::error redo() override {
     auto status = document_.restore_changes(before_, after_, patches_, false);
     if (status.ok())
       selection_after_.restore(document_);
     return status;
   }
-  bool merge_with(const editor_command& next) noexcept override {
+  bool merge_with(const editor_command& next) override {
     auto* other = dynamic_cast<const document_patch_command*>(&next);
     if (!other || &other->document_ != &document_ || key_.empty() || key_ != other->key_ ||
         after_ != other->before_ || patches_.size() != 1 || other->patches_.size() != 1)
@@ -89,7 +87,7 @@ private:
 }
 engine::error execute_scene_edit(editor_command_history& history, scene_edit_session& document,
                                  std::string label, const std::function<engine::error()>& edit,
-                                 std::string key) noexcept try {
+                                 std::string key) {
   auto before = document.current_version();
   if (!before || !edit)
     return engine::error::invalid_state;
@@ -116,12 +114,8 @@ engine::error execute_scene_edit(editor_command_history& history, scene_edit_ses
     selection.restore(*session);
   };
   std::unique_ptr<scene_edit_session, decltype(discard)> scope(&document, discard);
-  try {
+  {
     status = edit();
-  } catch (const std::bad_alloc&) {
-    status = engine::error::out_of_memory;
-  } catch (...) {
-    status = engine::error::internal;
   }
   if (status.failed())
     return status;
@@ -151,35 +145,23 @@ engine::error execute_scene_edit(editor_command_history& history, scene_edit_ses
   if (status.failed())
     (void)document.restore_version(document.current_version(), before);
   return status;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 
-engine::result<scene_document_snapshot>
-capture_scene_document(runtime::application& app, const scene_edit_session& document) noexcept try {
+engine::result<scene_document_snapshot> capture_scene_document(runtime::application& app,
+                                                               const scene_edit_session& document) {
   if (!document.is_open() || !app.is_owner_thread() || !app.accepts_requests())
     return engine::error::invalid_state;
   return document.capture_content();
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 
 engine::error restore_scene_document(runtime::application& app, scene_edit_session& document,
-                                     const scene_document_snapshot& snapshot) noexcept try {
+                                     const scene_document_snapshot& snapshot) {
   if (!app.is_owner_thread() || !app.accepts_requests() || !document.is_open() ||
       document.uri() != snapshot.uri)
     return engine::error::invalid_state;
   return document.accept_content(snapshot);
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
-engine::error scene_document_edit::finish(engine::error status) noexcept {
+engine::error scene_document_edit::finish(engine::error status) {
   before_.reset();
   after_.reset();
   selection_ = {};
@@ -192,7 +174,7 @@ void scene_document_edit::cancel() noexcept {
 engine::error scene_document_edit::begin(runtime::application& app, scene_edit_session& document,
                                          std::span<const author_document_change> changes,
                                          std::string label,
-                                         std::function<void(bool)> selection) noexcept try {
+                                         std::function<void(bool)> selection) try {
   using engine::error;
   if (status_ == error::not_ready)
     return error::not_ready;
@@ -219,13 +201,13 @@ engine::error scene_document_edit::begin(runtime::application& app, scene_edit_s
   selection_ = std::move(selection);
   status_ = error::not_ready;
   return error::success;
-} catch (const std::bad_alloc&) {
-  return finish(engine::error::out_of_memory);
 } catch (...) {
-  return finish(engine::error::internal);
+  // 局部状态清理后传播意外异常，不作为普通操作失败继续执行。
+  (void)finish(engine::error::internal);
+  throw;
 }
 engine::error scene_document_edit::advance(runtime::application& app, scene_edit_session& document,
-                                           editor_command_history& history) noexcept try {
+                                           editor_command_history& history) try {
   using engine::error;
   if (status_ != error::not_ready)
     return status_;
@@ -251,9 +233,9 @@ engine::error scene_document_edit::advance(runtime::application& app, scene_edit
   if (status.failed() && !was_dirty)
     document.clear_dirty();
   return finish(status);
-} catch (const std::bad_alloc&) {
-  return finish(engine::error::out_of_memory);
 } catch (...) {
-  return finish(engine::error::internal);
+  // 局部状态清理后传播意外异常，不作为普通操作失败继续执行。
+  (void)finish(engine::error::internal);
+  throw;
 }
 }

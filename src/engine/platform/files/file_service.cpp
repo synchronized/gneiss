@@ -67,19 +67,15 @@ template <class T> struct typed_request final : pending_request {
   std::function<void()> abort;
   completion<T> outcome;
 
-  void begin() noexcept {
+  void begin() {
     const auto complete = [shared = state](completion<T> value) {
       std::lock_guard lock(shared->mutex);
       if (!shared->completed)
         shared->completed = std::move(value);
     };
     error status;
-    try {
+    {
       status = start(*backends[index], complete);
-    } catch (const std::bad_alloc&) {
-      status = error::out_of_memory;
-    } catch (...) {
-      status = error::internal;
     }
     if (status != error::success)
       complete({status, {}});
@@ -127,13 +123,9 @@ template <class T> struct typed_request final : pending_request {
     }
     if constexpr (std::is_same_v<T, directory_page>) {
       if (outcome.status == error::success && !outcome.data.next_cursor.empty()) {
-        try {
+        {
           outcome.data.next_cursor =
               std::to_string(index + backend_base) + "\n" + uri + "\n" + outcome.data.next_cursor;
-        } catch (const std::bad_alloc&) {
-          outcome.status = error::out_of_memory;
-        } catch (...) {
-          outcome.status = error::internal;
         }
       }
     }
@@ -157,7 +149,7 @@ struct service::implementation {
   completion_callback on_shutdown;
   bool frozen{}, closing{}, dispatching{};
   std::vector<std::weak_ptr<backend_stream>> streams;
-  void close_streams() noexcept {
+  void close_streams() {
     for (const auto& weak : streams)
       if (auto stream = weak.lock())
         stream->close();
@@ -165,8 +157,8 @@ struct service::implementation {
   }
   ~implementation() { close_streams(); }
 
-  bool on_owner() const noexcept { return owner == std::this_thread::get_id(); }
-  const mounted_files* resolve(std::string_view uri) const noexcept {
+  bool on_owner() const { return owner == std::this_thread::get_id(); }
+  const mounted_files* resolve(std::string_view uri) const {
     const mounted_files* selected = nullptr;
     for (const auto& mount : mounts) {
       if (uri.starts_with(mount.prefix) &&
@@ -179,7 +171,7 @@ struct service::implementation {
   template <class T, class Start>
   error submit(std::string_view uri, bool writing, files::callback<T> callback, request_id& output,
                Start start, bool exact_mount = false, std::optional<std::size_t> reader_index = {},
-               std::size_t reserve_bytes = 0, std::function<void()> abort = {}) noexcept {
+               std::size_t reserve_bytes = 0, std::function<void()> abort = {}) {
     output = {};
     if (!on_owner() || closing)
       return error::invalid_state;
@@ -200,7 +192,7 @@ struct service::implementation {
       return error::unsupported;
     if (!writing && mount->readers.empty())
       return error::unsupported;
-    try {
+    {
       auto request = std::make_unique<typed_request<T>>();
       request->budget = budget;
       request->reserved = reserve_bytes;
@@ -229,10 +221,6 @@ struct service::implementation {
       output = accepted->id;
       accepted->begin();
       return error::success;
-    } catch (const std::bad_alloc&) {
-      return error::out_of_memory;
-    } catch (...) {
-      return error::internal;
     }
   }
 };
@@ -242,7 +230,7 @@ service::service(service_options options) : impl_(std::make_unique<implementatio
 }
 service::~service() = default;
 error service::resolve_source(std::string_view uri,
-                              std::shared_ptr<const source_domain>& output) const noexcept {
+                              std::shared_ptr<const source_domain>& output) const {
   output.reset();
   if (!impl_->on_owner() || impl_->closing)
     return error::invalid_state;
@@ -255,7 +243,7 @@ error service::resolve_source(std::string_view uri,
   return error::success;
 }
 
-error service::mount(mount_description description) noexcept {
+error service::mount(mount_description description) {
   if (!impl_->on_owner() || impl_->frozen || impl_->closing)
     return error::invalid_state;
   if (!description.prefix.ends_with('/') || !detail::valid_file_uri(description.prefix) ||
@@ -265,7 +253,7 @@ error service::mount(mount_description description) noexcept {
   if (std::ranges::any_of(impl_->mounts,
                           [&](const auto& entry) { return entry.prefix == description.prefix; }))
     return error::invalid_state;
-  try {
+  {
     // 先构造新表，分配失败不改变原挂载。
     auto backends = impl_->backends;
     const auto append = [&](const auto& backend) {
@@ -280,20 +268,16 @@ error service::mount(mount_description description) noexcept {
     impl_->mounts.push_back(std::move(description));
     impl_->backends = std::move(backends);
     return error::success;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 }
 
 error service::read(std::string_view uri, files::callback<files::bytes> callback,
-                    request_id& request) noexcept {
+                    request_id& request) {
   return read(uri, {impl_->options.max_file_bytes}, std::move(callback), request);
 }
 
 error service::read(std::string_view uri, read_options options,
-                    files::callback<files::bytes> callback, request_id& request) noexcept {
+                    files::callback<files::bytes> callback, request_id& request) {
   request = {};
   if (options.max_bytes == 0 || options.max_bytes > impl_->options.max_file_bytes)
     return error::invalid_argument;
@@ -305,7 +289,7 @@ error service::read(std::string_view uri, read_options options,
       false, {}, options.max_bytes);
 }
 error service::read_range(std::string_view uri, range range, files::callback<files::bytes> callback,
-                          request_id& request) noexcept {
+                          request_id& request) {
   request = {};
   if (range.size > impl_->options.max_file_bytes ||
       range.offset > std::numeric_limits<std::uint64_t>::max() - range.size)
@@ -319,7 +303,7 @@ error service::read_range(std::string_view uri, range range, files::callback<fil
 }
 error service::open_stream_source(std::string_view uri, std::size_t block_bytes,
                                   files::callback<std::shared_ptr<backend_stream>> callback,
-                                  request_id& request) noexcept try {
+                                  request_id& request) {
   request = {};
   if (!callback || !block_bytes || block_bytes > impl_->options.max_file_bytes ||
       block_bytes > impl_->options.max_buffer_bytes / 2)
@@ -339,7 +323,7 @@ error service::open_stream_source(std::string_view uri, std::size_t block_bytes,
               impl_->streams.push_back(value.data);
             } catch (...) {
               value.data->close();
-              value.status = error::out_of_memory;
+              throw;
             }
           }
         }
@@ -351,13 +335,11 @@ error service::open_stream_source(std::string_view uri, std::size_t block_bytes,
       [](backend& backend, std::string_view path, auto done) {
         return backend.open_stream(path, std::move(done));
       });
-} catch (...) {
-  return error::out_of_memory;
 }
 
 error service::read_stream_source(std::string_view uri, std::shared_ptr<backend_stream> source,
                                   std::size_t block_bytes, files::callback<block> callback,
-                                  request_id& request) noexcept try {
+                                  request_id& request) {
   request = {};
   if (!callback || !source || !block_bytes || block_bytes > impl_->options.max_file_bytes ||
       block_bytes > impl_->options.max_buffer_bytes / 2)
@@ -369,18 +351,16 @@ error service::read_stream_source(std::string_view uri, std::shared_ptr<backend_
         return source->read_next(block_bytes, std::move(done));
       },
       false, 0, block_bytes * 2, [source] { source->close(); });
-} catch (...) {
-  return error::out_of_memory;
 }
 
 error service::write(std::string_view uri, files::bytes bytes, write_options options,
-                     completion_callback callback, request_id& request) noexcept {
+                     completion_callback callback, request_id& request) {
   request = {};
   if (!callback || bytes.size() > impl_->options.max_file_bytes ||
       (options.mode != write_mode::replace && options.mode != write_mode::create_new))
     return error::invalid_argument;
   const auto reserve_bytes = bytes.size();
-  try {
+  {
     return impl_->submit<file_unit>(
         uri, true,
         [callback = std::move(callback)](completion<file_unit> value) { callback(value.status); },
@@ -391,21 +371,17 @@ error service::write(std::string_view uri, files::bytes bytes, write_options opt
                                [done = std::move(done)](error status) { done({status, {}}); });
         },
         false, {}, reserve_bytes);
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 }
 error service::stat(std::string_view uri, files::callback<files::info> callback,
-                    request_id& request) noexcept {
+                    request_id& request) {
   return impl_->submit<files::info>(uri, false, std::move(callback), request,
                                     [](backend& backend, std::string_view path, auto done) {
                                       return backend.stat(path, std::move(done));
                                     });
 }
 error service::list(std::string_view uri, list_options options,
-                    files::callback<directory_page> callback, request_id& request) noexcept {
+                    files::callback<directory_page> callback, request_id& request) {
   request = {};
   if (!impl_->on_owner() || impl_->closing)
     return error::invalid_state;
@@ -435,11 +411,11 @@ error service::list(std::string_view uri, list_options options,
       false, reader_index);
 }
 error service::flush(std::string_view mount_point, completion_callback callback,
-                     request_id& request) noexcept {
+                     request_id& request) {
   request = {};
   if (!callback)
     return error::invalid_argument;
-  try {
+  {
     return impl_->submit<file_unit>(
         mount_point, true,
         [callback = std::move(callback)](completion<file_unit> value) { callback(value.status); },
@@ -448,13 +424,9 @@ error service::flush(std::string_view mount_point, completion_callback callback,
           return backend.flush([done = std::move(done)](error status) { done({status, {}}); });
         },
         true);
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 }
-error service::cancel(request_id request) noexcept {
+error service::cancel(request_id request) {
   if (!impl_->on_owner())
     return error::invalid_state;
   const auto found = std::ranges::find_if(
@@ -492,7 +464,7 @@ error service::dispatch_completions(std::size_t max_callbacks) {
   }
   return error::success;
 }
-error service::shutdown(completion_callback callback) noexcept {
+error service::shutdown(completion_callback callback) {
   if (!impl_->on_owner() || impl_->closing)
     return error::invalid_state;
   if (!callback)

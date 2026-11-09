@@ -4,6 +4,7 @@
 #include "../support/movement_component.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/core/meta/object_type.hpp"
 #include "engine/core/meta/views/reference_view.hpp"
 #include "engine/core/serialization/json.hpp"
@@ -86,6 +87,7 @@ void check(bool ok, std::source_location at = std::source_location::current()) {
 }
 }
 int main() try {
+  gneiss::engine::install_fatal_handler();
   check(e::initialize_meta(register_reference_meta).ok());
   check(e::register_scene_component(reference_operations()).ok());
   auto ops = operations();
@@ -258,10 +260,16 @@ int main() try {
     check(copied.update<reference_description>([](auto& value) { value.settings->amount = -1; }) ==
           e::error::invalid_argument);
     check(*copied.begin() == accepted && shared->amount == 1);
-    check(copied.update<reference_description>([](auto& value) {
-      value.settings->amount = 3;
-      throw std::runtime_error("edit rejected");
-    }) == e::error::internal);
+    bool propagated = false;
+    try {
+      (void)copied.update<reference_description>([](auto& value) {
+        value.settings->amount = 3;
+        throw std::runtime_error("edit rejected");
+      });
+    } catch (const std::runtime_error&) {
+      propagated = true;
+    }
+    check(propagated);
     check(*copied.begin() == accepted);
     auto replacement = e::make_ref<reference_settings>();
     replacement->amount = 9;

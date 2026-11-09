@@ -26,12 +26,9 @@ constexpr std::uint16_t header_size = 64U;
   return (value + 15U) & ~UINT64_C(15);
 }
 
-[[nodiscard]] texture_binary_diagnostic fail(texture_binary_error error,
-                                             std::string_view message) noexcept {
-  try {
+[[nodiscard]] texture_binary_diagnostic fail(texture_binary_error error, std::string_view message) {
+  {
     return {error, std::string{message}};
-  } catch (...) {
-    return {texture_binary_error::out_of_memory, {}};
   }
 }
 
@@ -42,8 +39,7 @@ bool is_texture_binary(std::span<const std::byte> bytes) noexcept {
 }
 
 result<std::vector<std::byte>, texture_binary_diagnostic>
-encode_texture_binary(std::span<const std::byte> manifest,
-                      std::span<const std::byte> payload) noexcept {
+encode_texture_binary(std::span<const std::byte> manifest, std::span<const std::byte> payload) {
   if (manifest.empty() || payload.empty()) {
     return fail(texture_binary_error::invalid_argument, "运行纹理 Manifest 或 Payload 为空");
   }
@@ -57,7 +53,7 @@ encode_texture_binary(std::span<const std::byte> manifest,
       payload_offset + payload.size() > std::numeric_limits<std::size_t>::max()) {
     return fail(texture_binary_error::invalid_argument, "运行纹理尺寸溢出");
   }
-  try {
+  {
     std::vector<std::byte> output;
     const auto file_size = payload_offset + payload.size();
     output.reserve(static_cast<std::size_t>(file_size));
@@ -76,15 +72,11 @@ encode_texture_binary(std::span<const std::byte> manifest,
     writer.write_zeros(static_cast<std::size_t>(payload_offset) - writer.position());
     writer.write_bytes(payload);
     return output;
-  } catch (const std::bad_alloc&) {
-    return fail(texture_binary_error::out_of_memory, "运行纹理编码内存不足");
-  } catch (...) {
-    return fail(texture_binary_error::invalid_argument, "运行纹理编码失败");
   }
 }
 
 result<texture_binary_layout, texture_binary_diagnostic>
-decode_texture_binary_header(std::span<const std::byte> bytes, std::uint64_t source_size) noexcept {
+decode_texture_binary_header(std::span<const std::byte> bytes, std::uint64_t source_size) {
   const binary_reader reader{bytes};
   // 各读取位置由下面的 Header、表及数据区边界检查保证有效。
   if (bytes.size() < header_size || !is_texture_binary(bytes)) {
@@ -120,7 +112,7 @@ decode_texture_binary_header(std::span<const std::byte> bytes, std::uint64_t sou
 }
 
 result<texture_binary_view, texture_binary_diagnostic>
-decode_texture_binary(std::span<const std::byte> bytes) noexcept {
+decode_texture_binary(std::span<const std::byte> bytes) {
   auto layout = decode_texture_binary_header(bytes, bytes.size());
   if (!layout)
     return std::move(layout.error());

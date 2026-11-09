@@ -3,6 +3,7 @@
 
 #include "uv_loop_executor.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/fatal.hpp"
 
 #include "uv_loop_access.hpp"
 #include "uv_result.hpp"
@@ -35,13 +36,12 @@ struct uv_loop_executor::implementation final {
   std::deque<task> tasks;
   std::size_t queue_capacity;
   std::atomic_bool running = false;
-  std::atomic_size_t failed_tasks = 0U;
   bool initialization_finished = false;
   error initialization_result = error::not_ready;
   bool is_accepting = false;
   bool is_stopping = false;
 
-  static void on_wakeup(uv_async_t* handle) noexcept {
+  static void on_wakeup(uv_async_t* handle) try {
     auto* self = static_cast<implementation*>(handle->data);
     std::deque<task> pending;
     bool should_stop = false;
@@ -51,19 +51,18 @@ struct uv_loop_executor::implementation final {
       should_stop = self->is_stopping;
     }
     for (auto& operation : pending) {
-      try {
+      {
         operation();
-      } catch (...) {
-        // 内部任务不得让异常越过 libuv 的 C 回调边界。
-        self->failed_tasks.fetch_add(1U, std::memory_order_relaxed);
       }
     }
     if (should_stop && uv_is_closing(reinterpret_cast<uv_handle_t*>(handle)) == 0) {
       uv_close(reinterpret_cast<uv_handle_t*>(handle), nullptr);
     }
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
 
-  void run() noexcept {
+  void run() noexcept try {
     auto operation = error::success;
 #ifndef _WIN32
     // libuv 的 POSIX 流写入可能产生 SIGPIPE。只在自有 I/O 线程阻塞它，
@@ -100,6 +99,8 @@ struct uv_loop_executor::implementation final {
     (void)uv_run(&loop, UV_RUN_DEFAULT);
     (void)uv_loop_close(&loop);
     running.store(false, std::memory_order_release);
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
 };
 
@@ -112,14 +113,14 @@ uv_loop_executor::~uv_loop_executor() {
   }
 }
 
-error uv_loop_executor::start() noexcept {
+error uv_loop_executor::start() {
   if (!implementation_ || implementation_->queue_capacity == 0U) {
     return error::invalid_argument;
   }
   if (implementation_->worker.joinable()) {
     return error::invalid_state;
   }
-  try {
+  {
     {
       const std::scoped_lock lock(implementation_->mutex);
       implementation_->initialization_finished = false;
@@ -127,7 +128,6 @@ error uv_loop_executor::start() noexcept {
       implementation_->is_accepting = false;
       implementation_->is_stopping = false;
       implementation_->tasks.clear();
-      implementation_->failed_tasks.store(0U, std::memory_order_relaxed);
     }
     implementation_->worker = std::thread([state = implementation_.get()] { state->run(); });
     std::unique_lock lock(implementation_->mutex);
@@ -139,18 +139,14 @@ error uv_loop_executor::start() noexcept {
       implementation_->worker.join();
     }
     return operation;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::initialization_failed;
   }
 }
 
-error uv_loop_executor::post(task operation) noexcept {
+error uv_loop_executor::post(task operation) {
   if (!implementation_ || !operation) {
     return error::invalid_argument;
   }
-  try {
+  {
     const std::scoped_lock lock(implementation_->mutex);
     if (!implementation_->is_accepting || implementation_->is_stopping) {
       return error::not_ready;
@@ -164,10 +160,6 @@ error uv_loop_executor::post(task operation) noexcept {
       implementation_->tasks.pop_back();
     }
     return wakeup_result;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 }
 
@@ -193,21 +185,13 @@ bool uv_loop_executor::is_running() const noexcept {
   return implementation_ && implementation_->running.load(std::memory_order_acquire);
 }
 
-std::size_t uv_loop_executor::failed_task_count() const noexcept {
-  return implementation_ ? implementation_->failed_tasks.load(std::memory_order_relaxed) : 0U;
-}
-
-error uv_loop_access::post(uv_loop_executor& executor, task operation) noexcept {
+error uv_loop_access::post(uv_loop_executor& executor, task operation) {
   if (!operation || !executor.implementation_) {
     return error::invalid_argument;
   }
-  try {
+  {
     return executor.post([state = executor.implementation_.get(),
                           operation = std::move(operation)] { operation(&state->loop); });
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 }
 

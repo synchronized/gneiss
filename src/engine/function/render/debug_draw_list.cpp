@@ -11,7 +11,7 @@
 
 namespace gneiss::engine {
 
-error debug_draw_list::replace(std::span<const debug_line> lines) noexcept {
+error debug_draw_list::replace(std::span<const debug_line> lines) {
   constexpr std::uint32_t maximum_lines = 1024U * 1024U;
   if (lines.size() > maximum_lines) {
     return error::invalid_argument;
@@ -25,17 +25,13 @@ error debug_draw_list::replace(std::span<const debug_line> lines) noexcept {
       return error::invalid_argument;
     }
   }
-  try {
+  {
     std::vector<debug_line> pending;
     if (!lines.empty()) {
       pending.assign(lines.begin(), lines.end());
     }
     lines_ = std::move(pending);
     return error::success;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 }
 

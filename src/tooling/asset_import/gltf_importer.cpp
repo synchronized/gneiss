@@ -660,7 +660,7 @@ inspect_report inspect_gltf(const std::filesystem::path& source_path) {
     return failure(inspect_result::invalid_argument, "源文件路径不能为空");
   }
 
-  try {
+  {
     auto source = fastgltf::GltfDataBuffer::FromPath(source_path);
     if (!source) {
       return failure(inspect_result::source_unavailable,
@@ -733,11 +733,6 @@ inspect_report inspect_gltf(const std::filesystem::path& source_path) {
       }
     }
     return report;
-  } catch (const std::exception& error) {
-    return failure(inspect_result::invalid_source,
-                   std::string{"glTF 检查发生异常："} + error.what());
-  } catch (...) {
-    return failure(inspect_result::invalid_source, "glTF 检查发生未知异常");
   }
 }
 

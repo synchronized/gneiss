@@ -25,38 +25,36 @@ template <class T> struct format_traits {
 };
 template <> struct format_traits<mesh_description> {
   static constexpr bool enabled = true;
-  static GNEISS_API format get() noexcept;
+  static GNEISS_API format get();
 };
 
 template <> struct format_traits<material_description> {
   static constexpr bool enabled = true;
-  static GNEISS_API format get() noexcept;
+  static GNEISS_API format get();
 };
 template <> struct format_traits<action_map_description> {
   static constexpr bool enabled = true;
-  static GNEISS_API format get() noexcept;
+  static GNEISS_API format get();
 };
 template <> struct format_traits<scene_description> {
   static constexpr bool enabled = true;
-  static GNEISS_API format get() noexcept;
+  static GNEISS_API format get();
 };
 template <> struct format_traits<prefab_description> {
   static constexpr bool enabled = true;
-  static GNEISS_API format get() noexcept;
+  static GNEISS_API format get();
 };
 template <> struct format_traits<texture_description> {
   static constexpr bool enabled = true;
-  static GNEISS_API format get() noexcept;
+  static GNEISS_API format get();
 };
 GNEISS_API result<std::vector<std::byte>, serialization::diagnostic>
-serialize_instance(const serialization::write_context&, format,
-                   const meta::const_instance&) noexcept;
+serialize_instance(const serialization::write_context&, format, const meta::const_instance&);
 GNEISS_API result<ref<void>, serialization::diagnostic>
-deserialize_object(const serialization::read_context&, format, type_id,
-                   std::span<const std::byte>) noexcept;
+deserialize_object(const serialization::read_context&, format, type_id, std::span<const std::byte>);
 template <class T>
 result<std::vector<std::byte>, serialization::diagnostic>
-serialize_bytes(const serialization::write_context& ctx, const T& object) noexcept {
+serialize_bytes(const serialization::write_context& ctx, const T& object) {
   static_assert(format_traits<T>::enabled, "该类型没有资源文件格式");
   auto registry = ctx.registry();
   if (!registry)
@@ -67,15 +65,14 @@ serialize_bytes(const serialization::write_context& ctx, const T& object) noexce
   return serialize_instance(ctx, format_traits<T>::get(), *view);
 }
 template <class T>
-result<std::vector<std::byte>, serialization::diagnostic>
-serialize_bytes(const T& object) noexcept {
+result<std::vector<std::byte>, serialization::diagnostic> serialize_bytes(const T& object) {
   serialization::write_context ctx;
   return serialize_bytes(ctx, object);
 }
 /** 直接保留解码对象的控制块，返回独立只读快照；不登记资产缓存。 */
 template <class T>
 result<ref<const T>, serialization::diagnostic>
-deserialize_ref(const serialization::read_context& ctx, std::span<const std::byte> bytes) noexcept {
+deserialize_ref(const serialization::read_context& ctx, std::span<const std::byte> bytes) {
   static_assert(format_traits<T>::enabled, "该类型没有资源文件格式");
   auto decoded = deserialize_object(ctx, format_traits<T>::get(), runtime_type_of<T>(), bytes);
   if (!decoded)
@@ -83,54 +80,43 @@ deserialize_ref(const serialization::read_context& ctx, std::span<const std::byt
   return decoded->alias(static_cast<const T*>(decoded->get()));
 }
 template <class T>
-result<ref<const T>, serialization::diagnostic>
-deserialize_ref(std::span<const std::byte> bytes) noexcept {
+result<ref<const T>, serialization::diagnostic> deserialize_ref(std::span<const std::byte> bytes) {
   serialization::read_context ctx;
   return deserialize_ref<T>(ctx, bytes);
 }
 
 template <class T>
 result<T, serialization::diagnostic> deserialize(const serialization::read_context& ctx,
-                                                 std::span<const std::byte> bytes) noexcept try {
+                                                 std::span<const std::byte> bytes) {
   static_assert(format_traits<T>::enabled, "该类型没有资源文件格式");
   auto decoded = deserialize_object(ctx, format_traits<T>::get(), runtime_type_of<T>(), bytes);
   if (!decoded)
     return std::move(decoded).error();
   return std::move(*static_cast<T*>(decoded->get()));
-} catch (const std::bad_alloc&) {
-  return serialization::diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return serialization::diagnostic{.error = error::internal};
 }
 template <class T>
-result<T, serialization::diagnostic> deserialize(std::span<const std::byte> bytes) noexcept {
+result<T, serialization::diagnostic> deserialize(std::span<const std::byte> bytes) {
   serialization::read_context ctx;
   return deserialize<T>(ctx, bytes);
 }
 template <class T>
 result<T, serialization::diagnostic> deserialize(const serialization::read_context& ctx,
-                                                 std::string_view text) noexcept {
+                                                 std::string_view text) {
   return deserialize<T>(ctx, std::as_bytes(std::span{text.data(), text.size()}));
 }
-template <class T>
-result<T, serialization::diagnostic> deserialize(std::string_view text) noexcept {
+template <class T> result<T, serialization::diagnostic> deserialize(std::string_view text) {
   serialization::read_context ctx;
   return deserialize<T>(ctx, text);
 }
 template <class T>
 result<std::string, serialization::diagnostic> serialize(const serialization::write_context& ctx,
-                                                         const T& object) noexcept try {
+                                                         const T& object) {
   auto bytes = serialize_bytes(ctx, object);
   if (!bytes)
     return std::move(bytes).error();
   return std::string(reinterpret_cast<const char*>(bytes->data()), bytes->size());
-} catch (const std::bad_alloc&) {
-  return serialization::diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return serialization::diagnostic{.error = error::internal};
 }
-template <class T>
-result<std::string, serialization::diagnostic> serialize(const T& object) noexcept {
+template <class T> result<std::string, serialization::diagnostic> serialize(const T& object) {
   serialization::write_context ctx;
   return serialize(ctx, object);
 }

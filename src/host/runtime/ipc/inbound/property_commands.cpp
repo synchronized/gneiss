@@ -14,7 +14,7 @@ namespace {
 constexpr std::size_t runtime_property_write_budget = 32U;
 
 gneiss::engine::error handle_property_write(const gneiss::engine::ipc_envelope& envelope,
-                                            runtime_command_context& context) noexcept {
+                                            runtime_command_context& context) {
   ipc_property_write command;
   const auto decoded = decode_ipc_property_write_v2(envelope, command);
   if (decoded != gneiss::engine::error::success) {

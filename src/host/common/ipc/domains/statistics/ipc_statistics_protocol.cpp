@@ -21,11 +21,11 @@ constexpr std::size_t max_json_size = 64U * 1024U;
 } // namespace
 
 gneiss::engine::error encode_ipc_runtime_statistics(const ipc_runtime_statistics& value,
-                                                    std::vector<std::uint8_t>& output) noexcept {
+                                                    std::vector<std::uint8_t>& output) {
   if (value.session_id == 0U || value.sequence == 0U) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> document(
         yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
     auto* root = document ? yyjson_mut_obj(document.get()) : nullptr;
@@ -54,19 +54,15 @@ gneiss::engine::error encode_ipc_runtime_statistics(const ipc_runtime_statistics
                                       reinterpret_cast<const std::uint8_t*>(json.get()) + length);
     output = std::move(encoded);
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
 gneiss::engine::error decode_ipc_runtime_statistics(std::span<const std::uint8_t> payload,
-                                                    ipc_runtime_statistics& output) noexcept {
+                                                    ipc_runtime_statistics& output) {
   if (payload.size() > max_json_size) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> document(
         yyjson_read(reinterpret_cast<const char*>(payload.data()), payload.size(),
                     YYJSON_READ_NOFLAG),
@@ -89,10 +85,6 @@ gneiss::engine::error decode_ipc_runtime_statistics(std::span<const std::uint8_t
     output = {values[0], values[1], values[2], values[3],
               values[4], values[5], values[6], values[7]};
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
@@ -108,7 +100,7 @@ constexpr std::array statistics_operations{gneiss::engine::ipc_operation_descrip
 } // namespace
 
 gneiss::engine::error encode_ipc_statistics_v2(const ipc_runtime_statistics& statistics,
-                                               gneiss::engine::ipc_envelope& output) noexcept {
+                                               gneiss::engine::ipc_envelope& output) {
   std::vector<std::uint8_t> payload;
   const auto operation = encode_ipc_runtime_statistics(statistics, payload);
   if (operation != gneiss::engine::error::success) {
@@ -123,7 +115,7 @@ gneiss::engine::error encode_ipc_statistics_v2(const ipc_runtime_statistics& sta
 }
 
 gneiss::engine::error decode_ipc_statistics_v2(const gneiss::engine::ipc_envelope& envelope,
-                                               ipc_runtime_statistics& output) noexcept {
+                                               ipc_runtime_statistics& output) {
   if (envelope.domain != gneiss::engine::ipc_domain::statistics ||
       envelope.operation != static_cast<std::uint16_t>(ipc_statistics_operation::snapshot) ||
       envelope.kind != gneiss::engine::ipc_message_kind::event || envelope.request_id != 0U) {

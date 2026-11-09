@@ -118,7 +118,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/core/log/log_dispatcher.cpp"
 )
 target_include_directories(gneiss_log_dispatcher_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_link_libraries(gneiss_log_dispatcher_test PRIVATE gneiss_core_values Threads::Threads)
+target_link_libraries(gneiss_log_dispatcher_test PRIVATE gneiss_core_values Threads::Threads gneiss_fatal)
 target_compile_features(gneiss_log_dispatcher_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_log_dispatcher_test)
 gneiss_target_output_directories(gneiss_log_dispatcher_test)
@@ -233,7 +233,7 @@ gneiss_target_compile_warnings(gneiss_cpp_header_test)
 
 add_executable(gneiss_rid_table_test core/rid_table_test.cpp)
 target_include_directories(gneiss_rid_table_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_link_libraries(gneiss_rid_table_test PRIVATE gneiss::engine)
+target_link_libraries(gneiss_rid_table_test PRIVATE gneiss::engine gneiss_fatal)
 target_compile_features(gneiss_rid_table_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_rid_table_test)
 gneiss_target_output_directories(gneiss_rid_table_test)
@@ -1157,3 +1157,14 @@ if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
     set_tests_properties(gneiss.fatal-${mode} PROPERTIES TIMEOUT 15)
   endforeach()
 endif()
+
+foreach(mode IN ITEMS oom unexpected)
+  add_test(NAME gneiss.log-callback-fatal-${mode}
+    COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:gneiss_log_dispatcher_test>
+    -DMODE=${mode} -P ${PROJECT_SOURCE_DIR}/tests/core/check_fatal.cmake)
+endforeach()
+add_test(NAME gneiss.application-log-fatal
+  COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:gneiss_application_log_test>
+  -DMODE=unexpected -P ${PROJECT_SOURCE_DIR}/tests/core/check_fatal.cmake)
+
+target_link_libraries(gneiss_png_decoder_test PRIVATE gneiss_fatal)

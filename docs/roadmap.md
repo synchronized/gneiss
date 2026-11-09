@@ -21,7 +21,7 @@
 
 ## 阶段概览
 
-异常边界与进程 OOM 收敛已确认方案，实施待开始，见 [PLAN-109](plans/PLAN-109-exception-boundaries.md)。
+异常边界与进程 OOM 收敛已完成，验证范围及跨平台限制见 [PLAN-109](plans/PLAN-109-exception-boundaries.md)。
 
 统一资产服务已完成本地编译及针对性验收，见 [PLAN-100](plans/PLAN-100-unified-asset-service.md)。
 

@@ -45,7 +45,7 @@ public:
   uv_file_read_operation& operator=(const uv_file_read_operation&) = delete;
   [[nodiscard]] error poll(std::span<const std::byte>& output) noexcept;
   [[nodiscard]] error wait_for(std::chrono::milliseconds timeout,
-                               std::span<const std::byte>& output) noexcept;
+                               std::span<const std::byte>& output);
 
 private:
   std::shared_ptr<file_detail::reading> state_;
@@ -65,9 +65,9 @@ public:
   /** 不阻塞；成功表示底层文件与唤醒句柄均已关闭。 */
   [[nodiscard]] error poll_close() const noexcept;
   /** 显式同步精确读取，不分配负载缓冲；只用于允许阻塞的调用点。 */
-  [[nodiscard]] error read_at(std::uint64_t offset, std::span<std::byte> output) const noexcept;
+  [[nodiscard]] error read_at(std::uint64_t offset, std::span<std::byte> output) const;
   [[nodiscard]] error begin_read(std::uint64_t offset, std::size_t count,
-                                 std::unique_ptr<uv_file_read_operation>& output) const noexcept;
+                                 std::unique_ptr<uv_file_read_operation>& output) const;
 
 private:
   friend struct file_detail::reading;
@@ -84,7 +84,7 @@ class uv_file_io final {
 public:
   explicit uv_file_io(uv_loop_executor& executor, uv_file_limits limits = {});
   [[nodiscard]] error begin_open(std::string_view path,
-                                 std::unique_ptr<uv_file_open_operation>& output) const noexcept;
+                                 std::unique_ptr<uv_file_open_operation>& output) const;
 
 private:
   uv_loop_executor& executor_;

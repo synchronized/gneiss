@@ -18,7 +18,7 @@ constexpr float maximum_delta_seconds = 0.1F;
 
 } // namespace
 
-gneiss::engine::error editor_camera::initialize() noexcept {
+gneiss::engine::error editor_camera::initialize() {
   if (initialized_) {
     return gneiss::engine::error::invalid_state;
   }
@@ -50,7 +50,7 @@ void editor_camera::update_rotation() noexcept {
   transform_.rotation[3] = std::cos(yaw_half) * std::cos(pitch_half);
 }
 
-gneiss::engine::error editor_camera::update(const editor_camera_input& input) noexcept {
+gneiss::engine::error editor_camera::update(const editor_camera_input& input) {
   if (!is_valid()) {
     return gneiss::engine::error::invalid_state;
   }

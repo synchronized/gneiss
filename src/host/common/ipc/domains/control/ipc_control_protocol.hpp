@@ -35,8 +35,8 @@ enum class ipc_control_state : std::uint8_t {
 
 [[nodiscard]] gneiss::engine::error
 encode_ipc_control_ready(gneiss::engine::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::error
-encode_ipc_control_state(ipc_control_state state, gneiss::engine::ipc_envelope& output) noexcept;
+[[nodiscard]] gneiss::engine::error encode_ipc_control_state(ipc_control_state state,
+                                                             gneiss::engine::ipc_envelope& output);
 [[nodiscard]] gneiss::engine::error
 decode_ipc_control_state(const gneiss::engine::ipc_envelope& envelope,
                          ipc_control_state& output) noexcept;

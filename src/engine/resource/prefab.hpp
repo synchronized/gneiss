@@ -11,7 +11,7 @@ struct scene_asset_access;
 class prefab final : public asset {
 public:
   /** 所属线程取得不可变快照；快照可交给工作线程并独立于后续重载存活。 */
-  [[nodiscard]] ref<const prefab_description> snapshot() const noexcept { return content_; }
+  [[nodiscard]] ref<const prefab_description> snapshot() const { return content_; }
 
 private:
   friend struct detail::scene_asset_access;

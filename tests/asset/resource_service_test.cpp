@@ -3,8 +3,8 @@
 
 #include "engine/core/error.hpp"
 #include "engine/core/type_id.hpp"
-#include "engine/function/asset/resource_cache.hpp"
 #include "engine/function/asset/detail/load_operation.hpp"
+#include "engine/function/asset/resource_cache.hpp"
 
 #include <array>
 #include <cstddef>
@@ -302,16 +302,24 @@ int main() try {
   const auto throwing = [](std::shared_ptr<const gneiss::engine::asset>&) -> gneiss::engine::error {
     throw std::bad_alloc{};
   };
-  if (load_cached(cache, "asset://models/triangle.mesh",
-                  gneiss::engine::runtime_type_of<test_asset<int>>(), throwing, failed_reload, {},
-                  true) != gneiss::engine::error::out_of_memory ||
+  const auto propagates = [&](auto&&... args) {
+    try {
+      (void)load_cached(std::forward<decltype(args)>(args)...);
+    } catch (const std::bad_alloc&) {
+      return true;
+    }
+    return false;
+  };
+  if (!propagates(cache, "asset://models/triangle.mesh",
+                  gneiss::engine::runtime_type_of<test_asset<int>>(), throwing, failed_reload,
+                  std::shared_ptr<const gneiss::engine::files::source_domain>{}, true) ||
       load_cached(cache, "asset://models/triangle.mesh",
                   gneiss::engine::runtime_type_of<test_asset<int>>(), loader,
                   failed_reload) != gneiss::engine::error::success ||
       failed_reload != second)
     return 8;
-  if (load_cached(cache, "asset://throws", gneiss::engine::runtime_type_of<test_asset<int>>(),
-                  throwing, first) != gneiss::engine::error::out_of_memory ||
+  if (!propagates(cache, "asset://throws", gneiss::engine::runtime_type_of<test_asset<int>>(),
+                  throwing, first) ||
       cache.size() != 1U)
     return 8;
   const auto empty = [](std::shared_ptr<const gneiss::engine::asset>&) {

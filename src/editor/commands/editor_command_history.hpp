@@ -23,7 +23,7 @@ namespace gneiss::editor {
 class editor_history_operation {
 public:
   virtual ~editor_history_operation() noexcept = default;
-  [[nodiscard]] virtual gneiss::engine::error advance(bool& complete) noexcept = 0;
+  [[nodiscard]] virtual gneiss::engine::error advance(bool& complete) = 0;
   virtual void cancel() noexcept = 0;
   [[nodiscard]] virtual bool can_cancel() const noexcept { return true; }
 };
@@ -33,17 +33,17 @@ class editor_command {
 public:
   virtual ~editor_command() noexcept = default;
   [[nodiscard]] virtual std::string_view label() const noexcept = 0;
-  [[nodiscard]] virtual gneiss::engine::error undo() noexcept = 0;
-  [[nodiscard]] virtual gneiss::engine::error redo() noexcept = 0;
+  [[nodiscard]] virtual gneiss::engine::error undo() = 0;
+  [[nodiscard]] virtual gneiss::engine::error redo() = 0;
   /** 创建分帧撤销/重做事务；空输出沿用同步入口。准备失败不得修改文档。 */
   [[nodiscard]] virtual gneiss::engine::error
-  begin_history_operation(bool undo, std::unique_ptr<editor_history_operation>& output) noexcept {
+  begin_history_operation(bool undo, std::unique_ptr<editor_history_operation>& output) {
     (void)undo;
     output.reset();
     return gneiss::engine::error::success;
   }
   /** 合并已执行的后继命令；成功时保留本命令的初始 Undo 状态。 */
-  [[nodiscard]] virtual bool merge_with(const editor_command& next) noexcept {
+  [[nodiscard]] virtual bool merge_with(const editor_command& next) {
     (void)next;
     return false;
   }
@@ -63,9 +63,9 @@ public:
   explicit functional_editor_command(desc value) noexcept;
   [[nodiscard]] bool is_valid() const noexcept { return undo_ && redo_; }
   [[nodiscard]] std::string_view label() const noexcept override { return label_; }
-  [[nodiscard]] gneiss::engine::error undo() noexcept override;
-  [[nodiscard]] gneiss::engine::error redo() noexcept override;
-  [[nodiscard]] bool merge_with(const editor_command& next) noexcept override;
+  [[nodiscard]] gneiss::engine::error undo() override;
+  [[nodiscard]] gneiss::engine::error redo() override;
+  [[nodiscard]] bool merge_with(const editor_command& next) override;
 
 private:
   std::string label_;
@@ -84,15 +84,15 @@ public:
 
   explicit editor_command_history(std::size_t capacity = default_capacity) noexcept;
   /** 记录已经成功执行的命令；新命令清空 redo。 */
-  [[nodiscard]] gneiss::engine::error record(std::unique_ptr<editor_command> value) noexcept;
+  [[nodiscard]] gneiss::engine::error record(std::unique_ptr<editor_command> value);
   /** 异步初次执行前预留记录空间；调用方期间禁止其他历史修改。 */
-  [[nodiscard]] gneiss::engine::error prepare_record() noexcept;
-  [[nodiscard]] gneiss::engine::error record(command value) noexcept;
+  [[nodiscard]] gneiss::engine::error prepare_record();
+  [[nodiscard]] gneiss::engine::error record(command value);
   /** 执行 redo 后记录；记录失败时自动调用 undo 回滚。 */
-  [[nodiscard]] gneiss::engine::error execute(std::unique_ptr<editor_command> value) noexcept;
-  [[nodiscard]] gneiss::engine::error execute(command value) noexcept;
-  [[nodiscard]] gneiss::engine::error undo() noexcept;
-  [[nodiscard]] gneiss::engine::error redo() noexcept;
+  [[nodiscard]] gneiss::engine::error execute(std::unique_ptr<editor_command> value);
+  [[nodiscard]] gneiss::engine::error execute(command value);
+  [[nodiscard]] gneiss::engine::error undo();
+  [[nodiscard]] gneiss::engine::error redo();
   /** 在途操作完成清理前拒绝清空或改变保存点。 */
   gneiss::engine::error clear(bool saved = true) noexcept;
   gneiss::engine::error mark_saved() noexcept {
@@ -126,7 +126,7 @@ private:
     std::uint64_t after_state = 0U;
   };
 
-  [[nodiscard]] gneiss::engine::error record_impl(std::unique_ptr<editor_command>& value) noexcept;
+  [[nodiscard]] gneiss::engine::error record_impl(std::unique_ptr<editor_command>& value);
   [[nodiscard]] std::uint64_t allocate_state() noexcept;
 
   std::vector<entry> entries_;

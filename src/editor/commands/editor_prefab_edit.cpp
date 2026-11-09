@@ -45,7 +45,7 @@ struct editor_prefab_edit::state {
   bool asset_pending{}, cancelled{}, active{}, visible{};
   gneiss::engine::error status{gneiss::engine::error::success};
   gneiss::engine::error failure{gneiss::engine::error::success};
-  void finish() noexcept {
+  void finish() {
     if (request) {
       (void)application.discard_prepared_assets(request);
       request = 0;
@@ -219,7 +219,7 @@ gneiss::engine::error editor_prefab_edit::request(runtime::application& applicat
                                                   scene_edit_session& session,
                                                   editor_command_history& history,
                                                   std::string_view name, std::string_view uri,
-                                                  scene_node_id parent) try {
+                                                  scene_node_id parent) {
   if (active() || history.is_pending() || !session.is_open()) {
     return gneiss::engine::error::not_ready;
   }
@@ -262,15 +262,11 @@ gneiss::engine::error editor_prefab_edit::request(runtime::application& applicat
   next->active = next->visible = true;
   state_ = std::move(next);
   return gneiss::engine::error::success;
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::error::out_of_memory;
-} catch (...) {
-  return gneiss::engine::error::internal;
 }
 gneiss::engine::error editor_prefab_edit::request_remove(runtime::application& application,
                                                          scene_edit_session& session,
                                                          editor_command_history& history,
-                                                         scene_node_id root) try {
+                                                         scene_node_id root) {
   if (active() || history.is_pending() || !session.is_open()) {
     return gneiss::engine::error::not_ready;
   }
@@ -292,17 +288,13 @@ gneiss::engine::error editor_prefab_edit::request_remove(runtime::application& a
   next->active = next->visible = next->removing = true;
   state_ = std::move(next);
   return gneiss::engine::error::success;
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::error::out_of_memory;
-} catch (...) {
-  return gneiss::engine::error::internal;
 }
 
 gneiss::engine::error editor_prefab_edit::request_refresh(runtime::application& application,
                                                           gneiss::engine::task_executor& executor,
                                                           scene_edit_session& session,
                                                           editor_command_history& history,
-                                                          scene_node_id root) try {
+                                                          scene_node_id root) {
   if (active() || history.is_pending() || !session.is_open()) {
     return gneiss::engine::error::not_ready;
   }
@@ -337,10 +329,6 @@ gneiss::engine::error editor_prefab_edit::request_refresh(runtime::application& 
   next->active = next->visible = next->refreshing = true;
   state_ = std::move(next);
   return gneiss::engine::error::success;
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::error::out_of_memory;
-} catch (...) {
-  return gneiss::engine::error::internal;
 }
 
 void editor_prefab_edit::cancel() {
@@ -413,14 +401,12 @@ void editor_prefab_edit::advance() {
                              return value.session->apply_prefab(*snapshot, value.removing, false);
                            });
     value.finish();
-  } catch (const std::bad_alloc&) {
-    value.failure = gneiss::engine::error::out_of_memory;
-    value.status = value.failure;
-    cancel();
   } catch (...) {
-    value.failure = gneiss::engine::error::internal;
+    // 局部状态清理后传播意外异常，不作为普通操作失败继续执行。
+    value.failure = engine::error::internal;
     value.status = value.failure;
     cancel();
+    throw;
   }
 }
 }

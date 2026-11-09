@@ -62,11 +62,11 @@ gneiss::engine::error encode_ipc_control_ready(gneiss::engine::ipc_envelope& out
 }
 
 gneiss::engine::error encode_ipc_control_state(ipc_control_state state,
-                                               gneiss::engine::ipc_envelope& output) noexcept {
+                                               gneiss::engine::ipc_envelope& output) {
   if (!valid_state(state)) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     gneiss::engine::ipc_envelope encoded{
         .domain = gneiss::engine::ipc_domain::control,
         .operation = static_cast<std::uint16_t>(ipc_control_operation::state_changed),
@@ -75,10 +75,6 @@ gneiss::engine::error encode_ipc_control_state(ipc_control_state state,
         .payload = {static_cast<std::uint8_t>(state)}};
     output = std::move(encoded);
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 

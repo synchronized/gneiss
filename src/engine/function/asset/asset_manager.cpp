@@ -8,6 +8,7 @@
 #include "detail/load_operation.hpp"
 #include "detail/render_load_operation.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
@@ -70,8 +71,7 @@ struct asset_manager::resource_state {
     std::shared_ptr<const void> previous;
     std::atomic_bool settled{false};
     error status{error::not_ready};
-    explicit operation(std::shared_ptr<asset_loader> parser)
-        : loader(std::move(parser)) {}
+    explicit operation(std::shared_ptr<asset_loader> parser) : loader(std::move(parser)) {}
     void decode() {
       const auto started = std::chrono::steady_clock::now();
       if (bytes.size() > std::numeric_limits<std::size_t>::max() - loader->input_bytes) {
@@ -160,17 +160,13 @@ struct asset_manager::resource_state {
         {.name = "asset-decode", .scope = scope},
         [completion](const auto& context) {
           auto& task = *completion->work;
-          try {
+          {
             if (context.stop_requested()) {
               task.status = error::invalid_state;
               task.diagnostic.message = "解码任务收到停止请求";
             } else {
               task.decode();
             }
-          } catch (const std::bad_alloc&) {
-            task.status = error::out_of_memory;
-          } catch (...) {
-            task.status = error::internal;
           }
           completion->ran = true;
           return engine::task_outcome{};
@@ -186,7 +182,7 @@ struct asset_manager::resource_state {
     return true;
   }
   ~resource_state() { stop(); }
-  void request_stop() noexcept {
+  void request_stop() {
     if (stopped)
       return;
     stopped = true;
@@ -217,7 +213,7 @@ struct asset_manager::resource_state {
     files.reset();
     return true;
   }
-  void stop() noexcept {
+  void stop() noexcept try {
     request_stop();
     // 迁移期析构兜底；宿主应先 request_stop 并推进到 finish_stop 完成。
     if (executor) {
@@ -225,23 +221,22 @@ struct asset_manager::resource_state {
       executor = nullptr;
     }
     (void)finish_stop();
+  } catch (...) {
+    gneiss::engine::fatal_current_exception();
   }
 };
 std::shared_ptr<engine::files::service> asset_manager::async_files() const noexcept {
   return resource_state_->files;
 }
-result<asset_identity> asset_manager::identify(std::string_view uri,
-                                               std::uint32_t type) const noexcept {
+result<asset_identity> asset_manager::identify(std::string_view uri, std::uint32_t type) const {
   if (!resource_state_->files || type == 0U)
     return error::invalid_state;
-  try {
+  {
     std::shared_ptr<const engine::files::source_domain> domain;
     const auto status = resource_state_->files->resolve_source(uri, domain);
     if (status.failed())
       return status;
     return asset_identity{.source = std::move(domain), .uri = std::string(uri), .type = type};
-  } catch (...) {
-    return error::out_of_memory;
   }
 }
 
@@ -266,7 +261,7 @@ asset_manager::asset_manager(std::shared_ptr<engine::files::service> files)
 error asset_manager::store_erased(type_id type, std::string_view uri,
                                   std::shared_ptr<const asset> value,
                                   std::shared_ptr<const asset>& output,
-                                  asset_load_options options) noexcept try {
+                                  asset_load_options options) {
   auto& state = *resource_state_;
   if (state.stopped)
     return error::invalid_state;
@@ -287,10 +282,6 @@ error asset_manager::store_erased(type_id type, std::string_view uri,
   record->loading.reset();
   output = stored->resource;
   return error::success;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 asset_manager::~asset_manager() { stop(); }
 resource_cache& asset_manager::cache() noexcept { return resource_state_->cache; }
@@ -300,11 +291,11 @@ bool asset_manager::stop_requested() const noexcept { return resource_state_->st
 bool asset_manager::loading_configured() const noexcept {
   return resource_state_->executor && !stop_requested();
 }
-error asset_manager::configure(task_executor& executor) noexcept {
+error asset_manager::configure(task_executor& executor) {
   return configure(executor, resource_state_->profile, resource_state_->scope);
 }
 error asset_manager::configure(task_executor& executor, texture_prepare_profile profile,
-                               task_scope scope) noexcept try {
+                               task_scope scope) {
   auto& state = *resource_state_;
   if (state.stopped)
     return error::invalid_state;
@@ -324,12 +315,8 @@ error asset_manager::configure(task_executor& executor, texture_prepare_profile 
   state.executor = &executor;
   state.profile = profile;
   return error::success;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-error asset_manager::attach_render(render_service& render) noexcept try {
+error asset_manager::attach_render(render_service& render) {
   if (resource_state_->stopped)
     return error::invalid_state;
   if (impl_)
@@ -337,21 +324,17 @@ error asset_manager::attach_render(render_service& render) noexcept try {
   auto next = std::make_unique<detail::asset_construction>(render);
   impl_ = std::move(next);
   return error::success;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 texture_prepare_profile asset_manager::profile() const noexcept { return resource_state_->profile; }
 result<asset_request<asset>> asset_manager::load(type_id type, std::string_view uri,
-                                                 asset_load_options options) noexcept {
+                                                 asset_load_options options) {
   const auto found = resource_state_->references.find(type);
   if (found == resource_state_->references.end())
     return error::unsupported;
   return found->second(*this, uri, options);
 }
 error asset_manager::register_loader(type_id type, loader_factory factory,
-                                     reference_factory reference) noexcept try {
+                                     reference_factory reference) {
   auto& state = *resource_state_;
   if (state.stopped || state.frozen)
     return error::invalid_state;
@@ -370,13 +353,8 @@ error asset_manager::register_loader(type_id type, loader_factory factory,
     throw;
   }
   return error::success;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-error asset_manager::register_decoder(const std::shared_ptr<const asset_decoder>& loader) noexcept
-    try {
+error asset_manager::register_decoder(const std::shared_ptr<const asset_decoder>& loader) {
   auto& state = *resource_state_;
   if (state.stopped || state.frozen) {
     return error::invalid_state;
@@ -393,10 +371,6 @@ error asset_manager::register_decoder(const std::shared_ptr<const asset_decoder>
       type == runtime_type_of<action_map>())
     return error::invalid_argument;
   return state.decoders.emplace(type, loader).second ? error::success : error::invalid_argument;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 error asset_manager::resolve_decoder(type_id type, decoder_factory fallback,
                                      std::shared_ptr<const asset_decoder>& output) {
@@ -417,7 +391,7 @@ error asset_manager::resolve_decoder(type_id type, decoder_factory fallback,
 
 error asset_manager::request(type_id type, std::string_view uri, asset_load_options options,
                              std::shared_ptr<detail::asset_state>& output, decoder_factory fallback,
-                             cache_conversion conversion) noexcept try {
+                             cache_conversion conversion) {
   auto& state = *resource_state_;
   if (state.stopped) {
     return error::invalid_state;
@@ -514,14 +488,10 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
   }
   output = work->observer;
   return error::success;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 error asset_manager::find_erased(type_id type, std::string_view uri,
                                  std::shared_ptr<const asset>& output,
-                                 asset_load_options options) const noexcept try {
+                                 asset_load_options options) const {
   if (resource_state_->stopped || !resource_state_->files)
     return error::invalid_state;
   if (validate_uri(uri).failed())
@@ -537,10 +507,6 @@ error asset_manager::find_erased(type_id type, std::string_view uri,
     return error::not_ready;
   output = entry->resource;
   return error::success;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 
 asset_diagnostic asset_manager::advance_dependencies(
@@ -601,12 +567,8 @@ void asset_manager::advance() {
       state.active,
       [&](const auto& work) {
         if (!work->pending_uri.empty()) {
-          try {
+          {
             work->status = state.read(work, work->pending_uri);
-          } catch (const std::bad_alloc&) {
-            work->status = error::out_of_memory;
-          } catch (...) {
-            work->status = error::internal;
           }
           if (work->status == error::not_ready)
             return;
@@ -620,16 +582,10 @@ void asset_manager::advance() {
           }
           work->reading = false;
           if (work->status == error::success) {
-            try {
+            {
               if (!state.schedule(work)) {
                 return;
               }
-            } catch (const std::bad_alloc&) {
-              work->status = error::out_of_memory;
-              work->settled.store(true, std::memory_order_release);
-            } catch (...) {
-              work->status = error::internal;
-              work->settled.store(true, std::memory_order_release);
             }
           } else {
             work->settled.store(true, std::memory_order_release);
@@ -643,24 +599,20 @@ void asset_manager::advance() {
           return;
         }
         if (work->status.ok() && !work->loader->next_uri.empty()) {
-          try {
+          {
             const auto next_uri = work->loader->next_uri;
             work->status = state.read(work, next_uri);
             if (work->status == error::not_ready) {
               work->pending_uri = next_uri;
               return;
             }
-          } catch (const std::bad_alloc&) {
-            work->status = error::out_of_memory;
-          } catch (...) {
-            work->status = error::internal;
           }
           if (work->status.ok()) {
             return;
           }
         }
         if (work->status.ok()) {
-          try {
+          {
             auto dependencies =
                 advance_dependencies(work->entry.lock(), work->loader->dependencies);
             if (dependencies.error == error::not_ready)
@@ -674,10 +626,6 @@ void asset_manager::advance() {
             work->loader->dependencies.clear();
             work->value = work->loader->value;
             work->diagnostic = work->loader->diagnostic;
-          } catch (const std::bad_alloc&) {
-            work->status = error::out_of_memory;
-          } catch (...) {
-            work->status = error::internal;
           }
         }
         work->loader->metrics.queue_ms = work->queue_ms;
@@ -710,29 +658,29 @@ void asset_manager::advance() {
           (void)state.files->cancel(work->read_request);
       });
 }
-void asset_manager::collect_unused() noexcept {
+void asset_manager::collect_unused() {
   detail::advance_load_operations(
       resource_state_->rendering, [](const auto&) {}, [](const auto&) {});
   do {
     cache().release_unused();
   } while (impl_ && impl_->drain() != 0U);
 }
-void asset_manager::request_stop() noexcept {
-  resource_state_->request_stop();
-}
+void asset_manager::request_stop() { resource_state_->request_stop(); }
 bool asset_manager::stopped() const noexcept {
   return resource_state_->stopped && !resource_state_->executor && !resource_state_->files;
 }
-void asset_manager::stop() noexcept {
+void asset_manager::stop() noexcept try {
   request_stop();
   resource_state_->stop();
   collect_unused();
   if (impl_)
     impl_->close();
+} catch (...) {
+  gneiss::engine::fatal_current_exception();
 }
 
 result<asset_request<render_resource_ref>> asset_manager::load(const render_resource_source& source,
-                                                               asset_load_options options) try {
+                                                               asset_load_options options) {
   const bool reload = options.reload;
   if (options.texture_profile != texture_prepare_profile{} && options.texture_profile != profile())
     return error::invalid_argument;
@@ -776,31 +724,27 @@ result<asset_request<render_resource_ref>> asset_manager::load(const render_reso
   entry->loading = work;
   output.state_ = std::move(state);
   return output;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 
-result<ref<const engine::mesh>> asset_manager::create(const mesh_view& data) noexcept {
+result<ref<const engine::mesh>> asset_manager::create(const mesh_view& data) {
   if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->create_mesh(data);
 }
-result<ref<const engine::texture>> asset_manager::create(const texture_view& data) noexcept {
+result<ref<const engine::texture>> asset_manager::create(const texture_view& data) {
   if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->create_texture(data);
 }
 result<ref<const engine::material>>
 asset_manager::create(const material_parameters& data,
-                      std::array<ref<const engine::texture>, 5> deps) noexcept {
+                      std::array<ref<const engine::texture>, 5> deps) {
   if (!impl_ || stop_requested())
     return error::invalid_state;
   return impl_->create_material(data, std::move(deps));
 }
 
-result<ref<const scene>> asset_manager::create(scene_content content) noexcept try {
+result<ref<const scene>> asset_manager::create(scene_content content) {
   if (stop_requested())
     return error::invalid_state;
   if (!content.description)
@@ -818,20 +762,12 @@ result<ref<const scene>> asset_manager::create(scene_content content) noexcept t
   }
   return ref<const scene>{detail::scene_asset_access::make<scene>(
       {}, ref<const scene_content>{make_ref<scene_content>(std::move(content))})};
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-result<ref<const scene>> asset_manager::create(scene_description content) noexcept try {
+result<ref<const scene>> asset_manager::create(scene_description content) {
   return create(scene_content{
       ref<const scene_description>{make_ref<scene_description>(std::move(content))}, {}});
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-result<ref<const prefab>> asset_manager::create(prefab_description content) noexcept try {
+result<ref<const prefab>> asset_manager::create(prefab_description content) {
   if (stop_requested())
     return error::invalid_state;
   auto valid = validate_prefab_description(content);
@@ -839,13 +775,9 @@ result<ref<const prefab>> asset_manager::create(prefab_description content) noex
     return valid.error;
   return ref<const prefab>{detail::scene_asset_access::make<prefab>(
       {}, ref<const prefab_description>{make_ref<prefab_description>(std::move(content))})};
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 
-bool asset_manager::owns(const render_resource_ref& value) const noexcept {
+bool asset_manager::owns(const render_resource_ref& value) const {
   if (auto asset = value.as<engine::mesh>())
     return owns(asset);
   if (auto asset = value.as<engine::texture>())
@@ -868,10 +800,10 @@ render_resource_ref cached_resource(const detail::cached_asset& entry) noexcept 
 }
 
 result<render_resource_ref> asset_manager::find(const render_resource_source& source,
-                                                texture_prepare_profile profile) const noexcept {
+                                                texture_prepare_profile profile) const {
   if (!impl_ || stop_requested())
     return error::invalid_state;
-  try {
+  {
     auto identity = identify(source.uri, static_cast<std::uint32_t>(source.type));
     if (!identity)
       return identity.error();
@@ -911,16 +843,13 @@ result<render_resource_ref> asset_manager::find(const render_resource_source& so
     if (!ready)
       return error::not_ready;
     return cached_resource(*current);
-  } catch (...) {
-    return engine::error::out_of_memory;
   }
 }
 
-result<render_resource_ref>
-asset_manager::acquire_resource(const render_resource_source& source) noexcept {
+result<render_resource_ref> asset_manager::acquire_resource(const render_resource_source& source) {
   if (!impl_ || stop_requested())
     return error::invalid_state;
-  try {
+  {
     if (engine::validate_uri(source.uri) != engine::error::success) {
       return engine::error::invalid_argument;
     }
@@ -964,14 +893,10 @@ asset_manager::acquire_resource(const render_resource_source& source) noexcept {
     if (!owns(resource))
       return error::invalid_handle;
     return resource;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 
-bool asset_manager::owns(const ref<const engine::mesh>& value) const noexcept {
+bool asset_manager::owns(const ref<const engine::mesh>& value) const {
   if (!impl_)
     return false;
   if (!value || impl_->render().mesh_status(resource_handle(value)) == error::invalid_handle)
@@ -981,7 +906,7 @@ bool asset_manager::owns(const ref<const engine::mesh>& value) const noexcept {
   return identity && *identity == value->source();
 }
 
-bool asset_manager::owns(const ref<const engine::texture>& value) const noexcept {
+bool asset_manager::owns(const ref<const engine::texture>& value) const {
   if (!impl_)
     return false;
   if (!value || impl_->render().texture_status(resource_handle(value)) == error::invalid_handle)
@@ -991,7 +916,7 @@ bool asset_manager::owns(const ref<const engine::texture>& value) const noexcept
   return identity && *identity == value->source();
 }
 
-bool asset_manager::owns(const ref<const engine::material>& value) const noexcept {
+bool asset_manager::owns(const ref<const engine::material>& value) const {
   if (!impl_)
     return false;
   if (!value || impl_->render().material_status(resource_handle(value)) == error::invalid_handle)

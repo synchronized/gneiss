@@ -4,9 +4,12 @@
 #include "engine/core/error.hpp"
 #include "uv_loop_executor.hpp"
 
+#include "engine/core/fatal.hpp"
 #include <atomic>
 #include <chrono>
 #include <future>
+#include <new>
+#include <string_view>
 #include <thread>
 
 #ifndef _WIN32
@@ -80,7 +83,24 @@ bool test_broken_pipe() {
 } // namespace
 #endif
 
-int main() {
+int main(int argc, char** argv) {
+  gneiss::engine::install_fatal_handler();
+  if (argc > 1) {
+    gneiss::engine::uv_loop_executor executor;
+    if (executor.start().failed())
+      return 10;
+    const bool oom = std::string_view(argv[1]) == "oom";
+    if (executor
+            .post([oom] {
+              if (oom)
+                throw std::bad_alloc{};
+              throw 1;
+            })
+            .failed())
+      return 11;
+    (void)executor.stop();
+    return 0;
+  }
 #ifndef _WIN32
   if (!test_broken_pipe()) {
     return 9;
@@ -134,13 +154,7 @@ int main() {
     return 5;
   }
 
-  if (runtime.start() != gneiss::engine::error::success ||
-      runtime.post([] { throw 1; }) != gneiss::engine::error::success ||
-      runtime.stop() != gneiss::engine::error::success || runtime.failed_task_count() != 1U) {
-    return 6;
-  }
-
-  if (runtime.start() != gneiss::engine::error::success || runtime.failed_task_count() != 0U) {
+  if (runtime.start() != gneiss::engine::error::success) {
     return 7;
   }
   std::promise<gneiss::engine::error> self_stop;

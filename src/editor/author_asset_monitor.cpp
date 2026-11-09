@@ -31,8 +31,8 @@ std::vector<std::string> author_asset_monitor::known_uris() const {
 author_asset_change author_asset_monitor::observe(const std::filesystem::path& relative_path,
                                                   bool document_dirty,
                                                   gneiss::engine::error operation,
-                                                  std::uint64_t value) noexcept {
-  try {
+                                                  std::uint64_t value) {
+  {
     const auto relative = path_utf8(relative_path.lexically_normal());
     if (!is_structural_asset(relative)) {
       return {};
@@ -57,18 +57,12 @@ author_asset_change author_asset_monitor::observe(const std::filesystem::path& r
                                                                       : "结构资产已删除或不可读取",
                .fingerprint = value};
     return status_;
-  } catch (...) {
-    status_ = {.state = author_asset_change_state::failed,
-               .uri = {},
-               .operation = gneiss::engine::error::io,
-               .message = "结构资产变化检查失败"};
-    return status_;
   }
 }
 
 gneiss::engine::error author_asset_monitor::acknowledge_content(std::string_view uri,
-                                                                std::string_view content) noexcept {
-  try {
+                                                                std::string_view content) {
+  {
     std::uint64_t value = 14695981039346656037ULL;
     for (const unsigned char byte : content) {
       value ^= byte;
@@ -76,8 +70,6 @@ gneiss::engine::error author_asset_monitor::acknowledge_content(std::string_view
     }
     accept_fingerprint(uri, value);
     return gneiss::engine::error::success;
-  } catch (...) {
-    return gneiss::engine::error::out_of_memory;
   }
 }
 

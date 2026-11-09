@@ -21,12 +21,11 @@ std::uint64_t console_model::begin_session() noexcept {
   return current_session_id_;
 }
 
-gneiss::engine::error console_model::append_event(std::uint64_t session_id,
-                                                  console_event event) noexcept {
+gneiss::engine::error console_model::append_event(std::uint64_t session_id, console_event event) {
   if (capacity_ == 0U || session_id == 0U) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     make_room();
     console_entry entry;
     entry.id = next_entry_id_++;
@@ -35,17 +34,15 @@ gneiss::engine::error console_model::append_event(std::uint64_t session_id,
     entry.event = std::move(event);
     entries_.push_back(std::move(entry));
     return gneiss::engine::error::success;
-  } catch (...) {
-    return gneiss::engine::error::out_of_memory;
   }
 }
 
 gneiss::engine::error console_model::append_raw(std::uint64_t session_id, std::string_view text,
-                                                bool was_truncated) noexcept {
+                                                bool was_truncated) {
   if (capacity_ == 0U || session_id == 0U) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     make_room();
     console_entry entry;
     entry.id = next_entry_id_++;
@@ -55,8 +52,6 @@ gneiss::engine::error console_model::append_raw(std::uint64_t session_id, std::s
     entry.was_truncated = was_truncated;
     entries_.push_back(std::move(entry));
     return gneiss::engine::error::success;
-  } catch (...) {
-    return gneiss::engine::error::out_of_memory;
   }
 }
 
@@ -91,11 +86,10 @@ bool console_model::matches(const console_entry& entry,
          entry.event.category.find(filter.search) != std::string::npos;
 }
 
-gneiss::engine::error
-console_model::visible_indices(const console_filter& filter,
-                               std::vector<std::size_t>& output) const noexcept {
+gneiss::engine::error console_model::visible_indices(const console_filter& filter,
+                                                     std::vector<std::size_t>& output) const {
   output.clear();
-  try {
+  {
     output.reserve(entries_.size());
     for (std::size_t index = 0U; index < entries_.size(); ++index) {
       if (matches(entries_[index], filter)) {
@@ -103,9 +97,6 @@ console_model::visible_indices(const console_filter& filter,
       }
     }
     return gneiss::engine::error::success;
-  } catch (...) {
-    output.clear();
-    return gneiss::engine::error::out_of_memory;
   }
 }
 

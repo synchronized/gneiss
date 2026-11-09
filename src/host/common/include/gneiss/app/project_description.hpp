@@ -67,12 +67,11 @@ struct project_load_report final {
 /** 从工程根目录加载并校验固定名称的 gneiss.project.json。 */
 [[nodiscard]] gneiss::engine::error
 load_project_description(const std::filesystem::path& project_root, project_description& output,
-                         project_load_report& report) noexcept;
+                         project_load_report& report);
 
 /** 忽略分阶段报告并加载工程描述。 */
 [[nodiscard]] inline gneiss::engine::error
-load_project_description(const std::filesystem::path& project_root,
-                         project_description& output) noexcept {
+load_project_description(const std::filesystem::path& project_root, project_description& output) {
   project_load_report report;
   return load_project_description(project_root, output, report);
 }

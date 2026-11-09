@@ -156,7 +156,6 @@ void run() {
     abandoned.reset();
   }
   check(executor.stop() == gneiss::engine::error::success);
-  check(executor.failed_task_count() == 0U);
 }
 } // namespace
 int main() try {

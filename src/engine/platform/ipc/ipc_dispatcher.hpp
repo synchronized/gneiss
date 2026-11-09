@@ -34,7 +34,7 @@ struct ipc_operation_descriptor final {
   ipc_message_kind_mask runtime_to_editor_kinds = 0U;
 };
 
-using ipc_domain_handler = engine::error (*)(void* context, const ipc_envelope& envelope) noexcept;
+using ipc_domain_handler = engine::error (*)(void* context, const ipc_envelope& envelope);
 
 struct ipc_domain_descriptor final {
   ipc_domain domain = ipc_domain::session;
@@ -83,7 +83,7 @@ struct ipc_dispatch_outcome final {
 /** 拥有域描述和操作规则副本；处理器上下文的生命周期由组合层保证。 */
 class ipc_domain_registry final {
 public:
-  [[nodiscard]] engine::error register_domain(const ipc_domain_descriptor& descriptor) noexcept;
+  [[nodiscard]] engine::error register_domain(const ipc_domain_descriptor& descriptor);
   void clear() noexcept;
   [[nodiscard]] std::size_t size() const noexcept;
 
@@ -111,7 +111,7 @@ public:
   explicit ipc_dispatcher(const ipc_domain_registry& registry) noexcept;
 
   [[nodiscard]] ipc_dispatch_outcome dispatch(const ipc_envelope& envelope,
-                                              const ipc_dispatch_context& context) const noexcept;
+                                              const ipc_dispatch_context& context) const;
 
 private:
   const ipc_domain_registry* registry_;

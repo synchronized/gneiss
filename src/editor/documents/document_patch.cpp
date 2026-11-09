@@ -329,7 +329,7 @@ template <class Map, class Changes> bool patch_map(Map& values, const Changes& c
 }
 }
 engine::result<document_patch> make_document_patch(const scene_document_snapshot& a,
-                                                   const scene_document_snapshot& b) noexcept try {
+                                                   const scene_document_snapshot& b) {
   if (a.uri != b.uri || a.content.get().uuid != b.content.get().uuid)
     return engine::error::invalid_argument;
   document_patch result;
@@ -364,13 +364,9 @@ engine::result<document_patch> make_document_patch(const scene_document_snapshot
     result.after_source = b.source_asset;
   }
   return result;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 engine::result<document_patch> merge_document_patches(const document_patch& a,
-                                                      const document_patch& b) noexcept try {
+                                                      const document_patch& b) {
   if (a.document != b.document || a.uri != b.uri)
     return engine::error::invalid_state;
   // 结构与属性跨形态合并不猜测中间对象；交由历史保留独立条目。
@@ -427,14 +423,9 @@ engine::result<document_patch> merge_document_patches(const document_patch& a,
     result.source_changed = true;
   }
   return result;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
-engine::result<scene_document_snapshot> apply_document_patch(const scene_document_snapshot& input,
-                                                             const document_patch& patch,
-                                                             bool undo) noexcept try {
+engine::result<scene_document_snapshot>
+apply_document_patch(const scene_document_snapshot& input, const document_patch& patch, bool undo) {
   if (input.uri != patch.uri || input.content.get().uuid != patch.document)
     return engine::error::invalid_state;
   auto result = input;
@@ -490,9 +481,5 @@ engine::result<scene_document_snapshot> apply_document_patch(const scene_documen
   if (!valid)
     return valid.error();
   return result;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 }

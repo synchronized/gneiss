@@ -14,33 +14,27 @@ functional_editor_command::functional_editor_command(desc value) noexcept
     : label_(std::move(value.label)), undo_(std::move(value.undo)), redo_(std::move(value.redo)),
       merge_key_(std::move(value.merge_key)) {}
 
-gneiss::engine::error functional_editor_command::undo() noexcept {
-  try {
+gneiss::engine::error functional_editor_command::undo() {
+  {
     return undo_ ? undo_() : gneiss::engine::error::invalid_state;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
-gneiss::engine::error functional_editor_command::redo() noexcept {
-  try {
+gneiss::engine::error functional_editor_command::redo() {
+  {
     return redo_ ? redo_() : gneiss::engine::error::invalid_state;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
-bool functional_editor_command::merge_with(const editor_command& next) noexcept {
+bool functional_editor_command::merge_with(const editor_command& next) {
   const auto* functional = dynamic_cast<const functional_editor_command*>(&next);
   if (functional == nullptr || merge_key_.empty() || merge_key_ != functional->merge_key_) {
     return false;
   }
-  try {
+  {
     label_ = functional->label_;
     redo_ = functional->redo_;
     return true;
-  } catch (...) {
-    return false;
   }
 }
 
@@ -55,15 +49,14 @@ std::uint64_t editor_command_history::allocate_state() noexcept {
   return value;
 }
 
-gneiss::engine::error
-editor_command_history::record_impl(std::unique_ptr<editor_command>& value) noexcept {
+gneiss::engine::error editor_command_history::record_impl(std::unique_ptr<editor_command>& value) {
   if (is_pending()) {
     return gneiss::engine::error::not_ready;
   }
   if (value == nullptr || capacity_ == 0U) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     entries_.reserve(entries_.size() + 1U);
     if (cursor_ < entries_.size()) {
       entries_.erase(entries_.begin() + static_cast<std::ptrdiff_t>(cursor_), entries_.end());
@@ -84,61 +77,43 @@ editor_command_history::record_impl(std::unique_ptr<editor_command>& value) noex
       --cursor_;
     }
     return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
-gneiss::engine::error
-editor_command_history::record(std::unique_ptr<editor_command> value) noexcept {
+gneiss::engine::error editor_command_history::record(std::unique_ptr<editor_command> value) {
   return record_impl(value);
 }
 
-gneiss::engine::error editor_command_history::prepare_record() noexcept try {
+gneiss::engine::error editor_command_history::prepare_record() {
   if (is_pending())
     return gneiss::engine::error::not_ready;
   if (capacity_ == 0U)
     return gneiss::engine::error::invalid_argument;
   entries_.reserve(entries_.size() + 1U);
   return gneiss::engine::error::success;
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::error::out_of_memory;
-} catch (...) {
-  return gneiss::engine::error::internal;
 }
 
-gneiss::engine::error editor_command_history::record(command value) noexcept {
+gneiss::engine::error editor_command_history::record(command value) {
   if (!value.undo || !value.redo) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     std::unique_ptr<editor_command> command_value =
         std::make_unique<functional_editor_command>(std::move(value));
     return record_impl(command_value);
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
-gneiss::engine::error
-editor_command_history::execute(std::unique_ptr<editor_command> value) noexcept {
+gneiss::engine::error editor_command_history::execute(std::unique_ptr<editor_command> value) {
   if (is_pending()) {
     return gneiss::engine::error::not_ready;
   }
   if (value == nullptr || capacity_ == 0U) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     // 在修改文档前准备历史空间，避免成功提交后才因分配失败请求回滚。
     entries_.reserve(entries_.size() + 1U);
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
   const auto operation_result = value->redo();
   if (operation_result != gneiss::engine::error::success) {
@@ -151,20 +126,16 @@ editor_command_history::execute(std::unique_ptr<editor_command> value) noexcept 
   return record_result;
 }
 
-gneiss::engine::error editor_command_history::execute(command value) noexcept {
+gneiss::engine::error editor_command_history::execute(command value) {
   if (!value.undo || !value.redo) {
     return gneiss::engine::error::invalid_argument;
   }
-  try {
+  {
     return execute(std::make_unique<functional_editor_command>(std::move(value)));
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
   }
 }
 
-gneiss::engine::error editor_command_history::undo() noexcept {
+gneiss::engine::error editor_command_history::undo() {
   if (!can_undo()) {
     return gneiss::engine::error::not_ready;
   }
@@ -186,7 +157,7 @@ gneiss::engine::error editor_command_history::undo() noexcept {
   return operation_result;
 }
 
-gneiss::engine::error editor_command_history::redo() noexcept {
+gneiss::engine::error editor_command_history::redo() {
   if (!can_redo()) {
     return gneiss::engine::error::not_ready;
   }

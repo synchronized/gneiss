@@ -29,7 +29,7 @@ public:
   log_dispatcher(const log_dispatcher&) = delete;
   log_dispatcher& operator=(const log_dispatcher&) = delete;
 
-  [[nodiscard]] engine::error submit(const message_view& message) noexcept;
+  [[nodiscard]] engine::error submit(const message_view& message);
   void flush() noexcept;
 
 private:
@@ -46,8 +46,8 @@ private:
   };
 
   void run() noexcept;
-  void deliver(const owned_event& event) noexcept;
-  [[nodiscard]] owned_event make_drop_event(std::uint64_t count) noexcept;
+  void deliver(const owned_event& event);
+  [[nodiscard]] owned_event make_drop_event(std::uint64_t count);
 
   event_sink callback_;
   std::size_t capacity_;

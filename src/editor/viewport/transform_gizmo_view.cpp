@@ -31,7 +31,7 @@ void reset_transform_gizmo() noexcept {
 }
 
 bool draw_transform_gizmo(const transform_gizmo_context& context, const ImVec2& minimum,
-                          const ImVec2& size) noexcept {
+                          const ImVec2& size) {
   const auto selected = context.session.selected_node();
   const auto prefab = context.session.selected_prefab_node();
   const auto editable_prefab = bool(prefab) && !prefab->is_instance_root;

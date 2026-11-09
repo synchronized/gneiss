@@ -74,12 +74,12 @@ public:
   rid_table& operator=(rid_table&&) = delete;
 
   template <typename Value>
-  [[nodiscard]] result<Identifier> create(resource_type type, Value&& value) noexcept {
+  [[nodiscard]] result<Identifier> create(resource_type type, Value&& value) {
     if (domain_ == 0U || type == resource_type::invalid) {
       return error::invalid_argument;
     }
 
-    try {
+    {
       std::size_t index = 0;
       for (; index < slots_.size(); ++index) {
         if (!slots_[index].value.has_value() && !slots_[index].is_retired) {
@@ -98,10 +98,6 @@ public:
       slot.type = type;
       return Identifier{
           detail::encode_rid({static_cast<std::uint32_t>(index), slot.generation, type, domain_})};
-    } catch (const std::bad_alloc&) {
-      return error::out_of_memory;
-    } catch (...) {
-      return error::internal;
     }
   }
 

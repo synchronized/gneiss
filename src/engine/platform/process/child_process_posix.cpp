@@ -36,11 +36,11 @@ struct child_process::implementation final {
   int exit_code = 0;
   bool has_started = false;
 
-  void read_output() noexcept {
+  void read_output() {
     if (output_read < 0) {
       return;
     }
-    try {
+    {
       char buffer[4096]{};
       for (;;) {
         const auto count = ::read(output_read, buffer, sizeof(buffer));
@@ -57,10 +57,6 @@ struct child_process::implementation final {
         }
         break;
       }
-    } catch (...) {
-      constexpr std::string_view warning = "\n[Gneiss] 子进程输出缓冲区更新失败。\n";
-      output.append(warning);
-      pending_output.append(warning);
     }
   }
 
@@ -87,11 +83,11 @@ child_process::~child_process() {
   implementation_->close_process();
 }
 
-error child_process::start(const child_process_start_info& info) noexcept {
+error child_process::start(const child_process_start_info& info) {
   if (!implementation_ || is_running() || info.executable.empty()) {
     return error::invalid_state;
   }
-  try {
+  {
     std::error_code error;
     if (!std::filesystem::is_regular_file(info.executable, error) || error ||
         (!info.working_directory.empty() &&
@@ -151,10 +147,6 @@ error child_process::start(const child_process_start_info& info) noexcept {
     implementation_->output_read = output_pipe[0];
     implementation_->has_started = true;
     return error::success;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::io;
   }
 }
 
@@ -165,7 +157,7 @@ error child_process::terminate() noexcept {
   return ::kill(implementation_->process, SIGKILL) == 0 ? error::success : error::io;
 }
 
-void child_process::update() noexcept {
+void child_process::update() {
   if (!implementation_) {
     return;
   }
@@ -198,7 +190,7 @@ bool child_process::has_started() const noexcept {
 int child_process::exit_code() const noexcept {
   return implementation_ ? implementation_->exit_code : -1;
 }
-const std::string& child_process::output() const noexcept { return implementation_->output; }
+const std::string& child_process::output() const { return implementation_->output; }
 void child_process::consume_output(std::string& output) noexcept {
   output.clear();
   if (implementation_) {
@@ -211,17 +203,16 @@ void child_process::clear_output() noexcept {
     implementation_->pending_output.clear();
   }
 }
-void child_process::append_output(std::string_view text) noexcept {
+void child_process::append_output(std::string_view text) {
   if (!implementation_) {
     return;
   }
-  try {
+  {
     implementation_->output.append(text);
     implementation_->pending_output.append(text);
     if (implementation_->output.size() > maximum_output_size) {
       implementation_->output.erase(0U, implementation_->output.size() - maximum_output_size);
     }
-  } catch (...) {
   }
 }
 

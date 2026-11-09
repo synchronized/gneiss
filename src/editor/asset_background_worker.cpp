@@ -69,16 +69,8 @@ struct asset_background_worker::implementation {
                                                   return true;
                                                 }};
     editor_import_report report;
-    try {
+    {
       report = execute(project_path, asset_path, source, external, control);
-    } catch (const std::exception& error) {
-      report.result = editor_import_result::import_failed;
-      report.source_path = source;
-      report.diagnostic = error.what();
-    } catch (...) {
-      report.result = editor_import_result::import_failed;
-      report.source_path = source;
-      report.diagnostic = "导入器发生未知异常";
     }
     {
       std::scoped_lock lock(mutex);

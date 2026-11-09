@@ -12,7 +12,7 @@ namespace {
 constexpr std::size_t asset_reload_budget = 8U;
 
 gneiss::engine::error handle_asset_cancel(const gneiss::engine::ipc_envelope& envelope,
-                                          runtime_command_context& context) noexcept {
+                                          runtime_command_context& context) {
   ipc_asset_reload_request request;
   const auto decoded = decode_ipc_asset_cancel(envelope, request);
   if (decoded != gneiss::engine::error::success)
@@ -24,7 +24,7 @@ gneiss::engine::error handle_asset_cancel(const gneiss::engine::ipc_envelope& en
 }
 
 gneiss::engine::error handle_asset_reload(const gneiss::engine::ipc_envelope& envelope,
-                                          runtime_command_context& context) noexcept {
+                                          runtime_command_context& context) {
   ipc_asset_reload_request request;
   const auto decoded = decode_ipc_asset_request_v2(envelope, request);
   if (decoded != gneiss::engine::error::success) {

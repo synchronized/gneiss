@@ -53,7 +53,7 @@ struct runtime_ipc_actions final {
 /** 单条 Runtime IPC 命令可访问的最小会话能力，仅在主线程 dispatch 期间有效。 */
 class runtime_command_context final {
 public:
-  using send_callback = gneiss::engine::error (*)(void*, gneiss::engine::ipc_envelope) noexcept;
+  using send_callback = gneiss::engine::error (*)(void*, gneiss::engine::ipc_envelope);
 
   runtime_command_context(runtime_ipc_state& state, runtime_ipc_actions& actions,
                           void* send_context, send_callback send) noexcept
@@ -62,14 +62,14 @@ public:
   [[nodiscard]] runtime_ipc_state state() const noexcept { return state_; }
   void set_state(runtime_ipc_state state) noexcept { state_ = state; }
   [[nodiscard]] runtime_ipc_actions& actions() noexcept { return actions_; }
-  [[nodiscard]] gneiss::engine::error send(gneiss::engine::ipc_envelope envelope) noexcept {
+  [[nodiscard]] gneiss::engine::error send(gneiss::engine::ipc_envelope envelope) {
     return send_ == nullptr ? gneiss::engine::error::invalid_state
                             : send_(send_context_, std::move(envelope));
   }
-  [[nodiscard]] gneiss::engine::error send_state(ipc_control_state state) noexcept;
+  [[nodiscard]] gneiss::engine::error send_state(ipc_control_state state);
   [[nodiscard]] gneiss::engine::error send_protocol_error(gneiss::engine::error operation,
                                                           std::string message,
-                                                          std::uint32_t request_id) noexcept;
+                                                          std::uint32_t request_id);
 
 private:
   runtime_ipc_state& state_;

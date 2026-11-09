@@ -14,7 +14,7 @@ result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_i
                          std::map<object_address, scene_object_association>& associations,
                          const composed_scene& previous, const composed_scene& next,
                          const scene_instances::resource_bindings& assets,
-                         const scene_component_preparer& prepare) noexcept try {
+                         const scene_component_preparer& prepare) {
   if (!world.is_owner_thread())
     return error::invalid_state;
   if (world.scenes() != &scenes)
@@ -222,9 +222,5 @@ result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_i
       return status;
   }
   return true;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 } // namespace gneiss::engine

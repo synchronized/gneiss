@@ -138,7 +138,7 @@ bool scene_service::take_visual_completion(asset_load_completion& output) {
   return visuals_.take(output);
 }
 
-void scene_service::shutdown() noexcept {
+void scene_service::shutdown() {
   stopping_ = true;
   visuals_.reset();
   reload_.reset();
@@ -294,7 +294,7 @@ scene_service::apply_source(engine::ref<const engine::scene_content> content) {
   return std::move(prepared.assets);
 }
 
-void scene_service::advance_reload() try {
+void scene_service::advance_reload() {
   if (!reload_ || reload_->result != engine::error::not_ready)
     return;
   auto& value = *reload_;
@@ -337,13 +337,6 @@ void scene_service::advance_reload() try {
   }
   value.result = engine::error::success;
   visuals_.begin(std::move(*reloaded), 1, 1);
-
-} catch (const std::bad_alloc&) {
-  if (reload_)
-    reload_->result = engine::error::out_of_memory;
-} catch (...) {
-  if (reload_)
-    reload_->result = engine::error::internal;
 }
 
 engine::result<std::optional<scene_reload_completion>> scene_service::poll_reload() {

@@ -17,8 +17,7 @@ namespace gneiss::engine {
 result<detail::cached_asset>
 resource_cache::load(std::string_view uri, type_id type, const loader& decode,
                      std::shared_ptr<const files::source_domain> source, bool reload,
-                     std::size_t source_bytes, std::string parameters,
-                     asset_load_metrics metrics) noexcept try {
+                     std::size_t source_bytes, std::string parameters, asset_load_metrics metrics) {
   if (type == runtime_type_of<void>() || !decode || validate_uri(uri).failed())
     return error::invalid_argument;
   auto record = acquire({std::move(source), std::string(uri), type, std::move(parameters)});
@@ -49,10 +48,6 @@ resource_cache::load(std::string_view uri, type_id type, const loader& decode,
   record->cached = value.resource;
   record->ready = true;
   return value;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 
 std::shared_ptr<detail::asset_entry> resource_cache::acquire(const detail::asset_key& identity) {
@@ -85,8 +80,8 @@ std::weak_ptr<const asset>
 resource_cache::observe(std::string_view uri, type_id type,
                         std::shared_ptr<const files::source_domain> source,
                         std::string parameters) const {
-  const auto found =
-      entries_.find(detail::asset_key{std::move(source), std::string(uri), type, std::move(parameters)});
+  const auto found = entries_.find(
+      detail::asset_key{std::move(source), std::string(uri), type, std::move(parameters)});
   return found == entries_.end() || !found->second->cached ? std::weak_ptr<const asset>{}
                                                            : *found->second->cached;
 }

@@ -23,7 +23,7 @@ struct scene_content {
 class scene final : public asset {
 public:
   /** 所属线程取得不可变快照；快照可交给工作线程并独立于后续重载存活。 */
-  [[nodiscard]] ref<const scene_description> snapshot() const noexcept {
+  [[nodiscard]] ref<const scene_description> snapshot() const {
     return content_ ? content_->description : ref<const scene_description>{};
   }
   /** 描述与依赖作为同一不可变快照取得；独立重载 Prefab 不改变此快照。 */

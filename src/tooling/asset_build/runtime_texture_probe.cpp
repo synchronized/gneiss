@@ -35,10 +35,10 @@ std::string_view format_name(granit::texture_format format) noexcept {
 } // namespace
 
 bool inspect_runtime_texture(std::span<const std::byte> bytes, std::string& summary,
-                             std::string& diagnostic) noexcept {
+                             std::string& diagnostic) {
   summary.clear();
   diagnostic.clear();
-  try {
+  {
     auto binary = gneiss::engine::decode_texture_binary(bytes);
     if (!binary) {
       diagnostic = std::move(binary.error().message);
@@ -94,9 +94,6 @@ bool inspect_runtime_texture(std::span<const std::byte> bytes, std::string& summ
     }
     summary = output.str();
     return true;
-  } catch (...) {
-    summary.clear();
-    return false;
   }
 }
 

@@ -49,7 +49,7 @@ void capture(const event_view& event, capture_state& state) {
 }
 }
 
-int main() {
+int main(int argc, char**) {
   // 接收状态先于 Application 构造，失败提前返回时也能安全排空日志。
   capture_state state, owned_capture, empty_capture;
   std::uint32_t throwing_calls{};
@@ -115,21 +115,25 @@ int main() {
     return 8;
   application.reset();
 
-  // 接收方异常不穿出消费线程；销毁投递器时排空已接受消息。
-  config.callbacks.log = [&](const event_view&) {
-    ++throwing_calls;
-    throw 1;
-  };
-  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
-          .failed() ||
-      application->submit_log({.category = "test", .message = "throw"}).failed() ||
-      application->submit_log({.category = "test", .message = "throw"}).failed() ||
-      application->shutdown().failed())
-    return 9;
-  application.reset();
-  if (throwing_calls != 2)
-    return 9;
+  if (argc > 1) {
+    // 意外日志回调异常必须终止宿主子进程。
+    config.callbacks.log = [&](const event_view&) {
+      ++throwing_calls;
+      throw 1;
+    };
+    if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config),
+                                           application)
+            .failed() ||
+        application->submit_log({.category = "test", .message = "throw"}).failed() ||
+        application->submit_log({.category = "test", .message = "throw"}).failed() ||
+        application->shutdown().failed())
+      return 9;
+    application.reset();
+    if (throwing_calls != 2)
+      return 9;
 
+    return 0;
+  }
   owned_capture.check_reentrancy = false;
   config.callbacks.log = [&](const event_view& event) { capture(event, owned_capture); };
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)

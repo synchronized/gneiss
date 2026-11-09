@@ -53,12 +53,12 @@ public:
       std::size_t maximum_line_size = maximum_runtime_log_line_size) noexcept;
 
   [[nodiscard]] gneiss::engine::error append(std::string_view bytes,
-                                             std::vector<runtime_log_line>& output) noexcept;
-  [[nodiscard]] gneiss::engine::error finish(std::vector<runtime_log_line>& output) noexcept;
+                                             std::vector<runtime_log_line>& output);
+  [[nodiscard]] gneiss::engine::error finish(std::vector<runtime_log_line>& output);
   void reset() noexcept;
 
 private:
-  [[nodiscard]] gneiss::engine::error emit(std::vector<runtime_log_line>& output) noexcept;
+  [[nodiscard]] gneiss::engine::error emit(std::vector<runtime_log_line>& output);
   void append_segment(std::string_view segment);
 
   std::size_t maximum_line_size_;
@@ -68,10 +68,10 @@ private:
 
 /** 将日志事件编码为带版本前缀的单行 UTF-8 JSON，结果包含末尾换行。 */
 [[nodiscard]] gneiss::engine::error
-encode_runtime_log_event(const gneiss::engine::event_view& event, std::string& output) noexcept;
+encode_runtime_log_event(const gneiss::engine::event_view& event, std::string& output);
 
 /** 解析一行 Runtime 日志协议；不属于协议的普通输出不会被视为错误。 */
 [[nodiscard]] runtime_log_parse_result parse_runtime_log_line(std::string_view line,
-                                                              runtime_log_record& output) noexcept;
+                                                              runtime_log_record& output);
 
 } // namespace gneiss::host

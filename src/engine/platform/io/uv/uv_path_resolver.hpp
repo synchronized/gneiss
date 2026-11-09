@@ -38,7 +38,7 @@ class uv_path_resolver final {
 public:
   explicit uv_path_resolver(uv_loop_executor& executor, std::size_t capacity = 64U);
   [[nodiscard]] error begin(std::string_view path,
-                            std::unique_ptr<uv_path_operation>& output) const noexcept;
+                            std::unique_ptr<uv_path_operation>& output) const;
 
 private:
   uv_loop_executor& executor_;

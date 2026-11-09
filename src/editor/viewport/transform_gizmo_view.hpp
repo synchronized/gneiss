@@ -26,6 +26,6 @@ struct transform_gizmo_context final {
 void begin_transform_gizmo_frame() noexcept;
 void reset_transform_gizmo() noexcept;
 [[nodiscard]] bool draw_transform_gizmo(const transform_gizmo_context& context,
-                                        const ImVec2& minimum, const ImVec2& size) noexcept;
+                                        const ImVec2& minimum, const ImVec2& size);
 
 } // namespace gneiss::editor

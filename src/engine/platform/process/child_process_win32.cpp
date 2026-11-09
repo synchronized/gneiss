@@ -60,11 +60,11 @@ struct child_process::implementation final {
   int exit_code = 0;
   bool has_started = false;
 
-  void read_output() noexcept {
+  void read_output() {
     if (output_read == nullptr) {
       return;
     }
-    try {
+    {
       for (;;) {
         DWORD available = 0U;
         if (PeekNamedPipe(output_read, nullptr, 0U, nullptr, &available, nullptr) == 0 ||
@@ -84,10 +84,6 @@ struct child_process::implementation final {
           output.erase(0U, output.size() - maximum_output_size);
         }
       }
-    } catch (...) {
-      constexpr std::string_view warning = "\n[Gneiss] 子进程输出缓冲区更新失败。\n";
-      output.append(warning);
-      pending_output.append(warning);
     }
   }
 
@@ -113,11 +109,11 @@ child_process::~child_process() {
   implementation_->close_process();
 }
 
-engine::error child_process::start(const child_process_start_info& info) noexcept {
+engine::error child_process::start(const child_process_start_info& info) {
   if (!implementation_ || is_running() || info.executable.empty()) {
     return engine::error::invalid_state;
   }
-  try {
+  {
     std::error_code error;
     if (!std::filesystem::is_regular_file(info.executable, error) || error ||
         (!info.working_directory.empty() &&
@@ -166,10 +162,6 @@ engine::error child_process::start(const child_process_start_info& info) noexcep
     implementation_->thread = process.hThread;
     implementation_->has_started = true;
     return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::io;
   }
 }
 
@@ -181,7 +173,7 @@ engine::error child_process::terminate() noexcept {
                                                               : engine::error::io;
 }
 
-void child_process::update() noexcept {
+void child_process::update() {
   if (!implementation_) {
     return;
   }
@@ -207,7 +199,7 @@ bool child_process::has_started() const noexcept {
 int child_process::exit_code() const noexcept {
   return implementation_ ? implementation_->exit_code : -1;
 }
-const std::string& child_process::output() const noexcept { return implementation_->output; }
+const std::string& child_process::output() const { return implementation_->output; }
 void child_process::consume_output(std::string& output) noexcept {
   output.clear();
   if (implementation_) {
@@ -220,17 +212,16 @@ void child_process::clear_output() noexcept {
     implementation_->pending_output.clear();
   }
 }
-void child_process::append_output(std::string_view text) noexcept {
+void child_process::append_output(std::string_view text) {
   if (!implementation_) {
     return;
   }
-  try {
+  {
     implementation_->output.append(text);
     implementation_->pending_output.append(text);
     if (implementation_->output.size() > maximum_output_size) {
       implementation_->output.erase(0U, implementation_->output.size() - maximum_output_size);
     }
-  } catch (...) {
   }
 }
 

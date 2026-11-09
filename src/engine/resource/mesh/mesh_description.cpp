@@ -9,7 +9,7 @@ serialization::diagnostic invalid_description(std::string path, std::string mess
   return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};
 }
 }
-serialization::diagnostic validate_mesh_description(const mesh_description& v) noexcept try {
+serialization::diagnostic validate_mesh_description(const mesh_description& v) {
   if (v.topology != "triangle_list")
     return invalid_description("/topology", "只支持 triangle_list");
   const auto count = v.vertices.size();
@@ -26,9 +26,5 @@ serialization::diagnostic validate_mesh_description(const mesh_description& v) n
       return invalid_description("/normals/" + std::to_string(i), "法线必须归一化");
   }
   return {};
-} catch (const std::bad_alloc&) {
-  return {.error = error::out_of_memory};
-} catch (...) {
-  return {.error = error::internal};
 }
 }

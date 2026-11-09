@@ -28,7 +28,7 @@ public:
     }
     return error::success;
   }
-  const ref<const T>& resource() const noexcept { return resource_; }
+  const ref<const T>& resource() const { return resource_; }
 
 private:
   ref<const T> resource_;

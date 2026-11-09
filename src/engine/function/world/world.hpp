@@ -31,66 +31,63 @@ public:
   [[nodiscard]] GNEISS_API bool is_owner_thread() const noexcept;
   /** 借用 World 唯一场景集合；尚未初始化时为空。 */
   [[nodiscard]] scene_instances* scenes() const noexcept { return scenes_.get(); }
-  [[nodiscard]] GNEISS_API error entity_create(entity_id& out_entity) noexcept;
-  [[nodiscard]] GNEISS_API error entity_destroy(entity_id entity) noexcept;
-  [[nodiscard]] GNEISS_API result<bool> entity_is_alive(entity_id entity) noexcept;
-  [[nodiscard]] GNEISS_API result<std::uint64_t> entity_count() noexcept;
+  [[nodiscard]] GNEISS_API error entity_create(entity_id& out_entity);
+  [[nodiscard]] GNEISS_API error entity_destroy(entity_id entity);
+  [[nodiscard]] GNEISS_API result<bool> entity_is_alive(entity_id entity);
+  [[nodiscard]] GNEISS_API result<std::uint64_t> entity_count();
   [[nodiscard]] GNEISS_API error entity_set_camera(entity_id entity,
                                                    const math::camera_settings& camera,
-                                                   bool primary) noexcept;
-  [[nodiscard]] GNEISS_API error
-  entity_configure_camera(entity_id entity, const math::camera_settings& desc) noexcept;
+                                                   bool primary);
+  [[nodiscard]] GNEISS_API error entity_configure_camera(entity_id entity,
+                                                         const math::camera_settings& desc);
   [[nodiscard]] GNEISS_API error entity_get_camera(entity_id entity,
-                                                   math::camera_settings& out_camera) noexcept;
-  [[nodiscard]] GNEISS_API error entity_remove_camera(entity_id entity) noexcept;
-  [[nodiscard]] GNEISS_API error set_active_camera(entity_id entity) noexcept;
-  [[nodiscard]] GNEISS_API error get_active_camera(entity_id& out_entity) noexcept;
+                                                   math::camera_settings& out_camera);
+  [[nodiscard]] GNEISS_API error entity_remove_camera(entity_id entity);
+  [[nodiscard]] GNEISS_API error set_active_camera(entity_id entity);
+  [[nodiscard]] GNEISS_API error get_active_camera(entity_id& out_entity);
   [[nodiscard]] GNEISS_API error
-  replace_mesh_renderers(std::span<const mesh_renderer_replacement> replacements) noexcept;
+  replace_mesh_renderers(std::span<const mesh_renderer_replacement> replacements);
   [[nodiscard]] GNEISS_API error entity_set_mesh_renderer(entity_id entity,
-                                                          const mesh_renderer& renderer) noexcept;
-  [[nodiscard]] GNEISS_API error entity_remove_mesh_renderer(entity_id entity) noexcept;
+                                                          const mesh_renderer& renderer);
+  [[nodiscard]] GNEISS_API error entity_remove_mesh_renderer(entity_id entity);
   /** 创建有层级的实体；parent 为空时为根，失败不留下部分对象。 */
   [[nodiscard]] GNEISS_API result<game_object> create_object(scene_node_identity identity,
                                                              const math::transform& transform = {},
-                                                             game_object parent = {}) noexcept;
+                                                             game_object parent = {});
   /** 将本 World 中有层级组件的实体借用为对象，纯 ECS 实体返回 not_found。 */
   [[nodiscard]] GNEISS_API result<game_object> object(entity_id entity) noexcept;
   /** 创建节点与关联实体；失败不留下部分对象。限所属线程。 */
-  [[nodiscard]] GNEISS_API result<scene_node_id>
-  object_create(scene_node_id parent, scene_node_identity identity,
-                const math::transform& transform) noexcept;
+  [[nodiscard]] GNEISS_API result<scene_node_id> object_create(scene_node_id parent,
+                                                               scene_node_identity identity,
+                                                               const math::transform& transform);
   /** 销毁整棵子树及关联实体，释放 ECS 组件引用。 */
   [[nodiscard]] GNEISS_API error object_destroy(scene_node_id node) noexcept;
   [[nodiscard]] GNEISS_API error node_set_identity(scene_node_id node,
-                                                   scene_node_identity identity) noexcept;
+                                                   scene_node_identity identity);
   /** 借用名称与身份；节点删除、身份修改或 World 结构变化后须重新查询。 */
-  [[nodiscard]] GNEISS_API result<scene_node_identity_view>
-  node_identity(scene_node_id node) const noexcept;
+  [[nodiscard]] GNEISS_API result<scene_node_identity_view> node_identity(scene_node_id node) const;
   [[nodiscard]] GNEISS_API result<scene_node_id> entity_node(entity_id entity) const noexcept;
-  [[nodiscard]] GNEISS_API result<mesh_renderer> node_mesh_renderer(scene_node_id node) noexcept;
+  [[nodiscard]] GNEISS_API result<mesh_renderer> node_mesh_renderer(scene_node_id node);
   [[nodiscard]] GNEISS_API error node_create(scene_node_id parent, entity_id entity,
-                                             scene_node_id& out_node) noexcept;
-  [[nodiscard]] GNEISS_API error node_destroy(scene_node_id node) noexcept;
-  [[nodiscard]] GNEISS_API error node_reparent(scene_node_id node, scene_node_id parent) noexcept;
-  [[nodiscard]] GNEISS_API error
-  node_set_local_transform(scene_node_id node, const math::transform& transform) noexcept;
+                                             scene_node_id& out_node);
+  [[nodiscard]] GNEISS_API error node_destroy(scene_node_id node);
+  [[nodiscard]] GNEISS_API error node_reparent(scene_node_id node, scene_node_id parent);
+  [[nodiscard]] GNEISS_API error node_set_local_transform(scene_node_id node,
+                                                          const math::transform& transform);
   [[nodiscard]] GNEISS_API error node_get_local_transform(scene_node_id node,
-                                                          math::transform& out_transform) noexcept;
+                                                          math::transform& out_transform);
   [[nodiscard]] GNEISS_API error node_get_world_transform(scene_node_id node,
-                                                          math::transform& out_transform) noexcept;
-  [[nodiscard]] GNEISS_API error node_get_entity(scene_node_id node,
-                                                 entity_id& out_entity) noexcept;
-  [[nodiscard]] GNEISS_API error node_get_parent(scene_node_id node,
-                                                 scene_node_id& out_parent) noexcept;
-  [[nodiscard]] GNEISS_API error
-  entity_get_local_transform(entity_id entity, math::transform& out_transform) noexcept;
-  [[nodiscard]] GNEISS_API error
-  entity_set_local_transform(entity_id entity, const math::transform& transform) noexcept;
+                                                          math::transform& out_transform);
+  [[nodiscard]] GNEISS_API error node_get_entity(scene_node_id node, entity_id& out_entity);
+  [[nodiscard]] GNEISS_API error node_get_parent(scene_node_id node, scene_node_id& out_parent);
+  [[nodiscard]] GNEISS_API error entity_get_local_transform(entity_id entity,
+                                                            math::transform& out_transform);
+  [[nodiscard]] GNEISS_API error entity_set_local_transform(entity_id entity,
+                                                            const math::transform& transform);
   [[nodiscard]] GNEISS_API error get_render_snapshot(std::uint32_t viewport_width,
                                                      std::uint32_t viewport_height,
                                                      render_snapshot& out_snapshot,
-                                                     const view_camera* camera) noexcept;
+                                                     const view_camera* camera);
 
 private:
   friend struct engine::world_factory;
@@ -110,5 +107,5 @@ struct world_deleter {
 };
 using world_owner = std::unique_ptr<engine::world, world_deleter>;
 /** 创建独立 World 的拥有者；必须在所属线程析构。 */
-[[nodiscard]] GNEISS_API result<world_owner> create_native() noexcept;
+[[nodiscard]] GNEISS_API result<world_owner> create_native();
 }

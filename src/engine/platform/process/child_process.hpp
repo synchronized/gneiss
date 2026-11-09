@@ -29,18 +29,18 @@ public:
   child_process(const child_process&) = delete;
   child_process& operator=(const child_process&) = delete;
 
-  [[nodiscard]] error start(const child_process_start_info& info) noexcept;
+  [[nodiscard]] error start(const child_process_start_info& info);
   [[nodiscard]] error terminate() noexcept;
-  void update() noexcept;
+  void update();
 
   [[nodiscard]] bool is_running() const noexcept;
   [[nodiscard]] bool has_started() const noexcept;
   [[nodiscard]] int exit_code() const noexcept;
-  [[nodiscard]] const std::string& output() const noexcept;
+  [[nodiscard]] const std::string& output() const;
   /** 取走自上次调用以来新增的输出，不影响 output() 的滚动历史。 */
   void consume_output(std::string& output) noexcept;
   void clear_output() noexcept;
-  void append_output(std::string_view text) noexcept;
+  void append_output(std::string_view text);
 
 private:
   struct implementation;

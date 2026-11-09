@@ -30,7 +30,7 @@ struct load_operation {
   /** 所属线程提交一次终态；停止或已完成后，迟到结果不能覆盖观察状态。 */
   bool complete(error status, serialization::diagnostic diagnostic = {},
                 std::shared_ptr<const void> value = {}, std::size_t source_bytes = 0,
-                asset_load_metrics metrics = {}) noexcept {
+                asset_load_metrics metrics = {}) {
     if (status == error::not_ready)
       return false;
     {
@@ -52,7 +52,7 @@ struct load_operation {
     return true;
   }
   /** 不替代具体 I/O、任务或依赖取消；已完成结果不再改写。 */
-  void stop() noexcept { (void)complete(error::invalid_state); }
+  void stop() { (void)complete(error::invalid_state); }
   // 操作 previous 与观察状态可能共同持有预留身份。
   long identity_owners{2};
   std::shared_ptr<asset_state> observer{std::make_shared<asset_state>()};

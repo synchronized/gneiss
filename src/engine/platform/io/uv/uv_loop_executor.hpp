@@ -29,12 +29,11 @@ public:
   uv_loop_executor(const uv_loop_executor&) = delete;
   uv_loop_executor& operator=(const uv_loop_executor&) = delete;
 
-  [[nodiscard]] error start() noexcept;
-  [[nodiscard]] error post(task operation) noexcept;
+  [[nodiscard]] error start();
+  [[nodiscard]] error post(task operation);
   [[nodiscard]] error stop() noexcept;
 
   [[nodiscard]] bool is_running() const noexcept;
-  [[nodiscard]] std::size_t failed_task_count() const noexcept;
 
 private:
   friend class uv_loop_access;

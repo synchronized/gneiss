@@ -9,19 +9,14 @@
 
 namespace gneiss::engine {
 
-engine::error system_scheduler::add(system_id id, system_callback callback,
-                                    void* user_data) noexcept {
+engine::error system_scheduler::add(system_id id, system_callback callback, void* user_data) {
   if (id == 0U || callback == nullptr ||
       std::ranges::any_of(systems_, [id](const entry& value) { return value.id == id; })) {
     return engine::error::invalid_argument;
   }
-  try {
+  {
     systems_.push_back({.id = id, .callback = callback, .user_data = user_data});
     return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 

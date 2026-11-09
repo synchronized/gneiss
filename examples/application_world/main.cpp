@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "engine/core/fatal.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 #include "scene_update.hpp"
 #include <cstdio>
-int main() {
+int main() try {
+  gneiss::engine::install_fatal_handler();
   example::scene_state state;
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::runtime::application_configuration desc;
@@ -28,4 +30,6 @@ int main() {
     return 4;
   std::printf("updates=%u, x=%g\n", state.updates, static_cast<double>(final.translation[0]));
   return app->shutdown().failed() ? 5 : 0;
+} catch (...) {
+  gneiss::engine::fatal_current_exception();
 }

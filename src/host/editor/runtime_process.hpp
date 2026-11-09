@@ -61,27 +61,26 @@ public:
   runtime_process(const runtime_process&) = delete;
   runtime_process& operator=(const runtime_process&) = delete;
 
-  [[nodiscard]] gneiss::engine::error
-  start(const std::filesystem::path& executable,
-        const gneiss::editor::runtime_launch_request& request) noexcept;
-  [[nodiscard]] gneiss::engine::error request_stop() noexcept;
-  [[nodiscard]] gneiss::engine::error request_pause() noexcept;
-  [[nodiscard]] gneiss::engine::error request_resume() noexcept;
+  [[nodiscard]] gneiss::engine::error start(const std::filesystem::path& executable,
+                                            const gneiss::editor::runtime_launch_request& request);
+  [[nodiscard]] gneiss::engine::error request_stop();
+  [[nodiscard]] gneiss::engine::error request_pause();
+  [[nodiscard]] gneiss::engine::error request_resume();
   [[nodiscard]] gneiss::engine::error
   request_property_write(gneiss::editor::runtime_property_key key, std::uint64_t expected_revision,
-                         gneiss::engine::value value) noexcept;
+                         gneiss::engine::value value);
   /** 发布已提交的派生资产；Runtime 未连接时保留到下次全量重同步。 */
   [[nodiscard]] gneiss::engine::error
-  publish_asset_revision(std::span<const std::string> output_uris) noexcept;
+  publish_asset_revision(std::span<const std::string> output_uris);
   /** 失败后全量同步已知资产；执行中或未连接时返回 not_ready。 */
   [[nodiscard]] gneiss::engine::error cancel_asset_reload() noexcept;
-  [[nodiscard]] gneiss::engine::error retry_asset_reload() noexcept;
-  [[nodiscard]] gneiss::engine::error load_scene(std::string_view uri) noexcept;
+  [[nodiscard]] gneiss::engine::error retry_asset_reload();
+  [[nodiscard]] gneiss::engine::error load_scene(std::string_view uri);
   [[nodiscard]] gneiss::engine::error cancel_scene_load() noexcept;
   [[nodiscard]] gneiss::engine::error retry_scene_load() noexcept;
   [[nodiscard]] bool supports_scene_loading() const noexcept;
   [[nodiscard]] const ipc_scene_progress& scene_load_status() const noexcept;
-  void update() noexcept;
+  void update();
 
   [[nodiscard]] bool is_running() const noexcept;
   [[nodiscard]] bool is_busy() const noexcept;

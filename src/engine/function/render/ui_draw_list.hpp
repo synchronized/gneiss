@@ -28,7 +28,7 @@ struct ui_draw_view {
 
 class ui_draw_list final {
 public:
-  [[nodiscard]] error replace(const ui_draw_view& desc, const render_service& resources) noexcept;
+  [[nodiscard]] error replace(const ui_draw_view& desc, const render_service& resources);
   void clear() noexcept;
 
   [[nodiscard]] float display_width() const noexcept { return display_width_; }

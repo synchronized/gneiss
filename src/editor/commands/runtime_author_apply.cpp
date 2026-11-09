@@ -14,7 +14,7 @@ namespace {
 gneiss::scene_node_id resolve_author_node(gneiss::editor::scene_edit_session& session,
                                           gneiss::engine::guid uuid,
                                           gneiss::engine::guid instance_uuid,
-                                          gneiss::engine::guid source_uuid) noexcept {
+                                          gneiss::engine::guid source_uuid) {
   if (instance_uuid.is_nil()) {
     const auto node = session.find_node(uuid);
     return !node ? gneiss::scene_node_id{} : node->node;
@@ -30,7 +30,7 @@ namespace gneiss::editor {
 
 gneiss::engine::error
 apply_runtime_transform_to_author(scene_edit_session& session, editor_command_history& history,
-                                  const runtime_author_transform& runtime_node) noexcept try {
+                                  const runtime_author_transform& runtime_node) {
   if (runtime_node.uuid.is_nil()) {
     return gneiss::engine::error::invalid_argument;
   }
@@ -59,10 +59,6 @@ apply_runtime_transform_to_author(scene_edit_session& session, editor_command_hi
     return !node.is_valid() ? gneiss::engine::error::not_found
                             : session.set_local_transform(node, runtime_node.local_transform);
   });
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::error::out_of_memory;
-} catch (...) {
-  return gneiss::engine::error::internal;
 }
 
 } // namespace gneiss::editor

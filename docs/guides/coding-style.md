@@ -170,7 +170,14 @@ GNEISS_API gneiss_result_t gneiss_world_create(gneiss_world_t* out_world);
 
 - C ABI 永不抛出异常。
 - 引擎运行时的可预期失败使用结果类型或错误码。
-- C++ 包装层可以将不可恢复的构造失败表达为显式结果；是否启用异常必须由项目级 ADR 统一决定。
+- 内部 C++ 用 `result/error` 表达非法输入、缺失资源、取消、预算拒绝等预期失败；
+  `std::bad_alloc` 和意外异常直接传播，不逐函数转换为 `out_of_memory/internal`。
+- 自有宿主、线程入口和 C 回调通过 `fatal_current_exception()` 输出固定诊断并终止；
+  宿主显式安装 terminate 兜底，库不得擅自替换嵌入方的全局处理器。
+- `noexcept` 仅用于真正不抛出的查询、移动和清理；有分配或用户回调的完整调用链不承诺它。
+  局部 catch 只用于必要清理后重抛，或转换已知可恢复的具体第三方异常。
+- 进程堆耗尽与显式容量/预算拒绝、GPU 内存不足分开处理；致命日志不调用普通日志队列。
+  详细契约见 [ADR-114](../decisions/ADR-114-exception-boundaries.md)。
 - 不使用异常完成普通流程控制。
 
 ### 并发

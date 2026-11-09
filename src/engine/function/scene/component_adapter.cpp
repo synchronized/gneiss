@@ -191,7 +191,7 @@ error valid_target(component_context& context) {
   return context.owner.node_get_entity(context.node, id);
 }
 }
-error register_scene_component(component_adapter adapter) noexcept try {
+error register_scene_component(component_adapter adapter) {
   if (!adapter.type || !adapter.property_type || !adapter.validate || !adapter.install ||
       !adapter.read || !adapter.modify || !adapter.capture || !adapter.remove || !adapter.equal ||
       !adapter.edit || !adapter.dependencies)
@@ -206,10 +206,6 @@ error register_scene_component(component_adapter adapter) noexcept try {
       return error::invalid_argument;
   state.values.push_back(std::move(adapter));
   return error::success;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 result<component_description> modify_component(const component_description& source,
                                                const std::function<error(meta::instance)>& change) {
@@ -241,9 +237,8 @@ result<component_editor_info> component_editor(guid type) noexcept {
   return component_editor_info{adapter->type, bool(adapter->create_default), adapter->removable,
                                adapter->editor_route};
 }
-result<component_description>
-prepare_component_editor_value(world& owner, scene_node_id node,
-                               const component_description& value) noexcept try {
+result<component_description> prepare_component_editor_value(world& owner, scene_node_id node,
+                                                             const component_description& value) {
   if (!value)
     return error::invalid_argument;
   const auto* adapter = find(value->guid());
@@ -255,12 +250,8 @@ prepare_component_editor_value(world& owner, scene_node_id node,
     return prepared.error();
   auto status = adapter->validate(*prepared);
   return status.ok() ? std::move(prepared) : result<component_description>{status};
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-result<component_description> default_component_description(guid type) noexcept try {
+result<component_description> default_component_description(guid type) {
   const auto* adapter = find(type);
   if (!adapter)
     return error::not_found;
@@ -273,12 +264,8 @@ result<component_description> default_component_description(guid type) noexcept 
     return error::invalid_argument;
   auto status = adapter->validate(*value);
   return status.ok() ? std::move(value) : result<component_description>{status};
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-error update_component(component_context context, const component_description& value) noexcept try {
+error update_component(component_context context, const component_description& value) {
   auto status = valid_target(context);
   if (status.failed())
     return status;
@@ -296,13 +283,8 @@ error update_component(component_context context, const component_description& v
   if (!*current)
     return error::not_found;
   return adapter->update ? adapter->update(context, value) : adapter->install(context, value);
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-error add_component(component_context context, const component_description& value,
-                    guid identity) noexcept try {
+error add_component(component_context context, const component_description& value, guid identity) {
   auto status = valid_target(context);
   if (status.failed())
     return status;
@@ -332,12 +314,8 @@ error add_component(component_context context, const component_description& valu
   else if (inserted)
     ids.erase(entry);
   return status;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-error remove_component(component_context context, guid type) noexcept try {
+error remove_component(component_context context, guid type) {
   auto status = valid_target(context);
   if (status.failed())
     return status;
@@ -353,12 +331,8 @@ error remove_component(component_context context, guid type) noexcept try {
   if (status.ok())
     instance_ids(context.owner, context.node).values.erase(type);
   return status;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-error validate_components(const component_descriptions& values) noexcept try {
+error validate_components(const component_descriptions& values) {
   (void)adapters();
   for (const auto& value : values) {
     if (!value)
@@ -371,12 +345,8 @@ error validate_components(const component_descriptions& values) noexcept try {
       return status;
   }
   return error::success;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-result<component_descriptions> capture_components(world& owner, scene_node_id node) noexcept try {
+result<component_descriptions> capture_components(world& owner, scene_node_id node) {
   component_context context{owner, node};
   auto status = valid_target(context);
   if (status.failed())
@@ -403,13 +373,8 @@ result<component_descriptions> capture_components(world& owner, scene_node_id no
   if (status.failed())
     return status;
   return output;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-error install_components(component_context context, const component_descriptions& values) noexcept
-    try {
+error install_components(component_context context, const component_descriptions& values) {
   auto status = valid_target(context);
   if (status.ok())
     status = validate_components(values);
@@ -425,13 +390,8 @@ error install_components(component_context context, const component_descriptions
       return status;
   }
   return error::success;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
-error replace_components(component_context context, const component_descriptions& values) noexcept
-    try {
+error replace_components(component_context context, const component_descriptions& values) {
   auto status = valid_target(context);
   if (status.ok())
     status = validate_components(values);
@@ -458,10 +418,6 @@ error replace_components(component_context context, const component_descriptions
       return status;
   }
   return error::success;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 bool equal_components(const component_descriptions& a, const component_descriptions& b) {
   if (a.size() != b.size())
@@ -477,7 +433,7 @@ bool equal_components(const component_descriptions& a, const component_descripti
   return true;
 }
 result<std::vector<render_resource_source>>
-component_dependencies(const component_descriptions& values) noexcept try {
+component_dependencies(const component_descriptions& values) {
   auto status = validate_components(values);
   if (status.failed())
     return status;
@@ -488,13 +444,9 @@ component_dependencies(const component_descriptions& values) noexcept try {
                   std::make_move_iterator(next.end()));
   }
   return result;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 error edit_component(component_descriptions& values, guid type, meta::property_id property,
-                     const value& input) noexcept try {
+                     const value& input) {
   const auto* adapter = find(type, true);
   if (!adapter)
     return error::unsupported;
@@ -509,13 +461,9 @@ error edit_component(component_descriptions& values, guid type, meta::property_i
     return edited.error();
   values.set(std::move(*edited));
   return error::success;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 result<value> read_runtime_component(world& owner, scene_node_id node, guid type,
-                                     meta::property_id property) noexcept try {
+                                     meta::property_id property) {
   component_context context{owner, node};
   auto status = valid_target(context);
   if (status.failed())
@@ -529,13 +477,9 @@ result<value> read_runtime_component(world& owner, scene_node_id node, guid type
   if (!*captured)
     return error::not_found;
   return adapter->read(**captured, type, property);
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 error edit_runtime_component(component_context context, guid type, meta::property_id property,
-                             const value& input) noexcept try {
+                             const value& input) {
   auto status = valid_target(context);
   if (status.failed())
     return status;
@@ -568,19 +512,11 @@ error edit_runtime_component(component_context context, guid type, meta::propert
     return candidate.error();
   auto edited = adapter->edit(*candidate, type, property, input);
   return edited ? adapter->install(context, *edited) : edited.error();
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 result<mesh_renderer> resolve_component_renderer(const component_descriptions& values,
-                                                 asset_manager& resources) noexcept try {
+                                                 asset_manager& resources) {
   const auto* renderer = values.get<mesh_renderer_description>();
   return renderer ? mesh_resolve(*renderer, resources) : result<mesh_renderer>{mesh_renderer{}};
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 mesh_renderer
 prepared_component_renderer(const component_descriptions& values,
@@ -601,8 +537,7 @@ namespace gneiss::engine {
 namespace {
 /** World 接口负责线程与实体校验；反射只修改副本，成功后才提交。 */
 template <class Access>
-error access_component(world& world, std::uint64_t entity, guid type, bool write,
-                       Access&& access) noexcept {
+error access_component(world& world, std::uint64_t entity, guid type, bool write, Access&& access) {
   if (type == transform_component_type) {
     math::transform value;
     auto operation = world.entity_get_local_transform(entity_id{entity}, value);
@@ -617,7 +552,7 @@ error access_component(world& world, std::uint64_t entity, guid type, bool write
 }
 }
 result<value> read_component_property(world& world, std::uint64_t entity, guid type,
-                                      meta::property_id field) noexcept {
+                                      meta::property_id field) {
   if (type != transform_component_type) {
     auto node = world.entity_node(entity_id{entity});
     return node ? read_runtime_component(world, *node, type, field) : result<value>{node.error()};
@@ -633,7 +568,7 @@ result<value> read_component_property(world& world, std::uint64_t entity, guid t
   return member ? member->read_value() : result<value>{member.error()};
 }
 error write_component_property(world& world, std::uint64_t entity, guid type,
-                               meta::property_id field, const engine::value& value) noexcept {
+                               meta::property_id field, const engine::value& value) {
   if (type != transform_component_type) {
     auto node = world.entity_node(entity_id{entity});
     return node ? edit_runtime_component({world, *node}, type, field, value) : node.error();

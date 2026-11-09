@@ -39,7 +39,7 @@ struct asset_loader {
   /** 全部声明依赖就绪后装配；不提交请求或推进服务。 */
   virtual error finish() { return error::success; }
   /** 所属线程采用成功结果；只有仍持有记录更新权的操作才会调用。 */
-  virtual void adopt(const std::shared_ptr<const void>&) noexcept {}
+  virtual void adopt(const std::shared_ptr<const void>&) {}
   std::size_t input_bytes{};
   void reject(asset_diagnostic failure) {
     status = failure.error;

@@ -19,12 +19,9 @@ constexpr std::uint64_t rgba_stride = 4U;
 constexpr std::uint64_t bytes_per_block = 16U;
 
 [[nodiscard]] bc7_encode_result fail(bc7_encode_result result, std::string message,
-                                     std::string& diagnostic) noexcept {
-  try {
+                                     std::string& diagnostic) {
+  {
     diagnostic = std::move(message);
-  } catch (...) {
-    diagnostic.clear();
-    return bc7_encode_result::out_of_memory;
   }
   return result;
 }
@@ -33,7 +30,7 @@ constexpr std::uint64_t bytes_per_block = 16U;
 
 bc7_encode_result encode_bc7_rgba8(std::uint32_t width, std::uint32_t height,
                                    std::span<const std::byte> rgba, bool perceptual,
-                                   bc7_image& output, std::string& diagnostic) noexcept {
+                                   bc7_image& output, std::string& diagnostic) {
   output = {};
   diagnostic.clear();
   const auto pixel_count = static_cast<std::uint64_t>(width) * height;
@@ -49,7 +46,7 @@ bc7_encode_result encode_bc7_rgba8(std::uint32_t width, std::uint32_t height,
     return fail(bc7_encode_result::invalid_argument, "BC7 输出尺寸溢出", diagnostic);
   }
 
-  try {
+  {
     static std::once_flag initialize_flag;
     std::call_once(initialize_flag, bc7enc_compress_block_init);
     bc7enc_compress_block_params parameters{};
@@ -84,12 +81,6 @@ bc7_encode_result encode_bc7_rgba8(std::uint32_t width, std::uint32_t height,
       }
     }
     return bc7_encode_result::success;
-  } catch (const std::bad_alloc&) {
-    output = {};
-    return fail(bc7_encode_result::out_of_memory, "BC7 编码内存不足", diagnostic);
-  } catch (...) {
-    output = {};
-    return fail(bc7_encode_result::invalid_argument, "BC7 编码失败", diagnostic);
   }
 }
 

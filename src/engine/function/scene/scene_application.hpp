@@ -23,5 +23,5 @@ apply_scene(world&, scene_instances&, scene_instance_id,
             std::map<object_address, scene_object_association>& associations,
             const composed_scene& previous, const composed_scene& next,
             const scene_instances::resource_bindings& assets,
-            const scene_component_preparer& prepare = {}) noexcept;
+            const scene_component_preparer& prepare = {});
 } // namespace gneiss::engine

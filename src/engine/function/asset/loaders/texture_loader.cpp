@@ -47,7 +47,7 @@ std::shared_ptr<asset_loader> make_texture_loader(std::string uri,
 // 所属线程采用内容；工作线程只调用上方的字节解码入口。
 error asset_construction::adopt(asset_manager& assets, std::shared_ptr<const texture_data> content,
                                 const ref<const engine::texture>& target,
-                                std::span<const asset_read_record> sources) noexcept try {
+                                std::span<const asset_read_record> sources) {
   if (!assets.impl_ || assets.stop_requested())
     return error::invalid_state;
   if (!assets.owns(target))
@@ -61,9 +61,5 @@ error asset_construction::adopt(asset_manager& assets, std::shared_ptr<const tex
   auto data = std::move(*prepared);
   return assets.impl_->update_texture(target, std::move(data)) ? error::success
                                                                : error::out_of_memory;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 }

@@ -53,7 +53,7 @@ struct action_map_loader;
 class action_map final : public asset {
 public:
   /** 所属线程取得快照；既有快照不随重载改变。 */
-  [[nodiscard]] ref<const action_map_description> snapshot() const noexcept { return content_; }
+  [[nodiscard]] ref<const action_map_description> snapshot() const { return content_; }
 
 private:
   friend struct detail::action_map_loader;
@@ -65,8 +65,7 @@ private:
 };
 
 /** 原生构造与 JSON 加载共享语义约束；不改变输入映射。 */
-[[nodiscard]] serialization::diagnostic
-validate_action_map(const action_map_description& map) noexcept;
+[[nodiscard]] serialization::diagnostic validate_action_map(const action_map_description& map);
 
 } // namespace gneiss::engine
 

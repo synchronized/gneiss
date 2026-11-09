@@ -77,7 +77,7 @@ public:
     return true;
   }
 
-  [[nodiscard]] std::size_t entity_count() const noexcept { return entity_count_; }
+  [[nodiscard]] std::size_t entity_count() const { return entity_count_; }
 
   template <typename Component, typename... Args>
   Component& emplace(std::uint64_t entity, Args&&... args) {
@@ -113,7 +113,7 @@ public:
     return registry_.remove<Component>(decode(entity)) ? error::success : error::not_found;
   }
 
-  [[nodiscard]] error set_active_camera(std::uint64_t entity) noexcept {
+  [[nodiscard]] error set_active_camera(std::uint64_t entity) {
     if (!is_alive(entity)) {
       return error::invalid_handle;
     }

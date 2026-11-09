@@ -39,13 +39,12 @@ uv_file_reader::uv_file_reader(int descriptor) noexcept : descriptor_(descriptor
 
 uv_file_reader::~uv_file_reader() { close_file(descriptor_); }
 
-error uv_file_reader::open(std::string_view path,
-                           std::unique_ptr<uv_file_reader>& output) noexcept {
+error uv_file_reader::open(std::string_view path, std::unique_ptr<uv_file_reader>& output) {
   output.reset();
   if (path.empty() || path.find('\0') != std::string_view::npos) {
     return error::invalid_argument;
   }
-  try {
+  {
     const std::string terminated(path);
     request opened;
     const int descriptor =
@@ -57,7 +56,7 @@ error uv_file_reader::open(std::string_view path,
     std::unique_ptr<uv_file_reader> reader(new (std::nothrow) uv_file_reader(descriptor));
     if (!reader) {
       close_file(descriptor);
-      return error::out_of_memory;
+      throw std::bad_alloc{};
     }
     reader->implementation_ = std::make_unique<implementation>();
     request info;
@@ -71,10 +70,6 @@ error uv_file_reader::open(std::string_view path,
     reader->size_ = info.value.statbuf.st_size;
     output = std::move(reader);
     return error::success;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 }
 
@@ -89,14 +84,14 @@ error uv_file_reader::current_size(std::uint64_t& output) const noexcept {
   return error::success;
 }
 
-error uv_file_reader::read_at(std::uint64_t offset, std::span<std::byte> output) const noexcept {
+error uv_file_reader::read_at(std::uint64_t offset, std::span<std::byte> output) const {
   if (offset > size_ || output.size() > size_ - offset ||
       offset > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
       output.size() >
           static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) - offset) {
     return error::invalid_argument;
   }
-  try {
+  {
     const std::scoped_lock lock(implementation_->mutex);
     while (!output.empty()) {
       const auto count = static_cast<unsigned int>(
@@ -116,8 +111,6 @@ error uv_file_reader::read_at(std::uint64_t offset, std::span<std::byte> output)
       output = output.subspan(consumed);
     }
     return error::success;
-  } catch (...) {
-    return error::internal;
   }
 }
 

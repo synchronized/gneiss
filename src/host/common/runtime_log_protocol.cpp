@@ -93,13 +93,12 @@ void append_json_string(std::string& output, std::string_view value) {
 runtime_log_line_decoder::runtime_log_line_decoder(std::size_t maximum_line_size) noexcept
     : maximum_line_size_(maximum_line_size) {}
 
-gneiss::engine::error
-runtime_log_line_decoder::append(std::string_view bytes,
-                                 std::vector<runtime_log_line>& output) noexcept {
+gneiss::engine::error runtime_log_line_decoder::append(std::string_view bytes,
+                                                       std::vector<runtime_log_line>& output) {
   if (maximum_line_size_ == 0U) {
     return gneiss::engine::error::invalid_state;
   }
-  try {
+  {
     while (!bytes.empty()) {
       const auto newline = bytes.find('\n');
       if (newline == std::string_view::npos) {
@@ -114,13 +113,10 @@ runtime_log_line_decoder::append(std::string_view bytes,
       bytes.remove_prefix(newline + 1U);
     }
     return gneiss::engine::error::success;
-  } catch (...) {
-    return gneiss::engine::error::out_of_memory;
   }
 }
 
-gneiss::engine::error
-runtime_log_line_decoder::finish(std::vector<runtime_log_line>& output) noexcept {
+gneiss::engine::error runtime_log_line_decoder::finish(std::vector<runtime_log_line>& output) {
   if (pending_.empty() && !pending_was_truncated_) {
     return gneiss::engine::error::success;
   }
@@ -132,14 +128,11 @@ void runtime_log_line_decoder::reset() noexcept {
   pending_was_truncated_ = false;
 }
 
-gneiss::engine::error
-runtime_log_line_decoder::emit(std::vector<runtime_log_line>& output) noexcept {
-  try {
+gneiss::engine::error runtime_log_line_decoder::emit(std::vector<runtime_log_line>& output) {
+  {
     output.push_back({pending_, pending_was_truncated_});
     reset();
     return gneiss::engine::error::success;
-  } catch (...) {
-    return gneiss::engine::error::out_of_memory;
   }
 }
 
@@ -151,9 +144,9 @@ void runtime_log_line_decoder::append_segment(std::string_view segment) {
 }
 
 gneiss::engine::error encode_runtime_log_event(const gneiss::engine::event_view& event,
-                                               std::string& output) noexcept {
+                                               std::string& output) {
   output.clear();
-  try {
+  {
     output.append(runtime_log_prefix);
     output.append("{\"version\":1,\"sequence\":");
     append_integer(output, event.sequence);
@@ -173,14 +166,10 @@ gneiss::engine::error encode_runtime_log_event(const gneiss::engine::event_view&
     append_json_string(output, event.message.message);
     output.append("}\n");
     return gneiss::engine::error::success;
-  } catch (...) {
-    output.clear();
-    return gneiss::engine::error::internal;
   }
 }
 
-runtime_log_parse_result parse_runtime_log_line(std::string_view line,
-                                                runtime_log_record& output) noexcept {
+runtime_log_parse_result parse_runtime_log_line(std::string_view line, runtime_log_record& output) {
   if (!line.starts_with(runtime_log_prefix)) {
     return runtime_log_parse_result::not_protocol;
   }
@@ -188,7 +177,7 @@ runtime_log_parse_result parse_runtime_log_line(std::string_view line,
   if (!line.empty() && line.back() == '\r') {
     line.remove_suffix(1U);
   }
-  try {
+  {
     const document_ptr document(yyjson_read_opts(const_cast<char*>(line.data()), line.size(),
                                                  YYJSON_READ_NOFLAG, nullptr, nullptr));
     auto* root = document == nullptr ? nullptr : yyjson_doc_get_root(document.get());
@@ -224,8 +213,6 @@ runtime_log_parse_result parse_runtime_log_line(std::string_view line,
     parsed.operation = gneiss::engine::error{static_cast<std::int32_t>(operation)};
     output = std::move(parsed);
     return runtime_log_parse_result::success;
-  } catch (...) {
-    return runtime_log_parse_result::invalid;
   }
 }
 

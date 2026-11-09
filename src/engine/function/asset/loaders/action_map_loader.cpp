@@ -31,7 +31,7 @@ struct action_map_loader final : asset_loader {
       diagnostic = std::move(decoded).error();
     metrics.bytes = input_bytes;
   }
-  void adopt(const std::shared_ptr<const void>& previous) noexcept override {
+  void adopt(const std::shared_ptr<const void>& previous) override {
     if (!previous)
       return;
     auto target = std::static_pointer_cast<const action_map>(previous);

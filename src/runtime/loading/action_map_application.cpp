@@ -14,8 +14,8 @@ void action_map_application::cancel() noexcept {
   state_ = action_map_apply_state::cancelled;
   result_ = gneiss::engine::error::invalid_state;
 }
-gneiss::engine::error action_map_application::begin(
-    gneiss::engine::asset_request<gneiss::engine::action_map> request) noexcept {
+gneiss::engine::error
+action_map_application::begin(gneiss::engine::asset_request<gneiss::engine::action_map> request) {
   cancel();
   if (!request)
     return gneiss::engine::error::invalid_argument;
@@ -24,7 +24,7 @@ gneiss::engine::error action_map_application::begin(
   result_ = gneiss::engine::error::not_ready;
   return gneiss::engine::error::success;
 }
-gneiss::engine::error action_map_application::poll(gneiss::engine::input_service& target) noexcept {
+gneiss::engine::error action_map_application::poll(gneiss::engine::input_service& target) {
   if (state_ != action_map_apply_state::loading)
     return result_;
   auto loaded = request_.take();
@@ -32,13 +32,9 @@ gneiss::engine::error action_map_application::poll(gneiss::engine::input_service
     return gneiss::engine::error::not_ready;
   result_ = loaded ? gneiss::engine::error::success : loaded.error().error;
   if (loaded) {
-    try {
+    {
       auto map = *(*loaded)->snapshot();
       result_ = target.replace_action_map(std::move(map));
-    } catch (const std::bad_alloc&) {
-      result_ = gneiss::engine::error::out_of_memory;
-    } catch (...) {
-      result_ = gneiss::engine::error::internal;
     }
   }
   request_ = {};

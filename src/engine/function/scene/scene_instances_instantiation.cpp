@@ -16,7 +16,7 @@ namespace {
 result<scene_instantiation_result>
 instantiate_effective(world& world, scene_instances& scenes, guid uuid,
                       const composed_scene& composed,
-                      const scene_instances::resource_bindings& assets) noexcept try {
+                      const scene_instances::resource_bindings& assets) {
   entity_id previous_camera;
   const auto camera_status = world.get_active_camera(previous_camera);
   if (camera_status.failed() && camera_status != error::not_ready)
@@ -54,15 +54,11 @@ instantiate_effective(world& world, scene_instances& scenes, guid uuid,
   }
   guard.instance = {};
   return receipt;
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 } // namespace
 result<scene_instantiation_result>
 scene_instances::replace_prepared(scene_instance_id instance, scene_instantiation_data prepared,
-                                  const resource_bindings& assets) noexcept try {
+                                  const resource_bindings& assets) {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
   if (!instances_.get(instance, resource_type::scene_instance))
@@ -90,13 +86,9 @@ scene_instances::replace_prepared(scene_instance_id instance, scene_instantiatio
   if (status.failed())
     return status;
   return std::move(*created);
-} catch (const std::bad_alloc&) {
-  return error::out_of_memory;
-} catch (...) {
-  return error::internal;
 }
 result<scene_instantiation_result, scene_diagnostic>
-scene_instances::instantiate(ref<const scene> source, std::size_t source_bytes) noexcept try {
+scene_instances::instantiate(ref<const scene> source, std::size_t source_bytes) {
   if (!native_world_.is_owner_thread())
     return scene_diagnostic{error::invalid_state, 0, {}, {}};
   if (!is_valid())
@@ -130,21 +122,17 @@ scene_instances::instantiate(ref<const scene> source, std::size_t source_bytes) 
   output.objects = std::move(instance->objects);
   output.bindings = std::move(bindings);
   return output;
-} catch (const std::bad_alloc&) {
-  return scene_diagnostic{error::out_of_memory, 0, {}, {}};
-} catch (...) {
-  return scene_diagnostic{error::internal, 0, {}, {}};
 }
 
 result<scene_instantiation_result>
 scene_instances::instantiate_prepared(scene_instantiation_data prepared,
-                                      const resource_bindings& assets) noexcept {
+                                      const resource_bindings& assets) {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
   if (!is_valid()) {
     return engine::error::invalid_argument;
   }
-  try {
+  {
     std::map<std::string, const prefab_description*, std::less<>> sources;
     for (const auto& [uri, source] : prepared.prefabs) {
       if (!source.resource)
@@ -156,10 +144,6 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
       return composed.error();
     return instantiate_effective(native_world_, *this, prepared.description.uuid, *composed,
                                  assets);
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
 }
 } // namespace gneiss::engine

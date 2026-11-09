@@ -26,13 +26,9 @@ constexpr granit::texture_usage texture_usage =
     granit::texture_usage::sampled | granit::texture_usage::transfer_destination;
 
 [[nodiscard]] runtime_texture_build_result fail(runtime_texture_build_result result,
-                                                std::string_view message,
-                                                std::string& diagnostic) noexcept {
-  try {
+                                                std::string_view message, std::string& diagnostic) {
+  {
     diagnostic.assign(message);
-  } catch (...) {
-    diagnostic.clear();
-    return runtime_texture_build_result::out_of_memory;
   }
   return result;
 }
@@ -41,14 +37,14 @@ constexpr granit::texture_usage texture_usage =
 
 runtime_texture_build_result build_runtime_texture(const gneiss::engine::texture_ktx2& source,
                                                    std::vector<std::byte>& output,
-                                                   std::string& diagnostic) noexcept {
+                                                   std::string& diagnostic) {
   output.clear();
   diagnostic.clear();
   if (source.levels.empty() || source.levels.size() > std::numeric_limits<std::uint32_t>::max()) {
     return fail(runtime_texture_build_result::invalid_argument, "运行纹理 Mip 链为空或过长",
                 diagnostic);
   }
-  try {
+  {
     std::vector<std::byte> bc7_payload;
     std::vector<std::byte> rgba_payload;
     std::vector<granit::asset_tools::texture::subresource_info> subresources;
@@ -151,12 +147,6 @@ runtime_texture_build_result build_runtime_texture(const gneiss::engine::texture
     }
     output = std::move(*encoded);
     return runtime_texture_build_result::success;
-  } catch (const std::bad_alloc&) {
-    output.clear();
-    return fail(runtime_texture_build_result::out_of_memory, "构建运行纹理内存不足", diagnostic);
-  } catch (...) {
-    output.clear();
-    return fail(runtime_texture_build_result::encode_failed, "构建运行纹理失败", diagnostic);
   }
 }
 

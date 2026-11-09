@@ -7,7 +7,7 @@
 namespace gneiss::host {
 namespace {
 gneiss::engine::error handle_scene_command(const gneiss::engine::ipc_envelope& envelope,
-                                           runtime_command_context& context) noexcept try {
+                                           runtime_command_context& context) {
   ipc_scene_request request;
   const auto decoded = decode_ipc_scene_request(envelope, request);
   if (decoded != gneiss::engine::error::success) {
@@ -22,8 +22,6 @@ gneiss::engine::error handle_scene_command(const gneiss::engine::ipc_envelope& e
       .cancel = envelope.operation == static_cast<std::uint16_t>(ipc_scene_operation::cancel),
   });
   return gneiss::engine::error::success;
-} catch (...) {
-  return gneiss::engine::error::out_of_memory;
 }
 }
 gneiss::engine::error register_runtime_scene_commands(runtime_command_router& router) noexcept {
