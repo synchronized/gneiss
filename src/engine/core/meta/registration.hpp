@@ -35,14 +35,14 @@ template <class T, class Definition> error complete_identity(Definition& definit
 /** 从规范化 C++ 类型提取身份；显式身份与 traits 冲突时拒绝注册。 */
 template <class T>
 [[nodiscard]] error register_type(const registry_ref& registry, type_definition definition,
-                                  std::span<const property_binding> bindings = {}) noexcept {
+                                  std::span<const property_binding> bindings = {}) {
   auto status = detail::complete_identity<T>(definition);
   return status.failed() ? status : register_type(registry, definition, bindings);
 }
 
 template <class T>
 [[nodiscard]] error register_type(type_definition definition,
-                                  std::span<const property_binding> bindings = {}) noexcept {
+                                  std::span<const property_binding> bindings = {}) {
   auto registry = default_registry();
   if (!registry)
     return registry.error();
@@ -63,16 +63,10 @@ public:
   }
   explicit enum_builder(registry_ref registry) noexcept : registry_(std::move(registry)) {}
   /** 显式补充身份；与已有 traits 冲突时由 commit 拒绝。名称在注册期间自有。 */
-  enum_builder& name(std::string_view name) noexcept {
+  enum_builder& name(std::string_view name) {
     if (committed_ || status_.failed())
       return *this;
-    try {
-      name_ = name;
-    } catch (const std::bad_alloc&) {
-      status_ = error::out_of_memory;
-    } catch (...) {
-      status_ = error::internal;
-    }
+    name_ = name;
     return *this;
   }
   enum_builder& guid(engine::guid guid) noexcept {
@@ -81,7 +75,7 @@ public:
     return *this;
   }
   /** 类型扩展由消费模块解释，注册器仅按类型保存不可变副本。 */
-  template <class Extension> enum_builder& metadata(Extension value) noexcept {
+  template <class Extension> enum_builder& metadata(Extension value) {
     if (!committed_ && status_.ok())
       status_ = extensions_.insert(std::move(value));
     return *this;
@@ -93,54 +87,36 @@ public:
     return *this;
   }
   /** 按注册对象类型生成扩展；生成错误记录到 commit，不引入消费模块依赖。 */
-  template <class Factory> enum_builder& extend(Factory factory) noexcept {
+  template <class Factory> enum_builder& extend(Factory factory) {
     if (committed_ || status_.failed())
       return *this;
-    try {
-      auto extension = factory.template operator()<E>();
-      if (!extension)
-        status_ = extension.error();
-      else
-        status_ = extensions_.insert(std::move(*extension));
-    } catch (const std::bad_alloc&) {
-      status_ = error::out_of_memory;
-    } catch (...) {
-      status_ = error::internal;
-    }
+    auto extension = factory.template operator()<E>();
+    if (!extension)
+      status_ = extension.error();
+    else
+      status_ = extensions_.insert(std::move(*extension));
     return *this;
   }
-  enum_builder& value(std::string_view name, E input) noexcept {
+  enum_builder& value(std::string_view name, E input) {
     if (committed_ || status_.failed())
       return *this;
-    try {
-      entries_.push_back({std::string(name), detail::scalar_value(input)});
-    } catch (const std::bad_alloc&) {
-      status_ = error::out_of_memory;
-    } catch (...) {
-      status_ = error::internal;
-    }
+    entries_.push_back({std::string(name), detail::scalar_value(input)});
     return *this;
   }
-  error commit() noexcept {
+  error commit() {
     if (committed_)
       return error::invalid_state;
     committed_ = true;
     if (status_.failed())
       return status_;
-    try {
-      enum_definition definition{.guid = guid_,
-                                 .schema_version = version_,
-                                 .name = name_,
-                                 .kind = detail::reflected_value_kind<E>(),
-                                 .entries = entries_,
-                                 .extensions = extensions_};
-      auto status = detail::complete_identity<E>(definition);
-      return status.failed() ? status : register_enum(registry_, definition);
-    } catch (const std::bad_alloc&) {
-      return error::out_of_memory;
-    } catch (...) {
-      return error::internal;
-    }
+    enum_definition definition{.guid = guid_,
+                               .schema_version = version_,
+                               .name = name_,
+                               .kind = detail::reflected_value_kind<E>(),
+                               .entries = entries_,
+                               .extensions = extensions_};
+    auto status = detail::complete_identity<E>(definition);
+    return status.failed() ? status : register_enum(registry_, definition);
   }
 
 private:
@@ -155,7 +131,7 @@ private:
 };
 /** 注册期间拥有字段名称；不持有实例。需外部同步，commit 后不可复用。
  * 访问器只在调用期间借用对象，setter 须先校验再修改，失败保持原对象。
- * 分配错误记录为结果码，commit 失败不在 Registry 留下类型。 */
+ * 预期错误返回结果码，分配或用户扩展异常向调用方传播。 */
 template <class T> class type_builder {
   using object_type = std::remove_cvref_t<T>;
   struct entry {
@@ -172,37 +148,35 @@ public:
    * operator() 仅附加当前字段扩展，metadata/extend 仍作用于类型。 */
   class property_builder {
   public:
-    template <class... Extensions> property_builder& operator()(Extensions... values) noexcept {
+    template <class... Extensions> property_builder& operator()(Extensions... values) {
       (owner_->add_extension(index_, std::move(values)), ...);
       return *this;
     }
     template <auto... Accessors>
     property_builder property(property_id id, std::string_view name,
-                              property_access access = property_access::read_write) noexcept {
+                              property_access access = property_access::read_write) {
       return owner_->template property<Accessors...>(id, name, access);
     }
-    template <auto Getter>
-    property_builder readonly(property_id id, std::string_view name) noexcept {
+    template <auto Getter> property_builder readonly(property_id id, std::string_view name) {
       return owner_->template readonly<Getter>(id, name);
     }
-    template <class Base> type_builder& base() noexcept { return owner_->template base<Base>(); }
-    template <class Extension> type_builder& metadata(Extension value) noexcept {
+    template <class Base> type_builder& base() { return owner_->template base<Base>(); }
+    template <class Extension> type_builder& metadata(Extension value) {
       return owner_->metadata(std::move(value));
     }
-    template <class Factory> type_builder& extend(Factory factory) noexcept {
+    template <class Factory> type_builder& extend(Factory factory) {
       return owner_->extend(std::move(factory));
     }
-    type_builder& name(std::string_view name) noexcept { return owner_->name(name); }
+    type_builder& name(std::string_view name) { return owner_->name(name); }
     type_builder& guid(engine::guid guid) noexcept { return owner_->guid(guid); }
     type_builder& schema_version(std::uint32_t version) noexcept {
       return owner_->schema_version(version);
     }
-    [[nodiscard]] error commit() noexcept { return owner_->commit(); }
+    [[nodiscard]] error commit() { return owner_->commit(); }
 
   private:
     friend class type_builder;
-    property_builder(type_builder& owner, std::size_t index) noexcept
-        : owner_(&owner), index_(index) {}
+    property_builder(type_builder& owner, std::size_t index) : owner_(&owner), index_(index) {}
     type_builder* owner_;
     std::size_t index_;
   };
@@ -215,16 +189,10 @@ public:
   }
   explicit type_builder(registry_ref registry) noexcept : registry_(std::move(registry)) {}
   /** 显式补充身份；与已有 traits 冲突时由 commit 拒绝。名称在注册期间自有。 */
-  type_builder& name(std::string_view name) noexcept {
+  type_builder& name(std::string_view name) {
     if (committed_ || status_.failed())
       return *this;
-    try {
-      name_ = name;
-    } catch (const std::bad_alloc&) {
-      status_ = error::out_of_memory;
-    } catch (...) {
-      status_ = error::internal;
-    }
+    name_ = name;
     return *this;
   }
   type_builder& guid(engine::guid guid) noexcept {
@@ -233,7 +201,7 @@ public:
     return *this;
   }
   /** 类型扩展由消费模块解释，注册器仅按类型保存不可变副本。 */
-  template <class Extension> type_builder& metadata(Extension value) noexcept {
+  template <class Extension> type_builder& metadata(Extension value) {
     if (!committed_ && status_.ok())
       status_ = extensions_.insert(std::move(value));
     return *this;
@@ -246,7 +214,7 @@ public:
   }
   template <auto Member>
   property_builder property(property_id id, std::string_view name,
-                            property_access access = property_access::read_write) noexcept {
+                            property_access access = property_access::read_write) {
     static_assert(std::is_member_object_pointer_v<decltype(Member)>);
     using property_type = std::remove_cvref_t<std::invoke_result_t<decltype(Member), object_type&>>;
     if constexpr (detail::reflected_value_kind<property_type>() == value_kind::invalid) {
@@ -286,7 +254,7 @@ public:
   }
   template <auto Getter, auto Setter>
   property_builder property(property_id id, std::string_view name,
-                            property_access access = property_access::read_write) noexcept {
+                            property_access access = property_access::read_write) {
     using property_type =
         std::remove_cvref_t<std::invoke_result_t<decltype(Getter), const object_type&>>;
     if constexpr (detail::reflected_value_kind<property_type>() == value_kind::invalid) {
@@ -336,7 +304,7 @@ public:
              }
            }});
   }
-  template <auto Getter> property_builder readonly(property_id id, std::string_view name) noexcept {
+  template <auto Getter> property_builder readonly(property_id id, std::string_view name) {
     using property_type =
         std::remove_cvref_t<std::invoke_result_t<decltype(Getter), const object_type&>>;
     return add<property_type>(id, name, property_access::read_only,
@@ -348,7 +316,7 @@ public:
                                }});
   }
   /** 注册唯一直接基类；继承属性参与遍历，冻结时拒绝属性 ID 或名称冲突。 */
-  template <class Base> type_builder& base() noexcept {
+  template <class Base> type_builder& base() {
     static_assert(std::derived_from<object_type, Base> && std::derived_from<Base, meta::object>);
     if (committed_ || object_.base_type) {
       status_ = error::invalid_state;
@@ -361,58 +329,46 @@ public:
     return *this;
   }
   /** 按注册对象类型生成扩展；生成错误记录到 commit，不引入消费模块依赖。 */
-  template <class Factory> type_builder& extend(Factory factory) noexcept {
+  template <class Factory> type_builder& extend(Factory factory) {
     if (committed_ || status_.failed())
       return *this;
-    try {
-      auto extension = factory.template operator()<object_type>();
-      if (!extension)
-        status_ = extension.error();
-      else
-        status_ = extensions_.insert(std::move(*extension));
-    } catch (const std::bad_alloc&) {
-      status_ = error::out_of_memory;
-    } catch (...) {
-      status_ = error::internal;
-    }
+    auto extension = factory.template operator()<object_type>();
+    if (!extension)
+      status_ = extension.error();
+    else
+      status_ = extensions_.insert(std::move(*extension));
     return *this;
   }
-  [[nodiscard]] error commit() noexcept {
+  [[nodiscard]] error commit() {
     if (committed_)
       return error::invalid_state;
     committed_ = true;
     if (status_.failed())
       return status_;
-    try {
-      std::vector<property_definition> properties;
-      std::vector<property_binding> bindings;
-      properties.reserve(entries_.size());
-      bindings.reserve(entries_.size());
-      for (const auto& item : entries_) {
-        properties.push_back({item.id, item.guid, item.access, item.name, item.extensions});
-        bindings.push_back(item.binding);
-      }
-      if constexpr (std::derived_from<object_type, meta::object>)
-        object_.as_object = [](void* p) -> meta::object* { return static_cast<object_type*>(p); };
-      if constexpr (std::is_default_constructible_v<object_type>)
-        object_.construct = []() -> ref<void> { return make_ref<object_type>(); };
-      return register_type<object_type>(registry_,
-                                        {.guid = guid_,
-                                         .schema_version = version_,
-                                         .name = name_,
-                                         .properties = properties,
-                                         .object = object_,
-                                         .extensions = extensions_},
-                                        bindings);
-    } catch (const std::bad_alloc&) {
-      return error::out_of_memory;
-    } catch (...) {
-      return error::internal;
+    std::vector<property_definition> properties;
+    std::vector<property_binding> bindings;
+    properties.reserve(entries_.size());
+    bindings.reserve(entries_.size());
+    for (const auto& item : entries_) {
+      properties.push_back({item.id, item.guid, item.access, item.name, item.extensions});
+      bindings.push_back(item.binding);
     }
+    if constexpr (std::derived_from<object_type, meta::object>)
+      object_.as_object = [](void* p) -> meta::object* { return static_cast<object_type*>(p); };
+    if constexpr (std::is_default_constructible_v<object_type>)
+      object_.construct = []() -> ref<void> { return make_ref<object_type>(); };
+    return register_type<object_type>(registry_,
+                                      {.guid = guid_,
+                                       .schema_version = version_,
+                                       .name = name_,
+                                       .properties = properties,
+                                       .object = object_,
+                                       .extensions = extensions_},
+                                      bindings);
   }
 
 private:
-  template <class Extension> void add_extension(std::size_t index, Extension value) noexcept {
+  template <class Extension> void add_extension(std::size_t index, Extension value) {
     if (committed_ || status_.failed())
       return;
     if (index >= entries_.size()) {
@@ -423,27 +379,22 @@ private:
   }
   template <class Property>
   property_builder add(property_id id, std::string_view name, property_access access,
-                       property_binding binding) noexcept {
+                       property_binding binding) {
     const auto index = entries_.size();
     if (committed_ || status_.failed())
       return {*this, index};
-    try {
-      binding.access = &detail::ops_of<Property>();
-      if constexpr (std::is_enum_v<Property>)
-        binding.enum_type = runtime_type_of<Property>();
-      if (access == property_access::read_only) {
-        binding.setter = nullptr;
-        binding.object_mutator = nullptr;
-        binding.object_assign = nullptr;
-      }
-      entries_.push_back({id, std::string(name),
-                          type_identity<detail::scalar_storage<Property>>::guid(), access,
-                          binding});
-    } catch (const std::bad_alloc&) {
-      status_ = error::out_of_memory;
-    } catch (...) {
-      status_ = error::internal;
+
+    binding.access = &detail::ops_of<Property>();
+    if constexpr (std::is_enum_v<Property>)
+      binding.enum_type = runtime_type_of<Property>();
+    if (access == property_access::read_only) {
+      binding.setter = nullptr;
+      binding.object_mutator = nullptr;
+      binding.object_assign = nullptr;
     }
+    entries_.push_back({id, std::string(name),
+                        type_identity<detail::scalar_storage<Property>>::guid(), access, binding});
+
     return {*this, index};
   }
   object_ops object_{};

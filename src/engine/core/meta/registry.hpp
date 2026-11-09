@@ -18,20 +18,20 @@ template <class T> meta::type type_of(const registry_ref& registry) noexcept {
   return detail::resolve_type(registry, detail::ops_of<std::remove_cvref_t<T>>());
 }
 /** 深拷贝枚举显示项；同一 C++ 类型只登记一次，冻结后禁止修改。 */
-[[nodiscard]] GNEISS_API error register_enum(const registry_ref&, const enum_definition&) noexcept;
+[[nodiscard]] GNEISS_API error register_enum(const registry_ref&, const enum_definition&);
 /** 创建独立注册表，成功结果持有共享所有者。 */
 [[nodiscard]] GNEISS_API result<registry_ref> create_registry() noexcept;
 /** 进程共享的默认注册表；仅创建，不自动注册或冻结，由引擎模块持有至退出。 */
 [[nodiscard]] GNEISS_API result<registry_ref> default_registry() noexcept;
 /** 深拷贝元数据；重复 GUID 或非空运行期 ID 返回 invalid_argument，冻结后禁止注册。 */
 [[nodiscard]] GNEISS_API error register_type(const registry_ref& state,
-                                             const type_definition& desc) noexcept;
+                                             const type_definition& desc);
 [[nodiscard]] GNEISS_API error bind_property(const registry_ref& state, guid type_id,
                                              property_id property,
                                              const property_binding& desc) noexcept;
 /** 同时登记全部字段绑定；bindings 与 properties 顺序对应，失败不登记类型。 */
 [[nodiscard]] GNEISS_API error register_type(const registry_ref&, const type_definition&,
-                                             std::span<const property_binding>) noexcept;
+                                             std::span<const property_binding>);
 [[nodiscard]] GNEISS_API error freeze(const registry_ref& state) noexcept;
 [[nodiscard]] GNEISS_API result<bool> is_frozen(const registry_ref& state) noexcept;
 /** 冻结后查询类型构造与继承能力。 */
@@ -69,7 +69,7 @@ GNEISS_API error write_property(const registry_ref&, engine::type_id, property_i
 GNEISS_API result<property_binding> find_object_property(const registry_ref&, engine::type_id,
                                                          property_id) noexcept;
 
-inline error register_enum(const enum_definition& definition) noexcept {
+inline error register_enum(const enum_definition& definition) {
   auto registry = default_registry();
   return registry ? register_enum(*registry, definition) : registry.error();
 }
@@ -97,14 +97,14 @@ inline meta::type find_type(engine::guid id) noexcept {
   return find_type(*registry, id);
 }
 /** 以下重载使用默认注册表；错误与显式 registry 接口一致，不隐式冻结。 */
-[[nodiscard]] inline error register_type(const type_definition& desc) noexcept {
+[[nodiscard]] inline error register_type(const type_definition& desc) {
   auto registry = default_registry();
   if (!registry)
     return registry.error();
   return register_type(*registry, desc);
 }
 [[nodiscard]] inline error register_type(const type_definition& desc,
-                                         std::span<const property_binding> bindings) noexcept {
+                                         std::span<const property_binding> bindings) {
   auto registry = default_registry();
   if (!registry)
     return registry.error();

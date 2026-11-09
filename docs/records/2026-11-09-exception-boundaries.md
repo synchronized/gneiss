@@ -37,3 +37,14 @@ fatal 属于 Core，独立静态目标便于不链接 Engine 的调度器复用�
 浏览器任务最小宿主已有 `-fexceptions` 编译/链接配置；新 fatal 目标同样启用该编译选项。
 完整浏览器宿主的编译/链接选项和事件回调语义仍须独立验证，不由 Windows 通过推断。
 仍需审计运行库/DLL 兼容性、其他执行入口及所有剩余 catch/noexcept；计划 1、2 暂不整体勾选完成。
+
+## 注册调用链追加验收
+
+metadata::insert、类型/枚举 builder、register_type/register_enum 不再逐层捕获异常转结果码。
+同时移除内置数学/资源注册、initialize_meta 的错误 noexcept；初始化函数不再吞掉回调异常。
+纯身份设置、句柄构造保留 noexcept。注册表仍先准备完整记录再提交，预期失败保持原错误语义。
+
+新增测试覆盖用户扩展抛出 bad_alloc/其他异常时传播、RAII 清理、无半条记录；工厂显式返回错误仍在
+commit 返回。默认表回调异常测试改为子进程致命验证，普通失败保留首次结果的测试继续通过。
+Editor 及相关目标编译通过，17 项定向测试通过。
+本批不代表 read_property、instance、容器访问、registry 创建/冻结、序列化及其他模块已完成迁移。

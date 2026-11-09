@@ -7,7 +7,7 @@
 namespace gneiss::engine::serialization {
 using namespace meta;
 namespace detail {
-error register_math_types(const registry_ref&) noexcept;
+error register_math_types(const registry_ref&);
 }
 namespace {
 template <class T> const auto& read_content(const T& object) { return object.get(); }
@@ -17,7 +17,7 @@ template <class T, class D> error write_content(T& object, const D& data) {
 }
 }
 
-error register_builtin_types(const registry_ref& registry) noexcept {
+error register_builtin_types(const registry_ref& registry) {
   auto status =
       registration::type<object>(registry).metadata(reference_policy{.polymorphic = true}).commit();
   if (status.failed())

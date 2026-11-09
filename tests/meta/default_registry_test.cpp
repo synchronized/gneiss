@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "engine/core/fatal.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
@@ -72,9 +73,14 @@ int main(int argc, char** argv) {
     return 1;
   if (argc > 1) {
     const bool throws = std::string_view(argv[1]) == "throw";
-    const auto expected = throws ? e::error::internal : e::error::unsupported;
-    if (e::initialize_meta(throws ? throw_registration : fail_registration) != expected ||
-        e::initialize_meta() != expected || *m::is_frozen())
+    if (throws) {
+      e::install_fatal_handler();
+      static_cast<void>(e::initialize_meta(throw_registration));
+      return 99;
+    }
+    const auto expected = e::error::unsupported;
+    if (e::initialize_meta(fail_registration) != expected || e::initialize_meta() != expected ||
+        *m::is_frozen())
       return 2;
     return 0;
   }

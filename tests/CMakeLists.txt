@@ -1065,7 +1065,11 @@ gneiss_target_compile_warnings(gneiss_default_registry_test)
 gneiss_target_output_directories(gneiss_default_registry_test)
 add_test(NAME gneiss.meta-default-registry COMMAND gneiss_default_registry_test)
 add_test(NAME gneiss.meta-default-registry-failure COMMAND gneiss_default_registry_test failure)
-add_test(NAME gneiss.meta-default-registry-exception COMMAND gneiss_default_registry_test throw)
+target_link_libraries(gneiss_default_registry_test PRIVATE gneiss_fatal)
+add_test(NAME gneiss.meta-default-registry-exception COMMAND "${CMAKE_COMMAND}"
+  "-DPROGRAM=$<TARGET_FILE:gneiss_default_registry_test>" -DMODE=throw
+  -P "${CMAKE_CURRENT_SOURCE_DIR}/core/check_fatal.cmake")
+set_tests_properties(gneiss.meta-default-registry-exception PROPERTIES TIMEOUT 15)
 if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
   target_compile_definitions(gneiss_default_registry_test PRIVATE GNEISS_TEST_THREADS=1)
   target_link_libraries(gneiss_default_registry_test PRIVATE Threads::Threads)

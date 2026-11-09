@@ -7,7 +7,7 @@
 #include <mutex>
 #include <new>
 namespace gneiss::engine {
-error initialize_meta(meta_registration_callback callback) noexcept try {
+error initialize_meta(meta_registration_callback callback) {
   static std::mutex mutex;
   static bool attempted = false;
   static error status = error::not_ready;
@@ -15,23 +15,16 @@ error initialize_meta(meta_registration_callback callback) noexcept try {
   if (attempted)
     return callback ? error::invalid_state : status;
   attempted = true;
-  // 包含 callback 异常在内的失败必须留下明确终态，不允许后续调用误报成功。
+  // 预期失败保留终态；意外异常向执行边界传播，不允许后续调用误报成功。
   status = error::internal;
-  try {
-    status = gneiss::engine::serialization::register_builtin_types();
-    if (status.ok())
-      status = register_builtin_resource_types();
-    if (status.ok() && callback)
-      status = callback();
-    if (status.ok())
-      status = meta::freeze();
-  } catch (const std::bad_alloc&) {
-    status = error::out_of_memory;
-  } catch (...) {
-    status = error::internal;
-  }
+
+  status = gneiss::engine::serialization::register_builtin_types();
+  if (status.ok())
+    status = register_builtin_resource_types();
+  if (status.ok() && callback)
+    status = callback();
+  if (status.ok())
+    status = meta::freeze();
   return status;
-} catch (...) {
-  return error::internal;
 }
 }

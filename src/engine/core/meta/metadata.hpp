@@ -26,16 +26,12 @@ public:
     return static_cast<const T*>(find(runtime_type_of<T>()));
   }
   /** 同类元数据重复登记报错，不覆盖已登记的策略。 */
-  template <class T> error insert(T value) noexcept try {
+  template <class T> error insert(T value) {
     const auto id = runtime_type_of<T>();
     if (find(id))
       return error::invalid_argument;
     entries_.push_back({id, make_ref<const T>(std::move(value))});
     return error::success;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 };
 }

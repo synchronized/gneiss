@@ -195,7 +195,7 @@ bool valid_scalar(const value& input) noexcept { return is_valid_property_value(
 
 class type_registry_state final : public std::enable_shared_from_this<type_registry_state> {
 public:
-  error register_enum(const enum_definition& definition) noexcept try {
+  error register_enum(const enum_definition& definition) {
     const auto id = definition.type_id;
     const auto kind = definition.kind;
     const auto entries = definition.entries;
@@ -232,14 +232,10 @@ public:
     record.entries.assign(entries.begin(), entries.end());
     enums_.emplace(id, std::move(record));
     return error::success;
-  } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
-  } catch (...) {
-    return error::internal;
   }
 
   [[nodiscard]] error register_type(const type_definition& desc,
-                                    std::span<const property_binding> bindings = {}) noexcept {
+                                    std::span<const property_binding> bindings = {}) {
     if (!validate_type(desc)) {
       return error::invalid_argument;
     }
@@ -265,51 +261,45 @@ public:
           return error::invalid_argument;
       }
     }
-    try {
-      std::unique_lock lock(mutex_);
-      if (is_frozen_) {
-        return error::invalid_state;
-      }
-      if ((desc.guid && (find_type_unlocked(desc.guid) || find_enum_unlocked(desc.guid))) ||
-          (desc.type_id &&
-           (by_cpp_type_.contains(desc.type_id) || enums_.contains(desc.type_id)))) {
-        return error::invalid_argument;
-      }
 
-      auto record = std::make_unique<type_record>();
-      record->guid = desc.guid;
-      record->type_id = desc.type_id;
-      record->native = desc.native;
-      record->schema_version = desc.schema_version;
-      record->name.assign(desc.name);
-      record->object = desc.object;
-      record->extensions = desc.extensions;
-      record->properties.reserve(desc.properties.size());
-      for (const auto& property : desc.properties) {
-        record->properties.push_back({.id = property.id.get(),
-                                      .type_guid = property.type_guid,
-                                      .access = property.access,
-                                      .name = std::string(property.name),
-                                      .accessor = {},
-                                      .declaring_type = desc.guid,
-                                      .declaring_id = desc.type_id,
-                                      .extensions = property.extensions});
-      }
-      for (std::size_t i = 0; i < bindings.size(); ++i) {
-        const auto& binding = bindings[i];
-        record->properties[i].accessor = binding;
-      }
-      // 先预留所有者数组容量，索引插入成功后移动所有权不再分配；失败不会留下半条记录。
-      types_.reserve(types_.size() + 1);
-      if (desc.type_id)
-        by_cpp_type_.emplace(desc.type_id, record.get());
-      types_.push_back(std::move(record));
-      return error::success;
-    } catch (const std::bad_alloc&) {
-      return error::out_of_memory;
-    } catch (...) {
-      return error::internal;
+    std::unique_lock lock(mutex_);
+    if (is_frozen_) {
+      return error::invalid_state;
     }
+    if ((desc.guid && (find_type_unlocked(desc.guid) || find_enum_unlocked(desc.guid))) ||
+        (desc.type_id && (by_cpp_type_.contains(desc.type_id) || enums_.contains(desc.type_id)))) {
+      return error::invalid_argument;
+    }
+
+    auto record = std::make_unique<type_record>();
+    record->guid = desc.guid;
+    record->type_id = desc.type_id;
+    record->native = desc.native;
+    record->schema_version = desc.schema_version;
+    record->name.assign(desc.name);
+    record->object = desc.object;
+    record->extensions = desc.extensions;
+    record->properties.reserve(desc.properties.size());
+    for (const auto& property : desc.properties) {
+      record->properties.push_back({.id = property.id.get(),
+                                    .type_guid = property.type_guid,
+                                    .access = property.access,
+                                    .name = std::string(property.name),
+                                    .accessor = {},
+                                    .declaring_type = desc.guid,
+                                    .declaring_id = desc.type_id,
+                                    .extensions = property.extensions});
+    }
+    for (std::size_t i = 0; i < bindings.size(); ++i) {
+      const auto& binding = bindings[i];
+      record->properties[i].accessor = binding;
+    }
+    // 先预留所有者数组容量，索引插入成功后移动所有权不再分配；失败不会留下半条记录。
+    types_.reserve(types_.size() + 1);
+    if (desc.type_id)
+      by_cpp_type_.emplace(desc.type_id, record.get());
+    types_.push_back(std::move(record));
+    return error::success;
   }
 
   [[nodiscard]] error bind_property(guid type_id, std::uint32_t property_id,
@@ -846,14 +836,14 @@ result<registry_ref> create_registry() noexcept {
     return error::internal;
   }
 }
-error register_enum(const registry_ref& state, const enum_definition& definition) noexcept {
+error register_enum(const registry_ref& state, const enum_definition& definition) {
   return state ? state->register_enum(definition) : error::invalid_handle;
 }
-error register_type(const registry_ref& state, const type_definition& desc) noexcept {
+error register_type(const registry_ref& state, const type_definition& desc) {
   return state ? state->register_type(desc) : error::invalid_handle;
 }
 error register_type(const registry_ref& state, const type_definition& desc,
-                    std::span<const property_binding> bindings) noexcept {
+                    std::span<const property_binding> bindings) {
   return state ? state->register_type(desc, bindings) : error::invalid_handle;
 }
 

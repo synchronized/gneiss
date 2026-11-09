@@ -16,7 +16,7 @@
 #include "engine/resource/scene/scene_validation.hpp"
 #include "engine/resource/texture.hpp"
 namespace gneiss::engine {
-error register_component_descriptions() noexcept {
+error register_component_descriptions() {
   // 基类身份字段使用保留编号，派生组件业务字段从 1 开始。
   auto status =
       meta::registration::type<component_description_base>()
@@ -131,7 +131,7 @@ error register_component_descriptions() noexcept {
           component_validation<mesh_renderer_description, &validate_mesh_renderer_description>)
       .commit();
 }
-error register_builtin_resource_types() noexcept {
+error register_builtin_resource_types() {
   auto status = register_component_descriptions();
   if (status.failed())
     return status;

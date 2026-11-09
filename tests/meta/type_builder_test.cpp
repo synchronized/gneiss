@@ -7,6 +7,7 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/serialization/policy.hpp"
 #include "engine/core/serialization/value.hpp"
+#include <stdexcept>
 namespace e = gneiss::engine;
 struct sample {
   inline static constexpr std::string_view type_name = "sample";
@@ -194,7 +195,43 @@ bool extension_registration() {
   return type.extension<display_metadata>() == type_data &&
          field.extension<display_metadata>() == field_data;
 }
+bool registration_exception_contract() {
+  namespace m = e::meta;
+  auto registry = m::create_registry();
+  if (!registry)
+    return false;
+  enum class mode { one };
+  bool cleaned = false;
+  struct cleanup {
+    bool& flag;
+    ~cleanup() { flag = true; }
+  };
+  try {
+    m::registration::type<sample>(*registry).extend([&]<class>() -> e::result<int> {
+      cleanup guard{cleaned};
+      throw std::bad_alloc{};
+    });
+    return false;
+  } catch (const std::bad_alloc&) {
+  }
+  if (!cleaned || m::type_of<sample>(*registry).registered())
+    return false;
+  try {
+    m::registration::enumeration<mode>(*registry).extend(
+        []<class>() -> e::result<int> { throw std::runtime_error("extension fixture"); });
+    return false;
+  } catch (const std::runtime_error&) {
+  }
+  if (m::type_of<mode>(*registry).registered())
+    return false;
+  // 预期错误仍通过 commit 返回，不变成致命异常。
+  return m::registration::type<sample>(*registry)
+             .extend([]<class>() -> e::result<int> { return e::error::invalid_argument; })
+             .commit() == e::error::invalid_argument;
+}
 int main() {
+  if (!registration_exception_contract())
+    return 90;
   if (!extension_registration())
     return 14;
   if (!runtime_only_registration())
