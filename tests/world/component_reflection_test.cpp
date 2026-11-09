@@ -34,13 +34,9 @@ int main() {
       gneiss::test_support::assign_value(gneiss::engine::meta::find_type(camera_type), info)
           .failed() ||
       info.properties()->size() != 3 ||
-      gneiss::test_support::assign_value(gneiss::engine::meta::type_of<engine::math::transform>(),
-                                         info)
-          .failed() ||
+      !(info = gneiss::engine::meta::type_of<engine::math::transform>()) ||
       info.guid() != transform_type ||
-      gneiss::test_support::assign_value(
-          gneiss::engine::meta::type_of<engine::camera_description>(), info)
-          .failed() ||
+      !(info = gneiss::engine::meta::type_of<engine::camera_description>()) ||
       info.guid() != camera_type)
     return 2;
   gneiss::engine::value value;

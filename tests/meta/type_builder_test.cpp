@@ -56,8 +56,7 @@ bool explicit_registration() {
       m::freeze(*registry).failed())
     return false;
   auto type = m::type_of<external_model>(*registry);
-  if (!type || type->name() != "external_model" || type->guid() != id ||
-      type->schema_version() != 3)
+  if (!type || type.name() != "external_model" || type.guid() != id || type.schema_version() != 3)
     return false;
   external_model model{{{1.0F, 2.0F}}};
   auto root = m::view(*registry, model);
@@ -121,7 +120,7 @@ bool runtime_only_registration() {
       m::freeze(*registry).failed())
     return false;
   auto type = m::type_of<runtime_parent>(*registry);
-  if (!type || type->guid() || type->name() != "runtime_parent" ||
+  if (!type || type.guid() || type.name() != "runtime_parent" ||
       m::find_type(*registry, e::guid{}).error() != e::error::not_found)
     return false;
   runtime_parent object;
@@ -177,15 +176,15 @@ bool extension_registration() {
   auto type = m::type_of<sample>(*registry);
   if (!type)
     return false;
-  auto field = type->find_property(m::property_id{1});
-  const auto* type_data = type->extension<display_metadata>();
+  auto field = type.find_property(m::property_id{1});
+  const auto* type_data = type.extension<display_metadata>();
   const auto* field_data = field ? field.extension<display_metadata>() : nullptr;
   if (!type_data || type_data->label != "original" || !field_data || field_data->label != "Speed" ||
-      type->extension<int>() || field.extension<int>())
+      type.extension<int>() || field.extension<int>())
     return false;
   registry->reset();
   // 类型和属性句柄继续保活不可变元数据。
-  return type->extension<display_metadata>() == type_data &&
+  return type.extension<display_metadata>() == type_data &&
          field.extension<display_metadata>() == field_data;
 }
 int main() {

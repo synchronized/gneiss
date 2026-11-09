@@ -71,8 +71,8 @@ private:
 template <class T> result<std::shared_ptr<const asset_decoder>> make_reflected_decoder() {
   auto type = meta::type_of<T>();
   if (!type)
-    return type.error() == error::not_found ? error::unsupported : type.error();
-  if (type->kind() == meta::type_kind::object) {
+    return error::unsupported;
+  if (type.kind() == meta::type_kind::object) {
     auto binding = serialization::find_policies(runtime_type_of<T>());
     if (!binding)
       return binding.error() == error::not_found ? error::unsupported : binding.error();

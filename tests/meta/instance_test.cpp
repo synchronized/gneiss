@@ -204,12 +204,12 @@ bool enum_registration() {
       m::freeze(registry).failed())
     return false;
   auto type = m::type_of<enum_object>(registry);
-  if (!type || (*type->properties())[0].type().id() != e::runtime_type_of<mode>() ||
-      (*type->properties())[0].type().enum_entries().size() != 2 ||
-      (*type->properties())[0].type().enum_entries().data() !=
-          (*type->properties())[1].type().enum_entries().data() ||
-      (*type->properties())[0].type().enum_entries()[0].name != "First" ||
-      std::get<std::int64_t>((*type->properties())[0].type().enum_entries()[0].data.payload) != -1)
+  if (!type || (*type.properties())[0].type().id() != e::runtime_type_of<mode>() ||
+      (*type.properties())[0].type().enum_entries().size() != 2 ||
+      (*type.properties())[0].type().enum_entries().data() !=
+          (*type.properties())[1].type().enum_entries().data() ||
+      (*type.properties())[0].type().enum_entries()[0].name != "First" ||
+      std::get<std::int64_t>((*type.properties())[0].type().enum_entries()[0].data.payload) != -1)
     return false;
   if (!unknown_view->type().enum_entries().empty())
     return false;
@@ -305,23 +305,22 @@ bool type_queries() {
     return false;
   auto default_float = m::type_of<float>();
   if (!default_float || !m::find_type(e::runtime_type_of<float>()) ||
-      !m::find_type(default_float->guid()))
+      !m::find_type(default_float.guid()))
     return false;
   auto typed = m::type_of<const query_model&>(*registry);
   auto by_id = m::find_type(*registry, e::runtime_type_of<query_model>());
   auto by_guid = m::find_type(*registry, query_model::type_guid);
-  if (!typed || !by_id || !by_guid || typed->guid() != by_id->guid() ||
-      typed->id() != by_guid->id())
+  if (!typed || !by_id || !by_guid || typed.guid() != by_id->guid() || typed.id() != by_guid->id())
     return false;
-  auto named = typed->find_property("count");
-  auto numbered = typed->find_property(m::property_id{2});
-  if (typed->name() != query_model::type_name || !named || !numbered ||
+  auto named = typed.find_property("count");
+  auto numbered = typed.find_property(m::property_id{2});
+  if (typed.name() != query_model::type_name || !named || !numbered ||
       named.id() != numbered.id() || named.type().id() != e::runtime_type_of<std::int8_t>() ||
-      typed->find_property("missing") || typed->find_property(m::property_id{}) ||
-      m::type{}.find_property("count") || default_float->find_property("count") ||
+      typed.find_property("missing") || typed.find_property(m::property_id{}) ||
+      m::type{}.find_property("count") || default_float.find_property("count") ||
       !m::type{}.name().empty())
     return false;
-  auto props = typed->properties();
+  auto props = typed.properties();
   if (!props || props->size() != 2 || (*props)[0].type().kind() != m::type_kind::sequence ||
       (*props)[1].type().id() != e::runtime_type_of<std::int8_t>())
     return false;
@@ -332,7 +331,7 @@ bool type_queries() {
       element->enum_entries().data() != enumeration->enum_entries().data())
     return false;
   auto scalar = m::type_of<float>(*registry);
-  if (!scalar || !m::find_type(*registry, scalar->guid()) || !m::type_of<settings>(*registry) ||
+  if (!scalar || !m::find_type(*registry, scalar.guid()) || !m::type_of<settings>(*registry) ||
       m::find_type(*registry, e::runtime_type_of<settings>()).error() != e::error::not_found ||
       m::find_type(*registry, e::guid{}).error() != e::error::not_found ||
       m::find_type(m::registry_ref{}, e::runtime_type_of<float>()).error() !=
@@ -341,8 +340,8 @@ bool type_queries() {
   // 类型视图保活注册表，但不要求对象实例存活。
   std::weak_ptr<m::type_registry_state> weak = *registry;
   registry = e::error::not_found;
-  return !weak.expired() && typed->properties()->size() == 2 &&
-         typed->name() == query_model::type_name && named.name() == "count";
+  return !weak.expired() && typed.properties()->size() == 2 &&
+         typed.name() == query_model::type_name && named.name() == "count";
 }
 struct reference_target {
   inline static int alive = 0;
@@ -710,7 +709,7 @@ bool property_handles() {
   auto type = m::type_of<shared_probe>(*first);
   if (!view || !foreign || !unrelated || !type)
     return false;
-  auto fields = type->properties();
+  auto fields = type.properties();
   if (!fields || fields->size() != 1)
     return false;
   auto field = (*fields)[0];
@@ -739,7 +738,7 @@ bool property_handles() {
   *first = {};
   *view = {};
   *unrelated = {};
-  *type = {};
+  type = {};
   *fields = {};
   *member = {};
   if (weak.expired() || iterator->name() != "number" || field.name() != "number")

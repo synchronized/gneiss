@@ -166,8 +166,7 @@ bool valid_binding(const property_binding& binding) noexcept {
 [[nodiscard]] meta::type record_type(const registry_ref& registry,
                                      const property_record& property) noexcept {
   if (property.accessor.access) {
-    auto found = detail::resolve_type(registry, *property.accessor.access);
-    return found ? *found : meta::type{};
+    return detail::resolve_type(registry, *property.accessor.access);
   }
   const auto id =
       property.accessor.enum_type ? property.accessor.enum_type : property.accessor.object_type;
@@ -521,7 +520,7 @@ public:
     }
   }
 
-  result<meta::type> resolve_access(const detail::type_ops& access) const noexcept try {
+  meta::type resolve_access(const detail::type_ops& access) const noexcept try {
     std::shared_lock lock(mutex_);
     const type_record* record = nullptr;
     if (is_frozen_) {
@@ -537,7 +536,7 @@ public:
     }
     return detail::type_factory::make(owner(), &access, record);
   } catch (...) {
-    return error::internal;
+    return detail::type_factory::make(owner(), &access);
   }
 
   template <class Key> result<meta::type> lookup_type(Key key) const noexcept try {
@@ -813,8 +812,8 @@ result<meta::type> find_type(const registry_ref& registry, engine::guid id) noex
   return registry ? registry->lookup_type(id) : result<meta::type>{error::invalid_handle};
 }
 namespace detail {
-result<meta::type> resolve_type(const registry_ref& registry, const type_ops& access) noexcept {
-  return registry ? registry->resolve_access(access) : result<meta::type>{error::invalid_handle};
+meta::type resolve_type(const registry_ref& registry, const type_ops& access) noexcept {
+  return registry ? registry->resolve_access(access) : type_factory::make({}, &access);
 }
 }
 result<registry_ref> create_registry() noexcept {

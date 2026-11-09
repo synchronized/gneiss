@@ -15,9 +15,9 @@ namespace gneiss::engine::meta {
 GNEISS_API result<meta::type> find_type(const registry_ref&, engine::type_id) noexcept;
 GNEISS_API result<meta::type> find_type(const registry_ref&, engine::guid) noexcept;
 namespace detail {
-GNEISS_API result<meta::type> resolve_type(const registry_ref&, const type_ops&) noexcept;
+GNEISS_API meta::type resolve_type(const registry_ref&, const type_ops&) noexcept;
 }
-template <class T> result<meta::type> type_of(const registry_ref& registry) noexcept {
+template <class T> meta::type type_of(const registry_ref& registry) noexcept {
   return detail::resolve_type(registry, detail::ops_of<std::remove_cvref_t<T>>());
 }
 /** 深拷贝枚举显示项；同一 C++ 类型只登记一次，冻结后禁止修改。 */
@@ -89,11 +89,9 @@ inline result<property_binding> find_object_property(guid type, property_id prop
   return find_object_property(*registry, type, property);
 }
 
-template <class T> result<meta::type> type_of() noexcept {
+template <class T> meta::type type_of() noexcept {
   auto registry = default_registry();
-  if (!registry)
-    return registry.error();
-  return type_of<T>(*registry);
+  return type_of<T>(registry ? *registry : registry_ref{});
 }
 inline result<meta::type> find_type(engine::type_id id) noexcept {
   auto registry = default_registry();

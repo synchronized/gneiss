@@ -81,8 +81,10 @@ int main(int argc, char** argv) {
       e::initialize_meta(register_project) != e::error::invalid_state || calls != 1)
     return 3;
   auto again = m::default_registry();
-  if (!again || *again != *initial || !m::type_of<sample>() || !m::type_of<e::math::transform>() ||
-      !m::type_of<e::camera_description>() || !m::type_of<e::material_description>())
+  if (!again || *again != *initial || !m::type_of<sample>().registered() ||
+      !m::type_of<e::math::transform>().registered() ||
+      !m::type_of<e::camera_description>().registered() ||
+      !m::type_of<e::material_description>().registered())
     return 4;
   sample object;
   auto view = m::const_instance::from_object(e::runtime_type_of<sample>(), &object);
@@ -118,7 +120,8 @@ int main(int argc, char** argv) {
   for (int i = 0; i < 4; ++i) {
     threads.emplace_back([&] {
       auto shared = m::default_registry();
-      if (!shared || *shared != *initial || e::initialize_meta().failed() || !m::type_of<sample>())
+      if (!shared || *shared != *initial || e::initialize_meta().failed() ||
+          !m::type_of<sample>().registered())
         good = false;
     });
   }

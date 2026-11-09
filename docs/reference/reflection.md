@@ -130,7 +130,8 @@ return gneiss::engine::meta::registration<math::transform>{}
 `type_count`、`type_at` 枚举冻结类型；`find_type`、`find_property` 返回句柄。
 `find_type` 支持稳定 GUID 和运行期 `type_id` 两种入口，指向同一份记录。
 `register_type<T>` 从 `type_identity<std::remove_cvref_t<T>>` 补齐名称、GUID 和运行期 ID；
-显式名称或 GUID 与非空 traits 身份冲突时返回 `invalid_argument`。`type_of<T>` 解析规范化 C++ 类型，未注册对象返回 not_found，基础值无需重复登记。
+显式名称或 GUID 与非空 traits 身份冲突时返回 `invalid_argument`。`type_of<T>` 解析规范化 C++ 类型并直接返回类型句柄。未注册类型仍提供原生能力；
+通过 `registered()` 判断是否关联已发布注册数据，基础值无需重复登记。
 模板去除顶层 cv/ref；注册 `void` 或传入不匹配的非空 `type_id` 返回 `invalid_argument`。
 不对应 C++ 类型的描述保留空 `type_id`，仍可按 GUID 查询。运行期 ID 不进入文件或 IPC。
 `property_definition` 的编号和内存访问约束分别使用 `property_id` 与 `property_access`；`bind_property` 接收强类型字段编号。
@@ -259,7 +260,7 @@ Scene / Prefab 的结构编解码继续使用专用实现。
 
 ## 元数据与属性值查询
 
-`find_type`、`type_of<T>`、`type_at` 返回 `result<type>`；
+`type_of<T>` 直接返回 `type`；`find_type`、`type_at` 暂时返回 `result<type>`；
 注册表级与类型句柄上的 `find_property` 均返回可判空的 `property`；
 无冻结记录、未知类型或未知属性返回空句柄。属性读取和写入另行报告操作失败。
 `serialization::find_policies` 返回 `result<serialization::type_policies>`。

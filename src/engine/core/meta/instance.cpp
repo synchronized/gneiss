@@ -5,8 +5,7 @@
 namespace gneiss::engine::meta {
 meta::type const_instance::type() const noexcept {
   if (access_) {
-    auto found = detail::resolve_type(registry_, *access_);
-    return found ? *found : meta::type{};
+    return detail::resolve_type(registry_, *access_);
   }
   auto found = cpp_type_ ? find_type(registry_, cpp_type_) : find_type(registry_, type_);
   return found ? *found : meta::type{};
@@ -294,15 +293,15 @@ result<const_instance> const_instance::from_access(registry_ref registry,
     return error::invalid_argument;
   auto description = detail::resolve_type(registry, access);
   if (!description)
-    return description.error();
+    return error::invalid_state;
   const_instance out;
   out.registry_ = std::move(registry);
   out.data_ = data;
-  out.type_ = description->guid();
-  out.cpp_type_ = description->id();
-  out.kind_ = description->kind();
-  out.scalar_kind_ = description->scalar_kind();
-  out.enumeration_ = description->is_enum();
+  out.type_ = description.guid();
+  out.cpp_type_ = description.id();
+  out.kind_ = description.kind();
+  out.scalar_kind_ = description.scalar_kind();
+  out.enumeration_ = description.is_enum();
   out.access_ = &access;
   return out;
 }

@@ -19,6 +19,9 @@ static_assert(sizeof(gneiss::engine::meta::property) ==
 static_assert(sizeof(gneiss::engine::meta::type) ==
               sizeof(gneiss::engine::meta::registry_ref) + 2 * sizeof(void*));
 
+static_assert(
+    std::same_as<decltype(gneiss::engine::meta::type_of<int>()), gneiss::engine::meta::type>);
+
 bool typed_registration() {
   namespace e = gneiss::engine;
   using e::error;
@@ -32,9 +35,7 @@ bool typed_registration() {
   const gneiss::engine::meta::type_definition definition{
       .guid = object_guid, .schema_version = 1, .name = "Object", .properties = {}};
   gneiss::engine::meta::type info;
-  if (gneiss::test_support::assign_value(gneiss::engine::meta::type_of<reflected_object>(registry),
-                                         info)
-          .failed() ||
+  if (!(info = gneiss::engine::meta::type_of<reflected_object>(registry)) ||
       info.guid() != e::guid{} ||
       gneiss::engine::meta::register_type<reflected_object>(registry, definition).failed())
     return false;
@@ -68,18 +69,12 @@ bool typed_registration() {
   std::uint32_t count = 0;
   if (gneiss::test_support::assign_value(gneiss::engine::meta::type_count(registry), count)
           .failed() ||
-      count != 3 ||
-      gneiss::test_support::assign_value(
-          gneiss::engine::meta::type_of<const reflected_object&>(registry), info)
-          .failed() ||
+      count != 3 || !(info = gneiss::engine::meta::type_of<const reflected_object&>(registry)) ||
       !info || !info.registered() || info.guid() != object_guid ||
       gneiss::test_support::assign_value(gneiss::engine::meta::find_type(registry, object_guid),
                                          info)
           .failed() ||
-      info.name() != "Object" ||
-      gneiss::test_support::assign_value(gneiss::engine::meta::type_of<other_object>(registry),
-                                         info)
-          .failed() ||
+      info.name() != "Object" || !(info = gneiss::engine::meta::type_of<other_object>(registry)) ||
       info.guid() != other_guid ||
       gneiss::test_support::assign_value(gneiss::engine::meta::type_at(registry, 1), info)
           .failed() ||
@@ -88,9 +83,7 @@ bool typed_registration() {
   if (gneiss::test_support::assign_value(gneiss::engine::meta::find_type(registry, e::type_id{}),
                                          info) != error::not_found ||
       info.guid() != data_guid ||
-      gneiss::test_support::assign_value(
-          gneiss::engine::meta::type_of<unregistered_object>(registry), info)
-          .failed() ||
+      !(info = gneiss::engine::meta::type_of<unregistered_object>(registry)) ||
       info.id() != e::runtime_type_of<unregistered_object>() || info.registered() || info.guid() ||
       gneiss::engine::meta::register_type<reflected_object>(registry, definition) !=
           error::invalid_state)
@@ -100,9 +93,7 @@ bool typed_registration() {
   for (std::size_t i = 0; i < readers.size(); ++i) {
     readers[i] = std::thread([&, i] {
       gneiss::engine::meta::type metadata;
-      queried[i] = gneiss::test_support::assign_value(
-                       gneiss::engine::meta::type_of<reflected_object>(registry), metadata) ==
-                       error::success &&
+      queried[i] = (metadata = gneiss::engine::meta::type_of<reflected_object>(registry)) &&
                    metadata.guid() == object_guid;
     });
   }
@@ -112,10 +103,8 @@ bool typed_registration() {
     if (!success)
       return false;
   registry.reset();
-  return gneiss::test_support::assign_value(
-             gneiss::engine::meta::type_of<reflected_object>(registry), info) ==
-             error::invalid_handle &&
-         info.id() == e::runtime_type_of<unregistered_object>();
+  return (info = gneiss::engine::meta::type_of<reflected_object>(registry)) && !info.registered() &&
+         info.id() == e::runtime_type_of<reflected_object>();
 }
 
 bool math_registration() {
@@ -126,8 +115,8 @@ bool math_registration() {
     return false;
   auto transform = m::type_of<e::math::transform>(*registry);
   auto camera = m::type_of<e::math::camera_settings>(*registry);
-  if (!transform || !camera || transform->properties()->size() != 3 ||
-      camera->properties()->size() != 3)
+  if (!transform || !camera || transform.properties()->size() != 3 ||
+      camera.properties()->size() != 3)
     return false;
   e::serialization::context context{*registry};
   e::math::camera_settings settings{1.0F, 0.1F, 100.0F};
