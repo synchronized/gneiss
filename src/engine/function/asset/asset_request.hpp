@@ -5,7 +5,7 @@
 #pragma once
 #include "asset_loading.hpp"
 #include "engine/core/result.hpp"
-#include "engine/core/serialization/binding.hpp"
+#include "engine/core/serialization/policy.hpp"
 #include "engine/resource/asset_diagnostic.hpp"
 #include "engine/resource/asset_ref.hpp"
 #include "render_resource.hpp"

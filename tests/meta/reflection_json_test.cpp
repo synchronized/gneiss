@@ -3,6 +3,7 @@
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/policy.hpp"
 #include "engine/core/serialization/serialization.hpp"
 #include "engine/resource/asset_decoder.hpp"
 #include <future>
@@ -46,8 +47,7 @@ e::error register_sample(const m::registry_ref& registry, std::string_view name 
       .property<&sample::rotation>(m::property_id{9}, "rotation")
       .property<&sample::uv>(m::property_id{11}, "uv")
       .readonly<&sample::computed>(m::property_id{10}, "computed")
-      .serialization()
-      .validate<&validate_sample>()
+      .extend(gneiss::engine::serialization::validation<&validate_sample>)
       .commit();
 }
 struct tracked {
@@ -89,7 +89,7 @@ bool enum_json_contract() {
           .property<&enum_sample::named>(m::property_id{1}, "named",
                                          m::property_flags::enum_name | m::property_flags::required)
           .property<&enum_sample::numeric>(m::property_id{2}, "numeric")
-          .serialization(true)
+          .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
           .commit()
           .failed() ||
       m::freeze(*registry).failed())
@@ -136,8 +136,7 @@ int main() try {
     return 3;
   if (m::registration<tracked>{registry}
           .property<&tracked::value>(m::property_id{1}, "value")
-          .serialization()
-          .validate<&reject>()
+          .extend(gneiss::engine::serialization::validation<&reject>)
           .commit()
           .failed() ||
       m::freeze(registry).failed())
@@ -286,8 +285,7 @@ int main() try {
   auto custom = m::create_registry();
   if (!custom ||
       m::registration<sample>{*custom}
-          .serialization()
-          .serialization<&custom_encode, &custom_decode>()
+          .extend(gneiss::engine::serialization::codec<&custom_encode, &custom_decode>)
           .commit()
           .failed() ||
       m::freeze(*custom).failed())
@@ -304,8 +302,7 @@ int main() try {
   if (!fallback ||
       m::registration<sample>{*fallback}
           .property<&sample::enabled>(m::property_id{1}, "enabled")
-          .serialization<&custom_encode, nullptr>()
-          .serialization()
+          .extend(gneiss::engine::serialization::codec<&custom_encode, nullptr>)
           .commit()
           .failed() ||
       m::freeze(*fallback).failed())
@@ -319,7 +316,6 @@ int main() try {
                                 .property<&sample::enabled>(m::property_id{1}, "enabled",
                                                             m::property_flags::read_only |
                                                                 m::property_flags::required)
-                                .serialization()
                                 .commit() != e::error::invalid_argument)
     return 24;
   return 0;

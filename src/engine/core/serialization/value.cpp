@@ -6,9 +6,9 @@
 #include "engine/core/meta/reference_view.hpp"
 #include "engine/core/meta/sequence_view.hpp"
 #include "engine/core/meta/variant_view.hpp"
-#include "engine/core/serialization/binding.hpp"
 #include "engine/core/serialization/detail/context_access.hpp"
 #include "engine/core/serialization/detail/traversal.hpp"
+#include "engine/core/serialization/policy.hpp"
 #include <algorithm>
 #include <unordered_set>
 namespace gneiss::engine::serialization {
@@ -35,13 +35,13 @@ struct capture_state {
     case type_kind::object: {
       if (!source.guid())
         return error::unsupported;
-      auto policy = find_serialization(source.registry(), source.type_id());
-      if (policy && !policy->reflected && (policy->encode || policy->decode))
-        return error::unsupported;
+      auto policy = find_policies(source.registry(), source.type_id());
       record_value_data record{source.guid(), {}};
       auto fields = source.properties();
       if (!fields)
         return fields.error();
+      if (policy && fields->empty() && (policy->content.encode || policy->content.decode))
+        return error::unsupported;
       for (const auto& field : *fields) {
         if (!has_flags(field.capabilities(), property_capabilities::writable))
           continue;
@@ -159,17 +159,17 @@ struct capture_state {
       auto target_type = source.type().element_type();
       if (!target_type)
         return target_type.error();
-      auto binding = find_serialization(source.registry(), target_type->id());
+      auto binding = find_policies(source.registry(), target_type->id());
       auto owner = reference_slot->owner();
       if (!owner)
         return owner.error();
-      if (binding && binding->capture_reference) {
-        auto ref = binding->capture_reference(target_type->guid(), owner->get());
+      if (binding && binding->reference.capture) {
+        auto ref = binding->reference.capture(target_type->guid(), owner->get());
         return ref ? result<engine::value>{engine::value{*ref}}
                    : result<engine::value>{ref.error()};
       }
       // 自定义外部引用不能静默按内嵌对象复制。
-      if (binding && binding->encode_reference)
+      if (binding && binding->reference.encode)
         return error::unsupported;
       if (!active.insert(owner->get()).second)
         return error::invalid_argument;
@@ -232,12 +232,12 @@ struct restore_state {
         if (has_flags(field.capabilities(), property_capabilities::writable) &&
             !seen.contains(field.id().get()))
           return error::invalid_argument;
-      auto binding = find_serialization(target.registry(), target.type().id());
-      if (binding && binding->validate) {
+      auto binding = find_policies(target.registry(), target.type().id());
+      if (binding && binding->validation.validate) {
         auto address = target.object_data();
         if (!address)
           return address.error();
-        return binding->validate(*address).error;
+        return binding->validation.validate(*address).error;
       }
       return error::success;
     }

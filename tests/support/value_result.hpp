@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/result.hpp"
-#include "engine/core/serialization/binding.hpp"
+#include "engine/core/serialization/policy.hpp"
 #include "engine/function/asset/asset_loading.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 namespace gneiss::test_support {

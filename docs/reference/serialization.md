@@ -46,11 +46,11 @@ auto status = ser::serialize(ctx, description, output_writer);
 内嵌引用与多态类型信封、引用环/深度检查、构造与校验、字段错误路径。
 它不包含 yyjson，也不选择 JSON codec。
 
-类型通过 `.serialization()` 启用共享字段遍历；字段开关和未知字段策略属于通用绑定。
-特殊类型通过 `.serialization<Encode, Decode>()` 注册通用操作，按方向优先于字段遍历。
+类型注册字段后默认支持共享遍历；未知字段处理通过 object_policy 扩展声明。
+特殊类型通过 `.extend(serialization::codec<Encode, Decode>)` 注册 content_codec，按方向优先于字段遍历。
 编码签名为 `(const context&, writer&, const T&) -> result<writer::node, diagnostic>`；
 解码签名为 `(const context&, reader&, reader::node) -> result<T, diagnostic>`。
-允许 nullptr 表示缺少某方向，该方向若启用字段遍历则回退，否则返回 unsupported。
+允许 nullptr 表示缺少某方向，该方向回退到字段遍历；解码仍需要类型构造能力。
 自定义编码返回对象节点，解码返回独立对象；异常由序列化边界转换为错误。
 Meta 不包含 JSON 类型或格式专用回调，reader/writer 不承担类型 codec 注册。
 value 通过 variant_traits 接入通用 variant 遍历，对象分支复用通用多态引用，无专用 codec。
@@ -101,7 +101,8 @@ Material、Action Map、Scene、Prefab、Texture 的格式名、版本、大小�
 ## 定义归属
 
 错误值为 `serialization::diagnostic`，定义在 `diagnostic.hpp`；
-类型的编解码规则为 `serialization::binding`，定义在 `binding.hpp`。
+内容编解码、引用表示和对象约束分别由 content_codec、reference_policy、object_policy、
+validation_policy 表达，定义在 `policy.hpp`。Meta 仅保存这些扩展，不解释内容。
 类型构造与继承转换属于 Meta 的 object_ops，不存放于编解码绑定。
 内建反射对象根类型的注册实现在 `meta/builtin_registration.cpp`；value 是内建 variant 包装，
 无需登记自己的字段或 codec。JSON 节点适配位于 `detail/json_adapter.hpp`，

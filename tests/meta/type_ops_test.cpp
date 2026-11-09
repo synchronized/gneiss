@@ -3,6 +3,7 @@
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/policy.hpp"
 #include <cstdio>
 
 namespace e = gneiss::engine;
@@ -126,7 +127,6 @@ int main() {
   CHECK(m::registration<document>{*registry}
             .property<&document::sequence>(m::property_id{1}, "sequence")
             .property<&document::mapping>(m::property_id{2}, "mapping")
-            .serialization()
             .commit()
             .ok());
   CHECK(m::registration<non_default>{*registry}
@@ -136,7 +136,6 @@ int main() {
   CHECK(m::registration<variant_document>{*registry}
             .property<&variant_document::entries>(m::property_id{1}, "entries")
             .property<&variant_document::selected>(m::property_id{2}, "selected")
-            .serialization()
             .commit()
             .ok());
   CHECK(m::registration<throwing_value>{*registry}.commit().ok());

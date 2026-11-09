@@ -36,7 +36,7 @@ Meta 的类型与函数统一位于 `gneiss::engine::meta`，不保留旧命名�
 | `meta/registration.hpp` | C++ Builder 注册入口与模板身份适配 |
 | `meta/builtin_registration.cpp` | 内建 meta::object 多态根类型注册 |
 | `serialization/diagnostic.hpp` | 编解码错误、路径与位置 |
-| `serialization/binding.hpp` | 字段遍历、多态保存策略、自定义编解码与校验 |
+| `serialization/policy.hpp` | 内容编解码、引用表示、对象及校验策略 |
 | `serialization/json.hpp` | JSON 文本、字节与对象入口 |
 
 内建组件身份位于 `engine/function/world/component_identity.hpp`，不属于通用 Meta。
@@ -182,19 +182,20 @@ Registry 使用原生共享引用管理，不经全局句柄表。独立表在�
 
 ## 类型编解码
 
-`serialization/binding.hpp` 提供可选 `serialization::binding`，
+`serialization/policy.hpp` 提供独立的 content_codec、reference_policy、object_policy 和 validation_policy，
 `serialization/diagnostic.hpp` 提供拥有错误位置文本的 `serialization::diagnostic`。能力与类型、字段一起登记到同一 Registry，不依赖资源层。
-`registration<T>::serialization<Encode, Decode>()` 推导类型适配；任一函数可为 nullptr，
+`registration<T>::extend(serialization::codec<Encode, Decode>)` 推导类型适配；任一函数可为 nullptr，
 但至少具备一个方向。同一 builder 不允许重复设置。
 每个类型当前只登记一组编解码函数，自定义文件格式标识及版本由 codec 自行校验，不提供任意 capability 或通用对象工厂。
 
-`serialization::find_serialization` 按运行期 type_id 查询冻结 Registry 中的扩展函数表，不登记重复的格式名称。
+`serialization::find_policies` 按运行期 type_id 查询冻结 Registry 中的扩展函数表，不登记重复的格式名称。
 `serialization::json::serialize_bytes<T>` 返回 `result<vector<byte>, serialization::diagnostic>`，`deserialize<T>` 返回
 `result<T, serialization::diagnostic>`。成功结果拥有值，失败结果仅携带错误码、路径、字节偏移和消息。
 `serialization::diagnostic.error` 保存错误码；bad_alloc 转为 out_of_memory，其余异常转为 internal。
 Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `result<ref<void>, serialization::diagnostic>`，
 模板接口按已登记的运行期类型 ID 找到回调后移出具体对象，不要求默认构造或移动赋值。
-未冻结返回 not_ready，未知类型返回 not_found，缺少方向返回 unsupported，空 Registry 返回 invalid_handle。
+未冻结返回 not_ready，未知类型返回 not_found，空 Registry 返回 invalid_handle。
+缺少自定义方向时使用字段遍历；解码若既无自定义函数也无构造能力，返回 unsupported。
 回调在 Registry 锁外执行，要求可并发处理不同对象；对象与输入只在调用期间借用。
 输入大小限制由文件读取入口控制，反射不负责 I/O、缓存、任务或 GPU 上传。
 
@@ -207,9 +208,8 @@ codec 文件只提供编解码入口。首次失败立即返回，不回滚已�
 
 ## 反射 JSON 与对象校验
 
-`registration<T>.serialization()` 显式启用共享字段遍历，要求 T 可默认构造。
-已登记的自定义 encode/decode 按方向优先；只有缺少该方向函数时才回退到反射 JSON。
-同一 Builder 可各调用一次自定义和反射注册，两者顺序不限；未启用反射的类型保持原行为。
+注册字段即参与共享遍历，不再需要启用开关。可默认构造的 C++ 类型自动登记构造能力。
+已登记的自定义 encode/decode 按方向优先；缺少该方向函数时回退到字段遍历。
 
 ```cpp
 // math::camera_settings 已独立注册 fov / near / far 和参数校验。
@@ -218,7 +218,6 @@ meta::registration<camera_description>{}
         meta::property_id{1}, "settings", meta::property_flags::required)
     .property<&camera_description::is_primary>(
         meta::property_id{4}, "is_primary", meta::property_flags::required)
-    .serialization()
     .commit();
 ```
 
@@ -234,7 +233,7 @@ null 不等于缺失。只读属性不输出，也不从输入写入；read_only
 字段错误路径使用 JSON Pointer 转义，语法错误提供字节偏移。
 沿用属性访问语义：getter 返回非法值为 internal，输入值非法为 invalid_argument。
 
-`.validate<Fn>()` 接受返回 error 或 serialization::diagnostic 的只读校验函数。
+`.extend(serialization::validation<Fn>)` 接受返回 error 或 serialization::diagnostic 的只读校验函数。
 成功诊断的 error 为 success。编码前、解码填充结束后各校验一次，适用于自定义 codec 与反射 JSON。
 解码在独立临时对象中写属性，失败析构临时对象；访问器不得产生需要回滚的外部副作用。
 校验器和 codec 异常在分派边界转换为 out_of_memory 或 internal。
@@ -258,7 +257,7 @@ Scene / Prefab 的结构编解码继续使用专用实现。
 ## 元数据与属性值查询
 
 `find_type`、`type_of<T>`、`type_at` 返回 `result<type>`；
-`find_property` 返回 `result<property>`，`find_serialization` 返回 `result<serialization::binding>`。
+`find_property` 返回 `result<property>`，`serialization::find_policies` 返回 `result<serialization::type_policies>`。
 句柄保活冻结 Registry；名称借用该表，不保活业务对象。
 `read_property` 返回 `result<value>`；成功快照拥有字符串等数据，可在 Registry 释放后使用。
 getter 失败、异常或返回不匹配／无效值时仅返回错误，不交付部分属性快照。
@@ -404,7 +403,7 @@ Scene/Prefab 不缓存来源版本或派生依赖列表，依赖由组件描述�
 组件动态分派使用通用引用反射，Prefab 组件覆盖按成员反射，属性覆盖按 key/value 成员反射；保存直接从描述生成文件，
 不合并旧 JSON 或保留未知扩展字段。Scene 的 parent 键映射原生 object_address，object/source 均通过 GUID 的通用规则编解码；具体见场景格式参考。
 
-`serialization(true)` 启用严格字段检查；默认 false 保留忽略未知字段行为，两者都拒绝重复键。
+`.metadata(serialization::object_policy{.reject_unknown_fields = true})` 启用严格字段检查；默认 false 保留忽略未知字段行为，两者都拒绝重复键。
 特殊类型通过通用 reader/writer 操作注册，签名和上下文规则见[序列化接口](serialization.md)。
 普通类型不注册格式专用 codec；资源文件包装在 asset_file 入口执行。
 内部 JSON 适配头为 serialization/detail/json_adapter.hpp，IPC 使用 read/write 或 read_value/write_value。
@@ -595,7 +594,7 @@ instance::assign 对可直接访问的引用槽接受兼容对象或空引用，
 Meta 不再提供含糊的 serialize/deserialize 入口。
 
 注册表保存构造、继承和不可变扩展元数据；Serialization 从扩展解释编解码与校验策略。
-`serialization()` 启用字段遍历，`serialization<Encode, Decode>()` 提供特殊类型的通用操作。
+字段遍历默认启用，`.extend(serialization::codec<Encode, Decode>)` 提供特殊类型的通用操作。
 资源二进制协议通过 asset_decoder 显式注入解码函数。
 
 字段遍历已独立于 JSON 后端，接口与限制见 [序列化](serialization.md)。
@@ -605,8 +604,8 @@ Meta 不再提供含糊的 serialize/deserialize 入口。
 `type_definition.object` 保存 `meta::object_ops`，通过 `find_object_ops` 查询。
 注册表冻结前返回 not_ready，未知类型返回 not_found，空注册表返回 invalid_handle。
 已登记但没有相应能力的类型返回空函数项；调用前须检查函数项。
-`serialization::binding` 存在类型扩展元数据中，通过
-`serialization::find_serialization` 查询；`type_definition` 不定义专用序列化字段。
+各序列化策略分别存在类型扩展元数据中，通过
+`serialization::find_policies` 查询；`type_definition` 不定义专用序列化字段。
 两者由同一注册表保存；继承关系不自动启用多态保存策略，校验时机保持不变。
 
 ### 类型与属性扩展元数据

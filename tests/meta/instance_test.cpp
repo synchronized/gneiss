@@ -3,6 +3,7 @@
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/policy.hpp"
 #include <future>
 namespace e = gneiss::engine;
 namespace m = e::meta;
@@ -49,13 +50,11 @@ bool object_values() {
       m::registration<shared_probe>{*registry}
           .property<&shared_probe::number>(m::property_id{1}, "number")
           .property<&shared_probe::nested>(m::property_id{2}, "nested")
-          .serialization()
           .commit()
           .failed() ||
       m::registration<shared_holder>{*registry}
           .property<&shared_holder::item>(m::property_id{1}, "item")
           .property<&shared_holder::another>(m::property_id{2}, "another")
-          .serialization()
           .commit()
           .failed() ||
       m::freeze(*registry).failed())
@@ -374,13 +373,11 @@ bool reference_properties() {
   if (m::registration<reference_target>{registry}
           .property<&reference_target::number>(m::property_id{1}, "number")
           .property<&reference_target::next>(m::property_id{2}, "next")
-          .serialization()
           .commit()
           .failed() ||
       m::registration<reference_owner>{registry}
           .property<&reference_owner::target>(m::property_id{1}, "target")
           .property<&reference_owner::readonly>(m::property_id{2}, "readonly")
-          .serialization()
           .commit()
           .failed() ||
       m::freeze(registry).failed())
@@ -494,16 +491,17 @@ bool polymorphic_references() {
   if (!created)
     return false;
   auto registry = *created;
-  if (m::registration<polymorphic_base>{registry}.polymorphic().commit().failed() ||
+  if (m::registration<polymorphic_base>{registry}
+          .metadata(gneiss::engine::serialization::reference_policy{.polymorphic = true})
+          .commit()
+          .failed() ||
       m::registration<polymorphic_child>{registry}
           .base<polymorphic_base>()
           .property<&polymorphic_child::number>(m::property_id{1}, "number")
-          .serialization()
           .commit()
           .failed() ||
       m::registration<reference_target>{registry}
           .property<&reference_target::number>(m::property_id{1}, "number")
-          .serialization()
           .commit()
           .failed() ||
       m::freeze(registry).failed())
@@ -630,7 +628,6 @@ bool bound_property_contract() {
   if (!registry ||
       m::registration<checked_value>{*registry}
           .property<&checked_value::number>(m::property_id{1}, "number")
-          .serialization()
           .commit()
           .failed() ||
       m::registration<bound_properties>{*registry}
@@ -638,7 +635,6 @@ bool bound_property_contract() {
                                                                                   "values")
           .property<&bound_properties::get_child, &bound_properties::set_child>(m::property_id{2},
                                                                                 "child")
-          .serialization()
           .commit()
           .failed() ||
       m::freeze(*registry).failed())

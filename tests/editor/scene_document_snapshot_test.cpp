@@ -17,7 +17,6 @@ e::error register_links() {
   return e::meta::registration<linked_description>{}
       .base<e::component_description_base>()
       .property<&linked_description::links>(e::meta::property_id{1}, "links")
-      .serialization()
       .commit();
 }
 int main() {

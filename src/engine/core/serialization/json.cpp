@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/meta/instance.hpp"
-#include "engine/core/serialization/binding.hpp"
 #include "engine/core/serialization/detail/json_adapter.hpp"
 #include "engine/core/serialization/detail/traversal.hpp"
+#include "engine/core/serialization/policy.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -438,11 +438,9 @@ write_fields_object(const context& ctx, yyjson_mut_doc* doc, type_id id,
   if (!selected)
     return failure(selected.error());
   operation_scope operation{ctx, true};
-  auto binding = find_serialization(*selected, id);
+  auto binding = find_policies(*selected, id);
   if (!binding)
     return failure(binding.error());
-  if (!binding->reflected)
-    return failure(error::unsupported);
   if (!object || !doc)
     return failure(error::invalid_argument);
   if (context_access::depth(ctx) > ctx.maximum_depth())
@@ -460,11 +458,11 @@ read_fields_object(const context& ctx, yyjson_val* input, type_id id,
   if (!selected)
     return failure(selected.error());
   operation_scope operation{ctx, true};
-  auto binding = find_serialization(*selected, id);
+  auto binding = find_policies(*selected, id);
   if (!binding)
     return failure(binding.error());
   auto ops = find_object_ops(*selected, id);
-  if (!binding->reflected || !ops || !ops->construct)
+  if (!ops || !ops->construct)
     return failure(error::unsupported);
   if (context_access::depth(ctx) > ctx.maximum_depth())
     return failure(error::invalid_argument);
@@ -523,11 +521,11 @@ write_fields(const context& ctx, yyjson_mut_doc* doc, const const_instance& view
   auto address = view.object_data();
   if (!address)
     return failure(address.error());
-  auto binding = find_serialization(*selected, view.type().id());
+  auto binding = find_policies(*selected, view.type().id());
   if (!binding)
     return failure(binding.error());
-  if (binding->validate) {
-    auto status = binding->validate(*address);
+  if (binding->validation.validate) {
+    auto status = binding->validation.validate(*address);
     if (status.error.failed())
       return status;
   }
@@ -547,11 +545,11 @@ serialization::diagnostic read_fields(const context& ctx, yyjson_val* input, con
   auto decoded = read_fields_object(ctx, input, view.type().id(), ignored);
   if (!decoded)
     return std::move(decoded).error();
-  auto binding = find_serialization(*selected, view.type().id());
+  auto binding = find_policies(*selected, view.type().id());
   if (!binding)
     return failure(binding.error());
-  if (binding->validate && !(ctx.references() && ctx.references()->collecting())) {
-    auto status = binding->validate(decoded->get());
+  if (binding->validation.validate && !(ctx.references() && ctx.references()->collecting())) {
+    auto status = binding->validation.validate(decoded->get());
     if (status.error.failed())
       return status;
   }

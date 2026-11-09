@@ -3,7 +3,7 @@
 #include "engine/core/math/camera.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/meta/registration.hpp"
-#include "engine/core/serialization/binding.hpp"
+#include "engine/core/serialization/policy.hpp"
 namespace gneiss::engine::meta {
 namespace {
 template <auto Member> auto get_transform(const math::transform& object) { return object.*Member; }
@@ -38,8 +38,7 @@ error register_math_types(const registry_ref& registry) noexcept {
                     .property<&get_transform<&math::transform::scale>,
                               &set_transform<&math::transform::scale, math::vector3>>(
                         property_id{3}, "scale", property_flags::required)
-                    .serialization()
-                    .validate<&validate_transform>()
+                    .extend(gneiss::engine::serialization::validation<&validate_transform>)
                     .commit();
   if (status.failed())
     return status;
@@ -47,8 +46,7 @@ error register_math_types(const registry_ref& registry) noexcept {
       .property<&math::camera_settings::fov>(property_id{1}, "fov", property_flags::required)
       .property<&math::camera_settings::near>(property_id{2}, "near", property_flags::required)
       .property<&math::camera_settings::far>(property_id{3}, "far", property_flags::required)
-      .serialization()
-      .validate<&validate_camera>()
+      .extend(gneiss::engine::serialization::validation<&validate_camera>)
       .commit();
 }
 }

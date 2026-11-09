@@ -4,7 +4,6 @@
 #include "engine/core/meta/detail/type_ops.hpp"
 #include "engine/core/meta/object.hpp"
 #include "engine/core/meta/registry.hpp"
-#include "engine/core/serialization/binding.hpp"
 #include "engine/core/traits/type_identity.hpp"
 #include <functional>
 #include <new>
@@ -259,16 +258,6 @@ public:
                                  return error::success;
                                }});
   }
-  /** 以本类型声明的引用始终保存实际类型信封；不自动启用派生类的多态声明。 */
-  registration& polymorphic() noexcept {
-    static_assert(std::derived_from<object_type, meta::object>);
-    if (committed_) {
-      status_ = error::invalid_state;
-      return *this;
-    }
-    codec_.polymorphic = true;
-    return *this;
-  }
   /** 注册唯一直接基类；继承属性参与遍历，冻结时拒绝属性 ID 或名称冲突。 */
   template <class Base> registration& base() noexcept {
     static_assert(std::derived_from<object_type, Base> && std::derived_from<Base, meta::object>);
@@ -282,67 +271,21 @@ public:
     };
     return *this;
   }
-  /** 启用格式无关字段遍历；缺失的非必填字段保留默认值，只读字段不持久化。 */
-  registration& serialization(bool reject_unknown_fields = false) noexcept {
-    static_assert(std::is_default_constructible_v<object_type>);
+  /** 按注册对象类型生成扩展；生成错误记录到 commit，不引入消费模块依赖。 */
+  template <class Factory> registration& extend(Factory factory) noexcept {
     if (committed_ || status_.failed())
       return *this;
-    if (codec_.reflected) {
-      status_ = error::invalid_argument;
-      return *this;
-    }
-    codec_.reflected = true;
-    codec_.reject_unknown_fields = reject_unknown_fields;
-    object_.construct = []() -> ref<void> { return make_ref<object_type>(); };
-    return *this;
-  }
-  /** 校验返回 error 或 serialization::diagnostic；不修改对象。 */
-  template <auto Validate> registration& validate() noexcept {
-    if (committed_ || status_.failed())
-      return *this;
-    if (codec_.validate) {
-      status_ = error::invalid_argument;
-      return *this;
-    }
-    codec_.validate = [](const void* object) -> serialization::diagnostic {
-      auto status = std::invoke(Validate, *static_cast<const object_type*>(object));
-      if constexpr (std::is_same_v<decltype(status), error>)
-        return {.error = status};
+    try {
+      auto extension = factory.template operator()<object_type>();
+      if (!extension)
+        status_ = extension.error();
       else
-        return status;
-    };
-    return *this;
-  }
-  /** 通用有类型 codec；借用上下文与后端，允许 nullptr 表示缺少某个方向。 */
-  template <auto Encode, auto Decode> registration& serialization() noexcept {
-    if (committed_ || status_.failed())
-      return *this;
-    if (has_serialization_) {
-      status_ = error::invalid_argument;
-      return *this;
+        status_ = extensions_.insert(std::move(*extension));
+    } catch (const std::bad_alloc&) {
+      status_ = error::out_of_memory;
+    } catch (...) {
+      status_ = error::internal;
     }
-    has_serialization_ = true;
-    if constexpr (!std::is_null_pointer_v<decltype(Encode)>) {
-      auto encode = Encode;
-      if (encode)
-        codec_.encode = [](const serialization::context& ctx, serialization::writer& output,
-                           const void* object) -> result<void*, serialization::diagnostic> {
-          return std::invoke(Encode, ctx, output, *static_cast<const object_type*>(object));
-        };
-    }
-    if constexpr (!std::is_null_pointer_v<decltype(Decode)>) {
-      auto decode = Decode;
-      if (decode)
-        codec_.decode = [](const serialization::context& ctx, serialization::reader& input,
-                           const void* node) -> result<ref<void>, serialization::diagnostic> {
-          auto decoded = std::invoke(Decode, ctx, input, node);
-          if (!decoded)
-            return std::move(decoded).error();
-          return ref<void>{std::make_shared<object_type>(std::move(*decoded))};
-        };
-    }
-    if (!codec_.encode && !codec_.decode)
-      status_ = error::invalid_argument;
     return *this;
   }
   [[nodiscard]] error commit() noexcept {
@@ -362,14 +305,8 @@ public:
       }
       if constexpr (std::derived_from<object_type, meta::object>)
         object_.as_object = [](void* p) -> meta::object* { return static_cast<object_type*>(p); };
-      // 迁移期序列化快捷入口也使用统一扩展存储。
-      if (codec_.encode_reference || codec_.decode_reference || codec_.reflected ||
-          codec_.polymorphic || codec_.encode || codec_.decode || codec_.validate ||
-          codec_.capture_reference) {
-        auto status = extensions_.insert(codec_);
-        if (status.failed())
-          return status;
-      }
+      if constexpr (std::is_default_constructible_v<object_type>)
+        object_.construct = []() -> ref<void> { return make_ref<object_type>(); };
       return register_type<object_type>(registry_,
                                         {.guid = guid_,
                                          .schema_version = version_,
@@ -410,9 +347,7 @@ private:
     return *this;
   }
   object_ops object_{};
-  serialization::binding codec_{};
   meta::metadata extensions_{};
-  bool has_serialization_ = false;
   registry_ref registry_;
   std::vector<entry> entries_;
   std::string name_;

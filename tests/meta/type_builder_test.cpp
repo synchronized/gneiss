@@ -4,6 +4,7 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/sequence_view.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/policy.hpp"
 #include "engine/core/serialization/value.hpp"
 namespace e = gneiss::engine;
 struct sample {
@@ -48,11 +49,8 @@ bool explicit_registration() {
   m::registration<external_model> builder{*registry};
   {
     std::string name = "external_model";
-    builder.name(name)
-        .guid(id)
-        .schema_version(3)
-        .property<&external_model::items>(m::property_id{1}, "items")
-        .serialization();
+    builder.name(name).guid(id).schema_version(3).property<&external_model::items>(
+        m::property_id{1}, "items");
   }
   if (builder.commit().failed() || builder.commit() != e::error::invalid_state ||
       m::freeze(*registry).failed())
@@ -104,12 +102,10 @@ bool runtime_only_registration() {
   if (!registry ||
       m::registration<runtime_child>{*registry}
           .property<&runtime_child::number>(m::property_id{1}, "number")
-          .serialization()
           .commit()
           .failed() ||
       m::registration<runtime_parent>{*registry}
           .property<&runtime_parent::child>(m::property_id{1}, "child")
-          .serialization()
           .commit()
           .failed() ||
       m::registration<runtime_other>{*registry}
@@ -118,8 +114,7 @@ bool runtime_only_registration() {
           .failed() ||
       m::registration<runtime_poly>{*registry}
           .property<&runtime_poly::number>(m::property_id{1}, "number")
-          .polymorphic()
-          .serialization()
+          .metadata(gneiss::engine::serialization::reference_policy{.polymorphic = true})
           .commit()
           .failed() ||
       m::registration<runtime_child>{*registry}.commit() != e::error::invalid_argument ||

@@ -108,7 +108,7 @@ target_sources(
     engine/core/serialization/detail/json_adapter.hpp
     engine/core/serialization/detail/context_access.hpp
     engine/core/serialization/diagnostic.hpp
-    engine/core/serialization/binding.hpp
+    engine/core/serialization/policy.hpp
     engine/core/serialization/context.cpp
     engine/core/serialization/context.hpp
     engine/core/serialization/serialization.cpp

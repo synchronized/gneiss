@@ -6,6 +6,7 @@
 #include "commands/author_property_edit.hpp"
 #include "engine/core/meta/reference_view.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/policy.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/prefab_replay.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -40,17 +41,15 @@ e::error register_reference_meta() {
   status = e::meta::registration<reference_settings>{}
                .property<&reference_settings::amount>(p{1}, "amount")
                .property<&reference_settings::link>(p{2}, "link")
-               .serialization()
-               .validate<[](const reference_settings& v) {
+               .extend(gneiss::engine::serialization::validation<[](const reference_settings& v) {
                  return v.amount >= 0 ? e::error::success : e::error::invalid_argument;
-               }>()
+               }>)
                .commit();
   if (status.failed())
     return status;
   return e::meta::registration<reference_description>{}
       .base<e::component_description_base>()
       .property<&reference_description::settings>(p{1}, "settings")
-      .serialization()
       .commit();
 }
 e::component_operations<reference_description> reference_operations() {

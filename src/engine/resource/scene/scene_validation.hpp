@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/serialization/binding.hpp"
+#include "engine/core/serialization/policy.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 namespace gneiss::engine {
 serialization::diagnostic validate_property_override_key(const prefab_property_override_key&);

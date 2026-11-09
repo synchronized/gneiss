@@ -243,7 +243,9 @@ describe_type/describe_property、type_info/property_info 已删除；
 
 阶段 5 已加入类型/字段扩展元数据基础，见[实现记录](../records/2026-11-09-meta-extension-metadata.md)；
 binding 存储和查询已迁到扩展/Serialization，见[存储迁移记录](../records/2026-11-09-serialization-policy-storage.md)；
-旧 binding 职责、注册快捷方法、flags 和策略消费迁移尚未完成。
+旧 binding、注册快捷方法及 reflected 开关已删除，默认字段遍历和消费调用已迁移，
+见[策略拆分记录](../records/2026-11-09-serialization-policy-split.md)。
+字段策略覆盖、flags 清理及领域校验分类尚未完成。
 
 ## 九、验收矩阵
 

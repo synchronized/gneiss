@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/serialization/detail/traversal.hpp"
-#include "engine/core/serialization/binding.hpp"
+#include "engine/core/serialization/policy.hpp"
 #include <algorithm>
 namespace gneiss::engine::serialization::detail {
 using namespace meta;
@@ -75,27 +75,25 @@ result<writer::node, serialization::diagnostic> encode_nested(const context& ctx
     return failure(error::invalid_argument, "", "嵌套对象超过深度限制");
   if (!object)
     return failure(error::internal);
-  auto binding = find_serialization(registry, id);
+  auto binding = find_policies(registry, id);
   if (!binding)
     return failure(binding.error());
   auto identity = validate_identity(registry, id, object);
   if (identity.error.failed())
     return identity;
-  if (binding->validate) {
-    auto status = binding->validate(object);
+  if (binding->validation.validate) {
+    auto status = binding->validation.validate(object);
     if (status.error.failed())
       return status;
   }
-  if (binding->encode) {
-    auto encoded = binding->encode(ctx, *doc, object);
+  if (binding->content.encode) {
+    auto encoded = binding->content.encode(ctx, *doc, object);
     if (!encoded)
       return std::move(encoded).error();
     if (!doc->is_object(*encoded))
       return failure(error::invalid_argument, "", "嵌套 codec 必须输出对象");
     return encoded;
   }
-  if (!binding->reflected)
-    return failure(error::unsupported);
   return encode_members(ctx, registry, id, object, doc, depth);
 }
 result<writer::node, serialization::diagnostic>
@@ -136,23 +134,23 @@ result<writer::node, serialization::diagnostic> encode_nonobject(const context& 
       return failure(target.error());
     if (target->kind() != type_kind::object)
       return failure(error::unsupported, "", "内嵌引用目标必须是注册对象");
-    auto declared = find_serialization(registry, target->id());
+    auto declared = find_policies(registry, target->id());
     auto actual = result<engine::type_id>{reference_slot->actual_type()};
     if (!declared || !actual)
       return failure(error::invalid_argument);
-    if (declared->encode_reference) {
+    if (declared->reference.encode) {
       auto pointer = cast_base(registry, *actual, target->id(), const_cast<void*>(owned->get()));
       if (!pointer)
         return std::move(pointer).error();
-      return declared->encode_reference(ctx, *doc, *pointer);
+      return declared->reference.encode(ctx, *doc, *pointer);
     }
-    if (!declared->polymorphic && *actual != target->id())
+    if (!declared->reference.polymorphic && *actual != target->id())
       return failure(error::invalid_argument, "", "未声明多态的引用不能保存派生对象");
     auto adjusted = cast_base(registry, *actual, target->id(), nullptr);
     if (!adjusted)
       return std::move(adjusted).error();
-    auto binding = find_serialization(registry, *actual);
-    if (!binding || (!binding->reflected && !binding->encode))
+    auto binding = find_policies(registry, *actual);
+    if (!binding)
       return failure(error::unsupported, "", "引用目标缺少编码器");
     const auto* address = owned->get();
     if (depth > ctx.maximum_depth() || !context_access::active(ctx).insert(address).second)
@@ -162,7 +160,7 @@ result<writer::node, serialization::diagnostic> encode_nonobject(const context& 
 
     if (!content)
       return std::move(content).error();
-    if (!declared->polymorphic)
+    if (!declared->reference.polymorphic)
       return content;
     auto actual_type = find_type(registry, *actual);
     if (!actual_type)
@@ -420,16 +418,14 @@ serialization::diagnostic validate_defaults(const context& ctx, const registry_r
   depth_scope scope{ctx, depth};
   if (depth > ctx.maximum_depth())
     return failure(error::invalid_argument, "", "嵌套对象超过深度限制");
-  auto binding = find_serialization(registry, id);
+  auto binding = find_policies(registry, id);
   if (!binding)
     return failure(binding.error());
-  if (binding->validate && !(ctx.references() && ctx.references()->collecting())) {
-    auto status = binding->validate(object);
+  if (binding->validation.validate && !(ctx.references() && ctx.references()->collecting())) {
+    auto status = binding->validation.validate(object);
     if (status.error.failed())
       return status;
   }
-  if (!binding->reflected)
-    return {};
   auto view = const_instance::from_object(registry, id, object);
   if (!view)
     return failure(view.error());
@@ -459,23 +455,23 @@ result<ref<void>, serialization::diagnostic> decode_owned(const context& ctx,
   depth_scope scope{ctx, depth};
   if (depth > ctx.maximum_depth())
     return failure(error::invalid_argument, "", "引用嵌套深度超限");
-  auto binding = find_serialization(registry, actual);
+  auto binding = find_policies(registry, actual);
   if (!binding)
     return failure(binding.error());
   ref<void> object;
   serialization::diagnostic status;
-  if (binding->decode) {
+  if (binding->content.decode) {
     depth_scope custom_depth{ctx, depth + (root ? 0 : 1)};
     if (context_access::depth(ctx) > ctx.maximum_depth())
       return failure(error::invalid_argument);
-    auto decoded = binding->decode(ctx, *context_access::input(ctx), content);
+    auto decoded = binding->content.decode(ctx, *context_access::input(ctx), content);
     if (!decoded)
       status = std::move(decoded).error();
     else
       object = std::move(*decoded);
   } else {
     auto ops = find_object_ops(registry, actual);
-    if (!binding->reflected || !ops || !ops->construct)
+    if (!ops || !ops->construct)
       return failure(error::unsupported);
     object = ops->construct();
     if (!object)
@@ -486,9 +482,9 @@ result<ref<void>, serialization::diagnostic> decode_owned(const context& ctx,
     status = failure(error::internal);
   if (status.error.ok())
     status = validate_identity(registry, actual, object.get());
-  if (status.error.ok() && binding->validate &&
+  if (status.error.ok() && binding->validation.validate &&
       !(ctx.references() && ctx.references()->collecting()))
-    status = binding->validate(object.get());
+    status = binding->validation.validate(object.get());
   if (status.error.failed())
     return status;
   return object;
@@ -501,24 +497,22 @@ serialization::diagnostic decode_nested(const context& ctx, const registry_ref& 
     return failure(error::invalid_argument, "", "嵌套对象超过深度限制");
   if (!context_access::input(ctx)->is_object(input))
     return failure(error::invalid_argument, "", "嵌套值必须是对象");
-  auto binding = find_serialization(registry, target.type().id());
+  auto binding = find_policies(registry, target.type().id());
   if (!binding)
     return failure(binding.error());
-  if (binding->decode) {
-    auto decoded = binding->decode(ctx, *context_access::input(ctx), input);
+  if (binding->content.decode) {
+    auto decoded = binding->content.decode(ctx, *context_access::input(ctx), input);
     if (!decoded)
       return std::move(decoded).error();
     if (!*decoded)
       return failure(error::internal);
-    if (binding->validate && !(ctx.references() && ctx.references()->collecting())) {
-      auto status = binding->validate(decoded->get());
+    if (binding->validation.validate && !(ctx.references() && ctx.references()->collecting())) {
+      auto status = binding->validation.validate(decoded->get());
       if (status.error.failed())
         return status;
     }
     return failure(target.assign_object(target.type().id(), decoded->get()));
   }
-  if (!binding->reflected)
-    return failure(error::unsupported);
   auto address = target.object_data();
   if (!address)
     return failure(address.error());
@@ -526,8 +520,8 @@ serialization::diagnostic decode_nested(const context& ctx, const registry_ref& 
   auto status = decode_members(ctx, registry, target.type().id(), object, input, depth);
   if (status.error.failed())
     return status;
-  return binding->validate && !(ctx.references() && ctx.references()->collecting())
-             ? binding->validate(object)
+  return binding->validation.validate && !(ctx.references() && ctx.references()->collecting())
+             ? binding->validation.validate(object)
              : serialization::diagnostic{};
 }
 serialization::diagnostic decode_nonobject(const context&, const registry_ref&, const instance&,
@@ -568,11 +562,11 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
     auto target = value_type.element_type();
     if (!target || target->kind() != type_kind::object)
       return failure(error::unsupported);
-    auto declared = find_serialization(registry, target->id());
+    auto declared = find_policies(registry, target->id());
     if (!declared)
       return failure(declared.error());
-    if (declared->decode_reference) {
-      auto resolved = declared->decode_reference(ctx, *context_access::input(ctx), input);
+    if (declared->reference.decode) {
+      auto resolved = declared->reference.decode(ctx, *context_access::input(ctx), input);
       if (!resolved)
         return std::move(resolved).error();
       if (!*resolved) {
@@ -584,7 +578,7 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
     }
     auto actual = target->id();
     auto* content = input;
-    if (declared->polymorphic) {
+    if (declared->reference.polymorphic) {
       auto* tag = context_access::input(ctx)->member(input, "$type_guid");
       content = context_access::input(ctx)->member(input, "$content");
       if (!context_access::input(ctx)->is_object(input) ||
@@ -603,11 +597,11 @@ serialization::diagnostic decode_nonobject(const context& ctx, const registry_re
     auto compatible = cast_base(registry, actual, target->id(), nullptr);
     if (!compatible)
       return std::move(compatible).error();
-    path_scope reference_path{ctx, declared->polymorphic ? "/$content" : ""};
+    path_scope reference_path{ctx, declared->reference.polymorphic ? "/$content" : ""};
     auto decoded = decode_owned(ctx, registry, actual, content, depth);
     if (!decoded)
-      return declared->polymorphic ? prefix(std::move(decoded).error(), "/$content")
-                                   : std::move(decoded).error();
+      return declared->reference.polymorphic ? prefix(std::move(decoded).error(), "/$content")
+                                             : std::move(decoded).error();
     auto object = std::move(*decoded);
     auto adjusted = cast_base(registry, actual, target->id(), object.get());
     if (!adjusted)
@@ -747,7 +741,7 @@ serialization::diagnostic decode_members(const context& ctx, const registry_ref&
     return failure(properties.error());
   if (!context_access::input(ctx)->is_object(root))
     return failure(error::invalid_argument, "", "根值必须是对象");
-  auto codec = find_serialization(registry, id);
+  auto codec = find_policies(registry, id);
   if (!codec)
     return failure(codec.error());
   std::unordered_set<std::string_view> names;
@@ -756,7 +750,7 @@ serialization::diagnostic decode_members(const context& ctx, const registry_ref&
     const auto name = entry.key;
     if (std::ranges::find(ignored, name) != ignored.end())
       continue;
-    if (codec->reject_unknown_fields &&
+    if (codec->object.reject_unknown_fields &&
         std::ranges::none_of(*properties, [&](const auto& p) { return p.name() == name; }))
       return failure(error::invalid_argument, field_path(name), "未知字段");
     if (!names.insert(name).second)

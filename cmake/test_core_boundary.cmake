@@ -728,7 +728,7 @@ endif()
 file(WRITE "${fixture}/src/engine/core/serialization/traversal.cpp" "// 通用遍历\n")
 
 # Value 编码与类型注册也不能反向依赖 JSON。
-foreach(path IN ITEMS "serialization/binding.hpp" "meta/type_definition.hpp")
+foreach(path IN ITEMS "serialization/policy.hpp" "meta/type_definition.hpp")
   file(WRITE "${fixture}/src/engine/core/${path}" "struct yyjson_val;\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
@@ -737,6 +737,18 @@ foreach(path IN ITEMS "serialization/binding.hpp" "meta/type_definition.hpp")
     message(FATAL_ERROR "边界检查未拒绝 ${path} 依赖 JSON")
   endif()
   file(WRITE "${fixture}/src/engine/core/${path}" "// 已清理探针\n")
+endforeach()
+
+# 注册与内存访问仅使用通用扩展元数据，不可反向依赖序列化策略。
+foreach(path IN ITEMS "registration.hpp" "registry.cpp" "type_definition.hpp" "instance.hpp")
+  file(WRITE "${fixture}/src/engine/core/meta/${path}" "#include <engine/core/serialization/policy.hpp>\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "边界检查未拒绝 Meta ${path} 依赖序列化")
+  endif()
+  file(WRITE "${fixture}/src/engine/core/meta/${path}" "// 已清理探针\n")
 endforeach()
 
 # 批次不得获得共享资产管理器的推进与关闭责任。

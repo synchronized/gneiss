@@ -7,6 +7,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/policy.hpp"
 #include "engine/core/serialization/reader.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
@@ -254,7 +255,7 @@ void injected_file_service() {
   check(files->dispatch_completions(64).ok() && closed, "shared service drained");
 }
 error register_test_assets() {
-  gneiss::engine::serialization::binding codec;
+  gneiss::engine::serialization::content_codec codec;
   codec.decode = [](const serialization::context&, serialization::reader& input,
                     const void* node) -> result<ref<void>, serialization::diagnostic> {
     if (!input.is_string(node) || input.string(node) == "?")

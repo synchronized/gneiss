@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/policy.hpp"
 #include "engine/core/serialization/serialization.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_object.hpp"
@@ -75,13 +76,12 @@ int main() try {
         auto status = e::meta::registration<reflected_description>{}
                           .base<e::component_description_base>()
                           .property<&reflected_description::speed>(e::meta::property_id{1}, "speed")
-                          .serialization()
                           .commit();
         if (status.failed())
           return status;
         return e::meta::registration<custom_description>{}
             .base<e::component_description_base>()
-            .serialization<&encode, &decode>()
+            .extend(gneiss::engine::serialization::codec<&encode, &decode>)
             .commit();
       }).failed())
     return 1;

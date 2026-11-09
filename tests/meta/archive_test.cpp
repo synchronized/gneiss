@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/serialization/policy.hpp"
 #include "engine/core/serialization/serialization.hpp"
 #include <cstdio>
 #include <deque>
@@ -131,12 +132,14 @@ struct record {
 int main() {
   auto r = m::create_registry();
   CHECK(r);
-  CHECK(m::registration<base>{*r}.polymorphic().commit().ok());
+  CHECK(m::registration<base>{*r}
+            .metadata(gneiss::engine::serialization::reference_policy{.polymorphic = true})
+            .commit()
+            .ok());
   CHECK(m::registration<derived>{*r}
             .base<base>()
             .property<&derived::number>(m::property_id{1}, "number")
             .property<&derived::next>(m::property_id{2}, "next")
-            .serialization()
             .commit()
             .ok());
   CHECK(m::registration<record>{*r}
@@ -145,7 +148,7 @@ int main() {
             .property<&record::label>(m::property_id{3}, "label")
             .property<&record::object>(m::property_id{4}, "object")
             .property<&record::required>(m::property_id{5}, "required", m::property_flags::required)
-            .serialization(true)
+            .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
             .commit()
             .ok());
   CHECK(m::register_builtin_types(*r).ok());

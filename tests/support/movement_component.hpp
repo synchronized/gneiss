@@ -100,14 +100,12 @@ inline e::error register_movement_meta() {
   status = e::meta::registration<movement_settings>{}
                .property<&movement_settings::acceleration>(e::meta::property_id{1}, "acceleration")
                .property<&movement_settings::maximum>(e::meta::property_id{2}, "maximum")
-               .serialization()
                .commit();
   if (status.failed())
     return status;
   status = e::meta::registration<waypoint>{}
                .property<&waypoint::uuid>(e::meta::property_id{1}, "uuid")
                .property<&waypoint::distance>(e::meta::property_id{2}, "distance")
-               .serialization()
                .commit();
   if (status.failed())
     return status;
@@ -118,7 +116,6 @@ inline e::error register_movement_meta() {
       .property<&movement_description::settings>(e::meta::property_id{3}, "settings")
       .property<&movement_description::samples>(e::meta::property_id{4}, "samples")
       .property<&movement_description::waypoints>(e::meta::property_id{5}, "waypoints")
-      .serialization()
       .commit();
 }
 }

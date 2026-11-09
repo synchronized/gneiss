@@ -28,7 +28,7 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/meta/type_definition.hpp
   engine/core/meta/ops/object_ops.hpp
   engine/core/serialization/diagnostic.hpp
-  engine/core/serialization/binding.hpp
+  engine/core/serialization/policy.hpp
   engine/core/type_id.hpp
   engine/core/detail/canonical_type_name.hpp
   engine/function/world/component_identity.hpp

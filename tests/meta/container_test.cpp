@@ -3,6 +3,7 @@
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/policy.hpp"
 #include "engine/core/serialization/serialization.hpp"
 #include <cstdio>
 #include <future>
@@ -92,7 +93,6 @@ e::error register_tree(const m::registry_ref& r) {
       .property<&tree::readonly>(m::property_id{5}, "readonly", m::property_flags::read_only)
       .property<&tree::children>(m::property_id{6}, "children")
       .property<&tree::custom_items>(m::property_id{7}, "custom_items")
-      .serialization()
       .commit();
 }
 std::span<const std::byte> bytes(std::string_view s) {
@@ -108,19 +108,19 @@ int main() try {
   CHECK(m::freeze(*r) == e::error::not_found);
   CHECK(m::registration<child>{*r}
             .property<&child::speed>(m::property_id{1}, "speed")
-            .serialization()
-            .validate<&child::validate>()
+            .extend(gneiss::engine::serialization::validation<&child::validate>)
             .commit()
             .ok());
-  CHECK(
-      (m::registration<custom>{*r}.serialization<&encode_custom, &decode_custom>().commit().ok()));
+  CHECK((m::registration<custom>{*r}
+             .extend(gneiss::engine::serialization::codec<&encode_custom, &decode_custom>)
+             .commit()
+             .ok()));
   CHECK((m::registration<optional_description>{*r}
              .property<&optional_description::item>(m::property_id{1}, "item")
              .property<&optional_description::get_number, &optional_description::set_number>(
                  m::property_id{2}, "number")
              .property<&optional_description::values>(m::property_id{3}, "values")
              .property<&optional_description::identifier>(m::property_id{4}, "identifier")
-             .serialization()
              .commit()
              .ok()));
   CHECK(m::freeze(*r).ok());

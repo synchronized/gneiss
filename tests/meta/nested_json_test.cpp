@@ -3,6 +3,7 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/detail/json_adapter.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/core/serialization/policy.hpp"
 #include "engine/core/serialization/serialization.hpp"
 namespace {
 namespace e = gneiss::engine;
@@ -33,14 +34,12 @@ gneiss::engine::serialization::diagnostic check(const child& value) {
 e::error register_parent(const m::registry_ref& registry) {
   return m::registration<parent>{registry}
       .property<&parent::item>(m::property_id{1}, "a/b")
-      .serialization()
       .commit();
 }
 e::error register_child(const m::registry_ref& registry) {
   return m::registration<child>{registry}
       .property<&child::value>(m::property_id{1}, "value", m::property_flags::required)
-      .serialization()
-      .validate<&check>()
+      .extend(gneiss::engine::serialization::validation<&check>)
       .commit();
 }
 std::span<const std::byte> bytes(std::string_view text) {
@@ -97,7 +96,6 @@ template <unsigned Depth> e::error register_chain(const m::registry_ref& registr
   if constexpr (Depth == 0)
     return m::registration<chain<0>>{registry}
         .property<&chain<0>::value>(m::property_id{1}, "value")
-        .serialization()
         .commit();
   else {
     auto status = register_chain<Depth - 1>(registry);
@@ -106,7 +104,6 @@ template <unsigned Depth> e::error register_chain(const m::registry_ref& registr
     return m::registration<chain<Depth>>{registry}
         .template property<&chain<Depth>::nested>(m::property_id{1}, "nested",
                                                   m::property_flags::required)
-        .serialization()
         .commit();
   }
 }
@@ -121,7 +118,6 @@ bool nested_json_contract() {
   if (!defaults_registry || register_child(*defaults_registry).failed() ||
       m::registration<invalid_parent>{*defaults_registry}
           .property<&invalid_parent::item>(m::property_id{1}, "item")
-          .serialization()
           .commit()
           .failed() ||
       m::freeze(*defaults_registry).failed())
@@ -180,8 +176,8 @@ bool nested_json_contract() {
   auto custom = m::create_registry();
   if (!custom || register_parent(*custom).failed() ||
       m::registration<child>{*custom}
-          .serialization<&encode_custom, &decode_custom>()
-          .validate<&check>()
+          .extend(gneiss::engine::serialization::codec<&encode_custom, &decode_custom>)
+          .extend(gneiss::engine::serialization::validation<&check>)
           .commit()
           .failed() ||
       m::freeze(*custom).failed())
@@ -213,8 +209,8 @@ bool nested_json_contract() {
   if (!node_registry || register_parent(*node_registry).failed() ||
       m::registration<child>{*node_registry}
           .property<&child::value>(m::property_id{1}, "isolated", m::property_flags::required)
-          .serialization(true)
-          .validate<&check>()
+          .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
+          .extend(gneiss::engine::serialization::validation<&check>)
           .commit()
           .failed() ||
       m::freeze(*node_registry).failed())
@@ -274,7 +270,7 @@ bool nested_json_contract() {
   auto reentrant = m::create_registry();
   if (!reentrant ||
       m::registration<child>{*reentrant}
-          .serialization<&encode_reentrant, &decode_reentrant>()
+          .extend(gneiss::engine::serialization::codec<&encode_reentrant, &decode_reentrant>)
           .commit()
           .failed() ||
       m::freeze(*reentrant).failed())
