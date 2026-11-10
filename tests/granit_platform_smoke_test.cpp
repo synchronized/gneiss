@@ -3,6 +3,7 @@
 
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/components.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/texture/texture_view.hpp"
 #include "runtime/application.hpp"
@@ -182,10 +183,16 @@ int main() {
       world.find(gneiss::entity_id{(plain_mesh_node).get()})
           .set_local_transform(plain_transform)
           .failed() ||
-      world.entity_set_camera(camera_entity, camera, true).failed() ||
+      world.find(camera_entity)
+          .set_component(gneiss::engine::camera_component{camera, true})
+          .failed() ||
       world.set_active_camera(camera_entity).failed() ||
-      world.entity_set_mesh_renderer(mesh_entity, mesh_renderer).failed() ||
-      world.entity_set_mesh_renderer(plain_mesh_entity, plain_mesh_renderer).failed()) {
+      world.find(mesh_entity)
+          .set_component(gneiss::engine::mesh_renderer_component{mesh_renderer})
+          .failed() ||
+      world.find(plain_mesh_entity)
+          .set_component(gneiss::engine::mesh_renderer_component{plain_mesh_renderer})
+          .failed()) {
     std::fprintf(stderr, "测试场景构造失败\n");
     return 3;
   }
@@ -202,8 +209,12 @@ int main() {
   replacement_mesh = resource_handle(mesh_owner);
   mesh_renderer.mesh = mesh_owner;
   plain_mesh_renderer.mesh = mesh_owner;
-  if (world.entity_set_mesh_renderer(mesh_entity, mesh_renderer).failed() ||
-      world.entity_set_mesh_renderer(plain_mesh_entity, plain_mesh_renderer).failed()) {
+  if (world.find(mesh_entity)
+          .set_component(gneiss::engine::mesh_renderer_component{mesh_renderer})
+          .failed() ||
+      world.find(plain_mesh_entity)
+          .set_component(gneiss::engine::mesh_renderer_component{plain_mesh_renderer})
+          .failed()) {
     return 6;
   }
   run_result = application->run(1);

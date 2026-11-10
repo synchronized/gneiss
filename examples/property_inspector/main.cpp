@@ -9,6 +9,7 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/component_registration.hpp"
+#include "engine/function/scene/components.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/asset_file.hpp"
@@ -187,9 +188,9 @@ int main() try {
   if (!translation || translation->kind() != gneiss::engine::value_kind::vec3 ||
       std::abs(std::get<gneiss::engine::math::vector3>(translation->payload).x - 2) > 0.0001F)
     return 6;
-  gneiss::engine::math::camera_settings settings;
-  if (app->native_world()->entity_get_camera(target, settings).failed() ||
-      std::abs(settings.near - 0.25F) > 0.0001F)
+  auto runtime_camera =
+      app->native_world()->find(target).read_component<gneiss::engine::camera_component>();
+  if (!runtime_camera || std::abs(runtime_camera->value.near - 0.25F) > 0.0001F)
     return 6;
   instance = gneiss::engine::scene_instance::borrow(*app->native_world(), scene);
   if (!instance || instance->unload().failed())

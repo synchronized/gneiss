@@ -6,6 +6,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/function/scene/components.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "runtime/application.hpp"
 #include <algorithm>
@@ -264,7 +265,9 @@ editor_asset_edit::request_impl(runtime::application& application, scene_edit_se
     previous_ = std::move(*captured);
   }
   if (!creating_ && !target.instance_uuid &&
-      !application.native_world()->entity_get_mesh_renderer(gneiss::entity_id{(node_).get()})) {
+      !application.native_world()
+           ->find(gneiss::entity_id{(node_).get()})
+           .read_component<gneiss::engine::mesh_renderer_component>()) {
     previous_ = {};
     return operation_ = gneiss::engine::error::invalid_state;
   }

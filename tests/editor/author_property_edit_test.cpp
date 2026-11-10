@@ -10,6 +10,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/fatal.hpp"
 #include "engine/function/scene/component_identity.hpp"
+#include "engine/function/scene/components.hpp"
 #include "engine/function/scene/composition.hpp"
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/world.hpp"
@@ -44,7 +45,9 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
     return 32;
   auto read = [&](gneiss::entity_id entity) {
     e::math::camera_settings camera;
-    if (world.entity_get_camera(entity, camera).failed())
+    if (gneiss::test_support::read_component_value(
+            world.find(entity).read_component<gneiss::engine::camera_component>(), camera)
+            .failed())
       throw std::runtime_error("read camera");
     return camera;
   };

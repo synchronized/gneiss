@@ -9,6 +9,7 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/scene/components.hpp"
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/world.hpp"
 #include "runtime/application.hpp"
@@ -87,7 +88,10 @@ int main() try {
           ->find(gneiss::entity_id{(camera_before).get()})
           .set_identity({camera_uuid, "Edited"})
           .failed() ||
-      application->native_world()->entity_remove_camera(camera_entity_before).failed() ||
+      application->native_world()
+          ->find(camera_entity_before)
+          .remove_component<gneiss::engine::camera_component>()
+          .failed() ||
       application->native_world()
           ->find(gneiss::entity_id{(old_child).get()})
           .reparent(gneiss::engine::game_object{})
@@ -101,8 +105,11 @@ int main() try {
   gneiss::engine::math::camera_settings restored_camera;
   gneiss::scene_node_id restored_parent;
   if (!restored_identity || restored_identity->name != "Camera" ||
-      application->native_world()
-          ->entity_get_camera(camera_entity_before, restored_camera)
+      gneiss::test_support::read_component_value(
+          application->native_world()
+              ->find(camera_entity_before)
+              .read_component<gneiss::engine::camera_component>(),
+          restored_camera)
           .failed() ||
       gneiss::test_support::assign_value(
           application->native_world()->find(gneiss::entity_id{(old_child).get()}).parent(),

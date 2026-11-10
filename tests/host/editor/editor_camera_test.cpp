@@ -3,6 +3,7 @@
 
 #include "../../support/value_result.hpp"
 #include "engine/core/error.hpp"
+#include "engine/function/scene/components.hpp"
 #include "engine/function/scene/world.hpp"
 #include "viewport/editor_camera.hpp"
 
@@ -41,7 +42,8 @@ int main() {
   gneiss::entity_id scene_camera{};
   const gneiss::engine::math::camera_settings settings{1.04719755F, 0.1F, 1000.0F};
   if (gneiss::engine::error{owner->entity_create(scene_camera)} != gneiss::engine::error::success ||
-      gneiss::engine::error{owner->entity_configure_camera(scene_camera, settings)} !=
+      gneiss::engine::error{
+          owner->find(scene_camera).set_component(gneiss::engine::camera_component{settings})} !=
           gneiss::engine::error::success ||
       gneiss::engine::error{owner->set_active_camera(scene_camera)} !=
           gneiss::engine::error::success) {

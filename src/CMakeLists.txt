@@ -258,7 +258,6 @@ target_sources(
     engine/function/scene/world.cpp
     engine/function/scene/game_object.hpp
     engine/function/scene/world.hpp
-    engine/function/scene/world_types.hpp
     engine/function/scene/detail/world_factory.cpp
     engine/function/scene/detail/world_state.hpp
     engine/function/meta_registration.cpp

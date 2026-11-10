@@ -12,6 +12,7 @@
 #include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/components.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
 #include "engine/resource/texture/texture_binary.hpp"
@@ -189,8 +190,10 @@ void run_pending_resources() {
         gneiss::engine::error::success);
   check(info.components.get<gneiss::engine::mesh_renderer_description>() != nullptr);
   const gneiss::engine::mesh_renderer binding{.mesh = mesh_ref, .material = material_ref};
-  check(gneiss::engine::error{native->native_world()->entity_set_mesh_renderer(
-            info.entity, binding)} == gneiss::engine::error::success);
+  check(gneiss::engine::error{native->native_world()
+                                  ->find(info.entity)
+                                  .set_component(gneiss::engine::mesh_renderer_component{
+                                      binding})} == gneiss::engine::error::success);
   const auto pixel = [&] {
     gneiss::engine::frame_image image;
     check(app->capture_frame(128U, 128U, image) == gneiss::engine::error::success);
@@ -253,7 +256,9 @@ void run_pending_resources() {
   gneiss::engine::frame_image invalid;
   check(app->capture_frame(128U, 128U, invalid) == gneiss::engine::error::invalid_handle);
   check(!resources.replace_texture(texture, red));
-  check(gneiss::engine::error{native->native_world()->entity_remove_mesh_renderer(info.entity)} ==
+  check(gneiss::engine::error{native->native_world()
+                                  ->find(info.entity)
+                                  .remove_component<gneiss::engine::mesh_renderer_component>()} ==
         gneiss::engine::error::success);
   check(pixel() == hidden);
   check(gneiss::engine::error{resources.destroy_material(resource_handle(material_ref))} ==

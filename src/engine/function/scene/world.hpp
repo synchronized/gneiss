@@ -10,7 +10,6 @@
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_types.hpp"
-#include "engine/function/scene/world_types.hpp"
 #include <memory>
 #include <span>
 #include <vector>
@@ -41,22 +40,8 @@ public:
   [[nodiscard]] GNEISS_API error entity_destroy(entity_id entity);
   [[nodiscard]] GNEISS_API result<bool> entity_is_alive(entity_id entity);
   [[nodiscard]] GNEISS_API result<std::uint64_t> entity_count();
-  /** 安装参数与默认选择提示，不改变活动相机。 */
-  [[nodiscard]] GNEISS_API error entity_set_camera(entity_id entity,
-                                                   const math::camera_settings& camera,
-                                                   bool primary);
-  [[nodiscard]] GNEISS_API error entity_configure_camera(entity_id entity,
-                                                         const math::camera_settings& desc);
-  [[nodiscard]] GNEISS_API error entity_get_camera(entity_id entity,
-                                                   math::camera_settings& out_camera);
-  [[nodiscard]] GNEISS_API error entity_remove_camera(entity_id entity);
   [[nodiscard]] GNEISS_API error set_active_camera(entity_id entity);
   [[nodiscard]] GNEISS_API error get_active_camera(entity_id& out_entity);
-  [[nodiscard]] GNEISS_API error
-  replace_mesh_renderers(std::span<const mesh_renderer_replacement> replacements);
-  [[nodiscard]] GNEISS_API error entity_set_mesh_renderer(entity_id entity,
-                                                          const mesh_renderer& renderer);
-  [[nodiscard]] GNEISS_API error entity_remove_mesh_renderer(entity_id entity);
   /** 创建有层级的实体；parent 为空时为根，失败不留下部分对象。 */
   [[nodiscard]] GNEISS_API result<game_object> create_object(scene_node_identity identity,
                                                              const math::transform& transform = {},
@@ -68,7 +53,6 @@ public:
   /** 将本 World 中有层级组件的实体借用为对象，纯 ECS 实体返回 not_found。 */
   [[nodiscard]] GNEISS_API result<game_object> object(entity_id entity) noexcept;
   [[nodiscard]] GNEISS_API result<scene_node_id> entity_node(entity_id entity) const noexcept;
-  [[nodiscard]] GNEISS_API result<mesh_renderer> entity_get_mesh_renderer(entity_id entity);
 
   [[nodiscard]] GNEISS_API error entity_get_local_transform(entity_id entity,
                                                             math::transform& out_transform);

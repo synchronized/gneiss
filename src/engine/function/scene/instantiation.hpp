@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/function/scene/components.hpp"
 #include "engine/function/scene/composition.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_instance.hpp"
@@ -8,6 +9,14 @@
 #include "engine/resource/scene.hpp"
 namespace gneiss::engine {
 class asset_manager;
+/** 装配阶段的资源替换；先校验所有预期值，再写入组件。 */
+struct mesh_renderer_replacement {
+  entity_id entity;
+  mesh_renderer expected;
+  mesh_renderer replacement;
+};
+GNEISS_API error replace_mesh_renderers(world&, std::span<const mesh_renderer_replacement>);
+
 /** 已创建的场景及其视觉加载清单；资源身份已预留，内容加载由调用方调度。 */
 struct scene_instantiation_result {
   scene_instance_id instance;

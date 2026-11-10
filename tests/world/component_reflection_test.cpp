@@ -6,6 +6,7 @@
 #include "engine/core/serialization/builtin_registration.hpp"
 #include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/component_registration.hpp"
+#include "engine/function/scene/components.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include <cmath>
@@ -74,7 +75,7 @@ int main() {
       std::abs(transform.scale[0] - 1) > 0.0001F)
     return 6;
   engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  if (first->entity_set_camera(entity, camera, true).failed() ||
+  if (first->find(entity).set_component(gneiss::engine::camera_component{camera, true}).failed() ||
       first->set_active_camera(entity).failed() ||
       gneiss::test_support::assign_value(
           engine::read_component_property(*first, entity.get(), camera_type,
@@ -101,11 +102,17 @@ int main() {
     captured->set(*changed);
     return engine::install_components({*first->object(gneiss::entity_id{node.get()})}, *captured);
   };
-  if (change_near(0.5F).failed() || first->entity_get_camera(entity, camera).failed() ||
+  if (change_near(0.5F).failed() ||
+      gneiss::test_support::read_component_value(
+          first->find(entity).read_component<gneiss::engine::camera_component>(), camera)
+          .failed() ||
       std::abs(camera.near - 0.5F) > 0.0001F)
     return 8;
   if (change_near(camera.far + 1) != error::invalid_argument ||
-      first->entity_get_camera(entity, camera).failed() || std::abs(camera.near - 0.5F) > 0.0001F)
+      gneiss::test_support::read_component_value(
+          first->find(entity).read_component<gneiss::engine::camera_component>(), camera)
+          .failed() ||
+      std::abs(camera.near - 0.5F) > 0.0001F)
     return 9;
   error foreign_read{}, foreign_write{};
   std::thread worker([&] {

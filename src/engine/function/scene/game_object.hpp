@@ -35,6 +35,12 @@ public:
   [[nodiscard]] GNEISS_API error reparent(game_object parent) const;
   /** 销毁整棵子树，所有指向其中实体的借用句柄同时失效。 */
   [[nodiscard]] GNEISS_API error destroy() const;
+  /** 普通组件的值副本；失效实体、错误线程和组件缺失分别返回错误。
+   * 组件实现单元通过 detail/component_storage.hpp 实例化，调用方不依赖 ECS 后端。 */
+  template <class T> [[nodiscard]] GNEISS_API result<T> read_component() const;
+  /** 安装或替换普通组件；保留正常 C++ 构造和析构语义。 */
+  template <class T> [[nodiscard]] GNEISS_API error set_component(T value) const;
+  template <class T> [[nodiscard]] GNEISS_API error remove_component() const;
   friend bool operator==(game_object, game_object) noexcept = default;
 
 private:

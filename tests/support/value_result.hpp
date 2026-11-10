@@ -83,3 +83,12 @@ engine::error take_request(R& request, T& output,
   return engine::error::success;
 }
 }
+
+namespace gneiss::test_support {
+template <class T, class U> engine::error read_component_value(engine::result<T> value, U& out) {
+  if (!value)
+    return value.error();
+  out = value->value;
+  return engine::error::success;
+}
+}

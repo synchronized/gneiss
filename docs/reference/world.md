@@ -35,8 +35,13 @@ World 拒绝不同场景已登记成员之间的重新挂接，返回 invalid_ar
 size 和枚举不再返回已经失效的成员。存活实体仍以 World 的 generation 校验为准。
 运行对象不提供来源 UUID 查找；来源由实例化回执和调用方映射维护。
 节点创建实现为 World 私有细节；对外通过 create_object 创建并返回 game_object。
-组件读写保留纯 ECS 的 entity_* 入口，网格查询使用 entity_get_mesh_renderer，
-不要求实体具有对象层级。
+普通组件通过 `world::find(entity)` 获得借用句柄，再调用
+`read_component<T>()`、`set_component(T)`、`remove_component<T>()`；不要求实体具有对象层级。
+当前内置实例化支持 camera_component 和 mesh_renderer_component。读取返回值副本，
+其中资源引用正常保活；修改副本不修改 ECS，需显式 set_component 写回。
+读取缺失组件返回 not_found，跨 World 或失效实体返回 invalid_handle，错误线程返回 invalid_state。
+组件实现单元可包含 detail/component_storage.hpp 并显式实例化对应类型，使用方不依赖 EnTT。
+场景归属不允许通过普通组件写入口修改。
 
 借用接口位于 `function/scene/scene_instance.hpp`。
 `scene_instance::create(identity, transform, parent)` 显式创建并登记本场景对象，

@@ -105,16 +105,16 @@ GPU 在途安全回收仍由 Render 及后端负责，RID 释放队列不替代 
 
 ## ECS 组件
 
-`world::entity_configure_camera` 使用原生 `camera_settings` 设置或替换 Camera 组件。透视参数
+`game_object::set_component(camera_component{settings, primary_hint})` 安装或替换相机组件。透视参数
 必须满足`0 < fov < π`、`near > 0` 且 `far > near`。活动 Camera 通过
 `world::set_active_camera` 独立选择，每个 World 至多一个；移除或销毁活动 Camera 后，World
-进入无活动 Camera 状态。`world::entity_set_camera` 可同时指定活动相机标志。
+进入无活动 Camera 状态。primary_hint 仅是默认相机选择提示，安装组件不会激活相机。
 
 帧提取按值复制活动 Camera、世界 Transform、视图矩阵、投影矩阵和视口尺寸。没有关联 Scene Node
 的活动 Camera 不进入渲染快照；窗口尺寸为零时跳过渲染。内部矩阵遵循
 [ADR-012](../decisions/ADR-012-3d-camera-coordinate-boundary.md)，不进入公共 ABI。
 
-`world::entity_set_mesh_renderer` 设置 Mesh Renderer 组件。组件持有 Mesh 与 Material 强引用，
+`game_object::set_component(mesh_renderer_component{renderer})` 设置网格渲染组件。组件持有 Mesh 与 Material 强引用，
 执行正常的 C++ 构造、复制和析构，不保存 Granit 类型。实体必须关联 Scene Node 才会获得世界 Transform 并
 进入渲染快照。资源已销毁或来自其他 Application 时，帧提交返回
 `error::invalid_handle`。

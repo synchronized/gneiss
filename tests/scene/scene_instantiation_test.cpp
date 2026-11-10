@@ -17,6 +17,7 @@
 #include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/components.hpp"
 #include "engine/function/scene/composition.hpp"
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/scene_application.hpp"
@@ -444,11 +445,13 @@ void run() {
                                           ordinary.node, "asset://m.mesh",
                                           "asset://m.material") == gneiss::engine::error::success);
   check(files->reads == edit_reads);
-  check(candidate.get()->replace_mesh_renderers(unchanged) == gneiss::engine::error::success);
+  check(gneiss::engine::replace_mesh_renderers(*candidate.get(), unchanged) ==
+        gneiss::engine::error::success);
   check(gneiss::engine::set_mesh_renderer(
             *candidate.get(), candidate_assets, new_scene, ordinary.node, "asset://m.mesh",
             "asset://missing.material") == gneiss::engine::error::not_found);
-  check(candidate.get()->replace_mesh_renderers(unchanged) == gneiss::engine::error::success);
+  check(gneiss::engine::replace_mesh_renderers(*candidate.get(), unchanged) ==
+        gneiss::engine::error::success);
   files->files["other.material"] = files->files["m.material"];
   gneiss::engine::render_resource_ref edited_material;
   check(gneiss::test_support::load_render(candidate_render,
@@ -462,7 +465,8 @@ void run() {
       .mesh = current_mesh, .material = edited_material.as<gneiss::engine::material>()};
   const std::array material_only{gneiss::engine::mesh_renderer_replacement{
       .entity = ordinary.entity, .expected = edited, .replacement = edited}};
-  check(candidate.get()->replace_mesh_renderers(material_only) == gneiss::engine::error::success);
+  check(gneiss::engine::replace_mesh_renderers(*candidate.get(), material_only) ==
+        gneiss::engine::error::success);
   check(resources.get_material(gneiss::engine::resource_rid(old_material))->parameters.color[0] ==
         1.0F);
   candidate_render.collect_unused();
@@ -534,7 +538,9 @@ void run() {
               new_scene, gneiss::scene_node_id{created_node}) == gneiss::engine::error::success);
     check(files->reads == binding_reads);
   }
-  check(candidate.get()->entity_remove_mesh_renderer(gneiss::entity_id{ordinary.node.get()}) ==
+  check(candidate.get()
+            ->find(gneiss::entity_id{ordinary.node.get()})
+            .remove_component<gneiss::engine::mesh_renderer_component>() ==
         gneiss::engine::error::success);
   const auto snapshot_reads = files->reads;
   check(files->reads == snapshot_reads);

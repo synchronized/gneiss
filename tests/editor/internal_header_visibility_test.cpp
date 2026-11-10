@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/function/scene/instantiation.hpp"
 #include "runtime/application.hpp"
 // 只包含 Application 不应引入具体 Scene 服务或输入服务。
 #if defined(GNEISS_SCENE_SCENE_INSTANCES_HPP_) || defined(GNEISS_INPUT_INPUT_SERVICE_HPP_) ||      \

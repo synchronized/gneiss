@@ -3,6 +3,8 @@
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/component_registration.hpp"
+#include "engine/function/scene/components.hpp"
+#include <unordered_set>
 namespace gneiss::engine {
 namespace {
 /** 仅用于创建过程；移交场景前的失败路径回收整棵子树。 */
@@ -215,10 +217,11 @@ error set_mesh_renderer(world& owner, asset_manager& assets, scene_instance_id s
   auto status = validate(owner, scene, node);
   if (status.failed())
     return status;
-  auto current = owner.entity_get_mesh_renderer(gneiss::entity_id{(node).get()});
+  auto current = owner.find(gneiss::entity_id{(node).get()})
+                     .read_component<gneiss::engine::mesh_renderer_component>();
   if (!current && current.error() != error::not_found)
     return current.error();
-  auto binding = current ? *current : mesh_renderer{};
+  auto binding = current ? current->value : mesh_renderer{};
   if (resource_uri(binding.mesh) != mesh_uri) {
     if (mesh_uri.empty())
       binding.mesh = {};
@@ -239,18 +242,20 @@ error set_mesh_renderer(world& owner, asset_manager& assets, scene_instance_id s
       binding.material = *loaded;
     }
   }
-  return owner.entity_set_mesh_renderer(entity_id{node.get()}, binding);
+  return owner.find(entity_id{node.get()})
+      .set_component(gneiss::engine::mesh_renderer_component{binding});
 }
 result<scene_mesh_binding> capture_mesh_binding(world& owner, scene_instance_id scene,
                                                 scene_node_id node) {
   auto status = validate(owner, scene, node);
   if (status.failed())
     return status;
-  auto current = owner.entity_get_mesh_renderer(gneiss::entity_id{(node).get()});
+  auto current = owner.find(gneiss::entity_id{(node).get()})
+                     .read_component<gneiss::engine::mesh_renderer_component>();
   if (!current)
     return current.error() == error::not_found ? result<scene_mesh_binding>{scene_mesh_binding{}}
                                                : result<scene_mesh_binding>{current.error()};
-  return scene_mesh_binding{current->mesh, current->material};
+  return scene_mesh_binding{current->value.mesh, current->value.material};
 }
 error replace_mesh_binding(world& owner, scene_instance_id scene, scene_node_id node,
                            const scene_mesh_binding& expected,
@@ -264,7 +269,8 @@ error replace_mesh_binding(world& owner, scene_instance_id scene, scene_node_id 
     return error::invalid_argument;
   if (current->mesh != expected.mesh || current->material != expected.material)
     return error::invalid_state;
-  auto existing = owner.entity_get_mesh_renderer(gneiss::entity_id{(node).get()});
+  auto existing = owner.find(gneiss::entity_id{(node).get()})
+                      .read_component<gneiss::engine::mesh_renderer_component>();
   if (!existing && existing.error() != error::not_found)
     return existing.error();
   if (!existing) {
@@ -281,6 +287,31 @@ error replace_mesh_binding(world& owner, scene_instance_id scene, scene_node_id 
   const mesh_renderer_replacement change{entity_id{node.get()},
                                          {expected.mesh, expected.material},
                                          {replacement.mesh, replacement.material}};
-  return owner.replace_mesh_renderers({&change, 1});
+  return replace_mesh_renderers(owner, {&change, 1});
+}
+}
+
+namespace gneiss::engine {
+error replace_mesh_renderers(world& owner, std::span<const mesh_renderer_replacement> changes) {
+  if (!owner.is_owner_thread())
+    return error::invalid_state;
+  std::unordered_set<std::uint64_t> entities;
+  for (const auto& change : changes) {
+    if (!entities.insert(change.entity.get()).second)
+      return error::invalid_argument;
+    auto current = owner.find(change.entity).read_component<mesh_renderer_component>();
+    if (!current)
+      return current.error() == error::not_found ? error::invalid_state : current.error();
+    if (current->value.mesh != change.expected.mesh ||
+        current->value.material != change.expected.material)
+      return error::invalid_state;
+  }
+  for (const auto& change : changes) {
+    auto status =
+        owner.find(change.entity).set_component(mesh_renderer_component{change.replacement});
+    if (status.failed())
+      return status;
+  }
+  return error::success;
 }
 }

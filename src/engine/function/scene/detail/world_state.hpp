@@ -135,35 +135,6 @@ public:
     return error::success;
   }
 
-  [[nodiscard]] error clear_camera(std::uint64_t entity) noexcept {
-    if (!is_alive(entity)) {
-      return error::invalid_handle;
-    }
-    const auto native = decode(entity);
-    if (native == entt::null || !registry_.valid(native)) {
-      return error::invalid_handle;
-    }
-    if (registry_.remove<camera_component>(native) == 0U) {
-      return error::not_found;
-    }
-    if (active_camera_ == entity) {
-      active_camera_ = UINT64_C(0);
-    }
-    return error::success;
-  }
-
-  [[nodiscard]] error clear_mesh_renderer(std::uint64_t entity) noexcept {
-    if (!is_alive(entity)) {
-      return error::invalid_handle;
-    }
-    const auto native = decode(entity);
-    if (native == entt::null || !registry_.valid(native)) {
-      return error::invalid_handle;
-    }
-    return registry_.remove<mesh_renderer_component>(native) == 0U ? error::not_found
-                                                                   : error::success;
-  }
-
   void clear_active_camera(std::uint64_t entity) noexcept {
     if (active_camera_ != entity) {
       return;

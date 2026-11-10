@@ -8,6 +8,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/components.hpp"
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
@@ -252,8 +253,10 @@ void run(gneiss::engine::execution_mode mode) {
   view.vertices = vertices;
   check(gneiss::test_support::take_value(app->assets().create(view), external.mesh).ok());
   check(gneiss::test_support::take_value(app->assets().create({}, {}), external.material).ok());
-  check(gneiss::engine::error{app->native_world()->entity_set_mesh_renderer(
-            node.entity, external)} == gneiss::engine::error::success);
+  check(gneiss::engine::error{app->native_world()
+                                  ->find(node.entity)
+                                  .set_component(gneiss::engine::mesh_renderer_component{
+                                      external})} == gneiss::engine::error::success);
   wait();
   check(completion.result == gneiss::engine::error::success &&
         completion.state == gneiss::runtime::asset_load_state::applied &&
@@ -262,7 +265,8 @@ void run(gneiss::engine::execution_mode mode) {
       gneiss::engine::mesh_renderer_replacement{.entity = node.entity,
                                                 .expected = {external.mesh, external.material},
                                                 .replacement = {external.mesh, external.material}}};
-  check(world->replace_mesh_renderers(unchanged) == gneiss::engine::error::success);
+  check(gneiss::engine::replace_mesh_renderers(*world, unchanged) ==
+        gneiss::engine::error::success);
   // 卸载冲突使用者后可重试；完成后释放租约，Application 仍可正常关闭。
   check(gneiss::engine::error{gneiss::test_support::scene_access{*app}->unload(scene)} ==
         gneiss::engine::error::success);

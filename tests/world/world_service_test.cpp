@@ -9,6 +9,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/component_identity.hpp"
+#include "engine/function/scene/components.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 
@@ -54,7 +55,9 @@ bool scene_object_storage() {
   auto renamed = (*child).identity();
   if (!renamed || renamed->name != "新名称")
     return false;
-  if (owner.entity_get_mesh_renderer(child->entity()).error() != error::not_found)
+  if (owner.find(child->entity())
+          .read_component<gneiss::engine::mesh_renderer_component>()
+          .error() != error::not_found)
     return false;
   math::transform invalid;
   invalid.scale.x = 0;
@@ -170,21 +173,25 @@ int main() {
     return 3;
   }
   gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  if (world->entity_configure_camera(gneiss::entity_id{entity}, camera) !=
+  if (world->find(gneiss::entity_id{entity})
+          .set_component(gneiss::engine::camera_component{camera}) !=
       gneiss::engine::error::success) {
     return 4;
   }
   service::math::camera_settings settings;
-  if (world->entity_get_camera(gneiss::entity_id{entity}, settings) !=
-          gneiss::engine::error::success ||
+  if (gneiss::test_support::read_component_value(
+          world->find(gneiss::entity_id{entity}).read_component<gneiss::engine::camera_component>(),
+          settings) != gneiss::engine::error::success ||
       settings.near != camera.near || settings.far != camera.far) {
     return 5;
   }
   settings.far = settings.near;
-  if (world->entity_configure_camera(gneiss::entity_id{entity}, settings) !=
+  if (world->find(gneiss::entity_id{entity})
+              .set_component(gneiss::engine::camera_component{settings}) !=
           gneiss::engine::error::invalid_argument ||
-      world->entity_get_camera(gneiss::entity_id{entity}, camera) !=
-          gneiss::engine::error::success ||
+      gneiss::test_support::read_component_value(
+          world->find(gneiss::entity_id{entity}).read_component<gneiss::engine::camera_component>(),
+          camera) != gneiss::engine::error::success ||
       camera.near == camera.far) {
     return 6;
   }

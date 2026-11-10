@@ -5,10 +5,30 @@
 #include "engine/core/serialization/value.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/component_identity.hpp"
+#include "engine/function/scene/components.hpp"
 #include "engine/function/scene/detail/world_component_access.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
 #include <map>
 #include <mutex>
+
+#include "engine/function/scene/detail/component_storage.hpp"
+#include <cmath>
+#include <numbers>
+namespace gneiss::engine::detail {
+template <> struct component_policy<camera_component> {
+  static error validate(const camera_component& component) {
+    const auto& c = component.value;
+    return std::isfinite(c.fov) && std::isfinite(c.near) && std::isfinite(c.far) && c.fov > 0 &&
+                   c.fov < std::numbers::pi_v<float> && c.near > 0 && c.far > c.near
+               ? error::success
+               : error::invalid_argument;
+  }
+  static void removed(world_state& state, entity_id entity) {
+    state.clear_active_camera(entity.get());
+  }
+};
+}
+
 namespace gneiss::engine {
 namespace {
 // 独立候选按反射内容恢复，不让内嵌 ref 的浅拷贝改写来源描述。
@@ -41,23 +61,16 @@ error camera_valid(const camera_description& value) {
   return validate_camera_description(value).error;
 }
 error camera_install(component_context& context, const camera_description& value) {
-  return context.target.owner()->entity_set_camera(context.target.entity(), value.settings,
-                                                   value.is_primary);
+  return context.target.set_component(
+      gneiss::engine::camera_component{value.settings, value.is_primary});
 }
 result<std::optional<camera_description>> camera_capture(game_object target) {
-  auto& owner = *target.owner();
-  math::camera_settings settings;
-  const auto id = target.entity();
-  auto status = owner.entity_get_camera(id, settings);
-  if (status == error::not_found)
-    return std::optional<camera_description>{};
-  if (status.failed())
-    return status;
-  auto state = detail::world_component_access::get(owner);
-  if (!state)
-    return state.error();
-  const auto* camera = (*state)->get<camera_component>(id.get());
-  return std::optional<camera_description>{{settings, camera->primary_hint}};
+  auto camera = target.read_component<camera_component>();
+  if (!camera)
+    return camera.error() == error::not_found
+               ? result<std::optional<camera_description>>{std::optional<camera_description>{}}
+               : result<std::optional<camera_description>>{camera.error()};
+  return std::optional<camera_description>{{camera->value, camera->primary_hint}};
 }
 error mesh_valid(const mesh_renderer_description& value) {
   return validate_mesh_renderer_description(value).error;
@@ -76,13 +89,13 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
       return typed;
     }
     // 普通属性编辑保留当前资源；固定文档引用由上面的 lookup 明确提供。
-    auto current = context.target.owner()->entity_get_mesh_renderer(context.target.entity());
+    auto current = context.target.read_component<gneiss::engine::mesh_renderer_component>();
     if (current) {
       ref<const T> existing;
       if constexpr (std::same_as<T, engine::mesh>)
-        existing = current->mesh;
+        existing = current->value.mesh;
       else
-        existing = current->material;
+        existing = current->value.material;
       if (resource_uri(existing) == uri)
         return existing;
     } else if (current.error() != error::not_found)
@@ -102,18 +115,18 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
   if (context.resources && ((*mesh && !context.resources->owns(*mesh)) ||
                             (*material && !context.resources->owns(*material))))
     return error::invalid_argument;
-  return context.target.owner()->entity_set_mesh_renderer(context.target.entity(),
-                                                          {*mesh, *material});
+  return context.target.set_component(gneiss::engine::mesh_renderer_component{{*mesh, *material}});
 }
 result<std::optional<mesh_renderer_description>> mesh_capture(game_object target) {
-  auto value = target.owner()->entity_get_mesh_renderer(target.entity());
+  auto value = target.read_component<gneiss::engine::mesh_renderer_component>();
   if (!value) {
     if (value.error() == error::not_found)
       return std::optional<mesh_renderer_description>{};
     return value.error();
   }
   return std::optional<mesh_renderer_description>{
-      {std::string(resource_uri(value->mesh)), std::string(resource_uri(value->material))}};
+      {std::string(resource_uri(value->value.mesh)),
+       std::string(resource_uri(value->value.material))}};
 }
 struct adapter_registry {
   std::mutex mutex;
@@ -126,7 +139,7 @@ struct adapter_registry {
          .capture = camera_capture,
          .remove =
              [](game_object target) {
-               return target.owner()->entity_remove_camera(target.entity());
+               return target.remove_component<gneiss::engine::camera_component>();
              },
          .equal =
              [](const camera_description& a, const camera_description& b) {
@@ -140,7 +153,7 @@ struct adapter_registry {
          .capture = mesh_capture,
          .remove =
              [](game_object target) {
-               return target.owner()->entity_remove_mesh_renderer(target.entity());
+               return target.remove_component<gneiss::engine::mesh_renderer_component>();
              },
          .equal =
              [](const mesh_renderer_description& a, const mesh_renderer_description& b) {
@@ -551,4 +564,14 @@ error write_component_property(world& world, std::uint64_t entity, guid type,
     return member ? member->assign(value) : member.error();
   });
 }
+}
+
+namespace gneiss::engine {
+template result<camera_component> game_object::read_component<camera_component>() const;
+template error game_object::set_component<camera_component>(camera_component) const;
+template error game_object::remove_component<camera_component>() const;
+template result<mesh_renderer_component>
+game_object::read_component<mesh_renderer_component>() const;
+template error game_object::set_component<mesh_renderer_component>(mesh_renderer_component) const;
+template error game_object::remove_component<mesh_renderer_component>() const;
 }

@@ -9,19 +9,6 @@
 #include "engine/function/scene/detail/render_extraction.hpp"
 #include "engine/function/scene/detail/world_component_access.hpp"
 #include "engine/function/scene/detail/world_state.hpp"
-#include <cmath>
-#include <numbers>
-#include <unordered_set>
-namespace {
-bool is_valid_camera(float vertical_field_of_view_radians, float near_plane,
-                     float far_plane) noexcept {
-  return std::isfinite(vertical_field_of_view_radians) && std::isfinite(near_plane) &&
-         std::isfinite(far_plane) && vertical_field_of_view_radians > 0.0F &&
-         vertical_field_of_view_radians < std::numbers::pi_v<float> && near_plane > 0.0F &&
-         far_plane > near_plane;
-}
-
-}
 namespace gneiss::engine {
 result<world_state*> detail::world_component_access::get(world& owner) noexcept {
   if (!owner.is_owner_thread())
@@ -89,16 +76,6 @@ result<scene_node_id> world::entity_node(entity_id entity) const noexcept {
     return error::invalid_handle;
   return state_->scene().node_for_entity(entity.get());
 }
-result<mesh_renderer> world::entity_get_mesh_renderer(entity_id entity) {
-  if (!is_owner_thread())
-    return error::invalid_state;
-  if (!state_->is_alive(entity.get()))
-    return error::invalid_handle;
-  const auto* component = state_->get<mesh_renderer_component>(entity.get());
-  if (!component)
-    return error::not_found;
-  return component->value;
-}
 
 engine::error world::entity_create(entity_id& out_entity_value) {
   std::uint64_t out_entity = out_entity_value.get();
@@ -153,79 +130,7 @@ result<std::uint64_t> world::entity_count() {
     return static_cast<std::uint64_t>(state->entity_count());
   }
 }
-engine::error world::entity_set_camera(entity_id entity_value, const math::camera_settings& camera,
-                                       bool primary) {
-  std::uint64_t entity = entity_value.get();
-  if (!is_valid_camera(camera.fov, camera.near, camera.far)) {
-    return engine::error::invalid_argument;
-  }
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    if (thread_result != engine::error::success) {
-      return thread_result;
-    }
-    if (!state->is_alive(entity)) {
-      return engine::error::invalid_handle;
-    }
-    state->emplace_or_replace<camera_component>(entity, camera, primary);
-    return engine::error::success;
-  }
-}
-engine::error world::entity_configure_camera(entity_id entity_value,
-                                             const math::camera_settings& desc) {
-  std::uint64_t entity = entity_value.get();
-  if (!is_valid_camera(desc.fov, desc.near, desc.far)) {
-    return engine::error::invalid_argument;
-  }
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    if (thread_result != engine::error::success) {
-      return thread_result;
-    }
-    if (!state->is_alive(entity)) {
-      return engine::error::invalid_handle;
-    }
-    if (auto* component = state->get<camera_component>(entity))
-      component->value = desc;
-    else
-      state->emplace<camera_component>(entity, desc);
-    return engine::error::success;
-  }
-}
-engine::error world::entity_get_camera(entity_id entity_value, math::camera_settings& out_camera) {
-  std::uint64_t entity = entity_value.get();
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    if (thread_result != engine::error::success) {
-      return thread_result;
-    }
-    if (!state->is_alive(entity)) {
-      return engine::error::invalid_handle;
-    }
-    const auto* component = state->get<camera_component>(entity);
-    if (component == nullptr) {
-      return engine::error::not_found;
-    }
-    out_camera = {
-        .fov = component->value.fov, .near = component->value.near, .far = component->value.far};
-    return engine::error::success;
-  }
-}
-engine::error world::entity_remove_camera(entity_id entity_value) {
-  std::uint64_t entity = entity_value.get();
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    return thread_result == engine::error::success ? state->clear_camera(entity) : thread_result;
-  }
-}
+
 engine::error world::set_active_camera(entity_id entity_value) {
   std::uint64_t entity = entity_value.get();
   {
@@ -253,68 +158,6 @@ engine::error world::get_active_camera(entity_id& out_entity_value) {
   }();
   out_entity_value = entity_id{out_entity};
   return operation_result;
-}
-engine::error
-world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replacements) {
-  {
-    auto* state = state_.get();
-    const auto validated =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    if (validated != engine::error::success) {
-      return validated;
-    }
-    std::unordered_set<std::uint64_t> entities;
-    for (const auto& change : replacements) {
-      if (!entities.insert(change.entity.get()).second) {
-        return engine::error::invalid_argument;
-      }
-      if (!state->is_alive(change.entity.get())) {
-        return engine::error::invalid_handle;
-      }
-      const auto* current = state->get<mesh_renderer_component>(change.entity.get());
-      if (current == nullptr || current->value.mesh != change.expected.mesh ||
-          current->value.material != change.expected.material) {
-        return engine::error::invalid_state;
-      }
-    }
-    for (const auto& change : replacements) {
-      state->get<mesh_renderer_component>(change.entity.get())->value = {
-          .mesh = change.replacement.mesh,
-          .material = change.replacement.material,
-      };
-    }
-    return engine::error::success;
-  }
-}
-engine::error world::entity_set_mesh_renderer(entity_id entity_value,
-                                              const mesh_renderer& renderer) {
-  std::uint64_t entity = entity_value.get();
-
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    if (thread_result != engine::error::success) {
-      return thread_result;
-    }
-    if (!state->is_alive(entity)) {
-      return engine::error::invalid_handle;
-    }
-    state->emplace_or_replace<mesh_renderer_component>(
-        entity, mesh_renderer{renderer.mesh, renderer.material});
-    return engine::error::success;
-  }
-}
-
-engine::error world::entity_remove_mesh_renderer(entity_id entity_value) {
-  std::uint64_t entity = entity_value.get();
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    return thread_result == engine::error::success ? state->clear_mesh_renderer(entity)
-                                                   : thread_result;
-  }
 }
 engine::error world::node_create(scene_node_id parent_value, entity_id entity_value,
                                  scene_node_id& out_node_value) {

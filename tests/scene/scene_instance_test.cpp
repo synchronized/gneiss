@@ -6,6 +6,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/scene/components.hpp"
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/scene_application.hpp"
 #include "engine/function/scene/world.hpp"
@@ -23,7 +24,8 @@ gneiss::engine::error set_camera(gneiss::engine::world& owner, gneiss::scene_ins
   auto status = gneiss::test_support::scene_access{owner}->validate_editable_node(scene, node);
   if (status.failed())
     return status;
-  status = owner.entity_configure_camera(gneiss::entity_id{node.get()}, desc.settings);
+  status = owner.find(gneiss::entity_id{node.get()})
+               .set_component(gneiss::engine::camera_component{desc.settings});
   if (status.failed() || !desc.is_primary)
     return status;
   return owner.set_active_camera(gneiss::entity_id{node.get()});
@@ -289,21 +291,28 @@ int main() try {
   }
   // 直接修改 ECS 后，场景绑定查询必须立即反映组件状态，不能读取实例列表副本。
   {
-    auto renderer = application->native_world()->entity_get_mesh_renderer(
-        gneiss::entity_id{(created_node).get()});
+    auto renderer = application->native_world()
+                        ->find(gneiss::entity_id{(created_node).get()})
+                        .read_component<gneiss::engine::mesh_renderer_component>();
     gneiss::entity_id entity;
     gneiss::engine::scene_mesh_binding binding;
     if (!renderer ||
         gneiss::test_support::assign_value(
             application->native_world()->object(gneiss::entity_id{(created_node).get()}), entity)
             .failed() ||
-        application->native_world()->entity_remove_mesh_renderer(entity).failed() ||
+        application->native_world()
+            ->find(entity)
+            .remove_component<gneiss::engine::mesh_renderer_component>()
+            .failed() ||
         gneiss::test_support::assign_value(
             gneiss::engine::capture_mesh_binding(*application->native_world(), scene, created_node),
             binding)
             .failed() ||
         binding.mesh || binding.material ||
-        application->native_world()->entity_set_mesh_renderer(entity, *renderer).failed())
+        application->native_world()
+            ->find(entity)
+            .set_component(gneiss::engine::mesh_renderer_component{*renderer})
+            .failed())
       return 40;
   }
   gneiss::engine::camera_description author_camera{{1.04719755F, 0.2F, 1000.0F}, false};
@@ -319,14 +328,22 @@ int main() try {
   author_camera.settings.near = 0.2F;
   if (set_camera(*application->native_world(), scene, created_node, author_camera) !=
           gneiss::engine::error::success ||
-      application->native_world()->entity_remove_camera(gneiss::entity_id{created_node.get()}) !=
+      application->native_world()
+              ->find(gneiss::entity_id{created_node.get()})
+              .remove_component<gneiss::engine::camera_component>() !=
           gneiss::engine::error::success ||
-      application->native_world()->entity_remove_camera(gneiss::entity_id{created_node.get()}) !=
+      application->native_world()
+              ->find(gneiss::entity_id{created_node.get()})
+              .remove_component<gneiss::engine::camera_component>() !=
           gneiss::engine::error::not_found ||
-      application->native_world()->entity_remove_mesh_renderer(
-          gneiss::entity_id{created_node.get()}) != gneiss::engine::error::success ||
-      application->native_world()->entity_remove_mesh_renderer(
-          gneiss::entity_id{created_node.get()}) != gneiss::engine::error::not_found) {
+      application->native_world()
+              ->find(gneiss::entity_id{created_node.get()})
+              .remove_component<gneiss::engine::mesh_renderer_component>() !=
+          gneiss::engine::error::success ||
+      application->native_world()
+              ->find(gneiss::entity_id{created_node.get()})
+              .remove_component<gneiss::engine::mesh_renderer_component>() !=
+          gneiss::engine::error::not_found) {
     return 27;
   }
   if (gneiss::engine::set_mesh_renderer(*application->native_world(), application->assets(), scene,
@@ -420,7 +437,9 @@ int main() try {
           camera_entity) != gneiss::engine::error::success ||
       application->native_world()->entity_set_local_transform(camera_entity, transform) !=
           gneiss::engine::error::success ||
-      application->native_world()->entity_configure_camera(camera_entity, camera) !=
+      application->native_world()
+              ->find(camera_entity)
+              .set_component(gneiss::engine::camera_component{camera}) !=
           gneiss::engine::error::success ||
       application->native_world()
           ->find(gneiss::entity_id{(camera_node).get()})
