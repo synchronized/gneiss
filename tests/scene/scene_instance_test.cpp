@@ -74,24 +74,25 @@ int main() try {
   constexpr std::string_view missing_mesh_uri = "asset://models/missing.mesh.json";
   const auto application = create_application(asset_root);
   const auto second_application = create_application(asset_root);
+  std::vector<gneiss::engine::scene_object_binding> scene_objects;
   gneiss::scene_instance_id scene = {};
   gneiss::scene_node_id triangle;
   gneiss::scene_node_id camera_node;
   std::uint64_t entity_count = 0;
   std::uint64_t node_count = 0;
   if (application == nullptr || second_application == nullptr ||
-      gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
-          gneiss::engine::error::success ||
+      gneiss::test_support::load_scene(*application, scene_uri, &scene, nullptr, false,
+                                       &scene_objects) != gneiss::engine::error::success ||
       scene == gneiss::scene_instance_id{} ||
       gneiss::test_support::assign_value(application->native_world()->entity_count(),
                                          entity_count) != gneiss::engine::error::success ||
       entity_count != 2U ||
       gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*application}->find_node(scene, triangle_uuid),
+          gneiss::test_support::scene_access{*application}->find_node(scene_objects, triangle_uuid),
           triangle) != gneiss::engine::error::success ||
       triangle == gneiss::null_scene_node_id ||
       gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*application}->find_node(scene, camera_uuid),
+          gneiss::test_support::scene_access{*application}->find_node(scene_objects, camera_uuid),
           camera_node) != gneiss::engine::error::success) {
     return 1;
   }
@@ -176,14 +177,14 @@ int main() try {
           gneiss::test_support::scene_access{*application}->get_node_info(scene, 0U),
           camera_info) != gneiss::engine::error::success ||
       camera_info.node != camera_node || camera_info.parent != gneiss::null_scene_node_id ||
-      camera_info.uuid != camera_uuid || camera_info.name != "Camera" ||
+      camera_info.uuid || camera_info.name != "Camera" ||
       !camera_info.components.get<gneiss::engine::camera_description>() ||
       !camera_info.components.get<gneiss::engine::camera_description>()->is_primary ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->get_node_info(scene, 1U),
           triangle_info) != gneiss::engine::error::success ||
-      triangle_info.node != triangle || triangle_info.parent != camera_node ||
-      triangle_info.uuid != triangle_uuid || !triangle_info.name.empty() ||
+      triangle_info.node != triangle || triangle_info.parent != camera_node || triangle_info.uuid ||
+      !triangle_info.name.empty() ||
       triangle_info.components.get<gneiss::engine::mesh_renderer_description>()->mesh_uri !=
           mesh_uri ||
       triangle_info.components.get<gneiss::engine::mesh_renderer_description>()->material_uri !=
@@ -219,30 +220,35 @@ int main() try {
     return 30;
   // 通过 World 创建的子对象继承父对象的场景归属。
   const auto temporary_uuid = gneiss::engine::guid::from_bytes({91, 82, 1});
-  auto temporary =
-      application->native_world()->object_create(camera_node, {temporary_uuid, "Temporary"}, {});
+  auto temporary = application->native_world()->create_object(
+      {temporary_uuid, "Temporary"}, {},
+      application->native_world()->find(gneiss::entity_id{camera_node.get()}));
   if (!temporary || *gneiss::test_support::scene_access{*application}->get_node_count(scene) != 3U)
     return 31;
   if (application->native_world()
           ->find(gneiss::entity_id{(triangle).get()})
-          .reparent(application->native_world()->find(gneiss::entity_id{(*temporary).get()}))
+          .reparent(application->native_world()->find(temporary->entity()))
           .failed() ||
       application->native_world()
           ->find(gneiss::entity_id{(triangle).get()})
           .reparent(application->native_world()->find(gneiss::entity_id{(camera_node).get()}))
           .failed() ||
-      application->native_world()->find(gneiss::entity_id{(*temporary).get()}).destroy().failed())
+      application->native_world()->find(temporary->entity()).destroy().failed())
     return 34;
   // 同一来源的另一个 World 可以独立修改，原 World 的身份不受影响。
-  auto camera_before = application->native_world()->node_identity(camera_node);
+  auto camera_before =
+      application->native_world()->find(gneiss::entity_id{(camera_node).get()}).identity();
   if (!camera_before)
     return 35;
   const auto camera_name = camera_before->name;
+  std::vector<gneiss::engine::scene_object_binding> play_objects;
   gneiss::scene_instance_id play_scene;
   gneiss::scene_node_id play_camera;
-  if (gneiss::test_support::load_scene(*second_application, scene_uri, &play_scene).failed() ||
+  if (gneiss::test_support::load_scene(*second_application, scene_uri, &play_scene, nullptr, false,
+                                       &play_objects)
+          .failed() ||
       gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*second_application}->find_node(play_scene,
+          gneiss::test_support::scene_access{*second_application}->find_node(play_objects,
                                                                              camera_uuid),
           play_camera)
           .failed() ||
@@ -250,7 +256,8 @@ int main() try {
           ->object(gneiss::entity_id{play_camera.get()})
           ->set_name("Play Camera")
           .failed() ||
-      application->native_world()->node_identity(camera_node)->name != camera_name ||
+      application->native_world()->find(gneiss::entity_id{(camera_node).get()}).identity()->name !=
+          camera_name ||
       gneiss::test_support::scene_access{*second_application}->unload(play_scene).failed())
     return 35;
 
@@ -282,10 +289,14 @@ int main() try {
   }
   // 直接修改 ECS 后，场景绑定查询必须立即反映组件状态，不能读取实例列表副本。
   {
-    auto renderer = application->native_world()->node_mesh_renderer(created_node);
+    auto renderer = application->native_world()->entity_get_mesh_renderer(
+        gneiss::entity_id{(created_node).get()});
     gneiss::entity_id entity;
     gneiss::engine::scene_mesh_binding binding;
-    if (!renderer || application->native_world()->node_get_entity(created_node, entity).failed() ||
+    if (!renderer ||
+        gneiss::test_support::assign_value(
+            application->native_world()->object(gneiss::entity_id{(created_node).get()}), entity)
+            .failed() ||
         application->native_world()->entity_remove_mesh_renderer(entity).failed() ||
         gneiss::test_support::assign_value(
             gneiss::engine::capture_mesh_binding(*application->native_world(), scene, created_node),
@@ -404,21 +415,25 @@ int main() try {
   transform.translation[0] = 5.0F;
   gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   camera.near = 0.25F;
-  if (application->native_world()->node_get_entity(camera_node, camera_entity) !=
-          gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(
+          application->native_world()->object(gneiss::entity_id{(camera_node).get()}),
+          camera_entity) != gneiss::engine::error::success ||
       application->native_world()->entity_set_local_transform(camera_entity, transform) !=
           gneiss::engine::error::success ||
       application->native_world()->entity_configure_camera(camera_entity, camera) !=
           gneiss::engine::error::success ||
       application->native_world()
-          ->node_set_identity(camera_node, {camera_uuid, "Runtime Camera"})
+          ->find(gneiss::entity_id{(camera_node).get()})
+          .set_identity({camera_uuid, "Runtime Camera"})
           .failed() ||
-      !application->native_world()->node_identity(camera_node)) {
+      !application->native_world()->find(gneiss::entity_id{(camera_node).get()}).identity()) {
     return 7;
   }
   auto runtime_camera = gneiss::test_support::scene_access{*application}->get_node_info(scene, 0);
-  auto runtime_mesh = application->native_world()->node_identity(created_node);
-  auto runtime_group = application->native_world()->node_identity(generic_node);
+  auto runtime_mesh =
+      application->native_world()->find(gneiss::entity_id{(created_node).get()}).identity();
+  auto runtime_group =
+      application->native_world()->find(gneiss::entity_id{(generic_node).get()}).identity();
   if (!runtime_camera || runtime_camera->node != camera_node ||
       runtime_camera->name != "Runtime Camera" ||
       runtime_camera->local_transform.translation.x != 5.0F ||

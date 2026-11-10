@@ -98,17 +98,22 @@ prepare_scene(runtime::application& app, std::string_view uri, engine::scene_con
 }
 inline engine::error load_scene(runtime::application& app, std::string_view uri,
                                 scene_instance_id* output, engine::task_scheduler* tasks = nullptr,
-                                bool reload = false) {
+                                bool reload = false,
+                                std::vector<engine::scene_object_binding>* objects = nullptr) {
   if (!output)
     return engine::error::invalid_argument;
   *output = {};
   engine::scene_content prepared;
   engine::scene_resource_bindings bindings;
   auto status = prepare_scene(app, uri, prepared, bindings, tasks, nullptr, reload);
-  return status.failed() ? status
-                         : gneiss::test_support::take_value(
-                               gneiss::test_support::scene_fixture::instantiate_scene(
-                                   *app.native_world(), std::move(prepared), bindings),
-                               *output);
+  if (status.failed())
+    return status;
+  auto receipt = scene_fixture::instantiate_scene(*app.native_world(), prepared, bindings);
+  if (!receipt)
+    return receipt.error();
+  *output = receipt->instance;
+  if (objects)
+    *objects = std::move(receipt->objects);
+  return engine::error::success;
 }
 }

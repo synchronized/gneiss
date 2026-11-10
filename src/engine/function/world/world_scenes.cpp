@@ -126,14 +126,6 @@ result<bool> scene_instance::contains(game_object object) const noexcept {
     return false;
   return owner_->validate_scene_node(id_, scene_node_id{object.entity().get()}).ok();
 }
-result<game_object> scene_instance::find(guid uuid) const noexcept {
-  if (!owner_)
-    return error::invalid_handle;
-  auto node = owner_->find_scene_node(id_, uuid);
-  if (!node)
-    return node.error();
-  return owner_->object(entity_id{node->get()});
-}
 result<game_object> scene_instance::create(scene_node_identity identity,
                                            const math::transform& transform,
                                            game_object parent) const {
@@ -175,7 +167,7 @@ result<scene_node_id> world::find_scene_node(scene_instance_id instance, guid uu
     return status;
   scene_node_id found;
   state_->each_scene_member(instance, [&](scene_node_id node) {
-    if (node_identity(node)->uuid == uuid)
+    if (state_->scene().identity(node)->uuid == uuid)
       found = node;
   });
   if (!found)
@@ -188,21 +180,22 @@ result<scene_node_id> world::create_scene_node(scene_instance_id instance,
   const auto status = validate_scene(instance);
   if (status.failed())
     return status;
-  if (!desc.uuid || find_scene_node(instance, desc.uuid))
+  if (desc.uuid && find_scene_node(instance, desc.uuid))
     return error::invalid_argument;
   if (desc.parent && validate_scene_node(instance, desc.parent).failed())
     return error::invalid_handle;
-  auto created =
-      this->object_create(desc.parent, {desc.uuid, std::string(desc.name)}, desc.local_transform);
+  auto created = create_object({desc.uuid, std::string(desc.name)}, desc.local_transform,
+                               find(entity_id{desc.parent.get()}));
   if (!created)
     return created.error();
+  const auto node = scene_node_id{created->entity().get()};
   try {
-    state_->assign_scene(*created, instance);
+    state_->assign_scene(node, instance);
   } catch (...) {
-    (void)this->find(gneiss::entity_id{(*created).get()}).destroy();
+    (void)created->destroy();
     throw;
   }
-  return *created;
+  return node;
 }
 
 } // namespace gneiss::engine

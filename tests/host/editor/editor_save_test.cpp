@@ -145,7 +145,8 @@ int main() try {
   created_node = session.find_node(created_uuid)->node;
   // 运行时名称变化不得进入文档子树快照。
   if (application->native_world()
-          ->node_set_identity(created_node, {created_uuid, "Live snapshot"})
+          ->find(gneiss::entity_id{(created_node).get()})
+          .set_identity({created_uuid, "Live snapshot"})
           .failed())
     return 20;
   gneiss::editor::scene_subtree_snapshot snapshot;
@@ -212,10 +213,12 @@ int main() try {
   application.reset();
 
   std::shared_ptr<gneiss::runtime::application> reloaded_application;
+  std::vector<gneiss::engine::scene_object_binding> reloaded_objects;
   gneiss::scene_instance_id reloaded_scene{};
   if (create_application(root, reloaded_application) != gneiss::engine::error::success ||
-      gneiss::test_support::load_scene(*reloaded_application, scene_uri, &reloaded_scene) !=
-          gneiss::engine::error::success) {
+      gneiss::test_support::load_scene(*reloaded_application, scene_uri, &reloaded_scene, nullptr,
+                                       false,
+                                       &reloaded_objects) != gneiss::engine::error::success) {
     return 11;
   }
   gneiss::scene_node_id camera_node;
@@ -223,15 +226,16 @@ int main() try {
   gneiss::entity_id camera_entity;
   gneiss::engine::math::transform reloaded_transform{};
   if (gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*reloaded_application}->find_node(reloaded_scene,
+          gneiss::test_support::scene_access{*reloaded_application}->find_node(reloaded_objects,
                                                                                camera_uuid),
           camera_node) != gneiss::engine::error::success ||
       gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*reloaded_application}->find_node(reloaded_scene,
+          gneiss::test_support::scene_access{*reloaded_application}->find_node(reloaded_objects,
                                                                                created_uuid),
           reloaded_created_node) != gneiss::engine::error::success ||
-      reloaded_application->native_world()->node_get_entity(camera_node, camera_entity) !=
-          gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(
+          reloaded_application->native_world()->object(gneiss::entity_id{(camera_node).get()}),
+          camera_entity) != gneiss::engine::error::success ||
       reloaded_application->native_world()->entity_get_local_transform(
           camera_entity, reloaded_transform) != gneiss::engine::error::success ||
       std::abs(reloaded_transform.translation[0] - 7.0F) > 0.0001F) {

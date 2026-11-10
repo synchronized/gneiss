@@ -17,6 +17,10 @@ inline engine::error assign_value(engine::result<engine::game_object> value,
   output = value ? scene_node_id{value->entity().get()} : scene_node_id{};
   return value ? engine::error::success : value.error();
 }
+inline engine::error assign_value(engine::result<engine::game_object> value, entity_id& output) {
+  output = value ? value->entity() : entity_id{};
+  return value ? engine::error::success : value.error();
+}
 template <class T, class U>
   requires std::is_assignable_v<U&, T&&>
 engine::error take_value(engine::result<T> value, U& output) {

@@ -232,7 +232,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
         found_prefab = read(node.entity).fov == 1.3F && node.local_transform.translation.x == 5;
       else if (address->source == child.uuid)
         found_child = node.local_transform.translation.x == 6;
-    } else if (node.uuid == ordinary_uuid) {
+    } else if (address->object == ordinary_uuid) {
       const auto camera = read(node.entity);
       found_ordinary =
           camera.near == 200.0F && camera.far == 400.0F && node.local_transform.translation.x == 6;

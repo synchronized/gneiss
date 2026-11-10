@@ -5,6 +5,7 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/world/world_component_access.hpp"
+#include "value_result.hpp"
 #include <stdexcept>
 namespace gneiss::test_support {
 namespace e = gneiss::engine;
@@ -59,7 +60,8 @@ inline e::world_state& state(e::world& world) {
 }
 inline std::uint64_t entity(e::world& world, gneiss::scene_node_id node) {
   gneiss::entity_id value;
-  if (world.node_get_entity(node, value).failed())
+  if (gneiss::test_support::assign_value(world.object(gneiss::entity_id{(node).get()}), value)
+          .failed())
     throw std::runtime_error("节点访问失败");
   return value.get();
 }

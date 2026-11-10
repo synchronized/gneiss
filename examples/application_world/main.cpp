@@ -16,10 +16,10 @@ int main() try {
     return 1;
   app = std::move(*created);
   auto* world = app->native_world();
-  gneiss::scene_node_id node;
-  if (world->entity_create(state.entity).failed() ||
-      world->node_create({}, state.entity, node).failed())
+  auto object = world->create_object({{}, "example"});
+  if (!object)
     return 2;
+  state.entity = object->entity();
   gneiss::engine::math::transform initial;
   initial.translation = {1, 2, 3};
   if (world->entity_set_local_transform(state.entity, initial).failed() || app->run(8).failed())

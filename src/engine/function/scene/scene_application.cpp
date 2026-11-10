@@ -149,9 +149,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
   for (const auto& object : next.objects) {
     if (old.contains(object.address))
       continue;
-    auto created = destination->create(
-        {object.address.source ? guid::generate() : object.address.object, object.effective.name},
-        object.effective.transform);
+    auto created = destination->create({{}, object.effective.name}, object.effective.transform);
     if (!created)
       return created.error();
     projected_object info;
@@ -172,10 +170,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
     }
     if (previous_object != old.end() &&
         previous_object->second->effective.name != object.effective.name) {
-      auto identity = world.node_identity(node);
-      if (!identity)
-        return identity.error();
-      auto status = world.node_set_identity(node, {identity->uuid, object.effective.name});
+      auto status = world.find(entity_id{node.get()}).set_name(object.effective.name);
       if (status.failed())
         return status;
     }

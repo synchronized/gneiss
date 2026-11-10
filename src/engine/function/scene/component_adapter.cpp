@@ -22,9 +22,8 @@ result<component_description> copy_candidate(const component_description& source
   return std::move(*copied);
 }
 entity_id entity(world& owner, scene_node_id node) {
-  entity_id id;
-  (void)owner.node_get_entity(node, id);
-  return id;
+  auto object = owner.object(entity_id{node.get()});
+  return object ? object->entity() : entity_id{};
 }
 // 与实体同寿命的身份元数据，不持有编辑内容或历史。
 struct component_instance_ids {
@@ -77,8 +76,7 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
       return typed;
     }
     // 普通属性编辑保留当前资源；固定文档引用由上面的 lookup 明确提供。
-    auto current =
-        context.target.owner()->node_mesh_renderer(scene_node_id{context.target.entity().get()});
+    auto current = context.target.owner()->entity_get_mesh_renderer(context.target.entity());
     if (current) {
       ref<const T> existing;
       if constexpr (std::same_as<T, engine::mesh>)
@@ -108,7 +106,7 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
                                                           {*mesh, *material});
 }
 result<std::optional<mesh_renderer_description>> mesh_capture(game_object target) {
-  auto value = target.owner()->node_mesh_renderer(scene_node_id{target.entity().get()});
+  auto value = target.owner()->entity_get_mesh_renderer(target.entity());
   if (!value) {
     if (value.error() == error::not_found)
       return std::optional<mesh_renderer_description>{};

@@ -21,6 +21,14 @@ gneiss::editor::runtime_scene_change upsert(std::uint64_t value, std::uint32_t g
   return change;
 }
 
+bool test_runtime_only_objects() {
+  gneiss::editor::runtime_scene_mirror mirror;
+  gneiss::editor::runtime_scene_batch full{
+      .stamp = {9U, 1U}, .is_full = true, .changes = {upsert(1, 1, 0, {}), upsert(2, 1, 1, {})}};
+  return mirror.apply(full).ok() && mirror.nodes().size() == 2 && !mirror.nodes()[0].uuid &&
+         !mirror.nodes()[1].uuid;
+}
+
 bool test_apply_and_resync() {
   gneiss::editor::runtime_scene_mirror mirror;
   gneiss::editor::runtime_scene_batch full{
@@ -164,8 +172,9 @@ bool test_prefab_sources_use_composite_identity() {
 } // namespace
 
 int main() {
-  return test_inspection_sequence_tracker() && test_apply_and_resync() &&
-                 test_invalid_graph_is_atomic() && test_invalidate_preserves_visible_snapshot() &&
+  return test_runtime_only_objects() && test_inspection_sequence_tracker() &&
+                 test_apply_and_resync() && test_invalid_graph_is_atomic() &&
+                 test_invalidate_preserves_visible_snapshot() &&
                  test_chunked_snapshot_is_atomic() && test_prefab_sources_use_composite_identity()
              ? 0
              : 1;

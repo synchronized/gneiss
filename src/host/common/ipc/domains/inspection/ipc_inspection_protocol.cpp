@@ -150,8 +150,7 @@ bool parse_node(yyjson_val* change, gneiss::host::ipc_inspection_node& output) {
   auto* prefab_source_node_uuid =
       yyjson_is_obj(node) ? yyjson_obj_get(node, "prefab_source_node_uuid") : nullptr;
   auto* name = yyjson_is_obj(node) ? yyjson_obj_get(node, "name") : nullptr;
-  if (!yyjson_is_str(uuid) || yyjson_get_len(uuid) == 0U ||
-      yyjson_get_len(uuid) > max_string_size || !yyjson_is_str(name) ||
+  if (!yyjson_is_str(uuid) || yyjson_get_len(uuid) > max_string_size || !yyjson_is_str(name) ||
       !yyjson_is_str(prefab_instance_uuid) ||
       yyjson_get_len(prefab_instance_uuid) > max_string_size ||
       !yyjson_is_str(prefab_source_node_uuid) ||
@@ -169,7 +168,7 @@ bool parse_node(yyjson_val* change, gneiss::host::ipc_inspection_node& output) {
                          3U)) {
     return false;
   }
-  if (!parse_uuid(uuid, false, output.uuid) ||
+  if (!parse_uuid(uuid, true, output.uuid) ||
       !parse_uuid(prefab_instance_uuid, true, output.prefab_instance_uuid) ||
       !parse_uuid(prefab_source_node_uuid, true, output.prefab_source_node_uuid) ||
       (output.prefab_source_node_uuid && !output.prefab_instance_uuid))
@@ -211,7 +210,7 @@ gneiss::engine::error encode_ipc_inspection_batch(const ipc_inspection_batch& ba
           !yyjson_mut_obj_add_str(document.get(), object, "operation", operation) ||
           !add_id(document.get(), object, "id", change.id) ||
           (change.type == ipc_inspection_change_type::upsert &&
-           (change.node.id != change.id || change.node.uuid.is_nil() ||
+           (change.node.id != change.id ||
             (change.node.prefab_source_node_uuid && !change.node.prefab_instance_uuid) ||
             change.node.name.size() > max_string_size ||
             !add_node(document.get(), object, change.node))) ||

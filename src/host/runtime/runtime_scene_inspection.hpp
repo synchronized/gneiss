@@ -69,7 +69,8 @@ private:
   std::uint64_t session_id_ = 0U;
   std::uint64_t next_sequence_ = 1U;
   std::uint64_t next_object_value_ = 1U;
-  std::map<std::array<engine::guid, 3>, ipc_runtime_object_id> identities_;
+  std::map<std::pair<std::array<engine::guid, 3>, std::uint64_t>, ipc_runtime_object_id>
+      identities_;
   std::map<std::uint64_t, std::uint32_t> generations_;
   std::vector<std::uint64_t> free_values_;
   std::map<std::uint64_t, runtime_scene_snapshot_node> previous_;

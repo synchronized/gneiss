@@ -178,8 +178,8 @@ int main() try {
   check(another_scene.has_value());
   auto another_handle = e::scene_instance::borrow(world, another_scene->instance);
   check(another_handle.has_value());
-  auto first_object = borrowed->find(first.uuid);
-  auto foreign_parent = another_handle->find(first.uuid);
+  auto first_object = scenes.find_object(created->objects, first.uuid);
+  auto foreign_parent = scenes.find_object(another_scene->objects, first.uuid);
   check(first_object && foreign_parent);
   check(first_object->reparent(*foreign_parent) == e::error::invalid_argument);
   check(world.find(gneiss::entity_id{(created->objects[0].node).get()})
@@ -211,7 +211,7 @@ int main() try {
   scene_worker.join();
   check(wrong_thread == e::error::invalid_state);
   check(borrowed_copy.is_valid());
-  auto found = scenes.find_node(instance, first.uuid);
+  auto found = scenes.find_node(created->objects, first.uuid);
   check(found.has_value());
   auto node = *found;
   auto queried = scenes.get_node_info(instance, 0);
@@ -219,7 +219,7 @@ int main() try {
         queried->components.get<movement_description>()->speed == 2);
   auto invalid = scenes.get_node_count({});
   check(!invalid && invalid.error() == e::error::invalid_handle);
-  auto missing = scenes.find_node(instance, {});
+  auto missing = scenes.find_node(created->objects, {});
   check(!missing && missing.error() == e::error::not_found);
   auto captured = e::capture_components(world, node);
   check(bool(captured));
@@ -241,7 +241,7 @@ int main() try {
   // 文件往返使用调用方描述，显式采集需要保留的组件，不捕获整个运行场景。
   e::scene_description saved = source;
   for (auto& object : saved.objects) {
-    auto member = scenes.find_node(instance, object.uuid);
+    auto member = scenes.find_node(created->objects, object.uuid);
     check(bool(member));
     auto components = e::capture_components(world, *member);
     check(bool(components));
@@ -307,7 +307,7 @@ int main() try {
   id = entity(world, node);
   check(state(world).get<movement_component>(id)->data.speed == 5);
   lifetime = state(world).get<movement_component>(id)->lifetime;
-  auto borrowed_object = borrowed_copy.find(first.uuid);
+  auto borrowed_object = world.object(gneiss::entity_id{node.get()});
   check(borrowed_object && borrowed_object->is_valid());
   check(borrowed_copy.unload().ok());
   check(!borrowed->is_valid() && !borrowed_copy.is_valid());
@@ -331,7 +331,7 @@ int main() try {
   check(!dynamic_root->is_valid() && !dynamic_child->is_valid());
   dynamic_count = dynamic->size();
   check(dynamic_count && *dynamic_count == 0);
-  check(!dynamic->find(dynamic_uuid));
+  check(!dynamic_root->is_valid());
   auto recreated = dynamic->create({dynamic_uuid, "recreated"});
   check(recreated && recreated->entity() != dynamic_root->entity());
   const auto recreated_entity = recreated->entity();
@@ -368,15 +368,15 @@ int main() try {
   check(e::game_object{}.set_name("empty") == e::error::invalid_handle);
 
   // 运行注册无需编辑属性回调；编辑不可删除不影响运行移除。
-  auto runtime_node = world.object_create({}, {e::guid::generate(), "runtime-only"}, {});
+  auto runtime_node = world.create_object({e::guid::generate(), "runtime-only"});
   check(runtime_node.has_value());
-  auto runtime_object = world.object(gneiss::entity_id{runtime_node->get()});
+  auto runtime_object = runtime_node;
   check(runtime_object.has_value());
   auto runtime_description = e::make_component_description(runtime_only_description{});
   check(e::component_dependencies({runtime_description})->empty());
   check(e::add_component({*runtime_object}, runtime_description).ok());
-  check(e::read_runtime_component(world, *runtime_node, runtime_only_description::type_guid,
-                                  e::meta::property_id{1})
+  check(e::read_runtime_component(world, gneiss::scene_node_id{runtime_node->entity().get()},
+                                  runtime_only_description::type_guid, e::meta::property_id{1})
             .error() == e::error::unsupported);
   check(e::edit_runtime_component({*runtime_object}, runtime_only_description::type_guid,
                                   e::meta::property_id{1},
@@ -424,7 +424,7 @@ int main() try {
   // 同一组合结果重复追加到非空场景，保留旧对象并提供各自的来源回执。
   auto destination = e::scene_instance::borrow(world, camera_instance->instance);
   check(destination.has_value());
-  auto existing_parent = destination->find(camera_object.uuid);
+  auto existing_parent = scenes.find_object(camera_instance->objects, camera_object.uuid);
   check(existing_parent.has_value());
   e::scene_description append_source;
   append_source.uuid = e::guid::generate();
@@ -549,8 +549,8 @@ int main() try {
   auto stable = e::scene_instance::borrow(world, replacing->instance);
   auto other = e::scene_instance::borrow(world, independent->instance);
   check(stable && other);
-  auto old_object = stable->find(first.uuid);
-  auto other_object = other->find(first.uuid);
+  auto old_object = scenes.find_object(replacing->objects, first.uuid);
+  auto other_object = scenes.find_object(independent->objects, first.uuid);
   check(old_object && other_object);
   replacement_source.objects.front().name = "replacement";
   auto replaced = gneiss::test_support::scene_fixture::instantiate_scene(
@@ -562,7 +562,7 @@ int main() try {
   stable = e::scene_instance::borrow(world, replaced->instance);
   check(stable && stable->is_valid());
   check(!old_object->is_valid() && other_object->is_valid());
-  auto new_object = stable->find(first.uuid);
+  auto new_object = scenes.find_object(replaced->objects, first.uuid);
   check(new_object && new_object->identity()->name == "replacement");
   check(*stable->size() == 1 && *other->size() == 1);
   check(stable->unload().ok());

@@ -23,48 +23,6 @@ private:
   scene_node_id root_;
 };
 
-/** 已验证场景成员的实体查询；无效节点返回零，不缓存实体身份。 */
-inline std::uint64_t scene_object_entity(world& owner, scene_node_id node) noexcept {
-  entity_id entity;
-  (void)owner.node_get_entity(node, entity);
-  return entity.get();
-}
-inline scene_node_identity_view scene_object_identity(world& owner, scene_node_id node) noexcept {
-  auto value = owner.node_identity(node);
-  return value ? *value : scene_node_identity_view{};
-}
-/** 从 World 捕获持久化字段，与 configure_scene_object 支持的组件对称。
- * 不保存派生矩阵或后端句柄；Prefab 根只捕获身份、层级与变换。 */
-inline result<game_object_description> capture_scene_object(world& owner, scene_node_id node,
-                                                            bool components = true) {
-  game_object_description output;
-  auto identity = owner.node_identity(node);
-  if (!identity)
-    return identity.error();
-  output.uuid = identity->uuid;
-  output.name = identity->name;
-  auto object = owner.find(entity_id{node.get()});
-  auto parent = object.parent();
-  if (!parent)
-    return parent.error();
-  if (*parent) {
-    auto parent_identity = parent->identity();
-    if (!parent_identity)
-      return parent_identity.error();
-    output.parent.object = parent_identity->uuid;
-  }
-  auto transform = object.local_transform();
-  if (!transform)
-    return transform.error();
-  output.transform = *transform;
-  if (!components)
-    return output;
-  auto captured = capture_components(owner, node);
-  if (!captured)
-    return captured.error();
-  output.components = std::move(*captured);
-  return output;
-}
 /** 未注册适配器的描述不得被静默忽略。 */
 inline error validate_scene_components(const game_object_description& source) noexcept {
   if (source.prefab && !source.components.empty())
@@ -82,41 +40,5 @@ inline auto fixed_renderer_resources(mesh_renderer renderer) {
       return render_resource_ref{renderer.material};
     return error::not_ready;
   };
-}
-/** 将已解析组件安装到节点；创建失败的回收由调用者负责。 */
-inline error configure_scene_object(world& owner, scene_node_id node,
-                                    const game_object_description& source,
-                                    const mesh_renderer& renderer,
-                                    asset_manager* resources = nullptr) {
-  const auto validation = validate_scene_components(source);
-  if (validation.failed())
-    return validation;
-  auto target = owner.object(entity_id{node.get()});
-  if (!target)
-    return target.error();
-  return install_components({*target, fixed_renderer_resources(renderer), resources},
-                            source.components);
-}
-/** 普通对象与 Prefab 共用实例化路径，输入资源仅在组件内长期持有。 */
-inline result<scene_node_id>
-create_scene_object(world& owner, const game_object_description& source, scene_node_id parent,
-                    const mesh_renderer& renderer, asset_manager* resources = nullptr) {
-  game_object parent_object;
-  if (parent) {
-    auto borrowed = owner.object(entity_id{parent.get()});
-    if (!borrowed)
-      return borrowed.error();
-    parent_object = *borrowed;
-  }
-  auto created = owner.create_object({source.uuid, source.name}, source.transform, parent_object);
-  if (!created)
-    return created.error();
-  const scene_node_id node{created->entity().get()};
-  const auto status = configure_scene_object(owner, node, source, renderer, resources);
-  if (status.failed()) {
-    (void)created->destroy();
-    return status;
-  }
-  return node;
 }
 } // namespace gneiss::engine

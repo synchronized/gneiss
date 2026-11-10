@@ -166,7 +166,8 @@ int main() try {
     return 3;
   }
   const auto selected = session.selection();
-  if (gneiss::engine::error{application->native_world()->node_destroy(selected)} !=
+  if (gneiss::engine::error{
+          application->native_world()->find(gneiss::entity_id{(selected).get()}).destroy()} !=
           gneiss::engine::error::success ||
       session.validate_selection() != gneiss::engine::error::success ||
       session.selection().is_valid()) {

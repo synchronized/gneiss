@@ -28,6 +28,7 @@ const auto camera_uuid = *gneiss::engine::guid::parse("37cff772-2e8d-4bc7-9ed2-f
 bool open_scene(gneiss::engine::task_scheduler& scheduler, std::string_view root,
                 std::shared_ptr<gneiss::runtime::application>& app,
                 gneiss::scene_instance_id& scene,
+                std::vector<gneiss::engine::scene_object_binding>& bindings,
                 gneiss::engine::scene_description* description = nullptr) {
   gneiss::runtime::application_configuration config;
   config.asset_root = root;
@@ -59,19 +60,20 @@ bool open_scene(gneiss::engine::task_scheduler& scheduler, std::string_view root
     return false;
   completion = std::move(*activated);
   scene = completion.scene;
+  bindings = std::move(completion.objects);
   if (description)
     *description = *completion.content->description;
   return true;
 }
-bool target_for(gneiss::runtime::application& app, gneiss::scene_instance_id scene,
+bool target_for(gneiss::runtime::application& app,
+                std::span<const gneiss::engine::scene_object_binding> bindings,
                 gneiss::entity_id& target) {
-  auto instance = gneiss::engine::scene_instance::borrow(*app.native_world(), scene);
-  if (!instance)
+  auto found = std::ranges::find_if(bindings, [](const auto& binding) {
+    return binding.object == camera_uuid && !binding.source;
+  });
+  if (found == bindings.end() || !app.native_world()->find(found->entity))
     return false;
-  auto node = instance->find(camera_uuid);
-  if (!node)
-    return false;
-  target = node->entity();
+  target = found->entity;
   return true;
 }
 }
@@ -96,6 +98,7 @@ int main() try {
       {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::scene_instance_id scene{};
+  std::vector<gneiss::engine::scene_object_binding> bindings;
   example::scope_exit close{[&] {
     if (app) {
       if (scene) {
@@ -107,10 +110,11 @@ int main() try {
     }
   }};
   gneiss::engine::scene_description description;
-  if (!open_scene(scheduler, GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT, app, scene, &description))
+  if (!open_scene(scheduler, GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT, app, scene, bindings,
+                  &description))
     return 2;
   gneiss::entity_id target{};
-  if (!target_for(*app, scene, target))
+  if (!target_for(*app, bindings, target))
     return 3;
   gneiss::engine::value value{.payload = gneiss::engine::math::vector3{2, 1, 4}};
   if (gneiss::engine::write_component_property(*app->native_world(), target.get(),
@@ -174,8 +178,8 @@ int main() try {
     if (!out)
       return 5;
   }
-  if (!open_scene(scheduler, output_root.generic_string(), app, scene) ||
-      !target_for(*app, scene, target))
+  if (!open_scene(scheduler, output_root.generic_string(), app, scene, bindings) ||
+      !target_for(*app, bindings, target))
     return 6;
   auto translation = gneiss::engine::read_component_property(
       *app->native_world(), target.get(), gneiss::engine::math::transform::type_guid,

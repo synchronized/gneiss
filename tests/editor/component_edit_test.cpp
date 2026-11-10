@@ -509,7 +509,8 @@ int main() try {
   check(reloaded && reloaded->get<movement_description>()->settings.acceleration == 20 &&
         reloaded->get<movement_description>()->samples[1] == 9);
   check(gneiss::test_support::take_value(
-            gneiss::test_support::scene_access{*app}->find_node(loaded, ordinary), loaded_node)
+            gneiss::test_support::scene_access{*app}->find_node(receipt->objects, ordinary),
+            loaded_node)
             .ok());
   reloaded = e::capture_components(world, loaded_node);
   check(reloaded && reloaded->get<movement_description>()->mode == movement_mode::run &&

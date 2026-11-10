@@ -104,6 +104,30 @@ bool test_full_and_incremental_snapshot() {
          snapshot.is_full && snapshot.stamp.sequence == 5U && snapshot.changes.size() == 2U;
 }
 
+// 动态对象没有文档来源，IPC 身份按运行实体区分，不能用共享的 nil UUID 合并。
+bool test_runtime_only_objects() {
+  using namespace gneiss::host;
+  runtime_scene_inspection inspection(91);
+  std::vector<runtime_scene_source_node> nodes{make_node(101, 0, {}, "runtime-a"),
+                                               make_node(102, 101, {}, "runtime-b")};
+  runtime_scene_snapshot snapshot;
+  if (inspection.capture(nodes, false, snapshot).failed() || snapshot.changes.size() != 2 ||
+      snapshot.changes[0].id == snapshot.changes[1].id)
+    return false;
+  const auto retained = snapshot.changes[0].id;
+  std::vector<std::uint8_t> bytes;
+  ipc_inspection_batch decoded;
+  if (encode_ipc_inspection_batch(snapshot, bytes).failed() ||
+      decode_ipc_inspection_batch(bytes, decoded).failed() || decoded.changes.size() != 2 ||
+      decoded.changes[0].node.uuid || decoded.changes[1].node.uuid)
+    return false;
+  nodes[0].name = "renamed";
+  if (inspection.capture(nodes, false, snapshot).failed() || snapshot.changes.size() != 1 ||
+      snapshot.changes[0].id != retained)
+    return false;
+  return inspection.capture(nodes, false, snapshot) == gneiss::engine::error::not_ready;
+}
+
 bool test_validation_and_reset() {
   using namespace gneiss::host;
   runtime_scene_inspection invalid(0U);
@@ -230,22 +254,22 @@ bool test_registered_component_inspection() {
   if (!owner)
     return false;
   auto& world = **owner;
-  auto node = world.object_create({}, {e::guid::from_bytes({7}), "Custom"}, {});
+  auto node = world.create_object({e::guid::from_bytes({7}), "Custom"});
   if (!node ||
-      e::install_components({*world.object(gneiss::entity_id{node->get()})},
+      e::install_components({*world.object(gneiss::entity_id{node->entity().get()})},
                             {e::make_component_description(movement_description{3}),
                              e::make_component_description(e::mesh_renderer_description{})})
           .failed())
     return false;
-  auto components = e::capture_components(world, *node);
+  auto components = e::capture_components(world, gneiss::scene_node_id{node->entity().get()});
   if (!components || components->size() != 2 || !components->get<e::mesh_renderer_description>())
     return false;
   auto dependencies = e::component_dependencies(*components);
   if (!dependencies || !dependencies->empty())
     return false;
   gneiss::host::runtime_scene_inspection inspection(83);
-  auto source = make_node(node->get(), 0, e::guid::from_bytes({7}), "Custom");
-  source.native_entity = entity(world, *node);
+  auto source = make_node(node->entity().get(), 0, e::guid::from_bytes({7}), "Custom");
+  source.native_entity = node->entity().get();
   source.components = *components;
   gneiss::host::ipc_inspection_batch batch;
   if (inspection.capture(std::span{&source, 1}, true, batch).failed())
@@ -304,11 +328,11 @@ bool test_registered_component_inspection() {
       response.code != e::error::invalid_argument.code() ||
       state(world).get<movement_component>(source.native_entity)->data.speed != 6)
     return false;
-  if (e::remove_component({*world.object(gneiss::entity_id{node->get()})},
+  if (e::remove_component({*world.object(gneiss::entity_id{node->entity().get()})},
                           e::mesh_renderer_description::type_guid)
           .failed())
     return false;
-  components = e::capture_components(world, *node);
+  components = e::capture_components(world, gneiss::scene_node_id{node->entity().get()});
   return components && !components->get<e::mesh_renderer_description>();
 }
 
@@ -321,8 +345,8 @@ int main() {
   if (!test_registered_component_inspection())
     return 98;
   return test_full_and_incremental_snapshot() && test_validation_and_reset() &&
-                 test_empty_scene_is_stable() && test_prefab_composite_identity() &&
-                 test_capture_prefab_scene()
+                 test_empty_scene_is_stable() && test_runtime_only_objects() &&
+                 test_prefab_composite_identity() && test_capture_prefab_scene()
              ? 0
              : 1;
 }

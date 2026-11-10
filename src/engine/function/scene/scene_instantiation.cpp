@@ -65,11 +65,8 @@ result<scene_instantiation_result> instantiate(scene_instance destination,
   receipt.roots.reserve(composed.objects.size());
   std::map<object_address, game_object> objects;
   for (const auto& object : composed.objects) {
-    // 运行来源身份外移前，保留首个普通对象的查询语义；重复实例不得复用 UUID。
-    auto uuid = object.address.source ? guid::generate() : object.address.object;
-    if (destination.find(uuid))
-      uuid = guid::generate();
-    auto made = destination.create({uuid, object.effective.name}, object.effective.transform);
+    // 来源地址只保存在回执中；运行对象以实体代次区分实例。
+    auto made = destination.create({{}, object.effective.name}, object.effective.transform);
     if (!made)
       return made.error();
     created.push_back(*made);
@@ -187,7 +184,7 @@ error set_mesh_renderer(world& owner, asset_manager& assets, scene_instance_id s
   auto status = validate(owner, scene, node);
   if (status.failed())
     return status;
-  auto current = owner.node_mesh_renderer(node);
+  auto current = owner.entity_get_mesh_renderer(gneiss::entity_id{(node).get()});
   if (!current && current.error() != error::not_found)
     return current.error();
   auto binding = current ? *current : mesh_renderer{};
@@ -218,7 +215,7 @@ result<scene_mesh_binding> capture_mesh_binding(world& owner, scene_instance_id 
   auto status = validate(owner, scene, node);
   if (status.failed())
     return status;
-  auto current = owner.node_mesh_renderer(node);
+  auto current = owner.entity_get_mesh_renderer(gneiss::entity_id{(node).get()});
   if (!current)
     return current.error() == error::not_found ? result<scene_mesh_binding>{scene_mesh_binding{}}
                                                : result<scene_mesh_binding>{current.error()};
@@ -236,7 +233,7 @@ error replace_mesh_binding(world& owner, scene_instance_id scene, scene_node_id 
     return error::invalid_argument;
   if (current->mesh != expected.mesh || current->material != expected.material)
     return error::invalid_state;
-  auto existing = owner.node_mesh_renderer(node);
+  auto existing = owner.entity_get_mesh_renderer(gneiss::entity_id{(node).get()});
   if (!existing && existing.error() != error::not_found)
     return existing.error();
   if (!existing) {

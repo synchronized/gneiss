@@ -6,7 +6,8 @@
 #include "engine/core/serialization/policy.hpp"
 #include "engine/core/serialization/serialization.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/scene_object.hpp"
+#include "engine/function/scene/scene_instantiation.hpp"
+#include "engine/function/world/world.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 #include <string>
@@ -260,7 +261,17 @@ int main() try {
   auto owner = e::create_native();
   if (!owner)
     return 9;
-  auto unsupported = e::create_scene_object(**owner, parsed->objects.front(), {}, {});
+  auto destination = (*owner)->create_scene();
+  if (!destination)
+    return 9;
+  const auto create =
+      [&](const e::scene_description& description) -> e::result<e::scene_instantiation_result> {
+    auto composed = e::compose_scene(description, {});
+    if (!composed)
+      return composed.error();
+    return e::instantiate(*destination, *composed, {});
+  };
+  auto unsupported = create(*parsed);
   if (unsupported || unsupported.error() != e::error::unsupported)
     return 10;
   // 未发布的旧扁平 Camera 格式不再接受。
@@ -323,10 +334,11 @@ int main() try {
   if (!restored || restored->settings.fov != 0.8F || restored->settings.near != 0.2F ||
       restored->settings.far != 250.0F || !restored->is_primary)
     return 20;
-  auto node = e::create_scene_object(**owner, supported->objects.front(), {}, {});
+  auto node = create(*supported);
   if (!node)
     return 12;
-  (void)(*owner)->find(gneiss::entity_id{(*node).get()}).destroy();
+  if (destination->unload().failed())
+    return 12;
   // Prefab 共用完全相同的组件协议。
   auto prefab_text = scene("[" + camera + "," + custom + "]");
   prefab_text.replace(prefab_text.find("gneiss.scene"), 12, "gneiss.prefab");

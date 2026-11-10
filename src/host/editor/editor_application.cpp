@@ -982,7 +982,10 @@ make_runtime_inspector_actions(editor_state& state,
   return {.context = &state,
           .editable = state.runtime.supports_property_editing(),
           .can_apply_to_author =
-              !node.uuid.is_nil() && state.editing.document().find_node(node.uuid).ok(),
+              (node.uuid || node.prefab_instance_uuid) &&
+              state.editing.document()
+                  .find_node(node.prefab_instance_uuid ? node.prefab_instance_uuid : node.uuid)
+                  .ok(),
           .find_edit =
               [](void* context, const gneiss::editor::runtime_property_key& key) {
                 return static_cast<editor_state*>(context)->runtime.property_edit(key);
@@ -1432,7 +1435,8 @@ void draw_asset_browser(editor_state& state) {
   else if (const auto ordinary_node = state.editing.document().selected_node())
     selected_node = ordinary_node->node;
   const bool has_renderer =
-      selected_node && state.world->node_mesh_renderer(selected_node).has_value();
+      selected_node &&
+      state.world->entity_get_mesh_renderer(gneiss::entity_id{(selected_node).get()}).has_value();
   if (selected != state.assets.entries().end()) {
     view.can_add_mesh = is_mesh_asset(*selected) &&
                         find_material_for_mesh(state.assets.entries(), *selected) != nullptr;

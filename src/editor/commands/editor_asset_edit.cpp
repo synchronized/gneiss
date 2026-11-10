@@ -264,7 +264,7 @@ editor_asset_edit::request_impl(runtime::application& application, scene_edit_se
     previous_ = std::move(*captured);
   }
   if (!creating_ && !target.instance_uuid &&
-      !application.native_world()->node_mesh_renderer(node_)) {
+      !application.native_world()->entity_get_mesh_renderer(gneiss::entity_id{(node_).get()})) {
     previous_ = {};
     return operation_ = gneiss::engine::error::invalid_state;
   }

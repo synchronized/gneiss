@@ -125,7 +125,7 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
   scene_node_id node;
   check(gneiss::test_support::take_value(
             gneiss::test_support::scene_access{*app}->find_node(
-                completion.scene,
+                completion.objects,
                 *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000002")),
             node) == gneiss::engine::error::success);
   gneiss::engine::scene_mesh_binding binding;
@@ -430,8 +430,8 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
         *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000002");
     gneiss::scene_node_id node{};
     check(gneiss::test_support::take_value(
-              gneiss::test_support::scene_access{*app}->find_node(completion.scene, uuid), node) ==
-          gneiss::engine::error::success);
+              gneiss::test_support::scene_access{*app}->find_node(completion.objects, uuid),
+              node) == gneiss::engine::error::success);
     gneiss::engine::scene_mesh_binding value;
     check(gneiss::test_support::take_value(
               gneiss::engine::capture_mesh_binding(*app->native_world(), completion.scene, node),
@@ -754,7 +754,8 @@ void source_reload_without_world_prefab_state() {
   check(changed.result.ok() && changed.objects.size() == 3);
   check(find(changed.objects, root.uuid) == root_node &&
         find(changed.objects, child.uuid) == child_node);
-  check(app->native_world()->node_identity(child_node)->name == "updated");
+  check(app->native_world()->find(gneiss::entity_id{(child_node).get()}).identity()->name ==
+        "updated");
   auto object = app->native_world()->object(entity_id{root_node.get()});
   check(object && object->local_transform()->translation.x == 7);
   prefab.objects.erase(prefab.objects.begin() + 1);

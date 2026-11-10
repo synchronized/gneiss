@@ -34,12 +34,12 @@ bool equal_node(const gneiss::host::runtime_scene_snapshot_node& left,
          gneiss::engine::equal_components(left.components, right.components);
 }
 
-std::array<gneiss::engine::guid, 3>
+std::pair<std::array<gneiss::engine::guid, 3>, std::uint64_t>
 author_key(const gneiss::host::runtime_scene_source_node& node) {
   if (node.prefab_instance_uuid.is_nil()) {
-    return {node.uuid, {}, {}};
+    return {{node.uuid, {}, {}}, node.uuid ? 0U : node.native_node};
   }
-  return {gneiss::engine::guid{}, node.prefab_instance_uuid, node.prefab_source_node_uuid};
+  return {{gneiss::engine::guid{}, node.prefab_instance_uuid, node.prefab_source_node_uuid}, 0U};
 }
 
 } // namespace
@@ -83,10 +83,10 @@ runtime_scene_inspection::capture(std::span<const runtime_scene_source_node> nod
     return gneiss::engine::error::invalid_argument;
   }
   {
-    std::set<std::array<gneiss::engine::guid, 3>> author_keys;
+    std::set<decltype(author_key(runtime_scene_source_node{}))> author_keys;
     std::set<std::uint64_t> native_nodes;
     for (const auto& node : nodes) {
-      if (node.native_node == 0U || node.uuid.is_nil() ||
+      if (node.native_node == 0U ||
           (!node.prefab_source_node_uuid.is_nil() && node.prefab_instance_uuid.is_nil()) ||
           node.name.size() > runtime_inspection_max_string_size ||
           !author_keys.insert(author_key(node)).second ||
@@ -246,7 +246,7 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
         {.native_node = object.entity().get(),
          .native_parent = parent->entity().get(),
          .native_entity = object.entity().get(),
-         .uuid = identity->uuid,
+         .uuid = binding && !binding->source ? binding->object : engine::guid{},
          .prefab_instance_uuid = binding && binding->source ? binding->object : engine::guid{},
          .prefab_source_node_uuid = binding ? binding->source : engine::guid{},
          .name = std::string{identity->name},

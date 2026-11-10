@@ -32,14 +32,19 @@ struct scene_access {
     auto scene = engine::scene_instance::borrow(owner, id);
     return scene ? scene->size() : engine::result<std::uint64_t>{scene.error()};
   }
-  engine::result<scene_node_id> find_node(scene_instance_id id, engine::guid uuid) {
-    auto scene = engine::scene_instance::borrow(owner, id);
-    if (!scene)
-      return scene.error();
-    auto object = scene->find(uuid);
-    if (!object)
-      return object.error();
-    return scene_node_id{object->entity().get()};
+  // 来源查找只使用调用方保存的本次回执，不扫描运行对象的属性。
+  engine::result<engine::game_object>
+  find_object(std::span<const engine::scene_object_binding> bindings, engine::guid uuid) {
+    auto found = std::ranges::find_if(
+        bindings, [&](const auto& binding) { return binding.object == uuid && !binding.source; });
+    return found == bindings.end() ? engine::result<engine::game_object>{engine::error::not_found}
+                                   : owner.object(found->entity);
+  }
+  engine::result<scene_node_id> find_node(std::span<const engine::scene_object_binding> bindings,
+                                          engine::guid uuid) {
+    auto object = find_object(bindings, uuid);
+    return object ? engine::result<scene_node_id>{scene_node_id{object->entity().get()}}
+                  : engine::result<scene_node_id>{object.error()};
   }
   engine::error validate_editable_node(scene_instance_id id, scene_node_id node) {
     auto scene = engine::scene_instance::borrow(owner, id);

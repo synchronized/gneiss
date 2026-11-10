@@ -235,7 +235,8 @@ scene_service::apply_source(engine::ref<const engine::scene_content> content) {
       replacement->effective.transform = *transform;
     object.effective.transform = *transform;
     // 用实际运行状态比较目标，恢复来源指定的名称、组件和父关系。
-    auto identity = native_world()->node_identity(binding->second.node);
+    auto identity =
+        native_world()->find(gneiss::entity_id{(binding->second.node).get()}).identity();
     auto components = engine::capture_components(*native_world(), binding->second.node);
     if (!identity)
       return identity.error();

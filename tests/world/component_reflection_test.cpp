@@ -23,9 +23,13 @@ int main() {
       gneiss::engine::meta::freeze().failed() ||
       gneiss::test_support::assign_value(engine::create_native(), first).failed() ||
       gneiss::test_support::assign_value(engine::create_native(), second).failed() ||
-      first->entity_create(entity).failed() || first->entity_create(missing).failed() ||
-      first->node_create({}, entity, node).failed())
+      first->entity_create(missing).failed())
     return 1;
+  auto object = first->create_object({{}, "object"});
+  if (!object)
+    return 1;
+  entity = object->entity();
+  node = gneiss::scene_node_id{entity.get()};
   const auto transform_type = engine::math::transform::type_guid;
   const auto camera_type = engine::camera_description::type_guid;
   gneiss::engine::meta::type info;

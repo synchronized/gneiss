@@ -162,12 +162,18 @@ int main() {
   native::math::transform plain_transform;
   plain_transform.translation[0] = 0.55F;
   plain_transform.translation[2] = 0.5F;
-  if (world.entity_create(camera_entity).failed() || world.entity_create(mesh_entity).failed() ||
-      world.entity_create(plain_mesh_entity).failed() ||
-      world.node_create({}, camera_entity, camera_node).failed() ||
-      world.node_create({}, mesh_entity, mesh_node).failed() ||
-      world.node_create({}, plain_mesh_entity, plain_mesh_node).failed() ||
-      world.find(gneiss::entity_id{(camera_node).get()})
+  auto camera_object = world.create_object({{}, "camera"});
+  auto mesh_object = world.create_object({{}, "mesh"});
+  auto plain_object = world.create_object({{}, "plain"});
+  if (!camera_object || !mesh_object || !plain_object)
+    return 2;
+  camera_entity = camera_object->entity();
+  mesh_entity = mesh_object->entity();
+  plain_mesh_entity = plain_object->entity();
+  camera_node = scene_node_id{camera_entity.get()};
+  mesh_node = scene_node_id{mesh_entity.get()};
+  plain_mesh_node = scene_node_id{plain_mesh_entity.get()};
+  if (world.find(gneiss::entity_id{(camera_node).get()})
           .set_local_transform(camera_transform)
           .failed() ||
       world.find(gneiss::entity_id{(mesh_node).get()})

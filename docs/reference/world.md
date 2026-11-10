@@ -23,7 +23,7 @@ World 直接管理槽位与 ECS 成员，没有公开场景集合或 attach 步�
 World 析构释放实体及组件引用；Runtime 场景协调直接持有 world_owner。
 
 `scene_instance::borrow(world, id)` 返回非拥有的场景句柄。
-size、find 和 unload 直接访问 World 的成员归属和槽位，校验所属线程与场景 RID 的 domain/generation。
+size、visit_objects 和 unload 直接访问 World 的成员归属和槽位，校验所属线程与场景 RID 的 domain/generation。
 复制句柄不延长场景或对象寿命；卸载后副本失效，槽位复用不会恢复旧句柄。
 World 销毁后禁止再访问场景句柄，is_valid 也不能检测已经析构的 World。
 
@@ -32,8 +32,11 @@ World 销毁后禁止再访问场景句柄，is_valid 也不能检测已经析�
 World 拒绝不同场景已登记成员之间的重新挂接，返回 invalid_argument；
 检查目标祖先和移动子树，不能通过未登记的中间对象绕开该限制。
 场景访问入口统一校验线程和句柄，并清理已经由 World 销毁的成员；
-size、find 和枚举不再返回已经失效的成员。存活实体仍以 World 的 generation 校验为准。
-旧节点接口及运行来源身份清理仍在 PLAN-110 中实施。
+size 和枚举不再返回已经失效的成员。存活实体仍以 World 的 generation 校验为准。
+运行对象不提供来源 UUID 查找；来源由实例化回执和调用方映射维护。
+节点创建实现为 World 私有细节；对外通过 create_object 创建并返回 game_object。
+组件读写保留纯 ECS 的 entity_* 入口，网格查询使用 entity_get_mesh_renderer，
+不要求实体具有对象层级。
 
 借用接口位于 `function/world/scene_instance.hpp`。
 `scene_instance::create(identity, transform, parent)` 显式创建并登记本场景对象，

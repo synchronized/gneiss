@@ -31,7 +31,7 @@ namespace gneiss::editor {
 gneiss::engine::error
 apply_runtime_transform_to_author(scene_edit_session& session, editor_command_history& history,
                                   const runtime_author_transform& runtime_node) {
-  if (runtime_node.uuid.is_nil()) {
+  if (runtime_node.uuid.is_nil() && runtime_node.prefab_instance_uuid.is_nil()) {
     return gneiss::engine::error::invalid_argument;
   }
   const auto has_prefab_identity = !runtime_node.prefab_instance_uuid.is_nil();

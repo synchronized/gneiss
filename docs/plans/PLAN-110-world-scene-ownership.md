@@ -5,9 +5,10 @@
 
 ## 状态与范围
 
-2026-11-10：实施中；以下目标按本次确认修订。对象改名/变换入口、ECS 成员归属及场景资产服务解耦已完成；
+2026-11-10：本轮四项清理已完成；目标 API 的进一步便利封装仍见下方差异说明。对象改名/变换入口、ECS 成员归属及场景资产服务解耦已完成；
 World 已收拢槽位并删除公开场景集合，补齐成员遍历、世界矩阵与整棵子树迁移；
-相机安装与应用激活已分离，编辑组件策略已迁到 Editor；旧准备模型已删除；运行来源身份及剩余 World 入口尚未完成。
+相机安装与应用激活已分离，编辑组件策略已迁到 Editor；旧准备模型已删除；
+运行来源关联使用外部回执，公开节点业务包装已清理，保留纯 ECS 组件入口。
 沿用当前特性分支，不重新实现 ECS、资产缓存或编辑历史。
 本计划细化并收敛 PLAN-105/106/107 的接口边界，不将历史任务完成等同于本计划已实现。
 长期决策见 [ADR-115](../decisions/ADR-115-world-scene-ownership.md)。
@@ -176,16 +177,16 @@ Runtime 不建立编辑文档。IPC 调用已有应用操作，不增加对象�
 2. [x] 组合与装配分开；以 composed_scene 为唯一完整输入，实现显式目标场景和 parent 的 instantiate。
    已覆盖已有非空场景、Prefab 重复实例化、引用前向解析和仅清理本次创建对象。
    Runtime、Editor 和测试均直接消费固定内容；旧准备类型、实现和构建登记已删除。
-3. [ ] World 收拢场景槽位，移除公开集合及独立状态层；统一 GameObject 创建/层级入口。
-   已完成槽位收拢及 scene_instances/scene_instance_state 删除；旧 World node/entity 业务入口仍待迁移。
-4. [ ] 迁移运行来源身份到外部回执，补齐对象遍历和同 World 整棵子树迁移。
-   已完成 visit_objects、game_object::scene/world_matrix、transfer_subtree；来源 UUID 依赖尚待移除。
+3. [x] World 收拢场景槽位，移除公开集合及独立状态层；统一 GameObject 创建/层级入口。
+   已删除公开集合及独立状态层；公开创建使用 create_object，层级/名称/销毁使用 game_object。
+4. [x] 迁移运行来源身份到外部回执，补齐对象遍历和同 World 整棵子树迁移。
+   已完成 visit_objects、game_object::scene/world_matrix、transfer_subtree；来源查找使用实例化回执。
 5. [x] 拆分运行组件装配与编辑器注册，消除上下文中的网格特例。
    Inspector 来源信息及组件编辑策略均归 Editor；Engine 保留运行装配和通用属性读写。
 6. [x] 分离相机安装和激活；迁移应用/视口安全点调度，整理 scene_domain。
    已删除 scene_domain；相机组件只保存默认提示，运行应用 activate 在切换前显式选择相机，
    编辑视口继续使用独立相机。多个提示按组合顺序选择最后一个，无提示则不自动激活。
-7. [ ] 清理旧 node/entity 业务入口、重复准备模型及目录；完成编译与定向 CPU 验证。
+7. [x] 清理旧 node/entity 业务入口、重复准备模型及目录；完成编译与定向 CPU 验证。
 
 保句柄替换协议及准备模型已删除；测试目录的 instantiate_scene 辅助只组合现有接口，
 不进入产品 API，不维护独立准备模型或加载预算。
@@ -514,3 +515,24 @@ scene_prepare_limits、prepare_loaded_scene、make_instantiation_data 均不再�
 Windows Clang Debug 全部默认目标编译通过；16 项 CPU 回归中，15 项首次通过，
 实例化测试按上述缺失来源错误规则更新后单独重跑通过。未运行 GPU、大场景、远端 CI。
 来源 UUID 与剩余 World 入口仍未完成，不能将本段验收当作整个计划完成。
+
+## 本轮四项清理验收
+
+来源定位统一使用实例化回执和调用方映射；instantiate 与 apply_scene 创建的运行对象不再
+复制或生成来源 UUID，scene_instance 不提供 find(guid)。Runtime 检视从显式回执读取来源；
+无来源动态对象按运行实体区分 IPC 身份，协议和编辑镜像允许其来源 UUID 为空。
+
+World 删除公开节点身份、销毁、实体查询包装；object_create/node_create 收为私有实现。
+公开对象创建统一使用 create_object，网格组件查询使用 entity_get_mesh_renderer。
+纯 ECS 实体/组件操作保留，既有动态创建的显式 UUID 标签也保留，但不用于来源查找。
+
+Windows Clang Debug 全部默认目标编译通过；完整重链后 28 项定向 CPU 回归全部通过，
+包括组件注册、场景/Prefab 实例化和刷新、编辑历史、IPC 编解码及无来源对象镜像。
+未运行 GPU、大场景、远端 CI 或跨平台矩阵。
+
+### 目标 API 示意与实际入口
+
+上方目标代码包含尚未提供的便利接口：children/roots 范围和 GameObject 模板组件访问。
+当前遍历使用 visit_objects，组件使用现有组件适配器及 World 的纯 ECS 接口；
+这些便利封装不能因本轮主清单打勾而视为已经实现。当前四项任务没有引入它们。
+实际错误返回沿用 error/result，create/borrow 等准确签名以 Reference 和头文件为准。

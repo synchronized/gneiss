@@ -23,9 +23,10 @@ std::array<gneiss::engine::guid, 3> author_key(const gneiss::editor::runtime_sce
 bool valid_graph(const std::map<std::uint64_t, gneiss::editor::runtime_scene_node>& nodes) {
   std::set<std::array<gneiss::engine::guid, 3>> author_keys;
   for (const auto& [value, node] : nodes) {
-    if (!node.id.is_valid() || node.id.value != value || node.uuid.is_nil() ||
+    if (!node.id.is_valid() || node.id.value != value ||
         (!node.prefab_source_node_uuid.is_nil() && node.prefab_instance_uuid.is_nil()) ||
-        !author_keys.insert(author_key(node)).second) {
+        ((node.uuid || node.prefab_instance_uuid) &&
+         !author_keys.insert(author_key(node)).second)) {
       return false;
     }
     if (node.parent.is_valid()) {

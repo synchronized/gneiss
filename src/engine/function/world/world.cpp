@@ -75,22 +75,12 @@ result<scene_node_id> world::object_create(scene_node_id parent, scene_node_iden
   if (status.ok())
     status = state_->scene().set_local(node, transform);
   if (status.ok())
-    status = node_set_identity(node, std::move(identity));
+    status = state_->scene().set_identity(node, std::move(identity));
   if (status.failed()) {
     (void)entity_destroy(entity);
     return status;
   }
   return node;
-}
-error world::node_set_identity(scene_node_id node, scene_node_identity identity) {
-  if (!is_owner_thread())
-    return error::invalid_state;
-  return state_->scene().set_identity(node, std::move(identity));
-}
-result<scene_node_identity_view> world::node_identity(scene_node_id node) const {
-  if (!is_owner_thread())
-    return error::invalid_state;
-  return state_->scene().identity(node);
 }
 result<scene_node_id> world::entity_node(entity_id entity) const noexcept {
   if (!is_owner_thread())
@@ -99,13 +89,12 @@ result<scene_node_id> world::entity_node(entity_id entity) const noexcept {
     return error::invalid_handle;
   return state_->scene().node_for_entity(entity.get());
 }
-result<mesh_renderer> world::node_mesh_renderer(scene_node_id node) {
+result<mesh_renderer> world::entity_get_mesh_renderer(entity_id entity) {
   if (!is_owner_thread())
     return error::invalid_state;
-  if (!state_->scene().get_local(node))
+  if (!state_->is_alive(entity.get()))
     return error::invalid_handle;
-  const auto entity = state_->scene().get_entity(node);
-  const auto* component = state_->get<mesh_renderer_component>(entity);
+  const auto* component = state_->get<mesh_renderer_component>(entity.get());
   if (!component)
     return error::not_found;
   return component->value;
@@ -352,38 +341,6 @@ engine::error world::node_create(scene_node_id parent_value, entity_id entity_va
     }
   }();
   out_node_value = scene_node_id{out_node};
-  return operation_result;
-}
-engine::error world::node_destroy(scene_node_id node_value) {
-  scene_node_id node = node_value;
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    return thread_result == engine::error::success ? state->scene().destroy(node) : thread_result;
-  }
-}
-engine::error world::node_get_entity(scene_node_id node_value, entity_id& out_entity_value) {
-  scene_node_id node = node_value;
-  std::uint64_t out_entity = out_entity_value.get();
-  const auto operation_result = [&]() -> engine::error {
-    out_entity = UINT64_C(0);
-    {
-      auto* state = state_.get();
-      const auto thread_result =
-          (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-      if (thread_result != engine::error::success) {
-        return thread_result;
-      }
-      const auto* transform = state->scene().get_local(node);
-      if (transform == nullptr) {
-        return engine::error::invalid_handle;
-      }
-      out_entity = state->scene().get_entity(node);
-      return engine::error::success;
-    }
-  }();
-  out_entity_value = entity_id{out_entity};
   return operation_result;
 }
 engine::error world::entity_get_local_transform(entity_id entity_value,

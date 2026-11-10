@@ -67,20 +67,9 @@ public:
   }
   /** 将本 World 中有层级组件的实体借用为对象，纯 ECS 实体返回 not_found。 */
   [[nodiscard]] GNEISS_API result<game_object> object(entity_id entity) noexcept;
-  /** 创建节点与关联实体；失败不留下部分对象。限所属线程。 */
-  [[nodiscard]] GNEISS_API result<scene_node_id> object_create(scene_node_id parent,
-                                                               scene_node_identity identity,
-                                                               const math::transform& transform);
-  [[nodiscard]] GNEISS_API error node_set_identity(scene_node_id node,
-                                                   scene_node_identity identity);
-  /** 借用名称与身份；节点删除、身份修改或 World 结构变化后须重新查询。 */
-  [[nodiscard]] GNEISS_API result<scene_node_identity_view> node_identity(scene_node_id node) const;
   [[nodiscard]] GNEISS_API result<scene_node_id> entity_node(entity_id entity) const noexcept;
-  [[nodiscard]] GNEISS_API result<mesh_renderer> node_mesh_renderer(scene_node_id node);
-  [[nodiscard]] GNEISS_API error node_create(scene_node_id parent, entity_id entity,
-                                             scene_node_id& out_node);
-  [[nodiscard]] GNEISS_API error node_destroy(scene_node_id node);
-  [[nodiscard]] GNEISS_API error node_get_entity(scene_node_id node, entity_id& out_entity);
+  [[nodiscard]] GNEISS_API result<mesh_renderer> entity_get_mesh_renderer(entity_id entity);
+
   [[nodiscard]] GNEISS_API error entity_get_local_transform(entity_id entity,
                                                             math::transform& out_transform);
   [[nodiscard]] GNEISS_API error entity_set_local_transform(entity_id entity,
@@ -91,6 +80,10 @@ public:
                                                      const view_camera* camera);
 
 private:
+  [[nodiscard]] error node_create(scene_node_id parent, entity_id entity, scene_node_id& out_node);
+  [[nodiscard]] result<scene_node_id> object_create(scene_node_id parent,
+                                                    scene_node_identity identity,
+                                                    const math::transform& transform);
   friend struct engine::world_factory;
   friend class scene_instance;
   [[nodiscard]] error validate_scene(scene_instance_id) const noexcept;

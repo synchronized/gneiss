@@ -11,25 +11,23 @@ int main(void) {
   gneiss::entity_id entity = gneiss::entity_id{};
   gneiss::scene_node_id root = gneiss::scene_node_id{};
   gneiss::scene_node_id child = gneiss::scene_node_id{};
-  gneiss::scene_node_id duplicate = gneiss::scene_node_id{};
   gneiss::scene_node_id parent = gneiss::scene_node_id{};
   gneiss::engine::math::transform root_transform;
   gneiss::engine::math::transform child_transform;
   gneiss::engine::math::transform world_transform;
   gneiss::entity_id attached = gneiss::entity_id{};
 
-  if (gneiss::test_support::assign_value(gneiss::engine::create_native(), world) !=
-          gneiss::engine::error::success ||
-      world->entity_create(entity) != gneiss::engine::error::success ||
-      world->node_create(gneiss::scene_node_id{}, gneiss::entity_id{}, root) !=
-          gneiss::engine::error::success ||
-      world->node_create(root, entity, child) != gneiss::engine::error::success) {
+  if (gneiss::test_support::assign_value(gneiss::engine::create_native(), world).failed())
     return 1;
-  }
-
-  if (world->node_create(root, entity, duplicate) != gneiss::engine::error::invalid_state) {
-    return 2;
-  }
+  auto root_object = world->create_object({{}, "root"});
+  if (!root_object)
+    return 1;
+  auto child_object = world->create_object({{}, "child"}, {}, *root_object);
+  if (!child_object)
+    return 1;
+  root = gneiss::scene_node_id{root_object->entity().get()};
+  child = gneiss::scene_node_id{child_object->entity().get()};
+  entity = child_object->entity();
 
   root_transform.translation[0] = 2.0F;
   child_transform.translation[1] = 3.0F;
@@ -54,13 +52,15 @@ int main(void) {
               .reparent(world->find(gneiss::entity_id{(child).get()})) !=
           gneiss::engine::error::invalid_argument ||
       world->entity_destroy(entity) != gneiss::engine::error::success ||
-      world->node_get_entity(child, attached) != gneiss::engine::error::invalid_handle ||
+      gneiss::test_support::assign_value(world->object(gneiss::entity_id{(child).get()}),
+                                         attached) != gneiss::engine::error::invalid_handle ||
       attached != gneiss::entity_id{}) {
     return 4;
   }
 
-  if (world->node_destroy(root) != gneiss::engine::error::success ||
-      world->node_destroy(child) != gneiss::engine::error::invalid_handle) {
+  if (world->find(gneiss::entity_id{(root).get()}).destroy() != gneiss::engine::error::success ||
+      world->find(gneiss::entity_id{(child).get()}).destroy() !=
+          gneiss::engine::error::invalid_handle) {
     return 5;
   }
   // 借用对象不拥有实体；空值、跨 World、generation 与子树销毁使用同一规则。

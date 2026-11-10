@@ -131,15 +131,15 @@ int main() try {
   e::scene_content prepared;
   prepared.description = e::asset_ref<const e::scene_description>{
       std::make_shared<const e::scene_description>(std::move(*decoded))};
-  gneiss::scene_instance_id loaded;
-  check(gneiss::test_support::take_value(gneiss::test_support::scene_fixture::instantiate_scene(
-                                             *app->native_world(), std::move(prepared), {}),
-                                         loaded)
-            .ok());
+  auto receipt =
+      gneiss::test_support::scene_fixture::instantiate_scene(*app->native_world(), prepared, {});
+  check(bool(receipt));
+  const auto loaded = receipt->instance;
   gneiss::scene_node_id loaded_node;
-  check(gneiss::test_support::take_value(
-            gneiss::test_support::scene_access{*app}->find_node(loaded, uuid), loaded_node)
-            .ok());
+  check(
+      gneiss::test_support::take_value(
+          gneiss::test_support::scene_access{*app}->find_node(receipt->objects, uuid), loaded_node)
+          .ok());
   check(state(world).get<movement_component>(entity(world, loaded_node))->data.speed == 4);
   check(gneiss::test_support::scene_access{*app}->validate_editable_node(
             document.scene_handle(), loaded_node) == e::error::invalid_handle);

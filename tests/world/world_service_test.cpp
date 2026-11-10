@@ -30,59 +30,58 @@ bool scene_object_storage() {
   if (!created || !other)
     return false;
   auto& owner = **created;
-  auto root = owner.object_create(
-      {}, {*gneiss::engine::guid::parse("21470280-22a3-5087-9443-62d27dfc4bbf"), "父节点"}, {});
+  auto root = owner.create_object(
+      {*gneiss::engine::guid::parse("21470280-22a3-5087-9443-62d27dfc4bbf"), "父节点"}, {});
   if (!root)
     return false;
-  auto child = owner.object_create(
-      *root, {*gneiss::engine::guid::parse("0552e973-b75c-5936-a81b-c56bcd7688d5"), "子节点"}, {});
+  auto child = owner.create_object(
+      {*gneiss::engine::guid::parse("0552e973-b75c-5936-a81b-c56bcd7688d5"), "子节点"}, {}, *root);
   if (!child)
     return false;
   entity_id child_entity;
-  if (owner.node_get_entity(*child, child_entity).failed())
+  if (gneiss::test_support::assign_value(child, child_entity).failed())
     return false;
-  auto identity = owner.node_identity(*child);
+  auto identity = (*child).identity();
   if (!identity ||
       identity->uuid != *gneiss::engine::guid::parse("0552e973-b75c-5936-a81b-c56bcd7688d5") ||
       identity->name != "子节点")
     return false;
-  if (owner
-          .node_set_identity(
-              *child,
+  if ((*child)
+          .set_identity(
               {*gneiss::engine::guid::parse("0552e973-b75c-5936-a81b-c56bcd7688d5"), "新名称"})
           .failed())
     return false;
-  auto renamed = owner.node_identity(*child);
+  auto renamed = (*child).identity();
   if (!renamed || renamed->name != "新名称")
     return false;
-  if (owner.node_mesh_renderer(*child).error() != error::not_found)
+  if (owner.entity_get_mesh_renderer(child->entity()).error() != error::not_found)
     return false;
   math::transform invalid;
   invalid.scale.x = 0;
-  auto failed = owner.object_create(
-      *root, {*gneiss::engine::guid::parse("342f4c19-af04-52d3-b51c-4df4993ca453"), "失败"},
-      invalid);
+  auto failed = owner.create_object(
+      {*gneiss::engine::guid::parse("342f4c19-af04-52d3-b51c-4df4993ca453"), "失败"}, invalid,
+      *root);
   auto count = owner.entity_count();
   if (failed || !count || *count != 2)
     return false;
-  if ((*other)->find(gneiss::entity_id{(*root).get()}).destroy() != error::invalid_handle)
+  if ((*other)->find(root->entity()).destroy() != error::invalid_handle)
     return false;
   error foreign;
-  std::thread worker([&] { foreign = owner.find(gneiss::entity_id{(*root).get()}).destroy(); });
+  std::thread worker([&] { foreign = (*root).destroy(); });
   worker.join();
   if (foreign != error::invalid_state)
     return false;
-  if (owner.find(gneiss::entity_id{(*root).get()}).destroy().failed())
+  if ((*root).destroy().failed())
     return false;
   count = owner.entity_count();
   auto alive = owner.entity_is_alive(child_entity);
   if (!count || *count != 0 || !alive || *alive)
     return false;
-  if (owner.node_identity(*child).error() != error::invalid_handle ||
-      owner.find(gneiss::entity_id{(*root).get()}).destroy() != error::invalid_handle)
+  if ((*child).identity().error() != error::invalid_handle ||
+      (*root).destroy() != error::invalid_handle)
     return false;
-  auto replacement = owner.object_create(
-      {}, {*gneiss::engine::guid::parse("fa89a95a-8e13-5e11-a128-bc6a7dc564fb"), "新节点"}, {});
+  auto replacement = owner.create_object(
+      {*gneiss::engine::guid::parse("fa89a95a-8e13-5e11-a128-bc6a7dc564fb"), "新节点"}, {});
   return replacement && *replacement != *root && *replacement != *child;
 }
 
@@ -96,10 +95,12 @@ bool native_operations() {
   scene_node_id node{};
   bool alive{};
   std::uint64_t count{};
-  if (owner->entity_create(entity) != gneiss::engine::error::success ||
-      owner->node_create(gneiss::scene_node_id{0}, gneiss::entity_id{entity}, node) !=
-          gneiss::engine::error::success ||
-      gneiss::test_support::assign_value(owner->entity_is_alive(gneiss::entity_id{entity}),
+  auto object = owner->create_object({{}, "object"});
+  if (!object)
+    return false;
+  entity = object->entity();
+  node = scene_node_id{entity.get()};
+  if (gneiss::test_support::assign_value(owner->entity_is_alive(gneiss::entity_id{entity}),
                                          alive) != gneiss::engine::error::success ||
       !alive ||
       gneiss::test_support::assign_value(owner->entity_count(), count) !=

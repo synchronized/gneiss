@@ -215,12 +215,14 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
       gneiss::engine::scene_instance::borrow(*native_application->native_world(), scene);
   if (!instance)
     return 2;
-  auto camera = instance->find(camera_uuid);
-  if (!camera) {
-    report_failure("查找 Camera", camera.error());
+  auto binding = std::ranges::find_if(completion.objects, [camera_uuid](const auto& object) {
+    return object.object == camera_uuid && !object.source;
+  });
+  if (binding == completion.objects.end()) {
+    report_failure("查找 Camera", gneiss::engine::error::not_found);
     return 6;
   }
-  state.camera_node = gneiss::scene_node_id{camera->entity().get()};
+  state.camera_node = binding->node;
   const auto setup_ready = clock::now();
 
   can_update = true;

@@ -402,9 +402,8 @@ scene_edit_session::locate(scene_node_id node) const {
   if (!node)
     return engine::error::invalid_handle;
   auto identity = projection_.address(node);
-  entity_id entity;
-  if (!identity || world_->node_get_entity(node, entity).failed() ||
-      entity != projection_.objects().at(*identity).entity)
+  auto object = world_->object(entity_id{node.get()});
+  if (!identity || !object || object->entity() != projection_.objects().at(*identity).entity)
     return engine::error::not_found;
   auto composed = compose_scene_document(document_->current().content());
   if (!composed)
@@ -935,10 +934,9 @@ engine::error scene_edit_session::select(scene_node_id node) {
       return target.error();
   }
   if (node) {
-    entity_id entity;
-    auto status = world_->node_get_entity(node, entity);
-    if (status.failed())
-      return status;
+    auto object = world_->object(entity_id{node.get()});
+    if (!object)
+      return object.error();
   }
   selection_ = node;
   return engine::error::success;
