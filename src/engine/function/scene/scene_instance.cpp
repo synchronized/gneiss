@@ -165,15 +165,23 @@ result<game_object> scene_instance::create(scene_node_identity identity,
     if (duplicate)
       return error::invalid_argument;
   }
-  auto created = owner_->create_object(std::move(identity), transform, parent);
+  auto& state = *owner_->state_;
+  auto created = state.scene().create(parent.entity(), 0);
   if (!created)
     return created.error();
   try {
-    owner_->state_->assign_scene(created->entity(), id_);
+    status = state.scene().set_local(*created, transform);
+    if (status.ok())
+      status = state.scene().set_identity(*created, std::move(identity));
+    if (status.failed()) {
+      (void)state.destroy_entity(created->get());
+      return status;
+    }
+    state.assign_scene(*created, id_);
   } catch (...) {
-    (void)created->destroy();
+    (void)state.destroy_entity(created->get());
     throw;
   }
-  return *created;
+  return owner_->find(*created);
 }
 }

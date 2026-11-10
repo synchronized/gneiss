@@ -187,15 +187,17 @@ int main() try {
         e::error::invalid_argument);
   auto unchanged_parent = first_object->parent();
   check(unchanged_parent && !unchanged_parent->is_valid());
-  // 不能通过未登记的中间对象绕开不同场景的成员边界。
-  auto bridge = world.create_object({e::guid::from_bytes({9}), "bridge"});
+  // 中间对象也必须有场景归属，不能绕开跨场景的成员边界。
+  auto bridge_scene = world.create_scene();
+  check(bridge_scene.has_value());
+  auto bridge = bridge_scene->create({e::guid::from_bytes({9}), "bridge"});
   check(bridge.has_value());
   check(first_object->reparent(*bridge) == e::error::invalid_argument);
   check(bridge->reparent(*foreign_parent) == e::error::invalid_argument);
   check(first_object->reparent({}).ok());
   check(bridge->destroy().ok());
   auto parent_bridge =
-      world.create_object({e::guid::from_bytes({10}), "parent bridge"}, {}, *foreign_parent);
+      another_handle->create({e::guid::from_bytes({10}), "parent bridge"}, {}, *foreign_parent);
   check(parent_bridge.has_value());
   auto inherited_count = another_handle->size();
   check(inherited_count && *inherited_count == 3);
@@ -368,7 +370,9 @@ int main() try {
   check(e::game_object{}.set_name("empty") == e::error::invalid_handle);
 
   // 运行注册无需编辑属性回调；编辑不可删除不影响运行移除。
-  auto runtime_node = world.create_object({e::guid::generate(), "runtime-only"});
+  auto runtime_scene = world.create_scene();
+  check(runtime_scene.has_value());
+  auto runtime_node = runtime_scene->create({e::guid::generate(), "runtime-only"});
   check(runtime_node.has_value());
   auto runtime_object = runtime_node;
   check(runtime_object.has_value());

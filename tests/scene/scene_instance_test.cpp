@@ -221,9 +221,13 @@ int main() try {
   if (!after_binding || after_binding->mesh != accepted_binding->mesh ||
       after_binding->material != accepted_binding->material)
     return 30;
-  // 通过 World 创建的子对象继承父对象的场景归属。
+  // 场景入口创建子对象，归属必须与父对象一致。
   const auto temporary_uuid = gneiss::engine::guid::from_bytes({91, 82, 1});
-  auto temporary = application->native_world()->create_object(
+  auto temporary_scene =
+      gneiss::engine::scene_instance::borrow(*application->native_world(), scene);
+  if (!temporary_scene)
+    return 31;
+  auto temporary = temporary_scene->create(
       {temporary_uuid, "Temporary"}, {},
       application->native_world()->find(gneiss::entity_id{camera_node.get()}));
   if (!temporary || *gneiss::test_support::scene_access{*application}->get_node_count(scene) != 3U)

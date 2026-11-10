@@ -31,11 +31,14 @@ bool scene_object_storage() {
   if (!created || !other)
     return false;
   auto& owner = **created;
-  auto root = owner.create_object(
+  auto object_scene = owner.create_scene();
+  if (!object_scene)
+    return false;
+  auto root = object_scene->create(
       {*gneiss::engine::guid::parse("21470280-22a3-5087-9443-62d27dfc4bbf"), "父节点"}, {});
   if (!root)
     return false;
-  auto child = owner.create_object(
+  auto child = object_scene->create(
       {*gneiss::engine::guid::parse("0552e973-b75c-5936-a81b-c56bcd7688d5"), "子节点"}, {}, *root);
   if (!child)
     return false;
@@ -61,7 +64,7 @@ bool scene_object_storage() {
     return false;
   math::transform invalid;
   invalid.scale.x = 0;
-  auto failed = owner.create_object(
+  auto failed = object_scene->create(
       {*gneiss::engine::guid::parse("342f4c19-af04-52d3-b51c-4df4993ca453"), "失败"}, invalid,
       *root);
   auto count = owner.entity_count();
@@ -83,7 +86,7 @@ bool scene_object_storage() {
   if ((*child).identity().error() != error::invalid_handle ||
       (*root).destroy() != error::invalid_handle)
     return false;
-  auto replacement = owner.create_object(
+  auto replacement = object_scene->create(
       {*gneiss::engine::guid::parse("fa89a95a-8e13-5e11-a128-bc6a7dc564fb"), "新节点"}, {});
   return replacement && *replacement != *root && *replacement != *child;
 }
@@ -98,7 +101,10 @@ bool native_operations() {
   entity_id node{};
   bool alive{};
   std::uint64_t count{};
-  auto object = owner->create_object({{}, "object"});
+  auto object_scene = owner->create_scene();
+  if (!object_scene)
+    return false;
+  auto object = object_scene->create({{}, "object"});
   if (!object)
     return false;
   entity = object->entity();

@@ -34,7 +34,7 @@ World 拒绝不同场景已登记成员之间的重新挂接，返回 invalid_ar
 场景访问入口统一校验线程和句柄，并清理已经由 World 销毁的成员；
 size 和枚举不再返回已经失效的成员。存活实体仍以 World 的 generation 校验为准。
 运行对象不提供来源 UUID 查找；来源由实例化回执和调用方映射维护。
-节点创建实现为 World 私有细节；对外通过 create_object 创建并返回 game_object。
+普通对象统一通过 scene_instance::create 创建并返回 game_object，创建成功即具有场景归属。
 普通组件通过 `world::find(entity)` 获得借用句柄，再调用
 `read_component<T>()`、`set_component(T)`、`remove_component<T>()`；不要求实体具有对象层级。
 当前内置实例化支持 camera_component 和 mesh_renderer_component。读取返回值副本，
@@ -47,9 +47,8 @@ size 和枚举不再返回已经失效的成员。存活实体仍以 World 的 g
 `scene_instance::create(identity, transform, parent)` 显式创建并登记本场景对象，
 返回 game_object；空父对象创建根，其他场景或 World 的父对象被拒绝。
 Prefab 展开的成员同样可以作为动态对象的父节点；运行结构修改不写入编辑文档。
-`world::create_object` 创建的独立对象不自动登记到场景；
-挂在场景成员下时随父子树销毁，脱离后仍由 World 管理。
-需要在脱离父节点后仍随场景卸载的动态对象，应从 scene_instance::create 创建。
+不提供 World 级的无归属对象创建入口。动态对象脱离父节点后仍属于原场景，随场景卸载。
+纯 ECS 辅助实体可以通过 entity_create 创建，由创建方明确管理生命周期；它不是普通场景对象。
 
 ## Entity 生命周期
 
@@ -69,7 +68,7 @@ Prefab 展开的成员同样可以作为动态对象的父节点；运行结构�
 
 ## Game Object 借用
 
-`world::create_object(identity, transform, parent)` 创建有层级的实体并返回 `result<game_object>`。
+`scene_instance::create(identity, transform, parent)` 创建该场景中的对象并返回 `result<game_object>`。
 `world::find(entity)` 只构造借用句柄，零 ID 返回空句柄；各操作再校验线程、所属域和代次。
 `world::object(entity)` 立即校验并借用已有对象，纯 ECS 实体返回 not_found；失效或跨 World 实体返回 invalid_handle。
 `game_object` 只保存 world* 和 entity_id，复制不保活实体，不保存组件地址。

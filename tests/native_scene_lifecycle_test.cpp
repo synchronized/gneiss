@@ -19,10 +19,13 @@ int main(void) {
 
   if (gneiss::test_support::assign_value(gneiss::engine::create_native(), world).failed())
     return 1;
-  auto root_object = world->create_object({{}, "root"});
+  auto object_scene = world->create_scene();
+  if (!object_scene)
+    return 1;
+  auto root_object = object_scene->create({{}, "root"});
   if (!root_object)
     return 1;
-  auto child_object = world->create_object({{}, "child"}, {}, *root_object);
+  auto child_object = object_scene->create({{}, "child"}, {}, *root_object);
   if (!child_object)
     return 1;
   root = gneiss::entity_id{root_object->entity().get()};
@@ -66,17 +69,21 @@ int main(void) {
   // 借用对象不拥有实体；空值、跨 World、generation 与子树销毁使用同一规则。
   using namespace gneiss::engine;
   auto another = create_native();
-  auto object = world->create_object({{}, "root"});
-  auto foreign =
-      another ? (*another)->create_object({{}, "foreign"}) : result<game_object>{error::internal};
+  auto object = object_scene->create({{}, "root"});
+  if (!another)
+    return 6;
+  auto foreign_scene = (*another)->create_scene();
+  if (!foreign_scene)
+    return 6;
+  auto foreign = foreign_scene->create({{}, "foreign"});
   if (!object || !foreign || !object->is_valid() || game_object{}.is_valid() ||
       game_object{}.destroy() != error::invalid_handle ||
       object->reparent(*foreign) != error::invalid_handle)
     return 6;
-  auto rejected = world->create_object({{}, "cross"}, {}, *foreign);
+  auto rejected = object_scene->create({{}, "cross"}, {}, *foreign);
   if (rejected || rejected.error() != error::invalid_handle)
     return 7;
-  auto descendant = world->create_object({{}, "child"}, {}, *object);
+  auto descendant = object_scene->create({{}, "child"}, {}, *object);
   if (!descendant || object->reparent(*descendant) != error::invalid_argument)
     return 8;
   auto borrowed_parent = descendant->parent();
@@ -99,14 +106,25 @@ int main(void) {
   if (object->destroy().failed() || copy.is_valid() || descendant->is_valid() ||
       copy.destroy() != error::invalid_handle)
     return 12;
-  auto replacement = world->create_object({{}, "replacement"});
+  auto replacement = object_scene->create({{}, "replacement"});
   if (!replacement || replacement->entity() == copy.entity() || copy.is_valid())
     return 13;
   gneiss::entity_id pure;
   if (world->entity_create(pure).failed())
     return 14;
   auto not_object = world->object(pure);
-  if (not_object || not_object.error() != error::not_found || world->entity_destroy(pure).failed())
+  if (not_object || not_object.error() != error::not_found)
     return 15;
+  auto membership = replacement->scene();
+  if (!membership || membership->id() != object_scene->id())
+    return 17;
+  auto scene_copy = *object_scene;
+  if (object_scene->unload().failed() || scene_copy.is_valid() || replacement->is_valid())
+    return 18;
+  if (scene_copy.create({{}, "expired"}).error() != error::invalid_handle)
+    return 19;
+  auto auxiliary_alive = world->entity_is_alive(pure);
+  if (!auxiliary_alive || !*auxiliary_alive || world->entity_destroy(pure).failed())
+    return 20;
   return 0;
 }

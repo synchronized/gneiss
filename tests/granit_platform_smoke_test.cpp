@@ -163,9 +163,12 @@ int main() {
   native::math::transform plain_transform;
   plain_transform.translation[0] = 0.55F;
   plain_transform.translation[2] = 0.5F;
-  auto camera_object = world.create_object({{}, "camera"});
-  auto mesh_object = world.create_object({{}, "mesh"});
-  auto plain_object = world.create_object({{}, "plain"});
+  auto object_scene = world.create_scene();
+  if (!object_scene)
+    return 2;
+  auto camera_object = object_scene->create({{}, "camera"});
+  auto mesh_object = object_scene->create({{}, "mesh"});
+  auto plain_object = object_scene->create({{}, "plain"});
   if (!camera_object || !mesh_object || !plain_object)
     return 2;
   camera_entity = camera_object->entity();

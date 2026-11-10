@@ -254,7 +254,10 @@ bool test_registered_component_inspection() {
   if (!owner)
     return false;
   auto& world = **owner;
-  auto node = world.create_object({e::guid::from_bytes({7}), "Custom"});
+  auto object_scene = world.create_scene();
+  if (!object_scene)
+    return false;
+  auto node = object_scene->create({e::guid::from_bytes({7}), "Custom"});
   if (!node ||
       e::install_components({*world.object(gneiss::entity_id{node->entity().get()})},
                             {e::make_component_description(movement_description{3}),

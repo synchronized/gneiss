@@ -16,7 +16,10 @@ int main() try {
     return 1;
   app = std::move(*created);
   auto* world = app->native_world();
-  auto object = world->create_object({{}, "example"});
+  auto object_scene = world->create_scene();
+  if (!object_scene)
+    return 2;
+  auto object = object_scene->create({{}, "example"});
   if (!object)
     return 2;
   state.entity = object->entity();

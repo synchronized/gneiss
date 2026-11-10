@@ -41,10 +41,6 @@ public:
   [[nodiscard]] GNEISS_API result<std::uint64_t> entity_count();
   [[nodiscard]] GNEISS_API error set_active_camera(entity_id entity);
   [[nodiscard]] GNEISS_API error get_active_camera(entity_id& out_entity);
-  /** 创建有层级的实体；parent 为空时为根，失败不留下部分对象。 */
-  [[nodiscard]] GNEISS_API result<game_object> create_object(scene_node_identity identity,
-                                                             const math::transform& transform = {},
-                                                             game_object parent = {});
   /** 构造借用句柄；不访问 ECS，各操作在使用时校验身份和线程。零 ID 返回空句柄。 */
   [[nodiscard]] game_object find(entity_id entity) noexcept {
     return entity.get() ? game_object{*this, entity} : game_object{};

@@ -180,27 +180,4 @@ result<game_object> world::object(entity_id entity) noexcept {
     return error::not_found;
   return find(entity);
 }
-result<game_object> world::create_object(scene_node_identity identity,
-                                         const math::transform& transform, game_object parent) {
-  if (!is_owner_thread())
-    return error::invalid_state;
-  if (parent.owner() && parent.owner() != this)
-    return error::invalid_handle;
-  auto created = state_->scene().create(parent.entity(), 0);
-  if (!created)
-    return created.error();
-  try {
-    auto status = state_->scene().set_local(*created, transform);
-    if (status.ok())
-      status = state_->scene().set_identity(*created, std::move(identity));
-    if (status.failed()) {
-      (void)state_->destroy_entity(created->get());
-      return status;
-    }
-  } catch (...) {
-    (void)state_->destroy_entity(created->get());
-    throw;
-  }
-  return find(*created);
-}
 }

@@ -25,7 +25,7 @@ public:
   [[nodiscard]] GNEISS_API result<math::transform> local_transform() const;
   /** 完整层级矩阵，保留非均匀缩放与旋转组合产生的剪切。 */
   [[nodiscard]] GNEISS_API result<math::matrix4> world_matrix() const;
-  /** 借用所属场景；无归属的旧辅助对象返回 invalid_handle。 */
+  /** 借用所属场景；纯 ECS 辅助实体或失效对象返回 invalid_handle。 */
   [[nodiscard]] GNEISS_API result<scene_instance> scene() const;
   [[nodiscard]] GNEISS_API result<math::transform> world_transform() const;
   [[nodiscard]] GNEISS_API error set_local_transform(const math::transform&) const;

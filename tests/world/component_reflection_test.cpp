@@ -26,7 +26,10 @@ int main() {
       gneiss::test_support::assign_value(engine::create_native(), second).failed() ||
       first->entity_create(missing).failed())
     return 1;
-  auto object = first->create_object({{}, "object"});
+  auto object_scene = first->create_scene();
+  if (!object_scene)
+    return 1;
+  auto object = object_scene->create({{}, "object"});
   if (!object)
     return 1;
   entity = object->entity();
