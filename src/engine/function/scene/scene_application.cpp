@@ -117,7 +117,8 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
   for (const auto& object : next.objects) {
     if (!old.contains(object.address) || old.at(object.address)->parent == object.parent)
       continue;
-    auto status = world.node_reparent(nodes.at(object.address).node, {});
+    auto status = world.find(gneiss::entity_id{(nodes.at(object.address).node).get()})
+                      .reparent(gneiss::engine::game_object{});
     if (status.failed())
       return status;
   }
@@ -138,7 +139,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
   }
   std::ranges::sort(removed, std::greater<>{});
   for (const auto& [depth, address] : removed) {
-    auto status = world.object_destroy(nodes.at(address).node);
+    auto status = world.find(gneiss::entity_id{(nodes.at(address).node).get()}).destroy();
     if (status.failed())
       return status;
     nodes.erase(address);
@@ -163,7 +164,9 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
     const auto node = nodes.at(object.address).node;
     if ((previous_object == old.end() || previous_object->second->parent != object.parent) &&
         object.parent.object) {
-      auto status = world.node_reparent(node, nodes.at(object.parent).node);
+      auto status =
+          world.find(gneiss::entity_id{(node).get()})
+              .reparent(world.find(gneiss::entity_id{(nodes.at(object.parent).node).get()}));
       if (status.failed())
         return status;
     }

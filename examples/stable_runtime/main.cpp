@@ -93,7 +93,9 @@ gneiss::engine::error update_sample(gneiss::runtime::application& application,
   transform.rotation[1] = static_cast<float>(std::sin(yaw_half) * std::cos(pitch_half));
   transform.rotation[2] = static_cast<float>(-std::sin(yaw_half) * std::sin(pitch_half));
   transform.rotation[3] = static_cast<float>(std::cos(yaw_half) * std::cos(pitch_half));
-  return application.native_world()->node_set_local_transform(state->camera_node, transform);
+  return application.native_world()
+      ->find(gneiss::entity_id{(state->camera_node).get()})
+      .set_local_transform(transform);
 }
 
 double milliseconds(std::chrono::steady_clock::time_point begin,

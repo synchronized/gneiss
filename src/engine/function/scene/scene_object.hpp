@@ -12,7 +12,7 @@ public:
   scene_subtree_guard(world& owner, scene_node_id root) noexcept : owner_(owner), root_(root) {}
   ~scene_subtree_guard() {
     if (root_)
-      (void)owner_.object_destroy(root_);
+      (void)owner_.find(gneiss::entity_id{(root_).get()}).destroy();
   }
   scene_subtree_guard(const scene_subtree_guard&) = delete;
   scene_subtree_guard& operator=(const scene_subtree_guard&) = delete;
@@ -43,19 +43,20 @@ inline result<game_object_description> capture_scene_object(world& owner, scene_
     return identity.error();
   output.uuid = identity->uuid;
   output.name = identity->name;
-  scene_node_id parent;
-  auto status = owner.node_get_parent(node, parent);
-  if (status.failed())
-    return status;
-  if (parent) {
-    auto parent_identity = owner.node_identity(parent);
+  auto object = owner.find(entity_id{node.get()});
+  auto parent = object.parent();
+  if (!parent)
+    return parent.error();
+  if (*parent) {
+    auto parent_identity = parent->identity();
     if (!parent_identity)
       return parent_identity.error();
     output.parent.object = parent_identity->uuid;
   }
-  status = owner.node_get_local_transform(node, output.transform);
-  if (status.failed())
-    return status;
+  auto transform = object.local_transform();
+  if (!transform)
+    return transform.error();
+  output.transform = *transform;
   if (!components)
     return output;
   auto captured = capture_components(owner, node);

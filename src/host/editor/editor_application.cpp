@@ -1494,13 +1494,12 @@ gneiss::engine::error update_editor_camera(editor_state& state,
       selected_node = prefab->node;
     }
     if (selected_node.is_valid()) {
-      gneiss::engine::math::transform target;
-      const auto result =
-          state.application->native_world()->node_get_world_transform(selected_node, target);
-      if (result != gneiss::engine::error::success) {
-        return result;
-      }
-      return state.camera.focus({target.translation, target.rotation, target.scale});
+      auto target = state.application->native_world()
+                        ->find(gneiss::entity_id{selected_node.get()})
+                        .world_transform();
+      if (!target)
+        return target.error();
+      return state.camera.focus(*target);
     }
   }
   return state.camera.update(input);

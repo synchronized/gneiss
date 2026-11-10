@@ -326,7 +326,7 @@ int main() try {
   auto node = e::create_scene_object(**owner, supported->objects.front(), {}, {});
   if (!node)
     return 12;
-  (void)(*owner)->object_destroy(*node);
+  (void)(*owner)->find(gneiss::entity_id{(*node).get()}).destroy();
   // Prefab 共用完全相同的组件协议。
   auto prefab_text = scene("[" + camera + "," + custom + "]");
   prefab_text.replace(prefab_text.find("gneiss.scene"), 12, "gneiss.prefab");

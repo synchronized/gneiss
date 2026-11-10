@@ -185,7 +185,8 @@ int main() try {
   auto foreign_parent = another_handle->find(first.uuid);
   check(first_object && foreign_parent);
   check(first_object->reparent(*foreign_parent) == e::error::invalid_argument);
-  check(world.node_reparent(created->objects[0].node, another_scene->objects[0].node) ==
+  check(world.find(gneiss::entity_id{(created->objects[0].node).get()})
+            .reparent(world.find(gneiss::entity_id{(another_scene->objects[0].node).get()})) ==
         e::error::invalid_argument);
   auto unchanged_parent = first_object->parent();
   check(unchanged_parent && !unchanged_parent->is_valid());

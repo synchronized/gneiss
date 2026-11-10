@@ -71,7 +71,9 @@ int main() try {
       return 32;
     auto transform = original.local_transform;
     transform.translation[0] += 7;
-    if (world->node_set_local_transform(original.node, transform).failed())
+    if (world->find(gneiss::entity_id{(original.node).get()})
+            .set_local_transform(transform)
+            .failed())
       return 33;
     latest = session.find_node(original.uuid);
     if (!latest ||
@@ -80,7 +82,9 @@ int main() try {
     if (world->object(gneiss::entity_id{original.node.get()})
             ->set_name(original.display_name)
             .failed() ||
-        world->node_set_local_transform(original.node, original.local_transform).failed())
+        world->find(gneiss::entity_id{(original.node).get()})
+            .set_local_transform(original.local_transform)
+            .failed())
       return 35;
     const auto uuid = gneiss::engine::guid::from_bytes({72, 93});
     auto created = gneiss::test_support::scene_access{*application}->create_node(

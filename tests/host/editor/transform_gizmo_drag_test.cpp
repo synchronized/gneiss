@@ -82,8 +82,11 @@ int main() try {
         return 4;
       }
       gneiss::engine::math::transform desired{};
-      if (application->native_world()->node_get_world_transform(
-              gneiss::scene_node_id{target.get()}, desired) != gneiss::engine::error::success) {
+      if (gneiss::test_support::assign_value(
+              application->native_world()
+                  ->find(gneiss::entity_id{(gneiss::scene_node_id{target.get()}).get()})
+                  .world_transform(),
+              desired) != gneiss::engine::error::success) {
         return 5;
       }
       for (int frame = 0; frame < 4; ++frame) {
@@ -103,8 +106,11 @@ int main() try {
         if (gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
                 gneiss::engine::error::success ||
             drag.preview(session, matrix) != gneiss::engine::error::success ||
-            application->native_world()->node_get_world_transform(
-                gneiss::scene_node_id{target.get()}, actual) != gneiss::engine::error::success ||
+            gneiss::test_support::assign_value(
+                application->native_world()
+                    ->find(gneiss::entity_id{(gneiss::scene_node_id{target.get()}).get()})
+                    .world_transform(),
+                actual) != gneiss::engine::error::success ||
             !near(actual, desired) || history.size() != 0U) {
           return 6;
         }
@@ -170,8 +176,11 @@ int main() try {
   const auto prefab_id = session.selection();
   const auto prefab_identity = *session.selected_prefab_node();
   const auto prefab_before = session.selected_prefab_node()->local_transform;
-  if (application->native_world()->node_get_world_transform(
-          gneiss::scene_node_id{prefab_id.get()}, desired) != gneiss::engine::error::success) {
+  if (gneiss::test_support::assign_value(
+          application->native_world()
+              ->find(gneiss::entity_id{(gneiss::scene_node_id{prefab_id.get()}).get()})
+              .world_transform(),
+          desired) != gneiss::engine::error::success) {
     return 14;
   }
   desired.translation[0] += 3.0F;
@@ -207,9 +216,11 @@ int main() try {
   }
   const auto uuid = session.selected_node()->uuid;
   const auto deletion_before = session.selected_node()->local_transform;
-  if (application->native_world()->node_get_world_transform(
-          gneiss::scene_node_id{session.selection().get()}, desired) !=
-      gneiss::engine::error::success) {
+  if (gneiss::test_support::assign_value(
+          application->native_world()
+              ->find(gneiss::entity_id{(gneiss::scene_node_id{session.selection().get()}).get()})
+              .world_transform(),
+          desired) != gneiss::engine::error::success) {
     return 17;
   }
   desired.translation[0] += 2.0F;

@@ -65,21 +65,21 @@ bool scene_object_storage() {
   auto count = owner.entity_count();
   if (failed || !count || *count != 2)
     return false;
-  if ((*other)->object_destroy(*root) != error::invalid_handle)
+  if ((*other)->find(gneiss::entity_id{(*root).get()}).destroy() != error::invalid_handle)
     return false;
   error foreign;
-  std::thread worker([&] { foreign = owner.object_destroy(*root); });
+  std::thread worker([&] { foreign = owner.find(gneiss::entity_id{(*root).get()}).destroy(); });
   worker.join();
   if (foreign != error::invalid_state)
     return false;
-  if (owner.object_destroy(*root).failed())
+  if (owner.find(gneiss::entity_id{(*root).get()}).destroy().failed())
     return false;
   count = owner.entity_count();
   auto alive = owner.entity_is_alive(child_entity);
   if (!count || *count != 0 || !alive || *alive)
     return false;
   if (owner.node_identity(*child).error() != error::invalid_handle ||
-      owner.object_destroy(*root) != error::invalid_handle)
+      owner.find(gneiss::entity_id{(*root).get()}).destroy() != error::invalid_handle)
     return false;
   auto replacement = owner.object_create(
       {}, {*gneiss::engine::guid::parse("fa89a95a-8e13-5e11-a128-bc6a7dc564fb"), "新节点"}, {});
@@ -109,23 +109,26 @@ bool native_operations() {
   gneiss::engine::math::transform local;
   local.translation = {2, 3, 4};
   gneiss::engine::math::transform actual;
-  if (owner->node_set_local_transform(gneiss::scene_node_id{node}, local) !=
-          gneiss::engine::error::success ||
-      owner->node_get_world_transform(gneiss::scene_node_id{node}, actual) !=
-          gneiss::engine::error::success ||
+  if (owner->find(gneiss::entity_id{(gneiss::scene_node_id{node}).get()})
+              .set_local_transform(local) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(
+          owner->find(gneiss::entity_id{(gneiss::scene_node_id{node}).get()}).world_transform(),
+          actual) != gneiss::engine::error::success ||
       actual.translation != local.translation)
     return false;
   auto invalid = local;
   invalid.scale[0] = 0;
-  if (owner->node_set_local_transform(gneiss::scene_node_id{node}, invalid) !=
-          gneiss::engine::error::invalid_argument ||
-      owner->node_get_local_transform(gneiss::scene_node_id{node}, actual) !=
-          gneiss::engine::error::success ||
+  if (owner->find(gneiss::entity_id{(gneiss::scene_node_id{node}).get()})
+              .set_local_transform(invalid) != gneiss::engine::error::invalid_argument ||
+      gneiss::test_support::assign_value(
+          owner->find(gneiss::entity_id{(gneiss::scene_node_id{node}).get()}).local_transform(),
+          actual) != gneiss::engine::error::success ||
       actual.scale[0] != 1)
     return false;
   actual.translation[0] = 42;
-  if (owner->node_get_local_transform(gneiss::scene_node_id{0}, actual) !=
-          gneiss::engine::error::invalid_handle ||
+  if (gneiss::test_support::assign_value(
+          owner->find(gneiss::entity_id{(gneiss::scene_node_id{0}).get()}).local_transform(),
+          actual) != gneiss::engine::error::invalid_handle ||
       actual.translation[0] != 42)
     return false;
   gneiss::engine::error foreign{};

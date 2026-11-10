@@ -771,7 +771,10 @@ void source_reload_without_world_prefab_state() {
   check(changed.result.ok() && find(changed.objects, root.uuid) == root_node &&
         find(changed.objects, extra.uuid) == extra_node);
   scene_node_id parent;
-  check(app->native_world()->node_get_parent(root_node, parent).ok() && parent == extra_node);
+  check(gneiss::test_support::assign_value(
+            app->native_world()->find(gneiss::entity_id{(root_node).get()}).parent(), parent)
+            .ok() &&
+        parent == extra_node);
   std::ofstream(files.root / "source.prefab") << "broken";
   check(reload().result.failed());
   write("source.prefab", prefab);

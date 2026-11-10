@@ -73,7 +73,7 @@ result<scene_node_id> world::object_create(scene_node_id parent, scene_node_iden
   scene_node_id node;
   status = node_create(parent, entity, node);
   if (status.ok())
-    status = node_set_local_transform(node, transform);
+    status = state_->scene().set_local(node, transform);
   if (status.ok())
     status = node_set_identity(node, std::move(identity));
   if (status.failed()) {
@@ -81,11 +81,6 @@ result<scene_node_id> world::object_create(scene_node_id parent, scene_node_iden
     return status;
   }
   return node;
-}
-error world::object_destroy(scene_node_id node) noexcept {
-  if (!is_owner_thread())
-    return error::invalid_state;
-  return state_->scene().destroy(node);
 }
 error world::node_set_identity(scene_node_id node, scene_node_identity identity) {
   if (!is_owner_thread())
@@ -368,65 +363,6 @@ engine::error world::node_destroy(scene_node_id node_value) {
     return thread_result == engine::error::success ? state->scene().destroy(node) : thread_result;
   }
 }
-engine::error world::node_reparent(scene_node_id node_value, scene_node_id parent_value) {
-  scene_node_id node = node_value;
-  scene_node_id parent = parent_value;
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    if (thread_result.failed())
-      return thread_result;
-    if (!state->scene().get_entity(node) || (parent && !state->scene().get_entity(parent)))
-      return error::invalid_handle;
-    return state->scene().reparent(node, parent);
-  }
-}
-engine::error world::node_set_local_transform(scene_node_id node_value,
-                                              const math::transform& transform) {
-  scene_node_id node = node_value;
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    return thread_result == engine::error::success ? state->scene().set_local(node, transform)
-                                                   : thread_result;
-  }
-}
-engine::error world::node_get_local_transform(scene_node_id node_value,
-                                              math::transform& out_transform) {
-  scene_node_id node = node_value;
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    if (thread_result != engine::error::success) {
-      return thread_result;
-    }
-    const auto* transform = state->scene().get_local(node);
-    if (transform == nullptr) {
-      return engine::error::invalid_handle;
-    }
-    out_transform = *transform;
-    return engine::error::success;
-  }
-}
-engine::error world::node_get_world_transform(scene_node_id node_value,
-                                              math::transform& out_transform) {
-  scene_node_id node = node_value;
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    if (thread_result != engine::error::success)
-      return thread_result;
-    auto value = state->scene().get_world(node);
-    if (!value)
-      return value.error();
-    out_transform = *value;
-    return error::success;
-  }
-}
 engine::error world::node_get_entity(scene_node_id node_value, entity_id& out_entity_value) {
   scene_node_id node = node_value;
   std::uint64_t out_entity = out_entity_value.get();
@@ -448,28 +384,6 @@ engine::error world::node_get_entity(scene_node_id node_value, entity_id& out_en
     }
   }();
   out_entity_value = entity_id{out_entity};
-  return operation_result;
-}
-engine::error world::node_get_parent(scene_node_id node_value, scene_node_id& out_parent_value) {
-  scene_node_id node = node_value;
-  scene_node_id out_parent = out_parent_value;
-  const auto operation_result = [&]() -> engine::error {
-    out_parent = null_scene_node_id;
-    {
-      auto* state = state_.get();
-      const auto thread_result =
-          (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-      if (thread_result != engine::error::success) {
-        return thread_result;
-      }
-      if (state->scene().get_local(node) == nullptr) {
-        return engine::error::invalid_handle;
-      }
-      out_parent = state->scene().get_parent(node);
-      return engine::error::success;
-    }
-  }();
-  out_parent_value = scene_node_id{out_parent};
   return operation_result;
 }
 engine::error world::entity_get_local_transform(entity_id entity_value,

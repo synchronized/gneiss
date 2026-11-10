@@ -161,7 +161,10 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   check(session.find_prefab_source(first_uuid, source_uuid)->display_name == "Updated");
   check(session.find_prefab_source(first_uuid, moved_uuid)->node == moved_node);
   scene_node_id moved_parent;
-  check(world->node_get_parent(moved_node, moved_parent).ok() && moved_parent == old_selected);
+  check(gneiss::test_support::assign_value(
+            world->find(gneiss::entity_id{(moved_node).get()}).parent(), moved_parent)
+            .ok() &&
+        moved_parent == old_selected);
 
   check(session.find_prefab_source(second_uuid, source_uuid)->display_name == "Updated");
   check(session.selection() == old_selected &&
@@ -174,7 +177,10 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   check(!history.is_pending());
   check(session.find_prefab_source(first_uuid, source_uuid)->display_name == "Source");
   check(session.find_prefab_source(first_uuid, moved_uuid)->node == moved_node);
-  check(world->node_get_parent(moved_node, moved_parent).ok() && moved_parent == first);
+  check(gneiss::test_support::assign_value(
+            world->find(gneiss::entity_id{(moved_node).get()}).parent(), moved_parent)
+            .ok() &&
+        moved_parent == first);
 
   check(session.find_prefab_source(second_uuid, source_uuid)->display_name == "Source");
   check(session.selection() == old_selected &&
@@ -227,8 +233,9 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   check(gneiss::test_support::assign_value(app->native_world()->entity_count(), count).ok() &&
         count == 298U);
   gneiss::engine::math::transform invalidated;
-  check(app->native_world()->node_get_local_transform(second_node, invalidated) ==
-        gneiss::engine::error::invalid_handle);
+  check(gneiss::test_support::assign_value(
+            app->native_world()->find(gneiss::entity_id{(second_node).get()}).local_transform(),
+            invalidated) == gneiss::engine::error::invalid_handle);
   // 冲突不妨碍后续编辑；撤销刷新恢复当时的源内容。
   history.clear();
   check(edit.request_refresh(*app, scheduler, session, history,
@@ -384,7 +391,9 @@ void run(gneiss::engine::execution_mode mode) {
   check(gneiss::test_support::scene_query(session).nodes.size() == 1U);
   const auto restored_child = gneiss::test_support::scene_query(session).nodes.front().node;
   scene_node_id retained_parent;
-  check(world->node_get_parent(restored_child, retained_parent).ok() &&
+  check(gneiss::test_support::assign_value(
+            world->find(gneiss::entity_id{(restored_child).get()}).parent(), retained_parent)
+            .ok() &&
         retained_parent == root_node && restored_child != own_child);
   check(session.destroy_node(restored_child).ok());
   check(session.validate_selection().ok());

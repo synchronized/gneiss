@@ -86,7 +86,10 @@ int main() try {
           ->node_set_identity(camera_before, {camera_uuid, "Edited"})
           .failed() ||
       application->native_world()->entity_remove_camera(camera_entity_before).failed() ||
-      application->native_world()->node_reparent(old_child, {}).failed() ||
+      application->native_world()
+          ->find(gneiss::entity_id{(old_child).get()})
+          .reparent(gneiss::engine::game_object{})
+          .failed() ||
       gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, uri, false)
           .failed())
     return 20;
@@ -97,7 +100,10 @@ int main() try {
       application->native_world()
           ->entity_get_camera(camera_entity_before, restored_camera)
           .failed() ||
-      application->native_world()->node_get_parent(old_child, restored_parent).failed() ||
+      gneiss::test_support::assign_value(
+          application->native_world()->find(gneiss::entity_id{(old_child).get()}).parent(),
+          restored_parent)
+          .failed() ||
       restored_parent != camera_before)
     return 21;
 
@@ -124,8 +130,9 @@ int main() try {
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->find_node(scene, old_child_uuid),
           old_child) != gneiss::engine::error::not_found ||
-      application->native_world()->node_get_parent(retired_child, camera_after) !=
-          gneiss::engine::error::invalid_handle ||
+      gneiss::test_support::assign_value(
+          application->native_world()->find(gneiss::entity_id{(retired_child).get()}).parent(),
+          camera_after) != gneiss::engine::error::invalid_handle ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->get_node_count(scene), count) !=
           gneiss::engine::error::success ||

@@ -40,8 +40,9 @@ bool test_write_and_revision() {
   gneiss::scene_node_id scene_node;
   GNEISS_TEST_CHECK(owner->node_create({}, entity, scene_node) == gneiss::engine::error::success);
   const gneiss::engine::math::transform identity{};
-  GNEISS_TEST_CHECK(owner->node_set_local_transform(scene_node, identity) ==
-                    gneiss::engine::error::success);
+  GNEISS_TEST_CHECK(
+      owner->find(gneiss::entity_id{(scene_node).get()}).set_local_transform(identity) ==
+      gneiss::engine::error::success);
 
   gneiss::host::runtime_scene_inspection inspection(7U);
   const std::vector<gneiss::host::runtime_scene_source_node> nodes{

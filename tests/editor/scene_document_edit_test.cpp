@@ -103,7 +103,10 @@ void run(scenario mode) {
     check(bool(node));
     auto changed = node->local_transform;
     changed.translation.x = 17;
-    check(editing.application->native_world()->node_set_local_transform(node->node, changed).ok());
+    check(editing.application->native_world()
+              ->find(gneiss::entity_id{(node->node).get()})
+              .set_local_transform(changed)
+              .ok());
   }
   if (mode == scenario::closed || mode == scenario::switched)
     editing.document.close();

@@ -199,7 +199,7 @@ result<scene_node_id> world::create_scene_node(scene_instance_id instance,
   try {
     state_->assign_scene(*created, instance);
   } catch (...) {
-    (void)this->object_destroy(*created);
+    (void)this->find(gneiss::entity_id{(*created).get()}).destroy();
     throw;
   }
   return *created;

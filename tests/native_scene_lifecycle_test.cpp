@@ -33,17 +33,26 @@ int main(void) {
 
   root_transform.translation[0] = 2.0F;
   child_transform.translation[1] = 3.0F;
-  if (world->node_set_local_transform(root, root_transform) != gneiss::engine::error::success ||
-      world->node_set_local_transform(child, child_transform) != gneiss::engine::error::success ||
-      world->node_get_parent(child, parent) != gneiss::engine::error::success || parent != root ||
-      world->node_get_parent(root, parent) != gneiss::engine::error::success ||
+  if (world->find(gneiss::entity_id{(root).get()}).set_local_transform(root_transform) !=
+          gneiss::engine::error::success ||
+      world->find(gneiss::entity_id{(child).get()}).set_local_transform(child_transform) !=
+          gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(world->find(gneiss::entity_id{(child).get()}).parent(),
+                                         parent) != gneiss::engine::error::success ||
+      parent != root ||
+      gneiss::test_support::assign_value(world->find(gneiss::entity_id{(root).get()}).parent(),
+                                         parent) != gneiss::engine::error::success ||
       parent != gneiss::scene_node_id{} ||
-      world->node_get_world_transform(child, world_transform) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(
+          world->find(gneiss::entity_id{(child).get()}).world_transform(), world_transform) !=
+          gneiss::engine::error::success ||
       world_transform.translation[0] != 2.0F || world_transform.translation[1] != 3.0F) {
     return 3;
   }
 
-  if (world->node_reparent(root, child) != gneiss::engine::error::invalid_argument ||
+  if (world->find(gneiss::entity_id{(root).get()})
+              .reparent(world->find(gneiss::entity_id{(child).get()})) !=
+          gneiss::engine::error::invalid_argument ||
       world->entity_destroy(entity) != gneiss::engine::error::success ||
       world->node_get_entity(child, attached) != gneiss::engine::error::invalid_handle ||
       attached != gneiss::entity_id{}) {

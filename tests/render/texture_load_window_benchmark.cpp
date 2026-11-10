@@ -75,8 +75,10 @@ gneiss::engine::error native_update(runtime::application& app, context& state) {
   gneiss::engine::math::transform transform;
   transform.translation[0] = static_cast<float>(std::sin(elapsed) * 0.15);
   transform.translation[2] = 2.0F;
-  if (gneiss::engine::error{app.native_world()->node_set_local_transform(
-          state.camera, transform)} != gneiss::engine::error::success) {
+  if (gneiss::engine::error{app.native_world()
+                                ->find(gneiss::entity_id{(state.camera).get()})
+                                .set_local_transform(transform)} !=
+      gneiss::engine::error::success) {
     return gneiss::engine::error::internal;
   }
 #ifdef _WIN32

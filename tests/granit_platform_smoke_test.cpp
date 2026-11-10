@@ -167,9 +167,15 @@ int main() {
       world.node_create({}, camera_entity, camera_node).failed() ||
       world.node_create({}, mesh_entity, mesh_node).failed() ||
       world.node_create({}, plain_mesh_entity, plain_mesh_node).failed() ||
-      world.node_set_local_transform(camera_node, camera_transform).failed() ||
-      world.node_set_local_transform(mesh_node, near_transform).failed() ||
-      world.node_set_local_transform(plain_mesh_node, plain_transform).failed() ||
+      world.find(gneiss::entity_id{(camera_node).get()})
+          .set_local_transform(camera_transform)
+          .failed() ||
+      world.find(gneiss::entity_id{(mesh_node).get()})
+          .set_local_transform(near_transform)
+          .failed() ||
+      world.find(gneiss::entity_id{(plain_mesh_node).get()})
+          .set_local_transform(plain_transform)
+          .failed() ||
       world.entity_set_camera(camera_entity, camera, true).failed() ||
       world.set_active_camera(camera_entity).failed() ||
       world.entity_set_mesh_renderer(mesh_entity, mesh_renderer).failed() ||

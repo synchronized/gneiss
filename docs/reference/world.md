@@ -27,13 +27,13 @@ size、find 和 unload 直接访问 World 的成员归属和槽位，校验所�
 复制句柄不延长场景或对象寿命；卸载后副本失效，槽位复用不会恢复旧句柄。
 World 销毁后禁止再访问场景句柄，is_valid 也不能检测已经析构的 World。
 
-目前成员清单仍在 World 拥有的 scene_instance_state 内维护；
+成员通过 ECS 的 scene_membership 遍历，不维护第二份可变成员清单；
 实例化回执显式返回来源地址到实体的关联，编辑器独立维护投影映射，不从运行来源信息反查。
 World 拒绝不同场景已登记成员之间的重新挂接，返回 invalid_argument；
 检查目标祖先和移动子树，不能通过未登记的中间对象绕开该限制。
 场景访问入口统一校验线程和句柄，并清理已经由 World 销毁的成员；
 size、find 和枚举不再返回已经失效的成员。存活实体仍以 World 的 generation 校验为准。
-旧节点接口及 Prefab 来源状态清理仍在 PLAN-105 中实施。
+旧节点接口及运行来源身份清理仍在 PLAN-110 中实施。
 
 借用接口位于 `function/world/scene_instance.hpp`。
 `scene_instance::create(identity, transform, parent)` 显式创建并登记本场景对象，
@@ -62,7 +62,8 @@ Prefab 展开的成员同样可以作为动态对象的父节点；运行结构�
 ## Game Object 借用
 
 `world::create_object(identity, transform, parent)` 创建有层级的实体并返回 `result<game_object>`。
-`world::object(entity)` 借用已有对象，纯 ECS 实体返回 not_found；失效或跨 World 实体返回 invalid_handle。
+`world::find(entity)` 只构造借用句柄，零 ID 返回空句柄；各操作再校验线程、所属域和代次。
+`world::object(entity)` 立即校验并借用已有对象，纯 ECS 实体返回 not_found；失效或跨 World 实体返回 invalid_handle。
 `game_object` 只保存 world* 和 entity_id，复制不保活实体，不保存组件地址。
 World 必须比所有句柄的使用期更长；World 销毁后禁止再调用句柄。
 
@@ -72,7 +73,8 @@ identity 返回的名称是借用视图；节点删除、身份修改或 World �
 不能假设其他对象增删不会移动 ECS 组件。
 根节点的 parent 返回成功的空句柄。reparent 接受空父节点、拒绝跨 World 和循环关系。
 重复指定同一父节点是无副作用操作。destroy 删除整棵子树，复制的借用句柄同步失效。
-场景创建已使用该入口；旧 node_* 调用方仍在迁移中。
+层级、局部/世界变换及对象销毁已通过 game_object 操作；World 的对应 node_* 转发接口已删除。
+节点创建、身份及组件查询等旧入口仍在迁移中。
 
 ## ECS 与 System
 

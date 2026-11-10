@@ -44,7 +44,10 @@ int main() try {
   const auto child = mapping.at(member->address).node;
   const auto root = mapping.at(member->parent).node;
   gneiss::scene_node_id parent;
-  check(app->native_world()->node_get_parent(child, parent).ok() && parent == root);
+  check(gneiss::test_support::assign_value(
+            app->native_world()->find(gneiss::entity_id{(child).get()}).parent(), parent)
+            .ok() &&
+        parent == root);
   // 来源信息只在调用方组合结果中；运行节点使用独立 UUID 和普通组件。
   auto identity = app->native_world()->node_identity(root);
   check(identity && identity->uuid != member->address.object &&
@@ -58,7 +61,10 @@ int main() try {
   check(second_identity && second_identity->uuid != identity->uuid);
   check(app->native_world()->object(gneiss::entity_id{child.get()})->set_name("Runtime edit").ok());
   check(gneiss::test_support::scene_access{*app}->reparent_node(created->instance, child, {}).ok());
-  check(app->native_world()->node_get_parent(child, parent).ok() && !parent);
+  check(gneiss::test_support::assign_value(
+            app->native_world()->find(gneiss::entity_id{(child).get()}).parent(), parent)
+            .ok() &&
+        !parent);
   check(member->effective.transform.translation.x == 3);
   check(
       gneiss::test_support::scene_access{*app}->reparent_node(created->instance, child, root).ok());

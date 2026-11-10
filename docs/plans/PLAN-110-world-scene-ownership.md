@@ -480,3 +480,14 @@ composed_object 不再保存 Inspector 的 prefab_uri、source_transform、insta
 实例化、结构刷新与 Runtime 检视。编译期间曾提前运行尚未重链的测试程序并发生崩溃；
 新旧二进制统一后全部通过，后续必须先完成受影响调用方重链再执行测试。
 未运行 GPU、大场景、远端 CI 或跨平台矩阵。
+
+## World 层级和变换入口收敛
+
+World 删除 object_destroy、node_reparent、node_set_local_transform、node_get_local_transform、
+node_get_world_transform 和 node_get_parent，产品、示例及测试调用方使用 game_object。
+world::find(entity_id) 构造借用句柄；操作时继续校验线程、身份、层级和场景归属。
+未删除节点创建、身份/组件查询等剩余入口，不代表主清单已经完成。
+
+Windows Clang Debug 全部默认目标编译通过；完整重链后 17 项定向 CPU 测试通过，
+覆盖跨线程、跨场景、失效句柄、层级变换、实例化、编辑历史及 Runtime 检视。
+未运行 GPU、大场景、远端 CI 或跨平台矩阵。

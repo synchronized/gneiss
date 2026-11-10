@@ -90,18 +90,32 @@ error game_object::set_name(std::string_view name) const {
 result<game_object> game_object::parent() const {
   if (!owner_)
     return error::invalid_handle;
-  scene_node_id parent;
-  auto status = owner_->node_get_parent(scene_node_id{entity_.get()}, parent);
-  if (status.failed())
-    return status;
+  auto state = detail::world_component_access::get(*owner_);
+  if (!state)
+    return state.error();
+  const auto& hierarchy = (*state)->scene();
+  if (!hierarchy.get_local(scene_node_id{entity_.get()}))
+    return error::invalid_handle;
+  auto parent = hierarchy.get_parent(scene_node_id{entity_.get()});
   return parent ? owner_->object(entity_id{parent.get()}) : result<game_object>{game_object{}};
 }
 error game_object::reparent(game_object parent) const {
   if (!owner_ || (parent.owner_ && parent.owner_ != owner_))
     return error::invalid_handle;
-  return owner_->node_reparent(scene_node_id{entity_.get()}, scene_node_id{parent.entity_.get()});
+  auto state = detail::world_component_access::get(*owner_);
+  if (!state)
+    return state.error();
+  const auto node = scene_node_id{entity_.get()};
+  const auto parent_node = scene_node_id{parent.entity_.get()};
+  if (!(*state)->scene().get_entity(node) ||
+      (parent_node && !(*state)->scene().get_entity(parent_node)))
+    return error::invalid_handle;
+  return (*state)->scene().reparent(node, parent_node);
 }
 error game_object::destroy() const {
-  return owner_ ? owner_->object_destroy(scene_node_id{entity_.get()}) : error::invalid_handle;
+  if (!owner_)
+    return error::invalid_handle;
+  auto state = detail::world_component_access::get(*owner_);
+  return state ? (*state)->scene().destroy(scene_node_id{entity_.get()}) : state.error();
 }
 }

@@ -223,9 +223,15 @@ int main() try {
       application->native_world()->object_create(camera_node, {temporary_uuid, "Temporary"}, {});
   if (!temporary || *gneiss::test_support::scene_access{*application}->get_node_count(scene) != 3U)
     return 31;
-  if (application->native_world()->node_reparent(triangle, *temporary).failed() ||
-      application->native_world()->node_reparent(triangle, camera_node).failed() ||
-      application->native_world()->object_destroy(*temporary).failed())
+  if (application->native_world()
+          ->find(gneiss::entity_id{(triangle).get()})
+          .reparent(application->native_world()->find(gneiss::entity_id{(*temporary).get()}))
+          .failed() ||
+      application->native_world()
+          ->find(gneiss::entity_id{(triangle).get()})
+          .reparent(application->native_world()->find(gneiss::entity_id{(camera_node).get()}))
+          .failed() ||
+      application->native_world()->find(gneiss::entity_id{(*temporary).get()}).destroy().failed())
     return 34;
   // 同一来源的另一个 World 可以独立修改，原 World 的身份不受影响。
   auto camera_before = application->native_world()->node_identity(camera_node);

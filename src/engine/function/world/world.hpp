@@ -61,14 +61,16 @@ public:
   [[nodiscard]] GNEISS_API result<game_object> create_object(scene_node_identity identity,
                                                              const math::transform& transform = {},
                                                              game_object parent = {});
+  /** 构造借用句柄；不访问 ECS，各操作在使用时校验身份和线程。零 ID 返回空句柄。 */
+  [[nodiscard]] game_object find(entity_id entity) noexcept {
+    return entity.get() ? game_object{*this, entity} : game_object{};
+  }
   /** 将本 World 中有层级组件的实体借用为对象，纯 ECS 实体返回 not_found。 */
   [[nodiscard]] GNEISS_API result<game_object> object(entity_id entity) noexcept;
   /** 创建节点与关联实体；失败不留下部分对象。限所属线程。 */
   [[nodiscard]] GNEISS_API result<scene_node_id> object_create(scene_node_id parent,
                                                                scene_node_identity identity,
                                                                const math::transform& transform);
-  /** 销毁整棵子树及关联实体，释放 ECS 组件引用。 */
-  [[nodiscard]] GNEISS_API error object_destroy(scene_node_id node) noexcept;
   [[nodiscard]] GNEISS_API error node_set_identity(scene_node_id node,
                                                    scene_node_identity identity);
   /** 借用名称与身份；节点删除、身份修改或 World 结构变化后须重新查询。 */
@@ -78,15 +80,7 @@ public:
   [[nodiscard]] GNEISS_API error node_create(scene_node_id parent, entity_id entity,
                                              scene_node_id& out_node);
   [[nodiscard]] GNEISS_API error node_destroy(scene_node_id node);
-  [[nodiscard]] GNEISS_API error node_reparent(scene_node_id node, scene_node_id parent);
-  [[nodiscard]] GNEISS_API error node_set_local_transform(scene_node_id node,
-                                                          const math::transform& transform);
-  [[nodiscard]] GNEISS_API error node_get_local_transform(scene_node_id node,
-                                                          math::transform& out_transform);
-  [[nodiscard]] GNEISS_API error node_get_world_transform(scene_node_id node,
-                                                          math::transform& out_transform);
   [[nodiscard]] GNEISS_API error node_get_entity(scene_node_id node, entity_id& out_entity);
-  [[nodiscard]] GNEISS_API error node_get_parent(scene_node_id node, scene_node_id& out_parent);
   [[nodiscard]] GNEISS_API error entity_get_local_transform(entity_id entity,
                                                             math::transform& out_transform);
   [[nodiscard]] GNEISS_API error entity_set_local_transform(entity_id entity,
