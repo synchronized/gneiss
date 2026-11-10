@@ -56,6 +56,8 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
   if (editing.active())
     return gneiss::engine::error::success;
   // 即使界面已收起也推进旧域回收，下一次打开不能被退休域永久阻塞。
+  if (const auto status = application.advance_loading(); status.failed())
+    return status;
   scene_load_completion completion;
   bool finished{};
   const auto polled = application.poll_scene(completion, finished);

@@ -151,7 +151,6 @@ engine::result<std::optional<scene_load_completion>> scene_service::poll_scene()
   check_owner();
   if (!loading_)
     return engine::error::not_ready;
-  advance();
   auto completed = std::move(completed_);
   completed_.reset();
   return completed;

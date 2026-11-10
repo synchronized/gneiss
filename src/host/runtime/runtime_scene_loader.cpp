@@ -108,6 +108,8 @@ ipc_scene_budget budget_snapshot(const ::gneiss::runtime::scene_load_progress& v
 } // namespace
 gneiss::engine::error runtime_scene_loader::advance() {
   using namespace ::gneiss::runtime;
+  if (const auto status = application_.advance_loading(); status.failed())
+    return status;
   scene_load_completion completion;
   bool finished{};
   auto result = application_.poll_scene(completion, finished);

@@ -45,7 +45,13 @@ void test_loop_callback_exceptions() {
   };
   check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
         gneiss::engine::error::success);
-  check(app->run(1) == gneiss::engine::error::out_of_memory);
+  bool allocation_threw = false;
+  try {
+    (void)app->run(1);
+  } catch (const std::bad_alloc&) {
+    allocation_threw = true;
+  }
+  check(allocation_threw);
   fail = false;
   check(app->run(1) == gneiss::engine::error::success && updates == 1U);
   app.reset();
@@ -55,7 +61,13 @@ void test_loop_callback_exceptions() {
   };
   check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
         gneiss::engine::error::success);
-  check(app->run(1) == gneiss::engine::error::internal);
+  bool update_threw = false;
+  try {
+    (void)app->run(1);
+  } catch (const std::runtime_error&) {
+    update_threw = true;
+  }
+  check(update_threw);
   check(app->shutdown() == gneiss::engine::error::success);
   app.reset();
   config.callbacks.update = {};
@@ -66,7 +78,13 @@ void test_loop_callback_exceptions() {
   config.callbacks.close_requested = []() -> bool { throw std::bad_alloc{}; };
   check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
         gneiss::engine::error::success);
-  check(app->run(1) == gneiss::engine::error::out_of_memory);
+  allocation_threw = false;
+  try {
+    (void)app->run(1);
+  } catch (const std::bad_alloc&) {
+    allocation_threw = true;
+  }
+  check(allocation_threw);
   check(app->shutdown() == gneiss::engine::error::success);
   app.reset();
   unsigned delivered_diagnostics{};
@@ -79,8 +97,13 @@ void test_loop_callback_exceptions() {
         event.result == gneiss::engine::error::initialization_failed && !event.message.empty();
     throw std::runtime_error("诊断失败");
   };
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
-        gneiss::engine::error::initialization_failed);
+  bool diagnostic_threw = false;
+  try {
+    (void)runtime::application::create(config);
+  } catch (const std::runtime_error&) {
+    diagnostic_threw = true;
+  }
+  check(diagnostic_threw);
   check(delivered_diagnostics == 1U && valid_diagnostic && !app);
 }
 
@@ -94,6 +117,7 @@ void test_asset_request_boundaries() {
   check(!app->asset_progress(progress));
   check(app->cancel_assets() == gneiss::engine::error::not_ready);
   const auto rejected = [&] {
+    check(app->advance_loading() == engine::error::invalid_state);
     std::uint64_t request = 17;
     bool ready = true;
     runtime::scene_load_completion scene_completion;
@@ -129,15 +153,15 @@ void test_asset_request_boundaries() {
 
 void test_platform_callbacks() {
   std::shared_ptr<gneiss::runtime::application> app;
-  // 原生平台回调使用强类型结果和 bool；异常不能跳过配对关闭。
+  // 预期初始化失败使用错误码并执行配对关闭；意外异常向调用边界传播。
   gneiss::runtime::application_configuration platform_config;
   unsigned shutdowns{};
   platform_config.callbacks.initialize = []() -> gneiss::engine::error {
-    throw std::runtime_error("初始化失败");
+    return gneiss::engine::error::initialization_failed;
   };
   platform_config.callbacks.shutdown = [&] { ++shutdowns; };
   check(gneiss::test_support::assign_value(gneiss::runtime::application::create(platform_config),
-                                           app) == gneiss::engine::error::internal);
+                                           app) == gneiss::engine::error::initialization_failed);
   check(!app && shutdowns == 1U);
   platform_config.callbacks.initialize = [] { return gneiss::engine::error::success; };
   unsigned polls{};
@@ -154,14 +178,17 @@ void test_platform_callbacks() {
   platform_config.callbacks.poll_events = [](bool&) -> gneiss::engine::error {
     throw std::bad_alloc{};
   };
-  platform_config.callbacks.shutdown = [&] {
-    ++shutdowns;
-    throw std::runtime_error("关闭失败");
-  };
+  platform_config.callbacks.shutdown = [&] { ++shutdowns; };
   check(gneiss::test_support::assign_value(gneiss::runtime::application::create(platform_config),
                                            app) == gneiss::engine::error::success);
-  check(app->run(1U) == gneiss::engine::error::out_of_memory);
-  check(app->shutdown() == gneiss::engine::error::internal);
+  bool poll_threw = false;
+  try {
+    (void)app->run(1U);
+  } catch (const std::bad_alloc&) {
+    poll_threw = true;
+  }
+  check(poll_threw);
+  check(app->shutdown() == gneiss::engine::error::success);
   check(!app->accepts_requests());
   app.reset();
   check(shutdowns == 3U);
@@ -189,8 +216,7 @@ int main() try {
         valid_log.store(false);
       }
       ++delivered;
-      // 投递器必须隔离用户回调异常，随后仍能投递和正常关闭。
-      throw std::runtime_error("日志接收方失败");
+      // 正常回调验证投递与关闭；异常终止由 application-log-fatal 子进程测试覆盖。
     }
   };
   // 不经 C API 和句柄注册表，真实对象仍使用同一创建、主循环及析构实现。

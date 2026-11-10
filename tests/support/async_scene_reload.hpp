@@ -20,7 +20,7 @@ inline engine::error activate_scene_for_test(runtime::application& app,
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   for (;;) {
     (void)tasks.run_ready();
-    app.advance_scene_load();
+    (void)app.advance_loading();
     runtime::scene_load_progress progress;
     if (app.scene_progress(progress)) {
       if (progress.phase == runtime::scene_load_phase::ready) {
@@ -31,7 +31,7 @@ inline engine::error activate_scene_for_test(runtime::application& app,
           if (std::chrono::steady_clock::now() >= deadline)
             return engine::error::internal;
           (void)tasks.run_ready();
-          app.advance_scene_load();
+          (void)app.advance_loading();
           std::this_thread::yield();
         } while (app.visual_assets_loading() || !app.can_activate_scene());
         return engine::error::success;
@@ -58,6 +58,7 @@ reload_scene_for_test(runtime::application& app, engine::task_scheduler& tasks,
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   for (;;) {
     (void)tasks.run_ready();
+    (void)app.advance_loading();
     auto completed = app.poll_scene_reload();
     if (!completed)
       return completed.error();
@@ -66,7 +67,7 @@ reload_scene_for_test(runtime::application& app, engine::task_scheduler& tasks,
         if (std::chrono::steady_clock::now() >= deadline)
           return engine::error::internal;
         (void)tasks.run_ready();
-        app.advance_scene_load();
+        (void)app.advance_loading();
         std::this_thread::yield();
       }
       if (objects)

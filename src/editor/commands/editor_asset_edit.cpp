@@ -334,8 +334,9 @@ void editor_asset_edit::advance(runtime::application& application, scene_edit_se
     return;
   }
   if (restore_) {
-    application.advance_scene_load();
-    operation_ = restore_->advance(application, session, history);
+    operation_ = application.advance_loading();
+    if (operation_.ok())
+      operation_ = restore_->advance(application, session, history);
     if (operation_ == engine::error::not_ready)
       return;
     restore_.reset();
@@ -348,7 +349,11 @@ void editor_asset_edit::advance(runtime::application& application, scene_edit_se
     finish(application);
     return;
   }
-  application.advance_scene_load();
+  operation_ = application.advance_loading();
+  if (operation_.failed()) {
+    finish(application);
+    return;
+  }
   (void)application.asset_progress(progress_);
   if (progress_.request != request_)
     progress_ = {};

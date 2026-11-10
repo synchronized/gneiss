@@ -177,7 +177,10 @@ struct editor_prefab_edit::state {
     return true;
   }
   bool poll_assets() {
-    application.advance_scene_load();
+    if (const auto advanced = application.advance_loading(); advanced.failed()) {
+      status = advanced;
+      return true;
+    }
     auto polled = application.poll_prepared_assets(request);
     if (!polled) {
       status = polled.error();

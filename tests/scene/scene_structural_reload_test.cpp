@@ -188,6 +188,7 @@ int main() try {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   for (;;) {
     (void)scheduler.run_ready();
+    (void)application->advance_loading();
     auto completed = application->poll_scene_reload();
     if (!completed)
       return 25;
@@ -203,7 +204,7 @@ int main() try {
     if (std::chrono::steady_clock::now() >= deadline)
       return 28;
     (void)scheduler.run_ready();
-    application->advance_scene_load();
+    (void)application->advance_loading();
   }
   if (visual_failures != 3)
     return 29;

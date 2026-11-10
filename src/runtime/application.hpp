@@ -85,7 +85,8 @@ public:
   [[nodiscard]] GNEISS_API bool
   asset_progress(gneiss::runtime::asset_load_progress& progress) const;
   [[nodiscard]] GNEISS_API gneiss::engine::error cancel_assets(std::uint64_t request = 0) noexcept;
-  GNEISS_API void advance_scene_load();
+  /** 所属线程推进全部加载；run 每帧自动调用，查询/领取回执不会推进工作。 */
+  [[nodiscard]] GNEISS_API engine::error advance_loading();
   [[nodiscard]] GNEISS_API bool visual_assets_loading() const noexcept;
   [[nodiscard]] GNEISS_API bool can_activate_scene() const noexcept;
   [[nodiscard]] GNEISS_API runtime::scene_retirement_statistics scene_retirement() const noexcept;

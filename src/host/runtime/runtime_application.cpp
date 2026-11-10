@@ -620,7 +620,11 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
             return operation;
           }
           ready = false;
-          native_application->advance_scene_load();
+          if (const auto advanced = native_application->advance_loading(); advanced.failed()) {
+            (void)native_application->discard_prepared_assets(context.asset_request);
+            context.asset_request = 0;
+            return advanced;
+          }
           auto polled = native_application->poll_prepared_assets(context.asset_request);
           if (!polled) {
             if (polled.error() == gneiss::engine::error::not_ready)

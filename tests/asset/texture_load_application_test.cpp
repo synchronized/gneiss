@@ -90,6 +90,7 @@ void run(gneiss::engine::execution_mode mode) {
   // 场景轮询不能领取通用批次回执，跨场景切换仍由宿主拒绝。
   runtime::scene_load_completion scene_completion;
   bool scene_ready{};
+  check(app->advance_loading().ok());
   check(app->poll_scene(scene_completion, scene_ready).ok() && !scene_ready);
   std::uint64_t scene_request{};
   check(gneiss::test_support::take_value(app->request_scene("asset://unused.scene.json", 1, 1),
@@ -108,6 +109,8 @@ void run(gneiss::engine::execution_mode mode) {
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
+    // 普通主循环能够独立推进通用资产批次。
+    check(app->run(1).ok());
     check(app->poll_assets(completion, ready) == gneiss::engine::error::success);
     check(std::chrono::steady_clock::now() < deadline);
     std::this_thread::yield();
@@ -123,6 +126,7 @@ void run(gneiss::engine::execution_mode mode) {
       if (mode == gneiss::engine::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
+      check(app->advance_loading().ok());
       check(app->poll_assets(completion, completed) == gneiss::engine::error::success);
       check(std::chrono::steady_clock::now() < limit);
       std::this_thread::yield();

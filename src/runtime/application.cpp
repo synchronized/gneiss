@@ -238,10 +238,6 @@ gneiss::engine::error application::request_scene_reload(scene_instance_id instan
 engine::result<std::optional<scene_reload_completion>> application::poll_scene_reload() {
   if (!is_owner_thread() || !accepts_requests())
     return engine::error::invalid_state;
-  const auto status = advance_resource_io();
-  if (status.failed())
-    return status;
-  storage_->scene_service_.advance();
   return storage_->scene_service_.poll_reload();
 }
 
@@ -713,7 +709,7 @@ gneiss::engine::error application::run(std::uint64_t max_frame_count) try {
       }
     }
 
-    const auto advanced = advance_resource_io();
+    const auto advanced = advance_loading();
     if (advanced.failed()) {
       storage_->is_running_ = false;
       return advanced;
@@ -1010,11 +1006,7 @@ gneiss::engine::error application::poll_scene(runtime::scene_load_completion& co
   if (!is_owner_thread() || !accepts_requests())
     return gneiss::engine::error::invalid_state;
   {
-    const auto advanced = advance_resource_io();
-    if (advanced.failed())
-      return advanced;
     auto result = storage_->scene_service_.poll_scene();
-    report_visual_completion();
     if (!result)
       return result.error();
     if (*result) {
@@ -1051,9 +1043,6 @@ engine::result<asset_load_completion> application::poll_prepared_assets(std::uin
     return engine::error::invalid_state;
   if (!loading_assets() || !loading_assets()->owns(request))
     return engine::error::invalid_handle;
-  if (const auto advanced = advance_resource_io(); advanced.failed())
-    return advanced;
-  loading_assets()->advance();
   asset_load_completion completion;
   if (!loading_assets()->take(completion))
     return engine::error::not_ready;
@@ -1087,12 +1076,8 @@ gneiss::engine::error application::poll_assets(gneiss::runtime::asset_load_compl
   if (!is_owner_thread() || !accepts_requests())
     return gneiss::engine::error::invalid_state;
   {
-    const auto advanced = advance_resource_io();
-    if (advanced.failed())
-      return advanced;
     if (!loading_assets())
       return engine::error::not_ready;
-    loading_assets()->advance();
     ready = loading_assets()->take(completion);
     return engine::error::success;
   }
@@ -1142,11 +1127,14 @@ gneiss::engine::error application::advance_resource_io() {
   return gneiss::engine::error::success;
 }
 
-void application::advance_scene_load() {
-  if (advance_resource_io().failed())
-    return;
+engine::error application::advance_loading() {
+  if (const auto status = advance_resource_io(); status.failed())
+    return status;
+  if (auto* assets = loading_assets())
+    assets->advance();
   storage_->scene_service_.advance();
   report_visual_completion();
+  return engine::error::success;
 }
 
 void application::report_visual_completion() {

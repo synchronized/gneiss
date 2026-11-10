@@ -76,7 +76,7 @@ void drain_visuals(const std::shared_ptr<application>& app,
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
-    app->advance_scene_load();
+    (void)app->advance_loading();
     std::this_thread::yield();
   } while (app->visual_assets_loading());
 }
@@ -109,7 +109,7 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
-    app->advance_scene_load();
+    (void)app->advance_loading();
     std::this_thread::yield();
   };
   const auto until = [&](auto predicate) {
@@ -169,6 +169,7 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
   gneiss::runtime::asset_load_completion loaded;
   until([&] {
     bool finished{};
+    check(app->advance_loading().ok());
     check(app->poll_assets(loaded, finished) == gneiss::engine::error::success);
     return finished;
   });
@@ -185,6 +186,7 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
   check(app->request_assets(sources, 1U, 3U, request, true).ok());
   until([&] {
     bool finished{};
+    check(app->advance_loading().ok());
     check(app->poll_assets(loaded, finished).ok());
     return finished;
   });
@@ -237,12 +239,25 @@ void run(gneiss::engine::execution_mode mode) {
   check(gneiss::test_support::take_value(app->request_scene(uri, 1U, 2U), rejected) ==
             gneiss::engine::error::not_ready &&
         rejected == 0U);
+  // 查询不能推进加载；新请求仍停留在初始阶段。
+  scene_load_progress before_query;
+  check(app->scene_progress(before_query));
+  for (int query = 0; query < 3; ++query) {
+    scene_load_completion observed;
+    bool terminal{};
+    check(app->poll_scene(observed, terminal).ok() && !terminal);
+    scene_load_progress after_query;
+    check(app->scene_progress(after_query));
+    check(after_query.phase == before_query.phase &&
+          after_query.completed == before_query.completed);
+  }
   auto drive = [&] {
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     scene_load_completion completion;
     bool ready{};
+    check(app->advance_loading().ok());
     check(app->poll_scene(completion, ready) == gneiss::engine::error::success);
     std::this_thread::yield();
     return std::pair{ready, std::move(completion)};
@@ -290,6 +305,12 @@ void run(gneiss::engine::execution_mode mode) {
         completion.content == completion.source->content() && !completion.bindings.empty());
   check((observed = app->native_world()) != nullptr && observed != old_world);
   check(app->cancel_scene(first) == gneiss::engine::error::not_ready);
+  // 领取回执不退休旧 World；退休只发生在下一次显式推进。
+  const auto retired_before = app->scene_retirement().retired_domains;
+  bool no_terminal{};
+  scene_load_completion no_completion;
+  check(app->poll_scene(no_completion, no_terminal).ok() && !no_terminal);
+  check(app->scene_retirement().retired_domains == retired_before);
   // 激活后的旧域由 session 延迟退役，期间不能接收下一次打开。
   check(gneiss::test_support::assign_value(old_world->entity_count(), count) ==
             gneiss::engine::error::success &&
@@ -404,6 +425,7 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
       (void)scheduler.run_ready();
     }
     bool terminal{};
+    check(app->advance_loading().ok());
     check(app->poll_scene(completion, terminal) == gneiss::engine::error::success);
     std::this_thread::yield();
     return terminal;
@@ -561,6 +583,7 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
       (void)scheduler.run_ready();
     }
     bool terminal{};
+    check(app->advance_loading().ok());
     check(app->poll_scene(scene_completion, terminal) == gneiss::engine::error::success &&
           !terminal);
     check(app->scene_progress(progress));
@@ -586,6 +609,7 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
+    check(app->advance_loading().ok());
     check(app->poll_assets(assets, ready) == gneiss::engine::error::success);
     std::this_thread::yield();
   }
@@ -594,6 +618,7 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
         assets.prepared_bytes > 0U);
   // 视觉文件变化不属于场景结构快照；打开场景复用当前成功资源。
   bool ignored{};
+  check(app->advance_loading().ok());
   check(app->poll_scene(scene_completion, ignored) == gneiss::engine::error::success && !ignored);
   std::ofstream(files.root / "image.ktx2", std::ios::app).put('\0');
   check(gneiss::test_support::take_value(app->request_scene("asset://scene.json", 1U, 3U),
@@ -603,6 +628,7 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
+    check(app->advance_loading().ok());
     check(app->poll_scene(scene_completion, ignored) == gneiss::engine::error::success && !ignored);
     check(app->scene_progress(progress));
   } while (progress.phase != scene_load_phase::ready);
@@ -628,13 +654,14 @@ void asynchronous_shutdown(gneiss::engine::execution_mode mode) {
       check(
           gneiss::test_support::take_value(app->request_scene("asset://scene.json", 1, 1), request)
               .ok());
-      app->advance_scene_load();
+      (void)app->advance_loading();
     } else if (stage == 2) {
       const std::array sources{gneiss::engine::render_resource_source{
           "asset://mesh.json", gneiss::engine::render_resource_kind::mesh}};
       check(app->request_assets(sources, 1, 1, request, true).ok());
       gneiss::runtime::asset_load_completion completion;
       bool ready{};
+      check(app->advance_loading().ok());
       check(app->poll_assets(completion, ready).ok());
     }
     check(app->request_shutdown().ok() && !app->accepts_requests() && closed == 0);
@@ -705,7 +732,7 @@ void source_reload_without_world_prefab_state() {
   for (;;) {
     check(std::chrono::steady_clock::now() < deadline);
     (void)scheduler.run_ready();
-    app->advance_scene_load();
+    (void)app->advance_loading();
     scene_load_progress progress;
     if (app->scene_progress(progress) && progress.phase == scene_load_phase::ready)
       break;
@@ -733,12 +760,13 @@ void source_reload_without_world_prefab_state() {
   moved.translation.x = 7;
   check(app->native_world()->object(entity_id{root_node.get()})->set_local_transform(moved).ok());
   const auto reload = [&] {
-    app->advance_scene_load();
+    (void)app->advance_loading();
     check(app->request_scene_reload(loaded.scene, "asset://source.prefab", true).ok());
     const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     for (;;) {
       check(std::chrono::steady_clock::now() < until);
       (void)scheduler.run_ready();
+      (void)app->advance_loading();
       auto completion = app->poll_scene_reload();
       check(bool(completion));
       if (*completion)

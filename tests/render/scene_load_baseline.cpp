@@ -101,8 +101,8 @@ gneiss::engine::error preload_scene(const std::shared_ptr<gneiss::runtime::appli
       result = gneiss::test_support::assign_value(app->activate_scene(request), completion);
       if (result == gneiss::engine::error::success) {
         scene = completion.scene;
-        // 消费预载终态并回收旧域，之后才能发起被测切换。
-        result = app->poll_scene(completion, finished);
+        // 显式推进回收旧域，之后才能发起被测切换。
+        result = app->advance_loading();
       }
       if (result != gneiss::engine::error::success)
         return result;

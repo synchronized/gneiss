@@ -123,3 +123,5 @@ Reference 和实现为准。
 - [ADR-114：预期错误、异常边界与进程 OOM](ADR-114-exception-boundaries.md)
 
 - [ADR-115：World 运行对象入口与场景归属](ADR-115-world-scene-ownership.md)
+
+- [ADR-116：加载请求与执行推进分离](ADR-116-loading-request-api.md)

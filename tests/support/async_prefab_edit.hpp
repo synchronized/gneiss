@@ -10,7 +10,7 @@ inline engine::error drive_prefab_edit(runtime::application& app, editor::editor
   while (edit.active()) {
     if (tasks.mode() == engine::execution_mode::cooperative)
       (void)tasks.run_ready();
-    app.advance_scene_load();
+    (void)app.advance_loading();
     edit.advance();
     if (std::chrono::steady_clock::now() >= deadline)
       return engine::error::internal;

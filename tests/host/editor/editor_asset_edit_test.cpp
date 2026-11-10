@@ -437,7 +437,7 @@ void prefab_edits(engine::execution_mode mode) {
   while (reloading->status() == e::error::not_ready) {
     if (mode == e::execution_mode::cooperative)
       (void)scheduler.run_ready();
-    app->advance_scene_load();
+    (void)app->advance_loading();
     check(std::chrono::steady_clock::now() < reload_deadline);
     std::this_thread::yield();
   }

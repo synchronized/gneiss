@@ -24,7 +24,11 @@ Application 拥有 World、平台状态、资源服务及可选窗口。`native_
 `request_scene(uri, session, revision)` 返回 `result<uint64_t>`：成功值是请求编号，不表示场景已加载。
 `activate_scene(request)` 返回 `result<scene_load_completion>`：成功值包含激活后的场景及来源内容。
 两者均保留所属线程、关闭状态及场景互斥检查；未满足启动或激活条件返回 not_ready。
-`poll_scene(completion, ready)` 暂保留消费式轮询接口，与前两者的提交/激活职责不同。
+`poll_scene(completion, ready)` 暂保留消费式回执接口，与前两者的提交/激活职责不同。
+`poll_scene`、`poll_scene_reload`、`poll_assets` 和 `poll_prepared_assets` 均不推进加载。
+`advance_loading()` 在所属线程统一推进文件完成、资产批次与场景，并返回推进错误。
+`run()` 每帧自动调用；自定义宿主循环须显式调用。推进可能退休先前激活时保留的旧 World，
+因此必须先释放对旧 World 的借用；单纯查询或领取回执不会退休它。
 
 ## 主循环
 

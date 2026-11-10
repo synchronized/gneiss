@@ -100,6 +100,9 @@ void run_asset_reload() {
       (void)scheduler.run_ready();
       gneiss::runtime::asset_load_completion completion;
       bool ready{};
+      status = app->advance_loading();
+      if (status.failed())
+        return status;
       status = app->poll_assets(completion, ready);
       if (status.failed() || ready)
         return status.failed() ? status : completion.result;
@@ -362,6 +365,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
       check(std::chrono::steady_clock::now() < deadline);
       scene_load_completion completion;
       bool terminal{};
+      check(app->advance_loading().ok());
       check(app->poll_scene(completion, terminal) == gneiss::engine::error::success);
       if (terminal)
         std::fprintf(stderr, "scene result %d: %s\n", completion.result.code(),
@@ -378,7 +382,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
         check(app->capture_frame(128U, 128U, initial) == gneiss::engine::error::success);
         while (native->visual_assets_loading()) {
           check(std::chrono::steady_clock::now() < deadline);
-          native->advance_scene_load();
+          (void)native->advance_loading();
           check(gneiss::engine::error{app->run(1U)} == gneiss::engine::error::success);
           std::this_thread::yield();
         }
@@ -719,6 +723,7 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
       if (mode == gneiss::engine::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
+      check(app->advance_loading().ok());
       check(app->poll_assets(completed, ready) == gneiss::engine::error::success);
       std::this_thread::yield();
     }
@@ -816,6 +821,7 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
       if (mode == gneiss::engine::execution_mode::cooperative)
         (void)scheduler.run_ready();
       bool terminal{};
+      check(app->advance_loading().ok());
       check(app->poll_scene(completion, terminal) == gneiss::engine::error::success);
       if (terminal) {
         check(requested_cancel && completion.progress.phase == scene_load_phase::cancelled);
@@ -841,8 +847,9 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
             if (mode == gneiss::engine::execution_mode::cooperative) {
               (void)scheduler.run_ready();
             }
-            native->advance_scene_load();
+            (void)native->advance_loading();
           }
+          check(app->advance_loading().ok());
           check(app->poll_scene(completion, terminal) == gneiss::engine::error::success);
           check(gneiss::engine::error{app->run(3U)} == gneiss::engine::error::success);
           const auto changed = capture();

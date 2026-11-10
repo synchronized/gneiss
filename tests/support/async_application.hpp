@@ -31,7 +31,7 @@ prepare_scene(runtime::application& app, std::string_view uri, engine::scene_con
   const auto step = [&] {
     if (tasks->mode() == engine::execution_mode::cooperative)
       (void)tasks->run_ready();
-    app.advance_scene_load();
+    (void)app.advance_loading();
     std::this_thread::yield();
     return std::chrono::steady_clock::now() < deadline;
   };
