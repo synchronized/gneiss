@@ -229,10 +229,11 @@ bool test_registered_component_inspection() {
     return false;
   auto& world = **owner;
   auto node = world.object_create({}, {e::guid::from_bytes({7}), "Custom"}, {});
-  if (!node || e::install_components(
-                   {world, *node}, {e::make_component_description(movement_description{3}),
-                                    e::make_component_description(e::mesh_renderer_description{})})
-                   .failed())
+  if (!node ||
+      e::install_components({*world.object(gneiss::entity_id{node->get()})},
+                            {e::make_component_description(movement_description{3}),
+                             e::make_component_description(e::mesh_renderer_description{})})
+          .failed())
     return false;
   auto components = e::capture_components(world, *node);
   if (!components || components->size() != 2 || !components->get<e::mesh_renderer_description>())
@@ -301,7 +302,9 @@ bool test_registered_component_inspection() {
       response.code != e::error::invalid_argument.code() ||
       state(world).get<movement_component>(source.native_entity)->data.speed != 6)
     return false;
-  if (e::remove_component({world, *node}, e::mesh_renderer_description::type_guid).failed())
+  if (e::remove_component({*world.object(gneiss::entity_id{node->get()})},
+                          e::mesh_renderer_description::type_guid)
+          .failed())
     return false;
   components = e::capture_components(world, *node);
   return components && !components->get<e::mesh_renderer_description>();

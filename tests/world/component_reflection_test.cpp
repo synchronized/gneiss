@@ -18,8 +18,7 @@ int main() {
   gneiss::entity_id entity, missing;
   gneiss::scene_node_id node;
   if (gneiss::engine::serialization::register_builtin_types().failed() ||
-      gneiss::engine::serialization::register_builtin_types() !=
-          engine::error::invalid_argument ||
+      gneiss::engine::serialization::register_builtin_types() != engine::error::invalid_argument ||
       engine::register_builtin_resource_types().failed() ||
       gneiss::engine::meta::freeze().failed() ||
       gneiss::test_support::assign_value(engine::create_native(), first).failed() ||
@@ -95,7 +94,7 @@ int main() {
     if (!changed)
       return changed.error();
     captured->set(*changed);
-    return engine::install_components({*first, node}, *captured);
+    return engine::install_components({*first->object(gneiss::entity_id{node.get()})}, *captured);
   };
   if (change_near(0.5F).failed() || first->entity_get_camera(entity, camera).failed() ||
       std::abs(camera.near - 0.5F) > 0.0001F)

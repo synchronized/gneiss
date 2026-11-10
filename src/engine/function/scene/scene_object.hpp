@@ -90,7 +90,10 @@ inline error configure_scene_object(world& owner, scene_node_id node,
   const auto validation = validate_scene_components(source);
   if (validation.failed())
     return validation;
-  return install_components({owner, node, fixed_renderer_resources(renderer), resources},
+  auto target = owner.object(entity_id{node.get()});
+  if (!target)
+    return target.error();
+  return install_components({*target, fixed_renderer_resources(renderer), resources},
                             source.components);
 }
 /** 普通对象与 Prefab 共用实例化路径，输入资源仅在组件内长期持有。 */

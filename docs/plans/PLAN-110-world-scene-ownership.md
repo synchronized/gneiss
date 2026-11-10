@@ -314,3 +314,20 @@ component_context 删除网格专属 renderer 字段，改为 lookup_resource �
 Windows Clang Debug：Editor、Runtime 和相关目标编译通过；10 项场景/组件/编辑 CPU 测试，
 以及 scene-load-application、prefab-runtime-application 共 12 项通过。
 未运行 GPU、大场景、其他平台或远端 CI。git diff --check 通过。
+
+
+## 2026-11-10 组件目标统一为 GameObject
+
+component_context 删除 owner/node 字段，仅保存 game_object target。
+装配及增量投影直接传已有对象句柄；旧节点入口先通过 World 查询对象并传播失败，
+不添加保留旧构造形式的兼容接口。内建与测试组件从 target 获取实体，
+操作入口统一校验线程及对象生命周期后才调用适配器。
+
+空目标和卸载后的借用目标返回 invalid_handle，其他线程返回 invalid_state；
+新增定向断言覆盖上述边界。World 必须比借用目标活得更久，句柄不延长对象寿命。
+组件 capture/remove 等旧适配回调仍使用 World/node 参数，和运行/编辑注册拆分一起收敛；
+本批仅完成上下文目标统一，未宣称整个注册 API 已统一。
+
+Windows Clang Debug 的 Editor、Runtime 及相关目标编译通过，13 项 CPU 测试通过，
+包含组件反射、适配、实例化、编辑生命周期和 Runtime 场景/Prefab 加载。
+格式化与 git diff --check 通过；未运行 GPU、大场景、其他平台或远端 CI。

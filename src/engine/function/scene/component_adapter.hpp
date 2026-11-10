@@ -13,8 +13,7 @@ class asset_manager;
 enum class component_editor_route { reflected, mesh_assets };
 /** 借用所属线程 World 和已准备的资源；回调不得保留上下文。 */
 struct component_context {
-  world& owner;
-  scene_node_id node;
+  game_object target;
   /** 提供时为固定资源来源，不回退到当前缓存；仅在本次调用期间借用。 */
   std::function<result<render_resource_ref>(const render_resource_source&)> lookup_resource{};
   asset_manager* resources{};

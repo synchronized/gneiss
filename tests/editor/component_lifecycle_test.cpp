@@ -30,7 +30,7 @@ int main() try {
     if (description.speed == 13)
       return e::error::invalid_state;
     auto* component =
-        state(context.owner).get<movement_component>(entity(context.owner, context.node));
+        state(*context.target.owner()).get<movement_component>(context.target.entity().get());
     if (!component)
       return e::error::not_found;
     component->data = description;
@@ -136,12 +136,14 @@ int main() try {
   check(app->scenes()->validate_editable_node(document.scene_handle(), loaded_node) ==
         e::error::invalid_handle);
   check(state(world).get<movement_component>(entity(world, loaded_node)) != nullptr);
-  check(e::remove_component({world, loaded_node}, type).ok());
+  check(e::remove_component({*world.object(gneiss::entity_id{loaded_node.get()})}, type).ok());
   check(app->scenes()->unload(loaded).ok());
   e::error cross_thread = e::error::success;
-  std::thread worker([&] { cross_thread = e::remove_component({world, node}, type); });
+  auto borrowed_target = world.object(gneiss::entity_id{node.get()});
+  check(borrowed_target.has_value());
+  std::thread worker([&] { cross_thread = e::remove_component({*borrowed_target}, type); });
   worker.join();
-  check(cross_thread.failed() && current());
+  check(cross_thread == e::error::invalid_state && current());
   check(history.clear().ok());
   check(document.remove_component_description(node, type).ok());
   check(document.add_component_description(node, e::make_component_description(movement_description{

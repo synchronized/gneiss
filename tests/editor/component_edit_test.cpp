@@ -59,7 +59,8 @@ e::error register_reference_meta() {
 e::component_operations<reference_description> reference_operations() {
   return {.validate = [](const reference_description&) -> e::error { return e::error::success; },
           .install = [](e::component_context& c, const reference_description& d) -> e::error {
-            state(c.owner).emplace_or_replace<reference_description>(entity(c.owner, c.node), d);
+            state(*c.target.owner())
+                .emplace_or_replace<reference_description>(c.target.entity().get(), d);
             return e::error::success;
           },
           .capture = [](e::world& w, gneiss::scene_node_id n)

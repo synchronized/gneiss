@@ -43,8 +43,8 @@ error camera_valid(const camera_description& value) {
   return validate_camera_description(value).error;
 }
 error camera_install(component_context& context, const camera_description& value) {
-  return context.owner.entity_set_camera(entity(context.owner, context.node), value.settings,
-                                         value.is_primary);
+  return context.target.owner()->entity_set_camera(context.target.entity(), value.settings,
+                                                   value.is_primary);
 }
 result<std::optional<camera_description>> camera_capture(world& owner, scene_node_id node) {
   math::camera_settings settings;
@@ -77,7 +77,8 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
       return typed;
     }
     // 普通属性编辑保留当前资源；固定文档引用由上面的 lookup 明确提供。
-    auto current = context.owner.node_mesh_renderer(context.node);
+    auto current =
+        context.target.owner()->node_mesh_renderer(scene_node_id{context.target.entity().get()});
     if (current) {
       ref<const T> existing;
       if constexpr (std::same_as<T, engine::mesh>)
@@ -103,8 +104,8 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
   if (context.resources && ((*mesh && !context.resources->owns(*mesh)) ||
                             (*material && !context.resources->owns(*material))))
     return error::invalid_argument;
-  return context.owner.entity_set_mesh_renderer(entity(context.owner, context.node),
-                                                {*mesh, *material});
+  return context.target.owner()->entity_set_mesh_renderer(context.target.entity(),
+                                                          {*mesh, *material});
 }
 result<std::optional<mesh_renderer_description>> mesh_capture(world& owner, scene_node_id node) {
   auto value = owner.node_mesh_renderer(node);
@@ -186,8 +187,11 @@ const component_adapter* find(guid type, bool property = false) {
   return nullptr;
 }
 error valid_target(component_context& context) {
-  entity_id id;
-  return context.owner.node_get_entity(context.node, id);
+  if (!context.target.owner())
+    return error::invalid_handle;
+  if (!context.target.owner()->is_owner_thread())
+    return error::invalid_state;
+  return context.target.is_valid() ? error{error::success} : error{error::invalid_handle};
 }
 }
 error resolve_component_references(component_context context,
@@ -295,7 +299,8 @@ error update_component(component_context context, const component_description& v
   status = adapter->validate(value);
   if (status.failed())
     return status;
-  auto current = adapter->capture(context.owner, context.node);
+  auto current =
+      adapter->capture(*context.target.owner(), scene_node_id{context.target.entity().get()});
   if (!current)
     return current.error();
   if (!*current)
@@ -311,7 +316,8 @@ error add_component(component_context context, const component_description& valu
   const auto* adapter = find(value->guid());
   if (!adapter)
     return error::unsupported;
-  auto current = adapter->capture(context.owner, context.node);
+  auto current =
+      adapter->capture(*context.target.owner(), scene_node_id{context.target.entity().get()});
   if (!current)
     return current.error();
   if (*current)
@@ -319,7 +325,8 @@ error add_component(component_context context, const component_description& valu
   status = adapter->validate(value);
   if (status.failed())
     return status;
-  auto& ids = instance_ids(context.owner, context.node).values;
+  auto& ids =
+      instance_ids(*context.target.owner(), scene_node_id{context.target.entity().get()}).values;
   if (!identity)
     identity = value->uuid;
   if (!identity)
@@ -340,14 +347,16 @@ error remove_component(component_context context, guid type) {
   const auto* adapter = find(type);
   if (!adapter || !adapter->removable)
     return error::unsupported;
-  auto current = adapter->capture(context.owner, context.node);
+  auto current =
+      adapter->capture(*context.target.owner(), scene_node_id{context.target.entity().get()});
   if (!current)
     return current.error();
   if (!*current)
     return error::not_found;
-  status = adapter->remove(context.owner, context.node);
+  status = adapter->remove(*context.target.owner(), scene_node_id{context.target.entity().get()});
   if (status.ok())
-    instance_ids(context.owner, context.node).values.erase(type);
+    instance_ids(*context.target.owner(), scene_node_id{context.target.entity().get()})
+        .values.erase(type);
   return status;
 }
 error validate_components(const component_descriptions& values) {
@@ -365,8 +374,8 @@ error validate_components(const component_descriptions& values) {
   return error::success;
 }
 result<component_descriptions> capture_components(world& owner, scene_node_id node) {
-  component_context context{owner, node};
-  auto status = valid_target(context);
+  entity_id id;
+  auto status = owner.node_get_entity(node, id);
   if (status.failed())
     return status;
   component_descriptions output;
@@ -398,7 +407,8 @@ error install_components(component_context context, const component_descriptions
     status = validate_components(values);
   if (status.failed())
     return status;
-  auto& ids = instance_ids(context.owner, context.node).values;
+  auto& ids =
+      instance_ids(*context.target.owner(), scene_node_id{context.target.entity().get()}).values;
   for (const auto& value : values) {
     auto [entry, inserted] = ids.try_emplace(value->guid(), values.identity(value->guid()));
     status = find(value->guid())->install(context, value);
@@ -415,7 +425,8 @@ error replace_components(component_context context, const component_descriptions
     status = validate_components(values);
   if (status.failed())
     return status;
-  auto current = capture_components(context.owner, context.node);
+  auto current =
+      capture_components(*context.target.owner(), scene_node_id{context.target.entity().get()});
   if (!current)
     return current.error();
   for (const auto& previous : *current) {
@@ -482,8 +493,8 @@ error edit_component(component_descriptions& values, guid type, meta::property_i
 }
 result<value> read_runtime_component(world& owner, scene_node_id node, guid type,
                                      meta::property_id property) {
-  component_context context{owner, node};
-  auto status = valid_target(context);
+  entity_id id;
+  auto status = owner.node_get_entity(node, id);
   if (status.failed())
     return status;
   const auto* adapter = find(type, true);
@@ -504,7 +515,8 @@ error edit_runtime_component(component_context context, guid type, meta::propert
   const auto* adapter = find(type, true);
   if (!adapter)
     return error::unsupported;
-  auto current = adapter->capture(context.owner, context.node);
+  auto current =
+      adapter->capture(*context.target.owner(), scene_node_id{context.target.entity().get()});
   if (!current)
     return current.error();
   if (!*current)
@@ -566,7 +578,10 @@ error write_component_property(world& world, std::uint64_t entity, guid type,
                                meta::property_id field, const engine::value& value) {
   if (type != transform_component_type) {
     auto node = world.entity_node(entity_id{entity});
-    return node ? edit_runtime_component({world, *node}, type, field, value) : node.error();
+    if (!node)
+      return node.error();
+    auto target = world.object(entity_id{node->get()});
+    return target ? edit_runtime_component({*target}, type, field, value) : target.error();
   }
   return access_component(world, entity, type, true, [&](auto* object) {
     auto root = meta::view(*object);

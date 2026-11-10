@@ -74,7 +74,7 @@ inline e::component_operations<movement_description> operations() {
         // 模拟运行期安装失败，验证已应用的其他对象能恢复。
         if (d.speed == 13)
           return e::error::invalid_state;
-        state(c.owner).emplace_or_replace<movement_component>(entity(c.owner, c.node), d);
+        state(*c.target.owner()).emplace_or_replace<movement_component>(c.target.entity().get(), d);
         return e::error::success;
       },
       .capture = [](e::world& w,

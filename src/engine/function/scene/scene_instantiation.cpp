@@ -96,7 +96,7 @@ result<scene_instantiation_result> instantiate(scene_instance destination,
   }
   for (const auto& object : composed.objects) {
     component_context context{
-        world, scene_node_id{objects.at(object.address).entity().get()},
+        objects.at(object.address),
         [&](const render_resource_source& source) -> result<render_resource_ref> {
           auto found = assets.find(source.uri);
           return found == assets.end() ? result<render_resource_ref>{error::not_ready}
@@ -110,7 +110,7 @@ result<scene_instantiation_result> instantiate(scene_instance destination,
   }
   // 第二遍仅解析引用；目标对象和组件已全部安装，支持前向引用。
   for (const auto& object : composed.objects) {
-    component_context context{world, scene_node_id{objects.at(object.address).entity().get()}};
+    component_context context{objects.at(object.address)};
     context.lookup_object = [&](object_address address) -> result<game_object> {
       auto found = objects.find(address);
       return found == objects.end() ? result<game_object>{error::not_found}
@@ -162,9 +162,12 @@ result<scene_node_id> create_mesh_renderer_node(world& owner, asset_manager& ass
   scene_subtree_guard guard(owner, *created);
   auto description = make_component_description(
       mesh_renderer_description{std::string(desc.mesh_uri), std::string(desc.material_uri)});
-  auto status = add_component(
-      {owner, *created, fixed_renderer_resources({binding.mesh, binding.material}), &assets},
-      description, desc.component_uuid);
+  auto target = owner.object(entity_id{created->get()});
+  if (!target)
+    return target.error();
+  auto status =
+      add_component({*target, fixed_renderer_resources({binding.mesh, binding.material}), &assets},
+                    description, desc.component_uuid);
   if (status.failed())
     return status;
   guard.release();
@@ -228,14 +231,17 @@ error replace_mesh_binding(world& owner, scene_instance_id scene, scene_node_id 
   auto existing = owner.node_mesh_renderer(node);
   if (!existing && existing.error() != error::not_found)
     return existing.error();
-  if (!existing)
+  if (!existing) {
+    auto target = owner.object(entity_id{node.get()});
+    if (!target)
+      return target.error();
     return add_component(
-        {owner, node, fixed_renderer_resources({replacement.mesh, replacement.material}),
-         resources},
+        {*target, fixed_renderer_resources({replacement.mesh, replacement.material}), resources},
         make_component_description(
             mesh_renderer_description{std::string(resource_uri(replacement.mesh)),
                                       std::string(resource_uri(replacement.material))}),
         component_uuid);
+  }
   const mesh_renderer_replacement change{entity_id{node.get()},
                                          {expected.mesh, expected.material},
                                          {replacement.mesh, replacement.material}};

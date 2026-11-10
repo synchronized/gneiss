@@ -186,8 +186,11 @@ result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_i
   };
   for (const auto& update : updates) {
     const auto node = nodes.at(update.address).node;
+    auto target = world.object(entity_id{node.get()});
+    if (!target)
+      return target.error();
     component_context context{
-        world, node, [&](const render_resource_source& source) -> result<render_resource_ref> {
+        *target, [&](const render_resource_source& source) -> result<render_resource_ref> {
           auto found = assets.find(source.uri);
           return found == assets.end() ? result<render_resource_ref>{error::not_ready}
                                        : result<render_resource_ref>{found->second};
@@ -228,7 +231,10 @@ result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_i
       return status;
   }
   for (const auto& object : next.objects) {
-    component_context context{world, nodes.at(object.address).node};
+    auto target = world.object(entity_id{nodes.at(object.address).node.get()});
+    if (!target)
+      return target.error();
+    component_context context{*target};
     context.lookup_object = [&](object_address address) -> result<game_object> {
       auto found = associations.find(address);
       return found == associations.end() ? result<game_object>{error::not_found}

@@ -66,10 +66,10 @@ int main() try {
     if (!target)
       return target.error();
     // 解析时目标组件必须已经安装，而不仅仅是对象已经存在。
-    if (!state(context.owner).get<movement_component>(target->entity().get()))
+    if (!state(*context.target.owner()).get<movement_component>(target->entity().get()))
       return e::error::not_ready;
-    state(context.owner)
-        .emplace_or_replace<resolved_link>(entity(context.owner, context.node), *target);
+    state(*context.target.owner())
+        .emplace_or_replace<resolved_link>(context.target.entity().get(), *target);
     return e::error::success;
   };
   check(e::register_scene_component(custom).ok());
@@ -193,12 +193,13 @@ int main() try {
   auto* component = state(world).get<movement_component>(id);
   check(component && component->data.speed == 2);
   component->data.speed = 4;
-  check(e::edit_runtime_component({world, node}, movement_description::type_guid,
-                                  e::meta::property_id{1}, e::value{5.0F})
+  check(e::edit_runtime_component({*world.object(gneiss::entity_id{node.get()})},
+                                  movement_description::type_guid, e::meta::property_id{1},
+                                  e::value{5.0F})
             .ok());
   check(state(world).get<movement_component>(id)->data.speed == 5);
-  check(e::edit_runtime_component({world, node}, movement_description::type_guid,
-                                  e::meta::property_id{1},
+  check(e::edit_runtime_component({*world.object(gneiss::entity_id{node.get()})},
+                                  movement_description::type_guid, e::meta::property_id{1},
                                   e::value{-1.0F}) == e::error::invalid_argument);
   check(state(world).get<movement_component>(id)->data.speed == 5);
   // 文件往返使用调用方描述，显式采集需要保留的组件，不捕获整个运行场景。
@@ -236,8 +237,8 @@ int main() try {
   check(apply(*restored).ok());
   check(state(world).get<movement_component>(id)->data.speed == 5);
   // 单组件失败不得破坏已有组件；跨对象应用不再承诺整体回滚。
-  check(e::update_component({world, node}, e::make_ref<movement_description>(13)) ==
-        e::error::invalid_state);
+  check(e::update_component({*world.object(gneiss::entity_id{node.get()})},
+                            e::make_ref<movement_description>(13)) == e::error::invalid_state);
   check(state(world).get<movement_component>(id)->data.speed == 5);
   e::error foreign;
   std::thread worker([&] {
@@ -266,7 +267,7 @@ int main() try {
   check(bool(recreated_node) && *recreated_node != old_node);
   node = *recreated_node;
   for (const auto& component : *saved_components)
-    check(e::add_component({world, node}, component).ok());
+    check(e::add_component({*world.object(gneiss::entity_id{node.get()})}, component).ok());
   id = entity(world, node);
   check(state(world).get<movement_component>(id)->data.speed == 5);
   lifetime = state(world).get<movement_component>(id)->lifetime;
@@ -323,6 +324,11 @@ int main() try {
   check(recreated->set_name("deleted") == e::error::invalid_handle);
   check(recreated->set_local_transform({}) == e::error::invalid_handle);
   check(!recreated->local_transform());
+  check(e::remove_component({*recreated}, movement_description::type_guid) ==
+        e::error::invalid_handle);
+  check(e::add_component({}, e::make_ref<movement_description>(1)) == e::error::invalid_handle);
+  check(e::resolve_component_references({}, {}) == e::error::invalid_handle);
+
   check(e::game_object{}.set_name("empty") == e::error::invalid_handle);
 
   // 创建失败回收新场景，同时恢复先前活动相机，避免破坏其他存活场景。
