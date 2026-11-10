@@ -17,7 +17,6 @@
 #include "engine/function/render/render_snapshot.hpp"
 #include "engine/function/render/render_statistics.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
-#include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
 #include "runtime/configuration/application_configuration.hpp"
 #include "runtime/loading/resource_load_types.hpp"

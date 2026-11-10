@@ -240,7 +240,6 @@ target_sources(
     engine/function/scene/composition.hpp
     engine/resource/scene/object_address.hpp
 
-    engine/function/scene/scene_creation.hpp
     engine/function/scene/prefab_property_override.cpp
     engine/function/scene/prefab_property_override.hpp
     engine/function/scene/prefab_replay.cpp

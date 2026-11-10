@@ -299,9 +299,9 @@ int main() try {
   const auto old_node = node;
   check(scenes.destroy_subtree(instance, node).ok());
   check(lifetime.expired() && !world.object(gneiss::entity_id{old_node.get()}));
-  auto recreated_node = scenes.create_node(instance, {.uuid = first.uuid, .name = first.name});
-  check(bool(recreated_node) && *recreated_node != old_node);
-  node = *recreated_node;
+  auto recreated_node = borrowed->create({first.uuid, first.name});
+  check(bool(recreated_node) && recreated_node->entity() != old_node);
+  node = recreated_node->entity();
   for (const auto& component : *saved_components)
     check(e::add_component({*world.object(gneiss::entity_id{node.get()})}, component).ok());
   id = entity(world, node);

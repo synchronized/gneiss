@@ -58,19 +58,6 @@ struct scene_access {
       return member.error();
     return *member ? engine::error::success : engine::error::invalid_handle;
   }
-  engine::result<entity_id> create_node(scene_instance_id id, const engine::node_creation& desc) {
-    auto scene = engine::scene_instance::borrow(owner, id);
-    if (!scene)
-      return scene.error();
-    auto parent = desc.parent ? owner.object(entity_id{desc.parent.get()})
-                              : engine::result<engine::game_object>{engine::game_object{}};
-    if (!parent)
-      return parent.error();
-    auto object = scene->create({desc.uuid, std::string(desc.name)}, desc.local_transform, *parent);
-    if (!object)
-      return object.error();
-    return entity_id{object->entity().get()};
-  }
   engine::error reparent_node(scene_instance_id id, entity_id node, entity_id parent) {
     auto status = validate_editable_node(id, node);
     if (status.failed())

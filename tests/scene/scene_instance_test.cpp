@@ -352,14 +352,15 @@ int main() try {
                                         material_uri) != gneiss::engine::error::success) {
     return 28;
   }
-  gneiss::engine::node_creation generic_desc;
-  generic_desc.uuid = generic_uuid;
-  generic_desc.name = "Empty";
-  generic_desc.local_transform.translation[1] = 2.0F;
+  auto destination = gneiss::engine::scene_instance::borrow(*application->native_world(), scene);
+  if (!destination)
+    return 13;
+  gneiss::engine::math::transform generic_transform;
+  generic_transform.translation[1] = 2.0F;
   gneiss::entity_id generic_node;
-  if (gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*application}->create_node(scene, generic_desc),
-          generic_node) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(
+          destination->create({generic_uuid, "Empty"}, generic_transform), generic_node) !=
+          gneiss::engine::error::success ||
       application->native_world()
               ->object(gneiss::entity_id{generic_node.get()})
               ->set_name("Group") != gneiss::engine::error::success ||
@@ -391,13 +392,11 @@ int main() try {
   if (application->native_world()->object(gneiss::entity_id{old_generic_node.get()}) ||
       application->native_world()->object(gneiss::entity_id{old_triangle_node.get()}))
     return 17;
-  generic_desc.name = "Group";
-  generic_desc.parent = camera_node;
-  auto recreated =
-      gneiss::test_support::scene_access{*application}->create_node(scene, generic_desc);
-  if (!recreated || *recreated == old_generic_node)
+  auto recreated = destination->create({generic_uuid, "Group"}, generic_transform,
+                                       application->native_world()->find(camera_node));
+  if (!recreated || recreated->entity() == old_generic_node)
     return 18;
-  generic_node = *recreated;
+  generic_node = recreated->entity();
   auto child_desc = create_desc;
   child_desc.uuid = triangle_uuid;
   child_desc.name = "Triangle";

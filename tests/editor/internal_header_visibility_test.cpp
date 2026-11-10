@@ -60,8 +60,6 @@ static_assert(std::is_invocable_v<decltype(&gneiss::engine::world::entity_destro
                                   gneiss::engine::world&, gneiss::entity_id>);
 static_assert(!std::is_invocable_v<decltype(&gneiss::engine::world::entity_destroy),
                                    gneiss::engine::world&, gneiss::scene_instance_id>);
-// 原生描述结构不能退回裸 ID，否则方法签名的类型约束会被绕过。
-static_assert(std::is_same_v<decltype(gneiss::engine::node_creation::parent), gneiss::entity_id>);
 
 static_assert(std::is_same_v<decltype(gneiss::engine::prefab_property_target::target_type_guid),
                              gneiss::engine::guid>);

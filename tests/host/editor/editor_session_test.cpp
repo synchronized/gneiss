@@ -87,14 +87,16 @@ int main() try {
             .failed())
       return 35;
     const auto uuid = gneiss::engine::guid::from_bytes({72, 93});
-    auto created = gneiss::test_support::scene_access{*application}->create_node(
-        session.scene_handle(), {.uuid = uuid, .name = "Direct child", .parent = original.node});
-    if (!created || session.find_node(uuid) || session.select(*created).ok())
+    auto destination = gneiss::engine::scene_instance::borrow(*world, session.scene_handle());
+    if (!destination)
+      return 36;
+    auto created = destination->create({uuid, "Direct child"}, {}, world->find(original.node));
+    if (!created || session.find_node(uuid) || session.select(created->entity()).ok())
       return 36;
     if (session.capture_nodes()->nodes.size() != before->nodes.size())
       return 37;
     if (gneiss::test_support::scene_access{*application}
-            ->destroy_node(session.scene_handle(), *created)
+            ->destroy_node(session.scene_handle(), created->entity())
             .failed() ||
         session.is_dirty())
       return 38;
