@@ -30,6 +30,7 @@ struct scene_service::load_task {
   engine::asset_request<engine::scene> description_request;
   scene_load_completion result;
   engine::world_owner candidate;
+  entity_id default_camera;
   std::vector<gneiss::engine::render_resource_source> requested;
   bool cancelled{};
 };
@@ -161,6 +162,12 @@ engine::result<scene_load_completion> scene_service::activate(std::uint64_t requ
       pending_->result.progress.phase != scene_load_phase::ready) {
     return gneiss::engine::error::not_ready;
   }
+  // 候选装配没有激活副作用；应用在切换安全点选择默认相机。
+  if (pending_->default_camera.get()) {
+    auto selected = pending_->candidate->set_active_camera(pending_->default_camera);
+    if (selected.failed())
+      return selected;
+  }
   auto source = std::make_unique<source_state>();
   source->instance = pending_->result.scene;
   source->content = pending_->result.content;
@@ -251,6 +258,13 @@ void scene_service::advance_load_impl() {
           if (!result) {
             (void)destination->unload();
             return engine::scene_diagnostic{result.error(), 0, {}, {}};
+          }
+          // 多个默认提示按组合顺序选择最后一个；没有提示时保留无活动相机。
+          for (std::size_t i = 0; i < composed->objects.size(); ++i) {
+            const auto* camera =
+                composed->objects[i].effective.components.get<engine::camera_description>();
+            if (camera && camera->is_primary)
+              value.default_camera = result->objects[i].entity;
           }
           result->assets = std::move(input->assets);
           result->bindings = std::move(bindings);

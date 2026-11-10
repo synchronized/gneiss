@@ -41,6 +41,7 @@ public:
   [[nodiscard]] GNEISS_API error entity_destroy(entity_id entity);
   [[nodiscard]] GNEISS_API result<bool> entity_is_alive(entity_id entity);
   [[nodiscard]] GNEISS_API result<std::uint64_t> entity_count();
+  /** 安装参数与默认选择提示，不改变活动相机。 */
   [[nodiscard]] GNEISS_API error entity_set_camera(entity_id entity,
                                                    const math::camera_settings& camera,
                                                    bool primary);

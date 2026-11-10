@@ -185,12 +185,7 @@ engine::error world::entity_set_camera(entity_id entity_value, const math::camer
     if (!state->is_alive(entity)) {
       return engine::error::invalid_handle;
     }
-    state->emplace_or_replace<camera_component>(
-        entity, math::camera_settings{camera.fov, camera.near, camera.far});
-    if (primary) {
-      return state->set_active_camera(entity);
-    }
-    state->clear_active_camera(entity);
+    state->emplace_or_replace<camera_component>(entity, camera, primary);
     return engine::error::success;
   }
 }
@@ -210,7 +205,10 @@ engine::error world::entity_configure_camera(entity_id entity_value,
     if (!state->is_alive(entity)) {
       return engine::error::invalid_handle;
     }
-    state->emplace_or_replace<camera_component>(entity, desc);
+    if (auto* component = state->get<camera_component>(entity))
+      component->value = desc;
+    else
+      state->emplace<camera_component>(entity, desc);
     return engine::error::success;
   }
 }

@@ -44,16 +44,10 @@ result<scene_instantiation_result> instantiate(scene_instance destination,
       ancestor = found->second->parent;
     }
   }
-  entity_id previous_camera;
-  const auto camera_status = world.get_active_camera(previous_camera);
-  if (camera_status.failed() && camera_status != error::not_ready)
-    return camera_status;
   std::vector<game_object> created;
   created.reserve(composed.objects.size());
   struct creation_guard {
     std::vector<game_object>& objects;
-    engine::world& world;
-    entity_id camera;
     bool complete{};
     ~creation_guard() {
       if (complete)
@@ -62,10 +56,8 @@ result<scene_instantiation_result> instantiate(scene_instance destination,
       for (auto object : objects)
         if (object.is_valid())
           (void)object.destroy();
-      if (camera.get())
-        (void)world.set_active_camera(camera);
     }
-  } guard{created, world, previous_camera};
+  } guard{created};
   scene_instantiation_result receipt;
   receipt.instance = destination.id();
   receipt.node_count = composed.objects.size();

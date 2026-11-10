@@ -16,6 +16,7 @@ struct scene_membership {
 /** 相机参数为纯数据；活动相机只由 World 的实体 ID 决定。 */
 struct camera_component {
   math::camera_settings value;
+  bool primary_hint{}; // 应用选择默认相机的提示；安装组件不激活相机。
 };
 /** 组件直接保活运行资源，必须执行正常的构造、移动和析构。 */
 struct mesh_renderer {

@@ -71,6 +71,7 @@ int main() {
     return 6;
   engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   if (first->entity_set_camera(entity, camera, true).failed() ||
+      first->set_active_camera(entity).failed() ||
       gneiss::test_support::assign_value(
           engine::read_component_property(*first, entity.get(), camera_type,
                                           gneiss::engine::meta::property_id{4}),

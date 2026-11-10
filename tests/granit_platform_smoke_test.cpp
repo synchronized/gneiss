@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/render/render_service.hpp"
 #include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/texture/texture_view.hpp"
 #include "runtime/application.hpp"
@@ -171,6 +171,7 @@ int main() {
       world.node_set_local_transform(mesh_node, near_transform).failed() ||
       world.node_set_local_transform(plain_mesh_node, plain_transform).failed() ||
       world.entity_set_camera(camera_entity, camera, true).failed() ||
+      world.set_active_camera(camera_entity).failed() ||
       world.entity_set_mesh_renderer(mesh_entity, mesh_renderer).failed() ||
       world.entity_set_mesh_renderer(plain_mesh_entity, plain_mesh_renderer).failed()) {
     std::fprintf(stderr, "测试场景构造失败\n");

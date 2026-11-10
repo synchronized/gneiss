@@ -83,6 +83,8 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   if (session.create_node("active", {}, other_camera).failed() ||
       session.set_camera(other_camera, {{1.0F, 0.1F, 100.0F}, true}).failed())
     return 50;
+  if (world.set_active_camera(gneiss::entity_id{other_camera.get()}).failed())
+    return 50;
   gneiss::entity_id active_before, active_after;
   if (world.get_active_camera(active_before).failed() ||
       history.undo() != e::error::invalid_state || world.get_active_camera(active_after).failed() ||

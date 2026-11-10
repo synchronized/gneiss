@@ -396,7 +396,7 @@ int main() try {
   check(e::remove_component({*runtime_object}, runtime_only_description::type_guid) ==
         e::error::not_found);
   check(runtime_object->destroy().ok());
-  // 创建失败回收新场景，同时恢复先前活动相机，避免破坏其他存活场景。
+  // 装配只安装默认提示；显式激活后，其他装配成功或失败均不能改变活动相机。
   e::scene_description camera_scene;
   camera_scene.uuid = e::guid::generate();
   e::game_object_description camera_object;
@@ -407,7 +407,9 @@ int main() try {
       gneiss::test_support::scene_fixture::instantiate_scene(world, prepare(camera_scene), {});
   check(bool(camera_instance));
   gneiss::entity_id active_camera;
-  check(world.get_active_camera(active_camera).ok());
+  check(world.get_active_camera(active_camera) == e::error::not_ready);
+  active_camera = camera_instance->objects.front().entity;
+  check(world.set_active_camera(active_camera).ok());
   auto broken_scene = camera_scene;
   broken_scene.uuid = e::guid::generate();
   broken_scene.objects.front().uuid = e::guid::generate();

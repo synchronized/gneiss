@@ -683,6 +683,7 @@ void source_reload_without_world_prefab_state() {
   e::game_object_description root, child;
   root.uuid = e::guid::generate();
   root.name = "root";
+  root.components.set(e::camera_description{{1.0F, 0.1F, 100.0F}, true});
   child.uuid = e::guid::generate();
   child.parent.object = root.uuid;
   child.name = "child";
@@ -709,6 +710,8 @@ void source_reload_without_world_prefab_state() {
       break;
     std::this_thread::yield();
   }
+  entity_id active_camera;
+  check(app->native_world()->get_active_camera(active_camera) == e::error::not_ready);
   scene_load_completion loaded;
   check(gneiss::test_support::assign_value(app->activate_scene(request), loaded).ok());
   const auto find = [](const auto& bindings, e::guid source) {
@@ -718,6 +721,8 @@ void source_reload_without_world_prefab_state() {
   };
   const auto root_node = find(loaded.objects, root.uuid);
   const auto child_node = find(loaded.objects, child.uuid);
+  check(app->native_world()->get_active_camera(active_camera).ok());
+  check(active_camera.get() == root_node.get());
   for (std::size_t i = 0; i < loaded.objects.size(); ++i) {
     auto info = gneiss::test_support::scene_access{*app}->get_node_info(loaded.scene, i);
     check(bool(info));

@@ -55,11 +55,11 @@ result<std::optional<camera_description>> camera_capture(game_object target) {
     return std::optional<camera_description>{};
   if (status.failed())
     return status;
-  entity_id active;
-  status = owner.get_active_camera(active);
-  if (status.failed() && status != error::not_ready)
-    return status;
-  return std::optional<camera_description>{{settings, status.ok() && active == id}};
+  auto state = detail::world_component_access::get(owner);
+  if (!state)
+    return state.error();
+  const auto* camera = (*state)->get<camera_component>(id.get());
+  return std::optional<camera_description>{{settings, camera->primary_hint}};
 }
 error mesh_valid(const mesh_renderer_description& value) {
   return validate_mesh_renderer_description(value).error;

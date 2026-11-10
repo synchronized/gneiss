@@ -11,26 +11,18 @@ namespace {
 inline result<scene_instantiation_result>
 instantiate_effective(world& world, scene_access scenes, guid uuid, const composed_scene& composed,
                       const scene_resource_bindings& assets) {
-  entity_id previous_camera;
-  const auto camera_status = world.get_active_camera(previous_camera);
-  if (camera_status.failed() && camera_status != error::not_ready)
-    return camera_status;
   auto created = scenes.create_empty(uuid);
   if (!created)
     return created.error();
   struct creation_guard {
     scene_access owner;
     scene_instance_id instance;
-    engine::world& world;
-    entity_id camera;
     ~creation_guard() {
       if (instance) {
         (void)owner.unload(instance);
-        if (camera.get() != 0)
-          (void)world.set_active_camera(camera);
       }
     }
-  } guard{scenes, *created, world, previous_camera};
+  } guard{scenes, *created};
   auto destination = scene_instance::borrow(world, *created);
   if (!destination)
     return destination.error();
