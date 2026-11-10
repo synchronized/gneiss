@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/scene_projection.hpp"
+#include "components/component_registration.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
 #include <algorithm>
@@ -41,7 +42,7 @@ engine::error project_scene_document(engine::world& world, scene_instance_id& sc
                       const engine::component_description& component) {
                     return !prepare_editor && !object.address.source
                                ? engine::result<engine::component_description>{component}
-                               : engine::prepare_component_editor_value(world, node, component);
+                               : editor::prepare_component_editor_value(world, node, component);
                   });
     if (!updated)
       return updated.error();

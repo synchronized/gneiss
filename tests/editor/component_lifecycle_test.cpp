@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/document_prefab.hpp"
-#include "../support/movement_component.hpp"
+#include "../support/movement_editor.hpp"
 #include "../support/scene_access.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
+#include "components/component_registration.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
@@ -37,15 +38,22 @@ int main() try {
     return e::error::success;
   };
   check(e::register_scene_component(ops).ok());
-  auto choices = e::component_editor_types();
+  check(gneiss::editor::register_component_editor(movement_editor()).ok());
+  check(ed::register_component_editor(movement_editor()) == e::error::invalid_argument);
+  auto choices = gneiss::editor::component_editor_types();
   check(choices && choices->size() == 3);
+  check(ed::register_component_editor({.type = e::guid::generate()}) == e::error::invalid_state);
+  check(ed::component_editor(e::mesh_renderer_description::type_guid)->route ==
+        ed::component_editor_route::mesh_assets);
+  check(ed::component_editor(movement_description::type_guid)->route ==
+        ed::component_editor_route::reflected);
   for (const auto& choice : *choices) {
     check(choice.removable);
     check(choice.addable == (choice.type != e::mesh_renderer_description::type_guid));
   }
-  check(!e::default_component_description({}));
-  check(e::default_component_description(e::mesh_renderer_description::type_guid).error() ==
-        e::error::unsupported);
+  check(!gneiss::editor::default_component_description({}));
+  check(gneiss::editor::default_component_description(e::mesh_renderer_description::type_guid)
+            .error() == e::error::unsupported);
   std::shared_ptr<gneiss::runtime::application> app;
   check(gneiss::test_support::assign_value(gneiss::runtime::application::create({}), app).ok());
   auto& world = *app->native_world();
@@ -210,16 +218,16 @@ int main() try {
             .ok());
   check(document.validate_selection().ok());
   check(document.add_component_description(
-            prefab_node, *e::default_component_description(e::camera_description::type_guid)) ==
-        e::error::success);
+            prefab_node, *gneiss::editor::default_component_description(
+                             e::camera_description::type_guid)) == e::error::success);
   check(document.remove_component_description(prefab_node, type) == e::error::success);
   const auto child_node = document.find_prefab_source(reference.uuid, child.uuid);
   check(bool(child_node));
   const auto child_handle = child_node->node;
   check(document.remove_component_description(child_handle, type) == e::error::success);
   check(document.add_component_description(
-            child_handle, *e::default_component_description(e::camera_description::type_guid)) ==
-        e::error::success);
+            child_handle, *gneiss::editor::default_component_description(
+                              e::camera_description::type_guid)) == e::error::success);
   check(history.clear().ok());
   lifetime = current()->lifetime;
   check(gneiss::test_support::scene_access{*app}->unload(document.scene_handle()).ok() &&

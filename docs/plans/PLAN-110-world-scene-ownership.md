@@ -7,7 +7,7 @@
 
 2026-11-10：实施中；以下目标按本次确认修订。对象改名/变换入口、ECS 成员归属及场景资产服务解耦已完成；
 World 已收拢槽位并删除公开场景集合，补齐成员遍历、世界矩阵与整棵子树迁移；
-相机安装与应用激活已分离；运行来源身份、重复准备数据和编辑注册尚未完成。
+相机安装与应用激活已分离，编辑组件策略已迁到 Editor；运行来源身份和重复准备数据尚未完成。
 沿用当前特性分支，不重新实现 ECS、资产缓存或编辑历史。
 本计划细化并收敛 PLAN-105/106/107 的接口边界，不将历史任务完成等同于本计划已实现。
 长期决策见 [ADR-115](../decisions/ADR-115-world-scene-ownership.md)。
@@ -180,8 +180,8 @@ Runtime 不建立编辑文档。IPC 调用已有应用操作，不增加对象�
    已完成槽位收拢及 scene_instances/scene_instance_state 删除；旧 World node/entity 业务入口仍待迁移。
 4. [ ] 迁移运行来源身份到外部回执，补齐对象遍历和同 World 整棵子树迁移。
    已完成 visit_objects、game_object::scene/world_matrix、transfer_subtree；来源 UUID 依赖尚待移除。
-5. [ ] 拆分运行组件装配与编辑器注册，消除上下文中的网格特例。
-   Inspector 来源信息已从 composed_object 移回编辑器；注册扩展仍位于引擎，尚未迁出。
+5. [x] 拆分运行组件装配与编辑器注册，消除上下文中的网格特例。
+   Inspector 来源信息及组件编辑策略均归 Editor；Engine 保留运行装配和通用属性读写。
 6. [x] 分离相机安装和激活；迁移应用/视口安全点调度，整理 scene_domain。
    已删除 scene_domain；相机组件只保存默认提示，运行应用 activate 在切换前显式选择相机，
    编辑视口继续使用独立相机。多个提示按组合顺序选择最后一个，无提示则不自动激活。
@@ -491,3 +491,13 @@ world::find(entity_id) 构造借用句柄；操作时继续校验线程、身份
 Windows Clang Debug 全部默认目标编译通过；完整重链后 17 项定向 CPU 测试通过，
 覆盖跨线程、跨场景、失效句柄、层级变换、实例化、编辑历史及 Runtime 检视。
 未运行 GPU、大场景、远端 CI 或跨平台矩阵。
+
+## 组件编辑策略归属验收
+
+editor/components/component_registration 独立保存默认描述、可删除标记、面板路由及编辑采用回调。
+Engine 的 component_property_operations 仅提供描述属性操作，供 Prefab 和 Runtime 检视复用；
+Prefab 组件覆盖查询 component_types，不再读取编辑策略。自定义组件分别注册运行和编辑能力。
+两套注册表各自在首次查询后冻结，不反向依赖 Editor，也不保存额外运行组件状态。
+
+Windows Clang Debug 全部默认目标编译通过；14 项定向 CPU 回归通过，覆盖组件编辑/生命周期、
+Prefab 覆盖、文档快照/历史、运行检视及原生装配。未运行 GPU、大场景、远端 CI 或跨平台矩阵。

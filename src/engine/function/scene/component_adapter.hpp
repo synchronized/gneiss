@@ -9,8 +9,6 @@
 #include <optional>
 namespace gneiss::engine {
 class asset_manager;
-/** 当前支持的编辑入口；资源绑定操作由编辑器异步资产命令执行。 */
-enum class component_editor_route { reflected, mesh_assets };
 /** 借用所属线程 World 和已准备的资源；回调不得保留上下文。 */
 struct component_context {
   game_object target;
@@ -20,8 +18,8 @@ struct component_context {
   /** 仅解析本次实例的来源地址；不搜索其他实例。 */
   std::function<result<game_object>(object_address)> lookup_object{};
 };
-/** 可选编辑能力；与运行安装契约独立，缺失操作由编辑入口返回 unsupported。 */
-struct component_editor_adapter {
+/** 可选属性能力，供描述编辑与运行检视复用；不包含编辑器界面策略。 */
+struct component_property_adapter {
   /** 可选属性身份；未指定时使用组件描述类型。 */
   guid property_type;
   std::function<result<value>(const component_description&, guid, meta::property_id)> read;
@@ -31,13 +29,6 @@ struct component_editor_adapter {
   std::function<result<component_description>(const component_description&,
                                               const std::function<error(meta::instance)>&)>
       modify;
-  std::function<result<component_description>()> create_default;
-  /** 仅控制编辑器删除入口，不限制运行卸载、同步和组件移除。 */
-  bool removable = false;
-  component_editor_route editor_route = component_editor_route::reflected;
-  /** 编辑采用/历史重放前保留运行状态；普通安装和加载不调用此策略。 */
-  std::function<result<component_description>(game_object, const component_description&)>
-      prepare_editor;
 };
 /** 组件实现契约：安装失败不修改目标组件；捕获不修改 World。
  * 安装必须允许用之前捕获的有效描述恢复；不执行 I/O 或阻塞等待。 */
@@ -54,7 +45,7 @@ struct component_adapter {
   std::function<std::vector<render_resource_source>(const component_description&)> dependencies;
   /** 全部组件安装后调用；不得修改其他对象，缺失必需引用返回错误。 */
   std::function<error(component_context&, const component_description&)> resolve_references;
-  component_editor_adapter editor{};
+  component_property_adapter properties{};
 };
 /** 启动期注册；重复 GUID 拒绝，首次查询后冻结。纯描述回调须支持并发只读调用。
  * validate/install/capture/remove/equal 为必需；编辑回调可省略，对应操作返回 unsupported。
@@ -62,15 +53,11 @@ struct component_adapter {
 GNEISS_API error register_scene_component(component_adapter adapter);
 /** 更新已有组件，保持组件 UUID；不存在时返回 not_found，不隐式创建。 */
 GNEISS_API error update_component(component_context, const component_description&);
-/** 类型化编辑扩展；仅显式提供时生成反射属性操作。 */
-template <class T> struct component_editor_operations {
+/** 类型化属性扩展；仅显式提供时生成反射属性操作。 */
+template <class T> struct component_property_operations {
   guid property_type = type_identity<T>::guid();
   result<value> (*read)(const T&, guid, meta::property_id){};
   error (*edit)(T&, guid, meta::property_id, const value&){};
-  result<T> (*create_default)(){};
-  bool removable = false;
-  component_editor_route editor_route = component_editor_route::reflected;
-  result<T> (*prepare_editor)(game_object, const T&){};
 };
 template <class T> struct component_operations {
   error (*validate)(const T&){};
@@ -81,7 +68,7 @@ template <class T> struct component_operations {
   bool (*equal)(const T&, const T&){};
   std::vector<render_resource_source> (*dependencies)(const T&){};
   error (*resolve_references)(component_context&, const T&){};
-  std::optional<component_editor_operations<T>> editor{};
+  std::optional<component_property_operations<T>> properties{};
 };
 
 template <class T> component_adapter make_component_adapter(component_operations<T> ops) {
@@ -132,17 +119,17 @@ template <class T> component_adapter make_component_adapter(component_operations
             return ops.resolve_references ? ops.resolve_references(context, *typed)
                                           : error{error::success};
           }};
-  if (!ops.editor)
+  if (!ops.properties)
     return registration;
-  registration.editor = {
-      .property_type = ops.editor->property_type,
+  registration.properties = {
+      .property_type = ops.properties->property_type,
       .read = [ops](const component_description& source, guid type,
                     meta::property_id property) -> result<value> {
         const auto* typed = source ? source->get<T>() : nullptr;
         if (!typed)
           return error::invalid_argument;
-        if (ops.editor->read)
-          return ops.editor->read(*typed, type, property);
+        if (ops.properties->read)
+          return ops.properties->read(*typed, type, property);
         auto root = meta::view(std::as_const(*typed));
         auto field = root ? root->member(property) : result<meta::const_instance>{root.error()};
         return field ? field->read_value() : result<value>{field.error()};
@@ -153,8 +140,8 @@ template <class T> component_adapter make_component_adapter(component_operations
           return error::invalid_argument;
         auto copy = *source->get<T>();
         auto status = [&]() -> error {
-          if (ops.editor->edit)
-            return ops.editor->edit(copy, type, property, input);
+          if (ops.properties->edit)
+            return ops.properties->edit(copy, type, property, input);
           auto root = meta::view(copy);
           if (!root)
             return root.error();
@@ -182,33 +169,8 @@ template <class T> component_adapter make_component_adapter(component_operations
         if (status.failed())
           return status;
         return make_component_description(std::move(copy));
-      },
-      .create_default =
-          ops.editor->create_default
-              ? std::function<
-                    result<component_description>()>{[ops]() -> result<component_description> {
-                  auto source = ops.editor->create_default();
-                  if (!source)
-                    return source.error();
-                  auto status = ops.validate(*source);
-                  if (status.failed())
-                    return status;
-                  return make_component_description(std::move(*source));
-                }}
-              : std::function<result<component_description>()>{},
-      .removable = ops.editor->removable,
-      .editor_route = ops.editor->editor_route,
-      .prepare_editor = [ops](game_object target,
-                              const component_description& value) -> result<component_description> {
-        if (!value || !value->get<T>())
-          return error::invalid_argument;
-        if (!ops.editor->prepare_editor)
-          return value;
-        auto prepared = ops.editor->prepare_editor(target, *value->get<T>());
-        return prepared
-                   ? result<component_description>{make_component_description(std::move(*prepared))}
-                   : result<component_description>{prepared.error()};
       }};
+
   return registration;
 }
 template <class T> error register_scene_component(component_operations<T> ops) {
@@ -216,21 +178,10 @@ template <class T> error register_scene_component(component_operations<T> ops) {
 }
 GNEISS_API result<component_description>
 modify_component(const component_description&, const std::function<error(meta::instance)>&);
-struct component_editor_info {
-  guid type;
-  bool addable = false;
-  /** 仅控制编辑器删除入口，不限制运行卸载、同步和组件移除。 */
-  bool removable = false;
-  component_editor_route route = component_editor_route::reflected;
-};
 /** 未注册身份原样返回；已注册运行属性身份统一映射到描述身份。 */
 GNEISS_API guid component_description_type(guid property_type) noexcept;
-GNEISS_API result<component_editor_info> component_editor(guid type) noexcept;
-GNEISS_API result<component_description>
-prepare_component_editor_value(world&, scene_node_id, const component_description&);
-/** 返回冻结注册表的自有摘要；显示名称仍从 Meta 查询。 */
-GNEISS_API result<std::vector<component_editor_info>> component_editor_types();
-GNEISS_API result<component_description> default_component_description(guid type);
+/** 已注册运行适配器的类型身份，不包含编辑器策略。 */
+GNEISS_API std::vector<guid> component_types();
 /** 只处理单个组件；重复添加返回 invalid_state，缺失删除返回 not_found。 */
 GNEISS_API error add_component(component_context, const component_description&, guid identity = {});
 GNEISS_API error remove_component(component_context, guid type);

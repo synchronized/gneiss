@@ -249,14 +249,12 @@ error prepare_prefab_reference(const prefab_description& source,
   };
   auto candidate = source;
   std::vector<std::pair<guid, guid>> keys;
-  auto types = component_editor_types();
-  if (!types)
-    return types.error();
+  auto types = component_types();
   for (const auto& change : reference.component_overrides) {
     auto key = std::pair{change.source_node_uuid, change.type_guid};
     if (!key.first || !key.second || std::ranges::find(keys, key) != keys.end())
       return fail(error::invalid_argument, key.first, key.second, {}, "组件覆盖键无效或重复");
-    if (std::ranges::none_of(*types, [&](const auto& type) { return type.type == key.second; }))
+    if (std::ranges::find(types, key.second) == types.end())
       return fail(error::unsupported, key.first, key.second, {}, "组件类型没有运行适配器");
     keys.push_back(key);
     auto target = std::ranges::find(candidate.objects, key.first, &game_object_description::uuid);

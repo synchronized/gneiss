@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "documents/scene_edit_session.hpp"
+#include "components/component_registration.hpp"
 #include "documents/scene_projection.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registry.hpp"
@@ -826,7 +827,7 @@ scene_edit_session::add_component_description(scene_node_id node,
 }
 engine::error scene_edit_session::remove_component_description(scene_node_id node,
                                                                engine::guid type) {
-  auto policy = engine::component_editor(type);
+  auto policy = editor::component_editor(type);
   if (!policy)
     return policy.error();
   if (!policy->removable)

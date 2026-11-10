@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "editor_application.hpp"
+#include "components/component_registration.hpp"
 #include "engine/core/fatal.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_types.hpp"
@@ -2762,7 +2763,7 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
       const auto has_mesh =
           selected->components.get<gneiss::engine::mesh_renderer_description>() != nullptr;
       auto current = state.editing.document().components(selected->node);
-      auto choices = gneiss::engine::component_editor_types();
+      auto choices = gneiss::editor::component_editor_types();
       ImGui::BeginDisabled(state.editing.assets().active() || state.editing.history().is_pending());
       if (ImGui::Button("Components"))
         ImGui::OpenPopup("component_lifecycle");
@@ -2770,7 +2771,7 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
         if (current && choices) {
           for (const auto& choice : *choices) {
             // 网格需要选择资产并保留资源引用，使用下面的异步资产入口。
-            if (choice.route == gneiss::engine::component_editor_route::mesh_assets)
+            if (choice.route == gneiss::editor::component_editor_route::mesh_assets)
               continue;
             const bool exists = current->find(choice.type) != nullptr;
             if (exists ? !choice.removable : !choice.addable || !choice.removable)

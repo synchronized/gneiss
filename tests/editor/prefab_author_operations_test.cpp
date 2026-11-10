@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/async_editor_save.hpp"
-#include "../support/movement_component.hpp"
+#include "../support/movement_editor.hpp"
 #include "commands/editor_command_history.hpp"
 #include "commands/prefab_authoring.hpp"
+#include "components/component_registration.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/resource/asset_file.hpp"
@@ -29,6 +30,7 @@ void write(const std::filesystem::path& path, std::string_view value) {
 int main() try {
   check(e::initialize_meta(register_movement_meta).ok());
   check(e::register_scene_component(operations()).ok());
+  check(gneiss::editor::register_component_editor(movement_editor()).ok());
   const auto id = [](std::uint8_t value) { return e::guid::from_bytes({89, value}); };
   e::prefab_description source;
   source.uuid = id(1);
@@ -41,7 +43,8 @@ int main() try {
   child.uuid = id(3);
   child.parent.object = root.uuid;
   child.components.set(movement_description{});
-  child.components.set(*e::default_component_description(e::camera_description::type_guid));
+  child.components.set(
+      *gneiss::editor::default_component_description(e::camera_description::type_guid));
   source.objects.push_back(child);
   e::scene_description scene;
   scene.uuid = id(4);

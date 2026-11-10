@@ -86,12 +86,7 @@ inline e::component_operations<movement_description> operations() {
             return state(*target.owner()).remove<movement_component>(target.entity().get());
           },
       .equal = [](const movement_description& a, const movement_description& b) { return a == b; },
-      .editor =
-          e::component_editor_operations<movement_description>{
-              .create_default = []() -> e::result<movement_description> {
-                return movement_description{};
-              },
-              .removable = true}};
+      .properties = e::component_property_operations<movement_description>{}};
 }
 
 inline e::error register_movement_meta() {

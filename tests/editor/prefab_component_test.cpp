@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/document_prefab.hpp"
-#include "../support/movement_component.hpp"
+#include "../support/movement_editor.hpp"
 #include "../support/scene_access.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
@@ -28,6 +28,7 @@ void check(bool ok, std::source_location at = std::source_location::current()) {
 int main() try {
   check(e::initialize_meta(register_movement_meta).ok());
   check(e::register_scene_component(operations()).ok());
+  check(gneiss::editor::register_component_editor(movement_editor()).ok());
   constexpr auto type = movement_description::type_guid;
   constexpr auto root_id = e::guid::from_bytes({87, 2});
   constexpr auto child_id = e::guid::from_bytes({87, 3});

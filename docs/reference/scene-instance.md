@@ -62,12 +62,14 @@ component_context 只保存借用的 game_object target，不另存 World 和节
 注册回调 capture/remove/prepare_editor 同样接收 game_object；install/update/resolve_references
 通过 component_context.target 访问目标。注册回调不再接收独立的 World/node 参数对。
 运行注册必须提供 validate/install/capture/remove/equal，属性身份缺省为描述类型身份。
-component_adapter 的运行回调与 component_editor_adapter 编辑扩展分开保存，仍共用类型索引。
-类型化 component_operations<T> 通过可选 editor 显式提供 component_editor_operations<T>；
-省略 editor 不生成反射属性回调。提供编辑扩展时，未自定义的属性操作使用反射默认实现。
-read/edit/modify/default 等编辑能力可省略，相应操作返回 unsupported；无 dependencies
-回调表示没有外部依赖。removable 仅控制编辑命令与文档删除入口，不限制引擎 remove_component。
-场景同步、卸载及历史重放仍可移除运行组件。
+component_adapter 保存运行回调及可选的 component_property_adapter，供描述变更和 Runtime 检视复用。
+类型化 component_operations<T> 通过可选 properties 提供 component_property_operations<T>；
+省略时不生成属性回调，未自定义的属性读写使用反射默认实现；无 dependencies 表示没有外部依赖。
+
+编辑策略位于 editor/components/component_registration，使用独立的 register_component_editor 注册。
+默认描述、可删除标记、面板路由及 prepare 回调不进入 Engine；两套注册表分别在首次查询后冻结。
+未提供编辑策略的运行组件仍可检视，但没有添加默认值和删除按钮权限。
+removable 仅控制编辑命令与文档删除入口，不限制引擎 remove_component、场景同步或卸载。
 
 组件操作先校验所属线程及对象有效性；空对象和已销毁对象返回 invalid_handle，
 跨线程访问返回 invalid_state，目标 World 必须覆盖上下文的使用期。
@@ -239,7 +241,7 @@ GPU 资源实际回收遵守资源服务及渲染后端的延迟销毁规则，�
 
 ## 普通对象组件增删
 
-`component_editor_types()` 提供注册组件的添加/删除能力，显示名称来自 Meta。
+`editor::component_editor_types()` 提供注册组件的添加/删除能力，显示名称来自 Meta。
 组件通过显式 `create_default` 工厂提供有效默认描述，`removable` 选择是否允许交互删除；
 不会自动把 `T{}` 当作有效组件。相机提供默认描述，网格仍需用户选择资源。
 

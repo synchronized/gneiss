@@ -72,6 +72,8 @@ endif()
 # 不依赖宿主工程与进程协议的编辑模型。
 add_library(
   gneiss_editor_model STATIC
+  components/component_registration.cpp
+  components/component_registration.hpp
   runtime_object_id.hpp
   runtime_scene_data.hpp
   runtime_scene_mirror.cpp

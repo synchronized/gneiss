@@ -9,7 +9,6 @@
 #include "engine/resource/scene/scene_validation.hpp"
 #include <map>
 #include <mutex>
-#include <numbers>
 namespace gneiss::engine {
 namespace {
 // 独立候选按反射内容恢复，不让内嵌 ref 的浅拷贝改写来源描述。
@@ -136,23 +135,7 @@ struct adapter_registry {
                return a.settings.fov == b.settings.fov && a.settings.near == b.settings.near &&
                       a.settings.far == b.settings.far && a.is_primary == b.is_primary;
              },
-         .editor =
-             component_editor_operations<camera_description>{
-                 .create_default = []() -> result<camera_description> {
-                   return camera_description{{std::numbers::pi_v<float> / 3, 0.1F, 1000.0F}};
-                 },
-                 .removable = true,
-                 .prepare_editor = [](game_object target, const camera_description& value)
-                     -> result<camera_description> {
-                   auto current = camera_capture(target);
-                   if (!current)
-                     return current.error();
-                   if (!*current)
-                     return error::not_found;
-                   auto next = value;
-                   next.is_primary = (**current).is_primary;
-                   return next;
-                 }}}));
+         .properties = component_property_operations<camera_description>{}}));
     values.push_back(make_component_adapter<mesh_renderer_description>(
         {.validate = mesh_valid,
          .install = mesh_install,
@@ -174,9 +157,7 @@ struct adapter_registry {
                  result.push_back({value.material_uri, render_resource_kind::material});
                return result;
              },
-         .editor =
-             component_editor_operations<mesh_renderer_description>{
-                 .removable = true, .editor_route = component_editor_route::mesh_assets}}));
+         .properties = component_property_operations<mesh_renderer_description>{}}));
   }
 };
 adapter_registry& registry() {
@@ -191,7 +172,7 @@ std::span<const component_adapter> adapters() {
 }
 const component_adapter* find(guid type, bool property = false) {
   for (const auto& adapter : adapters())
-    if (adapter.type == type || (property && adapter.editor.property_type == type))
+    if (adapter.type == type || (property && adapter.properties.property_type == type))
       return &adapter;
   return nullptr;
 }
@@ -226,15 +207,17 @@ error register_scene_component(component_adapter adapter) {
   if (!adapter.type || !adapter.validate || !adapter.install || !adapter.capture ||
       !adapter.remove || !adapter.equal)
     return error::invalid_argument;
-  if (!adapter.editor.property_type)
-    adapter.editor.property_type = adapter.type;
+  if (!adapter.properties.property_type)
+    adapter.properties.property_type = adapter.type;
   auto& state = registry();
   std::lock_guard lock(state.mutex);
   if (state.frozen)
     return error::invalid_state;
   for (const auto& old : state.values)
-    if (old.type == adapter.type || old.editor.property_type == adapter.editor.property_type ||
-        old.type == adapter.editor.property_type || old.editor.property_type == adapter.type)
+    if (old.type == adapter.type ||
+        old.properties.property_type == adapter.properties.property_type ||
+        old.type == adapter.properties.property_type ||
+        old.properties.property_type == adapter.type)
       return error::invalid_argument;
   state.values.push_back(std::move(adapter));
   return error::success;
@@ -248,59 +231,20 @@ result<component_description> modify_component(const component_description& sour
     return error::unsupported;
   if (!change)
     return error::invalid_argument;
-  if (!adapter->editor.modify)
+  if (!adapter->properties.modify)
     return error::unsupported;
   auto candidate = copy_candidate(source);
-  return candidate ? adapter->editor.modify(*candidate, change) : candidate.error();
+  return candidate ? adapter->properties.modify(*candidate, change) : candidate.error();
 }
-result<std::vector<component_editor_info>> component_editor_types() {
-  std::vector<component_editor_info> output;
+std::vector<guid> component_types() {
+  std::vector<guid> output;
   for (const auto& adapter : adapters())
-    output.push_back({adapter.type, bool(adapter.editor.create_default), adapter.editor.removable,
-                      adapter.editor.editor_route});
+    output.push_back(adapter.type);
   return output;
 }
 guid component_description_type(guid type) noexcept {
   const auto* adapter = find(type, true);
   return adapter ? adapter->type : type;
-}
-result<component_editor_info> component_editor(guid type) noexcept {
-  const auto* adapter = find(type);
-  if (!adapter)
-    return error::not_found;
-  return component_editor_info{adapter->type, bool(adapter->editor.create_default),
-                               adapter->editor.removable, adapter->editor.editor_route};
-}
-result<component_description> prepare_component_editor_value(world& owner, scene_node_id node,
-                                                             const component_description& value) {
-  if (!value)
-    return error::invalid_argument;
-  const auto* adapter = find(value->guid());
-  if (!adapter)
-    return error::not_found;
-  auto target = owner.object(entity_id{node.get()});
-  if (!target)
-    return target.error();
-  auto prepared = adapter->editor.prepare_editor ? adapter->editor.prepare_editor(*target, value)
-                                                 : result<component_description>{value};
-  if (!prepared)
-    return prepared.error();
-  auto status = adapter->validate(*prepared);
-  return status.ok() ? std::move(prepared) : result<component_description>{status};
-}
-result<component_description> default_component_description(guid type) {
-  const auto* adapter = find(type);
-  if (!adapter)
-    return error::not_found;
-  if (!adapter->editor.create_default)
-    return error::unsupported;
-  auto value = adapter->editor.create_default();
-  if (!value)
-    return value.error();
-  if (!*value || (*value)->guid() != type)
-    return error::invalid_argument;
-  auto status = adapter->validate(*value);
-  return status.ok() ? std::move(value) : result<component_description>{status};
 }
 error update_component(component_context context, const component_description& value) {
   auto status = valid_target(context);
@@ -493,7 +437,7 @@ error edit_component(component_descriptions& values, guid type, meta::property_i
   const auto* adapter = find(type, true);
   if (!adapter)
     return error::unsupported;
-  if (!adapter->editor.edit)
+  if (!adapter->properties.edit)
     return error::unsupported;
   const auto* source = values.find(adapter->type);
   if (!source)
@@ -501,7 +445,7 @@ error edit_component(component_descriptions& values, guid type, meta::property_i
   auto candidate = copy_candidate(*source);
   if (!candidate)
     return candidate.error();
-  auto edited = adapter->editor.edit(*candidate, type, property, input);
+  auto edited = adapter->properties.edit(*candidate, type, property, input);
   if (!edited)
     return edited.error();
   values.set(std::move(*edited));
@@ -515,14 +459,14 @@ result<value> read_runtime_component(world& owner, scene_node_id node, guid type
   const auto* adapter = find(type, true);
   if (!adapter)
     return error::unsupported;
-  if (!adapter->editor.read)
+  if (!adapter->properties.read)
     return error::unsupported;
   auto captured = adapter->capture(*target);
   if (!captured)
     return captured.error();
   if (!*captured)
     return error::not_found;
-  return adapter->editor.read(**captured, type, property);
+  return adapter->properties.read(**captured, type, property);
 }
 error edit_runtime_component(component_context context, guid type, meta::property_id property,
                              const value& input) {
@@ -532,7 +476,7 @@ error edit_runtime_component(component_context context, guid type, meta::propert
   const auto* adapter = find(type, true);
   if (!adapter)
     return error::unsupported;
-  if (!adapter->editor.edit)
+  if (!adapter->properties.edit)
     return error::unsupported;
   auto current = adapter->capture(context.target);
   if (!current)
@@ -552,7 +496,7 @@ error edit_runtime_component(component_context context, guid type, meta::propert
   auto candidate = copy_candidate(**current);
   if (!candidate)
     return candidate.error();
-  auto edited = adapter->editor.edit(*candidate, type, property, input);
+  auto edited = adapter->properties.edit(*candidate, type, property, input);
   return edited ? adapter->install(context, *edited) : edited.error();
 }
 

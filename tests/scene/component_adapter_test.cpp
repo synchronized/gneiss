@@ -61,15 +61,15 @@ int main() try {
   check(e::initialize_meta(register_movement_meta).ok());
   check(e::register_scene_component(e::component_adapter{}) == e::error::invalid_argument);
   auto runtime_operations = operations();
-  runtime_operations.editor.reset();
+  runtime_operations.properties.reset();
   const auto runtime_registration = e::make_component_adapter(runtime_operations);
   check(bool(runtime_registration.install) && bool(runtime_registration.capture));
-  check(!runtime_registration.editor.read && !runtime_registration.editor.edit &&
-        !runtime_registration.editor.modify && !runtime_registration.editor.create_default &&
-        !runtime_registration.editor.prepare_editor);
+  check(!runtime_registration.properties.read && !runtime_registration.properties.edit &&
+        !runtime_registration.properties.modify);
   const auto editable_registration = e::make_component_adapter(operations());
-  check(bool(editable_registration.editor.read) && bool(editable_registration.editor.edit) &&
-        bool(editable_registration.editor.modify) && editable_registration.editor.removable);
+  check(bool(editable_registration.properties.read) &&
+        bool(editable_registration.properties.edit) &&
+        bool(editable_registration.properties.modify));
   e::component_adapter runtime_only;
   runtime_only.type = runtime_only_description::type_guid;
   runtime_only.validate = [](const e::component_description& value) -> e::error {
@@ -99,7 +99,7 @@ int main() try {
   check(e::register_scene_component(runtime_only) == e::error::invalid_argument);
   auto custom = operations();
   const auto alias = e::guid::from_bytes({84, 99});
-  custom.editor->property_type = alias;
+  custom.properties->property_type = alias;
   custom.resolve_references = [](e::component_context& context,
                                  const movement_description& desc) -> e::error {
     if (desc.speed != 17)
@@ -125,10 +125,6 @@ int main() try {
         e::camera_description::type_guid);
   check(e::component_description_type(unknown_description::type_guid) ==
         unknown_description::type_guid);
-  check(e::component_editor(movement_description::type_guid)->route ==
-        e::component_editor_route::reflected);
-  check(e::component_editor(e::mesh_renderer_description::type_guid)->route ==
-        e::component_editor_route::mesh_assets);
   const auto primary =
       e::meta::find_property(e::camera_description::type_guid, e::meta::property_id{4});
   check(primary && gneiss::engine::is_edit_read_only(primary));
@@ -376,8 +372,6 @@ int main() try {
   auto runtime_object = world.object(gneiss::entity_id{runtime_node->get()});
   check(runtime_object.has_value());
   auto runtime_description = e::make_component_description(runtime_only_description{});
-  check(!e::component_editor(runtime_only_description::type_guid)->removable);
-  check(!e::component_editor(runtime_only_description::type_guid)->addable);
   check(e::component_dependencies({runtime_description})->empty());
   check(e::add_component({*runtime_object}, runtime_description).ok());
   check(e::read_runtime_component(world, *runtime_node, runtime_only_description::type_guid,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/document_prefab.hpp"
-#include "../support/movement_component.hpp"
+#include "../support/movement_editor.hpp"
 #include "../support/scene_access.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
@@ -76,12 +76,7 @@ e::component_operations<reference_description> reference_operations() {
                 return (!a.settings && !b.settings) ||
                        (a.settings && b.settings && a.settings->amount == b.settings->amount);
               },
-          .editor =
-              e::component_editor_operations<reference_description>{
-                  .create_default = []() -> e::result<reference_description> {
-                    return reference_description{};
-                  },
-                  .removable = false}};
+          .properties = e::component_property_operations<reference_description>{}};
 }
 namespace {
 int editor_preparations{};
@@ -95,11 +90,20 @@ int main() try {
   check(e::initialize_meta(register_reference_meta).ok());
   check(e::register_scene_component(reference_operations()).ok());
   auto ops = operations();
-  ops.editor->prepare_editor =
-      [](e::game_object, const movement_description& value) -> e::result<movement_description> {
+  auto editor_ops = movement_editor();
+  editor_ops.prepare =
+      [](e::game_object,
+         const e::component_description& value) -> e::result<e::component_description> {
     ++editor_preparations;
     return value;
   };
+  check(ed::register_component_editor(std::move(editor_ops)).ok());
+  check(ed::register_component_editor(
+            {.type = reference_description::type_guid,
+             .create_default = []() -> e::result<e::component_description> {
+               return e::make_component_description(reference_description{});
+             }})
+            .ok());
   check(e::register_scene_component(ops).ok());
   // 覆盖候选只依赖领域描述；这里尚未创建 Application 或 World。
   {
