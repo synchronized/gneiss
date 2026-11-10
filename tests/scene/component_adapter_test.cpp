@@ -33,6 +33,13 @@ struct unknown_description
     : e::meta::object_type<unknown_description, e::component_description_base> {
   inline static constexpr e::guid type_guid = e::guid::from_bytes({84, 2});
 };
+struct runtime_only_description
+    : e::meta::object_type<runtime_only_description, e::component_description_base> {
+  inline static constexpr e::guid type_guid = e::guid::from_bytes({84, 78});
+};
+struct runtime_marker {
+  bool active = true;
+};
 struct resolved_link {
   e::game_object target;
 };
@@ -53,6 +60,33 @@ e::scene_instantiation_data prepare(e::scene_description scene, e::prefab_asset_
 int main() try {
   check(e::initialize_meta(register_movement_meta).ok());
   check(e::register_scene_component(e::component_adapter{}) == e::error::invalid_argument);
+  e::component_adapter runtime_only;
+  runtime_only.type = runtime_only_description::type_guid;
+  runtime_only.validate = [](const e::component_description& value) -> e::error {
+    return value && value->get<runtime_only_description>() ? e::error::success
+                                                           : e::error::invalid_argument;
+  };
+  runtime_only.install = [](e::component_context& context,
+                            const e::component_description&) -> e::error {
+    state(*context.target.owner())
+        .emplace_or_replace<runtime_marker>(context.target.entity().get());
+    return e::error::success;
+  };
+  runtime_only.capture =
+      [](e::game_object target) -> e::result<std::optional<e::component_description>> {
+    if (!state(*target.owner()).get<runtime_marker>(target.entity().get()))
+      return std::optional<e::component_description>{};
+    return std::optional<e::component_description>{
+        e::make_component_description(runtime_only_description{})};
+  };
+  runtime_only.remove = [](e::game_object target) {
+    return state(*target.owner()).remove<runtime_marker>(target.entity().get());
+  };
+  runtime_only.equal = [](const e::component_description&, const e::component_description&) {
+    return true;
+  };
+  check(e::register_scene_component(runtime_only).ok());
+  check(e::register_scene_component(runtime_only) == e::error::invalid_argument);
   auto custom = operations();
   const auto alias = e::guid::from_bytes({84, 99});
   custom.property_type = alias;
@@ -331,6 +365,33 @@ int main() try {
 
   check(e::game_object{}.set_name("empty") == e::error::invalid_handle);
 
+  // 运行注册无需编辑属性回调；编辑不可删除不影响运行移除。
+  auto runtime_node = world.object_create({}, {e::guid::generate(), "runtime-only"}, {});
+  check(runtime_node.has_value());
+  auto runtime_object = world.object(gneiss::entity_id{runtime_node->get()});
+  check(runtime_object.has_value());
+  auto runtime_description = e::make_component_description(runtime_only_description{});
+  check(!e::component_editor(runtime_only_description::type_guid)->removable);
+  check(!e::component_editor(runtime_only_description::type_guid)->addable);
+  check(e::component_dependencies({runtime_description})->empty());
+  check(e::add_component({*runtime_object}, runtime_description).ok());
+  check(e::read_runtime_component(world, *runtime_node, runtime_only_description::type_guid,
+                                  e::meta::property_id{1})
+            .error() == e::error::unsupported);
+  check(e::edit_runtime_component({*runtime_object}, runtime_only_description::type_guid,
+                                  e::meta::property_id{1},
+                                  e::value{1.0F}) == e::error::unsupported);
+  check(e::modify_component(runtime_description, [](e::meta::instance) {
+          return e::error::success;
+        }).error() == e::error::unsupported);
+  e::component_descriptions runtime_values;
+  runtime_values.set(runtime_description);
+  check(e::edit_component(runtime_values, runtime_only_description::type_guid,
+                          e::meta::property_id{1}, e::value{1.0F}) == e::error::unsupported);
+  check(e::remove_component({*runtime_object}, runtime_only_description::type_guid).ok());
+  check(e::remove_component({*runtime_object}, runtime_only_description::type_guid) ==
+        e::error::not_found);
+  check(runtime_object->destroy().ok());
   // 创建失败回收新场景，同时恢复先前活动相机，避免破坏其他存活场景。
   e::scene_description camera_scene;
   camera_scene.uuid = e::guid::generate();

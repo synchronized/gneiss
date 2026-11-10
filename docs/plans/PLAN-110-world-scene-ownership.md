@@ -347,3 +347,22 @@ component_context.target 获取同一对象语义。旧节点查询入口先解�
 Windows Clang Debug：Editor、Runtime 及相关目标编译通过，13 项定向 CPU 测试通过，
 覆盖组件捕获、移除、编辑准备、历史恢复及运行加载。git diff --check 通过。
 未运行 GPU、大场景、其他平台或远端 CI；本批不标记 PLAN-110 完成。
+
+
+## 2026-11-10 运行注册与编辑策略解耦
+
+register_scene_component 不再强制 read/edit/modify 或独立 property_type，缺省属性身份使用
+描述类型身份；缺失编辑能力统一返回 unsupported。描述校验、安装、捕获、移除和比较仍为必需，
+无 dependencies 回调表示没有外部依赖。类型化注册仍生成现有反射编辑便利函数，未改变调用者行为。
+
+remove_component 不再受 Inspector removable 标记限制。编辑命令保持原有检查，
+scene_edit_session::remove_component_description 也显式检查该策略，避免直接文档调用绕过限制。
+历史和投影的底层组件同步不受编辑器删除策略限制。
+
+新增仅运行组件测试，覆盖最小注册、重复注册拒绝、无编辑操作返回 unsupported、无外部依赖、
+运行安装/移除/重复移除；编辑测试覆盖不可删除组件的文档入口拒绝且原组件保留。
+Windows Clang Debug 的 Editor、Runtime 及相关目标编译通过，13 项 CPU 测试通过。
+格式化及 git diff --check 通过；未运行 GPU、大场景、其他平台或远端 CI。
+
+目前运行与编辑能力仍存于同一注册记录，完成的是行为解耦，并未完成注册类型及文件拆分。
+加载准备模型、World 场景槽位和运行来源身份迁移仍未完成，PLAN-110 保持进行中。

@@ -795,6 +795,11 @@ scene_edit_session::add_component_description(scene_node_id node,
 }
 engine::error scene_edit_session::remove_component_description(scene_node_id node,
                                                                engine::guid type) {
+  auto policy = engine::component_editor(type);
+  if (!policy)
+    return policy.error();
+  if (!policy->removable)
+    return engine::error::unsupported;
   return edit_component(node, type, {}, -1);
 }
 engine::error

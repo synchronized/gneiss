@@ -79,7 +79,7 @@ e::component_operations<reference_description> reference_operations() {
           .create_default = []() -> e::result<reference_description> {
             return reference_description{};
           },
-          .removable = true};
+          .removable = false};
 }
 namespace {
 int editor_preparations{};
@@ -521,6 +521,9 @@ int main() try {
               .add_component_description(ref_node,
                                          e::make_component_description(reference_description{}))
               .ok());
+    check(document.remove_component_description(ref_node, reference_description::type_guid) ==
+          e::error::unsupported);
+    check(document.components(ref_node)->get<reference_description>() != nullptr);
     ed::component_edit_target ref_target{.object_uuid = id,
                                          .component_type = reference_description::type_guid};
     ed::editor_command_history ref_history;

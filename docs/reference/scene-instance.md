@@ -60,6 +60,11 @@ Runtime 的 scene_service 在异步取得 Scene 后，生成组合输入、提�
 component_context 只保存借用的 game_object target，不另存 World 和节点 ID。
 注册回调 capture/remove/prepare_editor 同样接收 game_object；install/update/resolve_references
 通过 component_context.target 访问目标。注册回调不再接收独立的 World/node 参数对。
+运行注册必须提供 validate/install/capture/remove/equal，属性身份缺省为描述类型身份。
+read/edit/modify/default 等编辑能力可省略，相应操作返回 unsupported；无 dependencies
+回调表示没有外部依赖。removable 仅控制编辑命令与文档删除入口，不限制引擎 remove_component。
+场景同步、卸载及历史重放仍可移除运行组件。
+
 组件操作先校验所属线程及对象有效性；空对象和已销毁对象返回 invalid_handle，
 跨线程访问返回 invalid_state，目标 World 必须覆盖上下文的使用期。
 组件上下文通过 lookup_resource 查询固定资源；提供回调时不回退到当前缓存，

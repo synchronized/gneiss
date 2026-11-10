@@ -220,10 +220,11 @@ error resolve_component_references(component_context context,
   return error::success;
 }
 error register_scene_component(component_adapter adapter) {
-  if (!adapter.type || !adapter.property_type || !adapter.validate || !adapter.install ||
-      !adapter.read || !adapter.modify || !adapter.capture || !adapter.remove || !adapter.equal ||
-      !adapter.edit || !adapter.dependencies)
+  if (!adapter.type || !adapter.validate || !adapter.install || !adapter.capture ||
+      !adapter.remove || !adapter.equal)
     return error::invalid_argument;
+  if (!adapter.property_type)
+    adapter.property_type = adapter.type;
   auto& state = registry();
   std::lock_guard lock(state.mutex);
   if (state.frozen)
@@ -244,6 +245,8 @@ result<component_description> modify_component(const component_description& sour
     return error::unsupported;
   if (!change)
     return error::invalid_argument;
+  if (!adapter->modify)
+    return error::unsupported;
   auto candidate = copy_candidate(source);
   return candidate ? adapter->modify(*candidate, change) : candidate.error();
 }
@@ -352,7 +355,7 @@ error remove_component(component_context context, guid type) {
   if (status.failed())
     return status;
   const auto* adapter = find(type);
-  if (!adapter || !adapter->removable)
+  if (!adapter)
     return error::unsupported;
   auto current = adapter->capture(context.target);
   if (!current)
@@ -473,7 +476,10 @@ component_dependencies(const component_descriptions& values) {
     return status;
   std::vector<render_resource_source> result;
   for (const auto& value : values) {
-    auto next = find(value->guid())->dependencies(value);
+    const auto* adapter = find(value->guid());
+    if (!adapter->dependencies)
+      continue;
+    auto next = adapter->dependencies(value);
     result.insert(result.end(), std::make_move_iterator(next.begin()),
                   std::make_move_iterator(next.end()));
   }
@@ -483,6 +489,8 @@ error edit_component(component_descriptions& values, guid type, meta::property_i
                      const value& input) {
   const auto* adapter = find(type, true);
   if (!adapter)
+    return error::unsupported;
+  if (!adapter->edit)
     return error::unsupported;
   const auto* source = values.find(adapter->type);
   if (!source)
@@ -504,6 +512,8 @@ result<value> read_runtime_component(world& owner, scene_node_id node, guid type
   const auto* adapter = find(type, true);
   if (!adapter)
     return error::unsupported;
+  if (!adapter->read)
+    return error::unsupported;
   auto captured = adapter->capture(*target);
   if (!captured)
     return captured.error();
@@ -518,6 +528,8 @@ error edit_runtime_component(component_context context, guid type, meta::propert
     return status;
   const auto* adapter = find(type, true);
   if (!adapter)
+    return error::unsupported;
+  if (!adapter->edit)
     return error::unsupported;
   auto current = adapter->capture(context.target);
   if (!current)

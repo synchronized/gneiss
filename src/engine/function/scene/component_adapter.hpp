@@ -24,6 +24,7 @@ struct component_context {
  * 安装必须允许用之前捕获的有效描述恢复；不执行 I/O 或阻塞等待。 */
 struct component_adapter {
   guid type;
+  /** 可选属性身份；未指定时使用组件描述类型。 */
   guid property_type;
   std::function<error(const component_description&)> validate;
   std::function<error(component_context&, const component_description&)> install;
@@ -42,6 +43,7 @@ struct component_adapter {
       modify;
   std::function<std::vector<render_resource_source>(const component_description&)> dependencies;
   std::function<result<component_description>()> create_default;
+  /** 仅控制编辑器删除入口，不限制运行卸载、同步和组件移除。 */
   bool removable = false;
   component_editor_route editor_route = component_editor_route::reflected;
   /** 编辑采用/历史重放前保留运行状态；普通安装和加载不调用此策略。 */
@@ -50,7 +52,9 @@ struct component_adapter {
   /** 全部组件安装后调用；不得修改其他对象，缺失必需引用返回错误。 */
   std::function<error(component_context&, const component_description&)> resolve_references;
 };
-/** 启动期注册；重复 GUID 拒绝，首次查询后冻结。纯描述回调须支持并发只读调用。 */
+/** 启动期注册；重复 GUID 拒绝，首次查询后冻结。纯描述回调须支持并发只读调用。
+ * validate/install/capture/remove/equal 为必需；编辑回调可省略，对应操作返回 unsupported。
+ * 无 dependencies 回调表示没有外部资源依赖。 */
 GNEISS_API error register_scene_component(component_adapter adapter);
 /** 更新已有组件，保持组件 UUID；不存在时返回 not_found，不隐式创建。 */
 GNEISS_API error update_component(component_context, const component_description&);
@@ -67,6 +71,7 @@ template <class T> struct component_operations {
   guid property_type = type_identity<T>::guid();
   /** 显式选择加入编辑器；不自动假定 T{} 是可安装的描述。 */
   result<T> (*create_default)(){};
+  /** 仅控制编辑器删除入口，不限制运行卸载、同步和组件移除。 */
   bool removable = false;
   component_editor_route editor_route = component_editor_route::reflected;
   result<T> (*prepare_editor)(game_object, const T&){};
@@ -203,6 +208,7 @@ modify_component(const component_description&, const std::function<error(meta::i
 struct component_editor_info {
   guid type;
   bool addable = false;
+  /** 仅控制编辑器删除入口，不限制运行卸载、同步和组件移除。 */
   bool removable = false;
   component_editor_route route = component_editor_route::reflected;
 };
