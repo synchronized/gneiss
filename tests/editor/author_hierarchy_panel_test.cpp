@@ -11,10 +11,10 @@
 int main() try {
   using namespace gneiss::editor;
   std::array<scene_node_record, 2> nodes;
-  nodes[0].node = gneiss::scene_node_id{1U};
+  nodes[0].node = gneiss::entity_id{1U};
   nodes[0].uuid = *gneiss::engine::guid::parse("2b10c37c-4b8f-5008-8c93-9af49a7a8c23");
   nodes[0].display_name = "First";
-  nodes[1].node = gneiss::scene_node_id{2U};
+  nodes[1].node = gneiss::entity_id{2U};
   nodes[1].uuid = *gneiss::engine::guid::parse("40d434b6-1126-562c-af15-1722f9e1a8c9");
   nodes[1].display_name = "Second";
   const author_hierarchy_view view{

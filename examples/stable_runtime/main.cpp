@@ -27,7 +27,7 @@ constexpr std::uint64_t measure_warmup_frames = 60U;
 constexpr std::uint64_t measure_sample_frames = 300U;
 
 struct sample_state {
-  gneiss::scene_node_id camera_node;
+  gneiss::entity_id camera_node;
   gneiss::engine::action_id orbit;
   gneiss::engine::action_id quit;
   double angle = 0.0;

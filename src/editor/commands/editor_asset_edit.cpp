@@ -13,13 +13,13 @@
 
 namespace gneiss::editor {
 namespace {
-scene_node_id locate(scene_edit_session& document, const component_edit_target& target) {
+entity_id locate(scene_edit_session& document, const component_edit_target& target) {
   if (target.instance_uuid) {
     const auto node = document.find_prefab_source(target.instance_uuid, target.source_uuid);
-    return node ? node->node : scene_node_id{};
+    return node ? node->node : entity_id{};
   }
   const auto node = document.find_node(target.object_uuid);
-  return node ? node->node : scene_node_id{};
+  return node ? node->node : entity_id{};
 }
 }
 

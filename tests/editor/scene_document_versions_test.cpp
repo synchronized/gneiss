@@ -56,11 +56,11 @@ int main() {
   const auto instance_b = e::guid::from_bytes({2});
   const auto source = e::guid::from_bytes({3});
   std::vector<e::scene_object_binding> bindings{
-      {instance_a, source, gneiss::scene_node_id{7}, gneiss::entity_id{7}},
-      {instance_b, source, gneiss::scene_node_id{8}, gneiss::entity_id{8}}};
+      {instance_a, source, gneiss::entity_id{7}, gneiss::entity_id{7}},
+      {instance_b, source, gneiss::entity_id{8}, gneiss::entity_id{8}}};
   CHECK(projection.reset(bindings).ok());
   CHECK(projection.objects().size() == 2);
-  CHECK(projection.address(gneiss::scene_node_id{7})->object == instance_a);
+  CHECK(projection.address(gneiss::entity_id{7})->object == instance_a);
   auto invalid_bindings = bindings;
   invalid_bindings[1].object = instance_a;
   CHECK(projection.reset(invalid_bindings) == e::error::invalid_argument);

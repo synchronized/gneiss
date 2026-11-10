@@ -9,9 +9,9 @@ int main(void) {
   gneiss::engine::world_owner world;
 
   gneiss::entity_id entity = gneiss::entity_id{};
-  gneiss::scene_node_id root = gneiss::scene_node_id{};
-  gneiss::scene_node_id child = gneiss::scene_node_id{};
-  gneiss::scene_node_id parent = gneiss::scene_node_id{};
+  gneiss::entity_id root = gneiss::entity_id{};
+  gneiss::entity_id child = gneiss::entity_id{};
+  gneiss::entity_id parent = gneiss::entity_id{};
   gneiss::engine::math::transform root_transform;
   gneiss::engine::math::transform child_transform;
   gneiss::engine::math::transform world_transform;
@@ -25,8 +25,8 @@ int main(void) {
   auto child_object = world->create_object({{}, "child"}, {}, *root_object);
   if (!child_object)
     return 1;
-  root = gneiss::scene_node_id{root_object->entity().get()};
-  child = gneiss::scene_node_id{child_object->entity().get()};
+  root = gneiss::entity_id{root_object->entity().get()};
+  child = gneiss::entity_id{child_object->entity().get()};
   entity = child_object->entity();
 
   root_transform.translation[0] = 2.0F;
@@ -40,7 +40,7 @@ int main(void) {
       parent != root ||
       gneiss::test_support::assign_value(world->find(gneiss::entity_id{(root).get()}).parent(),
                                          parent) != gneiss::engine::error::success ||
-      parent != gneiss::scene_node_id{} ||
+      parent != gneiss::entity_id{} ||
       gneiss::test_support::assign_value(
           world->find(gneiss::entity_id{(child).get()}).world_transform(), world_transform) !=
           gneiss::engine::error::success ||

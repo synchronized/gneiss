@@ -5,21 +5,21 @@
 
 ## 所有权与映射
 
-每个 World 拥有一棵 Scene Tree。节点使用不透明的 `gneiss::scene_node_id` 标识，零值无效；节点
+每个 World 拥有一棵 Scene Tree。节点使用不透明的 `gneiss::entity_id` 标识，零值无效；节点
 ID 只在所属 World 的生命周期内有效，销毁后旧 ID 不会指向复用槽位的新节点。
 
 有层级的节点就是同一个 ECS 实体，名称、父子关系和局部变换存放于实体组件。
 World 不再分配独立节点槽位，也不维护节点到实体的扫描映射。纯 ECS 实体可以没有层级组件。
 删除节点或删除该实体都会递归删除子树中的实体与组件，所有旧节点和实体句柄同时失效。
-迁移期 node_create 接收零实体时创建新实体；接收已有实体时只为该实体添加层级，重复添加被拒绝。
+World 不再提供 node 创建或 node/entity 转换接口；scene_instance::create 返回 game_object。
 
 ## 层级操作
 
-创建节点时，父节点为零表示根节点。`world::node_reparent` 保留局部 Transform，并拒绝把节点
+创建节点时，父节点为零表示根节点。`game_object::reparent` 保留局部 Transform，并拒绝把节点
 挂到自身或后代下面。不同场景的已登记成员不能互相挂接，包含通过中间对象移动子树的情况；
 拒绝时不改变原层级。销毁节点会递归销毁整棵子树，所有相关节点 ID 随即失效。
 
-`world::node_get_parent` 返回节点当前父节点；根节点成功返回零值。节点无效、属于其他 World
+`game_object::parent` 返回当前父对象；根对象成功返回空句柄。节点无效、属于其他 World
 或已被递归销毁时返回 `error::invalid_handle`。
 
 Scene Tree 和所属 World 一样只能在 World 的创建线程访问。跨 World 节点、失效节点和重复销毁
@@ -50,7 +50,7 @@ World 的层级组件是 Transform 的唯一权威存储：
 
 ## 内部层级访问
 
-`world_hierarchy::create(parent, entity)` 返回 `result<scene_node_id>`；
+`world_hierarchy::create(parent, entity)` 返回 `result<entity_id>`；
 `get_world(node)` 和 `get_world_for_entity(entity)` 返回 `result<math::transform>`。
 创建不再接收输出指针，失败不产生节点 ID；变换查询返回副本，失效节点返回 invalid_handle，
 非零实体未关联节点返回 not_ready。World 外层接口按其声明保留线程校验。

@@ -187,7 +187,7 @@ GNEISS_API error add_component(component_context, const component_description&, 
 GNEISS_API error remove_component(component_context, guid type);
 GNEISS_API error resolve_component_references(component_context, const component_descriptions&);
 GNEISS_API error validate_components(const component_descriptions&);
-GNEISS_API result<component_descriptions> capture_components(world&, scene_node_id);
+GNEISS_API result<component_descriptions> capture_components(world&, entity_id);
 GNEISS_API error install_components(component_context, const component_descriptions&);
 /** 同步替换组件集合；失败由调用方用捕获快照恢复，不改变节点身份。 */
 GNEISS_API error replace_components(component_context, const component_descriptions&);
@@ -195,7 +195,7 @@ GNEISS_API bool equal_components(const component_descriptions&, const component_
 GNEISS_API result<std::vector<render_resource_source>>
 component_dependencies(const component_descriptions&);
 GNEISS_API error edit_component(component_descriptions&, guid, meta::property_id, const value&);
-GNEISS_API result<value> read_runtime_component(world&, scene_node_id, guid, meta::property_id);
+GNEISS_API result<value> read_runtime_component(world&, entity_id, guid, meta::property_id);
 GNEISS_API error edit_runtime_component(component_context, guid, meta::property_id, const value&);
 /** 在 World 所属线程定位节点组件；读出副本后访问，写入成功才提交。不会保留对象指针。
  * 失败保持既有组件；普通组件使用已注册适配器；未知组件类型返回

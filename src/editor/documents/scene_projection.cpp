@@ -38,7 +38,7 @@ engine::error project_scene_document(engine::world& world, scene_instance_id& sc
             ? engine::result<bool>{false}
             : engine::apply_scene(
                   world, scene, associations, *previous, *next, target.assets,
-                  [&](const engine::composed_object& object, scene_node_id node,
+                  [&](const engine::composed_object& object, entity_id node,
                       const engine::component_description& component) {
                     return !prepare_editor && !object.address.source
                                ? engine::result<engine::component_description>{component}

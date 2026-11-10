@@ -56,7 +56,7 @@ error scene_instance::visit_objects(const std::function<error(game_object)>& vis
     return status;
   if (!visitor)
     return error::invalid_argument;
-  owner_->state_->each_scene_member(id_, [&](scene_node_id node) {
+  owner_->state_->each_scene_member(id_, [&](entity_id node) {
     if (status.failed() || (roots_only && owner_->state_->scene().get_parent(node)))
       return;
     auto object = owner_->object(entity_id{node.get()});
@@ -87,7 +87,7 @@ error world::transfer_subtree(game_object root, scene_instance destination, game
     if (!*member)
       return error::invalid_argument;
   }
-  std::vector<scene_node_id> nodes{scene_node_id{root.entity().get()}};
+  std::vector<entity_id> nodes{entity_id{root.entity().get()}};
   for (std::size_t i = 0; i < nodes.size(); ++i) {
     if (parent.owner() && nodes[i].get() == parent.entity().get())
       return error::invalid_argument;
@@ -122,23 +122,10 @@ result<bool> scene_instance::contains(game_object object) const noexcept {
     return status;
   if (object.owner() != owner_)
     return false;
-  return owner_->validate_scene_node(id_, scene_node_id{object.entity().get()}).ok();
+  return owner_->state_->is_alive(object.entity().get()) &&
+         owner_->state_->scene_of(object.entity()) == id_;
 }
-result<game_object> scene_instance::create(scene_node_identity identity,
-                                           const math::transform& transform,
-                                           game_object parent) const {
-  if (!owner_)
-    return error::invalid_handle;
-  if (parent.owner() && parent.owner() != owner_)
-    return error::invalid_handle;
-  auto created = owner_->create_scene_node(id_, {.uuid = identity.uuid,
-                                                 .name = identity.name,
-                                                 .parent = scene_node_id{parent.entity().get()},
-                                                 .local_transform = transform});
-  if (!created)
-    return created.error();
-  return owner_->object(entity_id{created->get()});
-}
+
 error scene_instance::unload() const noexcept {
   if (!owner_)
     return error::invalid_handle;
@@ -150,50 +137,43 @@ result<std::uint64_t> world::scene_size(scene_instance_id instance) const {
   if (status.failed())
     return status;
   std::uint64_t count{};
-  state_->each_scene_member(instance, [&](scene_node_id) { ++count; });
+  state_->each_scene_member(instance, [&](entity_id) { ++count; });
   return count;
 }
-error world::validate_scene_node(scene_instance_id instance, scene_node_id node) const noexcept {
-  const auto status = validate_scene(instance);
-  if (status.failed())
-    return status;
-  return state_->scene_of(node) == instance ? error::success : error::invalid_handle;
-}
-result<scene_node_id> world::find_scene_node(scene_instance_id instance, guid uuid) const {
-  const auto status = validate_scene(instance);
-  if (status.failed())
-    return status;
-  scene_node_id found;
-  state_->each_scene_member(instance, [&](scene_node_id node) {
-    if (state_->scene().identity(node)->uuid == uuid)
-      found = node;
-  });
-  if (!found)
-    return error::not_found;
-  return found;
-}
 
-result<scene_node_id> world::create_scene_node(scene_instance_id instance,
-                                               const node_creation& desc) {
-  const auto status = validate_scene(instance);
+result<game_object> scene_instance::create(scene_node_identity identity,
+                                           const math::transform& transform,
+                                           game_object parent) const {
+  if (!owner_)
+    return error::invalid_handle;
+  auto status = owner_->validate_scene(id_);
   if (status.failed())
     return status;
-  if (desc.uuid && find_scene_node(instance, desc.uuid))
-    return error::invalid_argument;
-  if (desc.parent && validate_scene_node(instance, desc.parent).failed())
-    return error::invalid_handle;
-  auto created = create_object({desc.uuid, std::string(desc.name)}, desc.local_transform,
-                               find(entity_id{desc.parent.get()}));
+  if (parent.owner()) {
+    auto member = contains(parent);
+    if (!member)
+      return member.error();
+    if (!*member)
+      return error::invalid_handle;
+  }
+  if (identity.uuid) {
+    bool duplicate = false;
+    owner_->state_->each_scene_member(id_, [&](entity_id entity) {
+      if (owner_->state_->scene().identity(entity)->uuid == identity.uuid)
+        duplicate = true;
+    });
+    if (duplicate)
+      return error::invalid_argument;
+  }
+  auto created = owner_->create_object(std::move(identity), transform, parent);
   if (!created)
     return created.error();
-  const auto node = scene_node_id{created->entity().get()};
   try {
-    state_->assign_scene(node, instance);
+    owner_->state_->assign_scene(created->entity(), id_);
   } catch (...) {
     (void)created->destroy();
     throw;
   }
-  return node;
+  return *created;
 }
-
-} // namespace gneiss::engine
+}

@@ -137,7 +137,7 @@ int main() try {
   instance.uuid = e::guid::from_bytes({87, 4});
   instance.prefab = reference;
   std::array<e::scene_mesh_binding, 2> bindings{};
-  gneiss::scene_node_id root_node;
+  gneiss::entity_id root_node;
   check(gneiss::test_support::take_value(
             gneiss::test_support::place_document_prefab(
                 document, instance, e::prefab_asset_ref{source}, bindings, false),
@@ -286,7 +286,7 @@ int main() try {
   auto loaded_root = root_binding->node;
   check(e::capture_components(world, loaded_root)->get<movement_description>()->speed == 5);
   check(gneiss::test_support::scene_access{*app}->unload(loaded).ok());
-  gneiss::scene_node_id unrelated;
+  gneiss::entity_id unrelated;
   check(document.create_node("unrelated", {}, unrelated).ok());
   const auto unrelated_entity = document.query_node(unrelated)->entity;
   const auto stable_root = document.find_prefab_root(instance.uuid)->node;
@@ -398,16 +398,16 @@ int main() try {
     check(document.query_node(retained)->parent == document.find_prefab_root(extra.uuid)->node);
     // 新建、复制、子树删除恢复均保留具体来源父地址。
     const auto source_parent = document.find_prefab_source(extra.uuid, child_id)->node;
-    gneiss::scene_node_id created;
+    gneiss::entity_id created;
     check(document.create_node("自有子节点", source_parent, created).ok());
     check(document.query_node(created)->parent == source_parent);
-    gneiss::scene_node_id duplicate;
+    gneiss::entity_id duplicate;
     check(document.duplicate_subtree(created, source_parent, duplicate).ok());
     check(duplicate != created && document.query_node(duplicate)->parent == source_parent);
     ed::scene_subtree_snapshot subtree;
     check(document.destroy_subtree(duplicate, subtree).ok());
     check(subtree.parent == e::object_address{extra.uuid, child_id});
-    gneiss::scene_node_id restored;
+    gneiss::entity_id restored;
     check(document.restore_subtree(subtree, restored).ok());
     check(document.query_node(restored)->parent == source_parent);
     check(document.destroy_subtree(restored, subtree).ok());

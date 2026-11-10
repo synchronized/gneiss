@@ -58,7 +58,7 @@ inline e::world_state& state(e::world& world) {
     throw std::runtime_error("World 访问失败");
   return **access;
 }
-inline std::uint64_t entity(e::world& world, gneiss::scene_node_id node) {
+inline std::uint64_t entity(e::world& world, gneiss::entity_id node) {
   gneiss::entity_id value;
   if (gneiss::test_support::assign_value(world.object(gneiss::entity_id{(node).get()}), value)
           .failed())

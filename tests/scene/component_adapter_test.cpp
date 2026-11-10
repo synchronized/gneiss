@@ -375,7 +375,7 @@ int main() try {
   auto runtime_description = e::make_component_description(runtime_only_description{});
   check(e::component_dependencies({runtime_description})->empty());
   check(e::add_component({*runtime_object}, runtime_description).ok());
-  check(e::read_runtime_component(world, gneiss::scene_node_id{runtime_node->entity().get()},
+  check(e::read_runtime_component(world, gneiss::entity_id{runtime_node->entity().get()},
                                   runtime_only_description::type_guid, e::meta::property_id{1})
             .error() == e::error::unsupported);
   check(e::edit_runtime_component({*runtime_object}, runtime_only_description::type_guid,

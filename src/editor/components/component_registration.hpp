@@ -26,5 +26,5 @@ engine::result<component_editor_info> component_editor(engine::guid);
 engine::result<std::vector<component_editor_info>> component_editor_types();
 engine::result<engine::component_description> default_component_description(engine::guid);
 engine::result<engine::component_description>
-prepare_component_editor_value(engine::world&, scene_node_id, const engine::component_description&);
+prepare_component_editor_value(engine::world&, entity_id, const engine::component_description&);
 }

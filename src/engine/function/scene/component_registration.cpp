@@ -41,7 +41,7 @@ result<component_description> copy_candidate(const component_description& source
     return copied.error().error;
   return std::move(*copied);
 }
-entity_id entity(world& owner, scene_node_id node) {
+entity_id entity(world& owner, entity_id node) {
   auto object = owner.object(entity_id{node.get()});
   return object ? object->entity() : entity_id{};
 }
@@ -49,7 +49,7 @@ entity_id entity(world& owner, scene_node_id node) {
 struct component_instance_ids {
   std::map<guid, guid> values;
 };
-component_instance_ids& instance_ids(world& owner, scene_node_id node) {
+component_instance_ids& instance_ids(world& owner, entity_id node) {
   auto state = detail::world_component_access::get(owner);
   if (!state)
     throw std::invalid_argument("无效 World");
@@ -294,7 +294,7 @@ error add_component(component_context context, const component_description& valu
   if (status.failed())
     return status;
   auto& ids =
-      instance_ids(*context.target.owner(), scene_node_id{context.target.entity().get()}).values;
+      instance_ids(*context.target.owner(), entity_id{context.target.entity().get()}).values;
   if (!identity)
     identity = value->uuid;
   if (!identity)
@@ -322,7 +322,7 @@ error remove_component(component_context context, guid type) {
     return error::not_found;
   status = adapter->remove(context.target);
   if (status.ok())
-    instance_ids(*context.target.owner(), scene_node_id{context.target.entity().get()})
+    instance_ids(*context.target.owner(), entity_id{context.target.entity().get()})
         .values.erase(type);
   return status;
 }
@@ -340,7 +340,7 @@ error validate_components(const component_descriptions& values) {
   }
   return error::success;
 }
-result<component_descriptions> capture_components(world& owner, scene_node_id node) {
+result<component_descriptions> capture_components(world& owner, entity_id node) {
   auto target = owner.object(entity_id{node.get()});
   if (!target)
     return target.error();
@@ -374,7 +374,7 @@ error install_components(component_context context, const component_descriptions
   if (status.failed())
     return status;
   auto& ids =
-      instance_ids(*context.target.owner(), scene_node_id{context.target.entity().get()}).values;
+      instance_ids(*context.target.owner(), entity_id{context.target.entity().get()}).values;
   for (const auto& value : values) {
     auto [entry, inserted] = ids.try_emplace(value->guid(), values.identity(value->guid()));
     status = find(value->guid())->install(context, value);
@@ -392,7 +392,7 @@ error replace_components(component_context context, const component_descriptions
   if (status.failed())
     return status;
   auto current =
-      capture_components(*context.target.owner(), scene_node_id{context.target.entity().get()});
+      capture_components(*context.target.owner(), entity_id{context.target.entity().get()});
   if (!current)
     return current.error();
   for (const auto& previous : *current) {
@@ -462,7 +462,7 @@ error edit_component(component_descriptions& values, guid type, meta::property_i
   values.set(std::move(*edited));
   return error::success;
 }
-result<value> read_runtime_component(world& owner, scene_node_id node, guid type,
+result<value> read_runtime_component(world& owner, entity_id node, guid type,
                                      meta::property_id property) {
   auto target = owner.object(entity_id{node.get()});
   if (!target)
@@ -534,8 +534,9 @@ error access_component(world& world, std::uint64_t entity, guid type, bool write
 result<value> read_component_property(world& world, std::uint64_t entity, guid type,
                                       meta::property_id field) {
   if (type != transform_component_type) {
-    auto node = world.entity_node(entity_id{entity});
-    return node ? read_runtime_component(world, *node, type, field) : result<value>{node.error()};
+    auto node = world.object(entity_id{entity});
+    return node ? read_runtime_component(world, node->entity(), type, field)
+                : result<value>{node.error()};
   }
   math::transform object;
   auto status = world.entity_get_local_transform(entity_id{entity}, object);
@@ -550,10 +551,10 @@ result<value> read_component_property(world& world, std::uint64_t entity, guid t
 error write_component_property(world& world, std::uint64_t entity, guid type,
                                meta::property_id field, const engine::value& value) {
   if (type != transform_component_type) {
-    auto node = world.entity_node(entity_id{entity});
+    auto node = world.object(entity_id{entity});
     if (!node)
       return node.error();
-    auto target = world.object(entity_id{node->get()});
+    auto target = node;
     return target ? edit_runtime_component({*target}, type, field, value) : target.error();
   }
   return access_component(world, entity, type, true, [&](auto* object) {

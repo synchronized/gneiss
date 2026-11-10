@@ -38,7 +38,7 @@ bool test_write_and_revision() {
   auto object = owner->create_object({{}, "object"});
   GNEISS_TEST_CHECK(object.has_value());
   auto entity = object->entity();
-  gneiss::scene_node_id scene_node{entity.get()};
+  gneiss::entity_id scene_node{entity.get()};
   const gneiss::engine::math::transform identity{};
   GNEISS_TEST_CHECK(
       owner->find(gneiss::entity_id{(scene_node).get()}).set_local_transform(identity) ==

@@ -248,7 +248,7 @@ scene_service::apply_source(engine::ref<const engine::scene_content> content) {
     auto parent_object = runtime->parent();
     if (!parent_object)
       return parent_object.error();
-    const scene_node_id parent_node{parent_object->entity().get()};
+    const entity_id parent_node{parent_object->entity().get()};
     if (parent_node) {
       auto parent = std::ranges::find_if(
           source_->objects, [&](const auto& entry) { return entry.second.node == parent_node; });

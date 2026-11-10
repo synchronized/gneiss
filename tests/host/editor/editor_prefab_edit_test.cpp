@@ -79,7 +79,7 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   editor::editor_prefab_edit edit;
   check(gneiss::test_support::open_document(session, *app, world, "asset://scene.json",
                                             &scheduler) == gneiss::engine::error::success);
-  scene_node_id first, second;
+  entity_id first, second;
   check(test_support::create_prefab_document(*app, session, "First", "asset://prefab.json", {},
                                              first, &scheduler) == gneiss::engine::error::success);
   check(test_support::create_prefab_document(*app, session, "Second", "asset://prefab.json", {},
@@ -160,7 +160,7 @@ void run_refresh(gneiss::engine::execution_mode mode) {
         1.0F);
   check(session.find_prefab_source(first_uuid, source_uuid)->display_name == "Updated");
   check(session.find_prefab_source(first_uuid, moved_uuid)->node == moved_node);
-  scene_node_id moved_parent;
+  entity_id moved_parent;
   check(gneiss::test_support::assign_value(
             world->find(gneiss::entity_id{(moved_node).get()}).parent(), moved_parent)
             .ok() &&
@@ -323,7 +323,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(history.size() == 0);
   edit.dismiss();
   // 已加载实例支持直接删除与基于快照的历史恢复。
-  scene_node_id legacy;
+  entity_id legacy;
   check(test_support::create_prefab_document(*app, session, "Legacy", "asset://prefab.json", {},
                                              legacy, &scheduler) == gneiss::engine::error::success);
   check(edit.request_remove(*app, session, history, legacy) == gneiss::engine::error::success);
@@ -378,7 +378,7 @@ void run(gneiss::engine::execution_mode mode) {
   root_local.translation[1] = 7.0F;
   check(session.set_local_transform(root_node, root_local) == gneiss::engine::error::success);
   check(session.rename_node(root_node, "Renamed") == gneiss::engine::error::success);
-  scene_node_id own_child;
+  entity_id own_child;
   check(session.create_node("Own child", root_node, own_child).ok());
   check(edit.request_remove(*app, session, deletion_history, root_node).ok());
   drive();
@@ -390,7 +390,7 @@ void run(gneiss::engine::execution_mode mode) {
   root_node = session.find_prefab_root(uuid)->node;
   check(gneiss::test_support::scene_query(session).nodes.size() == 1U);
   const auto restored_child = gneiss::test_support::scene_query(session).nodes.front().node;
-  scene_node_id retained_parent;
+  entity_id retained_parent;
   check(gneiss::test_support::assign_value(
             world->find(gneiss::entity_id{(restored_child).get()}).parent(), retained_parent)
             .ok() &&
@@ -485,7 +485,7 @@ void run_mixed_subtree() {
   check(test_support::open_document(document, *app, app->native_world(), "asset://scene.json",
                                     &scheduler)
             .ok());
-  scene_node_id parent, first, second, child;
+  entity_id parent, first, second, child;
   check(document.create_node("Parent", {}, parent).ok());
   check(test_support::create_prefab_document(*app, document, "First", "asset://prefab.json", parent,
                                              first, &scheduler)
@@ -515,7 +515,7 @@ void run_mixed_subtree() {
   std::ofstream(files.root / "mesh.json") << "broken";
   std::ofstream(files.root / "material.json") << "broken";
   // 来源已失效，恢复和复制仍只使用快照保活的实际资源版本。
-  scene_node_id restored;
+  entity_id restored;
   auto invalid = snapshot;
   invalid.resources.erase(first_uuid);
   check(document.restore_subtree(invalid, restored) == engine::error::not_found);
@@ -527,7 +527,7 @@ void run_mixed_subtree() {
   const auto own = std::ranges::find(restored_query.nodes, std::string("Own child"),
                                      &editor::scene_node_record::display_name);
   check(own != restored_query.nodes.end() && own->parent == new_first && own->node != child);
-  scene_node_id copy;
+  entity_id copy;
   check(document.duplicate_subtree(restored, {}, copy).ok() && copy != restored);
   auto copied = document.capture_subtree(copy);
   check(copied.has_value());

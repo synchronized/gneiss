@@ -60,7 +60,7 @@ int main() try {
   auto& world = *app->native_world();
   ed::scene_edit_session document;
   check(document.create_empty(*app, &world).ok());
-  gneiss::scene_node_id node;
+  gneiss::entity_id node;
   check(document.create_node("movement", {}, node).ok());
   const auto uuid = document.selected_node()->uuid;
   constexpr auto type = movement_description::type_guid;
@@ -135,7 +135,7 @@ int main() try {
       gneiss::test_support::scene_fixture::instantiate_scene(*app->native_world(), prepared, {});
   check(bool(receipt));
   const auto loaded = receipt->instance;
-  gneiss::scene_node_id loaded_node;
+  gneiss::entity_id loaded_node;
   check(
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*app}->find_node(receipt->objects, uuid), loaded_node)
@@ -208,7 +208,7 @@ int main() try {
   reference.prefab.emplace();
   reference.prefab->uri = "asset://movement.prefab";
   const std::array<e::scene_mesh_binding, 2> bindings{};
-  gneiss::scene_node_id prefab_node;
+  gneiss::entity_id prefab_node;
   check(gneiss::test_support::take_value(
             gneiss::test_support::place_document_prefab(
                 document, reference, e::prefab_asset_ref{prefab}, bindings, false),

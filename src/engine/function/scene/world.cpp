@@ -35,47 +35,6 @@ result<scene_instance> world::create_scene() {
   return scene_instance::borrow(*this, *created);
 }
 bool world::is_owner_thread() const noexcept { return state_->is_owner_thread(); }
-result<game_object> world::create_object(scene_node_identity identity,
-                                         const math::transform& transform, game_object parent) {
-  if (parent.owner() && parent.owner() != this)
-    return error::invalid_handle;
-  auto created =
-      object_create(scene_node_id{parent.entity().get()}, std::move(identity), transform);
-  if (!created)
-    return created.error();
-  return game_object{*this, entity_id{created->get()}};
-}
-result<game_object> world::object(entity_id entity) noexcept {
-  auto node = entity_node(entity);
-  if (!node)
-    return node.error();
-  return game_object{*this, entity};
-}
-result<scene_node_id> world::object_create(scene_node_id parent, scene_node_identity identity,
-                                           const math::transform& transform) {
-  entity_id entity;
-  auto status = entity_create(entity);
-  if (status.failed())
-    return status;
-  scene_node_id node;
-  status = node_create(parent, entity, node);
-  if (status.ok())
-    status = state_->scene().set_local(node, transform);
-  if (status.ok())
-    status = state_->scene().set_identity(node, std::move(identity));
-  if (status.failed()) {
-    (void)entity_destroy(entity);
-    return status;
-  }
-  return node;
-}
-result<scene_node_id> world::entity_node(entity_id entity) const noexcept {
-  if (!is_owner_thread())
-    return error::invalid_state;
-  if (!state_->is_alive(entity.get()))
-    return error::invalid_handle;
-  return state_->scene().node_for_entity(entity.get());
-}
 
 engine::error world::entity_create(entity_id& out_entity_value) {
   std::uint64_t out_entity = out_entity_value.get();
@@ -159,33 +118,7 @@ engine::error world::get_active_camera(entity_id& out_entity_value) {
   out_entity_value = entity_id{out_entity};
   return operation_result;
 }
-engine::error world::node_create(scene_node_id parent_value, entity_id entity_value,
-                                 scene_node_id& out_node_value) {
-  scene_node_id parent = parent_value;
-  std::uint64_t entity = entity_value.get();
-  scene_node_id out_node = out_node_value;
-  const auto operation_result = [&]() -> engine::error {
-    out_node = null_scene_node_id;
-    {
-      auto* state = state_.get();
-      const auto thread_result =
-          (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-      if (thread_result != engine::error::success) {
-        return thread_result;
-      }
-      if (entity != UINT64_C(0) && !state->is_alive(entity)) {
-        return engine::error::invalid_handle;
-      }
-      auto created = state->scene().create(parent, entity);
-      if (!created)
-        return created.error();
-      out_node = *created;
-      return error::success;
-    }
-  }();
-  out_node_value = scene_node_id{out_node};
-  return operation_result;
-}
+
 engine::error world::entity_get_local_transform(entity_id entity_value,
                                                 math::transform& out_transform) {
   std::uint64_t entity = entity_value.get();
@@ -236,5 +169,38 @@ engine::error world::get_render_snapshot(std::uint32_t viewport_width,
     }
     return build_render_snapshot(*state, viewport_width, viewport_height, out_snapshot, camera);
   }
+}
+
+result<game_object> world::object(entity_id entity) noexcept {
+  if (!is_owner_thread())
+    return error::invalid_state;
+  if (!state_->is_alive(entity.get()))
+    return error::invalid_handle;
+  if (!state_->scene().get_entity(entity))
+    return error::not_found;
+  return find(entity);
+}
+result<game_object> world::create_object(scene_node_identity identity,
+                                         const math::transform& transform, game_object parent) {
+  if (!is_owner_thread())
+    return error::invalid_state;
+  if (parent.owner() && parent.owner() != this)
+    return error::invalid_handle;
+  auto created = state_->scene().create(parent.entity(), 0);
+  if (!created)
+    return created.error();
+  try {
+    auto status = state_->scene().set_local(*created, transform);
+    if (status.ok())
+      status = state_->scene().set_identity(*created, std::move(identity));
+    if (status.failed()) {
+      (void)state_->destroy_entity(created->get());
+      return status;
+    }
+  } catch (...) {
+    (void)state_->destroy_entity(created->get());
+    throw;
+  }
+  return find(*created);
 }
 }

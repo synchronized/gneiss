@@ -17,14 +17,14 @@ public:
   gneiss::engine::error request(runtime::application& application,
                                 gneiss::engine::task_executor& executor,
                                 scene_edit_session& session, editor_command_history& history,
-                                std::string_view name, std::string_view uri, scene_node_id parent);
+                                std::string_view name, std::string_view uri, entity_id parent);
   gneiss::engine::error request_remove(runtime::application& application,
                                        scene_edit_session& session, editor_command_history& history,
-                                       scene_node_id root);
+                                       entity_id root);
   gneiss::engine::error request_refresh(runtime::application& application,
                                         gneiss::engine::task_executor& executor,
                                         scene_edit_session& session,
-                                        editor_command_history& history, scene_node_id root);
+                                        editor_command_history& history, entity_id root);
   void advance();
   void cancel();
   bool active() const noexcept;

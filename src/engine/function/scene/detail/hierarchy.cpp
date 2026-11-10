@@ -25,37 +25,37 @@ bool is_valid(const math::transform& value) noexcept { return is_valid_transform
 
 } // namespace
 
-world_hierarchy::node* world_hierarchy::find(scene_node_id id) noexcept {
+world_hierarchy::node* world_hierarchy::find(entity_id id) noexcept {
   return owner_.get<node>(id.get());
 }
-const world_hierarchy::node* world_hierarchy::find(scene_node_id id) const noexcept {
+const world_hierarchy::node* world_hierarchy::find(entity_id id) const noexcept {
   return std::as_const(owner_).get<node>(id.get());
 }
 
-error world_hierarchy::set_identity(scene_node_id id, scene_node_identity identity) {
+error world_hierarchy::set_identity(entity_id id, scene_node_identity identity) {
   auto* target = find(id);
   if (!target)
     return error::invalid_handle;
   target->identity = std::move(identity);
   return error::success;
 }
-result<scene_node_identity_view> world_hierarchy::identity(scene_node_id id) const {
+result<scene_node_identity_view> world_hierarchy::identity(entity_id id) const {
   const auto* target = find(id);
   if (!target)
     return error::invalid_handle;
   return scene_node_identity_view{target->identity.uuid, target->identity.name};
 }
-const std::vector<scene_node_id>* world_hierarchy::children(scene_node_id id) const noexcept {
+const std::vector<entity_id>* world_hierarchy::children(entity_id id) const noexcept {
   const auto* target = find(id);
   return target ? &target->children : nullptr;
 }
 
-result<scene_node_id> world_hierarchy::create(scene_node_id parent, std::uint64_t entity) {
+result<entity_id> world_hierarchy::create(entity_id parent, std::uint64_t entity) {
   if (parent && !find(parent))
     return error::invalid_handle;
   if (entity && !owner_.is_alive(entity))
     return error::invalid_handle;
-  if (entity && find(scene_node_id{entity}))
+  if (entity && find(entity_id{entity}))
     return error::invalid_state;
   const bool create_entity = entity == 0;
   try {
@@ -67,8 +67,8 @@ result<scene_node_id> world_hierarchy::create(scene_node_id parent, std::uint64_
       entity = owner_.create_entity();
     owner_.emplace<node>(entity).parent = parent;
     if (parent && owner_.scene_of(parent))
-      owner_.assign_scene(scene_node_id{entity}, owner_.scene_of(parent));
-    const scene_node_id id{entity};
+      owner_.assign_scene(entity_id{entity}, owner_.scene_of(parent));
+    const entity_id id{entity};
     // 插入组件可能移动存储，重新查询父节点。
     if (parent)
       find(parent)->children.push_back(id);
@@ -82,28 +82,27 @@ result<scene_node_id> world_hierarchy::create(scene_node_id parent, std::uint64_
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): 参数名称明确表达父子关系。
-void world_hierarchy::remove_child(scene_node_id parent, scene_node_id child) noexcept {
+void world_hierarchy::remove_child(entity_id parent, entity_id child) noexcept {
   if (auto* parent_slot = find(parent); parent_slot != nullptr) {
     std::erase(parent_slot->children, child);
   }
 }
 
-void world_hierarchy::detach(scene_node_id id) noexcept {
+void world_hierarchy::detach(entity_id id) noexcept {
   if (const auto* target = find(id))
     remove_child(target->parent, id);
 }
 
-error world_hierarchy::destroy(scene_node_id id) {
+error world_hierarchy::destroy(entity_id id) {
   if (!find(id))
     return error::invalid_handle;
   return owner_.destroy_entity(id.get()) ? error::success : error::invalid_handle;
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): 参数名称明确表达祖先与候选节点。
-bool world_hierarchy::is_descendant(scene_node_id ancestor,
-                                    scene_node_id candidate) const noexcept {
+bool world_hierarchy::is_descendant(entity_id ancestor, entity_id candidate) const noexcept {
   auto current = candidate;
-  while (current != null_scene_node_id) {
+  while (current != null_entity_id) {
     if (current == ancestor) {
       return true;
     }
@@ -116,9 +115,9 @@ bool world_hierarchy::is_descendant(scene_node_id ancestor,
   return false;
 }
 
-engine::error world_hierarchy::reparent(scene_node_id node_id, scene_node_id parent) {
+engine::error world_hierarchy::reparent(entity_id node_id, entity_id parent) {
   auto* target = find(node_id);
-  if (target == nullptr || (parent != null_scene_node_id && find(parent) == nullptr)) {
+  if (target == nullptr || (parent != null_entity_id && find(parent) == nullptr)) {
     return engine::error::invalid_handle;
   }
   if (parent && owner_.scene_of(node_id) != owner_.scene_of(parent))
@@ -129,7 +128,7 @@ engine::error world_hierarchy::reparent(scene_node_id node_id, scene_node_id par
   if (target->parent == parent)
     return error::success;
   {
-    if (parent != null_scene_node_id) {
+    if (parent != null_entity_id) {
       find(parent)->children.push_back(node_id);
     }
     remove_child(target->parent, node_id);
@@ -138,7 +137,7 @@ engine::error world_hierarchy::reparent(scene_node_id node_id, scene_node_id par
   }
 }
 
-engine::error world_hierarchy::set_local(scene_node_id node_id,
+engine::error world_hierarchy::set_local(entity_id node_id,
                                          const math::transform& transform) noexcept {
   auto* target = find(node_id);
   if (target == nullptr) {
@@ -151,19 +150,19 @@ engine::error world_hierarchy::set_local(scene_node_id node_id,
   return engine::error::success;
 }
 
-const math::transform* world_hierarchy::get_local(scene_node_id node_id) const noexcept {
+const math::transform* world_hierarchy::get_local(entity_id node_id) const noexcept {
   const auto* target = find(node_id);
   return target == nullptr ? nullptr : &target->local;
 }
 
-result<math::transform> world_hierarchy::get_world(scene_node_id node_id) const noexcept {
+result<math::transform> world_hierarchy::get_world(entity_id node_id) const noexcept {
   const auto* target = find(node_id);
   if (target == nullptr) {
     return engine::error::invalid_handle;
   }
   auto result = target->local;
   auto parent = target->parent;
-  while (parent != null_scene_node_id) {
+  while (parent != null_entity_id) {
     const auto* parent_slot = find(parent);
     result = combine(parent_slot->local, result);
     parent = parent_slot->parent;
@@ -174,33 +173,28 @@ result<math::transform> world_hierarchy::get_world(scene_node_id node_id) const 
 result<math::transform> world_hierarchy::get_world_for_entity(std::uint64_t entity) const noexcept {
   if (!entity)
     return error::invalid_argument;
-  return find(scene_node_id{entity}) ? get_world(scene_node_id{entity})
-                                     : result<math::transform>{error::not_ready};
+  return find(entity_id{entity}) ? get_world(entity_id{entity})
+                                 : result<math::transform>{error::not_ready};
 }
 
-result<scene_node_id> world_hierarchy::node_for_entity(std::uint64_t entity) const noexcept {
-  return find(scene_node_id{entity}) ? result<scene_node_id>{scene_node_id{entity}}
-                                     : result<scene_node_id>{error::not_found};
-}
 const math::transform* world_hierarchy::get_local_for_entity(std::uint64_t entity) const noexcept {
-  return get_local(scene_node_id{entity});
+  return get_local(entity_id{entity});
 }
 
 error world_hierarchy::set_local_for_entity(std::uint64_t entity,
                                             const math::transform& transform) noexcept {
   if (!entity)
     return error::invalid_argument;
-  return find(scene_node_id{entity}) ? set_local(scene_node_id{entity}, transform)
-                                     : error::not_found;
+  return find(entity_id{entity}) ? set_local(entity_id{entity}, transform) : error::not_found;
 }
 
-std::uint64_t world_hierarchy::get_entity(scene_node_id id) const noexcept {
+std::uint64_t world_hierarchy::get_entity(entity_id id) const noexcept {
   return find(id) ? id.get() : 0;
 }
 
-scene_node_id world_hierarchy::get_parent(scene_node_id node_id) const noexcept {
+entity_id world_hierarchy::get_parent(entity_id node_id) const noexcept {
   const auto* target = find(node_id);
-  return target == nullptr ? null_scene_node_id : target->parent;
+  return target == nullptr ? null_entity_id : target->parent;
 }
 
 } // namespace gneiss::engine

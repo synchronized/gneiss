@@ -17,7 +17,7 @@ public:
   const std::map<engine::object_address, object_binding>& objects() const noexcept {
     return objects_;
   }
-  std::optional<engine::object_address> address(scene_node_id node) const noexcept {
+  std::optional<engine::object_address> address(entity_id node) const noexcept {
     for (const auto& [address, binding] : objects_)
       if (binding.node == node)
         return address;

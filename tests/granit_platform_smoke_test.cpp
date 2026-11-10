@@ -151,7 +151,7 @@ int main() {
   material = resource_handle(material_owner);
   auto& world = *application->native_world();
   entity_id camera_entity{}, mesh_entity{}, plain_mesh_entity{};
-  scene_node_id camera_node{}, mesh_node{}, plain_mesh_node{};
+  entity_id camera_node{}, mesh_node{}, plain_mesh_node{};
   const native::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   native::mesh_renderer mesh_renderer{.mesh = mesh_owner, .material = material_owner};
   native::mesh_renderer plain_mesh_renderer{.mesh = mesh_owner, .material = plain_material_owner};
@@ -171,9 +171,9 @@ int main() {
   camera_entity = camera_object->entity();
   mesh_entity = mesh_object->entity();
   plain_mesh_entity = plain_object->entity();
-  camera_node = scene_node_id{camera_entity.get()};
-  mesh_node = scene_node_id{mesh_entity.get()};
-  plain_mesh_node = scene_node_id{plain_mesh_entity.get()};
+  camera_node = entity_id{camera_entity.get()};
+  mesh_node = entity_id{mesh_entity.get()};
+  plain_mesh_node = entity_id{plain_mesh_entity.get()};
   if (world.find(gneiss::entity_id{(camera_node).get()})
           .set_local_transform(camera_transform)
           .failed() ||

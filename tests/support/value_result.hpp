@@ -11,12 +11,6 @@ inline engine::error take_value(engine::result<engine::scene_instantiation_resul
   output = value ? value->instance : scene_instance_id{};
   return value ? engine::error{engine::error::success} : value.error();
 }
-// 层级断言仍以节点 ID 比较，产品接口返回借用对象。
-inline engine::error assign_value(engine::result<engine::game_object> value,
-                                  scene_node_id& output) {
-  output = value ? scene_node_id{value->entity().get()} : scene_node_id{};
-  return value ? engine::error::success : value.error();
-}
 inline engine::error assign_value(engine::result<engine::game_object> value, entity_id& output) {
   output = value ? value->entity() : entity_id{};
   return value ? engine::error::success : value.error();

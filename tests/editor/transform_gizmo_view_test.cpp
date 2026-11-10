@@ -23,8 +23,8 @@ int main() try {
   scene_edit_session session;
   editor_command_history history;
   transform_gizmo_drag drag;
-  scene_node_id first;
-  scene_node_id second;
+  entity_id first;
+  entity_id second;
   gneiss::runtime::application_configuration desc;
   if (gneiss::engine::error{
           gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)}

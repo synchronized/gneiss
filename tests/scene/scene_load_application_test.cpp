@@ -122,7 +122,7 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
   scene_load_completion completion;
   check(gneiss::test_support::assign_value(app->activate_scene(request), completion) ==
         gneiss::engine::error::success);
-  scene_node_id node;
+  entity_id node;
   check(gneiss::test_support::take_value(
             gneiss::test_support::scene_access{*app}->find_node(
                 completion.objects,
@@ -428,7 +428,7 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   auto binding = [&] {
     const gneiss::engine::guid uuid =
         *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000002");
-    gneiss::scene_node_id node{};
+    gneiss::entity_id node{};
     check(gneiss::test_support::take_value(
               gneiss::test_support::scene_access{*app}->find_node(completion.objects, uuid),
               node) == gneiss::engine::error::success);
@@ -771,7 +771,7 @@ void source_reload_without_world_prefab_state() {
   changed = reload();
   check(changed.result.ok() && find(changed.objects, root.uuid) == root_node &&
         find(changed.objects, extra.uuid) == extra_node);
-  scene_node_id parent;
+  entity_id parent;
   check(gneiss::test_support::assign_value(
             app->native_world()->find(gneiss::entity_id{(root_node).get()}).parent(), parent)
             .ok() &&

@@ -63,8 +63,8 @@ int main() try {
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::scene_instance_id scene = {};
   gneiss::runtime::scene_load_completion loaded;
-  gneiss::scene_node_id camera_before;
-  gneiss::scene_node_id old_child;
+  gneiss::entity_id camera_before;
+  gneiss::entity_id old_child;
   gneiss::entity_id camera_entity_before;
   constexpr std::string_view uri = "asset://scenes/triangle.scene.json";
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config),
@@ -103,7 +103,7 @@ int main() try {
   auto restored_identity =
       application->native_world()->find(gneiss::entity_id{(camera_before).get()}).identity();
   gneiss::engine::math::camera_settings restored_camera;
-  gneiss::scene_node_id restored_parent;
+  gneiss::entity_id restored_parent;
   if (!restored_identity || restored_identity->name != "Camera" ||
       gneiss::test_support::read_component_value(
           application->native_world()
@@ -125,8 +125,8 @@ int main() try {
       gneiss::engine::error::success) {
     return 2;
   }
-  gneiss::scene_node_id camera_after;
-  gneiss::scene_node_id new_child;
+  gneiss::entity_id camera_after;
+  gneiss::entity_id new_child;
   gneiss::entity_id camera_entity_after;
   std::uint64_t count = 0U;
   if (gneiss::test_support::take_value(

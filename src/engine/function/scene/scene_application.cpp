@@ -43,7 +43,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
     }
   }
   struct projected_object {
-    scene_node_id node;
+    entity_id node;
     math::transform local_transform;
   };
   std::map<object_address, projected_object> nodes;
@@ -94,8 +94,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
     const auto& previous_components =
         previous_object == old.end() ? empty : previous_object->second->effective.components;
     const auto& components = object.effective.components;
-    const auto node =
-        previous_object == old.end() ? scene_node_id{} : nodes.at(object.address).node;
+    const auto node = previous_object == old.end() ? entity_id{} : nodes.at(object.address).node;
     for (const auto& previous_component : previous_components) {
       const auto* replacement = components.find(previous_component->guid());
       if (!replacement || (*replacement)->uuid != previous_component->uuid)
@@ -153,7 +152,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
     if (!created)
       return created.error();
     projected_object info;
-    info.node = scene_node_id{created->entity().get()};
+    info.node = entity_id{created->entity().get()};
     associations[object.address] = {info.node, created->entity()};
     nodes.emplace(object.address, std::move(info));
   }

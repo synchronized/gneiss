@@ -69,7 +69,7 @@ private:
                                editor_command_history& history);
   gneiss::engine::scene_mesh_binding previous_, next_;
   gneiss::scene_instance_id scene_{};
-  scene_node_id node_;
+  entity_id node_;
   component_edit_target target_;
   std::string mesh_, material_;
   std::uint64_t revision_{}, request_{};

@@ -17,10 +17,10 @@ struct document_selection {
   void restore(scene_edit_session& document) const {
     if (source) {
       auto node = document.find_prefab_source(object, source);
-      (void)document.select(node ? node->node : scene_node_id{});
+      (void)document.select(node ? node->node : entity_id{});
     } else {
       auto node = document.find_node(object);
-      (void)document.select(node ? node->node : scene_node_id{});
+      (void)document.select(node ? node->node : entity_id{});
     }
   }
 };

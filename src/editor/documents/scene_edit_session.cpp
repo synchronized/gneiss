@@ -30,7 +30,7 @@
 namespace gneiss::editor {
 namespace {
 // 文档 UUID 只能通过投影关联查找，不能作为运行对象 UUID 使用。
-engine::result<scene_node_id> document_root(const scene_edit_session& session, engine::guid uuid) {
+engine::result<entity_id> document_root(const scene_edit_session& session, engine::guid uuid) {
   auto snapshot = session.capture_nodes();
   if (!snapshot)
     return snapshot.error();
@@ -42,11 +42,11 @@ engine::result<scene_node_id> document_root(const scene_edit_session& session, e
       return object.node;
   return engine::error::not_found;
 }
-engine::result<scene_node_id> document_node(const scene_edit_session& session,
-                                            engine::object_address address) {
+engine::result<entity_id> document_node(const scene_edit_session& session,
+                                        engine::object_address address) {
   if (!address.object)
-    return address.source ? engine::result<scene_node_id>{engine::error::invalid_argument}
-                          : engine::result<scene_node_id>{scene_node_id{}};
+    return address.source ? engine::result<entity_id>{engine::error::invalid_argument}
+                          : engine::result<entity_id>{entity_id{}};
   if (!address.source)
     return document_root(session, address.object);
   auto member = session.find_prefab_source(address.object, address.source);
@@ -311,7 +311,7 @@ engine::error scene_edit_session::accept_content(const scene_document_snapshot& 
   (void)report_projection(document_->current(), status);
   if (selected) {
     auto found = projection_.objects().find(*selected);
-    selection_ = found == projection_.objects().end() ? scene_node_id{} : found->second.node;
+    selection_ = found == projection_.objects().end() ? entity_id{} : found->second.node;
   }
   return engine::error::success;
 }
@@ -380,10 +380,10 @@ scene_edit_session::edit_content(const content_edit& edit,
     if (selected) {
       if (selected->source) {
         auto found = find_prefab_source(selected->object, selected->source);
-        selection_ = found ? found->node : scene_node_id{};
+        selection_ = found ? found->node : entity_id{};
       } else {
         auto found = find_node(selected->object);
-        selection_ = found ? found->node : scene_node_id{};
+        selection_ = found ? found->node : entity_id{};
       }
     }
     if (after_projection) {
@@ -395,8 +395,7 @@ scene_edit_session::edit_content(const content_edit& edit,
   (void)report_projection(document_->current(), projection);
   return engine::error::success;
 }
-engine::result<scene_edit_session::edit_target>
-scene_edit_session::locate(scene_node_id node) const {
+engine::result<scene_edit_session::edit_target> scene_edit_session::locate(entity_id node) const {
   if (!is_open())
     return engine::error::invalid_state;
   if (!node)
@@ -446,8 +445,8 @@ engine::result<scene_query_snapshot> scene_edit_session::capture_nodes() const {
     for (auto& object : composed->objects) {
       auto found = projected.find(object.address);
       auto parent = projected.find(object.parent);
-      const auto node = found == projected.end() ? scene_node_id{} : found->second.node;
-      const auto parent_node = parent == projected.end() ? scene_node_id{} : parent->second.node;
+      const auto node = found == projected.end() ? entity_id{} : found->second.node;
+      const auto parent_node = parent == projected.end() ? entity_id{} : parent->second.node;
       const auto entity = found == projected.end() ? entity_id{} : found->second.entity;
       auto& effective = object.effective;
       const engine::game_object_description* author = nullptr;
@@ -503,13 +502,13 @@ engine::result<scene_query_snapshot> scene_edit_session::capture_nodes() const {
 }
 
 gneiss::engine::error
-scene_edit_session::get_world_transform(scene_node_id node,
+scene_edit_session::get_world_transform(entity_id node,
                                         gneiss::engine::math::transform& output) const {
   auto snapshot = capture_nodes();
   if (!snapshot)
     return snapshot.error();
   engine::math::transform result;
-  std::set<scene_node_id> seen;
+  std::set<entity_id> seen;
   {
     while (node) {
       if (!seen.insert(node).second)
@@ -531,7 +530,7 @@ scene_edit_session::get_world_transform(scene_node_id node,
 }
 
 gneiss::engine::error
-scene_edit_session::set_local_transform(scene_node_id node,
+scene_edit_session::set_local_transform(entity_id node,
                                         const gneiss::engine::math::transform& value) {
   auto target = locate(node);
   if (!target)
@@ -557,7 +556,7 @@ scene_edit_session::set_local_transform(scene_node_id node,
 }
 
 gneiss::engine::error
-scene_edit_session::restore_prefab_transform_field(scene_node_id node, std::uint32_t field_id,
+scene_edit_session::restore_prefab_transform_field(entity_id node, std::uint32_t field_id,
                                                    gneiss::engine::math::transform& out_previous) {
   const auto found = query_prefab_node(node);
   if (!found || found->is_instance_root) {
@@ -586,7 +585,7 @@ scene_edit_session::restore_prefab_transform_field(scene_node_id node, std::uint
 }
 
 gneiss::engine::error
-scene_edit_session::restore_prefab_transform(scene_node_id node,
+scene_edit_session::restore_prefab_transform(entity_id node,
                                              gneiss::engine::math::transform& out_previous) {
   const auto found = query_prefab_node(node);
   if (!found || found->is_instance_root) {
@@ -600,8 +599,8 @@ scene_edit_session::restore_prefab_transform(scene_node_id node,
   return operation;
 }
 
-gneiss::engine::error scene_edit_session::create_node(std::string_view name, scene_node_id parent,
-                                                      scene_node_id& out_node) {
+gneiss::engine::error scene_edit_session::create_node(std::string_view name, entity_id parent,
+                                                      entity_id& out_node) {
   out_node = {};
   auto parent_target = parent ? locate(parent) : engine::result<edit_target>{edit_target{}};
   if (!parent_target)
@@ -629,7 +628,7 @@ gneiss::engine::error scene_edit_session::create_node(std::string_view name, sce
       });
 }
 
-gneiss::engine::error scene_edit_session::rename_node(scene_node_id node, std::string_view name) {
+gneiss::engine::error scene_edit_session::rename_node(entity_id node, std::string_view name) {
   auto target = locate(node);
   if (!target)
     return target.error();
@@ -644,7 +643,7 @@ gneiss::engine::error scene_edit_session::rename_node(scene_node_id node, std::s
   });
 }
 
-gneiss::engine::error scene_edit_session::reparent_node(scene_node_id node, scene_node_id parent) {
+gneiss::engine::error scene_edit_session::reparent_node(entity_id node, entity_id parent) {
   auto target = locate(node);
   auto destination = parent ? locate(parent) : engine::result<edit_target>{edit_target{}};
   if (!target)
@@ -662,8 +661,7 @@ gneiss::engine::error scene_edit_session::reparent_node(scene_node_id node, scen
   });
 }
 
-engine::error scene_edit_session::destroy_subtree(scene_node_id node,
-                                                  scene_subtree_snapshot& output) {
+engine::error scene_edit_session::destroy_subtree(entity_id node, scene_subtree_snapshot& output) {
   auto snapshot = capture_subtree(node);
   if (!snapshot)
     return snapshot.error();
@@ -683,7 +681,7 @@ engine::error scene_edit_session::destroy_subtree(scene_node_id node,
 }
 
 engine::error scene_edit_session::restore_subtree(const scene_subtree_snapshot& snapshot,
-                                                  scene_node_id& output) {
+                                                  entity_id& output) {
   output = {};
   auto parent = document_node(*this, snapshot.parent);
   if (!parent)
@@ -702,8 +700,8 @@ engine::error scene_edit_session::restore_subtree(const scene_subtree_snapshot& 
       });
 }
 
-engine::error scene_edit_session::duplicate_subtree(scene_node_id node, scene_node_id parent,
-                                                    scene_node_id& output) {
+engine::error scene_edit_session::duplicate_subtree(entity_id node, entity_id parent,
+                                                    entity_id& output) {
   auto captured = capture_subtree(node);
   if (!captured)
     return captured.error();
@@ -745,14 +743,14 @@ engine::error scene_edit_session::duplicate_subtree(scene_node_id node, scene_no
 }
 
 engine::result<engine::component_descriptions>
-scene_edit_session::components(scene_node_id node) const {
+scene_edit_session::components(entity_id node) const {
   auto target = locate(node);
   if (!target)
     return target.error();
   return target->effective.components;
 }
 engine::result<prefab_component_state>
-scene_edit_session::capture_component_override(scene_node_id node, engine::guid type) {
+scene_edit_session::capture_component_override(entity_id node, engine::guid type) {
   {
     auto target = locate(node);
     if (!target)
@@ -784,7 +782,7 @@ scene_edit_session::capture_component_override(scene_node_id node, engine::guid 
     return result;
   }
 }
-engine::error scene_edit_session::set_component_override(scene_node_id node, engine::guid type,
+engine::error scene_edit_session::set_component_override(entity_id node, engine::guid type,
                                                          const prefab_component_state& state) {
   auto target = locate(node);
   if (!target)
@@ -819,13 +817,12 @@ engine::error scene_edit_session::set_component_override(scene_node_id node, eng
   });
 }
 engine::error
-scene_edit_session::add_component_description(scene_node_id node,
+scene_edit_session::add_component_description(entity_id node,
                                               const engine::component_description& value) {
   return value ? edit_component(node, value->guid(), value, 1)
                : engine::error{engine::error::invalid_argument};
 }
-engine::error scene_edit_session::remove_component_description(scene_node_id node,
-                                                               engine::guid type) {
+engine::error scene_edit_session::remove_component_description(entity_id node, engine::guid type) {
   auto policy = editor::component_editor(type);
   if (!policy)
     return policy.error();
@@ -834,14 +831,14 @@ engine::error scene_edit_session::remove_component_description(scene_node_id nod
   return edit_component(node, type, {}, -1);
 }
 engine::error
-scene_edit_session::set_component_description(scene_node_id node,
+scene_edit_session::set_component_description(entity_id node,
                                               const engine::component_description& value) {
   return value ? edit_component(node, value->guid(), value, 0)
                : engine::error{engine::error::invalid_argument};
 }
 
 gneiss::engine::error
-scene_edit_session::set_camera(scene_node_id node, const gneiss::engine::camera_description& desc) {
+scene_edit_session::set_camera(entity_id node, const gneiss::engine::camera_description& desc) {
   {
     auto current = components(node);
     if (!current)
@@ -852,11 +849,11 @@ scene_edit_session::set_camera(scene_node_id node, const gneiss::engine::camera_
   }
 }
 
-gneiss::engine::error scene_edit_session::remove_camera(scene_node_id node) {
+gneiss::engine::error scene_edit_session::remove_camera(entity_id node) {
   return remove_component_description(node, engine::camera_description::type_guid);
 }
 
-gneiss::engine::error scene_edit_session::remove_mesh_renderer(scene_node_id node) {
+gneiss::engine::error scene_edit_session::remove_mesh_renderer(entity_id node) {
   return remove_component_description(node, engine::mesh_renderer_description::type_guid);
 }
 
@@ -873,7 +870,7 @@ void scene_edit_session::close() noexcept {
   world_ = 0;
 }
 
-engine::result<scene_node_record> scene_edit_session::query_node(scene_node_id node) const {
+engine::result<scene_node_record> scene_edit_session::query_node(entity_id node) const {
   auto snapshot = capture_nodes();
   if (!snapshot)
     return snapshot.error();
@@ -882,7 +879,7 @@ engine::result<scene_node_record> scene_edit_session::query_node(scene_node_id n
       return std::move(item);
   return engine::error::not_found;
 }
-engine::result<prefab_node_record> scene_edit_session::query_prefab_node(scene_node_id node) const {
+engine::result<prefab_node_record> scene_edit_session::query_prefab_node(entity_id node) const {
   auto snapshot = capture_nodes();
   if (!snapshot)
     return snapshot.error();
@@ -925,7 +922,7 @@ engine::result<scene_node_record> scene_edit_session::selected_node() const {
 engine::result<prefab_node_record> scene_edit_session::selected_prefab_node() const {
   return query_prefab_node(selection_);
 }
-engine::error scene_edit_session::select(scene_node_id node) {
+engine::error scene_edit_session::select(entity_id node) {
   if (!is_open())
     return engine::error::invalid_state;
   if (node) {
@@ -957,7 +954,7 @@ engine::error scene_edit_session::validate_selection() {
 }
 
 engine::result<engine::scene_mesh_binding>
-scene_edit_session::capture_mesh_binding(scene_node_id node) const {
+scene_edit_session::capture_mesh_binding(entity_id node) const {
   {
     auto values = components(node);
     if (!values)
@@ -975,7 +972,7 @@ scene_edit_session::capture_mesh_binding(scene_node_id node) const {
   }
 }
 
-engine::result<scene_node_id>
+engine::result<entity_id>
 scene_edit_session::create_mesh_node(const mesh_node_creation& snapshot,
                                      const engine::scene_mesh_binding& resources) {
   if (!is_open())
@@ -988,7 +985,7 @@ scene_edit_session::create_mesh_node(const mesh_node_creation& snapshot,
   auto parent = document_node(*this, snapshot.parent);
   if (!parent)
     return parent.error();
-  scene_node_id created;
+  entity_id created;
   auto status = edit_content(
       [&](auto& description, auto& next) -> engine::error {
         engine::game_object_description object;
@@ -1014,7 +1011,7 @@ scene_edit_session::create_mesh_node(const mesh_node_creation& snapshot,
   return created;
 }
 
-gneiss::engine::error scene_edit_session::destroy_node(scene_node_id node) {
+gneiss::engine::error scene_edit_session::destroy_node(entity_id node) {
   auto target = locate(node);
   if (!target)
     return target.error();
@@ -1026,7 +1023,7 @@ gneiss::engine::error scene_edit_session::destroy_node(scene_node_id node) {
   return destroy_subtree(node, ignored);
 }
 
-gneiss::engine::error scene_edit_session::set_mesh_renderer(scene_node_id node,
+gneiss::engine::error scene_edit_session::set_mesh_renderer(entity_id node,
                                                             std::string_view mesh_uri,
                                                             std::string_view material_uri) {
   {
@@ -1041,8 +1038,7 @@ gneiss::engine::error scene_edit_session::set_mesh_renderer(scene_node_id node,
 }
 
 engine::error
-scene_edit_session::replace_mesh_binding(scene_node_id node,
-                                         const engine::scene_mesh_binding& expected,
+scene_edit_session::replace_mesh_binding(entity_id node, const engine::scene_mesh_binding& expected,
                                          const engine::scene_mesh_binding& replacement) {
   auto current = capture_mesh_binding(node);
   if (!current)
@@ -1178,7 +1174,7 @@ engine::error scene_edit_session::restore_version(const version& expected, const
   return engine::error::success;
 }
 
-engine::error scene_edit_session::edit_component(scene_node_id node, engine::guid type,
+engine::error scene_edit_session::edit_component(entity_id node, engine::guid type,
                                                  const engine::component_description& value,
                                                  int mode) {
   auto target = locate(node);
@@ -1246,8 +1242,7 @@ engine::error scene_edit_session::edit_component(scene_node_id node, engine::gui
   });
 }
 
-engine::result<scene_subtree_snapshot>
-scene_edit_session::capture_subtree(scene_node_id node) const {
+engine::result<scene_subtree_snapshot> scene_edit_session::capture_subtree(entity_id node) const {
   auto target = locate(node);
   if (!target)
     return target.error();

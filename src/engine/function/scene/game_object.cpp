@@ -10,7 +10,7 @@
 
 namespace gneiss::engine {
 bool game_object::is_valid() const noexcept {
-  return owner_ && owner_->entity_node(entity_).has_value();
+  return owner_ && owner_->object(entity_).has_value();
 }
 result<scene_node_identity_view> game_object::identity() const {
   if (!owner_)
@@ -18,7 +18,7 @@ result<scene_node_identity_view> game_object::identity() const {
   auto state = detail::world_component_access::get(*owner_);
   if (!state)
     return state.error();
-  return (*state)->scene().identity(scene_node_id{entity_.get()});
+  return (*state)->scene().identity(entity_id{entity_.get()});
 }
 error game_object::set_identity(scene_node_identity identity) const {
   if (!owner_)
@@ -26,7 +26,7 @@ error game_object::set_identity(scene_node_identity identity) const {
   auto state = detail::world_component_access::get(*owner_);
   if (!state)
     return state.error();
-  return (*state)->scene().set_identity(scene_node_id{entity_.get()}, std::move(identity));
+  return (*state)->scene().set_identity(entity_id{entity_.get()}, std::move(identity));
 }
 result<math::transform> game_object::local_transform() const {
   if (!owner_)
@@ -34,7 +34,7 @@ result<math::transform> game_object::local_transform() const {
   auto state = detail::world_component_access::get(*owner_);
   if (!state)
     return state.error();
-  const auto* value = (*state)->scene().get_local(scene_node_id{entity_.get()});
+  const auto* value = (*state)->scene().get_local(entity_id{entity_.get()});
   return value ? result<math::transform>{*value} : result<math::transform>{error::invalid_handle};
 }
 result<scene_instance> game_object::scene() const {
@@ -43,7 +43,7 @@ result<scene_instance> game_object::scene() const {
   auto state = detail::world_component_access::get(*owner_);
   if (!state)
     return state.error();
-  return scene_instance::borrow(*owner_, (*state)->scene_of(scene_node_id{entity_.get()}));
+  return scene_instance::borrow(*owner_, (*state)->scene_of(entity_id{entity_.get()}));
 }
 result<math::matrix4> game_object::world_matrix() const {
   if (!owner_)
@@ -52,7 +52,7 @@ result<math::matrix4> game_object::world_matrix() const {
   if (!state)
     return state.error();
   const auto& hierarchy = (*state)->scene();
-  auto node = scene_node_id{entity_.get()};
+  auto node = entity_id{entity_.get()};
   const auto* local = hierarchy.get_local(node);
   if (!local)
     return error::invalid_handle;
@@ -71,7 +71,7 @@ result<math::transform> game_object::world_transform() const {
   auto state = detail::world_component_access::get(*owner_);
   if (!state)
     return state.error();
-  return (*state)->scene().get_world(scene_node_id{entity_.get()});
+  return (*state)->scene().get_world(entity_id{entity_.get()});
 }
 error game_object::set_local_transform(const math::transform& transform) const {
   if (!owner_)
@@ -79,7 +79,7 @@ error game_object::set_local_transform(const math::transform& transform) const {
   auto state = detail::world_component_access::get(*owner_);
   if (!state)
     return state.error();
-  return (*state)->scene().set_local(scene_node_id{entity_.get()}, transform);
+  return (*state)->scene().set_local(entity_id{entity_.get()}, transform);
 }
 error game_object::set_name(std::string_view name) const {
   auto current = identity();
@@ -94,9 +94,9 @@ result<game_object> game_object::parent() const {
   if (!state)
     return state.error();
   const auto& hierarchy = (*state)->scene();
-  if (!hierarchy.get_local(scene_node_id{entity_.get()}))
+  if (!hierarchy.get_local(entity_id{entity_.get()}))
     return error::invalid_handle;
-  auto parent = hierarchy.get_parent(scene_node_id{entity_.get()});
+  auto parent = hierarchy.get_parent(entity_id{entity_.get()});
   return parent ? owner_->object(entity_id{parent.get()}) : result<game_object>{game_object{}};
 }
 error game_object::reparent(game_object parent) const {
@@ -105,8 +105,8 @@ error game_object::reparent(game_object parent) const {
   auto state = detail::world_component_access::get(*owner_);
   if (!state)
     return state.error();
-  const auto node = scene_node_id{entity_.get()};
-  const auto parent_node = scene_node_id{parent.entity_.get()};
+  const auto node = entity_id{entity_.get()};
+  const auto parent_node = entity_id{parent.entity_.get()};
   if (!(*state)->scene().get_entity(node) ||
       (parent_node && !(*state)->scene().get_entity(parent_node)))
     return error::invalid_handle;
@@ -116,6 +116,6 @@ error game_object::destroy() const {
   if (!owner_)
     return error::invalid_handle;
   auto state = detail::world_component_access::get(*owner_);
-  return state ? (*state)->scene().destroy(scene_node_id{entity_.get()}) : state.error();
+  return state ? (*state)->scene().destroy(entity_id{entity_.get()}) : state.error();
 }
 }

@@ -3,7 +3,7 @@
 #pragma once
 #include "documents/scene_edit_session.hpp"
 namespace gneiss::test_support {
-inline engine::result<scene_node_id>
+inline engine::result<entity_id>
 place_document_prefab(editor::scene_edit_session& document, engine::game_object_description author,
                       engine::prefab_asset_ref source,
                       std::span<const engine::scene_mesh_binding> bindings, bool replacing) {
@@ -27,7 +27,6 @@ place_document_prefab(editor::scene_edit_session& document, engine::game_object_
   if (status.failed())
     return status;
   auto node = document.find_prefab_root(author.uuid);
-  return node ? engine::result<scene_node_id>{node->node}
-              : engine::result<scene_node_id>{node.error()};
+  return node ? engine::result<entity_id>{node->node} : engine::result<entity_id>{node.error()};
 }
 }

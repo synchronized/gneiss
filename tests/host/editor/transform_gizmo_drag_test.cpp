@@ -84,7 +84,7 @@ int main() try {
       gneiss::engine::math::transform desired{};
       if (gneiss::test_support::assign_value(
               application->native_world()
-                  ->find(gneiss::entity_id{(gneiss::scene_node_id{target.get()}).get()})
+                  ->find(gneiss::entity_id{(gneiss::entity_id{target.get()}).get()})
                   .world_transform(),
               desired) != gneiss::engine::error::success) {
         return 5;
@@ -108,7 +108,7 @@ int main() try {
             drag.preview(session, matrix) != gneiss::engine::error::success ||
             gneiss::test_support::assign_value(
                 application->native_world()
-                    ->find(gneiss::entity_id{(gneiss::scene_node_id{target.get()}).get()})
+                    ->find(gneiss::entity_id{(gneiss::entity_id{target.get()}).get()})
                     .world_transform(),
                 actual) != gneiss::engine::error::success ||
             !near(actual, desired) || history.size() != 0U) {
@@ -178,7 +178,7 @@ int main() try {
   const auto prefab_before = session.selected_prefab_node()->local_transform;
   if (gneiss::test_support::assign_value(
           application->native_world()
-              ->find(gneiss::entity_id{(gneiss::scene_node_id{prefab_id.get()}).get()})
+              ->find(gneiss::entity_id{(gneiss::entity_id{prefab_id.get()}).get()})
               .world_transform(),
           desired) != gneiss::engine::error::success) {
     return 14;
@@ -218,7 +218,7 @@ int main() try {
   const auto deletion_before = session.selected_node()->local_transform;
   if (gneiss::test_support::assign_value(
           application->native_world()
-              ->find(gneiss::entity_id{(gneiss::scene_node_id{session.selection().get()}).get()})
+              ->find(gneiss::entity_id{(gneiss::entity_id{session.selection().get()}).get()})
               .world_transform(),
           desired) != gneiss::engine::error::success) {
     return 17;

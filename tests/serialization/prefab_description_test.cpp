@@ -333,14 +333,14 @@ int main() try {
   // 实例根作为源根的父节点，沿用 Scene Tree 的父子变换组合约定。
   gneiss::engine::world_state owner(1U);
   auto& tree = owner.scene();
-  gneiss::scene_node_id instance_root = gneiss::scene_node_id{};
-  gneiss::scene_node_id source_root = gneiss::null_scene_node_id;
+  gneiss::entity_id instance_root = gneiss::entity_id{};
+  gneiss::entity_id source_root = gneiss::null_entity_id;
   gneiss::engine::math::transform instance_transform = gneiss::engine::math::transform{};
   instance_transform.translation[0] = 10.0F;
   instance_transform.scale[0] = 2.0F;
   gneiss::engine::math::transform source_transform = gneiss::engine::math::transform{};
   source_transform.translation[0] = 3.0F;
-  if (gneiss::test_support::assign_value(tree.create(gneiss::null_scene_node_id, UINT64_C(0)),
+  if (gneiss::test_support::assign_value(tree.create(gneiss::null_entity_id, UINT64_C(0)),
                                          instance_root) != gneiss::engine::error::success ||
       gneiss::test_support::assign_value(tree.create(instance_root, UINT64_C(0)), source_root) !=
           gneiss::engine::error::success ||

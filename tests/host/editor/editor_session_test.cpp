@@ -257,7 +257,7 @@ int main() try {
           gneiss::engine::error::not_found) {
     return 9;
   }
-  gneiss::scene_node_id prefab_root;
+  gneiss::entity_id prefab_root;
   if (gneiss::test_support::create_prefab_document(
           *application, session, "Second Lamp", prefab_uri,
           gneiss::test_support::scene_query(session).nodes[0].node,

@@ -17,7 +17,7 @@ int main() {
   using engine::error;
   engine::world_owner first, second;
   gneiss::entity_id entity, missing;
-  gneiss::scene_node_id node;
+  gneiss::entity_id node;
   if (gneiss::engine::serialization::register_builtin_types().failed() ||
       gneiss::engine::serialization::register_builtin_types() != engine::error::invalid_argument ||
       engine::register_builtin_resource_types().failed() ||
@@ -30,7 +30,7 @@ int main() {
   if (!object)
     return 1;
   entity = object->entity();
-  node = gneiss::scene_node_id{entity.get()};
+  node = gneiss::entity_id{entity.get()};
   const auto transform_type = engine::math::transform::type_guid;
   const auto camera_type = engine::camera_description::type_guid;
   gneiss::engine::meta::type info;

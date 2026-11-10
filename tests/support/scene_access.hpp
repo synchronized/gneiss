@@ -40,13 +40,13 @@ struct scene_access {
     return found == bindings.end() ? engine::result<engine::game_object>{engine::error::not_found}
                                    : owner.object(found->entity);
   }
-  engine::result<scene_node_id> find_node(std::span<const engine::scene_object_binding> bindings,
-                                          engine::guid uuid) {
+  engine::result<entity_id> find_node(std::span<const engine::scene_object_binding> bindings,
+                                      engine::guid uuid) {
     auto object = find_object(bindings, uuid);
-    return object ? engine::result<scene_node_id>{scene_node_id{object->entity().get()}}
-                  : engine::result<scene_node_id>{object.error()};
+    return object ? engine::result<entity_id>{entity_id{object->entity().get()}}
+                  : engine::result<entity_id>{object.error()};
   }
-  engine::error validate_editable_node(scene_instance_id id, scene_node_id node) {
+  engine::error validate_editable_node(scene_instance_id id, entity_id node) {
     auto scene = engine::scene_instance::borrow(owner, id);
     if (!scene)
       return scene.error();
@@ -58,8 +58,7 @@ struct scene_access {
       return member.error();
     return *member ? engine::error::success : engine::error::invalid_handle;
   }
-  engine::result<scene_node_id> create_node(scene_instance_id id,
-                                            const engine::node_creation& desc) {
+  engine::result<entity_id> create_node(scene_instance_id id, const engine::node_creation& desc) {
     auto scene = engine::scene_instance::borrow(owner, id);
     if (!scene)
       return scene.error();
@@ -70,9 +69,9 @@ struct scene_access {
     auto object = scene->create({desc.uuid, std::string(desc.name)}, desc.local_transform, *parent);
     if (!object)
       return object.error();
-    return scene_node_id{object->entity().get()};
+    return entity_id{object->entity().get()};
   }
-  engine::error reparent_node(scene_instance_id id, scene_node_id node, scene_node_id parent) {
+  engine::error reparent_node(scene_instance_id id, entity_id node, entity_id parent) {
     auto status = validate_editable_node(id, node);
     if (status.failed())
       return status;
@@ -83,13 +82,13 @@ struct scene_access {
                          : engine::result<engine::game_object>{engine::game_object{}};
     return object->reparent(*target);
   }
-  engine::error destroy_subtree(scene_instance_id id, scene_node_id node) {
+  engine::error destroy_subtree(scene_instance_id id, entity_id node) {
     auto status = validate_editable_node(id, node);
     if (status.failed())
       return status;
     return owner.object(entity_id{node.get()})->destroy();
   }
-  engine::error destroy_node(scene_instance_id id, scene_node_id node) {
+  engine::error destroy_node(scene_instance_id id, entity_id node) {
     auto status = validate_editable_node(id, node);
     if (status.failed())
       return status;
@@ -130,9 +129,9 @@ struct scene_access {
     if (!parent)
       return parent.error();
     test_support::scene_node_info info;
-    info.node = scene_node_id{object.entity().get()};
+    info.node = entity_id{object.entity().get()};
     info.entity = object.entity();
-    info.parent = scene_node_id{parent->entity().get()};
+    info.parent = entity_id{parent->entity().get()};
     info.uuid = identity->uuid;
     info.name = identity->name;
     if (detail != test_support::node_query_detail::identity) {

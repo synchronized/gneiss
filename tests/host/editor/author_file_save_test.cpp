@@ -49,7 +49,7 @@ int main() try {
     if (entry.path().filename().string().find(".gneiss-") != std::string::npos)
       return 4;
   editor::scene_edit_session document;
-  scene_node_id node;
+  entity_id node;
   if (document.create_empty(*app, app->native_world()).failed() ||
       document.create_node("before", {}, node).failed())
     return 5;

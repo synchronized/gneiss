@@ -52,7 +52,6 @@ public:
   }
   /** 将本 World 中有层级组件的实体借用为对象，纯 ECS 实体返回 not_found。 */
   [[nodiscard]] GNEISS_API result<game_object> object(entity_id entity) noexcept;
-  [[nodiscard]] GNEISS_API result<scene_node_id> entity_node(entity_id entity) const noexcept;
 
   [[nodiscard]] GNEISS_API error entity_get_local_transform(entity_id entity,
                                                             math::transform& out_transform);
@@ -64,18 +63,11 @@ public:
                                                      const view_camera* camera);
 
 private:
-  [[nodiscard]] error node_create(scene_node_id parent, entity_id entity, scene_node_id& out_node);
-  [[nodiscard]] result<scene_node_id> object_create(scene_node_id parent,
-                                                    scene_node_identity identity,
-                                                    const math::transform& transform);
   friend struct engine::world_factory;
   friend class scene_instance;
   [[nodiscard]] error validate_scene(scene_instance_id) const noexcept;
   [[nodiscard]] error unload_scene(scene_instance_id) noexcept;
-  [[nodiscard]] error validate_scene_node(scene_instance_id, scene_node_id) const noexcept;
   [[nodiscard]] result<std::uint64_t> scene_size(scene_instance_id) const;
-  [[nodiscard]] result<scene_node_id> find_scene_node(scene_instance_id, guid) const;
-  [[nodiscard]] result<scene_node_id> create_scene_node(scene_instance_id, const node_creation&);
   friend struct detail::world_component_access;
   explicit GNEISS_API world(std::uint32_t domain);
   std::unique_ptr<engine::world_state> state_;

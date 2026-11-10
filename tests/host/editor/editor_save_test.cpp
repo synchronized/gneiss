@@ -92,7 +92,7 @@ int main() try {
     return 4;
   }
   session.mark_dirty();
-  gneiss::scene_node_id created_node;
+  gneiss::entity_id created_node;
   if (gneiss::test_support::create_mesh_document(*application, session, "Created", mesh_uri,
                                                  material_uri,
                                                  created_node) != gneiss::engine::error::success ||
@@ -102,8 +102,8 @@ int main() try {
     return 5;
   }
   const auto created_uuid = session.selected_node()->uuid;
-  gneiss::scene_node_id empty_parent;
-  gneiss::scene_node_id empty_child;
+  gneiss::entity_id empty_parent;
+  gneiss::entity_id empty_child;
   if (session.create_node("Empty Parent", {}, empty_parent) != gneiss::engine::error::success ||
       session.create_node("Empty Child", empty_parent, empty_child) !=
           gneiss::engine::error::success ||
@@ -134,7 +134,7 @@ int main() try {
       session.find_node(parent_uuid).failed()) {
     return 14;
   }
-  gneiss::scene_node_id duplicate;
+  gneiss::entity_id duplicate;
   gneiss::editor::scene_subtree_snapshot duplicate_snapshot;
   if (session.duplicate_subtree(empty_parent, {}, duplicate) != gneiss::engine::error::success ||
       duplicate == empty_parent || gneiss::test_support::scene_query(session).nodes.size() != 8U ||
@@ -194,7 +194,7 @@ int main() try {
                                      converted_uri) != gneiss::engine::error::invalid_argument) {
     return 18;
   }
-  gneiss::scene_node_id new_node;
+  gneiss::entity_id new_node;
   if (session.create_empty(*application, world, new_scene_uuid) != gneiss::engine::error::success ||
       !session.is_open() || !session.is_dirty() || !session.uri().empty() ||
       session.create_node("Root", {}, new_node) != gneiss::engine::error::success ||
@@ -221,8 +221,8 @@ int main() try {
                                        &reloaded_objects) != gneiss::engine::error::success) {
     return 11;
   }
-  gneiss::scene_node_id camera_node;
-  gneiss::scene_node_id reloaded_created_node;
+  gneiss::entity_id camera_node;
+  gneiss::entity_id reloaded_created_node;
   gneiss::entity_id camera_entity;
   gneiss::engine::math::transform reloaded_transform{};
   if (gneiss::test_support::take_value(

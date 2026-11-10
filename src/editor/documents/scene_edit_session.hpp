@@ -49,8 +49,8 @@ struct prefab_component_state {
 [[nodiscard]] gneiss::engine::error make_editor_uuid(engine::guid& output);
 
 struct scene_node_record final {
-  scene_node_id node;
-  scene_node_id parent;
+  entity_id node;
+  entity_id parent;
   entity_id entity;
   gneiss::engine::guid uuid;
   std::string display_name;
@@ -59,8 +59,8 @@ struct scene_node_record final {
 };
 
 struct prefab_node_record final {
-  scene_node_id node;
-  scene_node_id parent;
+  entity_id node;
+  entity_id parent;
   entity_id entity;
   gneiss::engine::guid instance_uuid;
   gneiss::engine::guid source_node_uuid;
@@ -130,24 +130,24 @@ public:
 
   [[nodiscard]] bool is_open() const noexcept;
   /** 使用已准备资源创建节点；成功后更新选择和脏状态，不加载资产。 */
-  [[nodiscard]] engine::result<scene_node_id>
+  [[nodiscard]] engine::result<entity_id>
   create_mesh_node(const mesh_node_creation& description,
                    const engine::scene_mesh_binding& resources);
   /** 捕获当前文档节点的资源强引用；文档关闭或应用停止后拒绝调用。 */
   [[nodiscard]] engine::result<engine::scene_mesh_binding>
-  capture_mesh_binding(scene_node_id node) const;
+  capture_mesh_binding(entity_id node) const;
   [[nodiscard]] gneiss::scene_instance_id scene_handle() const noexcept { return scene_; }
   /** 替换已准备资源；当前绑定不匹配 expected 时拒绝，成功后标脏，不加载资产。 */
-  [[nodiscard]] engine::error replace_mesh_binding(scene_node_id node,
+  [[nodiscard]] engine::error replace_mesh_binding(entity_id node,
                                                    const engine::scene_mesh_binding& expected,
                                                    const engine::scene_mesh_binding& replacement);
   [[nodiscard]] bool is_dirty() const noexcept { return document_ && document_->is_dirty(); }
   [[nodiscard]] std::string_view uri() const noexcept { return uri_; }
-  [[nodiscard]] engine::result<scene_node_record> query_node(scene_node_id node) const;
-  [[nodiscard]] engine::result<prefab_node_record> query_prefab_node(scene_node_id node) const;
+  [[nodiscard]] engine::result<scene_node_record> query_node(entity_id node) const;
+  [[nodiscard]] engine::result<prefab_node_record> query_prefab_node(entity_id node) const;
   /** 从 Scene 捕获本次查询的独立值，不在文档内缓存。 */
   [[nodiscard]] engine::result<scene_query_snapshot> capture_nodes() const;
-  [[nodiscard]] scene_node_id selection() const noexcept { return selection_; }
+  [[nodiscard]] entity_id selection() const noexcept { return selection_; }
   [[nodiscard]] engine::result<scene_node_record> selected_node() const;
   [[nodiscard]] engine::result<prefab_node_record> selected_prefab_node() const;
   [[nodiscard]] engine::result<prefab_node_record>
@@ -156,38 +156,38 @@ public:
   find_prefab_source(gneiss::engine::guid instance_uuid, gneiss::engine::guid source_uuid) const;
   [[nodiscard]] engine::result<scene_node_record> find_node(gneiss::engine::guid uuid) const;
 
-  [[nodiscard]] gneiss::engine::error select(scene_node_id node);
+  [[nodiscard]] gneiss::engine::error select(entity_id node);
   /** 清除失效选择并返回成功；文档或应用已失效时返回错误。 */
   [[nodiscard]] gneiss::engine::error validate_selection();
-  [[nodiscard]] gneiss::engine::error create_node(std::string_view name, scene_node_id parent,
-                                                  scene_node_id& out_node);
-  [[nodiscard]] gneiss::engine::error rename_node(scene_node_id node, std::string_view name);
-  [[nodiscard]] gneiss::engine::error reparent_node(scene_node_id node, scene_node_id parent);
+  [[nodiscard]] gneiss::engine::error create_node(std::string_view name, entity_id parent,
+                                                  entity_id& out_node);
+  [[nodiscard]] gneiss::engine::error rename_node(entity_id node, std::string_view name);
+  [[nodiscard]] gneiss::engine::error reparent_node(entity_id node, entity_id parent);
   [[nodiscard]] gneiss::engine::error
-  get_world_transform(scene_node_id node, gneiss::engine::math::transform& output) const;
+  get_world_transform(entity_id node, gneiss::engine::math::transform& output) const;
   /** 设置节点局部 TRS；成功后标记场景已修改。 */
   [[nodiscard]] gneiss::engine::error
-  set_local_transform(scene_node_id node, const gneiss::engine::math::transform& value);
+  set_local_transform(entity_id node, const gneiss::engine::math::transform& value);
   /** 恢复 Prefab 来源节点的单个 Transform 字段；返回操作前的有效值。 */
   [[nodiscard]] gneiss::engine::error
-  restore_prefab_transform_field(scene_node_id node, std::uint32_t field_id,
+  restore_prefab_transform_field(entity_id node, std::uint32_t field_id,
                                  gneiss::engine::math::transform& out_previous);
   /** 恢复 Prefab 来源节点的全部 Transform 字段；返回操作前的有效值。 */
   [[nodiscard]] gneiss::engine::error
-  restore_prefab_transform(scene_node_id node, gneiss::engine::math::transform& out_previous);
-  [[nodiscard]] gneiss::engine::error destroy_subtree(scene_node_id node,
+  restore_prefab_transform(entity_id node, gneiss::engine::math::transform& out_previous);
+  [[nodiscard]] gneiss::engine::error destroy_subtree(entity_id node,
                                                       scene_subtree_snapshot& out_snapshot);
   [[nodiscard]] gneiss::engine::error restore_subtree(const scene_subtree_snapshot& snapshot,
-                                                      scene_node_id& out_node);
-  [[nodiscard]] gneiss::engine::error duplicate_subtree(scene_node_id node, scene_node_id parent,
-                                                        scene_node_id& out_node);
-  [[nodiscard]] gneiss::engine::error set_camera(scene_node_id node,
+                                                      entity_id& out_node);
+  [[nodiscard]] gneiss::engine::error duplicate_subtree(entity_id node, entity_id parent,
+                                                        entity_id& out_node);
+  [[nodiscard]] gneiss::engine::error set_camera(entity_id node,
                                                  const gneiss::engine::camera_description& desc);
-  [[nodiscard]] gneiss::engine::error remove_camera(scene_node_id node);
-  [[nodiscard]] gneiss::engine::error remove_mesh_renderer(scene_node_id node);
-  [[nodiscard]] gneiss::engine::error
-  set_mesh_renderer(scene_node_id node, std::string_view mesh_uri, std::string_view material_uri);
-  [[nodiscard]] gneiss::engine::error destroy_node(scene_node_id node);
+  [[nodiscard]] gneiss::engine::error remove_camera(entity_id node);
+  [[nodiscard]] gneiss::engine::error remove_mesh_renderer(entity_id node);
+  [[nodiscard]] gneiss::engine::error set_mesh_renderer(entity_id node, std::string_view mesh_uri,
+                                                        std::string_view material_uri);
+  [[nodiscard]] gneiss::engine::error destroy_node(entity_id node);
   /** 保存回执独立于文档生命周期；完成只写回执，宿主推进后显式接收。 */
   struct save_receipt {
     gneiss::scene_instance_id scene;
@@ -203,15 +203,15 @@ public:
                                          std::shared_ptr<save_receipt>& output);
   /** 接收成功保存；场景实例不匹配时拒绝，保存期间的新修改保持 dirty。 */
   [[nodiscard]] engine::error accept_save(const save_receipt& receipt);
-  [[nodiscard]] engine::result<engine::component_descriptions> components(scene_node_id node) const;
-  [[nodiscard]] engine::error set_component_description(scene_node_id node,
+  [[nodiscard]] engine::result<engine::component_descriptions> components(entity_id node) const;
+  [[nodiscard]] engine::error set_component_description(entity_id node,
                                                         const engine::component_description&);
-  [[nodiscard]] engine::error add_component_description(scene_node_id,
+  [[nodiscard]] engine::error add_component_description(entity_id,
                                                         const engine::component_description&);
-  [[nodiscard]] engine::error remove_component_description(scene_node_id, engine::guid);
-  [[nodiscard]] engine::result<prefab_component_state> capture_component_override(scene_node_id,
+  [[nodiscard]] engine::error remove_component_description(entity_id, engine::guid);
+  [[nodiscard]] engine::result<prefab_component_state> capture_component_override(entity_id,
                                                                                   engine::guid);
-  [[nodiscard]] engine::error set_component_override(scene_node_id, engine::guid,
+  [[nodiscard]] engine::error set_component_override(entity_id, engine::guid,
                                                      const prefab_component_state&);
   [[nodiscard]] engine::result<std::string> serialize() const;
   /** 当前编辑内容；不从 World 反向捕获。 */
@@ -229,7 +229,7 @@ public:
                                               const scene_document::revision& target,
                                               std::span<const document_patch>, bool undo);
   [[nodiscard]] engine::error restore_version(const version& expected, const version& target);
-  [[nodiscard]] engine::result<scene_subtree_snapshot> capture_subtree(scene_node_id) const;
+  [[nodiscard]] engine::result<scene_subtree_snapshot> capture_subtree(entity_id) const;
   [[nodiscard]] engine::result<prefab_header_snapshot> capture_prefab_header(engine::guid) const;
   [[nodiscard]] engine::error apply_prefab(const scene_subtree_snapshot&, bool removing,
                                            bool replacing);
@@ -254,8 +254,8 @@ private:
     engine::guid object, source;
     engine::game_object_description effective;
   };
-  engine::result<edit_target> locate(scene_node_id) const;
-  engine::error edit_component(scene_node_id, engine::guid, const engine::component_description&,
+  engine::result<edit_target> locate(entity_id) const;
+  engine::error edit_component(entity_id, engine::guid, const engine::component_description&,
                                int mode);
   std::unique_ptr<scene_document> document_;
   scene_projection projection_;
@@ -266,7 +266,7 @@ private:
   engine::error report_projection(const version&, engine::error) noexcept;
   runtime::application* application_{};
   gneiss::scene_instance_id scene_{};
-  scene_node_id selection_;
+  entity_id selection_;
   std::string uri_;
 };
 

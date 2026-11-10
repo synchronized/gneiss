@@ -10,7 +10,7 @@ namespace {
 /** 仅用于创建过程；移交场景前的失败路径回收整棵子树。 */
 class scene_subtree_guard final {
 public:
-  scene_subtree_guard(world& owner, scene_node_id root) noexcept : owner_(owner), root_(root) {}
+  scene_subtree_guard(world& owner, entity_id root) noexcept : owner_(owner), root_(root) {}
   ~scene_subtree_guard() {
     if (root_)
       (void)owner_.find(gneiss::entity_id{(root_).get()}).destroy();
@@ -21,7 +21,7 @@ public:
 
 private:
   world& owner_;
-  scene_node_id root_;
+  entity_id root_;
 };
 
 /** 旧网格创建入口的固定资源适配；不作为通用组件上下文的一部分。 */
@@ -105,7 +105,7 @@ result<scene_instantiation_result> instantiate(scene_instance destination,
     created.push_back(*made);
     objects.emplace(object.address, *made);
     receipt.objects.push_back({object.address.object, object.address.source,
-                               scene_node_id{made->entity().get()}, made->entity()});
+                               entity_id{made->entity().get()}, made->entity()});
   }
   // 对象全部存在后再连接层级，输入无需按父子排序。
   for (const auto& object : composed.objects) {
@@ -147,7 +147,7 @@ result<scene_instantiation_result> instantiate(scene_instance destination,
 }
 
 namespace {
-error validate(world& owner, scene_instance_id scene, scene_node_id node) {
+error validate(world& owner, scene_instance_id scene, entity_id node) {
   if (!owner.is_owner_thread())
     return error::invalid_state;
   auto instance = scene_instance::borrow(owner, scene);
@@ -162,10 +162,10 @@ error validate(world& owner, scene_instance_id scene, scene_node_id node) {
   return *member ? error::success : error::invalid_handle;
 }
 }
-result<scene_node_id> create_mesh_renderer_node(world& owner, asset_manager& assets,
-                                                scene_instance_id instance,
-                                                const mesh_renderer_node_creation& desc,
-                                                const scene_mesh_binding* prepared) {
+result<entity_id> create_mesh_renderer_node(world& owner, asset_manager& assets,
+                                            scene_instance_id instance,
+                                            const mesh_renderer_node_creation& desc,
+                                            const scene_mesh_binding* prepared) {
   if (!owner.is_owner_thread())
     return error::invalid_state;
   auto destination = scene_instance::borrow(owner, instance);
@@ -194,7 +194,7 @@ result<scene_node_id> create_mesh_renderer_node(world& owner, asset_manager& ass
   auto object = destination->create({desc.uuid, std::string(desc.name)}, {}, *parent);
   if (!object)
     return object.error();
-  result<scene_node_id> created{scene_node_id{object->entity().get()}};
+  result<entity_id> created{entity_id{object->entity().get()}};
   if (!created)
     return created.error();
   scene_subtree_guard guard(owner, *created);
@@ -212,8 +212,7 @@ result<scene_node_id> create_mesh_renderer_node(world& owner, asset_manager& ass
   return *created;
 }
 error set_mesh_renderer(world& owner, asset_manager& assets, scene_instance_id scene,
-                        scene_node_id node, std::string_view mesh_uri,
-                        std::string_view material_uri) {
+                        entity_id node, std::string_view mesh_uri, std::string_view material_uri) {
   auto status = validate(owner, scene, node);
   if (status.failed())
     return status;
@@ -246,7 +245,7 @@ error set_mesh_renderer(world& owner, asset_manager& assets, scene_instance_id s
       .set_component(gneiss::engine::mesh_renderer_component{binding});
 }
 result<scene_mesh_binding> capture_mesh_binding(world& owner, scene_instance_id scene,
-                                                scene_node_id node) {
+                                                entity_id node) {
   auto status = validate(owner, scene, node);
   if (status.failed())
     return status;
@@ -257,7 +256,7 @@ result<scene_mesh_binding> capture_mesh_binding(world& owner, scene_instance_id 
                                                : result<scene_mesh_binding>{current.error()};
   return scene_mesh_binding{current->value.mesh, current->value.material};
 }
-error replace_mesh_binding(world& owner, scene_instance_id scene, scene_node_id node,
+error replace_mesh_binding(world& owner, scene_instance_id scene, entity_id node,
                            const scene_mesh_binding& expected,
                            const scene_mesh_binding& replacement, guid component_uuid,
                            asset_manager* resources) {

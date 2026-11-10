@@ -84,8 +84,7 @@ int main() try {
     return operation.operation();
   };
   const auto add_prefab_asset = [&](scene_edit_session& document, editor_command_history& commands,
-                                    std::string_view name, std::string_view uri,
-                                    scene_node_id parent) {
+                                    std::string_view name, std::string_view uri, entity_id parent) {
     editor_prefab_edit operation;
     auto status = operation.request(*app, scheduler, document, commands, name, uri, parent);
     if (status.failed())
@@ -220,7 +219,7 @@ int main() try {
   history.clear();
   engine::scene_mesh_binding before, after;
   scene_subtree_snapshot snapshot;
-  scene_node_id restored;
+  entity_id restored;
   if (gneiss::test_support::take_value(session.capture_mesh_binding(session.find_node(uuid)->node),
                                        before)
           .failed() ||
@@ -241,7 +240,7 @@ int main() try {
   mesh_instance.uuid = engine::guid::from_bytes({88, 3});
   mesh_instance.prefab.emplace();
   mesh_instance.prefab->uri = "asset://prefabs/memory.prefab.json";
-  scene_node_id mesh_node;
+  entity_id mesh_node;
   const std::array mesh_bindings{before};
   if (gneiss::test_support::take_value(
           gneiss::test_support::place_document_prefab(
@@ -276,7 +275,7 @@ int main() try {
   const auto restored_node = [&] {
     const auto node =
         session.find_prefab_source(mesh_target.instance_uuid, mesh_target.source_uuid);
-    return node ? node->node : scene_node_id{};
+    return node ? node->node : entity_id{};
   };
   if (restore_source.operation().failed())
     return 25;

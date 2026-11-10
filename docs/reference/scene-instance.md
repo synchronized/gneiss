@@ -7,7 +7,7 @@
 
 World 私有状态直接拥有场景槽位表；`scene_instance` 是借用句柄，
 `scene_instance_id` 是非拥有的集合标识。
-节点统一使用 `scene_node_id`，校验所属域和槽位代次；不能跨 World 使用，也不保活对象。
+节点统一使用 `entity_id`，校验所属域和槽位代次；不能跨 World 使用，也不保活对象。
 持久化身份使用 UUID，文件不保存运行期 ID。
 
 World 拥有场景树和 ECS；节点的 `scene_membership` 组件记录场景实例归属，

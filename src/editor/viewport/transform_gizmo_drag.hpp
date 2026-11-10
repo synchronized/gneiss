@@ -26,8 +26,8 @@ public:
   }
 
 private:
-  scene_node_id node_;
-  scene_node_id parent_;
+  entity_id node_;
+  entity_id parent_;
   gneiss::engine::guid uuid_;
   gneiss::engine::guid instance_uuid_;
   gneiss::engine::guid source_uuid_;

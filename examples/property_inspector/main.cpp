@@ -123,10 +123,10 @@ int main() try {
                                                gneiss::engine::meta::property_id{1}, value)
           .failed())
     return 3;
-  auto node = app->native_world()->entity_node(target);
+  auto node = app->native_world()->object(target);
   if (!node)
     return 3;
-  auto components = gneiss::engine::capture_components(*app->native_world(), *node);
+  auto components = gneiss::engine::capture_components(*app->native_world(), node->entity());
   if (!components)
     return 3;
   auto camera = components->find(gneiss::engine::camera_description::type_guid);

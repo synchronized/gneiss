@@ -20,7 +20,7 @@
 
 namespace gneiss::editor {
 namespace {
-engine::result<std::pair<scene_node_id, entity_id>>
+engine::result<std::pair<entity_id, entity_id>>
 locate_component(scene_edit_session& document, const component_edit_target& target) {
   if (target.instance_uuid) {
     const auto node = document.find_prefab_source(target.instance_uuid, target.source_uuid);

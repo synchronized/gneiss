@@ -72,10 +72,10 @@ bool approximately_equal(const gneiss::engine::math::transform& left,
 int run_tests() {
   gneiss::engine::world_state owner{17};
   auto& tree = owner.scene();
-  gneiss::scene_node_id root{};
-  gneiss::scene_node_id child{};
-  gneiss::scene_node_id grandchild{};
-  gneiss::scene_node_id other_root{};
+  gneiss::entity_id root{};
+  gneiss::entity_id child{};
+  gneiss::entity_id grandchild{};
+  gneiss::entity_id other_root{};
   const auto entity = owner.create_entity();
   if (gneiss::test_support::assign_value(tree.create({}, {}), root) !=
           gneiss::engine::error::success ||

@@ -207,7 +207,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
     if (gneiss::test_support::finish_history(refresh_history, refresh_history.redo()).failed())
       return 9;
   gneiss::editor::editor_command_history history;
-  gneiss::scene_node_id node;
+  gneiss::entity_id node;
   if (gneiss::test_support::create_mesh_document(*application, session, "Imported Lantern",
                                                  mesh->asset_uri, material->asset_uri, node,
                                                  &history) != gneiss::engine::error::success) {

@@ -224,7 +224,7 @@ gneiss::engine::error editor_prefab_edit::request(runtime::application& applicat
                                                   scene_edit_session& session,
                                                   editor_command_history& history,
                                                   std::string_view name, std::string_view uri,
-                                                  scene_node_id parent) {
+                                                  entity_id parent) {
   if (active() || history.is_pending() || !session.is_open()) {
     return gneiss::engine::error::not_ready;
   }
@@ -271,7 +271,7 @@ gneiss::engine::error editor_prefab_edit::request(runtime::application& applicat
 gneiss::engine::error editor_prefab_edit::request_remove(runtime::application& application,
                                                          scene_edit_session& session,
                                                          editor_command_history& history,
-                                                         scene_node_id root) {
+                                                         entity_id root) {
   if (active() || history.is_pending() || !session.is_open()) {
     return gneiss::engine::error::not_ready;
   }
@@ -299,7 +299,7 @@ gneiss::engine::error editor_prefab_edit::request_refresh(runtime::application& 
                                                           gneiss::engine::task_executor& executor,
                                                           scene_edit_session& session,
                                                           editor_command_history& history,
-                                                          scene_node_id root) {
+                                                          entity_id root) {
   if (active() || history.is_pending() || !session.is_open()) {
     return gneiss::engine::error::not_ready;
   }

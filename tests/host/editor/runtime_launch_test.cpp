@@ -67,7 +67,7 @@ int main() try {
     return 3;
   }
 
-  gneiss::scene_node_id author_node;
+  gneiss::entity_id author_node;
   if (author_session.create_node("Author Node", {}, author_node) !=
           gneiss::engine::error::success ||
       !author_session.is_dirty() ||
@@ -129,7 +129,7 @@ int main() try {
           gneiss::engine::error::success) {
     return 6;
   }
-  gneiss::scene_node_id runtime_node;
+  gneiss::entity_id runtime_node;
   if (runtime_session.create_node("Runtime Only", {}, runtime_node) !=
           gneiss::engine::error::success ||
       gneiss::test_support::scene_query(author_session).nodes.size() != author_node_count ||

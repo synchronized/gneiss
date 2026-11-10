@@ -236,8 +236,7 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
     auto transform = object.local_transform();
     if (!transform)
       return transform.error();
-    auto components =
-        engine::capture_components(*object.owner(), scene_node_id{object.entity().get()});
+    auto components = engine::capture_components(*object.owner(), entity_id{object.entity().get()});
     if (!components)
       return components.error();
     auto source = sources_.find(object.entity().get());

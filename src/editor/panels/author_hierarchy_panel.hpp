@@ -25,14 +25,14 @@ enum class author_hierarchy_action {
 struct author_hierarchy_view final {
   std::span<const scene_node_record> nodes;
   std::span<const prefab_node_record> prefab_nodes;
-  scene_node_id selection;
+  entity_id selection;
   bool can_create_prefab = false;
 };
 
 /** 拥有操作身份；主线程在完整树绘制结束后处理，禁止在递归遍历时重建节点列表。 */
 struct author_hierarchy_request final {
   author_hierarchy_action action = author_hierarchy_action::none;
-  scene_node_id node;
+  entity_id node;
   gneiss::engine::guid uuid;
   gneiss::engine::object_address parent;
 };

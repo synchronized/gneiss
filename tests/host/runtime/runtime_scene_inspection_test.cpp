@@ -261,7 +261,7 @@ bool test_registered_component_inspection() {
                              e::make_component_description(e::mesh_renderer_description{})})
           .failed())
     return false;
-  auto components = e::capture_components(world, gneiss::scene_node_id{node->entity().get()});
+  auto components = e::capture_components(world, gneiss::entity_id{node->entity().get()});
   if (!components || components->size() != 2 || !components->get<e::mesh_renderer_description>())
     return false;
   auto dependencies = e::component_dependencies(*components);
@@ -332,7 +332,7 @@ bool test_registered_component_inspection() {
                           e::mesh_renderer_description::type_guid)
           .failed())
     return false;
-  components = e::capture_components(world, gneiss::scene_node_id{node->entity().get()});
+  components = e::capture_components(world, gneiss::entity_id{node->entity().get()});
   return components && !components->get<e::mesh_renderer_description>();
 }
 

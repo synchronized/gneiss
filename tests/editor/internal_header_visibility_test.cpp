@@ -54,18 +54,17 @@
 #endif
 #include "engine/resource/scene/prefab_description.hpp"
 #include <type_traits>
-static_assert(!std::is_convertible_v<gneiss::entity_id, gneiss::scene_node_id>);
-static_assert(!std::is_convertible_v<std::uint64_t, gneiss::scene_node_id>);
+static_assert(!std::is_convertible_v<gneiss::scene_instance_id, gneiss::entity_id>);
+static_assert(!std::is_convertible_v<std::uint64_t, gneiss::entity_id>);
 static_assert(std::is_invocable_v<decltype(&gneiss::engine::world::entity_destroy),
                                   gneiss::engine::world&, gneiss::entity_id>);
 static_assert(!std::is_invocable_v<decltype(&gneiss::engine::world::entity_destroy),
-                                   gneiss::engine::world&, gneiss::scene_node_id>);
+                                   gneiss::engine::world&, gneiss::scene_instance_id>);
 // 原生描述结构不能退回裸 ID，否则方法签名的类型约束会被绕过。
-static_assert(
-    std::is_same_v<decltype(gneiss::engine::node_creation::parent), gneiss::scene_node_id>);
+static_assert(std::is_same_v<decltype(gneiss::engine::node_creation::parent), gneiss::entity_id>);
 
 static_assert(std::is_same_v<decltype(gneiss::engine::mesh_renderer_node_creation::parent),
-                             gneiss::scene_node_id>);
+                             gneiss::entity_id>);
 static_assert(
     std::is_same_v<decltype(gneiss::engine::mesh_renderer_replacement::entity), gneiss::entity_id>);
 static_assert(std::is_same_v<decltype(gneiss::engine::prefab_property_target::target_type_guid),

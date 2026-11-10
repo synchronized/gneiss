@@ -328,7 +328,7 @@ int main(int argc, char** argv) try {
           transform.translation[0] += static_cast<float>(std::sin(elapsed / 1000.0) * 0.1);
           if (gneiss::engine::error{
                   previous_world
-                      ->find(gneiss::entity_id{(gneiss::scene_node_id{camera.node.get()}).get()})
+                      ->find(gneiss::entity_id{(gneiss::entity_id{camera.node.get()}).get()})
                       .set_local_transform(transform)} != gneiss::engine::error::success) {
             return gneiss::engine::error::internal;
           }

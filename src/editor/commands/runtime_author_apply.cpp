@@ -11,17 +11,16 @@
 
 namespace {
 
-gneiss::scene_node_id resolve_author_node(gneiss::editor::scene_edit_session& session,
-                                          gneiss::engine::guid uuid,
-                                          gneiss::engine::guid instance_uuid,
-                                          gneiss::engine::guid source_uuid) {
+gneiss::entity_id resolve_author_node(gneiss::editor::scene_edit_session& session,
+                                      gneiss::engine::guid uuid, gneiss::engine::guid instance_uuid,
+                                      gneiss::engine::guid source_uuid) {
   if (instance_uuid.is_nil()) {
     const auto node = session.find_node(uuid);
-    return !node ? gneiss::scene_node_id{} : node->node;
+    return !node ? gneiss::entity_id{} : node->node;
   }
   const auto node = source_uuid.is_nil() ? session.find_prefab_root(instance_uuid)
                                          : session.find_prefab_source(instance_uuid, source_uuid);
-  return !node ? gneiss::scene_node_id{} : node->node;
+  return !node ? gneiss::entity_id{} : node->node;
 }
 
 } // namespace

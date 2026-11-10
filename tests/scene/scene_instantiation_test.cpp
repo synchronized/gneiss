@@ -518,7 +518,7 @@ void run() {
         .mesh_uri = gneiss::engine::resource_uri(before.mesh),
         .material_uri = gneiss::engine::resource_uri(before.material),
     };
-    gneiss::scene_node_id created{};
+    gneiss::entity_id created{};
     check(gneiss::test_support::take_value(
               gneiss::engine::create_mesh_renderer_node(*candidate.get(), candidate_assets,
                                                         new_scene, creation, &cleared),
@@ -535,7 +535,7 @@ void run() {
               created) == gneiss::engine::error::invalid_argument &&
           !created.is_valid());
     check(gneiss::test_support::scene_access{*candidate}->destroy_node(
-              new_scene, gneiss::scene_node_id{created_node}) == gneiss::engine::error::success);
+              new_scene, gneiss::entity_id{created_node}) == gneiss::engine::error::success);
     check(files->reads == binding_reads);
   }
   check(candidate.get()

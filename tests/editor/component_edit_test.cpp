@@ -293,7 +293,7 @@ int main() try {
   auto& world = *app->native_world();
   ed::scene_edit_session document;
   check(document.create_empty(*app, &world).ok());
-  gneiss::scene_node_id node;
+  gneiss::entity_id node;
   check(document.create_node("movement", {}, node).ok());
   check(document
             .add_component_description(node, e::make_component_description(movement_description{}))
@@ -522,7 +522,7 @@ int main() try {
   check(document.validate_selection().ok());
   check(history.undo() == e::error::invalid_state);
   {
-    gneiss::scene_node_id ref_node;
+    gneiss::entity_id ref_node;
     check(document.create_node("reference", {}, ref_node).ok());
     auto id = document.selected_node()->uuid;
     check(document
@@ -625,7 +625,7 @@ int main() try {
   }
   // 真实子树复制通过领域重映射修正内嵌引用，撤销恢复仍保持原身份。
   {
-    gneiss::scene_node_id original_node;
+    gneiss::entity_id original_node;
     check(document.create_node("linked", {}, original_node).ok());
     auto original_info = document.query_node(original_node);
     auto content = document.capture_content();
@@ -636,7 +636,7 @@ int main() try {
     linked.settings->link = {scene_data->uuid, original_info->uuid};
     check(document.add_component_description(original_node, e::make_component_description(linked))
               .ok());
-    gneiss::scene_node_id copied_node;
+    gneiss::entity_id copied_node;
     check(document.duplicate_subtree(original_node, {}, copied_node).ok());
     auto copied_info = document.query_node(copied_node);
     auto copied_components = document.components(copied_node);

@@ -21,7 +21,7 @@ struct editor_registry {
                      const component_description& source) -> result<component_description> {
          if (!source || !source->get<camera_description>())
            return error::invalid_argument;
-         auto current = capture_components(*target.owner(), scene_node_id{target.entity().get()});
+         auto current = capture_components(*target.owner(), entity_id{target.entity().get()});
          if (!current)
            return current.error();
          auto camera = current->get<camera_description>();
@@ -100,7 +100,7 @@ result<component_description> default_component_description(guid type) {
   return policy && policy->create_default ? validated(policy->create_default(), type)
                                           : result<component_description>{error::unsupported};
 }
-result<component_description> prepare_component_editor_value(world& owner, scene_node_id node,
+result<component_description> prepare_component_editor_value(world& owner, entity_id node,
                                                              const component_description& source) {
   if (!source)
     return error::invalid_argument;

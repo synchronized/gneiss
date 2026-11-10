@@ -23,36 +23,35 @@ class world_hierarchy final {
 public:
   explicit world_hierarchy(world_state& owner) noexcept : owner_(owner) {}
 
-  [[nodiscard]] result<scene_node_id> create(scene_node_id parent, std::uint64_t entity);
-  [[nodiscard]] error destroy(scene_node_id node);
-  [[nodiscard]] error reparent(scene_node_id node, scene_node_id parent);
-  [[nodiscard]] error set_local(scene_node_id node, const math::transform& transform) noexcept;
-  [[nodiscard]] const math::transform* get_local(scene_node_id node) const noexcept;
-  [[nodiscard]] result<math::transform> get_world(scene_node_id node) const noexcept;
+  [[nodiscard]] result<entity_id> create(entity_id parent, std::uint64_t entity);
+  [[nodiscard]] error destroy(entity_id node);
+  [[nodiscard]] error reparent(entity_id node, entity_id parent);
+  [[nodiscard]] error set_local(entity_id node, const math::transform& transform) noexcept;
+  [[nodiscard]] const math::transform* get_local(entity_id node) const noexcept;
+  [[nodiscard]] result<math::transform> get_world(entity_id node) const noexcept;
   [[nodiscard]] result<math::transform> get_world_for_entity(std::uint64_t entity) const noexcept;
-  [[nodiscard]] result<scene_node_id> node_for_entity(std::uint64_t entity) const noexcept;
   [[nodiscard]] const math::transform* get_local_for_entity(std::uint64_t entity) const noexcept;
   [[nodiscard]] error set_local_for_entity(std::uint64_t entity,
                                            const math::transform& transform) noexcept;
-  [[nodiscard]] std::uint64_t get_entity(scene_node_id node) const noexcept;
-  [[nodiscard]] scene_node_id get_parent(scene_node_id node) const noexcept;
-  [[nodiscard]] error set_identity(scene_node_id node, scene_node_identity identity);
-  [[nodiscard]] result<scene_node_identity_view> identity(scene_node_id node) const;
-  [[nodiscard]] const std::vector<scene_node_id>* children(scene_node_id node) const noexcept;
+  [[nodiscard]] std::uint64_t get_entity(entity_id node) const noexcept;
+  [[nodiscard]] entity_id get_parent(entity_id node) const noexcept;
+  [[nodiscard]] error set_identity(entity_id node, scene_node_identity identity);
+  [[nodiscard]] result<scene_node_identity_view> identity(entity_id node) const;
+  [[nodiscard]] const std::vector<entity_id>* children(entity_id node) const noexcept;
 
 private:
   struct node {
     scene_node_identity identity;
-    scene_node_id parent = null_scene_node_id;
-    std::vector<scene_node_id> children;
+    entity_id parent = null_entity_id;
+    std::vector<entity_id> children;
     math::transform local = math::transform{};
   };
   friend class world_state;
-  [[nodiscard]] node* find(scene_node_id id) noexcept;
-  [[nodiscard]] const node* find(scene_node_id id) const noexcept;
-  void detach(scene_node_id id) noexcept;
-  [[nodiscard]] bool is_descendant(scene_node_id ancestor, scene_node_id candidate) const noexcept;
-  void remove_child(scene_node_id parent, scene_node_id child) noexcept;
+  [[nodiscard]] node* find(entity_id id) noexcept;
+  [[nodiscard]] const node* find(entity_id id) const noexcept;
+  void detach(entity_id id) noexcept;
+  [[nodiscard]] bool is_descendant(entity_id ancestor, entity_id candidate) const noexcept;
+  void remove_child(entity_id parent, entity_id child) noexcept;
 
   world_state& owner_;
 };

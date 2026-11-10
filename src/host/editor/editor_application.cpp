@@ -956,7 +956,7 @@ bool reparent_with_history(editor_state& state, gneiss::engine::guid source_uuid
   const auto source = document.find_node(source_uuid);
   if (!source)
     return false;
-  gneiss::scene_node_id parent;
+  gneiss::entity_id parent;
   if (destination.source) {
     const auto target = document.find_prefab_source(destination.object, destination.source);
     if (!target)
@@ -1018,7 +1018,7 @@ void draw_component_descriptions(editor_state& state) {
   using namespace gneiss::engine;
   using namespace gneiss::editor;
   component_edit_target identity;
-  scene_node_id node_id;
+  entity_id node_id;
   if (const auto node = state.editing.document().selected_prefab_node()) {
     identity.instance_uuid = node->instance_uuid;
     identity.source_uuid = node->source_node_uuid;
@@ -1308,7 +1308,7 @@ void execute_asset_browser_request(editor_state& state,
       state.asset_scene_result = state.editing.prefabs().request(
           *state.application, state.task_scheduler, state.editing.document(),
           state.editing.history(), entry->display_name, entry->asset_uri,
-          !node ? gneiss::scene_node_id{} : node->node);
+          !node ? gneiss::entity_id{} : node->node);
       state.asset_scene_attempted = true;
     }
     break;
@@ -1430,7 +1430,7 @@ void draw_asset_browser(editor_state& state) {
   }
   view.author_uri = change.uri;
   view.author_message = change.message;
-  gneiss::scene_node_id selected_node;
+  gneiss::entity_id selected_node;
   if (const auto node = state.editing.document().selected_prefab_node())
     selected_node = node->node;
   else if (const auto ordinary_node = state.editing.document().selected_node())
@@ -1494,7 +1494,7 @@ gneiss::engine::error update_editor_camera(editor_state& state,
     input.pitch_delta = -io.MouseDelta.y * look_sensitivity;
   }
   if (ImGui::IsKeyPressed(ImGuiKey_F, false)) {
-    auto selected_node = gneiss::scene_node_id{};
+    auto selected_node = gneiss::entity_id{};
     if (const auto selected = state.editing.document().selected_node(); bool(selected)) {
       selected_node = selected->node;
     } else if (const auto prefab = state.editing.document().selected_prefab_node(); bool(prefab)) {
@@ -2408,15 +2408,15 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
       if (create_requested) {
         state.history_error = gneiss::editor::execute_scene_edit(
             state.editing.history(), state.editing.document(), "创建节点", [&] {
-              gneiss::scene_node_id created;
+              gneiss::entity_id created;
               return state.editing.document().create_node(
-                  "Node", selected ? selected->node : gneiss::scene_node_id{}, created);
+                  "Node", selected ? selected->node : gneiss::entity_id{}, created);
             });
       }
       if (duplicate_requested) {
         state.history_error = gneiss::editor::execute_scene_edit(
             state.editing.history(), state.editing.document(), "复制子树", [&] {
-              gneiss::scene_node_id duplicate;
+              gneiss::entity_id duplicate;
               return state.editing.document().duplicate_subtree(selected->node, selected->parent,
                                                                 duplicate);
             });
@@ -2433,7 +2433,7 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
         if (ImGui::Button("Duplicate Prefab")) {
           state.history_error = gneiss::editor::execute_scene_edit(
               state.editing.history(), state.editing.document(), "复制子树", [&] {
-                gneiss::scene_node_id duplicate;
+                gneiss::entity_id duplicate;
                 return state.editing.document().duplicate_subtree(
                     prefab_selected->node, prefab_selected->parent, duplicate);
               });

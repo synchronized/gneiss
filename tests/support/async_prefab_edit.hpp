@@ -29,8 +29,7 @@ inline engine::error finish_history(editor::editor_command_history& history, eng
 }
 inline engine::error create_prefab_document(runtime::application& app,
                                             editor::scene_edit_session& doc, std::string_view name,
-                                            std::string_view uri, scene_node_id parent,
-                                            scene_node_id& root,
+                                            std::string_view uri, entity_id parent, entity_id& root,
                                             engine::task_scheduler* tasks = nullptr) {
   root = {};
   if (!tasks)
@@ -48,7 +47,7 @@ inline engine::error create_prefab_document(runtime::application& app,
 inline engine::error refresh_prefab_document(runtime::application& app,
                                              editor::scene_edit_session& doc,
                                              editor::editor_command_history& history,
-                                             scene_node_id root) {
+                                             entity_id root) {
   editor::editor_prefab_edit edit;
   auto status = edit.request_refresh(app, application_tasks(), doc, history, root);
   return status.failed() ? status : drive_prefab_edit(app, edit, application_tasks());

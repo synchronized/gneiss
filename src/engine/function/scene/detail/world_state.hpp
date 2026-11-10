@@ -65,12 +65,12 @@ public:
       return false;
     }
     // 层级组件与实体同寿命。删除子节点时 EnTT 可能移动父组件，不能保存其地址。
-    while (const auto* children = scene_.children(scene_node_id{entity})) {
+    while (const auto* children = scene_.children(entity_id{entity})) {
       if (children->empty())
         break;
       (void)destroy_entity(children->back().get());
     }
-    scene_.detach(scene_node_id{entity});
+    scene_.detach(entity_id{entity});
 
     registry_.destroy(native);
     if (active_camera_ == entity) {
@@ -154,11 +154,11 @@ public:
     });
   }
 
-  [[nodiscard]] scene_instance_id scene_of(scene_node_id node) const noexcept {
+  [[nodiscard]] scene_instance_id scene_of(entity_id node) const noexcept {
     const auto* member = get<scene_membership>(node.get());
     return member ? member->scene : scene_instance_id{};
   }
-  void assign_scene(scene_node_id node, scene_instance_id scene) {
+  void assign_scene(entity_id node, scene_instance_id scene) {
     emplace_or_replace<scene_membership>(node.get(), scene);
   }
   template <class Function>
@@ -167,14 +167,14 @@ public:
       return;
     registry_.view<const scene_membership>().each([&](entt::entity entity, const auto& member) {
       if (member.scene == scene)
-        function(scene_node_id{encode(entity)});
+        function(entity_id{encode(entity)});
     });
   }
   /** 不保存查询快照；每次删除后重新取成员，避免 EnTT 删除使迭代器失效。 */
   void destroy_scene_members(scene_instance_id scene) {
     for (;;) {
-      scene_node_id first;
-      each_scene_member(scene, [&](scene_node_id node) {
+      entity_id first;
+      each_scene_member(scene, [&](entity_id node) {
         if (!first)
           first = node;
       });

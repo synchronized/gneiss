@@ -90,7 +90,7 @@ int run_tests() {
   first.each<position>([&](const position&) { ++visited; });
   if (!first.is_alive(visible) || first.entity_count() != 2U || visited != 1)
     return 6;
-  gneiss::scene_node_id parent{}, child{};
+  gneiss::entity_id parent{}, child{};
   auto& tree = first.scene();
   if (gneiss::test_support::assign_value(tree.create({}, replacement), parent).failed() ||
       gneiss::test_support::assign_value(tree.create(parent, visible), child).failed() ||
@@ -102,7 +102,7 @@ int run_tests() {
   const auto root = tree.create({}, 0);
   const auto leaf =
       root ? tree.create(*root, 0)
-           : gneiss::engine::result<gneiss::scene_node_id>{gneiss::engine::error::internal};
+           : gneiss::engine::result<gneiss::entity_id>{gneiss::engine::error::internal};
   if (!root || !leaf || root->get() != tree.get_entity(*root) || second.scene().get_local(*root) ||
       second.scene().create(*root, 0).error() != gneiss::engine::error::invalid_handle ||
       tree.reparent(*leaf, *root).failed() || tree.children(*root)->size() != 1 ||

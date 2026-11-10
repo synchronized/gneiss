@@ -89,7 +89,7 @@ int main() try {
   desc.asset_root = asset_root;
   gneiss::engine::world* world{};
   scene_edit_session session;
-  scene_node_id node;
+  entity_id node;
   if (gneiss::engine::error{gneiss::test_support::assign_value(
           gneiss::runtime::application::create(desc), app)} != gneiss::engine::error::success ||
       (world = app->native_world()) == nullptr ||

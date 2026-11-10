@@ -21,7 +21,7 @@
 namespace {
 
 struct example_state {
-  gneiss::scene_node_id camera_node{};
+  gneiss::entity_id camera_node{};
   gneiss::engine::action_id orbit{};
   gneiss::engine::action_id quit{};
   double angle = 0.0;

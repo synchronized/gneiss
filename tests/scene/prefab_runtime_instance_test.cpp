@@ -58,7 +58,7 @@ int main() try {
       world.find(gneiss::entity_id{(mapping.at(second_root).node).get()}).identity();
   check(root_identity && other_identity && !root_identity->uuid && !other_identity->uuid);
   check(root_identity->uuid != first.uuid && root_identity->uuid != root.uuid);
-  gneiss::scene_node_id parent;
+  gneiss::entity_id parent;
   check(gneiss::test_support::assign_value(
             world.find(gneiss::entity_id{(child_node).get()}).parent(), parent)
             .ok() &&

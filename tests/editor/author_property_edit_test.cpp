@@ -28,7 +28,7 @@
 
 namespace {
 int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_session& session,
-                 gneiss::scene_node_id ordinary) {
+                 gneiss::entity_id ordinary) {
   namespace e = gneiss::engine;
   namespace ed = gneiss::editor;
   using p = e::meta::property_id;
@@ -83,7 +83,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
           e::error::invalid_argument ||
       read(session.find_node(ordinary_uuid)->entity).far != 400.0F)
     return 49;
-  gneiss::scene_node_id other_camera;
+  gneiss::entity_id other_camera;
   if (session.create_node("active", {}, other_camera).failed() ||
       session.set_camera(other_camera, {{1.0F, 0.1F, 100.0F}, true}).failed())
     return 50;
@@ -116,7 +116,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   author.name = "instance";
   author.prefab.emplace();
   author.prefab->uri = "asset://camera.prefab.json";
-  gneiss::scene_node_id prefab_root;
+  gneiss::entity_id prefab_root;
   const std::array<e::scene_mesh_binding, 2> bindings{};
   if (gneiss::test_support::take_value(
           gneiss::test_support::place_document_prefab(session, author, e::prefab_asset_ref{source},
@@ -262,8 +262,8 @@ int main() try {
   gneiss::engine::world* world_handle = nullptr;
   scene_edit_session session;
   editor_command_history history;
-  scene_node_id first;
-  scene_node_id second;
+  entity_id first;
+  entity_id second;
   gneiss::runtime::application_configuration desc;
   if (gneiss::engine::error{
           gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)}
@@ -389,7 +389,7 @@ int main() try {
   }
   {
     editor_command_history structure;
-    scene_node_id inserted;
+    entity_id inserted;
     if (execute_scene_edit(structure, session, "添加对象", [&] {
           return session.create_node("inserted", {}, inserted);
         }).failed())

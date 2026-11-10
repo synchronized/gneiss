@@ -43,7 +43,7 @@ int main() try {
   check(member->effective.transform.translation.x == 3);
   const auto child = mapping.at(member->address).node;
   const auto root = mapping.at(member->parent).node;
-  gneiss::scene_node_id parent;
+  gneiss::entity_id parent;
   check(gneiss::test_support::assign_value(
             app->native_world()->find(gneiss::entity_id{(child).get()}).parent(), parent)
             .ok() &&
