@@ -76,10 +76,12 @@ e::component_operations<reference_description> reference_operations() {
                 return (!a.settings && !b.settings) ||
                        (a.settings && b.settings && a.settings->amount == b.settings->amount);
               },
-          .create_default = []() -> e::result<reference_description> {
-            return reference_description{};
-          },
-          .removable = false};
+          .editor =
+              e::component_editor_operations<reference_description>{
+                  .create_default = []() -> e::result<reference_description> {
+                    return reference_description{};
+                  },
+                  .removable = false}};
 }
 namespace {
 int editor_preparations{};
@@ -93,8 +95,8 @@ int main() try {
   check(e::initialize_meta(register_reference_meta).ok());
   check(e::register_scene_component(reference_operations()).ok());
   auto ops = operations();
-  ops.prepare_editor = [](e::game_object,
-                          const movement_description& value) -> e::result<movement_description> {
+  ops.editor->prepare_editor =
+      [](e::game_object, const movement_description& value) -> e::result<movement_description> {
     ++editor_preparations;
     return value;
   };

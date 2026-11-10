@@ -136,21 +136,23 @@ struct adapter_registry {
                return a.settings.fov == b.settings.fov && a.settings.near == b.settings.near &&
                       a.settings.far == b.settings.far && a.is_primary == b.is_primary;
              },
-         .create_default = []() -> result<camera_description> {
-           return camera_description{{std::numbers::pi_v<float> / 3, 0.1F, 1000.0F}};
-         },
-         .removable = true,
-         .prepare_editor = [](game_object target,
-                              const camera_description& value) -> result<camera_description> {
-           auto current = camera_capture(target);
-           if (!current)
-             return current.error();
-           if (!*current)
-             return error::not_found;
-           auto next = value;
-           next.is_primary = (**current).is_primary;
-           return next;
-         }}));
+         .editor =
+             component_editor_operations<camera_description>{
+                 .create_default = []() -> result<camera_description> {
+                   return camera_description{{std::numbers::pi_v<float> / 3, 0.1F, 1000.0F}};
+                 },
+                 .removable = true,
+                 .prepare_editor = [](game_object target, const camera_description& value)
+                     -> result<camera_description> {
+                   auto current = camera_capture(target);
+                   if (!current)
+                     return current.error();
+                   if (!*current)
+                     return error::not_found;
+                   auto next = value;
+                   next.is_primary = (**current).is_primary;
+                   return next;
+                 }}}));
     values.push_back(make_component_adapter<mesh_renderer_description>(
         {.validate = mesh_valid,
          .install = mesh_install,
@@ -172,8 +174,9 @@ struct adapter_registry {
                  result.push_back({value.material_uri, render_resource_kind::material});
                return result;
              },
-         .removable = true,
-         .editor_route = component_editor_route::mesh_assets}));
+         .editor =
+             component_editor_operations<mesh_renderer_description>{
+                 .removable = true, .editor_route = component_editor_route::mesh_assets}}));
   }
 };
 adapter_registry& registry() {
@@ -188,7 +191,7 @@ std::span<const component_adapter> adapters() {
 }
 const component_adapter* find(guid type, bool property = false) {
   for (const auto& adapter : adapters())
-    if (adapter.type == type || (property && adapter.property_type == type))
+    if (adapter.type == type || (property && adapter.editor.property_type == type))
       return &adapter;
   return nullptr;
 }
@@ -223,15 +226,15 @@ error register_scene_component(component_adapter adapter) {
   if (!adapter.type || !adapter.validate || !adapter.install || !adapter.capture ||
       !adapter.remove || !adapter.equal)
     return error::invalid_argument;
-  if (!adapter.property_type)
-    adapter.property_type = adapter.type;
+  if (!adapter.editor.property_type)
+    adapter.editor.property_type = adapter.type;
   auto& state = registry();
   std::lock_guard lock(state.mutex);
   if (state.frozen)
     return error::invalid_state;
   for (const auto& old : state.values)
-    if (old.type == adapter.type || old.property_type == adapter.property_type ||
-        old.type == adapter.property_type || old.property_type == adapter.type)
+    if (old.type == adapter.type || old.editor.property_type == adapter.editor.property_type ||
+        old.type == adapter.editor.property_type || old.editor.property_type == adapter.type)
       return error::invalid_argument;
   state.values.push_back(std::move(adapter));
   return error::success;
@@ -245,16 +248,16 @@ result<component_description> modify_component(const component_description& sour
     return error::unsupported;
   if (!change)
     return error::invalid_argument;
-  if (!adapter->modify)
+  if (!adapter->editor.modify)
     return error::unsupported;
   auto candidate = copy_candidate(source);
-  return candidate ? adapter->modify(*candidate, change) : candidate.error();
+  return candidate ? adapter->editor.modify(*candidate, change) : candidate.error();
 }
 result<std::vector<component_editor_info>> component_editor_types() {
   std::vector<component_editor_info> output;
   for (const auto& adapter : adapters())
-    output.push_back(
-        {adapter.type, bool(adapter.create_default), adapter.removable, adapter.editor_route});
+    output.push_back({adapter.type, bool(adapter.editor.create_default), adapter.editor.removable,
+                      adapter.editor.editor_route});
   return output;
 }
 guid component_description_type(guid type) noexcept {
@@ -265,8 +268,8 @@ result<component_editor_info> component_editor(guid type) noexcept {
   const auto* adapter = find(type);
   if (!adapter)
     return error::not_found;
-  return component_editor_info{adapter->type, bool(adapter->create_default), adapter->removable,
-                               adapter->editor_route};
+  return component_editor_info{adapter->type, bool(adapter->editor.create_default),
+                               adapter->editor.removable, adapter->editor.editor_route};
 }
 result<component_description> prepare_component_editor_value(world& owner, scene_node_id node,
                                                              const component_description& value) {
@@ -278,8 +281,8 @@ result<component_description> prepare_component_editor_value(world& owner, scene
   auto target = owner.object(entity_id{node.get()});
   if (!target)
     return target.error();
-  auto prepared = adapter->prepare_editor ? adapter->prepare_editor(*target, value)
-                                          : result<component_description>{value};
+  auto prepared = adapter->editor.prepare_editor ? adapter->editor.prepare_editor(*target, value)
+                                                 : result<component_description>{value};
   if (!prepared)
     return prepared.error();
   auto status = adapter->validate(*prepared);
@@ -289,9 +292,9 @@ result<component_description> default_component_description(guid type) {
   const auto* adapter = find(type);
   if (!adapter)
     return error::not_found;
-  if (!adapter->create_default)
+  if (!adapter->editor.create_default)
     return error::unsupported;
-  auto value = adapter->create_default();
+  auto value = adapter->editor.create_default();
   if (!value)
     return value.error();
   if (!*value || (*value)->guid() != type)
@@ -490,7 +493,7 @@ error edit_component(component_descriptions& values, guid type, meta::property_i
   const auto* adapter = find(type, true);
   if (!adapter)
     return error::unsupported;
-  if (!adapter->edit)
+  if (!adapter->editor.edit)
     return error::unsupported;
   const auto* source = values.find(adapter->type);
   if (!source)
@@ -498,7 +501,7 @@ error edit_component(component_descriptions& values, guid type, meta::property_i
   auto candidate = copy_candidate(*source);
   if (!candidate)
     return candidate.error();
-  auto edited = adapter->edit(*candidate, type, property, input);
+  auto edited = adapter->editor.edit(*candidate, type, property, input);
   if (!edited)
     return edited.error();
   values.set(std::move(*edited));
@@ -512,14 +515,14 @@ result<value> read_runtime_component(world& owner, scene_node_id node, guid type
   const auto* adapter = find(type, true);
   if (!adapter)
     return error::unsupported;
-  if (!adapter->read)
+  if (!adapter->editor.read)
     return error::unsupported;
   auto captured = adapter->capture(*target);
   if (!captured)
     return captured.error();
   if (!*captured)
     return error::not_found;
-  return adapter->read(**captured, type, property);
+  return adapter->editor.read(**captured, type, property);
 }
 error edit_runtime_component(component_context context, guid type, meta::property_id property,
                              const value& input) {
@@ -529,7 +532,7 @@ error edit_runtime_component(component_context context, guid type, meta::propert
   const auto* adapter = find(type, true);
   if (!adapter)
     return error::unsupported;
-  if (!adapter->edit)
+  if (!adapter->editor.edit)
     return error::unsupported;
   auto current = adapter->capture(context.target);
   if (!current)
@@ -549,7 +552,7 @@ error edit_runtime_component(component_context context, guid type, meta::propert
   auto candidate = copy_candidate(**current);
   if (!candidate)
     return candidate.error();
-  auto edited = adapter->edit(*candidate, type, property, input);
+  auto edited = adapter->editor.edit(*candidate, type, property, input);
   return edited ? adapter->install(context, *edited) : edited.error();
 }
 

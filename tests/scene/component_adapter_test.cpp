@@ -60,6 +60,16 @@ e::scene_instantiation_data prepare(e::scene_description scene, e::prefab_asset_
 int main() try {
   check(e::initialize_meta(register_movement_meta).ok());
   check(e::register_scene_component(e::component_adapter{}) == e::error::invalid_argument);
+  auto runtime_operations = operations();
+  runtime_operations.editor.reset();
+  const auto runtime_registration = e::make_component_adapter(runtime_operations);
+  check(bool(runtime_registration.install) && bool(runtime_registration.capture));
+  check(!runtime_registration.editor.read && !runtime_registration.editor.edit &&
+        !runtime_registration.editor.modify && !runtime_registration.editor.create_default &&
+        !runtime_registration.editor.prepare_editor);
+  const auto editable_registration = e::make_component_adapter(operations());
+  check(bool(editable_registration.editor.read) && bool(editable_registration.editor.edit) &&
+        bool(editable_registration.editor.modify) && editable_registration.editor.removable);
   e::component_adapter runtime_only;
   runtime_only.type = runtime_only_description::type_guid;
   runtime_only.validate = [](const e::component_description& value) -> e::error {
@@ -89,7 +99,7 @@ int main() try {
   check(e::register_scene_component(runtime_only) == e::error::invalid_argument);
   auto custom = operations();
   const auto alias = e::guid::from_bytes({84, 99});
-  custom.property_type = alias;
+  custom.editor->property_type = alias;
   custom.resolve_references = [](e::component_context& context,
                                  const movement_description& desc) -> e::error {
     if (desc.speed != 17)

@@ -61,6 +61,9 @@ component_context 只保存借用的 game_object target，不另存 World 和节
 注册回调 capture/remove/prepare_editor 同样接收 game_object；install/update/resolve_references
 通过 component_context.target 访问目标。注册回调不再接收独立的 World/node 参数对。
 运行注册必须提供 validate/install/capture/remove/equal，属性身份缺省为描述类型身份。
+component_adapter 的运行回调与 component_editor_adapter 编辑扩展分开保存，仍共用类型索引。
+类型化 component_operations<T> 通过可选 editor 显式提供 component_editor_operations<T>；
+省略 editor 不生成反射属性回调。提供编辑扩展时，未自定义的属性操作使用反射默认实现。
 read/edit/modify/default 等编辑能力可省略，相应操作返回 unsupported；无 dependencies
 回调表示没有外部依赖。removable 仅控制编辑命令与文档删除入口，不限制引擎 remove_component。
 场景同步、卸载及历史重放仍可移除运行组件。

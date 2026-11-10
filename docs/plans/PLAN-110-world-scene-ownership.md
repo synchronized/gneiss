@@ -366,3 +366,20 @@ Windows Clang Debug 的 Editor、Runtime 及相关目标编译通过，13 项 CP
 
 目前运行与编辑能力仍存于同一注册记录，完成的是行为解耦，并未完成注册类型及文件拆分。
 加载准备模型、World 场景槽位和运行来源身份迁移仍未完成，PLAN-110 保持进行中。
+
+
+## 2026-11-10 运行与编辑注册结构分离
+
+新增 component_editor_adapter，集中保存属性身份、read/edit/modify、默认创建及 Inspector 策略。
+component_adapter 保留运行与描述操作，并以 editor 成员关联编辑扩展；仍使用一个类型索引，
+不引入重复冻结状态或独立注册顺序。描述校验、比较和资源依赖收集留在运行/描述契约中。
+
+类型化注册增加 component_editor_operations<T>，通过 component_operations<T>::editor
+显式选择加入。省略时不生成任何编辑属性回调；显式提供时保留反射默认读写和自定义策略。
+内建相机、网格及测试扩展迁移为 editor 分组，不保留旧的平铺字段兼容入口。
+相关类型暂放在同一注册头文件，尚未进行运行/编辑实现文件拆分。
+
+新增类型化注册检查覆盖编辑扩展缺省与显式启用。Editor、Runtime 及相关目标通过
+Windows Clang Debug 编译，13 项 CPU 回归通过；格式化及 git diff --check 通过。
+未运行 GPU、大场景、其他平台或远端 CI。
+后续回到 World 场景槽位与重复状态层收敛；PLAN-110 整体仍进行中。

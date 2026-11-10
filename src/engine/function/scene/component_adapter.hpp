@@ -20,12 +20,29 @@ struct component_context {
   /** 仅解析本次实例的来源地址；不搜索其他实例。 */
   std::function<result<game_object>(object_address)> lookup_object{};
 };
+/** 可选编辑能力；与运行安装契约独立，缺失操作由编辑入口返回 unsupported。 */
+struct component_editor_adapter {
+  /** 可选属性身份；未指定时使用组件描述类型。 */
+  guid property_type;
+  std::function<result<value>(const component_description&, guid, meta::property_id)> read;
+  std::function<result<component_description>(const component_description&, guid, meta::property_id,
+                                              const value&)>
+      edit;
+  std::function<result<component_description>(const component_description&,
+                                              const std::function<error(meta::instance)>&)>
+      modify;
+  std::function<result<component_description>()> create_default;
+  /** 仅控制编辑器删除入口，不限制运行卸载、同步和组件移除。 */
+  bool removable = false;
+  component_editor_route editor_route = component_editor_route::reflected;
+  /** 编辑采用/历史重放前保留运行状态；普通安装和加载不调用此策略。 */
+  std::function<result<component_description>(game_object, const component_description&)>
+      prepare_editor;
+};
 /** 组件实现契约：安装失败不修改目标组件；捕获不修改 World。
  * 安装必须允许用之前捕获的有效描述恢复；不执行 I/O 或阻塞等待。 */
 struct component_adapter {
   guid type;
-  /** 可选属性身份；未指定时使用组件描述类型。 */
-  guid property_type;
   std::function<error(const component_description&)> validate;
   std::function<error(component_context&, const component_description&)> install;
   /** 已有组件的编辑更新，保留未在描述中表达的运行状态；失败不修改组件。
@@ -34,23 +51,10 @@ struct component_adapter {
   std::function<result<std::optional<component_description>>(game_object)> capture;
   std::function<error(game_object)> remove;
   std::function<bool(const component_description&, const component_description&)> equal;
-  std::function<result<value>(const component_description&, guid, meta::property_id)> read;
-  std::function<result<component_description>(const component_description&, guid, meta::property_id,
-                                              const value&)>
-      edit;
-  std::function<result<component_description>(const component_description&,
-                                              const std::function<error(meta::instance)>&)>
-      modify;
   std::function<std::vector<render_resource_source>(const component_description&)> dependencies;
-  std::function<result<component_description>()> create_default;
-  /** 仅控制编辑器删除入口，不限制运行卸载、同步和组件移除。 */
-  bool removable = false;
-  component_editor_route editor_route = component_editor_route::reflected;
-  /** 编辑采用/历史重放前保留运行状态；普通安装和加载不调用此策略。 */
-  std::function<result<component_description>(game_object, const component_description&)>
-      prepare_editor;
   /** 全部组件安装后调用；不得修改其他对象，缺失必需引用返回错误。 */
   std::function<error(component_context&, const component_description&)> resolve_references;
+  component_editor_adapter editor{};
 };
 /** 启动期注册；重复 GUID 拒绝，首次查询后冻结。纯描述回调须支持并发只读调用。
  * validate/install/capture/remove/equal 为必需；编辑回调可省略，对应操作返回 unsupported。
@@ -58,6 +62,16 @@ struct component_adapter {
 GNEISS_API error register_scene_component(component_adapter adapter);
 /** 更新已有组件，保持组件 UUID；不存在时返回 not_found，不隐式创建。 */
 GNEISS_API error update_component(component_context, const component_description&);
+/** 类型化编辑扩展；仅显式提供时生成反射属性操作。 */
+template <class T> struct component_editor_operations {
+  guid property_type = type_identity<T>::guid();
+  result<value> (*read)(const T&, guid, meta::property_id){};
+  error (*edit)(T&, guid, meta::property_id, const value&){};
+  result<T> (*create_default)(){};
+  bool removable = false;
+  component_editor_route editor_route = component_editor_route::reflected;
+  result<T> (*prepare_editor)(game_object, const T&){};
+};
 template <class T> struct component_operations {
   error (*validate)(const T&){};
   error (*install)(component_context&, const T&){};
@@ -65,24 +79,16 @@ template <class T> struct component_operations {
   result<std::optional<T>> (*capture)(game_object){};
   error (*remove)(game_object){};
   bool (*equal)(const T&, const T&){};
-  result<value> (*read)(const T&, guid, meta::property_id){};
-  error (*edit)(T&, guid, meta::property_id, const value&){};
   std::vector<render_resource_source> (*dependencies)(const T&){};
-  guid property_type = type_identity<T>::guid();
-  /** 显式选择加入编辑器；不自动假定 T{} 是可安装的描述。 */
-  result<T> (*create_default)(){};
-  /** 仅控制编辑器删除入口，不限制运行卸载、同步和组件移除。 */
-  bool removable = false;
-  component_editor_route editor_route = component_editor_route::reflected;
-  result<T> (*prepare_editor)(game_object, const T&){};
   error (*resolve_references)(component_context&, const T&){};
+  std::optional<component_editor_operations<T>> editor{};
 };
+
 template <class T> component_adapter make_component_adapter(component_operations<T> ops) {
   if (!ops.validate || !ops.install || !ops.capture || !ops.remove || !ops.equal)
     return {};
-  return {
+  component_adapter registration{
       .type = type_identity<T>::guid(),
-      .property_type = ops.property_type,
       .validate =
           [ops](const component_description& value) {
             const auto* typed = value ? value->get<T>() : nullptr;
@@ -113,13 +119,30 @@ template <class T> component_adapter make_component_adapter(component_operations
           [ops](const component_description& a, const component_description& b) {
             return a && b && a->get<T>() && b->get<T>() && ops.equal(*a->get<T>(), *b->get<T>());
           },
+      .dependencies =
+          [ops](const component_description& value) {
+            return ops.dependencies ? ops.dependencies(*value->get<T>())
+                                    : std::vector<render_resource_source>{};
+          },
+      .resolve_references =
+          [ops](component_context& context, const component_description& value) {
+            const auto* typed = value ? value->get<T>() : nullptr;
+            if (!typed)
+              return error{error::invalid_argument};
+            return ops.resolve_references ? ops.resolve_references(context, *typed)
+                                          : error{error::success};
+          }};
+  if (!ops.editor)
+    return registration;
+  registration.editor = {
+      .property_type = ops.editor->property_type,
       .read = [ops](const component_description& source, guid type,
                     meta::property_id property) -> result<value> {
         const auto* typed = source ? source->get<T>() : nullptr;
         if (!typed)
           return error::invalid_argument;
-        if (ops.read)
-          return ops.read(*typed, type, property);
+        if (ops.editor->read)
+          return ops.editor->read(*typed, type, property);
         auto root = meta::view(std::as_const(*typed));
         auto field = root ? root->member(property) : result<meta::const_instance>{root.error()};
         return field ? field->read_value() : result<value>{field.error()};
@@ -130,8 +153,8 @@ template <class T> component_adapter make_component_adapter(component_operations
           return error::invalid_argument;
         auto copy = *source->get<T>();
         auto status = [&]() -> error {
-          if (ops.edit)
-            return ops.edit(copy, type, property, input);
+          if (ops.editor->edit)
+            return ops.editor->edit(copy, type, property, input);
           auto root = meta::view(copy);
           if (!root)
             return root.error();
@@ -160,16 +183,11 @@ template <class T> component_adapter make_component_adapter(component_operations
           return status;
         return make_component_description(std::move(copy));
       },
-      .dependencies =
-          [ops](const component_description& value) {
-            return ops.dependencies ? ops.dependencies(*value->get<T>())
-                                    : std::vector<render_resource_source>{};
-          },
       .create_default =
-          ops.create_default
+          ops.editor->create_default
               ? std::function<
                     result<component_description>()>{[ops]() -> result<component_description> {
-                  auto source = ops.create_default();
+                  auto source = ops.editor->create_default();
                   if (!source)
                     return source.error();
                   auto status = ops.validate(*source);
@@ -178,27 +196,20 @@ template <class T> component_adapter make_component_adapter(component_operations
                   return make_component_description(std::move(*source));
                 }}
               : std::function<result<component_description>()>{},
-      .removable = ops.removable,
-      .editor_route = ops.editor_route,
+      .removable = ops.editor->removable,
+      .editor_route = ops.editor->editor_route,
       .prepare_editor = [ops](game_object target,
                               const component_description& value) -> result<component_description> {
         if (!value || !value->get<T>())
           return error::invalid_argument;
-        if (!ops.prepare_editor)
+        if (!ops.editor->prepare_editor)
           return value;
-        auto prepared = ops.prepare_editor(target, *value->get<T>());
+        auto prepared = ops.editor->prepare_editor(target, *value->get<T>());
         return prepared
                    ? result<component_description>{make_component_description(std::move(*prepared))}
                    : result<component_description>{prepared.error()};
-      },
-      .resolve_references =
-          [ops](component_context& context, const component_description& value) {
-            const auto* typed = value ? value->get<T>() : nullptr;
-            if (!typed)
-              return error{error::invalid_argument};
-            return ops.resolve_references ? ops.resolve_references(context, *typed)
-                                          : error{error::success};
-          }};
+      }};
+  return registration;
 }
 template <class T> error register_scene_component(component_operations<T> ops) {
   return register_scene_component(make_component_adapter(ops));
