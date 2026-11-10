@@ -281,10 +281,11 @@ bool draw_property_value(const char* name, value& data, const meta::type& type,
     const char* selected = "Unknown";
     for (const auto& choice : choices)
       if (choice.data.payload == data.payload)
-        selected = choice.name.c_str();
+        selected = (choice.name.empty() ? "" : choice.name.data());
     if (ImGui::BeginCombo(name, selected)) {
       for (const auto& choice : choices)
-        if (ImGui::Selectable(choice.name.c_str(), choice.data.payload == data.payload)) {
+        if (ImGui::Selectable((choice.name.empty() ? "" : choice.name.data()),
+                              choice.data.payload == data.payload)) {
           data = choice.data;
           changed = true;
           ++serial;

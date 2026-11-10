@@ -7,6 +7,7 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/serialization/policy.hpp"
 #include "engine/core/serialization/value.hpp"
+#include "engine/core/string_name.hpp"
 #include <stdexcept>
 namespace e = gneiss::engine;
 struct sample {
@@ -55,11 +56,18 @@ bool explicit_registration() {
     builder.name(name).guid(id).schema_version(3).property<&external_model::items>(
         m::property_id{1}, "items");
   }
+  if (e::string_name::find("external_model"))
+    return false;
   if (builder.commit().failed() || builder.commit() != e::error::invalid_state ||
       m::freeze(*registry).failed())
     return false;
   auto type = m::type_of<external_model>(*registry);
   if (!type || type.name() != "external_model" || type.guid() != id || type.schema_version() != 3)
+    return false;
+  const auto pooled = e::string_name::find("external_model");
+  if (!pooled || type.name().data() != pooled->view().data() ||
+      type.find_property("not_registered_property") ||
+      e::string_name::find("not_registered_property"))
     return false;
   external_model model{{{1.0F, 2.0F}}};
   auto root = m::view(*registry, model);
@@ -229,7 +237,36 @@ bool registration_exception_contract() {
              .extend([]<class>() -> e::result<int> { return e::error::invalid_argument; })
              .commit() == e::error::invalid_argument;
 }
+// 名称暂存不入池，提交后不再依赖 builder 或调用方字符串。
+bool pooled_enum_names() {
+  namespace m = e::meta;
+  enum class named_mode { first, second };
+  auto registry = m::create_registry();
+  if (!registry)
+    return false;
+  {
+    auto builder = m::registration::enumeration<named_mode>(*registry);
+    builder.name("pooled_enum_names");
+    std::string name = "pooled_enum_first";
+    builder.value(name, named_mode::first);
+    name = "pooled_enum_second";
+    builder.value(name, named_mode::second);
+    name.clear();
+    if (e::string_name::find("pooled_enum_first") || builder.commit().failed())
+      return false;
+  }
+  if (m::freeze(*registry).failed())
+    return false;
+  auto type = m::type_of<named_mode>(*registry);
+  auto entries = type.enum_entries();
+  const auto pooled = e::string_name::find("pooled_enum_first");
+  return entries.size() == 2 && pooled && entries[0].name == "pooled_enum_first" &&
+         entries[0].name.data() == pooled->view().data() && entries[1].name == "pooled_enum_second";
+}
+
 int main() {
+  if (!pooled_enum_names())
+    return 16;
   if (!registration_exception_contract())
     return 90;
   if (!extension_registration())

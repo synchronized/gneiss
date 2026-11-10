@@ -3,7 +3,7 @@
 
 #pragma once
 #include "engine/core/value.hpp"
-#include <string>
+#include <string_view>
 namespace gneiss::engine::meta {
 enum class type_kind {
   invalid,
@@ -16,9 +16,11 @@ enum class type_kind {
   reference,
   variant
 };
-/** 自有枚举显示项，注册时复制；不改变类型的业务校验规则。 */
+/** 枚举显示项。注册输入借用至调用结束；查询名称借用字符串池至 Engine 卸载。
+ * 查询名称为完整的 NUL 结尾文本，空名称可无 data；查询项集合仍借用注册表。
+ * 不改变类型的业务校验规则。 */
 struct enum_entry {
-  std::string name;
+  std::string_view name;
   value data;
   bool operator==(const enum_entry&) const = default;
 };

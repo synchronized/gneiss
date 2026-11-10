@@ -4,6 +4,7 @@
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/detail/type_ops.hpp"
+#include "engine/core/string_name.hpp"
 #include "engine/core/utf8.hpp"
 
 #include <algorithm>
@@ -30,7 +31,7 @@ struct property_record {
   std::uint32_t id = 0U;
   engine::guid type_guid{};
   property_access access = property_access::read_write;
-  std::string name;
+  string_name name;
   property_binding accessor{};
   engine::guid declaring_type{};
   engine::type_id declaring_id{};
@@ -41,7 +42,7 @@ struct type_record {
   engine::guid guid{};
   engine::type_id type_id{};
   std::uint32_t schema_version = 0;
-  std::string name;
+  string_name name;
   std::vector<property_record> properties;
   std::vector<std::size_t> property_names;
   object_ops object{};
@@ -224,12 +225,14 @@ public:
     record.type_id = id;
     record.native = native;
     record.guid = definition.guid;
-    record.name = definition.name;
+    record.name = string_name{definition.name};
     record.schema_version = definition.schema_version;
     record.extensions = definition.extensions;
     record.enumeration = true;
     record.scalar = kind;
-    record.entries.assign(entries.begin(), entries.end());
+    record.entries.reserve(entries.size());
+    for (const auto& entry : entries)
+      record.entries.push_back({string_name{entry.name}.view(), entry.data});
     enums_.emplace(id, std::move(record));
     return error::success;
   }
@@ -276,7 +279,7 @@ public:
     record->type_id = desc.type_id;
     record->native = desc.native;
     record->schema_version = desc.schema_version;
-    record->name.assign(desc.name);
+    record->name = string_name{desc.name};
     record->object = desc.object;
     record->extensions = desc.extensions;
     record->properties.reserve(desc.properties.size());
@@ -284,7 +287,7 @@ public:
       record->properties.push_back({.id = property.id.get(),
                                     .type_guid = property.type_guid,
                                     .access = property.access,
-                                    .name = std::string(property.name),
+                                    .name = string_name{property.name},
                                     .accessor = {},
                                     .declaring_type = desc.guid,
                                     .declaring_id = desc.type_id,
@@ -419,7 +422,7 @@ public:
       for (std::size_t i = 0; i < indices.size(); ++i)
         indices[i] = i;
       std::ranges::sort(indices, [&](std::size_t left, std::size_t right) {
-        return properties[left].name < properties[right].name;
+        return properties[left].name.view() < properties[right].name.view();
       });
       names.push_back(std::move(indices));
     }
@@ -733,9 +736,10 @@ property type::find_property(std::string_view name) const noexcept {
     return {};
   if (!record_)
     return {};
-  const auto found = std::ranges::lower_bound(
-      record_->property_names, name, {},
-      [&](std::size_t index) -> std::string_view { return record_->properties[index].name; });
+  const auto found = std::ranges::lower_bound(record_->property_names, name, {},
+                                              [&](std::size_t index) -> std::string_view {
+                                                return record_->properties[index].name.view();
+                                              });
   if (found == record_->property_names.end() || record_->properties[*found].name != name)
     return {};
   return meta::property{registry_, &record_->properties[*found]};
@@ -764,7 +768,7 @@ std::uint32_t type::schema_version() const noexcept {
   return record_ ? record_->schema_version : 0;
 }
 std::string_view type::name() const noexcept {
-  return record_ ? std::string_view{record_->name} : std::string_view{};
+  return record_ ? record_->name.view() : std::string_view{};
 }
 meta::type find_type(const registry_ref& registry, engine::type_id id) {
   return registry ? registry->lookup_type(id) : meta::type{};
@@ -846,7 +850,7 @@ property_id property::id() const noexcept {
   return record_ ? property_id{record_->id} : property_id{};
 }
 std::string_view property::name() const noexcept {
-  return record_ ? std::string_view{record_->name} : std::string_view{};
+  return record_ ? record_->name.view() : std::string_view{};
 }
 engine::type_id property::declaring_type_id() const noexcept {
   return record_ ? record_->declaring_id : engine::type_id{};

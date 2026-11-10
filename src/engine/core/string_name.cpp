@@ -18,7 +18,7 @@ namespace detail {
 struct string_name_entry {
   explicit string_name_entry(std::string_view value) : text(value) {}
 
-  std::string text;
+  const std::string text;
 };
 
 } // namespace detail
@@ -56,7 +56,9 @@ public:
 
 private:
   mutable std::mutex mutex_;
-  std::map<std::string, std::unique_ptr<detail::string_name_entry>, std::less<>> entries_by_text_;
+  // 键借用稳定堆条目的不可变文本；条目不单独删除，不重复保存文本。
+  std::map<std::string_view, std::unique_ptr<detail::string_name_entry>, std::less<>>
+      entries_by_text_;
 };
 
 [[nodiscard]] string_name_table& get_string_name_table() {

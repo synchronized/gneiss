@@ -109,11 +109,15 @@ public:
     committed_ = true;
     if (status_.failed())
       return status_;
+    std::vector<enum_entry> entries;
+    entries.reserve(entries_.size());
+    for (const auto& entry : entries_)
+      entries.push_back({entry.name, entry.data});
     enum_definition definition{.guid = guid_,
                                .schema_version = version_,
                                .name = name_,
                                .kind = detail::reflected_value_kind<E>(),
-                               .entries = entries_,
+                               .entries = entries,
                                .extensions = extensions_};
     auto status = detail::complete_identity<E>(definition);
     return status.failed() ? status : register_enum(registry_, definition);
@@ -121,7 +125,11 @@ public:
 
 private:
   registry_ref registry_;
-  std::vector<enum_entry> entries_;
+  struct entry {
+    std::string name;
+    engine::value data;
+  };
+  std::vector<entry> entries_;
   std::string name_;
   engine::guid guid_{};
   std::uint32_t version_ = 1;
