@@ -2,9 +2,119 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/scene/scene_application.hpp"
+#include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/scene_object.hpp"
 namespace gneiss::engine {
+result<scene_instantiation_result> instantiate(scene_instance destination,
+                                               const composed_scene& composed,
+                                               const scene_resource_bindings& assets,
+                                               game_object parent) {
+  if (!destination.owner())
+    return error::invalid_handle;
+  auto& world = *destination.owner();
+  if (!world.is_owner_thread())
+    return error::invalid_state;
+  if (!destination.is_valid())
+    return error::invalid_handle;
+  auto& scenes = *world.scenes();
+  if (parent.owner()) {
+    if (parent.owner() != &world)
+      return error::invalid_argument;
+    auto valid =
+        scenes.validate_editable_node(destination.id(), scene_node_id{parent.entity().get()});
+    if (valid.failed())
+      return valid;
+  }
+  std::map<object_address, const composed_object*> descriptions;
+  for (const auto& object : composed.objects)
+    if (!object.address.object || !descriptions.emplace(object.address, &object).second)
+      return error::invalid_argument;
+  for (const auto& object : composed.objects) {
+    if (object.parent.source && !object.parent.object)
+      return error::invalid_argument;
+    for (const auto& component : object.effective.components)
+      if (!component)
+        return error::invalid_argument;
+    auto ancestor = object.parent;
+    std::size_t depth = 0;
+    while (ancestor.object) {
+      auto found = descriptions.find(ancestor);
+      if (found == descriptions.end() || ++depth > descriptions.size())
+        return error::invalid_argument;
+      ancestor = found->second->parent;
+    }
+  }
+  entity_id previous_camera;
+  const auto camera_status = world.get_active_camera(previous_camera);
+  if (camera_status.failed() && camera_status != error::not_ready)
+    return camera_status;
+  std::vector<game_object> created;
+  created.reserve(composed.objects.size());
+  struct creation_guard {
+    std::vector<game_object>& objects;
+    engine::world& world;
+    entity_id camera;
+    bool complete{};
+    ~creation_guard() {
+      if (complete)
+        return;
+      // 父对象可能先被销毁；后续失效子句柄无需再次删除。
+      for (auto object : objects)
+        if (object.is_valid())
+          (void)object.destroy();
+      if (camera.get())
+        (void)world.set_active_camera(camera);
+    }
+  } guard{created, world, previous_camera};
+  scene_instantiation_result receipt;
+  receipt.instance = destination.id();
+  receipt.node_count = composed.objects.size();
+  receipt.objects.reserve(composed.objects.size());
+  receipt.roots.reserve(composed.objects.size());
+  std::map<object_address, game_object> objects;
+  for (const auto& object : composed.objects) {
+    // 运行来源身份外移前，保留首个普通对象的查询语义；重复实例不得复用 UUID。
+    auto uuid = object.address.source ? guid::generate() : object.address.object;
+    if (destination.find(uuid))
+      uuid = guid::generate();
+    auto made = destination.create({uuid, object.effective.name}, object.effective.transform);
+    if (!made)
+      return made.error();
+    created.push_back(*made);
+    objects.emplace(object.address, *made);
+    receipt.objects.push_back({object.address.object, object.address.source,
+                               scene_node_id{made->entity().get()}, made->entity()});
+  }
+  // 对象全部存在后再连接层级，输入无需按父子排序。
+  for (const auto& object : composed.objects) {
+    auto target = objects.at(object.address);
+    auto status = target.reparent(object.parent.object ? objects.at(object.parent) : parent);
+    if (status.failed())
+      return status;
+    if (!object.parent.object)
+      receipt.roots.push_back(target);
+  }
+  for (const auto& object : composed.objects) {
+    scene_mesh_binding binding;
+    if (const auto* renderer = object.effective.components.get<mesh_renderer_description>()) {
+      if (auto found = assets.find(renderer->mesh_uri); found != assets.end())
+        binding.mesh = resource_cast<mesh>(found->second);
+      if (auto found = assets.find(renderer->material_uri); found != assets.end())
+        binding.material = resource_cast<material>(found->second);
+    }
+    component_context context{world,
+                              scene_node_id{objects.at(object.address).entity().get()},
+                              {binding.mesh, binding.material}};
+    for (const auto& component : object.effective.components) {
+      auto status = add_component(context, component, component->uuid);
+      if (status.failed())
+        return status;
+    }
+  }
+  guard.complete = true;
+  return receipt;
+}
+
 namespace {
 result<scene_instantiation_result> instantiate_effective(world& world, scene_instances& scenes,
                                                          guid uuid, const composed_scene& composed,
@@ -29,21 +139,12 @@ result<scene_instantiation_result> instantiate_effective(world& world, scene_ins
       }
     }
   } guard{scenes, *created, world, previous_camera};
-  std::map<object_address, scene_object_association> associations;
-  auto applied = apply_scene(world, scenes, *created, associations, {}, composed, assets);
-  if (!applied)
-    return applied.error();
-  if (!*applied)
-    return error::invalid_state;
-  scene_instantiation_result receipt;
-  receipt.instance = *created;
-  receipt.node_count = associations.size();
-  receipt.objects.reserve(associations.size());
-  for (const auto& object : composed.objects) {
-    const auto& binding = associations.at(object.address);
-    receipt.objects.push_back(
-        {object.address.object, object.address.source, binding.node, binding.entity});
-  }
+  auto destination = scene_instance::borrow(world, *created);
+  if (!destination)
+    return destination.error();
+  auto receipt = instantiate(*destination, composed, assets);
+  if (!receipt)
+    return receipt.error();
   guard.instance = {};
   return receipt;
 }

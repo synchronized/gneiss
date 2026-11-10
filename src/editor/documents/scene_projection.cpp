@@ -50,26 +50,21 @@ engine::error project_scene_document(engine::world& world, engine::scene_instanc
       return engine::error::success;
     }
   }
-  auto inputs = make_scene_document_inputs(target);
-  if (!inputs)
-    return inputs.error();
-  engine::scene_instantiation_data prepared;
-  engine::scene_diagnostic diagnostic;
-  auto status = engine::prepare_loaded_scene(*inputs, {}, prepared, diagnostic, {});
-  if (status.failed())
-    return status;
+  auto composed = compose_scene_document(target);
+  if (!composed)
+    return composed.error();
   if (world.scenes() != &scenes)
     return engine::error::invalid_argument;
   auto current = scenes.get_node_count(scene);
   if (!current)
     return current.error();
   entity_id previous_camera;
-  status = world.get_active_camera(previous_camera);
+  auto status = world.get_active_camera(previous_camera);
   if (status.failed() && status != engine::error::not_ready)
     return status;
-  auto rebuilt = engine::instantiate_scene(world, std::move(prepared), target.assets);
-  if (!rebuilt)
-    return rebuilt.error();
+  auto candidate = scenes.create_empty(target.content.get().uuid);
+  if (!candidate)
+    return candidate.error();
   struct candidate_guard {
     engine::scene_instances& scenes;
     engine::world& world;
@@ -82,7 +77,13 @@ engine::error project_scene_document(engine::world& world, engine::scene_instanc
           (void)world.set_active_camera(camera);
       }
     }
-  } guard{scenes, world, rebuilt->instance, previous_camera};
+  } guard{scenes, world, *candidate, previous_camera};
+  auto destination = engine::scene_instance::borrow(world, *candidate);
+  if (!destination)
+    return destination.error();
+  auto rebuilt = engine::instantiate(*destination, *composed, target.assets);
+  if (!rebuilt)
+    return rebuilt.error();
   scene_projection replacement;
   status = replacement.reset(rebuilt->objects);
   if (status.failed())

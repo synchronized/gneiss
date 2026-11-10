@@ -327,6 +327,51 @@ int main() try {
   check(world.get_active_camera(camera_after_failure).ok() &&
         camera_after_failure == active_camera);
   check(*world.entity_count() == entities_before_failure);
+  // 同一组合结果重复追加到非空场景，保留旧对象并提供各自的来源回执。
+  auto destination = e::scene_instance::borrow(world, camera_instance->instance);
+  check(destination.has_value());
+  auto existing_parent = destination->find(camera_object.uuid);
+  check(existing_parent.has_value());
+  e::scene_description append_source;
+  append_source.uuid = e::guid::generate();
+  e::game_object_description append_root;
+  append_root.uuid = e::guid::generate();
+  e::game_object_description append_child;
+  append_child.uuid = e::guid::generate();
+  append_child.parent.object = append_root.uuid;
+  append_source.objects = {append_child, append_root};
+  auto append_composed = e::compose_scene(append_source, {});
+  check(append_composed.has_value());
+  auto appended = e::instantiate(*destination, *append_composed, {}, *existing_parent);
+  auto appended_again = e::instantiate(*destination, *append_composed, {}, *existing_parent);
+  check(appended && appended_again && *destination->size() == 5);
+  check(appended->roots.size() == 1 && appended_again->roots.size() == 1);
+  check(appended->roots[0] != appended_again->roots[0]);
+  check(*appended->roots[0].parent() == *existing_parent);
+  auto child_object = world.object(appended->objects.front().entity);
+  check(child_object && *child_object->parent() == appended->roots[0]);
+  const auto before_append_failure = *world.entity_count();
+  auto broken_composed = e::compose_scene(broken_scene, {});
+  check(broken_composed.has_value());
+  auto failed_append = e::instantiate(*destination, *broken_composed, {}, *existing_parent);
+  check(!failed_append && failed_append.error() == e::error::invalid_state);
+  check(*world.entity_count() == before_append_failure && *destination->size() == 5);
+  check(existing_parent->is_valid() && appended->roots[0].is_valid());
+  check(world.get_active_camera(camera_after_failure).ok() &&
+        camera_after_failure == active_camera);
+  auto malformed = *append_composed;
+  malformed.objects.back().parent = malformed.objects.front().address;
+  check(!e::instantiate(*destination, malformed, {}));
+  check(*world.entity_count() == before_append_failure);
+  check(!e::instantiate(e::scene_instance{}, *append_composed, {}));
+  auto foreign_scene_id = scenes.create_empty(e::guid::generate());
+  check(foreign_scene_id.has_value());
+  auto foreign_scene = e::scene_instance::borrow(world, *foreign_scene_id);
+  check(foreign_scene.has_value());
+  auto append_foreign_parent = foreign_scene->create({e::guid::generate(), "foreign"});
+  check(append_foreign_parent.has_value());
+  check(!e::instantiate(*destination, *append_composed, {}, *append_foreign_parent));
+  check(foreign_scene->unload().ok());
   check(scenes.unload(camera_instance->instance).ok());
   // Prefab 覆盖使用同一适配入口，不认识测试组件的类型。
   auto prefab = std::make_shared<e::prefab_description>();

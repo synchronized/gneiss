@@ -270,3 +270,25 @@ Editor、Runtime 及定向测试目标通过 Windows Clang Debug 编译；组件
 下一步为显式目标场景的 additive instantiate：不能直接将当前 apply_scene 当作追加接口，
 因为它按整场景目标执行增删同步；需独立追踪本次创建对象并仅清理这些对象。
 World 场景槽位、来源身份外移、组件注册拆分和相机激活分离均尚未完成。
+
+
+## 2026-11-10 显式目标场景装配
+
+新增 instantiate(scene_instance, const composed_scene&, const scene_resource_bindings&, game_object parent)。
+入口不做组合或 IO，先验证地址与层级，再创建全部对象、连接父子、安装组件。
+回执包含本次根对象及地址关联；同一组合结果可以重复追加到非空场景。
+失败只清理本次创建对象，不卸载目标场景或删除已有对象；相机安装仍沿用当前行为，
+失败恢复原活动相机，安装与激活分离仍待第六项。
+
+编辑器完整投影直接 compose_scene_document 后调用显式目标装配，不再绕行
+make_scene_document_inputs / prepare_loaded_scene。运行加载的旧 instantiate_scene
+仍负责创建目标并调用同一装配入口，待统一调用方时删除过渡包装。
+
+当前装配使用调用方提供的资源绑定，确保编辑器固定版本引用不被缓存替换；
+asset_manager 参数及通用组件依赖上下文待组件装配边界收敛时落实。
+运行 UUID 查询尚未移除：首次普通对象保留原查询语义，重复实例生成不同运行 UUID，
+文档地址始终由每次回执映射。通用组件间前向引用解析尚未实现，第二项不标记完成。
+
+Windows Clang Debug 的 Editor、Runtime 和相关测试目标编译通过，10 项定向 CPU 测试通过。
+新增覆盖重复追加、子先父后排列、已有父节点、失败清理、循环层级、无效目标和跨场景父节点。
+未运行 GPU、大场景、其他平台或远端 CI。

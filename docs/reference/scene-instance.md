@@ -42,6 +42,11 @@ if (!count)
 两者都不持有或借用资产管理器；`scene_instances::attach(world)` 和运行域初始化不需要资产服务。
 卸载通过 ECS 析构组件并释放资源强引用，不调用资产缓存清理。
 
+`instantiate(destination, composed, bindings, parent)` 将已组合的完整对象追加到指定场景。
+它不读取文件，parent 必须属于目标场景；空 parent 表示创建场景根。
+同一组合结果可重复实例化，回执的 roots 和 objects 只描述本次创建结果。
+失败只清理本次创建对象，目标场景和原有对象继续有效。
+
 `instantiate_scene(world, assets, source)` 位于 `scene_instantiation.hpp/.cpp`，
 只在调用期间借用资产管理器：从已加载 Scene 生成实例化输入，提交视觉资源请求，
 再同步创建对象。组件中的资源身份可以先存在，内容继续异步加载；不等待 GPU 上传。
