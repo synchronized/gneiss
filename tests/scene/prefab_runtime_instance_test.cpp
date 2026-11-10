@@ -56,7 +56,8 @@ int main() try {
   auto root_identity = world.find(gneiss::entity_id{(root_node).get()}).name();
   auto other_identity =
       world.find(gneiss::entity_id{(mapping.at(second_root).entity).get()}).name();
-  check(root_identity == other_identity);
+  // 同源实例分别使用场景中的名称，运行对象不以名称表达来源身份。
+  check(root_identity == "First" && other_identity == "Second");
   gneiss::entity_id parent;
   check(gneiss::test_support::assign_value(
             world.find(gneiss::entity_id{(child_node).get()}).parent(), parent)

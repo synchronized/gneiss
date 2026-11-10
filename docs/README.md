@@ -668,3 +668,5 @@
 
 - [PLAN-109：异常边界与进程内存耗尽策略收敛](plans/PLAN-109-exception-boundaries.md)
 - [ADR-114：预期错误、异常边界与进程 OOM](decisions/ADR-114-exception-boundaries.md)
+
+- [PLAN-110 定向 CPU 验收](records/2026-11-10-plan110-cpu-acceptance.md)
