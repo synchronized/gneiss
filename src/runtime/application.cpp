@@ -16,7 +16,6 @@
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "runtime/loading/action_map_application.hpp"
 #include "runtime/loading/resource_load_group.hpp"
 #include "runtime/loading/scene_service.hpp"
 #include <atomic>
@@ -71,7 +70,15 @@ struct application::storage {
   };
   std::shared_ptr<environment_read> environment_;
   std::unique_ptr<gneiss::engine::asset_manager> asset_manager_;
-  runtime::action_map_application input_application_;
+  engine::asset_request<engine::action_map> pending_action_map_;
+  std::shared_ptr<std::atomic<bool>> action_map_ready_;
+  engine::error action_map_result_{engine::error::invalid_state};
+
+  void cancel_action_map() noexcept {
+    action_map_ready_.reset();
+    pending_action_map_.cancel();
+    action_map_result_ = engine::error::invalid_state;
+  }
   runtime::scene_service scene_service_;
   std::unique_ptr<resource_load_group> asset_loading_;
   std::thread::id owner_thread_;
@@ -433,16 +440,25 @@ gneiss::engine::error application::begin_action_map(std::string_view uri) {
     return gneiss::engine::error::invalid_state;
   if (!has_asset_loading_service())
     return gneiss::engine::error::not_ready;
-  storage_->input_application_.cancel();
+  storage_->cancel_action_map();
   auto requested = storage_->asset_manager_->reload<gneiss::engine::action_map>(uri);
   if (!requested)
     return requested.error();
-  return storage_->input_application_.begin(std::move(*requested));
+  storage_->pending_action_map_ = std::move(*requested);
+  storage_->action_map_result_ = engine::error::not_ready;
+  storage_->action_map_ready_ = std::make_shared<std::atomic<bool>>(false);
+  // 每个请求独立的完成通知；取消或替换后，旧通知不能影响当前请求。
+  engine::detail::asset_request_access::when_ready(
+      storage_->pending_action_map_, [ready = std::weak_ptr{storage_->action_map_ready_}] {
+        if (auto receipt = ready.lock())
+          receipt->store(true);
+      });
+  return engine::error::success;
 }
 gneiss::engine::error application::action_map_status() const noexcept {
   if (!is_owner_thread() || !accepts_requests())
     return gneiss::engine::error::invalid_state;
-  return has_asset_loading_service() ? storage_->input_application_.status()
+  return has_asset_loading_service() ? storage_->action_map_result_
                                      : gneiss::engine::error::not_ready;
 }
 gneiss::engine::error application::cancel_action_map() noexcept {
@@ -450,7 +466,7 @@ gneiss::engine::error application::cancel_action_map() noexcept {
     return gneiss::engine::error::invalid_state;
   if (!has_asset_loading_service())
     return gneiss::engine::error::not_ready;
-  storage_->input_application_.cancel();
+  storage_->cancel_action_map();
   return gneiss::engine::error::success;
 }
 gneiss::engine::error
@@ -689,7 +705,14 @@ gneiss::engine::error application::run(std::uint64_t max_frame_count) try {
       storage_->is_running_ = false;
       return advanced;
     }
-    (void)storage_->input_application_.poll(storage_->input_);
+    if (storage_->action_map_ready_ && storage_->action_map_ready_->load()) {
+      auto loaded = storage_->pending_action_map_.take();
+      storage_->action_map_result_ =
+          loaded ? storage_->input_.replace_action_map(*(*loaded)->snapshot())
+                 : loaded.error().error;
+      storage_->pending_action_map_.cancel();
+      storage_->action_map_ready_.reset();
+    }
     const auto current_time_ns = now_ns();
     const auto raw_delta = current_time_ns >= storage_->previous_time_ns_
                                ? current_time_ns - storage_->previous_time_ns_
@@ -789,7 +812,7 @@ gneiss::engine::error application::request_shutdown() {
   storage_->closing_files_ = std::move(files);
   storage_->shutdown_requested_ = true;
   storage_->accepts_requests_.store(false, std::memory_order_release);
-  storage_->input_application_.cancel();
+  storage_->cancel_action_map();
   storage_->scene_service_.request_stop();
   if (storage_->asset_loading_)
     storage_->asset_loading_->request_stop();
@@ -832,7 +855,7 @@ gneiss::engine::error application::shutdown() {
   storage_->shutting_down_ = true;
   storage_->accepts_requests_.store(false, std::memory_order_release);
   auto shutdown_result = gneiss::engine::error::success;
-  storage_->input_application_.cancel();
+  storage_->cancel_action_map();
   storage_->asset_loading_.reset();
   storage_->scene_service_.shutdown();
   if (storage_->asset_manager_)

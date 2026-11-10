@@ -287,7 +287,7 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 共用加载契约位于 `function/asset/asset_loader.hpp`，调用与缓存契约见[资产参考](../reference/assets.md)。
 `asset_manager` 移植 Granit 示例的共享请求与类型 Loader 模型，通过注入的异步文件服务读取；
 任务经宿主执行器运行，结果由 `asset_manager::advance()` 采用，只有当前在途操作有写入权。
-`runtime/loading/action_map_application` 领取结果、复制映射并应用 InputService。
+Application 私有状态接收输入映射加载完成通知，在所属线程领取结果、复制映射并应用 InputService；取消或替换请求后旧通知失效，加载失败保留原映射。
 输入实时服务不访问文件或管理请求；公共 ABI 与安装头不暴露这些内部对象。
 
 ## CPU 类型与缓存

@@ -36,8 +36,6 @@ endif()
 include(glm)
 include(internal_interfaces)
 add_subdirectory(src)
-target_sources(gneiss_engine PRIVATE
-  src/runtime/loading/action_map_application.cpp)
 if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   add_subdirectory(tests/integration/assets)
 endif()
