@@ -220,10 +220,46 @@ void scene_service::advance_load_impl() {
     }
     auto content = (*prepared)->content();
     progress.phase = scene_load_phase::instantiating;
-    auto built = engine::measure(engine::loop_stage::scene_build, [&] {
-      return engine::instantiate_scene(*value.candidate->native_world(), *resources_, *prepared,
-                                       value.description_request.source_bytes());
-    });
+    auto built = engine::measure(
+        engine::loop_stage::scene_build,
+        [&]() -> engine::result<engine::scene_instantiation_result, engine::scene_diagnostic> {
+          auto input =
+              engine::make_instantiation_data(*prepared, value.description_request.source_bytes());
+          if (!input)
+            return input.error();
+          std::map<std::string, const engine::prefab_description*, std::less<>> sources;
+          for (const auto& [uri, source] : input->prefabs) {
+            if (!source.resource)
+              return engine::scene_diagnostic{engine::error::invalid_argument, 0, uri, {}};
+            sources.emplace(uri, source.resource.get());
+          }
+          auto composed = engine::compose_scene(input->description, sources);
+          if (!composed)
+            return engine::scene_diagnostic{composed.error(), 0, {}, {}};
+          engine::scene_resource_bindings bindings;
+          for (const auto& request : input->assets) {
+            auto loaded = resources_->load(request);
+            if (!loaded)
+              return engine::scene_diagnostic{loaded.error(), 0, request.uri,
+                                              "无法提交场景视觉加载"};
+            bindings.emplace(request.uri, loaded->resource());
+          }
+          auto& world = *value.candidate->native_world();
+          auto created = world.scenes()->create_empty(input->description.uuid);
+          if (!created)
+            return engine::scene_diagnostic{created.error(), 0, {}, {}};
+          auto destination = engine::scene_instance::borrow(world, *created);
+          if (!destination)
+            return engine::scene_diagnostic{destination.error(), 0, {}, {}};
+          auto result = engine::instantiate(*destination, *composed, bindings);
+          if (!result) {
+            (void)destination->unload();
+            return engine::scene_diagnostic{result.error(), 0, {}, {}};
+          }
+          result->assets = std::move(input->assets);
+          result->bindings = std::move(bindings);
+          return std::move(*result);
+        });
     if (!built) {
       finish(built.error().error, scene_load_phase::failed, built.error().message);
       return;

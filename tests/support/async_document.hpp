@@ -4,6 +4,7 @@
 #include "async_application.hpp"
 #include "documents/scene_edit_session.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
+#include "scene_instantiation.hpp"
 namespace gneiss::test_support {
 inline engine::error open_document(editor::scene_edit_session& document, runtime::application& app,
                                    engine::world* world, std::string_view uri,
@@ -19,8 +20,8 @@ inline engine::error open_document(editor::scene_edit_session& document, runtime
   if (!initial)
     return initial.error();
   initial->assets = bindings;
-  auto created =
-      gneiss::engine::instantiate_scene(*app.native_world(), std::move(prepared), bindings);
+  auto created = gneiss::test_support::scene_fixture::instantiate_scene(
+      *app.native_world(), std::move(prepared), bindings);
   if (!created)
     return created.error();
   const auto instance = created->instance;

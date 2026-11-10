@@ -47,15 +47,22 @@ if (!count)
 同一组合结果可重复实例化，回执的 roots 和 objects 只描述本次创建结果。
 失败只清理本次创建对象，目标场景和原有对象继续有效。
 
-`instantiate_scene(world, assets, source)` 位于 `scene_instantiation.hpp/.cpp`，
-只在调用期间借用资产管理器：从已加载 Scene 生成实例化输入，提交视觉资源请求，
-再同步创建对象。组件中的资源身份可以先存在，内容继续异步加载；不等待 GPU 上传。
-已准备输入通过独立的 `instantiate_scene` 消费；场景集合不负责描述解析或组件装配。
+Runtime 的 scene_service 在异步取得 Scene 后，生成组合输入、提交视觉资源请求，
+显式创建目标场景并调用 instantiate；引擎不再提供混合组合/创建职责的 instantiate_scene。
+测试中的同名便利函数仅位于 tests/support/scene_instantiation.hpp。
+组件中的资源身份可以先存在，内容继续异步加载；不等待 GPU 上传。
+场景集合不负责描述解析或组件装配。
 按 URI 创建网格对象和设置网格绑定也在显式装配入口中，不是场景实例方法。
 
 组件增删改直接使用 `add_component` / `remove_component` / `update_component` 和短期借用的
 `component_context`；传入准备好的引用时不查询资产管理器。场景增量应用先验证对象归属，
 再调用组件适配器；直接操作 World 不隐含某个编辑文档的场景限制。
+组件上下文通过 lookup_resource 查询固定资源；提供回调时不回退到当前缓存，
+网格组件自行解释 mesh/material URI。未提供回调的普通编辑优先保留现有资源引用。
+全部组件安装完后调用可选的 resolve_references；lookup_object 仅解析本次实例地址。
+适配器自行决定引用是否必需，必需目标缺失返回错误，可选缺失可保存为空。
+增量投影也在组件更新后重新解析引用；失败会使投影失去同步状态，不承诺回滚既有编辑。
+
 相机配置、移除以及网格组件移除使用 World 原生接口，不再由场景集合重复转发。
 
 ## 编辑入口边界

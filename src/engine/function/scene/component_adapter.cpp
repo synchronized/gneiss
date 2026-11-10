@@ -63,49 +63,48 @@ result<std::optional<camera_description>> camera_capture(world& owner, scene_nod
 error mesh_valid(const mesh_renderer_description& value) {
   return validate_mesh_renderer_description(value).error;
 }
-result<mesh_renderer> mesh_resolve(const mesh_renderer_description& value,
-                                   asset_manager& resources) {
-  mesh_renderer result;
-  if (!value.mesh_uri.empty()) {
-    auto loaded = resources.load({value.mesh_uri, render_resource_kind::mesh});
-    if (!loaded)
-      return loaded.error();
-    result.mesh = loaded->get<engine::mesh>();
-  }
-  if (!value.material_uri.empty()) {
-    auto loaded = resources.load({value.material_uri, render_resource_kind::material});
-    if (!loaded)
-      return loaded.error();
-    result.material = loaded->get<engine::material>();
-  }
-  return result;
-}
 error mesh_install(component_context& context, const mesh_renderer_description& value) {
-  auto ready = context.renderer;
-  if (value.mesh_uri.empty())
-    ready.mesh = {};
-  else if (resource_uri(ready.mesh) != value.mesh_uri) {
+  const auto resolve = [&]<class T>(std::string_view uri) -> result<ref<const T>> {
+    if (uri.empty())
+      return ref<const T>{};
+    if (context.lookup_resource) {
+      auto resource = context.lookup_resource({std::string(uri), resource_traits<T>::kind});
+      if (!resource)
+        return resource.error();
+      auto typed = resource_cast<T>(*resource);
+      if (!typed || resource_uri(typed) != uri)
+        return error::invalid_argument;
+      return typed;
+    }
+    // 普通属性编辑保留当前资源；固定文档引用由上面的 lookup 明确提供。
+    auto current = context.owner.node_mesh_renderer(context.node);
+    if (current) {
+      ref<const T> existing;
+      if constexpr (std::same_as<T, engine::mesh>)
+        existing = current->mesh;
+      else
+        existing = current->material;
+      if (resource_uri(existing) == uri)
+        return existing;
+    } else if (current.error() != error::not_found)
+      return current.error();
     if (!context.resources)
       return error::not_ready;
-    auto loaded = context.resources->load({value.mesh_uri, render_resource_kind::mesh});
-    if (!loaded)
-      return loaded.error();
-    ready.mesh = loaded->get<engine::mesh>();
-  }
-  if (value.material_uri.empty())
-    ready.material = {};
-  else if (resource_uri(ready.material) != value.material_uri) {
-    if (!context.resources)
-      return error::not_ready;
-    auto loaded = context.resources->load({value.material_uri, render_resource_kind::material});
-    if (!loaded)
-      return loaded.error();
-    ready.material = loaded->get<engine::material>();
-  }
-  if (context.resources && ((ready.mesh && !context.resources->owns(ready.mesh)) ||
-                            (ready.material && !context.resources->owns(ready.material))))
+    auto loaded = context.resources->load({std::string(uri), resource_traits<T>::kind});
+    return loaded ? result<ref<const T>>{loaded->template get<T>()}
+                  : result<ref<const T>>{loaded.error()};
+  };
+  auto mesh = resolve.template operator()<engine::mesh>(value.mesh_uri);
+  if (!mesh)
+    return mesh.error();
+  auto material = resolve.template operator()<engine::material>(value.material_uri);
+  if (!material)
+    return material.error();
+  if (context.resources && ((*mesh && !context.resources->owns(*mesh)) ||
+                            (*material && !context.resources->owns(*material))))
     return error::invalid_argument;
-  return context.owner.entity_set_mesh_renderer(entity(context.owner, context.node), ready);
+  return context.owner.entity_set_mesh_renderer(entity(context.owner, context.node),
+                                                {*mesh, *material});
 }
 result<std::optional<mesh_renderer_description>> mesh_capture(world& owner, scene_node_id node) {
   auto value = owner.node_mesh_renderer(node);
@@ -190,6 +189,25 @@ error valid_target(component_context& context) {
   entity_id id;
   return context.owner.node_get_entity(context.node, id);
 }
+}
+error resolve_component_references(component_context context,
+                                   const component_descriptions& values) {
+  auto status = valid_target(context);
+  if (status.failed())
+    return status;
+  for (const auto& value : values) {
+    if (!value)
+      return error::invalid_argument;
+    const auto* adapter = find(value->guid());
+    if (!adapter)
+      return error::unsupported;
+    if (adapter->resolve_references) {
+      status = adapter->resolve_references(context, value);
+      if (status.failed())
+        return status;
+    }
+  }
+  return error::success;
 }
 error register_scene_component(component_adapter adapter) {
   if (!adapter.type || !adapter.property_type || !adapter.validate || !adapter.install ||
@@ -491,12 +509,6 @@ error edit_runtime_component(component_context context, guid type, meta::propert
     return current.error();
   if (!*current)
     return error::not_found;
-  // 属性编辑保留当前资源引用；只有 URI 被显式修改时才查找已就绪缓存。
-  auto renderer = context.owner.node_mesh_renderer(context.node);
-  if (renderer)
-    context.renderer = std::move(*renderer);
-  else if (renderer.error() != error::not_found)
-    return renderer.error();
   auto reflected = meta::find_type(adapter->type);
   if (!reflected)
     return gneiss::engine::error{gneiss::engine::error::not_found};
@@ -513,24 +525,7 @@ error edit_runtime_component(component_context context, guid type, meta::propert
   auto edited = adapter->edit(*candidate, type, property, input);
   return edited ? adapter->install(context, *edited) : edited.error();
 }
-result<mesh_renderer> resolve_component_renderer(const component_descriptions& values,
-                                                 asset_manager& resources) {
-  const auto* renderer = values.get<mesh_renderer_description>();
-  return renderer ? mesh_resolve(*renderer, resources) : result<mesh_renderer>{mesh_renderer{}};
-}
-mesh_renderer
-prepared_component_renderer(const component_descriptions& values,
-                            const std::function<render_resource_ref(std::string_view)>& lookup) {
-  const auto* renderer = values.get<mesh_renderer_description>();
-  return renderer
-             ? mesh_renderer{renderer->mesh_uri.empty()
-                                 ? ref<const engine::mesh>{}
-                                 : resource_cast<engine::mesh>(lookup(renderer->mesh_uri)),
-                             renderer->material_uri.empty()
-                                 ? ref<const engine::material>{}
-                                 : resource_cast<engine::material>(lookup(renderer->material_uri))}
-             : mesh_renderer{};
-}
+
 }
 
 namespace gneiss::engine {

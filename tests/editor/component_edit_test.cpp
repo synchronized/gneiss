@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/document_prefab.hpp"
 #include "../support/movement_component.hpp"
+#include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
 #include "engine/core/fatal.hpp"
@@ -489,7 +490,8 @@ int main() try {
   e::scene_instantiation_data prepared;
   e::scene_diagnostic diagnostic;
   check(e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).ok());
-  auto receipt = gneiss::engine::instantiate_scene(*app->native_world(), std::move(prepared), {});
+  auto receipt = gneiss::test_support::scene_fixture::instantiate_scene(*app->native_world(),
+                                                                        std::move(prepared), {});
   check(bool(receipt));
   const auto loaded = receipt->instance;
   const auto root_binding = std::ranges::find_if(receipt->objects, [&](const auto& object) {

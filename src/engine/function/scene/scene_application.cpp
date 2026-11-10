@@ -186,8 +186,12 @@ result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_i
   };
   for (const auto& update : updates) {
     const auto node = nodes.at(update.address).node;
-    const auto prepared = prepared_binding(*desired.at(update.address));
-    component_context context{world, node, {prepared.mesh, prepared.material}};
+    component_context context{
+        world, node, [&](const render_resource_source& source) -> result<render_resource_ref> {
+          auto found = assets.find(source.uri);
+          return found == assets.end() ? result<render_resource_ref>{error::not_ready}
+                                       : result<render_resource_ref>{found->second};
+        }};
     auto status = update.remove ? remove_component(context, update.type)
                   : update.add  ? add_component(context, update.value, update.value->uuid)
                                 : update_component(context, update.value);
@@ -220,6 +224,17 @@ result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_i
     if (!target)
       return target.error();
     auto status = target->set_local_transform(object.effective.transform);
+    if (status.failed())
+      return status;
+  }
+  for (const auto& object : next.objects) {
+    component_context context{world, nodes.at(object.address).node};
+    context.lookup_object = [&](object_address address) -> result<game_object> {
+      auto found = associations.find(address);
+      return found == associations.end() ? result<game_object>{error::not_found}
+                                         : world.object(found->second.entity);
+    };
+    auto status = resolve_component_references(context, object.effective.components);
     if (status.failed())
       return status;
   }

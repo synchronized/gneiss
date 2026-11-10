@@ -292,3 +292,25 @@ asset_manager 参数及通用组件依赖上下文待组件装配边界收敛时
 Windows Clang Debug 的 Editor、Runtime 和相关测试目标编译通过，10 项定向 CPU 测试通过。
 新增覆盖重复追加、子先父后排列、已有父节点、失败清理、循环层级、无效目标和跨场景父节点。
 未运行 GPU、大场景、其他平台或远端 CI。
+
+
+## 2026-11-10 组件上下文与运行入口收敛
+
+component_context 删除网格专属 renderer 字段，改为 lookup_resource 回调；固定文档引用
+优先且不回退缓存。实例化不再识别 mesh_renderer_description 来准备专属上下文，
+类型解释回到网格适配器。删除无调用方的 resolve_component_renderer / prepared_component_renderer。
+旧网格创建辅助暂通过私有固定引用适配函数连接通用上下文。
+
+组件注册增加可选 resolve_references，实例化先安装全部组件，再通过本次地址映射解析引用。
+增量投影更新后也调用解析步骤；对象地址查询缺失返回 not_found，必需/可选由适配器决定。
+通过测试组件验证目标组件已存在、同一组合两次实例化不串引用及必需引用失败仅清理本次创建结果。
+尚未引入通用“组件 UUID -> 任意组件”访问 API；组件适配器从解析出的对象访问自己的组件。
+
+生产代码删除两种 instantiate_scene 包装。Runtime 加载协调方显式组合、创建目标、调用 instantiate，
+测试便利创建移入 tests/support。scene_instantiation_data 仍用于加载阶段的依赖清单，
+尚未彻底删除；component_context 的 World/node 目标表示及运行/编辑注册拆分仍待后续迁移。
+第 2、5、7 项因此尚未整体验收，不将本批描述为全部计划完成。
+
+Windows Clang Debug：Editor、Runtime 和相关目标编译通过；10 项场景/组件/编辑 CPU 测试，
+以及 scene-load-application、prefab-runtime-application 共 12 项通过。
+未运行 GPU、大场景、其他平台或远端 CI。git diff --check 通过。

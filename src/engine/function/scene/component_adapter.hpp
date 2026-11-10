@@ -3,6 +3,7 @@
 #pragma once
 #include "engine/function/asset/render_resource.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/resource/scene/object_address.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 #include <functional>
 #include <optional>
@@ -14,8 +15,11 @@ enum class component_editor_route { reflected, mesh_assets };
 struct component_context {
   world& owner;
   scene_node_id node;
-  mesh_renderer renderer{};
+  /** 提供时为固定资源来源，不回退到当前缓存；仅在本次调用期间借用。 */
+  std::function<result<render_resource_ref>(const render_resource_source&)> lookup_resource{};
   asset_manager* resources{};
+  /** 仅解析本次实例的来源地址；不搜索其他实例。 */
+  std::function<result<game_object>(object_address)> lookup_object{};
 };
 /** 组件实现契约：安装失败不修改目标组件；捕获不修改 World。
  * 安装必须允许用之前捕获的有效描述恢复；不执行 I/O 或阻塞等待。 */
@@ -44,6 +48,8 @@ struct component_adapter {
   /** 编辑采用/历史重放前保留运行状态；普通安装和加载不调用此策略。 */
   std::function<result<component_description>(world&, scene_node_id, const component_description&)>
       prepare_editor;
+  /** 全部组件安装后调用；不得修改其他对象，缺失必需引用返回错误。 */
+  std::function<error(component_context&, const component_description&)> resolve_references;
 };
 /** 启动期注册；重复 GUID 拒绝，首次查询后冻结。纯描述回调须支持并发只读调用。 */
 GNEISS_API error register_scene_component(component_adapter adapter);
@@ -65,6 +71,7 @@ template <class T> struct component_operations {
   bool removable = false;
   component_editor_route editor_route = component_editor_route::reflected;
   result<T> (*prepare_editor)(world&, scene_node_id, const T&){};
+  error (*resolve_references)(component_context&, const T&){};
 };
 template <class T> component_adapter make_component_adapter(component_operations<T> ops) {
   if (!ops.validate || !ops.install || !ops.capture || !ops.remove || !ops.equal)
@@ -180,7 +187,15 @@ template <class T> component_adapter make_component_adapter(component_operations
         return prepared
                    ? result<component_description>{make_component_description(std::move(*prepared))}
                    : result<component_description>{prepared.error()};
-      }};
+      },
+      .resolve_references =
+          [ops](component_context& context, const component_description& value) {
+            const auto* typed = value ? value->get<T>() : nullptr;
+            if (!typed)
+              return error{error::invalid_argument};
+            return ops.resolve_references ? ops.resolve_references(context, *typed)
+                                          : error{error::success};
+          }};
 }
 template <class T> error register_scene_component(component_operations<T> ops) {
   return register_scene_component(make_component_adapter(ops));
@@ -204,6 +219,7 @@ GNEISS_API result<component_description> default_component_description(guid type
 /** 只处理单个组件；重复添加返回 invalid_state，缺失删除返回 not_found。 */
 GNEISS_API error add_component(component_context, const component_description&, guid identity = {});
 GNEISS_API error remove_component(component_context, guid type);
+GNEISS_API error resolve_component_references(component_context, const component_descriptions&);
 GNEISS_API error validate_components(const component_descriptions&);
 GNEISS_API result<component_descriptions> capture_components(world&, scene_node_id);
 GNEISS_API error install_components(component_context, const component_descriptions&);
@@ -215,11 +231,6 @@ component_dependencies(const component_descriptions&);
 GNEISS_API error edit_component(component_descriptions&, guid, meta::property_id, const value&);
 GNEISS_API result<value> read_runtime_component(world&, scene_node_id, guid, meta::property_id);
 GNEISS_API error edit_runtime_component(component_context, guid, meta::property_id, const value&);
-/** 内建渲染依赖桥接；类型判断仅在组件适配实现中。 */
-GNEISS_API result<mesh_renderer> resolve_component_renderer(const component_descriptions&,
-                                                            asset_manager&);
-GNEISS_API mesh_renderer prepared_component_renderer(
-    const component_descriptions&, const std::function<render_resource_ref(std::string_view)>&);
 /** 在 World 所属线程定位节点组件；读出副本后访问，写入成功才提交。不会保留对象指针。
  * 失败保持既有组件；普通组件使用已注册适配器；未知组件类型返回
  * unsupported。值及字符串由调用方持有。 */

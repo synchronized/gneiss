@@ -25,13 +25,6 @@ GNEISS_API result<scene_instantiation_result> instantiate(scene_instance destina
                                                           const scene_resource_bindings&,
                                                           game_object parent = {});
 
-/** 只消费已加载描述和资源引用，组合后同步装配；失败释放新建实例。 */
-GNEISS_API result<scene_instantiation_result> instantiate_scene(world&, scene_instantiation_data,
-                                                                const scene_resource_bindings&);
-
-/** 所属线程组合并装配场景；视觉资源异步加载，不等待 GPU。资产服务仅在调用期间借用。 */
-GNEISS_API result<scene_instantiation_result, scene_diagnostic>
-instantiate_scene(world&, asset_manager&, ref<const scene>, std::size_t source_bytes = 0);
 /** 显式资源装配入口；只消费缓存或传入引用，失败不留下对象。 */
 GNEISS_API result<scene_node_id>
 create_mesh_renderer_node(world&, asset_manager&, scene_instance_id,

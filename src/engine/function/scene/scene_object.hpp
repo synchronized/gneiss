@@ -70,6 +70,18 @@ inline error validate_scene_components(const game_object_description& source) no
     return error::invalid_argument;
   return validate_components(source.components);
 }
+/** 旧网格创建入口的固定资源适配；不作为通用组件上下文的一部分。 */
+inline auto fixed_renderer_resources(mesh_renderer renderer) {
+  return [renderer = std::move(renderer)](
+             const render_resource_source& source) -> result<render_resource_ref> {
+    if (source.type == render_resource_kind::mesh && resource_uri(renderer.mesh) == source.uri)
+      return render_resource_ref{renderer.mesh};
+    if (source.type == render_resource_kind::material &&
+        resource_uri(renderer.material) == source.uri)
+      return render_resource_ref{renderer.material};
+    return error::not_ready;
+  };
+}
 /** 将已解析组件安装到节点；创建失败的回收由调用者负责。 */
 inline error configure_scene_object(world& owner, scene_node_id node,
                                     const game_object_description& source,
@@ -78,7 +90,8 @@ inline error configure_scene_object(world& owner, scene_node_id node,
   const auto validation = validate_scene_components(source);
   if (validation.failed())
     return validation;
-  return install_components({owner, node, renderer, resources}, source.components);
+  return install_components({owner, node, fixed_renderer_resources(renderer), resources},
+                            source.components);
 }
 /** 普通对象与 Prefab 共用实例化路径，输入资源仅在组件内长期持有。 */
 inline result<scene_node_id>

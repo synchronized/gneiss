@@ -3,6 +3,7 @@
 
 #include "../../support/async_application.hpp"
 #include "../../support/movement_component.hpp"
+#include "../../support/scene_instantiation.hpp"
 #include "../../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
@@ -181,8 +182,8 @@ bool test_capture_prefab_scene() {
   if (!empty)
     return false;
   // 使用无运行 Prefab 绑定的重建路径，证明来源只来自显式回执。
-  auto created = gneiss::engine::instantiate_scene(*application->native_world(),
-                                                   std::move(prepared), resources);
+  auto created = gneiss::test_support::scene_fixture::instantiate_scene(
+      *application->native_world(), std::move(prepared), resources);
   if (!created)
     return false;
   if (application->scenes()->unload(*empty).failed())

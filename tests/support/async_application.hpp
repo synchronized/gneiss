@@ -7,6 +7,7 @@
 #include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "runtime/application.hpp"
+#include "scene_instantiation.hpp"
 #include "value_result.hpp"
 #include <chrono>
 #include <cstdio>
@@ -101,8 +102,8 @@ inline engine::error load_scene(runtime::application& app, std::string_view uri,
   auto status = prepare_scene(app, uri, prepared, bindings, tasks, false, reload);
   return status.failed() ? status
                          : gneiss::test_support::take_value(
-                               gneiss::engine::instantiate_scene(*app.native_world(),
-                                                                 std::move(prepared), bindings),
+                               gneiss::test_support::scene_fixture::instantiate_scene(
+                                   *app.native_world(), std::move(prepared), bindings),
                                *output);
 }
 }

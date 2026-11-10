@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/document_prefab.hpp"
 #include "../support/movement_component.hpp"
+#include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
 #include "engine/core/serialization/json.hpp"
@@ -125,10 +126,10 @@ int main() try {
   e::scene_diagnostic diagnostic;
   check(e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).ok());
   gneiss::scene_instance_id loaded;
-  check(
-      gneiss::test_support::take_value(
-          gneiss::engine::instantiate_scene(*app->native_world(), std::move(prepared), {}), loaded)
-          .ok());
+  check(gneiss::test_support::take_value(gneiss::test_support::scene_fixture::instantiate_scene(
+                                             *app->native_world(), std::move(prepared), {}),
+                                         loaded)
+            .ok());
   gneiss::scene_node_id loaded_node;
   check(gneiss::test_support::take_value(app->scenes()->find_node(loaded, uuid), loaded_node).ok());
   check(state(world).get<movement_component>(entity(world, loaded_node))->data.speed == 4);

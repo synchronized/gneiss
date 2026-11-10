@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/movement_component.hpp"
 #include "../support/scene_application.hpp"
+#include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/meta/object_type.hpp"
 #include "engine/core/meta/registration.hpp"
@@ -32,6 +33,10 @@ struct unknown_description
     : e::meta::object_type<unknown_description, e::component_description_base> {
   inline static constexpr e::guid type_guid = e::guid::from_bytes({84, 2});
 };
+struct resolved_link {
+  e::game_object target;
+};
+const e::guid link_target_uuid = e::guid::from_bytes({84, 77});
 e::scene_instantiation_data prepare(e::scene_description scene, e::prefab_asset_ref prefab = {}) {
   e::scene_preparation_inputs input;
   input.scene = e::asset_ref<const e::scene_description>{
@@ -51,6 +56,22 @@ int main() try {
   auto custom = operations();
   const auto alias = e::guid::from_bytes({84, 99});
   custom.property_type = alias;
+  custom.resolve_references = [](e::component_context& context,
+                                 const movement_description& desc) -> e::error {
+    if (desc.speed != 17)
+      return e::error::success;
+    if (!context.lookup_object)
+      return e::error::not_ready;
+    auto target = context.lookup_object({link_target_uuid, {}});
+    if (!target)
+      return target.error();
+    // 解析时目标组件必须已经安装，而不仅仅是对象已经存在。
+    if (!state(context.owner).get<movement_component>(target->entity().get()))
+      return e::error::not_ready;
+    state(context.owner)
+        .emplace_or_replace<resolved_link>(entity(context.owner, context.node), *target);
+    return e::error::success;
+  };
   check(e::register_scene_component(custom).ok());
   check(e::register_scene_component(operations()) == e::error::invalid_argument);
   check(e::component_description_type(alias) == movement_description::type_guid);
@@ -104,7 +125,8 @@ int main() try {
   check(decoded.has_value());
   auto prepared = prepare(*decoded);
   check(e::register_scene_component(operations()) == e::error::invalid_state);
-  auto created = e::instantiate_scene(world, std::move(prepared), {});
+  auto created =
+      gneiss::test_support::scene_fixture::instantiate_scene(world, std::move(prepared), {});
   check(created.has_value());
   check(created->objects.size() == 2);
   check(created->objects[0].object == first.uuid && !created->objects[0].source);
@@ -115,7 +137,8 @@ int main() try {
   auto member_count = borrowed->size();
   check(member_count && *member_count == 2);
   auto borrowed_copy = *borrowed;
-  auto another_scene = e::instantiate_scene(world, prepare(source), {});
+  auto another_scene =
+      gneiss::test_support::scene_fixture::instantiate_scene(world, prepare(source), {});
   check(another_scene.has_value());
   auto another_handle = e::scene_instance::borrow(world, another_scene->instance);
   check(another_handle.has_value());
@@ -309,7 +332,8 @@ int main() try {
   camera_object.uuid = e::guid::generate();
   camera_object.components.set(e::camera_description{{1, 0.1F, 100}, true});
   camera_scene.objects = {camera_object};
-  auto camera_instance = e::instantiate_scene(world, prepare(camera_scene), {});
+  auto camera_instance =
+      gneiss::test_support::scene_fixture::instantiate_scene(world, prepare(camera_scene), {});
   check(bool(camera_instance));
   gneiss::entity_id active_camera;
   check(world.get_active_camera(active_camera).ok());
@@ -321,7 +345,8 @@ int main() try {
   failing_object.components.set(movement_description{13});
   broken_scene.objects.push_back(failing_object);
   const auto entities_before_failure = *world.entity_count();
-  auto failed_creation = e::instantiate_scene(world, prepare(broken_scene), {});
+  auto failed_creation =
+      gneiss::test_support::scene_fixture::instantiate_scene(world, prepare(broken_scene), {});
   check(!failed_creation && failed_creation.error() == e::error::invalid_state);
   gneiss::entity_id camera_after_failure;
   check(world.get_active_camera(camera_after_failure).ok() &&
@@ -359,6 +384,28 @@ int main() try {
   check(existing_parent->is_valid() && appended->roots[0].is_valid());
   check(world.get_active_camera(camera_after_failure).ok() &&
         camera_after_failure == active_camera);
+  auto linked = append_source;
+  linked.objects.front().components.set(movement_description{17});
+  linked.objects.back().uuid = link_target_uuid;
+  linked.objects.front().parent.object = link_target_uuid;
+  linked.objects.back().components.set(movement_description{18});
+  auto link_composed = e::compose_scene(linked, {});
+  check(link_composed.has_value());
+  auto link_one = e::instantiate(*destination, *link_composed, {});
+  auto link_two = e::instantiate(*destination, *link_composed, {});
+  check(link_one && link_two);
+  const auto* link_a = state(world).get<resolved_link>(link_one->objects.front().entity.get());
+  const auto* link_b = state(world).get<resolved_link>(link_two->objects.front().entity.get());
+  check(link_a && link_b && link_a->target == link_one->roots.front());
+  check(link_b->target == link_two->roots.front() && link_b->target != link_a->target);
+  auto missing_link = *link_composed;
+  missing_link.objects.pop_back();
+  missing_link.objects.front().parent = {};
+  const auto before_missing_link = *world.entity_count();
+  auto failed_link = e::instantiate(*destination, missing_link, {});
+  check(!failed_link && failed_link.error() == e::error::not_found);
+  check(*world.entity_count() == before_missing_link);
+  check(link_one->roots.front().destroy().ok() && link_two->roots.front().destroy().ok());
   auto malformed = *append_composed;
   malformed.objects.back().parent = malformed.objects.front().address;
   check(!e::instantiate(*destination, malformed, {}));
@@ -391,7 +438,8 @@ int main() try {
        .operation = e::value{9.0F}});
   source.objects = {reference};
   e::prefab_asset_ref prefab_ref{prefab};
-  auto prefab_created = e::instantiate_scene(world, prepare(source, prefab_ref), {});
+  auto prefab_created = gneiss::test_support::scene_fixture::instantiate_scene(
+      world, prepare(source, prefab_ref), {});
   check(bool(prefab_created));
   instance = prefab_created->instance;
   auto root_binding =
@@ -424,8 +472,10 @@ int main() try {
   e::scene_description replacement_source;
   replacement_source.uuid = e::guid::generate();
   replacement_source.objects = {first};
-  auto replacing = e::instantiate_scene(world, prepare(replacement_source), {});
-  auto independent = e::instantiate_scene(world, prepare(replacement_source), {});
+  auto replacing = gneiss::test_support::scene_fixture::instantiate_scene(
+      world, prepare(replacement_source), {});
+  auto independent = gneiss::test_support::scene_fixture::instantiate_scene(
+      world, prepare(replacement_source), {});
   check(replacing && independent);
   auto stable = e::scene_instance::borrow(world, replacing->instance);
   auto other = e::scene_instance::borrow(world, independent->instance);
@@ -434,7 +484,8 @@ int main() try {
   auto other_object = other->find(first.uuid);
   check(old_object && other_object);
   replacement_source.objects.front().name = "replacement";
-  auto replaced = e::instantiate_scene(world, prepare(replacement_source), {});
+  auto replaced = gneiss::test_support::scene_fixture::instantiate_scene(
+      world, prepare(replacement_source), {});
   check(replaced.has_value());
   check(scenes.unload(replacing->instance).ok());
   check(!stable->is_valid());

@@ -6,6 +6,7 @@
 #include "../support/memory_file_fixture.hpp"
 #include "../support/prepare_render.hpp"
 #include "../support/scene_application.hpp"
+#include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
@@ -225,19 +226,21 @@ void run() {
     check(active->scenes()->unload(*empty).ok());
   }
   const auto reads_before_instantiation = files->reads;
-  auto direct =
-      engine::instantiate_scene(*active->native_world(), active_assets, initial.source_asset);
+  auto direct = gneiss::test_support::scene_fixture::instantiate_scene(
+      *active->native_world(), active_assets, initial.source_asset);
   check(bool(direct) && direct->node_count == initial.instance_nodes);
   check(direct->assets.size() == initial.assets.size());
   check(files->reads == reads_before_instantiation);
   old_scene = direct->instance;
-  auto second_instance =
-      engine::instantiate_scene(*active->native_world(), active_assets, initial.source_asset);
+  auto second_instance = gneiss::test_support::scene_fixture::instantiate_scene(
+      *active->native_world(), active_assets, initial.source_asset);
   check(bool(second_instance) && second_instance->instance != old_scene);
   check(active->scenes()->unload(second_instance->instance).ok());
   check(active->scenes()->get_node_count(old_scene).ok());
-  check(engine::instantiate_scene(*active->native_world(), active_assets, {}).error().error ==
-        engine::error::invalid_argument);
+  check(gneiss::test_support::scene_fixture::instantiate_scene(*active->native_world(),
+                                                               active_assets, {})
+            .error()
+            .error == engine::error::invalid_argument);
   auto baseline = gneiss::test_support::compose(initial);
   check(bool(baseline));
   auto mapping = gneiss::test_support::associations(direct->objects);
@@ -327,12 +330,12 @@ void run() {
   missing_source.prefabs.begin()->second.resource.reset();
   gneiss::scene_instance_id rejected_scene{};
   check(gneiss::test_support::take_value(
-            gneiss::engine::instantiate_scene(*candidate->native_world(), std::move(missing_source),
-                                              bindings),
+            gneiss::test_support::scene_fixture::instantiate_scene(
+                *candidate->native_world(), std::move(missing_source), bindings),
             rejected_scene) == gneiss::engine::error::invalid_argument &&
         rejected_scene == gneiss::scene_instance_id{});
-  auto created =
-      gneiss::engine::instantiate_scene(*candidate->native_world(), std::move(prepared), bindings);
+  auto created = gneiss::test_support::scene_fixture::instantiate_scene(
+      *candidate->native_world(), std::move(prepared), bindings);
   check(bool(created));
   new_scene = created->instance;
   check(new_scene != gneiss::scene_instance_id{});
@@ -340,8 +343,8 @@ void run() {
   {
     auto empty = candidate->scenes()->create_empty(engine::guid::generate());
     check(bool(empty));
-    auto rebuilt =
-        engine::instantiate_scene(*candidate->native_world(), instantiation_input, bindings);
+    auto rebuilt = gneiss::test_support::scene_fixture::instantiate_scene(
+        *candidate->native_world(), instantiation_input, bindings);
     check(bool(rebuilt));
     check(candidate->scenes()->unload(*empty).ok());
     check(bool(rebuilt) && rebuilt->instance != *empty &&
@@ -370,16 +373,16 @@ void run() {
     const auto baseline_count = *candidate->native_world()->entity_count();
     engine::error foreign;
     std::thread worker([&] {
-      auto result = gneiss::engine::instantiate_scene(*candidate->native_world(),
-                                                      instantiation_input, bindings);
+      auto result = gneiss::test_support::scene_fixture::instantiate_scene(
+          *candidate->native_world(), instantiation_input, bindings);
       foreign = result ? engine::error::success : result.error();
     });
     worker.join();
     check(foreign == engine::error::invalid_state);
     auto broken = instantiation_input;
     broken.description.objects.back().transform.scale = {0, 1, 1};
-    check(!gneiss::engine::instantiate_scene(*candidate->native_world(), std::move(broken),
-                                             bindings));
+    check(!gneiss::test_support::scene_fixture::instantiate_scene(*candidate->native_world(),
+                                                                  std::move(broken), bindings));
     check(*candidate->native_world()->entity_count() == baseline_count);
     check(files->reads == reads);
   }
@@ -388,15 +391,15 @@ void run() {
   gneiss::scene_instance_id additional{};
   prepared = instantiation_input;
   check(gneiss::test_support::take_value(
-            gneiss::engine::instantiate_scene(*candidate->native_world(), std::move(prepared),
-                                              bindings),
+            gneiss::test_support::scene_fixture::instantiate_scene(*candidate->native_world(),
+                                                                   std::move(prepared), bindings),
             additional)
             .ok());
   gneiss::scene_instance_id duplicate_scene{};
   prepared = instantiation_input;
   check(gneiss::test_support::take_value(
-            gneiss::engine::instantiate_scene(*candidate->native_world(), std::move(prepared),
-                                              bindings),
+            gneiss::test_support::scene_fixture::instantiate_scene(*candidate->native_world(),
+                                                                   std::move(prepared), bindings),
             duplicate_scene)
             .ok());
   check(candidate->scenes()->unload(duplicate_scene) == gneiss::engine::error::success);
@@ -572,9 +575,10 @@ void run() {
   check(invalid_dependency);
   const auto failure_reads = files->reads;
   gneiss::scene_instance_id failed_instance{};
-  check(gneiss::test_support::take_value(
-            gneiss::engine::instantiate_scene(*candidate->native_world(), std::move(prepared), {}),
-            failed_instance) == gneiss::engine::error::invalid_argument);
+  check(gneiss::test_support::take_value(gneiss::test_support::scene_fixture::instantiate_scene(
+                                             *candidate->native_world(), std::move(prepared), {}),
+                                         failed_instance) ==
+        gneiss::engine::error::invalid_argument);
   check(failed_instance == gneiss::scene_instance_id{});
   check(files->reads == failure_reads);
   check(gneiss::engine::error{gneiss::test_support::assign_value(
