@@ -49,6 +49,16 @@ result<std::uint64_t> scene_instance::size() const noexcept {
     return error::invalid_handle;
   return owner_->scene_size(id_);
 }
+result<bool> scene_instance::contains(game_object object) const noexcept {
+  if (!owner_)
+    return error::invalid_handle;
+  auto status = owner_->validate_scene(id_);
+  if (status.failed())
+    return status;
+  if (object.owner() != owner_)
+    return false;
+  return owner_->validate_scene_node(id_, scene_node_id{object.entity().get()}).ok();
+}
 result<game_object> scene_instance::find(guid uuid) const noexcept {
   if (!owner_)
     return error::invalid_handle;

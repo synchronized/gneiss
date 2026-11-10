@@ -284,8 +284,8 @@ scene_service::apply_source(engine::ref<const engine::scene_content> content) {
     bindings.emplace(request.uri, resource->resource());
   }
   source_->synchronized = false;
-  auto applied = engine::apply_scene(*native_world(), *scenes(), source_->instance,
-                                     source_->objects, *previous, *next, bindings);
+  auto applied = engine::apply_scene(*native_world(), source_->instance, source_->objects,
+                                     *previous, *next, bindings);
   if (!applied)
     return applied.error();
   if (!*applied)

@@ -219,8 +219,8 @@ void run() {
     const auto cached = active_assets.cached_count();
     const auto before_reads = files->reads;
     std::map<engine::object_address, engine::scene_object_association> associations;
-    auto applied = engine::apply_scene(*active->native_world(), *active->scenes(), *empty,
-                                       associations, {}, target, {});
+    auto applied =
+        engine::apply_scene(*active->native_world(), *empty, associations, {}, target, {});
     check(!applied && applied.error() == engine::error::not_ready);
     check(active_assets.cached_count() == cached && files->reads == before_reads);
     check(active->scenes()->unload(*empty).ok());
@@ -244,17 +244,17 @@ void run() {
   auto baseline = gneiss::test_support::compose(initial);
   check(bool(baseline));
   auto mapping = gneiss::test_support::associations(direct->objects);
-  auto scene_reloaded = engine::apply_scene(*active->native_world(), *active->scenes(), old_scene,
-                                            mapping, *baseline, *baseline, initial_bindings);
+  auto scene_reloaded = engine::apply_scene(*active->native_world(), old_scene, mapping, *baseline,
+                                            *baseline, initial_bindings);
   check(scene_reloaded && *scene_reloaded);
   check(files->reads == reads_before_instantiation);
-  auto invalid_apply = engine::apply_scene(*active->native_world(), *active->scenes(), {}, mapping,
-                                           *baseline, *baseline, initial_bindings);
+  auto invalid_apply = engine::apply_scene(*active->native_world(), {}, mapping, *baseline,
+                                           *baseline, initial_bindings);
   check(!invalid_apply && invalid_apply.error() == engine::error::invalid_handle);
   engine::error foreign_reload;
   std::thread foreign_thread([&] {
-    auto result = engine::apply_scene(*active->native_world(), *active->scenes(), old_scene,
-                                      mapping, *baseline, *baseline, initial_bindings);
+    auto result = engine::apply_scene(*active->native_world(), old_scene, mapping, *baseline,
+                                      *baseline, initial_bindings);
     foreign_reload = result ? engine::error::success : result.error();
   });
   foreign_thread.join();

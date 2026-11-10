@@ -14,6 +14,8 @@ public:
   [[nodiscard]] GNEISS_API bool is_valid() const noexcept;
   [[nodiscard]] GNEISS_API result<std::uint64_t> size() const noexcept;
   [[nodiscard]] GNEISS_API result<game_object> find(guid uuid) const noexcept;
+  /** 查询对象是否属于本场景；跨 World、空或失效对象返回 false。 */
+  [[nodiscard]] GNEISS_API result<bool> contains(game_object) const noexcept;
   /** 创建本场景成员；父对象必须属于本场景，空父对象创建根。 */
   [[nodiscard]] GNEISS_API result<game_object>
   create(scene_node_identity, const math::transform& = {}, game_object parent = {}) const;

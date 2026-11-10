@@ -269,7 +269,7 @@ int main() try {
     auto next = e::compose_scene(description, {});
     if (!next)
       return next.error();
-    auto result = e::apply_scene(world, scenes, instance, mapping, *baseline, *next, {});
+    auto result = e::apply_scene(world, instance, mapping, *baseline, *next, {});
     if (!result)
       return result.error();
     if (!*result)
@@ -532,8 +532,8 @@ int main() try {
   auto next_composition = e::compose_scene(source, {{"asset://test.prefab", next.get()}});
   check(bool(old_composition) && bool(next_composition));
   auto prefab_mapping = associations(prefab_created->objects);
-  auto applied = e::apply_scene(world, scenes, instance, prefab_mapping, *old_composition,
-                                *next_composition, {});
+  auto applied =
+      e::apply_scene(world, instance, prefab_mapping, *old_composition, *next_composition, {});
   check(applied && *applied);
   check(state(world).get<movement_component>(id)->data.speed == 9);
   check(source.objects[0].components.empty());
@@ -542,7 +542,7 @@ int main() try {
   auto empty_reload = scenes.create_empty(e::guid::generate());
   check(empty_reload.has_value());
   std::map<e::object_address, e::scene_object_association> empty_mapping;
-  auto empty_applied = e::apply_scene(world, scenes, *empty_reload, empty_mapping, {}, {}, {});
+  auto empty_applied = e::apply_scene(world, *empty_reload, empty_mapping, {}, {}, {});
   check(empty_applied && *empty_applied);
   check(*scenes.get_node_count(*empty_reload) == 0U);
   // 替换保留场景句柄，但旧实体释放，归属不能停留在临时实例 ID 上。

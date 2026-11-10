@@ -11,15 +11,16 @@ bool same_transform(const math::transform& a, const math::transform& b) {
   return a.translation == b.translation && a.rotation == b.rotation && a.scale == b.scale;
 }
 } // namespace
-result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_id scene,
+result<bool> apply_scene(world& world, scene_instance_id scene,
                          std::map<object_address, scene_object_association>& associations,
                          const composed_scene& previous, const composed_scene& next,
                          const scene_resource_bindings& assets,
                          const scene_component_preparer& prepare) {
   if (!world.is_owner_thread())
     return error::invalid_state;
-  if (world.scenes() != &scenes)
-    return error::invalid_argument;
+  auto destination = scene_instance::borrow(world, scene);
+  if (!destination)
+    return destination.error();
   std::map<object_address, const composed_object*> old;
   for (const auto& object : previous.objects)
     if (!old.emplace(object.address, &object).second)
@@ -46,17 +47,20 @@ result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_i
     math::transform local_transform;
   };
   std::map<object_address, projected_object> nodes;
-  auto count = scenes.get_node_count(scene);
+  auto count = destination->size();
   if (!count)
     return count.error();
   std::set<std::uint64_t> entities;
   for (const auto& [address, binding] : associations) {
     if (binding.node.get() != binding.entity.get() || !entities.insert(binding.entity.get()).second)
       return error::invalid_argument;
-    if (scenes.validate_editable_node(scene, binding.node).failed())
-      return false;
     auto borrowed = world.object(binding.entity);
     if (!borrowed)
+      return false;
+    auto member = destination->contains(*borrowed);
+    if (!member)
+      return member.error();
+    if (!*member)
       return false;
     auto transform = borrowed->local_transform();
     if (!transform)
@@ -144,15 +148,14 @@ result<bool> apply_scene(world& world, scene_instances& scenes, scene_instance_i
   for (const auto& object : next.objects) {
     if (old.contains(object.address))
       continue;
-    auto created = scenes.create_node(
-        scene, {.uuid = object.address.source ? guid::generate() : object.address.object,
-                .name = object.effective.name,
-                .local_transform = object.effective.transform});
+    auto created = destination->create(
+        {object.address.source ? guid::generate() : object.address.object, object.effective.name},
+        object.effective.transform);
     if (!created)
       return created.error();
     projected_object info;
-    info.node = *created;
-    associations[object.address] = {*created, entity_id{created->get()}};
+    info.node = scene_node_id{created->entity().get()};
+    associations[object.address] = {info.node, created->entity()};
     nodes.emplace(object.address, std::move(info));
   }
   for (const auto& object : next.objects) {

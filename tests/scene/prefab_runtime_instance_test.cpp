@@ -19,10 +19,7 @@ int main() try {
   auto owner = e::create_native();
   check(bool(owner));
   auto& world = **owner;
-  auto attached = e::scene_instances::attach(world);
-  check(bool(attached));
-  auto& scenes = **attached;
-  auto instance = scenes.create_empty(e::guid::generate());
+  auto instance = world.create_scene();
   check(bool(instance));
   auto source = std::make_shared<e::prefab_description>();
   source->uuid = e::guid::generate();
@@ -48,7 +45,7 @@ int main() try {
   auto effective = e::compose_scene(author, {{"asset://source", source.get()}});
   check(effective && effective->objects.size() == 4);
   std::map<e::object_address, e::scene_object_association> mapping;
-  auto applied = e::apply_scene(world, scenes, *instance, mapping, {}, *effective, {});
+  auto applied = e::apply_scene(world, instance->id(), mapping, {}, *effective, {});
   check(applied && *applied);
   const e::object_address first_root{first.uuid, root.uuid}, first_child{first.uuid, child.uuid};
   const e::object_address second_root{second.uuid, root.uuid};
@@ -73,7 +70,7 @@ int main() try {
       object.parent = second_root;
     }
   }
-  applied = e::apply_scene(world, scenes, *instance, mapping, *effective, next, {});
+  applied = e::apply_scene(world, instance->id(), mapping, *effective, next, {});
   check(applied && *applied && mapping.at(first_child).node == child_node);
   check(world.node_get_parent(child_node, parent).ok() && parent == mapping.at(second_root).node);
   check(world.node_identity(child_node)->name == "Renamed");
@@ -82,12 +79,12 @@ int main() try {
   for (auto& object : cycle.objects)
     if (object.address == second_root)
       object.parent = first_child;
-  applied = e::apply_scene(world, scenes, *instance, mapping, next, cycle, {});
+  applied = e::apply_scene(world, instance->id(), mapping, next, cycle, {});
   check(!applied && applied.error() == e::error::invalid_argument);
   check(world.node_get_parent(child_node, parent).ok() && parent == mapping.at(second_root).node);
   e::error foreign;
   std::thread worker([&] {
-    auto result = e::apply_scene(world, scenes, *instance, mapping, next, next, {});
+    auto result = e::apply_scene(world, instance->id(), mapping, next, next, {});
     foreign = result ? e::error::success : result.error();
   });
   worker.join();
@@ -95,15 +92,15 @@ int main() try {
   // 移除单个地址只销毁该成员，另一个实例的同源对象保留。
   auto removed = next;
   std::erase_if(removed.objects, [&](const auto& object) { return object.address == first_child; });
-  applied = e::apply_scene(world, scenes, *instance, mapping, next, removed, {});
+  applied = e::apply_scene(world, instance->id(), mapping, next, removed, {});
   check(applied && *applied && !mapping.contains(first_child));
   check(!world.object(gneiss::entity_id{child_node.get()}));
-  check(mapping.at(first_root).node == root_node && *scenes.get_node_count(*instance) == 3);
+  check(mapping.at(first_root).node == root_node && *instance->size() == 3);
   // 外部直接销毁导致失步，不得误用旧实体或静默部分更新。
   check(world.object_destroy(root_node).ok());
-  applied = e::apply_scene(world, scenes, *instance, mapping, removed, removed, {});
+  applied = e::apply_scene(world, instance->id(), mapping, removed, removed, {});
   check(applied && !*applied);
-  check(scenes.unload(*instance).ok() && *world.entity_count() == 0);
+  check(instance->unload().ok() && *world.entity_count() == 0);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

@@ -411,3 +411,16 @@ scene_slots 迁入 World 私有状态；创建、成员操作、卸载及关闭�
 Windows Clang Debug 的 Editor、Runtime 及相关测试目标编译通过，10 项 CPU 测试通过。
 未运行 GPU、大场景、其他平台或远端 CI。下一步迁移旧集合查询/编辑调用并移除 attach；
 对象范围接口、跨场景子树转移及相机安装/激活分离仍待完成。
+
+
+## 2026-11-10 投影入口移除集合依赖
+
+apply_scene 与 project_scene_document 删除 scene_instances 参数。前者从 World/场景 ID
+借用 scene_instance，使用 contains 检查成员并通过句柄创建对象；后者的完整重建、失败清理、
+旧场景卸载均使用场景句柄。Runtime 来源刷新和编辑历史调用同步迁移。
+跨 World 的场景 ID 统一返回 invalid_handle，保留跨线程 invalid_state 和失配基线 false。
+
+Prefab 增量应用测试取消 attach；原生 World 测试覆盖不初始化旧集合的投影及 contains 查询。
+Editor、Runtime 及相关目标编译通过，10 项 CPU 测试通过，git diff --check 通过。
+未运行 GPU、大场景、其他平台或远端 CI。
+旧集合仍用于节点枚举、部分编辑查询及宿主 scenes() 入口，尚未删除，计划保持进行中。

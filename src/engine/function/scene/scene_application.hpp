@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/function/scene/scene_composition.hpp"
-#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
+#include "engine/function/world/world.hpp"
 #include <functional>
 namespace gneiss::engine {
 /** 外部协调方持有的地址关联，不保存作者描述或组件副本。 */
@@ -20,7 +20,7 @@ using scene_component_preparer = std::function<result<component_description>(
  * 只允许 World 所在线程；关联及资源仅在调用期间借用。
  */
 [[nodiscard]] GNEISS_API result<bool>
-apply_scene(world&, scene_instances&, scene_instance_id,
+apply_scene(world&, scene_instance_id,
             std::map<object_address, scene_object_association>& associations,
             const composed_scene& previous, const composed_scene& next,
             const scene_resource_bindings& assets, const scene_component_preparer& prepare = {});

@@ -404,6 +404,12 @@ Render 与场景进度通知。关闭仅释放场景的请求观察者，不停�
 相邻同合并键且版本连续的编辑可合并；保存点阻止跨点合并，新编辑清除 redo 分支，历史保留既有条数限制。
 文档必须比历史活得更久；关闭/切换文档时所属编辑会话清理历史。清理后不再持有历史专有资源引用。
 
+`apply_scene(world, scene_id, ...)` 与 `project_scene_document` 不再接收场景集合。
+内部借用 scene_instance 校验归属并创建成员，原生 World 无需初始化旧集合即可执行增量投影。
+失效或跨 World 场景 ID 返回 invalid_handle，跨线程调用返回 invalid_state。
+scene_instance::contains 查询 ECS 成员归属，空、失效或其他 World 的对象返回 false；
+场景句柄本身失效则返回错误。
+
 普通编辑和历史切换统一通过 `project_scene_document` 更新运行投影。已有成功同步基线时，
 普通对象和 Prefab 展开成员共用文档地址到实体的映射；Transform、组件、名称和父关系原地更新。
 父关系批量调整先脱离旧父节点再连接新父节点，避免旧树导致临时循环。

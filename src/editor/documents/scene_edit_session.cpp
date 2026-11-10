@@ -303,7 +303,7 @@ engine::error scene_edit_session::accept_content(const scene_document_snapshot& 
   auto status = document_->accept(before, snapshot);
   if (status.failed())
     return status;
-  status = project_scene_document(*world_, *application_->scenes(), scene_, projection_,
+  status = project_scene_document(*world_, scene_, projection_,
                                   synchronized ? &before.content() : nullptr, snapshot);
   (void)report_projection(document_->current(), status);
   if (selected) {
@@ -317,8 +317,7 @@ engine::error scene_edit_session::synchronize() try {
     return engine::error::invalid_state;
   const auto version = document_->current();
   auto selected = locate(selection_);
-  auto status = project_scene_document(*world_, *application_->scenes(), scene_, projection_,
-                                       nullptr, version.content());
+  auto status = project_scene_document(*world_, scene_, projection_, nullptr, version.content());
   if (status.ok()) {
     selection_ = {};
     if (selected) {
@@ -371,7 +370,7 @@ scene_edit_session::edit_content(const content_edit& edit,
   status = document_->accept(before, prepared->snapshot);
   if (status.failed())
     return status;
-  auto projection = project_scene_document(*world_, *application_->scenes(), scene_, projection_,
+  auto projection = project_scene_document(*world_, scene_, projection_,
                                            synchronized ? &before.content() : nullptr,
                                            document_->current().content(), false);
   if (projection.ok()) {
@@ -1122,7 +1121,7 @@ engine::error scene_edit_session::restore_changes(const scene_document::revision
   auto status = document_->checkout(expected, target, next);
   if (status.failed())
     return status;
-  status = project_scene_document(*world_, *application_->scenes(), scene_, projection_,
+  status = project_scene_document(*world_, scene_, projection_,
                                   synchronized ? &before.content() : nullptr, next);
   (void)report_projection(document_->current(), status);
   (void)validate_selection();
@@ -1137,8 +1136,8 @@ engine::error scene_edit_session::restore_version(const version& expected, const
   if (status.failed())
     return status;
   if (synchronized) {
-    status = project_scene_document(*world_, *application_->scenes(), scene_, projection_,
-                                    &expected.content(), target.content());
+    status =
+        project_scene_document(*world_, scene_, projection_, &expected.content(), target.content());
     (void)report_projection(target, status);
     (void)validate_selection();
   } else {

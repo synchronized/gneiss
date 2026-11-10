@@ -111,7 +111,7 @@ int main() try {
     child.effective.name = "child";
     // 输入无需父先子后。
     initial.objects = {child, parent};
-    auto applied = e::apply_scene(world, scenes, *empty, bindings, {}, initial, {});
+    auto applied = e::apply_scene(world, *empty, bindings, {}, initial, {});
     if (!applied || !*applied || bindings.size() != 2)
       return 101;
     const auto child_id = bindings.at(child.address).entity;
@@ -121,7 +121,7 @@ int main() try {
     next.objects[0].effective.name = "renamed";
     next.objects[0].effective.transform.translation.x = 3;
     next.objects[1].parent = child.address;
-    applied = e::apply_scene(world, scenes, *empty, bindings, initial, next, {});
+    applied = e::apply_scene(world, *empty, bindings, initial, next, {});
     if (!applied || !*applied || bindings.at(child.address).entity != child_id ||
         bindings.at(parent.address).entity != parent_id)
       return 102;
@@ -131,34 +131,33 @@ int main() try {
       return 103;
     auto cyclic = next;
     cyclic.objects[0].parent = parent.address;
-    applied = e::apply_scene(world, scenes, *empty, bindings, next, cyclic, {});
+    applied = e::apply_scene(world, *empty, bindings, next, cyclic, {});
     if (applied || applied.error() != e::error::invalid_argument)
       return 104;
     e::error threaded;
     std::thread worker([&] {
-      auto result = e::apply_scene(world, scenes, *empty, bindings, next, next, {});
+      auto result = e::apply_scene(world, *empty, bindings, next, next, {});
       threaded = result ? e::error::success : result.error();
     });
     worker.join();
     if (threaded != e::error::invalid_state)
       return 105;
-    applied = e::apply_scene(*second_application->native_world(), scenes, *empty, bindings, next,
-                             next, {});
-    if (applied || applied.error() != e::error::invalid_argument)
+    applied = e::apply_scene(*second_application->native_world(), *empty, bindings, next, next, {});
+    if (applied || applied.error() != e::error::invalid_handle)
       return 106;
     auto invalid_bindings = bindings;
     invalid_bindings.at(parent.address) = invalid_bindings.at(child.address);
-    applied = e::apply_scene(world, scenes, *empty, invalid_bindings, next, next, {});
+    applied = e::apply_scene(world, *empty, invalid_bindings, next, next, {});
     if (applied || applied.error() != e::error::invalid_argument)
       return 109;
     auto stale = next;
     stale.objects[0].effective.transform.translation.x = 99;
-    applied = e::apply_scene(world, scenes, *empty, bindings, stale, next, {});
+    applied = e::apply_scene(world, *empty, bindings, stale, next, {});
     if (!applied || *applied || actual->local_transform()->translation.x != 3)
       return 110;
     auto reduced = next;
     reduced.objects.pop_back();
-    applied = e::apply_scene(world, scenes, *empty, bindings, next, reduced, {});
+    applied = e::apply_scene(world, *empty, bindings, next, reduced, {});
     if (!applied || !*applied || bindings.size() != 1 || world.object(parent_id) ||
         bindings.at(child.address).entity != child_id)
       return 107;
@@ -429,8 +428,14 @@ int main() try {
     auto instance = (*native)->create_scene();
     if (!instance || !instance->is_valid() || *instance->size() != 0U)
       return 16;
+    std::map<gneiss::engine::object_address, gneiss::engine::scene_object_association> mapping;
+    auto applied_native =
+        gneiss::engine::apply_scene(**native, instance->id(), mapping, {}, {}, {});
+    if (!applied_native || !*applied_native)
+      return 19;
     auto object = instance->create({gneiss::engine::guid::generate(), "Direct"});
-    if (!object || *instance->size() != 1U ||
+    if (!object || !*instance->contains(*object) || *instance->contains({}) ||
+        *instance->size() != 1U ||
         gneiss::engine::scene_instance::borrow(**other, instance->id()).error() !=
             gneiss::engine::error::invalid_handle)
       return 17;

@@ -20,8 +20,8 @@ engine::error scene_projection::reset(std::span<const engine::scene_object_bindi
   objects_.swap(next);
   return engine::error::success;
 }
-engine::error project_scene_document(engine::world& world, engine::scene_instances& scenes,
-                                     scene_instance_id& scene, scene_projection& projection,
+engine::error project_scene_document(engine::world& world, scene_instance_id& scene,
+                                     scene_projection& projection,
                                      const scene_document_snapshot* baseline,
                                      const scene_document_snapshot& target, bool prepare_editor) {
   if (baseline) {
@@ -36,7 +36,7 @@ engine::error project_scene_document(engine::world& world, engine::scene_instanc
         baseline->content.get().uuid != target.content.get().uuid
             ? engine::result<bool>{false}
             : engine::apply_scene(
-                  world, scenes, scene, associations, *previous, *next, target.assets,
+                  world, scene, associations, *previous, *next, target.assets,
                   [&](const engine::composed_object& object, scene_node_id node,
                       const engine::component_description& component) {
                     return !prepare_editor && !object.address.source
@@ -53,9 +53,7 @@ engine::error project_scene_document(engine::world& world, engine::scene_instanc
   auto composed = compose_scene_document(target);
   if (!composed)
     return composed.error();
-  if (world.scenes() != &scenes)
-    return engine::error::invalid_argument;
-  auto current = scenes.get_node_count(scene);
+  auto current = engine::scene_instance::borrow(world, scene);
   if (!current)
     return current.error();
   entity_id previous_camera;
@@ -66,18 +64,17 @@ engine::error project_scene_document(engine::world& world, engine::scene_instanc
   if (!candidate)
     return candidate.error();
   struct candidate_guard {
-    engine::scene_instances& scenes;
     engine::world& world;
-    scene_instance_id candidate;
+    engine::scene_instance candidate;
     entity_id camera;
     ~candidate_guard() {
-      if (candidate) {
-        (void)scenes.unload(candidate);
+      if (candidate.id()) {
+        (void)candidate.unload();
         if (camera.get())
           (void)world.set_active_camera(camera);
       }
     }
-  } guard{scenes, world, candidate->id(), previous_camera};
+  } guard{world, *candidate, previous_camera};
   auto rebuilt = engine::instantiate(*candidate, *composed, target.assets);
   if (!rebuilt)
     return rebuilt.error();
@@ -86,7 +83,7 @@ engine::error project_scene_document(engine::world& world, engine::scene_instanc
   if (status.failed())
     return status;
   auto associations = replacement.objects();
-  status = scenes.unload(scene);
+  status = current->unload();
   if (status.failed())
     return status;
   scene = rebuilt->instance;
