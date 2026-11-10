@@ -4,7 +4,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
-#include "engine/function/scene/scene_preparation.hpp"
+#include "engine/resource/scene.hpp"
 #include "runtime/application.hpp"
 #include "scene_access.hpp"
 #include "scene_instantiation.hpp"
@@ -18,11 +18,10 @@ inline engine::task_scheduler& application_tasks() {
   static engine::task_scheduler tasks({.workers = 1U});
   return tasks;
 }
-inline engine::error prepare_scene(runtime::application& app, std::string_view uri,
-                                   engine::scene_instantiation_data& prepared,
-                                   engine::scene_resource_bindings& bindings,
-                                   engine::task_scheduler* tasks = nullptr, bool prefab = false,
-                                   bool reload = false) {
+inline engine::error
+prepare_scene(runtime::application& app, std::string_view uri, engine::scene_content& prepared,
+              engine::scene_resource_bindings& bindings, engine::task_scheduler* tasks = nullptr,
+              engine::ref<const engine::scene>* identity = nullptr, bool reload = false) {
   if (!tasks)
     tasks = &application_tasks();
   const auto attached = app.attach_task_executor(*tasks);
@@ -52,20 +51,26 @@ inline engine::error prepare_scene(runtime::application& app, std::string_view u
                      loaded.error().message.c_str());
         return loaded.error().error;
       }
-      auto data = engine::make_instantiation_data(*loaded, request->source_bytes());
-      if (!data)
-        return data.error().error;
-      prepared = std::move(*data);
+      if (!(*loaded)->content())
+        return engine::error::invalid_argument;
+      prepared = *(*loaded)->content();
+      if (identity)
+        *identity = *loaded;
       return engine::error::success;
     }
   };
-  auto loaded_status = prefab ? load.template operator()<engine::prefab>()
-                              : load.template operator()<engine::scene>();
+  auto loaded_status = load.template operator()<engine::scene>();
   if (loaded_status.failed())
     return loaded_status;
   auto status = engine::error::success;
   bindings.clear();
-  for (const auto& source : prepared.assets) {
+  auto composed = compose(prepared);
+  if (!composed)
+    return composed.error();
+  auto dependencies = engine::scene_dependencies(*composed);
+  if (!dependencies)
+    return dependencies.error();
+  for (const auto& source : *dependencies) {
     std::uint64_t id{};
     status = app.request_assets(std::span(&source, 1), 1, 1, id, false);
     if (status.failed())
@@ -97,9 +102,9 @@ inline engine::error load_scene(runtime::application& app, std::string_view uri,
   if (!output)
     return engine::error::invalid_argument;
   *output = {};
-  engine::scene_instantiation_data prepared;
+  engine::scene_content prepared;
   engine::scene_resource_bindings bindings;
-  auto status = prepare_scene(app, uri, prepared, bindings, tasks, false, reload);
+  auto status = prepare_scene(app, uri, prepared, bindings, tasks, nullptr, reload);
   return status.failed() ? status
                          : gneiss::test_support::take_value(
                                gneiss::test_support::scene_fixture::instantiate_scene(

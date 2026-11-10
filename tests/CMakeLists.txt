@@ -54,7 +54,6 @@ gneiss_target_output_directories(gneiss_task_scheduler_test)
 add_test(NAME gneiss.task-scheduler COMMAND gneiss_task_scheduler_test)
 set_tests_properties(gneiss.task-scheduler PROPERTIES TIMEOUT 30)
 
-
 add_test(
   NAME gneiss.granit_version_cache
   COMMAND
@@ -71,12 +70,6 @@ target_compile_features(gneiss_cpp_version_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_cpp_version_test)
 gneiss_target_output_directories(gneiss_cpp_version_test)
 add_test(NAME gneiss.cpp_version COMMAND gneiss_cpp_version_test)
-
-
-
-
-
-
 
 
 
@@ -130,10 +123,6 @@ add_test(NAME gneiss.log_dispatcher COMMAND gneiss_log_dispatcher_test)
 
 
 
-
-
-
-
 add_executable(gneiss_property_access_test meta/property_access_test.cpp)
 target_include_directories(gneiss_property_access_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_property_access_test PRIVATE gneiss::engine)
@@ -141,7 +130,6 @@ target_compile_features(gneiss_property_access_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_property_access_test)
 gneiss_target_output_directories(gneiss_property_access_test)
 add_test(NAME gneiss.property_access COMMAND gneiss_property_access_test)
-
 
 add_executable(gneiss_native_render_lifecycle_test native_render_lifecycle_test.cpp)
 target_link_libraries(gneiss_native_render_lifecycle_test PRIVATE gneiss::engine gneiss_native_interface)
@@ -463,7 +451,7 @@ add_test(NAME gneiss.scene-load-application COMMAND gneiss_scene_load_applicatio
 
 add_executable(gneiss_scene_load_preparation_test
   scene/scene_load_preparation_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_preparation.cpp"
+
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
@@ -555,7 +543,6 @@ gneiss_target_output_directories(gneiss_loop_timing_test)
 add_test(NAME gneiss.loop_timing COMMAND gneiss_loop_timing_test)
 
 
-
 add_executable(
   gneiss_mesh_binary_test
   asset/mesh_binary_test.cpp
@@ -592,7 +579,6 @@ target_compile_definitions(gneiss_texture_binary_test PRIVATE GNEISS_STATIC_DEFI
 gneiss_target_compile_warnings(gneiss_texture_binary_test)
 gneiss_target_output_directories(gneiss_texture_binary_test)
 add_test(NAME gneiss.texture_binary COMMAND gneiss_texture_binary_test)
-
 
 
 add_executable(
@@ -790,7 +776,7 @@ add_executable(gneiss_scene_instantiation_test scene/scene_instantiation_test.cp
   "${PROJECT_SOURCE_DIR}/src/engine/function/world/world_scenes.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instantiation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_composition.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_preparation.cpp")
+)
 # 测试直接构造私有 manager，编译其实现而不向 DLL 公共 ABI 导出内部类型。
 target_sources(gneiss_scene_instantiation_test PRIVATE
   "${PROJECT_SOURCE_DIR}/src/engine/function/world/world_hierarchy.cpp"
@@ -835,7 +821,6 @@ if(TARGET gneiss_version_example)
     PROPERTIES PASS_REGULAR_EXPRESSION "gneiss ${PROJECT_VERSION_MAJOR}\\.${PROJECT_VERSION_MINOR}\\.${PROJECT_VERSION_PATCH}"
   )
 endif()
-
 
 
 
@@ -896,7 +881,6 @@ target_compile_features(gneiss_native_draw_submission_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_native_draw_submission_test)
 gneiss_target_output_directories(gneiss_native_draw_submission_test)
 add_test(NAME gneiss.native-draw-submission COMMAND gneiss_native_draw_submission_test)
-
 
 
 add_executable(gneiss_task_header_visibility_test core/task_header_visibility_test.cpp)
@@ -986,7 +970,6 @@ gneiss_target_compile_warnings(gneiss_serialization_archive_test)
 gneiss_target_output_directories(gneiss_serialization_archive_test)
 add_test(NAME gneiss.serialization-archive COMMAND gneiss_serialization_archive_test)
 
-
 add_executable(gneiss_reflection_json_test meta/reflection_json_test.cpp meta/nested_json_test.cpp)
 target_include_directories(gneiss_reflection_json_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_reflection_json_test PRIVATE gneiss::engine gneiss_yyjson)
@@ -1018,7 +1001,6 @@ target_compile_features(gneiss_meta_type_ops_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_meta_type_ops_test)
 gneiss_target_output_directories(gneiss_meta_type_ops_test)
 add_test(NAME gneiss.meta-type-ops COMMAND gneiss_meta_type_ops_test)
-
 
 
 
@@ -1130,7 +1112,6 @@ if(NOT EMSCRIPTEN)
     "-DPROGRAM=$<TARGET_FILE:gneiss_value_allocation_test>" "-DMODE=allocation-boundary"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/core/check_fatal.cmake")
 endif()
-
 
 if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
   add_executable(gneiss_fatal_test core/fatal_test.cpp)

@@ -7,7 +7,7 @@
 
 2026-11-10：实施中；以下目标按本次确认修订。对象改名/变换入口、ECS 成员归属及场景资产服务解耦已完成；
 World 已收拢槽位并删除公开场景集合，补齐成员遍历、世界矩阵与整棵子树迁移；
-相机安装与应用激活已分离，编辑组件策略已迁到 Editor；运行来源身份和重复准备数据尚未完成。
+相机安装与应用激活已分离，编辑组件策略已迁到 Editor；旧准备模型已删除；运行来源身份及剩余 World 入口尚未完成。
 沿用当前特性分支，不重新实现 ECS、资产缓存或编辑历史。
 本计划细化并收敛 PLAN-105/106/107 的接口边界，不将历史任务完成等同于本计划已实现。
 长期决策见 [ADR-115](../decisions/ADR-115-world-scene-ownership.md)。
@@ -173,9 +173,9 @@ Runtime 不建立编辑文档。IPC 调用已有应用操作，不增加对象�
 按以下顺序推进，未完成项不可描述为现有能力：
 
 1. [x] 取消保句柄替换协议；编辑会话完整重建后更新自己的场景句柄、投影和选择。
-2. [ ] 组合与装配分开；以 composed_scene 为唯一完整输入，实现显式目标场景和 parent 的 instantiate。
+2. [x] 组合与装配分开；以 composed_scene 为唯一完整输入，实现显式目标场景和 parent 的 instantiate。
    已覆盖已有非空场景、Prefab 重复实例化、引用前向解析和仅清理本次创建对象。
-   Runtime/Editor 现已直接消费固定内容；旧准备类型仍由测试夹具引用，删除尚未完成。
+   Runtime、Editor 和测试均直接消费固定内容；旧准备类型、实现和构建登记已删除。
 3. [ ] World 收拢场景槽位，移除公开集合及独立状态层；统一 GameObject 创建/层级入口。
    已完成槽位收拢及 scene_instances/scene_instance_state 删除；旧 World node/entity 业务入口仍待迁移。
 4. [ ] 迁移运行来源身份到外部回执，补齐对象遍历和同 World 整棵子树迁移。
@@ -187,8 +187,8 @@ Runtime 不建立编辑文档。IPC 调用已有应用操作，不增加对象�
    编辑视口继续使用独立相机。多个提示按组合顺序选择最后一个，无提示则不自动激活。
 7. [ ] 清理旧 node/entity 业务入口、重复准备模型及目录；完成编译与定向 CPU 验证。
 
-保句柄替换协议已删除。内部继续组合的 instantiate_scene 自由函数仍是迁移中间态，
-临时入口按上述第二项收敛，不能将其当作最终 API。
+保句柄替换协议及准备模型已删除；测试目录的 instantiate_scene 辅助只组合现有接口，
+不进入产品 API，不维护独立准备模型或加载预算。
 
 关键验收：
 
@@ -501,3 +501,16 @@ Prefab 组件覆盖查询 component_types，不再读取编辑策略。自定义
 
 Windows Clang Debug 全部默认目标编译通过；14 项定向 CPU 回归通过，覆盖组件编辑/生命周期、
 Prefab 覆盖、文档快照/历史、运行检视及原生装配。未运行 GPU、大场景、远端 CI 或跨平台矩阵。
+
+## 旧准备模型删除验收
+
+删除 scene_preparation.hpp/.cpp 及构建登记；scene_instantiation_data、scene_preparation_inputs、
+scene_prepare_limits、prepare_loaded_scene、make_instantiation_data 均不再存在。
+测试使用 scene_content 快照，显式 compose_scene、scene_dependencies、instantiate；
+需要修改内容的测试先复制描述。资产身份和文件统计只在需要验证它们的加载测试中单独保留。
+旧同步准备回调/预算断言随已删除 API 移除，异步请求取消、快照隔离、依赖与层级检查仍保留。
+缺失固定 Prefab 统一采用 compose_scene 的 not_found，不再经过旧包装变成 invalid_argument。
+
+Windows Clang Debug 全部默认目标编译通过；16 项 CPU 回归中，15 项首次通过，
+实例化测试按上述缺失来源错误规则更新后单独重跑通过。未运行 GPU、大场景、远端 CI。
+来源 UUID 与剩余 World 入口仍未完成，不能将本段验收当作整个计划完成。

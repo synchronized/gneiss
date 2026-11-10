@@ -25,7 +25,7 @@ int main() try {
   std::shared_ptr<gneiss::runtime::application> app;
   check(gneiss::test_support::assign_value(gneiss::runtime::application::create(configuration), app)
             .ok());
-  e::scene_instantiation_data prepared;
+  e::scene_content prepared;
   e::scene_resource_bindings assets;
   check(gneiss::test_support::prepare_scene(*app, "asset://scenes/prefab.scene.json", prepared,
                                             assets)
@@ -74,7 +74,7 @@ int main() try {
   check(gneiss::test_support::scene_access{*app}->unload(created->instance).ok());
   check(gneiss::test_support::scene_access{*app}->unload(second->instance).ok());
   check(*app->native_world()->entity_count() == 0);
-  e::scene_instantiation_data missing;
+  e::scene_content missing;
   check(gneiss::test_support::prepare_scene(*app, "asset://scenes/missing-prefab.scene.json",
                                             missing, assets)
             .failed());

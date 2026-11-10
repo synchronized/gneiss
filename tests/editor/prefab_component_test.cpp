@@ -11,9 +11,10 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/prefab_replay.hpp"
+#include "engine/function/scene/scene_composition.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
-#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/resource/asset_file.hpp"
+#include "engine/resource/scene.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
 #include "runtime/application.hpp"
 #include <cstdio>
@@ -268,12 +269,12 @@ int main() try {
                .path = {e::meta::property_id{1}}},
        .operation = e::value{2.0F}});
   check(!gneiss::engine::asset_file::serialize_bytes(contradictory));
-  e::scene_preparation_inputs inputs;
-  inputs.scene = e::asset_ref<const e::scene_description>{
+  e::scene_content prepared;
+  prepared.description = e::asset_ref<const e::scene_description>{
       std::make_shared<const e::scene_description>(*decoded)};
-  inputs.prefabs.emplace(reference.uri, e::prefab_asset_ref{source});
-  e::scene_instantiation_data prepared;
-  check(e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).ok());
+  prepared.prefabs.emplace(
+      reference.uri,
+      e::scene_prefab_dependency{.resource = {}, .description = e::prefab_asset_ref{source}});
   auto receipt = gneiss::test_support::scene_fixture::instantiate_scene(*app->native_world(),
                                                                         std::move(prepared), {});
   check(bool(receipt));

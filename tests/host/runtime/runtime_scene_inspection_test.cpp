@@ -174,7 +174,7 @@ bool test_capture_prefab_scene() {
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), application)
           .failed())
     return false;
-  gneiss::engine::scene_instantiation_data prepared;
+  gneiss::engine::scene_content prepared;
   gneiss::engine::scene_resource_bindings resources;
   if (gneiss::test_support::prepare_scene(*application, scene_uri, prepared, resources).failed())
     return false;

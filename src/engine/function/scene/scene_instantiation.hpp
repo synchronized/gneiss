@@ -4,8 +4,8 @@
 #include "engine/function/scene/scene_composition.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
-#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/scene_instance.hpp"
+#include "engine/resource/scene.hpp"
 namespace gneiss::engine {
 class asset_manager;
 /** 已创建的场景及其视觉加载清单；资源身份已预留，内容加载由调用方调度。 */

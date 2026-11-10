@@ -12,18 +12,13 @@ inline engine::error open_document(editor::scene_edit_session& document, runtime
                                    engine::task_scheduler* tasks = nullptr) {
   if (world != app.native_world())
     return engine::error::invalid_argument;
-  engine::scene_instantiation_data prepared;
+  engine::scene_content prepared;
+  engine::ref<const engine::scene> source;
   engine::scene_resource_bindings bindings;
-  auto status = prepare_scene(app, uri, prepared, bindings, tasks, false, true);
+  auto status = prepare_scene(app, uri, prepared, bindings, tasks, &source, true);
   if (status.failed())
     return status;
-  engine::scene_content content;
-  content.description = engine::make_ref<const engine::scene_description>(prepared.description);
-  for (const auto& [path, source] : prepared.prefabs)
-    content.prefabs.emplace(
-        path, engine::scene_prefab_dependency{source.source_asset, source.resource, 0});
-  auto initial =
-      editor::make_scene_document_snapshot(std::string(uri), content, prepared.source_asset);
+  auto initial = editor::make_scene_document_snapshot(std::string(uri), prepared, source);
   if (!initial)
     return initial.error();
   initial->assets = bindings;

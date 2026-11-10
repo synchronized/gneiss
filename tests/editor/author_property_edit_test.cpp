@@ -9,11 +9,12 @@
 #include "documents/scene_document_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/fatal.hpp"
+#include "engine/function/scene/scene_composition.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
-#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/asset_file.hpp"
+#include "engine/resource/scene.hpp"
 #include "runtime/application.hpp"
 
 #include "engine/core/error.hpp"
@@ -199,14 +200,12 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
     return 57;
   auto saved = snapshot();
   // 保存后的描述重新准备和实例化，普通组件与 Prefab 差异均必须恢复。
-  e::scene_preparation_inputs inputs;
-  inputs.scene =
+  e::scene_content prepared;
+  prepared.description =
       e::asset_ref<const e::scene_description>{std::make_shared<e::scene_description>(saved)};
-  inputs.prefabs.emplace(author.prefab->uri, e::prefab_asset_ref{source});
-  e::scene_instantiation_data prepared;
-  e::scene_diagnostic diagnostic;
-  if (e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).failed())
-    return 43;
+  prepared.prefabs.emplace(
+      author.prefab->uri,
+      e::scene_prefab_dependency{.resource = {}, .description = e::prefab_asset_ref{source}});
   auto receipt = gneiss::test_support::scene_fixture::instantiate_scene(*app.native_world(),
                                                                         std::move(prepared), {});
   if (!receipt)

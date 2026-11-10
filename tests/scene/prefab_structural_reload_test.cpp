@@ -91,12 +91,12 @@ int main() try {
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
           .failed())
     return 1;
-  gneiss::engine::scene_instantiation_data prepared;
+  gneiss::engine::scene_content prepared;
   gneiss::engine::scene_resource_bindings assets;
   if (gneiss::test_support::prepare_scene(*application, scene_uri, prepared, assets, &scheduler)
           .failed())
     return 1;
-  auto description = prepared.description;
+  auto description = *prepared.description;
   gneiss::engine::game_object_description second;
   second.uuid = second_instance_uuid;
   second.prefab = gneiss::engine::prefab_reference_description{std::string(prefab_uri), {}, {}};

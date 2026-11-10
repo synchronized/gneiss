@@ -12,12 +12,13 @@
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/component_adapter.hpp"
+#include "engine/function/scene/scene_composition.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
-#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/scene_instance.hpp"
 #include "engine/function/world/world_component_access.hpp"
 #include "engine/resource/asset_file.hpp"
+#include "engine/resource/scene.hpp"
 #include <cstdio>
 #include <source_location>
 #include <stdexcept>
@@ -44,16 +45,16 @@ struct resolved_link {
   e::game_object target;
 };
 const e::guid link_target_uuid = e::guid::from_bytes({84, 77});
-e::scene_instantiation_data prepare(e::scene_description scene, e::prefab_asset_ref prefab = {}) {
-  e::scene_preparation_inputs input;
-  input.scene = e::asset_ref<const e::scene_description>{
-      std::make_shared<const e::scene_description>(std::move(scene))};
+e::scene_content prepare(e::scene_description scene, e::prefab_asset_ref prefab = {}) {
+  e::scene_content output;
+  output.description = e::make_ref<const e::scene_description>(std::move(scene));
   if (prefab)
-    input.prefabs.emplace("asset://test.prefab", std::move(prefab));
-  e::scene_instantiation_data output;
-  e::scene_diagnostic diagnostic;
-  check(e::prepare_loaded_scene(input, {}, output, diagnostic, {}).ok());
-  check(output.assets.empty());
+    output.prefabs.emplace(
+        "asset://test.prefab",
+        e::scene_prefab_dependency{.resource = {}, .description = std::move(prefab)});
+  auto composed = gneiss::test_support::compose(output);
+  check(bool(composed));
+  check(e::scene_dependencies(*composed)->empty());
   return output;
 }
 }

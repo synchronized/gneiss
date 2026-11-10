@@ -9,9 +9,10 @@
 #include "components/component_registration.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
+#include "engine/function/scene/scene_composition.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
-#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/resource/asset_file.hpp"
+#include "engine/resource/scene.hpp"
 #include "runtime/application.hpp"
 #include <cstdio>
 #include <source_location>
@@ -127,12 +128,9 @@ int main() try {
   check(encoded.has_value());
   auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(*encoded);
   check(decoded.has_value());
-  e::scene_preparation_inputs inputs;
-  inputs.scene = e::asset_ref<const e::scene_description>{
+  e::scene_content prepared;
+  prepared.description = e::asset_ref<const e::scene_description>{
       std::make_shared<const e::scene_description>(std::move(*decoded))};
-  e::scene_instantiation_data prepared;
-  e::scene_diagnostic diagnostic;
-  check(e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).ok());
   gneiss::scene_instance_id loaded;
   check(gneiss::test_support::take_value(gneiss::test_support::scene_fixture::instantiate_scene(
                                              *app->native_world(), std::move(prepared), {}),

@@ -18,9 +18,10 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/scene/scene_application.hpp"
+#include "engine/function/scene/scene_composition.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
-#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/resource/scene.hpp"
 #include <algorithm>
 #include <thread>
 
@@ -186,13 +187,18 @@ void run() {
   check(bool(active_result));
   auto active = std::move(*active_result);
   gneiss::scene_instance_id old_scene{};
-  engine::scene_instantiation_data initial;
+  engine::scene_content initial;
+  engine::ref<const engine::scene> initial_asset;
   engine::scene_diagnostic initial_error;
-  check(test_support::prepare_scene_for_test(active_assets, executor, false, "asset://s.scene",
-                                             initial, initial_error, {})
+  check(test_support::load_scene_content(active_assets, executor, "asset://s.scene", initial,
+                                         initial_error, &initial_asset)
             .ok());
+  auto initial_composed = test_support::compose(initial);
+  check(bool(initial_composed));
+  auto initial_dependencies = engine::scene_dependencies(*initial_composed);
+  check(bool(initial_dependencies));
   engine::scene_resource_bindings initial_bindings;
-  for (const auto& request : initial.assets) {
+  for (const auto& request : (*initial_dependencies)) {
     engine::render_resource_ref reference;
     engine::asset_diagnostic error;
     check(gneiss::test_support::load_render(active_render, request.type, request.uri, reference,
@@ -221,13 +227,13 @@ void run() {
   }
   const auto reads_before_instantiation = files->reads;
   auto direct = gneiss::test_support::scene_fixture::instantiate_scene(*active.get(), active_assets,
-                                                                       initial.source_asset);
-  check(bool(direct) && direct->node_count == initial.instance_nodes);
-  check(direct->assets.size() == initial.assets.size());
+                                                                       initial_asset);
+  check(bool(direct) && direct->node_count == initial_composed->objects.size());
+  check(direct->assets.size() == (*initial_dependencies).size());
   check(files->reads == reads_before_instantiation);
   old_scene = direct->instance;
   auto second_instance = gneiss::test_support::scene_fixture::instantiate_scene(
-      *active.get(), active_assets, initial.source_asset);
+      *active.get(), active_assets, initial_asset);
   check(bool(second_instance) && second_instance->instance != old_scene);
   check(gneiss::test_support::scene_access{*active}->unload(second_instance->instance).ok());
   check(gneiss::test_support::scene_access{*active}->get_node_count(old_scene).ok());
@@ -269,11 +275,11 @@ void run() {
   files->files["s.scene"].insert(
       files->files["s.scene"].size() - 2U,
       R"(,{"uuid":"00000000-0000-4000-8000-000000000004","prefab":{"uri":"asset://p.prefab","overrides":[]},"parent":{"object":null,"source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})");
-  gneiss::engine::scene_instantiation_data prepared;
+  gneiss::engine::scene_content prepared;
   gneiss::engine::scene_diagnostic scene_error;
-  check(gneiss::test_support::prepare_scene_for_test(active_assets, executor, false,
-                                                     "asset://s.scene", prepared, scene_error,
-                                                     {}) == gneiss::engine::error::success);
+  check(gneiss::test_support::load_scene_content(active_assets, executor, "asset://s.scene",
+                                                 prepared, scene_error,
+                                                 {}) == gneiss::engine::error::success);
   auto candidate_result = engine::create_native();
   check(bool(candidate_result));
   auto candidate = std::move(*candidate_result);
@@ -317,17 +323,16 @@ void run() {
   const auto reads = files->reads;
   gneiss::scene_instance_id new_scene{};
   const auto instantiation_input = prepared;
-  auto expected_scene_asset = prepared.source_asset;
-  auto expected_prefab_asset = prepared.prefabs.begin()->second.source_asset;
-  check(bool(expected_scene_asset) && bool(expected_prefab_asset));
+  auto expected_prefab_asset = prepared.prefabs.begin()->second.resource;
+  check(bool(expected_prefab_asset));
   // 缺少来源引用必须拒绝，不能通过临时描述回写缓存。
   auto missing_source = prepared;
-  missing_source.prefabs.begin()->second.resource.reset();
+  missing_source.prefabs.begin()->second.description.reset();
   gneiss::scene_instance_id rejected_scene{};
   check(gneiss::test_support::take_value(gneiss::test_support::scene_fixture::instantiate_scene(
                                              *candidate.get(), std::move(missing_source), bindings),
                                          rejected_scene) ==
-            gneiss::engine::error::invalid_argument &&
+            gneiss::engine::error::not_found &&
         rejected_scene == gneiss::scene_instance_id{});
   auto created = gneiss::test_support::scene_fixture::instantiate_scene(
       *candidate.get(), std::move(prepared), bindings);
@@ -344,7 +349,7 @@ void run() {
     check(bool(rebuilt));
     check(gneiss::test_support::scene_access{*candidate}->unload(*empty).ok());
     check(bool(rebuilt) && rebuilt->instance != *empty &&
-          rebuilt->node_count == instantiation_input.instance_nodes);
+          rebuilt->node_count == created->node_count);
     bool source_address = false;
     for (const auto& object : rebuilt->objects)
       source_address = source_address || bool(object.source);
@@ -376,7 +381,9 @@ void run() {
     worker.join();
     check(foreign == engine::error::invalid_state);
     auto broken = instantiation_input;
-    broken.description.objects.back().transform.scale = {0, 1, 1};
+    auto broken_description = engine::make_ref<engine::scene_description>(*broken.description);
+    broken_description->objects.back().transform.scale = {0, 1, 1};
+    broken.description = std::move(broken_description);
     check(!gneiss::test_support::scene_fixture::instantiate_scene(*candidate.get(),
                                                                   std::move(broken), bindings));
     check(*candidate.get()->entity_count() == baseline_count);
@@ -550,15 +557,17 @@ void run() {
   check(old_pixels->parameters.color[0] == 1.0F);
 
   // 构造失败时仅回收候选节点；非法引用不能退回主线程文件读取。
-  check(gneiss::test_support::prepare_scene_for_test(active_assets, executor, false,
-                                                     "asset://s.scene", prepared, scene_error,
-                                                     {}) == gneiss::engine::error::success);
+  check(gneiss::test_support::load_scene_content(active_assets, executor, "asset://s.scene",
+                                                 prepared, scene_error,
+                                                 {}) == gneiss::engine::error::success);
   candidate_result = engine::create_native();
   check(bool(candidate_result));
   candidate = std::move(*candidate_result);
   // 空绑定表可预留尚未加载的资源身份；使用非法 URI 验证失败回收。
   bool invalid_dependency = false;
-  for (auto& description : prepared.description.objects) {
+  auto invalid_description = engine::make_ref<engine::scene_description>(*prepared.description);
+  prepared.description = invalid_description;
+  for (auto& description : invalid_description->objects) {
     if (auto* renderer = description.components.get<gneiss::engine::mesh_renderer_description>()) {
       auto missing = *renderer;
       missing.mesh_uri = "invalid-uri";

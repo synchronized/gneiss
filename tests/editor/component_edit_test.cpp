@@ -13,9 +13,10 @@
 #include "engine/core/serialization/policy.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/prefab_replay.hpp"
+#include "engine/function/scene/scene_composition.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
-#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/resource/asset_file.hpp"
+#include "engine/resource/scene.hpp"
 #include "panels/reflected_property_editor.hpp"
 #include "runtime/application.hpp"
 #include <cstdio>
@@ -489,13 +490,12 @@ int main() try {
   auto rejected = gneiss::engine::asset_file::deserialize<e::scene_description>(
       std::as_bytes(std::span{malformed.data(), malformed.size()}));
   check(!rejected && rejected.error().path.find("/path") != std::string::npos);
-  e::scene_preparation_inputs inputs;
-  inputs.scene = e::asset_ref<const e::scene_description>{
+  e::scene_content prepared;
+  prepared.description = e::asset_ref<const e::scene_description>{
       std::make_shared<const e::scene_description>(snapshot())};
-  inputs.prefabs.emplace(reference.prefab->uri, e::prefab_asset_ref{prefab});
-  e::scene_instantiation_data prepared;
-  e::scene_diagnostic diagnostic;
-  check(e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).ok());
+  prepared.prefabs.emplace(
+      reference.prefab->uri,
+      e::scene_prefab_dependency{.resource = {}, .description = e::prefab_asset_ref{prefab}});
   auto receipt = gneiss::test_support::scene_fixture::instantiate_scene(*app->native_world(),
                                                                         std::move(prepared), {});
   check(bool(receipt));

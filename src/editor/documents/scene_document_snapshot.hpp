@@ -4,8 +4,8 @@
 #include "commands/author_document_change.hpp"
 #include "engine/function/scene/scene_composition.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
-#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/resource/prefab.hpp"
+#include "engine/resource/scene.hpp"
 #include "engine/resource/scene/scene_record.hpp"
 #include <map>
 #include <span>

@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/function/scene/scene_composition.hpp"
-#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/resource/scene.hpp"
 #include <functional>
 namespace gneiss::engine {
 /** 外部协调方持有的地址关联，不保存作者描述或组件副本。 */

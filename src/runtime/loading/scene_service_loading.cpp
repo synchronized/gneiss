@@ -7,9 +7,10 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/scene_composition.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
-#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/scene/scene_types.hpp"
+#include "engine/resource/scene.hpp"
 #include "runtime/loading/resource_load_group.hpp"
 #include "runtime/loading/scene_service.hpp"
 
