@@ -51,8 +51,9 @@ int main() {
     return 9;
   auto scene_camera = object->entity();
   const gneiss::engine::math::camera_settings settings{1.04719755F, 0.1F, 1000.0F};
-  if (gneiss::engine::error{
-          owner->find(scene_camera).set_component(gneiss::engine::camera_component{settings})} !=
+  if (gneiss::engine::error{owner->find(scene_camera)
+                                .add_component<gneiss::engine::camera_component>(
+                                    *gneiss::engine::camera_component::create(settings))} !=
           gneiss::engine::error::success ||
       gneiss::engine::error{gneiss::engine::set_active_camera(*owner, scene_camera)} !=
           gneiss::engine::error::success) {

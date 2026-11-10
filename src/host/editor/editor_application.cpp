@@ -1436,9 +1436,8 @@ void draw_asset_browser(editor_state& state) {
   else if (const auto ordinary_node = state.editing.document().selected_node())
     selected_node = ordinary_node->node;
   const bool has_renderer =
-      selected_node && state.world->find(gneiss::entity_id{(selected_node).get()})
-                           .read_component<gneiss::engine::mesh_renderer_component>()
-                           .has_value();
+      selected_node && state.world->find(selected_node).is_valid() &&
+      state.world->find(selected_node).try_component<gneiss::engine::mesh_renderer_component>();
   if (selected != state.assets.entries().end()) {
     view.can_add_mesh = is_mesh_asset(*selected) &&
                         find_material_for_mesh(state.assets.entries(), *selected) != nullptr;

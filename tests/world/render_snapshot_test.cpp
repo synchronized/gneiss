@@ -82,9 +82,10 @@ int run_tests() {
   math::transform mesh_transform;
   mesh_transform.translation.x = 2;
   if (mesh_object->set_local_transform(mesh_transform).failed() ||
-      camera_object->set_component(camera_component{camera}).failed() ||
+      camera_object->add_component<camera_component>(*camera_component::create(camera)).failed() ||
       gneiss::engine::set_active_camera(world, camera_entity).failed() ||
-      mesh_object->set_component(mesh_renderer_component{renderer}).failed())
+      mesh_object->add_component<mesh_renderer_component>(mesh_renderer_component{renderer})
+          .failed())
     return 2;
   auto active_camera = [&] {
     gneiss::entity_id id;
@@ -117,7 +118,9 @@ int run_tests() {
     return 7;
   }
   auto added_object = scene->create_object({"added mesh", {}});
-  if (!added_object || added_object->set_component(mesh_renderer_component{renderer}).failed())
+  if (!added_object ||
+      added_object->add_component<mesh_renderer_component>(mesh_renderer_component{renderer})
+          .failed())
     return 5;
   snapshot = extract_render_snapshot(world, 1280U, 720U);
   if (!snapshot || snapshot->instances.size() != 2 || active_camera() != camera_entity)

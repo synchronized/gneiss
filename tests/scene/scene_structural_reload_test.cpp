@@ -109,7 +109,7 @@ int main() try {
       gneiss::test_support::read_component_value(
           application->native_world()
               ->find(camera_entity_before)
-              .read_component<gneiss::engine::camera_component>(),
+              .try_component<gneiss::engine::camera_component>(),
           restored_camera)
           .failed() ||
       gneiss::test_support::assign_value(

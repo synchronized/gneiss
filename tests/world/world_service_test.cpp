@@ -45,9 +45,8 @@ bool scene_object_storage() {
     return false;
   if (child->name() != "子节点" || child->set_name("新名称").failed() || child->name() != "新名称")
     return false;
-  if (owner.find(child->entity())
-          .read_component<gneiss::engine::mesh_renderer_component>()
-          .error() != error::not_found)
+  if (owner.find(child->entity()).try_component<gneiss::engine::mesh_renderer_component>() !=
+      nullptr)
     return false;
   auto objects = object_scene->objects();
   auto roots = object_scene->roots();
@@ -181,23 +180,24 @@ int main() {
   }
   gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   if (world->find(gneiss::entity_id{entity})
-          .set_component(gneiss::engine::camera_component{camera}) !=
+          .add_component<gneiss::engine::camera_component>(
+              *gneiss::engine::camera_component::create(camera)) !=
       gneiss::engine::error::success) {
     return 4;
   }
   service::math::camera_settings settings;
   if (gneiss::test_support::read_component_value(
-          world->find(gneiss::entity_id{entity}).read_component<gneiss::engine::camera_component>(),
+          world->find(gneiss::entity_id{entity}).try_component<gneiss::engine::camera_component>(),
           settings) != gneiss::engine::error::success ||
       settings.near != camera.near || settings.far != camera.far) {
     return 5;
   }
   settings.far = settings.near;
   if (world->find(gneiss::entity_id{entity})
-              .set_component(gneiss::engine::camera_component{settings}) !=
-          gneiss::engine::error::invalid_argument ||
+              .try_component<gneiss::engine::camera_component>()
+              ->set_settings(settings) != gneiss::engine::error::invalid_argument ||
       gneiss::test_support::read_component_value(
-          world->find(gneiss::entity_id{entity}).read_component<gneiss::engine::camera_component>(),
+          world->find(gneiss::entity_id{entity}).try_component<gneiss::engine::camera_component>(),
           camera) != gneiss::engine::error::success ||
       camera.near == camera.far) {
     return 6;

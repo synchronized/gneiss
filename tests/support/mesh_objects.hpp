@@ -26,11 +26,9 @@ inline engine::result<engine::scene_mesh_binding> read_mesh(engine::world& owner
   auto object = mesh_target(owner, scene, id);
   if (!object)
     return object.error();
-  auto component = object->read_component<engine::mesh_renderer_component>();
+  auto component = object->try_component<engine::mesh_renderer_component>();
   if (!component)
-    return component.error() == engine::error::not_found
-               ? engine::result<engine::scene_mesh_binding>{engine::scene_mesh_binding{}}
-               : engine::result<engine::scene_mesh_binding>{component.error()};
+    return engine::scene_mesh_binding{};
   return engine::scene_mesh_binding{component->value.mesh, component->value.material};
 }
 // 测试编排：显式查询缓存，再通过对象接口写入；不提供旧 expected/事务协议。
@@ -52,8 +50,13 @@ inline engine::error assign_mesh(engine::world& owner, engine::asset_manager& as
       return loaded.error();
     before->material = *loaded;
   }
-  return owner.find(id).set_component(
-      engine::mesh_renderer_component{{before->mesh, before->material}});
+  auto object = owner.find(id);
+  if (auto* component = object.try_component<engine::mesh_renderer_component>()) {
+    component->value = {before->mesh, before->material};
+    return engine::error::success;
+  }
+  return object.add_component<engine::mesh_renderer_component>(
+      engine::mesh_renderer{before->mesh, before->material});
 }
 struct mesh_fixture {
   std::string_view name;

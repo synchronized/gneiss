@@ -190,10 +190,11 @@ void run_pending_resources() {
         gneiss::engine::error::success);
   check(info.components.get<gneiss::engine::mesh_renderer_description>() != nullptr);
   const gneiss::engine::mesh_renderer binding{.mesh = mesh_ref, .material = material_ref};
-  check(gneiss::engine::error{native->native_world()
-                                  ->find(info.entity)
-                                  .set_component(gneiss::engine::mesh_renderer_component{
-                                      binding})} == gneiss::engine::error::success);
+  auto* target = native->native_world()
+                     ->find(info.entity)
+                     .try_component<gneiss::engine::mesh_renderer_component>();
+  check(target != nullptr);
+  target->value = binding;
   const auto pixel = [&] {
     gneiss::engine::frame_image image;
     check(app->capture_frame(128U, 128U, image) == gneiss::engine::error::success);

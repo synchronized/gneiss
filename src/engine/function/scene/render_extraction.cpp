@@ -52,7 +52,8 @@ result<render_snapshot> extract_render_snapshot(world& owner, std::uint32_t view
       const auto active_camera = selected_entity.get();
       if (const auto* component = world.get<camera_component>(active_camera);
           component != nullptr) {
-        selected.camera = {component->value.fov, component->value.near, component->value.far};
+        selected.camera = {component->settings().fov, component->settings().near,
+                           component->settings().far};
         auto transform = world.scene().get_world_for_entity(active_camera);
         has_camera = transform.ok();
         if (transform)

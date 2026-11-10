@@ -12,7 +12,8 @@
 本轮具体收敛：
 - 私有 object_state 合并名称、层级、变换和归属；运行对象不保存描述身份。
 - objects/roots/children 使用句柄快照，保留不允许结构修改的 visit_objects。
-- try_component 返回借用，add_component 拒绝重复；保留显式副本读取/安装替换。
+- try_component 返回借用，add_component 拒绝重复；read_component/set_component 已删除，副本由调用方显式复制。
+  相机参数私有化，通过自身 create/set_settings 校验，普通组件直接赋值。
 - World 删除活动相机方法；渲染相机选择独立，World 私有状态不再包含相机特判。
 
 与最初示意的差异：遍历先用 result<vector<game_object>>，不引入自定义惰性 object_range；

@@ -47,7 +47,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   auto read = [&](gneiss::entity_id entity) {
     e::math::camera_settings camera;
     if (gneiss::test_support::read_component_value(
-            world.find(entity).read_component<gneiss::engine::camera_component>(), camera)
+            world.find(entity).try_component<gneiss::engine::camera_component>(), camera)
             .failed())
       throw std::runtime_error("read camera");
     return camera;

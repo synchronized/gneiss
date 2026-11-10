@@ -254,16 +254,17 @@ void run(gneiss::engine::execution_mode mode) {
   view.vertices = vertices;
   check(gneiss::test_support::take_value(app->assets().create(view), external.mesh).ok());
   check(gneiss::test_support::take_value(app->assets().create({}, {}), external.material).ok());
-  check(gneiss::engine::error{app->native_world()
-                                  ->find(node.entity)
-                                  .set_component(gneiss::engine::mesh_renderer_component{
-                                      external})} == gneiss::engine::error::success);
+  auto* external_target = app->native_world()
+                              ->find(node.entity)
+                              .try_component<gneiss::engine::mesh_renderer_component>();
+  check(external_target != nullptr);
+  external_target->value = external;
   wait();
   check(completion.result == gneiss::engine::error::success &&
         completion.state == gneiss::runtime::asset_load_state::applied &&
         completion.assets.size() == 1U);
   auto unchanged =
-      world->find(node.entity).read_component<gneiss::engine::mesh_renderer_component>();
+      world->find(node.entity).try_component<gneiss::engine::mesh_renderer_component>();
   check(unchanged && unchanged->value.mesh == external.mesh &&
         unchanged->value.material == external.material);
   // 卸载冲突使用者后可重试；完成后释放租约，Application 仍可正常关闭。

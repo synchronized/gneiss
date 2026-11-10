@@ -14,7 +14,7 @@
 #endif
 
 namespace gneiss::engine::math {
-/** 透视投影参数；是否作为活动相机由 World 决定。 */
+/** 透视投影参数；是否作为活动相机由应用选择。 */
 struct camera_settings {
   float fov{};  ///< 垂直视场角，单位弧度。
   float near{}; ///< 近裁剪面距离。

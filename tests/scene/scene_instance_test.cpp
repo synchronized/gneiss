@@ -26,8 +26,14 @@ gneiss::engine::error set_camera(gneiss::engine::world& owner, gneiss::scene_ins
   auto status = gneiss::test_support::scene_access{owner}->validate_editable_node(scene, node);
   if (status.failed())
     return status;
-  status = owner.find(gneiss::entity_id{node.get()})
-               .set_component(gneiss::engine::camera_component{desc.settings});
+  auto value = gneiss::engine::camera_component::create(desc.settings, desc.is_primary);
+  if (!value)
+    return value.error();
+  auto object = owner.find(node);
+  if (auto* camera = object.try_component<gneiss::engine::camera_component>())
+    *camera = *value;
+  else
+    status = object.add_component<gneiss::engine::camera_component>(*value);
   if (status.failed() || !desc.is_primary)
     return status;
   return gneiss::engine::set_active_camera(owner, gneiss::entity_id{node.get()});
@@ -289,7 +295,10 @@ int main() try {
   {
     auto renderer = application->native_world()
                         ->find(gneiss::entity_id{(created_node).get()})
-                        .read_component<gneiss::engine::mesh_renderer_component>();
+                        .try_component<gneiss::engine::mesh_renderer_component>();
+    if (!renderer)
+      return 40;
+    const auto saved_renderer = *renderer;
     gneiss::entity_id entity;
     gneiss::engine::scene_mesh_binding binding;
     if (!renderer ||
@@ -307,7 +316,7 @@ int main() try {
         binding.mesh || binding.material ||
         application->native_world()
             ->find(entity)
-            .set_component(gneiss::engine::mesh_renderer_component{*renderer})
+            .add_component<gneiss::engine::mesh_renderer_component>(saved_renderer)
             .failed())
       return 40;
   }
@@ -431,8 +440,8 @@ int main() try {
           gneiss::engine::error::success ||
       application->native_world()
               ->find(camera_entity)
-              .set_component(gneiss::engine::camera_component{camera}) !=
-          gneiss::engine::error::success ||
+              .try_component<gneiss::engine::camera_component>()
+              ->set_settings(camera) != gneiss::engine::error::success ||
       application->native_world()
           ->find(gneiss::entity_id{(camera_node).get()})
           .set_name("Runtime Camera")

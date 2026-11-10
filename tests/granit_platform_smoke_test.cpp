@@ -188,14 +188,17 @@ int main() {
           .set_local_transform(plain_transform)
           .failed() ||
       world.find(camera_entity)
-          .set_component(gneiss::engine::camera_component{camera, true})
+          .add_component<gneiss::engine::camera_component>(
+              *gneiss::engine::camera_component::create(camera, true))
           .failed() ||
       gneiss::engine::set_active_camera(world, camera_entity).failed() ||
       world.find(mesh_entity)
-          .set_component(gneiss::engine::mesh_renderer_component{mesh_renderer})
+          .add_component<gneiss::engine::mesh_renderer_component>(
+              gneiss::engine::mesh_renderer_component{mesh_renderer})
           .failed() ||
       world.find(plain_mesh_entity)
-          .set_component(gneiss::engine::mesh_renderer_component{plain_mesh_renderer})
+          .add_component<gneiss::engine::mesh_renderer_component>(
+              gneiss::engine::mesh_renderer_component{plain_mesh_renderer})
           .failed()) {
     std::fprintf(stderr, "测试场景构造失败\n");
     return 3;
@@ -213,14 +216,10 @@ int main() {
   replacement_mesh = resource_handle(mesh_owner);
   mesh_renderer.mesh = mesh_owner;
   plain_mesh_renderer.mesh = mesh_owner;
-  if (world.find(mesh_entity)
-          .set_component(gneiss::engine::mesh_renderer_component{mesh_renderer})
-          .failed() ||
-      world.find(plain_mesh_entity)
-          .set_component(gneiss::engine::mesh_renderer_component{plain_mesh_renderer})
-          .failed()) {
-    return 6;
-  }
+  world.find(mesh_entity).try_component<gneiss::engine::mesh_renderer_component>()->value =
+      mesh_renderer;
+  world.find(plain_mesh_entity).try_component<gneiss::engine::mesh_renderer_component>()->value =
+      plain_mesh_renderer;
   run_result = application->run(1);
   if (run_result.failed()) {
     std::fprintf(stderr, "Mesh generation 更新后运行失败：%d\n", run_result.code());

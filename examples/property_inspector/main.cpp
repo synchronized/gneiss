@@ -189,8 +189,8 @@ int main() try {
       std::abs(std::get<gneiss::engine::math::vector3>(translation->payload).x - 2) > 0.0001F)
     return 6;
   auto runtime_camera =
-      app->native_world()->find(target).read_component<gneiss::engine::camera_component>();
-  if (!runtime_camera || std::abs(runtime_camera->value.near - 0.25F) > 0.0001F)
+      app->native_world()->find(target).try_component<gneiss::engine::camera_component>();
+  if (!runtime_camera || std::abs(runtime_camera->settings().near - 0.25F) > 0.0001F)
     return 6;
   instance = gneiss::engine::scene_instance::borrow(*app->native_world(), scene);
   if (!instance || instance->unload().failed())

@@ -264,10 +264,11 @@ editor_asset_edit::request_impl(runtime::application& application, scene_edit_se
       return operation_ = captured.error();
     previous_ = std::move(*captured);
   }
+  const auto runtime_object =
+      application.native_world() ? application.native_world()->find(node_) : engine::game_object{};
   if (!creating_ && !target.instance_uuid &&
-      !application.native_world()
-           ->find(gneiss::entity_id{(node_).get()})
-           .read_component<gneiss::engine::mesh_renderer_component>()) {
+      (!runtime_object.is_valid() ||
+       !runtime_object.try_component<gneiss::engine::mesh_renderer_component>())) {
     previous_ = {};
     return operation_ = gneiss::engine::error::invalid_state;
   }

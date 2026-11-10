@@ -79,10 +79,13 @@ engine::error take_request(R& request, T& output,
 }
 
 namespace gneiss::test_support {
-template <class T, class U> engine::error read_component_value(engine::result<T> value, U& out) {
+template <class T, class U> engine::error read_component_value(const T* value, U& out) {
   if (!value)
-    return value.error();
-  out = value->value;
+    return engine::error::not_found;
+  if constexpr (requires { value->settings(); })
+    out = value->settings();
+  else
+    out = value->value;
   return engine::error::success;
 }
 }

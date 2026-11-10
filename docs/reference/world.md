@@ -37,11 +37,11 @@ World 拒绝不同场景已登记成员之间的重新挂接，返回 invalid_ar
 size 和枚举不再返回已经失效的成员。存活实体仍以 World 的 generation 校验为准。
 运行对象不提供来源 UUID 查找；来源由实例化回执和调用方映射维护。
 普通对象统一通过 scene_instance::create_object 创建并返回 game_object，创建成功即具有场景归属。
-普通组件通过 `world::find(entity)` 获得借用句柄，再调用
-`read_component<T>()`、`set_component(T)`、`remove_component<T>()`；不要求实体具有对象层级。
-当前内置实例化支持 camera_component 和 mesh_renderer_component。读取返回值副本，
-其中资源引用正常保活；修改副本不修改 ECS，需显式 set_component 写回。
-读取缺失组件返回 not_found，跨 World 或失效实体返回 invalid_handle，错误线程返回 invalid_state。
+普通组件通过有效 game_object 的 try_component<T>() 借用，
+add_component<T>() 新增、remove_component<T>() 删除。
+当前内置实例化支持 camera_component 和 mesh_renderer_component。需要副本时显式复制借用对象；
+资源强引用正常保活，修改副本不改变 ECS。普通组件可以直接赋值，受约束组件通过自身方法修改。
+新增和删除对跨 World 或失效实体返回 invalid_handle，错误线程返回 invalid_state。
 组件实现单元可包含 detail/component_storage.hpp 并显式实例化对应类型，使用方不依赖 EnTT。
 场景归属不允许通过普通组件写入口修改。
 
@@ -94,8 +94,11 @@ scene_instance::objects()/roots() 和 game_object::children() 返回 result<vect
 
 try_component<T>() 返回借用指针，缺失组件返回 nullptr；要求对象有效且在所属线程使用。
 组件增删或替换、对象销毁、场景卸载后必须重新获取指针，不能把指针跨结构修改保存。
-指针写入不会自动触发校验或通知；需要参数校验时使用 set_component。
-read_component 继续提供副本读取，set_component 明确表示安装或替换。
+指针写入不发送通用通知。相机的 settings() 只读，set_settings() 校验参数并在失败时保留原值。
+默认构造的相机有效；create(settings, primary_hint) 返回 result<camera_component>。
+删除 read_component/set_component，不保留副本读取或安装/替换包装。
+普通组件需要复制时使用 auto copy = *component；已有普通组件通过 *component = copy 更新。
+
 
 add_component<T>(args...) 正常构造组件；已存在同类型组件返回 invalid_state，保留原值。
 remove_component<T>() 缺失时返回 not_found。两者对失效对象返回 invalid_handle，

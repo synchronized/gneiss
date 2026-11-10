@@ -441,7 +441,7 @@ void run() {
       .mesh = current_mesh, .material = next_version.as<gneiss::engine::material>()};
   auto matches = [&](const gneiss::engine::mesh_renderer& expected_value) {
     auto current =
-        candidate->find(ordinary.entity).read_component<gneiss::engine::mesh_renderer_component>();
+        candidate->find(ordinary.entity).try_component<gneiss::engine::mesh_renderer_component>();
     return current && current->value.mesh == expected_value.mesh &&
            current->value.material == expected_value.material;
   };
@@ -475,19 +475,22 @@ void run() {
   check(resources.get_material(selected_material) != nullptr);
   {
     auto object = candidate->find(ordinary.entity);
-    auto before = object.read_component<gneiss::engine::mesh_renderer_component>();
-    check(bool(before));
+    auto* borrowed = object.try_component<gneiss::engine::mesh_renderer_component>();
+    check(borrowed != nullptr);
+    const auto before = *borrowed;
     const auto binding_reads = files->reads;
-    auto cleared = *before;
+    auto cleared = before;
     cleared.value.material = {};
-    check(object.set_component(cleared).ok());
-    auto empty = object.read_component<gneiss::engine::mesh_renderer_component>();
-    check(empty && empty->value.mesh == before->value.mesh && !empty->value.material);
+    *borrowed = cleared;
+    auto* empty = object.try_component<gneiss::engine::mesh_renderer_component>();
+    check(empty && empty->value.mesh == before.value.mesh && !empty->value.material);
     gneiss::engine::error worker_result;
-    std::thread worker([&] { worker_result = object.set_component(*before); });
+    std::thread worker([&] {
+      worker_result = object.add_component<gneiss::engine::mesh_renderer_component>(before);
+    });
     worker.join();
     check(worker_result == gneiss::engine::error::invalid_state);
-    check(object.set_component(*before).ok());
+    *object.try_component<gneiss::engine::mesh_renderer_component>() = before;
     check(files->reads == binding_reads);
   }
   check(candidate.get()

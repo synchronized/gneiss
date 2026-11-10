@@ -214,9 +214,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
       return member.error();
     if (!*member)
       return error::invalid_handle;
-    auto current = target.read_component<mesh_renderer_component>();
-    if (!current && current.error() != error::not_found)
-      return current.error();
+    auto current = target.try_component<mesh_renderer_component>();
     if (current && current->value.mesh == target_binding.mesh &&
         current->value.material == target_binding.material)
       continue;
@@ -224,7 +222,8 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
     // 已有组件只更新资源引用，保留组件身份；缺失组件走通用装配入口。
     error status;
     if (current) {
-      status = target.set_component(mesh_renderer_component{target_binding});
+      current->value = target_binding;
+      status = error::success;
     } else {
       component_context context{
           target, [&](const render_resource_source& source) -> result<render_resource_ref> {

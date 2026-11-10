@@ -80,7 +80,10 @@ int main() {
       std::abs(transform.scale[0] - 1) > 0.0001F)
     return 6;
   engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  if (first->find(entity).set_component(gneiss::engine::camera_component{camera, true}).failed() ||
+  if (first->find(entity)
+          .add_component<gneiss::engine::camera_component>(
+              *gneiss::engine::camera_component::create(camera, true))
+          .failed() ||
       gneiss::engine::set_active_camera(*first, entity).failed() ||
       gneiss::test_support::assign_value(
           engine::read_component_property(*first, entity.get(), camera_type,
@@ -109,13 +112,13 @@ int main() {
   };
   if (change_near(0.5F).failed() ||
       gneiss::test_support::read_component_value(
-          first->find(entity).read_component<gneiss::engine::camera_component>(), camera)
+          first->find(entity).try_component<gneiss::engine::camera_component>(), camera)
           .failed() ||
       std::abs(camera.near - 0.5F) > 0.0001F)
     return 8;
   if (change_near(camera.far + 1) != error::invalid_argument ||
       gneiss::test_support::read_component_value(
-          first->find(entity).read_component<gneiss::engine::camera_component>(), camera)
+          first->find(entity).try_component<gneiss::engine::camera_component>(), camera)
           .failed() ||
       std::abs(camera.near - 0.5F) > 0.0001F)
     return 9;
