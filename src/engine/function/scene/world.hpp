@@ -5,7 +5,6 @@
 #include "engine/core/entity_id.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/render/render_snapshot.hpp"
 #include "engine/function/scene/game_object.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_types.hpp"
@@ -47,15 +46,6 @@ public:
   }
   /** 将本 World 中有层级组件的实体借用为对象，纯 ECS 实体返回 not_found。 */
   [[nodiscard]] GNEISS_API result<game_object> object(entity_id entity) noexcept;
-
-  [[nodiscard]] GNEISS_API error entity_get_local_transform(entity_id entity,
-                                                            math::transform& out_transform);
-  [[nodiscard]] GNEISS_API error entity_set_local_transform(entity_id entity,
-                                                            const math::transform& transform);
-  [[nodiscard]] GNEISS_API error get_render_snapshot(std::uint32_t viewport_width,
-                                                     std::uint32_t viewport_height,
-                                                     render_snapshot& out_snapshot,
-                                                     const view_camera* camera);
 
 private:
   friend struct engine::world_factory;

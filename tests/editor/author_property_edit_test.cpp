@@ -279,8 +279,9 @@ int main() try {
   const auto first_uuid = session.selected_node()->uuid;
   const auto is_x = [&](float expected) {
     gneiss::engine::math::transform local{};
-    return app->native_world()->entity_get_local_transform(
-               session.find_node(first_uuid)->entity, local) == gneiss::engine::error::success &&
+    return gneiss::test_support::assign_value(
+               app->native_world()->find(session.find_node(first_uuid)->entity).local_transform(),
+               local) == gneiss::engine::error::success &&
            std::abs(local.translation[0] - expected) < 0.0001F;
   };
   const auto edit_x = [&](float next, editor_command_history& target, std::uint64_t serial) {

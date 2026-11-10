@@ -236,8 +236,9 @@ int main() try {
       gneiss::test_support::assign_value(
           reloaded_application->native_world()->object(gneiss::entity_id{(camera_node).get()}),
           camera_entity) != gneiss::engine::error::success ||
-      reloaded_application->native_world()->entity_get_local_transform(
-          camera_entity, reloaded_transform) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(
+          reloaded_application->native_world()->find(camera_entity).local_transform(),
+          reloaded_transform) != gneiss::engine::error::success ||
       std::abs(reloaded_transform.translation[0] - 7.0F) > 0.0001F) {
     return 12;
   }

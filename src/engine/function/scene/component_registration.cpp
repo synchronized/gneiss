@@ -515,18 +515,18 @@ error edit_runtime_component(component_context context, guid type, meta::propert
 
 namespace gneiss::engine {
 namespace {
-/** World 接口负责线程与实体校验；反射只修改副本，成功后才提交。 */
+/** GameObject 接口负责线程与实体校验；反射只修改副本，成功后才提交。 */
 template <class Access>
 error access_component(world& world, std::uint64_t entity, guid type, bool write, Access&& access) {
   if (type == transform_component_type) {
-    math::transform value;
-    auto operation = world.entity_get_local_transform(entity_id{entity}, value);
-    if (operation.failed())
-      return operation;
-    operation = access(&value);
-    return operation.failed() || !write
-               ? operation
-               : world.entity_set_local_transform(entity_id{entity}, value);
+    auto object = world.object(entity_id{entity});
+    if (!object)
+      return object.error();
+    auto value = object->local_transform();
+    if (!value)
+      return value.error();
+    auto operation = access(&*value);
+    return operation.failed() || !write ? operation : object->set_local_transform(*value);
   }
   return error::unsupported;
 }
@@ -538,11 +538,13 @@ result<value> read_component_property(world& world, std::uint64_t entity, guid t
     return node ? read_runtime_component(world, node->entity(), type, field)
                 : result<value>{node.error()};
   }
-  math::transform object;
-  auto status = world.entity_get_local_transform(entity_id{entity}, object);
-  if (status.failed())
-    return status;
-  auto root = meta::view(std::as_const(object));
+  auto target = world.object(entity_id{entity});
+  if (!target)
+    return target.error();
+  auto object = target->local_transform();
+  if (!object)
+    return object.error();
+  auto root = meta::view(std::as_const(*object));
   if (!root)
     return root.error();
   auto member = root->member(field);

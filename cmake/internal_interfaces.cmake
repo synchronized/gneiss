@@ -153,6 +153,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/scene/object_address.hpp
 
   engine/function/scene/game_object.hpp
+  engine/function/scene/render_extraction.hpp
   engine/function/scene/world.hpp
   engine/function/scene/components.hpp
   engine/platform/native_window_info.hpp

@@ -438,7 +438,7 @@ int main() try {
   if (gneiss::test_support::assign_value(
           application->native_world()->object(gneiss::entity_id{(camera_node).get()}),
           camera_entity) != gneiss::engine::error::success ||
-      application->native_world()->entity_set_local_transform(camera_entity, transform) !=
+      application->native_world()->find(camera_entity).set_local_transform(transform) !=
           gneiss::engine::error::success ||
       application->native_world()
               ->find(camera_entity)

@@ -59,7 +59,8 @@ int main() {
           .failed())
     return 4;
   engine::math::transform transform;
-  if (first->entity_get_local_transform(entity, transform).failed() ||
+  if (gneiss::test_support::assign_value(first->find(entity).local_transform(), transform)
+          .failed() ||
       std::abs(transform.translation[0] - 2) > 0.0001F ||
       gneiss::test_support::assign_value(
           engine::read_component_property(*first, missing.get(), transform_type,
@@ -74,7 +75,8 @@ int main() {
   if (engine::write_component_property(*first, entity.get(), transform_type,
                                        gneiss::engine::meta::property_id{3},
                                        value) != error::invalid_argument ||
-      first->entity_get_local_transform(entity, transform).failed() ||
+      gneiss::test_support::assign_value(first->find(entity).local_transform(), transform)
+          .failed() ||
       std::abs(transform.scale[0] - 1) > 0.0001F)
     return 6;
   engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
@@ -130,7 +132,9 @@ int main() {
   });
   worker.join();
   if (foreign_read != error::invalid_state || foreign_write != error::invalid_state ||
-      first->entity_get_local_transform(entity, transform).failed() || transform.translation.x != 2)
+      gneiss::test_support::assign_value(first->find(entity).local_transform(), transform)
+          .failed() ||
+      transform.translation.x != 2)
     return 11;
   value.payload = false;
   if (engine::write_component_property(*first, entity.get(), camera_type,

@@ -110,6 +110,12 @@ GPU 在途安全回收仍由 Render 及后端负责，RID 释放队列不替代 
 `world::set_active_camera` 独立选择，每个 World 至多一个；移除或销毁活动 Camera 后，World
 进入无活动 Camera 状态。primary_hint 仅是默认相机选择提示，安装组件不会激活相机。
 
+帧提取入口为 `function/scene/render_extraction.hpp` 中的
+`extract_render_snapshot(world&, width, height, camera)`，返回 `result<render_snapshot>`。
+它在 World 所属线程访问 ECS，失败时不返回部分快照；相机指针仅在调用期间借用，
+为空时使用活动相机。提取实现在 scene/detail，不由 World 公共方法或 GPU 服务负责。
+Application 将成功结果移动到帧包；快照持有资源强引用，不保留 ECS 借用。
+
 帧提取按值复制活动 Camera、世界 Transform、视图矩阵、投影矩阵和视口尺寸。没有关联 Scene Node
 的活动 Camera 不进入渲染快照；窗口尺寸为零时跳过渲染。内部矩阵遵循
 [ADR-012](../decisions/ADR-012-3d-camera-coordinate-boundary.md)，不进入公共 ABI。

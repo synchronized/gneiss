@@ -256,6 +256,8 @@ target_sources(
     engine/function/scene/game_object.cpp
     engine/function/scene/world.cpp
     engine/function/scene/game_object.hpp
+    engine/function/scene/render_extraction.cpp
+    engine/function/scene/render_extraction.hpp
     engine/function/scene/world.hpp
     engine/function/scene/detail/world_factory.cpp
     engine/function/scene/detail/world_state.hpp

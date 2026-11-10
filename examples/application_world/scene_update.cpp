@@ -6,12 +6,12 @@
 namespace example {
 gneiss::engine::error update(gneiss::runtime::application& app, scene_state& state) noexcept {
   auto* world = app.native_world();
-  gneiss::engine::math::transform transform;
-  auto status = world->entity_get_local_transform(state.entity, transform);
-  if (status.failed())
-    return status;
-  transform.translation[0] += 1.0F;
-  status = world->entity_set_local_transform(state.entity, transform);
+  auto object = world->find(state.entity);
+  auto transform = object.local_transform();
+  if (!transform)
+    return transform.error();
+  transform->translation[0] += 1.0F;
+  auto status = object.set_local_transform(*transform);
   if (status.failed())
     return status;
   if (++state.updates == 3)

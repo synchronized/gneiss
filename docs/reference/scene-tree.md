@@ -38,9 +38,9 @@ World 的层级组件是 Transform 的唯一权威存储：
 四元数长度必须在 `1±1e-4` 范围内，每个缩放轴的绝对值必须至少为 `1e-6`；不满足时返回
 `error::invalid_argument`，原值保持不变。负缩放有效，零缩放因不可逆而被拒绝。
 
-`world::entity_get_local_transform` 和 `world::entity_set_local_transform` 直接通过实体组件
-访问同一份局部 Transform，不创建第二份状态。实体有效但没有关联节点时返回
-`error::not_found`；跨 World 或失效实体返回 `error::invalid_handle`。
+`game_object::local_transform()` 返回局部 Transform 的值副本，
+`set_local_transform()` 校验并修改同一份受控数据，不提供 World 级的重复变换接口。
+失效对象返回 `error::invalid_handle`；错误线程返回 `error::invalid_state`。
 
 层级采用显式 TRS 分量组合：子平移先乘父缩放、再由父旋转变换，旋转按父乘子组合，缩放逐轴
 相乘。这一纯 TRS 表达不保存“非均匀缩放后再旋转”可能产生的剪切分量；需要剪切的内容应在 Mesh

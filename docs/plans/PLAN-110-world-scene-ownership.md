@@ -197,6 +197,8 @@ editor/documents/
 
 其他仍在使用的差异、重放、创建描述等文件保持独立；不为缩短列表合并不同职责。
 渲染快照提取依赖 World 内部 ECS，放在 scene/detail；不移入 GPU 服务内部。
+已提供独立 extract_render_snapshot 结果接口，Application 不再通过 World 提取快照；
+反射适配、示例和测试的局部变换访问统一走 game_object，不保留旧 entity_get/set_local_transform。
 调度器目前只有独立 CPU 测试，作为内部能力保留，不描述为已接入运行循环。
 
 目录整理先核查调用：仅测试使用的 scene_node_info/node_query_detail 移入 tests/support；
@@ -621,7 +623,7 @@ validate_scene_node。object(entity) 直接检查实体及层级组件；创建�
 清理新实体。scene_instance::create 自己执行场景归属、父对象及显式 UUID 重复检查，再登记成员。
 内部层级仍有父子关系数据，删除的是重复身份和包装，不是场景树功能。
 
-普通无归属创建入口已在后续收敛中删除；活动相机、旧变换接口及目标对象 API 仍待完成。
+普通无归属创建入口已在后续收敛中删除；旧实体变换接口和 World 渲染快照方法已删除；活动相机及目标对象 API 仍待完成。
 
 本批验证：windows-clang-debug 默认目标完整编译、链接通过，Core 分层及反例检查通过，
 git diff --check 通过；源码、测试、示例和构建配置中旧 ID 与 World node 包装符号无残留。

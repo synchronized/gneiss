@@ -6,7 +6,6 @@
 #include "engine/core/fatal.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/detail/render_extraction.hpp"
 #include "engine/function/scene/detail/world_component_access.hpp"
 #include "engine/function/scene/detail/world_state.hpp"
 namespace gneiss::engine {
@@ -117,58 +116,6 @@ engine::error world::get_active_camera(entity_id& out_entity_value) {
   }();
   out_entity_value = entity_id{out_entity};
   return operation_result;
-}
-
-engine::error world::entity_get_local_transform(entity_id entity_value,
-                                                math::transform& out_transform) {
-  std::uint64_t entity = entity_value.get();
-  out_transform = {};
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    if (thread_result != engine::error::success) {
-      return thread_result;
-    }
-    if (!state->is_alive(entity)) {
-      return engine::error::invalid_handle;
-    }
-    const auto* transform = state->scene().get_local_for_entity(entity);
-    if (transform == nullptr) {
-      return engine::error::not_found;
-    }
-    out_transform = *transform;
-    return engine::error::success;
-  }
-}
-engine::error world::entity_set_local_transform(entity_id entity_value,
-                                                const math::transform& transform) {
-  std::uint64_t entity = entity_value.get();
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    if (thread_result != engine::error::success) {
-      return thread_result;
-    }
-    if (!state->is_alive(entity)) {
-      return engine::error::invalid_handle;
-    }
-    return state->scene().set_local_for_entity(entity, transform);
-  }
-}
-engine::error world::get_render_snapshot(std::uint32_t viewport_width,
-                                         std::uint32_t viewport_height,
-                                         render_snapshot& out_snapshot, const view_camera* camera) {
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    if (thread_result != engine::error::success) {
-      return thread_result;
-    }
-    return build_render_snapshot(*state, viewport_width, viewport_height, out_snapshot, camera);
-  }
 }
 
 result<game_object> world::object(entity_id entity) noexcept {

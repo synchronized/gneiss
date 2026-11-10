@@ -8,6 +8,7 @@
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/scene/detail/render_extraction.hpp"
 #include "engine/function/scene/detail/world_state.hpp"
+#include "engine/function/scene/render_extraction.hpp"
 #include "runtime/application.hpp"
 #include <thread>
 
@@ -21,6 +22,18 @@ int run_host_tests() {
   if (application->set_view_camera(&view) != gneiss::engine::error::success) {
     return 21;
   }
+  auto& owner = *application->native_world();
+  auto extracted = gneiss::engine::extract_render_snapshot(owner, 800, 600, &view);
+  if (!extracted || !extracted->has_camera || extracted->camera.viewport_width != 800 ||
+      gneiss::engine::extract_render_snapshot(owner, 0, 600).error() !=
+          gneiss::engine::error::invalid_argument)
+    return 24;
+  gneiss::engine::error extraction_error;
+  std::thread extraction_worker(
+      [&] { extraction_error = gneiss::engine::extract_render_snapshot(owner, 800, 600).error(); });
+  extraction_worker.join();
+  if (extraction_error != gneiss::engine::error::invalid_state)
+    return 25;
   view.camera.near = -1.0F;
   if (application->set_view_camera(&view) != gneiss::engine::error::invalid_argument) {
     return 22;

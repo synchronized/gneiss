@@ -12,6 +12,7 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/render_extraction.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/platform/files/file_service.hpp"
@@ -37,7 +38,6 @@
 #include "engine/platform/io/uv/uv_loop_executor.hpp"
 
 #endif
-#include "engine/function/scene/detail/render_extraction.hpp"
 
 #include "engine/platform/window_service.hpp"
 
@@ -579,15 +579,14 @@ gneiss::engine::error application::capture_frame(std::uint32_t width, std::uint3
     window.width = width;
     window.height = height;
     window.needs_recreate = false;
-    gneiss::engine::render_snapshot snapshot;
-    auto result = storage_->scene_service_.native_world()->get_render_snapshot(
-        width, height, snapshot, storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
-    if (result != gneiss::engine::error::success) {
-      return result;
-    }
+    auto snapshot = gneiss::engine::extract_render_snapshot(
+        *storage_->scene_service_.native_world(), width, height,
+        storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
+    if (!snapshot)
+      return snapshot.error();
     gneiss::engine::render_frame_packet packet;
-    result = gneiss::engine::capture_render_frame_packet(
-        window, std::move(snapshot), *storage_->render_service_, storage_->ui_draw_list_,
+    auto result = gneiss::engine::capture_render_frame_packet(
+        window, std::move(*snapshot), *storage_->render_service_, storage_->ui_draw_list_,
         storage_->debug_draw_list_, packet);
     if (result != gneiss::engine::error::success) {
       return result;
@@ -633,20 +632,17 @@ gneiss::engine::error application::render_frame() {
     return storage_result.error();
   if (!*storage_result)
     return gneiss::engine::error::success;
-  gneiss::engine::render_snapshot snapshot;
-  const auto snapshot_result =
-      gneiss::engine::measure(gneiss::engine::loop_stage::render_snapshot, [&]() {
-        return storage_->scene_service_.native_world()->get_render_snapshot(
-            window.width, window.height, snapshot,
-            storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
-      });
-  if (snapshot_result != gneiss::engine::error::success) {
-    return snapshot_result;
-  }
+  auto snapshot = gneiss::engine::measure(gneiss::engine::loop_stage::render_snapshot, [&]() {
+    return gneiss::engine::extract_render_snapshot(
+        *storage_->scene_service_.native_world(), window.width, window.height,
+        storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
+  });
+  if (!snapshot)
+    return snapshot.error();
   const auto capture_result =
       gneiss::engine::measure(gneiss::engine::loop_stage::frame_capture, [&]() {
         return gneiss::engine::capture_render_frame_packet(
-            window, std::move(snapshot), *storage_->render_service_, storage_->ui_draw_list_,
+            window, std::move(*snapshot), *storage_->render_service_, storage_->ui_draw_list_,
             storage_->debug_draw_list_, packet);
       });
   if (capture_result != gneiss::engine::error::success) {
