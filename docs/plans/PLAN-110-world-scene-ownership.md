@@ -584,3 +584,13 @@ scene_query.hpp 的查询数据迁入 tests/support/scene_node_info.hpp；scene_
 Windows Clang Debug 配置及全部默认目标构建通过，check_core_boundary 与
 其 test_core_boundary 反例检查通过，git diff --check 通过。
 本轮为目录与可见性整理，未执行运行时回归、GPU、大场景或远端 CI。
+
+## 遗留差异实现清理
+
+structural_diff/build_structural_diff 已无产品调用；Runtime 场景刷新和 Editor 投影均调用
+scene_application.cpp 中的 apply_scene。删除旧实现、专用 structural_diff_test 和
+Prefab 运行测试中多余的源码登记，保留现行场景/Prefab 增量应用回归。
+此次核查按实际产品调用区分遗留代码，不能仅凭“存在单元测试”判定其仍有运行用途。
+
+验证：Windows Clang Debug 全部默认目标构建通过；src/tests/examples/cmake 无旧符号和
+构建引用残留，git diff --check 通过。本轮未执行运行时测试、GPU 或 CI。

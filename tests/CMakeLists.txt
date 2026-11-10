@@ -728,20 +728,6 @@ gneiss_target_output_directories(gneiss_scene_structural_reload_test)
 add_test(NAME gneiss.scene_structural_reload COMMAND gneiss_scene_structural_reload_test)
 
 add_executable(
-  gneiss_structural_diff_test
-  scene/structural_diff_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/structural_diff.cpp"
-)
-target_include_directories(
-  gneiss_structural_diff_test PRIVATE "${PROJECT_SOURCE_DIR}/src"
-)
-target_link_libraries(gneiss_structural_diff_test PRIVATE gneiss::engine)
-target_compile_features(gneiss_structural_diff_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_structural_diff_test)
-gneiss_target_output_directories(gneiss_structural_diff_test)
-add_test(NAME gneiss.structural_diff COMMAND gneiss_structural_diff_test)
-
-add_executable(
   gneiss_prefab_runtime_instance_test
   scene/prefab_runtime_instance_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
@@ -756,7 +742,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/structural_diff.cpp"
 )
 target_include_directories(gneiss_prefab_runtime_instance_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_prefab_runtime_instance_test PRIVATE GNEISS_BUILDING_LIBRARY)
