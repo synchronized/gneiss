@@ -4,6 +4,7 @@
 #include "../support/async_render.hpp"
 #include "../support/async_scene.hpp"
 #include "../support/memory_file_fixture.hpp"
+#include "../support/mesh_objects.hpp"
 #include "../support/prepare_render.hpp"
 #include "../support/scene_access.hpp"
 #include "../support/scene_application.hpp"
@@ -438,35 +439,34 @@ void run() {
             .ok());
   const gneiss::engine::mesh_renderer expected{
       .mesh = current_mesh, .material = next_version.as<gneiss::engine::material>()};
-  const std::array unchanged{gneiss::engine::mesh_renderer_replacement{
-      .entity = ordinary.entity, .expected = expected, .replacement = expected}};
+  auto matches = [&](const gneiss::engine::mesh_renderer& expected_value) {
+    auto current =
+        candidate->find(ordinary.entity).read_component<gneiss::engine::mesh_renderer_component>();
+    return current && current->value.mesh == expected_value.mesh &&
+           current->value.material == expected_value.material;
+  };
   const auto edit_reads = files->reads;
-  check(gneiss::engine::set_mesh_renderer(*candidate.get(), candidate_assets, new_scene,
+  check(gneiss::test_support::assign_mesh(*candidate.get(), candidate_assets, new_scene,
                                           ordinary.node, "asset://m.mesh",
                                           "asset://m.material") == gneiss::engine::error::success);
   check(files->reads == edit_reads);
-  check(gneiss::engine::replace_mesh_renderers(*candidate.get(), unchanged) ==
-        gneiss::engine::error::success);
-  check(gneiss::engine::set_mesh_renderer(
+  check(matches(expected));
+  check(gneiss::test_support::assign_mesh(
             *candidate.get(), candidate_assets, new_scene, ordinary.node, "asset://m.mesh",
             "asset://missing.material") == gneiss::engine::error::not_found);
-  check(gneiss::engine::replace_mesh_renderers(*candidate.get(), unchanged) ==
-        gneiss::engine::error::success);
+  check(matches(expected));
   files->files["other.material"] = files->files["m.material"];
   gneiss::engine::render_resource_ref edited_material;
   check(gneiss::test_support::load_render(candidate_render,
                                           gneiss::engine::render_resource_kind::material,
                                           "asset://other.material", edited_material,
                                           diagnostic) == gneiss::engine::error::success);
-  check(gneiss::engine::set_mesh_renderer(
+  check(gneiss::test_support::assign_mesh(
             *candidate.get(), candidate_assets, new_scene, ordinary.node, "asset://m.mesh",
             "asset://other.material") == gneiss::engine::error::success);
   const gneiss::engine::mesh_renderer edited{
       .mesh = current_mesh, .material = edited_material.as<gneiss::engine::material>()};
-  const std::array material_only{gneiss::engine::mesh_renderer_replacement{
-      .entity = ordinary.entity, .expected = edited, .replacement = edited}};
-  check(gneiss::engine::replace_mesh_renderers(*candidate.get(), material_only) ==
-        gneiss::engine::error::success);
+  check(matches(edited));
   check(resources.get_material(gneiss::engine::resource_rid(old_material))->parameters.color[0] ==
         1.0F);
   candidate_render.collect_unused();
@@ -474,68 +474,20 @@ void run() {
   candidate_render.collect_unused();
   check(resources.get_material(selected_material) != nullptr);
   {
-    using binding = gneiss::engine::scene_mesh_binding;
-    binding before;
+    auto object = candidate->find(ordinary.entity);
+    auto before = object.read_component<gneiss::engine::mesh_renderer_component>();
+    check(bool(before));
     const auto binding_reads = files->reads;
-    check(gneiss::test_support::assign_value(
-              gneiss::engine::capture_mesh_binding(*candidate.get(), new_scene, ordinary.node),
-              before) == gneiss::engine::error::success);
-    binding after{.mesh = before.mesh,
-                  .material =
-                      gneiss::engine::resource_cast<gneiss::engine::material>(next_version)};
-    // 空材质槽位合法；捕获保持为空，随后恢复原绑定。
-    auto cleared = before;
-    cleared.material = {};
-    check(gneiss::engine::replace_mesh_binding(*candidate.get(), new_scene, ordinary.node, before,
-                                               cleared, {}, &candidate_assets)
-              .ok());
-    auto empty_binding =
-        gneiss::engine::capture_mesh_binding(*candidate.get(), new_scene, ordinary.node);
-    check(empty_binding && empty_binding->mesh == before.mesh && !empty_binding->material);
-    check(gneiss::engine::replace_mesh_binding(*candidate.get(), new_scene, ordinary.node, cleared,
-                                               before, {}, &candidate_assets)
-              .ok());
-    gneiss::engine::error worker_result{};
-    std::thread edit_worker([&] {
-      worker_result = gneiss::engine::replace_mesh_binding(
-          *candidate.get(), new_scene, ordinary.node, before, after, {}, &candidate_assets);
-    });
-    edit_worker.join();
+    auto cleared = *before;
+    cleared.value.material = {};
+    check(object.set_component(cleared).ok());
+    auto empty = object.read_component<gneiss::engine::mesh_renderer_component>();
+    check(empty && empty->value.mesh == before->value.mesh && !empty->value.material);
+    gneiss::engine::error worker_result;
+    std::thread worker([&] { worker_result = object.set_component(*before); });
+    worker.join();
     check(worker_result == gneiss::engine::error::invalid_state);
-    check(gneiss::engine::replace_mesh_binding(*candidate.get(), new_scene, ordinary.node, before,
-                                               after, {}, &candidate_assets) ==
-          gneiss::engine::error::success);
-    check(gneiss::engine::replace_mesh_binding(*candidate.get(), new_scene, ordinary.node, before,
-                                               after, {}, &candidate_assets) ==
-          gneiss::engine::error::invalid_state);
-    check(gneiss::engine::replace_mesh_binding(*candidate.get(), new_scene, ordinary.node, after,
-                                               before, {}, &candidate_assets) ==
-          gneiss::engine::error::success);
-    const gneiss::engine::mesh_renderer_node_creation creation{
-        .uuid = *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000099"),
-        .name = "prepared",
-        .parent = {},
-        .mesh_uri = gneiss::engine::resource_uri(before.mesh),
-        .material_uri = gneiss::engine::resource_uri(before.material),
-    };
-    gneiss::entity_id created{};
-    check(gneiss::test_support::take_value(
-              gneiss::engine::create_mesh_renderer_node(*candidate.get(), candidate_assets,
-                                                        new_scene, creation, &cleared),
-              created) == gneiss::engine::error::invalid_argument &&
-          !created.is_valid());
-    check(gneiss::test_support::take_value(
-              gneiss::engine::create_mesh_renderer_node(*candidate.get(), candidate_assets,
-                                                        new_scene, creation, &before),
-              created) == gneiss::engine::error::success);
-    const auto created_node = created;
-    check(gneiss::test_support::take_value(
-              gneiss::engine::create_mesh_renderer_node(*candidate.get(), candidate_assets,
-                                                        new_scene, creation, &before),
-              created) == gneiss::engine::error::invalid_argument &&
-          !created.is_valid());
-    check(gneiss::test_support::scene_access{*candidate}->destroy_node(
-              new_scene, gneiss::entity_id{created_node}) == gneiss::engine::error::success);
+    check(object.set_component(*before).ok());
     check(files->reads == binding_reads);
   }
   check(candidate.get()

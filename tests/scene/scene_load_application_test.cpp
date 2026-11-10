@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/codec_result.hpp"
+#include "../support/mesh_objects.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
@@ -130,7 +131,7 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
             node) == gneiss::engine::error::success);
   gneiss::engine::scene_mesh_binding binding;
   check(gneiss::test_support::take_value(
-            gneiss::engine::capture_mesh_binding(*app->native_world(), completion.scene, node),
+            gneiss::test_support::read_mesh(*app->native_world(), completion.scene, node),
             binding) == gneiss::engine::error::success);
   check(binding.mesh && binding.material);
   auto material = binding.material;
@@ -173,7 +174,7 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
   check(loaded.result == gneiss::engine::error::success &&
         gneiss::engine::resource_cast<gneiss::engine::material>(loaded.assets.front()) == material);
   check(gneiss::test_support::take_value(
-            gneiss::engine::capture_mesh_binding(*app->native_world(), completion.scene, node),
+            gneiss::test_support::read_mesh(*app->native_world(), completion.scene, node),
             binding) == gneiss::engine::error::success &&
         binding.material == material);
   // 引用型纹理依赖不阻止材质完成；旧后端快照保持可用。
@@ -434,7 +435,7 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
               node) == gneiss::engine::error::success);
     gneiss::engine::scene_mesh_binding value;
     check(gneiss::test_support::take_value(
-              gneiss::engine::capture_mesh_binding(*app->native_world(), completion.scene, node),
+              gneiss::test_support::read_mesh(*app->native_world(), completion.scene, node),
               value) == gneiss::engine::error::success);
     return value;
   };

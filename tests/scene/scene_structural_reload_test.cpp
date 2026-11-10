@@ -3,6 +3,7 @@
 
 #include "../support/async_application.hpp"
 #include "../support/async_scene_reload.hpp"
+#include "../support/mesh_objects.hpp"
 #include "../support/scene_access.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
@@ -171,8 +172,7 @@ int main() try {
 
   if (visual_failures != 1)
     return 22;
-  auto binding =
-      gneiss::engine::capture_mesh_binding(*application->native_world(), scene, new_child);
+  auto binding = gneiss::test_support::read_mesh(*application->native_world(), scene, new_child);
   if (!binding || !binding->mesh || !binding->material ||
       !application->assets().find<gneiss::engine::material>(
           "asset://materials/triangle.material.json"))

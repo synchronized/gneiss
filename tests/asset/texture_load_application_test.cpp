@@ -3,6 +3,7 @@
 
 #include "../support/async_application.hpp"
 #include "../support/codec_result.hpp"
+#include "../support/mesh_objects.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
@@ -149,8 +150,8 @@ void run(gneiss::engine::execution_mode mode) {
           gneiss::engine::error::success);
     gneiss::engine::scene_mesh_binding value;
     check(gneiss::test_support::take_value(
-              gneiss::engine::capture_mesh_binding(*app->native_world(), scene, info.node),
-              value) == gneiss::engine::error::success);
+              gneiss::test_support::read_mesh(*app->native_world(), scene, info.node), value) ==
+          gneiss::engine::error::success);
     return value;
   };
   const auto initial = capture(0);
@@ -261,12 +262,10 @@ void run(gneiss::engine::execution_mode mode) {
   check(completion.result == gneiss::engine::error::success &&
         completion.state == gneiss::runtime::asset_load_state::applied &&
         completion.assets.size() == 1U);
-  const std::array unchanged{
-      gneiss::engine::mesh_renderer_replacement{.entity = node.entity,
-                                                .expected = {external.mesh, external.material},
-                                                .replacement = {external.mesh, external.material}}};
-  check(gneiss::engine::replace_mesh_renderers(*world, unchanged) ==
-        gneiss::engine::error::success);
+  auto unchanged =
+      world->find(node.entity).read_component<gneiss::engine::mesh_renderer_component>();
+  check(unchanged && unchanged->value.mesh == external.mesh &&
+        unchanged->value.material == external.material);
   // 卸载冲突使用者后可重试；完成后释放租约，Application 仍可正常关闭。
   check(gneiss::engine::error{gneiss::test_support::scene_access{*app}->unload(scene)} ==
         gneiss::engine::error::success);

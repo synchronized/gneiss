@@ -624,3 +624,23 @@ validate_scene_node。object(entity) 直接检查实体及层级组件；创建�
 本批验证：windows-clang-debug 默认目标完整编译、链接通过，Core 分层及反例检查通过，
 git diff --check 通过；源码、测试、示例和构建配置中旧 ID 与 World node 包装符号无残留。
 未执行运行测试、大场景、GPU 或远端 CI。
+
+## 实例化入口去除网格专用操作
+
+instantiation.hpp 仅保留 instantiate 与 scene_instantiation_result。删除公开的
+create_mesh_renderer_node、set_mesh_renderer、capture_mesh_binding、replace_mesh_binding，
+以及仅为旧替换协议服务的 replace_mesh_renderers/mesh_renderer_replacement 和
+mesh_renderer_node_creation。未将这些接口迁到另一个产品头文件。
+
+apply_scene 内部同步调用方提供的固定资源引用：已有网格组件通过 game_object 读写，缺失时
+通过通用 add_component 装配并登记组件身份。此过程不查询资产缓存、不执行 IO；场景归属仍由
+apply_scene 前置验证。描述包含空资源槽位时也能恢复缺失的网格组件。
+
+测试编排改用 scene_instance::create、通用组件装配和 game_object 组件访问；共享夹具仅放在
+tests/support/mesh_objects.hpp。删除已取消的 Engine expected 批量替换协议断言，保留资源引用、
+空材质、错误线程、创建/销毁和缓存未读取等断言。Editor 的同名文档编辑方法继续保留，
+其 expected 冲突校验和撤销语义不属于本次删除范围。
+
+本批验证：windows-clang-debug 默认目标编译及链接通过，Core 分层与反例检查通过，
+旧 Engine 网格专用接口及辅助描述类型无源码调用残留；git diff --check 通过。
+未运行运行期测试、GPU、大场景或远端 CI。

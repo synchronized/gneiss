@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_application.hpp"
+#include "../support/mesh_objects.hpp"
 #include "../support/scene_access.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/guid.hpp"
@@ -209,14 +210,14 @@ int main() try {
   }
   // 失败的资源选择不提交；检查实际引用和组件，而不是将 World 编码成文件。
   auto accepted_binding =
-      gneiss::engine::capture_mesh_binding(*application->native_world(), scene, triangle);
+      gneiss::test_support::read_mesh(*application->native_world(), scene, triangle);
   if (!accepted_binding ||
-      gneiss::engine::set_mesh_renderer(*application->native_world(), application->assets(), scene,
+      gneiss::test_support::assign_mesh(*application->native_world(), application->assets(), scene,
                                         triangle, missing_mesh_uri, material_uri)
           .ok())
     return 30;
   auto after_binding =
-      gneiss::engine::capture_mesh_binding(*application->native_world(), scene, triangle);
+      gneiss::test_support::read_mesh(*application->native_world(), scene, triangle);
   if (!after_binding || after_binding->mesh != accepted_binding->mesh ||
       after_binding->material != accepted_binding->material)
     return 30;
@@ -263,7 +264,7 @@ int main() try {
       gneiss::test_support::scene_access{*second_application}->unload(play_scene).failed())
     return 35;
 
-  gneiss::engine::mesh_renderer_node_creation create_desc;
+  gneiss::test_support::mesh_fixture create_desc;
   create_desc.parent = camera_node;
   create_desc.uuid = created_uuid;
   create_desc.name = "Created Mesh";
@@ -271,8 +272,8 @@ int main() try {
   create_desc.material_uri = material_uri;
   gneiss::entity_id created_node;
   if (gneiss::test_support::take_value(
-          gneiss::engine::create_mesh_renderer_node(*application->native_world(),
-                                                    application->assets(), scene, create_desc),
+          gneiss::test_support::spawn_mesh(*application->native_world(), application->assets(),
+                                           scene, create_desc),
           created_node) != gneiss::engine::error::success ||
       created_node == gneiss::null_entity_id ||
       gneiss::test_support::take_value(
@@ -305,7 +306,7 @@ int main() try {
             .remove_component<gneiss::engine::mesh_renderer_component>()
             .failed() ||
         gneiss::test_support::assign_value(
-            gneiss::engine::capture_mesh_binding(*application->native_world(), scene, created_node),
+            gneiss::test_support::read_mesh(*application->native_world(), scene, created_node),
             binding)
             .failed() ||
         binding.mesh || binding.material ||
@@ -346,7 +347,7 @@ int main() try {
           gneiss::engine::error::not_found) {
     return 27;
   }
-  if (gneiss::engine::set_mesh_renderer(*application->native_world(), application->assets(), scene,
+  if (gneiss::test_support::assign_mesh(*application->native_world(), application->assets(), scene,
                                         created_node, mesh_uri,
                                         material_uri) != gneiss::engine::error::success) {
     return 28;
@@ -378,8 +379,7 @@ int main() try {
           ->reparent_node(scene, generic_node, camera_node)
           .failed())
     return 29;
-  auto retained =
-      gneiss::engine::capture_mesh_binding(*application->native_world(), scene, triangle);
+  auto retained = gneiss::test_support::read_mesh(*application->native_world(), scene, triangle);
   if (!retained)
     return 15;
   const auto old_generic_node = generic_node;
@@ -402,13 +402,13 @@ int main() try {
   child_desc.uuid = triangle_uuid;
   child_desc.name = "Triangle";
   child_desc.parent = generic_node;
-  auto rebuilt = gneiss::engine::create_mesh_renderer_node(
+  auto rebuilt = gneiss::test_support::spawn_mesh(
       *application->native_world(), application->assets(), scene, child_desc, &*retained);
   if (!rebuilt || *rebuilt == old_triangle_node)
     return 20;
   triangle = *rebuilt;
   auto rebuilt_binding =
-      gneiss::engine::capture_mesh_binding(*application->native_world(), scene, triangle);
+      gneiss::test_support::read_mesh(*application->native_world(), scene, triangle);
   if (!rebuilt_binding || rebuilt_binding->mesh != retained->mesh ||
       rebuilt_binding->material != retained->material)
     return 21;
@@ -417,12 +417,12 @@ int main() try {
     return 24;
   }
   if (gneiss::test_support::take_value(
-          gneiss::engine::create_mesh_renderer_node(*application->native_world(),
-                                                    application->assets(), scene, create_desc),
+          gneiss::test_support::spawn_mesh(*application->native_world(), application->assets(),
+                                           scene, create_desc),
           triangle) != gneiss::engine::error::invalid_argument) {
     return 5;
   }
-  if (gneiss::engine::set_mesh_renderer(*application->native_world(), application->assets(), scene,
+  if (gneiss::test_support::assign_mesh(*application->native_world(), application->assets(), scene,
                                         created_node, missing_mesh_uri,
                                         material_uri) != gneiss::engine::error::not_found) {
     return 6;

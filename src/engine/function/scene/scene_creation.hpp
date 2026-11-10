@@ -20,13 +20,4 @@ struct node_creation {
   math::transform local_transform = {};
 };
 
-struct mesh_renderer_node_creation {
-  guid uuid;
-  std::string_view name;
-  entity_id parent{};
-  std::string_view mesh_uri;
-  std::string_view material_uri;
-  guid component_uuid{}; // nil 时由运行时创建新组件身份。
-};
-
 } // namespace gneiss::engine

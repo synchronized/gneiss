@@ -95,7 +95,7 @@ removable 仅控制编辑命令与文档删除入口，不限制引擎 remove_co
 `find_node`、Prefab 查询及选择查询同样返回自有结果，不能保留临时查询结果内部的指针。
 
 网格绑定的历史保活存放在文档版本的资源引用中，不是第二个加载缓存。
-`replace_mesh_binding` 先校验文档绑定是否匹配 expected，再修改描述和资源引用。
+`scene_edit_session::replace_mesh_binding` 先校验文档绑定是否匹配 expected，再修改描述和资源引用。
 文档关闭或 Application 停止后拒绝操作；跨线程调用不改变文档。
 宿主通过 `editor_command_history` 持有局部差异历史；纯文档不维护另一份撤销栈。
 
@@ -522,3 +522,7 @@ Prefab 覆盖历史按键及同键操作序号保存变化操作，单独保留�
 Runtime 检视通过实例化回执取得普通对象或 Prefab 来源地址；无来源动态对象的 UUID 为空，
 使用运行实体区分检视身份。IPC 编解码与编辑器镜像允许这种对象；它可以被检视，
 但没有对应的编辑文档对象，不能应用回作者数据。Prefab 对象使用实例/来源地址定位。
+
+实例化产品接口只提供 `instantiate` 及其回执，不提供网格专用创建、设置或绑定替换接口。
+动态对象由 `scene_instance::create` 创建，组件通过通用装配或 `game_object` 组件接口操作。
+场景增量应用中的固定资源同步封装在 `apply_scene` 实现内部，不查询当前资产缓存。

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/scene/scene_application.hpp"
 #include "engine/function/scene/component_registration.hpp"
-#include "engine/function/scene/instantiation.hpp"
+#include "engine/function/scene/components.hpp"
 #include <algorithm>
 #include <set>
 namespace gneiss::engine {
@@ -175,7 +175,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
     }
   }
   const auto prepared_binding = [&](const composed_object& object) {
-    scene_mesh_binding binding;
+    mesh_renderer binding;
     if (const auto* renderer = object.effective.components.get<mesh_renderer_description>()) {
       if (auto found = assets.find(renderer->mesh_uri); found != assets.end())
         binding.mesh = resource_cast<mesh>(found->second);
@@ -208,14 +208,34 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
       continue;
     const auto target_binding = prepared_binding(object);
     const auto node = nodes.at(object.address).node;
-    auto current = capture_mesh_binding(world, scene, node);
-    if (!current)
+    auto target = world.find(node);
+    auto member = destination->contains(target);
+    if (!member)
+      return member.error();
+    if (!*member)
+      return error::invalid_handle;
+    auto current = target.read_component<mesh_renderer_component>();
+    if (!current && current.error() != error::not_found)
       return current.error();
-    if (current->mesh == target_binding.mesh && current->material == target_binding.material)
+    if (current && current->value.mesh == target_binding.mesh &&
+        current->value.material == target_binding.material)
       continue;
-    auto status = replace_mesh_binding(
-        world, scene, node, *current, target_binding,
-        object.effective.components.identity(mesh_renderer_description::type_guid));
+    // 运行实体已通过本次场景归属检查；资源身份来自调用方固定内容。
+    // 已有组件只更新资源引用，保留组件身份；缺失组件走通用装配入口。
+    error status;
+    if (current) {
+      status = target.set_component(mesh_renderer_component{target_binding});
+    } else {
+      component_context context{
+          target, [&](const render_resource_source& source) -> result<render_resource_ref> {
+            auto found = assets.find(source.uri);
+            return found == assets.end() ? result<render_resource_ref>{error::not_ready}
+                                         : result<render_resource_ref>{found->second};
+          }};
+      status =
+          add_component(context, make_component_description(*renderer),
+                        object.effective.components.identity(mesh_renderer_description::type_guid));
+    }
     if (status.failed())
       return status;
   }
