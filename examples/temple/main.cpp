@@ -6,7 +6,7 @@
 #include "engine/core/fatal.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/world/scene_instance.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
@@ -139,15 +139,19 @@ int run_example(int argc, char** argv) {
       native_application->find_action("quit", state.quit) != gneiss::engine::error::success) {
     return 2;
   }
-  auto camera = native_application->scenes()->find_node(scene, camera_uuid);
+  auto instance =
+      gneiss::engine::scene_instance::borrow(*native_application->native_world(), scene);
+  if (!instance)
+    return 2;
+  auto camera = instance->find(camera_uuid);
   if (!camera)
     return 2;
-  state.camera_node = *camera;
+  state.camera_node = gneiss::scene_node_id{camera->entity().get()};
   can_update = true;
   if (native_application->run(smoke ? 3U : 0U) != gneiss::engine::error::success) {
     return 3;
   }
-  return native_application->scenes()->unload(scene) == gneiss::engine::error::success ? 0 : 4;
+  return instance->unload() == gneiss::engine::error::success ? 0 : 4;
 }
 
 int main(int argc, char** argv) {

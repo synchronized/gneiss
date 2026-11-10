@@ -173,11 +173,9 @@ Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其
 | Application 装配 | `src/runtime/application.hpp` | 拥有平台、服务与场景协调组件；普通内部操作不解析自身 C 句柄 |
 | 场景切换 | `src/runtime/loading/scene_service.hpp` | 拥有活动与退役域、内部加载任务，协调激活 |
 | 加载实现 | `src/runtime/loading/scene_service_loading.cpp` | 统一服务的内部临时任务；后台准备、同步实例化与激活 |
-| 场景域 | `src/runtime/loading/scene_domain.hpp` | 仅拥有 World 与场景实例集合；不重复存储资源加载器引用或 World RID，初始化成功才发布 |
 | World 数据和操作 | `src/engine/function/world/world.hpp` | 原生对象拥有 ECS/树状态；`world_factory.cpp` 创建独占拥有者，反射直接借用对象 |
-| Scene 实例集合 | `src/engine/function/scene/scene_instances.hpp` | 通过强类型节点 ID 操作实例；借用所属 World |
-| Scene 私有实例 | `src/engine/function/scene/scene_instance.hpp` | 维护节点、作者描述及所使用资源版本的租约，不向宿主提供头文件 |
-| Prefab 实例操作 | `src/engine/function/scene/scene_instances.hpp` | 消费已准备资源同步创建；直接删除和替换，不使用隐藏候选或发布组；见 [ADR-088](../decisions/ADR-088-prefab-direct-instantiation.md) |
+| Scene 借用句柄 | `src/engine/function/world/scene_instance.hpp` | 查询 ECS 成员归属、创建对象及卸载；不保存作者内容 |
+| Prefab 实例操作 | `src/engine/function/scene/scene_instantiation.hpp` | 消费已准备资源同步创建；直接删除和替换，不使用隐藏候选或发布组；见 [ADR-088](../decisions/ADR-088-prefab-direct-instantiation.md) |
 | 作者文档 | `src/editor/documents/scene_document.hpp` | 不可变内容、版本标识与保存点，不依赖 Application/World |
 | 编辑会话 | `src/editor/documents/scene_edit_session.hpp` | 装配文档、选择与运行投影；关闭时卸载实例，不晚于 Application 销毁 |
 | 反射属性编辑 | `src/editor/commands/author_property_edit.hpp`、`src/host/runtime/runtime_property_editor.hpp` | 作者面板使用默认 Meta 的借用视图与稳定属性路径；运行时调试保持 World 属性协议 |
@@ -217,7 +215,7 @@ C++ Builder 和 Meta 内置注册入口位于 `meta/registration.hpp`；数学�
 `scene_mesh_binding.hpp` 提供显式网格和材质引用，场景成员不保存编辑历史或作者描述。
 
 `scene_composition.cpp` 纯内存组合 Scene/Prefab，输出有效对象、地址和覆盖冲突；
-`scene_application.cpp` 将差异应用为普通 World 成员。`scene_instances_instantiation.cpp`
+`scene_application.cpp` 将差异应用为普通 World 成员。`scene_instantiation.cpp`
 统一消费组合结果，同步创建失败时回收本次成员。Runtime 来源协调与 Editor 投影各自持有
 输入和地址关联，不将 Prefab 来源或事务状态放进运行对象。
 

@@ -6,7 +6,7 @@
 #include "engine/core/fatal.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/world/scene_instance.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
@@ -188,8 +188,12 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   if (native_application->action_map_status().failed())
     return 2;
   example::scope_exit unload{[&] {
-    if (scene)
-      (void)native_application->scenes()->unload(scene);
+    if (scene) {
+      auto borrowed =
+          gneiss::engine::scene_instance::borrow(*native_application->native_world(), scene);
+      if (borrowed)
+        (void)borrowed->unload();
+    }
   }};
   const auto scene_ready = clock::now();
   auto result = native_application->action_map_status();
@@ -205,12 +209,16 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
     report_failure("查找输入动作", result);
     return 5;
   }
-  auto camera = native_application->scenes()->find_node(scene, camera_uuid);
+  auto instance =
+      gneiss::engine::scene_instance::borrow(*native_application->native_world(), scene);
+  if (!instance)
+    return 2;
+  auto camera = instance->find(camera_uuid);
   if (!camera) {
     report_failure("查找 Camera", camera.error());
     return 6;
   }
-  state.camera_node = *camera;
+  state.camera_node = gneiss::scene_node_id{camera->entity().get()};
   const auto setup_ready = clock::now();
 
   can_update = true;
@@ -226,7 +234,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   }
   const auto run_finished = clock::now();
   result = ([&] {
-    auto status = native_application->scenes()->unload(scene);
+    auto status = instance->unload();
     if (status == gneiss::engine::error::success)
       scene = {};
     return gneiss::engine::error{status};

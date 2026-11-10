@@ -39,8 +39,8 @@ int main() try {
   const auto source_id = *e::guid::parse("30000000-0000-4000-8000-000000000002");
   auto member = std::ranges::find_if(
       composition->objects, [&](const auto& object) { return object.address.source == source_id; });
-  check(member != composition->objects.end() && !member->instance_root);
-  check(member->effective.transform.translation.x == 3 && !member->overrides.empty());
+  check(member != composition->objects.end());
+  check(member->effective.transform.translation.x == 3);
   const auto child = mapping.at(member->address).node;
   const auto root = mapping.at(member->parent).node;
   gneiss::scene_node_id parent;

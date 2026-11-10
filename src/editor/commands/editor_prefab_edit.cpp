@@ -5,7 +5,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/scene/scene_preparation.hpp"
+#include "engine/function/scene/scene_composition.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "runtime/application.hpp"
 #include <algorithm>
@@ -143,18 +143,23 @@ struct editor_prefab_edit::state {
     if (!loaded && loaded.error().error == engine::error::not_ready)
       return false;
     status = loaded ? engine::error::success : loaded.error().error;
-    const auto bytes = preparation.source_bytes();
     preparation.cancel();
     std::vector<engine::render_resource_source> requested;
     if (loaded) {
-      auto data = engine::make_instantiation_data(*loaded, bytes);
-      if (data) {
-        auto& prefab = data->prefabs.at(source.author.prefab->uri);
-        source.source = std::move(prefab.resource);
-        source.source_asset = std::move(prefab.source_asset);
-        requested = std::move(data->assets);
-      } else
-        status = data.error().error;
+      source.source = (*loaded)->snapshot();
+      source.source_asset = *loaded;
+      engine::scene_description input;
+      input.objects = source.source->objects;
+      auto composed = engine::compose_scene(input, {});
+      if (!composed)
+        status = composed.error();
+      else {
+        auto dependencies = engine::scene_dependencies(*composed);
+        if (!dependencies)
+          status = dependencies.error();
+        else
+          requested = std::move(*dependencies);
+      }
     }
     if (status.ok() && !cancelled) {
       auto submitted = application.prepare_assets(requested, 1U, refreshing);

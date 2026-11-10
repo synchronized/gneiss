@@ -202,17 +202,6 @@ scene_service::apply_source(engine::ref<const engine::scene_content> content) {
   if (!source_ || !source_->synchronized || !content || !content->description ||
       content->description->uuid != source_->content->description->uuid)
     return engine::error::invalid_state;
-  engine::scene_preparation_inputs inputs;
-  inputs.scene = content->description;
-  for (const auto& [uri, dependency] : content->prefabs) {
-    inputs.prefabs.emplace(uri, dependency.description);
-    inputs.prefab_assets.emplace(uri, dependency.resource);
-  }
-  engine::scene_instantiation_data prepared;
-  engine::scene_diagnostic diagnostic;
-  auto status = engine::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {});
-  if (status.failed())
-    return status;
   const auto compose = [](const engine::scene_content& source) {
     std::map<std::string, const engine::prefab_description*, std::less<>> prefabs;
     for (const auto& [uri, dependency] : source.prefabs)
@@ -268,8 +257,11 @@ scene_service::apply_source(engine::ref<const engine::scene_content> content) {
     }
     object.parent = parent_address;
   }
+  auto dependencies = engine::scene_dependencies(*next);
+  if (!dependencies)
+    return dependencies.error();
   engine::scene_resource_bindings bindings;
-  for (const auto& request : prepared.assets) {
+  for (const auto& request : *dependencies) {
     auto resource = resources_->load(request);
     if (!resource)
       return resource.error();
@@ -284,7 +276,7 @@ scene_service::apply_source(engine::ref<const engine::scene_content> content) {
     return engine::error::invalid_state;
   source_->content = std::move(content);
   source_->synchronized = true;
-  return std::move(prepared.assets);
+  return std::move(*dependencies);
 }
 
 void scene_service::advance_reload() {

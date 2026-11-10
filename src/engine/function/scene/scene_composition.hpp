@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/function/asset/render_resource.hpp"
 #include "engine/function/scene/prefab_replay.hpp"
 #include "engine/resource/scene/object_address.hpp"
 #include "engine/resource/scene/scene_description.hpp"
@@ -10,10 +11,6 @@ namespace gneiss::engine {
 struct composed_object {
   object_address address, parent;
   game_object_description effective;
-  std::string prefab_uri;
-  math::transform source_transform{};
-  bool instance_root = false;
-  std::vector<prefab_property_override_key> overrides;
 };
 struct composed_scene {
   std::vector<composed_object> objects;
@@ -24,4 +21,7 @@ struct composed_scene {
 [[nodiscard]] GNEISS_API result<composed_scene>
 compose_scene(const scene_description&,
               const std::map<std::string, const prefab_description*, std::less<>>& sources);
+/** 从展开后的组件收集视觉依赖；不读取文件或提交加载。 */
+[[nodiscard]] GNEISS_API result<std::vector<render_resource_source>>
+scene_dependencies(const composed_scene&);
 }

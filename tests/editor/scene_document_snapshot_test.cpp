@@ -32,21 +32,21 @@ int main() {
   root.name = "source";
   root.components.set(e::camera_description{{1.0F, 0.1F, 100.0F}});
   source->objects.push_back(root);
-  e::scene_instantiation_data input;
-  input.description.uuid = e::guid::literal("0a8fbc96-0ef7-4462-8d8c-16f807cb10cc");
+  e::scene_description input;
+  input.uuid = e::guid::literal("0a8fbc96-0ef7-4462-8d8c-16f807cb10cc");
   e::game_object_description instance;
   instance.uuid = e::guid::literal("36fdba8d-ae65-45aa-bcd3-f14fb58dbdb2");
   instance.prefab = e::prefab_reference_description{"asset://camera.prefab.json", {}, {}};
-  input.description.objects.push_back(instance);
-  e::prefab_instantiation_data prefab;
-  prefab.resource = source;
-  input.prefabs.emplace(instance.prefab->uri, std::move(prefab));
-  auto frozen = ed::make_scene_document_snapshot("asset://scene.json", input);
+  input.objects.push_back(instance);
+  e::scene_content content_input;
+  content_input.description = e::make_ref<const e::scene_description>(input);
+  content_input.prefabs.emplace(instance.prefab->uri, e::scene_prefab_dependency{{}, source, 0});
+  auto frozen = ed::make_scene_document_snapshot("asset://scene.json", content_input);
   if (!frozen)
     return 2;
   // 加载内容直接交接文档；拒绝空描述，冻结值不依赖运行时捕获或可变资产当前修订。
   e::scene_content loaded;
-  loaded.description = e::make_ref<const e::scene_description>(input.description);
+  loaded.description = e::make_ref<const e::scene_description>(input);
   loaded.prefabs.emplace(
       instance.prefab->uri,
       e::scene_prefab_dependency{.resource = {}, .description = source, .source_bytes = 0});
@@ -104,7 +104,6 @@ int main() {
     const auto& next_child = composed->objects[3];
     if (first.address != e::object_address{instance.uuid, root.uuid} ||
         first.effective.name != "first" || first.effective.transform.translation.x != 5 ||
-        first.source_transform.translation.x != 0 || !first.instance_root ||
         first_child.parent != first.address || first_child.effective.transform.translation.x != 2 ||
         next_root.parent != first.address || next_child.parent != next_root.address ||
         first_child.address == next_child.address ||
@@ -325,14 +324,14 @@ int main() {
       frozen->prefabs.at(instance.prefab->uri).content.get().objects[0].components[0].uuid !=
           camera_id)
     return 60;
-  input.description.objects.clear();
+  input.objects.clear();
   source->objects[0].name = "changed";
   source->objects[0].components.set(e::camera_description{{2.0F, 0.2F, 200.0F}});
   auto restored = ed::make_scene_document_inputs(*frozen);
-  if (!restored || restored->scene->objects.size() != 1 ||
-      restored->prefabs.at(instance.prefab->uri)->objects[0].name != "source" ||
+  if (!restored || restored->description->objects.size() != 1 ||
+      restored->prefabs.at(instance.prefab->uri).description->objects[0].name != "source" ||
       restored->prefabs.at(instance.prefab->uri)
-              ->objects[0]
+              .description->objects[0]
               .components.get<e::camera_description>()
               ->settings.fov != 1.0F)
     return 3;
@@ -348,7 +347,7 @@ int main() {
     return 6;
   // 场景身份和层级直接由领域字段表达，候选修改不改变旧版本。
   auto candidate = before.get();
-  if (candidate.uuid != input.description.uuid || candidate.objects[0].uuid != instance.uuid)
+  if (candidate.uuid != input.uuid || candidate.objects[0].uuid != instance.uuid)
     return 7;
   candidate.objects[0].name = "renamed";
   auto renamed = e::restore_scene_record(e::scene_record{candidate});
@@ -381,12 +380,12 @@ int main() {
   invalid_override.key.path = {e::meta::property_id{1}};
   invalid_override.operation =
       e::set_value_operation{e::value{e::make_ref<e::camera_description>()}};
-  auto unsafe = *restored->scene;
+  auto unsafe = *restored->description;
   unsafe.objects[0].prefab->overrides.push_back(std::move(invalid_override));
   if (e::capture_scene_record(unsafe))
     return 14;
   // 使用真实反射捕获结果验证嵌套引用，不只测试手工拼装的值树。
-  const auto document_id = input.description.uuid;
+  const auto document_id = input.uuid;
   const auto target_document = e::guid::literal("fe555990-f953-42ab-9d34-f1ef120b61d1");
   const auto copied_id = e::guid::literal("07f7d2b6-e031-4e48-b7c3-5639c71e1de6");
   const auto external_id = source->root_uuid;

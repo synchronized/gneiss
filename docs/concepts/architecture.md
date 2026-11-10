@@ -84,7 +84,7 @@ Application 的资产管理器位于 engine/resource，唯一持有 CPU、Prefab
 不拥有 GPU 或 World。Application 装配渲染加载器并借用该索引，不同 Application 不共享状态。
 
 scene_service 统一管理加载、激活与场景域生命周期；加载请求是服务内部的临时任务，
-不再单独装配加载服务。scene_domain 拥有 World 和场景实例集合，借用资产管理器与渲染加载器。
+不再单独装配加载服务。scene_service 直接拥有 World，协调资产请求、显式实例化及安全点激活；World 不持有资产管理器。
 活动、待激活和待退役场景持有稳定资源引用；共享资源内容更新可以在新场景激活前生效，
 取消场景切换不回滚已完成的共享资源更新。场景结构仍在单独域中构建，失败不切换 World。
 Scene/Prefab 结构解析并实例化完成后即可激活；视觉资源先预留引用，激活后由

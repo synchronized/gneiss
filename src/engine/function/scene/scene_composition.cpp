@@ -1,17 +1,26 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/scene/scene_composition.hpp"
+#include "engine/function/scene/component_adapter.hpp"
+#include "engine/resource/scene/object_hierarchy.hpp"
 #include <algorithm>
 namespace gneiss::engine {
 result<composed_scene>
 compose_scene(const scene_description& description,
               const std::map<std::string, const prefab_description*, std::less<>>& sources) {
+  auto hierarchy = inspect_object_hierarchy(description.objects, std::nullopt, 1024, {});
+  if (!hierarchy)
+    return hierarchy.error().error;
   for (const auto& object : description.objects) {
     if (!object.prefab)
       continue;
     auto source = sources.find(object.prefab->uri);
     if (source == sources.end() || !source->second)
       return error::not_found;
+    auto prefab_hierarchy =
+        inspect_object_hierarchy(source->second->objects, source->second->root_uuid, 1024, {});
+    if (!prefab_hierarchy)
+      return prefab_hierarchy.error().error;
   }
   const auto address_of = [&](object_address address) -> object_address {
     if (address.source || !address.object)
@@ -40,20 +49,10 @@ compose_scene(const scene_description& description,
       result.conflicts.emplace(object.uuid, std::move(replayed->conflicts));
     for (auto& member : replayed->description.objects) {
       const bool root = member.uuid == source.root_uuid;
-      auto original =
-          std::ranges::find(source.objects, member.uuid, &game_object_description::uuid);
-      if (original == source.objects.end())
-        return error::not_found;
       composed_object entry;
       entry.address = {object.uuid, member.uuid};
       entry.parent =
           root ? address_of(object.parent) : object_address{object.uuid, member.parent.object};
-      entry.prefab_uri = object.prefab->uri;
-      entry.source_transform = original->transform;
-      entry.instance_root = root;
-      for (const auto& change : object.prefab->overrides)
-        if (change.key.target.source_node_uuid == member.uuid)
-          entry.overrides.push_back(change.key);
       if (root) {
         member.name = object.name;
         member.transform = object.transform;
@@ -81,6 +80,24 @@ compose_scene(const scene_description& description,
     if (parent.source)
       return error::invalid_argument;
   }
+  return result;
+}
+result<std::vector<render_resource_source>> scene_dependencies(const composed_scene& scene) {
+  std::map<std::string, render_resource_kind, std::less<>> unique;
+  for (const auto& object : scene.objects) {
+    auto dependencies = component_dependencies(object.effective.components);
+    if (!dependencies)
+      return dependencies.error();
+    for (const auto& dependency : *dependencies) {
+      auto [found, inserted] = unique.emplace(dependency.uri, dependency.type);
+      if (!inserted && found->second != dependency.type)
+        return error::invalid_argument;
+    }
+  }
+  std::vector<render_resource_source> result;
+  result.reserve(unique.size());
+  for (const auto& [uri, kind] : unique)
+    result.push_back({uri, kind});
   return result;
 }
 }

@@ -229,21 +229,17 @@ void scene_service::advance_load_impl() {
     auto built = engine::measure(
         engine::loop_stage::scene_build,
         [&]() -> engine::result<engine::scene_instantiation_result, engine::scene_diagnostic> {
-          auto input =
-              engine::make_instantiation_data(*prepared, value.description_request.source_bytes());
-          if (!input)
-            return input.error();
           std::map<std::string, const engine::prefab_description*, std::less<>> sources;
-          for (const auto& [uri, source] : input->prefabs) {
-            if (!source.resource)
-              return engine::scene_diagnostic{engine::error::invalid_argument, 0, uri, {}};
-            sources.emplace(uri, source.resource.get());
-          }
-          auto composed = engine::compose_scene(input->description, sources);
+          for (const auto& [uri, source] : content->prefabs)
+            sources.emplace(uri, source.description.get());
+          auto composed = engine::compose_scene(*content->description, sources);
           if (!composed)
             return engine::scene_diagnostic{composed.error(), 0, {}, {}};
+          auto dependencies = engine::scene_dependencies(*composed);
+          if (!dependencies)
+            return engine::scene_diagnostic{dependencies.error(), 0, {}, {}};
           engine::scene_resource_bindings bindings;
-          for (const auto& request : input->assets) {
+          for (const auto& request : *dependencies) {
             auto loaded = resources_->load(request);
             if (!loaded)
               return engine::scene_diagnostic{loaded.error(), 0, request.uri,
@@ -266,7 +262,7 @@ void scene_service::advance_load_impl() {
             if (camera && camera->is_primary)
               value.default_camera = result->objects[i].entity;
           }
-          result->assets = std::move(input->assets);
+          result->assets = std::move(*dependencies);
           result->bindings = std::move(bindings);
           return std::move(*result);
         });

@@ -8,8 +8,8 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/component_adapter.hpp"
-#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/component_identity.hpp"
+#include "engine/function/world/scene_instance.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
@@ -65,11 +65,13 @@ bool open_scene(gneiss::engine::task_scheduler& scheduler, std::string_view root
 }
 bool target_for(gneiss::runtime::application& app, gneiss::scene_instance_id scene,
                 gneiss::entity_id& target) {
-  auto node = app.scenes()->find_node(scene, camera_uuid);
-  gneiss::entity_id entity;
-  if (!node || app.native_world()->node_get_entity(*node, entity).failed())
+  auto instance = gneiss::engine::scene_instance::borrow(*app.native_world(), scene);
+  if (!instance)
     return false;
-  target = entity;
+  auto node = instance->find(camera_uuid);
+  if (!node)
+    return false;
+  target = node->entity();
   return true;
 }
 }
@@ -96,8 +98,11 @@ int main() try {
   gneiss::scene_instance_id scene{};
   example::scope_exit close{[&] {
     if (app) {
-      if (scene)
-        (void)app->scenes()->unload(scene);
+      if (scene) {
+        auto instance = gneiss::engine::scene_instance::borrow(*app->native_world(), scene);
+        if (instance)
+          (void)instance->unload();
+      }
       (void)app->shutdown();
     }
   }};
@@ -133,7 +138,8 @@ int main() try {
   if (!changed)
     return 3;
   components->set(*changed);
-  if (gneiss::engine::install_components({*app->native_world(), *node}, *components).failed())
+  auto object = app->native_world()->object(target);
+  if (!object || gneiss::engine::install_components({*object}, *components).failed())
     return 3;
   // 保存以加载时的描述为基础，只写回本示例明确修改的相机属性。
   auto author = std::ranges::find(description.objects, camera_uuid,
@@ -148,7 +154,8 @@ int main() try {
   author->transform = *transform;
   author->components = *components;
   auto serialized = gneiss::engine::asset_file::serialize(description);
-  if (!serialized || app->scenes()->unload(scene).failed())
+  auto instance = gneiss::engine::scene_instance::borrow(*app->native_world(), scene);
+  if (!serialized || !instance || instance->unload().failed())
     return 4;
   auto json = std::move(*serialized);
   scene = {};
@@ -180,7 +187,8 @@ int main() try {
   if (app->native_world()->entity_get_camera(target, settings).failed() ||
       std::abs(settings.near - 0.25F) > 0.0001F)
     return 6;
-  if (app->scenes()->unload(scene).failed())
+  instance = gneiss::engine::scene_instance::borrow(*app->native_world(), scene);
+  if (!instance || instance->unload().failed())
     return 6;
   scene = {};
   if (app->shutdown().failed())

@@ -17,7 +17,13 @@ inline engine::error open_document(editor::scene_edit_session& document, runtime
   auto status = prepare_scene(app, uri, prepared, bindings, tasks, false, true);
   if (status.failed())
     return status;
-  auto initial = editor::make_scene_document_snapshot(std::string(uri), prepared);
+  engine::scene_content content;
+  content.description = engine::make_ref<const engine::scene_description>(prepared.description);
+  for (const auto& [path, source] : prepared.prefabs)
+    content.prefabs.emplace(
+        path, engine::scene_prefab_dependency{source.source_asset, source.resource, 0});
+  auto initial =
+      editor::make_scene_document_snapshot(std::string(uri), content, prepared.source_asset);
   if (!initial)
     return initial.error();
   initial->assets = bindings;

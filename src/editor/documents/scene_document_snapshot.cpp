@@ -76,54 +76,42 @@ engine::result<scene_subtree_snapshot> freeze_prefab_snapshot(
 }
 
 engine::result<scene_document_snapshot>
-make_scene_document_snapshot(std::string uri, const engine::scene_instantiation_data& source) {
+make_scene_document_snapshot(std::string uri, const engine::scene_content& source,
+                             engine::ref<const engine::scene> asset) {
+  if (!source.description)
+    return engine::error::invalid_argument;
   scene_document_snapshot snapshot;
   snapshot.uri = std::move(uri);
-  auto content = engine::capture_scene_record(source.description);
+  auto content = engine::capture_scene_record(*source.description);
   if (!content)
     return content.error();
   snapshot.content = std::move(*content);
-  snapshot.source_asset = source.source_asset;
+  snapshot.source_asset = std::move(asset);
   for (const auto& [path, prefab] : source.prefabs) {
-    if (!prefab.resource)
+    if (!prefab.description)
       return engine::error::invalid_argument;
-    auto content = engine::capture_prefab_record(*prefab.resource);
+    auto content = engine::capture_prefab_record(*prefab.description);
     if (!content)
       return content.error();
-    snapshot.prefabs.emplace(path,
-                             prefab_document_snapshot{std::move(*content), prefab.source_asset});
+    snapshot.prefabs.emplace(path, prefab_document_snapshot{std::move(*content), prefab.resource});
   }
   return snapshot;
 }
-engine::result<scene_document_snapshot>
-make_scene_document_snapshot(std::string uri, const engine::scene_content& content,
-                             engine::ref<const engine::scene> source) {
-  if (!content.description)
-    return engine::error::invalid_argument;
-  engine::scene_instantiation_data input;
-  input.description = *content.description;
-  input.source_asset = std::move(source);
-  for (const auto& [path, dependency] : content.prefabs)
-    input.prefabs.emplace(path,
-                          engine::prefab_instantiation_data{.resource = dependency.description,
-                                                            .source_asset = dependency.resource});
-  return make_scene_document_snapshot(std::move(uri), input);
-}
-engine::result<engine::scene_preparation_inputs>
+engine::result<engine::scene_content>
 make_scene_document_inputs(const scene_document_snapshot& snapshot) {
   auto description = snapshot.description();
   if (!description)
     return description.error();
-  engine::scene_preparation_inputs inputs;
-  inputs.scene = engine::make_ref<const engine::scene_description>(std::move(*description));
-  inputs.source_asset = snapshot.source_asset;
+  engine::scene_content inputs;
+  inputs.description = engine::make_ref<const engine::scene_description>(std::move(*description));
   for (const auto& [uri, prefab] : snapshot.prefabs) {
     auto description = engine::restore_prefab_record(prefab.content);
     if (!description)
       return description.error();
     inputs.prefabs.emplace(
-        uri, engine::make_ref<const engine::prefab_description>(std::move(*description)));
-    inputs.prefab_assets.emplace(uri, prefab.source_asset);
+        uri, engine::scene_prefab_dependency{
+                 prefab.source_asset,
+                 engine::make_ref<const engine::prefab_description>(std::move(*description)), 0});
   }
   return inputs;
 }
@@ -163,8 +151,7 @@ prepare_scene_document(const scene_document_snapshot& before,
   if (!restored)
     return restored.error();
   auto inputs = std::move(*restored);
-  auto scene = inputs.scene;
-  engine::scene_diagnostic diagnostic;
+  auto scene = inputs.description;
   for (const auto& change : changes) {
     const auto uri = "asset://" + change.path;
     if (uri == before.uri) {
@@ -178,25 +165,26 @@ prepare_scene_document(const scene_document_snapshot& before,
     } else if (uri.ends_with(".prefab.json")) {
       if (!change.replacement) {
         inputs.prefabs.erase(uri);
-        inputs.prefab_assets.erase(uri);
         continue;
       }
       auto decoded = engine::asset_file::deserialize_ref<engine::prefab_description>(
           std::as_bytes(std::span(change.replacement->data(), change.replacement->size())));
       if (!decoded)
         return decoded.error().error;
-      inputs.prefabs.insert_or_assign(uri, std::move(*decoded));
+      inputs.prefabs[uri].description = std::move(*decoded);
     }
   }
-  inputs.scene = std::move(scene);
-  engine::scene_instantiation_data prepared;
-  auto status = engine::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {});
-  if (status.failed())
-    return status;
-  auto next = make_scene_document_snapshot(before.uri, prepared);
+  inputs.description = std::move(scene);
+  auto next = make_scene_document_snapshot(before.uri, inputs, before.source_asset);
   if (!next)
     return next.error();
-  for (const auto& asset : prepared.assets) {
+  auto composed = compose_scene_document(*next);
+  if (!composed)
+    return composed.error();
+  auto dependencies = engine::scene_dependencies(*composed);
+  if (!dependencies)
+    return dependencies.error();
+  for (const auto& asset : *dependencies) {
     const auto found = before.assets.find(asset.uri);
     if (found == before.assets.end() || engine::resource_kind(found->second) != asset.type) {
       pending.push_back(asset);

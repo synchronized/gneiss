@@ -39,13 +39,15 @@ namespace ed = gneiss::editor;
 int main() {
   gneiss::engine::install_fatal_handler();
   CHECK(e::initialize_meta().ok());
-  e::scene_instantiation_data input;
-  input.description.uuid = e::guid::literal("a5352685-908d-459f-85f4-a866df229a10");
+  e::scene_description input;
+  input.uuid = e::guid::literal("a5352685-908d-459f-85f4-a866df229a10");
   e::game_object_description object;
   object.uuid = e::guid::literal("4e62c312-7871-4029-9f19-66af826a0c33");
   object.name = "initial";
-  input.description.objects.push_back(object);
-  auto snapshot = ed::make_scene_document_snapshot("asset://test.scene.json", input);
+  input.objects.push_back(object);
+  e::scene_content content_input;
+  content_input.description = e::make_ref<const e::scene_description>(input);
+  auto snapshot = ed::make_scene_document_snapshot("asset://test.scene.json", content_input);
   CHECK(snapshot);
   ed::scene_document document;
   ed::scene_projection projection;
@@ -150,7 +152,7 @@ int main() {
   {
     auto tagged = *snapshot;
     auto content = e::make_ref<const e::scene_content>(
-        e::scene_content{e::make_ref<const e::scene_description>(input.description), {}});
+        e::scene_content{e::make_ref<const e::scene_description>(input), {}});
     auto asset = e::detail::scene_asset_access::make<e::scene, e::scene_content>({}, content);
     retired_asset = asset;
     tagged.source_asset = e::ref<const e::scene>{std::move(asset)};

@@ -241,8 +241,10 @@ gneiss::engine::error scene_edit_session::create_empty(runtime::application& app
   auto created = world->create_scene();
   if (!created)
     return created.error();
-  engine::scene_instantiation_data initial;
-  initial.description.uuid = scene_uuid;
+  engine::scene_description description;
+  description.uuid = scene_uuid;
+  engine::scene_content initial;
+  initial.description = engine::make_ref<const engine::scene_description>(std::move(description));
   auto frozen = make_scene_document_snapshot({}, initial);
   if (!frozen) {
     (void)created->unload();
@@ -429,6 +431,16 @@ engine::result<scene_query_snapshot> scene_edit_session::capture_nodes() const {
     auto composed = compose_scene_document(*snapshot);
     if (!composed)
       return composed.error();
+    auto document = snapshot->description();
+    if (!document)
+      return document.error();
+    std::map<std::string, engine::prefab_description> sources;
+    for (const auto& [uri, source] : snapshot->prefabs) {
+      auto restored = engine::restore_prefab_record(source.content);
+      if (!restored)
+        return restored.error();
+      sources.emplace(uri, std::move(*restored));
+    }
     const auto& projected = projection_.objects();
     scene_query_snapshot result;
     for (auto& object : composed->objects) {
@@ -438,9 +450,23 @@ engine::result<scene_query_snapshot> scene_edit_session::capture_nodes() const {
       const auto parent_node = parent == projected.end() ? scene_node_id{} : parent->second.node;
       const auto entity = found == projected.end() ? entity_id{} : found->second.entity;
       auto& effective = object.effective;
-      const auto display_uuid = object.instance_root || !object.address.source
-                                    ? object.address.object
-                                    : object.address.source;
+      const engine::game_object_description* author = nullptr;
+      const engine::prefab_description* source = nullptr;
+      bool instance_root = false;
+      if (object.address.source) {
+        auto found_author = std::ranges::find(document->objects, object.address.object,
+                                              &engine::game_object_description::uuid);
+        if (found_author == document->objects.end() || !found_author->prefab)
+          return engine::error::invalid_state;
+        author = &*found_author;
+        auto found_source = sources.find(author->prefab->uri);
+        if (found_source == sources.end())
+          return engine::error::not_found;
+        source = &found_source->second;
+        instance_root = object.address.source == source->root_uuid;
+      }
+      const auto display_uuid =
+          instance_root || !object.address.source ? object.address.object : object.address.source;
       auto name = effective.name.empty() ? display_uuid.string() : effective.name;
       if (!object.address.source) {
         result.nodes.push_back({.node = node,
@@ -459,11 +485,17 @@ engine::result<scene_query_snapshot> scene_edit_session::capture_nodes() const {
       record.instance_uuid = object.address.object;
       record.source_node_uuid = object.address.source;
       record.display_name = std::move(name);
-      record.prefab_uri = std::move(object.prefab_uri);
+      record.prefab_uri = author->prefab->uri;
       record.local_transform = effective.transform;
-      record.source_local_transform = object.source_transform;
-      record.is_instance_root = object.instance_root;
-      record.overrides = std::move(object.overrides);
+      const auto original = std::ranges::find(source->objects, object.address.source,
+                                              &engine::game_object_description::uuid);
+      if (original == source->objects.end())
+        return engine::error::not_found;
+      record.source_local_transform = original->transform;
+      record.is_instance_root = instance_root;
+      for (const auto& change : author->prefab->overrides)
+        if (change.key.target.source_node_uuid == object.address.source)
+          record.overrides.push_back(change.key);
       result.prefab_nodes.push_back(std::move(record));
     }
     return result;

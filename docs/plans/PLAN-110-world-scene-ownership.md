@@ -174,12 +174,14 @@ Runtime 不建立编辑文档。IPC 调用已有应用操作，不增加对象�
 
 1. [x] 取消保句柄替换协议；编辑会话完整重建后更新自己的场景句柄、投影和选择。
 2. [ ] 组合与装配分开；以 composed_scene 为唯一完整输入，实现显式目标场景和 parent 的 instantiate。
-   覆盖已有非空场景、Prefab 重复实例化、引用前向解析和仅清理本次创建对象。
+   已覆盖已有非空场景、Prefab 重复实例化、引用前向解析和仅清理本次创建对象。
+   Runtime/Editor 现已直接消费固定内容；旧准备类型仍由测试夹具引用，删除尚未完成。
 3. [ ] World 收拢场景槽位，移除公开集合及独立状态层；统一 GameObject 创建/层级入口。
    已完成槽位收拢及 scene_instances/scene_instance_state 删除；旧 World node/entity 业务入口仍待迁移。
 4. [ ] 迁移运行来源身份到外部回执，补齐对象遍历和同 World 整棵子树迁移。
    已完成 visit_objects、game_object::scene/world_matrix、transfer_subtree；来源 UUID 依赖尚待移除。
 5. [ ] 拆分运行组件装配与编辑器注册，消除上下文中的网格特例。
+   Inspector 来源信息已从 composed_object 移回编辑器；注册扩展仍位于引擎，尚未迁出。
 6. [x] 分离相机安装和激活；迁移应用/视口安全点调度，整理 scene_domain。
    已删除 scene_domain；相机组件只保存默认提示，运行应用 activate 在切换前显式选择相机，
    编辑视口继续使用独立相机。多个提示按组合顺序选择最后一个，无提示则不自动激活。
@@ -461,3 +463,20 @@ camera_component 保存 primary_hint，capture 读取提示而非活动相机身
 Runtime 场景加载只记录默认选择，activate 在切换安全点显式选择；编辑视口仍独立管理相机。
 Editor/Runtime 编译通过，6 项定向 CPU 回归通过，覆盖安装不激活、失败不改变旧相机、
 Prefab 中默认相机在应用激活后选中及编辑相机隔离。未运行 GPU 或远端 CI。
+
+## 固定内容直接组合
+
+Runtime 初次加载和来源更新直接使用 scene_content 组合，再由 scene_dependencies 从有效组件
+收集资源引用；删除生成准备数据再组合一次的产品路径。编辑文档冻结/恢复同样使用 scene_content，
+校验、组合和依赖收集分开调用。Prefab 插入/刷新直接消费已加载来源，保留原有历史及选择语义。
+composed_object 不再保存 Inspector 的 prefab_uri、source_transform、instance_root 和 overrides；
+这些查询数据从冻结编辑文档取得。公开集合移除后，四个示例已迁移借用句柄。
+
+剩余任务仍见主清单：运行 UUID 查询依赖、组件编辑注册归属、测试夹具引用的旧准备类型、
+旧 World node/entity 业务入口及最终验收。产品路径迁移完成不等于这些定义已删除。
+
+验证：Windows Clang Debug 全部默认构建目标编译通过（包含示例与测试程序，不执行 GPU）。
+全量重链完成后，14 项定向 CPU 回归全部通过，覆盖文档快照/版本、会话、Prefab、组件、
+实例化、结构刷新与 Runtime 检视。编译期间曾提前运行尚未重链的测试程序并发生崩溃；
+新旧二进制统一后全部通过，后续必须先完成受影响调用方重链再执行测试。
+未运行 GPU、大场景、远端 CI 或跨平台矩阵。

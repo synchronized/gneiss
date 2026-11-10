@@ -5,12 +5,11 @@
 namespace gneiss::editor {
 namespace {
 engine::error validate(const scene_document_snapshot& snapshot) {
-  auto inputs = make_scene_document_inputs(snapshot);
-  if (!inputs)
-    return inputs.error();
-  engine::scene_instantiation_data prepared;
-  engine::scene_diagnostic diagnostic;
-  return engine::prepare_loaded_scene(*inputs, {}, prepared, diagnostic, {});
+  auto composed = compose_scene_document(snapshot);
+  if (!composed)
+    return composed.error();
+  auto dependencies = engine::scene_dependencies(*composed);
+  return dependencies ? engine::error::success : dependencies.error();
 }
 }
 engine::result<std::unique_ptr<scene_document>> scene_document::make_candidate() const {

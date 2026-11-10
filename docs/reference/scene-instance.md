@@ -5,7 +5,7 @@
 
 ## 运行期身份与所有权
 
-World 私有状态直接拥有场景槽位表，`scene_instances` 暂为旧调用适配入口；`scene_instance` 是借用句柄，
+World 私有状态直接拥有场景槽位表；`scene_instance` 是借用句柄，
 `scene_instance_id` 是非拥有的集合标识。
 节点统一使用 `scene_node_id`，校验所属域和槽位代次；不能跨 World 使用，也不保活对象。
 持久化身份使用 UUID，文件不保存运行期 ID。
@@ -21,7 +21,7 @@ ECS 组件持有 mesh/material 等引擎资源强引用，不保存第三方后�
 
 ## 原生结果接口
 
-`scene_instances` 的创建和查询接口返回 `result<T>`，失败时只返回错误，不提供部分输出。
+World/scene_instance 的创建和查询接口返回 `result<T>`，失败时只返回错误，不提供部分输出。
 原地修改、删除和卸载继续返回 `error`。调用方先检查结果，再取得值：
 
 ```cpp
@@ -36,11 +36,11 @@ if (!count)
 
 运行集合不提供从实例反向构造实例化输入或 Prefab 作者头的入口；
 重复实例化由调用方保留已加载描述与资源引用。编辑器的 Prefab 头捕获只读取文档。
-`get_node_info` 返回的 `scene_node_info` 仍包含借用字段，结果包装不延长场景寿命。
-集合直接校验线程、句柄并操作 World，不再经过独立的单实例状态对象转发。
+成员遍历使用 `scene_instance::visit_objects`，回调期间禁止结构修改，顺序不保证稳定。
 槽位生命周期实现在 `world.cpp`，成员操作和借用句柄实现在 `world_scenes.cpp`。
-两者都不持有或借用资产管理器。`world.create_scene()` 不要求描述 UUID，也不依赖
-`scene_instances::attach(world)`；旧集合仍需 attach，后续迁移调用方后删除。
+两者不依赖资产管理器；`world.create_scene()` 无需 attach。
+`transfer_subtree` 显式迁移同 World 的整棵子树，保持实体身份及局部变换。
+`game_object::world_matrix()` 返回实际组合矩阵，包含非均匀缩放产生的剪切。
 卸载通过 ECS 析构组件并释放资源强引用，不调用资产缓存清理。
 
 `instantiate(destination, composed, bindings, parent)` 将已组合的完整对象追加到指定场景。
@@ -101,44 +101,30 @@ Prefab 编辑开始时从组件覆盖快照取得原资源引用；异步加载�
 网格/材质 URI 覆盖由 `prepare_mesh_renderer_overrides` 统一计算，保留其他覆盖记录，
 恢复来源值时删除对应稀疏覆盖。该函数不应用资源、不写历史、不改变输入；成功后由调用方提交。
 
-## 准备阶段类型
+## 组合与加载边界
 
-- `scene_preparation_inputs`：已加载的 Scene/Prefab 不可变描述引用及读取统计。
-- `prefab_instantiation_data`：Prefab 描述引用、父节点优先顺序与层级深度，不是文件格式描述。
-- `scene_instantiation_data`：完成排序与依赖收集的实例化输入。
-- `scene_instances::resource_bindings`：URI 到运行资源强引用的映射，不是 CPU 资产加载缓存。
+异步资产加载给出固定的 `scene_content`。`compose_scene` 展开来源及覆盖，
+`scene_dependencies` 从有效组件收集视觉依赖，调用方提交资产请求后传入
+`scene_resource_bindings`。`instantiate` 仅创建本次对象、连接层级、安装组件并解析对象引用。
+它不等待文件或 GPU，不管理加载统计；同步步骤不支持中途取消。
 
-这些名称替换旧名称，不增加新状态或兼容别名。
+相机安装仅保存参数和 primary_hint，不切换活动相机。Runtime 在 activate 安全点按组合顺序
+选择最后一个默认提示；没有提示时不自动激活。编辑视口使用自己的相机。
 
-## 加载阶段
-
-文件读取和依赖准备由异步加载协调器完成，见[调度指南](../guides/task-scheduling.md)。
-`scene_instances::instantiate_prepared` 只消费已准备的描述和资源引用，在 World 所属线程同步创建：
-
-1. 按唯一 `objects` 列表计算父节点优先顺序。
-2. 普通对象直接创建节点、实体和组件。
-3. 带 `prefab` 的对象先组合来源与覆盖，再按完整有效描述创建实例根、子节点和组件。
-4. 全部成功后返回场景实例 ID；失败回收本次创建的节点及 ECS 组件。
-
-同步创建阶段不跨帧，也不支持中途取消；文件和资产准备阶段可取消。
-`create_empty` 创建无节点场景，不读取文件。重复实例化可复用同一不可变输入和资源绑定，
-不从 World 反推来源描述或创建隐藏的备份实例。
+旧 scene_preparation 模型目前仍供测试夹具使用，产品加载及文档入口已不调用它；
+删除这些旧定义及迁移测试仍属于 PLAN-110 未完成项。
 
 ## 对象与来源查询
 
-`get_node_count`、`get_node_info` 枚举所有实际节点，返回 `scene_node_info`。
-普通对象、实例根与模板展开子节点可以交错排列，不能跨修改保留枚举下标。
-查询包含运行 UUID、节点、父节点、实体、变换及组件；不包含作者来源信息。
-字符串视图借用到下一次场景修改或所属对象失效。
-
-`find_node` 按运行 UUID 查找。普通对象沿用显式 UUID，所有 Prefab 展开对象（包括根）
-使用新运行 UUID；调用方根据回执的 `{object, source}` 地址定位来源成员。
-同源多实例的节点、实体及运行 UUID 相互独立。
+`scene_instance::size/visit_objects` 读取 ECS 归属，`find` 暂按运行 UUID 查找。
+来源关联使用实例化回执的 `{object, source}` 地址；普通对象保留显式 UUID，重复实例化时
+生成新的运行 UUID。运行 UUID 的进一步移除仍在计划中。
+Inspector 的 Prefab URI、来源变换和覆盖列表由编辑文档查询生成，不进入 composed_object。
 
 ## 编辑和保存
 
 运行时 World 的节点身份、层级、局部变换与 ECS 组件描述实际运行状态；编辑内容以 Editor 文档为准。
-内部场景状态只记录场景 UUID 和成员节点，不维护完整 `scene_description` 或 Prefab 绑定。
+内部场景槽位只记录运行身份，成员归属位于 ECS，不维护完整 `scene_description` 或 Prefab 绑定。
 场景描述用于加载输入；文档持久化和撤销快照归 Editor 管理。`scene_object.hpp` 委托 Function/Scene 的
 `component_adapter.hpp` 按描述 GUID 安装与捕获组件，内建适配相机与网格渲染组件。
 扩展组件注册 `component_operations<T>`，提供验证、安装、捕获、删除、比较操作；

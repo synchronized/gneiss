@@ -66,14 +66,11 @@ struct prepared_scene_document {
 /** 只计算内存变更及缺失依赖；missing 表示尚未持有资源身份，不要求内容加载完成。 */
 [[nodiscard]] engine::result<prepared_scene_document>
 prepare_scene_document(const scene_document_snapshot&, std::span<const author_document_change>);
-/** 从已准备描述冻结内容；纯内存操作，不访问宿主或 World。 */
-[[nodiscard]] engine::result<scene_document_snapshot>
-make_scene_document_snapshot(std::string uri, const engine::scene_instantiation_data&);
 /** 使用加载回执冻结的内容构造文档，不读取 World 或当前资产修订。 */
 [[nodiscard]] engine::result<scene_document_snapshot>
 make_scene_document_snapshot(std::string uri, const engine::scene_content&,
-                             engine::ref<const engine::scene> source);
+                             engine::ref<const engine::scene> source = {});
 /** 恢复独立的领域输入；资源引用只保活，内容使用冻结值。 */
-[[nodiscard]] engine::result<engine::scene_preparation_inputs>
+[[nodiscard]] engine::result<engine::scene_content>
 make_scene_document_inputs(const scene_document_snapshot&);
 }

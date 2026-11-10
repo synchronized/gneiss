@@ -18,13 +18,12 @@ World 及其实体只能在创建线程访问；跨线程操作返回 `error::in
 
 ## 场景所有权与借用
 
-`scene_instances::attach(world, assets)` 初始化 World 唯一的场景集合，返回借用指针。
-重复初始化或跨线程调用返回 invalid_state；失败不安装半成品。
-`world::scenes()` 在初始化前为空；初始化后集合由 World 独占，asset_manager 必须比 World 更晚销毁。
-World 析构先卸载场景成员、释放组件资源引用，再销毁 ECS；Runtime scene_domain 只拥有 World。
+`world::create_scene()` 创建实例槽位并返回借用句柄，不需要描述 UUID 或资产管理器。
+World 直接管理槽位与 ECS 成员，没有公开场景集合或 attach 步骤。
+World 析构释放实体及组件引用；Runtime 场景协调直接持有 world_owner。
 
 `scene_instance::borrow(world, id)` 返回非拥有的场景句柄。
-size、find 和 unload 委托 World 的场景集合，校验所属线程与场景 RID 的 domain/generation。
+size、find 和 unload 直接访问 World 的成员归属和槽位，校验所属线程与场景 RID 的 domain/generation。
 复制句柄不延长场景或对象寿命；卸载后副本失效，槽位复用不会恢复旧句柄。
 World 销毁后禁止再访问场景句柄，is_valid 也不能检测已经析构的 World。
 
