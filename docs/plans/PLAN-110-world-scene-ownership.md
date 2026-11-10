@@ -424,3 +424,16 @@ Prefab 增量应用测试取消 attach；原生 World 测试覆盖不初始化�
 Editor、Runtime 及相关目标编译通过，10 项 CPU 测试通过，git diff --check 通过。
 未运行 GPU、大场景、其他平台或远端 CI。
 旧集合仍用于节点枚举、部分编辑查询及宿主 scenes() 入口，尚未删除，计划保持进行中。
+
+
+## 2026-11-10 编辑会话脱离旧集合
+
+scene_edit_session 的创建、接管、有效性和关闭全部使用 World/scene_instance，
+删除仅用于关闭的 with_scene 转发模板及 scene_instances 头文件依赖。
+adopt 校验回执成员归属，拒绝同 World 其他场景对象；is_open 同时校验场景域和代次，
+外部卸载后立即失效。Runtime 热更新入口和宿主统计改为借用场景句柄。
+
+新增跨场景接管拒绝、失败保留原会话、外部卸载失效且不影响其他场景的回归检查。
+Editor、Runtime 及相关目标编译通过，6 项定向 CPU 测试通过，git diff --check 通过。
+未运行 GPU、大场景、其他平台或远端 CI。
+Runtime 检查器节点枚举与宿主 scenes() 入口仍待迁移，旧集合暂未删除。

@@ -92,6 +92,39 @@ int main() try {
         session.is_dirty())
       return 38;
   }
+  // 接管时拒绝同 World 的其他场景对象，失败不改变既有会话。
+  {
+    auto target = world->create_scene();
+    if (!target)
+      return 100;
+    auto member = target->create({gneiss::engine::guid::generate(), "Target"});
+    auto content = session.capture_content();
+    auto nodes = session.capture_nodes();
+    if (!member || !content || !nodes || nodes->nodes.empty())
+      return 101;
+    const auto& foreign_object = nodes->nodes.front();
+    const gneiss::engine::scene_object_binding wrong{
+        foreign_object.uuid, {}, foreign_object.node, gneiss::entity_id{foreign_object.node.get()}};
+    auto before = session.scene_handle();
+    if (session.adopt(*application, world, target->id(), *content, {&wrong, 1}) !=
+            gneiss::engine::error::invalid_handle ||
+        session.scene_handle() != before || !session.is_open() || !member->is_valid())
+      return 102;
+    if (target->unload().failed())
+      return 103;
+  }
+  // 外部卸载立即使编辑会话失效，关闭不能影响另一场景。
+  {
+    gneiss::editor::scene_edit_session transient;
+    if (transient.create_empty(*application, world, gneiss::engine::guid::generate()).failed())
+      return 104;
+    auto instance = gneiss::engine::scene_instance::borrow(*world, transient.scene_handle());
+    if (!instance || instance->unload().failed() || transient.is_open())
+      return 105;
+    transient.close();
+    if (!session.is_open())
+      return 106;
+  }
   // 原生会话移动只转移一次释放责任；外线程编辑不得改变文档。
   const auto original_scene = session.scene_handle();
   gneiss::editor::scene_edit_session moved_session{std::move(session)};

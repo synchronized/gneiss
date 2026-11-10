@@ -409,7 +409,10 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
     context.next_statistics_ns = time->elapsed_ns + UINT64_C(250000000);
     std::uint64_t scene_node_count = 0U;
     std::uint64_t entity_count = 0U;
-    auto scenes_result = context.application->scenes()->get_node_count(context.scene);
+    auto instance =
+        gneiss::engine::scene_instance::borrow(*context.application->native_world(), context.scene);
+    auto scenes_result =
+        instance ? instance->size() : gneiss::engine::result<std::uint64_t>{instance.error()};
     auto operation = scenes_result ? gneiss::engine::error::success : scenes_result.error();
     if (scenes_result) {
       scene_node_count = std::move(*scenes_result);

@@ -12,8 +12,8 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_types.hpp"
+#include "engine/function/world/scene_instance.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/scene/scene_description.hpp"
@@ -260,7 +260,6 @@ private:
   std::unique_ptr<scene_document> document_;
   scene_projection projection_;
   engine::error encode_scene(std::string& output) const;
-  template <class F> std::invoke_result_t<F, engine::scene_instances&> with_scene(F&& action) const;
 
   gneiss::engine::world* world_ = nullptr;
   // 借用宿主；宿主必须在关闭/销毁 Application 前关闭编辑文档。

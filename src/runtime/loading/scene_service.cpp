@@ -182,7 +182,7 @@ engine::error scene_service::request_reload(scene_instance_id instance, std::str
     return engine::error::invalid_state;
   if (reload_ || loading() || visual_loading() || loading_->busy() || retired_)
     return engine::error::not_ready;
-  auto valid_value = scenes()->get_node_count(instance);
+  auto valid_value = engine::scene_instance::borrow(*native_world(), instance);
   if (!valid_value)
     return valid_value.error();
 

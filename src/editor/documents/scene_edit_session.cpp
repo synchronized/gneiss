@@ -7,7 +7,6 @@
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/scene/component_adapter.hpp"
-#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/asset_file.hpp"
@@ -162,18 +161,9 @@ bool scene_edit_session::is_open() const noexcept {
   if (!application_ || !scene_ || !application_->is_owner_thread() ||
       !application_->accepts_requests() || application_->native_world() != world_)
     return false;
-  // 地址可能被后续 World 复用；实例 ID 的所属域仍必须匹配当前实例集合。
-  auto* scenes = application_->scenes();
-  return scenes && document_ && bool(document_->current());
-}
-template <class F>
-std::invoke_result_t<F, engine::scene_instances&> scene_edit_session::with_scene(F&& action) const {
-  if (!is_open())
-    return engine::error::invalid_state;
-  auto* service = application_->scenes();
-  if (!service)
-    return engine::error::invalid_state;
-  return std::forward<F>(action)(*service);
+  // World 地址可能复用，必须同时校验实例 ID 的所属域及代次。
+  return document_ && bool(document_->current()) &&
+         bool(engine::scene_instance::borrow(*world_, scene_));
 }
 
 scene_edit_session::scene_edit_session(scene_edit_session&& other) noexcept {
@@ -199,17 +189,27 @@ scene_edit_session::adopt(runtime::application& application, gneiss::engine::wor
                           std::span<const engine::scene_object_binding> objects) {
   if (edit_base_ || !application.is_owner_thread() || !application.accepts_requests())
     return gneiss::engine::error::invalid_state;
-  if (world != application.native_world() || initial.uri.empty() || !scene)
+  if (!world || world != application.native_world() || initial.uri.empty() || !scene)
     return gneiss::engine::error::invalid_argument;
   {
-    const auto count = application.scenes()->get_node_count(scene);
+    auto instance = engine::scene_instance::borrow(*world, scene);
+    if (!instance)
+      return instance.error();
+    const auto count = instance->size();
     if (!count)
       return count.error();
     if (*count != objects.size())
       return engine::error::invalid_argument;
-    for (const auto& binding : objects)
-      if (!world->object(binding.entity))
+    for (const auto& binding : objects) {
+      auto object = world->object(binding.entity);
+      if (!object)
+        return object.error();
+      auto member = instance->contains(*object);
+      if (!member)
+        return member.error();
+      if (!*member)
         return engine::error::invalid_handle;
+    }
     scene_edit_session pending;
     pending.uri_ = initial.uri;
     pending.application_ = &application;
@@ -236,16 +236,16 @@ gneiss::engine::error scene_edit_session::create_empty(runtime::application& app
                                                        gneiss::engine::guid scene_uuid) {
   if (edit_base_ || !application.is_owner_thread() || !application.accepts_requests())
     return gneiss::engine::error::invalid_state;
-  if (world != application.native_world() || scene_uuid.is_nil())
+  if (!world || world != application.native_world() || scene_uuid.is_nil())
     return gneiss::engine::error::invalid_argument;
-  auto created = application.scenes()->create_empty(scene_uuid);
+  auto created = world->create_scene();
   if (!created)
     return created.error();
   engine::scene_instantiation_data initial;
   initial.description.uuid = scene_uuid;
   auto frozen = make_scene_document_snapshot({}, initial);
   if (!frozen) {
-    (void)application.scenes()->unload(*created);
+    (void)created->unload();
     return frozen.error();
   }
   std::unique_ptr<scene_document> versions;
@@ -253,18 +253,18 @@ gneiss::engine::error scene_edit_session::create_empty(runtime::application& app
     versions = std::make_unique<scene_document>();
   } catch (...) {
     // 局部状态清理后传播意外异常，不作为普通操作失败继续执行。
-    (void)application.scenes()->unload(*created);
+    (void)created->unload();
     throw;
   }
   const auto status = versions->reset(*frozen, false);
   if (status.failed()) {
-    (void)application.scenes()->unload(*created);
+    (void)created->unload();
     return status;
   }
   close();
   document_ = std::move(versions);
   application_ = &application;
-  scene_ = *created;
+  scene_ = created->id();
   world_ = world;
   const auto projected = report_projection(document_->current(), engine::error::success);
   if (projected.failed()) {
@@ -832,7 +832,8 @@ void scene_edit_session::close() noexcept {
   selection_ = {};
   uri_.clear();
   if (is_open())
-    (void)with_scene([&](auto& service) { return service.unload(scene_); });
+    if (auto instance = engine::scene_instance::borrow(*world_, scene_))
+      (void)instance->unload();
   document_.reset();
   projection_ = {};
   scene_ = {};
