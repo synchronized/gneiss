@@ -188,7 +188,6 @@ GNEISS_API error remove_component(component_context, guid type);
 GNEISS_API error resolve_component_references(component_context, const component_descriptions&);
 GNEISS_API error validate_components(const component_descriptions&);
 GNEISS_API result<component_descriptions> capture_components(world&, entity_id);
-GNEISS_API error install_components(component_context, const component_descriptions&);
 /** 同步替换组件集合；失败由调用方用捕获快照恢复，不改变节点身份。 */
 GNEISS_API error replace_components(component_context, const component_descriptions&);
 GNEISS_API bool equal_components(const component_descriptions&, const component_descriptions&);

@@ -100,6 +100,16 @@ int main() try {
   check(e::register_scene_component(runtime_only).ok());
   check(e::register_scene_component(runtime_only) == e::error::invalid_argument);
   auto custom = operations();
+  custom.update = [](e::component_context& context, const movement_description& value) -> e::error {
+    if (value.speed == 13)
+      return e::error::invalid_state;
+    auto* component =
+        state(*context.target.owner()).get<movement_component>(context.target.entity().get());
+    if (!component)
+      return e::error::not_found;
+    component->data = value;
+    return e::error::success;
+  };
   const auto alias = e::guid::from_bytes({84, 99});
   custom.properties->property_type = alias;
   custom.resolve_references = [](e::component_context& context,
@@ -231,15 +241,18 @@ int main() try {
   auto* component = state(world).get<movement_component>(id);
   check(component && component->data.speed == 2);
   component->data.speed = 4;
+  const std::weak_ptr<int> retained_lifetime = component->lifetime;
   check(e::edit_runtime_component({*world.object(gneiss::entity_id{node.get()})},
                                   movement_description::type_guid, e::meta::property_id{1},
                                   e::value{5.0F})
             .ok());
   check(state(world).get<movement_component>(id)->data.speed == 5);
+  check(state(world).get<movement_component>(id)->lifetime == retained_lifetime.lock());
   check(e::edit_runtime_component({*world.object(gneiss::entity_id{node.get()})},
                                   movement_description::type_guid, e::meta::property_id{1},
                                   e::value{-1.0F}) == e::error::invalid_argument);
   check(state(world).get<movement_component>(id)->data.speed == 5);
+  check(state(world).get<movement_component>(id)->lifetime == retained_lifetime.lock());
   // 文件往返使用调用方描述，显式采集需要保留的组件，不捕获整个运行场景。
   e::scene_description saved = source;
   for (auto& object : saved.objects) {

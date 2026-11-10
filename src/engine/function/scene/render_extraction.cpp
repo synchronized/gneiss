@@ -54,7 +54,7 @@ result<render_snapshot> extract_render_snapshot(world& owner, std::uint32_t view
           component != nullptr) {
         selected.camera = {component->settings().fov, component->settings().near,
                            component->settings().far};
-        auto transform = world.scene().get_world_for_entity(active_camera);
+        auto transform = world.scene().get_world(entity_id{active_camera});
         has_camera = transform.ok();
         if (transform)
           selected.transform = *transform;
@@ -85,7 +85,7 @@ result<render_snapshot> extract_render_snapshot(world& owner, std::uint32_t view
           if (!component.value.mesh || !component.value.material)
             return;
           const auto entity = world.encode_entity(native_entity);
-          if (auto transform = world.scene().get_world_for_entity(entity)) {
+          if (auto transform = world.scene().get_world(entity_id{entity})) {
             snapshot.instances.push_back({.mesh = component.value.mesh,
                                           .material = component.value.material,
                                           .transform = *transform});

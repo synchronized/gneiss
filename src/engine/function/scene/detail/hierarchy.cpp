@@ -172,28 +172,6 @@ result<math::transform> world_hierarchy::get_world(entity_id node_id) const noex
   return result;
 }
 
-result<math::transform> world_hierarchy::get_world_for_entity(std::uint64_t entity) const noexcept {
-  if (!entity)
-    return error::invalid_argument;
-  return find(entity_id{entity}) ? get_world(entity_id{entity})
-                                 : result<math::transform>{error::not_ready};
-}
-
-const math::transform* world_hierarchy::get_local_for_entity(std::uint64_t entity) const noexcept {
-  return get_local(entity_id{entity});
-}
-
-error world_hierarchy::set_local_for_entity(std::uint64_t entity,
-                                            const math::transform& transform) noexcept {
-  if (!entity)
-    return error::invalid_argument;
-  return find(entity_id{entity}) ? set_local(entity_id{entity}, transform) : error::not_found;
-}
-
-std::uint64_t world_hierarchy::get_entity(entity_id id) const noexcept {
-  return find(id) ? id.get() : 0;
-}
-
 entity_id world_hierarchy::get_parent(entity_id node_id) const noexcept {
   const auto* target = find(node_id);
   return target == nullptr ? null_entity_id : target->parent;

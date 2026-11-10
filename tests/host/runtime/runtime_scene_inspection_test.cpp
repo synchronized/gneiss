@@ -259,7 +259,7 @@ bool test_registered_component_inspection() {
     return false;
   auto node = object_scene->create_object({"Custom", {}});
   if (!node ||
-      e::install_components({*world.object(gneiss::entity_id{node->entity().get()})},
+      e::replace_components({*world.object(gneiss::entity_id{node->entity().get()})},
                             {e::make_component_description(movement_description{3}),
                              e::make_component_description(e::mesh_renderer_description{})})
           .failed())

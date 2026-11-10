@@ -365,24 +365,6 @@ result<component_descriptions> capture_components(world& owner, entity_id node) 
     return status;
   return output;
 }
-error install_components(component_context context, const component_descriptions& values) {
-  auto status = valid_target(context);
-  if (status.ok())
-    status = validate_components(values);
-  if (status.failed())
-    return status;
-  auto& ids =
-      instance_ids(*context.target.owner(), entity_id{context.target.entity().get()}).values;
-  for (const auto& value : values) {
-    auto [entry, inserted] = ids.try_emplace(value->guid(), values.identity(value->guid()));
-    status = find(value->guid())->install(context, value);
-    if (status.failed() && inserted)
-      ids.erase(entry);
-    if (status.failed())
-      return status;
-  }
-  return error::success;
-}
 error replace_components(component_context context, const component_descriptions& values) {
   auto status = valid_target(context);
   if (status.ok())
@@ -406,7 +388,7 @@ error replace_components(component_context context, const component_descriptions
     const bool surviving = previous && (*previous)->uuid == next->uuid;
     if (surviving && equal_components({*previous}, {next}))
       continue;
-    status = surviving ? update_component(context, next) : install_components(context, {next});
+    status = surviving ? update_component(context, next) : add_component(context, next, next->uuid);
     if (status.failed())
       return status;
   }
@@ -506,36 +488,16 @@ error edit_runtime_component(component_context context, guid type, meta::propert
   if (!candidate)
     return candidate.error();
   auto edited = adapter->properties.edit(*candidate, type, property, input);
-  return edited ? adapter->install(context, *edited) : edited.error();
+  return edited ? update_component(context, *edited) : edited.error();
 }
 
 }
 
 namespace gneiss::engine {
-namespace {
-/** GameObject 接口负责线程与实体校验；反射只修改副本，成功后才提交。 */
-template <class Access>
-error access_component(world& world, std::uint64_t entity, guid type, bool write, Access&& access) {
-  if (type == transform_component_type) {
-    auto object = world.object(entity_id{entity});
-    if (!object)
-      return object.error();
-    auto value = object->local_transform();
-    if (!value)
-      return value.error();
-    auto operation = access(&*value);
-    return operation.failed() || !write ? operation : object->set_local_transform(*value);
-  }
-  return error::unsupported;
-}
-}
 result<value> read_component_property(world& world, std::uint64_t entity, guid type,
                                       meta::property_id field) {
-  if (type != transform_component_type) {
-    auto node = world.object(entity_id{entity});
-    return node ? read_runtime_component(world, node->entity(), type, field)
-                : result<value>{node.error()};
-  }
+  if (type != transform_component_type)
+    return read_runtime_component(world, entity_id{entity}, type, field);
   auto target = world.object(entity_id{entity});
   if (!target)
     return target.error();
@@ -550,21 +512,22 @@ result<value> read_component_property(world& world, std::uint64_t entity, guid t
 }
 error write_component_property(world& world, std::uint64_t entity, guid type,
                                meta::property_id field, const engine::value& value) {
-  if (type != transform_component_type) {
-    auto node = world.object(entity_id{entity});
-    if (!node)
-      return node.error();
-    auto target = node;
-    return target ? edit_runtime_component({*target}, type, field, value) : target.error();
-  }
-  return access_component(world, entity, type, true, [&](auto* object) {
-    auto root = meta::view(*object);
-    if (!root)
-      return root.error();
-    auto member = root->member(field);
-    return member ? member->assign(value) : member.error();
-  });
+  auto target = world.object(entity_id{entity});
+  if (!target)
+    return target.error();
+  if (type != transform_component_type)
+    return edit_runtime_component({*target}, type, field, value);
+  auto transform = target->local_transform();
+  if (!transform)
+    return transform.error();
+  auto root = meta::view(*transform);
+  if (!root)
+    return root.error();
+  auto member = root->member(field);
+  auto status = member ? member->assign(value) : member.error();
+  return status.failed() ? status : target->set_local_transform(*transform);
 }
+
 }
 
 namespace gneiss::engine {

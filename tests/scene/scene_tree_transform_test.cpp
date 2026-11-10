@@ -121,7 +121,7 @@ int run_tests() {
   gneiss::engine::math::transform actual = gneiss::engine::math::transform{};
   if (gneiss::test_support::assign_value(tree.get_world(grandchild), actual) !=
           gneiss::engine::error::success ||
-      !approximately_equal(actual, expected) || tree.get_entity(grandchild) != entity) {
+      !approximately_equal(actual, expected) || grandchild.get() != entity) {
     return 3;
   }
 
@@ -134,7 +134,7 @@ int run_tests() {
       gneiss::test_support::assign_value(tree.get_world(grandchild), actual) !=
           gneiss::engine::error::success ||
       !approximately_equal(actual, reference_combine(other_transform, grandchild_transform)) ||
-      tree.get_entity(grandchild) != entity) {
+      grandchild.get() != entity) {
     return 4;
   }
 

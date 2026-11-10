@@ -30,11 +30,6 @@ public:
   [[nodiscard]] error set_local(entity_id node, const math::transform& transform) noexcept;
   [[nodiscard]] const math::transform* get_local(entity_id node) const noexcept;
   [[nodiscard]] result<math::transform> get_world(entity_id node) const noexcept;
-  [[nodiscard]] result<math::transform> get_world_for_entity(std::uint64_t entity) const noexcept;
-  [[nodiscard]] const math::transform* get_local_for_entity(std::uint64_t entity) const noexcept;
-  [[nodiscard]] error set_local_for_entity(std::uint64_t entity,
-                                           const math::transform& transform) noexcept;
-  [[nodiscard]] std::uint64_t get_entity(entity_id node) const noexcept;
   [[nodiscard]] entity_id get_parent(entity_id node) const noexcept;
   [[nodiscard]] error set_name(entity_id node, std::string name);
   [[nodiscard]] result<std::string_view> name(entity_id node) const;

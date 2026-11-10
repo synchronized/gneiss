@@ -144,7 +144,7 @@ int main() try {
     return 3;
   components->set(*changed);
   auto object = app->native_world()->object(target);
-  if (!object || gneiss::engine::install_components({*object}, *components).failed())
+  if (!object || gneiss::engine::replace_components({*object}, *components).failed())
     return 3;
   // 保存以加载时的描述为基础，只写回本示例明确修改的相机属性。
   auto author = std::ranges::find(description.objects, camera_uuid,

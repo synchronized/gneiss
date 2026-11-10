@@ -114,8 +114,8 @@ error game_object::reparent(game_object parent) const {
     return state.error();
   const auto node = entity_id{entity_.get()};
   const auto parent_node = entity_id{parent.entity_.get()};
-  if (!(*state)->scene().get_entity(node) ||
-      (parent_node && !(*state)->scene().get_entity(parent_node)))
+  if (!(*state)->scene().get_local(node) ||
+      (parent_node && !(*state)->scene().get_local(parent_node)))
     return error::invalid_handle;
   return (*state)->scene().reparent(node, parent_node);
 }

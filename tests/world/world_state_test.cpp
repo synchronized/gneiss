@@ -94,16 +94,15 @@ int run_tests() {
   auto& tree = first.scene();
   if (gneiss::test_support::assign_value(tree.create({}, replacement), parent).failed() ||
       gneiss::test_support::assign_value(tree.create(parent, visible), child).failed() ||
-      tree.get_entity(child) != visible || tree.destroy(parent).failed() ||
-      tree.get_local(child) != nullptr || first.is_alive(replacement) ||
-      first.destroy_entity(visible) || first.entity_count() != 0U)
+      child.get() != visible || tree.destroy(parent).failed() || tree.get_local(child) != nullptr ||
+      first.is_alive(replacement) || first.destroy_entity(visible) || first.entity_count() != 0U)
     return 7;
   // 节点和实体共用身份；跨 World、generation 和重复删除同时失效。
   const auto root = tree.create({}, 0);
   const auto leaf =
       root ? tree.create(*root, 0)
            : gneiss::engine::result<gneiss::entity_id>{gneiss::engine::error::internal};
-  if (!root || !leaf || root->get() != tree.get_entity(*root) || second.scene().get_local(*root) ||
+  if (!root || !leaf || !tree.get_local(*root) || second.scene().get_local(*root) ||
       second.scene().create(*root, 0).error() != gneiss::engine::error::invalid_handle ||
       tree.reparent(*leaf, *root).failed() || tree.children(*root)->size() != 1 ||
       tree.reparent(*root, *leaf) != gneiss::engine::error::invalid_argument)

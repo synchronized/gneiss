@@ -108,7 +108,7 @@ int main() {
     if (!changed)
       return changed.error();
     captured->set(*changed);
-    return engine::install_components({*first->object(gneiss::entity_id{node.get()})}, *captured);
+    return engine::replace_components({*first->object(gneiss::entity_id{node.get()})}, *captured);
   };
   if (change_near(0.5F).failed() ||
       gneiss::test_support::read_component_value(

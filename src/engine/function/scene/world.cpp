@@ -52,7 +52,7 @@ result<game_object> world::object(entity_id entity) noexcept {
     return error::invalid_state;
   if (!state_->is_alive(entity.get()))
     return error::invalid_handle;
-  if (!state_->scene().get_entity(entity))
+  if (!state_->scene().get_local(entity))
     return error::not_found;
   return find(entity);
 }
