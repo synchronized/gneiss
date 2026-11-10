@@ -62,7 +62,7 @@ engine::error project_scene_document(engine::world& world, engine::scene_instanc
   auto status = world.get_active_camera(previous_camera);
   if (status.failed() && status != engine::error::not_ready)
     return status;
-  auto candidate = scenes.create_empty(target.content.get().uuid);
+  auto candidate = world.create_scene();
   if (!candidate)
     return candidate.error();
   struct candidate_guard {
@@ -77,11 +77,8 @@ engine::error project_scene_document(engine::world& world, engine::scene_instanc
           (void)world.set_active_camera(camera);
       }
     }
-  } guard{scenes, world, *candidate, previous_camera};
-  auto destination = engine::scene_instance::borrow(world, *candidate);
-  if (!destination)
-    return destination.error();
-  auto rebuilt = engine::instantiate(*destination, *composed, target.assets);
+  } guard{scenes, world, candidate->id(), previous_camera};
+  auto rebuilt = engine::instantiate(*candidate, *composed, target.assets);
   if (!rebuilt)
     return rebuilt.error();
   scene_projection replacement;

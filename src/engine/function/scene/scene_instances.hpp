@@ -7,7 +7,6 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/result.hpp"
-#include "engine/core/rid_table.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_query.hpp"
 #include "engine/function/scene/scene_types.hpp"
@@ -22,7 +21,7 @@
 
 namespace gneiss::engine {
 
-/** 单个 World 的实例集合，拥有实例与 RID 表；不负责后台加载或活动域切换。 */
+/** 单个 World 的实例集合，借用 World 场景槽位；不负责后台加载或活动域切换。 */
 class scene_instances final {
 public:
   /** 验证运行节点的场景归属。 */
@@ -32,10 +31,7 @@ public:
   [[nodiscard]] static GNEISS_API result<scene_instances*> attach(world&);
   GNEISS_API ~scene_instances() noexcept;
 
-  [[nodiscard]] bool is_valid() const noexcept {
-    const auto frozen = meta::is_frozen();
-    return domain_ != 0U && frozen && *frozen;
-  }
+  [[nodiscard]] GNEISS_API bool is_valid() const noexcept;
   [[nodiscard]] GNEISS_API result<scene_instance_id> create_empty(guid scene_uuid);
   [[nodiscard]] GNEISS_API error unload(scene_instance_id instance) noexcept;
   [[nodiscard]] GNEISS_API result<scene_node_id> find_node(scene_instance_id instance,
@@ -55,13 +51,8 @@ public:
 
 private:
   friend class world;
-  [[nodiscard]] error validate(scene_instance_id) const noexcept;
-  [[nodiscard]] world_state& storage() const noexcept;
-  [[nodiscard]] std::vector<scene_node_id> members(scene_instance_id) const;
   GNEISS_API scene_instances(world& native_world) noexcept;
   world& native_world_;
-  std::uint16_t domain_;
-  rid_table<scene_instance_id, scene_instance_id> instances_;
 };
 
 } // namespace gneiss::engine

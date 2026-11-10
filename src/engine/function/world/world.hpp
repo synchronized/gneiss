@@ -6,11 +6,15 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/render_snapshot.hpp"
+#include "engine/function/scene/scene_creation.hpp"
+#include "engine/function/scene/scene_query.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/game_object.hpp"
+#include "engine/function/world/scene_instance.hpp"
 #include "engine/function/world/world_types.hpp"
 #include <memory>
 #include <span>
+#include <vector>
 
 namespace gneiss::engine {
 class world_state;
@@ -29,6 +33,8 @@ public:
   world(const world&) = delete;
   world& operator=(const world&) = delete;
   [[nodiscard]] GNEISS_API bool is_owner_thread() const noexcept;
+  /** 创建空运行场景；不需要描述身份，返回非拥有句柄。 */
+  [[nodiscard]] GNEISS_API result<scene_instance> create_scene();
   /** 借用 World 唯一场景集合；尚未初始化时为空。 */
   [[nodiscard]] scene_instances* scenes() const noexcept { return scenes_.get(); }
   [[nodiscard]] GNEISS_API error entity_create(entity_id& out_entity);
@@ -92,10 +98,23 @@ public:
 private:
   friend struct engine::world_factory;
   friend class scene_instances;
+  friend class scene_instance;
+  [[nodiscard]] error validate_scene(scene_instance_id) const noexcept;
+  [[nodiscard]] error unload_scene(scene_instance_id) noexcept;
+  [[nodiscard]] error validate_scene_node(scene_instance_id, scene_node_id) const noexcept;
+  [[nodiscard]] std::vector<scene_node_id> scene_members(scene_instance_id) const;
+  [[nodiscard]] result<std::uint64_t> scene_size(scene_instance_id) const;
+  [[nodiscard]] result<scene_node_id> find_scene_node(scene_instance_id, guid) const;
+  [[nodiscard]] result<scene_node_info> scene_node_info_at(scene_instance_id, std::uint64_t,
+                                                           node_query_detail);
+  [[nodiscard]] result<scene_node_id> create_scene_node(scene_instance_id, const node_creation&);
+  [[nodiscard]] error reparent_scene_node(scene_instance_id, scene_node_id, scene_node_id);
+  [[nodiscard]] error destroy_scene_subtree(scene_instance_id, scene_node_id);
+  [[nodiscard]] error destroy_scene_node(scene_instance_id, scene_node_id);
   friend struct detail::world_component_access;
   explicit GNEISS_API world(std::uint32_t domain);
   std::unique_ptr<engine::world_state> state_;
-  // 逆序析构：场景先回收实体和资源，随后销毁 ECS。
+  // 旧集合仅借用 World；场景成员由 World 析构统一回收。
   std::unique_ptr<scene_instances> scenes_;
 };
 }

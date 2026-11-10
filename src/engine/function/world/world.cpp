@@ -3,6 +3,8 @@
 
 #include "engine/function/world/world.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/fatal.hpp"
+#include "engine/core/meta/registry.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/render_snapshot.hpp"
@@ -28,7 +30,24 @@ result<world_state*> detail::world_component_access::get(world& owner) noexcept 
   return owner.state_.get();
 }
 world::world(std::uint32_t domain) : state_(std::make_unique<world_state>(domain)) {}
-world::~world() noexcept = default;
+world::~world() noexcept try {
+  state_->scene_slots.for_each(resource_type::scene_instance,
+                               [&](scene_instance_id id) { state_->destroy_scene_members(id); });
+} catch (...) {
+  fatal_current_exception();
+}
+result<scene_instance> world::create_scene() {
+  if (!is_owner_thread())
+    return error::invalid_state;
+  const auto frozen = meta::is_frozen();
+  if (!frozen || !*frozen || state_->scene_domain == 0U)
+    return error::invalid_state;
+  auto created = state_->scene_slots.create(resource_type::scene_instance, scene_instance_id{});
+  if (!created)
+    return created.error();
+  *state_->scene_slots.get(*created, resource_type::scene_instance) = *created;
+  return scene_instance::borrow(*this, *created);
+}
 bool world::is_owner_thread() const noexcept { return state_->is_owner_thread(); }
 result<game_object> world::create_object(scene_node_identity identity,
                                          const math::transform& transform, game_object parent) {

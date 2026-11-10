@@ -5,7 +5,7 @@
 
 ## 运行期身份与所有权
 
-World 拥有 `scene_instances` 场景槽位表；`scene_instance` 是借用句柄，
+World 私有状态直接拥有场景槽位表，`scene_instances` 暂为旧调用适配入口；`scene_instance` 是借用句柄，
 `scene_instance_id` 是非拥有的集合标识。
 节点统一使用 `scene_node_id`，校验所属域和槽位代次；不能跨 World 使用，也不保活对象。
 持久化身份使用 UUID，文件不保存运行期 ID。
@@ -25,10 +25,10 @@ ECS 组件持有 mesh/material 等引擎资源强引用，不保存第三方后�
 原地修改、删除和卸载继续返回 `error`。调用方先检查结果，再取得值：
 
 ```cpp
-auto created = scenes.create_empty(scene_uuid);
+auto created = world.create_scene();
 if (!created)
   return created.error();
-auto count = scenes.get_node_count(*created);
+auto count = created->size();
 if (!count)
   return count.error();
 // 查询运行成员；持久化使用调用方的描述或编辑器文档。
@@ -38,8 +38,9 @@ if (!count)
 重复实例化由调用方保留已加载描述与资源引用。编辑器的 Prefab 头捕获只读取文档。
 `get_node_info` 返回的 `scene_node_info` 仍包含借用字段，结果包装不延长场景寿命。
 集合直接校验线程、句柄并操作 World，不再经过独立的单实例状态对象转发。
-槽位生命周期实现在 `scene_instances.cpp`，成员操作实现在 `scene_instance.cpp`。
-两者都不持有或借用资产管理器；`scene_instances::attach(world)` 和运行域初始化不需要资产服务。
+槽位生命周期实现在 `world.cpp`，成员操作和借用句柄实现在 `world_scenes.cpp`。
+两者都不持有或借用资产管理器。`world.create_scene()` 不要求描述 UUID，也不依赖
+`scene_instances::attach(world)`；旧集合仍需 attach，后续迁移调用方后删除。
 卸载通过 ECS 析构组件并释放资源强引用，不调用资产缓存清理。
 
 `instantiate(destination, composed, bindings, parent)` 将已组合的完整对象追加到指定场景。

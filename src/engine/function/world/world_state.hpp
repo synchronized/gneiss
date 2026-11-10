@@ -6,7 +6,10 @@
 
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/rid_table.hpp"
 #include "engine/function/world/world_components.hpp"
+#include <atomic>
+#include <limits>
 
 #include "engine/function/world/world_hierarchy.hpp"
 
@@ -27,6 +30,14 @@ namespace gneiss::engine {
 
 class world_state final {
 public:
+  static std::uint16_t allocate_scene_domain() noexcept {
+    static std::atomic_uint32_t next{1024U};
+    const auto value = next.fetch_add(1U, std::memory_order_relaxed);
+    return value <= std::numeric_limits<std::uint16_t>::max() ? static_cast<std::uint16_t>(value)
+                                                              : 0U;
+  }
+  const std::uint16_t scene_domain = allocate_scene_domain();
+  rid_table<scene_instance_id, scene_instance_id> scene_slots{scene_domain};
   explicit world_state(std::uint32_t domain) noexcept
       : scene_(*this), domain_(domain), owner_thread_(std::this_thread::get_id()) {}
 

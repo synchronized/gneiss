@@ -245,10 +245,7 @@ void scene_service::advance_load_impl() {
             bindings.emplace(request.uri, loaded->resource());
           }
           auto& world = *value.candidate->native_world();
-          auto created = world.scenes()->create_empty(input->description.uuid);
-          if (!created)
-            return engine::scene_diagnostic{created.error(), 0, {}, {}};
-          auto destination = engine::scene_instance::borrow(world, *created);
+          auto destination = world.create_scene();
           if (!destination)
             return engine::scene_diagnostic{destination.error(), 0, {}, {}};
           auto result = engine::instantiate(*destination, *composed, bindings);

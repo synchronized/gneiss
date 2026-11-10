@@ -420,6 +420,27 @@ int main() try {
       entity_count != 2U) {
     return 9;
   }
+  // 原生 World 无需 attach 集合或提供描述 UUID，也能独立管理场景。
+  {
+    auto native = gneiss::engine::create_native();
+    auto other = gneiss::engine::create_native();
+    if (!native || !other || (*native)->scenes())
+      return 15;
+    auto instance = (*native)->create_scene();
+    if (!instance || !instance->is_valid() || *instance->size() != 0U)
+      return 16;
+    auto object = instance->create({gneiss::engine::guid::generate(), "Direct"});
+    if (!object || *instance->size() != 1U ||
+        gneiss::engine::scene_instance::borrow(**other, instance->id()).error() !=
+            gneiss::engine::error::invalid_handle)
+      return 17;
+    gneiss::engine::error worker_status;
+    std::thread worker([&] { worker_status = instance->unload(); });
+    worker.join();
+    if (worker_status != gneiss::engine::error::invalid_state || instance->unload().failed() ||
+        instance->is_valid() || object->is_valid())
+      return 18;
+  }
   const gneiss::engine::guid empty_uuid =
       *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000099");
   gneiss::scene_instance_id empty_scene = gneiss::scene_instance_id{};

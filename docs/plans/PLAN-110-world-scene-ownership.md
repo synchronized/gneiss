@@ -397,3 +397,17 @@ git diff --check 通过。未运行 GPU、大场景、其他平台或远端 CI�
 
 此步仅删除每场景状态层；scene_instances 集合和旧节点接口仍为过渡入口，
 槽位迁入 World、借用句柄入口收敛及相机激活分离尚未完成，计划继续进行。
+
+
+## 2026-11-10 World 直接拥有场景槽位
+
+scene_slots 迁入 World 私有状态；创建、成员操作、卸载及关闭清理由 World 实现。
+新增 world::create_scene() 返回借用 scene_instance，不再要求描述 UUID，且不依赖旧集合 attach。
+借用句柄直接访问 World；运行加载和编辑器完整重建已使用新创建入口。
+成员实现移入 function/world/world_scenes.cpp；旧 scene_instances 仅保留无独立状态的调用适配，
+其节点查询/编辑调用方尚待迁移，暂未删除该类型。
+
+新增无集合初始化的原生 World 检查，覆盖创建、成员归属、跨 World、跨线程和卸载失效。
+Windows Clang Debug 的 Editor、Runtime 及相关测试目标编译通过，10 项 CPU 测试通过。
+未运行 GPU、大场景、其他平台或远端 CI。下一步迁移旧集合查询/编辑调用并移除 attach；
+对象范围接口、跨场景子树转移及相机安装/激活分离仍待完成。

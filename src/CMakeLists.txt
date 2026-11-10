@@ -251,7 +251,7 @@ target_sources(
     engine/function/world/scene_instance.hpp
     engine/function/scene/component_adapter.cpp
     engine/function/scene/scene_instances.cpp
-    engine/function/scene/scene_instance.cpp
+    engine/function/world/world_scenes.cpp
     engine/function/scene/scene_instantiation.cpp
     engine/function/scene/scene_instances.hpp
     engine/function/scene/structural_diff.cpp
