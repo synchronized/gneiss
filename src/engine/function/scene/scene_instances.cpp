@@ -2,8 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/scene/scene_instances.hpp"
-#include "engine/function/scene/scene_instance_state.hpp"
+#include "engine/core/fatal.hpp"
 #include "engine/function/world/scene_instance.hpp"
+#include "engine/function/world/world_component_access.hpp"
+#include "engine/function/world/world_state.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -84,15 +86,18 @@ result<scene_instances*> scene_instances::attach(world& owner) {
 scene_instances::scene_instances(world& native_world) noexcept
     : native_world_(native_world), domain_(allocate_domain()), instances_(domain_) {}
 
-scene_instances::~scene_instances() noexcept = default;
+scene_instances::~scene_instances() noexcept try {
+  instances_.for_each(resource_type::scene_instance,
+                      [&](scene_instance_id id) { storage().destroy_scene_members(id); });
+} catch (...) {
+  fatal_current_exception();
+}
 
-result<scene_instance_state*> scene_instances::resolve(scene_instance_id instance) const noexcept {
+error scene_instances::validate(scene_instance_id instance) const noexcept {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
-  const auto* slot = instances_.get(instance, resource_type::scene_instance);
-  if (!slot || !*slot)
-    return error::invalid_handle;
-  return slot->get();
+  return instances_.get(instance, resource_type::scene_instance) ? error::success
+                                                                 : error::invalid_handle;
 }
 
 result<scene_instance_id> scene_instances::create_empty(guid scene_uuid) {
@@ -102,110 +107,20 @@ result<scene_instance_id> scene_instances::create_empty(guid scene_uuid) {
     return error::invalid_argument;
   if (!scene_uuid)
     return error::invalid_argument;
-  auto instance = std::make_unique<scene_instance_state>(native_world_);
-  auto created = instances_.create(resource_type::scene_instance, std::move(instance));
+  auto created = instances_.create(resource_type::scene_instance, scene_instance_id{});
   if (created)
-    (*instances_.get(*created, resource_type::scene_instance))->bind(*created);
+    *instances_.get(*created, resource_type::scene_instance) = *created;
   return created;
 }
 
-engine::error scene_instances::unload(scene_instance_id instance) noexcept {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
+error scene_instances::unload(scene_instance_id instance) noexcept try {
+  const auto status = validate(instance);
+  if (status.failed())
+    return status;
+  storage().destroy_scene_members(instance);
   return instances_.destroy(instance, resource_type::scene_instance);
-}
-
-result<scene_node_id> scene_instances::find_node(scene_instance_id instance, guid uuid) const {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* slot = *selected;
-  const auto node = slot->find_node(uuid);
-  if (node == null_scene_node_id)
-    return error::not_found;
-  return node;
-}
-
-result<std::uint64_t> scene_instances::get_node_count(scene_instance_id instance) const {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* slot = *selected;
-  return slot->node_count();
-}
-
-result<scene_node_info> scene_instances::get_node_info(scene_instance_id instance,
-                                                       std::uint64_t index,
-                                                       node_query_detail detail) const {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* slot = *selected;
-  return slot->get_node_info(index, detail);
-}
-
-result<scene_node_id> scene_instances::create_node(scene_instance_id instance,
-                                                   const node_creation& desc) {
-  if (!native_world_.is_owner_thread())
-    return error::invalid_state;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* slot = *selected;
-  return slot->create_node(desc);
-}
-
-engine::error scene_instances::reparent_node(scene_instance_id instance, scene_node_id node_value,
-                                             scene_node_id parent_value) {
-  auto node = node_value;
-  auto parent = parent_value;
-  {
-    auto selected = resolve(instance);
-    if (!selected)
-      return selected.error();
-    auto* value = *selected;
-    return value->reparent_node(node, parent);
-  }
-}
-
-engine::error scene_instances::destroy_subtree(scene_instance_id instance,
-                                               scene_node_id root_value) {
-  auto root = root_value;
-  {
-    auto selected = resolve(instance);
-    if (!selected)
-      return selected.error();
-    auto* value = *selected;
-    return value->destroy_subtree(root);
-  }
-}
-
-engine::error scene_instances::validate_editable_node(scene_instance_id instance,
-                                                      scene_node_id node_value) const noexcept {
-  auto node = node_value;
-  auto selected = resolve(instance);
-  if (!selected)
-    return selected.error();
-  auto* value = *selected;
-  return value->contains_editable_node(scene_node_id{node}) ? engine::error::success
-                                                            : engine::error::invalid_handle;
-}
-
-engine::error scene_instances::destroy_node(scene_instance_id instance, scene_node_id node_value) {
-  auto node = node_value;
-  {
-    auto selected = resolve(instance);
-    if (!selected)
-      return selected.error();
-    auto* value = *selected;
-    return value->destroy_node(node);
-  }
+} catch (...) {
+  fatal_current_exception();
 }
 
 } // namespace gneiss::engine

@@ -383,3 +383,17 @@ component_adapter 保留运行与描述操作，并以 editor 成员关联编辑
 Windows Clang Debug 编译，13 项 CPU 回归通过；格式化及 git diff --check 通过。
 未运行 GPU、大场景、其他平台或远端 CI。
 后续回到 World 场景槽位与重复状态层收敛；PLAN-110 整体仍进行中。
+
+
+## 2026-11-10 删除每场景状态包装
+
+删除 scene_instance_state 及其逐场景堆分配。当前 scene_instances 的代次槽位直接保存
+scene_instance_id；成员查询、创建和删除直接操作 World/ECS，不再经过状态对象转发。
+卸载及集合析构显式销毁对应 ECS 成员，保留组件析构和资源引用释放行为。
+
+增加槽位复用回归，确认旧 ID 查询、重复卸载均失败且不影响新场景。
+Editor、Runtime 编译通过，10 项场景、实例化、编辑及 Runtime CPU 测试通过；
+git diff --check 通过。未运行 GPU、大场景、其他平台或远端 CI。
+
+此步仅删除每场景状态层；scene_instances 集合和旧节点接口仍为过渡入口，
+槽位迁入 World、借用句柄入口收敛及相机激活分离尚未完成，计划继续进行。

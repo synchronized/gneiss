@@ -22,7 +22,6 @@
 
 namespace gneiss::engine {
 
-class scene_instance_state;
 /** 单个 World 的实例集合，拥有实例与 RID 表；不负责后台加载或活动域切换。 */
 class scene_instances final {
 public:
@@ -56,12 +55,13 @@ public:
 
 private:
   friend class world;
-  [[nodiscard]] result<scene_instance_state*> resolve(scene_instance_id) const noexcept;
+  [[nodiscard]] error validate(scene_instance_id) const noexcept;
+  [[nodiscard]] world_state& storage() const noexcept;
+  [[nodiscard]] std::vector<scene_node_id> members(scene_instance_id) const;
   GNEISS_API scene_instances(world& native_world) noexcept;
-  using instance_ptr = std::unique_ptr<scene_instance_state>;
   world& native_world_;
   std::uint16_t domain_;
-  rid_table<instance_ptr, scene_instance_id> instances_;
+  rid_table<scene_instance_id, scene_instance_id> instances_;
 };
 
 } // namespace gneiss::engine

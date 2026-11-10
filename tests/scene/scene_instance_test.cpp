@@ -435,6 +435,16 @@ int main() try {
       application->scenes()->unload(empty_scene) != gneiss::engine::error::success) {
     return 13;
   }
+  // 槽位复用不能恢复旧场景身份，也不能误删新场景。
+  auto reused_scene = application->scenes()->create_empty(empty_uuid);
+  if (!reused_scene || *reused_scene == empty_scene ||
+      application->scenes()->get_node_count(empty_scene).error() !=
+          gneiss::engine::error::invalid_handle ||
+      application->scenes()->unload(empty_scene) != gneiss::engine::error::invalid_handle ||
+      !application->scenes()->get_node_count(*reused_scene) ||
+      application->scenes()->unload(*reused_scene).failed()) {
+    return 14;
+  }
   if (second_application->scenes()->unload(scene) != gneiss::engine::error::invalid_handle ||
       application->scenes()->unload(scene) != gneiss::engine::error::success ||
       application->scenes()->unload(scene) != gneiss::engine::error::invalid_handle ||
