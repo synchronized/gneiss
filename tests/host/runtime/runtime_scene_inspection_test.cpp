@@ -9,13 +9,13 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/scene_instantiation.hpp"
+#include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "runtime_property_editor.hpp"
 #include "runtime_scene_inspection.hpp"
 
 #include "../../support/scene_access.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "runtime/application.hpp"
 
 #include <string_view>

@@ -3,7 +3,7 @@
 #include "../support/scene_application.hpp"
 #include "../support/value_result.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include <cstdio>
 #include <source_location>
 #include <stdexcept>

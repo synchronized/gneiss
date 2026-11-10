@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/world/system_scheduler.hpp"
+#include "engine/function/scene/detail/system_scheduler.hpp"
 #include "engine/core/error.hpp"
 
 #include <algorithm>

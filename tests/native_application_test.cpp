@@ -3,7 +3,7 @@
 
 #include "engine/core/error.hpp"
 #include "engine/function/asset/render_resource.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "runtime/application.hpp"
 #include "runtime/loading/scene_service.hpp"
 #include "support/scene_access.hpp"

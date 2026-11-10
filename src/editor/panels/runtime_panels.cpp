@@ -5,8 +5,8 @@
 #include "engine/core/error.hpp"
 #include "engine/core/property_edit_policy.hpp"
 #include "engine/core/serialization/json.hpp"
+#include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/scene_types.hpp"
-#include "engine/function/world/component_identity.hpp"
 #include "panels/reflected_property_editor.hpp"
 
 #include "viewport/editor_rotation_math.hpp"

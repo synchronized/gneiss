@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/world/game_object.hpp"
-#include "engine/function/world/world.hpp"
-#include "engine/function/world/world_component_access.hpp"
-#include "engine/function/world/world_state.hpp"
+#include "engine/function/scene/game_object.hpp"
+#include "engine/function/scene/detail/world_component_access.hpp"
+#include "engine/function/scene/detail/world_state.hpp"
+#include "engine/function/scene/world.hpp"
 #include <string>
 #include <utility>
 

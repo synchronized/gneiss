@@ -283,7 +283,7 @@ add_test(NAME gneiss.native-scene-lifecycle COMMAND gneiss_native_scene_lifecycl
 add_executable(
   gneiss_scene_tree_transform_test
   scene/scene_tree_transform_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/world/world_hierarchy.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/detail/hierarchy.cpp"
 )
 target_include_directories(gneiss_scene_tree_transform_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_scene_tree_transform_test PRIVATE gneiss::engine EnTT::EnTT)
@@ -381,8 +381,8 @@ set_tests_properties(gneiss.granit_platform_smoke PROPERTIES TIMEOUT 30)
 add_executable(
   gneiss_world_state_test
   world/world_state_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/world/world_hierarchy.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/world/system_scheduler.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/detail/hierarchy.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/detail/system_scheduler.cpp"
 )
 target_include_directories(gneiss_world_state_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_world_state_test PRIVATE gneiss::engine EnTT::EnTT)
@@ -402,8 +402,8 @@ add_test(NAME gneiss.component_reflection COMMAND gneiss_component_reflection_te
 add_executable(
   gneiss_render_snapshot_test
   world/render_snapshot_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/world/world_hierarchy.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/world/render_snapshot.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/detail/hierarchy.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/detail/render_extraction.cpp"
 )
 target_include_directories(gneiss_render_snapshot_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_render_snapshot_test PRIVATE gneiss::engine EnTT::EnTT)
@@ -494,7 +494,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/function/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/world/world_hierarchy.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/detail/hierarchy.cpp"
 )
 target_include_directories(gneiss_prefab_description_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_prefab_description_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -773,13 +773,13 @@ get_target_property(gneiss_scene_fixture_sources gneiss_prefab_runtime_instance_
 list(REMOVE_ITEM gneiss_scene_fixture_sources scene/prefab_runtime_instance_test.cpp)
 add_executable(gneiss_scene_instantiation_test scene/scene_instantiation_test.cpp
   ${gneiss_scene_fixture_sources}
-  "${PROJECT_SOURCE_DIR}/src/engine/function/world/world_scenes.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instantiation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_composition.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/instantiation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/composition.cpp"
 )
 # 测试直接构造私有 manager，编译其实现而不向 DLL 公共 ABI 导出内部类型。
 target_sources(gneiss_scene_instantiation_test PRIVATE
-  "${PROJECT_SOURCE_DIR}/src/engine/function/world/world_hierarchy.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/detail/hierarchy.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/scene_validation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/asset/asset_manager.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/input/action_map_validation.cpp")

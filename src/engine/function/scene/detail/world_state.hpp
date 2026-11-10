@@ -7,11 +7,11 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/rid_table.hpp"
-#include "engine/function/world/world_components.hpp"
+#include "engine/function/scene/components.hpp"
 #include <atomic>
 #include <limits>
 
-#include "engine/function/world/world_hierarchy.hpp"
+#include "engine/function/scene/detail/hierarchy.hpp"
 
 #include <entt/entity/entity.hpp>
 #include <entt/entity/registry.hpp>

@@ -7,8 +7,8 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/serialization/value.hpp"
 #include "engine/core/utf8.hpp"
-#include "engine/function/scene/scene_object.hpp"
-#include "engine/function/world/component_identity.hpp"
+#include "engine/function/scene/component_identity.hpp"
+#include "engine/function/scene/detail/component_validation.hpp"
 
 #include <algorithm>
 #include <cmath>

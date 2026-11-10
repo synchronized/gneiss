@@ -3,8 +3,8 @@
 #include "engine/function/scene/prefab_replay.hpp"
 #include "engine/core/property_edit_policy.hpp"
 #include "engine/core/serialization/value.hpp"
-#include "engine/function/scene/component_adapter.hpp"
-#include "engine/function/world/component_identity.hpp"
+#include "engine/function/scene/component_identity.hpp"
+#include "engine/function/scene/component_registration.hpp"
 #include <algorithm>
 #include <map>
 namespace gneiss::engine {

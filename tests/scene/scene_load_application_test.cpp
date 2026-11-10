@@ -9,14 +9,14 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/scene/scene_instantiation.hpp"
+#include "engine/function/scene/instantiation.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 #include "runtime/application.hpp"
 
 #include "../support/scene_access.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 
 #include <algorithm>
 #include <cstdio>

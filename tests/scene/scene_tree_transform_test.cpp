@@ -4,7 +4,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/world/world_state.hpp"
+#include "engine/function/scene/detail/world_state.hpp"
 
 #include <algorithm>
 #include <array>

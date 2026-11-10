@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "scene_update.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "runtime/application.hpp"
 namespace example {
 gneiss::engine::error update(gneiss::runtime::application& app, scene_state& state) noexcept {

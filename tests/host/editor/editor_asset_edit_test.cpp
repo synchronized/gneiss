@@ -10,7 +10,7 @@
 #include "engine/core/math/transform.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/serialization/json.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
 #include "runtime/loading/scene_service.hpp"

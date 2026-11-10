@@ -6,9 +6,9 @@
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/function/meta_registration.hpp"
+#include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/prefab_replay.hpp"
-#include "engine/function/world/component_identity.hpp"
 
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"

@@ -7,7 +7,7 @@
 #include "documents/scene_edit_session.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 
 namespace gneiss::editor {
 /** 单个文档的编辑所有者；全部调用限宿主线程。

@@ -12,7 +12,7 @@
 #include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
 #include "engine/resource/texture/texture_binary.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
@@ -183,7 +183,7 @@ void run_pending_resources() {
                 material_desc.parameters,
                 {gneiss::engine::ref<const gneiss::engine::texture>{}, {}, {}, {}, texture_ref}),
             material_ref)} == gneiss::engine::error::success);
-  gneiss::engine::scene_node_info info;
+  gneiss::test_support::scene_node_info info;
   check(gneiss::engine::error{gneiss::test_support::take_value(
             gneiss::test_support::scene_access{*app}->get_node_info(scene, 1U), info)} ==
         gneiss::engine::error::success);

@@ -7,9 +7,9 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/scene/composition.hpp"
 #include "engine/function/scene/scene_application.hpp"
-#include "engine/function/scene/scene_composition.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "engine/resource/scene.hpp"
 #include "runtime/loading/resource_load_types.hpp"
 

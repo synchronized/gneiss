@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/function/scene/scene_composition.hpp"
-#include "engine/function/scene/component_adapter.hpp"
+#include "engine/function/scene/composition.hpp"
+#include "engine/function/scene/component_registration.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
 #include <algorithm>
 namespace gneiss::engine {

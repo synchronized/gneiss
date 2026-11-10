@@ -8,7 +8,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 
 #include "../support/scene_access.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "runtime/application.hpp"
 
 #include <cmath>
@@ -189,7 +189,7 @@ int main(int argc, char** argv) try {
           *app, scene, &state.scene, &scheduler)} != gneiss::engine::error::success) {
     return 2;
   }
-  gneiss::engine::scene_node_info info;
+  gneiss::test_support::scene_node_info info;
   if (gneiss::engine::error{gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*app}->get_node_info(state.scene, 0U), info)} !=
       gneiss::engine::error::success) {

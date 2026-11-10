@@ -6,11 +6,11 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/render_snapshot.hpp"
+#include "engine/function/scene/game_object.hpp"
 #include "engine/function/scene/scene_creation.hpp"
+#include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_types.hpp"
-#include "engine/function/world/game_object.hpp"
-#include "engine/function/world/scene_instance.hpp"
-#include "engine/function/world/world_types.hpp"
+#include "engine/function/scene/world_types.hpp"
 #include <memory>
 #include <span>
 #include <vector>

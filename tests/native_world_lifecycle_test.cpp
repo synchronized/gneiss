@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "support/value_result.hpp"
 
 int main(void) {

@@ -4,7 +4,7 @@
 #ifndef GNEISS_WORLD_SYSTEM_SCHEDULER_HPP_
 #define GNEISS_WORLD_SYSTEM_SCHEDULER_HPP_
 
-#include "engine/function/world/world_state.hpp"
+#include "engine/function/scene/detail/world_state.hpp"
 
 #include "engine/core/error.hpp"
 

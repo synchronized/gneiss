@@ -9,8 +9,8 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/scene/scene_instantiation.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/instantiation.hpp"
+#include "engine/function/scene/world.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
 
@@ -54,7 +54,7 @@ gneiss::engine::error find_source(const std::shared_ptr<gneiss::runtime::applica
                                   const std::vector<gneiss::engine::scene_object_binding>& objects,
                                   gneiss::engine::guid instance_uuid,
                                   gneiss::engine::guid source_uuid,
-                                  gneiss::engine::scene_node_info& output) {
+                                  gneiss::test_support::scene_node_info& output) {
   const auto binding = std::ranges::find_if(objects, [&](const auto& object) {
     return object.object == instance_uuid && object.source == source_uuid;
   });
@@ -118,8 +118,8 @@ int main() try {
   scene = loaded.scene;
   auto objects = loaded.objects;
 
-  gneiss::engine::scene_node_info first_before;
-  gneiss::engine::scene_node_info second_before;
+  gneiss::test_support::scene_node_info first_before;
+  gneiss::test_support::scene_node_info second_before;
   if (find_source(application, scene, objects, first_instance_uuid, source_root_uuid,
                   first_before) != gneiss::engine::error::success ||
       find_source(application, scene, objects, second_instance_uuid, source_root_uuid,
@@ -133,9 +133,9 @@ int main() try {
                                                   &objects) != gneiss::engine::error::success) {
     return 4;
   }
-  gneiss::engine::scene_node_info first_after;
-  gneiss::engine::scene_node_info second_after;
-  gneiss::engine::scene_node_info child;
+  gneiss::test_support::scene_node_info first_after;
+  gneiss::test_support::scene_node_info second_after;
+  gneiss::test_support::scene_node_info child;
 
   if (find_source(application, scene, objects, first_instance_uuid, source_root_uuid,
                   first_after) != gneiss::engine::error::success ||

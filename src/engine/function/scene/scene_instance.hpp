@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/world/game_object.hpp"
+#include "engine/function/scene/game_object.hpp"
 #include <functional>
 namespace gneiss::engine {
 /** 场景的非拥有句柄；World 必须比使用期更长，全部访问限所属线程。 */

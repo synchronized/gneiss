@@ -9,10 +9,10 @@
 #include "documents/scene_document_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/fatal.hpp"
-#include "engine/function/scene/scene_composition.hpp"
-#include "engine/function/scene/scene_instantiation.hpp"
-#include "engine/function/world/component_identity.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/component_identity.hpp"
+#include "engine/function/scene/composition.hpp"
+#include "engine/function/scene/instantiation.hpp"
+#include "engine/function/scene/world.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/scene.hpp"
 #include "runtime/application.hpp"
@@ -218,7 +218,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
           .failed())
     return 45;
   for (std::uint64_t i = 0; i < count; ++i) {
-    e::scene_node_info node;
+    gneiss::test_support::scene_node_info node;
     if (gneiss::test_support::take_value(
             gneiss::test_support::scene_access{app}->get_node_info(loaded, i), node)
             .failed())

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/world/world_hierarchy.hpp"
+#include "engine/function/scene/detail/hierarchy.hpp"
 #include "engine/core/error.hpp"
+#include "engine/function/scene/detail/world_state.hpp"
 #include "engine/function/scene/scene_types.hpp"
-#include "engine/function/world/world_state.hpp"
 
 #include "engine/core/math/transform.hpp"
 #include <algorithm>

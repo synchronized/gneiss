@@ -3,7 +3,7 @@
 
 #include "engine/function/scene/structural_diff.hpp"
 #include "engine/core/error.hpp"
-#include "engine/function/scene/scene_object.hpp"
+#include "engine/function/scene/detail/component_validation.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
 
 #include <algorithm>

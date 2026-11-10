@@ -8,8 +8,8 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/scene/scene_instantiation.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/instantiation.hpp"
+#include "engine/function/scene/world.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 #include "runtime/loading/scene_service.hpp"
 
@@ -142,7 +142,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(gneiss::engine::error{gneiss::test_support::load_scene(
             *app, scene_uri, &scene, &scheduler)} == gneiss::engine::error::success);
   const auto capture = [&](std::uint64_t index) {
-    gneiss::engine::scene_node_info info;
+    gneiss::test_support::scene_node_info info;
     check(gneiss::engine::error{gneiss::test_support::take_value(
               gneiss::test_support::scene_access{*app}->get_node_info(scene, index), info)} ==
           gneiss::engine::error::success);
@@ -239,7 +239,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(completion.state == gneiss::runtime::asset_load_state::cancelled &&
         completion.assets.empty());
   // 上传期间 ECS 改绑不妨碍资源更新，也不能被重载覆盖。
-  gneiss::engine::scene_node_info node;
+  gneiss::test_support::scene_node_info node;
   check(gneiss::engine::error{gneiss::test_support::take_value(
             gneiss::test_support::scene_access{*app}->get_node_info(scene, 0U), node)} ==
         gneiss::engine::error::success);

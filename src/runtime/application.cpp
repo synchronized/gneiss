@@ -13,7 +13,7 @@
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/scene/scene_types.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "runtime/loading/action_map_application.hpp"
 #include "runtime/loading/resource_load_group.hpp"
@@ -37,7 +37,7 @@
 #include "engine/platform/io/uv/uv_loop_executor.hpp"
 
 #endif
-#include "engine/function/world/render_snapshot.hpp"
+#include "engine/function/scene/detail/render_extraction.hpp"
 
 #include "engine/platform/window_service.hpp"
 

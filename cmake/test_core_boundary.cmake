@@ -21,7 +21,7 @@ file(MAKE_DIRECTORY "${fixture}/src/engine/api")
 file(WRITE "${fixture}/src/engine/api/probe.cpp" "")
 # 每次先恢复合法内容，避免上次中断的反例污染其他检查。
 file(WRITE "${fixture}/src/engine/platform/probe.cpp" "#include <gneiss/core/result.hpp>\n")
-file(MAKE_DIRECTORY "${fixture}/src/engine/core" "${fixture}/src/engine/function/world" "${fixture}/src/runtime" "${fixture}/src/engine/core/meta" "${fixture}/src/engine/function/render" "${fixture}/src/engine/resource")
+file(MAKE_DIRECTORY "${fixture}/src/engine/core" "${fixture}/src/engine/function/scene" "${fixture}/src/runtime" "${fixture}/src/engine/core/meta" "${fixture}/src/engine/function/render" "${fixture}/src/engine/resource")
 # 清除上一次失败用例遗留的内容，保证反例可重复执行。
 file(WRITE "${fixture}/src/engine/resource/probe.cpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "#include <gneiss/render.h>\n")
@@ -29,7 +29,7 @@ file(WRITE "${fixture}/src/engine/function/asset/detail/asset_decode.cpp" "#incl
 file(WRITE "${fixture}/src/engine/resource/texture/texture_decoder.hpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/src/engine/resource/texture/png_decoder.cpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/src/engine/core/meta/probe.cpp" "#include <gneiss/reflection.h>\n")
-file(WRITE "${fixture}/src/engine/function/world/probe.cpp" "#include <gneiss/render.h>\n")
+file(WRITE "${fixture}/src/engine/function/scene/probe.cpp" "#include <gneiss/render.h>\n")
 file(WRITE "${fixture}/src/runtime/probe.cpp" "#include <gneiss/application.h>\n")
 foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/application.hpp>" "#include <gneiss/engine/application.hpp>")
   file(WRITE "${fixture}/src/engine/core/probe.cpp" "${content}\n")
@@ -47,10 +47,10 @@ if(NOT status EQUAL 0)
   message(FATAL_ERROR "边界检查错误拒绝共享值类型")
 endif()
 
-file(MAKE_DIRECTORY "${fixture}/src/engine/function/world")
+file(MAKE_DIRECTORY "${fixture}/src/engine/function/scene")
 foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/world.hpp>"
     "auto result = gneiss_world_destroy(world);")
-  file(WRITE "${fixture}/src/engine/function/world/probe.cpp" "${content}\n")
+  file(WRITE "${fixture}/src/engine/function/scene/probe.cpp" "${content}\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -58,7 +58,7 @@ foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/world
     message(FATAL_ERROR "World 边界检查未拒绝违规输入：${content}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/engine/function/world/probe.cpp" "#include <gneiss/render.h>\n")
+file(WRITE "${fixture}/src/engine/function/scene/probe.cpp" "#include <gneiss/render.h>\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
 if(NOT status EQUAL 0)
@@ -77,14 +77,14 @@ foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/appli
 endforeach()
 file(WRITE "${fixture}/src/runtime/probe.cpp" "#include <gneiss/application.h>\n")
 
-file(WRITE "${fixture}/src/engine/function/world/probe.cpp" "auto result = gneiss_type_registry_freeze(registry);\n")
+file(WRITE "${fixture}/src/engine/function/scene/probe.cpp" "auto result = gneiss_type_registry_freeze(registry);\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
   RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
 if(status EQUAL 0)
   message(FATAL_ERROR "边界检查未拒绝内部绕回 Reflection C ABI")
 endif()
-file(WRITE "${fixture}/src/engine/function/world/probe.cpp" "#include <gneiss/render.h>\n")
+file(WRITE "${fixture}/src/engine/function/scene/probe.cpp" "#include <gneiss/render.h>\n")
 
 foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/reflection.hpp>")
   file(WRITE "${fixture}/src/engine/core/meta/probe.cpp" "${content}\n")
@@ -133,7 +133,7 @@ if(NOT status EQUAL 0)
 endif()
 
 foreach(header IN ITEMS "application/state.hpp" "engine/platform/native_window_info.hpp"
-    "engine/function/world/state.hpp" "resource/cache.hpp" "apps/editor/session.hpp"
+    "engine/function/scene/state.hpp" "resource/cache.hpp" "apps/editor/session.hpp"
     "gneiss/application.h" "gneiss/engine/application.h")
   file(WRITE "${fixture}/src/engine/core/probe.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
@@ -184,7 +184,7 @@ endif()
 file(WRITE "${fixture}/src/engine/resource/texture/texture_decoder.hpp" "#include <gneiss/core/result.h>\n")
 
 # 新路径反例：避免目录迁移后检查只匹配旧路径而静默失效。
-foreach(header IN ITEMS "engine/function/world/state.hpp" "engine/function/scene/tree.hpp"
+foreach(header IN ITEMS "engine/function/scene/state.hpp" "engine/function/scene/tree.hpp"
     "runtime/state.hpp" "apps/editor/session.hpp" "editor/session.hpp"
     "tooling/import.hpp")
   file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "#include <${header}>\n")
@@ -420,7 +420,7 @@ file(WRITE "${fixture}/src/engine/function/render/render_resource_data.hpp" "")
 
 foreach(content IN ITEMS "gneiss_camera value;" "gneiss_mesh_renderer value;"
     "#include <gneiss/engine/render.h>")
-  file(WRITE "${fixture}/src/engine/function/world/world_components.hpp" "${content}\n")
+  file(WRITE "${fixture}/src/engine/function/scene/components.hpp" "${content}\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -428,7 +428,7 @@ foreach(content IN ITEMS "gneiss_camera value;" "gneiss_mesh_renderer value;"
     message(FATAL_ERROR "原生组件边界未拒绝违规输入：${content}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/engine/function/world/world_components.hpp" "")
+file(WRITE "${fixture}/src/engine/function/scene/components.hpp" "")
 
 file(MAKE_DIRECTORY "${fixture}/src/engine/function/scene")
 foreach(content IN ITEMS "gneiss_transform value;" "auto value = GNEISS_TRANSFORM_IDENTITY;")
@@ -521,7 +521,7 @@ file(MAKE_DIRECTORY "${fixture}/src/engine/resource")
 foreach(header IN ITEMS "engine/core/meta/registry.hpp"
     "engine/core/meta/registration.hpp" "engine/core/serialization/json.hpp"
     "engine/core/serialization/serialization.hpp"
-    "engine/function/scene/prefab_property_override.hpp" "engine/function/world/world.hpp")
+    "engine/function/scene/prefab_property_override.hpp" "engine/function/scene/world.hpp")
   file(WRITE "${fixture}/src/engine/resource/scene/scene_description.hpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
@@ -610,7 +610,7 @@ if(NOT status EQUAL 0)
 endif()
 
 # 宿主是装配层；不能让业务层反向依赖它，也不能反向包含薄入口。
-foreach(location IN ITEMS engine/core engine/platform engine/function/world engine/resource)
+foreach(location IN ITEMS engine/core engine/platform engine/function/scene engine/resource)
   file(MAKE_DIRECTORY "${fixture}/src/${location}")
   file(WRITE "${fixture}/src/${location}/host_probe.hpp" "#include <host/common/protocol.hpp>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"

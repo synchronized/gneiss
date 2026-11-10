@@ -232,39 +232,37 @@ target_sources(
     engine/function/asset/resource_cache.cpp
     engine/function/asset/resource_cache.hpp
     engine/function/scene/scene_types.hpp
-    engine/function/world/world_hierarchy.cpp
-    engine/function/scene/scene_object.hpp
-    engine/function/world/world_hierarchy.hpp
+    engine/function/scene/detail/hierarchy.cpp
+    engine/function/scene/detail/hierarchy.hpp
     engine/function/scene/scene_application.cpp
     engine/function/scene/scene_application.hpp
-    engine/function/scene/scene_composition.cpp
-    engine/function/scene/scene_composition.hpp
+    engine/function/scene/composition.cpp
+    engine/function/scene/composition.hpp
     engine/resource/scene/object_address.hpp
 
     engine/function/scene/scene_creation.hpp
-    engine/function/scene/scene_query.hpp
     engine/function/scene/prefab_property_override.cpp
     engine/function/scene/prefab_property_override.hpp
     engine/function/scene/prefab_replay.cpp
     engine/function/scene/prefab_replay.hpp
-    engine/function/world/scene_instance.hpp
-    engine/function/scene/component_adapter.cpp
-    engine/function/world/world_scenes.cpp
-    engine/function/scene/scene_instantiation.cpp
+    engine/function/scene/scene_instance.hpp
+    engine/function/scene/component_registration.cpp
+    engine/function/scene/scene_instance.cpp
+    engine/function/scene/instantiation.cpp
     engine/function/scene/structural_diff.cpp
     engine/function/scene/structural_diff.hpp
-    engine/function/world/component_identity.hpp
-    engine/function/world/system_scheduler.cpp
-    engine/function/world/system_scheduler.hpp
-    engine/function/world/render_snapshot.cpp
-    engine/function/world/render_snapshot.hpp
-    engine/function/world/game_object.cpp
-    engine/function/world/world.cpp
-    engine/function/world/game_object.hpp
-    engine/function/world/world.hpp
-    engine/function/world/world_types.hpp
-    engine/function/world/world_factory.cpp
-    engine/function/world/world_state.hpp
+    engine/function/scene/component_identity.hpp
+    engine/function/scene/detail/system_scheduler.cpp
+    engine/function/scene/detail/system_scheduler.hpp
+    engine/function/scene/detail/render_extraction.cpp
+    engine/function/scene/detail/render_extraction.hpp
+    engine/function/scene/game_object.cpp
+    engine/function/scene/world.cpp
+    engine/function/scene/game_object.hpp
+    engine/function/scene/world.hpp
+    engine/function/scene/world_types.hpp
+    engine/function/scene/detail/world_factory.cpp
+    engine/function/scene/detail/world_state.hpp
     engine/function/meta_registration.cpp
     engine/function/meta_registration.hpp
 )

@@ -6,8 +6,8 @@
 #include "engine/core/fatal.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/world/scene_instance.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/scene_instance.hpp"
+#include "engine/function/scene/world.hpp"
 #include "runtime/application.hpp"
 
 #include <algorithm>

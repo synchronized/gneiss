@@ -6,10 +6,8 @@
 #include "engine/function/scene/scene_types.hpp"
 
 #include "engine/core/identifier_conversion.hpp"
-#include "engine/function/world/world.hpp"
-#include "engine/function/world/world_state.hpp"
-
-#include "engine/function/scene/scene_object.hpp"
+#include "engine/function/scene/detail/world_state.hpp"
+#include "engine/function/scene/world.hpp"
 
 #include <algorithm>
 #include <cstdint>

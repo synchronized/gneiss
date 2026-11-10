@@ -38,7 +38,7 @@ size 和枚举不再返回已经失效的成员。存活实体仍以 World 的 g
 组件读写保留纯 ECS 的 entity_* 入口，网格查询使用 entity_get_mesh_renderer，
 不要求实体具有对象层级。
 
-借用接口位于 `function/world/scene_instance.hpp`。
+借用接口位于 `function/scene/scene_instance.hpp`。
 `scene_instance::create(identity, transform, parent)` 显式创建并登记本场景对象，
 返回 game_object；空父对象创建根，其他场景或 World 的父对象被拒绝。
 Prefab 展开的成员同样可以作为动态对象的父节点；运行结构修改不写入编辑文档。

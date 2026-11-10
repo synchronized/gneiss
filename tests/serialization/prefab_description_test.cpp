@@ -11,7 +11,7 @@
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/asset/resource_cache.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/world/world_state.hpp"
+#include "engine/function/scene/detail/world_state.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/scene/prefab_description.hpp"

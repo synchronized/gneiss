@@ -6,7 +6,7 @@
 #include "engine/core/serialization/builtin_registration.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/asset/detail/asset_decode.hpp"
-#include "engine/function/world/component_identity.hpp"
+#include "engine/function/scene/component_identity.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/material/material_description.hpp"

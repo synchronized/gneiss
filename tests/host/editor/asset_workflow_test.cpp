@@ -9,7 +9,7 @@
 #include "documents/scene_edit_session.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "package_archive.hpp"
 #include "project_workspace.hpp"
 #include "runtime/application.hpp"

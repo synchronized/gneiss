@@ -12,9 +12,9 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_types.hpp"
-#include "engine/function/world/scene_instance.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 #include <functional>

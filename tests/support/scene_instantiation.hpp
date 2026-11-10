@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/scene/scene_instantiation.hpp"
+#include "engine/function/scene/instantiation.hpp"
 #include "scene_access.hpp"
 #include "scene_application.hpp"
 // 测试夹具保留便捷创建，不作为引擎实例化接口。

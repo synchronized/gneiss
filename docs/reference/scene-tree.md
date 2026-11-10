@@ -54,4 +54,4 @@ World 的层级组件是 Transform 的唯一权威存储：
 `get_world(node)` 和 `get_world_for_entity(entity)` 返回 `result<math::transform>`。
 创建不再接收输出指针，失败不产生节点 ID；变换查询返回副本，失效节点返回 invalid_handle，
 非零实体未关联节点返回 not_ready。World 外层接口按其声明保留线程校验。
-world_hierarchy 位于 function/world，只借用 world_state，不拥有节点存储。
+world_hierarchy 位于 function/scene/detail/hierarchy.hpp，只借用 world_state，不拥有节点存储。

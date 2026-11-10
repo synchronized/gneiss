@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/scene/component_adapter.hpp"
-#include "engine/function/scene/scene_query.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/component_registration.hpp"
+#include "engine/function/scene/world.hpp"
+#include "scene_node_info.hpp"
 #include <algorithm>
 namespace gneiss::test_support {
 /** 测试断言辅助：通过原生句柄查询并排序，不持有场景或运行状态。 */
@@ -106,9 +106,9 @@ struct scene_access {
       return status;
     return has_children ? engine::error::invalid_state : destroy_subtree(id, node);
   }
-  engine::result<engine::scene_node_info>
-  get_node_info(scene_instance_id id, std::uint64_t index,
-                engine::node_query_detail detail = engine::node_query_detail::components) {
+  engine::result<test_support::scene_node_info> get_node_info(
+      scene_instance_id id, std::uint64_t index,
+      test_support::node_query_detail detail = test_support::node_query_detail::components) {
     auto scene = engine::scene_instance::borrow(owner, id);
     if (!scene)
       return scene.error();
@@ -129,19 +129,19 @@ struct scene_access {
       return identity.error();
     if (!parent)
       return parent.error();
-    engine::scene_node_info info;
+    test_support::scene_node_info info;
     info.node = scene_node_id{object.entity().get()};
     info.entity = object.entity();
     info.parent = scene_node_id{parent->entity().get()};
     info.uuid = identity->uuid;
     info.name = identity->name;
-    if (detail != engine::node_query_detail::identity) {
+    if (detail != test_support::node_query_detail::identity) {
       auto components = engine::capture_components(owner, info.node);
       if (!components)
         return components.error();
       info.components = std::move(*components);
     }
-    if (detail == engine::node_query_detail::components) {
+    if (detail == test_support::node_query_detail::components) {
       auto transform = object.local_transform();
       if (!transform)
         return transform.error();

@@ -12,7 +12,10 @@
 
 #include <string_view>
 
-namespace gneiss::engine {
+namespace gneiss::test_support {
+using engine::component_descriptions;
+using engine::guid;
+namespace math = engine::math;
 
 enum class node_query_detail { identity, components };
 
@@ -28,4 +31,4 @@ struct scene_node_info {
   component_descriptions components{};
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss::test_support

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/function/asset/render_resource.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "engine/resource/scene/object_address.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 #include <functional>

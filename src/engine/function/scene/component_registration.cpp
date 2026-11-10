@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/function/scene/component_adapter.hpp"
+#include "engine/function/scene/component_registration.hpp"
 #include "engine/core/property_edit_policy.hpp"
 #include "engine/core/serialization/value.hpp"
 #include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/world/component_identity.hpp"
-#include "engine/function/world/world_component_access.hpp"
+#include "engine/function/scene/component_identity.hpp"
+#include "engine/function/scene/detail/world_component_access.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
 #include <map>
 #include <mutex>

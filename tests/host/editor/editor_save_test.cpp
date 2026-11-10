@@ -13,7 +13,7 @@
 #include "engine/function/scene/scene_types.hpp"
 
 #include "../../support/scene_access.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "runtime/application.hpp"
 
 #include <chrono>

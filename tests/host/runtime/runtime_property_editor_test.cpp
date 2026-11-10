@@ -5,8 +5,8 @@
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/world/component_identity.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/component_identity.hpp"
+#include "engine/function/scene/world.hpp"
 #include "runtime_property_editor.hpp"
 
 #include "engine/core/rid.hpp"

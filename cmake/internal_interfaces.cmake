@@ -32,7 +32,7 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/serialization/policy.hpp
   engine/core/type_id.hpp
   engine/core/detail/canonical_type_name.hpp
-  engine/function/world/component_identity.hpp
+  engine/function/scene/component_identity.hpp
 
   engine/function/scene/scene_types.hpp
 )
@@ -146,18 +146,17 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/scene/scene_record.hpp
   engine/resource/scene/game_object_description.hpp
   engine/resource/scene/scene_description.hpp
-  engine/function/scene/component_adapter.hpp
-  engine/function/world/scene_instance.hpp
-  engine/function/scene/scene_instantiation.hpp
+  engine/function/scene/component_registration.hpp
+  engine/function/scene/scene_instance.hpp
+  engine/function/scene/instantiation.hpp
   engine/function/scene/scene_application.hpp
-  engine/function/scene/scene_composition.hpp
+  engine/function/scene/composition.hpp
   engine/resource/scene/object_address.hpp
 
-  engine/function/scene/scene_query.hpp
-  engine/function/world/game_object.hpp
-  engine/function/world/world.hpp
-  engine/function/world/world_components.hpp
-  engine/function/world/world_types.hpp
+  engine/function/scene/game_object.hpp
+  engine/function/scene/world.hpp
+  engine/function/scene/components.hpp
+  engine/function/scene/world_types.hpp
   engine/platform/native_window_info.hpp
   engine/platform/window_configuration.hpp
 )

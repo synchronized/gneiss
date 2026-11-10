@@ -9,7 +9,7 @@
 #include "ipc_property_protocol.hpp"
 #include "runtime_scene_inspection.hpp"
 
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 
 #include <array>
 #include <cstdint>

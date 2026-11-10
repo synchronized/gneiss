@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/scene/component_adapter.hpp"
+#include "engine/function/scene/component_registration.hpp"
 namespace gneiss::editor {
 enum class component_editor_route { reflected, mesh_assets };
 struct component_editor_info {

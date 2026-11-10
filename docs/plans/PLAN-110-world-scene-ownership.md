@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-2026-11-10：本轮四项清理已完成；目标 API 的进一步便利封装仍见下方差异说明。对象改名/变换入口、ECS 成员归属及场景资产服务解耦已完成；
+2026-11-10：本轮四项清理及目标目录迁移已完成；目标 API 的进一步便利封装仍见下方差异说明。对象改名/变换入口、ECS 成员归属及场景资产服务解耦已完成；
 World 已收拢槽位并删除公开场景集合，补齐成员遍历、世界矩阵与整棵子树迁移；
 相机安装与应用激活已分离，编辑组件策略已迁到 Editor；旧准备模型已删除；
 运行来源关联使用外部回执，公开节点业务包装已清理，保留纯 ECS 组件入口。
@@ -162,12 +162,48 @@ Runtime 不建立编辑文档。IPC 调用已有应用操作，不增加对象�
 
 ## 目标文件布局
 
-- function/world：world、game_object、scene_instance、组件及私有 ECS/层级实现。
-- function/scene：组合、实例化、组件装配注册；Prefab 组合按职责保留。
-- resource/scene：Scene/Prefab 及对象/组件描述、格式校验。
-- editor/documents：保留现有文档/历史/投影组织，先收敛职责再决定必要文件移动。
+2026-11-10 用户确认：统一在 function/scene 组织运行对象与场景装配，替代此前保留
+function/world 的目录方案。目录合并不改变 World、组合、装配与编辑器之间的依赖边界。
 
-不以移动或合并文件数验收，不长期保留旧接口兼容包装。
+```text
+engine/function/scene/
+  world.hpp/.cpp
+  game_object.hpp/.cpp
+  scene_instance.hpp/.cpp
+  components.hpp
+  component_identity.hpp
+  composition.hpp/.cpp
+  instantiation.hpp/.cpp
+  component_registration.hpp/.cpp
+  detail/
+    world_state.hpp
+    hierarchy.hpp/.cpp
+    world_component_access.hpp
+    world_factory.cpp
+    render_extraction.hpp/.cpp
+    system_scheduler.hpp/.cpp
+    component_validation.hpp
+engine/resource/scene/
+  scene_description.hpp
+  prefab_description.hpp
+  game_object_description.hpp
+  component_description.hpp
+  ...
+editor/documents/
+  scene_document.*
+  scene_projection.*
+  scene_edit_session.*
+  ...
+```
+
+其他仍在使用的差异、重放、创建描述等文件保持独立；不为缩短列表合并不同职责。
+渲染快照提取依赖 World 内部 ECS，放在 scene/detail；不移入 GPU 服务内部。
+调度器目前只有独立 CPU 测试，作为内部能力保留，不描述为已接入运行循环。
+
+目录整理先核查调用：仅测试使用的 scene_node_info/node_query_detail 移入 tests/support；
+scene_object 辅助头拆为实例化实现私有的创建回收/资源查找，以及共享的组件验证 detail。
+不保留旧路径转发头；同步更新 CMake、边界检查、测试、示例及当前接口文档。
+本轮验证目标为全部默认目标编译和目录边界检查，不运行 GPU、大场景或 CI。
 
 ## 实施与验收
 
@@ -536,3 +572,15 @@ Windows Clang Debug 全部默认目标编译通过；完整重链后 28 项定�
 当前遍历使用 visit_objects，组件使用现有组件适配器及 World 的纯 ECS 接口；
 这些便利封装不能因本轮主清单打勾而视为已经实现。当前四项任务没有引入它们。
 实际错误返回沿用 error/result，create/borrow 等准确签名以 Reference 和头文件为准。
+
+## 目录迁移验收
+
+统一 function/scene 布局已落地，旧 function/world 目录及旧名称转发头均不保留。
+scene_query.hpp 的查询数据迁入 tests/support/scene_node_info.hpp；scene_object.hpp 已删除，
+仍有调用的辅助能力分别内聚到 instantiation.cpp 与 detail/component_validation.hpp。
+核查范围为本次 World/Scene 模块及全仓调用方，没有因函数暂未接入产品而删除独立测试能力。
+资源描述与 Editor 文档的职责和存储不变。
+
+Windows Clang Debug 配置及全部默认目标构建通过，check_core_boundary 与
+其 test_core_boundary 反例检查通过，git diff --check 通过。
+本轮为目录与可见性整理，未执行运行时回归、GPU、大场景或远端 CI。

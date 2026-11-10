@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/scene/scene_composition.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/composition.hpp"
+#include "engine/function/scene/world.hpp"
 #include "engine/resource/scene.hpp"
 #include <functional>
 namespace gneiss::engine {

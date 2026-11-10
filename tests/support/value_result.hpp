@@ -4,7 +4,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/serialization/policy.hpp"
 #include "engine/function/asset/asset_loading.hpp"
-#include "engine/function/scene/scene_instantiation.hpp"
+#include "engine/function/scene/instantiation.hpp"
 namespace gneiss::test_support {
 inline engine::error take_value(engine::result<engine::scene_instantiation_result> value,
                                 scene_instance_id& output) {

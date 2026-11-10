@@ -17,10 +17,10 @@
 #include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/composition.hpp"
+#include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/scene_application.hpp"
-#include "engine/function/scene/scene_composition.hpp"
-#include "engine/function/scene/scene_instantiation.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "engine/resource/scene.hpp"
 #include <algorithm>
 #include <thread>
@@ -259,7 +259,7 @@ void run() {
   foreign_thread.join();
   check(foreign_reload == engine::error::invalid_state);
   initial_bindings.clear();
-  gneiss::engine::scene_node_info old_info;
+  gneiss::test_support::scene_node_info old_info;
   check(gneiss::test_support::take_value(
             gneiss::test_support::scene_access{*active}->get_node_info(old_scene, 0U), old_info) ==
         gneiss::engine::error::success);
@@ -331,8 +331,7 @@ void run() {
   gneiss::scene_instance_id rejected_scene{};
   check(gneiss::test_support::take_value(gneiss::test_support::scene_fixture::instantiate_scene(
                                              *candidate.get(), std::move(missing_source), bindings),
-                                         rejected_scene) ==
-            gneiss::engine::error::not_found &&
+                                         rejected_scene) == gneiss::engine::error::not_found &&
         rejected_scene == gneiss::scene_instance_id{});
   auto created = gneiss::test_support::scene_fixture::instantiate_scene(
       *candidate.get(), std::move(prepared), bindings);
@@ -414,8 +413,8 @@ void run() {
   gneiss::engine::render_resource_ref next_version;
   check(gneiss::test_support::take_value(candidate_render.find(requests.back()), next_version) ==
         gneiss::engine::error::success);
-  gneiss::engine::scene_node_info ordinary;
-  gneiss::engine::scene_node_info prefab_node;
+  gneiss::test_support::scene_node_info ordinary;
+  gneiss::test_support::scene_node_info prefab_node;
   check(gneiss::test_support::take_value(
             gneiss::test_support::scene_access{*candidate}->get_node_info(new_scene, 0U),
             ordinary) == gneiss::engine::error::success);

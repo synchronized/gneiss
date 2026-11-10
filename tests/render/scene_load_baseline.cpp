@@ -9,7 +9,7 @@
 #include "runtime/application.hpp"
 
 #include "../support/scene_access.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -170,7 +170,7 @@ int main(int argc, char** argv) try {
   constexpr std::string_view uri = "asset://scenes/scene.scene.json";
   gneiss::scene_instance_id previous_scene{};
   gneiss::engine::world* previous_world{};
-  gneiss::engine::scene_node_info camera;
+  gneiss::test_support::scene_node_info camera;
   std::uint64_t previous_resources{};
   gneiss::engine::frame_image previous_image;
   const bool preserve = scenario == "failure" || scenario.starts_with("cancel-");
@@ -192,7 +192,7 @@ int main(int argc, char** argv) try {
       return 11;
     }
     for (std::uint64_t index = 0U; index < count; ++index) {
-      gneiss::engine::scene_node_info node;
+      gneiss::test_support::scene_node_info node;
       if (gneiss::engine::error{gneiss::test_support::take_value(
               gneiss::test_support::scene_access{*app}->get_node_info(previous_scene, index),
               node)} != gneiss::engine::error::success) {

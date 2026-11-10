@@ -6,9 +6,9 @@
 #include "../support/value_result.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/scene_application.hpp"
-#include "engine/function/scene/scene_instantiation.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "runtime/application.hpp"
 #include <thread>
 
@@ -29,7 +29,7 @@ gneiss::engine::error set_camera(gneiss::engine::world& owner, gneiss::scene_ins
   return owner.set_active_camera(gneiss::entity_id{node.get()});
 }
 
-gneiss::engine::result<gneiss::engine::scene_node_info>
+gneiss::engine::result<gneiss::test_support::scene_node_info>
 find_info(gneiss::test_support::scene_access scenes, gneiss::scene_instance_id scene,
           gneiss::scene_node_id node) {
   auto count = scenes.get_node_count(scene);
@@ -167,8 +167,8 @@ int main() try {
     if (scenes.unload(*empty).failed() || world.object(child_id))
       return 108;
   }
-  gneiss::engine::scene_node_info camera_info;
-  gneiss::engine::scene_node_info triangle_info;
+  gneiss::test_support::scene_node_info camera_info;
+  gneiss::test_support::scene_node_info triangle_info;
   if (gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->get_node_count(scene), node_count) !=
           gneiss::engine::error::success ||
@@ -198,7 +198,7 @@ int main() try {
           node_count) != gneiss::engine::error::invalid_handle) {
     return 2;
   }
-  gneiss::engine::scene_node_info invalid_info;
+  gneiss::test_support::scene_node_info invalid_info;
   if (gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->get_node_info(
               gneiss::scene_instance_id{}, 0U),

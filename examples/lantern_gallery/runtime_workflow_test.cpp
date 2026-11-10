@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/guid.hpp"
-#include "engine/function/world/component_identity.hpp"
+#include "engine/function/scene/component_identity.hpp"
 #include "runtime_process.hpp"
 
 #include "engine/core/rid.hpp"

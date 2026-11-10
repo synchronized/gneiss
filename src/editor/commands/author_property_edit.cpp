@@ -7,12 +7,12 @@
 #include "engine/core/error.hpp"
 #include "engine/core/property_edit_policy.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/world/component_identity.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/component_identity.hpp"
+#include "engine/function/scene/world.hpp"
 
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/serialization/value.hpp"
-#include "engine/function/scene/component_adapter.hpp"
+#include "engine/function/scene/component_registration.hpp"
 #include <memory>
 #include <new>
 #include <string>

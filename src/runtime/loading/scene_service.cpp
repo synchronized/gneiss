@@ -6,9 +6,9 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/scene/component_adapter.hpp"
-#include "engine/function/scene/scene_instantiation.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/component_registration.hpp"
+#include "engine/function/scene/instantiation.hpp"
+#include "engine/function/scene/world.hpp"
 #include "runtime/loading/resource_load_group.hpp"
 
 #include <algorithm>

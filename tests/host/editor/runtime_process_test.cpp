@@ -4,7 +4,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/world/component_identity.hpp"
+#include "engine/function/scene/component_identity.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 #include "runtime_log_adapter.hpp"
 #include "runtime_process.hpp"

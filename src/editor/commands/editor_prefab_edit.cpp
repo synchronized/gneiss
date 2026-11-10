@@ -5,7 +5,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/scene/scene_composition.hpp"
+#include "engine/function/scene/composition.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "runtime/application.hpp"
 #include <algorithm>

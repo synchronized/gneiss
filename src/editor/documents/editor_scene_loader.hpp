@@ -6,7 +6,7 @@
 #include "documents/document_editing.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "runtime/loading/scene_load_types.hpp"
 #include "viewport/editor_camera.hpp"
 

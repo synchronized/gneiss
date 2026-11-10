@@ -39,7 +39,7 @@ Meta 的类型与函数统一位于 `gneiss::engine::meta`，不保留旧命名�
 | `serialization/policy.hpp` | 内容编解码、引用表示、对象及校验策略 |
 | `serialization/json.hpp` | JSON 文本、字节与对象入口 |
 
-内建组件身份位于 `engine/function/world/component_identity.hpp`，不属于通用 Meta。
+内建组件身份位于 `engine/function/scene/component_identity.hpp`，不属于通用 Meta。
 `guid`、`type_id`、`value` 仍是 Core 基础类型，`type_identity` 仍是 traits 定制点。
 
 `engine::guid` 保存 16 字节稳定类型身份，全零无效；`engine::type_id` 是进程内类型编号，
@@ -177,7 +177,7 @@ setter 应先校验再修改，Core 不回滚第三方回调已经产生的副�
 `camera_description` 等业务描述由资源内置注册负责，应用初始化依次注册基础类型及其序列化策略、资源类型。
 稳定身份使用 `math::transform::type_guid`、`camera_description::type_guid`。
 
-`function/scene/component_adapter.hpp` 提供 `read_component_property`、`write_component_property`：显式接收 `world&`、
+`function/scene/component_registration.hpp` 提供 `read_component_property`、`write_component_property`：显式接收 `world&`、
 Entity、类型 GUID 和字段 ID。先通过 World 接口校验线程与实体并定位节点；普通组件通过同一
 适配器捕获、验证和安装，基础反射只操作副本。Transform 保留节点变换入口，确保层级传播。
 Editor、Runtime 和运行时 Prefab 覆盖使用这些组件入口；Core 不依赖 World。

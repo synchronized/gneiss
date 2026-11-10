@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/scene/scene_composition.hpp"
+#include "engine/function/scene/composition.hpp"
 #include "engine/function/scene/scene_creation.hpp"
+#include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
-#include "engine/function/world/scene_instance.hpp"
 #include "engine/resource/scene.hpp"
 namespace gneiss::engine {
 class asset_manager;

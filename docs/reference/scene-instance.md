@@ -128,7 +128,7 @@ Inspector 的 Prefab URI、来源变换和覆盖列表由编辑文档查询生�
 运行时 World 的节点身份、层级、局部变换与 ECS 组件描述实际运行状态；编辑内容以 Editor 文档为准。
 内部场景槽位只记录运行身份，成员归属位于 ECS，不维护完整 `scene_description` 或 Prefab 绑定。
 场景描述用于加载输入；文档持久化和撤销快照归 Editor 管理。`scene_object.hpp` 委托 Function/Scene 的
-`component_adapter.hpp` 按描述 GUID 安装与捕获组件，内建适配相机与网格渲染组件。
+`component_registration.hpp` 按描述 GUID 安装与捕获组件，内建适配相机与网格渲染组件。
 扩展组件注册 `component_operations<T>`，提供验证、安装、捕获、删除、比较操作；
 属性覆盖默认使用 Meta，资源依赖枚举默认为空。Meta 仍只负责描述数据的反射与编码。
 

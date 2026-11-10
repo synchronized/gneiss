@@ -5,7 +5,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/serialization/json.hpp"
-#include "engine/function/scene/component_adapter.hpp"
+#include "engine/function/scene/component_registration.hpp"
 #include "engine/resource/asset_file.hpp"
 
 #include "engine/function/scene/prefab_property_override.hpp"

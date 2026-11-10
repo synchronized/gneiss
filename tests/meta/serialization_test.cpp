@@ -10,7 +10,7 @@
 #include "engine/core/serialization/serialization.hpp"
 #include "engine/core/serialization/value.hpp"
 #include "engine/core/value_edit.hpp"
-#include "engine/function/world/component_identity.hpp"
+#include "engine/function/scene/component_identity.hpp"
 #include "engine/resource/asset_decoder.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/material/material_description.hpp"

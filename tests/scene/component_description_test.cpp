@@ -6,8 +6,8 @@
 #include "engine/core/serialization/policy.hpp"
 #include "engine/core/serialization/serialization.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/scene_instantiation.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/instantiation.hpp"
+#include "engine/function/scene/world.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 #include <string>

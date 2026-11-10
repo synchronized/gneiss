@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "commands/author_document_change.hpp"
-#include "engine/function/scene/scene_composition.hpp"
+#include "engine/function/scene/composition.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
 #include "engine/resource/prefab.hpp"
 #include "engine/resource/scene.hpp"

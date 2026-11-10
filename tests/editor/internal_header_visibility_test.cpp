@@ -8,8 +8,8 @@
 #error "Application 重新传递包含了具体服务"
 #endif
 #include "commands/author_property_edit.hpp"
-#include "engine/function/world/component_identity.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/component_identity.hpp"
+#include "engine/function/scene/world.hpp"
 
 // 与真实宿主使用相同传递依赖；私有头重新泄漏时编译必须失败。
 #if __has_include("engine/resource/texture/detail/texture_resource_access.hpp") ||                 \
@@ -26,7 +26,7 @@
 #if __has_include("engine/function/asset/resource_cache.hpp")
 #error "资产缓存实现泄漏到宿主"
 #endif
-#if __has_include("engine/function/asset/detail/asset_decode.hpp") ||                           \
+#if __has_include("engine/function/asset/detail/asset_decode.hpp") ||                              \
                   __has_include("engine/function/asset/detail/asset_construction.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
@@ -36,7 +36,7 @@
 #if __has_include("engine/core/meta/registration.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("engine/function/world/world_state.hpp")
+#if __has_include("engine/function/scene/detail/world_state.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("engine/function/world/world_service.hpp")

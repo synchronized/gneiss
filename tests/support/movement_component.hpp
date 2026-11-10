@@ -3,8 +3,8 @@
 #pragma once
 #include "engine/core/meta/object_type.hpp"
 #include "engine/core/meta/registration.hpp"
-#include "engine/function/scene/component_adapter.hpp"
-#include "engine/function/world/world_component_access.hpp"
+#include "engine/function/scene/component_registration.hpp"
+#include "engine/function/scene/detail/world_component_access.hpp"
 #include "value_result.hpp"
 #include <stdexcept>
 namespace gneiss::test_support {

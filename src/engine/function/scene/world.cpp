@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/fatal.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/world/render_snapshot.hpp"
-#include "engine/function/world/world_component_access.hpp"
-#include "engine/function/world/world_state.hpp"
+#include "engine/function/scene/detail/render_extraction.hpp"
+#include "engine/function/scene/detail/world_component_access.hpp"
+#include "engine/function/scene/detail/world_state.hpp"
 #include <cmath>
 #include <numbers>
 #include <unordered_set>

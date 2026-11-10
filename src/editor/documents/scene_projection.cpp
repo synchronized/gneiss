@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/scene_projection.hpp"
 #include "components/component_registration.hpp"
-#include "engine/function/scene/component_adapter.hpp"
-#include "engine/function/scene/scene_instantiation.hpp"
+#include "engine/function/scene/component_registration.hpp"
+#include "engine/function/scene/instantiation.hpp"
 #include <algorithm>
 #include <set>
 namespace gneiss::editor {

@@ -4,8 +4,8 @@
 #pragma once
 #include "engine/core/entity_id.hpp"
 #include "engine/core/math/transform.hpp"
+#include "engine/function/scene/components.hpp"
 #include "engine/function/scene/scene_types.hpp"
-#include "engine/function/world/world_components.hpp"
 
 namespace gneiss::engine {
 struct mesh_renderer_replacement {

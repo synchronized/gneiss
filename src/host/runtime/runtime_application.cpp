@@ -8,7 +8,7 @@
 #include "engine/function/scene/scene_types.hpp"
 
 #include "engine/core/error.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/world.hpp"
 #include "runtime/application.hpp"
 #include <gneiss/app/project_description.hpp>
 

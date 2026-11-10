@@ -8,8 +8,8 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/world/component_identity.hpp"
-#include "engine/function/world/world.hpp"
+#include "engine/function/scene/component_identity.hpp"
+#include "engine/function/scene/world.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 
 #include <array>

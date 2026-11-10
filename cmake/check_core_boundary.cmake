@@ -129,11 +129,11 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "输入服务不得依赖资源管理器、文件后端或 CAORS：${source}")
   endif()
 
-  if(source MATCHES "/src/engine/function/(scene/(scene_tree|scene_query|scene_creation|scene_instance|scene_instances|scene_application|scene_instances_instantiation)|world/(world_hierarchy|render_snapshot|world|world_types))[.](hpp|cpp)$" AND
+  if(source MATCHES "/src/engine/function/(scene/(scene_tree|scene_query|scene_creation|scene_instance|scene_instances|scene_application|scene_instances_instantiation|world|world_types|detail/hierarchy|detail/render_extraction))[.](hpp|cpp)$" AND
       content MATCHES "gneiss_transform|GNEISS_TRANSFORM_IDENTITY")
     message(FATAL_ERROR "原生场景树与快照不得使用 C TRS 布局：${source}")
   endif()
-  if(source MATCHES "/src/engine/function/world/(world_components|world_state)[.]hpp$" AND
+  if(source MATCHES "/src/engine/function/scene/(components|detail/world_state)[.]hpp$" AND
       (content MATCHES "gneiss_(camera|mesh_renderer)|GNEISS_CAMERA_" OR
        content MATCHES "gneiss/engine/render[.]h"))
     message(FATAL_ERROR "原生 World 组件不得存储 C 渲染布局：${source}")
