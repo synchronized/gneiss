@@ -107,7 +107,8 @@ void run_refresh(gneiss::engine::execution_mode mode) {
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
-    (void)app->advance_loading();
+    (void)app->run(1);
+    check(app->run(1).ok());
     edit.advance();
     std::this_thread::yield();
   };
@@ -281,7 +282,8 @@ void run(gneiss::engine::execution_mode mode) {
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
-    (void)app->advance_loading();
+    (void)app->run(1);
+    check(app->run(1).ok());
     edit.advance();
     std::this_thread::yield();
   };
@@ -308,18 +310,14 @@ void run(gneiss::engine::execution_mode mode) {
   check(!edit.active() && edit.operation() == engine::error::cancelled);
   check(request().ok());
   await_assets();
-  runtime::asset_load_progress pending;
-  check(app->asset_progress(pending));
-  check(app->discard_prepared_assets(pending.request).ok());
+  edit.cancel();
   const engine::render_resource_source replacement{"asset://other-missing.json",
                                                    engine::render_resource_kind::material};
-  auto other = app->prepare_assets({&replacement, 1}, 1);
-  check(other && other->request != pending.request);
-  edit.advance();
-  check(!edit.active() && edit.operation() == engine::error::invalid_handle);
+  auto other = app->load_assets({&replacement, 1});
+  check(other && bool(*other));
   edit.cancel();
-  check(app->asset_progress(pending) && pending.request == other->request);
-  check(app->discard_prepared_assets(other->request).ok());
+  check(bool(*other)); // 重复取消旧命令不能取消新请求。
+  other->reset();
   check(history.size() == 0);
   edit.dismiss();
   // 已加载实例支持直接删除与基于快照的历史恢复。

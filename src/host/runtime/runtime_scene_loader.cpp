@@ -56,10 +56,10 @@ gneiss::engine::error runtime_scene_loader::request(ipc_scene_request source,
   if (source.session == progress_.source.session && source.revision <= progress_.source.revision) {
     return gneiss::engine::error::invalid_state;
   }
-  const auto result = application_.request_scene(source.uri, source.session, source.revision);
+  auto result = application_.scenes().open(source.uri);
   if (!result)
     return result.error();
-  request_ = *result;
+  request_ = std::move(*result);
   request_id_ = request_id;
   result_ = gneiss::engine::error::success;
   progress_ = {.source = std::move(source), .can_cancel = true, .message = "正在准备场景描述"};
@@ -71,7 +71,7 @@ gneiss::engine::error runtime_scene_loader::cancel(const ipc_scene_request& sour
       source.revision != progress_.source.revision || source.uri != progress_.source.uri) {
     return gneiss::engine::error::not_ready;
   }
-  const auto result = application_.cancel_scene(request_);
+  const auto result = request_.cancel();
   if (result == gneiss::engine::error::success) {
     progress_.can_cancel = false;
     progress_.message = "正在安全回收加载候选";
@@ -86,7 +86,7 @@ runtime_scene_loader::activate(::gneiss::runtime::scene_load_completion& complet
       return stopped;
     }
   }
-  auto result = application_.activate_scene(request_);
+  auto result = application_.scenes().activate(std::move(request_));
   if (!result)
     return result.error();
   completion = std::move(*result);
@@ -108,19 +108,27 @@ ipc_scene_budget budget_snapshot(const ::gneiss::runtime::scene_load_progress& v
 } // namespace
 gneiss::engine::error runtime_scene_loader::advance() {
   using namespace ::gneiss::runtime;
-  if (const auto status = application_.advance_loading(); status.failed())
-    return status;
   scene_load_completion completion;
   bool finished{};
-  auto result = application_.poll_scene(completion, finished);
+  auto result = gneiss::engine::error{gneiss::engine::error::success};
+  if (active_) {
+    auto terminal = request_.take();
+    if (terminal) {
+      completion = std::move(*terminal);
+      finished = true;
+    } else if (terminal.error() != gneiss::engine::error::not_ready) {
+      return terminal.error();
+    }
+  }
   if (result != gneiss::engine::error::success || !active_) {
     return result;
   }
   if (!finished) {
-    scene_load_progress current;
-    if (!application_.scene_progress(current)) {
+    const auto observed = request_.progress();
+    if (!observed) {
       return gneiss::engine::error::success;
     }
+    const auto& current = *observed;
     const auto phase = convert(current.phase);
     if (progress_.phase != phase) {
       progress_.message = phase_message(phase);

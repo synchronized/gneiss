@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/asset/render_resource.hpp"
 #include "engine/function/scene/world.hpp"
 #include "runtime/application.hpp"
@@ -11,13 +12,14 @@
 
 #include <atomic>
 #include <cstdio>
+#include <source_location>
 #include <stdexcept>
 #include <thread>
 
 namespace {
-void check(bool condition) {
+void check(bool condition, std::source_location where = std::source_location::current()) {
   if (!condition) {
-    throw std::runtime_error("原生 Application 生命周期验收失败");
+    throw std::runtime_error("原生 Application 生命周期验收失败：" + std::to_string(where.line()));
   }
 }
 struct context {
@@ -113,35 +115,16 @@ void test_asset_request_boundaries() {
   std::shared_ptr<runtime::application> app;
   check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
         gneiss::engine::error::success);
-  gneiss::runtime::asset_load_progress progress;
-  check(!app->asset_progress(progress));
-  check(app->cancel_assets() == gneiss::engine::error::not_ready);
+  runtime::asset_batch_request empty_assets;
+  runtime::scene_open_request empty_scene;
+  check(!empty_assets.progress() && empty_assets.cancel() == engine::error::invalid_state);
+  check(!empty_scene.progress() && empty_scene.cancel() == engine::error::invalid_state);
   const auto rejected = [&] {
-    check(app->advance_loading() == engine::error::invalid_state);
-    std::uint64_t request = 17;
-    bool ready = true;
-    runtime::scene_load_completion scene_completion;
-    scene_completion.scene = gneiss::scene_instance_id{29};
-    runtime::scene_load_progress scene_progress;
-    check(gneiss::test_support::take_value(app->request_scene("project://missing.scene", 1, 1),
-                                           request) == gneiss::engine::error::invalid_state &&
-          request == 0);
-    check(app->poll_scene(scene_completion, ready) == gneiss::engine::error::invalid_state &&
-          !ready);
-    check(app->cancel_scene(1) == gneiss::engine::error::invalid_state);
-    check(gneiss::test_support::assign_value(app->activate_scene(1), scene_completion) ==
-          gneiss::engine::error::invalid_state);
-    check(!app->scene_progress(scene_progress) &&
-          scene_completion.scene == gneiss::scene_instance_id{29});
-    gneiss::runtime::asset_load_completion completion;
-    completion.request = 23;
-    auto prepared = app->prepare_assets({}, 1);
-    check(!prepared && prepared.error() == gneiss::engine::error::invalid_state);
-    return app->request_assets({}, 1, 1, request, true) == gneiss::engine::error::invalid_state &&
-           request == 0 &&
-           app->poll_assets(completion, ready) == gneiss::engine::error::invalid_state && !ready &&
-           completion.request == 23 && !app->asset_progress(progress) &&
-           app->cancel_assets() == gneiss::engine::error::invalid_state;
+    check(app->run(1) == engine::error::invalid_state);
+    auto scene = app->scenes().open("project://missing.scene");
+    auto assets = app->load_assets({});
+    return !scene && scene.error() == engine::error::invalid_state && !assets &&
+           assets.error() == engine::error::invalid_state;
   };
   bool rejected_on_worker{};
   std::thread worker([&] { rejected_on_worker = rejected(); });
@@ -149,6 +132,55 @@ void test_asset_request_boundaries() {
   check(rejected_on_worker);
   check(app->shutdown() == gneiss::engine::error::success);
   check(rejected());
+}
+
+void test_loading_request_lifetime() {
+  using namespace gneiss;
+  engine::task_scheduler tasks({.workers = 1, .mode = engine::execution_mode::cooperative});
+  runtime::application_configuration config;
+  config.asset_root = ".";
+  auto created = runtime::application::create(config);
+  check(bool(created));
+  auto app = std::move(*created);
+  check(app->attach_task_executor(tasks).ok());
+  auto submitted = app->scenes().open("asset://missing.scene");
+  check(bool(submitted));
+  auto request = std::move(*submitted);
+  check(bool(request) && !bool(*submitted) && !request.ready());
+  bool worker_rejected{};
+  std::thread worker([&] {
+    worker_rejected = !request.progress() && request.cancel() == engine::error::invalid_state;
+  });
+  worker.join();
+  check(worker_rejected && bool(request));
+  // 放弃候选释放操作槽位，不需要任何加载专用推进接口。
+  request.reset();
+  submitted = app->scenes().open("asset://other.scene");
+  check(bool(submitted));
+  request = std::move(*submitted);
+  auto other_created = runtime::application::create({});
+  check(bool(other_created));
+  auto cross_owner = (*other_created)->scenes().activate(std::move(request));
+  check(!cross_owner && cross_owner.error() == engine::error::invalid_state && bool(request));
+  request.reset();
+  const engine::render_resource_source source{"asset://missing.texture",
+                                              engine::render_resource_kind::texture};
+  auto batch = app->load_assets({&source, 1});
+  check(bool(batch) && bool(*batch));
+  auto moved = std::move(*batch);
+  check(!bool(*batch) && bool(moved));
+  batch->reset();
+  check(bool(moved));
+  submitted = app->scenes().open("asset://last.scene");
+  check(bool(submitted));
+  request = std::move(*submitted);
+  check(app->shutdown().ok());
+  check(!request && !moved);
+  app.reset();
+  check(request.status() == engine::error::invalid_state);
+  check(!moved.take() && moved.take().error() == engine::error::invalid_state);
+  request.reset();
+  moved.reset();
 }
 
 void test_platform_callbacks() {
@@ -275,6 +307,7 @@ int main() try {
   app.reset();
   check(state.shutdowns == 3U);
   test_asset_request_boundaries();
+  test_loading_request_lifetime();
   test_platform_callbacks();
   test_loop_callback_exceptions();
   return 0;

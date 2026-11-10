@@ -9,6 +9,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/render_resource.hpp"
 #include "engine/function/scene/scene_types.hpp"
+#include "runtime/loading/asset_batch_request.hpp"
 #include "runtime/loading/resource_load_types.hpp"
 
 namespace gneiss::editor {
@@ -72,7 +73,7 @@ private:
   entity_id node_;
   component_edit_target target_;
   std::string mesh_, material_;
-  std::uint64_t revision_{}, request_{};
+  runtime::asset_batch_request request_;
   gneiss::runtime::asset_load_progress progress_;
   gneiss::engine::error operation_{gneiss::engine::error::success};
   bool active_{}, visible_{}, cancelled_{};

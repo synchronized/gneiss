@@ -31,7 +31,7 @@ prepare_scene(runtime::application& app, std::string_view uri, engine::scene_con
   const auto step = [&] {
     if (tasks->mode() == engine::execution_mode::cooperative)
       (void)tasks->run_ready();
-    (void)app.advance_loading();
+    (void)app.run(1);
     std::this_thread::yield();
     return std::chrono::steady_clock::now() < deadline;
   };
@@ -71,8 +71,8 @@ prepare_scene(runtime::application& app, std::string_view uri, engine::scene_con
   if (!dependencies)
     return dependencies.error();
   for (const auto& source : *dependencies) {
-    std::uint64_t id{};
-    status = app.request_assets(std::span(&source, 1), 1, 1, id, false);
+    runtime::asset_batch_request request;
+    status = gneiss::test_support::take_value(app.load_assets(std::span(&source, 1)), request);
     if (status.failed())
       return status;
     runtime::asset_load_completion completion;
@@ -80,7 +80,7 @@ prepare_scene(runtime::application& app, std::string_view uri, engine::scene_con
     while (!ready) {
       if (!step())
         return engine::error::internal;
-      status = app.poll_assets(completion, ready);
+      status = gneiss::test_support::receive_request(request, completion, ready);
       if (status.failed())
         return status;
     }

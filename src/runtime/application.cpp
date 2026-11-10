@@ -216,31 +216,6 @@ gneiss::engine::error application::attach_task_executor(gneiss::engine::task_exe
   }
 }
 
-engine::result<scene_load_completion> application::activate_scene(std::uint64_t request) {
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::engine::error::invalid_state;
-  {
-    if (!can_activate_scene())
-      return engine::error::not_ready;
-    return storage_->scene_service_.activate(request);
-  }
-}
-
-gneiss::engine::error application::request_scene_reload(scene_instance_id instance,
-                                                        std::string_view uri, bool prefab) {
-  if (!is_owner_thread() || !accepts_requests())
-    return engine::error::invalid_state;
-  if (loading_assets() && loading_assets()->busy())
-    return engine::error::not_ready;
-  return storage_->scene_service_.request_reload(instance, uri, prefab);
-}
-
-engine::result<std::optional<scene_reload_completion>> application::poll_scene_reload() {
-  if (!is_owner_thread() || !accepts_requests())
-    return engine::error::invalid_state;
-  return storage_->scene_service_.poll_reload();
-}
-
 gneiss::engine::error application::initialize() {
   if (storage_->config_.callbacks.log != nullptr) {
     {
@@ -978,127 +953,21 @@ resource_load_group* application::loading_assets() noexcept {
   return storage_->asset_loading_.get();
 }
 
-runtime::scene_service& application::scene_loading_service() noexcept {
-  return storage_->scene_service_;
-}
-
-engine::result<std::uint64_t>
-application::request_scene(std::string_view uri, std::uint64_t session, std::uint64_t revision) {
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::engine::error::invalid_state;
-  {
-    if (loading_assets() && loading_assets()->busy())
-      return engine::error::not_ready;
-    return storage_->scene_service_.request_scene(uri, session, revision);
-  }
-}
-
-bool application::scene_progress(runtime::scene_load_progress& progress) const {
-  progress = {};
-  if (!is_owner_thread() || !accepts_requests())
-    return false;
-  return storage_->scene_service_.scene_progress(progress);
-}
-
-gneiss::engine::error application::poll_scene(runtime::scene_load_completion& completion,
-                                              bool& ready) {
-  ready = false;
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::engine::error::invalid_state;
-  {
-    auto result = storage_->scene_service_.poll_scene();
-    if (!result)
-      return result.error();
-    if (*result) {
-      completion = std::move(**result);
-      ready = true;
-    }
-    return engine::error::success;
-  }
-}
-
-gneiss::engine::error application::cancel_scene(std::uint64_t request) {
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::engine::error::invalid_state;
-  {
-    return storage_->scene_service_.cancel_scene(request);
-  }
-}
+scene_service& application::scenes() noexcept { return storage_->scene_service_; }
 
 bool application::scene_loading() const noexcept { return storage_->scene_service_.loading(); }
 
-engine::result<asset_load_completion>
-application::prepare_assets(std::span<const engine::render_resource_source> sources,
-                            std::uint64_t revision, bool reload) {
+engine::result<asset_batch_request>
+application::load_assets(std::span<const engine::render_resource_source> sources, bool reload) {
   if (!is_owner_thread() || !accepts_requests())
     return engine::error::invalid_state;
-  if (!loading_assets())
+  auto* group = loading_assets();
+  if (!group)
     return engine::error::not_ready;
-  return loading_assets()->prepare_assets(sources, 1, revision, reload,
-                                          !scene_loading() && !visual_assets_loading() &&
-                                              storage_->scene_service_.can_activate());
+  return group->begin(sources, reload,
+                      !scene_loading() && !visual_assets_loading() &&
+                          storage_->scene_service_.can_activate());
 }
-engine::result<asset_load_completion> application::poll_prepared_assets(std::uint64_t request) {
-  if (!is_owner_thread() || !accepts_requests())
-    return engine::error::invalid_state;
-  if (!loading_assets() || !loading_assets()->owns(request))
-    return engine::error::invalid_handle;
-  asset_load_completion completion;
-  if (!loading_assets()->take(completion))
-    return engine::error::not_ready;
-  return completion;
-}
-engine::error application::discard_prepared_assets(std::uint64_t request) {
-  if (!is_owner_thread())
-    return engine::error::invalid_state;
-  return loading_assets() && loading_assets()->discard(request) ? engine::error::success
-                                                                : engine::error::invalid_handle;
-}
-
-gneiss::engine::error
-application::request_assets(std::span<const gneiss::engine::render_resource_source> sources,
-                            std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
-                            bool reload) {
-  request = 0;
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::engine::error::invalid_state;
-  if (!loading_assets() || scene_loading() || visual_assets_loading() ||
-      !storage_->scene_service_.can_activate())
-    return gneiss::engine::error::not_ready;
-  {
-    return loading_assets()->submit_assets(sources, session, revision, request, reload);
-  }
-}
-
-gneiss::engine::error application::poll_assets(gneiss::runtime::asset_load_completion& completion,
-                                               bool& ready) {
-  ready = false;
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::engine::error::invalid_state;
-  {
-    if (!loading_assets())
-      return engine::error::not_ready;
-    ready = loading_assets()->take(completion);
-    return engine::error::success;
-  }
-}
-
-bool application::asset_progress(gneiss::runtime::asset_load_progress& progress) const {
-  progress = {};
-  if (!is_owner_thread() || !accepts_requests())
-    return false;
-  auto* service = storage_->asset_loading_.get();
-  return service && service->progress(progress);
-}
-
-gneiss::engine::error application::cancel_assets(std::uint64_t request) noexcept {
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::engine::error::invalid_state;
-  auto* service = loading_assets();
-  return service && service->cancel(request) ? gneiss::engine::error::success
-                                             : gneiss::engine::error::not_ready;
-}
-
 gneiss::engine::error application::advance_resource_io() {
   if (!is_owner_thread() || !accepts_requests())
     return gneiss::engine::error::invalid_state;

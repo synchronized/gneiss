@@ -37,8 +37,100 @@ struct scene_service::load_task {
   bool cancelled{};
 };
 
-scene_service::scene_service() = default;
-scene_service::~scene_service() noexcept { shutdown(); }
+scene_service::scene_service() : lifetime_(std::make_shared<scene_service*>(this)) {}
+scene_service::~scene_service() noexcept {
+  *lifetime_ = nullptr;
+  shutdown();
+}
+
+scene_service* scene_open_request::owner() const noexcept {
+  auto token = owner_.lock();
+  auto* service = token ? *token : nullptr;
+  return service && std::this_thread::get_id() == service->owner_ && !service->stopping_ ? service
+                                                                                         : nullptr;
+}
+scene_open_request::~scene_open_request() { reset(); }
+scene_open_request::scene_open_request(scene_open_request&& other) noexcept
+    : owner_(std::move(other.owner_)), id_(std::exchange(other.id_, 0)) {}
+scene_open_request& scene_open_request::operator=(scene_open_request&& other) noexcept {
+  if (this != &other) {
+    reset();
+    owner_ = std::move(other.owner_);
+    id_ = std::exchange(other.id_, 0);
+  }
+  return *this;
+}
+scene_open_request::operator bool() const noexcept {
+  auto* service = owner();
+  return service && service->owns(id_);
+}
+void scene_open_request::reset() noexcept {
+  if (auto* service = owner())
+    service->abandon(id_);
+  id_ = 0;
+  owner_.reset();
+}
+std::optional<scene_load_progress> scene_open_request::progress() const {
+  auto* service = owner();
+  if (!service || !service->owns(id_))
+    return {};
+  scene_load_progress value;
+  return service->scene_progress(value) ? std::optional{value} : std::nullopt;
+}
+bool scene_open_request::ready() const {
+  auto* service = owner();
+  return service && service->owns(id_) && service->pending_ && !service->pending_->cancelled &&
+         service->pending_->result.progress.phase == scene_load_phase::ready;
+}
+engine::error scene_open_request::status() const {
+  auto* service = owner();
+  if (!service || !service->owns(id_))
+    return engine::error::invalid_state;
+  if (service->completed_)
+    return service->completed_->result;
+  return ready() ? engine::error::success : engine::error::not_ready;
+}
+engine::error scene_open_request::cancel() {
+  auto* service = owner();
+  return service && service->owns(id_) ? service->cancel_scene(id_) : engine::error::invalid_state;
+}
+engine::result<scene_load_completion> scene_open_request::take() {
+  auto* service = owner();
+  if (!service || !service->owns(id_))
+    return engine::error::invalid_state;
+  if (!service->completed_)
+    return engine::error::not_ready;
+  auto value = std::move(*service->completed_);
+  service->completed_.reset();
+  reset();
+  return value;
+}
+bool scene_service::owns(std::uint64_t id) const noexcept {
+  return id && ((pending_ && pending_->result.progress.request == id) ||
+                (completed_ && completed_->progress.request == id));
+}
+void scene_service::abandon(std::uint64_t id) noexcept {
+  if (pending_ && pending_->result.progress.request == id)
+    pending_.reset();
+  if (completed_ && completed_->progress.request == id)
+    completed_.reset();
+}
+engine::result<scene_open_request> scene_service::open(std::string_view uri) {
+  if (std::this_thread::get_id() != owner_ || stopping_)
+    return engine::error::invalid_state;
+  auto submitted = request_scene(uri, 1, 1);
+  if (!submitted)
+    return submitted.error();
+  return scene_open_request{lifetime_, *submitted};
+}
+engine::result<scene_load_completion> scene_service::activate(scene_open_request&& request) {
+  if (request.owner() != this || !owns(request.id_))
+    return engine::error::invalid_state;
+  auto completed = activate(request.id_);
+  if (completed)
+    request.reset();
+  return completed;
+}
 
 void scene_service::request_stop() {
   check_owner();
@@ -147,15 +239,6 @@ void scene_service::finish(gneiss::engine::error result, scene_load_phase phase,
   completion.cleanup_ms = elapsed(cleanup_started);
   completed_ = std::move(completion);
 }
-engine::result<std::optional<scene_load_completion>> scene_service::poll_scene() {
-  check_owner();
-  if (!loading_)
-    return engine::error::not_ready;
-  auto completed = std::move(completed_);
-  completed_.reset();
-  return completed;
-}
-
 engine::result<scene_load_completion> scene_service::activate(std::uint64_t request) {
   check_owner();
   if (!can_activate() || !pending_ || pending_->cancelled ||

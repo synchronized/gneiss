@@ -39,7 +39,9 @@ gneiss::engine::error editor_scene_loader::cancel(runtime::application& applicat
     progress_.cleanup_complete = true;
     return gneiss::engine::error::success;
   }
-  const auto operation = application.cancel_scene(request_);
+  if (!application.accepts_requests() || !application.is_owner_thread())
+    return engine::error::invalid_state;
+  const auto operation = request_.cancel();
   if (operation == gneiss::engine::error::success) {
     progress_.can_cancel = false;
   }
@@ -56,13 +58,16 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
   if (editing.active())
     return gneiss::engine::error::success;
   // 即使界面已收起也推进旧域回收，下一次打开不能被退休域永久阻塞。
-  if (const auto status = application.advance_loading(); status.failed())
-    return status;
   scene_load_completion completion;
   bool finished{};
-  const auto polled = application.poll_scene(completion, finished);
-  if (polled != gneiss::engine::error::success) {
-    return polled;
+  if (active_ && !queued_) {
+    auto terminal = request_.take();
+    if (terminal) {
+      completion = std::move(*terminal);
+      finished = true;
+    } else if (terminal.error() != engine::error::not_ready) {
+      return terminal.error();
+    }
   }
   if (!active_) {
     return gneiss::engine::error::success;
@@ -70,8 +75,8 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
   if (queued_) {
     // 先回收旧域再提交，菜单回调本身不做加载工作。
     queued_ = false;
-    auto submitted = application.request_scene(uri_, 1U, ++revision_);
-    request_ = submitted ? *submitted : 0;
+    auto submitted = application.scenes().open(uri_);
+    request_ = submitted ? std::move(*submitted) : runtime::scene_open_request{};
     operation_ =
         submitted ? gneiss::engine::error{gneiss::engine::error::success} : submitted.error();
     active_ = operation_ == gneiss::engine::error::success;
@@ -88,9 +93,11 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
     active_ = progress_.cleanup_pending;
     return gneiss::engine::error::success;
   }
-  if (!application.scene_progress(progress_)) {
+  auto observed = request_.progress();
+  if (!observed) {
     return gneiss::engine::error::success;
   }
+  progress_ = *observed;
   if (progress_.cleanup_complete && progress_.phase == scene_load_phase::cancelled) {
     active_ = false;
     return gneiss::engine::error::success;
@@ -98,7 +105,7 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
   if (progress_.phase != scene_load_phase::ready) {
     return gneiss::engine::error::success;
   }
-  auto activated = application.activate_scene(request_);
+  auto activated = application.scenes().activate(std::move(request_));
   if (!activated) {
     return activated.error() == gneiss::engine::error::not_ready
                ? gneiss::engine::error{gneiss::engine::error::success}

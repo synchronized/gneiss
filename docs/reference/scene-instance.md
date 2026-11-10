@@ -320,18 +320,17 @@ Prefab 覆盖捕获、恢复及有效描述准备共用此查询，相机身份�
 
 ### 编辑资源准备
 
-普通网格资源选择与 Prefab 操作统一调用 `application::prepare_assets`。
+普通网格资源选择与 Prefab 操作统一调用 `application::load_assets`，持有 asset_batch_request。
 宿主私有 resource_load_group 直接请求 asset_manager；场景视觉加载使用独立请求组，
 两组共享同一资产缓存，不共享回执槽位。场景服务不提供通用资源转发入口。
 
-行为如下：
+- 缓存命中可立即 ready；缺失项由 Application 更新循环推进，完成值包含全部资源。
+- 一个批次占用一个槽位，take 或 reset 释放槽位；外部不能按编号领取/取消别人的回执。
+- 场景加载、视觉加载、重载或旧域回收期间拒绝新增异步准备。
+- 显式 reload 忽略就绪缓存；Prefab 刷新使用此方式。
+- 失败及取消不提交编辑器文档，旧绑定与历史保持不变。
 
-- 所有资源已就绪时直接返回 `applied` 和强引用，`request` 为零，不占加载槽位。
-- 存在缺失项时返回 `preparing` 和请求编号；加载组保留已就绪引用，仅加载缺失项。
-  通过 Application 推进 I/O 并轮询完成值；完成值包含全部资源，按来源匹配，不依赖输入顺序。
-- 场景加载、视觉加载、重载或旧域回收期间拒绝新增异步准备；只查询就绪资源不覆盖已有请求。
-- 显式 `reload=true` 忽略就绪缓存；Prefab 刷新使用此方式。
-- 入口限宿主线程，关闭后拒绝调用。失败及取消不提交编辑器文档，旧绑定与历史保持不变。
+完整请求、取消及失效规则见 [Application 加载请求](application.md#加载请求)。
 
 普通资源选择中 URI 未改变的部分直接保留旧强引用，不重新查询缓存。弱缓存清理由应用正常资源
 推进承担，命令完成时只释放自身引用。文档不维护额外资源缓存。
@@ -347,20 +346,18 @@ Prefab 覆盖捕获、恢复及有效描述准备共用此查询，相机身份�
 `result<prepared_scene_document>`，其中包含 `snapshot` 和 `missing`。同步操作在 `missing`
 非空时先预留资源身份，再提交历史，不要求内容加载完成。
 
-`poll_prepared_assets(request)` 限所属线程，仅推进对应资源请求，不驱动文件 I/O；未完成返回
-`not_ready`，不存在或过期编号返回 `invalid_handle`。`discard_prepared_assets(request)` 释放
-该请求的观察权及回执槽位，关闭期间也可清理，绝不影响其他编号；底层在途 I/O 由资源服务回收。
-网格编辑和 Prefab 编辑按编号领取结果，不消费其他编号的回执；文档恢复不占用这些编号。
+编辑命令持有独立 asset_batch_request，通过 take 领取自己的回执，通过 reset 放弃观察。
+查询和领取不推进 I/O；Application 主循环统一推进。请求的线程、关闭及取消语义见
+[Application 加载请求](application.md#加载请求)。
 网格及 Prefab 的资源阶段取消直接放弃请求、结束该阶段，返回 `cancelled`；文档关闭或应用停止
-则清理请求并返回 `invalid_state`。Prefab 文件准备仍可取消；版本历史同步切换内容，不创建异步历史请求。
-Application 负责推进 I/O，编辑命令通过既有 `advance_scene_load` 推进入口后再领取对应结果。
-宿主的 `cancel_assets(request)` 仍保留取消回执；不传编号表示取消当前请求。
+则清理请求并返回 `invalid_state`。取消编辑不回滚共享资产缓存，只阻止迟到结果修改文档和历史。
+Prefab 文件准备仍可取消；版本历史同步切换内容，不创建异步历史请求。
 
 ### Runtime 资产重载请求归属
 
-Runtime 宿主将 IPC 会话/修订关联到 `request_assets` 返回的实际编号。轮询按该编号领取结果，
-取消同时匹配会话、修订和编号；进度只报告所属请求，结构重载不取消其他资源请求。
-完成、轮询失败及退出时释放编号。失败或过期请求不更新已应用修订，后续可重试相同修订。
+Runtime 宿主保存 IPC 会话/修订及对应的 asset_batch_request，通过请求对象领取结果与取消。
+进度只报告所属请求，结构重载不取消其他资源请求；完成、失败及退出时释放请求。
+失败或过期请求不更新已应用修订，后续可重试相同修订。
 
 重载协调器把显式轮询错误转换为一次失败回执并结束等待；意外异常向宿主传播。`not_ready` 继续等待，
 成功结果才推进已应用修订。保留逐项生效语义：部分成功不回滚，失败项保持原内容。
@@ -371,13 +368,9 @@ Runtime 宿主将 IPC 会话/修订关联到 `request_assets` 返回的实际编
 scene_service 不持有执行器；资产管理器负责准备任务调度。configure 只接入用于内存统计的
 Render 与场景进度通知。关闭仅释放场景的请求观察者，不停止资产管理器。
 
-- request_scene 返回 result<uint64_t> 请求编号；activate 返回 result<scene_load_completion>。
-- poll_scene 返回 result<optional<scene_load_completion>>；poll_reload 返回
-  result<optional<scene_reload_completion>>。
-- 外层错误表示调用失败；成功但 optional 为空表示暂无回执；有值表示终态，工作成功与否由
-  完成值的 result 表示。完成回执领取一次，失败回执同样会被消费。
-- Application 保留既有宿主输出参数适配；编辑器与 IPC 无需了解场景服务的内部请求组。
-
+场景打开和原位重载分别返回 scene_open_request 与 scene_reload_request；
+激活、回执领取与宿主失效规则统一见 [Application 加载请求](application.md#加载请求)。
+内部请求组不暴露给编辑器或 IPC。
 
 ### 场景版本历史
 

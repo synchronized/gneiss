@@ -269,6 +269,8 @@ target_sources(
 target_sources(
   gneiss_engine
   PRIVATE
+    runtime/loading/asset_batch_request.cpp
+    runtime/loading/asset_batch_request.hpp
     runtime/loading/scene_service_loading.cpp
     runtime/loading/scene_load_types.hpp
     runtime/loading/scene_service.cpp

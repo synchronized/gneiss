@@ -3,16 +3,34 @@
 #pragma once
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/resource/asset_uri.hpp"
+#include "runtime/loading/asset_batch_request.hpp"
 #include "runtime/loading/resource_load_types.hpp"
 #include <algorithm>
 #include <chrono>
 #include <optional>
 #include <set>
+#include <thread>
 namespace gneiss::runtime {
 /** 场景/编辑器的请求汇总；不读文件、不解码、不创建或更新资源。 */
 class resource_load_group final {
 public:
   explicit resource_load_group(engine::asset_manager& service) : service_(service) {}
+  ~resource_load_group() { *lifetime_ = nullptr; }
+  engine::result<asset_batch_request> begin(std::span<const engine::render_resource_source> sources,
+                                            bool reload, bool allow_load) {
+    if (busy())
+      return engine::error::not_ready;
+    auto prepared = prepare_assets(sources, 1, 1, reload, allow_load);
+    if (!prepared)
+      return prepared.error();
+    if (!prepared->request) {
+      prepared->request = ++sequence_;
+      completion_ = std::move(*prepared);
+      cursor_ = completion_->results.size();
+      started_ = std::chrono::steady_clock::now();
+    }
+    return asset_batch_request{lifetime_, completion_->request};
+  }
   engine::texture_prepare_profile profile() const noexcept { return service_.profile(); }
   engine::error submit_assets(std::span<const engine::render_resource_source> sources,
                               std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
@@ -172,7 +190,7 @@ public:
     return true;
   }
   bool progress(runtime::asset_load_progress& output) const {
-    if (!completion_ || completion_->state != runtime::asset_load_state::preparing)
+    if (!completion_)
       return false;
     output = {.request = completion_->request,
               .session = completion_->session,
@@ -180,7 +198,7 @@ public:
               .state = completion_->state,
               .completed_assets = cursor_,
               .total_assets = completion_->results.size(),
-              .can_cancel = true};
+              .can_cancel = completion_->state == asset_load_state::preparing};
     return true;
   }
   void request_stop() {
@@ -190,6 +208,9 @@ public:
   bool stopped() const { return stopping_; }
 
 private:
+  friend class asset_batch_request;
+  const std::thread::id owner_{std::this_thread::get_id()};
+  std::shared_ptr<resource_load_group*> lifetime_{std::make_shared<resource_load_group*>(this)};
   engine::asset_manager& service_;
   engine::asset_request<engine::render_resource_ref> current_;
   std::optional<runtime::asset_load_completion> completion_;

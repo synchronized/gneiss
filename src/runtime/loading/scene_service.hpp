@@ -22,6 +22,58 @@ namespace gneiss::engine {}
 
 namespace gneiss::runtime {
 class resource_load_group;
+class scene_service;
+
+/** 场景打开请求；仅所属线程使用，移动转移观察权，不保活宿主。
+ * 丢弃未激活请求会释放候选。关闭后请求失效；查询不推进加载。 */
+class scene_open_request final {
+public:
+  scene_open_request() = default;
+  GNEISS_API ~scene_open_request();
+  GNEISS_API scene_open_request(scene_open_request&&) noexcept;
+  GNEISS_API scene_open_request& operator=(scene_open_request&&) noexcept;
+  scene_open_request(const scene_open_request&) = delete;
+  scene_open_request& operator=(const scene_open_request&) = delete;
+  [[nodiscard]] GNEISS_API explicit operator bool() const noexcept;
+  [[nodiscard]] GNEISS_API bool ready() const;
+  [[nodiscard]] GNEISS_API engine::error status() const;
+  [[nodiscard]] GNEISS_API std::optional<scene_load_progress> progress() const;
+  /** 消费失败或取消回执；成功候选须通过 scene_service::activate 消费。 */
+  [[nodiscard]] GNEISS_API engine::result<scene_load_completion> take();
+  [[nodiscard]] GNEISS_API engine::error cancel();
+  GNEISS_API void reset() noexcept;
+
+private:
+  friend class scene_service;
+  scene_open_request(std::weak_ptr<scene_service*> owner, std::uint64_t id)
+      : owner_(std::move(owner)), id_(id) {}
+  scene_service* owner() const noexcept;
+  std::weak_ptr<scene_service*> owner_;
+  std::uint64_t id_{};
+};
+
+/** 原位场景重载请求；查询与领取不推进工作，放弃即取消未应用的重载。 */
+class scene_reload_request final {
+public:
+  scene_reload_request() = default;
+  GNEISS_API ~scene_reload_request();
+  GNEISS_API scene_reload_request(scene_reload_request&&) noexcept;
+  GNEISS_API scene_reload_request& operator=(scene_reload_request&&) noexcept;
+  scene_reload_request(const scene_reload_request&) = delete;
+  scene_reload_request& operator=(const scene_reload_request&) = delete;
+  [[nodiscard]] GNEISS_API explicit operator bool() const noexcept;
+  [[nodiscard]] GNEISS_API bool ready() const;
+  [[nodiscard]] GNEISS_API engine::result<scene_reload_completion> take();
+  GNEISS_API void reset() noexcept;
+
+private:
+  friend class scene_service;
+  scene_reload_request(std::weak_ptr<scene_service*> owner, std::uint64_t id)
+      : owner_(std::move(owner)), id_(id) {}
+  scene_service* owner() const noexcept;
+  std::weak_ptr<scene_service*> owner_;
+  std::uint64_t id_{};
+};
 
 /** 场景生命周期的唯一拥有者；全部调用限宿主线程。
  * 借用的资产管理器与渲染服务必须存活至 shutdown 返回。
@@ -31,16 +83,17 @@ class scene_service final {
 public:
   scene_service();
   ~scene_service() noexcept;
+  [[nodiscard]] GNEISS_API engine::result<scene_open_request> open(std::string_view uri);
+  [[nodiscard]] GNEISS_API engine::result<scene_load_completion>
+  activate(scene_open_request&& request);
   scene_service(const scene_service&) = delete;
   scene_service& operator=(const scene_service&) = delete;
 
   [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::asset_manager& resources);
   [[nodiscard]] gneiss::engine::error configure(gneiss::engine::render_service& renderer);
-  void advance();
   /** 激活后的视觉资源独立完成，不影响结构激活结果；所属线程消费诊断。 */
   [[nodiscard]] bool take_visual_completion(gneiss::runtime::asset_load_completion& output);
   [[nodiscard]] bool visual_loading() const noexcept { return visuals_.loading(); }
-  [[nodiscard]] engine::result<scene_load_completion> activate(std::uint64_t request);
   /** 请求停止加载，不等待 CPU/I/O；继续 advance 至 stopped，再释放依赖。 */
   void request_stop();
   [[nodiscard]] bool stopped() const noexcept;
@@ -51,20 +104,24 @@ public:
   [[nodiscard]] bool loading() const noexcept;
   [[nodiscard]] scene_retirement_statistics retirement() const noexcept;
   [[nodiscard]] gneiss::engine::world* native_world() const noexcept;
-  /** 请求、进度和完成值不暴露候选域；激活仍由宿主在安全点显式调用。 */
-  [[nodiscard]] engine::result<std::uint64_t>
-  request_scene(std::string_view uri, std::uint64_t session, std::uint64_t revision);
-  [[nodiscard]] bool scene_progress(scene_load_progress& progress) const;
-  /** 外层错误表示调用失败；空值表示暂无回执，完成值携带异步结果。 */
-  [[nodiscard]] engine::result<std::optional<scene_load_completion>> poll_scene();
-  [[nodiscard]] gneiss::engine::error cancel_scene(std::uint64_t request);
-  /** 异步读取结构与依赖，所属线程原位修改实例；不切换 World。
-   * 结构完成后独立加载视觉依赖；poll_reload 不等待视觉内容成功。 */
-  [[nodiscard]] engine::error request_reload(scene_instance_id instance, std::string_view uri,
-                                             bool prefab);
-  [[nodiscard]] engine::result<std::optional<scene_reload_completion>> poll_reload();
+  /** 异步重载已激活场景中的来源结构；不切换 World。 */
+  [[nodiscard]] GNEISS_API engine::result<scene_reload_request>
+  reload(scene_instance_id instance, std::string_view uri, bool prefab = false);
 
 private:
+  friend class scene_open_request;
+  friend class scene_reload_request;
+  engine::error request_reload(scene_instance_id, std::string_view, bool);
+  friend class application;
+  void advance();
+  engine::result<scene_load_completion> activate(std::uint64_t request);
+  engine::result<std::uint64_t> request_scene(std::string_view uri, std::uint64_t session,
+                                              std::uint64_t revision);
+  bool scene_progress(scene_load_progress&) const;
+  engine::error cancel_scene(std::uint64_t request);
+  std::shared_ptr<scene_service*> lifetime_;
+  bool owns(std::uint64_t id) const noexcept;
+  void abandon(std::uint64_t id) noexcept;
   // 仅为已激活场景的来源热更新保留输入；World 不持有作者内容或覆盖。
   struct source_state {
     scene_instance_id instance;
@@ -76,6 +133,7 @@ private:
   engine::result<std::vector<engine::render_resource_source>>
   apply_source(engine::ref<const engine::scene_content> content);
   struct reload_task {
+    std::uint64_t id{};
     scene_instance_id instance;
     std::variant<engine::asset_request<engine::scene>, engine::asset_request<engine::prefab>>
         descriptions;

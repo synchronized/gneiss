@@ -19,16 +19,43 @@ Application 拥有 World、平台状态、资源服务及可选窗口。`native_
 原生配置中的字符串在创建期间借用，回调由 Application 保存；回调捕获的借用对象必须
 存活至关闭结束。不要让回调强捕获自身 Application，避免引用环。
 
-## 场景值返回入口
+## 加载请求
 
-`request_scene(uri, session, revision)` 返回 `result<uint64_t>`：成功值是请求编号，不表示场景已加载。
-`activate_scene(request)` 返回 `result<scene_load_completion>`：成功值包含激活后的场景及来源内容。
-两者均保留所属线程、关闭状态及场景互斥检查；未满足启动或激活条件返回 not_ready。
-`poll_scene(completion, ready)` 暂保留消费式回执接口，与前两者的提交/激活职责不同。
-`poll_scene`、`poll_scene_reload`、`poll_assets` 和 `poll_prepared_assets` 均不推进加载。
-`advance_loading()` 在所属线程统一推进文件完成、资产批次与场景，并返回推进错误。
-`run()` 每帧自动调用；自定义宿主循环须显式调用。推进可能退休先前激活时保留的旧 World，
-因此必须先释放对旧 World 的借用；单纯查询或领取回执不会退休它。
+Application 每帧在 update 回调前统一处理文件完成、资产批次和场景工作。
+自定义宿主循环调用 `run(1)` 驱动完整一帧；业务回调内不重入 run，也不单独推进加载服务。
+
+- 普通资产：`app.assets().load<T>(uri)`，返回既有 asset_request。
+- 场景打开：`app.scenes().open(uri)`，返回 `result<scene_open_request>`。
+  `ready()` 表示候选可尝试激活；`status()` 返回 not_ready、成功或异步错误。
+  `progress()` 返回可选进度；失败、取消回执通过 `take()` 领取。
+- 场景激活：`app.scenes().activate(std::move(request))`，返回包含运行场景和来源的完成值。
+  仅成功时消费请求；错误宿主或空请求返回 invalid_state，尚不满足切换条件返回 not_ready。
+- 原位重载：`app.scenes().reload(instance, uri, prefab)` 返回 scene_reload_request，
+  `ready()` 表示存在回执，`take()` 领取它；结构完成不等待视觉资源。
+- 多资源编辑：`app.load_assets(sources, reload)` 返回 asset_batch_request。
+  缓存命中可立即 ready；仍用同一资产缓存和加载流程，单个批次占用一个观察槽位。
+  `take()` 领取完成值并释放槽位，未完成返回 not_ready。
+
+所有查询和 take 都不驱动加载。请求采用移动语义，不保活 Application；reset/析构放弃自身操作，
+不能取消别人的请求。已开始的共享资产工作由 asset_manager 管理，取消观察者不承诺停止共享工作。
+请求只能在所属线程使用和销毁；显式错误操作在错误线程或宿主关闭后返回 invalid_state。
+宿主销毁后空的进度/无效状态可以安全查询，不能重新访问借用的 scenes() 服务引用。
+
+场景显式 cancel 在后续帧产生取消回执；reset 立即丢弃候选。已激活场景不受请求销毁影响。
+激活后旧 World 仅保留至后续 Application 更新；调用方必须在返回循环前清理旧 World 的借用。
+Host 的 session/revision 由 IPC 协调器保存，不再作为加载 API 的必填参数。
+
+```cpp
+auto submitted = app.scenes().open(uri);
+if (!submitted)
+  return submitted.error();
+auto request = std::move(*submitted);
+// 后续 update 回调观察 request，Application 自动推进。
+if (request.ready()) {
+  auto activated = app.scenes().activate(std::move(request));
+  // 检查 activated，并更新依赖当前 World 的借用。
+}
+```
 
 ## 主循环
 
@@ -62,8 +89,6 @@ Application 私有持有 `engine::window_service`，负责窗口生命周期及�
 
 ## 加载推进责任
 
-文件完成分发、资产管理器推进及回收统一由 Application 的 advance_resource_io 执行。
-run、场景/资产轮询等宿主入口按其契约调用该函数；不承诺多个入口在同一帧只推进一次。
-resource_load_group 只提交单资产请求并汇总结果，不推进或关闭共享管理器。
-poll_prepared_assets 也通过 Application 先分发文件并推进资产，再消费对应批次。
+文件完成分发、资产管理器推进及回收由 Application 主循环统一调用私有实现。
+状态查询和领取回执不推进工作；resource_load_group 只提交单资产请求并汇总结果。
 关闭时 Application 请求资产管理器停止并推进排空；Scene 和批次只放弃自己的请求与实例。

@@ -182,6 +182,7 @@ engine::error scene_service::request_reload(scene_instance_id instance, std::str
     return engine::error::invalid_state;
   auto next = std::make_unique<reload_task>();
   next->instance = instance;
+  next->id = ++sequence_;
   if (prefab) {
     auto loaded = resources_->reload<engine::prefab>(uri);
     if (!loaded)
@@ -322,15 +323,56 @@ void scene_service::advance_reload() {
   visuals_.begin(std::move(*reloaded), 1, 1);
 }
 
-engine::result<std::optional<scene_reload_completion>> scene_service::poll_reload() {
-  check_owner();
-  if (!reload_)
+scene_service* scene_reload_request::owner() const noexcept {
+  auto token = owner_.lock();
+  auto* service = token ? *token : nullptr;
+  return service && std::this_thread::get_id() == service->owner_ && !service->stopping_ ? service
+                                                                                         : nullptr;
+}
+scene_reload_request::~scene_reload_request() { reset(); }
+scene_reload_request::scene_reload_request(scene_reload_request&& other) noexcept
+    : owner_(std::move(other.owner_)), id_(std::exchange(other.id_, 0)) {}
+scene_reload_request& scene_reload_request::operator=(scene_reload_request&& other) noexcept {
+  if (this != &other) {
+    reset();
+    owner_ = std::move(other.owner_);
+    id_ = std::exchange(other.id_, 0);
+  }
+  return *this;
+}
+scene_reload_request::operator bool() const noexcept {
+  auto* service = owner();
+  return service && service->reload_ && service->reload_->id == id_;
+}
+bool scene_reload_request::ready() const {
+  auto* service = owner();
+  return bool(*this) && service->reload_->result != engine::error::not_ready;
+}
+void scene_reload_request::reset() noexcept {
+  auto* service = owner();
+  if (bool(*this))
+    service->reload_.reset();
+  id_ = 0;
+  owner_.reset();
+}
+engine::result<scene_reload_completion> scene_reload_request::take() {
+  if (!*this)
     return engine::error::invalid_state;
-  if (reload_->result == engine::error::not_ready)
-    return std::optional<scene_reload_completion>{};
-  scene_reload_completion completed{reload_->result, std::move(reload_->objects)};
-  reload_.reset();
-  return std::optional{completed};
+  if (!ready())
+    return engine::error::not_ready;
+  auto* service = owner();
+  scene_reload_completion result{service->reload_->result, std::move(service->reload_->objects)};
+  reset();
+  return result;
+}
+engine::result<scene_reload_request> scene_service::reload(scene_instance_id instance,
+                                                           std::string_view uri, bool prefab) {
+  if (std::this_thread::get_id() != owner_ || stopping_)
+    return engine::error::invalid_state;
+  const auto submitted = request_reload(instance, uri, prefab);
+  if (submitted.failed())
+    return submitted;
+  return scene_reload_request{lifetime_, reload_->id};
 }
 
 } // namespace gneiss::runtime

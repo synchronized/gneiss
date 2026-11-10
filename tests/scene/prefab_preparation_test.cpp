@@ -39,7 +39,7 @@ bool run(gneiss::engine::execution_mode mode) {
       if (mode == gneiss::engine::execution_mode::cooperative) {
         (void)executor.run_ready();
       }
-      (void)application->advance_loading();
+      (void)application->run(1);
       auto loaded = request->take();
       if (!loaded) {
         result = loaded.error().error;

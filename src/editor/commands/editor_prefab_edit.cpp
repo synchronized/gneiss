@@ -41,15 +41,12 @@ struct editor_prefab_edit::state {
   std::vector<engine::guid> refresh_targets;
   prefab_snapshots before, after;
   gneiss::engine::guid target_uuid;
-  std::uint64_t request{};
+  runtime::asset_batch_request request;
   bool asset_pending{}, cancelled{}, active{}, visible{};
   gneiss::engine::error status{gneiss::engine::error::success};
   gneiss::engine::error failure{gneiss::engine::error::success};
   void finish() {
-    if (request) {
-      (void)application.discard_prepared_assets(request);
-      request = 0;
-    }
+    request.reset();
     asset_pending = false;
     active = false;
     if (failure.failed()) {
@@ -162,31 +159,32 @@ struct editor_prefab_edit::state {
       }
     }
     if (status.ok() && !cancelled) {
-      auto submitted = application.prepare_assets(requested, 1U, refreshing);
+      auto submitted = application.load_assets(requested, refreshing);
       if (!submitted)
         status = submitted.error();
       else {
-        request = submitted->request;
-        asset_pending = submitted->state == runtime::asset_load_state::preparing;
+        request = std::move(*submitted);
+        asset_pending = !request.ready();
         if (asset_pending)
           return false;
-        assets = std::move(submitted->assets);
+        auto completed = request.take();
+        if (!completed)
+          status = completed.error();
+        else {
+          status = completed->result;
+          assets = std::move(completed->assets);
+        }
       }
     }
 
     return true;
   }
-  bool poll_assets() {
-    if (const auto advanced = application.advance_loading(); advanced.failed()) {
-      status = advanced;
-      return true;
-    }
-    auto polled = application.poll_prepared_assets(request);
+  bool receive_assets() {
+    auto polled = request.take();
     if (!polled) {
       status = polled.error();
       return status != engine::error::not_ready;
     }
-    request = 0;
     asset_pending = false;
     status = polled->result;
     if (status.ok())
@@ -369,7 +367,7 @@ void editor_prefab_edit::advance() {
       value.finish();
       return;
     }
-    if (value.asset_pending && !value.poll_assets()) {
+    if (value.asset_pending && !value.receive_assets()) {
       return;
     }
     if (value.cancelled || value.session->scene_handle() != value.scene) {

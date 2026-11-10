@@ -91,8 +91,9 @@ void run_asset_reload() {
             runtime::application::create(desc), app)} == gneiss::engine::error::success);
   check(app->attach_task_executor(scheduler).ok());
   const auto reload = [&](std::span<const gneiss::engine::render_resource_source> requests) {
-    std::uint64_t request{};
-    auto status = app->request_assets(requests, 1, 1, request, true);
+    gneiss::runtime::asset_batch_request assets_request;
+    auto status =
+        gneiss::test_support::take_value(app->load_assets(requests, true), assets_request);
     if (status.failed())
       return status;
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -100,10 +101,10 @@ void run_asset_reload() {
       (void)scheduler.run_ready();
       gneiss::runtime::asset_load_completion completion;
       bool ready{};
-      status = app->advance_loading();
+      status = app->run(1);
       if (status.failed())
         return status;
-      status = app->poll_assets(completion, ready);
+      status = gneiss::test_support::receive_request(assets_request, completion, ready);
       if (status.failed() || ready)
         return status.failed() ? status : completion.result;
       check(std::chrono::steady_clock::now() < deadline);
@@ -357,32 +358,32 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   if (async) {
     using namespace runtime;
     check(app->attach_task_executor(scheduler) == gneiss::engine::error::success);
-    std::uint64_t request{};
-    check(gneiss::test_support::take_value(app->request_scene(uri, 1U, 1U), request) ==
+    gneiss::runtime::scene_open_request request;
+    check(gneiss::test_support::take_value(app->scenes().open(uri), request) ==
           gneiss::engine::error::success);
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
     while (true) {
       check(std::chrono::steady_clock::now() < deadline);
       scene_load_completion completion;
       bool terminal{};
-      check(app->advance_loading().ok());
-      check(app->poll_scene(completion, terminal) == gneiss::engine::error::success);
+      check(app->run(1).ok());
+      check(gneiss::test_support::receive_request(request, completion, terminal) ==
+            gneiss::engine::error::success);
       if (terminal)
         std::fprintf(stderr, "scene result %d: %s\n", completion.result.code(),
                      completion.message.c_str());
       check(!terminal);
       scene_load_progress progress;
-      check(app->scene_progress(progress));
+      check(gneiss::test_support::observe_request(request, progress));
       if (progress.phase == scene_load_phase::ready) {
-        check(gneiss::test_support::assign_value(app->activate_scene(request), completion) ==
-              gneiss::engine::error::success);
+        check(gneiss::test_support::assign_value(app->scenes().activate(std::move(request)),
+                                                 completion) == gneiss::engine::error::success);
         check(completion.progress.texture_payload_bytes == 0U);
         auto native = app;
         gneiss::engine::frame_image initial;
         check(app->capture_frame(128U, 128U, initial) == gneiss::engine::error::success);
         while (native->visual_assets_loading()) {
           check(std::chrono::steady_clock::now() < deadline);
-          (void)native->advance_loading();
           check(gneiss::engine::error{app->run(1U)} == gneiss::engine::error::success);
           std::this_thread::yield();
         }
@@ -713,8 +714,9 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
                                                                      type::material}}
               : std::vector<gneiss::engine::render_resource_source>{
                     {"asset://t.texture.json", type::texture}};
-    std::uint64_t request{};
-    check(app->request_assets(assets, 1U, 1U, request, true) == gneiss::engine::error::success);
+    gneiss::runtime::asset_batch_request assets_request;
+    check(gneiss::test_support::take_value(app->load_assets(assets, true), assets_request) ==
+          gneiss::engine::error::success);
     gneiss::runtime::asset_load_completion completed;
     bool ready{};
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
@@ -723,8 +725,9 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
       if (mode == gneiss::engine::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
-      check(app->advance_loading().ok());
-      check(app->poll_assets(completed, ready) == gneiss::engine::error::success);
+      check(app->run(1).ok());
+      check(gneiss::test_support::receive_request(assets_request, completed, ready) ==
+            gneiss::engine::error::success);
       std::this_thread::yield();
     }
     return completed.result;
@@ -808,10 +811,10 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
   };
   auto active_pixels = capture();
   // 打开场景只复用已有成功内容；外部文件更新由显式重载处理。
-  const auto load = [&](std::uint64_t revision, bool cancel) {
+  const auto load = [&](std::uint64_t, bool cancel) {
     const auto old_scene = scene;
-    std::uint64_t request{};
-    check(gneiss::test_support::take_value(app->request_scene(uri, 1U, revision), request) ==
+    gneiss::runtime::scene_open_request request;
+    check(gneiss::test_support::take_value(app->scenes().open(uri), request) ==
           gneiss::engine::error::success);
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     bool requested_cancel{};
@@ -821,25 +824,26 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
       if (mode == gneiss::engine::execution_mode::cooperative)
         (void)scheduler.run_ready();
       bool terminal{};
-      check(app->advance_loading().ok());
-      check(app->poll_scene(completion, terminal) == gneiss::engine::error::success);
+      check(app->run(1).ok());
+      check(gneiss::test_support::receive_request(request, completion, terminal) ==
+            gneiss::engine::error::success);
       if (terminal) {
         check(requested_cancel && completion.progress.phase == scene_load_phase::cancelled);
         check(capture() == active_pixels);
         break;
       }
       scene_load_progress progress;
-      check(app->scene_progress(progress));
+      check(gneiss::test_support::observe_request(request, progress));
       if (progress.phase == scene_load_phase::ready) {
         const auto ready_pixels = capture();
         check(ready_pixels == active_pixels);
         active_pixels = ready_pixels;
         if (cancel) {
-          check(app->cancel_scene(request) == gneiss::engine::error::success);
+          check(request.cancel() == gneiss::engine::error::success);
           requested_cancel = true;
         } else {
-          check(gneiss::test_support::assign_value(app->activate_scene(request), completion) ==
-                gneiss::engine::error::success);
+          check(gneiss::test_support::assign_value(app->scenes().activate(std::move(request)),
+                                                   completion) == gneiss::engine::error::success);
           scene = completion.scene;
           auto native = app;
           while (native->visual_assets_loading()) {
@@ -847,10 +851,11 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
             if (mode == gneiss::engine::execution_mode::cooperative) {
               (void)scheduler.run_ready();
             }
-            (void)native->advance_loading();
+            check(app->run(1).ok());
           }
-          check(app->advance_loading().ok());
-          check(app->poll_scene(completion, terminal) == gneiss::engine::error::success);
+          check(app->run(1).ok());
+          check(gneiss::test_support::receive_request(request, completion, terminal) ==
+                gneiss::engine::error::success);
           check(gneiss::engine::error{app->run(3U)} == gneiss::engine::error::success);
           const auto changed = capture();
           check(changed == active_pixels);

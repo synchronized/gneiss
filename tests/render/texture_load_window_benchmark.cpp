@@ -33,6 +33,7 @@ struct sample {
   double update_interval{};
 };
 struct context {
+  runtime::asset_batch_request request;
   gneiss::engine::task_scheduler* scheduler{};
   std::filesystem::path root;
   bool model{};
@@ -108,17 +109,15 @@ gneiss::engine::error native_update(runtime::application& app, context& state) {
     const std::array uris{gneiss::engine::render_resource_source{
         .uri = "asset://textures/test.texture.json",
         .type = gneiss::engine::render_resource_kind::texture}};
-    std::uint64_t request{};
-    const auto result = state.model ? app.request_assets(state.assets, 1U, 1U, request, true)
-                                    : app.request_assets(uris, 1U, 1U, request, true);
-    if (result != gneiss::engine::error::success) {
-      return result;
-    }
+    auto result = state.model ? app.load_assets(state.assets, true) : app.load_assets(uris, true);
+    if (!result)
+      return result.error();
+    state.request = std::move(*result);
   }
   if (state.requested && !state.completed) {
     gneiss::runtime::asset_load_completion completion;
     bool ready{};
-    const auto result = app.poll_assets(completion, ready);
+    const auto result = gneiss::test_support::receive_request(state.request, completion, ready);
     if (result != gneiss::engine::error::success) {
       return result;
     }

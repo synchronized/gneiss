@@ -19,8 +19,10 @@
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
 #include "runtime/configuration/application_configuration.hpp"
+#include "runtime/loading/asset_batch_request.hpp"
 #include "runtime/loading/resource_load_types.hpp"
 #include "runtime/loading/scene_load_types.hpp"
+#include "runtime/loading/scene_service.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -61,39 +63,17 @@ public:
   attach_task_executor(gneiss::engine::task_executor& executor);
   [[nodiscard]] GNEISS_API bool has_asset_loading_service() const noexcept;
   /** 借用加载协调服务；必须在 Application 生命周期内、所属线程使用。 */
-  [[nodiscard]] GNEISS_API runtime::scene_service& scene_loading_service() noexcept;
-  [[nodiscard]] GNEISS_API engine::result<std::uint64_t>
-  request_scene(std::string_view uri, std::uint64_t session, std::uint64_t revision);
-  [[nodiscard]] GNEISS_API bool scene_progress(runtime::scene_load_progress& progress) const;
-  [[nodiscard]] GNEISS_API gneiss::engine::error
-  poll_scene(runtime::scene_load_completion& completion, bool& ready);
-  [[nodiscard]] GNEISS_API gneiss::engine::error cancel_scene(std::uint64_t request);
+  [[nodiscard]] GNEISS_API runtime::scene_service& scenes() noexcept;
   [[nodiscard]] GNEISS_API bool scene_loading() const noexcept;
-  /** 宿主通用资源批次；不经场景服务，不创建额外资产缓存。 */
-  [[nodiscard]] GNEISS_API engine::result<asset_load_completion>
-  prepare_assets(std::span<const engine::render_resource_source> sources, std::uint64_t revision,
-                 bool reload = false);
-  [[nodiscard]] GNEISS_API engine::result<asset_load_completion>
-  poll_prepared_assets(std::uint64_t request);
-  [[nodiscard]] GNEISS_API engine::error discard_prepared_assets(std::uint64_t request);
-  [[nodiscard]] GNEISS_API gneiss::engine::error
-  request_assets(std::span<const gneiss::engine::render_resource_source> sources,
-                 std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
-                 bool reload);
-  [[nodiscard]] GNEISS_API gneiss::engine::error
-  poll_assets(gneiss::runtime::asset_load_completion& completion, bool& ready);
-  [[nodiscard]] GNEISS_API bool
-  asset_progress(gneiss::runtime::asset_load_progress& progress) const;
-  [[nodiscard]] GNEISS_API gneiss::engine::error cancel_assets(std::uint64_t request = 0) noexcept;
-  /** 所属线程推进全部加载；run 每帧自动调用，查询/领取回执不会推进工作。 */
-  [[nodiscard]] GNEISS_API engine::error advance_loading();
+  /** 多资源编辑批次；普通单资产直接使用 assets().load<T>()。 */
+  [[nodiscard]] GNEISS_API engine::result<asset_batch_request>
+  load_assets(std::span<const engine::render_resource_source> sources, bool reload = false);
   [[nodiscard]] GNEISS_API bool visual_assets_loading() const noexcept;
   [[nodiscard]] GNEISS_API bool can_activate_scene() const noexcept;
   [[nodiscard]] GNEISS_API runtime::scene_retirement_statistics scene_retirement() const noexcept;
-  [[nodiscard]] GNEISS_API engine::result<scene_load_completion>
-  activate_scene(std::uint64_t request);
 
 private:
+  [[nodiscard]] engine::error advance_loading();
   resource_load_group* loading_assets() noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::error advance_resource_io();
   explicit GNEISS_API application(const runtime::application_configuration& config);
@@ -125,11 +105,6 @@ public:
   /** 共享宿主文件服务；由 Application 分发和关闭，消费者只提交/取消自己的请求。 */
   [[nodiscard]] GNEISS_API std::shared_ptr<gneiss::engine::files::service>
   async_files() const noexcept;
-  /** 异步重载现有实例的结构；prefab 指定是否更新该实例中的同源 Prefab。 */
-  [[nodiscard]] GNEISS_API engine::error
-  request_scene_reload(scene_instance_id instance, std::string_view uri, bool prefab = false);
-  [[nodiscard]] GNEISS_API engine::result<std::optional<scene_reload_completion>>
-  poll_scene_reload();
   [[nodiscard]] GNEISS_API const gneiss::engine::keyboard_state& keyboard_state() const noexcept;
   [[nodiscard]] GNEISS_API const gneiss::engine::pointer_state& pointer_state() const noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::error

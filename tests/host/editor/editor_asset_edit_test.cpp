@@ -74,6 +74,7 @@ void run(gneiss::engine::execution_mode mode) {
       if (mode == gneiss::engine::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
+      check(app->run(1).ok());
       edit.advance(*app, session, history);
       check(std::chrono::steady_clock::now() < deadline);
       std::this_thread::yield();
@@ -168,18 +169,14 @@ void run(gneiss::engine::execution_mode mode) {
   check(!edit.active() && edit.operation() == engine::error::cancelled);
   check(request("asset://missing.json").ok());
   // 原编号失效后，旧操作不能领取新请求的回执，也不能取消新请求。
-  runtime::asset_load_progress pending;
-  check(app->asset_progress(pending));
-  check(app->discard_prepared_assets(pending.request).ok());
-  const engine::render_resource_source replacement{"asset://missing-other.json",
-                                                   engine::render_resource_kind::material};
-  auto other = app->prepare_assets({&replacement, 1}, 1);
-  check(other && other->request != pending.request);
-  edit.advance(*app, session, history);
-  check(!edit.active() && edit.operation() == engine::error::invalid_handle);
   edit.cancel(*app);
-  check(app->asset_progress(pending) && pending.request == other->request);
-  check(app->discard_prepared_assets(other->request).ok());
+  const engine::render_resource_source replacement{"asset://other-missing.json",
+                                                   engine::render_resource_kind::material};
+  auto other = app->load_assets({&replacement, 1});
+  check(other && bool(*other));
+  edit.cancel(*app);
+  check(bool(*other)); // 重复取消旧命令不能取消新请求。
+  other->reset();
   edit.dismiss();
   check(!edit.visible() && history.size() == count);
   // 创建同样先准备，成功才产生节点；命令持有资源引用，坏文件不影响当前成功内容的复用。
@@ -234,7 +231,7 @@ void run(gneiss::engine::execution_mode mode) {
         gneiss::test_support::scene_query(session).nodes.size() == 3U &&
         history.size() == creation_count);
   edit.dismiss();
-  // 文档已经关闭的迟到成功回执不能提交历史或采用新版本。
+  // 文档已经关闭的迟到成功回执不能提交历史或修改已关闭文档。
   std::ofstream(files.root / "c.json")
       << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,0,1,1]},"texture_uris":["","","","",""]})";
   check(request("asset://c.json") == gneiss::engine::error::success);
@@ -242,15 +239,9 @@ void run(gneiss::engine::execution_mode mode) {
   drive();
   check(edit.operation() == gneiss::engine::error::invalid_state &&
         history.size() == creation_count);
-  gneiss::engine::render_resource_ref unused;
-  check(gneiss::test_support::take_value(
-            app->assets().find(
-                {.uri = "asset://c.json", .type = gneiss::engine::render_resource_kind::material},
-                app->assets().profile()),
-            unused) == gneiss::engine::error::not_found &&
-        !unused);
+  // 取消编辑只放弃回执；主循环已提交的共享资产加载可以继续，不要求回滚缓存。
   history.clear();
-  // 旧请求还在准备时切换到另一个有效场景；不能污染新场景或采用旧候选。
+  // 旧请求还在准备时切换到另一个有效场景；不能将旧编辑结果应用到新场景。
   check(session.create_empty(*app, world) == gneiss::engine::error::success);
   std::ofstream(files.root / "d.json")
       << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,1,0,1]},"texture_uris":["","","","",""]})";
@@ -266,11 +257,6 @@ void run(gneiss::engine::execution_mode mode) {
   check(edit.operation() == gneiss::engine::error::invalid_state &&
         session.scene_handle() == new_scene &&
         gneiss::test_support::scene_query(session).nodes.empty() && history.size() == 0U);
-  check(gneiss::test_support::take_value(
-            app->assets().find(
-                {.uri = "asset://d.json", .type = gneiss::engine::render_resource_kind::material},
-                app->assets().profile()),
-            unused) == gneiss::engine::error::not_found);
   // 文档入口负责应用停止和关闭边界，Scene 不依赖 Application。
   check(edit.request_add(*app, session, history, "stopping",
                          {.mesh_uri = "asset://mesh.json", .material_uri = "asset://d.json"})
@@ -362,6 +348,7 @@ void prefab_edits(engine::execution_mode mode) {
     while (edit.active()) {
       if (mode == e::execution_mode::cooperative)
         (void)scheduler.run_ready();
+      check(app->run(1).ok());
       edit.advance(*app, document, history);
       check(std::chrono::steady_clock::now() < deadline);
       std::this_thread::yield();
@@ -437,7 +424,7 @@ void prefab_edits(engine::execution_mode mode) {
   while (reloading->status() == e::error::not_ready) {
     if (mode == e::execution_mode::cooperative)
       (void)scheduler.run_ready();
-    (void)app->advance_loading();
+    (void)app->run(1);
     check(std::chrono::steady_clock::now() < reload_deadline);
     std::this_thread::yield();
   }

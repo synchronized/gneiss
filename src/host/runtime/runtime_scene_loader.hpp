@@ -5,7 +5,7 @@
 
 #include "engine/core/error.hpp"
 #include "ipc_scene_protocol.hpp"
-#include "runtime/loading/scene_load_types.hpp"
+#include "runtime/loading/scene_service.hpp"
 
 #include <functional>
 
@@ -34,7 +34,7 @@ private:
   gneiss::engine::error activate(::gneiss::runtime::scene_load_completion& completion);
   // 借用宿主对象；协调器必须先于 Application 析构。
   ::gneiss::runtime::application& application_;
-  std::uint64_t request_{};
+  ::gneiss::runtime::scene_open_request request_;
   std::uint32_t request_id_{};
   bool active_{};
   gneiss::engine::error result_{gneiss::engine::error::success};

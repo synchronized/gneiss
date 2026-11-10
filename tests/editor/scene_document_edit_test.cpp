@@ -127,7 +127,7 @@ void run(scenario mode) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (status == e::error::not_ready) {
     check(std::chrono::steady_clock::now() < deadline);
-    (void)editing.application->advance_loading();
+    (void)editing.application->run(1);
     status = operation.advance(*editing.application, editing.document, history);
     std::this_thread::yield();
   }
@@ -147,7 +147,7 @@ void run(scenario mode) {
       check(bool(missing));
       while (missing->status() == e::error::not_ready) {
         check(std::chrono::steady_clock::now() < deadline);
-        (void)editing.application->advance_loading();
+        (void)editing.application->run(1);
         std::this_thread::yield();
       }
       check(missing->status().failed());
@@ -193,9 +193,9 @@ void run(scenario mode) {
   }
   const e::render_resource_source source_asset{"asset://material.json",
                                                e::render_resource_kind::material};
-  auto retry = editing.application->prepare_assets({&source_asset, 1}, 7, true);
-  check(retry && retry->request != 0);
-  check(editing.application->discard_prepared_assets(retry->request).ok());
+  auto retry = editing.application->load_assets({&source_asset, 1}, true);
+  check(retry && bool(*retry));
+  retry->reset();
   editing.document.close();
 }
 int main() try {

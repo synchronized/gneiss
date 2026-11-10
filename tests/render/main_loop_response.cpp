@@ -92,7 +92,8 @@ struct response_context {
   probe_trace key_trace, task_trace, scene_trace;
   unsigned scene_updates{};
   std::atomic_bool scene_ready{true};
-  std::uint64_t scene_request{}, nodes{}, resources{};
+  gneiss::runtime::scene_open_request scene_request;
+  std::uint64_t nodes{}, resources{};
   clock_type::time_point deadline = clock_type::now() + 10s;
   // 调度器先于被探针任务引用的状态销毁，异常退出也会先等待任务结束。
   gneiss::engine::task_scheduler scheduler{{.workers = 1U}};
@@ -105,17 +106,17 @@ gneiss::engine::error advance_scene(gneiss::runtime::application& app, response_
   }
   scene_load_completion completion;
   bool terminal{};
-  auto result = app.poll_scene(completion, terminal);
+  auto result = gneiss::test_support::receive_request(state.scene_request, completion, terminal);
   if (result != gneiss::engine::error::success || terminal) {
     return result != gneiss::engine::error::success ? result : completion.result;
   }
   scene_load_progress progress;
   bool active{};
-  active = app.scene_progress(progress);
+  active = gneiss::test_support::observe_request(state.scene_request, progress);
   if (result == gneiss::engine::error::success && active &&
       progress.phase == scene_load_phase::ready) {
-    result =
-        gneiss::test_support::assign_value(app.activate_scene(state.scene_request), completion);
+    result = gneiss::test_support::assign_value(
+        app.scenes().activate(std::move(state.scene_request)), completion);
     if (result == gneiss::engine::error::success) {
       result = gneiss::engine::error{gneiss::test_support::take_value(
           gneiss::test_support::scene_access{app}->get_node_count(completion.scene), state.nodes)};
@@ -312,9 +313,9 @@ int main(int argc, char** argv) try {
       app->attach_task_executor(state.scheduler) != gneiss::engine::error::success) {
     return 1;
   }
-  if (!asset_root.empty() && gneiss::test_support::take_value(
-                                 app->request_scene("asset://scenes/scene.scene.json", 1U, 1U),
-                                 state.scene_request) != gneiss::engine::error::success) {
+  if (!asset_root.empty() &&
+      gneiss::test_support::take_value(app->scenes().open("asset://scenes/scene.scene.json"),
+                                       state.scene_request) != gneiss::engine::error::success) {
     return 1;
   }
   auto* const window = FindWindowA(nullptr, title.c_str());

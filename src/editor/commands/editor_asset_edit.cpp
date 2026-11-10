@@ -287,11 +287,21 @@ editor_asset_edit::request_impl(runtime::application& application, scene_edit_se
   runtime::asset_load_completion prepared;
   prepared.state = runtime::asset_load_state::applied;
   if (!sources.empty()) {
-    auto result = application.prepare_assets(sources, ++revision_);
+    auto result = application.load_assets(sources);
     if (!result)
       operation_ = result.error();
-    else
-      prepared = std::move(*result);
+    else {
+      request_ = std::move(*result);
+      if (request_.ready()) {
+        auto completed = request_.take();
+        if (!completed)
+          operation_ = completed.error();
+        else
+          prepared = std::move(*completed);
+      } else {
+        prepared.state = runtime::asset_load_state::preparing;
+      }
+    }
   }
   if (operation_.failed() || prepared.state == runtime::asset_load_state::applied) {
     if (operation_.ok()) {
@@ -303,7 +313,6 @@ editor_asset_edit::request_impl(runtime::application& application, scene_edit_se
     prefab_before_.reset();
     return operation_;
   }
-  request_ = prepared.request;
   active_ = true;
   visible_ = true;
   return operation_;
@@ -334,9 +343,7 @@ void editor_asset_edit::advance(runtime::application& application, scene_edit_se
     return;
   }
   if (restore_) {
-    operation_ = application.advance_loading();
-    if (operation_.ok())
-      operation_ = restore_->advance(application, session, history);
+    operation_ = restore_->advance(application, session, history);
     if (operation_ == engine::error::not_ready)
       return;
     restore_.reset();
@@ -349,20 +356,11 @@ void editor_asset_edit::advance(runtime::application& application, scene_edit_se
     finish(application);
     return;
   }
-  operation_ = application.advance_loading();
-  if (operation_.failed()) {
-    finish(application);
-    return;
-  }
-  (void)application.asset_progress(progress_);
-  if (progress_.request != request_)
-    progress_ = {};
-  auto completion = application.poll_prepared_assets(request_);
+  progress_ = request_.progress().value_or(runtime::asset_load_progress{});
+  auto completion = request_.take();
   if (!completion && completion.error() == engine::error::not_ready)
     return;
   operation_ = completion ? completion->result : completion.error();
-  if (completion)
-    request_ = 0;
   if (operation_.ok()) {
     accept_assets(completion->assets);
     operation_ = next_.mesh && next_.material ? commit(application, session, history)
@@ -370,11 +368,8 @@ void editor_asset_edit::advance(runtime::application& application, scene_edit_se
   }
   finish(application);
 }
-void editor_asset_edit::finish(runtime::application& application) {
-  if (request_) {
-    (void)application.discard_prepared_assets(request_);
-    request_ = 0;
-  }
+void editor_asset_edit::finish(runtime::application&) {
+  request_.reset();
   active_ = false;
   visible_ = operation_.failed() && !cancelled_;
   previous_ = {};

@@ -306,7 +306,7 @@ add_test(NAME gneiss.native-application-flow COMMAND gneiss_native_application_f
 if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
   add_executable(gneiss_native_application_test native_application_test.cpp)
   target_include_directories(gneiss_native_application_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-  target_link_libraries(gneiss_native_application_test PRIVATE gneiss::engine Threads::Threads)
+  target_link_libraries(gneiss_native_application_test PRIVATE gneiss::engine gneiss_tasks Threads::Threads)
   gneiss_target_compile_warnings(gneiss_native_application_test)
   gneiss_target_output_directories(gneiss_native_application_test)
   add_test(NAME gneiss.native-application COMMAND gneiss_native_application_test)

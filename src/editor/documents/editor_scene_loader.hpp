@@ -7,7 +7,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/world.hpp"
-#include "runtime/loading/scene_load_types.hpp"
+#include "runtime/loading/scene_service.hpp"
 #include "viewport/editor_camera.hpp"
 
 namespace gneiss::editor {
@@ -35,8 +35,7 @@ public:
 private:
   std::string uri_;
   runtime::scene_load_progress progress_;
-  std::uint64_t revision_{};
-  std::uint64_t request_{};
+  ::gneiss::runtime::scene_open_request request_;
   gneiss::engine::error operation_{gneiss::engine::error::success};
   bool active_{};
   bool visible_{};

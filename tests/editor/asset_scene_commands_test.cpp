@@ -51,7 +51,7 @@ int main() try {
       if (std::chrono::steady_clock::now() >= deadline)
         throw std::runtime_error("异步编辑超时");
       (void)scheduler.run_ready();
-      (void)app->advance_loading();
+      (void)app->run(1);
       advance();
       std::this_thread::yield();
     }

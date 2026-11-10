@@ -39,24 +39,23 @@ bool open_scene(gneiss::engine::task_scheduler& scheduler, std::string_view root
   app = std::move(*created);
   if (app->attach_task_executor(scheduler).failed())
     return false;
-  auto submitted = app->request_scene(scene_uri, 1, 1);
+  auto submitted = app->scenes().open(scene_uri);
   if (!submitted)
     return false;
-  const auto request = *submitted;
+  auto request = std::move(*submitted);
   gneiss::runtime::scene_load_completion completion;
   // 命令行示例的宿主循环；解码与 I/O 都从异步请求取得。
   for (;;) {
     (void)scheduler.run_ready();
-    bool finished = false;
-    if (app->run(1).failed() || app->poll_scene(completion, finished).failed() ||
-        (finished && completion.result.failed()))
-      return false;
-    gneiss::runtime::scene_load_progress progress;
-    if (app->scene_progress(progress) &&
-        progress.phase == gneiss::runtime::scene_load_phase::ready && app->can_activate_scene())
+    if (app->run(1).failed())
+      return 2;
+    const auto status = request.status();
+    if (status.failed() && status != gneiss::engine::error::not_ready)
+      return 2;
+    if (request.ready())
       break;
   }
-  auto activated = app->activate_scene(request);
+  auto activated = app->scenes().activate(std::move(request));
   if (!activated)
     return false;
   completion = std::move(*activated);

@@ -183,17 +183,18 @@ int main() try {
   write_scene(
       scene_path,
       R"([{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/missing.material.json","uuid":"6ac36c36-95c2-4975-9b2a-4fbcc4c7bca1"}}])");
-  if (application->request_scene_reload(scene, uri, false).failed())
+  auto reload_request = application->scenes().reload(scene, uri, false);
+  if (!reload_request)
     return 24;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   for (;;) {
     (void)scheduler.run_ready();
-    (void)application->advance_loading();
-    auto completed = application->poll_scene_reload();
-    if (!completed)
+    (void)application->run(1);
+    auto completed = reload_request->take();
+    if (!completed && completed.error() != gneiss::engine::error::not_ready)
       return 25;
-    if (*completed) {
-      if ((**completed).result.failed() || !application->visual_assets_loading())
+    if (completed) {
+      if (completed->result.failed() || !application->visual_assets_loading())
         return 26;
       break;
     }
@@ -204,7 +205,7 @@ int main() try {
     if (std::chrono::steady_clock::now() >= deadline)
       return 28;
     (void)scheduler.run_ready();
-    (void)application->advance_loading();
+    (void)application->run(1);
   }
   if (visual_failures != 3)
     return 29;
