@@ -48,10 +48,9 @@ int main() try {
             app->native_world()->find(gneiss::entity_id{(child).get()}).parent(), parent)
             .ok() &&
         parent == root);
-  // 来源信息只在调用方组合结果中；运行节点使用独立 UUID 和普通组件。
-  auto identity = app->native_world()->find(gneiss::entity_id{(root).get()}).identity();
-  check(identity && identity->uuid != member->address.object &&
-        identity->uuid != member->parent.source);
+  // 来源信息只在调用方组合结果中；运行对象只保存名称和普通组件。
+  auto identity = app->native_world()->find(gneiss::entity_id{(root).get()}).name();
+  check(app->native_world()->find(root).is_valid());
   auto second = gneiss::test_support::scene_fixture::instantiate_scene(*app->native_world(),
                                                                        prepared, assets);
   check(bool(second));
@@ -60,8 +59,8 @@ int main() try {
   auto second_identity =
       app->native_world()
           ->find(gneiss::entity_id{(second_mapping.at(member->parent).node).get()})
-          .identity();
-  check(second_identity && !second_identity->uuid && !identity->uuid);
+          .name();
+  check(second_identity == identity && second_mapping.at(member->parent).node != root);
   check(app->native_world()->object(gneiss::entity_id{child.get()})->set_name("Runtime edit").ok());
   check(gneiss::test_support::scene_access{*app}->reparent_node(created->instance, child, {}).ok());
   check(gneiss::test_support::assign_value(

@@ -5,6 +5,7 @@
 #include "engine/function/scene/detail/world_component_access.hpp"
 #include "engine/function/scene/detail/world_state.hpp"
 #include "engine/function/scene/world.hpp"
+#include <cassert>
 #include <string>
 #include <utility>
 
@@ -12,21 +13,10 @@ namespace gneiss::engine {
 bool game_object::is_valid() const noexcept {
   return owner_ && owner_->object(entity_).has_value();
 }
-result<scene_node_identity_view> game_object::identity() const {
-  if (!owner_)
-    return error::invalid_handle;
+std::string_view game_object::name() const {
+  assert(is_valid());
   auto state = detail::world_component_access::get(*owner_);
-  if (!state)
-    return state.error();
-  return (*state)->scene().identity(entity_id{entity_.get()});
-}
-error game_object::set_identity(scene_node_identity identity) const {
-  if (!owner_)
-    return error::invalid_handle;
-  auto state = detail::world_component_access::get(*owner_);
-  if (!state)
-    return state.error();
-  return (*state)->scene().set_identity(entity_id{entity_.get()}, std::move(identity));
+  return *(*state)->scene().name(entity_);
 }
 result<math::transform> game_object::local_transform() const {
   if (!owner_)
@@ -82,10 +72,12 @@ error game_object::set_local_transform(const math::transform& transform) const {
   return (*state)->scene().set_local(entity_id{entity_.get()}, transform);
 }
 error game_object::set_name(std::string_view name) const {
-  auto current = identity();
-  if (!current)
-    return current.error();
-  return set_identity({current->uuid, std::string(name)});
+  if (!owner_)
+    return error::invalid_handle;
+  auto state = detail::world_component_access::get(*owner_);
+  if (!state)
+    return state.error();
+  return (*state)->scene().set_name(entity_, std::string(name));
 }
 result<game_object> game_object::parent() const {
   if (!owner_)

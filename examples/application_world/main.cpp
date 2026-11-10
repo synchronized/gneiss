@@ -19,7 +19,7 @@ int main() try {
   auto object_scene = world->create_scene();
   if (!object_scene)
     return 2;
-  auto object = object_scene->create({{}, "example"});
+  auto object = object_scene->create_object({"example", {}});
   if (!object)
     return 2;
   state.entity = object->entity();

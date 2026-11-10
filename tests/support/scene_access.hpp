@@ -109,18 +109,15 @@ struct scene_access {
     if (index >= objects.size())
       return engine::error::not_found;
     auto object = objects[index];
-    auto identity = object.identity();
+    const std::string name(object.name());
     auto parent = object.parent();
-    if (!identity)
-      return identity.error();
     if (!parent)
       return parent.error();
     test_support::scene_node_info info;
     info.node = entity_id{object.entity().get()};
     info.entity = object.entity();
     info.parent = entity_id{parent->entity().get()};
-    info.uuid = identity->uuid;
-    info.name = identity->name;
+    info.name = name;
     if (detail != test_support::node_query_detail::identity) {
       auto components = engine::capture_components(owner, info.node);
       if (!components)

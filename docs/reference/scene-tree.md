@@ -11,7 +11,7 @@ ID 只在所属 World 的生命周期内有效，销毁后旧 ID 不会指向复
 有层级的节点就是同一个 ECS 实体，名称、父子关系和局部变换存放于实体组件。
 World 不再分配独立节点槽位，也不维护节点到实体的扫描映射。纯 ECS 实体可以没有层级组件。
 删除节点或删除该实体都会递归删除子树中的实体与组件，所有旧节点和实体句柄同时失效。
-World 不再提供 node 创建或 node/entity 转换接口；scene_instance::create 返回 game_object。
+World 不再提供 node 创建或 node/entity 转换接口；scene_instance::create_object 返回 game_object。
 
 ## 层级操作
 

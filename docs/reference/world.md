@@ -34,7 +34,7 @@ World 拒绝不同场景已登记成员之间的重新挂接，返回 invalid_ar
 场景访问入口统一校验线程和句柄，并清理已经由 World 销毁的成员；
 size 和枚举不再返回已经失效的成员。存活实体仍以 World 的 generation 校验为准。
 运行对象不提供来源 UUID 查找；来源由实例化回执和调用方映射维护。
-普通对象统一通过 scene_instance::create 创建并返回 game_object，创建成功即具有场景归属。
+普通对象统一通过 scene_instance::create_object 创建并返回 game_object，创建成功即具有场景归属。
 普通组件通过 `world::find(entity)` 获得借用句柄，再调用
 `read_component<T>()`、`set_component(T)`、`remove_component<T>()`；不要求实体具有对象层级。
 当前内置实例化支持 camera_component 和 mesh_renderer_component。读取返回值副本，
@@ -44,7 +44,7 @@ size 和枚举不再返回已经失效的成员。存活实体仍以 World 的 g
 场景归属不允许通过普通组件写入口修改。
 
 借用接口位于 `function/scene/scene_instance.hpp`。
-`scene_instance::create(identity, transform, parent)` 显式创建并登记本场景对象，
+`scene_instance::create_object(options, parent)` 显式创建并登记本场景对象，
 返回 game_object；空父对象创建根，其他场景或 World 的父对象被拒绝。
 Prefab 展开的成员同样可以作为动态对象的父节点；运行结构修改不写入编辑文档。
 不提供 World 级的无归属对象创建入口。动态对象脱离父节点后仍属于原场景，随场景卸载。
@@ -68,15 +68,15 @@ Prefab 展开的成员同样可以作为动态对象的父节点；运行结构�
 
 ## Game Object 借用
 
-`scene_instance::create(identity, transform, parent)` 创建该场景中的对象并返回 `result<game_object>`。
+`scene_instance::create_object(options, parent)` 创建该场景中的对象并返回 `result<game_object>`。
 `world::find(entity)` 只构造借用句柄，零 ID 返回空句柄；各操作再校验线程、所属域和代次。
 `world::object(entity)` 立即校验并借用已有对象，纯 ECS 实体返回 not_found；失效或跨 World 实体返回 invalid_handle。
 `game_object` 只保存 world* 和 entity_id，复制不保活实体，不保存组件地址。
 World 必须比所有句柄的使用期更长；World 销毁后禁止再调用句柄。
 
-identity、local_transform、world_transform 和 parent 返回值或结果；set_identity、
+name 返回借用名称，要求对象有效且在所属线程访问；local_transform、world_transform 和 parent 返回结果；set_name、
 set_local_transform、reparent 和 destroy 修改 World 中的同一实体。
-identity 返回的名称是借用视图；节点删除、身份修改或 World 结构变化后须重新查询，
+name 返回的名称是借用视图；对象删除、改名或 World 结构变化后须重新查询，
 不能假设其他对象增删不会移动 ECS 组件。
 根节点的 parent 返回成功的空句柄。reparent 接受空父节点、拒绝跨 World 和循环关系。
 重复指定同一父节点是无副作用操作。destroy 删除整棵子树，复制的借用句柄同步失效。

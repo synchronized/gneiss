@@ -148,7 +148,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
   for (const auto& object : next.objects) {
     if (old.contains(object.address))
       continue;
-    auto created = destination->create({{}, object.effective.name}, object.effective.transform);
+    auto created = destination->create_object({object.effective.name, object.effective.transform});
     if (!created)
       return created.error();
     projected_object info;

@@ -53,11 +53,9 @@ int main() try {
   const auto root_node = mapping.at(first_root).node;
   const auto child_node = mapping.at(first_child).node;
   check(root_node != mapping.at(second_root).node);
-  auto root_identity = world.find(gneiss::entity_id{(root_node).get()}).identity();
-  auto other_identity =
-      world.find(gneiss::entity_id{(mapping.at(second_root).node).get()}).identity();
-  check(root_identity && other_identity && !root_identity->uuid && !other_identity->uuid);
-  check(root_identity->uuid != first.uuid && root_identity->uuid != root.uuid);
+  auto root_identity = world.find(gneiss::entity_id{(root_node).get()}).name();
+  auto other_identity = world.find(gneiss::entity_id{(mapping.at(second_root).node).get()}).name();
+  check(root_identity == other_identity);
   gneiss::entity_id parent;
   check(gneiss::test_support::assign_value(
             world.find(gneiss::entity_id{(child_node).get()}).parent(), parent)
@@ -81,7 +79,7 @@ int main() try {
             world.find(gneiss::entity_id{(child_node).get()}).parent(), parent)
             .ok() &&
         parent == mapping.at(second_root).node);
-  check(world.find(gneiss::entity_id{(child_node).get()}).identity()->name == "Renamed");
+  check(world.find(gneiss::entity_id{(child_node).get()}).name() == "Renamed");
   // 无效目标层级在修改前拒绝。
   auto cycle = next;
   for (auto& object : cycle.objects)

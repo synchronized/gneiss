@@ -90,7 +90,7 @@ int main() try {
     auto destination = gneiss::engine::scene_instance::borrow(*world, session.scene_handle());
     if (!destination)
       return 36;
-    auto created = destination->create({uuid, "Direct child"}, {}, world->find(original.node));
+    auto created = destination->create_object({"Direct child", {}}, world->find(original.node));
     if (!created || session.find_node(uuid) || session.select(created->entity()).ok())
       return 36;
     if (session.capture_nodes()->nodes.size() != before->nodes.size())
@@ -106,7 +106,7 @@ int main() try {
     auto target = world->create_scene();
     if (!target)
       return 100;
-    auto member = target->create({gneiss::engine::guid::generate(), "Target"});
+    auto member = target->create_object({"Target"});
     auto content = session.capture_content();
     auto nodes = session.capture_nodes();
     if (!member || !content || !nodes || nodes->nodes.empty())

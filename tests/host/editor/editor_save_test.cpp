@@ -146,7 +146,7 @@ int main() try {
   // 运行时名称变化不得进入文档子树快照。
   if (application->native_world()
           ->find(gneiss::entity_id{(created_node).get()})
-          .set_identity({created_uuid, "Live snapshot"})
+          .set_name("Live snapshot")
           .failed())
     return 20;
   gneiss::editor::scene_subtree_snapshot snapshot;

@@ -12,7 +12,7 @@ World 私有状态直接拥有场景槽位表；`scene_instance` 是借用句柄
 
 World 拥有场景树和 ECS；节点的 `scene_membership` 组件记录场景实例归属，
 场景槽位只保存实例 ID，不再分配每场景状态对象或维护独立成员列表。查询和卸载从 ECS 读取归属，直接通过 World 删除对象后无需清理另一份列表。
-普通对象只通过 scene_instance::create 创建；父对象必须属于同一场景，并随场景卸载。
+普通对象只通过 scene_instance::create_object 创建；父对象必须属于同一场景，并随场景卸载。
 更换父节点只允许相同归属，不提供无归属临时对象入口。
 解除父节点不改变场景归属。成员枚举序号不是稳定身份，删除或新增对象后须重新查询。
 ECS 组件持有 mesh/material 等引擎资源强引用，不保存第三方后端对象。
@@ -119,8 +119,8 @@ Prefab 编辑开始时从组件覆盖快照取得原资源引用；异步加载�
 
 `scene_instance::size/visit_objects` 读取 ECS 归属，不提供来源 UUID 查找。
 来源关联使用实例化回执的 `{object, source}` 地址，调用方据此保存实体映射。
-实例化及增量投影创建的运行对象 UUID 为 nil，普通对象和 Prefab 展开对象均不复制描述身份。
-旧动态对象创建接口仍接受显式 UUID 标签，但它不参与来源定位。
+运行对象不保存对象 UUID，普通对象和 Prefab 展开对象均通过外部回执关联描述身份。
+create_object 接收 object_options（名称和局部变换），不接受描述 UUID。
 Inspector 的 Prefab URI、来源变换和覆盖列表由编辑文档查询生成，不进入 composed_object。
 
 ## 编辑和保存
@@ -169,7 +169,7 @@ Editor Document 保存及完整子树撤销读取文档版本，不反向捕获 
 没有独立的实例描述数组。根名称与变换采用外层对象值，根组件来自模板与实例覆盖。
 具体格式与校验见[场景格式](scene-format.md)。
 
-运行对象改名使用 `game_object::set_name`，只修改名称并保留 UUID 和实体身份。
+运行对象改名使用 `game_object::set_name`，只修改名称并保留实体身份。
 场景集合不再提供改名与变换转发；`reparent_node`、动态子对象创建和相机操作仍按场景成员校验，
 普通对象、Prefab 根和展开成员使用相同规则。运行时可以删除来源成员或调整其层级，
 但不自动生成文档中的结构覆盖。跨场景父关系仍拒绝。
@@ -524,5 +524,5 @@ Runtime 检视通过实例化回执取得普通对象或 Prefab 来源地址；�
 但没有对应的编辑文档对象，不能应用回作者数据。Prefab 对象使用实例/来源地址定位。
 
 实例化产品接口只提供 `instantiate` 及其回执，不提供网格专用创建、设置或绑定替换接口。
-动态对象由 `scene_instance::create` 创建，组件通过通用装配或 `game_object` 组件接口操作。
+动态对象由 `scene_instance::create_object` 创建，组件通过通用装配或 `game_object` 组件接口操作。
 场景增量应用中的固定资源同步封装在 `apply_scene` 实现内部，不查询当前资产缓存。

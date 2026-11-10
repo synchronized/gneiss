@@ -570,11 +570,12 @@ Windows Clang Debug 全部默认目标编译通过；完整重链后 28 项定�
 ### 目标 API 示意与实际入口
 
 上方目标代码中的 children/roots 范围和借用组件指针接口尚未提供。
-普通对象创建已统一进入 scene_instance::create，World 不再提供 create_object；
+普通对象创建已统一进入 scene_instance::create_object(object_options, parent)，World 不再提供 create_object；
+运行对象已删除 scene_node_identity/identity/set_identity 及对象 UUID，仅保存名称；name() 是有效句柄的借用查询。
 示例及测试显式建立或借用场景，不创建隐式默认场景。纯 ECS 辅助实体仍由创建方管理。
 当前遍历使用 visit_objects，普通组件已提供 GameObject 的模板值读写和删除；
 read_component 返回副本，set_component 安装或替换，尚不等同于示意中的 try_component/add_component。
-实际错误返回沿用 error/result，create/borrow 等准确签名以 Reference 和头文件为准。
+实际错误返回沿用 error/result，create_object/borrow 等准确签名以 Reference 和头文件为准。
 
 ## 目录迁移验收
 

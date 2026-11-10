@@ -32,12 +32,4 @@ struct scene_object_binding {
   entity_id node;
   entity_id entity;
 };
-struct scene_node_identity final {
-  guid uuid;
-  std::string name;
-};
-struct scene_node_identity_view final {
-  guid uuid;
-  std::string_view name;
-};
 }

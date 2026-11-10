@@ -4,6 +4,11 @@
 #include "engine/function/scene/game_object.hpp"
 #include <functional>
 namespace gneiss::engine {
+/** 创建参数仅在调用期间借用，名称复制到运行对象。 */
+struct object_options {
+  std::string_view name;
+  math::transform transform{};
+};
 /** 场景的非拥有句柄；World 必须比使用期更长，全部访问限所属线程。 */
 class scene_instance final {
 public:
@@ -17,8 +22,8 @@ public:
   /** 查询对象是否属于本场景；跨 World、空或失效对象返回 false。 */
   [[nodiscard]] GNEISS_API result<bool> contains(game_object) const noexcept;
   /** 创建本场景成员；父对象必须属于本场景，空父对象创建根。 */
-  [[nodiscard]] GNEISS_API result<game_object>
-  create(scene_node_identity, const math::transform& = {}, game_object parent = {}) const;
+  [[nodiscard]] GNEISS_API result<game_object> create_object(const object_options& = {},
+                                                             game_object parent = {}) const;
   /** 所属线程同步遍历成员；回调不得创建/删除实体、改变层级或归属，顺序不保证稳定。
    * 回调失败停止后续调用，不缓存成员副本；roots_only 只访问根对象。 */
   [[nodiscard]] GNEISS_API error visit_objects(const std::function<error(game_object)>&,

@@ -225,10 +225,8 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
   std::vector<runtime_scene_source_node> nodes;
   nodes.reserve(static_cast<std::size_t>(*count));
   auto status = instance->visit_objects([&](engine::game_object object) -> engine::error {
-    auto identity = object.identity();
-    if (!identity)
-      return identity.error();
-    if (identity->name.size() > runtime_inspection_max_string_size)
+    const std::string name(object.name());
+    if (name.size() > runtime_inspection_max_string_size)
       return engine::error::invalid_argument;
     auto parent = object.parent();
     if (!parent)
@@ -248,7 +246,7 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
          .uuid = binding && !binding->source ? binding->object : engine::guid{},
          .prefab_instance_uuid = binding && binding->source ? binding->object : engine::guid{},
          .prefab_source_node_uuid = binding ? binding->source : engine::guid{},
-         .name = std::string{identity->name},
+         .name = name,
          .local_transform = *transform,
          .components = std::move(*components)});
     return engine::error::success;

@@ -56,7 +56,6 @@ inline engine::error assign_mesh(engine::world& owner, engine::asset_manager& as
       engine::mesh_renderer_component{{before->mesh, before->material}});
 }
 struct mesh_fixture {
-  engine::guid uuid;
   std::string_view name;
   entity_id parent{};
   std::string_view mesh_uri, material_uri;
@@ -67,8 +66,7 @@ inline engine::result<entity_id> spawn_mesh(engine::world& owner, engine::asset_
   auto destination = engine::scene_instance::borrow(owner, scene);
   if (!destination)
     return destination.error();
-  auto made = destination->create({fixture.uuid, std::string(fixture.name)}, {},
-                                  owner.find(fixture.parent));
+  auto made = destination->create_object({fixture.name, {}}, owner.find(fixture.parent));
   if (!made)
     return made.error();
   engine::component_context context{*made};

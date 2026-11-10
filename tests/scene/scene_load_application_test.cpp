@@ -755,8 +755,7 @@ void source_reload_without_world_prefab_state() {
   check(changed.result.ok() && changed.objects.size() == 3);
   check(find(changed.objects, root.uuid) == root_node &&
         find(changed.objects, child.uuid) == child_node);
-  check(app->native_world()->find(gneiss::entity_id{(child_node).get()}).identity()->name ==
-        "updated");
+  check(app->native_world()->find(gneiss::entity_id{(child_node).get()}).name() == "updated");
   auto object = app->native_world()->object(entity_id{root_node.get()});
   check(object && object->local_transform()->translation.x == 7);
   prefab.objects.erase(prefab.objects.begin() + 1);

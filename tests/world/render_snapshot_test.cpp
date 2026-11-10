@@ -71,8 +71,8 @@ int run_tests() {
   auto scene = world.create_scene();
   if (!scene)
     return 1;
-  auto camera_object = scene->create({{}, "camera"});
-  auto mesh_object = scene->create({{}, "mesh"});
+  auto camera_object = scene->create_object({"camera", {}});
+  auto mesh_object = scene->create_object({"mesh", {}});
   if (!camera_object || !mesh_object)
     return 1;
   const auto camera_entity = camera_object->entity();
@@ -115,7 +115,7 @@ int run_tests() {
       snapshot->camera.transform.translation[0] != 17.0F) {
     return 7;
   }
-  auto added_object = scene->create({{}, "added mesh"});
+  auto added_object = scene->create_object({"added mesh", {}});
   if (!added_object || added_object->set_component(mesh_renderer_component{renderer}).failed())
     return 5;
   snapshot = extract_render_snapshot(world, 1280U, 720U);

@@ -38,7 +38,7 @@ bool test_write_and_revision() {
   auto object_scene = owner->create_scene();
   if (!object_scene)
     return false;
-  auto object = object_scene->create({{}, "object"});
+  auto object = object_scene->create_object({"object", {}});
   GNEISS_TEST_CHECK(object.has_value());
   auto entity = object->entity();
   gneiss::entity_id scene_node{entity.get()};

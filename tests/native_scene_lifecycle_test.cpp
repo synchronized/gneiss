@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/world.hpp"
 #include "support/value_result.hpp"
 #include <thread>
 
 int main(void) {
+  if (gneiss::engine::initialize_meta().failed())
+    return 21;
   gneiss::engine::world_owner world;
 
   gneiss::entity_id entity = gneiss::entity_id{};
@@ -22,11 +25,11 @@ int main(void) {
   auto object_scene = world->create_scene();
   if (!object_scene)
     return 1;
-  auto root_object = object_scene->create({{}, "root"});
+  auto root_object = object_scene->create_object({"root", {}});
   if (!root_object)
     return 1;
-  auto child_object = object_scene->create({{}, "child"}, {}, *root_object);
-  if (!child_object)
+  auto child_object = object_scene->create_object({root_object->name()}, *root_object);
+  if (!child_object || child_object->name() != "root" || child_object->set_name("child").failed())
     return 1;
   root = gneiss::entity_id{root_object->entity().get()};
   child = gneiss::entity_id{child_object->entity().get()};
@@ -69,21 +72,21 @@ int main(void) {
   // 借用对象不拥有实体；空值、跨 World、generation 与子树销毁使用同一规则。
   using namespace gneiss::engine;
   auto another = create_native();
-  auto object = object_scene->create({{}, "root"});
+  auto object = object_scene->create_object({"root", {}});
   if (!another)
     return 6;
   auto foreign_scene = (*another)->create_scene();
   if (!foreign_scene)
     return 6;
-  auto foreign = foreign_scene->create({{}, "foreign"});
+  auto foreign = foreign_scene->create_object({"foreign", {}});
   if (!object || !foreign || !object->is_valid() || game_object{}.is_valid() ||
       game_object{}.destroy() != error::invalid_handle ||
       object->reparent(*foreign) != error::invalid_handle)
     return 6;
-  auto rejected = object_scene->create({{}, "cross"}, {}, *foreign);
+  auto rejected = object_scene->create_object({"cross", {}}, *foreign);
   if (rejected || rejected.error() != error::invalid_handle)
     return 7;
-  auto descendant = object_scene->create({{}, "child"}, {}, *object);
+  auto descendant = object_scene->create_object({"child", {}}, *object);
   if (!descendant || object->reparent(*descendant) != error::invalid_argument)
     return 8;
   auto borrowed_parent = descendant->parent();
@@ -106,7 +109,7 @@ int main(void) {
   if (object->destroy().failed() || copy.is_valid() || descendant->is_valid() ||
       copy.destroy() != error::invalid_handle)
     return 12;
-  auto replacement = object_scene->create({{}, "replacement"});
+  auto replacement = object_scene->create_object({"replacement", {}});
   if (!replacement || replacement->entity() == copy.entity() || copy.is_valid())
     return 13;
   gneiss::entity_id pure;
@@ -121,7 +124,7 @@ int main(void) {
   auto scene_copy = *object_scene;
   if (object_scene->unload().failed() || scene_copy.is_valid() || replacement->is_valid())
     return 18;
-  if (scene_copy.create({{}, "expired"}).error() != error::invalid_handle)
+  if (scene_copy.create_object({"expired", {}}).error() != error::invalid_handle)
     return 19;
   auto auxiliary_alive = world->entity_is_alive(pure);
   if (!auxiliary_alive || !*auxiliary_alive || world->entity_destroy(pure).failed())

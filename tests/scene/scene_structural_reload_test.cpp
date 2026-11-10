@@ -87,7 +87,7 @@ int main() try {
   // 直接修改 World 后重载同一文件，差异必须基于当前对象而非加载时描述。
   if (application->native_world()
           ->find(gneiss::entity_id{(camera_before).get()})
-          .set_identity({camera_uuid, "Edited"})
+          .set_name("Edited")
           .failed() ||
       application->native_world()
           ->find(camera_entity_before)
@@ -102,10 +102,10 @@ int main() try {
           .failed())
     return 20;
   auto restored_identity =
-      application->native_world()->find(gneiss::entity_id{(camera_before).get()}).identity();
+      application->native_world()->find(gneiss::entity_id{(camera_before).get()}).name();
   gneiss::engine::math::camera_settings restored_camera;
   gneiss::entity_id restored_parent;
-  if (!restored_identity || restored_identity->name != "Camera" ||
+  if (restored_identity != "Camera" ||
       gneiss::test_support::read_component_value(
           application->native_world()
               ->find(camera_entity_before)

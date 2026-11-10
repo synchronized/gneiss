@@ -65,7 +65,7 @@ result<scene_instantiation_result> instantiate(scene_instance destination,
   std::map<object_address, game_object> objects;
   for (const auto& object : composed.objects) {
     // 来源地址只保存在回执中；运行对象以实体代次区分实例。
-    auto made = destination.create({{}, object.effective.name}, object.effective.transform);
+    auto made = destination.create_object({object.effective.name, object.effective.transform});
     if (!made)
       return made.error();
     created.push_back(*made);

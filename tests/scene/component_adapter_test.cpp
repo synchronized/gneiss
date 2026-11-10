@@ -190,14 +190,13 @@ int main() try {
   // 中间对象也必须有场景归属，不能绕开跨场景的成员边界。
   auto bridge_scene = world.create_scene();
   check(bridge_scene.has_value());
-  auto bridge = bridge_scene->create({e::guid::from_bytes({9}), "bridge"});
+  auto bridge = bridge_scene->create_object({"bridge", {}});
   check(bridge.has_value());
   check(first_object->reparent(*bridge) == e::error::invalid_argument);
   check(bridge->reparent(*foreign_parent) == e::error::invalid_argument);
   check(first_object->reparent({}).ok());
   check(bridge->destroy().ok());
-  auto parent_bridge =
-      another_handle->create({e::guid::from_bytes({10}), "parent bridge"}, {}, *foreign_parent);
+  auto parent_bridge = another_handle->create_object({"parent bridge", {}}, *foreign_parent);
   check(parent_bridge.has_value());
   auto inherited_count = another_handle->size();
   check(inherited_count && *inherited_count == 3);
@@ -301,7 +300,7 @@ int main() try {
   const auto old_node = node;
   check(scenes.destroy_subtree(instance, node).ok());
   check(lifetime.expired() && !world.object(gneiss::entity_id{old_node.get()}));
-  auto recreated_node = borrowed->create({first.uuid, first.name});
+  auto recreated_node = borrowed->create_object({first.name, {}});
   check(bool(recreated_node) && recreated_node->entity() != old_node);
   node = recreated_node->entity();
   for (const auto& component : *saved_components)
@@ -321,11 +320,9 @@ int main() try {
   check(dynamic_scene.has_value());
   auto dynamic = e::scene_instance::borrow(world, *dynamic_scene);
   check(dynamic.has_value());
-  const auto dynamic_uuid = e::guid::from_bytes({21});
-  auto dynamic_root = dynamic->create({dynamic_uuid, "dynamic root"});
+  auto dynamic_root = dynamic->create_object({"dynamic root", {}});
   check(dynamic_root.has_value());
-  auto dynamic_child =
-      dynamic->create({e::guid::from_bytes({22}), "dynamic child"}, {}, *dynamic_root);
+  auto dynamic_child = dynamic->create_object({"dynamic child", {}}, *dynamic_root);
   check(dynamic_child.has_value());
   auto dynamic_count = dynamic->size();
   check(dynamic_count && *dynamic_count == 2);
@@ -334,12 +331,12 @@ int main() try {
   dynamic_count = dynamic->size();
   check(dynamic_count && *dynamic_count == 0);
   check(!dynamic_root->is_valid());
-  auto recreated = dynamic->create({dynamic_uuid, "recreated"});
+  auto recreated = dynamic->create_object({"recreated", {}});
   check(recreated && recreated->entity() != dynamic_root->entity());
   const auto recreated_entity = recreated->entity();
   check(recreated->set_name("renamed").ok());
-  auto renamed = recreated->identity();
-  check(renamed && renamed->uuid == dynamic_uuid && renamed->name == "renamed");
+  auto renamed = recreated->name();
+  check(renamed == "renamed");
   auto transform = recreated->local_transform();
   check(transform.has_value());
   transform->translation.x = 7.0F;
@@ -354,9 +351,9 @@ int main() try {
   std::thread dynamic_worker([&] { cross_thread_mutation = recreated->set_name("wrong thread"); });
   dynamic_worker.join();
   check(cross_thread_mutation == e::error::invalid_state);
-  auto preserved_identity = recreated->identity();
-  check(preserved_identity && preserved_identity->name == "recreated");
-  auto detached = dynamic->create({e::guid::from_bytes({23}), "detached"}, {}, *recreated);
+  auto preserved_identity = recreated->name();
+  check(preserved_identity == "recreated");
+  auto detached = dynamic->create_object({"detached", {}}, *recreated);
   check(detached && detached->reparent({}).ok());
   check(dynamic->unload().ok() && !recreated->is_valid() && !detached->is_valid());
   check(recreated->set_name("deleted") == e::error::invalid_handle);
@@ -372,7 +369,7 @@ int main() try {
   // 运行注册无需编辑属性回调；编辑不可删除不影响运行移除。
   auto runtime_scene = world.create_scene();
   check(runtime_scene.has_value());
-  auto runtime_node = runtime_scene->create({e::guid::generate(), "runtime-only"});
+  auto runtime_node = runtime_scene->create_object({"runtime-only", {}});
   check(runtime_node.has_value());
   auto runtime_object = runtime_node;
   check(runtime_object.has_value());
@@ -488,7 +485,7 @@ int main() try {
   check(foreign_scene_id.has_value());
   auto foreign_scene = e::scene_instance::borrow(world, *foreign_scene_id);
   check(foreign_scene.has_value());
-  auto append_foreign_parent = foreign_scene->create({e::guid::generate(), "foreign"});
+  auto append_foreign_parent = foreign_scene->create_object({"foreign", {}});
   check(append_foreign_parent.has_value());
   check(!e::instantiate(*destination, *append_composed, {}, *append_foreign_parent));
   check(foreign_scene->unload().ok());
@@ -567,7 +564,7 @@ int main() try {
   check(stable && stable->is_valid());
   check(!old_object->is_valid() && other_object->is_valid());
   auto new_object = scenes.find_object(replaced->objects, first.uuid);
-  check(new_object && new_object->identity()->name == "replacement");
+  check(new_object && new_object->name() == "replacement");
   check(*stable->size() == 1 && *other->size() == 1);
   check(stable->unload().ok());
   check(!new_object->is_valid() && other_object->is_valid());

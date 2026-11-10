@@ -141,9 +141,8 @@ result<std::uint64_t> world::scene_size(scene_instance_id instance) const {
   return count;
 }
 
-result<game_object> scene_instance::create(scene_node_identity identity,
-                                           const math::transform& transform,
-                                           game_object parent) const {
+result<game_object> scene_instance::create_object(const object_options& options,
+                                                  game_object parent) const {
   if (!owner_)
     return error::invalid_handle;
   auto status = owner_->validate_scene(id_);
@@ -156,23 +155,16 @@ result<game_object> scene_instance::create(scene_node_identity identity,
     if (!*member)
       return error::invalid_handle;
   }
-  if (identity.uuid) {
-    bool duplicate = false;
-    owner_->state_->each_scene_member(id_, [&](entity_id entity) {
-      if (owner_->state_->scene().identity(entity)->uuid == identity.uuid)
-        duplicate = true;
-    });
-    if (duplicate)
-      return error::invalid_argument;
-  }
+  // 创建实体可能移动层级组件；先复制可能借自已有对象的名称。
+  std::string name(options.name);
   auto& state = *owner_->state_;
   auto created = state.scene().create(parent.entity(), 0);
   if (!created)
     return created.error();
   try {
-    status = state.scene().set_local(*created, transform);
+    status = state.scene().set_local(*created, options.transform);
     if (status.ok())
-      status = state.scene().set_identity(*created, std::move(identity));
+      status = state.scene().set_name(*created, std::move(name));
     if (status.failed()) {
       (void)state.destroy_entity(created->get());
       return status;

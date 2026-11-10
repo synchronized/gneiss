@@ -166,9 +166,9 @@ int main() {
   auto object_scene = world.create_scene();
   if (!object_scene)
     return 2;
-  auto camera_object = object_scene->create({{}, "camera"});
-  auto mesh_object = object_scene->create({{}, "mesh"});
-  auto plain_object = object_scene->create({{}, "plain"});
+  auto camera_object = object_scene->create_object({"camera", {}});
+  auto mesh_object = object_scene->create_object({"mesh", {}});
+  auto plain_object = object_scene->create_object({"plain", {}});
   if (!camera_object || !mesh_object || !plain_object)
     return 2;
   camera_entity = camera_object->entity();

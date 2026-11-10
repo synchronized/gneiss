@@ -35,13 +35,13 @@ public:
                                            const math::transform& transform) noexcept;
   [[nodiscard]] std::uint64_t get_entity(entity_id node) const noexcept;
   [[nodiscard]] entity_id get_parent(entity_id node) const noexcept;
-  [[nodiscard]] error set_identity(entity_id node, scene_node_identity identity);
-  [[nodiscard]] result<scene_node_identity_view> identity(entity_id node) const;
+  [[nodiscard]] error set_name(entity_id node, std::string name);
+  [[nodiscard]] result<std::string_view> name(entity_id node) const;
   [[nodiscard]] const std::vector<entity_id>* children(entity_id node) const noexcept;
 
 private:
   struct node {
-    scene_node_identity identity;
+    std::string name;
     entity_id parent = null_entity_id;
     std::vector<entity_id> children;
     math::transform local = math::transform{};

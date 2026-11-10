@@ -29,7 +29,7 @@ int main() {
   auto object_scene = first->create_scene();
   if (!object_scene)
     return 1;
-  auto object = object_scene->create({{}, "object"});
+  auto object = object_scene->create_object({"object", {}});
   if (!object)
     return 1;
   entity = object->entity();

@@ -68,10 +68,6 @@ int main() try {
       *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000003");
   const gneiss::engine::guid camera_uuid =
       *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000002");
-  const gneiss::engine::guid created_uuid =
-      *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000004");
-  const gneiss::engine::guid generic_uuid =
-      *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000005");
   constexpr std::string_view mesh_uri = "asset://models/triangle.mesh.json";
   constexpr std::string_view material_uri = "asset://materials/triangle.material.json";
   constexpr std::string_view missing_mesh_uri = "asset://models/missing.mesh.json";
@@ -132,8 +128,7 @@ int main() try {
         bindings.at(parent.address).entity != parent_id)
       return 102;
     auto actual = world.object(child_id);
-    if (!actual || actual->identity()->name != "renamed" ||
-        actual->local_transform()->translation.x != 3)
+    if (!actual || actual->name() != "renamed" || actual->local_transform()->translation.x != 3)
       return 103;
     auto cyclic = next;
     cyclic.objects[0].parent = parent.address;
@@ -222,14 +217,12 @@ int main() try {
       after_binding->material != accepted_binding->material)
     return 30;
   // 场景入口创建子对象，归属必须与父对象一致。
-  const auto temporary_uuid = gneiss::engine::guid::from_bytes({91, 82, 1});
   auto temporary_scene =
       gneiss::engine::scene_instance::borrow(*application->native_world(), scene);
   if (!temporary_scene)
     return 31;
-  auto temporary = temporary_scene->create(
-      {temporary_uuid, "Temporary"}, {},
-      application->native_world()->find(gneiss::entity_id{camera_node.get()}));
+  auto temporary = temporary_scene->create_object(
+      {"Temporary", {}}, application->native_world()->find(gneiss::entity_id{camera_node.get()}));
   if (!temporary || *gneiss::test_support::scene_access{*application}->get_node_count(scene) != 3U)
     return 31;
   if (application->native_world()
@@ -244,10 +237,8 @@ int main() try {
     return 34;
   // 同一来源的另一个 World 可以独立修改，原 World 的身份不受影响。
   auto camera_before =
-      application->native_world()->find(gneiss::entity_id{(camera_node).get()}).identity();
-  if (!camera_before)
-    return 35;
-  const auto camera_name = camera_before->name;
+      application->native_world()->find(gneiss::entity_id{(camera_node).get()}).name();
+  const std::string camera_name{camera_before};
   std::vector<gneiss::engine::scene_object_binding> play_objects;
   gneiss::scene_instance_id play_scene;
   gneiss::entity_id play_camera;
@@ -263,14 +254,13 @@ int main() try {
           ->object(gneiss::entity_id{play_camera.get()})
           ->set_name("Play Camera")
           .failed() ||
-      application->native_world()->find(gneiss::entity_id{(camera_node).get()}).identity()->name !=
+      application->native_world()->find(gneiss::entity_id{(camera_node).get()}).name() !=
           camera_name ||
       gneiss::test_support::scene_access{*second_application}->unload(play_scene).failed())
     return 35;
 
   gneiss::test_support::mesh_fixture create_desc;
   create_desc.parent = camera_node;
-  create_desc.uuid = created_uuid;
   create_desc.name = "Created Mesh";
   create_desc.mesh_uri = mesh_uri;
   create_desc.material_uri = material_uri;
@@ -362,9 +352,8 @@ int main() try {
   gneiss::engine::math::transform generic_transform;
   generic_transform.translation[1] = 2.0F;
   gneiss::entity_id generic_node;
-  if (gneiss::test_support::assign_value(
-          destination->create({generic_uuid, "Empty"}, generic_transform), generic_node) !=
-          gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(destination->create_object({"Empty", generic_transform}),
+                                         generic_node) != gneiss::engine::error::success ||
       application->native_world()
               ->object(gneiss::entity_id{generic_node.get()})
               ->set_name("Group") != gneiss::engine::error::success ||
@@ -396,13 +385,12 @@ int main() try {
   if (application->native_world()->object(gneiss::entity_id{old_generic_node.get()}) ||
       application->native_world()->object(gneiss::entity_id{old_triangle_node.get()}))
     return 17;
-  auto recreated = destination->create({generic_uuid, "Group"}, generic_transform,
-                                       application->native_world()->find(camera_node));
+  auto recreated = destination->create_object({"Group", generic_transform},
+                                              application->native_world()->find(camera_node));
   if (!recreated || recreated->entity() == old_generic_node)
     return 18;
   generic_node = recreated->entity();
   auto child_desc = create_desc;
-  child_desc.uuid = triangle_uuid;
   child_desc.name = "Triangle";
   child_desc.parent = generic_node;
   auto rebuilt = gneiss::test_support::spawn_mesh(
@@ -419,12 +407,12 @@ int main() try {
           scene, triangle, camera_node) != gneiss::engine::error::success) {
     return 24;
   }
-  if (gneiss::test_support::take_value(
-          gneiss::test_support::spawn_mesh(*application->native_world(), application->assets(),
-                                           scene, create_desc),
-          triangle) != gneiss::engine::error::invalid_argument) {
+  // 同名运行对象可以重复创建，身份由实体 ID 区分。
+  auto duplicate = gneiss::test_support::spawn_mesh(*application->native_world(),
+                                                    application->assets(), scene, create_desc);
+  if (!duplicate || *duplicate == created_node ||
+      application->native_world()->find(*duplicate).destroy().failed())
     return 5;
-  }
   if (gneiss::test_support::assign_mesh(*application->native_world(), application->assets(), scene,
                                         created_node, missing_mesh_uri,
                                         material_uri) != gneiss::engine::error::not_found) {
@@ -446,24 +434,23 @@ int main() try {
           gneiss::engine::error::success ||
       application->native_world()
           ->find(gneiss::entity_id{(camera_node).get()})
-          .set_identity({camera_uuid, "Runtime Camera"})
+          .set_name("Runtime Camera")
           .failed() ||
-      !application->native_world()->find(gneiss::entity_id{(camera_node).get()}).identity()) {
+      !application->native_world()->find(gneiss::entity_id{(camera_node).get()}).is_valid()) {
     return 7;
   }
   auto runtime_camera = gneiss::test_support::scene_access{*application}->get_node_info(scene, 0);
   auto runtime_mesh =
-      application->native_world()->find(gneiss::entity_id{(created_node).get()}).identity();
+      application->native_world()->find(gneiss::entity_id{(created_node).get()}).name();
   auto runtime_group =
-      application->native_world()->find(gneiss::entity_id{(generic_node).get()}).identity();
+      application->native_world()->find(gneiss::entity_id{(generic_node).get()}).name();
   if (!runtime_camera || runtime_camera->node != camera_node ||
       runtime_camera->name != "Runtime Camera" ||
       runtime_camera->local_transform.translation.x != 5.0F ||
       !runtime_camera->components.get<gneiss::engine::camera_description>() ||
       runtime_camera->components.get<gneiss::engine::camera_description>()->settings.near !=
           0.25F ||
-      !runtime_mesh || runtime_mesh->uuid != created_uuid || runtime_mesh->name != "Created Mesh" ||
-      !runtime_group || runtime_group->name != "Group" ||
+      runtime_mesh != "Created Mesh" || runtime_group != "Group" ||
       gneiss::test_support::scene_access{*second_application}->get_node_count(scene).error() !=
           gneiss::engine::error::invalid_handle)
     return 8;
@@ -498,7 +485,7 @@ int main() try {
         gneiss::engine::apply_scene(**native, instance->id(), mapping, {}, {}, {});
     if (!applied_native || !*applied_native)
       return 19;
-    auto object = instance->create({gneiss::engine::guid::generate(), "Direct"});
+    auto object = instance->create_object({"Direct", {}});
     if (!object || !*instance->contains(*object) || *instance->contains({}) ||
         *instance->size() != 1U ||
         gneiss::engine::scene_instance::borrow(**other, instance->id()).error() !=
@@ -507,15 +494,14 @@ int main() try {
     auto target_scene = (*native)->create_scene();
     if (!target_scene)
       return 20;
-    auto target_parent = target_scene->create({gneiss::engine::guid::generate(), "Parent"});
+    auto target_parent = target_scene->create_object({"Parent", {}});
     gneiss::engine::math::transform root_transform;
     root_transform.scale = {2.0F, 1.0F, 1.0F};
     gneiss::engine::math::transform child_transform;
     child_transform.rotation = {0.9238795F, 0.0F, 0.0F, 0.3826834F};
     if (!target_parent || object->set_local_transform(root_transform).failed())
       return 21;
-    auto child =
-        instance->create({gneiss::engine::guid::generate(), "Child"}, child_transform, *object);
+    auto child = instance->create_object({"Child", child_transform}, *object);
     if (!child)
       return 22;
     auto matrix = child->world_matrix();

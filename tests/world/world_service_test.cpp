@@ -34,29 +34,16 @@ bool scene_object_storage() {
   auto object_scene = owner.create_scene();
   if (!object_scene)
     return false;
-  auto root = object_scene->create(
-      {*gneiss::engine::guid::parse("21470280-22a3-5087-9443-62d27dfc4bbf"), "父节点"}, {});
+  auto root = object_scene->create_object({"父节点", {}});
   if (!root)
     return false;
-  auto child = object_scene->create(
-      {*gneiss::engine::guid::parse("0552e973-b75c-5936-a81b-c56bcd7688d5"), "子节点"}, {}, *root);
+  auto child = object_scene->create_object({"子节点", {}}, *root);
   if (!child)
     return false;
   entity_id child_entity;
   if (gneiss::test_support::assign_value(child, child_entity).failed())
     return false;
-  auto identity = (*child).identity();
-  if (!identity ||
-      identity->uuid != *gneiss::engine::guid::parse("0552e973-b75c-5936-a81b-c56bcd7688d5") ||
-      identity->name != "子节点")
-    return false;
-  if ((*child)
-          .set_identity(
-              {*gneiss::engine::guid::parse("0552e973-b75c-5936-a81b-c56bcd7688d5"), "新名称"})
-          .failed())
-    return false;
-  auto renamed = (*child).identity();
-  if (!renamed || renamed->name != "新名称")
+  if (child->name() != "子节点" || child->set_name("新名称").failed() || child->name() != "新名称")
     return false;
   if (owner.find(child->entity())
           .read_component<gneiss::engine::mesh_renderer_component>()
@@ -64,9 +51,7 @@ bool scene_object_storage() {
     return false;
   math::transform invalid;
   invalid.scale.x = 0;
-  auto failed = object_scene->create(
-      {*gneiss::engine::guid::parse("342f4c19-af04-52d3-b51c-4df4993ca453"), "失败"}, invalid,
-      *root);
+  auto failed = object_scene->create_object({"失败", invalid}, *root);
   auto count = owner.entity_count();
   if (failed || !count || *count != 2)
     return false;
@@ -83,11 +68,9 @@ bool scene_object_storage() {
   auto alive = owner.entity_is_alive(child_entity);
   if (!count || *count != 0 || !alive || *alive)
     return false;
-  if ((*child).identity().error() != error::invalid_handle ||
-      (*root).destroy() != error::invalid_handle)
+  if (child->is_valid() || (*root).destroy() != error::invalid_handle)
     return false;
-  auto replacement = object_scene->create(
-      {*gneiss::engine::guid::parse("fa89a95a-8e13-5e11-a128-bc6a7dc564fb"), "新节点"}, {});
+  auto replacement = object_scene->create_object({"新节点", {}});
   return replacement && *replacement != *root && *replacement != *child;
 }
 
@@ -104,7 +87,7 @@ bool native_operations() {
   auto object_scene = owner->create_scene();
   if (!object_scene)
     return false;
-  auto object = object_scene->create({{}, "object"});
+  auto object = object_scene->create_object({"object", {}});
   if (!object)
     return false;
   entity = object->entity();
@@ -156,6 +139,8 @@ bool native_operations() {
 }
 
 int main() {
+  if (gneiss::engine::initialize_meta().failed())
+    return 22;
   if (!scene_object_storage())
     return 21;
   if (!native_operations())

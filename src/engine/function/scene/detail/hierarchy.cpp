@@ -32,18 +32,18 @@ const world_hierarchy::node* world_hierarchy::find(entity_id id) const noexcept 
   return std::as_const(owner_).get<node>(id.get());
 }
 
-error world_hierarchy::set_identity(entity_id id, scene_node_identity identity) {
+error world_hierarchy::set_name(entity_id id, std::string name) {
   auto* target = find(id);
   if (!target)
     return error::invalid_handle;
-  target->identity = std::move(identity);
+  target->name = std::move(name);
   return error::success;
 }
-result<scene_node_identity_view> world_hierarchy::identity(entity_id id) const {
+result<std::string_view> world_hierarchy::name(entity_id id) const {
   const auto* target = find(id);
   if (!target)
     return error::invalid_handle;
-  return scene_node_identity_view{target->identity.uuid, target->identity.name};
+  return std::string_view{target->name};
 }
 const std::vector<entity_id>* world_hierarchy::children(entity_id id) const noexcept {
   const auto* target = find(id);

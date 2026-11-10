@@ -18,10 +18,10 @@ public:
   [[nodiscard]] world* owner() const noexcept { return owner_; }
   [[nodiscard]] GNEISS_API bool is_valid() const noexcept;
   explicit operator bool() const noexcept { return is_valid(); }
-  [[nodiscard]] GNEISS_API result<scene_node_identity_view> identity() const;
+  /** 借用名称；要求对象有效且在所属线程访问，结构修改后须重新获取。 */
+  [[nodiscard]] GNEISS_API std::string_view name() const;
   /** 只修改运行名称，保留对象身份，不写编辑文档。 */
   [[nodiscard]] GNEISS_API error set_name(std::string_view name) const;
-  [[nodiscard]] GNEISS_API error set_identity(scene_node_identity identity) const;
   [[nodiscard]] GNEISS_API result<math::transform> local_transform() const;
   /** 完整层级矩阵，保留非均匀缩放与旋转组合产生的剪切。 */
   [[nodiscard]] GNEISS_API result<math::matrix4> world_matrix() const;
