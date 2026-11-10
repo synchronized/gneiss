@@ -58,6 +58,8 @@ Runtime 的 scene_service 在异步取得 Scene 后，生成组合输入、提�
 `component_context`；传入准备好的引用时不查询资产管理器。场景增量应用先验证对象归属，
 再调用组件适配器；直接操作 World 不隐含某个编辑文档的场景限制。
 component_context 只保存借用的 game_object target，不另存 World 和节点 ID。
+注册回调 capture/remove/prepare_editor 同样接收 game_object；install/update/resolve_references
+通过 component_context.target 访问目标。注册回调不再接收独立的 World/node 参数对。
 组件操作先校验所属线程及对象有效性；空对象和已销毁对象返回 invalid_handle，
 跨线程访问返回 invalid_state，目标 World 必须覆盖上下文的使用期。
 组件上下文通过 lookup_resource 查询固定资源；提供回调时不回退到当前缓存，

@@ -77,14 +77,13 @@ inline e::component_operations<movement_description> operations() {
         state(*c.target.owner()).emplace_or_replace<movement_component>(c.target.entity().get(), d);
         return e::error::success;
       },
-      .capture = [](e::world& w,
-                    gneiss::scene_node_id n) -> e::result<std::optional<movement_description>> {
-        auto* value = state(w).get<movement_component>(entity(w, n));
+      .capture = [](e::game_object target) -> e::result<std::optional<movement_description>> {
+        auto* value = state(*target.owner()).get<movement_component>(target.entity().get());
         return value ? std::optional{value->data} : std::nullopt;
       },
       .remove =
-          [](e::world& w, gneiss::scene_node_id n) {
-            return state(w).remove<movement_component>(entity(w, n));
+          [](e::game_object target) {
+            return state(*target.owner()).remove<movement_component>(target.entity().get());
           },
       .equal = [](const movement_description& a, const movement_description& b) { return a == b; },
       .create_default = []() -> e::result<movement_description> { return movement_description{}; },

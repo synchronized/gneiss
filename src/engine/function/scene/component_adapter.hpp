@@ -30,8 +30,8 @@ struct component_adapter {
   /** 已有组件的编辑更新，保留未在描述中表达的运行状态；失败不修改组件。
    * 未提供时使用 install，适用于没有额外运行状态的组件。 */
   std::function<error(component_context&, const component_description&)> update;
-  std::function<result<std::optional<component_description>>(world&, scene_node_id)> capture;
-  std::function<error(world&, scene_node_id)> remove;
+  std::function<result<std::optional<component_description>>(game_object)> capture;
+  std::function<error(game_object)> remove;
   std::function<bool(const component_description&, const component_description&)> equal;
   std::function<result<value>(const component_description&, guid, meta::property_id)> read;
   std::function<result<component_description>(const component_description&, guid, meta::property_id,
@@ -45,7 +45,7 @@ struct component_adapter {
   bool removable = false;
   component_editor_route editor_route = component_editor_route::reflected;
   /** 编辑采用/历史重放前保留运行状态；普通安装和加载不调用此策略。 */
-  std::function<result<component_description>(world&, scene_node_id, const component_description&)>
+  std::function<result<component_description>(game_object, const component_description&)>
       prepare_editor;
   /** 全部组件安装后调用；不得修改其他对象，缺失必需引用返回错误。 */
   std::function<error(component_context&, const component_description&)> resolve_references;
@@ -58,8 +58,8 @@ template <class T> struct component_operations {
   error (*validate)(const T&){};
   error (*install)(component_context&, const T&){};
   error (*update)(component_context&, const T&){};
-  result<std::optional<T>> (*capture)(world&, scene_node_id){};
-  error (*remove)(world&, scene_node_id){};
+  result<std::optional<T>> (*capture)(game_object){};
+  error (*remove)(game_object){};
   bool (*equal)(const T&, const T&){};
   result<value> (*read)(const T&, guid, meta::property_id){};
   error (*edit)(T&, guid, meta::property_id, const value&){};
@@ -69,7 +69,7 @@ template <class T> struct component_operations {
   result<T> (*create_default)(){};
   bool removable = false;
   component_editor_route editor_route = component_editor_route::reflected;
-  result<T> (*prepare_editor)(world&, scene_node_id, const T&){};
+  result<T> (*prepare_editor)(game_object, const T&){};
   error (*resolve_references)(component_context&, const T&){};
 };
 template <class T> component_adapter make_component_adapter(component_operations<T> ops) {
@@ -95,9 +95,8 @@ template <class T> component_adapter make_component_adapter(component_operations
               return error{error::invalid_argument};
             return ops.update ? ops.update(context, *typed) : ops.install(context, *typed);
           },
-      .capture = [ops](world& owner,
-                       scene_node_id node) -> result<std::optional<component_description>> {
-        auto value = ops.capture(owner, node);
+      .capture = [ops](game_object target) -> result<std::optional<component_description>> {
+        auto value = ops.capture(target);
         if (!value)
           return value.error();
         if (!*value)
@@ -176,13 +175,13 @@ template <class T> component_adapter make_component_adapter(component_operations
               : std::function<result<component_description>()>{},
       .removable = ops.removable,
       .editor_route = ops.editor_route,
-      .prepare_editor = [ops](world& owner, scene_node_id node,
+      .prepare_editor = [ops](game_object target,
                               const component_description& value) -> result<component_description> {
         if (!value || !value->get<T>())
           return error::invalid_argument;
         if (!ops.prepare_editor)
           return value;
-        auto prepared = ops.prepare_editor(owner, node, *value->get<T>());
+        auto prepared = ops.prepare_editor(target, *value->get<T>());
         return prepared
                    ? result<component_description>{make_component_description(std::move(*prepared))}
                    : result<component_description>{prepared.error()};

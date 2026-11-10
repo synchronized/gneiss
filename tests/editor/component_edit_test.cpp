@@ -63,14 +63,13 @@ e::component_operations<reference_description> reference_operations() {
                 .emplace_or_replace<reference_description>(c.target.entity().get(), d);
             return e::error::success;
           },
-          .capture = [](e::world& w, gneiss::scene_node_id n)
-              -> e::result<std::optional<reference_description>> {
-            auto* v = state(w).get<reference_description>(entity(w, n));
+          .capture = [](e::game_object target) -> e::result<std::optional<reference_description>> {
+            auto* v = state(*target.owner()).get<reference_description>(target.entity().get());
             return v ? std::optional{*v} : std::nullopt;
           },
           .remove =
-              [](e::world& w, gneiss::scene_node_id n) {
-                return state(w).remove<reference_description>(entity(w, n));
+              [](e::game_object target) {
+                return state(*target.owner()).remove<reference_description>(target.entity().get());
               },
           .equal =
               [](const reference_description& a, const reference_description& b) {
@@ -94,7 +93,7 @@ int main() try {
   check(e::initialize_meta(register_reference_meta).ok());
   check(e::register_scene_component(reference_operations()).ok());
   auto ops = operations();
-  ops.prepare_editor = [](e::world&, gneiss::scene_node_id,
+  ops.prepare_editor = [](e::game_object,
                           const movement_description& value) -> e::result<movement_description> {
     ++editor_preparations;
     return value;

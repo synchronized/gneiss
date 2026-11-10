@@ -331,3 +331,19 @@ component_context 删除 owner/node 字段，仅保存 game_object target。
 Windows Clang Debug 的 Editor、Runtime 及相关目标编译通过，13 项 CPU 测试通过，
 包含组件反射、适配、实例化、编辑生命周期和 Runtime 场景/Prefab 加载。
 格式化与 git diff --check 通过；未运行 GPU、大场景、其他平台或远端 CI。
+
+
+## 2026-11-10 组件回调目标统一
+
+component_adapter 与 component_operations<T> 的 capture/remove/prepare_editor 改为接收
+借用 game_object，内建相机/网格及测试扩展全部迁移。安装、更新和引用解析仍通过
+component_context.target 获取同一对象语义。旧节点查询入口先解析并校验对象，再调用适配器；
+保留的 capture_components/read_runtime_component 等 World/node 入口尚待调用方收敛。
+
+运行/编辑注册拆分尚未实施，后续重点是解除两个行为耦合：注册运行组件不应强制提供编辑操作，
+运行组件移除不应取决于 Inspector 的 removable 策略。组件差异比较和依赖收集仍属于描述语义，
+不应简单与所有编辑函数一并迁到 UI 层；应先明确操作边界，再移动代码。
+
+Windows Clang Debug：Editor、Runtime 及相关目标编译通过，13 项定向 CPU 测试通过，
+覆盖组件捕获、移除、编辑准备、历史恢复及运行加载。git diff --check 通过。
+未运行 GPU、大场景、其他平台或远端 CI；本批不标记 PLAN-110 完成。

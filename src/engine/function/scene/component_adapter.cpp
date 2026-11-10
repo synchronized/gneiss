@@ -46,9 +46,10 @@ error camera_install(component_context& context, const camera_description& value
   return context.target.owner()->entity_set_camera(context.target.entity(), value.settings,
                                                    value.is_primary);
 }
-result<std::optional<camera_description>> camera_capture(world& owner, scene_node_id node) {
+result<std::optional<camera_description>> camera_capture(game_object target) {
+  auto& owner = *target.owner();
   math::camera_settings settings;
-  const auto id = entity(owner, node);
+  const auto id = target.entity();
   auto status = owner.entity_get_camera(id, settings);
   if (status == error::not_found)
     return std::optional<camera_description>{};
@@ -107,8 +108,8 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
   return context.target.owner()->entity_set_mesh_renderer(context.target.entity(),
                                                           {*mesh, *material});
 }
-result<std::optional<mesh_renderer_description>> mesh_capture(world& owner, scene_node_id node) {
-  auto value = owner.node_mesh_renderer(node);
+result<std::optional<mesh_renderer_description>> mesh_capture(game_object target) {
+  auto value = target.owner()->node_mesh_renderer(scene_node_id{target.entity().get()});
   if (!value) {
     if (value.error() == error::not_found)
       return std::optional<mesh_renderer_description>{};
@@ -126,7 +127,10 @@ struct adapter_registry {
         {.validate = camera_valid,
          .install = camera_install,
          .capture = camera_capture,
-         .remove = [](world& w, scene_node_id n) { return w.entity_remove_camera(entity(w, n)); },
+         .remove =
+             [](game_object target) {
+               return target.owner()->entity_remove_camera(target.entity());
+             },
          .equal =
              [](const camera_description& a, const camera_description& b) {
                return a.settings.fov == b.settings.fov && a.settings.near == b.settings.near &&
@@ -136,9 +140,9 @@ struct adapter_registry {
            return camera_description{{std::numbers::pi_v<float> / 3, 0.1F, 1000.0F}};
          },
          .removable = true,
-         .prepare_editor = [](world& owner, scene_node_id node,
+         .prepare_editor = [](game_object target,
                               const camera_description& value) -> result<camera_description> {
-           auto current = camera_capture(owner, node);
+           auto current = camera_capture(target);
            if (!current)
              return current.error();
            if (!*current)
@@ -151,8 +155,10 @@ struct adapter_registry {
         {.validate = mesh_valid,
          .install = mesh_install,
          .capture = mesh_capture,
-         .remove = [](world& w,
-                      scene_node_id n) { return w.entity_remove_mesh_renderer(entity(w, n)); },
+         .remove =
+             [](game_object target) {
+               return target.owner()->entity_remove_mesh_renderer(target.entity());
+             },
          .equal =
              [](const mesh_renderer_description& a, const mesh_renderer_description& b) {
                return a.mesh_uri == b.mesh_uri && a.material_uri == b.material_uri;
@@ -266,7 +272,10 @@ result<component_description> prepare_component_editor_value(world& owner, scene
   const auto* adapter = find(value->guid());
   if (!adapter)
     return error::not_found;
-  auto prepared = adapter->prepare_editor ? adapter->prepare_editor(owner, node, value)
+  auto target = owner.object(entity_id{node.get()});
+  if (!target)
+    return target.error();
+  auto prepared = adapter->prepare_editor ? adapter->prepare_editor(*target, value)
                                           : result<component_description>{value};
   if (!prepared)
     return prepared.error();
@@ -299,8 +308,7 @@ error update_component(component_context context, const component_description& v
   status = adapter->validate(value);
   if (status.failed())
     return status;
-  auto current =
-      adapter->capture(*context.target.owner(), scene_node_id{context.target.entity().get()});
+  auto current = adapter->capture(context.target);
   if (!current)
     return current.error();
   if (!*current)
@@ -316,8 +324,7 @@ error add_component(component_context context, const component_description& valu
   const auto* adapter = find(value->guid());
   if (!adapter)
     return error::unsupported;
-  auto current =
-      adapter->capture(*context.target.owner(), scene_node_id{context.target.entity().get()});
+  auto current = adapter->capture(context.target);
   if (!current)
     return current.error();
   if (*current)
@@ -347,13 +354,12 @@ error remove_component(component_context context, guid type) {
   const auto* adapter = find(type);
   if (!adapter || !adapter->removable)
     return error::unsupported;
-  auto current =
-      adapter->capture(*context.target.owner(), scene_node_id{context.target.entity().get()});
+  auto current = adapter->capture(context.target);
   if (!current)
     return current.error();
   if (!*current)
     return error::not_found;
-  status = adapter->remove(*context.target.owner(), scene_node_id{context.target.entity().get()});
+  status = adapter->remove(context.target);
   if (status.ok())
     instance_ids(*context.target.owner(), scene_node_id{context.target.entity().get()})
         .values.erase(type);
@@ -374,15 +380,14 @@ error validate_components(const component_descriptions& values) {
   return error::success;
 }
 result<component_descriptions> capture_components(world& owner, scene_node_id node) {
-  entity_id id;
-  auto status = owner.node_get_entity(node, id);
-  if (status.failed())
-    return status;
+  auto target = owner.object(entity_id{node.get()});
+  if (!target)
+    return target.error();
   component_descriptions output;
   std::vector<component_description> entries;
   auto& ids = instance_ids(owner, node).values;
   for (const auto& adapter : adapters()) {
-    auto value = adapter.capture(owner, node);
+    auto value = adapter.capture(*target);
     if (!value)
       return value.error();
     if (*value) {
@@ -396,7 +401,7 @@ result<component_descriptions> capture_components(world& owner, scene_node_id no
     } else
       ids.erase(adapter.type);
   }
-  status = output.replace(entries);
+  auto status = output.replace(entries);
   if (status.failed())
     return status;
   return output;
@@ -493,14 +498,13 @@ error edit_component(component_descriptions& values, guid type, meta::property_i
 }
 result<value> read_runtime_component(world& owner, scene_node_id node, guid type,
                                      meta::property_id property) {
-  entity_id id;
-  auto status = owner.node_get_entity(node, id);
-  if (status.failed())
-    return status;
+  auto target = owner.object(entity_id{node.get()});
+  if (!target)
+    return target.error();
   const auto* adapter = find(type, true);
   if (!adapter)
     return error::unsupported;
-  auto captured = adapter->capture(owner, node);
+  auto captured = adapter->capture(*target);
   if (!captured)
     return captured.error();
   if (!*captured)
@@ -515,8 +519,7 @@ error edit_runtime_component(component_context context, guid type, meta::propert
   const auto* adapter = find(type, true);
   if (!adapter)
     return error::unsupported;
-  auto current =
-      adapter->capture(*context.target.owner(), scene_node_id{context.target.entity().get()});
+  auto current = adapter->capture(context.target);
   if (!current)
     return current.error();
   if (!*current)
