@@ -36,9 +36,7 @@ class render_service;
 struct frame_image;
 }
 
-namespace gneiss::engine {
-class scene_instances;
-}
+namespace gneiss::engine {}
 namespace gneiss::engine {
 class world;
 }
@@ -132,7 +130,6 @@ public:
   request_scene_reload(scene_instance_id instance, std::string_view uri, bool prefab = false);
   [[nodiscard]] GNEISS_API engine::result<std::optional<scene_reload_completion>>
   poll_scene_reload();
-  [[nodiscard]] GNEISS_API gneiss::engine::scene_instances* scenes() noexcept;
   [[nodiscard]] GNEISS_API const gneiss::engine::keyboard_state& keyboard_state() const noexcept;
   [[nodiscard]] GNEISS_API const gneiss::engine::pointer_state& pointer_state() const noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::error

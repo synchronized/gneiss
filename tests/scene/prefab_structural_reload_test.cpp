@@ -3,12 +3,12 @@
 
 #include "../support/async_application.hpp"
 #include "../support/async_scene_reload.hpp"
+#include "../support/scene_access.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/asset_file.hpp"
@@ -60,11 +60,11 @@ gneiss::engine::error find_source(const std::shared_ptr<gneiss::runtime::applica
   });
   if (binding == objects.end())
     return gneiss::engine::error::not_found;
-  auto count = application->scenes()->get_node_count(scene);
+  auto count = gneiss::test_support::scene_access{*application}->get_node_count(scene);
   if (!count)
     return count.error();
   for (std::size_t index = 0; index < *count; ++index) {
-    auto info = application->scenes()->get_node_info(scene, index);
+    auto info = gneiss::test_support::scene_access{*application}->get_node_info(scene, index);
     if (!info)
       return info.error();
     if (info->node == binding->node) {
@@ -177,7 +177,8 @@ int main() try {
       first_after.local_transform.translation.x != 3)
     return 8;
 
-  const bool destroyed = application->scenes()->unload(scene) == gneiss::engine::error::success &&
+  const bool destroyed = gneiss::test_support::scene_access{*application}->unload(scene) ==
+                             gneiss::engine::error::success &&
                          application->shutdown() == gneiss::engine::error::success;
   std::filesystem::remove_all(root);
   return destroyed ? 0 : 7;

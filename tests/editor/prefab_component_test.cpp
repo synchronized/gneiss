@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/document_prefab.hpp"
 #include "../support/movement_component.hpp"
+#include "../support/scene_access.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
@@ -282,7 +283,7 @@ int main() try {
   check(root_binding != receipt->objects.end());
   auto loaded_root = root_binding->node;
   check(e::capture_components(world, loaded_root)->get<movement_description>()->speed == 5);
-  check(app->scenes()->unload(loaded).ok());
+  check(gneiss::test_support::scene_access{*app}->unload(loaded).ok());
   gneiss::scene_node_id unrelated;
   check(document.create_node("unrelated", {}, unrelated).ok());
   const auto unrelated_entity = document.query_node(unrelated)->entity;

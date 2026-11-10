@@ -11,7 +11,6 @@
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "runtime/loading/resource_load_group.hpp"
-#include "runtime/loading/scene_domain.hpp"
 #include "runtime/loading/scene_service.hpp"
 
 #include "engine/resource/asset_uri.hpp"
@@ -30,7 +29,7 @@ double elapsed(clock_type::time_point start) {
 struct scene_service::load_task {
   engine::asset_request<engine::scene> description_request;
   scene_load_completion result;
-  std::unique_ptr<scene_domain> candidate;
+  engine::world_owner candidate;
   std::vector<gneiss::engine::render_resource_source> requested;
   bool cancelled{};
 };
@@ -212,12 +211,12 @@ void scene_service::advance_load_impl() {
         finish(prepared.error().error, scene_load_phase::failed, prepared.error().message);
       return;
     }
-    value.candidate = std::make_unique<scene_domain>();
-    const auto initialized = value.candidate->initialize();
-    if (initialized != gneiss::engine::error::success) {
-      finish(initialized, scene_load_phase::failed);
+    auto created_world = engine::create_native();
+    if (!created_world) {
+      finish(created_world.error(), scene_load_phase::failed);
       return;
     }
+    value.candidate = std::move(*created_world);
     auto content = (*prepared)->content();
     progress.phase = scene_load_phase::instantiating;
     auto built = engine::measure(
@@ -244,7 +243,7 @@ void scene_service::advance_load_impl() {
                                               "无法提交场景视觉加载"};
             bindings.emplace(request.uri, loaded->resource());
           }
-          auto& world = *value.candidate->native_world();
+          auto& world = *value.candidate;
           auto destination = world.create_scene();
           if (!destination)
             return engine::scene_diagnostic{destination.error(), 0, {}, {}};

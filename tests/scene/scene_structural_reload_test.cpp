@@ -3,12 +3,12 @@
 
 #include "../support/async_application.hpp"
 #include "../support/async_scene_reload.hpp"
+#include "../support/scene_access.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -70,11 +70,12 @@ int main() try {
                                          application) != gneiss::engine::error::success ||
       gneiss::test_support::activate_scene_for_test(*application, scheduler, uri, loaded) !=
           gneiss::engine::error::success ||
+      gneiss::test_support::take_value(gneiss::test_support::scene_access{*application}->find_node(
+                                           scene = loaded.scene, camera_uuid),
+                                       camera_before) != gneiss::engine::error::success ||
       gneiss::test_support::take_value(
-          application->scenes()->find_node(scene = loaded.scene, camera_uuid), camera_before) !=
-          gneiss::engine::error::success ||
-      gneiss::test_support::take_value(application->scenes()->find_node(scene, old_child_uuid),
-                                       old_child) != gneiss::engine::error::success ||
+          gneiss::test_support::scene_access{*application}->find_node(scene, old_child_uuid),
+          old_child) != gneiss::engine::error::success ||
       application->native_world()->node_get_entity(camera_before, camera_entity_before) !=
           gneiss::engine::error::success) {
     return 1;
@@ -110,19 +111,23 @@ int main() try {
   gneiss::scene_node_id new_child;
   gneiss::entity_id camera_entity_after;
   std::uint64_t count = 0U;
-  if (gneiss::test_support::take_value(application->scenes()->find_node(scene, camera_uuid),
-                                       camera_after) != gneiss::engine::error::success ||
+  if (gneiss::test_support::take_value(
+          gneiss::test_support::scene_access{*application}->find_node(scene, camera_uuid),
+          camera_after) != gneiss::engine::error::success ||
       camera_after != camera_before ||
       application->native_world()->node_get_entity(camera_after, camera_entity_after) !=
           gneiss::engine::error::success ||
       camera_entity_after != camera_entity_before ||
-      gneiss::test_support::take_value(application->scenes()->find_node(scene, new_child_uuid),
-                                       new_child) != gneiss::engine::error::success ||
-      gneiss::test_support::take_value(application->scenes()->find_node(scene, old_child_uuid),
-                                       old_child) != gneiss::engine::error::not_found ||
+      gneiss::test_support::take_value(
+          gneiss::test_support::scene_access{*application}->find_node(scene, new_child_uuid),
+          new_child) != gneiss::engine::error::success ||
+      gneiss::test_support::take_value(
+          gneiss::test_support::scene_access{*application}->find_node(scene, old_child_uuid),
+          old_child) != gneiss::engine::error::not_found ||
       application->native_world()->node_get_parent(retired_child, camera_after) !=
           gneiss::engine::error::invalid_handle ||
-      gneiss::test_support::take_value(application->scenes()->get_node_count(scene), count) !=
+      gneiss::test_support::take_value(
+          gneiss::test_support::scene_access{*application}->get_node_count(scene), count) !=
           gneiss::engine::error::success ||
       count != 2U) {
     return 3;
@@ -133,11 +138,13 @@ int main() try {
       R"([{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/triangle.material.json","uuid":"6ac36c36-95c2-4975-9b2a-4fbcc4c7bca1"}}])");
   if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, uri, false) !=
           gneiss::engine::error::success ||
-      gneiss::test_support::take_value(application->scenes()->find_node(scene, camera_uuid),
-                                       camera_after) != gneiss::engine::error::success ||
+      gneiss::test_support::take_value(
+          gneiss::test_support::scene_access{*application}->find_node(scene, camera_uuid),
+          camera_after) != gneiss::engine::error::success ||
       camera_after != camera_before ||
-      gneiss::test_support::take_value(application->scenes()->find_node(scene, new_child_uuid),
-                                       new_child) != gneiss::engine::error::success) {
+      gneiss::test_support::take_value(
+          gneiss::test_support::scene_access{*application}->find_node(scene, new_child_uuid),
+          new_child) != gneiss::engine::error::success) {
     return 4;
   }
 
@@ -184,7 +191,8 @@ int main() try {
   if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, uri, false).ok())
     return 30;
 
-  const bool destroyed = application->scenes()->unload(scene) == gneiss::engine::error::success &&
+  const bool destroyed = gneiss::test_support::scene_access{*application}->unload(scene) ==
+                             gneiss::engine::error::success &&
                          application->shutdown() == gneiss::engine::error::success;
   std::filesystem::remove_all(root);
   return destroyed ? 0 : 5;

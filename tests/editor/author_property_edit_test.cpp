@@ -2,13 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/document_prefab.hpp"
+#include "../support/scene_access.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
 #include "documents/scene_document_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/fatal.hpp"
-#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/component_identity.hpp"
@@ -212,11 +212,15 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   const auto loaded = receipt->instance;
   bool found_ordinary = false, found_prefab = false, found_child = false;
   std::uint64_t count{};
-  if (gneiss::test_support::take_value(app.scenes()->get_node_count(loaded), count).failed())
+  if (gneiss::test_support::take_value(
+          gneiss::test_support::scene_access{app}->get_node_count(loaded), count)
+          .failed())
     return 45;
   for (std::uint64_t i = 0; i < count; ++i) {
     e::scene_node_info node;
-    if (gneiss::test_support::take_value(app.scenes()->get_node_info(loaded, i), node).failed())
+    if (gneiss::test_support::take_value(
+            gneiss::test_support::scene_access{app}->get_node_info(loaded, i), node)
+            .failed())
       return 46;
     const auto address =
         std::ranges::find(receipt->objects, node.node, &e::scene_object_binding::node);
@@ -233,7 +237,8 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
           camera.near == 200.0F && camera.far == 400.0F && node.local_transform.translation.x == 6;
     }
   }
-  if (app.scenes()->unload(loaded).failed() || !found_ordinary || !found_prefab || !found_child)
+  if (gneiss::test_support::scene_access{app}->unload(loaded).failed() || !found_ordinary ||
+      !found_prefab || !found_child)
     return 47;
   // 移除后不把旧历史应用到另一个节点。
   gneiss::editor::scene_subtree_snapshot removed_prefab;

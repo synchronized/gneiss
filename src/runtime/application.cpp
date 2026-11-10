@@ -1201,10 +1201,6 @@ std::shared_ptr<gneiss::engine::files::service> application::async_files() const
 
 gneiss::engine::asset_manager& application::assets() noexcept { return *storage_->asset_manager_; }
 
-gneiss::engine::scene_instances* application::scenes() noexcept {
-  return storage_->scene_service_.scenes();
-}
-
 const gneiss::engine::keyboard_state& application::keyboard_state() const noexcept {
   return storage_->input_.keyboard();
 }

@@ -250,10 +250,8 @@ target_sources(
     engine/function/scene/prefab_replay.hpp
     engine/function/world/scene_instance.hpp
     engine/function/scene/component_adapter.cpp
-    engine/function/scene/scene_instances.cpp
     engine/function/world/world_scenes.cpp
     engine/function/scene/scene_instantiation.cpp
-    engine/function/scene/scene_instances.hpp
     engine/function/scene/structural_diff.cpp
     engine/function/scene/structural_diff.hpp
     engine/function/world/component_identity.hpp
@@ -279,8 +277,6 @@ target_sources(
     runtime/loading/scene_load_types.hpp
     runtime/loading/scene_service.cpp
     runtime/loading/scene_service.hpp
-    runtime/loading/scene_domain.cpp
-    runtime/loading/scene_domain.hpp
     runtime/application.cpp
     runtime/application.hpp
     runtime/main_loop_wakeup.hpp

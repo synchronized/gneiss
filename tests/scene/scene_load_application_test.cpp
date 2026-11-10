@@ -15,7 +15,7 @@
 #include "engine/resource/texture/texture_ktx2.hpp"
 #include "runtime/application.hpp"
 
-#include "engine/function/scene/scene_instances.hpp"
+#include "../support/scene_access.hpp"
 #include "engine/function/world/world.hpp"
 
 #include <algorithm>
@@ -124,8 +124,9 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
         gneiss::engine::error::success);
   scene_node_id node;
   check(gneiss::test_support::take_value(
-            app->scenes()->find_node(completion.scene, *gneiss::engine::guid::parse(
-                                                           "00000000-0000-4000-8000-000000000002")),
+            gneiss::test_support::scene_access{*app}->find_node(
+                completion.scene,
+                *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000002")),
             node) == gneiss::engine::error::success);
   gneiss::engine::scene_mesh_binding binding;
   check(gneiss::test_support::take_value(
@@ -154,7 +155,8 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
           engine::error::not_ready);
   }
   std::uint64_t nodes{};
-  check(gneiss::test_support::take_value(app->scenes()->get_node_count(completion.scene), nodes) ==
+  check(gneiss::test_support::take_value(
+            gneiss::test_support::scene_access{*app}->get_node_count(completion.scene), nodes) ==
             gneiss::engine::error::success &&
         nodes == 1U);
   std::ofstream(files.root / "material.json")
@@ -427,8 +429,9 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
     const gneiss::engine::guid uuid =
         *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000002");
     gneiss::scene_node_id node{};
-    check(gneiss::test_support::take_value(app->scenes()->find_node(completion.scene, uuid),
-                                           node) == gneiss::engine::error::success);
+    check(gneiss::test_support::take_value(
+              gneiss::test_support::scene_access{*app}->find_node(completion.scene, uuid), node) ==
+          gneiss::engine::error::success);
     gneiss::engine::scene_mesh_binding value;
     check(gneiss::test_support::take_value(
               gneiss::engine::capture_mesh_binding(*app->native_world(), completion.scene, node),
@@ -568,8 +571,9 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
         gneiss::engine::error::success);
   drain_visuals(app, scheduler, mode);
   std::uint64_t count{};
-  check(gneiss::test_support::take_value(app->scenes()->get_node_count(scene_completion.scene),
-                                         count) == gneiss::engine::error::success &&
+  check(gneiss::test_support::take_value(
+            gneiss::test_support::scene_access{*app}->get_node_count(scene_completion.scene),
+            count) == gneiss::engine::error::success &&
         count == 2U);
   const std::array textures{gneiss::engine::render_resource_source{
       .uri = "asset://texture.json", .type = gneiss::engine::render_resource_kind::texture}};
@@ -715,7 +719,7 @@ void source_reload_without_world_prefab_state() {
   const auto root_node = find(loaded.objects, root.uuid);
   const auto child_node = find(loaded.objects, child.uuid);
   for (std::size_t i = 0; i < loaded.objects.size(); ++i) {
-    auto info = app->scenes()->get_node_info(loaded.scene, i);
+    auto info = gneiss::test_support::scene_access{*app}->get_node_info(loaded.scene, i);
     check(bool(info));
   }
   e::math::transform moved;

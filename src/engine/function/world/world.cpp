@@ -6,7 +6,6 @@
 #include "engine/core/fatal.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/render_snapshot.hpp"
 #include "engine/function/world/world_component_access.hpp"
 #include "engine/function/world/world_state.hpp"

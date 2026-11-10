@@ -8,7 +8,7 @@
 #include "engine/function/render/render_frame_packet.hpp"
 #include "runtime/application.hpp"
 
-#include "engine/function/scene/scene_instances.hpp"
+#include "../support/scene_access.hpp"
 #include "engine/function/world/world.hpp"
 #include <algorithm>
 #include <array>
@@ -187,15 +187,15 @@ int main(int argc, char** argv) try {
     }
     std::uint64_t count{};
     if (gneiss::engine::error{gneiss::test_support::take_value(
-            app->scenes()->get_node_count(previous_scene), count)} !=
+            gneiss::test_support::scene_access{*app}->get_node_count(previous_scene), count)} !=
         gneiss::engine::error::success) {
       return 11;
     }
     for (std::uint64_t index = 0U; index < count; ++index) {
       gneiss::engine::scene_node_info node;
       if (gneiss::engine::error{gneiss::test_support::take_value(
-              app->scenes()->get_node_info(previous_scene, index), node)} !=
-          gneiss::engine::error::success) {
+              gneiss::test_support::scene_access{*app}->get_node_info(previous_scene, index),
+              node)} != gneiss::engine::error::success) {
         return 11;
       }
       if (node.components.get<gneiss::engine::camera_description>() != nullptr) {
@@ -532,7 +532,8 @@ int main(int argc, char** argv) try {
   }
   std::uint64_t nodes{};
   if (gneiss::engine::error{gneiss::test_support::take_value(
-          app->scenes()->get_node_count(scene), nodes)} != gneiss::engine::error::success ||
+          gneiss::test_support::scene_access{*app}->get_node_count(scene), nodes)} !=
+          gneiss::engine::error::success ||
       nodes == 0U) {
     return 5;
   }

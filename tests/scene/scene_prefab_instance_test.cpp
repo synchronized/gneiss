@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/async_application.hpp"
+#include "../support/scene_access.hpp"
 #include "../support/scene_application.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
@@ -56,15 +57,16 @@ int main() try {
   auto second_identity = app->native_world()->node_identity(second_mapping.at(member->parent).node);
   check(second_identity && second_identity->uuid != identity->uuid);
   check(app->native_world()->object(gneiss::entity_id{child.get()})->set_name("Runtime edit").ok());
-  check(app->scenes()->reparent_node(created->instance, child, {}).ok());
+  check(gneiss::test_support::scene_access{*app}->reparent_node(created->instance, child, {}).ok());
   check(app->native_world()->node_get_parent(child, parent).ok() && !parent);
   check(member->effective.transform.translation.x == 3);
-  check(app->scenes()->reparent_node(created->instance, child, root).ok());
-  check(app->scenes()->destroy_subtree(created->instance, root).ok());
+  check(
+      gneiss::test_support::scene_access{*app}->reparent_node(created->instance, child, root).ok());
+  check(gneiss::test_support::scene_access{*app}->destroy_subtree(created->instance, root).ok());
   check(!app->native_world()->object(gneiss::entity_id{child.get()}));
   check(app->native_world()->object(second_mapping.at(member->address).entity).has_value());
-  check(app->scenes()->unload(created->instance).ok());
-  check(app->scenes()->unload(second->instance).ok());
+  check(gneiss::test_support::scene_access{*app}->unload(created->instance).ok());
+  check(gneiss::test_support::scene_access{*app}->unload(second->instance).ok());
   check(*app->native_world()->entity_count() == 0);
   e::scene_instantiation_data missing;
   check(gneiss::test_support::prepare_scene(*app, "asset://scenes/missing-prefab.scene.json",

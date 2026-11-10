@@ -12,7 +12,7 @@
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 
-#include "engine/function/scene/scene_instances.hpp"
+#include "../../support/scene_access.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
@@ -162,8 +162,8 @@ void run(gneiss::engine::execution_mode mode) {
         after.description()->objects.front().name == "Snapshot edit");
   // 无效场景的原生查询拒绝，不影响活动场景。
   check(gneiss::engine::error{gneiss::test_support::take_value(
-            app->scenes()->get_node_count(gneiss::scene_instance_id{}), count)} ==
-        gneiss::engine::error::invalid_handle);
+            gneiss::test_support::scene_access{*app}->get_node_count(gneiss::scene_instance_id{}),
+            count)} == gneiss::engine::error::invalid_handle);
   camera.shutdown();
   session.close();
   // 在途任务随 Application 关闭；执行器必须最后销毁。

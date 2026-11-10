@@ -16,14 +16,14 @@ result<scene_instantiation_result> instantiate(scene_instance destination,
     return error::invalid_state;
   if (!destination.is_valid())
     return error::invalid_handle;
-  auto& scenes = *world.scenes();
   if (parent.owner()) {
     if (parent.owner() != &world)
       return error::invalid_argument;
-    auto valid =
-        scenes.validate_editable_node(destination.id(), scene_node_id{parent.entity().get()});
-    if (valid.failed())
-      return valid;
+    auto valid = destination.contains(parent);
+    if (!valid)
+      return valid.error();
+    if (!*valid)
+      return error::invalid_handle;
   }
   std::map<object_address, const composed_object*> descriptions;
   for (const auto& object : composed.objects)
@@ -128,8 +128,16 @@ namespace {
 error validate(world& owner, scene_instance_id scene, scene_node_id node) {
   if (!owner.is_owner_thread())
     return error::invalid_state;
-  return owner.scenes() ? owner.scenes()->validate_editable_node(scene, node)
-                        : error{error::invalid_handle};
+  auto instance = scene_instance::borrow(owner, scene);
+  if (!instance)
+    return instance.error();
+  auto object = owner.object(entity_id{node.get()});
+  if (!object)
+    return object.error();
+  auto member = instance->contains(*object);
+  if (!member)
+    return member.error();
+  return *member ? error::success : error::invalid_handle;
 }
 }
 result<scene_node_id> create_mesh_renderer_node(world& owner, asset_manager& assets,
@@ -138,8 +146,9 @@ result<scene_node_id> create_mesh_renderer_node(world& owner, asset_manager& ass
                                                 const scene_mesh_binding* prepared) {
   if (!owner.is_owner_thread())
     return error::invalid_state;
-  if (!owner.scenes())
-    return error::invalid_handle;
+  auto destination = scene_instance::borrow(owner, instance);
+  if (!destination)
+    return destination.error();
   scene_mesh_binding binding;
   if (prepared) {
     if (!assets.owns(prepared->mesh) || !assets.owns(prepared->material) ||
@@ -156,7 +165,14 @@ result<scene_node_id> create_mesh_renderer_node(world& owner, asset_manager& ass
       return material.error();
     binding = {*mesh, *material};
   }
-  auto created = owner.scenes()->create_node(instance, {desc.uuid, desc.name, desc.parent, {}});
+  auto parent =
+      desc.parent ? owner.object(entity_id{desc.parent.get()}) : result<game_object>{game_object{}};
+  if (!parent)
+    return parent.error();
+  auto object = destination->create({desc.uuid, std::string(desc.name)}, {}, *parent);
+  if (!object)
+    return object.error();
+  result<scene_node_id> created{scene_node_id{object->entity().get()}};
   if (!created)
     return created.error();
   scene_subtree_guard guard(owner, *created);

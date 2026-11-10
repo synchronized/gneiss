@@ -5,7 +5,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 
-#include "engine/function/scene/scene_instances.hpp"
+#include "../support/scene_access.hpp"
 #include "runtime/application.hpp"
 
 #define WIN32_LEAN_AND_MEAN
@@ -118,7 +118,7 @@ gneiss::engine::error advance_scene(gneiss::runtime::application& app, response_
         gneiss::test_support::assign_value(app.activate_scene(state.scene_request), completion);
     if (result == gneiss::engine::error::success) {
       result = gneiss::engine::error{gneiss::test_support::take_value(
-          app.scenes()->get_node_count(completion.scene), state.nodes)};
+          gneiss::test_support::scene_access{app}->get_node_count(completion.scene), state.nodes)};
       scene_retirement_statistics retirement;
       if (result == gneiss::engine::error::success) {
         retirement = app.scene_retirement();

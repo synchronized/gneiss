@@ -13,7 +13,7 @@
 #include "engine/resource/texture/texture_ktx2.hpp"
 #include "runtime/loading/scene_service.hpp"
 
-#include "engine/function/scene/scene_instances.hpp"
+#include "../support/scene_access.hpp"
 #include "runtime/application.hpp"
 
 #include <cstdio>
@@ -144,7 +144,8 @@ void run(gneiss::engine::execution_mode mode) {
   const auto capture = [&](std::uint64_t index) {
     gneiss::engine::scene_node_info info;
     check(gneiss::engine::error{gneiss::test_support::take_value(
-              app->scenes()->get_node_info(scene, index), info)} == gneiss::engine::error::success);
+              gneiss::test_support::scene_access{*app}->get_node_info(scene, index), info)} ==
+          gneiss::engine::error::success);
     gneiss::engine::scene_mesh_binding value;
     check(gneiss::test_support::take_value(
               gneiss::engine::capture_mesh_binding(*app->native_world(), scene, info.node),
@@ -240,7 +241,8 @@ void run(gneiss::engine::execution_mode mode) {
   // 上传期间 ECS 改绑不妨碍资源更新，也不能被重载覆盖。
   gneiss::engine::scene_node_info node;
   check(gneiss::engine::error{gneiss::test_support::take_value(
-            app->scenes()->get_node_info(scene, 0U), node)} == gneiss::engine::error::success);
+            gneiss::test_support::scene_access{*app}->get_node_info(scene, 0U), node)} ==
+        gneiss::engine::error::success);
   const auto world = app->native_world();
   check(app->request_assets(uris, 2U, 7U, request, true) == gneiss::engine::error::success);
   gneiss::engine::mesh_renderer external;
@@ -262,7 +264,8 @@ void run(gneiss::engine::execution_mode mode) {
                                                 .replacement = {external.mesh, external.material}}};
   check(world->replace_mesh_renderers(unchanged) == gneiss::engine::error::success);
   // 卸载冲突使用者后可重试；完成后释放租约，Application 仍可正常关闭。
-  check(gneiss::engine::error{app->scenes()->unload(scene)} == gneiss::engine::error::success);
+  check(gneiss::engine::error{gneiss::test_support::scene_access{*app}->unload(scene)} ==
+        gneiss::engine::error::success);
   check(gneiss::engine::error{gneiss::test_support::load_scene(
             *app, scene_uri, &scene, &scheduler)} == gneiss::engine::error::success);
   check(app->request_assets(uris, 2U, 8U, request, true) == gneiss::engine::error::success);

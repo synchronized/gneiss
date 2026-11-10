@@ -17,12 +17,9 @@
 #include <thread>
 #include <variant>
 
-namespace gneiss::engine {
-class scene_instances;
-}
+namespace gneiss::engine {}
 
 namespace gneiss::runtime {
-class scene_domain;
 class resource_load_group;
 
 /** 场景生命周期的唯一拥有者；全部调用限宿主线程。
@@ -53,7 +50,6 @@ public:
   [[nodiscard]] bool loading() const noexcept;
   [[nodiscard]] scene_retirement_statistics retirement() const noexcept;
   [[nodiscard]] gneiss::engine::world* native_world() const noexcept;
-  [[nodiscard]] gneiss::engine::scene_instances* scenes() noexcept;
   /** 请求、进度和完成值不暴露候选域；激活仍由宿主在安全点显式调用。 */
   [[nodiscard]] engine::result<std::uint64_t>
   request_scene(std::string_view uri, std::uint64_t session, std::uint64_t revision);
@@ -107,8 +103,8 @@ private:
     void reset() noexcept;
   } visuals_;
   gneiss::engine::asset_manager* resources_{};
-  std::unique_ptr<scene_domain> active_;
-  std::unique_ptr<scene_domain> retired_;
+  engine::world_owner active_;
+  engine::world_owner retired_;
   scene_retirement_statistics retirement_;
   // 只在加载期间持有；完成回执消费前仍占用请求槽位。
   struct load_task;

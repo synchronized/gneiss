@@ -3,13 +3,14 @@
 #pragma once
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
+#include "scene_access.hpp"
 // 测试夹具保留便捷创建，不作为引擎实例化接口。
 namespace gneiss::test_support::scene_fixture {
 using namespace engine;
 namespace {
 inline result<scene_instantiation_result>
-instantiate_effective(world& world, scene_instances& scenes, guid uuid,
-                      const composed_scene& composed, const scene_resource_bindings& assets) {
+instantiate_effective(world& world, scene_access scenes, guid uuid, const composed_scene& composed,
+                      const scene_resource_bindings& assets) {
   entity_id previous_camera;
   const auto camera_status = world.get_active_camera(previous_camera);
   if (camera_status.failed() && camera_status != error::not_ready)
@@ -18,7 +19,7 @@ instantiate_effective(world& world, scene_instances& scenes, guid uuid,
   if (!created)
     return created.error();
   struct creation_guard {
-    scene_instances& owner;
+    scene_access owner;
     scene_instance_id instance;
     engine::world& world;
     entity_id camera;
@@ -45,9 +46,6 @@ inline result<scene_instantiation_result> instantiate_scene(world& owner,
                                                             const scene_resource_bindings& assets) {
   if (!owner.is_owner_thread())
     return error::invalid_state;
-  if (!owner.scenes() || !owner.scenes()->is_valid()) {
-    return engine::error::invalid_argument;
-  }
   {
     std::map<std::string, const prefab_description*, std::less<>> sources;
     for (const auto& [uri, source] : prepared.prefabs) {
@@ -58,8 +56,8 @@ inline result<scene_instantiation_result> instantiate_scene(world& owner,
     auto composed = compose_scene(prepared.description, sources);
     if (!composed)
       return composed.error();
-    return instantiate_effective(owner, *owner.scenes(), prepared.description.uuid, *composed,
-                                 assets);
+    return instantiate_effective(owner, *gneiss::test_support::scene_access{owner},
+                                 prepared.description.uuid, *composed, assets);
   }
 }
 
@@ -67,8 +65,6 @@ inline result<scene_instantiation_result, scene_diagnostic>
 instantiate_scene(world& owner, asset_manager& assets, ref<const scene> source,
                   std::size_t source_bytes = 0) {
   if (!owner.is_owner_thread())
-    return scene_diagnostic{error::invalid_state, 0, {}, {}};
-  if (!owner.scenes() || !owner.scenes()->is_valid())
     return scene_diagnostic{error::invalid_state, 0, {}, {}};
   auto prepared = make_instantiation_data(std::move(source), source_bytes);
   if (!prepared)

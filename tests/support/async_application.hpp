@@ -3,10 +3,10 @@
 #pragma once
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "runtime/application.hpp"
+#include "scene_access.hpp"
 #include "scene_instantiation.hpp"
 #include "value_result.hpp"
 #include <chrono>

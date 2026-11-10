@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/document_prefab.hpp"
 #include "../support/movement_component.hpp"
+#include "../support/scene_access.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
@@ -12,7 +13,6 @@
 #include "engine/core/serialization/policy.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/prefab_replay.hpp"
-#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/resource/asset_file.hpp"
@@ -504,12 +504,13 @@ int main() try {
   auto reloaded = e::capture_components(world, loaded_node);
   check(reloaded && reloaded->get<movement_description>()->settings.acceleration == 20 &&
         reloaded->get<movement_description>()->samples[1] == 9);
-  check(gneiss::test_support::take_value(app->scenes()->find_node(loaded, ordinary), loaded_node)
+  check(gneiss::test_support::take_value(
+            gneiss::test_support::scene_access{*app}->find_node(loaded, ordinary), loaded_node)
             .ok());
   reloaded = e::capture_components(world, loaded_node);
   check(reloaded && reloaded->get<movement_description>()->mode == movement_mode::run &&
         reloaded->get<movement_description>()->speed == 4);
-  check(app->scenes()->unload(loaded).ok());
+  check(gneiss::test_support::scene_access{*app}->unload(loaded).ok());
   gneiss::editor::scene_subtree_snapshot removed_prefab;
   check(document.destroy_subtree(document.find_prefab_root(reference.uuid)->node, removed_prefab)
             .ok());

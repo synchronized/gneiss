@@ -7,7 +7,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 
-#include "engine/function/scene/scene_instances.hpp"
+#include "../support/scene_access.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
@@ -189,12 +189,14 @@ int main(int argc, char** argv) try {
   }
   gneiss::engine::scene_node_info info;
   if (gneiss::engine::error{gneiss::test_support::take_value(
-          app->scenes()->get_node_info(state.scene, 0U), info)} != gneiss::engine::error::success) {
+          gneiss::test_support::scene_access{*app}->get_node_info(state.scene, 0U), info)} !=
+      gneiss::engine::error::success) {
     return 3;
   }
   state.camera = info.node;
   if (gneiss::engine::error{gneiss::test_support::take_value(
-          app->scenes()->get_node_info(state.scene, 1U), info)} != gneiss::engine::error::success) {
+          gneiss::test_support::scene_access{*app}->get_node_info(state.scene, 1U), info)} !=
+      gneiss::engine::error::success) {
     return 3;
   }
   state.mesh = info.node;

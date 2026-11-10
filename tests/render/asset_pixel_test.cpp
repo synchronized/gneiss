@@ -3,6 +3,7 @@
 
 #include "../support/async_application.hpp"
 #include "../support/codec_result.hpp"
+#include "../support/scene_access.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
@@ -11,7 +12,6 @@
 #include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
 #include "engine/resource/texture/texture_binary.hpp"
@@ -185,7 +185,8 @@ void run_pending_resources() {
             material_ref)} == gneiss::engine::error::success);
   gneiss::engine::scene_node_info info;
   check(gneiss::engine::error{gneiss::test_support::take_value(
-            app->scenes()->get_node_info(scene, 1U), info)} == gneiss::engine::error::success);
+            gneiss::test_support::scene_access{*app}->get_node_info(scene, 1U), info)} ==
+        gneiss::engine::error::success);
   check(info.components.get<gneiss::engine::mesh_renderer_description>() != nullptr);
   const gneiss::engine::mesh_renderer binding{.mesh = mesh_ref, .material = material_ref};
   check(gneiss::engine::error{native->native_world()->entity_set_mesh_renderer(
@@ -843,7 +844,7 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
           active_pixels = changed;
           std::uint64_t count{};
           check(gneiss::engine::error{gneiss::test_support::take_value(
-                    app->scenes()->get_node_count(old_scene), count)} ==
+                    gneiss::test_support::scene_access{*app}->get_node_count(old_scene), count)} ==
                 gneiss::engine::error::invalid_handle);
           break;
         }

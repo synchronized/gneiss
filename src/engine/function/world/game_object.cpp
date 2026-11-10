@@ -37,6 +37,34 @@ result<math::transform> game_object::local_transform() const {
   const auto* value = (*state)->scene().get_local(scene_node_id{entity_.get()});
   return value ? result<math::transform>{*value} : result<math::transform>{error::invalid_handle};
 }
+result<scene_instance> game_object::scene() const {
+  if (!owner_)
+    return error::invalid_handle;
+  auto state = detail::world_component_access::get(*owner_);
+  if (!state)
+    return state.error();
+  return scene_instance::borrow(*owner_, (*state)->scene_of(scene_node_id{entity_.get()}));
+}
+result<math::matrix4> game_object::world_matrix() const {
+  if (!owner_)
+    return error::invalid_handle;
+  auto state = detail::world_component_access::get(*owner_);
+  if (!state)
+    return state.error();
+  const auto& hierarchy = (*state)->scene();
+  auto node = scene_node_id{entity_.get()};
+  const auto* local = hierarchy.get_local(node);
+  if (!local)
+    return error::invalid_handle;
+  auto matrix = math::model_matrix(*local);
+  while ((node = hierarchy.get_parent(node))) {
+    local = hierarchy.get_local(node);
+    if (!local)
+      return error::invalid_handle;
+    matrix = math::model_matrix(*local) * matrix;
+  }
+  return matrix;
+}
 result<math::transform> game_object::world_transform() const {
   if (!owner_)
     return error::invalid_handle;

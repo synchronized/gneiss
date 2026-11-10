@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../support/async_prefab_edit.hpp"
+#include "../../support/scene_access.hpp"
 #include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
 #include "commands/runtime_author_apply.hpp"
@@ -82,13 +83,15 @@ int main() try {
         world->node_set_local_transform(original.node, original.local_transform).failed())
       return 35;
     const auto uuid = gneiss::engine::guid::from_bytes({72, 93});
-    auto created = application->scenes()->create_node(
+    auto created = gneiss::test_support::scene_access{*application}->create_node(
         session.scene_handle(), {.uuid = uuid, .name = "Direct child", .parent = original.node});
     if (!created || session.find_node(uuid) || session.select(*created).ok())
       return 36;
     if (session.capture_nodes()->nodes.size() != before->nodes.size())
       return 37;
-    if (application->scenes()->destroy_node(session.scene_handle(), *created).failed() ||
+    if (gneiss::test_support::scene_access{*application}
+            ->destroy_node(session.scene_handle(), *created)
+            .failed() ||
         session.is_dirty())
       return 38;
   }

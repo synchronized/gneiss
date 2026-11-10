@@ -10,7 +10,6 @@
 #include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/loading/resource_load_group.hpp"
-#include "runtime/loading/scene_domain.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -25,13 +24,11 @@ gneiss::engine::error scene_service::initialize(gneiss::engine::asset_manager& r
   if (active_ || stopping_) {
     return gneiss::engine::error::invalid_state;
   }
-  auto next = std::make_unique<scene_domain>();
-  const auto result = next->initialize();
-  if (result != gneiss::engine::error::success) {
-    return result;
-  }
+  auto next = engine::create_native();
+  if (!next)
+    return next.error();
   resources_ = &resources;
-  active_ = std::move(next);
+  active_ = std::move(*next);
   return gneiss::engine::error::success;
 }
 
@@ -165,13 +162,8 @@ scene_retirement_statistics scene_service::retirement() const noexcept {
   value.pending = retired_ != nullptr;
   return value;
 }
-gneiss::engine::world* scene_service::native_world() const noexcept {
-  return active_ ? active_->native_world() : nullptr;
-}
+gneiss::engine::world* scene_service::native_world() const noexcept { return active_.get(); }
 
-gneiss::engine::scene_instances* scene_service::scenes() noexcept {
-  return active_ ? active_->scenes() : nullptr;
-}
 bool scene_service::can_activate() const noexcept {
   return !stopping_ && !reload_ && !retired_ && loading_ && !loading_->busy();
 }

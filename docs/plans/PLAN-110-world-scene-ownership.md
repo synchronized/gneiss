@@ -6,7 +6,8 @@
 ## 状态与范围
 
 2026-11-10：实施中；以下目标按本次确认修订。对象改名/变换入口、ECS 成员归属及场景资产服务解耦已完成；
-槽位和层级入口、纯组合与实例化接口的进一步收敛仍待实施。
+World 已收拢槽位并删除公开场景集合，补齐成员遍历、世界矩阵与整棵子树迁移；
+运行来源身份、重复准备数据、编辑注册和相机激活边界尚未完成。
 沿用当前特性分支，不重新实现 ECS、资产缓存或编辑历史。
 本计划细化并收敛 PLAN-105/106/107 的接口边界，不将历史任务完成等同于本计划已实现。
 长期决策见 [ADR-115](../decisions/ADR-115-world-scene-ownership.md)。
@@ -175,9 +176,12 @@ Runtime 不建立编辑文档。IPC 调用已有应用操作，不增加对象�
 2. [ ] 组合与装配分开；以 composed_scene 为唯一完整输入，实现显式目标场景和 parent 的 instantiate。
    覆盖已有非空场景、Prefab 重复实例化、引用前向解析和仅清理本次创建对象。
 3. [ ] World 收拢场景槽位，移除公开集合及独立状态层；统一 GameObject 创建/层级入口。
+   已完成槽位收拢及 scene_instances/scene_instance_state 删除；旧 World node/entity 业务入口仍待迁移。
 4. [ ] 迁移运行来源身份到外部回执，补齐对象遍历和同 World 整棵子树迁移。
+   已完成 visit_objects、game_object::scene/world_matrix、transfer_subtree；来源 UUID 依赖尚待移除。
 5. [ ] 拆分运行组件装配与编辑器注册，消除上下文中的网格特例。
 6. [ ] 分离相机安装和激活；迁移应用/视口安全点调度，整理 scene_domain。
+   已删除仅包装 World 的 scene_domain；相机安装仍会修改活动相机，尚待分离。
 7. [ ] 清理旧 node/entity 业务入口、重复准备模型及目录；完成编译与定向 CPU 验证。
 
 保句柄替换协议已删除。内部继续组合的 instantiate_scene 自由函数仍是迁移中间态，
@@ -437,3 +441,14 @@ adopt 校验回执成员归属，拒绝同 World 其他场景对象；is_open �
 Editor、Runtime 及相关目标编译通过，6 项定向 CPU 测试通过，git diff --check 通过。
 未运行 GPU、大场景、其他平台或远端 CI。
 Runtime 检查器节点枚举与宿主 scenes() 入口仍待迁移，旧集合暂未删除。
+
+## 公开集合删除与原生对象遍历验收
+
+产品代码已删除 scene_instances、scene_domain 及 Application/World/scene_service 的 scenes()。
+运行协调直接拥有 world_owner，实例化和 IPC 检视通过借用句柄操作。
+visit_objects 同步遍历 ECS 归属，回调期间禁止结构修改；测试排序辅助仅位于 tests/support，
+不恢复产品集合或成员缓存。transfer_subtree 保留实体身份及局部变换，失败恢复归属。
+
+Windows Clang Debug 的 Editor、Runtime 及相关目标编译通过；10 项定向 CPU 回归通过，
+包含跨场景迁移、剪切矩阵、实例化失败清理、编辑生命周期、加载及 Runtime 检视。
+未运行 GPU、大场景或远端 CI；以上不代表主清单其余项已完成。

@@ -49,6 +49,73 @@ result<std::uint64_t> scene_instance::size() const noexcept {
     return error::invalid_handle;
   return owner_->scene_size(id_);
 }
+error scene_instance::visit_objects(const std::function<error(game_object)>& visitor,
+                                    bool roots_only) const {
+  if (!owner_)
+    return error::invalid_handle;
+  auto status = owner_->validate_scene(id_);
+  if (status.failed())
+    return status;
+  if (!visitor)
+    return error::invalid_argument;
+  owner_->state_->each_scene_member(id_, [&](scene_node_id node) {
+    if (status.failed() || (roots_only && owner_->state_->scene().get_parent(node)))
+      return;
+    auto object = owner_->object(entity_id{node.get()});
+    if (!object) {
+      status = object.error();
+      return;
+    }
+    status = visitor(*object);
+  });
+  return status;
+}
+error world::transfer_subtree(game_object root, scene_instance destination, game_object parent) {
+  if (!is_owner_thread())
+    return error::invalid_state;
+  if (root.owner() != this || destination.owner() != this ||
+      (parent.owner() && parent.owner() != this))
+    return error::invalid_handle;
+  auto status = validate_scene(destination.id());
+  if (status.failed())
+    return status;
+  auto source = root.scene();
+  if (!source)
+    return source.error();
+  if (parent.owner()) {
+    auto member = destination.contains(parent);
+    if (!member)
+      return member.error();
+    if (!*member)
+      return error::invalid_argument;
+  }
+  std::vector<scene_node_id> nodes{scene_node_id{root.entity().get()}};
+  for (std::size_t i = 0; i < nodes.size(); ++i) {
+    if (parent.owner() && nodes[i].get() == parent.entity().get())
+      return error::invalid_argument;
+    if (state_->scene_of(nodes[i]) != source->id())
+      return error::invalid_state;
+    auto children = state_->scene().children(nodes[i]);
+    if (!children)
+      return error::invalid_handle;
+    nodes.insert(nodes.end(), children->begin(), children->end());
+  }
+  // 已有归属组件原位更新，不在提交阶段分配组件存储。
+  auto assign = [&](scene_instance_id id) {
+    for (auto node : nodes)
+      state_->get<scene_membership>(node.get())->scene = id;
+  };
+  assign(destination.id());
+  try {
+    status = root.reparent(parent);
+  } catch (...) {
+    assign(source->id());
+    throw;
+  }
+  if (status.failed())
+    assign(source->id());
+  return status;
+}
 result<bool> scene_instance::contains(game_object object) const noexcept {
   if (!owner_)
     return error::invalid_handle;
@@ -88,12 +155,6 @@ error scene_instance::unload() const noexcept {
   return owner_->unload_scene(id_);
 }
 
-std::vector<scene_node_id> world::scene_members(scene_instance_id instance) const {
-  std::vector<scene_node_id> result;
-  state_->each_scene_member(instance, [&](scene_node_id node) { result.push_back(node); });
-  std::ranges::sort(result, {}, [](scene_node_id node) { return node.get(); });
-  return result;
-}
 result<std::uint64_t> world::scene_size(scene_instance_id instance) const {
   const auto status = validate_scene(instance);
   if (status.failed())
@@ -122,48 +183,6 @@ result<scene_node_id> world::find_scene_node(scene_instance_id instance, guid uu
   return found;
 }
 
-result<scene_node_info> world::scene_node_info_at(scene_instance_id instance, std::uint64_t index,
-                                                  node_query_detail detail) {
-  const auto status = validate_scene(instance);
-  if (status.failed())
-    return status;
-  const auto nodes = scene_members(instance);
-  if (index >= nodes.size()) {
-    return engine::error::not_found;
-  }
-  const auto node = nodes[static_cast<std::size_t>(index)];
-  std::uint64_t entity = UINT64_C(0);
-  auto result = engine::write_identifier<entity_id>(entity, [&](auto& native_output) {
-    return this->node_get_entity(gneiss::scene_node_id{node}, native_output);
-  });
-  if (result != engine::error::success || entity == UINT64_C(0)) {
-    return result == engine::error::success ? engine::error::invalid_handle : result;
-  }
-  scene_node_id parent = null_scene_node_id;
-  result = this->node_get_parent(gneiss::scene_node_id{node}, parent);
-  if (result != engine::error::success) {
-    return result;
-  }
-  scene_node_info out_info{};
-  out_info.node = scene_node_id{node};
-  out_info.parent = scene_node_id{parent};
-  out_info.entity = entity_id{entity};
-  out_info.uuid = node_identity(node)->uuid;
-  out_info.name = node_identity(node)->name;
-  if (detail != node_query_detail::identity) {
-    auto components = capture_components(*this, node);
-    if (!components)
-      return components.error();
-    out_info.components = std::move(*components);
-  }
-  if (detail == node_query_detail::components) {
-    result = this->node_get_local_transform(node, out_info.local_transform);
-    if (result.failed())
-      return result;
-  }
-  return out_info;
-}
-
 result<scene_node_id> world::create_scene_node(scene_instance_id instance,
                                                const node_creation& desc) {
   const auto status = validate_scene(instance);
@@ -184,40 +203,6 @@ result<scene_node_id> world::create_scene_node(scene_instance_id instance,
     throw;
   }
   return *created;
-}
-
-engine::error world::reparent_scene_node(scene_instance_id instance, scene_node_id node,
-                                         scene_node_id parent) {
-  const auto status = validate_scene(instance);
-  if (status.failed())
-    return status;
-  if (validate_scene_node(instance, node).failed()) {
-    return engine::error::invalid_handle;
-  }
-  if (parent && validate_scene_node(instance, parent).failed())
-    return error::invalid_handle;
-  return this->node_reparent(node, parent);
-}
-
-engine::error world::destroy_scene_subtree(scene_instance_id instance, scene_node_id root) {
-  const auto status = validate_scene(instance);
-  if (status.failed())
-    return status;
-  if (validate_scene_node(instance, root).failed())
-    return error::invalid_handle;
-  return this->object_destroy(root);
-}
-
-engine::error world::destroy_scene_node(scene_instance_id instance, scene_node_id node) {
-  const auto status = validate_scene(instance);
-  if (status.failed())
-    return status;
-  if (validate_scene_node(instance, node).failed())
-    return error::invalid_handle;
-  const auto* children = state_->scene().children(node);
-  if (children && !children->empty())
-    return error::invalid_state;
-  return destroy_scene_subtree(instance, node);
 }
 
 } // namespace gneiss::engine

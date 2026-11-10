@@ -5,7 +5,6 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/component_adapter.hpp"
-#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -215,50 +214,51 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
   if (!scene.is_valid()) {
     return gneiss::engine::error::invalid_argument;
   }
-  auto get_node_count_result = application.scenes()->get_node_count(scene);
-  if (!get_node_count_result)
-    return get_node_count_result.error();
-
-  const auto count = *get_node_count_result;
-
-  if (count > runtime_inspection_max_nodes) {
-    return gneiss::engine::error::out_of_memory;
-  }
-  auto& world = *application.native_world();
-  {
-    std::vector<runtime_scene_source_node> nodes;
-    nodes.reserve(static_cast<std::size_t>(count));
-    for (std::uint64_t index = 0U; index < count; ++index) {
-      auto get_node_info_result = application.scenes()->get_node_info(scene, index);
-      if (!get_node_info_result)
-        return get_node_info_result.error();
-
-      auto& info = *get_node_info_result;
-
-      if (info.name.size() > runtime_inspection_max_string_size)
-        return gneiss::engine::error::invalid_argument;
-      const auto source = sources_.find(info.entity.get());
-      const auto* binding = source == sources_.end() ? nullptr : &source->second;
-      auto runtime_transform = info.local_transform;
-      const auto operation =
-          world.entity_get_local_transform(gneiss::entity_id{info.entity.get()}, runtime_transform);
-      if (operation != gneiss::engine::error::success) {
-        return operation;
-      }
-      nodes.push_back(
-          {.native_node = info.node.get(),
-           .native_parent = info.parent.get(),
-           .native_entity = info.entity.get(),
-           .uuid = info.uuid,
-           .prefab_instance_uuid =
-               binding && binding->source ? binding->object : gneiss::engine::guid{},
-           .prefab_source_node_uuid = binding ? binding->source : gneiss::engine::guid{},
-           .name = std::string{info.name},
-           .local_transform = runtime_transform,
-           .components = std::move(info.components)});
-    }
-    return capture(nodes, force_full, output);
-  }
+  auto instance = engine::scene_instance::borrow(*application.native_world(), scene);
+  if (!instance)
+    return instance.error();
+  auto count = instance->size();
+  if (!count)
+    return count.error();
+  if (*count > runtime_inspection_max_nodes)
+    return engine::error::out_of_memory;
+  std::vector<runtime_scene_source_node> nodes;
+  nodes.reserve(static_cast<std::size_t>(*count));
+  auto status = instance->visit_objects([&](engine::game_object object) -> engine::error {
+    auto identity = object.identity();
+    if (!identity)
+      return identity.error();
+    if (identity->name.size() > runtime_inspection_max_string_size)
+      return engine::error::invalid_argument;
+    auto parent = object.parent();
+    if (!parent)
+      return parent.error();
+    auto transform = object.local_transform();
+    if (!transform)
+      return transform.error();
+    auto components =
+        engine::capture_components(*object.owner(), scene_node_id{object.entity().get()});
+    if (!components)
+      return components.error();
+    auto source = sources_.find(object.entity().get());
+    const auto* binding = source == sources_.end() ? nullptr : &source->second;
+    nodes.push_back(
+        {.native_node = object.entity().get(),
+         .native_parent = parent->entity().get(),
+         .native_entity = object.entity().get(),
+         .uuid = identity->uuid,
+         .prefab_instance_uuid = binding && binding->source ? binding->object : engine::guid{},
+         .prefab_source_node_uuid = binding ? binding->source : engine::guid{},
+         .name = std::string{identity->name},
+         .local_transform = *transform,
+         .components = std::move(*components)});
+    return engine::error::success;
+  });
+  if (status.failed())
+    return status;
+  // IPC 的展示顺序由宿主决定，不依赖 ECS 遍历顺序。
+  std::ranges::sort(nodes, {}, &runtime_scene_source_node::native_node);
+  return capture(nodes, force_full, output);
 }
 
 gneiss::engine::error

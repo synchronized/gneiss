@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/async_document.hpp"
+#include "../../support/scene_access.hpp"
 #include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
 #include "commands/editor_asset_edit.hpp"
@@ -9,7 +10,6 @@
 #include "engine/core/math/transform.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/serialization/json.hpp"
-#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
@@ -211,7 +211,8 @@ void run(gneiss::engine::execution_mode mode) {
   check(gneiss::test_support::scene_query(session).nodes.size() == 2U &&
         session.selection() == selected && !session.is_dirty());
   check(bool(!session.find_node(creation.uuid)));
-  check(!app->scenes()->find_node(session.scene_handle(), creation.uuid));
+  check(
+      !gneiss::test_support::scene_access{*app}->find_node(session.scene_handle(), creation.uuid));
   std::ofstream(files.root / "mesh.json") << "broken";
   check(history.undo() == gneiss::engine::error::success &&
         session.find_node(created_uuid).failed());

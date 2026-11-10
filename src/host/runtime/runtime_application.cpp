@@ -8,7 +8,6 @@
 #include "engine/function/scene/scene_types.hpp"
 
 #include "engine/core/error.hpp"
-#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 #include <gneiss/app/project_description.hpp>
@@ -675,7 +674,8 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
   }
   if (operation != gneiss::engine::error::success) {
     log.write("ERROR", "property_edit", operation, "Runtime 属性写入执行器初始化失败");
-    (void)application->scenes()->unload(scene);
+    if (auto instance = gneiss::engine::scene_instance::borrow(*application->native_world(), scene))
+      (void)instance->unload();
     return 5;
   }
   context.property_editor = &property_editor;
@@ -740,7 +740,9 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
     if (operation != gneiss::engine::error::success) {
       log.write("ERROR", "ipc", operation, "Editor IPC 会话启动失败");
 
-      (void)application->scenes()->unload(scene);
+      if (auto instance =
+              gneiss::engine::scene_instance::borrow(*application->native_world(), scene))
+        (void)instance->unload();
       return 11;
     }
     context.ipc_session = ipc_session.get();

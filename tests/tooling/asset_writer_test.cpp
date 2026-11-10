@@ -11,7 +11,7 @@
 #include "tooling/asset_import/asset_writer.hpp"
 #include "tooling/asset_import/gltf_importer.hpp"
 
-#include "engine/function/scene/scene_instances.hpp"
+#include "../support/scene_access.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 #include <array>
@@ -129,7 +129,8 @@ int main() { // NOLINT(bugprone-exception-escape)
       gneiss::test_support::assign_value(application->native_world()->entity_count(),
                                          entity_count) != gneiss::engine::error::success ||
       entity_count != 1U ||
-      application->scenes()->unload(scene) != gneiss::engine::error::success ||
+      gneiss::test_support::scene_access{*application}->unload(scene) !=
+          gneiss::engine::error::success ||
       application->shutdown() != gneiss::engine::error::success) {
     return 6;
   }
@@ -155,7 +156,8 @@ int main() { // NOLINT(bugprone-exception-escape)
       gneiss::test_support::assign_value(application->native_world()->entity_count(),
                                          entity_count) != gneiss::engine::error::success ||
       entity_count != 3U ||
-      application->scenes()->unload(scene) != gneiss::engine::error::success ||
+      gneiss::test_support::scene_access{*application}->unload(scene) !=
+          gneiss::engine::error::success ||
       application->shutdown() != gneiss::engine::error::success) {
     return 8;
   }

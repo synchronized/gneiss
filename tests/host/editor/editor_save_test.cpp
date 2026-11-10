@@ -12,7 +12,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_types.hpp"
 
-#include "engine/function/scene/scene_instances.hpp"
+#include "../../support/scene_access.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
@@ -223,10 +223,12 @@ int main() try {
   gneiss::entity_id camera_entity;
   gneiss::engine::math::transform reloaded_transform{};
   if (gneiss::test_support::take_value(
-          reloaded_application->scenes()->find_node(reloaded_scene, camera_uuid), camera_node) !=
-          gneiss::engine::error::success ||
+          gneiss::test_support::scene_access{*reloaded_application}->find_node(reloaded_scene,
+                                                                               camera_uuid),
+          camera_node) != gneiss::engine::error::success ||
       gneiss::test_support::take_value(
-          reloaded_application->scenes()->find_node(reloaded_scene, created_uuid),
+          gneiss::test_support::scene_access{*reloaded_application}->find_node(reloaded_scene,
+                                                                               created_uuid),
           reloaded_created_node) != gneiss::engine::error::success ||
       reloaded_application->native_world()->node_get_entity(camera_node, camera_entity) !=
           gneiss::engine::error::success ||
@@ -235,7 +237,7 @@ int main() try {
       std::abs(reloaded_transform.translation[0] - 7.0F) > 0.0001F) {
     return 12;
   }
-  if (reloaded_application->scenes()->unload(reloaded_scene).failed())
+  if (gneiss::test_support::scene_access{*reloaded_application}->unload(reloaded_scene).failed())
     return 12;
   reloaded_application.reset();
   std::filesystem::remove_all(root);

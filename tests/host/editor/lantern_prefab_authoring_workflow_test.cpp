@@ -3,13 +3,13 @@
 
 #include "../../support/async_application.hpp"
 #include "../../support/async_editor_save.hpp"
+#include "../../support/scene_access.hpp"
 #include "commands/prefab_authoring.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "runtime/application.hpp"
 
 #include "engine/core/error.hpp"

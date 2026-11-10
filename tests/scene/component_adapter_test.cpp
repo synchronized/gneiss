@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/movement_component.hpp"
+#include "../support/scene_access.hpp"
 #include "../support/scene_application.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
@@ -11,7 +12,6 @@
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/component_adapter.hpp"
-#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_instantiation.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/component_identity.hpp"
@@ -144,12 +144,7 @@ int main() try {
   auto owner = e::create_native();
   check(owner.has_value());
   auto& world = **owner;
-  auto attached = e::scene_instances::attach(world);
-  check(attached.has_value());
-  auto& scenes = **attached;
-  check(world.scenes() == &scenes);
-  auto duplicate = e::scene_instances::attach(world);
-  check(!duplicate && duplicate.error() == e::error::invalid_state);
+  gneiss::test_support::scene_access scenes{world};
   check(!e::scene_instance{}.is_valid());
   e::scene_description source;
   source.uuid = e::guid::from_bytes({1});
@@ -212,7 +207,6 @@ int main() try {
   check(first_object->is_valid());
   auto other_world = e::create_native();
   check(other_world.has_value());
-  check(e::scene_instances::attach(**other_world).has_value());
   check(!e::scene_instance::borrow(**other_world, instance));
   e::error wrong_thread;
   std::thread scene_worker([&] { wrong_thread = borrowed_copy.unload(); });
