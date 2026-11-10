@@ -41,8 +41,8 @@ int main() try {
       composition->objects, [&](const auto& object) { return object.address.source == source_id; });
   check(member != composition->objects.end());
   check(member->effective.transform.translation.x == 3);
-  const auto child = mapping.at(member->address).node;
-  const auto root = mapping.at(member->parent).node;
+  const auto child = mapping.at(member->address).entity;
+  const auto root = mapping.at(member->parent).entity;
   gneiss::entity_id parent;
   check(gneiss::test_support::assign_value(
             app->native_world()->find(gneiss::entity_id{(child).get()}).parent(), parent)
@@ -55,12 +55,12 @@ int main() try {
                                                                        prepared, assets);
   check(bool(second));
   auto second_mapping = gneiss::test_support::associations(second->objects);
-  check(second_mapping.at(member->address).node != child);
+  check(second_mapping.at(member->address).entity != child);
   auto second_identity =
       app->native_world()
-          ->find(gneiss::entity_id{(second_mapping.at(member->parent).node).get()})
+          ->find(gneiss::entity_id{(second_mapping.at(member->parent).entity).get()})
           .name();
-  check(second_identity == identity && second_mapping.at(member->parent).node != root);
+  check(second_identity == identity && second_mapping.at(member->parent).entity != root);
   check(app->native_world()->object(gneiss::entity_id{child.get()})->set_name("Runtime edit").ok());
   check(gneiss::test_support::scene_access{*app}->reparent_node(created->instance, child, {}).ok());
   check(gneiss::test_support::assign_value(

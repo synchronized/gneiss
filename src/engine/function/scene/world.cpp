@@ -35,48 +35,6 @@ result<scene_instance> world::create_scene() {
 }
 bool world::is_owner_thread() const noexcept { return state_->is_owner_thread(); }
 
-engine::error world::entity_create(entity_id& out_entity_value) {
-  std::uint64_t out_entity = out_entity_value.get();
-  const auto operation_result = [&]() -> engine::error {
-    out_entity = UINT64_C(0);
-    {
-      auto* state = state_.get();
-      const auto thread_result =
-          (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-      if (thread_result != engine::error::success) {
-        return thread_result;
-      }
-      out_entity = state->create_entity();
-      return engine::error::success;
-    }
-  }();
-  out_entity_value = entity_id{out_entity};
-  return operation_result;
-}
-engine::error world::entity_destroy(entity_id entity_value) {
-  std::uint64_t entity = entity_value.get();
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    if (thread_result != engine::error::success) {
-      return thread_result;
-    }
-    return state->destroy_entity(entity) ? engine::error::success : engine::error::invalid_handle;
-  }
-}
-result<bool> world::entity_is_alive(entity_id entity_value) {
-  std::uint64_t entity = entity_value.get();
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    if (thread_result != engine::error::success) {
-      return thread_result;
-    }
-    return state->is_alive(entity);
-  }
-}
 result<std::uint64_t> world::entity_count() {
   {
     auto* state = state_.get();

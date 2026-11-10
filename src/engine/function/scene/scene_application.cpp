@@ -52,7 +52,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
     return count.error();
   std::set<std::uint64_t> entities;
   for (const auto& [address, binding] : associations) {
-    if (binding.node.get() != binding.entity.get() || !entities.insert(binding.entity.get()).second)
+    if (!entities.insert(binding.entity.get()).second)
       return error::invalid_argument;
     auto borrowed = world.object(binding.entity);
     if (!borrowed)
@@ -66,7 +66,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
     if (!transform)
       return transform.error();
     projected_object info;
-    info.node = binding.node;
+    info.node = binding.entity;
     info.local_transform = *transform;
     nodes.emplace(address, std::move(info));
   }
@@ -153,7 +153,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
       return created.error();
     projected_object info;
     info.node = entity_id{created->entity().get()};
-    associations[object.address] = {info.node, created->entity()};
+    associations[object.address] = {created->entity()};
     nodes.emplace(object.address, std::move(info));
   }
   for (const auto& object : next.objects) {

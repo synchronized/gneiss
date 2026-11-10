@@ -113,7 +113,7 @@ int main() try {
       return 101;
     const auto& foreign_object = nodes->nodes.front();
     const gneiss::engine::scene_object_binding wrong{
-        foreign_object.uuid, {}, foreign_object.node, gneiss::entity_id{foreign_object.node.get()}};
+        foreign_object.uuid, {}, foreign_object.entity};
     auto before = session.scene_handle();
     if (session.adopt(*application, world, target->id(), *content, {&wrong, 1}) !=
             gneiss::engine::error::invalid_handle ||

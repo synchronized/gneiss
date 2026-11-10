@@ -504,7 +504,7 @@ int main() try {
     return object.object == reference.uuid && object.source == prefab->root_uuid;
   });
   check(root_binding != receipt->objects.end());
-  auto loaded_node = root_binding->node;
+  auto loaded_node = root_binding->entity;
   auto reloaded = e::capture_components(world, loaded_node);
   check(reloaded && reloaded->get<movement_description>()->settings.acceleration == 20 &&
         reloaded->get<movement_description>()->samples[1] == 9);

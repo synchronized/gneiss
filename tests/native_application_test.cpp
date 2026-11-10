@@ -223,8 +223,9 @@ int main() try {
   // Application 持有的 World 不授予调用方销毁权。
   const auto borrowed_world = app->native_world();
   check(borrowed_world != nullptr);
-  gneiss::entity_id owned_entity;
-  check(app->native_world()->entity_create(owned_entity) == gneiss::engine::error::success);
+  auto owned_scene = app->native_world()->create_scene();
+  check(owned_scene.has_value());
+  check(owned_scene->create_object().has_value());
   check(state.shutdowns == 0U);
   // 失败创建不替换原对象；失败初始化的部分资源必须恰好清理一次。
   auto previous = app;

@@ -65,8 +65,7 @@ bool scene_object_storage() {
   if ((*root).destroy().failed())
     return false;
   count = owner.entity_count();
-  auto alive = owner.entity_is_alive(child_entity);
-  if (!count || *count != 0 || !alive || *alive)
+  if (!count || *count != 0 || owner.find(child_entity).is_valid())
     return false;
   if (child->is_valid() || (*root).destroy() != error::invalid_handle)
     return false;
@@ -82,7 +81,6 @@ bool native_operations() {
     return false;
   entity_id entity{};
   entity_id node{};
-  bool alive{};
   std::uint64_t count{};
   auto object_scene = owner->create_scene();
   if (!object_scene)
@@ -92,9 +90,7 @@ bool native_operations() {
     return false;
   entity = object->entity();
   node = entity_id{entity.get()};
-  if (gneiss::test_support::assign_value(owner->entity_is_alive(gneiss::entity_id{entity}),
-                                         alive) != gneiss::engine::error::success ||
-      !alive ||
+  if (!owner->find(entity).is_valid() ||
       gneiss::test_support::assign_value(owner->entity_count(), count) !=
           gneiss::engine::error::success ||
       count != 1)
@@ -125,12 +121,9 @@ bool native_operations() {
       actual.translation[0] != 42)
     return false;
   gneiss::engine::error foreign{};
-  std::thread worker([&] { foreign = owner->entity_destroy(gneiss::entity_id{entity}); });
+  std::thread worker([&] { foreign = owner->find(gneiss::entity_id{entity}).destroy(); });
   worker.join();
-  if (foreign != gneiss::engine::error::invalid_state ||
-      gneiss::test_support::assign_value(owner->entity_is_alive(gneiss::entity_id{entity}),
-                                         alive) != gneiss::engine::error::success ||
-      !alive)
+  if (foreign != gneiss::engine::error::invalid_state || !owner->find(entity).is_valid())
     return false;
   owner.reset();
   return !owner;
@@ -151,12 +144,13 @@ int main() {
       gneiss::engine::error::success) {
     return 1;
   }
-  std::uint64_t entity{};
-  if (gneiss::engine::write_identifier<gneiss::entity_id>(entity, [&](auto& native_output) {
-        return world->entity_create(native_output);
-      }) != gneiss::engine::error::success) {
+  auto scene = world->create_scene();
+  if (!scene)
     return 2;
-  }
+  auto created_object = scene->create_object();
+  if (!created_object)
+    return 2;
+  const auto entity = created_object->entity().get();
   std::uint64_t count{};
   if (gneiss::test_support::assign_value(world->entity_count(), count) !=
           gneiss::engine::error::success ||

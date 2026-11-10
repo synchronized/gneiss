@@ -70,8 +70,7 @@ result<scene_instantiation_result> instantiate(scene_instance destination,
       return made.error();
     created.push_back(*made);
     objects.emplace(object.address, *made);
-    receipt.objects.push_back({object.address.object, object.address.source,
-                               entity_id{made->entity().get()}, made->entity()});
+    receipt.objects.push_back({object.address.object, object.address.source, made->entity()});
   }
   // 对象全部存在后再连接层级，输入无需按父子排序。
   for (const auto& object : composed.objects) {

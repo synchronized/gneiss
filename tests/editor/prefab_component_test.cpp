@@ -283,7 +283,7 @@ int main() try {
     return object.object == instance.uuid && object.source == source->root_uuid;
   });
   check(root_binding != receipt->objects.end());
-  auto loaded_root = root_binding->node;
+  auto loaded_root = root_binding->entity;
   check(e::capture_components(world, loaded_root)->get<movement_description>()->speed == 5);
   check(gneiss::test_support::scene_access{*app}->unload(loaded).ok());
   gneiss::entity_id unrelated;

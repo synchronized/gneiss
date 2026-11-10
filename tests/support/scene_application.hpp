@@ -9,7 +9,7 @@ associations(std::span<const engine::scene_object_binding> objects) {
   std::map<engine::object_address, engine::scene_object_association> output;
   for (const auto& object : objects)
     output.emplace(engine::object_address{object.object, object.source},
-                   engine::scene_object_association{object.node, object.entity});
+                   engine::scene_object_association{object.entity});
   return output;
 }
 inline engine::result<engine::composed_scene> compose(const engine::scene_content& input) {

@@ -67,7 +67,7 @@ engine::error runtime_scene_inspection::set_source_bindings(
   std::map<std::uint64_t, engine::scene_object_binding> next;
   std::set<std::pair<engine::guid, engine::guid>> addresses;
   for (const auto& binding : bindings) {
-    if (!binding.object || !binding.node || binding.node.get() != binding.entity.get() ||
+    if (!binding.object || !binding.entity ||
         !addresses.emplace(binding.object, binding.source).second ||
         !next.emplace(binding.entity.get(), binding).second)
       return engine::error::invalid_argument;

@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/world.hpp"
 #include "support/value_result.hpp"
 #include <thread>
 
 int main(void) {
+  if (gneiss::engine::initialize_meta().failed())
+    return 1;
   gneiss::engine::world_owner first;
 
   gneiss::engine::world_owner second;
@@ -19,19 +22,17 @@ int main(void) {
   }
 
   auto empty_count = first->entity_count();
-  auto missing = first->entity_is_alive({});
-  if (!empty_count || *empty_count != 0U || !missing || *missing)
+  if (!empty_count || *empty_count != 0U || first->find({}).is_valid())
     return 30;
-  gneiss::entity_id entity = gneiss::entity_id{};
-  if (first->entity_create(entity) != gneiss::engine::error::success ||
-      entity == gneiss::entity_id{}) {
+  auto scene = first->create_scene();
+  if (!scene)
     return 2;
-  }
-  bool is_alive = false;
+  auto created = scene->create_object();
+  if (!created)
+    return 2;
+  auto entity = created->entity();
   uint64_t count = 0;
-  if (gneiss::test_support::assign_value(first->entity_is_alive(entity), is_alive) !=
-          gneiss::engine::error::success ||
-      is_alive != 1U ||
+  if (!first->find(entity).is_valid() ||
       gneiss::test_support::assign_value(first->entity_count(), count) !=
           gneiss::engine::error::success ||
       count != 1U) {
@@ -81,9 +82,9 @@ int main(void) {
   worker.join();
   if (thread_status != gneiss::engine::error::invalid_state)
     return 34;
-  if (second->entity_destroy(entity) != gneiss::engine::error::invalid_handle ||
-      first->entity_destroy(entity) != gneiss::engine::error::success ||
-      first->entity_destroy(entity) != gneiss::engine::error::invalid_handle) {
+  if (second->find(entity).destroy() != gneiss::engine::error::invalid_handle ||
+      first->find(entity).destroy() != gneiss::engine::error::success ||
+      first->find(entity).destroy() != gneiss::engine::error::invalid_handle) {
     return 6;
   }
   auto expired = object.read_component<gneiss::engine::camera_component>();
@@ -91,9 +92,7 @@ int main(void) {
       object.remove_component<gneiss::engine::camera_component>() !=
           gneiss::engine::error::invalid_handle)
     return 35;
-  if (gneiss::test_support::assign_value(first->entity_is_alive(entity), is_alive) !=
-          gneiss::engine::error::success ||
-      is_alive != 0U ||
+  if (first->find(entity).is_valid() ||
       first->get_active_camera(active_camera) != gneiss::engine::error::not_ready) {
     return 7;
   }

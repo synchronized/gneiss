@@ -311,7 +311,7 @@ engine::error scene_edit_session::accept_content(const scene_document_snapshot& 
   (void)report_projection(document_->current(), status);
   if (selected) {
     auto found = projection_.objects().find(*selected);
-    selection_ = found == projection_.objects().end() ? entity_id{} : found->second.node;
+    selection_ = found == projection_.objects().end() ? entity_id{} : found->second.entity;
   }
   return engine::error::success;
 }
@@ -445,8 +445,8 @@ engine::result<scene_query_snapshot> scene_edit_session::capture_nodes() const {
     for (auto& object : composed->objects) {
       auto found = projected.find(object.address);
       auto parent = projected.find(object.parent);
-      const auto node = found == projected.end() ? entity_id{} : found->second.node;
-      const auto parent_node = parent == projected.end() ? entity_id{} : parent->second.node;
+      const auto node = found == projected.end() ? entity_id{} : found->second.entity;
+      const auto parent_node = parent == projected.end() ? entity_id{} : parent->second.entity;
       const auto entity = found == projected.end() ? entity_id{} : found->second.entity;
       auto& effective = object.effective;
       const engine::game_object_description* author = nullptr;

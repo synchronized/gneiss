@@ -427,7 +427,7 @@ void run() {
   for (std::size_t index = 0; index < created->node_count; ++index) {
     auto info = gneiss::test_support::scene_access{*candidate}->get_node_info(new_scene, index);
     check(bool(info));
-    if (info->node == prefab_member->node) {
+    if (info->entity == prefab_member->entity) {
       prefab_node = *info;
       found_prefab_member = true;
     }

@@ -28,7 +28,8 @@ size、visit_objects 和 unload 直接访问 World 的成员归属和槽位，�
 World 销毁后禁止再访问场景句柄，is_valid 也不能检测已经析构的 World。
 
 成员通过 ECS 的 scene_membership 遍历，不维护第二份可变成员清单；
-实例化回执显式返回来源地址到实体的关联，编辑器独立维护投影映射，不从运行来源信息反查。
+实例化回执显式返回来源地址到实体的关联；回执及投影关联只保存一个 entity 字段。
+编辑器独立维护投影映射，不从运行来源信息反查。
 World 拒绝不同场景已登记成员之间的重新挂接，返回 invalid_argument；
 检查目标祖先和移动子树，不能通过未登记的中间对象绕开该限制。
 场景访问入口统一校验线程和句柄，并清理已经由 World 销毁的成员；
@@ -48,11 +49,11 @@ size 和枚举不再返回已经失效的成员。存活实体仍以 World 的 g
 返回 game_object；空父对象创建根，其他场景或 World 的父对象被拒绝。
 Prefab 展开的成员同样可以作为动态对象的父节点；运行结构修改不写入编辑文档。
 不提供 World 级的无归属对象创建入口。动态对象脱离父节点后仍属于原场景，随场景卸载。
-纯 ECS 辅助实体可以通过 entity_create 创建，由创建方明确管理生命周期；它不是普通场景对象。
+纯 ECS 辅助实体的创建与销毁仅保留在 World 私有实现中，由内部创建方明确管理生命周期。
 
 ## Entity 生命周期
 
-`world::entity_create` 返回运行时 `gneiss::entity_id`。实体 ID 包含 World domain 和 EnTT
+`game_object::entity()` 返回运行时 `gneiss::entity_id`。实体 ID 包含 World domain 和 EnTT
 实体 generation，但编码布局不是公共 ABI：
 
 - 零值表示无效实体。
@@ -60,8 +61,8 @@ Prefab 展开的成员同样可以作为动态对象的父节点；运行结构�
 - 销毁后旧 ID 失效，即使底层槽位被复用也不会指向新实体。
 - 实体 ID 不能持久化为场景对象身份。
 
-`world::entity_is_alive` 返回 `result<bool>`，对已销毁或其他 World 的实体返回成功值 false；需要执行销毁、
-读写组件等操作时，这类实体返回 `error::invalid_handle`。
+`world::find(entity).is_valid()` 查询借用句柄是否有效；对象销毁统一使用 `game_object::destroy()`。
+对失效或其他 World 的实体执行销毁、读写组件等操作返回 `error::invalid_handle`。
 
 
 `world::entity_count()` 返回 `result<std::uint64_t>`；成功的零值与跨线程访问失败分别表达。
@@ -81,7 +82,7 @@ name 返回的名称是借用视图；对象删除、改名或 World 结构变�
 根节点的 parent 返回成功的空句柄。reparent 接受空父节点、拒绝跨 World 和循环关系。
 重复指定同一父节点是无副作用操作。destroy 删除整棵子树，复制的借用句柄同步失效。
 层级、局部/世界变换及对象销毁已通过 game_object 操作；World 的对应 node_* 转发接口已删除。
-节点创建、身份及组件查询等旧入口仍在迁移中。
+World 不提供 entity_create、entity_destroy 或 entity_is_alive 等重复生命周期入口。
 
 ## ECS 与 System
 

@@ -174,7 +174,7 @@ engine::result<scene_load_completion> scene_service::activate(std::uint64_t requ
   source->content = pending_->result.content;
   for (const auto& binding : pending_->result.objects)
     source->objects.emplace(engine::object_address{binding.object, binding.source},
-                            engine::scene_object_association{binding.node, binding.entity});
+                            engine::scene_object_association{binding.entity});
   const auto start = clock_type::now();
   sample_budget(pending_->result.progress);
   auto result = std::move(pending_->result);

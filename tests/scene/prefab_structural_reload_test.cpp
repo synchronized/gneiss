@@ -67,7 +67,7 @@ gneiss::engine::error find_source(const std::shared_ptr<gneiss::runtime::applica
     auto info = gneiss::test_support::scene_access{*application}->get_node_info(scene, index);
     if (!info)
       return info.error();
-    if (info->node == binding->node) {
+    if (info->entity == binding->entity) {
       output = *info;
       return gneiss::engine::error::success;
     }

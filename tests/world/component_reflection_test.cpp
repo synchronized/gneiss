@@ -16,15 +16,14 @@ int main() {
   namespace engine = gneiss::engine;
   using engine::error;
   engine::world_owner first, second;
-  gneiss::entity_id entity, missing;
+  gneiss::entity_id entity;
   gneiss::entity_id node;
   if (gneiss::engine::serialization::register_builtin_types().failed() ||
       gneiss::engine::serialization::register_builtin_types() != engine::error::invalid_argument ||
       engine::register_builtin_resource_types().failed() ||
       gneiss::engine::meta::freeze().failed() ||
       gneiss::test_support::assign_value(engine::create_native(), first).failed() ||
-      gneiss::test_support::assign_value(engine::create_native(), second).failed() ||
-      first->entity_create(missing).failed())
+      gneiss::test_support::assign_value(engine::create_native(), second).failed())
     return 1;
   auto object_scene = first->create_scene();
   if (!object_scene)
@@ -63,9 +62,9 @@ int main() {
           .failed() ||
       std::abs(transform.translation[0] - 2) > 0.0001F ||
       gneiss::test_support::assign_value(
-          engine::read_component_property(*first, missing.get(), transform_type,
+          engine::read_component_property(*first, 0, transform_type,
                                           gneiss::engine::meta::property_id{1}),
-          value) != error::not_found ||
+          value) != error::invalid_handle ||
       gneiss::test_support::assign_value(
           engine::read_component_property(*second, entity.get(), transform_type,
                                           gneiss::engine::meta::property_id{1}),
@@ -141,7 +140,7 @@ int main() {
                                        gneiss::engine::meta::property_id{4},
                                        value) != error::unsupported)
     return 12;
-  if (first->entity_destroy(entity).failed() ||
+  if (first->find(entity).destroy().failed() ||
       gneiss::test_support::assign_value(
           engine::read_component_property(*first, entity.get(), camera_type,
                                           gneiss::engine::meta::property_id{2}),

@@ -236,7 +236,7 @@ scene_service::apply_source(engine::ref<const engine::scene_content> content) {
     object.effective.transform = *transform;
     // 用实际运行状态比较目标，恢复来源指定的名称、组件和父关系。
     const std::string name(runtime->name());
-    auto components = engine::capture_components(*native_world(), binding->second.node);
+    auto components = engine::capture_components(*native_world(), binding->second.entity);
     if (!components)
       return components.error();
     object.effective.name = name;
@@ -248,7 +248,7 @@ scene_service::apply_source(engine::ref<const engine::scene_content> content) {
     const entity_id parent_node{parent_object->entity().get()};
     if (parent_node) {
       auto parent = std::ranges::find_if(
-          source_->objects, [&](const auto& entry) { return entry.second.node == parent_node; });
+          source_->objects, [&](const auto& entry) { return entry.second.entity == parent_node; });
       if (parent == source_->objects.end())
         return engine::error::invalid_state;
       parent_address = parent->first;
@@ -316,7 +316,7 @@ void scene_service::advance_reload() {
   }
   if (source_ && source_->instance == value.instance) {
     for (const auto& [address, binding] : source_->objects)
-      value.objects.push_back({address.object, address.source, binding.node, binding.entity});
+      value.objects.push_back({address.object, address.source, binding.entity});
   }
   value.result = engine::error::success;
   visuals_.begin(std::move(*reloaded), 1, 1);

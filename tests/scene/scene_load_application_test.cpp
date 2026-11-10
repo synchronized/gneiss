@@ -224,10 +224,9 @@ void run(gneiss::engine::execution_mode mode) {
   check(app->attach_task_executor(scheduler) == gneiss::engine::error::success);
   gneiss::engine::world* old_world{};
   check((old_world = app->native_world()) != nullptr);
-  std::uint64_t old_entity{};
-  check(gneiss::engine::write_identifier<gneiss::entity_id>(old_entity, [&](auto& native_output) {
-          return old_world->entity_create(native_output);
-        }) == gneiss::engine::error::success);
+  auto old_scene = old_world->create_scene();
+  check(old_scene.has_value());
+  check(old_scene->create_object().has_value());
   constexpr std::string_view uri = "asset://scene.json";
   std::uint64_t request{};
   check(gneiss::test_support::take_value(app->request_scene(uri, 1U, 1U), request) ==
@@ -718,7 +717,7 @@ void source_reload_without_world_prefab_state() {
   const auto find = [](const auto& bindings, e::guid source) {
     auto found = std::ranges::find(bindings, source, &e::scene_object_binding::source);
     check(found != bindings.end());
-    return found->node;
+    return found->entity;
   };
   const auto root_node = find(loaded.objects, root.uuid);
   const auto child_node = find(loaded.objects, child.uuid);

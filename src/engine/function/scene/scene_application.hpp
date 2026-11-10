@@ -8,7 +8,6 @@
 namespace gneiss::engine {
 /** 外部协调方持有的地址关联，不保存作者描述或组件副本。 */
 struct scene_object_association {
-  entity_id node;
   entity_id entity;
 };
 /** 可选的已有组件更新准备；不保存回调，不得在回调中修改 World。 */

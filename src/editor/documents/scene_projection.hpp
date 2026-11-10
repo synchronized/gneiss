@@ -19,7 +19,7 @@ public:
   }
   std::optional<engine::object_address> address(entity_id node) const noexcept {
     for (const auto& [address, binding] : objects_)
-      if (binding.node == node)
+      if (binding.entity == node)
         return address;
     return {};
   }

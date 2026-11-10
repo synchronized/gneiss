@@ -50,11 +50,12 @@ int main() try {
   check(applied && *applied);
   const e::object_address first_root{first.uuid, root.uuid}, first_child{first.uuid, child.uuid};
   const e::object_address second_root{second.uuid, root.uuid};
-  const auto root_node = mapping.at(first_root).node;
-  const auto child_node = mapping.at(first_child).node;
-  check(root_node != mapping.at(second_root).node);
+  const auto root_node = mapping.at(first_root).entity;
+  const auto child_node = mapping.at(first_child).entity;
+  check(root_node != mapping.at(second_root).entity);
   auto root_identity = world.find(gneiss::entity_id{(root_node).get()}).name();
-  auto other_identity = world.find(gneiss::entity_id{(mapping.at(second_root).node).get()}).name();
+  auto other_identity =
+      world.find(gneiss::entity_id{(mapping.at(second_root).entity).get()}).name();
   check(root_identity == other_identity);
   gneiss::entity_id parent;
   check(gneiss::test_support::assign_value(
@@ -74,11 +75,11 @@ int main() try {
     }
   }
   applied = e::apply_scene(world, instance->id(), mapping, *effective, next, {});
-  check(applied && *applied && mapping.at(first_child).node == child_node);
+  check(applied && *applied && mapping.at(first_child).entity == child_node);
   check(gneiss::test_support::assign_value(
             world.find(gneiss::entity_id{(child_node).get()}).parent(), parent)
             .ok() &&
-        parent == mapping.at(second_root).node);
+        parent == mapping.at(second_root).entity);
   check(world.find(gneiss::entity_id{(child_node).get()}).name() == "Renamed");
   // 无效目标层级在修改前拒绝。
   auto cycle = next;
@@ -90,7 +91,7 @@ int main() try {
   check(gneiss::test_support::assign_value(
             world.find(gneiss::entity_id{(child_node).get()}).parent(), parent)
             .ok() &&
-        parent == mapping.at(second_root).node);
+        parent == mapping.at(second_root).entity);
   e::error foreign;
   std::thread worker([&] {
     auto result = e::apply_scene(world, instance->id(), mapping, next, next, {});
@@ -104,7 +105,7 @@ int main() try {
   applied = e::apply_scene(world, instance->id(), mapping, next, removed, {});
   check(applied && *applied && !mapping.contains(first_child));
   check(!world.object(gneiss::entity_id{child_node.get()}));
-  check(mapping.at(first_root).node == root_node && *instance->size() == 3);
+  check(mapping.at(first_root).entity == root_node && *instance->size() == 3);
   // 外部直接销毁导致失步，不得误用旧实体或静默部分更新。
   check(world.find(gneiss::entity_id{(root_node).get()}).destroy().ok());
   applied = e::apply_scene(world, instance->id(), mapping, removed, removed, {});

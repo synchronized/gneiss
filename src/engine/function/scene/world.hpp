@@ -34,9 +34,6 @@ public:
    * parent 必须属于目标且不在子树中；验证失败不改变归属或层级。 */
   [[nodiscard]] GNEISS_API error transfer_subtree(game_object root, scene_instance destination,
                                                   game_object parent = {});
-  [[nodiscard]] GNEISS_API error entity_create(entity_id& out_entity);
-  [[nodiscard]] GNEISS_API error entity_destroy(entity_id entity);
-  [[nodiscard]] GNEISS_API result<bool> entity_is_alive(entity_id entity);
   [[nodiscard]] GNEISS_API result<std::uint64_t> entity_count();
   [[nodiscard]] GNEISS_API error set_active_camera(entity_id entity);
   [[nodiscard]] GNEISS_API error get_active_camera(entity_id& out_entity);

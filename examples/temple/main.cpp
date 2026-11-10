@@ -151,7 +151,7 @@ int run_example(int argc, char** argv) {
   });
   if (binding == completion.objects.end())
     return 2;
-  state.camera_node = binding->node;
+  state.camera_node = binding->entity;
   can_update = true;
   if (native_application->run(smoke ? 3U : 0U) != gneiss::engine::error::success) {
     return 3;

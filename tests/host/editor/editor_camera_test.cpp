@@ -3,6 +3,7 @@
 
 #include "../../support/value_result.hpp"
 #include "engine/core/error.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/world.hpp"
 #include "viewport/editor_camera.hpp"
@@ -21,6 +22,8 @@ bool near(float lhs, float rhs) { return std::abs(lhs - rhs) < 1.0e-4F; }
 } // namespace
 
 int main() {
+  if (gneiss::engine::initialize_meta().failed())
+    return 1;
   gneiss::engine::world_owner owner;
 
   gneiss::editor::editor_camera camera;
@@ -39,10 +42,15 @@ int main() {
       entity_count != 0U) {
     return 8;
   }
-  gneiss::entity_id scene_camera{};
+  auto scene = owner->create_scene();
+  if (!scene)
+    return 9;
+  auto object = scene->create_object();
+  if (!object)
+    return 9;
+  auto scene_camera = object->entity();
   const gneiss::engine::math::camera_settings settings{1.04719755F, 0.1F, 1000.0F};
-  if (gneiss::engine::error{owner->entity_create(scene_camera)} != gneiss::engine::error::success ||
-      gneiss::engine::error{
+  if (gneiss::engine::error{
           owner->find(scene_camera).set_component(gneiss::engine::camera_component{settings})} !=
           gneiss::engine::error::success ||
       gneiss::engine::error{owner->set_active_camera(scene_camera)} !=

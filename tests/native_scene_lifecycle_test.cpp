@@ -57,7 +57,7 @@ int main(void) {
   if (world->find(gneiss::entity_id{(root).get()})
               .reparent(world->find(gneiss::entity_id{(child).get()})) !=
           gneiss::engine::error::invalid_argument ||
-      world->entity_destroy(entity) != gneiss::engine::error::success ||
+      world->find(entity).destroy() != gneiss::engine::error::success ||
       gneiss::test_support::assign_value(world->object(gneiss::entity_id{(child).get()}),
                                          attached) != gneiss::engine::error::invalid_handle ||
       attached != gneiss::entity_id{}) {
@@ -112,12 +112,6 @@ int main(void) {
   auto replacement = object_scene->create_object({"replacement", {}});
   if (!replacement || replacement->entity() == copy.entity() || copy.is_valid())
     return 13;
-  gneiss::entity_id pure;
-  if (world->entity_create(pure).failed())
-    return 14;
-  auto not_object = world->object(pure);
-  if (not_object || not_object.error() != error::not_found)
-    return 15;
   auto membership = replacement->scene();
   if (!membership || membership->id() != object_scene->id())
     return 17;
@@ -126,8 +120,5 @@ int main(void) {
     return 18;
   if (scene_copy.create_object({"expired", {}}).error() != error::invalid_handle)
     return 19;
-  auto auxiliary_alive = world->entity_is_alive(pure);
-  if (!auxiliary_alive || !*auxiliary_alive || world->entity_destroy(pure).failed())
-    return 20;
   return 0;
 }

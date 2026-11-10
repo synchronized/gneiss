@@ -56,10 +56,10 @@
 #include <type_traits>
 static_assert(!std::is_convertible_v<gneiss::scene_instance_id, gneiss::entity_id>);
 static_assert(!std::is_convertible_v<std::uint64_t, gneiss::entity_id>);
-static_assert(std::is_invocable_v<decltype(&gneiss::engine::world::entity_destroy),
-                                  gneiss::engine::world&, gneiss::entity_id>);
-static_assert(!std::is_invocable_v<decltype(&gneiss::engine::world::entity_destroy),
-                                   gneiss::engine::world&, gneiss::scene_instance_id>);
+template <typename T>
+concept exposes_entity_lifecycle =
+    requires(T& value, gneiss::entity_id id) { value.entity_destroy(id); };
+static_assert(!exposes_entity_lifecycle<gneiss::engine::world>);
 
 static_assert(std::is_same_v<decltype(gneiss::engine::prefab_property_target::target_type_guid),
                              gneiss::engine::guid>);

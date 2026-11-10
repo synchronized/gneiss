@@ -227,7 +227,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
             .failed())
       return 46;
     const auto address =
-        std::ranges::find(receipt->objects, node.node, &e::scene_object_binding::node);
+        std::ranges::find(receipt->objects, node.entity, &e::scene_object_binding::entity);
     if (address == receipt->objects.end())
       return 46;
     if (address->object == author.uuid) {

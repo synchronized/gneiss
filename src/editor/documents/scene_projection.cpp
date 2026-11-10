@@ -11,10 +11,9 @@ engine::error scene_projection::reset(std::span<const engine::scene_object_bindi
   std::map<engine::object_address, object_binding> next;
   std::set<std::uint64_t> entities;
   for (const auto& object : objects) {
-    if (!object.object || !object.node || object.entity.get() != object.node.get() ||
-        !entities.insert(object.entity.get()).second ||
+    if (!object.object || !object.entity || !entities.insert(object.entity.get()).second ||
         !next.emplace(engine::object_address{object.object, object.source},
-                      object_binding{object.node, object.entity})
+                      object_binding{object.entity})
              .second)
       return engine::error::invalid_argument;
   }

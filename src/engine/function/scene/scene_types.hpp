@@ -29,7 +29,6 @@ namespace gneiss::engine {
 /** 实例化回执中的来源关联；由调用方保存，不是运行对象属性。 */
 struct scene_object_binding {
   guid object, source;
-  entity_id node;
   entity_id entity;
 };
 }

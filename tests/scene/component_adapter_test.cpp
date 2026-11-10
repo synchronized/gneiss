@@ -166,7 +166,7 @@ int main() try {
   check(created.has_value());
   check(created->objects.size() == 2);
   check(created->objects[0].object == first.uuid && !created->objects[0].source);
-  check(created->objects[0].entity.get() == created->objects[0].node.get());
+  check(world.find(created->objects[0].entity).is_valid());
   auto instance = created->instance;
   auto borrowed = e::scene_instance::borrow(world, instance);
   check(borrowed && borrowed->is_valid());
@@ -182,8 +182,8 @@ int main() try {
   auto foreign_parent = scenes.find_object(another_scene->objects, first.uuid);
   check(first_object && foreign_parent);
   check(first_object->reparent(*foreign_parent) == e::error::invalid_argument);
-  check(world.find(gneiss::entity_id{(created->objects[0].node).get()})
-            .reparent(world.find(gneiss::entity_id{(another_scene->objects[0].node).get()})) ==
+  check(world.find(gneiss::entity_id{(created->objects[0].entity).get()})
+            .reparent(world.find(gneiss::entity_id{(another_scene->objects[0].entity).get()})) ==
         e::error::invalid_argument);
   auto unchanged_parent = first_object->parent();
   check(unchanged_parent && !unchanged_parent->is_valid());
@@ -326,7 +326,7 @@ int main() try {
   check(dynamic_child.has_value());
   auto dynamic_count = dynamic->size();
   check(dynamic_count && *dynamic_count == 2);
-  check(world.entity_destroy(dynamic_root->entity()).ok());
+  check(dynamic_root->destroy().ok());
   check(!dynamic_root->is_valid() && !dynamic_child->is_valid());
   dynamic_count = dynamic->size();
   check(dynamic_count && *dynamic_count == 0);
@@ -515,7 +515,7 @@ int main() try {
   auto root_binding =
       std::ranges::find(prefab_created->objects, first.uuid, &e::scene_object_binding::source);
   check(root_binding != prefab_created->objects.end());
-  node = root_binding->node;
+  node = root_binding->entity;
   id = entity(world, node);
   check(!borrowed_copy.is_valid());
   check(state(world).get<movement_component>(id)->data.speed == 9);

@@ -222,7 +222,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
     report_failure("查找 Camera", gneiss::engine::error::not_found);
     return 6;
   }
-  state.camera_node = binding->node;
+  state.camera_node = binding->entity;
   const auto setup_ready = clock::now();
 
   can_update = true;
