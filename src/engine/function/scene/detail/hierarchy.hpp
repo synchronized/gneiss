@@ -6,6 +6,7 @@
 
 #include "engine/core/math/transform.hpp"
 #include "engine/core/result.hpp"
+#include "engine/function/scene/detail/object_state.hpp"
 #include "engine/function/scene/scene_types.hpp"
 
 #include <cstdint>
@@ -40,15 +41,9 @@ public:
   [[nodiscard]] const std::vector<entity_id>* children(entity_id node) const noexcept;
 
 private:
-  struct node {
-    std::string name;
-    entity_id parent = null_entity_id;
-    std::vector<entity_id> children;
-    math::transform local = math::transform{};
-  };
   friend class world_state;
-  [[nodiscard]] node* find(entity_id id) noexcept;
-  [[nodiscard]] const node* find(entity_id id) const noexcept;
+  [[nodiscard]] detail::object_state* find(entity_id id) noexcept;
+  [[nodiscard]] const detail::object_state* find(entity_id id) const noexcept;
   void detach(entity_id id) noexcept;
   [[nodiscard]] bool is_descendant(entity_id ancestor, entity_id candidate) const noexcept;
   void remove_child(entity_id parent, entity_id child) noexcept;

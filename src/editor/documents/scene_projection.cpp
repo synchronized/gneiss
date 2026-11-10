@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/scene_projection.hpp"
 #include "components/component_registration.hpp"
+#include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/component_registration.hpp"
 #include "engine/function/scene/instantiation.hpp"
 #include <algorithm>
@@ -57,7 +58,7 @@ engine::error project_scene_document(engine::world& world, scene_instance_id& sc
   if (!current)
     return current.error();
   entity_id previous_camera;
-  auto status = world.get_active_camera(previous_camera);
+  auto status = gneiss::engine::get_active_camera(world, previous_camera);
   if (status.failed() && status != engine::error::not_ready)
     return status;
   auto candidate = world.create_scene();
@@ -71,7 +72,7 @@ engine::error project_scene_document(engine::world& world, scene_instance_id& sc
       if (candidate.id()) {
         (void)candidate.unload();
         if (camera.get())
-          (void)world.set_active_camera(camera);
+          (void)gneiss::engine::set_active_camera(world, camera);
       }
     }
   } guard{world, *candidate, previous_camera};

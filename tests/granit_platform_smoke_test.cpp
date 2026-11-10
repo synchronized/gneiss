@@ -3,6 +3,7 @@
 
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/texture/texture_view.hpp"
@@ -189,7 +190,7 @@ int main() {
       world.find(camera_entity)
           .set_component(gneiss::engine::camera_component{camera, true})
           .failed() ||
-      world.set_active_camera(camera_entity).failed() ||
+      gneiss::engine::set_active_camera(world, camera_entity).failed() ||
       world.find(mesh_entity)
           .set_component(gneiss::engine::mesh_renderer_component{mesh_renderer})
           .failed() ||

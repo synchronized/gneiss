@@ -27,7 +27,8 @@ size、visit_objects 和 unload 直接访问 World 的成员归属和槽位，�
 复制句柄不延长场景或对象寿命；卸载后副本失效，槽位复用不会恢复旧句柄。
 World 销毁后禁止再访问场景句柄，is_valid 也不能检测已经析构的 World。
 
-成员通过 ECS 的 scene_membership 遍历，不维护第二份可变成员清单；
+普通对象的名称、父子、局部变换和场景归属统一保存在私有 object_state 中。
+纯 ECS 辅助实体仅按需保存私有 auxiliary_scene_membership；成员按 ECS 组件遍历，不维护第二份可变成员清单；
 实例化回执显式返回来源地址到实体的关联；回执及投影关联只保存一个 entity 字段。
 编辑器独立维护投影映射，不从运行来源信息反查。
 World 拒绝不同场景已登记成员之间的重新挂接，返回 invalid_argument；
@@ -83,6 +84,28 @@ name 返回的名称是借用视图；对象删除、改名或 World 结构变�
 重复指定同一父节点是无副作用操作。destroy 删除整棵子树，复制的借用句柄同步失效。
 层级、局部/世界变换及对象销毁已通过 game_object 操作；World 的对应 node_* 转发接口已删除。
 World 不提供 entity_create、entity_destroy 或 entity_is_alive 等重复生命周期入口。
+
+## 对象遍历与组件借用
+
+scene_instance::objects()/roots() 和 game_object::children() 返回 result<vector<game_object>>。
+这是句柄快照，不保活对象；遍历期间可以修改场景，使用旧句柄前应重新检查 is_valid()。
+场景对象顺序不保证稳定，children 保留当前子节点顺序。复制快照有分配开销；
+不需要修改结构时可使用 visit_objects，回调期间禁止修改结构。辅助实体不作为 GameObject 返回。
+
+try_component<T>() 返回借用指针，缺失组件返回 nullptr；要求对象有效且在所属线程使用。
+组件增删或替换、对象销毁、场景卸载后必须重新获取指针，不能把指针跨结构修改保存。
+指针写入不会自动触发校验或通知；需要参数校验时使用 set_component。
+read_component 继续提供副本读取，set_component 明确表示安装或替换。
+
+add_component<T>(args...) 正常构造组件；已存在同类型组件返回 invalid_state，保留原值。
+remove_component<T>() 缺失时返回 not_found。两者对失效对象返回 invalid_handle，
+对错误线程返回 invalid_state。归属、层级和变换类型属于私有受控数据，禁止通过普通组件接口操作。
+自定义组件在自己的实现单元包含私有 component_storage.hpp 并实例化对应访问函数，
+不向调用方传播 EnTT。当前未提供任意类型的动态组件注册桥。
+
+默认相机选择使用独立 camera_selection.hpp，不是 World 方法。
+选择状态作为渲染模块定义的 World 级扩展状态保存；World 本身不认识相机类型或清理规则。
+查询校验实体 generation 和相机组件，失效后返回 not_ready；删除组件时清除选择。
 
 ## ECS 与 System
 

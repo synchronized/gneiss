@@ -47,6 +47,26 @@ result<std::uint64_t> scene_instance::size() const noexcept {
     return error::invalid_handle;
   return owner_->scene_size(id_);
 }
+result<std::vector<game_object>> scene_instance::objects() const {
+  std::vector<game_object> objects;
+  auto status = visit_objects([&](game_object object) {
+    objects.push_back(object);
+    return error::success;
+  });
+  return status.ok() ? result<std::vector<game_object>>{std::move(objects)}
+                     : result<std::vector<game_object>>{status};
+}
+result<std::vector<game_object>> scene_instance::roots() const {
+  std::vector<game_object> objects;
+  auto status = visit_objects(
+      [&](game_object object) {
+        objects.push_back(object);
+        return error::success;
+      },
+      true);
+  return status.ok() ? result<std::vector<game_object>>{std::move(objects)}
+                     : result<std::vector<game_object>>{status};
+}
 error scene_instance::visit_objects(const std::function<error(game_object)>& visitor,
                                     bool roots_only) const {
   if (!owner_)
@@ -60,6 +80,8 @@ error scene_instance::visit_objects(const std::function<error(game_object)>& vis
     if (status.failed() || (roots_only && owner_->state_->scene().get_parent(node)))
       return;
     auto object = owner_->object(entity_id{node.get()});
+    if (!object && object.error() == error::not_found)
+      return;
     if (!object) {
       status = object.error();
       return;
@@ -101,7 +123,7 @@ error world::transfer_subtree(game_object root, scene_instance destination, game
   // 已有归属组件原位更新，不在提交阶段分配组件存储。
   auto assign = [&](scene_instance_id id) {
     for (auto node : nodes)
-      state_->get<scene_membership>(node.get())->scene = id;
+      state_->assign_scene(node, id);
   };
   assign(destination.id());
   try {

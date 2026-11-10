@@ -25,11 +25,11 @@ bool is_valid(const math::transform& value) noexcept { return is_valid_transform
 
 } // namespace
 
-world_hierarchy::node* world_hierarchy::find(entity_id id) noexcept {
-  return owner_.get<node>(id.get());
+detail::object_state* world_hierarchy::find(entity_id id) noexcept {
+  return owner_.get<detail::object_state>(id.get());
 }
-const world_hierarchy::node* world_hierarchy::find(entity_id id) const noexcept {
-  return std::as_const(owner_).get<node>(id.get());
+const detail::object_state* world_hierarchy::find(entity_id id) const noexcept {
+  return std::as_const(owner_).get<detail::object_state>(id.get());
 }
 
 error world_hierarchy::set_name(entity_id id, std::string name) {
@@ -57,6 +57,7 @@ result<entity_id> world_hierarchy::create(entity_id parent, std::uint64_t entity
     return error::invalid_handle;
   if (entity && find(entity_id{entity}))
     return error::invalid_state;
+  const auto previous_scene = owner_.scene_of(entity_id{entity});
   const bool create_entity = entity == 0;
   try {
     if (parent) {
@@ -65,9 +66,10 @@ result<entity_id> world_hierarchy::create(entity_id parent, std::uint64_t entity
     }
     if (create_entity)
       entity = owner_.create_entity();
-    owner_.emplace<node>(entity).parent = parent;
-    if (parent && owner_.scene_of(parent))
-      owner_.assign_scene(entity_id{entity}, owner_.scene_of(parent));
+    owner_.emplace<detail::object_state>(entity).parent = parent;
+    // 已有辅助实体转为对象时迁移归属，避免同一实体被枚举两次。
+    (void)owner_.remove<detail::auxiliary_scene_membership>(entity);
+    owner_.assign_scene(entity_id{entity}, parent ? owner_.scene_of(parent) : previous_scene);
     const entity_id id{entity};
     // 插入组件可能移动存储，重新查询父节点。
     if (parent)

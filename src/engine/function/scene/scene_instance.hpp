@@ -24,6 +24,9 @@ public:
   /** 创建本场景成员；父对象必须属于本场景，空父对象创建根。 */
   [[nodiscard]] GNEISS_API result<game_object> create_object(const object_options& = {},
                                                              game_object parent = {}) const;
+  /** 返回对象句柄快照，不保活对象；快照顺序不保证稳定，结构修改后须检查句柄有效性。 */
+  [[nodiscard]] GNEISS_API result<std::vector<game_object>> objects() const;
+  [[nodiscard]] GNEISS_API result<std::vector<game_object>> roots() const;
   /** 所属线程同步遍历成员；回调不得创建/删除实体、改变层级或归属，顺序不保证稳定。
    * 回调失败停止后续调用，不缓存成员副本；roots_only 只访问根对象。 */
   [[nodiscard]] GNEISS_API error visit_objects(const std::function<error(game_object)>&,

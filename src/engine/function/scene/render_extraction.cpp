@@ -1,8 +1,35 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/scene/render_extraction.hpp"
+#include "engine/function/scene/camera_selection.hpp"
+#include "engine/function/scene/detail/camera_selection_state.hpp"
 #include "engine/function/scene/detail/world_component_access.hpp"
 namespace gneiss::engine {
+error set_active_camera(world& owner, entity_id entity) {
+  auto state = detail::world_component_access::get(owner);
+  if (!state)
+    return state.error();
+  if (!(*state)->is_alive(entity.get()))
+    return error::invalid_handle;
+  if (!(*state)->get<camera_component>(entity.get()))
+    return error::not_ready;
+  (*state)->context<detail::camera_selection_state>().entity = entity;
+  return error::success;
+}
+error get_active_camera(world& owner, entity_id& output) {
+  output = {};
+  auto state = detail::world_component_access::get(owner);
+  if (!state)
+    return state.error();
+  auto& selection = (*state)->context<detail::camera_selection_state>();
+  if (!(*state)->get<camera_component>(selection.entity.get())) {
+    selection.entity = {};
+    return error::not_ready;
+  }
+  output = selection.entity;
+  return error::success;
+}
+
 result<render_snapshot> extract_render_snapshot(world& owner, std::uint32_t viewport_width,
                                                 std::uint32_t viewport_height,
                                                 const view_camera* camera) {
@@ -20,7 +47,9 @@ result<render_snapshot> extract_render_snapshot(world& owner, std::uint32_t view
     if (camera != nullptr) {
       selected = *camera;
     } else {
-      const auto active_camera = world.active_camera();
+      entity_id selected_entity;
+      (void)get_active_camera(owner, selected_entity);
+      const auto active_camera = selected_entity.get();
       if (const auto* component = world.get<camera_component>(active_camera);
           component != nullptr) {
         selected.camera = {component->value.fov, component->value.near, component->value.far};

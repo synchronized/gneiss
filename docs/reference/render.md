@@ -107,7 +107,7 @@ GPU 在途安全回收仍由 Render 及后端负责，RID 释放队列不替代 
 
 `game_object::set_component(camera_component{settings, primary_hint})` 安装或替换相机组件。透视参数
 必须满足`0 < fov < π`、`near > 0` 且 `far > near`。活动 Camera 通过
-`world::set_active_camera` 独立选择，每个 World 至多一个；移除或销毁活动 Camera 后，World
+`set_active_camera(world&, entity_id)` 独立选择，每个 World 至多一个；移除或销毁活动 Camera 后，相机选择查询
 进入无活动 Camera 状态。primary_hint 仅是默认相机选择提示，安装组件不会激活相机。
 
 帧提取入口为 `function/scene/render_extraction.hpp` 中的

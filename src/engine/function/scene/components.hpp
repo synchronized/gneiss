@@ -9,11 +9,7 @@
 #include "engine/resource/mesh.hpp"
 
 namespace gneiss::engine {
-/** World 内部维护的场景归属；随实体销毁，不对业务提供任意写入口。 */
-struct scene_membership {
-  scene_instance_id scene;
-};
-/** 相机参数为纯数据；活动相机只由 World 的实体 ID 决定。 */
+/** 相机参数为纯数据；默认相机由 camera_selection 独立选择。 */
 struct camera_component {
   math::camera_settings value;
   bool primary_hint{}; // 应用选择默认相机的提示；安装组件不激活相机。

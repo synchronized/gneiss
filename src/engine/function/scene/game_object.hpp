@@ -5,6 +5,8 @@
 #include "engine/core/math/transform.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/scene/scene_types.hpp"
+#include <utility>
+#include <vector>
 
 namespace gneiss::engine {
 class world;
@@ -35,6 +37,16 @@ public:
   [[nodiscard]] GNEISS_API error reparent(game_object parent) const;
   /** 销毁整棵子树，所有指向其中实体的借用句柄同时失效。 */
   [[nodiscard]] GNEISS_API error destroy() const;
+  /** 返回子对象句柄快照；修改层级不改变快照，使用前须检查句柄是否仍有效。 */
+  [[nodiscard]] GNEISS_API result<std::vector<game_object>> children() const;
+  /** 借用普通组件；要求有效对象和所属线程，缺失返回 nullptr。
+   * 任何组件增删、替换、对象销毁或场景卸载后须重新获取；复制对象句柄不保活组件。
+   * 直接修改不触发校验或通知，需要校验的写操作使用 set_component。 */
+  template <class T> [[nodiscard]] GNEISS_API T* try_component() const;
+  /** 新增组件；重复类型返回 invalid_state，不覆盖原值。 */
+  template <class T, class... Args> [[nodiscard]] error add_component(Args&&... args) const {
+    return insert_component<T>(T{std::forward<Args>(args)...});
+  }
   /** 普通组件的值副本；失效实体、错误线程和组件缺失分别返回错误。
    * 组件实现单元通过 detail/component_storage.hpp 实例化，调用方不依赖 ECS 后端。 */
   template <class T> [[nodiscard]] GNEISS_API result<T> read_component() const;
@@ -44,6 +56,7 @@ public:
   friend bool operator==(game_object, game_object) noexcept = default;
 
 private:
+  template <class T> [[nodiscard]] GNEISS_API error insert_component(T value) const;
   friend class world;
   game_object(world& owner, entity_id entity) noexcept : owner_(&owner), entity_(entity) {}
   world* owner_{};

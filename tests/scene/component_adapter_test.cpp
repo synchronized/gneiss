@@ -11,6 +11,7 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/meta_registration.hpp"
+#include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/component_registration.hpp"
 #include "engine/function/scene/composition.hpp"
@@ -404,9 +405,9 @@ int main() try {
       gneiss::test_support::scene_fixture::instantiate_scene(world, prepare(camera_scene), {});
   check(bool(camera_instance));
   gneiss::entity_id active_camera;
-  check(world.get_active_camera(active_camera) == e::error::not_ready);
+  check(gneiss::engine::get_active_camera(world, active_camera) == e::error::not_ready);
   active_camera = camera_instance->objects.front().entity;
-  check(world.set_active_camera(active_camera).ok());
+  check(gneiss::engine::set_active_camera(world, active_camera).ok());
   auto broken_scene = camera_scene;
   broken_scene.uuid = e::guid::generate();
   broken_scene.objects.front().uuid = e::guid::generate();
@@ -419,7 +420,7 @@ int main() try {
       gneiss::test_support::scene_fixture::instantiate_scene(world, prepare(broken_scene), {});
   check(!failed_creation && failed_creation.error() == e::error::invalid_state);
   gneiss::entity_id camera_after_failure;
-  check(world.get_active_camera(camera_after_failure).ok() &&
+  check(gneiss::engine::get_active_camera(world, camera_after_failure).ok() &&
         camera_after_failure == active_camera);
   check(*world.entity_count() == entities_before_failure);
   // 同一组合结果重复追加到非空场景，保留旧对象并提供各自的来源回执。
@@ -452,7 +453,7 @@ int main() try {
   check(!failed_append && failed_append.error() == e::error::invalid_state);
   check(*world.entity_count() == before_append_failure && *destination->size() == 5);
   check(existing_parent->is_valid() && appended->roots[0].is_valid());
-  check(world.get_active_camera(camera_after_failure).ok() &&
+  check(gneiss::engine::get_active_camera(world, camera_after_failure).ok() &&
         camera_after_failure == active_camera);
   auto linked = append_source;
   linked.objects.front().components.set(movement_description{17});

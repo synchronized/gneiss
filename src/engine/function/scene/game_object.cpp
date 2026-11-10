@@ -10,6 +10,21 @@
 #include <utility>
 
 namespace gneiss::engine {
+result<std::vector<game_object>> game_object::children() const {
+  if (!owner_)
+    return error::invalid_handle;
+  auto state = detail::world_component_access::get(*owner_);
+  if (!state)
+    return state.error();
+  const auto* ids = (*state)->scene().children(entity_);
+  if (!ids)
+    return error::invalid_handle;
+  std::vector<game_object> result;
+  result.reserve(ids->size());
+  for (auto id : *ids)
+    result.push_back(owner_->find(id));
+  return result;
+}
 bool game_object::is_valid() const noexcept {
   return owner_ && owner_->object(entity_).has_value();
 }

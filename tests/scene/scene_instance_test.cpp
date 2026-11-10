@@ -7,6 +7,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/scene_application.hpp"
@@ -29,7 +30,7 @@ gneiss::engine::error set_camera(gneiss::engine::world& owner, gneiss::scene_ins
                .set_component(gneiss::engine::camera_component{desc.settings});
   if (status.failed() || !desc.is_primary)
     return status;
-  return owner.set_active_camera(gneiss::entity_id{node.get()});
+  return gneiss::engine::set_active_camera(owner, gneiss::entity_id{node.get()});
 }
 
 gneiss::engine::result<gneiss::test_support::scene_node_info>

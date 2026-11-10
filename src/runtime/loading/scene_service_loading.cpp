@@ -7,6 +7,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/composition.hpp"
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/scene_types.hpp"
@@ -165,7 +166,8 @@ engine::result<scene_load_completion> scene_service::activate(std::uint64_t requ
   }
   // 候选装配没有激活副作用；应用在切换安全点选择默认相机。
   if (pending_->default_camera.get()) {
-    auto selected = pending_->candidate->set_active_camera(pending_->default_camera);
+    auto selected =
+        gneiss::engine::set_active_camera(*pending_->candidate, pending_->default_camera);
     if (selected.failed())
       return selected;
   }

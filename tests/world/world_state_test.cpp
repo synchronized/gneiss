@@ -122,6 +122,20 @@ int run_tests() {
   if (!reused || *reused == *root || *reused == *leaf || tree.get_local(*root) ||
       tree.get_local(*leaf))
     return 11;
+  // 辅助实体转为对象后只有一份场景归属，卸载仍覆盖全部成员。
+  const gneiss::scene_instance_id scene{42};
+  const auto auxiliary = first.create_entity();
+  first.assign_scene(gneiss::entity_id{auxiliary}, scene);
+  auto adopted = tree.create({}, auxiliary);
+  if (!adopted || first.scene_of(*adopted) != scene)
+    return 12;
+  std::size_t members = 0;
+  first.each_scene_member(scene, [&](gneiss::entity_id) { ++members; });
+  if (members != 1)
+    return 13;
+  first.destroy_scene_members(scene);
+  if (first.is_alive(auxiliary))
+    return 14;
   return 0;
 }
 

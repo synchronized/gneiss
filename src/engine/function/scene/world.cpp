@@ -47,35 +47,6 @@ result<std::uint64_t> world::entity_count() {
   }
 }
 
-engine::error world::set_active_camera(entity_id entity_value) {
-  std::uint64_t entity = entity_value.get();
-  {
-    auto* state = state_.get();
-    const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    return thread_result == engine::error::success ? state->set_active_camera(entity)
-                                                   : thread_result;
-  }
-}
-engine::error world::get_active_camera(entity_id& out_entity_value) {
-  std::uint64_t out_entity = out_entity_value.get();
-  const auto operation_result = [&]() -> engine::error {
-    out_entity = UINT64_C(0);
-    {
-      auto* state = state_.get();
-      const auto thread_result =
-          (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-      if (thread_result != engine::error::success) {
-        return thread_result;
-      }
-      out_entity = state->active_camera();
-      return out_entity == UINT64_C(0) ? engine::error::not_ready : engine::error::success;
-    }
-  }();
-  out_entity_value = entity_id{out_entity};
-  return operation_result;
-}
-
 result<game_object> world::object(entity_id entity) noexcept {
   if (!is_owner_thread())
     return error::invalid_state;

@@ -4,6 +4,7 @@
 #include "../../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/meta_registration.hpp"
+#include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/world.hpp"
 #include "viewport/editor_camera.hpp"
@@ -31,7 +32,7 @@ int main() {
   if (gneiss::test_support::assign_value(gneiss::engine::create_native(), owner) !=
           gneiss::engine::error::success ||
       camera.initialize() != gneiss::engine::error::success || !camera.is_valid() ||
-      gneiss::engine::error{owner->get_active_camera(active_camera)} !=
+      gneiss::engine::error{gneiss::engine::get_active_camera(*owner, active_camera)} !=
           gneiss::engine::error::not_ready ||
       active_camera != gneiss::entity_id{}) {
     return 1;
@@ -53,7 +54,7 @@ int main() {
   if (gneiss::engine::error{
           owner->find(scene_camera).set_component(gneiss::engine::camera_component{settings})} !=
           gneiss::engine::error::success ||
-      gneiss::engine::error{owner->set_active_camera(scene_camera)} !=
+      gneiss::engine::error{gneiss::engine::set_active_camera(*owner, scene_camera)} !=
           gneiss::engine::error::success) {
     return 9;
   }
@@ -100,7 +101,7 @@ int main() {
   }
   camera.shutdown();
   return camera.is_valid() ||
-                 gneiss::engine::error{owner->get_active_camera(active_camera)} !=
+                 gneiss::engine::error{gneiss::engine::get_active_camera(*owner, active_camera)} !=
                      gneiss::engine::error::success ||
                  active_camera != scene_camera
              ? 5

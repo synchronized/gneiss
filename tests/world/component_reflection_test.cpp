@@ -4,6 +4,7 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/serialization/builtin_registration.hpp"
+#include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/component_registration.hpp"
 #include "engine/function/scene/components.hpp"
@@ -80,7 +81,7 @@ int main() {
     return 6;
   engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   if (first->find(entity).set_component(gneiss::engine::camera_component{camera, true}).failed() ||
-      first->set_active_camera(entity).failed() ||
+      gneiss::engine::set_active_camera(*first, entity).failed() ||
       gneiss::test_support::assign_value(
           engine::read_component_property(*first, entity.get(), camera_type,
                                           gneiss::engine::meta::property_id{4}),

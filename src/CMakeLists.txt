@@ -233,6 +233,8 @@ target_sources(
     engine/function/asset/resource_cache.hpp
     engine/function/scene/scene_types.hpp
     engine/function/scene/detail/hierarchy.cpp
+    engine/function/scene/detail/camera_selection_state.hpp
+    engine/function/scene/detail/object_state.hpp
     engine/function/scene/detail/hierarchy.hpp
     engine/function/scene/scene_application.cpp
     engine/function/scene/scene_application.hpp
@@ -253,6 +255,7 @@ target_sources(
     engine/function/scene/detail/system_scheduler.hpp
     engine/function/scene/game_object.cpp
     engine/function/scene/world.cpp
+    engine/function/scene/camera_selection.hpp
     engine/function/scene/game_object.hpp
     engine/function/scene/render_extraction.cpp
     engine/function/scene/render_extraction.hpp

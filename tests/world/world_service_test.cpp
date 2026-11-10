@@ -49,6 +49,26 @@ bool scene_object_storage() {
           .read_component<gneiss::engine::mesh_renderer_component>()
           .error() != error::not_found)
     return false;
+  auto objects = object_scene->objects();
+  auto roots = object_scene->roots();
+  auto children = root->children();
+  if (!objects || objects->size() != 2 || !roots || roots->size() != 1 || roots->front() != *root ||
+      !children || children->size() != 1 || children->front() != *child)
+    return false;
+  if (child->try_component<mesh_renderer_component>() ||
+      child->add_component<mesh_renderer_component>().failed() ||
+      !child->try_component<mesh_renderer_component>() ||
+      child->add_component<mesh_renderer_component>() != error::invalid_state ||
+      child->remove_component<mesh_renderer_component>().failed() ||
+      child->try_component<mesh_renderer_component>() ||
+      child->remove_component<mesh_renderer_component>() != error::not_found)
+    return false;
+  error add_from_worker;
+  std::thread add_worker(
+      [&] { add_from_worker = child->add_component<mesh_renderer_component>(); });
+  add_worker.join();
+  if (add_from_worker != error::invalid_state)
+    return false;
   math::transform invalid;
   invalid.scale.x = 0;
   auto failed = object_scene->create_object({"失败", invalid}, *root);
@@ -67,7 +87,9 @@ bool scene_object_storage() {
   count = owner.entity_count();
   if (!count || *count != 0 || owner.find(child_entity).is_valid())
     return false;
-  if (child->is_valid() || (*root).destroy() != error::invalid_handle)
+  if (children->front().is_valid() ||
+      child->add_component<mesh_renderer_component>() != error::invalid_handle ||
+      child->is_valid() || (*root).destroy() != error::invalid_handle)
     return false;
   auto replacement = object_scene->create_object({"新节点", {}});
   return replacement && *replacement != *root && *replacement != *child;

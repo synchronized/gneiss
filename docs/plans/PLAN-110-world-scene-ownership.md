@@ -5,9 +5,20 @@
 
 ## 状态与范围
 
-2026-11-10：进行中。目录迁移、场景槽位归属和外部来源回执已经落地，旧 node ID 及 World node 包装已删除，
-无场景归属的普通对象创建入口已删除，World 其他业务入口、对象状态及目标组件接口尚未全部收敛。此前将清单第 3、7 项勾为完成不准确，
-本次恢复为未完成，不把接口私有化或目录移动视为对象模型迁移完成。
+2026-11-10：四项收尾代码已落地，Windows Clang Debug 默认目标编译和分层静态检查通过；尚未执行本轮运行期回归。
+受控对象数据、遍历、组件借用/新增及 World 业务接口清理的当前行为以
+[World Reference](../reference/world.md) 为准。下文各阶段验收段为历史记录，不代表当前剩余项。
+
+本轮具体收敛：
+- 私有 object_state 合并名称、层级、变换和归属；运行对象不保存描述身份。
+- objects/roots/children 使用句柄快照，保留不允许结构修改的 visit_objects。
+- try_component 返回借用，add_component 拒绝重复；保留显式副本读取/安装替换。
+- World 删除活动相机方法；渲染相机选择独立，World 私有状态不再包含相机特判。
+
+与最初示意的差异：遍历先用 result<vector<game_object>>，不引入自定义惰性 object_range；
+查询继续沿用现有 result 错误表达，find 与检查式 object 分别承担构造借用和验证；
+组件实现单元显式实例化的约束仍保留，不宣称支持任意未接入 C++ 组件。
+
 沿用当前特性分支，不重新实现 ECS、资产缓存或编辑历史。
 本计划细化并收敛 PLAN-105/106/107 的接口边界，不将历史任务完成等同于本计划已实现。
 长期决策见 [ADR-115](../decisions/ADR-115-world-scene-ownership.md)。
@@ -214,8 +225,9 @@ scene_object 辅助头拆为实例化实现私有的创建回收/资源查找，
 2. [x] 组合与装配分开；以 composed_scene 为唯一完整输入，实现显式目标场景和 parent 的 instantiate。
    已覆盖已有非空场景、Prefab 重复实例化、引用前向解析和仅清理本次创建对象。
    Runtime、Editor 和测试均直接消费固定内容；旧准备类型、实现和构建登记已删除。
-3. [ ] World 收拢场景槽位，移除公开集合及独立状态层；统一 GameObject 创建/层级入口。
-   已删除公开集合及独立状态层；公开创建使用 create_object，层级/名称/销毁使用 game_object。
+3. [x] World 收拢场景槽位，移除公开集合及独立状态层；统一 GameObject 创建/层级入口。
+   已删除公开集合及独立状态层；普通对象数据统一为私有 object_state。
+   公开创建使用 scene_instance::create_object，层级/名称/销毁及普通组件访问使用 game_object。
 4. [x] 迁移运行来源身份到外部回执，补齐对象遍历和同 World 整棵子树迁移。
    已完成 visit_objects、game_object::scene/world_matrix、transfer_subtree；来源查找使用实例化回执。
 5. [x] 拆分运行组件装配与编辑器注册，消除上下文中的网格特例。
@@ -224,6 +236,7 @@ scene_object 辅助头拆为实例化实现私有的创建回收/资源查找，
    已删除 scene_domain；相机组件只保存默认提示，运行应用 activate 在切换前显式选择相机，
    编辑视口继续使用独立相机。多个提示按组合顺序选择最后一个，无提示则不自动激活。
 7. [ ] 清理旧 node/entity 业务入口、重复准备模型及目录；完成编译与定向 CPU 验证。
+   接口与目录清理已落地，本轮仅编译验收；最终定向 CPU 运行回归遵循用户要求延后，因此此项不勾选完成。
 
 保句柄替换协议及准备模型已删除；测试目录的 instantiate_scene 辅助只组合现有接口，
 不进入产品 API，不维护独立准备模型或加载预算。
@@ -569,15 +582,8 @@ Windows Clang Debug 全部默认目标编译通过；完整重链后 28 项定�
 
 ### 目标 API 示意与实际入口
 
-上方目标代码中的 children/roots 范围和借用组件指针接口尚未提供。
-普通对象创建已统一进入 scene_instance::create_object(object_options, parent)，World 不再提供 create_object；
-运行对象已删除 scene_node_identity/identity/set_identity 及对象 UUID，仅保存名称；name() 是有效句柄的借用查询。
-示例及测试显式建立或借用场景，不创建隐式默认场景。纯 ECS 辅助实体的生命周期入口仅保留在私有实现。
-World 的 entity_create/entity_destroy/entity_is_alive 已删除；entity_count 保留统计用途。
-实例化回执与投影关联中的重复 node/entity 字段已统一为 entity。
-当前遍历使用 visit_objects，普通组件已提供 GameObject 的模板值读写和删除；
-read_component 返回副本，set_component 安装或替换，尚不等同于示意中的 try_component/add_component。
-实际错误返回沿用 error/result，create_object/borrow 等准确签名以 Reference 和头文件为准。
+当前准确 API、失效规则和错误语义见 [World Reference](../reference/world.md)。
+本节之前的阶段验收描述保留为迁移历史；不以旧阶段未实现说明覆盖当前状态。
 
 ## 目录迁移验收
 

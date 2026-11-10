@@ -11,6 +11,7 @@
 #include <map>
 #include <mutex>
 
+#include "engine/function/scene/detail/camera_selection_state.hpp"
 #include "engine/function/scene/detail/component_storage.hpp"
 #include <cmath>
 #include <numbers>
@@ -24,7 +25,9 @@ template <> struct component_policy<camera_component> {
                : error::invalid_argument;
   }
   static void removed(world_state& state, entity_id entity) {
-    state.clear_active_camera(entity.get());
+    auto& selection = state.context<camera_selection_state>();
+    if (selection.entity == entity)
+      selection.entity = {};
   }
 };
 }
@@ -570,6 +573,12 @@ error write_component_property(world& world, std::uint64_t entity, guid type,
 }
 
 namespace gneiss::engine {
+template camera_component* game_object::try_component<camera_component>() const;
+template mesh_renderer_component* game_object::try_component<mesh_renderer_component>() const;
+template error game_object::insert_component<camera_component>(camera_component) const;
+template error
+    game_object::insert_component<mesh_renderer_component>(mesh_renderer_component) const;
+
 template result<camera_component> game_object::read_component<camera_component>() const;
 template error game_object::set_component<camera_component>(camera_component) const;
 template error game_object::remove_component<camera_component>() const;

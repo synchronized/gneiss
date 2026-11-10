@@ -7,6 +7,7 @@
 #include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/render_extraction.hpp"
 #include "engine/function/scene/world.hpp"
@@ -82,12 +83,12 @@ int run_tests() {
   mesh_transform.translation.x = 2;
   if (mesh_object->set_local_transform(mesh_transform).failed() ||
       camera_object->set_component(camera_component{camera}).failed() ||
-      world.set_active_camera(camera_entity).failed() ||
+      gneiss::engine::set_active_camera(world, camera_entity).failed() ||
       mesh_object->set_component(mesh_renderer_component{renderer}).failed())
     return 2;
   auto active_camera = [&] {
     gneiss::entity_id id;
-    (void)world.get_active_camera(id);
+    (void)gneiss::engine::get_active_camera(world, id);
     return id;
   };
   auto snapshot = extract_render_snapshot(world, 1280U, 720U);

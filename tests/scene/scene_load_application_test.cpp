@@ -10,6 +10,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
@@ -711,7 +712,8 @@ void source_reload_without_world_prefab_state() {
     std::this_thread::yield();
   }
   entity_id active_camera;
-  check(app->native_world()->get_active_camera(active_camera) == e::error::not_ready);
+  check(gneiss::engine::get_active_camera(*app->native_world(), active_camera) ==
+        e::error::not_ready);
   scene_load_completion loaded;
   check(gneiss::test_support::assign_value(app->activate_scene(request), loaded).ok());
   const auto find = [](const auto& bindings, e::guid source) {
@@ -721,7 +723,7 @@ void source_reload_without_world_prefab_state() {
   };
   const auto root_node = find(loaded.objects, root.uuid);
   const auto child_node = find(loaded.objects, child.uuid);
-  check(app->native_world()->get_active_camera(active_camera).ok());
+  check(gneiss::engine::get_active_camera(*app->native_world(), active_camera).ok());
   check(active_camera.get() == root_node.get());
   for (std::size_t i = 0; i < loaded.objects.size(); ++i) {
     auto info = gneiss::test_support::scene_access{*app}->get_node_info(loaded.scene, i);

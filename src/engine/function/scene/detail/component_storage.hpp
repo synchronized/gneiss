@@ -3,6 +3,7 @@
 #pragma once
 #include "engine/function/scene/detail/world_component_access.hpp"
 #include "engine/function/scene/game_object.hpp"
+#include <cassert>
 #include <type_traits>
 #include <utility>
 namespace gneiss::engine::detail {
@@ -23,8 +24,33 @@ inline result<world_state*> component_state(game_object object) {
 }
 }
 namespace gneiss::engine {
+template <class T> T* game_object::try_component() const {
+  static_assert(!std::is_same_v<T, detail::object_state> &&
+                    !std::is_same_v<T, detail::auxiliary_scene_membership>,
+                "受控对象数据不得通过普通组件接口访问");
+  auto state = detail::component_state(*this);
+  assert(state && is_valid());
+  return state ? (*state)->template get<T>(entity_.get()) : nullptr;
+}
+template <class T> error game_object::insert_component(T value) const {
+  static_assert(!std::is_same_v<T, detail::object_state> &&
+                    !std::is_same_v<T, detail::auxiliary_scene_membership>,
+                "受控对象数据不得通过普通组件接口修改");
+  auto state = detail::component_state(*this);
+  if (!state)
+    return state.error();
+  if ((*state)->template get<T>(entity_.get()))
+    return error::invalid_state;
+  auto status = detail::component_policy<T>::validate(value);
+  if (status.failed())
+    return status;
+  (*state)->template emplace<T>(entity_.get(), std::move(value));
+  return error::success;
+}
 template <class T> result<T> game_object::read_component() const {
-  static_assert(!std::is_same_v<T, scene_membership>, "场景归属必须通过场景接口访问");
+  static_assert(!std::is_same_v<T, detail::object_state> &&
+                    !std::is_same_v<T, detail::auxiliary_scene_membership>,
+                "场景归属必须通过场景接口访问");
   auto state = detail::component_state(*this);
   if (!state)
     return state.error();
@@ -34,7 +60,9 @@ template <class T> result<T> game_object::read_component() const {
   return *component;
 }
 template <class T> error game_object::set_component(T value) const {
-  static_assert(!std::is_same_v<T, scene_membership>, "场景归属必须通过场景接口修改");
+  static_assert(!std::is_same_v<T, detail::object_state> &&
+                    !std::is_same_v<T, detail::auxiliary_scene_membership>,
+                "场景归属必须通过场景接口修改");
   auto state = detail::component_state(*this);
   if (!state)
     return state.error();
@@ -45,7 +73,9 @@ template <class T> error game_object::set_component(T value) const {
   return error::success;
 }
 template <class T> error game_object::remove_component() const {
-  static_assert(!std::is_same_v<T, scene_membership>, "场景归属必须通过场景接口修改");
+  static_assert(!std::is_same_v<T, detail::object_state> &&
+                    !std::is_same_v<T, detail::auxiliary_scene_membership>,
+                "场景归属必须通过场景接口修改");
   auto state = detail::component_state(*this);
   if (!state)
     return state.error();

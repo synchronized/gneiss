@@ -73,9 +73,6 @@ public:
     scene_.detach(entity_id{entity});
 
     registry_.destroy(native);
-    if (active_camera_ == entity) {
-      active_camera_ = UINT64_C(0);
-    }
     --entity_count_;
     return true;
   }
@@ -124,25 +121,12 @@ public:
     return registry_.remove<Component>(decode(entity)) ? error::success : error::not_found;
   }
 
-  [[nodiscard]] error set_active_camera(std::uint64_t entity) {
-    if (!is_alive(entity)) {
-      return error::invalid_handle;
-    }
-    if (get<camera_component>(entity) == nullptr) {
-      return error::not_ready;
-    }
-    active_camera_ = entity;
-    return error::success;
+  /** 扩展模块的 World 级状态；类型和业务规则由使用模块定义。 */
+  template <class T> T& context() {
+    if (auto* value = registry_.ctx().find<T>())
+      return *value;
+    return registry_.ctx().emplace<T>();
   }
-
-  void clear_active_camera(std::uint64_t entity) noexcept {
-    if (active_camera_ != entity) {
-      return;
-    }
-    active_camera_ = UINT64_C(0);
-  }
-
-  [[nodiscard]] std::uint64_t active_camera() const noexcept { return active_camera_; }
 
   template <typename... Component, typename Function> void each(Function&& function) {
     registry_.view<Component...>().each([&](entt::entity entity, auto&... components) {
@@ -155,20 +139,30 @@ public:
   }
 
   [[nodiscard]] scene_instance_id scene_of(entity_id node) const noexcept {
-    const auto* member = get<scene_membership>(node.get());
+    if (const auto* object = get<detail::object_state>(node.get()))
+      return object->scene;
+    const auto* member = get<detail::auxiliary_scene_membership>(node.get());
     return member ? member->scene : scene_instance_id{};
   }
   void assign_scene(entity_id node, scene_instance_id scene) {
-    emplace_or_replace<scene_membership>(node.get(), scene);
+    if (auto* object = get<detail::object_state>(node.get()))
+      object->scene = scene;
+    else
+      emplace_or_replace<detail::auxiliary_scene_membership>(node.get(), scene);
   }
   template <class Function>
   void each_scene_member(scene_instance_id scene, Function&& function) const {
     if (!scene)
       return;
-    registry_.view<const scene_membership>().each([&](entt::entity entity, const auto& member) {
+    registry_.view<const detail::object_state>().each([&](entt::entity entity, const auto& member) {
       if (member.scene == scene)
         function(entity_id{encode(entity)});
     });
+    registry_.view<const detail::auxiliary_scene_membership>().each(
+        [&](entt::entity entity, const auto& member) {
+          if (member.scene == scene)
+            function(entity_id{encode(entity)});
+        });
   }
   /** 不保存查询快照；每次删除后重新取成员，避免 EnTT 删除使迭代器失效。 */
   void destroy_scene_members(scene_instance_id scene) {
@@ -211,7 +205,6 @@ private:
   std::uint32_t domain_;
   std::thread::id owner_thread_;
   std::size_t entity_count_ = 0;
-  std::uint64_t active_camera_ = UINT64_C(0);
 };
 
 } // namespace gneiss::engine
