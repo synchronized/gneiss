@@ -672,3 +672,5 @@
 - [PLAN-110 定向 CPU 验收](records/2026-11-10-plan110-cpu-acceptance.md)
 
 - [PLAN-111 加载请求与主循环推进分离](plans/PLAN-111-loading-request-api.md)
+
+- [PLAN-112 文件、任务及资产就绪队列](plans/PLAN-112-loading-ready-queues.md)

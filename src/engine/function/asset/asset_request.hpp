@@ -9,12 +9,15 @@
 #include "engine/resource/asset_diagnostic.hpp"
 #include "engine/resource/asset_ref.hpp"
 #include "render_resource.hpp"
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <utility>
+#include <vector>
 
 namespace gneiss::engine {
 namespace detail {
+struct asset_request_access;
 template <class T>
   requires requires(const T& value) { value.snapshot(); }
 auto capture_asset_content(const T& value) {
@@ -26,6 +29,8 @@ auto capture_asset_content(const T& value) {
 // 移植 Granit 示例 asset_state：请求共享结果，观察者各自拥有取消权。
 struct asset_state {
   std::mutex mutex;
+  std::function<void()> changed;
+  std::vector<std::function<void()>> completed;
   render_resource_ref target;
   std::shared_ptr<const asset> identity;
   const void* native_address{};
@@ -49,9 +54,26 @@ public:
   explicit asset_request(std::shared_ptr<detail::asset_state> state) noexcept
       : state_(std::move(state)) {}
   asset_request(const asset_request&) = default;
-  asset_request& operator=(const asset_request&) = default;
+  asset_request& operator=(const asset_request& other) {
+    if (this != &other) {
+      cancel();
+      state_ = other.state_;
+      source_bytes_ = other.source_bytes_;
+      metrics_ = other.metrics_;
+    }
+    return *this;
+  }
   asset_request(asset_request&&) noexcept = default;
-  asset_request& operator=(asset_request&&) noexcept = default;
+  asset_request& operator=(asset_request&& other) noexcept {
+    if (this != &other) {
+      cancel();
+      state_ = std::move(other.state_);
+      source_bytes_ = other.source_bytes_;
+      metrics_ = std::move(other.metrics_);
+    }
+    return *this;
+  }
+  ~asset_request() { cancel(); }
   [[nodiscard]] explicit operator bool() const noexcept { return state_ != nullptr; }
   template <class U>
     requires((std::is_same_v<T, render_resource_ref> && render_resource<U>) ||
@@ -107,7 +129,11 @@ public:
     return Ref{std::static_pointer_cast<Content>(state_ ? state_->snapshot
                                                         : std::shared_ptr<const void>{})};
   }
-  void cancel() noexcept { state_.reset(); }
+  void cancel() noexcept {
+    auto released = std::move(state_);
+    if (released && released->changed)
+      released->changed();
+  }
   /** 最近一次成功领取的读取与解码统计；取消不清除已领取统计。 */
   const asset_load_metrics& metrics() const noexcept { return state_ ? state_->metrics : metrics_; }
   /** 最近一次成功领取的源文件字节数；尚未成功领取时为零，成功后可在请求失效时查询。 */
@@ -136,15 +162,35 @@ public:
       return asset_diagnostic{error::invalid_argument, 0, {}, {}};
     source_bytes_ = state->source_bytes;
     metrics_ = state->metrics;
-    state_.reset();
+    cancel();
     return value;
   }
 
 private:
   friend class asset_manager;
+  friend struct detail::asset_request_access;
   template <class> friend class asset_request;
   std::shared_ptr<detail::asset_state> state_;
   std::size_t source_bytes_{};
   asset_load_metrics metrics_;
+};
+}
+
+namespace gneiss::engine::detail {
+/** 内部依赖调度订阅；回调只投递就绪通知，不运行用户代码。 */
+struct asset_request_access {
+  template <class T>
+  static void when_ready(const asset_request<T>& request, std::function<void()> notify) {
+    if (!request.state_ || !notify)
+      return;
+    {
+      std::scoped_lock lock(request.state_->mutex);
+      if (request.state_->status == error::not_ready) {
+        request.state_->completed.push_back(std::move(notify));
+        return;
+      }
+    }
+    notify();
+  }
 };
 }

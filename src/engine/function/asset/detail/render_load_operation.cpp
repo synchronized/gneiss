@@ -38,6 +38,7 @@ void render_load_operation::advance(asset_manager& service, asset_construction&)
             source.uri, {.reload = reload, .texture_profile = service.profile()});
         if (!request)
           return request.error();
+        asset_request_access::when_ready(*request, notify);
         cpu = std::move(*request);
         return error::success;
       };
@@ -128,6 +129,8 @@ void render_load_operation::advance(asset_manager& service, asset_construction&)
         return;
       }
     }
+    for (const auto& dependency : dependencies)
+      dependency->notify = notify;
     auto dependency_status = service.advance_dependencies(entry.lock(), dependencies);
     if (dependency_status.error == error::not_ready)
       return;

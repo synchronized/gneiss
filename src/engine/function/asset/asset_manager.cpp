@@ -96,7 +96,10 @@ struct asset_manager::resource_state {
       files::bytes{}.swap(bytes);
     }
   };
-  std::vector<std::shared_ptr<detail::render_load_operation>> rendering;
+  std::map<detail::render_load_operation*, std::shared_ptr<detail::render_load_operation>>
+      rendering;
+  std::shared_ptr<detail::operation_queue<detail::render_load_operation>> render_ready =
+      std::make_shared<detail::operation_queue<detail::render_load_operation>>();
   // 执行器丢弃排队任务时也产生终态；所有数据先写入，再 release 发布。
   struct settlement {
     std::shared_ptr<operation> work;
@@ -107,6 +110,7 @@ struct asset_manager::resource_state {
         work->diagnostic.message = "解码任务未执行";
       }
       work->settled.store(true, std::memory_order_release);
+      work->notify();
     }
   };
   std::shared_ptr<engine::files::service> files;
@@ -117,7 +121,12 @@ struct asset_manager::resource_state {
   std::map<type_id, std::shared_ptr<const asset_decoder>> decoders;
   std::map<type_id, loader_factory> loaders;
   std::map<type_id, reference_factory> references;
-  std::vector<std::shared_ptr<operation>> active;
+  std::map<operation*, std::shared_ptr<operation>> active;
+  std::shared_ptr<detail::operation_queue<operation>> ready =
+      std::make_shared<detail::operation_queue<operation>>();
+  std::map<std::uint64_t, std::weak_ptr<operation>> tasks;
+  // 仅容量不足的提交进入重试集合，不包含等待正常完成的操作。
+  std::vector<std::weak_ptr<operation>> retry;
 
   error read(const std::shared_ptr<operation>& work, std::string_view uri) {
     if (work->loader->source_type) {
@@ -138,6 +147,7 @@ struct asset_manager::resource_state {
               operation->diagnostic = {0, path, "文件读取失败", completed.status};
             operation->bytes = std::move(completed.data);
             operation->read_complete = true;
+            operation->notify();
           }
         },
         work->read_request);
@@ -175,10 +185,13 @@ struct asset_manager::resource_state {
     if (submitted == submit_result::full) {
       completion->ran = true;
       work->reading = true;
+      retry.push_back(work);
       return false;
     }
     if (submitted != submit_result::success)
       work->status = error::invalid_state;
+    else
+      tasks.emplace(work->task.id, work);
     return true;
   }
   ~resource_state() { stop(); }
@@ -186,12 +199,15 @@ struct asset_manager::resource_state {
     if (stopped)
       return;
     stopped = true;
-    for (const auto& work : rendering)
+    for (const auto& [key, work] : rendering) {
+      (void)key;
       work->stop();
+    }
     rendering.clear();
     if (executor)
       executor->cancel_scope(scope);
-    for (const auto& work : active) {
+    for (const auto& [key, work] : active) {
+      (void)key;
       if (work->reading && work->read_request.value != 0)
         (void)files->cancel(work->read_request);
       work->stop();
@@ -209,6 +225,8 @@ struct asset_manager::resource_state {
       executor = nullptr;
     }
     active.clear();
+    tasks.clear();
+    retry.clear();
     cache.clear_loading();
     files.reset();
     return true;
@@ -462,18 +480,20 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
     if (work->observer->identity && !work->previous)
       work->previous = conversion.to_value(work->observer->identity);
   }
-  state.active.push_back(work);
+  detail::connect_operation(work, state.ready);
+  state.active.emplace(work.get(), work);
   try {
     const auto submitted = state.read(work, uri);
     if (submitted == error::not_ready) {
       work->pending_uri = uri;
       work->reading = false;
+      state.retry.push_back(work);
     } else if (submitted.failed()) {
-      state.active.pop_back();
+      state.active.erase(work.get());
       return submitted;
     }
   } catch (...) {
-    state.active.pop_back();
+    state.active.erase(work.get());
     throw;
   }
   if (entry) {
@@ -543,8 +563,8 @@ void asset_manager::advance() {
   if (impl_) {
     (void)impl_->drain();
     detail::advance_load_operations(
-        state.rendering, [&](const auto& work) { work->advance(*this, *impl_); },
-        [](const auto&) {});
+        state.rendering, *state.render_ready,
+        [&](const auto& work) { work->advance(*this, *impl_); }, [](const auto&) {});
   }
   if (state.stopped) {
     (void)state.finish_stop();
@@ -556,22 +576,32 @@ void asset_manager::advance() {
   // 文件完成由宿主统一分发；这里只处理 CPU 解码与资源结果。
   std::vector<task_completion> completions;
   (void)state.executor->poll(state.scope, completions);
-  for (const auto& completion : completions)
-    for (const auto& work : state.active)
-      if (work->task.id == completion.task.id) {
-        work->queue_ms += completion.queue_ms;
-        work->task = {};
-        break;
-      }
+  for (const auto& completion : completions) {
+    auto found = state.tasks.find(completion.task.id);
+    if (found == state.tasks.end())
+      continue;
+    if (auto work = found->second.lock()) {
+      work->queue_ms += completion.queue_ms;
+      work->task = {};
+      work->notify();
+    }
+    state.tasks.erase(found);
+  }
+  auto retries = std::exchange(state.retry, {});
+  for (const auto& weak : retries)
+    if (auto work = weak.lock())
+      work->notify();
   detail::advance_load_operations(
-      state.active,
+      state.active, *state.ready,
       [&](const auto& work) {
         if (!work->pending_uri.empty()) {
           {
             work->status = state.read(work, work->pending_uri);
           }
-          if (work->status == error::not_ready)
+          if (work->status == error::not_ready) {
+            state.retry.push_back(work);
             return;
+          }
           work->pending_uri.clear();
           if (work->status.failed())
             work->settled.store(true, std::memory_order_release);
@@ -604,6 +634,7 @@ void asset_manager::advance() {
             work->status = state.read(work, next_uri);
             if (work->status == error::not_ready) {
               work->pending_uri = next_uri;
+              state.retry.push_back(work);
               return;
             }
           }
@@ -613,6 +644,8 @@ void asset_manager::advance() {
         }
         if (work->status.ok()) {
           {
+            for (const auto& dependency : work->loader->dependencies)
+              dependency->notify = work->notify;
             auto dependencies =
                 advance_dependencies(work->entry.lock(), work->loader->dependencies);
             if (dependencies.error == error::not_ready)
@@ -659,8 +692,17 @@ void asset_manager::advance() {
       });
 }
 void asset_manager::collect_unused() {
-  detail::advance_load_operations(
-      resource_state_->rendering, [](const auto&) {}, [](const auto&) {});
+  // 资源强引用的最后释放不属于请求完成通知；回收入口只检查拥有权，不推进加载。
+  for (auto iterator = resource_state_->rendering.begin();
+       iterator != resource_state_->rendering.end();) {
+    auto work = iterator->second;
+    if (work->has_observers()) {
+      ++iterator;
+      continue;
+    }
+    work->stop();
+    iterator = resource_state_->rendering.erase(iterator);
+  }
   do {
     cache().release_unused();
   } while (impl_ && impl_->drain() != 0U);
@@ -719,7 +761,9 @@ result<asset_request<render_resource_ref>> asset_manager::load(const render_reso
   work->entry = entry;
   work->source = source;
   work->reload = reload;
-  resource_state_->rendering.push_back(work);
+  detail::connect_operation(work, resource_state_->render_ready);
+  resource_state_->rendering.emplace(work.get(), work);
+  work->notify();
   entry->pending_dependencies.clear();
   entry->loading = work;
   output.state_ = std::move(state);

@@ -49,6 +49,51 @@ public:
   }
 };
 
+void completion_queue_order() {
+  auto first = std::make_shared<controlled_backend>();
+  auto second = std::make_shared<controlled_backend>();
+  files::service service;
+  check(service.mount({"first://", {first}, {}}).ok(), "first mount");
+  check(service.mount({"second://", {second}, {}}).ok(), "second mount");
+  std::vector<int> delivered;
+  files::request_id request;
+  check(service
+            .read(
+                "first://item", {16},
+                [&](auto result) {
+                  check(result.status.ok(), "first result");
+                  delivered.push_back(1);
+                },
+                request)
+            .ok(),
+        "first submit");
+  check(service
+            .read(
+                "second://item", {16},
+                [&](auto result) {
+                  check(result.status.ok(), "second result");
+                  delivered.push_back(2);
+                },
+                request)
+            .ok(),
+        "second submit");
+  // 工作线程只入队，回调按完成顺序在 dispatch 所属线程交付。
+  std::thread worker([&] {
+    second->complete();
+    first->complete();
+  });
+  worker.join();
+  check(delivered.empty(), "backend delivered user callback directly");
+  pump(service, 0);
+  check(delivered.empty(), "zero budget delivered result");
+  pump(service, 1);
+  check(delivered == std::vector<int>{2}, "completion order differs from submission order");
+  pump(service, 1);
+  check(delivered == std::vector<int>({2, 1}), "completion queue lost result");
+  pump(service);
+  check(delivered.size() == 2, "duplicate completion");
+}
+
 void memory_and_routes() {
   auto memory = std::make_shared<gneiss::engine::files::memory_backend>();
   auto lower = std::make_shared<gneiss::engine::files::memory_backend>();
@@ -683,6 +728,7 @@ void source_identity() {
 } // namespace
 int main() {
   try {
+    completion_queue_order();
     sequential_streams();
     source_identity();
     memory_and_routes();

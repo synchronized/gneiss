@@ -21,6 +21,7 @@ public:
         return fail({submitted.error(), 0, {}, "无法提交必要资产依赖"});
       }
       request_.emplace(std::move(*submitted));
+      asset_request_access::when_ready(*request_, notify);
     }
     if constexpr (requires { Content{request_->snapshot()}; })
       content_ = Content{request_->snapshot()};

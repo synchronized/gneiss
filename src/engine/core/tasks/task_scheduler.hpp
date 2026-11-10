@@ -122,6 +122,7 @@ public:
   virtual void cancel_scope(task_scope scope) = 0;
   [[nodiscard]] virtual bool idle(task_scope scope) const = 0;
   [[nodiscard]] virtual bool close_scope(task_scope scope) = 0;
+  /** 消费所属 scope 的终态队列；内置调度器按完成入队顺序交付，不扫描未完成任务。 */
   virtual std::size_t poll(task_scope scope, std::vector<task_completion>& output,
                            std::size_t budget = 64U) = 0;
 };

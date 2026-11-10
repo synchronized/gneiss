@@ -65,7 +65,8 @@ public:
   /** 完成先到时返回 invalid_state；取消成功仍等待实际后端结束再通知 cancelled。
    * 取消不撤销已执行的写入，ID 未知/跨服务/已分发返回 invalid_handle。 */
   [[nodiscard]] GNEISS_API error cancel(request_id request);
-  /** 返回线程/重入错误；回调必须不抛出异常。本次分发不处理回调中新提交的请求。 */
+  /** 返回线程/重入错误；回调必须不抛出异常。本次最多处理 max_callbacks
+   * 个就绪项（含回退）；本轮新通知留待下轮。 */
   [[nodiscard]] GNEISS_API error dispatch_completions(std::size_t max_callbacks);
   /** 取消尚未完成请求，已完成结果照常分发；关闭回调在请求全部收尾后的分发中调用。 */
   [[nodiscard]] GNEISS_API error shutdown(completion_callback callback);

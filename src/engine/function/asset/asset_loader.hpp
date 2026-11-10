@@ -6,6 +6,7 @@
 #include "engine/function/asset/asset_loading.hpp"
 #include "engine/resource/asset.hpp"
 #include "engine/resource/asset_diagnostic.hpp"
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -20,6 +21,8 @@ struct asset_dependency {
       : type(type), uri(std::move(uri)), path(std::move(path)), options(options) {}
   virtual ~asset_dependency() = default;
   virtual error advance(asset_manager&) = 0;
+  /** 异步依赖状态变化时投递父操作，不能直接运行父操作。 */
+  std::function<void()> notify;
   asset_diagnostic diagnostic;
 };
 /** 一次加载的格式状态；管理器负责 I/O 和调度，Loader 消费字节并声明后续读取与必要依赖。 */

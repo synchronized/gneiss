@@ -9,7 +9,9 @@
 #include <algorithm>
 #include <atomic>
 #include <charconv>
+#include <deque>
 #include <limits>
+#include <map>
 #include <mutex>
 #include <new>
 #include <stdexcept>
@@ -31,7 +33,17 @@ std::uint64_t allocate_request() noexcept {
   return 0;
 }
 
+struct ready_requests {
+  std::mutex mutex;
+  std::deque<request_id> queue;
+  void push(request_id id) {
+    std::lock_guard lock(mutex);
+    queue.push_back(id);
+  }
+};
 template <class T> struct completion_state {
+  std::weak_ptr<ready_requests> ready;
+  request_id id;
   std::mutex mutex;
   std::optional<completion<T>> completed;
   bool cancelled{};
@@ -70,8 +82,11 @@ template <class T> struct typed_request final : pending_request {
   void begin() {
     const auto complete = [shared = state](completion<T> value) {
       std::lock_guard lock(shared->mutex);
-      if (!shared->completed)
+      if (!shared->completed) {
         shared->completed = std::move(value);
+        if (auto queue = shared->ready.lock())
+          queue->push(shared->id);
+      }
     };
     error status;
     {
@@ -145,7 +160,8 @@ struct service::implementation {
   using mounted_files = mount_description;
   std::vector<mounted_files> mounts;
   std::vector<std::shared_ptr<backend>> backends;
-  std::vector<std::unique_ptr<pending_request>> pending;
+  std::map<std::uint64_t, std::unique_ptr<pending_request>> pending;
+  std::shared_ptr<ready_requests> ready = std::make_shared<ready_requests>();
   completion_callback on_shutdown;
   bool frozen{}, closing{}, dispatching{};
   std::vector<std::weak_ptr<backend_stream>> streams;
@@ -216,7 +232,9 @@ struct service::implementation {
       if (request->id.value == 0)
         return error::invalid_state;
       auto* accepted = request.get();
-      pending.push_back(std::move(request));
+      request->state->ready = ready;
+      request->state->id = request->id;
+      pending.emplace(request->id.value, std::move(request));
       frozen = true;
       output = accepted->id;
       accepted->begin();
@@ -429,9 +447,8 @@ error service::flush(std::string_view mount_point, completion_callback callback,
 error service::cancel(request_id request) {
   if (!impl_->on_owner())
     return error::invalid_state;
-  const auto found = std::ranges::find_if(
-      impl_->pending, [request](const auto& value) { return value->id == request; });
-  return found == impl_->pending.end() ? error::invalid_handle : (*found)->cancel();
+  const auto found = impl_->pending.find(request.value);
+  return found == impl_->pending.end() ? error::invalid_handle : found->second->cancel();
 }
 error service::dispatch_completions(std::size_t max_callbacks) {
   if (!impl_->on_owner() || impl_->dispatching)
@@ -445,15 +462,24 @@ error service::dispatch_completions(std::size_t max_callbacks) {
   } guard{impl_->dispatching};
   for (const auto& backend : impl_->backends)
     backend->poll();
-  const auto count = impl_->pending.size();
-  std::size_t index = 0, delivered = 0;
-  for (std::size_t visited = 0; visited < count && delivered < max_callbacks; ++visited) {
-    if (!impl_->pending[index]->advance()) {
-      ++index;
-      continue;
+  std::size_t count;
+  {
+    std::lock_guard lock(impl_->ready->mutex);
+    count = std::min(max_callbacks, impl_->ready->queue.size());
+  }
+  std::size_t delivered = 0;
+  for (std::size_t visited = 0; visited < count; ++visited) {
+    request_id id;
+    {
+      std::lock_guard lock(impl_->ready->mutex);
+      id = impl_->ready->queue.front();
+      impl_->ready->queue.pop_front();
     }
-    auto ready = std::move(impl_->pending[index]);
-    impl_->pending.erase(impl_->pending.begin() + static_cast<std::ptrdiff_t>(index));
+    const auto found = impl_->pending.find(id.value);
+    if (found == impl_->pending.end() || !found->second->advance())
+      continue;
+    auto ready = std::move(found->second);
+    impl_->pending.erase(found);
     ++delivered;
     ready->release_budget();
     ready->deliver();
@@ -471,8 +497,10 @@ error service::shutdown(completion_callback callback) {
     return error::invalid_argument;
   impl_->closing = true;
   impl_->on_shutdown = std::move(callback);
-  for (const auto& request : impl_->pending)
+  for (const auto& [id, request] : impl_->pending) {
+    (void)id;
     static_cast<void>(request->cancel());
+  }
   impl_->close_streams();
   return error::success;
 }

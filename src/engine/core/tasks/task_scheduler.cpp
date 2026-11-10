@@ -8,6 +8,7 @@
 #include "engine/core/tasks/task_platform.hpp"
 
 #include <algorithm>
+#include <deque>
 #include <map>
 #include <mutex>
 #include <stdexcept>
@@ -44,6 +45,7 @@ struct task_scheduler::implementation {
   struct scope_state {
     bool cancelled{};
     std::shared_ptr<wakeup_signal> wakeup;
+    std::deque<std::uint64_t> completed;
   };
   std::map<std::uint64_t, scope_state> scopes;
   std::map<std::uint64_t, lane> lanes;
@@ -74,6 +76,7 @@ struct task_scheduler::implementation {
           std::chrono::duration<double, std::milli>(now - value.enqueued).count();
     }
     value.completion.outcome = std::move(outcome);
+    scopes.at(value.description.scope.id).completed.push_back(value.completion.task.id);
     ++counters.completed;
     if (value.completion.outcome.state == task_state::cancelled) {
       ++counters.cancelled;
@@ -263,7 +266,7 @@ task_scope task_scheduler::make_scope(std::shared_ptr<wakeup_signal> wakeup) {
     return {};
   }
   const auto id = impl_->sequence++;
-  impl_->scopes.emplace(id, implementation::scope_state{false, std::move(wakeup)});
+  impl_->scopes.emplace(id, implementation::scope_state{false, std::move(wakeup), {}});
   return {.owner = impl_->owner, .id = id};
 }
 serial_queue task_scheduler::make_serial_queue(task_scope scope) {
@@ -417,19 +420,17 @@ std::size_t task_scheduler::poll(task_scope scope, std::vector<task_completion>&
     if (scope.owner != impl_->owner || !impl_->scopes.contains(scope.id)) {
       return 0U;
     }
-    for (auto iterator = impl_->tasks.begin();
-         iterator != impl_->tasks.end() && retired.size() < budget;) {
+    auto& completed = impl_->scopes.at(scope.id).completed;
+    while (!completed.empty() && retired.size() < budget) {
+      auto iterator = impl_->tasks.find(completed.front());
       auto& value = iterator->second;
-      if (value->description.scope.id == scope.id && terminal(value->completion.outcome.state)) {
-        GNEISS_PROFILE_SCOPE("task.receive");
-        GNEISS_PROFILE_TASK(impl_->owner, value->completion.task.id, value->description.name);
-        output.push_back(value->completion);
-        cleanup.push_back(std::move(value->function));
-        retired.push_back(std::move(value));
-        iterator = impl_->tasks.erase(iterator);
-      } else {
-        ++iterator;
-      }
+      GNEISS_PROFILE_SCOPE("task.receive");
+      GNEISS_PROFILE_TASK(impl_->owner, value->completion.task.id, value->description.name);
+      output.push_back(value->completion);
+      cleanup.push_back(std::move(value->function));
+      retired.push_back(std::move(value));
+      impl_->tasks.erase(iterator);
+      completed.pop_front();
     }
   }
   return retired.size();

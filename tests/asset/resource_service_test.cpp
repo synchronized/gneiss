@@ -43,6 +43,37 @@ gneiss::engine::error load_cached(
 int main() try {
   {
     using namespace gneiss::engine;
+    auto work = std::make_shared<detail::load_operation>();
+    asset_request<int> request(work->observer);
+    auto ready = std::make_shared<detail::operation_queue<detail::load_operation>>();
+    detail::connect_operation(work, ready);
+    std::map<detail::load_operation*, std::shared_ptr<detail::load_operation>> active{
+        {work.get(), work}};
+    int resumed{};
+    const auto step = [&] {
+      detail::advance_load_operations(
+          active, *ready, [&](const auto&) { ++resumed; }, [](const auto&) {});
+    };
+    for (int frame = 0; frame < 16; ++frame)
+      step();
+    if (resumed != 0)
+      return 34; // 没有通知的等待项不能每帧恢复。
+    work->notify();
+    work->notify();
+    step();
+    step();
+    if (resumed != 1)
+      return 35;
+    request.cancel();
+    step();
+    if (!active.empty() || work->observer->status != error::invalid_state)
+      return 36;
+    ready.reset();
+    work->notify(); // 关闭后的迟到通知不能访问已销毁队列。
+  }
+
+  {
+    using namespace gneiss::engine;
     auto first = std::make_shared<detail::load_operation>();
     auto appended = std::make_shared<detail::load_operation>();
     auto abandoned = std::make_shared<detail::load_operation>();
@@ -50,25 +81,34 @@ int main() try {
     auto record = std::make_shared<detail::asset_entry>();
     abandoned->entry = record;
     record->loading = abandoned;
-    std::vector<std::shared_ptr<detail::load_operation>> queue{first, abandoned};
+    std::map<detail::load_operation*, std::shared_ptr<detail::load_operation>> queue{
+        {first.get(), first}, {abandoned.get(), abandoned}};
+    auto ready = std::make_shared<detail::operation_queue<detail::load_operation>>();
+    detail::connect_operation(first, ready);
+    detail::connect_operation(abandoned, ready);
+    detail::connect_operation(appended, ready);
+    first->notify();
+    first->notify(); // 重复通知合并为一次恢复。
+    abandoned->notify();
     int advanced{}, cancelled{};
     detail::advance_load_operations(
-        queue,
+        queue, *ready,
         [&](const auto& work) {
           ++advanced;
-          queue.push_back(appended); // 可能重新分配；当前工作须独立保活。
+          queue.emplace(appended.get(), appended);
+          appended->notify(); // 本轮消费开始后提交的通知留到下一轮。
           work->complete(error::success);
         },
         [&](const auto& work) {
           if (work == abandoned)
             ++cancelled;
         });
-    if (advanced != 1 || cancelled != 1 || queue.size() != 1 || queue.front() != appended ||
+    if (advanced != 1 || cancelled != 1 || queue.size() != 1 || !queue.contains(appended.get()) ||
         record->loading || abandoned->observer->status != error::invalid_state ||
         appended_request.status() != error::not_ready)
       return 32;
     detail::advance_load_operations(
-        queue,
+        queue, *ready,
         [&](const auto& work) {
           ++advanced;
           work->complete(error::io);

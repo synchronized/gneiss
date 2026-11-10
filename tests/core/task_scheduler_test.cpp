@@ -259,6 +259,33 @@ void fair_priority_and_scope_isolation() {
   await([&] { return scheduler.idle(other); });
   require(background_order < 12U && count == 12U, "后台饥饿或关闭影响其他作用域");
 }
+void completion_queue_order() {
+  task_scheduler scheduler({.mode = execution_mode::cooperative});
+  const auto scope = scheduler.make_scope();
+  const auto other = scheduler.make_scope();
+  const auto first =
+      launch(scheduler, {.scope = scope}, [](const auto&) { return task_outcome{}; });
+  const auto second =
+      launch(scheduler, {.scope = scope}, [](const auto&) { return task_outcome{}; });
+  const auto foreign =
+      launch(scheduler, {.scope = other}, [](const auto&) { return task_outcome{}; });
+  // 完成顺序与提交顺序不同；取消也只产生一次终态。
+  require(scheduler.cancel(second), "取消第二个任务失败");
+  require(scheduler.cancel(first), "取消第一个任务失败");
+  (void)scheduler.cancel(second);
+  (void)scheduler.run_ready();
+  std::vector<task_completion> output;
+  require(scheduler.poll(scope, output, 0) == 0, "零预算消费了回执");
+  require(scheduler.poll(scope, output, 1) == 1 && output.front().task.id == second.id,
+          "完成队列没有保持终态到达顺序");
+  require(scheduler.poll(scope, output, 1) == 1 && output.back().task.id == first.id,
+          "完成队列遗漏终态");
+  require(scheduler.poll(scope, output) == 0, "重复领取终态");
+  require(scheduler.close_scope(scope), "关闭已消费 scope 失败");
+  output.clear();
+  require(scheduler.poll(other, output) == 1 && output.front().task.id == foreign.id,
+          "关闭影响其他 scope 的完成队列");
+}
 void submission_observation() {
   task_scheduler scheduler({.mode = execution_mode::cooperative});
   task_submission_timings timing{.allocate_ms = 100.0};
@@ -287,6 +314,7 @@ void submission_observation() {
 int main() try {
   cooperative_scheduler_contract();
   submission_observation();
+  completion_queue_order();
   {
     task_scheduler scheduler({.mode = execution_mode::cooperative});
     std::jthread other([&] {

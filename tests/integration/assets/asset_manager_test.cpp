@@ -776,6 +776,44 @@ void run() {
   check(gneiss::test_support::take_request(first, a) == gneiss::engine::error::invalid_state,
         "queue rejection does not hang");
 }
+void decode_capacity_retry() {
+  task_scheduler executor({.capacity = 2U, .mode = execution_mode::cooperative});
+  const auto occupied = executor.make_scope();
+  task_handle blocker;
+  check(executor.submit(
+            {.scope = occupied}, [](const auto&) { return task_outcome{}; }, blocker) ==
+            submit_result::success,
+        "occupy decode capacity");
+  check(executor.submit(
+            {.scope = occupied}, [](const auto&) { return task_outcome{}; }, blocker) ==
+            submit_result::success,
+        "fill decode capacity");
+  auto source = std::make_shared<memory_files>();
+  gneiss::test_support::fixture_files files;
+  check(files.mount("asset://", source).ok(), "retry mount");
+  asset_manager assets(gneiss::test_support::test_files(files));
+  auto decoder = std::make_shared<loader>();
+  check(assets.register_decoder(decoder).ok(), "retry decoder");
+  check(assets.configure(executor).ok(), "retry executor");
+  auto submitted = assets.load<value>("asset://retry");
+  check(bool(submitted), "retry request");
+  advance_assets_for_test(assets);
+  advance_assets_for_test(assets);
+  check(submitted->status() == error::not_ready && decoder->decodes == 0,
+        "full decode queue does not lose request");
+  (void)executor.run_ready();
+  std::vector<task_completion> completed;
+  check(executor.poll(occupied, completed) == 2, "release decode capacity");
+  advance_assets_for_test(assets);
+  (void)executor.run_ready();
+  advance_assets_for_test(assets);
+  auto loaded = submitted->take();
+  check(loaded && (*loaded)->byte == 'a' && decoder->decodes == 1 && source->reads == 1,
+        "capacity recovery resumes once without rereading");
+  assets.stop();
+  check(executor.close_scope(occupied), "retry scope close");
+}
+
 void stored_value_supersedes_pending() {
   auto& executor = gneiss::test_support::asset_tasks();
   auto source = std::make_shared<memory_files>();
@@ -915,6 +953,7 @@ int main() {
 #if GNEISS_TEST_TASK_THREADS
     nonblocking_decode_shutdown();
 #endif
+    decode_capacity_retry();
     stored_value_supersedes_pending();
     decoder_selection();
     reference_lifetime();
