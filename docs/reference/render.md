@@ -113,7 +113,7 @@ GPU 在途安全回收仍由 Render 及后端负责，RID 释放队列不替代 
 帧提取入口为 `function/scene/render_extraction.hpp` 中的
 `extract_render_snapshot(world&, width, height, camera)`，返回 `result<render_snapshot>`。
 它在 World 所属线程访问 ECS，失败时不返回部分快照；相机指针仅在调用期间借用，
-为空时使用活动相机。提取实现在 scene/detail，不由 World 公共方法或 GPU 服务负责。
+为空时使用活动相机。提取实现集中在 scene/render_extraction.cpp，不由 World 公共方法或 GPU 服务负责。
 Application 将成功结果移动到帧包；快照持有资源强引用，不保留 ECS 借用。
 
 帧提取按值复制活动 Camera、世界 Transform、视图矩阵、投影矩阵和视口尺寸。没有关联 Scene Node

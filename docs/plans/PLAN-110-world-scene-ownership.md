@@ -196,7 +196,7 @@ editor/documents/
 ```
 
 其他仍在使用的差异、重放、创建描述等文件保持独立；不为缩短列表合并不同职责。
-渲染快照提取依赖 World 内部 ECS，放在 scene/detail；不移入 GPU 服务内部。
+渲染快照提取依赖 World 内部 ECS，集中在 scene/render_extraction.cpp；不移入 GPU 服务内部。
 已提供独立 extract_render_snapshot 结果接口，Application 不再通过 World 提取快照；
 反射适配、示例和测试的局部变换访问统一走 game_object，不保留旧 entity_get/set_local_transform。
 调度器目前只有独立 CPU 测试，作为内部能力保留，不描述为已接入运行循环。

@@ -402,11 +402,9 @@ add_test(NAME gneiss.component_reflection COMMAND gneiss_component_reflection_te
 add_executable(
   gneiss_render_snapshot_test
   world/render_snapshot_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/detail/hierarchy.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/detail/render_extraction.cpp"
 )
 target_include_directories(gneiss_render_snapshot_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_link_libraries(gneiss_render_snapshot_test PRIVATE gneiss::engine EnTT::EnTT)
+target_link_libraries(gneiss_render_snapshot_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_render_snapshot_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_snapshot_test)
 gneiss_target_output_directories(gneiss_render_snapshot_test)

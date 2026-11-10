@@ -251,8 +251,6 @@ target_sources(
     engine/function/scene/component_identity.hpp
     engine/function/scene/detail/system_scheduler.cpp
     engine/function/scene/detail/system_scheduler.hpp
-    engine/function/scene/detail/render_extraction.cpp
-    engine/function/scene/detail/render_extraction.hpp
     engine/function/scene/game_object.cpp
     engine/function/scene/world.cpp
     engine/function/scene/game_object.hpp
