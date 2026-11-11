@@ -275,12 +275,6 @@ engine::result<scene_load_completion> scene_service::activate(std::uint64_t requ
     (void)destination->unload();
     return selected;
   }
-  // 只卸载本协调操作上次创建的实例；其他追加场景和 World 身份保持不变。
-  if (source_) {
-    auto previous = engine::scene_instance::borrow(*world_, source_->instance);
-    if (previous)
-      (void)previous->unload();
-  }
   pending_->result.scene = destination->id();
   pending_->result.objects = std::move(built->objects);
   pending_->result.bindings = std::move(bindings);

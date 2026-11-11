@@ -124,11 +124,6 @@ void scene_service::shutdown() {
   stopping_ = true;
   visuals_.reset();
   reload_.reset();
-  if (world_ && source_) {
-    auto instance = engine::scene_instance::borrow(*world_, source_->instance);
-    if (instance)
-      (void)instance->unload();
-  }
   source_.reset();
   stop_load();
   loading_.reset();

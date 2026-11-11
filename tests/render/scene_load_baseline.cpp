@@ -456,7 +456,13 @@ int main(int argc, char** argv) try {
         } else if (!cancel_requested && progress.phase == scene_load_phase::ready) {
           result = gneiss::test_support::assign_value(handle->scenes().activate(std::move(request)),
                                                       completion);
+          if (result == gneiss::engine::error::success &&
+              previous_scene != gneiss::scene_instance_id{})
+            result = gneiss::test_support::scene_access{*handle}.unload(previous_scene);
+          if (result.failed())
+            return result;
           scene = completion.scene;
+          previous_scene = scene;
           ++completed_switches;
           maximum_activation_ms = std::max(maximum_activation_ms, completion.activation_ms);
           activation_elapsed_ms = milliseconds(start);
@@ -563,6 +569,7 @@ int main(int argc, char** argv) try {
     const auto retry_start = clock_type::now();
     if (preload_scene(app, scheduler, mode == "cooperative", uri, scene) !=
             gneiss::engine::error::success ||
+        gneiss::test_support::scene_access{*app}.unload(previous_scene).failed() ||
         gneiss::engine::error{app->run(60U)} != gneiss::engine::error::success) {
       return 16;
     }

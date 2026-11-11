@@ -49,6 +49,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(session.create_empty(*app, world) == gneiss::engine::error::success);
   check(camera.initialize() == gneiss::engine::error::success);
   const auto original = world;
+  const auto initial_scene = session.scene_handle();
   constexpr std::string_view uri = "asset://scenes/triangle.scene.json";
   auto tick = [&] {
     if (mode == gneiss::engine::execution_mode::cooperative)
@@ -70,8 +71,9 @@ void run(gneiss::engine::execution_mode mode) {
   check(loader.request(*app, editing, uri) == gneiss::engine::error::not_ready);
   drain();
   check(!loader.visible() && loader.operation() == gneiss::engine::error::success &&
-        world != original);
+        world == original);
   check(session.is_open() && !session.is_dirty() && session.uri() == uri);
+  check(!engine::scene_instance::borrow(*world, initial_scene));
   check(gneiss::test_support::scene_query(session).nodes.size() == 2U && camera.is_valid());
   const auto current = world;
   const auto node = gneiss::test_support::scene_query(session).nodes[1].node;
@@ -102,11 +104,12 @@ void run(gneiss::engine::execution_mode mode) {
   check(loader.progress().phase == runtime::scene_load_phase::cancelled);
   check(loader.request(*app, editing, uri) == gneiss::engine::error::success);
   drain();
-  check(world != current && !session.selection().is_valid() && !history.can_undo());
+  check(world == current && !session.selection().is_valid() && !history.can_undo());
   check(camera.is_valid() && gneiss::test_support::scene_query(session).nodes.size() == 2U);
   tick();
   std::uint64_t count{};
-  // current 是旧域的借用指针，域销毁后不能再解引用。
+  // World 保持不变，旧场景对象由文档关闭时卸载。
+  check(!world->object(node));
   check(gneiss::test_support::assign_value(world->entity_count(), count).ok());
   check(loader.request(*app, editing, "asset://scenes/prefab.scene.json") ==
         gneiss::engine::error::success);

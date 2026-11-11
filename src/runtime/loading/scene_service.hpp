@@ -89,6 +89,7 @@ public:
   scene_service();
   ~scene_service() noexcept;
   [[nodiscard]] GNEISS_API engine::result<scene_open_request> open(std::string_view uri);
+  /** 向 World 追加实例，不卸载既有场景；替换与卸载由调用方决定。 */
   [[nodiscard]] GNEISS_API engine::result<scene_load_completion>
   activate(scene_open_request&& request);
   scene_service(const scene_service&) = delete;

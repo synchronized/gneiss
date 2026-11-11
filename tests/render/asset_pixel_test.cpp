@@ -844,6 +844,7 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
         } else {
           check(gneiss::test_support::assign_value(app->scenes().activate(std::move(request)),
                                                    completion) == gneiss::engine::error::success);
+          check(gneiss::test_support::scene_access{*app}.unload(old_scene).ok());
           scene = completion.scene;
           auto native = app;
           while (native->visual_assets_loading()) {

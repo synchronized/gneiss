@@ -96,8 +96,8 @@ Application 私有持有 `engine::window_service`，负责窗口生命周期及�
 ### World 生命周期
 
 Application 直接拥有 World，native_world() 的地址在普通场景切换期间保持稳定，关闭后失效。
-迁移期 scenes().open 只准备不可变内容，activate 在该 World 中创建新实例并卸载该协调器
-上一次创建的实例；直接追加到 World 的其他场景不受影响。准备阶段不创建运行对象或预留视觉
+迁移期 scenes().open 只准备不可变内容，activate 仅在该 World 中追加新实例。
+Runtime 宿主显式卸载其上次打开的实例；编辑器关闭旧文档时卸载对应实例，其他场景不受影响。准备阶段不创建运行对象或预留视觉
 资源身份。场景卸载后旧对象/场景句柄失效，不能将 World 地址稳定理解为所有句柄永久有效。
 scene_service 的旧请求协议仍待 PLAN-113 后续移除。无待退休 World，也不提供专用场景退休统计；
 渲染资源数量通过 render_service::live_resource_count() 查询。

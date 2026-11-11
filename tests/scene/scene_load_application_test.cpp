@@ -382,7 +382,7 @@ void run(gneiss::engine::execution_mode mode) {
     check(stopped &&
           gneiss::test_support::assign_value(observed->entity_count(), count) ==
               gneiss::engine::error::success &&
-          count == 1U);
+          count == 2U);
   }
   // 无渲染依赖的空场景不需要采用批次，也必须正常激活。
   std::ofstream(files.root / "empty.scene")
@@ -396,7 +396,7 @@ void run(gneiss::engine::execution_mode mode) {
   check((observed = app->native_world()) != nullptr);
   check(gneiss::test_support::assign_value(observed->entity_count(), count) ==
             gneiss::engine::error::success &&
-        count == 0U);
+        count == 2U);
   check(gneiss::test_support::take_value(app->scenes().open(uri), request) ==
         gneiss::engine::error::success);
   app.reset();
@@ -475,7 +475,7 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   check(bool(extra_scene));
   auto extra_object = extra_scene->create_object({.name = "unrelated"});
   check(bool(extra_object));
-  // 准备只持有描述；激活替换自己的场景，不替换 World 或卸载其他场景。
+  // 准备只持有描述；激活追加场景，调用方显式卸载旧实例。
   const auto second = prepare();
   check(second.application_logical_bytes > 0U);
   check(gneiss::test_support::assign_value(app->scenes().activate(std::move(request)),
@@ -489,6 +489,9 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   check(gneiss::test_support::assign_value(old_world->entity_count(), count) ==
         gneiss::engine::error::success);
   check(!poll());
+  check(previous_scene->is_valid());
+  check(count == 3U);
+  check(previous_scene->unload().ok());
   check(!previous_scene->is_valid());
   check(extra_scene->is_valid() && extra_object->is_valid());
   check(extra_scene->unload().ok());

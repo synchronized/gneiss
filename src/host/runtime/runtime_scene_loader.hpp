@@ -35,6 +35,7 @@ private:
   // 借用宿主对象；协调器必须先于 Application 析构。
   ::gneiss::runtime::application& application_;
   ::gneiss::runtime::scene_open_request request_;
+  engine::scene_instance current_;
   std::uint32_t request_id_{};
   bool active_{};
   gneiss::engine::error result_{gneiss::engine::error::success};

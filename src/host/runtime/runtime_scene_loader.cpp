@@ -90,6 +90,17 @@ runtime_scene_loader::activate(::gneiss::runtime::scene_load_completion& complet
   if (!result)
     return result.error();
   completion = std::move(*result);
+  auto next = engine::scene_instance::borrow(*application_.native_world(), completion.scene);
+  if (!next)
+    return next.error();
+  if (current_.is_valid()) {
+    const auto unloaded = current_.unload();
+    if (unloaded.failed()) {
+      (void)next->unload();
+      return unloaded;
+    }
+  }
+  current_ = *next;
   // 激活后的任意模块副作用不在场景事务的自动回滚承诺内。
   return after_activate ? after_activate(completion) : gneiss::engine::error::success;
 }
