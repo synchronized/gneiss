@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/render/render_extraction.hpp"
-#include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/detail/world_component_access.hpp"
+#include "engine/function/scene/rendering/render_camera.hpp"
 namespace gneiss {
 result<render_snapshot> extract_render_snapshot(world& owner, std::uint32_t viewport_width,
                                                 std::uint32_t viewport_height,
@@ -16,42 +16,11 @@ result<render_snapshot> extract_render_snapshot(world& owner, std::uint32_t view
   }
   {
     render_snapshot snapshot;
-    view_camera selected;
-    bool has_camera = camera != nullptr;
-    if (camera != nullptr) {
-      selected = *camera;
-    } else {
-      entity_id selected_entity;
-      (void)get_active_camera(owner, selected_entity);
-      const auto active_camera = selected_entity.get();
-      if (const auto* component = world.get<camera_component>(active_camera);
-          component != nullptr) {
-        selected.camera = {component->settings().fov, component->settings().near,
-                           component->settings().far};
-        auto transform = world.scene().get_world(entity_id{active_camera});
-        has_camera = transform.ok();
-        if (transform)
-          selected.transform = *transform;
-      }
-    }
-    if (has_camera) {
-      math::matrix4 view;
-      math::matrix4 projection;
-      const auto view_result = math::view_matrix_rh(selected.transform, view);
-      const auto aspect = static_cast<float>(viewport_width) / static_cast<float>(viewport_height);
-      const auto projection_result = math::perspective_rh_zo(selected.camera, aspect, projection);
-      if (view_result != error::success) {
-        return view_result;
-      }
-      if (projection_result != error::success) {
-        return projection_result;
-      }
-      snapshot.camera = {.camera = selected.camera,
-                         .transform = selected.transform,
-                         .view = view,
-                         .projection = projection,
-                         .viewport_width = viewport_width,
-                         .viewport_height = viewport_height};
+    auto selected = select_render_camera(owner, viewport_width, viewport_height, camera);
+    if (!selected)
+      return selected.error();
+    if (*selected) {
+      snapshot.camera = **selected;
       snapshot.has_camera = true;
     }
     world.each<mesh_renderer_component>(

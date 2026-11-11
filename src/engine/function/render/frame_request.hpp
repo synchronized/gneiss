@@ -3,6 +3,8 @@
 #pragma once
 #include "engine/core/math/types.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/render/debug_draw_list.hpp"
+#include "engine/function/render/ui_draw_list.hpp"
 #include "engine/platform/native_window_info.hpp"
 #include <vector>
 namespace gneiss::render {
@@ -13,10 +15,12 @@ struct view {
   math::vector3 camera_position{};
   std::uint64_t layers{~UINT64_C(0)};
 };
-/** 当前只支持一个窗口视图；多视图返回 unsupported，不静默忽略。
+/** 当前支持零或一个窗口视图；零视图只绘制 UI/调试输入；多视图返回 unsupported，不静默忽略。
  * window 暂沿用窗口输入，待目标资源接口落地后迁移为 target RID。 */
 struct frame_request {
   native_window_info window;
   std::vector<view> views;
+  ui_draw_list ui{};
+  debug_draw_list debug{};
 };
 }

@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-2026-11-11：已开始实施。P0 接入核查与 P1 的 CPU 场景/命令输入及单窗口绘制适配已落地；World 变化记录与最小绑定已实现，宿主同步接入、GPU 验收及其余阶段尚未完成。
+2026-11-11：已开始实施。P0 接入核查与 P1 的 CPU 场景/命令输入及单窗口绘制适配已落地；World 变化记录与最小绑定已实现，宿主普通帧已接入绑定，截图迁移、GPU 验收及其余阶段尚未完成。
 除下节明确列出的实现外，本页接口、结构和目录仍为目标设计示意。
 长期边界见 [ADR-118](../decisions/ADR-118-persistent-render-scene.md)。当前接口与阶段限制见 [Render](../reference/render.md)。
 本计划独立跟踪，不将新能力写成 VER-052 已交付项，不延续旧版本的发布授权。
@@ -49,7 +49,7 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
   绘制适配覆盖矩阵/法线保留、显隐与层筛选、未就绪内容、捕获后更新/卸载、未初始化提交及不支持输入拒绝。
   本轮 Windows Clang Debug 的 Engine、Runtime、Editor 和相关渲染测试构建通过；render_scene、render_frame_packet、render_executor、
   render_resource_service、pbr-material-resource 五项测试通过。
-  尚未验证 GPU、多视图、宿主 World 同步接入和其他平台。
+  尚未验证 GPU、多视图和其他平台。
 
 - World 已记录层级变换、组件增删/显式修改和对象删除；多个订阅者独立合并消费。
   新增 scene/rendering/world_render_binding，首次枚举后只读取变化并提交命令；失败保留记录和身份映射。
@@ -57,20 +57,25 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
   CPU 集成覆盖多绑定、子树变换通知、组件移除后重加、资源失效重试、线程拒绝、对象删除及场景释放。
   Windows Clang Debug 的 Engine/Runtime/Editor 与 GPU 冒烟程序编译通过；world_render_binding、
   world-service-boundary、scene_tree_transform、scene-instantiation、render_scene 五项 CPU 测试通过。
-  GPU 冒烟未运行。Runtime/Editor 尚未持有绑定，旧快照路径未删除，P1/P3 仍未完成。
+  GPU 冒烟未运行。Application 已在有窗口时持有绑定，Runtime/Editor 共用普通帧入口；
+  独立相机查询不枚举网格对象，零视图保留 UI。frame_request 接入 UI/调试数据及 UI 纹理版本保活。
+  宿主普通帧不再领取 packet 或提取对象快照；背压检查移入 Render，容量回收前释放上一帧引用。
+  截图回读仍走旧必达帧/对象提取入口，P1/P3 未验收完成。
+  普通帧接入后 Engine/Runtime/Editor 构建通过，native-application-flow、render_frame_packet、
+  render_snapshot、world_render_binding、render_scene 五项 CPU 回归通过；未执行窗口/GPU 验收。
 
-后续按已确认边界将持久状态移入执行器有序消费链，并将绑定接入宿主实际绘制；
+后续按已确认边界将持久状态移入执行器有序消费链，并迁移截图回读入口、完成实际绘制验收；
 不能把当前单窗口适配视为 P1 模型预览闭环或 P3 增量同步完成。
 
 ## 当前过渡边界与退出条件
 
-- render(frame_request&&) 当前支持一个窗口视图，沿用 native_window_info；不支持多视图或独立 target RID。
+- render(frame_request&&) 当前支持零或一个窗口视图，沿用 native_window_info；不支持多视图或独立 target RID。
   这样可先复用现有窗口/执行器和 Granit 绘制，不伪造多目标支持；目标资源管理落地后替换窗口输入。
 - 暂时由所属线程捕获持久场景的自有帧数据。已接受帧只读不可变资源版本，不访问正在更新的身份记录。
   这是线程安全过渡，不是最终增量渲染架构；退出条件是可靠命令消费侧接管场景与有序资源版本。
 - render_frame_packet 的实例统一为 RID、完整 model/normal 矩阵和层掩码，旧 World 快照在入口转换。
-  Granit 只有一个绘制消费者；完整矩阵用于法线和包围球，保留剪切。旧 World 提取仍待绑定迁移后删除。
-- 当前新入口不携带 UI、调试绘制或回读请求；原宿主仍走旧捕获入口，不能声称产品预览已迁移。
+  Granit 只有一个绘制消费者；完整矩阵用于法线和包围球，保留剪切。旧 World 对象提取仍待截图入口迁移后删除。
+- 当前新入口已携带 UI/调试数据；普通帧已迁移，回读请求仍通过旧必达帧入口，GPU 预览尚未验收。
 
 ### Granit 最小扩展建议：逐实例阴影开关
 
@@ -239,7 +244,7 @@ capture_render_frame_packet 或完成领取来协调绘制；截图使用专门�
 - 删除后旧 key 不再代表有效实例；对象/组件重新加入得到新 key。拾取结果带 scene + key，
   绑定只解析仍存活的映射；底层若只能输出 32 位拾取值，后端做本帧映射，不截断 64 位身份。
 
-本轮已将旧实例 RID 改为场景内 key；绑定分配器尚待随 World 同步实现。
+本轮已将旧实例 RID 改为场景内 key；world_render_binding 已递增分配并在接受成功后更新映射。
 备选是 Service 预留实例 RID，但会重新引入预留、取消和失败清理；或使用列表局部 token + 返回 RID 映射，
 但会增加回执与待解析状态。本轮采用场景内 key，以保留队列协议简单性。
 

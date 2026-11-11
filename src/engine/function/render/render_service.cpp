@@ -61,6 +61,7 @@ public:
   void set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept {
     executor_.set_completion_wakeup(std::move(notification));
   }
+  [[nodiscard]] result<bool> can_prepare_frame();
   [[nodiscard]] result<bool> prepare_frame_packet_storage(render_frame_packet& packet);
   [[nodiscard]] result<std::uint64_t>
   submit(render_frame_packet packet, render_frame_policy policy = render_frame_policy::replaceable);
@@ -900,6 +901,11 @@ gneiss::error render_service::implementation::collect_completions() {
       return command->status;
   }
   while (auto completion = executor_.try_take_frame_completion()) {
+    // 回收容量不保活上一帧资源；普通请求不再由宿主领取 packet。
+    completion->reusable_packet.resources = {};
+    completion->reusable_packet.ui.clear();
+    completion->reusable_packet.debug.clear();
+    completion->reusable_packet.readback.reset();
     if (recycled_frame_packets_.size() < 3U) {
       recycled_frame_packets_.push_back(std::move(completion->reusable_packet));
     }
@@ -922,8 +928,7 @@ gneiss::error render_service::implementation::collect_completions() {
   return gneiss::error::success;
 }
 
-result<bool>
-render_service::implementation::prepare_frame_packet_storage(render_frame_packet& packet) {
+result<bool> render_service::implementation::can_prepare_frame() {
   const auto completion_result = collect_completions();
   if (completion_result != gneiss::error::success) {
     return completion_result;
@@ -935,6 +940,13 @@ render_service::implementation::prepare_frame_packet_storage(render_frame_packet
     executor_.record_skipped_frame_build();
     return false;
   }
+  return true;
+}
+result<bool>
+render_service::implementation::prepare_frame_packet_storage(render_frame_packet& packet) {
+  auto ready = can_prepare_frame();
+  if (!ready || !*ready)
+    return ready;
   if (!recycled_frame_packets_.empty()) {
     packet = std::move(recycled_frame_packets_.back());
     recycled_frame_packets_.pop_back();
@@ -1625,13 +1637,32 @@ result<std::uint64_t> render_service::submit(render_frame_packet packet,
   return impl_->submit(std::move(packet), policy);
 }
 result<void> render_service::render(render::frame_request&& request) {
+  auto ready = impl_->can_prepare_frame();
+  if (!ready)
+    return ready.error();
+  if (!*ready)
+    return error::not_ready;
   auto packet = storage_->scenes_->capture(request);
   if (!packet)
     return packet.error();
+  for (const auto& command : packet->ui.commands()) {
+    const auto handle = resource_handle(command.texture);
+    const auto status = texture_status(handle);
+    if (status.failed())
+      return status;
+    auto texture = share_texture(handle);
+    if (!texture)
+      return error::invalid_handle;
+    packet->resources.textures_.insert_or_assign(handle, std::move(texture));
+  }
+  packet->capture.copied_payload_bytes += packet->ui.vertices().size() * sizeof(ui_vertex) +
+                                          packet->ui.indices().size() * sizeof(std::uint32_t) +
+                                          packet->ui.commands().size() * sizeof(ui_draw_command) +
+                                          packet->debug.lines().size() * sizeof(debug_line);
   auto accepted = impl_->submit(std::move(*packet), render_frame_policy::replaceable);
   if (!accepted)
     return accepted.error();
-  request.views.clear();
+  request = {};
   return {};
 }
 result<std::optional<render_frame_completion>> render_service::try_take_required_completion() {

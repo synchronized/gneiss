@@ -106,10 +106,16 @@ result<render_frame_packet>
 render_scene_state::capture(const render::frame_request& request) const {
   if (closed_)
     return error::invalid_state;
-  if (request.views.size() != 1)
+  if (request.views.size() > 1)
     return error::unsupported;
   if (request.window.width == 0 || request.window.height == 0)
     return error::invalid_argument;
+  render_frame_packet packet;
+  packet.window = request.window;
+  packet.ui = request.ui;
+  packet.debug = request.debug;
+  if (request.views.empty())
+    return packet;
   const auto& view = request.views.front();
   for (auto element : math::matrix_elements(view.view_matrix))
     if (!std::isfinite(element))
@@ -123,8 +129,6 @@ render_scene_state::capture(const render::frame_request& request) const {
   const auto* group = scenes_.get(view.scene, resource_type::render_scene);
   if (!group)
     return error::invalid_handle;
-  render_frame_packet packet;
-  packet.window = request.window;
   packet.scene.has_camera = true;
   packet.scene.layers = view.layers;
   packet.scene.camera.view = view.view_matrix;

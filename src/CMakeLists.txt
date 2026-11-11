@@ -263,6 +263,8 @@ target_sources(
     engine/function/scene/game_object.hpp
     engine/function/scene/rendering/world_render_binding.hpp
     engine/function/scene/rendering/world_render_binding.cpp
+    engine/function/scene/rendering/render_camera.hpp
+    engine/function/scene/rendering/render_camera.cpp
     engine/function/scene/detail/world_changes.hpp
     engine/function/render/render_extraction.cpp
     engine/function/render/render_extraction.hpp

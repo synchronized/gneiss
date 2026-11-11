@@ -15,6 +15,8 @@
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_extraction.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/rendering/render_camera.hpp"
+#include "engine/function/scene/rendering/world_render_binding.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/platform/files/file_service.hpp"
@@ -80,6 +82,7 @@ struct application::storage {
     action_map_result_ = gneiss::error::invalid_state;
   }
   gneiss::world_owner world_;
+  std::unique_ptr<gneiss::world_render_binding> render_binding_;
   std::unique_ptr<gneiss::resource_load_group> asset_loading_;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;
@@ -323,6 +326,12 @@ gneiss::error application::initialize() {
     if (!created_world)
       return created_world.error();
     storage_->world_ = std::move(*created_world);
+    if (storage_->window_service_) {
+      auto binding = world_render_binding::create(*storage_->world_, *storage_->render_service_);
+      if (!binding)
+        return binding.error();
+      storage_->render_binding_ = std::move(*binding);
+    }
   } catch (...) {
     static_cast<void>(shutdown());
     throw;
@@ -588,49 +597,36 @@ gneiss::error application::render_frame() {
   if (storage_->window_service_ == nullptr) {
     return gneiss::error::success;
   }
+  auto synced = storage_->render_binding_->synchronize();
+  if (!synced)
+    return synced.error();
   auto& window = storage_->window_service_->native_window();
-  if (window.width == 0U || window.height == 0U) {
-    return gneiss::error::success;
+  if (window.width == 0U || window.height == 0U)
+    return error::success;
+  auto camera = select_render_camera(*storage_->world_, window.width, window.height,
+                                     storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
+  if (!camera)
+    return camera.error();
+  render::frame_request request;
+  request.window = window;
+  if (*camera) {
+    const auto& selected = **camera;
+    request.views.push_back({.scene = storage_->render_binding_->scene(),
+                             .view_matrix = selected.view,
+                             .projection_matrix = selected.projection,
+                             .camera_position = selected.transform.translation});
   }
-  gneiss::render_frame_packet packet;
-  const auto storage_result =
-      gneiss::measure(gneiss::loop_stage::frame_storage, [&]() {
-        return storage_->render_service_->prepare_frame_packet_storage(packet);
-      });
-  if (!storage_result)
-    return storage_result.error();
-  if (!*storage_result)
-    return gneiss::error::success;
-  auto snapshot = gneiss::measure(gneiss::loop_stage::render_snapshot, [&]() {
-    return gneiss::extract_render_snapshot(
-        *storage_->world_.get(), window.width, window.height,
-        storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
+  request.ui = storage_->ui_draw_list_;
+  request.debug = storage_->debug_draw_list_;
+  const auto submitted = measure(loop_stage::frame_submit, [&] {
+    return storage_->render_service_->render(std::move(request));
   });
-  if (!snapshot)
-    return snapshot.error();
-  const auto capture_result =
-      gneiss::measure(gneiss::loop_stage::frame_capture, [&]() {
-        return gneiss::capture_render_frame_packet(
-            window, std::move(*snapshot), *storage_->render_service_, storage_->ui_draw_list_,
-            storage_->debug_draw_list_, packet);
-      });
-  if (capture_result != gneiss::error::success) {
-    return capture_result;
-  }
-  const auto requested_recreate = window.needs_recreate;
+  if (!submitted)
+    return submitted.error() == error::not_ready ? error{error::success} : submitted.error();
   window.needs_recreate = false;
-  const auto submit_result =
-      gneiss::measure(gneiss::loop_stage::frame_submit, [&]() {
-        return storage_->render_service_->submit(std::move(packet));
-      });
-  if (!submit_result && requested_recreate) {
-    window.needs_recreate = true;
-  }
-  // 成功推进队列后先继续排空本地可做工作，队列繁忙且无进展时才等待。
-  if (submit_result && storage_->loop_wakeup_) {
+  if (storage_->loop_wakeup_)
     storage_->loop_wakeup_->notify();
-  }
-  return submit_result ? gneiss::error::success : submit_result.error();
+  return error::success;
 }
 
 gneiss::error application::get_window_size(std::uint32_t& out_width,
@@ -836,6 +832,7 @@ gneiss::error application::shutdown() {
   auto shutdown_result = gneiss::error::success;
   storage_->cancel_action_map();
   storage_->asset_loading_.reset();
+  storage_->render_binding_.reset();
   storage_->world_.reset();
   if (storage_->asset_manager_)
     storage_->asset_manager_->stop();

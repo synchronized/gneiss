@@ -112,3 +112,11 @@ host/runtime/runtime_scene_loader.hpp，只保存绑定检查器和来源更新�
 来源更新的内存算法位于 engine/function/scene/scene_update：rebase_scene_update 读取运行状态，
 调整调用方的临时组合结果；apply_scene 应用差异。前者不修改 World，不加载资产；失败后临时
 组合结果应丢弃。加载协调负责资产引用、重载基线及完成回执。
+
+## 普通帧同步
+
+有窗口时 Application 拥有一个 world_render_binding，普通帧先同步 World 变化，
+再查询相机并提交 render::frame_request（UI、调试输入随帧提供）。无窗口运行不创建绑定。
+最小化跳过绘制，但仍同步对象删除和资源换绑；关闭先释放绑定，再销毁 World。
+普通帧背压由 Render 处理，Application 不再领取可复用 packet 或枚举全部网格。
+截图 capture_frame 暂保留旧快照与必达帧回读，相关迁移边界见 [Render](render.md)。

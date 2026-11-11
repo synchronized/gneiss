@@ -45,6 +45,7 @@ public:
 
 private:
   friend class detail::render_scene_state;
+  friend class render_service;
   friend error capture_render_frame_packet(const native_window_info&, render_snapshot,
                                            const render_service&, const ui_draw_list&,
                                            const debug_draw_list&, struct render_frame_packet&);

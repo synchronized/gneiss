@@ -82,8 +82,9 @@ public:
   [[nodiscard]] GNEISS_API result<rid> create_scene();
   [[nodiscard]] GNEISS_API result<void> submit(render::scene_commands&&);
   [[nodiscard]] GNEISS_API result<void> destroy_scene(rid scene);
-  /** 捕获持久场景并提交绘制；当前单窗口单视图。失败不消费请求，成功清空视图。
-   * 接受不等于 GPU 完成。实例/资源更新仅在所属线程访问，帧拥有不可变内容。 */
+  /** 所属线程提交普通帧；内部处理完成回执和背压，not_ready 时保留请求供重试。
+   * 成功后消费请求，不代表 GPU 完成；UI 纹理与场景资源固定为不可变版本。
+   * 当前支持零或一个窗口视图，零视图只显示 UI。 */
   [[nodiscard]] GNEISS_API result<void> render(render::frame_request&& request);
 
   /** 仅关闭 CPU 资源入口；设备关闭由 shutdown 完成。所属线程调用。 */

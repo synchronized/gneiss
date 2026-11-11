@@ -273,6 +273,11 @@ bool frame_capture() {
   CHECK(state.destroy_scene(*scene));
   CHECK(!state.capture(request));
   CHECK(before->resources.share_mesh(1) && before->resources.share_texture(3));
+  // 没有活动相机时允许零视图，窗口仍可提交 UI。
+  request.views.clear();
+  auto no_camera = state.capture(request);
+  CHECK(no_camera && !no_camera->scene.has_camera && no_camera->scene.instances.empty());
+  request.views.push_back({});
   render_service renderer;
   auto not_initialized = renderer.create_scene();
   CHECK(not_initialized);

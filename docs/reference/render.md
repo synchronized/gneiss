@@ -224,17 +224,18 @@ auto accepted = renderer.submit(std::move(commands));
 场景卸载影响。空 payload 表示尚未就绪，不表示无效身份。身份记录只在所属线程访问，
 不能直接交给渲染线程读取；当前在所属线程捕获，再将自有帧交给执行器；消费侧增量更新与有序资源发布仍待接入。
 
-`render_service::render(render::frame_request&&)` 接受一个窗口视图，视图给出 scene RID、view/projection
+`render_service::render(render::frame_request&&)` 接受零或一个窗口视图，视图给出 scene RID、view/projection
 矩阵、相机位置和层掩码。它捕获场景及资源版本，交给现有帧执行器和 Granit 绘制路径；
-成功清空 views，失败保留请求。未初始化设备时不能提交绘制，接受成功不代表 GPU 完成。
+成功消费请求，失败保留请求；零视图仅绘制 UI，不绘制场景。未初始化设备时不能提交绘制，接受成功不代表 GPU 完成。
 
 帧内实例只包含 RID、完整世界矩阵/法线矩阵和层掩码，不持有上层 Mesh/Material 对象。
 捕获时过滤隐藏或层不匹配实例；未就绪网格由绘制消费者跳过，材质/纹理沿用缺省内容策略。
 剪切通过完整矩阵保留，包围球按变换后的顶点计算。旧 World 帧快照在入口转换为同一绘制表示。
 
 **当前限制**：新入口只支持一个窗口视图；多视图及可见的 casts_shadows=false 实例返回 unsupported。
-窗口输入暂未替换为 target RID，新入口暂不携带 UI/调试/回读。Runtime/Editor 尚未改用 World 增量绑定，
-仍从旧入口提交。当前实现仍逐帧捕获持久场景；最终消费侧增量状态、资源发布队列及 GPU 验收按
+窗口输入暂未替换为 target RID。新入口携带自有 UI/调试数据并固定 UI 纹理版本，
+UI 纹理尚未就绪返回 not_ready。Runtime/Editor 共用 Application 的普通帧已改用 World 增量绑定；
+截图回读仍使用旧必达帧入口。当前实现仍逐帧捕获持久场景；最终消费侧增量状态、资源发布队列及 GPU 验收按
 [PLAN-115](../plans/PLAN-115-persistent-render-scene.md) 继续实施。
 
 ## World 增量绑定
@@ -269,5 +270,11 @@ binding.reset();
 不清空变化，下次从 World 当前状态重新生成命令；创建后未同步就删除不会留下实例。
 多个绑定独立消费；静态 World 不逐帧枚举全部对象。当前不提供 World 侧显隐/层掩码组件。
 
-这是已验证的 CPU 绑定入口。Runtime/Editor 的实际帧入口仍使用旧快照，尚未迁移到绑定；
-也未通过 GPU 图像验收，不能据此声称已经删除全量帧捕获路径。
+Application 在有窗口时创建绑定，普通帧依次同步变化、查询所选相机、提交 frame_request。
+没有相机仍可显示 UI；最小化时仍同步对象变化。无窗口运行不创建绑定。
+关闭先销毁绑定，再释放 World 和 Render。背压与完成回执由 Render 内部处理，
+普通帧 not_ready 时宿主保留窗口重建标记，稍后以最新输入再提交。
+回收 packet 前释放资源版本、UI 纹理和回读引用，避免容量缓存长期保活已删除资产。
+
+截图回读与旧提取测试暂保留 render_snapshot 入口；它们与普通帧共用相机查询，
+但截图对象列表仍是旧路径。本轮未做 GPU 图像验收，不能声称已删除所有全量捕获。
