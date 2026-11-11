@@ -15,6 +15,17 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
 采用持久实例、增量更新与每帧临时数据结合的方案，不受现有接口和改动规模约束。
 不以新增 Manager 或跨层转发包装实现分层，不维护两套长期权威数据。
 
+## 整体设计复核（待确认协议调整）
+
+用户要求先复核对象划分与 API，暂停扩展运行接口。
+[复核记录](../records/2026-11-11-render-design-review.md) 对照源码整理了五条完整调用链、
+状态所有权和方案取舍。推荐保留持久场景/RID/单向同步，改为直接业务 API、内部批量传输，
+不再要求调用者使用公开 scene_update；同时修正资源身份与 payload 版本、World 可观察修改边界。
+
+该建议尚未替换 ADR-118 的已确认批次协议。下文目标 API 和批次条款是此前方案，
+复核确认前不继续按它增加接口；已有实现仍按当前事实记录，不回退或改称完整闭环。
+确认后统一改写本计划及 ADR，按“无 World 实际预览 → World 接入 → 多视图/回读/背压”验收。
+
 ## 本轮实现与接入核查
 
 - Granit 锁定版本的 `pipeline/scene.hpp`/`scene.h` 只有快照创建与销毁；创建会校验并复制输入，
@@ -31,7 +42,7 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
   Windows Clang Debug 的 Engine、Runtime、Editor 与渲染测试目标构建通过；render_scene、render_frame_packet、render_executor 三项测试通过。
   尚未验证 GPU、多视图、World 同步和其他平台。
 
-下一步顺序不变：先完成资源身份 pin 和持久场景绘制入口，再接 World 变化通知与绑定；
+实施恢复前先确认上述协议调整；随后完成资源身份 pin 和持久场景绘制入口，再接 World 变化通知与绑定；
 不能把当前 CPU 批次基础视为 P1 模型预览闭环或 P3 增量同步完成。
 
 ## 迁移基线
@@ -39,8 +50,8 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
 - `render_extraction.cpp` 每帧遍历 mesh_renderer_component，复制资源强引用与世界变换；不是复制整个 World。
 - `render_snapshot` 包含相机和实例列表；`render_frame_packet` 固定本帧使用的资源数据。
 - Render 已持久保存 mesh/material/texture mirror；实例列表仍逐帧组装，提交 object_id 来自列表下标。
-- Granit 接入使用 scene_snapshot_desc；尚未核实是否存在合适的持久场景/增量接口。
-- 当前接口事实仍以 [Application](../reference/application.md) 和源码为准；本计划不表示独立渲染线程已落地。
+- Granit 接入使用 scene_snapshot_desc；接口核查结果见上文。
+- 当前接口事实仍以 [Application](../reference/application.md) 和源码为准；本计划不表示持久场景已接入既有独立渲染线程。
 
 ## 目标所有权与依赖
 
@@ -260,6 +271,6 @@ CPU/GPU 创建耗时优化不作为持久场景正确性闭环的前置条件；
 
 ## 未决实现项与建议
 
-没有待确认的总体架构选择。P0 需根据代码证据决定：复用何种 Granit 队列/fence、资产适配具体落点、
+总体所有权边界不变；公开批次是否替换为直接 API 待本轮复核确认。实施需根据代码证据决定：复用何种 Granit 队列/fence、资产适配具体落点、
 临时数据是否复用现有 draw list，以及后端 payload 的具体保活机制。默认复用已有机制，避免双队列和双退休系统。
 若必须改变已确认所有权、增加跨仓库能力或扩大非目标，先记录差异与建议，再与用户讨论。
