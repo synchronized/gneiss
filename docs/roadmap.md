@@ -21,6 +21,8 @@
 
 ## 阶段概览
 
+应用装配与场景模块职责重整已确认、待开始，见 [PLAN-113](plans/PLAN-113-application-scene-boundaries.md)。
+
 World 对象入口与场景归属收敛开始实施，见 [PLAN-110](plans/PLAN-110-world-scene-ownership.md)。
 
 异常边界与进程 OOM 收敛已完成，验证范围及跨平台限制见 [PLAN-109](plans/PLAN-109-exception-boundaries.md)。

@@ -674,3 +674,6 @@
 - [PLAN-111 加载请求与主循环推进分离](plans/PLAN-111-loading-request-api.md)
 
 - [PLAN-112 文件、任务及资产就绪队列](plans/PLAN-112-loading-ready-queues.md)
+
+- [PLAN-113 应用装配与场景模块职责重整](plans/PLAN-113-application-scene-boundaries.md)
+- [ADR-117 应用装配、资产、运行世界与编辑文档边界](decisions/ADR-117-application-scene-boundaries.md)

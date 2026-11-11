@@ -56,3 +56,8 @@ if (scene_request && scene_request->ready()) {
 ## 非目标
 
 协程框架、流送、GPU 上传完成等待、事务回滚、跨 World 迁移和版本发布。
+
+## 后续演进
+
+本计划的已完成记录保留；候选 World 与打开/激活协议将按
+[PLAN-113](PLAN-113-application-scene-boundaries.md) 迁移，不再作为长期目标。
