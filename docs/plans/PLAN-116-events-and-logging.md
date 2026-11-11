@@ -19,9 +19,9 @@ PLAN-115 渲染实现暂不开始；原有计划不标记完成。
 
 ## 当前基线
 
-- core/log/log_dispatcher 拥有有界队列和专用消费线程，复制消息后交付 Application 配置回调。
+- core/logging/detail/async_queue 拥有有界队列和专用消费线程，复制消息后交付 Application 配置回调。
 - Runtime 负责文本/IPC 输出和轮转，Editor Console 有界保留日志；结构化源数据不能退化成拼接文本再解析。
-- 现有 message_view 包含 context、source、category、result；event_view 含 sequence、timestamp_ns、thread_id。
+- 现有 message_view 包含 context、source、category、result；record_view 含 sequence、timestamp_ns、thread_id。
   迁移逐字段核查实际生产者/协议使用，不能假定所有字段已在 IPC 中传输。
 - EnTT 为仓库已有 3.15.0；spdlog 1.15.3 已用于独立同步文件 Sink，尚未替换宿主输出。
   Ludens 代码仅作为参考，不复制其第三方依赖或全局对象。
@@ -60,7 +60,7 @@ dispatch 只处理本轮开始时已有事件，回调新增事件留到下一�
 
 ## 日志 API 与对象归属
 
-namespace 建议为 gneiss::engine::logging，避免通用 level/event_view 与业务命名混淆。
+namespace 建议为 gneiss::engine::logging，避免通用 level/record_view 与业务命名混淆。
 
 ```cpp
 auto log = logging::get_logger("asset");
@@ -117,13 +117,13 @@ engine/core/events/
   signal.hpp
   connection.hpp
   detail/...
-engine/core/log/
+engine/core/logging/
   logger.hpp
   log_types.hpp
-  logging_runtime.hpp/.cpp
+  runtime.hpp/.cpp
   sink.hpp
   detail/...
-engine/platform/log/
+engine/platform/logging/
   ...终端和文件 Sink 实现...
 host/common/
   ...IPC 日志 Sink 与协议...
@@ -144,7 +144,7 @@ EnTT 复用仓库版本与 MIT 许可证；spdlog 已锁定 v1.15.3（MIT），�
 - [ ] 核查实际订阅点，迁移一个对象级通知，不将任务完成、文件回调或渲染命令机械替换。
 - [x] 引入经锁定的 spdlog，同步文件 Sink 通过原生字段保真、追加/截断、打开失败验证。
 - [ ] Logger 接入时验证格式检查、格式化前过滤及 PLAN-109 执行边界；补齐终端 Sink。
-- [x] 实现显式 Logger/runtime，复用 log_dispatcher；验证频道过滤、并发投递、内存测试 Sink、关闭与上下文隔离。
+- [x] 实现显式 Logger/runtime，复用 logging::detail::async_queue；验证频道过滤、并发投递、内存测试 Sink、关闭与上下文隔离。
 - [ ] 补齐默认上下文、无线程同步模式，迁移旧 Application 队列装配。
 - [ ] 接通 Runtime 文件/IPC、Editor Console、Application 创建前日志及关闭，逐字段核对现有协议。
 - [ ] 迁移真实业务调用、删除旧入口与重复装配，同步 Reference/Concept、依赖清单及构建边界。

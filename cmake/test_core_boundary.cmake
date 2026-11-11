@@ -341,7 +341,7 @@ file(MAKE_DIRECTORY "${fixture}/src/engine/core/log")
 foreach(content IN ITEMS "#include <gneiss/engine/log.h>"
     "#include <gneiss/engine/log.hpp>" "auto level = GNEISS_LOG_INFO;"
     "gneiss_log_message value;" "#include \"engine/api/log_validation.hpp\"")
-  file(WRITE "${fixture}/src/engine/core/log/probe.cpp" "${content}\n")
+  file(WRITE "${fixture}/src/engine/core/logging/probe.cpp" "${content}\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -349,7 +349,7 @@ foreach(content IN ITEMS "#include <gneiss/engine/log.h>"
     message(FATAL_ERROR "日志边界检查未拒绝违规输入：${content}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/engine/core/log/probe.cpp" "#include <gneiss/engine/core/result.hpp>\n")
+file(WRITE "${fixture}/src/engine/core/logging/probe.cpp" "#include <gneiss/engine/core/result.hpp>\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
 if(NOT status EQUAL 0)

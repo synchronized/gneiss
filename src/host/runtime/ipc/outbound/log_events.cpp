@@ -13,7 +13,7 @@
 
 namespace gneiss::host {
 
-gneiss::engine::error make_log_event(const gneiss::engine::event_view& event,
+gneiss::engine::error make_log_event(const gneiss::engine::logging::record_view& event,
                                      gneiss::engine::ipc_envelope& output) {
   {
     std::string encoded_event;

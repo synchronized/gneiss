@@ -25,7 +25,7 @@ struct capture_state {
   std::atomic<bool> callback_active = false;
   std::atomic<bool> was_concurrent = false;
 };
-void capture(const event_view& event, capture_state& state) {
+void capture(const logging::record_view& event, capture_state& state) {
   if (state.callback_active.exchange(true))
     state.was_concurrent = true;
   {
@@ -41,7 +41,7 @@ void capture(const event_view& event, capture_state& state) {
     }
     if (state.check_reentrancy && state.count == 1 && state.application) {
       state.reentrant_result = state.application->submit_log(
-          {.severity = level::debug, .category = "test", .message = "nested"});
+          {.severity = logging::level::debug, .category = "test", .message = "nested"});
     }
   }
   state.callback_active = false;
@@ -54,7 +54,7 @@ int main(int argc, char**) {
   capture_state state, owned_capture, empty_capture;
   std::uint32_t throwing_calls{};
   gneiss::runtime::application_configuration config;
-  config.callbacks.log = [&](const event_view& event) { capture(event, state); };
+  config.callbacks.log = [&](const logging::record_view& event) { capture(event, state); };
   std::shared_ptr<gneiss::runtime::application> application;
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
           .failed())
@@ -80,7 +80,8 @@ int main(int argc, char**) {
     threads.emplace_back([application] {
       for (std::uint32_t j = 0; j < messages_per_thread; ++j) {
         if (application
-                ->submit_log({.severity = level::debug, .category = "worker", .message = "tick"})
+                ->submit_log(
+                    {.severity = logging::level::debug, .category = "worker", .message = "tick"})
                 .failed())
           return;
       }
@@ -107,8 +108,8 @@ int main(int argc, char**) {
           .failed() ||
       application->submit_log({.category = "test", .message = "ready"}).failed() ||
       application->submit_log({}) != error::invalid_argument ||
-      application->submit_log({.severity = static_cast<level>(0xffffffffU), .category = "test"}) !=
-          error::invalid_argument ||
+      application->submit_log({.severity = static_cast<logging::level>(0xffffffffU),
+                               .category = "test"}) != error::invalid_argument ||
       application->submit_log({.category = "test", .message = "\xC0\x80"}) !=
           error::invalid_argument ||
       application->shutdown().failed())
@@ -117,7 +118,7 @@ int main(int argc, char**) {
 
   if (argc > 1) {
     // 意外日志回调异常必须终止宿主子进程。
-    config.callbacks.log = [&](const event_view&) {
+    config.callbacks.log = [&](const logging::record_view&) {
       ++throwing_calls;
       throw 1;
     };
@@ -135,14 +136,14 @@ int main(int argc, char**) {
     return 0;
   }
   owned_capture.check_reentrancy = false;
-  config.callbacks.log = [&](const event_view& event) { capture(event, owned_capture); };
+  config.callbacks.log = [&](const logging::record_view& event) { capture(event, owned_capture); };
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
           .failed())
     return 10;
   error submitted;
   std::thread worker([&] {
     const std::string transient = "owned worker";
-    submitted = application->submit_log({.severity = level::warning,
+    submitted = application->submit_log({.severity = logging::level::warning,
                                          .category = "cpp",
                                          .message = transient,
                                          .result = error::not_ready});
@@ -157,7 +158,7 @@ int main(int argc, char**) {
     return 12;
 
   empty_capture.check_reentrancy = false;
-  config.callbacks.log = [&](const event_view& event) { capture(event, empty_capture); };
+  config.callbacks.log = [&](const logging::record_view& event) { capture(event, empty_capture); };
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
           .failed() ||
       application->submit_log({.source = "application", .category = "empty"}).failed() ||

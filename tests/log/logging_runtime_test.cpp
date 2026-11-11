@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/log/logging_runtime.hpp"
+#include "engine/core/logging/runtime.hpp"
 #include <iostream>
 #include <stdexcept>
 #include <thread>
@@ -28,7 +28,7 @@ struct memory_sink final : logging::sink {
   int flushes{};
   logging::logger recursive;
   bool fail{};
-  engine::error write(const engine::event_view& event) override {
+  engine::error write(const engine::logging::record_view& event) override {
     require(event.sequence > sequence && event.thread_id != 0);
     sequence = event.sequence;
     messages.emplace_back(event.message.message);
@@ -52,7 +52,7 @@ void test() {
   int formatted{};
   log.debug("{}", counted_format{&formatted});
   require(formatted == 0);
-  runtime.set_level(engine::level::debug);
+  runtime.set_level(engine::logging::level::debug);
   log.debug("{}", counted_format{&formatted});
   require(formatted == 1);
   std::vector<std::thread> workers;
@@ -73,7 +73,7 @@ void test() {
   runtime.flush();
   require(runtime.output_failures() == 1);
   runtime.close();
-  require(!log.enabled(engine::level::info));
+  require(!log.enabled(engine::logging::level::info));
   log.info("after close {}", counted_format{&formatted});
   require(formatted == 1 && observed->messages.size() == 82);
   runtime.close();
@@ -84,9 +84,9 @@ void test() {
     logging::runtime other{std::move(isolated)};
     expired = other.get_logger("isolated");
     expired.info("independent context");
-    require(!log.enabled(engine::level::info));
+    require(!log.enabled(engine::logging::level::info));
   }
-  require(!expired.enabled(engine::level::info));
+  require(!expired.enabled(engine::logging::level::info));
   expired.info("expired");
 }
 }

@@ -20,8 +20,8 @@ int main() {
     constexpr std::string_view source = "application";
     constexpr std::string_view category = "test";
     constexpr std::string_view message = "line 1\n\"line 2\"";
-    const gneiss::engine::event_view event{
-        .message = {.severity = gneiss::engine::level::warning,
+    const gneiss::engine::logging::record_view event{
+        .message = {.severity = gneiss::engine::logging::level::warning,
                     .source = source,
                     .category = category,
                     .message = message,

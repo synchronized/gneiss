@@ -13,7 +13,7 @@
 #include "ipc_session_protocol.hpp"
 #include "ipc_statistics_protocol.hpp"
 
-#include "engine/core/log/log_types.hpp"
+#include "engine/core/logging/record.hpp"
 
 #include <cstdint>
 #include <string>
@@ -36,8 +36,9 @@ make_protocol_error_response(gneiss::engine::error operation, std::string messag
 [[nodiscard]] gneiss::engine::error make_ready_event(gneiss::engine::ipc_envelope& output) noexcept;
 [[nodiscard]] gneiss::engine::error make_state_event(ipc_control_state state,
                                                      gneiss::engine::ipc_envelope& output);
-[[nodiscard]] gneiss::engine::error make_log_event(const gneiss::engine::event_view& event,
-                                                   gneiss::engine::ipc_envelope& output);
+[[nodiscard]] gneiss::engine::error
+make_log_event(const gneiss::engine::logging::record_view& event,
+               gneiss::engine::ipc_envelope& output);
 [[nodiscard]] gneiss::engine::error
 make_scene_snapshot_events(const ipc_inspection_batch& batch,
                            std::vector<gneiss::engine::ipc_envelope>& output);

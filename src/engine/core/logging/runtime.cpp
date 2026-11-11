@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "logging_runtime.hpp"
+#include "runtime.hpp"
+#include "detail/async_queue.hpp"
 #include "engine/core/utf8.hpp"
-#include "log_dispatcher.hpp"
 #include <atomic>
 #include <mutex>
 #include <stdexcept>
@@ -28,8 +28,8 @@ struct runtime_state {
   std::mutex mutex;
   std::mutex output_mutex;
   std::vector<std::unique_ptr<sink>> outputs;
-  std::unique_ptr<log_dispatcher> dispatcher;
-  void deliver(const event_view& event) {
+  std::unique_ptr<logging::detail::async_queue> dispatcher;
+  void deliver(const record_view& event) {
     const std::scoped_lock lock(output_mutex);
     output_scope scope;
     for (const auto& output : outputs)
@@ -75,8 +75,8 @@ runtime::runtime(std::vector<std::unique_ptr<sink>> outputs, std::size_t capacit
     if (!output)
       throw std::invalid_argument("null log output");
   state_->outputs = std::move(outputs);
-  state_->dispatcher = std::make_unique<log_dispatcher>(
-      [state = state_.get()](const event_view& event) { state->deliver(event); }, capacity);
+  state_->dispatcher = std::make_unique<logging::detail::async_queue>(
+      [state = state_.get()](const record_view& event) { state->deliver(event); }, capacity);
 }
 runtime::~runtime() { close(); }
 logger runtime::get_logger(std::string_view channel) const {
@@ -100,7 +100,7 @@ void runtime::flush() {
 void runtime::close() {
   if (in_output)
     throw std::logic_error("cannot close from log output");
-  std::unique_ptr<log_dispatcher> dispatcher;
+  std::unique_ptr<logging::detail::async_queue> dispatcher;
   {
     const std::scoped_lock lock(state_->mutex);
     state_->active.store(false);

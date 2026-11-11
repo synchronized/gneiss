@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "log_dispatcher.hpp"
+#include "async_queue.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/fatal.hpp"
-#include "log.hpp"
+#include "engine/core/logging/validation.hpp"
 
 #include <chrono>
 #include <functional>
@@ -31,17 +31,17 @@ thread_local bool is_in_log_callback = false;
 
 } // namespace
 
-namespace gneiss::engine {
+namespace gneiss::engine::logging::detail {
 
-log_dispatcher::log_dispatcher(event_sink callback, std::size_t capacity)
+async_queue::async_queue(record_callback callback, std::size_t capacity)
     : callback_(std::move(callback)), capacity_(capacity) {
   if (!callback_ || capacity_ == 0U) {
     throw std::invalid_argument("日志投递器配置无效");
   }
-  worker_ = std::thread(&log_dispatcher::run, this);
+  worker_ = std::thread(&async_queue::run, this);
 }
 
-log_dispatcher::~log_dispatcher() noexcept {
+async_queue::~async_queue() noexcept {
   {
     const std::scoped_lock lock(mutex_);
     is_stopping_ = true;
@@ -52,7 +52,7 @@ log_dispatcher::~log_dispatcher() noexcept {
   }
 }
 
-engine::error log_dispatcher::submit(const message_view& message) {
+engine::error async_queue::submit(const message_view& message) {
   if (is_in_log_callback) {
     return engine::error::invalid_state;
   }
@@ -60,7 +60,7 @@ engine::error log_dispatcher::submit(const message_view& message) {
     return engine::error::invalid_argument;
   }
   {
-    owned_event event;
+    owned_record event;
     event.context = message.context;
     event.severity = message.severity;
     event.timestamp_ns = current_time_ns();
@@ -86,14 +86,14 @@ engine::error log_dispatcher::submit(const message_view& message) {
   }
 }
 
-void log_dispatcher::flush() noexcept {
+void async_queue::flush() noexcept {
   std::unique_lock lock(mutex_);
   drained_.wait(lock, [this] { return queue_.empty() && !is_delivering_ && dropped_count_ == 0U; });
 }
 
-void log_dispatcher::run() noexcept try {
+void async_queue::run() noexcept try {
   for (;;) {
-    owned_event event;
+    owned_record event;
     {
       std::unique_lock lock(mutex_);
       ready_.wait(lock, [this] { return is_stopping_ || !queue_.empty() || dropped_count_ != 0U; });
@@ -123,8 +123,8 @@ void log_dispatcher::run() noexcept try {
   gneiss::engine::fatal_current_exception();
 }
 
-void log_dispatcher::deliver(const owned_event& event) {
-  const event_view borrowed{
+void async_queue::deliver(const owned_record& event) {
+  const record_view borrowed{
       .message =
           {
               .context = event.context,
@@ -148,8 +148,8 @@ void log_dispatcher::deliver(const owned_event& event) {
   }
 }
 
-log_dispatcher::owned_event log_dispatcher::make_drop_event(std::uint64_t count) {
-  owned_event event;
+async_queue::owned_record async_queue::make_drop_event(std::uint64_t count) {
+  owned_record event;
   {
     event.severity = level::warning;
     event.sequence = next_sequence_++;
@@ -163,4 +163,4 @@ log_dispatcher::owned_event log_dispatcher::make_drop_event(std::uint64_t count)
   return event;
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss::engine::logging

@@ -5,13 +5,20 @@
 
 ## 当前范围
 
-内部宿主使用原生 `application::submit_log`。消费线程通过 `log` 回调接收 `event_view`。
+日志类型统一位于 `gneiss::engine::logging`，与 `events` 同步通知独立。
+`core/logging/record.hpp` 定义 `level`、`message_view`、`record_view` 和迁移期 `record_callback`；
+`logger.hpp`、`runtime.hpp/.cpp`、`sink.hpp` 分别提供频道句柄、上下文和输出契约。
+`validation.hpp/.cpp` 负责消息校验；`detail/async_queue.hpp/.cpp` 是内部异步队列。
+平台文件输出位于 `platform/logging/file_sink.hpp/.cpp`，不在 Core 引入 spdlog。
+Application/Render 尚有直接使用内部队列的迁移点，本次命名整理没有宣称其已完成解耦。
+
+内部宿主使用原生 `application::submit_log`。消费线程通过 `log` 回调接收 `record_view`。
 日志队列、基础 Sink、Runtime 传输协议与 Editor Console 保留；日志 C API 已撤销。
 
 ## 显式日志上下文
 
-`engine/core/log/logging_runtime.hpp` 提供 `logging::runtime`，构造时接收固定的 Sink 列表和队列容量。
-它复用现有 `log_dispatcher`，每个上下文只有一个有界队列和消费线程；不同上下文彼此隔离。
+`engine/core/logging/runtime.hpp` 提供 `logging::runtime`，构造时接收固定的 Sink 列表和队列容量。
+它复用现有 `logging::detail::async_queue`，每个上下文只有一个有界队列和消费线程；不同上下文彼此隔离。
 `runtime.get_logger("asset")` 返回可复制的频道句柄，频道使用 `string_name`。
 Logger 提供 trace/debug/info/warning/error/critical，使用编译期检查的 `std::format_string`。
 `runtime.set_level(...)` 可跨线程更新过滤阈值；过滤先于格式化，但函数实参求值仍由调用者负责。
@@ -27,7 +34,7 @@ Sink 内普通 Logger 调用被抑制，避免递归；异常仍遵循执行边�
 
 ## 独立同步输出适配
 
-`logging::sink` 位于 `engine/core/log/sink.hpp`，同步接收完整 `event_view`，不保存借用字段。
+`logging::sink` 位于 `engine/core/logging/sink.hpp`，同步接收完整 `record_view`，不保存借用字段。
 平台层 `logging::create_file_sink(path, truncate)` 创建文件 Sink；内部目标为 `gneiss_file_log_sink`。
 默认追加，可显式截断；宿主须在非实时线程串行调用 `write/flush`，正常关闭前显式 flush。
 文件失败返回 `error::io`，分配及其他异常向执行边界传播。实现不使用 spdlog 的 logger 异常吞并路径。
@@ -77,13 +84,13 @@ Application 已识别的运行时诊断会在调用原有诊断回调后转换�
 
 ## 校验
 
-原生 `engine::validate_message` 校验严重级别、字符串边界和 UTF-8 编码；模块日志入口
+原生 `engine::logging::validate_message` 校验严重级别、字符串边界和 UTF-8 编码；模块日志入口
 另外校验结构版本、指针长度和保留字段。校验不保存消息或字符串，不提交、排队或写出日志。
 日志校验 C 导出已删除，原生提交入口负责消息语义校验。
 
 ## 原生 C++ 日志提交
 
-内部只使用 `gneiss::engine::message_view` 和 `event_view`，值定义位于 `core/log/log_types.hpp`。
+内部只使用 `gneiss::engine::logging::message_view` 和 `record_view`，值定义位于 `core/logging/record.hpp`。
 Runtime 文件输出、IPC 编码与 Editor 控制台不依赖 C 日志事件布局；编码时复制借用文本，
 不保留事件视图。消息默认级别为 info、结果为 success；
 分类必须非空，消息允许为空。字符串通过 string_view 借用到同步提交返回；投递器复制文本后入队。
@@ -100,7 +107,7 @@ const auto status = application.submit_log({
 ```
 
 其中 application 是有效的原生 Application 对象，内部调用方填写来源。
-消息级别和 UTF-8 规则集中在 `engine::validate_message`，不经过 C API。
+消息级别和 UTF-8 规则集中在 `engine::logging::validate_message`，不经过 C API。
 旧 `log_message`、`log_event`、`log_severity` 包装和构造/转换辅助已删除，不安装公共 C++ 日志头。
 
 原生 `shutdown` 关闭运行服务；日志投递器在 Application 释放时排空并等待消费线程结束。

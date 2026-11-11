@@ -52,7 +52,7 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
     if (completed) {
       for (const auto& item : completed->results) {
         if (item.result.failed())
-          (void)application.submit_log({.severity = engine::level::error,
+          (void)application.submit_log({.severity = engine::logging::level::error,
                                         .source = "editor",
                                         .category = "scene_assets",
                                         .message = item.source.uri,

@@ -143,7 +143,7 @@ void runtime_log_line_decoder::append_segment(std::string_view segment) {
   pending_was_truncated_ = pending_was_truncated_ || accepted != segment.size();
 }
 
-gneiss::engine::error encode_runtime_log_event(const gneiss::engine::event_view& event,
+gneiss::engine::error encode_runtime_log_event(const gneiss::engine::logging::record_view& event,
                                                std::string& output) {
   output.clear();
   {

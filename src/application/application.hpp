@@ -13,7 +13,7 @@
 #include "engine/resource/input/action_map.hpp"
 
 #include "application/application_configuration.hpp"
-#include "engine/core/log/log_dispatcher.hpp"
+#include "engine/core/logging/record.hpp"
 #include "engine/function/asset/asset_batch_request.hpp"
 #include "engine/function/asset/asset_batch_types.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
@@ -124,7 +124,7 @@ public:
                          gneiss::engine::error result, std::string_view module,
                          std::string_view message);
   [[nodiscard]] GNEISS_API gneiss::engine::error
-  submit_log(const gneiss::engine::message_view& message);
+  submit_log(const gneiss::engine::logging::message_view& message);
   GNEISS_API void request_exit() noexcept;
   GNEISS_API void set_paused(bool value) noexcept;
 

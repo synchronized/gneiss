@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/fatal.hpp"
-#include "engine/core/log/log_dispatcher.hpp"
+#include "engine/core/logging/detail/async_queue.hpp"
 #include <new>
 #include <string_view>
 
@@ -30,7 +30,7 @@ struct capture_state final {
   bool valid_message = true;
 };
 
-void capture(const gneiss::engine::event_view& event, void* user_data) {
+void capture(const gneiss::engine::logging::record_view& event, void* user_data) {
   auto& state = *static_cast<capture_state*>(user_data);
   std::unique_lock lock(state.mutex);
   if (state.block_first) {
@@ -56,22 +56,22 @@ bool verify_failure_and_shutdown() {
   using namespace gneiss::engine;
   unsigned rejected{};
   try {
-    log_dispatcher invalid(event_sink{});
+    logging::detail::async_queue invalid(logging::record_callback{});
     return false;
   } catch (const std::invalid_argument&) {
     ++rejected;
   }
   try {
-    log_dispatcher invalid([](const event_view&) {}, 0U);
+    logging::detail::async_queue invalid([](const logging::record_view&) {}, 0U);
     return false;
   } catch (const std::invalid_argument&) {
     ++rejected;
   }
   std::uint32_t calls{};
   bool valid = true;
-  log_dispatcher* active{};
+  logging::detail::async_queue* active{};
   {
-    log_dispatcher dispatcher([&](const event_view& event) {
+    logging::detail::async_queue dispatcher([&](const logging::record_view& event) {
       ++calls;
       valid = valid && event.message.context == 9U && event.thread_id != 0U &&
               event.timestamp_ns != 0U && event.sequence == calls &&
@@ -91,17 +91,18 @@ bool verify_validation_and_concurrency() {
   using namespace gneiss::engine;
   std::uint64_t received{};
   bool valid = true;
-  log_dispatcher dispatcher(
-      [&](const event_view& event) {
+  logging::detail::async_queue dispatcher(
+      [&](const logging::record_view& event) {
         ++received;
-        valid = valid && event.sequence == received && event.message.severity == level::debug &&
+        valid = valid && event.sequence == received &&
+                event.message.severity == logging::level::debug &&
                 event.message.result == gneiss::engine::error::not_found &&
                 event.message.message == "parallel";
       },
       512U);
-  if (dispatcher.submit({.severity = static_cast<level>(0), .category = "test"}) !=
+  if (dispatcher.submit({.severity = static_cast<logging::level>(0), .category = "test"}) !=
           gneiss::engine::error::invalid_argument ||
-      dispatcher.submit({.severity = static_cast<level>(7), .category = "test"}) !=
+      dispatcher.submit({.severity = static_cast<logging::level>(7), .category = "test"}) !=
           gneiss::engine::error::invalid_argument ||
       dispatcher.submit({.category = ""}) != gneiss::engine::error::invalid_argument ||
       dispatcher.submit({.category = "test", .message = "\xff"}) !=
@@ -115,7 +116,7 @@ bool verify_validation_and_concurrency() {
       producer = std::jthread([&] {
         for (unsigned index = 0; index < 64U; ++index) {
           if (dispatcher.submit({
-                  .severity = level::debug,
+                  .severity = logging::level::debug,
                   .category = "test",
                   .message = "parallel",
                   .result = gneiss::engine::error::not_found,
@@ -136,7 +137,7 @@ int main(int argc, char** argv) try {
   gneiss::engine::install_fatal_handler();
   if (argc > 1) {
     const bool oom = std::string_view(argv[1]) == "oom";
-    gneiss::engine::log_dispatcher dispatcher([oom](const auto&) {
+    gneiss::engine::logging::detail::async_queue dispatcher([oom](const auto&) {
       if (oom)
         throw std::bad_alloc{};
       throw std::runtime_error("unexpected callback");
@@ -150,10 +151,10 @@ int main(int argc, char** argv) try {
     return 5;
   }
   capture_state state;
-  gneiss::engine::log_dispatcher dispatcher([&state](const auto& event) { capture(event, &state); },
-                                            2U);
+  gneiss::engine::logging::detail::async_queue dispatcher(
+      [&state](const auto& event) { capture(event, &state); }, 2U);
   std::string payload = "event";
-  const gneiss::engine::message_view message{
+  const gneiss::engine::logging::message_view message{
       .context = 1U,
       .source = "test",
       .category = "test",

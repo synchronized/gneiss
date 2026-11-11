@@ -34,7 +34,7 @@ int main() {
       ++state.diagnostic_count;
     }
   };
-  config.callbacks.log = [&](const gneiss::engine::event_view& event) {
+  config.callbacks.log = [&](const gneiss::engine::logging::record_view& event) {
     {
       const std::scoped_lock lock(state.mutex);
       ++state.log_count;

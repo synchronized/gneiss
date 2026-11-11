@@ -302,7 +302,7 @@ int main() try {
   };
   std::atomic<unsigned> delivered{};
   std::atomic<bool> valid_log{true};
-  config.callbacks.log = [&](const gneiss::engine::event_view& event) {
+  config.callbacks.log = [&](const gneiss::engine::logging::record_view& event) {
     if (event.message.category == "native-test") {
       if (event.message.message != "原生日志" || event.sequence == 0U) {
         valid_log.store(false);

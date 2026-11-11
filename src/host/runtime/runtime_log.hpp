@@ -4,7 +4,7 @@
 #pragma once
 
 #include "engine/core/error.hpp"
-#include "engine/core/log/log_types.hpp"
+#include "engine/core/logging/record.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -22,7 +22,7 @@ public:
 
   void write(std::string_view level, std::string_view stage, gneiss::engine::error operation,
              std::string_view message, std::string_view context = {});
-  void write(const gneiss::engine::event_view& event);
+  void write(const gneiss::engine::logging::record_view& event);
 
   [[nodiscard]] bool is_file_available() const noexcept;
   [[nodiscard]] const std::filesystem::path& path() const noexcept;

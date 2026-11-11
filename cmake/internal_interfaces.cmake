@@ -13,7 +13,7 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/ref.hpp
   engine/core/result.hpp
   engine/core/version.hpp
-  engine/core/log/log_types.hpp
+  engine/core/logging/record.hpp
   engine/core/guid.hpp
   engine/core/value.hpp
   engine/core/utf8.hpp
@@ -75,7 +75,6 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/error.hpp
   engine/core/result.hpp
   engine/core/input/input_types.hpp
-  engine/core/log/log_dispatcher.hpp
   engine/core/wakeup_signal.hpp
   engine/core/meta/property_path.hpp
   engine/core/meta/object.hpp

@@ -264,7 +264,7 @@ gneiss::engine::error runtime_ipc_session::notify_shutdown(std::int32_t exit_cod
 }
 
 gneiss::engine::error
-runtime_ipc_session::notify_log_event(const gneiss::engine::event_view& event) {
+runtime_ipc_session::notify_log_event(const gneiss::engine::logging::record_view& event) {
   if (!implementation_ || (implementation_->current_state != runtime_ipc_state::running &&
                            implementation_->current_state != runtime_ipc_state::paused)) {
     return gneiss::engine::error::not_ready;

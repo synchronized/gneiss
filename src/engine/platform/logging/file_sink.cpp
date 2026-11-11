@@ -12,7 +12,7 @@ public:
     // 原生时间为 steady_clock，不冒充墙钟；只输出原始记录生成的正文。
     output_.set_pattern("%v");
   }
-  error write(const event_view& event) override {
+  error write(const record_view& event) override {
     const auto severity = static_cast<std::uint32_t>(event.message.severity);
     if (severity < 1 || severity > 6)
       return error::invalid_argument;

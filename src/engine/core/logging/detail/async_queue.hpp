@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_SRC_LOG_LOG_DISPATCHER_HPP_
-#define GNEISS_SRC_LOG_LOG_DISPATCHER_HPP_
+#ifndef GNEISS_ENGINE_LOGGING_DETAIL_ASYNC_QUEUE_HPP
+#define GNEISS_ENGINE_LOGGING_DETAIL_ASYNC_QUEUE_HPP
 
-#include "engine/core/log/log_types.hpp"
+#include "engine/core/logging/record.hpp"
 
 #include <condition_variable>
 #include <cstddef>
@@ -16,24 +16,22 @@
 #include <string_view>
 #include <thread>
 
-namespace gneiss::engine {
-
-using event_sink = std::function<void(const event_view&)>;
+namespace gneiss::engine::logging::detail {
 
 /** 单消费线程串行回调；销毁前排空队列，禁止在回调内 flush 或销毁投递器。 */
-class log_dispatcher final {
+class async_queue final {
 public:
-  explicit log_dispatcher(event_sink callback, std::size_t capacity = 1024U);
-  ~log_dispatcher() noexcept;
+  explicit async_queue(record_callback callback, std::size_t capacity = 1024U);
+  ~async_queue() noexcept;
 
-  log_dispatcher(const log_dispatcher&) = delete;
-  log_dispatcher& operator=(const log_dispatcher&) = delete;
+  async_queue(const async_queue&) = delete;
+  async_queue& operator=(const async_queue&) = delete;
 
   [[nodiscard]] engine::error submit(const message_view& message);
   void flush() noexcept;
 
 private:
-  struct owned_event final {
+  struct owned_record final {
     std::uint64_t context{};
     level severity = level::info;
     std::uint64_t sequence = 0U;
@@ -46,15 +44,15 @@ private:
   };
 
   void run() noexcept;
-  void deliver(const owned_event& event);
-  [[nodiscard]] owned_event make_drop_event(std::uint64_t count);
+  void deliver(const owned_record& event);
+  [[nodiscard]] owned_record make_drop_event(std::uint64_t count);
 
-  event_sink callback_;
+  record_callback callback_;
   std::size_t capacity_;
   std::mutex mutex_;
   std::condition_variable ready_;
   std::condition_variable drained_;
-  std::deque<owned_event> queue_;
+  std::deque<owned_record> queue_;
   std::thread worker_;
   std::uint64_t next_sequence_ = 1U;
   std::uint64_t dropped_count_ = 0U;
@@ -62,6 +60,6 @@ private:
   bool is_stopping_ = false;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss::engine::logging
 
 #endif

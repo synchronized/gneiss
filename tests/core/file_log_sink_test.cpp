@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/platform/log/file_sink.hpp"
+#include "engine/platform/logging/file_sink.hpp"
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -29,15 +29,15 @@ void test() {
   const auto file = path / "record.log";
   auto opened = logging::create_file_sink(file);
   require(opened.ok());
-  const engine::event_view event{.message = {.context = 42,
-                                             .severity = engine::level::warning,
-                                             .source = "asset",
-                                             .category = "load",
-                                             .message = "literal {braces}",
-                                             .result = engine::error::not_found},
-                                 .sequence = 17,
-                                 .timestamp_ns = 123,
-                                 .thread_id = 999};
+  const engine::logging::record_view event{.message = {.context = 42,
+                                                       .severity = engine::logging::level::warning,
+                                                       .source = "asset",
+                                                       .category = "load",
+                                                       .message = "literal {braces}",
+                                                       .result = engine::error::not_found},
+                                           .sequence = 17,
+                                           .timestamp_ns = 123,
+                                           .thread_id = 999};
   require((*opened)->write(event).ok());
   require((*opened)->flush().ok());
   opened->reset();
@@ -62,7 +62,7 @@ void test() {
   auto truncated = logging::create_file_sink(file, true);
   require(truncated.ok());
   auto invalid = event;
-  invalid.message.severity = static_cast<engine::level>(0);
+  invalid.message.severity = static_cast<engine::logging::level>(0);
   require((*truncated)->write(invalid) == engine::error::invalid_argument);
   truncated->reset();
   require(std::filesystem::file_size(file) == 0);

@@ -154,7 +154,7 @@ int main() try {
   // 协议对象销毁后，控制台值仍拥有全部字段和长字符串。
   auto converted = [] {
     gneiss::host::runtime_log_record record;
-    record.severity = static_cast<std::uint32_t>(gneiss::engine::level::error);
+    record.severity = static_cast<std::uint32_t>(gneiss::engine::logging::level::error);
     record.sequence = 42U;
     record.timestamp_ns = 123456U;
     record.thread_id = 17U;
@@ -164,7 +164,7 @@ int main() try {
     record.operation = gneiss::engine::error::not_found;
     return gneiss::host::to_console_event(std::move(record));
   }();
-  if (converted.severity != static_cast<std::uint32_t>(gneiss::engine::level::error) ||
+  if (converted.severity != static_cast<std::uint32_t>(gneiss::engine::logging::level::error) ||
       converted.sequence != 42U || converted.timestamp_ns != 123456U ||
       converted.thread_id != 17U || converted.source != "runtime-module" ||
       converted.category != "resource-import" || converted.message != std::string(512U, 'x') ||

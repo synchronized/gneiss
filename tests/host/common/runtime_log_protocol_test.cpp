@@ -35,8 +35,8 @@ int main() {
   constexpr std::string_view source = "game_module";
   constexpr std::string_view category = "测试";
   constexpr std::string_view message = "第一行\n\"第二行\"\\尾部";
-  const gneiss::engine::event_view event{
-      .message = {.severity = gneiss::engine::level::warning,
+  const gneiss::engine::logging::record_view event{
+      .message = {.severity = gneiss::engine::logging::level::warning,
                   .source = source,
                   .category = category,
                   .message = message,

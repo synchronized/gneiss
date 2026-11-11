@@ -3,9 +3,10 @@
 #pragma once
 #include "engine/core/error.hpp"
 #include <cstdint>
+#include <functional>
 #include <string_view>
 
-namespace gneiss::engine {
+namespace gneiss::engine::logging {
 /** 原生日志级别；ABI 数值映射由接口层校验。 */
 enum class level : std::uint32_t { trace = 1, debug, info, warning, error, fatal };
 
@@ -20,10 +21,11 @@ struct message_view final {
 };
 
 /** 所有文本只在回调期间有效，接收方不得保留视图。 */
-struct event_view final {
+struct record_view final {
   message_view message;
   std::uint64_t sequence{};
   std::uint64_t timestamp_ns{};
   std::uint64_t thread_id{};
 };
+using record_callback = std::function<void(const record_view&)>;
 }

@@ -5,7 +5,8 @@
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/error.hpp"
-#include "engine/core/log/log.hpp"
+#include "engine/core/logging/detail/async_queue.hpp"
+#include "engine/core/logging/validation.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/asset/detail/resource_load_group.hpp"
@@ -101,7 +102,7 @@ struct application::storage {
   bool should_exit_ = false;
   bool is_updating_ = false;
   gneiss::engine::input_service input_;
-  std::unique_ptr<gneiss::engine::log_dispatcher> log_dispatcher_;
+  std::unique_ptr<gneiss::engine::logging::detail::async_queue> log_queue_;
   std::unique_ptr<gneiss::engine::window_service> window_service_;
 };
 
@@ -222,8 +223,8 @@ gneiss::engine::error application::attach_task_executor(gneiss::engine::task_exe
 gneiss::engine::error application::initialize() {
   if (storage_->config_.callbacks.log != nullptr) {
     {
-      storage_->log_dispatcher_ =
-          std::make_unique<gneiss::engine::log_dispatcher>(storage_->config_.callbacks.log);
+      storage_->log_queue_ = std::make_unique<gneiss::engine::logging::detail::async_queue>(
+          storage_->config_.callbacks.log);
     }
   }
   if (!storage_->render_service_->is_valid()) {
@@ -296,7 +297,7 @@ gneiss::engine::error application::initialize() {
     }
     const auto render_result = storage_->render_service_->initialize(
         storage_->window_service_->native_window(), {}, storage_->config_.environment_intensity,
-        storage_->config_.environment_rotation_radians, storage_->log_dispatcher_.get());
+        storage_->config_.environment_rotation_radians, storage_->log_queue_.get());
     if (render_result != gneiss::engine::error::success) {
       report(gneiss::engine::severity::error, gneiss::engine::category::backend, render_result,
              "granit.render", "Granit 渲染服务初始化失败");
@@ -502,10 +503,10 @@ void application::report(gneiss::engine::severity severity, gneiss::engine::cate
       storage_->config_.callbacks.diagnostic(diagnostic);
     }
   }
-  const auto log_severity = severity == gneiss::engine::severity::info ? gneiss::engine::level::info
-                            : severity == gneiss::engine::severity::warning
-                                ? gneiss::engine::level::warning
-                                : gneiss::engine::level::error;
+  const auto log_severity =
+      severity == gneiss::engine::severity::info      ? gneiss::engine::logging::level::info
+      : severity == gneiss::engine::severity::warning ? gneiss::engine::logging::level::warning
+                                                      : gneiss::engine::logging::level::error;
   const std::string_view log_category = category == gneiss::engine::category::asset   ? "asset"
                                         : category == gneiss::engine::category::input ? "input"
                                         : category == gneiss::engine::category::backend
@@ -520,9 +521,10 @@ void application::report(gneiss::engine::severity severity, gneiss::engine::cate
   }));
 }
 
-gneiss::engine::error application::submit_log(const gneiss::engine::message_view& message) {
-  return storage_->log_dispatcher_ == nullptr ? gneiss::engine::validate_message(message)
-                                              : storage_->log_dispatcher_->submit(message);
+gneiss::engine::error
+application::submit_log(const gneiss::engine::logging::message_view& message) {
+  return storage_->log_queue_ == nullptr ? gneiss::engine::logging::validate_message(message)
+                                              : storage_->log_queue_->submit(message);
 }
 
 gneiss::engine::error application::set_view_camera(const gneiss::engine::view_camera* camera) {

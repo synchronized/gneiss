@@ -39,13 +39,14 @@ bool verify_visible_state() {
   const auto next_session = model.begin_session();
   if (model.append_raw(session, "old").failed() ||
       model
-          .append_event(next_session,
-                        {
-                            .severity = static_cast<std::uint32_t>(gneiss::engine::level::error),
-                            .source = "game",
-                            .category = "asset",
-                            .message = "failed",
-                        })
+          .append_event(
+              next_session,
+              {
+                  .severity = static_cast<std::uint32_t>(gneiss::engine::logging::level::error),
+                  .source = "game",
+                  .category = "asset",
+                  .message = "failed",
+              })
           .failed()) {
     return false;
   }

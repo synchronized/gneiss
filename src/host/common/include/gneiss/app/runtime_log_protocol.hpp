@@ -4,7 +4,7 @@
 #pragma once
 
 #include "engine/core/error.hpp"
-#include "engine/core/log/log_types.hpp"
+#include "engine/core/logging/record.hpp"
 
 #include <cstdint>
 #include <string>
@@ -24,7 +24,7 @@ enum class runtime_log_parse_result : std::uint8_t {
 
 struct runtime_log_record final {
   std::uint32_t version = 1U;
-  std::uint32_t severity = static_cast<std::uint32_t>(gneiss::engine::level::info);
+  std::uint32_t severity = static_cast<std::uint32_t>(gneiss::engine::logging::level::info);
   std::uint64_t sequence = 0U;
   std::uint64_t timestamp_ns = 0U;
   std::uint64_t thread_id = 0U;
@@ -68,7 +68,7 @@ private:
 
 /** 将日志事件编码为带版本前缀的单行 UTF-8 JSON，结果包含末尾换行。 */
 [[nodiscard]] gneiss::engine::error
-encode_runtime_log_event(const gneiss::engine::event_view& event, std::string& output);
+encode_runtime_log_event(const gneiss::engine::logging::record_view& event, std::string& output);
 
 /** 解析一行 Runtime 日志协议；不属于协议的普通输出不会被视为错误。 */
 [[nodiscard]] runtime_log_parse_result parse_runtime_log_line(std::string_view line,

@@ -145,7 +145,7 @@ gneiss::engine::error runtime_scene_loader::advance() {
     if (completed) {
       for (const auto& item : completed->results) {
         if (item.result.failed())
-          (void)application_.submit_log({.severity = engine::level::error,
+          (void)application_.submit_log({.severity = engine::logging::level::error,
                                          .source = "runtime",
                                          .category = "scene_assets",
                                          .message = item.source.uri,

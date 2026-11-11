@@ -28,7 +28,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "engine/core/log/log_dispatcher.hpp"
+#include "engine/core/logging/detail/async_queue.hpp"
 
 #include <granit/core/version.h>
 #include <granit/renderer/native_surface.hpp>
@@ -55,7 +55,7 @@ public:
                                          std::span<const std::byte> environment_asset = {},
                                          float environment_intensity = 1.0F,
                                          float environment_rotation_radians = 0.0F,
-                                         log_dispatcher* log = nullptr);
+                                         logging::detail::async_queue* log = nullptr);
   error request_environment(std::shared_ptr<const std::vector<std::byte>>, float, float);
   [[nodiscard]] engine::error shutdown(granit::renderer_resource_stats& stats);
   [[nodiscard]] engine::error finish_frames();
@@ -166,7 +166,7 @@ private:
   float environment_intensity_{1.0F};
   float environment_rotation_radians_{};
   // 借用 Application 的线程安全日志队列；其生命周期覆盖执行器停机。
-  log_dispatcher* log_{};
+  logging::detail::async_queue* log_{};
   threaded_render_executor executor_;
   std::vector<render_frame_packet> recycled_frame_packets_;
   std::deque<render_frame_completion> required_frame_completions_;
@@ -329,7 +329,7 @@ void render_service::implementation::log_texture(engine::rid rid, const char* st
   }
   constexpr std::string_view category = "render.texture";
   static_cast<void>(log_->submit({
-      .severity = result.ok() ? engine::level::info : engine::level::error,
+      .severity = result.ok() ? engine::logging::level::info : engine::logging::level::error,
       .source = "granit.render.texture",
       .category = category,
       .message = {buffer.data(), std::min(static_cast<std::size_t>(length), buffer.size() - 1U)},
@@ -828,7 +828,8 @@ void render_service::implementation::release_invalid_materials(
 
 engine::error render_service::implementation::initialize(
     const native_window_info& window, std::span<const std::byte> environment_asset,
-    float environment_intensity, float environment_rotation_radians, log_dispatcher* log) {
+    float environment_intensity, float environment_rotation_radians,
+    logging::detail::async_queue* log) {
   log_ = log;
   const auto executor_result =
       executor_.initialize([this](render_frame_packet& packet, render_execution_result& output) {
@@ -1218,7 +1219,7 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
           replacement.data = std::move(source);
           mesh_mirrors_.insert_or_assign(handle, std::move(replacement));
         } else if (log_) {
-          (void)log_->submit({.severity = level::error,
+          (void)log_->submit({.severity = logging::level::error,
                               .source = "render.mesh",
                               .category = "render.resource",
                               .message = "网格上传失败，保留当前可用内容",
@@ -1269,7 +1270,7 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
           material_mirrors_.insert_or_assign(resource_handle(instance.material),
                                              std::move(replacement));
         } else if (log_) {
-          (void)log_->submit({.severity = level::error,
+          (void)log_->submit({.severity = logging::level::error,
                               .source = "render.material",
                               .category = "render.resource",
                               .message = "材质更新失败，保留当前可用内容",
@@ -1567,7 +1568,7 @@ error render_service::request_environment(std::shared_ptr<const std::vector<std:
 error render_service::initialize(const native_window_info& window,
                                  std::span<const std::byte> environment_asset,
                                  float environment_intensity, float environment_rotation_radians,
-                                 log_dispatcher* log) {
+                                 logging::detail::async_queue* log) {
   if (!is_valid())
     return error::invalid_state;
   return impl_->initialize(window, environment_asset, environment_intensity,

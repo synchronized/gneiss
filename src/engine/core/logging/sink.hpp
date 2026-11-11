@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/log/log_types.hpp"
+#include "engine/core/logging/record.hpp"
 
 namespace gneiss::engine::logging {
 /** 同步输出端，由日志运行时串行调用；不保存借用记录，不建立队列、不重入日志。
@@ -9,7 +9,7 @@ namespace gneiss::engine::logging {
 class sink {
 public:
   virtual ~sink() = default;
-  [[nodiscard]] virtual error write(const event_view& event) = 0;
+  [[nodiscard]] virtual error write(const record_view& event) = 0;
   [[nodiscard]] virtual error flush() = 0;
 };
 } // namespace gneiss::engine::logging

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/log/sink.hpp"
+#include "engine/core/logging/sink.hpp"
 #include "engine/core/result.hpp"
 #include <filesystem>
 #include <memory>

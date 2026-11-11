@@ -102,7 +102,7 @@ add_test(NAME gneiss.cpp_version COMMAND gneiss_cpp_version_test)
 
 
 
-add_executable(gneiss_cpp_log_test cpp_log_test.cpp "${PROJECT_SOURCE_DIR}/src/engine/core/log/log.cpp")
+add_executable(gneiss_cpp_log_test cpp_log_test.cpp "${PROJECT_SOURCE_DIR}/src/engine/core/logging/validation.cpp")
 target_include_directories(gneiss_cpp_log_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_cpp_log_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_cpp_log_test PRIVATE cxx_std_20)
@@ -125,22 +125,22 @@ gneiss_target_output_directories(gneiss_diagnostic_log_test)
 add_test(NAME gneiss.diagnostic_log COMMAND gneiss_diagnostic_log_test)
 
 add_executable(
-  gneiss_log_dispatcher_test
-  log/log_dispatcher_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/core/log/log.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/core/log/log_dispatcher.cpp"
+  gneiss_log_queue_test
+  log/async_queue_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/engine/core/logging/validation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/logging/detail/async_queue.cpp"
 )
-target_include_directories(gneiss_log_dispatcher_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_link_libraries(gneiss_log_dispatcher_test PRIVATE gneiss_core_values Threads::Threads gneiss_fatal)
-target_compile_features(gneiss_log_dispatcher_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_log_dispatcher_test)
-gneiss_target_output_directories(gneiss_log_dispatcher_test)
-add_test(NAME gneiss.log_dispatcher COMMAND gneiss_log_dispatcher_test)
+target_include_directories(gneiss_log_queue_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_log_queue_test PRIVATE gneiss_core_values Threads::Threads gneiss_fatal)
+target_compile_features(gneiss_log_queue_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_log_queue_test)
+gneiss_target_output_directories(gneiss_log_queue_test)
+add_test(NAME gneiss.log-queue COMMAND gneiss_log_queue_test)
 
 add_executable(gneiss_logging_runtime_test log/logging_runtime_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/core/log/logging_runtime.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/core/log/log_dispatcher.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/core/log/log.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/logging/runtime.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/logging/detail/async_queue.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/logging/validation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/string_name.cpp")
 target_include_directories(gneiss_logging_runtime_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_logging_runtime_test PRIVATE GNEISS_STATIC_DEFINE)
@@ -1137,7 +1137,7 @@ endif()
 
 foreach(mode IN ITEMS oom unexpected)
   add_test(NAME gneiss.log-callback-fatal-${mode}
-    COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:gneiss_log_dispatcher_test>
+    COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:gneiss_log_queue_test>
     -DMODE=${mode} -P ${PROJECT_SOURCE_DIR}/tests/core/check_fatal.cmake)
 endforeach()
 add_test(NAME gneiss.application-log-fatal

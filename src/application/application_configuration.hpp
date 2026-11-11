@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/core/log/log_dispatcher.hpp"
+#include "engine/core/logging/record.hpp"
 #include "engine/platform/window_configuration.hpp"
 
 #include "engine/core/diagnostics/diagnostic.hpp"
@@ -25,7 +25,7 @@ struct application_callbacks final {
   std::function<void()> shutdown;
   std::function<void(const gneiss::engine::diagnostic_view&)> diagnostic;
   std::function<bool()> close_requested;
-  gneiss::engine::event_sink log;
+  gneiss::engine::logging::record_callback log;
 };
 
 /** 原生创建配置；字符串仅在 initialize 期间借用。 */

@@ -6,6 +6,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_types.hpp"
+#include <deque>
 
 #include "application/application.hpp"
 #include "engine/core/error.hpp"
@@ -372,7 +373,7 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
     constexpr std::string_view category = "lifecycle";
     constexpr std::string_view message = "Runtime 已进入首帧";
     const auto log_result =
-        context.application->submit_log({.severity = gneiss::engine::level::info,
+        context.application->submit_log({.severity = gneiss::engine::logging::level::info,
                                          .source = "application",
                                          .category = category,
                                          .message = message});
@@ -457,7 +458,8 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
   return gneiss::engine::error::success;
 }
 
-void write_application_log(const gneiss::engine::event_view& source, runtime_context& context) {
+void write_application_log(const gneiss::engine::logging::record_view& source,
+                           runtime_context& context) {
   if (context.log != nullptr) {
     context.log->write(source);
   }
@@ -502,7 +504,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
 
   desc.asset_root = asset_root;
 
-  desc.callbacks.log = [&context](const gneiss::engine::event_view& event) {
+  desc.callbacks.log = [&context](const gneiss::engine::logging::record_view& event) {
     write_application_log(event, context);
   };
   desc.environment_asset = project.environment.asset;

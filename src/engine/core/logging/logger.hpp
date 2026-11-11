@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/log/log_types.hpp"
+#include "engine/core/logging/record.hpp"
 #include "engine/core/string_name.hpp"
 #include <format>
 #include <memory>

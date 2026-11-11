@@ -227,8 +227,8 @@ bool test_control_lifecycle() {
   constexpr std::string_view source = "test";
   constexpr std::string_view category = "ipc";
   constexpr std::string_view text = "结构化日志";
-  const gneiss::engine::event_view log_event{
-      .message = {.severity = gneiss::engine::level::info,
+  const gneiss::engine::logging::record_view log_event{
+      .message = {.severity = gneiss::engine::logging::level::info,
                   .source = source,
                   .category = category,
                   .message = text,

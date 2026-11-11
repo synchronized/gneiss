@@ -165,7 +165,7 @@ foreach(source IN LISTS sources)
        content MATCHES "gneiss/engine/reflection[.]h|engine/values/"))
     message(FATAL_ERROR "原生反射注册表不得依赖旧 C 属性布局、句柄表或转换层：${source}")
   endif()
-  if(source MATCHES "/src/engine/core/log/" AND
+  if(source MATCHES "/src/engine/core/logging/" AND
       (content MATCHES "gneiss_log_|GNEISS_LOG_" OR
        content MATCHES "gneiss/(engine/)?log[.]h" OR
        content MATCHES "engine/(api|function|platform)/"))

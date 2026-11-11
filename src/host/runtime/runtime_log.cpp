@@ -68,26 +68,27 @@ void append_quoted(std::string& output, std::string_view value) {
   output.push_back('"');
 }
 
-[[nodiscard]] std::string_view severity_name(gneiss::engine::level severity) noexcept {
+[[nodiscard]] std::string_view severity_name(gneiss::engine::logging::level severity) noexcept {
   switch (severity) {
-  case gneiss::engine::level::trace:
+  case gneiss::engine::logging::level::trace:
     return "TRACE";
-  case gneiss::engine::level::debug:
+  case gneiss::engine::logging::level::debug:
     return "DEBUG";
-  case gneiss::engine::level::info:
+  case gneiss::engine::logging::level::info:
     return "INFO";
-  case gneiss::engine::level::warning:
+  case gneiss::engine::logging::level::warning:
     return "WARNING";
-  case gneiss::engine::level::error:
+  case gneiss::engine::logging::level::error:
     return "ERROR";
-  case gneiss::engine::level::fatal:
+  case gneiss::engine::logging::level::fatal:
     return "FATAL";
   default:
     return "UNKNOWN";
   }
 }
 
-[[nodiscard]] std::string format_structured_event(const gneiss::engine::event_view& source) {
+[[nodiscard]] std::string
+format_structured_event(const gneiss::engine::logging::record_view& source) {
   std::string event = "time_ns=";
   event.append(std::to_string(source.timestamp_ns));
   event.append(" sequence=");
@@ -177,7 +178,7 @@ void runtime_log::write(std::string_view level, std::string_view stage,
   }
 }
 
-void runtime_log::write(const gneiss::engine::event_view& source) {
+void runtime_log::write(const gneiss::engine::logging::record_view& source) {
   {
     const std::scoped_lock lock(mutex_);
     const auto event = format_structured_event(source);

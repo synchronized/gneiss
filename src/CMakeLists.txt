@@ -4,7 +4,7 @@
 # 内部调度模块由实际宿主链接，不进入安装 package 或公共 ABI。
 add_subdirectory(engine/core)
 if(GNEISS_BUILD_RUNTIME OR GNEISS_BUILD_EDITOR OR (GNEISS_BUILD_TESTING AND BUILD_TESTING))
-  add_subdirectory(engine/platform/log)
+  add_subdirectory(engine/platform/logging)
 endif()
 
 add_library(gneiss_engine)
@@ -66,12 +66,12 @@ target_sources(
     engine/core/version.cpp
     engine/core/detail/canonical_type_name.hpp
     engine/core/input/input_types.hpp
-    engine/core/log/log.hpp
-    engine/core/log/log.cpp
-    engine/core/log/log_dispatcher.cpp
-    engine/core/log/logging_runtime.cpp
-    engine/core/log/log_dispatcher.hpp
-    engine/core/log/log_types.hpp
+    engine/core/logging/validation.hpp
+    engine/core/logging/validation.cpp
+    engine/core/logging/detail/async_queue.cpp
+    engine/core/logging/runtime.cpp
+    engine/core/logging/detail/async_queue.hpp
+    engine/core/logging/record.hpp
 )
 
 target_sources(
