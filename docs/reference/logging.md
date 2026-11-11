@@ -8,6 +8,23 @@
 内部宿主使用原生 `application::submit_log`。消费线程通过 `log` 回调接收 `event_view`。
 日志队列、基础 Sink、Runtime 传输协议与 Editor Console 保留；日志 C API 已撤销。
 
+## 显式日志上下文
+
+`engine/core/log/logging_runtime.hpp` 提供 `logging::runtime`，构造时接收固定的 Sink 列表和队列容量。
+它复用现有 `log_dispatcher`，每个上下文只有一个有界队列和消费线程；不同上下文彼此隔离。
+`runtime.get_logger("asset")` 返回可复制的频道句柄，频道使用 `string_name`。
+Logger 提供 trace/debug/info/warning/error/critical，使用编译期检查的 `std::format_string`。
+`runtime.set_level(...)` 可跨线程更新过滤阈值；过滤先于格式化，但函数实参求值仍由调用者负责。
+未知级别不启用，空或非法 UTF-8 频道属于参数错误。
+
+正常关闭由宿主先停止生产者，再调用 `close()`；该操作停止接受新消息、排空队列、退出线程并 flush。
+Logger 不保活线程，关闭或上下文销毁后 `enabled()` 为 false，后续提交为空操作。
+`flush/close` 由宿主串行调用，不允许从 Sink 内调用；不同 Sink 不因某个预期输出失败而停止交付。
+`output_failures()` 统计 Sink write/flush 返回失败的次数；格式化、分配及未知异常不转换为该计数。
+Sink 内普通 Logger 调用被抑制，避免递归；异常仍遵循执行边界策略。
+
+当前仅实现显式异步上下文，尚未提供默认上下文或无线程模式，也未替换 Application 专属装配。
+
 ## 独立同步输出适配
 
 `logging::sink` 位于 `engine/core/log/sink.hpp`，同步接收完整 `event_view`，不保存借用字段。

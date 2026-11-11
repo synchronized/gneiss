@@ -137,6 +137,19 @@ gneiss_target_compile_warnings(gneiss_log_dispatcher_test)
 gneiss_target_output_directories(gneiss_log_dispatcher_test)
 add_test(NAME gneiss.log_dispatcher COMMAND gneiss_log_dispatcher_test)
 
+add_executable(gneiss_logging_runtime_test log/logging_runtime_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/engine/core/log/logging_runtime.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/log/log_dispatcher.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/log/log.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/string_name.cpp")
+target_include_directories(gneiss_logging_runtime_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_logging_runtime_test PRIVATE GNEISS_STATIC_DEFINE)
+target_link_libraries(gneiss_logging_runtime_test PRIVATE gneiss_core_values Threads::Threads gneiss_fatal)
+gneiss_target_compile_warnings(gneiss_logging_runtime_test)
+gneiss_target_output_directories(gneiss_logging_runtime_test)
+add_test(NAME gneiss.logging-runtime COMMAND gneiss_logging_runtime_test)
+set_tests_properties(gneiss.logging-runtime PROPERTIES TIMEOUT 15)
+
 
 
 

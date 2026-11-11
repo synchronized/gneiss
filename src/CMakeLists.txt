@@ -69,6 +69,7 @@ target_sources(
     engine/core/log/log.hpp
     engine/core/log/log.cpp
     engine/core/log/log_dispatcher.cpp
+    engine/core/log/logging_runtime.cpp
     engine/core/log/log_dispatcher.hpp
     engine/core/log/log_types.hpp
 )
