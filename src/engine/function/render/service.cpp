@@ -156,8 +156,8 @@ gneiss::error service::implementation::shutdown(render_device_stats& stats) {
     stats = {};
     return gneiss::error::success;
   }
-  static_cast<void>(executor_.flush());
-  const auto frame_result = collect_completions();
+  // 排空所有旧回执后再提交关闭命令，避免把历史失败后的回执误认成关闭结果。
+  const auto frame_result = finish_frames();
 
   const auto submit_result = executor_.submit_command(
       [this, &stats](const render::detail::render_command_reporter& reporter) {
@@ -205,8 +205,8 @@ error service::initialize(const native_window_info& window,
 }
 error service::shutdown(render_device_stats& stats) {
   const auto status = impl_->shutdown(stats);
-  if (status.ok())
-    close_resources();
+  // shutdown 已停止执行器；历史帧错误不应使 CPU 入口继续接受新资源和场景。
+  close_resources();
   return status;
 }
 

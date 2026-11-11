@@ -44,6 +44,8 @@ public:
    * 队列满返回 not_ready；解析失败沿用内置环境，执行失败由正常帧完成分发返回。 */
   [[nodiscard]] GNEISS_API error request_environment(
       std::shared_ptr<const std::vector<std::byte>> bytes, float intensity, float rotation);
+  /** 排空并关闭设备及 CPU 场景/资源；即使返回历史执行错误，服务仍进入关闭状态。
+   * 可重复调用；关闭后的 RID 失效，已捕获的自有内容按原有引用生命周期释放。 */
   [[nodiscard]] GNEISS_API error shutdown(render_device_stats& stats);
   [[nodiscard]] GNEISS_API error finish_frames();
   GNEISS_API void set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept;

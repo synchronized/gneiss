@@ -292,7 +292,12 @@ bool service_lifetime() {
     pending = {*scene, {render::set_visibility{{1}, {.visible = false}}}};
     CHECK(owner.submit(std::move(pending)));
     pending = {*scene, {render::destroy_instance{{1}}}};
-    owner.close_resources();
+    render_device_stats stats{};
+    CHECK(owner.shutdown(stats).ok());
+    CHECK(!owner.is_valid());
+    CHECK(!owner.create_scene() && !owner.reserve_mesh());
+    CHECK(owner.mesh_status(*mesh) == error::invalid_handle);
+    CHECK(owner.shutdown(stats).ok());
     CHECK(retained.expired());
     CHECK(!owner.submit(std::move(pending)));
   }

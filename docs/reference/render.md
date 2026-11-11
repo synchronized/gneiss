@@ -178,6 +178,7 @@ Render 不查找或修改上层资源；直接调用 RID 更新接口只改变�
 独立使用时 Render 必须覆盖工厂的生命周期；不再由 Render 自动关闭上层资源端点。
 Application、Loader、UI 和帧构建使用 `render::service` 的 RID 操作及只读数据查询。
 仅构造服务和操作 CPU 资源不会初始化 GPU；无窗口路径调用 shutdown 可关闭资源，重复关闭成功。
+shutdown 排空旧工作和完成回执后关闭设备；即使报告历史执行错误，CPU 场景和资源入口也会关闭，旧 RID 失效。
 `service.hpp` 不包含 Granit 头文件，也不暴露 Granit 类型；后端状态放在 `.cpp` 的 PImpl 中。
 关闭统计使用引擎值类型 `render_device_stats`，不返回设备或后端句柄。
 

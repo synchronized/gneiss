@@ -429,7 +429,9 @@ Service/Application 改为包含 frame_result.hpp，完成回执与回读数据�
 Service 已改名为 render::service，文件收敛为 service.hpp/.cpp 与 service_resources.cpp；
 Application、资产管理器、World 绑定和测试均使用新入口，不保留旧类型或路径别名。
 本次命名迁移已通过 Runtime、Editor、独立服务头文件构建，九项相关 CPU 行为测试及两项分层检查；未运行 GPU 验收。
-P0 的核心所有权与后端边界已落地；其余 Render 值类型命名及关闭/背压验收仍需复核。
+关闭路径已复用 finish_frames 排空历史回执，再识别设备关闭回执；即使报告历史执行错误，CPU 入口仍关闭。
+CPU 生命周期用例覆盖无设备关闭、重复关闭、拒绝新场景/资源和实例引用释放；设备失败路径仍待 GPU 验收。
+P0 的核心所有权与后端边界已落地；其余 Render 值类型命名及完整关闭/背压验收仍需复核。
 
 ## 实施顺序与完成条件
 
