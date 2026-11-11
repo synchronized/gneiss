@@ -6,6 +6,7 @@
 #include "../../support/async_prefab_edit.hpp"
 #include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
+#include "application/application.hpp"
 #include "asset_browser_model.hpp"
 #include "asset_import_controller.hpp"
 #include "commands/editor_command_history.hpp"
@@ -16,7 +17,6 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/world.hpp"
-#include "runtime/application.hpp"
 
 #include "engine/core/error.hpp"
 #include "engine/core/math/transform.hpp"

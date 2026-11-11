@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "application/application.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/resource/scene.hpp"
-#include "runtime/application.hpp"
 #include "scene_access.hpp"
 #include "scene_instantiation.hpp"
 #include "value_result.hpp"

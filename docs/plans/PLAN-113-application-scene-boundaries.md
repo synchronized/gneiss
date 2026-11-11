@@ -146,7 +146,8 @@ Prefab 回放若是编辑器仍需直接调用的契约，应保留公开内部�
 
 - [x] scene_application 改为 scene_update，保持输入输出和失败语义明确。
 - [x] render_extraction 移到渲染前端；边界检查区分前端桥接和后端实现。
-- [ ] runtime 剩余装配迁入 application；配置与主类相邻，主循环等待放 detail。
+- [x] Application 装配迁入 application；配置与主类相邻，主循环等待放 detail。
+- [ ] 删除 runtime/loading 的迁移期协调代码，清空旧 runtime 目录。
 - [ ] 同步 CMake、内部接口清单、头文件依赖、示例及测试；删除废弃头和函数。
 
 ### 5. 验收与文档收尾

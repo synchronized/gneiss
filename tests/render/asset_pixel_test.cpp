@@ -5,6 +5,7 @@
 #include "../support/codec_result.hpp"
 #include "../support/scene_access.hpp"
 #include "../support/value_result.hpp"
+#include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
@@ -18,7 +19,6 @@
 #include "engine/resource/texture/texture_binary.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 #include "engine/resource/texture/texture_view.hpp"
-#include "runtime/application.hpp"
 #include <array>
 #include <chrono>
 #include <cstdio>

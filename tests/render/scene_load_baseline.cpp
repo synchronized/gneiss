@@ -2,12 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/value_result.hpp"
+#include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "runtime/application.hpp"
 
 #include "../support/scene_access.hpp"
 #include "engine/function/scene/world.hpp"

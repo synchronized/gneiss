@@ -7,9 +7,9 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_types.hpp"
 
+#include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/scene/world.hpp"
-#include "runtime/application.hpp"
 #include <gneiss/app/project_description.hpp>
 
 #include "runtime_asset_reloader.hpp"

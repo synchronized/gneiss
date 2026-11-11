@@ -276,10 +276,10 @@ target_sources(
     runtime/loading/scene_load_types.hpp
     runtime/loading/scene_service.cpp
     runtime/loading/scene_service.hpp
-    runtime/application.cpp
-    runtime/application.hpp
-    runtime/main_loop_wakeup.hpp
-    runtime/configuration/application_configuration.hpp
+    application/application.cpp
+    application/application.hpp
+    application/detail/main_loop_wakeup.hpp
+    application/application_configuration.hpp
 )
 
 set(granit_pbr_asset_dir "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries")

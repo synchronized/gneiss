@@ -5,6 +5,7 @@
 #include "../support/scene_access.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
+#include "application/application.hpp"
 #include "commands/author_property_edit.hpp"
 #include "documents/scene_document_edit.hpp"
 #include "engine/core/error.hpp"
@@ -17,7 +18,6 @@
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/scene.hpp"
-#include "runtime/application.hpp"
 
 #include "engine/core/error.hpp"
 #include "engine/core/meta/type.hpp"

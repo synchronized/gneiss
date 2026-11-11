@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime/application.hpp"
+#include "application/application.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/error.hpp"
@@ -23,7 +23,7 @@
 #include <thread>
 #include <tuple>
 #ifdef GNEISS_NATIVE_LOOP_WAIT
-#include "runtime/main_loop_wakeup.hpp"
+#include "application/detail/main_loop_wakeup.hpp"
 #endif
 
 #include "engine/resource/asset_uri.hpp"

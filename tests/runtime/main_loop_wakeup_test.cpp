@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "application/detail/main_loop_wakeup.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "runtime/main_loop_wakeup.hpp"
 
+#include <algorithm>
 #include <barrier>
 #include <memory>
-#include <stdexcept>
 #include <thread>
 #include <vector>
 
@@ -58,7 +58,10 @@ int main() try {
           submit_result::success ||
       scheduler.submit(
           {.name = "failure", .scope = scope},
-          [](const task_context&) -> task_outcome { throw std::runtime_error("测试"); },
+          [](const task_context&) {
+            // 验证正常失败终态的通知；未处理异常按致命策略另行验证。
+            return task_outcome{.state = task_state::failed};
+          },
           failure) != submit_result::success ||
       scheduler.submit({.name = "cancel", .scope = scope}, good, cancelled) !=
           submit_result::success ||
@@ -84,10 +87,15 @@ int main() try {
     return 6;
   }
   std::vector<task_completion> results;
+  const auto completed_as = [&](task_handle task, task_state state) {
+    return std::ranges::any_of(results, [&](const auto& result) {
+      return result.task.owner == task.owner && result.task.id == task.id &&
+             result.outcome.state == state;
+    });
+  };
   if (scheduler.poll(scope, results) != 3U || weak.expired() ||
-      results[0].outcome.state != task_state::succeeded ||
-      results[1].outcome.state != task_state::failed ||
-      results[2].outcome.state != task_state::cancelled || !scheduler.close_scope(scope) ||
+      !completed_as(success, task_state::succeeded) || !completed_as(failure, task_state::failed) ||
+      !completed_as(cancelled, task_state::cancelled) || !scheduler.close_scope(scope) ||
       !weak.expired()) {
     return 7;
   }

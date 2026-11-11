@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/value_result.hpp"
+#include "application/detail/main_loop_wakeup.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/render/render_executor.hpp"
-#include "runtime/main_loop_wakeup.hpp"
 
 #include <atomic>
 #include <condition_variable>

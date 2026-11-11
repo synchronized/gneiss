@@ -3,6 +3,7 @@
 
 cmake_minimum_required(VERSION 3.23)
 set(fixture "${GNEISS_BINARY_DIR}/asset-layout-v3-boundary-fixture")
+file(WRITE "${fixture}/src/application/probe.cpp" "")
 file(WRITE "${fixture}/src/engine/function/render/render_extraction.cpp" "")
 file(WRITE "${fixture}/src/engine/function/render/backend/probe.cpp" "")
 # 场景消费者反例中断后也必须恢复，避免污染下一次基线检查。
@@ -567,35 +568,35 @@ foreach(old_path IN ITEMS "engine/asset" "engine/function/resource" "engine/func
   endif()
 endforeach()
 
-# Engine 各层禁止依赖 Runtime，应用组装可以正向依赖 Engine。
+# Engine 各层禁止依赖 Application，应用组装可以正向依赖 Engine。
 foreach(layer IN ITEMS core platform resource function/scene api)
   file(MAKE_DIRECTORY "${fixture}/src/engine/${layer}")
-  file(WRITE "${fixture}/src/engine/${layer}/runtime_probe.hpp" "#include <runtime/application.hpp>\n")
+  file(WRITE "${fixture}/src/engine/${layer}/runtime_probe.hpp" "#include <application/application.hpp>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
   file(REMOVE "${fixture}/src/engine/${layer}/runtime_probe.hpp")
   if(status EQUAL 0)
-    message(FATAL_ERROR "未拒绝 Engine ${layer} 反向依赖 Runtime")
+    message(FATAL_ERROR "未拒绝 Engine ${layer} 反向依赖 Application")
   endif()
 endforeach()
 foreach(header IN ITEMS editor/documents/scene_document.hpp editor/documents/scene_edit_session.hpp apps/editor/main.hpp host/runtime/application.hpp tooling/asset_build.hpp)
-  file(WRITE "${fixture}/src/runtime/probe.cpp" "#include <${header}>\n")
+  file(WRITE "${fixture}/src/application/probe.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
   if(status EQUAL 0)
-    message(FATAL_ERROR "未拒绝 Runtime 反向依赖 ${header}")
+    message(FATAL_ERROR "未拒绝 Application 反向依赖 ${header}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/runtime/probe.cpp" "#include <engine/function/asset/asset_manager.hpp>\n")
+file(WRITE "${fixture}/src/application/probe.cpp" "#include <engine/function/asset/asset_manager.hpp>\n")
 file(MAKE_DIRECTORY "${fixture}/src/runtime/api")
 file(WRITE "${fixture}/src/runtime/api/probe.cpp" "extern \"C\" int allowed();\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
   RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
 if(NOT status EQUAL 0)
-  message(FATAL_ERROR "错误拒绝 Runtime 正向组装或 C ABI 适配")
+  message(FATAL_ERROR "错误拒绝 Application 正向组装或 C ABI 适配")
 endif()
 
 # 业务命名空间按层统一；实现细节可用 detail。
@@ -635,7 +636,7 @@ execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
 if(status EQUAL 0)
   message(FATAL_ERROR "未拒绝 Host 反向依赖 Apps")
 endif()
-file(WRITE "${fixture}/src/host/editor/probe.cpp" "#include <editor/documents/document_editing.hpp>\n#include <runtime/application.hpp>\n")
+file(WRITE "${fixture}/src/host/editor/probe.cpp" "#include <editor/documents/document_editing.hpp>\n#include <application/application.hpp>\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
 if(NOT status EQUAL 0)

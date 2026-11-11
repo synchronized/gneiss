@@ -5,6 +5,7 @@
 #include "../support/mesh_objects.hpp"
 #include "../support/scene_access.hpp"
 #include "../support/value_result.hpp"
+#include "application/application.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/camera_selection.hpp"
@@ -12,7 +13,6 @@
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/scene_update.hpp"
 #include "engine/function/scene/world.hpp"
-#include "runtime/application.hpp"
 #include <thread>
 
 #include <cstdint>

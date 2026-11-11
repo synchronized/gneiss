@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/scene_document_edit.hpp"
+#include "application/application.hpp"
 #include "documents/scene_edit_session.hpp"
-#include "runtime/application.hpp"
 namespace gneiss::editor {
 namespace {
 struct document_selection {

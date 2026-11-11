@@ -12,6 +12,7 @@
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/input/action_map.hpp"
 
+#include "application/application_configuration.hpp"
 #include "engine/core/log/log_dispatcher.hpp"
 #include "engine/function/asset/asset_batch_request.hpp"
 #include "engine/function/asset/asset_batch_types.hpp"
@@ -19,7 +20,6 @@
 #include "engine/function/render/render_snapshot.hpp"
 #include "engine/function/render/render_statistics.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
-#include "runtime/configuration/application_configuration.hpp"
 #include "runtime/loading/scene_load_types.hpp"
 #include "runtime/loading/scene_service.hpp"
 

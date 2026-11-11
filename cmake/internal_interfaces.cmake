@@ -114,8 +114,8 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/rid_table.hpp
   engine/core/sha256.hpp
   engine/core/tasks/task_scheduler.hpp
-  runtime/application.hpp
-  runtime/configuration/application_configuration.hpp
+  application/application.hpp
+  application/application_configuration.hpp
   engine/function/asset/asset_batch_request.hpp
   engine/function/asset/asset_batch_types.hpp
   runtime/loading/scene_load_types.hpp

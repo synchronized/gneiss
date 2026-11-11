@@ -20,8 +20,8 @@
 `src/engine/resource/`；旧 `src/engine/asset/`、`src/engine/function/asset/` 已删除，
 没有兼容转发头。渲染 Loader 与上传保留在 `function/render`，Prefab 实例化和编辑保留在
 `function/scene`。资源代码已按 `types/`、`loaders/`、`vfs/` 和 `cache/` 分类。
-Application 组装位于 `src/runtime/`，加载流程位于其 `loading/`，配置位于 `configuration/`。
-主循环唤醒实现位于 `src/runtime/main_loop_wakeup.hpp`，属于 `gneiss::runtime`；
+Application 组装位于 `src/application/`，配置与主类相邻；`src/runtime/loading/` 只保留迁移期场景协调。
+主循环唤醒实现位于 `src/application/detail/main_loop_wakeup.hpp`，属于 `gneiss::runtime`；
 任务和渲染仅依赖 Core 的 `wakeup_signal` 接口，不依赖 Runtime 的等待实现。
 游戏上下文归 `runtime/game/`，依赖 Application 的 C 适配归 `runtime/api/`。
 Engine 源码不得反向包含 Runtime；当前仍一起编入 `gneiss_engine`，没有新增公共库目标。
@@ -100,7 +100,7 @@ assetc CLI 实现位于 `src/host/assetc/`，入口位于 `apps/assetc/`，工�
 | Core | `src/engine/core/` | 结果、RID、Service 注册等无领域倾向的基础设施 | 已存在 |
 | World | `src/engine/function/world/` | World、Entity、System 与 EnTT 适配 | 已存在 |
 | Scene | `src/engine/function/scene/` | Scene Tree、节点映射与层级 Transform | 已存在 |
-| Application | `src/runtime/` | 顶层生命周期、初始化回滚和主循环编排 | 已存在 |
+| Application | `src/application/` | 顶层生命周期、初始化回滚和主循环编排 | 已存在 |
 | Platform | `src/engine/platform/` | 窗口、IO、IPC、子进程和动态库等平台能力的隔离 | 已存在 |
 | Asset | `src/engine/resource/` | 格式、CPU 解码与资产缓存 | 已迁移 |
 | Render | `src/engine/function/render/` | 渲染输入快照、资源 RID、帧包与执行器 | 已存在 |
@@ -170,8 +170,8 @@ Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其
 | 要了解的行为 | 入口 | 拥有或借用关系 |
 | --- | --- | --- |
 | 程序启动与关闭 | `src/host/editor/editor_application.cpp`、`src/host/runtime/runtime_application.cpp` | 宿主拥有原生 Application，先清理依赖它的会话、命令与任务 |
-| Application 装配 | `src/runtime/application.hpp` | 拥有平台、服务与场景协调组件；普通内部操作不解析自身 C 句柄 |
-| 场景切换 | `src/runtime/loading/scene_service.hpp` | 拥有活动与退役域、内部加载任务，协调激活 |
+| Application 装配 | `src/application/application.hpp` | 拥有平台、服务与场景协调组件；普通内部操作不解析自身 C 句柄 |
+| 场景切换 | `src/runtime/loading/scene_service.hpp` | 迁移期打开/重载请求协调；仅借用 World，来源基线由调用方持有 |
 | 加载实现 | `src/runtime/loading/scene_service_loading.cpp` | 统一服务的内部临时任务；后台准备、同步实例化与激活 |
 | World 数据和操作 | `src/engine/function/world/world.hpp` | 原生对象拥有 ECS/树状态；`world_factory.cpp` 创建独占拥有者，反射直接借用对象 |
 | Scene 借用句柄 | `src/engine/function/world/scene_instance.hpp` | 查询 ECS 成员归属、创建对象及卸载；不保存作者内容 |
@@ -356,3 +356,7 @@ ECS 组件保存有效值及资源强引用；运行实例不持有 Prefab 绑�
 engine/function/render/render_extraction 在 World 所属线程提取渲染快照，是读取场景的渲染前端桥接。
 快照持有资源强引用，不借用 ECS 内存。该桥接不依赖 GPU 后端；其他渲染实现和后端不能反向
 包含 World/Scene。活动相机选择保留在 engine/function/scene/camera_selection，由 World 保存其状态。
+
+Application 装配位于 src/application，application_configuration.hpp 与主类相邻，
+主循环唤醒实现位于 detail/main_loop_wakeup.hpp。C++ 命名空间仍为 gneiss::runtime。
+src/runtime/loading 暂时只保留待迁移的场景协调，不代表另一套 Application 所有者。

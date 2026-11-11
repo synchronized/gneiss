@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "application/application.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "runtime/application.hpp"
 #include <chrono>
 namespace gneiss::test_support {
 inline engine::error load_input_for_test(runtime::application& app,

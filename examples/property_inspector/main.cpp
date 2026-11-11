@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/scope_exit.hpp"
+#include "application/application.hpp"
 #include "engine/core/fatal.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/meta/registry.hpp"
@@ -13,7 +14,6 @@
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/asset_file.hpp"
-#include "runtime/application.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>

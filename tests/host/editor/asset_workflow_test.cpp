@@ -5,6 +5,7 @@
 #include "../../support/async_editor_save.hpp"
 #include "../../support/async_mesh_edit.hpp"
 #include "../../support/value_result.hpp"
+#include "application/application.hpp"
 #include "asset_reimport_queue.hpp"
 #include "documents/scene_edit_session.hpp"
 #include "engine/core/error.hpp"
@@ -12,7 +13,6 @@
 #include "engine/function/scene/world.hpp"
 #include "package_archive.hpp"
 #include "project_workspace.hpp"
-#include "runtime/application.hpp"
 #include "runtime_process.hpp"
 
 #include "engine/core/error.hpp"

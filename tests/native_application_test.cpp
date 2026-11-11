@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/asset/render_resource.hpp"
 #include "engine/function/scene/world.hpp"
-#include "runtime/application.hpp"
 #include "runtime/loading/scene_service.hpp"
 #include "support/scene_access.hpp"
 #include "support/value_result.hpp"

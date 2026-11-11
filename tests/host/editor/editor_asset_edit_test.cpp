@@ -4,6 +4,7 @@
 #include "../../support/scene_access.hpp"
 #include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
+#include "application/application.hpp"
 #include "commands/editor_asset_edit.hpp"
 #include "documents/scene_document_snapshot.hpp"
 #include "engine/core/error.hpp"
@@ -12,7 +13,6 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/asset_file.hpp"
-#include "runtime/application.hpp"
 #include "runtime/loading/scene_service.hpp"
 #include <algorithm>
 #include <cstdio>

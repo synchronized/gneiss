@@ -2,13 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/scope_exit.hpp"
+#include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/fatal.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/world.hpp"
-#include "runtime/application.hpp"
 
 #include <algorithm>
 #include <chrono>

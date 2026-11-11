@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "imgui_adapter.hpp"
+#include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/resource/texture/texture_view.hpp"
-#include "runtime/application.hpp"
 
 #include "editor_theme.hpp"
 

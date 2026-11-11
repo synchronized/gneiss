@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/value_result.hpp"
+#include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/detail/asset_construction.hpp"
@@ -11,7 +12,6 @@
 #include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/world.hpp"
-#include "runtime/application.hpp"
 #include <thread>
 
 int run_host_tests() {

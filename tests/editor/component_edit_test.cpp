@@ -5,6 +5,7 @@
 #include "../support/scene_access.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
+#include "application/application.hpp"
 #include "commands/author_property_edit.hpp"
 #include "editor/documents/prefab_edit.hpp"
 #include "engine/core/fatal.hpp"
@@ -18,7 +19,6 @@
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/scene.hpp"
 #include "panels/reflected_property_editor.hpp"
-#include "runtime/application.hpp"
 #include <cstdio>
 #include <imgui.h>
 #include <imgui_internal.h>

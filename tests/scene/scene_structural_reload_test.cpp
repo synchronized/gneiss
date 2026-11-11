@@ -6,6 +6,7 @@
 #include "../support/mesh_objects.hpp"
 #include "../support/scene_access.hpp"
 #include "../support/value_result.hpp"
+#include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
@@ -13,7 +14,6 @@
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/world.hpp"
-#include "runtime/application.hpp"
 
 #include <filesystem>
 #include <fstream>

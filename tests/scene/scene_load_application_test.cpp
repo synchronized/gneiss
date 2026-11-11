@@ -4,6 +4,7 @@
 #include "../support/codec_result.hpp"
 #include "../support/mesh_objects.hpp"
 #include "../support/value_result.hpp"
+#include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/identifier_conversion.hpp"
@@ -15,7 +16,6 @@
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
-#include "runtime/application.hpp"
 
 #include "../support/scene_access.hpp"
 #include "engine/function/scene/world.hpp"

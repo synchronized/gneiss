@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "documents/scene_edit_session.hpp"
+#include "application/application.hpp"
 #include "components/component_registration.hpp"
 #include "documents/scene_projection.hpp"
 #include "engine/core/error.hpp"
@@ -11,7 +12,6 @@
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/asset_file.hpp"
-#include "runtime/application.hpp"
 
 #include "engine/core/meta/transform_properties.hpp"
 

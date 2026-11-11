@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "commands/editor_asset_edit.hpp"
+#include "application/application.hpp"
 #include "commands/prefab_authoring.hpp"
 #include "documents/prefab_edit.hpp"
 #include "documents/scene_document_edit.hpp"
@@ -9,7 +10,6 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
-#include "runtime/application.hpp"
 #include <algorithm>
 
 namespace gneiss::editor {

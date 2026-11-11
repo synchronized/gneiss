@@ -5,6 +5,7 @@
 #include "../support/scene_access.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
+#include "application/application.hpp"
 #include "commands/author_property_edit.hpp"
 #include "components/component_registration.hpp"
 #include "engine/core/serialization/json.hpp"
@@ -13,7 +14,6 @@
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/scene.hpp"
-#include "runtime/application.hpp"
 #include <cstdio>
 #include <source_location>
 #include <thread>

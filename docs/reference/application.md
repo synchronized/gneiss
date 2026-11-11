@@ -5,7 +5,7 @@
 
 ## 原生入口与所有权
 
-仓内宿主使用 `src/runtime/application.hpp` 的 `gneiss::runtime::application`，
+仓内宿主使用 `src/application/application.hpp` 的 `gneiss::runtime::application`，
 配置为 `application_configuration`。`application::create(config)` 返回
 `engine::result<std::shared_ptr<application>>`；成功值拥有已初始化对象，失败返回错误并清理部分初始化状态。
 调用方检查结果后移出拥有引用；不创建 Application RID 或注册表项。

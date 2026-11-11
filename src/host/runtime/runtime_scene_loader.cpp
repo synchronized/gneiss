@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_scene_loader.hpp"
+#include "application/application.hpp"
 #include "engine/core/error.hpp"
-#include "runtime/application.hpp"
 
 namespace gneiss::host {
 namespace {

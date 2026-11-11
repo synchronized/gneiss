@@ -16,7 +16,7 @@
 #include "runtime/loading/scene_service.hpp"
 
 #include "../support/scene_access.hpp"
-#include "runtime/application.hpp"
+#include "application/application.hpp"
 
 #include <cstdio>
 #include <filesystem>

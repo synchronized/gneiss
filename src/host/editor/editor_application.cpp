@@ -52,8 +52,8 @@
 #include "panels/asset_browser_panel.hpp"
 #endif
 
+#include "application/application.hpp"
 #include "engine/core/error.hpp"
-#include "runtime/application.hpp"
 
 #include <imgui.h>
 

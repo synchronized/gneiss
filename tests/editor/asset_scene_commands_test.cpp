@@ -4,6 +4,7 @@
 #include "../support/document_prefab.hpp"
 #include "../support/scene_query.hpp"
 #include "../support/value_result.hpp"
+#include "application/application.hpp"
 #include "commands/editor_asset_edit.hpp"
 #include "commands/editor_prefab_edit.hpp"
 #include "documents/editor_scene_loader.hpp"
@@ -13,7 +14,6 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/component_registration.hpp"
 #include "engine/function/scene/world.hpp"
-#include "runtime/application.hpp"
 #include <chrono>
 #include <cstdio>
 #include <thread>

@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "documents/editor_scene_loader.hpp"
+#include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/world.hpp"
-#include "runtime/application.hpp"
 
 namespace gneiss::editor {
 

@@ -5,6 +5,7 @@
 #include "../../support/scene_access.hpp"
 #include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
+#include "application/application.hpp"
 #include "commands/runtime_author_apply.hpp"
 #include "documents/scene_edit_session.hpp"
 #include "engine/core/error.hpp"
@@ -13,7 +14,6 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/world.hpp"
-#include "runtime/application.hpp"
 
 #include "engine/core/error.hpp"
 
