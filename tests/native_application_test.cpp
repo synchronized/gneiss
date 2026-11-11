@@ -6,7 +6,6 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/asset/render_resource.hpp"
 #include "engine/function/scene/world.hpp"
-#include "runtime/loading/scene_service.hpp"
 #include "support/scene_access.hpp"
 #include "support/value_result.hpp"
 
@@ -116,15 +115,11 @@ void test_asset_request_boundaries() {
   check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
         gneiss::engine::error::success);
   engine::asset_batch_request empty_assets;
-  runtime::scene_open_request empty_scene;
   check(!empty_assets.progress() && empty_assets.cancel() == engine::error::invalid_state);
-  check(!empty_scene.progress() && empty_scene.cancel() == engine::error::invalid_state);
   const auto rejected = [&] {
     check(app->run(1) == engine::error::invalid_state);
-    auto scene = app->scenes().open("project://missing.scene");
     auto assets = app->load_assets({});
-    return !scene && scene.error() == engine::error::invalid_state && !assets &&
-           assets.error() == engine::error::invalid_state;
+    return !assets && assets.error() == engine::error::invalid_state;
   };
   bool rejected_on_worker{};
   std::thread worker([&] { rejected_on_worker = rejected(); });
@@ -143,7 +138,9 @@ void test_loading_request_lifetime() {
   check(bool(created));
   auto app = std::move(*created);
   check(app->attach_task_executor(tasks).ok());
-  auto submitted = app->scenes().open("asset://missing.scene");
+  const engine::render_resource_source source{"asset://missing.texture",
+                                              engine::render_resource_kind::texture};
+  auto submitted = app->load_assets({&source, 1});
   check(bool(submitted));
   auto request = std::move(*submitted);
   check(bool(request) && !bool(*submitted) && !request.ready());
@@ -153,34 +150,32 @@ void test_loading_request_lifetime() {
   });
   worker.join();
   check(worker_rejected && bool(request));
-  // 放弃候选释放操作槽位，不需要任何加载专用推进接口。
+  // 放弃批次释放操作槽位；已移动请求的清理不能取消新所有者。
+  submitted->reset();
+  check(bool(request));
   request.reset();
-  submitted = app->scenes().open("asset://other.scene");
+  submitted = app->load_assets({&source, 1});
   check(bool(submitted));
   request = std::move(*submitted);
+  check(request.cancel().ok() && request.ready());
+  auto cancelled = request.take();
+  check(bool(cancelled) && cancelled->state == engine::asset_load_state::cancelled && !request);
+  // 每个 Application 的批次独立；关闭一个不会使另一个的请求失效。
   auto other_created = runtime::application::create({});
   check(bool(other_created));
-  auto cross_owner = (*other_created)->scenes().activate(std::move(request));
-  check(!cross_owner && cross_owner.error() == engine::error::invalid_state && bool(request));
-  request.reset();
-  const engine::render_resource_source source{"asset://missing.texture",
-                                              engine::render_resource_kind::texture};
-  auto batch = app->load_assets({&source, 1});
-  check(bool(batch) && bool(*batch));
-  auto moved = std::move(*batch);
-  check(!bool(*batch) && bool(moved));
-  batch->reset();
-  check(bool(moved));
-  submitted = app->scenes().open("asset://last.scene");
+  check((*other_created)->attach_task_executor(tasks).ok());
+  auto independent = (*other_created)->load_assets({});
+  check(bool(independent) && independent->ready());
+  submitted = app->load_assets({&source, 1});
   check(bool(submitted));
   request = std::move(*submitted);
   check(app->shutdown().ok());
-  check(!request && !moved);
+  check(!request && bool(*independent));
   app.reset();
-  check(request.status() == engine::error::invalid_state);
-  check(!moved.take() && moved.take().error() == engine::error::invalid_state);
+  auto expired = request.take();
+  check(!expired && expired.error() == engine::error::invalid_state);
+  check(bool(independent->take()) && !bool(*independent));
   request.reset();
-  moved.reset();
 }
 
 void test_platform_callbacks() {
