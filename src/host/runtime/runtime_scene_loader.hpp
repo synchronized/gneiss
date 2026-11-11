@@ -4,8 +4,11 @@
 #pragma once
 
 #include "engine/core/error.hpp"
+#include "engine/function/asset/asset_batch_request.hpp"
+#include "engine/function/asset/asset_request.hpp"
 #include "ipc_scene_protocol.hpp"
-#include "runtime/loading/scene_service.hpp"
+#include "runtime/loading/scene_load_types.hpp"
+#include <atomic>
 
 #include <functional>
 
@@ -14,7 +17,7 @@ class application;
 }
 
 namespace gneiss::host {
-/** 宿主所属线程协调场景事务与模块安全点；调度、资源和 World 仍由 Application 管理。 */
+/** 宿主所属线程协调场景加载与模块安全点；调度、资源和 World 仍由 Application 管理。 */
 class runtime_scene_loader {
 public:
   explicit runtime_scene_loader(::gneiss::runtime::application& application)
@@ -25,6 +28,7 @@ public:
   std::function<gneiss::engine::error()> before_activate;
   std::function<gneiss::engine::error(const ::gneiss::runtime::scene_load_completion&)>
       after_activate;
+  [[nodiscard]] bool visual_loading() const noexcept { return bool(visuals_); }
   [[nodiscard]] bool busy() const noexcept { return active_; }
   [[nodiscard]] const ipc_scene_progress& progress() const noexcept { return progress_; }
   [[nodiscard]] std::uint32_t request_id() const noexcept { return request_id_; }
@@ -34,7 +38,9 @@ private:
   gneiss::engine::error activate(::gneiss::runtime::scene_load_completion& completion);
   // 借用宿主对象；协调器必须先于 Application 析构。
   ::gneiss::runtime::application& application_;
-  ::gneiss::runtime::scene_open_request request_;
+  engine::asset_request<engine::scene> request_;
+  std::shared_ptr<std::atomic<bool>> ready_;
+  engine::asset_batch_request visuals_;
   engine::scene_instance current_;
   std::uint32_t request_id_{};
   bool active_{};

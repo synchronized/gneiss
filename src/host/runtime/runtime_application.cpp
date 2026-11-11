@@ -241,7 +241,8 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
       }
     }
     if (!context.pending_assets.empty() && !context.application->visual_assets_loading() &&
-        (!context.scene_loader || !context.scene_loader->busy())) {
+        (!context.scene_loader ||
+         (!context.scene_loader->busy() && !context.scene_loader->visual_loading()))) {
       const auto& command = context.pending_assets.front();
       gneiss::host::ipc_asset_reload_result response;
       bool ready = true;
@@ -363,7 +364,8 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
     context.scene_failed = progress.phase == gneiss::host::ipc_scene_phase::failed;
     if (context.smoke && terminal &&
         (context.scene_failed ||
-         (!context.application->visual_assets_loading() && ++context.smoke_frames >= 3U)))
+         (!context.application->visual_assets_loading() &&
+          !context.scene_loader->visual_loading() && ++context.smoke_frames >= 3U)))
       return request_exit();
   }
   if (!context.has_logged_first_frame) {
