@@ -22,8 +22,6 @@ enum class scene_load_phase : std::uint8_t {
 };
 struct scene_load_progress {
   std::uint64_t request{};
-  std::uint64_t session{};
-  std::uint64_t revision{};
   scene_load_phase phase{scene_load_phase::preparing};
   std::size_t completed{};
   std::size_t total{};

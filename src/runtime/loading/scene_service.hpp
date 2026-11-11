@@ -15,6 +15,7 @@
 
 #include "engine/function/asset/asset_batch_request.hpp"
 #include "runtime/loading/scene_load_types.hpp"
+#include <atomic>
 #include <optional>
 #include <thread>
 #include <variant>
@@ -121,8 +122,7 @@ private:
   friend class application;
   void advance();
   engine::result<scene_load_completion> activate(std::uint64_t request);
-  engine::result<std::uint64_t> request_scene(std::string_view uri, std::uint64_t session,
-                                              std::uint64_t revision);
+  engine::result<std::uint64_t> request_scene(std::string_view uri);
   bool scene_progress(scene_load_progress&) const;
   engine::error cancel_scene(std::uint64_t request);
   std::shared_ptr<scene_service*> lifetime_;
@@ -133,6 +133,7 @@ private:
   struct reload_task {
     std::uint64_t id{};
     engine::ref<scene_reload_state> source;
+    std::shared_ptr<std::atomic<bool>> ready;
     std::variant<engine::asset_request<engine::scene>, engine::asset_request<engine::prefab>>
         descriptions;
     engine::error result{engine::error::not_ready};

@@ -30,6 +30,7 @@ double elapsed(clock_type::time_point start) {
 
 struct scene_service::load_task {
   engine::asset_request<engine::scene> description_request;
+  std::shared_ptr<std::atomic<bool>> ready;
   scene_load_completion result;
   engine::composed_scene composed;
   std::vector<gneiss::engine::render_resource_source> requested;
@@ -117,7 +118,7 @@ void scene_service::abandon(std::uint64_t id) noexcept {
 engine::result<scene_open_request> scene_service::open(std::string_view uri) {
   if (std::this_thread::get_id() != owner_ || stopping_)
     return engine::error::invalid_state;
-  auto submitted = request_scene(uri, 1, 1);
+  auto submitted = request_scene(uri);
   if (!submitted)
     return submitted.error();
   return scene_open_request{lifetime_, *submitted};
@@ -164,23 +165,26 @@ void scene_service::check_owner() const {
     throw std::logic_error("场景加载服务须在所属线程操作");
   }
 }
-engine::result<std::uint64_t>
-scene_service::request_scene(std::string_view uri, std::uint64_t session, std::uint64_t revision) {
+engine::result<std::uint64_t> scene_service::request_scene(std::string_view uri) {
   check_owner();
   if (!can_start_load() || loading()) {
     return gneiss::engine::error::not_ready;
   }
-  if (gneiss::engine::validate_uri(uri) != gneiss::engine::error::success || session == 0U ||
-      revision == 0U) {
+  if (gneiss::engine::validate_uri(uri) != gneiss::engine::error::success) {
     return gneiss::engine::error::invalid_argument;
   }
   auto next = std::make_unique<load_task>();
-  next->result.progress = {
-      .request = ++sequence_, .session = session, .revision = revision, .can_cancel = true};
+  next->result.progress = {.request = ++sequence_, .can_cancel = true};
   auto prepared = resources_->reload<engine::scene>(uri);
   if (!prepared)
     return prepared.error();
   next->description_request = std::move(*prepared);
+  next->ready = std::make_shared<std::atomic<bool>>(false);
+  engine::detail::asset_request_access::when_ready(next->description_request,
+                                                   [ready = std::weak_ptr{next->ready}] {
+                                                     if (auto receipt = ready.lock())
+                                                       receipt->store(true);
+                                                   });
   const auto request = next->result.progress.request;
   pending_ = std::move(next);
   visuals_.cancel(*loading_);
@@ -323,6 +327,8 @@ void scene_service::advance_load_impl() {
     return;
   }
   if (progress.phase == scene_load_phase::preparing) {
+    if (!value.ready->load())
+      return;
     auto prepared = value.description_request.take();
     if (!prepared) {
       if (prepared.error().error != engine::error::not_ready)

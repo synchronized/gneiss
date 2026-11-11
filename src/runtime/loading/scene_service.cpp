@@ -172,6 +172,15 @@ engine::error scene_service::request_reload(engine::ref<scene_reload_state> sour
       return loaded.error();
     next->descriptions = std::move(*loaded);
   }
+  next->ready = std::make_shared<std::atomic<bool>>(false);
+  std::visit(
+      [ready = std::weak_ptr{next->ready}](auto& request) {
+        engine::detail::asset_request_access::when_ready(request, [ready] {
+          if (auto receipt = ready.lock())
+            receipt->store(true);
+        });
+      },
+      next->descriptions);
   reload_ = std::move(next);
   return engine::error::success;
 }
@@ -220,7 +229,7 @@ scene_service::apply_source(scene_reload_state& source,
 }
 
 void scene_service::advance_reload() {
-  if (!reload_ || reload_->result != engine::error::not_ready)
+  if (!reload_ || reload_->result != engine::error::not_ready || !reload_->ready->load())
     return;
   auto& value = *reload_;
   auto& source = value.source;
