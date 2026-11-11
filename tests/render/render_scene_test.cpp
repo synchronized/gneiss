@@ -42,6 +42,21 @@ bool commands() {
   CHECK(batch.entries.empty() && batch.scene == null_rid);
   CHECK(!state.submit(std::move(batch)));
   CHECK(state.find(*scene, id)->description.world_matrix == model);
+  const auto expected_normal = math::matrix4{glm::transpose(glm::inverse(math::matrix3{model}))};
+  CHECK(state.find(*scene, id)->normal_matrix == expected_normal);
+  // 矩阵元素有限且行列式非零，逆矩阵仍可能溢出；应在接受时拒绝。
+  math::matrix4 overflow{1.F};
+  overflow[0][0] = std::numeric_limits<float>::denorm_min();
+  render::scene_commands invalid_normal{*scene, {render::set_transform{id, overflow}}};
+  auto rejected_normal = state.submit(std::move(invalid_normal));
+  CHECK(!rejected_normal && rejected_normal.error() == error::invalid_argument);
+  CHECK(invalid_normal.entries.size() == 1 &&
+        state.find(*scene, id)->description.world_matrix == model);
+  CHECK(state.find(*scene, id)->normal_matrix == expected_normal);
+  render::scene_commands invalid_create{
+      *scene, {render::create_instance{{2}, {.mesh = 1, .material = 2, .world_matrix = overflow}}}};
+  CHECK(!state.submit(std::move(invalid_create)) && invalid_create.entries.size() == 1);
+  CHECK(!state.find(*scene, {2}));
   render::scene_commands wrong_scene{*second, {render::destroy_instance{id}}};
   CHECK(!state.submit(std::move(wrong_scene)));
   {

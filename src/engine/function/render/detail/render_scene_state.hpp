@@ -24,6 +24,7 @@ public:
   struct instance {
     mesh_instance_description description;
     scene_resource_pin resources;
+    math::matrix4 normal_matrix{1.F};
   };
   /** 只借用已接受实例；下一次提交或场景销毁后重新获取。 */
   const instance* find(rid scene, render::instance_key key) const noexcept;

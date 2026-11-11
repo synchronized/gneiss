@@ -6,12 +6,20 @@
 #include <type_traits>
 namespace gneiss::detail {
 namespace {
-bool valid_matrix(const math::matrix4& value) {
+result<math::matrix4> prepare_normal_matrix(const math::matrix4& value) {
   for (auto element : math::matrix_elements(value))
     if (!std::isfinite(element))
-      return false;
-  return value[0][3] == 0.F && value[1][3] == 0.F && value[2][3] == 0.F && value[3][3] == 1.F &&
-         std::isfinite(glm::determinant(value)) && glm::determinant(value) != 0.F;
+      return error::invalid_argument;
+  if (value[0][3] != 0.F || value[1][3] != 0.F || value[2][3] != 0.F || value[3][3] != 1.F)
+    return error::invalid_argument;
+  const auto determinant = glm::determinant(math::matrix3{value});
+  if (!std::isfinite(determinant) || determinant == 0.F)
+    return error::invalid_argument;
+  const auto normal = math::matrix4{glm::transpose(glm::inverse(math::matrix3{value}))};
+  for (auto element : math::matrix_elements(normal))
+    if (!std::isfinite(element))
+      return error::invalid_argument;
+  return normal;
 }
 }
 result<rid> render_scene_state::create_scene() {
@@ -40,13 +48,15 @@ result<void> render_scene_state::submit(render::scene_commands&& commands) {
             if (key <= last_key)
               return error::invalid_argument;
             const auto& value = update.description;
-            if (value.mesh == null_rid || value.material == null_rid ||
-                !valid_matrix(value.world_matrix))
+            if (value.mesh == null_rid || value.material == null_rid)
               return error::invalid_argument;
+            auto normal = prepare_normal_matrix(value.world_matrix);
+            if (!normal)
+              return normal.error();
             auto pinned = pin_(value);
             if (!pinned)
               return pinned.error();
-            changed.emplace(key, instance{value, std::move(*pinned)});
+            changed.emplace(key, instance{value, std::move(*pinned), *normal});
             last_key = key;
           } else {
             if (removed.contains(key))
@@ -60,9 +70,11 @@ result<void> render_scene_state::submit(render::scene_commands&& commands) {
             }
             auto& entry = found->second;
             if constexpr (std::is_same_v<T, render::set_transform>) {
-              if (!valid_matrix(update.world_matrix))
-                return error::invalid_argument;
+              auto normal = prepare_normal_matrix(update.world_matrix);
+              if (!normal)
+                return normal.error();
               entry.description.world_matrix = update.world_matrix;
+              entry.normal_matrix = *normal;
             } else if constexpr (std::is_same_v<T, render::set_resources>) {
               if (update.mesh == null_rid || update.material == null_rid)
                 return error::invalid_handle;
@@ -154,13 +166,8 @@ render_scene_state::capture(const render::frame_request& request) const {
         if (handles[slot] != null_rid)
           packet.resources.textures_.try_emplace(handles[slot], std::move(versions.textures[slot]));
     }
-    const auto normal =
-        math::matrix4{glm::transpose(glm::inverse(math::matrix3{value.world_matrix}))};
-    for (auto element : math::matrix_elements(normal))
-      if (!std::isfinite(element))
-        return error::invalid_argument;
     packet.scene.instances.push_back(
-        {value.mesh, value.material, value.world_matrix, normal, value.layers});
+        {value.mesh, value.material, value.world_matrix, entry.normal_matrix, value.layers});
   }
   packet.capture.copied_payload_bytes =
       packet.scene.instances.size() * sizeof(render_draw_instance);
