@@ -4,10 +4,14 @@
 #include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/asset/render_resource.hpp"
 #include "engine/function/scene/world.hpp"
+#include "engine/resource/scene.hpp"
 #include "support/scene_access.hpp"
 #include "support/value_result.hpp"
+#include <array>
+#include <chrono>
 
 #include <atomic>
 #include <cstdio>
@@ -178,6 +182,62 @@ void test_loading_request_lifetime() {
   request.reset();
 }
 
+void asynchronous_shutdown(gneiss::engine::execution_mode mode) {
+  for (int stage = 0; stage < 3; ++stage) {
+    gneiss::engine::task_scheduler scheduler({.workers = 1U, .mode = mode});
+    gneiss::runtime::application_configuration config;
+    config.asset_root = GNEISS_TEST_ASSET_ROOT;
+    unsigned closed{};
+    config.callbacks.shutdown = [&] { ++closed; };
+    std::shared_ptr<gneiss::runtime::application> app;
+    check(
+        gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app).ok());
+    check(app->attach_task_executor(scheduler).ok());
+    check(app->advance_shutdown() == gneiss::engine::error::invalid_state);
+    gneiss::engine::asset_request<gneiss::engine::scene> request;
+    gneiss::engine::asset_batch_request assets_request;
+    if (stage == 1) {
+      check(gneiss::test_support::take_value(
+                app->assets().load<gneiss::engine::scene>("asset://scenes/triangle.scene.json"),
+                request)
+                .ok());
+      (void)app->run(1);
+    } else if (stage == 2) {
+      const std::array sources{gneiss::engine::render_resource_source{
+          "asset://models/triangle.mesh.json", gneiss::engine::render_resource_kind::mesh}};
+      check(gneiss::test_support::take_value(app->load_assets(sources, true), assets_request).ok());
+      gneiss::engine::asset_load_completion completion;
+      bool ready{};
+      check(app->run(1).ok());
+      check(gneiss::test_support::receive_request(assets_request, completion, ready).ok());
+    }
+    check(app->request_shutdown().ok() && !app->accepts_requests() && closed == 0);
+    check(app->request_shutdown().ok());
+    auto rejected = app->load_assets({});
+    check(!rejected && rejected.error() == gneiss::engine::error::invalid_state);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    for (;;) {
+      const auto status = app->advance_shutdown();
+      if (status != gneiss::engine::error::not_ready) {
+        check(status.ok());
+        break;
+      }
+      check(std::chrono::steady_clock::now() < deadline);
+      if (mode == gneiss::engine::execution_mode::cooperative)
+        (void)scheduler.run_ready();
+      std::this_thread::yield();
+    }
+    check(app->native_world() == nullptr && closed == 1);
+    check(!assets_request);
+    if (request)
+      check(request.status() != gneiss::engine::error::not_ready);
+    check(scheduler.stats().retained == 0 && scheduler.stats().running == 0);
+    check(app->advance_shutdown().ok() && closed == 1);
+    app.reset();
+    check(closed == 1);
+  }
+}
+
 void test_platform_callbacks() {
   std::shared_ptr<gneiss::runtime::application> app;
   // 预期初始化失败使用错误码并执行配对关闭；意外异常向调用边界传播。
@@ -303,6 +363,8 @@ int main() try {
   check(state.shutdowns == 3U);
   test_asset_request_boundaries();
   test_loading_request_lifetime();
+  asynchronous_shutdown(gneiss::engine::execution_mode::thread_pool);
+  asynchronous_shutdown(gneiss::engine::execution_mode::cooperative);
   test_platform_callbacks();
   test_loop_callback_exceptions();
   return 0;

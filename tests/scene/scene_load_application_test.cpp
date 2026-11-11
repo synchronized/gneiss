@@ -653,58 +653,6 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
                                            scene_completion) == gneiss::engine::error::success);
   drain_visuals(app, scheduler, mode);
 }
-void asynchronous_shutdown(gneiss::engine::execution_mode mode) {
-  fixture files;
-  for (int stage = 0; stage < 3; ++stage) {
-    gneiss::engine::task_scheduler scheduler({.workers = 1U, .mode = mode});
-    application_configuration config;
-    const auto root = files.root.string();
-    config.asset_root = root;
-    unsigned closed{};
-    config.callbacks.shutdown = [&] { ++closed; };
-    std::shared_ptr<application> app;
-    check(gneiss::test_support::assign_value(application::create(config), app).ok());
-    check(app->attach_task_executor(scheduler).ok());
-    check(app->advance_shutdown() == gneiss::engine::error::invalid_state);
-    gneiss::runtime::scene_open_request request;
-    gneiss::engine::asset_batch_request assets_request;
-    if (stage == 1) {
-      check(
-          gneiss::test_support::take_value(app->scenes().open("asset://scene.json"), request).ok());
-      (void)app->run(1);
-    } else if (stage == 2) {
-      const std::array sources{gneiss::engine::render_resource_source{
-          "asset://mesh.json", gneiss::engine::render_resource_kind::mesh}};
-      check(gneiss::test_support::take_value(app->load_assets(sources, true), assets_request).ok());
-      gneiss::engine::asset_load_completion completion;
-      bool ready{};
-      check(app->run(1).ok());
-      check(gneiss::test_support::receive_request(assets_request, completion, ready).ok());
-    }
-    check(app->request_shutdown().ok() && !app->accepts_requests() && closed == 0);
-    check(app->request_shutdown().ok());
-    check(gneiss::test_support::take_value(app->scenes().open("asset://scene.json"), request) ==
-          gneiss::engine::error::invalid_state);
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-    for (;;) {
-      const auto status = app->advance_shutdown();
-      if (status != gneiss::engine::error::not_ready) {
-        check(status.ok());
-        break;
-      }
-      check(std::chrono::steady_clock::now() < deadline);
-      if (mode == gneiss::engine::execution_mode::cooperative)
-        (void)scheduler.run_ready();
-      std::this_thread::yield();
-    }
-    check(app->native_world() == nullptr && closed == 1);
-    check(scheduler.stats().retained == 0 && scheduler.stats().running == 0);
-    check(app->advance_shutdown().ok() && closed == 1);
-    app.reset();
-    check(closed == 1);
-  }
-}
-
 void source_reload_without_world_prefab_state() {
   namespace e = gneiss::engine;
   fixture files;
@@ -834,8 +782,6 @@ void source_reload_without_world_prefab_state() {
 } // namespace
 int main() try {
   source_reload_without_world_prefab_state();
-  asynchronous_shutdown(gneiss::engine::execution_mode::thread_pool);
-  asynchronous_shutdown(gneiss::engine::execution_mode::cooperative);
   visual_failure(gneiss::engine::execution_mode::thread_pool);
   visual_failure(gneiss::engine::execution_mode::cooperative);
   visual_failure(gneiss::engine::execution_mode::thread_pool, true);

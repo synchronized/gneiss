@@ -27,6 +27,7 @@
 - [从 0.46 迁移到 0.47](guides/migrating-0.46-to-0.47.md)
 
 - [构建、测试与运行示例](guides/building.md)
+- [测试设计与维护](guides/testing.md)
 - [Tracy CPU 与任务时间线采集](guides/profiling.md)
 - [从 0.47 迁移到 0.48](guides/migrating-0.47-to-0.48.md)
 - [Application 与 World 的最小 C++ 示例](guides/application-world-example.md)
@@ -676,6 +677,7 @@
 - [PLAN-112 文件、任务及资产就绪队列](plans/PLAN-112-loading-ready-queues.md)
 
 - [PLAN-113 应用装配与场景模块职责重整](plans/PLAN-113-application-scene-boundaries.md)
+- [PLAN-114 测试分层与维护规则收敛](plans/PLAN-114-test-maintenance.md)
 - [ADR-117 应用装配、资产、运行世界与编辑文档边界](decisions/ADR-117-application-scene-boundaries.md)
 
 - [PLAN-113 编辑职责迁移记录](records/2026-11-11-plan113-editor-boundary.md)

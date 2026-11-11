@@ -589,6 +589,7 @@ int main(int argc, char** argv) try {
          << ",\n  \"maximum_activation_ms\": " << maximum_activation_ms
          << ",\n  \"live_resources\": " << live_resources
          << ",\n  \"old_resources\": " << previous_resources << ",\n  \"cancel_ms\": " << cancel_ms
+         << ",\n  \"cancel_requested\": " << (cancel_requested ? "true" : "false")
          << ",\n  \"request_released\": " << (request_released ? "true" : "false")
          << ",\n  \"retried\": " << (retried ? "true" : "false")
          << ",\n  \"retry_ms\": " << retry_ms << ",\n  \"resizes\": " << resized

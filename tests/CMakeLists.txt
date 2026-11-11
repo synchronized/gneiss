@@ -306,10 +306,13 @@ add_test(NAME gneiss.native-application-flow COMMAND gneiss_native_application_f
 if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
   add_executable(gneiss_native_application_test native_application_test.cpp)
   target_include_directories(gneiss_native_application_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_compile_definitions(gneiss_native_application_test PRIVATE
+    GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
   target_link_libraries(gneiss_native_application_test PRIVATE gneiss::engine gneiss_tasks Threads::Threads)
   gneiss_target_compile_warnings(gneiss_native_application_test)
   gneiss_target_output_directories(gneiss_native_application_test)
   add_test(NAME gneiss.native-application COMMAND gneiss_native_application_test)
+  set_tests_properties(gneiss.native-application PROPERTIES LABELS "cpu;integration")
 endif()
 
 add_executable(gneiss_cpp_input_test cpp_input_test.cpp)

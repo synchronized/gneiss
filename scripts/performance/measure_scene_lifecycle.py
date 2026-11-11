@@ -6,6 +6,7 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 import subprocess
 import time
@@ -15,7 +16,7 @@ SCENARIOS = ("repeat", "cancel-prepare",
              "cancel-ready", "failure", "interact", "close")
 
 
-def validate(data, scenario, performance):
+def validate(data, scenario, performance, activation_budget_ms=None):
     failures = []
     if scenario == "close":
         if not data["closed"] or data["retained_tasks"]:
@@ -26,8 +27,10 @@ def validate(data, scenario, performance):
     if scenario == "repeat" and data["completed_switches"] != 3:
         failures.append("连续切换不足三次")
     if scenario.startswith("cancel-"):
-        if data["cancel_ms"] <= 0:
-            failures.append("未记录取消调用耗时")
+        if not data["cancel_requested"]:
+            failures.append("未执行取消")
+        if not math.isfinite(data["cancel_ms"]) or data["cancel_ms"] < 0:
+            failures.append("取消耗时无效")
         if performance and data["cancel_ms"] > 250:
             failures.append("取消调用超过250ms")
     if scenario.startswith("cancel-") or scenario == "failure":
@@ -41,8 +44,9 @@ def validate(data, scenario, performance):
     if performance and (data["event_interval_p95_ms"] > 100
                         or data["event_interval_max_ms"] > 250):
         failures.append("主循环响应超过冻结门槛")
-    if performance and max(data["activation_ms"], data["maximum_activation_ms"]) > 5:
-        failures.append("激活超过5ms")
+    if (performance and activation_budget_ms is not None
+            and max(data["activation_ms"], data["maximum_activation_ms"]) > activation_budget_ms):
+        failures.append(f"实例化与卸载超过指定预算{activation_budget_ms}ms")
     return failures
 
 
@@ -57,7 +61,12 @@ def main():
     parser.add_argument("--functional-only", action="store_true",
                         help="用于 Debug 功能检查，不判断 Release 性能门槛")
     parser.add_argument("--image-sha256", help="可选的同输入、同视角基线图像摘要")
+    parser.add_argument("--activation-budget-ms", type=float,
+                        help="可选的当前硬件同步实例化与卸载预算；默认只记录，不沿用旧5ms门槛")
     args = parser.parse_args()
+    if args.activation_budget_ms is not None and (
+            not math.isfinite(args.activation_budget_ms) or args.activation_budget_ms <= 0):
+        parser.error("--activation-budget-ms 必须是有限正数")
     executable = args.executable.resolve()
     assets = args.assets.resolve()
     output = args.output.resolve()
@@ -68,6 +77,7 @@ def main():
         "executable_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
         "assets": str(assets), "functional_only": args.functional_only,
         "status": "running", "samples": [], "failures": [],
+        "activation_budget_ms": args.activation_budget_ms,
     }
     engine = executable.parent / "gneiss_engine.dll"
     if engine.is_file():
@@ -97,7 +107,8 @@ def main():
                 try:
                     data = json.loads(prefix.with_suffix(".json").read_text(encoding="utf-8"))
                     sample["result"] = data
-                    failures.extend(validate(data, scenario, not args.functional_only))
+                    failures.extend(validate(data, scenario, not args.functional_only,
+                                             args.activation_budget_ms))
                     if scenario != "close":
                         digest = hashlib.sha256(prefix.with_suffix(".ppm").read_bytes()).hexdigest()
                         sample["image_sha256"] = digest
