@@ -5,7 +5,7 @@
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/error.hpp"
-#include "engine/core/logging/detail/async_queue.hpp"
+#include "engine/core/logging/logger.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/utf8.hpp"
 #include "engine/function/asset/asset_manager.hpp"
@@ -102,7 +102,6 @@ struct application::storage {
   bool should_exit_ = false;
   bool is_updating_ = false;
   gneiss::engine::input_service input_;
-  std::unique_ptr<gneiss::engine::logging::detail::async_queue> log_queue_;
   std::unique_ptr<gneiss::engine::window_service> window_service_;
 };
 
@@ -221,12 +220,6 @@ gneiss::engine::error application::attach_task_executor(gneiss::engine::task_exe
 }
 
 gneiss::engine::error application::initialize() {
-  if (storage_->config_.callbacks.log != nullptr) {
-    {
-      storage_->log_queue_ = std::make_unique<gneiss::engine::logging::detail::async_queue>(
-          storage_->config_.callbacks.log);
-    }
-  }
   if (!storage_->render_service_->is_valid()) {
     return gneiss::engine::error::out_of_memory;
   }
@@ -297,7 +290,7 @@ gneiss::engine::error application::initialize() {
     }
     const auto render_result = storage_->render_service_->initialize(
         storage_->window_service_->native_window(), {}, storage_->config_.environment_intensity,
-        storage_->config_.environment_rotation_radians, storage_->log_queue_.get());
+        storage_->config_.environment_rotation_radians);
     if (render_result != gneiss::engine::error::success) {
       report(gneiss::engine::severity::error, gneiss::engine::category::backend, render_result,
              "granit.render", "Granit 渲染服务初始化失败");
@@ -512,23 +505,13 @@ void application::report(gneiss::engine::severity severity, gneiss::engine::cate
                                         : category == gneiss::engine::category::backend
                                             ? "backend"
                                             : "application";
-  static_cast<void>(submit_log({
+  static_cast<void>(gneiss::engine::logging::logger{"application"}.write({
       .severity = log_severity,
       .source = module,
       .category = log_category,
       .message = message,
       .result = gneiss::engine::error{result},
   }));
-}
-
-gneiss::engine::error
-application::submit_log(const gneiss::engine::logging::message_view& message) {
-  using namespace gneiss::engine;
-  if (message.severity < logging::level::trace || message.severity > logging::level::fatal ||
-      message.category.empty() || !utf8::is_valid(message.category) ||
-      !utf8::is_valid(message.message))
-    return error::invalid_argument;
-  return storage_->log_queue_ ? storage_->log_queue_->submit(message) : error::success;
 }
 
 gneiss::engine::error application::set_view_camera(const gneiss::engine::view_camera* camera) {

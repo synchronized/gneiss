@@ -20,6 +20,8 @@ public:
   explicit logger(const char (&channel)[N]) noexcept
       : default_channel_(channel, N - 1), use_default_(true) {}
   [[nodiscard]] bool enabled(level severity) const;
+  /** 内部结构化记录；保留上下文/错误码，空来源和类别使用频道。文本借用至返回。 */
+  void write(message_view message) const;
   template <class... Args>
   void write(level severity, std::format_string<Args...> format, Args&&... args) const {
     if (enabled(severity))

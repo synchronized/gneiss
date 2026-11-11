@@ -99,14 +99,20 @@ bool logger::enabled(level severity) const {
   return state && state->enabled(severity);
 }
 void logger::submit(level severity, std::string_view text) const {
-  if (in_output)
+  write({.severity = severity, .message = text});
+}
+void logger::write(message_view message) const {
+  if (in_output || !valid_level(message.severity))
     return;
   auto state = resolve();
-  if (!state)
+  if (!state || !state->enabled(message.severity))
     return;
   const auto channel = use_default_ ? default_channel_ : channel_.view();
-  const message_view message{
-      .severity = severity, .source = channel, .category = channel, .message = text};
+  if (message.source.empty())
+    message.source = channel;
+  if (message.category.empty())
+    message.category = channel;
+  const auto severity = message.severity;
   std::unique_lock lock(state->mutex);
   if (!state->active || severity < state->threshold)
     return;

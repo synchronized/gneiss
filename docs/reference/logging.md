@@ -10,9 +10,9 @@
 `logger.hpp`、`service.hpp/.cpp`、`sink.hpp` 分别提供频道句柄、上下文和输出契约。
 `detail/async_queue.hpp/.cpp` 是内部异步队列，不单独提供 validation 模块。
 平台文件输出位于 `platform/logging/file_sink.hpp/.cpp`，不在 Core 引入 spdlog。
-Application/Render 尚有直接使用内部队列的迁移点，本次命名整理没有宣称其已完成解耦。
+Application/Render 不再持有队列或接收队列指针，内部通过 Logger 提交。
 
-内部宿主使用原生 `application::submit_log`。消费线程通过 `log` 回调接收 `record_view`。
+Runtime 宿主安装默认 service，并以 Sink 接收 record_view；Application 不提供日志回调配置。
 日志队列、基础 Sink、Runtime 传输协议与 Editor Console 保留；日志 C API 已撤销。
 
 ## 频道与日志服务
@@ -48,7 +48,7 @@ Logger 提供 trace/debug/info/warning/error/critical，以 std::format_string �
 宿主停止生产者、解除 binding 后调用 close：停止接收、排空、flush、释放 Sink。
 flush/close 由宿主串行执行，禁止从 Sink 内调用；普通 Logger 重入被抑制。
 `metrics().output_failures` 统计 Sink 返回的失败，分配及未知异常仍遵循执行边界策略。
-目前新服务接口已实现，Application/Render/宿主旧装配仍待迁移；浏览器工具链尚未验证。
+Runtime 已接入默认服务；Editor 本地输出、旧宿主文件实现收敛仍待迁移，浏览器工具链尚未验证。
 
 ## 独立同步输出适配
 
@@ -57,7 +57,7 @@ flush/close 由宿主串行执行，禁止从 Sink 内调用；普通 Logger 重
 默认追加，可显式截断；宿主须在非实时线程串行调用 `write/flush`，正常关闭前显式 flush。
 文件失败返回 `error::io`，分配及其他异常向执行边界传播。实现不使用 spdlog 的 logger 异常吞并路径。
 文本包含原生单调时间、生产者线程、序号、上下文、级别、来源、分类、结果码和正文；不是 IPC 格式。
-该适配器尚未接入 Application 或 Runtime；当前生产输出仍按下文执行。
+Runtime 当前仍通过宿主适配 Sink 使用既有文件/标准输出实现；spdlog 文件实现的宿主替换尚未完成。
 
 ## 字段与所有权
 
@@ -71,18 +71,14 @@ flush/close 由宿主串行执行，禁止从 Sink 内调用；普通 Logger 重
 
 ## 提交与接收
 
-- 原生 `application::submit_log` 可从任意线程调用，并在返回前完成字符串复制和入队，不等待 Sink。
-- 同一 Application 的回调在专用消费线程串行执行；事件序号按入队顺序从一开始递增。
-- 队列有固定上限；已满时丢弃新事件并在恢复后生成包含丢弃数量的 `backpressure` 告警。
-- 回调内的事件和字符串均为借用值，只在该次回调期间有效。
-- 回调不得重入日志提交；Application 仍有效时重入返回 `GNEISS_ERROR_INVALID_STATE`。
-  关闭排空期间接收方只应消费事件，不再向正在关闭的父对象提交。
-- 没有设置回调时，有效消息返回成功但不会写入文件或标准流。
-- Application 销毁不能与日志提交并发；宿主应先停止生产者，再销毁 Application。
-- 原生 `application::submit_log` 允许工作线程提交；调用方必须先停止并等待提交线程，再关闭或释放 Application。
-  最后一个原生引用释放前排空已接收事件，回调捕获的数据 必须存活至关闭返回。
+Logger 可跨线程提交，异步模式在返回前复制文本，不等待输出完成。
+每个 service 只有一个有界队列，队满丢弃新记录并累计报告。
+服务由宿主管理，Application 不启动日志线程；未安装默认服务时默认 Logger 禁用。
+Runtime 在创建 Application 前安装默认服务，将记录交给文件/标准输出 Sink 和可选 IPC Sink。
+IPC 关闭前断开日志连接并等待日志队列排空，接收对象保持存活到在途交付结束。
+正常退出应先停止生产者，再解除默认路由、关闭服务，释放 Sink。
 
-独立 Runtime 已将 Application 日志回调接入标准流和单文件轮转 Sink。日志文件保持人类可读文本，
+Runtime 宿主 Sink 将记录接入标准流和单文件轮转输出。日志文件保持人类可读文本，
 标准输出则使用 `@gneiss-log-v1 ` 前缀加单行 JSON。协议字段包含版本、单调时间、序号、级别、来源、
 分类、线程、结果码和消息；字符串按 JSON 规则转义。Application 创建前的参数与工程加载失败，以及
 协议编码失败，仍使用原始文本降级通道。普通输出、未知协议版本和格式错误的协议行应由消费方保留为
@@ -100,34 +96,23 @@ Application 已识别的运行时诊断会在调用原有诊断回调后转换�
 诊断分类映射为日志分类，结果码保持不变。Application 状态创建前的配置或初始化失败没有有效会话，
 因此仍只调用诊断回调。
 
-## 校验
+## 校验与结构化提交
 
-迁移期 `application::submit_log` 在入口检查级别、非空类别及类别/正文的 UTF-8，
-无回调时也执行同一检查。队列只复制和投递，不重复校验。
-新 Logger 的频道在获取时检查一次，内部正文约定为合法 UTF-8，不逐条扫描；
-编译期格式检查不保证字符串内容的 UTF-8 合法性。外部 IPC 数据仍由协议解码入口检查。
-
-## 原生 C++ 日志提交
-
-内部只使用 `gneiss::engine::logging::message_view` 和 `record_view`，值定义位于 `core/logging/record.hpp`。
-Runtime 文件输出、IPC 编码与 Editor 控制台不依赖 C 日志事件布局；编码时复制借用文本，
-不保留事件视图。消息默认级别为 info、结果为 success；
-分类必须非空，消息允许为空。字符串通过 string_view 借用到同步提交返回；投递器复制文本后入队。
-原生 Application 无日志回调时仍校验消息，合法消息直接返回成功，不创建投递队列。
+频道在显式 get_logger 时检查一次；内部正文约定为合法 UTF-8，不逐条扫描。
+格式检查不保证字符串内容 UTF-8 合法性，外部 IPC 数据仍由协议解码入口检查。
+独立 validation 模块及 application::submit_log 已删除。
 
 ```cpp
-const auto status = application.submit_log({
+static const gneiss::engine::logging::logger log{"assets"};
+log.write({
+    .context = 123,
     .severity = gneiss::engine::logging::level::warning,
-    .source = "assets",
+    .source = "loader",
     .category = "loading",
     .message = "资源尚未就绪",
     .result = gneiss::engine::error::not_ready,
 });
 ```
 
-其中 application 是有效的原生 Application 对象，内部调用方填写来源。
-迁移期消息级别和 UTF-8 检查在 `application::submit_log` 内部，不经过 C API。
-旧 `log_message`、`log_event`、`log_severity` 包装和构造/转换辅助已删除，不安装公共 C++ 日志头。
-
-原生 `shutdown` 关闭运行服务；日志投递器在 Application 释放时排空并等待消费线程结束。
-关闭期间的内部诊断仍可入队，因此须在释放 Application 前保持接收回调捕获的对象有效。
+结构化 write 保留 context/result/source/category；空来源和类别使用 Logger 频道。
+文本仅借用至 write 返回；异步模式复制完整记录。该接口不返回业务错误，普通日志用 info/error 等格式化入口即可。

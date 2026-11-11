@@ -4,6 +4,7 @@
 #include "documents/editor_scene_loader.hpp"
 #include "application/application.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/logging/logger.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/instantiation.hpp"
@@ -52,11 +53,11 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
     if (completed) {
       for (const auto& item : completed->results) {
         if (item.result.failed())
-          (void)application.submit_log({.severity = engine::logging::level::error,
-                                        .source = "editor",
-                                        .category = "scene_assets",
-                                        .message = item.source.uri,
-                                        .result = item.result});
+          (void)engine::logging::logger{"scene"}.write({.severity = engine::logging::level::error,
+                                                        .source = "editor",
+                                                        .category = "scene_assets",
+                                                        .message = item.source.uri,
+                                                        .result = item.result});
       }
     }
     visuals_.reset();

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "application/application.hpp"
+#include "support/logging.hpp"
 #include "support/value_result.hpp"
 #include <memory>
 
@@ -34,7 +35,7 @@ int main() {
       ++state.diagnostic_count;
     }
   };
-  config.callbacks.log = [&](const gneiss::engine::logging::record_view& event) {
+  gneiss::test_support::log_capture logs{[&](const gneiss::engine::logging::record_view& event) {
     {
       const std::scoped_lock lock(state.mutex);
       ++state.log_count;
@@ -43,7 +44,7 @@ int main() {
       state.result = event.message.result;
     }
     state.changed.notify_all();
-  };
+  }};
   std::shared_ptr<gneiss::runtime::application> application;
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
           .failed() ||

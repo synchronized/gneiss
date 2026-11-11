@@ -14,9 +14,6 @@
 #include <vector>
 
 namespace gneiss::engine {
-namespace logging::detail {
-class async_queue;
-}
 struct render_memory_usage {
   std::uint64_t logical_bytes{};
   std::uint64_t cpu_data_bytes{};
@@ -61,8 +58,7 @@ public:
   [[nodiscard]] GNEISS_API error initialize(const native_window_info& window,
                                             std::span<const std::byte> environment_asset = {},
                                             float environment_intensity = 1.0F,
-                                            float environment_rotation_radians = 0.0F,
-                                            logging::detail::async_queue* log = nullptr);
+                                            float environment_rotation_radians = 0.0F);
   /** 异步提交已读取的环境字节；接受后执行器持有引用，调用方不等待 GPU。
    * 队列满返回 not_ready；解析失败沿用内置环境，执行失败由正常帧完成分发返回。 */
   [[nodiscard]] GNEISS_API error request_environment(

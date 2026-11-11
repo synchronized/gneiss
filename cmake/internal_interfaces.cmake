@@ -14,6 +14,11 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/result.hpp
   engine/core/version.hpp
   engine/core/logging/record.hpp
+  engine/core/logging/logger.hpp
+  engine/core/logging/service.hpp
+  engine/core/logging/sink.hpp
+  engine/core/logging/sink_connection.hpp
+  engine/core/logging/default_service.hpp
   engine/core/guid.hpp
   engine/core/value.hpp
   engine/core/utf8.hpp

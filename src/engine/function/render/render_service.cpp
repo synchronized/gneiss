@@ -28,7 +28,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "engine/core/logging/detail/async_queue.hpp"
+#include "engine/core/logging/logger.hpp"
 
 #include <granit/core/version.h>
 #include <granit/renderer/native_surface.hpp>
@@ -54,8 +54,7 @@ public:
   [[nodiscard]] engine::error initialize(const native_window_info& window,
                                          std::span<const std::byte> environment_asset = {},
                                          float environment_intensity = 1.0F,
-                                         float environment_rotation_radians = 0.0F,
-                                         logging::detail::async_queue* log = nullptr);
+                                         float environment_rotation_radians = 0.0F);
   error request_environment(std::shared_ptr<const std::vector<std::byte>>, float, float);
   [[nodiscard]] engine::error shutdown(granit::renderer_resource_stats& stats);
   [[nodiscard]] engine::error finish_frames();
@@ -166,7 +165,7 @@ private:
   float environment_intensity_{1.0F};
   float environment_rotation_radians_{};
   // 借用 Application 的线程安全日志队列；其生命周期覆盖执行器停机。
-  logging::detail::async_queue* log_{};
+  const logging::logger log_{"render"};
   threaded_render_executor executor_;
   std::vector<render_frame_packet> recycled_frame_packets_;
   std::deque<render_frame_completion> required_frame_completions_;
@@ -299,7 +298,7 @@ void render_service::implementation::log_texture(engine::rid rid, const char* st
                                                  granit::result result, std::uint32_t variant,
                                                  granit::texture_format format, std::uint32_t mips,
                                                  std::uint64_t bytes) {
-  if (log_ == nullptr) {
+  if (!log_.enabled(result.ok() ? logging::level::info : logging::level::error)) {
     return;
   }
   const char* name = "undefined";
@@ -328,7 +327,7 @@ void render_service::implementation::log_texture(engine::rid rid, const char* st
     return;
   }
   constexpr std::string_view category = "render.texture";
-  static_cast<void>(log_->submit({
+  static_cast<void>(log_.write({
       .severity = result.ok() ? engine::logging::level::info : engine::logging::level::error,
       .source = "granit.render.texture",
       .category = category,
@@ -828,9 +827,7 @@ void render_service::implementation::release_invalid_materials(
 
 engine::error render_service::implementation::initialize(
     const native_window_info& window, std::span<const std::byte> environment_asset,
-    float environment_intensity, float environment_rotation_radians,
-    logging::detail::async_queue* log) {
-  log_ = log;
+    float environment_intensity, float environment_rotation_radians) {
   const auto executor_result =
       executor_.initialize([this](render_frame_packet& packet, render_execution_result& output) {
         const auto result = execute_frame(packet, output);
@@ -1218,12 +1215,12 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
         if (created.ok()) {
           replacement.data = std::move(source);
           mesh_mirrors_.insert_or_assign(handle, std::move(replacement));
-        } else if (log_) {
-          (void)log_->submit({.severity = logging::level::error,
-                              .source = "render.mesh",
-                              .category = "render.resource",
-                              .message = "网格上传失败，保留当前可用内容",
-                              .result = map_result(created)});
+        } else {
+          (void)log_.write({.severity = logging::level::error,
+                            .source = "render.mesh",
+                            .category = "render.resource",
+                            .message = "网格上传失败，保留当前可用内容",
+                            .result = map_result(created)});
         }
       }
     }
@@ -1269,12 +1266,12 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
           }
           material_mirrors_.insert_or_assign(resource_handle(instance.material),
                                              std::move(replacement));
-        } else if (log_) {
-          (void)log_->submit({.severity = logging::level::error,
-                              .source = "render.material",
-                              .category = "render.resource",
-                              .message = "材质更新失败，保留当前可用内容",
-                              .result = map_result(created)});
+        } else {
+          (void)log_.write({.severity = logging::level::error,
+                            .source = "render.material",
+                            .category = "render.resource",
+                            .message = "材质更新失败，保留当前可用内容",
+                            .result = map_result(created)});
         }
       }
     }
@@ -1567,12 +1564,11 @@ error render_service::request_environment(std::shared_ptr<const std::vector<std:
 
 error render_service::initialize(const native_window_info& window,
                                  std::span<const std::byte> environment_asset,
-                                 float environment_intensity, float environment_rotation_radians,
-                                 logging::detail::async_queue* log) {
+                                 float environment_intensity, float environment_rotation_radians) {
   if (!is_valid())
     return error::invalid_state;
   return impl_->initialize(window, environment_asset, environment_intensity,
-                           environment_rotation_radians, log);
+                           environment_rotation_radians);
 }
 error render_service::shutdown(render_device_stats& stats) {
   granit::renderer_resource_stats native{

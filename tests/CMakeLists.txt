@@ -1131,8 +1131,6 @@ foreach(mode IN ITEMS oom unexpected)
     COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:gneiss_log_queue_test>
     -DMODE=${mode} -P ${PROJECT_SOURCE_DIR}/tests/core/check_fatal.cmake)
 endforeach()
-add_test(NAME gneiss.application-log-fatal
-  COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:gneiss_application_log_test>
-  -DMODE=unexpected -P ${PROJECT_SOURCE_DIR}/tests/core/check_fatal.cmake)
+
 
 target_link_libraries(gneiss_png_decoder_test PRIVATE gneiss_fatal)

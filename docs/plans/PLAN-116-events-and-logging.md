@@ -148,7 +148,8 @@ EnTT 复用仓库版本与 MIT 许可证；spdlog 已锁定 v1.15.3（MIT），�
 - [ ] Logger 接入时验证格式检查、格式化前过滤及 PLAN-109 执行边界；补齐终端 Sink。
 - [x] 实现显式 Logger/runtime，复用 logging::detail::async_queue；验证频道过滤、并发投递、内存测试 Sink、关闭与上下文隔离。
 - [x] 实现默认路由绑定、静态频道 Logger、动态 Sink 连接及无线程同步模式。
-- [ ] 迁移旧 Application 队列装配与宿主输出。
+- [x] 删除 Application 队列、日志回调和 submit_log；Render/Scene 使用 Logger，Runtime 宿主安装服务并接收完整记录。
+- [ ] 接入 Editor 本地输出并收敛旧宿主文件实现与启动直接输出。
 - [ ] 接通 Runtime 文件/IPC、Editor Console、Application 创建前日志及关闭，逐字段核对现有协议。
 - [ ] 迁移真实业务调用、删除旧入口与重复装配，同步 Reference/Concept、依赖清单及构建边界。
 - [ ] 定向验收并记录浏览器、其他平台及尚未运行项目；不将源码审查写成平台验证通过。

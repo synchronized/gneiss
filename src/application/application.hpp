@@ -123,8 +123,6 @@ public:
   GNEISS_API void report(gneiss::engine::severity severity, gneiss::engine::category category,
                          gneiss::engine::error result, std::string_view module,
                          std::string_view message);
-  [[nodiscard]] GNEISS_API gneiss::engine::error
-  submit_log(const gneiss::engine::logging::message_view& message);
   GNEISS_API void request_exit() noexcept;
   GNEISS_API void set_paused(bool value) noexcept;
 

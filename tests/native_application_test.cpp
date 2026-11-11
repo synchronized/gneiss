@@ -8,6 +8,7 @@
 #include "engine/function/asset/render_resource.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/scene.hpp"
+#include "support/logging.hpp"
 #include "support/scene_access.hpp"
 #include "support/value_result.hpp"
 #include <array>
@@ -302,7 +303,7 @@ int main() try {
   };
   std::atomic<unsigned> delivered{};
   std::atomic<bool> valid_log{true};
-  config.callbacks.log = [&](const gneiss::engine::logging::record_view& event) {
+  gneiss::test_support::log_capture logs{[&](const gneiss::engine::logging::record_view& event) {
     if (event.message.category == "native-test") {
       if (event.message.message != "原生日志" || event.sequence == 0U) {
         valid_log.store(false);
@@ -310,7 +311,7 @@ int main() try {
       ++delivered;
       // 正常回调验证投递与关闭；异常终止由 application-log-fatal 子进程测试覆盖。
     }
-  };
+  }};
   // 不经 C API 和句柄注册表，真实对象仍使用同一创建、主循环及析构实现。
   std::shared_ptr<gneiss::runtime::application> app;
   auto created = gneiss::runtime::application::create(config);
@@ -318,8 +319,7 @@ int main() try {
   app = std::move(*created);
   check(!*created && app);
   for (unsigned index = 0; index < 2U; ++index) {
-    check(app->submit_log({.category = "native-test", .message = "原生日志"}) ==
-          gneiss::engine::error::success);
+    gneiss::engine::logging::logger{"native-test"}.info("原生日志");
   }
   auto invalid = config;
   invalid.environment_intensity = -1.0F;
@@ -359,6 +359,7 @@ int main() try {
   check(app->run(1U) == gneiss::engine::error::invalid_state);
   app.reset();
   check(state.shutdowns == 2U);
+  logs.service.flush();
   check(delivered.load() == 2U && valid_log.load());
   // 释放最后一个拥有者触发关闭，关闭回调恰好一次。
   state.fail = false;

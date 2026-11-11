@@ -3,6 +3,7 @@
 
 #include "runtime_application.hpp"
 #include "engine/core/fatal.hpp"
+#include "engine/core/logging/default_service.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_types.hpp"
@@ -372,14 +373,11 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
     context.has_logged_first_frame = true;
     constexpr std::string_view category = "lifecycle";
     constexpr std::string_view message = "Runtime 已进入首帧";
-    const auto log_result =
-        context.application->submit_log({.severity = gneiss::engine::logging::level::info,
-                                         .source = "application",
-                                         .category = category,
-                                         .message = message});
-    if (log_result.failed()) {
-      return log_result;
-    }
+    gneiss::engine::logging::logger{"application"}.write(
+        {.severity = gneiss::engine::logging::level::info,
+         .source = "application",
+         .category = category,
+         .message = message});
   }
   if (context.ipc_session != nullptr && context.scene_inspection != nullptr &&
       context.scene != gneiss::scene_instance_id{} &&
@@ -458,17 +456,24 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
   return gneiss::engine::error::success;
 }
 
-void write_application_log(const gneiss::engine::logging::record_view& source,
-                           runtime_context& context) {
-  if (context.log != nullptr) {
-    context.log->write(source);
+class callback_log_sink final : public gneiss::engine::logging::sink {
+public:
+  explicit callback_log_sink(gneiss::engine::logging::record_callback callback)
+      : callback_(std::move(callback)) {}
+  gneiss::engine::error write(const gneiss::engine::logging::record_view& value) override {
+    callback_(value);
+    return gneiss::engine::error::success;
   }
-  if (context.ipc_session != nullptr) {
-    (void)context.ipc_session->notify_log_event(source);
-  }
-}
+  gneiss::engine::error flush() override { return gneiss::engine::error::success; }
+
+private:
+  gneiss::engine::logging::record_callback callback_;
+};
 
 [[nodiscard]] int run_runtime(const runtime_options& options, gneiss::host::runtime_log& log) {
+  gneiss::engine::logging::service logs;
+  logs.attach(std::make_unique<callback_log_sink>([&log](const auto& event) { log.write(event); }));
+  gneiss::engine::logging::default_service_binding logging_binding{logs};
   gneiss::host::project_description project;
   gneiss::host::project_load_report project_report;
   const auto project_result =
@@ -504,9 +509,6 @@ void write_application_log(const gneiss::engine::logging::record_view& source,
 
   desc.asset_root = asset_root;
 
-  desc.callbacks.log = [&context](const gneiss::engine::logging::record_view& event) {
-    write_application_log(event, context);
-  };
   desc.environment_asset = project.environment.asset;
 
   desc.environment_intensity = project.environment.intensity;
@@ -728,6 +730,15 @@ void write_application_log(const gneiss::engine::logging::record_view& source,
   };
 
   std::unique_ptr<gneiss::host::runtime_ipc_session> ipc_session;
+  struct ipc_log_subscription {
+    gneiss::engine::logging::service& logs;
+    gneiss::engine::logging::sink_connection connection;
+    ~ipc_log_subscription() {
+      connection.disconnect();
+      logs.flush();
+    }
+  } ipc_logging{logs, {}};
+
   if (options.ipc_port != 0U) {
     gneiss::host::runtime_ipc_config ipc_config;
     ipc_config.endpoint = {options.ipc_address, options.ipc_port};
@@ -746,6 +757,10 @@ void write_application_log(const gneiss::engine::logging::record_view& source,
       return 11;
     }
     context.ipc_session = ipc_session.get();
+    ipc_logging.connection = logs.attach(
+        std::make_unique<callback_log_sink>([session = ipc_session.get()](const auto& event) {
+          (void)session->notify_log_event(event);
+        }));
     log.write("INFO", "ipc", gneiss::engine::error::success, "Editor IPC 会话正在连接");
   }
 
@@ -763,6 +778,8 @@ void write_application_log(const gneiss::engine::logging::record_view& source,
     (void)context.ipc_session->notify_shutdown(
         operation == gneiss::engine::error::success ? 0 : operation.code());
   }
+  ipc_logging.connection.disconnect();
+  logs.flush();
   context.ipc_session = nullptr;
   if (context.asset_request) {
     context.asset_request.reset();

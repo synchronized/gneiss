@@ -15,7 +15,7 @@
 
 namespace gneiss::runtime {
 
-/** 原生平台和日志回调由配置复制；捕获的借用对象须存活至关闭结束。
+/** 原生平台和诊断回调由配置复制；捕获的借用对象须存活至关闭结束。
  * 宿主通过捕获绑定需要的状态，不传递 Application 句柄。 */
 struct application_callbacks final {
   std::function<gneiss::engine::error()> initialize;
@@ -25,7 +25,6 @@ struct application_callbacks final {
   std::function<void()> shutdown;
   std::function<void(const gneiss::engine::diagnostic_view&)> diagnostic;
   std::function<bool()> close_requested;
-  gneiss::engine::logging::record_callback log;
 };
 
 /** 原生创建配置；字符串仅在 initialize 期间借用。 */

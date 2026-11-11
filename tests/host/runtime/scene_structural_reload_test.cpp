@@ -3,6 +3,7 @@
 
 #include "../../support/async_application.hpp"
 #include "../../support/async_scene_reload.hpp"
+#include "../../support/logging.hpp"
 #include "../../support/mesh_objects.hpp"
 #include "../../support/scene_access.hpp"
 #include "../../support/value_result.hpp"
@@ -60,13 +61,13 @@ int main() try {
   std::mutex log_mutex;
   std::condition_variable log_received;
   unsigned visual_failures{};
-  config.callbacks.log = [&](const auto& event) {
+  gneiss::test_support::log_capture logs{[&](const auto& event) {
     if (event.message.category == "scene_assets") {
       const std::lock_guard lock(log_mutex);
       ++visual_failures;
       log_received.notify_all();
     }
-  };
+  }};
   // 日志在独立线程分发；视觉批次完成不等于日志回调已执行。
   const auto received_failures = [&](unsigned expected) {
     std::unique_lock lock(log_mutex);
