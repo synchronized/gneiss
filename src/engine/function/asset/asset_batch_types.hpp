@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/function/asset/render_resource.hpp"
-namespace gneiss::runtime {
-enum class asset_load_state : std::uint8_t { preparing, applied, failed, cancelled };
+namespace gneiss::engine {
+enum class asset_load_state : std::uint8_t { preparing, completed, failed, cancelled };
 /** 请求中每项资源的结果；applied 表示完整成功，失败项仍可能有占位内容或可用旧内容。 */
 struct asset_load_result {
   engine::render_resource_source source;
@@ -12,8 +12,6 @@ struct asset_load_result {
 };
 struct asset_load_completion {
   std::uint64_t request{};
-  std::uint64_t session{};
-  std::uint64_t revision{};
   asset_load_state state{asset_load_state::failed};
   engine::error result{engine::error::internal};
   std::string message{};
@@ -33,8 +31,6 @@ struct asset_load_completion {
 };
 struct asset_load_progress {
   std::uint64_t request{};
-  std::uint64_t session{};
-  std::uint64_t revision{};
   asset_load_state state{asset_load_state::preparing};
   std::size_t completed_assets{};
   std::size_t total_assets{};

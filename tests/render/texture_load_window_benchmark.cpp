@@ -33,7 +33,7 @@ struct sample {
   double update_interval{};
 };
 struct context {
-  runtime::asset_batch_request request;
+  engine::asset_batch_request request;
   gneiss::engine::task_scheduler* scheduler{};
   std::filesystem::path root;
   bool model{};
@@ -115,7 +115,7 @@ gneiss::engine::error native_update(runtime::application& app, context& state) {
     state.request = std::move(*result);
   }
   if (state.requested && !state.completed) {
-    gneiss::runtime::asset_load_completion completion;
+    gneiss::engine::asset_load_completion completion;
     bool ready{};
     const auto result = gneiss::test_support::receive_request(state.request, completion, ready);
     if (result != gneiss::engine::error::success) {

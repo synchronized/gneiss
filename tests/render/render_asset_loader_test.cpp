@@ -51,18 +51,17 @@ reload_assets_for_test(gneiss::engine::asset_manager& loader,
   auto status = loader.configure(scheduler);
   if (status.failed())
     return status;
-  gneiss::runtime::resource_load_group group{loader};
-  std::uint64_t request{};
-  status = group.submit_assets(sources, 1, 1, request, true);
-  if (status.failed())
-    return status;
+  gneiss::engine::resource_load_group group{loader};
+  auto request = group.begin(sources, true, true);
+  if (!request)
+    return request.error();
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   for (;;) {
     (void)scheduler.run_ready();
     (void)loader.async_files()->dispatch_completions(64);
     loader.advance();
     group.advance();
-    gneiss::runtime::asset_load_completion completion;
+    gneiss::engine::asset_load_completion completion;
     if (group.take(completion)) {
       diagnostic = {completion.result, 0, {}, std::move(completion.message)};
       return completion.result;

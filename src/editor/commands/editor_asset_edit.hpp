@@ -7,10 +7,10 @@
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/asset/asset_batch_request.hpp"
+#include "engine/function/asset/asset_batch_types.hpp"
 #include "engine/function/asset/render_resource.hpp"
 #include "engine/function/scene/scene_types.hpp"
-#include "runtime/loading/asset_batch_request.hpp"
-#include "runtime/loading/resource_load_types.hpp"
 
 namespace gneiss::editor {
 /** 提交期间借用的资源地址；请求接收后自行复制 URI。 */
@@ -52,7 +52,7 @@ public:
   bool active() const noexcept { return active_; }
   bool visible() const noexcept { return visible_; }
   gneiss::engine::error operation() const noexcept { return operation_; }
-  const gneiss::runtime::asset_load_progress& progress() const noexcept { return progress_; }
+  const gneiss::engine::asset_load_progress& progress() const noexcept { return progress_; }
 
 private:
   void finish(runtime::application& application);
@@ -73,8 +73,8 @@ private:
   entity_id node_;
   component_edit_target target_;
   std::string mesh_, material_;
-  runtime::asset_batch_request request_;
-  gneiss::runtime::asset_load_progress progress_;
+  engine::asset_batch_request request_;
+  gneiss::engine::asset_load_progress progress_;
   gneiss::engine::error operation_{gneiss::engine::error::success};
   bool active_{}, visible_{}, cancelled_{};
 };

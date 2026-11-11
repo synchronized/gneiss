@@ -78,18 +78,18 @@ void run(gneiss::engine::execution_mode mode) {
   desc.asset_root = root;
   check(gneiss::test_support::assign_value(runtime::application::create(desc), app) ==
         gneiss::engine::error::success);
-  runtime::asset_batch_request empty;
+  engine::asset_batch_request empty;
   check(empty.cancel() == engine::error::invalid_state);
   check(app->attach_task_executor(scheduler).ok());
   check(app->attach_task_executor(scheduler) == gneiss::engine::error::invalid_state);
   const std::array uris{gneiss::engine::render_resource_source{
       .uri = "asset://a.texture.json", .type = gneiss::engine::render_resource_kind::texture}};
-  gneiss::runtime::asset_batch_request assets_request;
+  gneiss::engine::asset_batch_request assets_request;
   check(gneiss::test_support::take_value(app->load_assets(uris, false), assets_request) ==
         gneiss::engine::error::success);
   check(!empty && !empty.progress());
   check(!empty.take() && empty.take().error() == engine::error::invalid_state);
-  gneiss::runtime::asset_load_completion completion;
+  gneiss::engine::asset_load_completion completion;
   bool ready{};
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (!ready) {
@@ -234,7 +234,7 @@ void run(gneiss::engine::execution_mode mode) {
         gneiss::engine::error::success);
   check(assets_request.cancel().ok());
   wait();
-  check(completion.state == gneiss::runtime::asset_load_state::cancelled &&
+  check(completion.state == gneiss::engine::asset_load_state::cancelled &&
         completion.assets.empty());
   // 上传期间 ECS 改绑不妨碍资源更新，也不能被重载覆盖。
   gneiss::test_support::scene_node_info node;
@@ -258,7 +258,7 @@ void run(gneiss::engine::execution_mode mode) {
   external_target->value = external;
   wait();
   check(completion.result == gneiss::engine::error::success &&
-        completion.state == gneiss::runtime::asset_load_state::applied &&
+        completion.state == gneiss::engine::asset_load_state::completed &&
         completion.assets.size() == 1U);
   auto unchanged =
       world->find(node.entity).try_component<gneiss::engine::mesh_renderer_component>();

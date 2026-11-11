@@ -214,13 +214,18 @@ int main() {
       return 22;
   }
   throw_poll = true;
-  if (failing.advance(response, ready).failed() || !ready ||
-      response.status != ipc_asset_apply_status::failed)
+  // 内部回调异常向宿主边界传播，不转换成可恢复的资产错误。
+  bool propagated = false;
+  try {
+    (void)failing.advance(response, ready);
+  } catch (int value) {
+    propagated = value == 1;
+  }
+  if (!propagated)
     return 23;
   throw_poll = false;
   poll_error = engine::error::success;
-  if (failing.execute(request, response) != engine::error::not_ready ||
-      failing.advance(response, ready).failed() || !ready ||
+  if (failing.advance(response, ready).failed() || !ready ||
       response.status != ipc_asset_apply_status::applied || failing.applied_revision() != 7)
     return 24;
   return 0;

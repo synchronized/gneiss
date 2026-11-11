@@ -3,8 +3,8 @@
 #pragma once
 #include "async_asset.hpp"
 #include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/asset/detail/resource_load_group.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "runtime/loading/resource_load_group.hpp"
 #include "value_result.hpp"
 #include <chrono>
 #include <stdexcept>
@@ -21,18 +21,17 @@ inline engine::error load_render(engine::asset_manager& loader, engine::render_r
   if (status.failed())
     return status;
   const engine::render_resource_source source{std::string(uri), type};
-  runtime::resource_load_group group{loader};
-  std::uint64_t request{};
-  status = group.submit_assets(std::span(&source, 1), 1, 1, request, false);
-  if (status.failed())
-    return status;
+  engine::resource_load_group group{loader};
+  auto request = group.begin(std::span(&source, 1), false, true);
+  if (!request)
+    return request.error();
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   for (;;) {
     (void)tasks.run_ready();
     (void)loader.async_files()->dispatch_completions(64);
     loader.advance();
     group.advance();
-    runtime::asset_load_completion completion;
+    engine::asset_load_completion completion;
     if (group.take(completion)) {
       diagnostic = {completion.result, completion.byte_offset, std::move(completion.path),
                     std::move(completion.message)};

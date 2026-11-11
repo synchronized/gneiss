@@ -8,6 +8,7 @@
 #include "engine/core/log/log.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/asset/detail/resource_load_group.hpp"
 #include "engine/function/input/input_service.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_executor.hpp"
@@ -16,7 +17,6 @@
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "runtime/loading/resource_load_group.hpp"
 #include "runtime/loading/scene_service.hpp"
 #include <atomic>
 #include <optional>
@@ -80,7 +80,7 @@ struct application::storage {
     action_map_result_ = engine::error::invalid_state;
   }
   runtime::scene_service scene_service_;
-  std::unique_ptr<resource_load_group> asset_loading_;
+  std::unique_ptr<engine::resource_load_group> asset_loading_;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;
   std::uint64_t elapsed_ns_ = 0;
@@ -214,7 +214,7 @@ gneiss::engine::error application::attach_task_executor(gneiss::engine::task_exe
       (void)executor.close_scope(scope);
       return configured;
     }
-    auto group = std::make_unique<resource_load_group>(*storage_->asset_manager_);
+    auto group = std::make_unique<engine::resource_load_group>(*storage_->asset_manager_);
     const auto attached = storage_->scene_service_.configure(*storage_->render_service_);
     if (attached.failed())
       return attached;
@@ -972,7 +972,7 @@ bool application::has_asset_loading_service() const noexcept {
   return storage_->asset_loading_.get() != nullptr;
 }
 
-resource_load_group* application::loading_assets() noexcept {
+engine::resource_load_group* application::loading_assets() noexcept {
   return storage_->asset_loading_.get();
 }
 
@@ -980,7 +980,7 @@ scene_service& application::scenes() noexcept { return storage_->scene_service_;
 
 bool application::scene_loading() const noexcept { return storage_->scene_service_.loading(); }
 
-engine::result<asset_batch_request>
+engine::result<engine::asset_batch_request>
 application::load_assets(std::span<const engine::render_resource_source> sources, bool reload) {
   if (!is_owner_thread() || !accepts_requests())
     return engine::error::invalid_state;
@@ -1030,9 +1030,9 @@ engine::error application::advance_loading() {
 }
 
 void application::report_visual_completion() {
-  gneiss::runtime::asset_load_completion completion;
+  gneiss::engine::asset_load_completion completion;
   if (storage_->scene_service_.take_visual_completion(completion) &&
-      completion.state != gneiss::runtime::asset_load_state::cancelled) {
+      completion.state != gneiss::engine::asset_load_state::cancelled) {
     for (const auto& item : completion.results) {
       if (!item.applied) {
         report(gneiss::engine::severity::error, gneiss::engine::category::asset, item.result,

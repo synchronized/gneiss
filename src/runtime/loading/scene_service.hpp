@@ -6,13 +6,14 @@
 
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/asset/asset_batch_types.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/composition.hpp"
 #include "engine/function/scene/scene_application.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/scene.hpp"
-#include "runtime/loading/resource_load_types.hpp"
 
+#include "engine/function/asset/asset_batch_request.hpp"
 #include "runtime/loading/scene_load_types.hpp"
 #include <optional>
 #include <thread>
@@ -20,8 +21,12 @@
 
 namespace gneiss::engine {}
 
-namespace gneiss::runtime {
+namespace gneiss::engine {
 class resource_load_group;
+}
+
+namespace gneiss::runtime {
+
 class scene_service;
 
 /** 场景打开请求；仅所属线程使用，移动转移观察权，不保活宿主。
@@ -92,7 +97,7 @@ public:
   [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::asset_manager& resources);
   [[nodiscard]] gneiss::engine::error configure(gneiss::engine::render_service& renderer);
   /** 激活后的视觉资源独立完成，不影响结构激活结果；所属线程消费诊断。 */
-  [[nodiscard]] bool take_visual_completion(gneiss::runtime::asset_load_completion& output);
+  [[nodiscard]] bool take_visual_completion(gneiss::engine::asset_load_completion& output);
   [[nodiscard]] bool visual_loading() const noexcept { return visuals_.loading(); }
   /** 请求停止加载，不等待 CPU/I/O；继续 advance 至 stopped，再释放依赖。 */
   void request_stop();
@@ -149,16 +154,15 @@ private:
   struct visual_load_state {
     std::vector<engine::render_resource_source> queue;
     std::size_t cursor{};
-    std::uint64_t session{}, revision{};
+    engine::asset_batch_request request;
     bool pending{};
-    std::optional<asset_load_completion> completion;
+    std::optional<engine::asset_load_completion> completion;
     bool loading() const noexcept { return pending || !queue.empty(); }
-    void begin(std::vector<engine::render_resource_source> sources, std::uint64_t next_session,
-               std::uint64_t next_revision);
-    void advance(resource_load_group& group);
-    bool take(asset_load_completion& output);
-    void cancel(resource_load_group& group);
-    void stop(resource_load_group* group);
+    void begin(std::vector<engine::render_resource_source> sources);
+    void advance(engine::resource_load_group& group);
+    bool take(engine::asset_load_completion& output);
+    void cancel(engine::resource_load_group& group);
+    void stop(engine::resource_load_group* group);
     void reset() noexcept;
   } visuals_;
   gneiss::engine::asset_manager* resources_{};
@@ -178,7 +182,7 @@ private:
   std::optional<scene_load_completion> completed_;
   std::uint64_t sequence_{};
   const std::thread::id owner_{std::this_thread::get_id()};
-  std::unique_ptr<resource_load_group> loading_;
+  std::unique_ptr<engine::resource_load_group> loading_;
 };
 
 } // namespace gneiss::runtime

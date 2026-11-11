@@ -168,10 +168,10 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
       << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,1,0,1]},"texture_uris":["","","","",""]})";
   const std::array sources{gneiss::engine::render_resource_source{
       "asset://material.json", gneiss::engine::render_resource_kind::material}};
-  gneiss::runtime::asset_batch_request assets_request;
+  gneiss::engine::asset_batch_request assets_request;
   check(gneiss::test_support::take_value(app->load_assets(sources, true), assets_request) ==
         gneiss::engine::error::success);
-  gneiss::runtime::asset_load_completion loaded;
+  gneiss::engine::asset_load_completion loaded;
   until([&] {
     bool finished{};
     check(app->run(1).ok());
@@ -604,10 +604,10 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
         count == 2U);
   const std::array textures{gneiss::engine::render_resource_source{
       .uri = "asset://texture.json", .type = gneiss::engine::render_resource_kind::texture}};
-  gneiss::runtime::asset_batch_request assets_request;
+  gneiss::engine::asset_batch_request assets_request;
   check(gneiss::test_support::take_value(app->load_assets(textures, true), assets_request) ==
         gneiss::engine::error::success);
-  gneiss::runtime::asset_load_completion assets;
+  gneiss::engine::asset_load_completion assets;
   bool ready{};
   while (!ready) {
     check(std::chrono::steady_clock::now() < deadline);
@@ -660,7 +660,7 @@ void asynchronous_shutdown(gneiss::engine::execution_mode mode) {
     check(app->attach_task_executor(scheduler).ok());
     check(app->advance_shutdown() == gneiss::engine::error::invalid_state);
     gneiss::runtime::scene_open_request request;
-    gneiss::runtime::asset_batch_request assets_request;
+    gneiss::engine::asset_batch_request assets_request;
     if (stage == 1) {
       check(
           gneiss::test_support::take_value(app->scenes().open("asset://scene.json"), request).ok());
@@ -669,7 +669,7 @@ void asynchronous_shutdown(gneiss::engine::execution_mode mode) {
       const std::array sources{gneiss::engine::render_resource_source{
           "asset://mesh.json", gneiss::engine::render_resource_kind::mesh}};
       check(gneiss::test_support::take_value(app->load_assets(sources, true), assets_request).ok());
-      gneiss::runtime::asset_load_completion completion;
+      gneiss::engine::asset_load_completion completion;
       bool ready{};
       check(app->run(1).ok());
       check(gneiss::test_support::receive_request(assets_request, completion, ready).ok());

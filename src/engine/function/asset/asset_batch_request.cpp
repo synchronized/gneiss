@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "runtime/loading/asset_batch_request.hpp"
-#include "runtime/loading/resource_load_group.hpp"
+#include "engine/function/asset/asset_batch_request.hpp"
+#include "engine/function/asset/detail/resource_load_group.hpp"
 #include <utility>
-namespace gneiss::runtime {
+namespace gneiss::engine {
 resource_load_group* asset_batch_request::owner() const noexcept {
   auto token = owner_.lock();
   auto* group = token ? *token : nullptr;

@@ -79,7 +79,7 @@ struct runtime_context final {
   std::uint64_t logged_scene_session{};
   std::uint64_t logged_scene_revision{};
   int logged_scene_phase{-1};
-  gneiss::runtime::asset_batch_request asset_request{};
+  gneiss::engine::asset_batch_request asset_request{};
   bool asset_waiting{};
   bool asset_cancelled{};
   std::uint64_t next_asset_progress_ns{};
@@ -267,7 +267,7 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
       }
       if (!ready && asset_result == gneiss::engine::error::success &&
           time->elapsed_ns >= context.next_asset_progress_ns) {
-        gneiss::runtime::asset_load_progress progress;
+        gneiss::engine::asset_load_progress progress;
         if (auto observed = context.asset_request.progress()) {
           progress = *observed;
           const gneiss::host::ipc_asset_reload_result event{

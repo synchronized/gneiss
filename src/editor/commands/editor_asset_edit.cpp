@@ -285,8 +285,8 @@ editor_asset_edit::request_impl(runtime::application& application, scene_edit_se
   };
   select(mesh_, engine::render_resource_kind::mesh, previous_.mesh, next_.mesh);
   select(material_, engine::render_resource_kind::material, previous_.material, next_.material);
-  runtime::asset_load_completion prepared;
-  prepared.state = runtime::asset_load_state::applied;
+  engine::asset_load_completion prepared;
+  prepared.state = engine::asset_load_state::completed;
   if (!sources.empty()) {
     auto result = application.load_assets(sources);
     if (!result)
@@ -300,11 +300,11 @@ editor_asset_edit::request_impl(runtime::application& application, scene_edit_se
         else
           prepared = std::move(*completed);
       } else {
-        prepared.state = runtime::asset_load_state::preparing;
+        prepared.state = engine::asset_load_state::preparing;
       }
     }
   }
-  if (operation_.failed() || prepared.state == runtime::asset_load_state::applied) {
+  if (operation_.failed() || prepared.state == engine::asset_load_state::completed) {
     if (operation_.ok()) {
       accept_assets(prepared.assets);
       operation_ = commit(application, session, history);
@@ -357,7 +357,7 @@ void editor_asset_edit::advance(runtime::application& application, scene_edit_se
     finish(application);
     return;
   }
-  progress_ = request_.progress().value_or(runtime::asset_load_progress{});
+  progress_ = request_.progress().value_or(engine::asset_load_progress{});
   auto completion = request_.take();
   if (!completion && completion.error() == engine::error::not_ready)
     return;

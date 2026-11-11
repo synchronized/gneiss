@@ -679,3 +679,5 @@
 - [ADR-117 应用装配、资产、运行世界与编辑文档边界](decisions/ADR-117-application-scene-boundaries.md)
 
 - [PLAN-113 编辑职责迁移记录](records/2026-11-11-plan113-editor-boundary.md)
+
+- [PLAN-113 资产批次迁移记录](records/2026-11-11-plan113-asset-batch.md)

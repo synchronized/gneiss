@@ -6,13 +6,13 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/asset/detail/resource_load_group.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/composition.hpp"
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/resource/scene.hpp"
-#include "runtime/loading/resource_load_group.hpp"
 #include "runtime/loading/scene_service.hpp"
 
 #include "engine/resource/asset_uri.hpp"
@@ -268,7 +268,7 @@ engine::result<scene_load_completion> scene_service::activate(std::uint64_t requ
   retired_ = std::move(active_);
   active_ = std::move(pending_->candidate);
   source_ = std::move(source);
-  visuals_.begin(std::move(pending_->requested), result.progress.session, result.progress.revision);
+  visuals_.begin(std::move(pending_->requested));
   pending_.reset();
   result.activation_ms = elapsed(start);
   return result;

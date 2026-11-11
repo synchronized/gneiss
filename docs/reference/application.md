@@ -32,7 +32,7 @@ Application 每帧在 update 回调前统一处理文件完成、资产批次和
   仅成功时消费请求；错误宿主或空请求返回 invalid_state，尚不满足切换条件返回 not_ready。
 - 原位重载：`app.scenes().reload(instance, uri, prefab)` 返回 scene_reload_request，
   `ready()` 表示存在回执，`take()` 领取它；结构完成不等待视觉资源。
-- 多资源编辑：`app.load_assets(sources, reload)` 返回 asset_batch_request。
+- 多资源编辑：`app.load_assets(sources, reload)` 返回 engine::asset_batch_request。
   缓存命中可立即 ready；仍用同一资产缓存和加载流程，单个批次占用一个观察槽位。
   `take()` 领取完成值并释放槽位，未完成返回 not_ready。
 

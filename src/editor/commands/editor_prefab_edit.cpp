@@ -41,7 +41,7 @@ struct editor_prefab_edit::state {
   std::vector<engine::guid> refresh_targets;
   prefab_snapshots before, after;
   gneiss::engine::guid target_uuid;
-  runtime::asset_batch_request request;
+  engine::asset_batch_request request;
   bool asset_pending{}, cancelled{}, active{}, visible{};
   gneiss::engine::error status{gneiss::engine::error::success};
   gneiss::engine::error failure{gneiss::engine::error::success};

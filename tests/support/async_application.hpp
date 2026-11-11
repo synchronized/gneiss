@@ -71,11 +71,11 @@ prepare_scene(runtime::application& app, std::string_view uri, engine::scene_con
   if (!dependencies)
     return dependencies.error();
   for (const auto& source : *dependencies) {
-    runtime::asset_batch_request request;
+    engine::asset_batch_request request;
     status = gneiss::test_support::take_value(app.load_assets(std::span(&source, 1)), request);
     if (status.failed())
       return status;
-    runtime::asset_load_completion completion;
+    engine::asset_load_completion completion;
     bool ready{};
     while (!ready) {
       if (!step())

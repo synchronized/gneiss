@@ -115,7 +115,7 @@ void test_asset_request_boundaries() {
   std::shared_ptr<runtime::application> app;
   check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
         gneiss::engine::error::success);
-  runtime::asset_batch_request empty_assets;
+  engine::asset_batch_request empty_assets;
   runtime::scene_open_request empty_scene;
   check(!empty_assets.progress() && empty_assets.cancel() == engine::error::invalid_state);
   check(!empty_scene.progress() && empty_scene.cancel() == engine::error::invalid_state);

@@ -253,7 +253,7 @@ Application 通过 `assets()` 暴露统一入口，分发文件完成后推进�
 内部加载文件位于 `detail/`，不向宿主开放。资源数据及格式编解码仍位于 `engine/resource`。
 
 `render_resource.hpp` 声明 `render_resource_source` 及混合资源引用辅助函数；
-场景批量进度和回执位于 Runtime 的 `resource_load_types.hpp`，属于 `gneiss::runtime`。render_resource_kind 当前只枚举 Mesh、Material、Texture，
+资产批量进度和回执位于 `engine/function/asset/asset_batch_types.hpp`，属于 `gneiss::engine`。render_resource_kind 当前只枚举 Mesh、Material、Texture，
 自定义资产类型由 load<T> 的 C++ 类型确定。
 `detail/render_load_operation.cpp` 保存服务私有的单资源请求状态，`asset_decode` 只解码已有字节。
 `detail::asset_construction` 定义服务私有实现；创建、RID 包装、延迟销毁和内容采用均属于服务。
@@ -278,7 +278,7 @@ ActionMap 使用 `load<action_map>` 返回共享资产；`snapshot()` 取得不�
 不自动跟随重载。描述使用原有 input-map 文件格式和 GUID；描述的 load/store/find
 返回 unsupported，显式 Decoder 注册到 action_map_description 供 Loader 使用。
 没有独立批次加载器、资源工厂或 prepare/apply 更新记录，也不在资源对象上保存更新序号。
-Runtime 的 `resource_load_group` 仅为场景与编辑器串行组合单资源请求、汇总显式请求结果；
+资产模块内部的 `resource_load_group` 仅为场景与编辑器串行组合单资源请求、汇总显式请求结果；
 它不读文件、不解析依赖、不创建后端资源，且不占用资源服务的全局加载槽位。
 
 
@@ -457,3 +457,6 @@ asset_manager::advance 消费 CPU 与渲染资产的就绪队列，不再逐帧�
 文件或任务容量不足的提交保留独立重试集合，每次 advance 尝试恢复；它不包含正常等待中的操作。
 collect_unused 仍检查资源引用与弱缓存，释放无观察者的渲染操作及退休资源；这是所有权维护，
 不代表继续轮询文件、解码或依赖状态。场景和编辑批次的协调方式不因内部队列改动而改变。
+
+批次统一通过 `begin` 提交，回执不携带编辑器 session/revision。缓存命中复用资产身份，
+在途请求收到完成通知后才领取结果；成功终态为 completed，不表示 GPU 上传或编辑操作已完成。

@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/result.hpp"
-#include "runtime/loading/resource_load_types.hpp"
+#include "engine/function/asset/asset_batch_types.hpp"
 #include <memory>
 #include <optional>
-namespace gneiss::runtime {
+namespace gneiss::engine {
 class resource_load_group;
 /** 资产批次的独占观察句柄；仅所属线程使用，放弃即取消，不保活宿主。 */
 class asset_batch_request final {

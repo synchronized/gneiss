@@ -6,10 +6,10 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/asset/detail/resource_load_group.hpp"
 #include "engine/function/scene/component_registration.hpp"
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/world.hpp"
-#include "runtime/loading/resource_load_group.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -37,7 +37,7 @@ gneiss::engine::error scene_service::configure(gneiss::engine::render_service& r
     return gneiss::engine::error::invalid_state;
   }
   renderer_ = &renderer;
-  loading_ = std::make_unique<resource_load_group>(*resources_);
+  loading_ = std::make_unique<engine::resource_load_group>(*resources_);
   return gneiss::engine::error::success;
 }
 
@@ -61,16 +61,17 @@ void scene_service::advance() {
   advance_reload();
 }
 
-void scene_service::visual_load_state::advance(resource_load_group& group) {
+void scene_service::visual_load_state::advance(engine::resource_load_group& group) {
   if (completion) {
     return;
   }
   if (pending) {
     group.advance();
-    gneiss::runtime::asset_load_completion finished;
+    gneiss::engine::asset_load_completion finished;
     if (!group.take(finished)) {
       return;
     }
+    request.reset();
     pending = false;
     completion = std::move(finished);
     return;
@@ -80,24 +81,22 @@ void scene_service::visual_load_state::advance(resource_load_group& group) {
     cursor = 0U;
     return;
   }
-  std::uint64_t request{};
-  const auto submitted =
-      group.submit_assets(std::span(queue).subspan(cursor, 1U), session, revision, request, false);
-  if (submitted == gneiss::engine::error::not_ready) {
+  auto submitted = group.begin(std::span(queue).subspan(cursor, 1U), false, true);
+  if (!submitted && submitted.error() == engine::error::not_ready)
     return;
-  }
-  if (submitted == gneiss::engine::error::success) {
+  if (submitted) {
+    request = std::move(*submitted);
     pending = true;
   } else {
-    gneiss::runtime::asset_load_completion finished;
-    finished.result = submitted;
-    finished.results.push_back({.source = queue[cursor], .result = submitted});
+    engine::asset_load_completion finished;
+    finished.result = submitted.error();
+    finished.results.push_back({.source = queue[cursor], .result = submitted.error()});
     completion = std::move(finished);
   }
   ++cursor;
 }
 
-bool scene_service::visual_load_state::take(gneiss::runtime::asset_load_completion& output) {
+bool scene_service::visual_load_state::take(gneiss::engine::asset_load_completion& output) {
   if (!completion) {
     return false;
   }
@@ -106,22 +105,18 @@ bool scene_service::visual_load_state::take(gneiss::runtime::asset_load_completi
   return true;
 }
 
-void scene_service::visual_load_state::begin(std::vector<engine::render_resource_source> sources,
-                                             std::uint64_t next_session,
-                                             std::uint64_t next_revision) {
+void scene_service::visual_load_state::begin(std::vector<engine::render_resource_source> sources) {
   queue = std::move(sources);
   cursor = 0;
-  session = next_session;
-  revision = next_revision;
 }
-void scene_service::visual_load_state::cancel(resource_load_group& group) {
+void scene_service::visual_load_state::cancel(engine::resource_load_group& group) {
   queue.clear();
   cursor = 0;
   // 取消回执仍由 advance/take 消费，不能提前清除 pending。
   if (pending)
     (void)group.cancel();
 }
-void scene_service::visual_load_state::stop(resource_load_group* group) {
+void scene_service::visual_load_state::stop(engine::resource_load_group* group) {
   queue.clear();
   completion.reset();
   if (group)
@@ -132,7 +127,7 @@ void scene_service::advance_visuals() {
   if (loading_)
     visuals_.advance(*loading_);
 }
-bool scene_service::take_visual_completion(asset_load_completion& output) {
+bool scene_service::take_visual_completion(engine::asset_load_completion& output) {
   return visuals_.take(output);
 }
 
@@ -320,7 +315,7 @@ void scene_service::advance_reload() {
       value.objects.push_back({address.object, address.source, binding.entity});
   }
   value.result = engine::error::success;
-  visuals_.begin(std::move(*reloaded), 1, 1);
+  visuals_.begin(std::move(*reloaded));
 }
 
 scene_service* scene_reload_request::owner() const noexcept {

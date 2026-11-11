@@ -13,13 +13,13 @@
 #include "engine/resource/input/action_map.hpp"
 
 #include "engine/core/log/log_dispatcher.hpp"
+#include "engine/function/asset/asset_batch_request.hpp"
+#include "engine/function/asset/asset_batch_types.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
 #include "engine/function/render/render_snapshot.hpp"
 #include "engine/function/render/render_statistics.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 #include "runtime/configuration/application_configuration.hpp"
-#include "runtime/loading/asset_batch_request.hpp"
-#include "runtime/loading/resource_load_types.hpp"
 #include "runtime/loading/scene_load_types.hpp"
 #include "runtime/loading/scene_service.hpp"
 
@@ -41,8 +41,12 @@ namespace gneiss::engine {
 class world;
 }
 
-namespace gneiss::runtime {
+namespace gneiss::engine {
 class resource_load_group;
+}
+
+namespace gneiss::runtime {
+
 class scene_service;
 
 /** 内部真实运行对象；仅所属线程操作和释放最后一个持有引用。
@@ -65,7 +69,7 @@ public:
   [[nodiscard]] GNEISS_API runtime::scene_service& scenes() noexcept;
   [[nodiscard]] GNEISS_API bool scene_loading() const noexcept;
   /** 多资源编辑批次；普通单资产直接使用 assets().load<T>()。 */
-  [[nodiscard]] GNEISS_API engine::result<asset_batch_request>
+  [[nodiscard]] GNEISS_API engine::result<engine::asset_batch_request>
   load_assets(std::span<const engine::render_resource_source> sources, bool reload = false);
   [[nodiscard]] GNEISS_API bool visual_assets_loading() const noexcept;
   [[nodiscard]] GNEISS_API bool can_activate_scene() const noexcept;
@@ -73,7 +77,7 @@ public:
 
 private:
   [[nodiscard]] engine::error advance_loading();
-  resource_load_group* loading_assets() noexcept;
+  engine::resource_load_group* loading_assets() noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::error advance_resource_io();
   explicit GNEISS_API application(const runtime::application_configuration& config);
   [[nodiscard]] GNEISS_API gneiss::engine::error initialize();

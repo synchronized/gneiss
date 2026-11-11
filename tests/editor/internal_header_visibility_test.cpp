@@ -21,7 +21,7 @@
 #error "资源私有访问器泄漏到宿主"
 #endif
 
-#if __has_include("runtime/loading/resource_load_group.hpp")
+#if __has_include("engine/function/asset/detail/resource_load_group.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("engine/function/asset/resource_cache.hpp")
