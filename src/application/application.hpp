@@ -17,7 +17,7 @@
 #include "engine/function/asset/asset_batch_request.hpp"
 #include "engine/function/asset/asset_batch_types.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
-#include "engine/function/render/render_snapshot.hpp"
+#include "engine/function/render/camera.hpp"
 #include "engine/function/render/render_statistics.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 

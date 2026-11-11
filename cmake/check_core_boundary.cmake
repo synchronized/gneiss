@@ -138,7 +138,7 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "输入服务不得依赖资源管理器、文件后端或 CAORS：${source}")
   endif()
 
-  if(source MATCHES "/src/engine/function/(scene/(scene_tree|scene_query|game_object|instantiation|scene_instance|scene_instances|scene_update|scene_instances_instantiation|world|world_types|detail/hierarchy)|render/render_extraction)[.](hpp|cpp)$" AND
+  if(source MATCHES "/src/engine/function/(scene/(scene_tree|scene_query|game_object|instantiation|scene_instance|scene_instances|scene_update|scene_instances_instantiation|world|world_types|detail/hierarchy|rendering/[^/]+))[.](hpp|cpp)$" AND
       content MATCHES "gneiss_transform|GNEISS_TRANSFORM_IDENTITY")
     message(FATAL_ERROR "原生场景树与快照不得使用 C TRS 布局：${source}")
   endif()
@@ -147,12 +147,12 @@ foreach(source IN LISTS sources)
        content MATCHES "gneiss/engine/render[.]h"))
     message(FATAL_ERROR "原生 World 组件不得存储 C 渲染布局：${source}")
   endif()
-  if(source MATCHES "/src/engine/(resource/(mesh|material|texture)/(mesh_data|material_description|texture_description|texture_data)|function/render/(render_resource_data|render_service|render_snapshot|render_asset_loader|texture_view))[.](hpp|cpp)$" AND
+  if(source MATCHES "/src/engine/(resource/(mesh|material|texture)/(mesh_data|material_description|texture_description|texture_data)|function/render/(render_resource_data|render_service|camera|render_asset_loader|texture_view))[.](hpp|cpp)$" AND
       (content MATCHES "gneiss_(mesh|material|texture)([^a-z_]|$)|gneiss_(mesh_vertex|mesh_normal|mesh_tangent|mesh_uv|mesh_color|texture_sampling)|GNEISS_(MATERIAL_ALPHA|TEXTURE_FILTER|TEXTURE_ADDRESS|TEXTURE_MIP|TEXTURE_FORMAT|TEXTURE_COLOR)_" OR
        content MATCHES "gneiss/engine/render[.]h"))
     message(FATAL_ERROR "原生资源接口不得依赖 Render C 值布局：${source}")
   endif()
-  if(source MATCHES "/src/engine/(core/math/(camera|transform)|function/render/render_snapshot)[.](cpp|hpp)$" AND
+  if(source MATCHES "/src/engine/(core/math/(camera|transform)|function/render/camera)[.](cpp|hpp)$" AND
       (content MATCHES "gneiss_(transform|camera)|GNEISS_(TRANSFORM|CAMERA)_" OR
        content MATCHES "engine/function/render/backend/|granit/"))
     message(FATAL_ERROR "通用渲染快照与数学不得依赖 C 场景值或后端：${source}")
@@ -222,17 +222,14 @@ foreach(source IN LISTS sources)
   if(source MATCHES "/src/(engine/platform|runtime|application)/" AND content MATCHES "gneiss_application_desc")
     message(FATAL_ERROR "Platform/Application 实现只能接收语义配置，不得消费 Application ABI 描述：${source}")
   endif()
-  # 唯一的场景到渲染前端桥接；后端与其他渲染实现不能读取 World。
+  # 同步桥接属于 Scene；Render 不得反向读取 World。
   if(source MATCHES "/src/(engine/function/)?render/" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"](engine/function/)?(world|scene|application)/")
-    if(NOT source MATCHES "/src/engine/function/render/render_extraction[.]cpp$" OR
-        content MATCHES "#[ \t]*include[ \t]*[<\"](engine/function/)?application/")
-      message(FATAL_ERROR "渲染后端不得反向包含 World / Scene / Application：${source}")
-    endif()
+    message(FATAL_ERROR "Render 不得反向包含 World / Scene / Application：${source}")
   endif()
-  if(source MATCHES "/src/engine/function/render/render_extraction[.](cpp|hpp)$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"](granit/|engine/function/render/backend/)")
-    message(FATAL_ERROR "渲染提取前端不得直接依赖 GPU 后端：${source}")
+  if(source MATCHES "/src/engine/function/scene/rendering/" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"](granit/|engine/function/render/backend/|(engine/function/)?application/)")
+    message(FATAL_ERROR "场景渲染桥接不得直接依赖 GPU 后端或 Application：${source}")
   endif()
   if(source MATCHES "/src/engine/resource/" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/)?(function|render|world|scene|application|editor|tooling|apps)/)")

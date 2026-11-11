@@ -62,7 +62,10 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
   宿主普通帧不再领取 packet 或提取对象快照；背压检查移入 Render；已删除无消费者的 packet 预备/公开提交接口及回收缓存。
   截图已通过 request_capture 使用相同 frame_request 和资源捕获，底层复用必达帧与序号回执；
   Application 的同步截图行为暂保留，独立异步回读/取消尚待实施。
-  旧对象提取与 capture_render_frame_packet 已无产品调用方，仅待迁移测试删除，P1/P3 未验收完成。
+  旧 render_snapshot、对象提取与 capture_render_frame_packet 已删除，P1/P3 未验收完成。
+  测试改为独立相机查询和持久场景帧捕获，覆盖未就绪资源、五个纹理槽的版本保活及 UI/调试输入复制；
+  删除旧快照保活上层资产对象的过渡契约。Render 读取 World 的历史边界豁免已移除。
+  本轮八项相关 CPU 回归（含正反依赖边界）通过；未运行 GPU 验收。
   截图输入统一后 Engine/Runtime/Editor 构建及 render_scene、render_executor、world_render_binding、
   native-application-flow 四项 CPU 回归通过；覆盖拒绝时保留输入/输出和必达回读完成，不等于 GPU 图像验收。
   普通帧接入后 Engine/Runtime/Editor 构建通过，native-application-flow、render_frame_packet、
@@ -77,8 +80,8 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
   这样可先复用现有窗口/执行器和 Granit 绘制，不伪造多目标支持；目标资源管理落地后替换窗口输入。
 - 暂时由所属线程捕获持久场景的自有帧数据。已接受帧只读不可变资源版本，不访问正在更新的身份记录。
   这是线程安全过渡，不是最终增量渲染架构；退出条件是可靠命令消费侧接管场景与有序资源版本。
-- render_frame_packet 的实例统一为 RID、完整 model/normal 矩阵和层掩码，旧 World 快照在入口转换。
-  Granit 只有一个绘制消费者；完整矩阵用于法线和包围球，保留剪切。旧 World 对象提取仅剩测试，待迁移测试后删除。
+- render_frame_packet 的实例统一为 RID、完整 model/normal 矩阵和层掩码，由持久场景捕获。
+  Granit 只有一个绘制消费者；完整矩阵用于法线和包围球，保留剪切。旧 World 对象提取及其测试路径已删除。
 - 当前新入口已携带 UI/调试数据；普通帧和截图场景输入已统一；回读仍复用序号回执，GPU 预览尚未验收。
 
 ### Granit 最小扩展建议：逐实例阴影开关

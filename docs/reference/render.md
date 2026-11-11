@@ -111,24 +111,19 @@ GPU 在途安全回收仍由 Render 及后端负责，RID 释放队列不替代 
 `set_active_camera(world&, entity_id)` 独立选择，每个 World 至多一个；移除或销毁活动 Camera 后，相机选择查询
 进入无活动 Camera 状态。primary_hint 仅是默认相机选择提示，安装组件不会激活相机。
 
-帧提取入口为 `function/scene/render_extraction.hpp` 中的
-`extract_render_snapshot(world&, width, height, camera)`，返回 `result<render_snapshot>`。
-它在 World 所属线程访问 ECS，失败时不返回部分快照；相机指针仅在调用期间借用，
-为空时使用活动相机。提取实现集中在 scene/render_extraction.cpp，不由 World 公共方法或 GPU 服务负责。
-Application 将成功结果移动到帧包；快照持有资源强引用，不保留 ECS 借用。
+相机查询入口为 `function/scene/rendering/render_camera.hpp` 中的 `select_render_camera`。
+它在 World 所属线程读取活动相机或调用期间借用的视口相机，返回可选的相机纯值数据；
+没有活动相机时返回空值，不枚举网格对象。矩阵遵循
+[ADR-012](../decisions/ADR-012-3d-camera-coordinate-boundary.md)。相机值类型位于 Render 的 `camera.hpp`。
 
-帧提取按值复制活动 Camera、世界 Transform、视图矩阵、投影矩阵和视口尺寸。没有关联 Scene Node
-的活动 Camera 不进入渲染快照；窗口尺寸为零时跳过渲染。内部矩阵遵循
-[ADR-012](../decisions/ADR-012-3d-camera-coordinate-boundary.md)，不进入公共 ABI。
-
-使用 add_component<mesh_renderer_component>(renderer) 新增网格渲染组件，已有组件通过借用指针赋值。组件持有 Mesh 与 Material 强引用，
-执行正常的 C++ 构造、复制和析构，不保存 Granit 类型。实体必须关联 Scene Node 才会获得世界 Transform 并
-进入渲染快照。资源已销毁或来自其他 Application 时，帧提交返回
-`error::invalid_handle`。
+使用 add_component<mesh_renderer_component>(renderer) 新增网格渲染组件；已有组件通过借用指针修改后，
+调用 notify_component_modified<mesh_renderer_component>() 通知绑定。组件持有 Mesh 与 Material 强引用，
+执行正常的 C++ 构造、复制和析构，不保存 Granit 类型。World 侧绑定将变化同步至持久渲染场景，
+帧捕获固定资源内容版本；无资源的对象暂不创建实例，非法资源 RID 在提交时拒绝。
 
 ## 当前渲染路径
 
-Granit 平台模式将活动 Camera、世界 Transform 与 Mesh Renderer 提取为持有资源的帧包，
+Granit 平台模式由 World 绑定增量同步实例，Render 从持久场景捕获帧数据并固定资源版本，
 后端按 RID 维护 GPU 镜像。带法线 Mesh 使用 Granit 标准 PBR 与索引绘制，材质绑定 base color、
 metallic-roughness、normal、occlusion、emissive 五槽和对应因子；未指定槽使用中性默认资源。
 切线来自 Mesh，旧网格缺失时保留兼容默认值，不能据此承诺准确法线贴图。
@@ -282,5 +277,5 @@ Application 截图和普通帧共用绑定同步、相机查询及 frame_request
 Application 的 capture_frame 暂保持同步诊断接口，通过 finish_frames 与序号回执领取结果；
 完整异步回读对象与取消语义尚未实现。
 
-旧 render_snapshot 提取/捕获仅剩测试消费者，待迁移测试后删除；Render 内部仍逐帧捕获持久场景。
+旧 render_snapshot、对象提取与独立捕获入口已删除；Render 内部仍逐帧捕获持久场景。
 本轮未做 GPU 图像验收，不能声称已删除所有全量捕获。

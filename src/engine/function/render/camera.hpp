@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_RENDER_RENDER_SNAPSHOT_HPP_
-#define GNEISS_RENDER_RENDER_SNAPSHOT_HPP_
+#ifndef GNEISS_RENDER_CAMERA_HPP_
+#define GNEISS_RENDER_CAMERA_HPP_
 
 #include "engine/core/math/camera.hpp"
-#include "engine/resource/material.hpp"
-#include "engine/resource/mesh.hpp"
 #include <cstdint>
-
-#include <vector>
 
 namespace gneiss {
 
@@ -19,7 +15,7 @@ struct view_camera {
   math::transform transform{};
 };
 
-/** Render 输入快照；包含值与资源强引用，不依赖 World、ECS 或场景节点状态。 */
+/** 相机矩阵与视口的纯值输入，不依赖 World、ECS 或资产对象。 */
 struct render_camera_snapshot {
   math::camera_settings camera;
   math::transform transform;
@@ -27,18 +23,6 @@ struct render_camera_snapshot {
   math::matrix4 projection;
   std::uint32_t viewport_width{};
   std::uint32_t viewport_height{};
-};
-
-struct render_instance_snapshot {
-  ref<const gneiss::mesh> mesh;
-  ref<const gneiss::material> material;
-  math::transform transform;
-};
-
-struct render_snapshot {
-  render_camera_snapshot camera{};
-  bool has_camera{};
-  std::vector<render_instance_snapshot> instances;
 };
 
 } // namespace gneiss

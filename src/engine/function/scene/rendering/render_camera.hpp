@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/result.hpp"
-#include "engine/function/render/render_snapshot.hpp"
+#include "engine/function/render/camera.hpp"
 #include <optional>
 namespace gneiss {
 class world;

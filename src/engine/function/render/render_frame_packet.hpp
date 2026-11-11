@@ -8,7 +8,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
 #include "engine/function/render/render_resource_data.hpp"
-#include "engine/function/render/render_snapshot.hpp"
+#include "engine/function/render/camera.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/platform/native_window_info.hpp"
 
@@ -46,9 +46,6 @@ public:
 private:
   friend class detail::render_scene_state;
   friend class render_service;
-  friend error capture_render_frame_packet(const native_window_info&, render_snapshot,
-                                           const render_service&, const ui_draw_list&,
-                                           const debug_draw_list&, struct render_frame_packet&);
 
   std::unordered_map<rid, std::shared_ptr<const mesh_data>> meshes_;
   std::unordered_map<rid, std::shared_ptr<const material_data>> materials_;
@@ -94,11 +91,6 @@ struct render_frame_packet final {
   render_frame_capture_metrics capture;
   std::shared_ptr<frame_image> readback;
 };
-
-[[nodiscard]] error
-capture_render_frame_packet(const native_window_info& window, render_snapshot scene,
-                            const render_service& resources, const ui_draw_list& ui,
-                            const debug_draw_list& debug, render_frame_packet& out_packet);
 
 } // namespace gneiss
 

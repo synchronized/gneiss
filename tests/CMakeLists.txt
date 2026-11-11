@@ -363,6 +363,8 @@ add_test(NAME gneiss.render_executor COMMAND gneiss_render_executor_test)
 add_executable(
   gneiss_render_frame_packet_test
   render/render_frame_packet_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/ui_draw_list.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/detail/render_scene_state.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/debug_draw_list.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_frame_packet.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/math/transform.cpp"
@@ -428,15 +430,15 @@ gneiss_target_output_directories(gneiss_component_reflection_test)
 add_test(NAME gneiss.component_reflection COMMAND gneiss_component_reflection_test)
 
 add_executable(
-  gneiss_render_snapshot_test
-  world/render_snapshot_test.cpp
+  gneiss_render_camera_test
+  world/render_camera_test.cpp
 )
-target_include_directories(gneiss_render_snapshot_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_link_libraries(gneiss_render_snapshot_test PRIVATE gneiss::engine)
-target_compile_features(gneiss_render_snapshot_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_render_snapshot_test)
-gneiss_target_output_directories(gneiss_render_snapshot_test)
-add_test(NAME gneiss.render_snapshot COMMAND gneiss_render_snapshot_test)
+target_include_directories(gneiss_render_camera_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_render_camera_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_render_camera_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_render_camera_test)
+gneiss_target_output_directories(gneiss_render_camera_test)
+add_test(NAME gneiss.render_camera COMMAND gneiss_render_camera_test)
 
 add_executable(
   gneiss_camera_math_test

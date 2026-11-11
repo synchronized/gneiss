@@ -204,7 +204,7 @@ target_sources(
     engine/function/render/detail/render_scene_state.cpp
     engine/function/render/render_service_resources.cpp
     engine/function/render/render_resource_storage.hpp
-    engine/function/render/render_snapshot.hpp
+    engine/function/render/camera.hpp
     ${gneiss_pbr_embedded_sources}
 )
 
@@ -266,8 +266,6 @@ target_sources(
     engine/function/scene/rendering/render_camera.hpp
     engine/function/scene/rendering/render_camera.cpp
     engine/function/scene/detail/world_changes.hpp
-    engine/function/render/render_extraction.cpp
-    engine/function/render/render_extraction.hpp
     engine/function/scene/world.hpp
     engine/function/scene/detail/world_factory.cpp
     engine/function/scene/detail/world_state.hpp

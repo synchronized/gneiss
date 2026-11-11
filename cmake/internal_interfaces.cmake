@@ -140,7 +140,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/render/commands.hpp
   engine/function/render/frame_request.hpp
   engine/function/render/render_resource_data.hpp
-  engine/function/render/render_snapshot.hpp
+  engine/function/render/camera.hpp
   engine/function/render/render_statistics.hpp
   engine/resource/texture/texture_view.hpp
   engine/function/render/ui_draw_list.hpp
@@ -162,7 +162,6 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/scene/game_object.hpp
   engine/function/scene/rendering/world_render_binding.hpp
   engine/function/scene/rendering/render_camera.hpp
-  engine/function/render/render_extraction.hpp
   engine/function/scene/world.hpp
   engine/function/scene/components.hpp
   engine/platform/native_window_info.hpp
