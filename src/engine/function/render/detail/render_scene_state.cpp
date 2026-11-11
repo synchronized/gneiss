@@ -223,9 +223,8 @@ result<void> render_scene_state::destroy_scene(rid handle) {
   auto* group = scenes_.get(handle, resource_type::render_scene);
   if (!group)
     return error::invalid_handle;
-  auto accepted = dispatch([content = group->content] { content->instances.clear(); });
-  if (!accepted)
-    return accepted.error();
+  // 立即撤销接受侧身份；在途命令和捕获任务各自保活内容，最后释放时回收。
+  // 不排入可能拒绝的清空命令，保证绑定析构不受队列背压影响。
   (void)scenes_.destroy(handle, resource_type::render_scene);
   return {};
 }

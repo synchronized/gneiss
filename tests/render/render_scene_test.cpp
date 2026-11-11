@@ -208,10 +208,9 @@ bool queued_scene_consumption() {
   CHECK(second);
   CHECK(enqueue([operation = std::move(*second), &frames] { frames.push_back(operation()); }));
   accepting = false;
-  CHECK(state.destroy_scene(*scene).error() == error::not_ready);
-  CHECK(state.prepare_capture(request));
+  CHECK(state.destroy_scene(*scene)); // 队列拒绝新任务仍能交还场景所有权。
+  CHECK(!state.destroy_scene(*scene));
   accepting = true;
-  CHECK(state.destroy_scene(*scene));
   CHECK(!state.prepare_capture(request));
   auto replacement = state.create_scene();
   CHECK(replacement && *replacement != *scene);
