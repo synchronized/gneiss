@@ -62,7 +62,6 @@ public:
     executor_.set_completion_wakeup(std::move(notification));
   }
   [[nodiscard]] result<bool> can_prepare_frame();
-  [[nodiscard]] result<bool> prepare_frame_packet_storage(render_frame_packet& packet);
   [[nodiscard]] result<std::uint64_t>
   submit(render_frame_packet packet, render_frame_policy policy = render_frame_policy::replaceable);
   [[nodiscard]] result<std::optional<render_frame_completion>> try_take_required_completion();
@@ -168,7 +167,6 @@ private:
   // 借用 Application 的线程安全日志队列；其生命周期覆盖执行器停机。
   const logging::logger log_{"render"};
   threaded_render_executor executor_;
-  std::vector<render_frame_packet> recycled_frame_packets_;
   std::deque<render_frame_completion> required_frame_completions_;
   bool pending_recreate_{};
 };
@@ -901,14 +899,6 @@ gneiss::error render_service::implementation::collect_completions() {
       return command->status;
   }
   while (auto completion = executor_.try_take_frame_completion()) {
-    // 回收容量不保活上一帧资源；普通请求不再由宿主领取 packet。
-    completion->reusable_packet.resources = {};
-    completion->reusable_packet.ui.clear();
-    completion->reusable_packet.debug.clear();
-    completion->reusable_packet.readback.reset();
-    if (recycled_frame_packets_.size() < 3U) {
-      recycled_frame_packets_.push_back(std::move(completion->reusable_packet));
-    }
     if (completion->policy == render_frame_policy::required) {
       required_frame_completions_.push_back({.sequence = completion->sequence,
                                              .status = completion->status,
@@ -942,18 +932,6 @@ result<bool> render_service::implementation::can_prepare_frame() {
   }
   return true;
 }
-result<bool>
-render_service::implementation::prepare_frame_packet_storage(render_frame_packet& packet) {
-  auto ready = can_prepare_frame();
-  if (!ready || !*ready)
-    return ready;
-  if (!recycled_frame_packets_.empty()) {
-    packet = std::move(recycled_frame_packets_.back());
-    recycled_frame_packets_.pop_back();
-  }
-  return true;
-}
-
 result<std::uint64_t> render_service::implementation::submit(render_frame_packet packet,
                                                              render_frame_policy policy) {
   const auto completion_result = collect_completions();
@@ -1016,7 +994,6 @@ gneiss::error render_service::implementation::shutdown(granit::renderer_resource
   }
   auto completion = executor_.try_take_command_completion();
   executor_.stop();
-  recycled_frame_packets_.clear();
   required_frame_completions_.clear();
   if (frame_result != gneiss::error::success) {
     return frame_result;
@@ -1629,19 +1606,24 @@ error render_service::finish_frames() { return impl_->finish_frames(); }
 void render_service::set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept {
   impl_->set_completion_wakeup(std::move(notification));
 }
-result<bool> render_service::prepare_frame_packet_storage(render_frame_packet& packet) {
-  return impl_->prepare_frame_packet_storage(packet);
-}
-result<std::uint64_t> render_service::submit(render_frame_packet packet,
-                                             render_frame_policy policy) {
-  return impl_->submit(std::move(packet), policy);
-}
 result<void> render_service::render(render::frame_request&& request) {
   auto ready = impl_->can_prepare_frame();
   if (!ready)
     return ready.error();
   if (!*ready)
     return error::not_ready;
+  auto submitted = submit_request(request, render_frame_policy::replaceable, {});
+  return submitted ? result<void>{} : result<void>{submitted.error()};
+}
+result<std::uint64_t> render_service::request_capture(render::frame_request&& request,
+                                                      std::shared_ptr<frame_image> image) {
+  if (!image)
+    return error::invalid_argument;
+  return submit_request(request, render_frame_policy::required, std::move(image));
+}
+result<std::uint64_t> render_service::submit_request(render::frame_request& request,
+                                                     render_frame_policy policy,
+                                                     std::shared_ptr<frame_image> image) {
   auto packet = storage_->scenes_->capture(request);
   if (!packet)
     return packet.error();
@@ -1659,11 +1641,12 @@ result<void> render_service::render(render::frame_request&& request) {
                                           packet->ui.indices().size() * sizeof(std::uint32_t) +
                                           packet->ui.commands().size() * sizeof(ui_draw_command) +
                                           packet->debug.lines().size() * sizeof(debug_line);
-  auto accepted = impl_->submit(std::move(*packet), render_frame_policy::replaceable);
+  packet->readback = std::move(image);
+  auto accepted = impl_->submit(std::move(*packet), policy);
   if (!accepted)
     return accepted.error();
   request = {};
-  return {};
+  return *accepted;
 }
 result<std::optional<render_frame_completion>> render_service::try_take_required_completion() {
   return impl_->try_take_required_completion();

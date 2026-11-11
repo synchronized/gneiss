@@ -119,4 +119,5 @@ host/runtime/runtime_scene_loader.hpp，只保存绑定检查器和来源更新�
 再查询相机并提交 render::frame_request（UI、调试输入随帧提供）。无窗口运行不创建绑定。
 最小化跳过绘制，但仍同步对象删除和资源换绑；关闭先释放绑定，再销毁 World。
 普通帧背压由 Render 处理，Application 不再领取可复用 packet 或枚举全部网格。
-截图 capture_frame 暂保留旧快照与必达帧回读，相关迁移边界见 [Render](render.md)。
+截图 capture_frame 使用相同的绑定和 frame_request，暂保持同步诊断回读；
+普通帧与截图均不再从 World 提取全量对象列表。完成和迁移边界见 [Render](render.md)。

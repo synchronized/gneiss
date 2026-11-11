@@ -13,7 +13,6 @@
 #include "engine/function/input/input_service.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_executor.hpp"
-#include "engine/function/render/render_extraction.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/scene/rendering/render_camera.hpp"
 #include "engine/function/scene/rendering/world_render_binding.hpp"
@@ -106,6 +105,27 @@ struct application::storage {
   bool is_updating_ = false;
   gneiss::input_service input_;
   std::unique_ptr<gneiss::window_service> window_service_;
+  result<render::frame_request> make_render_request(const native_window_info& window) {
+    auto synced = render_binding_->synchronize();
+    if (!synced)
+      return synced.error();
+    auto camera = select_render_camera(*world_, window.width, window.height,
+                                       view_camera_ ? &*view_camera_ : nullptr);
+    if (!camera)
+      return camera.error();
+    render::frame_request request;
+    request.window = window;
+    if (*camera) {
+      const auto& selected = **camera;
+      request.views.push_back({.scene = render_binding_->scene(),
+                               .view_matrix = selected.view,
+                               .projection_matrix = selected.projection,
+                               .camera_position = selected.transform.translation});
+    }
+    request.ui = ui_draw_list_;
+    request.debug = debug_draw_list_;
+    return request;
+  }
 };
 
 namespace {
@@ -557,36 +577,25 @@ gneiss::error application::capture_frame(std::uint32_t width, std::uint32_t heig
     window.width = width;
     window.height = height;
     window.needs_recreate = false;
-    auto snapshot = gneiss::extract_render_snapshot(
-        *storage_->world_.get(), width, height,
-        storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
-    if (!snapshot)
-      return snapshot.error();
-    gneiss::render_frame_packet packet;
-    auto result = gneiss::capture_render_frame_packet(
-        window, std::move(*snapshot), *storage_->render_service_, storage_->ui_draw_list_,
-        storage_->debug_draw_list_, packet);
-    if (result != gneiss::error::success) {
-      return result;
-    }
+    auto request = storage_->make_render_request(window);
+    if (!request)
+      return request.error();
     auto image = std::make_shared<gneiss::frame_image>();
-    packet.readback = image;
-    auto submitted = storage_->render_service_->submit(
-        std::move(packet), gneiss::render_frame_policy::required);
+    auto submitted = storage_->render_service_->request_capture(std::move(*request), image);
     if (!submitted)
       return submitted.error();
     const auto sequence = *submitted;
-    result = storage_->render_service_->finish_frames();
+    auto result = storage_->render_service_->finish_frames();
     if (result != gneiss::error::success) {
       return result;
     }
     auto completed = storage_->render_service_->try_take_required_completion();
     if (!completed)
       return completed.error();
-    if (!*completed || (*completed)->sequence != sequence ||
-        (*completed)->status != gneiss::error::success) {
+    if (!*completed || (*completed)->sequence != sequence)
       return gneiss::error::internal;
-    }
+    if ((*completed)->status.failed())
+      return (*completed)->status;
     output = std::move(*image);
     return gneiss::error::success;
   }
@@ -597,29 +606,16 @@ gneiss::error application::render_frame() {
   if (storage_->window_service_ == nullptr) {
     return gneiss::error::success;
   }
-  auto synced = storage_->render_binding_->synchronize();
-  if (!synced)
-    return synced.error();
   auto& window = storage_->window_service_->native_window();
-  if (window.width == 0U || window.height == 0U)
-    return error::success;
-  auto camera = select_render_camera(*storage_->world_, window.width, window.height,
-                                     storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
-  if (!camera)
-    return camera.error();
-  render::frame_request request;
-  request.window = window;
-  if (*camera) {
-    const auto& selected = **camera;
-    request.views.push_back({.scene = storage_->render_binding_->scene(),
-                             .view_matrix = selected.view,
-                             .projection_matrix = selected.projection,
-                             .camera_position = selected.transform.translation});
+  if (window.width == 0U || window.height == 0U) {
+    auto synced = storage_->render_binding_->synchronize();
+    return synced ? error{error::success} : synced.error();
   }
-  request.ui = storage_->ui_draw_list_;
-  request.debug = storage_->debug_draw_list_;
+  auto request = storage_->make_render_request(window);
+  if (!request)
+    return request.error();
   const auto submitted = measure(loop_stage::frame_submit, [&] {
-    return storage_->render_service_->render(std::move(request));
+    return storage_->render_service_->render(std::move(*request));
   });
   if (!submitted)
     return submitted.error() == error::not_ready ? error{error::success} : submitted.error();

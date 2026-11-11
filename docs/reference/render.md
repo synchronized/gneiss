@@ -8,9 +8,9 @@ Render 的 `reserve_mesh/texture/material()` 与 `create_*` 系列返回 `result
 `prepare_mesh/material/texture_data()` 返回 `result<shared_ptr<const ..._data>>`，
 只准备和登记 CPU 数据，不等待 GPU 上传。资源服务内部创建链同样使用值返回。
 
-`prepare_frame_packet_storage(packet)` 原位复用帧存储并返回 `result<bool>`：true 表示可继续构建，
-false 表示本轮跳过，失败结果表示执行错误。`render_service::submit(packet, policy)` 及执行器的
-`submit_frame/submit_command` 返回 `result<uint64_t>`，成功值是回执序号；调用方不等待 GPU 完成。
+普通帧使用 `render(frame_request&&)`，截图使用 `request_capture(frame_request&&, image)`；
+宿主不再准备或复用 packet。截图返回 `result<uint64_t>`，成功值是必达帧回执序号，接受不等待 GPU。
+内部 packet 提交和执行器的 `submit_frame/submit_command` 仍使用序号关联完成结果。
 底层 `rid_table::create(type, value)` 返回 `result<Identifier>`，句柄的 generation、类型与所属域校验不变。
 关闭流程仍通过 error 和统计参数同时报告错误及资源统计，失败时统计信息也必须保留。
 
@@ -235,7 +235,7 @@ auto accepted = renderer.submit(std::move(commands));
 **当前限制**：新入口只支持一个窗口视图；多视图及可见的 casts_shadows=false 实例返回 unsupported。
 窗口输入暂未替换为 target RID。新入口携带自有 UI/调试数据并固定 UI 纹理版本，
 UI 纹理尚未就绪返回 not_ready。Runtime/Editor 共用 Application 的普通帧已改用 World 增量绑定；
-截图回读仍使用旧必达帧入口。当前实现仍逐帧捕获持久场景；最终消费侧增量状态、资源发布队列及 GPU 验收按
+截图也使用 frame_request，执行策略为必达帧。当前实现仍逐帧捕获持久场景；最终消费侧增量状态、资源发布队列及 GPU 验收按
 [PLAN-115](../plans/PLAN-115-persistent-render-scene.md) 继续实施。
 
 ## World 增量绑定
@@ -274,7 +274,13 @@ Application 在有窗口时创建绑定，普通帧依次同步变化、查询�
 没有相机仍可显示 UI；最小化时仍同步对象变化。无窗口运行不创建绑定。
 关闭先销毁绑定，再释放 World 和 Render。背压与完成回执由 Render 内部处理，
 普通帧 not_ready 时宿主保留窗口重建标记，稍后以最新输入再提交。
-回收 packet 前释放资源版本、UI 纹理和回读引用，避免容量缓存长期保活已删除资产。
+完成回执消费后直接释放 packet，不再维护无消费者的容量回收缓存。
 
-截图回读与旧提取测试暂保留 render_snapshot 入口；它们与普通帧共用相机查询，
-但截图对象列表仍是旧路径。本轮未做 GPU 图像验收，不能声称已删除所有全量捕获。
+Application 截图和普通帧共用绑定同步、相机查询及 frame_request 构建。
+`request_capture` 要求非空 shared_ptr<frame_image>；失败保留请求且不写输出，成功接受后
+调用方须等对应 required completion 才读取图像，不得同时复用输出。必达帧不能被普通帧替换。
+Application 的 capture_frame 暂保持同步诊断接口，通过 finish_frames 与序号回执领取结果；
+完整异步回读对象与取消语义尚未实现。
+
+旧 render_snapshot 提取/捕获仅剩测试消费者，待迁移测试后删除；Render 内部仍逐帧捕获持久场景。
+本轮未做 GPU 图像验收，不能声称已删除所有全量捕获。

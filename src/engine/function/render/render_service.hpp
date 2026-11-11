@@ -68,9 +68,6 @@ public:
   [[nodiscard]] GNEISS_API error shutdown(render_device_stats& stats);
   [[nodiscard]] GNEISS_API error finish_frames();
   GNEISS_API void set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept;
-  [[nodiscard]] GNEISS_API result<bool> prepare_frame_packet_storage(render_frame_packet& packet);
-  [[nodiscard]] GNEISS_API result<std::uint64_t>
-  submit(render_frame_packet packet, render_frame_policy policy = render_frame_policy::replaceable);
   /** 领取必需帧完成记录；空值表示暂无记录，失败表示收集完成结果时出错。 */
   [[nodiscard]] GNEISS_API result<std::optional<render_frame_completion>>
   try_take_required_completion();
@@ -86,6 +83,11 @@ public:
    * 成功后消费请求，不代表 GPU 完成；UI 纹理与场景资源固定为不可变版本。
    * 当前支持零或一个窗口视图，零视图只显示 UI。 */
   [[nodiscard]] GNEISS_API result<void> render(render::frame_request&& request);
+  /** 异步提交必达截图，返回既有完成回执序号；失败不消费请求。
+   * image 必须非空，成功接受后至对应完成回执前不得读写或复用于其他请求。
+   * 暂复用 required completion，未来统一为独立回读请求。 */
+  [[nodiscard]] GNEISS_API result<std::uint64_t>
+  request_capture(render::frame_request&& request, std::shared_ptr<frame_image> image);
 
   /** 仅关闭 CPU 资源入口；设备关闭由 shutdown 完成。所属线程调用。 */
   GNEISS_API void close_resources() noexcept;
@@ -152,6 +154,8 @@ public:
   [[nodiscard]] GNEISS_API std::size_t live_resource_count() const noexcept;
 
 private:
+  result<std::uint64_t> submit_request(render::frame_request&, render_frame_policy,
+                                       std::shared_ptr<frame_image>);
   struct resource_storage;
   template <typename Resource>
   result<std::shared_ptr<const Resource>>

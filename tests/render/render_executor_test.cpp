@@ -308,6 +308,8 @@ int main(int argc, char** argv) {
               ready.notify_all();
               ready.wait(lock, [&] { return release_required; });
             }
+            if (packet.readback)
+              packet.readback->width = packet.window.width;
             return gneiss::error::success;
           },
           1U) != gneiss::error::success) {
@@ -326,6 +328,8 @@ int main(int argc, char** argv) {
   }
   render_frame_packet required_packet;
   required_packet.window.width = 20U;
+  auto captured_image = std::make_shared<frame_image>();
+  required_packet.readback = captured_image;
   std::uint64_t required_sequence{};
   if (gneiss::test_support::assign_value(
           required_executor.submit_frame(std::move(required_packet), render_frame_policy::required),
@@ -356,6 +360,19 @@ int main(int argc, char** argv) {
   if (required_executor.flush() != gneiss::error::success) {
     return 20;
   }
+  bool captured_completion = false;
+  while (auto completed = required_executor.try_take_frame_completion()) {
+    if (completed->sequence == required_sequence) {
+      if (completed->dropped || completed->status.failed() || captured_completion ||
+          captured_image->width != 20U) {
+        std::fputs("必达截图应只完成一次且返回执行结果\n", stderr);
+        return 20;
+      }
+      captured_completion = true;
+    }
+  }
+  if (!captured_completion)
+    return 20;
   const auto required_stats = required_executor.query_stats();
   if (required_stats.submitted_required_frames != 1U ||
       required_stats.executed_required_frames != 1U ||

@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-2026-11-11：已开始实施。P0 接入核查与 P1 的 CPU 场景/命令输入及单窗口绘制适配已落地；World 变化记录与最小绑定已实现，宿主普通帧已接入绑定，截图迁移、GPU 验收及其余阶段尚未完成。
+2026-11-11：已开始实施。P0 接入核查与 P1 的 CPU 场景/命令输入及单窗口绘制适配已落地；World 变化记录与最小绑定已实现，宿主普通帧已接入绑定，截图已统一场景输入，完整异步回读、GPU 验收及其余阶段尚未完成。
 除下节明确列出的实现外，本页接口、结构和目录仍为目标设计示意。
 长期边界见 [ADR-118](../decisions/ADR-118-persistent-render-scene.md)。当前接口与阶段限制见 [Render](../reference/render.md)。
 本计划独立跟踪，不将新能力写成 VER-052 已交付项，不延续旧版本的发布授权。
@@ -59,12 +59,16 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
   world-service-boundary、scene_tree_transform、scene-instantiation、render_scene 五项 CPU 测试通过。
   GPU 冒烟未运行。Application 已在有窗口时持有绑定，Runtime/Editor 共用普通帧入口；
   独立相机查询不枚举网格对象，零视图保留 UI。frame_request 接入 UI/调试数据及 UI 纹理版本保活。
-  宿主普通帧不再领取 packet 或提取对象快照；背压检查移入 Render，容量回收前释放上一帧引用。
-  截图回读仍走旧必达帧/对象提取入口，P1/P3 未验收完成。
+  宿主普通帧不再领取 packet 或提取对象快照；背压检查移入 Render；已删除无消费者的 packet 预备/公开提交接口及回收缓存。
+  截图已通过 request_capture 使用相同 frame_request 和资源捕获，底层复用必达帧与序号回执；
+  Application 的同步截图行为暂保留，独立异步回读/取消尚待实施。
+  旧对象提取与 capture_render_frame_packet 已无产品调用方，仅待迁移测试删除，P1/P3 未验收完成。
+  截图输入统一后 Engine/Runtime/Editor 构建及 render_scene、render_executor、world_render_binding、
+  native-application-flow 四项 CPU 回归通过；覆盖拒绝时保留输入/输出和必达回读完成，不等于 GPU 图像验收。
   普通帧接入后 Engine/Runtime/Editor 构建通过，native-application-flow、render_frame_packet、
   render_snapshot、world_render_binding、render_scene 五项 CPU 回归通过；未执行窗口/GPU 验收。
 
-后续按已确认边界将持久状态移入执行器有序消费链，并迁移截图回读入口、完成实际绘制验收；
+后续按已确认边界将持久状态移入执行器有序消费链，并收敛异步回读、完成实际绘制验收；
 不能把当前单窗口适配视为 P1 模型预览闭环或 P3 增量同步完成。
 
 ## 当前过渡边界与退出条件
@@ -74,8 +78,8 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
 - 暂时由所属线程捕获持久场景的自有帧数据。已接受帧只读不可变资源版本，不访问正在更新的身份记录。
   这是线程安全过渡，不是最终增量渲染架构；退出条件是可靠命令消费侧接管场景与有序资源版本。
 - render_frame_packet 的实例统一为 RID、完整 model/normal 矩阵和层掩码，旧 World 快照在入口转换。
-  Granit 只有一个绘制消费者；完整矩阵用于法线和包围球，保留剪切。旧 World 对象提取仍待截图入口迁移后删除。
-- 当前新入口已携带 UI/调试数据；普通帧已迁移，回读请求仍通过旧必达帧入口，GPU 预览尚未验收。
+  Granit 只有一个绘制消费者；完整矩阵用于法线和包围球，保留剪切。旧 World 对象提取仅剩测试，待迁移测试后删除。
+- 当前新入口已携带 UI/调试数据；普通帧和截图场景输入已统一；回读仍复用序号回执，GPU 预览尚未验收。
 
 ### Granit 最小扩展建议：逐实例阴影开关
 

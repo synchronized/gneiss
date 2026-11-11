@@ -283,6 +283,12 @@ bool frame_capture() {
   CHECK(not_initialized);
   request.views.front().scene = *not_initialized;
   CHECK(!renderer.render(std::move(request)) && request.views.size() == 1);
+  auto no_image = renderer.request_capture(std::move(request), {});
+  CHECK(!no_image && no_image.error() == error::invalid_argument && request.views.size() == 1);
+  auto image = std::make_shared<frame_image>();
+  image->width = 17;
+  auto rejected = renderer.request_capture(std::move(request), image);
+  CHECK(!rejected && request.views.size() == 1 && image->width == 17);
   return true;
 }
 int main() {
