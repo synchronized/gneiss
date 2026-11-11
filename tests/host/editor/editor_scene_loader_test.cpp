@@ -57,6 +57,8 @@ void run(gneiss::engine::execution_mode mode) {
     check(gneiss::engine::error{app->run(1U)} == gneiss::engine::error::success);
     bool changed{};
     check(loader.advance(*app, editing, world, camera, changed) == gneiss::engine::error::success);
+    // 编辑器请求不占用迁移期 scene_service 的加载状态。
+    check(!app->scene_loading());
     std::this_thread::yield();
   };
   auto drain = [&] {
@@ -118,7 +120,7 @@ void run(gneiss::engine::execution_mode mode) {
         gneiss::test_support::scene_query(session).nodes.size() == 1U &&
         gneiss::test_support::scene_query(session).prefab_nodes.size() == 2U && camera.is_valid());
   const auto visual_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  while (app->visual_assets_loading()) {
+  while (loader.visual_loading()) {
     check(std::chrono::steady_clock::now() < visual_deadline);
     tick();
   }

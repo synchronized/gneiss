@@ -5,6 +5,9 @@
 #include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/render/render_service.hpp"
+#include "engine/function/scene/camera_selection.hpp"
+#include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/world.hpp"
 
 namespace gneiss::editor {
@@ -31,21 +34,17 @@ gneiss::engine::error editor_scene_loader::cancel(runtime::application& applicat
   if (!active_) {
     return gneiss::engine::error::not_ready;
   }
-  if (queued_) {
-    queued_ = false;
-    active_ = false;
-    operation_ = gneiss::engine::error::invalid_state;
-    progress_.phase = runtime::scene_load_phase::cancelled;
-    progress_.cleanup_complete = true;
-    return gneiss::engine::error::success;
-  }
   if (!application.accepts_requests() || !application.is_owner_thread())
     return engine::error::invalid_state;
-  const auto operation = request_.cancel();
-  if (operation == gneiss::engine::error::success) {
-    progress_.can_cancel = false;
-  }
-  return operation;
+  request_.cancel();
+  ready_.reset();
+  queued_ = false;
+  active_ = false;
+  operation_ = engine::error::invalid_state;
+  progress_.phase = runtime::scene_load_phase::cancelled;
+  progress_.can_cancel = false;
+  progress_.cleanup_complete = true;
+  return engine::error::success;
 }
 
 gneiss::engine::error editor_scene_loader::advance(runtime::application& application,
@@ -54,92 +53,127 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
                                                    editor_camera& camera, bool& changed) {
   using namespace runtime;
   changed = false;
-  // 防御非 UI 调用方：有编辑未结束时不切换场景，避免使编辑绑定失效。
-  if (editing.active())
-    return gneiss::engine::error::success;
-  scene_load_completion completion;
-  bool finished{};
-  if (active_ && !queued_) {
-    auto terminal = request_.take();
-    if (terminal) {
-      completion = std::move(*terminal);
-      finished = true;
-    } else if (terminal.error() != engine::error::not_ready) {
-      return terminal.error();
+  if (visuals_ && visuals_.ready()) {
+    auto completed = visuals_.take();
+    if (completed) {
+      for (const auto& item : completed->results) {
+        if (item.result.failed())
+          (void)application.submit_log({.severity = engine::level::error,
+                                        .source = "editor",
+                                        .category = "scene_assets",
+                                        .message = item.source.uri,
+                                        .result = item.result});
+      }
     }
+    visuals_.reset();
   }
-  if (!active_) {
-    return gneiss::engine::error::success;
-  }
-  if (queued_) {
-    // 在更新阶段提交请求，菜单回调本身不做加载工作。
-    queued_ = false;
-    auto submitted = application.scenes().open(uri_);
-    request_ = submitted ? std::move(*submitted) : runtime::scene_open_request{};
-    operation_ =
-        submitted ? gneiss::engine::error{gneiss::engine::error::success} : submitted.error();
-    active_ = operation_ == gneiss::engine::error::success;
-    if (!active_) {
-      progress_.phase = scene_load_phase::failed;
-    } else {
-      progress_.can_cancel = true;
-    }
-    return gneiss::engine::error::success;
-  }
-  if (finished) {
-    progress_ = completion.progress;
-    operation_ = completion.result;
-    active_ = progress_.cleanup_pending;
-    return gneiss::engine::error::success;
-  }
-  auto observed = request_.progress();
-  if (!observed) {
-    return gneiss::engine::error::success;
-  }
-  progress_ = *observed;
-  if (progress_.cleanup_complete && progress_.phase == scene_load_phase::cancelled) {
+  // 有编辑未结束时不切换文档，避免使编辑绑定失效。
+  if (editing.active() || !active_)
+    return engine::error::success;
+  const auto fail = [&](engine::error error) {
+    request_.cancel();
+    ready_.reset();
     active_ = false;
-    return gneiss::engine::error::success;
+    operation_ = error;
+    progress_.phase = scene_load_phase::failed;
+    progress_.can_cancel = false;
+    progress_.cleanup_complete = true;
+    return engine::error{engine::error::success};
+  };
+  if (queued_) {
+    queued_ = false;
+    auto submitted = application.assets().reload<engine::scene>(uri_);
+    if (!submitted)
+      return fail(submitted.error());
+    request_ = std::move(*submitted);
+    ready_ = std::make_shared<std::atomic<bool>>(false);
+    engine::detail::asset_request_access::when_ready(request_, [ready = std::weak_ptr{ready_}] {
+      if (auto value = ready.lock())
+        value->store(true);
+    });
+    progress_.can_cancel = true;
+    return engine::error::success;
   }
-  if (progress_.phase != scene_load_phase::ready) {
-    return gneiss::engine::error::success;
+  if (!ready_->load() || !application.can_activate_scene())
+    return engine::error::success;
+  auto content = request_.snapshot();
+  auto loaded = request_.take();
+  if (!loaded)
+    return fail(loaded.error().error);
+  if (!content)
+    content = (*loaded)->content();
+  auto initial = make_scene_document_snapshot(uri_, *content, *loaded);
+  if (!initial)
+    return fail(initial.error());
+  std::map<std::string, const engine::prefab_description*, std::less<>> sources;
+  for (const auto& [uri, source] : content->prefabs)
+    sources.emplace(uri, source.description.get());
+  auto composed = engine::compose_scene(*content->description, sources);
+  if (!composed)
+    return fail(composed.error());
+  auto dependencies = engine::scene_dependencies(*composed);
+  if (!dependencies)
+    return fail(dependencies.error());
+  auto visual_request = application.load_assets(*dependencies);
+  if (!visual_request)
+    return fail(visual_request.error());
+  for (const auto& dependency : *dependencies) {
+    auto resource = application.assets().load(dependency);
+    if (!resource)
+      return fail(resource.error());
+    initial->assets.emplace(dependency.uri, resource->resource());
   }
-  auto activated = application.scenes().activate(std::move(request_));
-  if (!activated) {
-    return activated.error() == gneiss::engine::error::not_ready
-               ? gneiss::engine::error{gneiss::engine::error::success}
-               : activated.error();
+  auto next = application.native_world()->create_scene();
+  if (!next)
+    return fail(next.error());
+  auto built = engine::instantiate(*next, *composed, initial->assets);
+  if (!built) {
+    (void)next->unload();
+    return fail(built.error());
   }
-  completion = std::move(*activated);
-
-  // 场景切换保持 World 不变；释放旧场景的编辑绑定后采用新的实例。
+  entity_id primary_camera;
+  for (std::size_t i = 0; i < composed->objects.size(); ++i) {
+    const auto* description =
+        composed->objects[i].effective.components.get<engine::camera_description>();
+    if (description && description->is_primary)
+      primary_camera = built->objects[i].entity;
+  }
+  if (primary_camera.get()) {
+    auto selected = engine::set_active_camera(*application.native_world(), primary_camera);
+    if (selected.failed()) {
+      (void)next->unload();
+      return fail(selected);
+    }
+  }
   const auto closed = editing.close();
-  if (closed.failed())
+  if (closed.failed()) {
+    (void)next->unload();
     return closed;
+  }
   camera.shutdown();
   world = application.native_world();
-  auto operation = gneiss::engine::error::success;
-  if (operation == gneiss::engine::error::success) {
-    auto initial = completion.content
-                       ? make_scene_document_snapshot(uri_, *completion.content, completion.source)
-                       : engine::result<scene_document_snapshot>{engine::error::invalid_state};
-    if (!initial)
-      operation = initial.error();
-    else {
-      initial->assets = std::move(completion.bindings);
-      operation = editing.document().adopt(application, world, completion.scene, *initial,
-                                           completion.objects);
-    }
-  }
-  if (operation == gneiss::engine::error::success) {
+  auto operation =
+      editing.document().adopt(application, world, next->id(), *initial, built->objects);
+  if (operation.failed())
+    (void)next->unload();
+  else {
+    visuals_ = std::move(*visual_request);
     operation = camera.initialize();
   }
-  progress_ = completion.progress;
+  ready_.reset();
+  progress_.phase = operation.ok() ? scene_load_phase::applied : scene_load_phase::failed;
+  progress_.completed = built->node_count;
+  progress_.total = built->node_count;
+  progress_.can_cancel = false;
+  const auto usage = application.render().memory_usage();
+  progress_.application_logical_bytes = usage.logical_bytes;
+  progress_.application_cpu_data_bytes = usage.cpu_data_bytes;
+  progress_.available_bytes = application.render().available_memory_bytes();
   operation_ = operation;
   active_ = false;
-  visible_ = operation != gneiss::engine::error::success;
+  visible_ = operation.failed();
   changed = true;
-  // 激活后的绑定错误无法回滚域，交给宿主报告并退出，避免使用部分绑定状态。
+  // 切换后的绑定错误交给宿主报告并退出，不能继续使用部分绑定状态。
   return operation;
 }
 

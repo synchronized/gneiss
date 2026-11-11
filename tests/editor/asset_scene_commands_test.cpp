@@ -56,7 +56,7 @@ int main() try {
       std::this_thread::yield();
     }
   };
-  wait([&] { return loader.active() || app->visual_assets_loading(); },
+  wait([&] { return loader.active() || loader.visual_loading(); },
        [&] {
          bool changed{};
          if (loader.advance(*app, editing, world, camera, changed).failed())

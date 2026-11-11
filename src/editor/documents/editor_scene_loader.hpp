@@ -6,13 +6,16 @@
 #include "documents/document_editing.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/asset/asset_batch_request.hpp"
+#include "engine/function/asset/asset_request.hpp"
 #include "engine/function/scene/world.hpp"
-#include "runtime/loading/scene_service.hpp"
+#include "runtime/loading/scene_load_types.hpp"
 #include "viewport/editor_camera.hpp"
+#include <atomic>
 
 namespace gneiss::editor {
 
-/** 编辑器所属线程的加载事务；执行器与 Application 由宿主拥有。 */
+/** 编辑器所属线程的场景加载协调；执行器与 Application 由宿主拥有。 */
 class editor_scene_loader final {
 public:
   gneiss::engine::error request(runtime::application& application, const document_editing& editing,
@@ -26,6 +29,7 @@ public:
       visible_ = false;
     }
   }
+  [[nodiscard]] bool visual_loading() const noexcept { return bool(visuals_); }
   [[nodiscard]] bool active() const noexcept { return active_; }
   [[nodiscard]] bool visible() const noexcept { return visible_; }
   [[nodiscard]] gneiss::engine::error operation() const noexcept { return operation_; }
@@ -35,7 +39,9 @@ public:
 private:
   std::string uri_;
   runtime::scene_load_progress progress_;
-  ::gneiss::runtime::scene_open_request request_;
+  engine::asset_request<engine::scene> request_;
+  std::shared_ptr<std::atomic<bool>> ready_;
+  engine::asset_batch_request visuals_;
   gneiss::engine::error operation_{gneiss::engine::error::success};
   bool active_{};
   bool visible_{};

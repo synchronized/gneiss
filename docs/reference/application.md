@@ -107,6 +107,9 @@ Runtime 打开场景直接使用 assets().reload<scene>()，就绪后组合并�
 取消只放弃本观察者；视觉资源失败记录日志，不撤回已经创建的场景。
 Application 的 visual_assets_loading() 仍表示迁移期 scene_service 的视觉请求；Runtime
 同时查询自身批次，避免提前退出或与资源重载冲突。
+编辑器同样直接请求资产并实例化，将固定内容建立为文档快照，实例化回执交给编辑会话绑定。
+加载失败或取消保留原文档、选择及撤销历史；成功后关闭旧文档并采用新实例。
+编辑器通过 editor_scene_loader::visual_loading() 观察自己的视觉批次，不创建 Runtime 重载基线。
 scene_service 的旧请求协议仍待 PLAN-113 后续移除。无待退休 World，也不提供专用场景退休统计；
 渲染资源数量通过 render_service::live_resource_count() 查询。
 
