@@ -92,3 +92,11 @@ Application 私有持有 `engine::window_service`，负责窗口生命周期及�
 文件完成分发、资产管理器推进及回收由 Application 主循环统一调用私有实现。
 状态查询和领取回执不推进工作；resource_load_group 只提交单资产请求并汇总结果。
 关闭时 Application 请求资产管理器停止并推进排空；Scene 和批次只放弃自己的请求与实例。
+
+### World 生命周期
+
+Application 直接拥有 World，native_world() 的地址在普通场景切换期间保持稳定，关闭后失效。
+迁移期 scenes().open 只准备不可变内容，activate 在该 World 中创建新实例并卸载该协调器
+上一次创建的实例；直接追加到 World 的其他场景不受影响。准备阶段不创建运行对象或预留视觉
+资源身份。场景卸载后旧对象/场景句柄失效，不能将 World 地址稳定理解为所有句柄永久有效。
+scene_service 的旧请求协议仍待 PLAN-113 后续移除；场景退休统计接口暂留，无待退休 World。

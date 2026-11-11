@@ -100,7 +100,7 @@ public:
   [[nodiscard]] GNEISS_API gneiss::engine::error run(std::uint64_t max_frame_count);
   [[nodiscard]] GNEISS_API bool is_owner_thread() const noexcept;
   [[nodiscard]] GNEISS_API bool accepts_requests() const noexcept;
-  /** 借用活动 World；场景切换或关闭后必须重新获取，禁止解引用旧指针。 */
+  /** 借用宿主 World；普通场景切换保持地址稳定，关闭后禁止解引用。 */
   [[nodiscard]] GNEISS_API gneiss::engine::world* native_world() const noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::render_service& render() noexcept;
   /** 借用应用级资产管理器；仅所属线程使用，有效期不超过 Application。 */

@@ -80,8 +80,8 @@ private:
   std::uint64_t id_{};
 };
 
-/** 场景生命周期的唯一拥有者；全部调用限宿主线程。
- * 借用的资产管理器与渲染服务必须存活至 shutdown 返回。
+/** 场景打开与来源重载的迁移期协调器；全部调用限宿主线程。
+ * 借用的 World、资产管理器与渲染服务必须存活至 shutdown 返回。
  * 场景关闭放弃自身观察者，不停止资产管理器的共享工作。
  */
 class scene_service final {
@@ -94,7 +94,8 @@ public:
   scene_service(const scene_service&) = delete;
   scene_service& operator=(const scene_service&) = delete;
 
-  [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::asset_manager& resources);
+  [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::asset_manager& resources,
+                                                 engine::world& world);
   [[nodiscard]] gneiss::engine::error configure(gneiss::engine::render_service& renderer);
   /** 激活后的视觉资源独立完成，不影响结构激活结果；所属线程消费诊断。 */
   [[nodiscard]] bool take_visual_completion(gneiss::engine::asset_load_completion& output);
@@ -166,8 +167,7 @@ private:
     void reset() noexcept;
   } visuals_;
   gneiss::engine::asset_manager* resources_{};
-  engine::world_owner active_;
-  engine::world_owner retired_;
+  engine::world* world_{};
   scene_retirement_statistics retirement_;
   // 只在加载期间持有；完成回执消费前仍占用请求槽位。
   struct load_task;

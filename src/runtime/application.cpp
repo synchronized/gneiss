@@ -79,6 +79,7 @@ struct application::storage {
     pending_action_map_.cancel();
     action_map_result_ = engine::error::invalid_state;
   }
+  engine::world_owner world_;
   runtime::scene_service scene_service_;
   std::unique_ptr<engine::resource_load_group> asset_loading_;
   std::thread::id owner_thread_;
@@ -329,7 +330,12 @@ gneiss::engine::error application::initialize() {
     storage_->asset_manager_ = std::make_unique<gneiss::engine::asset_manager>(storage_->files_);
     if (storage_->asset_manager_->attach_render(*storage_->render_service_).failed())
       return engine::error::invalid_state;
-    const auto result = storage_->scene_service_.initialize(*storage_->asset_manager_);
+    auto created_world = engine::create_native();
+    if (!created_world)
+      return created_world.error();
+    storage_->world_ = std::move(*created_world);
+    const auto result =
+        storage_->scene_service_.initialize(*storage_->asset_manager_, *storage_->world_);
     if (result != gneiss::engine::error::success) {
       report(gneiss::engine::severity::error, gneiss::engine::category::application, result,
              "scene", "场景域创建失败");
@@ -567,7 +573,7 @@ gneiss::engine::error application::capture_frame(std::uint32_t width, std::uint3
     window.height = height;
     window.needs_recreate = false;
     auto snapshot = gneiss::engine::extract_render_snapshot(
-        *storage_->scene_service_.native_world(), width, height,
+        *storage_->world_.get(), width, height,
         storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
     if (!snapshot)
       return snapshot.error();
@@ -621,7 +627,7 @@ gneiss::engine::error application::render_frame() {
     return gneiss::engine::error::success;
   auto snapshot = gneiss::engine::measure(gneiss::engine::loop_stage::render_snapshot, [&]() {
     return gneiss::engine::extract_render_snapshot(
-        *storage_->scene_service_.native_world(), window.width, window.height,
+        *storage_->world_.get(), window.width, window.height,
         storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
   });
   if (!snapshot)
@@ -858,6 +864,7 @@ gneiss::engine::error application::shutdown() {
   storage_->cancel_action_map();
   storage_->asset_loading_.reset();
   storage_->scene_service_.shutdown();
+  storage_->world_.reset();
   if (storage_->asset_manager_)
     storage_->asset_manager_->stop();
   storage_->asset_manager_.reset();
@@ -1063,9 +1070,7 @@ bool application::accepts_requests() const noexcept {
   return storage_->accepts_requests_.load(std::memory_order_acquire);
 }
 
-gneiss::engine::world* application::native_world() const noexcept {
-  return storage_->scene_service_.native_world();
-}
+gneiss::engine::world* application::native_world() const noexcept { return storage_->world_.get(); }
 
 gneiss::engine::render_service& application::render() noexcept {
   return *storage_->render_service_;

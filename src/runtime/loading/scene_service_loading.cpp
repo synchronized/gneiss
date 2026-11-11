@@ -31,8 +31,7 @@ double elapsed(clock_type::time_point start) {
 struct scene_service::load_task {
   engine::asset_request<engine::scene> description_request;
   scene_load_completion result;
-  engine::world_owner candidate;
-  entity_id default_camera;
+  engine::composed_scene composed;
   std::vector<gneiss::engine::render_resource_source> requested;
   bool cancelled{};
 };
@@ -142,9 +141,7 @@ void scene_service::request_stop() {
   if (pending_)
     pending_->cancelled = true;
 }
-bool scene_service::stopped() const noexcept {
-  return stopping_ && !loading_ && !active_ && !retired_;
-}
+bool scene_service::stopped() const noexcept { return stopping_ && !loading_ && !world_; }
 void scene_service::advance_stop() {
   if (stopped())
     return;
@@ -246,13 +243,49 @@ engine::result<scene_load_completion> scene_service::activate(std::uint64_t requ
       pending_->result.progress.phase != scene_load_phase::ready) {
     return gneiss::engine::error::not_ready;
   }
-  // 候选装配没有激活副作用；应用在切换安全点选择默认相机。
-  if (pending_->default_camera.get()) {
-    auto selected =
-        gneiss::engine::set_active_camera(*pending_->candidate, pending_->default_camera);
-    if (selected.failed())
-      return selected;
+  // 准备阶段只持有内容；到显式激活时才向宿主的既有 World 创建实例。
+  auto dependencies = engine::scene_dependencies(pending_->composed);
+  if (!dependencies)
+    return dependencies.error();
+  engine::scene_resource_bindings bindings;
+  for (const auto& dependency : *dependencies) {
+    auto loaded = resources_->load(dependency);
+    if (!loaded)
+      return loaded.error();
+    bindings.emplace(dependency.uri, loaded->resource());
   }
+  auto destination = world_->create_scene();
+  if (!destination)
+    return destination.error();
+  auto built = engine::instantiate(*destination, pending_->composed, bindings);
+  if (!built) {
+    (void)destination->unload();
+    return built.error();
+  }
+  entity_id camera;
+  for (std::size_t i = 0; i < pending_->composed.objects.size(); ++i) {
+    const auto* description =
+        pending_->composed.objects[i].effective.components.get<engine::camera_description>();
+    if (description && description->is_primary)
+      camera = built->objects[i].entity;
+  }
+  auto selected = camera.get() ? engine::set_active_camera(*world_, camera)
+                               : engine::error{engine::error::success};
+  if (selected.failed()) {
+    (void)destination->unload();
+    return selected;
+  }
+  // 只卸载本协调操作上次创建的实例；其他追加场景和 World 身份保持不变。
+  if (source_) {
+    auto previous = engine::scene_instance::borrow(*world_, source_->instance);
+    if (previous)
+      (void)previous->unload();
+  }
+  pending_->result.scene = destination->id();
+  pending_->result.objects = std::move(built->objects);
+  pending_->result.bindings = std::move(bindings);
+  pending_->requested = std::move(*dependencies);
+  pending_->result.progress.completed = built->node_count;
   auto source = std::make_unique<source_state>();
   source->instance = pending_->result.scene;
   source->content = pending_->result.content;
@@ -265,8 +298,6 @@ engine::result<scene_load_completion> scene_service::activate(std::uint64_t requ
   result.result = gneiss::engine::error::success;
   result.progress.phase = scene_load_phase::applied;
   result.progress.can_cancel = false;
-  retired_ = std::move(active_);
-  active_ = std::move(pending_->candidate);
   source_ = std::move(source);
   visuals_.begin(std::move(pending_->requested));
   pending_.reset();
@@ -303,65 +334,20 @@ void scene_service::advance_load_impl() {
         finish(prepared.error().error, scene_load_phase::failed, prepared.error().message);
       return;
     }
-    auto created_world = engine::create_native();
-    if (!created_world) {
-      finish(created_world.error(), scene_load_phase::failed);
-      return;
-    }
-    value.candidate = std::move(*created_world);
     auto content = (*prepared)->content();
-    progress.phase = scene_load_phase::instantiating;
-    auto built = engine::measure(
-        engine::loop_stage::scene_build,
-        [&]() -> engine::result<engine::scene_instantiation_result, engine::scene_diagnostic> {
-          std::map<std::string, const engine::prefab_description*, std::less<>> sources;
-          for (const auto& [uri, source] : content->prefabs)
-            sources.emplace(uri, source.description.get());
-          auto composed = engine::compose_scene(*content->description, sources);
-          if (!composed)
-            return engine::scene_diagnostic{composed.error(), 0, {}, {}};
-          auto dependencies = engine::scene_dependencies(*composed);
-          if (!dependencies)
-            return engine::scene_diagnostic{dependencies.error(), 0, {}, {}};
-          engine::scene_resource_bindings bindings;
-          for (const auto& request : *dependencies) {
-            auto loaded = resources_->load(request);
-            if (!loaded)
-              return engine::scene_diagnostic{loaded.error(), 0, request.uri,
-                                              "无法提交场景视觉加载"};
-            bindings.emplace(request.uri, loaded->resource());
-          }
-          auto& world = *value.candidate;
-          auto destination = world.create_scene();
-          if (!destination)
-            return engine::scene_diagnostic{destination.error(), 0, {}, {}};
-          auto result = engine::instantiate(*destination, *composed, bindings);
-          if (!result) {
-            (void)destination->unload();
-            return engine::scene_diagnostic{result.error(), 0, {}, {}};
-          }
-          // 多个默认提示按组合顺序选择最后一个；没有提示时保留无活动相机。
-          for (std::size_t i = 0; i < composed->objects.size(); ++i) {
-            const auto* camera =
-                composed->objects[i].effective.components.get<engine::camera_description>();
-            if (camera && camera->is_primary)
-              value.default_camera = result->objects[i].entity;
-          }
-          result->assets = std::move(*dependencies);
-          result->bindings = std::move(bindings);
-          return std::move(*result);
-        });
-    if (!built) {
-      finish(built.error().error, scene_load_phase::failed, built.error().message);
+    std::map<std::string, const engine::prefab_description*, std::less<>> sources;
+    for (const auto& [uri, source] : content->prefabs)
+      sources.emplace(uri, source.description.get());
+    auto composed = engine::compose_scene(*content->description, sources);
+    if (!composed) {
+      finish(composed.error(), scene_load_phase::failed);
       return;
     }
+    value.composed = std::move(*composed);
     value.result.source = *prepared;
     value.result.content = std::move(content);
-    value.result.objects = std::move(built->objects);
-    value.result.bindings = std::move(built->bindings);
-    value.result.scene = built->instance;
-    value.requested = std::move(built->assets);
-    progress.completed = progress.total = built->node_count;
+    progress.total = value.composed.objects.size();
+    progress.completed = 0;
     progress.phase = scene_load_phase::ready;
   }
 }

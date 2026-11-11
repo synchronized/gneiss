@@ -20,20 +20,18 @@
 
 namespace gneiss::runtime {
 
-gneiss::engine::error scene_service::initialize(gneiss::engine::asset_manager& resources) {
-  if (active_ || stopping_) {
+gneiss::engine::error scene_service::initialize(gneiss::engine::asset_manager& resources,
+                                                engine::world& world) {
+  if (world_ || stopping_) {
     return gneiss::engine::error::invalid_state;
   }
-  auto next = engine::create_native();
-  if (!next)
-    return next.error();
   resources_ = &resources;
-  active_ = std::move(*next);
+  world_ = &world;
   return gneiss::engine::error::success;
 }
 
 gneiss::engine::error scene_service::configure(gneiss::engine::render_service& renderer) {
-  if (loading_ || !active_ || stopping_) {
+  if (loading_ || !world_ || stopping_) {
     return gneiss::engine::error::invalid_state;
   }
   renderer_ = &renderer;
@@ -46,15 +44,6 @@ void scene_service::advance() {
   if (stopping_) {
     advance_stop();
     return;
-  }
-  if (retired_) {
-    const auto start = std::chrono::steady_clock::now();
-    const gneiss::engine::loop_span span(gneiss::engine::loop_stage::retirement);
-    retired_.reset();
-    resources_->collect_unused();
-    retirement_.last_ms =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
-    ++retirement_.retired_domains;
   }
   advance_visuals();
   advance_load();
@@ -135,11 +124,15 @@ void scene_service::shutdown() {
   stopping_ = true;
   visuals_.reset();
   reload_.reset();
+  if (world_ && source_) {
+    auto instance = engine::scene_instance::borrow(*world_, source_->instance);
+    if (instance)
+      (void)instance->unload();
+  }
   source_.reset();
   stop_load();
   loading_.reset();
-  retired_.reset();
-  active_.reset();
+  world_ = nullptr;
   if (resources_ != nullptr) {
     resources_->collect_unused();
   }
@@ -147,27 +140,27 @@ void scene_service::shutdown() {
 }
 
 bool scene_service::can_start_load() const noexcept {
-  return !stopping_ && !reload_ && !retired_ && loading_ && (!loading_->busy() || visuals_.pending);
+  return !stopping_ && !reload_ && loading_ && (!loading_->busy() || visuals_.pending);
 }
 bool scene_service::loading() const noexcept {
   return pending_ != nullptr || completed_.has_value();
 }
 scene_retirement_statistics scene_service::retirement() const noexcept {
   auto value = retirement_;
-  value.pending = retired_ != nullptr;
+  value.pending = false;
   return value;
 }
-gneiss::engine::world* scene_service::native_world() const noexcept { return active_.get(); }
+gneiss::engine::world* scene_service::native_world() const noexcept { return world_; }
 
 bool scene_service::can_activate() const noexcept {
-  return !stopping_ && !reload_ && !retired_ && loading_ && !loading_->busy();
+  return !stopping_ && !reload_ && loading_ && !loading_->busy();
 }
 engine::error scene_service::request_reload(scene_instance_id instance, std::string_view uri,
                                             bool prefab) {
   check_owner();
-  if (stopping_ || !active_ || !loading_ || !resources_)
+  if (stopping_ || !world_ || !loading_ || !resources_)
     return engine::error::invalid_state;
-  if (reload_ || loading() || visual_loading() || loading_->busy() || retired_)
+  if (reload_ || loading() || visual_loading() || loading_->busy())
     return engine::error::not_ready;
   auto valid_value = engine::scene_instance::borrow(*native_world(), instance);
   if (!valid_value)

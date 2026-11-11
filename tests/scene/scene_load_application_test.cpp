@@ -280,7 +280,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(gneiss::test_support::take_value(
             app->assets().find({"asset://mesh.json", gneiss::engine::render_resource_kind::mesh},
                                app->assets().profile()),
-            not_ready) == gneiss::engine::error::not_ready);
+            not_ready) == gneiss::engine::error::not_found);
   check(prepared.cpu_data_bytes == prepared.resident_bytes);
   check(prepared.application_logical_bytes >= prepared.resident_bytes);
   check(prepared.application_cpu_data_bytes >= prepared.cpu_data_bytes);
@@ -303,25 +303,23 @@ void run(gneiss::engine::execution_mode mode) {
         completion.progress.phase == scene_load_phase::applied);
   check(completion.source && completion.content && completion.content->description &&
         completion.content == completion.source->content() && !completion.bindings.empty());
-  check((observed = app->native_world()) != nullptr && observed != old_world);
+  check((observed = app->native_world()) != nullptr && observed == old_world);
+  check(old_scene->is_valid());
+  check(old_scene->unload().ok());
   check(empty.cancel() == gneiss::engine::error::invalid_state);
-  // 领取回执不退休旧 World；退休只发生在下一次显式推进。
+  // 领取回执不推进工作，也不会安排 World 退休。
   const auto retired_before = app->scene_retirement().retired_domains;
   bool no_terminal{};
   scene_load_completion no_completion;
   check(gneiss::test_support::receive_request(request, no_completion, no_terminal).ok() &&
         !no_terminal);
   check(app->scene_retirement().retired_domains == retired_before);
-  // 激活后的旧域由 session 延迟退役，期间不能接收下一次打开。
-  check(gneiss::test_support::assign_value(old_world->entity_count(), count) ==
-            gneiss::engine::error::success &&
-        count == 1U);
-  check(gneiss::test_support::take_value(app->scenes().open(uri), rejected) ==
-            gneiss::engine::error::not_ready &&
-        !rejected);
+  // 不再等待旧 World 退休，新请求可以提交；丢弃观察者不影响活动实例。
+  check(gneiss::test_support::assign_value(old_world->entity_count(), count).ok() && count == 1U);
+  check(gneiss::test_support::take_value(app->scenes().open(uri), rejected).ok());
+  rejected.reset();
   (void)drive();
-  // 旧域已销毁，native_world() 的借用指针不能再解引用。
-  old_world = nullptr;
+  // World 借用仍有效，旧场景和其对象句柄已失效。
   check(gneiss::test_support::assign_value(app->native_world()->entity_count(), count).ok());
 
   // ready 阶段仍可取消，不改写活动域；迟到请求身份不能取消后续请求。
@@ -473,7 +471,13 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   gneiss::engine::world* old_world{};
   check((old_world = app->native_world()) != nullptr);
   check(!poll());
-  // 两个 World 同时持有相同版本，不重复计量或创建后端资源。
+  auto previous_scene = gneiss::engine::scene_instance::borrow(*old_world, completion.scene);
+  check(bool(previous_scene));
+  auto extra_scene = old_world->create_scene();
+  check(bool(extra_scene));
+  auto extra_object = extra_scene->create_object({.name = "unrelated"});
+  check(bool(extra_object));
+  // 准备只持有描述；激活替换自己的场景，不替换 World 或卸载其他场景。
   const auto second = prepare();
   check(second.application_logical_bytes > 0U);
   check(gneiss::test_support::assign_value(app->scenes().activate(std::move(request)),
@@ -482,13 +486,15 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   check(reused.mesh == gneiss::engine::resource_cast<gneiss::engine::mesh>(mesh) &&
         reused.material == gneiss::engine::resource_cast<gneiss::engine::material>(material));
   gneiss::engine::world* new_world{};
-  check((new_world = app->native_world()) != nullptr && old_world != new_world);
+  check((new_world = app->native_world()) != nullptr && old_world == new_world);
   std::uint64_t count{};
   check(gneiss::test_support::assign_value(old_world->entity_count(), count) ==
         gneiss::engine::error::success);
   check(!poll());
-  // 旧域已销毁，native_world() 的借用指针不能再解引用。
-  old_world = nullptr;
+  check(!previous_scene->is_valid());
+  check(extra_scene->is_valid() && extra_object->is_valid());
+  check(extra_scene->unload().ok());
+  // World 借用仍有效，旧场景和其对象句柄已失效。
   check(gneiss::test_support::assign_value(app->native_world()->entity_count(), count).ok());
   check(gneiss::test_support::assign_value(new_world->entity_count(), count) ==
             gneiss::engine::error::success &&

@@ -681,3 +681,5 @@
 - [PLAN-113 编辑职责迁移记录](records/2026-11-11-plan113-editor-boundary.md)
 
 - [PLAN-113 资产批次迁移记录](records/2026-11-11-plan113-asset-batch.md)
+
+- [PLAN-113 World 所有权迁移记录](records/2026-11-11-plan113-world-owner.md)
