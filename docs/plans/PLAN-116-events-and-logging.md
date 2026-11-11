@@ -23,7 +23,8 @@ PLAN-115 渲染实现暂不开始；原有计划不标记完成。
 - Runtime 负责文本/IPC 输出和轮转，Editor Console 有界保留日志；结构化源数据不能退化成拼接文本再解析。
 - 现有 message_view 包含 context、source、category、result；event_view 含 sequence、timestamp_ns、thread_id。
   迁移逐字段核查实际生产者/协议使用，不能假定所有字段已在 IPC 中传输。
-- EnTT 为仓库已有 3.15.0；尚未引入 spdlog。Ludens 代码仅作为参考，不复制其第三方依赖或全局对象。
+- EnTT 为仓库已有 3.15.0；spdlog 1.15.3 已用于独立同步文件 Sink，尚未替换宿主输出。
+  Ludens 代码仅作为参考，不复制其第三方依赖或全局对象。
 
 ## 事件模型
 
@@ -131,8 +132,8 @@ host/editor/
 ```
 
 Core 不依赖平台：Sink 通过接口注入，spdlog 头与编译宏限于具体适配实现。
-EnTT 复用仓库版本与 MIT 许可证；spdlog 核查基线为 v1.15.3（MIT），不是宣称最新版本。
-正式引入前按项目依赖流程锁定版本、校验值、许可证、std::format/fmt 配置及 Windows/Linux/Emscripten 构建。
+EnTT 复用仓库版本与 MIT 许可证；spdlog 已锁定 v1.15.3（MIT），不是宣称最新版本。
+依赖通过项目归档缓存校验 SHA-256，配置为 std::format；Windows 已构建，Linux/Emscripten 待验证。
 优先 C++20 std::format，避免额外暴露 fmt；若工具链不支持，单独记录替代，不传播全局宏。
 本轮不直接复制 Ludens 实现、不修改第三方仓库。
 
@@ -141,7 +142,8 @@ EnTT 复用仓库版本与 MIT 许可证；spdlog 核查基线为 v1.15.3（MIT�
 - [x] 阅读当前日志链与 Ludens，核查现有 EnTT，运行最小连接探针，记录 spdlog 数据模型差异。
 - [x] 固定 Signal 适配契约并实现小闭环：成员绑定、RAII 断开、源先销毁、线程/重入限制。
 - [ ] 核查实际订阅点，迁移一个对象级通知，不将任务完成、文件回调或渲染命令机械替换。
-- [ ] 引入经锁定的 spdlog，同步 Sink 验证上下文、过滤、文件失败、格式错误及 PLAN-109 行为。
+- [x] 引入经锁定的 spdlog，同步文件 Sink 通过原生字段保真、追加/截断、打开失败验证。
+- [ ] Logger 接入时验证格式检查、格式化前过滤及 PLAN-109 执行边界；补齐终端 Sink。
 - [ ] 实现 Logger/原生记录/runtime；复用并收敛已有唯一队列，提供同步模式与内存 Sink。
 - [ ] 接通 Runtime 文件/IPC、Editor Console、Application 创建前日志及关闭，逐字段核对现有协议。
 - [ ] 迁移真实业务调用、删除旧入口与重复装配，同步 Reference/Concept、依赖清单及构建边界。
@@ -155,5 +157,6 @@ Signal 检查单线程生命周期、参数借用、断开后不再交付、源�
 日志检查记录字段跨异步完整性、过滤、并发投递、队满统计、Sink 失败、重入与关闭、隔离上下文。
 本地优先编译、小型 CPU 验证；不运行大场景、GPU、远端 CI，也不触发崩溃弹窗测试。
 
-尚未验证：spdlog 适配实际编译、浏览器工具链、源位置捕获。源先销毁包装已通过 CPU 定向测试。
+尚未验证：浏览器及 Linux 工具链、源位置捕获、Logger 的过滤和格式接口。
+Signal 和 spdlog 同步文件适配已通过 Windows Clang 定向构建与 CPU 测试。
 这些是后续实施门槛，不需要重新确认总体方向；若发现必须改变所有权或异常策略，再列出取舍。

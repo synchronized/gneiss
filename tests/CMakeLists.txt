@@ -1,6 +1,15 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
+add_executable(gneiss_file_log_sink_test core/file_log_sink_test.cpp)
+target_include_directories(gneiss_file_log_sink_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_file_log_sink_test PRIVATE gneiss_file_log_sink)
+target_compile_features(gneiss_file_log_sink_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_file_log_sink_test)
+gneiss_target_output_directories(gneiss_file_log_sink_test)
+add_test(NAME gneiss.file-log-sink COMMAND gneiss_file_log_sink_test)
+set_tests_properties(gneiss.file-log-sink PROPERTIES TIMEOUT 15)
+
 add_executable(gneiss_signal_test core/signal_test.cpp)
 target_link_libraries(gneiss_signal_test PRIVATE gneiss_events)
 if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)

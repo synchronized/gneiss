@@ -3,6 +3,9 @@
 
 # 内部调度模块由实际宿主链接，不进入安装 package 或公共 ABI。
 add_subdirectory(engine/core)
+if(GNEISS_BUILD_RUNTIME OR GNEISS_BUILD_EDITOR OR (GNEISS_BUILD_TESTING AND BUILD_TESTING))
+  add_subdirectory(engine/platform/log)
+endif()
 
 add_library(gneiss_engine)
 add_library(gneiss::engine ALIAS gneiss_engine)

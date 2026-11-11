@@ -8,6 +8,15 @@
 内部宿主使用原生 `application::submit_log`。消费线程通过 `log` 回调接收 `event_view`。
 日志队列、基础 Sink、Runtime 传输协议与 Editor Console 保留；日志 C API 已撤销。
 
+## 独立同步输出适配
+
+`logging::sink` 位于 `engine/core/log/sink.hpp`，同步接收完整 `event_view`，不保存借用字段。
+平台层 `logging::create_file_sink(path, truncate)` 创建文件 Sink；内部目标为 `gneiss_file_log_sink`。
+默认追加，可显式截断；宿主须在非实时线程串行调用 `write/flush`，正常关闭前显式 flush。
+文件失败返回 `error::io`，分配及其他异常向执行边界传播。实现不使用 spdlog 的 logger 异常吞并路径。
+文本包含原生单调时间、生产者线程、序号、上下文、级别、来源、分类、结果码和正文；不是 IPC 格式。
+该适配器尚未接入 Application 或 Runtime；当前生产输出仍按下文执行。
+
 ## 字段与所有权
 
 - `severity` 必须是 `TRACE` 到 `FATAL` 之一。
