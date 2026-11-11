@@ -308,12 +308,10 @@ void run(gneiss::engine::execution_mode mode) {
   check(old_scene->unload().ok());
   check(empty.cancel() == gneiss::engine::error::invalid_state);
   // 领取回执不推进工作，也不会安排 World 退休。
-  const auto retired_before = app->scene_retirement().retired_domains;
   bool no_terminal{};
   scene_load_completion no_completion;
   check(gneiss::test_support::receive_request(request, no_completion, no_terminal).ok() &&
         !no_terminal);
-  check(app->scene_retirement().retired_domains == retired_before);
   // 不再等待旧 World 退休，新请求可以提交；丢弃观察者不影响活动实例。
   check(gneiss::test_support::assign_value(old_world->entity_count(), count).ok() && count == 1U);
   check(gneiss::test_support::take_value(app->scenes().open(uri), rejected).ok());

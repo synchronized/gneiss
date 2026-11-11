@@ -73,7 +73,6 @@ public:
   load_assets(std::span<const engine::render_resource_source> sources, bool reload = false);
   [[nodiscard]] GNEISS_API bool visual_assets_loading() const noexcept;
   [[nodiscard]] GNEISS_API bool can_activate_scene() const noexcept;
-  [[nodiscard]] GNEISS_API runtime::scene_retirement_statistics scene_retirement() const noexcept;
 
 private:
   [[nodiscard]] engine::error advance_loading();

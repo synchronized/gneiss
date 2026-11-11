@@ -6,6 +6,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 
 #include "../support/scene_access.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "runtime/application.hpp"
 
 #define WIN32_LEAN_AND_MEAN
@@ -120,10 +121,8 @@ gneiss::engine::error advance_scene(gneiss::runtime::application& app, response_
     if (result == gneiss::engine::error::success) {
       result = gneiss::engine::error{gneiss::test_support::take_value(
           gneiss::test_support::scene_access{app}->get_node_count(completion.scene), state.nodes)};
-      scene_retirement_statistics retirement;
       if (result == gneiss::engine::error::success) {
-        retirement = app.scene_retirement();
-        state.resources = retirement.live_resources;
+        state.resources = app.render().live_resource_count();
       }
       state.scene_ready = result == gneiss::engine::error::success;
     }

@@ -54,10 +54,9 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
                                                    editor_camera& camera, bool& changed) {
   using namespace runtime;
   changed = false;
-  // 防御非 UI 调用方：有编辑未结束时不推进场景域，避免切换或退休旧 World。
+  // 防御非 UI 调用方：有编辑未结束时不切换场景，避免使编辑绑定失效。
   if (editing.active())
     return gneiss::engine::error::success;
-  // 即使界面已收起也推进旧域回收，下一次打开不能被退休域永久阻塞。
   scene_load_completion completion;
   bool finished{};
   if (active_ && !queued_) {
@@ -73,7 +72,7 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
     return gneiss::engine::error::success;
   }
   if (queued_) {
-    // 先回收旧域再提交，菜单回调本身不做加载工作。
+    // 在更新阶段提交请求，菜单回调本身不做加载工作。
     queued_ = false;
     auto submitted = application.scenes().open(uri_);
     request_ = submitted ? std::move(*submitted) : runtime::scene_open_request{};
@@ -113,7 +112,7 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
   }
   completion = std::move(*activated);
 
-  // 激活后旧域仍存活至下一次推进；先释放依赖旧 World 的编辑器状态。
+  // 场景切换保持 World 不变；释放旧场景的编辑绑定后采用新的实例。
   const auto closed = editing.close();
   if (closed.failed())
     return closed;

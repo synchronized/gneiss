@@ -145,11 +145,6 @@ bool scene_service::can_start_load() const noexcept {
 bool scene_service::loading() const noexcept {
   return pending_ != nullptr || completed_.has_value();
 }
-scene_retirement_statistics scene_service::retirement() const noexcept {
-  auto value = retirement_;
-  value.pending = false;
-  return value;
-}
 gneiss::engine::world* scene_service::native_world() const noexcept { return world_; }
 
 bool scene_service::can_activate() const noexcept {

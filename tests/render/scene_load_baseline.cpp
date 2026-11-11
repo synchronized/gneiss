@@ -6,6 +6,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "runtime/application.hpp"
 
 #include "../support/scene_access.hpp"
@@ -204,8 +205,7 @@ int main(int argc, char** argv) try {
         break;
       }
     }
-    const auto measured = app->scene_retirement();
-    previous_resources = measured.live_resources;
+    previous_resources = app->render().live_resource_count();
     if (preserve &&
         app->capture_frame(1024U, 768U, previous_image) != gneiss::engine::error::success) {
       return 11;
@@ -243,14 +243,14 @@ int main(int argc, char** argv) try {
   }
   unsigned resized{};
   unsigned completed_switches{};
-  double maximum_activation_ms{}, maximum_retirement_ms{};
+  double maximum_activation_ms{};
   bool minimized{}, restored{}, cancel_requested{}, closed{};
   bool awaiting_cleanup{}, observed_cleanup_pending{};
   double cancel_cleanup_ms{};
   double minimized_at_ms{};
   double cancel_ms{}, shutdown_ms{};
   auto cancel_start = clock_type::now();
-  gneiss::runtime::scene_retirement_statistics retirement;
+  std::size_t live_resources{};
   std::uint64_t sampled_frame{};
   struct render_sample {
     double elapsed;
@@ -430,10 +430,9 @@ int main(int argc, char** argv) try {
       if (scene != gneiss::scene_instance_id{}) {
         if (handle->visual_assets_loading())
           return gneiss::engine::error::success;
-        retirement = handle->scene_retirement();
-        maximum_retirement_ms = std::max(maximum_retirement_ms, retirement.last_ms);
+        live_resources = handle->render().live_resource_count();
         if (scenario == "repeat") {
-          if (retirement.live_resources != previous_resources || retirement.pending)
+          if (live_resources != previous_resources)
             return gneiss::engine::error::invalid_state;
           if (completed_switches < 3U) {
             result = gneiss::test_support::take_value(handle->scenes().open(source_uri), request);
@@ -514,7 +513,7 @@ int main(int argc, char** argv) try {
   }
   std::fflush(stdout);
   if (result != gneiss::engine::error::success) {
-    retirement = app->scene_retirement();
+    live_resources = app->render().live_resource_count();
     const auto peak = peak_resident_bytes();
     app.reset();
     std::ofstream report(prefix.string() + ".json");
@@ -527,8 +526,7 @@ int main(int argc, char** argv) try {
            << ",\"available_bytes\":" << completion.progress.available_bytes
            << ",\"cleanup_ms\":" << completion.cleanup_ms
            << ",\"cleanup_complete\":" << (completion.progress.cleanup_complete ? "true" : "false")
-           << ",\"live_resources\":" << retirement.live_resources
-           << ",\"peak_resident_bytes\":" << peak
+           << ",\"live_resources\":" << live_resources << ",\"peak_resident_bytes\":" << peak
            << ",\"retained_tasks\":" << scheduler.stats().retained << "}\n";
     return 4;
   }
@@ -551,9 +549,8 @@ int main(int argc, char** argv) try {
     return 8;
   }
   const auto capture_ms = milliseconds(capture_start);
-  retirement = app->scene_retirement();
-  if (preserve &&
-      (image.pixels != previous_image.pixels || retirement.live_resources != previous_resources)) {
+  live_resources = app->render().live_resource_count();
+  if (preserve && (image.pixels != previous_image.pixels || live_resources != previous_resources)) {
     return 14;
   }
   // 终态证明请求已清理，旧场景仍拥有其资源；失败后在同一 Application 内重新加载。
@@ -570,11 +567,10 @@ int main(int argc, char** argv) try {
       return 16;
     }
     retry_ms = milliseconds(retry_start);
-    retirement = app->scene_retirement();
+    live_resources = app->render().live_resource_count();
     gneiss::engine::frame_image retried_image;
     if (app->capture_frame(1024U, 768U, retried_image) != gneiss::engine::error::success ||
-        retried_image.pixels != previous_image.pixels ||
-        retirement.live_resources != previous_resources || retirement.pending) {
+        retried_image.pixels != previous_image.pixels || live_resources != previous_resources) {
       return 17;
     }
     retried = true;
@@ -628,9 +624,7 @@ int main(int argc, char** argv) try {
          << ",\n  \"verified_capture_ms\": " << load_and_drain_ms + render_ms + capture_ms
          << ",\n  \"completed_switches\": " << completed_switches
          << ",\n  \"maximum_activation_ms\": " << maximum_activation_ms
-         << ",\n  \"maximum_retirement_ms\": " << maximum_retirement_ms
-         << ",\n  \"retirement_ms\": " << retirement.last_ms
-         << ",\n  \"live_resources\": " << retirement.live_resources
+         << ",\n  \"live_resources\": " << live_resources
          << ",\n  \"old_resources\": " << previous_resources << ",\n  \"cancel_ms\": " << cancel_ms
          << ",\n  \"cancel_cleanup_ms\": " << cancel_cleanup_ms
          << ",\n  \"observed_cleanup_pending\": " << (observed_cleanup_pending ? "true" : "false")

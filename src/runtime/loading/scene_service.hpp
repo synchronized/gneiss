@@ -108,7 +108,6 @@ public:
   [[nodiscard]] bool can_start_load() const noexcept;
   [[nodiscard]] bool can_activate() const noexcept;
   [[nodiscard]] bool loading() const noexcept;
-  [[nodiscard]] scene_retirement_statistics retirement() const noexcept;
   [[nodiscard]] gneiss::engine::world* native_world() const noexcept;
   /** 异步重载已激活场景中的来源结构；不切换 World。 */
   [[nodiscard]] GNEISS_API engine::result<scene_reload_request>
@@ -168,7 +167,6 @@ private:
   } visuals_;
   gneiss::engine::asset_manager* resources_{};
   engine::world* world_{};
-  scene_retirement_statistics retirement_;
   // 只在加载期间持有；完成回执消费前仍占用请求槽位。
   struct load_task;
   void advance_load();

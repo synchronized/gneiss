@@ -869,8 +869,7 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
       }
       std::this_thread::yield();
     }
-    const auto statistics = app->scene_retirement();
-    check(statistics.live_resources == 3U && !statistics.pending);
+    check(app->render().live_resource_count() == 3U);
   };
   files.color(std::byte{240}, std::byte{20});
   load(1U, false);

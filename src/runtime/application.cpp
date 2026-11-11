@@ -1060,12 +1060,6 @@ bool application::visual_assets_loading() const noexcept {
   return storage_->scene_service_.visual_loading();
 }
 
-runtime::scene_retirement_statistics application::scene_retirement() const noexcept {
-  auto value = storage_->scene_service_.retirement();
-  value.live_resources = storage_->render_service_->live_resource_count();
-  return value;
-}
-
 bool application::accepts_requests() const noexcept {
   return storage_->accepts_requests_.load(std::memory_order_acquire);
 }

@@ -64,11 +64,4 @@ struct scene_reload_completion {
   std::vector<engine::scene_object_binding> objects;
 };
 
-struct scene_retirement_statistics {
-  double last_ms{};
-  std::uint64_t retired_domains{};
-  std::size_t live_resources{};
-  bool pending{};
-};
-
 } // namespace gneiss::runtime
