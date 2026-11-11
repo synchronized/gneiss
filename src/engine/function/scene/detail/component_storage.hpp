@@ -56,3 +56,15 @@ template <class T> error game_object::remove_component() const {
   return status;
 }
 }
+
+namespace gneiss {
+template <class T> error game_object::notify_component_modified() const {
+  auto state = detail::component_state(*this);
+  if (!state)
+    return state.error();
+  if (!(*state)->template get<T>(entity_.get()))
+    return error::not_found;
+  (*state)->changes.component(entity_, runtime_type_of<T>());
+  return error::success;
+}
+}

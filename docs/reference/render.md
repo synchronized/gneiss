@@ -236,3 +236,38 @@ auto accepted = renderer.submit(std::move(commands));
 窗口输入暂未替换为 target RID，新入口暂不携带 UI/调试/回读。Runtime/Editor 尚未改用 World 增量绑定，
 仍从旧入口提交。当前实现仍逐帧捕获持久场景；最终消费侧增量状态、资源发布队列及 GPU 验收按
 [PLAN-115](../plans/PLAN-115-persistent-render-scene.md) 继续实施。
+
+## World 增量绑定
+
+`world_render_binding::create(world, render_service)` 创建绑定及其拥有的 Render 场景。
+两个对象均须覆盖绑定使用期；创建、同步和销毁限所属线程。`scene()` 返回借用 RID，
+调用方不能自行销毁该场景。销毁绑定释放渲染场景，不销毁 World 对象。
+
+```cpp
+// owner 和 renderer 已由宿主创建；owner 可包含多个场景实例。
+auto created = world_render_binding::create(owner, renderer);
+if (!created)
+  return created.error();
+auto binding = std::move(*created);
+
+// 逻辑更新结束后调用。借用组件修改后需 notify_component_modified<T>()。
+auto synced = binding->synchronize();
+if (!synced)
+  return synced.error(); // 状态仍在绑定中，下次可重试。
+
+// 帧视图引用 binding->scene()，再通过 renderer.render(frame_request) 提交。
+// 关闭时先销毁绑定，再关闭 renderer 和 owner。
+binding.reset();
+```
+
+首次同步枚举已有网格对象，后续只处理变化。父变换、改父节点、网格组件增删/换绑、
+对象删除和场景卸载均生成相应命令。矩阵使用完整 world_matrix，保留层级剪切。
+组件缺少 mesh/material 引用时暂不创建实例；拥有尚未发布内容的有效资源身份仍可创建，
+内容随后通过 Render 资源身份发布。一个绑定覆盖一个 World 的所有可渲染对象。
+
+提交前 World 的组件引用保活资源，接受后 Render 实例保活资源身份。提交失败不更新绑定映射、
+不清空变化，下次从 World 当前状态重新生成命令；创建后未同步就删除不会留下实例。
+多个绑定独立消费；静态 World 不逐帧枚举全部对象。当前不提供 World 侧显隐/层掩码组件。
+
+这是已验证的 CPU 绑定入口。Runtime/Editor 的实际帧入口仍使用旧快照，尚未迁移到绑定；
+也未通过 GPU 图像验收，不能据此声称已经删除全量帧捕获路径。

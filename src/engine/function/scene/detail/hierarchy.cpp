@@ -135,12 +135,12 @@ gneiss::error world_hierarchy::reparent(entity_id node_id, entity_id parent) {
     }
     remove_child(target->parent, node_id);
     target->parent = parent;
+    owner_.mark_transform_changed(node_id);
     return gneiss::error::success;
   }
 }
 
-gneiss::error world_hierarchy::set_local(entity_id node_id,
-                                         const math::transform& transform) noexcept {
+gneiss::error world_hierarchy::set_local(entity_id node_id, const math::transform& transform) {
   auto* target = find(node_id);
   if (target == nullptr) {
     return gneiss::error::invalid_handle;
@@ -149,6 +149,7 @@ gneiss::error world_hierarchy::set_local(entity_id node_id,
     return gneiss::error::invalid_argument;
   }
   target->local = transform;
+  owner_.mark_transform_changed(node_id);
   return gneiss::error::success;
 }
 

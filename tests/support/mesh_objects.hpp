@@ -53,7 +53,7 @@ inline gneiss::error assign_mesh(gneiss::world& owner, gneiss::asset_manager& as
   auto object = owner.find(id);
   if (auto* component = object.try_component<gneiss::mesh_renderer_component>()) {
     component->value = {before->mesh, before->material};
-    return gneiss::error::success;
+    return object.notify_component_modified<gneiss::mesh_renderer_component>();
   }
   return object.add_component<gneiss::mesh_renderer_component>(
       gneiss::mesh_renderer{before->mesh, before->material});

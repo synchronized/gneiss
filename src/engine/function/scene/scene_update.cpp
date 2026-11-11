@@ -268,7 +268,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
     error status;
     if (current) {
       current->value = target_binding;
-      status = error::success;
+      status = target.notify_component_modified<mesh_renderer_component>();
     } else {
       component_context context{
           target, [&](const render_resource_source& source) -> result<render_resource_ref> {

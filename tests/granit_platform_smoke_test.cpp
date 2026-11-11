@@ -220,6 +220,13 @@ int main() {
       mesh_renderer;
   world.find(plain_mesh_entity).try_component<gneiss::mesh_renderer_component>()->value =
       plain_mesh_renderer;
+  if (world.find(mesh_entity)
+          .notify_component_modified<gneiss::mesh_renderer_component>()
+          .failed() ||
+      world.find(plain_mesh_entity)
+          .notify_component_modified<gneiss::mesh_renderer_component>()
+          .failed())
+    return 7;
   run_result = application->run(1);
   if (run_result.failed()) {
     std::fprintf(stderr, "Mesh generation 更新后运行失败：%d\n", run_result.code());

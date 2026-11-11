@@ -60,7 +60,7 @@ error camera_install(component_context& context, const camera_description& value
     return candidate.error();
   if (auto* camera = context.target.try_component<camera_component>()) {
     *camera = *candidate;
-    return error::success;
+    return context.target.notify_component_modified<camera_component>();
   }
   return context.target.add_component<camera_component>(*candidate);
 }
@@ -114,7 +114,7 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
     return error::invalid_argument;
   if (auto* current = context.target.try_component<mesh_renderer_component>()) {
     current->value = {*mesh, *material};
-    return error::success;
+    return context.target.notify_component_modified<mesh_renderer_component>();
   }
   return context.target.add_component<mesh_renderer_component>(mesh_renderer{*mesh, *material});
 }
@@ -539,4 +539,9 @@ template error
 
 template error game_object::remove_component<camera_component>() const;
 template error game_object::remove_component<mesh_renderer_component>() const;
+}
+
+namespace gneiss {
+template error game_object::notify_component_modified<camera_component>() const;
+template error game_object::notify_component_modified<mesh_renderer_component>() const;
 }

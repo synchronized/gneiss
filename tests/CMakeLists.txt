@@ -825,6 +825,14 @@ add_test(NAME gneiss.public-api
   COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
     -P "${PROJECT_SOURCE_DIR}/cmake/check_public_api.cmake")
 
+add_executable(gneiss_world_render_binding_test world/world_render_binding_test.cpp)
+target_link_libraries(gneiss_world_render_binding_test PRIVATE gneiss::engine EnTT::EnTT)
+target_include_directories(gneiss_world_render_binding_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(gneiss_world_render_binding_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_world_render_binding_test)
+gneiss_target_output_directories(gneiss_world_render_binding_test)
+add_test(NAME gneiss.world_render_binding COMMAND gneiss_world_render_binding_test)
+
 add_executable(gneiss_world_service_test world/world_service_test.cpp)
 target_link_libraries(gneiss_world_service_test PRIVATE gneiss::engine)
 target_include_directories(gneiss_world_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

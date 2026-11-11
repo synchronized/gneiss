@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-2026-11-11：已开始实施。P0 接入核查与 P1 的 CPU 场景/命令输入及单窗口绘制适配已落地；World 同步、GPU 验收及其余阶段尚未完成。
+2026-11-11：已开始实施。P0 接入核查与 P1 的 CPU 场景/命令输入及单窗口绘制适配已落地；World 变化记录与最小绑定已实现，宿主同步接入、GPU 验收及其余阶段尚未完成。
 除下节明确列出的实现外，本页接口、结构和目录仍为目标设计示意。
 长期边界见 [ADR-118](../decisions/ADR-118-persistent-render-scene.md)。当前接口与阶段限制见 [Render](../reference/render.md)。
 本计划独立跟踪，不将新能力写成 VER-052 已交付项，不延续旧版本的发布授权。
@@ -49,9 +49,17 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
   绘制适配覆盖矩阵/法线保留、显隐与层筛选、未就绪内容、捕获后更新/卸载、未初始化提交及不支持输入拒绝。
   本轮 Windows Clang Debug 的 Engine、Runtime、Editor 和相关渲染测试构建通过；render_scene、render_frame_packet、render_executor、
   render_resource_service、pbr-material-resource 五项测试通过。
-  尚未验证 GPU、多视图、World 同步和其他平台。
+  尚未验证 GPU、多视图、宿主 World 同步接入和其他平台。
 
-后续按已确认边界将持久状态移入执行器有序消费链，并接入 World 变化通知与绑定；
+- World 已记录层级变换、组件增删/显式修改和对象删除；多个订阅者独立合并消费。
+  新增 scene/rendering/world_render_binding，首次枚举后只读取变化并提交命令；失败保留记录和身份映射。
+  生产组件装配和场景资源换绑已补通知；缺失资源引用的对象暂不创建渲染实例。
+  CPU 集成覆盖多绑定、子树变换通知、组件移除后重加、资源失效重试、线程拒绝、对象删除及场景释放。
+  Windows Clang Debug 的 Engine/Runtime/Editor 与 GPU 冒烟程序编译通过；world_render_binding、
+  world-service-boundary、scene_tree_transform、scene-instantiation、render_scene 五项 CPU 测试通过。
+  GPU 冒烟未运行。Runtime/Editor 尚未持有绑定，旧快照路径未删除，P1/P3 仍未完成。
+
+后续按已确认边界将持久状态移入执行器有序消费链，并将绑定接入宿主实际绘制；
 不能把当前单窗口适配视为 P1 模型预览闭环或 P3 增量同步完成。
 
 ## 当前过渡边界与退出条件

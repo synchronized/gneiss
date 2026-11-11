@@ -40,7 +40,8 @@ size 和枚举不再返回已经失效的成员。存活实体仍以 World 的 g
 普通组件通过有效 game_object 的 try_component<T>() 借用，
 add_component<T>() 新增、remove_component<T>() 删除。
 当前内置实例化支持 camera_component 和 mesh_renderer_component。需要副本时显式复制借用对象；
-资源强引用正常保活，修改副本不改变 ECS。普通组件可以直接赋值，受约束组件通过自身方法修改。
+资源强引用正常保活，修改副本不改变 ECS。普通组件可以直接赋值，受约束组件通过自身方法修改；
+修改 ECS 中的借用组件后调用 notify_component_modified<T>()。
 新增和删除对跨 World 或失效实体返回 invalid_handle，错误线程返回 invalid_state。
 组件实现单元可包含 detail/component_storage.hpp 并显式实例化对应类型，使用方不依赖 EnTT。
 场景归属不允许通过普通组件写入口修改。
@@ -94,10 +95,12 @@ scene_instance::objects()/roots() 和 game_object::children() 返回 result<vect
 
 try_component<T>() 返回借用指针，缺失组件返回 nullptr；要求对象有效且在所属线程使用。
 组件增删或替换、对象销毁、场景卸载后必须重新获取指针，不能把指针跨结构修改保存。
-指针写入不发送通用通知。相机的 settings() 只读，set_settings() 校验参数并在失败时保留原值。
+指针写入本身不发送通知；完成修改后调用 notify_component_modified<T>()。
+该函数校验所属线程、对象存活和组件存在；不存在返回 not_found。增删组件自动记录变化。
+相机的 settings() 只读，set_settings() 校验参数并在失败时保留原值。
 默认构造的相机有效；create(settings, primary_hint) 返回 result<camera_component>。
 删除 read_component/set_component，不保留副本读取或安装/替换包装。
-普通组件需要复制时使用 auto copy = *component；已有普通组件通过 *component = copy 更新。
+普通组件需要复制时使用 auto copy = *component；已有普通组件通过 *component = copy 更新并通知。
 
 
 add_component<T>(args...) 正常构造组件；已存在同类型组件返回 invalid_state，保留原值。
@@ -119,3 +122,12 @@ Camera 与 Mesh Renderer 是当前原生组件，其行为由
 [Render 资源、组件与帧提取](render.md)定义。Transform 和 Camera 可通过
 [Type Registry 与反射元数据](reflection.md)注册并按 World、Entity、Type GUID 和 Field ID 访问；
 公共接口不暴露 EnTT 或组件地址。可持久化对象 UUID 仍由场景格式负责，不使用运行时实体 ID。
+
+## World 到 Render 的变化同步
+
+`function/scene/rendering/world_render_binding` 借用 World 与 Render，拥有一个持久渲染场景；
+World 核心不持有绑定或 Render。绑定首次读取已有网格对象，之后消费 World 的合并变化记录。
+局部变换与改父节点通知受影响子树；对象销毁保留带 generation 的删除身份，不借用已销毁组件。
+组件移除后重新添加保留移除事实，绑定为其创建新的渲染实例身份。
+每个消费者拥有独立记录，成功同步才清空；无消费者时不积累历史。
+具体生命周期及使用见 [Render](render.md#world-增量绑定)。

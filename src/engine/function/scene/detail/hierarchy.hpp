@@ -27,7 +27,7 @@ public:
   [[nodiscard]] result<entity_id> create(entity_id parent, std::uint64_t entity);
   [[nodiscard]] error destroy(entity_id node);
   [[nodiscard]] error reparent(entity_id node, entity_id parent);
-  [[nodiscard]] error set_local(entity_id node, const math::transform& transform) noexcept;
+  [[nodiscard]] error set_local(entity_id node, const math::transform& transform);
   [[nodiscard]] const math::transform* get_local(entity_id node) const noexcept;
   [[nodiscard]] result<math::transform> get_world(entity_id node) const noexcept;
   [[nodiscard]] entity_id get_parent(entity_id node) const noexcept;

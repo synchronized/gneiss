@@ -482,6 +482,7 @@ void run() {
     auto cleared = before;
     cleared.value.material = {};
     *borrowed = cleared;
+    check(object.notify_component_modified<gneiss::mesh_renderer_component>().ok());
     auto* empty = object.try_component<gneiss::mesh_renderer_component>();
     check(empty && empty->value.mesh == before.value.mesh && !empty->value.material);
     gneiss::error worker_result;
@@ -491,6 +492,7 @@ void run() {
     worker.join();
     check(worker_result == gneiss::error::invalid_state);
     *object.try_component<gneiss::mesh_renderer_component>() = before;
+    check(object.notify_component_modified<gneiss::mesh_renderer_component>().ok());
     check(files->reads == binding_reads);
   }
   check(candidate.get()

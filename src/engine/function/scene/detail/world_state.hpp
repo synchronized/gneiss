@@ -12,6 +12,7 @@
 #include <limits>
 
 #include "engine/function/scene/detail/hierarchy.hpp"
+#include "engine/function/scene/detail/world_changes.hpp"
 
 #include <entt/entity/entity.hpp>
 #include <entt/entity/registry.hpp>
@@ -50,6 +51,22 @@ public:
     return owner_thread_ == std::this_thread::get_id();
   }
 
+  detail::world_changes changes;
+
+  /** 祖先变化影响整棵子树；没有消费者时不遍历。 */
+  void mark_transform_changed(entity_id root) {
+    if (!changes.observed())
+      return;
+    std::vector<entity_id> pending{root};
+    while (!pending.empty()) {
+      const auto id = pending.back();
+      pending.pop_back();
+      changes.transform(id);
+      if (const auto* object = get<detail::object_state>(id.get()))
+        pending.insert(pending.end(), object->children.begin(), object->children.end());
+    }
+  }
+
   [[nodiscard]] std::uint64_t create_entity() {
     const auto entity = registry_.create();
     ++entity_count_;
@@ -72,6 +89,7 @@ public:
     }
     scene_.detach(entity_id{entity});
 
+    changes.destroyed(entity_id{entity});
     registry_.destroy(native);
     --entity_count_;
     return true;
@@ -92,7 +110,10 @@ public:
     if (!is_alive(entity)) {
       throw std::invalid_argument{"实体已失效"};
     }
-    return registry_.emplace<Component>(decode(entity), std::forward<Args>(args)...);
+    auto& component = registry_.emplace<Component>(decode(entity), std::forward<Args>(args)...);
+    if (changes.observed())
+      changes.component(entity_id{entity}, runtime_type_of<Component>());
+    return component;
   }
 
   template <typename Component, typename... Args>
@@ -100,7 +121,11 @@ public:
     if (!is_alive(entity)) {
       throw std::invalid_argument{"实体已失效"};
     }
-    return registry_.emplace_or_replace<Component>(decode(entity), std::forward<Args>(args)...);
+    auto& component =
+        registry_.emplace_or_replace<Component>(decode(entity), std::forward<Args>(args)...);
+    if (changes.observed())
+      changes.component(entity_id{entity}, runtime_type_of<Component>());
+    return component;
   }
 
   template <typename Component> [[nodiscard]] Component* get(std::uint64_t entity) noexcept {
@@ -118,7 +143,11 @@ public:
       return error::invalid_state;
     if (!is_alive(entity))
       return error::invalid_handle;
-    return registry_.remove<Component>(decode(entity)) ? error::success : error::not_found;
+    if (!registry_.remove<Component>(decode(entity)))
+      return error::not_found;
+    if (changes.observed())
+      changes.component(entity_id{entity}, runtime_type_of<Component>(), true);
+    return error::success;
   }
 
   /** 扩展模块的 World 级状态；类型和业务规则由使用模块定义。 */
