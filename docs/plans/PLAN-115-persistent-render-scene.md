@@ -409,6 +409,17 @@ World 核心不依赖 Render，render 目录不反向包含 World/ECS。构建�
 即使 Gneiss 增量同步，适配层仍可能全量生成 Granit 输入，应分别测量两层成本，不声称已消除所有全量工作。
 若缺少可复用底层能力，向用户列出最小 PR 目标、接口、验收及接入方案；未经另行授权不修改 Granit。
 
+## Service/Backend 边界落地进度
+
+Granit 设备、交换链、管线、资源镜像、上传、绘制及回读实现已迁入
+`backend/granit/backend.cpp`。具体 backend 使用 PImpl 隐藏第三方类型，不增加虚接口或插件工厂。
+Service 保留执行器、可靠命令调度、背压和完成回执；后端不反向依赖 Service/执行器定义，
+设备统计与帧执行结果作为共享值放入 render_statistics.hpp。
+本次不改变 GPU 提交和退休顺序；后端仍逐帧将输入转换为 Granit 快照。
+Windows Clang Debug 的 Engine、Runtime、Editor 构建通过，四项 Render 回归及两项分层检查通过；
+未运行真实 GPU 验收。
+P0 尚未整体完成：Service 单一 PImpl、资源/场景存储平级及其余命名空间收敛仍需推进。
+
 ## 实施顺序与完成条件
 
 以下清单已按复核结论重排；旧 CPU 批次基础是迁移输入，不等于新阶段完成。

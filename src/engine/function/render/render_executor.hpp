@@ -20,30 +20,6 @@ namespace gneiss {
 
 enum class render_frame_policy : std::uint8_t { replaceable, required };
 
-struct render_execution_result final {
-  bool needs_recreate{};
-  bool presented{};
-  float frame_capture_ms{};
-  std::size_t copied_payload_bytes{};
-  float queue_wait_ms{};
-  float resource_prepare_ms{};
-  float acquire_wait_ms{};
-  float record_submit_ms{};
-  float present_wait_ms{};
-  float render_thread_ms{};
-  bool gpu_timing_supported{};
-  bool gpu_timing_valid{};
-  std::uint64_t gpu_timing_sample_sequence{};
-  float gpu_frame_ms{};
-  float gpu_shadow_ms{};
-  float gpu_opaque_ms{};
-  float gpu_tone_mapping_ms{};
-  bool environment_asset_requested{};
-  bool environment_fallback{};
-  float environment_intensity{1.0F};
-  float environment_rotation_radians{};
-};
-
 struct render_frame_completion final {
   std::uint64_t sequence{};
   error status{error::unknown};

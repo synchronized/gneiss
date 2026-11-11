@@ -188,6 +188,8 @@ target_sources(
 target_sources(
   gneiss_engine
   PRIVATE
+    engine/function/render/backend/granit/backend.cpp
+    engine/function/render/backend/granit/backend.hpp
     engine/function/render/render_service.cpp
     engine/function/render/render_service.hpp
     engine/function/render/backend/granit/pbr_shader_resolver.cpp

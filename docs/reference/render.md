@@ -3,6 +3,12 @@
 
 # Render 资源、组件与帧提取
 
+当前 Service 负责命令接受、背压、执行器和完成分发；Granit 设备实现位于
+`backend/granit/backend.hpp/.cpp`，命名空间为 `gneiss::render::backend::granit`。
+后端独占设备、交换链、管线及 GPU 资源镜像，在 Service 消费线程串行执行；不拥有另一套队列，
+不访问 World、资产管理器或 Service 的 RID 表。后端接口只使用引擎值类型，Granit 类型隐藏在实现中。
+设备计数和单帧执行指标定义于 `render_statistics.hpp`，不再要求后端依赖 Service 或执行器声明。
+
 Render 的 `reserve_mesh/texture/material()` 与 `create_*` 系列返回 `result<rid>`；
 失败结果不含 RID，调用方无需准备输出指针。销毁仍返回 `error`。
 `prepare_mesh/material/texture_data()` 返回 `result<shared_ptr<const ..._data>>`，
