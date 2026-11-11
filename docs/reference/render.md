@@ -183,7 +183,7 @@ Application、Loader、UI 和帧构建使用 `render_service` 的 RID 操作及�
 服务的 `try_take_required_completion()` 返回 `result<std::optional<render_frame_completion>>`：
 失败表示收集过程出错，成功的空值表示暂无必需帧，成功的非空值表示领取到记录。
 
-## 持久场景更新（CPU 基础阶段）
+## 持久场景更新与单窗口绘制
 
 `render_service::create_scene()` 创建独立 CPU 渲染场景，无需先初始化窗口或 GPU。
 `submit(render::scene_commands&&)` 接受自有命令列表，支持创建、变换、网格/材质换绑、
@@ -222,7 +222,17 @@ auto accepted = renderer.submit(std::move(commands));
 
 内部 scene_resource_pin::capture() 固定当前不可变 payload，捕获后的内容不受热重载、换绑或
 场景卸载影响。空 payload 表示尚未就绪，不表示无效身份。身份记录只在所属线程访问，
-不能直接交给渲染线程读取；执行器按序发布/捕获仍待接入，不能声称已有完整跨线程版本协议。
+不能直接交给渲染线程读取；当前在所属线程捕获，再将自有帧交给执行器；消费侧增量更新与有序资源发布仍待接入。
 
-**当前限制**：这组 CPU 接口尚未驱动绘制；Runtime/Editor 仍使用原有帧快照。
-多视图、World 增量绑定与队列消费按 [PLAN-115](../plans/PLAN-115-persistent-render-scene.md) 继续实施。
+`render_service::render(render::frame_request&&)` 接受一个窗口视图，视图给出 scene RID、view/projection
+矩阵、相机位置和层掩码。它捕获场景及资源版本，交给现有帧执行器和 Granit 绘制路径；
+成功清空 views，失败保留请求。未初始化设备时不能提交绘制，接受成功不代表 GPU 完成。
+
+帧内实例只包含 RID、完整世界矩阵/法线矩阵和层掩码，不持有上层 Mesh/Material 对象。
+捕获时过滤隐藏或层不匹配实例；未就绪网格由绘制消费者跳过，材质/纹理沿用缺省内容策略。
+剪切通过完整矩阵保留，包围球按变换后的顶点计算。旧 World 帧快照在入口转换为同一绘制表示。
+
+**当前限制**：新入口只支持一个窗口视图；多视图及可见的 casts_shadows=false 实例返回 unsupported。
+窗口输入暂未替换为 target RID，新入口暂不携带 UI/调试/回读。Runtime/Editor 尚未改用 World 增量绑定，
+仍从旧入口提交。当前实现仍逐帧捕获持久场景；最终消费侧增量状态、资源发布队列及 GPU 验收按
+[PLAN-115](../plans/PLAN-115-persistent-render-scene.md) 继续实施。

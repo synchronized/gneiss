@@ -3,6 +3,7 @@
 
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/math/transform.hpp"
 #include "engine/function/render/render_service.hpp"
 
 #include <chrono>
@@ -69,10 +70,13 @@ gneiss::error capture_render_frame_packet(const native_window_info& window, rend
     candidate.resources.textures_.clear();
     candidate.capture = {};
     candidate.window = window;
-    candidate.scene = std::move(scene);
+    candidate.scene.camera = scene.camera;
+    candidate.scene.has_camera = scene.has_camera;
+    candidate.scene.layers = ~UINT64_C(0);
+    candidate.scene.instances.clear();
     candidate.ui = ui;
     candidate.debug = debug;
-    for (const auto& instance : candidate.scene.instances) {
+    for (const auto& instance : scene.instances) {
       auto result = capture_resource(
           resource_handle(instance.mesh), candidate.resources.meshes_,
           [&](const auto handle) { return resources.share_mesh(handle); },
@@ -101,6 +105,16 @@ gneiss::error capture_render_frame_packet(const native_window_info& window, rend
         }
       }
     }
+    candidate.scene.instances.reserve(scene.instances.size());
+    for (const auto& instance : scene.instances) {
+      render_draw_instance draw;
+      draw.mesh = resource_handle(instance.mesh);
+      draw.material = resource_handle(instance.material);
+      if (!math::model_and_normal_matrices(instance.transform, draw.world_matrix,
+                                           draw.normal_matrix))
+        return error::invalid_argument;
+      candidate.scene.instances.push_back(draw);
+    }
     for (const auto& command : candidate.ui.commands()) {
       // UI 尚未接入占位策略，不能让场景中捕获的空纹理条目绕过 UI 就绪检查。
       if (resources.texture_status(resource_handle(command.texture)) == gneiss::error::not_ready) {
@@ -114,7 +128,7 @@ gneiss::error capture_render_frame_packet(const native_window_info& window, rend
       }
     }
     std::size_t copied_payload_bytes =
-        candidate.scene.instances.size() * sizeof(render_instance_snapshot) +
+        candidate.scene.instances.size() * sizeof(render_draw_instance) +
         candidate.ui.vertices().size() * sizeof(ui_vertex) +
         candidate.ui.indices().size() * sizeof(std::uint32_t) +
         candidate.ui.commands().size() * sizeof(ui_draw_command) +

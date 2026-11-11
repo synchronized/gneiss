@@ -102,6 +102,66 @@ result<void> render_scene_state::submit(render::scene_commands&& commands) {
   commands.scene = null_rid;
   return {};
 }
+result<render_frame_packet>
+render_scene_state::capture(const render::frame_request& request) const {
+  if (closed_)
+    return error::invalid_state;
+  if (request.views.size() != 1)
+    return error::unsupported;
+  if (request.window.width == 0 || request.window.height == 0)
+    return error::invalid_argument;
+  const auto& view = request.views.front();
+  for (auto element : math::matrix_elements(view.view_matrix))
+    if (!std::isfinite(element))
+      return error::invalid_argument;
+  for (auto element : math::matrix_elements(view.projection_matrix))
+    if (!std::isfinite(element))
+      return error::invalid_argument;
+  for (auto element : math::components(view.camera_position))
+    if (!std::isfinite(element))
+      return error::invalid_argument;
+  const auto* group = scenes_.get(view.scene, resource_type::render_scene);
+  if (!group)
+    return error::invalid_handle;
+  render_frame_packet packet;
+  packet.window = request.window;
+  packet.scene.has_camera = true;
+  packet.scene.layers = view.layers;
+  packet.scene.camera.view = view.view_matrix;
+  packet.scene.camera.projection = view.projection_matrix;
+  packet.scene.camera.transform.translation = view.camera_position;
+  packet.scene.camera.viewport_width = request.window.width;
+  packet.scene.camera.viewport_height = request.window.height;
+  packet.scene.instances.reserve(group->instances.size());
+  for (const auto& [key, entry] : group->instances) {
+    (void)key;
+    const auto& value = entry.description;
+    if (!value.visible || (value.layers & view.layers) == 0)
+      continue;
+    // 当前 Granit 场景接口没有逐实例阴影开关；不得静默绘制成不同语义。
+    if (!value.casts_shadows)
+      return error::unsupported;
+    auto versions = entry.resources.capture();
+    packet.resources.meshes_.try_emplace(value.mesh, std::move(versions.mesh));
+    packet.resources.materials_.try_emplace(value.material, versions.material);
+    if (versions.material) {
+      const auto handles = versions.material->texture_handles();
+      for (std::size_t slot = 0; slot < handles.size(); ++slot)
+        if (handles[slot] != null_rid)
+          packet.resources.textures_.try_emplace(handles[slot], std::move(versions.textures[slot]));
+    }
+    const auto normal =
+        math::matrix4{glm::transpose(glm::inverse(math::matrix3{value.world_matrix}))};
+    for (auto element : math::matrix_elements(normal))
+      if (!std::isfinite(element))
+        return error::invalid_argument;
+    packet.scene.instances.push_back(
+        {value.mesh, value.material, value.world_matrix, normal, value.layers});
+  }
+  packet.capture.copied_payload_bytes =
+      packet.scene.instances.size() * sizeof(render_draw_instance);
+  return packet;
+}
 result<void> render_scene_state::destroy_scene(rid handle) {
   if (closed_)
     return error::invalid_state;

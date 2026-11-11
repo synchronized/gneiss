@@ -225,16 +225,13 @@ granit_matrix4 to_granit_matrix(const math::matrix4& source) noexcept {
   return result;
 }
 
-float mesh_bounds_radius(const mesh_data& mesh, const math::transform& transform) noexcept {
+float mesh_bounds_radius(const mesh_data& mesh, const math::matrix4& model) noexcept {
   float radius_squared = 0.0F;
   for (const auto& vertex : mesh.vertices) {
-    radius_squared = std::max(radius_squared, vertex.position.x * vertex.position.x +
-                                                  vertex.position.y * vertex.position.y +
-                                                  vertex.position.z * vertex.position.z);
+    const auto position = math::matrix3{model} * vertex.position;
+    radius_squared = std::max(radius_squared, glm::dot(position, position));
   }
-  const auto scale = std::max(
-      {std::abs(transform.scale[0]), std::abs(transform.scale[1]), std::abs(transform.scale[2])});
-  return std::sqrt(radius_squared) * scale;
+  return std::sqrt(radius_squared);
 }
 
 granit::result append_mesh_geometry(const mesh_data& source, std::vector<gpu_vertex>& vertices,
@@ -1203,10 +1200,10 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
   release_invalid_meshes(resources);
   {
     for (const auto& instance : snapshot.instances) {
-      if (resources.mesh_pending(resource_handle(instance.mesh))) {
+      if (resources.mesh_pending(instance.mesh)) {
         continue;
       }
-      const auto handle = resource_handle(instance.mesh);
+      const auto handle = instance.mesh;
       auto source = resources.share_mesh(handle);
       const auto current = mesh_mirrors_.find(handle);
       if (source && (current == mesh_mirrors_.end() || current->second.data != source)) {
@@ -1226,10 +1223,10 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
     }
 
     for (const auto& instance : snapshot.instances) {
-      if (resources.mesh_pending(resource_handle(instance.mesh))) {
+      if (resources.mesh_pending(instance.mesh)) {
         continue;
       }
-      const auto* material = resources.get_material(resource_handle(instance.material));
+      const auto* material = resources.get_material(instance.material);
       if (material == nullptr)
         return gneiss::error::invalid_handle;
       std::array textures{
@@ -1252,20 +1249,19 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
         if (found != texture_mirrors_.end())
           textures[slot] = found->second->view.native_handle();
       }
-      auto found = material_mirrors_.find(resource_handle(instance.material));
+      auto found = material_mirrors_.find(instance.material);
       if (found == material_mirrors_.end() || found->second.source != material ||
           found->second.textures != textures) {
         material_mirror replacement;
         const auto created = create_material_mirror(*material, textures, replacement);
         if (created.ok()) {
-          replacement.data = resources.share_material(resource_handle(instance.material));
+          replacement.data = resources.share_material(instance.material);
           for (std::size_t slot = 0; slot < handles.size(); ++slot) {
             const auto dependency = texture_mirrors_.find(handles[slot]);
             if (dependency != texture_mirrors_.end())
               replacement.dependencies[slot] = dependency->second;
           }
-          material_mirrors_.insert_or_assign(resource_handle(instance.material),
-                                             std::move(replacement));
+          material_mirrors_.insert_or_assign(instance.material, std::move(replacement));
         } else {
           (void)log_.write({.severity = logging::level::error,
                             .source = "render.material",
@@ -1317,7 +1313,7 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
   view.view_projection = view.view;
   view.viewport_width = static_cast<float>(window.width);
   view.viewport_height = static_cast<float>(window.height);
-  view.layer_mask = UINT64_MAX;
+  view.layer_mask = snapshot.layers;
   granit_scene_directional_light light{{-0.35F, 0.8F, 0.45F}, {3.0F, 3.0F, 3.0F}, UINT64_MAX};
   if (snapshot.has_camera) {
     view.view = to_granit_matrix(snapshot.camera.view);
@@ -1329,22 +1325,20 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
                             snapshot.camera.transform.translation[2]};
     view.viewport_width = static_cast<float>(window.width);
     view.viewport_height = static_cast<float>(window.height);
-    view.layer_mask = UINT64_MAX;
+    view.layer_mask = snapshot.layers;
     {
       renderables.reserve(snapshot.instances.size());
       bindings.reserve(snapshot.instances.size());
       for (std::size_t index = 0; index < snapshot.instances.size(); ++index) {
         const auto& instance = snapshot.instances[index];
-        if (resources.mesh_pending(resource_handle(instance.mesh))) {
+        if (resources.mesh_pending(instance.mesh)) {
           continue;
         }
-        math::matrix4 model;
-        math::matrix4 normal;
-        if (!math::model_and_normal_matrices(instance.transform, model, normal))
-          return gneiss::error::invalid_argument;
+        const auto& model = instance.world_matrix;
+        const auto& normal = instance.normal_matrix;
         const auto payload = static_cast<std::uint64_t>(index) + 1U;
-        const auto gpu_mesh = mesh_mirrors_.find(resource_handle(instance.mesh));
-        const auto gpu_material = material_mirrors_.find(resource_handle(instance.material));
+        const auto gpu_mesh = mesh_mirrors_.find(instance.mesh);
+        const auto gpu_material = material_mirrors_.find(instance.material);
         if (gpu_mesh == mesh_mirrors_.end() || gpu_material == material_mirrors_.end())
           continue;
         const auto* mesh = gpu_mesh->second.source;
@@ -1355,22 +1349,19 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
         const auto variant = granit_pbr_material_variant_key(
             GRANIT_PBR_TEXTURE_ALL, static_cast<std::uint32_t>(material->parameters.alpha_mode),
             material->parameters.double_sided, 1U, 1U);
-        renderables.push_back(
-            {.model = to_granit_matrix(model),
-             .normal_matrix = to_granit_matrix(normal),
-             .bounds_center = {instance.transform.translation[0], instance.transform.translation[1],
-                               instance.transform.translation[2]},
-             .bounds_radius = mesh_bounds_radius(*mesh, instance.transform),
-             .layer_mask = UINT64_MAX,
-             .sort_key = resource_handle(instance.material),
-             .payload = payload,
-             .object_id = static_cast<std::uint32_t>(index + 1U),
-             .reserved = 0});
-        bindings.push_back(
-            {.payload = payload,
-             .mesh = mesh_mirrors_.at(resource_handle(instance.mesh)).mesh.ref(),
-             .material = material_mirrors_.at(resource_handle(instance.material)).material.ref(),
-             .variant = variant});
+        renderables.push_back({.model = to_granit_matrix(model),
+                               .normal_matrix = to_granit_matrix(normal),
+                               .bounds_center = {model[3][0], model[3][1], model[3][2]},
+                               .bounds_radius = mesh_bounds_radius(*mesh, model),
+                               .layer_mask = instance.layers,
+                               .sort_key = instance.material,
+                               .payload = payload,
+                               .object_id = static_cast<std::uint32_t>(index + 1U),
+                               .reserved = 0});
+        bindings.push_back({.payload = payload,
+                            .mesh = mesh_mirrors_.at(instance.mesh).mesh.ref(),
+                            .material = material_mirrors_.at(instance.material).material.ref(),
+                            .variant = variant});
       }
     }
   }
@@ -1632,6 +1623,16 @@ result<bool> render_service::prepare_frame_packet_storage(render_frame_packet& p
 result<std::uint64_t> render_service::submit(render_frame_packet packet,
                                              render_frame_policy policy) {
   return impl_->submit(std::move(packet), policy);
+}
+result<void> render_service::render(render::frame_request&& request) {
+  auto packet = storage_->scenes_->capture(request);
+  if (!packet)
+    return packet.error();
+  auto accepted = impl_->submit(std::move(*packet), render_frame_policy::replaceable);
+  if (!accepted)
+    return accepted.error();
+  request.views.clear();
+  return {};
 }
 result<std::optional<render_frame_completion>> render_service::try_take_required_completion() {
   return impl_->try_take_required_completion();

@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-2026-11-11：已开始实施。P0 接入核查与 P1 的 CPU 场景/命令输入基础已落地；绘制、World 同步及其余阶段尚未完成。
+2026-11-11：已开始实施。P0 接入核查与 P1 的 CPU 场景/命令输入及单窗口绘制适配已落地；World 同步、GPU 验收及其余阶段尚未完成。
 除下节明确列出的实现外，本页接口、结构和目录仍为目标设计示意。
 长期边界见 [ADR-118](../decisions/ADR-118-persistent-render-scene.md)。当前接口与阶段限制见 [Render](../reference/render.md)。
 本计划独立跟踪，不将新能力写成 VER-052 已交付项，不延续旧版本的发布授权。
@@ -38,20 +38,40 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
   使用一次执行命令；不能使用允许重新排队的 resumable 策略，也不能随可替换帧丢弃。
 - 既有 `render_resource_snapshot` 通过不可变共享 payload 保证旧帧数据不变；保留该能力。
   CPU 实例已改为身份 pin，可绑定未就绪资源并读取后续发布内容；材质身份保活纹理依赖。
-  内部 capture 固定不可变内容，旧内容不受刷新影响；执行器按序发布、帧消费和 GPU 退休仍未接入，P2 未完成。
+  内部 capture 固定不可变内容，旧内容不受刷新影响；已连接现有帧执行器，但增量命令消费侧和资源发布队列尚未接入，P2 未完成。
 - `render_service` 已提供 create_scene/submit(render::scene_commands&&)/destroy_scene，删除 begin_update 和旧批次对象。
-  当前只管理 CPU 状态，不需要窗口/GPU，也尚未连接实际绘制。命令提交同线程生效。
+  命令提交同线程生效，不需要窗口/GPU。新增 render(frame_request&&) 捕获持久场景，提交到现有执行器和 Granit 绘制消费者。
 - 已采用场景内递增 instance_key 与列表全收或不收的 CPU 接受规则；不再预留实例 RID。
   提交前不保活服务/资源，不依赖析构回调；校验阶段只暂存触及实例，成功后消费列表。
 - 定向 CPU 验证覆盖创建后更新、丢弃列表、失败重试无部分应用、删除与 key 不复用、
   跨服务/场景、场景 generation、共享资源保活与关闭。旧批次取消契约对应测试已替换。
   新增未就绪身份绑定、内容替换、依赖重排/失效拒绝、旧内容捕获和外部 RID 释放验证。
+  绘制适配覆盖矩阵/法线保留、显隐与层筛选、未就绪内容、捕获后更新/卸载、未初始化提交及不支持输入拒绝。
   本轮 Windows Clang Debug 的 Engine、Runtime、Editor 和相关渲染测试构建通过；render_scene、render_frame_packet、render_executor、
   render_resource_service、pbr-material-resource 五项测试通过。
   尚未验证 GPU、多视图、World 同步和其他平台。
 
-后续按已确认边界接入资源版本的执行器时序和持久场景绘制入口，再接 World 变化通知与绑定；
-不能把当前 CPU 批次基础视为 P1 模型预览闭环或 P3 增量同步完成。
+后续按已确认边界将持久状态移入执行器有序消费链，并接入 World 变化通知与绑定；
+不能把当前单窗口适配视为 P1 模型预览闭环或 P3 增量同步完成。
+
+## 当前过渡边界与退出条件
+
+- render(frame_request&&) 当前支持一个窗口视图，沿用 native_window_info；不支持多视图或独立 target RID。
+  这样可先复用现有窗口/执行器和 Granit 绘制，不伪造多目标支持；目标资源管理落地后替换窗口输入。
+- 暂时由所属线程捕获持久场景的自有帧数据。已接受帧只读不可变资源版本，不访问正在更新的身份记录。
+  这是线程安全过渡，不是最终增量渲染架构；退出条件是可靠命令消费侧接管场景与有序资源版本。
+- render_frame_packet 的实例统一为 RID、完整 model/normal 矩阵和层掩码，旧 World 快照在入口转换。
+  Granit 只有一个绘制消费者；完整矩阵用于法线和包围球，保留剪切。旧 World 提取仍待绑定迁移后删除。
+- 当前新入口不携带 UI、调试绘制或回读请求；原宿主仍走旧捕获入口，不能声称产品预览已迁移。
+
+### Granit 最小扩展建议：逐实例阴影开关
+
+当前锁定的 granit_scene_renderable 没有 casts_shadows 等标志，不能区分主视图可见与阴影投射。
+Gneiss 暂时拒绝提交可见且 casts_shadows=false 的实例，返回 unsupported；不忽略用户意图。
+建议由用户向 Granit 提交独立 PR：只增加逐实例阴影投射标志并使阴影 pass 遵守，默认行为保持投射。
+该能力可供其他上层复用，不涉及 Gneiss RID、资产或 ECS。验收包括主视图仍可见、阴影 pass 排除、
+默认行为不变及现有场景复制/生命周期检查。依赖更新后 Gneiss 在私有 Granit 适配中映射该标志，
+删除 unsupported 分支并补端到端验证。本轮未修改 Granit 仓库。
 
 ## 迁移基线
 

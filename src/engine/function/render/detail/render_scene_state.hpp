@@ -5,6 +5,8 @@
 #include "engine/core/rid_table.hpp"
 #include "engine/function/render/commands.hpp"
 #include "engine/function/render/detail/resource_identity.hpp"
+#include "engine/function/render/frame_request.hpp"
+#include "engine/function/render/render_frame_packet.hpp"
 #include <functional>
 #include <map>
 namespace gneiss::detail {
@@ -16,6 +18,8 @@ public:
   result<rid> create_scene();
   result<void> submit(render::scene_commands&& commands);
   result<void> destroy_scene(rid scene);
+  /** 所属线程固定本次绘制内容；返回失败不修改场景。单窗口视图过渡适配。 */
+  result<render_frame_packet> capture(const render::frame_request& request) const;
   void close() noexcept;
   struct instance {
     mesh_instance_description description;

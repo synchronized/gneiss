@@ -216,4 +216,70 @@ bool identity_versions() {
   CHECK(after.mesh && after.material && after.textures[0]); // 已捕获内容跨场景卸载存活。
   return true;
 }
-int main() { return commands() && service_lifetime() && identity_versions() ? 0 : 1; }
+bool frame_capture() {
+  auto mesh = std::make_shared<detail::resource_identity<mesh_data>>();
+  auto material = std::make_shared<detail::resource_identity<material_data>>();
+  auto texture = std::make_shared<detail::resource_identity<texture_data>>();
+  detail::render_scene_state state{
+      64998, [&](const mesh_instance_description&) -> result<detail::scene_resource_pin> {
+        return detail::scene_resource_pin{mesh, material};
+      }};
+  auto scene = state.create_scene();
+  CHECK(scene);
+  math::matrix4 model{1.F};
+  model[1][0] = 0.5F;
+  model[3][0] = 4.F;
+  render::scene_commands create{
+      *scene,
+      {render::create_instance{{1}, {.mesh = 1, .material = 2, .world_matrix = model, .layers = 2}},
+       render::create_instance{{2}, {.mesh = 1, .material = 2, .visible = false}},
+       render::create_instance{{3}, {.mesh = 1, .material = 2, .layers = 4}}}};
+  CHECK(state.submit(std::move(create)));
+  render::frame_request request{.window = {.width = 64, .height = 64},
+                                .views = {{.scene = *scene, .layers = 2}}};
+  auto pending = state.capture(request);
+  CHECK(pending && pending->scene.instances.size() == 1);
+  CHECK(!pending->resources.share_mesh(1));
+  mesh->data = std::make_shared<mesh_data>();
+  auto description = std::make_shared<material_data>();
+  description->base_color_texture = 3;
+  material->data = description;
+  material->textures[0] = texture;
+  texture->data = std::make_shared<texture_data>();
+  auto before = state.capture(request);
+  CHECK(before && before->scene.instances.size() == 1);
+  CHECK(before->scene.instances[0].world_matrix == model);
+  const auto expected_normal = math::matrix4{glm::transpose(glm::inverse(math::matrix3{model}))};
+  CHECK(before->scene.instances[0].normal_matrix == expected_normal);
+  CHECK(before->scene.instances[0].layers == 2 && before->scene.layers == 2);
+  CHECK(before->resources.share_mesh(1) == mesh->data);
+  CHECK(before->resources.share_texture(3) == texture->data);
+  mesh->data = std::make_shared<mesh_data>();
+  texture->data = std::make_shared<texture_data>();
+  render::scene_commands update{*scene, {render::set_transform{{1}, math::matrix4{1.F}}}};
+  CHECK(state.submit(std::move(update)));
+  auto after = state.capture(request);
+  CHECK(after && after->resources.share_mesh(1) != before->resources.share_mesh(1));
+  CHECK(after->resources.share_texture(3) != before->resources.share_texture(3));
+  CHECK(before->scene.instances[0].world_matrix == model);
+  request.views.push_back(request.views.front());
+  CHECK(!state.capture(request));
+  request.views.pop_back();
+  render::scene_commands no_shadow{
+      *scene, {render::set_visibility{{1}, {.layers = 2, .casts_shadows = false}}}};
+  CHECK(state.submit(std::move(no_shadow)));
+  auto unsupported = state.capture(request);
+  CHECK(!unsupported && unsupported.error() == error::unsupported);
+  CHECK(state.destroy_scene(*scene));
+  CHECK(!state.capture(request));
+  CHECK(before->resources.share_mesh(1) && before->resources.share_texture(3));
+  render_service renderer;
+  auto not_initialized = renderer.create_scene();
+  CHECK(not_initialized);
+  request.views.front().scene = *not_initialized;
+  CHECK(!renderer.render(std::move(request)) && request.views.size() == 1);
+  return true;
+}
+int main() {
+  return commands() && service_lifetime() && identity_versions() && frame_capture() ? 0 : 1;
+}

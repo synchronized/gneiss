@@ -18,6 +18,9 @@
 
 namespace gneiss {
 class render_service;
+namespace detail {
+class render_scene_state;
+}
 
 class render_resource_snapshot final {
 public:
@@ -41,6 +44,7 @@ public:
   [[nodiscard]] bool texture_pending(rid texture) const noexcept;
 
 private:
+  friend class detail::render_scene_state;
   friend error capture_render_frame_packet(const native_window_info&, render_snapshot,
                                            const render_service&, const ui_draw_list&,
                                            const debug_draw_list&, struct render_frame_packet&);
@@ -62,12 +66,27 @@ struct frame_image final {
   std::vector<std::byte> pixels;
 };
 
+/** 绘制消费者的纯值输入，不持有上层资产或 ECS 对象。 */
+struct render_draw_instance {
+  rid mesh{};
+  rid material{};
+  math::matrix4 world_matrix{1.F};
+  math::matrix4 normal_matrix{1.F};
+  std::uint64_t layers{~UINT64_C(0)};
+};
+struct render_draw_scene {
+  render_camera_snapshot camera{};
+  bool has_camera{};
+  std::uint64_t layers{~UINT64_C(0)};
+  std::vector<render_draw_instance> instances;
+};
+
 /** 已提交帧的自有数据；移动后不再借用主线程的逐帧可变内存。 */
 struct render_frame_packet final {
   /** 由执行器在接受帧时写入，用于关联延迟返回的渲染结果。 */
   std::uint64_t sequence{};
   native_window_info window;
-  render_snapshot scene;
+  render_draw_scene scene;
   render_resource_snapshot resources;
   ui_draw_list ui;
   debug_draw_list debug;

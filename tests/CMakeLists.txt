@@ -365,6 +365,7 @@ add_executable(
   render/render_frame_packet_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/debug_draw_list.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_frame_packet.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/math/transform.cpp"
 )
 target_include_directories(gneiss_render_frame_packet_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_frame_packet_test PRIVATE GNEISS_BUILDING_LIBRARY)
