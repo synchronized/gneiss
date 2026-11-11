@@ -111,10 +111,6 @@ def main():
                             failures.append(f"{name}: 对象或资源数量不符")
                         if configuration == "release" and measured["activation_ms"] > 5:
                             failures.append(f"{name}: 激活超过 5 ms")
-                        if measured["candidate_resident_bytes"] > 2 * 1024**3:
-                            failures.append(f"{name}: 候选逻辑资源超过 2 GiB")
-                        if measured.get("peak_upload_bytes", 0) > 64 * 1024**2:
-                            failures.append(f"{name}: 本夹具上传峰值超过 64 MiB")
                         if configuration == "release" and (
                             measured["event_interval_p95_ms"] > 100
                             or measured["event_interval_max_ms"] > 250

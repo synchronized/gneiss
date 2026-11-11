@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_application.hpp"
 #include "../support/value_result.hpp"
 #include "application/application.hpp"
 #include "engine/core/error.hpp"
@@ -50,7 +51,7 @@ struct loop_sample {
   unsigned phase{};
   double callback_ms{};
   double scheduler_ms{};
-  double scene_poll_ms{};
+  double scene_work_ms{};
   double sleep_ms{};
   // 直到下一次回调入口才能闭合，最后一行保持 -1。
   double outside_callback_ms{-1.0};
@@ -72,47 +73,39 @@ std::uint64_t peak_resident_bytes() {
 gneiss::engine::error preload_scene(const std::shared_ptr<gneiss::runtime::application>& app,
                                     gneiss::engine::task_scheduler& scheduler, bool cooperative,
                                     std::string_view uri, gneiss::scene_instance_id& scene) {
-  using namespace gneiss::runtime;
-  gneiss::runtime::scene_open_request request;
-  auto result = gneiss::test_support::take_value(app->scenes().open(uri), request);
+  auto request = app->assets().load<gneiss::engine::scene>(uri);
+  if (!request)
+    return request.error();
+  gneiss::engine::asset_batch_request visuals;
   const auto deadline = clock_type::now() + std::chrono::minutes(15);
-  while (result == gneiss::engine::error::success && clock_type::now() < deadline) {
-    if (cooperative) {
+  while (clock_type::now() < deadline) {
+    if (cooperative)
       (void)scheduler.run_ready();
+    auto status = app->run(1);
+    if (status.failed())
+      return status;
+    if (*request && request->status() != gneiss::engine::error::not_ready) {
+      auto content = request->snapshot();
+      auto loaded = request->take();
+      if (!loaded)
+        return loaded.error().error;
+      if (!content)
+        return gneiss::engine::error::invalid_state;
+      auto built = gneiss::test_support::activate_scene(*app, *content);
+      if (!built)
+        return built.error();
+      scene = built->instance.instance;
+      visuals = std::move(built->visuals);
     }
-    result = static_cast<gneiss::engine::error>(gneiss::engine::error{app->run(1U)});
-    if (result != gneiss::engine::error::success) {
-      break;
-    }
-    scene_load_completion completion;
-    bool finished{};
-    result = gneiss::test_support::receive_request(request, completion, finished);
-    if (finished && completion.result != gneiss::engine::error::success) {
-      return completion.result;
-    }
-    if (scene != gneiss::scene_instance_id{} && !app->visual_assets_loading())
-      return gneiss::engine::error::success;
-    scene_load_progress progress;
-    bool active{};
-    if (result == gneiss::engine::error::success) {
-      active = gneiss::test_support::observe_request(request, progress);
-    }
-    if (result == gneiss::engine::error::success && active &&
-        progress.phase == scene_load_phase::ready) {
-      result = gneiss::test_support::assign_value(app->scenes().activate(std::move(request)),
-                                                  completion);
-      if (result == gneiss::engine::error::success) {
-        scene = completion.scene;
-        // 显式推进回收旧域，之后才能发起被测切换。
-        result = app->run(1);
-      }
-      if (result != gneiss::engine::error::success)
-        return result;
+    if (!*request && (!visuals || visuals.ready())) {
+      if (!visuals)
+        return gneiss::engine::error::success;
+      auto completed = visuals.take();
+      return completed ? completed->result : completed.error();
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
-  (void)request.cancel();
-  return result == gneiss::engine::error::success ? gneiss::engine::error::not_ready : result;
+  return gneiss::engine::error::not_ready;
 }
 } // namespace
 
@@ -226,16 +219,10 @@ int main(int argc, char** argv) try {
     if (std::filesystem::exists(path)) {
       return 12;
     }
-    std::ifstream input(std::filesystem::path(root) / "scenes/scene.scene.json");
-    std::string text{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
-    const auto offset = text.find("asset://materials/");
-    if (offset == std::string::npos) {
-      return 12;
-    }
-    text.replace(offset, 18U, "asset://missing-materials/");
+    // 结构文件损坏才是打开失败；缺失材质属于视觉依赖降级。
     temporary.path = path;
     std::ofstream output(path);
-    output << text;
+    output << "broken scene json";
     if (!output) {
       return 12;
     }
@@ -245,10 +232,9 @@ int main(int argc, char** argv) try {
   unsigned completed_switches{};
   double maximum_activation_ms{};
   bool minimized{}, restored{}, cancel_requested{}, closed{};
-  bool awaiting_cleanup{}, observed_cleanup_pending{};
-  double cancel_cleanup_ms{};
   double minimized_at_ms{};
   double cancel_ms{}, shutdown_ms{};
+  bool request_released{};
   auto cancel_start = clock_type::now();
   std::size_t live_resources{};
   std::uint64_t sampled_frame{};
@@ -261,27 +247,29 @@ int main(int argc, char** argv) try {
   std::vector<render_sample> render_samples;
   const auto start = clock_type::now();
   auto result = gneiss::engine::error::success;
-  gneiss::runtime::scene_load_completion completion;
+  std::string diagnostic;
+  double activation_ms{};
   std::vector<loop_sample> loop_samples;
   if (trace_loop) {
     loop_samples.reserve(65536U);
   }
   std::vector<double> event_intervals;
   std::vector<double> minimized_event_intervals;
-  std::array<double, static_cast<std::size_t>(gneiss::runtime::scene_load_phase::cancelled) + 1U>
-      phase_maximum_intervals{};
-  auto previous_phase = gneiss::runtime::scene_load_phase::preparing;
+  // 基准自身的可观察阶段，不复用已删除的候选协议。
+  enum class load_stage : unsigned { loading, visuals, completed };
+  std::array<double, 3> phase_maximum_intervals{};
+  auto previous_phase = load_stage::loading;
   double activation_elapsed_ms{};
   {
-    using namespace gneiss::runtime;
-    gneiss::runtime::scene_open_request request;
-    if (result == gneiss::engine::error::success) {
-      result = gneiss::test_support::take_value(app->scenes().open(source_uri), request);
-    }
-    if (result == gneiss::engine::error::success && scenario == "cancel-prepare") {
+    gneiss::engine::asset_request<gneiss::engine::scene> request;
+    gneiss::engine::asset_batch_request visuals;
+    result = gneiss::test_support::take_value(app->assets().load<gneiss::engine::scene>(source_uri),
+                                              request);
+    if (result.ok() && scenario == "cancel-prepare") {
       cancel_start = clock_type::now();
-      result = request.cancel();
-      cancel_requested = result == gneiss::engine::error::success;
+      request.cancel();
+      cancel_ms = milliseconds(cancel_start);
+      cancel_requested = true;
     }
     auto previous = clock_type::now();
     auto deadline = previous + std::chrono::minutes(15);
@@ -300,20 +288,11 @@ int main(int argc, char** argv) try {
       const measured_scope callback_time{.output =
                                              sample != nullptr ? &sample->callback_ms : nullptr};
       const bool currently_minimized = minimized && !restored;
-      if (scene == gneiss::scene_instance_id{}) {
+      if (previous_phase != load_stage::completed) {
         const auto interval = milliseconds(previous);
         (currently_minimized ? minimized_event_intervals : event_intervals).push_back(interval);
         auto& phase_maximum = phase_maximum_intervals[static_cast<std::size_t>(previous_phase)];
         phase_maximum = std::max(phase_maximum, interval);
-        scene_load_progress before_work;
-        if (gneiss::test_support::observe_request(request, before_work)) {
-          if (previous_phase != before_work.phase) {
-            std::fprintf(stderr, "scene_load phase=%u elapsed_ms=%.3f completed=%zu total=%zu\n",
-                         static_cast<unsigned>(before_work.phase), milliseconds(start),
-                         before_work.completed, before_work.total);
-          }
-          previous_phase = before_work.phase;
-        }
       }
       previous = clock_type::now();
       const auto render_stats = handle->render_statistics();
@@ -375,97 +354,85 @@ int main(int argc, char** argv) try {
                                                                         : nullptr};
         (void)scheduler.run_ready();
       }
-      bool finished{};
-      if (result == gneiss::engine::error::success) {
-        const measured_scope poll_time{.output =
-                                           sample != nullptr ? &sample->scene_poll_ms : nullptr};
-        result = gneiss::test_support::receive_request(request, completion, finished);
-      }
-      if (awaiting_cleanup && result == gneiss::engine::error::success) {
-        scene_load_progress cleanup;
-        bool available{};
-        available = gneiss::test_support::observe_request(request, cleanup);
-        if (finished) {
-          return gneiss::engine::error::invalid_state; // 清理补报不得形成第二个终态。
-        }
-        if (available && cleanup.cleanup_complete) {
-          completion.progress = cleanup;
-          cancel_cleanup_ms = milliseconds(cancel_start);
+      {
+        const measured_scope work_time{.output = sample ? &sample->scene_work_ms : nullptr};
+        if (cancel_requested) {
           scene = previous_scene;
+          activation_elapsed_ms = milliseconds(start);
           handle->request_exit();
           return gneiss::engine::error::success;
         }
-        {
-          const measured_scope sleep_time{.output =
-                                              sample != nullptr ? &sample->sleep_ms : nullptr};
-          std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-        return result;
-      }
-      if (finished || result != gneiss::engine::error::success) {
-        if (finished) {
-          result = completion.result;
-          if (result != gneiss::engine::error::success)
-            std::fprintf(stderr, "scene preparation: %s\n", completion.message.c_str());
-          activation_elapsed_ms = milliseconds(start);
-          if (preserve &&
-              ((scenario == "failure" && completion.progress.phase == scene_load_phase::failed) ||
-               (cancel_requested && completion.progress.phase == scene_load_phase::cancelled))) {
-            result = gneiss::engine::error::success;
+        if (request && request.status() != gneiss::engine::error::not_ready) {
+          if (scenario == "cancel-ready" && request.status().ok()) {
+            cancel_start = clock_type::now();
+            request.cancel();
+            cancel_ms = milliseconds(cancel_start);
+            cancel_requested = true;
             scene = previous_scene;
-            if (cancel_requested) {
-              cancel_ms = milliseconds(cancel_start);
-              cancel_cleanup_ms = cancel_ms;
-              if (completion.progress.cleanup_pending) {
-                awaiting_cleanup = observed_cleanup_pending = true;
-                scene = gneiss::scene_instance_id{};
-                return gneiss::engine::error::success;
-              }
+            activation_elapsed_ms = milliseconds(start);
+            handle->request_exit();
+            return gneiss::engine::error::success;
+          }
+          auto content = request.snapshot();
+          auto loaded = request.take();
+          if (!loaded) {
+            diagnostic = loaded.error().message;
+            result = loaded.error().error;
+            request.cancel();
+            activation_elapsed_ms = milliseconds(start);
+            if (scenario == "failure") {
+              result = gneiss::engine::error::success;
+              scene = previous_scene;
+            }
+            handle->request_exit();
+            return gneiss::engine::error::success;
+          }
+          if (!content)
+            return gneiss::engine::error::invalid_state;
+          const auto activation_start = clock_type::now();
+          auto built = gneiss::test_support::activate_scene(*handle, *content);
+          if (!built)
+            return built.error();
+          if (previous_scene) {
+            auto unloaded = gneiss::test_support::scene_access{*handle}.unload(previous_scene);
+            if (unloaded.failed())
+              return unloaded;
+          }
+          activation_ms = milliseconds(activation_start);
+          maximum_activation_ms = std::max(maximum_activation_ms, activation_ms);
+          scene = built->instance.instance;
+          previous_scene = scene;
+          visuals = std::move(built->visuals);
+          ++completed_switches;
+          activation_elapsed_ms = milliseconds(start);
+          previous_phase = load_stage::visuals;
+        }
+        if (scene) {
+          if (visuals && !visuals.ready())
+            return gneiss::engine::error::success;
+          if (visuals) {
+            auto completed = visuals.take();
+            if (!completed)
+              return completed.error();
+            if (completed->result.failed())
+              return completed->result;
+          }
+          live_resources = handle->render().live_resource_count();
+          if (scenario == "repeat") {
+            if (live_resources != previous_resources)
+              return gneiss::engine::error::invalid_state;
+            if (completed_switches < 3U) {
+              result = gneiss::test_support::take_value(
+                  handle->assets().load<gneiss::engine::scene>(source_uri), request);
+              scene = {};
+              previous_phase = load_stage::loading;
+              deadline = clock_type::now() + std::chrono::minutes(15);
+              return result;
             }
           }
-        }
-        handle->request_exit();
-        return gneiss::engine::error::success;
-      }
-      if (scene != gneiss::scene_instance_id{}) {
-        if (handle->visual_assets_loading())
+          previous_phase = load_stage::completed;
+          handle->request_exit();
           return gneiss::engine::error::success;
-        live_resources = handle->render().live_resource_count();
-        if (scenario == "repeat") {
-          if (live_resources != previous_resources)
-            return gneiss::engine::error::invalid_state;
-          if (completed_switches < 3U) {
-            result = gneiss::test_support::take_value(handle->scenes().open(source_uri), request);
-            scene = gneiss::scene_instance_id{};
-            // 超时属于单次请求，不能让后续切换消耗前两次加载已经占用的期限。
-            deadline = clock_type::now() + std::chrono::minutes(15);
-            return result;
-          }
-        }
-        handle->request_exit();
-        return gneiss::engine::error::success;
-      }
-      scene_load_progress progress;
-      if (gneiss::test_support::observe_request(request, progress)) {
-        const bool cancel_phase =
-            scenario == "cancel-ready" && progress.phase == scene_load_phase::ready;
-        if (cancel_phase && !cancel_requested) {
-          cancel_start = clock_type::now();
-          result = request.cancel();
-          cancel_requested = result == gneiss::engine::error::success;
-        } else if (!cancel_requested && progress.phase == scene_load_phase::ready) {
-          result = gneiss::test_support::assign_value(handle->scenes().activate(std::move(request)),
-                                                      completion);
-          if (result == gneiss::engine::error::success &&
-              previous_scene != gneiss::scene_instance_id{})
-            result = gneiss::test_support::scene_access{*handle}.unload(previous_scene);
-          if (result.failed())
-            return result;
-          scene = completion.scene;
-          previous_scene = scene;
-          ++completed_switches;
-          maximum_activation_ms = std::max(maximum_activation_ms, completion.activation_ms);
-          activation_elapsed_ms = milliseconds(start);
         }
       }
       {
@@ -486,17 +453,18 @@ int main(int argc, char** argv) try {
       }
     }
     update = {};
+    request_released = !request;
   }
   const auto load_and_drain_ms = milliseconds(start);
   const auto load_ms = activation_elapsed_ms;
 
   if (trace_loop) {
     std::ofstream trace(prefix.string() + ".loop.csv");
-    trace << "start_ms,phase,callback_ms,scheduler_ms,scene_poll_ms,sleep_ms,outside_callback_ms\n";
+    trace << "start_ms,phase,callback_ms,scheduler_ms,scene_work_ms,sleep_ms,outside_callback_ms\n";
     trace << std::setprecision(10);
     for (const auto& sample : loop_samples) {
       trace << sample.start_ms << ',' << sample.phase << ',' << sample.callback_ms << ','
-            << sample.scheduler_ms << ',' << sample.scene_poll_ms << ',' << sample.sleep_ms << ','
+            << sample.scheduler_ms << ',' << sample.scene_work_ms << ',' << sample.sleep_ms << ','
             << sample.outside_callback_ms << '\n';
     }
     if (!trace.good()) {
@@ -514,8 +482,8 @@ int main(int argc, char** argv) try {
   }
   std::printf("scene_load result=%d milliseconds=%.3f peak_resident_bytes=%llu\n", result.code(),
               load_ms, static_cast<unsigned long long>(peak_resident_bytes()));
-  if (!completion.message.empty()) {
-    std::printf("scene_load diagnostic=%s\n", completion.message.c_str());
+  if (!diagnostic.empty()) {
+    std::printf("scene_load diagnostic=%s\n", diagnostic.c_str());
   }
   std::fflush(stdout);
   if (result != gneiss::engine::error::success) {
@@ -524,14 +492,6 @@ int main(int argc, char** argv) try {
     app.reset();
     std::ofstream report(prefix.string() + ".json");
     report << "{\"result\":" << result.code() << ",\"load_ms\":" << load_ms
-           << ",\"candidate_resident_bytes\":" << completion.progress.resident_bytes
-           << ",\"candidate_cpu_data_bytes\":" << completion.progress.cpu_data_bytes
-           << ",\"candidate_texture_payload_bytes\":" << completion.progress.texture_payload_bytes
-           << ",\"application_logical_bytes\":" << completion.progress.application_logical_bytes
-           << ",\"application_cpu_data_bytes\":" << completion.progress.application_cpu_data_bytes
-           << ",\"available_bytes\":" << completion.progress.available_bytes
-           << ",\"cleanup_ms\":" << completion.cleanup_ms
-           << ",\"cleanup_complete\":" << (completion.progress.cleanup_complete ? "true" : "false")
            << ",\"live_resources\":" << live_resources << ",\"peak_resident_bytes\":" << peak
            << ",\"retained_tasks\":" << scheduler.stats().retained << "}\n";
     return 4;
@@ -558,10 +518,6 @@ int main(int argc, char** argv) try {
   live_resources = app->render().live_resource_count();
   if (preserve && (image.pixels != previous_image.pixels || live_resources != previous_resources)) {
     return 14;
-  }
-  // 终态证明请求已清理，旧场景仍拥有其资源；失败后在同一 Application 内重新加载。
-  if (preserve && (!completion.progress.cleanup_complete)) {
-    return 15;
   }
   double retry_ms{};
   bool retried{};
@@ -633,25 +589,12 @@ int main(int argc, char** argv) try {
          << ",\n  \"maximum_activation_ms\": " << maximum_activation_ms
          << ",\n  \"live_resources\": " << live_resources
          << ",\n  \"old_resources\": " << previous_resources << ",\n  \"cancel_ms\": " << cancel_ms
-         << ",\n  \"cancel_cleanup_ms\": " << cancel_cleanup_ms
-         << ",\n  \"observed_cleanup_pending\": " << (observed_cleanup_pending ? "true" : "false")
+         << ",\n  \"request_released\": " << (request_released ? "true" : "false")
          << ",\n  \"retried\": " << (retried ? "true" : "false")
          << ",\n  \"retry_ms\": " << retry_ms << ",\n  \"resizes\": " << resized
          << ",\n  \"restored\": " << restored << ",\n  \"minimized\": " << minimized
          << ",\n  \"minimized_at_ms\": " << minimized_at_ms
-         << ",\n  \"prepare_ms\": " << completion.prepare_ms
-         << ",\n  \"asset_prepare_ms\": " << completion.asset_prepare_ms
-         << ",\n  \"maximum_advance_ms\": " << completion.maximum_advance_ms
-         << ",\n  \"activation_ms\": " << completion.activation_ms << ",\n  \"cleanup_ms\": "
-         << (observed_cleanup_pending ? std::string{"null"} : std::to_string(completion.cleanup_ms))
-         << ",\n  \"cleanup_complete\": "
-         << (completion.progress.cleanup_complete ? "true" : "false")
-         << ",\n  \"candidate_resident_bytes\": " << completion.progress.resident_bytes
-         << ",\"candidate_cpu_data_bytes\":" << completion.progress.cpu_data_bytes
-         << ",\"candidate_texture_payload_bytes\":" << completion.progress.texture_payload_bytes
-         << ",\"application_logical_bytes\":" << completion.progress.application_logical_bytes
-         << ",\"application_cpu_data_bytes\":" << completion.progress.application_cpu_data_bytes
-         << ",\"available_bytes\":" << completion.progress.available_bytes
+         << ",\n  \"activation_ms\": " << activation_ms
          << ",\n  \"event_interval_p95_ms\": " << event_p95
          << ",\n  \"event_interval_max_ms\": " << event_max
          << ",\n  \"minimized_event_count\": " << minimized_event_intervals.size()
@@ -660,9 +603,7 @@ int main(int argc, char** argv) try {
                  ? 0.0
                  : *std::ranges::max_element(minimized_event_intervals))
          << ",\n  \"phase_maximum_event_interval_ms\": {";
-  constexpr std::array phase_names{
-      "preparing", "assets", "instantiating", "ready", "applied", "failed", "cancelled",
-  };
+  constexpr std::array phase_names{"loading", "visuals", "completed"};
   for (std::size_t index = 0U; index < phase_names.size(); ++index) {
     if (index != 0U) {
       report << ',';
