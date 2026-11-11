@@ -30,7 +30,7 @@ Application 每帧在 update 回调前统一处理文件完成、资产批次和
   `progress()` 返回可选进度；失败、取消回执通过 `take()` 领取。
 - 场景激活：`app.scenes().activate(std::move(request))`，返回包含运行场景和来源的完成值。
   仅成功时消费请求；错误宿主或空请求返回 invalid_state，尚不满足切换条件返回 not_ready。
-- 原位重载：`app.scenes().reload(instance, uri, prefab)` 返回 scene_reload_request，
+- 原位重载：`app.scenes().reload(reload_state, uri, prefab)` 返回 scene_reload_request，
   `ready()` 表示存在回执，`take()` 领取它；结构完成不等待视觉资源。
 - 多资源编辑：`app.load_assets(sources, reload)` 返回 engine::asset_batch_request。
   缓存命中可立即 ready；仍用同一资产缓存和加载流程，单个批次占用一个观察槽位。
@@ -42,7 +42,7 @@ Application 每帧在 update 回调前统一处理文件完成、资产批次和
 宿主销毁后空的进度/无效状态可以安全查询，不能重新访问借用的 scenes() 服务引用。
 
 场景显式 cancel 在后续帧产生取消回执；reset 立即丢弃候选。已激活场景不受请求销毁影响。
-激活后旧 World 仅保留至后续 Application 更新；调用方必须在返回循环前清理旧 World 的借用。
+激活只追加实例；替换时由调用方卸载旧场景并清理其对象借用，World 保持不变。
 Host 的 session/revision 由 IPC 协调器保存，不再作为加载 API 的必填参数。
 
 ```cpp
@@ -53,7 +53,7 @@ auto request = std::move(*submitted);
 // 后续 update 回调观察 request，Application 自动推进。
 if (request.ready()) {
   auto activated = app.scenes().activate(std::move(request));
-  // 检查 activated，并更新依赖当前 World 的借用。
+  // 检查 activated；如需替换，由调用方卸载旧场景。
 }
 ```
 
@@ -101,3 +101,12 @@ Runtime 宿主显式卸载其上次打开的实例；编辑器关闭旧文档时
 资源身份。场景卸载后旧对象/场景句柄失效，不能将 World 地址稳定理解为所有句柄永久有效。
 scene_service 的旧请求协议仍待 PLAN-113 后续移除。无待退休 World，也不提供专用场景退休统计；
 渲染资源数量通过 render_service::live_resource_count() 查询。
+
+### 来源重载基线
+
+激活回执的 reload_state 由调用方按需保留，包含 World 借用、场景 ID、不可变来源及对象地址关联。
+Runtime 保存当前场景的基线；编辑器采用文档投影，不长期保留此基线。
+重载显式传入该引用，scene_service 仅在请求期间持有它，不再保存最后激活场景的隐式来源。
+同一 World 的多个场景可以各自保留基线；当前协调器仍串行处理重载请求。
+空引用、跨 World 或已失去同步的基线被拒绝；已卸载的场景不能重载。
+基线不保活 World，调用方不能在其销毁后访问借用指针；重载期间不得自行修改基线。

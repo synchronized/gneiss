@@ -779,7 +779,7 @@ void source_reload_without_world_prefab_state() {
   check(app->native_world()->object(entity_id{root_node.get()})->set_local_transform(moved).ok());
   const auto reload = [&] {
     (void)app->run(1);
-    auto reload_request = app->scenes().reload(loaded.scene, "asset://source.prefab", true);
+    auto reload_request = app->scenes().reload(loaded.reload_state, "asset://source.prefab", true);
     check(bool(reload_request));
     const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     for (;;) {

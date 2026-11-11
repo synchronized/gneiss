@@ -4,6 +4,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/render_resource.hpp"
+#include "engine/function/scene/scene_application.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/resource/scene.hpp"
 #include <cstddef>
@@ -41,6 +42,15 @@ struct scene_load_progress {
   /** 取消已确认，但 CPU 任务与候选清理仍在推进；此时不得重试。 */
   bool cleanup_pending{};
 };
+/** 调用方持有的来源重载基线；不拥有 World，不能跨 World 使用。
+ * 仅所属线程读写；未保留此状态的场景不支持来源重载。 */
+struct scene_reload_state {
+  engine::world* owner{};
+  scene_instance_id instance;
+  engine::ref<const engine::scene_content> content;
+  std::map<engine::object_address, engine::scene_object_association> objects;
+  bool synchronized = true;
+};
 struct scene_load_completion {
   scene_load_progress progress;
   gneiss::engine::error result{gneiss::engine::error::internal};
@@ -50,6 +60,7 @@ struct scene_load_completion {
   std::vector<engine::scene_object_binding> objects;
   engine::ref<const engine::scene> source;
   engine::ref<const engine::scene_content> content;
+  engine::ref<scene_reload_state> reload_state;
   std::map<std::string, engine::render_resource_ref, std::less<>> bindings;
   double prepare_ms{};
   double asset_prepare_ms{};

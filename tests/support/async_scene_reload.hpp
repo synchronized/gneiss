@@ -48,13 +48,13 @@ inline engine::error activate_scene_for_test(runtime::application& app,
 
 inline engine::error
 reload_scene_for_test(runtime::application& app, engine::task_scheduler& tasks,
-                      scene_instance_id scene, std::string_view uri, bool prefab,
-                      std::vector<engine::scene_object_binding>* objects = nullptr) {
-  auto submitted = app.scenes().reload(scene, uri, prefab);
+                      engine::ref<runtime::scene_reload_state> source, std::string_view uri,
+                      bool prefab, std::vector<engine::scene_object_binding>* objects = nullptr) {
+  auto submitted = app.scenes().reload(source, uri, prefab);
   if (!submitted)
     return submitted.error();
   auto reload_request = std::move(*submitted);
-  if (app.scenes().reload(scene, uri, prefab).error() != engine::error::not_ready ||
+  if (app.scenes().reload(source, uri, prefab).error() != engine::error::not_ready ||
       app.can_activate_scene())
     return engine::error::internal;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);

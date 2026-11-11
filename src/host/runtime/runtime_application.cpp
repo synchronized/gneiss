@@ -558,6 +558,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
   context.scene = scene;
   std::optional<gneiss::host::ipc_asset_revision> structural_reload;
   bool structural_ignored{};
+  gneiss::engine::ref<gneiss::runtime::scene_reload_state> scene_source;
   gneiss::runtime::scene_reload_request reload_request;
   gneiss::host::runtime_asset_reloader asset_reloader(
       [&, native_application =
@@ -574,7 +575,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
           auto accepted = gneiss::engine::error{gneiss::engine::error::success};
           if (!structural_ignored) {
             auto submitted = native_application->scenes().reload(
-                scene, first.uri, first.type == gneiss::host::ipc_asset_type::prefab);
+                scene_source, first.uri, first.type == gneiss::host::ipc_asset_type::prefab);
             if (!submitted)
               accepted = submitted.error();
             else
@@ -695,6 +696,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
     for (const auto& [uri, dependency] : loaded.content->prefabs)
       prefab_uris.insert(uri);
     active_prefab_uris.swap(prefab_uris);
+    scene_source = loaded.reload_state;
     scene = loaded.scene;
     context.scene = scene;
     active_scene_uri = scene_loader.progress().source.uri;

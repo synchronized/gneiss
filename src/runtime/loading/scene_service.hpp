@@ -112,12 +112,12 @@ public:
   [[nodiscard]] gneiss::engine::world* native_world() const noexcept;
   /** 异步重载已激活场景中的来源结构；不切换 World。 */
   [[nodiscard]] GNEISS_API engine::result<scene_reload_request>
-  reload(scene_instance_id instance, std::string_view uri, bool prefab = false);
+  reload(engine::ref<scene_reload_state> source, std::string_view uri, bool prefab = false);
 
 private:
   friend class scene_open_request;
   friend class scene_reload_request;
-  engine::error request_reload(scene_instance_id, std::string_view, bool);
+  engine::error request_reload(engine::ref<scene_reload_state>, std::string_view, bool);
   friend class application;
   void advance();
   engine::result<scene_load_completion> activate(std::uint64_t request);
@@ -128,19 +128,11 @@ private:
   std::shared_ptr<scene_service*> lifetime_;
   bool owns(std::uint64_t id) const noexcept;
   void abandon(std::uint64_t id) noexcept;
-  // 仅为已激活场景的来源热更新保留输入；World 不持有作者内容或覆盖。
-  struct source_state {
-    scene_instance_id instance;
-    engine::ref<const engine::scene_content> content;
-    std::map<engine::object_address, engine::scene_object_association> objects;
-    bool synchronized = true;
-  };
-  std::unique_ptr<source_state> source_;
   engine::result<std::vector<engine::render_resource_source>>
-  apply_source(engine::ref<const engine::scene_content> content);
+  apply_source(scene_reload_state& source, engine::ref<const engine::scene_content> content);
   struct reload_task {
     std::uint64_t id{};
-    scene_instance_id instance;
+    engine::ref<scene_reload_state> source;
     std::variant<engine::asset_request<engine::scene>, engine::asset_request<engine::prefab>>
         descriptions;
     engine::error result{engine::error::not_ready};

@@ -124,7 +124,6 @@ void scene_service::shutdown() {
   stopping_ = true;
   visuals_.reset();
   reload_.reset();
-  source_.reset();
   stop_load();
   loading_.reset();
   world_ = nullptr;
@@ -145,21 +144,22 @@ gneiss::engine::world* scene_service::native_world() const noexcept { return wor
 bool scene_service::can_activate() const noexcept {
   return !stopping_ && !reload_ && loading_ && !loading_->busy();
 }
-engine::error scene_service::request_reload(scene_instance_id instance, std::string_view uri,
-                                            bool prefab) {
+engine::error scene_service::request_reload(engine::ref<scene_reload_state> source,
+                                            std::string_view uri, bool prefab) {
   check_owner();
   if (stopping_ || !world_ || !loading_ || !resources_)
     return engine::error::invalid_state;
   if (reload_ || loading() || visual_loading() || loading_->busy())
     return engine::error::not_ready;
-  auto valid_value = engine::scene_instance::borrow(*native_world(), instance);
+  if (!source || source->owner != world_ || !source->synchronized || !source->content ||
+      !source->content->description)
+    return engine::error::invalid_state;
+  auto valid_value = engine::scene_instance::borrow(*native_world(), source->instance);
   if (!valid_value)
     return valid_value.error();
 
-  if (!source_ || source_->instance != instance || !source_->synchronized)
-    return engine::error::invalid_state;
   auto next = std::make_unique<reload_task>();
-  next->instance = instance;
+  next->source = std::move(source);
   next->id = ++sequence_;
   if (prefab) {
     auto loaded = resources_->reload<engine::prefab>(uri);
@@ -177,9 +177,10 @@ engine::error scene_service::request_reload(scene_instance_id instance, std::str
 }
 
 engine::result<std::vector<engine::render_resource_source>>
-scene_service::apply_source(engine::ref<const engine::scene_content> content) {
-  if (!source_ || !source_->synchronized || !content || !content->description ||
-      content->description->uuid != source_->content->description->uuid)
+scene_service::apply_source(scene_reload_state& source,
+                            engine::ref<const engine::scene_content> content) {
+  if (!source.synchronized || !content || !content->description ||
+      content->description->uuid != source.content->description->uuid)
     return engine::error::invalid_state;
   const auto compose = [](const engine::scene_content& source) {
     std::map<std::string, const engine::prefab_description*, std::less<>> prefabs;
@@ -187,7 +188,7 @@ scene_service::apply_source(engine::ref<const engine::scene_content> content) {
       prefabs.emplace(uri, dependency.description.get());
     return engine::compose_scene(*source.description, prefabs);
   };
-  auto previous = compose(*source_->content);
+  auto previous = compose(*source.content);
   auto next = compose(*content);
   if (!previous)
     return previous.error();
@@ -198,8 +199,8 @@ scene_service::apply_source(engine::ref<const engine::scene_content> content) {
     return a.translation == b.translation && a.rotation == b.rotation && a.scale == b.scale;
   };
   for (auto& object : previous->objects) {
-    const auto binding = source_->objects.find(object.address);
-    if (binding == source_->objects.end())
+    const auto binding = source.objects.find(object.address);
+    if (binding == source.objects.end())
       return engine::error::invalid_state;
     auto runtime = native_world()->object(binding->second.entity);
     if (!runtime)
@@ -227,8 +228,8 @@ scene_service::apply_source(engine::ref<const engine::scene_content> content) {
     const entity_id parent_node{parent_object->entity().get()};
     if (parent_node) {
       auto parent = std::ranges::find_if(
-          source_->objects, [&](const auto& entry) { return entry.second.entity == parent_node; });
-      if (parent == source_->objects.end())
+          source.objects, [&](const auto& entry) { return entry.second.entity == parent_node; });
+      if (parent == source.objects.end())
         return engine::error::invalid_state;
       parent_address = parent->first;
     }
@@ -244,15 +245,15 @@ scene_service::apply_source(engine::ref<const engine::scene_content> content) {
       return resource.error();
     bindings.emplace(request.uri, resource->resource());
   }
-  source_->synchronized = false;
-  auto applied = engine::apply_scene(*native_world(), source_->instance, source_->objects,
-                                     *previous, *next, bindings);
+  source.synchronized = false;
+  auto applied = engine::apply_scene(*native_world(), source.instance, source.objects, *previous,
+                                     *next, bindings);
   if (!applied)
     return applied.error();
   if (!*applied)
     return engine::error::invalid_state;
-  source_->content = std::move(content);
-  source_->synchronized = true;
+  source.content = std::move(content);
+  source.synchronized = true;
   return std::move(*dependencies);
 }
 
@@ -260,6 +261,7 @@ void scene_service::advance_reload() {
   if (!reload_ || reload_->result != engine::error::not_ready)
     return;
   auto& value = *reload_;
+  auto& source = value.source;
   auto reloaded = std::visit(
       [&](auto& request)
           -> engine::result<std::vector<engine::render_resource_source>, engine::scene_diagnostic> {
@@ -269,18 +271,18 @@ void scene_service::advance_reload() {
           return engine::scene_diagnostic{failure.error, failure.byte_offset,
                                           std::move(failure.path), std::move(failure.message)};
         }
-        if (source_ && source_->instance == value.instance) {
+        if (source && source->owner == world_) {
           engine::ref<const engine::scene_content> content;
           if constexpr (std::is_same_v<std::remove_cvref_t<decltype(**loaded)>, engine::scene>) {
             content = (*loaded)->content();
           } else {
-            auto replacement = engine::make_ref<engine::scene_content>(*source_->content);
+            auto replacement = engine::make_ref<engine::scene_content>(*source->content);
             auto dependency = replacement->prefabs.find((*loaded)->source().uri);
             if (dependency != replacement->prefabs.end())
               dependency->second = {*loaded, (*loaded)->snapshot(), request.source_bytes()};
             content = std::move(replacement);
           }
-          auto applied = apply_source(std::move(content));
+          auto applied = apply_source(*source, std::move(content));
           if (!applied)
             return engine::scene_diagnostic{applied.error(), 0, {}, {}};
           return std::move(*applied);
@@ -293,8 +295,8 @@ void scene_service::advance_reload() {
       value.result = reloaded.error().error;
     return;
   }
-  if (source_ && source_->instance == value.instance) {
-    for (const auto& [address, binding] : source_->objects)
+  if (source && source->owner == world_) {
+    for (const auto& [address, binding] : source->objects)
       value.objects.push_back({address.object, address.source, binding.entity});
   }
   value.result = engine::error::success;
@@ -343,11 +345,11 @@ engine::result<scene_reload_completion> scene_reload_request::take() {
   reset();
   return result;
 }
-engine::result<scene_reload_request> scene_service::reload(scene_instance_id instance,
+engine::result<scene_reload_request> scene_service::reload(engine::ref<scene_reload_state> source,
                                                            std::string_view uri, bool prefab) {
   if (std::this_thread::get_id() != owner_ || stopping_)
     return engine::error::invalid_state;
-  const auto submitted = request_reload(instance, uri, prefab);
+  const auto submitted = request_reload(std::move(source), uri, prefab);
   if (submitted.failed())
     return submitted;
   return scene_reload_request{lifetime_, reload_->id};

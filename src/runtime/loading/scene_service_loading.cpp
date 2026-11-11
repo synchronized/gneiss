@@ -280,7 +280,8 @@ engine::result<scene_load_completion> scene_service::activate(std::uint64_t requ
   pending_->result.bindings = std::move(bindings);
   pending_->requested = std::move(*dependencies);
   pending_->result.progress.completed = built->node_count;
-  auto source = std::make_unique<source_state>();
+  auto source = engine::make_ref<scene_reload_state>();
+  source->owner = world_;
   source->instance = pending_->result.scene;
   source->content = pending_->result.content;
   for (const auto& binding : pending_->result.objects)
@@ -292,7 +293,7 @@ engine::result<scene_load_completion> scene_service::activate(std::uint64_t requ
   result.result = gneiss::engine::error::success;
   result.progress.phase = scene_load_phase::applied;
   result.progress.can_cancel = false;
-  source_ = std::move(source);
+  result.reload_state = std::move(source);
   visuals_.begin(std::move(pending_->requested));
   pending_.reset();
   result.activation_ms = elapsed(start);

@@ -129,7 +129,8 @@ int main() try {
 
   const auto prefab_path = root / "prefabs" / "test.prefab.json";
   write_prefab(prefab_path, source_root_uuid, true);
-  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, prefab_uri, true,
+  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, loaded.reload_state,
+                                                  prefab_uri, true,
                                                   &objects) != gneiss::engine::error::success) {
     return 4;
   }
@@ -157,7 +158,8 @@ int main() try {
   const gneiss::engine::guid replacement_root_uuid =
       *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000099");
   write_prefab(prefab_path, replacement_root_uuid, false);
-  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, prefab_uri, true,
+  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, loaded.reload_state,
+                                                  prefab_uri, true,
                                                   &objects) != gneiss::engine::error::success ||
       find_source(application, scene, objects, first_instance_uuid, source_root_uuid,
                   first_after) != gneiss::engine::error::not_found ||
@@ -169,8 +171,8 @@ int main() try {
   }
   // 来源目标重新出现后，原覆盖自动恢复；冲突由组合层报告，运行查询不缓存。
   write_prefab(prefab_path, source_root_uuid, false);
-  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, prefab_uri, true,
-                                                  &objects)
+  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, loaded.reload_state,
+                                                  prefab_uri, true, &objects)
           .failed() ||
       find_source(application, scene, objects, first_instance_uuid, source_root_uuid, first_after)
           .failed() ||

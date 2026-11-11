@@ -84,6 +84,20 @@ int main() try {
     return 1;
   }
 
+  scene = loaded.scene;
+  // 新的加载不能覆盖调用方保留的旧场景基线。
+  gneiss::runtime::scene_load_completion second;
+  if (gneiss::test_support::activate_scene_for_test(*application, scheduler, uri, second)
+          .failed() ||
+      !loaded.reload_state || !second.reload_state || loaded.reload_state == second.reload_state)
+    return 21;
+  if (application->scenes().reload({}, uri).error() != gneiss::engine::error::invalid_state)
+    return 22;
+  auto other = gneiss::runtime::application::create(config);
+  if (!other || (*other)->scenes().reload(loaded.reload_state, uri).error() !=
+                    gneiss::engine::error::invalid_state)
+    return 23;
+
   // 直接修改 World 后重载同一文件，差异必须基于当前对象而非加载时描述。
   if (application->native_world()
           ->find(gneiss::entity_id{(camera_before).get()})
@@ -97,8 +111,8 @@ int main() try {
           ->find(gneiss::entity_id{(old_child).get()})
           .reparent(gneiss::engine::game_object{})
           .failed() ||
-      gneiss::test_support::reload_scene_for_test(*application, scheduler, scene = loaded.scene,
-                                                  uri, false, &loaded.objects)
+      gneiss::test_support::reload_scene_for_test(*application, scheduler, loaded.reload_state, uri,
+                                                  false, &loaded.objects)
           .failed())
     return 20;
   auto restored_identity =
@@ -121,8 +135,8 @@ int main() try {
 
   const auto retired_child = old_child;
   write_scene(scene_path, "[]");
-  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene = loaded.scene,
-                                                  uri, false, &loaded.objects) !=
+  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, loaded.reload_state, uri,
+                                                  false, &loaded.objects) !=
       gneiss::engine::error::success) {
     return 2;
   }
@@ -157,8 +171,8 @@ int main() try {
   write_scene(
       scene_path,
       R"([{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/triangle.material.json","uuid":"6ac36c36-95c2-4975-9b2a-4fbcc4c7bca1"}}])");
-  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene = loaded.scene,
-                                                  uri, false, &loaded.objects) !=
+  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, loaded.reload_state, uri,
+                                                  false, &loaded.objects) !=
           gneiss::engine::error::success ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->find_node(loaded.objects, camera_uuid),
@@ -183,7 +197,7 @@ int main() try {
   write_scene(
       scene_path,
       R"([{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/missing.material.json","uuid":"6ac36c36-95c2-4975-9b2a-4fbcc4c7bca1"}}])");
-  auto reload_request = application->scenes().reload(scene, uri, false);
+  auto reload_request = application->scenes().reload(loaded.reload_state, uri, false);
   if (!reload_request)
     return 24;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
@@ -211,14 +225,18 @@ int main() try {
     return 29;
   // 描述本身损坏仍失败，不能把解析失败解释为缺失视觉内容。
   std::ofstream(scene_path) << "broken";
-  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene = loaded.scene,
-                                                  uri, false, &loaded.objects)
+  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, loaded.reload_state, uri,
+                                                  false, &loaded.objects)
           .ok())
     return 30;
 
-  const bool destroyed = gneiss::test_support::scene_access{*application}->unload(scene) ==
-                             gneiss::engine::error::success &&
-                         application->shutdown() == gneiss::engine::error::success;
+  const bool destroyed =
+      gneiss::test_support::scene_access{*application}->unload(scene) ==
+          gneiss::engine::error::success &&
+      application->scenes().reload(loaded.reload_state, uri).error() ==
+          gneiss::engine::error::invalid_handle &&
+      application->native_world()->object(second.objects.front().entity).has_value() &&
+      application->shutdown() == gneiss::engine::error::success;
   std::filesystem::remove_all(root);
   return destroyed ? 0 : 5;
 } catch (...) {
