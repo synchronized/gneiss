@@ -50,7 +50,6 @@ struct render_frame_completion final {
   render_execution_result execution;
   bool dropped{};
   render_frame_policy policy{render_frame_policy::replaceable};
-  render_frame_packet reusable_packet;
 };
 
 enum class render_command_stage : std::uint8_t { queued, preparing, uploading, completed };

@@ -15,6 +15,77 @@
 #include <vector>
 
 namespace {
+// 帧可以替换，夹在帧之间的状态命令必须按序且仅执行一次。
+bool ordered_commands_survive_frame_replacement() {
+  using namespace gneiss;
+  std::mutex mutex;
+  std::condition_variable ready;
+  bool started = false;
+  bool release = false;
+  int scene_state = 0;
+  std::vector<int> observed;
+  threaded_render_executor executor;
+  if (executor
+          .initialize(
+              [&](auto&, auto&) {
+                observed.push_back(scene_state);
+                return error::success;
+              },
+              1)
+          .failed())
+    return false;
+  auto gate = executor.submit_command([&](const auto&) {
+    std::unique_lock lock(mutex);
+    started = true;
+    ready.notify_all();
+    ready.wait(lock, [&] { return release; });
+    scene_state = 1;
+    return error::success;
+  });
+  if (!gate)
+    return false;
+  {
+    std::unique_lock lock(mutex);
+    ready.wait(lock, [&] { return started; });
+  }
+  auto discarded_image = std::make_shared<frame_image>();
+  std::weak_ptr<frame_image> discarded_lifetime = discarded_image;
+  render_frame_packet discarded;
+  discarded.readback = std::move(discarded_image);
+  auto old_frame = executor.submit_frame(std::move(discarded));
+  auto update = executor.submit_command([&](const auto&) {
+    scene_state = 7;
+    return error::success;
+  });
+  auto drawn_image = std::make_shared<frame_image>();
+  std::weak_ptr<frame_image> drawn_lifetime = drawn_image;
+  render_frame_packet drawn;
+  drawn.readback = std::move(drawn_image);
+  auto new_frame = executor.submit_frame(std::move(drawn));
+  const bool discarded_released = discarded_lifetime.expired();
+  auto destroy = executor.submit_command([&](const auto&) {
+    scene_state = 0;
+    return error::success;
+  });
+  {
+    std::lock_guard lock(mutex);
+    release = true;
+  }
+  ready.notify_all();
+  const auto flushed = executor.flush();
+  // 不领取完成回执，帧数据仍应已经释放。
+  const bool drawn_released = drawn_lifetime.expired();
+  auto dropped = executor.try_take_frame_completion();
+  auto completed = executor.try_take_frame_completion();
+  const auto stats = executor.query_stats();
+  executor.stop();
+  return old_frame && update && new_frame && destroy && flushed.ok() && discarded_released &&
+         drawn_released && observed == std::vector<int>{7} && scene_state == 0 && dropped &&
+         dropped->sequence == *old_frame && dropped->dropped && completed &&
+         completed->sequence == *new_frame && completed->status.ok() &&
+         stats.executed_commands == 3 && stats.replaced_frames == 1;
+}
+
 bool resumable_command_allows_frames(gneiss::error terminal) {
   using namespace gneiss;
   std::atomic_bool frame_executed{};
@@ -88,6 +159,8 @@ int main(int argc, char** argv) {
     static_cast<void>(fatal_executor.flush());
     return 0;
   }
+  if (!ordered_commands_survive_frame_replacement())
+    return 93;
   if (!resumable_command_allows_frames(gneiss::error::success) ||
       !resumable_command_allows_frames(gneiss::error::io)) {
     return 24;
@@ -206,19 +279,18 @@ int main(int argc, char** argv) {
   }
   bool saw_dropped = false;
   bool saw_recreate = false;
-  bool saw_reusable_packet = false;
+  bool saw_capture_metrics = false;
   for (const auto& item : completions) {
     saw_dropped = saw_dropped || (item.sequence == second_sequence && item.dropped &&
                                   item.status == gneiss::error::not_ready);
     saw_recreate =
         saw_recreate || (item.sequence == third_sequence && item.execution.needs_recreate);
-    saw_reusable_packet =
-        saw_reusable_packet ||
-        (item.sequence == third_sequence && item.reusable_packet.window.width == 3U &&
-         item.reusable_packet.capture.copied_payload_bytes == 4096U);
+    saw_capture_metrics = saw_capture_metrics || (item.sequence == third_sequence &&
+                                                  item.execution.frame_capture_ms == 2.5F &&
+                                                  item.execution.copied_payload_bytes == 4096U);
   }
   if (!saw_dropped || !saw_recreate || first_sequence == second_sequence ||
-      second_sequence == third_sequence || !saw_reusable_packet) {
+      second_sequence == third_sequence || !saw_capture_metrics) {
     return 7;
   }
 

@@ -100,7 +100,8 @@ void threaded_render_executor::state::run() noexcept try {
           std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() -
                                                    execution_started)
               .count();
-      frame_completion.reusable_packet = std::move(task.packet);
+      // 完成队列只保存结果；在发布完成及 idle 前释放帧的 CPU 内容引用。
+      task.packet = {};
     } else {
       command_completion.sequence = task.sequence;
       command_completion.progress.stage = render_command_stage::preparing;
@@ -259,8 +260,7 @@ result<std::uint64_t> threaded_render_executor::submit_frame(render_frame_packet
                                                  .status = gneiss::error::not_ready,
                                                  .execution = {},
                                                  .dropped = true,
-                                                 .policy = replace->frame_policy,
-                                                 .reusable_packet = std::move(replace->packet)};
+                                                 .policy = replace->frame_policy};
       state_->pending.erase(replace);
       state_->completed_frames.push_back(std::move(dropped_completion));
       ++state_->stats.replaced_frames;

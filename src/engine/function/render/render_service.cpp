@@ -904,8 +904,7 @@ gneiss::error render_service::implementation::collect_completions() {
                                              .status = completion->status,
                                              .execution = completion->execution,
                                              .dropped = completion->dropped,
-                                             .policy = completion->policy,
-                                             .reusable_packet = {}});
+                                             .policy = completion->policy});
     }
     if (completion->dropped) {
       continue;

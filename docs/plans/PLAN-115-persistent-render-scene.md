@@ -71,6 +71,11 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
   普通帧接入后 Engine/Runtime/Editor 构建通过，native-application-flow、render_frame_packet、
   render_snapshot、world_render_binding、render_scene 五项 CPU 回归通过；未执行窗口/GPU 验收。
 
+帧完成回执已删除旧 reusable_packet，仅保存序号、状态与统计。执行结束在发布完成前释放 CPU 帧引用，
+被替换帧在淘汰时释放，不再等待主线程领取回执。GPU 在途资源仍由后端负责保活。
+执行器回归覆盖创建/更新/删除类状态命令夹在可替换帧之间时不丢失且按序消费；
+这只验证执行器契约，Service 场景状态仍在所属线程更新，尚未完成线程归属迁移。
+
 后续按已确认边界将持久状态移入执行器有序消费链，并收敛异步回读、完成实际绘制验收；
 不能把当前单窗口适配视为 P1 模型预览闭环或 P3 增量同步完成。
 
