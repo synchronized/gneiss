@@ -56,6 +56,7 @@
 - [输入动作映射格式 v1](reference/input-map-format.md)
 - [诊断回调](reference/diagnostics.md)
 - [日志消息契约](reference/logging.md)
+- [同步对象通知](reference/events.md)
 - [Type Registry 与反射元数据](reference/reflection.md)
 - [序列化接口与格式后端](reference/serialization.md)
 - [Render 资源、ECS 组件与帧提取](reference/render.md)

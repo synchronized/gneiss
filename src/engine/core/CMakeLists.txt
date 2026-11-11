@@ -4,6 +4,9 @@
 # 仅供内部目标复用已有值类型，不链接 Engine、不安装，也不提供独立运行时。
 # 内部结果值通过受限清单共享；静态文本实现由 Engine 提供。
 include(internal_headers)
+gneiss_internal_headers(gneiss_events "${PROJECT_SOURCE_DIR}/src" engine/core/events/signal.hpp)
+target_link_libraries(gneiss_events INTERFACE EnTT::EnTT)
+target_compile_features(gneiss_events INTERFACE cxx_std_20)
 gneiss_internal_headers(gneiss_result_interface "${PROJECT_SOURCE_DIR}/src" engine/core/result.hpp engine/core/export.hpp)
 add_library(gneiss_core_values INTERFACE)
 target_link_libraries(gneiss_core_values INTERFACE gneiss_result_interface gneiss_value_interface)

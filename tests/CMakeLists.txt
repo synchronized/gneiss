@@ -1,6 +1,17 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
+add_executable(gneiss_signal_test core/signal_test.cpp)
+target_link_libraries(gneiss_signal_test PRIVATE gneiss_events)
+if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
+  target_link_libraries(gneiss_signal_test PRIVATE Threads::Threads)
+  target_compile_definitions(gneiss_signal_test PRIVATE GNEISS_SIGNAL_TEST_THREADS)
+endif()
+gneiss_target_compile_warnings(gneiss_signal_test)
+gneiss_target_output_directories(gneiss_signal_test)
+add_test(NAME gneiss.signal COMMAND gneiss_signal_test)
+set_tests_properties(gneiss.signal PROPERTIES TIMEOUT 15)
+
 add_executable(gneiss_profiling_disabled_test profiling_disabled_test.cpp)
 target_include_directories(gneiss_profiling_disabled_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(gneiss_profiling_disabled_test PRIVATE cxx_std_20)
