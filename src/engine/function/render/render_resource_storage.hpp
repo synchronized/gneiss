@@ -13,7 +13,7 @@ struct render_service::resource_storage {
   template <typename Data> struct record {
     explicit record(std::shared_ptr<const Data> value)
         : identity(std::make_shared<detail::resource_identity<Data>>()) {
-      identity->data = std::move(value);
+      identity->publish(std::move(value));
     }
     explicit record(std::shared_ptr<detail::resource_identity<Data>> value)
         : identity(std::move(value)) {}

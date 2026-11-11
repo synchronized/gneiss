@@ -39,15 +39,16 @@ int main() {
   description->normal_texture = 5;
   description->occlusion_texture = 6;
   description->emissive_texture = 7;
-  material->data = description;
+  detail::resource_identity<material_data>::dependencies dependencies;
   for (std::size_t i = 0; i < textures.size(); ++i)
-    material->textures[i] = textures[i];
+    dependencies[i] = textures[i];
+  material->publish(description, std::move(dependencies));
   auto waiting_textures = state.capture(request);
   CHECK(waiting_textures && waiting_textures->resources.texture_pending(3) &&
         !waiting_textures->resources.texture_pending(0));
   auto vertices = std::make_shared<mesh_data>();
   vertices->vertices.resize(3);
-  mesh->data = vertices;
+  mesh->publish(vertices);
   for (auto& texture : textures) {
     auto pixels = std::make_shared<texture_data>();
     pixels->width = pixels->height = 1;
@@ -55,7 +56,7 @@ int main() {
         {.width = 1,
          .height = 1,
          .pixels = {std::byte{1}, std::byte{2}, std::byte{3}, std::byte{255}}});
-    texture->data = pixels;
+    texture->publish(pixels);
   }
   const std::array lines{debug_line{.start = {0, 0, 0},
                                     .end = {1, 0, 0},
@@ -86,11 +87,11 @@ int main() {
   CHECK(pending->resources.get_material(2) == fallback && fallback->base_color_texture == 0);
   CHECK(pending->resources.mesh_pending(1) && waiting_textures->resources.texture_pending(3));
   for (std::size_t i = 0; i < textures.size(); ++i) {
-    CHECK(captured->resources.get_texture(3 + i) == textures[i]->data.get());
-    textures[i]->data = std::make_shared<texture_data>();
+    CHECK(captured->resources.get_texture(3 + i) == textures[i]->read().get());
+    textures[i]->publish(std::make_shared<texture_data>());
   }
-  mesh->data = std::make_shared<mesh_data>();
-  material->data = std::make_shared<material_data>();
+  mesh->publish(std::make_shared<mesh_data>());
+  material->publish(std::make_shared<material_data>());
   CHECK(state.destroy_scene(*scene));
   mesh.reset();
   material.reset();

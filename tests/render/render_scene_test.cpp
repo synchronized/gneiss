@@ -2,8 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/render/detail/render_scene_state.hpp"
 #include "engine/function/render/render_service.hpp"
+#include <barrier>
 #include <iostream>
 #include <limits>
+#include <thread>
 using namespace gneiss;
 #define CHECK(expression)                                                                          \
   do {                                                                                             \
@@ -191,24 +193,22 @@ bool identity_versions() {
   CHECK(state.submit(std::move(create)));
   auto capture = [&] { return state.find(*scene, {1})->resources.capture(); };
   CHECK(!capture().mesh && !capture().material);
-  mesh->data = std::make_shared<mesh_data>();
+  mesh->publish(std::make_shared<mesh_data>());
   auto first = std::make_shared<material_data>();
   first->base_color_texture = 3;
-  material->data = first;
-  material->textures[0] = texture;
+  material->publish(first, {texture});
   CHECK(capture().mesh && capture().material && !capture().textures[0]);
-  texture->data = std::make_shared<texture_data>();
+  texture->publish(std::make_shared<texture_data>());
   auto before = capture();
   auto old_texture = std::weak_ptr<const texture_data>{before.textures[0]};
   auto old_mesh = std::weak_ptr<const mesh_data>{before.mesh};
-  mesh->data = std::make_shared<mesh_data>();
-  texture->data = std::make_shared<texture_data>();
+  mesh->publish(std::make_shared<mesh_data>());
+  texture->publish(std::make_shared<texture_data>());
   auto after = capture();
   CHECK(after.mesh != before.mesh && after.textures[0] != before.textures[0]);
   CHECK(after.material == before.material); // 纹理内容刷新不重建材质。
   CHECK(!old_texture.expired() && !old_mesh.expired());
-  material->data = std::make_shared<material_data>();
-  material->textures = {};
+  material->publish(std::make_shared<material_data>());
   CHECK(!capture().textures[0] && before.textures[0] && after.textures[0]);
   before = {};
   CHECK(old_texture.expired() && old_mesh.expired());
@@ -216,6 +216,51 @@ bool identity_versions() {
   CHECK(after.mesh && after.material && after.textures[0]); // 已捕获内容跨场景卸载存活。
   return true;
 }
+bool concurrent_material_publication() {
+  auto material = std::make_shared<detail::resource_identity<material_data>>();
+  auto left = std::make_shared<material_data>();
+  auto right = std::make_shared<material_data>();
+  left->base_color_texture = 3;
+  right->normal_texture = 4;
+  auto left_texture = std::make_shared<detail::resource_identity<texture_data>>();
+  auto right_texture = std::make_shared<detail::resource_identity<texture_data>>();
+  auto left_pixels = std::make_shared<texture_data>();
+  auto right_pixels = std::make_shared<texture_data>();
+  left_texture->publish(left_pixels);
+  right_texture->publish(right_pixels);
+  detail::resource_identity<material_data>::dependencies left_dependencies{left_texture};
+  detail::resource_identity<material_data>::dependencies right_dependencies{};
+  right_dependencies[2] = right_texture;
+  material->publish(left, left_dependencies);
+  detail::scene_resource_pin pin{{}, material};
+  const auto retained = pin.capture();
+  std::barrier start{2};
+  bool consistent = true;
+  std::thread reader([&] {
+    start.arrive_and_wait();
+    for (int i = 0; i < 10000; ++i) {
+      auto captured = pin.capture();
+      const bool is_left = captured.material == left;
+      const bool is_right = captured.material == right;
+      if ((!is_left && !is_right) ||
+          (is_left && (captured.textures[0] != left_pixels || captured.textures[2])) ||
+          (is_right && (captured.textures[2] != right_pixels || captured.textures[0])))
+        consistent = false;
+    }
+  });
+  start.arrive_and_wait();
+  for (int i = 0; i < 10000; ++i) {
+    if (i % 2 == 0)
+      material->publish(right, right_dependencies);
+    else
+      material->publish(left, left_dependencies);
+  }
+  reader.join();
+  CHECK(consistent);
+  CHECK(retained.material == left && retained.textures[0] == left_pixels && !retained.textures[2]);
+  return true;
+}
+
 bool frame_capture() {
   auto mesh = std::make_shared<detail::resource_identity<mesh_data>>();
   auto material = std::make_shared<detail::resource_identity<material_data>>();
@@ -240,22 +285,21 @@ bool frame_capture() {
   auto pending = state.capture(request);
   CHECK(pending && pending->scene.instances.size() == 1);
   CHECK(!pending->resources.share_mesh(1));
-  mesh->data = std::make_shared<mesh_data>();
+  mesh->publish(std::make_shared<mesh_data>());
   auto description = std::make_shared<material_data>();
   description->base_color_texture = 3;
-  material->data = description;
-  material->textures[0] = texture;
-  texture->data = std::make_shared<texture_data>();
+  material->publish(description, {texture});
+  texture->publish(std::make_shared<texture_data>());
   auto before = state.capture(request);
   CHECK(before && before->scene.instances.size() == 1);
   CHECK(before->scene.instances[0].world_matrix == model);
   const auto expected_normal = math::matrix4{glm::transpose(glm::inverse(math::matrix3{model}))};
   CHECK(before->scene.instances[0].normal_matrix == expected_normal);
   CHECK(before->scene.instances[0].layers == 2 && before->scene.layers == 2);
-  CHECK(before->resources.share_mesh(1) == mesh->data);
-  CHECK(before->resources.share_texture(3) == texture->data);
-  mesh->data = std::make_shared<mesh_data>();
-  texture->data = std::make_shared<texture_data>();
+  CHECK(before->resources.share_mesh(1) == mesh->read());
+  CHECK(before->resources.share_texture(3) == texture->read());
+  mesh->publish(std::make_shared<mesh_data>());
+  texture->publish(std::make_shared<texture_data>());
   render::scene_commands update{*scene, {render::set_transform{{1}, math::matrix4{1.F}}}};
   CHECK(state.submit(std::move(update)));
   auto after = state.capture(request);
@@ -292,5 +336,8 @@ bool frame_capture() {
   return true;
 }
 int main() {
-  return commands() && service_lifetime() && identity_versions() && frame_capture() ? 0 : 1;
+  return commands() && service_lifetime() && identity_versions() &&
+                 concurrent_material_publication() && frame_capture()
+             ? 0
+             : 1;
 }
