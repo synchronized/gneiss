@@ -129,17 +129,17 @@ gneiss_target_compile_warnings(gneiss_log_queue_test)
 gneiss_target_output_directories(gneiss_log_queue_test)
 add_test(NAME gneiss.log-queue COMMAND gneiss_log_queue_test)
 
-add_executable(gneiss_logging_runtime_test log/logging_runtime_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/core/logging/runtime.cpp"
+add_executable(gneiss_logging_service_test log/logging_service_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/engine/core/logging/service.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/logging/detail/async_queue.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/string_name.cpp")
-target_include_directories(gneiss_logging_runtime_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_compile_definitions(gneiss_logging_runtime_test PRIVATE GNEISS_STATIC_DEFINE)
-target_link_libraries(gneiss_logging_runtime_test PRIVATE gneiss_core_values Threads::Threads gneiss_fatal)
-gneiss_target_compile_warnings(gneiss_logging_runtime_test)
-gneiss_target_output_directories(gneiss_logging_runtime_test)
-add_test(NAME gneiss.logging-runtime COMMAND gneiss_logging_runtime_test)
-set_tests_properties(gneiss.logging-runtime PROPERTIES TIMEOUT 15)
+target_include_directories(gneiss_logging_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_logging_service_test PRIVATE GNEISS_STATIC_DEFINE)
+target_link_libraries(gneiss_logging_service_test PRIVATE gneiss_core_values Threads::Threads gneiss_fatal)
+gneiss_target_compile_warnings(gneiss_logging_service_test)
+gneiss_target_output_directories(gneiss_logging_service_test)
+add_test(NAME gneiss.logging-service COMMAND gneiss_logging_service_test)
+set_tests_properties(gneiss.logging-service PROPERTIES TIMEOUT 15)
 
 
 

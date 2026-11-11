@@ -8,14 +8,18 @@
 
 namespace gneiss::engine::logging {
 namespace detail {
-struct runtime_state;
+struct service_state;
 }
-class runtime;
+class service;
 /** 可复制的频道句柄；不保活工作线程，关闭后禁用并丢弃提交。 */
 class GNEISS_API logger {
 public:
   logger() = default;
-  [[nodiscard]] bool enabled(level severity) const noexcept;
+  /** 仅借用具有静态生命周期的频道名；动态文本请通过 service.get_logger 创建。 */
+  template <std::size_t N>
+  explicit logger(const char (&channel)[N]) noexcept
+      : default_channel_(channel, N - 1), use_default_(true) {}
+  [[nodiscard]] bool enabled(level severity) const;
   template <class... Args>
   void write(level severity, std::format_string<Args...> format, Args&&... args) const {
     if (enabled(severity))
@@ -41,11 +45,14 @@ public:
   }
 
 private:
-  friend class runtime;
-  logger(std::weak_ptr<detail::runtime_state> state, string_name channel)
+  friend class service;
+  logger(std::weak_ptr<detail::service_state> state, string_name channel)
       : state_(std::move(state)), channel_(channel) {}
+  std::shared_ptr<detail::service_state> resolve() const;
   void submit(level severity, std::string_view text) const;
-  std::weak_ptr<detail::runtime_state> state_;
+  std::string_view default_channel_;
+  bool use_default_{};
+  std::weak_ptr<detail::service_state> state_;
   string_name channel_;
 };
 }

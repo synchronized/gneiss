@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/logging/runtime.hpp"
+#include "engine/core/logging/default_service.hpp"
+#include "engine/core/logging/service.hpp"
 #include <iostream>
 #include <stdexcept>
 #include <thread>
@@ -41,12 +42,46 @@ struct memory_sink final : logging::sink {
     return engine::error::success;
   }
 };
+static const logging::logger static_log{"static"};
+void test_default_and_sync() {
+  require(!static_log.enabled(engine::logging::level::info));
+  logging::service logs{{.mode = logging::dispatch_mode::synchronous}};
+  auto output = std::make_unique<memory_sink>();
+  auto* memory = output.get();
+  logging::scoped_sink_connection connection =
+      logs.attach(std::move(output), {.minimum_level = engine::logging::level::warning});
+  logging::default_service_binding binding{logs};
+  bool duplicate{};
+  try {
+    logging::default_service_binding invalid{logs};
+  } catch (const std::logic_error&) {
+    duplicate = true;
+  }
+  require(duplicate);
+  require(!static_log.enabled(engine::logging::level::info));
+  static_log.warning("synchronous");
+  require(memory->messages.size() == 1 && memory->channels.front() == "static");
+  connection.set_level(engine::logging::level::trace);
+  static_log.info("visible");
+  require(memory->messages.size() == 2);
+  binding.reset();
+  require(!static_log.enabled(engine::logging::level::warning));
+  {
+    logging::default_service_binding rebound{logs};
+    static_log.info("rebound");
+  }
+  require(memory->messages.size() == 3);
+  connection.disconnect();
+  require(!connection.connected());
+  require(!logs.get_logger("isolated").enabled(engine::logging::level::fatal));
+}
 void test() {
   auto output = std::make_unique<memory_sink>();
   auto* observed = output.get();
   std::vector<std::unique_ptr<logging::sink>> outputs;
   outputs.push_back(std::move(output));
-  logging::runtime runtime{std::move(outputs)};
+  logging::service runtime;
+  auto connection = runtime.attach(std::move(outputs.front()));
   auto log = runtime.get_logger("asset");
   observed->recursive = log;
   int formatted{};
@@ -67,21 +102,24 @@ void test() {
   require(observed->messages.size() == 81 && observed->messages.front() == "7");
   for (const auto& channel : observed->channels)
     require(channel == "asset");
-  require(runtime.output_failures() == 0);
+  require(runtime.metrics().output_failures == 0);
   observed->fail = true;
   log.error("output failure");
   runtime.flush();
-  require(runtime.output_failures() == 1);
+  require(runtime.metrics().output_failures == 1);
+  require(observed->messages.size() == 82);
   runtime.close();
+  require(!connection.connected());
   require(!log.enabled(engine::logging::level::info));
   log.info("after close {}", counted_format{&formatted});
-  require(formatted == 1 && observed->messages.size() == 82);
+  require(formatted == 1);
   runtime.close();
   logging::logger expired;
   {
     std::vector<std::unique_ptr<logging::sink>> isolated;
     isolated.push_back(std::make_unique<memory_sink>());
-    logging::runtime other{std::move(isolated)};
+    logging::service other;
+    other.attach(std::move(isolated.front()));
     expired = other.get_logger("isolated");
     expired.info("independent context");
     require(!log.enabled(engine::logging::level::info));
@@ -93,6 +131,7 @@ void test() {
 int main() {
   try {
     test();
+    test_default_and_sync();
     return 0;
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';

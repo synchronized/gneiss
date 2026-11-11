@@ -7,7 +7,7 @@
 
 日志类型统一位于 `gneiss::engine::logging`，与 `events` 同步通知独立。
 `core/logging/record.hpp` 定义 `level`、`message_view`、`record_view` 和迁移期 `record_callback`；
-`logger.hpp`、`runtime.hpp/.cpp`、`sink.hpp` 分别提供频道句柄、上下文和输出契约。
+`logger.hpp`、`service.hpp/.cpp`、`sink.hpp` 分别提供频道句柄、上下文和输出契约。
 `detail/async_queue.hpp/.cpp` 是内部异步队列，不单独提供 validation 模块。
 平台文件输出位于 `platform/logging/file_sink.hpp/.cpp`，不在 Core 引入 spdlog。
 Application/Render 尚有直接使用内部队列的迁移点，本次命名整理没有宣称其已完成解耦。
@@ -15,22 +15,40 @@ Application/Render 尚有直接使用内部队列的迁移点，本次命名整�
 内部宿主使用原生 `application::submit_log`。消费线程通过 `log` 回调接收 `record_view`。
 日志队列、基础 Sink、Runtime 传输协议与 Editor Console 保留；日志 C API 已撤销。
 
-## 显式日志上下文
+## 频道与日志服务
 
-`engine/core/logging/runtime.hpp` 提供 `logging::runtime`，构造时接收固定的 Sink 列表和队列容量。
-它复用现有 `logging::detail::async_queue`，每个上下文只有一个有界队列和消费线程；不同上下文彼此隔离。
-`runtime.get_logger("asset")` 返回可复制的频道句柄，频道使用 `string_name`。
-Logger 提供 trace/debug/info/warning/error/critical，使用编译期检查的 `std::format_string`。
-`runtime.set_level(...)` 可跨线程更新过滤阈值；过滤先于格式化，但函数实参求值仍由调用者负责。
-未知级别不启用，空或非法 UTF-8 频道属于参数错误。
+```cpp
+namespace logging = gneiss::engine::logging;
+static const logging::logger log{"asset"}; // 静态生命周期字面量，不访问服务
 
-正常关闭由宿主先停止生产者，再调用 `close()`；该操作停止接受新消息、排空队列、退出线程并 flush。
-Logger 不保活线程，关闭或上下文销毁后 `enabled()` 为 false，后续提交为空操作。
-`flush/close` 由宿主串行调用，不允许从 Sink 内调用；不同 Sink 不因某个预期输出失败而停止交付。
-`output_failures()` 统计 Sink write/flush 返回失败的次数；格式化、分配及未知异常不转换为该计数。
-Sink 内普通 Logger 调用被抑制，避免递归；异常仍遵循执行边界策略。
+logging::service logs; // 默认异步，唯一有界队列
+// 文件 Sink 打开失败由调用者处理，此处省略。
+auto connection = logs.attach(std::move(file_sink));
+logging::default_service_binding binding{logs};
+log.info("加载资源：{}", uri);
+```
 
-当前仅实现显式异步上下文，尚未提供默认上下文或无线程模式，也未替换 Application 专属装配。
+头文件分别为 `logger.hpp`、`service.hpp`、`default_service.hpp`。
+默认 Logger 在调用时解析当前默认服务；未安装或关闭后禁用，不创建隐式线程。
+默认路由槽保留至进程结束，仅持服务弱引用，避免静态析构顺序问题。
+静态频道必须具有静态存储期；动态字符串通过 `logs.get_logger(channel)` 创建，内部持有 string_name。
+显式 Logger 固定绑定服务，关闭后不会改绑。默认路由只由宿主在停止生产者后安装/解除，重复安装抛出契约错误。
+
+`service_options` 支持 synchronous/asynchronous、queue_capacity 和 minimum_level。
+同步模式不创建工作线程或队列，在调用线程串行输出；不要将磁盘 Sink 用于实时线程同步输出。
+异步模式复用内部 async_queue。两种模式均不在配置锁下调用 Sink。
+Logger 提供 trace/debug/info/warning/error/critical，以 std::format_string 检查格式。
+`enabled` 同时检查服务阈值和是否存在可接收的 Sink，在格式化前过滤；昂贵参数仍须调用者显式判断。
+
+`attach(unique_ptr<sink>, sink_options)` 返回非拥有连接；普通连接析构不解绑，
+`scoped_sink_connection` 析构解绑。连接支持 connected、set_level、disconnect。
+分发时快照 Sink 配置；断开阻止后续快照选中该 Sink，已开始的交付可完成，快照保活输出端。
+输出端构造完成后再 attach，打开文件等可预期失败不交给服务处理。
+
+宿主停止生产者、解除 binding 后调用 close：停止接收、排空、flush、释放 Sink。
+flush/close 由宿主串行执行，禁止从 Sink 内调用；普通 Logger 重入被抑制。
+`metrics().output_failures` 统计 Sink 返回的失败，分配及未知异常仍遵循执行边界策略。
+目前新服务接口已实现，Application/Render/宿主旧装配仍待迁移；浏览器工具链尚未验证。
 
 ## 独立同步输出适配
 

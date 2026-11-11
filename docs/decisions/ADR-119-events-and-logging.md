@@ -28,3 +28,10 @@ spdlog 标准记录不能直接携带 Gneiss 错误码和上下文；因此采�
 
 Ludens 作为频道式调用参考，不直接复制其未同步频道表、仅哈希身份、持锁回调及永久存活实现。
 当前生产接口未因此改变，具体 API、限制和依赖验证项以实施计划为唯一来源。
+
+## 默认路由与动态输出的后续决策
+
+采用 logging::service；静态 Logger 延迟解析默认路由，显式 Logger 固定绑定上下文。
+以专用 default_service_binding 管理安装，不引入通用 locator 框架。
+允许通过连接句柄动态 attach/detach Sink，按分发时配置交付；保留同步 Sink 协议，不使用 Signal 分发日志。
+这一决策取代启动后固定 Sink 列表和所有 Logger 都固定绑定的初始约束。

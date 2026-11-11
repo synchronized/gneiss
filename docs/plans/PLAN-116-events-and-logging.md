@@ -75,10 +75,10 @@ Logger 为可复制轻量句柄；channel 使用 string_name，正文拥有 UTF-
 普通日志返回 void；创建文件 Sink、初始化配置等可预期失败返回 result。
 critical 只是级别，panic/assert/OOM 使用独立 fatal 应急通道。
 
-进程入口显式创建 logging runtime，早于 Application、晚于业务生产者关闭。
+进程入口显式创建 logging::service，早于 Application、晚于业务生产者关闭。
 Application、工具、Render 和 Asset 只持 Logger，不需借 Application 写日志。
 允许默认上下文，同时提供显式上下文用于测试和多宿主隔离；默认路由只在初始化/停止后修改。
-缓存 Logger 不因默认上下文替换而悄悄改绑；失效上下文采用明确的关闭后降级策略，不保活工作线程。
+显式 Logger 固定绑定；静态默认 Logger 延迟解析路由。关闭后禁用，不保活工作线程。
 
 ## 原生记录、后端与输出
 
@@ -91,7 +91,7 @@ Application、工具、Render 和 Asset 只持 Logger，不需借 Application �
 - string_view 只用于同步入口或 Sink 调用期间；异步队列拥有正文及动态来源文本。
 - 原生 Sink 收到完整记录；spdlog 适配用该记录生成文本，不能把消费线程 ID 冒充生产线程 ID。
 - Console/IPC Sink 放宿主层，编码原生记录；UI 从有界缓冲读取，不由日志线程操作面板。
-- Sink 配置在启动时固定，级别过滤可安全调整；运行时任意增删 Sink 不在首版范围内。
+- 支持连接句柄动态挂接 Sink，按分发时配置交付；不持配置锁调用输出端。
 - 不持队列或配置锁调用 Sink；Sink 禁止重入普通日志，错误报告走独立应急输出。
 - spdlog 仅用于同步输出，不启用 async_logger/thread_pool；旧 dispatcher 逐步成为唯一 runtime 的内部实现，
   完成迁移后删除旧 Application 专属装配，不能长期同时维护两个队列。
@@ -120,7 +120,9 @@ engine/core/events/
 engine/core/logging/
   logger.hpp
   log_types.hpp
-  runtime.hpp/.cpp
+  service.hpp/.cpp
+  default_service.hpp
+  sink_connection.hpp
   sink.hpp
   detail/...
 engine/platform/logging/
@@ -145,7 +147,8 @@ EnTT 复用仓库版本与 MIT 许可证；spdlog 已锁定 v1.15.3（MIT），�
 - [x] 引入经锁定的 spdlog，同步文件 Sink 通过原生字段保真、追加/截断、打开失败验证。
 - [ ] Logger 接入时验证格式检查、格式化前过滤及 PLAN-109 执行边界；补齐终端 Sink。
 - [x] 实现显式 Logger/runtime，复用 logging::detail::async_queue；验证频道过滤、并发投递、内存测试 Sink、关闭与上下文隔离。
-- [ ] 补齐默认上下文、无线程同步模式，迁移旧 Application 队列装配。
+- [x] 实现默认路由绑定、静态频道 Logger、动态 Sink 连接及无线程同步模式。
+- [ ] 迁移旧 Application 队列装配与宿主输出。
 - [ ] 接通 Runtime 文件/IPC、Editor Console、Application 创建前日志及关闭，逐字段核对现有协议。
 - [ ] 迁移真实业务调用、删除旧入口与重复装配，同步 Reference/Concept、依赖清单及构建边界。
 - [ ] 定向验收并记录浏览器、其他平台及尚未运行项目；不将源码审查写成平台验证通过。
@@ -161,3 +164,17 @@ Signal 检查单线程生命周期、参数借用、断开后不再交付、源�
 尚未验证：浏览器及 Linux 工具链、源位置捕获、Logger 的过滤和格式接口。
 Signal 和 spdlog 同步文件适配已通过 Windows Clang 定向构建与 CPU 测试。
 这些是后续实施门槛，不需要重新确认总体方向；若发现必须改变所有权或异常策略，再列出取舍。
+
+## 已确认调整：Service 与默认频道
+
+- runtime 更名为 logging::service，不保留旧名兼容接口。
+- cpp 可声明 static const logger log{"asset"}；构造只借用静态频道字面量，不解析服务。
+  C++20 下句柄含 weak_ptr，不承诺 constexpr 构造；动态频道使用 service.get_logger 并持有 string_name。
+- 默认 Logger 在提交时查找默认服务；显式 get_logger 固定绑定服务，关闭后不重新绑定。
+- default_service_binding 由宿主安装/解除，重复安装报契约错误，未安装时日志禁用。
+- service 支持异步唯一队列和同步无工作线程模式；同步输出在调用线程执行。
+- attach 动态添加 Sink；普通连接显式断开，scoped_sink_connection 析构断开。
+- 服务及 Sink 两级过滤，enabled 在格式化前判断是否存在接收者。
+- 分发时快照输出配置，不持配置锁调用 Sink；断开后已开始的分发允许完成。
+- close 停止接收、排空、flush、释放输出。连接和 Logger 不保活服务。
+- 本次先迁移新日志接口；Application/Render 旧队列与宿主 IPC 装配继续列为后续工作。
