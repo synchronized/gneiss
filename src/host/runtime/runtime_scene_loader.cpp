@@ -197,14 +197,14 @@ engine::error runtime_scene_loader::reload(engine::ref<scene_reload_state> sourc
                                            std::string_view uri, bool prefab) {
   if (!application_.is_owner_thread() || !application_.accepts_requests())
     return engine::error::invalid_state;
-  if (active_ || reload_ || visuals_ || !application_.can_activate_scene())
-    return engine::error::not_ready;
   if (!source || source->owner != application_.native_world() || !source->synchronized ||
       !source->content || !source->content->description)
     return engine::error::invalid_state;
   auto instance = engine::scene_instance::borrow(*application_.native_world(), source->instance);
   if (!instance)
     return instance.error();
+  if (active_ || reload_ || visuals_ || !application_.can_activate_scene())
+    return engine::error::not_ready;
   reload_task next;
   next.source = std::move(source);
   if (prefab) {

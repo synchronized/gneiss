@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../support/async_application.hpp"
-#include "../support/async_scene_reload.hpp"
-#include "../support/scene_access.hpp"
-#include "../support/value_result.hpp"
+#include "../../support/async_application.hpp"
+#include "../../support/async_scene_reload.hpp"
+#include "../../support/scene_access.hpp"
+#include "../../support/value_result.hpp"
 #include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
@@ -111,7 +111,7 @@ int main() try {
   }
   // 释放准备阶段的弱缓存所有者，正式激活重新读取更新后的场景。
   prepared = {};
-  gneiss::runtime::scene_load_completion loaded;
+  gneiss::host::scene_open_result loaded;
   if (gneiss::test_support::activate_scene_for_test(*application, scheduler, scene_uri, loaded)
           .failed())
     return 2;

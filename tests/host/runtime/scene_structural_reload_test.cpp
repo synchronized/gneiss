@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../support/async_application.hpp"
-#include "../support/async_scene_reload.hpp"
-#include "../support/mesh_objects.hpp"
-#include "../support/scene_access.hpp"
-#include "../support/value_result.hpp"
+#include "../../support/async_application.hpp"
+#include "../../support/async_scene_reload.hpp"
+#include "../../support/mesh_objects.hpp"
+#include "../../support/scene_access.hpp"
+#include "../../support/value_result.hpp"
 #include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
@@ -56,14 +56,14 @@ int main() try {
   gneiss::runtime::application_configuration config;
   config.asset_root = root_text;
   unsigned visual_failures{};
-  config.callbacks.diagnostic = [&](const auto& event) {
-    if (event.module == "scene.assets")
+  config.callbacks.log = [&](const auto& event) {
+    if (event.message.category == "scene_assets")
       ++visual_failures;
   };
   gneiss::engine::task_scheduler scheduler({.mode = gneiss::engine::execution_mode::cooperative});
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::scene_instance_id scene = {};
-  gneiss::runtime::scene_load_completion loaded;
+  gneiss::host::scene_open_result loaded;
   gneiss::entity_id camera_before;
   gneiss::entity_id old_child;
   gneiss::entity_id camera_entity_before;
@@ -86,16 +86,19 @@ int main() try {
 
   scene = loaded.scene;
   // 新的加载不能覆盖调用方保留的旧场景基线。
-  gneiss::runtime::scene_load_completion second;
+  gneiss::host::scene_open_result second;
   if (gneiss::test_support::activate_scene_for_test(*application, scheduler, uri, second)
           .failed() ||
       !loaded.reload_state || !second.reload_state || loaded.reload_state == second.reload_state)
     return 21;
-  if (application->scenes().reload({}, uri).error() != gneiss::engine::error::invalid_state)
+  gneiss::host::runtime_scene_loader reloader(*application);
+  if (reloader.reload({}, uri, false) != gneiss::engine::error::invalid_state)
     return 22;
   auto other = gneiss::runtime::application::create(config);
-  if (!other || (*other)->scenes().reload(loaded.reload_state, uri).error() !=
-                    gneiss::engine::error::invalid_state)
+  if (!other)
+    return 23;
+  gneiss::host::runtime_scene_loader other_loader(**other);
+  if (other_loader.reload(loaded.reload_state, uri, false) != gneiss::engine::error::invalid_state)
     return 23;
 
   // 直接修改 World 后重载同一文件，差异必须基于当前对象而非加载时描述。
@@ -197,30 +200,33 @@ int main() try {
   write_scene(
       scene_path,
       R"([{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/missing.material.json","uuid":"6ac36c36-95c2-4975-9b2a-4fbcc4c7bca1"}}])");
-  auto reload_request = application->scenes().reload(loaded.reload_state, uri, false);
-  if (!reload_request)
+  auto reload_request = reloader.reload(loaded.reload_state, uri, false);
+  if (reload_request.failed())
     return 24;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   for (;;) {
     (void)scheduler.run_ready();
     (void)application->run(1);
-    auto completed = reload_request->take();
+    (void)reloader.advance();
+    auto completed = reloader.take_reload();
     if (!completed && completed.error() != gneiss::engine::error::not_ready)
       return 25;
     if (completed) {
-      if (completed->result.failed() || !application->visual_assets_loading())
+      if (completed->result.failed() || !reloader.visual_loading())
         return 26;
       break;
     }
     if (std::chrono::steady_clock::now() >= deadline)
       return 27;
   }
-  while (application->visual_assets_loading()) {
+  while (reloader.visual_loading()) {
     if (std::chrono::steady_clock::now() >= deadline)
       return 28;
     (void)scheduler.run_ready();
     (void)application->run(1);
+    (void)reloader.advance();
   }
+  (void)application->run(1);
   if (visual_failures != 3)
     return 29;
   // 描述本身损坏仍失败，不能把解析失败解释为缺失视觉内容。
@@ -233,8 +239,7 @@ int main() try {
   const bool destroyed =
       gneiss::test_support::scene_access{*application}->unload(scene) ==
           gneiss::engine::error::success &&
-      application->scenes().reload(loaded.reload_state, uri).error() ==
-          gneiss::engine::error::invalid_handle &&
+      reloader.reload(loaded.reload_state, uri, false) == gneiss::engine::error::invalid_handle &&
       application->native_world()->object(second.objects.front().entity).has_value() &&
       application->shutdown() == gneiss::engine::error::success;
   std::filesystem::remove_all(root);

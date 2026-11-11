@@ -179,3 +179,29 @@ foreach(test IN ITEMS gneiss_runtime_scene_inspection_test)
 endforeach()
 
 target_link_libraries(gneiss_runtime PRIVATE gneiss_fatal)
+
+# 来源重载策略属于 Runtime 宿主；纯组合与实例化仍由 Engine 测试覆盖。
+if(BUILD_TESTING)
+  add_executable(gneiss_scene_structural_reload_test "${PROJECT_SOURCE_DIR}/tests/host/runtime/scene_structural_reload_test.cpp")
+  target_link_libraries(gneiss_scene_structural_reload_test PRIVATE gneiss::engine gneiss_tasks gneiss_runtime_ipc)
+  target_include_directories(gneiss_scene_structural_reload_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_compile_definitions(
+    gneiss_scene_structural_reload_test
+    PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
+  )
+  target_compile_features(gneiss_scene_structural_reload_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_scene_structural_reload_test)
+  gneiss_target_output_directories(gneiss_scene_structural_reload_test)
+  add_test(NAME gneiss.scene_structural_reload COMMAND gneiss_scene_structural_reload_test)
+  add_executable(gneiss_prefab_structural_reload_test "${PROJECT_SOURCE_DIR}/tests/host/runtime/prefab_structural_reload_test.cpp")
+  target_link_libraries(gneiss_prefab_structural_reload_test PRIVATE gneiss::engine gneiss_tasks gneiss_runtime_ipc)
+  target_include_directories(gneiss_prefab_structural_reload_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_compile_definitions(
+    gneiss_prefab_structural_reload_test
+    PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
+  )
+  target_compile_features(gneiss_prefab_structural_reload_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_prefab_structural_reload_test)
+  gneiss_target_output_directories(gneiss_prefab_structural_reload_test)
+  add_test(NAME gneiss.prefab_structural_reload COMMAND gneiss_prefab_structural_reload_test)
+endif()
