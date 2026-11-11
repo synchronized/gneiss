@@ -52,7 +52,7 @@ bool draw_workspace_frame() {
 
 int main() try {
   using namespace gneiss;
-  using engine::error;
+  using gneiss::error;
   const auto root = std::filesystem::temp_directory_path() /
                     ("gneiss-layout-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -65,12 +65,12 @@ int main() try {
   if (gneiss::test_support::assign_value(runtime::application::create(config), app).failed())
     return 1;
   auto files = app->async_files();
-  gneiss::engine::files::request_id forbidden;
+  gneiss::files::request_id forbidden;
   if (files->write(
           "asset://must-not-write", {}, {}, [](auto) {}, forbidden) != error::unsupported ||
       forbidden.value != 0)
     return 18;
-  std::shared_ptr<const gneiss::engine::files::source_domain> render_resource_source, user_source;
+  std::shared_ptr<const gneiss::files::source_domain> render_resource_source, user_source;
   if (files->resolve_source("asset://example", render_resource_source).failed() ||
       files->resolve_source("user://example", user_source).failed() ||
       render_resource_source == user_source)

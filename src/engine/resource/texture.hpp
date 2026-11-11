@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <optional>
 
-namespace gneiss::engine {
+namespace gneiss {
 struct texture_data;
 namespace detail {
 struct texture_resource_access;
@@ -50,4 +50,4 @@ private:
 /** Render 内部标识提取；不转移所有权，不表示内容已就绪。 */
 [[nodiscard]] GNEISS_API rid resource_handle(const ref<const texture>& value) noexcept;
 
-} // namespace gneiss::engine
+} // namespace gneiss

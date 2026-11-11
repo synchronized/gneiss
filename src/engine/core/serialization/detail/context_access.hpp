@@ -4,7 +4,7 @@
 #include "engine/core/serialization/context.hpp"
 #include <string>
 #include <unordered_set>
-namespace gneiss::engine::serialization::detail {
+namespace gneiss::serialization::detail {
 /** 每次最外层操作拥有的状态；嵌套 codec 入口借用，不进入公开配置对象。 */
 struct operation_state {
   std::unordered_set<const void*> active;

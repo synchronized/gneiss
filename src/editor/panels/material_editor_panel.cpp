@@ -5,8 +5,8 @@
 #include <imgui.h>
 #include <optional>
 namespace gneiss::editor {
-void draw_material_editor(material_editor_model& model, engine::files::service& files,
-                          bool& visible, std::uint64_t& serial, engine::error& status,
+void draw_material_editor(material_editor_model& model, gneiss::files::service& files,
+                          bool& visible, std::uint64_t& serial, gneiss::error& status,
                           bool& focused) {
   focused = false;
   model.advance();
@@ -64,7 +64,7 @@ void draw_material_editor(material_editor_model& model, engine::files::service& 
         ImGui::TextWrapped("Save failed: %s", model.save_status().message().data());
       ImGui::TextUnformatted("Texture URI: press Enter to apply. No live GPU preview.");
       std::optional<property_edit> pending;
-      auto root = engine::meta::view(std::as_const(model.description()));
+      auto root = gneiss::meta::view(std::as_const(model.description()));
       if (!root)
         status = root.error();
       else {
@@ -73,14 +73,14 @@ void draw_material_editor(material_editor_model& model, engine::files::service& 
       // 遍历结束后修改，避免更换快照使借用视图失效。
       if (pending) {
         if (pending->object) {
-          auto source = engine::meta::const_instance::from_object(pending->object_type,
+          auto source = gneiss::meta::const_instance::from_object(pending->object_type,
                                                                   pending->object.get());
           status = source ? model.replace_object(pending->path, *source) : source.error();
         } else
           status = model.set_value(pending->path, pending->data, serial);
       }
     }
-    if (status == engine::error::invalid_state && model.is_dirty())
+    if (status == gneiss::error::invalid_state && model.is_dirty())
       ImGui::TextWrapped("Save or discard this material before closing or opening another file.");
     if (status.failed())
       ImGui::TextWrapped("%s", status.message().data());
@@ -88,7 +88,7 @@ void draw_material_editor(material_editor_model& model, engine::files::service& 
   ImGui::End();
   if (!open) {
     if (model.is_dirty() || model.saving())
-      status = engine::error::invalid_state;
+      status = gneiss::error::invalid_state;
     else
       visible = false;
   }

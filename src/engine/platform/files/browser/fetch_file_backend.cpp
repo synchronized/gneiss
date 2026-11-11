@@ -12,7 +12,7 @@
 #include <limits>
 #include <memory>
 #include <stdexcept>
-namespace gneiss::engine::files {
+namespace gneiss::files {
 namespace {
 std::string header(emscripten_fetch_t* fetch, std::string_view name) {
   std::string headers(emscripten_fetch_get_response_headers_length(fetch) + 1, '\0');
@@ -58,7 +58,7 @@ struct fetch_operation : std::enable_shared_from_this<fetch_operation> {
     auto owner = self->keep_alive;
     self->finish(fetch, fetch->status == 404 ? error::not_found : error::io);
   } catch (...) {
-    gneiss::engine::fatal_current_exception();
+    gneiss::fatal_current_exception();
   }
   void finish(emscripten_fetch_t* fetch, error status, files::bytes bytes = {},
               files::info info = {}) {
@@ -106,7 +106,7 @@ struct fetch_operation : std::enable_shared_from_this<fetch_operation> {
         self->finish(fetch, error::invalid_argument);
     }
   } catch (...) {
-    gneiss::engine::fatal_current_exception();
+    gneiss::fatal_current_exception();
   }
   static void progress(emscripten_fetch_t* fetch) try {
     auto* self = static_cast<fetch_operation*>(fetch->userData);
@@ -117,7 +117,7 @@ struct fetch_operation : std::enable_shared_from_this<fetch_operation> {
         fetch->dataOffset > self->limit - static_cast<std::size_t>(fetch->numBytes))
       self->finish(fetch, error::invalid_argument);
   } catch (...) {
-    gneiss::engine::fatal_current_exception();
+    gneiss::fatal_current_exception();
   }
   static void success(emscripten_fetch_t* fetch) noexcept try {
     auto* self = static_cast<fetch_operation*>(fetch->userData);
@@ -161,7 +161,7 @@ struct fetch_operation : std::enable_shared_from_this<fetch_operation> {
       self->finish(fetch, error::success, std::move(bytes));
     }
   } catch (...) {
-    gneiss::engine::fatal_current_exception();
+    gneiss::fatal_current_exception();
   }
   error begin() {
     if (!emscripten_is_main_runtime_thread())

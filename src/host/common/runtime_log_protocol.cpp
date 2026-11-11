@@ -93,10 +93,10 @@ void append_json_string(std::string& output, std::string_view value) {
 runtime_log_line_decoder::runtime_log_line_decoder(std::size_t maximum_line_size) noexcept
     : maximum_line_size_(maximum_line_size) {}
 
-gneiss::engine::error runtime_log_line_decoder::append(std::string_view bytes,
+gneiss::error runtime_log_line_decoder::append(std::string_view bytes,
                                                        std::vector<runtime_log_line>& output) {
   if (maximum_line_size_ == 0U) {
-    return gneiss::engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   }
   {
     while (!bytes.empty()) {
@@ -107,18 +107,18 @@ gneiss::engine::error runtime_log_line_decoder::append(std::string_view bytes,
       }
       append_segment(bytes.substr(0U, newline));
       const auto operation = emit(output);
-      if (operation != gneiss::engine::error::success) {
+      if (operation != gneiss::error::success) {
         return operation;
       }
       bytes.remove_prefix(newline + 1U);
     }
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
 }
 
-gneiss::engine::error runtime_log_line_decoder::finish(std::vector<runtime_log_line>& output) {
+gneiss::error runtime_log_line_decoder::finish(std::vector<runtime_log_line>& output) {
   if (pending_.empty() && !pending_was_truncated_) {
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
   return emit(output);
 }
@@ -128,11 +128,11 @@ void runtime_log_line_decoder::reset() noexcept {
   pending_was_truncated_ = false;
 }
 
-gneiss::engine::error runtime_log_line_decoder::emit(std::vector<runtime_log_line>& output) {
+gneiss::error runtime_log_line_decoder::emit(std::vector<runtime_log_line>& output) {
   {
     output.push_back({pending_, pending_was_truncated_});
     reset();
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
 }
 
@@ -143,7 +143,7 @@ void runtime_log_line_decoder::append_segment(std::string_view segment) {
   pending_was_truncated_ = pending_was_truncated_ || accepted != segment.size();
 }
 
-gneiss::engine::error encode_runtime_log_event(const gneiss::engine::logging::record_view& event,
+gneiss::error encode_runtime_log_event(const gneiss::logging::record_view& event,
                                                std::string& output) {
   output.clear();
   {
@@ -165,7 +165,7 @@ gneiss::engine::error encode_runtime_log_event(const gneiss::engine::logging::re
     output.append(",\"message\":");
     append_json_string(output, event.message.message);
     output.append("}\n");
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
 }
 
@@ -210,7 +210,7 @@ runtime_log_parse_result parse_runtime_log_line(std::string_view line, runtime_l
     }
     parsed.version = 1U;
     parsed.severity = static_cast<std::uint32_t>(severity);
-    parsed.operation = gneiss::engine::error{static_cast<std::int32_t>(operation)};
+    parsed.operation = gneiss::error{static_cast<std::int32_t>(operation)};
     output = std::move(parsed);
     return runtime_log_parse_result::success;
   }

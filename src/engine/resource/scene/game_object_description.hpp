@@ -11,15 +11,15 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 struct camera_description final
     : meta::object_type<camera_description, component_description_base> {
   camera_description() = default;
   camera_description(math::camera_settings value, bool primary = false)
       : settings(value), is_primary(primary) {}
   inline static constexpr std::string_view type_name = "camera_description";
-  inline static constexpr engine::guid type_guid =
-      engine::guid::literal("11a0217a-2eab-4f61-8011-4a63a26e0101");
+  inline static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("11a0217a-2eab-4f61-8011-4a63a26e0101");
   math::camera_settings settings{};
   bool is_primary = false;
 };
@@ -30,8 +30,8 @@ struct mesh_renderer_description final
   mesh_renderer_description(std::string mesh, std::string material)
       : mesh_uri(std::move(mesh)), material_uri(std::move(material)) {}
   inline static constexpr std::string_view type_name = "mesh_renderer_description";
-  inline static constexpr engine::guid type_guid =
-      engine::guid::literal("11a0217a-2eab-4f61-8011-4a63a26e0102");
+  inline static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("11a0217a-2eab-4f61-8011-4a63a26e0102");
   std::string mesh_uri;
   std::string material_uri;
 };
@@ -54,7 +54,7 @@ struct prefab_reference_description final {
 struct game_object_description final {
   static constexpr std::string_view type_name = "game_object_description";
   static constexpr guid type_guid = guid::literal("d37553e3-45c8-4a29-ae26-ada3069d81ec");
-  gneiss::engine::guid uuid;
+  gneiss::guid uuid;
   std::string name;
   object_address parent{};
   /** 相对父对象的局部变换；默认单位变换。 */
@@ -65,14 +65,14 @@ struct game_object_description final {
 
 template <> struct type_identity<prefab_component_override> {
   static constexpr std::string_view name() noexcept { return "prefab_component_override"; }
-  static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("929b6330-9200-4f3b-b707-d1fef184eda3");
+  static constexpr gneiss::guid guid() noexcept {
+    return gneiss::guid::literal("929b6330-9200-4f3b-b707-d1fef184eda3");
   }
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 template <> struct sequence_identity_traits<std::vector<game_object_description>> {
   static constexpr bool enabled = true;
   static guid identity(const game_object_description& object) noexcept { return object.uuid; }

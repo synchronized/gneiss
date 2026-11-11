@@ -8,7 +8,7 @@
 #include <mutex>
 #include <string>
 #include <string_view>
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 // 编译器类型名仅作为内部去重键，不对调用者提供名称查询。
 struct identity_table {

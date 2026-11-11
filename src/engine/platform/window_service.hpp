@@ -12,7 +12,7 @@
 
 #include <memory>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 /** 窗口与输入事件服务；所属线程创建、调用和销毁。原生窗口信息仅在服务存活期间借用。
  * 构造分配私有实现，可能抛出 bad_alloc；运行操作通过 result 返回错误。 */
@@ -37,6 +37,6 @@ private:
   std::unique_ptr<implementation> impl_;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

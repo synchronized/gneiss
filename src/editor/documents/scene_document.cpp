@@ -4,23 +4,23 @@
 #include <new>
 namespace gneiss::editor {
 namespace {
-engine::error validate(const scene_document_snapshot& snapshot) {
+gneiss::error validate(const scene_document_snapshot& snapshot) {
   auto composed = compose_scene_document(snapshot);
   if (!composed)
     return composed.error();
-  auto dependencies = engine::scene_dependencies(*composed);
-  return dependencies ? engine::error::success : dependencies.error();
+  auto dependencies = gneiss::scene_dependencies(*composed);
+  return dependencies ? gneiss::error::success : dependencies.error();
 }
 }
-engine::result<std::unique_ptr<scene_document>> scene_document::make_candidate() const {
+gneiss::result<std::unique_ptr<scene_document>> scene_document::make_candidate() const {
   if (!current_)
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   auto candidate = std::make_unique<scene_document>();
   candidate->current_ = current_;
   candidate->saved_ = saved_;
   return candidate;
 }
-engine::error scene_document::reset(const scene_document_snapshot& snapshot, bool saved) {
+gneiss::error scene_document::reset(const scene_document_snapshot& snapshot, bool saved) {
   const auto status = validate(snapshot);
   if (status.failed())
     return status;
@@ -33,14 +33,14 @@ engine::error scene_document::reset(const scene_document_snapshot& snapshot, boo
   saved_.reset();
   if (saved)
     saved_ = current_.state_;
-  return engine::error::success;
+  return gneiss::error::success;
 }
-engine::error scene_document::accept(const version& expected,
+gneiss::error scene_document::accept(const version& expected,
                                      const scene_document_snapshot& snapshot) {
   if (!current_ || expected != current_)
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   if (snapshot.content.get().uuid != current_.content().content.get().uuid)
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   const auto status = validate(snapshot);
   if (status.failed())
     return status;
@@ -49,21 +49,21 @@ engine::error scene_document::accept(const version& expected,
   next.state_ = std::make_shared<const std::byte>();
   next.content_ = std::make_shared<const scene_document_snapshot>(snapshot);
   current_ = std::move(next);
-  return engine::error::success;
+  return gneiss::error::success;
 }
-engine::error scene_document::checkout(const version& expected, const version& target) {
+gneiss::error scene_document::checkout(const version& expected, const version& target) {
   if (!current_ || expected != current_ || !target || target.owner_ != current_.owner_)
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   current_ = target;
-  return engine::error::success;
+  return gneiss::error::success;
 }
-engine::error scene_document::checkout(const revision& expected, const revision& target,
+gneiss::error scene_document::checkout(const revision& expected, const revision& target,
                                        const scene_document_snapshot& snapshot) {
   if (!current_ || current_.stamp() != expected || !target.state || target.owner != current_.owner_)
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   if (snapshot.uri != current_.content().uri ||
       snapshot.content.get().uuid != current_.content().content.get().uuid)
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   auto status = validate(snapshot);
   if (status.failed())
     return status;
@@ -72,15 +72,15 @@ engine::error scene_document::checkout(const revision& expected, const revision&
   next.state_ = target.state;
   next.content_ = std::make_shared<const scene_document_snapshot>(snapshot);
   current_ = std::move(next);
-  return engine::error::success;
+  return gneiss::error::success;
 }
 bool scene_document::is_dirty() const noexcept {
   return current_ && saved_.lock() != current_.state_;
 }
-engine::error scene_document::mark_saved(const version& saved) noexcept {
+gneiss::error scene_document::mark_saved(const version& saved) noexcept {
   if (!saved || saved.owner_ != current_.owner_)
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   saved_ = saved.state_;
-  return engine::error::success;
+  return gneiss::error::success;
 }
 }

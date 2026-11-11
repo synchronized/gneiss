@@ -20,26 +20,26 @@
 #include <string_view>
 
 namespace {
-gneiss::engine::error set_camera(gneiss::engine::world& owner, gneiss::scene_instance_id scene,
+gneiss::error set_camera(gneiss::world& owner, gneiss::scene_instance_id scene,
                                  gneiss::entity_id node,
-                                 const gneiss::engine::camera_description& desc) {
+                                 const gneiss::camera_description& desc) {
   auto status = gneiss::test_support::scene_access{owner}->validate_editable_node(scene, node);
   if (status.failed())
     return status;
-  auto value = gneiss::engine::camera_component::create(desc.settings, desc.is_primary);
+  auto value = gneiss::camera_component::create(desc.settings, desc.is_primary);
   if (!value)
     return value.error();
   auto object = owner.find(node);
-  if (auto* camera = object.try_component<gneiss::engine::camera_component>())
+  if (auto* camera = object.try_component<gneiss::camera_component>())
     *camera = *value;
   else
-    status = object.add_component<gneiss::engine::camera_component>(*value);
+    status = object.add_component<gneiss::camera_component>(*value);
   if (status.failed() || !desc.is_primary)
     return status;
-  return gneiss::engine::set_active_camera(owner, gneiss::entity_id{node.get()});
+  return gneiss::set_active_camera(owner, gneiss::entity_id{node.get()});
 }
 
-gneiss::engine::result<gneiss::test_support::scene_node_info>
+gneiss::result<gneiss::test_support::scene_node_info>
 find_info(gneiss::test_support::scene_access scenes, gneiss::scene_instance_id scene,
           gneiss::entity_id node) {
   auto count = scenes.get_node_count(scene);
@@ -50,7 +50,7 @@ find_info(gneiss::test_support::scene_access scenes, gneiss::scene_instance_id s
     if (!info || info->node == node)
       return info;
   }
-  return gneiss::engine::error::not_found;
+  return gneiss::error::not_found;
 }
 
 std::shared_ptr<gneiss::runtime::application> create_application(std::string_view asset_root) {
@@ -58,7 +58,7 @@ std::shared_ptr<gneiss::runtime::application> create_application(std::string_vie
   desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
   return (gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
-                                             application) == gneiss::engine::error::success)
+                                             application) == gneiss::error::success)
              ? application
              : nullptr;
 }
@@ -71,16 +71,16 @@ int main() try {
   constexpr std::string_view scene_uri = "asset://scenes/triangle.scene.json";
   constexpr std::string_view missing_uri = "asset://scenes/missing-asset.scene.json";
   constexpr std::string_view corrupt_uri = "asset://scenes/corrupt.scene.json";
-  const gneiss::engine::guid triangle_uuid =
-      *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000003");
-  const gneiss::engine::guid camera_uuid =
-      *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000002");
+  const gneiss::guid triangle_uuid =
+      *gneiss::guid::parse("00000000-0000-4000-8000-000000000003");
+  const gneiss::guid camera_uuid =
+      *gneiss::guid::parse("00000000-0000-4000-8000-000000000002");
   constexpr std::string_view mesh_uri = "asset://models/triangle.mesh.json";
   constexpr std::string_view material_uri = "asset://materials/triangle.material.json";
   constexpr std::string_view missing_mesh_uri = "asset://models/missing.mesh.json";
   const auto application = create_application(asset_root);
   const auto second_application = create_application(asset_root);
-  std::vector<gneiss::engine::scene_object_binding> scene_objects;
+  std::vector<gneiss::scene_object_binding> scene_objects;
   gneiss::scene_instance_id scene = {};
   gneiss::entity_id triangle;
   gneiss::entity_id camera_node;
@@ -88,23 +88,23 @@ int main() try {
   std::uint64_t node_count = 0;
   if (application == nullptr || second_application == nullptr ||
       gneiss::test_support::load_scene(*application, scene_uri, &scene, nullptr, false,
-                                       &scene_objects) != gneiss::engine::error::success ||
+                                       &scene_objects) != gneiss::error::success ||
       scene == gneiss::scene_instance_id{} ||
       gneiss::test_support::assign_value(application->native_world()->entity_count(),
-                                         entity_count) != gneiss::engine::error::success ||
+                                         entity_count) != gneiss::error::success ||
       entity_count != 2U ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->find_node(scene_objects, triangle_uuid),
-          triangle) != gneiss::engine::error::success ||
+          triangle) != gneiss::error::success ||
       triangle == gneiss::null_entity_id ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->find_node(scene_objects, camera_uuid),
-          camera_node) != gneiss::engine::error::success) {
+          camera_node) != gneiss::error::success) {
     return 1;
   }
   // 通用应用不依赖编辑器或 Prefab 状态，空基线创建，后续更新保持存活实体。
   {
-    namespace e = gneiss::engine;
+    namespace e = gneiss;
     auto& world = *application->native_world();
     auto scenes = *gneiss::test_support::scene_access{*application};
     auto empty = scenes.create_empty(e::guid::generate());
@@ -176,38 +176,38 @@ int main() try {
   gneiss::test_support::scene_node_info triangle_info;
   if (gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->get_node_count(scene), node_count) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       node_count != 2U ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->get_node_info(scene, 0U),
-          camera_info) != gneiss::engine::error::success ||
+          camera_info) != gneiss::error::success ||
       camera_info.node != camera_node || camera_info.parent != gneiss::null_entity_id ||
       camera_info.uuid || camera_info.name != "Camera" ||
-      !camera_info.components.get<gneiss::engine::camera_description>() ||
-      !camera_info.components.get<gneiss::engine::camera_description>()->is_primary ||
+      !camera_info.components.get<gneiss::camera_description>() ||
+      !camera_info.components.get<gneiss::camera_description>()->is_primary ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->get_node_info(scene, 1U),
-          triangle_info) != gneiss::engine::error::success ||
+          triangle_info) != gneiss::error::success ||
       triangle_info.node != triangle || triangle_info.parent != camera_node || triangle_info.uuid ||
       !triangle_info.name.empty() ||
-      triangle_info.components.get<gneiss::engine::mesh_renderer_description>()->mesh_uri !=
+      triangle_info.components.get<gneiss::mesh_renderer_description>()->mesh_uri !=
           mesh_uri ||
-      triangle_info.components.get<gneiss::engine::mesh_renderer_description>()->material_uri !=
+      triangle_info.components.get<gneiss::mesh_renderer_description>()->material_uri !=
           material_uri ||
-      !triangle_info.components.get<gneiss::engine::mesh_renderer_description>() ||
+      !triangle_info.components.get<gneiss::mesh_renderer_description>() ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->get_node_info(scene, 2U),
-          triangle_info) != gneiss::engine::error::not_found ||
+          triangle_info) != gneiss::error::not_found ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*second_application}->get_node_count(scene),
-          node_count) != gneiss::engine::error::invalid_handle) {
+          node_count) != gneiss::error::invalid_handle) {
     return 2;
   }
   gneiss::test_support::scene_node_info invalid_info;
   if (gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->get_node_info(
               gneiss::scene_instance_id{}, 0U),
-          invalid_info) != gneiss::engine::error::invalid_handle) {
+          invalid_info) != gneiss::error::invalid_handle) {
     return 3;
   }
   // 失败的资源选择不提交；检查实际引用和组件，而不是将 World 编码成文件。
@@ -225,7 +225,7 @@ int main() try {
     return 30;
   // 场景入口创建子对象，归属必须与父对象一致。
   auto temporary_scene =
-      gneiss::engine::scene_instance::borrow(*application->native_world(), scene);
+      gneiss::scene_instance::borrow(*application->native_world(), scene);
   if (!temporary_scene)
     return 31;
   auto temporary = temporary_scene->create_object(
@@ -246,7 +246,7 @@ int main() try {
   auto camera_before =
       application->native_world()->find(gneiss::entity_id{(camera_node).get()}).name();
   const std::string camera_name{camera_before};
-  std::vector<gneiss::engine::scene_object_binding> play_objects;
+  std::vector<gneiss::scene_object_binding> play_objects;
   gneiss::scene_instance_id play_scene;
   gneiss::entity_id play_camera;
   if (gneiss::test_support::load_scene(*second_application, scene_uri, &play_scene, nullptr, false,
@@ -275,18 +275,18 @@ int main() try {
   if (gneiss::test_support::take_value(
           gneiss::test_support::spawn_mesh(*application->native_world(), application->assets(),
                                            scene, create_desc),
-          created_node) != gneiss::engine::error::success ||
+          created_node) != gneiss::error::success ||
       created_node == gneiss::null_entity_id ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->get_node_count(scene), node_count) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       node_count != 3U ||
       gneiss::test_support::assign_value(application->native_world()->entity_count(),
-                                         entity_count) != gneiss::engine::error::success ||
+                                         entity_count) != gneiss::error::success ||
       entity_count != 3U ||
       gneiss::test_support::take_value(
           find_info(*gneiss::test_support::scene_access{*application}, scene, created_node),
-          triangle_info) != gneiss::engine::error::success ||
+          triangle_info) != gneiss::error::success ||
       triangle_info.node != created_node || triangle_info.parent != camera_node ||
       triangle_info.name != "Created Mesh") {
     return 4;
@@ -295,7 +295,7 @@ int main() try {
   {
     auto renderer = application->native_world()
                         ->find(gneiss::entity_id{(created_node).get()})
-                        .try_component<gneiss::engine::mesh_renderer_component>();
+                        .try_component<gneiss::mesh_renderer_component>();
     if (!renderer)
       return 40;
     const auto saved_renderer = *renderer;
@@ -307,7 +307,7 @@ int main() try {
             .failed() ||
         application->native_world()
             ->find(entity)
-            .remove_component<gneiss::engine::mesh_renderer_component>()
+            .remove_component<gneiss::mesh_renderer_component>()
             .failed() ||
         gneiss::test_support::assign_value(
             gneiss::test_support::read_mesh(*application->native_world(), scene, created_node),
@@ -316,64 +316,64 @@ int main() try {
         binding.mesh || binding.material ||
         application->native_world()
             ->find(entity)
-            .add_component<gneiss::engine::mesh_renderer_component>(saved_renderer)
+            .add_component<gneiss::mesh_renderer_component>(saved_renderer)
             .failed())
       return 40;
   }
-  gneiss::engine::camera_description author_camera{{1.04719755F, 0.2F, 1000.0F}, false};
+  gneiss::camera_description author_camera{{1.04719755F, 0.2F, 1000.0F}, false};
   author_camera.settings.near = -1.0F;
   if (set_camera(*application->native_world(), scene, created_node, author_camera) !=
-          gneiss::engine::error::invalid_argument ||
+          gneiss::error::invalid_argument ||
       set_camera(*application->native_world(), gneiss::scene_instance_id{}, created_node,
-                 author_camera) != gneiss::engine::error::invalid_handle ||
+                 author_camera) != gneiss::error::invalid_handle ||
       set_camera(*application->native_world(), scene, gneiss::entity_id{UINT64_MAX},
-                 author_camera) != gneiss::engine::error::invalid_handle) {
+                 author_camera) != gneiss::error::invalid_handle) {
     return 34;
   }
   author_camera.settings.near = 0.2F;
   if (set_camera(*application->native_world(), scene, created_node, author_camera) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       application->native_world()
               ->find(gneiss::entity_id{created_node.get()})
-              .remove_component<gneiss::engine::camera_component>() !=
-          gneiss::engine::error::success ||
+              .remove_component<gneiss::camera_component>() !=
+          gneiss::error::success ||
       application->native_world()
               ->find(gneiss::entity_id{created_node.get()})
-              .remove_component<gneiss::engine::camera_component>() !=
-          gneiss::engine::error::not_found ||
+              .remove_component<gneiss::camera_component>() !=
+          gneiss::error::not_found ||
       application->native_world()
               ->find(gneiss::entity_id{created_node.get()})
-              .remove_component<gneiss::engine::mesh_renderer_component>() !=
-          gneiss::engine::error::success ||
+              .remove_component<gneiss::mesh_renderer_component>() !=
+          gneiss::error::success ||
       application->native_world()
               ->find(gneiss::entity_id{created_node.get()})
-              .remove_component<gneiss::engine::mesh_renderer_component>() !=
-          gneiss::engine::error::not_found) {
+              .remove_component<gneiss::mesh_renderer_component>() !=
+          gneiss::error::not_found) {
     return 27;
   }
   if (gneiss::test_support::assign_mesh(*application->native_world(), application->assets(), scene,
                                         created_node, mesh_uri,
-                                        material_uri) != gneiss::engine::error::success) {
+                                        material_uri) != gneiss::error::success) {
     return 28;
   }
-  auto destination = gneiss::engine::scene_instance::borrow(*application->native_world(), scene);
+  auto destination = gneiss::scene_instance::borrow(*application->native_world(), scene);
   if (!destination)
     return 13;
-  gneiss::engine::math::transform generic_transform;
+  gneiss::math::transform generic_transform;
   generic_transform.translation[1] = 2.0F;
   gneiss::entity_id generic_node;
   if (gneiss::test_support::assign_value(destination->create_object({"Empty", generic_transform}),
-                                         generic_node) != gneiss::engine::error::success ||
+                                         generic_node) != gneiss::error::success ||
       application->native_world()
               ->object(gneiss::entity_id{generic_node.get()})
-              ->set_name("Group") != gneiss::engine::error::success ||
+              ->set_name("Group") != gneiss::error::success ||
       gneiss::test_support::scene_access{*application}->reparent_node(
-          scene, triangle, generic_node) != gneiss::engine::error::success ||
+          scene, triangle, generic_node) != gneiss::error::success ||
       gneiss::test_support::scene_access{*application}->reparent_node(
-          scene, generic_node, triangle) != gneiss::engine::error::invalid_argument ||
+          scene, generic_node, triangle) != gneiss::error::invalid_argument ||
       gneiss::test_support::take_value(
           find_info(*gneiss::test_support::scene_access{*application}, scene, generic_node),
-          triangle_info) != gneiss::engine::error::success ||
+          triangle_info) != gneiss::error::success ||
       triangle_info.node != generic_node || triangle_info.name != "Group" ||
       triangle_info.local_transform.translation[1] != 2.0F || !triangle_info.components.empty()) {
     return 13;
@@ -414,7 +414,7 @@ int main() try {
       rebuilt_binding->material != retained->material)
     return 21;
   if (gneiss::test_support::scene_access{*application}->reparent_node(
-          scene, triangle, camera_node) != gneiss::engine::error::success) {
+          scene, triangle, camera_node) != gneiss::error::success) {
     return 24;
   }
   // 同名运行对象可以重复创建，身份由实体 ID 区分。
@@ -425,23 +425,23 @@ int main() try {
     return 5;
   if (gneiss::test_support::assign_mesh(*application->native_world(), application->assets(), scene,
                                         created_node, missing_mesh_uri,
-                                        material_uri) != gneiss::engine::error::not_found) {
+                                        material_uri) != gneiss::error::not_found) {
     return 6;
   }
   gneiss::entity_id camera_entity;
-  gneiss::engine::math::transform transform;
+  gneiss::math::transform transform;
   transform.translation[0] = 5.0F;
-  gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
+  gneiss::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   camera.near = 0.25F;
   if (gneiss::test_support::assign_value(
           application->native_world()->object(gneiss::entity_id{(camera_node).get()}),
-          camera_entity) != gneiss::engine::error::success ||
+          camera_entity) != gneiss::error::success ||
       application->native_world()->find(camera_entity).set_local_transform(transform) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       application->native_world()
               ->find(camera_entity)
-              .try_component<gneiss::engine::camera_component>()
-              ->set_settings(camera) != gneiss::engine::error::success ||
+              .try_component<gneiss::camera_component>()
+              ->set_settings(camera) != gneiss::error::success ||
       application->native_world()
           ->find(gneiss::entity_id{(camera_node).get()})
           .set_name("Runtime Camera")
@@ -457,57 +457,57 @@ int main() try {
   if (!runtime_camera || runtime_camera->node != camera_node ||
       runtime_camera->name != "Runtime Camera" ||
       runtime_camera->local_transform.translation.x != 5.0F ||
-      !runtime_camera->components.get<gneiss::engine::camera_description>() ||
-      runtime_camera->components.get<gneiss::engine::camera_description>()->settings.near !=
+      !runtime_camera->components.get<gneiss::camera_description>() ||
+      runtime_camera->components.get<gneiss::camera_description>()->settings.near !=
           0.25F ||
       runtime_mesh != "Created Mesh" || runtime_group != "Group" ||
       gneiss::test_support::scene_access{*second_application}->get_node_count(scene).error() !=
-          gneiss::engine::error::invalid_handle)
+          gneiss::error::invalid_handle)
     return 8;
   if (gneiss::test_support::scene_access{*application}->destroy_node(scene, camera_node) !=
-          gneiss::engine::error::invalid_state ||
+          gneiss::error::invalid_state ||
       gneiss::test_support::scene_access{*application}->destroy_node(scene, created_node) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       gneiss::test_support::scene_access{*application}->destroy_node(scene, generic_node) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       gneiss::test_support::scene_access{*application}->destroy_node(scene, created_node) !=
-          gneiss::engine::error::invalid_handle ||
+          gneiss::error::invalid_handle ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->get_node_count(scene), node_count) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       node_count != 2U ||
       gneiss::test_support::assign_value(application->native_world()->entity_count(),
-                                         entity_count) != gneiss::engine::error::success ||
+                                         entity_count) != gneiss::error::success ||
       entity_count != 2U) {
     return 9;
   }
   // 原生 World 无需 attach 集合或提供描述 UUID，也能独立管理场景。
   {
-    auto native = gneiss::engine::create_native();
-    auto other = gneiss::engine::create_native();
+    auto native = gneiss::create_native();
+    auto other = gneiss::create_native();
     if (!native || !other)
       return 15;
     auto instance = (*native)->create_scene();
     if (!instance || !instance->is_valid() || *instance->size() != 0U)
       return 16;
-    std::map<gneiss::engine::object_address, gneiss::engine::scene_object_association> mapping;
+    std::map<gneiss::object_address, gneiss::scene_object_association> mapping;
     auto applied_native =
-        gneiss::engine::apply_scene(**native, instance->id(), mapping, {}, {}, {});
+        gneiss::apply_scene(**native, instance->id(), mapping, {}, {}, {});
     if (!applied_native || !*applied_native)
       return 19;
     auto object = instance->create_object({"Direct", {}});
     if (!object || !*instance->contains(*object) || *instance->contains({}) ||
         *instance->size() != 1U ||
-        gneiss::engine::scene_instance::borrow(**other, instance->id()).error() !=
-            gneiss::engine::error::invalid_handle)
+        gneiss::scene_instance::borrow(**other, instance->id()).error() !=
+            gneiss::error::invalid_handle)
       return 17;
     auto target_scene = (*native)->create_scene();
     if (!target_scene)
       return 20;
     auto target_parent = target_scene->create_object({"Parent", {}});
-    gneiss::engine::math::transform root_transform;
+    gneiss::math::transform root_transform;
     root_transform.scale = {2.0F, 1.0F, 1.0F};
-    gneiss::engine::math::transform child_transform;
+    gneiss::math::transform child_transform;
     child_transform.rotation = {0.9238795F, 0.0F, 0.0F, 0.3826834F};
     if (!target_parent || object->set_local_transform(root_transform).failed())
       return 21;
@@ -515,11 +515,11 @@ int main() try {
     if (!child)
       return 22;
     auto matrix = child->world_matrix();
-    if (!matrix || *matrix != gneiss::engine::math::model_matrix(root_transform) *
-                                  gneiss::engine::math::model_matrix(child_transform))
+    if (!matrix || *matrix != gneiss::math::model_matrix(root_transform) *
+                                  gneiss::math::model_matrix(child_transform))
       return 23;
     if ((*native)->transfer_subtree(*object, *instance, *child) !=
-            gneiss::engine::error::invalid_argument ||
+            gneiss::error::invalid_argument ||
         *instance->size() != 2U)
       return 24;
     if ((*native)->transfer_subtree(*object, *target_scene, *target_parent).failed() ||
@@ -532,7 +532,7 @@ int main() try {
             ->visit_objects(
                 [&](auto) {
                   ++visited;
-                  return gneiss::engine::error::success;
+                  return gneiss::error::success;
                 },
                 true)
             .failed() ||
@@ -541,64 +541,64 @@ int main() try {
     visited = 0;
     if (target_scene->visit_objects([&](auto) {
           ++visited;
-          return gneiss::engine::error::io;
-        }) != gneiss::engine::error::io ||
+          return gneiss::error::io;
+        }) != gneiss::error::io ||
         visited != 1U)
       return 27;
     // 原场景卸载不能删除已迁出的对象；目标场景卸载统一回收整棵子树。
     if (instance->unload().failed() || !object->is_valid() || !child->is_valid())
       return 28;
     instance = std::move(target_scene);
-    gneiss::engine::error worker_status;
+    gneiss::error worker_status;
     std::thread worker([&] { worker_status = instance->unload(); });
     worker.join();
-    if (worker_status != gneiss::engine::error::invalid_state || instance->unload().failed() ||
+    if (worker_status != gneiss::error::invalid_state || instance->unload().failed() ||
         instance->is_valid() || object->is_valid())
       return 18;
   }
-  const gneiss::engine::guid empty_uuid =
-      *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000099");
+  const gneiss::guid empty_uuid =
+      *gneiss::guid::parse("00000000-0000-4000-8000-000000000099");
   gneiss::scene_instance_id empty_scene = gneiss::scene_instance_id{};
   std::uint64_t empty_count = 1U;
   if (gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->create_empty({}), empty_scene) !=
-          gneiss::engine::error::invalid_argument ||
+          gneiss::error::invalid_argument ||
       empty_scene != gneiss::scene_instance_id{} ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->create_empty(empty_uuid),
-          empty_scene) != gneiss::engine::error::success ||
+          empty_scene) != gneiss::error::success ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->get_node_count(empty_scene),
-          empty_count) != gneiss::engine::error::success ||
+          empty_count) != gneiss::error::success ||
       empty_count != 0U ||
       gneiss::test_support::scene_access{*application}->unload(empty_scene) !=
-          gneiss::engine::error::success) {
+          gneiss::error::success) {
     return 13;
   }
   // 槽位复用不能恢复旧场景身份，也不能误删新场景。
   auto reused_scene = gneiss::test_support::scene_access{*application}->create_empty(empty_uuid);
   if (!reused_scene || *reused_scene == empty_scene ||
       gneiss::test_support::scene_access{*application}->get_node_count(empty_scene).error() !=
-          gneiss::engine::error::invalid_handle ||
+          gneiss::error::invalid_handle ||
       gneiss::test_support::scene_access{*application}->unload(empty_scene) !=
-          gneiss::engine::error::invalid_handle ||
+          gneiss::error::invalid_handle ||
       !gneiss::test_support::scene_access{*application}->get_node_count(*reused_scene) ||
       gneiss::test_support::scene_access{*application}->unload(*reused_scene).failed()) {
     return 14;
   }
   if (gneiss::test_support::scene_access{*second_application}->unload(scene) !=
-          gneiss::engine::error::invalid_handle ||
+          gneiss::error::invalid_handle ||
       gneiss::test_support::scene_access{*application}->unload(scene) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       gneiss::test_support::scene_access{*application}->unload(scene) !=
-          gneiss::engine::error::invalid_handle ||
+          gneiss::error::invalid_handle ||
       gneiss::test_support::assign_value(application->native_world()->entity_count(),
-                                         entity_count) != gneiss::engine::error::success ||
+                                         entity_count) != gneiss::error::success ||
       entity_count != 0U) {
     return 10;
   }
-  if (second_application->shutdown() != gneiss::engine::error::success ||
-      application->shutdown() != gneiss::engine::error::success) {
+  if (second_application->shutdown() != gneiss::error::success ||
+      application->shutdown() != gneiss::error::success) {
     return 11;
   }
 
@@ -606,19 +606,19 @@ int main() try {
   scene = gneiss::scene_instance_id{};
   if (failing_application == nullptr ||
       gneiss::test_support::load_scene(*failing_application, missing_uri, &scene) !=
-          gneiss::engine::error::not_found ||
+          gneiss::error::not_found ||
       scene != gneiss::scene_instance_id{} ||
       gneiss::test_support::load_scene(*failing_application, corrupt_uri, &scene) !=
-          gneiss::engine::error::invalid_argument ||
+          gneiss::error::invalid_argument ||
       scene != gneiss::scene_instance_id{} ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*failing_application}->create_empty(empty_uuid),
-          scene) != gneiss::engine::error::success ||
+          scene) != gneiss::error::success ||
       gneiss::test_support::scene_access{*failing_application}->unload(scene) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       gneiss::test_support::assign_value(failing_application->native_world()->entity_count(),
-                                         entity_count) != gneiss::engine::error::success ||
-      entity_count != 0U || failing_application->shutdown() != gneiss::engine::error::success) {
+                                         entity_count) != gneiss::error::success ||
+      entity_count != 0U || failing_application->shutdown() != gneiss::error::success) {
     return 12;
   }
   return 0;

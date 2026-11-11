@@ -7,7 +7,7 @@
 #include <optional>
 #include <type_traits>
 #include <utility>
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 struct optional_ops {
   const detail::type_ops& (*element)();
   bool (*has_value)(const void*);

@@ -33,8 +33,8 @@ struct author_hierarchy_view final {
 struct author_hierarchy_request final {
   author_hierarchy_action action = author_hierarchy_action::none;
   entity_id node;
-  gneiss::engine::guid uuid;
-  gneiss::engine::object_address parent;
+  gneiss::guid uuid;
+  gneiss::object_address parent;
 };
 
 [[nodiscard]] author_hierarchy_request draw_author_hierarchy(const author_hierarchy_view& view);

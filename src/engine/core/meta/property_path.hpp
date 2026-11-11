@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/core/meta/instance.hpp"
 #include <variant>
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 /** 字段 ID、位置下标、映射字符串键、序列稳定身份。 */
 using property_step = std::variant<property_id, std::size_t, std::string, guid>;
 template <> struct variant_case_traits<property_step> {

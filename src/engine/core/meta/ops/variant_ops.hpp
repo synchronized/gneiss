@@ -9,7 +9,7 @@
 #include <span>
 #include <string_view>
 #include <variant>
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 /** 稳定分支名显式配置；供视图查询和持久化使用，未配置时仍支持按索引访问。 */
 template <class T> struct variant_case_traits {};
 struct variant_ops {
@@ -30,13 +30,13 @@ template <class... T> struct variant_traits<std::variant<T...>> {
   static auto& storage(storage_type& v) noexcept { return v; }
   static const auto& storage(const storage_type& v) noexcept { return v; }
 };
-template <> struct variant_traits<engine::value> {
+template <> struct variant_traits<gneiss::value> {
   static constexpr bool enabled = true;
-  using storage_type = engine::value::storage_type;
-  static auto& storage(engine::value& v) noexcept { return v.payload; }
-  static const auto& storage(const engine::value& v) noexcept { return v.payload; }
+  using storage_type = gneiss::value::storage_type;
+  static auto& storage(gneiss::value& v) noexcept { return v.payload; }
+  static const auto& storage(const gneiss::value& v) noexcept { return v.payload; }
 };
-template <> struct variant_case_traits<engine::value> {
+template <> struct variant_case_traits<gneiss::value> {
   static constexpr std::array<std::string_view, 22> names{"invalid",
                                                           "bool",
                                                           "int64",

@@ -51,7 +51,7 @@ enum class asset_status_tone { normal, success, error };
 
 struct asset_watch_view final {
   std::string_view root;
-  gneiss::engine::error operation = gneiss::engine::error::success;
+  gneiss::error operation = gneiss::error::success;
   std::uint64_t dropped = 0U;
   bool waiting = false;
 };
@@ -82,11 +82,11 @@ struct asset_scene_load_view final {
 
 struct asset_reload_item_view final {
   std::string_view uri;
-  gneiss::engine::error operation{gneiss::engine::error::not_ready};
+  gneiss::error operation{gneiss::error::not_ready};
   bool applied{};
 };
 struct asset_reload_view final {
-  gneiss::engine::error publish_result = gneiss::engine::error::success;
+  gneiss::error publish_result = gneiss::error::success;
   bool visible = false;
   asset_status_tone tone = asset_status_tone::normal;
   std::uint64_t revision = 0U;
@@ -105,8 +105,8 @@ struct asset_browser_view final {
   std::array<asset_watch_view, 2> watches;
   bool source_rescanning = false;
   bool author_rescanning = false;
-  gneiss::engine::error source_scan_result = gneiss::engine::error::success;
-  gneiss::engine::error author_scan_result = gneiss::engine::error::success;
+  gneiss::error source_scan_result = gneiss::error::success;
+  gneiss::error author_scan_result = gneiss::error::success;
   std::string_view worker_stage;
   std::string_view worker_source;
   std::string_view worker_error;
@@ -128,7 +128,7 @@ struct asset_browser_view final {
   bool can_apply = false;
   bool can_edit_material = false;
   bool scene_edit_attempted = false;
-  gneiss::engine::error scene_edit_result = gneiss::engine::error::success;
+  gneiss::error scene_edit_result = gneiss::error::success;
 };
 
 [[nodiscard]] asset_browser_request draw_asset_browser_panel(asset_browser_model& model,

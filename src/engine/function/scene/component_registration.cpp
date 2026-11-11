@@ -13,7 +13,7 @@
 
 #include "engine/function/scene/detail/camera_selection_state.hpp"
 #include "engine/function/scene/detail/component_storage.hpp"
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 template <> struct component_policy<camera_component> {
   static void removed(world_state& state, entity_id entity) {
     auto& selection = state.context<camera_selection_state>();
@@ -23,7 +23,7 @@ template <> struct component_policy<camera_component> {
 };
 }
 
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 // 独立候选按反射内容恢复，不让内嵌 ref 的浅拷贝改写来源描述。
 result<component_description> copy_candidate(const component_description& source) {
@@ -87,10 +87,10 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
       return typed;
     }
     // 普通属性编辑保留当前资源；固定文档引用由上面的 lookup 明确提供。
-    auto current = context.target.try_component<gneiss::engine::mesh_renderer_component>();
+    auto current = context.target.try_component<gneiss::mesh_renderer_component>();
     if (current) {
       ref<const T> existing;
-      if constexpr (std::same_as<T, engine::mesh>)
+      if constexpr (std::same_as<T, gneiss::mesh>)
         existing = current->value.mesh;
       else
         existing = current->value.material;
@@ -103,10 +103,10 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
     return loaded ? result<ref<const T>>{loaded->template get<T>()}
                   : result<ref<const T>>{loaded.error()};
   };
-  auto mesh = resolve.template operator()<engine::mesh>(value.mesh_uri);
+  auto mesh = resolve.template operator()<gneiss::mesh>(value.mesh_uri);
   if (!mesh)
     return mesh.error();
-  auto material = resolve.template operator()<engine::material>(value.material_uri);
+  auto material = resolve.template operator()<gneiss::material>(value.material_uri);
   if (!material)
     return material.error();
   if (context.resources && ((*mesh && !context.resources->owns(*mesh)) ||
@@ -119,7 +119,7 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
   return context.target.add_component<mesh_renderer_component>(mesh_renderer{*mesh, *material});
 }
 result<std::optional<mesh_renderer_description>> mesh_capture(game_object target) {
-  auto value = target.try_component<gneiss::engine::mesh_renderer_component>();
+  auto value = target.try_component<gneiss::mesh_renderer_component>();
   if (!value)
     return std::optional<mesh_renderer_description>{};
   return std::optional<mesh_renderer_description>{
@@ -137,7 +137,7 @@ struct adapter_registry {
          .capture = camera_capture,
          .remove =
              [](game_object target) {
-               return target.remove_component<gneiss::engine::camera_component>();
+               return target.remove_component<gneiss::camera_component>();
              },
          .equal =
              [](const camera_description& a, const camera_description& b) {
@@ -151,7 +151,7 @@ struct adapter_registry {
          .capture = mesh_capture,
          .remove =
              [](game_object target) {
-               return target.remove_component<gneiss::engine::mesh_renderer_component>();
+               return target.remove_component<gneiss::mesh_renderer_component>();
              },
          .equal =
              [](const mesh_renderer_description& a, const mesh_renderer_description& b) {
@@ -476,12 +476,12 @@ error edit_runtime_component(component_context context, guid type, meta::propert
     return error::not_found;
   auto reflected = meta::find_type(adapter->type);
   if (!reflected)
-    return gneiss::engine::error{gneiss::engine::error::not_found};
+    return gneiss::error{gneiss::error::not_found};
   auto properties = reflected.properties();
   if (!reflected.registered())
     return error::not_found;
   for (const auto& field : properties) {
-    if (field.id() == property && gneiss::engine::is_edit_read_only(field))
+    if (field.id() == property && gneiss::is_edit_read_only(field))
       return error::unsupported;
   }
   auto candidate = copy_candidate(**current);
@@ -493,7 +493,7 @@ error edit_runtime_component(component_context context, guid type, meta::propert
 
 }
 
-namespace gneiss::engine {
+namespace gneiss {
 result<value> read_component_property(world& world, std::uint64_t entity, guid type,
                                       meta::property_id field) {
   if (type != math::transform::type_guid)
@@ -511,7 +511,7 @@ result<value> read_component_property(world& world, std::uint64_t entity, guid t
   return member ? member->read_value() : result<value>{member.error()};
 }
 error write_component_property(world& world, std::uint64_t entity, guid type,
-                               meta::property_id field, const engine::value& value) {
+                               meta::property_id field, const gneiss::value& value) {
   auto target = world.object(entity_id{entity});
   if (!target)
     return target.error();
@@ -530,7 +530,7 @@ error write_component_property(world& world, std::uint64_t entity, guid type,
 
 }
 
-namespace gneiss::engine {
+namespace gneiss {
 template camera_component* game_object::try_component<camera_component>() const;
 template mesh_renderer_component* game_object::try_component<mesh_renderer_component>() const;
 template error game_object::insert_component<camera_component>(camera_component) const;

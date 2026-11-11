@@ -8,7 +8,7 @@
 #include <string_view>
 #include <type_traits>
 
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 
 namespace canonical_type_name_detail {
 
@@ -84,6 +84,6 @@ template <typename T> [[nodiscard]] constexpr std::string_view canonical_cpp_typ
   return canonical_cpp_type_name_impl<type>();
 }
 
-} // namespace gneiss::engine::detail
+} // namespace gneiss::detail
 
 #endif

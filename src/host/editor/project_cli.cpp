@@ -21,7 +21,7 @@
 
 namespace {
 
-int fail(std::string_view stage, gneiss::engine::error operation) {
+int fail(std::string_view stage, gneiss::error operation) {
   std::cerr << "Gneiss 工程操作失败：阶段=" << stage << "，结果=" << operation.code()
             << "，消息=" << operation.message() << '\n';
   return 1;

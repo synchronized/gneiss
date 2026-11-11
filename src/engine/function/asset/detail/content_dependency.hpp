@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/function/asset/asset_loader.hpp"
 #include "engine/function/asset/asset_manager.hpp"
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 /** 类型化结果槽；声明阶段不读取文件，只有管理器推进时才提交请求。 */
 template <class T, class Content> class content_dependency final : public asset_dependency {
 public:

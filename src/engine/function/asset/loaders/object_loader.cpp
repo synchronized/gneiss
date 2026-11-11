@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/asset/asset_reference_context.hpp"
 #include "engine/function/asset/detail/loader_factory.hpp"
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 namespace {
 struct object_loader final : asset_loader {
   std::shared_ptr<const asset_decoder> decoder;

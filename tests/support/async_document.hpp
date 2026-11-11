@@ -7,14 +7,14 @@
 #include "scene_access.hpp"
 #include "scene_instantiation.hpp"
 namespace gneiss::test_support {
-inline engine::error open_document(editor::scene_edit_session& document, runtime::application& app,
-                                   engine::world* world, std::string_view uri,
-                                   engine::task_scheduler* tasks = nullptr) {
+inline gneiss::error open_document(editor::scene_edit_session& document, runtime::application& app,
+                                   gneiss::world* world, std::string_view uri,
+                                   gneiss::tasks::task_scheduler* tasks = nullptr) {
   if (world != app.native_world())
-    return engine::error::invalid_argument;
-  engine::scene_content prepared;
-  engine::ref<const engine::scene> source;
-  engine::scene_resource_bindings bindings;
+    return gneiss::error::invalid_argument;
+  gneiss::scene_content prepared;
+  gneiss::ref<const gneiss::scene> source;
+  gneiss::scene_resource_bindings bindings;
   auto status = prepare_scene(app, uri, prepared, bindings, tasks, &source, true);
   if (status.failed())
     return status;

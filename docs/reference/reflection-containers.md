@@ -83,7 +83,7 @@ component_descriptions 使用此方式拒绝空组件和重复类型，保留多
 其他不支持 resize 的序列改变长度返回 unsupported。保持原长度允许作为无操作成功。
 
 ```cpp
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 template<> struct sequence_traits<my_numbers> {
   static constexpr bool enabled = true;
   using element = float;
@@ -130,7 +130,7 @@ valueless_by_exception 状态下 index/value 返回 invalid_state；select 可�
 
 ```cpp
 using choice = std::variant<float, std::string>;
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 template <> struct variant_case_traits<choice> {
   static constexpr std::array<std::string_view, 2> names{"number", "text"};
 };
@@ -147,5 +147,5 @@ monostate 使用 empty 类型类别，内容保存为 null。
 Variant 本身不支持 read_value，须先 value() 取得当前分支。此能力不自动增加编辑器切换控件。
 
 `meta::property_step` 显式使用 property/index/key/element 标签；property_id 作为范围受限的 uint32 数值编解码。
-`engine::value` 使用同一 variant 包装，variant_traits 将访问转交给 payload。
+`gneiss::value` 使用同一 variant 包装，variant_traits 将访问转交给 payload。
 自定义包装类型可提供 storage_type 与可变/只读 storage()；分支名仍通过 variant_case_traits 配置。

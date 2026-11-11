@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 #include <type_traits>
-using gneiss::engine::error;
+using gneiss::error;
 static_assert(sizeof(error) == sizeof(std::int32_t));
 static_assert(std::is_trivially_copyable_v<error>);
 static_assert(std::is_standard_layout_v<error>);
@@ -22,7 +22,7 @@ static_assert(error{std::numeric_limits<std::int32_t>::min()}.code() ==
               std::numeric_limits<std::int32_t>::min());
 static_assert(error{std::numeric_limits<std::int32_t>::max()}.code() ==
               std::numeric_limits<std::int32_t>::max());
-using gneiss::engine::result;
+using gneiss::result;
 struct move_only {
   inline static int alive = 0;
   explicit move_only(int v) : value(v) { ++alive; }

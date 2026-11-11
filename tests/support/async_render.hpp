@@ -9,19 +9,19 @@
 #include <chrono>
 #include <stdexcept>
 namespace gneiss::test_support {
-inline engine::task_scheduler& render_tasks() { return asset_tasks(); }
-inline engine::error load_render(engine::asset_manager& loader, engine::render_resource_kind type,
-                                 std::string_view uri, engine::render_resource_ref& output,
-                                 engine::asset_diagnostic& diagnostic) {
+inline gneiss::tasks::task_scheduler& render_tasks() { return asset_tasks(); }
+inline gneiss::error load_render(gneiss::asset_manager& loader, gneiss::render_resource_kind type,
+                                 std::string_view uri, gneiss::render_resource_ref& output,
+                                 gneiss::asset_diagnostic& diagnostic) {
   auto status = gneiss::test_support::take_value(loader.find({std::string(uri), type}), output);
-  if (status != engine::error::not_found)
+  if (status != gneiss::error::not_found)
     return status;
   auto& tasks = render_tasks();
   status = loader.configure(tasks);
   if (status.failed())
     return status;
-  const engine::render_resource_source source{std::string(uri), type};
-  engine::resource_load_group group{loader};
+  const gneiss::render_resource_source source{std::string(uri), type};
+  gneiss::resource_load_group group{loader};
   auto request = group.begin(std::span(&source, 1), false);
   if (!request)
     return request.error();
@@ -31,7 +31,7 @@ inline engine::error load_render(engine::asset_manager& loader, engine::render_r
     (void)loader.async_files()->dispatch_completions(64);
     loader.advance();
     group.advance();
-    engine::asset_load_completion completion;
+    gneiss::asset_load_completion completion;
     if (group.take(completion)) {
       diagnostic = {completion.result, completion.byte_offset, std::move(completion.path),
                     std::move(completion.message)};

@@ -19,7 +19,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 namespace detail {
 struct type_ops;
 struct property_record;
@@ -60,7 +60,7 @@ template <property_flag_type T> [[nodiscard]] constexpr bool has_flags(T value, 
 }
 struct property_definition {
   property_id id{};
-  engine::guid type_guid{};
+  gneiss::guid type_guid{};
   property_access access = property_access::read_write;
   std::string_view name{};
   meta::metadata extensions{};
@@ -73,7 +73,7 @@ struct property_binding {
   error (*getter)(void*, const void*, value&) = nullptr;
   error (*setter)(void*, void*, const value&) = nullptr;
   void* user_data{};
-  engine::type_id object_type{};
+  gneiss::type_id object_type{};
   /** 借用成员地址，仅在父对象存活且地址稳定时有效；可写访问用于解码临时对象。 */
   const void* (*object_getter)(const void*){};
   void* (*object_mutator)(void*){};
@@ -82,12 +82,12 @@ struct property_binding {
   /** 受约束属性只允许整项替换；失败须保持原对象，不提供可写成员地址。 */
   error (*object_setter)(void*, const void*){};
   ref<void> (*object_construct)(){};
-  engine::type_id enum_type{};
+  gneiss::type_id enum_type{};
   const detail::type_ops* access{}; // 静态只读操作表，不持有对象。
 };
-} // namespace gneiss::engine::meta
+} // namespace gneiss::meta
 
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 class type;
 template <bool Mutable> class basic_instance;
 using const_instance = basic_instance<false>;
@@ -103,11 +103,11 @@ public:
   template <class T> [[nodiscard]] const T* extension() const noexcept {
     return static_cast<const T*>(extension(runtime_type_of<T>()));
   }
-  [[nodiscard]] GNEISS_API const void* extension(engine::type_id) const noexcept;
+  [[nodiscard]] GNEISS_API const void* extension(gneiss::type_id) const noexcept;
   [[nodiscard]] GNEISS_API property_id id() const noexcept;
   [[nodiscard]] GNEISS_API std::string_view name() const noexcept;
-  [[nodiscard]] GNEISS_API engine::guid declaring_type() const noexcept;
-  [[nodiscard]] GNEISS_API engine::type_id declaring_type_id() const noexcept;
+  [[nodiscard]] GNEISS_API gneiss::guid declaring_type() const noexcept;
+  [[nodiscard]] GNEISS_API gneiss::type_id declaring_type_id() const noexcept;
   [[nodiscard]] GNEISS_API meta::type type() const;
   [[nodiscard]] GNEISS_API property_capabilities capabilities() const noexcept;
   [[nodiscard]] GNEISS_API result<const_instance> get(const const_instance&) const;

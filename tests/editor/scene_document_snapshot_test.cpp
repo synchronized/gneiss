@@ -6,7 +6,7 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/resource/asset_file.hpp"
-namespace e = gneiss::engine;
+namespace e = gneiss;
 namespace ed = gneiss::editor;
 struct linked_description
     : e::meta::object_type<linked_description, e::component_description_base> {

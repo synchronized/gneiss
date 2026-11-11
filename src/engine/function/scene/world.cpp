@@ -8,7 +8,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/detail/world_component_access.hpp"
 #include "engine/function/scene/detail/world_state.hpp"
-namespace gneiss::engine {
+namespace gneiss {
 result<world_state*> detail::world_component_access::get(world& owner) noexcept {
   if (!owner.is_owner_thread())
     return error::invalid_state;
@@ -39,8 +39,8 @@ result<std::uint64_t> world::entity_count() {
   {
     auto* state = state_.get();
     const auto thread_result =
-        (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
-    if (thread_result != engine::error::success) {
+        (is_owner_thread() ? gneiss::error::success : gneiss::error::invalid_state);
+    if (thread_result != gneiss::error::success) {
       return thread_result;
     }
     return static_cast<std::uint64_t>(state->entity_count());

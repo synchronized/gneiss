@@ -13,7 +13,7 @@
 #include <string_view>
 #include <type_traits>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 /**
  * @brief C++ 类型到 引擎类型名的默认映射。
@@ -140,6 +140,6 @@ struct has_type_name<
 
 template <typename T> inline constexpr bool has_type_name_v = detail::has_type_name<T>::value;
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

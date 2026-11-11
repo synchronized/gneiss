@@ -129,3 +129,5 @@ Reference 和实现为准。
 - [ADR-118：持久渲染场景、增量同步与帧视图边界](ADR-118-persistent-render-scene.md)
 
 - [ADR-119：对象级通知与独立结构化日志](ADR-119-events-and-logging.md)
+
+- [ADR-120 领域命名空间](ADR-120-domain-namespaces.md)

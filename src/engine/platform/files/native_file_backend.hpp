@@ -4,10 +4,10 @@
 #include "engine/platform/files/file_backend.hpp"
 #include <memory>
 #include <string>
-namespace gneiss::engine {
+namespace gneiss {
 class uv_loop_executor;
 }
-namespace gneiss::engine::files {
+namespace gneiss::files {
 /** 桌面异步文件后端；借用执行器，须存活至所有请求收尾。
  * 根目录必须已存在；写入不创建父目录。每次成功写入均先 fsync 再关闭。
  * 路径解析拒绝根目录外的目标；不提供抵抗并发恶意符号链接替换的安全沙箱。 */

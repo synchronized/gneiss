@@ -39,7 +39,7 @@ namespace {
 
 [[nodiscard]] bool write_mesh(const import_ir_primitive& primitive,
                               const std::filesystem::path& path) {
-  gneiss::engine::mesh_binary_data data;
+  gneiss::mesh_binary_data data;
   data.vertices.reserve(primitive.vertices.size());
   data.tangents.reserve(primitive.vertices.size());
   data.indices = primitive.indices;
@@ -55,7 +55,7 @@ namespace {
          .texcoord = {source.texcoord[0], source.texcoord[1]},
          .normal = {source.normal[0], source.normal[1], source.normal[2]}});
   }
-  auto bytes = gneiss::engine::encode_mesh_binary(data);
+  auto bytes = gneiss::encode_mesh_binary(data);
   if (!bytes) {
     return false;
   }
@@ -78,7 +78,7 @@ template <class Bytes> bool write_bytes(const std::filesystem::path& path, const
 [[nodiscard]] bool write_material(const import_ir_material& material,
                                   const std::filesystem::path& path,
                                   std::string_view asset_uri_prefix) {
-  engine::material_description description;
+  gneiss::material_description description;
   auto& p = description.parameters;
   p.color = {material.base_color[0], material.base_color[1], material.base_color[2],
              material.base_color[3]};
@@ -98,17 +98,17 @@ template <class Bytes> bool write_bytes(const std::filesystem::path& path, const
       description.texture_uris[slot] = std::string(asset_uri_prefix) + "textures/image-" +
                                        std::to_string(*images[slot]) +
                                        image_variant_suffixes[variants[slot]] + ".texture.json";
-  auto bytes = gneiss::engine::asset_file::serialize_bytes(description);
+  auto bytes = gneiss::asset_file::serialize_bytes(description);
   return bytes && write_bytes(path, *bytes);
 }
 
 [[nodiscard]] bool write_scene(const import_ir& data, const std::filesystem::path& path,
                                std::string_view asset_uri_prefix) {
-  engine::scene_description scene;
-  scene.uuid = *engine::guid::parse("00000000-0000-4000-8000-000000000000");
+  gneiss::scene_description scene;
+  scene.uuid = *gneiss::guid::parse("00000000-0000-4000-8000-000000000000");
   scene.objects.resize(data.nodes.size());
   auto renderer = [&](std::size_t mesh, std::size_t primitive) {
-    return engine::mesh_renderer_description{
+    return gneiss::mesh_renderer_description{
         std::string(asset_uri_prefix) + "models/" + mesh_name(mesh, primitive),
         std::string(asset_uri_prefix) + "materials/" +
             material_name(data.meshes[mesh].primitives[primitive])};
@@ -116,7 +116,7 @@ template <class Bytes> bool write_bytes(const std::filesystem::path& path, const
   for (std::size_t i = 0; i < data.nodes.size(); ++i) {
     const auto& node = data.nodes[i];
     auto& object = scene.objects[i];
-    object.uuid = *engine::guid::parse(uuid_for(i));
+    object.uuid = *gneiss::guid::parse(uuid_for(i));
     object.name = node.name;
     object.transform = {node.translation, node.rotation, node.scale};
     for (auto child : node.children)
@@ -124,7 +124,7 @@ template <class Bytes> bool write_bytes(const std::filesystem::path& path, const
     // 沿用导入对象的确定性索引规则，重复导入相同输入不改变组件身份。
     if (node.mesh_index && data.meshes[*node.mesh_index].primitives.size() == 1) {
       auto component = renderer(*node.mesh_index, 0);
-      component.uuid = *engine::guid::parse(uuid_for(i, true));
+      component.uuid = *gneiss::guid::parse(uuid_for(i, true));
       object.components.set(std::move(component));
     }
   }
@@ -133,16 +133,16 @@ template <class Bytes> bool write_bytes(const std::filesystem::path& path, const
     if (!node.mesh_index || data.meshes[*node.mesh_index].primitives.size() <= 1)
       continue;
     for (std::size_t j = 0; j < data.meshes[*node.mesh_index].primitives.size(); ++j) {
-      engine::game_object_description child;
-      child.uuid = *engine::guid::parse(uuid_for(scene.objects.size()));
+      gneiss::game_object_description child;
+      child.uuid = *gneiss::guid::parse(uuid_for(scene.objects.size()));
       child.parent.object = scene.objects[i].uuid;
       auto component = renderer(*node.mesh_index, j);
-      component.uuid = *engine::guid::parse(uuid_for(scene.objects.size(), true));
+      component.uuid = *gneiss::guid::parse(uuid_for(scene.objects.size(), true));
       child.components.set(std::move(component));
       scene.objects.push_back(std::move(child));
     }
   }
-  auto bytes = gneiss::engine::asset_file::serialize_bytes(scene);
+  auto bytes = gneiss::asset_file::serialize_bytes(scene);
   return bytes && write_bytes(path, *bytes);
 }
 
@@ -243,11 +243,11 @@ write_report write_assets_in_place(const import_ir& data,
                             std::ios::binary | std::ios::trunc);
         image.write(reinterpret_cast<const char*>(data.images[index].bytes.data()),
                     static_cast<std::streamsize>(data.images[index].bytes.size()));
-        engine::texture_description description{
+        gneiss::texture_description description{
             std::string(asset_uri_prefix) + "textures/" + base + ".png",
-            variant == 0U ? engine::texture_color_space::srgb : engine::texture_color_space::linear,
-            variant == 2U ? engine::texture_usage::normal : engine::texture_usage::default_usage};
-        auto texture = engine::detail::encode_texture(description);
+            variant == 0U ? gneiss::texture_color_space::srgb : gneiss::texture_color_space::linear,
+            variant == 2U ? gneiss::texture_usage::normal : gneiss::texture_usage::default_usage};
+        auto texture = gneiss::detail::encode_texture(description);
         if (!image.good() || !texture ||
             !write_bytes(output_directory / "textures" / (base + ".texture.json"), *texture))
           return {.success = false, .diagnostic = "写出 Texture 失败"};
@@ -277,7 +277,7 @@ bool remove_quietly(const std::filesystem::path& path) noexcept {
 
 write_report write_assets(const import_ir& data, const std::filesystem::path& output_directory,
                           std::string_view asset_uri_prefix) {
-  if (engine::initialize_meta() != engine::error::success)
+  if (gneiss::initialize_meta() != gneiss::error::success)
     return {.success = false, .diagnostic = "初始化资源类型失败"};
   if (output_directory.empty()) {
     return {.success = false, .diagnostic = "输出目录不能为空"};

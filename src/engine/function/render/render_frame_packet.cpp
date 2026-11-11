@@ -9,22 +9,22 @@
 #include <new>
 #include <utility>
 
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 
 template <typename Handle, typename Resource, typename Getter>
-engine::error capture_resource(Handle handle,
+gneiss::error capture_resource(Handle handle,
                                std::unordered_map<Handle, std::shared_ptr<const Resource>>& output,
                                Getter&& getter, bool pending = false) {
   if (output.contains(handle)) {
-    return engine::error::success;
+    return gneiss::error::success;
   }
   auto source = getter(handle);
   if (!source && !pending) {
-    return engine::error::invalid_handle;
+    return gneiss::error::invalid_handle;
   }
   output.emplace(handle, std::move(source));
-  return engine::error::success;
+  return gneiss::error::success;
 }
 
 } // namespace
@@ -57,7 +57,7 @@ const texture_data* render_resource_snapshot::get_texture(rid texture) const noe
   return found == textures_.end() ? nullptr : found->second.get();
 }
 
-engine::error capture_render_frame_packet(const native_window_info& window, render_snapshot scene,
+gneiss::error capture_render_frame_packet(const native_window_info& window, render_snapshot scene,
                                           const render_service& resources, const ui_draw_list& ui,
                                           const debug_draw_list& debug,
                                           render_frame_packet& out_packet) {
@@ -76,16 +76,16 @@ engine::error capture_render_frame_packet(const native_window_info& window, rend
       auto result = capture_resource(
           resource_handle(instance.mesh), candidate.resources.meshes_,
           [&](const auto handle) { return resources.share_mesh(handle); },
-          resources.mesh_status(resource_handle(instance.mesh)) == engine::error::not_ready);
-      if (result != engine::error::success) {
+          resources.mesh_status(resource_handle(instance.mesh)) == gneiss::error::not_ready);
+      if (result != gneiss::error::success) {
         return result;
       }
       result = capture_resource(
           resource_handle(instance.material), candidate.resources.materials_,
           [&](const auto handle) { return resources.share_material(handle); },
           resources.material_status(resource_handle(instance.material)) ==
-              engine::error::not_ready);
-      if (result != engine::error::success) {
+              gneiss::error::not_ready);
+      if (result != gneiss::error::success) {
         return result;
       }
       const auto& material = *candidate.resources.get_material(resource_handle(instance.material));
@@ -95,21 +95,21 @@ engine::error capture_render_frame_packet(const native_window_info& window, rend
         result = capture_resource(
             texture, candidate.resources.textures_,
             [&](const auto handle) { return resources.share_texture(handle); },
-            resources.texture_status(texture) == engine::error::not_ready);
-        if (result != engine::error::success) {
+            resources.texture_status(texture) == gneiss::error::not_ready);
+        if (result != gneiss::error::success) {
           return result;
         }
       }
     }
     for (const auto& command : candidate.ui.commands()) {
       // UI 尚未接入占位策略，不能让场景中捕获的空纹理条目绕过 UI 就绪检查。
-      if (resources.texture_status(resource_handle(command.texture)) == engine::error::not_ready) {
-        return engine::error::not_ready;
+      if (resources.texture_status(resource_handle(command.texture)) == gneiss::error::not_ready) {
+        return gneiss::error::not_ready;
       }
       const auto result =
           capture_resource(resource_handle(command.texture), candidate.resources.textures_,
                            [&](const auto handle) { return resources.share_texture(handle); });
-      if (result != engine::error::success) {
+      if (result != gneiss::error::success) {
         return result;
       }
     }
@@ -128,8 +128,8 @@ engine::error capture_render_frame_packet(const native_window_info& window, rend
             .count();
     candidate.capture.copied_payload_bytes = copied_payload_bytes;
     out_packet = std::move(candidate);
-    return engine::error::success;
+    return gneiss::error::success;
   }
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

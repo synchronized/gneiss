@@ -35,7 +35,7 @@ constexpr granit::texture_usage texture_usage =
 
 } // namespace
 
-runtime_texture_build_result build_runtime_texture(const gneiss::engine::texture_ktx2& source,
+runtime_texture_build_result build_runtime_texture(const gneiss::texture_ktx2& source,
                                                    std::vector<std::byte>& output,
                                                    std::string& diagnostic) {
   output.clear();
@@ -76,7 +76,7 @@ runtime_texture_build_result build_runtime_texture(const gneiss::engine::texture
       gneiss::tooling::bc7_image encoded;
       if (gneiss::tooling::encode_bc7_rgba8(
               level.width, level.height, level.pixels,
-              source.transfer == gneiss::engine::texture_transfer::srgb, encoded,
+              source.transfer == gneiss::texture_transfer::srgb, encoded,
               diagnostic) != gneiss::tooling::bc7_encode_result::success) {
         return runtime_texture_build_result::encode_failed;
       }
@@ -108,7 +108,7 @@ runtime_texture_build_result build_runtime_texture(const gneiss::engine::texture
     const auto layouts = std::span{subresources};
     const std::array variants{
         granit::asset_tools::texture::variant_desc{
-            .format = source.transfer == gneiss::engine::texture_transfer::srgb
+            .format = source.transfer == gneiss::texture_transfer::srgb
                           ? granit::texture_format::bc7_rgba_srgb
                           : granit::texture_format::bc7_rgba_unorm,
             .usage = texture_usage,
@@ -116,7 +116,7 @@ runtime_texture_build_result build_runtime_texture(const gneiss::engine::texture
             .subresources = layouts.first(rgba_first_subresource),
         },
         granit::asset_tools::texture::variant_desc{
-            .format = source.transfer == gneiss::engine::texture_transfer::srgb
+            .format = source.transfer == gneiss::texture_transfer::srgb
                           ? granit::texture_format::rgba8_srgb
                           : granit::texture_format::rgba8_unorm,
             .usage = texture_usage,
@@ -138,10 +138,10 @@ runtime_texture_build_result build_runtime_texture(const gneiss::engine::texture
       return fail(runtime_texture_build_result::encode_failed,
                   "Granit Texture Asset Manifest 构建失败", diagnostic);
     }
-    auto encoded = gneiss::engine::encode_texture_binary(built.manifest(), built.payload());
+    auto encoded = gneiss::encode_texture_binary(built.manifest(), built.payload());
     if (!encoded) {
       diagnostic = std::move(encoded.error().message);
-      return encoded.error().error == gneiss::engine::texture_binary_error::out_of_memory
+      return encoded.error().error == gneiss::texture_binary_error::out_of_memory
                  ? runtime_texture_build_result::out_of_memory
                  : runtime_texture_build_result::encode_failed;
     }

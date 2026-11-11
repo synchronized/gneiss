@@ -6,7 +6,7 @@
 #include <cassert>
 #include <type_traits>
 #include <utility>
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 // 仅在组件实现单元实例化，不把 EnTT 传播到对象使用方。
 template <class T> struct component_policy {
   static void removed(world_state&, entity_id) {}
@@ -22,7 +22,7 @@ inline result<world_state*> component_state(game_object object) {
   return *state;
 }
 }
-namespace gneiss::engine {
+namespace gneiss {
 template <class T> T* game_object::try_component() const {
   static_assert(!std::is_same_v<T, detail::object_state> &&
                     !std::is_same_v<T, detail::auxiliary_scene_membership>,

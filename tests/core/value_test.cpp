@@ -7,11 +7,11 @@
 #include <type_traits>
 #include <utility>
 
-static_assert(std::is_nothrow_move_constructible_v<gneiss::engine::value>);
-static_assert(std::is_nothrow_move_assignable_v<gneiss::engine::value>);
+static_assert(std::is_nothrow_move_constructible_v<gneiss::value>);
+static_assert(std::is_nothrow_move_assignable_v<gneiss::value>);
 
 int main() {
-  using namespace gneiss::engine;
+  using namespace gneiss;
   static_assert(!is_scalar_value_kind(value_kind::invalid));
   static_assert(!is_scalar_value_kind(value_kind::object));
   static_assert(!is_scalar_value_kind(static_cast<value_kind>(49)));
@@ -69,7 +69,7 @@ int main() {
                           value{1.0F},
                           value{1.0},
                           value{std::string{}},
-                          value{gneiss::engine::guid{}},
+                          value{gneiss::guid{}},
                           value{math::vector2{}},
                           value{math::vector3{}},
                           value{math::vector4{}},

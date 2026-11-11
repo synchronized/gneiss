@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <unordered_set>
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 error validate(const value& input, std::size_t depth, std::size_t maximum) {
   if (depth > maximum || input.payload.valueless_by_exception())

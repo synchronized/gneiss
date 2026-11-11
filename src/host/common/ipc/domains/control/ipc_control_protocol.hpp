@@ -33,23 +33,23 @@ enum class ipc_control_state : std::uint8_t {
   stopping = 5U,
 };
 
-[[nodiscard]] gneiss::engine::error
-encode_ipc_control_ready(gneiss::engine::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::error encode_ipc_control_state(ipc_control_state state,
-                                                             gneiss::engine::ipc_envelope& output);
-[[nodiscard]] gneiss::engine::error
-decode_ipc_control_state(const gneiss::engine::ipc_envelope& envelope,
+[[nodiscard]] gneiss::error
+encode_ipc_control_ready(gneiss::ipc_envelope& output) noexcept;
+[[nodiscard]] gneiss::error encode_ipc_control_state(ipc_control_state state,
+                                                             gneiss::ipc_envelope& output);
+[[nodiscard]] gneiss::error
+decode_ipc_control_state(const gneiss::ipc_envelope& envelope,
                          ipc_control_state& output) noexcept;
 
-[[nodiscard]] gneiss::engine::error
+[[nodiscard]] gneiss::error
 encode_ipc_control_request(ipc_control_operation operation, std::uint32_t request_id,
-                           gneiss::engine::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::error
-decode_ipc_control_request(const gneiss::engine::ipc_envelope& envelope,
+                           gneiss::ipc_envelope& output) noexcept;
+[[nodiscard]] gneiss::error
+decode_ipc_control_request(const gneiss::ipc_envelope& envelope,
                            ipc_control_operation& output) noexcept;
 
 /** 返回 Control 域的固定方向与消息语义规则。 */
-[[nodiscard]] std::span<const gneiss::engine::ipc_operation_descriptor>
+[[nodiscard]] std::span<const gneiss::ipc_operation_descriptor>
 ipc_control_operations() noexcept;
 
 } // namespace gneiss::host

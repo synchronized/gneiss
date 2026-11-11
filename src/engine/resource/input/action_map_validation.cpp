@@ -6,7 +6,7 @@
 
 #include <cmath>
 
-namespace gneiss::engine {
+namespace gneiss {
 serialization::diagnostic validate_action_map(const action_map_description& map) {
   if (map.actions.empty()) {
     return {
@@ -38,4 +38,4 @@ serialization::diagnostic validate_action_map(const action_map_description& map)
   return {};
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

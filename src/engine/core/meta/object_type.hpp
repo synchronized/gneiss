@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/core/meta/detail/type_ops.hpp"
 #include "engine/core/meta/object.hpp"
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 /** 为具体类型提供静态能力与完整对象地址；派生类型必须重新使用此模板。 */
 template <class T, class Base = object> class object_type : public Base {
 public:

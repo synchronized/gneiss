@@ -32,14 +32,14 @@ using namespace gneiss;
 
 namespace {
 
-const gneiss::engine::guid root_uuid =
-    *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000001");
-const gneiss::engine::guid sibling_uuid =
-    *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000003");
-const gneiss::engine::guid prefab_uuid =
-    *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000001");
-const gneiss::engine::guid instance_uuid =
-    *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000001");
+const gneiss::guid root_uuid =
+    *gneiss::guid::parse("10000000-0000-4000-8000-000000000001");
+const gneiss::guid sibling_uuid =
+    *gneiss::guid::parse("10000000-0000-4000-8000-000000000003");
+const gneiss::guid prefab_uuid =
+    *gneiss::guid::parse("20000000-0000-4000-8000-000000000001");
+const gneiss::guid instance_uuid =
+    *gneiss::guid::parse("30000000-0000-4000-8000-000000000001");
 
 constexpr std::string_view scene_json =
     R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","unknown_scene":"preserved","objects":[{"uuid":"10000000-0000-4000-8000-000000000001","name":"Lamp","parent":{"object":null,"source":null},"transform":{"translation":[2,3,4],"rotation":[0,0,0,1],"scale":[2,2,2]},"components":[],"unknown_object":7},{"uuid":"10000000-0000-4000-8000-000000000002","name":"Shade","parent":{"object":"10000000-0000-4000-8000-000000000001","source":null},"transform":{"translation":[0,1,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"uuid":"10000000-0000-4000-8000-000000000003","name":"Floor","parent":{"object":null,"source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]}]})";
@@ -184,36 +184,36 @@ create_rejections_are_valid(const gneiss::editor::create_prefab_author_request& 
       nested_scene.rfind(']'),
       R"(,{"uuid":"40000000-0000-4000-8000-000000000001","name":"Nested","parent":{"object":"10000000-0000-4000-8000-000000000002","source":null},"prefab":{"uri":"asset://prefabs/other.prefab.json","overrides":[]},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})");
   if (gneiss::editor::prepare_create_prefab(nested_scene, request, changes) !=
-          gneiss::engine::error::unsupported ||
+          gneiss::error::unsupported ||
       !changes.empty()) {
     return false;
   }
 
   auto missing = request;
-  missing.root_uuid = *gneiss::engine::guid::parse("50000000-0000-4000-8000-000000000001");
+  missing.root_uuid = *gneiss::guid::parse("50000000-0000-4000-8000-000000000001");
   if (gneiss::editor::prepare_create_prefab(scene_json, missing, changes) !=
-          gneiss::engine::error::not_found ||
+          gneiss::error::not_found ||
       !changes.empty()) {
     return false;
   }
   auto mismatched = request;
   mismatched.prefab_uri = "asset://prefabs/other.prefab.json";
   if (gneiss::editor::prepare_create_prefab(scene_json, mismatched, changes) !=
-          gneiss::engine::error::invalid_argument ||
+          gneiss::error::invalid_argument ||
       !changes.empty()) {
     return false;
   }
   auto duplicate = request;
   duplicate.instance_uuid = sibling_uuid;
   return gneiss::editor::prepare_create_prefab(scene_json, duplicate, changes) ==
-             gneiss::engine::error::invalid_argument &&
+             gneiss::error::invalid_argument &&
          changes.empty();
 }
 
 } // namespace
 
 int main() try {
-  if (gneiss::engine::initialize_meta().failed())
+  if (gneiss::initialize_meta().failed())
     return 99;
   const gneiss::editor::create_prefab_author_request request{
       .scene_path = "scenes/main.scene.json",
@@ -224,7 +224,7 @@ int main() try {
       .instance_uuid = instance_uuid};
   std::vector<gneiss::editor::author_document_change> changes;
   if (gneiss::editor::prepare_create_prefab(scene_json, request, changes) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       changes.size() != 2U || !verify_documents(changes)) {
     return 1;
   }
@@ -261,7 +261,7 @@ int main() try {
       .instance_uuid = instance_uuid};
   gneiss::editor::apply_prefab_author_plan apply_plan;
   if (gneiss::editor::prepare_apply_prefab(apply_scene_json, apply_prefab_json, apply_request,
-                                           apply_plan) != gneiss::engine::error::success ||
+                                           apply_plan) != gneiss::error::success ||
       !verify_apply_plan(apply_plan) ||
       !write_text(root / "scenes" / "main.scene.json", apply_scene_json) ||
       !write_text(root / "prefabs" / "lamp.prefab.json", apply_prefab_json) ||
@@ -271,15 +271,15 @@ int main() try {
       !editing.counts(0U, 4U)) {
     return 8;
   }
-  auto empty_scene = engine::asset_file::deserialize<engine::scene_description>(apply_scene_json);
+  auto empty_scene = gneiss::asset_file::deserialize<gneiss::scene_description>(apply_scene_json);
   if (!empty_scene)
     return 9;
   empty_scene->objects[0].prefab->overrides.clear();
-  auto empty_overrides = engine::asset_file::serialize(*empty_scene);
+  auto empty_overrides = gneiss::asset_file::serialize(*empty_scene);
   if (!empty_overrides)
     return 9;
   if (gneiss::editor::prepare_apply_prefab(*empty_overrides, apply_prefab_json, apply_request,
-                                           apply_plan) != gneiss::engine::error::not_ready ||
+                                           apply_plan) != gneiss::error::not_ready ||
       !apply_plan.changes.empty()) {
     return 10;
   }
@@ -289,11 +289,11 @@ int main() try {
   const std::array mappings{
       gneiss::editor::unpack_prefab_uuid_mapping{
           .source_node_uuid = root_uuid,
-          .target_node_uuid = *gneiss::engine::guid::parse("50000000-0000-4000-8000-000000000002")},
+          .target_node_uuid = *gneiss::guid::parse("50000000-0000-4000-8000-000000000002")},
       gneiss::editor::unpack_prefab_uuid_mapping{
-          .source_node_uuid = *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000002"),
+          .source_node_uuid = *gneiss::guid::parse("10000000-0000-4000-8000-000000000002"),
           .target_node_uuid =
-              *gneiss::engine::guid::parse("50000000-0000-4000-8000-000000000003")}};
+              *gneiss::guid::parse("50000000-0000-4000-8000-000000000003")}};
   const gneiss::editor::unpack_prefab_author_request unpack_request{
       .scene_path = "scenes/main.scene.json",
       .prefab_uri = "asset://prefabs/lamp.prefab.json",
@@ -314,7 +314,7 @@ int main() try {
       !unpack_changes.empty())
     return 30;
   if (gneiss::editor::prepare_unpack_prefab(apply_scene_json, apply_prefab_json, unpack_request,
-                                            unpack_changes) != gneiss::engine::error::success ||
+                                            unpack_changes) != gneiss::error::success ||
       !verify_unpack_change(unpack_changes) ||
       !write_text(root / "scenes" / "main.scene.json", apply_scene_json) ||
       !write_text(root / "prefabs" / "lamp.prefab.json", apply_prefab_json) ||
@@ -351,7 +351,7 @@ int main() try {
   invalid_unpack.node_mappings = duplicate_mappings;
   if (gneiss::editor::prepare_unpack_prefab(apply_scene_json, apply_prefab_json, invalid_unpack,
                                             unpack_changes) !=
-          gneiss::engine::error::invalid_argument ||
+          gneiss::error::invalid_argument ||
       !unpack_changes.empty()) {
     return 13;
   }

@@ -5,7 +5,7 @@
 #include "engine/core/meta/property.hpp"
 #include "engine/core/result.hpp"
 #include <limits>
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 GNEISS_API bool valid_scalar(const value&) noexcept;
 struct scalar_ops {
   value_kind kind = value_kind::invalid;

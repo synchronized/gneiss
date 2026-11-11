@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/meta/instance.hpp"
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 /** 借用当前分支；select 后所有旧分支视图失效。未配置标签不影响内存访问。 */
 template <bool Mutable> class basic_variant_view {
   using target_type = std::conditional_t<Mutable, instance, const_instance>;

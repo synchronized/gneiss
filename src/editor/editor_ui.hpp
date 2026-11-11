@@ -27,26 +27,26 @@ public:
   editor_layout() = default;
   editor_layout(const editor_layout&) = delete;
   editor_layout& operator=(const editor_layout&) = delete;
-  [[nodiscard]] engine::error initialize(std::shared_ptr<gneiss::engine::files::service> files,
+  [[nodiscard]] gneiss::error initialize(std::shared_ptr<gneiss::files::service> files,
                                          std::string_view project_key,
                                          editor_panel_visibility& visibility);
-  [[nodiscard]] engine::error advance(editor_panel_visibility& visibility);
-  [[nodiscard]] engine::error save(const editor_panel_visibility& visibility);
+  [[nodiscard]] gneiss::error advance(editor_panel_visibility& visibility);
+  [[nodiscard]] gneiss::error save(const editor_panel_visibility& visibility);
   [[nodiscard]] bool loading() const noexcept { return read_ != nullptr; }
   [[nodiscard]] bool saving() const noexcept { return write_ && !write_->complete; }
-  [[nodiscard]] engine::error save_result() const noexcept;
+  [[nodiscard]] gneiss::error save_result() const noexcept;
   [[nodiscard]] std::string_view uri() const noexcept { return uri_; }
 
 private:
   struct read_receipt {
     bool complete{};
-    gneiss::engine::files::completion<gneiss::engine::files::bytes> value{engine::error::not_ready};
+    gneiss::files::completion<gneiss::files::bytes> value{gneiss::error::not_ready};
   };
   struct write_receipt {
     bool complete{};
-    engine::error status{engine::error::not_ready};
+    gneiss::error status{gneiss::error::not_ready};
   };
-  std::shared_ptr<gneiss::engine::files::service> files_;
+  std::shared_ptr<gneiss::files::service> files_;
   std::shared_ptr<read_receipt> read_;
   std::shared_ptr<write_receipt> write_;
   std::string uri_;

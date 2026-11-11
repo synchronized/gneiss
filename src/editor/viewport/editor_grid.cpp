@@ -24,12 +24,12 @@ float density_scale(bool major, bool next_major, float detail) noexcept {
 
 } // namespace
 
-std::vector<gneiss::engine::debug_line>
-build_editor_grid(const gneiss::engine::math::transform& camera, const gizmo_matrix& view,
+std::vector<gneiss::debug_line>
+build_editor_grid(const gneiss::math::transform& camera, const gizmo_matrix& view,
                   float viewport_height) {
-  std::vector<gneiss::engine::debug_line> lines;
+  std::vector<gneiss::debug_line> lines;
   if (!std::isfinite(viewport_height) || viewport_height <= 0.0F ||
-      !std::ranges::all_of(gneiss::engine::math::components(camera.translation),
+      !std::ranges::all_of(gneiss::math::components(camera.translation),
                            [](float value) { return std::isfinite(value); }) ||
       !std::ranges::all_of(view, [](float value) { return std::isfinite(value); })) {
     return lines;
@@ -82,7 +82,7 @@ build_editor_grid(const gneiss::engine::math::transform& camera, const gizmo_mat
         if (alpha == 0U) {
           continue;
         }
-        gneiss::engine::debug_line line{};
+        gneiss::debug_line line{};
         const auto fixed_axis = (axis * 2);
         const auto varying_axis = ((1 - axis) * 2);
         line.start[fixed_axis] = fixed;

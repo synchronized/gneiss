@@ -8,17 +8,17 @@
 
 int main(int argc, char**) {
   if (argc > 1) {
-    (void)gneiss::engine::from_uv_status(UV_ENOMEM);
+    (void)gneiss::from_uv_status(UV_ENOMEM);
     return 0;
   }
-  return gneiss::engine::from_uv_status(0) == gneiss::engine::error::success &&
-                 gneiss::engine::from_uv_status(UV_EINVAL) ==
-                     gneiss::engine::error::invalid_argument &&
-                 gneiss::engine::from_uv_status(UV_ENOSYS) == gneiss::engine::error::unsupported &&
-                 gneiss::engine::from_uv_status(UV_EBUSY) == gneiss::engine::error::invalid_state &&
-                 gneiss::engine::from_uv_status(UV_EAGAIN) == gneiss::engine::error::not_ready &&
-                 gneiss::engine::from_uv_status(UV_ENOENT) == gneiss::engine::error::not_found &&
-                 gneiss::engine::from_uv_status(UV_ECONNREFUSED) == gneiss::engine::error::io
+  return gneiss::from_uv_status(0) == gneiss::error::success &&
+                 gneiss::from_uv_status(UV_EINVAL) ==
+                     gneiss::error::invalid_argument &&
+                 gneiss::from_uv_status(UV_ENOSYS) == gneiss::error::unsupported &&
+                 gneiss::from_uv_status(UV_EBUSY) == gneiss::error::invalid_state &&
+                 gneiss::from_uv_status(UV_EAGAIN) == gneiss::error::not_ready &&
+                 gneiss::from_uv_status(UV_ENOENT) == gneiss::error::not_found &&
+                 gneiss::from_uv_status(UV_ECONNREFUSED) == gneiss::error::io
              ? 0
              : 1;
 }

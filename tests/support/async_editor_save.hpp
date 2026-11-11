@@ -10,18 +10,18 @@
 namespace gneiss::test_support {
 // 仅测试驱动回调；生产接口没有同步等待包装。
 template <class Receipt>
-inline engine::error await_file(gneiss::engine::files::service& files,
+inline gneiss::error await_file(gneiss::files::service& files,
                                 const std::shared_ptr<Receipt>& receipt) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (!receipt->complete) {
     if (std::chrono::steady_clock::now() > deadline)
-      return engine::error::internal;
+      return gneiss::error::internal;
     (void)files.dispatch_completions(64);
     std::this_thread::yield();
   }
   return receipt->status;
 }
-inline engine::error save_document(editor::scene_edit_session& document,
+inline gneiss::error save_document(editor::scene_edit_session& document,
                                    const std::filesystem::path& root, std::string* saved = nullptr,
                                    std::string_view uri = {}) {
   runtime::application_configuration config;
@@ -35,8 +35,8 @@ inline engine::error save_document(editor::scene_edit_session& document,
     return status;
   std::shared_ptr<editor::scene_edit_session::save_receipt> receipt;
   status = document.begin_save(*application->async_files(), uri.empty() ? document.uri() : uri,
-                               uri.empty() ? gneiss::engine::files::write_mode::replace
-                                           : gneiss::engine::files::write_mode::create_new,
+                               uri.empty() ? gneiss::files::write_mode::replace
+                                           : gneiss::files::write_mode::create_new,
                                receipt);
   if (status.ok())
     status = await_file(*application->async_files(), receipt);

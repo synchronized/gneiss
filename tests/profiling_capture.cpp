@@ -17,30 +17,30 @@
 namespace {
 using namespace std::chrono_literals;
 struct context {
-  gneiss::engine::task_scheduler scheduler{{.workers = 1U}};
-  gneiss::engine::task_scope scope = scheduler.make_scope();
+  gneiss::tasks::task_scheduler scheduler{{.workers = 1U}};
+  gneiss::tasks::task_scope scope = scheduler.make_scope();
   std::size_t received{};
 };
-gneiss::engine::error update(const gneiss::engine::frame_time& time, context& state) noexcept {
+gneiss::error update(const gneiss::frame_time& time, context& state) noexcept {
   try {
-    gneiss::engine::task_handle task;
+    gneiss::tasks::task_handle task;
     const auto accepted = state.scheduler.submit(
         {.name = time.frame_index == 0U ? std::string(65536U, 'x') : "capture.work",
          .scope = state.scope},
-        [](const gneiss::engine::task_context&) {
+        [](const gneiss::tasks::task_context&) {
           std::this_thread::sleep_for(1ms);
-          return gneiss::engine::task_outcome{.state = gneiss::engine::task_state::succeeded};
+          return gneiss::tasks::task_outcome{.state = gneiss::tasks::task_state::succeeded};
         },
         task);
-    if (accepted != gneiss::engine::submit_result::success) {
-      return gneiss::engine::error::internal;
+    if (accepted != gneiss::tasks::submit_result::success) {
+      return gneiss::error::internal;
     }
-    std::vector<gneiss::engine::task_completion> completed;
+    std::vector<gneiss::tasks::task_completion> completed;
     state.received += state.scheduler.poll(state.scope, completed);
     std::this_thread::sleep_for(2ms);
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   } catch (...) {
-    return gneiss::engine::error::internal;
+    return gneiss::error::internal;
   }
 }
 }
@@ -67,7 +67,7 @@ int main(int argc, char** argv) try {
   }
   const auto deadline = std::chrono::steady_clock::now() + 5s;
   while (state.received < 128U && std::chrono::steady_clock::now() < deadline) {
-    std::vector<gneiss::engine::task_completion> completed;
+    std::vector<gneiss::tasks::task_completion> completed;
     state.received += state.scheduler.poll(state.scope, completed);
     std::this_thread::sleep_for(1ms);
   }

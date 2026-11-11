@@ -58,13 +58,13 @@ bool draw_transform_gizmo(const transform_gizmo_context& context, const ImVec2& 
   }
   const auto node = bool(selected) ? selected->node : prefab->node;
 
-  gneiss::engine::math::transform world{};
+  gneiss::math::transform world{};
   auto operation = context.session.get_world_transform(node, world);
   gneiss::editor::gizmo_matrix model{};
-  if (operation == gneiss::engine::error::success) {
+  if (operation == gneiss::error::success) {
     operation = gneiss::editor::transform_to_gizmo_matrix(world, model);
   }
-  if (operation != gneiss::engine::error::success) {
+  if (operation != gneiss::error::success) {
     context.error = operation;
     return false;
   }

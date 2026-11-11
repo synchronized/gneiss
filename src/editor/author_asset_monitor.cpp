@@ -30,7 +30,7 @@ std::vector<std::string> author_asset_monitor::known_uris() const {
 
 author_asset_change author_asset_monitor::observe(const std::filesystem::path& relative_path,
                                                   bool document_dirty,
-                                                  gneiss::engine::error operation,
+                                                  gneiss::error operation,
                                                   std::uint64_t value) {
   {
     const auto relative = path_utf8(relative_path.lexically_normal());
@@ -39,28 +39,28 @@ author_asset_change author_asset_monitor::observe(const std::filesystem::path& r
     }
     const auto uri = "asset://" + relative;
     const auto known = fingerprints_.find(uri);
-    if (operation == gneiss::engine::error::success && known != fingerprints_.end() &&
+    if (operation == gneiss::error::success && known != fingerprints_.end() &&
         known->second == value) {
       return {};
     }
     if (document_dirty) {
       status_ = {.state = author_asset_change_state::conflict,
                  .uri = uri,
-                 .operation = gneiss::engine::error::invalid_state,
+                 .operation = gneiss::error::invalid_state,
                  .message = "外部结构资产已变化；当前场景含未保存修改，未自动覆盖"};
       return status_;
     }
     status_ = {.state = author_asset_change_state::changed,
                .uri = uri,
                .operation = operation,
-               .message = operation == gneiss::engine::error::success ? "检测到外部结构资产变化"
+               .message = operation == gneiss::error::success ? "检测到外部结构资产变化"
                                                                       : "结构资产已删除或不可读取",
                .fingerprint = value};
     return status_;
   }
 }
 
-gneiss::engine::error author_asset_monitor::acknowledge_content(std::string_view uri,
+gneiss::error author_asset_monitor::acknowledge_content(std::string_view uri,
                                                                 std::string_view content) {
   {
     std::uint64_t value = 14695981039346656037ULL;
@@ -69,7 +69,7 @@ gneiss::engine::error author_asset_monitor::acknowledge_content(std::string_view
       value *= 1099511628211ULL;
     }
     accept_fingerprint(uri, value);
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
 }
 
@@ -85,18 +85,18 @@ void author_asset_monitor::accept_fingerprint(std::string_view uri, std::uint64_
 
 void author_asset_monitor::mark_applied(std::string_view uri, std::uint64_t value) noexcept {
   accept_fingerprint(uri, value);
-  const auto operation = gneiss::engine::error::success;
+  const auto operation = gneiss::error::success;
   status_ = {
-      .state = operation == gneiss::engine::error::success ? author_asset_change_state::applied
+      .state = operation == gneiss::error::success ? author_asset_change_state::applied
                                                            : author_asset_change_state::failed,
       .uri = std::string(uri),
       .operation = operation,
-      .message = operation == gneiss::engine::error::success ? "外部结构资产已应用"
+      .message = operation == gneiss::error::success ? "外部结构资产已应用"
                                                              : "外部结构资产应用后无法建立基线"};
 }
 
 void author_asset_monitor::mark_failed(std::string_view uri,
-                                       gneiss::engine::error operation) noexcept {
+                                       gneiss::error operation) noexcept {
   status_ = {.state = author_asset_change_state::failed,
              .uri = std::string(uri),
              .operation = operation,

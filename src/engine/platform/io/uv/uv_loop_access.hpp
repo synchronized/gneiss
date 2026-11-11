@@ -11,7 +11,7 @@
 
 #include <functional>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 /** 仅供 I/O 后端 `.cpp` 使用；不得进入普通接口或业务头文件。 */
 class uv_loop_access final {
@@ -21,6 +21,6 @@ public:
   [[nodiscard]] static error post(uv_loop_executor& executor, task operation);
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

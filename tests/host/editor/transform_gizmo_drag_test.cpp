@@ -22,8 +22,8 @@ using namespace gneiss;
 
 namespace {
 
-bool near(const gneiss::engine::math::transform& left,
-          const gneiss::engine::math::transform& right) {
+bool near(const gneiss::math::transform& left,
+          const gneiss::math::transform& right) {
   for (std::size_t index = 0; index < 3U; ++index) {
     if (std::abs(left.translation[index] - right.translation[index]) > 1.0e-4F ||
         std::abs(left.scale[index] - right.scale[index]) > 1.0e-4F) {
@@ -40,20 +40,20 @@ bool near(const gneiss::engine::math::transform& left,
 } // namespace
 
 int main() try {
-  using gneiss::engine::error;
+  using gneiss::error;
   gneiss::runtime::application_configuration desc;
   const std::string root = GNEISS_EDITOR_TEST_ASSET_ROOT;
   desc.asset_root = root;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss::engine::world* world = nullptr;
+  gneiss::world* world = nullptr;
   gneiss::editor::scene_edit_session session;
-  if (gneiss::engine::error{gneiss::test_support::assign_value(
+  if (gneiss::error{gneiss::test_support::assign_value(
           gneiss::runtime::application::create(desc), application)} !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       (world = application->native_world()) == nullptr ||
       gneiss::test_support::open_document(session, *application, world,
                                           "asset://scenes/triangle.scene.json") !=
-          gneiss::engine::error::success) {
+          gneiss::error::success) {
     return 1;
   }
   const auto parent = gneiss::test_support::scene_query(session).nodes[0].node;
@@ -65,7 +65,7 @@ int main() try {
   parent_transform.scale[0] = 2.0F;
   parent_transform.scale[1] = 3.0F;
   parent_transform.scale[2] = 4.0F;
-  if (session.set_local_transform(parent, parent_transform) != gneiss::engine::error::success) {
+  if (session.set_local_transform(parent, parent_transform) != gneiss::error::success) {
     return 2;
   }
   // 同一生产拖动事务覆盖根节点、父子节点及三种操作；每种操作模拟多帧预览。
@@ -74,19 +74,19 @@ int main() try {
       const auto target = session.find_node(target_uuid)->node;
       gneiss::editor::editor_command_history history;
       gneiss::editor::transform_gizmo_drag drag;
-      if (session.select(session.find_node(target_uuid)->node) != gneiss::engine::error::success) {
+      if (session.select(session.find_node(target_uuid)->node) != gneiss::error::success) {
         return 3;
       }
       const auto before = session.selected_node()->local_transform;
-      if (drag.begin(session) != gneiss::engine::error::success) {
+      if (drag.begin(session) != gneiss::error::success) {
         return 4;
       }
-      gneiss::engine::math::transform desired{};
+      gneiss::math::transform desired{};
       if (gneiss::test_support::assign_value(
               application->native_world()
                   ->find(gneiss::entity_id{(gneiss::entity_id{target.get()}).get()})
                   .world_transform(),
-              desired) != gneiss::engine::error::success) {
+              desired) != gneiss::error::success) {
         return 5;
       }
       for (int frame = 0; frame < 4; ++frame) {
@@ -102,15 +102,15 @@ int main() try {
           desired.scale[1] += 0.5F;
         }
         gneiss::editor::gizmo_matrix matrix{};
-        gneiss::engine::math::transform actual{};
+        gneiss::math::transform actual{};
         if (gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
-                gneiss::engine::error::success ||
-            drag.preview(session, matrix) != gneiss::engine::error::success ||
+                gneiss::error::success ||
+            drag.preview(session, matrix) != gneiss::error::success ||
             gneiss::test_support::assign_value(
                 application->native_world()
                     ->find(gneiss::entity_id{(gneiss::entity_id{target.get()}).get()})
                     .world_transform(),
-                actual) != gneiss::engine::error::success ||
+                actual) != gneiss::error::success ||
             !near(actual, desired) || history.size() != 0U) {
           return 6;
         }
@@ -119,15 +119,15 @@ int main() try {
       // 选择变化后预览必须被拒绝，但收尾仍记录原目标而非新选择。
       if (session.select(
               session.find_node(target_uuid == child_uuid ? parent_uuid : child_uuid)->node) !=
-              gneiss::engine::error::success ||
+              gneiss::error::success ||
           drag.matches_selection(session) ||
-          drag.preview(session, {}) != gneiss::engine::error::invalid_state ||
-          drag.finish(session, history) != gneiss::engine::error::success || history.size() != 1U ||
-          drag.finish(session, history) != gneiss::engine::error::success || history.size() != 1U ||
-          history.undo() != gneiss::engine::error::success ||
-          session.select(session.find_node(target_uuid)->node) != gneiss::engine::error::success ||
+          drag.preview(session, {}) != gneiss::error::invalid_state ||
+          drag.finish(session, history) != gneiss::error::success || history.size() != 1U ||
+          drag.finish(session, history) != gneiss::error::success || history.size() != 1U ||
+          history.undo() != gneiss::error::success ||
+          session.select(session.find_node(target_uuid)->node) != gneiss::error::success ||
           !near(session.selected_node()->local_transform, before) ||
-          history.redo() != gneiss::engine::error::success ||
+          history.redo() != gneiss::error::success ||
           !near(session.find_node(target_uuid)->local_transform, after)) {
         return 7;
       }
@@ -137,40 +137,40 @@ int main() try {
   gneiss::editor::editor_command_history unavailable_history(0U);
   session.clear_dirty();
   const auto before = session.selected_node()->local_transform;
-  gneiss::engine::math::transform desired = before;
+  gneiss::math::transform desired = before;
   desired.translation[2] += 2.0F;
   gneiss::editor::gizmo_matrix matrix{};
-  if (drag.begin(session) != gneiss::engine::error::success ||
+  if (drag.begin(session) != gneiss::error::success ||
       gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
-          gneiss::engine::error::success ||
-      drag.preview(session, matrix) != gneiss::engine::error::success ||
-      drag.finish(session, unavailable_history) != gneiss::engine::error::invalid_argument ||
+          gneiss::error::success ||
+      drag.preview(session, matrix) != gneiss::error::success ||
+      drag.finish(session, unavailable_history) != gneiss::error::invalid_argument ||
       !near(session.selected_node()->local_transform, before) || session.is_dirty()) {
     return 8;
   }
-  if (drag.begin(session) != gneiss::engine::error::success) {
+  if (drag.begin(session) != gneiss::error::success) {
     return 9;
   }
   matrix[0] = std::numeric_limits<float>::quiet_NaN();
   gneiss::editor::editor_command_history history;
-  if (drag.preview(session, matrix) != gneiss::engine::error::invalid_argument ||
-      drag.finish(session, history) != gneiss::engine::error::success || history.size() != 0U ||
+  if (drag.preview(session, matrix) != gneiss::error::invalid_argument ||
+      drag.finish(session, history) != gneiss::error::success || history.size() != 0U ||
       session.is_dirty()) {
     return 10;
   }
-  if (drag.begin(session) != gneiss::engine::error::success) {
+  if (drag.begin(session) != gneiss::error::success) {
     return 11;
   }
   session.close();
-  if (drag.finish(session, history) != gneiss::engine::error::not_found || drag.is_active() ||
+  if (drag.finish(session, history) != gneiss::error::not_found || drag.is_active() ||
       history.size() != 0U) {
     return 12;
   }
   if (gneiss::test_support::open_document(session, *application, world,
                                           "asset://scenes/prefab.scene.json") !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       session.select(gneiss::test_support::scene_query(session).prefab_nodes[1].node) !=
-          gneiss::engine::error::success) {
+          gneiss::error::success) {
     return 13;
   }
   const auto prefab_id = session.selection();
@@ -180,26 +180,26 @@ int main() try {
           application->native_world()
               ->find(gneiss::entity_id{(gneiss::entity_id{prefab_id.get()}).get()})
               .world_transform(),
-          desired) != gneiss::engine::error::success) {
+          desired) != gneiss::error::success) {
     return 14;
   }
   desired.translation[0] += 3.0F;
-  if (drag.begin(session) != gneiss::engine::error::success ||
+  if (drag.begin(session) != gneiss::error::success ||
       gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
-          gneiss::engine::error::success ||
-      drag.preview(session, matrix) != gneiss::engine::error::success ||
-      session.select({}) != gneiss::engine::error::success || drag.matches_selection(session) ||
-      drag.finish(session, history) != gneiss::engine::error::success || history.size() != 1U ||
-      history.undo() != gneiss::engine::error::success ||
+          gneiss::error::success ||
+      drag.preview(session, matrix) != gneiss::error::success ||
+      session.select({}) != gneiss::error::success || drag.matches_selection(session) ||
+      drag.finish(session, history) != gneiss::error::success || history.size() != 1U ||
+      history.undo() != gneiss::error::success ||
       session.select(
           session
               .find_prefab_source(prefab_identity.instance_uuid, prefab_identity.source_node_uuid)
-              ->node) != gneiss::engine::error::success ||
+              ->node) != gneiss::error::success ||
       !near(session
                 .find_prefab_source(prefab_identity.instance_uuid, prefab_identity.source_node_uuid)
                 ->local_transform,
             prefab_before) ||
-      history.redo() != gneiss::engine::error::success ||
+      history.redo() != gneiss::error::success ||
       near(session
                .find_prefab_source(prefab_identity.instance_uuid, prefab_identity.source_node_uuid)
                ->local_transform,
@@ -209,9 +209,9 @@ int main() try {
   history.clear();
   if (gneiss::test_support::open_document(session, *application, world,
                                           "asset://scenes/triangle.scene.json") !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       session.select(gneiss::test_support::scene_query(session).nodes[1].node) !=
-          gneiss::engine::error::success) {
+          gneiss::error::success) {
     return 16;
   }
   const auto uuid = session.selected_node()->uuid;
@@ -220,15 +220,15 @@ int main() try {
           application->native_world()
               ->find(gneiss::entity_id{(gneiss::entity_id{session.selection().get()}).get()})
               .world_transform(),
-          desired) != gneiss::engine::error::success) {
+          desired) != gneiss::error::success) {
     return 17;
   }
   desired.translation[0] += 2.0F;
-  if (drag.begin(session) != gneiss::engine::error::success ||
+  if (drag.begin(session) != gneiss::error::success ||
       gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
-          gneiss::engine::error::success ||
-      drag.preview(session, matrix) != gneiss::engine::error::success ||
-      drag.finish(session, history) != gneiss::engine::error::success) {
+          gneiss::error::success ||
+      drag.preview(session, matrix) != gneiss::error::success ||
+      drag.finish(session, history) != gneiss::error::success) {
     return 18;
   }
   // Delete 在拖动收尾后创建独立命令；恢复节点的新句柄仍可通过 UUID 撤销此前拖动。
@@ -240,20 +240,20 @@ int main() try {
   if (history.size() != 2U) {
     return 20;
   }
-  if (history.undo() != gneiss::engine::error::success) {
+  if (history.undo() != gneiss::error::success) {
     return 21;
   }
-  if (history.undo() != gneiss::engine::error::success) {
+  if (history.undo() != gneiss::error::success) {
     return 22;
   }
   if (session.find_node(uuid).failed() ||
       !near(session.find_node(uuid)->local_transform, deletion_before)) {
     return 23;
   }
-  if (history.redo() != gneiss::engine::error::success) {
+  if (history.redo() != gneiss::error::success) {
     return 24;
   }
-  if (history.redo() != gneiss::engine::error::success) {
+  if (history.redo() != gneiss::error::success) {
     return 25;
   }
   if (session.find_node(uuid).ok()) {
@@ -266,8 +266,8 @@ int main() try {
   const auto current_node = session.find_node(uuid)->node;
   if (session.rename_node(current_node, "independent").failed())
     return 28;
-  if (drag.preview(session, matrix) != gneiss::engine::error::invalid_state ||
-      drag.finish(session, history) != gneiss::engine::error::invalid_state ||
+  if (drag.preview(session, matrix) != gneiss::error::invalid_state ||
+      drag.finish(session, history) != gneiss::error::invalid_state ||
       session.find_node(uuid)->display_name != "independent")
     return 29;
   std::puts(

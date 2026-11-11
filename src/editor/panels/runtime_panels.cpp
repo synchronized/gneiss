@@ -52,13 +52,13 @@ void draw_runtime_scene_node(const runtime_scene_mirror& mirror, runtime_scene_s
 runtime_property_key runtime_transform_key(const runtime_scene_node& node, std::uint32_t field_id) {
   runtime_property_key key{
       .object = {node.id.value, node.id.generation}, .type_id = {}, .field_id = field_id};
-  const auto type_id = gneiss::engine::math::transform::type_guid;
+  const auto type_id = gneiss::math::transform::type_guid;
   std::ranges::copy(type_id.bytes(), key.type_id.begin());
   return key;
 }
 
 void draw_runtime_property_status(const runtime_property_edit* edit,
-                                  const gneiss::engine::value& observed) {
+                                  const gneiss::value& observed) {
   if (edit == nullptr) {
     return;
   }
@@ -68,11 +68,11 @@ void draw_runtime_property_status(const runtime_property_edit* edit,
     break;
   case runtime_property_edit_state::applied:
     if ([&] {
-          if (edit->canonical_value.kind() != engine::value_kind::object ||
-              observed.kind() != engine::value_kind::object)
+          if (edit->canonical_value.kind() != gneiss::value_kind::object ||
+              observed.kind() != gneiss::value_kind::object)
             return edit->canonical_value != observed;
-          auto a = gneiss::engine::serialization::json::encode_bytes(edit->canonical_value),
-               b = gneiss::engine::serialization::json::encode_bytes(observed);
+          auto a = gneiss::serialization::json::encode_bytes(edit->canonical_value),
+               b = gneiss::serialization::json::encode_bytes(observed);
           return !a || !b || *a != *b;
         }()) {
       ImGui::TextColored({0.95F, 0.75F, 0.35F, 1.0F}, "已应用，但运行逻辑随后覆盖了该值");
@@ -130,9 +130,9 @@ void draw_runtime_inspector(const runtime_scene_node& node,
   }
   ImGui::Separator();
   if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
-    auto translation = gneiss::engine::math::component_array(node.local_transform.translation);
-    auto scale = gneiss::engine::math::component_array(node.local_transform.scale);
-    gneiss::engine::math::quaternion quaternion = gneiss::engine::math::quaternion_xyzw(
+    auto translation = gneiss::math::component_array(node.local_transform.translation);
+    auto scale = gneiss::math::component_array(node.local_transform.scale);
+    gneiss::math::quaternion quaternion = gneiss::math::quaternion_xyzw(
         node.local_transform.rotation[0], node.local_transform.rotation[1],
         node.local_transform.rotation[2], node.local_transform.rotation[3]);
     std::array<float, 3> rotation{};
@@ -155,19 +155,19 @@ void draw_runtime_inspector(const runtime_scene_node& node,
         actions.report_result(
             actions.context,
             actions.write_property(actions.context, key, revision,
-                                   {engine::math::vector3{value[0], value[1], value[2]}}));
+                                   {gneiss::math::vector3{value[0], value[1], value[2]}}));
       }
       draw_runtime_property_status(edit,
-                                   {engine::math::vector3{observed[0], observed[1], observed[2]}});
+                                   {gneiss::math::vector3{observed[0], observed[1], observed[2]}});
     };
 
     const auto translation_key =
-        runtime_transform_key(node, gneiss::engine::meta::transform_translation_field.get());
+        runtime_transform_key(node, gneiss::meta::transform_translation_field.get());
     const auto* translation_edit = actions.find_edit(actions.context, translation_key);
     ImGui::BeginDisabled(!editable ||
                          (translation_edit != nullptr &&
                           translation_edit->state == runtime_property_edit_state::pending));
-    ImGui::PushID(static_cast<int>(gneiss::engine::meta::transform_translation_field.get()));
+    ImGui::PushID(static_cast<int>(gneiss::meta::transform_translation_field.get()));
     (void)ImGui::DragFloat3("Translation", translation.data(), 0.05F);
     const auto translation_committed = ImGui::IsItemDeactivatedAfterEdit();
     ImGui::PopID();
@@ -180,25 +180,25 @@ void draw_runtime_inspector(const runtime_scene_node& node,
           actions.context,
           actions.write_property(
               actions.context, translation_key, revision,
-              {engine::math::vector3{translation[0], translation[1], translation[2]}}));
+              {gneiss::math::vector3{translation[0], translation[1], translation[2]}}));
     }
     draw_runtime_property_status(translation_edit, {node.local_transform.translation});
 
     const auto rotation_key =
-        runtime_transform_key(node, gneiss::engine::meta::transform_rotation_field.get());
+        runtime_transform_key(node, gneiss::meta::transform_rotation_field.get());
     const auto* rotation_edit = actions.find_edit(actions.context, rotation_key);
     ImGui::BeginDisabled(
         !editable ||
         (rotation_edit != nullptr && rotation_edit->state == runtime_property_edit_state::pending));
-    ImGui::PushID(static_cast<int>(gneiss::engine::meta::transform_rotation_field.get()));
+    ImGui::PushID(static_cast<int>(gneiss::meta::transform_rotation_field.get()));
     (void)ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°");
     const auto rotation_committed = ImGui::IsItemDeactivatedAfterEdit();
     ImGui::PopID();
     ImGui::EndDisabled();
     if (rotation_committed) {
-      gneiss::engine::math::quaternion edited{};
+      gneiss::math::quaternion edited{};
       const auto converted = euler_degrees_to_quaternion(rotation, edited);
-      if (converted == gneiss::engine::error::success) {
+      if (converted == gneiss::error::success) {
         const auto revision = rotation_edit != nullptr && rotation_edit->revision != 0U
                                   ? rotation_edit->revision
                                   : 1U;
@@ -210,14 +210,14 @@ void draw_runtime_inspector(const runtime_scene_node& node,
     }
     draw_runtime_property_status(rotation_edit, {quaternion});
 
-    draw_vec3("Scale", gneiss::engine::meta::transform_scale_field.get(), scale, 0.05F);
+    draw_vec3("Scale", gneiss::meta::transform_scale_field.get(), scale, 0.05F);
   }
   for (const auto& component : node.components) {
     auto view = component->view();
     if (!view)
       continue;
     auto properties = view->properties();
-    auto type = gneiss::engine::meta::find_type(component->guid());
+    auto type = gneiss::meta::find_type(component->guid());
     if (!type)
       continue;
     ImGui::PushID(component->guid().string().c_str());
@@ -227,22 +227,22 @@ void draw_runtime_inspector(const runtime_scene_node& node,
         if (!child)
           continue;
         auto value = child->read_value();
-        const bool supported = value && value->kind() != engine::value_kind::invalid;
-        const auto observed = value ? *value : engine::value{};
+        const bool supported = value && value->kind() != gneiss::value_kind::invalid;
+        const auto observed = value ? *value : gneiss::value{};
         runtime_property_key key{.object = node.id,
                                  .type_id = component->guid().bytes(),
                                  .field_id = property.id().get()};
         const auto* pending = actions.find_edit ? actions.find_edit(actions.context, key) : nullptr;
         const bool readonly =
-            gneiss::engine::is_edit_read_only(property) ||
-            !engine::meta::has_flags(property.capabilities(),
-                                     engine::meta::property_capabilities::writable);
+            gneiss::is_edit_read_only(property) ||
+            !gneiss::meta::has_flags(property.capabilities(),
+                                     gneiss::meta::property_capabilities::writable);
         ImGui::BeginDisabled(!editable || readonly || !supported ||
                              (pending && pending->state == runtime_property_edit_state::pending));
         std::uint64_t serial{};
-        engine::error status;
+        gneiss::error status;
         ImGui::PushID(static_cast<int>(property.id().get()));
-        if (supported && value->kind() == engine::value_kind::object) {
+        if (supported && value->kind() == gneiss::value_kind::object) {
           auto edit = draw_reflected_properties(*child, std::string(property.name()).c_str(),
                                                 serial, status);
           if (edit && edit->path.empty() && !edit->object)

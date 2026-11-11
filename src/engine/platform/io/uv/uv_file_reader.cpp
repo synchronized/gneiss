@@ -19,7 +19,7 @@
 #include <sys/stat.h>
 #include <utility>
 
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 struct request final {
   uv_fs_t value{};
@@ -114,4 +114,4 @@ error uv_file_reader::read_at(std::uint64_t offset, std::span<std::byte> output)
   }
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

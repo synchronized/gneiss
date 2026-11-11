@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "material_description.hpp"
 #include <cmath>
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 serialization::diagnostic invalid_description(std::string path, std::string message = {}) {
   return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};

@@ -9,7 +9,7 @@
 #include <cstdio>
 #include <fstream>
 #include <source_location>
-namespace e = gneiss::engine;
+namespace e = gneiss;
 namespace ed = gneiss::editor;
 using namespace gneiss::test_support;
 void check(bool ok, std::source_location at = std::source_location::current()) {
@@ -57,7 +57,7 @@ void run(scenario mode) {
       mode == scenario::failure ? "asset://missing.json" : "asset://material.json"});
   source.objects.push_back(root);
   write(files.path / "source.prefab.json",
-        text(*gneiss::engine::asset_file::serialize_bytes(source)));
+        text(*gneiss::asset_file::serialize_bytes(source)));
   e::scene_description scene;
   scene.uuid = id(3);
   e::game_object_description instance;
@@ -71,7 +71,7 @@ void run(scenario mode) {
        {},
        root.components.identity(e::mesh_renderer_description::type_guid)});
   scene.objects.push_back(instance);
-  const auto json = text(*gneiss::engine::asset_file::serialize_bytes(scene));
+  const auto json = text(*gneiss::asset_file::serialize_bytes(scene));
   write(files.path / "scene.json", json);
   author_scene editing;
   check(editing.open(files.path, "asset://scene.json"));

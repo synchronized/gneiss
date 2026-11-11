@@ -30,19 +30,19 @@ namespace {
 
 struct format_probe {
   static constexpr std::string_view type_name = "format_probe";
-  static constexpr gneiss::engine::guid type_guid = gneiss::engine::guid::from_bytes({98, 11});
+  static constexpr gneiss::guid type_guid = gneiss::guid::from_bytes({98, 11});
   std::string text;
 };
-constexpr gneiss::engine::asset_file::format probe_format{"probe", 1, 80};
+constexpr gneiss::asset_file::format probe_format{"probe", 1, 80};
 bool format_node_contract() {
-  namespace e = gneiss::engine;
+  namespace e = gneiss;
   namespace m = e::meta;
   auto registry = m::create_registry();
   if (!registry ||
       m::registration::type<format_probe>(*registry)
           .property<&format_probe::text>(m::property_id{1}, "text")(
-              gneiss::engine::serialization::field_policy{.required = true})
-          .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
+              gneiss::serialization::field_policy{.required = true})
+          .metadata(gneiss::serialization::object_policy{.reject_unknown_fields = true})
           .commit()
           .failed() ||
       m::freeze(*registry).failed())
@@ -95,12 +95,12 @@ constexpr std::string_view prefab_scene =
   return text;
 }
 
-[[nodiscard]] bool fails_with(std::string_view json, gneiss::engine::error expected,
+[[nodiscard]] bool fails_with(std::string_view json, gneiss::error expected,
                               std::string_view path) {
-  gneiss::engine::scene_description scene;
-  gneiss::engine::serialization::diagnostic diagnostic;
+  gneiss::scene_description scene;
+  gneiss::serialization::diagnostic diagnostic;
   const auto status = gneiss::test_support::assign_decoded(
-      gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(json), scene,
+      gneiss::asset_file::deserialize<gneiss::scene_description>(json), scene,
       diagnostic);
   const bool matched = status == expected && diagnostic.error == expected &&
                        diagnostic.path == path && scene.objects.empty();
@@ -111,7 +111,7 @@ constexpr std::string_view prefab_scene =
 }
 
 bool component_validation_contract() {
-  namespace e = gneiss::engine;
+  namespace e = gneiss;
   const auto rejects_domain = [](const e::component_description& input) {
     // 通用快照与 JSON 允许尚未采用的描述，领域边界负责拒绝。
     auto snapshot = e::serialization::capture_value(input);
@@ -133,16 +133,16 @@ bool component_validation_contract() {
          rejects_domain(e::make_component_description(e::mesh_renderer_description{"bad", ""}));
 }
 bool save_validation_contract() {
-  namespace e = gneiss::engine;
-  auto parsed = gneiss::engine::asset_file::deserialize<e::scene_description>(valid_scene);
-  auto prefab = gneiss::engine::asset_file::deserialize<e::scene_description>(prefab_scene);
+  namespace e = gneiss;
+  auto parsed = gneiss::asset_file::deserialize<e::scene_description>(valid_scene);
+  auto prefab = gneiss::asset_file::deserialize<e::scene_description>(prefab_scene);
   if (!parsed || !prefab)
     return false;
   const auto rejects = [&](auto change) {
     auto candidate = *parsed;
     change(candidate);
-    auto text = gneiss::engine::asset_file::serialize(candidate);
-    auto bytes = gneiss::engine::asset_file::serialize_bytes(candidate);
+    auto text = gneiss::asset_file::serialize(candidate);
+    auto bytes = gneiss::asset_file::serialize_bytes(candidate);
     return !text && text.error().error == e::error::invalid_argument && !bytes &&
            bytes.error().error == e::error::invalid_argument;
   };
@@ -167,7 +167,7 @@ bool save_validation_contract() {
   const auto rejects_override = [&](auto change) {
     auto candidate = *prefab;
     change(*candidate.objects[1].prefab);
-    auto encoded = gneiss::engine::asset_file::serialize_bytes(candidate);
+    auto encoded = gneiss::asset_file::serialize_bytes(candidate);
     return !encoded && encoded.error().error == e::error::invalid_argument;
   };
   if (!rejects_override([](auto& reference) { reference.uri = "bad"; }) ||
@@ -185,10 +185,10 @@ bool save_validation_contract() {
        {e::value{e::math::vector2{1, 2}}, e::value{e::math::vector4{1, 2, 3, 4}}}) {
     auto candidate = *prefab;
     candidate.objects[1].prefab->overrides[0].operation = vector;
-    auto encoded = gneiss::engine::asset_file::serialize_bytes(candidate);
+    auto encoded = gneiss::asset_file::serialize_bytes(candidate);
     if (!encoded)
       return false;
-    auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(*encoded);
+    auto decoded = gneiss::asset_file::deserialize<e::scene_description>(*encoded);
     if (!decoded || decoded->objects[1].prefab->overrides[0].replacement() != vector)
       return false;
   }
@@ -199,37 +199,37 @@ bool save_validation_contract() {
     return false;
   // Scene 仍允许多根，不因 Prefab 的唯一根约束变成只能保存一棵树。
   parsed->objects[1].parent.object = {};
-  auto forest = gneiss::engine::asset_file::serialize_bytes(*parsed);
+  auto forest = gneiss::asset_file::serialize_bytes(*parsed);
   return forest &&
-         static_cast<bool>(gneiss::engine::asset_file::deserialize<e::scene_description>(*forest));
+         static_cast<bool>(gneiss::asset_file::deserialize<e::scene_description>(*forest));
 }
 
 bool guid_identity_contract() {
-  namespace e = gneiss::engine;
-  auto parsed = gneiss::engine::asset_file::deserialize<e::scene_description>(valid_scene);
+  namespace e = gneiss;
+  auto parsed = gneiss::asset_file::deserialize<e::scene_description>(valid_scene);
   if (!parsed || parsed->objects[0].parent.object ||
       parsed->objects[1].parent.object != parsed->objects[0].uuid)
     return false;
   const auto original = *parsed;
   // 内存身份修改必须反映到文件；不沿用 输入文件中的旧场景 UUID。
   parsed->uuid = *e::guid::parse("abcdef01-2345-4678-9abc-def012345678");
-  auto encoded = gneiss::engine::asset_file::serialize(*parsed);
+  auto encoded = gneiss::asset_file::serialize(*parsed);
   if (!encoded)
     return false;
-  auto restored = gneiss::engine::asset_file::deserialize<e::scene_description>(*encoded);
+  auto restored = gneiss::asset_file::deserialize<e::scene_description>(*encoded);
   if (!restored || restored->uuid != parsed->uuid ||
       restored->objects[1].parent.object != parsed->objects[0].uuid)
     return false;
   parsed->objects[0].parent.object = e::guid{};
-  if (!gneiss::engine::asset_file::serialize(*parsed))
+  if (!gneiss::asset_file::serialize(*parsed))
     return false;
   *parsed = original;
   parsed->objects[0].uuid = {};
-  if (gneiss::engine::asset_file::serialize(*parsed))
+  if (gneiss::asset_file::serialize(*parsed))
     return false;
   *parsed = original;
   parsed->uuid = {};
-  if (gneiss::engine::asset_file::serialize(*parsed))
+  if (gneiss::asset_file::serialize(*parsed))
     return false;
   for (const auto malformed :
        {"00000000-0000-0000-0000-000000000000", "ABCDEF01-2345-4678-9ABC-DEF012345678",
@@ -243,7 +243,7 @@ bool guid_identity_contract() {
       replace_once(std::string(valid_scene),
                    R"("parent":{"object":"00000000-0000-4000-8000-000000000002","source":null})",
                    R"("parent":{"object":null,"source":null})");
-  if (!gneiss::engine::asset_file::deserialize<e::scene_description>(nil_parent))
+  if (!gneiss::asset_file::deserialize<e::scene_description>(nil_parent))
     return false;
   const auto null_identity =
       replace_once(std::string(valid_scene), R"("uuid":"00000000-0000-4000-8000-000000000002")",
@@ -253,7 +253,7 @@ bool guid_identity_contract() {
   const auto nil_source =
       replace_once(std::string(prefab_scene), "10000000-0000-4000-8000-000000000002",
                    "00000000-0000-0000-0000-000000000000");
-  if (gneiss::engine::asset_file::deserialize<e::scene_description>(nil_source))
+  if (gneiss::asset_file::deserialize<e::scene_description>(nil_source))
     return false;
   const auto low = *e::guid::parse("00ffffff-ffff-4fff-8fff-ffffffffffff");
   const auto high = *e::guid::parse("01000000-0000-4000-8000-000000000000");
@@ -265,26 +265,26 @@ class memory_file_system final : public gneiss::test_support::memory_file_fixtur
 public:
   explicit memory_file_system(std::string content) : content_(std::move(content)) {}
 
-  [[nodiscard]] gneiss::engine::error
+  [[nodiscard]] gneiss::error
   read(std::string_view path, std::vector<std::byte>& out_bytes) const noexcept override {
     if (path != "main.scene.json") {
-      return gneiss::engine::error::not_found;
+      return gneiss::error::not_found;
     }
     try {
       out_bytes.resize(content_.size());
       for (std::size_t index = 0U; index < content_.size(); ++index) {
         out_bytes[index] = static_cast<std::byte>(content_[index]);
       }
-      return gneiss::engine::error::success;
+      return gneiss::error::success;
     } catch (...) {
-      return gneiss::engine::error::out_of_memory;
+      return gneiss::error::out_of_memory;
     }
   }
 
-  gneiss::engine::error read_bounded(std::string_view path, std::size_t limit,
+  gneiss::error read_bounded(std::string_view path, std::size_t limit,
                                      std::vector<std::byte>& output) const noexcept override {
     if (content_.size() > limit)
-      return gneiss::engine::error::invalid_argument;
+      return gneiss::error::invalid_argument;
     return read(path, output);
   }
 
@@ -293,7 +293,7 @@ private:
 };
 
 bool domain_validation_boundary_contract() {
-  namespace e = gneiss::engine;
+  namespace e = gneiss;
   e::scene_description scene; // nil 身份可编码，但不是可采用的场景。
   auto plain = e::serialization::json::encode(scene);
   if (!plain || !e::serialization::json::decode<e::scene_description>(*plain))
@@ -350,7 +350,7 @@ bool domain_validation_boundary_contract() {
 int main() try {
   if (!format_node_contract())
     return 97;
-  if (gneiss::engine::initialize_meta().failed())
+  if (gneiss::initialize_meta().failed())
     return 99;
   if (!domain_validation_boundary_contract())
     return 96;
@@ -362,31 +362,31 @@ int main() try {
     return 98;
   {
     auto fresh =
-        gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(valid_scene);
+        gneiss::asset_file::deserialize<gneiss::scene_description>(valid_scene);
     if (!fresh)
       return 40;
-    auto bytes = gneiss::engine::asset_file::serialize_bytes(*fresh);
+    auto bytes = gneiss::asset_file::serialize_bytes(*fresh);
     if (!bytes)
       return 41;
     auto restored =
-        gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(*bytes);
+        gneiss::asset_file::deserialize<gneiss::scene_description>(*bytes);
     auto snapshot =
-        gneiss::engine::asset_file::deserialize_ref<gneiss::engine::scene_description>(*bytes);
-    gneiss::engine::serialization::read_context read_context;
+        gneiss::asset_file::deserialize_ref<gneiss::scene_description>(*bytes);
+    gneiss::serialization::read_context read_context;
     auto independent =
-        gneiss::engine::asset_file::deserialize_ref<gneiss::engine::scene_description>(read_context,
+        gneiss::asset_file::deserialize_ref<gneiss::scene_description>(read_context,
                                                                                        *bytes);
     if (!snapshot || !independent || snapshot->get() == independent->get() ||
         (*snapshot)->uuid != fresh->uuid || (*snapshot)->objects.size() != fresh->objects.size())
       return 43;
     auto retained = *snapshot;
     snapshot =
-        gneiss::engine::serialization::diagnostic{.error = gneiss::engine::error::invalid_state};
+        gneiss::serialization::diagnostic{.error = gneiss::error::invalid_state};
     bytes->clear();
     if (retained->uuid != fresh->uuid || retained->objects.size() != fresh->objects.size())
       return 44;
     auto invalid =
-        gneiss::engine::asset_file::deserialize_ref<gneiss::engine::scene_description>(*bytes);
+        gneiss::asset_file::deserialize_ref<gneiss::scene_description>(*bytes);
     if (invalid)
       return 45;
     if (!restored || restored->uuid != fresh->uuid ||
@@ -395,78 +395,78 @@ int main() try {
   }
   // 反射 codec 忽略未知字段；解码失败不覆盖旧对象。
   {
-    namespace e = gneiss::engine;
+    namespace e = gneiss;
     auto text = std::string(valid_scene);
     text.insert(1, R"("codec_unknown":{"keep":7},)");
     const auto source = std::as_bytes(std::span{text.data(), text.size()});
     e::scene_description value;
-    gneiss::engine::serialization::diagnostic detail;
+    gneiss::serialization::diagnostic detail;
     std::vector<std::byte> encoded;
     if (gneiss::test_support::assign_decoded(
-            gneiss::engine::asset_file::deserialize<std::remove_cvref_t<decltype(value)>>(source),
+            gneiss::asset_file::deserialize<std::remove_cvref_t<decltype(value)>>(source),
             value, detail)
             .failed() ||
-        gneiss::test_support::assign_decoded(gneiss::engine::asset_file::serialize_bytes(value),
+        gneiss::test_support::assign_decoded(gneiss::asset_file::serialize_bytes(value),
                                              encoded, detail)
             .failed())
       return 91;
     e::scene_description restored;
     if (gneiss::test_support::assign_decoded(
-            gneiss::engine::asset_file::deserialize<std::remove_cvref_t<decltype(restored)>>(
+            gneiss::asset_file::deserialize<std::remove_cvref_t<decltype(restored)>>(
                 encoded),
             restored, detail)
             .failed() ||
         restored.objects.size() != value.objects.size() ||
-        (*gneiss::engine::asset_file::serialize(restored)).find("codec_unknown") !=
+        (*gneiss::asset_file::serialize(restored)).find("codec_unknown") !=
             std::string::npos)
       return 92;
-    const auto saved = (*gneiss::engine::asset_file::serialize(restored));
+    const auto saved = (*gneiss::asset_file::serialize(restored));
     const std::string broken = "{";
     if (gneiss::test_support::assign_decoded(
-            gneiss::engine::asset_file::deserialize<std::remove_cvref_t<decltype(restored)>>(
+            gneiss::asset_file::deserialize<std::remove_cvref_t<decltype(restored)>>(
                 std::as_bytes(std::span{broken.data(), broken.size()})),
             restored, detail)
             .ok() ||
-        (*gneiss::engine::asset_file::serialize(restored)) != saved)
+        (*gneiss::asset_file::serialize(restored)) != saved)
       return 93;
     std::vector<std::byte> oversized(e::scene_description::maximum_source_bytes + 1U);
     if (gneiss::test_support::assign_decoded(
-            gneiss::engine::asset_file::deserialize<std::remove_cvref_t<decltype(restored)>>(
+            gneiss::asset_file::deserialize<std::remove_cvref_t<decltype(restored)>>(
                 oversized),
             restored, detail) != e::error::invalid_argument ||
-        (*gneiss::engine::asset_file::serialize(restored)) != saved)
+        (*gneiss::asset_file::serialize(restored)) != saved)
       return 94;
   }
 
-  gneiss::engine::scene_description scene;
-  gneiss::engine::serialization::diagnostic diagnostic;
+  gneiss::scene_description scene;
+  gneiss::serialization::diagnostic diagnostic;
   std::string serialized;
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(valid_scene),
-          scene, diagnostic) != gneiss::engine::error::success ||
+          gneiss::asset_file::deserialize<gneiss::scene_description>(valid_scene),
+          scene, diagnostic) != gneiss::error::success ||
       scene.objects.size() != 2U ||
-      !scene.objects[0].components.template get<gneiss::engine::camera_description>() ||
-      !scene.objects[1].components.template get<gneiss::engine::mesh_renderer_description>() ||
-      gneiss::test_support::assign_value(gneiss::engine::asset_file::serialize(scene),
-                                         serialized) != gneiss::engine::error::success ||
+      !scene.objects[0].components.template get<gneiss::camera_description>() ||
+      !scene.objects[1].components.template get<gneiss::mesh_renderer_description>() ||
+      gneiss::test_support::assign_value(gneiss::asset_file::serialize(scene),
+                                         serialized) != gneiss::error::success ||
       serialized.find(R"("unknown":true)") != std::string::npos) {
     return 1;
   }
 
   const auto legacy_array =
       replace_once(std::string(valid_scene), "{", R"({"prefab_instances":[],)");
-  if (!fails_with(legacy_array, gneiss::engine::error::invalid_argument, "/prefab_instances"))
+  if (!fails_with(legacy_array, gneiss::error::invalid_argument, "/prefab_instances"))
     return 95;
 
   for (auto version : {"0", "-1", "1.5", "null", "\"5\""}) {
     auto malformed = replace_once(std::string(valid_scene), "\"version\":5",
                                   std::string("\"version\":") + version);
-    if (!fails_with(malformed, gneiss::engine::error::invalid_argument, "/version"))
+    if (!fails_with(malformed, gneiss::error::invalid_argument, "/version"))
       return 112;
   }
   for (auto header : {R"({"format":"gneiss.scene",)", R"({"version":5,)"}) {
     if (!fails_with(replace_once(std::string(valid_scene), "{", header),
-                    gneiss::engine::error::invalid_argument, ""))
+                    gneiss::error::invalid_argument, ""))
       return 113;
   }
   const auto future = replace_once(std::string(valid_scene), "\"version\":5", "\"version\":6");
@@ -488,8 +488,8 @@ int main() try {
        {R"("translation":[0,1,2],)", R"("rotation":[0,0,0,1],)", R"(,"scale":[1,1,1])"}) {
     auto missing = replace_once(std::string(valid_scene), field, "");
     auto parsed =
-        gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(missing);
-    if (parsed || parsed.error().error != gneiss::engine::error::invalid_argument ||
+        gneiss::asset_file::deserialize<gneiss::scene_description>(missing);
+    if (parsed || parsed.error().error != gneiss::error::invalid_argument ||
         !parsed.error().path.starts_with("/objects/0/transform/"))
       return 96;
   }
@@ -497,36 +497,36 @@ int main() try {
       replace_once(std::string(valid_scene), R"("scale":[1,1,1])", R"("scale":[1,0,1])");
   const auto invalid_rotation =
       replace_once(std::string(valid_scene), R"("rotation":[0,0,0,1])", R"("rotation":[0,0,0,2])");
-  if (!fails_with(future, gneiss::engine::error::unsupported, "/version") ||
-      !fails_with(old, gneiss::engine::error::unsupported, "/version") ||
-      !fails_with(duplicate, gneiss::engine::error::invalid_argument, "/objects/1/uuid") ||
-      !fails_with(missing_parent, gneiss::engine::error::invalid_argument, "/objects/1/parent") ||
-      !fails_with(cycle, gneiss::engine::error::invalid_argument, "/objects/0/parent") ||
-      !fails_with(invalid_uri, gneiss::engine::error::invalid_argument,
+  if (!fails_with(future, gneiss::error::unsupported, "/version") ||
+      !fails_with(old, gneiss::error::unsupported, "/version") ||
+      !fails_with(duplicate, gneiss::error::invalid_argument, "/objects/1/uuid") ||
+      !fails_with(missing_parent, gneiss::error::invalid_argument, "/objects/1/parent") ||
+      !fails_with(cycle, gneiss::error::invalid_argument, "/objects/0/parent") ||
+      !fails_with(invalid_uri, gneiss::error::invalid_argument,
                   "/objects/1/components/0") ||
-      !fails_with(invalid_scale, gneiss::engine::error::invalid_argument,
+      !fails_with(invalid_scale, gneiss::error::invalid_argument,
                   "/objects/0/transform/scale") ||
-      !fails_with(invalid_rotation, gneiss::engine::error::invalid_argument,
+      !fails_with(invalid_rotation, gneiss::error::invalid_argument,
                   "/objects/0/transform/rotation")) {
     return 2;
   }
 
   if (gneiss::test_support::assign_decoded(
-          gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(prefab_scene),
-          scene, diagnostic) != gneiss::engine::error::success ||
+          gneiss::asset_file::deserialize<gneiss::scene_description>(prefab_scene),
+          scene, diagnostic) != gneiss::error::success ||
       scene.objects.size() != 2U || scene.objects[1].prefab->overrides.size() != 1U ||
-      std::get<gneiss::engine::math::vector3>(
+      std::get<gneiss::math::vector3>(
           scene.objects[1].prefab->overrides[0].replacement().payload)[0] != 4.0F ||
-      gneiss::test_support::assign_value(gneiss::engine::asset_file::serialize(scene),
-                                         serialized) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(gneiss::asset_file::serialize(scene),
+                                         serialized) != gneiss::error::success ||
       serialized.find(R"("$kind":"vec3")") == std::string::npos ||
       serialized.find(R"("unknown":true)") != std::string::npos) {
     return 3;
   }
 
   {
-    using namespace gneiss::engine;
-    auto null_prefab = gneiss::engine::asset_file::deserialize<scene_description>(replace_once(
+    using namespace gneiss;
+    auto null_prefab = gneiss::asset_file::deserialize<scene_description>(replace_once(
         std::string(valid_scene), R"("components":[)", R"("prefab":null,"components":[)"));
     if (!null_prefab || null_prefab->objects[0].prefab)
       return 97;
@@ -546,11 +546,11 @@ int main() try {
     if (scene.objects[1].prefab->overrides.empty() ||
         scene.objects[1].prefab->uri == copied.prefab->uri)
       return 99;
-    auto bytes = gneiss::engine::serialization::json::encode_bytes(*scene.objects[1].prefab);
+    auto bytes = gneiss::serialization::json::encode_bytes(*scene.objects[1].prefab);
     if (!bytes)
       return 100;
     auto restored =
-        gneiss::engine::serialization::json::decode<prefab_reference_description>(*bytes);
+        gneiss::serialization::json::decode<prefab_reference_description>(*bytes);
     if (!restored || restored->overrides.size() != 1 ||
         restored->uri != scene.objects[1].prefab->uri)
       return 100;
@@ -558,35 +558,35 @@ int main() try {
     conflict.component_overrides.push_back(
         {.source_node_uuid = conflict.overrides[0].key.target.source_node_uuid,
          .type_guid = conflict.overrides[0].key.target.target_type_guid});
-    if (!gneiss::engine::serialization::json::encode_bytes(conflict) ||
+    if (!gneiss::serialization::json::encode_bytes(conflict) ||
         validate_prefab_reference_description(conflict).error.ok())
       return 101;
     conflict = *restored;
     conflict.uri = "asset://../bad";
     auto rejected = validate_prefab_reference_description(conflict);
     if (rejected.error.ok() || rejected.path != "/uri" ||
-        !gneiss::engine::serialization::json::encode_bytes(conflict))
+        !gneiss::serialization::json::encode_bytes(conflict))
       return 102;
   }
   if (!fails_with(replace_once(std::string(prefab_scene),
                                R"("uri":"asset://prefabs/lamp.prefab.json")",
                                R"("uri":"asset://../bad")"),
-                  gneiss::engine::error::invalid_argument, "/objects/1/prefab/uri"))
+                  gneiss::error::invalid_argument, "/objects/1/prefab/uri"))
     return 103;
 
   {
-    using namespace gneiss::engine;
+    using namespace gneiss;
     // 通用入口检查结构，领域入口检查对象语义；缺失组件默认空列表。
     const std::string object_json =
         R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":{"object":null,"source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})";
     auto decode = [](std::string_view text) {
-      return gneiss::engine::serialization::json::decode<game_object_description>(
+      return gneiss::serialization::json::decode<game_object_description>(
           std::as_bytes(std::span{text.data(), text.size()}));
     };
     auto empty = decode(object_json);
     if (!empty || !empty->components.empty() || empty->prefab)
       return 104;
-    auto empty_bytes = gneiss::engine::serialization::json::encode_bytes(*empty);
+    auto empty_bytes = gneiss::serialization::json::encode_bytes(*empty);
     if (!empty_bytes)
       return 105;
     const std::string empty_json(reinterpret_cast<const char*>(empty_bytes->data()),
@@ -594,7 +594,7 @@ int main() try {
     if (empty_json.find(R"("components":[])") == std::string::npos ||
         empty_json.find(R"("prefab":null)") == std::string::npos)
       return 105;
-    auto template_bytes = gneiss::engine::serialization::json::encode_bytes(scene.objects[1]);
+    auto template_bytes = gneiss::serialization::json::encode_bytes(scene.objects[1]);
     if (!template_bytes)
       return 106;
     const std::string template_json(reinterpret_cast<const char*>(template_bytes->data()),
@@ -609,21 +609,21 @@ int main() try {
     if (!invalid_uuid || validate_game_object_description(*invalid_uuid).path != "/uuid")
       return 107;
     empty->uuid = {};
-    auto invalid_encoded = gneiss::engine::serialization::json::encode_bytes(*empty);
+    auto invalid_encoded = gneiss::serialization::json::encode_bytes(*empty);
     if (!invalid_encoded || validate_game_object_description(*empty).path != "/uuid")
       return 107;
     auto invalid_components = decode(replace_once(object_json, "{", R"({"components":{},)"));
     if (invalid_components || invalid_components.error().path != "/components")
       return 108;
     auto conflict = scene.objects[1];
-    auto normal = gneiss::engine::asset_file::deserialize<scene_description>(valid_scene);
+    auto normal = gneiss::asset_file::deserialize<scene_description>(valid_scene);
     if (!normal)
       return 109;
     conflict.components = normal->objects[0].components;
-    auto rejected = gneiss::engine::serialization::json::encode_bytes(conflict);
+    auto rejected = gneiss::serialization::json::encode_bytes(conflict);
     if (!rejected || validate_game_object_description(conflict).path != "/components")
       return 109;
-    auto component_bytes = gneiss::engine::serialization::json::encode_bytes(normal->objects[0]);
+    auto component_bytes = gneiss::serialization::json::encode_bytes(normal->objects[0]);
     if (!component_bytes)
       return 110;
     std::string component_json(reinterpret_cast<const char*>(component_bytes->data()),
@@ -635,7 +635,7 @@ int main() try {
     if (!conflict_decoded ||
         validate_game_object_description(*conflict_decoded).path != "/components")
       return 110;
-    auto missing = gneiss::engine::asset_file::deserialize<scene_description>(
+    auto missing = gneiss::asset_file::deserialize<scene_description>(
         replace_once(std::string(prefab_scene), R"(,"components":[])", ""));
     if (!missing || !missing->objects[0].components.empty())
       return 111;
@@ -650,16 +650,16 @@ int main() try {
   const auto legacy_type =
       replace_once(std::string(prefab_scene), "69644f20-b2d2-4e48-8c74-91f4f952ec2d",
                    "69644f20b2d24e488c7491f4f952ec2d");
-  if (!fails_with(legacy_type, gneiss::engine::error::invalid_argument,
+  if (!fails_with(legacy_type, gneiss::error::invalid_argument,
                   "/objects/1/prefab/overrides/0/key/target/target_type_guid"))
     return 4;
   const auto bad_value =
       replace_once(std::string(prefab_scene), R"("$content":[4,5,6])", R"("$content":[4,5])");
-  if (!gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(
+  if (!gneiss::asset_file::deserialize<gneiss::scene_description>(
           duplicate_override) ||
-      !fails_with(bad_type, gneiss::engine::error::invalid_argument,
+      !fails_with(bad_type, gneiss::error::invalid_argument,
                   "/objects/1/prefab/overrides/0/key/target/target_type_guid") ||
-      !fails_with(bad_value, gneiss::engine::error::invalid_argument,
+      !fails_with(bad_value, gneiss::error::invalid_argument,
                   "/objects/1/prefab/overrides/0/operation/$content/content/$content")) {
     return 4;
   }
@@ -681,22 +681,22 @@ int main() try {
     const auto candidate =
         replace_once(std::string(prefab_scene), R"("$kind":"vec3","$content":[4,5,6])", value);
     if (gneiss::test_support::assign_decoded(
-            gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(candidate),
-            scene, diagnostic) != gneiss::engine::error::success ||
-        gneiss::test_support::assign_value(gneiss::engine::asset_file::serialize(scene),
-                                           serialized) != gneiss::engine::error::success) {
+            gneiss::asset_file::deserialize<gneiss::scene_description>(candidate),
+            scene, diagnostic) != gneiss::error::success ||
+        gneiss::test_support::assign_value(gneiss::asset_file::serialize(scene),
+                                           serialized) != gneiss::error::success) {
       return 5;
     }
-    gneiss::engine::scene_description roundtrip;
+    gneiss::scene_description roundtrip;
     if (gneiss::test_support::assign_decoded(
-            gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(serialized),
+            gneiss::asset_file::deserialize<gneiss::scene_description>(serialized),
             roundtrip, diagnostic)
             .failed() ||
         roundtrip.objects[1].prefab->overrides[0].replacement() !=
             scene.objects[1].prefab->overrides[0].replacement())
       return 5;
     if (value.find("quaternion") != std::string_view::npos) {
-      const auto& q = std::get<gneiss::engine::math::quaternion>(
+      const auto& q = std::get<gneiss::math::quaternion>(
           roundtrip.objects[1].prefab->overrides[0].replacement().payload);
       if (q.x != 0.1F || q.y != 0.2F || q.z != 0.3F || q.w != 0.9F)
         return 5;
@@ -705,15 +705,15 @@ int main() try {
 
   gneiss::test_support::fixture_files file_system;
   if (file_system.mount("asset://scenes/", std::make_shared<memory_file_system>(std::string(
-                                               valid_scene))) != gneiss::engine::error::success)
+                                               valid_scene))) != gneiss::error::success)
     return 6;
-  gneiss::engine::asset_manager assets(gneiss::test_support::test_files(file_system));
-  gneiss::engine::asset_ref<const gneiss::engine::scene_description> loaded;
+  gneiss::asset_manager assets(gneiss::test_support::test_files(file_system));
+  gneiss::asset_ref<const gneiss::scene_description> loaded;
   if (gneiss::test_support::load_scene_snapshot(assets, "asset://scenes/main.scene.json", loaded)
           .failed() ||
       !loaded)
     return 6;
-  return fails_with("{\"format\":", gneiss::engine::error::invalid_argument, "") ? 0 : 7;
+  return fails_with("{\"format\":", gneiss::error::invalid_argument, "") ? 0 : 7;
 } catch (...) {
   return 99;
 }

@@ -8,20 +8,20 @@
 #include <algorithm>
 #include <set>
 namespace gneiss::editor {
-engine::error scene_projection::reset(std::span<const engine::scene_object_binding> objects) {
-  std::map<engine::object_address, object_binding> next;
+gneiss::error scene_projection::reset(std::span<const gneiss::scene_object_binding> objects) {
+  std::map<gneiss::object_address, object_binding> next;
   std::set<std::uint64_t> entities;
   for (const auto& object : objects) {
     if (!object.object || !object.entity || !entities.insert(object.entity.get()).second ||
-        !next.emplace(engine::object_address{object.object, object.source},
+        !next.emplace(gneiss::object_address{object.object, object.source},
                       object_binding{object.entity})
              .second)
-      return engine::error::invalid_argument;
+      return gneiss::error::invalid_argument;
   }
   objects_.swap(next);
-  return engine::error::success;
+  return gneiss::error::success;
 }
-engine::error project_scene_document(engine::world& world, scene_instance_id& scene,
+gneiss::error project_scene_document(gneiss::world& world, scene_instance_id& scene,
                                      scene_projection& projection,
                                      const scene_document_snapshot* baseline,
                                      const scene_document_snapshot& target, bool prepare_editor) {
@@ -35,48 +35,48 @@ engine::error project_scene_document(engine::world& world, scene_instance_id& sc
       return next.error();
     auto updated =
         baseline->content.get().uuid != target.content.get().uuid
-            ? engine::result<bool>{false}
-            : engine::apply_scene(
+            ? gneiss::result<bool>{false}
+            : gneiss::apply_scene(
                   world, scene, associations, *previous, *next, target.assets,
-                  [&](const engine::composed_object& object, entity_id node,
-                      const engine::component_description& component) {
+                  [&](const gneiss::composed_object& object, entity_id node,
+                      const gneiss::component_description& component) {
                     return !prepare_editor && !object.address.source
-                               ? engine::result<engine::component_description>{component}
+                               ? gneiss::result<gneiss::component_description>{component}
                                : editor::prepare_component_editor_value(world, node, component);
                   });
     if (!updated)
       return updated.error();
     if (*updated) {
       projection.replace(std::move(associations));
-      return engine::error::success;
+      return gneiss::error::success;
     }
   }
   auto composed = compose_scene_document(target);
   if (!composed)
     return composed.error();
-  auto current = engine::scene_instance::borrow(world, scene);
+  auto current = gneiss::scene_instance::borrow(world, scene);
   if (!current)
     return current.error();
   entity_id previous_camera;
-  auto status = gneiss::engine::get_active_camera(world, previous_camera);
-  if (status.failed() && status != engine::error::not_ready)
+  auto status = gneiss::get_active_camera(world, previous_camera);
+  if (status.failed() && status != gneiss::error::not_ready)
     return status;
   auto candidate = world.create_scene();
   if (!candidate)
     return candidate.error();
   struct candidate_guard {
-    engine::world& world;
-    engine::scene_instance candidate;
+    gneiss::world& world;
+    gneiss::scene_instance candidate;
     entity_id camera;
     ~candidate_guard() {
       if (candidate.id()) {
         (void)candidate.unload();
         if (camera.get())
-          (void)gneiss::engine::set_active_camera(world, camera);
+          (void)gneiss::set_active_camera(world, camera);
       }
     }
   } guard{world, *candidate, previous_camera};
-  auto rebuilt = engine::instantiate(*candidate, *composed, target.assets);
+  auto rebuilt = gneiss::instantiate(*candidate, *composed, target.assets);
   if (!rebuilt)
     return rebuilt.error();
   scene_projection replacement;
@@ -90,6 +90,6 @@ engine::error project_scene_document(engine::world& world, scene_instance_id& sc
   scene = rebuilt->instance;
   guard.candidate = {};
   projection.replace(std::move(associations));
-  return engine::error::success;
+  return gneiss::error::success;
 }
 }

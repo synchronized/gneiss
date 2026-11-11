@@ -5,7 +5,7 @@
 #include "engine/function/scene/components.hpp"
 #include <algorithm>
 #include <set>
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 bool same_transform(const math::transform& a, const math::transform& b) {
   return a.translation == b.translation && a.rotation == b.rotation && a.scale == b.scale;
@@ -162,7 +162,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
     if (!old.contains(object.address) || old.at(object.address)->parent == object.parent)
       continue;
     auto status = world.find(gneiss::entity_id{(nodes.at(object.address).node).get()})
-                      .reparent(gneiss::engine::game_object{});
+                      .reparent(gneiss::game_object{});
     if (status.failed())
       return status;
   }
@@ -310,4 +310,4 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
   }
   return true;
 }
-} // namespace gneiss::engine
+} // namespace gneiss

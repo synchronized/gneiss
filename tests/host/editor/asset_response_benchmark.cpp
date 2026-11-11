@@ -87,7 +87,7 @@ void run_case(const std::filesystem::path& root, std::size_t bytes, std::size_t 
         ++ticks;
       }
     });
-    if (queue.is_rescanning() || queue.rescan_result() != gneiss::engine::error::success ||
+    if (queue.is_rescanning() || queue.rescan_result() != gneiss::error::success ||
         imports != (changed ? 1U : 0U)) {
       throw std::runtime_error("rescan failed");
     }

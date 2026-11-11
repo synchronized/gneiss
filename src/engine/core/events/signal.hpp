@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <utility>
 
-namespace gneiss::engine::events {
+namespace gneiss::events {
 namespace detail {
 struct connection_source {
   virtual ~connection_source() = default;
@@ -165,4 +165,4 @@ private:
   std::shared_ptr<detail::signal_state<void(Args...)>> state_ =
       std::make_shared<detail::signal_state<void(Args...)>>();
 };
-} // namespace gneiss::engine::events
+} // namespace gneiss::events

@@ -16,7 +16,7 @@
 using namespace gneiss::host;
 
 namespace {
-namespace e = gneiss::engine;
+namespace e = gneiss;
 namespace m = e::meta;
 struct wire_object : m::object_type<wire_object> {
   static constexpr std::string_view type_name = "wire_object";
@@ -24,7 +24,7 @@ struct wire_object : m::object_type<wire_object> {
   int count = 9;
 };
 bool test_object_value() {
-  if (gneiss::engine::serialization::register_builtin_types().failed() ||
+  if (gneiss::serialization::register_builtin_types().failed() ||
       m::registration::type<wire_object>()
           .property<&wire_object::count>(m::property_id{1}, "count")
           .commit()
@@ -54,15 +54,15 @@ bool test_object_value() {
   return true;
 }
 
-gneiss::engine::guid test_type_id() noexcept {
-  gneiss::engine::guid::byte_array bytes{};
+gneiss::guid test_type_id() noexcept {
+  gneiss::guid::byte_array bytes{};
   for (std::uint8_t index = 0U; index < 16U; ++index) {
     bytes[index] = static_cast<std::uint8_t>(index + 1U);
   }
-  return gneiss::engine::guid::from_bytes(bytes);
+  return gneiss::guid::from_bytes(bytes);
 }
 
-bool round_trip_value(const gneiss::engine::value& value) {
+bool round_trip_value(const gneiss::value& value) {
   const gneiss::host::ipc_property_write source{.session_id = 9U,
                                                 .command_id = 21U,
                                                 .object = {5U, 2U},
@@ -73,12 +73,12 @@ bool round_trip_value(const gneiss::engine::value& value) {
   std::vector<std::uint8_t> payload;
   gneiss::host::ipc_property_write decoded;
   return gneiss::host::encode_ipc_property_write(source, payload) ==
-             gneiss::engine::error::success &&
+             gneiss::error::success &&
          std::string(payload.begin(), payload.end()).find("command_id") == std::string::npos &&
          std::string(payload.begin(), payload.end()).find(source.type_id.string()) !=
              std::string::npos &&
          gneiss::host::decode_ipc_property_write(payload, decoded) ==
-             gneiss::engine::error::success &&
+             gneiss::error::success &&
          decoded.session_id == source.session_id && decoded.command_id == 0U &&
          decoded.object == source.object && decoded.type_id == source.type_id &&
          decoded.field_id == source.field_id &&
@@ -87,7 +87,7 @@ bool round_trip_value(const gneiss::engine::value& value) {
 }
 
 bool test_all_value_types() {
-  const std::vector<gneiss::engine::value> values{
+  const std::vector<gneiss::value> values{
       {},
       {e::guid{}},
       {e::ref<m::object>{}},
@@ -101,10 +101,10 @@ bool test_all_value_types() {
       {1.25F},
       {2.5},
       {std::string{"运行态值"}},
-      {gneiss::engine::guid::from_bytes(
+      {gneiss::guid::from_bytes(
           {1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U, 9U, 10U, 11U, 12U, 13U, 14U, 15U, 16U})},
-      {gneiss::engine::math::vector3{1.0F, 2.0F, 3.0F}},
-      {gneiss::engine::math::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F)},
+      {gneiss::math::vector3{1.0F, 2.0F, 3.0F}},
+      {gneiss::math::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F)},
   };
   for (const auto& value : values) {
     if (!round_trip_value(value)) {
@@ -138,14 +138,14 @@ bool test_results() {
       .code = 0,
       .revision = 12U,
       .message = "已应用",
-      .canonical_value = {gneiss::engine::math::vector3{1.0F, 2.0F, 3.0F}}};
+      .canonical_value = {gneiss::math::vector3{1.0F, 2.0F, 3.0F}}};
   std::vector<std::uint8_t> payload;
   gneiss::host::ipc_property_write_result decoded;
   if (gneiss::host::encode_ipc_property_write_result(success, payload) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       std::string(payload.begin(), payload.end()).find("command_id") != std::string::npos ||
       gneiss::host::decode_ipc_property_write_result(payload, decoded) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       decoded.session_id != success.session_id || decoded.command_id != 0U || decoded.code != 0 ||
       decoded.revision != success.revision || decoded.message != success.message ||
       decoded.canonical_value.payload != success.canonical_value.payload) {
@@ -160,9 +160,9 @@ bool test_results() {
                                                          .canonical_value = {}};
   decoded = {};
   return gneiss::host::encode_ipc_property_write_result(rejected, payload) ==
-             gneiss::engine::error::success &&
+             gneiss::error::success &&
          gneiss::host::decode_ipc_property_write_result(payload, decoded) ==
-             gneiss::engine::error::success &&
+             gneiss::error::success &&
          decoded.code == rejected.code && decoded.revision == rejected.revision &&
          std::holds_alternative<std::monostate>(decoded.canonical_value.payload);
 }
@@ -171,7 +171,7 @@ bool test_invalid_messages() {
   gneiss::host::ipc_property_write invalid;
   std::vector<std::uint8_t> payload;
   if (gneiss::host::encode_ipc_property_write(invalid, payload) !=
-      gneiss::engine::error::invalid_argument) {
+      gneiss::error::invalid_argument) {
     return false;
   }
 
@@ -183,19 +183,19 @@ bool test_invalid_messages() {
              .expected_revision = 1U,
              .value = {std::numeric_limits<float>::infinity()}};
   if (gneiss::host::encode_ipc_property_write(invalid, payload) !=
-      gneiss::engine::error::invalid_argument) {
+      gneiss::error::invalid_argument) {
     return false;
   }
 
   payload = {'{', '}'};
   gneiss::host::ipc_property_write decoded;
   if (gneiss::host::decode_ipc_property_write(payload, decoded) !=
-      gneiss::engine::error::invalid_argument) {
+      gneiss::error::invalid_argument) {
     return false;
   }
   payload = {'{'};
   if (gneiss::host::decode_ipc_property_write(payload, decoded) !=
-      gneiss::engine::error::invalid_argument) {
+      gneiss::error::invalid_argument) {
     return false;
   }
   return true;

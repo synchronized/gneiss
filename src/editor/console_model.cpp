@@ -21,9 +21,9 @@ std::uint64_t console_model::begin_session() noexcept {
   return current_session_id_;
 }
 
-gneiss::engine::error console_model::append_event(std::uint64_t session_id, console_event event) {
+gneiss::error console_model::append_event(std::uint64_t session_id, console_event event) {
   if (capacity_ == 0U || session_id == 0U) {
-    return gneiss::engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   {
     make_room();
@@ -33,14 +33,14 @@ gneiss::engine::error console_model::append_event(std::uint64_t session_id, cons
     entry.session_id = session_id;
     entry.event = std::move(event);
     entries_.push_back(std::move(entry));
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
 }
 
-gneiss::engine::error console_model::append_raw(std::uint64_t session_id, std::string_view text,
+gneiss::error console_model::append_raw(std::uint64_t session_id, std::string_view text,
                                                 bool was_truncated) {
   if (capacity_ == 0U || session_id == 0U) {
-    return gneiss::engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   {
     make_room();
@@ -51,7 +51,7 @@ gneiss::engine::error console_model::append_raw(std::uint64_t session_id, std::s
     entry.raw_text = text;
     entry.was_truncated = was_truncated;
     entries_.push_back(std::move(entry));
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
 }
 
@@ -86,7 +86,7 @@ bool console_model::matches(const console_entry& entry,
          entry.event.category.find(filter.search) != std::string::npos;
 }
 
-gneiss::engine::error console_model::visible_indices(const console_filter& filter,
+gneiss::error console_model::visible_indices(const console_filter& filter,
                                                      std::vector<std::size_t>& output) const {
   output.clear();
   {
@@ -96,7 +96,7 @@ gneiss::engine::error console_model::visible_indices(const console_filter& filte
         output.push_back(index);
       }
     }
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
 }
 

@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/resource/asset.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
-namespace gneiss::engine {
+namespace gneiss {
 namespace detail {
 struct scene_asset_access;
 }

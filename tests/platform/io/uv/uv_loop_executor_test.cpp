@@ -33,7 +33,7 @@ bool broken_pipe_on_worker() {
       pthread_sigmask(SIG_UNBLOCK, &signal, nullptr) != 0) {
     return false;
   }
-  gneiss::engine::uv_loop_executor executor;
+  gneiss::uv_loop_executor executor;
   for (int attempt = 0; attempt < 2; ++attempt) {
     std::array<int, 2> descriptors{};
     if (pipe(descriptors.data()) != 0) {
@@ -54,8 +54,8 @@ bool broken_pipe_on_worker() {
     const bool completed = future.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
     const auto stopped = executor.stop();
     close(descriptors[1]);
-    if (started != gneiss::engine::error::success || posted != gneiss::engine::error::success ||
-        !completed || stopped != gneiss::engine::error::success || !future.get()) {
+    if (started != gneiss::error::success || posted != gneiss::error::success ||
+        !completed || stopped != gneiss::error::success || !future.get()) {
       return false;
     }
     sigset_t host_mask{};
@@ -84,9 +84,9 @@ bool test_broken_pipe() {
 #endif
 
 int main(int argc, char** argv) {
-  gneiss::engine::install_fatal_handler();
+  gneiss::install_fatal_handler();
   if (argc > 1) {
-    gneiss::engine::uv_loop_executor executor;
+    gneiss::uv_loop_executor executor;
     if (executor.start().failed())
       return 10;
     const bool oom = std::string_view(argv[1]) == "oom";
@@ -106,15 +106,15 @@ int main(int argc, char** argv) {
     return 9;
   }
 #endif
-  gneiss::engine::uv_loop_executor invalid(0U);
-  if (invalid.start() != gneiss::engine::error::invalid_argument) {
+  gneiss::uv_loop_executor invalid(0U);
+  if (invalid.start() != gneiss::error::invalid_argument) {
     return 1;
   }
 
-  gneiss::engine::uv_loop_executor runtime(2U);
-  if (runtime.post([] {}) != gneiss::engine::error::not_ready ||
-      runtime.start() != gneiss::engine::error::success || !runtime.is_running() ||
-      runtime.start() != gneiss::engine::error::invalid_state) {
+  gneiss::uv_loop_executor runtime(2U);
+  if (runtime.post([] {}) != gneiss::error::not_ready ||
+      runtime.start() != gneiss::error::success || !runtime.is_running() ||
+      runtime.start() != gneiss::error::invalid_state) {
     return 2;
   }
 
@@ -122,7 +122,7 @@ int main(int argc, char** argv) {
   auto executed_future = executed.get_future();
   const auto owner_thread = std::this_thread::get_id();
   if (runtime.post([&executed] { executed.set_value(std::this_thread::get_id()); }) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       executed_future.wait_for(std::chrono::seconds(2)) != std::future_status::ready ||
       executed_future.get() == owner_thread) {
     return 3;
@@ -137,33 +137,33 @@ int main(int argc, char** argv) {
         entered.set_value();
         gate.wait();
         count.fetch_add(1, std::memory_order_relaxed);
-      }) != gneiss::engine::error::success ||
+      }) != gneiss::error::success ||
       entered_future.wait_for(std::chrono::seconds(2)) != std::future_status::ready ||
       runtime.post([&count] { count.fetch_add(1, std::memory_order_relaxed); }) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       runtime.post([&count] { count.fetch_add(1, std::memory_order_relaxed); }) !=
-          gneiss::engine::error::success ||
-      runtime.post([] {}) != gneiss::engine::error::not_ready) {
+          gneiss::error::success ||
+      runtime.post([] {}) != gneiss::error::not_ready) {
     return 4;
   }
   release.set_value();
-  if (runtime.stop() != gneiss::engine::error::success || runtime.is_running() ||
+  if (runtime.stop() != gneiss::error::success || runtime.is_running() ||
       count.load(std::memory_order_relaxed) != 3 ||
-      runtime.post([] {}) != gneiss::engine::error::not_ready ||
-      runtime.stop() != gneiss::engine::error::not_ready) {
+      runtime.post([] {}) != gneiss::error::not_ready ||
+      runtime.stop() != gneiss::error::not_ready) {
     return 5;
   }
 
-  if (runtime.start() != gneiss::engine::error::success) {
+  if (runtime.start() != gneiss::error::success) {
     return 7;
   }
-  std::promise<gneiss::engine::error> self_stop;
+  std::promise<gneiss::error> self_stop;
   auto self_stop_future = self_stop.get_future();
   if (runtime.post([&runtime, &self_stop] { self_stop.set_value(runtime.stop()); }) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       self_stop_future.wait_for(std::chrono::seconds(2)) != std::future_status::ready ||
-      self_stop_future.get() != gneiss::engine::error::invalid_state ||
-      runtime.stop() != gneiss::engine::error::success) {
+      self_stop_future.get() != gneiss::error::invalid_state ||
+      runtime.stop() != gneiss::error::success) {
     return 8;
   }
   return 0;

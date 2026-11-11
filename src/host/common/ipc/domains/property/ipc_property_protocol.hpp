@@ -29,10 +29,10 @@ struct ipc_property_write final {
   std::uint64_t session_id = 0U;
   std::uint64_t command_id = 0U;
   ipc_runtime_object_id object;
-  gneiss::engine::guid type_id{};
+  gneiss::guid type_id{};
   std::uint32_t field_id = 0U;
   std::uint64_t expected_revision = 0U;
-  gneiss::engine::value value;
+  gneiss::value value;
 };
 
 /** Runtime 返回的权威执行结果；成功时携带规范值和新修订号。 */
@@ -42,33 +42,33 @@ struct ipc_property_write_result final {
   std::int32_t code = 0;
   std::uint64_t revision = 0U;
   std::string message;
-  gneiss::engine::value canonical_value;
+  gneiss::value canonical_value;
 };
 
-[[nodiscard]] gneiss::engine::error encode_ipc_property_write(const ipc_property_write& command,
+[[nodiscard]] gneiss::error encode_ipc_property_write(const ipc_property_write& command,
                                                               std::vector<std::uint8_t>& output);
-[[nodiscard]] gneiss::engine::error decode_ipc_property_write(std::span<const std::uint8_t> payload,
+[[nodiscard]] gneiss::error decode_ipc_property_write(std::span<const std::uint8_t> payload,
                                                               ipc_property_write& output);
-[[nodiscard]] gneiss::engine::error
+[[nodiscard]] gneiss::error
 encode_ipc_property_write_result(const ipc_property_write_result& response,
                                  std::vector<std::uint8_t>& output);
-[[nodiscard]] gneiss::engine::error
+[[nodiscard]] gneiss::error
 decode_ipc_property_write_result(std::span<const std::uint8_t> payload,
                                  ipc_property_write_result& output);
 
-[[nodiscard]] gneiss::engine::error
+[[nodiscard]] gneiss::error
 encode_ipc_property_write_v2(const ipc_property_write& command, std::uint32_t request_id,
-                             gneiss::engine::ipc_envelope& output);
-[[nodiscard]] gneiss::engine::error
-decode_ipc_property_write_v2(const gneiss::engine::ipc_envelope& envelope,
+                             gneiss::ipc_envelope& output);
+[[nodiscard]] gneiss::error
+decode_ipc_property_write_v2(const gneiss::ipc_envelope& envelope,
                              ipc_property_write& output);
-[[nodiscard]] gneiss::engine::error
+[[nodiscard]] gneiss::error
 encode_ipc_property_result_v2(const ipc_property_write_result& response, std::uint32_t request_id,
-                              gneiss::engine::ipc_envelope& output);
-[[nodiscard]] gneiss::engine::error
-decode_ipc_property_result_v2(const gneiss::engine::ipc_envelope& envelope,
+                              gneiss::ipc_envelope& output);
+[[nodiscard]] gneiss::error
+decode_ipc_property_result_v2(const gneiss::ipc_envelope& envelope,
                               ipc_property_write_result& output);
-[[nodiscard]] std::span<const gneiss::engine::ipc_operation_descriptor>
+[[nodiscard]] std::span<const gneiss::ipc_operation_descriptor>
 ipc_property_operations() noexcept;
 
 } // namespace gneiss::host

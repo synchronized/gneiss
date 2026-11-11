@@ -16,7 +16,7 @@
 #include <optional>
 #include <utility>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 enum class render_frame_policy : std::uint8_t { replaceable, required };
 
@@ -87,8 +87,8 @@ private:
 };
 
 using render_frame_callback =
-    std::function<engine::error(render_frame_packet&, render_execution_result&)>;
-using render_command_callback = std::function<engine::error(const render_command_reporter&)>;
+    std::function<gneiss::error(render_frame_packet&, render_execution_result&)>;
+using render_command_callback = std::function<gneiss::error(const render_command_reporter&)>;
 
 enum class render_command_policy : std::uint8_t { once, resumable };
 
@@ -137,6 +137,6 @@ private:
   std::unique_ptr<state> state_;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

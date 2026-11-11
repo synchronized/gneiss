@@ -6,7 +6,7 @@
 #include <string>
 namespace gneiss::test_support {
 template <class T, class D, class Diagnostic>
-auto take_codec(engine::result<T, D> value, T& output, Diagnostic& diagnostic)
+auto take_codec(gneiss::result<T, D> value, T& output, Diagnostic& diagnostic)
     -> std::optional<decltype(value.error().error)> {
   if (!value) {
     auto failure = std::move(value).error();

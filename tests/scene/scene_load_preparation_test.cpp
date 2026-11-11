@@ -26,7 +26,7 @@
 
 namespace {
 using namespace gneiss;
-using namespace gneiss::engine;
+using namespace gneiss;
 
 void check(bool value, std::source_location where = std::source_location::current()) {
   if (!value) {
@@ -38,17 +38,17 @@ struct memory_files final : gneiss::test_support::memory_file_fixture {
   std::map<std::string, std::string> files;
   mutable std::map<std::string, unsigned> reads;
   bool change_on_verify{};
-  gneiss::engine::error read(std::string_view, std::vector<std::byte>&) const noexcept override {
-    return gneiss::engine::error::unsupported;
+  gneiss::error read(std::string_view, std::vector<std::byte>&) const noexcept override {
+    return gneiss::error::unsupported;
   }
-  gneiss::engine::error read_bounded(std::string_view path, std::size_t limit,
+  gneiss::error read_bounded(std::string_view path, std::size_t limit,
                                      std::vector<std::byte>& bytes) const noexcept override try {
     const auto found = files.find(std::string(path));
     if (found == files.end()) {
-      return gneiss::engine::error::not_found;
+      return gneiss::error::not_found;
     }
     if (found->second.size() > limit) {
-      return gneiss::engine::error::invalid_argument;
+      return gneiss::error::invalid_argument;
     }
     bytes.resize(found->second.size());
     for (std::size_t i = 0; i < bytes.size(); ++i) {
@@ -57,9 +57,9 @@ struct memory_files final : gneiss::test_support::memory_file_fixture {
     if (++reads[std::string(path)] == 2U && change_on_verify && !bytes.empty()) {
       bytes.back() = std::byte{' '};
     }
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   } catch (...) {
-    return gneiss::engine::error::out_of_memory;
+    return gneiss::error::out_of_memory;
   }
 };
 
@@ -79,12 +79,12 @@ unsigned scene_decodes{}, prefab_decodes{};
 result<scene_description, serialization::diagnostic>
 custom_scene(std::span<const std::byte> bytes) {
   ++scene_decodes;
-  return gneiss::engine::asset_file::deserialize<scene_description>(bytes);
+  return gneiss::asset_file::deserialize<scene_description>(bytes);
 }
 result<prefab_description, serialization::diagnostic>
 custom_prefab(std::span<const std::byte> bytes) {
   ++prefab_decodes;
-  return gneiss::engine::asset_file::deserialize<prefab_description>(bytes);
+  return gneiss::asset_file::deserialize<prefab_description>(bytes);
 }
 struct linked_asset final : asset {
   ref<const linked_asset> child;
@@ -124,7 +124,7 @@ void dependency_cycles() {
   test_support::fixture_files files;
   // 单在途文件槽验证多个根及其依赖遇到背压时继续排队，不把未提交请求误当已启动。
   files.service =
-      std::make_shared<engine::files::service>(engine::files::service_options{.max_requests = 1});
+      std::make_shared<gneiss::files::service>(gneiss::files::service_options{.max_requests = 1});
   check(files.mount("asset://", memory).ok());
   asset_manager assets(test_support::test_files(files));
   auto& executor = test_support::asset_tasks();
@@ -142,7 +142,7 @@ void dependency_cycles() {
   for (unsigned i = 0; i < 100U; ++i) {
     check(assets.async_files()->dispatch_completions(64).ok());
     assets.advance();
-    check(executor.run_ready().status == drive_status::success);
+    check(executor.run_ready().status == gneiss::tasks::drive_status::success);
   }
   check(a->status() == error::invalid_state && b->status() == error::invalid_state);
   check(self->status() == error::invalid_state && root->status().ok());
@@ -159,7 +159,7 @@ void dependency_cycles() {
   for (unsigned i = 0; i < 100U && cycle_reload->status() == error::not_ready; ++i) {
     check(assets.async_files()->dispatch_completions(64).ok());
     assets.advance();
-    check(executor.run_ready().status == drive_status::success);
+    check(executor.run_ready().status == gneiss::tasks::drive_status::success);
   }
   check(cycle_reload->status() == error::invalid_state);
   check(!(*loaded)->child->child);
@@ -179,7 +179,7 @@ void run() {
       R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"00000000-0000-4000-8000-000000000005","root_uuid":"00000000-0000-4000-8000-000000000002","objects":[)" +
       std::string(object) + "]}";
   gneiss::test_support::fixture_files files;
-  check(files.mount("asset://", memory) == gneiss::engine::error::success);
+  check(files.mount("asset://", memory) == gneiss::error::success);
   auto& executor = gneiss::test_support::asset_tasks();
   asset_manager assets(gneiss::test_support::test_files(files));
   check(assets.register_decoder<scene_description>(&custom_scene) == error::unsupported);
@@ -189,8 +189,8 @@ void run() {
   {
     asset_manager independent(test_support::test_files(files));
     check(independent.configure(executor).ok());
-    auto first = independent.load<engine::scene>("asset://main.scene");
-    auto second = independent.load<engine::scene>("asset://main.scene");
+    auto first = independent.load<gneiss::scene>("asset://main.scene");
+    auto second = independent.load<gneiss::scene>("asset://main.scene");
     check(bool(first) && bool(second));
     check(first->resource() == second->resource() && bool(first->resource()));
     check(!first->resource()->content());
@@ -198,7 +198,7 @@ void run() {
     for (unsigned i = 0; i < 100U && second->status() == error::not_ready; ++i) {
       check(independent.async_files()->dispatch_completions(64).ok());
       independent.advance();
-      check(executor.run_ready().status == drive_status::success);
+      check(executor.run_ready().status == gneiss::tasks::drive_status::success);
     }
     auto result = second->take();
     check(bool(result));
@@ -206,22 +206,22 @@ void run() {
     check(content->prefabs.size() == 1U);
     result->reset();
     // 不清理索引直接复用过期记录，不能继承旧身份的就绪标记。
-    auto fresh = independent.load<engine::scene>("asset://main.scene");
+    auto fresh = independent.load<gneiss::scene>("asset://main.scene");
     check(bool(fresh) && !fresh->resource()->content());
-    check(independent.find<engine::scene>("asset://main.scene").error() == error::not_ready);
+    check(independent.find<gneiss::scene>("asset://main.scene").error() == error::not_ready);
     fresh->cancel();
     independent.advance();
     independent.collect_unused();
-    check(!independent.find<engine::scene>("asset://main.scene"));
-    check(bool(independent.find<engine::prefab>("asset://p.prefab")));
+    check(!independent.find<gneiss::scene>("asset://main.scene"));
+    check(bool(independent.find<gneiss::prefab>("asset://p.prefab")));
     content.reset();
     independent.collect_unused();
-    check(!independent.find<engine::prefab>("asset://p.prefab"));
+    check(!independent.find<gneiss::prefab>("asset://p.prefab"));
   }
   memory->reads.clear();
   scene_content output;
-  ref<const engine::scene> loaded_identity;
-  gneiss::engine::scene_diagnostic diagnostic;
+  ref<const gneiss::scene> loaded_identity;
+  gneiss::scene_diagnostic diagnostic;
   auto prepare = [&] {
     return gneiss::test_support::load_scene_content(assets, executor, "asset://main.scene", output,
                                                     diagnostic, &loaded_identity);
@@ -233,8 +233,8 @@ void run() {
   check(bool(dependencies) && dependencies->size() == 2U && output.prefabs.size() == 1U);
   check(memory->reads["p.prefab"] == 1U);
   check(bool(loaded_identity) && bool(output.prefabs.at("asset://p.prefab").resource));
-  check(assets.find<engine::scene>("asset://main.scene")->get() == loaded_identity.get());
-  check(assets.find<engine::prefab>("asset://p.prefab")->get() ==
+  check(assets.find<gneiss::scene>("asset://main.scene")->get() == loaded_identity.get());
+  check(assets.find<gneiss::prefab>("asset://p.prefab")->get() ==
         output.prefabs.at("asset://p.prefab").resource.get());
   const auto reads_before_rejection = memory->reads;
   auto old_scene = assets.load<scene_description>("asset://main.scene");
@@ -242,7 +242,7 @@ void run() {
   check(!old_scene && old_scene.error() == error::unsupported);
   check(!old_prefab && old_prefab.error() == error::unsupported);
   check(memory->reads == reads_before_rejection);
-  auto cached_request = assets.load<engine::scene>("asset://main.scene");
+  auto cached_request = assets.load<gneiss::scene>("asset://main.scene");
   check(bool(cached_request));
   auto cached_scene = cached_request->take();
   check(bool(cached_scene) &&
@@ -256,12 +256,12 @@ void run() {
   check(scene_decodes == 0U && prefab_decodes == 0U);
   const auto inputs = *loaded_content;
   // 资产身份稳定；旧快照不随重载改变，失败重载不破坏当前内容。
-  ref<const engine::scene> scene_asset;
+  ref<const gneiss::scene> scene_asset;
   check(test_support::load_asset(assets, "asset://main.scene", scene_asset).ok());
-  check(scene_asset->type() == runtime_type_of<engine::scene>());
+  check(scene_asset->type() == runtime_type_of<gneiss::scene>());
   check(scene_asset->source().uri == "asset://main.scene" && bool(scene_asset->source().source));
   auto snapshot = scene_asset->snapshot();
-  auto fixed_request = assets.load<engine::scene>("asset://main.scene");
+  auto fixed_request = assets.load<gneiss::scene>("asset://main.scene");
   check(bool(fixed_request) && fixed_request->status().ok());
   const auto fixed_content = fixed_request->snapshot();
   check(fixed_content == scene_asset->content());
@@ -272,7 +272,7 @@ void run() {
   check(bool(encoded));
   memory->files["main.scene"] =
       std::string(reinterpret_cast<const char*>(encoded->data()), encoded->size());
-  ref<const engine::scene> reloaded;
+  ref<const gneiss::scene> reloaded;
   check(test_support::load_asset(assets, "asset://main.scene", reloaded, true).ok());
   check(reloaded == scene_asset && snapshot->objects.front().name != "reloaded");
   check(reloaded->snapshot()->objects.front().name == "reloaded");
@@ -281,27 +281,27 @@ void run() {
   check(bool(fixed_request->take()) && !fixed_request->snapshot());
   reloaded.reset();
   assets.collect_unused();
-  auto retained = assets.find<engine::scene>("asset://main.scene");
+  auto retained = assets.find<gneiss::scene>("asset://main.scene");
   check(bool(retained) && retained->get() == scene_asset.get());
   memory->files["main.scene"] = "{";
-  ref<const engine::scene> rejected;
+  ref<const gneiss::scene> rejected;
   check(test_support::load_asset(assets, "asset://main.scene", rejected, true).failed());
   check(scene_asset->snapshot()->objects.front().name == "reloaded");
-  check(assets.find<engine::scene>("asset://main.scene")->get() == scene_asset.get());
+  check(assets.find<gneiss::scene>("asset://main.scene")->get() == scene_asset.get());
   memory->files["main.scene"] = original_file;
-  ref<const engine::prefab> prefab_asset;
+  ref<const gneiss::prefab> prefab_asset;
   check(test_support::load_asset(assets, "asset://p.prefab", prefab_asset).ok());
   check(prefab_asset->snapshot()->root_uuid ==
         inputs.prefabs.at("asset://p.prefab").description->root_uuid);
   // 声明依赖没有副作用；通用调度取得固定内容，之后独立重载不改变该结果。
   const auto before_declaration = memory->reads;
-  detail::content_dependency<engine::prefab, ref<const prefab_description>> dependency(
-      "asset://p.prefab", false, [](const engine::prefab& value) { return value.snapshot(); });
+  detail::content_dependency<gneiss::prefab, ref<const prefab_description>> dependency(
+      "asset://p.prefab", false, [](const gneiss::prefab& value) { return value.snapshot(); });
   check(memory->reads == before_declaration);
   check(dependency.advance(assets).ok() && dependency.resource() == prefab_asset);
   const auto dependency_content = dependency.content();
   ref<const asset> erased = prefab_asset;
-  check(asset_cast<engine::prefab>(erased) == prefab_asset && !asset_cast<engine::scene>(erased));
+  check(asset_cast<gneiss::prefab>(erased) == prefab_asset && !asset_cast<gneiss::scene>(erased));
   const auto reads = memory->reads;
   composed = test_support::compose(inputs);
   check(bool(composed) && memory->reads == reads);
@@ -353,10 +353,10 @@ void run() {
   composed = test_support::compose(inputs);
   check(bool(composed));
   // 依赖已完成但父操作还未领取时，另一轮重载也不能改变这次结果。
-  detail::content_dependency<engine::prefab, ref<const prefab_description>> delayed_dependency(
-      "asset://p.prefab", true, [](const engine::prefab& value) { return value.snapshot(); });
+  detail::content_dependency<gneiss::prefab, ref<const prefab_description>> delayed_dependency(
+      "asset://p.prefab", true, [](const gneiss::prefab& value) { return value.snapshot(); });
   check(delayed_dependency.advance(assets) == error::not_ready);
-  ref<const engine::prefab> newer;
+  ref<const gneiss::prefab> newer;
   check(gneiss::test_support::load_asset(assets, "asset://p.prefab", newer).ok());
   const auto delayed_content = newer->snapshot();
   check(gneiss::test_support::load_asset(assets, "asset://p.prefab", newer, true).ok());
@@ -368,7 +368,7 @@ void run() {
   check(dependency.advance(assets).ok() && dependency.resource() == newer);
   check(dependency.content() == dependency_content && dependency.content() != newer->snapshot());
   const auto before_cached_scene = memory->reads;
-  auto cached_structural_request = assets.load<engine::scene>("asset://main.scene");
+  auto cached_structural_request = assets.load<gneiss::scene>("asset://main.scene");
   check(bool(cached_structural_request));
   auto cached_structure = cached_structural_request->take();
   check(bool(cached_structure) && memory->reads == before_cached_scene);
@@ -377,7 +377,7 @@ void run() {
         newer->snapshot());
   composed = test_support::compose(inputs);
   check(bool(composed));
-  ref<const engine::prefab> cached;
+  ref<const gneiss::prefab> cached;
   check(gneiss::test_support::load_asset(assets, "asset://p.prefab", cached).ok() &&
         cached == newer);
 
@@ -387,24 +387,24 @@ void run() {
   auto repeated = test_support::compose(*scene_asset->content());
   check(bool(repeated) && repeated->objects.size() == 3U);
   check(test_support::compose(scene_content{}).error() == error::invalid_argument);
-  auto no_renderer = assets.load<gneiss::engine::texture>("asset://image");
+  auto no_renderer = assets.load<gneiss::texture>("asset://image");
   check(!no_renderer && no_renderer.error() == error::invalid_state);
   auto created = assets.create(*scene_asset->content());
   check(bool(created) && (*created)->source().uri.empty());
   check(!assets.create(scene_description{}));
   memory->reads.clear();
   memory->change_on_verify = true;
-  check(prepare() == gneiss::engine::error::success && memory->reads["p.prefab"] == 1U);
+  check(prepare() == gneiss::error::success && memory->reads["p.prefab"] == 1U);
   memory->change_on_verify = false;
   memory->files.erase("p.prefab");
   const auto before_failed_reload = scene_asset->content();
   serialization::diagnostic dependency_failure;
-  ref<const engine::scene> missing_dependency;
+  ref<const gneiss::scene> missing_dependency;
   check(test_support::load_asset(assets, "asset://main.scene", missing_dependency, true,
                                  &dependency_failure) == error::not_found);
   check(dependency_failure.path.find("asset://p.prefab") != std::string::npos);
   check(scene_asset->content() == before_failed_reload);
-  check(prepare() == gneiss::engine::error::not_found && output.prefabs.empty());
+  check(prepare() == gneiss::error::not_found && output.prefabs.empty());
 
   // 输入顺序不要求父节点优先；准备保留描述顺序，实际应用负责父子创建顺序。
   auto child = std::string(object);
@@ -412,24 +412,24 @@ void run() {
   child.replace(child.find("null"), 4U, "\"00000000-0000-4000-8000-000000000002\"");
   memory->files["main.scene"] =
       std::string(scene_prefix) + child + "," + std::string(object) + R"(]})";
-  check(prepare() == gneiss::engine::error::success && output.description->objects.size() == 2U &&
+  check(prepare() == gneiss::error::success && output.description->objects.size() == 2U &&
         output.description->objects[0].parent.object == output.description->objects[1].uuid);
   auto parent = std::string(object);
   parent.replace(parent.find("null"), 4U, "\"00000000-0000-4000-8000-000000000003\"");
   memory->files["main.scene"] = std::string(scene_prefix) + child + "," + parent + R"(]})";
-  check(prepare() == gneiss::engine::error::invalid_argument && !output.description);
-  auto stopping = assets.reload<engine::scene>("asset://main.scene");
+  check(prepare() == gneiss::error::invalid_argument && !output.description);
+  auto stopping = assets.reload<gneiss::scene>("asset://main.scene");
   check(bool(stopping));
   assets.request_stop();
   check(stopping->take().error().error == error::invalid_state);
   assets.advance();
   check(assets.stopped() && unified->objects.size() == 3U);
-  check(assets.reload<engine::scene>("asset://main.scene").error() == error::invalid_state);
+  check(assets.reload<gneiss::scene>("asset://main.scene").error() == error::invalid_state);
 }
 } // namespace
 
 int main() try {
-  if (gneiss::engine::initialize_meta().failed())
+  if (gneiss::initialize_meta().failed())
     return 99;
   run();
   dependency_cycles();

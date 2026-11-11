@@ -7,27 +7,27 @@
 #include <algorithm>
 #include <new>
 
-namespace gneiss::engine {
+namespace gneiss {
 
-engine::error system_scheduler::add(system_id id, system_callback callback, void* user_data) {
+gneiss::error system_scheduler::add(system_id id, system_callback callback, void* user_data) {
   if (id == 0U || callback == nullptr ||
       std::ranges::any_of(systems_, [id](const entry& value) { return value.id == id; })) {
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   {
     systems_.push_back({.id = id, .callback = callback, .user_data = user_data});
-    return engine::error::success;
+    return gneiss::error::success;
   }
 }
 
-engine::error system_scheduler::run(world_state& world) noexcept {
+gneiss::error system_scheduler::run(world_state& world) noexcept {
   for (const auto& system : systems_) {
     const auto result = system.callback(world, system.user_data);
-    if (result != engine::error::success) {
+    if (result != gneiss::error::success) {
       return result;
     }
   }
-  return engine::error::success;
+  return gneiss::error::success;
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/platform/files/file_backend.hpp"
 #include <memory>
-namespace gneiss::engine::files {
+namespace gneiss::files {
 enum class browser_storage { memory, persistent, existing };
 
 /** 浏览器主线程的 MEMFS/IDBFS 后端；existing 借用宿主已有目录，不挂载或卸载它。

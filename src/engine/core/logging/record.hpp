@@ -6,7 +6,7 @@
 #include <functional>
 #include <string_view>
 
-namespace gneiss::engine::logging {
+namespace gneiss::logging {
 /** 原生日志级别；ABI 数值映射由接口层校验。 */
 enum class level : std::uint32_t { trace = 1, debug, info, warning, error, fatal };
 
@@ -17,7 +17,7 @@ struct message_view final {
   std::string_view source{};
   std::string_view category{};
   std::string_view message{};
-  engine::error result{engine::error::success};
+  gneiss::error result{gneiss::error::success};
 };
 
 /** 所有文本只在回调期间有效，接收方不得保留视图。 */

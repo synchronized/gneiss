@@ -4,7 +4,7 @@
 #include "asset_entry.hpp"
 #include "engine/resource/asset_diagnostic.hpp"
 #include <unordered_set>
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 /** 图仅弱引用记录；内容拥有关系与本次加载的候选边分别保留。
  * 提交依赖前检查，拒绝等待环及将来装配产生的强拥有环。限所属线程。 */
 inline asset_diagnostic link_dependency(const std::shared_ptr<asset_entry>& owner,

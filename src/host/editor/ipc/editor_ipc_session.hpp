@@ -26,28 +26,28 @@ public:
   editor_ipc_session(const editor_ipc_session&) = delete;
   editor_ipc_session& operator=(const editor_ipc_session&) = delete;
 
-  [[nodiscard]] gneiss::engine::error start();
-  [[nodiscard]] gneiss::engine::error stop();
-  [[nodiscard]] gneiss::engine::error update(bool is_peer_running,
+  [[nodiscard]] gneiss::error start();
+  [[nodiscard]] gneiss::error stop();
+  [[nodiscard]] gneiss::error update(bool is_peer_running,
                                              std::vector<runtime_ipc_event>& output);
 
-  [[nodiscard]] gneiss::engine::error request_stop();
-  [[nodiscard]] gneiss::engine::error request_pause();
-  [[nodiscard]] gneiss::engine::error request_resume();
-  [[nodiscard]] gneiss::engine::error request_inspection_resync();
-  [[nodiscard]] gneiss::engine::error send_property_write(const ipc_property_write& command);
-  [[nodiscard]] gneiss::engine::error send_asset_cancel(std::uint64_t session,
+  [[nodiscard]] gneiss::error request_stop();
+  [[nodiscard]] gneiss::error request_pause();
+  [[nodiscard]] gneiss::error request_resume();
+  [[nodiscard]] gneiss::error request_inspection_resync();
+  [[nodiscard]] gneiss::error send_property_write(const ipc_property_write& command);
+  [[nodiscard]] gneiss::error send_asset_cancel(std::uint64_t session,
                                                         std::uint64_t revision);
-  [[nodiscard]] gneiss::engine::error send_scene_request(const ipc_scene_request& value,
+  [[nodiscard]] gneiss::error send_scene_request(const ipc_scene_request& value,
                                                          bool cancel);
   [[nodiscard]] bool supports_scene_loading() const noexcept;
-  [[nodiscard]] gneiss::engine::error send_asset_reload(const ipc_asset_reload_request& command,
+  [[nodiscard]] gneiss::error send_asset_reload(const ipc_asset_reload_request& command,
                                                         ipc_asset_operation operation);
 
   [[nodiscard]] bool is_authenticated() const noexcept;
   [[nodiscard]] bool supports_property_editing() const noexcept;
   [[nodiscard]] bool supports_asset_reload() const noexcept;
-  [[nodiscard]] gneiss::engine::ipc_endpoint endpoint() const;
+  [[nodiscard]] gneiss::ipc_endpoint endpoint() const;
   [[nodiscard]] const std::string& token() const noexcept;
 
 private:

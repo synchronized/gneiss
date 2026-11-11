@@ -3,22 +3,22 @@
 #pragma once
 #include "documents/scene_edit_session.hpp"
 namespace gneiss::test_support {
-inline engine::result<entity_id>
-place_document_prefab(editor::scene_edit_session& document, engine::game_object_description author,
-                      engine::prefab_asset_ref source,
+inline gneiss::result<entity_id>
+place_document_prefab(editor::scene_edit_session& document, gneiss::game_object_description author,
+                      gneiss::prefab_asset_ref source,
                       std::span<const editor::scene_mesh_binding> bindings, bool replacing) {
   gneiss::editor::scene_subtree_snapshot snapshot;
   snapshot.root_uuid = author.uuid;
   snapshot.parent = author.parent;
   author.parent = {};
-  engine::scene_description description;
+  gneiss::scene_description description;
   description.uuid = document.capture_content()->content.get().uuid;
   description.objects.push_back(author);
-  auto content = engine::capture_scene_record(description);
+  auto content = gneiss::capture_scene_record(description);
   if (!content)
     return content.error();
   snapshot.content = *content;
-  auto frozen = engine::capture_prefab_record(*source);
+  auto frozen = gneiss::capture_prefab_record(*source);
   if (!frozen)
     return frozen.error();
   snapshot.resources[author.uuid].prefab_content = *frozen;
@@ -27,6 +27,6 @@ place_document_prefab(editor::scene_edit_session& document, engine::game_object_
   if (status.failed())
     return status;
   auto node = document.find_prefab_root(author.uuid);
-  return node ? engine::result<entity_id>{node->node} : engine::result<entity_id>{node.error()};
+  return node ? gneiss::result<entity_id>{node->node} : gneiss::result<entity_id>{node.error()};
 }
 }

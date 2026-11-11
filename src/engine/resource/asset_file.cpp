@@ -13,7 +13,7 @@
 #include <array>
 #include <cstdlib>
 #include <yyjson.h>
-namespace gneiss::engine::asset_file {
+namespace gneiss::asset_file {
 namespace {
 using diagnostic = serialization::diagnostic;
 inline diagnostic invalid(std::string path, std::string message) {

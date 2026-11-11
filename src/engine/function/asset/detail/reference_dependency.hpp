@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/function/asset/asset_loader.hpp"
 #include "engine/function/asset/asset_manager.hpp"
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 /** 只取得稳定身份，不把依赖的内容完成/GPU 完成作为父资产完成条件。
  * 身份强引用保活底层加载；非空但加载失败的引用仍保留原 URI。 */
 template <class T> class reference_dependency final : public asset_dependency {

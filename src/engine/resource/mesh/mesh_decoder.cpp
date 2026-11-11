@@ -5,7 +5,7 @@
 #include "engine/resource/asset_file.hpp"
 #include "mesh_binary.hpp"
 #include "mesh_description.hpp"
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 [[nodiscard]] result<mesh_data, asset_diagnostic> parse_mesh(const std::vector<std::byte>& bytes) {
   auto decoded = asset_file::deserialize<mesh_description>(bytes);
   if (!decoded) {

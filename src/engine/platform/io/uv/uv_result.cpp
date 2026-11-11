@@ -7,7 +7,7 @@
 
 #include <uv.h>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 error from_uv_status(int value) noexcept {
   switch (value) {
@@ -33,4 +33,4 @@ error from_uv_status(int value) noexcept {
   }
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

@@ -21,7 +21,7 @@
 #include <tuple>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 class resource_cache final {
 public:
@@ -56,6 +56,6 @@ private:
   std::map<detail::asset_key, std::shared_ptr<detail::asset_entry>> entries_;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

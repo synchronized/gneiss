@@ -23,7 +23,7 @@
 #include <signal.h>
 #endif
 
-namespace gneiss::engine {
+namespace gneiss {
 
 struct uv_loop_executor::implementation final {
   explicit implementation(std::size_t capacity) : queue_capacity(capacity) {}
@@ -59,7 +59,7 @@ struct uv_loop_executor::implementation final {
       uv_close(reinterpret_cast<uv_handle_t*>(handle), nullptr);
     }
   } catch (...) {
-    gneiss::engine::fatal_current_exception();
+    gneiss::fatal_current_exception();
   }
 
   void run() noexcept try {
@@ -100,7 +100,7 @@ struct uv_loop_executor::implementation final {
     (void)uv_loop_close(&loop);
     running.store(false, std::memory_order_release);
   } catch (...) {
-    gneiss::engine::fatal_current_exception();
+    gneiss::fatal_current_exception();
   }
 };
 
@@ -195,4 +195,4 @@ error uv_loop_access::post(uv_loop_executor& executor, task operation) {
   }
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

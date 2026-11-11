@@ -26,7 +26,7 @@ enum class author_asset_change_state : std::uint8_t {
 struct author_asset_change final {
   author_asset_change_state state{author_asset_change_state::idle};
   std::string uri;
-  gneiss::engine::error operation{gneiss::engine::error::success};
+  gneiss::error operation{gneiss::error::success};
   std::string message;
   std::uint64_t fingerprint{};
 };
@@ -36,15 +36,15 @@ class author_asset_monitor final {
 public:
   /** 使用本次异步读取的结果比较基线；不执行 I/O。 */
   [[nodiscard]] author_asset_change observe(const std::filesystem::path& relative_path,
-                                            bool document_dirty, gneiss::engine::error operation,
+                                            bool document_dirty, gneiss::error operation,
                                             std::uint64_t fingerprint);
-  [[nodiscard]] gneiss::engine::error acknowledge_content(std::string_view uri,
+  [[nodiscard]] gneiss::error acknowledge_content(std::string_view uri,
                                                           std::string_view content);
   void establish_baseline(std::string_view uri, std::uint64_t value);
   void accept_fingerprint(std::string_view uri, std::uint64_t value);
   [[nodiscard]] std::vector<std::string> known_uris() const;
   void mark_applied(std::string_view uri, std::uint64_t value) noexcept;
-  void mark_failed(std::string_view uri, gneiss::engine::error operation) noexcept;
+  void mark_failed(std::string_view uri, gneiss::error operation) noexcept;
 
   [[nodiscard]] const author_asset_change& status() const noexcept { return status_; }
 

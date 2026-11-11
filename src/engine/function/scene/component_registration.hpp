@@ -7,7 +7,7 @@
 #include "engine/resource/scene/scene_description.hpp"
 #include <functional>
 #include <optional>
-namespace gneiss::engine {
+namespace gneiss {
 class asset_manager;
 /** 借用所属线程 World 和已准备的资源；回调不得保留上下文。 */
 struct component_context {

@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
-namespace gneiss::engine {
+namespace gneiss {
 /** Engine 存活期间的进程内类型键；零无效，不得序列化。 */
 class type_id final {
 public:

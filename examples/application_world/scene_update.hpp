@@ -11,5 +11,5 @@ struct scene_state {
   gneiss::entity_id entity;
   unsigned updates{};
 };
-gneiss::engine::error update(gneiss::runtime::application& app, scene_state& state) noexcept;
+gneiss::error update(gneiss::runtime::application& app, scene_state& state) noexcept;
 }

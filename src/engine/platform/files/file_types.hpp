@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::engine::files {
+namespace gneiss::files {
 
 /** 挂载来源的运行期标记；不拥有后端，不表示内容版本或持久身份。 */
 struct source_domain final {};
@@ -65,4 +65,4 @@ template <class T> struct completion {
 template <class T> using callback = std::function<void(completion<T>)>;
 using completion_callback = std::function<void(error)>;
 
-} // namespace gneiss::engine::files
+} // namespace gneiss::files

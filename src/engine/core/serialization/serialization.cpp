@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/serialization/serialization.hpp"
 #include "engine/core/serialization/detail/traversal.hpp"
-namespace gneiss::engine::serialization {
+namespace gneiss::serialization {
 result<void, diagnostic> write(const write_context& ctx, const meta::const_instance& view,
                                writer& output) {
   auto registry = ctx.registry();

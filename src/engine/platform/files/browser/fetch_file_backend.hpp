@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/platform/files/file_backend.hpp"
-namespace gneiss::engine::files {
+namespace gneiss::files {
 /** 浏览器主线程使用；只读 HTTP 后端，不写入 IDBFS。
  * 服务基址以 / 结尾；Range 必须返回匹配的 206/Content-Range，绝不整读模拟范围。 */
 class fetch_backend final : public backend {

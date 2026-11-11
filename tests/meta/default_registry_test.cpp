@@ -18,7 +18,7 @@
 #endif
 #include <stdexcept>
 #include <string_view>
-namespace e = gneiss::engine;
+namespace e = gneiss;
 namespace m = e::meta;
 struct sample {
   inline static constexpr std::string_view type_name = "default_registry_sample";
@@ -106,8 +106,8 @@ int main(int argc, char** argv) {
   auto value = m::read_property(sample::type_guid, m::property_id{1}, &object);
   if (!value || std::get<float>(value->payload) != 2.0F || object.speed != 2.0F)
     return 6;
-  auto encoded = gneiss::engine::asset_file::serialize_bytes(e::material_description{});
-  if (!encoded || !gneiss::engine::asset_file::deserialize<e::material_description>(*encoded))
+  auto encoded = gneiss::asset_file::serialize_bytes(e::material_description{});
+  if (!encoded || !gneiss::asset_file::deserialize<e::material_description>(*encoded))
     return 7;
   if (m::register_type<sample>({.schema_version = 1}).ok() ||
       m::registration::type<sample>().commit().ok())

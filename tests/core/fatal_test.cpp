@@ -8,7 +8,7 @@
 #include <string_view>
 #include <thread>
 
-using namespace gneiss::engine;
+using namespace gneiss;
 void throw_unexpected() { throw std::runtime_error("fixture"); }
 int main(int argc, char** argv) {
   if (argc != 2)
@@ -30,18 +30,18 @@ int main(int argc, char** argv) {
     }
   }
   const bool worker = mode == "worker" || mode == "worker-oom";
-  task_scheduler scheduler(
-      {.workers = 1, .mode = worker ? execution_mode::thread_pool : execution_mode::cooperative});
+  gneiss::tasks::task_scheduler scheduler(
+      {.workers = 1, .mode = worker ? gneiss::tasks::execution_mode::thread_pool : gneiss::tasks::execution_mode::cooperative});
   const auto scope = scheduler.make_scope();
-  task_handle task;
+  gneiss::tasks::task_handle task;
   if (scheduler.submit(
           {.scope = scope},
-          [mode](const auto&) -> task_outcome {
+          [mode](const auto&) -> gneiss::tasks::task_outcome {
             if (mode == "worker-oom")
               throw std::bad_alloc{};
             throw std::runtime_error("fixture");
           },
-          task) != submit_result::success)
+          task) != gneiss::tasks::submit_result::success)
     return 3;
   if (!worker)
     static_cast<void>(scheduler.run_ready());

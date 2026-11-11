@@ -6,7 +6,7 @@
 
 #include <dlfcn.h>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 dynamic_library::~dynamic_library() { close(); }
 
@@ -40,4 +40,4 @@ void dynamic_library::close() noexcept {
 
 bool dynamic_library::is_open() const noexcept { return handle_ != nullptr; }
 
-} // namespace gneiss::engine
+} // namespace gneiss

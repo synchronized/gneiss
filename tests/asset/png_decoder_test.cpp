@@ -39,7 +39,7 @@ void operator delete(void* memory, [[maybe_unused]] std::size_t size) noexcept {
 }
 
 int main() {
-  gneiss::engine::install_fatal_handler();
+  gneiss::install_fatal_handler();
   constexpr std::array<std::uint8_t, 68> png{
       0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
       0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x04, 0x00, 0x00,
@@ -51,7 +51,7 @@ int main() {
   for (const auto value : png) {
     bytes.push_back(static_cast<std::byte>(value));
   }
-  using namespace gneiss::engine;
+  using namespace gneiss;
   auto image = decode_png(bytes);
   if (!image || image->width != 1U || image->height != 1U || image->pixels.size() != 4U)
     return 1;

@@ -16,7 +16,7 @@
 #include <sstream>
 #include <string_view>
 
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 
 constexpr std::array<std::byte, 4> magic = {std::byte{'G'}, std::byte{'N'}, std::byte{'M'},
@@ -329,4 +329,4 @@ std::string dump_mesh_binary_json(const mesh_binary_data& data) {
   return stream.str();
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

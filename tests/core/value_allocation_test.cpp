@@ -39,8 +39,8 @@ bool check_allocations(Operation operation, Unchanged unchanged) {
 }
 
 int main(int argc, char**) {
-  gneiss::engine::install_fatal_handler();
-  using namespace gneiss::engine;
+  gneiss::install_fatal_handler();
+  using namespace gneiss;
   const auto id = guid::literal("118e3942-1e4c-4e31-8412-95be2edcb8bc");
   const value before{record_value{record_value_data{id, {{1, value{false}}}}}};
   const value after{record_value{record_value_data{id, {{1, value{true}}}}}};

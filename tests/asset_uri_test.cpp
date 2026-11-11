@@ -5,8 +5,8 @@
 
 #include <string_view>
 
-using gneiss::engine::error;
-using gneiss::engine::validate_uri;
+using gneiss::error;
+using gneiss::validate_uri;
 
 int main() {
   static const unsigned char invalid_utf8[] = {'a', 's', 's',  'e',  't', ':',

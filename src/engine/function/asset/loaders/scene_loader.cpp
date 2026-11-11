@@ -3,7 +3,7 @@
 #include "engine/function/asset/detail/content_dependency.hpp"
 #include "engine/function/asset/detail/loader_factory.hpp"
 #include "engine/resource/scene/detail/scene_asset_access.hpp"
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 namespace {
 template <class T, class D> struct scene_loader final : asset_loader {
   asset_identity source;

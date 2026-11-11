@@ -12,16 +12,16 @@
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
-namespace gneiss::engine {
+namespace gneiss {
 /** 不可变组件描述的多态基类；编辑时复制具体类型并替换引用。 */
 class component_description_base : public meta::object {
 public:
   static constexpr std::string_view type_name = "component_description_base";
-  static constexpr engine::guid type_guid =
-      engine::guid::literal("8bbd9682-e941-46a2-936a-b4ad959b2546");
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("8bbd9682-e941-46a2-936a-b4ad959b2546");
   /** 组件实例身份；新建生成，编辑与文件恢复保持。 */
-  engine::guid uuid = engine::guid::generate();
-  [[nodiscard]] engine::guid guid() const { return dynamic_type().guid(); }
+  gneiss::guid uuid = gneiss::guid::generate();
+  [[nodiscard]] gneiss::guid guid() const { return dynamic_type().guid(); }
   template <class T> const T* get() const {
     return dynamic_type().id() == runtime_type_of<T>() ? static_cast<const T*>(dynamic_address())
                                                        : nullptr;
@@ -168,7 +168,7 @@ private:
   std::vector<component_description> values_;
 };
 }
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 template <> struct sequence_identity_traits<component_descriptions> {
   static constexpr bool enabled = true;
   static guid identity(const component_description& entry) noexcept {

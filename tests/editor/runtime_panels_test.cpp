@@ -22,7 +22,7 @@ int main() try {
   runtime_scene_change change;
   change.id = {.value = 7U, .generation = 2U};
   change.node.id = change.id;
-  change.node.uuid = *gneiss::engine::guid::parse("21470280-22a3-5087-9443-62d27dfc4bbf");
+  change.node.uuid = *gneiss::guid::parse("21470280-22a3-5087-9443-62d27dfc4bbf");
   const runtime_scene_batch batch{
       .stamp = {.session_id = 3U, .sequence = 1U}, .is_full = true, .changes = {change}};
   if (mirror.apply(batch).failed()) {
@@ -56,16 +56,16 @@ int main() try {
       // NOLINTNEXTLINE(performance-unnecessary-value-param): 测试桩须匹配转移属性值的回调契约。
       .write_property =
           [](void* context, const runtime_property_key&, std::uint64_t,
-             [[maybe_unused]] gneiss::engine::value value) {
+             [[maybe_unused]] gneiss::value value) {
             ++static_cast<observations*>(context)->mutations;
-            return gneiss::engine::error::success;
+            return gneiss::error::success;
           },
       .apply_to_author =
           [](void* context, const runtime_scene_node&) {
             ++static_cast<observations*>(context)->mutations;
           },
       .report_result =
-          [](void* context, gneiss::engine::error) {
+          [](void* context, gneiss::error) {
             ++static_cast<observations*>(context)->mutations;
           }};
   ImGui::CreateContext();

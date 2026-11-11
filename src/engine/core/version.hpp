@@ -6,7 +6,7 @@
 #include "engine/core/export.hpp"
 #include <cstdint>
 
-namespace gneiss::engine {
+namespace gneiss {
 struct version {
   std::uint32_t major;
   std::uint32_t minor;
@@ -16,4 +16,4 @@ struct version {
 [[nodiscard]] GNEISS_API version library_version() noexcept;
 /** 返回静态存储的 UTF-8 构建版本字符串，无需释放。 */
 [[nodiscard]] GNEISS_API const char* library_version_string() noexcept;
-} // namespace gneiss::engine
+} // namespace gneiss

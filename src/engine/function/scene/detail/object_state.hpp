@@ -5,7 +5,7 @@
 #include "engine/function/scene/scene_types.hpp"
 #include <string>
 #include <vector>
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 /** World 私有受控对象数据；归属、层级和变换只能通过对象接口修改。 */
 struct object_state {
   scene_instance_id scene;

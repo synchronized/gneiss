@@ -574,7 +574,7 @@ if(NOT status EQUAL 0)
 endif()
 
 # 业务命名空间按层统一；实现细节可用 detail。
-foreach(content IN ITEMS "namespace gneiss::asset_internal {}" "namespace gneiss::engine::resource {}" "namespace gneiss::engine::core::tasks {}" "namespace gneiss::runtime::game {}")
+foreach(content IN ITEMS "namespace gneiss::asset_internal {}" "namespace gneiss::engine {}" "namespace gneiss::engine::tasks {}" "namespace gneiss::runtime::game {}")
   file(WRITE "${fixture}/src/runtime/namespace_probe.cpp" "${content}\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
@@ -583,7 +583,7 @@ foreach(content IN ITEMS "namespace gneiss::asset_internal {}" "namespace gneiss
     message(FATAL_ERROR "命名空间检查未拒绝旧层级：${content}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/runtime/namespace_probe.cpp" "namespace gneiss::engine { class world; }\nnamespace gneiss::runtime {}\nnamespace gneiss::engine::detail {}\n")
+file(WRITE "${fixture}/src/runtime/namespace_probe.cpp" "namespace gneiss { class world; }\nnamespace gneiss::runtime {}\nnamespace gneiss::detail {}\nnamespace gneiss::tasks {}\nnamespace gneiss::tasks::detail {}\nnamespace gneiss::meta {}\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
 if(NOT status EQUAL 0)

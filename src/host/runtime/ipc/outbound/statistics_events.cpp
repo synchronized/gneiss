@@ -8,8 +8,8 @@
 
 namespace gneiss::host {
 
-gneiss::engine::error make_statistics_event(const ipc_runtime_statistics& statistics,
-                                            gneiss::engine::ipc_envelope& output) noexcept {
+gneiss::error make_statistics_event(const ipc_runtime_statistics& statistics,
+                                            gneiss::ipc_envelope& output) noexcept {
   return encode_ipc_statistics_v2(statistics, output);
 }
 

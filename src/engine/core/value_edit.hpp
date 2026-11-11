@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/core/meta/property_path.hpp"
 #include "engine/core/result.hpp"
-namespace gneiss::engine {
+namespace gneiss {
 struct set_value_operation {
   static constexpr std::string_view type_name = "set_value_operation";
   static constexpr guid type_guid = guid::literal("bfab54df-7d47-4912-b98d-ec972c0ae5fa");
@@ -59,7 +59,7 @@ struct value_edit {
 GNEISS_API error validate_value_operation(const value_operation&);
 struct value_edit_error {
   std::size_t operation{};
-  engine::error error{engine::error::success};
+  gneiss::error error{gneiss::error::success};
 };
 /** 候选根上执行整组操作；失败不发布候选，原根及共享节点始终保持不变。 */
 GNEISS_API result<value, value_edit_error> apply_value_edits(const value&,
@@ -74,7 +74,7 @@ GNEISS_API result<value_edit_replay> replay_value_edits(const value&, std::span<
 GNEISS_API result<std::vector<value_edit>> diff_values(const value&, const value&);
 }
 
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 template <> struct variant_case_traits<value_operation> {
   static constexpr std::array<std::string_view, 6> names{"set",  "insert",    "erase",
                                                          "move", "put_entry", "erase_entry"};

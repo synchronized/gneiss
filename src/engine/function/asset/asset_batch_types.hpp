@@ -2,27 +2,27 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/function/asset/render_resource.hpp"
-namespace gneiss::engine {
+namespace gneiss {
 enum class asset_load_state : std::uint8_t { preparing, completed, failed, cancelled };
 /** 请求中每项资源的结果；applied 表示完整成功，失败项仍可能有占位内容或可用旧内容。 */
 struct asset_load_result {
-  engine::render_resource_source source;
-  engine::error result{engine::error::not_ready};
+  gneiss::render_resource_source source;
+  gneiss::error result{gneiss::error::not_ready};
   bool applied{};
 };
 struct asset_load_completion {
   std::uint64_t request{};
   asset_load_state state{asset_load_state::failed};
-  engine::error result{engine::error::internal};
+  gneiss::error result{gneiss::error::internal};
   std::string message{};
   /** 解析错误位置；文件读取失败时 path 为请求 URI。 */
   std::string path;
   std::size_t byte_offset{};
-  std::vector<engine::render_resource_ref> assets;
+  std::vector<gneiss::render_resource_ref> assets;
   /** 仅包含显式请求，依赖失败由所属材质请求报告；取消/失败也保留已成功项，元数据不延长资源寿命。 */
   std::vector<asset_load_result> results;
   /** 本次准备使用的设备能力。 */
-  engine::texture_prepare_profile profile{};
+  gneiss::texture_prepare_profile profile{};
   double prepare_ms{};
   double queue_ms{};
   double commit_ms{};

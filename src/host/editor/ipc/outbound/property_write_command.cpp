@@ -8,8 +8,8 @@
 
 namespace gneiss::host {
 
-gneiss::engine::error make_property_write_command(const ipc_property_write& command,
-                                                  gneiss::engine::ipc_envelope& output) noexcept {
+gneiss::error make_property_write_command(const ipc_property_write& command,
+                                                  gneiss::ipc_envelope& output) noexcept {
   return encode_ipc_property_write_v2(command, static_cast<std::uint32_t>(command.command_id),
                                       output);
 }

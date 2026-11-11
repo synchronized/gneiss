@@ -8,7 +8,7 @@
 
 namespace gneiss::host {
 
-gneiss::engine::error decode_runtime_session_event(const gneiss::engine::ipc_envelope& envelope,
+gneiss::error decode_runtime_session_event(const gneiss::ipc_envelope& envelope,
                                                    runtime_ipc_event& output) {
   if (envelope.operation == static_cast<std::uint16_t>(ipc_session_operation::hello)) {
     return gneiss::host::detail::decode_value<runtime_hello_event>(
@@ -28,7 +28,7 @@ gneiss::engine::error decode_runtime_session_event(const gneiss::engine::ipc_env
         envelope, output,
         [&](auto& value) { return decode_ipc_session_shutdown(envelope, value); });
   }
-  return gneiss::engine::error::unsupported;
+  return gneiss::error::unsupported;
 }
 
 } // namespace gneiss::host

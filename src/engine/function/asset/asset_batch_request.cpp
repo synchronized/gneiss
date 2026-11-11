@@ -3,7 +3,7 @@
 #include "engine/function/asset/asset_batch_request.hpp"
 #include "engine/function/asset/detail/resource_load_group.hpp"
 #include <utility>
-namespace gneiss::engine {
+namespace gneiss {
 resource_load_group* asset_batch_request::owner() const noexcept {
   auto token = owner_.lock();
   auto* group = token ? *token : nullptr;
@@ -42,20 +42,20 @@ std::optional<asset_load_progress> asset_batch_request::progress() const {
   asset_load_progress value;
   return group->progress(value) ? std::optional{value} : std::nullopt;
 }
-engine::result<asset_load_completion> asset_batch_request::take() {
+gneiss::result<asset_load_completion> asset_batch_request::take() {
   auto* group = owner();
   if (!group || !group->owns(id_))
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   asset_load_completion value;
   if (!group->take(value))
-    return engine::error::not_ready;
+    return gneiss::error::not_ready;
   reset();
   return value;
 }
-engine::error asset_batch_request::cancel() {
+gneiss::error asset_batch_request::cancel() {
   auto* group = owner();
-  return group && group->owns(id_) && group->cancel(id_) ? engine::error::success
-                                                         : engine::error::invalid_state;
+  return group && group->owns(id_) && group->cancel(id_) ? gneiss::error::success
+                                                         : gneiss::error::invalid_state;
 }
 
 }

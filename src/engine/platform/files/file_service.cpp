@@ -19,7 +19,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace gneiss::engine::files {
+namespace gneiss::files {
 namespace {
 std::atomic_uint64_t next_request{1};
 struct file_unit {};
@@ -505,4 +505,4 @@ error service::shutdown(completion_callback callback) {
   return error::success;
 }
 
-} // namespace gneiss::engine::files
+} // namespace gneiss::files

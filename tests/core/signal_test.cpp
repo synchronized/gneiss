@@ -7,7 +7,7 @@
 #include <thread>
 
 namespace {
-namespace events = gneiss::engine::events;
+namespace events = gneiss::events;
 void require(bool condition) {
   if (!condition)
     throw std::runtime_error("signal contract test failed");

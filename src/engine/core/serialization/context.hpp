@@ -7,7 +7,7 @@
 #include "engine/core/serialization/diagnostic.hpp"
 #include "engine/core/type_id.hpp"
 #include <string_view>
-namespace gneiss::engine::serialization {
+namespace gneiss::serialization {
 class reader;
 /** 外部引用解析器；收集阶段记录需求，绑定阶段返回已提交加载的身份。
  * 收集阶段可返回空引用；绑定阶段必须保证对象与 type 匹配，不等待内容加载。 */

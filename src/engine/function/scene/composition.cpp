@@ -4,7 +4,7 @@
 #include "engine/function/scene/component_registration.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
 #include <algorithm>
-namespace gneiss::engine {
+namespace gneiss {
 result<composed_scene>
 compose_scene(const scene_description& description,
               const std::map<std::string, const prefab_description*, std::less<>>& sources) {

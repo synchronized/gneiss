@@ -5,7 +5,7 @@
 
 ## 当前范围
 
-内部原生入口位于 `src/engine/platform/files/file_service.hpp`，命名空间为 `gneiss::engine::files`。
+内部原生入口位于 `src/engine/platform/files/file_service.hpp`，命名空间为 `gneiss::files`。
 当前实现 Platform 服务核心、内存后端、独立 libuv 桌面后端和 Fetch/MEMFS/IDBFS 浏览器后端。
 Application 已直接装配后端；普通 CPU、网格和纹理加载统一使用文件服务。
 旧 VFS、同步准备器和迁移适配器已删除；文件完成后才提交 CPU 解码任务。

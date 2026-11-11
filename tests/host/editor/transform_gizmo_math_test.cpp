@@ -14,10 +14,10 @@ namespace {
   return std::abs(left - right) <= 1.0e-4F;
 }
 
-[[nodiscard]] gneiss::engine::math::transform
-combine(const gneiss::engine::math::transform& parent,
-        const gneiss::engine::math::transform& local) noexcept {
-  gneiss::engine::math::transform result{};
+[[nodiscard]] gneiss::math::transform
+combine(const gneiss::math::transform& parent,
+        const gneiss::math::transform& local) noexcept {
+  gneiss::math::transform result{};
   const std::array scaled{local.translation[0] * parent.scale[0],
                           local.translation[1] * parent.scale[1],
                           local.translation[2] * parent.scale[2]};
@@ -50,7 +50,7 @@ combine(const gneiss::engine::math::transform& parent,
 } // namespace
 
 int main() {
-  gneiss::engine::math::transform parent{};
+  gneiss::math::transform parent{};
   parent.translation[0] = 4.0F;
   parent.scale[0] = 2.0F;
   parent.scale[1] = 3.0F;
@@ -58,7 +58,7 @@ int main() {
   constexpr float half_sqrt = 0.70710678F;
   parent.rotation[2] = half_sqrt;
   parent.rotation[3] = half_sqrt;
-  gneiss::engine::math::transform local{};
+  gneiss::math::transform local{};
   local.translation[0] = 1.0F;
   local.translation[1] = 2.0F;
   local.scale[0] = 1.5F;
@@ -66,9 +66,9 @@ int main() {
   local.rotation[1] = half_sqrt;
   local.rotation[3] = half_sqrt;
   const auto world = combine(parent, local);
-  gneiss::engine::math::transform recovered{};
+  gneiss::math::transform recovered{};
   if (gneiss::editor::world_to_local_transform(&parent, world, recovered) !=
-      gneiss::engine::error::success) {
+      gneiss::error::success) {
     return 1;
   }
   for (std::size_t index = 0; index < 3U; ++index) {
@@ -85,16 +85,16 @@ int main() {
   auto negative = world;
   negative.scale[0] = -world.scale[0];
   if (gneiss::editor::world_to_local_transform(&parent, negative, recovered) !=
-          gneiss::engine::error::unsupported ||
+          gneiss::error::unsupported ||
       gneiss::editor::world_to_local_transform(nullptr, world, recovered) !=
-          gneiss::engine::error::success) {
+          gneiss::error::success) {
     return 4;
   }
   gneiss::editor::gizmo_matrix matrix{};
-  gneiss::engine::math::transform matrix_roundtrip{};
-  if (gneiss::editor::transform_to_gizmo_matrix(world, matrix) != gneiss::engine::error::success ||
+  gneiss::math::transform matrix_roundtrip{};
+  if (gneiss::editor::transform_to_gizmo_matrix(world, matrix) != gneiss::error::success ||
       gneiss::editor::gizmo_matrix_to_transform(matrix, matrix_roundtrip) !=
-          gneiss::engine::error::success) {
+          gneiss::error::success) {
     return 5;
   }
   for (std::size_t index = 0; index < 3U; ++index) {
@@ -112,22 +112,22 @@ int main() {
   matrix[1] = -matrix[1];
   matrix[2] = -matrix[2];
   if (gneiss::editor::gizmo_matrix_to_transform(matrix, matrix_roundtrip) !=
-      gneiss::engine::error::unsupported) {
+      gneiss::error::unsupported) {
     return 8;
   }
   // Gizmo 只接收仿射 TRS；透视行不能被静默忽略，失败不得修改输出。
-  if (gneiss::editor::transform_to_gizmo_matrix(world, matrix) != gneiss::engine::error::success) {
+  if (gneiss::editor::transform_to_gizmo_matrix(world, matrix) != gneiss::error::success) {
     return 9;
   }
   matrix[3] = 0.25F;
   matrix_roundtrip.translation[0] = 123.0F;
   if (gneiss::editor::gizmo_matrix_to_transform(matrix, matrix_roundtrip) !=
-          gneiss::engine::error::invalid_argument ||
+          gneiss::error::invalid_argument ||
       matrix_roundtrip.translation[0] != 123.0F) {
     return 10;
   }
   // 相机适配保持右手、Y 向上投影与忽略缩放的视图语义。
-  gneiss::engine::math::transform camera;
+  gneiss::math::transform camera;
   camera.translation.z = 2.0F;
   camera.scale = {2, 3, 4};
   const auto view = gneiss::editor::build_gizmo_view_matrix(camera);

@@ -12,7 +12,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 struct child_process_start_info final {
   std::filesystem::path executable;
@@ -47,6 +47,6 @@ private:
   std::unique_ptr<implementation> implementation_;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

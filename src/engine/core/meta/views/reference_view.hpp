@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/meta/instance.hpp"
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 /** 借用引用槽位，不自动保活目标。重置/替换后须重新获取目标视图。 */
 template <bool Mutable> class basic_reference_view {
   using target_type = std::conditional_t<Mutable, instance, const_instance>;
@@ -22,13 +22,13 @@ template <bool Mutable> class basic_reference_view {
 
 public:
   /** 当前目标的运行类型；空引用仍遵循引用适配器的声明类型约定。 */
-  engine::type_id actual_type() const {
+  gneiss::type_id actual_type() const {
     return ops()->dynamic_type(readonly().registry(), readonly().data_).id();
   }
   /** 显式共享控制块，返回的只读强引用保活目标。 */
   result<ref<const void>> owner() const { return ops()->owner(readonly().data_); }
   /** 类型擦除赋值：调用方保证 owner 地址是 id 对应类型，id 必须等于声明目标类型。 */
-  error assign_owner(engine::type_id id, const ref<void>& owner) const
+  error assign_owner(gneiss::type_id id, const ref<void>& owner) const
     requires(Mutable)
   {
     if (ops()->element().id != id)

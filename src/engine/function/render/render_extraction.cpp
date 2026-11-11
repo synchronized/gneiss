@@ -3,7 +3,7 @@
 #include "engine/function/render/render_extraction.hpp"
 #include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/detail/world_component_access.hpp"
-namespace gneiss::engine {
+namespace gneiss {
 result<render_snapshot> extract_render_snapshot(world& owner, std::uint32_t viewport_width,
                                                 std::uint32_t viewport_height,
                                                 const view_camera* camera) {

@@ -5,7 +5,7 @@
 #include "engine/function/asset/asset_batch_types.hpp"
 #include <memory>
 #include <optional>
-namespace gneiss::engine {
+namespace gneiss {
 class resource_load_group;
 /** 资产批次的独占观察句柄；仅所属线程使用，放弃即取消，不保活宿主。 */
 class asset_batch_request final {
@@ -19,8 +19,8 @@ public:
   [[nodiscard]] GNEISS_API explicit operator bool() const noexcept;
   [[nodiscard]] GNEISS_API bool ready() const;
   [[nodiscard]] GNEISS_API std::optional<asset_load_progress> progress() const;
-  [[nodiscard]] GNEISS_API engine::result<asset_load_completion> take();
-  [[nodiscard]] GNEISS_API engine::error cancel();
+  [[nodiscard]] GNEISS_API gneiss::result<asset_load_completion> take();
+  [[nodiscard]] GNEISS_API gneiss::error cancel();
   GNEISS_API void reset() noexcept;
 
 private:

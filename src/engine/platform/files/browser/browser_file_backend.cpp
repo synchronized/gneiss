@@ -16,7 +16,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-namespace gneiss::engine::files {
+namespace gneiss::files {
 namespace {
 // 仅创建独立内存文件系统，不触发同步磁盘 I/O。
 EM_JS(int, mount_files, (const char* root, int persistent), {
@@ -135,7 +135,7 @@ struct browser_backend::implementation : std::enable_shared_from_this<implementa
       request->owner->ready = !error;
     request->callback(error ? error::io : error::success);
   } catch (...) {
-    gneiss::engine::fatal_current_exception();
+    gneiss::fatal_current_exception();
   }
   error sync(bool populate, completion_callback callback) {
     auto request = std::make_unique<sync_request>(

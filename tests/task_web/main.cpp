@@ -8,10 +8,10 @@
 #include <emscripten.h>
 
 namespace {
-using namespace gneiss::engine;
+using namespace gneiss;
 struct browser_host {
-  task_scheduler scheduler{{.mode = execution_mode::cooperative}};
-  task_scope scope{scheduler.make_scope()};
+  gneiss::tasks::task_scheduler scheduler{{.mode = gneiss::tasks::execution_mode::cooperative}};
+  gneiss::tasks::task_scope scope{scheduler.make_scope()};
   unsigned frames{};
   unsigned ran_at{};
 };
@@ -20,15 +20,15 @@ void tick() {
   try {
     ++host.frames;
     if (host.frames == 1U) {
-      task_handle handle;
+      gneiss::tasks::task_handle handle;
       if (host.scheduler.submit(
               {.scope = host.scope,
                .not_before = std::chrono::steady_clock::now() + std::chrono::milliseconds(40)},
               [](const auto&) {
                 host.ran_at = host.frames;
-                return task_outcome{};
+                return gneiss::tasks::task_outcome{};
               },
-              handle) != submit_result::success) {
+              handle) != gneiss::tasks::submit_result::success) {
         throw std::runtime_error("浏览器任务提交失败");
       }
     }
@@ -57,7 +57,7 @@ int main() {
     cooperative_scheduler_contract();
     bool rejected{};
     try {
-      task_scheduler unavailable;
+      gneiss::tasks::task_scheduler unavailable;
     } catch (const std::invalid_argument&) {
       rejected = true;
     }

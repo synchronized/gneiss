@@ -12,12 +12,12 @@
 #include <variant>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 /** Prefab 实例中节点的稳定作者身份。 */
 struct prefab_author_address final {
-  gneiss::engine::guid instance_uuid;
-  gneiss::engine::guid source_node_uuid;
+  gneiss::guid instance_uuid;
+  gneiss::guid source_node_uuid;
 
   [[nodiscard]] bool operator==(const prefab_author_address&) const noexcept = default;
 };
@@ -59,8 +59,8 @@ struct prefab_property_override final {
   prefab_property_override_key key;
   value_operation operation;
   /** 只用于已确认的 set 操作；集合操作通过 operation 访问。 */
-  engine::value& replacement() { return std::get<set_value_operation>(operation).content; }
-  const engine::value& replacement() const {
+  gneiss::value& replacement() { return std::get<set_value_operation>(operation).content; }
+  const gneiss::value& replacement() const {
     return std::get<set_value_operation>(operation).content;
   }
 };
@@ -70,4 +70,4 @@ struct prefab_property_override final {
 prefab_property_override_key_less(const prefab_property_override_key& left,
                                   const prefab_property_override_key& right) noexcept;
 
-} // namespace gneiss::engine
+} // namespace gneiss

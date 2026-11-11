@@ -8,7 +8,7 @@
 #include <memory>
 #include <string_view>
 
-namespace gneiss::engine::files {
+namespace gneiss::files {
 
 /** 单消费者顺序来源；不预读。close 可重复调用，终止在途读取且不等待。
  * 成功接受的读取必须完成一次；失败后来源不可重试。仅所属线程调用。 */
@@ -47,4 +47,4 @@ public:
   virtual void poll() noexcept {}
 };
 
-} // namespace gneiss::engine::files
+} // namespace gneiss::files

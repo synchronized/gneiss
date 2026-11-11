@@ -18,14 +18,14 @@
 #include <thread>
 #include <type_traits>
 
-static_assert(!std::is_convertible_v<gneiss::engine::rid, gneiss::scene_instance_id>);
-static_assert(!std::is_convertible_v<gneiss::scene_instance_id, gneiss::engine::rid>);
+static_assert(!std::is_convertible_v<gneiss::rid, gneiss::scene_instance_id>);
+static_assert(!std::is_convertible_v<gneiss::scene_instance_id, gneiss::rid>);
 static_assert(!std::is_convertible_v<gneiss::entity_id, gneiss::scene_instance_id>);
 
 namespace {
 bool scene_object_storage() {
   using namespace gneiss;
-  using namespace gneiss::engine;
+  using namespace gneiss;
   auto created = create_native();
   auto other = create_native();
   if (!created || !other)
@@ -45,7 +45,7 @@ bool scene_object_storage() {
     return false;
   if (child->name() != "子节点" || child->set_name("新名称").failed() || child->name() != "新名称")
     return false;
-  if (owner.find(child->entity()).try_component<gneiss::engine::mesh_renderer_component>() !=
+  if (owner.find(child->entity()).try_component<gneiss::mesh_renderer_component>() !=
       nullptr)
     return false;
   auto objects = object_scene->objects();
@@ -96,9 +96,9 @@ bool scene_object_storage() {
 
 bool native_operations() {
   using namespace gneiss;
-  gneiss::engine::world_owner owner;
-  if (gneiss::test_support::assign_value(gneiss::engine::create_native(), owner) !=
-      gneiss::engine::error::success)
+  gneiss::world_owner owner;
+  if (gneiss::test_support::assign_value(gneiss::create_native(), owner) !=
+      gneiss::error::success)
     return false;
   entity_id entity{};
   entity_id node{};
@@ -113,38 +113,38 @@ bool native_operations() {
   node = entity_id{entity.get()};
   if (!owner->find(entity).is_valid() ||
       gneiss::test_support::assign_value(owner->entity_count(), count) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       count != 1)
     return false;
-  gneiss::engine::math::transform local;
+  gneiss::math::transform local;
   local.translation = {2, 3, 4};
-  gneiss::engine::math::transform actual;
+  gneiss::math::transform actual;
   if (owner->find(gneiss::entity_id{(gneiss::entity_id{node}).get()}).set_local_transform(local) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       gneiss::test_support::assign_value(
           owner->find(gneiss::entity_id{(gneiss::entity_id{node}).get()}).world_transform(),
-          actual) != gneiss::engine::error::success ||
+          actual) != gneiss::error::success ||
       actual.translation != local.translation)
     return false;
   auto invalid = local;
   invalid.scale[0] = 0;
   if (owner->find(gneiss::entity_id{(gneiss::entity_id{node}).get()})
-              .set_local_transform(invalid) != gneiss::engine::error::invalid_argument ||
+              .set_local_transform(invalid) != gneiss::error::invalid_argument ||
       gneiss::test_support::assign_value(
           owner->find(gneiss::entity_id{(gneiss::entity_id{node}).get()}).local_transform(),
-          actual) != gneiss::engine::error::success ||
+          actual) != gneiss::error::success ||
       actual.scale[0] != 1)
     return false;
   actual.translation[0] = 42;
   if (gneiss::test_support::assign_value(
           owner->find(gneiss::entity_id{(gneiss::entity_id{0}).get()}).local_transform(), actual) !=
-          gneiss::engine::error::invalid_handle ||
+          gneiss::error::invalid_handle ||
       actual.translation[0] != 42)
     return false;
-  gneiss::engine::error foreign{};
+  gneiss::error foreign{};
   std::thread worker([&] { foreign = owner->find(gneiss::entity_id{entity}).destroy(); });
   worker.join();
-  if (foreign != gneiss::engine::error::invalid_state || !owner->find(entity).is_valid())
+  if (foreign != gneiss::error::invalid_state || !owner->find(entity).is_valid())
     return false;
   owner.reset();
   return !owner;
@@ -153,16 +153,16 @@ bool native_operations() {
 }
 
 int main() {
-  if (gneiss::engine::initialize_meta().failed())
+  if (gneiss::initialize_meta().failed())
     return 22;
   if (!scene_object_storage())
     return 21;
   if (!native_operations())
     return 20;
-  namespace service = gneiss::engine;
-  gneiss::engine::world_owner world{};
-  if (gneiss::test_support::assign_value(gneiss::engine::create_native(), world) !=
-      gneiss::engine::error::success) {
+  namespace service = gneiss;
+  gneiss::world_owner world{};
+  if (gneiss::test_support::assign_value(gneiss::create_native(), world) !=
+      gneiss::error::success) {
     return 1;
   }
   auto scene = world->create_scene();
@@ -174,66 +174,66 @@ int main() {
   const auto entity = created_object->entity().get();
   std::uint64_t count{};
   if (gneiss::test_support::assign_value(world->entity_count(), count) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       count != 1U) {
     return 3;
   }
-  gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
+  gneiss::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   if (world->find(gneiss::entity_id{entity})
-          .add_component<gneiss::engine::camera_component>(
-              *gneiss::engine::camera_component::create(camera)) !=
-      gneiss::engine::error::success) {
+          .add_component<gneiss::camera_component>(
+              *gneiss::camera_component::create(camera)) !=
+      gneiss::error::success) {
     return 4;
   }
   service::math::camera_settings settings;
   if (gneiss::test_support::read_component_value(
-          world->find(gneiss::entity_id{entity}).try_component<gneiss::engine::camera_component>(),
-          settings) != gneiss::engine::error::success ||
+          world->find(gneiss::entity_id{entity}).try_component<gneiss::camera_component>(),
+          settings) != gneiss::error::success ||
       settings.near != camera.near || settings.far != camera.far) {
     return 5;
   }
   settings.far = settings.near;
   if (world->find(gneiss::entity_id{entity})
-              .try_component<gneiss::engine::camera_component>()
-              ->set_settings(settings) != gneiss::engine::error::invalid_argument ||
+              .try_component<gneiss::camera_component>()
+              ->set_settings(settings) != gneiss::error::invalid_argument ||
       gneiss::test_support::read_component_value(
-          world->find(gneiss::entity_id{entity}).try_component<gneiss::engine::camera_component>(),
-          camera) != gneiss::engine::error::success ||
+          world->find(gneiss::entity_id{entity}).try_component<gneiss::camera_component>(),
+          camera) != gneiss::error::success ||
       camera.near == camera.far) {
     return 6;
   }
-  gneiss::engine::error wrong_thread{};
-  if (gneiss::engine::initialize_meta().failed())
+  gneiss::error wrong_thread{};
+  if (gneiss::initialize_meta().failed())
     return 14;
-  gneiss::engine::math::transform candidate_transform;
-  gneiss::engine::value proposed;
-  proposed.payload = gneiss::engine::math::vector3{2, 3, 4};
-  if (gneiss::engine::meta::write_property(
-          service::math::transform::type_guid, gneiss::engine::meta::transform_translation_field,
-          &candidate_transform, proposed) != gneiss::engine::error::success ||
+  gneiss::math::transform candidate_transform;
+  gneiss::value proposed;
+  proposed.payload = gneiss::math::vector3{2, 3, 4};
+  if (gneiss::meta::write_property(
+          service::math::transform::type_guid, gneiss::meta::transform_translation_field,
+          &candidate_transform, proposed) != gneiss::error::success ||
       candidate_transform.translation[0] != 2) {
     return 15;
   }
-  proposed.payload = gneiss::engine::math::vector3{0, 1, 1};
-  if (gneiss::engine::meta::write_property(
-          service::math::transform::type_guid, gneiss::engine::meta::transform_scale_field,
-          &candidate_transform, proposed) != gneiss::engine::error::invalid_argument ||
+  proposed.payload = gneiss::math::vector3{0, 1, 1};
+  if (gneiss::meta::write_property(
+          service::math::transform::type_guid, gneiss::meta::transform_scale_field,
+          &candidate_transform, proposed) != gneiss::error::invalid_argument ||
       candidate_transform.scale[0] != 1) {
     return 16;
   }
   service::camera_description candidate_camera{{1, 10, 20}, false};
   proposed.payload = 30.0F;
-  if (gneiss::engine::meta::write_property(
-          gneiss::engine::meta::type_of<service::math::camera_settings>().guid(),
-          gneiss::engine::meta::property_id{2}, &candidate_camera.settings,
-          proposed) != gneiss::engine::error::success) {
+  if (gneiss::meta::write_property(
+          gneiss::meta::type_of<service::math::camera_settings>().guid(),
+          gneiss::meta::property_id{2}, &candidate_camera.settings,
+          proposed) != gneiss::error::success) {
     return 17;
   }
   proposed.payload = 40.0F;
-  if (gneiss::engine::meta::write_property(
-          gneiss::engine::meta::type_of<service::math::camera_settings>().guid(),
-          gneiss::engine::meta::property_id{3}, &candidate_camera.settings,
-          proposed) != gneiss::engine::error::success ||
+  if (gneiss::meta::write_property(
+          gneiss::meta::type_of<service::math::camera_settings>().guid(),
+          gneiss::meta::property_id{3}, &candidate_camera.settings,
+          proposed) != gneiss::error::success ||
       candidate_camera.settings.near != 30 || candidate_camera.settings.far != 40) {
     return 18;
   }

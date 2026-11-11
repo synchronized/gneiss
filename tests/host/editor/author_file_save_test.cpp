@@ -29,17 +29,17 @@ int main() try {
     auto status = editor::begin_author_file_save(*files, std::move(change), receipt);
     if (status.ok()) {
       if (receipt->complete)
-        return engine::error::internal; // 业务完成不得内联。
+        return gneiss::error::internal; // 业务完成不得内联。
       status = test_support::await_file(*files, receipt);
     }
     return status;
   };
   if (save({"source.prefab.json", {}, "one"}).failed() ||
-      save({"source.prefab.json", {}, "clobber"}) != engine::error::invalid_state ||
+      save({"source.prefab.json", {}, "clobber"}) != gneiss::error::invalid_state ||
       read(root / "source.prefab.json") != "one" ||
       save({"source.prefab.json", "one", "two"}).failed() ||
-      save({"source.prefab.json", "one", "stale"}) != engine::error::invalid_state ||
-      save({"source.prefab.json", "two", {}}) != engine::error::invalid_argument ||
+      save({"source.prefab.json", "one", "stale"}) != gneiss::error::invalid_state ||
+      save({"source.prefab.json", "two", {}}) != gneiss::error::invalid_argument ||
       read(root / "source.prefab.json") != "two")
     return 2;
   std::filesystem::create_directory(root / "directory");
@@ -55,7 +55,7 @@ int main() try {
     return 5;
   std::shared_ptr<editor::scene_edit_session::save_receipt> receipt;
   if (document
-          .begin_save(*files, "asset://scene.json", gneiss::engine::files::write_mode::create_new,
+          .begin_save(*files, "asset://scene.json", gneiss::files::write_mode::create_new,
                       receipt)
           .failed() ||
       receipt->complete || document.rename_node(node, "after").failed() ||
@@ -64,12 +64,12 @@ int main() try {
       read(root / "scene.json").find("before") == std::string::npos)
     return 6;
   if (document
-          .begin_save(*files, document.uri(), gneiss::engine::files::write_mode::replace, receipt)
+          .begin_save(*files, document.uri(), gneiss::files::write_mode::replace, receipt)
           .failed())
     return 7;
   document.close(); // 回调不访问已经关闭的文档。
   if (test_support::await_file(*files, receipt).failed() ||
-      document.accept_save(*receipt) != engine::error::invalid_state)
+      document.accept_save(*receipt) != gneiss::error::invalid_state)
     return 8;
   files.reset();
   app.reset();

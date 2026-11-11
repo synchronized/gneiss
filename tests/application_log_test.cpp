@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <string>
 int main() try {
-  namespace e = gneiss::engine;
+  namespace e = gneiss;
   unsigned count{};
   bool valid = true;
   gneiss::test_support::log_capture logs{[&](const e::logging::record_view& event) {

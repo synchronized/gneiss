@@ -11,7 +11,7 @@
 
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 /** 由视口持有的相机输入；不引用 World 或场景实体。 */
 struct view_camera {
@@ -30,8 +30,8 @@ struct render_camera_snapshot {
 };
 
 struct render_instance_snapshot {
-  ref<const engine::mesh> mesh;
-  ref<const engine::material> material;
+  ref<const gneiss::mesh> mesh;
+  ref<const gneiss::material> material;
   math::transform transform;
 };
 
@@ -41,6 +41,6 @@ struct render_snapshot {
   std::vector<render_instance_snapshot> instances;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

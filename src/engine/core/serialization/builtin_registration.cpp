@@ -4,7 +4,7 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/policy.hpp"
 #include "engine/core/value_edit.hpp"
-namespace gneiss::engine::serialization {
+namespace gneiss::serialization {
 using namespace meta;
 namespace detail {
 error register_math_types(const registry_ref&);

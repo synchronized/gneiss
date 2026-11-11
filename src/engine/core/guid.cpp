@@ -9,7 +9,7 @@
 #include <string>
 #include <string_view>
 
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 
 [[nodiscard]] constexpr char hex_digit(std::uint8_t value) noexcept {

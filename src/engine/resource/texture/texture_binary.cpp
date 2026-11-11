@@ -12,7 +12,7 @@
 #include <string_view>
 #include <utility>
 
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 
 constexpr std::array<std::byte, 8U> magic = {
@@ -126,4 +126,4 @@ decode_texture_binary(std::span<const std::byte> bytes) {
                              .payload = bytes.subspan(static_cast<std::size_t>(payload_offset),
                                                       static_cast<std::size_t>(payload_size))};
 }
-} // namespace gneiss::engine
+} // namespace gneiss

@@ -46,7 +46,7 @@ struct runtime_asset_reload_status final {
   runtime_asset_reload_state state{runtime_asset_reload_state::idle};
   std::uint64_t revision = 0U;
   std::string message;
-  gneiss::engine::error publish_result = gneiss::engine::error::success;
+  gneiss::error publish_result = gneiss::error::success;
   bool can_cancel = false;
   std::uint32_t completed_assets = 0U;
   std::uint32_t total_assets = 0U;
@@ -61,23 +61,23 @@ public:
   runtime_process(const runtime_process&) = delete;
   runtime_process& operator=(const runtime_process&) = delete;
 
-  [[nodiscard]] gneiss::engine::error start(const std::filesystem::path& executable,
+  [[nodiscard]] gneiss::error start(const std::filesystem::path& executable,
                                             const gneiss::editor::runtime_launch_request& request);
-  [[nodiscard]] gneiss::engine::error request_stop();
-  [[nodiscard]] gneiss::engine::error request_pause();
-  [[nodiscard]] gneiss::engine::error request_resume();
-  [[nodiscard]] gneiss::engine::error
+  [[nodiscard]] gneiss::error request_stop();
+  [[nodiscard]] gneiss::error request_pause();
+  [[nodiscard]] gneiss::error request_resume();
+  [[nodiscard]] gneiss::error
   request_property_write(gneiss::editor::runtime_property_key key, std::uint64_t expected_revision,
-                         gneiss::engine::value value);
+                         gneiss::value value);
   /** 发布已提交的派生资产；Runtime 未连接时保留到下次全量重同步。 */
-  [[nodiscard]] gneiss::engine::error
+  [[nodiscard]] gneiss::error
   publish_asset_revision(std::span<const std::string> output_uris);
   /** 失败后全量同步已知资产；执行中或未连接时返回 not_ready。 */
-  [[nodiscard]] gneiss::engine::error cancel_asset_reload() noexcept;
-  [[nodiscard]] gneiss::engine::error retry_asset_reload();
-  [[nodiscard]] gneiss::engine::error load_scene(std::string_view uri);
-  [[nodiscard]] gneiss::engine::error cancel_scene_load() noexcept;
-  [[nodiscard]] gneiss::engine::error retry_scene_load() noexcept;
+  [[nodiscard]] gneiss::error cancel_asset_reload() noexcept;
+  [[nodiscard]] gneiss::error retry_asset_reload();
+  [[nodiscard]] gneiss::error load_scene(std::string_view uri);
+  [[nodiscard]] gneiss::error cancel_scene_load() noexcept;
+  [[nodiscard]] gneiss::error retry_scene_load() noexcept;
   [[nodiscard]] bool supports_scene_loading() const noexcept;
   [[nodiscard]] const ipc_scene_progress& scene_load_status() const noexcept;
   void update();
@@ -97,7 +97,7 @@ public:
   [[nodiscard]] bool supports_property_editing() const noexcept;
   [[nodiscard]] const runtime_asset_reload_status& asset_reload_status() const noexcept;
   [[nodiscard]] const std::filesystem::path& log_file() const noexcept;
-  [[nodiscard]] gneiss::engine::error last_result() const noexcept;
+  [[nodiscard]] gneiss::error last_result() const noexcept;
   void clear_output() noexcept;
 
 private:

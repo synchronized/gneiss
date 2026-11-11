@@ -6,17 +6,17 @@
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/material/material_description.hpp"
 namespace gneiss::editor {
-using namespace engine;
+using namespace gneiss;
 error material_editor_model::open(std::string uri, std::string content) {
   if (saving() || is_dirty())
     return error::invalid_state;
   if (!uri.starts_with("asset://") || validate_uri(uri).failed())
     return error::invalid_argument;
-  auto decoded = gneiss::engine::asset_file::deserialize<material_description>(
+  auto decoded = gneiss::asset_file::deserialize<material_description>(
       std::as_bytes(std::span{content.data(), content.size()}));
   if (!decoded)
     return decoded.error().error;
-  auto encoded = gneiss::engine::asset_file::serialize_bytes(*decoded);
+  auto encoded = gneiss::asset_file::serialize_bytes(*decoded);
   if (!encoded)
     return encoded.error().error;
   auto next = std::make_shared<snapshot>(
@@ -61,7 +61,7 @@ error material_editor_model::apply(const property_path& path, const value* input
     if (!uri.empty() && validate_uri(uri).failed())
       return error::invalid_argument;
   // 文件保存边界执行领域校验后编码，不发布半成品。
-  auto encoded = gneiss::engine::asset_file::serialize_bytes(candidate);
+  auto encoded = gneiss::asset_file::serialize_bytes(candidate);
   if (!encoded)
     return encoded.error().error;
   auto next = std::make_shared<const snapshot>(

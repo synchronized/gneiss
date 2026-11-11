@@ -31,29 +31,29 @@ struct asset_prefix {
   virtual ~asset_prefix() = default;
   std::uint64_t marker{0x12345678U};
 };
-struct asset_value : asset_prefix, gneiss::engine::asset {
+struct asset_value : asset_prefix, gneiss::asset {
   asset_value(char value = {})
-      : asset(gneiss::engine::runtime_type_of<asset_value>()), byte(value) {}
+      : asset(gneiss::runtime_type_of<asset_value>()), byte(value) {}
   asset_value(const asset_value& other) : asset_value(other.byte) {}
   asset_value& operator=(const asset_value& other) {
     byte = other.byte;
     return *this;
   }
 
-  static constexpr auto type_guid = gneiss::engine::guid::from_bytes({0x98, 1});
+  static constexpr auto type_guid = gneiss::guid::from_bytes({0x98, 1});
   static constexpr std::string_view type_name = "test_asset";
   char byte{};
 };
 }
 namespace {
-void advance_assets_for_test(gneiss::engine::asset_manager& assets) {
+void advance_assets_for_test(gneiss::asset_manager& assets) {
   if (const auto files = assets.async_files())
     (void)files->dispatch_completions(64);
   assets.advance();
 }
 using namespace gneiss;
-using namespace gneiss::engine;
-using namespace gneiss::engine;
+using namespace gneiss;
+using namespace gneiss;
 void check(bool ok, const char* message) {
   if (!ok)
     throw std::runtime_error(message);
@@ -72,34 +72,34 @@ public:
   mutable bool change{};
   bool missing{}, oversized{}, json{};
   std::vector<std::byte> contents;
-  gneiss::engine::error read(std::string_view path,
+  gneiss::error read(std::string_view path,
                              std::vector<std::byte>& output) const noexcept override {
     return read_bounded(path, 8, output);
   }
-  gneiss::engine::error read_bounded(std::string_view, std::size_t limit,
+  gneiss::error read_bounded(std::string_view, std::size_t limit,
                                      std::vector<std::byte>& output) const noexcept override {
     ++reads;
     if (missing)
-      return gneiss::engine::error::not_found;
+      return gneiss::error::not_found;
     if (oversized || limit < 1 || contents.size() > limit)
-      return gneiss::engine::error::invalid_argument;
+      return gneiss::error::invalid_argument;
     try {
       output = contents.empty() ? std::vector{static_cast<std::byte>(byte)} : contents;
       if (json && contents.empty())
         output = {std::byte{'"'}, static_cast<std::byte>(byte), std::byte{'"'}};
       if (change)
         ++byte;
-      return gneiss::engine::error::success;
+      return gneiss::error::success;
     } catch (...) {
-      return gneiss::engine::error::out_of_memory;
+      return gneiss::error::out_of_memory;
     }
   }
 };
 class loader final : public asset_decoder {
 public:
   mutable unsigned decodes{};
-  gneiss::engine::type_id target_type() const noexcept override {
-    return gneiss::engine::runtime_type_of<value>();
+  gneiss::type_id target_type() const noexcept override {
+    return gneiss::runtime_type_of<value>();
   }
   result<std::shared_ptr<const void>, serialization::diagnostic>
   decode(const std::vector<std::byte>& bytes) const override {
@@ -115,12 +115,12 @@ result<value, serialization::diagnostic> explicit_decode(std::span<const std::by
     return serialization::diagnostic{.error = error::invalid_argument};
   return value{'x'};
 }
-class delayed_files final : public gneiss::engine::files::backend {
+class delayed_files final : public gneiss::files::backend {
 public:
-  gneiss::engine::files::callback<gneiss::engine::files::bytes> pending;
+  gneiss::files::callback<gneiss::files::bytes> pending;
   std::size_t last_read_limit{};
-  error read(std::string_view, gneiss::engine::files::read_options options,
-             gneiss::engine::files::callback<gneiss::engine::files::bytes> callback) override {
+  error read(std::string_view, gneiss::files::read_options options,
+             gneiss::files::callback<gneiss::files::bytes> callback) override {
     last_read_limit = options.max_bytes;
     pending = std::move(callback);
     return error::success;
@@ -132,8 +132,8 @@ public:
 };
 void injected_file_service() {
   auto backend = std::make_shared<delayed_files>();
-  auto files = std::make_shared<gneiss::engine::files::service>(
-      gneiss::engine::files::service_options{1, 512U * 1024U * 1024U, 512U * 1024U * 1024U});
+  auto files = std::make_shared<gneiss::files::service>(
+      gneiss::files::service_options{1, 512U * 1024U * 1024U, 512U * 1024U * 1024U});
   check(files->mount({"asset://", {backend}, {}}).ok(), "service mount");
   auto& executor = gneiss::test_support::asset_tasks();
   auto assets = std::make_unique<asset_manager>(gneiss::test_support::test_files(files));
@@ -188,7 +188,7 @@ void injected_file_service() {
   advance_assets_for_test(*assets);
   check(executor.stats().submitted == 1 && decoder->decodes == 0,
         "one decode after file completion");
-  check(executor.run_ready().status == drive_status::success, "decode task");
+  check(executor.run_ready().status == gneiss::tasks::drive_status::success, "decode task");
   advance_assets_for_test(*assets);
   check(gneiss::test_support::take_request(first, loaded).ok() &&
             gneiss::test_support::take_request(second, other).ok() && loaded == other &&
@@ -209,7 +209,7 @@ void injected_file_service() {
             other) == error::not_found &&
             other == loaded,
         "cache miss preserves output");
-  std::shared_ptr<const gneiss::engine::files::source_domain> source;
+  std::shared_ptr<const gneiss::files::source_domain> source;
   check(files->resolve_source("asset://value", source).ok() && source &&
             assets->cached_count() == 1,
         "service cache source identity");
@@ -255,7 +255,7 @@ void injected_file_service() {
   check(files->dispatch_completions(64).ok() && closed, "shared service drained");
 }
 error register_test_assets() {
-  gneiss::engine::serialization::content_codec codec;
+  gneiss::serialization::content_codec codec;
   codec.decode = [](const serialization::read_context&, serialization::reader& input,
                     const void* node) -> result<ref<void>, serialization::diagnostic> {
     if (!input.is_string(node) || input.string(node) == "?")
@@ -277,7 +277,7 @@ void decoder_selection() {
   const auto adopted_scope = executor.make_scope();
   {
     asset_manager scoped(gneiss::test_support::test_files(files));
-    task_scheduler foreign({.mode = execution_mode::cooperative});
+    gneiss::tasks::task_scheduler foreign({.mode = gneiss::tasks::execution_mode::cooperative});
     const auto foreign_scope = foreign.make_scope();
     check(scoped.configure(executor, {}, foreign_scope) == error::invalid_argument,
           "foreign scope is rejected without ownership transfer");
@@ -299,7 +299,7 @@ void decoder_selection() {
         "load reuses cache");
   auto previous = output;
   source->byte = '?';
-  gneiss::engine::serialization::diagnostic failure;
+  gneiss::serialization::diagnostic failure;
   check(gneiss::test_support::load_asset(reflected, "asset://value", output, true, &failure) ==
                 error::invalid_argument &&
             output == previous,
@@ -314,7 +314,7 @@ void decoder_selection() {
   check(reflected.configure(executor, texture_prepare_profile{.generation = 1}) ==
             error::invalid_state,
         "configuration conflict is rejected");
-  task_scheduler other_executor({.workers = 0, .mode = execution_mode::cooperative});
+  gneiss::tasks::task_scheduler other_executor({.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   check(reflected.configure(other_executor) == error::invalid_state,
         "manager rejects executor replacement");
   asset_request<value> request;
@@ -325,7 +325,7 @@ void decoder_selection() {
         "async reflection request");
   auto async_status = gneiss::test_support::take_request(request, output);
   for (unsigned i = 0; i != 32 && async_status == error::not_ready; ++i) {
-    check(executor.run_ready().status == drive_status::success, "reflection drive");
+    check(executor.run_ready().status == gneiss::tasks::drive_status::success, "reflection drive");
     advance_assets_for_test(reflected);
     async_status = gneiss::test_support::take_request(request, output);
   }
@@ -339,7 +339,7 @@ void decoder_selection() {
         "async failure request");
   async_status = error::not_ready;
   for (unsigned i = 0; i != 32 && async_status == error::not_ready; ++i) {
-    check(executor.run_ready().status == drive_status::success, "failure drive");
+    check(executor.run_ready().status == gneiss::tasks::drive_status::success, "failure drive");
     advance_assets_for_test(reflected);
     async_status = gneiss::test_support::take_request(request, output, &failure);
   }
@@ -394,21 +394,21 @@ void decoder_selection() {
         "unreflected type loads");
   material_description description;
   description.parameters.metallic = 0.25F;
-  gneiss::engine::serialization::diagnostic diagnostic;
+  gneiss::serialization::diagnostic diagnostic;
   check(
-      gneiss::test_support::assign_decoded(gneiss::engine::asset_file::serialize_bytes(description),
+      gneiss::test_support::assign_decoded(gneiss::asset_file::serialize_bytes(description),
                                            source->contents, diagnostic) == error::success,
       "material fixture");
   render_service material_render;
   asset_manager material_assets(gneiss::test_support::test_files(files));
   check(material_assets.attach_render(material_render).ok(), "material render");
-  ref<const engine::material> material;
+  ref<const gneiss::material> material;
   check(gneiss::test_support::load_asset(material_assets, "asset://material", material) ==
                 error::success &&
             material->parameters().metallic == 0.25F,
         "builtin material reflection load");
   auto limited_files =
-      std::make_shared<engine::files::service>(engine::files::service_options{.max_file_bytes = 1});
+      std::make_shared<gneiss::files::service>(gneiss::files::service_options{.max_file_bytes = 1});
   check(limited_files->mount({"asset://", {source}, {}}).ok(), "limited mount");
   asset_manager limited(limited_files);
   check(limited.attach_render(material_render).ok(), "limited render");
@@ -445,15 +445,15 @@ void reference_lifetime() {
 void cache_collection() {
   auto source = std::make_shared<memory_files>();
   gneiss::test_support::fixture_files files;
-  check(files.mount("asset://", source) == gneiss::engine::error::success, "collection mount");
+  check(files.mount("asset://", source) == gneiss::error::success, "collection mount");
   auto& executor = gneiss::test_support::asset_tasks();
   asset_manager assets(gneiss::test_support::test_files(files));
-  check(assets.register_decoder(std::make_shared<loader>()) == gneiss::engine::error::success,
+  check(assets.register_decoder(std::make_shared<loader>()) == gneiss::error::success,
         "collection loader");
   assets.configure(executor);
   asset_ref<const value> held;
   check(gneiss::test_support::load_asset(assets, "asset://value", held) ==
-            gneiss::engine::error::success,
+            gneiss::error::success,
         "seed cache");
   check(assets.cached_count() == 1U, "CPU result uses unified index");
   assets.collect_unused();
@@ -461,15 +461,15 @@ void cache_collection() {
   check(
       gneiss::test_support::assign_value(
           assets.load<typename std::remove_cvref_t<decltype(request)>::value_type>("asset://value"),
-          request) == gneiss::engine::error::success,
+          request) == gneiss::error::success,
       "cached load");
   asset_ref<const value> copy;
-  check(gneiss::test_support::take_request(request, copy) == gneiss::engine::error::success &&
+  check(gneiss::test_support::take_request(request, copy) == gneiss::error::success &&
             held == copy && source->reads == 1,
         "external reference prevents collection");
   held.reset();
   copy.reset();
-  check(assets.find<value>("asset://value").error() == gneiss::engine::error::not_found,
+  check(assets.find<value>("asset://value").error() == gneiss::error::not_found,
         "weak CPU cache expires before collection");
   assets.collect_unused();
   check(assets.cached_count() == 0U, "CPU entry collected after last reference");
@@ -477,25 +477,25 @@ void cache_collection() {
   check(
       gneiss::test_support::assign_value(
           assets.load<typename std::remove_cvref_t<decltype(request)>::value_type>("asset://value"),
-          request) == gneiss::engine::error::success,
+          request) == gneiss::error::success,
       "load after collection");
   // 取消观察者后，活动任务仍必须拥有完成所需的索引。
   request.cancel();
   assets.collect_unused();
-  check(executor.run_ready().status == drive_status::success, "cancelled work completes");
+  check(executor.run_ready().status == gneiss::tasks::drive_status::success, "cancelled work completes");
   advance_assets_for_test(assets);
   assets.collect_unused();
   check(
       gneiss::test_support::assign_value(
           assets.load<typename std::remove_cvref_t<decltype(request)>::value_type>("asset://value"),
-          request) == gneiss::engine::error::success,
+          request) == gneiss::error::success,
       "retry collected load");
   for (unsigned i = 0; i < 10 && !copy; ++i) {
-    check(executor.run_ready().status == drive_status::success, "collection drive");
+    check(executor.run_ready().status == gneiss::tasks::drive_status::success, "collection drive");
     advance_assets_for_test(assets);
     assets.collect_unused();
     const auto status = gneiss::test_support::take_request(request, copy);
-    check(status == gneiss::engine::error::success || status == gneiss::engine::error::not_ready,
+    check(status == gneiss::error::success || status == gneiss::error::not_ready,
           "collection preserves active request");
   }
   check(copy && copy->byte == 'b', "new content after collection");
@@ -503,18 +503,18 @@ void cache_collection() {
   check(gneiss::test_support::assign_value(
             assets.reload<typename std::remove_cvref_t<decltype(request)>::value_type>(
                 "asset://value"),
-            request) == gneiss::engine::error::success,
+            request) == gneiss::error::success,
         "reload before collection");
   copy.reset();
   assets.collect_unused();
   check(assets.cached_count() == 1U, "in-flight reload retains previous cache entry");
-  auto reload_status = gneiss::engine::error::not_ready;
-  for (unsigned i = 0; i < 10 && reload_status == gneiss::engine::error::not_ready; ++i) {
-    check(executor.run_ready().status == drive_status::success, "failed reload drive");
+  auto reload_status = gneiss::error::not_ready;
+  for (unsigned i = 0; i < 10 && reload_status == gneiss::error::not_ready; ++i) {
+    check(executor.run_ready().status == gneiss::tasks::drive_status::success, "failed reload drive");
     advance_assets_for_test(assets);
     reload_status = gneiss::test_support::take_request(request, copy);
   }
-  check(reload_status == gneiss::engine::error::invalid_argument,
+  check(reload_status == gneiss::error::invalid_argument,
         "reload fails without replacement");
   auto retained_failure = assets.find<value>("asset://value");
   check(retained_failure && (*retained_failure)->byte == 'b',
@@ -526,13 +526,13 @@ void cache_collection() {
         "releasing failed observer expires otherwise unowned identity");
   source->byte = 'b';
   check(gneiss::test_support::load_asset(assets, "asset://value", copy) ==
-            gneiss::engine::error::success,
+            gneiss::error::success,
         "reload after weak value expired");
   check(
       gneiss::test_support::assign_value(
           assets.load<typename std::remove_cvref_t<decltype(request)>::value_type>("asset://value"),
-          request) == gneiss::engine::error::success &&
-          gneiss::test_support::take_request(request, copy) == gneiss::engine::error::success &&
+          request) == gneiss::error::success &&
+          gneiss::test_support::take_request(request, copy) == gneiss::error::success &&
           copy->byte == 'b',
       "newly loaded content is reused while owned");
   assets.stop();
@@ -541,27 +541,27 @@ void cache_collection() {
 void run() {
   auto source = std::make_shared<memory_files>();
   gneiss::test_support::fixture_files files;
-  check(files.mount("asset://", source) == gneiss::engine::error::success, "mount");
+  check(files.mount("asset://", source) == gneiss::error::success, "mount");
   auto& executor = gneiss::test_support::asset_tasks();
   auto parser = std::make_shared<loader>();
   asset_manager assets(gneiss::test_support::test_files(files));
-  check(assets.register_decoder(parser) == gneiss::engine::error::success, "register");
-  check(assets.register_decoder(parser) == gneiss::engine::error::invalid_argument,
+  check(assets.register_decoder(parser) == gneiss::error::success, "register");
+  check(assets.register_decoder(parser) == gneiss::error::invalid_argument,
         "duplicate registration");
   asset_request<value> first, second;
   check(gneiss::test_support::assign_value(
             assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
-            first) == gneiss::engine::error::not_ready,
+            first) == gneiss::error::not_ready,
         "executor required");
   assets.configure(executor);
   auto drive = [&] {
-    check(executor.run_ready().status == drive_status::success, "drive");
+    check(executor.run_ready().status == gneiss::tasks::drive_status::success, "drive");
     advance_assets_for_test(assets);
   };
   auto wait = [&](asset_request<value>& request, asset_ref<const value>& output) {
     for (unsigned i = 0; i < 100; ++i) {
       const auto status = gneiss::test_support::take_request(request, output);
-      if (status != gneiss::engine::error::not_ready)
+      if (status != gneiss::error::not_ready)
         return status;
       drive();
     }
@@ -569,46 +569,46 @@ void run() {
   };
   check(gneiss::test_support::assign_value(
             assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
-            first) == gneiss::engine::error::success,
+            first) == gneiss::error::success,
         "first");
   check(source->reads == 0, "request does not perform inline I/O");
   check(
       gneiss::test_support::assign_value(
           assets.load<typename std::remove_cvref_t<decltype(second)>::value_type>("asset://value"),
-          second) == gneiss::engine::error::success,
+          second) == gneiss::error::success,
       "second");
   asset_ref<const value> a, b;
-  check(gneiss::test_support::take_request(first, a) == gneiss::engine::error::not_ready,
+  check(gneiss::test_support::take_request(first, a) == gneiss::error::not_ready,
         "initial pending");
-  check(wait(first, a) == gneiss::engine::error::success &&
-            wait(second, b) == gneiss::engine::error::success,
+  check(wait(first, a) == gneiss::error::success &&
+            wait(second, b) == gneiss::error::success,
         "coalesced load");
   check(a == b && a->byte == 'a' && parser->decodes == 1 && source->reads == 1,
         "one read and read and decode shared");
-  check(gneiss::test_support::take_request(first, b) == gneiss::engine::error::invalid_state &&
+  check(gneiss::test_support::take_request(first, b) == gneiss::error::invalid_state &&
             b == a,
         "consume once preserves output");
-  check(assets.register_decoder(std::make_shared<loader>()) == gneiss::engine::error::invalid_state,
+  check(assets.register_decoder(std::make_shared<loader>()) == gneiss::error::invalid_state,
         "frozen");
   source->byte = 'b';
   check(gneiss::test_support::assign_value(
             assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
-            first) == gneiss::engine::error::success,
+            first) == gneiss::error::success,
         "cached");
-  check(wait(first, b) == gneiss::engine::error::success && b == a,
+  check(wait(first, b) == gneiss::error::success && b == a,
         "cache does not reload implicitly");
   check(
       gneiss::test_support::assign_value(
           assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
-          first) == gneiss::engine::error::success,
+          first) == gneiss::error::success,
       "reload");
   check(gneiss::test_support::assign_value(
             assets.reload<typename std::remove_cvref_t<decltype(second)>::value_type>(
                 "asset://value"),
-            second) == gneiss::engine::error::success,
+            second) == gneiss::error::success,
         "reload subscriber");
   first.cancel();
-  check(wait(second, b) == gneiss::engine::error::success && b->byte == 'b' && a->byte == 'a',
+  check(wait(second, b) == gneiss::error::success && b->byte == 'b' && a->byte == 'a',
         "cancel one keeps independent subscriber and old value");
 
   // 旧请求解码完但尚未分发；显式采用新数据后，旧结果不能回写缓存。
@@ -616,14 +616,14 @@ void run() {
   check(
       gneiss::test_support::assign_value(
           assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
-          first) == gneiss::engine::error::success,
+          first) == gneiss::error::success,
       "old async");
   advance_assets_for_test(assets); // 文件快照先交给异步来源，解码尚未发布。
-  check(executor.run_ready().status == drive_status::success, "old work ready");
+  check(executor.run_ready().status == gneiss::tasks::drive_status::success, "old work ready");
   source->byte = 'd';
   check(gneiss::test_support::assign_value(
             assets.store<value>("asset://value", std::make_shared<const value>(value{'d'})), b) ==
-                gneiss::engine::error::success &&
+                gneiss::error::success &&
             b->byte == 'd',
         "store wins");
   check(wait(first, a) == error::invalid_state && a->byte == 'a',
@@ -631,65 +631,65 @@ void run() {
   assets.collect_unused(); // 失效操作收尾后，清理不能移除仍被持有的新缓存。
   check(gneiss::test_support::assign_value(
             assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
-            first) == gneiss::engine::error::success,
+            first) == gneiss::error::success,
         "cached after old completion");
-  check(wait(first, a) == gneiss::engine::error::success && a == b,
+  check(wait(first, a) == gneiss::error::success && a == b,
         "old async cannot replace stored cache");
 
   source->byte = 'x';
   check(gneiss::test_support::assign_value(
             assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://new"),
-            first) == gneiss::engine::error::success,
+            first) == gneiss::error::success,
         "first-load overlap");
   advance_assets_for_test(assets); // 文件快照先交给异步来源，解码尚未发布。
-  check(executor.run_ready().status == drive_status::success, "first-load work ready");
+  check(executor.run_ready().status == gneiss::tasks::drive_status::success, "first-load work ready");
   source->byte = 'y';
   asset_ref<const value> independent;
   check(gneiss::test_support::assign_value(
             assets.store<value>("asset://new", std::make_shared<const value>(value{'y'})),
-            independent) == gneiss::engine::error::success,
+            independent) == gneiss::error::success,
         "first-load store");
   assets.collect_unused(); // 旧操作仍在执行，但已不拥有当前记录的发布权。
   asset_ref<const value> old;
   check(wait(first, old) == error::invalid_state && !old, "superseded first load cannot adopt");
   check(gneiss::test_support::assign_value(
             assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://new"),
-            first) == gneiss::engine::error::success,
+            first) == gneiss::error::success,
         "first-load current");
-  check(wait(first, old) == gneiss::engine::error::success && old == independent,
+  check(wait(first, old) == gneiss::error::success && old == independent,
         "first-load order");
   source->byte = 'z';
   check(gneiss::test_support::assign_value(
             assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://new"),
-            first) == gneiss::engine::error::success,
+            first) == gneiss::error::success,
         "async before failed store");
   advance_assets_for_test(assets); // 文件快照先交给异步来源，解码尚未发布。
-  check(executor.run_ready().status == drive_status::success, "reload work ready");
+  check(executor.run_ready().status == gneiss::tasks::drive_status::success, "reload work ready");
   source->byte = '!';
   check(gneiss::test_support::assign_value(assets.store<value>("asset://new", {}), independent) ==
-                gneiss::engine::error::invalid_argument &&
+                gneiss::error::invalid_argument &&
             independent->byte == 'y',
         "failed store preserves reference");
-  check(wait(first, old) == gneiss::engine::error::success && old->byte == 'z',
+  check(wait(first, old) == gneiss::error::success && old->byte == 'z',
         "failed store retains async rights");
   check(gneiss::test_support::assign_value(
             assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://new"),
-            first) == gneiss::engine::error::success,
+            first) == gneiss::error::success,
         "cache after failed store");
-  check(wait(first, independent) == gneiss::engine::error::success && independent == old,
+  check(wait(first, independent) == gneiss::error::success && independent == old,
         "async published after failed store");
 
   source->byte = '!';
   check(gneiss::test_support::load_asset(assets, "asset://value", a, true) ==
-                gneiss::engine::error::invalid_argument &&
+                gneiss::error::invalid_argument &&
             a == b,
         "load failure preserves output");
   check(
       gneiss::test_support::assign_value(
           assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
-          first) == gneiss::engine::error::success,
+          first) == gneiss::error::success,
       "invalid decode");
-  check(wait(first, a) == gneiss::engine::error::invalid_argument && a == b,
+  check(wait(first, a) == gneiss::error::invalid_argument && a == b,
         "async failure preserves output");
   first.cancel();
   source->byte = 'e';
@@ -697,9 +697,9 @@ void run() {
   check(
       gneiss::test_support::assign_value(
           assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
-          first) == gneiss::engine::error::success,
+          first) == gneiss::error::success,
       "changing source");
-  check(wait(first, a) == gneiss::engine::error::success && a->byte == 'e',
+  check(wait(first, a) == gneiss::error::success && a->byte == 'e',
         "source read once without revalidation");
   b = a;
   first.cancel();
@@ -708,37 +708,37 @@ void run() {
   check(
       gneiss::test_support::assign_value(
           assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
-          first) == gneiss::engine::error::success,
+          first) == gneiss::error::success,
       "missing admitted");
-  check(wait(first, a) == gneiss::engine::error::not_found, "missing error");
+  check(wait(first, a) == gneiss::error::not_found, "missing error");
   first.cancel();
   source->missing = false;
   source->oversized = true;
   check(
       gneiss::test_support::assign_value(
           assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
-          first) == gneiss::engine::error::success,
+          first) == gneiss::error::success,
       "oversized admitted");
-  check(wait(first, a) == gneiss::engine::error::invalid_argument, "size limit");
+  check(wait(first, a) == gneiss::error::invalid_argument, "size limit");
   first.cancel();
   source->oversized = false;
   check(gneiss::test_support::assign_value(
             assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
-            first) == gneiss::engine::error::success,
+            first) == gneiss::error::success,
         "cache after failures");
-  check(wait(first, a) == gneiss::engine::error::success && a == b,
+  check(wait(first, a) == gneiss::error::success && a == b,
         "failures retain previous cache");
   source->byte = 'z';
   check(
       gneiss::test_support::assign_value(
           assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
-          first) == gneiss::engine::error::success,
+          first) == gneiss::error::success,
       "cancel all");
   first.cancel();
   drive();
   check(gneiss::test_support::assign_value(
             assets.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
-            first) == gneiss::engine::error::success,
+            first) == gneiss::error::success,
         "cache after cancellation");
   check(wait(first, a) == error::success && a->byte == 'z' && b->byte == 'e',
         "resource owner keeps reload alive after request cancellation");
@@ -746,47 +746,47 @@ void run() {
   check(
       gneiss::test_support::assign_value(
           assets.reload<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
-          first) == gneiss::engine::error::success,
+          first) == gneiss::error::success,
       "close pending");
   assets.stop();
-  check(gneiss::test_support::take_request(first, a) == gneiss::engine::error::invalid_state &&
+  check(gneiss::test_support::take_request(first, a) == gneiss::error::invalid_state &&
             a == b,
         "close terminates observers");
   check(
       gneiss::test_support::assign_value(
           assets.load<typename std::remove_cvref_t<decltype(second)>::value_type>("asset://value"),
-          second) == gneiss::engine::error::invalid_state,
+          second) == gneiss::error::invalid_state,
       "closed rejects");
   check(executor.stats().retained == 0 && executor.stats().running == 0, "scope drained");
   check(a->byte == 'z', "reference survives shutdown");
 
-  task_scheduler stopped({.workers = 0, .mode = execution_mode::cooperative});
+  gneiss::tasks::task_scheduler stopped({.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   asset_manager rejected(gneiss::test_support::test_files(files));
-  check(rejected.register_decoder(parser) == gneiss::engine::error::success, "rejection parser");
+  check(rejected.register_decoder(parser) == gneiss::error::success, "rejection parser");
   rejected.configure(stopped);
   stopped.request_stop();
   check(
       gneiss::test_support::assign_value(
           rejected.load<typename std::remove_cvref_t<decltype(first)>::value_type>("asset://value"),
-          first) == gneiss::engine::error::success,
+          first) == gneiss::error::success,
       "rejection is terminal request");
   for (unsigned i = 0; i < 16 && gneiss::test_support::take_request(first, a) == error::not_ready;
        ++i)
     advance_assets_for_test(rejected);
-  check(gneiss::test_support::take_request(first, a) == gneiss::engine::error::invalid_state,
+  check(gneiss::test_support::take_request(first, a) == gneiss::error::invalid_state,
         "queue rejection does not hang");
 }
 void decode_capacity_retry() {
-  task_scheduler executor({.capacity = 2U, .mode = execution_mode::cooperative});
+  gneiss::tasks::task_scheduler executor({.capacity = 2U, .mode = gneiss::tasks::execution_mode::cooperative});
   const auto occupied = executor.make_scope();
-  task_handle blocker;
+  gneiss::tasks::task_handle blocker;
   check(executor.submit(
-            {.scope = occupied}, [](const auto&) { return task_outcome{}; }, blocker) ==
-            submit_result::success,
+            {.scope = occupied}, [](const auto&) { return gneiss::tasks::task_outcome{}; }, blocker) ==
+            gneiss::tasks::submit_result::success,
         "occupy decode capacity");
   check(executor.submit(
-            {.scope = occupied}, [](const auto&) { return task_outcome{}; }, blocker) ==
-            submit_result::success,
+            {.scope = occupied}, [](const auto&) { return gneiss::tasks::task_outcome{}; }, blocker) ==
+            gneiss::tasks::submit_result::success,
         "fill decode capacity");
   auto source = std::make_shared<memory_files>();
   gneiss::test_support::fixture_files files;
@@ -802,7 +802,7 @@ void decode_capacity_retry() {
   check(submitted->status() == error::not_ready && decoder->decodes == 0,
         "full decode queue does not lose request");
   (void)executor.run_ready();
-  std::vector<task_completion> completed;
+  std::vector<gneiss::tasks::task_completion> completed;
   check(executor.poll(occupied, completed) == 2, "release decode capacity");
   advance_assets_for_test(assets);
   (void)executor.run_ready();
@@ -839,7 +839,7 @@ void stored_value_supersedes_pending() {
   for (unsigned i = 0;
        i < 100 && gneiss::test_support::take_request(pending, old) == error::not_ready; ++i) {
     advance_assets_for_test(assets);
-    check(executor.run_ready().status == drive_status::success, "store drive");
+    check(executor.run_ready().status == gneiss::tasks::drive_status::success, "store drive");
   }
   check(!old && pending.status() == error::invalid_state, "superseded operation cannot adopt");
   asset_ref<const value> current;
@@ -866,9 +866,9 @@ void nonblocking_decode_shutdown() {
       return std::shared_ptr<const void>{std::make_shared<const value>(value{'z'})};
     }
   };
-  task_scheduler executor({.workers = 1, .mode = execution_mode::thread_pool});
+  gneiss::tasks::task_scheduler executor({.workers = 1, .mode = gneiss::tasks::execution_mode::thread_pool});
   auto backend = std::make_shared<delayed_files>();
-  auto files = std::make_shared<gneiss::engine::files::service>();
+  auto files = std::make_shared<gneiss::files::service>();
   check(files->mount({"asset://", {backend}, {}}).ok(), "stop mount");
   asset_manager assets(gneiss::test_support::test_files(files));
   auto decoder = std::make_shared<gated_decoder>();
@@ -918,7 +918,7 @@ void nonblocking_decode_shutdown() {
 
 }
 void request_value_contract() {
-  using namespace gneiss::engine;
+  using namespace gneiss;
   asset_request<int> empty;
   auto absent = empty.take();
   check(!absent && absent.error().error == error::invalid_state, "empty take");
@@ -945,7 +945,7 @@ void request_value_contract() {
 }
 
 int main() {
-  if (gneiss::engine::initialize_meta(register_test_assets).failed())
+  if (gneiss::initialize_meta(register_test_assets).failed())
     return 99;
   try {
     request_value_contract();

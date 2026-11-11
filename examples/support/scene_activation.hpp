@@ -9,13 +9,13 @@
 namespace example {
 /** 示例持有的装配回执与视觉批次；场景由 World 拥有，调用方决定何时卸载。 */
 struct scene_activation {
-  gneiss::engine::scene_instantiation_result instance;
-  gneiss::engine::asset_batch_request visuals;
+  gneiss::scene_instantiation_result instance;
+  gneiss::asset_batch_request visuals;
 };
 /** 内容已完成异步加载后调用；只做内存组合、实例化及提交视觉请求，不等待 I/O。 */
-inline gneiss::engine::result<scene_activation>
-activate_scene(gneiss::runtime::application& app, const gneiss::engine::scene_content& content) {
-  using namespace gneiss::engine;
+inline gneiss::result<scene_activation>
+activate_scene(gneiss::runtime::application& app, const gneiss::scene_content& content) {
+  using namespace gneiss;
   if (!content.description)
     return error::invalid_argument;
   std::map<std::string, const prefab_description*, std::less<>> sources;

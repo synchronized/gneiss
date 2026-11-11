@@ -16,15 +16,15 @@
 namespace gneiss::test_support {
 /** 测试宿主的实例化回执；视觉批次由调用方驱动和领取，不隐藏等待或场景替换。 */
 struct scene_activation {
-  engine::scene_instantiation_result instance;
-  engine::asset_batch_request visuals;
+  gneiss::scene_instantiation_result instance;
+  gneiss::asset_batch_request visuals;
 };
-inline engine::result<scene_activation> activate_scene(runtime::application& app,
-                                                       const engine::scene_content& content) {
+inline gneiss::result<scene_activation> activate_scene(runtime::application& app,
+                                                       const gneiss::scene_content& content) {
   auto composed = compose(content);
   if (!composed)
     return composed.error();
-  auto dependencies = engine::scene_dependencies(*composed);
+  auto dependencies = gneiss::scene_dependencies(*composed);
   if (!dependencies)
     return dependencies.error();
   scene_activation output;
@@ -34,7 +34,7 @@ inline engine::result<scene_activation> activate_scene(runtime::application& app
       return submitted.error();
     output.visuals = std::move(*submitted);
   }
-  engine::scene_resource_bindings bindings;
+  gneiss::scene_resource_bindings bindings;
   for (const auto& dependency : *dependencies) {
     auto request = app.assets().load(dependency);
     if (!request)
@@ -44,19 +44,19 @@ inline engine::result<scene_activation> activate_scene(runtime::application& app
   auto destination = app.native_world()->create_scene();
   if (!destination)
     return destination.error();
-  auto built = engine::instantiate(*destination, *composed, bindings);
+  auto built = gneiss::instantiate(*destination, *composed, bindings);
   if (!built) {
     (void)destination->unload();
     return built.error();
   }
   entity_id camera;
   for (std::size_t i = 0; i < composed->objects.size(); ++i) {
-    auto* description = composed->objects[i].effective.components.get<engine::camera_description>();
+    auto* description = composed->objects[i].effective.components.get<gneiss::camera_description>();
     if (description && description->is_primary)
       camera = built->objects[i].entity;
   }
   if (camera) {
-    auto selected = engine::set_active_camera(*app.native_world(), camera);
+    auto selected = gneiss::set_active_camera(*app.native_world(), camera);
     if (selected.failed()) {
       (void)destination->unload();
       return selected;
@@ -66,37 +66,37 @@ inline engine::result<scene_activation> activate_scene(runtime::application& app
   return output;
 }
 // 仅测试使用的宿主驱动器；生产库不提供阻塞包装。应用须在测试退出前释放。
-inline engine::task_scheduler& application_tasks() {
-  static engine::task_scheduler tasks({.workers = 1U});
+inline gneiss::tasks::task_scheduler& application_tasks() {
+  static gneiss::tasks::task_scheduler tasks({.workers = 1U});
   return tasks;
 }
-inline engine::error
-prepare_scene(runtime::application& app, std::string_view uri, engine::scene_content& prepared,
-              engine::scene_resource_bindings& bindings, engine::task_scheduler* tasks = nullptr,
-              engine::ref<const engine::scene>* identity = nullptr, bool reload = false) {
+inline gneiss::error
+prepare_scene(runtime::application& app, std::string_view uri, gneiss::scene_content& prepared,
+              gneiss::scene_resource_bindings& bindings, gneiss::tasks::task_scheduler* tasks = nullptr,
+              gneiss::ref<const gneiss::scene>* identity = nullptr, bool reload = false) {
   if (!tasks)
     tasks = &application_tasks();
   const auto attached = app.attach_task_executor(*tasks);
-  if (attached.failed() && attached != engine::error::invalid_state)
+  if (attached.failed() && attached != gneiss::error::invalid_state)
     return attached;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
   const auto step = [&] {
-    if (tasks->mode() == engine::execution_mode::cooperative)
+    if (tasks->mode() == gneiss::tasks::execution_mode::cooperative)
       (void)tasks->run_ready();
     (void)app.run(1);
     std::this_thread::yield();
     return std::chrono::steady_clock::now() < deadline;
   };
-  auto load = [&]<class T>() -> engine::error {
+  auto load = [&]<class T>() -> gneiss::error {
     auto request = app.assets().load<T>(uri, {.reload = reload});
     if (!request)
       return request.error();
     for (;;) {
       if (!step())
-        return engine::error::internal;
+        return gneiss::error::internal;
       auto loaded = request->take();
       if (!loaded) {
-        if (loaded.error().error == engine::error::not_ready)
+        if (loaded.error().error == gneiss::error::not_ready)
           continue;
         std::fprintf(stderr, "加载 %s 失败: %d %s %s\n", std::string(uri).c_str(),
                      loaded.error().error.code(), loaded.error().path.c_str(),
@@ -104,34 +104,34 @@ prepare_scene(runtime::application& app, std::string_view uri, engine::scene_con
         return loaded.error().error;
       }
       if (!(*loaded)->content())
-        return engine::error::invalid_argument;
+        return gneiss::error::invalid_argument;
       prepared = *(*loaded)->content();
       if (identity)
         *identity = *loaded;
-      return engine::error::success;
+      return gneiss::error::success;
     }
   };
-  auto loaded_status = load.template operator()<engine::scene>();
+  auto loaded_status = load.template operator()<gneiss::scene>();
   if (loaded_status.failed())
     return loaded_status;
-  auto status = engine::error::success;
+  auto status = gneiss::error::success;
   bindings.clear();
   auto composed = compose(prepared);
   if (!composed)
     return composed.error();
-  auto dependencies = engine::scene_dependencies(*composed);
+  auto dependencies = gneiss::scene_dependencies(*composed);
   if (!dependencies)
     return dependencies.error();
   for (const auto& source : *dependencies) {
-    engine::asset_batch_request request;
+    gneiss::asset_batch_request request;
     status = gneiss::test_support::take_value(app.load_assets(std::span(&source, 1)), request);
     if (status.failed())
       return status;
-    engine::asset_load_completion completion;
+    gneiss::asset_load_completion completion;
     bool ready{};
     while (!ready) {
       if (!step())
-        return engine::error::internal;
+        return gneiss::error::internal;
       status = gneiss::test_support::receive_request(request, completion, ready);
       if (status.failed())
         return status;
@@ -142,21 +142,21 @@ prepare_scene(runtime::application& app, std::string_view uri, engine::scene_con
       return completion.result;
     }
     for (auto& asset : completion.assets) {
-      const auto key = std::string(engine::resource_uri(asset));
+      const auto key = std::string(gneiss::resource_uri(asset));
       bindings.insert_or_assign(key, std::move(asset));
     }
   }
-  return engine::error::success;
+  return gneiss::error::success;
 }
-inline engine::error load_scene(runtime::application& app, std::string_view uri,
-                                scene_instance_id* output, engine::task_scheduler* tasks = nullptr,
+inline gneiss::error load_scene(runtime::application& app, std::string_view uri,
+                                scene_instance_id* output, gneiss::tasks::task_scheduler* tasks = nullptr,
                                 bool reload = false,
-                                std::vector<engine::scene_object_binding>* objects = nullptr) {
+                                std::vector<gneiss::scene_object_binding>* objects = nullptr) {
   if (!output)
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   *output = {};
-  engine::scene_content prepared;
-  engine::scene_resource_bindings bindings;
+  gneiss::scene_content prepared;
+  gneiss::scene_resource_bindings bindings;
   auto status = prepare_scene(app, uri, prepared, bindings, tasks, nullptr, reload);
   if (status.failed())
     return status;
@@ -166,6 +166,6 @@ inline engine::error load_scene(runtime::application& app, std::string_view uri,
   *output = receipt->instance;
   if (objects)
     *objects = std::move(receipt->objects);
-  return engine::error::success;
+  return gneiss::error::success;
 }
 }

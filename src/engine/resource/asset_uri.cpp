@@ -11,7 +11,7 @@ constexpr std::string_view scheme = "asset://";
 
 } // namespace
 
-namespace gneiss::engine {
+namespace gneiss {
 
 error validate_uri(std::string_view uri) noexcept {
   if (!uri.starts_with(scheme) || uri.size() == scheme.size() || uri.ends_with('/') ||
@@ -23,4 +23,4 @@ error validate_uri(std::string_view uri) noexcept {
 
 std::string_view uri_path(std::string_view uri) noexcept { return uri.substr(scheme.size()); }
 
-} // namespace gneiss::engine
+} // namespace gneiss

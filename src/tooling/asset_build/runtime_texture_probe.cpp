@@ -39,7 +39,7 @@ bool inspect_runtime_texture(std::span<const std::byte> bytes, std::string& summ
   summary.clear();
   diagnostic.clear();
   {
-    auto binary = gneiss::engine::decode_texture_binary(bytes);
+    auto binary = gneiss::decode_texture_binary(bytes);
     if (!binary) {
       diagnostic = std::move(binary.error().message);
       return false;

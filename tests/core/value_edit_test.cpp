@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <iostream>
-using namespace gneiss::engine;
+using namespace gneiss;
 int main() {
   const std::array ids{guid::literal("1583c0d5-412c-42d3-94bf-a5cd4c846101"),
                        guid::literal("1583c0d5-412c-42d3-94bf-a5cd4c846102"),

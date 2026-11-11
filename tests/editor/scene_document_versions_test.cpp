@@ -27,7 +27,7 @@ void operator delete(void* memory, std::size_t) noexcept { std::free(memory); }
 void* operator new[](std::size_t size) { return ::operator new(size); }
 void operator delete[](void* memory) noexcept { ::operator delete(memory); }
 void operator delete[](void* memory, std::size_t) noexcept { ::operator delete(memory); }
-namespace e = gneiss::engine;
+namespace e = gneiss;
 namespace ed = gneiss::editor;
 #define CHECK(expression)                                                                          \
   do {                                                                                             \
@@ -37,7 +37,7 @@ namespace ed = gneiss::editor;
     }                                                                                              \
   } while (false)
 int main() {
-  gneiss::engine::install_fatal_handler();
+  gneiss::install_fatal_handler();
   CHECK(e::initialize_meta().ok());
   e::scene_description input;
   input.uuid = e::guid::literal("a5352685-908d-459f-85f4-a866df229a10");

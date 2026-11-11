@@ -16,9 +16,9 @@ IPC 使用 guid::string 的标准带连字符字符串编码 GUID，不传输原
 
 ## 身份与注册
 
-Meta 的类型与函数统一位于 `gneiss::engine::meta`，不保留旧命名空间别名。
+Meta 的类型与函数统一位于 `gneiss::meta`，不保留旧命名空间别名。
 `type_definition.properties` 保存注册描述；查询返回保活注册表的 `type` 和 `property_range`。
-数学属性直接使用 `engine::math::vector3`、`engine::math::quaternion`，不提供属性专用别名。
+数学属性直接使用 `gneiss::math::vector3`、`gneiss::math::quaternion`，不提供属性专用别名。
 属性编号与存档、IPC 中既有的 `"field_id"` 格式键保持不变。
 
 文件按职责组织，不新增第二套注册表：
@@ -43,7 +43,7 @@ Transform 类型身份直接使用 `math::transform::type_guid`；其属性标�
 `engine/core/meta/transform_properties.hpp`，供数学类型注册和属性路径共用。
 `guid`、`type_id`、`value` 仍是 Core 基础类型，`type_identity` 仍是 traits 定制点。
 
-`engine::guid` 保存 16 字节稳定类型身份，全零无效；`engine::type_id` 是进程内类型编号，
+`gneiss::guid` 保存 16 字节稳定类型身份，全零无效；`gneiss::type_id` 是进程内类型编号，
 不用于反射存档。字段完整身份由稳定 GUID 与非零字段编号组成。名称用于 UTF-8 显示和诊断。
 GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按主机端序解释。
 
@@ -116,7 +116,7 @@ static constexpr guid type_guid =
 类型具有静态身份时可这样注册：
 
 ```cpp
-return gneiss::engine::meta::registration::type<math::transform>()
+return gneiss::meta::registration::type<math::transform>()
     .schema_version(1)
     .property<&math::transform::translation>(meta::property_id{1}, "translation")
     .commit();
@@ -156,7 +156,7 @@ find_type/find_property 返回可判空句柄，type_of 提供未注册原生类
 浮点与数学值必须有限，字符串必须为无内嵌空字符的合法 UTF-8，GUID 值允许 nil；类型或对象身份是否允许 nil，由对应注册/业务规则校验。
 字段专属范围和四元数归一化由 setter 校验，失败不得留下部分修改。
 
-回调、read/write 及组件接口统一使用 [engine::value](value.md)。
+回调、read/write 及组件接口统一使用 [gneiss::value](value.md)。
 getter 输出 `value&`，字符串复制进值；setter 接收 `const value&`，不保留输入引用。
 不再存在借用值和拥有值之间的转换。`read_property` 返回 `result<value>`，成功快照拥有数据，失败不交付部分值；
 `write_property` 直接传递同一份 const 值。
@@ -223,7 +223,7 @@ Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `
 的类型及 codec，统一使用默认表。注册集中在 `resource/builtin_resource_registration.cpp`；
 codec 文件只提供编解码入口。首次失败立即返回，不回滚已注册内容；重复注册失败。
 组件描述随资源入口一起登记。冻结前依次登记 Meta 内置类型、World 基础值和资源类型；默认 initialize_meta 已按依赖顺序集中调用，
-无需资源消费者重复注册。Serialization 的 register_builtin_types 提供默认表和显式表版本，独立注册表可据此读写 engine::value，无需加载资源模块。
+无需资源消费者重复注册。Serialization 的 register_builtin_types 提供默认表和显式表版本，独立注册表可据此读写 gneiss::value，无需加载资源模块。
 材质直接注册 parameters、texture_uris 及嵌套字段，格式包装器只处理格式头；实际格式见[材质格式](render-asset-formats.md#material)。
 
 ## 反射 JSON 与对象校验
@@ -315,7 +315,7 @@ getter 显式失败或返回不匹配／无效值时返回错误；抛出的异�
 视图自身绑定的注册表，不重新获取默认表，因此独立表的字段与 codec 语义保持不变。
 Meta 内部递归与 codec 回调仍保留显式上下文；注册表机制测试允许直接验证默认表。
 
-`engine/function/meta_registration.hpp` 的 `engine::initialize_meta(callback = nullptr)` 在启动阶段
+`engine/function/meta_registration.hpp` 的 `gneiss::initialize_meta(callback = nullptr)` 在启动阶段
 串行登记内置 World 属性、资源 codec、项目类型，再冻结。callback 不带参数，
 可直接使用默认 builder。需要自定义类型的宿主在首次 `application::create` 前调用带 callback 的入口；
 application 自动调用无参入口，重复无参调用返回首次结果。独立工具应显式完成初始化。

@@ -13,7 +13,7 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 struct render_memory_usage {
   std::uint64_t logical_bytes{};
   std::uint64_t cpu_data_bytes{};
@@ -151,4 +151,4 @@ private:
   struct implementation;
   std::unique_ptr<implementation> impl_;
 };
-} // namespace gneiss::engine
+} // namespace gneiss

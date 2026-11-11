@@ -23,23 +23,23 @@ bool near(float lhs, float rhs) { return std::abs(lhs - rhs) < 1.0e-4F; }
 } // namespace
 
 int main() {
-  if (gneiss::engine::initialize_meta().failed())
+  if (gneiss::initialize_meta().failed())
     return 1;
-  gneiss::engine::world_owner owner;
+  gneiss::world_owner owner;
 
   gneiss::editor::editor_camera camera;
   gneiss::entity_id active_camera = gneiss::entity_id{};
-  if (gneiss::test_support::assign_value(gneiss::engine::create_native(), owner) !=
-          gneiss::engine::error::success ||
-      camera.initialize() != gneiss::engine::error::success || !camera.is_valid() ||
-      gneiss::engine::error{gneiss::engine::get_active_camera(*owner, active_camera)} !=
-          gneiss::engine::error::not_ready ||
+  if (gneiss::test_support::assign_value(gneiss::create_native(), owner) !=
+          gneiss::error::success ||
+      camera.initialize() != gneiss::error::success || !camera.is_valid() ||
+      gneiss::error{gneiss::get_active_camera(*owner, active_camera)} !=
+          gneiss::error::not_ready ||
       active_camera != gneiss::entity_id{}) {
     return 1;
   }
   std::uint64_t entity_count{};
-  if (gneiss::engine::error{gneiss::test_support::assign_value(
-          owner->entity_count(), entity_count)} != gneiss::engine::error::success ||
+  if (gneiss::error{gneiss::test_support::assign_value(
+          owner->entity_count(), entity_count)} != gneiss::error::success ||
       entity_count != 0U) {
     return 8;
   }
@@ -50,31 +50,31 @@ int main() {
   if (!object)
     return 9;
   auto scene_camera = object->entity();
-  const gneiss::engine::math::camera_settings settings{1.04719755F, 0.1F, 1000.0F};
-  if (gneiss::engine::error{owner->find(scene_camera)
-                                .add_component<gneiss::engine::camera_component>(
-                                    *gneiss::engine::camera_component::create(settings))} !=
-          gneiss::engine::error::success ||
-      gneiss::engine::error{gneiss::engine::set_active_camera(*owner, scene_camera)} !=
-          gneiss::engine::error::success) {
+  const gneiss::math::camera_settings settings{1.04719755F, 0.1F, 1000.0F};
+  if (gneiss::error{owner->find(scene_camera)
+                                .add_component<gneiss::camera_component>(
+                                    *gneiss::camera_component::create(settings))} !=
+          gneiss::error::success ||
+      gneiss::error{gneiss::set_active_camera(*owner, scene_camera)} !=
+          gneiss::error::success) {
     return 9;
   }
   const auto initial = camera.current_transform();
   gneiss::editor::editor_camera_input input;
   input.delta_seconds = 1.0F;
   input.move_forward = 1.0F;
-  if (camera.update(input) != gneiss::engine::error::success ||
+  if (camera.update(input) != gneiss::error::success ||
       near(camera.current_transform().translation[2], initial.translation[2])) {
     return 2;
   }
-  gneiss::engine::math::transform target{};
+  gneiss::math::transform target{};
   target.translation[0] = 3.0F;
   target.translation[1] = 4.0F;
   target.translation[2] = 5.0F;
   const auto before_invalid_focus = camera.current_transform();
-  if (camera.focus(target, -1.0F) != gneiss::engine::error::invalid_argument ||
+  if (camera.focus(target, -1.0F) != gneiss::error::invalid_argument ||
       !near(camera.current_transform().translation[0], before_invalid_focus.translation[0]) ||
-      camera.focus(target, 5.0F) != gneiss::engine::error::success) {
+      camera.focus(target, 5.0F) != gneiss::error::success) {
     return 3;
   }
   const auto focused = camera.current_transform();
@@ -90,7 +90,7 @@ int main() {
   for (int frame = 0; frame < 1200; ++frame) {
     const auto before = camera.current_transform();
     input.dolly = frame % 12 == 0 ? -1.0F : 0.0F;
-    if (camera.update(input) != gneiss::engine::error::success) {
+    if (camera.update(input) != gneiss::error::success) {
       return 6;
     }
     const auto after = camera.current_transform();
@@ -102,8 +102,8 @@ int main() {
   }
   camera.shutdown();
   return camera.is_valid() ||
-                 gneiss::engine::error{gneiss::engine::get_active_camera(*owner, active_camera)} !=
-                     gneiss::engine::error::success ||
+                 gneiss::error{gneiss::get_active_camera(*owner, active_camera)} !=
+                     gneiss::error::success ||
                  active_camera != scene_camera
              ? 5
              : 0;

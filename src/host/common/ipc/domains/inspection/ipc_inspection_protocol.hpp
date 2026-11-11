@@ -42,12 +42,12 @@ enum class ipc_inspection_change_type : std::uint8_t { upsert, remove };
 struct ipc_inspection_node final {
   ipc_runtime_object_id id;
   ipc_runtime_object_id parent;
-  engine::guid uuid;
-  engine::guid prefab_instance_uuid;
-  engine::guid prefab_source_node_uuid;
+  gneiss::guid uuid;
+  gneiss::guid prefab_instance_uuid;
+  gneiss::guid prefab_source_node_uuid;
   std::string name;
-  gneiss::engine::math::transform local_transform;
-  gneiss::engine::component_descriptions components{};
+  gneiss::math::transform local_transform;
+  gneiss::component_descriptions components{};
 };
 
 struct ipc_inspection_change final {
@@ -65,30 +65,30 @@ struct ipc_inspection_batch final {
 };
 
 /** 将有界检查批次编码为 JSON 载荷。 */
-[[nodiscard]] gneiss::engine::error encode_ipc_inspection_batch(const ipc_inspection_batch& batch,
+[[nodiscard]] gneiss::error encode_ipc_inspection_batch(const ipc_inspection_batch& batch,
                                                                 std::vector<std::uint8_t>& output);
 
 /** 按协议负载上限把一个逻辑批次编码为有界分片。 */
-[[nodiscard]] gneiss::engine::error
+[[nodiscard]] gneiss::error
 encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
                                    std::vector<std::vector<std::uint8_t>>& output);
 
 /** 解码并验证 JSON 载荷，不验证镜像中的父子引用。 */
-[[nodiscard]] gneiss::engine::error
+[[nodiscard]] gneiss::error
 decode_ipc_inspection_batch(std::span<const std::uint8_t> payload, ipc_inspection_batch& output);
 
-[[nodiscard]] gneiss::engine::error
+[[nodiscard]] gneiss::error
 encode_ipc_inspection_batch_v2(const ipc_inspection_batch& batch,
-                               std::vector<gneiss::engine::ipc_envelope>& output);
-[[nodiscard]] gneiss::engine::error
-decode_ipc_inspection_batch_v2(const gneiss::engine::ipc_envelope& envelope,
+                               std::vector<gneiss::ipc_envelope>& output);
+[[nodiscard]] gneiss::error
+decode_ipc_inspection_batch_v2(const gneiss::ipc_envelope& envelope,
                                ipc_inspection_batch& output);
-[[nodiscard]] gneiss::engine::error
+[[nodiscard]] gneiss::error
 encode_ipc_inspection_resync(std::uint32_t request_id,
-                             gneiss::engine::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::error
-decode_ipc_inspection_resync(const gneiss::engine::ipc_envelope& envelope) noexcept;
-[[nodiscard]] std::span<const gneiss::engine::ipc_operation_descriptor>
+                             gneiss::ipc_envelope& output) noexcept;
+[[nodiscard]] gneiss::error
+decode_ipc_inspection_resync(const gneiss::ipc_envelope& envelope) noexcept;
+[[nodiscard]] std::span<const gneiss::ipc_operation_descriptor>
 ipc_inspection_operations() noexcept;
 
 } // namespace gneiss::host

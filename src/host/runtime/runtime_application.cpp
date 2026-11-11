@@ -68,8 +68,8 @@ struct runtime_context final {
   std::uint64_t next_statistics_ns = 0U;
   std::uint64_t next_statistics_sequence = 1U;
   bool force_full_inspection = false;
-  gneiss::engine::error ipc_failure = gneiss::engine::error::success;
-  gneiss::engine::task_scheduler* tasks{};
+  gneiss::error ipc_failure = gneiss::error::success;
+  gneiss::tasks::task_scheduler* tasks{};
   std::deque<gneiss::host::runtime_ipc_actions::asset_reload_command> pending_assets{};
   gneiss::host::runtime_scene_loader* scene_loader{};
   std::uint64_t next_scene_progress_ns{};
@@ -81,7 +81,7 @@ struct runtime_context final {
   std::uint64_t logged_scene_session{};
   std::uint64_t logged_scene_revision{};
   int logged_scene_phase{-1};
-  gneiss::engine::asset_batch_request asset_request{};
+  gneiss::asset_batch_request asset_request{};
   bool asset_waiting{};
   bool asset_cancelled{};
   std::uint64_t next_asset_progress_ns{};
@@ -153,23 +153,23 @@ struct runtime_context final {
   return true;
 }
 
-gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, void* user_data) {
+gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
   if (time == nullptr || user_data == nullptr) {
-    return gneiss::engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   auto& context = *static_cast<runtime_context*>(user_data);
   const auto request_exit = [&] {
     context.application->request_exit();
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   };
-  if (context.tasks && context.tasks->mode() == gneiss::engine::execution_mode::cooperative) {
+  if (context.tasks && context.tasks->mode() == gneiss::tasks::execution_mode::cooperative) {
     (void)context.tasks->run_ready();
   }
   if (context.ipc_session != nullptr) {
     gneiss::host::runtime_ipc_actions actions;
     const auto ipc_result =
         context.ipc_session->pump(gneiss::host::runtime_ipc_session::clock::now(), actions);
-    if (ipc_result != gneiss::engine::error::success) {
+    if (ipc_result != gneiss::error::success) {
       context.ipc_failure = ipc_result;
       if (context.log != nullptr) {
         context.log->write("ERROR", "ipc", ipc_result, "Editor IPC 会话失败");
@@ -178,13 +178,13 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
     }
     if (actions.request_exit) {
       if (context.log != nullptr) {
-        context.log->write("INFO", "ipc", gneiss::engine::error::success,
+        context.log->write("INFO", "ipc", gneiss::error::success,
                            "收到 Editor IPC 停止请求");
       }
       return request_exit();
     }
     for (auto& command : actions.scene_commands) {
-      auto accepted = gneiss::engine::error::not_ready;
+      auto accepted = gneiss::error::not_ready;
       if (context.scene_loader) {
         if (command.cancel) {
           (void)context.scene_loader->cancel(command.request);
@@ -194,13 +194,13 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
         if (!context.asset_waiting && context.pending_assets.empty())
           accepted = context.scene_loader->request(command.request, command.request_id);
       }
-      if (accepted != gneiss::engine::error::success) {
+      if (accepted != gneiss::error::success) {
         const gneiss::host::ipc_scene_progress rejected{
             .source = command.request,
             .phase = gneiss::host::ipc_scene_phase::failed,
             .message = "场景切换未接受：已有事务或请求身份无效"};
         const auto sent = context.ipc_session->notify_scene_progress(rejected, command.request_id);
-        if (sent != gneiss::engine::error::success)
+        if (sent != gneiss::error::success)
           return sent;
       } else {
         context.scene_terminal_sent = false;
@@ -212,7 +212,7 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
       context.force_full_inspection = true;
     }
     if (!actions.asset_reloads.empty() && context.asset_reloader == nullptr) {
-      context.ipc_failure = gneiss::engine::error::invalid_state;
+      context.ipc_failure = gneiss::error::invalid_state;
       return request_exit();
     }
     for (auto& command : actions.asset_reloads) {
@@ -224,7 +224,7 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
             .message = "Runtime 资产队列已满"};
         const auto sent = context.ipc_session->notify_asset_reload_result(
             rejected, command.operation, command.request_id);
-        if (sent != gneiss::engine::error::success) {
+        if (sent != gneiss::error::success) {
           context.ipc_failure = sent;
           return request_exit();
         }
@@ -237,7 +237,7 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
         const auto& active = context.pending_assets.front().request;
         if (active.session_id == cancel.session_id && active.revision == cancel.revision &&
             bool(context.asset_request) &&
-            context.asset_request.cancel() == gneiss::engine::error::success)
+            context.asset_request.cancel() == gneiss::error::success)
           context.asset_cancelled = true;
         context.next_asset_progress_ns = 0U;
       }
@@ -251,12 +251,12 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
       auto asset_result = context.asset_waiting
                               ? context.asset_reloader->advance(response, ready)
                               : context.asset_reloader->execute(command.request, response);
-      if (asset_result == gneiss::engine::error::not_ready) {
+      if (asset_result == gneiss::error::not_ready) {
         context.asset_waiting = true;
         ready = false;
-        asset_result = gneiss::engine::error::success;
+        asset_result = gneiss::error::success;
       }
-      if (asset_result == gneiss::engine::error::success && ready) {
+      if (asset_result == gneiss::error::success && ready) {
         if (context.asset_cancelled) {
           response.status = gneiss::host::ipc_asset_apply_status::cancelled;
           response.message = "未完成的资产更新已取消，已生效内容保留";
@@ -268,9 +268,9 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
         context.pending_assets.pop_front();
         context.asset_waiting = false;
       }
-      if (!ready && asset_result == gneiss::engine::error::success &&
+      if (!ready && asset_result == gneiss::error::success &&
           time->elapsed_ns >= context.next_asset_progress_ns) {
-        gneiss::engine::asset_load_progress progress;
+        gneiss::asset_load_progress progress;
         if (auto observed = context.asset_request.progress()) {
           progress = *observed;
           const gneiss::host::ipc_asset_reload_result event{
@@ -284,27 +284,27 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
               .total_assets = static_cast<std::uint32_t>(progress.total_assets)};
           const auto sent = context.ipc_session->notify_asset_reload_result(
               event, gneiss::host::ipc_asset_operation::progress, 0U);
-          if (sent != gneiss::engine::error::not_ready)
+          if (sent != gneiss::error::not_ready)
             asset_result = sent;
         }
         context.next_asset_progress_ns = time->elapsed_ns + UINT64_C(100000000);
       }
-      if (asset_result != gneiss::engine::error::success) {
+      if (asset_result != gneiss::error::success) {
         context.ipc_failure = asset_result;
         return request_exit();
       }
     }
     if (!actions.property_writes.empty() && context.property_editor == nullptr) {
-      context.ipc_failure = gneiss::engine::error::invalid_state;
+      context.ipc_failure = gneiss::error::invalid_state;
       return request_exit();
     }
     for (const auto& command : actions.property_writes) {
       gneiss::host::ipc_property_write_result response;
       auto property_result = context.property_editor->execute(command, response);
-      if (property_result == gneiss::engine::error::success) {
+      if (property_result == gneiss::error::success) {
         property_result = context.ipc_session->notify_property_write_result(response);
       }
-      if (property_result != gneiss::engine::error::success) {
+      if (property_result != gneiss::error::success) {
         context.ipc_failure = property_result;
         if (context.log != nullptr) {
           context.log->write("ERROR", "property_edit", property_result,
@@ -317,21 +317,21 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
   // 等待输入映射时仍处理 IPC、停止文件和窗口事件；场景激活会初始化游戏，必须晚于输入就绪。
   if (context.input_pending) {
     const auto input_result = context.application->action_map_status();
-    if (input_result != gneiss::engine::error::not_ready) {
+    if (input_result != gneiss::error::not_ready) {
       context.input_pending = false;
       if (context.log)
-        context.log->write(input_result == gneiss::engine::error::success ? "INFO" : "ERROR",
+        context.log->write(input_result == gneiss::error::success ? "INFO" : "ERROR",
                            "input_map", input_result,
-                           input_result == gneiss::engine::error::success ? "输入映射加载完成"
+                           input_result == gneiss::error::success ? "输入映射加载完成"
                                                                           : "输入映射加载失败",
                            context.input_uri);
-      if (input_result != gneiss::engine::error::success)
+      if (input_result != gneiss::error::success)
         return input_result;
     }
   }
   if (context.scene_loader && !context.input_pending) {
     const auto advanced = context.scene_loader->advance();
-    if (advanced != gneiss::engine::error::success)
+    if (advanced != gneiss::error::success)
       return advanced;
     const auto& progress = context.scene_loader->progress();
     const auto phase = static_cast<int>(progress.phase);
@@ -356,11 +356,11 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
       const auto sent = context.ipc_session->notify_scene_progress(
           progress,
           terminal && context.scene_terminal_sent ? 0U : context.scene_loader->request_id());
-      if (sent == gneiss::engine::error::success) {
+      if (sent == gneiss::error::success) {
         context.next_scene_progress_ns = time->elapsed_ns + UINT64_C(100000000);
         context.scene_terminal_sent = terminal;
         context.scene_cleanup_sent = cleaned;
-      } else if (sent != gneiss::engine::error::not_ready)
+      } else if (sent != gneiss::error::not_ready)
         return sent;
     }
     context.scene_failed = progress.phase == gneiss::host::ipc_scene_phase::failed;
@@ -373,8 +373,8 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
     context.has_logged_first_frame = true;
     constexpr std::string_view category = "lifecycle";
     constexpr std::string_view message = "Runtime 已进入首帧";
-    gneiss::engine::logging::logger{"application"}.write(
-        {.severity = gneiss::engine::logging::level::info,
+    gneiss::logging::logger{"application"}.write(
+        {.severity = gneiss::logging::level::info,
          .source = "application",
          .category = category,
          .message = message});
@@ -382,22 +382,22 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
   if (context.ipc_session != nullptr && context.scene_inspection != nullptr &&
       context.scene != gneiss::scene_instance_id{} &&
       time->elapsed_ns >= context.next_inspection_ns &&
-      context.ipc_session->supports_domain(gneiss::engine::ipc_domain::inspection)) {
+      context.ipc_session->supports_domain(gneiss::ipc_domain::inspection)) {
     context.next_inspection_ns = time->elapsed_ns + UINT64_C(100000000);
     gneiss::host::runtime_scene_snapshot snapshot;
     const auto captured = context.scene_inspection->capture_scene(
         *context.application, context.scene, context.force_full_inspection, snapshot);
-    if (captured == gneiss::engine::error::success) {
+    if (captured == gneiss::error::success) {
       const auto sent = context.ipc_session->notify_scene_snapshot(snapshot);
-      if (sent == gneiss::engine::error::success) {
+      if (sent == gneiss::error::success) {
         context.force_full_inspection = false;
-      } else if (sent == gneiss::engine::error::not_ready) {
+      } else if (sent == gneiss::error::not_ready) {
         context.force_full_inspection = true;
       } else {
         context.ipc_failure = sent;
         return request_exit();
       }
-    } else if (captured != gneiss::engine::error::not_ready) {
+    } else if (captured != gneiss::error::not_ready) {
       context.ipc_failure = captured;
       return request_exit();
     }
@@ -408,21 +408,21 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
     std::uint64_t scene_node_count = 0U;
     std::uint64_t entity_count = 0U;
     auto instance =
-        gneiss::engine::scene_instance::borrow(*context.application->native_world(), context.scene);
+        gneiss::scene_instance::borrow(*context.application->native_world(), context.scene);
     auto scenes_result =
-        instance ? instance->size() : gneiss::engine::result<std::uint64_t>{instance.error()};
-    auto operation = scenes_result ? gneiss::engine::error::success : scenes_result.error();
+        instance ? instance->size() : gneiss::result<std::uint64_t>{instance.error()};
+    auto operation = scenes_result ? gneiss::error::success : scenes_result.error();
     if (scenes_result) {
       scene_node_count = std::move(*scenes_result);
     }
-    if (operation == gneiss::engine::error::success) {
+    if (operation == gneiss::error::success) {
       auto count = context.application->native_world()->entity_count();
       if (!count)
         operation = count.error();
       else
         entity_count = *count;
     }
-    if (operation != gneiss::engine::error::success) {
+    if (operation != gneiss::error::success) {
       context.ipc_failure = operation;
       return request_exit();
     }
@@ -436,7 +436,7 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
         .ipc_pending_writes = context.ipc_session->pending_write_count(),
         .ipc_dropped_events = context.ipc_session->dropped_event_count()};
     const auto sent = context.ipc_session->notify_statistics(statistics);
-    if (sent != gneiss::engine::error::success && sent != gneiss::engine::error::not_ready) {
+    if (sent != gneiss::error::success && sent != gneiss::error::not_ready) {
       context.ipc_failure = sent;
       return request_exit();
     }
@@ -447,50 +447,50 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
     if (std::filesystem::exists(context.stop_file, error) && !error) {
       std::filesystem::remove(context.stop_file, error);
       if (context.log != nullptr) {
-        context.log->write("INFO", "stop_request", gneiss::engine::error::success,
+        context.log->write("INFO", "stop_request", gneiss::error::success,
                            "收到 Editor 正常停止请求");
       }
       return request_exit();
     }
   }
-  return gneiss::engine::error::success;
+  return gneiss::error::success;
 }
 
-class callback_log_sink final : public gneiss::engine::logging::sink {
+class callback_log_sink final : public gneiss::logging::sink {
 public:
-  explicit callback_log_sink(gneiss::engine::logging::record_callback callback)
+  explicit callback_log_sink(gneiss::logging::record_callback callback)
       : callback_(std::move(callback)) {}
-  gneiss::engine::error write(const gneiss::engine::logging::record_view& value) override {
+  gneiss::error write(const gneiss::logging::record_view& value) override {
     callback_(value);
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
-  gneiss::engine::error flush() override { return gneiss::engine::error::success; }
+  gneiss::error flush() override { return gneiss::error::success; }
 
 private:
-  gneiss::engine::logging::record_callback callback_;
+  gneiss::logging::record_callback callback_;
 };
 
 [[nodiscard]] int run_runtime(const runtime_options& options, gneiss::host::runtime_log& log) {
-  gneiss::engine::logging::service logs;
+  gneiss::logging::service logs;
   logs.attach(std::make_unique<callback_log_sink>([&log](const auto& event) { log.write(event); }));
-  gneiss::engine::logging::default_service_binding logging_binding{logs};
+  gneiss::logging::default_service_binding logging_binding{logs};
   gneiss::host::project_description project;
   gneiss::host::project_load_report project_report;
   const auto project_result =
       gneiss::host::load_project_description(options.project_root, project, project_report);
-  if (project_result != gneiss::engine::error::success) {
+  if (project_result != gneiss::error::success) {
     const auto context = path_text(project_report.context);
     log.write("ERROR", gneiss::host::project_load_stage_name(project_report.stage),
-              static_cast<gneiss::engine::error>(project_result), "工程加载失败", context);
+              static_cast<gneiss::error>(project_result), "工程加载失败", context);
     return 2;
   }
   const auto asset_root = path_text(project.asset_root);
   if (project.name.size() > std::numeric_limits<std::uint32_t>::max() ||
       asset_root.size() > std::numeric_limits<std::uint32_t>::max()) {
-    log.write("ERROR", "project", gneiss::engine::error::out_of_memory, "工程运行描述过长");
+    log.write("ERROR", "project", gneiss::error::out_of_memory, "工程运行描述过长");
     return 2;
   }
-  log.write("INFO", "project", gneiss::engine::error::success, "工程加载完成",
+  log.write("INFO", "project", gneiss::error::success, "工程加载完成",
             path_text(project.project_root));
 
   runtime_context context{&log, options.stop_file};
@@ -499,7 +499,7 @@ private:
     std::filesystem::remove(context.stop_file, error);
   }
   gneiss::runtime::application_configuration desc;
-  desc.callbacks.update = [&context](const gneiss::engine::frame_time& time) {
+  desc.callbacks.update = [&context](const gneiss::frame_time& time) {
     return update_runtime(&time, &context);
   };
   desc.enable_window = true;
@@ -515,42 +515,42 @@ private:
   desc.environment_rotation_radians =
       project.environment.rotation_degrees * 0.01745329251994329577F;
 
-  gneiss::engine::task_scheduler task_scheduler(
-      {.mode = options.cooperative_tasks ? gneiss::engine::execution_mode::cooperative
-                                         : gneiss::engine::execution_mode::thread_pool});
+  gneiss::tasks::task_scheduler task_scheduler(
+      {.mode = options.cooperative_tasks ? gneiss::tasks::execution_mode::cooperative
+                                         : gneiss::tasks::execution_mode::thread_pool});
   context.tasks = &task_scheduler;
   std::shared_ptr<gneiss::runtime::application> application;
   auto created = gneiss::runtime::application::create(desc);
   auto operation =
-      created ? gneiss::engine::error{gneiss::engine::error::success} : created.error();
-  if (operation != gneiss::engine::error::success) {
-    log.write("ERROR", "application_create", static_cast<gneiss::engine::error>(operation),
+      created ? gneiss::error{gneiss::error::success} : created.error();
+  if (operation != gneiss::error::success) {
+    log.write("ERROR", "application_create", static_cast<gneiss::error>(operation),
               "Application 创建失败", asset_root);
     return 3;
   }
   application = std::move(*created);
   context.application = application.get();
-  log.write("INFO", "application_create", gneiss::engine::error::success, "Application 创建完成");
-  if (application->attach_task_executor(task_scheduler) != gneiss::engine::error::success) {
+  log.write("INFO", "application_create", gneiss::error::success, "Application 创建完成");
+  if (application->attach_task_executor(task_scheduler) != gneiss::error::success) {
     return 3;
   }
 
   if (!project.input_map.empty()) {
     auto input_result = application->begin_action_map(project.input_map);
-    if (input_result == gneiss::engine::error::success) {
+    if (input_result == gneiss::error::success) {
       context.input_pending = true;
       context.input_uri = project.input_map;
-      log.write("INFO", "input_map_pending", gneiss::engine::error::success, "正在异步加载输入映射",
+      log.write("INFO", "input_map_pending", gneiss::error::success, "正在异步加载输入映射",
                 project.input_map);
     }
-    if (input_result != gneiss::engine::error::success) {
+    if (input_result != gneiss::error::success) {
       log.write("ERROR", "input_map", input_result, "输入映射加载失败", project.input_map);
       return 4;
     }
   }
 
   gneiss::scene_instance_id scene = {};
-  auto native_result = gneiss::engine::error::success;
+  auto native_result = gneiss::error::success;
   std::string active_scene_uri = project.startup_scene;
   // 宿主只记录加载回执的依赖 URI，不从运行对象反推作者描述。
   std::set<std::string, std::less<>> active_prefab_uris;
@@ -563,7 +563,7 @@ private:
   context.scene = scene;
   std::optional<gneiss::host::ipc_asset_revision> structural_reload;
   bool structural_ignored{};
-  gneiss::engine::ref<gneiss::host::scene_reload_state> scene_source;
+  gneiss::ref<gneiss::host::scene_reload_state> scene_source;
   gneiss::host::runtime_scene_loader scene_loader(*application);
   context.scene_loader = &scene_loader;
   gneiss::host::runtime_asset_reloader asset_reloader(
@@ -578,7 +578,7 @@ private:
             structural_ignored = !active_prefab_uris.contains(first.uri);
           // 先准备可分配的回执，再提交请求，避免接受后因分配失败丢失观察状态。
           structural_reload = first;
-          auto accepted = gneiss::engine::error{gneiss::engine::error::success};
+          auto accepted = gneiss::error{gneiss::error::success};
           if (!structural_ignored) {
             accepted = scene_loader.reload(scene_source, first.uri,
                                            first.type == gneiss::host::ipc_asset_type::prefab);
@@ -587,9 +587,9 @@ private:
             structural_reload.reset();
           return accepted;
         }
-        std::vector<gneiss::engine::render_resource_source> assets;
+        std::vector<gneiss::render_resource_source> assets;
         for (const auto& asset : request.assets) {
-          using type = gneiss::engine::render_resource_kind;
+          using type = gneiss::render_resource_kind;
           assets.push_back(
               {asset.uri, asset.type == gneiss::host::ipc_asset_type::texture    ? type::texture
                           : asset.type == gneiss::host::ipc_asset_type::material ? type::material
@@ -599,20 +599,20 @@ private:
         if (!submitted)
           return submitted.error();
         context.asset_request = std::move(*submitted);
-        return gneiss::engine::error{gneiss::engine::error::success};
+        return gneiss::error{gneiss::error::success};
       },
       [&, native_application = application.get()](
-          gneiss::engine::error& result, std::vector<gneiss::host::ipc_asset_item_result>& items,
+          gneiss::error& result, std::vector<gneiss::host::ipc_asset_item_result>& items,
           bool& ready) {
         try {
           if (structural_reload) {
-            auto operation = gneiss::engine::error::success;
+            auto operation = gneiss::error::success;
             if (structural_ignored) {
-              result = gneiss::engine::error::success;
+              result = gneiss::error::success;
               ready = true;
             } else {
               auto completed = scene_loader.take_reload();
-              if (!completed && completed.error() != gneiss::engine::error::not_ready)
+              if (!completed && completed.error() != gneiss::error::not_ready)
                 operation = completed.error();
               else if (completed) {
                 ready = true;
@@ -625,15 +625,15 @@ private:
             }
             if (ready)
               items.push_back({*structural_reload, result, result.ok()});
-            if (ready || (operation.failed() && operation != gneiss::engine::error::not_ready))
+            if (ready || (operation.failed() && operation != gneiss::error::not_ready))
               structural_reload.reset();
             return operation;
           }
           ready = false;
           auto polled = context.asset_request.take();
           if (!polled) {
-            if (polled.error() == gneiss::engine::error::not_ready)
-              return gneiss::engine::error{gneiss::engine::error::success};
+            if (polled.error() == gneiss::error::not_ready)
+              return gneiss::error{gneiss::error::success};
             context.asset_request.reset();
             return polled.error();
           }
@@ -641,7 +641,7 @@ private:
           auto completion = std::move(*polled);
           if (ready) {
             for (const auto& item : completion.results) {
-              using type = gneiss::engine::render_resource_kind;
+              using type = gneiss::render_resource_kind;
               items.push_back({.asset = {.uri = item.source.uri,
                                          .type = item.source.type == type::texture
                                                      ? gneiss::host::ipc_asset_type::texture
@@ -657,10 +657,10 @@ private:
                                  " prepared_bytes=" + std::to_string(completion.prepared_bytes) +
                                  " queue_ms=" + std::to_string(completion.queue_ms) + " " +
                                  completion.message;
-            log.write(completion.result == gneiss::engine::error::success ? "INFO" : "ERROR",
+            log.write(completion.result == gneiss::error::success ? "INFO" : "ERROR",
                       "texture_load", completion.result, metrics);
           }
-          return gneiss::engine::error{gneiss::engine::error::success};
+          return gneiss::error{gneiss::error::success};
         } catch (...) {
           context.asset_request.reset();
           structural_reload.reset();
@@ -669,18 +669,18 @@ private:
       });
   context.asset_reloader = &asset_reloader;
 
-  gneiss::engine::world* world = nullptr;
+  gneiss::world* world = nullptr;
   world = application->native_world();
-  native_result = gneiss::engine::error::success;
+  native_result = gneiss::error::success;
   gneiss::host::runtime_property_editor property_editor;
-  if (native_result == gneiss::engine::error::success) {
+  if (native_result == gneiss::error::success) {
     operation = property_editor.initialize(*world, scene_inspection, context.inspection_session_id);
   } else {
     operation = native_result;
   }
-  if (operation != gneiss::engine::error::success) {
+  if (operation != gneiss::error::success) {
     log.write("ERROR", "property_edit", operation, "Runtime 属性写入执行器初始化失败");
-    if (auto instance = gneiss::engine::scene_instance::borrow(*application->native_world(), scene))
+    if (auto instance = gneiss::scene_instance::borrow(*application->native_world(), scene))
       (void)instance->unload();
     return 5;
   }
@@ -688,10 +688,10 @@ private:
 
   context.smoke = options.smoke;
   scene_loader.after_activate =
-      [&](const gneiss::host::scene_open_result& loaded) -> gneiss::engine::error {
+      [&](const gneiss::host::scene_open_result& loaded) -> gneiss::error {
     const auto started = std::chrono::steady_clock::now();
     if (!loaded.content)
-      return gneiss::engine::error::invalid_argument;
+      return gneiss::error::invalid_argument;
     std::set<std::string, std::less<>> prefab_uris;
     for (const auto& [uri, dependency] : loaded.content->prefabs)
       prefab_uris.insert(uri);
@@ -712,27 +712,27 @@ private:
     context.next_inspection_ns = 0U;
     context.next_statistics_sequence = 1U;
     world = application->native_world();
-    auto applied = gneiss::engine::error::success;
-    if (applied != gneiss::engine::error::success)
+    auto applied = gneiss::error::success;
+    if (applied != gneiss::error::success)
       return applied;
     const auto initialized =
         property_editor.initialize(*world, scene_inspection, context.inspection_session_id);
-    if (initialized != gneiss::engine::error::success)
+    if (initialized != gneiss::error::success)
       return initialized;
-    log.write("INFO", "startup_scene", gneiss::engine::error::success, "场景加载完成",
+    log.write("INFO", "startup_scene", gneiss::error::success, "场景加载完成",
               active_scene_uri);
-    log.write("INFO", "scene_load", gneiss::engine::error::success,
+    log.write("INFO", "scene_load", gneiss::error::success,
               "inspection_rebind_ms=" +
                   std::to_string(std::chrono::duration<double, std::milli>(
                                      std::chrono::steady_clock::now() - started)
                                      .count()));
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   };
 
   std::unique_ptr<gneiss::host::runtime_ipc_session> ipc_session;
   struct ipc_log_subscription {
-    gneiss::engine::logging::service& logs;
-    gneiss::engine::logging::sink_connection connection;
+    gneiss::logging::service& logs;
+    gneiss::logging::sink_connection connection;
     ~ipc_log_subscription() {
       connection.disconnect();
       logs.flush();
@@ -745,14 +745,14 @@ private:
     ipc_config.session_token = options.ipc_token;
     ipc_session = std::make_unique<gneiss::host::runtime_ipc_session>(std::move(ipc_config));
     operation = ipc_session->start(gneiss::host::runtime_ipc_session::clock::now());
-    if (operation == gneiss::engine::error::success) {
+    if (operation == gneiss::error::success) {
       operation = ipc_session->notify_running();
     }
-    if (operation != gneiss::engine::error::success) {
+    if (operation != gneiss::error::success) {
       log.write("ERROR", "ipc", operation, "Editor IPC 会话启动失败");
 
       if (auto instance =
-              gneiss::engine::scene_instance::borrow(*application->native_world(), scene))
+              gneiss::scene_instance::borrow(*application->native_world(), scene))
         (void)instance->unload();
       return 11;
     }
@@ -761,22 +761,22 @@ private:
         std::make_unique<callback_log_sink>([session = ipc_session.get()](const auto& event) {
           (void)session->notify_log_event(event);
         }));
-    log.write("INFO", "ipc", gneiss::engine::error::success, "Editor IPC 会话正在连接");
+    log.write("INFO", "ipc", gneiss::error::success, "Editor IPC 会话正在连接");
   }
 
   native_result =
       scene_loader.request({context.inspection_session_id, 1U, project.startup_scene}, 0U);
-  if (native_result != gneiss::engine::error::success)
+  if (native_result != gneiss::error::success)
     return 4;
   operation = application->run(0U);
   const auto task_stats = task_scheduler.stats();
-  log.write("INFO", "task_statistics", gneiss::engine::error::success,
+  log.write("INFO", "task_statistics", gneiss::error::success,
             "submitted=" + std::to_string(task_stats.submitted) +
                 " completed=" + std::to_string(task_stats.completed) +
                 " retained=" + std::to_string(task_stats.retained));
-  if (context.ipc_session != nullptr && context.ipc_failure == gneiss::engine::error::success) {
+  if (context.ipc_session != nullptr && context.ipc_failure == gneiss::error::success) {
     (void)context.ipc_session->notify_shutdown(
-        operation == gneiss::engine::error::success ? 0 : operation.code());
+        operation == gneiss::error::success ? 0 : operation.code());
   }
   ipc_logging.connection.disconnect();
   logs.flush();
@@ -794,21 +794,21 @@ private:
   auto shutdown_result = application->request_shutdown();
   if (shutdown_result.ok()) {
     do {
-      if (task_scheduler.mode() == gneiss::engine::execution_mode::cooperative)
+      if (task_scheduler.mode() == gneiss::tasks::execution_mode::cooperative)
         (void)task_scheduler.run_ready();
       shutdown_result = application->advance_shutdown();
-      if (shutdown_result == gneiss::engine::error::not_ready)
+      if (shutdown_result == gneiss::error::not_ready)
         std::this_thread::yield();
-    } while (shutdown_result == gneiss::engine::error::not_ready);
+    } while (shutdown_result == gneiss::error::not_ready);
   }
   if (shutdown_result.failed())
     log.write("ERROR", "shutdown", shutdown_result, "Runtime 关闭失败");
-  if (operation != gneiss::engine::error::success) {
-    log.write("ERROR", "run", static_cast<gneiss::engine::error>(operation), "Runtime 主循环失败");
+  if (operation != gneiss::error::success) {
+    log.write("ERROR", "run", static_cast<gneiss::error>(operation), "Runtime 主循环失败");
 
     return 7;
   }
-  if (context.ipc_failure != gneiss::engine::error::success) {
+  if (context.ipc_failure != gneiss::error::success) {
     log.write("ERROR", "ipc", context.ipc_failure, "Runtime 因 Editor IPC 会话失败而退出");
 
     return 11;
@@ -818,7 +818,7 @@ private:
     return 10;
   if (context.scene_failed && options.smoke)
     return 4;
-  log.write("INFO", "shutdown", gneiss::engine::error::success, "Runtime 已正常退出");
+  log.write("INFO", "shutdown", gneiss::error::success, "Runtime 已正常退出");
   return 0;
 }
 
@@ -832,11 +832,11 @@ int gneiss::host::run_runtime_application(int argc, char** argv) {
         options.log_file.empty() ? gneiss::host::default_runtime_log_path() : options.log_file;
     gneiss::host::runtime_log log(log_path);
     if (!log.is_file_available()) {
-      log.write("WARNING", "log_file", gneiss::engine::error::io,
+      log.write("WARNING", "log_file", gneiss::error::io,
                 "日志文件不可用，继续使用控制台日志", path_text(log.path()));
     }
     if (!has_valid_options) {
-      log.write("ERROR", "arguments", gneiss::engine::error::invalid_argument,
+      log.write("ERROR", "arguments", gneiss::error::invalid_argument,
                 "用法：gneiss_runtime --project <工程根> [--smoke] [--hidden] [--log-file <路径>] "
                 "[--stop-file <路径>] [--ipc-address <地址> --ipc-port <端口> "
                 "--ipc-token <令牌>]");
@@ -844,6 +844,6 @@ int gneiss::host::run_runtime_application(int argc, char** argv) {
     }
     return run_runtime(options, log);
   } catch (...) {
-    gneiss::engine::fatal_current_exception();
+    gneiss::fatal_current_exception();
   }
 }

@@ -5,7 +5,7 @@
 #include <limits>
 #include <new>
 
-namespace gneiss::engine {
+namespace gneiss {
 struct world_factory {
   static std::unique_ptr<world> make(std::uint32_t domain) {
     return std::unique_ptr<world>(new world(domain));

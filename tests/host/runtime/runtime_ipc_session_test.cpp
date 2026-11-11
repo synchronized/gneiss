@@ -21,12 +21,12 @@ namespace {
 
 using namespace std::chrono_literals;
 
-bool poll_envelope(gneiss::engine::ipc_transport& transport, gneiss::engine::ipc_envelope& output) {
-  std::vector<gneiss::engine::ipc_transport_event> events;
+bool poll_envelope(gneiss::ipc_transport& transport, gneiss::ipc_envelope& output) {
+  std::vector<gneiss::ipc_transport_event> events;
   // 每次只取一条，避免返回首个 Envelope 时丢弃同批次中的 Ready 或属性响应。
   (void)transport.poll_events(events, 1U);
   for (auto& event : events) {
-    if (event.type == gneiss::engine::ipc_transport_event_type::envelope_received) {
+    if (event.type == gneiss::ipc_transport_event_type::envelope_received) {
       output = std::move(event.envelope);
       return true;
     }
@@ -34,12 +34,12 @@ bool poll_envelope(gneiss::engine::ipc_transport& transport, gneiss::engine::ipc
   return false;
 }
 
-bool send_control(gneiss::engine::ipc_transport& transport,
+bool send_control(gneiss::ipc_transport& transport,
                   gneiss::host::ipc_control_operation operation, std::uint32_t request_id) {
-  gneiss::engine::ipc_envelope envelope;
+  gneiss::ipc_envelope envelope;
   return gneiss::host::encode_ipc_control_request(operation, request_id, envelope) ==
-             gneiss::engine::error::success &&
-         transport.send(envelope) == gneiss::engine::error::success;
+             gneiss::error::success &&
+         transport.send(envelope) == gneiss::error::success;
 }
 
 bool wait_for_action(gneiss::host::runtime_ipc_session& session,
@@ -47,7 +47,7 @@ bool wait_for_action(gneiss::host::runtime_ipc_session& session,
                      bool gneiss::host::runtime_ipc_actions::* member) {
   const auto deadline = std::chrono::steady_clock::now() + 3s;
   while (std::chrono::steady_clock::now() < deadline) {
-    if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::engine::error::success) {
+    if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::error::success) {
       return false;
     }
     if (actions.*member) {
@@ -58,33 +58,33 @@ bool wait_for_action(gneiss::host::runtime_ipc_session& session,
   return false;
 }
 
-bool complete_handshake(gneiss::engine::ipc_transport& server,
+bool complete_handshake(gneiss::ipc_transport& server,
                         gneiss::host::runtime_ipc_session& session,
-                        std::span<const gneiss::engine::ipc_domain_capability> supported =
+                        std::span<const gneiss::ipc_domain_capability> supported =
                             gneiss::host::ipc_v2_domain_capabilities()) {
   gneiss::host::runtime_ipc_actions actions;
-  gneiss::engine::ipc_envelope hello;
+  gneiss::ipc_envelope hello;
   const auto deadline = std::chrono::steady_clock::now() + 3s;
   while (std::chrono::steady_clock::now() < deadline && !poll_envelope(server, hello)) {
-    if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::engine::error::success) {
+    if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::error::success) {
       return false;
     }
     std::this_thread::sleep_for(1ms);
   }
   gneiss::host::ipc_session_hello request;
   gneiss::host::ipc_session_hello acknowledgment_message;
-  gneiss::engine::ipc_envelope acknowledgment;
-  if (gneiss::host::decode_ipc_session_hello(hello, request) != gneiss::engine::error::success ||
+  gneiss::ipc_envelope acknowledgment;
+  if (gneiss::host::decode_ipc_session_hello(hello, request) != gneiss::error::success ||
       gneiss::host::negotiate_ipc_session_hello(
-          request, "secret", supported, acknowledgment_message) != gneiss::engine::error::success ||
+          request, "secret", supported, acknowledgment_message) != gneiss::error::success ||
       gneiss::host::encode_ipc_session_hello(acknowledgment_message, true, hello.request_id,
-                                             acknowledgment) != gneiss::engine::error::success ||
-      server.send(acknowledgment) != gneiss::engine::error::success) {
+                                             acknowledgment) != gneiss::error::success ||
+      server.send(acknowledgment) != gneiss::error::success) {
     return false;
   }
   const auto authenticated_deadline = std::chrono::steady_clock::now() + 3s;
   while (std::chrono::steady_clock::now() < authenticated_deadline) {
-    if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::engine::error::success) {
+    if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::error::success) {
       return false;
     }
     if (session.state() == gneiss::host::runtime_ipc_state::running) {
@@ -96,15 +96,15 @@ bool complete_handshake(gneiss::engine::ipc_transport& server,
 }
 
 bool test_property_write_round_trip() {
-  gneiss::engine::ipc_transport server;
-  if (server.start_server() != gneiss::engine::error::success) {
+  gneiss::ipc_transport server;
+  if (server.start_server() != gneiss::error::success) {
     return false;
   }
   gneiss::host::runtime_ipc_session session(
       {{"127.0.0.1", server.endpoint().port}, "secret", 3s, 3s});
   const auto supported = gneiss::host::ipc_v2_domain_capabilities();
-  if (session.start(std::chrono::steady_clock::now()) != gneiss::engine::error::success ||
-      session.notify_running() != gneiss::engine::error::success ||
+  if (session.start(std::chrono::steady_clock::now()) != gneiss::error::success ||
+      session.notify_running() != gneiss::error::success ||
       !complete_handshake(server, session, supported)) {
     return false;
   }
@@ -113,20 +113,20 @@ bool test_property_write_round_trip() {
       .session_id = 7U,
       .command_id = 11U,
       .object = {2U, 3U},
-      .type_id = gneiss::engine::guid::from_bytes({1U}),
+      .type_id = gneiss::guid::from_bytes({1U}),
       .field_id = 4U,
       .expected_revision = 1U,
-      .value = {gneiss::engine::math::vector3{1.0F, 2.0F, 3.0F}}};
-  gneiss::engine::ipc_envelope frame;
+      .value = {gneiss::math::vector3{1.0F, 2.0F, 3.0F}}};
+  gneiss::ipc_envelope frame;
   if (gneiss::host::encode_ipc_property_write_v2(command, 11U, frame) !=
-          gneiss::engine::error::success ||
-      server.send(frame) != gneiss::engine::error::success) {
+          gneiss::error::success ||
+      server.send(frame) != gneiss::error::success) {
     return false;
   }
   gneiss::host::runtime_ipc_actions actions;
   const auto command_deadline = std::chrono::steady_clock::now() + 3s;
   while (std::chrono::steady_clock::now() < command_deadline && actions.property_writes.empty()) {
-    if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::engine::error::success) {
+    if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::error::success) {
       return false;
     }
     std::this_thread::sleep_for(1ms);
@@ -139,11 +139,11 @@ bool test_property_write_round_trip() {
   const gneiss::host::ipc_property_write_result response{.session_id = 7U,
                                                          .command_id = 11U,
                                                          .code =
-                                                             gneiss::engine::error::success.code(),
+                                                             gneiss::error::success.code(),
                                                          .revision = 2U,
                                                          .message = "属性已应用",
                                                          .canonical_value = command.value};
-  if (session.notify_property_write_result(response) != gneiss::engine::error::success) {
+  if (session.notify_property_write_result(response) != gneiss::error::success) {
     return false;
   }
   const auto response_deadline = std::chrono::steady_clock::now() + 3s;
@@ -151,10 +151,10 @@ bool test_property_write_round_trip() {
     if (poll_envelope(server, frame)) {
       gneiss::host::ipc_property_write_result decoded;
       if (gneiss::host::decode_ipc_property_result_v2(frame, decoded) ==
-              gneiss::engine::error::success &&
+              gneiss::error::success &&
           decoded.command_id == 11U && decoded.revision == 2U) {
-        return session.stop() == gneiss::engine::error::success &&
-               server.stop() == gneiss::engine::error::success;
+        return session.stop() == gneiss::error::success &&
+               server.stop() == gneiss::error::success;
       }
     }
     std::this_thread::sleep_for(1ms);
@@ -163,15 +163,15 @@ bool test_property_write_round_trip() {
 }
 
 bool test_property_flood_does_not_block_stop() {
-  gneiss::engine::ipc_transport server;
-  if (server.start_server() != gneiss::engine::error::success) {
+  gneiss::ipc_transport server;
+  if (server.start_server() != gneiss::error::success) {
     return false;
   }
   gneiss::host::runtime_ipc_session session(
       {{"127.0.0.1", server.endpoint().port}, "secret", 3s, 3s});
   const auto supported = gneiss::host::ipc_v2_domain_capabilities();
-  if (session.start(std::chrono::steady_clock::now()) != gneiss::engine::error::success ||
-      session.notify_running() != gneiss::engine::error::success ||
+  if (session.start(std::chrono::steady_clock::now()) != gneiss::error::success ||
+      session.notify_running() != gneiss::error::success ||
       !complete_handshake(server, session, supported)) {
     return false;
   }
@@ -180,14 +180,14 @@ bool test_property_flood_does_not_block_stop() {
                                                    .command_id = index,
                                                    .object = {index, 1U},
                                                    .type_id =
-                                                       gneiss::engine::guid::from_bytes({1U}),
+                                                       gneiss::guid::from_bytes({1U}),
                                                    .field_id = 4U,
                                                    .expected_revision = 1U,
                                                    .value = {true}};
-    gneiss::engine::ipc_envelope frame;
+    gneiss::ipc_envelope frame;
     if (gneiss::host::encode_ipc_property_write_v2(command, static_cast<std::uint32_t>(index),
-                                                   frame) != gneiss::engine::error::success ||
-        server.send(frame) != gneiss::engine::error::success) {
+                                                   frame) != gneiss::error::success ||
+        server.send(frame) != gneiss::error::success) {
       return false;
     }
   }
@@ -198,27 +198,27 @@ bool test_property_flood_does_not_block_stop() {
   gneiss::host::runtime_ipc_actions actions;
   const auto deadline = std::chrono::steady_clock::now() + 3s;
   while (std::chrono::steady_clock::now() < deadline && !actions.request_exit) {
-    if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::engine::error::success) {
+    if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::error::success) {
       return false;
     }
     std::this_thread::sleep_for(1ms);
   }
   return actions.request_exit && actions.property_writes.size() <= 32U &&
          session.state() == gneiss::host::runtime_ipc_state::stopping &&
-         session.stop() == gneiss::engine::error::success &&
-         server.stop() == gneiss::engine::error::success;
+         session.stop() == gneiss::error::success &&
+         server.stop() == gneiss::error::success;
 }
 
 bool test_control_lifecycle() {
-  gneiss::engine::ipc_transport server;
-  if (server.start_server() != gneiss::engine::error::success) {
+  gneiss::ipc_transport server;
+  if (server.start_server() != gneiss::error::success) {
     return false;
   }
   gneiss::host::runtime_ipc_session session(
       {{"127.0.0.1", server.endpoint().port}, "secret", 3s, 3s});
   const auto now = std::chrono::steady_clock::now();
-  if (session.start(now) != gneiss::engine::error::success ||
-      session.notify_running() != gneiss::engine::error::success ||
+  if (session.start(now) != gneiss::error::success ||
+      session.notify_running() != gneiss::error::success ||
       !complete_handshake(server, session) ||
       session.state() != gneiss::host::runtime_ipc_state::running) {
     return false;
@@ -227,24 +227,24 @@ bool test_control_lifecycle() {
   constexpr std::string_view source = "test";
   constexpr std::string_view category = "ipc";
   constexpr std::string_view text = "结构化日志";
-  const gneiss::engine::logging::record_view log_event{
-      .message = {.severity = gneiss::engine::logging::level::info,
+  const gneiss::logging::record_view log_event{
+      .message = {.severity = gneiss::logging::level::info,
                   .source = source,
                   .category = category,
                   .message = text,
-                  .result = gneiss::engine::error::success},
+                  .result = gneiss::error::success},
       .sequence = 1U,
       .timestamp_ns = 2U,
       .thread_id = 3U,
   };
-  if (session.notify_log_event(log_event) != gneiss::engine::error::success) {
+  if (session.notify_log_event(log_event) != gneiss::error::success) {
     return false;
   }
 
   gneiss::host::runtime_ipc_actions actions;
-  gneiss::engine::ipc_envelope resync;
-  if (gneiss::host::encode_ipc_inspection_resync(10U, resync) != gneiss::engine::error::success ||
-      server.send(resync) != gneiss::engine::error::success ||
+  gneiss::ipc_envelope resync;
+  if (gneiss::host::encode_ipc_inspection_resync(10U, resync) != gneiss::error::success ||
+      server.send(resync) != gneiss::error::success ||
       !wait_for_action(session, actions,
                        &gneiss::host::runtime_ipc_actions::request_inspection_resync)) {
     return false;
@@ -256,33 +256,33 @@ bool test_control_lifecycle() {
     return false;
   }
 
-  gneiss::engine::ipc_envelope heartbeat;
+  gneiss::ipc_envelope heartbeat;
   if (gneiss::host::encode_ipc_session_heartbeat({.nonce = 42U}, false, 12U, heartbeat) !=
-          gneiss::engine::error::success ||
-      server.send(heartbeat) != gneiss::engine::error::success) {
+          gneiss::error::success ||
+      server.send(heartbeat) != gneiss::error::success) {
     return false;
   }
   const auto pong_deadline = std::chrono::steady_clock::now() + 3s;
   bool received_pong = false;
   bool received_log = false;
   while (std::chrono::steady_clock::now() < pong_deadline && (!received_pong || !received_log)) {
-    if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::engine::error::success) {
+    if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::error::success) {
       return false;
     }
-    std::vector<gneiss::engine::ipc_transport_event> events;
+    std::vector<gneiss::ipc_transport_event> events;
     (void)server.poll_events(events);
     for (const auto& event : events) {
-      if (event.type == gneiss::engine::ipc_transport_event_type::envelope_received) {
+      if (event.type == gneiss::ipc_transport_event_type::envelope_received) {
         gneiss::host::ipc_session_heartbeat decoded_heartbeat;
         if (gneiss::host::decode_ipc_session_heartbeat(event.envelope, decoded_heartbeat) ==
-                gneiss::engine::error::success &&
-            event.envelope.kind == gneiss::engine::ipc_message_kind::response &&
+                gneiss::error::success &&
+            event.envelope.kind == gneiss::ipc_message_kind::response &&
             decoded_heartbeat.nonce == 42U) {
           received_pong = true;
         }
         std::string decoded_log;
         if (gneiss::host::decode_ipc_log_event(event.envelope, decoded_log) ==
-                gneiss::engine::error::success &&
+                gneiss::error::success &&
             decoded_log.find("结构化日志") != std::string::npos) {
           received_log = true;
         }
@@ -303,61 +303,61 @@ bool test_control_lifecycle() {
       session.state() != gneiss::host::runtime_ipc_state::stopping) {
     return false;
   }
-  return session.stop() == gneiss::engine::error::success &&
-         server.stop() == gneiss::engine::error::success;
+  return session.stop() == gneiss::error::success &&
+         server.stop() == gneiss::error::success;
 }
 
 bool test_handshake_timeout() {
-  gneiss::engine::ipc_transport server;
-  if (server.start_server() != gneiss::engine::error::success) {
+  gneiss::ipc_transport server;
+  if (server.start_server() != gneiss::error::success) {
     return false;
   }
   gneiss::host::runtime_ipc_session session(
       {{"127.0.0.1", server.endpoint().port}, "secret", 10ms, 1s});
   const auto start = std::chrono::steady_clock::now();
   gneiss::host::runtime_ipc_actions actions;
-  if (session.start(start) != gneiss::engine::error::success ||
-      session.pump(start + 10ms, actions) != gneiss::engine::error::not_ready ||
-      !actions.request_exit || actions.failure != gneiss::engine::error::not_ready ||
+  if (session.start(start) != gneiss::error::success ||
+      session.pump(start + 10ms, actions) != gneiss::error::not_ready ||
+      !actions.request_exit || actions.failure != gneiss::error::not_ready ||
       session.state() != gneiss::host::runtime_ipc_state::failed) {
     return false;
   }
-  return session.stop() == gneiss::engine::error::success &&
-         server.stop() == gneiss::engine::error::success;
+  return session.stop() == gneiss::error::success &&
+         server.stop() == gneiss::error::success;
 }
 
 bool test_heartbeat_timeout() {
-  gneiss::engine::ipc_transport server;
-  if (server.start_server() != gneiss::engine::error::success) {
+  gneiss::ipc_transport server;
+  if (server.start_server() != gneiss::error::success) {
     return false;
   }
   gneiss::host::runtime_ipc_session session(
       {{"127.0.0.1", server.endpoint().port}, "secret", 3s, 20ms});
   const auto start = std::chrono::steady_clock::now();
   gneiss::host::runtime_ipc_actions actions;
-  if (session.start(start) != gneiss::engine::error::success ||
-      session.notify_running() != gneiss::engine::error::success ||
+  if (session.start(start) != gneiss::error::success ||
+      session.notify_running() != gneiss::error::success ||
       !complete_handshake(server, session)) {
     return false;
   }
   const auto timeout_now = std::chrono::steady_clock::now() + 20ms;
-  return session.pump(timeout_now, actions) == gneiss::engine::error::not_ready &&
+  return session.pump(timeout_now, actions) == gneiss::error::not_ready &&
          actions.request_exit && session.state() == gneiss::host::runtime_ipc_state::failed &&
-         session.stop() == gneiss::engine::error::success &&
-         server.stop() == gneiss::engine::error::success;
+         session.stop() == gneiss::error::success &&
+         server.stop() == gneiss::error::success;
 }
 
 bool test_disconnect() {
-  gneiss::engine::ipc_transport server;
-  if (server.start_server() != gneiss::engine::error::success) {
+  gneiss::ipc_transport server;
+  if (server.start_server() != gneiss::error::success) {
     return false;
   }
   gneiss::host::runtime_ipc_session disconnected(
       {{"127.0.0.1", server.endpoint().port}, "secret", 3s, 3s});
-  if (disconnected.start(std::chrono::steady_clock::now()) != gneiss::engine::error::success ||
-      disconnected.notify_running() != gneiss::engine::error::success ||
+  if (disconnected.start(std::chrono::steady_clock::now()) != gneiss::error::success ||
+      disconnected.notify_running() != gneiss::error::success ||
       !complete_handshake(server, disconnected) ||
-      server.stop() != gneiss::engine::error::success) {
+      server.stop() != gneiss::error::success) {
     return false;
   }
   gneiss::host::runtime_ipc_actions actions;
@@ -365,9 +365,9 @@ bool test_disconnect() {
   while (std::chrono::steady_clock::now() < deadline) {
     const auto operation = disconnected.pump(std::chrono::steady_clock::now(), actions);
     if (actions.request_exit) {
-      return operation != gneiss::engine::error::success &&
+      return operation != gneiss::error::success &&
              disconnected.state() == gneiss::host::runtime_ipc_state::failed &&
-             disconnected.stop() == gneiss::engine::error::success;
+             disconnected.stop() == gneiss::error::success;
     }
     std::this_thread::sleep_for(1ms);
   }

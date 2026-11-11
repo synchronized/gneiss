@@ -24,7 +24,7 @@
 #include <source_location>
 #include <stdexcept>
 #include <thread>
-namespace e = gneiss::engine;
+namespace e = gneiss;
 namespace {
 void check(bool value, std::source_location location = std::source_location::current()) {
   if (!value)
@@ -139,14 +139,14 @@ int main() try {
         unknown_description::type_guid);
   const auto primary =
       e::meta::find_property(e::camera_description::type_guid, e::meta::property_id{4});
-  check(primary && gneiss::engine::is_edit_read_only(primary));
-  check(gneiss::engine::meta::has_flags(primary.capabilities(),
-                                        gneiss::engine::meta::property_capabilities::writable));
+  check(primary && gneiss::is_edit_read_only(primary));
+  check(gneiss::meta::has_flags(primary.capabilities(),
+                                        gneiss::meta::property_capabilities::writable));
   e::camera_description camera{{1, 0.1F, 100}, true};
-  auto saved_camera = gneiss::engine::serialization::json::encode_bytes(camera);
+  auto saved_camera = gneiss::serialization::json::encode_bytes(camera);
   check(saved_camera.has_value());
   auto loaded_camera =
-      gneiss::engine::serialization::json::decode<e::camera_description>(*saved_camera);
+      gneiss::serialization::json::decode<e::camera_description>(*saved_camera);
   check(loaded_camera && loaded_camera->is_primary);
   // 纯场景和组件操作不需要文件服务、渲染服务或资产管理器。
   auto owner = e::create_native();
@@ -166,9 +166,9 @@ int main() try {
   second.parent.object = first.uuid;
   source.objects.push_back(second);
   // 真实文件格式解码后进入统一准备与同步实例化路径。
-  auto encoded = gneiss::engine::asset_file::serialize_bytes(source);
+  auto encoded = gneiss::asset_file::serialize_bytes(source);
   check(encoded.has_value());
-  auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(*encoded);
+  auto decoded = gneiss::asset_file::deserialize<e::scene_description>(*encoded);
   check(decoded.has_value());
   auto prepared = prepare(*decoded);
   check(e::register_scene_component(operations()) == e::error::invalid_state);
@@ -265,9 +265,9 @@ int main() try {
   check(saved.objects[0].components.get<movement_description>()->speed == 5);
   check(saved.objects[0].components.identity(movement_description::type_guid) ==
         first.components.identity(movement_description::type_guid));
-  auto saved_bytes = gneiss::engine::asset_file::serialize_bytes(saved);
+  auto saved_bytes = gneiss::asset_file::serialize_bytes(saved);
   check(saved_bytes.has_value());
-  auto restored = gneiss::engine::asset_file::deserialize<e::scene_description>(*saved_bytes);
+  auto restored = gneiss::asset_file::deserialize<e::scene_description>(*saved_bytes);
   check(restored.has_value());
   auto baseline = e::compose_scene(source, {});
   check(bool(baseline));
@@ -418,9 +418,9 @@ int main() try {
       gneiss::test_support::scene_fixture::instantiate_scene(world, prepare(camera_scene), {});
   check(bool(camera_instance));
   gneiss::entity_id active_camera;
-  check(gneiss::engine::get_active_camera(world, active_camera) == e::error::not_ready);
+  check(gneiss::get_active_camera(world, active_camera) == e::error::not_ready);
   active_camera = camera_instance->objects.front().entity;
-  check(gneiss::engine::set_active_camera(world, active_camera).ok());
+  check(gneiss::set_active_camera(world, active_camera).ok());
   auto broken_scene = camera_scene;
   broken_scene.uuid = e::guid::generate();
   broken_scene.objects.front().uuid = e::guid::generate();
@@ -433,7 +433,7 @@ int main() try {
       gneiss::test_support::scene_fixture::instantiate_scene(world, prepare(broken_scene), {});
   check(!failed_creation && failed_creation.error() == e::error::invalid_state);
   gneiss::entity_id camera_after_failure;
-  check(gneiss::engine::get_active_camera(world, camera_after_failure).ok() &&
+  check(gneiss::get_active_camera(world, camera_after_failure).ok() &&
         camera_after_failure == active_camera);
   check(*world.entity_count() == entities_before_failure);
   // 同一组合结果重复追加到非空场景，保留旧对象并提供各自的来源回执。
@@ -466,7 +466,7 @@ int main() try {
   check(!failed_append && failed_append.error() == e::error::invalid_state);
   check(*world.entity_count() == before_append_failure && *destination->size() == 5);
   check(existing_parent->is_valid() && appended->roots[0].is_valid());
-  check(gneiss::engine::get_active_camera(world, camera_after_failure).ok() &&
+  check(gneiss::get_active_camera(world, camera_after_failure).ok() &&
         camera_after_failure == active_camera);
   auto linked = append_source;
   linked.objects.front().components.set(movement_description{17});

@@ -14,7 +14,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 
 constexpr std::size_t maximum_output_size = 256U * 1024U;
@@ -109,16 +109,16 @@ child_process::~child_process() {
   implementation_->close_process();
 }
 
-engine::error child_process::start(const child_process_start_info& info) {
+gneiss::error child_process::start(const child_process_start_info& info) {
   if (!implementation_ || is_running() || info.executable.empty()) {
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   }
   {
     std::error_code error;
     if (!std::filesystem::is_regular_file(info.executable, error) || error ||
         (!info.working_directory.empty() &&
          (!std::filesystem::is_directory(info.working_directory, error) || error))) {
-      return engine::error::not_found;
+      return gneiss::error::not_found;
     }
     implementation_->close_process();
     implementation_->output.clear();
@@ -131,7 +131,7 @@ engine::error child_process::start(const child_process_start_info& info) {
         SetHandleInformation(implementation_->output_read, HANDLE_FLAG_INHERIT, 0U) == 0) {
       close_handle(output_write);
       implementation_->close_process();
-      return engine::error::initialization_failed;
+      return gneiss::error::initialization_failed;
     }
 
     STARTUPINFOW startup{};
@@ -156,21 +156,21 @@ engine::error child_process::start(const child_process_start_info& info) {
     close_handle(output_write);
     if (created == 0) {
       implementation_->close_process();
-      return engine::error::initialization_failed;
+      return gneiss::error::initialization_failed;
     }
     implementation_->process = process.hProcess;
     implementation_->thread = process.hThread;
     implementation_->has_started = true;
-    return engine::error::success;
+    return gneiss::error::success;
   }
 }
 
-engine::error child_process::terminate() noexcept {
+gneiss::error child_process::terminate() noexcept {
   if (!implementation_ || !is_running()) {
-    return engine::error::not_ready;
+    return gneiss::error::not_ready;
   }
-  return TerminateProcess(implementation_->process, 70U) != 0 ? engine::error::success
-                                                              : engine::error::io;
+  return TerminateProcess(implementation_->process, 70U) != 0 ? gneiss::error::success
+                                                              : gneiss::error::io;
 }
 
 void child_process::update() {
@@ -225,4 +225,4 @@ void child_process::append_output(std::string_view text) {
   }
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

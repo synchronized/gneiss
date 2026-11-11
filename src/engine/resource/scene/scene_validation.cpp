@@ -6,7 +6,7 @@
 #include "engine/resource/scene/object_hierarchy.hpp"
 #include <algorithm>
 #include <set>
-namespace gneiss::engine {
+namespace gneiss {
 serialization::diagnostic validate_component_description(const component_description& value) {
   if (!value || !value->uuid)
     return {.path = "/uuid", .error = error::invalid_argument};

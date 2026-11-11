@@ -46,34 +46,34 @@ struct fixture {
     std::filesystem::remove_all(root, error);
   }
 };
-class delayed_backend final : public gneiss::engine::files::backend {
+class delayed_backend final : public gneiss::files::backend {
 public:
-  gneiss::engine::files::callback<gneiss::engine::files::bytes> pending;
-  gneiss::engine::files::callback<gneiss::engine::files::directory_page> pending_list;
+  gneiss::files::callback<gneiss::files::bytes> pending;
+  gneiss::files::callback<gneiss::files::directory_page> pending_list;
   bool delay_list{};
-  engine::error
-  list(std::string_view, gneiss::engine::files::list_options,
-       gneiss::engine::files::callback<gneiss::engine::files::directory_page> callback) override {
+  gneiss::error
+  list(std::string_view, gneiss::files::list_options,
+       gneiss::files::callback<gneiss::files::directory_page> callback) override {
     if (delay_list)
       pending_list = std::move(callback);
     else
-      callback({engine::error::success,
-                {{{"main.scene.json", {gneiss::engine::files::kind::regular, {}}}}, {}}});
-    return engine::error::success;
+      callback({gneiss::error::success,
+                {{{"main.scene.json", {gneiss::files::kind::regular, {}}}}, {}}});
+    return gneiss::error::success;
   }
-  engine::error
-  read(std::string_view, gneiss::engine::files::read_options,
-       gneiss::engine::files::callback<gneiss::engine::files::bytes> callback) override {
+  gneiss::error
+  read(std::string_view, gneiss::files::read_options,
+       gneiss::files::callback<gneiss::files::bytes> callback) override {
     require(!pending, "指纹读取不得并发积压");
     pending = std::move(callback);
-    return engine::error::success;
+    return gneiss::error::success;
   }
 };
 void pending_shutdown(bool destroy, bool list = false) {
   fixture disk;
   write(disk.root / "main.scene.json", "initial");
-  engine::task_scheduler scheduler({.workers = 0, .mode = engine::execution_mode::cooperative});
-  auto files = std::make_shared<gneiss::engine::files::service>();
+  gneiss::tasks::task_scheduler scheduler({.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
+  auto files = std::make_shared<gneiss::files::service>();
   auto backend = std::make_shared<delayed_backend>();
   require(files->mount({"asset://", {backend}, {}}).ok(), "测试挂载失败");
   backend->delay_list = list;
@@ -94,41 +94,41 @@ void pending_shutdown(bool destroy, bool list = false) {
     service.reset();
   if (list) {
     auto complete_list = std::move(backend->pending_list);
-    complete_list({engine::error::success, {}});
+    complete_list({gneiss::error::success, {}});
   } else {
     auto complete = std::move(backend->pending);
-    complete({engine::error::success, {std::byte{7}}});
+    complete({gneiss::error::success, {std::byte{7}}});
   }
   require(files->dispatch_completions(64).ok(), "迟到回调分发失败");
   if (service)
     require(service->stopped(), "文件收尾后仍未停止");
-  gneiss::engine::files::request_id request;
+  gneiss::files::request_id request;
   require(files->read(
                    "asset://other", {1}, [](auto) {}, request)
               .ok(),
           "停止作者服务关闭了共享文件服务");
   auto complete = std::move(backend->pending);
-  complete({engine::error::success, {}});
+  complete({gneiss::error::success, {}});
   (void)files->dispatch_completions(64);
 }
 void scan_failure_retry() {
-  engine::task_scheduler scheduler({.workers = 0, .mode = engine::execution_mode::cooperative});
-  auto files = std::make_shared<gneiss::engine::files::service>();
+  gneiss::tasks::task_scheduler scheduler({.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
+  auto files = std::make_shared<gneiss::files::service>();
   auto backend = std::make_shared<delayed_backend>();
   backend->delay_list = true;
   require(files->mount({"asset://", {backend}, {}}).ok(), "扫描测试挂载失败");
   author_asset_service service(scheduler);
   require(service.initialize(files).ok() && backend->pending_list, "首个目录请求未提交");
   auto complete = std::move(backend->pending_list);
-  complete({engine::error::io, {}});
+  complete({gneiss::error::io, {}});
   (void)files->dispatch_completions(64);
   std::vector<std::filesystem::path> paths;
-  require(service.poll_rescan(paths) == engine::error::io && !service.is_rescanning(),
+  require(service.poll_rescan(paths) == gneiss::error::io && !service.is_rescanning(),
           "目录失败没有结束本次扫描");
   service.request_rescan();
   require(service.poll_rescan(paths).ok() && backend->pending_list, "失败后不能重新扫描");
   complete = std::move(backend->pending_list);
-  complete({engine::error::success, {}});
+  complete({gneiss::error::success, {}});
   (void)files->dispatch_completions(64);
   (void)service.poll_rescan(paths);
   (void)service.poll_rescan(paths);
@@ -136,7 +136,7 @@ void scan_failure_retry() {
           "空目录恢复失败");
 }
 void run(std::size_t workers,
-         gneiss::engine::execution_mode mode = gneiss::engine::execution_mode::thread_pool) {
+         gneiss::tasks::execution_mode mode = gneiss::tasks::execution_mode::thread_pool) {
   fixture files;
   const auto path = files.root / "main.scene.json";
   constexpr auto uri = "asset://main.scene.json";
@@ -144,7 +144,7 @@ void run(std::size_t workers,
   std::filesystem::create_directories(files.root / "nested");
   for (unsigned i = 0; i < 20; ++i)
     write(files.root / "nested" / (std::to_string(i) + ".prefab.json"), "initial");
-  gneiss::engine::task_scheduler scheduler({.workers = workers, .mode = mode});
+  gneiss::tasks::task_scheduler scheduler({.workers = workers, .mode = mode});
   gneiss::runtime::application_configuration config;
   const auto root_text = files.root.generic_string();
   config.asset_root = root_text;
@@ -154,18 +154,18 @@ void run(std::size_t workers,
       "测试文件宿主创建失败");
   auto io = app->async_files();
   author_asset_service service(scheduler);
-  require(service.initialize(io) == gneiss::engine::error::success, "启动失败");
+  require(service.initialize(io) == gneiss::error::success, "启动失败");
   auto drain = [&] {
     until([&] {
       require(io->dispatch_completions(64).ok(), "文件完成分发失败");
-      if (mode == gneiss::engine::execution_mode::cooperative) {
+      if (mode == gneiss::tasks::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
       std::vector<std::filesystem::path> paths;
-      require(service.poll_rescan(paths, 1U) == gneiss::engine::error::success, "补扫失败");
+      require(service.poll_rescan(paths, 1U) == gneiss::error::success, "补扫失败");
       for (const auto& item : paths) {
         const auto change = service.observe(item, false);
-        if (change.operation == gneiss::engine::error::success) {
+        if (change.operation == gneiss::error::success) {
           service.mark_applied(change.uri);
         }
       }
@@ -180,7 +180,7 @@ void run(std::size_t workers,
   std::unordered_set<std::string> nested;
   until([&] {
     (void)io->dispatch_completions(64);
-    if (mode == engine::execution_mode::cooperative)
+    if (mode == gneiss::tasks::execution_mode::cooperative)
       (void)scheduler.run_ready();
     std::vector<std::filesystem::path> paths;
     require(service.poll_rescan(paths).ok(), "分页目录扫描失败");
@@ -198,7 +198,7 @@ void run(std::size_t workers,
   author_asset_change found;
   until([&] {
     require(io->dispatch_completions(64).ok(), "文件完成分发失败");
-    if (mode == gneiss::engine::execution_mode::cooperative) {
+    if (mode == gneiss::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     std::vector<std::filesystem::path> paths;
@@ -214,20 +214,20 @@ void run(std::size_t workers,
   std::vector<std::filesystem::path> old_paths;
   until([&] {
     require(io->dispatch_completions(64).ok(), "文件完成分发失败");
-    if (mode == gneiss::engine::execution_mode::cooperative) {
+    if (mode == gneiss::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     (void)service.poll_rescan(old_paths);
     return !old_paths.empty();
   });
   write(path, "own-save");
-  require(service.acknowledge(uri, "own-save") == gneiss::engine::error::success, "保存确认失败");
+  require(service.acknowledge(uri, "own-save") == gneiss::error::success, "保存确认失败");
   // 外部写入发生在保存之后、后台确认之前，不能被确认为自身保存。
   write(path, "external-after-save");
   found = {};
   until([&] {
     require(io->dispatch_completions(64).ok(), "文件完成分发失败");
-    if (mode == gneiss::engine::execution_mode::cooperative) {
+    if (mode == gneiss::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     std::vector<std::filesystem::path> paths;
@@ -237,7 +237,7 @@ void run(std::size_t workers,
     }
     return found.state == author_asset_change_state::changed;
   });
-  require(found.uri == uri && found.operation == gneiss::engine::error::success,
+  require(found.uri == uri && found.operation == gneiss::error::success,
           "自身保存吞掉外部修改");
   service.mark_applied(uri);
   drain();
@@ -246,7 +246,7 @@ void run(std::size_t workers,
   found = {};
   until([&] {
     require(io->dispatch_completions(64).ok(), "文件完成分发失败");
-    if (mode == gneiss::engine::execution_mode::cooperative) {
+    if (mode == gneiss::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     std::vector<std::filesystem::path> paths;
@@ -256,7 +256,7 @@ void run(std::size_t workers,
     }
     return found.state == author_asset_change_state::changed;
   });
-  require(found.operation == gneiss::engine::error::not_found, "删除未被发现");
+  require(found.operation == gneiss::error::not_found, "删除未被发现");
   write(path, "rebuilt");
   write(files.root / "child.prefab.json", "prefab");
   service.request_rescan();
@@ -266,16 +266,16 @@ void run(std::size_t workers,
   service.request_stop();
   until([&] {
     require(io->dispatch_completions(64).ok(), "文件完成分发失败");
-    if (mode == gneiss::engine::execution_mode::cooperative) {
+    if (mode == gneiss::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     return service.stopped();
   });
   const auto other = scheduler.make_scope();
-  gneiss::engine::task_handle handle;
+  gneiss::tasks::task_handle handle;
   require(scheduler.submit(
-              {.scope = other}, [](const auto&) { return gneiss::engine::task_outcome{}; },
-              handle) == gneiss::engine::submit_result::success,
+              {.scope = other}, [](const auto&) { return gneiss::tasks::task_outcome{}; },
+              handle) == gneiss::tasks::submit_result::success,
           "停止作者服务关闭了共享调度器");
   require(scheduler.close_scope(other), "独立作用域无法关闭");
 }
@@ -288,7 +288,7 @@ int main() try {
   pending_shutdown(true, true);
   run(1U);
   run(3U);
-  run(0U, gneiss::engine::execution_mode::cooperative);
+  run(0U, gneiss::tasks::execution_mode::cooperative);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

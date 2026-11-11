@@ -7,7 +7,7 @@
 #include "engine/resource/mesh/mesh_data.hpp"
 #include "engine/resource/prefab.hpp"
 #include "engine/resource/scene.hpp"
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 GNEISS_API std::shared_ptr<asset_loader> make_mesh_loader(std::string uri);
 GNEISS_API std::shared_ptr<asset_loader> make_texture_loader(std::string uri,
                                                              const asset_load_options& options);

@@ -12,7 +12,7 @@
 #include <memory>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 /** CPU 字节解码契约；只解析字节，不创建 GPU 或场景对象。
  * 同一 Decoder 可并发解码；输出失败时不发布。类型无需继承资源基类或注册字段反射。 */
 class asset_decoder {

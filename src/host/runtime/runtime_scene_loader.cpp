@@ -32,65 +32,65 @@ const char* phase_message(ipc_scene_phase phase) {
 }
 
 }
-gneiss::engine::error runtime_scene_loader::request(ipc_scene_request source,
+gneiss::error runtime_scene_loader::request(ipc_scene_request source,
                                                     std::uint32_t request_id) {
   if (active_ || reload_) {
-    return gneiss::engine::error::not_ready;
+    return gneiss::error::not_ready;
   }
   if (source.session == progress_.source.session && source.revision <= progress_.source.revision) {
-    return gneiss::engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   }
-  auto result = application_.assets().reload<engine::scene>(source.uri);
+  auto result = application_.assets().reload<gneiss::scene>(source.uri);
   if (!result)
     return result.error();
   request_ = std::move(*result);
   ready_ = std::make_shared<std::atomic<bool>>(false);
-  engine::detail::asset_request_access::when_ready(request_, [ready = std::weak_ptr{ready_}] {
+  gneiss::detail::asset_request_access::when_ready(request_, [ready = std::weak_ptr{ready_}] {
     if (auto value = ready.lock())
       value->store(true);
   });
   request_id_ = request_id;
-  result_ = gneiss::engine::error::success;
+  result_ = gneiss::error::success;
   progress_ = {.source = std::move(source), .can_cancel = true, .message = "正在准备场景描述"};
   active_ = true;
-  return gneiss::engine::error::success;
+  return gneiss::error::success;
 }
-gneiss::engine::error runtime_scene_loader::cancel(const ipc_scene_request& source) {
+gneiss::error runtime_scene_loader::cancel(const ipc_scene_request& source) {
   if (!active_ || source.session != progress_.source.session ||
       source.revision != progress_.source.revision || source.uri != progress_.source.uri) {
-    return gneiss::engine::error::not_ready;
+    return gneiss::error::not_ready;
   }
   request_.cancel();
   ready_.reset();
   active_ = false;
-  result_ = engine::error::invalid_state;
+  result_ = gneiss::error::invalid_state;
   progress_.phase = ipc_scene_phase::cancelled;
   progress_.can_cancel = false;
   progress_.message = "场景加载已取消";
   progress_.budget = ipc_scene_budget{.cleanup_complete = true};
-  return engine::error::success;
+  return gneiss::error::success;
 }
-gneiss::engine::error
+gneiss::error
 runtime_scene_loader::activate(::gneiss::host::scene_open_result& completion) {
   if (before_activate) {
     const auto stopped = before_activate();
-    if (stopped != gneiss::engine::error::success) {
+    if (stopped != gneiss::error::success) {
       return stopped;
     }
   }
-  std::map<std::string, const engine::prefab_description*, std::less<>> sources;
+  std::map<std::string, const gneiss::prefab_description*, std::less<>> sources;
   for (const auto& [uri, source] : completion.content->prefabs)
     sources.emplace(uri, source.description.get());
-  auto composed = engine::compose_scene(*completion.content->description, sources);
+  auto composed = gneiss::compose_scene(*completion.content->description, sources);
   if (!composed)
     return composed.error();
-  auto dependencies = engine::scene_dependencies(*composed);
+  auto dependencies = gneiss::scene_dependencies(*composed);
   if (!dependencies)
     return dependencies.error();
   auto visual_request = application_.load_assets(*dependencies);
   if (!visual_request)
     return visual_request.error();
-  engine::scene_resource_bindings bindings;
+  gneiss::scene_resource_bindings bindings;
   for (const auto& dependency : *dependencies) {
     auto loaded = application_.assets().load(dependency);
     if (!loaded)
@@ -100,19 +100,19 @@ runtime_scene_loader::activate(::gneiss::host::scene_open_result& completion) {
   auto next = application_.native_world()->create_scene();
   if (!next)
     return next.error();
-  auto built = engine::instantiate(*next, *composed, bindings);
+  auto built = gneiss::instantiate(*next, *composed, bindings);
   if (!built) {
     (void)next->unload();
     return built.error();
   }
   entity_id camera;
   for (std::size_t i = 0; i < composed->objects.size(); ++i) {
-    auto* description = composed->objects[i].effective.components.get<engine::camera_description>();
+    auto* description = composed->objects[i].effective.components.get<gneiss::camera_description>();
     if (description && description->is_primary)
       camera = built->objects[i].entity;
   }
   if (camera.get()) {
-    auto selected = engine::set_active_camera(*application_.native_world(), camera);
+    auto selected = gneiss::set_active_camera(*application_.native_world(), camera);
     if (selected.failed()) {
       (void)next->unload();
       return selected;
@@ -120,14 +120,14 @@ runtime_scene_loader::activate(::gneiss::host::scene_open_result& completion) {
   }
   completion.scene = next->id();
   completion.objects = std::move(built->objects);
-  completion.reload_state = engine::make_ref<scene_reload_state>();
+  completion.reload_state = gneiss::make_ref<scene_reload_state>();
   auto& baseline = *completion.reload_state;
   baseline.owner = application_.native_world();
   baseline.instance = completion.scene;
   baseline.content = completion.content;
   for (const auto& binding : completion.objects)
-    baseline.objects.emplace(engine::object_address{binding.object, binding.source},
-                             engine::scene_object_association{binding.entity});
+    baseline.objects.emplace(gneiss::object_address{binding.object, binding.source},
+                             gneiss::scene_object_association{binding.entity});
   if (current_.is_valid()) {
     const auto unloaded = current_.unload();
     if (unloaded.failed()) {
@@ -138,15 +138,15 @@ runtime_scene_loader::activate(::gneiss::host::scene_open_result& completion) {
   current_ = *next;
   visuals_ = std::move(*visual_request);
   // 激活后的任意模块副作用不在场景事务的自动回滚承诺内。
-  return after_activate ? after_activate(completion) : gneiss::engine::error::success;
+  return after_activate ? after_activate(completion) : gneiss::error::success;
 }
-gneiss::engine::error runtime_scene_loader::advance() {
+gneiss::error runtime_scene_loader::advance() {
   if (visuals_ && visuals_.ready()) {
     auto completed = visuals_.take();
     if (completed) {
       for (const auto& item : completed->results) {
         if (item.result.failed())
-          (void)engine::logging::logger{"scene"}.write({.severity = engine::logging::level::error,
+          (void)gneiss::logging::logger{"scene"}.write({.severity = gneiss::logging::level::error,
                                                         .source = "runtime",
                                                         .category = "scene_assets",
                                                         .message = item.source.uri,
@@ -157,10 +157,10 @@ gneiss::engine::error runtime_scene_loader::advance() {
   }
   advance_reload();
   if (!active_ || !ready_->load())
-    return engine::error::success;
+    return gneiss::error::success;
   // 共享批次仍串行提交；只在资源批次可提交时构建运行实例。
   if (!application_.can_load_assets())
-    return engine::error::success;
+    return gneiss::error::success;
   scene_open_result completion;
   completion.content = request_.snapshot();
   auto loaded = request_.take();
@@ -192,29 +192,29 @@ gneiss::engine::error runtime_scene_loader::advance() {
   // 已替换场景后的宿主回调失败不能伪装成保留旧场景的加载失败。
   if (result_.failed() && current_.is_valid() && current_.id() == completion.scene)
     return result_;
-  return engine::error::success;
+  return gneiss::error::success;
 }
-engine::error runtime_scene_loader::reload(engine::ref<scene_reload_state> source,
+gneiss::error runtime_scene_loader::reload(gneiss::ref<scene_reload_state> source,
                                            std::string_view uri, bool prefab) {
   if (!application_.is_owner_thread() || !application_.accepts_requests())
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   if (!source || source->owner != application_.native_world() || !source->synchronized ||
       !source->content || !source->content->description)
-    return engine::error::invalid_state;
-  auto instance = engine::scene_instance::borrow(*application_.native_world(), source->instance);
+    return gneiss::error::invalid_state;
+  auto instance = gneiss::scene_instance::borrow(*application_.native_world(), source->instance);
   if (!instance)
     return instance.error();
   if (active_ || reload_ || visuals_ || !application_.can_load_assets())
-    return engine::error::not_ready;
+    return gneiss::error::not_ready;
   reload_task next;
   next.source = std::move(source);
   if (prefab) {
-    auto loaded = application_.assets().reload<engine::prefab>(uri);
+    auto loaded = application_.assets().reload<gneiss::prefab>(uri);
     if (!loaded)
       return loaded.error();
     next.request = std::move(*loaded);
   } else {
-    auto loaded = application_.assets().reload<engine::scene>(uri);
+    auto loaded = application_.assets().reload<gneiss::scene>(uri);
     if (!loaded)
       return loaded.error();
     next.request = std::move(*loaded);
@@ -222,25 +222,25 @@ engine::error runtime_scene_loader::reload(engine::ref<scene_reload_state> sourc
   next.ready = std::make_shared<std::atomic<bool>>(false);
   std::visit(
       [ready = std::weak_ptr{next.ready}](auto& request) {
-        engine::detail::asset_request_access::when_ready(request, [ready] {
+        gneiss::detail::asset_request_access::when_ready(request, [ready] {
           if (auto value = ready.lock())
             value->store(true);
         });
       },
       next.request);
   reload_ = std::move(next);
-  return engine::error::success;
+  return gneiss::error::success;
 }
-engine::error runtime_scene_loader::apply_source(scene_reload_state& source,
-                                                 engine::ref<const engine::scene_content> content) {
+gneiss::error runtime_scene_loader::apply_source(scene_reload_state& source,
+                                                 gneiss::ref<const gneiss::scene_content> content) {
   if (!source.synchronized || !content || !content->description ||
       content->description->uuid != source.content->description->uuid)
-    return engine::error::invalid_state;
-  const auto compose = [](const engine::scene_content& source) {
-    std::map<std::string, const engine::prefab_description*, std::less<>> prefabs;
+    return gneiss::error::invalid_state;
+  const auto compose = [](const gneiss::scene_content& source) {
+    std::map<std::string, const gneiss::prefab_description*, std::less<>> prefabs;
     for (const auto& [uri, dependency] : source.prefabs)
       prefabs.emplace(uri, dependency.description.get());
-    return engine::compose_scene(*source.description, prefabs);
+    return gneiss::compose_scene(*source.description, prefabs);
   };
   auto previous = compose(*source.content);
   auto next = compose(*content);
@@ -249,16 +249,16 @@ engine::error runtime_scene_loader::apply_source(scene_reload_state& source,
   if (!next)
     return next.error();
   auto rebased =
-      engine::rebase_scene_update(*application_.native_world(), source.objects, *previous, *next);
+      gneiss::rebase_scene_update(*application_.native_world(), source.objects, *previous, *next);
   if (!rebased)
     return rebased.error();
-  auto dependencies = engine::scene_dependencies(*next);
+  auto dependencies = gneiss::scene_dependencies(*next);
   if (!dependencies)
     return dependencies.error();
   auto visual_request = application_.load_assets(*dependencies);
   if (!visual_request)
     return visual_request.error();
-  engine::scene_resource_bindings bindings;
+  gneiss::scene_resource_bindings bindings;
   for (const auto& request : *dependencies) {
     auto resource = application_.assets().load(request);
     if (!resource)
@@ -266,16 +266,16 @@ engine::error runtime_scene_loader::apply_source(scene_reload_state& source,
     bindings.emplace(request.uri, resource->resource());
   }
   source.synchronized = false;
-  auto applied = engine::apply_scene(*application_.native_world(), source.instance, source.objects,
+  auto applied = gneiss::apply_scene(*application_.native_world(), source.instance, source.objects,
                                      *previous, *next, bindings);
   if (!applied)
     return applied.error();
   if (!*applied)
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   source.content = std::move(content);
   source.synchronized = true;
   visuals_ = std::move(*visual_request);
-  return engine::error::success;
+  return gneiss::error::success;
 }
 
 void runtime_scene_loader::advance_reload() {
@@ -283,7 +283,7 @@ void runtime_scene_loader::advance_reload() {
     return;
   auto& task = *reload_;
   auto result = std::visit(
-      [&](auto& request) -> engine::error {
+      [&](auto& request) -> gneiss::error {
         // 在领取前捕获本次请求的固定内容，避免读取身份上随后更新的内容。
         auto snapshot = request.snapshot();
         auto loaded = request.take();
@@ -291,19 +291,19 @@ void runtime_scene_loader::advance_reload() {
           return loaded.error().error;
         auto& source = *task.source;
         if (!source.synchronized || source.owner != application_.native_world())
-          return engine::error::invalid_state;
-        auto instance = engine::scene_instance::borrow(*source.owner, source.instance);
+          return gneiss::error::invalid_state;
+        auto instance = gneiss::scene_instance::borrow(*source.owner, source.instance);
         if (!instance)
           return instance.error();
-        engine::ref<const engine::scene_content> content;
+        gneiss::ref<const gneiss::scene_content> content;
         if constexpr (std::is_same_v<typename std::remove_cvref_t<decltype(request)>::value_type,
-                                     engine::scene>) {
+                                     gneiss::scene>) {
           content = snapshot ? snapshot : (*loaded)->content();
         } else {
-          auto replacement = engine::make_ref<engine::scene_content>(*source.content);
+          auto replacement = gneiss::make_ref<gneiss::scene_content>(*source.content);
           auto dependency = replacement->prefabs.find((*loaded)->source().uri);
           if (dependency == replacement->prefabs.end())
-            return engine::error::not_found;
+            return gneiss::error::not_found;
           dependency->second = {*loaded, snapshot ? snapshot : (*loaded)->snapshot(),
                                 request.source_bytes()};
           content = std::move(replacement);
@@ -318,11 +318,11 @@ void runtime_scene_loader::advance_reload() {
   }
   task.completion = std::move(completion);
 }
-engine::result<scene_reload_result> runtime_scene_loader::take_reload() {
+gneiss::result<scene_reload_result> runtime_scene_loader::take_reload() {
   if (!reload_)
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   if (!reload_->completion)
-    return engine::error::not_ready;
+    return gneiss::error::not_ready;
   auto completion = std::move(*reload_->completion);
   reload_.reset();
   return completion;

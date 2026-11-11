@@ -3,7 +3,7 @@
 #include "mesh_description.hpp"
 #include <cmath>
 #include <limits>
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 serialization::diagnostic invalid_description(std::string path, std::string message) {
   return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};

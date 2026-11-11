@@ -15,7 +15,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 class world_state;
 
@@ -46,6 +46,6 @@ private:
   world_state& owner_;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss::tasks {
 
 struct task_handle {
   std::uint64_t owner{};
@@ -164,4 +164,4 @@ private:
   std::unique_ptr<implementation> impl_;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss::tasks

@@ -8,7 +8,7 @@
 #include <memory>
 #include <string_view>
 
-namespace gneiss::engine::files {
+namespace gneiss::files {
 class backend;
 class backend_stream;
 class read_stream;
@@ -82,4 +82,4 @@ private:
   std::unique_ptr<implementation> impl_;
 };
 
-} // namespace gneiss::engine::files
+} // namespace gneiss::files

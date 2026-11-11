@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 struct ipc_endpoint final {
   std::string address;
@@ -72,6 +72,6 @@ private:
   std::unique_ptr<implementation> implementation_;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

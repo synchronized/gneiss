@@ -13,7 +13,7 @@
 #include <string>
 #include <string_view>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 namespace detail {
 struct string_name_entry;
@@ -70,13 +70,13 @@ struct string_name_hash {
 [[nodiscard]] GNEISS_API bool operator!=(string_name lhs, std::string_view rhs);
 [[nodiscard]] GNEISS_API bool operator!=(std::string_view lhs, string_name rhs);
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 namespace std {
 
-template <> struct hash<gneiss::engine::string_name> {
-  [[nodiscard]] std::size_t operator()(gneiss::engine::string_name name) const noexcept {
-    return gneiss::engine::string_name_hash{}(name);
+template <> struct hash<gneiss::string_name> {
+  [[nodiscard]] std::size_t operator()(gneiss::string_name name) const noexcept {
+    return gneiss::string_name_hash{}(name);
   }
 };
 

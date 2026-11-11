@@ -4,7 +4,7 @@
 #include "application/application.hpp"
 #include "engine/function/scene/world.hpp"
 namespace example {
-gneiss::engine::error update(gneiss::runtime::application& app, scene_state& state) noexcept {
+gneiss::error update(gneiss::runtime::application& app, scene_state& state) noexcept {
   auto* world = app.native_world();
   auto object = world->find(state.entity);
   auto transform = object.local_transform();
@@ -16,6 +16,6 @@ gneiss::engine::error update(gneiss::runtime::application& app, scene_state& sta
     return status;
   if (++state.updates == 3)
     app.request_exit();
-  return gneiss::engine::error::success;
+  return gneiss::error::success;
 }
 }

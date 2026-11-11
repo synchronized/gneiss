@@ -8,7 +8,7 @@
 #include <limits>
 #include <type_traits>
 
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 void render_load_operation::advance(asset_manager& service, asset_construction&) {
   auto& state = *observer;
   if (!has_observers() || state.status != error::not_ready)
@@ -84,12 +84,12 @@ void render_load_operation::advance(asset_manager& service, asset_construction&)
             if constexpr (std::is_same_v<T, asset_request<mesh_data>>) {
               state.metrics = request.metrics();
               return asset_construction::adopt(service, loaded->shared(),
-                                               resource_cast<engine::mesh>(state.target),
+                                               resource_cast<gneiss::mesh>(state.target),
                                                state.metrics.sources);
             } else if constexpr (std::is_same_v<T, asset_request<texture_data>>) {
               state.metrics = request.metrics();
               return asset_construction::adopt(service, loaded->shared(),
-                                               resource_cast<engine::texture>(state.target),
+                                               resource_cast<gneiss::texture>(state.target),
                                                state.metrics.sources);
             } else {
               auto decoded_description = std::move(*loaded);
@@ -104,7 +104,7 @@ void render_load_operation::advance(asset_manager& service, asset_construction&)
                 const auto& uri = decoded_description->texture_uris[slot];
                 if (uri.empty())
                   continue;
-                auto dependency = std::make_shared<reference_dependency<engine::texture>>(
+                auto dependency = std::make_shared<reference_dependency<gneiss::texture>>(
                     uri, asset_load_options{.texture_profile = service.profile()},
                     "/texture_uris/" + std::to_string(slot));
                 texture_dependencies[slot] = dependency;
@@ -144,9 +144,9 @@ void render_load_operation::advance(asset_manager& service, asset_construction&)
       if (texture_dependencies[slot])
         texture_references[slot] = texture_dependencies[slot]->resource();
     auto status = asset_construction::adopt(service, *description,
-                                            resource_cast<engine::material>(state.target),
+                                            resource_cast<gneiss::material>(state.target),
                                             std::move(texture_references));
     finish(status);
   }
 }
-} // namespace gneiss::engine::detail
+} // namespace gneiss::detail

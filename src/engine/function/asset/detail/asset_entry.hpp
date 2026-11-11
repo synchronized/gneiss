@@ -8,7 +8,7 @@
 #include <optional>
 #include <tuple>
 #include <vector>
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 struct load_operation;
 using asset_key =
     std::tuple<std::shared_ptr<const files::source_domain>, std::string, type_id, std::string>;

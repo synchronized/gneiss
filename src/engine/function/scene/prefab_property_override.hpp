@@ -15,7 +15,7 @@
 #include <variant>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 /** 只修改私有描述，失败保持 output 不变；不读文件、不创建实体、不发送通知。 */
 [[nodiscard]] error prepare_prefab_description(const prefab_description& source,
@@ -39,11 +39,11 @@ namespace gneiss::engine {
  */
 [[nodiscard]] GNEISS_API error
 set_prefab_property_override(std::vector<prefab_property_override>& overrides,
-                             prefab_property_override candidate, engine::value source_value);
+                             prefab_property_override candidate, gneiss::value source_value);
 
 /** 在临时目标上应用单条值树操作。 */
 [[nodiscard]] error apply_prefab_override_operation(meta::instance target, const value_operation&);
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

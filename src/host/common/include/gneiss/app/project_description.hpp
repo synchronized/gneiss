@@ -56,7 +56,7 @@ enum class project_load_stage {
 
 /** 工程加载报告；失败时保留结果、阶段和相关路径。 */
 struct project_load_report final {
-  gneiss::engine::error operation = gneiss::engine::error::success;
+  gneiss::error operation = gneiss::error::success;
   project_load_stage stage = project_load_stage::none;
   std::filesystem::path context;
 };
@@ -65,12 +65,12 @@ struct project_load_report final {
 [[nodiscard]] std::string_view project_load_stage_name(project_load_stage stage) noexcept;
 
 /** 从工程根目录加载并校验固定名称的 gneiss.project.json。 */
-[[nodiscard]] gneiss::engine::error
+[[nodiscard]] gneiss::error
 load_project_description(const std::filesystem::path& project_root, project_description& output,
                          project_load_report& report);
 
 /** 忽略分阶段报告并加载工程描述。 */
-[[nodiscard]] inline gneiss::engine::error
+[[nodiscard]] inline gneiss::error
 load_project_description(const std::filesystem::path& project_root, project_description& output) {
   project_load_report report;
   return load_project_description(project_root, output, report);

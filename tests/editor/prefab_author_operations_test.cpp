@@ -12,7 +12,7 @@
 #include <cstdio>
 #include <fstream>
 #include <source_location>
-namespace e = gneiss::engine;
+namespace e = gneiss;
 namespace ed = gneiss::editor;
 using namespace gneiss::test_support;
 void check(bool ok, std::source_location at = std::source_location::current()) {
@@ -79,14 +79,14 @@ int main() try {
   own.uuid = id(7);
   own.parent = {first.uuid, child.uuid};
   scene.objects.push_back(own);
-  const auto prefab_json = text(*gneiss::engine::asset_file::serialize_bytes(source));
-  const auto scene_json = text(*gneiss::engine::asset_file::serialize_bytes(scene));
+  const auto prefab_json = text(*gneiss::asset_file::serialize_bytes(source));
+  const auto scene_json = text(*gneiss::asset_file::serialize_bytes(scene));
   auto entries = ed::describe_prefab_overrides(*first.prefab, source);
   check(entries && entries->size() == 3);
   check((*entries)[0].label.find("acceleration") != std::string::npos);
   const auto decode_changes = [](const auto& changes) {
     const auto& json = *changes.front().replacement;
-    return gneiss::engine::asset_file::deserialize<e::scene_description>(
+    return gneiss::asset_file::deserialize<e::scene_description>(
         std::as_bytes(std::span{json.data(), json.size()}));
   };
   auto restore_component =
@@ -141,7 +141,7 @@ int main() try {
   check(ed::prepare_unpack_prefab(scene_json, prefab_json, unpack, changes, &diagnostic).ok());
   check(changes.size() == 1 && *changes[0].baseline == scene_json);
   const auto& unpacked_json = *changes[0].replacement;
-  auto unpacked = gneiss::engine::asset_file::deserialize<e::scene_description>(
+  auto unpacked = gneiss::asset_file::deserialize<e::scene_description>(
       std::as_bytes(std::span{unpacked_json.data(), unpacked_json.size()}));
   check(unpacked && unpacked->objects.size() == 4);
   auto find = [](auto& objects, e::guid uuid) -> auto& {
@@ -162,7 +162,7 @@ int main() try {
   ed::apply_prefab_author_plan plan;
   check(ed::prepare_apply_prefab(scene_json, prefab_json, apply, plan, &diagnostic).ok());
   check(plan.changes.size() == 2 && plan.affected_instance_uuids.size() == 2);
-  auto applied = gneiss::engine::asset_file::deserialize<e::prefab_description>(std::as_bytes(
+  auto applied = gneiss::asset_file::deserialize<e::prefab_description>(std::as_bytes(
       std::span{plan.changes[0].replacement->data(), plan.changes[0].replacement->size()}));
   check(applied && applied->objects[0].components.get<movement_description>()->speed == 4);
   check(applied->objects[0].name == root.name && applied->objects[0].transform.translation.x == 0);
@@ -173,7 +173,7 @@ int main() try {
   conflict.objects[1].prefab->component_overrides.push_back(
       {root.uuid, movement_description::type_guid,
        e::make_component_description(movement_description{}), e::guid::generate()});
-  check(ed::prepare_apply_prefab(text(*gneiss::engine::asset_file::serialize_bytes(conflict)),
+  check(ed::prepare_apply_prefab(text(*gneiss::asset_file::serialize_bytes(conflict)),
                                  prefab_json, apply, plan, &diagnostic) == e::error::invalid_state);
   check(plan.changes.empty() && diagnostic.path.find(second.uuid.string()) != std::string::npos &&
         diagnostic.path.find(root.uuid.string()) != std::string::npos);
@@ -185,13 +185,13 @@ int main() try {
                               child.components.identity(e::camera_description::type_guid)},
                .path = {e::meta::property_id{1}, e::meta::property_id{1}}},
        .operation = e::value{0.8F}});
-  check(ed::prepare_apply_prefab(text(*gneiss::engine::asset_file::serialize_bytes(conflict)),
+  check(ed::prepare_apply_prefab(text(*gneiss::asset_file::serialize_bytes(conflict)),
                                  prefab_json, apply, plan, &diagnostic) == e::error::not_found);
   check(plan.changes.empty() && diagnostic.path.find(second.uuid.string()) != std::string::npos);
   auto missing = source;
   missing.objects.pop_back();
   check(ed::prepare_unpack_prefab(scene_json,
-                                  text(*gneiss::engine::asset_file::serialize_bytes(missing)),
+                                  text(*gneiss::asset_file::serialize_bytes(missing)),
                                   unpack, changes, &diagnostic)
             .failed() &&
         changes.empty());

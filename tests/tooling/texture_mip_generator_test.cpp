@@ -6,8 +6,8 @@
 #include <array>
 
 int main() {
-  using gneiss::engine::texture_mip;
-  using gneiss::engine::texture_transfer;
+  using gneiss::texture_mip;
+  using gneiss::texture_transfer;
   using gneiss::tooling::generate_texture_mip;
   texture_mip source{.width = 2U,
                      .height = 1U,

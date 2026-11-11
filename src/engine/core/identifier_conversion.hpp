@@ -4,7 +4,7 @@
 #include "engine/core/entity_id.hpp"
 #include <concepts>
 #include <utility>
-namespace gneiss::engine {
+namespace gneiss {
 /** 整数存储/ABI 输出边界：显式复制强类型标识，不重解释引用，不建立句柄表。
  * 无论成功或失败均保留被调用接口的输出语义（清零或保持原值）。 */
 template <typename Identifier, typename Function>

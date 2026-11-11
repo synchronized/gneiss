@@ -11,7 +11,7 @@
 #include "engine/resource/texture.hpp"
 #include <array>
 
-namespace gneiss::engine {
+namespace gneiss {
 namespace detail {
 struct material_resource_access;
 }
@@ -48,4 +48,4 @@ private:
 /** Render 内部标识提取；不转移所有权，不表示内容已就绪。 */
 [[nodiscard]] GNEISS_API rid resource_handle(const ref<const material>& value) noexcept;
 
-} // namespace gneiss::engine
+} // namespace gneiss

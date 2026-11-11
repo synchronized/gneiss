@@ -7,7 +7,7 @@
 
 #include <map>
 
-namespace gneiss::engine::files {
+namespace gneiss::files {
 /** 所属线程使用的易失文件后端；写入隐式建立父目录，不支持持久化 flush。
  * 不使用 std::filesystem，适用于桌面/浏览器和一致性测试。 */
 class memory_backend final : public backend {
@@ -29,4 +29,4 @@ public:
 private:
   std::map<std::string, files::bytes, std::less<>> files_;
 };
-} // namespace gneiss::engine::files
+} // namespace gneiss::files

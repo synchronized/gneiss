@@ -4,7 +4,7 @@
 #include "engine/core/type_id.hpp"
 #include "engine/resource/asset_identity.hpp"
 #include "engine/resource/asset_ref.hpp"
-namespace gneiss::engine {
+namespace gneiss {
 /** 逻辑资产身份；内容就绪状态由加载请求报告，非空引用不代表加载成功。
  * 共享既有 ref 控制块，析构线程策略仍由创建者指定。 */
 class asset {

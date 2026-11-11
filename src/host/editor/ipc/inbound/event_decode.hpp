@@ -12,12 +12,12 @@
 namespace gneiss::host::detail {
 
 template <typename Event, typename Decode>
-gneiss::engine::error decode_value(const gneiss::engine::ipc_envelope& envelope,
+gneiss::error decode_value(const gneiss::ipc_envelope& envelope,
                                    runtime_ipc_event& output, Decode&& decode) noexcept {
   Event event;
   event.request_id = envelope.request_id;
   const auto operation = decode(event.value);
-  if (operation == gneiss::engine::error::success) {
+  if (operation == gneiss::error::success) {
     output = std::move(event);
   }
   return operation;

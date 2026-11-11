@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 namespace detail {
 template <class T, class Definition> error complete_identity(Definition& definition) noexcept {
   using type = std::remove_cvref_t<T>;
@@ -69,7 +69,7 @@ public:
     name_ = name;
     return *this;
   }
-  enum_builder& guid(engine::guid guid) noexcept {
+  enum_builder& guid(gneiss::guid guid) noexcept {
     if (!committed_ && !status_.failed())
       guid_ = guid;
     return *this;
@@ -127,11 +127,11 @@ private:
   registry_ref registry_;
   struct entry {
     std::string name;
-    engine::value data;
+    gneiss::value data;
   };
   std::vector<entry> entries_;
   std::string name_;
-  engine::guid guid_{};
+  gneiss::guid guid_{};
   std::uint32_t version_ = 1;
   meta::metadata extensions_{};
   error status_ = error::success;
@@ -145,7 +145,7 @@ template <class T> class type_builder {
   struct entry {
     property_id id;
     std::string name;
-    engine::guid guid;
+    gneiss::guid guid;
     property_access access;
     property_binding binding;
     meta::metadata extensions{};
@@ -176,7 +176,7 @@ public:
       return owner_->extend(std::move(factory));
     }
     type_builder& name(std::string_view name) { return owner_->name(name); }
-    type_builder& guid(engine::guid guid) noexcept { return owner_->guid(guid); }
+    type_builder& guid(gneiss::guid guid) noexcept { return owner_->guid(guid); }
     type_builder& schema_version(std::uint32_t version) noexcept {
       return owner_->schema_version(version);
     }
@@ -203,7 +203,7 @@ public:
     name_ = name;
     return *this;
   }
-  type_builder& guid(engine::guid guid) noexcept {
+  type_builder& guid(gneiss::guid guid) noexcept {
     if (!committed_ && !status_.failed())
       guid_ = guid;
     return *this;
@@ -410,7 +410,7 @@ private:
   registry_ref registry_;
   std::vector<entry> entries_;
   std::string name_;
-  engine::guid guid_{};
+  gneiss::guid guid_{};
   std::uint32_t version_ = 1;
   error status_ = error::success;
   bool committed_ = false;

@@ -5,18 +5,18 @@
 #include "engine/core/ref.hpp"
 #include "engine/core/type_id.hpp"
 #include <vector>
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 /** 注册扩展元数据。按 C++ 类型区分，保存独立不可变值；Meta 不解释其内容。
  * 复制集合共享只读值，添加新项不修改已有副本。元数据内的借用指针仍由提供者负责寿命。 */
 class metadata final {
   struct entry {
-    engine::type_id id;
+    gneiss::type_id id;
     ref<const void> value;
   };
   std::vector<entry> entries_;
 
 public:
-  [[nodiscard]] const void* find(engine::type_id id) const noexcept {
+  [[nodiscard]] const void* find(gneiss::type_id id) const noexcept {
     for (const auto& item : entries_)
       if (item.id == id)
         return item.value.get();

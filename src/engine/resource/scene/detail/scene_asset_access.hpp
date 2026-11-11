@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/resource/prefab.hpp"
 #include "engine/resource/scene.hpp"
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 /** Loader 的构造与所属线程内容采用入口，不暴露可变描述。 */
 struct scene_asset_access {
   template <class T, class D>

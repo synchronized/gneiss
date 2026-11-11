@@ -8,7 +8,7 @@
 #include <span>
 #include <unordered_map>
 
-namespace gneiss::engine {
+namespace gneiss {
 /** 一次校验的临时结果，不持有对象或维护运行时树。根深度为零。 */
 struct object_hierarchy final {
   std::unordered_map<guid, std::size_t, guid_hash> indices;

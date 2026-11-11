@@ -8,7 +8,7 @@
 #include <string>
 #include <string_view>
 
-namespace gneiss::engine {
+namespace gneiss {
 /** 逻辑像素描述；压缩容器的实际 GPU 格式仍由所选变体描述。 */
 enum class texture_format : std::uint32_t { rgba8_unorm = 1 };
 enum class texture_color_space : std::uint32_t { linear = 1, srgb = 2 };
@@ -45,4 +45,4 @@ struct texture_description final {
 /** 文件读写及原生采用前的领域校验；不修改输入。 */
 [[nodiscard]] GNEISS_API serialization::diagnostic
 validate_texture_description(const texture_description&);
-} // namespace gneiss::engine
+} // namespace gneiss

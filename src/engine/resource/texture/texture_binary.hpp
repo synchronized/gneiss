@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 struct texture_binary_view final {
   std::span<const std::byte> manifest;
@@ -51,5 +51,5 @@ encode_texture_binary(std::span<const std::byte> manifest, std::span<const std::
 [[nodiscard]] GNEISS_API result<texture_binary_view, texture_binary_diagnostic>
 decode_texture_binary(std::span<const std::byte> bytes);
 
-} // namespace gneiss::engine
+} // namespace gneiss
 #endif

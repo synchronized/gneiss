@@ -13,7 +13,7 @@
 #include <sys/stat.h>
 #include <utility>
 
-namespace gneiss::engine::files {
+namespace gneiss::files {
 namespace {
 enum class operation_kind { read, write, stat, list };
 enum class stage {

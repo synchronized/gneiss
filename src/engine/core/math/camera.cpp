@@ -6,7 +6,7 @@
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <numbers>
-namespace gneiss::engine::math {
+namespace gneiss::math {
 bool is_valid_camera(const camera_settings& camera) noexcept {
   return std::isfinite(camera.fov) && std::isfinite(camera.near) && std::isfinite(camera.far) &&
          camera.fov > 0 && camera.fov < std::numbers::pi_v<float> && camera.near > 0 &&

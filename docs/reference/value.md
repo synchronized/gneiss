@@ -3,7 +3,7 @@
 
 # 引擎通用值
 
-`engine/core/value.hpp` 定义 `gneiss::engine::value` 与 `value_kind`。它们不依赖反射注册表，
+`engine/core/value.hpp` 定义 `gneiss::value` 与 `value_kind`。它们不依赖反射注册表，
 用于反射读写和组件属性传递；其中标量分支可用于编辑器快照和撤销记录。
 
 `value::payload` 为 `storage_type`（std::variant），支持空值、bool、int64、uint64、float、double、

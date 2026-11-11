@@ -16,7 +16,7 @@
 #include <variant>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 /** 解码结果只有一个有效内容；材质共享已经解码的不可变描述。 */
 using decoded_content =
@@ -50,4 +50,4 @@ decode_texture_asset(std::string_view uri, const texture_description& descriptio
 adopt_material_asset(std::string_view uri, asset_ref<const material_description> material,
                      std::size_t material_bytes);
 
-} // namespace gneiss::engine
+} // namespace gneiss

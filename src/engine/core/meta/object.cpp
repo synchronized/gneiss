@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/object.hpp"
 #include "engine/core/meta/registry.hpp"
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 meta::type object::dynamic_type(const registry_ref& registry) const {
   const auto* ops = dynamic_ops();
   return ops ? detail::resolve_type(registry, *ops) : meta::type{};

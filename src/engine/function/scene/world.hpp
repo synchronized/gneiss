@@ -12,14 +12,14 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 class world_state;
 struct world_factory;
 namespace detail {
 struct world_component_access;
 }
 }
-namespace gneiss::engine {
+namespace gneiss {
 /** 原生 World 操作入口；拥有唯一 ECS/场景树状态，全部访问限所属线程。
  * domain 由 World 创建工厂分配；私有实现不向宿主暴露 EnTT。 */
 class world final {
@@ -43,23 +43,23 @@ public:
   [[nodiscard]] GNEISS_API result<game_object> object(entity_id entity) noexcept;
 
 private:
-  friend struct engine::world_factory;
+  friend struct gneiss::world_factory;
   friend class scene_instance;
   [[nodiscard]] error validate_scene(scene_instance_id) const noexcept;
   [[nodiscard]] error unload_scene(scene_instance_id) noexcept;
   [[nodiscard]] result<std::uint64_t> scene_size(scene_instance_id) const;
   friend struct detail::world_component_access;
   explicit GNEISS_API world(std::uint32_t domain);
-  std::unique_ptr<engine::world_state> state_;
+  std::unique_ptr<gneiss::world_state> state_;
 };
 }
 
-namespace gneiss::engine {
+namespace gneiss {
 /** 将实现类型的析构留在 World 模块，不向场景域传播 ECS 后端头。 */
 struct world_deleter {
-  GNEISS_API void operator()(engine::world* state) const noexcept;
+  GNEISS_API void operator()(gneiss::world* state) const noexcept;
 };
-using world_owner = std::unique_ptr<engine::world, world_deleter>;
+using world_owner = std::unique_ptr<gneiss::world, world_deleter>;
 /** 创建独立 World 的拥有者；必须在所属线程析构。 */
 [[nodiscard]] GNEISS_API result<world_owner> create_native();
 }

@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 enum class texture_transfer : std::uint8_t { linear, srgb };
 
@@ -43,6 +43,6 @@ encode_texture_ktx2(const texture_ktx2& texture);
 [[nodiscard]] GNEISS_API result<texture_ktx2, texture_ktx2_diagnostic>
 decode_texture_ktx2(std::span<const std::byte> bytes);
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

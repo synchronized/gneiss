@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/function/scene/game_object.hpp"
 #include <functional>
-namespace gneiss::engine {
+namespace gneiss {
 /** 创建参数仅在调用期间借用，名称复制到运行对象。 */
 struct object_options {
   std::string_view name;

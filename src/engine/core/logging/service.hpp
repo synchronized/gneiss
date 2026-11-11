@@ -4,7 +4,7 @@
 #include "engine/core/logging/logger.hpp"
 #include "engine/core/logging/sink.hpp"
 #include "engine/core/logging/sink_connection.hpp"
-namespace gneiss::engine::logging {
+namespace gneiss::logging {
 enum class dispatch_mode { synchronous, asynchronous };
 struct service_options {
   dispatch_mode mode = dispatch_mode::asynchronous;

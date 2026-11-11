@@ -8,11 +8,11 @@
 
 #include <string_view>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 [[nodiscard]] GNEISS_API error validate_uri(std::string_view uri) noexcept;
 [[nodiscard]] std::string_view uri_path(std::string_view uri) noexcept;
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

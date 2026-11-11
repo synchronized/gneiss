@@ -15,7 +15,7 @@
 #include <string>
 #include <string_view>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 /**
  * @brief 128-bit 全局唯一标识值类型。
@@ -99,6 +99,6 @@ struct GNEISS_API guid_hash {
   [[nodiscard]] std::size_t operator()(const guid& value) const noexcept;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

@@ -6,7 +6,7 @@
 #include "scene_update.hpp"
 #include <cstdio>
 int main() try {
-  gneiss::engine::install_fatal_handler();
+  gneiss::install_fatal_handler();
   example::scene_state state;
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::runtime::application_configuration desc;
@@ -23,7 +23,7 @@ int main() try {
   if (!object)
     return 2;
   state.entity = object->entity();
-  gneiss::engine::math::transform initial;
+  gneiss::math::transform initial;
   initial.translation = {1, 2, 3};
   if (object->set_local_transform(initial).failed() || app->run(8).failed())
     return 3;
@@ -34,5 +34,5 @@ int main() try {
   std::printf("updates=%u, x=%g\n", state.updates, static_cast<double>(final->translation[0]));
   return app->shutdown().failed() ? 5 : 0;
 } catch (...) {
-  gneiss::engine::fatal_current_exception();
+  gneiss::fatal_current_exception();
 }

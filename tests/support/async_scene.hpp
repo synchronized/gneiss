@@ -8,21 +8,21 @@
 #include "engine/resource/scene/scene_validation.hpp"
 #include <chrono>
 namespace gneiss::test_support {
-inline engine::error load_scene_content(engine::asset_manager& assets,
-                                        engine::task_scheduler& executor, std::string_view uri,
-                                        engine::scene_content& output,
-                                        engine::scene_diagnostic& diagnostic,
-                                        engine::ref<const engine::scene>* identity = nullptr) {
+inline gneiss::error load_scene_content(gneiss::asset_manager& assets,
+                                        gneiss::tasks::task_scheduler& executor, std::string_view uri,
+                                        gneiss::scene_content& output,
+                                        gneiss::scene_diagnostic& diagnostic,
+                                        gneiss::ref<const gneiss::scene>* identity = nullptr) {
   output = {};
   diagnostic = {};
-  auto load = [&]<class T>() -> engine::error {
+  auto load = [&]<class T>() -> gneiss::error {
     auto request = assets.reload<T>(uri);
     if (!request)
       return diagnostic.error = request.error();
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     for (;;) {
       if (std::chrono::steady_clock::now() >= deadline)
-        return diagnostic.error = engine::error::internal;
+        return diagnostic.error = gneiss::error::internal;
       const auto dispatch = assets.async_files()->dispatch_completions(64);
       if (dispatch.failed())
         return diagnostic.error = dispatch;
@@ -31,19 +31,19 @@ inline engine::error load_scene_content(engine::asset_manager& assets,
       auto loaded = request->take();
       if (!loaded) {
         const auto& failure = loaded.error();
-        if (failure.error == engine::error::not_ready)
+        if (failure.error == gneiss::error::not_ready)
           continue;
         diagnostic = {failure.error, failure.byte_offset, failure.path, failure.message};
         return diagnostic.error;
       }
       if (!(*loaded)->content())
-        return diagnostic.error = engine::error::invalid_argument;
+        return diagnostic.error = gneiss::error::invalid_argument;
       output = *(*loaded)->content();
       if (identity)
         *identity = *loaded;
-      return engine::error::success;
+      return gneiss::error::success;
     }
   };
-  return load.template operator()<engine::scene>();
+  return load.template operator()<gneiss::scene>();
 }
 }

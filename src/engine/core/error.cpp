@@ -3,7 +3,7 @@
 
 #include "engine/core/error.hpp"
 
-const char* gneiss::engine::error_message(error value) noexcept {
+const char* gneiss::error_message(error value) noexcept {
   switch (value.code()) {
   case error::success.code():
     return "success";

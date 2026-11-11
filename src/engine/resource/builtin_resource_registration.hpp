@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/result.hpp"
-namespace gneiss::engine {
+namespace gneiss {
 /** 内置资源注册的场景子步骤；由 register_builtin_resource_types 按依赖顺序调用。 */
 [[nodiscard]] error register_component_descriptions();
 /** 在未冻结的默认 Registry 按依赖顺序登记内置资源类型与 codec。

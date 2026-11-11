@@ -8,7 +8,7 @@
 
 namespace gneiss::host {
 
-gneiss::engine::error make_ready_event(gneiss::engine::ipc_envelope& output) noexcept {
+gneiss::error make_ready_event(gneiss::ipc_envelope& output) noexcept {
   return encode_ipc_control_ready(output);
 }
 

@@ -8,7 +8,7 @@
 #include <iterator>
 #include <utility>
 
-namespace gneiss::engine::files {
+namespace gneiss::files {
 memory_backend::memory_backend() = default;
 memory_backend::~memory_backend() = default;
 namespace {
@@ -126,4 +126,4 @@ error memory_backend::list(std::string_view path, list_options options,
   callback({error::success, std::move(page)});
   return error::success;
 }
-} // namespace gneiss::engine::files
+} // namespace gneiss::files

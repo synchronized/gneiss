@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace gneiss::engine {
+namespace gneiss {
 /** 轻量错误状态，使用 ok()/failed() 显式判断。默认
  * unknown；非负值成功，负值失败。不拥有动态错误文本。
  * 整数仅在边界显式导入/导出，不隐式转换为整数或公共 C++ 结果类型。 */
@@ -56,4 +56,4 @@ inline constexpr error error::cancelled{-13};
 /** 返回静态英文文本；未知码保持原值，文本为 unrecognized result。 */
 [[nodiscard]] GNEISS_API const char* error_message(error value) noexcept;
 inline std::string_view error::message() const noexcept { return error_message(*this); }
-} // namespace gneiss::engine
+} // namespace gneiss

@@ -16,7 +16,7 @@
 #include <cstdint>
 #include <unordered_map>
 
-namespace gneiss::engine {
+namespace gneiss {
 class render_service;
 
 class render_resource_snapshot final {
@@ -80,6 +80,6 @@ capture_render_frame_packet(const native_window_info& window, render_snapshot sc
                             const render_service& resources, const ui_draw_list& ui,
                             const debug_draw_list& debug, render_frame_packet& out_packet);
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

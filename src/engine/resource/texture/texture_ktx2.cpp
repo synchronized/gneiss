@@ -11,7 +11,7 @@
 #include <new>
 #include <utility>
 
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 
 constexpr std::array<std::byte, 12U> identifier = {
@@ -183,4 +183,4 @@ decode_texture_ktx2(std::span<const std::byte> bytes) {
   }
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

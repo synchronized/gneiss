@@ -10,7 +10,7 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-namespace gneiss::engine::serialization::json {
+namespace gneiss::serialization::json {
 using meta::const_instance;
 using meta::instance;
 using meta::registry_ref;
@@ -37,7 +37,7 @@ encode_bytes(const write_context& ctx, const T& object) {
   auto registry = ctx.registry();
   if (!registry)
     return serialization::diagnostic{.error = registry.error()};
-  auto view = gneiss::engine::meta::view(*registry, std::as_const(object));
+  auto view = gneiss::meta::view(*registry, std::as_const(object));
   if (!view)
     return serialization::diagnostic{.error = view.error()};
   return encode_instance(ctx, *view);

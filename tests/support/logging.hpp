@@ -4,24 +4,24 @@
 #include "engine/core/logging/default_service.hpp"
 namespace gneiss::test_support {
 class log_capture {
-  class output final : public engine::logging::sink {
+  class output final : public gneiss::logging::sink {
   public:
-    explicit output(engine::logging::record_callback callback) : callback_(std::move(callback)) {}
-    engine::error write(const engine::logging::record_view& value) override {
+    explicit output(gneiss::logging::record_callback callback) : callback_(std::move(callback)) {}
+    gneiss::error write(const gneiss::logging::record_view& value) override {
       callback_(value);
-      return engine::error::success;
+      return gneiss::error::success;
     }
-    engine::error flush() override { return engine::error::success; }
+    gneiss::error flush() override { return gneiss::error::success; }
 
   private:
-    engine::logging::record_callback callback_;
+    gneiss::logging::record_callback callback_;
   };
 
 public:
-  explicit log_capture(engine::logging::record_callback callback) : binding(service) {
+  explicit log_capture(gneiss::logging::record_callback callback) : binding(service) {
     service.attach(std::make_unique<output>(std::move(callback)));
   }
-  engine::logging::service service;
-  engine::logging::default_service_binding binding;
+  gneiss::logging::service service;
+  gneiss::logging::default_service_binding binding;
 };
 }

@@ -20,12 +20,12 @@ enum class scene_open_state { idle, loading, opened, failed, cancelled };
 /** 编辑器所属线程的场景加载协调；执行器与 Application 由宿主拥有。 */
 class editor_scene_loader final {
 public:
-  gneiss::engine::error request(runtime::application& application, const document_editing& editing,
+  gneiss::error request(runtime::application& application, const document_editing& editing,
                                 std::string_view uri);
-  gneiss::engine::error advance(runtime::application& application, document_editing& editing,
-                                gneiss::engine::world*& world, editor_camera& camera,
+  gneiss::error advance(runtime::application& application, document_editing& editing,
+                                gneiss::world*& world, editor_camera& camera,
                                 bool& changed);
-  gneiss::engine::error cancel(runtime::application& application);
+  gneiss::error cancel(runtime::application& application);
   void dismiss() noexcept {
     if (!active()) {
       visible_ = false;
@@ -34,17 +34,17 @@ public:
   [[nodiscard]] bool visual_loading() const noexcept { return bool(visuals_); }
   [[nodiscard]] bool active() const noexcept { return state_ == scene_open_state::loading; }
   [[nodiscard]] bool visible() const noexcept { return visible_; }
-  [[nodiscard]] gneiss::engine::error operation() const noexcept { return operation_; }
+  [[nodiscard]] gneiss::error operation() const noexcept { return operation_; }
   [[nodiscard]] std::string_view uri() const noexcept { return uri_; }
   [[nodiscard]] scene_open_state state() const noexcept { return state_; }
 
 private:
   std::string uri_;
   scene_open_state state_{scene_open_state::idle};
-  engine::asset_request<engine::scene> request_;
+  gneiss::asset_request<gneiss::scene> request_;
   std::shared_ptr<std::atomic<bool>> ready_;
-  engine::asset_batch_request visuals_;
-  gneiss::engine::error operation_{gneiss::engine::error::success};
+  gneiss::asset_batch_request visuals_;
+  gneiss::error operation_{gneiss::error::success};
   bool visible_{};
   bool queued_{};
 };

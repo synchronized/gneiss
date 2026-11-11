@@ -5,7 +5,7 @@
 #include "engine/core/result.hpp"
 #include "engine/resource/asset_diagnostic.hpp"
 #include "engine/resource/mesh/mesh_data.hpp"
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 [[nodiscard]] result<mesh_data, asset_diagnostic> parse_mesh(const std::vector<std::byte>& bytes);
 
 [[nodiscard]] result<mesh_data, asset_diagnostic>

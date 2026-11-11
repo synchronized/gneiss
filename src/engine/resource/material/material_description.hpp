@@ -10,7 +10,7 @@
 #include <string>
 #include <string_view>
 
-namespace gneiss::engine {
+namespace gneiss {
 /** 材质纯值语义；资产与渲染共用，不持有资源或后端对象。 */
 enum class material_alpha_mode : std::uint32_t { opaque, mask, blend };
 
@@ -33,8 +33,8 @@ struct material_parameters {
 /** 纯 CPU 材质描述；纹理依赖使用 URI，不包含资源句柄。 */
 struct material_description final {
   inline static constexpr std::string_view type_name = "material_description";
-  inline static constexpr engine::guid type_guid{
-      engine::guid::literal("cc6df631-2727-40dc-a3ad-fce9a57d4909")};
+  inline static constexpr gneiss::guid type_guid{
+      gneiss::guid::literal("cc6df631-2727-40dc-a3ad-fce9a57d4909")};
   material_parameters parameters;
   std::array<std::string, 5> texture_uris;
 };

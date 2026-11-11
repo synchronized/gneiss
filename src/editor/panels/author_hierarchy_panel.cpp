@@ -10,8 +10,8 @@
 
 namespace gneiss::editor {
 namespace {
-engine::guid payload_uuid(const void* data) noexcept {
-  engine::guid result;
+gneiss::guid payload_uuid(const void* data) noexcept {
+  gneiss::guid result;
   std::memcpy(&result, data, sizeof(result));
   return result;
 }
@@ -62,7 +62,7 @@ void draw_prefab_node(const author_hierarchy_view& view, author_hierarchy_reques
   }
   if (ImGui::BeginDragDropTarget()) {
     if (const auto* payload = ImGui::AcceptDragDropPayload("GNEISS_SCENE_NODE_UUID");
-        payload && payload->Data && payload->DataSize == sizeof(engine::guid)) {
+        payload && payload->Data && payload->DataSize == sizeof(gneiss::guid)) {
       request = {.action = author_hierarchy_action::reparent,
                  .node = {},
                  .uuid = payload_uuid(payload->Data),
@@ -167,7 +167,7 @@ void draw_scene_node(const author_hierarchy_view& view, author_hierarchy_request
   if (ImGui::BeginDragDropTarget()) {
     if (const auto* payload = ImGui::AcceptDragDropPayload("GNEISS_SCENE_NODE_UUID");
         payload != nullptr && payload->Data != nullptr &&
-        payload->DataSize == sizeof(engine::guid)) {
+        payload->DataSize == sizeof(gneiss::guid)) {
       request = {
           .action = author_hierarchy_action::reparent,
           .node = {},
@@ -212,7 +212,7 @@ author_hierarchy_request draw_author_hierarchy(const author_hierarchy_view& view
   if (ImGui::BeginDragDropTarget()) {
     if (const auto* payload = ImGui::AcceptDragDropPayload("GNEISS_SCENE_NODE_UUID");
         payload != nullptr && payload->Data != nullptr &&
-        payload->DataSize == sizeof(engine::guid)) {
+        payload->DataSize == sizeof(gneiss::guid)) {
       request = {
           .action = author_hierarchy_action::reparent,
           .node = {},

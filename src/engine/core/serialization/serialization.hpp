@@ -6,7 +6,7 @@
 #include "engine/core/serialization/detail/typed_decode.hpp"
 #include "engine/core/serialization/reader.hpp"
 #include "engine/core/serialization/writer.hpp"
-namespace gneiss::engine::serialization {
+namespace gneiss::serialization {
 /** context 与视图必须绑定同一注册表；后端和对象均借用。失败时 writer 可能保留未完成输出。 */
 GNEISS_API result<void, diagnostic> write(const write_context&, const meta::const_instance&,
                                           writer&);

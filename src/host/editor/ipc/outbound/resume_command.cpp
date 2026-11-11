@@ -8,8 +8,8 @@
 
 namespace gneiss::host {
 
-gneiss::engine::error make_resume_command(std::uint32_t request_id,
-                                          gneiss::engine::ipc_envelope& output) noexcept {
+gneiss::error make_resume_command(std::uint32_t request_id,
+                                          gneiss::ipc_envelope& output) noexcept {
   return encode_ipc_control_request(ipc_control_operation::resume, request_id, output);
 }
 

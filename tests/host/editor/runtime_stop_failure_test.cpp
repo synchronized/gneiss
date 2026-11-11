@@ -15,7 +15,7 @@ int main() try {
   if (!std::filesystem::create_directory(stop))
     return 2;
   const auto status = process.request_stop();
-  if (status != gneiss::engine::error::io)
+  if (status != gneiss::error::io)
     return 3;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (process.is_running() && std::chrono::steady_clock::now() < deadline) {

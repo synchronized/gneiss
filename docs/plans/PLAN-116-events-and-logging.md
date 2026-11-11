@@ -28,7 +28,7 @@ PLAN-115 渲染实现暂不开始；原有计划不标记完成。
 
 ## 事件模型
 
-namespace 建议为 gneiss::engine::events。Signal 为发布者所有，Sink 仅授予订阅权限。
+namespace 建议为 gneiss::events。Signal 为发布者所有，Sink 仅授予订阅权限。
 初期只做 void 通知，不加入投票/返回值收集；需要返回值或确定执行顺序的关系采用直接调用。
 
 ```cpp
@@ -60,7 +60,7 @@ dispatch 只处理本轮开始时已有事件，回调新增事件留到下一�
 
 ## 日志 API 与对象归属
 
-namespace 建议为 gneiss::engine::logging，避免通用 level/record_view 与业务命名混淆。
+namespace 建议为 gneiss::logging，避免通用 level/record_view 与业务命名混淆。
 
 ```cpp
 auto log = logging::get_logger("asset");

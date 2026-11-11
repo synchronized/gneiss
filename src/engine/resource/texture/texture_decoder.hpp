@@ -6,7 +6,7 @@
 #include "engine/resource/asset_diagnostic.hpp"
 #include "texture_data.hpp"
 #include "texture_description.hpp"
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 [[nodiscard]] GNEISS_API result<std::vector<std::byte>, asset_diagnostic>
 encode_texture(const texture_description& description);
 [[nodiscard]] GNEISS_API result<texture_description, asset_diagnostic>

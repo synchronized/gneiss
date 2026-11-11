@@ -20,7 +20,7 @@ void write_u32(std::vector<std::byte>& bytes, std::size_t offset, std::uint32_t 
 } // namespace
 
 int main() {
-  using namespace gneiss::engine;
+  using namespace gneiss;
   texture_ktx2 source{
       .transfer = texture_transfer::srgb,
       .levels = {

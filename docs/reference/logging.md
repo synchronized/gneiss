@@ -5,7 +5,7 @@
 
 ## 当前范围
 
-日志类型统一位于 `gneiss::engine::logging`，与 `events` 同步通知独立。
+日志类型统一位于 `gneiss::logging`，与 `events` 同步通知独立。
 `core/logging/record.hpp` 定义 `level`、`message_view`、`record_view` 和迁移期 `record_callback`；
 `logger.hpp`、`service.hpp/.cpp`、`sink.hpp` 分别提供频道句柄、上下文和输出契约。
 `detail/async_queue.hpp/.cpp` 是内部异步队列，不单独提供 validation 模块。
@@ -18,7 +18,7 @@ Runtime 宿主安装默认 service，并以 Sink 接收 record_view；Applicatio
 ## 频道与日志服务
 
 ```cpp
-namespace logging = gneiss::engine::logging;
+namespace logging = gneiss::logging;
 static const logging::logger log{"asset"}; // 静态生命周期字面量，不访问服务
 
 logging::service logs; // 默认异步，唯一有界队列
@@ -103,14 +103,14 @@ Application 已识别的运行时诊断会在调用原有诊断回调后转换�
 独立 validation 模块及 application::submit_log 已删除。
 
 ```cpp
-static const gneiss::engine::logging::logger log{"assets"};
+static const gneiss::logging::logger log{"assets"};
 log.write({
     .context = 123,
-    .severity = gneiss::engine::logging::level::warning,
+    .severity = gneiss::logging::level::warning,
     .source = "loader",
     .category = "loading",
     .message = "资源尚未就绪",
-    .result = gneiss::engine::error::not_ready,
+    .result = gneiss::error::not_ready,
 });
 ```
 

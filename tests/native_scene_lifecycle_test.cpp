@@ -7,20 +7,20 @@
 #include <thread>
 
 int main(void) {
-  if (gneiss::engine::initialize_meta().failed())
+  if (gneiss::initialize_meta().failed())
     return 21;
-  gneiss::engine::world_owner world;
+  gneiss::world_owner world;
 
   gneiss::entity_id entity = gneiss::entity_id{};
   gneiss::entity_id root = gneiss::entity_id{};
   gneiss::entity_id child = gneiss::entity_id{};
   gneiss::entity_id parent = gneiss::entity_id{};
-  gneiss::engine::math::transform root_transform;
-  gneiss::engine::math::transform child_transform;
-  gneiss::engine::math::transform world_transform;
+  gneiss::math::transform root_transform;
+  gneiss::math::transform child_transform;
+  gneiss::math::transform world_transform;
   gneiss::entity_id attached = gneiss::entity_id{};
 
-  if (gneiss::test_support::assign_value(gneiss::engine::create_native(), world).failed())
+  if (gneiss::test_support::assign_value(gneiss::create_native(), world).failed())
     return 1;
   auto object_scene = world->create_scene();
   if (!object_scene)
@@ -38,39 +38,39 @@ int main(void) {
   root_transform.translation[0] = 2.0F;
   child_transform.translation[1] = 3.0F;
   if (world->find(gneiss::entity_id{(root).get()}).set_local_transform(root_transform) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       world->find(gneiss::entity_id{(child).get()}).set_local_transform(child_transform) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       gneiss::test_support::assign_value(world->find(gneiss::entity_id{(child).get()}).parent(),
-                                         parent) != gneiss::engine::error::success ||
+                                         parent) != gneiss::error::success ||
       parent != root ||
       gneiss::test_support::assign_value(world->find(gneiss::entity_id{(root).get()}).parent(),
-                                         parent) != gneiss::engine::error::success ||
+                                         parent) != gneiss::error::success ||
       parent != gneiss::entity_id{} ||
       gneiss::test_support::assign_value(
           world->find(gneiss::entity_id{(child).get()}).world_transform(), world_transform) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       world_transform.translation[0] != 2.0F || world_transform.translation[1] != 3.0F) {
     return 3;
   }
 
   if (world->find(gneiss::entity_id{(root).get()})
               .reparent(world->find(gneiss::entity_id{(child).get()})) !=
-          gneiss::engine::error::invalid_argument ||
-      world->find(entity).destroy() != gneiss::engine::error::success ||
+          gneiss::error::invalid_argument ||
+      world->find(entity).destroy() != gneiss::error::success ||
       gneiss::test_support::assign_value(world->object(gneiss::entity_id{(child).get()}),
-                                         attached) != gneiss::engine::error::invalid_handle ||
+                                         attached) != gneiss::error::invalid_handle ||
       attached != gneiss::entity_id{}) {
     return 4;
   }
 
-  if (world->find(gneiss::entity_id{(root).get()}).destroy() != gneiss::engine::error::success ||
+  if (world->find(gneiss::entity_id{(root).get()}).destroy() != gneiss::error::success ||
       world->find(gneiss::entity_id{(child).get()}).destroy() !=
-          gneiss::engine::error::invalid_handle) {
+          gneiss::error::invalid_handle) {
     return 5;
   }
   // 借用对象不拥有实体；空值、跨 World、generation 与子树销毁使用同一规则。
-  using namespace gneiss::engine;
+  using namespace gneiss;
   auto another = create_native();
   auto object = object_scene->create_object({"root", {}});
   if (!another)

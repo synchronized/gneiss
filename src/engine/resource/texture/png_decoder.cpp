@@ -10,7 +10,7 @@
 #include <memory>
 #include <new>
 
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 
 constexpr std::uint32_t maximum_dimension = 16384U;
@@ -25,14 +25,14 @@ void clear_image(decoded_png& image) noexcept {
   image.pixels.clear();
 }
 
-engine::error fail(int error, std::string& message) {
+gneiss::error fail(int error, std::string& message) {
   {
     const char* text = spng_strerror(error);
     message = text != nullptr ? text : "PNG 解码失败";
   }
   if (error == SPNG_EMEM)
     throw std::bad_alloc{};
-  return engine::error::invalid_argument;
+  return gneiss::error::invalid_argument;
 }
 
 } // namespace
@@ -53,7 +53,7 @@ result<decoded_png, asset_diagnostic> decode_png(const std::vector<std::byte>& b
 
   if (bytes.empty()) {
     out_message = "PNG 数据为空";
-    return failure(engine::error::invalid_argument);
+    return failure(gneiss::error::invalid_argument);
   }
   context_ptr context(spng_ctx_new(0), &spng_ctx_free);
   if (!context) {
@@ -77,11 +77,11 @@ result<decoded_png, asset_diagnostic> decode_png(const std::vector<std::byte>& b
   if (decoded_size == 0U || decoded_size > maximum_decoded_bytes ||
       decoded_size != static_cast<std::size_t>(header.width) * header.height * 4U) {
     out_message = "PNG 解码尺寸超出限制";
-    return failure(engine::error::invalid_argument);
+    return failure(gneiss::error::invalid_argument);
   }
   if (decoded_size > byte_limit) {
     out_message = "PNG 解码数据超过候选剩余内存预算";
-    return failure(engine::error::out_of_memory);
+    return failure(gneiss::error::out_of_memory);
   }
   out_image.width = header.width;
   out_image.height = header.height;
@@ -95,4 +95,4 @@ result<decoded_png, asset_diagnostic> decode_png(const std::vector<std::byte>& b
   return out_image;
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

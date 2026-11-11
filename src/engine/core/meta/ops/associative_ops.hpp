@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 /** 当前只适配字符串键映射；size/keys/find 必需，修改操作可选。 */
 template <class T> struct associative_traits {
   static constexpr bool enabled = false;

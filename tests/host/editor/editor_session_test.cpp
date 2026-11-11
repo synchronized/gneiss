@@ -22,13 +22,13 @@
 #include <thread>
 
 // 临时输入在返回后销毁；后续 Undo/Redo 必须使用命令持有的身份副本。
-static gneiss::engine::error
+static gneiss::error
 apply_temporary_transform(gneiss::editor::scene_edit_session& session,
                           gneiss::editor::editor_command_history& history,
                           const gneiss::editor::runtime_author_transform& input) {
-  const gneiss::engine::guid uuid(input.uuid);
-  const gneiss::engine::guid instance(input.prefab_instance_uuid);
-  const gneiss::engine::guid source(input.prefab_source_node_uuid);
+  const gneiss::guid uuid(input.uuid);
+  const gneiss::guid instance(input.prefab_instance_uuid);
+  const gneiss::guid source(input.prefab_source_node_uuid);
   return gneiss::editor::apply_runtime_transform_to_author(
       session, history, {uuid, instance, source, input.local_transform});
 }
@@ -40,14 +40,14 @@ int main() try {
   gneiss::runtime::application_configuration desc;
   desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss::engine::world* world = nullptr;
+  gneiss::world* world = nullptr;
   gneiss::editor::scene_edit_session session;
-  if (gneiss::engine::error{gneiss::test_support::assign_value(
+  if (gneiss::error{gneiss::test_support::assign_value(
           gneiss::runtime::application::create(desc), application)} !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       (world = application->native_world()) == nullptr ||
       gneiss::test_support::open_document(session, *application, world, scene_uri) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       !session.is_open() || session.is_dirty() || session.uri() != scene_uri ||
       gneiss::test_support::scene_query(session).nodes.size() != 2U ||
       gneiss::test_support::scene_query(session).nodes[0].display_name != "Camera" ||
@@ -86,8 +86,8 @@ int main() try {
             .set_local_transform(original.local_transform)
             .failed())
       return 35;
-    const auto uuid = gneiss::engine::guid::from_bytes({72, 93});
-    auto destination = gneiss::engine::scene_instance::borrow(*world, session.scene_handle());
+    const auto uuid = gneiss::guid::from_bytes({72, 93});
+    auto destination = gneiss::scene_instance::borrow(*world, session.scene_handle());
     if (!destination)
       return 36;
     auto created = destination->create_object({"Direct child", {}}, world->find(original.node));
@@ -112,11 +112,11 @@ int main() try {
     if (!member || !content || !nodes || nodes->nodes.empty())
       return 101;
     const auto& foreign_object = nodes->nodes.front();
-    const gneiss::engine::scene_object_binding wrong{
+    const gneiss::scene_object_binding wrong{
         foreign_object.uuid, {}, foreign_object.entity};
     auto before = session.scene_handle();
     if (session.adopt(*application, world, target->id(), *content, {&wrong, 1}) !=
-            gneiss::engine::error::invalid_handle ||
+            gneiss::error::invalid_handle ||
         session.scene_handle() != before || !session.is_open() || !member->is_valid())
       return 102;
     if (target->unload().failed())
@@ -125,9 +125,9 @@ int main() try {
   // 外部卸载立即使编辑会话失效，关闭不能影响另一场景。
   {
     gneiss::editor::scene_edit_session transient;
-    if (transient.create_empty(*application, world, gneiss::engine::guid::generate()).failed())
+    if (transient.create_empty(*application, world, gneiss::guid::generate()).failed())
       return 104;
-    auto instance = gneiss::engine::scene_instance::borrow(*world, transient.scene_handle());
+    auto instance = gneiss::scene_instance::borrow(*world, transient.scene_handle());
     if (!instance || instance->unload().failed() || transient.is_open())
       return 105;
     transient.close();
@@ -143,35 +143,35 @@ int main() try {
   session = std::move(moved_session);
   if (moved_session.is_open() || !session.is_open())
     return 21;
-  auto foreign = gneiss::engine::error::success;
+  auto foreign = gneiss::error::success;
   const auto foreign_node = gneiss::test_support::scene_query(session).nodes[1].node;
   std::thread worker([&] { foreign = session.rename_node(foreign_node, "Rejected"); });
   worker.join();
-  if (foreign != gneiss::engine::error::invalid_state || session.is_dirty())
+  if (foreign != gneiss::error::invalid_state || session.is_dirty())
     return 22;
   auto native = application;
   if (session.adopt(*native, world, gneiss::scene_instance_id{}, {}, {}) !=
-          gneiss::engine::error::invalid_argument ||
+          gneiss::error::invalid_argument ||
       session.scene_handle() != original_scene)
     return 23;
   if (session.select(gneiss::test_support::scene_query(session).nodes[1].node) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       session.selected_node().failed()) {
     return 2;
   }
   session.mark_dirty();
   if (!session.is_dirty() ||
       gneiss::test_support::open_document(session, *application, world, missing_uri) !=
-          gneiss::engine::error::not_found ||
+          gneiss::error::not_found ||
       !session.is_open() || !session.is_dirty() || session.uri() != scene_uri ||
       session.selected_node().failed()) {
     return 3;
   }
   const auto selected = session.selection();
-  if (gneiss::engine::error{
+  if (gneiss::error{
           application->native_world()->find(gneiss::entity_id{(selected).get()}).destroy()} !=
-          gneiss::engine::error::success ||
-      session.validate_selection() != gneiss::engine::error::success ||
+          gneiss::error::success ||
+      session.validate_selection() != gneiss::error::success ||
       session.selection().is_valid()) {
     return 4;
   }
@@ -185,7 +185,7 @@ int main() try {
   constexpr std::string_view prefab_scene_uri = "asset://scenes/prefab.scene.json";
   constexpr std::string_view prefab_uri = "asset://prefabs/test.prefab.json";
   if (gneiss::test_support::open_document(session, *application, world, prefab_scene_uri) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       gneiss::test_support::scene_query(session).nodes.size() != 1U ||
       gneiss::test_support::scene_query(session).prefab_nodes.size() != 2U ||
       !gneiss::test_support::scene_query(session).prefab_nodes[0].is_instance_root ||
@@ -195,44 +195,44 @@ int main() try {
     return 6;
   }
   if (session.select(gneiss::test_support::scene_query(session).prefab_nodes[1].node) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       session.selected_node().ok() || session.selected_prefab_node().failed()) {
     return 7;
   }
   auto source_moved = session.selected_prefab_node()->local_transform;
   source_moved.translation[1] = 5.0F;
   if (session.set_local_transform(session.selection(), source_moved) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       session.selected_prefab_node().failed() ||
       session.selected_prefab_node()->local_transform.translation[1] != 5.0F ||
       !session.selected_prefab_node()->has_override(
-          gneiss::engine::math::transform::type_guid,
-          gneiss::engine::meta::transform_translation_field)) {
+          gneiss::math::transform::type_guid,
+          gneiss::meta::transform_translation_field)) {
     return 7;
   }
-  gneiss::engine::math::transform previous_source{};
+  gneiss::math::transform previous_source{};
   if (session.restore_prefab_transform_field(
-          session.selection(), gneiss::engine::meta::transform_translation_field.get(),
-          previous_source) != gneiss::engine::error::success ||
+          session.selection(), gneiss::meta::transform_translation_field.get(),
+          previous_source) != gneiss::error::success ||
       previous_source.translation[1] != 5.0F || session.selected_prefab_node().failed() ||
       session.selected_prefab_node()->local_transform.translation[0] != 1.0F ||
       session.selected_prefab_node()->local_transform.translation[1] != 0.0F ||
       session.selected_prefab_node()->has_override(
-          gneiss::engine::math::transform::type_guid,
-          gneiss::engine::meta::transform_translation_field) ||
+          gneiss::math::transform::type_guid,
+          gneiss::meta::transform_translation_field) ||
       session.set_local_transform(session.selection(), previous_source) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       !session.selected_prefab_node()->has_override(
-          gneiss::engine::math::transform::type_guid,
-          gneiss::engine::meta::transform_translation_field) ||
+          gneiss::math::transform::type_guid,
+          gneiss::meta::transform_translation_field) ||
       session.restore_prefab_transform(session.selection(), previous_source) !=
-          gneiss::engine::error::success ||
-      session.selected_prefab_node()->has_overrides(gneiss::engine::math::transform::type_guid)) {
+          gneiss::error::success ||
+      session.selected_prefab_node()->has_overrides(gneiss::math::transform::type_guid)) {
     return 8;
   }
   const auto prefab_source = session.selected_prefab_node();
-  const gneiss::engine::guid source_uuid = prefab_source->source_node_uuid;
-  const gneiss::engine::guid instance_uuid = prefab_source->instance_uuid;
+  const gneiss::guid source_uuid = prefab_source->source_node_uuid;
+  const gneiss::guid instance_uuid = prefab_source->instance_uuid;
   gneiss::editor::runtime_author_transform runtime_source;
   runtime_source.uuid = source_uuid;
   runtime_source.prefab_instance_uuid = instance_uuid;
@@ -241,13 +241,13 @@ int main() try {
   runtime_source.local_transform.scale[0] = 2.0F;
   gneiss::editor::editor_command_history history;
   if (apply_temporary_transform(session, history, runtime_source) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       session.selected_prefab_node()->local_transform.scale[0] != 2.0F ||
-      !session.selected_prefab_node()->has_override(gneiss::engine::math::transform::type_guid,
-                                                    gneiss::engine::meta::transform_scale_field) ||
-      history.undo() != gneiss::engine::error::success ||
+      !session.selected_prefab_node()->has_override(gneiss::math::transform::type_guid,
+                                                    gneiss::meta::transform_scale_field) ||
+      history.undo() != gneiss::error::success ||
       session.selected_prefab_node()->local_transform.scale[0] != 1.0F ||
-      history.redo() != gneiss::engine::error::success ||
+      history.redo() != gneiss::error::success ||
       session.selected_prefab_node()->local_transform.scale[0] != 2.0F) {
     return 9;
   }
@@ -255,18 +255,18 @@ int main() try {
   invalid_runtime_source.prefab_instance_uuid = {};
   auto stale_runtime_source = runtime_source;
   stale_runtime_source.prefab_instance_uuid =
-      *gneiss::engine::guid::parse("ffffffff-ffff-4fff-8fff-ffffffffffff");
+      *gneiss::guid::parse("ffffffff-ffff-4fff-8fff-ffffffffffff");
   if (gneiss::editor::apply_runtime_transform_to_author(session, history, invalid_runtime_source) !=
-          gneiss::engine::error::invalid_argument ||
+          gneiss::error::invalid_argument ||
       gneiss::editor::apply_runtime_transform_to_author(session, history, stale_runtime_source) !=
-          gneiss::engine::error::not_found) {
+          gneiss::error::not_found) {
     return 9;
   }
   gneiss::entity_id prefab_root;
   if (gneiss::test_support::create_prefab_document(
           *application, session, "Second Lamp", prefab_uri,
           gneiss::test_support::scene_query(session).nodes[0].node,
-          prefab_root) != gneiss::engine::error::success ||
+          prefab_root) != gneiss::error::success ||
       !session.is_dirty() || gneiss::test_support::scene_query(session).prefab_nodes.size() != 4U ||
       session.selected_prefab_node().failed() ||
       !session.selected_prefab_node()->is_instance_root ||
@@ -290,17 +290,17 @@ int main() try {
   auto moved = session.selected_prefab_node()->local_transform;
   moved.translation[1] = 3.0F;
   const auto retained_root = prefab_root;
-  if (session.set_local_transform(prefab_root, moved) != gneiss::engine::error::success ||
+  if (session.set_local_transform(prefab_root, moved) != gneiss::error::success ||
       gneiss::test_support::refresh_prefab_document(*application, session, history, prefab_root) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       session.selected_prefab_node()->node != retained_root ||
       session.selected_prefab_node().failed() ||
       session.selected_prefab_node()->display_name != "Restored Lamp" ||
       session.selected_prefab_node()->local_transform.translation[1] != 3.0F ||
       gneiss::test_support::finish_history(history, history.undo()) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       gneiss::test_support::finish_history(history, history.redo()) !=
-          gneiss::engine::error::success) {
+          gneiss::error::success) {
     return 12;
   }
   return 0;

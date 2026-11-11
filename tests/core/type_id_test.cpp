@@ -6,11 +6,11 @@
 #include <string>
 #include <thread>
 #include <vector>
-gneiss::engine::type_id runtime_type_from_other_unit();
+gneiss::type_id runtime_type_from_other_unit();
 int main() {
-  using namespace gneiss::engine;
-  static_assert(!std::is_convertible_v<type_id, gneiss::engine::guid>);
-  static_assert(!std::is_convertible_v<gneiss::engine::guid, type_id>);
+  using namespace gneiss;
+  static_assert(!std::is_convertible_v<type_id, gneiss::guid>);
+  static_assert(!std::is_convertible_v<gneiss::guid, type_id>);
   static_assert(detail::canonical_cpp_type_name<int[2][3]>() !=
                 detail::canonical_cpp_type_name<int[2][4]>());
   const auto text = runtime_type_of<std::string>();

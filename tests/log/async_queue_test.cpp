@@ -30,7 +30,7 @@ struct capture_state final {
   bool valid_message = true;
 };
 
-void capture(const gneiss::engine::logging::record_view& event, void* user_data) {
+void capture(const gneiss::logging::record_view& event, void* user_data) {
   auto& state = *static_cast<capture_state*>(user_data);
   std::unique_lock lock(state.mutex);
   if (state.block_first) {
@@ -53,7 +53,7 @@ void capture(const gneiss::engine::logging::record_view& event, void* user_data)
 }
 
 bool verify_failure_and_shutdown() {
-  using namespace gneiss::engine;
+  using namespace gneiss;
   unsigned rejected{};
   try {
     logging::detail::async_queue invalid(logging::record_callback{});
@@ -75,11 +75,11 @@ bool verify_failure_and_shutdown() {
       ++calls;
       valid = valid && event.message.context == 9U && event.thread_id != 0U &&
               event.timestamp_ns != 0U && event.sequence == calls &&
-              active->submit({.category = "nested"}) == gneiss::engine::error::invalid_state;
+              active->submit({.category = "nested"}) == gneiss::error::invalid_state;
     });
     active = &dispatcher;
-    if (dispatcher.submit({.context = 9U, .category = "test"}) != gneiss::engine::error::success ||
-        dispatcher.submit({.context = 9U, .category = "test"}) != gneiss::engine::error::success) {
+    if (dispatcher.submit({.context = 9U, .category = "test"}) != gneiss::error::success ||
+        dispatcher.submit({.context = 9U, .category = "test"}) != gneiss::error::success) {
       return false;
     }
     // 不主动 flush，验证析构排空队列。
@@ -88,7 +88,7 @@ bool verify_failure_and_shutdown() {
 }
 
 bool verify_concurrency() {
-  using namespace gneiss::engine;
+  using namespace gneiss;
   std::uint64_t received{};
   bool valid = true;
   logging::detail::async_queue dispatcher(
@@ -96,7 +96,7 @@ bool verify_concurrency() {
         ++received;
         valid = valid && event.sequence == received &&
                 event.message.severity == logging::level::debug &&
-                event.message.result == gneiss::engine::error::not_found &&
+                event.message.result == gneiss::error::not_found &&
                 event.message.message == "parallel";
       },
       512U);
@@ -110,8 +110,8 @@ bool verify_concurrency() {
                   .severity = logging::level::debug,
                   .category = "test",
                   .message = "parallel",
-                  .result = gneiss::engine::error::not_found,
-              }) != gneiss::engine::error::success) {
+                  .result = gneiss::error::not_found,
+              }) != gneiss::error::success) {
             accepted.store(false);
           }
         }
@@ -125,10 +125,10 @@ bool verify_concurrency() {
 } // namespace
 
 int main(int argc, char** argv) try {
-  gneiss::engine::install_fatal_handler();
+  gneiss::install_fatal_handler();
   if (argc > 1) {
     const bool oom = std::string_view(argv[1]) == "oom";
-    gneiss::engine::logging::detail::async_queue dispatcher([oom](const auto&) {
+    gneiss::logging::detail::async_queue dispatcher([oom](const auto&) {
       if (oom)
         throw std::bad_alloc{};
       throw std::runtime_error("unexpected callback");
@@ -142,16 +142,16 @@ int main(int argc, char** argv) try {
     return 5;
   }
   capture_state state;
-  gneiss::engine::logging::detail::async_queue dispatcher(
+  gneiss::logging::detail::async_queue dispatcher(
       [&state](const auto& event) { capture(event, &state); }, 2U);
   std::string payload = "event";
-  const gneiss::engine::logging::message_view message{
+  const gneiss::logging::message_view message{
       .context = 1U,
       .source = "test",
       .category = "test",
       .message = payload,
   };
-  if (dispatcher.submit(message) != gneiss::engine::error::success) {
+  if (dispatcher.submit(message) != gneiss::error::success) {
     return 1;
   }
   {
@@ -162,7 +162,7 @@ int main(int argc, char** argv) try {
     }
   }
   for (std::uint32_t index = 0U; index < 8U; ++index) {
-    if (dispatcher.submit(message) != gneiss::engine::error::success) {
+    if (dispatcher.submit(message) != gneiss::error::success) {
       return 3;
     }
   }

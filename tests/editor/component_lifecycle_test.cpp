@@ -17,7 +17,7 @@
 #include <cstdio>
 #include <source_location>
 #include <thread>
-namespace e = gneiss::engine;
+namespace e = gneiss;
 namespace ed = gneiss::editor;
 using namespace gneiss::test_support;
 void check(bool ok, std::source_location at = std::source_location::current()) {
@@ -124,9 +124,9 @@ int main() try {
   check(removed.objects.size() == 1 && removed.objects[0].components.empty());
   check(history.undo().ok() && current()->data.speed == 4);
   check_identity();
-  auto encoded = gneiss::engine::asset_file::serialize_bytes(snapshot());
+  auto encoded = gneiss::asset_file::serialize_bytes(snapshot());
   check(encoded.has_value());
-  auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(*encoded);
+  auto decoded = gneiss::asset_file::deserialize<e::scene_description>(*encoded);
   check(decoded.has_value());
   e::scene_content prepared;
   prepared.description = e::asset_ref<const e::scene_description>{

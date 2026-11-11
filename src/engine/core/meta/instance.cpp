@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/instance.hpp"
 #include <algorithm>
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 bool type::is_fixed_sequence() const noexcept {
   const auto* ops = access_ ? access_->get<sequence_ops>() : nullptr;
   return ops && ops->fixed_size;
@@ -19,7 +19,7 @@ type type::element_type() const {
 
 template <bool Mutable>
 result<basic_instance<Mutable>>
-basic_instance<Mutable>::from_object(registry_ref registry, engine::type_id id, pointer object) {
+basic_instance<Mutable>::from_object(registry_ref registry, gneiss::type_id id, pointer object) {
   if (!object)
     return error::invalid_argument;
   auto frozen = is_frozen(registry);
@@ -193,7 +193,7 @@ error basic_instance<Mutable>::assign(const const_instance& source) const
   return error::success;
 }
 template <bool Mutable>
-error basic_instance<Mutable>::assign_object(engine::type_id id, void* source) const
+error basic_instance<Mutable>::assign_object(gneiss::type_id id, void* source) const
   requires(Mutable)
 {
   if (kind() == type_kind::invalid)

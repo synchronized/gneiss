@@ -6,21 +6,21 @@
 
 namespace gneiss::host {
 
-gneiss::engine::error register_runtime_commands(runtime_command_router& router) noexcept {
+gneiss::error register_runtime_commands(runtime_command_router& router) noexcept {
   auto operation = register_runtime_asset_commands(router);
-  if (operation == gneiss::engine::error::success) {
+  if (operation == gneiss::error::success) {
     operation = register_runtime_scene_commands(router);
   }
-  if (operation == gneiss::engine::error::success) {
+  if (operation == gneiss::error::success) {
     operation = register_runtime_session_commands(router);
   }
-  if (operation == gneiss::engine::error::success) {
+  if (operation == gneiss::error::success) {
     operation = register_runtime_control_commands(router);
   }
-  if (operation == gneiss::engine::error::success) {
+  if (operation == gneiss::error::success) {
     operation = register_runtime_inspection_commands(router);
   }
-  if (operation == gneiss::engine::error::success) {
+  if (operation == gneiss::error::success) {
     operation = register_runtime_property_commands(router);
   }
   return operation;

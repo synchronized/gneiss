@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/function/scene/prefab_property_override.hpp"
-namespace gneiss::engine {
+namespace gneiss {
 enum class prefab_override_section { component, property };
 /** 索引对应原始覆盖列表；失败记录不从原列表删除。 */
 struct prefab_override_conflict {

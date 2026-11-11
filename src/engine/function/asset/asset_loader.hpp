@@ -10,7 +10,7 @@
 #include <memory>
 #include <string>
 #include <vector>
-namespace gneiss::engine {
+namespace gneiss {
 class asset_manager;
 /** 一次加载声明的必要依赖；调度器推进，Loader 仅在装配时读取结果。 */
 struct asset_dependency {

@@ -160,7 +160,7 @@ GPU 失败不改变已经成功的 CPU 加载结果。UI 首次纹理未上传�
 
 ## 渲染服务对象边界
 
-Application 拥有 `engine::render_service`，用于设备初始化、帧/上传提交、完成回收及关闭。
+Application 拥有 `gneiss::render_service`，用于设备初始化、帧/上传提交、完成回收及关闭。
 RID 表位于私有 `resource_storage`，仅保存渲染内容。资源工厂独立持有弱引用身份关联和销毁队列。
 Loader 通过工厂更新资源：先提交 Render CPU 内容，成功后更新上层元信息和显式传入的纹理强引用。
 Render 不查找或修改上层资源；直接调用 RID 更新接口只改变渲染端数据。

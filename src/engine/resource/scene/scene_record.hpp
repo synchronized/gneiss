@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/core/value.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
-namespace gneiss::engine {
+namespace gneiss {
 /** 组件身份独立于类型，内容按反射冻结。 */
 struct component_record {
   guid uuid;

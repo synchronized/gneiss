@@ -23,17 +23,17 @@ struct fallible_resource {
 } // namespace
 
 int main() {
-  gneiss::engine::install_fatal_handler();
-  using gneiss::engine::resource_type;
-  using table = gneiss::engine::rid_table<test_resource>;
+  gneiss::install_fatal_handler();
+  using gneiss::resource_type;
+  using table = gneiss::rid_table<test_resource>;
 
   table first{1};
   table second{2};
   auto created = first.create(resource_type::test_resource, test_resource{42});
-  if (!created || *created == gneiss::engine::null_rid)
+  if (!created || *created == gneiss::null_rid)
     return 1;
   const auto original = *created;
-  if (first.get(gneiss::engine::null_rid, resource_type::test_resource) != nullptr ||
+  if (first.get(gneiss::null_rid, resource_type::test_resource) != nullptr ||
       first.get(original, resource_type::mesh) != nullptr ||
       second.get(original, resource_type::test_resource) != nullptr) {
     return 2;
@@ -42,9 +42,9 @@ int main() {
   if (resource == nullptr || resource->value != 42 || first.live_count() != 1U) {
     return 3;
   }
-  if (first.destroy(original, resource_type::test_resource) != gneiss::engine::error::success ||
+  if (first.destroy(original, resource_type::test_resource) != gneiss::error::success ||
       first.destroy(original, resource_type::test_resource) !=
-          gneiss::engine::error::invalid_handle ||
+          gneiss::error::invalid_handle ||
       first.get(original, resource_type::test_resource) != nullptr || first.live_count() != 0U) {
     return 4;
   }
@@ -53,13 +53,13 @@ int main() {
   if (!replacement || *replacement == original || first.get(original, resource_type::test_resource))
     return 5;
   auto invalid = first.create(resource_type::invalid, test_resource{});
-  if (invalid || invalid.error() != gneiss::engine::error::invalid_argument)
+  if (invalid || invalid.error() != gneiss::error::invalid_argument)
     return 6;
   first.close();
   auto closed = first.create(resource_type::test_resource, test_resource{});
-  if (closed || closed.error() != gneiss::engine::error::invalid_argument)
+  if (closed || closed.error() != gneiss::error::invalid_argument)
     return 7;
-  gneiss::engine::rid_table<fallible_resource> fallible{3};
+  gneiss::rid_table<fallible_resource> fallible{3};
   bool propagated = false;
   try {
     (void)fallible.create(resource_type::test_resource, 0);

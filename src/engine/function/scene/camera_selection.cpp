@@ -3,7 +3,7 @@
 #include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/detail/camera_selection_state.hpp"
 #include "engine/function/scene/detail/world_component_access.hpp"
-namespace gneiss::engine {
+namespace gneiss {
 error set_active_camera(world& owner, entity_id entity) {
   auto state = detail::world_component_access::get(owner);
   if (!state)
@@ -29,4 +29,4 @@ error get_active_camera(world& owner, entity_id& output) {
   return error::success;
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

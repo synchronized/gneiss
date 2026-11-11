@@ -4,33 +4,33 @@
 #include "async_document.hpp"
 #include "commands/editor_prefab_edit.hpp"
 namespace gneiss::test_support {
-inline engine::error drive_prefab_edit(runtime::application& app, editor::editor_prefab_edit& edit,
-                                       engine::task_scheduler& tasks) {
+inline gneiss::error drive_prefab_edit(runtime::application& app, editor::editor_prefab_edit& edit,
+                                       gneiss::tasks::task_scheduler& tasks) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
   while (edit.active()) {
-    if (tasks.mode() == engine::execution_mode::cooperative)
+    if (tasks.mode() == gneiss::tasks::execution_mode::cooperative)
       (void)tasks.run_ready();
     (void)app.run(1);
     edit.advance();
     if (std::chrono::steady_clock::now() >= deadline)
-      return engine::error::internal;
+      return gneiss::error::internal;
     std::this_thread::yield();
   }
   return edit.operation();
 }
-inline engine::error finish_history(editor::editor_command_history& history, engine::error status) {
+inline gneiss::error finish_history(editor::editor_command_history& history, gneiss::error status) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
   while (history.is_pending()) {
     status = history.advance_pending();
     if (std::chrono::steady_clock::now() >= deadline)
-      return engine::error::internal;
+      return gneiss::error::internal;
   }
   return status;
 }
-inline engine::error create_prefab_document(runtime::application& app,
+inline gneiss::error create_prefab_document(runtime::application& app,
                                             editor::scene_edit_session& doc, std::string_view name,
                                             std::string_view uri, entity_id parent, entity_id& root,
-                                            engine::task_scheduler* tasks = nullptr) {
+                                            gneiss::tasks::task_scheduler* tasks = nullptr) {
   root = {};
   if (!tasks)
     tasks = &application_tasks();
@@ -44,7 +44,7 @@ inline engine::error create_prefab_document(runtime::application& app,
     root = doc.selected_prefab_node()->node;
   return status;
 }
-inline engine::error refresh_prefab_document(runtime::application& app,
+inline gneiss::error refresh_prefab_document(runtime::application& app,
                                              editor::scene_edit_session& doc,
                                              editor::editor_command_history& history,
                                              entity_id root) {

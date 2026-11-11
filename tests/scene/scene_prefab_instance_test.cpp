@@ -11,7 +11,7 @@
 #include <cstdio>
 #include <source_location>
 #include <stdexcept>
-namespace e = gneiss::engine;
+namespace e = gneiss;
 namespace {
 void check(bool value, std::source_location where = std::source_location::current()) {
   if (!value)

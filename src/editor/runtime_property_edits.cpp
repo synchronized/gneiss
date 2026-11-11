@@ -26,7 +26,7 @@ void runtime_property_edits::disconnect() noexcept {
     auto found = edits_.find(pending.key);
     if (found != edits_.end()) {
       found->second.state = runtime_property_edit_state::disconnected;
-      found->second.code = gneiss::engine::error::io.code();
+      found->second.code = gneiss::error::io.code();
       found->second.message = "Runtime 连接已断开";
     }
   }
@@ -34,18 +34,18 @@ void runtime_property_edits::disconnect() noexcept {
   session_id_ = 0U;
 }
 
-gneiss::engine::error runtime_property_edits::prepare(runtime_property_key key,
+gneiss::error runtime_property_edits::prepare(runtime_property_key key,
                                                       std::uint64_t expected_revision,
-                                                      gneiss::engine::value value,
+                                                      gneiss::value value,
                                                       clock::time_point now,
                                                       runtime_property_write& output) {
   if (session_id_ == 0U || !key.object.is_valid() || key.field_id == 0U ||
       expected_revision == 0U || next_command_id_ == 0U) {
-    return gneiss::engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   }
   const auto existing = edits_.find(key);
   if (existing != edits_.end() && existing->second.state == runtime_property_edit_state::pending) {
-    return gneiss::engine::error::not_ready;
+    return gneiss::error::not_ready;
   }
   {
     const auto command_id = next_command_id_++;
@@ -56,33 +56,33 @@ gneiss::engine::error runtime_property_edits::prepare(runtime_property_key key,
                                    .field_id = key.field_id,
                                    .expected_revision = expected_revision,
                                    .value = std::move(value)};
-    command.type_id = engine::guid::from_bytes(key.type_id);
+    command.type_id = gneiss::guid::from_bytes(key.type_id);
     edits_[key] = {.state = runtime_property_edit_state::pending,
                    .command_id = command_id,
                    .revision = expected_revision,
-                   .code = gneiss::engine::error::success.code(),
+                   .code = gneiss::error::success.code(),
                    .message = "等待 Runtime 确认",
                    .canonical_value = {}};
     pending_.emplace(command_id, pending_edit{key, now});
     output = std::move(command);
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
 }
 
-gneiss::engine::error runtime_property_edits::accept(runtime_property_write_result response) {
+gneiss::error runtime_property_edits::accept(runtime_property_write_result response) {
   if (response.session_id != session_id_) {
-    return gneiss::engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   }
   const auto pending = pending_.find(response.command_id);
   if (pending == pending_.end()) {
-    return gneiss::engine::error::not_found;
+    return gneiss::error::not_found;
   }
   auto edit = edits_.find(pending->second.key);
   if (edit == edits_.end() || edit->second.command_id != response.command_id) {
     pending_.erase(pending);
-    return gneiss::engine::error::not_found;
+    return gneiss::error::not_found;
   }
-  edit->second.state = response.code == gneiss::engine::error::success.code()
+  edit->second.state = response.code == gneiss::error::success.code()
                            ? runtime_property_edit_state::applied
                            : runtime_property_edit_state::rejected;
   edit->second.revision = response.revision;
@@ -90,7 +90,7 @@ gneiss::engine::error runtime_property_edits::accept(runtime_property_write_resu
   edit->second.message = std::move(response.message);
   edit->second.canonical_value = std::move(response.canonical_value);
   pending_.erase(pending);
-  return gneiss::engine::error::success;
+  return gneiss::error::success;
 }
 
 void runtime_property_edits::expire(clock::time_point now,
@@ -103,7 +103,7 @@ void runtime_property_edits::expire(clock::time_point now,
     auto edit = edits_.find(current->second.key);
     if (edit != edits_.end()) {
       edit->second.state = runtime_property_edit_state::timed_out;
-      edit->second.code = gneiss::engine::error::not_ready.code();
+      edit->second.code = gneiss::error::not_ready.code();
       edit->second.message = "等待 Runtime 响应超时";
     }
     current = pending_.erase(current);

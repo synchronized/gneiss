@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/logging/service.hpp"
-namespace gneiss::engine::logging {
+namespace gneiss::logging {
 /** 宿主作用域安装默认路由；重复安装报错。不得在生产者运行期间替换路由。 */
 class GNEISS_API default_service_binding final {
 public:

@@ -82,24 +82,24 @@ int main() { // NOLINT(bugprone-exception-escape)
     if (!asset_import::write_assets(escaped, output, prefix).success)
       return 30;
     auto scene_text = read_file(output / "scenes/scene.scene.json");
-    auto scene_data = gneiss::engine::asset_file::deserialize<gneiss::engine::scene_description>(
+    auto scene_data = gneiss::asset_file::deserialize<gneiss::scene_description>(
         std::as_bytes(std::span(scene_text.data(), scene_text.size())));
     if (!scene_data || scene_data->objects[0].name != escaped.nodes[0].name)
       return 31;
     auto text = read_file(output / "textures/image-0.texture.json");
     const auto* begin = reinterpret_cast<const std::byte*>(text.data());
-    auto texture = gneiss::engine::detail::parse_texture({begin, begin + text.size()});
+    auto texture = gneiss::detail::parse_texture({begin, begin + text.size()});
     if (!texture || texture->uri != std::string(prefix) + "textures/image-0.png")
       return 32;
-    texture->usage = gneiss::engine::texture_usage::normal;
-    if (gneiss::engine::detail::encode_texture(*texture))
+    texture->usage = gneiss::texture_usage::normal;
+    if (gneiss::detail::encode_texture(*texture))
       return 33;
-    texture->color_space = gneiss::engine::texture_color_space::linear;
-    auto encoded = gneiss::engine::detail::encode_texture(*texture);
+    texture->color_space = gneiss::texture_color_space::linear;
+    auto encoded = gneiss::detail::encode_texture(*texture);
     if (!encoded)
       return 34;
-    auto decoded = gneiss::engine::detail::parse_texture(*encoded);
-    if (!decoded || decoded->usage != gneiss::engine::texture_usage::normal)
+    auto decoded = gneiss::detail::parse_texture(*encoded);
+    if (!decoded || decoded->usage != gneiss::texture_usage::normal)
       return 35;
     for (
         const std::string_view invalid :
@@ -108,11 +108,11 @@ int main() { // NOLINT(bugprone-exception-escape)
          R"({"format":"gneiss.texture","version":2,"source":"asset://x","color_space":"srgb"})",
          R"({"format":"gneiss.texture","version":2,"source":"asset://x","color_space":"srgb","usage":"unknown"})"}) {
       const auto bytes = std::as_bytes(std::span(invalid.data(), invalid.size()));
-      if (gneiss::engine::detail::parse_texture({bytes.begin(), bytes.end()}))
+      if (gneiss::detail::parse_texture({bytes.begin(), bytes.end()}))
         return 36;
     }
-    texture->usage = static_cast<gneiss::engine::texture_usage>(99);
-    if (gneiss::engine::detail::encode_texture(*texture))
+    texture->usage = static_cast<gneiss::texture_usage>(99);
+    if (gneiss::detail::encode_texture(*texture))
       return 37;
   }
   const auto asset_root = first.generic_string();
@@ -123,15 +123,15 @@ int main() { // NOLINT(bugprone-exception-escape)
   std::uint64_t entity_count = 0;
   constexpr std::string_view scene_uri = "asset://scenes/scene.scene.json";
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
-                                         application) != gneiss::engine::error::success ||
+                                         application) != gneiss::error::success ||
       gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       gneiss::test_support::assign_value(application->native_world()->entity_count(),
-                                         entity_count) != gneiss::engine::error::success ||
+                                         entity_count) != gneiss::error::success ||
       entity_count != 1U ||
       gneiss::test_support::scene_access{*application}->unload(scene) !=
-          gneiss::engine::error::success ||
-      application->shutdown() != gneiss::engine::error::success) {
+          gneiss::error::success ||
+      application->shutdown() != gneiss::error::success) {
     return 6;
   }
 
@@ -150,15 +150,15 @@ int main() { // NOLINT(bugprone-exception-escape)
   scene = gneiss::scene_instance_id{};
   entity_count = 0;
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
-                                         application) != gneiss::engine::error::success ||
+                                         application) != gneiss::error::success ||
       gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       gneiss::test_support::assign_value(application->native_world()->entity_count(),
-                                         entity_count) != gneiss::engine::error::success ||
+                                         entity_count) != gneiss::error::success ||
       entity_count != 3U ||
       gneiss::test_support::scene_access{*application}->unload(scene) !=
-          gneiss::engine::error::success ||
-      application->shutdown() != gneiss::engine::error::success) {
+          gneiss::error::success ||
+      application->shutdown() != gneiss::error::success) {
     return 8;
   }
   const auto pbr = gneiss::tooling::inspect_gltf(std::filesystem::path{GNEISS_TEST_GLTF_ROOT} /
@@ -177,18 +177,18 @@ int main() { // NOLINT(bugprone-exception-escape)
   const auto normal_text = read_file(pbr_output / "textures/image-0-normal.texture.json");
   const auto* normal_begin = reinterpret_cast<const std::byte*>(normal_text.data());
   const auto normal =
-      gneiss::engine::detail::parse_texture({normal_begin, normal_begin + normal_text.size()});
+      gneiss::detail::parse_texture({normal_begin, normal_begin + normal_text.size()});
   if (color_image.empty() || read_file(pbr_output / "textures/image-0-linear.png") != color_image ||
       read_file(pbr_output / "textures/image-0-normal.png") != color_image ||
       read_file(pbr_output / "textures/image-0.texture.json").find("srgb") == std::string::npos ||
       read_file(pbr_output / "textures/image-0-linear.texture.json").find("linear") ==
           std::string::npos ||
-      !normal || normal->usage != gneiss::engine::texture_usage::normal) {
+      !normal || normal->usage != gneiss::texture_usage::normal) {
     return 10;
   }
   const auto material_file = read_file(pbr_output / "materials/material-0.material.json");
   auto decoded_material =
-      gneiss::engine::asset_file::deserialize<gneiss::engine::material_description>(
+      gneiss::asset_file::deserialize<gneiss::material_description>(
           std::as_bytes(std::span{material_file.data(), material_file.size()}));
   if (!decoded_material ||
       decoded_material->texture_uris[1].find("image-0-linear.texture.json") == std::string::npos ||

@@ -20,9 +20,9 @@ public:
   runtime_log(const runtime_log&) = delete;
   runtime_log& operator=(const runtime_log&) = delete;
 
-  void write(std::string_view level, std::string_view stage, gneiss::engine::error operation,
+  void write(std::string_view level, std::string_view stage, gneiss::error operation,
              std::string_view message, std::string_view context = {});
-  void write(const gneiss::engine::logging::record_view& event);
+  void write(const gneiss::logging::record_view& event);
 
   [[nodiscard]] bool is_file_available() const noexcept;
   [[nodiscard]] const std::filesystem::path& path() const noexcept;

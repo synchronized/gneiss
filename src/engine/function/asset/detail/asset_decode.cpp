@@ -10,9 +10,9 @@
 #include <cmath>
 #include <limits>
 
-namespace gneiss::engine {
+namespace gneiss {
 
-using namespace engine::detail;
+using namespace gneiss::detail;
 
 namespace {
 bool invalid_prepared_mesh(const mesh_data& mesh) {
@@ -113,4 +113,4 @@ adopt_material_asset(std::string_view uri, asset_ref<const material_description>
       .uri = std::string(uri), .sources = {}, .content = std::move(material), .bytes = size};
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

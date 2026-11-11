@@ -22,7 +22,7 @@ struct console_panel_state final {
 
   /** 暂停只固定可见记录截止位置，模型仍可继续接收和淘汰日志。 */
   void set_paused(const console_model& model, bool value) noexcept;
-  [[nodiscard]] gneiss::engine::error visible_indices(const console_model& model,
+  [[nodiscard]] gneiss::error visible_indices(const console_model& model,
                                                       std::vector<std::size_t>& output);
 };
 
@@ -32,7 +32,7 @@ struct console_runtime_view final {
   bool started = false;
   int exit_code = 0;
   bool attempted = false;
-  gneiss::engine::error operation = gneiss::engine::error::success;
+  gneiss::error operation = gneiss::error::success;
   std::string_view log_path;
 };
 

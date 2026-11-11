@@ -29,8 +29,8 @@ constexpr std::uint64_t measure_sample_frames = 300U;
 
 struct sample_state {
   gneiss::entity_id camera_node;
-  gneiss::engine::action_id orbit;
-  gneiss::engine::action_id quit;
+  gneiss::action_id orbit;
+  gneiss::action_id quit;
   double angle = 0.0;
   bool measure = false;
   std::uint64_t measured_updates{};
@@ -39,17 +39,17 @@ struct sample_state {
   std::size_t frame_time_count = 0U;
 };
 
-void report_failure(std::string_view stage, gneiss::engine::error result) {
+void report_failure(std::string_view stage, gneiss::error result) {
   std::fprintf(stderr, "稳定运行时样例失败：阶段=%.*s，结果=%d，消息=%.*s\n",
                static_cast<int>(stage.size()), stage.data(), result.code(),
                static_cast<int>(result.message().size()), result.message().data());
 }
 
-gneiss::engine::error update_sample(gneiss::runtime::application& application,
-                                    const gneiss::engine::frame_time& time,
+gneiss::error update_sample(gneiss::runtime::application& application,
+                                    const gneiss::frame_time& time,
                                     void* user_data) noexcept {
   if (user_data == nullptr) {
-    return gneiss::engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
 
   auto* state = static_cast<sample_state*>(user_data);
@@ -64,8 +64,8 @@ gneiss::engine::error update_sample(gneiss::runtime::application& application,
     }
     state->previous_update = current_update;
   }
-  gneiss::engine::action_state orbit{};
-  gneiss::engine::action_state quit{};
+  gneiss::action_state orbit{};
+  gneiss::action_state quit{};
   const auto orbit_result = application.get_action_state(state->orbit, orbit);
   if (orbit_result.failed()) {
     return orbit_result;
@@ -76,7 +76,7 @@ gneiss::engine::error update_sample(gneiss::runtime::application& application,
   }
   if (quit.pressed) {
     application.request_exit();
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
 
   constexpr double nanoseconds_per_second = 1'000'000'000.0;
@@ -86,7 +86,7 @@ gneiss::engine::error update_sample(gneiss::runtime::application& application,
   const auto yaw_half = state->angle * 0.5;
   const auto pitch_half = std::atan2(-height, radius) * 0.5;
 
-  gneiss::engine::math::transform transform;
+  gneiss::math::transform transform;
   transform.translation[0] = static_cast<float>(std::sin(state->angle) * radius);
   transform.translation[1] = static_cast<float>(height);
   transform.translation[2] = static_cast<float>(std::cos(state->angle) * radius);
@@ -116,7 +116,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   constexpr std::string_view title = "Gneiss Stable Runtime Sample";
   constexpr std::string_view scene_uri = "asset://scenes/temple.scene.json";
   constexpr std::string_view input_map_uri = "asset://input/default.input-map.json";
-  const auto camera_uuid = *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000002");
+  const auto camera_uuid = *gneiss::guid::parse("10000000-0000-4000-8000-000000000002");
 
   std::error_code path_error;
   const auto executable = std::filesystem::absolute(executable_path, path_error);
@@ -132,8 +132,8 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   const auto started = clock::now();
   sample_state state;
   state.measure = measure;
-  gneiss::engine::task_scheduler scheduler(
-      {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});
+  gneiss::tasks::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   bool can_update = false;
   std::shared_ptr<gneiss::runtime::application> native_application;
   gneiss::runtime::application_configuration config;
@@ -143,7 +143,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   config.callbacks.update = [&](const auto& time) {
     (void)scheduler.run_ready();
     if (!can_update)
-      return gneiss::engine::error::success;
+      return gneiss::error::success;
     return update_sample(*native_application, time, &state);
   };
   example::scope_exit close{[&] {
@@ -160,21 +160,21 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   if (native_application->attach_task_executor(scheduler).failed() ||
       native_application->begin_action_map(input_map_uri).failed())
     return 2;
-  auto submitted = native_application->assets().load<gneiss::engine::scene>(scene_uri);
+  auto submitted = native_application->assets().load<gneiss::scene>(scene_uri);
   if (!submitted)
     return 2;
   auto scene_request = std::move(*submitted);
   gneiss::scene_instance_id scene{};
   example::scene_activation completion;
   // 启动阶段继续处理窗口事件和文件完成；不调用同步场景加载。
-  while (!scene || native_application->action_map_status() == gneiss::engine::error::not_ready ||
+  while (!scene || native_application->action_map_status() == gneiss::error::not_ready ||
          (completion.visuals && !completion.visuals.ready())) {
     (void)scheduler.run_ready();
     if (native_application->run(1).failed())
       return 2;
     if (!scene) {
       const auto status = scene_request.status();
-      if (status.failed() && status != gneiss::engine::error::not_ready)
+      if (status.failed() && status != gneiss::error::not_ready)
         return 2;
       if (status.ok()) {
         auto content = scene_request.snapshot();
@@ -195,27 +195,27 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   example::scope_exit unload{[&] {
     if (scene) {
       auto borrowed =
-          gneiss::engine::scene_instance::borrow(*native_application->native_world(), scene);
+          gneiss::scene_instance::borrow(*native_application->native_world(), scene);
       if (borrowed)
         (void)borrowed->unload();
     }
   }};
   const auto scene_ready = clock::now();
   auto result = native_application->action_map_status();
-  if (result != gneiss::engine::error::success) {
+  if (result != gneiss::error::success) {
     report_failure("加载输入映射", result);
     return 4;
   }
   result = native_application->find_action("move_horizontal", state.orbit);
-  if (result == gneiss::engine::error::success) {
+  if (result == gneiss::error::success) {
     result = native_application->find_action("quit", state.quit);
   }
-  if (result != gneiss::engine::error::success) {
+  if (result != gneiss::error::success) {
     report_failure("查找输入动作", result);
     return 5;
   }
   auto instance =
-      gneiss::engine::scene_instance::borrow(*native_application->native_world(), scene);
+      gneiss::scene_instance::borrow(*native_application->native_world(), scene);
   if (!instance)
     return 2;
   auto binding =
@@ -223,7 +223,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
         return object.object == camera_uuid && !object.source;
       });
   if (binding == completion.instance.objects.end()) {
-    report_failure("查找 Camera", gneiss::engine::error::not_found);
+    report_failure("查找 Camera", gneiss::error::not_found);
     return 6;
   }
   state.camera_node = binding->entity;
@@ -236,18 +236,18 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
     frame_count = measure_warmup_frames + measure_sample_frames;
   }
   result = native_application->run(frame_count);
-  if (result != gneiss::engine::error::success) {
+  if (result != gneiss::error::success) {
     report_failure("运行主循环", result);
     return 7;
   }
   const auto run_finished = clock::now();
   result = ([&] {
     auto status = instance->unload();
-    if (status == gneiss::engine::error::success)
+    if (status == gneiss::error::success)
       scene = {};
-    return gneiss::engine::error{status};
+    return gneiss::error{status};
   })();
-  if (result != gneiss::engine::error::success) {
+  if (result != gneiss::error::success) {
     report_failure("卸载场景", result);
     return 8;
   }
@@ -261,7 +261,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   const auto application_destroyed = clock::now();
   if (measure) {
     if (state.frame_time_count != measure_sample_frames) {
-      report_failure("采集稳定帧", gneiss::engine::error::internal);
+      report_failure("采集稳定帧", gneiss::error::internal);
       return 9;
     }
     const auto [minimum, maximum] = std::ranges::minmax_element(state.frame_times_ms);
@@ -287,7 +287,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
 } // namespace
 
 int main(int argc, char** argv) {
-  gneiss::engine::install_fatal_handler();
+  gneiss::install_fatal_handler();
   if (argc > 2 || (argc == 2 && std::string_view{argv[1]} != "--smoke" &&
                    std::string_view{argv[1]} != "--measure")) {
     std::fprintf(stderr, "用法：gneiss_stable_runtime_consumer [--smoke|--measure]\n");
@@ -297,6 +297,6 @@ int main(int argc, char** argv) {
     const auto argument = argc == 2 ? std::string_view{argv[1]} : std::string_view{};
     return run_sample(argv[0], argument == "--smoke", argument == "--measure");
   } catch (...) {
-    gneiss::engine::fatal_current_exception();
+    gneiss::fatal_current_exception();
   }
 }

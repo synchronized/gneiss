@@ -6,6 +6,6 @@
 #include <cstdio>
 
 int main() {
-  const auto version = gneiss::engine::library_version();
+  const auto version = gneiss::library_version();
   std::printf("gneiss %u.%u.%u\n", version.major, version.minor, version.patch);
 }

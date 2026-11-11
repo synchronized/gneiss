@@ -27,10 +27,10 @@ public:
   runtime_property_editor(const runtime_property_editor&) = delete;
   runtime_property_editor& operator=(const runtime_property_editor&) = delete;
 
-  [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::world& world,
+  [[nodiscard]] gneiss::error initialize(gneiss::world& world,
                                                  runtime_scene_inspection& inspection,
                                                  std::uint64_t session_id);
-  [[nodiscard]] gneiss::engine::error execute(const ipc_property_write& command,
+  [[nodiscard]] gneiss::error execute(const ipc_property_write& command,
                                               ipc_property_write_result& output);
   void reset() noexcept;
 
@@ -46,7 +46,7 @@ private:
     }
   };
 
-  gneiss::engine::world* world_ = nullptr;
+  gneiss::world* world_ = nullptr;
   runtime_scene_inspection* inspection_ = nullptr;
   std::uint64_t session_id_ = 0U;
   bool initialized_ = false;

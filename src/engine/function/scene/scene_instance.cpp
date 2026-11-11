@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <ranges>
 
-namespace gneiss::engine {
+namespace gneiss {
 error world::validate_scene(scene_instance_id id) const noexcept {
   if (!is_owner_thread())
     return error::invalid_state;

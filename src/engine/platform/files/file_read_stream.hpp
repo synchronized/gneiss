@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/platform/files/file_service.hpp"
-namespace gneiss::engine::files {
+namespace gneiss::files {
 /** 按需读取；已知长度使用范围读，nullopt 使用后端顺序流，不保证文件快照。
  * 所属线程使用和销毁，最多一个在途块，不预读；消费者调用 read_next 才继续读取。
  * 持有服务引用，析构取消观察且不等待；服务仍由宿主分发和关闭。

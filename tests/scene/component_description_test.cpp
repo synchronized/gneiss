@@ -11,7 +11,7 @@
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 #include <string>
-namespace e = gneiss::engine;
+namespace e = gneiss;
 struct reflected_description
     : e::meta::object_type<reflected_description, e::component_description_base> {
   inline static constexpr std::string_view type_name = "reflected_component";
@@ -83,7 +83,7 @@ int main() try {
           return status;
         return e::meta::registration::type<custom_description>()
             .base<e::component_description_base>()
-            .extend(gneiss::engine::serialization::codec<&encode, &decode>)
+            .extend(gneiss::serialization::codec<&encode, &decode>)
             .commit();
       }).failed())
     return 1;
@@ -99,7 +99,7 @@ int main() try {
     return 61;
   // 项目组件只注册字段，不写 codec；Scene/Prefab 的 GUID 分派共用默认表。
   const auto reflected = entry(reflected_description::type_guid, R"({"speed":3})");
-  auto reflected_scene = gneiss::engine::asset_file::deserialize<e::scene_description>(
+  auto reflected_scene = gneiss::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + reflected + "]")));
   if (!reflected_scene ||
       reflected_scene->objects.front().components.get<reflected_description>()->speed != 3)
@@ -108,16 +108,16 @@ int main() try {
   reflected_prefab.uuid = reflected_scene->uuid;
   reflected_prefab.objects = reflected_scene->objects;
   reflected_prefab.root_uuid = reflected_prefab.objects.front().uuid;
-  auto reflected_prefab_bytes = gneiss::engine::asset_file::serialize_bytes(reflected_prefab);
+  auto reflected_prefab_bytes = gneiss::asset_file::serialize_bytes(reflected_prefab);
   if (!reflected_prefab_bytes)
     return 31;
   auto restored_prefab =
-      gneiss::engine::asset_file::deserialize<e::prefab_description>(*reflected_prefab_bytes);
+      gneiss::asset_file::deserialize<e::prefab_description>(*reflected_prefab_bytes);
   if (!restored_prefab ||
       restored_prefab->objects.front().components.get<reflected_description>()->speed != 3)
     return 32;
   const auto custom = entry(custom_description::type_guid, R"({"enabled":true})");
-  auto parsed = gneiss::engine::asset_file::deserialize<e::scene_description>(
+  auto parsed = gneiss::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + custom + "]")));
   if (!parsed || parsed->objects.front().components.size() != 1 ||
       !parsed->objects.front().components.get<custom_description>()->enabled ||
@@ -190,18 +190,18 @@ int main() try {
       property->as_sequence()->resize(2) != e::error::unsupported ||
       !property->as_const().as_sequence())
     return 38;
-  auto collection_bytes = gneiss::engine::serialization::json::encode_bytes(guarded.components);
+  auto collection_bytes = gneiss::serialization::json::encode_bytes(guarded.components);
   if (!collection_bytes ||
-      !gneiss::engine::serialization::json::decode<e::component_descriptions>(*collection_bytes))
+      !gneiss::serialization::json::decode<e::component_descriptions>(*collection_bytes))
     return 41;
   auto original = *guarded.components.begin();
-  auto null_status = gneiss::engine::serialization::json::read_into(*property, bytes("[null]"));
-  auto duplicate_status = gneiss::engine::serialization::json::read_into(
+  auto null_status = gneiss::serialization::json::read_into(*property, bytes("[null]"));
+  auto duplicate_status = gneiss::serialization::json::read_into(
       *property, bytes("[" + custom + "," + custom + "]"));
   if (null_status.has_value() || duplicate_status.has_value() || guarded.components.size() != 1 ||
       *guarded.components.begin() != original)
     return 39;
-  if (gneiss::engine::serialization::json::read_into(*property, bytes("[]")).failed() ||
+  if (gneiss::serialization::json::read_into(*property, bytes("[]")).failed() ||
       !guarded.components.empty() || parsed->objects.front().components.empty())
     return 40;
   auto copy = *parsed;
@@ -221,42 +221,42 @@ int main() try {
     return 3;
   // false 编码省略 enabled，保存不能把原始 true 字段合并回来。
   const auto scene_decodes = decode_calls;
-  auto encoded = gneiss::engine::asset_file::serialize_bytes(copy);
+  auto encoded = gneiss::asset_file::serialize_bytes(copy);
   // 保存只调用编码器，不能通过反向解码产生新的组件对象或副作用。
   if (decode_calls != scene_decodes)
     return 15;
   auto roundtrip =
-      encoded ? gneiss::engine::asset_file::deserialize<e::scene_description>(*encoded)
+      encoded ? gneiss::asset_file::deserialize<e::scene_description>(*encoded)
               : e::result<e::scene_description, e::serialization::diagnostic>{encoded.error()};
   if (!roundtrip || roundtrip->objects.front().components.get<custom_description>()->enabled)
     return 4;
-  auto unknown = gneiss::engine::asset_file::deserialize<e::scene_description>(
+  auto unknown = gneiss::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + entry(e::guid::from_bytes({99}), "{}") + "]")));
   if (unknown || unknown.error().error != e::error::not_found ||
       unknown.error().path.find("/objects/0/components/0") != 0)
     return 5;
-  auto duplicate = gneiss::engine::asset_file::deserialize<e::scene_description>(
+  auto duplicate = gneiss::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + custom + "," + custom + "]")));
   if (duplicate || duplicate.error().error != e::error::invalid_argument)
     return 6;
-  auto invalid = gneiss::engine::asset_file::deserialize<e::scene_description>(
+  auto invalid = gneiss::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + entry(custom_description::type_guid, R"({"enabled":null})") + "]")));
   if (invalid || invalid.error().path != "/objects/0/components/0/$content/enabled")
     return 7;
   auto null_component =
-      gneiss::engine::asset_file::deserialize<e::scene_description>(bytes(scene("[null]")));
+      gneiss::asset_file::deserialize<e::scene_description>(bytes(scene("[null]")));
   if (null_component || null_component.error().path != "/objects/0/components")
     return 33;
-  auto null_after_valid = gneiss::engine::asset_file::deserialize<e::scene_description>(
+  auto null_after_valid = gneiss::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + custom + ",null]")));
   if (null_after_valid || null_after_valid.error().path != "/objects/0/components")
     return 34;
   auto extra_envelope = custom;
   extra_envelope.insert(extra_envelope.find("\"$type_guid\""), "\"extra\":true,");
-  if (gneiss::engine::asset_file::deserialize<e::scene_description>(
+  if (gneiss::asset_file::deserialize<e::scene_description>(
           bytes(scene("[" + extra_envelope + "]"))))
     return 35;
-  if (gneiss::engine::asset_file::deserialize<e::scene_description>(bytes(scene("{}"))))
+  if (gneiss::asset_file::deserialize<e::scene_description>(bytes(scene("{}"))))
     return 8;
   auto owner = e::create_native();
   if (!owner)
@@ -275,7 +275,7 @@ int main() try {
   if (unsupported || unsupported.error() != e::error::unsupported)
     return 10;
   // 未发布的旧扁平 Camera 格式不再接受。
-  auto old_camera = gneiss::engine::serialization::json::decode<e::scene_description>(bytes(scene(
+  auto old_camera = gneiss::serialization::json::decode<e::scene_description>(bytes(scene(
       "[" +
       entry(
           e::camera_description::type_guid,
@@ -283,7 +283,7 @@ int main() try {
       "]")));
   if (old_camera || old_camera.error().path != "/objects/0/components/0/$content/settings")
     return 21;
-  auto bad_camera = gneiss::engine::asset_file::deserialize<e::scene_description>(
+  auto bad_camera = gneiss::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" +
                   entry(e::camera_description::type_guid,
                         R"({"settings":{"fov":1,"near":"bad","far":100},"is_primary":false})") +
@@ -293,7 +293,7 @@ int main() try {
   const auto camera =
       entry(e::camera_description::type_guid,
             R"({"settings": {"fov": 1, "near": 0.1, "far": 100},"is_primary":false})");
-  auto supported = gneiss::engine::asset_file::deserialize<e::scene_description>(
+  auto supported = gneiss::asset_file::deserialize<e::scene_description>(
       bytes(scene("[" + camera + "]")));
   if (!supported)
     return 11;
@@ -323,11 +323,11 @@ int main() try {
   if (rejected_camera_identity != e::error::invalid_argument ||
       *components.find(e::camera_description::type_guid) != retained_camera)
     return 64;
-  auto camera_bytes = gneiss::engine::asset_file::serialize_bytes(*supported);
+  auto camera_bytes = gneiss::asset_file::serialize_bytes(*supported);
   if (!camera_bytes)
     return 18;
   auto camera_roundtrip =
-      gneiss::engine::asset_file::deserialize<e::scene_description>(*camera_bytes);
+      gneiss::asset_file::deserialize<e::scene_description>(*camera_bytes);
   if (!camera_roundtrip)
     return 19;
   const auto* restored = camera_roundtrip->objects.front().components.get<e::camera_description>();
@@ -345,15 +345,15 @@ int main() try {
   prefab_text.replace(prefab_text.find("scene_uuid"), 10, "prefab_uuid");
   prefab_text.replace(prefab_text.find("\"version\":5"), 11, "\"version\":1");
   prefab_text.insert(1, R"("root_uuid":"00000000-0000-4000-8000-000000000002",)");
-  auto prefab = gneiss::engine::asset_file::deserialize<e::prefab_description>(bytes(prefab_text));
+  auto prefab = gneiss::asset_file::deserialize<e::prefab_description>(bytes(prefab_text));
   if (!prefab || prefab->objects.front().components.size() != 2)
     return 13;
   const auto prefab_decodes = decode_calls;
-  auto prefab_bytes = gneiss::engine::asset_file::serialize_bytes(*prefab);
+  auto prefab_bytes = gneiss::asset_file::serialize_bytes(*prefab);
   if (decode_calls != prefab_decodes)
     return 16;
   if (!prefab_bytes ||
-      !gneiss::engine::asset_file::deserialize<e::prefab_description>(*prefab_bytes))
+      !gneiss::asset_file::deserialize<e::prefab_description>(*prefab_bytes))
     return 14;
   return 0;
 } catch (...) {

@@ -5,7 +5,7 @@
 #include "engine/core/serialization/diagnostic.hpp"
 #include <functional>
 #include <optional>
-namespace gneiss::engine::serialization {
+namespace gneiss::serialization {
 class read_context;
 class write_context;
 class reader;
@@ -20,7 +20,7 @@ struct reference_policy {
   result<void*, diagnostic> (*encode)(const write_context&, writer&, const void*){};
   result<ref<void>, diagnostic> (*decode)(const read_context&, reader&, const void*){};
   bool polymorphic = false;
-  result<asset_reference_value> (*capture)(engine::guid, const void*){};
+  result<asset_reference_value> (*capture)(gneiss::guid, const void*){};
 };
 /** 字段持久化规则；不改变 Meta 的内存访问能力。 */
 struct field_policy {

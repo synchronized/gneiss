@@ -20,7 +20,7 @@
 #include <string_view>
 
 using namespace gneiss;
-namespace native = gneiss::engine;
+namespace native = gneiss;
 
 namespace {
 
@@ -188,17 +188,17 @@ int main() {
           .set_local_transform(plain_transform)
           .failed() ||
       world.find(camera_entity)
-          .add_component<gneiss::engine::camera_component>(
-              *gneiss::engine::camera_component::create(camera, true))
+          .add_component<gneiss::camera_component>(
+              *gneiss::camera_component::create(camera, true))
           .failed() ||
-      gneiss::engine::set_active_camera(world, camera_entity).failed() ||
+      gneiss::set_active_camera(world, camera_entity).failed() ||
       world.find(mesh_entity)
-          .add_component<gneiss::engine::mesh_renderer_component>(
-              gneiss::engine::mesh_renderer_component{mesh_renderer})
+          .add_component<gneiss::mesh_renderer_component>(
+              gneiss::mesh_renderer_component{mesh_renderer})
           .failed() ||
       world.find(plain_mesh_entity)
-          .add_component<gneiss::engine::mesh_renderer_component>(
-              gneiss::engine::mesh_renderer_component{plain_mesh_renderer})
+          .add_component<gneiss::mesh_renderer_component>(
+              gneiss::mesh_renderer_component{plain_mesh_renderer})
           .failed()) {
     std::fprintf(stderr, "测试场景构造失败\n");
     return 3;
@@ -216,9 +216,9 @@ int main() {
   replacement_mesh = resource_handle(mesh_owner);
   mesh_renderer.mesh = mesh_owner;
   plain_mesh_renderer.mesh = mesh_owner;
-  world.find(mesh_entity).try_component<gneiss::engine::mesh_renderer_component>()->value =
+  world.find(mesh_entity).try_component<gneiss::mesh_renderer_component>()->value =
       mesh_renderer;
-  world.find(plain_mesh_entity).try_component<gneiss::engine::mesh_renderer_component>()->value =
+  world.find(plain_mesh_entity).try_component<gneiss::mesh_renderer_component>()->value =
       plain_mesh_renderer;
   run_result = application->run(1);
   if (run_result.failed()) {

@@ -3,7 +3,7 @@
 #include "engine/core/value_edit.hpp"
 #include <algorithm>
 #include <functional>
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 using transform = std::function<result<value>(const value&)>;
 result<value> replace_path(const value& root, std::span<const meta::property_step> path,

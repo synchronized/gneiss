@@ -4,7 +4,7 @@
 #include <array>
 #include <string_view>
 int main() {
-  using gneiss::engine::utf8::is_valid;
+  using gneiss::utf8::is_valid;
   using namespace std::string_view_literals;
   const std::array valid{""sv,
                          "ASCII"sv,

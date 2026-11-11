@@ -8,7 +8,7 @@
 #include <cstdio>
 #include <deque>
 #include <map>
-namespace e = gneiss::engine;
+namespace e = gneiss;
 namespace m = e::meta;
 namespace s = e::serialization;
 #define CHECK(x)                                                                                   \
@@ -41,7 +41,7 @@ public:
   node array() override { return make(item::kind::array); }
   node null() override { return make(item::kind::null); }
   node string(std::string_view text) override { return *scalar(e::value{std::string{text}}); }
-  e::result<node, gneiss::engine::serialization::diagnostic> scalar(const e::value& v) override {
+  e::result<node, gneiss::serialization::diagnostic> scalar(const e::value& v) override {
     auto n = make(item::kind::scalar);
     as(n)->data = v;
     return n;
@@ -99,10 +99,10 @@ public:
     const auto& [name, value] = as(c.owner)->members[c.index++];
     return {name, value};
   }
-  e::result<e::value, gneiss::engine::serialization::diagnostic>
+  e::result<e::value, gneiss::serialization::diagnostic>
   scalar(node n, e::value_kind kind) const override {
     if (!n || as(n)->data.kind() != kind)
-      return gneiss::engine::serialization::diagnostic{.error = e::error::invalid_argument};
+      return gneiss::serialization::diagnostic{.error = e::error::invalid_argument};
     return as(n)->data;
   }
 };
@@ -117,7 +117,7 @@ struct derived : m::object_type<derived, base> {
   e::ref<base> next;
 };
 using choice = std::variant<std::int64_t, std::string>;
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 template <> struct variant_case_traits<choice> {
   static constexpr std::array<std::string_view, 2> names{"number", "text"};
 };
@@ -138,7 +138,7 @@ int main() {
   auto r = m::create_registry();
   CHECK(r);
   CHECK(m::registration::type<base>(*r)
-            .metadata(gneiss::engine::serialization::reference_policy{.polymorphic = true})
+            .metadata(gneiss::serialization::reference_policy{.polymorphic = true})
             .commit()
             .ok());
   CHECK(m::registration::type<derived>(*r)
@@ -153,11 +153,11 @@ int main() {
             .property<&record::label>(m::property_id{3}, "label")
             .property<&record::object>(m::property_id{4}, "object")
             .property<&record::required>(m::property_id{5}, "required")(
-                gneiss::engine::serialization::field_policy{.required = true})
-            .metadata(gneiss::engine::serialization::object_policy{.reject_unknown_fields = true})
+                gneiss::serialization::field_policy{.required = true})
+            .metadata(gneiss::serialization::object_policy{.reject_unknown_fields = true})
             .commit()
             .ok());
-  CHECK(gneiss::engine::serialization::register_builtin_types(*r).ok());
+  CHECK(gneiss::serialization::register_builtin_types(*r).ok());
   CHECK(m::freeze(*r).ok());
   s::write_context ctx{*r};
   s::read_context read_ctx{*r};

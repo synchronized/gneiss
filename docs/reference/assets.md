@@ -49,12 +49,12 @@ asset://纹理/石头.png
 ```
 
 URI 使用 UTF-8 和正斜杠，scheme 区分大小写。空路径、空路径段、`.`、`..`、控制字符、反斜杠、
-冒号、查询、片段和百分号编码均返回 `engine::error::invalid_argument`。原生校验函数不访问文件系统：
+冒号、查询、片段和百分号编码均返回 `gneiss::error::invalid_argument`。原生校验函数不访问文件系统：
 
 ```cpp
 #include "engine/resource/asset_uri.hpp"
 
-auto result = gneiss::engine::validate_uri(uri);
+auto result = gneiss::validate_uri(uri);
 ```
 
 ## 文件服务与资产根目录
@@ -67,7 +67,7 @@ HTTP(S) 地址使用 Fetch URL 基址。借用目录不会在后端销毁时被�
 
 ## 缓存与生命周期
 
-内部资源强引用统一使用 `engine::asset_ref<T>`，底层共享标准智能指针控制块。
+内部资源强引用统一使用 `gneiss::asset_ref<T>`，底层共享标准智能指针控制块。
 复制引用保活同一拥有者，移动转移引用，`reset()` 放弃当前引用；最后一个强引用释放时才析构
 资源或执行原控制块删除器。引用不会自行加载资源，也不表示 GPU 内容已就绪。
 
@@ -94,7 +94,7 @@ Render 私有表持有渲染所需内容，Loader 与宿主通过 RID 接口操�
 加载参数包含完整纹理 profile；reload 不参与身份。运行资源使用管理器绑定的 profile，
 调用方传入不匹配的显式 profile 会被拒绝。自定义资产与内置资产共享索引，同 URI 的不同资产类型独立。
 管理器只暴露 `cached_count()` 诊断计数，不暴露缓存修改入口。
-类型键使用 `engine::type_id`，由同一 Engine 按规范 C++ 类型名集中分配，
+类型键使用 `gneiss::type_id`，由同一 Engine 按规范 C++ 类型名集中分配，
 只在当前运行期有效，不写入资产文件或公共 ABI；约束见 [Core 身份类型](core.md#内部基础身份类型)。
 通用请求表只保留请求顺序和在途观察状态，不保存另一份当前资源。
 通用异步加载默认复用成功缓存；显式 `reload=true` 才重新读取。
@@ -253,7 +253,7 @@ Application 通过 `assets()` 暴露统一入口，分发文件完成后推进�
 内部加载文件位于 `detail/`，不向宿主开放。资源数据及格式编解码仍位于 `engine/resource`。
 
 `render_resource.hpp` 声明 `render_resource_source` 及混合资源引用辅助函数；
-资产批量进度和回执位于 `engine/function/asset/asset_batch_types.hpp`，属于 `gneiss::engine`。render_resource_kind 当前只枚举 Mesh、Material、Texture，
+资产批量进度和回执位于 `engine/function/asset/asset_batch_types.hpp`，属于 `gneiss`。render_resource_kind 当前只枚举 Mesh、Material、Texture，
 自定义资产类型由 load<T> 的 C++ 类型确定。
 `detail/render_load_operation.cpp` 保存服务私有的单资源请求状态，`asset_decode` 只解码已有字节。
 `detail::asset_construction` 定义服务私有实现；创建、RID 包装、延迟销毁和内容采用均属于服务。

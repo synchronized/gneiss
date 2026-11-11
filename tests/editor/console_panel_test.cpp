@@ -42,7 +42,7 @@ bool verify_visible_state() {
           .append_event(
               next_session,
               {
-                  .severity = static_cast<std::uint32_t>(gneiss::engine::logging::level::error),
+                  .severity = static_cast<std::uint32_t>(gneiss::logging::level::error),
                   .source = "game",
                   .category = "asset",
                   .message = "failed",
@@ -94,7 +94,7 @@ int main() try {
                      {
                          .running = true,
                          .attempted = true,
-                         .operation = gneiss::engine::error::io,
+                         .operation = gneiss::error::io,
                          .log_path = "borrowed/runtime.log",
                      },
                      actions);

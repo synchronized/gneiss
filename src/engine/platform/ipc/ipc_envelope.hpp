@@ -11,7 +11,7 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 inline constexpr std::uint16_t ipc_v2_protocol_major = 2U;
 inline constexpr std::uint16_t ipc_v2_protocol_minor = 0U;
@@ -68,6 +68,6 @@ private:
   bool has_failed_ = false;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

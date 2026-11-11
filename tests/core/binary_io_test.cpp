@@ -8,7 +8,7 @@
 #include <limits>
 
 int main() {
-  using namespace gneiss::engine;
+  using namespace gneiss;
   std::vector<std::byte> bytes;
   binary_writer writer{bytes};
   writer.write_u16_le(0x1234U);

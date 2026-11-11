@@ -5,5 +5,5 @@
 
 #include <type_traits>
 
-static_assert(std::is_nothrow_copy_constructible_v<gneiss::engine::input_event>);
-static_assert(std::is_trivially_copyable_v<gneiss::engine::input_event>);
+static_assert(std::is_nothrow_copy_constructible_v<gneiss::input_event>);
+static_assert(std::is_trivially_copyable_v<gneiss::input_event>);

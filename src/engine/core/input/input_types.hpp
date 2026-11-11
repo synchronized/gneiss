@@ -6,7 +6,7 @@
 #include <array>
 #include <cstdint>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 /** 物理键采用 USB HID 编号；修饰键与指针按钮采用位集合。 */
 inline constexpr std::uint32_t modifier_left_alt_bit = (1U << 4U);
@@ -120,4 +120,4 @@ struct pointer_state {
   float x{}, y{};
   bool is_inside{};
 };
-} // namespace gneiss::engine
+} // namespace gneiss

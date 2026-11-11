@@ -11,7 +11,7 @@
 #include "engine/core/serialization/policy.hpp"
 #include <algorithm>
 #include <unordered_set>
-namespace gneiss::engine::serialization {
+namespace gneiss::serialization {
 namespace {
 using namespace meta;
 // 自定义 codec 的派生对象不能仅因继承身份字段就被当作完整字段快照。
@@ -28,20 +28,20 @@ struct capture_state {
   const write_context& ctx;
   std::unordered_set<const void*> active;
   diagnostic failure;
-  result<engine::value> read(const const_instance& source, std::size_t depth,
+  result<gneiss::value> read(const const_instance& source, std::size_t depth,
                              const reference_policy* override = nullptr) {
     auto result = read_impl(source, depth, override);
     if (!result && failure.error.ok())
       failure = {.path = std::string(ctx.property_path()), .error = result.error()};
     return result;
   }
-  result<engine::value> read_impl(const const_instance& source, std::size_t depth,
+  result<gneiss::value> read_impl(const const_instance& source, std::size_t depth,
                                   const reference_policy* override) {
     if (depth > ctx.maximum_depth())
       return error::invalid_argument;
     switch (source.kind()) {
     case type_kind::empty:
-      return engine::value{};
+      return gneiss::value{};
     case type_kind::scalar:
       return source.read_value();
     case type_kind::object: {
@@ -71,7 +71,7 @@ struct capture_state {
         record.properties.push_back({field.id().get(), std::move(*item)});
       }
       std::ranges::sort(record.properties, {}, &value_property::id);
-      return engine::value{record_value{record}};
+      return gneiss::value{record_value{record}};
     }
     case type_kind::sequence: {
       auto view = source.as_sequence();
@@ -100,7 +100,7 @@ struct capture_state {
           data.identities.push_back(*id);
         }
       }
-      return engine::value{sequence_value{data}};
+      return gneiss::value{sequence_value{data}};
     }
     case type_kind::associative: {
       auto view = source.as_associative();
@@ -119,9 +119,9 @@ struct capture_state {
         auto item = read(*child, depth + 1);
         if (!item)
           return item.error();
-        data.entries.push_back({engine::value{key}, std::move(*item)});
+        data.entries.push_back({gneiss::value{key}, std::move(*item)});
       }
-      return engine::value{map_value{data}};
+      return gneiss::value{map_value{data}};
     }
     case type_kind::optional: {
       auto view = source.as_optional();
@@ -140,7 +140,7 @@ struct capture_state {
           return item.error();
         data.content = std::move(*item);
       }
-      return engine::value{optional_value{data}};
+      return gneiss::value{optional_value{data}};
     }
     case type_kind::variant: {
       auto view = source.as_variant();
@@ -157,7 +157,7 @@ struct capture_state {
       auto item = read(*child, depth + 1);
       if (!item)
         return item.error();
-      return engine::value{
+      return gneiss::value{
           variant_value{variant_value_data{std::string(view->names()[*index]), std::move(*item)}}};
     }
     case type_kind::reference: {
@@ -171,7 +171,7 @@ struct capture_state {
       if (!present)
         return present.error();
       if (!*present)
-        return engine::value{};
+        return gneiss::value{};
       auto target_type = source.type().element_type();
       if (!target_type)
         return error::unsupported;
@@ -187,8 +187,8 @@ struct capture_state {
         if (!address)
           return address.error().error;
         auto ref = binding->capture(target_type.guid(), *address);
-        return ref ? result<engine::value>{engine::value{*ref}}
-                   : result<engine::value>{ref.error()};
+        return ref ? result<gneiss::value>{gneiss::value{*ref}}
+                   : result<gneiss::value>{ref.error()};
       }
       // 自定义外部引用不能静默按内嵌对象复制。
       if (binding->encode || binding->decode)
@@ -203,7 +203,7 @@ struct capture_state {
         ~guard() { active.erase(pointer); }
       } cleanup{active, owner->get()};
       auto child = view->get();
-      return child ? read(*child, depth + 1) : result<engine::value>{child.error()};
+      return child ? read(*child, depth + 1) : result<gneiss::value>{child.error()};
     }
     default:
       return error::unsupported;
@@ -213,14 +213,14 @@ struct capture_state {
 struct restore_state {
   const read_context& ctx;
   diagnostic failure;
-  error write(const instance& target, const engine::value& data, std::size_t depth,
+  error write(const instance& target, const gneiss::value& data, std::size_t depth,
               bool sequence_candidate = false, const reference_policy* override = nullptr) {
     auto status = write_impl(target, data, depth, sequence_candidate, override);
     if (status.failed() && failure.error.ok())
       failure = {.path = std::string(ctx.property_path()), .error = status};
     return status;
   }
-  error write_impl(const instance& target, const engine::value& data, std::size_t depth,
+  error write_impl(const instance& target, const gneiss::value& data, std::size_t depth,
                    bool sequence_candidate, const reference_policy* override) {
     if (depth > ctx.maximum_depth())
       return error::invalid_argument;
@@ -416,7 +416,7 @@ struct restore_state {
         return error::invalid_argument;
       auto type = find_type(registry, record->get().type);
       if (!type)
-        return gneiss::engine::error{gneiss::engine::error::not_found};
+        return gneiss::error{gneiss::error::not_found};
       auto ops = find_object_ops(registry, type.id());
       if (!ops || !ops->construct)
         return error::unsupported;
@@ -448,7 +448,7 @@ struct restore_state {
   }
 };
 }
-result<engine::value, diagnostic> capture_value(const write_context& ctx,
+result<gneiss::value, diagnostic> capture_value(const write_context& ctx,
                                                 const meta::const_instance& source) {
   detail::operation_scope operation{ctx};
   auto registry = ctx.registry();
@@ -466,7 +466,7 @@ result<engine::value, diagnostic> capture_value(const write_context& ctx,
   return std::move(*captured);
 }
 diagnostic apply_value(const read_context& ctx, const meta::instance& target,
-                       const engine::value& data) {
+                       const gneiss::value& data) {
   detail::operation_scope operation{ctx};
   auto registry = ctx.registry();
   if (!registry)
@@ -480,11 +480,11 @@ diagnostic apply_value(const read_context& ctx, const meta::instance& target,
   status = state.write(target, data, 0);
   return status.failed() ? state.failure : diagnostic{};
 }
-result<engine::value, diagnostic> capture_value(const meta::const_instance& source) {
+result<gneiss::value, diagnostic> capture_value(const meta::const_instance& source) {
   write_context ctx{source.registry()};
   return capture_value(ctx, source);
 }
-diagnostic apply_value(const meta::instance& target, const engine::value& data) {
+diagnostic apply_value(const meta::instance& target, const gneiss::value& data) {
   read_context ctx{target.registry()};
   return apply_value(ctx, target, data);
 }

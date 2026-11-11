@@ -12,7 +12,7 @@ namespace gneiss::host {
 using editor_project = gneiss::host::project_description;
 
 /** 从工程根目录中加载并校验固定名称的 gneiss.project.json。 */
-[[nodiscard]] inline gneiss::engine::error
+[[nodiscard]] inline gneiss::error
 load_editor_project(const std::filesystem::path& project_root, editor_project& output) {
   return gneiss::host::load_project_description(project_root, output);
 }

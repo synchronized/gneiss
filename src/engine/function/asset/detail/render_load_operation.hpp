@@ -6,7 +6,7 @@
 #include "engine/resource/texture/texture_data.hpp"
 #include "load_operation.hpp"
 #include "reference_dependency.hpp"
-namespace gneiss::engine {
+namespace gneiss {
 class asset_manager;
 namespace detail {
 struct asset_construction;
@@ -19,10 +19,10 @@ struct render_load_operation final : load_operation {
                asset_request<material_description>>
       cpu;
   asset_ref<const material_description> description;
-  std::array<ref<const engine::texture>, 5> texture_references;
-  std::array<std::shared_ptr<reference_dependency<engine::texture>>, 5> texture_dependencies;
+  std::array<ref<const gneiss::texture>, 5> texture_references;
+  std::array<std::shared_ptr<reference_dependency<gneiss::texture>>, 5> texture_dependencies;
   std::vector<std::shared_ptr<asset_dependency>> dependencies;
 };
 
 } // namespace detail
-} // namespace gneiss::engine
+} // namespace gneiss

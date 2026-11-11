@@ -19,14 +19,14 @@ int main() try {
   using namespace gneiss;
   using namespace gneiss::editor;
   std::shared_ptr<gneiss::runtime::application> app;
-  gneiss::engine::world* world_handle = nullptr;
+  gneiss::world* world_handle = nullptr;
   scene_edit_session session;
   editor_command_history history;
   transform_gizmo_drag drag;
   entity_id first;
   entity_id second;
   gneiss::runtime::application_configuration desc;
-  if (gneiss::engine::error{
+  if (gneiss::error{
           gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)}
           .failed() ||
       (world_handle = app->native_world()) == nullptr ||
@@ -36,8 +36,8 @@ int main() try {
     return 1;
   }
   bool wait_release = false;
-  gneiss::engine::error error = gneiss::engine::error::success;
-  gneiss::engine::math::transform camera = {};
+  gneiss::error error = gneiss::error::success;
+  gneiss::math::transform camera = {};
   camera.translation[2] = 5.0F;
   const transform_gizmo_context context{
       .session = session,
@@ -73,7 +73,7 @@ int main() try {
     ImGui::DestroyContext();
     return 2;
   }
-  gneiss::engine::math::transform moved = {};
+  gneiss::math::transform moved = {};
   moved.translation[0] = 2.0F;
   gizmo_matrix matrix{};
   if (transform_to_gizmo_matrix(moved, matrix).failed() || drag.begin(session).failed() ||
@@ -87,7 +87,7 @@ int main() try {
     ImGui::DestroyContext();
     return 4;
   }
-  gneiss::engine::math::transform actual = {};
+  gneiss::math::transform actual = {};
   if (session.get_world_transform(session.find_node(first_uuid)->node, actual).failed() ||
       std::abs(actual.translation[0]) > 0.0001F ||
       session.select(session.find_node(first_uuid)->node).failed() ||

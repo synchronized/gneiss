@@ -23,14 +23,14 @@ enum class console_entry_kind : std::uint8_t {
 
 /** 控制台持有的日志值；不含传输版本或协议对象，字符串由该值拥有。 */
 struct console_event final {
-  std::uint32_t severity = static_cast<std::uint32_t>(gneiss::engine::logging::level::info);
+  std::uint32_t severity = static_cast<std::uint32_t>(gneiss::logging::level::info);
   std::uint64_t sequence = 0U;
   std::uint64_t timestamp_ns = 0U;
   std::uint64_t thread_id = 0U;
   std::string source;
   std::string category;
   std::string message;
-  gneiss::engine::error operation = gneiss::engine::error::success;
+  gneiss::error operation = gneiss::error::success;
 };
 
 struct console_entry final {
@@ -58,8 +58,8 @@ public:
 
   /** 开始新 Runtime 会话；已有记录保留原会话标识。 */
   [[nodiscard]] std::uint64_t begin_session() noexcept;
-  [[nodiscard]] gneiss::engine::error append_event(std::uint64_t session_id, console_event event);
-  [[nodiscard]] gneiss::engine::error append_raw(std::uint64_t session_id, std::string_view text,
+  [[nodiscard]] gneiss::error append_event(std::uint64_t session_id, console_event event);
+  [[nodiscard]] gneiss::error append_raw(std::uint64_t session_id, std::string_view text,
                                                  bool was_truncated = false);
   void clear() noexcept;
 
@@ -68,7 +68,7 @@ public:
   [[nodiscard]] const std::deque<console_entry>& entries() const noexcept;
   [[nodiscard]] bool matches(const console_entry& entry,
                              const console_filter& filter) const noexcept;
-  [[nodiscard]] gneiss::engine::error visible_indices(const console_filter& filter,
+  [[nodiscard]] gneiss::error visible_indices(const console_filter& filter,
                                                       std::vector<std::size_t>& output) const;
 
 private:

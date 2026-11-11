@@ -6,7 +6,7 @@
 #include "engine/function/render/render_service.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
 #include <optional>
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 namespace {
 struct texture_loader final : asset_loader {
   texture_prepare_profile profile;
@@ -46,7 +46,7 @@ std::shared_ptr<asset_loader> make_texture_loader(std::string uri,
 }
 // 所属线程采用内容；工作线程只调用上方的字节解码入口。
 error asset_construction::adopt(asset_manager& assets, std::shared_ptr<const texture_data> content,
-                                const ref<const engine::texture>& target,
+                                const ref<const gneiss::texture>& target,
                                 std::span<const asset_read_record> sources) {
   if (!assets.impl_ || assets.stop_requested())
     return error::invalid_state;

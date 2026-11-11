@@ -20,49 +20,49 @@ int run_host_tests() {
           .failed()) {
     return 20;
   }
-  gneiss::engine::view_camera view;
-  if (application->set_view_camera(&view) != gneiss::engine::error::success) {
+  gneiss::view_camera view;
+  if (application->set_view_camera(&view) != gneiss::error::success) {
     return 21;
   }
   auto& owner = *application->native_world();
-  auto extracted = gneiss::engine::extract_render_snapshot(owner, 800, 600, &view);
+  auto extracted = gneiss::extract_render_snapshot(owner, 800, 600, &view);
   if (!extracted || !extracted->has_camera || extracted->camera.viewport_width != 800 ||
-      gneiss::engine::extract_render_snapshot(owner, 0, 600).error() !=
-          gneiss::engine::error::invalid_argument)
+      gneiss::extract_render_snapshot(owner, 0, 600).error() !=
+          gneiss::error::invalid_argument)
     return 24;
-  gneiss::engine::error extraction_error;
+  gneiss::error extraction_error;
   std::thread extraction_worker(
-      [&] { extraction_error = gneiss::engine::extract_render_snapshot(owner, 800, 600).error(); });
+      [&] { extraction_error = gneiss::extract_render_snapshot(owner, 800, 600).error(); });
   extraction_worker.join();
-  if (extraction_error != gneiss::engine::error::invalid_state)
+  if (extraction_error != gneiss::error::invalid_state)
     return 25;
   view.camera.near = -1.0F;
-  if (application->set_view_camera(&view) != gneiss::engine::error::invalid_argument) {
+  if (application->set_view_camera(&view) != gneiss::error::invalid_argument) {
     return 22;
   }
-  gneiss::engine::error foreign_result = gneiss::engine::error::success;
+  gneiss::error foreign_result = gneiss::error::success;
   std::thread foreign([&] { foreign_result = application->set_view_camera(nullptr); });
   foreign.join();
-  if (foreign_result != gneiss::engine::error::invalid_state ||
-      application->set_view_camera(nullptr) != gneiss::engine::error::success ||
-      application->shutdown() != gneiss::engine::error::success ||
-      application->set_view_camera(nullptr) != gneiss::engine::error::invalid_state) {
+  if (foreign_result != gneiss::error::invalid_state ||
+      application->set_view_camera(nullptr) != gneiss::error::success ||
+      application->shutdown() != gneiss::error::success ||
+      application->set_view_camera(nullptr) != gneiss::error::invalid_state) {
     return 23;
   }
   return 0;
 }
 
 int run_tests() {
-  gneiss::engine::render_service resources;
-  gneiss::engine::detail::asset_construction resources_factory{resources};
-  gneiss::engine::ref<const gneiss::engine::mesh> mesh_ref;
-  gneiss::engine::ref<const gneiss::engine::material> material_ref;
+  gneiss::render_service resources;
+  gneiss::detail::asset_construction resources_factory{resources};
+  gneiss::ref<const gneiss::mesh> mesh_ref;
+  gneiss::ref<const gneiss::material> material_ref;
   if (gneiss::test_support::take_value(resources_factory.reserve_mesh(), mesh_ref).failed() ||
       gneiss::test_support::take_value(resources_factory.reserve_material(), material_ref).failed())
     return 30;
   const auto mesh_id = resource_handle(mesh_ref);
   const auto material_id = resource_handle(material_ref);
-  using namespace gneiss::engine;
+  using namespace gneiss;
   if (initialize_meta().failed())
     return 1;
   auto owner = create_native();
@@ -83,26 +83,26 @@ int run_tests() {
   mesh_transform.translation.x = 2;
   if (mesh_object->set_local_transform(mesh_transform).failed() ||
       camera_object->add_component<camera_component>(*camera_component::create(camera)).failed() ||
-      gneiss::engine::set_active_camera(world, camera_entity).failed() ||
+      gneiss::set_active_camera(world, camera_entity).failed() ||
       mesh_object->add_component<mesh_renderer_component>(mesh_renderer_component{renderer})
           .failed())
     return 2;
   auto active_camera = [&] {
     gneiss::entity_id id;
-    (void)gneiss::engine::get_active_camera(world, id);
+    (void)gneiss::get_active_camera(world, id);
     return id;
   };
   auto snapshot = extract_render_snapshot(world, 1280U, 720U);
   if (!snapshot || !snapshot->has_camera || snapshot->instances.size() != 1U ||
       snapshot->camera.viewport_width != 1280U || snapshot->camera.viewport_height != 720U ||
-      gneiss::engine::math::matrix_elements(snapshot->camera.view)[15] != 1.0F ||
-      gneiss::engine::math::matrix_elements(snapshot->camera.projection)[0] == 0.0F ||
+      gneiss::math::matrix_elements(snapshot->camera.view)[15] != 1.0F ||
+      gneiss::math::matrix_elements(snapshot->camera.projection)[0] == 0.0F ||
       snapshot->instances.front().mesh != renderer.mesh ||
       snapshot->instances.front().material != renderer.material ||
       snapshot->instances.front().transform.translation[0] != 2.0F) {
     return 3;
   }
-  gneiss::engine::view_camera editor_view;
+  gneiss::view_camera editor_view;
   editor_view.transform.translation[0] = 17.0F;
   snapshot = extract_render_snapshot(world, 800U, 600U, &editor_view);
   if (!snapshot || !snapshot->has_camera || snapshot->camera.transform.translation[0] != 17.0F ||
@@ -113,7 +113,7 @@ int run_tests() {
   auto invalid_view = editor_view;
   invalid_view.camera.near = -1.0F;
   if (extract_render_snapshot(world, 800U, 600U, &invalid_view).error() !=
-          gneiss::engine::error::invalid_argument ||
+          gneiss::error::invalid_argument ||
       snapshot->camera.transform.translation[0] != 17.0F) {
     return 7;
   }

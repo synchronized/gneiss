@@ -8,19 +8,19 @@
 
 namespace gneiss::host {
 
-gneiss::engine::error runtime_command_context::send_state(ipc_control_state state) {
-  gneiss::engine::ipc_envelope envelope;
+gneiss::error runtime_command_context::send_state(ipc_control_state state) {
+  gneiss::ipc_envelope envelope;
   const auto operation = make_state_event(state, envelope);
-  return operation == gneiss::engine::error::success ? send(std::move(envelope)) : operation;
+  return operation == gneiss::error::success ? send(std::move(envelope)) : operation;
 }
 
-gneiss::engine::error runtime_command_context::send_protocol_error(gneiss::engine::error operation,
+gneiss::error runtime_command_context::send_protocol_error(gneiss::error operation,
                                                                    std::string message,
                                                                    std::uint32_t request_id) {
-  gneiss::engine::ipc_envelope envelope;
+  gneiss::ipc_envelope envelope;
   const auto encoded =
       make_protocol_error_response(operation, std::move(message), request_id, envelope);
-  return encoded == gneiss::engine::error::success ? send(std::move(envelope)) : encoded;
+  return encoded == gneiss::error::success ? send(std::move(envelope)) : encoded;
 }
 
 } // namespace gneiss::host

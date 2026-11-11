@@ -8,10 +8,10 @@
 
 namespace gneiss::host {
 
-gneiss::engine::error
+gneiss::error
 make_property_write_result_event(const ipc_property_write_result& response,
                                  std::uint32_t request_id,
-                                 gneiss::engine::ipc_envelope& output) noexcept {
+                                 gneiss::ipc_envelope& output) noexcept {
   return encode_ipc_property_result_v2(response, request_id, output);
 }
 

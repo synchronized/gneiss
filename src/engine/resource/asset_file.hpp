@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/core/serialization/json.hpp"
 #include <limits>
-namespace gneiss::engine {
+namespace gneiss {
 struct material_description;
 struct mesh_description;
 struct action_map_description;

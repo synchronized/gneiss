@@ -7,16 +7,16 @@
 #include <chrono>
 #include <thread>
 namespace gneiss::test_support {
-inline engine::error activate_scene_for_test(runtime::application& app,
-                                             engine::task_scheduler& tasks, std::string_view uri,
+inline gneiss::error activate_scene_for_test(runtime::application& app,
+                                             gneiss::tasks::task_scheduler& tasks, std::string_view uri,
                                              host::scene_open_result& output) {
   auto attached = app.attach_task_executor(tasks);
-  if (attached.failed() && attached != engine::error::invalid_state)
+  if (attached.failed() && attached != gneiss::error::invalid_state)
     return attached;
   host::runtime_scene_loader loader(app);
   loader.after_activate = [&](const auto& result) {
     output = result;
-    return engine::error{engine::error::success};
+    return gneiss::error{gneiss::error::success};
   };
   auto status = loader.request({.session = 1, .revision = 1, .uri = std::string(uri)}, 1);
   if (status.failed())
@@ -31,21 +31,21 @@ inline engine::error activate_scene_for_test(runtime::application& app,
     if (stepped.failed())
       return stepped;
     if (std::chrono::steady_clock::now() >= deadline)
-      return engine::error::internal;
+      return gneiss::error::internal;
     std::this_thread::yield();
   }
   return loader.last_result();
 }
-inline engine::error
-reload_scene_for_test(runtime::application& app, engine::task_scheduler& tasks,
-                      engine::ref<host::scene_reload_state> source, std::string_view uri,
-                      bool prefab, std::vector<engine::scene_object_binding>* objects = nullptr) {
+inline gneiss::error
+reload_scene_for_test(runtime::application& app, gneiss::tasks::task_scheduler& tasks,
+                      gneiss::ref<host::scene_reload_state> source, std::string_view uri,
+                      bool prefab, std::vector<gneiss::scene_object_binding>* objects = nullptr) {
   host::runtime_scene_loader loader(app);
   auto submitted = loader.reload(source, uri, prefab);
   if (submitted.failed())
     return submitted;
-  if (loader.reload(source, uri, prefab) != engine::error::not_ready)
-    return engine::error::internal;
+  if (loader.reload(source, uri, prefab) != gneiss::error::not_ready)
+    return gneiss::error::internal;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   for (;;) {
     (void)tasks.run_ready();
@@ -54,12 +54,12 @@ reload_scene_for_test(runtime::application& app, engine::task_scheduler& tasks,
     if (stepped.failed())
       return stepped;
     auto completed = loader.take_reload();
-    if (!completed && completed.error() != engine::error::not_ready)
+    if (!completed && completed.error() != gneiss::error::not_ready)
       return completed.error();
     if (completed) {
       while (loader.visual_loading()) {
         if (std::chrono::steady_clock::now() >= deadline)
-          return engine::error::internal;
+          return gneiss::error::internal;
         (void)tasks.run_ready();
         (void)app.run(1);
         (void)loader.advance();
@@ -70,7 +70,7 @@ reload_scene_for_test(runtime::application& app, engine::task_scheduler& tasks,
       return completed->result;
     }
     if (std::chrono::steady_clock::now() >= deadline)
-      return engine::error::internal;
+      return gneiss::error::internal;
     std::this_thread::yield();
   }
 }

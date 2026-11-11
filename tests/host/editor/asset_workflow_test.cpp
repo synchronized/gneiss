@@ -65,7 +65,7 @@ int main() try {
   };
   editor_project project;
   if (create_editor_project(temporary.root / "project", GNEISS_TEST_TEMPLATE, "Asset Workflow",
-                            project) != gneiss::engine::error::success) {
+                            project) != gneiss::error::success) {
     return 1;
   }
   const auto imported =
@@ -87,18 +87,18 @@ int main() try {
   gneiss::runtime::application_configuration desc;
   const auto asset_root = project.asset_root.generic_string();
   desc.asset_root = asset_root;
-  gneiss::engine::world* world{};
+  gneiss::world* world{};
   scene_edit_session session;
   entity_id node;
-  if (gneiss::engine::error{gneiss::test_support::assign_value(
-          gneiss::runtime::application::create(desc), app)} != gneiss::engine::error::success ||
+  if (gneiss::error{gneiss::test_support::assign_value(
+          gneiss::runtime::application::create(desc), app)} != gneiss::error::success ||
       (world = app->native_world()) == nullptr ||
       gneiss::test_support::open_document(session, *app, world, project.startup_scene) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       gneiss::test_support::create_mesh_document(*app, session, "Imported", *mesh, *material,
-                                                 node) != gneiss::engine::error::success ||
+                                                 node) != gneiss::error::success ||
       gneiss::test_support::save_document(session, project.asset_root) !=
-          gneiss::engine::error::success) {
+          gneiss::error::success) {
     return 5;
   }
   session.close();
@@ -119,7 +119,7 @@ int main() try {
     return code;
   };
   if (runtime.start(GNEISS_TEST_RUNTIME, {project.project_root}) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       !wait_for(runtime, [&] {
         return runtime.control_state() == runtime_control_state::running &&
                runtime.scene_load_status().phase == ipc_scene_phase::applied;
@@ -155,12 +155,12 @@ int main() try {
       events, [](const auto& event) { return event.state == asset_reimport_state::succeeded; });
   if (succeeded == events.end() ||
       runtime.publish_asset_revision(succeeded->import.import.output_uris) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       !wait_for(runtime,
                 [&] {
                   return runtime.asset_reload_status().state == runtime_asset_reload_state::applied;
                 }) ||
-      runtime.request_stop() != gneiss::engine::error::success ||
+      runtime.request_stop() != gneiss::error::success ||
       !wait_for(runtime, [&] { return !runtime.is_running(); })) {
     return fail(9);
   }
@@ -172,18 +172,18 @@ int main() try {
                                 .profile = gneiss::host::project_build_profile::debug,
                                 .create_zip = false,
                                 .asset_progress = {},
-                            }) != gneiss::engine::error::success ||
-      verify_package_manifest(package) != gneiss::engine::error::success) {
+                            }) != gneiss::error::success ||
+      verify_package_manifest(package) != gneiss::error::success) {
     return fail(10);
   }
   if (runtime.start(package / "bin" / std::filesystem::path(GNEISS_TEST_RUNTIME).filename(),
-                    {package}) != gneiss::engine::error::success ||
+                    {package}) != gneiss::error::success ||
       !wait_for(runtime,
                 [&] {
                   return runtime.control_state() == runtime_control_state::running &&
                          runtime.scene_load_status().phase == ipc_scene_phase::applied;
                 }) ||
-      runtime.request_stop() != gneiss::engine::error::success ||
+      runtime.request_stop() != gneiss::error::success ||
       !wait_for(runtime, [&] { return !runtime.is_running(); }) || runtime.exit_code() != 0) {
     return fail(11);
   }

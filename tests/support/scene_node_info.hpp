@@ -13,9 +13,9 @@
 #include <string>
 
 namespace gneiss::test_support {
-using engine::component_descriptions;
-using engine::guid;
-namespace math = engine::math;
+using gneiss::component_descriptions;
+using gneiss::guid;
+namespace math = gneiss::math;
 
 enum class node_query_detail { identity, components };
 

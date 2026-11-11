@@ -12,10 +12,10 @@ int main() try {
   using namespace gneiss::editor;
   std::array<scene_node_record, 2> nodes;
   nodes[0].node = gneiss::entity_id{1U};
-  nodes[0].uuid = *gneiss::engine::guid::parse("2b10c37c-4b8f-5008-8c93-9af49a7a8c23");
+  nodes[0].uuid = *gneiss::guid::parse("2b10c37c-4b8f-5008-8c93-9af49a7a8c23");
   nodes[0].display_name = "First";
   nodes[1].node = gneiss::entity_id{2U};
-  nodes[1].uuid = *gneiss::engine::guid::parse("40d434b6-1126-562c-af15-1722f9e1a8c9");
+  nodes[1].uuid = *gneiss::guid::parse("40d434b6-1126-562c-af15-1722f9e1a8c9");
   nodes[1].display_name = "Second";
   const author_hierarchy_view view{
       .nodes = nodes,
@@ -65,9 +65,9 @@ int main() try {
   const auto request = draw();
   // UI 只复制身份并返回请求，递归绘制时没有修改父子关系。
   if (request.action != author_hierarchy_action::reparent ||
-      request.uuid != *gneiss::engine::guid::parse("2b10c37c-4b8f-5008-8c93-9af49a7a8c23") ||
+      request.uuid != *gneiss::guid::parse("2b10c37c-4b8f-5008-8c93-9af49a7a8c23") ||
       request.parent.object !=
-          *gneiss::engine::guid::parse("40d434b6-1126-562c-af15-1722f9e1a8c9") ||
+          *gneiss::guid::parse("40d434b6-1126-562c-af15-1722f9e1a8c9") ||
       nodes[0].parent.is_valid() || nodes[1].parent.is_valid()) {
     ImGui::DestroyContext();
     return 3;
@@ -75,8 +75,8 @@ int main() try {
   nodes[0].uuid = {};
   nodes[1].uuid = {};
   const bool owned =
-      request.uuid == *gneiss::engine::guid::parse("2b10c37c-4b8f-5008-8c93-9af49a7a8c23") &&
-      request.parent.object == *gneiss::engine::guid::parse("40d434b6-1126-562c-af15-1722f9e1a8c9");
+      request.uuid == *gneiss::guid::parse("2b10c37c-4b8f-5008-8c93-9af49a7a8c23") &&
+      request.parent.object == *gneiss::guid::parse("40d434b6-1126-562c-af15-1722f9e1a8c9");
   ImGui::DestroyContext();
   return owned ? 0 : 4;
 } catch (...) {

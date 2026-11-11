@@ -5,11 +5,11 @@
 #include "engine/core/meta/ops/object_ops.hpp"
 #include "engine/core/meta/property.hpp"
 #include "engine/core/meta/type_types.hpp"
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 struct type_definition {
-  engine::guid guid{};
+  gneiss::guid guid{};
   /** 可空；非空时必须与 guid 一一对应，不持久化。 */
-  engine::type_id type_id{};
+  gneiss::type_id type_id{};
   std::uint32_t schema_version{};
   std::string_view name{};
   std::span<const property_definition> properties{};
@@ -20,8 +20,8 @@ struct type_definition {
 };
 /** 枚举注册输入；条目和扩展在提交时复制，不拥有实例。 */
 struct enum_definition {
-  engine::guid guid{};
-  engine::type_id type_id{};
+  gneiss::guid guid{};
+  gneiss::type_id type_id{};
   std::uint32_t schema_version{};
   std::string_view name{};
   value_kind kind = value_kind::invalid;

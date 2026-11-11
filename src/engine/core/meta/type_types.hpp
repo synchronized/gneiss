@@ -4,7 +4,7 @@
 #pragma once
 #include "engine/core/value.hpp"
 #include <string_view>
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 enum class type_kind {
   invalid,
   empty,

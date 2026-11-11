@@ -16,10 +16,10 @@ struct transform_gizmo_context final {
   scene_edit_session& session;
   editor_command_history& history;
   transform_gizmo_drag& drag;
-  gneiss::engine::math::transform camera = {};
+  gneiss::math::transform camera = {};
   transform_gizmo_operation operation = transform_gizmo_operation::translate;
   bool& wait_release;
-  gneiss::engine::error& error;
+  gneiss::error& error;
 };
 
 /** 要求当前 ImGui Context 已开始一帧。 */

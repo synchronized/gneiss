@@ -37,15 +37,15 @@ Granit 的类型、句柄和枚举只存在于 `src/engine/platform/window_servi
 `gneiss::runtime::application` 提供 `poll_input`、`keyboard_state`、`pointer_state`、`begin_action_map`、
 `action_map_status`、`cancel_action_map`、
 `find_action` 和 `get_action_state` 成员；不需要先取出裸 Application 句柄。
-事件和状态使用 `gneiss::engine` 中的原生值类型，不包含 `struct_size` 和 ABI 保留字段。
+事件和状态使用 `gneiss` 中的原生值类型，不包含 `struct_size` 和 ABI 保留字段。
 `input_event::type` 指定 `data` 联合体的活动成员；只按对应事件类型访问该成员。
 文本保存在事件自身的固定数组中，`length` 指定有效字节数，不保证零终止。
 物理/逻辑键码、修饰键和按钮保留整数值及位集合语义。
 
 ```cpp
-gneiss::engine::input_event event{};
+gneiss::input_event event{};
 while (host.poll_input(event).ok()) {
-  if (event.type == gneiss::engine::event_type::text) {
+  if (event.type == gneiss::event_type::text) {
     consume_text(std::string_view{event.data.text.utf8, event.data.text.length});
   }
 }

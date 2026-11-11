@@ -11,7 +11,7 @@
 #include <stdexcept>
 #include <thread>
 #include <vector>
-namespace gneiss::engine::logging {
+namespace gneiss::logging {
 namespace {
 thread_local bool in_output{};
 bool valid_level(level value) { return value >= level::trace && value <= level::fatal; }

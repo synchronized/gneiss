@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/meta/instance.hpp"
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 /** 借用视图；不延长目标寿命，结构修改后需重新获取元素视图。 */
 template <bool Mutable> class basic_optional_view {
   using target_type = std::conditional_t<Mutable, instance, const_instance>;

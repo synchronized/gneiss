@@ -7,7 +7,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
-namespace gneiss::engine {
+namespace gneiss {
 /** JSON 网格文件描述；转换为运行期 mesh_data 前校验各数组对应关系。 */
 struct mesh_description {
   static constexpr std::string_view type_name = "mesh_description";

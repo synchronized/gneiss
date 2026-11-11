@@ -3,7 +3,7 @@
 #include "engine/core/serialization/context.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/serialization/detail/context_access.hpp"
-namespace gneiss::engine::serialization {
+namespace gneiss::serialization {
 std::string_view detail::context_base::property_path() const noexcept {
   return state_ ? std::string_view{state_->path} : std::string_view{};
 }

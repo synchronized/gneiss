@@ -9,7 +9,7 @@
 #include <cstdio>
 #include <imgui.h>
 #include <stdexcept>
-namespace e = gneiss::engine;
+namespace e = gneiss;
 namespace ed = gneiss::editor;
 void check(bool good, const char* message) {
   if (!good)
@@ -23,7 +23,7 @@ int main() try {
   e::files::service files;
   auto backend = std::make_shared<e::files::memory_backend>();
   check(files.mount({.prefix = "asset://", .readers = {backend}, .writer = backend}).ok(), "mount");
-  auto encoded = gneiss::engine::asset_file::serialize_bytes(e::material_description{});
+  auto encoded = gneiss::asset_file::serialize_bytes(e::material_description{});
   check(bool(encoded), "encode fixture");
   const auto original = text(*encoded);
   const std::string uri = "asset://materials/test.material.json";
@@ -85,7 +85,7 @@ int main() try {
     check(model.replace_object({p{1}}, *wrong) == e::error::invalid_argument, "wrong type");
     check(model.replace_object({p{1}, p{3}}, *source) == e::error::unsupported,
           "scalar replacement rejected");
-    auto defaults = gneiss::engine::serialization::json::decode<e::material_parameters>(
+    auto defaults = gneiss::serialization::json::decode<e::material_parameters>(
         std::as_bytes(std::span{"{}", std::size_t{2}}));
     check(bool(defaults), "decode defaults");
     auto default_view = e::meta::view(std::as_const(*defaults));
@@ -150,7 +150,7 @@ int main() try {
   check(!model.saving() && model.save_status().ok() && model.is_dirty(),
         "save does not clear newer edits");
   auto disk = read();
-  auto disk_material = gneiss::engine::asset_file::deserialize<e::material_description>(
+  auto disk_material = gneiss::asset_file::deserialize<e::material_description>(
       std::as_bytes(std::span{disk.data(), disk.size()}));
   check(disk_material && disk_material->parameters.roughness == 0.4F &&
             disk_material->texture_uris[0] == "asset://textures/a.texture.json",

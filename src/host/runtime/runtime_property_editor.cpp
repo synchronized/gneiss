@@ -19,22 +19,22 @@ namespace gneiss::host {
 
 runtime_property_editor::~runtime_property_editor() { reset(); }
 
-gneiss::engine::error runtime_property_editor::initialize(gneiss::engine::world& world,
+gneiss::error runtime_property_editor::initialize(gneiss::world& world,
                                                           runtime_scene_inspection& inspection,
                                                           std::uint64_t session_id) {
   if (session_id == 0U || initialized_) {
-    return gneiss::engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
-  auto frozen = gneiss::engine::meta::is_frozen();
+  auto frozen = gneiss::meta::is_frozen();
   if (!frozen)
     return frozen.error();
   if (!*frozen)
-    return gneiss::engine::error::not_ready;
+    return gneiss::error::not_ready;
   world_ = &world;
   inspection_ = &inspection;
   session_id_ = session_id;
   initialized_ = true;
-  return gneiss::engine::error::success;
+  return gneiss::error::success;
 }
 
 void runtime_property_editor::reset() noexcept {
@@ -45,30 +45,30 @@ void runtime_property_editor::reset() noexcept {
   revisions_.clear();
 }
 
-gneiss::engine::error runtime_property_editor::execute(const ipc_property_write& command,
+gneiss::error runtime_property_editor::execute(const ipc_property_write& command,
                                                        ipc_property_write_result& output) {
   if (!initialized_ || inspection_ == nullptr || command.command_id == 0U) {
-    return gneiss::engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   }
   ipc_property_write_result response{.session_id = session_id_,
                                      .command_id = command.command_id,
-                                     .code = gneiss::engine::error::success.code(),
+                                     .code = gneiss::error::success.code(),
                                      .revision = 0U,
                                      .message = {},
                                      .canonical_value = {}};
   if (command.session_id != session_id_) {
-    response.code = gneiss::engine::error::invalid_state.code();
+    response.code = gneiss::error::invalid_state.code();
     response.message = "属性写入会话已失效";
     output = std::move(response);
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
   std::uint64_t entity = UINT64_C(0);
   auto operation = inspection_->resolve_entity(command.object, entity);
-  if (operation != gneiss::engine::error::success) {
+  if (operation != gneiss::error::success) {
     response.code = operation.code();
     response.message = "运行时对象不存在或已失效";
     output = std::move(response);
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
 
   property_key key{.object = command.object, .field_id = command.field_id};
@@ -77,50 +77,50 @@ gneiss::engine::error runtime_property_editor::execute(const ipc_property_write&
   (void)inserted;
   response.revision = revision->second;
   if (command.expected_revision != revision->second) {
-    response.code = gneiss::engine::error::invalid_state.code();
+    response.code = gneiss::error::invalid_state.code();
     response.message = "属性修订冲突";
     output = std::move(response);
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
 
-  const gneiss::engine::guid property_type{gneiss::engine::guid::from_bytes(key.type_id)};
-  const gneiss::engine::meta::property_id property_field{command.field_id};
-  auto description = gneiss::engine::meta::find_type(property_type);
+  const gneiss::guid property_type{gneiss::guid::from_bytes(key.type_id)};
+  const gneiss::meta::property_id property_field{command.field_id};
+  auto description = gneiss::meta::find_type(property_type);
   if (!description) {
-    response.code = gneiss::engine::error{gneiss::engine::error::not_found}.code();
+    response.code = gneiss::error{gneiss::error::not_found}.code();
     response.message = "属性不存在或不可写";
     output = std::move(response);
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
   auto properties = description.properties();
   if (!description.registered()) {
-    response.code = gneiss::engine::error::not_found.code();
+    response.code = gneiss::error::not_found.code();
     response.message = "属性不存在或不可写";
     output = std::move(response);
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
   const auto field =
-      std::ranges::find(properties, property_field, &gneiss::engine::meta::property::id);
+      std::ranges::find(properties, property_field, &gneiss::meta::property::id);
   if (field == properties.end() ||
-      !has_flags(field->capabilities(), gneiss::engine::meta::property_capabilities::writable) ||
-      gneiss::engine::is_edit_read_only(*field)) {
-    response.code = field == properties.end() ? gneiss::engine::error::not_found.code()
-                                              : gneiss::engine::error::unsupported.code();
+      !has_flags(field->capabilities(), gneiss::meta::property_capabilities::writable) ||
+      gneiss::is_edit_read_only(*field)) {
+    response.code = field == properties.end() ? gneiss::error::not_found.code()
+                                              : gneiss::error::unsupported.code();
     response.message = "属性不存在或不可写";
     output = std::move(response);
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
   if (revision->second == std::numeric_limits<std::uint64_t>::max()) {
-    response.code = gneiss::engine::error::out_of_memory.code();
+    response.code = gneiss::error::out_of_memory.code();
     response.message = "属性修订号已耗尽";
     output = std::move(response);
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
-  operation = gneiss::engine::write_component_property(*world_, entity, property_type,
+  operation = gneiss::write_component_property(*world_, entity, property_type,
                                                        property_field, command.value);
   if (operation.ok()) {
     auto canonical =
-        gneiss::engine::read_component_property(*world_, entity, property_type, property_field);
+        gneiss::read_component_property(*world_, entity, property_type, property_field);
     if (canonical)
       response.canonical_value = std::move(*canonical);
     else
@@ -130,12 +130,12 @@ gneiss::engine::error runtime_property_editor::execute(const ipc_property_write&
     response.code = operation.code();
     response.message = "属性写入被拒绝";
     output = std::move(response);
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
   response.revision = ++revision->second;
   response.message = "属性已应用";
   output = std::move(response);
-  return gneiss::engine::error::success;
+  return gneiss::error::success;
 }
 
 } // namespace gneiss::host

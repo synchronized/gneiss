@@ -5,7 +5,7 @@
 
 ## World 生命周期
 
-`gneiss::engine::create_native()` 返回 `result<world_owner>`，成功值独占一个新 World。
+`gneiss::create_native()` 返回 `result<world_owner>`，成功值独占一个新 World。
 每次调用创建独立 World，不接收已有拥有者；调用方成功后可显式移动拥有权。
 拥有者在创建线程释放时销毁 World 及全部实体、组件。
 World 不再登记全局 RID 表，不提供借用 RID 或 world_service 转发接口。

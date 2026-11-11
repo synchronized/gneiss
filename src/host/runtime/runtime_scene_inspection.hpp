@@ -35,12 +35,12 @@ struct runtime_scene_source_node final {
   std::uint64_t native_node = 0U;
   std::uint64_t native_parent = 0U;
   std::uint64_t native_entity = UINT64_C(0);
-  gneiss::engine::guid uuid;
-  gneiss::engine::guid prefab_instance_uuid;
-  gneiss::engine::guid prefab_source_node_uuid;
+  gneiss::guid uuid;
+  gneiss::guid prefab_instance_uuid;
+  gneiss::guid prefab_source_node_uuid;
   std::string name;
-  gneiss::engine::math::transform local_transform;
-  gneiss::engine::component_descriptions components{};
+  gneiss::math::transform local_transform;
+  gneiss::component_descriptions components{};
 };
 
 using runtime_scene_snapshot_node = ipc_inspection_node;
@@ -53,29 +53,29 @@ class runtime_scene_inspection final {
 public:
   explicit runtime_scene_inspection(std::uint64_t session_id) noexcept;
 
-  [[nodiscard]] gneiss::engine::error capture(std::span<const runtime_scene_source_node> nodes,
+  [[nodiscard]] gneiss::error capture(std::span<const runtime_scene_source_node> nodes,
                                               bool force_full, runtime_scene_snapshot& output);
-  [[nodiscard]] gneiss::engine::error capture_scene(::gneiss::runtime::application& application,
+  [[nodiscard]] gneiss::error capture_scene(::gneiss::runtime::application& application,
                                                     gneiss::scene_instance_id scene,
                                                     bool force_full,
                                                     runtime_scene_snapshot& output);
-  [[nodiscard]] gneiss::engine::error resolve_entity(ipc_runtime_object_id object,
+  [[nodiscard]] gneiss::error resolve_entity(ipc_runtime_object_id object,
                                                      std::uint64_t& output) const noexcept;
   /** 接收加载/重载协调方的地址回执；只保存身份，不从运行节点反推 Prefab 来源。 */
-  [[nodiscard]] engine::error set_source_bindings(std::span<const engine::scene_object_binding>);
+  [[nodiscard]] gneiss::error set_source_bindings(std::span<const gneiss::scene_object_binding>);
   void reset(std::uint64_t session_id) noexcept;
 
 private:
   std::uint64_t session_id_ = 0U;
   std::uint64_t next_sequence_ = 1U;
   std::uint64_t next_object_value_ = 1U;
-  std::map<std::pair<std::array<engine::guid, 3>, std::uint64_t>, ipc_runtime_object_id>
+  std::map<std::pair<std::array<gneiss::guid, 3>, std::uint64_t>, ipc_runtime_object_id>
       identities_;
   std::map<std::uint64_t, std::uint32_t> generations_;
   std::vector<std::uint64_t> free_values_;
   std::map<std::uint64_t, runtime_scene_snapshot_node> previous_;
   std::map<std::uint64_t, std::pair<ipc_runtime_object_id, std::uint64_t>> entities_;
-  std::map<std::uint64_t, engine::scene_object_binding> sources_;
+  std::map<std::uint64_t, gneiss::scene_object_binding> sources_;
   bool is_initialized_ = false;
 };
 

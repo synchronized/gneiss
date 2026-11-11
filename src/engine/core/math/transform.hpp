@@ -10,11 +10,11 @@
 
 #include <glm/ext/matrix_transform.hpp>
 
-namespace gneiss::engine::math {
+namespace gneiss::math {
 /** 纯值 TRS；四元数分量访问及序列化顺序为 xyzw，构造顺序为 wxyz，不持有场景或后端状态。 */
 struct transform {
   inline static constexpr std::string_view type_name = "transform";
-  inline static constexpr engine::guid type_guid{
+  inline static constexpr gneiss::guid type_guid{
       guid::literal("69644f20-b2d2-4e48-8c74-91f4f952ec2d")};
   vector3 translation{0.0F};
   quaternion rotation{1.0F, 0.0F, 0.0F, 0.0F};
@@ -40,4 +40,4 @@ inline matrix4 model_matrix(const transform& value) noexcept {
 /** 从 TRS 构造 Model 与逆转置 Normal Matrix；拒绝非有限值、零缩放或无效旋转。 */
 [[nodiscard]] bool model_and_normal_matrices(const transform& value, matrix4& model,
                                              matrix4& normal) noexcept;
-} // namespace gneiss::engine::math
+} // namespace gneiss::math

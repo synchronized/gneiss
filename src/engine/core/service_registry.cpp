@@ -8,23 +8,23 @@
 #include <new>
 #include <utility>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 service_registry::~service_registry() noexcept { (void)shutdown(); }
 
-engine::error service_registry::add(std::unique_ptr<service> value) {
+gneiss::error service_registry::add(std::unique_ptr<service> value) {
   if (value == nullptr || is_initializing_or_initialized_ || find(value->kind()) != nullptr) {
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   {
     entries_.push_back({.value = std::move(value), .is_initialized = false});
-    return engine::error::success;
+    return gneiss::error::success;
   }
 }
 
-engine::error service_registry::initialize() {
+gneiss::error service_registry::initialize() {
   if (is_initializing_or_initialized_) {
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   }
   is_initializing_or_initialized_ = true;
   last_shutdown_leak_count_ = 0;
@@ -49,7 +49,7 @@ engine::error service_registry::initialize() {
         candidate.is_initialized = true;
         initialization_order_.push_back(index);
         const auto result = candidate.value->initialize();
-        if (result != engine::error::success) {
+        if (result != gneiss::error::success) {
           rollback();
           return result;
         }
@@ -58,14 +58,14 @@ engine::error service_registry::initialize() {
 
       if (!made_progress) {
         rollback();
-        return engine::error::dependency_failed;
+        return gneiss::error::dependency_failed;
       }
     }
   } catch (...) {
     rollback();
     throw;
   }
-  return engine::error::success;
+  return gneiss::error::success;
 }
 
 std::size_t service_registry::shutdown() noexcept {
@@ -108,4 +108,4 @@ void service_registry::rollback() noexcept {
   is_initializing_or_initialized_ = false;
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

@@ -12,101 +12,101 @@
 #include <thread>
 
 namespace {
-gneiss::engine::error set_object(void*, void* target, const gneiss::engine::value& value) {
+gneiss::error set_object(void*, void* target, const gneiss::value& value) {
   if (std::get<float>(value.payload) < 0) {
-    return gneiss::engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   if (std::get<float>(value.payload) == 99) {
     throw std::runtime_error("对象校验异常");
   }
   *static_cast<float*>(target) = std::get<float>(value.payload);
-  return gneiss::engine::error::success;
+  return gneiss::error::success;
 }
-gneiss::engine::error throwing_getter(void* /*context*/, const void* /*object*/,
-                                      gneiss::engine::value& /*output*/) {
+gneiss::error throwing_getter(void* /*context*/, const void* /*object*/,
+                                      gneiss::value& /*output*/) {
   throw std::runtime_error("test callback failure");
 }
 } // namespace
 
 namespace {
 bool native_values() {
-  namespace reflection = gneiss::engine;
-  gneiss::engine::meta::registry_ref registry;
-  const gneiss::engine::guid id{gneiss::engine::guid::from_bytes({7})};
-  const gneiss::engine::guid native_id{gneiss::engine::guid::from_bytes({7})};
-  const std::array fields{gneiss::engine::meta::property_definition{
-      .id = gneiss::engine::meta::property_id{1},
-      .type_guid = gneiss::engine::type_identity<std::string>::guid(),
-      .access = gneiss::engine::meta::property_access::read_write,
+  namespace reflection = gneiss;
+  gneiss::meta::registry_ref registry;
+  const gneiss::guid id{gneiss::guid::from_bytes({7})};
+  const gneiss::guid native_id{gneiss::guid::from_bytes({7})};
+  const std::array fields{gneiss::meta::property_definition{
+      .id = gneiss::meta::property_id{1},
+      .type_guid = gneiss::type_identity<std::string>::guid(),
+      .access = gneiss::meta::property_access::read_write,
       .name = "text"}};
   std::string text = "初始文本";
-  const gneiss::engine::meta::property_binding binding{
-      .kind = gneiss::engine::value_kind::string,
+  const gneiss::meta::property_binding binding{
+      .kind = gneiss::value_kind::string,
       .getter =
-          [](void*, const void* object, gneiss::engine::value& output) {
+          [](void*, const void* object, gneiss::value& output) {
             const auto& value = *static_cast<const std::string*>(object);
-            output = gneiss::engine::value{};
+            output = gneiss::value{};
             output.payload = value;
-            return gneiss::engine::error::success;
+            return gneiss::error::success;
           },
       .setter =
-          [](void*, void* object, const gneiss::engine::value& value) {
+          [](void*, void* object, const gneiss::value& value) {
             static_cast<std::string*>(object)->assign(std::get<std::string>(value.payload));
-            return gneiss::engine::error::success;
+            return gneiss::error::success;
           },
       .user_data = nullptr};
-  if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), registry) !=
-          gneiss::engine::error::success ||
-      gneiss::engine::meta::register_type(
+  if (gneiss::test_support::assign_value(gneiss::meta::create_registry(), registry) !=
+          gneiss::error::success ||
+      gneiss::meta::register_type(
           registry, {.guid = id, .schema_version = 1, .name = "sample", .properties = fields}) !=
-          gneiss::engine::error::success ||
-      gneiss::engine::meta::bind_property(registry, id, gneiss::engine::meta::property_id{1},
-                                          binding) != gneiss::engine::error::success) {
+          gneiss::error::success ||
+      gneiss::meta::bind_property(registry, id, gneiss::meta::property_id{1},
+                                          binding) != gneiss::error::success) {
     return false;
   }
-  gneiss::engine::meta::property field;
-  if ((field = gneiss::engine::meta::find_property(registry, native_id,
-                                                   gneiss::engine::meta::property_id{1})) ||
+  gneiss::meta::property field;
+  if ((field = gneiss::meta::find_property(registry, native_id,
+                                                   gneiss::meta::property_id{1})) ||
       !field.name().empty()) {
     return false;
   }
-  gneiss::engine::value snapshot{.payload = std::string{"旧输出"}};
+  gneiss::value snapshot{.payload = std::string{"旧输出"}};
   if (gneiss::test_support::assign_value(
-          gneiss::engine::meta::read_property(registry, native_id,
-                                              gneiss::engine::meta::property_id{1}, &text),
-          snapshot) != gneiss::engine::error::not_ready ||
+          gneiss::meta::read_property(registry, native_id,
+                                              gneiss::meta::property_id{1}, &text),
+          snapshot) != gneiss::error::not_ready ||
       std::get<std::string>(snapshot.payload) != "旧输出" ||
-      gneiss::engine::meta::freeze(registry) != gneiss::engine::error::success) {
+      gneiss::meta::freeze(registry) != gneiss::error::success) {
     return false;
   }
   if (gneiss::test_support::assign_value(
-          gneiss::engine::meta::read_property(registry, native_id,
-                                              gneiss::engine::meta::property_id{1}, &text),
+          gneiss::meta::read_property(registry, native_id,
+                                              gneiss::meta::property_id{1}, &text),
           snapshot)
           .failed()) {
     return false;
   }
-  if (!(field = gneiss::engine::meta::find_property(registry, native_id,
-                                                    gneiss::engine::meta::property_id{1})) ||
-      field.name() != "text" || field.id() != gneiss::engine::meta::property_id{1} ||
-      field.type().scalar_kind() != gneiss::engine::value_kind::string ||
-      !gneiss::engine::meta::has_flags(field.capabilities(),
-                                       gneiss::engine::meta::property_capabilities::writable) ||
-      (field = gneiss::engine::meta::find_property(registry, native_id,
-                                                   gneiss::engine::meta::property_id{99})) ||
+  if (!(field = gneiss::meta::find_property(registry, native_id,
+                                                    gneiss::meta::property_id{1})) ||
+      field.name() != "text" || field.id() != gneiss::meta::property_id{1} ||
+      field.type().scalar_kind() != gneiss::value_kind::string ||
+      !gneiss::meta::has_flags(field.capabilities(),
+                                       gneiss::meta::property_capabilities::writable) ||
+      (field = gneiss::meta::find_property(registry, native_id,
+                                                   gneiss::meta::property_id{99})) ||
       !field.name().empty() ||
-      (field = gneiss::engine::meta::find_property({}, native_id,
-                                                   gneiss::engine::meta::property_id{1})) ||
+      (field = gneiss::meta::find_property({}, native_id,
+                                                   gneiss::meta::property_id{1})) ||
       !field.name().empty()) {
     return false;
   }
-  gneiss::engine::error foreign;
+  gneiss::error foreign;
   std::thread reader([&] {
-    gneiss::engine::meta::property borrowed;
-    foreign = ((borrowed = gneiss::engine::meta::find_property(
-                    registry, native_id, gneiss::engine::meta::property_id{1}))
-                   ? gneiss::engine::error::success
-                   : gneiss::engine::error::not_found);
+    gneiss::meta::property borrowed;
+    foreign = ((borrowed = gneiss::meta::find_property(
+                    registry, native_id, gneiss::meta::property_id{1}))
+                   ? gneiss::error::success
+                   : gneiss::error::not_found);
   });
   reader.join();
   if (foreign.failed()) {
@@ -117,45 +117,45 @@ bool native_values() {
   if (std::get<std::string>(copy.payload) != "初始文本") {
     return false;
   }
-  const gneiss::engine::value invalid{.payload = 1.0F};
-  if (gneiss::engine::meta::write_property(registry, native_id,
-                                           gneiss::engine::meta::property_id{1}, &text,
-                                           invalid) != gneiss::engine::error::invalid_argument ||
+  const gneiss::value invalid{.payload = 1.0F};
+  if (gneiss::meta::write_property(registry, native_id,
+                                           gneiss::meta::property_id{1}, &text,
+                                           invalid) != gneiss::error::invalid_argument ||
       text.size() != 2000 ||
-      gneiss::engine::meta::write_property(registry, native_id,
-                                           gneiss::engine::meta::property_id{1}, &text, copy)
+      gneiss::meta::write_property(registry, native_id,
+                                           gneiss::meta::property_id{1}, &text, copy)
           .failed() ||
       text != "初始文本") {
     return false;
   }
-  gneiss::engine::meta::type metadata;
-  if (!(metadata = gneiss::engine::meta::find_type(registry, native_id)) ||
+  gneiss::meta::type metadata;
+  if (!(metadata = gneiss::meta::find_type(registry, native_id)) ||
       metadata.properties().size() != 1 ||
-      metadata.properties()[0].type().scalar_kind() != gneiss::engine::value_kind::string ||
+      metadata.properties()[0].type().scalar_kind() != gneiss::value_kind::string ||
       metadata.guid() != native_id ||
       metadata.properties()[0].type().guid() !=
-          gneiss::engine::type_identity<std::string>::guid() ||
-      gneiss::engine::meta::find_type(registry, gneiss::engine::guid{}) ||
+          gneiss::type_identity<std::string>::guid() ||
+      gneiss::meta::find_type(registry, gneiss::guid{}) ||
       metadata.guid() != native_id || metadata.properties().size() != 1 ||
-      gneiss::engine::meta::find_type({}, native_id) || metadata.guid() != native_id ||
+      gneiss::meta::find_type({}, native_id) || metadata.guid() != native_id ||
       metadata.properties().size() != 1) {
     return false;
   }
-  if (gneiss::test_support::assign_value(gneiss::engine::meta::type_at(registry, 0), metadata)
+  if (gneiss::test_support::assign_value(gneiss::meta::type_at(registry, 0), metadata)
           .failed() ||
       metadata.guid() != native_id || metadata.properties().size() != 1 ||
-      gneiss::test_support::assign_value(gneiss::engine::meta::type_at(registry, 1), metadata) !=
-          gneiss::engine::error::not_found ||
+      gneiss::test_support::assign_value(gneiss::meta::type_at(registry, 1), metadata) !=
+          gneiss::error::not_found ||
       metadata.guid() != native_id ||
-      gneiss::test_support::assign_value(gneiss::engine::meta::type_at({}, 0), metadata) !=
-          gneiss::engine::error::invalid_handle ||
+      gneiss::test_support::assign_value(gneiss::meta::type_at({}, 0), metadata) !=
+          gneiss::error::invalid_handle ||
       metadata.guid() != native_id)
     return false;
   registry.reset();
   return gneiss::test_support::assign_value(
-             gneiss::engine::meta::read_property(registry, native_id,
-                                                 gneiss::engine::meta::property_id{1}, &text),
-             snapshot) == gneiss::engine::error::invalid_handle &&
+             gneiss::meta::read_property(registry, native_id,
+                                                 gneiss::meta::property_id{1}, &text),
+             snapshot) == gneiss::error::invalid_handle &&
          std::get<std::string>(snapshot.payload) == "初始文本";
 }
 } // namespace
@@ -164,141 +164,141 @@ int main() try {
   if (!native_values()) {
     return 30;
   }
-  namespace reflection = gneiss::engine;
+  namespace reflection = gneiss;
   // 原生对象不依赖公共句柄表；最后一个内部所有者释放后必须销毁。
-  gneiss::engine::meta::registry_ref native;
-  if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), native) !=
-          gneiss::engine::error::success ||
+  gneiss::meta::registry_ref native;
+  if (gneiss::test_support::assign_value(gneiss::meta::create_registry(), native) !=
+          gneiss::error::success ||
       !native) {
     return 20;
   }
   const std::weak_ptr native_lifetime = native;
   std::uint32_t native_count = 99;
-  if (gneiss::test_support::assign_value(gneiss::engine::meta::type_count(native), native_count) !=
-          gneiss::engine::error::not_ready ||
+  if (gneiss::test_support::assign_value(gneiss::meta::type_count(native), native_count) !=
+          gneiss::error::not_ready ||
       native_count != 99 ||
-      gneiss::engine::meta::freeze(native) != gneiss::engine::error::success ||
-      gneiss::test_support::assign_value(gneiss::engine::meta::type_count(native), native_count) !=
-          gneiss::engine::error::success ||
+      gneiss::meta::freeze(native) != gneiss::error::success ||
+      gneiss::test_support::assign_value(gneiss::meta::type_count(native), native_count) !=
+          gneiss::error::success ||
       native_count != 0) {
     return 21;
   }
   native.reset();
   if (!native_lifetime.expired() ||
-      gneiss::engine::meta::freeze(native) != gneiss::engine::error::invalid_handle) {
+      gneiss::meta::freeze(native) != gneiss::error::invalid_handle) {
     return 22;
   }
-  gneiss::engine::meta::registry_ref state;
-  if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), state).failed())
+  gneiss::meta::registry_ref state;
+  if (gneiss::test_support::assign_value(gneiss::meta::create_registry(), state).failed())
     return 1;
-  const gneiss::engine::guid type_id{gneiss::engine::guid::from_bytes({1})};
+  const gneiss::guid type_id{gneiss::guid::from_bytes({1})};
   std::string name = "sample";
   const std::array fields{
-      gneiss::engine::meta::property_definition{
-          .id = gneiss::engine::meta::property_id{1U},
+      gneiss::meta::property_definition{
+          .id = gneiss::meta::property_id{1U},
           .type_guid = type_id,
-          .access = gneiss::engine::meta::property_access::read_write,
+          .access = gneiss::meta::property_access::read_write,
           .name = "value",
       },
-      gneiss::engine::meta::property_definition{
-          .id = gneiss::engine::meta::property_id{2U},
+      gneiss::meta::property_definition{
+          .id = gneiss::meta::property_id{2U},
           .type_guid = type_id,
-          .access = gneiss::engine::meta::property_access::read_write,
+          .access = gneiss::meta::property_access::read_write,
           .name = "candidate"},
   };
-  const gneiss::engine::meta::type_definition definition{
+  const gneiss::meta::type_definition definition{
       .guid = type_id,
       .schema_version = 1U,
       .name = name,
       .properties = fields,
   };
-  if (gneiss::engine::meta::register_type(state, definition) != gneiss::engine::error::success ||
-      gneiss::engine::meta::bind_property(state, type_id, gneiss::engine::meta::property_id{1U},
-                                          {.kind = gneiss::engine::value_kind::float32,
+  if (gneiss::meta::register_type(state, definition) != gneiss::error::success ||
+      gneiss::meta::bind_property(state, type_id, gneiss::meta::property_id{1U},
+                                          {.kind = gneiss::value_kind::float32,
                                            .getter = throwing_getter,
-                                           .setter = nullptr}) != gneiss::engine::error::success) {
+                                           .setter = nullptr}) != gneiss::error::success) {
     return 2;
   }
-  const gneiss::engine::meta::property_binding candidate_binding{
-      .kind = gneiss::engine::value_kind::float32,
+  const gneiss::meta::property_binding candidate_binding{
+      .kind = gneiss::value_kind::float32,
       .getter = {},
       .setter = set_object,
       .user_data = {}};
   float candidate = 1;
-  gneiss::engine::value proposed = gneiss::engine::value{};
+  gneiss::value proposed = gneiss::value{};
   proposed.payload = 2.0F;
-  if (gneiss::engine::meta::bind_property(state, type_id, gneiss::engine::meta::property_id{2U},
-                                          candidate_binding) != gneiss::engine::error::success ||
-      gneiss::engine::meta::bind_property(state, type_id, gneiss::engine::meta::property_id{2U},
-                                          candidate_binding) != gneiss::engine::error::success ||
-      gneiss::engine::meta::write_property(state, type_id, gneiss::engine::meta::property_id{2U},
+  if (gneiss::meta::bind_property(state, type_id, gneiss::meta::property_id{2U},
+                                          candidate_binding) != gneiss::error::success ||
+      gneiss::meta::bind_property(state, type_id, gneiss::meta::property_id{2U},
+                                          candidate_binding) != gneiss::error::success ||
+      gneiss::meta::write_property(state, type_id, gneiss::meta::property_id{2U},
                                            &candidate,
-                                           proposed) != gneiss::engine::error::not_ready) {
+                                           proposed) != gneiss::error::not_ready) {
     return 11;
   }
   name.assign("changed");
-  if (gneiss::engine::meta::freeze(state) != gneiss::engine::error::success) {
+  if (gneiss::meta::freeze(state) != gneiss::error::success) {
     return 3;
   }
-  gneiss::engine::meta::type info;
-  if (!(info = gneiss::engine::meta::find_type(state, type_id)) || info.name() != "sample" ||
+  gneiss::meta::type info;
+  if (!(info = gneiss::meta::find_type(state, type_id)) || info.name() != "sample" ||
       info.properties().size() != 2U) {
     return 4;
   }
-  if (gneiss::engine::meta::write_property(state, type_id, gneiss::engine::meta::property_id{1U},
+  if (gneiss::meta::write_property(state, type_id, gneiss::meta::property_id{1U},
                                            &candidate,
-                                           proposed) != gneiss::engine::error::unsupported ||
-      gneiss::engine::meta::write_property(state, type_id, gneiss::engine::meta::property_id{2U},
+                                           proposed) != gneiss::error::unsupported ||
+      gneiss::meta::write_property(state, type_id, gneiss::meta::property_id{2U},
                                            nullptr,
-                                           proposed) != gneiss::engine::error::invalid_argument ||
-      gneiss::engine::meta::write_property(state, type_id, gneiss::engine::meta::property_id{2U},
+                                           proposed) != gneiss::error::invalid_argument ||
+      gneiss::meta::write_property(state, type_id, gneiss::meta::property_id{2U},
                                            &candidate,
-                                           proposed) != gneiss::engine::error::success ||
+                                           proposed) != gneiss::error::success ||
       candidate != 2 ||
-      gneiss::engine::meta::bind_property(state, type_id, gneiss::engine::meta::property_id{2U},
+      gneiss::meta::bind_property(state, type_id, gneiss::meta::property_id{2U},
                                           candidate_binding) !=
-          gneiss::engine::error::invalid_state) {
+          gneiss::error::invalid_state) {
     return 12;
   }
   proposed.payload = -1.0F;
-  if (gneiss::engine::meta::write_property(state, type_id, gneiss::engine::meta::property_id{2U},
+  if (gneiss::meta::write_property(state, type_id, gneiss::meta::property_id{2U},
                                            &candidate,
-                                           proposed) != gneiss::engine::error::invalid_argument ||
+                                           proposed) != gneiss::error::invalid_argument ||
       candidate != 2) {
     return 13;
   }
   proposed.payload = 99.0F;
   if (!gneiss::test_support::throws<std::runtime_error>([&] {
-        (void)(gneiss::engine::meta::write_property(
-            state, type_id, gneiss::engine::meta::property_id{2U}, &candidate, proposed));
+        (void)(gneiss::meta::write_property(
+            state, type_id, gneiss::meta::property_id{2U}, &candidate, proposed));
       }) ||
       candidate != 2) {
     return 14;
   }
   proposed.payload = true;
-  if (gneiss::engine::meta::write_property(state, type_id, gneiss::engine::meta::property_id{2U},
+  if (gneiss::meta::write_property(state, type_id, gneiss::meta::property_id{2U},
                                            &candidate,
-                                           proposed) != gneiss::engine::error::invalid_argument ||
+                                           proposed) != gneiss::error::invalid_argument ||
       candidate != 2) {
     return 15;
   }
-  gneiss::engine::value value;
+  gneiss::value value;
   if (!gneiss::test_support::throws<std::runtime_error>([&] {
         (void)(gneiss::test_support::assign_value(
-            gneiss::engine::meta::read_property(state, type_id,
-                                                gneiss::engine::meta::property_id{1U}, &candidate),
+            gneiss::meta::read_property(state, type_id,
+                                                gneiss::meta::property_id{1U}, &candidate),
             value));
       }) ||
-      value.kind() != gneiss::engine::value_kind::invalid) {
+      value.kind() != gneiss::value_kind::invalid) {
     return 5;
   }
-  gneiss::engine::error query{};
+  gneiss::error query{};
   std::uint32_t count{};
   std::thread worker([&] {
-    query = gneiss::test_support::assign_value(gneiss::engine::meta::type_count(state), count);
+    query = gneiss::test_support::assign_value(gneiss::meta::type_count(state), count);
   });
   worker.join();
-  if (query != gneiss::engine::error::success || count != 1U) {
+  if (query != gneiss::error::success || count != 1U) {
     return 6;
   }
   // 原生引用直接拥有 Registry，无公共句柄表；最后一个引用释放后销毁。
@@ -306,7 +306,7 @@ int main() try {
   auto retained = state;
   state.reset();
   if (lifetime.expired() ||
-      gneiss::test_support::assign_value(gneiss::engine::meta::type_count(retained), count)
+      gneiss::test_support::assign_value(gneiss::meta::type_count(retained), count)
           .failed())
     return 7;
   retained.reset();

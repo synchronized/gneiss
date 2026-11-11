@@ -9,7 +9,7 @@
 #include <string>
 #include <utility>
 
-namespace gneiss::engine {
+namespace gneiss {
 result<std::vector<game_object>> game_object::children() const {
   if (!owner_)
     return error::invalid_handle;

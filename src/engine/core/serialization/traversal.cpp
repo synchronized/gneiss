@@ -3,7 +3,7 @@
 #include "engine/core/serialization/detail/traversal.hpp"
 #include "engine/core/serialization/policy.hpp"
 #include <algorithm>
-namespace gneiss::engine::serialization::detail {
+namespace gneiss::serialization::detail {
 using namespace meta;
 std::string field_path(std::string_view name) {
   std::string path = "/";
@@ -136,7 +136,7 @@ encode_nonobject(const write_context& ctx, const registry_ref& registry, const c
     if (target.kind() != type_kind::object)
       return failure(error::unsupported, "", "内嵌引用目标必须是注册对象");
     auto declared = reference_policy_for(value_type, override);
-    auto actual = result<engine::type_id>{reference_slot->actual_type()};
+    auto actual = result<gneiss::type_id>{reference_slot->actual_type()};
     if (!declared || !actual)
       return failure(error::invalid_argument);
     if (declared->encode) {
@@ -319,8 +319,8 @@ result<writer::node, serialization::diagnostic> encode_members(const write_conte
     if (!policy)
       return failure(policy.error(), field_path(property.name()), "字段序列化策略与访问能力不兼容");
     if (!policy->save ||
-        !gneiss::engine::meta::has_flags(property.capabilities(),
-                                         gneiss::engine::meta::property_capabilities::writable))
+        !gneiss::meta::has_flags(property.capabilities(),
+                                         gneiss::meta::property_capabilities::writable))
       continue;
     const auto path = field_path(property.name());
     auto child = property.get(*view);
@@ -446,8 +446,8 @@ serialization::diagnostic validate_defaults(const read_context& ctx, const regis
     if (!policy)
       return failure(policy.error(), field_path(property.name()));
     if (!policy->save || property.type().kind() == type_kind::scalar ||
-        !gneiss::engine::meta::has_flags(property.capabilities(),
-                                         gneiss::engine::meta::property_capabilities::writable))
+        !gneiss::meta::has_flags(property.capabilities(),
+                                         gneiss::meta::property_capabilities::writable))
       continue;
     auto child = property.get(*view);
     if (!child)
@@ -601,12 +601,12 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
           !context_access::input(ctx)->is_string(tag) ||
           !context_access::input(ctx)->is_object(content))
         return failure(error::invalid_argument, "", "多态引用需要类型和内容");
-      auto guid = engine::guid::parse(context_access::input(ctx)->string(tag));
+      auto guid = gneiss::guid::parse(context_access::input(ctx)->string(tag));
       if (!guid || !*guid || guid->string() != context_access::input(ctx)->string(tag))
         return failure(error::invalid_argument, "/$type_guid");
       auto type = find_type(registry, *guid);
       if (!type)
-        return failure(gneiss::engine::error{gneiss::engine::error::not_found}, "/$type_guid");
+        return failure(gneiss::error{gneiss::error::not_found}, "/$type_guid");
       actual = type.id();
     }
     auto compatible = cast_base(registry, actual, target.id(), nullptr);
@@ -778,8 +778,8 @@ serialization::diagnostic decode_members(const read_context& ctx, const registry
     if (!policy)
       return failure(policy.error(), field_path(property.name()), "字段序列化策略与访问能力不兼容");
     if (!policy->save ||
-        !gneiss::engine::meta::has_flags(property.capabilities(),
-                                         gneiss::engine::meta::property_capabilities::writable))
+        !gneiss::meta::has_flags(property.capabilities(),
+                                         gneiss::meta::property_capabilities::writable))
       continue;
     auto* input = context_access::input(ctx)->member(root, property.name());
     const auto path = field_path(property.name());

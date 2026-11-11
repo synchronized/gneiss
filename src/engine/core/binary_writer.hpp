@@ -8,7 +8,7 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 /** 借用字节容器并追加编码；容器必须覆盖 writer 生命周期。
  * 分配异常交由调用方处理；不保证一组写入操作的原子性，不提供线程同步。 */
 class binary_writer final {
@@ -35,4 +35,4 @@ public:
 private:
   std::vector<std::byte>& output_;
 };
-} // namespace gneiss::engine
+} // namespace gneiss

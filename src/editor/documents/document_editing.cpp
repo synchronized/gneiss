@@ -21,10 +21,10 @@ void document_editing::advance_cleanup(runtime::application& application) {
   }
   assets_.advance(application, document_, history_);
 }
-gneiss::engine::error document_editing::create_empty(runtime::application& application,
-                                                     gneiss::engine::world* world) {
+gneiss::error document_editing::create_empty(runtime::application& application,
+                                                     gneiss::world* world) {
   if (active())
-    return gneiss::engine::error::not_ready;
+    return gneiss::error::not_ready;
   scene_edit_session candidate;
   const auto prepared = candidate.create_empty(application, world);
   if (prepared.failed())
@@ -33,17 +33,17 @@ gneiss::engine::error document_editing::create_empty(runtime::application& appli
   if (closed.failed())
     return closed;
   document_ = std::move(candidate);
-  return gneiss::engine::error::success;
+  return gneiss::error::success;
 }
-gneiss::engine::error document_editing::close() noexcept {
+gneiss::error document_editing::close() noexcept {
   if (active())
-    return gneiss::engine::error::not_ready;
+    return gneiss::error::not_ready;
   const auto cleared = history_.clear();
   if (cleared.failed())
     return cleared;
   prefabs_.dismiss();
   assets_.dismiss();
   document_.close();
-  return gneiss::engine::error::success;
+  return gneiss::error::success;
 }
 } // namespace gneiss::editor

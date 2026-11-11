@@ -5,7 +5,7 @@
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/scene.hpp"
 #include <functional>
-namespace gneiss::engine {
+namespace gneiss {
 /** 外部协调方持有的地址关联，不保存作者描述或组件副本。 */
 struct scene_object_association {
   entity_id entity;
@@ -30,4 +30,4 @@ apply_scene(world&, scene_instance_id,
             std::map<object_address, scene_object_association>& associations,
             const composed_scene& previous, const composed_scene& next,
             const scene_resource_bindings& assets, const scene_component_preparer& prepare = {});
-} // namespace gneiss::engine
+} // namespace gneiss

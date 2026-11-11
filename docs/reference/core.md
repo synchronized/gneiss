@@ -5,20 +5,20 @@
 
 ## 版本
 
-仓内使用 `gneiss::engine::library_version()` 返回运行时库版本，
+仓内使用 `gneiss::library_version()` 返回运行时库版本，
 `library_version_string()` 返回静态存储的版本字符串。声明位于
 `src/engine/core/version.hpp`。构建版本头仅供内部实现与版本用例使用，不安装。
 游戏模块协议已撤销，不再发布模块 ABI 版本。
 
 ## 错误状态与值结果
 
-`gneiss::engine::error`（`engine/core/error.hpp`）保存一个 32 位状态码，提供
+`gneiss::error`（`engine/core/error.hpp`）保存一个 32 位状态码，提供
 `ok()`、`failed()`、`code()`、`message()`，不提供布尔或隐式整数转换。
 默认构造产生 unknown；非负值成功，负值失败。无返回值的操作直接返回 error。
 `message()` 返回静态英文文本，未知数值返回 `unrecognized result`。
 整数仅在协议等边界显式构造或通过 `code()` 读取，旧状态类型 result 不再保留。
 
-`gneiss::engine::result<T, E = error>`（`engine/core/result.hpp`）互斥持有成功值或失败原因：
+`gneiss::result<T, E = error>`（`engine/core/result.hpp`）互斥持有成功值或失败原因：
 
 ```cpp
 auto loaded = resources.load<texture>(uri);
@@ -45,7 +45,7 @@ auto request = std::move(*loaded);
 
 ## 内部基础身份类型
 
-以下类型位于 `src/engine/core`，命名空间为 `gneiss::engine`，不属于公共 C ABI。
+以下类型位于 `src/engine/core`，命名空间为 `gneiss`，不属于公共 C ABI。
 来源及许可见 [第三方声明](../../THIRD_PARTY_NOTICES.md)。
 
 - `string_name`：驻留字符串，相同文本共享稳定条目；空串和空指针生成无效值。
@@ -77,7 +77,7 @@ auto request = std::move(*loaded);
 
 ## 数学类型与运算
 
-`engine/core/math` 使用 `gneiss::engine` 命名空间，按职责组织，不依赖渲染后端：
+`engine/core/math` 使用 `gneiss::math` 命名空间，按职责组织，不依赖渲染后端：
 
 | 文件 | 内容 |
 | --- | --- |
@@ -120,3 +120,9 @@ auto request = std::move(*loaded);
 
 两者均为无 I/O、无线程同步的内存工具。纹理容器、Mesh Binary 和 KTX2 使用它们共享字节读写，
 magic、schema、对齐规则和数据区合法性仍由各 codec 负责，文件格式不变。
+
+## 任务命名空间
+
+`engine/core/tasks/task_scheduler.hpp` 的任务调度类型统一位于 `gneiss::tasks`，
+例如 `gneiss::tasks::task_scheduler`、`task_executor`、`task_handle` 和 `task_scope`。
+目录和 CMake 目标不变；调度器私有后端位于 `gneiss::tasks::detail`。

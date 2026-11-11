@@ -15,7 +15,7 @@
 #include <numeric>
 #include <utility>
 
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 
 math::transform combine(const math::transform& parent, const math::transform& local) noexcept {
@@ -117,15 +117,15 @@ bool world_hierarchy::is_descendant(entity_id ancestor, entity_id candidate) con
   return false;
 }
 
-engine::error world_hierarchy::reparent(entity_id node_id, entity_id parent) {
+gneiss::error world_hierarchy::reparent(entity_id node_id, entity_id parent) {
   auto* target = find(node_id);
   if (target == nullptr || (parent != null_entity_id && find(parent) == nullptr)) {
-    return engine::error::invalid_handle;
+    return gneiss::error::invalid_handle;
   }
   if (parent && owner_.scene_of(node_id) != owner_.scene_of(parent))
     return error::invalid_argument;
   if (node_id == parent || is_descendant(node_id, parent)) {
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   if (target->parent == parent)
     return error::success;
@@ -135,21 +135,21 @@ engine::error world_hierarchy::reparent(entity_id node_id, entity_id parent) {
     }
     remove_child(target->parent, node_id);
     target->parent = parent;
-    return engine::error::success;
+    return gneiss::error::success;
   }
 }
 
-engine::error world_hierarchy::set_local(entity_id node_id,
+gneiss::error world_hierarchy::set_local(entity_id node_id,
                                          const math::transform& transform) noexcept {
   auto* target = find(node_id);
   if (target == nullptr) {
-    return engine::error::invalid_handle;
+    return gneiss::error::invalid_handle;
   }
   if (!is_valid(transform)) {
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   target->local = transform;
-  return engine::error::success;
+  return gneiss::error::success;
 }
 
 const math::transform* world_hierarchy::get_local(entity_id node_id) const noexcept {
@@ -160,7 +160,7 @@ const math::transform* world_hierarchy::get_local(entity_id node_id) const noexc
 result<math::transform> world_hierarchy::get_world(entity_id node_id) const noexcept {
   const auto* target = find(node_id);
   if (target == nullptr) {
-    return engine::error::invalid_handle;
+    return gneiss::error::invalid_handle;
   }
   auto result = target->local;
   auto parent = target->parent;
@@ -177,4 +177,4 @@ entity_id world_hierarchy::get_parent(entity_id node_id) const noexcept {
   return target == nullptr ? null_entity_id : target->parent;
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

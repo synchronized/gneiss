@@ -19,7 +19,7 @@ namespace {
 constexpr std::uintmax_t maximum_log_size = 1024U * 1024U;
 
 [[nodiscard]] std::string format_event(std::string_view level, std::string_view stage,
-                                       gneiss::engine::error operation, std::string_view message,
+                                       gneiss::error operation, std::string_view message,
                                        std::string_view context) {
   const auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
                              std::chrono::system_clock::now().time_since_epoch())
@@ -68,19 +68,19 @@ void append_quoted(std::string& output, std::string_view value) {
   output.push_back('"');
 }
 
-[[nodiscard]] std::string_view severity_name(gneiss::engine::logging::level severity) noexcept {
+[[nodiscard]] std::string_view severity_name(gneiss::logging::level severity) noexcept {
   switch (severity) {
-  case gneiss::engine::logging::level::trace:
+  case gneiss::logging::level::trace:
     return "TRACE";
-  case gneiss::engine::logging::level::debug:
+  case gneiss::logging::level::debug:
     return "DEBUG";
-  case gneiss::engine::logging::level::info:
+  case gneiss::logging::level::info:
     return "INFO";
-  case gneiss::engine::logging::level::warning:
+  case gneiss::logging::level::warning:
     return "WARNING";
-  case gneiss::engine::logging::level::error:
+  case gneiss::logging::level::error:
     return "ERROR";
-  case gneiss::engine::logging::level::fatal:
+  case gneiss::logging::level::fatal:
     return "FATAL";
   default:
     return "UNKNOWN";
@@ -88,7 +88,7 @@ void append_quoted(std::string& output, std::string_view value) {
 }
 
 [[nodiscard]] std::string
-format_structured_event(const gneiss::engine::logging::record_view& source) {
+format_structured_event(const gneiss::logging::record_view& source) {
   std::string event = "time_ns=";
   event.append(std::to_string(source.timestamp_ns));
   event.append(" sequence=");
@@ -153,7 +153,7 @@ runtime_log::runtime_log(const std::filesystem::path& path) : path_(path) {
 }
 
 void runtime_log::write(std::string_view level, std::string_view stage,
-                        gneiss::engine::error operation, std::string_view message,
+                        gneiss::error operation, std::string_view message,
                         std::string_view context) {
   {
     const std::scoped_lock lock(mutex_);
@@ -178,13 +178,13 @@ void runtime_log::write(std::string_view level, std::string_view stage,
   }
 }
 
-void runtime_log::write(const gneiss::engine::logging::record_view& source) {
+void runtime_log::write(const gneiss::logging::record_view& source) {
   {
     const std::scoped_lock lock(mutex_);
     const auto event = format_structured_event(source);
     std::string protocol;
     if (gneiss::host::encode_runtime_log_event(source, protocol) ==
-        gneiss::engine::error::success) {
+        gneiss::error::success) {
       std::fwrite(protocol.data(), sizeof(char), protocol.size(), stdout);
       std::fflush(stdout);
     } else {

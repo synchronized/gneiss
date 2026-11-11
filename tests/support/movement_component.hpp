@@ -8,7 +8,7 @@
 #include "value_result.hpp"
 #include <stdexcept>
 namespace gneiss::test_support {
-namespace e = gneiss::engine;
+namespace e = gneiss;
 enum class movement_mode { walk, run };
 struct movement_settings {
   inline static constexpr std::string_view type_name = "test_movement_settings";
@@ -25,7 +25,7 @@ struct waypoint {
   bool operator==(const waypoint&) const = default;
 };
 }
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 template <> struct sequence_identity_traits<std::vector<gneiss::test_support::waypoint>> {
   static constexpr bool enabled = true;
   static guid identity(const gneiss::test_support::waypoint& v) { return v.uuid; }

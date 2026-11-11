@@ -11,16 +11,16 @@
 #include <cstdint>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 using system_id = std::uint32_t;
-using system_callback = engine::error (*)(world_state& world, void* user_data) noexcept;
+using system_callback = gneiss::error (*)(world_state& world, void* user_data) noexcept;
 
 /** 按注册顺序串行执行 System；调用方负责外部同步。 */
 class system_scheduler final {
 public:
-  [[nodiscard]] engine::error add(system_id id, system_callback callback, void* user_data);
-  [[nodiscard]] engine::error run(world_state& world) noexcept;
+  [[nodiscard]] gneiss::error add(system_id id, system_callback callback, void* user_data);
+  [[nodiscard]] gneiss::error run(world_state& world) noexcept;
   [[nodiscard]] std::size_t size() const noexcept { return systems_.size(); }
 
 private:
@@ -33,6 +33,6 @@ private:
   std::vector<entry> systems_;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

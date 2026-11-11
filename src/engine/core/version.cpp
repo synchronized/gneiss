@@ -5,8 +5,8 @@
 
 #include "engine/core/build_version.h"
 
-gneiss::engine::version gneiss::engine::library_version() noexcept {
+gneiss::version gneiss::library_version() noexcept {
   return {GNEISS_VERSION_MAJOR, GNEISS_VERSION_MINOR, GNEISS_VERSION_PATCH};
 }
 
-const char* gneiss::engine::library_version_string() noexcept { return GNEISS_VERSION_STRING; }
+const char* gneiss::library_version_string() noexcept { return GNEISS_VERSION_STRING; }

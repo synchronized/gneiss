@@ -9,7 +9,7 @@
 #include <array>
 
 int main() try {
-  namespace native = gneiss::engine;
+  namespace native = gneiss;
   std::shared_ptr<gneiss::runtime::application> first;
   std::shared_ptr<gneiss::runtime::application> second;
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create({}), first)

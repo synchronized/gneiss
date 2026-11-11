@@ -48,7 +48,7 @@ void print_usage() {
 
 int process_binary_mesh(std::string_view command, const std::filesystem::path& path) {
   const auto bytes = read_file(path);
-  auto decoded = gneiss::engine::decode_mesh_binary(bytes);
+  auto decoded = gneiss::decode_mesh_binary(bytes);
   if (!decoded) {
     const auto& diagnostic = decoded.error();
     std::cerr << diagnostic.message << "（字节 " << diagnostic.byte_offset << "）\n";
@@ -59,7 +59,7 @@ int process_binary_mesh(std::string_view command, const std::filesystem::path& p
     std::cout << "Mesh Binary v1 顶点=" << data.vertices.size() << " 索引=" << data.indices.size()
               << " 三角形=" << data.indices.size() / 3U << " 字节=" << bytes.size() << '\n';
   } else if (command == "dump") {
-    std::cout << gneiss::engine::dump_mesh_binary_json(data);
+    std::cout << gneiss::dump_mesh_binary_json(data);
   } else {
     std::cout << "Mesh Binary 有效\n";
   }

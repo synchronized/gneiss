@@ -78,7 +78,7 @@ bool matches_v3_layout(const std::vector<std::byte>& encoded, std::uint32_t flag
 } // namespace
 
 int main() { // NOLINT(bugprone-exception-escape)
-  namespace asset = gneiss::engine;
+  namespace asset = gneiss;
   asset::mesh_binary_data source;
   source.vertices = {
       {.position = {-0.5F, -0.5F, 0.0F}, .texcoord = {0.0F, 0.0F}, .normal = {0, 0, 1}},

@@ -4,7 +4,7 @@
 #include "engine/function/asset/detail/asset_decode.hpp"
 #include "engine/function/asset/detail/loader_factory.hpp"
 #include "engine/function/render/render_service.hpp"
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 namespace {
 struct mesh_loader final : asset_loader {
   explicit mesh_loader(std::string uri) : asset_loader(std::move(uri)) {
@@ -28,7 +28,7 @@ std::shared_ptr<asset_loader> make_mesh_loader(std::string uri) {
 }
 // 所属线程采用内容；工作线程只调用上方的字节解码入口。
 error asset_construction::adopt(asset_manager& assets, std::shared_ptr<const mesh_data> content,
-                                const ref<const engine::mesh>& target,
+                                const ref<const gneiss::mesh>& target,
                                 std::span<const asset_read_record> sources) {
   if (!assets.impl_ || assets.stop_requested())
     return error::invalid_state;

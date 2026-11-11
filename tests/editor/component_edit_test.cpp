@@ -23,7 +23,7 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <source_location>
-namespace e = gneiss::engine;
+namespace e = gneiss;
 namespace ed = gneiss::editor;
 using namespace gneiss::test_support;
 using p = e::meta::property_id;
@@ -46,7 +46,7 @@ e::error register_reference_meta() {
   status = e::meta::registration::type<reference_settings>()
                .property<&reference_settings::amount>(p{1}, "amount")
                .property<&reference_settings::link>(p{2}, "link")
-               .extend(gneiss::engine::serialization::validation<[](const reference_settings& v) {
+               .extend(gneiss::serialization::validation<[](const reference_settings& v) {
                  return v.amount >= 0 ? e::error::success : e::error::invalid_argument;
                }>)
                .commit();
@@ -87,7 +87,7 @@ void check(bool ok, std::source_location at = std::source_location::current()) {
 }
 }
 int main() try {
-  gneiss::engine::install_fatal_handler();
+  gneiss::install_fatal_handler();
   check(e::initialize_meta(register_reference_meta).ok());
   check(e::register_scene_component(reference_operations()).ok());
   auto ops = operations();
@@ -388,7 +388,7 @@ int main() try {
     // 持久化覆盖以文档为准，运行实例只接收有效组件。
     auto bytes = document.serialize();
     check(bytes.has_value());
-    auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(
+    auto decoded = gneiss::asset_file::deserialize<e::scene_description>(
         std::as_bytes(std::span{bytes->data(), bytes->size()}));
     check(decoded.has_value());
     return *decoded;
@@ -456,7 +456,7 @@ int main() try {
   // 同时恢复嵌套对象多个叶字段，仍通过同一命令和稀疏覆盖。
   check(apply({.path = {p{3}},
                .object_type = e::runtime_type_of<movement_settings>(),
-               .object = gneiss::engine::make_ref<movement_settings>()})
+               .object = gneiss::make_ref<movement_settings>()})
             .ok());
   check(read().settings.acceleration == 1 && override_count() == 1);
   check(history.undo().ok() && read().settings.acceleration == 7);
@@ -465,29 +465,29 @@ int main() try {
   replacement.samples.push_back(3);
   check(apply({.path = {},
                .object_type = e::runtime_type_of<movement_description>(),
-               .object = gneiss::engine::make_ref<movement_description>(replacement)})
+               .object = gneiss::make_ref<movement_description>(replacement)})
             .ok());
   check(read().samples.size() == 3);
   check(history.undo().ok() && read().samples.size() == 2);
   // 两个相互约束的字段必须整体覆盖，不能按路径顺序提前校验中间态。
   check(apply({.path = {p{3}},
                .object_type = e::runtime_type_of<movement_settings>(),
-               .object = gneiss::engine::make_ref<movement_settings>(movement_settings{20, 30})})
+               .object = gneiss::make_ref<movement_settings>(movement_settings{20, 30})})
             .ok());
   auto invalid = snapshot();
   auto invalid_prefab = std::ranges::find_if(
       invalid.objects, [](const auto& value) { return value.prefab.has_value(); });
   check(invalid_prefab != invalid.objects.end());
   invalid_prefab->prefab->overrides.front().key.path = {p{0}};
-  check(!gneiss::engine::asset_file::serialize_bytes(invalid));
-  auto valid_bytes = gneiss::engine::asset_file::serialize_bytes(snapshot());
+  check(!gneiss::asset_file::serialize_bytes(invalid));
+  auto valid_bytes = gneiss::asset_file::serialize_bytes(snapshot());
   check(valid_bytes.has_value());
   std::string malformed(reinterpret_cast<const char*>(valid_bytes->data()), valid_bytes->size());
   auto path_start = malformed.find("\"path\"");
   check(path_start != std::string::npos);
   auto array_start = malformed.find('[', path_start), array_end = malformed.find(']', array_start);
   malformed.replace(array_start, array_end - array_start + 1, R"([{"index":-1}])");
-  auto rejected = gneiss::engine::asset_file::deserialize<e::scene_description>(
+  auto rejected = gneiss::asset_file::deserialize<e::scene_description>(
       std::as_bytes(std::span{malformed.data(), malformed.size()}));
   check(!rejected && rejected.error().path.find("/path") != std::string::npos);
   e::scene_content prepared;

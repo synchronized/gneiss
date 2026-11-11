@@ -14,14 +14,14 @@ namespace gneiss::editor {
 
 /** 调用期间借用身份字符串；成功记录的撤销命令持有自己的副本。 */
 struct runtime_author_transform final {
-  gneiss::engine::guid uuid;
-  gneiss::engine::guid prefab_instance_uuid;
-  gneiss::engine::guid prefab_source_node_uuid;
-  gneiss::engine::math::transform local_transform = {};
+  gneiss::guid uuid;
+  gneiss::guid prefab_instance_uuid;
+  gneiss::guid prefab_source_node_uuid;
+  gneiss::math::transform local_transform = {};
 };
 
 /** 将具有持久化 UUID 映射的 Runtime Transform 作为可撤销命令应用到作者场景。 */
-[[nodiscard]] gneiss::engine::error
+[[nodiscard]] gneiss::error
 apply_runtime_transform_to_author(scene_edit_session& session, editor_command_history& history,
                                   const runtime_author_transform& runtime_node);
 

@@ -10,9 +10,9 @@
 
 namespace gneiss::host {
 
-gneiss::engine::error make_protocol_error_response(gneiss::engine::error operation,
+gneiss::error make_protocol_error_response(gneiss::error operation,
                                                    std::string message, std::uint32_t request_id,
-                                                   gneiss::engine::ipc_envelope& output) {
+                                                   gneiss::ipc_envelope& output) {
   return encode_ipc_session_error({.code = operation.code(), .message = std::move(message)},
                                   request_id, output);
 }

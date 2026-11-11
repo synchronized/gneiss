@@ -24,7 +24,7 @@ namespace {
 
 }
 
-namespace gneiss::engine {
+namespace gneiss {
 bool is_canonical_prefab_uuid(std::string_view value) noexcept {
   return is_canonical_uuid_impl(value);
 }
@@ -45,4 +45,4 @@ bool prefab_property_override_key_less(const prefab_property_override_key& left,
                                       right.path.end(), meta::property_step_less);
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

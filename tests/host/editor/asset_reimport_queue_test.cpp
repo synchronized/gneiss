@@ -30,7 +30,7 @@ using queue = gneiss::editor::asset_reimport_queue;
 } // namespace
 
 int main() { // NOLINT(bugprone-exception-escape)
-  gneiss::engine::install_fatal_handler();
+  gneiss::install_fatal_handler();
   const auto fixture_root = std::filesystem::path{GNEISS_EDITOR_TEST_GLTF_ROOT};
   // 导入器返回规范路径；临时目录可能含短路径或目录联接，相对路径必须使用同一基准。
   const auto root = std::filesystem::weakly_canonical(std::filesystem::temp_directory_path()) /
@@ -50,10 +50,10 @@ int main() { // NOLINT(bugprone-exception-escape)
   queue reimports({.debounce = std::chrono::milliseconds{20},
                    .stable_read_delay = std::chrono::milliseconds{10},
                    .capacity = 2U});
-  if (reimports.notify({}, start) != gneiss::engine::error::invalid_argument ||
-      reimports.notify(relative, start) != gneiss::engine::error::success ||
+  if (reimports.notify({}, start) != gneiss::error::invalid_argument ||
+      reimports.notify(relative, start) != gneiss::error::success ||
       reimports.notify(relative, start + std::chrono::milliseconds{5}) !=
-          gneiss::engine::error::success ||
+          gneiss::error::success ||
       reimports.pending_count() != 1U ||
       reimports.tick(root, assets, start + std::chrono::milliseconds{24}) != 0U ||
       reimports.tick(root, assets, start + std::chrono::milliseconds{25}) != 0U ||
@@ -71,7 +71,7 @@ int main() { // NOLINT(bugprone-exception-escape)
 
   std::ofstream(initial.source_path, std::ios::binary | std::ios::app) << ' ';
   const auto changed = start + std::chrono::seconds{1};
-  if (reimports.notify(relative, changed) != gneiss::engine::error::success ||
+  if (reimports.notify(relative, changed) != gneiss::error::success ||
       reimports.tick(root, assets, changed + std::chrono::milliseconds{20}) != 0U ||
       reimports.tick(root, assets, changed + std::chrono::milliseconds{30}) != 1U) {
     std::filesystem::remove_all(root);
@@ -89,7 +89,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   const auto untracked = std::filesystem::path{"untracked.gltf"};
   std::filesystem::copy_file(fixture_root / "static_triangle.gltf", root / "sources" / untracked);
   const auto later = changed + std::chrono::seconds{1};
-  if (reimports.notify(untracked, later) != gneiss::engine::error::success ||
+  if (reimports.notify(untracked, later) != gneiss::error::success ||
       reimports.tick(root, assets, later + std::chrono::milliseconds{20}) != 0U) {
     std::filesystem::remove_all(root);
     return failed(6);
@@ -103,8 +103,8 @@ int main() { // NOLINT(bugprone-exception-escape)
   }
 
   queue bounded({.capacity = 1U});
-  if (bounded.notify("first.gltf", start) != gneiss::engine::error::success ||
-      bounded.notify("second.gltf", start) != gneiss::engine::error::not_ready ||
+  if (bounded.notify("first.gltf", start) != gneiss::error::success ||
+      bounded.notify("second.gltf", start) != gneiss::error::not_ready ||
       bounded.dropped_candidate_count() != 1U) {
     std::filesystem::remove_all(root);
     return failed(8);
@@ -144,8 +144,8 @@ int main() { // NOLINT(bugprone-exception-escape)
   // 可恢复导入失败显式返回结果，不使用异常代替。
   // 带后缀的第二个源按名称先处理，用来确认失败不会挡住随后健康的候选。
   if (failing_relative >= relative ||
-      isolated.notify(failing_relative, start) != gneiss::engine::error::success ||
-      isolated.notify(relative, start) != gneiss::engine::error::success ||
+      isolated.notify(failing_relative, start) != gneiss::error::success ||
+      isolated.notify(relative, start) != gneiss::error::success ||
       isolated.tick(root, assets, start) != 0U ||
       isolated.tick(root, assets, start + std::chrono::milliseconds{1}) != 1U || attempts != 1U ||
       isolated.pending_count() != 1U) {
@@ -167,7 +167,7 @@ int main() { // NOLINT(bugprone-exception-escape)
     return failed(13);
   }
   failure_mode = 0;
-  if (isolated.notify(failing_relative, later) != gneiss::engine::error::success ||
+  if (isolated.notify(failing_relative, later) != gneiss::error::success ||
       isolated.tick(root, assets, later) != 0U ||
       isolated.tick(root, assets, later + std::chrono::milliseconds{1}) != 1U || attempts != 3U ||
       isolated.pending_count() != 0U) {
@@ -183,7 +183,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   }
   failure_mode = 2;
   std::ofstream(second.source_path, std::ios::app) << ' ';
-  if (isolated.notify(failing_relative, later) != gneiss::engine::error::success ||
+  if (isolated.notify(failing_relative, later) != gneiss::error::success ||
       isolated.tick(root, assets, later) != 0U ||
       isolated.tick(root, assets, later + std::chrono::milliseconds{1}) != 1U ||
       isolated.pending_count() != 0U) {
@@ -239,7 +239,7 @@ int main() { // NOLINT(bugprone-exception-escape)
       recovery.request_rescan();
     }
   }
-  if (recovery.is_rescanning() || recovery.rescan_result() != gneiss::engine::error::success ||
+  if (recovery.is_rescanning() || recovery.rescan_result() != gneiss::error::success ||
       recovered != 2U || recovery.dropped_candidate_count() != 0U) {
     return failed(20);
   }
@@ -267,17 +267,17 @@ int main() { // NOLINT(bugprone-exception-escape)
   std::ofstream(broken_project / ".gneiss/asset-index.json") << "invalid index";
   recovery.request_rescan();
   (void)recovery.tick(broken_project, assets, later);
-  if (recovery.is_rescanning() || recovery.rescan_result() != gneiss::engine::error::io) {
+  if (recovery.is_rescanning() || recovery.rescan_result() != gneiss::error::io) {
     return failed(23);
   }
   recovery.request_rescan();
   (void)recovery.tick(root, assets, later);
-  if (recovery.rescan_result() != gneiss::engine::error::success) {
+  if (recovery.rescan_result() != gneiss::error::success) {
     return failed(24);
   }
 
   const auto removed = later + std::chrono::seconds{1};
-  if (reimports.notify(relative, removed) != gneiss::engine::error::success ||
+  if (reimports.notify(relative, removed) != gneiss::error::success ||
       reimports.tick(root, assets, removed + std::chrono::milliseconds{20}) != 0U) {
     std::filesystem::remove_all(root);
     return failed(9);

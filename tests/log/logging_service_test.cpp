@@ -16,8 +16,8 @@ template <> struct std::formatter<counted_format> : std::formatter<int> {
   }
 };
 namespace {
-namespace logging = gneiss::engine::logging;
-namespace engine = gneiss::engine;
+namespace logging = gneiss::logging;
+
 void require(bool condition) {
   if (!condition)
     throw std::runtime_error("logging runtime contract failed");
@@ -29,27 +29,27 @@ struct memory_sink final : logging::sink {
   int flushes{};
   logging::logger recursive;
   bool fail{};
-  engine::error write(const engine::logging::record_view& event) override {
+  gneiss::error write(const gneiss::logging::record_view& event) override {
     require(event.sequence > sequence && event.thread_id != 0);
     sequence = event.sequence;
     messages.emplace_back(event.message.message);
     channels.emplace_back(event.message.category);
     recursive.info("must not recurse");
-    return fail ? engine::error::io : engine::error::success;
+    return fail ? gneiss::error::io : gneiss::error::success;
   }
-  engine::error flush() override {
+  gneiss::error flush() override {
     ++flushes;
-    return engine::error::success;
+    return gneiss::error::success;
   }
 };
 static const logging::logger static_log{"static"};
 void test_default_and_sync() {
-  require(!static_log.enabled(engine::logging::level::info));
+  require(!static_log.enabled(gneiss::logging::level::info));
   logging::service logs{{.mode = logging::dispatch_mode::synchronous}};
   auto output = std::make_unique<memory_sink>();
   auto* memory = output.get();
   logging::scoped_sink_connection connection =
-      logs.attach(std::move(output), {.minimum_level = engine::logging::level::warning});
+      logs.attach(std::move(output), {.minimum_level = gneiss::logging::level::warning});
   logging::default_service_binding binding{logs};
   bool duplicate{};
   try {
@@ -58,14 +58,14 @@ void test_default_and_sync() {
     duplicate = true;
   }
   require(duplicate);
-  require(!static_log.enabled(engine::logging::level::info));
+  require(!static_log.enabled(gneiss::logging::level::info));
   static_log.warning("synchronous");
   require(memory->messages.size() == 1 && memory->channels.front() == "static");
-  connection.set_level(engine::logging::level::trace);
+  connection.set_level(gneiss::logging::level::trace);
   static_log.info("visible");
   require(memory->messages.size() == 2);
   binding.reset();
-  require(!static_log.enabled(engine::logging::level::warning));
+  require(!static_log.enabled(gneiss::logging::level::warning));
   {
     logging::default_service_binding rebound{logs};
     static_log.info("rebound");
@@ -73,7 +73,7 @@ void test_default_and_sync() {
   require(memory->messages.size() == 3);
   connection.disconnect();
   require(!connection.connected());
-  require(!logs.get_logger("isolated").enabled(engine::logging::level::fatal));
+  require(!logs.get_logger("isolated").enabled(gneiss::logging::level::fatal));
 }
 void test() {
   auto output = std::make_unique<memory_sink>();
@@ -87,7 +87,7 @@ void test() {
   int formatted{};
   log.debug("{}", counted_format{&formatted});
   require(formatted == 0);
-  runtime.set_level(engine::logging::level::debug);
+  runtime.set_level(gneiss::logging::level::debug);
   log.debug("{}", counted_format{&formatted});
   require(formatted == 1);
   std::vector<std::thread> workers;
@@ -110,7 +110,7 @@ void test() {
   require(observed->messages.size() == 82);
   runtime.close();
   require(!connection.connected());
-  require(!log.enabled(engine::logging::level::info));
+  require(!log.enabled(gneiss::logging::level::info));
   log.info("after close {}", counted_format{&formatted});
   require(formatted == 1);
   runtime.close();
@@ -122,9 +122,9 @@ void test() {
     other.attach(std::move(isolated.front()));
     expired = other.get_logger("isolated");
     expired.info("independent context");
-    require(!log.enabled(engine::logging::level::info));
+    require(!log.enabled(gneiss::logging::level::info));
   }
-  require(!expired.enabled(engine::logging::level::info));
+  require(!expired.enabled(gneiss::logging::level::info));
   expired.info("expired");
 }
 }

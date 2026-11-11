@@ -11,33 +11,33 @@
 
 namespace gneiss::editor {
 
-/** ImGuizmo 的列主序数组边界；内部运算使用 engine::math::matrix4。 */
+/** ImGuizmo 的列主序数组边界；内部运算使用 gneiss::math::matrix4。 */
 using gizmo_matrix = std::array<float, 16>;
 
 /** 与 Editor Camera 相同的全窗口投影；输入纵横比必须为有限正数。 */
 [[nodiscard]] gizmo_matrix build_gizmo_projection_matrix(float aspect) noexcept;
 [[nodiscard]] gizmo_matrix
-build_gizmo_view_matrix(const gneiss::engine::math::transform& camera) noexcept;
+build_gizmo_view_matrix(const gneiss::math::transform& camera) noexcept;
 
 /** 按 column-major 布局把正缩放 TRS 转换为 Gizmo 模型矩阵。 */
-[[nodiscard]] gneiss::engine::error
-transform_to_gizmo_matrix(const gneiss::engine::math::transform& value,
+[[nodiscard]] gneiss::error
+transform_to_gizmo_matrix(const gneiss::math::transform& value,
                           gizmo_matrix& output) noexcept;
 
 /** 从无剪切、正缩放的 Gizmo 模型矩阵恢复 TRS。 */
-[[nodiscard]] gneiss::engine::error
+[[nodiscard]] gneiss::error
 gizmo_matrix_to_transform(const gizmo_matrix& value,
-                          gneiss::engine::math::transform& output) noexcept;
+                          gneiss::math::transform& output) noexcept;
 
 /**
  * 将目标世界 TRS 转换为节点局部 TRS。
  *
  * parent_world 为空表示根节点。负缩放因矩阵 Gizmo 分解存在符号歧义而返回 unsupported。
  */
-[[nodiscard]] gneiss::engine::error
-world_to_local_transform(const gneiss::engine::math::transform* parent_world,
-                         const gneiss::engine::math::transform& target_world,
-                         gneiss::engine::math::transform& output) noexcept;
+[[nodiscard]] gneiss::error
+world_to_local_transform(const gneiss::math::transform* parent_world,
+                         const gneiss::math::transform& target_world,
+                         gneiss::math::transform& output) noexcept;
 
 } // namespace gneiss::editor
 

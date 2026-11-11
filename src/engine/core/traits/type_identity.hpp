@@ -15,7 +15,7 @@
 #include <string_view>
 #include <type_traits>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 /**
  * @brief C++ 类型的静态名称和稳定 GUID 定制点。
@@ -37,11 +37,11 @@ template <typename T, typename = void> struct type_identity {
     }
   }
 
-  [[nodiscard]] static constexpr engine::guid guid() noexcept {
-    if constexpr (requires { engine::guid{type::type_guid}; }) {
-      return engine::guid{type::type_guid};
+  [[nodiscard]] static constexpr gneiss::guid guid() noexcept {
+    if constexpr (requires { gneiss::guid{type::type_guid}; }) {
+      return gneiss::guid{type::type_guid};
     } else {
-      return engine::guid::nil();
+      return gneiss::guid::nil();
     }
   }
 };
@@ -53,91 +53,91 @@ struct type_identity<T> : type_identity<std::remove_cvref_t<T>> {};
 /** 当前内建反射字段的持久化身份，沿用既有 GUID。 */
 template <> struct type_identity<math::vector3> {
   static constexpr std::string_view name() noexcept { return "vec3"; }
-  static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("90bcc813-a53c-4196-aa35-93f8946e82cb");
+  static constexpr gneiss::guid guid() noexcept {
+    return gneiss::guid::literal("90bcc813-a53c-4196-aa35-93f8946e82cb");
   }
 };
 template <> struct type_identity<math::vector2> {
   static constexpr std::string_view name() noexcept { return "vec2"; }
-  static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("1e1a6eaf-f385-409c-b365-d98be45f47d4");
+  static constexpr gneiss::guid guid() noexcept {
+    return gneiss::guid::literal("1e1a6eaf-f385-409c-b365-d98be45f47d4");
   }
 };
 template <> struct type_identity<math::vector4> {
   static constexpr std::string_view name() noexcept { return "vec4"; }
-  static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("f4cae1c0-3da1-4fe7-ac62-a0711b4c9919");
+  static constexpr gneiss::guid guid() noexcept {
+    return gneiss::guid::literal("f4cae1c0-3da1-4fe7-ac62-a0711b4c9919");
   }
 };
 template <> struct type_identity<math::matrix3> {
   static constexpr std::string_view name() noexcept { return "matrix3"; }
-  static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("6d5184fd-12b1-468f-ab48-f6584b83436c");
+  static constexpr gneiss::guid guid() noexcept {
+    return gneiss::guid::literal("6d5184fd-12b1-468f-ab48-f6584b83436c");
   }
 };
 template <> struct type_identity<math::matrix4> {
   static constexpr std::string_view name() noexcept { return "matrix4"; }
-  static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("67dec1c6-2a38-4f05-af43-5233bdc8713c");
+  static constexpr gneiss::guid guid() noexcept {
+    return gneiss::guid::literal("67dec1c6-2a38-4f05-af43-5233bdc8713c");
   }
 };
 template <> struct type_identity<math::quaternion> {
   static constexpr std::string_view name() noexcept { return "quaternion"; }
-  static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("21c111bd-d754-44f0-89c1-f7cc2775d91e");
+  static constexpr gneiss::guid guid() noexcept {
+    return gneiss::guid::literal("21c111bd-d754-44f0-89c1-f7cc2775d91e");
   }
 };
 template <> struct type_identity<float> {
   static constexpr std::string_view name() noexcept { return "float"; }
-  static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("a27e9902-f3cb-4845-a7e8-3217f9759fc5");
+  static constexpr gneiss::guid guid() noexcept {
+    return gneiss::guid::literal("a27e9902-f3cb-4845-a7e8-3217f9759fc5");
   }
 };
 template <> struct type_identity<bool> {
   static constexpr std::string_view name() noexcept { return "bool"; }
-  static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("c2af2ad1-a625-4842-b4dd-74e977067e35");
+  static constexpr gneiss::guid guid() noexcept {
+    return gneiss::guid::literal("c2af2ad1-a625-4842-b4dd-74e977067e35");
   }
 };
 
 template <> struct type_identity<std::int64_t> {
   static constexpr std::string_view name() noexcept { return "int64"; }
-  static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("813f73d9-205e-42f2-933b-c3efb090caf1");
+  static constexpr gneiss::guid guid() noexcept {
+    return gneiss::guid::literal("813f73d9-205e-42f2-933b-c3efb090caf1");
   }
 };
 template <> struct type_identity<std::uint64_t> {
   static constexpr std::string_view name() noexcept { return "uint64"; }
-  static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("2ec237db-7de3-41dc-a077-1e5dac89181c");
+  static constexpr gneiss::guid guid() noexcept {
+    return gneiss::guid::literal("2ec237db-7de3-41dc-a077-1e5dac89181c");
   }
 };
 template <> struct type_identity<double> {
   static constexpr std::string_view name() noexcept { return "double"; }
-  static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("bb42b86e-4a80-4695-9978-14d62ceeb217");
+  static constexpr gneiss::guid guid() noexcept {
+    return gneiss::guid::literal("bb42b86e-4a80-4695-9978-14d62ceeb217");
   }
 };
 template <> struct type_identity<std::string> {
   static constexpr std::string_view name() noexcept { return "string"; }
-  static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("60542978-c490-4ab5-8350-a901ecc98ea8");
+  static constexpr gneiss::guid guid() noexcept {
+    return gneiss::guid::literal("60542978-c490-4ab5-8350-a901ecc98ea8");
   }
 };
-template <> struct type_identity<engine::guid> {
+template <> struct type_identity<gneiss::guid> {
   static constexpr std::string_view name() noexcept { return "guid"; }
-  static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("5f7ad29c-1aa6-434f-9ec8-80ecdf59e182");
+  static constexpr gneiss::guid guid() noexcept {
+    return gneiss::guid::literal("5f7ad29c-1aa6-434f-9ec8-80ecdf59e182");
   }
 };
 
 template <> struct type_identity<math::camera_settings> {
   static constexpr std::string_view name() noexcept { return "camera_settings"; }
-  static constexpr engine::guid guid() noexcept {
-    return engine::guid::literal("9b432c67-043e-4af8-9614-244f92c57781");
+  static constexpr gneiss::guid guid() noexcept {
+    return gneiss::guid::literal("9b432c67-043e-4af8-9614-244f92c57781");
   }
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

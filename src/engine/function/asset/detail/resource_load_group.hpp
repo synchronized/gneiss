@@ -11,15 +11,15 @@
 #include <optional>
 #include <set>
 #include <thread>
-namespace gneiss::engine {
+namespace gneiss {
 /** 场景/编辑器的请求汇总；不读文件、不解码、不创建或更新资源。 */
 class resource_load_group final {
 public:
-  explicit resource_load_group(engine::asset_manager& service) : service_(service) {}
+  explicit resource_load_group(gneiss::asset_manager& service) : service_(service) {}
   ~resource_load_group() { *lifetime_ = nullptr; }
-  engine::result<asset_batch_request> begin(std::span<const engine::render_resource_source> sources,
+  gneiss::result<asset_batch_request> begin(std::span<const gneiss::render_resource_source> sources,
                                             bool reload) {
-    using engine::error;
+    using gneiss::error;
     if (stopping_)
       return error::invalid_state;
     if (busy())
@@ -30,12 +30,12 @@ public:
     next.result = error::success;
     std::set<std::string> unique;
     for (const auto& source : sources) {
-      if (engine::validate_uri(source.uri).failed() || !unique.insert(source.uri).second ||
-          (source.type != engine::render_resource_kind::mesh &&
-           source.type != engine::render_resource_kind::texture &&
-           source.type != engine::render_resource_kind::material))
+      if (gneiss::validate_uri(source.uri).failed() || !unique.insert(source.uri).second ||
+          (source.type != gneiss::render_resource_kind::mesh &&
+           source.type != gneiss::render_resource_kind::texture &&
+           source.type != gneiss::render_resource_kind::material))
         return error::invalid_argument;
-      auto cached = reload ? engine::result<engine::render_resource_ref>{error::not_found}
+      auto cached = reload ? gneiss::result<gneiss::render_resource_ref>{error::not_found}
                            : service_.find(source, next.profile);
       if (cached) {
         next.assets.push_back(std::move(*cached));
@@ -56,8 +56,8 @@ public:
   }
   /** 只推进批次观察状态；宿主先推进共享资产管理器。 */
   void advance() {
-    using engine::error;
-    if (!completion_ || completion_->state != engine::asset_load_state::preparing)
+    using gneiss::error;
+    if (!completion_ || completion_->state != gneiss::asset_load_state::preparing)
       return;
     auto& completion = *completion_;
     while (cursor_ < completion.results.size() && completion.results[cursor_].applied)
@@ -75,7 +75,7 @@ public:
       else {
         current_ = std::move(*loaded);
         ready_ = std::make_shared<std::atomic<bool>>(false);
-        engine::detail::asset_request_access::when_ready(current_, [ready = std::weak_ptr{ready_}] {
+        gneiss::detail::asset_request_access::when_ready(current_, [ready = std::weak_ptr{ready_}] {
           if (auto receipt = ready.lock())
             receipt->store(true);
         });
@@ -105,11 +105,11 @@ public:
     if (item.result.failed())
       completion.result = item.result;
     if (++cursor_ == completion.results.size())
-      completion.state = completion.result.ok() ? engine::asset_load_state::completed
-                                                : engine::asset_load_state::failed;
+      completion.state = completion.result.ok() ? gneiss::asset_load_state::completed
+                                                : gneiss::asset_load_state::failed;
   }
-  bool take(engine::asset_load_completion& output) {
-    if (!completion_ || completion_->state == engine::asset_load_state::preparing)
+  bool take(gneiss::asset_load_completion& output) {
+    if (!completion_ || completion_->state == gneiss::asset_load_state::preparing)
       return false;
     completion_->commit_ms =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started_)
@@ -133,18 +133,18 @@ public:
   bool cancel(std::uint64_t request = 0) {
     if (request && !owns(request))
       return false;
-    if (!completion_ || completion_->state != engine::asset_load_state::preparing)
+    if (!completion_ || completion_->state != gneiss::asset_load_state::preparing)
       return false;
     ready_.reset();
     current_.cancel();
-    completion_->state = engine::asset_load_state::cancelled;
-    completion_->result = engine::error::invalid_state;
+    completion_->state = gneiss::asset_load_state::cancelled;
+    completion_->result = gneiss::error::invalid_state;
     for (auto& item : completion_->results)
-      if (item.result == engine::error::not_ready)
-        item.result = engine::error::invalid_state;
+      if (item.result == gneiss::error::not_ready)
+        item.result = gneiss::error::invalid_state;
     return true;
   }
-  bool progress(engine::asset_load_progress& output) const {
+  bool progress(gneiss::asset_load_progress& output) const {
     if (!completion_)
       return false;
     output = {.request = completion_->request,
@@ -164,9 +164,9 @@ private:
   friend class asset_batch_request;
   const std::thread::id owner_{std::this_thread::get_id()};
   std::shared_ptr<resource_load_group*> lifetime_{std::make_shared<resource_load_group*>(this)};
-  engine::asset_manager& service_;
-  engine::asset_request<engine::render_resource_ref> current_;
-  std::optional<engine::asset_load_completion> completion_;
+  gneiss::asset_manager& service_;
+  gneiss::asset_request<gneiss::render_resource_ref> current_;
+  std::optional<gneiss::asset_load_completion> completion_;
   std::chrono::steady_clock::time_point started_;
   std::uint64_t sequence_{};
   std::size_t cursor_{};

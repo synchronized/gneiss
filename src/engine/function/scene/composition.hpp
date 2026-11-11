@@ -6,7 +6,7 @@
 #include "engine/resource/scene/object_address.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 #include <map>
-namespace gneiss::engine {
+namespace gneiss {
 /** 装配期间借用的视觉资源身份，不持有运行对象。 */
 using scene_resource_bindings = std::map<std::string, render_resource_ref, std::less<>>;
 /** 一次组合的完整有效对象；不含 World 句柄，不是长期权威状态。 */

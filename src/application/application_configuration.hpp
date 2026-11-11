@@ -18,12 +18,12 @@ namespace gneiss::runtime {
 /** 原生平台和诊断回调由配置复制；捕获的借用对象须存活至关闭结束。
  * 宿主通过捕获绑定需要的状态，不传递 Application 句柄。 */
 struct application_callbacks final {
-  std::function<gneiss::engine::error()> initialize;
-  std::function<gneiss::engine::error(bool&)> poll_events;
+  std::function<gneiss::error()> initialize;
+  std::function<gneiss::error(bool&)> poll_events;
   std::function<std::uint64_t()> now_ns;
-  std::function<gneiss::engine::error(const gneiss::engine::frame_time&)> update;
+  std::function<gneiss::error(const gneiss::frame_time&)> update;
   std::function<void()> shutdown;
-  std::function<void(const gneiss::engine::diagnostic_view&)> diagnostic;
+  std::function<void(const gneiss::diagnostic_view&)> diagnostic;
   std::function<bool()> close_requested;
 };
 
@@ -31,7 +31,7 @@ struct application_callbacks final {
 struct application_configuration final {
   application_callbacks callbacks;
   bool enable_window = false;
-  gneiss::engine::window_configuration window;
+  gneiss::window_configuration window;
   std::string_view asset_root;
   /** 编辑器显式允许单文件保存；Runtime 默认只读，远程 Fetch 不支持写入。 */
   bool writable_assets = false;

@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <new>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 error debug_draw_list::replace(std::span<const debug_line> lines) {
   constexpr std::uint32_t maximum_lines = 1024U * 1024U;
@@ -35,4 +35,4 @@ error debug_draw_list::replace(std::span<const debug_line> lines) {
   }
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

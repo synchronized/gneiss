@@ -11,7 +11,7 @@
 #include <new>
 #include <utility>
 
-namespace gneiss::engine {
+namespace gneiss {
 struct uv_path_operation::state {
   uv_fs_t request{};
   std::string path;
@@ -49,7 +49,7 @@ struct uv_path_operation::state {
     auto lifetime = std::move(pending->in_flight);
     pending->finish(static_cast<int>(request->result));
   } catch (...) {
-    gneiss::engine::fatal_current_exception();
+    gneiss::fatal_current_exception();
   }
 };
 
@@ -109,4 +109,4 @@ error uv_path_resolver::begin(std::string_view path,
     return submitted;
   }
 }
-} // namespace gneiss::engine
+} // namespace gneiss

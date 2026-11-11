@@ -5,7 +5,7 @@
 #include "engine/resource/prefab.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 #include <map>
-namespace gneiss::engine {
+namespace gneiss {
 namespace detail {
 struct scene_asset_access;
 }

@@ -11,7 +11,7 @@
 #include <thread>
 #include <vector>
 
-using gneiss::engine::resource_retirement_queue;
+using gneiss::resource_retirement_queue;
 namespace {
 struct counters {
   std::atomic_uint destroyed{};
@@ -35,7 +35,7 @@ void finalize(resource& value, void* owner) noexcept {
 } // namespace
 
 int main() {
-  using namespace gneiss::engine;
+  using namespace gneiss;
   static_assert(std::is_same_v<asset_ref<resource>, ref<resource>>);
   static_assert(!std::is_constructible_v<ref<resource>, resource*>);
   static_assert(!std::is_constructible_v<ref<resource>, ref<const resource>>);

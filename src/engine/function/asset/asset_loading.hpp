@@ -6,7 +6,7 @@
 #include "engine/resource/texture/texture_data.hpp"
 #include <string>
 #include <vector>
-namespace gneiss::engine {
+namespace gneiss {
 class asset_manager;
 /** 本次实际读取的来源快照，不是缓存版本或事务标识。 */
 struct asset_read_record {

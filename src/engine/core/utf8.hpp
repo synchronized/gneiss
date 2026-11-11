@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace gneiss::engine::utf8 {
+namespace gneiss::utf8 {
 /** 校验完整 UTF-8 字节序列，不分配、不转换或规范化文本。
  * 空串及 NUL 是合法编码；名称、路径等业务限制由调用者检查。
  * 拒绝截断、孤立续字节、过长编码、代理码点和超出 Unicode 范围的码点。 */
@@ -50,4 +50,4 @@ namespace gneiss::engine::utf8 {
   return true;
 }
 
-} // namespace gneiss::engine::utf8
+} // namespace gneiss::utf8

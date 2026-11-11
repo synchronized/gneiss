@@ -11,7 +11,7 @@
 #include <limits>
 #include <stdexcept>
 #include <thread>
-using namespace gneiss::engine;
+using namespace gneiss;
 namespace {
 void check(bool ok) {
   if (!ok)

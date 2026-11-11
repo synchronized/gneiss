@@ -3,7 +3,7 @@
 
 # 同步对象通知
 
-内部头 `engine/core/events/signal.hpp`，命名空间 `gneiss::engine::events`。
+内部头 `engine/core/events/signal.hpp`，命名空间 `gneiss::events`。
 使用者链接内部 CMake 目标 `gneiss_events`；不安装 SDK，不引入 Engine 或 GPU 运行时。
 
 ```cpp

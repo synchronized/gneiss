@@ -3,7 +3,7 @@
 #include "engine/core/build_version.h"
 #include "engine/core/version.hpp"
 int main() {
-  const auto version = gneiss::engine::library_version();
+  const auto version = gneiss::library_version();
   return version.major == GNEISS_VERSION_MAJOR && version.minor == GNEISS_VERSION_MINOR &&
                  version.patch == GNEISS_VERSION_PATCH
              ? 0

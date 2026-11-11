@@ -7,7 +7,7 @@
 #include "scene_application.hpp"
 // 测试夹具保留便捷创建，不作为引擎实例化接口。
 namespace gneiss::test_support::scene_fixture {
-using namespace engine;
+using namespace gneiss;
 namespace {
 inline result<scene_instantiation_result>
 instantiate_effective(world& world, scene_access scenes, guid uuid, const composed_scene& composed,

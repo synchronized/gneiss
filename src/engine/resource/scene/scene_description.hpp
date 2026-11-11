@@ -6,9 +6,9 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 struct scene_diagnostic final {
-  engine::error error = engine::error::success;
+  gneiss::error error = gneiss::error::success;
   std::size_t byte_offset = 0;
   std::string path{};
   std::string message{};
@@ -16,11 +16,11 @@ struct scene_diagnostic final {
 
 struct scene_description final {
   inline static constexpr std::string_view type_name = "scene_description";
-  inline static constexpr engine::guid type_guid{
-      engine::guid::literal("4b91d830-28b7-4257-815f-673a9e6b7011")};
+  inline static constexpr gneiss::guid type_guid{
+      gneiss::guid::literal("4b91d830-28b7-4257-815f-673a9e6b7011")};
   inline static constexpr std::size_t maximum_source_bytes = 16U * 1024U * 1024U;
-  gneiss::engine::guid uuid;
+  gneiss::guid uuid;
   std::vector<game_object_description> objects;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss

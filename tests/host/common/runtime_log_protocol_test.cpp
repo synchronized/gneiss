@@ -14,18 +14,18 @@ namespace {
 bool validates_line_decoder() {
   gneiss::host::runtime_log_line_decoder decoder(8U);
   std::vector<gneiss::host::runtime_log_line> lines;
-  if (decoder.append("first\nsec", lines) != gneiss::engine::error::success || lines.size() != 1U ||
+  if (decoder.append("first\nsec", lines) != gneiss::error::success || lines.size() != 1U ||
       lines[0].text != "first" || lines[0].was_truncated ||
-      decoder.append("ond\ntoolong-value\ntail", lines) != gneiss::engine::error::success ||
+      decoder.append("ond\ntoolong-value\ntail", lines) != gneiss::error::success ||
       lines.size() != 3U || lines[1].text != "second" || lines[1].was_truncated ||
       lines[2].text != "toolong-" || !lines[2].was_truncated ||
-      decoder.finish(lines) != gneiss::engine::error::success || lines.size() != 4U ||
+      decoder.finish(lines) != gneiss::error::success || lines.size() != 4U ||
       lines[3].text != "tail" || lines[3].was_truncated) {
     return false;
   }
   decoder.reset();
   lines.clear();
-  return decoder.append("\n", lines) == gneiss::engine::error::success && lines.size() == 1U &&
+  return decoder.append("\n", lines) == gneiss::error::success && lines.size() == 1U &&
          lines.front().text.empty() && !lines.front().was_truncated;
 }
 
@@ -35,19 +35,19 @@ int main() {
   constexpr std::string_view source = "game_module";
   constexpr std::string_view category = "测试";
   constexpr std::string_view message = "第一行\n\"第二行\"\\尾部";
-  const gneiss::engine::logging::record_view event{
-      .message = {.severity = gneiss::engine::logging::level::warning,
+  const gneiss::logging::record_view event{
+      .message = {.severity = gneiss::logging::level::warning,
                   .source = source,
                   .category = category,
                   .message = message,
-                  .result = gneiss::engine::error::not_ready},
+                  .result = gneiss::error::not_ready},
       .sequence = 7U,
       .timestamp_ns = 42U,
       .thread_id = 3U,
   };
 
   std::string encoded;
-  if (gneiss::host::encode_runtime_log_event(event, encoded) != gneiss::engine::error::success ||
+  if (gneiss::host::encode_runtime_log_event(event, encoded) != gneiss::error::success ||
       !encoded.starts_with(gneiss::host::runtime_log_prefix) ||
       encoded.find('\n') != encoded.size() - 1U) {
     return 1;
@@ -71,7 +71,7 @@ int main() {
   success.replace(result_position, 11U, "\"result\":0");
   if (gneiss::host::parse_runtime_log_line(success, parsed) !=
           gneiss::host::runtime_log_parse_result::success ||
-      parsed.operation != gneiss::engine::error::success) {
+      parsed.operation != gneiss::error::success) {
     return 6;
   }
   if (gneiss::host::parse_runtime_log_line("第三方普通输出", parsed) !=

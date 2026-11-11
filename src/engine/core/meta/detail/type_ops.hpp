@@ -10,7 +10,7 @@
 #include "engine/core/meta/ops/variant_ops.hpp"
 #include "engine/core/traits/type_identity.hpp"
 #include <variant>
-namespace gneiss::engine::meta::detail {
+namespace gneiss::meta::detail {
 using category_ops =
     std::variant<std::monostate, const scalar_ops*, const sequence_ops*, const associative_ops*,
                  const optional_ops*, const reference_ops*, const variant_ops*>;
@@ -18,8 +18,8 @@ using category_ops =
 struct type_ops {
   bool enumeration = false;
   bool empty = false;
-  engine::type_id id{};
-  engine::guid guid{};
+  gneiss::type_id id{};
+  gneiss::guid guid{};
   void (*move_assign)(void*, void*){};
   void (*copy_assign)(void*, const void*){};
   category_ops category;

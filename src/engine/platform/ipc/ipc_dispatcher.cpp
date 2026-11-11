@@ -9,15 +9,15 @@
 
 namespace {
 
-constexpr gneiss::engine::ipc_message_kind_mask known_kind_mask =
-    gneiss::engine::ipc_kind_mask(gneiss::engine::ipc_message_kind::event) |
-    gneiss::engine::ipc_kind_mask(gneiss::engine::ipc_message_kind::request) |
-    gneiss::engine::ipc_kind_mask(gneiss::engine::ipc_message_kind::response) |
-    gneiss::engine::ipc_kind_mask(gneiss::engine::ipc_message_kind::error);
+constexpr gneiss::ipc_message_kind_mask known_kind_mask =
+    gneiss::ipc_kind_mask(gneiss::ipc_message_kind::event) |
+    gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request) |
+    gneiss::ipc_kind_mask(gneiss::ipc_message_kind::response) |
+    gneiss::ipc_kind_mask(gneiss::ipc_message_kind::error);
 
 } // namespace
 
-namespace gneiss::engine {
+namespace gneiss {
 
 error ipc_domain_registry::register_domain(const ipc_domain_descriptor& descriptor) {
   if (static_cast<std::uint16_t>(descriptor.domain) == 0U || descriptor.version == 0U ||
@@ -115,4 +115,4 @@ ipc_dispatch_outcome ipc_dispatcher::dispatch(const ipc_envelope& envelope,
   return {};
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

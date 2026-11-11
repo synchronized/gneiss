@@ -15,7 +15,7 @@
 #include <utility>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 namespace detail {
 struct asset_request_access;
 template <class T>
@@ -176,7 +176,7 @@ private:
 };
 }
 
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 /** 内部依赖调度订阅；回调只投递就绪通知，不运行用户代码。 */
 struct asset_request_access {
   template <class T>

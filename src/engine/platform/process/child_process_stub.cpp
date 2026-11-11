@@ -4,7 +4,7 @@
 #include "child_process.hpp"
 #include "engine/core/error.hpp"
 
-namespace gneiss::engine {
+namespace gneiss {
 
 struct child_process::implementation final {
   std::string output;
@@ -36,4 +36,4 @@ void child_process::append_output(std::string_view text) {
   }
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

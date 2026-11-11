@@ -2,11 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/function/render/render_service.hpp"
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 // 材质字段仍由通用对象解码器处理；此处只负责所属线程的内容采用。
 error asset_construction::adopt(asset_manager& assets, const material_description& description,
-                                const ref<const engine::material>& target,
-                                std::array<ref<const engine::texture>, 5> dependencies) {
+                                const ref<const gneiss::material>& target,
+                                std::array<ref<const gneiss::texture>, 5> dependencies) {
   if (!assets.impl_ || assets.stop_requested())
     return error::invalid_state;
   if (!assets.owns(target))

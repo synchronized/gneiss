@@ -5,7 +5,7 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/transform_properties.hpp"
 #include "engine/core/serialization/policy.hpp"
-namespace gneiss::engine::serialization {
+namespace gneiss::serialization {
 using namespace meta;
 namespace {
 template <auto Member> auto get_transform(const math::transform& object) { return object.*Member; }

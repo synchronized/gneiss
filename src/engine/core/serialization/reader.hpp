@@ -4,7 +4,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/serialization/diagnostic.hpp"
 #include "engine/core/value.hpp"
-namespace gneiss::engine::serialization {
+namespace gneiss::serialization {
 /** 节点与键名借用后端；游标只在所属 reader 和输入数据存活期间有效。 */
 class reader {
 public:

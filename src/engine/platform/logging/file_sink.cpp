@@ -4,7 +4,7 @@
 #include <format>
 #include <spdlog/sinks/basic_file_sink.h>
 
-namespace gneiss::engine::logging {
+namespace gneiss::logging {
 namespace {
 class file_sink final : public sink {
 public:
@@ -52,4 +52,4 @@ result<std::unique_ptr<sink>> create_file_sink(const std::filesystem::path& path
     return error::io;
   }
 }
-} // namespace gneiss::engine::logging
+} // namespace gneiss::logging

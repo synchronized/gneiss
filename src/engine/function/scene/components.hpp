@@ -9,7 +9,7 @@
 #include "engine/resource/material.hpp"
 #include "engine/resource/mesh.hpp"
 
-namespace gneiss::engine {
+namespace gneiss {
 /** 相机参数由组件校验；默认构造为有效透视相机，选择独立于组件。 */
 class camera_component {
 public:
@@ -37,10 +37,10 @@ private:
 };
 /** 组件直接保活运行资源，必须执行正常的构造、移动和析构。 */
 struct mesh_renderer {
-  ref<const engine::mesh> mesh{};
-  ref<const engine::material> material{};
+  ref<const gneiss::mesh> mesh{};
+  ref<const gneiss::material> material{};
 };
 struct mesh_renderer_component {
   mesh_renderer value;
 };
-} // namespace gneiss::engine
+} // namespace gneiss

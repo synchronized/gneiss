@@ -6,7 +6,7 @@
 #include "engine/function/render/render_service.hpp"
 #include <memory>
 #include <vector>
-namespace gneiss::engine {
+namespace gneiss {
 struct render_service::resource_storage {
   explicit resource_storage(std::uint64_t limit);
   template <typename Data> struct record {
@@ -22,4 +22,4 @@ struct render_service::resource_storage {
   rid_table<record<material_data>> materials_;
   rid_table<record<texture_data>> textures_;
 };
-} // namespace gneiss::engine
+} // namespace gneiss

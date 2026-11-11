@@ -6,7 +6,7 @@
 #include "engine/core/serialization/writer.hpp"
 #include "engine/resource/asset.hpp"
 #include "engine/resource/asset_uri.hpp"
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 template <class T>
 result<asset_reference_value> capture_asset_reference(guid type, const void* pointer) {
   const auto& uri = static_cast<const T*>(pointer)->source().uri;

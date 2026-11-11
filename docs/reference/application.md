@@ -7,7 +7,7 @@
 
 仓内宿主使用 `src/application/application.hpp` 的 `gneiss::runtime::application`，
 配置为 `application_configuration`。`application::create(config)` 返回
-`engine::result<std::shared_ptr<application>>`；成功值拥有已初始化对象，失败返回错误并清理部分初始化状态。
+`gneiss::result<std::shared_ptr<application>>`；成功值拥有已初始化对象，失败返回错误并清理部分初始化状态。
 调用方检查结果后移出拥有引用；不创建 Application RID 或注册表项。
 完整 Application C API 与公共创建描述已删除。动态游戏模块也已撤销。
 
@@ -59,7 +59,7 @@ update 只接收帧时间，诊断回调只接收诊断事件，关闭请求回�
 不创建窗口、不初始化 GPU 设备，仍可执行逻辑循环与 CPU 资产加载。窗口模式不允许同时提供平台 initialize、
 poll_events 或 shutdown 回调，业务 update 与时间回调仍可使用。
 
-Application 私有持有 `engine::window_service`，负责窗口生命周期及键盘/鼠标事件轮询。
+Application 私有持有 `gneiss::window_service`，负责窗口生命周期及键盘/鼠标事件轮询。
 `engine/platform/window_service.hpp` 不包含 Granit 头；具体窗口类型、原生句柄提取和事件转换
 封装在 `.cpp` 的 PImpl 中。服务只能由所属线程使用，不可复制或移动；原生窗口信息仅供内部渲染桥接，
 不能超过服务生命周期。Application 先关闭渲染，再销毁窗口服务。

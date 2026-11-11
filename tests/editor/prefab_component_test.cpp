@@ -19,7 +19,7 @@
 #include "engine/resource/scene/scene_validation.hpp"
 #include <cstdio>
 #include <source_location>
-namespace e = gneiss::engine;
+namespace e = gneiss;
 namespace ed = gneiss::editor;
 using namespace gneiss::test_support;
 void check(bool ok, std::source_location at = std::source_location::current()) {
@@ -36,27 +36,27 @@ int main() try {
   {
     e::prefab_component_override added{
         root_id, type, e::make_component_description(movement_description{4}), e::guid::generate()};
-    auto text = gneiss::engine::serialization::json::encode(added);
+    auto text = gneiss::serialization::json::encode(added);
     check(bool(text) && text->find("\"added\":{") != std::string::npos);
-    auto decoded = gneiss::engine::serialization::json::decode<e::prefab_component_override>(*text);
+    auto decoded = gneiss::serialization::json::decode<e::prefab_component_override>(*text);
     check(decoded && decoded->added && (*decoded->added)->get<movement_description>()->speed == 4);
     added.added.reset();
-    text = gneiss::engine::serialization::json::encode(added);
+    text = gneiss::serialization::json::encode(added);
     check(bool(text) && text->find("\"added\":null") != std::string::npos);
-    decoded = gneiss::engine::serialization::json::decode<e::prefab_component_override>(*text);
+    decoded = gneiss::serialization::json::decode<e::prefab_component_override>(*text);
     check(decoded && !decoded->added);
     const auto prefix = "{\"source_node_uuid\":\"" + root_id.string() + "\",\"type_guid\":\"" +
                         type.string() + "\"";
-    check(!gneiss::engine::serialization::json::decode<e::prefab_component_override>(prefix + "}"));
-    check(!gneiss::engine::serialization::json::decode<e::prefab_component_override>(
+    check(!gneiss::serialization::json::decode<e::prefab_component_override>(prefix + "}"));
+    check(!gneiss::serialization::json::decode<e::prefab_component_override>(
         "{\"source_node_uuid\":\"" + root_id.string() + "\",\"$type_guid\":\"" + type.string() +
         "\"}"));
     added.added = e::component_description{};
     // engaged optional 的空引用会与缺失 optional 共用 null，格式层仍拒绝该歧义。
-    check(!gneiss::engine::serialization::json::encode_bytes(added));
+    check(!gneiss::serialization::json::encode_bytes(added));
     check(e::validate_component_override(added).error == e::error::invalid_argument);
     added.added = e::make_component_description(e::camera_description{});
-    check(bool(gneiss::engine::serialization::json::encode_bytes(added)));
+    check(bool(gneiss::serialization::json::encode_bytes(added)));
     check(e::validate_component_override(added).error == e::error::invalid_argument);
   }
   auto source = std::make_shared<e::prefab_description>();
@@ -250,14 +250,14 @@ int main() try {
   // 保存的是增删覆盖，来源资源内容保持不变。
   auto document_bytes = document.serialize();
   check(document_bytes.has_value());
-  auto saved_result = gneiss::engine::asset_file::deserialize<e::scene_description>(
+  auto saved_result = gneiss::asset_file::deserialize<e::scene_description>(
       std::as_bytes(std::span{document_bytes->data(), document_bytes->size()}));
   check(saved_result.has_value());
   auto saved = *saved_result;
   check(saved.objects[0].prefab->component_overrides.size() == 2);
-  auto bytes = gneiss::engine::asset_file::serialize_bytes(saved);
+  auto bytes = gneiss::asset_file::serialize_bytes(saved);
   check(bytes.has_value());
-  auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(*bytes);
+  auto decoded = gneiss::asset_file::deserialize<e::scene_description>(*bytes);
   check(decoded.has_value());
   check(decoded->objects[0].prefab->component_overrides.size() == 2);
   auto contradictory = saved;
@@ -268,7 +268,7 @@ int main() try {
                               saved.objects[0].prefab->component_overrides.front().component_uuid},
                .path = {e::meta::property_id{1}}},
        .operation = e::value{2.0F}});
-  check(!gneiss::engine::asset_file::serialize_bytes(contradictory));
+  check(!gneiss::asset_file::serialize_bytes(contradictory));
   e::scene_content prepared;
   prepared.description = e::asset_ref<const e::scene_description>{
       std::make_shared<const e::scene_description>(*decoded)};

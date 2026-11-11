@@ -81,11 +81,11 @@ void build_default_workspace(ImGuiID dockspace_id, const ImGuiViewport& viewport
 
 } // namespace
 
-engine::error editor_layout::initialize(std::shared_ptr<gneiss::engine::files::service> files,
+gneiss::error editor_layout::initialize(std::shared_ptr<gneiss::files::service> files,
                                         std::string_view project_key,
                                         editor_panel_visibility& visibility) {
   if (!files || project_key.empty() || saving())
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   visibility = {};
   write_.reset();
   files_ = std::move(files);
@@ -93,7 +93,7 @@ engine::error editor_layout::initialize(std::shared_ptr<gneiss::engine::files::s
   reset_layout_requested = true;
   reset_generation_ = reset_generation;
   auto receipt = std::make_shared<read_receipt>();
-  gneiss::engine::files::request_id request;
+  gneiss::files::request_id request;
   const auto status = files_->read(
       uri_, {maximum_layout_size},
       [receipt](auto value) {
@@ -105,16 +105,16 @@ engine::error editor_layout::initialize(std::shared_ptr<gneiss::engine::files::s
   return status;
 }
 
-engine::error editor_layout::advance(editor_panel_visibility& visibility) {
+gneiss::error editor_layout::advance(editor_panel_visibility& visibility) {
   if (!read_)
-    return engine::error::success;
+    return gneiss::error::success;
   if (!read_->complete)
-    return engine::error::not_ready;
+    return gneiss::error::not_ready;
   auto receipt = std::move(read_);
   if (reset_generation_ != reset_generation)
-    return engine::error::success;
-  if (receipt->value.status == engine::error::not_found)
-    return engine::error::success;
+    return gneiss::error::success;
+  if (receipt->value.status == gneiss::error::not_found)
+    return gneiss::error::success;
   if (receipt->value.status.failed())
     return receipt->value.status;
   {
@@ -129,15 +129,15 @@ engine::error editor_layout::advance(editor_panel_visibility& visibility) {
       auto remaining = std::string_view(contents).substr(layout_header_v2.size());
       const auto newline = remaining.find('\n');
       if (newline == std::string_view::npos) {
-        return gneiss::engine::error::invalid_argument;
+        return gneiss::error::invalid_argument;
       }
       const auto panels = remaining.substr(0U, newline);
       if (!panels.starts_with(panel_prefix) || panels.size() != panel_prefix.size() + 5U) {
-        return gneiss::engine::error::invalid_argument;
+        return gneiss::error::invalid_argument;
       }
       const auto flags = panels.substr(panel_prefix.size());
       if (!std::ranges::all_of(flags, [](char value) { return value == '0' || value == '1'; })) {
-        return gneiss::engine::error::invalid_argument;
+        return gneiss::error::invalid_argument;
       }
       loaded = {.scene_hierarchy = flags[0] == '1',
                 .asset_browser = flags[1] == '1',
@@ -146,23 +146,23 @@ engine::error editor_layout::advance(editor_panel_visibility& visibility) {
                 .console = flags[4] == '1'};
       ini = remaining.substr(newline + 1U);
     } else {
-      return gneiss::engine::error::invalid_argument;
+      return gneiss::error::invalid_argument;
     }
     if (ini.empty()) {
-      return gneiss::engine::error::invalid_argument;
+      return gneiss::error::invalid_argument;
     }
     visibility = loaded;
     reset_layout_requested = false;
     ImGui::LoadIniSettingsFromMemory(ini.data(), ini.size());
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
 }
 
-engine::error editor_layout::save(const editor_panel_visibility& visibility) {
+gneiss::error editor_layout::save(const editor_panel_visibility& visibility) {
   if (!files_ || uri_.empty())
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   if (saving())
-    return engine::error::not_ready;
+    return gneiss::error::not_ready;
   // 退出保存优先，迟到读取不能再覆盖当前用户布局。
   read_.reset();
   {
@@ -170,7 +170,7 @@ engine::error editor_layout::save(const editor_panel_visibility& visibility) {
     const auto* data = ImGui::SaveIniSettingsToMemory(&size);
     if (data == nullptr || size == 0U ||
         size + layout_header_v2.size() + panel_prefix.size() + 6U > maximum_layout_size) {
-      return gneiss::engine::error::invalid_state;
+      return gneiss::error::invalid_state;
     }
     std::string contents(layout_header_v2);
     contents.append(panel_prefix);
@@ -183,7 +183,7 @@ engine::error editor_layout::save(const editor_panel_visibility& visibility) {
     contents.append(data, size);
     auto receipt = std::make_shared<write_receipt>();
     const auto bytes = std::as_bytes(std::span{contents.data(), contents.size()});
-    gneiss::engine::files::request_id request;
+    gneiss::files::request_id request;
     const auto status = files_->write(
         uri_, {bytes.begin(), bytes.end()}, {},
         [receipt](auto status) {
@@ -196,8 +196,8 @@ engine::error editor_layout::save(const editor_panel_visibility& visibility) {
   }
 }
 
-engine::error editor_layout::save_result() const noexcept {
-  return write_ && write_->complete ? write_->status : engine::error::not_ready;
+gneiss::error editor_layout::save_result() const noexcept {
+  return write_ && write_->complete ? write_->status : gneiss::error::not_ready;
 }
 void reset_editor_layout() noexcept {
   reset_layout_requested = true;

@@ -12,23 +12,23 @@
 
 int main() try {
   using namespace gneiss::editor;
-  if (gneiss::engine::initialize_meta().failed())
+  if (gneiss::initialize_meta().failed())
     return 6;
-  gneiss::engine::camera_description camera{{1.0F, 0.1F, 100.0F}};
-  auto camera_view = gneiss::engine::meta::view(std::as_const(camera));
+  gneiss::camera_description camera{{1.0F, 0.1F, 100.0F}};
+  auto camera_view = gneiss::meta::view(std::as_const(camera));
   if (!camera_view)
     return 7;
-  gneiss::engine::math::transform transform;
-  auto transform_view = gneiss::engine::meta::view(std::as_const(transform));
+  gneiss::math::transform transform;
+  auto transform_view = gneiss::meta::view(std::as_const(transform));
   if (!transform_view)
     return 8;
-  gneiss::engine::mesh_renderer_description mesh{"asset://mesh.json", "asset://material.json"};
-  auto mesh_view = gneiss::engine::meta::view(std::as_const(mesh));
+  gneiss::mesh_renderer_description mesh{"asset://mesh.json", "asset://material.json"};
+  auto mesh_view = gneiss::meta::view(std::as_const(mesh));
   if (!mesh_view)
     return 9;
   unsigned writes = 0;
   std::uint64_t serial = 0;
-  gneiss::engine::error error = gneiss::engine::error::success;
+  gneiss::error error = gneiss::error::success;
   ImGui::CreateContext();
   auto& io = ImGui::GetIO();
   io.IniFilename = nullptr;
@@ -44,7 +44,7 @@ int main() try {
     ImGui::Begin("Inspector");
     if (draw_reflected_properties(*transform_view, "Transform", serial, error))
       ++writes;
-    const std::array readonly{gneiss::engine::meta::property_id{4}};
+    const std::array readonly{gneiss::meta::property_id{4}};
     if (draw_reflected_properties(*camera_view, "Camera", serial, error, readonly))
       ++writes;
     if (draw_reflected_properties(*mesh_view, "Mesh Renderer", serial, error))
@@ -55,10 +55,10 @@ int main() try {
   draw();
   const bool valid = error.ok() && ImGui::GetDrawData()->TotalVtxCount > 0;
   // 单独绘制目标属性，避免把组件末尾的只读身份字段误当成恢复按钮。
-  const auto restore = [&](auto current, auto source, gneiss::engine::meta::property_id property,
-                           gneiss::engine::value expected) {
-    auto current_view = gneiss::engine::meta::view(std::as_const(current));
-    auto source_view = gneiss::engine::meta::view(std::as_const(source));
+  const auto restore = [&](auto current, auto source, gneiss::meta::property_id property,
+                           gneiss::value expected) {
+    auto current_view = gneiss::meta::view(std::as_const(current));
+    auto source_view = gneiss::meta::view(std::as_const(source));
     if (!current_view || !source_view)
       return false;
     auto current_property = current_view->member(property);
@@ -95,7 +95,7 @@ int main() try {
     return requested && requested->path.empty() && requested->data.payload == expected.payload &&
            actual && actual->payload != expected.payload;
   };
-  namespace e = gneiss::engine;
+  namespace e = gneiss;
   auto changed_transform = transform;
   changed_transform.scale = {2, 2, 2};
   if (!restore(changed_transform, transform, e::meta::property_id{3}, e::value{transform.scale}))
@@ -140,7 +140,7 @@ int main() try {
   // 非法四元数只报告错误，不调用写入或变更模型；不需要原生窗口。
   transform.rotation.w = 0.0F;
   draw();
-  const bool invalid = error == gneiss::engine::error::invalid_argument;
+  const bool invalid = error == gneiss::error::invalid_argument;
   ImGui::DestroyContext();
   if (!valid) {
     return 3;

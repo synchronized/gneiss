@@ -253,39 +253,39 @@ void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image
 }
 
 void populate_sampler(const fastgltf::Sampler& sampler,
-                      gneiss::engine::texture_sampling& sampling) {
+                      gneiss::texture_sampling& sampling) {
   const auto address = [](fastgltf::Wrap wrap) {
     switch (wrap) {
     case fastgltf::Wrap::ClampToEdge:
-      return gneiss::engine::texture_address::clamp;
+      return gneiss::texture_address::clamp;
     case fastgltf::Wrap::MirroredRepeat:
-      return gneiss::engine::texture_address::mirror;
+      return gneiss::texture_address::mirror;
     default:
-      return gneiss::engine::texture_address::repeat;
+      return gneiss::texture_address::repeat;
     }
   };
   sampling.address_u = address(sampler.wrapS);
   sampling.address_v = address(sampler.wrapT);
   sampling.mag_filter = sampler.magFilter == fastgltf::Filter::Nearest
-                            ? gneiss::engine::texture_filter::nearest
-                            : gneiss::engine::texture_filter::linear;
+                            ? gneiss::texture_filter::nearest
+                            : gneiss::texture_filter::linear;
   const auto filter = sampler.minFilter.value_or(fastgltf::Filter::LinearMipMapLinear);
   sampling.min_filter =
       (filter == fastgltf::Filter::Nearest || filter == fastgltf::Filter::NearestMipMapNearest ||
        filter == fastgltf::Filter::NearestMipMapLinear)
-          ? gneiss::engine::texture_filter::nearest
-          : gneiss::engine::texture_filter::linear;
+          ? gneiss::texture_filter::nearest
+          : gneiss::texture_filter::linear;
   switch (filter) {
   case fastgltf::Filter::Nearest:
   case fastgltf::Filter::Linear:
-    sampling.mip_filter = gneiss::engine::texture_mip_filter::none;
+    sampling.mip_filter = gneiss::texture_mip_filter::none;
     break;
   case fastgltf::Filter::NearestMipMapNearest:
   case fastgltf::Filter::LinearMipMapNearest:
-    sampling.mip_filter = gneiss::engine::texture_mip_filter::nearest;
+    sampling.mip_filter = gneiss::texture_mip_filter::nearest;
     break;
   default:
-    sampling.mip_filter = gneiss::engine::texture_mip_filter::linear;
+    sampling.mip_filter = gneiss::texture_mip_filter::linear;
     break;
   }
 }
@@ -294,13 +294,13 @@ void populate_material_state(const fastgltf::Asset& asset, const fastgltf::Mater
                              import_ir_material& target) {
   switch (source.alphaMode) {
   case fastgltf::AlphaMode::Blend:
-    target.alpha_mode = gneiss::engine::material_alpha_mode::blend;
+    target.alpha_mode = gneiss::material_alpha_mode::blend;
     break;
   case fastgltf::AlphaMode::Mask:
-    target.alpha_mode = gneiss::engine::material_alpha_mode::mask;
+    target.alpha_mode = gneiss::material_alpha_mode::mask;
     break;
   default:
-    target.alpha_mode = gneiss::engine::material_alpha_mode::opaque;
+    target.alpha_mode = gneiss::material_alpha_mode::opaque;
     break;
   }
   target.double_sided = source.doubleSided ? 1U : 0U;
@@ -556,7 +556,7 @@ populate_optional_attributes(const fastgltf::Asset& asset, const fastgltf::Primi
     for (std::size_t axis = 0; axis < 3U; ++axis) {
       tangent[axis] = static_cast<float>(t[axis] / length);
     }
-    if (!gneiss::engine::valid_mesh_tangent({tangent[0], tangent[1], tangent[2], tangent[3]},
+    if (!gneiss::valid_mesh_tangent({tangent[0], tangent[1], tangent[2], tangent[3]},
                                             {normal[0], normal[1], normal[2]})) {
       return "TANGENT 必须是正交单位切线且手性为正负一";
     }

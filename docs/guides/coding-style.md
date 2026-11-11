@@ -246,20 +246,19 @@ docs/                   项目文档
 
 ## 模块命名空间
 
-内部业务类型按架构层使用 `gneiss::engine`、`gneiss::runtime`、`gneiss::editor`、
-`gneiss::tooling`、`gneiss::host`，目录不再逐级映射为命名空间。
-单文件辅助实现使用匿名命名空间，头文件实现细节允许 `detail`。
-不保留旧领域命名空间兼容别名。目录、头文件可见性与 CMake 依赖继续约束分层。
-该命名空间迁移不改变 C ABI；旧共享值的后续收敛见 PLAN-051。决策见 [ADR-079](../decisions/ADR-079-flat-namespaces.md)。
-
-Meta 是上述平铺规则的明确例外：反射描述、注册、查询和编解码接口位于
-`gneiss::engine::meta`，避免通用名称与业务模块冲突。基础值类型和 traits 定制点仍在
-`gneiss::engine`；不为旧 Meta 限定名保留兼容别名。
+引擎基础值与业务对象位于 `gneiss`；独立功能域使用 `gneiss::meta`、`gneiss::math`、
+`gneiss::serialization`、`gneiss::events`、`gneiss::logging`、`gneiss::files`、`gneiss::tasks` 等。
+宿主与工具保留 `gneiss::runtime`、`gneiss::editor`、`gneiss::tooling`、`gneiss::host`。
+目录不逐级映射命名空间；不再使用 `gneiss::engine`，也不提供旧命名空间兼容别名。
+单文件辅助实现使用匿名命名空间，头文件实现细节使用所属领域的 `detail`。
+目录、头文件可见性与 CMake 依赖继续约束分层。
+显式类型 GUID 不随命名空间更改；C++ 消费方需要重新编译。
+决策见 [ADR-120](../decisions/ADR-120-domain-namespaces.md)。
 
 ## UTF-8 校验复用
 
 通用 UTF-8 编码校验使用 `engine/core/utf8.hpp` 中的
-`gneiss::engine::utf8::is_valid(std::string_view)`，不分配内存，不依赖平台。
+`gneiss::utf8::is_valid(std::string_view)`，不分配内存，不依赖平台。
 空串和嵌入 NUL 均是合法编码；路径禁用控制字符、名称或 Prefab 字符串禁用 NUL 等规则
 由对应调用层另行校验。不要在各模块重复实现字节序列解析。
 原生文件路径转换及平台字符转换仍属于路径/平台适配，不加入 Core 编码校验工具。

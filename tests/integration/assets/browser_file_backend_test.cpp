@@ -6,11 +6,11 @@
 #include <cstdlib>
 #include <emscripten.h>
 #include <memory>
-using namespace gneiss::engine;
+using namespace gneiss;
 namespace {
-std::shared_ptr<gneiss::engine::files::browser_backend> local;
-std::shared_ptr<gneiss::engine::files::fetch_backend> remote;
-const gneiss::engine::files::bytes bytes{std::byte{1}, std::byte{2}, std::byte{3}, std::byte{4},
+std::shared_ptr<gneiss::files::browser_backend> local;
+std::shared_ptr<gneiss::files::fetch_backend> remote;
+const gneiss::files::bytes bytes{std::byte{1}, std::byte{2}, std::byte{3}, std::byte{4},
                                          std::byte{5}};
 void check(bool condition) {
   if (!condition) {
@@ -21,14 +21,14 @@ void check(bool condition) {
 void stream_checks();
 void unsupported_stream();
 void fetch_checks() {
-  remote = std::make_shared<gneiss::engine::files::fetch_backend>(
+  remote = std::make_shared<gneiss::files::fetch_backend>(
       emscripten_run_script_string("location.origin + '/'"));
   check(
       remote
           ->read_range(
               "bytes", {1, 3},
               [](auto value) {
-                check(value.status.ok() && value.data == gneiss::engine::files::bytes(
+                check(value.status.ok() && value.data == gneiss::files::bytes(
                                                              bytes.begin() + 1, bytes.begin() + 4));
                 check(
                     remote
@@ -81,8 +81,8 @@ void fetch_checks() {
               })
           .ok());
 }
-std::shared_ptr<gneiss::engine::files::service> streaming_files;
-std::unique_ptr<gneiss::engine::files::read_stream> streaming;
+std::shared_ptr<gneiss::files::service> streaming_files;
+std::unique_ptr<gneiss::files::read_stream> streaming;
 unsigned phase{}, pause_frames{}, delivered{}, paused_reads{};
 std::uint64_t streamed_bytes{};
 bool waiting{}, finished{};
@@ -125,7 +125,7 @@ void stream_tick() {
               .ok());
     check(streaming->read_next([](auto) { check(false); }) == error::not_ready);
   } else if (phase == 10) {
-    streaming = std::make_unique<gneiss::engine::files::read_stream>(
+    streaming = std::make_unique<gneiss::files::read_stream>(
         streaming_files, "remote://empty", std::nullopt, 32);
     waiting = true;
     check(streaming
@@ -137,7 +137,7 @@ void stream_tick() {
               })
               .ok());
   } else if (phase == 1) {
-    streaming = std::make_unique<gneiss::engine::files::read_stream>(
+    streaming = std::make_unique<gneiss::files::read_stream>(
         streaming_files, "remote://stall", std::nullopt, 32);
     waiting = true;
     check(streaming
@@ -151,7 +151,7 @@ void stream_tick() {
     // 等待响应头和在途 read()；取消必须立即终止来源，不等服务端结束。
     emscripten_async_call([](void*) { check(streaming->cancel().ok()); }, nullptr, 100);
   } else if (phase == 3) {
-    streaming = std::make_unique<gneiss::engine::files::read_stream>(
+    streaming = std::make_unique<gneiss::files::read_stream>(
         streaming_files, "remote://stream", std::nullopt, 32);
     waiting = true;
     check(streaming
@@ -203,19 +203,19 @@ void stream_checks() {
       return original.apply(this, args);
     };
   });
-  streaming_files = std::make_shared<gneiss::engine::files::service>(
-      gneiss::engine::files::service_options{.max_file_bytes = 32, .max_buffer_bytes = 64});
+  streaming_files = std::make_shared<gneiss::files::service>(
+      gneiss::files::service_options{.max_file_bytes = 32, .max_buffer_bytes = 64});
   const auto base = std::string(emscripten_run_script_string("location.origin + '/'"));
-  auto absent = std::make_shared<gneiss::engine::files::fetch_backend>(base + "absent/");
+  auto absent = std::make_shared<gneiss::files::fetch_backend>(base + "absent/");
   check(streaming_files->mount({"remote://", {absent, remote}, {}}).ok());
-  streaming = std::make_unique<gneiss::engine::files::read_stream>(
+  streaming = std::make_unique<gneiss::files::read_stream>(
       streaming_files, "remote://stream", std::nullopt, 32);
   emscripten_set_main_loop(stream_tick, 0, false);
 }
 void restore() {
   local.reset();
-  local = std::make_shared<gneiss::engine::files::browser_backend>(
-      "/gneiss-files-test", gneiss::engine::files::browser_storage::persistent);
+  local = std::make_shared<gneiss::files::browser_backend>(
+      "/gneiss-files-test", gneiss::files::browser_storage::persistent);
   check(local
             ->initialize([](error status) {
               check(status.ok());
@@ -243,7 +243,7 @@ void restore() {
                         .ok());
               check(local->read_range("data", {4, 2}, [](auto) {}) == error::invalid_argument);
               check(local->read("missing", {8}, [](auto) {}) == error::not_found);
-              check(local->write("data", {}, {gneiss::engine::files::write_mode::create_new},
+              check(local->write("data", {}, {gneiss::files::write_mode::create_new},
                                  [](auto) {}) == error::invalid_state);
               check(local
                         ->stat("data",
@@ -269,25 +269,25 @@ int main() {
     FS.symlink('/preloaded/assets', '/preloaded/link');
   });
   {
-    gneiss::engine::files::browser_backend borrowed(
-        "/preloaded/assets", gneiss::engine::files::browser_storage::existing);
+    gneiss::files::browser_backend borrowed(
+        "/preloaded/assets", gneiss::files::browser_storage::existing);
     check(borrowed.initialize([](error status) { check(status.ok()); }).ok());
     check(
         borrowed
             .read("data", {8}, [](auto value) { check(value.status.ok() && value.data == bytes); })
             .ok());
     check(borrowed.initialize([](error) {}) == error::invalid_state);
-    gneiss::engine::files::browser_backend missing(
-        "/absent", gneiss::engine::files::browser_storage::existing);
+    gneiss::files::browser_backend missing(
+        "/absent", gneiss::files::browser_storage::existing);
     check(missing.initialize([](error) { check(false); }) == error::not_found);
-    gneiss::engine::files::browser_backend linked("/preloaded/link",
-                                                  gneiss::engine::files::browser_storage::existing);
+    gneiss::files::browser_backend linked("/preloaded/link",
+                                                  gneiss::files::browser_storage::existing);
     check(linked.initialize([](error) { check(false); }) == error::invalid_argument);
   }
   check(EM_ASM_INT({ return FS.readFile('/preloaded/assets/data').length; }) == 5);
 
-  local = std::make_shared<gneiss::engine::files::browser_backend>(
-      "/gneiss-files-test", gneiss::engine::files::browser_storage::persistent);
+  local = std::make_shared<gneiss::files::browser_backend>(
+      "/gneiss-files-test", gneiss::files::browser_storage::persistent);
   check(local->read("data", {8}, [](auto) {}) == error::not_ready);
   check(local
             ->initialize([](error status) {

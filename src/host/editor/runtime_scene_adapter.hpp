@@ -13,7 +13,7 @@
 namespace gneiss::host {
 
 /** 消费已解码批次；成功移动节点文本，失败保持 output 不变，输入可被消费。 */
-[[nodiscard]] inline gneiss::engine::error
+[[nodiscard]] inline gneiss::error
 to_runtime_scene_batch(ipc_inspection_batch&& input, gneiss::editor::runtime_scene_batch& output) {
   {
     gneiss::editor::runtime_scene_batch converted{
@@ -33,7 +33,7 @@ to_runtime_scene_batch(ipc_inspection_batch&& input, gneiss::editor::runtime_sce
         type = gneiss::editor::runtime_scene_change_type::remove;
         break;
       default:
-        return gneiss::engine::error::invalid_argument;
+        return gneiss::error::invalid_argument;
       }
       auto& node = change.node;
       converted.changes.push_back(
@@ -49,7 +49,7 @@ to_runtime_scene_batch(ipc_inspection_batch&& input, gneiss::editor::runtime_sce
                     .components = std::move(node.components)}});
     }
     output = std::move(converted);
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
 }
 

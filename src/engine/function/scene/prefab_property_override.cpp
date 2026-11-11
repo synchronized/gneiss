@@ -17,9 +17,9 @@
 
 namespace {
 
-using namespace gneiss::engine;
+using namespace gneiss;
 
-[[nodiscard]] bool valid_value(const gneiss::engine::value& value) noexcept {
+[[nodiscard]] bool valid_value(const gneiss::value& value) noexcept {
   if (value.kind() == value_kind::object || value.payload.valueless_by_exception()) {
     return false;
   }
@@ -33,15 +33,15 @@ using namespace gneiss::engine;
           return std::isfinite(payload);
         } else if constexpr (std::is_same_v<value_type, std::string>) {
           return payload.find('\0') == std::string_view::npos && utf8::is_valid(payload);
-        } else if constexpr (std::is_same_v<value_type, gneiss::engine::guid>) {
+        } else if constexpr (std::is_same_v<value_type, gneiss::guid>) {
           return static_cast<bool>(payload);
-        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector2> ||
-                             std::is_same_v<value_type, gneiss::engine::math::vector4> ||
-                             std::is_same_v<value_type, gneiss::engine::math::vector3> ||
-                             std::is_same_v<value_type, gneiss::engine::math::quaternion> ||
+        } else if constexpr (std::is_same_v<value_type, gneiss::math::vector2> ||
+                             std::is_same_v<value_type, gneiss::math::vector4> ||
+                             std::is_same_v<value_type, gneiss::math::vector3> ||
+                             std::is_same_v<value_type, gneiss::math::quaternion> ||
                              std::is_same_v<value_type, math::matrix3> ||
                              std::is_same_v<value_type, math::matrix4>) {
-          return std::ranges::all_of(gneiss::engine::math::components(payload),
+          return std::ranges::all_of(gneiss::math::components(payload),
                                      [](float item) { return std::isfinite(item); });
         } else {
           return true;
@@ -50,7 +50,7 @@ using namespace gneiss::engine;
       value.payload);
 }
 
-void normalize_zero(gneiss::engine::value& value) noexcept {
+void normalize_zero(gneiss::value& value) noexcept {
   std::visit(
       [](auto& payload) noexcept {
         using value_type = std::decay_t<decltype(payload)>;
@@ -58,13 +58,13 @@ void normalize_zero(gneiss::engine::value& value) noexcept {
           if (payload == 0) {
             payload = 0;
           }
-        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector2> ||
-                             std::is_same_v<value_type, gneiss::engine::math::vector4> ||
-                             std::is_same_v<value_type, gneiss::engine::math::vector3> ||
-                             std::is_same_v<value_type, gneiss::engine::math::quaternion> ||
+        } else if constexpr (std::is_same_v<value_type, gneiss::math::vector2> ||
+                             std::is_same_v<value_type, gneiss::math::vector4> ||
+                             std::is_same_v<value_type, gneiss::math::vector3> ||
+                             std::is_same_v<value_type, gneiss::math::quaternion> ||
                              std::is_same_v<value_type, math::matrix3> ||
                              std::is_same_v<value_type, math::matrix4>) {
-          for (auto& item : gneiss::engine::math::components(payload)) {
+          for (auto& item : gneiss::math::components(payload)) {
             if (item == 0.0F) {
               item = 0.0F;
             }
@@ -76,7 +76,7 @@ void normalize_zero(gneiss::engine::value& value) noexcept {
 
 } // namespace
 
-namespace gneiss::engine {
+namespace gneiss {
 
 error apply_prefab_override_operation(meta::instance target, const value_operation& operation) {
   auto captured = serialization::capture_value(target.as_const());
@@ -95,12 +95,12 @@ error validate_prefab_property_override(const prefab_property_override& value) {
   }
   auto owner = meta::find_type(value.key.target.target_type_guid);
   if (!owner)
-    return gneiss::engine::error{gneiss::engine::error::not_found};
+    return gneiss::error{gneiss::error::not_found};
   auto field = owner.find_property(value.key.first_property());
   if (!field)
     return error::not_found;
   if (!has_flags(field.capabilities(), meta::property_capabilities::writable) ||
-      gneiss::engine::is_edit_read_only(field) || value.key.path.size() > 64)
+      gneiss::is_edit_read_only(field) || value.key.path.size() > 64)
     return error::invalid_argument;
   auto type = field.type();
   for (const auto& step : std::span{value.key.path}.subspan(1)) {
@@ -112,7 +112,7 @@ error validate_prefab_property_override(const prefab_property_override& value) {
       if (found == properties.end())
         return error::not_found;
       if (!has_flags(found->capabilities(), meta::property_capabilities::writable) ||
-          gneiss::engine::is_edit_read_only(*found))
+          gneiss::is_edit_read_only(*found))
         return error::invalid_argument;
       type = found->type();
     } else {
@@ -179,7 +179,7 @@ error validate_prefab_property_override(const prefab_property_override& value) {
 }
 
 error set_prefab_property_override(std::vector<prefab_property_override>& overrides,
-                                   prefab_property_override candidate, engine::value source_value) {
+                                   prefab_property_override candidate, gneiss::value source_value) {
   if (!std::holds_alternative<set_value_operation>(candidate.operation))
     return error::invalid_argument;
   auto operation = validate_prefab_property_override(candidate);
@@ -211,15 +211,15 @@ error set_prefab_property_override(std::vector<prefab_property_override>& overri
 }
 
 namespace {
-engine::error apply_candidate_object(const prefab_property_override& value,
-                                     const engine::value& native, game_object_description& object) {
-  auto result = engine::error::success;
+gneiss::error apply_candidate_object(const prefab_property_override& value,
+                                     const gneiss::value& native, game_object_description& object) {
+  auto result = gneiss::error::success;
   const auto is_type = [&](guid type) { return value.key.target.target_type_guid == type; };
   if (is_type(math::transform::type_guid)) {
     auto transform = object.transform;
     result = meta::write_property(value.key.target.target_type_guid, value.key.first_property(),
                                   &transform, native);
-    if (result != engine::error::success) {
+    if (result != gneiss::error::success) {
       return result;
     }
     object.transform = transform;
@@ -229,7 +229,7 @@ engine::error apply_candidate_object(const prefab_property_override& value,
     return edit_component(object.components, value.key.target.target_type_guid,
                           value.key.first_property(), native);
   }
-  return engine::error::success;
+  return gneiss::error::success;
 }
 }
 
@@ -314,19 +314,19 @@ error prepare_prefab_reference(const prefab_description& source,
   return status;
 }
 
-engine::error prepare_prefab_description(const prefab_description& source,
+gneiss::error prepare_prefab_description(const prefab_description& source,
                                          std::span<const prefab_property_override> overrides,
                                          prefab_description& output) {
   auto candidate = source;
   for (const auto& value : overrides) {
     const auto validation = validate_prefab_property_override(value);
-    if (validation != engine::error::success) {
+    if (validation != gneiss::error::success) {
       return validation;
     }
     auto found = std::ranges::find(candidate.objects, value.key.target.source_node_uuid,
                                    &game_object_description::uuid);
     if (found == candidate.objects.end()) {
-      return engine::error::not_found;
+      return gneiss::error::not_found;
     }
     if (found->uuid == candidate.root_uuid &&
         value.key.target.target_type_guid == math::transform::type_guid)
@@ -345,7 +345,7 @@ engine::error prepare_prefab_description(const prefab_description& source,
     if (!is_scalar_value_kind(scalar->kind()) || value.key.path.size() != 1)
       return error::unsupported;
     const auto result = apply_candidate_object(value, *scalar, *found);
-    if (result != engine::error::success) {
+    if (result != gneiss::error::success) {
       return result;
     }
   }
@@ -379,7 +379,7 @@ engine::error prepare_prefab_description(const prefab_description& source,
       return status;
   }
   output = std::move(candidate);
-  return engine::error::success;
+  return gneiss::error::success;
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

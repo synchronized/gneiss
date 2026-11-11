@@ -8,7 +8,7 @@
 #include "engine/core/type_id.hpp"
 #include <span>
 
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 namespace detail {
 struct type_factory;
 struct type_record;
@@ -21,14 +21,14 @@ public:
   template <class T> [[nodiscard]] const T* extension() const noexcept {
     return static_cast<const T*>(extension(runtime_type_of<T>()));
   }
-  [[nodiscard]] GNEISS_API const void* extension(engine::type_id) const noexcept;
+  [[nodiscard]] GNEISS_API const void* extension(gneiss::type_id) const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return access_ || record_; }
   /** 是否关联冻结注册数据；原生类型有效并不要求已注册。 */
   [[nodiscard]] bool registered() const noexcept { return record_ != nullptr; }
   [[nodiscard]] GNEISS_API type_kind kind() const noexcept;
   [[nodiscard]] GNEISS_API bool is_enum() const noexcept;
-  [[nodiscard]] GNEISS_API engine::type_id id() const noexcept;
-  [[nodiscard]] GNEISS_API engine::guid guid() const noexcept;
+  [[nodiscard]] GNEISS_API gneiss::type_id id() const noexcept;
+  [[nodiscard]] GNEISS_API gneiss::guid guid() const noexcept;
   [[nodiscard]] GNEISS_API value_kind scalar_kind() const noexcept;
   /** 借用已注册枚举项；无注册记录或非枚举返回空范围，寿命受本句柄保护。 */
   [[nodiscard]] GNEISS_API std::span<const enum_entry> enum_entries() const noexcept;
@@ -58,4 +58,4 @@ private:
 namespace detail {
 GNEISS_API meta::type resolve_type(const registry_ref&, const type_ops&);
 }
-} // namespace gneiss::engine::meta
+} // namespace gneiss::meta

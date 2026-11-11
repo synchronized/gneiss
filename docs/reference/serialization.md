@@ -17,7 +17,7 @@ Meta 只提供通用注册器与扩展存储，不依赖这些持久化策略。
 普通 JSON 使用 `json.hpp`：
 
 ```cpp
-namespace ser = gneiss::engine::serialization;
+namespace ser = gneiss::serialization;
 auto text = ser::json::encode(description);
 auto bytes = ser::json::encode_bytes(description);
 auto restored = ser::json::decode<scene_description>(json_text);

@@ -10,7 +10,7 @@
 #include "value_result.hpp"
 #include <algorithm>
 #include <set>
-namespace gneiss::engine {
+namespace gneiss {
 struct prepared_batch {
   std::vector<decoded_asset> assets;
   std::size_t bytes{};
@@ -19,7 +19,7 @@ struct prepared_batch {
 };
 }
 namespace gneiss::test_support {
-using namespace gneiss::engine;
+using namespace gneiss;
 inline error adopt_render_for_test(asset_manager& service, decoded_asset decoded,
                                    render_resource_ref& target) {
   const auto kind = decoded.kind();
@@ -39,15 +39,15 @@ inline error adopt_render_for_test(asset_manager& service, decoded_asset decoded
         if constexpr (std::is_same_v<T, mesh_data>)
           return detail::asset_construction::adopt(
               service, std::make_shared<const mesh_data>(std::move(data)),
-              resource_cast<gneiss::engine::mesh>(target), decoded.sources);
+              resource_cast<gneiss::mesh>(target), decoded.sources);
         else if constexpr (std::is_same_v<T, texture_data>)
           return detail::asset_construction::adopt(
               service, std::make_shared<const texture_data>(std::move(data)),
-              resource_cast<gneiss::engine::texture>(target), decoded.sources);
+              resource_cast<gneiss::texture>(target), decoded.sources);
         else if constexpr (std::is_same_v<T, asset_ref<const material_description>>) {
           if (!data)
             return error::invalid_argument;
-          std::array<gneiss::engine::ref<const gneiss::engine::texture>, 5> dependencies;
+          std::array<gneiss::ref<const gneiss::texture>, 5> dependencies;
           for (std::size_t slot = 0; slot < dependencies.size(); ++slot) {
             if (data->texture_uris[slot].empty())
               continue;
@@ -58,10 +58,10 @@ inline error adopt_render_for_test(asset_manager& service, decoded_asset decoded
                 entry);
             if (status.failed())
               return status;
-            dependencies[slot] = resource_cast<gneiss::engine::texture>(entry);
+            dependencies[slot] = resource_cast<gneiss::texture>(entry);
           }
           return detail::asset_construction::adopt(service, *data,
-                                                   resource_cast<gneiss::engine::material>(target),
+                                                   resource_cast<gneiss::material>(target),
                                                    std::move(dependencies));
         } else
           return error::invalid_argument;

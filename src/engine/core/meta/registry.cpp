@@ -25,22 +25,22 @@
 #include <utility>
 #include <vector>
 
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 namespace detail {
 struct property_record {
   std::uint32_t id = 0U;
-  engine::guid type_guid{};
+  gneiss::guid type_guid{};
   property_access access = property_access::read_write;
   string_name name;
   property_binding accessor{};
-  engine::guid declaring_type{};
-  engine::type_id declaring_id{};
+  gneiss::guid declaring_type{};
+  gneiss::type_id declaring_id{};
   meta::metadata extensions{};
 };
 
 struct type_record {
-  engine::guid guid{};
-  engine::type_id type_id{};
+  gneiss::guid guid{};
+  gneiss::type_id type_id{};
   std::uint32_t schema_version = 0;
   string_name name;
   std::vector<property_record> properties;
@@ -361,7 +361,7 @@ public:
     for (const auto& type : types_) {
       auto properties = type->properties;
       auto current = type.get();
-      std::set<engine::type_id> chain;
+      std::set<gneiss::type_id> chain;
       while (current->object.base_type) {
         if (!chain.insert(current->type_id).second || !current->object.upcast)
           return error::invalid_argument;
@@ -524,7 +524,7 @@ public:
     if (!key)
       return {};
     const type_record* record = nullptr;
-    if constexpr (std::is_same_v<Key, engine::guid>) {
+    if constexpr (std::is_same_v<Key, gneiss::guid>) {
       record = find_type_unlocked(key);
       if (!record)
         record = find_enum_unlocked(key);
@@ -535,14 +535,14 @@ public:
     }
     if (record)
       return detail::type_factory::make(owner(), nullptr, record);
-    if constexpr (std::is_same_v<Key, engine::type_id>) {
+    if constexpr (std::is_same_v<Key, gneiss::type_id>) {
       auto entry = enums_.find(key);
       if (entry != enums_.end())
         return detail::type_factory::make(owner(), nullptr, &entry->second);
     }
     const detail::type_ops* found = nullptr;
     auto match = [&](const detail::type_ops& access) {
-      if constexpr (std::is_same_v<Key, engine::guid>)
+      if constexpr (std::is_same_v<Key, gneiss::guid>)
         return !access.enumeration && access.guid == key;
       else
         return access.id == key;
@@ -586,7 +586,7 @@ public:
     const auto& record = *types_[index];
     return detail::type_factory::make(owner(), nullptr, &record);
   }
-  result<object_ops> find_object_ops(engine::type_id id) const {
+  result<object_ops> find_object_ops(gneiss::type_id id) const {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
       return error::not_ready;
@@ -660,7 +660,7 @@ private:
     }
     return nullptr;
   }
-  [[nodiscard]] const type_record* find_type_unlocked(engine::type_id id) const noexcept {
+  [[nodiscard]] const type_record* find_type_unlocked(gneiss::type_id id) const noexcept {
     const auto found = by_cpp_type_.find(id);
     return found == by_cpp_type_.end() ? nullptr : found->second;
   }
@@ -682,8 +682,8 @@ private:
 
   mutable std::shared_mutex mutex_;
   std::vector<std::unique_ptr<type_record>> types_;
-  std::map<engine::type_id, type_record*> by_cpp_type_;
-  std::map<engine::type_id, type_record> enums_;
+  std::map<gneiss::type_id, type_record*> by_cpp_type_;
+  std::map<gneiss::type_id, type_record> enums_;
   bool is_frozen_ = false;
 };
 
@@ -700,14 +700,14 @@ type_kind type::kind() const noexcept {
 bool type::is_enum() const noexcept {
   return access_ ? access_->enumeration : record_ && record_->enumeration;
 }
-engine::type_id type::id() const noexcept {
-  return access_ ? access_->id : record_ ? record_->type_id : engine::type_id{};
+gneiss::type_id type::id() const noexcept {
+  return access_ ? access_->id : record_ ? record_->type_id : gneiss::type_id{};
 }
-engine::guid type::guid() const noexcept {
+gneiss::guid type::guid() const noexcept {
   return record_     ? record_->guid
-         : is_enum() ? engine::guid{}
+         : is_enum() ? gneiss::guid{}
          : access_   ? access_->guid
-                     : engine::guid{};
+                     : gneiss::guid{};
 }
 value_kind type::scalar_kind() const noexcept {
   return access_ ? access_->scalar_kind() : record_ ? record_->scalar : value_kind::invalid;
@@ -758,10 +758,10 @@ bool operator==(const type& left, const type& right) noexcept {
     return left.id() == right.id();
   return left.guid() == right.guid();
 }
-const void* type::extension(engine::type_id key) const noexcept {
+const void* type::extension(gneiss::type_id key) const noexcept {
   return record_ ? record_->extensions.find(key) : nullptr;
 }
-const void* property::extension(engine::type_id key) const noexcept {
+const void* property::extension(gneiss::type_id key) const noexcept {
   return record_ ? record_->extensions.find(key) : nullptr;
 }
 std::uint32_t type::schema_version() const noexcept {
@@ -770,10 +770,10 @@ std::uint32_t type::schema_version() const noexcept {
 std::string_view type::name() const noexcept {
   return record_ ? record_->name.view() : std::string_view{};
 }
-meta::type find_type(const registry_ref& registry, engine::type_id id) {
+meta::type find_type(const registry_ref& registry, gneiss::type_id id) {
   return registry ? registry->lookup_type(id) : meta::type{};
 }
-meta::type find_type(const registry_ref& registry, engine::guid id) {
+meta::type find_type(const registry_ref& registry, gneiss::guid id) {
   return registry ? registry->lookup_type(id) : meta::type{};
 }
 namespace detail {
@@ -811,16 +811,16 @@ property find_property(const registry_ref& registry, guid id, property_id field)
   auto owner = find_type(registry, id);
   return owner ? owner.find_property(field) : property{};
 }
-result<value> read_property(const registry_ref& registry, engine::type_id type,
+result<value> read_property(const registry_ref& registry, gneiss::type_id type,
                             property_id property, const void* object) {
   return registry ? registry->get_property(type, property.get(), object) : error::invalid_handle;
 }
-error write_property(const registry_ref& registry, engine::type_id type, property_id property,
+error write_property(const registry_ref& registry, gneiss::type_id type, property_id property,
                      void* object, const value& input) {
   return registry ? registry->set_property(type, property.get(), object, input)
                   : error::invalid_handle;
 }
-result<property_binding> find_object_property(const registry_ref& registry, engine::type_id type,
+result<property_binding> find_object_property(const registry_ref& registry, gneiss::type_id type,
                                               property_id id) {
   return registry ? registry->find_object_property(type, id)
                   : result<property_binding>{error::invalid_handle};
@@ -852,11 +852,11 @@ property_id property::id() const noexcept {
 std::string_view property::name() const noexcept {
   return record_ ? record_->name.view() : std::string_view{};
 }
-engine::type_id property::declaring_type_id() const noexcept {
-  return record_ ? record_->declaring_id : engine::type_id{};
+gneiss::type_id property::declaring_type_id() const noexcept {
+  return record_ ? record_->declaring_id : gneiss::type_id{};
 }
-engine::guid property::declaring_type() const noexcept {
-  return record_ ? record_->declaring_type : engine::guid{};
+gneiss::guid property::declaring_type() const noexcept {
+  return record_ ? record_->declaring_type : gneiss::guid{};
 }
 meta::type property::type() const {
   return record_ ? record_type(registry_, *record_) : meta::type{};
@@ -867,7 +867,7 @@ property_capabilities property::capabilities() const noexcept {
 }
 }
 
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 property property_range::operator[](std::size_t index) const noexcept {
   return property{registry_, records_ + index};
 }

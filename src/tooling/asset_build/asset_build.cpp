@@ -40,7 +40,7 @@ struct source_node final {
   const processor_description* processor{};
   std::vector<std::string> dependencies;
   std::string cache_key;
-  std::optional<gneiss::engine::texture_transfer> texture_transfer;
+  std::optional<gneiss::texture_transfer> texture_transfer;
   std::optional<bool> normal_map{};
 };
 
@@ -145,7 +145,7 @@ struct source_node final {
   }
   if (node.processor->id == "gneiss.mesh" && extension == ".gneiss-mesh") {
     const auto bytes = read_bytes(node.absolute_path);
-    return gneiss::engine::decode_mesh_binary(bytes).ok();
+    return gneiss::decode_mesh_binary(bytes).ok();
   }
   if ((node.processor->id == "gneiss.mesh" || node.processor->id == "gneiss.material" ||
        node.processor->id == "gneiss.document") &&
@@ -190,7 +190,7 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
   hash_bytes(hash, request.profile == build_profile::shipping ? "shipping" : "development");
   hash_bytes(hash, node.normal_map.value_or(false) ? "normal" : "color-or-data");
   if (node.texture_transfer) {
-    hash_bytes(hash, *node.texture_transfer == gneiss::engine::texture_transfer::srgb ? "srgb"
+    hash_bytes(hash, *node.texture_transfer == gneiss::texture_transfer::srgb ? "srgb"
                                                                                       : "linear");
   }
   std::ostringstream text;
@@ -230,14 +230,14 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
 [[nodiscard]] bool cook_png(const source_node& node, std::vector<std::byte>& output,
                             std::string& diagnostic) {
   const auto bytes = read_bytes(node.absolute_path);
-  auto image = gneiss::engine::decode_png(bytes);
+  auto image = gneiss::decode_png(bytes);
   if (!image) {
     diagnostic = std::move(image).error().message;
     return false;
   }
   auto decoded = std::move(*image);
-  gneiss::engine::texture_ktx2 texture{
-      .transfer = node.texture_transfer.value_or(gneiss::engine::texture_transfer::srgb),
+  gneiss::texture_ktx2 texture{
+      .transfer = node.texture_transfer.value_or(gneiss::texture_transfer::srgb),
       .levels = {
           {.width = decoded.width, .height = decoded.height, .pixels = std::move(decoded.pixels)}}};
   while (texture.levels.back().width != 1U || texture.levels.back().height != 1U) {
@@ -300,24 +300,24 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
 }
 
 [[nodiscard]] bool read_texture_settings(const source_node& node, std::string& source,
-                                         gneiss::engine::texture_transfer& transfer,
+                                         gneiss::texture_transfer& transfer,
                                          bool& normal_map) {
   if (!std::string_view(node.relative_path).ends_with(".texture.json")) {
     return false;
   }
-  if (gneiss::engine::initialize_meta().failed())
+  if (gneiss::initialize_meta().failed())
     return false;
-  const auto description = gneiss::engine::detail::parse_texture(read_bytes(node.absolute_path));
+  const auto description = gneiss::detail::parse_texture(read_bytes(node.absolute_path));
   if (!description)
     return false;
   constexpr std::string_view prefix = "asset://";
   if (!description->uri.starts_with(prefix))
     return false;
   source.assign(description->uri.substr(prefix.size()));
-  transfer = description->color_space == gneiss::engine::texture_color_space::linear
-                 ? gneiss::engine::texture_transfer::linear
-                 : gneiss::engine::texture_transfer::srgb;
-  normal_map = description->usage == gneiss::engine::texture_usage::normal;
+  transfer = description->color_space == gneiss::texture_color_space::linear
+                 ? gneiss::texture_transfer::linear
+                 : gneiss::texture_transfer::srgb;
+  normal_map = description->usage == gneiss::texture_usage::normal;
   return !source.empty();
 }
 
@@ -427,7 +427,7 @@ build_report build_assets(const build_request& request, const processor_registry
     for (const auto& [relative, node] : nodes) {
       static_cast<void>(relative);
       std::string image_source;
-      gneiss::engine::texture_transfer transfer{};
+      gneiss::texture_transfer transfer{};
       bool normal_map{};
       if (!read_texture_settings(node, image_source, transfer, normal_map)) {
         if (std::string_view(node.relative_path).ends_with(".texture.json")) {

@@ -12,7 +12,7 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 enum class service_kind : std::uint8_t {
   platform = 1,
@@ -74,6 +74,6 @@ private:
   bool is_initializing_or_initialized_ = false;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

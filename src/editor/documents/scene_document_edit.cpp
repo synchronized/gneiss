@@ -6,7 +6,7 @@
 namespace gneiss::editor {
 namespace {
 struct document_selection {
-  engine::guid object, source;
+  gneiss::guid object, source;
   static document_selection capture(scene_edit_session& document) {
     if (auto node = document.selected_node())
       return {node->uuid, {}};
@@ -33,31 +33,31 @@ public:
         selection_before_(document_selection::capture(document)),
         selection_after_(selection_before_) {}
   std::string_view label() const noexcept override { return label_; }
-  engine::error prepare(const scene_document_snapshot& before,
+  gneiss::error prepare(const scene_document_snapshot& before,
                         const scene_document_snapshot& after) {
     auto patch = make_document_patch(before, after);
     if (!patch)
       return patch.error();
     {
       patches_.push_back(std::move(*patch));
-      return engine::error::success;
+      return gneiss::error::success;
     }
   }
-  engine::error complete() noexcept {
+  gneiss::error complete() noexcept {
     auto after = document_.current_version();
     if (patches_.empty())
-      return engine::error::invalid_state;
+      return gneiss::error::invalid_state;
     after_ = after.stamp();
     selection_after_ = document_selection::capture(document_);
-    return engine::error::success;
+    return gneiss::error::success;
   }
-  engine::error undo() override {
+  gneiss::error undo() override {
     auto status = document_.restore_changes(after_, before_, patches_, true);
     if (status.ok())
       selection_before_.restore(document_);
     return status;
   }
-  engine::error redo() override {
+  gneiss::error redo() override {
     auto status = document_.restore_changes(before_, after_, patches_, false);
     if (status.ok())
       selection_after_.restore(document_);
@@ -85,19 +85,19 @@ private:
   document_selection selection_before_, selection_after_;
 };
 }
-engine::error execute_scene_edit(editor_command_history& history, scene_edit_session& document,
-                                 std::string label, const std::function<engine::error()>& edit,
+gneiss::error execute_scene_edit(editor_command_history& history, scene_edit_session& document,
+                                 std::string label, const std::function<gneiss::error()>& edit,
                                  std::string key) {
   auto before = document.current_version();
   if (!before || !edit)
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   auto status = history.prepare_record();
   if (status.failed())
     return status;
   auto command = std::make_unique<document_patch_command>(document, before, before,
                                                           std::move(label), std::move(key));
   if (document.edit_base_)
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   auto candidate = document.document_->make_candidate();
   if (!candidate)
     return candidate.error();
@@ -120,13 +120,13 @@ engine::error execute_scene_edit(editor_command_history& history, scene_edit_ses
   if (status.failed())
     return status;
   if (!document.document_)
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   const auto after = document.document_->current();
   if (before == after) {
     document.document_ = std::move(authority);
     document.edit_base_ = nullptr;
     (void)scope.release();
-    return engine::error::success;
+    return gneiss::error::success;
   }
   status = command->prepare(before.content(), after.content());
   if (status.failed())
@@ -147,35 +147,35 @@ engine::error execute_scene_edit(editor_command_history& history, scene_edit_ses
   return status;
 }
 
-engine::result<scene_document_snapshot> capture_scene_document(runtime::application& app,
+gneiss::result<scene_document_snapshot> capture_scene_document(runtime::application& app,
                                                                const scene_edit_session& document) {
   if (!document.is_open() || !app.is_owner_thread() || !app.accepts_requests())
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   return document.capture_content();
 }
 
-engine::error restore_scene_document(runtime::application& app, scene_edit_session& document,
+gneiss::error restore_scene_document(runtime::application& app, scene_edit_session& document,
                                      const scene_document_snapshot& snapshot) {
   if (!app.is_owner_thread() || !app.accepts_requests() || !document.is_open() ||
       document.uri() != snapshot.uri)
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   return document.accept_content(snapshot);
 }
-engine::error scene_document_edit::finish(engine::error status) {
+gneiss::error scene_document_edit::finish(gneiss::error status) {
   before_.reset();
   after_.reset();
   selection_ = {};
   return status_ = status;
 }
 void scene_document_edit::cancel() noexcept {
-  if (status_ == engine::error::not_ready)
-    (void)finish(engine::error::cancelled);
+  if (status_ == gneiss::error::not_ready)
+    (void)finish(gneiss::error::cancelled);
 }
-engine::error scene_document_edit::begin(runtime::application& app, scene_edit_session& document,
+gneiss::error scene_document_edit::begin(runtime::application& app, scene_edit_session& document,
                                          std::span<const author_document_change> changes,
                                          std::string label,
                                          std::function<void(bool)> selection) try {
-  using engine::error;
+  using gneiss::error;
   if (status_ == error::not_ready)
     return error::not_ready;
   (void)finish(error::invalid_state);
@@ -203,12 +203,12 @@ engine::error scene_document_edit::begin(runtime::application& app, scene_edit_s
   return error::success;
 } catch (...) {
   // 局部状态清理后传播意外异常，不作为普通操作失败继续执行。
-  (void)finish(engine::error::internal);
+  (void)finish(gneiss::error::internal);
   throw;
 }
-engine::error scene_document_edit::advance(runtime::application& app, scene_edit_session& document,
+gneiss::error scene_document_edit::advance(runtime::application& app, scene_edit_session& document,
                                            editor_command_history& history) try {
-  using engine::error;
+  using gneiss::error;
   if (status_ != error::not_ready)
     return status_;
   if (&app != application_ || &document != document_ || !app.is_owner_thread() ||
@@ -235,7 +235,7 @@ engine::error scene_document_edit::advance(runtime::application& app, scene_edit
   return finish(status);
 } catch (...) {
   // 局部状态清理后传播意外异常，不作为普通操作失败继续执行。
-  (void)finish(engine::error::internal);
+  (void)finish(gneiss::error::internal);
   throw;
 }
 }

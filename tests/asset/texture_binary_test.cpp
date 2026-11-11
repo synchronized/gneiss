@@ -6,7 +6,7 @@
 #include <span>
 
 int main() {
-  namespace asset = gneiss::engine;
+  namespace asset = gneiss;
   const std::array manifest = {std::byte{1}, std::byte{2}, std::byte{3}};
   const std::array payload = {std::byte{4}, std::byte{5}, std::byte{6}, std::byte{7}};
   auto encoded = asset::encode_texture_binary(manifest, payload);

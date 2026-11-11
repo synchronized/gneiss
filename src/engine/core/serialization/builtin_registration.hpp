@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/meta/registry.hpp"
-namespace gneiss::engine::serialization {
+namespace gneiss::serialization {
 /** 注册基础值、数学类型及其持久化策略；不冻结，重复注册按普通注册规则失败。 */
 GNEISS_API error register_builtin_types(const meta::registry_ref&);
 inline error register_builtin_types() {

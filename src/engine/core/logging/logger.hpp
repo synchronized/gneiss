@@ -6,7 +6,7 @@
 #include <format>
 #include <memory>
 
-namespace gneiss::engine::logging {
+namespace gneiss::logging {
 namespace detail {
 struct service_state;
 }

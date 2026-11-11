@@ -5,7 +5,7 @@
 struct yyjson_val;
 struct yyjson_mut_val;
 struct yyjson_mut_doc;
-namespace gneiss::engine::serialization::json::detail {
+namespace gneiss::serialization::json::detail {
 using meta::const_instance;
 using meta::instance;
 using meta::registry_ref;

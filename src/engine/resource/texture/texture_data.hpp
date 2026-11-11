@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 struct texture_mip final {
   std::uint32_t width{};
@@ -41,4 +41,4 @@ struct texture_data {
   std::uint32_t selected_variant{UINT32_MAX};
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss

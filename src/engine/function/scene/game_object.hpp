@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 class world;
 class scene_instance;
 /** 运行对象的非拥有句柄；World 必须比句柄使用期更长，所有访问限所属线程。

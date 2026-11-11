@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 struct mesh_binary_vertex final {
   math::vector3 position{};
@@ -47,6 +47,6 @@ encode_mesh_binary(const mesh_binary_data& data);
 decode_mesh_binary(std::span<const std::byte> bytes);
 [[nodiscard]] GNEISS_API std::string dump_mesh_binary_json(const mesh_binary_data& data);
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

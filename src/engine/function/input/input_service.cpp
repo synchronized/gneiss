@@ -12,7 +12,7 @@ namespace {
 std::atomic_uint32_t next_action_generation{1};
 }
 
-namespace gneiss::engine {
+namespace gneiss {
 
 void input_service::begin_frame() noexcept {
   read_index_ = 0;
@@ -56,9 +56,9 @@ error input_service::replace_action_map(action_map_description map) {
   if (const auto valid = validate_action_map(map); valid.error.failed()) {
     return valid.error;
   }
-  std::vector<engine::action_state> states;
+  std::vector<gneiss::action_state> states;
   {
-    states.assign(map.actions.size(), engine::action_state{});
+    states.assign(map.actions.size(), gneiss::action_state{});
   }
   action_map_ = std::move(map);
   action_states_ = std::move(states);
@@ -71,8 +71,8 @@ error input_service::replace_action_map(action_map_description map) {
 }
 
 error input_service::find_action(std::string_view name,
-                                 engine::action_id& out_action) const noexcept {
-  out_action = engine::action_id{};
+                                 gneiss::action_id& out_action) const noexcept {
+  out_action = gneiss::action_id{};
   for (std::size_t index = 0; index < action_map_.actions.size(); ++index) {
     if (action_map_.actions[index].name == name) {
       out_action = {(static_cast<std::uint64_t>(action_generation_) << 32U) | (index + 1U)};
@@ -82,9 +82,9 @@ error input_service::find_action(std::string_view name,
   return error::not_found;
 }
 
-error input_service::get_action_state(engine::action_id action,
-                                      engine::action_state& out_state) const noexcept {
-  out_state = engine::action_state{};
+error input_service::get_action_state(gneiss::action_id action,
+                                      gneiss::action_state& out_state) const noexcept {
+  out_state = gneiss::action_state{};
   const auto generation = static_cast<std::uint32_t>(action.value >> 32U);
   const auto slot = static_cast<std::uint32_t>(action.value);
   if (generation == 0U || generation != action_generation_ || slot == 0U ||
@@ -142,4 +142,4 @@ void input_service::apply(const input_event& event) {
   }
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

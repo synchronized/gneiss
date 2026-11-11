@@ -4,7 +4,7 @@
 #include <algorithm>
 int main() {
   using namespace gneiss::editor;
-  using gneiss::engine::error;
+  using gneiss::error;
   author_asset_monitor monitor;
   constexpr auto uri = "asset://scenes/main.scene.json";
   monitor.establish_baseline(uri, 1);

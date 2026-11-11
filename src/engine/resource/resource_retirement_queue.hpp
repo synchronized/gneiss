@@ -11,7 +11,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 /** 单所属线程消费的资源销毁队列。创建时分配节点，最后释放时只入队。
  * close 必须在所属线程、服务仍有效时调用；关闭后删除器仅清理无服务依赖的对象。
@@ -127,4 +127,4 @@ private:
   const std::thread::id owner_{std::this_thread::get_id()};
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss

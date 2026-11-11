@@ -3,7 +3,7 @@
 
 #include "engine/core/math/transform.hpp"
 
-namespace gneiss::engine::math {
+namespace gneiss::math {
 vector3 transform_normal(const vector3& normal, const math::transform& transform) noexcept {
   const auto value = glm::normalize(transform.rotation *
                                     (vector3{normal[0], normal[1], normal[2]} / transform.scale));
@@ -25,4 +25,4 @@ bool model_and_normal_matrices(const transform& value, matrix4& model, matrix4& 
   normal = glm::scale(rotation, vector3{1.0F} / value.scale);
   return true;
 }
-} // namespace gneiss::engine::math
+} // namespace gneiss::math

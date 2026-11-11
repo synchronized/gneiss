@@ -8,7 +8,7 @@
 
 #include <filesystem>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 // 内部原生动态库句柄；调用方负责保证卸载前不再使用已查询的符号。
 class dynamic_library final {
@@ -28,6 +28,6 @@ private:
   void* handle_{};
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

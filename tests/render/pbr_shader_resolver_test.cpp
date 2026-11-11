@@ -28,7 +28,7 @@ std::vector<std::byte> read_file(const std::filesystem::path& path) {
 } // namespace
 
 int main() {
-  using gneiss::engine::pbr_shader_resolver;
+  using gneiss::pbr_shader_resolver;
   const auto root = std::filesystem::path{GNEISS_TEST_GRANIT_PBR_ASSET_DIR};
   const auto expected = read_file(root / "pbr_standard.grshlib");
   pbr_shader_resolver resolver;

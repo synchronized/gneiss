@@ -34,7 +34,7 @@ enum class runtime_scene_sequence_result : std::uint8_t {
 /** Editor 侧检查消息顺序跟踪器；发现缺口后由上层请求完整快照。 */
 class runtime_scene_sequence_tracker final {
 public:
-  [[nodiscard]] gneiss::engine::error begin(std::uint64_t session_id,
+  [[nodiscard]] gneiss::error begin(std::uint64_t session_id,
                                             std::uint64_t first_sequence = 1U);
   void reset() noexcept;
   [[nodiscard]] runtime_scene_sequence_result observe(runtime_scene_stamp stamp);
@@ -51,12 +51,12 @@ enum class runtime_scene_change_type : std::uint8_t { upsert, remove };
 struct runtime_scene_node final {
   runtime_object_id id;
   runtime_object_id parent;
-  gneiss::engine::guid uuid;
-  gneiss::engine::guid prefab_instance_uuid;
-  gneiss::engine::guid prefab_source_node_uuid;
+  gneiss::guid uuid;
+  gneiss::guid prefab_instance_uuid;
+  gneiss::guid prefab_source_node_uuid;
   std::string name;
-  gneiss::engine::math::transform local_transform;
-  gneiss::engine::component_descriptions components{};
+  gneiss::math::transform local_transform;
+  gneiss::component_descriptions components{};
 };
 
 struct runtime_scene_change final {

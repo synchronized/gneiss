@@ -14,7 +14,7 @@
 #include <unordered_set>
 #include <yyjson.h>
 
-namespace gneiss::engine::serialization::json {
+namespace gneiss::serialization::json {
 using namespace meta;
 using serialization::detail::context_access;
 using serialization::detail::operation_scope;
@@ -390,7 +390,7 @@ result<ref<void>, serialization::diagnostic> decode_object(const read_context& c
 }
 }
 
-namespace gneiss::engine::serialization::json::detail {
+namespace gneiss::serialization::json::detail {
 result<yyjson_mut_val*, serialization::diagnostic>
 write(const write_context& ctx, yyjson_mut_doc* doc, const const_instance& view) {
   if (!doc)
@@ -416,7 +416,7 @@ serialization::diagnostic read(const read_context& ctx, yyjson_val* input, const
 }
 }
 
-namespace gneiss::engine::serialization::json {
+namespace gneiss::serialization::json {
 using namespace meta;
 result<std::vector<std::byte>, serialization::diagnostic>
 encode_instance(const const_instance& view) {
@@ -430,7 +430,7 @@ result<void, serialization::diagnostic> read_into(const instance& view,
 }
 }
 
-namespace gneiss::engine::serialization::json {
+namespace gneiss::serialization::json {
 using namespace meta;
 namespace detail {
 result<yyjson_mut_val*, serialization::diagnostic>
@@ -477,7 +477,7 @@ write_value(const write_context& ctx, yyjson_mut_doc* doc, const value& v) {
   auto registry = ctx.registry();
   if (!registry)
     return failure(registry.error());
-  auto view = gneiss::engine::meta::view(*registry, std::as_const(v));
+  auto view = gneiss::meta::view(*registry, std::as_const(v));
   if (!view)
     return failure(view.error());
   return write(ctx, doc, *view);
@@ -487,7 +487,7 @@ result<value, serialization::diagnostic> read_value(const read_context& ctx, yyj
   if (!registry)
     return failure(registry.error());
   value output;
-  auto view = gneiss::engine::meta::view(*registry, output);
+  auto view = gneiss::meta::view(*registry, output);
   if (!view)
     return failure(view.error());
   auto status = read(ctx, node, *view);

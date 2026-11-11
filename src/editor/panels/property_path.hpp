@@ -5,13 +5,13 @@
 #include "engine/core/ref.hpp"
 #include <variant>
 namespace gneiss::editor {
-using engine::meta::property_path;
-using engine::meta::property_step;
+using gneiss::meta::property_path;
+using gneiss::meta::property_step;
 /** 控件输出拥有数据的操作；消费前必须重新解析路径，不保留成员地址。 */
 struct property_edit {
   property_path path;
-  engine::value data{};
-  engine::type_id object_type{};
-  engine::ref<void> object{};
+  gneiss::value data{};
+  gneiss::type_id object_type{};
+  gneiss::ref<void> object{};
 };
 }

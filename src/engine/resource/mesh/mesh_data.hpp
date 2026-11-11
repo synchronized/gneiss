@@ -11,7 +11,7 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 struct mesh_vertex {
   math::vector3 position{};
   math::vector2 uv{};
@@ -54,4 +54,4 @@ struct mesh_data {
          std::abs(dot) <= 1.0e-4F && (tangent[3] == 1.0F || tangent[3] == -1.0F);
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

@@ -4,7 +4,7 @@
 #include "engine/core/math/types.hpp"
 #include "engine/resource/texture.hpp"
 #include <cstdint>
-namespace gneiss::engine {
+namespace gneiss {
 struct debug_line {
   math::vector3 start{};
   math::vector3 end{};
@@ -18,9 +18,9 @@ struct ui_vertex {
   std::uint32_t color_rgba8{};
 };
 struct ui_draw_command {
-  ref<const engine::texture> texture;
+  ref<const gneiss::texture> texture;
   math::vector2 clip_min{};
   math::vector2 clip_max{};
   std::uint32_t first_index{}, index_count{}, vertex_offset{};
 };
-} // namespace gneiss::engine
+} // namespace gneiss

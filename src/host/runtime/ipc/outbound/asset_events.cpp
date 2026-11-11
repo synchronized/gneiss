@@ -6,10 +6,10 @@
 
 namespace gneiss::host {
 
-gneiss::engine::error make_asset_reload_result(const ipc_asset_reload_result& response,
+gneiss::error make_asset_reload_result(const ipc_asset_reload_result& response,
                                                ipc_asset_operation operation,
                                                std::uint32_t request_id,
-                                               gneiss::engine::ipc_envelope& output) noexcept {
+                                               gneiss::ipc_envelope& output) noexcept {
   return encode_ipc_asset_result_v2(response, operation, request_id, output);
 }
 

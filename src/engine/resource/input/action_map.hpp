@@ -14,11 +14,11 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::engine::serialization {
+namespace gneiss::serialization {
 struct diagnostic;
 }
 
-namespace gneiss::engine {
+namespace gneiss {
 
 struct action_binding final {
   inline static constexpr std::string_view type_name = "action_binding";
@@ -40,8 +40,8 @@ inline constexpr std::size_t maximum_action_map_bytes = 1024U * 1024U;
 /** 可共享的只读描述；实时输入状态由 InputService 单独管理。 */
 struct action_map_description final {
   inline static constexpr std::string_view type_name = "action_map_description";
-  inline static constexpr engine::guid type_guid{
-      engine::guid::literal("2c8319d2-673f-4a51-9380-7ac502e694b1")};
+  inline static constexpr gneiss::guid type_guid{
+      gneiss::guid::literal("2c8319d2-673f-4a51-9380-7ac502e694b1")};
   inline static constexpr std::size_t maximum_source_bytes = maximum_action_map_bytes;
   std::vector<action_definition> actions;
 };
@@ -67,6 +67,6 @@ private:
 /** 原生构造与 JSON 加载共享语义约束；不改变输入映射。 */
 [[nodiscard]] serialization::diagnostic validate_action_map(const action_map_description& map);
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

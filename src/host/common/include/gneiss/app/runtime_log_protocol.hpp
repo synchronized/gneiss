@@ -24,14 +24,14 @@ enum class runtime_log_parse_result : std::uint8_t {
 
 struct runtime_log_record final {
   std::uint32_t version = 1U;
-  std::uint32_t severity = static_cast<std::uint32_t>(gneiss::engine::logging::level::info);
+  std::uint32_t severity = static_cast<std::uint32_t>(gneiss::logging::level::info);
   std::uint64_t sequence = 0U;
   std::uint64_t timestamp_ns = 0U;
   std::uint64_t thread_id = 0U;
   std::string source;
   std::string category;
   std::string message;
-  gneiss::engine::error operation = gneiss::engine::error::success;
+  gneiss::error operation = gneiss::error::success;
 };
 
 inline constexpr std::size_t maximum_runtime_log_line_size = 64U * 1024U;
@@ -52,13 +52,13 @@ public:
   explicit runtime_log_line_decoder(
       std::size_t maximum_line_size = maximum_runtime_log_line_size) noexcept;
 
-  [[nodiscard]] gneiss::engine::error append(std::string_view bytes,
+  [[nodiscard]] gneiss::error append(std::string_view bytes,
                                              std::vector<runtime_log_line>& output);
-  [[nodiscard]] gneiss::engine::error finish(std::vector<runtime_log_line>& output);
+  [[nodiscard]] gneiss::error finish(std::vector<runtime_log_line>& output);
   void reset() noexcept;
 
 private:
-  [[nodiscard]] gneiss::engine::error emit(std::vector<runtime_log_line>& output);
+  [[nodiscard]] gneiss::error emit(std::vector<runtime_log_line>& output);
   void append_segment(std::string_view segment);
 
   std::size_t maximum_line_size_;
@@ -67,8 +67,8 @@ private:
 };
 
 /** 将日志事件编码为带版本前缀的单行 UTF-8 JSON，结果包含末尾换行。 */
-[[nodiscard]] gneiss::engine::error
-encode_runtime_log_event(const gneiss::engine::logging::record_view& event, std::string& output);
+[[nodiscard]] gneiss::error
+encode_runtime_log_event(const gneiss::logging::record_view& event, std::string& output);
 
 /** 解析一行 Runtime 日志协议；不属于协议的普通输出不会被视为错误。 */
 [[nodiscard]] runtime_log_parse_result parse_runtime_log_line(std::string_view line,

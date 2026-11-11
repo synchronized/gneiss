@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <map>
 #include <set>
-namespace gneiss::engine {
+namespace gneiss {
 bool component_override_record::operator==(const component_override_record&) const = default;
 bool prefab_reference_record::operator==(const prefab_reference_record& other) const {
   if (uri != other.uri || components != other.components ||

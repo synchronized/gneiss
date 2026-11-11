@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <span>
 
-namespace gneiss::engine {
+namespace gneiss {
 /** 借用只读字节；源存储必须覆盖 reader 及返回 span 的生命周期。
  * 越界返回 invalid_argument，失败不移动游标；不分配内存、不提供线程同步。 */
 class binary_reader final {
@@ -63,4 +63,4 @@ private:
   std::span<const std::byte> bytes_;
   std::size_t position_{};
 };
-} // namespace gneiss::engine
+} // namespace gneiss

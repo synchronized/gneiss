@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/asset/detail/loader_factory.hpp"
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 /** 在工作线程构造局部内容，在所属线程采用成功结果。 */
 struct action_map_loader final : asset_loader {
   asset_identity source;

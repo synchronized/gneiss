@@ -5,7 +5,7 @@
 #include "engine/function/scene/component_registration.hpp"
 #include <algorithm>
 #include <map>
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 bool fatal(error status) { return status == error::out_of_memory || status == error::internal; }
 scene_diagnostic location(error status, guid object, guid type, std::string path,

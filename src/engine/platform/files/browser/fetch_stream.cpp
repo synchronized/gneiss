@@ -12,7 +12,7 @@ void gneiss_fetch_stream_read(int, void*, std::size_t, void*,
                               void (*)(void*, int, std::size_t, int));
 void gneiss_fetch_stream_close(int);
 }
-namespace gneiss::engine::files {
+namespace gneiss::files {
 namespace {
 error translate(int status) {
   switch (status) {
@@ -67,7 +67,7 @@ public:
       self.close();
     pending->callback({error::success, {std::move(pending->bytes), offset, eof != 0}});
   } catch (...) {
-    gneiss::engine::fatal_current_exception();
+    gneiss::fatal_current_exception();
   }
   error read_next(std::size_t maximum_bytes, files::callback<block> callback) override {
     if (!emscripten_is_main_runtime_thread())
@@ -98,7 +98,7 @@ struct opening {
     else
       pending->callback({result, std::move(pending->stream)});
   } catch (...) {
-    gneiss::engine::fatal_current_exception();
+    gneiss::fatal_current_exception();
   }
 };
 }

@@ -14,7 +14,7 @@
 #include <limits>
 #include <span>
 
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 
 constexpr std::uint32_t maximum_texture_dimension = 16384U;
@@ -68,26 +68,26 @@ result<rid> render_service::reserve_mesh() {
 result<rid> render_service::reserve_texture() {
   return storage_->textures_.create(resource_type::texture, std::shared_ptr<const texture_data>{});
 }
-engine::error render_service::mesh_status(rid mesh) const noexcept {
+gneiss::error render_service::mesh_status(rid mesh) const noexcept {
   const auto* slot = storage_->meshes_.get(mesh, resource_type::mesh);
-  return !slot ? engine::error::invalid_handle
-               : (slot->data ? engine::error::success : engine::error::not_ready);
+  return !slot ? gneiss::error::invalid_handle
+               : (slot->data ? gneiss::error::success : gneiss::error::not_ready);
 }
 result<rid> render_service::reserve_material() {
   return storage_->materials_.create(resource_type::material,
                                      std::shared_ptr<const material_data>{});
 }
-engine::error render_service::material_status(rid material) const noexcept {
+gneiss::error render_service::material_status(rid material) const noexcept {
   const auto* slot = storage_->materials_.get(material, resource_type::material);
   if (slot == nullptr) {
-    return engine::error::invalid_handle;
+    return gneiss::error::invalid_handle;
   }
-  return slot->data ? engine::error::success : engine::error::not_ready;
+  return slot->data ? gneiss::error::success : gneiss::error::not_ready;
 }
-engine::error render_service::texture_status(rid texture) const noexcept {
+gneiss::error render_service::texture_status(rid texture) const noexcept {
   const auto* slot = storage_->textures_.get(texture, resource_type::texture);
-  return !slot ? engine::error::invalid_handle
-               : (slot->data ? engine::error::success : engine::error::not_ready);
+  return !slot ? gneiss::error::invalid_handle
+               : (slot->data ? gneiss::error::success : gneiss::error::not_ready);
 }
 
 render_memory_usage render_service::memory_usage() const noexcept {
@@ -132,9 +132,9 @@ render_service::track(std::shared_ptr<const Resource> resource,
 }
 
 namespace {
-engine::error validate_mesh(const mesh_view& desc) noexcept {
+gneiss::error validate_mesh(const mesh_view& desc) noexcept {
   if (desc.vertices.size() < 3U) {
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   const auto vertices = desc.vertices;
   const auto normals = desc.normals;
@@ -147,7 +147,7 @@ engine::error validate_mesh(const mesh_view& desc) noexcept {
       (!tangents.empty() && (tangents.size() != vertices.size() || normals.empty())) ||
       (!uv1.empty() && uv1.size() != vertices.size()) ||
       (!colors.empty() && colors.size() != vertices.size())) {
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   if (!std::ranges::all_of(vertices,
                            [](const auto& vertex) {
@@ -170,16 +170,16 @@ engine::error validate_mesh(const mesh_view& desc) noexcept {
         return valid_color(color.r) && valid_color(color.g) && valid_color(color.b) &&
                valid_color(color.a);
       })) {
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   for (std::size_t index = 0; index < tangents.size(); ++index) {
     const auto& tangent = tangents[index];
     const auto& normal = normals[index];
-    if (!engine::valid_mesh_tangent(tangent, normal)) {
-      return engine::error::invalid_argument;
+    if (!gneiss::valid_mesh_tangent(tangent, normal)) {
+      return gneiss::error::invalid_argument;
     }
   }
-  return engine::error::success;
+  return gneiss::error::success;
 }
 } // namespace
 
@@ -192,10 +192,10 @@ result<rid> render_service::create_mesh(const mesh_view& desc) {
 
 result<std::shared_ptr<const mesh_data>> render_service::prepare_mesh_data(const mesh_view& desc) {
   if (!is_valid() || desc.vertices.size() < 3U) {
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   const auto validated = validate_mesh(desc);
-  if (validated != engine::error::success) {
+  if (validated != gneiss::error::success) {
     return validated;
   }
   const auto vertices = desc.vertices;
@@ -219,7 +219,7 @@ result<std::shared_ptr<const mesh_data>> render_service::prepare_mesh_data(const
 
 result<rid> render_service::create_mesh(mesh_data resource) {
   if (!is_valid()) {
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   const mesh_view view{
       .vertices = resource.vertices,
@@ -237,7 +237,7 @@ result<rid> render_service::create_mesh(mesh_data resource) {
 
 result<rid> render_service::create_prepared_mesh(mesh_data resource) {
   if (!is_valid()) {
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   {
     return create_prepared_mesh(std::make_shared<const mesh_data>(std::move(resource)));
@@ -245,7 +245,7 @@ result<rid> render_service::create_prepared_mesh(mesh_data resource) {
 }
 result<rid> render_service::create_prepared_mesh(std::shared_ptr<const mesh_data> resource) {
   if (!is_valid() || !resource) {
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   {
     auto tracked = track(std::move(resource), storage_->mesh_history_);
@@ -281,7 +281,7 @@ bool render_service::replace_material(rid rid, std::shared_ptr<const material_da
   return true;
 }
 
-engine::error render_service::destroy_mesh(rid mesh) noexcept {
+gneiss::error render_service::destroy_mesh(rid mesh) noexcept {
   const auto status = storage_->meshes_.destroy(mesh, resource_type::mesh);
   return status;
 }
@@ -289,7 +289,7 @@ engine::error render_service::destroy_mesh(rid mesh) noexcept {
 result<std::shared_ptr<const mesh_data>>
 render_service::prepare_mesh_data(std::shared_ptr<const mesh_data> resource) {
   if (!is_valid() || !resource)
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   {
     return track(std::move(resource), storage_->mesh_history_);
   }
@@ -298,13 +298,13 @@ render_service::prepare_mesh_data(std::shared_ptr<const mesh_data> resource) {
 result<std::shared_ptr<const material_data>>
 render_service::prepare_material_data(const material_data& value) {
   if (!is_valid())
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   const auto validation = validate_material_parameters(value.parameters);
   if (validation.error.failed())
     return validation.error;
   for (const auto texture : value.texture_handles()) {
-    if (texture != null_rid && texture_status(texture) == engine::error::invalid_handle) {
-      return engine::error::invalid_argument;
+    if (texture != null_rid && texture_status(texture) == gneiss::error::invalid_handle) {
+      return gneiss::error::invalid_argument;
     }
   }
   {
@@ -319,7 +319,7 @@ result<rid> render_service::create_material(const material_data& value) {
   return storage_->materials_.create(resource_type::material, std::move(*data));
 }
 
-engine::error render_service::destroy_material(rid material) noexcept {
+gneiss::error render_service::destroy_material(rid material) noexcept {
   const auto status = storage_->materials_.destroy(material, resource_type::material);
   return status;
 }
@@ -338,7 +338,7 @@ render_service::prepare_texture_data(const texture_view& desc) {
        desc.color_space != texture_color_space::srgb) ||
       desc.width == 0U || desc.height == 0U || desc.width > maximum_texture_dimension ||
       desc.height > maximum_texture_dimension || desc.pixels.empty()) {
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   const auto row_bytes = static_cast<std::uint64_t>(desc.width) * 4U;
   const auto packed_size = row_bytes * desc.height;
@@ -347,7 +347,7 @@ render_service::prepare_texture_data(const texture_view& desc) {
                              row_bytes;
   if (desc.row_stride_bytes < row_bytes || packed_size > maximum_texture_bytes ||
       required_size > desc.pixels.size()) {
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   }
   {
     texture_data resource{.width = desc.width,
@@ -376,7 +376,7 @@ render_service::prepare_texture_data(texture_data resource) {
 result<std::shared_ptr<const texture_data>>
 render_service::prepare_texture_data(std::shared_ptr<const texture_data> owner) {
   if (!owner)
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   const auto& resource = *owner;
   if (resource.manifest.empty()) {
     if (!is_valid() || resource.width == 0U || resource.height == 0U ||
@@ -384,7 +384,7 @@ render_service::prepare_texture_data(std::shared_ptr<const texture_data> owner) 
         !resource.manifest.empty() || !resource.payload.empty() ||
         resource.levels.front().width != resource.width ||
         resource.levels.front().height != resource.height) {
-      return engine::error::invalid_argument;
+      return gneiss::error::invalid_argument;
     }
     auto width = resource.width;
     auto height = resource.height;
@@ -394,7 +394,7 @@ render_service::prepare_texture_data(std::shared_ptr<const texture_data> owner) 
       if (level.width != width || level.height != height || level.pixels.size() != level_bytes ||
           level_bytes > maximum_texture_bytes ||
           total_bytes > maximum_texture_bytes - level_bytes) {
-        return engine::error::invalid_argument;
+        return gneiss::error::invalid_argument;
       }
       total_bytes += level_bytes;
       width = std::max(1U, width / 2U);
@@ -406,7 +406,7 @@ render_service::prepare_texture_data(std::shared_ptr<const texture_data> owner) 
         (resource.color_space != texture_color_space::linear &&
          resource.color_space != texture_color_space::srgb) ||
         !resource.levels.empty() || resource.manifest.empty() || resource.payload.empty()) {
-      return engine::error::invalid_argument;
+      return gneiss::error::invalid_argument;
     }
   }
   {
@@ -416,7 +416,7 @@ render_service::prepare_texture_data(std::shared_ptr<const texture_data> owner) 
 
 result<rid> render_service::create_texture(texture_data resource) {
   if (!resource.manifest.empty())
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   auto data = prepare_texture_data(std::move(resource));
   if (!data)
     return data.error();
@@ -425,14 +425,14 @@ result<rid> render_service::create_texture(texture_data resource) {
 
 result<rid> render_service::create_packaged_texture(texture_data resource) {
   if (resource.manifest.empty())
-    return engine::error::invalid_argument;
+    return gneiss::error::invalid_argument;
   auto data = prepare_texture_data(std::move(resource));
   if (!data)
     return data.error();
   return storage_->textures_.create(resource_type::texture, std::move(*data));
 }
 
-engine::error render_service::destroy_texture(rid texture) noexcept {
+gneiss::error render_service::destroy_texture(rid texture) noexcept {
   const auto status = storage_->textures_.destroy(texture, resource_type::texture);
   return status;
 }
@@ -486,4 +486,4 @@ std::size_t render_service::live_resource_count() const noexcept {
          storage_->textures_.live_count();
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

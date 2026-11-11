@@ -14,15 +14,15 @@ class editor_prefab_edit final {
 public:
   editor_prefab_edit();
   ~editor_prefab_edit();
-  gneiss::engine::error request(runtime::application& application,
-                                gneiss::engine::task_executor& executor,
+  gneiss::error request(runtime::application& application,
+                                gneiss::tasks::task_executor& executor,
                                 scene_edit_session& session, editor_command_history& history,
                                 std::string_view name, std::string_view uri, entity_id parent);
-  gneiss::engine::error request_remove(runtime::application& application,
+  gneiss::error request_remove(runtime::application& application,
                                        scene_edit_session& session, editor_command_history& history,
                                        entity_id root);
-  gneiss::engine::error request_refresh(runtime::application& application,
-                                        gneiss::engine::task_executor& executor,
+  gneiss::error request_refresh(runtime::application& application,
+                                        gneiss::tasks::task_executor& executor,
                                         scene_edit_session& session,
                                         editor_command_history& history, entity_id root);
   void advance();
@@ -31,7 +31,7 @@ public:
   bool visible() const noexcept;
   bool can_cancel() const noexcept;
   prefab_edit_phase phase() const noexcept;
-  gneiss::engine::error operation() const noexcept;
+  gneiss::error operation() const noexcept;
   void dismiss() noexcept;
 
 private:

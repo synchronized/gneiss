@@ -7,7 +7,7 @@
 
 #include <cstdint>
 
-namespace gneiss::engine {
+namespace gneiss {
 namespace {
 
 constexpr std::uint8_t shader_library_bytes[] = {
@@ -61,4 +61,4 @@ std::span<const std::byte> pbr_shader_resolver::material_archive() noexcept {
   return std::as_bytes(std::span{material_archive_bytes});
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

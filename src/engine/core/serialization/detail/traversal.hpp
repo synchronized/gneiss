@@ -6,7 +6,7 @@
 #include "engine/core/serialization/policy.hpp"
 #include "engine/core/serialization/reader.hpp"
 #include "engine/core/serialization/writer.hpp"
-namespace gneiss::engine::serialization::detail {
+namespace gneiss::serialization::detail {
 using meta::registry_ref;
 
 result<void*, serialization::diagnostic> cast_base(const registry_ref&, type_id actual,

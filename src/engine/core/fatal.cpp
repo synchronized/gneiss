@@ -10,7 +10,7 @@
 #include <unistd.h>
 #endif
 
-namespace gneiss::engine {
+namespace gneiss {
 [[noreturn]] void fatal(fatal_reason reason) noexcept {
   // 直接写标准错误，不经过可能分配内存或持有业务锁的日志系统。
   constexpr char oom[] = "Gneiss fatal: out of memory\n";

@@ -28,24 +28,24 @@ public:
   editor_camera(const editor_camera&) = delete;
   editor_camera& operator=(const editor_camera&) = delete;
 
-  [[nodiscard]] gneiss::engine::error initialize();
+  [[nodiscard]] gneiss::error initialize();
   void shutdown() noexcept;
 
   [[nodiscard]] bool is_valid() const noexcept { return initialized_; }
-  [[nodiscard]] gneiss::engine::error update(const editor_camera_input& input);
-  [[nodiscard]] gneiss::engine::error focus(const gneiss::engine::math::transform& target,
+  [[nodiscard]] gneiss::error update(const editor_camera_input& input);
+  [[nodiscard]] gneiss::error focus(const gneiss::math::transform& target,
                                             float distance = 5.0F) noexcept;
-  [[nodiscard]] const gneiss::engine::math::transform& current_transform() const noexcept {
+  [[nodiscard]] const gneiss::math::transform& current_transform() const noexcept {
     return transform_;
   }
 
-  [[nodiscard]] gneiss::engine::math::camera_settings settings() const noexcept;
+  [[nodiscard]] gneiss::math::camera_settings settings() const noexcept;
 
 private:
   void update_rotation() noexcept;
 
   bool initialized_{};
-  gneiss::engine::math::transform transform_ = {};
+  gneiss::math::transform transform_ = {};
   float yaw_ = 0.0F;
   float pitch_ = -0.3F;
 };

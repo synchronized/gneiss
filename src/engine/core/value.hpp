@@ -15,7 +15,7 @@
 #include <variant>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 namespace meta {
 class object;
 }
@@ -90,57 +90,57 @@ class record_value final : public immutable_value_storage<record_value_data> {
 public:
   using immutable_value_storage<record_value_data>::immutable_value_storage;
   static constexpr std::string_view type_name = "record_value";
-  static constexpr engine::guid type_guid =
-      engine::guid::literal("ed0c7acb-923f-4f17-a2bb-69ae447ca33e");
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("ed0c7acb-923f-4f17-a2bb-69ae447ca33e");
 };
 struct sequence_value_data;
 class sequence_value final : public immutable_value_storage<sequence_value_data> {
 public:
   using immutable_value_storage<sequence_value_data>::immutable_value_storage;
   static constexpr std::string_view type_name = "sequence_value";
-  static constexpr engine::guid type_guid =
-      engine::guid::literal("ea84e6ba-4f29-4d8b-a7f4-d3353efb8f6f");
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("ea84e6ba-4f29-4d8b-a7f4-d3353efb8f6f");
 };
 struct map_value_data;
 class map_value final : public immutable_value_storage<map_value_data> {
 public:
   using immutable_value_storage<map_value_data>::immutable_value_storage;
   static constexpr std::string_view type_name = "map_value";
-  static constexpr engine::guid type_guid =
-      engine::guid::literal("91d1e6c5-0b81-44fe-9a96-b08dc74814e7");
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("91d1e6c5-0b81-44fe-9a96-b08dc74814e7");
 };
 struct optional_value_data;
 class optional_value final : public immutable_value_storage<optional_value_data> {
 public:
   using immutable_value_storage<optional_value_data>::immutable_value_storage;
   static constexpr std::string_view type_name = "optional_value";
-  static constexpr engine::guid type_guid =
-      engine::guid::literal("d02aeb95-b261-4f50-9083-d4c281037671");
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("d02aeb95-b261-4f50-9083-d4c281037671");
 };
 struct variant_value_data;
 class variant_value final : public immutable_value_storage<variant_value_data> {
 public:
   using immutable_value_storage<variant_value_data>::immutable_value_storage;
   static constexpr std::string_view type_name = "variant_value";
-  static constexpr engine::guid type_guid =
-      engine::guid::literal("d9d11420-44b5-46df-980d-4decd6261979");
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("d9d11420-44b5-46df-980d-4decd6261979");
 };
 /** 持久化身份，不持有运行时对象，也不复制引用目标。 */
 struct asset_reference_value {
   static constexpr std::string_view type_name = "asset_reference_value";
-  static constexpr engine::guid type_guid =
-      engine::guid::literal("05d62e70-e0aa-48c8-b848-b0dead3ff471");
-  engine::guid type;
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("05d62e70-e0aa-48c8-b848-b0dead3ff471");
+  gneiss::guid type;
   std::string uri;
   bool operator==(const asset_reference_value&) const = default;
 };
 /** 持久化身份，不持有运行时对象，也不复制引用目标。 */
 struct object_reference_value {
   static constexpr std::string_view type_name = "object_reference_value";
-  static constexpr engine::guid type_guid =
-      engine::guid::literal("09958a5f-7541-4b35-ba02-61a4836aed12");
-  engine::guid document;
-  engine::guid object;
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("09958a5f-7541-4b35-ba02-61a4836aed12");
+  gneiss::guid document;
+  gneiss::guid object;
   bool operator==(const object_reference_value&) const = default;
 };
 /** 拥有数据的通用值；复制字符串后不依赖源对象。对象分支仅保存
@@ -150,11 +150,11 @@ struct object_reference_value {
  * 通用值不限制字符串编码或浮点范围；反射、文件和 IPC 各自执行边界校验。 */
 struct value {
   static constexpr std::string_view type_name = "value";
-  static constexpr engine::guid type_guid =
-      engine::guid::literal("f9a2f886-1703-4138-806f-f10fc7f20efc");
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("f9a2f886-1703-4138-806f-f10fc7f20efc");
   using storage_type =
       std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float, double, std::string,
-                   engine::guid, math::vector2, math::vector3, math::vector4, math::quaternion,
+                   gneiss::guid, math::vector2, math::vector3, math::vector4, math::quaternion,
                    math::matrix3, math::matrix4, ref<meta::object>, record_value, sequence_value,
                    map_value, optional_value, variant_value, asset_reference_value,
                    object_reference_value>;
@@ -191,25 +191,25 @@ struct value {
 };
 struct value_property {
   static constexpr std::string_view type_name = "value_property";
-  static constexpr engine::guid type_guid =
-      engine::guid::literal("f2f4947b-cd95-49fc-9f78-1c82e33cd628");
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("f2f4947b-cd95-49fc-9f78-1c82e33cd628");
   std::uint32_t id{};
   value content;
   bool operator==(const value_property&) const = default;
 };
 struct value_map_entry {
   static constexpr std::string_view type_name = "value_map_entry";
-  static constexpr engine::guid type_guid =
-      engine::guid::literal("8a948fce-a6de-4b8c-b588-c423aedcfc5c");
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("8a948fce-a6de-4b8c-b588-c423aedcfc5c");
   value key;
   value content;
   bool operator==(const value_map_entry&) const = default;
 };
 struct record_value_data {
   static constexpr std::string_view type_name = "record_value_data";
-  static constexpr engine::guid type_guid =
-      engine::guid::literal("14a8d7f7-1ee9-49f0-9d56-6ab5eb50241d");
-  engine::guid type;
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("14a8d7f7-1ee9-49f0-9d56-6ab5eb50241d");
+  gneiss::guid type;
   std::vector<value_property> properties;
   bool operator==(const record_value_data& other) const {
     if (type != other.type || properties.size() != other.properties.size())
@@ -224,8 +224,8 @@ struct record_value_data {
 };
 struct sequence_value_data {
   static constexpr std::string_view type_name = "sequence_value_data";
-  static constexpr engine::guid type_guid =
-      engine::guid::literal("220045a4-80c9-48db-9b52-d8f6427335e7");
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("220045a4-80c9-48db-9b52-d8f6427335e7");
   std::vector<value> elements;
   std::vector<guid> identities{};
   bool fixed{};
@@ -234,8 +234,8 @@ struct sequence_value_data {
 };
 struct map_value_data {
   static constexpr std::string_view type_name = "map_value_data";
-  static constexpr engine::guid type_guid =
-      engine::guid::literal("e4dc1713-4772-414a-b5d4-5e2ded30e45b");
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("e4dc1713-4772-414a-b5d4-5e2ded30e45b");
   std::vector<value_map_entry> entries;
   bool operator==(const map_value_data& other) const {
     if (entries.size() != other.entries.size())
@@ -250,15 +250,15 @@ struct map_value_data {
 };
 struct optional_value_data {
   static constexpr std::string_view type_name = "optional_value_data";
-  static constexpr engine::guid type_guid =
-      engine::guid::literal("a2f11b16-2161-4c77-bc22-249686b7064c");
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("a2f11b16-2161-4c77-bc22-249686b7064c");
   std::optional<value> content;
   bool operator==(const optional_value_data&) const = default;
 };
 struct variant_value_data {
   static constexpr std::string_view type_name = "variant_value_data";
-  static constexpr engine::guid type_guid =
-      engine::guid::literal("0002c777-d03d-4eb4-a935-2fe12d20f08d");
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("0002c777-d03d-4eb4-a935-2fe12d20f08d");
   std::string alternative;
   value content;
   bool operator==(const variant_value_data&) const = default;
@@ -266,4 +266,4 @@ struct variant_value_data {
 /** 检查可持久化数据树；拒绝运行时对象引用、重复字段/键和超深嵌套。 */
 [[nodiscard]] GNEISS_API error validate_persistent_value(const value&,
                                                          std::size_t maximum_depth = 64);
-} // namespace gneiss::engine
+} // namespace gneiss

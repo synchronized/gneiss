@@ -26,7 +26,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 class world_state final {
 public:
@@ -207,6 +207,6 @@ private:
   std::size_t entity_count_ = 0;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 struct decoded_png final {
   std::uint32_t width{};
@@ -26,6 +26,6 @@ struct decoded_png final {
 [[nodiscard]] GNEISS_API result<decoded_png, asset_diagnostic>
 decode_png(const std::vector<std::byte>& bytes, std::size_t byte_limit = 256U * 1024U * 1024U);
 
-} // namespace gneiss::engine
+} // namespace gneiss
 
 #endif

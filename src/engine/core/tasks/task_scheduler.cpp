@@ -14,7 +14,7 @@
 #include <stdexcept>
 #include <utility>
 
-namespace gneiss::engine {
+namespace gneiss::tasks {
 namespace {
 std::atomic_uint64_t next_owner{1U};
 thread_local const void* active_scheduler{};
@@ -289,7 +289,7 @@ submit_result task_scheduler::submit(task_description description, task_function
     *timings = {.measured = true};
   }
   std::unique_lock lock(impl_->mutex, std::defer_lock);
-  engine::measure(timings != nullptr ? &timings->lock_ms : nullptr, [&] { lock.lock(); });
+  gneiss::measure(timings != nullptr ? &timings->lock_ms : nullptr, [&] { lock.lock(); });
   const loop_span work(timings != nullptr ? &timings->work_ms : nullptr);
   const auto reject = [&](submit_result result) {
     ++impl_->counters.rejected;
@@ -312,7 +312,7 @@ submit_result task_scheduler::submit(task_description description, task_function
        serial->second.scope != description.scope.id)) {
     return reject(submit_result::invalid_argument);
   }
-  auto value = engine::measure(timings != nullptr ? &timings->allocate_ms : nullptr,
+  auto value = gneiss::measure(timings != nullptr ? &timings->allocate_ms : nullptr,
                                [] { return std::make_shared<implementation::task>(); });
   for (const auto prerequisite : description.prerequisites) {
     const auto before = impl_->tasks.find(prerequisite.id);
@@ -330,12 +330,12 @@ submit_result task_scheduler::submit(task_description description, task_function
                        .outcome = {.state = task_state::waiting, .error = {}},
                        .queue_ms = 0,
                        .execution_ms = 0};
-  engine::measure(timings != nullptr ? &timings->insert_ms : nullptr,
+  gneiss::measure(timings != nullptr ? &timings->insert_ms : nullptr,
                   [&] { impl_->tasks.emplace(handle.id, value); });
   ++impl_->counters.submitted;
   output = handle;
   GNEISS_PROFILE_TASK(impl_->owner, handle.id, value->description.name);
-  engine::measure(timings != nullptr ? &timings->notify_ms : nullptr,
+  gneiss::measure(timings != nullptr ? &timings->notify_ms : nullptr,
                   [&] { impl_->wake.notify_all(); });
   return submit_result::success;
 }
@@ -530,4 +530,4 @@ void task_scheduler::stop() {
   impl_->threads.join();
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss::tasks

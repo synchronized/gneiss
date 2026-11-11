@@ -87,7 +87,7 @@
 ## 字段规则
 
 - 身份 UUID 必须使用非零的 36 字符小写规范形式；对象 UUID 在场景内唯一。
-  内存中的场景、对象、Prefab 来源及覆盖键使用 `engine::guid`；`game_object_description::parent`
+  内存中的场景、对象、Prefab 来源及覆盖键使用 `gneiss::guid`；`game_object_description::parent`
   使用 `object_address {object, source}`。每个 GUID 非 nil 时写字符串，nil 写 null。
   根的 parent 为 `{"object":null,"source":null}`，普通父对象为 `{"object":"<uuid>","source":null}`。
 - `name` 是可选 UTF-8 显示名称；缺失或为空时，工具可回退显示 UUID。

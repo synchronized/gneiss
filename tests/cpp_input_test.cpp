@@ -10,19 +10,19 @@
 #include <type_traits>
 
 int main() {
-  using gneiss::engine::error;
-  static_assert(!std::is_convertible_v<gneiss::entity_id, gneiss::engine::action_id>);
-  static_assert(!std::is_convertible_v<std::uint64_t, gneiss::engine::action_id>);
+  using gneiss::error;
+  static_assert(!std::is_convertible_v<gneiss::entity_id, gneiss::action_id>);
+  static_assert(!std::is_convertible_v<std::uint64_t, gneiss::action_id>);
   constexpr std::string_view asset_root = GNEISS_TEST_ASSET_ROOT;
   constexpr std::string_view uri = "asset://input/default.input-map.json";
   gneiss::runtime::application_configuration config;
   config.asset_root = asset_root;
-  gneiss::engine::task_scheduler scheduler(
-      {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});
+  gneiss::tasks::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   std::shared_ptr<gneiss::runtime::application> app, other;
-  gneiss::engine::action_id action;
-  gneiss::engine::action_state state{};
-  gneiss::engine::input_event event{};
+  gneiss::action_id action;
+  gneiss::action_state state{};
+  gneiss::input_event event{};
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app)
           .failed() ||
       action.value != 0 || app->get_action_state(action, state) != error::invalid_handle ||

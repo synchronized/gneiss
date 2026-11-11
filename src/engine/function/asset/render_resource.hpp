@@ -6,7 +6,7 @@
 #include "engine/resource/mesh.hpp"
 #include "engine/resource/texture/texture_data.hpp"
 #include <concepts>
-namespace gneiss::engine {
+namespace gneiss {
 enum class render_resource_kind : std::uint32_t {
   invalid = 0U,
   mesh = 1U,
@@ -19,13 +19,13 @@ struct render_resource_source final {
 };
 /** 资源分类属于加载层，不让资源对象反向依赖 render_resource_kind。 */
 template <typename T> struct resource_traits {};
-template <> struct resource_traits<engine::mesh> {
+template <> struct resource_traits<gneiss::mesh> {
   static constexpr render_resource_kind kind = render_resource_kind::mesh;
 };
-template <> struct resource_traits<engine::texture> {
+template <> struct resource_traits<gneiss::texture> {
   static constexpr render_resource_kind kind = render_resource_kind::texture;
 };
-template <> struct resource_traits<engine::material> {
+template <> struct resource_traits<gneiss::material> {
   static constexpr render_resource_kind kind = render_resource_kind::material;
 };
 template <typename T>
@@ -60,27 +60,27 @@ template <class T>
   return value.as<T>();
 }
 [[nodiscard]] inline render_resource_kind resource_kind(const render_resource_ref& value) noexcept {
-  if (value.as<engine::mesh>())
+  if (value.as<gneiss::mesh>())
     return render_resource_kind::mesh;
-  if (value.as<engine::texture>())
+  if (value.as<gneiss::texture>())
     return render_resource_kind::texture;
-  if (value.as<engine::material>())
+  if (value.as<gneiss::material>())
     return render_resource_kind::material;
   return render_resource_kind::invalid;
 }
 [[nodiscard]] inline rid resource_rid(const render_resource_ref& value) noexcept {
-  if (auto asset = value.as<engine::mesh>())
+  if (auto asset = value.as<gneiss::mesh>())
     return resource_handle(asset);
-  if (auto asset = value.as<engine::texture>())
+  if (auto asset = value.as<gneiss::texture>())
     return resource_handle(asset);
-  return resource_handle(value.as<engine::material>());
+  return resource_handle(value.as<gneiss::material>());
 }
 [[nodiscard]] inline std::string_view resource_uri(const render_resource_ref& value) noexcept {
-  if (auto asset = value.as<engine::mesh>())
+  if (auto asset = value.as<gneiss::mesh>())
     return asset->source().uri;
-  if (auto asset = value.as<engine::texture>())
+  if (auto asset = value.as<gneiss::texture>())
     return asset->source().uri;
-  if (auto asset = value.as<engine::material>())
+  if (auto asset = value.as<gneiss::material>())
     return asset->source().uri;
   return {};
 }
@@ -98,4 +98,4 @@ template <render_resource T>
   return value ? resource_traits<T>::kind : render_resource_kind::invalid;
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss

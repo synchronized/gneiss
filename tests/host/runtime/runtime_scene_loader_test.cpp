@@ -34,7 +34,7 @@ struct fixture {
   }
 };
 template <class T> void save(const std::filesystem::path& path, const T& description) {
-  auto bytes = engine::asset_file::serialize_bytes(description);
+  auto bytes = gneiss::asset_file::serialize_bytes(description);
   check(bool(bytes));
   std::ofstream stream(path, std::ios::binary | std::ios::trunc);
   stream.write(reinterpret_cast<const char*>(bytes->data()),
@@ -43,7 +43,7 @@ template <class T> void save(const std::filesystem::path& path, const T& descrip
 }
 void run() {
   fixture files;
-  engine::task_scheduler scheduler({.mode = engine::execution_mode::cooperative});
+  gneiss::tasks::task_scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
   runtime::application_configuration config;
   const auto root = files.root.generic_string();
   config.asset_root = root;
@@ -52,10 +52,10 @@ void run() {
   auto app = *created;
   check(app->attach_task_executor(scheduler).ok());
   host::runtime_scene_loader loader(*app);
-  engine::ref<host::scene_reload_state> source;
+  gneiss::ref<host::scene_reload_state> source;
   loader.after_activate = [&](const auto& completion) {
     source = completion.reload_state;
-    return engine::error{engine::error::success};
+    return gneiss::error{gneiss::error::success};
   };
   const auto tick = [&] {
     (void)scheduler.run_ready();
@@ -76,7 +76,7 @@ void run() {
   check(source && loader.last_result().ok());
   const auto reload = [&](std::string_view target, bool prefab) {
     check(loader.reload(source, target, prefab).ok());
-    check(loader.reload(source, target, prefab) == engine::error::not_ready);
+    check(loader.reload(source, target, prefab) == gneiss::error::not_ready);
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     for (;;) {
       tick();
@@ -85,13 +85,13 @@ void run() {
         drain();
         return done->result;
       }
-      check(done.error() == engine::error::not_ready);
+      check(done.error() == gneiss::error::not_ready);
       check(std::chrono::steady_clock::now() < deadline);
       std::this_thread::yield();
     }
   };
   const auto address =
-      engine::object_address{source->content->description->objects.front().uuid, {}};
+      gneiss::object_address{source->content->description->objects.front().uuid, {}};
   const auto entity = source->objects.at(address).entity;
   auto description = *source->content->description;
   description.objects.front().name = "Updated scene";
@@ -104,7 +104,7 @@ void run() {
   auto prefab = *dependency.second.description;
   // 实例根名称由场景覆盖，验证未覆盖的子对象名称更新。
   const auto source_id = prefab.objects.at(1).uuid;
-  engine::object_address prefab_address;
+  gneiss::object_address prefab_address;
   entity_id prefab_entity;
   for (const auto& [candidate, binding] : source->objects) {
     if (candidate.source == source_id) {
@@ -120,7 +120,7 @@ void run() {
   check(source->objects.at(prefab_address).entity == prefab_entity);
   check(app->native_world()->object(prefab_entity)->name() == "Updated prefab");
   // 对照来源 UUID 保留身份：新增、删除、换根均不要求运行对象保存 Prefab 状态。
-  const auto find_source = [&](engine::guid id) {
+  const auto find_source = [&](gneiss::guid id) {
     auto found = std::ranges::find_if(source->objects,
                                       [&](const auto& item) { return item.first.source == id; });
     check(found != source->objects.end());
@@ -128,14 +128,14 @@ void run() {
   };
   const auto original_root = prefab.root_uuid;
   const auto root_entity = find_source(original_root);
-  engine::game_object_description extra;
-  extra.uuid = engine::guid::generate();
+  gneiss::game_object_description extra;
+  extra.uuid = gneiss::guid::generate();
   extra.parent.object = original_root;
   prefab.objects.push_back(extra);
   save(files.root / prefab_uri.substr(8), prefab);
   check(reload(prefab_uri, true).ok());
   const auto extra_entity = find_source(extra.uuid);
-  engine::math::transform moved;
+  gneiss::math::transform moved;
   moved.translation.x = 7;
   check(app->native_world()->find(extra_entity).set_local_transform(moved).ok());
   prefab.objects.back().name = "Renamed extra";
@@ -150,7 +150,7 @@ void run() {
   save(files.root / prefab_uri.substr(8), prefab);
   check(reload(prefab_uri, true).ok());
   check(!app->native_world()->object(extra_entity));
-  extra.uuid = engine::guid::generate();
+  extra.uuid = gneiss::guid::generate();
   extra.parent = {};
   prefab.objects.push_back(extra);
   for (auto& object : prefab.objects)
@@ -170,24 +170,24 @@ void run() {
   check(reload(prefab_uri, true).ok());
   check(reload("asset://missing.scene.json", false).failed());
   check(source->synchronized && source->objects.at(address).entity == entity);
-  check(loader.reload({}, uri, false) == engine::error::invalid_state);
+  check(loader.reload({}, uri, false) == gneiss::error::invalid_state);
   entity_id camera;
-  check(engine::get_active_camera(*app->native_world(), camera) == engine::error::not_ready);
-  prefab.objects.back().components.set(engine::camera_description{{1.0F, 0.1F, 100.0F}, true});
+  check(gneiss::get_active_camera(*app->native_world(), camera) == gneiss::error::not_ready);
+  prefab.objects.back().components.set(gneiss::camera_description{{1.0F, 0.1F, 100.0F}, true});
   save(files.root / prefab_uri.substr(8), prefab);
   check(reload(prefab_uri, true).ok());
   check(loader.request({.session = 1, .revision = 2, .uri = uri}, 2).ok());
   drain();
   check(loader.last_result().ok());
-  check(engine::get_active_camera(*app->native_world(), camera).ok());
+  check(gneiss::get_active_camera(*app->native_world(), camera).ok());
   check(camera == find_source(extra.uuid));
-  auto instance = engine::scene_instance::borrow(*app->native_world(), source->instance);
+  auto instance = gneiss::scene_instance::borrow(*app->native_world(), source->instance);
   check(instance && instance->unload().ok());
   check(loader.reload(source, uri, false).failed());
 }
 }
 int main() try {
-  check(engine::initialize_meta().ok());
+  check(gneiss::initialize_meta().ok());
   run();
   return 0;
 } catch (const std::exception& error) {

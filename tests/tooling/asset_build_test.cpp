@@ -108,7 +108,7 @@ int main() {
     return 3;
   }
   const auto texture_bytes = read_bytes(development.output_root / "textures/a.gneiss-texture");
-  auto texture_binary = gneiss::engine::decode_texture_binary(texture_bytes);
+  auto texture_binary = gneiss::decode_texture_binary(texture_bytes);
   granit::texture_asset_info texture_info;
   if (!texture_binary ||
       granit::inspect_texture_asset(texture_binary->manifest, texture_info) !=

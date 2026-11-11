@@ -20,7 +20,7 @@
 
 namespace gneiss::editor {
 namespace {
-engine::result<std::pair<entity_id, entity_id>>
+gneiss::result<std::pair<entity_id, entity_id>>
 locate_component(scene_edit_session& document, const component_edit_target& target) {
   if (target.instance_uuid) {
     const auto node = document.find_prefab_source(target.instance_uuid, target.source_uuid);
@@ -31,13 +31,13 @@ locate_component(scene_edit_session& document, const component_edit_target& targ
     if (node)
       return std::pair{node->node, node->entity};
   }
-  return engine::error::not_found;
+  return gneiss::error::not_found;
 }
 template <class T, class Apply>
-engine::error edit_description(scene_edit_session& document, editor_command_history& history,
+gneiss::error edit_description(scene_edit_session& document, editor_command_history& history,
                                const component_edit_target& identity, const property_edit& edit,
                                std::uint64_t serial, const T& before, Apply apply) {
-  using namespace engine;
+  using namespace gneiss;
   error status = error::success;
   auto candidate = before;
   auto target = meta::view(candidate);
@@ -74,9 +74,9 @@ engine::error edit_description(scene_edit_session& document, editor_command_hist
 }
 }
 namespace {
-engine::error component_lifecycle(scene_edit_session& document, editor_command_history& history,
-                                  engine::guid object, engine::guid type, bool adding) {
-  using namespace engine;
+gneiss::error component_lifecycle(scene_edit_session& document, editor_command_history& history,
+                                  gneiss::guid object, gneiss::guid type, bool adding) {
+  using namespace gneiss;
   const auto node = document.find_node(object);
   if (!node)
     return error::not_found;
@@ -113,21 +113,21 @@ engine::error component_lifecycle(scene_edit_session& document, editor_command_h
   });
 }
 }
-engine::error add_component_description(scene_edit_session& document,
-                                        editor_command_history& history, engine::guid object,
-                                        engine::guid type) {
+gneiss::error add_component_description(scene_edit_session& document,
+                                        editor_command_history& history, gneiss::guid object,
+                                        gneiss::guid type) {
   return component_lifecycle(document, history, object, type, true);
 }
-engine::error remove_component_description(scene_edit_session& document,
-                                           editor_command_history& history, engine::guid object,
-                                           engine::guid type) {
+gneiss::error remove_component_description(scene_edit_session& document,
+                                           editor_command_history& history, gneiss::guid object,
+                                           gneiss::guid type) {
   return component_lifecycle(document, history, object, type, false);
 }
-engine::error edit_prefab_component_structure(scene_edit_session& document,
+gneiss::error edit_prefab_component_structure(scene_edit_session& document,
                                               editor_command_history& history,
                                               const component_edit_target& identity,
                                               prefab_component_action action) {
-  using namespace engine;
+  using namespace gneiss;
   if (!identity.instance_uuid || !identity.source_uuid)
     return error::invalid_argument;
   auto location = locate_component(document, identity);
@@ -168,11 +168,11 @@ engine::error edit_prefab_component_structure(scene_edit_session& document,
                                   location->first, identity.component_type, after);
                             });
 }
-engine::error edit_component_description(scene_edit_session& document,
-                                         editor_command_history& history, engine::world& world,
+gneiss::error edit_component_description(scene_edit_session& document,
+                                         editor_command_history& history, gneiss::world& world,
                                          const component_edit_target& identity,
                                          const property_edit& edit, std::uint64_t serial) {
-  using namespace engine;
+  using namespace gneiss;
   (void)world;
   if (edit.path.empty() && !edit.object)
     return error::invalid_argument;
@@ -206,7 +206,7 @@ engine::error edit_component_description(scene_edit_session& document,
     auto before = *current;
     auto type = meta::find_type(identity.component_type);
     if (!type)
-      return gneiss::engine::error{gneiss::engine::error::not_found};
+      return gneiss::error{gneiss::error::not_found};
     for (const auto& step : edit.path) {
       if (const auto* id = std::get_if<meta::property_id>(&step)) {
         auto fields = type.properties();
@@ -215,9 +215,9 @@ engine::error edit_component_description(scene_edit_session& document,
         auto field = std::ranges::find(fields, *id, &meta::property::id);
         if (field == fields.end())
           return error::not_found;
-        if (gneiss::engine::is_edit_read_only(*field) ||
-            !gneiss::engine::meta::has_flags(field->capabilities(),
-                                             gneiss::engine::meta::property_capabilities::writable))
+        if (gneiss::is_edit_read_only(*field) ||
+            !gneiss::meta::has_flags(field->capabilities(),
+                                             gneiss::meta::property_capabilities::writable))
           return error::unsupported;
         type = field->type();
       } else {

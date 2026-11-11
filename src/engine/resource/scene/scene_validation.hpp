@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/core/serialization/diagnostic.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
-namespace gneiss::engine {
+namespace gneiss {
 /** 组件领域规则，由场景文件、文档采用及组件适配器显式调用；通用序列化不执行。 */
 struct component_validation_policy {
   serialization::diagnostic (*validate)(const component_description_base&){};

@@ -20,12 +20,12 @@ int main() {
     constexpr std::string_view source = "application";
     constexpr std::string_view category = "test";
     constexpr std::string_view message = "line 1\n\"line 2\"";
-    const gneiss::engine::logging::record_view event{
-        .message = {.severity = gneiss::engine::logging::level::warning,
+    const gneiss::logging::record_view event{
+        .message = {.severity = gneiss::logging::level::warning,
                     .source = source,
                     .category = category,
                     .message = message,
-                    .result = gneiss::engine::error::not_ready},
+                    .result = gneiss::error::not_ready},
         .sequence = 7U,
         .timestamp_ns = 42U,
         .thread_id = 3U,

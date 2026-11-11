@@ -8,9 +8,9 @@
 
 namespace gneiss::host {
 
-gneiss::engine::error make_heartbeat_response(const ipc_session_heartbeat& heartbeat,
+gneiss::error make_heartbeat_response(const ipc_session_heartbeat& heartbeat,
                                               std::uint32_t request_id,
-                                              gneiss::engine::ipc_envelope& output) {
+                                              gneiss::ipc_envelope& output) {
   return encode_ipc_session_heartbeat(heartbeat, true, request_id, output);
 }
 

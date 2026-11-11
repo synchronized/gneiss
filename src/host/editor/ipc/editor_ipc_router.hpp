@@ -22,9 +22,9 @@ public:
   editor_ipc_router(const editor_ipc_router&) = delete;
   editor_ipc_router& operator=(const editor_ipc_router&) = delete;
 
-  [[nodiscard]] gneiss::engine::error
-  dispatch(const gneiss::engine::ipc_envelope& envelope, bool is_authenticated,
-           const std::vector<gneiss::engine::ipc_domain_capability>& negotiated_domains,
+  [[nodiscard]] gneiss::error
+  dispatch(const gneiss::ipc_envelope& envelope, bool is_authenticated,
+           const std::vector<gneiss::ipc_domain_capability>& negotiated_domains,
            runtime_ipc_event& output);
   [[nodiscard]] bool is_ready() const noexcept;
 

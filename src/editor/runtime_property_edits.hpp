@@ -25,10 +25,10 @@ struct runtime_property_write final {
   std::uint64_t session_id = 0U;
   std::uint64_t command_id = 0U;
   runtime_object_id object;
-  gneiss::engine::guid type_id{};
+  gneiss::guid type_id{};
   std::uint32_t field_id = 0U;
   std::uint64_t expected_revision = 0U;
-  gneiss::engine::value value;
+  gneiss::value value;
 };
 
 struct runtime_property_write_result final {
@@ -37,7 +37,7 @@ struct runtime_property_write_result final {
   std::int32_t code = 0;
   std::uint64_t revision = 0U;
   std::string message;
-  gneiss::engine::value canonical_value;
+  gneiss::value canonical_value;
 };
 
 struct runtime_property_key final {
@@ -63,9 +63,9 @@ struct runtime_property_edit final {
   runtime_property_edit_state state = runtime_property_edit_state::pending;
   std::uint64_t command_id = 0U;
   std::uint64_t revision = 0U;
-  std::int32_t code = gneiss::engine::error::success.code();
+  std::int32_t code = gneiss::error::success.code();
   std::string message;
-  gneiss::engine::value canonical_value;
+  gneiss::value canonical_value;
 };
 
 /** Editor 主线程拥有的 Runtime 属性写入状态模型。 */
@@ -75,11 +75,11 @@ public:
 
   void begin_session(std::uint64_t session_id) noexcept;
   void disconnect() noexcept;
-  [[nodiscard]] gneiss::engine::error prepare(runtime_property_key key,
+  [[nodiscard]] gneiss::error prepare(runtime_property_key key,
                                               std::uint64_t expected_revision,
-                                              gneiss::engine::value value, clock::time_point now,
+                                              gneiss::value value, clock::time_point now,
                                               runtime_property_write& output);
-  [[nodiscard]] gneiss::engine::error accept(runtime_property_write_result response);
+  [[nodiscard]] gneiss::error accept(runtime_property_write_result response);
   void expire(clock::time_point now, std::chrono::milliseconds timeout) noexcept;
   [[nodiscard]] const runtime_property_edit* find(const runtime_property_key& key) const noexcept;
   [[nodiscard]] std::uint64_t session_id() const noexcept { return session_id_; }

@@ -14,7 +14,7 @@
 #include <vector>
 #endif
 
-namespace gneiss::engine::detail {
+namespace gneiss::tasks::detail {
 
 #if GNEISS_TASK_THREADS
 using mutex = std::mutex;
@@ -62,4 +62,4 @@ public:
 };
 #endif
 
-} // namespace gneiss::engine::detail
+} // namespace gneiss::tasks::detail

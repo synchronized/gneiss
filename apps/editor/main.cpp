@@ -6,10 +6,10 @@
 #include "editor_application.hpp"
 
 int main(int argc, char** argv) {
-  gneiss::engine::install_fatal_handler();
+  gneiss::install_fatal_handler();
   try {
     return gneiss::host::run_editor_application(argc, argv);
   } catch (...) {
-    gneiss::engine::fatal_current_exception();
+    gneiss::fatal_current_exception();
   }
 }

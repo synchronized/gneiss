@@ -16,7 +16,7 @@
 #include <string_view>
 #include <thread>
 
-namespace gneiss::engine::logging::detail {
+namespace gneiss::logging::detail {
 
 /** 单消费线程串行回调；销毁前排空队列，禁止在回调内 flush 或销毁投递器。 */
 class async_queue final {
@@ -28,7 +28,7 @@ public:
   async_queue& operator=(const async_queue&) = delete;
 
   /** 内部可信记录入口；只复制并投递，文本与级别合法性由调用边界保证。 */
-  [[nodiscard]] engine::error submit(const message_view& message);
+  [[nodiscard]] gneiss::error submit(const message_view& message);
   void flush() noexcept;
 
 private:
@@ -41,7 +41,7 @@ private:
     std::string source;
     std::string category;
     std::string message;
-    engine::error result = engine::error::success;
+    gneiss::error result = gneiss::error::success;
   };
 
   void run() noexcept;
@@ -61,6 +61,6 @@ private:
   bool is_stopping_ = false;
 };
 
-} // namespace gneiss::engine::logging
+} // namespace gneiss::logging
 
 #endif

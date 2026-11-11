@@ -65,8 +65,8 @@ struct fixture {
     std::vector<std::byte> bytes;
     std::string message;
     check(gneiss::test_support::take_codec(
-              gneiss::engine::encode_texture_ktx2(
-                  {.transfer = gneiss::engine::texture_transfer::srgb,
+              gneiss::encode_texture_ktx2(
+                  {.transfer = gneiss::texture_transfer::srgb,
                    .levels = {{.width = 1U,
                                .height = 1U,
                                .pixels = {red, std::byte{20}, blue, std::byte{255}}}}}),
@@ -79,19 +79,19 @@ struct fixture {
 void run_asset_reload() {
   fixture files(true);
   files.color(std::byte{255}, std::byte{0});
-  gneiss::engine::task_scheduler scheduler(
-      {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});
+  gneiss::tasks::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
   runtime::application_configuration desc;
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
-  check(gneiss::engine::error{gneiss::test_support::assign_value(
-            runtime::application::create(desc), app)} == gneiss::engine::error::success);
+  check(gneiss::error{gneiss::test_support::assign_value(
+            runtime::application::create(desc), app)} == gneiss::error::success);
   check(app->attach_task_executor(scheduler).ok());
-  const auto reload = [&](std::span<const gneiss::engine::render_resource_source> requests) {
-    gneiss::engine::asset_batch_request assets_request;
+  const auto reload = [&](std::span<const gneiss::render_resource_source> requests) {
+    gneiss::asset_batch_request assets_request;
     auto status =
         gneiss::test_support::take_value(app->load_assets(requests, true), assets_request);
     if (status.failed())
@@ -99,7 +99,7 @@ void run_asset_reload() {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     for (;;) {
       (void)scheduler.run_ready();
-      gneiss::engine::asset_load_completion completion;
+      gneiss::asset_load_completion completion;
       bool ready{};
       status = app->run(1);
       if (status.failed())
@@ -113,11 +113,11 @@ void run_asset_reload() {
   };
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance_id scene{};
-  check(gneiss::engine::error{gneiss::test_support::load_scene(*app, uri, &scene, &scheduler)} ==
-        gneiss::engine::error::success);
+  check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene, &scheduler)} ==
+        gneiss::error::success);
   const auto pixel = [&] {
-    gneiss::engine::frame_image image;
-    check(app->capture_frame(128U, 128U, image) == gneiss::engine::error::success);
+    gneiss::frame_image image;
+    check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
     constexpr auto offset = ((64U * 128U) + 64U) * 4U;
     return std::array{
         std::to_integer<unsigned>(image.pixels[offset]),
@@ -137,14 +137,14 @@ void run_asset_reload() {
   const auto initial = await_color(false);
   check(initial[0] > initial[1] + 30U);
   files.color(std::byte{0}, std::byte{255});
-  const std::array requests{gneiss::engine::render_resource_source{
-      .uri = "asset://t.texture.json", .type = gneiss::engine::render_resource_kind::texture}};
-  check(reload(requests) == gneiss::engine::error::success);
+  const std::array requests{gneiss::render_resource_source{
+      .uri = "asset://t.texture.json", .type = gneiss::render_resource_kind::texture}};
+  check(reload(requests) == gneiss::error::success);
   // 不重载场景、不重建材质：已有引用必须看到同一纹理 RID 的新内容。
   const auto updated = await_color(true);
   check(updated[1] > updated[0] + 30U);
   std::ofstream(files.root / "t.texture.json") << "{";
-  check(reload(requests) == gneiss::engine::error::invalid_argument);
+  check(reload(requests) == gneiss::error::invalid_argument);
   check(pixel() == updated);
 }
 
@@ -157,51 +157,51 @@ void run_pending_resources() {
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
-  check(gneiss::engine::error{gneiss::test_support::assign_value(
-            runtime::application::create(desc), app)} == gneiss::engine::error::success);
+  check(gneiss::error{gneiss::test_support::assign_value(
+            runtime::application::create(desc), app)} == gneiss::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance_id scene{};
-  check(gneiss::engine::error{gneiss::test_support::load_scene(*app, uri, &scene)} ==
-        gneiss::engine::error::success);
+  check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene)} ==
+        gneiss::error::success);
   auto native = app;
   check(native != nullptr);
   auto& resources = native->render();
   // 此用例直接验证后端未就绪身份与后续内容替换，使用内部构建器保留预留阶段。
-  gneiss::engine::detail::asset_construction resources_factory{resources};
-  gneiss::engine::ref<const gneiss::engine::mesh> mesh_ref;
-  gneiss::engine::ref<const gneiss::engine::texture> texture_ref;
+  gneiss::detail::asset_construction resources_factory{resources};
+  gneiss::ref<const gneiss::mesh> mesh_ref;
+  gneiss::ref<const gneiss::texture> texture_ref;
   check(gneiss::test_support::take_value(resources_factory.reserve_mesh(), mesh_ref) ==
-        gneiss::engine::error::success);
+        gneiss::error::success);
   check(gneiss::test_support::take_value(resources_factory.reserve_texture(), texture_ref) ==
-        gneiss::engine::error::success);
+        gneiss::error::success);
   const auto mesh = resource_handle(mesh_ref);
   const auto texture = resource_handle(texture_ref);
-  gneiss::engine::material_data material_desc;
+  gneiss::material_data material_desc;
   material_desc.parameters.color[0] = material_desc.parameters.color[1] =
       material_desc.parameters.color[2] = 0.0F;
   material_desc.parameters.emissive[0] = material_desc.parameters.emissive[1] =
       material_desc.parameters.emissive[2] = 1.0F;
   material_desc.emissive_texture = texture;
-  gneiss::engine::ref<const gneiss::engine::material> material_ref;
-  check(gneiss::engine::error{gneiss::test_support::take_value(
+  gneiss::ref<const gneiss::material> material_ref;
+  check(gneiss::error{gneiss::test_support::take_value(
             resources_factory.create_material(
                 material_desc.parameters,
-                {gneiss::engine::ref<const gneiss::engine::texture>{}, {}, {}, {}, texture_ref}),
-            material_ref)} == gneiss::engine::error::success);
+                {gneiss::ref<const gneiss::texture>{}, {}, {}, {}, texture_ref}),
+            material_ref)} == gneiss::error::success);
   gneiss::test_support::scene_node_info info;
-  check(gneiss::engine::error{gneiss::test_support::take_value(
+  check(gneiss::error{gneiss::test_support::take_value(
             gneiss::test_support::scene_access{*app}->get_node_info(scene, 1U), info)} ==
-        gneiss::engine::error::success);
-  check(info.components.get<gneiss::engine::mesh_renderer_description>() != nullptr);
-  const gneiss::engine::mesh_renderer binding{.mesh = mesh_ref, .material = material_ref};
+        gneiss::error::success);
+  check(info.components.get<gneiss::mesh_renderer_description>() != nullptr);
+  const gneiss::mesh_renderer binding{.mesh = mesh_ref, .material = material_ref};
   auto* target = native->native_world()
                      ->find(info.entity)
-                     .try_component<gneiss::engine::mesh_renderer_component>();
+                     .try_component<gneiss::mesh_renderer_component>();
   check(target != nullptr);
   target->value = binding;
   const auto pixel = [&] {
-    gneiss::engine::frame_image image;
-    check(app->capture_frame(128U, 128U, image) == gneiss::engine::error::success);
+    gneiss::frame_image image;
+    check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
     constexpr auto offset = ((64U * 128U) + 64U) * 4U;
     return std::array{
         std::to_integer<unsigned>(image.pixels[offset]),
@@ -210,7 +210,7 @@ void run_pending_resources() {
     };
   };
   const auto hidden = pixel();
-  auto geometry = std::make_shared<gneiss::engine::mesh_data>();
+  auto geometry = std::make_shared<gneiss::mesh_data>();
   geometry->vertices = {
       {.position = {-0.8F, -0.7F, 0.0F}, .uv = {0.0F, 0.0F}},
       {.position = {0.8F, -0.7F, 0.0F}, .uv = {1.0F, 0.0F}},
@@ -221,10 +221,10 @@ void run_pending_resources() {
   const auto placeholder = pixel();
   check(placeholder[0] > hidden[0] + 30U && placeholder[1] > hidden[1] + 30U &&
         placeholder[2] > hidden[2] + 30U);
-  auto red = std::make_shared<gneiss::engine::texture_data>();
+  auto red = std::make_shared<gneiss::texture_data>();
   red->width = red->height = 1U;
-  red->format = gneiss::engine::texture_format::rgba8_unorm;
-  red->color_space = gneiss::engine::texture_color_space::srgb;
+  red->format = gneiss::texture_format::rgba8_unorm;
+  red->color_space = gneiss::texture_color_space::srgb;
   red->levels = {
       {
           .width = 1U,
@@ -247,7 +247,7 @@ void run_pending_resources() {
   };
   const auto ready = await_pixel(false);
   check(ready[0] > ready[1] + 30U && ready[0] > ready[2] + 30U);
-  auto blue = std::make_shared<gneiss::engine::texture_data>(*red);
+  auto blue = std::make_shared<gneiss::texture_data>(*red);
   blue->levels.front().pixels = {std::byte{0}, std::byte{0}, std::byte{255}, std::byte{255}};
   check(resources.replace_texture(texture, blue));
   const auto updated = await_pixel(true);
@@ -256,29 +256,29 @@ void run_pending_resources() {
   check(!resources.replace_texture(texture, {}));
   check(!resources.replace_mesh(mesh, {}));
   check(pixel() == updated);
-  check(gneiss::engine::error{resources.destroy_texture(texture)} ==
-        gneiss::engine::error::success);
-  gneiss::engine::frame_image invalid;
-  check(app->capture_frame(128U, 128U, invalid) == gneiss::engine::error::invalid_handle);
+  check(gneiss::error{resources.destroy_texture(texture)} ==
+        gneiss::error::success);
+  gneiss::frame_image invalid;
+  check(app->capture_frame(128U, 128U, invalid) == gneiss::error::invalid_handle);
   check(!resources.replace_texture(texture, red));
-  check(gneiss::engine::error{native->native_world()
+  check(gneiss::error{native->native_world()
                                   ->find(info.entity)
-                                  .remove_component<gneiss::engine::mesh_renderer_component>()} ==
-        gneiss::engine::error::success);
+                                  .remove_component<gneiss::mesh_renderer_component>()} ==
+        gneiss::error::success);
   check(pixel() == hidden);
-  check(gneiss::engine::error{resources.destroy_material(resource_handle(material_ref))} ==
-        gneiss::engine::error::success);
-  check(gneiss::engine::error{resources.destroy_mesh(mesh)} == gneiss::engine::error::success);
+  check(gneiss::error{resources.destroy_material(resource_handle(material_ref))} ==
+        gneiss::error::success);
+  check(gneiss::error{resources.destroy_mesh(mesh)} == gneiss::error::success);
 }
 
 void run_mip_sampling(bool packaged = false, bool async = false) {
   fixture files(true);
   std::ofstream(files.root / "g.mesh.json")
       << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.8,-0.7,0],[0.8,-0.7,0],[0,0.8,0]],"uvs":[[0,0],[1024,0],[512,1024]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
-  gneiss::engine::texture_ktx2 texture;
-  texture.transfer = gneiss::engine::texture_transfer::srgb;
+  gneiss::texture_ktx2 texture;
+  texture.transfer = gneiss::texture_transfer::srgb;
   for (std::uint32_t width = 8U; width > 0U; width /= 2U) {
-    gneiss::engine::texture_mip mip{.width = width, .height = width, .pixels = {}};
+    gneiss::texture_mip mip{.width = width, .height = width, .pixels = {}};
     for (std::uint32_t pixel = 0; pixel < width * width; ++pixel) {
       mip.pixels.insert(mip.pixels.end(),
                         {width == 8U ? std::byte{0} : std::byte{255}, std::byte{0},
@@ -288,7 +288,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   }
   std::vector<std::byte> bytes;
   std::string diagnostic;
-  check(gneiss::test_support::take_codec(gneiss::engine::encode_texture_ktx2(texture), bytes,
+  check(gneiss::test_support::take_codec(gneiss::encode_texture_ktx2(texture), bytes,
                                          diagnostic) == std::nullopt);
   if (packaged) {
     std::vector<std::byte> payload;
@@ -332,7 +332,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     granit::texture_asset_info info;
     check(granit::inspect_texture_asset(built.manifest(), info) == granit::result::success);
     check(info.variants.size() == 2U && info.variants[1].payload_offset > 0U);
-    auto encoded = gneiss::engine::encode_texture_binary(built.manifest(), built.payload());
+    auto encoded = gneiss::encode_texture_binary(built.manifest(), built.payload());
     check(encoded.ok());
     bytes = std::move(*encoded);
     std::ofstream(files.root / "t.texture.json")
@@ -344,23 +344,23 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     stream.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
   }
-  gneiss::engine::task_scheduler scheduler({.workers = 1U});
+  gneiss::tasks::task_scheduler scheduler({.workers = 1U});
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
   runtime::application_configuration desc;
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
-  check(gneiss::engine::error{gneiss::test_support::assign_value(
-            runtime::application::create(desc), app)} == gneiss::engine::error::success);
+  check(gneiss::error{gneiss::test_support::assign_value(
+            runtime::application::create(desc), app)} == gneiss::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance_id scene{};
   if (async) {
     check(app->attach_task_executor(scheduler).ok());
-    auto request = app->assets().load<engine::scene>(uri);
+    auto request = app->assets().load<gneiss::scene>(uri);
     check(bool(request));
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
-    while (request->status() == engine::error::not_ready) {
+    while (request->status() == gneiss::error::not_ready) {
       check(std::chrono::steady_clock::now() < deadline);
       check(app->run(1).ok());
       std::this_thread::yield();
@@ -371,7 +371,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     check(bool(activated));
     scene = activated->instance.instance;
     // CPU 场景先实例化，随后分发视觉加载；两帧图像必须体现资源就绪后的变化。
-    engine::frame_image initial;
+    gneiss::frame_image initial;
     check(app->capture_frame(128U, 128U, initial).ok());
     while (activated->visuals && !activated->visuals.ready()) {
       check(std::chrono::steady_clock::now() < deadline);
@@ -381,16 +381,16 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     check(bool(activated->visuals));
     auto completed = activated->visuals.take();
     check(bool(completed) && completed->result.ok());
-    engine::frame_image loaded;
+    gneiss::frame_image loaded;
     check(app->capture_frame(128U, 128U, loaded).ok());
     check(initial.pixels != loaded.pixels);
   } else {
-    check(gneiss::engine::error{gneiss::test_support::load_scene(*app, uri, &scene, &scheduler)} ==
-          gneiss::engine::error::success);
+    check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene, &scheduler)} ==
+          gneiss::error::success);
   }
-  check(gneiss::engine::error{app->run(3U)} == gneiss::engine::error::success);
-  gneiss::engine::frame_image image;
-  check(app->capture_frame(128U, 128U, image) == gneiss::engine::error::success);
+  check(gneiss::error{app->run(3U)} == gneiss::error::success);
+  gneiss::frame_image image;
+  check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
   const auto offset = (64U * 128U + 64U) * 4U;
   // LOD0 全蓝，缩小时应采样全红的较低分辨率层；阈值不依赖具体色调映射曲线。
   check(std::to_integer<unsigned>(image.pixels[offset]) >
@@ -415,14 +415,14 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   }
   material << "]}";
   material.close();
-  gneiss::engine::mesh_binary_data mesh{.vertices = {{{-0.8F, -0.7F, 0.0F}, {0, 0}, {0, 0, 1}},
+  gneiss::mesh_binary_data mesh{.vertices = {{{-0.8F, -0.7F, 0.0F}, {0, 0}, {0, 0, 1}},
                                                      {{0.8F, -0.7F, 0.0F}, {1, 0}, {0, 0, 1}},
                                                      {{0.0F, 0.8F, 0.0F}, {0.5F, 1}, {0, 0, 1}}},
                                         .indices = {0U, 1U, 2U},
                                         .tangents = {{1, 0, 0, 1}, {1, 0, 0, 1}, {1, 0, 0, 1}}};
   std::vector<std::byte> bytes;
-  gneiss::engine::mesh_binary_diagnostic mesh_diagnostic;
-  check(gneiss::test_support::take_codec(gneiss::engine::encode_mesh_binary(mesh), bytes,
+  gneiss::mesh_binary_diagnostic mesh_diagnostic;
+  check(gneiss::test_support::take_codec(gneiss::encode_mesh_binary(mesh), bytes,
                                          mesh_diagnostic) == std::nullopt);
   {
     std::ofstream stream(files.root / "g.gneiss-mesh", std::ios::binary);
@@ -442,8 +442,8 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   }
   std::string diagnostic;
   check(gneiss::test_support::take_codec(
-            gneiss::engine::encode_texture_ktx2(
-                {.transfer = gneiss::engine::texture_transfer::linear,
+            gneiss::encode_texture_ktx2(
+                {.transfer = gneiss::texture_transfer::linear,
                  .levels = {{.width = 1U, .height = 1U, .pixels = {pixel.begin(), pixel.end()}}}}),
             bytes, diagnostic) == std::nullopt);
   {
@@ -457,15 +457,15 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
-  check(gneiss::engine::error{gneiss::test_support::assign_value(
-            runtime::application::create(desc), app)} == gneiss::engine::error::success);
+  check(gneiss::error{gneiss::test_support::assign_value(
+            runtime::application::create(desc), app)} == gneiss::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance_id scene{};
-  check(gneiss::engine::error{gneiss::test_support::load_scene(*app, uri, &scene)} ==
-        gneiss::engine::error::success);
-  check(gneiss::engine::error{app->run(3U)} == gneiss::engine::error::success);
-  gneiss::engine::frame_image image;
-  check(app->capture_frame(128U, 128U, image) == gneiss::engine::error::success);
+  check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene)} ==
+        gneiss::error::success);
+  check(gneiss::error{app->run(3U)} == gneiss::error::success);
+  gneiss::frame_image image;
+  check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
   const auto offset = (64U * 128U + 64U) * 4U;
   return {std::to_integer<unsigned>(image.pixels[offset]),
           std::to_integer<unsigned>(image.pixels[offset + 1U]),
@@ -509,7 +509,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   }
   material << R"(]},"texture_uris":["asset://t.texture.json","","","",""]})";
   material.close();
-  gneiss::engine::mesh_binary_data mesh;
+  gneiss::mesh_binary_data mesh;
   mesh.vertices = {{{-0.8F, -0.7F, 0}, {1.25F, 0.5F}, {0, 0, 1}},
                    {{0.8F, -0.7F, 0}, {1.25F, 0.5F}, {0, 0, 1}},
                    {{0, 0.8F, 0}, {1.25F, 0.5F}, {0, 0, 1}}};
@@ -519,8 +519,8 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   mesh.uv1.assign(3, {0.75F, 0.5F});
   mesh.colors.assign(3, {test.color[0], test.color[1], test.color[2], test.color[3]});
   std::vector<std::byte> bytes;
-  gneiss::engine::mesh_binary_diagnostic diagnostic;
-  check(gneiss::test_support::take_codec(gneiss::engine::encode_mesh_binary(mesh), bytes,
+  gneiss::mesh_binary_diagnostic diagnostic;
+  check(gneiss::test_support::take_codec(gneiss::encode_mesh_binary(mesh), bytes,
                                          diagnostic) == std::nullopt);
   {
     std::ofstream output(files.root / "g.mesh.json", std::ios::binary);
@@ -530,8 +530,8 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   std::string message;
   check(
       gneiss::test_support::take_codec(
-          gneiss::engine::encode_texture_ktx2(
-              {.transfer = gneiss::engine::texture_transfer::srgb,
+          gneiss::encode_texture_ktx2(
+              {.transfer = gneiss::texture_transfer::srgb,
                .levels = {{.width = 2,
                            .height = 1,
                            .pixels = {std::byte{255}, std::byte{0}, std::byte{0}, std::byte{255},
@@ -579,15 +579,15 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
-  check(gneiss::engine::error{gneiss::test_support::assign_value(
-            runtime::application::create(desc), app)} == gneiss::engine::error::success);
+  check(gneiss::error{gneiss::test_support::assign_value(
+            runtime::application::create(desc), app)} == gneiss::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance_id scene{};
-  check(gneiss::engine::error{gneiss::test_support::load_scene(*app, uri, &scene)} ==
-        gneiss::engine::error::success);
-  check(gneiss::engine::error{app->run(3U)} == gneiss::engine::error::success);
-  gneiss::engine::frame_image image;
-  check(app->capture_frame(128U, 128U, image) == gneiss::engine::error::success);
+  check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene)} ==
+        gneiss::error::success);
+  check(gneiss::error{app->run(3U)} == gneiss::error::success);
+  gneiss::frame_image image;
+  check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
   if (frame != nullptr)
     *frame = image.pixels;
   constexpr auto offset = (64U * 128U + 64U) * 4U;
@@ -646,31 +646,31 @@ void run_material_channels() {
         material_pixel("normal_texture", {half, zero, half, full}));
 }
 
-void run(gneiss::engine::execution_mode mode, bool pbr = false) {
+void run(gneiss::tasks::execution_mode mode, bool pbr = false) {
   fixture files(pbr);
   files.color(std::byte{20}, std::byte{240});
-  gneiss::engine::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
   runtime::application_configuration desc;
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
-  check(gneiss::engine::error{gneiss::test_support::assign_value(
-            runtime::application::create(desc), app)} == gneiss::engine::error::success);
-  check(app->attach_task_executor(scheduler) == gneiss::engine::error::success);
+  check(gneiss::error{gneiss::test_support::assign_value(
+            runtime::application::create(desc), app)} == gneiss::error::success);
+  check(app->attach_task_executor(scheduler) == gneiss::error::success);
   gneiss::scene_instance_id scene{};
   constexpr std::string_view uri = "asset://s.scene.json";
-  check(gneiss::engine::error{gneiss::test_support::load_scene(*app, uri, &scene, &scheduler)} ==
-        gneiss::engine::error::success);
-  check(gneiss::engine::error{app->run(3U)} == gneiss::engine::error::success);
+  check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene, &scheduler)} ==
+        gneiss::error::success);
+  check(gneiss::error{app->run(3U)} == gneiss::error::success);
   const auto capture = [&](unsigned width = 128U) {
-    gneiss::engine::frame_image image;
+    gneiss::frame_image image;
     const auto result = app->capture_frame(width, 128U, image);
-    if (result != gneiss::engine::error::success) {
+    if (result != gneiss::error::success) {
       std::fprintf(stderr, "capture=%d\n", result.code());
     }
-    check(result == gneiss::engine::error::success && image.pixels.size() == width * 128U * 4U);
+    check(result == gneiss::error::success && image.pixels.size() == width * 128U * 4U);
     return image;
   };
   const auto center = [](const auto& image) {
@@ -696,40 +696,40 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
   std::printf("before=%u,%u,%u\n", blue[0], blue[1], blue[2]);
   check(blue[2] > blue[0] + 30U);
   const auto reload = [&](bool mixed = false) {
-    using type = gneiss::engine::render_resource_kind;
-    const std::vector<gneiss::engine::render_resource_source> assets =
-        mixed ? std::vector<gneiss::engine::render_resource_source>{{"asset://g.mesh.json",
+    using type = gneiss::render_resource_kind;
+    const std::vector<gneiss::render_resource_source> assets =
+        mixed ? std::vector<gneiss::render_resource_source>{{"asset://g.mesh.json",
                                                                      type::mesh},
                                                                     {"asset://m.material.json",
                                                                      type::material}}
-              : std::vector<gneiss::engine::render_resource_source>{
+              : std::vector<gneiss::render_resource_source>{
                     {"asset://t.texture.json", type::texture}};
-    gneiss::engine::asset_batch_request assets_request;
+    gneiss::asset_batch_request assets_request;
     check(gneiss::test_support::take_value(app->load_assets(assets, true), assets_request) ==
-          gneiss::engine::error::success);
-    gneiss::engine::asset_load_completion completed;
+          gneiss::error::success);
+    gneiss::asset_load_completion completed;
     bool ready{};
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     while (!ready) {
       check(std::chrono::steady_clock::now() < deadline);
-      if (mode == gneiss::engine::execution_mode::cooperative) {
+      if (mode == gneiss::tasks::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
       check(app->run(1).ok());
       check(gneiss::test_support::receive_request(assets_request, completed, ready) ==
-            gneiss::engine::error::success);
+            gneiss::error::success);
       std::this_thread::yield();
     }
     return completed.result;
   };
   files.color(std::byte{240}, std::byte{20});
-  check(reload() == gneiss::engine::error::success);
+  check(reload() == gneiss::error::success);
   const auto after = await_capture(false);
   const auto red = center(after);
   std::printf("after=%u,%u,%u\n", red[0], red[1], red[2]);
   check(red[0] > red[2] + 30U && before.pixels != after.pixels);
   std::ofstream(files.root / "image.ktx2") << "broken";
-  check(reload() != gneiss::engine::error::success);
+  check(reload() != gneiss::error::success);
   check(capture().pixels == after.pixels);
   const auto resized = capture(192U);
   const auto resized_red = center(resized);
@@ -742,7 +742,7 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
       << R"({"format":"gneiss.material","version":6,"parameters":{"color":[1,1,1,1],"metallic":0,"roughness":1},"texture_uris":["asset://new.texture.json","","","",""]})";
   std::ofstream(files.root / "g.mesh.json")
       << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.3,-0.3,0],[0.3,-0.3,0],[0,0.3,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
-  check(reload(true) == gneiss::engine::error::success);
+  check(reload(true) == gneiss::error::success);
   const auto mixed = await_capture(true);
   const auto mixed_color = center(mixed);
   check(mixed_color[2] > mixed_color[0] + 30U);
@@ -764,56 +764,56 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
   std::ofstream(files.root / "m.material.json")
       << R"({"format":"gneiss.material","version":6,"parameters":{"color":[1,0,0,1],"metallic":0,"roughness":1},"texture_uris":["","","","",""]})";
   std::ofstream(files.root / "g.mesh.json") << "broken";
-  check(reload(true) != gneiss::engine::error::success);
+  check(reload(true) != gneiss::error::success);
   const auto partial = await_capture(false);
   check(center(partial)[0] > center(partial)[2] + 30U);
   check(coverage(partial) > 0U && coverage(partial) < coverage(after) / 2U);
   // 恢复相同网格后再次成功重载：同材质的完整图像必须与失败时保留的几何一致。
   std::ofstream(files.root / "g.mesh.json") << valid_mesh;
-  check(reload(true) == gneiss::engine::error::success);
+  check(reload(true) == gneiss::error::success);
   check(capture().pixels == partial.pixels);
   const auto partial_resized = center(capture(192U));
   check(partial_resized[0] > partial_resized[2] + 30U);
 }
-void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
+void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
   using namespace runtime;
   fixture files(pbr);
   files.color(std::byte{20}, std::byte{240});
-  gneiss::engine::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
   runtime::application_configuration desc;
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
-  check(gneiss::engine::error{gneiss::test_support::assign_value(
-            runtime::application::create(desc), app)} == gneiss::engine::error::success);
-  check(app->attach_task_executor(scheduler) == gneiss::engine::error::success);
+  check(gneiss::error{gneiss::test_support::assign_value(
+            runtime::application::create(desc), app)} == gneiss::error::success);
+  check(app->attach_task_executor(scheduler) == gneiss::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance_id scene{};
-  check(gneiss::engine::error{gneiss::test_support::load_scene(*app, uri, &scene, &scheduler)} ==
-        gneiss::engine::error::success);
-  check(gneiss::engine::error{app->run(3U)} == gneiss::engine::error::success);
+  check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene, &scheduler)} ==
+        gneiss::error::success);
+  check(gneiss::error{app->run(3U)} == gneiss::error::success);
   const auto capture = [&] {
-    gneiss::engine::frame_image image;
-    check(app->capture_frame(128U, 128U, image) == gneiss::engine::error::success);
+    gneiss::frame_image image;
+    check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
     return image.pixels;
   };
   auto active_pixels = capture();
   // 打开场景只复用已有成功内容；外部文件更新由显式重载处理。
   const auto load = [&](std::uint64_t, bool cancel) {
     const auto old_scene = scene;
-    auto request = app->assets().load<engine::scene>(uri);
+    auto request = app->assets().load<gneiss::scene>(uri);
     check(bool(request));
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     const auto step = [&] {
       check(std::chrono::steady_clock::now() < deadline);
-      if (mode == engine::execution_mode::cooperative)
+      if (mode == gneiss::tasks::execution_mode::cooperative)
         (void)scheduler.run_ready();
       check(app->run(1).ok());
       std::this_thread::yield();
     };
-    while (request->status() == engine::error::not_ready)
+    while (request->status() == gneiss::error::not_ready)
       step();
     check(request->status().ok());
     check(capture() == active_pixels);
@@ -840,7 +840,7 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
       check(changed == active_pixels);
       active_pixels = changed;
       auto old_count = test_support::scene_access{*app}.get_node_count(old_scene);
-      check(!old_count && old_count.error() == engine::error::invalid_handle);
+      check(!old_count && old_count.error() == gneiss::error::invalid_handle);
     }
     check(app->render().live_resource_count() == 3U);
   };
@@ -899,14 +899,14 @@ int main(int argc, char* argv[]) try {
   run_material_channels();
   std::fprintf(stderr, "asset-pixel: states\n");
   run_material_states();
-  run(gneiss::engine::execution_mode::thread_pool, true);
-  run(gneiss::engine::execution_mode::cooperative, true);
-  run_scene(gneiss::engine::execution_mode::thread_pool, true);
-  run_scene(gneiss::engine::execution_mode::cooperative, true);
-  run(gneiss::engine::execution_mode::thread_pool);
-  run(gneiss::engine::execution_mode::cooperative);
-  run_scene(gneiss::engine::execution_mode::thread_pool);
-  run_scene(gneiss::engine::execution_mode::cooperative);
+  run(gneiss::tasks::execution_mode::thread_pool, true);
+  run(gneiss::tasks::execution_mode::cooperative, true);
+  run_scene(gneiss::tasks::execution_mode::thread_pool, true);
+  run_scene(gneiss::tasks::execution_mode::cooperative, true);
+  run(gneiss::tasks::execution_mode::thread_pool);
+  run(gneiss::tasks::execution_mode::cooperative);
+  run_scene(gneiss::tasks::execution_mode::thread_pool);
+  run_scene(gneiss::tasks::execution_mode::cooperative);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

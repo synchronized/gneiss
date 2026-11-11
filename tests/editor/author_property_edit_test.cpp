@@ -30,7 +30,7 @@
 namespace {
 int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_session& session,
                  gneiss::entity_id ordinary) {
-  namespace e = gneiss::engine;
+  namespace e = gneiss;
   namespace ed = gneiss::editor;
   using p = e::meta::property_id;
   auto& world = *app.native_world();
@@ -47,7 +47,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   auto read = [&](gneiss::entity_id entity) {
     e::math::camera_settings camera;
     if (gneiss::test_support::read_component_value(
-            world.find(entity).try_component<gneiss::engine::camera_component>(), camera)
+            world.find(entity).try_component<gneiss::camera_component>(), camera)
             .failed())
       throw std::runtime_error("read camera");
     return camera;
@@ -79,7 +79,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
     return 36;
 
   edit.object_type = e::runtime_type_of<e::camera_description>();
-  edit.object = gneiss::engine::make_ref<e::camera_description>();
+  edit.object = gneiss::make_ref<e::camera_description>();
   if (ed::edit_component_description(session, history, world, target, edit, 4) !=
           e::error::invalid_argument ||
       read(session.find_node(ordinary_uuid)->entity).far != 400.0F)
@@ -88,12 +88,12 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   if (session.create_node("active", {}, other_camera).failed() ||
       session.set_camera(other_camera, {{1.0F, 0.1F, 100.0F}, true}).failed())
     return 50;
-  if (gneiss::engine::set_active_camera(world, gneiss::entity_id{other_camera.get()}).failed())
+  if (gneiss::set_active_camera(world, gneiss::entity_id{other_camera.get()}).failed())
     return 50;
   gneiss::entity_id active_before, active_after;
-  if (gneiss::engine::get_active_camera(world, active_before).failed() ||
+  if (gneiss::get_active_camera(world, active_before).failed() ||
       history.undo() != e::error::invalid_state ||
-      gneiss::engine::get_active_camera(world, active_after).failed() ||
+      gneiss::get_active_camera(world, active_after).failed() ||
       active_before != active_after)
     return 51;
   auto source = std::make_shared<e::prefab_description>();
@@ -148,7 +148,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
     std::string json;
     if (gneiss::test_support::assign_value(session.serialize(), json).failed())
       throw std::runtime_error("serialize");
-    auto decoded = gneiss::engine::asset_file::deserialize<e::scene_description>(
+    auto decoded = gneiss::asset_file::deserialize<e::scene_description>(
         std::as_bytes(std::span{json.data(), json.size()}));
     if (!decoded)
       throw std::runtime_error("parse");
@@ -198,7 +198,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   ed::property_edit restore{.path = {},
                             .object_type = e::runtime_type_of<e::math::transform>(),
                             .object =
-                                gneiss::engine::make_ref<e::math::transform>(child.transform)};
+                                gneiss::make_ref<e::math::transform>(child.transform)};
   if (ed::edit_component_description(session, child_history, world, child_transform, restore, 0)
           .failed() ||
       overrides(snapshot()) != 1 || child_history.undo().failed() || overrides(snapshot()) != 2)
@@ -257,17 +257,17 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
 }
 
 int main() try {
-  gneiss::engine::install_fatal_handler();
+  gneiss::install_fatal_handler();
   using namespace gneiss;
   using namespace gneiss::editor;
   std::shared_ptr<gneiss::runtime::application> app;
-  gneiss::engine::world* world_handle = nullptr;
+  gneiss::world* world_handle = nullptr;
   scene_edit_session session;
   editor_command_history history;
   entity_id first;
   entity_id second;
   gneiss::runtime::application_configuration desc;
-  if (gneiss::engine::error{
+  if (gneiss::error{
           gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)}
           .failed() ||
       (world_handle = app->native_world()) == nullptr ||
@@ -280,17 +280,17 @@ int main() try {
   const auto second_entity = session.query_node(second)->entity;
   const auto first_uuid = session.selected_node()->uuid;
   const auto is_x = [&](float expected) {
-    gneiss::engine::math::transform local{};
+    gneiss::math::transform local{};
     return gneiss::test_support::assign_value(
                app->native_world()->find(session.find_node(first_uuid)->entity).local_transform(),
-               local) == gneiss::engine::error::success &&
+               local) == gneiss::error::success &&
            std::abs(local.translation[0] - expected) < 0.0001F;
   };
   const auto edit_x = [&](float next, editor_command_history& target, std::uint64_t serial) {
     component_edit_target identity{.object_uuid = session.selected_node()->uuid,
-                                   .component_type = gneiss::engine::math::transform::type_guid};
-    property_edit edit{.path = {gneiss::engine::meta::transform_translation_field},
-                       .data = gneiss::engine::value{gneiss::engine::math::vector3{next, 0, 0}}};
+                                   .component_type = gneiss::math::transform::type_guid};
+    property_edit edit{.path = {gneiss::meta::transform_translation_field},
+                       .data = gneiss::value{gneiss::math::vector3{next, 0, 0}}};
     return edit_component_description(session, target, *world_handle, identity, edit, serial);
   };
   // 同一次拖拽合并，新的交互形成独立历史；临时输入不被命令借用。
@@ -313,16 +313,16 @@ int main() try {
     return 5;
   }
   editor_command_history no_capacity{0U};
-  if (edit_x(8.0F, no_capacity, 3U) != gneiss::engine::error::invalid_argument || !is_x(6.0F) ||
+  if (edit_x(8.0F, no_capacity, 3U) != gneiss::error::invalid_argument || !is_x(6.0F) ||
       no_capacity.can_undo()) {
     return 6;
   }
   component_edit_target identity{.object_uuid = session.selected_node()->uuid,
-                                 .component_type = gneiss::engine::math::transform::type_guid};
-  property_edit invalid{.path = {gneiss::engine::meta::transform_scale_field},
-                        .data = gneiss::engine::value{gneiss::engine::math::vector3{0, 1, 1}}};
+                                 .component_type = gneiss::math::transform::type_guid};
+  property_edit invalid{.path = {gneiss::meta::transform_scale_field},
+                        .data = gneiss::value{gneiss::math::vector3{0, 1, 1}}};
   if (edit_component_description(session, history, *world_handle, identity, invalid, 4) !=
-          gneiss::engine::error::invalid_argument ||
+          gneiss::error::invalid_argument ||
       history.size() != 2U) {
     return 8;
   }
@@ -370,12 +370,12 @@ int main() try {
     const auto before = session.current_version();
     bool propagated = false;
     try {
-      (void)execute_scene_edit(rejected, session, "模拟分配失败", [&]() -> gneiss::engine::error {
+      (void)execute_scene_edit(rejected, session, "模拟分配失败", [&]() -> gneiss::error {
         auto renamed = session.rename_node(first, "temporary");
         if (renamed.failed())
           return renamed;
         if (session.current_version() != before)
-          return gneiss::engine::error::internal;
+          return gneiss::error::internal;
         throw std::bad_alloc{};
       });
     } catch (const std::bad_alloc&) {
@@ -420,7 +420,7 @@ int main() try {
   }
   scene_subtree_snapshot removed;
   if (session.destroy_subtree(session.find_node(first_uuid)->node, removed).failed() ||
-      history.undo() != gneiss::engine::error::invalid_state || !history.can_undo()) {
+      history.undo() != gneiss::error::invalid_state || !history.can_undo()) {
     return 9;
   }
   history.clear();

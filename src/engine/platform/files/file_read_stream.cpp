@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <limits>
 #include <stdexcept>
-namespace gneiss::engine::files {
+namespace gneiss::files {
 struct read_stream::state : std::enable_shared_from_this<state> {
   std::shared_ptr<service> files;
   std::string uri;

@@ -8,7 +8,7 @@
 #include "texture_binary.hpp"
 #include "texture_ktx2.hpp"
 #include <granit/renderer/texture_asset.hpp>
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 namespace {
 asset_diagnostic convert(serialization::diagnostic d) {
   return {d.error, d.byte_offset, std::move(d.path), std::move(d.message)};
@@ -42,16 +42,16 @@ decode_texture_payload(const texture_description& source, const std::vector<std:
     return std::move(diagnostic);
   };
 
-  auto result = engine::error::success;
+  auto result = gneiss::error::success;
   [[maybe_unused]] const bool selected =
       profile.generation != 0U && std::string_view(source.uri).ends_with(".gneiss-texture");
   if (std::string_view(source.uri).ends_with(".gneiss-texture")) {
-    auto binary = engine::decode_texture_binary(image_bytes);
+    auto binary = gneiss::decode_texture_binary(image_bytes);
     if (!binary) {
       const auto& decode_message = binary.error().message;
       const auto status = binary.error().error == texture_binary_error::out_of_memory
-                              ? engine::error::out_of_memory
-                              : engine::error::invalid_argument;
+                              ? gneiss::error::out_of_memory
+                              : gneiss::error::invalid_argument;
       fail(diagnostic, status, "/source",
            decode_message.empty() ? "运行纹理封装检查失败" : decode_message);
       return failure(status);
@@ -60,9 +60,9 @@ decode_texture_payload(const texture_description& source, const std::vector<std:
     if (granit::inspect_texture_asset(binary->manifest, info) != granit::result::success ||
         info.dimension != granit::texture_dimension::two_dimensional || info.depth != 1U ||
         info.array_layers != 1U) {
-      fail(diagnostic, engine::error::invalid_argument, "/source",
+      fail(diagnostic, gneiss::error::invalid_argument, "/source",
            "Granit Texture Asset Manifest 无效或不是二维单层纹理");
-      return failure(engine::error::invalid_argument);
+      return failure(gneiss::error::invalid_argument);
     }
     const auto srgb = source.color_space == texture_color_space::srgb;
     const auto matches_color_space = [srgb](const auto& variant) {
@@ -84,9 +84,9 @@ decode_texture_payload(const texture_description& source, const std::vector<std:
         });
     if (!std::ranges::all_of(info.variants, matches_color_space) ||
         !std::ranges::all_of(info.variants, payload_in_bounds) || !has_fallback) {
-      fail(diagnostic, engine::error::invalid_argument, "/source",
+      fail(diagnostic, gneiss::error::invalid_argument, "/source",
            "运行纹理变体颜色空间、负载边界或 RGBA8 回退无效");
-      return failure(engine::error::invalid_argument);
+      return failure(gneiss::error::invalid_argument);
     }
     output = {
         .width = info.width,
@@ -117,11 +117,11 @@ decode_texture_payload(const texture_description& source, const std::vector<std:
         const auto selected_bytes = binary->payload.subspan(
             static_cast<std::size_t>(variant.payload_offset), output.payload.size());
         std::copy(selected_bytes.begin(), selected_bytes.end(), output.payload.begin());
-        if (result == engine::error::success &&
-            engine::sha256(output.payload) != variant.payload_digest) {
-          result = engine::error::invalid_argument;
+        if (result == gneiss::error::success &&
+            gneiss::sha256(output.payload) != variant.payload_digest) {
+          result = gneiss::error::invalid_argument;
         }
-        if (result != engine::error::success) {
+        if (result != gneiss::error::success) {
 
           fail(diagnostic, result, "/source", "选中纹理变体读取或摘要校验失败");
           return failure(result);
@@ -132,16 +132,16 @@ decode_texture_payload(const texture_description& source, const std::vector<std:
       }
       if (output.profile.generation == 0U) {
 
-        fail(diagnostic, engine::error::unsupported, "/source", "设备不支持运行纹理的任何变体");
-        return failure(engine::error::unsupported);
+        fail(diagnostic, gneiss::error::unsupported, "/source", "设备不支持运行纹理的任何变体");
+        return failure(gneiss::error::unsupported);
       }
     }
   } else if (std::string_view(source.uri).ends_with(".ktx2")) {
-    auto decoded = engine::decode_texture_ktx2(image_bytes);
+    auto decoded = gneiss::decode_texture_ktx2(image_bytes);
     if (!decoded) {
       const auto code = decoded.error().error == texture_ktx2_error::out_of_memory
-                            ? engine::error::out_of_memory
-                            : engine::error::invalid_argument;
+                            ? gneiss::error::out_of_memory
+                            : gneiss::error::invalid_argument;
       fail(diagnostic, code, "/source",
            decoded.error().message.empty() ? "KTX2 解码失败" : decoded.error().message);
       return diagnostic;
@@ -151,9 +151,9 @@ decode_texture_payload(const texture_description& source, const std::vector<std:
                                        ? texture_transfer::srgb
                                        : texture_transfer::linear;
     if (texture.transfer != expected_transfer) {
-      fail(diagnostic, engine::error::invalid_argument, "/color_space",
+      fail(diagnostic, gneiss::error::invalid_argument, "/color_space",
            "Texture 描述与 KTX2 传递函数不一致");
-      return failure(engine::error::invalid_argument);
+      return failure(gneiss::error::invalid_argument);
     }
     auto levels = std::move(texture.levels);
     const auto width = levels.front().width;
@@ -166,7 +166,7 @@ decode_texture_payload(const texture_description& source, const std::vector<std:
               .manifest = {},
               .payload = {}};
   } else {
-    auto decoded = engine::decode_png(image_bytes);
+    auto decoded = gneiss::decode_png(image_bytes);
     if (!decoded) {
       auto decode_failure = std::move(decoded).error();
       fail(diagnostic, decode_failure.error, "/source",

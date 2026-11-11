@@ -8,7 +8,7 @@
 #include <deque>
 #include <map>
 #include <vector>
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 /** 记录持有当前操作；请求只共享观察状态，执行队列不承担身份查询。 */
 struct load_operation {
   virtual ~load_operation() = default;

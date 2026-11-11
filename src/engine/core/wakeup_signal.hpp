@@ -3,7 +3,7 @@
 
 #pragma once
 
-namespace gneiss::engine {
+namespace gneiss {
 
 /** 内部唤醒信号；只唤醒宿主，不执行用户逻辑，不回调生产者，不保存业务结果。
  * 可跨线程调用；生产者持有共享引用，宿主失效后信号仍可独立存活。
@@ -14,4 +14,4 @@ public:
   virtual void notify() noexcept = 0;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss

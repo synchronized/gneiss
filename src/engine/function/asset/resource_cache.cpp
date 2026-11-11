@@ -12,7 +12,7 @@
 #include <new>
 #include <unordered_set>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 result<detail::cached_asset>
 resource_cache::load(std::string_view uri, type_id type, const loader& decode,
@@ -101,4 +101,4 @@ resource_cache::lookup(std::string_view uri, type_id type,
   return detail::cached_asset{type, std::move(value), record.metrics, record.source_bytes,
                               record.ready};
 }
-} // namespace gneiss::engine
+} // namespace gneiss

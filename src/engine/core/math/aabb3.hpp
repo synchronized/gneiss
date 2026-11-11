@@ -4,7 +4,7 @@
 #include "engine/core/math/functions.hpp"
 #include <numeric>
 
-namespace gneiss::engine::math {
+namespace gneiss::math {
 /** 轴对齐闭包围盒；默认是原点处的有效退化盒，不代表空集合。
  * 有效边界必须有限且逐轴 min <= max；不使用隐藏的空盒哨兵。 */
 struct aabb3 {
@@ -42,4 +42,4 @@ struct aabb3 {
     return merged({point, point});
   }
 };
-} // namespace gneiss::engine::math
+} // namespace gneiss::math

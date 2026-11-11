@@ -15,17 +15,17 @@ namespace gneiss::editor {
 namespace {
 std::string_view console_severity_name(std::uint32_t severity) noexcept {
   switch (severity) {
-  case static_cast<std::uint32_t>(gneiss::engine::logging::level::trace):
+  case static_cast<std::uint32_t>(gneiss::logging::level::trace):
     return "TRACE";
-  case static_cast<std::uint32_t>(gneiss::engine::logging::level::debug):
+  case static_cast<std::uint32_t>(gneiss::logging::level::debug):
     return "DEBUG";
-  case static_cast<std::uint32_t>(gneiss::engine::logging::level::info):
+  case static_cast<std::uint32_t>(gneiss::logging::level::info):
     return "INFO";
-  case static_cast<std::uint32_t>(gneiss::engine::logging::level::warning):
+  case static_cast<std::uint32_t>(gneiss::logging::level::warning):
     return "WARN";
-  case static_cast<std::uint32_t>(gneiss::engine::logging::level::error):
+  case static_cast<std::uint32_t>(gneiss::logging::level::error):
     return "ERROR";
-  case static_cast<std::uint32_t>(gneiss::engine::logging::level::fatal):
+  case static_cast<std::uint32_t>(gneiss::logging::level::fatal):
     return "FATAL";
   default:
     return "UNKNOWN";
@@ -45,7 +45,7 @@ std::string format_console_entry(const gneiss::editor::console_entry& entry) {
   output.append(entry.event.category);
   output.append("] ");
   output.append(entry.event.message);
-  if (entry.event.operation != gneiss::engine::error::success) {
+  if (entry.event.operation != gneiss::error::success) {
     output.append(" (result=");
     output.append(std::to_string(entry.event.operation.code()));
     output.push_back(')');
@@ -61,7 +61,7 @@ void console_panel_state::set_paused(const console_model& model, bool value) noe
   pause_entry_id = paused && !entries.empty() ? entries.back().id : 0U;
 }
 
-gneiss::engine::error console_panel_state::visible_indices(const console_model& model,
+gneiss::error console_panel_state::visible_indices(const console_model& model,
                                                            std::vector<std::size_t>& output) {
   filter.search = search.data();
   filter.source = source.data();
@@ -95,7 +95,7 @@ void draw_console_toolbar(const console_model& model, console_panel_state& state
   }
   ImGui::SameLine();
   ImGui::Checkbox("Auto-scroll", &state.auto_scroll);
-  if (runtime.attempted && runtime.operation != gneiss::engine::error::success) {
+  if (runtime.attempted && runtime.operation != gneiss::error::success) {
     const auto message = runtime.operation.message();
     ImGui::TextColored(gneiss::editor::theme_error_color(), "Runtime error: %.*s",
                        static_cast<int>(message.size()), message.data());
@@ -117,17 +117,17 @@ void draw_console_filters(console_panel_state& state) {
       }
     }
   };
-  severity_toggle("Trace", static_cast<std::uint32_t>(gneiss::engine::logging::level::trace));
+  severity_toggle("Trace", static_cast<std::uint32_t>(gneiss::logging::level::trace));
   ImGui::SameLine();
-  severity_toggle("Debug", static_cast<std::uint32_t>(gneiss::engine::logging::level::debug));
+  severity_toggle("Debug", static_cast<std::uint32_t>(gneiss::logging::level::debug));
   ImGui::SameLine();
-  severity_toggle("Info", static_cast<std::uint32_t>(gneiss::engine::logging::level::info));
+  severity_toggle("Info", static_cast<std::uint32_t>(gneiss::logging::level::info));
   ImGui::SameLine();
-  severity_toggle("Warn", static_cast<std::uint32_t>(gneiss::engine::logging::level::warning));
+  severity_toggle("Warn", static_cast<std::uint32_t>(gneiss::logging::level::warning));
   ImGui::SameLine();
-  severity_toggle("Error", static_cast<std::uint32_t>(gneiss::engine::logging::level::error));
+  severity_toggle("Error", static_cast<std::uint32_t>(gneiss::logging::level::error));
   ImGui::SameLine();
-  severity_toggle("Fatal", static_cast<std::uint32_t>(gneiss::engine::logging::level::fatal));
+  severity_toggle("Fatal", static_cast<std::uint32_t>(gneiss::logging::level::fatal));
   ImGui::SameLine();
   ImGui::Checkbox("Raw", &state.filter.include_raw);
   ImGui::SameLine();
@@ -157,11 +157,11 @@ void draw_console_lines(const console_model& model, const console_panel_state& s
       const auto line = format_console_entry(entry);
       if (entry.kind == gneiss::editor::console_entry_kind::structured &&
           entry.event.severity >=
-              static_cast<std::uint32_t>(gneiss::engine::logging::level::error)) {
+              static_cast<std::uint32_t>(gneiss::logging::level::error)) {
         ImGui::TextColored(gneiss::editor::theme_error_color(), "%s", line.c_str());
       } else if (entry.kind == gneiss::editor::console_entry_kind::structured &&
                  entry.event.severity ==
-                     static_cast<std::uint32_t>(gneiss::engine::logging::level::warning)) {
+                     static_cast<std::uint32_t>(gneiss::logging::level::warning)) {
         ImGui::TextColored(gneiss::editor::theme_warning_color(), "%s", line.c_str());
       } else {
         ImGui::TextUnformatted(line.c_str());
@@ -184,7 +184,7 @@ void draw_console_panel(const console_model& model, console_panel_state& state, 
 
     std::vector<std::size_t> visible;
     const auto filter_result = state.visible_indices(model, visible);
-    if (filter_result != gneiss::engine::error::success) {
+    if (filter_result != gneiss::error::success) {
       ImGui::TextColored(gneiss::editor::theme_error_color(), "Console filter failed");
     }
     ImGui::TextDisabled("Visible: %zu / %zu | Dropped: %llu", visible.size(),

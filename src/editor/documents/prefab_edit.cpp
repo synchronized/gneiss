@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <array>
 namespace gneiss::editor {
-using namespace engine;
+using namespace gneiss;
 namespace {
 error collect_component_overrides(meta::const_instance source, meta::const_instance candidate,
                                   prefab_property_override_key key,
@@ -22,7 +22,7 @@ error collect_component_overrides(meta::const_instance source, meta::const_insta
     for (const auto& property : properties) {
       // 派生运行状态仍可保存，但不因普通组件编辑生成实例属性覆盖。
       if (!meta::has_flags(property.capabilities(), meta::property_capabilities::writable) ||
-          gneiss::engine::is_edit_read_only(property))
+          gneiss::is_edit_read_only(property))
         continue;
       auto left = property.get(source), right = property.get(candidate);
       if (!left)
@@ -264,8 +264,8 @@ prepare_mesh_renderer_overrides(guid source_node, guid component_uuid,
                             .target_type_guid = mesh_renderer_description::type_guid,
                             .component_uuid = component_uuid},
                  .path = {meta::property_id{static_cast<std::uint32_t>(i + 1)}}},
-         .operation = engine::value{replacements[i]}},
-        engine::value{originals[i]});
+         .operation = gneiss::value{replacements[i]}},
+        gneiss::value{originals[i]});
     if (status.failed())
       return status;
   }

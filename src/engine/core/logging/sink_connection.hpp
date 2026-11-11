@@ -4,7 +4,7 @@
 #include "engine/core/logging/record.hpp"
 #include <memory>
 #include <utility>
-namespace gneiss::engine::logging {
+namespace gneiss::logging {
 namespace detail {
 struct service_state;
 struct sink_slot;

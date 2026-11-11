@@ -4,7 +4,7 @@
 #include "engine/function/scene/composition.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/resource/scene.hpp"
-namespace gneiss::engine {
+namespace gneiss {
 /** 已创建的场景及其视觉加载清单；资源身份已预留，内容加载由调用方调度。 */
 struct scene_instantiation_result {
   scene_instance_id instance;

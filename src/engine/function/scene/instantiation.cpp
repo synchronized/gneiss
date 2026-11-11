@@ -3,7 +3,7 @@
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/component_registration.hpp"
 #include "engine/function/scene/components.hpp"
-namespace gneiss::engine {
+namespace gneiss {
 result<scene_instantiation_result> instantiate(scene_instance destination,
                                                const composed_scene& composed,
                                                const scene_resource_bindings& assets,

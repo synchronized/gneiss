@@ -4,12 +4,12 @@
 #include "engine/core/error.hpp"
 #include "engine/function/input/input_service.hpp"
 
-using namespace gneiss::engine;
-using namespace gneiss::engine;
+using namespace gneiss;
+using namespace gneiss;
 #include <limits>
 
 int main() {
-  gneiss::engine::input_service input;
+  gneiss::input_service input;
   input_event key = {};
   key.type = event_type::key;
   key.window_id = 1;
@@ -33,10 +33,10 @@ int main() {
   }
 
   input_event output = {};
-  if (input.poll(output) != gneiss::engine::error::success || output.type != event_type::key ||
-      input.poll(output) != gneiss::engine::error::success ||
+  if (input.poll(output) != gneiss::error::success || output.type != event_type::key ||
+      input.poll(output) != gneiss::error::success ||
       output.type != event_type::pointer_button ||
-      input.poll(output) != gneiss::engine::error::not_ready) {
+      input.poll(output) != gneiss::error::not_ready) {
     return 3;
   }
 
@@ -55,60 +55,60 @@ int main() {
     return 6;
   }
 
-  gneiss::engine::action_map_description map;
+  gneiss::action_map_description map;
   map.actions.push_back({.name = "move", .bindings = {{26U, 1.0F}}});
   input.clear_focus();
-  if (input.replace_action_map(std::move(map)) != gneiss::engine::error::success) {
+  if (input.replace_action_map(std::move(map)) != gneiss::error::success) {
     return 7;
   }
-  gneiss::engine::action_id action;
-  gneiss::engine::action_state state;
+  gneiss::action_id action;
+  gneiss::action_state state;
   input.begin_frame();
   key.data.key.action = key_action::pressed;
-  if (input.find_action("move", action) != gneiss::engine::error::success || !input.push(key) ||
-      input.get_action_state(action, state) != gneiss::engine::error::success ||
+  if (input.find_action("move", action) != gneiss::error::success || !input.push(key) ||
+      input.get_action_state(action, state) != gneiss::error::success ||
       state.pressed == 0U || state.held == 0U || state.value != 1.0F) {
     return 7;
   }
   key.data.key.action = key_action::released;
-  if (!input.push(key) || input.get_action_state(action, state) != gneiss::engine::error::success ||
+  if (!input.push(key) || input.get_action_state(action, state) != gneiss::error::success ||
       state.pressed == 0U || state.released == 0U || state.held != 0U) {
     return 8;
   }
 
-  using namespace gneiss::engine;
-  using namespace gneiss::engine;
+  using namespace gneiss;
+  using namespace gneiss;
   const auto original = action;
-  gneiss::engine::action_map_description candidate{{{"move", {{26U, 1.0F}}}}};
+  gneiss::action_map_description candidate{{{"move", {{26U, 1.0F}}}}};
   auto invalid = candidate;
   invalid.actions[0].bindings[0].physical_key = 256U;
-  if (input.replace_action_map(invalid) != gneiss::engine::error::invalid_argument ||
-      input.get_action_state(original, state) != gneiss::engine::error::success) {
+  if (input.replace_action_map(invalid) != gneiss::error::invalid_argument ||
+      input.get_action_state(original, state) != gneiss::error::success) {
     return 9;
   }
   invalid = candidate;
   invalid.actions[0].bindings[0].scale = std::numeric_limits<float>::quiet_NaN();
-  if (input.replace_action_map(invalid) != gneiss::engine::error::invalid_argument) {
+  if (input.replace_action_map(invalid) != gneiss::error::invalid_argument) {
     return 10;
   }
   invalid = candidate;
   invalid.actions.push_back(invalid.actions.front());
-  if (input.replace_action_map(invalid) != gneiss::engine::error::invalid_argument ||
-      input.replace_action_map({}) != gneiss::engine::error::invalid_argument ||
-      input.find_action("move", action) != gneiss::engine::error::success || action != original) {
+  if (input.replace_action_map(invalid) != gneiss::error::invalid_argument ||
+      input.replace_action_map({}) != gneiss::error::invalid_argument ||
+      input.find_action("move", action) != gneiss::error::success || action != original) {
     return 11;
   }
   input_service other;
-  if (other.replace_action_map(candidate) != gneiss::engine::error::success ||
-      other.get_action_state(original, state) != gneiss::engine::error::invalid_handle ||
-      input.get_action_state({}, state) != gneiss::engine::error::invalid_handle ||
-      input.replace_action_map(candidate) != gneiss::engine::error::success ||
-      input.get_action_state(original, state) != gneiss::engine::error::invalid_handle ||
+  if (other.replace_action_map(candidate) != gneiss::error::success ||
+      other.get_action_state(original, state) != gneiss::error::invalid_handle ||
+      input.get_action_state({}, state) != gneiss::error::invalid_handle ||
+      input.replace_action_map(candidate) != gneiss::error::success ||
+      input.get_action_state(original, state) != gneiss::error::invalid_handle ||
       state.pressed || state.held || state.released || state.value != 0.0F) {
     return 12;
   }
   input.begin_frame();
-  if (input.find_action("move", action) != gneiss::engine::error::success) {
+  if (input.find_action("move", action) != gneiss::error::success) {
     return 13;
   }
   key.data.key.action = key_action::pressed;
@@ -116,12 +116,12 @@ int main() {
     return 14;
   }
   input.begin_frame();
-  if (input.get_action_state(action, state) != gneiss::engine::error::success || state.pressed ||
+  if (input.get_action_state(action, state) != gneiss::error::success || state.pressed ||
       !state.held) {
     return 15;
   }
   input.clear_focus();
-  if (input.get_action_state(action, state) != gneiss::engine::error::success || state.held ||
+  if (input.get_action_state(action, state) != gneiss::error::success || state.held ||
       !state.released) {
     return 16;
   }
@@ -137,7 +137,7 @@ int main() {
     return 18;
   invalid_event.type = event_type::key;
   invalid_event.data.key = {26, 0, 0, static_cast<key_action>(99)};
-  if (input.push(invalid_event) || input.poll(output) != gneiss::engine::error::not_ready)
+  if (input.push(invalid_event) || input.poll(output) != gneiss::error::not_ready)
     return 19;
   input_event enter{};
   enter.type = event_type::pointer_entered;
@@ -147,7 +147,7 @@ int main() {
   if (!input.push(enter) || input.pointer().is_inside)
     return 21;
   input.begin_frame();
-  if (input.poll(output) != gneiss::engine::error::not_ready || output.type != event_type::none)
+  if (input.poll(output) != gneiss::error::not_ready || output.type != event_type::none)
     return 22;
   return 0;
 }

@@ -17,7 +17,7 @@ namespace gneiss::runtime {
 
 /** 原生宿主的有限等待；代次在处理队列前读取，避免检查与入睡之间丢通知。
  * 不在 Web/无线程宿主实例化；超时是请求期限，不是系统调度的实时保证。 */
-class main_loop_wakeup final : public gneiss::engine::wakeup_signal {
+class main_loop_wakeup final : public gneiss::wakeup_signal {
 public:
   [[nodiscard]] std::uint64_t snapshot() const noexcept {
     return generation_.load(std::memory_order_acquire);
@@ -31,11 +31,11 @@ public:
   }
   bool wait(std::uint64_t observed, std::chrono::milliseconds timeout) {
     std::unique_lock lock(mutex_, std::defer_lock);
-    gneiss::engine::measure(gneiss::engine::loop_stage::idle_lock, [&] {
+    gneiss::measure(gneiss::loop_stage::idle_lock, [&] {
       GNEISS_PROFILE_SCOPE("application.idle_lock");
       lock.lock();
     });
-    return gneiss::engine::measure(gneiss::engine::loop_stage::idle_condition, [&] {
+    return gneiss::measure(gneiss::loop_stage::idle_condition, [&] {
       GNEISS_PROFILE_SCOPE("application.idle_condition");
       return ready_.wait_for(lock, timeout, [&] { return snapshot() != observed; });
     });

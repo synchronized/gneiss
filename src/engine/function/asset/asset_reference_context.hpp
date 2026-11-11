@@ -6,7 +6,7 @@
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include <algorithm>
-namespace gneiss::engine {
+namespace gneiss {
 struct asset_reference_requirement {
   type_id type;
   std::string uri, path;

@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 template <bool Mutable> class basic_sequence_view;
 using sequence_view = basic_sequence_view<false>;
 using mutable_sequence_view = basic_sequence_view<true>;
@@ -34,11 +34,11 @@ public:
   [[nodiscard]] meta::type type() const noexcept { return type_; }
   [[nodiscard]] type_kind kind() const noexcept { return type_.kind(); }
   [[nodiscard]] value_kind scalar_kind() const noexcept { return type_.scalar_kind(); }
-  [[nodiscard]] engine::guid guid() const noexcept { return type_.guid(); }
-  [[nodiscard]] engine::type_id type_id() const noexcept { return type_.id(); }
+  [[nodiscard]] gneiss::guid guid() const noexcept { return type_.guid(); }
+  [[nodiscard]] gneiss::type_id type_id() const noexcept { return type_.id(); }
   /** 类型擦除入口，调用方保证类型与地址匹配且目标仍然存活。 */
-  static GNEISS_API result<basic_instance> from_object(registry_ref, engine::type_id, pointer);
-  static result<basic_instance> from_object(engine::type_id id, pointer object) {
+  static GNEISS_API result<basic_instance> from_object(registry_ref, gneiss::type_id, pointer);
+  static result<basic_instance> from_object(gneiss::type_id id, pointer object) {
     auto registry = default_registry();
     return registry ? from_object(*registry, id, object) : result<basic_instance>{registry.error()};
   }
@@ -70,7 +70,7 @@ public:
   /** 普通对象按值复制；引用共享控制块；受约束属性调用 setter。 */
   [[nodiscard]] GNEISS_API error assign(const const_instance&) const
     requires(Mutable);
-  [[nodiscard]] GNEISS_API error assign_object(engine::type_id, void*) const
+  [[nodiscard]] GNEISS_API error assign_object(gneiss::type_id, void*) const
     requires(Mutable);
 
 private:
@@ -100,7 +100,7 @@ private:
   meta::type type_;
   const void* data_{};
   const void* parent_{};
-  engine::type_id parent_type_{};
+  gneiss::type_id parent_type_{};
   property_id property_{};
   bool writable_ = Mutable;
 };

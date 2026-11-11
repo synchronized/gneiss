@@ -15,7 +15,7 @@
 #include <memory>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss {
 
 struct material_data {
   material_parameters parameters{};
@@ -44,4 +44,4 @@ struct material_data {
   }
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss

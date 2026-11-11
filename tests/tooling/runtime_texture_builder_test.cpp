@@ -13,8 +13,8 @@
 #include <vector>
 
 int main() { // NOLINT(bugprone-exception-escape)
-  gneiss::engine::texture_ktx2 source{
-      .transfer = gneiss::engine::texture_transfer::srgb,
+  gneiss::texture_ktx2 source{
+      .transfer = gneiss::texture_transfer::srgb,
       .levels = {{.width = 2U,
                   .height = 2U,
                   .pixels = {std::byte{255U}, std::byte{}, std::byte{}, std::byte{255U},
@@ -30,7 +30,7 @@ int main() { // NOLINT(bugprone-exception-escape)
       gneiss::tooling::runtime_texture_build_result::success) {
     return 1;
   }
-  auto binary = gneiss::engine::decode_texture_binary(encoded);
+  auto binary = gneiss::decode_texture_binary(encoded);
   if (!binary) {
     return 2;
   }

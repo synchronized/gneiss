@@ -5,7 +5,7 @@
 #include <mutex>
 #include <numbers>
 namespace gneiss::editor {
-using namespace engine;
+using namespace gneiss;
 namespace {
 struct editor_registry {
   std::mutex mutex;

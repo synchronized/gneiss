@@ -202,7 +202,7 @@ Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真�
   普通宿主的可见性测试不获得此权限。
 - Application 不导出场景专用请求；宿主加载状态与回执由各自模块定义。
 
-属性面板和撤销历史使用 `gneiss::engine::value`，其中字符串为自有文本；
+属性面板和撤销历史使用 `gneiss::value`，其中字符串为自有文本；
 `meta/registry.hpp` 提供同一注册表的创建、注册、冻结、查询和属性读写。
 C++ Builder 和 Meta 内置注册入口位于 `meta/registration.hpp`；数学反射实现位于
 `meta/math_registration.cpp`，业务资源注册位于 `resource/builtin_resource_registration.cpp`。元数据名称借用注册表，属性读取结果拥有自己的数据；
@@ -246,17 +246,13 @@ Render 管理后端 RID；资产管理器不拥有 World 或编辑文档，不�
 
 ## 内部命名空间
 
-业务类型按架构层统一使用 `gneiss::engine`、`gneiss::runtime`、`gneiss::editor`、
-`gneiss::tooling`、`gneiss::host`。例如资源管理器为 `gneiss::engine::asset_manager`，
-World 为 `gneiss::engine`，应用对象为 `gneiss::runtime::application`。
-Core、Resource、Render 等目录仍隔离职责和依赖，不再对应额外的命名空间。
-单文件辅助代码使用匿名命名空间，头文件实现细节允许 `detail`，不保留旧名兼容别名。
-
-Meta 是上述平铺规则的明确例外：反射描述、注册、查询和编解码接口位于
-`gneiss::engine::meta`，避免通用名称与业务模块冲突。基础值类型和 traits 定制点仍在
-`gneiss::engine`；不为旧 Meta 限定名保留兼容别名。
-公共值类型仍属于 `gneiss`，公共 C 接口不变。
-决策见 [ADR-079](../decisions/ADR-079-flat-namespaces.md)。
+引擎基础值与业务对象直接位于 `gneiss`，例如 `gneiss::world`、`gneiss::asset_manager`。
+独立功能域使用 `gneiss::meta`、`gneiss::math`、`gneiss::serialization`、`gneiss::events`、
+`gneiss::logging`、`gneiss::files`、`gneiss::tasks` 等，宿主和编辑器保持原有领域命名空间。
+命名空间不重复表达 `src/engine` 目录层级；目录、头文件可见性与构建依赖约束分层。
+实现细节放在对应领域的 `detail` 或单文件匿名命名空间。
+没有旧 `gneiss::engine` 兼容别名；显式 GUID 不变，C++ 消费方须重新编译。
+决策见 [ADR-120](../decisions/ADR-120-domain-namespaces.md)。
 
 ## 宿主独立模块
 
@@ -322,7 +318,7 @@ Application 私有状态接收输入映射加载完成通知，在所属线程�
 | detail | 仅供资源实现复用的 JSON 解析辅助 |
 
 描述头定义数据，codec 负责解析和序列化，`asset_manager` 负责异步读取和共享请求。
-资源命名空间仍为 `gneiss::engine`；目录不增加命名空间层次。
+资源命名空间仍为 `gneiss`；目录不增加命名空间层次。
 `function/asset/detail/asset_decode` 负责已读输入解码，类型 Loader 负责装配；
 `resource/resource_retirement_queue.hpp` 定义延迟销毁队列，由私有资产构建器消费。CPU 解码不调用渲染服务。
 

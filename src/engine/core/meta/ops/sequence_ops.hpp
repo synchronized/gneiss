@@ -12,7 +12,7 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-namespace gneiss::engine::meta {
+namespace gneiss::meta {
 /** 专门化以适配自定义序列；size/at 必需，at_mut/resize/max_size/replace 可选。元素地址仅借用。
  * replace(T&, const vector<element>&) 返回 error，负责整组校验，失败保持原集合。 */
 template <class T> struct sequence_traits {

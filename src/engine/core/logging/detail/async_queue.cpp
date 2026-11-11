@@ -30,7 +30,7 @@ thread_local bool is_in_log_callback = false;
 
 } // namespace
 
-namespace gneiss::engine::logging::detail {
+namespace gneiss::logging::detail {
 
 async_queue::async_queue(record_callback callback, std::size_t capacity)
     : callback_(std::move(callback)), capacity_(capacity) {
@@ -51,9 +51,9 @@ async_queue::~async_queue() noexcept {
   }
 }
 
-engine::error async_queue::submit(const message_view& message) {
+gneiss::error async_queue::submit(const message_view& message) {
   if (is_in_log_callback) {
-    return engine::error::invalid_state;
+    return gneiss::error::invalid_state;
   }
   {
     owned_record event;
@@ -68,17 +68,17 @@ engine::error async_queue::submit(const message_view& message) {
     {
       const std::scoped_lock lock(mutex_);
       if (is_stopping_) {
-        return engine::error::invalid_state;
+        return gneiss::error::invalid_state;
       }
       if (queue_.size() >= capacity_) {
         ++dropped_count_;
-        return engine::error::success;
+        return gneiss::error::success;
       }
       event.sequence = next_sequence_++;
       queue_.push_back(std::move(event));
     }
     ready_.notify_one();
-    return engine::error::success;
+    return gneiss::error::success;
   }
 }
 
@@ -116,7 +116,7 @@ void async_queue::run() noexcept try {
   }
   drained_.notify_all();
 } catch (...) {
-  gneiss::engine::fatal_current_exception();
+  gneiss::fatal_current_exception();
 }
 
 void async_queue::deliver(const owned_record& event) {
@@ -154,9 +154,9 @@ async_queue::owned_record async_queue::make_drop_event(std::uint64_t count) {
     event.source = "engine.log";
     event.category = "backpressure";
     event.message = "日志队列已满，丢弃 " + std::to_string(count) + " 个事件";
-    event.result = engine::error::not_ready;
+    event.result = gneiss::error::not_ready;
   }
   return event;
 }
 
-} // namespace gneiss::engine::logging
+} // namespace gneiss::logging

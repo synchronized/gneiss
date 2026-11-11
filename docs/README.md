@@ -692,3 +692,6 @@
 - [PLAN-116 强类型通知与独立日志系统](plans/PLAN-116-events-and-logging.md)
 - [ADR-119 对象级通知与独立结构化日志](decisions/ADR-119-events-and-logging.md)
 - [事件与日志适配核查](records/2026-11-11-event-log-feasibility.md)
+
+- [PLAN-117 功能命名空间收敛](plans/PLAN-117-domain-namespaces.md)
+- [ADR-120 领域命名空间](decisions/ADR-120-domain-namespaces.md)

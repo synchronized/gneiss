@@ -31,12 +31,12 @@ namespace {
 
 struct project_job_result {
   editor_project project;
-  engine::error status{engine::error::internal};
+  gneiss::error status{gneiss::error::internal};
 };
 
 struct project_manager_state final {
-  engine::task_scheduler scheduler{{.workers = 1U}};
-  engine::task_scope scope{scheduler.make_scope()};
+  gneiss::tasks::task_scheduler scheduler{{.workers = 1U}};
+  gneiss::tasks::task_scope scope{scheduler.make_scope()};
   std::shared_ptr<project_job_result> pending;
   bool closing{};
   runtime::application* application{};
@@ -47,7 +47,7 @@ struct project_manager_state final {
   std::array<char, 256> create_name{};
   std::filesystem::path state_file;
   std::vector<editor_project> recent_projects;
-  gneiss::engine::error operation = gneiss::engine::error::success;
+  gneiss::error operation = gneiss::error::success;
   bool selected = false;
 };
 
@@ -71,24 +71,24 @@ void set_create_path(project_manager_state& state, const std::filesystem::path& 
   state.create_path[length] = '\0';
 }
 
-gneiss::engine::error select_project(project_manager_state& state, editor_project project) {
+gneiss::error select_project(project_manager_state& state, editor_project project) {
   *state.output = std::move(project);
   state.selected = true;
   state.application->request_exit();
-  return gneiss::engine::error::success;
+  return gneiss::error::success;
 }
 
 // 桌面工程任务拥有输入和结果，不借用 UI 或输出对象；只在主线程采用完成结果。
-engine::error begin_project_job(project_manager_state& state, std::filesystem::path root,
+gneiss::error begin_project_job(project_manager_state& state, std::filesystem::path root,
                                 std::string name = {}) {
   if (state.pending || state.closing)
-    return engine::error::not_ready;
+    return gneiss::error::not_ready;
   auto pending = std::make_shared<project_job_result>();
-  engine::task_handle task;
+  gneiss::tasks::task_handle task;
   const auto submitted = state.scheduler.submit(
       {.name = "工程创建或打开", .scope = state.scope},
       [pending, state_file = state.state_file, root = std::move(root),
-       name = std::move(name)](const engine::task_context&) {
+       name = std::move(name)](const gneiss::tasks::task_context&) {
         pending->status = name.empty() ? load_editor_project(root, pending->project)
                                        : create_editor_project(root, name, pending->project);
         if (pending->status.ok()) {
@@ -96,26 +96,26 @@ engine::error begin_project_job(project_manager_state& state, std::filesystem::p
           if (saved.failed())
             std::fprintf(stderr, "最近工程配置保存失败：%d\n", saved.code());
         }
-        return engine::task_outcome{};
+        return gneiss::tasks::task_outcome{};
       },
       task);
-  if (submitted != engine::submit_result::success)
-    return engine::error::internal;
+  if (submitted != gneiss::tasks::submit_result::success)
+    return gneiss::error::internal;
   state.pending = std::move(pending);
-  return engine::error::success;
+  return gneiss::error::success;
 }
 
-gneiss::engine::error update_project_manager(project_manager_state& state,
-                                             const gneiss::engine::frame_time& time) {
+gneiss::error update_project_manager(project_manager_state& state,
+                                             const gneiss::frame_time& time) {
   {
     if (state.pending) {
-      std::vector<engine::task_completion> completed;
+      std::vector<gneiss::tasks::task_completion> completed;
       state.scheduler.poll(state.scope, completed);
       if (!completed.empty()) {
         auto pending = std::exchange(state.pending, {});
-        state.operation = completed.front().outcome.state == engine::task_state::succeeded
+        state.operation = completed.front().outcome.state == gneiss::tasks::task_state::succeeded
                               ? pending->status
-                              : engine::error::internal;
+                              : gneiss::error::internal;
         if (!state.closing && state.operation.ok())
           (void)select_project(state, std::move(pending->project));
       }
@@ -123,7 +123,7 @@ gneiss::engine::error update_project_manager(project_manager_state& state,
     if (state.closing && !state.pending)
       state.application->request_exit();
     auto operation = state.ui.begin_frame(*state.application, time);
-    if (operation != gneiss::engine::error::success) {
+    if (operation != gneiss::error::success) {
       return operation;
     }
 
@@ -165,7 +165,7 @@ gneiss::engine::error update_project_manager(project_manager_state& state,
         if (ImGui::Button("Browse...", ImVec2(118.0F, 0.0F))) {
           std::filesystem::path selected;
           state.operation = select_project_directory(selected);
-          if (state.operation == gneiss::engine::error::success) {
+          if (state.operation == gneiss::error::success) {
             set_path(state, selected);
           }
         }
@@ -188,7 +188,7 @@ gneiss::engine::error update_project_manager(project_manager_state& state,
         if (ImGui::Button("Parent...", ImVec2(118.0F, 0.0F))) {
           std::filesystem::path selected;
           state.operation = select_project_directory(selected);
-          if (state.operation == gneiss::engine::error::success) {
+          if (state.operation == gneiss::error::success) {
             set_create_path(state, selected / "NewProject");
           }
         }
@@ -207,13 +207,13 @@ gneiss::engine::error update_project_manager(project_manager_state& state,
     ImGui::EndDisabled();
     if (state.pending)
       ImGui::TextUnformatted(state.closing ? "正在等待工程任务收尾……" : "正在处理工程……");
-    if (operation != gneiss::engine::error::success) {
+    if (operation != gneiss::error::success) {
       ImGui::EndChild();
       ImGui::End();
       return operation;
     }
-    if (state.operation != gneiss::engine::error::success &&
-        state.operation != gneiss::engine::error::not_ready) {
+    if (state.operation != gneiss::error::success &&
+        state.operation != gneiss::error::not_ready) {
       const auto message = state.operation.message();
       ImGui::TextColored(gneiss::editor::theme_error_color(), "%.*s",
                          static_cast<int>(message.size()), message.data());
@@ -226,20 +226,20 @@ gneiss::engine::error update_project_manager(project_manager_state& state,
 
 } // namespace
 
-gneiss::engine::error run_project_manager(bool smoke, editor_project& output) {
+gneiss::error run_project_manager(bool smoke, editor_project& output) {
   {
     project_manager_state state;
     state.output = &output;
     state.state_file = default_editor_state_path();
     const auto recent_result = load_recent_projects(state.state_file, state.recent_projects);
-    if (recent_result != gneiss::engine::error::success &&
-        recent_result != gneiss::engine::error::invalid_argument) {
+    if (recent_result != gneiss::error::success &&
+        recent_result != gneiss::error::invalid_argument) {
       state.operation = recent_result;
     }
     std::shared_ptr<gneiss::runtime::application> application;
     constexpr std::string_view title = "Gneiss Project Manager";
     gneiss::runtime::application_configuration desc;
-    desc.callbacks.update = [&state](const gneiss::engine::frame_time& time) {
+    desc.callbacks.update = [&state](const gneiss::frame_time& time) {
       return update_project_manager(state, time);
     };
     desc.callbacks.close_requested = [&state] {
@@ -255,8 +255,8 @@ gneiss::engine::error run_project_manager(bool smoke, editor_project& output) {
     desc.window.high_dpi = false;
     auto created = gneiss::runtime::application::create(desc);
     auto operation =
-        created ? gneiss::engine::error{gneiss::engine::error::success} : created.error();
-    if (operation != gneiss::engine::error::success) {
+        created ? gneiss::error{gneiss::error::success} : created.error();
+    if (operation != gneiss::error::success) {
       const auto message = operation.message();
       std::fprintf(
           stderr,
@@ -267,15 +267,15 @@ gneiss::engine::error run_project_manager(bool smoke, editor_project& output) {
     application = std::move(*created);
     state.application = application.get();
     operation = state.ui.initialize(*application);
-    if (operation != gneiss::engine::error::success) {
+    if (operation != gneiss::error::success) {
       const auto message = operation.message();
       std::fprintf(stderr,
                    "Gneiss Editor 启动失败：阶段=Project Manager UI 初始化，结果=%d，消息=%.*s\n",
                    operation.code(), static_cast<int>(message.size()), message.data());
     }
-    if (operation == gneiss::engine::error::success) {
+    if (operation == gneiss::error::success) {
       operation = application->run(smoke ? 3U : 0U);
-      if (operation != gneiss::engine::error::success) {
+      if (operation != gneiss::error::success) {
         const auto message = operation.message();
         std::fprintf(stderr,
                      "Gneiss Editor 运行失败：阶段=Project Manager 事件循环，结果=%d，消息=%.*s\n",
@@ -291,17 +291,17 @@ gneiss::engine::error run_project_manager(bool smoke, editor_project& output) {
     if (closing.ok()) {
       do {
         closing = application->advance_shutdown();
-        if (closing == gneiss::engine::error::not_ready)
+        if (closing == gneiss::error::not_ready)
           std::this_thread::yield();
-      } while (closing == gneiss::engine::error::not_ready);
+      } while (closing == gneiss::error::not_ready);
     }
     if (operation.ok())
       operation = closing;
     application.reset();
-    if (operation != gneiss::engine::error::success) {
+    if (operation != gneiss::error::success) {
       return operation;
     }
-    return state.selected ? gneiss::engine::error::success : gneiss::engine::error::not_ready;
+    return state.selected ? gneiss::error::success : gneiss::error::not_ready;
   }
 }
 

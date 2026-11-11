@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
-namespace gneiss::engine {
+namespace gneiss {
 enum class fatal_reason { out_of_memory, unhandled_exception };
 /** 尽力输出固定诊断后终止进程；不分配内存、不调用日志或用户回调，不承诺析构。 */
 [[noreturn]] void fatal(fatal_reason reason) noexcept;

@@ -7,7 +7,7 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/serialization/policy.hpp"
 #include <future>
-namespace e = gneiss::engine;
+namespace e = gneiss;
 namespace m = e::meta;
 struct object_padding {
   virtual ~object_padding() = default;
@@ -48,7 +48,7 @@ bool object_values() {
   }
 
   auto registry = m::create_registry();
-  if (!registry || gneiss::engine::serialization::register_builtin_types(*registry).failed() ||
+  if (!registry || gneiss::serialization::register_builtin_types(*registry).failed() ||
       m::registration::type<shared_probe>(*registry)
           .property<&shared_probe::number>(m::property_id{1}, "number")
           .property<&shared_probe::nested>(m::property_id{2}, "nested")
@@ -107,18 +107,18 @@ bool object_values() {
     return false;
   // value 对象按内容恢复独立对象，普通 ref 的内联序列化仍有效。
   holder.another = copy;
-  auto file = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::write_context{*registry}, holder);
-  auto encoded_value = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::write_context{*registry}, copy);
-  auto encoded_empty = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::write_context{*registry}, empty);
+  auto file = gneiss::serialization::json::encode_bytes(
+      gneiss::serialization::write_context{*registry}, holder);
+  auto encoded_value = gneiss::serialization::json::encode_bytes(
+      gneiss::serialization::write_context{*registry}, copy);
+  auto encoded_empty = gneiss::serialization::json::encode_bytes(
+      gneiss::serialization::write_context{*registry}, empty);
   if (!file || !encoded_value || !encoded_empty || m::valid_scalar(copy))
     return false;
-  auto restored = gneiss::engine::serialization::json::decode<e::value>(
-      gneiss::engine::serialization::read_context{*registry}, *encoded_value);
-  auto restored_empty = gneiss::engine::serialization::json::decode<e::value>(
-      gneiss::engine::serialization::read_context{*registry}, *encoded_empty);
+  auto restored = gneiss::serialization::json::decode<e::value>(
+      gneiss::serialization::read_context{*registry}, *encoded_value);
+  auto restored_empty = gneiss::serialization::json::decode<e::value>(
+      gneiss::serialization::read_context{*registry}, *encoded_empty);
   if (!restored || !restored_empty || *restored_empty != empty)
     return false;
   auto restored_owner = std::get<e::ref<m::object>>(restored->payload);
@@ -126,16 +126,16 @@ bool object_values() {
   if (!restored_probe || restored_probe->number != 19 || restored_owner == owner)
     return false;
   holder.item->nested = copy;
-  auto cycle = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::write_context{*registry}, copy);
+  auto cycle = gneiss::serialization::json::encode_bytes(
+      gneiss::serialization::write_context{*registry}, copy);
   holder.item->nested = e::value{true};
   if (cycle || cycle.error().error != e::error::invalid_argument)
     return false;
   auto malformed = [&](std::string tag) {
     const std::string json =
         "{\"$kind\":\"object\",\"$content\":{\"$type_guid\":\"" + tag + "\",\"$content\":{}}}";
-    return gneiss::engine::serialization::json::decode<e::value>(
-        gneiss::engine::serialization::read_context{*registry},
+    return gneiss::serialization::json::decode<e::value>(
+        gneiss::serialization::read_context{*registry},
         std::as_bytes(std::span{json.data(), json.size()}));
   };
   auto unknown = malformed(unrelated_probe::type_guid.string());
@@ -143,12 +143,12 @@ bool object_values() {
   if (unknown || unknown.error().error != e::error::not_found || wrong_type ||
       wrong_type.error().error != e::error::unsupported)
     return false;
-  auto unregistered = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::write_context{*registry}, wrong);
+  auto unregistered = gneiss::serialization::json::encode_bytes(
+      gneiss::serialization::write_context{*registry}, wrong);
   if (unregistered || unregistered.error().error != e::error::not_found)
     return false;
-  auto decoded = gneiss::engine::serialization::json::decode<shared_holder>(
-      gneiss::engine::serialization::read_context{*registry}, *file);
+  auto decoded = gneiss::serialization::json::decode<shared_holder>(
+      gneiss::serialization::read_context{*registry}, *file);
   if (!decoded || !decoded->item || decoded->item->number != 19 || decoded->item == holder.item)
     return false;
   const auto duplicate = std::get<e::ref<m::object>>(decoded->another.payload);
@@ -160,8 +160,8 @@ bool object_values() {
     deep = "{\"$kind\":\"object\",\"$content\":{\"$type_guid\":\"" +
            shared_probe::type_guid.string() + "\",\"$content\":{\"number\":1,\"nested\":" + deep +
            "}}}";
-  auto too_deep = gneiss::engine::serialization::json::decode<e::value>(
-      gneiss::engine::serialization::read_context{*registry},
+  auto too_deep = gneiss::serialization::json::decode<e::value>(
+      gneiss::serialization::read_context{*registry},
       std::as_bytes(std::span{deep.data(), deep.size()}));
   return !too_deep && too_deep.error().error == e::error::invalid_argument;
 }
@@ -534,28 +534,28 @@ bool reference_properties() {
       copied_view->reset().failed() || copied || !owner.target)
     return false;
   // 引用按值内联保存；文件内重复引用与再次加载均产生独立对象。
-  auto encoded = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::write_context{registry}, owner);
+  auto encoded = gneiss::serialization::json::encode_bytes(
+      gneiss::serialization::write_context{registry}, owner);
   if (!encoded)
     return false;
-  auto restored = gneiss::engine::serialization::json::decode<reference_owner>(
-      gneiss::engine::serialization::read_context{registry}, *encoded);
-  auto independent = gneiss::engine::serialization::json::decode<reference_owner>(
-      gneiss::engine::serialization::read_context{registry}, *encoded);
+  auto restored = gneiss::serialization::json::decode<reference_owner>(
+      gneiss::serialization::read_context{registry}, *encoded);
+  auto independent = gneiss::serialization::json::decode<reference_owner>(
+      gneiss::serialization::read_context{registry}, *encoded);
   if (!restored || !independent || !restored->target ||
       restored->target.get() == restored->readonly.get() || restored->target->number != 42 ||
       restored->target.get() == independent->target.get())
     return false;
   target->next = target;
-  auto cycle = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::write_context{registry}, owner);
+  auto cycle = gneiss::serialization::json::encode_bytes(
+      gneiss::serialization::write_context{registry}, owner);
   target->next.reset();
   if (cycle || cycle.error().error != e::error::invalid_argument)
     return false;
   const auto bad = [&](std::string input) {
     const auto before = reference_target::alive;
-    auto result = gneiss::engine::serialization::json::decode<reference_owner>(
-        gneiss::engine::serialization::read_context{registry},
+    auto result = gneiss::serialization::json::decode<reference_owner>(
+        gneiss::serialization::read_context{registry},
         std::as_bytes(std::span{input.data(), input.size()}));
     return !result && reference_target::alive == before;
   };
@@ -569,8 +569,8 @@ bool reference_properties() {
       encoded_text.find("$type_guid") != std::string_view::npos)
     return false;
   const std::string input = R"({"target":null,"readonly":null})";
-  auto decoded = gneiss::engine::serialization::json::decode<reference_owner>(
-      gneiss::engine::serialization::read_context{registry},
+  auto decoded = gneiss::serialization::json::decode<reference_owner>(
+      gneiss::serialization::read_context{registry},
       std::as_bytes(std::span{input.data(), input.size()}));
   if (!decoded || decoded->target || decoded->readonly)
     return false;
@@ -606,7 +606,7 @@ bool polymorphic_references() {
     return false;
   auto registry = *created;
   if (m::registration::type<polymorphic_base>(registry)
-          .metadata(gneiss::engine::serialization::reference_policy{.polymorphic = true})
+          .metadata(gneiss::serialization::reference_policy{.polymorphic = true})
           .commit()
           .failed() ||
       m::registration::type<polymorphic_child>(registry)
@@ -646,12 +646,12 @@ bool polymorphic_references() {
   auto input = e::make_ref<polymorphic_child>();
   input->number = 42;
   e::ref<const polymorphic_base> original = input;
-  auto encoded = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::write_context{registry}, original);
+  auto encoded = gneiss::serialization::json::encode_bytes(
+      gneiss::serialization::write_context{registry}, original);
   if (!encoded)
     return false;
-  auto decoded = gneiss::engine::serialization::json::decode<e::ref<const polymorphic_base>>(
-      gneiss::engine::serialization::read_context{registry}, *encoded);
+  auto decoded = gneiss::serialization::json::decode<e::ref<const polymorphic_base>>(
+      gneiss::serialization::read_context{registry}, *encoded);
   if (!decoded || !*decoded ||
       (*decoded)->dynamic_type().id() != e::runtime_type_of<polymorphic_child>() ||
       (*decoded).get() == original.get() ||
@@ -669,29 +669,29 @@ bool polymorphic_references() {
   if (position == std::string::npos)
     return false;
   text.replace(position, 36, reference_target::type_guid.string());
-  auto unrelated = gneiss::engine::serialization::json::decode<e::ref<const polymorphic_base>>(
-      gneiss::engine::serialization::read_context{registry},
+  auto unrelated = gneiss::serialization::json::decode<e::ref<const polymorphic_base>>(
+      gneiss::serialization::read_context{registry},
       std::as_bytes(std::span{text.data(), text.size()}));
   if (unrelated)
     return false;
   text.replace(position, 36, e::guid::from_bytes({94, 99}).string());
-  auto unknown = gneiss::engine::serialization::json::decode<e::ref<const polymorphic_base>>(
-      gneiss::engine::serialization::read_context{registry},
+  auto unknown = gneiss::serialization::json::decode<e::ref<const polymorphic_base>>(
+      gneiss::serialization::read_context{registry},
       std::as_bytes(std::span{text.data(), text.size()}));
   if (unknown || unknown.error().error != e::error::not_found)
     return false;
   auto before = original.get();
   auto destination = m::view(registry, original);
   if (!destination ||
-      gneiss::engine::serialization::json::read_into(
-          gneiss::engine::serialization::read_context{registry}, *destination,
+      gneiss::serialization::json::read_into(
+          gneiss::serialization::read_context{registry}, *destination,
           std::as_bytes(std::span{text.data(), text.size()}))
           .has_value() ||
       original.get() != before)
     return false;
   e::ref<polymorphic_child> concrete = e::make_ref<polymorphic_child>();
-  auto concrete_bytes = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::write_context{registry}, concrete);
+  auto concrete_bytes = gneiss::serialization::json::encode_bytes(
+      gneiss::serialization::write_context{registry}, concrete);
   if (!concrete_bytes)
     return false;
   const std::string_view concrete_text{reinterpret_cast<const char*>(concrete_bytes->data()),
@@ -699,22 +699,22 @@ bool polymorphic_references() {
   if (concrete_text.find("$type_guid") != std::string_view::npos)
     return false;
   std::vector<e::ref<const polymorphic_base>> repeated{original, original};
-  auto repeated_bytes = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::write_context{registry}, repeated);
+  auto repeated_bytes = gneiss::serialization::json::encode_bytes(
+      gneiss::serialization::write_context{registry}, repeated);
   if (!repeated_bytes)
     return false;
-  auto repeated_copy = gneiss::engine::serialization::json::decode<decltype(repeated)>(
-      gneiss::engine::serialization::read_context{registry}, *repeated_bytes);
+  auto repeated_copy = gneiss::serialization::json::decode<decltype(repeated)>(
+      gneiss::serialization::read_context{registry}, *repeated_bytes);
   if (!repeated_copy || repeated_copy->size() != 2 || !(*repeated_copy)[0] ||
       !(*repeated_copy)[1] || (*repeated_copy)[0].get() == (*repeated_copy)[1].get())
     return false;
   e::ref<const polymorphic_base> empty;
-  auto null = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::write_context{registry}, empty);
+  auto null = gneiss::serialization::json::encode_bytes(
+      gneiss::serialization::write_context{registry}, empty);
   if (!null)
     return false;
-  auto restored_null = gneiss::engine::serialization::json::decode<e::ref<const polymorphic_base>>(
-      gneiss::engine::serialization::read_context{registry}, *null);
+  auto restored_null = gneiss::serialization::json::decode<e::ref<const polymorphic_base>>(
+      gneiss::serialization::read_context{registry}, *null);
   return restored_null && !*restored_null;
 }
 struct checked_value {
@@ -774,8 +774,8 @@ bool bound_property_contract() {
       !values->as_const().as_sequence() || !child->as_const().member("number"))
     return false;
   auto decode = [&](const m::instance& target, std::string_view json) {
-    return gneiss::engine::serialization::json::read_into(
-        gneiss::engine::serialization::read_context{*registry}, target,
+    return gneiss::serialization::json::read_into(
+        gneiss::serialization::read_context{*registry}, target,
         std::as_bytes(std::span{json.data(), json.size()}));
   };
   auto invalid = decode(*values, "[2,\"bad\"]");
@@ -802,12 +802,12 @@ bool bound_property_contract() {
   std::vector<float> wrong{1};
   if (values->assign(*m::view(*registry, std::as_const(wrong))) != e::error::invalid_argument)
     return false;
-  auto encoded = gneiss::engine::serialization::json::encode_bytes(
-      gneiss::engine::serialization::write_context{*registry}, object);
+  auto encoded = gneiss::serialization::json::encode_bytes(
+      gneiss::serialization::write_context{*registry}, object);
   if (!encoded)
     return false;
-  auto copy = gneiss::engine::serialization::json::decode<bound_properties>(
-      gneiss::engine::serialization::read_context{*registry}, *encoded);
+  auto copy = gneiss::serialization::json::decode<bound_properties>(
+      gneiss::serialization::read_context{*registry}, *encoded);
   return copy && copy->values == object.values && copy->child.number == object.child.number;
 }
 struct property_child : offset_base, m::object_type<property_child, shared_probe> {

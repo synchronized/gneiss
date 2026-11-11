@@ -27,7 +27,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace gneiss::engine::detail {
+namespace gneiss::detail {
 
 asset_construction::asset_construction(render_service& render)
     : render_(render), retirement_(&render) {}
@@ -39,22 +39,22 @@ template <typename T> std::shared_ptr<T> asset_construction::make(rid handle) {
     auto* render = static_cast<render_service*>(owner);
     if (!render)
       return;
-    if constexpr (std::is_same_v<T, engine::mesh>) {
+    if constexpr (std::is_same_v<T, gneiss::mesh>) {
       if (render->mesh_status(handle) != error::invalid_handle)
         (void)render->destroy_mesh(handle);
-    } else if constexpr (std::is_same_v<T, engine::texture>) {
+    } else if constexpr (std::is_same_v<T, gneiss::texture>) {
       if (render->texture_status(handle) != error::invalid_handle)
         (void)render->destroy_texture(handle);
-    } else if constexpr (std::is_same_v<T, engine::material>) {
+    } else if constexpr (std::is_same_v<T, gneiss::material>) {
       if (render->material_status(handle) != error::invalid_handle)
         (void)render->destroy_material(handle);
     }
   };
-  if constexpr (std::is_same_v<T, engine::mesh>)
+  if constexpr (std::is_same_v<T, gneiss::mesh>)
     return detail::mesh_resource_access::make(retirement_, finalize, handle);
-  else if constexpr (std::is_same_v<T, engine::texture>)
+  else if constexpr (std::is_same_v<T, gneiss::texture>)
     return detail::texture_resource_access::make(retirement_, finalize, handle);
-  else if constexpr (std::is_same_v<T, engine::material>)
+  else if constexpr (std::is_same_v<T, gneiss::material>)
     return detail::material_resource_access::make(retirement_, finalize, handle);
 }
 
@@ -77,31 +77,31 @@ void asset_construction::close() noexcept {
   materials_.clear();
 }
 
-ref<const engine::mesh> asset_construction::wrap_mesh(rid handle) {
+ref<const gneiss::mesh> asset_construction::wrap_mesh(rid handle) {
   // 这里只接收本服务刚创建的 RID；先分配索引，再构造拥有者。
   const auto entry = meshes_.try_emplace(handle).first;
-  auto value = make<engine::mesh>(handle);
+  auto value = make<gneiss::mesh>(handle);
   entry->second = value;
   if (const auto* data = render_.get_mesh(handle))
     update_mesh(handle, *data);
-  return ref<const engine::mesh>{std::move(value)};
+  return ref<const gneiss::mesh>{std::move(value)};
 }
 
-ref<const engine::texture> asset_construction::wrap_texture(rid handle) {
+ref<const gneiss::texture> asset_construction::wrap_texture(rid handle) {
   // 这里只接收本服务刚创建的 RID；先分配索引，再构造拥有者。
   const auto entry = textures_.try_emplace(handle).first;
-  auto value = make<engine::texture>(handle);
+  auto value = make<gneiss::texture>(handle);
   entry->second = value;
   if (const auto* data = render_.get_texture(handle))
     update_texture(handle, *data);
-  return ref<const engine::texture>{std::move(value)};
+  return ref<const gneiss::texture>{std::move(value)};
 }
 
-ref<const engine::material> asset_construction::wrap_material(rid handle) {
+ref<const gneiss::material> asset_construction::wrap_material(rid handle) {
   const auto entry = materials_.try_emplace(handle).first;
-  auto value = make<engine::material>(handle);
+  auto value = make<gneiss::material>(handle);
   entry->second = value;
-  return ref<const engine::material>{std::move(value)};
+  return ref<const gneiss::material>{std::move(value)};
 }
 
 void asset_construction::update_mesh(rid handle, const mesh_data& data) {
@@ -134,11 +134,11 @@ template <typename Ref, typename Create> result<Ref> asset_construction::create(
     return created.error();
   const auto handle = *created;
   auto cleanup = [&] {
-    if constexpr (std::is_same_v<Ref, ref<const engine::mesh>>) {
+    if constexpr (std::is_same_v<Ref, ref<const gneiss::mesh>>) {
       if (render_.mesh_status(handle) != error::invalid_handle)
         (void)render_.destroy_mesh(handle);
       meshes_.erase(handle);
-    } else if constexpr (std::is_same_v<Ref, ref<const engine::texture>>) {
+    } else if constexpr (std::is_same_v<Ref, ref<const gneiss::texture>>) {
       if (render_.texture_status(handle) != error::invalid_handle)
         (void)render_.destroy_texture(handle);
       textures_.erase(handle);
@@ -149,9 +149,9 @@ template <typename Ref, typename Create> result<Ref> asset_construction::create(
     }
   };
   try {
-    if constexpr (std::is_same_v<Ref, ref<const engine::mesh>>)
+    if constexpr (std::is_same_v<Ref, ref<const gneiss::mesh>>)
       return wrap_mesh(handle);
-    else if constexpr (std::is_same_v<Ref, ref<const engine::texture>>)
+    else if constexpr (std::is_same_v<Ref, ref<const gneiss::texture>>)
       return wrap_texture(handle);
     else
       return wrap_material(handle);
@@ -161,18 +161,18 @@ template <typename Ref, typename Create> result<Ref> asset_construction::create(
   }
 }
 
-result<ref<const engine::mesh>> asset_construction::reserve_mesh() {
-  return create<ref<const engine::mesh>>([&] { return render_.reserve_mesh(); });
+result<ref<const gneiss::mesh>> asset_construction::reserve_mesh() {
+  return create<ref<const gneiss::mesh>>([&] { return render_.reserve_mesh(); });
 }
 
-result<ref<const engine::texture>> asset_construction::reserve_texture() {
-  return create<ref<const engine::texture>>([&] { return render_.reserve_texture(); });
+result<ref<const gneiss::texture>> asset_construction::reserve_texture() {
+  return create<ref<const gneiss::texture>>([&] { return render_.reserve_texture(); });
 }
 
-result<ref<const engine::material>> asset_construction::reserve_material() {
-  return create<ref<const engine::material>>([&] { return render_.reserve_material(); });
+result<ref<const gneiss::material>> asset_construction::reserve_material() {
+  return create<ref<const gneiss::material>>([&] { return render_.reserve_material(); });
 }
-result<ref<const engine::mesh>> asset_construction::create_mesh(const mesh_view& desc) {
+result<ref<const gneiss::mesh>> asset_construction::create_mesh(const mesh_view& desc) {
   if (closed_)
     return error::invalid_state;
   auto data = render_.prepare_mesh_data(desc);
@@ -186,7 +186,7 @@ result<ref<const engine::mesh>> asset_construction::create_mesh(const mesh_view&
   return output;
 }
 
-result<ref<const engine::texture>> asset_construction::create_texture(const texture_view& desc) {
+result<ref<const gneiss::texture>> asset_construction::create_texture(const texture_view& desc) {
   if (closed_)
     return error::invalid_state;
   auto data = render_.prepare_texture_data(desc);
@@ -200,9 +200,9 @@ result<ref<const engine::texture>> asset_construction::create_texture(const text
   return output;
 }
 
-result<ref<const engine::material>>
+result<ref<const gneiss::material>>
 asset_construction::create_material(const material_parameters& parameters,
-                                    std::array<ref<const engine::texture>, 5> dependencies) {
+                                    std::array<ref<const gneiss::texture>, 5> dependencies) {
   auto data = prepare_material(parameters, dependencies);
   if (!data)
     return data.error();
@@ -216,7 +216,7 @@ asset_construction::create_material(const material_parameters& parameters,
 
 result<std::shared_ptr<const material_data>> asset_construction::prepare_material(
     const material_parameters& parameters,
-    const std::array<ref<const engine::texture>, 5>& dependencies) {
+    const std::array<ref<const gneiss::texture>, 5>& dependencies) {
   if (closed_)
     return error::invalid_state;
   material_data data{.parameters = parameters};
@@ -229,20 +229,20 @@ result<std::shared_ptr<const material_data>> asset_construction::prepare_materia
   return render_.prepare_material_data(data);
 }
 
-ref<const engine::mesh> asset_construction::find_mesh(rid handle) const noexcept {
+ref<const gneiss::mesh> asset_construction::find_mesh(rid handle) const noexcept {
   if (closed_ || render_.mesh_status(handle) == error::invalid_handle)
     return {};
   const auto found = meshes_.find(handle);
-  return found == meshes_.end() ? ref<const engine::mesh>{}
-                                : ref<const engine::mesh>{found->second.lock()};
+  return found == meshes_.end() ? ref<const gneiss::mesh>{}
+                                : ref<const gneiss::mesh>{found->second.lock()};
 }
 
-ref<const engine::material> asset_construction::find_material(rid handle) const noexcept {
+ref<const gneiss::material> asset_construction::find_material(rid handle) const noexcept {
   if (closed_ || render_.material_status(handle) == error::invalid_handle)
     return {};
   const auto found = materials_.find(handle);
-  return found == materials_.end() ? ref<const engine::material>{}
-                                   : ref<const engine::material>{found->second.lock()};
+  return found == materials_.end() ? ref<const gneiss::material>{}
+                                   : ref<const gneiss::material>{found->second.lock()};
 }
 
 std::size_t asset_construction::drain() noexcept {
@@ -261,15 +261,15 @@ std::size_t asset_construction::drain() noexcept {
   return count;
 }
 
-ref<const engine::texture> asset_construction::find_texture(rid handle) const noexcept {
+ref<const gneiss::texture> asset_construction::find_texture(rid handle) const noexcept {
   if (closed_ || render_.texture_status(handle) == error::invalid_handle)
     return {};
   const auto found = textures_.find(handle);
-  return found == textures_.end() ? ref<const engine::texture>{}
-                                  : ref<const engine::texture>{found->second.lock()};
+  return found == textures_.end() ? ref<const gneiss::texture>{}
+                                  : ref<const gneiss::texture>{found->second.lock()};
 }
 
-bool asset_construction::update_mesh(const ref<const engine::mesh>& target,
+bool asset_construction::update_mesh(const ref<const gneiss::mesh>& target,
                                      std::shared_ptr<const mesh_data> data) {
   if (closed_ || !target || !data)
     return false;
@@ -283,7 +283,7 @@ bool asset_construction::update_mesh(const ref<const engine::mesh>& target,
   return true;
 }
 
-bool asset_construction::update_texture(const ref<const engine::texture>& target,
+bool asset_construction::update_texture(const ref<const gneiss::texture>& target,
                                         std::shared_ptr<const texture_data> data) {
   if (closed_ || !target || !data)
     return false;
@@ -297,9 +297,9 @@ bool asset_construction::update_texture(const ref<const engine::texture>& target
   return true;
 }
 
-bool asset_construction::update_material(const ref<const engine::material>& target,
+bool asset_construction::update_material(const ref<const gneiss::material>& target,
                                          std::shared_ptr<const material_data> data,
-                                         std::array<ref<const engine::texture>, 5> dependencies) {
+                                         std::array<ref<const gneiss::texture>, 5> dependencies) {
   if (closed_ || !target || !data)
     return false;
   const auto handle = resource_handle(target);
@@ -333,4 +333,4 @@ error asset_construction::validate_sources(asset_manager& assets,
   return error::success;
 }
 
-} // namespace gneiss::engine::detail
+} // namespace gneiss::detail
