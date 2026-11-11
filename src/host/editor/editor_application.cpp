@@ -4,8 +4,8 @@
 #include "editor_application.hpp"
 #include "components/component_registration.hpp"
 #include "engine/core/fatal.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/world.hpp"
@@ -1061,7 +1061,7 @@ void draw_component_descriptions(editor_state& state) {
     return *view;
   };
   auto transform_source = source_view(source_transform ? &source_object->transform : nullptr);
-  identity.component_type = transform_component_type;
+  identity.component_type = math::transform::type_guid;
   const auto ordinary = state.editing.document().query_node(node_id);
   const auto prefab_node = state.editing.document().query_prefab_node(node_id);
   if (!ordinary && !prefab_node) {
@@ -2724,14 +2724,14 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
         const auto current =
             state.editing.document().find_prefab_source(instance_uuid, source_uuid);
         const bool has_override =
-            bool(current) && current->has_overrides(gneiss::engine::transform_component_type);
+            bool(current) && current->has_overrides(gneiss::engine::math::transform::type_guid);
         ImGui::BeginDisabled(!has_override);
         const bool restore_all = ImGui::Button("Restore All Transform");
         ImGui::EndDisabled();
         if (restore_all && current) {
           using namespace gneiss::engine;
-          state.history_error =
-              restore_prefab_component(state, instance_uuid, source_uuid, transform_component_type);
+          state.history_error = restore_prefab_component(state, instance_uuid, source_uuid,
+                                                         math::transform::type_guid);
         }
       } else {
         const auto instance_uuid = prefab->instance_uuid;

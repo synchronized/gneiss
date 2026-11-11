@@ -3,20 +3,20 @@
 #pragma once
 #include "commands/author_document_change.hpp"
 #include "engine/function/scene/composition.hpp"
-#include "engine/function/scene/scene_mesh_binding.hpp"
 #include "engine/resource/prefab.hpp"
 #include "engine/resource/scene.hpp"
 #include "engine/resource/scene/scene_record.hpp"
+#include "mesh_binding.hpp"
 #include <map>
 #include <span>
 #include <string>
 namespace gneiss::editor {
 /** 子树历史保活的实际资源；按文档对象 UUID 关联，不保存运行节点。 */
 struct scene_object_resources {
-  engine::scene_mesh_binding renderer;
+  scene_mesh_binding renderer;
   engine::prefab_record prefab_content;
   [[nodiscard]] engine::result<engine::prefab_asset_ref> prefab_source() const;
-  std::vector<engine::scene_mesh_binding> source_nodes;
+  std::vector<scene_mesh_binding> source_nodes;
   engine::ref<const engine::prefab> source_asset;
 };
 /** 文档子树快照：只冻结描述和值，不捕获 ECS 或运行对象身份。 */

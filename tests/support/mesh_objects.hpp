@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "editor/documents/mesh_binding.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/component_registration.hpp"
 #include "engine/function/scene/components.hpp"
-#include "engine/function/scene/scene_mesh_binding.hpp"
 namespace gneiss::test_support {
 inline engine::result<engine::game_object> mesh_target(engine::world& owner,
                                                        scene_instance_id scene, entity_id id) {
@@ -21,15 +21,15 @@ inline engine::result<engine::game_object> mesh_target(engine::world& owner,
     return engine::error::invalid_handle;
   return *object;
 }
-inline engine::result<engine::scene_mesh_binding> read_mesh(engine::world& owner,
+inline engine::result<editor::scene_mesh_binding> read_mesh(engine::world& owner,
                                                             scene_instance_id scene, entity_id id) {
   auto object = mesh_target(owner, scene, id);
   if (!object)
     return object.error();
   auto component = object->try_component<engine::mesh_renderer_component>();
   if (!component)
-    return engine::scene_mesh_binding{};
-  return engine::scene_mesh_binding{component->value.mesh, component->value.material};
+    return editor::scene_mesh_binding{};
+  return editor::scene_mesh_binding{component->value.mesh, component->value.material};
 }
 // 测试编排：显式查询缓存，再通过对象接口写入；不提供旧 expected/事务协议。
 inline engine::error assign_mesh(engine::world& owner, engine::asset_manager& assets,
@@ -65,7 +65,7 @@ struct mesh_fixture {
 };
 inline engine::result<entity_id> spawn_mesh(engine::world& owner, engine::asset_manager& assets,
                                             scene_instance_id scene, const mesh_fixture& fixture,
-                                            const engine::scene_mesh_binding* retained = nullptr) {
+                                            const editor::scene_mesh_binding* retained = nullptr) {
   auto destination = engine::scene_instance::borrow(owner, scene);
   if (!destination)
     return destination.error();

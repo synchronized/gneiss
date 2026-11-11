@@ -133,7 +133,7 @@ void visual_failure(gneiss::engine::execution_mode mode, bool missing_texture = 
                 completion.objects,
                 *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000002")),
             node) == gneiss::engine::error::success);
-  gneiss::engine::scene_mesh_binding binding;
+  gneiss::editor::scene_mesh_binding binding;
   check(gneiss::test_support::take_value(
             gneiss::test_support::read_mesh(*app->native_world(), completion.scene, node),
             binding) == gneiss::engine::error::success);
@@ -457,7 +457,7 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
     check(gneiss::test_support::take_value(
               gneiss::test_support::scene_access{*app}->find_node(completion.objects, uuid),
               node) == gneiss::engine::error::success);
-    gneiss::engine::scene_mesh_binding value;
+    gneiss::editor::scene_mesh_binding value;
     check(gneiss::test_support::take_value(
               gneiss::test_support::read_mesh(*app->native_world(), completion.scene, node),
               value) == gneiss::engine::error::success);

@@ -199,7 +199,7 @@ int main() try {
     return 9;
   }
   editor_asset_edit removal;
-  engine::scene_mesh_binding removed_binding, restored_binding;
+  editor::scene_mesh_binding removed_binding, restored_binding;
   if (gneiss::test_support::take_value(session.capture_mesh_binding(session.find_node(uuid)->node),
                                        removed_binding)
           .failed() ||
@@ -217,7 +217,7 @@ int main() try {
       run_history(true).failed())
     return 12;
   history.clear();
-  engine::scene_mesh_binding before, after;
+  editor::scene_mesh_binding before, after;
   scene_subtree_snapshot snapshot;
   entity_id restored;
   if (gneiss::test_support::take_value(session.capture_mesh_binding(session.find_node(uuid)->node),
@@ -257,7 +257,7 @@ int main() try {
           .failed() ||
       history.undo().failed())
     return 21;
-  engine::scene_mesh_binding restored_source;
+  editor::scene_mesh_binding restored_source;
   if (gneiss::test_support::take_value(
           session.capture_mesh_binding(session.find_prefab_root(mesh_instance.uuid)->node),
           restored_source)

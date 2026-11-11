@@ -130,6 +130,8 @@ add_library(
   documents/document_patch.hpp
   documents/scene_projection.cpp
   documents/scene_projection.hpp
+  documents/prefab_edit.cpp
+  documents/prefab_edit.hpp
   documents/scene_edit_session.cpp
   documents/scene_edit_session.hpp
   documents/scene_document_edit.cpp

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/guid.hpp"
-#include "engine/function/scene/component_identity.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 #include "runtime_process.hpp"
 
 #include "engine/core/rid.hpp"
@@ -125,7 +125,7 @@ gneiss::editor::runtime_property_key transform_key(const gneiss::editor::runtime
                                                    std::uint32_t field_id) {
   gneiss::editor::runtime_property_key key{
       .object = {node.id.value, node.id.generation}, .type_id = {}, .field_id = field_id};
-  const auto type_id = gneiss::engine::transform_component_type;
+  const auto type_id = gneiss::engine::math::transform::type_guid;
   std::ranges::copy(type_id.bytes(), key.type_id.begin());
   return key;
 }
@@ -339,9 +339,9 @@ int main() try {
     return report_failure(process, 2);
   }
   const auto running_edit_key =
-      transform_key(*running_root, gneiss::engine::transform_translation_field.get());
+      transform_key(*running_root, gneiss::engine::meta::transform_translation_field.get());
   const auto rotation_edit_key =
-      transform_key(*running_root, gneiss::engine::transform_rotation_field.get());
+      transform_key(*running_root, gneiss::engine::meta::transform_rotation_field.get());
   if (process.request_property_write(running_edit_key, 1U,
                                      {std::array<float, 3>{0.5F, 0.25F, -0.5F}}) !=
           gneiss::engine::error::success ||
@@ -375,7 +375,7 @@ int main() try {
     return report_failure(process, 3);
   }
   const auto paused_edit_key =
-      transform_key(*paused_root, gneiss::engine::transform_scale_field.get());
+      transform_key(*paused_root, gneiss::engine::meta::transform_scale_field.get());
   if (process.request_property_write(paused_edit_key, 1U,
                                      {std::array<float, 3>{1.1F, 1.1F, 1.1F}}) !=
           gneiss::engine::error::success ||

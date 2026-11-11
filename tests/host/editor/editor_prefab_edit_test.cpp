@@ -7,8 +7,8 @@
 #include "commands/editor_prefab_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/world.hpp"
 #include "runtime/application.hpp"
 #include "runtime/loading/scene_service.hpp"
@@ -422,7 +422,7 @@ void run(gneiss::engine::execution_mode mode) {
     check(session.find_prefab_root(uuid)->local_transform.translation[1] == 7.0F);
     check(session.find_prefab_source(uuid, source_uuid)->local_transform.translation[0] == 17.0F);
     check(session.find_prefab_source(uuid, source_uuid)
-              ->has_overrides(gneiss::engine::transform_component_type));
+              ->has_overrides(gneiss::engine::math::transform::type_guid));
   };
   restore_deleted();
   check(session.find_prefab_root(uuid)->node != root_node);

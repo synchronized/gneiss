@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "commands/editor_asset_edit.hpp"
 #include "commands/prefab_authoring.hpp"
+#include "documents/prefab_edit.hpp"
 #include "documents/scene_document_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/instance.hpp"
@@ -72,7 +73,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
         after.component_uuid = prefab_before_->component_uuid ? prefab_before_->component_uuid
                                                               : engine::guid::generate();
       } else {
-        auto overrides = engine::prepare_mesh_renderer_overrides(
+        auto overrides = prepare_mesh_renderer_overrides(
             target_.source_uuid,
             object->components.identity(engine::mesh_renderer_description::type_guid), *original,
             description);

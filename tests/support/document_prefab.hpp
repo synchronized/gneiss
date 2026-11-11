@@ -6,7 +6,7 @@ namespace gneiss::test_support {
 inline engine::result<entity_id>
 place_document_prefab(editor::scene_edit_session& document, engine::game_object_description author,
                       engine::prefab_asset_ref source,
-                      std::span<const engine::scene_mesh_binding> bindings, bool replacing) {
+                      std::span<const editor::scene_mesh_binding> bindings, bool replacing) {
   gneiss::editor::scene_subtree_snapshot snapshot;
   snapshot.root_uuid = author.uuid;
   snapshot.parent = author.parent;

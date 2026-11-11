@@ -212,7 +212,9 @@ C++ Builder 和 Meta 内置注册入口位于 `meta/registration.hpp`；数学�
 具体文件职责见[反射接口参考](../reference/reflection.md)。
 
 `scene_instance_edit.cpp` 实现普通运行组件的修改，只更新 ECS 与实际资源引用。
-`scene_mesh_binding.hpp` 提供显式网格和材质引用，场景成员不保存编辑历史或作者描述。
+`editor/documents/mesh_binding.hpp` 提供编辑与撤销保活的网格和材质引用；
+`editor/documents/prefab_edit.hpp` 生成 Prefab 编辑候选，引擎保留覆盖校验和运行回放。
+场景成员不保存编辑历史或作者描述。
 
 `scene_composition.cpp` 纯内存组合 Scene/Prefab，输出有效对象、地址和覆盖冲突；
 `scene_application.cpp` 将差异应用为普通 World 成员。`scene_instantiation.cpp`

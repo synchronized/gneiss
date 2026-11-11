@@ -32,7 +32,7 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/serialization/policy.hpp
   engine/core/type_id.hpp
   engine/core/detail/canonical_type_name.hpp
-  engine/function/scene/component_identity.hpp
+  engine/core/meta/transform_properties.hpp
 
   engine/function/scene/scene_types.hpp
 )
@@ -142,7 +142,6 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/scene/prefab_description.hpp
   engine/function/scene/prefab_property_override.hpp
   engine/function/scene/prefab_replay.hpp
-  engine/function/scene/scene_mesh_binding.hpp
   engine/resource/scene/scene_record.hpp
   engine/resource/scene/game_object_description.hpp
   engine/resource/scene/scene_description.hpp

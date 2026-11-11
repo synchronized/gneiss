@@ -87,7 +87,7 @@ void run(gneiss::engine::execution_mode mode) {
         {.path = {engine::meta::property_id{2}}, .data = engine::value{std::string(material)}});
   };
   const auto binding = [&] {
-    gneiss::engine::scene_mesh_binding value;
+    gneiss::editor::scene_mesh_binding value;
     check(gneiss::test_support::take_value(
               session.capture_mesh_binding(session.find_node(uuid)->node), value) ==
           gneiss::engine::error::success);
@@ -337,7 +337,7 @@ void prefab_edits(engine::execution_mode mode) {
   auto root = child;
   root.source_uuid = prefab.root_uuid;
   const auto binding = [&](const editor::component_edit_target& target) {
-    e::scene_mesh_binding result;
+    gneiss::editor::scene_mesh_binding result;
     const auto node = document.find_prefab_source(target.instance_uuid, target.source_uuid);
     check(bool(node));
     check(gneiss::test_support::take_value(document.capture_mesh_binding(node->node), result).ok());
@@ -462,7 +462,7 @@ void prefab_edits(engine::execution_mode mode) {
   check(test_support::open_document(reopened, *reopened_app, reopened_app->native_world(),
                                     "asset://saved.json", &scheduler)
             .ok());
-  e::scene_mesh_binding loaded;
+  gneiss::editor::scene_mesh_binding loaded;
   const auto loaded_child = reopened.find_prefab_source(uuid(5), uuid(3));
   check(bool(loaded_child));
   check(gneiss::test_support::take_value(reopened.capture_mesh_binding(loaded_child->node), loaded)

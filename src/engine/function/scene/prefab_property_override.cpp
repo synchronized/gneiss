@@ -3,11 +3,11 @@
 
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 #include "engine/core/property_edit_policy.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/core/serialization/value.hpp"
 #include "engine/core/utf8.hpp"
-#include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/detail/component_validation.hpp"
 
 #include <algorithm>
@@ -215,7 +215,7 @@ engine::error apply_candidate_object(const prefab_property_override& value,
                                      const engine::value& native, game_object_description& object) {
   auto result = engine::error::success;
   const auto is_type = [&](guid type) { return value.key.target.target_type_guid == type; };
-  if (is_type(transform_component_type)) {
+  if (is_type(math::transform::type_guid)) {
     auto transform = object.transform;
     result = meta::write_property(value.key.target.target_type_guid, value.key.first_property(),
                                   &transform, native);
@@ -297,7 +297,7 @@ error prepare_prefab_reference(const prefab_description& source,
     if (status.failed() || object == candidate.objects.end())
       return fail(status.failed() ? status : error{error::not_found}, key.target.source_node_uuid,
                   key.target.target_type_guid, path, "属性覆盖目标不存在或类型不匹配");
-    if (key.target.target_type_guid != transform_component_type) {
+    if (key.target.target_type_guid != math::transform::type_guid) {
       auto* component =
           object->components.find(component_description_type(key.target.target_type_guid));
       if (!component || !key.target.component_uuid ||
@@ -329,9 +329,9 @@ engine::error prepare_prefab_description(const prefab_description& source,
       return engine::error::not_found;
     }
     if (found->uuid == candidate.root_uuid &&
-        value.key.target.target_type_guid == transform_component_type)
+        value.key.target.target_type_guid == math::transform::type_guid)
       return error::invalid_argument;
-    if (value.key.target.target_type_guid != transform_component_type &&
+    if (value.key.target.target_type_guid != math::transform::type_guid &&
         (!value.key.target.component_uuid ||
          found->components.identity(component_description_type(
              value.key.target.target_type_guid)) != value.key.target.component_uuid))
@@ -380,29 +380,6 @@ engine::error prepare_prefab_description(const prefab_description& source,
   }
   output = std::move(candidate);
   return engine::error::success;
-}
-
-result<std::vector<prefab_property_override>>
-prepare_mesh_renderer_overrides(guid source_node, guid component_uuid,
-                                const mesh_renderer_description& original,
-                                const mesh_renderer_description& replacement,
-                                std::span<const prefab_property_override> existing) {
-  std::vector<prefab_property_override> pending(existing.begin(), existing.end());
-  const std::array originals{original.mesh_uri, original.material_uri};
-  const std::array replacements{replacement.mesh_uri, replacement.material_uri};
-  for (std::size_t i = 0; i < originals.size(); ++i) {
-    auto status = set_prefab_property_override(
-        pending,
-        {.key = {.target = {.source_node_uuid = source_node,
-                            .target_type_guid = mesh_renderer_description::type_guid,
-                            .component_uuid = component_uuid},
-                 .path = {meta::property_id{static_cast<std::uint32_t>(i + 1)}}},
-         .operation = engine::value{replacements[i]}},
-        engine::value{originals[i]});
-    if (status.failed())
-      return status;
-  }
-  return pending;
 }
 
 } // namespace gneiss::engine

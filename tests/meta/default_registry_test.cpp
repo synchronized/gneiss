@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/fatal.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/component_identity.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/input/action_map.hpp"
 #include "engine/resource/material/material_description.hpp"

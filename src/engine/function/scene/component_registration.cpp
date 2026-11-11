@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/scene/component_registration.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 #include "engine/core/property_edit_policy.hpp"
 #include "engine/core/serialization/value.hpp"
 #include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/detail/world_component_access.hpp"
 #include "engine/resource/scene/scene_validation.hpp"
@@ -496,7 +496,7 @@ error edit_runtime_component(component_context context, guid type, meta::propert
 namespace gneiss::engine {
 result<value> read_component_property(world& world, std::uint64_t entity, guid type,
                                       meta::property_id field) {
-  if (type != transform_component_type)
+  if (type != math::transform::type_guid)
     return read_runtime_component(world, entity_id{entity}, type, field);
   auto target = world.object(entity_id{entity});
   if (!target)
@@ -515,7 +515,7 @@ error write_component_property(world& world, std::uint64_t entity, guid type,
   auto target = world.object(entity_id{entity});
   if (!target)
     return target.error();
-  if (type != transform_component_type)
+  if (type != math::transform::type_guid)
     return edit_runtime_component({*target}, type, field, value);
   auto transform = target->local_transform();
   if (!transform)

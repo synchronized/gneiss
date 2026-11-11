@@ -68,7 +68,7 @@ private:
   std::optional<prefab_component_state> prefab_before_{};
   gneiss::engine::error commit(runtime::application& application, scene_edit_session& session,
                                editor_command_history& history);
-  gneiss::engine::scene_mesh_binding previous_, next_;
+  scene_mesh_binding previous_, next_;
   gneiss::scene_instance_id scene_{};
   entity_id node_;
   component_edit_target target_;

@@ -39,7 +39,8 @@ Meta 的类型与函数统一位于 `gneiss::engine::meta`，不保留旧命名�
 | `serialization/policy.hpp` | 内容编解码、引用表示、对象及校验策略 |
 | `serialization/json.hpp` | JSON 文本、字节与对象入口 |
 
-内建组件身份位于 `engine/function/scene/component_identity.hpp`，不属于通用 Meta。
+Transform 类型身份直接使用 `math::transform::type_guid`；其属性标识位于
+`engine/core/meta/transform_properties.hpp`，供数学类型注册和属性路径共用。
 `guid`、`type_id`、`value` 仍是 Core 基础类型，`type_identity` 仍是 traits 定制点。
 
 `engine::guid` 保存 16 字节稳定类型身份，全零无效；`engine::type_id` 是进程内类型编号，

@@ -207,7 +207,7 @@ int main() try {
   reference.uuid = e::guid::from_bytes({86, 3});
   reference.prefab.emplace();
   reference.prefab->uri = "asset://movement.prefab";
-  const std::array<e::scene_mesh_binding, 2> bindings{};
+  const std::array<gneiss::editor::scene_mesh_binding, 2> bindings{};
   gneiss::entity_id prefab_node;
   check(gneiss::test_support::take_value(
             gneiss::test_support::place_document_prefab(

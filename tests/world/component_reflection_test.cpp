@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/serialization/builtin_registration.hpp"
 #include "engine/function/scene/camera_selection.hpp"
-#include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/component_registration.hpp"
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/world.hpp"

@@ -250,7 +250,7 @@ target_sources(
     engine/function/scene/component_registration.cpp
     engine/function/scene/scene_instance.cpp
     engine/function/scene/instantiation.cpp
-    engine/function/scene/component_identity.hpp
+    engine/core/meta/transform_properties.hpp
     engine/function/scene/detail/system_scheduler.cpp
     engine/function/scene/detail/system_scheduler.hpp
     engine/function/scene/game_object.cpp

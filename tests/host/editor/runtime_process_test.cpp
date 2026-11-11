@@ -3,8 +3,8 @@
 
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/component_identity.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 #include "runtime_log_adapter.hpp"
 #include "runtime_process.hpp"
@@ -397,8 +397,8 @@ int main() try {
       .object = {process.scene_mirror().nodes().front().id.value,
                  process.scene_mirror().nodes().front().id.generation},
       .type_id = {},
-      .field_id = gneiss::engine::transform_translation_field.get()};
-  const auto transform_type = gneiss::engine::transform_component_type;
+      .field_id = gneiss::engine::meta::transform_translation_field.get()};
+  const auto transform_type = gneiss::engine::math::transform::type_guid;
   std::ranges::copy(transform_type.bytes(), property_key.type_id.begin());
   if (!process.supports_property_editing() ||
       process.request_property_write(property_key, 1U,
@@ -444,7 +444,7 @@ int main() try {
     return 7;
   }
   auto paused_key = property_key;
-  paused_key.field_id = gneiss::engine::transform_scale_field.get();
+  paused_key.field_id = gneiss::engine::meta::transform_scale_field.get();
   if (process.request_property_write(paused_key, 1U,
                                      {gneiss::engine::math::vector3{1.1F, 1.2F, 1.3F}}) !=
       gneiss::engine::error::success) {

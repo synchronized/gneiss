@@ -9,8 +9,8 @@
 #include "documents/scene_document_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/fatal.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 #include "engine/function/scene/camera_selection.hpp"
-#include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/composition.hpp"
 #include "engine/function/scene/instantiation.hpp"
@@ -119,7 +119,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   author.prefab.emplace();
   author.prefab->uri = "asset://camera.prefab.json";
   gneiss::entity_id prefab_root;
-  const std::array<e::scene_mesh_binding, 2> bindings{};
+  const std::array<gneiss::editor::scene_mesh_binding, 2> bindings{};
   if (gneiss::test_support::take_value(
           gneiss::test_support::place_document_prefab(session, author, e::prefab_asset_ref{source},
                                                       bindings, false),
@@ -165,11 +165,11 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
     return 42;
   ed::component_edit_target root_transform{.instance_uuid = author.uuid,
                                            .source_uuid = source->root_uuid,
-                                           .component_type = e::transform_component_type};
+                                           .component_type = e::math::transform::type_guid};
   auto child_transform = root_transform;
   child_transform.source_uuid = child.uuid;
   ed::editor_command_history root_history, child_history;
-  ed::property_edit translation{.path = {e::transform_translation_field},
+  ed::property_edit translation{.path = {e::meta::transform_translation_field},
                                 .data = e::value{e::math::vector3{5, 0, 0}}};
   if (ed::edit_component_description(session, root_history, world, root_transform, translation, 10)
           .failed() ||
@@ -189,7 +189,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
       child_history.undo().failed() || overrides(snapshot()) != 1 ||
       child_history.redo().failed() || source->objects[1].transform.translation.x != 1)
     return 55;
-  ed::property_edit bad_scale{.path = {e::transform_scale_field},
+  ed::property_edit bad_scale{.path = {e::meta::transform_scale_field},
                               .data = e::value{e::math::vector3{0, 1, 1}}};
   if (ed::edit_component_description(session, child_history, world, child_transform, bad_scale,
                                      12) != e::error::invalid_argument ||
@@ -288,8 +288,8 @@ int main() try {
   };
   const auto edit_x = [&](float next, editor_command_history& target, std::uint64_t serial) {
     component_edit_target identity{.object_uuid = session.selected_node()->uuid,
-                                   .component_type = gneiss::engine::transform_component_type};
-    property_edit edit{.path = {gneiss::engine::transform_translation_field},
+                                   .component_type = gneiss::engine::math::transform::type_guid};
+    property_edit edit{.path = {gneiss::engine::meta::transform_translation_field},
                        .data = gneiss::engine::value{gneiss::engine::math::vector3{next, 0, 0}}};
     return edit_component_description(session, target, *world_handle, identity, edit, serial);
   };
@@ -318,8 +318,8 @@ int main() try {
     return 6;
   }
   component_edit_target identity{.object_uuid = session.selected_node()->uuid,
-                                 .component_type = gneiss::engine::transform_component_type};
-  property_edit invalid{.path = {gneiss::engine::transform_scale_field},
+                                 .component_type = gneiss::engine::math::transform::type_guid};
+  property_edit invalid{.path = {gneiss::engine::meta::transform_scale_field},
                         .data = gneiss::engine::value{gneiss::engine::math::vector3{0, 1, 1}}};
   if (edit_component_description(session, history, *world_handle, identity, invalid, 4) !=
           gneiss::engine::error::invalid_argument ||

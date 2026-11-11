@@ -141,7 +141,7 @@ void run(gneiss::engine::execution_mode mode) {
     check(gneiss::engine::error{gneiss::test_support::take_value(
               gneiss::test_support::scene_access{*app}->get_node_info(scene, index), info)} ==
           gneiss::engine::error::success);
-    gneiss::engine::scene_mesh_binding value;
+    gneiss::editor::scene_mesh_binding value;
     check(gneiss::test_support::take_value(
               gneiss::test_support::read_mesh(*app->native_world(), scene, info.node), value) ==
           gneiss::engine::error::success);

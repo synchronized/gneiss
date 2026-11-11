@@ -5,9 +5,9 @@
 #include "components/component_registration.hpp"
 #include "documents/scene_document_edit.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 #include "engine/core/property_edit_policy.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/world.hpp"
 
 #include "engine/core/meta/instance.hpp"
@@ -179,7 +179,7 @@ engine::error edit_component_description(scene_edit_session& document,
   auto location = locate_component(document, identity);
   if (!location)
     return location.error();
-  if (identity.component_type == transform_component_type) {
+  if (identity.component_type == math::transform::type_guid) {
     auto ordinary = document.query_node(location->first);
     auto prefab = document.query_prefab_node(location->first);
     if (!ordinary && !prefab)

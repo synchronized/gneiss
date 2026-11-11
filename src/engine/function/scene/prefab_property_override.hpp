@@ -44,13 +44,6 @@ set_prefab_property_override(std::vector<prefab_property_override>& overrides,
 /** 在临时目标上应用单条值树操作。 */
 [[nodiscard]] error apply_prefab_override_operation(meta::instance target, const value_operation&);
 
-/** 计算网格组件的 URI 覆盖；保留其他对象/属性记录。失败不改变输入，不访问 World 或资源服务。 */
-[[nodiscard]] GNEISS_API result<std::vector<prefab_property_override>>
-prepare_mesh_renderer_overrides(guid source_node, guid component_uuid,
-                                const mesh_renderer_description& original,
-                                const mesh_renderer_description& replacement,
-                                std::span<const prefab_property_override> existing = {});
-
 } // namespace gneiss::engine
 
 #endif

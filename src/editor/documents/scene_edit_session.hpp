@@ -36,7 +36,7 @@ struct prefab_component_state {
   std::optional<engine::component_description> added{};
   bool removed = false;
   std::vector<engine::prefab_property_override> properties{};
-  engine::scene_mesh_binding resources{};
+  scene_mesh_binding resources{};
   engine::guid component_uuid{};
 };
 
@@ -130,17 +130,15 @@ public:
 
   [[nodiscard]] bool is_open() const noexcept;
   /** 使用已准备资源创建节点；成功后更新选择和脏状态，不加载资产。 */
-  [[nodiscard]] engine::result<entity_id>
-  create_mesh_node(const mesh_node_creation& description,
-                   const engine::scene_mesh_binding& resources);
+  [[nodiscard]] engine::result<entity_id> create_mesh_node(const mesh_node_creation& description,
+                                                           const scene_mesh_binding& resources);
   /** 捕获当前文档节点的资源强引用；文档关闭或应用停止后拒绝调用。 */
-  [[nodiscard]] engine::result<engine::scene_mesh_binding>
-  capture_mesh_binding(entity_id node) const;
+  [[nodiscard]] engine::result<scene_mesh_binding> capture_mesh_binding(entity_id node) const;
   [[nodiscard]] gneiss::scene_instance_id scene_handle() const noexcept { return scene_; }
   /** 替换已准备资源；当前绑定不匹配 expected 时拒绝，成功后标脏，不加载资产。 */
   [[nodiscard]] engine::error replace_mesh_binding(entity_id node,
-                                                   const engine::scene_mesh_binding& expected,
-                                                   const engine::scene_mesh_binding& replacement);
+                                                   const scene_mesh_binding& expected,
+                                                   const scene_mesh_binding& replacement);
   [[nodiscard]] bool is_dirty() const noexcept { return document_ && document_->is_dirty(); }
   [[nodiscard]] std::string_view uri() const noexcept { return uri_; }
   [[nodiscard]] engine::result<scene_node_record> query_node(entity_id node) const;

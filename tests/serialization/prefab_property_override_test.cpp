@@ -3,12 +3,12 @@
 
 #include "../support/movement_component.hpp"
 #include "../support/value_result.hpp"
+#include "editor/documents/prefab_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
-#include "engine/function/scene/prefab_replay.hpp"
 
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/serialization/json.hpp"
@@ -30,8 +30,8 @@ const auto source_b = *gneiss::engine::guid::parse("20000000-0000-4000-8000-0000
 [[nodiscard]] gneiss::engine::prefab_property_override
 make_translation(gneiss::engine::guid source_node, gneiss::engine::math::vector3 value) {
   return {.key = {.target = {.source_node_uuid = source_node,
-                             .target_type_guid = gneiss::engine::transform_component_type},
-                  .path = {gneiss::engine::transform_translation_field}},
+                             .target_type_guid = gneiss::engine::math::transform::type_guid},
+                  .path = {gneiss::engine::meta::transform_translation_field}},
           .operation = gneiss::engine::value{.payload = value}};
 }
 
@@ -319,16 +319,17 @@ int main() {
     const mesh_renderer_description original{"asset://base.mesh", "asset://base.material"};
     const mesh_renderer_description replacement{"asset://next.mesh", "asset://next.material"};
     const std::vector existing{make_translation(source_b, {1, 2, 3})};
-    auto changed =
-        prepare_mesh_renderer_overrides(source_a, source_b, original, replacement, existing);
+    auto changed = gneiss::editor::prepare_mesh_renderer_overrides(source_a, source_b, original,
+                                                                   replacement, existing);
     if (!changed || changed->size() != 3 || existing.size() != 1)
       return 20;
-    auto restored =
-        prepare_mesh_renderer_overrides(source_a, source_b, original, original, *changed);
+    auto restored = gneiss::editor::prepare_mesh_renderer_overrides(source_a, source_b, original,
+                                                                    original, *changed);
     if (!restored || restored->size() != 1 ||
         restored->front().key.target.source_node_uuid != source_b)
       return 21;
-    auto invalid = prepare_mesh_renderer_overrides({}, source_b, original, replacement, existing);
+    auto invalid = gneiss::editor::prepare_mesh_renderer_overrides({}, source_b, original,
+                                                                   replacement, existing);
     if (invalid || invalid.error() != error::invalid_argument || existing.size() != 1)
       return 22;
   }

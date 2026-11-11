@@ -9,7 +9,7 @@
 #error "Application 重新传递包含了具体服务"
 #endif
 #include "commands/author_property_edit.hpp"
-#include "engine/function/scene/component_identity.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 #include "engine/function/scene/world.hpp"
 
 // 与真实宿主使用相同传递依赖；私有头重新泄漏时编译必须失败。

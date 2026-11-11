@@ -3,9 +3,9 @@
 
 #include "panels/runtime_panels.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 #include "engine/core/property_edit_policy.hpp"
 #include "engine/core/serialization/json.hpp"
-#include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "panels/reflected_property_editor.hpp"
 
@@ -52,7 +52,7 @@ void draw_runtime_scene_node(const runtime_scene_mirror& mirror, runtime_scene_s
 runtime_property_key runtime_transform_key(const runtime_scene_node& node, std::uint32_t field_id) {
   runtime_property_key key{
       .object = {node.id.value, node.id.generation}, .type_id = {}, .field_id = field_id};
-  const auto type_id = gneiss::engine::transform_component_type;
+  const auto type_id = gneiss::engine::math::transform::type_guid;
   std::ranges::copy(type_id.bytes(), key.type_id.begin());
   return key;
 }
@@ -162,12 +162,12 @@ void draw_runtime_inspector(const runtime_scene_node& node,
     };
 
     const auto translation_key =
-        runtime_transform_key(node, gneiss::engine::transform_translation_field.get());
+        runtime_transform_key(node, gneiss::engine::meta::transform_translation_field.get());
     const auto* translation_edit = actions.find_edit(actions.context, translation_key);
     ImGui::BeginDisabled(!editable ||
                          (translation_edit != nullptr &&
                           translation_edit->state == runtime_property_edit_state::pending));
-    ImGui::PushID(static_cast<int>(gneiss::engine::transform_translation_field.get()));
+    ImGui::PushID(static_cast<int>(gneiss::engine::meta::transform_translation_field.get()));
     (void)ImGui::DragFloat3("Translation", translation.data(), 0.05F);
     const auto translation_committed = ImGui::IsItemDeactivatedAfterEdit();
     ImGui::PopID();
@@ -185,12 +185,12 @@ void draw_runtime_inspector(const runtime_scene_node& node,
     draw_runtime_property_status(translation_edit, {node.local_transform.translation});
 
     const auto rotation_key =
-        runtime_transform_key(node, gneiss::engine::transform_rotation_field.get());
+        runtime_transform_key(node, gneiss::engine::meta::transform_rotation_field.get());
     const auto* rotation_edit = actions.find_edit(actions.context, rotation_key);
     ImGui::BeginDisabled(
         !editable ||
         (rotation_edit != nullptr && rotation_edit->state == runtime_property_edit_state::pending));
-    ImGui::PushID(static_cast<int>(gneiss::engine::transform_rotation_field.get()));
+    ImGui::PushID(static_cast<int>(gneiss::engine::meta::transform_rotation_field.get()));
     (void)ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°");
     const auto rotation_committed = ImGui::IsItemDeactivatedAfterEdit();
     ImGui::PopID();
@@ -210,7 +210,7 @@ void draw_runtime_inspector(const runtime_scene_node& node,
     }
     draw_runtime_property_status(rotation_edit, {quaternion});
 
-    draw_vec3("Scale", gneiss::engine::transform_scale_field.get(), scale, 0.05F);
+    draw_vec3("Scale", gneiss::engine::meta::transform_scale_field.get(), scale, 0.05F);
   }
   for (const auto& component : node.components) {
     auto view = component->view();

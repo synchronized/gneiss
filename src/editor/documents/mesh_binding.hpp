@@ -5,11 +5,11 @@
 #include "engine/resource/material.hpp"
 #include "engine/resource/mesh.hpp"
 
-namespace gneiss::engine {
+namespace gneiss::editor {
 /** 作者编辑绑定及撤销快照；持有稳定资源身份，不表示 GPU 已就绪。 */
 struct scene_mesh_binding {
-  ref<const engine::mesh> mesh;
-  ref<const engine::material> material;
+  engine::ref<const engine::mesh> mesh;
+  engine::ref<const engine::material> material;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss::editor

@@ -677,3 +677,5 @@
 
 - [PLAN-113 应用装配与场景模块职责重整](plans/PLAN-113-application-scene-boundaries.md)
 - [ADR-117 应用装配、资产、运行世界与编辑文档边界](decisions/ADR-117-application-scene-boundaries.md)
+
+- [PLAN-113 编辑职责迁移记录](records/2026-11-11-plan113-editor-boundary.md)

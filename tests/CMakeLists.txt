@@ -505,6 +505,7 @@ add_test(NAME gneiss.prefab_description COMMAND gneiss_prefab_description_test)
 add_executable(
   gneiss_prefab_property_override_test
   serialization/prefab_property_override_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/editor/documents/prefab_edit.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"

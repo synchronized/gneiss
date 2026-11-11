@@ -3,8 +3,8 @@
 
 #include "runtime_property_editor.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 #include "engine/core/property_edit_policy.hpp"
-#include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/component_registration.hpp"
 #include "engine/function/scene/world.hpp"
 

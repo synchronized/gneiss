@@ -5,7 +5,9 @@
 
 ## 状态
 
-2026-11-11：方案已确认，实施待开始。本次仅建立文档，未移动源码或改变运行行为。
+2026-11-11：实施中。第一组编辑职责和 Transform 标识迁移完成，Windows 全量构建、
+7 项定向回归与分层检查通过；资产批次、World 所有权和目录迁移尚未实施。
+结果见[第一组记录](../records/2026-11-11-plan113-editor-boundary.md)。
 承接 VER-052；长期决策见 [ADR-117](../decisions/ADR-117-application-scene-boundaries.md)。
 本计划的目标目录、迁移顺序和验收清单以本页为权威来源。
 
@@ -118,9 +120,9 @@ Prefab 回放若是编辑器仍需直接调用的契约，应保留公开内部�
 
 ### 1. 迁出编辑专用职责
 
-- [ ] 将 scene_mesh_binding 移入 editor/documents，清理 Application 无用包含。
-- [ ] 拆出 prefab_replay/property_override 中编辑候选生成；引擎保留运行覆盖应用。
-- [ ] 核实 component_identity 的共享 Transform 标识归属，避免新建重复常量。
+- [x] 将 scene_mesh_binding 移入 editor/documents，清理 Application 无用包含。
+- [x] 拆出 prefab_replay/property_override 中编辑候选生成；引擎保留运行覆盖应用。
+- [x] 核实 component_identity 的共享 Transform 标识归属，避免新建重复常量。
 
 ### 2. 收敛资产批次
 

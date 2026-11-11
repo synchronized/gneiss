@@ -4,8 +4,8 @@
 #include "../../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/world.hpp"
 #include "runtime_property_editor.hpp"
 
@@ -67,8 +67,8 @@ bool test_write_and_revision() {
       .session_id = 7U,
       .command_id = 1U,
       .object = snapshot.changes.front().id,
-      .type_id = gneiss::engine::transform_component_type,
-      .field_id = gneiss::engine::transform_translation_field.get(),
+      .type_id = gneiss::engine::math::transform::type_guid,
+      .field_id = gneiss::engine::meta::transform_translation_field.get(),
       .expected_revision = 1U,
       .value = {gneiss::engine::math::vector3{2.0F, 3.0F, 4.0F}}};
   gneiss::host::ipc_property_write_result response;
@@ -113,8 +113,8 @@ bool test_rejections() {
       .session_id = 9U,
       .command_id = 1U,
       .object = {1U, 1U},
-      .type_id = gneiss::engine::transform_component_type,
-      .field_id = gneiss::engine::transform_scale_field.get(),
+      .type_id = gneiss::engine::math::transform::type_guid,
+      .field_id = gneiss::engine::meta::transform_scale_field.get(),
       .expected_revision = 1U,
       .value = {gneiss::engine::math::vector3{1.0F, 1.0F, 1.0F}}};
   gneiss::host::ipc_property_write_result response;

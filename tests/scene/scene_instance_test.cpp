@@ -300,7 +300,7 @@ int main() try {
       return 40;
     const auto saved_renderer = *renderer;
     gneiss::entity_id entity;
-    gneiss::engine::scene_mesh_binding binding;
+    gneiss::editor::scene_mesh_binding binding;
     if (!renderer ||
         gneiss::test_support::assign_value(
             application->native_world()->object(gneiss::entity_id{(created_node).get()}), entity)

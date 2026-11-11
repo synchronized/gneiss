@@ -13,11 +13,11 @@
 #include "engine/resource/asset_file.hpp"
 #include "runtime/application.hpp"
 
-#include "engine/function/scene/component_identity.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 
 #include "engine/resource/asset_uri.hpp"
 
-#include "engine/function/scene/prefab_replay.hpp"
+#include "prefab_edit.hpp"
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -68,9 +68,9 @@ engine::result<entity_id> document_node(const scene_edit_session& session,
 
 [[nodiscard]] gneiss::engine::guid make_uuid_value() { return engine::guid::generate(); }
 
-engine::scene_mesh_binding binding_for(const engine::component_descriptions& components,
-                                       const scene_document_snapshot& snapshot) {
-  engine::scene_mesh_binding result;
+scene_mesh_binding binding_for(const engine::component_descriptions& components,
+                               const scene_document_snapshot& snapshot) {
+  scene_mesh_binding result;
   const auto* renderer = components.get<engine::mesh_renderer_description>();
   if (!renderer)
     return result;
@@ -80,7 +80,7 @@ engine::scene_mesh_binding binding_for(const engine::component_descriptions& com
     result.material = engine::resource_cast<engine::material>(found->second);
   return result;
 }
-void retain(scene_document_snapshot& snapshot, const engine::scene_mesh_binding& binding) {
+void retain(scene_document_snapshot& snapshot, const scene_mesh_binding& binding) {
   if (binding.mesh)
     snapshot.assets.insert_or_assign(binding.mesh->source().uri, binding.mesh);
   if (binding.material)
@@ -545,8 +545,8 @@ scene_edit_session::set_local_transform(entity_id node,
       auto source = engine::restore_prefab_record(snapshot.prefabs.at(object->prefab->uri).content);
       if (!source)
         return source.error();
-      auto candidate = engine::prepare_prefab_transform_edit(
-          *source, *object->prefab, target->source, target->effective.transform, value);
+      auto candidate = prepare_prefab_transform_edit(*source, *object->prefab, target->source,
+                                                     target->effective.transform, value);
       if (!candidate)
         return candidate.error();
       object->prefab = std::move(candidate->reference);
@@ -564,13 +564,13 @@ scene_edit_session::restore_prefab_transform_field(entity_id node, std::uint32_t
   }
   auto restored = found->local_transform;
   switch (field_id) {
-  case gneiss::engine::transform_translation_field.get():
+  case gneiss::engine::meta::transform_translation_field.get():
     restored.translation = found->source_local_transform.translation;
     break;
-  case gneiss::engine::transform_rotation_field.get():
+  case gneiss::engine::meta::transform_rotation_field.get():
     restored.rotation = found->source_local_transform.rotation;
     break;
-  case gneiss::engine::transform_scale_field.get():
+  case gneiss::engine::meta::transform_scale_field.get():
     restored.scale = found->source_local_transform.scale;
     break;
   default:
@@ -797,7 +797,7 @@ engine::error scene_edit_session::set_component_override(entity_id node, engine:
     auto source = engine::restore_prefab_record(snapshot.prefabs.at(object->prefab->uri).content);
     if (!source)
       return source.error();
-    auto candidate = engine::prepare_prefab_component_override(
+    auto candidate = prepare_prefab_component_override(
         *source, *object->prefab, target->source, type,
         state.added ? *state.added : engine::component_description{}, state.removed,
         state.properties, state.component_uuid);
@@ -953,16 +953,15 @@ engine::error scene_edit_session::validate_selection() {
   return status;
 }
 
-engine::result<engine::scene_mesh_binding>
-scene_edit_session::capture_mesh_binding(entity_id node) const {
+engine::result<scene_mesh_binding> scene_edit_session::capture_mesh_binding(entity_id node) const {
   {
     auto values = components(node);
     if (!values)
       return values.error();
     const auto* renderer = values->get<engine::mesh_renderer_description>();
     if (!renderer)
-      return engine::scene_mesh_binding{};
-    engine::scene_mesh_binding result;
+      return scene_mesh_binding{};
+    scene_mesh_binding result;
     const auto& assets = document_->current().content().assets;
     if (auto found = assets.find(renderer->mesh_uri); found != assets.end())
       result.mesh = engine::resource_cast<engine::mesh>(found->second);
@@ -974,7 +973,7 @@ scene_edit_session::capture_mesh_binding(entity_id node) const {
 
 engine::result<entity_id>
 scene_edit_session::create_mesh_node(const mesh_node_creation& snapshot,
-                                     const engine::scene_mesh_binding& resources) {
+                                     const scene_mesh_binding& resources) {
   if (!is_open())
     return engine::error::invalid_state;
   if (snapshot.uuid.is_nil())
@@ -1037,9 +1036,9 @@ gneiss::engine::error scene_edit_session::set_mesh_renderer(entity_id node,
   }
 }
 
-engine::error
-scene_edit_session::replace_mesh_binding(entity_id node, const engine::scene_mesh_binding& expected,
-                                         const engine::scene_mesh_binding& replacement) {
+engine::error scene_edit_session::replace_mesh_binding(entity_id node,
+                                                       const scene_mesh_binding& expected,
+                                                       const scene_mesh_binding& replacement) {
   auto current = capture_mesh_binding(node);
   if (!current)
     return current.error();
@@ -1201,9 +1200,9 @@ engine::error scene_edit_session::edit_component(entity_id node, engine::guid ty
       });
       auto candidate =
           mode == 0
-              ? engine::prepare_prefab_component_edit(*source, *object->prefab, target->source,
-                                                      *current, value)
-              : engine::prepare_prefab_component_override(
+              ? prepare_prefab_component_edit(*source, *object->prefab, target->source, *current,
+                                              value)
+              : prepare_prefab_component_override(
                     *source, *object->prefab, target->source, type,
                     mode == 1 ? value : engine::component_description{},
                     mode == -1 && local == object->prefab->component_overrides.end(), {}, identity);

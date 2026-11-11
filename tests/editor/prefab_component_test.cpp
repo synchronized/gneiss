@@ -136,7 +136,7 @@ int main() try {
   e::game_object_description instance;
   instance.uuid = e::guid::from_bytes({87, 4});
   instance.prefab = reference;
-  std::array<e::scene_mesh_binding, 2> bindings{};
+  std::array<gneiss::editor::scene_mesh_binding, 2> bindings{};
   gneiss::entity_id root_node;
   check(gneiss::test_support::take_value(
             gneiss::test_support::place_document_prefab(

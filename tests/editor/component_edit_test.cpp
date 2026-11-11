@@ -6,6 +6,7 @@
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
+#include "editor/documents/prefab_edit.hpp"
 #include "engine/core/fatal.hpp"
 #include "engine/core/meta/object_type.hpp"
 #include "engine/core/meta/views/reference_view.hpp"
@@ -14,7 +15,6 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/composition.hpp"
 #include "engine/function/scene/instantiation.hpp"
-#include "engine/function/scene/prefab_replay.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/scene.hpp"
 #include "panels/reflected_property_editor.hpp"
@@ -135,50 +135,50 @@ int main() try {
         *replayed->description.objects[0].components.find(movement_description::type_guid);
     auto next = *current->get<movement_description>();
     next.speed = 4;
-    auto prepared = e::prepare_prefab_component_edit(source, reference, object.uuid, current,
-                                                     e::make_component_description(next));
+    auto prepared = gneiss::editor::prepare_prefab_component_edit(
+        source, reference, object.uuid, current, e::make_component_description(next));
     check(prepared && prepared->reference.overrides.size() == 2 && prepared->conflicts.size() == 1);
     check(reference.overrides.size() == 3 &&
           source.objects[0].components.get<movement_description>()->speed == 1);
     auto new_current = e::make_component_description(next);
     next.speed = 5;
-    auto second = e::prepare_prefab_component_edit(
+    auto second = gneiss::editor::prepare_prefab_component_edit(
         source, prepared->reference, object.uuid, new_current, e::make_component_description(next));
     check(second && second->reference.overrides.size() == 2 && second->conflicts.size() == 1);
     new_current = e::make_component_description(next);
     next.speed = 1;
-    auto restored = e::prepare_prefab_component_edit(
+    auto restored = gneiss::editor::prepare_prefab_component_edit(
         source, second->reference, object.uuid, new_current, e::make_component_description(next));
     check(restored && restored->reference.overrides.size() == 1 && restored->conflicts.size() == 1);
     next.speed = -1;
-    auto invalid = e::prepare_prefab_component_edit(source, reference, object.uuid, current,
-                                                    e::make_component_description(next));
+    auto invalid = gneiss::editor::prepare_prefab_component_edit(
+        source, reference, object.uuid, current, e::make_component_description(next));
     check(!invalid && invalid.error() == e::error::invalid_argument);
     e::game_object_description child;
     child.uuid = e::guid::from_bytes({87, 3});
     child.parent.object = object.uuid;
     source.objects.push_back(child);
-    auto root_edit = e::prepare_prefab_transform_edit(source, reference, object.uuid,
-                                                      object.transform, object.transform);
+    auto root_edit = gneiss::editor::prepare_prefab_transform_edit(
+        source, reference, object.uuid, object.transform, object.transform);
     check(!root_edit && root_edit.error() == e::error::invalid_argument);
     auto transformed_reference = reference;
     transformed_reference.overrides.push_back(
         {{.target = {child.uuid, e::math::transform::type_guid}, .path = {p{99}}}, e::value{3.0F}});
     auto transform = child.transform;
     transform.translation.x = 8;
-    auto transformed = e::prepare_prefab_transform_edit(source, transformed_reference, child.uuid,
-                                                        child.transform, transform);
+    auto transformed = gneiss::editor::prepare_prefab_transform_edit(
+        source, transformed_reference, child.uuid, child.transform, transform);
     check(transformed && transformed->conflicts.size() == 2 &&
           transformed->reference.overrides.size() == 5);
     auto effective = e::replay_prefab_reference(source, transformed->reference);
     check(effective && effective->description.objects[1].transform.translation.x == 8);
-    auto reset_transform = e::prepare_prefab_transform_edit(source, transformed->reference,
-                                                            child.uuid, transform, child.transform);
+    auto reset_transform = gneiss::editor::prepare_prefab_transform_edit(
+        source, transformed->reference, child.uuid, transform, child.transform);
     check(reset_transform && reset_transform->reference.overrides.size() == 4 &&
           reset_transform->conflicts.size() == 2);
     transform.scale.x = 0;
-    auto invalid_transform =
-        e::prepare_prefab_transform_edit(source, reference, child.uuid, child.transform, transform);
+    auto invalid_transform = gneiss::editor::prepare_prefab_transform_edit(
+        source, reference, child.uuid, child.transform, transform);
     check(!invalid_transform && invalid_transform.error() == e::error::invalid_argument);
     check(source.objects[1].transform.translation.x == 0 && reference.overrides.size() == 3);
     auto removed = reference;
@@ -187,36 +187,36 @@ int main() try {
          movement_description::type_guid,
          {},
          object.components.identity(movement_description::type_guid)});
-    auto rejected =
-        e::prepare_prefab_component_edit(source, removed, object.uuid, current, current);
+    auto rejected = gneiss::editor::prepare_prefab_component_edit(source, removed, object.uuid,
+                                                                  current, current);
     check(!rejected && rejected.error() == e::error::invalid_state);
-    auto remove_candidate = e::prepare_prefab_component_override(
+    auto remove_candidate = gneiss::editor::prepare_prefab_component_override(
         source, reference, object.uuid, movement_description::type_guid, {}, true, {});
     check(remove_candidate && remove_candidate->reference.component_overrides.size() == 1 &&
           remove_candidate->reference.overrides.empty());
-    auto restore_candidate =
-        e::prepare_prefab_component_override(source, remove_candidate->reference, object.uuid,
-                                             movement_description::type_guid, {}, false, {});
+    auto restore_candidate = gneiss::editor::prepare_prefab_component_override(
+        source, remove_candidate->reference, object.uuid, movement_description::type_guid, {},
+        false, {});
     check(restore_candidate && restore_candidate->reference.component_overrides.empty());
-    auto invalid_remove =
-        e::prepare_prefab_component_override(source, reference, e::guid::from_bytes({87, 100}),
-                                             movement_description::type_guid, {}, true, {});
+    auto invalid_remove = gneiss::editor::prepare_prefab_component_override(
+        source, reference, e::guid::from_bytes({87, 100}), movement_description::type_guid, {},
+        true, {});
     check(!invalid_remove && invalid_remove.error() == e::error::not_found);
     auto local = reference;
     const auto camera = e::make_component_description(e::camera_description{{1.0F, 0.1F, 100.0F}});
     local.component_overrides.push_back(
         {object.uuid, e::camera_description::type_guid, camera, e::guid::generate()});
-    auto add_candidate = e::prepare_prefab_component_override(
+    auto add_candidate = gneiss::editor::prepare_prefab_component_override(
         source, reference, object.uuid, e::camera_description::type_guid, camera, false, {});
     check(add_candidate && add_candidate->reference.component_overrides.size() == 1 &&
           add_candidate->conflicts.size() == 1 && reference.component_overrides.empty());
-    auto invalid_add = e::prepare_prefab_component_override(
+    auto invalid_add = gneiss::editor::prepare_prefab_component_override(
         source, reference, object.uuid, e::camera_description::type_guid, camera, true, {});
     check(!invalid_add && invalid_add.error() == e::error::invalid_argument);
     const auto changed_camera =
         e::make_component_description(e::camera_description{{0.8F, 0.2F, 150.0F}});
-    auto local_edit =
-        e::prepare_prefab_component_edit(source, local, object.uuid, camera, changed_camera);
+    auto local_edit = gneiss::editor::prepare_prefab_component_edit(source, local, object.uuid,
+                                                                    camera, changed_camera);
     check(local_edit && local_edit->reference.component_overrides.size() == 1 &&
           local_edit->reference.overrides.size() == reference.overrides.size() &&
           local_edit->conflicts.size() == 1);
@@ -369,7 +369,7 @@ int main() try {
   reference.uuid = e::guid::from_bytes({85, 3});
   reference.prefab.emplace();
   reference.prefab->uri = "asset://movement.prefab";
-  const std::array<e::scene_mesh_binding, 1> bindings{};
+  const std::array<gneiss::editor::scene_mesh_binding, 1> bindings{};
   check(gneiss::test_support::take_value(
             gneiss::test_support::place_document_prefab(
                 document, reference, e::prefab_asset_ref{prefab}, bindings, false),

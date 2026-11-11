@@ -9,8 +9,8 @@
 #include "documents/scene_edit_session.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/core/meta/transform_properties.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/component_identity.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/world.hpp"
 #include "runtime/application.hpp"
@@ -205,26 +205,29 @@ int main() try {
           gneiss::engine::error::success ||
       session.selected_prefab_node().failed() ||
       session.selected_prefab_node()->local_transform.translation[1] != 5.0F ||
-      !session.selected_prefab_node()->has_override(gneiss::engine::transform_component_type,
-                                                    gneiss::engine::transform_translation_field)) {
+      !session.selected_prefab_node()->has_override(
+          gneiss::engine::math::transform::type_guid,
+          gneiss::engine::meta::transform_translation_field)) {
     return 7;
   }
   gneiss::engine::math::transform previous_source{};
-  if (session.restore_prefab_transform_field(session.selection(),
-                                             gneiss::engine::transform_translation_field.get(),
-                                             previous_source) != gneiss::engine::error::success ||
+  if (session.restore_prefab_transform_field(
+          session.selection(), gneiss::engine::meta::transform_translation_field.get(),
+          previous_source) != gneiss::engine::error::success ||
       previous_source.translation[1] != 5.0F || session.selected_prefab_node().failed() ||
       session.selected_prefab_node()->local_transform.translation[0] != 1.0F ||
       session.selected_prefab_node()->local_transform.translation[1] != 0.0F ||
-      session.selected_prefab_node()->has_override(gneiss::engine::transform_component_type,
-                                                   gneiss::engine::transform_translation_field) ||
+      session.selected_prefab_node()->has_override(
+          gneiss::engine::math::transform::type_guid,
+          gneiss::engine::meta::transform_translation_field) ||
       session.set_local_transform(session.selection(), previous_source) !=
           gneiss::engine::error::success ||
-      !session.selected_prefab_node()->has_override(gneiss::engine::transform_component_type,
-                                                    gneiss::engine::transform_translation_field) ||
+      !session.selected_prefab_node()->has_override(
+          gneiss::engine::math::transform::type_guid,
+          gneiss::engine::meta::transform_translation_field) ||
       session.restore_prefab_transform(session.selection(), previous_source) !=
           gneiss::engine::error::success ||
-      session.selected_prefab_node()->has_overrides(gneiss::engine::transform_component_type)) {
+      session.selected_prefab_node()->has_overrides(gneiss::engine::math::transform::type_guid)) {
     return 8;
   }
   const auto prefab_source = session.selected_prefab_node();
@@ -240,8 +243,8 @@ int main() try {
   if (apply_temporary_transform(session, history, runtime_source) !=
           gneiss::engine::error::success ||
       session.selected_prefab_node()->local_transform.scale[0] != 2.0F ||
-      !session.selected_prefab_node()->has_override(gneiss::engine::transform_component_type,
-                                                    gneiss::engine::transform_scale_field) ||
+      !session.selected_prefab_node()->has_override(gneiss::engine::math::transform::type_guid,
+                                                    gneiss::engine::meta::transform_scale_field) ||
       history.undo() != gneiss::engine::error::success ||
       session.selected_prefab_node()->local_transform.scale[0] != 1.0F ||
       history.redo() != gneiss::engine::error::success ||
