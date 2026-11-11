@@ -194,47 +194,9 @@ scene_service::apply_source(scene_reload_state& source,
     return previous.error();
   if (!next)
     return next.error();
-  // 来源未修改的变换保留游戏运行值；来源修改才覆盖该值。
-  const auto same_transform = [](const auto& a, const auto& b) {
-    return a.translation == b.translation && a.rotation == b.rotation && a.scale == b.scale;
-  };
-  for (auto& object : previous->objects) {
-    const auto binding = source.objects.find(object.address);
-    if (binding == source.objects.end())
-      return engine::error::invalid_state;
-    auto runtime = native_world()->object(binding->second.entity);
-    if (!runtime)
-      return runtime.error();
-    auto transform = runtime->local_transform();
-    if (!transform)
-      return transform.error();
-    auto replacement =
-        std::ranges::find(next->objects, object.address, &engine::composed_object::address);
-    if (replacement != next->objects.end() &&
-        same_transform(object.effective.transform, replacement->effective.transform))
-      replacement->effective.transform = *transform;
-    object.effective.transform = *transform;
-    // 用实际运行状态比较目标，恢复来源指定的名称、组件和父关系。
-    const std::string name(runtime->name());
-    auto components = engine::capture_components(*native_world(), binding->second.entity);
-    if (!components)
-      return components.error();
-    object.effective.name = name;
-    object.effective.components = std::move(*components);
-    engine::object_address parent_address;
-    auto parent_object = runtime->parent();
-    if (!parent_object)
-      return parent_object.error();
-    const entity_id parent_node{parent_object->entity().get()};
-    if (parent_node) {
-      auto parent = std::ranges::find_if(
-          source.objects, [&](const auto& entry) { return entry.second.entity == parent_node; });
-      if (parent == source.objects.end())
-        return engine::error::invalid_state;
-      parent_address = parent->first;
-    }
-    object.parent = parent_address;
-  }
+  auto rebased = engine::rebase_scene_update(*native_world(), source.objects, *previous, *next);
+  if (!rebased)
+    return rebased.error();
   auto dependencies = engine::scene_dependencies(*next);
   if (!dependencies)
     return dependencies.error();

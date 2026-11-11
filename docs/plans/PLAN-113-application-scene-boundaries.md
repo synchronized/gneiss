@@ -144,7 +144,7 @@ Prefab 回放若是编辑器仍需直接调用的契约，应保留公开内部�
 
 ### 4. 整理算法与目录
 
-- [ ] scene_application 改为 scene_update，保持输入输出和失败语义明确。
+- [x] scene_application 改为 scene_update，保持输入输出和失败语义明确。
 - [ ] render_extraction 移到渲染前端；边界检查区分前端桥接和后端实现。
 - [ ] runtime 剩余装配迁入 application；配置与主类相邻，主循环等待放 detail。
 - [ ] 同步 CMake、内部接口清单、头文件依赖、示例及测试；删除废弃头和函数。

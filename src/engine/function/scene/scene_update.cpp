@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/function/scene/scene_application.hpp"
+#include "engine/function/scene/scene_update.hpp"
 #include "engine/function/scene/component_registration.hpp"
 #include "engine/function/scene/components.hpp"
 #include <algorithm>
@@ -11,6 +11,51 @@ bool same_transform(const math::transform& a, const math::transform& b) {
   return a.translation == b.translation && a.rotation == b.rotation && a.scale == b.scale;
 }
 } // namespace
+result<void>
+rebase_scene_update(world& world,
+                    const std::map<object_address, scene_object_association>& associations,
+                    composed_scene& previous, composed_scene& next) {
+  if (!world.is_owner_thread())
+    return error::invalid_state;
+  // 来源未修改的变换保留游戏运行值；来源修改才覆盖该值。
+  for (auto& object : previous.objects) {
+    const auto binding = associations.find(object.address);
+    if (binding == associations.end())
+      return error::invalid_state;
+    auto runtime = world.object(binding->second.entity);
+    if (!runtime)
+      return runtime.error();
+    auto transform = runtime->local_transform();
+    if (!transform)
+      return transform.error();
+    auto replacement = std::ranges::find(next.objects, object.address, &composed_object::address);
+    if (replacement != next.objects.end() &&
+        same_transform(object.effective.transform, replacement->effective.transform))
+      replacement->effective.transform = *transform;
+    object.effective.transform = *transform;
+    // 用实际运行状态比较目标，恢复来源指定的名称、组件和父关系。
+    const std::string name(runtime->name());
+    auto components = capture_components(world, binding->second.entity);
+    if (!components)
+      return components.error();
+    object.effective.name = name;
+    object.effective.components = std::move(*components);
+    object_address parent_address;
+    auto parent_object = runtime->parent();
+    if (!parent_object)
+      return parent_object.error();
+    const entity_id parent_node{parent_object->entity().get()};
+    if (parent_node) {
+      auto parent = std::ranges::find_if(
+          associations, [&](const auto& entry) { return entry.second.entity == parent_node; });
+      if (parent == associations.end())
+        return error::invalid_state;
+      parent_address = parent->first;
+    }
+    object.parent = parent_address;
+  }
+  return {};
+}
 result<bool> apply_scene(world& world, scene_instance_id scene,
                          std::map<object_address, scene_object_association>& associations,
                          const composed_scene& previous, const composed_scene& next,

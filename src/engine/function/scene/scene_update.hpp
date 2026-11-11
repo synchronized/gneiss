@@ -10,6 +10,13 @@ namespace gneiss::engine {
 struct scene_object_association {
   entity_id entity;
 };
+/** 将来源差异对齐当前运行状态，不修改 World，也不请求资产。
+ * 来源未改变的变换保留运行值；名称、组件及父关系以新来源为准。
+ * previous/next 是调用方的临时组合结果；失败后应丢弃，不保证恢复其输入值。
+ * 仅 World 所属线程使用，地址关联在调用期间借用。 */
+[[nodiscard]] GNEISS_API result<void>
+rebase_scene_update(world&, const std::map<object_address, scene_object_association>& associations,
+                    composed_scene& previous, composed_scene& next);
 /** 可选的已有组件更新准备；不保存回调，不得在回调中修改 World。 */
 using scene_component_preparer = std::function<result<component_description>(
     const composed_object&, entity_id, const component_description&)>;

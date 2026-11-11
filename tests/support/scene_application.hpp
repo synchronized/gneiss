@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/scene/scene_application.hpp"
+#include "engine/function/scene/scene_update.hpp"
 #include "engine/resource/scene.hpp"
 namespace gneiss::test_support {
 inline std::map<engine::object_address, engine::scene_object_association>

@@ -211,13 +211,13 @@ C++ Builder 和 Meta 内置注册入口位于 `meta/registration.hpp`；数学�
 `meta/math_registration.cpp`，业务资源注册位于 `resource/builtin_resource_registration.cpp`。元数据名称借用注册表，属性读取结果拥有自己的数据；
 具体文件职责见[反射接口参考](../reference/reflection.md)。
 
-`scene_instance_edit.cpp` 实现普通运行组件的修改，只更新 ECS 与实际资源引用。
+GameObject 的组件接口修改普通运行组件，只更新 ECS 与实际资源引用。
 `editor/documents/mesh_binding.hpp` 提供编辑与撤销保活的网格和材质引用；
 `editor/documents/prefab_edit.hpp` 生成 Prefab 编辑候选，引擎保留覆盖校验和运行回放。
 场景成员不保存编辑历史或作者描述。
 
-`scene_composition.cpp` 纯内存组合 Scene/Prefab，输出有效对象、地址和覆盖冲突；
-`scene_application.cpp` 将差异应用为普通 World 成员。`scene_instantiation.cpp`
+`composition.cpp` 纯内存组合 Scene/Prefab，输出有效对象、地址和覆盖冲突；
+`scene_update.cpp` 将差异应用为普通 World 成员。`instantiation.cpp`
 统一消费组合结果，同步创建失败时回收本次成员。Runtime 来源协调与 Editor 投影各自持有
 输入和地址关联，不将 Prefab 来源或事务状态放进运行对象。
 

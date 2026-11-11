@@ -21,7 +21,7 @@
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/composition.hpp"
 #include "engine/function/scene/instantiation.hpp"
-#include "engine/function/scene/scene_application.hpp"
+#include "engine/function/scene/scene_update.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/scene.hpp"
 #include <algorithm>

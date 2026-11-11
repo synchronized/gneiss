@@ -4,8 +4,8 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/render_resource.hpp"
-#include "engine/function/scene/scene_application.hpp"
 #include "engine/function/scene/scene_types.hpp"
+#include "engine/function/scene/scene_update.hpp"
 #include "engine/resource/scene.hpp"
 #include <cstddef>
 #include <cstdint>

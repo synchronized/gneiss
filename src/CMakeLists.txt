@@ -236,8 +236,8 @@ target_sources(
     engine/function/scene/detail/camera_selection_state.hpp
     engine/function/scene/detail/object_state.hpp
     engine/function/scene/detail/hierarchy.hpp
-    engine/function/scene/scene_application.cpp
-    engine/function/scene/scene_application.hpp
+    engine/function/scene/scene_update.cpp
+    engine/function/scene/scene_update.hpp
     engine/function/scene/composition.cpp
     engine/function/scene/composition.hpp
     engine/resource/scene/object_address.hpp

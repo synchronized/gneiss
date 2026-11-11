@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.23)
 set(fixture "${GNEISS_BINARY_DIR}/asset-layout-v3-boundary-fixture")
 # 场景消费者反例中断后也必须恢复，避免污染下一次基线检查。
-foreach(name IN ITEMS scene_instance.hpp game_object.hpp instantiation.cpp scene_application.cpp)
+foreach(name IN ITEMS scene_instance.hpp game_object.hpp instantiation.cpp scene_update.cpp)
   file(WRITE "${fixture}/src/engine/function/scene/${name}" "")
 endforeach()
 # 恢复全部反例文件；前次执行留下的非法命名空间不能污染基线检查。
@@ -446,7 +446,7 @@ foreach(content IN ITEMS "gneiss_transform value;" "auto value = GNEISS_TRANSFOR
 endforeach()
 file(WRITE "${fixture}/src/engine/function/scene/scene_tree.hpp" "")
 
-foreach(name IN ITEMS scene_instance.hpp game_object.hpp instantiation.cpp scene_application.cpp)
+foreach(name IN ITEMS scene_instance.hpp game_object.hpp instantiation.cpp scene_update.cpp)
   file(WRITE "${fixture}/src/engine/function/scene/${name}" "gneiss_transform value;\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
