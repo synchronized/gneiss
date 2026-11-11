@@ -86,6 +86,14 @@ if(BUILD_TESTING)
     NAME gneiss.runtime.scene-inspection COMMAND gneiss_runtime_scene_inspection_test
   )
 
+  add_executable(gneiss_runtime_scene_loader_test "${PROJECT_SOURCE_DIR}/tests/host/runtime/runtime_scene_loader_test.cpp")
+  target_link_libraries(gneiss_runtime_scene_loader_test PRIVATE gneiss_runtime_ipc gneiss_tasks gneiss::engine)
+  target_compile_definitions(gneiss_runtime_scene_loader_test PRIVATE GNEISS_RUNTIME_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
+  target_compile_features(gneiss_runtime_scene_loader_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_runtime_scene_loader_test)
+  gneiss_target_output_directories(gneiss_runtime_scene_loader_test)
+  add_test(NAME gneiss.runtime.scene-loader COMMAND gneiss_runtime_scene_loader_test)
+
   add_executable(gneiss_runtime_property_editor_test "${PROJECT_SOURCE_DIR}/tests/host/runtime/runtime_property_editor_test.cpp")
   target_link_libraries(gneiss_runtime_property_editor_test PRIVATE gneiss_runtime_ipc)
   target_compile_features(gneiss_runtime_property_editor_test PRIVATE cxx_std_20)

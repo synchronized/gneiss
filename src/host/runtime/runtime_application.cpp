@@ -561,7 +561,8 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
   std::optional<gneiss::host::ipc_asset_revision> structural_reload;
   bool structural_ignored{};
   gneiss::engine::ref<gneiss::runtime::scene_reload_state> scene_source;
-  gneiss::runtime::scene_reload_request reload_request;
+  gneiss::host::runtime_scene_loader scene_loader(*application);
+  context.scene_loader = &scene_loader;
   gneiss::host::runtime_asset_reloader asset_reloader(
       [&, native_application =
               application.get()](const gneiss::host::ipc_asset_reload_request& request) {
@@ -576,12 +577,8 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
           structural_reload = first;
           auto accepted = gneiss::engine::error{gneiss::engine::error::success};
           if (!structural_ignored) {
-            auto submitted = native_application->scenes().reload(
-                scene_source, first.uri, first.type == gneiss::host::ipc_asset_type::prefab);
-            if (!submitted)
-              accepted = submitted.error();
-            else
-              reload_request = std::move(*submitted);
+            accepted = scene_loader.reload(scene_source, first.uri,
+                                           first.type == gneiss::host::ipc_asset_type::prefab);
           }
           if (accepted.failed())
             structural_reload.reset();
@@ -611,7 +608,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
               result = gneiss::engine::error::success;
               ready = true;
             } else {
-              auto completed = reload_request.take();
+              auto completed = scene_loader.take_reload();
               if (!completed && completed.error() != gneiss::engine::error::not_ready)
                 operation = completed.error();
               else if (completed) {
@@ -686,8 +683,6 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
   }
   context.property_editor = &property_editor;
 
-  gneiss::host::runtime_scene_loader scene_loader(*application);
-  context.scene_loader = &scene_loader;
   context.smoke = options.smoke;
   scene_loader.after_activate =
       [&](const gneiss::runtime::scene_load_completion& loaded) -> gneiss::engine::error {

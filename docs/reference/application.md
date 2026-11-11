@@ -118,6 +118,9 @@ scene_service 的旧请求协议仍待 PLAN-113 后续移除。无待退休 Worl
 激活回执的 reload_state 由调用方按需保留，包含 World 借用、场景 ID、不可变来源及对象地址关联。
 Runtime 保存当前场景的基线；编辑器采用文档投影，不长期保留此基线。
 重载显式传入该引用，scene_service 仅在请求期间持有它，不再保存最后激活场景的隐式来源。
+Runtime 生产路径已改用 runtime_scene_loader::reload：直接请求 Scene/Prefab 资产，收到完成通知
+后调用 rebase_scene_update/apply_scene。take_reload 只领取回执，不执行加载或更新。
+新视觉依赖通过宿主持有的批次加载；旧 scene_service::reload 暂供未迁移的消费者使用。
 同一 World 的多个场景可以各自保留基线；当前协调器仍串行处理重载请求。
 空引用、跨 World 或已失去同步的基线被拒绝；已卸载的场景不能重载。
 基线不保活 World，调用方不能在其销毁后访问借用指针；重载期间不得自行修改基线。

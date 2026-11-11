@@ -11,6 +11,8 @@
 #include <atomic>
 
 #include <functional>
+#include <optional>
+#include <variant>
 
 namespace gneiss::runtime {
 class application;
@@ -25,6 +27,9 @@ public:
   [[nodiscard]] gneiss::engine::error request(ipc_scene_request source, std::uint32_t request_id);
   [[nodiscard]] gneiss::engine::error cancel(const ipc_scene_request& source);
   [[nodiscard]] gneiss::engine::error advance();
+  [[nodiscard]] engine::error reload(engine::ref<runtime::scene_reload_state>, std::string_view uri,
+                                     bool prefab);
+  [[nodiscard]] engine::result<runtime::scene_reload_completion> take_reload();
   std::function<gneiss::engine::error()> before_activate;
   std::function<gneiss::engine::error(const ::gneiss::runtime::scene_load_completion&)>
       after_activate;
@@ -36,6 +41,17 @@ public:
 
 private:
   gneiss::engine::error activate(::gneiss::runtime::scene_load_completion& completion);
+  engine::error apply_source(runtime::scene_reload_state&,
+                             engine::ref<const engine::scene_content>);
+  void advance_reload();
+  struct reload_task {
+    engine::ref<runtime::scene_reload_state> source;
+    std::variant<engine::asset_request<engine::scene>, engine::asset_request<engine::prefab>>
+        request;
+    std::shared_ptr<std::atomic<bool>> ready;
+    std::optional<runtime::scene_reload_completion> completion;
+  };
+  std::optional<reload_task> reload_;
   // 借用宿主对象；协调器必须先于 Application 析构。
   ::gneiss::runtime::application& application_;
   engine::asset_request<engine::scene> request_;
