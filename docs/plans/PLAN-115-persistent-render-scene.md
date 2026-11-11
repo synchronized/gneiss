@@ -15,16 +15,18 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
 采用持久实例、增量更新与每帧临时数据结合的方案，不受现有接口和改动规模约束。
 不以新增 Manager 或跨层转发包装实现分层，不维护两套长期权威数据。
 
-## 整体设计复核（待确认协议调整）
+## 已确认的复核结论
 
-用户要求先复核对象划分与 API，暂停扩展运行接口。
-[复核记录](../records/2026-11-11-render-design-review.md) 对照源码整理了五条完整调用链、
-状态所有权和方案取舍。推荐保留持久场景/RID/单向同步，改为直接业务 API、内部批量传输，
-不再要求调用者使用公开 scene_update；同时修正资源身份与 payload 版本、World 可观察修改边界。
+2026-11-11：用户确认直接业务 API、`gneiss::render` 命名空间、单一 PImpl 外壳，
+以及 Service 与 Granit 私有后端分离。本文已替换旧公开批次方案，作为后续实施目标。
+[复核记录](../records/2026-11-11-render-design-review.md)保留当时的分析与方案取舍。
+本次只更新文档；现有代码仍使用 `render_service` 和公开 `scene_update`，不能描述为迁移完成。
 
-该建议尚未替换 ADR-118 的已确认批次协议。下文目标 API 和批次条款是此前方案，
-复核确认前不继续按它增加接口；已有实现仍按当前事实记录，不回退或改称完整闭环。
-确认后统一改写本计划及 ADR，按“无 World 实际预览 → World 接入 → 多视图/回读/背压”验收。
+- 对外直接创建、修改和删除实例，内部可靠批量传输；不要求调用者管理预留 RID 或批次事务。
+- `render::service` 只持有 `unique_ptr<impl>`；资源、场景与执行职责在内部组合。
+- `render::backend::granit` 为私有实现命名空间，不是第二个公开 Service，也不新增后端插件框架。
+- 资源身份与内容版本分离；实例依赖身份，帧使用按命令顺序确定的内容版本。
+- World 侧绑定保持原有归属，补齐受观察组件的修改通知；按完整调用链迁移和删除旧路径。
 
 ## 本轮实现与接入核查
 
@@ -42,7 +44,7 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
   Windows Clang Debug 的 Engine、Runtime、Editor 与渲染测试目标构建通过；render_scene、render_frame_packet、render_executor 三项测试通过。
   尚未验证 GPU、多视图、World 同步和其他平台。
 
-实施恢复前先确认上述协议调整；随后完成资源身份 pin 和持久场景绘制入口，再接 World 变化通知与绑定；
+后续按已确认边界完成资源身份 pin 和持久场景绘制入口，再接 World 变化通知与绑定；
 不能把当前 CPU 批次基础视为 P1 模型预览闭环或 P3 增量同步完成。
 
 ## 迁移基线
@@ -69,8 +71,8 @@ World/ECS → World 渲染同步系统 ──────────┼→ Rend
 | World | 游戏对象、层级、组件、世界矩阵计算 | GPU 对象、Render 空间索引 |
 | AssetManager | 读取、解码、CPU 资产身份与依赖 | Render 实例、每个视图的可见性 |
 | 资源适配 | 将 CPU 内容提交为 Render 资源，维护资产到后端身份的绑定 | 第二份资产缓存、I/O |
-| world_render_binding | 实体到实例 RID、变化收集、资源绑定、同步批次 | 场景文件、Prefab、撤销历史 |
-| render_service | 持久渲染场景、资源依赖、更新消费、视图及后端执行 | 回查 ECS、资产管理器、文档 |
+| world_render_binding | 实体到实例 RID、变化收集、资源绑定、已接受进度 | 场景文件、Prefab、撤销历史 |
+| render::service | 持久渲染场景、资源依赖、更新消费、视图及后端执行 | 回查 ECS、资产管理器、文档 |
 | 宿主 | 服务装配、绑定生命周期、视口和目标、场景替换策略 | 逐实体拼装底层渲染命令 |
 
 资源适配是职责，不强制新增公开 Service。Render 不持有上层资源对象指针；同步桥可以持有必要 CPU 资产强引用。
@@ -78,117 +80,162 @@ Render Scene 不是 SceneInstance 副本：初期一个 World 对应一个 Rende
 独立材质/模型预览可直接创建 Render Scene，不要求创建 World；一个场景可以同时接受多个 View。
 灯光和网格分别存储，不提前实现通用 render_object 虚基类或另一套通用 ECS。
 
+## 目标命名空间与内部所有权
+
+- 渲染入口及值类型归 `gneiss::render`：`service`、`mesh_instance_description`、`view`、`frame_request`。
+- 队列、身份表、场景/资源存储归 `gneiss::render::detail`。
+- Granit 实现归 `gneiss::render::backend::granit`；引用第三方命名空间使用 `::granit` 避免名称遮蔽。
+- CPU 资产 `gneiss::mesh/texture/material`、公共 `rid` 与 `math` 类型不迁入 Render。
+- world_render_binding 保持逻辑场景侧归属，不因使用渲染接口搬进 Render 命名空间。
+- 文件名随职责迁移收敛为 service 等；不保留旧名称兼容别名，不进行无关模块改名。
+
+```text
+render::service
+  └─ impl
+      ├─ 前端身份、归属和生命周期元数据
+      ├─ 执行器与可靠有序命令传输
+      └─ 消费侧状态
+          ├─ 资源身份、不可变内容版本与依赖
+          ├─ 场景、实例、包围体与可见性数据
+          └─ backend::granit::backend
+```
+
+这是职责划分，不要求每个框成为类。Service 外壳只有一个 `unique_ptr<impl>`，不再并列拥有
+resource_storage 和 implementation。impl 负责装配、接受操作和关闭协调，不继续堆放全部 GPU 实现。
+资源存储与场景存储平级，资源存储不拥有场景。前端不复制消费侧完整实例状态，只维护接受校验所需信息。
+消费侧状态由执行线程访问；异步完成通过拥有型结果交回，不因同属 impl 就允许跨线程任意读写。
+
+## Service 与 Backend 边界
+
+| 职责 | Service 及其内部状态 | Granit 私有后端 |
+| --- | --- | --- |
+| 对象身份 | RID 类型、generation、服务/场景归属与逻辑销毁 | 不再管理引擎对象归属 |
+| 资源生命期 | 外部拥有权、实例依赖、内容版本与逻辑存活 | 上传、GPU 对象、在途引用与安全退休 |
+| 操作顺序 | 接受、可靠有序传输、背压和完成分发 | 按消费顺序执行，不自行重排业务命令 |
+| 场景和帧 | 持久实例、视图、目标、临时输入与剔除策略 | Granit 快照适配、绘制、呈现和回读 |
+| 能力与诊断 | 引擎自己的能力值和诊断接口 | 查询 Granit 能力并转换后端错误 |
+
+Service 决定逻辑资源何时不再被需要，Backend 保证 GPU 使用结束后才释放实际对象，不能各管一套退休协议。
+Backend 不再复制一套 create_scene/set_transform 等服务 API，也不回查 ECS、AssetManager 或文档。
+它接受消费侧提供的渲染输入及资源版本，管理 GPU 表示；初期转换成 Granit scene_snapshot。
+异步 GPU 使用必须持有必要版本，不长期借用会被消费侧修改的数组或对象。
+
+现有 implementation 中 renderer、surface/swapchain、pipeline、environment、GPU mirrors、上传与回读实现
+移到后端；执行器、请求接受、帧回收和完成分发留在 Service 内部。后端普通接口不泄漏 Granit 类型，
+其私有实现可以使用 Granit。后端类型不出现在 service.hpp，执行器头也不再被该头传播。
+先用一个具体 Granit 后端，不引入 i_backend、虚函数接口、工厂或动态插件；第二个真实实现出现后再提炼。
+
 ## 目标数据与 API
 
-以下为签名示意；方法所属模块、所有权与行为是约束，具体命名在实施首阶段核对项目基础类型。
+以下为尚未实现的签名示意；行为与边界是约束，资源/目标/关闭接口的完整签名在首个闭环中确定。
 
 ```cpp
-struct mesh_instance_description {
-  rid mesh;
-  rid material;
-  math::matrix4 world_matrix{1.0F};
+namespace gneiss::render {
+struct instance_visibility {
   std::uint64_t layers{~0ULL};
   bool visible{true};
   bool casts_shadows{true};
 };
-
-class render_service {
-public:
-  result<rid> create_scene();
-  result<scene_update> begin_update(rid scene);
-  result<void> submit(scene_update&&);
-  result<void> submit(frame_submission&&);
-  result<void> destroy_scene(rid scene);
+struct mesh_instance_description {
+  rid mesh;
+  rid material;
+  math::matrix4 world_matrix{1.0F};
+  instance_visibility visibility{};
 };
-
-class scene_update { // 可移动，不可复制；不保活服务。
-public:
-  result<rid> create_mesh(const mesh_instance_description&);
-  result<void> set_transform(rid instance, const math::matrix4&);
-  result<void> set_mesh(rid instance, rid mesh);
-  result<void> set_material(rid instance, rid material);
-  result<void> set_layers(rid instance, std::uint64_t);
-  result<void> set_visible(rid instance, bool);
-  result<void> set_casts_shadows(rid instance, bool);
-  result<void> destroy(rid instance);
-};
-```
-
-begin_update 使用 result，因为关闭、无效或跨服务场景均可被正常输入触发；不将所有纯查询包装成 result。
-一个更新批次绑定一个 Render Scene，实例必须属于该场景；初期不支持迁移到另一场景。
-材质切换、网格切换、显隐和层掩码有明确操作，不使用任意字符串属性或通用 value 命令协议。
-初期 create_mesh 表示一个网格/材质绑定；多 surface/子网格需求按真实网格模型扩展，不提前承诺完整覆盖。
-
-Render 内部保存描述、世界包围体、空间索引位置及资源依赖。父子树只在 World；提交最终世界矩阵，
-保留旋转与非均匀缩放组合产生的剪切。法线矩阵与包围体由 Render 计算，奇异矩阵行为显式校验。
-网格内容或局部包围体变化必须使所有引用实例的空间数据失效；不得只观察变换变化。
-未就绪资源使用明确的跳过/占位策略，资产随后就绪无需重建实例 RID。
-
-```cpp
-struct render_view {
+struct view {
   rid scene;
   rid target;
-  math::matrix4 view;
-  math::matrix4 projection;
-  viewport_rectangle viewport; // 示意，实施时采用统一视口值类型。
+  math::matrix4 view_matrix;
+  math::matrix4 projection_matrix;
+  viewport_rectangle viewport; // 示意，复用统一视口值类型。
   std::uint64_t layers{~0ULL};
 };
-struct frame_submission {
-  std::vector<render_view> views;
-  // UI/调试绘制按视图或目标明确关联；提交后拥有所有必要输入。
+struct frame_request {
+  std::vector<view> views;
+  // 自有 UI/调试输入，明确关联视图或目标。
 };
-class world_render_binding {
+class service final {
 public:
-  // 示意：借用 World/Render，显式绑定场景，析构前先停止同步并解除绑定。
-  world_render_binding(world&, render_service&, rid scene);
-  result<void> synchronize();
+  result<rid> create_scene();
+  result<void> destroy_scene(rid scene);
+  result<rid> create_mesh_instance(rid scene, const mesh_instance_description&);
+  result<void> set_transform(rid instance, const math::matrix4&);
+  result<void> set_resources(rid instance, rid mesh, rid material);
+  result<void> set_visibility(rid instance, const instance_visibility&);
+  result<void> destroy_instance(rid instance);
+  result<void> render(frame_request&&);
+private:
+  struct impl;
+  std::unique_ptr<impl> impl_;
 };
+}
 ```
 
-相机初期是 View 输入，无需常驻相机实例；TAA 等历史能力出现时再增加稳定 View 身份。
-帧请求不能借用 ECS 或调用方临时 span；临时绘制内容在提交时移交或复制所有权。
-接受帧请求时固定其场景/目标依赖；较晚的销毁不能破坏较早已接受的帧，销毁后的新帧引用被拒绝。
-渲染实例 RID 是稳定身份，帧内排序下标不能作为长期拾取身份；拾取回传由同步桥映射到实体。
+资源 mesh 与 mesh_instance 明确区分。网格/材质换绑是一个业务操作，不暴露中间只换一半的状态。
+不使用字符串属性或任意 value 命令协议。初期实例为单网格/材质绑定，多 surface 按真实需求扩展。
+父子树只在 World，提交完整世界矩阵，保留剪切；法线矩阵、包围体和奇异矩阵校验归 Render。
+网格版本/局部包围体变化也必须更新实例空间数据。pending 资源允许绑定，采用明确跳过或占位策略，
+随后就绪和热重载不重建实例 RID。相机初期只作为视图输入，暂不增加常驻相机或稳定 View 身份。
 
-## 更新批次与线程规则
+资源准备/格式校验归资产解码或纯函数；资源适配使用服务的身份创建、内容发布和拥有权释放能力。
+优先收敛既有 asset_construction，不新增公开资源 Manager。普通宿主不再调用 prepare_frame_packet_storage、
+capture_render_frame_packet 或完成领取来协调绘制；截图使用专门异步请求并获得唯一终态。
 
-- 第一阶段仅允许服务所属逻辑线程提交，保持单生产者有序语义；不宣称所有线程可直接调用。
-- 创建先预留带 generation 的 RID；仅所属批次可引用尚未提交的预留身份，避免跨未提交批次依赖。
-- 批次析构或被放弃时，回收其尚未提交身份和资源 pin；更新已有实例的未提交操作不生效。
-- submit 拒绝非法批次时不发布其命令；成功消费整个批次所有权，不存在调用方需要恢复的半入队状态。
-- 该提交边界不是 GPU 事务：已接受的合法操作有序执行，后端失败报告诊断，不回滚其他实例或整场景。
-- 同一批次的冗余变换可合并，但不得跨创建/销毁及帧边界重排；初期保序优先，不实现复杂命令优化器。
-- 非法 RID、类型不匹配、跨服务/跨场景、重复删除在可检查的前端拒绝；消费侧仍校验 generation。
-- 销毁提交后前端拒绝新的引用；更早已接受的帧和更新仍按顺序执行。不用裸 RID 的有效性取代生命周期管理。
-- Render 消费一个帧请求前，应用其之前的全部更新；构建该帧视图时不并发修改正在读取的状态。
-- 第一阶段同线程消费；第二阶段接入独立执行线程，服务接口与场景语义保持不变。
-- 同步 GPU readback 是特殊完成请求，不把普通变换/材质更新变成 Future 或每对象进度协议。
+## 操作接受与线程规则
+
+- 服务所属逻辑线程调用，单生产者有序接受；不承诺任意线程直接调用。
+- 创建成功后 RID 已被接受，可以立即用于后续操作；内部预留在接受失败时自行回收，不向调用方暴露。
+- 单个业务操作接受前校验并取得依赖，失败不产生半接受状态。多次调用允许部分成功，不提供整批回滚。
+- 内部可靠打包/合并不改变外部语义，不跨帧、创建/销毁边界重排；不保留公开 scene_update 事务协议。
+- 非法 RID、类型/归属错误、重复删除在前端拒绝，消费侧仍防止 generation 混淆。
+- 接受成功不等于 GPU 完成；异步后端失败报告诊断，不回滚其他实例或整个场景。
+- 销毁被接受后拒绝新的外部引用，较早接受的帧和命令仍按序安全执行。
+- 消费一帧前应用其之前的更新；该帧确定内容版本，不能读取后来发布的前端最新 payload。
+- 初期可同线程验证消费者，随后接既有执行器；不新建平行线程体系或第二套 API。
+
+## 五条调用链与宿主职责
+
+1. **资源加载**：统一资产入口读取/解码/处理依赖 → 内部适配建立渲染身份并发布内容 →
+   组件持有资产强引用。业务不手动等待 GPU；失败保留资产诊断，不要求整个场景失败。
+2. **独立预览**：适配取得资源 RID → create_scene → create_mesh_instance → set_transform →
+   render(frame_request) → destroy_scene → 释放资源外部拥有权。不创建 World 或虚构游戏对象。
+3. **World 同步**：宿主拥有 World/Render/绑定；world.update 后 binding.synchronize，再 render。
+   绑定保存实体到实例映射与已接受修订，失败不重复已接受操作；Application 不再拼实例列表。
+4. **多视图/回读**：一帧携带多个视图与明确目标，场景实例不按相机复制；帧接受后拥有全部必要输入。
+   回读是专门异步请求，不能依赖全局完成队列和 finish_frames 推测结果。
+5. **关闭**：停止生产 → 绑定解除订阅和实例 → 资产适配停止发布并释放拥有权 →
+   Render 处理已接受命令与回读终态 → GPU 安全退休 → 销毁服务和窗口。具体约束见下节。
+
+详细调用示意见[复核记录](../records/2026-11-11-render-design-review.md)，以本页已确认目标为准。
 
 ## 资源保活、销毁与关闭
 
 RID 只标识对象；服务内部区分外部所有权、队列引用、实例依赖和在途 GPU 使用。
-录制命令引用的资源必须在提交前已经被 pin，不能等消费时再尝试取得已销毁资源。
+操作接受前取得内部资源身份依赖，不能等消费时再通过已销毁的外部 RID 查询资源。
+实例持有稳定资源身份；内容发布形成有序版本，帧执行按序取得并保留版本，不固定首次 payload。
 销毁外部资源拥有权意味着关闭新的外部使用，既有实例依赖继续有效；实例换绑/删除才释放依赖。
 前端身份有效性与内部存储存活分开，外部失效 RID 不因此破坏既有实例的内部绑定。
 GPU 最后一次使用完成后才释放后端内存；资源 payload 更新也不得改变已提交帧所观察的数据。
 后端数据可使用不可变 payload、帧环形区或等价机制；不复制整个 Render Scene 来实现这一点。
 
 destroy_scene 有序删除全部所属实例和灯光，释放其依赖，不删除其他场景使用的共享资源。
-关闭顺序：停止宿主同步和新提交 → 放弃未提交批次/释放桥 → 排空或明确终止已接受工作 → 等待 GPU 安全点
+关闭顺序：停止宿主同步和新提交 → 解除绑定并停止资产适配发布 → 排空或明确终止已接受工作 → 等待 GPU 安全点
 → 回收场景及资源 → 销毁服务。设备丢失不允许无限等待 fence；必须明确进入失败关闭路径。
-批次不得在服务销毁后悬空回调；使用可失效的控制状态清理预留记录，不以强引用永久保活服务。
+回读和异步完成不得在服务销毁后悬空回调；每个已接受请求都必须成功完成或明确失败。
+浏览器关闭按异步状态机推进，不阻塞主线程，也不通过嵌套主循环等待。
 桥不得在 World 或 Render 销毁后访问借用对象；Application 或实际宿主创建并拥有绑定，确定装配析构顺序。
 宿主先解除绑定并提交所属渲染实例的删除，再销毁 World 和 Render；异步后端回收仍归 Render。
 
 ## World 变化同步
 
 world_render_binding 归属 function/scene/rendering，因为它理解 ECS、层级与实体生命周期。
-World 核心不持有 render_service、不自动创建 Render Scene，也不拥有绑定；映射和同步进度不放入
+World 核心不持有 render::service、不自动创建 Render Scene，也不拥有绑定；映射和同步进度不放入
 world_state 或普通组件。无渲染运行不创建绑定；独立预览直接使用 Render。
 暂不为该绑定建立通用 System 框架。
 
 普通 mesh_renderer 仍持有 mesh/material 强引用，业务不接触 Render RID。
-所有渲染相关组件增删改必须可观察；优先沿用受控 update_component 或 ECS 显式修改通知。
+所有渲染相关组件增删改必须可观察；当前 try_component 可写借用不自动通知。
+目标使用受控 edit_component<T>(fn) 或组件 setter/显式修改通知，迁移全部相关写入者；接口名称待实施核对。
 只读借用继续直接使用；可写借用必须有明确提交/修改通知，不能承诺发现任意裸指针写入。
 父变换更新须标记受影响后代的世界矩阵；隐藏对象也保留正确数据，恢复可见时不使用旧变换。
 删除时先记录实体到 RID 的删除事件，再释放 ECS 状态；generation 阻止复用槽位混淆。
@@ -196,15 +243,20 @@ world_state 或普通组件。无渲染运行不创建绑定；独立预览直�
 
 首次绑定枚举存量对象；之后批量收集变更，同一帧反复修改只提交最终值。
 允许实施初期扫描比较作为过渡，但不能将全量扫描留下作为已完成的增量同步。
-World 更新结束后、帧提交前 synchronize；编辑、撤销重做、资源重载统一经实际组件变化触发。
+World 更新结束后、帧提交前 synchronize；编辑与撤销重做统一经实际组件变化触发。
+资源内容重载经有序资源发布更新渲染身份，无需 World 为同一个实例重复换绑。
 来源 UUID/Prefab 身份不下沉 Render；删除再创建得到新 RID，编辑器选择语义仍由文档层维护。
 
 ## 队列与可见性
 
 更新命令可靠有序，不能随意丢弃；只允许跳过尚未执行的绘制请求，同时保留其之前全部状态更新。
-队列必须有明确背压：初期限制在途帧数，队满提交返回 not_ready 且保留调用方批次，不静默丢失或无限增长。
-宿主重试时不重复发送已接受批次。浏览器主线程不阻塞等待；不引入为等待而嵌套驱动主循环的接口。
-队列字节上限、在途帧数采用可配置小集合，测量后给出默认值，不把性能预算写死为功能正确性。
+队列必须有明确容量与背压，不静默丢命令、不无限增长、不阻塞浏览器主线程。
+不预设每个 setter 都向业务暴露队满重试；优先由服务内部打包/调度及绑定保存待同步变化。
+如果操作返回可重试的 not_ready，必须表示尚未接受，且不产生副作用；绑定只记录成功接受的进度。
+帧队满时失败不消费调用方 frame_request；已接受命令不随跳帧丢失。
+具体命令容量与背压机制在闭环实施前明确并验证，不将未实现策略写成现有保证。
+消费与完成分发复用宿主统一调度；没有视图、窗口最小化时仍能处理更新和释放，不能只靠 render(frame) 驱动。
+队列字节上限、在途帧数采用可配置小集合，测量后给默认值，不把性能预算写死为功能正确性。
 
 Render 按 View/层掩码剔除；主相机不可见不代表阴影、反射或其他视图不可见。
 初期遍历持久实例做视锥测试，先验证可见性与边界更新；BVH、遮挡剔除、LOD、GPU indirect 为后续计划。
@@ -215,23 +267,21 @@ Render 按 View/层掩码剔除；主相机不可见不代表阴影、反射或�
 
 ```text
 engine/function/scene/
-  world.hpp/.cpp
   rendering/world_render_binding.hpp/.cpp
 
 engine/function/render/
-  render_service.hpp/.cpp
-  render_scene.hpp
-  scene_update.hpp/.cpp
-  render_view.hpp
-  frame_submission.hpp
+  service.hpp/.cpp
+  render_types.hpp
   detail/
-    render_scene_state.hpp/.cpp
-    render_commands.hpp
-    render_queue.hpp/.cpp
-    visibility.hpp/.cpp
+    service_impl.hpp
     resource_storage.hpp/.cpp
-    frame_resources.hpp/.cpp
-  backend/...
+    scene_storage.hpp/.cpp
+    executor.hpp/.cpp
+  backend/granit/
+    backend.hpp/.cpp
+    resource_storage.hpp/.cpp
+    scene_adapter.hpp/.cpp
+    pbr_shader_resolver.hpp/.cpp
 ```
 
 这是职责布局，不强制提前创建每个文件。scene/rendering 同时依赖 World 与 Render 公共入口；
@@ -243,15 +293,21 @@ World 核心不依赖 Render，render 目录不反向包含 World/ECS。构建�
 
 ## 实施顺序与完成条件
 
-- [ ] P0：核查现有资源、RID、线程/帧队列和 Granit 能力；固定错误语义、销毁依赖和后端接入方案。
-- [ ] P1：同线程持久 Render Scene/实例、预留 RID、更新批次、独立多视图；接通无 World 的模型预览闭环。
-- [ ] P2：内部资源依赖保活、帧 payload 安全、显式场景销毁和失败关闭；消除上层销毁队列对后端时序的介入。
-- [ ] P3：在 scene/rendering 实现宿主拥有的 world_render_binding 和受控组件变化通知；
-  接通层级、增删、换绑、资源重载及卸载，验证无渲染 World 不需要该绑定。
-- [ ] P4：按视图视锥剔除，正确更新包围体；接入 Runtime、Editor、示例及捕获/拾取入口。
-- [ ] P5：有序队列、背压及独立执行线程；无独立线程平台复用同一消费器，不另设对象模型。
-- [ ] P6：删除每帧全量提取协议及旧适配；迁移帧资源安全能力，不机械删除仍必要的 payload 保活。
-- [ ] P7：按下列行为验收，更新 Reference/Concept 当前事实及内部头文件边界，记录平台和性能限制。
+以下清单已按复核结论重排；旧 CPU 批次基础是迁移输入，不等于新阶段完成。
+
+- [ ] P0：收敛命名空间、单一 PImpl 和 Service/Backend 边界，明确资源身份/版本、背压和关闭语义。
+  随首个实际调用链调整；不以只移动文件或增加空壳作为该阶段完成。
+- [ ] P1：资源身份依赖、直接实例 API、真实 Granit 绘制与关闭一起接通无 World 模型预览。
+  覆盖 pending→ready、热重载、外部释放后的实例存活；删除被替代的公开 scene_update 与首次 payload 固定逻辑。
+- [ ] P2：接通有序资源版本、帧安全和 GPU 退休，复用执行器并验证设备失败关闭；
+  上层退休只交还拥有权，不介入后端时序。P1 必要安全能力必须同时实现，不能以阶段编号推迟。
+- [ ] P3：受控组件修改、层级变化、world_render_binding 与 Runtime/Editor 实际绘制一起迁移；
+  验证无渲染 World 无需绑定，删除 extract_render_snapshot 对象列表链路。
+- [ ] P4：多视图、目标、视锥剔除、临时输入和异步回读/拾取闭环；
+  删除宿主 packet 复用/资源捕获/普通帧完成轮询，保留内部必要 payload 保活。
+- [ ] P5：完成命令容量、背压、跳帧和单/多线程消费验收；不得因无视图停止释放，不新增平行队列服务。
+- [ ] P6：清理旧命名/协议/适配及无消费者抽象，迁移有效测试；取消的批次事务契约不再保留测试或兼容别名。
+- [ ] P7：按下列行为验收并更新 Reference/Concept 当前事实及内部头文件边界，记录平台和性能限制。
 
 本轮不做空间树优化、流送、GPU 剔除、TAA 或通用多线程生产者框架。
 CPU/GPU 创建耗时优化不作为持久场景正确性闭环的前置条件；后端能力受阻须明确记录，不能虚报 P5/P6 完成。
@@ -262,7 +318,8 @@ CPU/GPU 创建耗时优化不作为持久场景正确性闭环的前置条件；
 开发期间以编译和小型定向 CPU 测试为主；GPU/多平台统一验收安排在架构闭环后，不启动大场景或远端 CI。
 
 - 无 World 创建模型预览；同场景多视图、不同场景独立目标，实例稳定身份与层掩码正确。
-- 创建后同批更新、批次放弃、重复删除、跨场景/跨服务、旧 generation、服务关闭后的请求安全。
+- 创建成功后立即更新；单操作接受失败无副作用；多操作部分成功时重试不重复；
+  重复删除、跨场景/跨服务、旧 generation、服务关闭后的请求安全。
 - 父变换、子对象删除、组件换绑、网格热重载改变包围体、隐藏再显示均正确同步。
 - 一个实例/场景销毁不破坏共享资源；队列延迟及外部资源释放不产生悬空引用，在途帧不看到新 payload。
 - 队满重试不重复应用；跳帧不丢状态；关闭/设备失败能收尾，浏览器不阻塞。
@@ -271,6 +328,7 @@ CPU/GPU 创建耗时优化不作为持久场景正确性闭环的前置条件；
 
 ## 未决实现项与建议
 
-总体所有权边界不变；公开批次是否替换为直接 API 待本轮复核确认。实施需根据代码证据决定：复用何种 Granit 队列/fence、资产适配具体落点、
+总体边界、直接 API 与 Granit 私有后端划分已确认。实施需根据代码证据决定：命令容量与背压策略、
+复用何种 Granit 队列/fence、资产适配具体落点、
 临时数据是否复用现有 draw list，以及后端 payload 的具体保活机制。默认复用已有机制，避免双队列和双退休系统。
 若必须改变已确认所有权、增加跨仓库能力或扩大非目标，先记录差异与建议，再与用户讨论。

@@ -3,6 +3,12 @@
 
 # Render 整体设计复核
 
+## 后续状态
+
+本记录保存复核当时的分析，下文“待确认”是当时状态。用户随后确认直接业务 API、render 命名空间、
+单一 PImpl 与 Granit 私有后端边界；已统一写入 [PLAN-115](../plans/PLAN-115-persistent-render-scene.md)
+及 [ADR-118](../decisions/ADR-118-persistent-render-scene.md)。后续以两者为准，不将历史草案当作当前实现。
+
 ## 结论与状态
 
 2026-11-11，复核基线为 `f8febed0`。本次只修改约束与设计文档，不修改运行接口。
