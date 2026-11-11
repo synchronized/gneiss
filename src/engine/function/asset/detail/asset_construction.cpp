@@ -181,8 +181,8 @@ result<ref<const gneiss::mesh>> asset_construction::create_mesh(const mesh_view&
   auto output = reserve_mesh();
   if (!output)
     return output.error();
-  if (!update_mesh(*output, std::move(*data)))
-    return error::out_of_memory;
+  if (auto status = update_mesh(*output, std::move(*data)); !status)
+    return status.error();
   return output;
 }
 
@@ -195,8 +195,8 @@ result<ref<const gneiss::texture>> asset_construction::create_texture(const text
   auto output = reserve_texture();
   if (!output)
     return output.error();
-  if (!update_texture(*output, std::move(*data)))
-    return error::out_of_memory;
+  if (auto status = update_texture(*output, std::move(*data)); !status)
+    return status.error();
   return output;
 }
 
@@ -209,8 +209,8 @@ asset_construction::create_material(const material_parameters& parameters,
   auto output = reserve_material();
   if (!output)
     return output.error();
-  if (!update_material(*output, std::move(*data), std::move(dependencies)))
-    return error::out_of_memory;
+  if (auto status = update_material(*output, std::move(*data), std::move(dependencies)); !status)
+    return status.error();
   return output;
 }
 
@@ -269,58 +269,61 @@ ref<const gneiss::texture> asset_construction::find_texture(rid handle) const no
                                   : ref<const gneiss::texture>{found->second.lock()};
 }
 
-bool asset_construction::update_mesh(const ref<const gneiss::mesh>& target,
-                                     std::shared_ptr<const mesh_data> data) {
+result<void> asset_construction::update_mesh(const ref<const gneiss::mesh>& target,
+                                             std::shared_ptr<const mesh_data> data) {
   if (closed_ || !target || !data)
-    return false;
+    return error::invalid_argument;
   const auto handle = resource_handle(target);
   const auto found = meshes_.find(handle);
-  if (found == meshes_.end() || found->second.lock().get() != target.get() ||
-      !render_.replace_mesh(handle, data))
-    return false;
+  if (found == meshes_.end() || found->second.lock().get() != target.get())
+    return error::invalid_argument;
+  if (auto status = render_.replace_mesh(handle, data); !status)
+    return status.error();
   update_mesh(handle, *data);
   mesh_resource_access::set_content(*target, ref<const mesh_data>{std::move(data)});
-  return true;
+  return {};
 }
 
-bool asset_construction::update_texture(const ref<const gneiss::texture>& target,
-                                        std::shared_ptr<const texture_data> data) {
+result<void> asset_construction::update_texture(const ref<const gneiss::texture>& target,
+                                                std::shared_ptr<const texture_data> data) {
   if (closed_ || !target || !data)
-    return false;
+    return error::invalid_argument;
   const auto handle = resource_handle(target);
   const auto found = textures_.find(handle);
-  if (found == textures_.end() || found->second.lock().get() != target.get() ||
-      !render_.replace_texture(handle, data))
-    return false;
+  if (found == textures_.end() || found->second.lock().get() != target.get())
+    return error::invalid_argument;
+  if (auto status = render_.replace_texture(handle, data); !status)
+    return status.error();
   update_texture(handle, *data);
   texture_resource_access::set_content(*target, ref<const texture_data>{std::move(data)});
-  return true;
+  return {};
 }
 
-bool asset_construction::update_material(const ref<const gneiss::material>& target,
-                                         std::shared_ptr<const material_data> data,
-                                         std::array<ref<const gneiss::texture>, 5> dependencies) {
+result<void>
+asset_construction::update_material(const ref<const gneiss::material>& target,
+                                    std::shared_ptr<const material_data> data,
+                                    std::array<ref<const gneiss::texture>, 5> dependencies) {
   if (closed_ || !target || !data)
-    return false;
+    return error::invalid_argument;
   const auto handle = resource_handle(target);
   const auto found = materials_.find(handle);
   if (found == materials_.end() || found->second.lock().get() != target.get())
-    return false;
+    return error::invalid_argument;
   const auto handles = data->texture_handles();
   for (std::size_t i = 0; i < handles.size(); ++i) {
     if (resource_handle(dependencies[i]) != handles[i] ||
         (dependencies[i] && find_texture(handles[i]) != dependencies[i]))
-      return false;
+      return error::invalid_argument;
   }
   ref<const material_content> content;
   {
     content =
         make_ref<material_content>(material_content{data->parameters, std::move(dependencies)});
   }
-  if (!render_.replace_material(handle, data))
-    return false;
+  if (auto status = render_.replace_material(handle, data); !status)
+    return status.error();
   material_resource_access::set_content(*target, std::move(content));
-  return true;
+  return {};
 }
 
 error asset_construction::validate_sources(asset_manager& assets,

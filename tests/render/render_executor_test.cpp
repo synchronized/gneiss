@@ -4,6 +4,7 @@
 #include "../support/value_result.hpp"
 #include "application/detail/main_loop_wakeup.hpp"
 #include "engine/core/error.hpp"
+#include "engine/function/render/detail/resource_identity.hpp"
 #include "engine/function/render/render_executor.hpp"
 
 #include <atomic>
@@ -12,6 +13,7 @@
 #include <mutex>
 #include <stdexcept>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -23,6 +25,13 @@ bool ordered_commands_survive_frame_replacement() {
   bool started = false;
   bool release = false;
   int scene_state = 0;
+  int discarded_prepares = 0;
+  bool captured_in_order = false;
+  const auto producer = std::this_thread::get_id();
+  auto identity = std::make_shared<detail::resource_identity<mesh_data>>();
+  auto old_version = std::make_shared<mesh_data>();
+  auto future_version = std::make_shared<mesh_data>();
+  identity->publish(old_version);
   std::vector<int> observed;
   threaded_render_executor executor;
   if (executor
@@ -52,7 +61,13 @@ bool ordered_commands_survive_frame_replacement() {
   std::weak_ptr<frame_image> discarded_lifetime = discarded_image;
   render_frame_packet discarded;
   discarded.readback = std::move(discarded_image);
-  auto old_frame = executor.submit_frame(std::move(discarded));
+  auto old_frame =
+      executor.submit_frame({}, render_frame_policy::replaceable,
+                            [packet = std::move(discarded),
+                             &discarded_prepares]() mutable -> result<render_frame_packet> {
+                              ++discarded_prepares;
+                              return std::move(packet);
+                            });
   auto update = executor.submit_command([&](const auto&) {
     scene_state = 7;
     return error::success;
@@ -61,12 +76,21 @@ bool ordered_commands_survive_frame_replacement() {
   std::weak_ptr<frame_image> drawn_lifetime = drawn_image;
   render_frame_packet drawn;
   drawn.readback = std::move(drawn_image);
-  auto new_frame = executor.submit_frame(std::move(drawn));
+  auto new_frame = executor.submit_frame(
+      {}, render_frame_policy::replaceable,
+      [&, packet = std::move(drawn)]() mutable -> result<render_frame_packet> {
+        captured_in_order = scene_state == 7 && std::this_thread::get_id() != producer &&
+                            identity->read_consumed() == old_version &&
+                            identity->read() == future_version;
+        return std::move(packet);
+      });
   const bool discarded_released = discarded_lifetime.expired();
   auto destroy = executor.submit_command([&](const auto&) {
     scene_state = 0;
+    identity->consume(future_version);
     return error::success;
   });
+  identity->accept(future_version); // 已接受的未来版本不能泄漏给前一帧。
   {
     std::lock_guard lock(mutex);
     release = true;
@@ -80,9 +104,10 @@ bool ordered_commands_survive_frame_replacement() {
   const auto stats = executor.query_stats();
   executor.stop();
   return old_frame && update && new_frame && destroy && flushed.ok() && discarded_released &&
-         drawn_released && observed == std::vector<int>{7} && scene_state == 0 && dropped &&
-         dropped->sequence == *old_frame && dropped->dropped && completed &&
-         completed->sequence == *new_frame && completed->status.ok() &&
+         drawn_released && captured_in_order && discarded_prepares == 0 &&
+         identity->read_consumed() == future_version && observed == std::vector<int>{7} &&
+         scene_state == 0 && dropped && dropped->sequence == *old_frame && dropped->dropped &&
+         completed && completed->sequence == *new_frame && completed->status.ok() &&
          stats.executed_commands == 3 && stats.replaced_frames == 1;
 }
 
@@ -488,5 +513,21 @@ int main(int argc, char** argv) {
       once->status != gneiss::error::not_ready || once->sequence != once_sequence) {
     return 26;
   }
+  threaded_render_executor failed_prepare;
+  unsigned draw_calls{};
+  if (failed_prepare.initialize([&](auto&, auto&) {
+        ++draw_calls;
+        return gneiss::error::success;
+      }) != gneiss::error::success)
+    return 27;
+  auto prepare_sequence = failed_prepare.submit_frame(
+      {}, render_frame_policy::required,
+      []() -> gneiss::result<render_frame_packet> { return gneiss::error::unsupported; });
+  if (!prepare_sequence || failed_prepare.flush() != gneiss::error::success)
+    return 28;
+  auto failure = failed_prepare.try_take_frame_completion();
+  if (!failure || failure->sequence != *prepare_sequence ||
+      failure->status != gneiss::error::unsupported || failure->dropped || draw_calls != 0)
+    return 29;
   return 0;
 }

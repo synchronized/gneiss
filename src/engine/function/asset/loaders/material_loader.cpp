@@ -20,8 +20,7 @@ error asset_construction::adopt(asset_manager& assets, const material_descriptio
   if (!prepared)
     return prepared.error();
   auto data = std::move(*prepared);
-  return assets.impl_->update_material(target, std::move(data), std::move(dependencies))
-             ? error::success
-             : error::out_of_memory;
+  auto status = assets.impl_->update_material(target, std::move(data), std::move(dependencies));
+  return status ? error::success : status.error();
 }
 }

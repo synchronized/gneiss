@@ -66,7 +66,7 @@ void render_load_operation::advance(asset_manager& service, asset_construction&)
       }
       started = true;
     }
-    if (!description) {
+    if (!description && !pending_mesh && !pending_texture) {
       serialization::diagnostic diagnostic;
       const auto status = std::visit(
           [&](auto& request) -> error {
@@ -83,14 +83,12 @@ void render_load_operation::advance(asset_manager& service, asset_construction&)
             state.source_bytes = request.source_bytes();
             if constexpr (std::is_same_v<T, asset_request<mesh_data>>) {
               state.metrics = request.metrics();
-              return asset_construction::adopt(service, loaded->shared(),
-                                               resource_cast<gneiss::mesh>(state.target),
-                                               state.metrics.sources);
+              pending_mesh = loaded->shared();
+              return error::success;
             } else if constexpr (std::is_same_v<T, asset_request<texture_data>>) {
               state.metrics = request.metrics();
-              return asset_construction::adopt(service, loaded->shared(),
-                                               resource_cast<gneiss::texture>(state.target),
-                                               state.metrics.sources);
+              pending_texture = loaded->shared();
+              return error::success;
             } else {
               auto decoded_description = std::move(*loaded);
               auto bytes = sizeof(material_data);
@@ -124,10 +122,24 @@ void render_load_operation::advance(asset_manager& service, asset_construction&)
         finish(status);
         return;
       }
-      if (!description) {
-        finish(error::success);
+    }
+    if (pending_mesh || pending_texture) {
+      const auto status =
+          pending_mesh ? asset_construction::adopt(service, pending_mesh,
+                                                   resource_cast<gneiss::mesh>(state.target),
+                                                   state.metrics.sources)
+                       : asset_construction::adopt(service, pending_texture,
+                                                   resource_cast<gneiss::texture>(state.target),
+                                                   state.metrics.sources);
+      if (status == error::not_ready) {
+        // 队列背压时保留已解码内容，仅在下一次管理器 update 重试采用。
+        notify();
         return;
       }
+      pending_mesh.reset();
+      pending_texture.reset();
+      finish(status);
+      return;
     }
     for (const auto& dependency : dependencies)
       dependency->notify = notify;
@@ -146,6 +158,10 @@ void render_load_operation::advance(asset_manager& service, asset_construction&)
     auto status = asset_construction::adopt(service, *description,
                                             resource_cast<gneiss::material>(state.target),
                                             std::move(texture_references));
+    if (status == error::not_ready) {
+      notify();
+      return;
+    }
     finish(status);
   }
 }

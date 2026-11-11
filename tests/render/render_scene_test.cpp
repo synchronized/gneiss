@@ -4,6 +4,7 @@
 #include "engine/function/render/render_service.hpp"
 #include <barrier>
 #include <iostream>
+#include <latch>
 #include <limits>
 #include <thread>
 using namespace gneiss;
@@ -140,7 +141,32 @@ bool queued_scene_consumption() {
   auto mesh = std::make_shared<detail::resource_identity<mesh_data>>();
   auto material = std::make_shared<detail::resource_identity<material_data>>();
   std::weak_ptr retained_mesh = mesh;
-  std::vector<std::function<void()>> queue;
+  threaded_render_executor executor;
+  CHECK(executor.initialize([](auto&, auto&) { return error::success; }).ok());
+  std::latch entered{1};
+  std::latch release{1};
+  bool released = false;
+  struct unblock {
+    std::latch& gate;
+    bool& released;
+    ~unblock() {
+      if (!released)
+        gate.count_down();
+    }
+  } guard{release, released};
+  CHECK(executor.submit_command([&](const auto&) {
+    entered.count_down();
+    release.wait();
+    return error::success;
+  }));
+  entered.wait();
+  auto enqueue = [&](std::function<void()> operation) -> result<void> {
+    auto accepted = executor.submit_command([operation = std::move(operation)](const auto&) {
+      operation();
+      return error::success;
+    });
+    return accepted ? result<void>{} : result<void>{accepted.error()};
+  };
   bool accepting = true;
   const auto producer = std::this_thread::get_id();
   detail::render_scene_state state{
@@ -153,8 +179,7 @@ bool queued_scene_consumption() {
       [&](std::function<void()> operation) -> result<void> {
         if (!accepting)
           return error::not_ready;
-        queue.push_back(std::move(operation));
-        return {};
+        return enqueue(std::move(operation));
       }};
   auto scene = state.create_scene();
   CHECK(scene);
@@ -166,7 +191,7 @@ bool queued_scene_consumption() {
   std::vector<result<render_frame_packet>> frames;
   auto first = state.prepare_capture(request);
   CHECK(first);
-  queue.push_back([operation = std::move(*first), &frames] { frames.push_back(operation()); });
+  CHECK(enqueue([operation = std::move(*first), &frames] { frames.push_back(operation()); }));
   math::matrix4 moved{1.F};
   moved[3][0] = 5.F;
   render::scene_commands update{*scene, {render::set_transform{{1}, moved}}};
@@ -177,7 +202,7 @@ bool queued_scene_consumption() {
   CHECK(state.submit(std::move(update))); // 按已接受身份验证，不要求创建已执行。
   auto second = state.prepare_capture(request);
   CHECK(second);
-  queue.push_back([operation = std::move(*second), &frames] { frames.push_back(operation()); });
+  CHECK(enqueue([operation = std::move(*second), &frames] { frames.push_back(operation()); }));
   accepting = false;
   CHECK(state.destroy_scene(*scene).error() == error::not_ready);
   CHECK(state.prepare_capture(request));
@@ -192,16 +217,15 @@ bool queued_scene_consumption() {
   request.views.front().scene = *replacement;
   auto third = state.prepare_capture(request);
   CHECK(third);
-  queue.push_back([operation = std::move(*third), &frames] { frames.push_back(operation()); });
+  CHECK(enqueue([operation = std::move(*third), &frames] { frames.push_back(operation()); }));
   mesh.reset();
   material.reset();
   CHECK(!retained_mesh.expired());
   // 同一有序消费者独占实际场景数据；任务不读取接受侧 RID 表或调用方命令。
-  std::thread consumer([tasks = std::move(queue)]() mutable {
-    for (auto& task : tasks)
-      task();
-  });
-  consumer.join();
+  released = true;
+  release.count_down();
+  CHECK(executor.flush().ok());
+  executor.stop();
   CHECK(frames.size() == 3 && frames[0] && frames[1] && frames[2]);
   CHECK(frames[0]->scene.instances.size() == 1 && frames[1]->scene.instances.size() == 1 &&
         frames[2]->scene.instances.size() == 1);

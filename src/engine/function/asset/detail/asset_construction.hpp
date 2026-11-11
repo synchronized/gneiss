@@ -50,13 +50,13 @@ public:
   /** 仅查询现有纹理引用；UI 等借用 RID 的调用方不得创建拥有者。 */
   GNEISS_API ref<const gneiss::texture> find_texture(rid handle) const noexcept;
   /** 提交 CPU 内容后更新上层对象，不等待 GPU；材质依赖由调用方显式提供。 */
-  GNEISS_API bool update_mesh(const ref<const gneiss::mesh>& target,
-                              std::shared_ptr<const mesh_data> data);
-  GNEISS_API bool update_texture(const ref<const gneiss::texture>& target,
-                                 std::shared_ptr<const texture_data> data);
-  GNEISS_API bool update_material(const ref<const gneiss::material>& target,
-                                  std::shared_ptr<const material_data> data,
-                                  std::array<ref<const gneiss::texture>, 5> dependencies);
+  GNEISS_API result<void> update_mesh(const ref<const gneiss::mesh>& target,
+                                      std::shared_ptr<const mesh_data> data);
+  GNEISS_API result<void> update_texture(const ref<const gneiss::texture>& target,
+                                         std::shared_ptr<const texture_data> data);
+  GNEISS_API result<void> update_material(const ref<const gneiss::material>& target,
+                                          std::shared_ptr<const material_data> data,
+                                          std::array<ref<const gneiss::texture>, 5> dependencies);
   GNEISS_API result<ref<const gneiss::texture>> create_texture(const texture_view& desc);
   static GNEISS_API error adopt(asset_manager&, std::shared_ptr<const mesh_data>,
                                 const ref<const gneiss::mesh>&,

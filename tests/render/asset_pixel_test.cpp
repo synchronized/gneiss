@@ -215,7 +215,7 @@ void run_pending_resources() {
       {.position = {0.0F, 0.8F, 0.0F}, .uv = {0.5F, 1.0F}},
   };
   geometry->normals.assign(3U, {0.0F, 0.0F, 1.0F});
-  check(resources.replace_mesh(mesh, geometry));
+  check(resources.replace_mesh(mesh, geometry).ok());
   const auto placeholder = pixel();
   check(placeholder[0] > hidden[0] + 30U && placeholder[1] > hidden[1] + 30U &&
         placeholder[2] > hidden[2] + 30U);
@@ -230,7 +230,7 @@ void run_pending_resources() {
           .pixels = {std::byte{255}, std::byte{0}, std::byte{0}, std::byte{255}},
       },
   };
-  check(resources.replace_texture(texture, red));
+  check(resources.replace_texture(texture, red).ok());
   const auto await_pixel = [&](bool is_blue) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     auto color = pixel();
@@ -247,7 +247,7 @@ void run_pending_resources() {
   check(ready[0] > ready[1] + 30U && ready[0] > ready[2] + 30U);
   auto blue = std::make_shared<gneiss::texture_data>(*red);
   blue->levels.front().pixels = {std::byte{0}, std::byte{0}, std::byte{255}, std::byte{255}};
-  check(resources.replace_texture(texture, blue));
+  check(resources.replace_texture(texture, blue).ok());
   const auto updated = await_pixel(true);
   check(updated[2] > updated[0] + 30U && updated[2] > updated[1] + 30U);
   // 无效完成不能覆盖旧内容；已缓存 GPU 镜像也不能掩盖 RID 销毁。

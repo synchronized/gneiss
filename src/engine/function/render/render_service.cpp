@@ -63,7 +63,21 @@ public:
   }
   [[nodiscard]] result<bool> can_prepare_frame();
   [[nodiscard]] result<std::uint64_t>
-  submit(render_frame_packet packet, render_frame_policy policy = render_frame_policy::replaceable);
+  submit(render_frame_prepare prepare,
+         render_frame_policy policy = render_frame_policy::replaceable);
+  result<void> dispatch(std::function<void()> operation) {
+    if (!executor_.is_running()) {
+      operation();
+      return {};
+    }
+    auto accepted = executor_.submit_command(
+        [operation = std::move(operation)](const render_command_reporter&) {
+          operation();
+          return error::success;
+        },
+        render_command_policy::once);
+    return accepted ? result<void>{} : result<void>{accepted.error()};
+  }
   [[nodiscard]] result<std::optional<render_frame_completion>> try_take_required_completion();
   [[nodiscard]] render_queue_stats query_performance_stats() const noexcept;
   /** 仅在 initialize 完成后由宿主读取；设备重建必须重新发布。 */
@@ -931,15 +945,24 @@ result<bool> render_service::implementation::can_prepare_frame() {
   }
   return true;
 }
-result<std::uint64_t> render_service::implementation::submit(render_frame_packet packet,
+result<std::uint64_t> render_service::implementation::submit(render_frame_prepare prepare,
                                                              render_frame_policy policy) {
   const auto completion_result = collect_completions();
   if (completion_result != gneiss::error::success) {
     return completion_result;
   }
-  packet.window.needs_recreate = packet.window.needs_recreate || pending_recreate_;
-  pending_recreate_ = false;
-  return executor_.submit_frame(std::move(packet), policy);
+  const bool recreate = pending_recreate_;
+  auto accepted = executor_.submit_frame(
+      {}, policy,
+      [prepare = std::move(prepare), recreate]() mutable -> result<render_frame_packet> {
+        auto packet = prepare();
+        if (packet)
+          packet->window.needs_recreate = packet->window.needs_recreate || recreate;
+        return packet;
+      });
+  if (accepted)
+    pending_recreate_ = false;
+  return accepted;
 }
 
 result<std::optional<render_frame_completion>>
@@ -1530,8 +1553,15 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
 }
 
 render_service::render_service(std::uint64_t memory_limit)
-    : storage_(std::make_unique<resource_storage>(memory_limit)),
+    : storage_(std::make_unique<resource_storage>(memory_limit,
+                                                  [this](std::function<void()> operation) {
+                                                    return dispatch_render_work(
+                                                        std::move(operation));
+                                                  })),
       impl_(std::make_unique<implementation>()) {}
+result<void> render_service::dispatch_render_work(std::function<void()> operation) {
+  return impl_->dispatch(std::move(operation));
+}
 render_service::~render_service() {
   impl_.reset();
   close_resources();
@@ -1623,10 +1653,12 @@ result<std::uint64_t> render_service::request_capture(render::frame_request&& re
 result<std::uint64_t> render_service::submit_request(render::frame_request& request,
                                                      render_frame_policy policy,
                                                      std::shared_ptr<frame_image> image) {
-  auto packet = storage_->scenes_->capture(request);
-  if (!packet)
-    return packet.error();
-  for (const auto& command : packet->ui.commands()) {
+  auto capture = storage_->scenes_->prepare_capture(request);
+  if (!capture)
+    return capture.error();
+  // UI 是独立逐帧输入，接受时固定其纹理版本，不在消费者访问资源 RID 表。
+  render_resource_snapshot ui_resources;
+  for (const auto& command : request.ui.commands()) {
     const auto handle = resource_handle(command.texture);
     const auto status = texture_status(handle);
     if (status.failed())
@@ -1634,14 +1666,25 @@ result<std::uint64_t> render_service::submit_request(render::frame_request& requ
     auto texture = share_texture(handle);
     if (!texture)
       return error::invalid_handle;
-    packet->resources.textures_.insert_or_assign(handle, std::move(texture));
+    ui_resources.textures_.insert_or_assign(handle, std::move(texture));
   }
-  packet->capture.copied_payload_bytes += packet->ui.vertices().size() * sizeof(ui_vertex) +
-                                          packet->ui.indices().size() * sizeof(std::uint32_t) +
-                                          packet->ui.commands().size() * sizeof(ui_draw_command) +
-                                          packet->debug.lines().size() * sizeof(debug_line);
-  packet->readback = std::move(image);
-  auto accepted = impl_->submit(std::move(*packet), policy);
+  auto accepted = impl_->submit(
+      [capture = std::move(*capture), ui_resources = std::move(ui_resources),
+       image = std::move(image)]() mutable -> result<render_frame_packet> {
+        auto packet = capture();
+        if (!packet)
+          return packet.error();
+        for (auto& [handle, texture] : ui_resources.textures_)
+          packet->resources.textures_.insert_or_assign(handle, std::move(texture));
+        packet->capture.copied_payload_bytes +=
+            packet->ui.vertices().size() * sizeof(ui_vertex) +
+            packet->ui.indices().size() * sizeof(std::uint32_t) +
+            packet->ui.commands().size() * sizeof(ui_draw_command) +
+            packet->debug.lines().size() * sizeof(debug_line);
+        packet->readback = std::move(image);
+        return packet;
+      },
+      policy);
   if (!accepted)
     return accepted.error();
   request = {};

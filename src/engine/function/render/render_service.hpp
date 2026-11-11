@@ -75,7 +75,7 @@ public:
   /** initialize 完成后读取；设备重建后重新获取。 */
   [[nodiscard]] GNEISS_API texture_prepare_profile texture_profile() const noexcept;
 
-  /** CPU 持久场景；不需要初始化窗口或 GPU。当前命令在所属线程提交生效。 */
+  /** CPU 持久场景；不需要初始化窗口或 GPU。初始化执行器后命令按序入队；未初始化时同步生效。 */
   [[nodiscard]] GNEISS_API result<rid> create_scene();
   [[nodiscard]] GNEISS_API result<void> submit(render::scene_commands&&);
   [[nodiscard]] GNEISS_API result<void> destroy_scene(rid scene);
@@ -113,9 +113,10 @@ public:
   /** 已校验不可变 CPU 网格；RID 与旧帧共享同一对象，销毁 RID 不使外部引用失效。 */
   [[nodiscard]] GNEISS_API result<rid>
   create_prepared_mesh(std::shared_ptr<const mesh_data> resource);
-  [[nodiscard]] GNEISS_API bool replace_mesh(rid rid, std::shared_ptr<const mesh_data> data);
-  [[nodiscard]] GNEISS_API bool replace_material(rid rid,
-                                                 std::shared_ptr<const material_data> data);
+  [[nodiscard]] GNEISS_API result<void> replace_mesh(rid rid,
+                                                     std::shared_ptr<const mesh_data> data);
+  [[nodiscard]] GNEISS_API result<void> replace_material(rid rid,
+                                                         std::shared_ptr<const material_data> data);
   /** 校验并复制借用视图，返回自有 CPU 内容，不分配 RID。 */
   [[nodiscard]] GNEISS_API result<std::shared_ptr<const mesh_data>>
   prepare_mesh_data(const mesh_view& desc);
@@ -141,8 +142,8 @@ public:
   [[nodiscard]] GNEISS_API result<rid> create_packaged_texture(texture_data resource);
   [[nodiscard]] GNEISS_API error destroy_texture(rid texture) noexcept;
   /** 主线程提交已验证候选；保持 RID generation，既有帧仍拥有旧数据快照。 */
-  [[nodiscard]] GNEISS_API bool replace_texture(rid texture,
-                                                std::shared_ptr<const texture_data> prepared);
+  [[nodiscard]] GNEISS_API result<void>
+  replace_texture(rid texture, std::shared_ptr<const texture_data> prepared);
   [[nodiscard]] GNEISS_API const mesh_data* get_mesh(rid mesh) const noexcept;
   [[nodiscard]] GNEISS_API const material_data* get_material(rid material) const noexcept;
   [[nodiscard]] GNEISS_API const texture_data* get_texture(rid texture) const noexcept;
@@ -154,6 +155,7 @@ public:
   [[nodiscard]] GNEISS_API std::size_t live_resource_count() const noexcept;
 
 private:
+  result<void> dispatch_render_work(std::function<void()>);
   result<std::uint64_t> submit_request(render::frame_request&, render_frame_policy,
                                        std::shared_ptr<frame_image>);
   struct resource_storage;

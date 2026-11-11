@@ -18,6 +18,8 @@ struct render_load_operation final : load_operation {
   std::variant<asset_request<mesh_data>, asset_request<texture_data>,
                asset_request<material_description>>
       cpu;
+  std::shared_ptr<const mesh_data> pending_mesh;
+  std::shared_ptr<const texture_data> pending_texture;
   asset_ref<const material_description> description;
   std::array<ref<const gneiss::texture>, 5> texture_references;
   std::array<std::shared_ptr<reference_dependency<gneiss::texture>>, 5> texture_dependencies;

@@ -42,6 +42,7 @@ struct threaded_render_executor::state final {
     std::uint64_t sequence{};
     render_frame_policy frame_policy{render_frame_policy::replaceable};
     render_frame_packet packet;
+    render_frame_prepare prepare;
     render_command_callback command;
     render_command_policy command_policy{render_command_policy::once};
     double execution_ms{};
@@ -88,14 +89,29 @@ void threaded_render_executor::state::run() noexcept try {
     if (task.kind == task_kind::frame) {
       frame_completion.sequence = task.sequence;
       frame_completion.policy = task.frame_policy;
+      const auto preparation_started = std::chrono::steady_clock::now();
+      frame_completion.execution.queue_wait_ms =
+          std::chrono::duration<float, std::milli>(preparation_started - task.enqueued_at).count();
+      error prepared_status = error::success;
+      if (task.prepare) {
+        auto prepared = task.prepare();
+        if (prepared) {
+          task.packet = std::move(*prepared);
+          task.packet.sequence = task.sequence;
+        } else {
+          prepared_status = prepared.error();
+        }
+        task.packet.capture.capture_ms = std::chrono::duration<float, std::milli>(
+                                             std::chrono::steady_clock::now() - preparation_started)
+                                             .count();
+        task.prepare = {};
+      }
       frame_completion.execution.frame_capture_ms = task.packet.capture.capture_ms;
       frame_completion.execution.copied_payload_bytes = task.packet.capture.copied_payload_bytes;
-      frame_completion.execution.queue_wait_ms =
-          std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() -
-                                                   task.enqueued_at)
-              .count();
       const auto execution_started = std::chrono::steady_clock::now();
-      frame_completion.status = frame_callback(task.packet, frame_completion.execution);
+      frame_completion.status = prepared_status.failed()
+                                    ? prepared_status
+                                    : frame_callback(task.packet, frame_completion.execution);
       frame_completion.execution.render_thread_ms =
           std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() -
                                                    execution_started)
@@ -233,7 +249,8 @@ gneiss::error threaded_render_executor::initialize(render_frame_callback callbac
 }
 
 result<std::uint64_t> threaded_render_executor::submit_frame(render_frame_packet packet,
-                                                             render_frame_policy policy) {
+                                                             render_frame_policy policy,
+                                                             render_frame_prepare prepare) {
   if (!state_) {
     return gneiss::error::not_ready;
   }
@@ -275,6 +292,7 @@ result<std::uint64_t> threaded_render_executor::submit_frame(render_frame_packet
                                .sequence = sequence,
                                .frame_policy = policy,
                                .packet = std::move(packet),
+                               .prepare = std::move(prepare),
                                .command = {},
                                .enqueued_at = std::chrono::steady_clock::now()});
     state_->stats.pending_high_watermark =
@@ -305,6 +323,7 @@ result<std::uint64_t> threaded_render_executor::submit_command(render_command_ca
                                .sequence = sequence,
                                .frame_policy = render_frame_policy::replaceable,
                                .packet = {},
+                               .prepare = {},
                                .command = std::move(command),
                                .command_policy = policy,
                                .enqueued_at = std::chrono::steady_clock::now()});

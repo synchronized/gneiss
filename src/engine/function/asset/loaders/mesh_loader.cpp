@@ -41,6 +41,7 @@ error asset_construction::adopt(asset_manager& assets, std::shared_ptr<const mes
   if (!prepared)
     return prepared.error();
   auto data = std::move(*prepared);
-  return assets.impl_->update_mesh(target, std::move(data)) ? error::success : error::out_of_memory;
+  auto status = assets.impl_->update_mesh(target, std::move(data));
+  return status ? error::success : status.error();
 }
 }

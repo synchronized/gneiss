@@ -50,7 +50,8 @@ render_memory_usage measure(const texture_data& value) noexcept {
 }
 } // namespace
 
-render_service::resource_storage::resource_storage(std::uint64_t memory_limit)
+render_service::resource_storage::resource_storage(
+    std::uint64_t memory_limit, detail::render_scene_state::dispatch_callback dispatch)
     : memory_limit_(memory_limit), domain_(allocate_domain()), meshes_(domain_),
       materials_(domain_), textures_(domain_) {
   scenes_ = std::make_shared<detail::render_scene_state>(
@@ -64,7 +65,8 @@ render_service::resource_storage::resource_storage(std::uint64_t memory_limit)
         pin.mesh = mesh->identity;
         pin.material = material->identity;
         return pin;
-      });
+      },
+      std::move(dispatch));
 }
 result<std::array<std::shared_ptr<const detail::resource_identity<texture_data>>, 5>>
 render_service::resource_storage::material_dependencies(
@@ -303,32 +305,42 @@ result<rid> render_service::create_prepared_mesh(std::shared_ptr<const mesh_data
     return storage_->meshes_.create(resource_type::mesh, std::move(*tracked));
   }
 }
-bool render_service::replace_mesh(rid rid, std::shared_ptr<const mesh_data> data) {
+result<void> render_service::replace_mesh(rid rid, std::shared_ptr<const mesh_data> data) {
   auto* slot = storage_->meshes_.get(rid, resource_type::mesh);
   if (!slot || !data) {
-    return false;
+    return error::invalid_argument;
   }
   {
     auto tracked = track(std::move(data), storage_->mesh_history_);
     if (!tracked)
-      return false;
-    slot->identity->publish(std::move(*tracked));
+      return tracked.error();
+    auto identity = slot->identity;
+    auto data = *tracked;
+    if (auto status = dispatch_render_work([identity, data] { identity->consume(data); }); !status)
+      return status.error();
+    identity->accept(std::move(data));
   }
-  return true;
+  return {};
 }
-bool render_service::replace_material(rid rid, std::shared_ptr<const material_data> data) {
+result<void> render_service::replace_material(rid rid, std::shared_ptr<const material_data> data) {
   auto* slot = storage_->materials_.get(rid, resource_type::material);
   if (!slot || !data)
-    return false;
+    return error::invalid_argument;
   auto dependencies = storage_->material_dependencies(*data, slot->identity.get());
   if (!dependencies)
-    return false;
+    return dependencies.error();
   auto tracked = track(std::move(data), storage_->material_history_);
   if (!tracked)
-    return false;
+    return tracked.error();
   // 所属线程一次发布内容和依赖；失败时旧版本不变。
-  slot->identity->publish(std::move(*tracked), std::move(*dependencies));
-  return true;
+  using identity_type = detail::resource_identity<material_data>;
+  auto next = std::make_shared<const identity_type::version>(
+      identity_type::version{std::move(*tracked), std::move(*dependencies)});
+  auto identity = slot->identity;
+  if (auto status = dispatch_render_work([identity, next] { identity->consume(next); }); !status)
+    return status.error();
+  identity->accept(std::move(next));
+  return {};
 }
 
 gneiss::error render_service::destroy_mesh(rid mesh) noexcept {
@@ -492,18 +504,23 @@ gneiss::error render_service::destroy_texture(rid texture) noexcept {
   return status;
 }
 
-bool render_service::replace_texture(rid texture, std::shared_ptr<const texture_data> prepared) {
+result<void> render_service::replace_texture(rid texture,
+                                             std::shared_ptr<const texture_data> prepared) {
   auto* slot = storage_->textures_.get(texture, resource_type::texture);
   if (slot == nullptr || !prepared) {
-    return false;
+    return error::invalid_argument;
   }
   {
     auto tracked = track(std::move(prepared), storage_->texture_history_);
     if (!tracked)
-      return false;
-    slot->identity->publish(std::move(*tracked));
+      return tracked.error();
+    auto identity = slot->identity;
+    auto data = *tracked;
+    if (auto status = dispatch_render_work([identity, data] { identity->consume(data); }); !status)
+      return status.error();
+    identity->accept(std::move(data));
   }
-  return true;
+  return {};
 }
 
 const mesh_data* render_service::get_mesh(rid mesh) const noexcept {

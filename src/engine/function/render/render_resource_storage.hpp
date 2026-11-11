@@ -9,7 +9,8 @@
 #include <vector>
 namespace gneiss {
 struct render_service::resource_storage {
-  explicit resource_storage(std::uint64_t limit);
+  explicit resource_storage(std::uint64_t limit,
+                            detail::render_scene_state::dispatch_callback dispatch);
   template <typename Data> struct record {
     explicit record(std::shared_ptr<const Data> value)
         : identity(std::make_shared<detail::resource_identity<Data>>()) {
