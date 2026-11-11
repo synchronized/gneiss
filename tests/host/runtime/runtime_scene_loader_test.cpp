@@ -61,7 +61,6 @@ void run() {
     (void)scheduler.run_ready();
     check(app->run(1).ok());
     check(loader.advance().ok());
-    check(!app->scene_loading());
   };
   const auto drain = [&] {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);

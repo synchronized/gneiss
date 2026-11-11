@@ -6,7 +6,6 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
-#include "runtime/loading/scene_service.hpp"
 #include <cstdio>
 #include <fstream>
 #include <source_location>

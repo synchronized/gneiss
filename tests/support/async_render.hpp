@@ -22,7 +22,7 @@ inline engine::error load_render(engine::asset_manager& loader, engine::render_r
     return status;
   const engine::render_resource_source source{std::string(uri), type};
   engine::resource_load_group group{loader};
-  auto request = group.begin(std::span(&source, 1), false, true);
+  auto request = group.begin(std::span(&source, 1), false);
   if (!request)
     return request.error();
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);

@@ -13,7 +13,6 @@
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
-#include "runtime/loading/scene_service.hpp"
 
 #include "../support/scene_access.hpp"
 #include "application/application.hpp"
@@ -25,17 +24,6 @@
 #include <stdexcept>
 
 namespace {
-template <class T>
-concept exposes_asset_preparation = requires { &T::prepare_assets; };
-template <class T>
-concept exposes_asset_group = requires { &T::loading_assets; };
-template <class T>
-concept exposes_asset_request = requires { &T::request_assets; };
-static_assert(!exposes_asset_preparation<gneiss::runtime::scene_service>);
-static_assert(!exposes_asset_request<gneiss::runtime::scene_service>);
-static_assert(!exposes_asset_group<gneiss::runtime::scene_service>);
-static_assert(!exposes_asset_group<gneiss::runtime::application>);
-
 void check(bool value, std::source_location where = std::source_location::current()) {
   if (!value) {
     throw std::runtime_error("Application 纹理注入失败，行=" + std::to_string(where.line()));

@@ -18,8 +18,6 @@ endforeach()
 file(MAKE_DIRECTORY "${fixture}/src/engine/function/render")
 file(WRITE "${fixture}/src/engine/core/math/camera.hpp" "")
 file(WRITE "${fixture}/src/engine/function/render/render_resource_data.hpp" "")
-file(MAKE_DIRECTORY "${fixture}/src/runtime")
-file(WRITE "${fixture}/src/runtime/loading/scene_service.cpp" "")
 file(MAKE_DIRECTORY "${fixture}/src/engine/platform")
 file(MAKE_DIRECTORY "${fixture}/src/editor")
 file(WRITE "${fixture}/src/editor/probe.cpp" "")
@@ -337,30 +335,6 @@ foreach(module IN ITEMS application game)
   endif()
   file(WRITE "${fixture}/src/runtime/${module}/probe.cpp" "")
 endforeach()
-
-# 协调层可使用 Render RID 接口，不能包含平台、私有表或 GPU 后端。
-foreach(header IN ITEMS engine/platform/window_service.hpp
-                        engine/function/render/render_resource_storage.hpp
-                        granit/granit.hpp
-                        engine/function/asset/detail/asset_decode.hpp
-                        engine/function/asset/detail/asset_construction.hpp
-                        engine/function/asset/detail/asset_construction.hpp)
-  file(WRITE "${fixture}/src/runtime/loading/scene_service.cpp"
-    "#include <${header}>\n")
-  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
-    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
-    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
-  if(status EQUAL 0)
-    message(FATAL_ERROR "边界检查未拒绝协调层直接依赖后端：${header}")
-  endif()
-endforeach()
-file(WRITE "${fixture}/src/runtime/loading/scene_service.cpp"
-  "#include <engine/function/asset/asset_manager.hpp>\n#include <engine/function/render/render_service.hpp>\n")
-execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
-  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
-if(NOT status EQUAL 0)
-  message(FATAL_ERROR "边界检查错误拒绝协调层依赖资产管理器与渲染服务")
-endif()
 
 # 日志模块只允许原生接口及基础值类型。
 file(MAKE_DIRECTORY "${fixture}/src/engine/core/log")

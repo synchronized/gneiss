@@ -13,7 +13,6 @@
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/asset_file.hpp"
-#include "runtime/loading/scene_service.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>

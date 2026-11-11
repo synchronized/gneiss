@@ -18,7 +18,7 @@ public:
   explicit resource_load_group(engine::asset_manager& service) : service_(service) {}
   ~resource_load_group() { *lifetime_ = nullptr; }
   engine::result<asset_batch_request> begin(std::span<const engine::render_resource_source> sources,
-                                            bool reload, bool allow_load) {
+                                            bool reload) {
     using engine::error;
     if (stopping_)
       return error::invalid_state;
@@ -43,8 +43,6 @@ public:
       } else {
         if (cached.error() != error::not_found && cached.error() != error::not_ready)
           return cached.error();
-        if (!allow_load)
-          return error::not_ready;
         next.results.push_back({.source = source});
       }
     }

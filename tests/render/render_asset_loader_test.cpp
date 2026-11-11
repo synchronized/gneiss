@@ -52,7 +52,7 @@ reload_assets_for_test(gneiss::engine::asset_manager& loader,
   if (status.failed())
     return status;
   gneiss::engine::resource_load_group group{loader};
-  auto request = group.begin(sources, true, true);
+  auto request = group.begin(sources, true);
   if (!request)
     return request.error();
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);

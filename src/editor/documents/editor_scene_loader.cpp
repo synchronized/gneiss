@@ -84,7 +84,7 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
     });
     return engine::error::success;
   }
-  if (!ready_->load() || !application.can_activate_scene())
+  if (!ready_->load() || !application.can_load_assets())
     return engine::error::success;
   auto content = request_.snapshot();
   auto loaded = request_.take();

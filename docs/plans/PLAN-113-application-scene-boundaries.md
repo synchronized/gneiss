@@ -5,9 +5,10 @@
 
 ## 状态
 
-2026-11-11：实施中。第一、二组编辑职责、Transform 标识及资产批次迁移完成，Windows 全量构建、
-7 项定向回归与分层检查通过；第三组 World 直接所有权及同 World 激活已落地，旧场景请求协调与应用目录迁移尚未完成。
-结果见[第一组记录](../records/2026-11-11-plan113-editor-boundary.md)和
+2026-11-11：实施中，代码迁移已移除旧场景服务及 runtime/loading，Application 直接拥有 World，
+宿主负责场景打开、替换和重载。CMake、接口清单及当前行为文档同步完成；仍需汇总计划验收与版本状态。
+本次删除与验证见[服务清理记录](../records/2026-11-11-plan113-scene-service-removal.md)。
+此前结果见[第一组记录](../records/2026-11-11-plan113-editor-boundary.md)和
 [资产批次记录](../records/2026-11-11-plan113-asset-batch.md)。
 承接 VER-052；长期决策见 [ADR-117](../decisions/ADR-117-application-scene-boundaries.md)。
 本计划的目标目录、迁移顺序和验收清单以本页为权威来源。
@@ -142,7 +143,7 @@ Prefab 回放若是编辑器仍需直接调用的契约，应保留公开内部�
 - [x] 删除共享候选/退休 World 状态与专用退休统计。
 - [x] 替换/卸载策略回到宿主。
 - [x] 来源重载状态交给实际调用方；编辑器统一使用文档投影，不复制来源权威数据。
-- [ ] 删除 scene_service 和旧 open/activate/reload 协议，迁移全部消费者，无长期并行入口。
+- [x] 删除 scene_service 和旧 open/activate/reload 协议，迁移全部消费者，无长期并行入口。
   - [x] Runtime 来源重载直接持有资产请求，调用既有场景更新算法，不再调用 scenes().reload。
   - [x] 四个场景示例改用资产请求及实例化回执，移除 examples 中的旧服务调用。
   - [x] 宿主回执收回 host/runtime；编辑器使用本地打开状态，不直接引用旧加载类型。
@@ -151,15 +152,15 @@ Prefab 回放若是编辑器仍需直接调用的契约，应保留公开内部�
   - [x] 像素测试及主循环响应基准直接加载资产并实例化，显式领取视觉批次。
   - [x] 场景加载基准改用资产请求、显式实例化和视觉批次，同步统计口径与测量脚本。
   - [x] 迁移并精简 scene_load_application，测试已无旧服务协议消费者。
-  - [ ] 删除旧服务实现。
+  - [x] 删除旧服务实现。
 
 ### 4. 整理算法与目录
 
 - [x] scene_application 改为 scene_update，保持输入输出和失败语义明确。
 - [x] render_extraction 移到渲染前端；边界检查区分前端桥接和后端实现。
 - [x] Application 装配迁入 application；配置与主类相邻，主循环等待放 detail。
-- [ ] 删除 runtime/loading 的迁移期协调代码，清空旧 runtime 目录。
-- [ ] 同步 CMake、内部接口清单、头文件依赖、示例及测试；删除废弃头和函数。
+- [x] 删除 runtime/loading 的迁移期协调代码，清空旧 runtime 目录。
+- [x] 同步 CMake、内部接口清单、头文件依赖、示例及测试；删除废弃头和函数。
 
 ### 5. 验收与文档收尾
 

@@ -21,44 +21,24 @@ Application 拥有 World、平台状态、资源服务及可选窗口。`native_
 
 ## 加载请求
 
-Application 每帧在 update 回调前统一处理文件完成、资产批次和场景工作。
-自定义宿主循环调用 `run(1)` 驱动完整一帧；业务回调内不重入 run，也不单独推进加载服务。
-仓内场景示例直接使用 assets().load<scene>()，由示例主循环领取内容后调用组合、实例化接口。
-examples/support/scene_activation.hpp 仅复用示例装配代码，不提供生产同步加载入口。
-示例启动循环会继续处理事件并等待视觉批次终态，再进入演示；失败资产打印诊断并保留场景。
+Application 每帧在 update 回调前统一处理文件完成、资产管理器和共享资源批次。
+自定义宿主循环调用 `run(1)` 驱动完整一帧；业务回调内不重入 run。
+场景打开、来源重载、实例化及替换策略由 Runtime/Editor 宿主加载器维护。
+示例直接使用资产请求与组合/实例化接口；examples/support/scene_activation.hpp 仅复用示例装配。
 
-- 普通资产：`app.assets().load<T>(uri)`，返回既有 asset_request。
-- 场景打开：`app.scenes().open(uri)`，返回 `result<scene_open_request>`。
-  `ready()` 表示候选可尝试激活；`status()` 返回 not_ready、成功或异步错误。
-  `progress()` 返回可选进度；失败、取消回执通过 `take()` 领取。
-- 场景激活：`app.scenes().activate(std::move(request))`，返回包含运行场景和来源的完成值。
-  仅成功时消费请求；错误宿主或空请求返回 invalid_state，尚不满足切换条件返回 not_ready。
-- 原位重载：`app.scenes().reload(reload_state, uri, prefab)` 返回 scene_reload_request，
-  `ready()` 表示存在回执，`take()` 领取它；结构完成不等待视觉资源。
-- 多资源编辑：`app.load_assets(sources, reload)` 返回 engine::asset_batch_request。
-  缓存命中可立即 ready；仍用同一资产缓存和加载流程，单个批次占用一个观察槽位。
-  `take()` 领取完成值并释放槽位，未完成返回 not_ready。
+- 普通资产和场景：`app.assets().load<T>(uri)` 返回资产请求，Scene/Prefab 也使用同一入口。
+- 多资源编辑：`app.load_assets(sources, reload)` 返回 `asset_batch_request`；缓存命中可立即就绪。
+  单个批次占用一个观察槽位，`take()` 领取完成值并释放槽位，未完成返回 not_ready。
+- `can_load_assets()` 表示应用接受请求、已配置加载执行器且共享批次空闲；仅所属线程查询。
+  它不判断场景切换策略，也不表示所有单资产请求均已完成。
 
-所有查询和 take 都不驱动加载。请求采用移动语义，不保活 Application；reset/析构放弃自身操作，
-不能取消别人的请求。已开始的共享资产工作由 asset_manager 管理，取消观察者不承诺停止共享工作。
-请求只能在所属线程使用和销毁；显式错误操作在错误线程或宿主关闭后返回 invalid_state。
-宿主销毁后空的进度/无效状态可以安全查询，不能重新访问借用的 scenes() 服务引用。
+查询和领取回执不驱动加载。单资产观察者可以复制，取消只影响自身观察者；批次请求只能移动。
+请求不保活 Application，共享资产工作由 asset_manager 管理。宿主负责释放自己的观察者和批次，
+不得在 Application 关闭后继续访问借用的服务。视觉批次失败由宿主记录诊断，不回滚已实例化对象。
 
-场景显式 cancel 在后续帧产生取消回执；reset 立即丢弃候选。已激活场景不受请求销毁影响。
-激活只追加实例；替换时由调用方卸载旧场景并清理其对象借用，World 保持不变。
-Host 的 session/revision 由 IPC 协调器保存，不再作为加载 API 的必填参数。
-
-```cpp
-auto submitted = app.scenes().open(uri);
-if (!submitted)
-  return submitted.error();
-auto request = std::move(*submitted);
-// 后续 update 回调观察 request，Application 自动推进。
-if (request.ready()) {
-  auto activated = app.scenes().activate(std::move(request));
-  // 检查 activated；如需替换，由调用方卸载旧场景。
-}
-```
+实例化向指定场景追加对象；替换时由宿主卸载旧场景并清理借用句柄，World 保持不变。
+来源重载入口位于 runtime_scene_loader，编辑器采用文档投影；Application 不提供场景专用请求。
+Host 的 session/revision 由 IPC 协调器保存，不是资产加载 API 的参数。
 
 ## 主循环
 
@@ -94,41 +74,37 @@ Application 私有持有 `engine::window_service`，负责窗口生命周期及�
 
 文件完成分发、资产管理器推进及回收由 Application 主循环统一调用私有实现。
 状态查询和领取回执不推进工作；resource_load_group 只提交单资产请求并汇总结果。
-迁移期场景打开和来源重载通过资产完成通知标记就绪，主循环只在就绪后领取资产结果。
-等待期间仍检查轻量就绪标记；这不表示旧场景协调协议已移除。通知仅持有弱引用，丢弃请求后
-迟到通知不访问已释放的任务。加载进度不保存 IPC 的 session/revision。
+场景打开与来源重载由宿主观察资产完成通知；加载进度与 IPC 会话状态归宿主。
 关闭时 Application 请求资产管理器停止并推进排空；Scene 和批次只放弃自己的请求与实例。
 
 ### World 生命周期
 
 Application 直接拥有 World，native_world() 的地址在普通场景切换期间保持稳定，关闭后失效。
-迁移期 scenes().open 只准备不可变内容，activate 仅在该 World 中追加新实例。
 Runtime 宿主显式卸载其上次打开的实例；编辑器关闭旧文档时卸载对应实例，其他场景不受影响。准备阶段不创建运行对象或预留视觉
 资源身份。场景卸载后旧对象/场景句柄失效，不能将 World 地址稳定理解为所有句柄永久有效。
 Runtime 打开场景直接使用 assets().reload<scene>()，就绪后组合并调用 instantiate；
-其视觉资源批次由 Runtime 持有，不通过 scenes().open/activate。结构加载失败保留旧实例，
+其视觉资源批次由 Runtime 持有。结构加载失败保留旧实例，
 取消只放弃本观察者；视觉资源失败记录日志，不撤回已经创建的场景。
-Application 的 visual_assets_loading() 仍表示迁移期 scene_service 的视觉请求；Runtime
-同时查询自身批次，避免提前退出或与资源重载冲突。
+Application 的 can_load_assets() 只表示共享资源批次可提交；宿主查询自己的视觉批次。
 编辑器同样直接请求资产并实例化，将固定内容建立为文档快照，实例化回执交给编辑会话绑定。
 加载失败或取消保留原文档、选择及撤销历史；成功后关闭旧文档并采用新实例。
 编辑器通过 editor_scene_loader::visual_loading() 观察自己的视觉批次，不创建 Runtime 重载基线。
 编辑器打开状态由 scene_open_state 表示 idle/loading/opened/failed/cancelled，active() 从状态推导。
 加载界面显示不定进度；不展示无法跨帧观察的实例化阶段、无效计数或旧清理等待状态。
-scene_service 的旧请求协议仍待 PLAN-113 后续移除。无待退休 World，也不提供专用场景退休统计；
+旧场景服务及其打开/激活/重载请求协议已删除。无待退休 World，也不提供专用场景退休统计；
 渲染资源数量通过 render_service::live_resource_count() 查询。
 
 ### 来源重载基线
 
 激活回执的 reload_state 由调用方按需保留，包含 World 借用、场景 ID、不可变来源及对象地址关联。
 Runtime 保存当前场景的基线；编辑器采用文档投影，不长期保留此基线。
-重载显式传入该引用，scene_service 仅在请求期间持有它，不再保存最后激活场景的隐式来源。
+重载显式传入该引用，Application 不保存最后激活场景的隐式来源。
 Runtime 生产路径已改用 runtime_scene_loader::reload：直接请求 Scene/Prefab 资产，收到完成通知
 后调用 rebase_scene_update/apply_scene。take_reload 只领取回执，不执行加载或更新。
 宿主的 scene_open_result、scene_reload_state、scene_reload_result 定义在
 host/runtime/runtime_scene_loader.hpp，只保存绑定检查器和来源更新所需的信息。
 不包含旧加载进度、退休统计或未采样的准备/激活耗时。
-新视觉依赖通过宿主持有的批次加载；旧 scene_service::reload 暂供未迁移的消费者使用。
+新视觉依赖通过宿主持有的批次加载。
 同一 World 的多个场景可以各自保留基线；当前协调器仍串行处理重载请求。
 空引用、跨 World 或已失去同步的基线被拒绝；已卸载的场景不能重载。
 基线不保活 World，调用方不能在其销毁后访问借用指针；重载期间不得自行修改基线。

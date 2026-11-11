@@ -118,8 +118,6 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   application/application_configuration.hpp
   engine/function/asset/asset_batch_request.hpp
   engine/function/asset/asset_batch_types.hpp
-  runtime/loading/scene_load_types.hpp
-  runtime/loading/scene_service.hpp
   engine/resource/input/action_map.hpp
   engine/function/input/input_service.hpp
   engine/core/math/camera.hpp

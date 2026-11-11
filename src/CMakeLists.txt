@@ -272,10 +272,6 @@ target_sources(
   PRIVATE
     engine/function/asset/asset_batch_request.cpp
     engine/function/asset/asset_batch_request.hpp
-    runtime/loading/scene_service_loading.cpp
-    runtime/loading/scene_load_types.hpp
-    runtime/loading/scene_service.cpp
-    runtime/loading/scene_service.hpp
     application/application.cpp
     application/application.hpp
     application/detail/main_loop_wakeup.hpp

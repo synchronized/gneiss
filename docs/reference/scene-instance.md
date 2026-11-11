@@ -48,7 +48,7 @@ if (!count)
 同一组合结果可重复实例化，回执的 roots 和 objects 只描述本次创建结果。
 失败只清理本次创建对象，目标场景和原有对象继续有效。
 
-Runtime 的 scene_service 在异步取得 Scene 后，生成组合输入、提交视觉资源请求，
+Runtime 的 runtime_scene_loader 在异步取得 Scene 后，生成组合输入、提交视觉资源请求，
 显式创建目标场景并调用 instantiate；引擎不再提供混合组合/创建职责的 instantiate_scene。
 测试中的同名便利函数仅位于 tests/support/scene_instantiation.hpp。
 组件中的资源身份可以先存在，内容继续异步加载；不等待 GPU 上传。
@@ -362,15 +362,6 @@ Runtime 宿主保存 IPC 会话/修订及对应的 asset_batch_request，通过�
 重载协调器把显式轮询错误转换为一次失败回执并结束等待；意外异常向宿主传播。`not_ready` 继续等待，
 成功结果才推进已应用修订。保留逐项生效语义：部分成功不回滚，失败项保持原内容。
 实施及验证限制见 [PLAN-098](../plans/PLAN-098-runtime-reload-request-ownership.md)。
-
-## 场景服务请求结果
-
-scene_service 不持有执行器；资产管理器负责准备任务调度。configure 只接入用于内存统计的
-Render 与场景进度通知。关闭仅释放场景的请求观察者，不停止资产管理器。
-
-场景打开和原位重载分别返回 scene_open_request 与 scene_reload_request；
-激活、回执领取与宿主失效规则统一见 [Application 加载请求](application.md#加载请求)。
-内部请求组不暴露给编辑器或 IPC。
 
 ### 场景版本历史
 

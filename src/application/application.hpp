@@ -20,8 +20,6 @@
 #include "engine/function/render/render_snapshot.hpp"
 #include "engine/function/render/render_statistics.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
-#include "runtime/loading/scene_load_types.hpp"
-#include "runtime/loading/scene_service.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -47,8 +45,6 @@ class resource_load_group;
 
 namespace gneiss::runtime {
 
-class scene_service;
-
 /** 内部真实运行对象；仅所属线程操作和释放最后一个持有引用。
  * 私有装配存储位于实现文件；此内部模块接口随源码构建，不属于安装 SDK。 */
 class application final {
@@ -65,14 +61,11 @@ public:
   [[nodiscard]] GNEISS_API gneiss::engine::error
   attach_task_executor(gneiss::engine::task_executor& executor);
   [[nodiscard]] GNEISS_API bool has_asset_loading_service() const noexcept;
-  /** 借用加载协调服务；必须在 Application 生命周期内、所属线程使用。 */
-  [[nodiscard]] GNEISS_API runtime::scene_service& scenes() noexcept;
-  [[nodiscard]] GNEISS_API bool scene_loading() const noexcept;
   /** 多资源编辑批次；普通单资产直接使用 assets().load<T>()。 */
   [[nodiscard]] GNEISS_API engine::result<engine::asset_batch_request>
   load_assets(std::span<const engine::render_resource_source> sources, bool reload = false);
-  [[nodiscard]] GNEISS_API bool visual_assets_loading() const noexcept;
-  [[nodiscard]] GNEISS_API bool can_activate_scene() const noexcept;
+  /** 所属线程查询共享资产批次是否可提交；场景切换策略由宿主维护。 */
+  [[nodiscard]] GNEISS_API bool can_load_assets() const noexcept;
 
 private:
   [[nodiscard]] engine::error advance_loading();
@@ -80,7 +73,6 @@ private:
   [[nodiscard]] GNEISS_API gneiss::engine::error advance_resource_io();
   explicit GNEISS_API application(const runtime::application_configuration& config);
   [[nodiscard]] GNEISS_API gneiss::engine::error initialize();
-  GNEISS_API void report_visual_completion();
 
 public:
   GNEISS_API ~application() noexcept;

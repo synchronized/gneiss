@@ -20,7 +20,7 @@
 `src/engine/resource/`；旧 `src/engine/asset/`、`src/engine/function/asset/` 已删除，
 没有兼容转发头。渲染 Loader 与上传保留在 `function/render`，Prefab 实例化和编辑保留在
 `function/scene`。资源代码已按 `types/`、`loaders/`、`vfs/` 和 `cache/` 分类。
-Application 组装位于 `src/application/`，配置与主类相邻；`src/runtime/loading/` 只保留迁移期场景协调。
+Application 组装位于 `src/application/`，配置与主类相邻；旧 `src/runtime/loading/` 协调代码已删除。
 主循环唤醒实现位于 `src/application/detail/main_loop_wakeup.hpp`，属于 `gneiss::runtime`；
 任务和渲染仅依赖 Core 的 `wakeup_signal` 接口，不依赖 Runtime 的等待实现。
 游戏上下文归 `runtime/game/`，依赖 Application 的 C 适配归 `runtime/api/`。
@@ -171,8 +171,6 @@ Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其
 | --- | --- | --- |
 | 程序启动与关闭 | `src/host/editor/editor_application.cpp`、`src/host/runtime/runtime_application.cpp` | 宿主拥有原生 Application，先清理依赖它的会话、命令与任务 |
 | Application 装配 | `src/application/application.hpp` | 拥有平台、服务与场景协调组件；普通内部操作不解析自身 C 句柄 |
-| 场景切换 | `src/runtime/loading/scene_service.hpp` | 迁移期打开/重载请求协调；仅借用 World，来源基线由调用方持有 |
-| 加载实现 | `src/runtime/loading/scene_service_loading.cpp` | 统一服务的内部临时任务；后台准备、同步实例化与激活 |
 | World 数据和操作 | `src/engine/function/world/world.hpp` | 原生对象拥有 ECS/树状态；`world_factory.cpp` 创建独占拥有者，反射直接借用对象 |
 | Scene 借用句柄 | `src/engine/function/world/scene_instance.hpp` | 查询 ECS 成员归属、创建对象及卸载；不保存作者内容 |
 | Prefab 实例操作 | `src/engine/function/scene/scene_instantiation.hpp` | 消费已准备资源同步创建；直接删除和替换，不使用隐藏候选或发布组；见 [ADR-088](../decisions/ADR-088-prefab-direct-instantiation.md) |
@@ -185,7 +183,7 @@ Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真�
 借用桥不授予关闭权，Application 返回的 World 句柄也不能由外部销毁。场景域退役后其旧句柄失效。
 内部会话和事务的借用有效期由宿主销毁顺序保证，不把普通引用宣传成可跨 Application 存活的句柄。
 
-加载链路按 Application → scene_service → 候选场景域 → Scene/World → 渲染快照阅读；
+加载链路按宿主加载器 → 资产请求 → 组合/实例化 → World → 渲染快照阅读；
 共享资产状态与场景域生命周期不同，详见 [资产与场景域所有权](architecture.md#资产与场景域所有权)。
 原生渲染值、输入状态和日志事件均在各自模块定义，C 布局转换归边界。无状态解析、哈希与数学
 仍使用自由函数；有状态对象持有实际状态，不为消除自由函数增加转发 Manager。
@@ -202,8 +200,7 @@ Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真�
   新增跨模块头依赖时须更新清单并审查方向，不能恢复 PUBLIC `src` 或相对路径越过模块根。
 - Engine 与资产工具编译自身实现时保留 PRIVATE 源码路径。白盒测试显式申请私有路径；
   普通宿主的可见性测试不获得此权限。
-- `scene_load_types.hpp` 仅包含加载进度与完成信息；`scene_service.hpp`、场景域状态及
-  注册表实现不向宿主导出。动态游戏模块所需桥接通过 `application_bridge.hpp` 提供。
+- Application 不导出场景专用请求；宿主加载状态与回执由各自模块定义。
 
 属性面板和撤销历史使用 `gneiss::engine::value`，其中字符串为自有文本；
 `meta/registry.hpp` 提供同一注册表的创建、注册、冻结、查询和属性读写。
@@ -230,7 +227,7 @@ Render 管理后端 RID；资产管理器不拥有 World 或编辑文档，不�
 
 `src/editor/documents/scene_edit_session.*` 是单个场景的编辑会话，绑定运行时场景，
 维护 URI、选择和投影查询；脏状态由 scene_document 版本与保存点计算；close 卸载该实例，Application 必须比它长寿。
-它不拥有 World，也不负责运行时场景切换。Runtime 的 scene_service 继续管理活动与退役域。
+它不拥有 World，也不负责运行时场景切换。Runtime 加载器维护来源基线并显式卸载旧实例。
 
 已有编辑操作与历史实现位于 `commands/`，相机、网格与 Gizmo 位于 `viewport/`，
 层级、属性、资源、控制台与运行时面板位于 `panels/`。根目录暂保留 UI 装配、主题、
@@ -359,4 +356,4 @@ engine/function/render/render_extraction 在 World 所属线程提取渲染快�
 
 Application 装配位于 src/application，application_configuration.hpp 与主类相邻，
 主循环唤醒实现位于 detail/main_loop_wakeup.hpp。C++ 命名空间仍为 gneiss::runtime。
-src/runtime/loading 暂时只保留待迁移的场景协调，不代表另一套 Application 所有者。
+旧 src/runtime/loading 协调代码已删除，不存在另一套 Application 所有者。

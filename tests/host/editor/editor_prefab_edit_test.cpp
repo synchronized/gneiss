@@ -11,7 +11,6 @@
 #include "engine/core/meta/transform_properties.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/world.hpp"
-#include "runtime/loading/scene_service.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cstdio>

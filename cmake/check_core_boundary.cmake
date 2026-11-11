@@ -46,9 +46,9 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "资源批次只观察请求，不推进或关闭共享资产管理器：${source}")
   endif()
 
-  # 应用装配和迁移中的场景协调只借用批次汇总，不允许包含其他资产私有实现。
+  # 应用装配只借用批次汇总，不允许包含其他资产私有实现。
   set(asset_boundary_content "${content}")
-  if(source MATCHES "/src/(application/application|runtime/loading/scene_service|runtime/loading/scene_service_loading)[.]cpp$")
+  if(source MATCHES "/src/application/application[.]cpp$")
     string(REPLACE "engine/function/asset/detail/resource_load_group.hpp" ""
       asset_boundary_content "${asset_boundary_content}")
   endif()
@@ -170,10 +170,6 @@ foreach(source IN LISTS sources)
        content MATCHES "gneiss/(engine/)?log[.]h" OR
        content MATCHES "engine/(api|function|platform)/"))
     message(FATAL_ERROR "原生日志模块不得依赖日志 ABI 或上层模块：${source}")
-  endif()
-  if(source MATCHES "/src/runtime/loading/scene_service(_loading)?\\.(cpp|hpp)$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"](engine/platform/|engine/function/render/backend/|engine/function/render/render_resource_storage[.]hpp|granit/)")
-    message(FATAL_ERROR "场景生命周期协调不得直接依赖平台或渲染后端：${source}")
   endif()
   if(source MATCHES "/src/engine/" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"](apps|host|editor|tooling)/")

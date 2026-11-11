@@ -174,10 +174,10 @@ asset_manager 内部使用任务私有的 CPU 数据请求完成装配，不将�
 Scene/Prefab 资产加载与实例化分开：`load<T>` 异步取得资产，`compose_scene` 只处理内存，
 `instantiate(destination, composed, bindings, parent)` 向显式场景追加对象。
 回执包含本次根对象和来源到运行实体的映射；失败只清理本次创建对象。
-Runtime 来源重载由 scene_service 组合前后内容并调用 apply_scene，不经过场景集合。
+Runtime 来源重载由 runtime_scene_loader 组合前后内容并调用 apply_scene，不经过场景集合。
 结构数据不建立第二份 URI 缓存；加载进度、激活和退场由应用协调。
 
-Runtime 的 `scene_service` 保留活动场景、同步实例化、激活、退场和视觉加载进度。
+Runtime 加载器持有场景基线和视觉批次，负责同步实例化及显式卸载。
 编辑器直接持有普通 Prefab 资产请求，不再经过 Runtime 的专用准备包装。
 结构可以先激活，视觉内容随后完成。
 宿主依次分发文件完成、推进资产管理器，再推进场景与渲染；各层不嵌套驱动文件完成队列。

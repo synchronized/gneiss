@@ -158,7 +158,7 @@ gneiss::engine::error runtime_scene_loader::advance() {
   if (!active_ || !ready_->load())
     return engine::error::success;
   // 共享批次仍串行提交；只在资源批次可提交时构建运行实例。
-  if (!application_.can_activate_scene())
+  if (!application_.can_load_assets())
     return engine::error::success;
   scene_open_result completion;
   completion.content = request_.snapshot();
@@ -203,7 +203,7 @@ engine::error runtime_scene_loader::reload(engine::ref<scene_reload_state> sourc
   auto instance = engine::scene_instance::borrow(*application_.native_world(), source->instance);
   if (!instance)
     return instance.error();
-  if (active_ || reload_ || visuals_ || !application_.can_activate_scene())
+  if (active_ || reload_ || visuals_ || !application_.can_load_assets())
     return engine::error::not_ready;
   reload_task next;
   next.source = std::move(source);
@@ -278,8 +278,7 @@ engine::error runtime_scene_loader::apply_source(scene_reload_state& source,
 }
 
 void runtime_scene_loader::advance_reload() {
-  if (!reload_ || reload_->completion || !reload_->ready->load() ||
-      !application_.can_activate_scene())
+  if (!reload_ || reload_->completion || !reload_->ready->load() || !application_.can_load_assets())
     return;
   auto& task = *reload_;
   auto result = std::visit(

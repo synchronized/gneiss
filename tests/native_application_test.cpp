@@ -141,13 +141,15 @@ void test_loading_request_lifetime() {
   auto created = runtime::application::create(config);
   check(bool(created));
   auto app = std::move(*created);
-  check(app->attach_task_executor(tasks).ok());
+  check(!app->can_load_assets());
+  check(app->attach_task_executor(tasks).ok() && app->can_load_assets());
   const engine::render_resource_source source{"asset://missing.texture",
                                               engine::render_resource_kind::texture};
   auto submitted = app->load_assets({&source, 1});
   check(bool(submitted));
   auto request = std::move(*submitted);
   check(bool(request) && !bool(*submitted) && !request.ready());
+  check(!app->can_load_assets());
   bool worker_rejected{};
   std::thread worker([&] {
     worker_rejected = !request.progress() && request.cancel() == engine::error::invalid_state;
@@ -158,11 +160,14 @@ void test_loading_request_lifetime() {
   submitted->reset();
   check(bool(request));
   request.reset();
+  check(app->can_load_assets());
   submitted = app->load_assets({&source, 1});
   check(bool(submitted));
   request = std::move(*submitted);
   check(request.cancel().ok() && request.ready());
+  check(!app->can_load_assets());
   auto cancelled = request.take();
+  check(app->can_load_assets());
   check(bool(cancelled) && cancelled->state == engine::asset_load_state::cancelled && !request);
   // 每个 Application 的批次独立；关闭一个不会使另一个的请求失效。
   auto other_created = runtime::application::create({});
@@ -173,7 +178,7 @@ void test_loading_request_lifetime() {
   submitted = app->load_assets({&source, 1});
   check(bool(submitted));
   request = std::move(*submitted);
-  check(app->shutdown().ok());
+  check(app->shutdown().ok() && !app->can_load_assets());
   check(!request && bool(*independent));
   app.reset();
   auto expired = request.take();

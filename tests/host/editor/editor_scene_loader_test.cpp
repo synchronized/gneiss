@@ -58,8 +58,6 @@ void run(gneiss::engine::execution_mode mode) {
     check(gneiss::engine::error{app->run(1U)} == gneiss::engine::error::success);
     bool changed{};
     check(loader.advance(*app, editing, world, camera, changed) == gneiss::engine::error::success);
-    // 编辑器请求不占用迁移期 scene_service 的加载状态。
-    check(!app->scene_loading());
     std::this_thread::yield();
   };
   auto drain = [&] {

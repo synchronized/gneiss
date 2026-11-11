@@ -17,7 +17,6 @@
 #include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "runtime/loading/scene_service.hpp"
 #include <atomic>
 #include <optional>
 #include <thread>
@@ -80,7 +79,6 @@ struct application::storage {
     action_map_result_ = engine::error::invalid_state;
   }
   engine::world_owner world_;
-  runtime::scene_service scene_service_;
   std::unique_ptr<engine::resource_load_group> asset_loading_;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;
@@ -216,9 +214,6 @@ gneiss::engine::error application::attach_task_executor(gneiss::engine::task_exe
       return configured;
     }
     auto group = std::make_unique<engine::resource_load_group>(*storage_->asset_manager_);
-    const auto attached = storage_->scene_service_.configure(*storage_->render_service_);
-    if (attached.failed())
-      return attached;
     storage_->asset_loading_ = std::move(group);
     return engine::error::success;
   }
@@ -334,14 +329,6 @@ gneiss::engine::error application::initialize() {
     if (!created_world)
       return created_world.error();
     storage_->world_ = std::move(*created_world);
-    const auto result =
-        storage_->scene_service_.initialize(*storage_->asset_manager_, *storage_->world_);
-    if (result != gneiss::engine::error::success) {
-      report(gneiss::engine::severity::error, gneiss::engine::category::application, result,
-             "scene", "场景域创建失败");
-      static_cast<void>(shutdown());
-      return result;
-    }
   } catch (...) {
     static_cast<void>(shutdown());
     throw;
@@ -819,7 +806,6 @@ gneiss::engine::error application::request_shutdown() {
   storage_->shutdown_requested_ = true;
   storage_->accepts_requests_.store(false, std::memory_order_release);
   storage_->cancel_action_map();
-  storage_->scene_service_.request_stop();
   if (storage_->asset_loading_)
     storage_->asset_loading_->request_stop();
   if (storage_->asset_manager_)
@@ -838,11 +824,9 @@ gneiss::engine::error application::advance_shutdown() {
     if (dispatched.failed())
       return dispatched;
   }
-  storage_->scene_service_.advance();
   if (storage_->asset_manager_)
     storage_->asset_manager_->advance();
-  if (!storage_->scene_service_.stopped() ||
-      (storage_->asset_manager_ && !storage_->asset_manager_->stopped()) ||
+  if ((storage_->asset_manager_ && !storage_->asset_manager_->stopped()) ||
       !storage_->file_close_->ready)
     return gneiss::engine::error::not_ready;
   auto status = shutdown();
@@ -863,7 +847,6 @@ gneiss::engine::error application::shutdown() {
   auto shutdown_result = gneiss::engine::error::success;
   storage_->cancel_action_map();
   storage_->asset_loading_.reset();
-  storage_->scene_service_.shutdown();
   storage_->world_.reset();
   if (storage_->asset_manager_)
     storage_->asset_manager_->stop();
@@ -983,10 +966,6 @@ engine::resource_load_group* application::loading_assets() noexcept {
   return storage_->asset_loading_.get();
 }
 
-scene_service& application::scenes() noexcept { return storage_->scene_service_; }
-
-bool application::scene_loading() const noexcept { return storage_->scene_service_.loading(); }
-
 engine::result<engine::asset_batch_request>
 application::load_assets(std::span<const engine::render_resource_source> sources, bool reload) {
   if (!is_owner_thread() || !accepts_requests())
@@ -994,9 +973,7 @@ application::load_assets(std::span<const engine::render_resource_source> sources
   auto* group = loading_assets();
   if (!group)
     return engine::error::not_ready;
-  return group->begin(sources, reload,
-                      !scene_loading() && !visual_assets_loading() &&
-                          storage_->scene_service_.can_activate());
+  return group->begin(sources, reload);
 }
 gneiss::engine::error application::advance_resource_io() {
   if (!is_owner_thread() || !accepts_requests())
@@ -1031,33 +1008,11 @@ engine::error application::advance_loading() {
     return status;
   if (auto* assets = loading_assets())
     assets->advance();
-  storage_->scene_service_.advance();
-  report_visual_completion();
   return engine::error::success;
 }
 
-void application::report_visual_completion() {
-  gneiss::engine::asset_load_completion completion;
-  if (storage_->scene_service_.take_visual_completion(completion) &&
-      completion.state != gneiss::engine::asset_load_state::cancelled) {
-    for (const auto& item : completion.results) {
-      if (!item.applied) {
-        report(gneiss::engine::severity::error, gneiss::engine::category::asset, item.result,
-               "scene.assets",
-               completion.message.empty() ? item.source.uri
-                                          : item.source.uri + ": " + completion.message);
-      }
-    }
-  }
-}
-
-bool application::can_activate_scene() const noexcept {
-  return storage_->scene_service_.can_activate() &&
-         (!storage_->asset_loading_ || !storage_->asset_loading_->busy());
-}
-
-bool application::visual_assets_loading() const noexcept {
-  return storage_->scene_service_.visual_loading();
+bool application::can_load_assets() const noexcept {
+  return accepts_requests() && storage_->asset_loading_ && !storage_->asset_loading_->busy();
 }
 
 bool application::accepts_requests() const noexcept {
