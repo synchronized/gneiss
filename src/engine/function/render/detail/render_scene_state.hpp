@@ -4,16 +4,10 @@
 
 #include "engine/core/rid_table.hpp"
 #include "engine/function/render/commands.hpp"
-#include "engine/function/render/render_resource_data.hpp"
+#include "engine/function/render/detail/resource_identity.hpp"
 #include <functional>
 #include <map>
 namespace gneiss::detail {
-/** 过渡阶段固定资源 payload；资源身份依赖将在实际绘制接入时替换。 */
-struct scene_resource_pin {
-  std::shared_ptr<const mesh_data> mesh;
-  std::shared_ptr<const material_data> material;
-  std::vector<std::shared_ptr<const texture_data>> textures;
-};
 class render_scene_state final {
 public:
   using pin_callback = std::function<result<scene_resource_pin>(const mesh_instance_description&)>;

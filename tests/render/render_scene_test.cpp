@@ -13,13 +13,13 @@ using namespace gneiss;
     }                                                                                              \
   } while (false)
 bool commands() {
-  auto mesh = std::make_shared<mesh_data>();
-  auto material = std::make_shared<material_data>();
+  auto mesh = std::make_shared<detail::resource_identity<mesh_data>>();
+  auto material = std::make_shared<detail::resource_identity<material_data>>();
   bool ready = true;
   auto pin = [&](const mesh_instance_description&) -> result<detail::scene_resource_pin> {
     if (!ready)
       return error::not_ready;
-    return detail::scene_resource_pin{mesh, material, {}};
+    return detail::scene_resource_pin{mesh, material};
   };
   detail::render_scene_state state{65000, pin};
   detail::render_scene_state other{65001, pin};
@@ -65,8 +65,8 @@ bool commands() {
   CHECK(state.submit(std::move(invalid)));
   CHECK(!state.find(*scene, id)->description.visible && state.find(*scene, {2}));
   // 换绑失败不释放旧依赖；成功后新依赖存活，字段更新不覆盖矩阵。
-  auto old_material = std::weak_ptr<material_data>{material};
-  material = std::make_shared<material_data>();
+  auto old_material = std::weak_ptr<detail::resource_identity<material_data>>{material};
+  material = std::make_shared<detail::resource_identity<material_data>>();
   render::scene_commands rebind{*scene, {render::set_resources{id, 4, 5}}};
   ready = false;
   CHECK(!state.submit(std::move(rebind)));
@@ -103,7 +103,7 @@ bool commands() {
   render::scene_commands wrapped{*second,
                                  {render::create_instance{{2}, {.mesh = 1, .material = 2}}}};
   CHECK(!state.submit(std::move(wrapped)));
-  auto held = std::weak_ptr<mesh_data>{mesh};
+  auto held = std::weak_ptr<detail::resource_identity<mesh_data>>{mesh};
   mesh.reset();
   CHECK(!held.expired());
   CHECK(state.destroy_scene(*scene));
@@ -131,22 +131,89 @@ bool service_lifetime() {
     CHECK(mesh && material);
     pending = {*scene, {render::create_instance{{1}, {.mesh = *mesh, .material = *material}}}};
     CHECK(!foreign.submit(std::move(pending)));
-    auto not_ready = owner.submit(std::move(pending));
-    CHECK(!not_ready && not_ready.error() == error::not_ready);
-    CHECK(pending.entries.size() == 1);
+    CHECK(owner.submit(std::move(pending))); // 身份有效即可绑定，无需等待内容。
+    auto first_mesh = std::make_shared<mesh_data>();
+    auto old_mesh = std::weak_ptr<const mesh_data>{first_mesh};
+    CHECK(owner.replace_mesh(*mesh, first_mesh));
+    first_mesh.reset();
+    auto retained_frame = owner.share_mesh(*mesh);
     CHECK(owner.replace_mesh(*mesh, std::make_shared<mesh_data>()));
-    CHECK(owner.replace_material(*material, std::make_shared<material_data>()));
-    CHECK(owner.submit(std::move(pending)));
+    CHECK(!old_mesh.expired());
+    retained_frame.reset();
+    CHECK(old_mesh.expired()); // 实例保活身份，不再永久固定首个 payload。
+
+    auto texture = owner.reserve_texture();
+    CHECK(texture);
+    auto description = std::make_shared<material_data>();
+    description->base_color_texture = *texture;
+    CHECK(owner.replace_material(*material, description));
+    auto pixels = std::make_shared<texture_data>();
+    auto retained = std::weak_ptr<const texture_data>{pixels};
+    CHECK(owner.replace_texture(*texture, pixels));
+    pixels.reset();
+    CHECK(owner.destroy_texture(*texture).ok());
+    CHECK(!retained.expired());
+    // 原有依赖可在外部 RID 释放后保留、重排；未知依赖失败且旧内容保持。
+    auto reordered = std::make_shared<material_data>();
+    reordered->normal_texture = *texture;
+    CHECK(owner.replace_material(*material, reordered));
+    auto invalid = std::make_shared<material_data>();
+    invalid->base_color_texture = *mesh;
+    CHECK(!owner.replace_material(*material, invalid));
+    CHECK(owner.share_material(*material) == reordered && !retained.expired());
     // 无资源换绑的修改不重新查询已交还的外部 RID。
     CHECK(owner.destroy_mesh(*mesh).ok());
     CHECK(owner.destroy_material(*material).ok());
+    CHECK(!retained.expired());
+    pending = {*scene, {render::create_instance{{2}, {.mesh = *mesh, .material = *material}}}};
+    CHECK(!owner.submit(std::move(pending))); // 已释放的 RID 不能产生新绑定。
     pending = {*scene, {render::set_visibility{{1}, {.visible = false}}}};
     CHECK(owner.submit(std::move(pending)));
     pending = {*scene, {render::destroy_instance{{1}}}};
     owner.close_resources();
+    CHECK(retained.expired());
     CHECK(!owner.submit(std::move(pending)));
   }
   CHECK(pending.entries.size() == 1); // 命令可晚于服务销毁，不访问服务内存。
   return true;
 }
-int main() { return commands() && service_lifetime() ? 0 : 1; }
+bool identity_versions() {
+  auto mesh = std::make_shared<detail::resource_identity<mesh_data>>();
+  auto material = std::make_shared<detail::resource_identity<material_data>>();
+  auto texture = std::make_shared<detail::resource_identity<texture_data>>();
+  detail::render_scene_state state{
+      64999, [&](const mesh_instance_description&) -> result<detail::scene_resource_pin> {
+        return detail::scene_resource_pin{mesh, material};
+      }};
+  auto scene = state.create_scene();
+  CHECK(scene);
+  render::scene_commands create{*scene, {render::create_instance{{1}, {.mesh = 1, .material = 2}}}};
+  CHECK(state.submit(std::move(create)));
+  auto capture = [&] { return state.find(*scene, {1})->resources.capture(); };
+  CHECK(!capture().mesh && !capture().material);
+  mesh->data = std::make_shared<mesh_data>();
+  auto first = std::make_shared<material_data>();
+  first->base_color_texture = 3;
+  material->data = first;
+  material->textures[0] = texture;
+  CHECK(capture().mesh && capture().material && !capture().textures[0]);
+  texture->data = std::make_shared<texture_data>();
+  auto before = capture();
+  auto old_texture = std::weak_ptr<const texture_data>{before.textures[0]};
+  auto old_mesh = std::weak_ptr<const mesh_data>{before.mesh};
+  mesh->data = std::make_shared<mesh_data>();
+  texture->data = std::make_shared<texture_data>();
+  auto after = capture();
+  CHECK(after.mesh != before.mesh && after.textures[0] != before.textures[0]);
+  CHECK(after.material == before.material); // 纹理内容刷新不重建材质。
+  CHECK(!old_texture.expired() && !old_mesh.expired());
+  material->data = std::make_shared<material_data>();
+  material->textures = {};
+  CHECK(!capture().textures[0] && before.textures[0] && after.textures[0]);
+  before = {};
+  CHECK(old_texture.expired() && old_mesh.expired());
+  CHECK(state.destroy_scene(*scene));
+  CHECK(after.mesh && after.material && after.textures[0]); // 已捕获内容跨场景卸载存活。
+  return true;
+}
+int main() { return commands() && service_lifetime() && identity_versions() ? 0 : 1; }

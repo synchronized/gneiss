@@ -199,7 +199,7 @@ if (!scene)
 render::scene_commands commands{
     *scene, {render::create_instance{{1}, {.mesh = mesh_rid, .material = material_rid}}}};
 auto accepted = renderer.submit(std::move(commands));
-// not_ready 时保留 commands 及资源引用，稍后重试；成功后不要再次发送。
+// 返回失败时列表和场景均不改变；成功后不要再次发送。
 // 使用结束时调用 renderer.destroy_scene(*scene)。
 ```
 
@@ -214,9 +214,15 @@ auto accepted = renderer.submit(std::move(commands));
 不作为可重试结果。
 
 变换保存完整仿射矩阵，允许剪切；非有限、非仿射或奇异矩阵返回 invalid_argument。
-本阶段创建/资源换绑仅支持已就绪的网格、材质和纹理；未就绪返回 not_ready。
-实例固定不可变 payload，释放外部资源 RID 不会释放实例持有的数据。
-异步就绪和热重载的自动刷新尚未接入，不能将该固定 payload 语义当作最终资源身份绑定。
+创建/资源换绑接受已预留但尚未就绪的网格、材质；未就绪本身不再导致提交失败。
+实例保活内部资源身份，replace_* 在所属线程发布新内容；后续内容捕获读取新版本，无需重建实例。
+材质身份保活各槽位的纹理身份，纹理独立更新不要求重新发布材质。
+释放外部 RID 后不能新增引用或继续通过该 RID 发布，但已有实例/材质依赖仍存活。
+材质更新可以保留或重排自身已持有的纹理身份；新增无效依赖会拒绝更新，原内容和依赖不变。
+
+内部 scene_resource_pin::capture() 固定当前不可变 payload，捕获后的内容不受热重载、换绑或
+场景卸载影响。空 payload 表示尚未就绪，不表示无效身份。身份记录只在所属线程访问，
+不能直接交给渲染线程读取；执行器按序发布/捕获仍待接入，不能声称已有完整跨线程版本协议。
 
 **当前限制**：这组 CPU 接口尚未驱动绘制；Runtime/Editor 仍使用原有帧快照。
 多视图、World 增量绑定与队列消费按 [PLAN-115](../plans/PLAN-115-persistent-render-scene.md) 继续实施。

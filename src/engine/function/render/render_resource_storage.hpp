@@ -11,9 +11,17 @@ namespace gneiss {
 struct render_service::resource_storage {
   explicit resource_storage(std::uint64_t limit);
   template <typename Data> struct record {
-    explicit record(std::shared_ptr<const Data> value) : data(std::move(value)) {}
-    std::shared_ptr<const Data> data;
+    explicit record(std::shared_ptr<const Data> value)
+        : identity(std::make_shared<detail::resource_identity<Data>>()) {
+      identity->data = std::move(value);
+    }
+    explicit record(std::shared_ptr<detail::resource_identity<Data>> value)
+        : identity(std::move(value)) {}
+    std::shared_ptr<detail::resource_identity<Data>> identity;
   };
+  result<std::array<std::shared_ptr<const detail::resource_identity<texture_data>>, 5>>
+  material_dependencies(const material_data& value,
+                        const detail::resource_identity<material_data>* previous = nullptr) const;
   std::uint64_t memory_limit_{};
   mutable std::vector<std::weak_ptr<const mesh_data>> mesh_history_;
   mutable std::vector<std::weak_ptr<const material_data>> material_history_;

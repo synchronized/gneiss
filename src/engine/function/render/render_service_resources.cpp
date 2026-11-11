@@ -57,34 +57,41 @@ render_service::resource_storage::resource_storage(std::uint64_t memory_limit)
       domain_,
       [this](const mesh_instance_description& description) -> result<detail::scene_resource_pin> {
         detail::scene_resource_pin pin;
-        if (description.mesh != null_rid) {
-          const auto* mesh = meshes_.get(description.mesh, resource_type::mesh);
-          if (!mesh)
-            return error::invalid_handle;
-          if (!mesh->data)
-            return error::not_ready;
-          pin.mesh = mesh->data;
-        }
-        if (description.material != null_rid) {
-          const auto* material = materials_.get(description.material, resource_type::material);
-          if (!material)
-            return error::invalid_handle;
-          if (!material->data)
-            return error::not_ready;
-          pin.material = material->data;
-          for (auto texture : material->data->texture_handles()) {
-            if (texture == null_rid)
-              continue;
-            const auto* value = textures_.get(texture, resource_type::texture);
-            if (!value)
-              return error::invalid_handle;
-            if (!value->data)
-              return error::not_ready;
-            pin.textures.push_back(value->data);
-          }
-        }
+        const auto* mesh = meshes_.get(description.mesh, resource_type::mesh);
+        const auto* material = materials_.get(description.material, resource_type::material);
+        if (!mesh || !material)
+          return error::invalid_handle;
+        pin.mesh = mesh->identity;
+        pin.material = material->identity;
         return pin;
       });
+}
+result<std::array<std::shared_ptr<const detail::resource_identity<texture_data>>, 5>>
+render_service::resource_storage::material_dependencies(
+    const material_data& value, const detail::resource_identity<material_data>* previous) const {
+  std::array<std::shared_ptr<const detail::resource_identity<texture_data>>, 5> dependencies{};
+  const auto handles = value.texture_handles();
+  for (std::size_t index = 0; index < handles.size(); ++index) {
+    if (handles[index] == null_rid)
+      continue;
+    const auto* texture = textures_.get(handles[index], resource_type::texture);
+    if (texture) {
+      dependencies[index] = texture->identity;
+      continue;
+    }
+    // 外部 RID 已交还时，材质仍可保留或重排自己原有的纹理依赖。
+    if (previous && previous->data) {
+      const auto old_handles = previous->data->texture_handles();
+      for (std::size_t old = 0; old < old_handles.size(); ++old)
+        if (old_handles[old] == handles[index]) {
+          dependencies[index] = previous->textures[old];
+          break;
+        }
+    }
+    if (!dependencies[index])
+      return error::invalid_handle;
+  }
+  return dependencies;
 }
 result<rid> render_service::create_scene() { return storage_->scenes_->create_scene(); }
 result<void> render_service::submit(render::scene_commands&& update) {
@@ -112,7 +119,7 @@ result<rid> render_service::reserve_texture() {
 gneiss::error render_service::mesh_status(rid mesh) const noexcept {
   const auto* slot = storage_->meshes_.get(mesh, resource_type::mesh);
   return !slot ? gneiss::error::invalid_handle
-               : (slot->data ? gneiss::error::success : gneiss::error::not_ready);
+               : (slot->identity->data ? gneiss::error::success : gneiss::error::not_ready);
 }
 result<rid> render_service::reserve_material() {
   return storage_->materials_.create(resource_type::material,
@@ -123,12 +130,12 @@ gneiss::error render_service::material_status(rid material) const noexcept {
   if (slot == nullptr) {
     return gneiss::error::invalid_handle;
   }
-  return slot->data ? gneiss::error::success : gneiss::error::not_ready;
+  return slot->identity->data ? gneiss::error::success : gneiss::error::not_ready;
 }
 gneiss::error render_service::texture_status(rid texture) const noexcept {
   const auto* slot = storage_->textures_.get(texture, resource_type::texture);
   return !slot ? gneiss::error::invalid_handle
-               : (slot->data ? gneiss::error::success : gneiss::error::not_ready);
+               : (slot->identity->data ? gneiss::error::success : gneiss::error::not_ready);
 }
 
 render_memory_usage render_service::memory_usage() const noexcept {
@@ -304,21 +311,23 @@ bool render_service::replace_mesh(rid rid, std::shared_ptr<const mesh_data> data
     auto tracked = track(std::move(data), storage_->mesh_history_);
     if (!tracked)
       return false;
-    slot->data = std::move(*tracked);
+    slot->identity->data = std::move(*tracked);
   }
   return true;
 }
 bool render_service::replace_material(rid rid, std::shared_ptr<const material_data> data) {
   auto* slot = storage_->materials_.get(rid, resource_type::material);
-  if (!slot || !data) {
+  if (!slot || !data)
     return false;
-  }
-  {
-    auto tracked = track(std::move(data), storage_->material_history_);
-    if (!tracked)
-      return false;
-    slot->data = std::move(*tracked);
-  }
+  auto dependencies = storage_->material_dependencies(*data, slot->identity.get());
+  if (!dependencies)
+    return false;
+  auto tracked = track(std::move(data), storage_->material_history_);
+  if (!tracked)
+    return false;
+  // 所属线程一次发布内容和依赖；失败时旧版本不变。
+  slot->identity->data = std::move(*tracked);
+  slot->identity->textures = std::move(*dependencies);
   return true;
 }
 
@@ -357,7 +366,13 @@ result<rid> render_service::create_material(const material_data& value) {
   auto data = prepare_material_data(value);
   if (!data)
     return data.error();
-  return storage_->materials_.create(resource_type::material, std::move(*data));
+  auto dependencies = storage_->material_dependencies(value);
+  if (!dependencies)
+    return dependencies.error();
+  auto identity = std::make_shared<detail::resource_identity<material_data>>();
+  identity->data = std::move(*data);
+  identity->textures = std::move(*dependencies);
+  return storage_->materials_.create(resource_type::material, std::move(identity));
 }
 
 gneiss::error render_service::destroy_material(rid material) noexcept {
@@ -487,39 +502,39 @@ bool render_service::replace_texture(rid texture, std::shared_ptr<const texture_
     auto tracked = track(std::move(prepared), storage_->texture_history_);
     if (!tracked)
       return false;
-    slot->data = std::move(*tracked);
+    slot->identity->data = std::move(*tracked);
   }
   return true;
 }
 
 const mesh_data* render_service::get_mesh(rid mesh) const noexcept {
   const auto* resource = storage_->meshes_.get(mesh, resource_type::mesh);
-  return resource == nullptr ? nullptr : resource->data.get();
+  return resource == nullptr ? nullptr : resource->identity->data.get();
 }
 
 const material_data* render_service::get_material(rid material) const noexcept {
   const auto* resource = storage_->materials_.get(material, resource_type::material);
-  return resource == nullptr ? nullptr : resource->data.get();
+  return resource == nullptr ? nullptr : resource->identity->data.get();
 }
 
 const texture_data* render_service::get_texture(rid texture) const noexcept {
   const auto* resource = storage_->textures_.get(texture, resource_type::texture);
-  return resource == nullptr ? nullptr : resource->data.get();
+  return resource == nullptr ? nullptr : resource->identity->data.get();
 }
 
 std::shared_ptr<const mesh_data> render_service::share_mesh(rid mesh) const noexcept {
   const auto* resource = storage_->meshes_.get(mesh, resource_type::mesh);
-  return resource == nullptr ? nullptr : resource->data;
+  return resource == nullptr ? nullptr : resource->identity->data;
 }
 
 std::shared_ptr<const material_data> render_service::share_material(rid material) const noexcept {
   const auto* resource = storage_->materials_.get(material, resource_type::material);
-  return resource == nullptr ? nullptr : resource->data;
+  return resource == nullptr ? nullptr : resource->identity->data;
 }
 
 std::shared_ptr<const texture_data> render_service::share_texture(rid texture) const noexcept {
   const auto* resource = storage_->textures_.get(texture, resource_type::texture);
-  return resource == nullptr ? nullptr : resource->data;
+  return resource == nullptr ? nullptr : resource->identity->data;
 }
 
 std::size_t render_service::live_resource_count() const noexcept {

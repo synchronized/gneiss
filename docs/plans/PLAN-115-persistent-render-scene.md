@@ -37,17 +37,20 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
 - 既有 `threaded_render_executor` 已负责线程、帧/命令序号和可替换帧。后续可靠场景更新复用这一执行器，
   使用一次执行命令；不能使用允许重新排队的 resumable 策略，也不能随可替换帧丢弃。
 - 既有 `render_resource_snapshot` 通过不可变共享 payload 保证旧帧数据不变；保留该能力。
-  新增实例当前固定已就绪 payload，资源身份 pin、未就绪填充及热重载刷新仍属于 P2，不能标记完成。
+  CPU 实例已改为身份 pin，可绑定未就绪资源并读取后续发布内容；材质身份保活纹理依赖。
+  内部 capture 固定不可变内容，旧内容不受刷新影响；执行器按序发布、帧消费和 GPU 退休仍未接入，P2 未完成。
 - `render_service` 已提供 create_scene/submit(render::scene_commands&&)/destroy_scene，删除 begin_update 和旧批次对象。
   当前只管理 CPU 状态，不需要窗口/GPU，也尚未连接实际绘制。命令提交同线程生效。
 - 已采用场景内递增 instance_key 与列表全收或不收的 CPU 接受规则；不再预留实例 RID。
   提交前不保活服务/资源，不依赖析构回调；校验阶段只暂存触及实例，成功后消费列表。
 - 定向 CPU 验证覆盖创建后更新、丢弃列表、失败重试无部分应用、删除与 key 不复用、
-  跨服务/场景、场景 generation、共享 payload 保活与关闭。旧批次取消契约对应测试已替换。
-  本轮 Windows Clang Debug 的 Engine、Runtime、Editor 和三项渲染测试构建通过；render_scene、render_frame_packet、render_executor 测试通过。
+  跨服务/场景、场景 generation、共享资源保活与关闭。旧批次取消契约对应测试已替换。
+  新增未就绪身份绑定、内容替换、依赖重排/失效拒绝、旧内容捕获和外部 RID 释放验证。
+  本轮 Windows Clang Debug 的 Engine、Runtime、Editor 和相关渲染测试构建通过；render_scene、render_frame_packet、render_executor、
+  render_resource_service、pbr-material-resource 五项测试通过。
   尚未验证 GPU、多视图、World 同步和其他平台。
 
-后续按已确认边界完成资源身份 pin 和持久场景绘制入口，再接 World 变化通知与绑定；
+后续按已确认边界接入资源版本的执行器时序和持久场景绘制入口，再接 World 变化通知与绑定；
 不能把当前 CPU 批次基础视为 P1 模型预览闭环或 P3 增量同步完成。
 
 ## 迁移基线
