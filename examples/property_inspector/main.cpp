@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../support/scene_activation.hpp"
 #include "../support/scope_exit.hpp"
 #include "application/application.hpp"
 #include "engine/core/fatal.hpp"
@@ -39,30 +40,33 @@ bool open_scene(gneiss::engine::task_scheduler& scheduler, std::string_view root
   app = std::move(*created);
   if (app->attach_task_executor(scheduler).failed())
     return false;
-  auto submitted = app->scenes().open(scene_uri);
+  auto submitted = app->assets().load<gneiss::engine::scene>(scene_uri);
   if (!submitted)
     return false;
   auto request = std::move(*submitted);
-  gneiss::runtime::scene_load_completion completion;
-  // 命令行示例的宿主循环；解码与 I/O 都从异步请求取得。
-  for (;;) {
+  // 命令行示例由宿主循环处理文件完成，不使用同步加载包装。
+  while (request.status() == gneiss::engine::error::not_ready) {
     (void)scheduler.run_ready();
     if (app->run(1).failed())
-      return 2;
-    const auto status = request.status();
-    if (status.failed() && status != gneiss::engine::error::not_ready)
-      return 2;
-    if (request.ready())
-      break;
+      return false;
   }
-  auto activated = app->scenes().activate(std::move(request));
+  auto content = request.snapshot();
+  auto loaded = request.take();
+  if (!loaded || !content)
+    return false;
+  auto activated = example::activate_scene(*app, *content);
   if (!activated)
     return false;
-  completion = std::move(*activated);
-  scene = completion.scene;
-  bindings = std::move(completion.objects);
+  scene = activated->instance.instance;
+  bindings = std::move(activated->instance.objects);
+  while (activated->visuals && !activated->visuals.ready()) {
+    (void)scheduler.run_ready();
+    if (app->run(1).failed())
+      return false;
+  }
+  example::report_visuals(*activated);
   if (description)
-    *description = *completion.content->description;
+    *description = *content->description;
   return true;
 }
 bool target_for(gneiss::runtime::application& app,

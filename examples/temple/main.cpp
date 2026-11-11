@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/scene_activation.hpp"
 #include "../support/scope_exit.hpp"
 #include "application/application.hpp"
 #include "engine/core/error.hpp"
@@ -106,14 +107,15 @@ int run_example(int argc, char** argv) {
   if (native_application->attach_task_executor(scheduler).failed() ||
       native_application->begin_action_map(input_map_uri).failed())
     return 2;
-  auto submitted = native_application->scenes().open(scene_uri);
+  auto submitted = native_application->assets().load<gneiss::engine::scene>(scene_uri);
   if (!submitted)
     return 2;
   auto scene_request = std::move(*submitted);
   gneiss::scene_instance_id scene{};
-  gneiss::runtime::scene_load_completion completion;
+  example::scene_activation completion;
   // 启动阶段继续处理窗口事件和文件完成；不调用同步场景加载。
-  while (!scene || native_application->action_map_status() == gneiss::engine::error::not_ready) {
+  while (!scene || native_application->action_map_status() == gneiss::engine::error::not_ready ||
+         (completion.visuals && !completion.visuals.ready())) {
     (void)scheduler.run_ready();
     if (native_application->run(1).failed())
       return 2;
@@ -121,15 +123,20 @@ int run_example(int argc, char** argv) {
       const auto status = scene_request.status();
       if (status.failed() && status != gneiss::engine::error::not_ready)
         return 2;
-      if (scene_request.ready()) {
-        auto activated = native_application->scenes().activate(std::move(scene_request));
+      if (status.ok()) {
+        auto content = scene_request.snapshot();
+        auto loaded = scene_request.take();
+        if (!loaded || !content)
+          return 2;
+        auto activated = example::activate_scene(*native_application, *content);
         if (!activated)
           return 2;
         completion = std::move(*activated);
-        scene = completion.scene;
+        scene = completion.instance.instance;
       }
     }
   }
+  example::report_visuals(completion);
   if (native_application->action_map_status().failed())
     return 2;
   if (native_application->action_map_status() != gneiss::engine::error::success ||
@@ -142,10 +149,11 @@ int run_example(int argc, char** argv) {
       gneiss::engine::scene_instance::borrow(*native_application->native_world(), scene);
   if (!instance)
     return 2;
-  auto binding = std::ranges::find_if(completion.objects, [camera_uuid](const auto& object) {
-    return object.object == camera_uuid && !object.source;
-  });
-  if (binding == completion.objects.end())
+  auto binding =
+      std::ranges::find_if(completion.instance.objects, [camera_uuid](const auto& object) {
+        return object.object == camera_uuid && !object.source;
+      });
+  if (binding == completion.instance.objects.end())
     return 2;
   state.camera_node = binding->entity;
   can_update = true;

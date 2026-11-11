@@ -23,6 +23,9 @@ Application 拥有 World、平台状态、资源服务及可选窗口。`native_
 
 Application 每帧在 update 回调前统一处理文件完成、资产批次和场景工作。
 自定义宿主循环调用 `run(1)` 驱动完整一帧；业务回调内不重入 run，也不单独推进加载服务。
+仓内场景示例直接使用 assets().load<scene>()，由示例主循环领取内容后调用组合、实例化接口。
+examples/support/scene_activation.hpp 仅复用示例装配代码，不提供生产同步加载入口。
+示例启动循环会继续处理事件并等待视觉批次终态，再进入演示；失败资产打印诊断并保留场景。
 
 - 普通资产：`app.assets().load<T>(uri)`，返回既有 asset_request。
 - 场景打开：`app.scenes().open(uri)`，返回 `result<scene_open_request>`。
