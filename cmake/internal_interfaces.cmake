@@ -128,7 +128,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/math/camera.hpp
   engine/function/render/debug_draw_list.hpp
   engine/function/render/draw_types.hpp
-  engine/function/render/render_executor.hpp
+  engine/function/render/frame_result.hpp
   engine/function/render/render_frame_packet.hpp
   engine/resource/scene.hpp
   engine/resource/prefab.hpp

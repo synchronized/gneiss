@@ -11,6 +11,9 @@ Service 外壳仅拥有一个 PImpl。其资源存储与场景存储平级，资
 私有定义集中于 `detail/service_impl.hpp` 和 `detail/resource_storage.hpp`。
 资源身份与场景消费状态位于 `gneiss::render::detail`。析构先排空并停止执行器，
 再按成员顺序释放后端、场景和资源；已接受任务使用期间不会提前销毁这些状态。
+执行器及命令调度类型归入 `gneiss::render::detail`，定义在 `detail/executor.hpp/.cpp`。
+Service 和 Application 通过 `frame_result.hpp` 使用完成回执和截图数据，不包含执行器头；
+普通模块的内部头文件集合也不再导出执行器。
 设备计数和单帧执行指标定义于 `render_statistics.hpp`，不再要求后端依赖 Service 或执行器声明。
 
 Render 的 `reserve_mesh/texture/material()` 与 `create_*` 系列返回 `result<rid>`；

@@ -7,7 +7,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/wakeup_signal.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
-#include "engine/function/render/render_statistics.hpp"
+#include "engine/function/render/frame_result.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -16,17 +16,7 @@
 #include <optional>
 #include <utility>
 
-namespace gneiss {
-
-enum class render_frame_policy : std::uint8_t { replaceable, required };
-
-struct render_frame_completion final {
-  std::uint64_t sequence{};
-  error status{error::unknown};
-  render_execution_result execution;
-  bool dropped{};
-  render_frame_policy policy{render_frame_policy::replaceable};
-};
+namespace gneiss::render::detail {
 
 enum class render_command_stage : std::uint8_t { queued, preparing, uploading, completed };
 

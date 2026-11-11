@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/render/render_executor.hpp"
+#include "engine/function/render/detail/executor.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/fatal.hpp"
 
@@ -15,7 +15,7 @@
 #include <thread>
 #include <utility>
 
-namespace gneiss {
+namespace gneiss::render::detail {
 
 void render_command_reporter::report(render_command_stage stage, std::uint64_t completed_work,
                                      std::uint64_t total_work) const {

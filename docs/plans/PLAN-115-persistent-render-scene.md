@@ -422,7 +422,11 @@ Service 单一 PImpl 和资源/场景存储平级已落地；实现装配集中�
 资源表移至 detail/resource_storage.hpp，不再依赖 Service 声明或持有场景；资源身份和场景状态归入 render::detail。
 PImpl 析构先排空停止执行器，再释放后端、场景及资源；普通调用接口不增加关闭协调步骤。
 本次 Engine、Runtime、Editor 构建及四项渲染回归、两项分层检查通过；未运行 GPU 验收。
-P0 尚未整体完成：Service 与执行器等剩余命名/头文件边界仍需收敛。
+执行器及其命令调度类型已迁入 render::detail，文件为 detail/executor.hpp/.cpp；
+Service/Application 改为包含 frame_result.hpp，完成回执与回读数据不再携带执行器或帧包定义。
+普通模块内部接口集合移除了执行器，分层检查拒绝非实现调用方包含该私有头。
+本次 Engine、Runtime、Editor 构建及三项渲染回归、两项分层检查通过；未运行 GPU 验收。
+P0 尚未整体完成：Service 等剩余命名仍需收敛。
 
 ## 实施顺序与完成条件
 

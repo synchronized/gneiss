@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "engine/function/render/detail/executor.hpp"
 #include "engine/function/render/detail/render_scene_state.hpp"
 #include "engine/function/render/render_service.hpp"
 #include <barrier>
@@ -8,6 +9,7 @@
 #include <limits>
 #include <thread>
 using namespace gneiss;
+using namespace gneiss::render::detail;
 #define CHECK(expression)                                                                          \
   do {                                                                                             \
     if (!(expression)) {                                                                           \

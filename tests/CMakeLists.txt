@@ -351,7 +351,7 @@ add_test(NAME gneiss.cpp_input COMMAND gneiss_cpp_input_test)
 add_executable(
   gneiss_render_executor_test
   render/render_executor_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_executor.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/detail/executor.cpp"
 )
 target_include_directories(gneiss_render_executor_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_executor_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -1148,7 +1148,7 @@ target_link_libraries(gneiss_png_decoder_test PRIVATE gneiss_fatal)
 
 add_executable(gneiss_render_scene_test
   render/render_scene_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_executor.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/detail/executor.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/detail/render_scene_state.cpp")
 target_include_directories(gneiss_render_scene_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_scene_test PRIVATE GNEISS_BUILDING_LIBRARY)

@@ -650,7 +650,8 @@ foreach(header IN ITEMS engine/resource/texture/texture_ktx2.hpp engine/resource
 endforeach()
 
 # Render 只开放服务接口，不开放 RID 表与引用关联实现。
-foreach(header IN ITEMS "engine/function/render/detail/resource_storage.hpp"
+foreach(header IN ITEMS "engine/function/render/detail/executor.hpp"
+    "engine/function/render/detail/resource_storage.hpp"
     "engine/function/render/detail/service_impl.hpp"
     "engine/resource/texture/detail/texture_resource_access.hpp"
     "engine/resource/mesh/detail/mesh_resource_access.hpp"

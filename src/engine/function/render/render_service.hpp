@@ -4,12 +4,14 @@
 
 #include "engine/core/export.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/wakeup_signal.hpp"
 #include "engine/function/render/commands.hpp"
 #include "engine/function/render/frame_request.hpp"
-#include "engine/function/render/render_executor.hpp"
+#include "engine/function/render/frame_result.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/platform/native_window_info.hpp"
 #include "engine/resource/texture/texture_view.hpp"
+#include <functional>
 #include <memory>
 #include <optional>
 #include <span>

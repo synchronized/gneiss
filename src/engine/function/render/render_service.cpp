@@ -21,11 +21,11 @@ gneiss::error render_service::implementation::initialize(
   gneiss::error initialize_result = gneiss::error::unknown;
   const auto submit_result = executor_.submit_command(
       [this, window, environment_asset, environment_intensity, environment_rotation_radians,
-       &initialize_result](const render_command_reporter& reporter) {
-        reporter.report(render_command_stage::uploading, 0U, 1U);
+       &initialize_result](const render::detail::render_command_reporter& reporter) {
+        reporter.report(render::detail::render_command_stage::uploading, 0U, 1U);
         initialize_result = backend_.initialize(window, environment_asset, environment_intensity,
                                                 environment_rotation_radians);
-        reporter.report(render_command_stage::uploading, 1U, 1U);
+        reporter.report(render::detail::render_command_stage::uploading, 1U, 1U);
         return initialize_result;
       });
   if (submit_result.ok()) {
@@ -37,7 +37,7 @@ gneiss::error render_service::implementation::initialize(
       completion->status != gneiss::error::success) {
     render_device_stats ignored{};
     if (executor_
-            .submit_command([this, &ignored](const render_command_reporter&) {
+            .submit_command([this, &ignored](const render::detail::render_command_reporter&) {
               return backend_.shutdown(ignored);
             })
             .ok()) {
@@ -54,10 +54,10 @@ error render_service::implementation::request_environment(
     std::shared_ptr<const std::vector<std::byte>> bytes, float intensity, float rotation) {
   if (!bytes || bytes->empty() || !std::isfinite(intensity) || !std::isfinite(rotation))
     return error::invalid_argument;
-  auto submitted = executor_.submit_command(
-      [this, bytes = std::move(bytes), intensity, rotation](const render_command_reporter&) {
-        return backend_.set_environment(*bytes, intensity, rotation);
-      });
+  auto submitted = executor_.submit_command([this, bytes = std::move(bytes), intensity, rotation](
+                                                const render::detail::render_command_reporter&) {
+    return backend_.set_environment(*bytes, intensity, rotation);
+  });
   return submitted ? error::success : submitted.error();
 }
 
@@ -99,8 +99,9 @@ result<bool> render_service::implementation::can_prepare_frame() {
   }
   return true;
 }
-result<std::uint64_t> render_service::implementation::submit(render_frame_prepare prepare,
-                                                             render_frame_policy policy) {
+result<std::uint64_t>
+render_service::implementation::submit(render::detail::render_frame_prepare prepare,
+                                       render_frame_policy policy) {
   const auto completion_result = collect_completions();
   if (completion_result != gneiss::error::success) {
     return completion_result;
@@ -158,11 +159,11 @@ gneiss::error render_service::implementation::shutdown(render_device_stats& stat
   static_cast<void>(executor_.flush());
   const auto frame_result = collect_completions();
 
-  const auto submit_result =
-      executor_.submit_command([this, &stats](const render_command_reporter& reporter) {
-        reporter.report(render_command_stage::uploading, 0U, 1U);
+  const auto submit_result = executor_.submit_command(
+      [this, &stats](const render::detail::render_command_reporter& reporter) {
+        reporter.report(render::detail::render_command_stage::uploading, 0U, 1U);
         const auto result = backend_.shutdown(stats);
-        reporter.report(render_command_stage::uploading, 1U, 1U);
+        reporter.report(render::detail::render_command_stage::uploading, 1U, 1U);
         return result;
       });
   if (submit_result.ok()) {

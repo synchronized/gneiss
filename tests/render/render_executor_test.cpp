@@ -4,8 +4,8 @@
 #include "../support/value_result.hpp"
 #include "application/detail/main_loop_wakeup.hpp"
 #include "engine/core/error.hpp"
+#include "engine/function/render/detail/executor.hpp"
 #include "engine/function/render/detail/resource_identity.hpp"
-#include "engine/function/render/render_executor.hpp"
 
 #include <atomic>
 #include <condition_variable>
@@ -20,6 +20,7 @@ namespace {
 // 帧可以替换，夹在帧之间的状态命令必须按序且仅执行一次。
 bool ordered_commands_survive_frame_replacement() {
   using namespace gneiss;
+  using namespace gneiss::render::detail;
   std::mutex mutex;
   std::condition_variable ready;
   bool started = false;
@@ -113,6 +114,7 @@ bool ordered_commands_survive_frame_replacement() {
 
 bool resumable_command_allows_frames(gneiss::error terminal) {
   using namespace gneiss;
+  using namespace gneiss::render::detail;
   std::atomic_bool frame_executed{};
   auto started = std::make_shared<gneiss::runtime::main_loop_wakeup>();
   auto lifetime = std::make_shared<int>(7);
@@ -167,6 +169,7 @@ bool resumable_command_allows_frames(gneiss::error terminal) {
 int main(int argc, char** argv) {
   if (argc == 2) {
     using namespace gneiss;
+    using namespace gneiss::render::detail;
     const std::string_view mode{argv[1]};
     threaded_render_executor fatal_executor;
     if (fatal_executor
@@ -191,6 +194,7 @@ int main(int argc, char** argv) {
     return 24;
   }
   using namespace gneiss;
+  using namespace gneiss::render::detail;
   threaded_render_executor empty_executor;
   if (empty_executor.try_take_frame_completion() || empty_executor.try_take_command_completion() ||
       empty_executor.query_command_status())

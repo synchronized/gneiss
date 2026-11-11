@@ -12,7 +12,7 @@
 #include "engine/function/asset/detail/resource_load_group.hpp"
 #include "engine/function/input/input_service.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/render/render_executor.hpp"
+#include "engine/function/render/frame_result.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/scene/rendering/render_camera.hpp"
 #include "engine/function/scene/rendering/world_render_binding.hpp"

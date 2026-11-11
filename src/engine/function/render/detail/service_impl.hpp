@@ -3,6 +3,7 @@
 
 #pragma once
 #include "engine/function/render/backend/granit/backend.hpp"
+#include "engine/function/render/detail/executor.hpp"
 #include "engine/function/render/detail/render_scene_state.hpp"
 #include "engine/function/render/detail/resource_storage.hpp"
 #include "engine/function/render/render_service.hpp"
@@ -40,7 +41,7 @@ public:
   }
   [[nodiscard]] result<bool> can_prepare_frame();
   [[nodiscard]] result<std::uint64_t>
-  submit(render_frame_prepare prepare,
+  submit(render::detail::render_frame_prepare prepare,
          render_frame_policy policy = render_frame_policy::replaceable);
   result<void> dispatch(std::function<void()> operation) {
     if (!executor_.is_running()) {
@@ -48,11 +49,11 @@ public:
       return {};
     }
     auto accepted = executor_.submit_command(
-        [operation = std::move(operation)](const render_command_reporter&) {
+        [operation = std::move(operation)](const render::detail::render_command_reporter&) {
           operation();
           return error::success;
         },
-        render_command_policy::once);
+        render::detail::render_command_policy::once);
     return accepted ? result<void>{} : result<void>{accepted.error()};
   }
   [[nodiscard]] result<std::optional<render_frame_completion>> try_take_required_completion();
@@ -66,7 +67,7 @@ private:
   error collect_completions();
   render::backend::granit::backend backend_;
   // 执行器先停止，后端及其资源才能析构。
-  threaded_render_executor executor_;
+  render::detail::threaded_render_executor executor_;
   std::deque<render_frame_completion> required_frame_completions_;
   bool pending_recreate_{};
 };

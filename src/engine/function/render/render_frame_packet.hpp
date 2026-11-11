@@ -6,9 +6,10 @@
 
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/render/debug_draw_list.hpp"
-#include "engine/function/render/render_resource_data.hpp"
 #include "engine/function/render/camera.hpp"
+#include "engine/function/render/debug_draw_list.hpp"
+#include "engine/function/render/frame_result.hpp"
+#include "engine/function/render/render_resource_data.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/platform/native_window_info.hpp"
 
@@ -55,13 +56,6 @@ private:
 struct render_frame_capture_metrics final {
   float capture_ms{};
   std::size_t copied_payload_bytes{};
-};
-
-/** 内部诊断回读：紧密 RGBA8，所有权属于请求；仅完成回执后可读取。 */
-struct frame_image final {
-  std::uint32_t width{};
-  std::uint32_t height{};
-  std::vector<std::byte> pixels;
 };
 
 /** 绘制消费者的纯值输入，不持有上层资产或 ECS 对象。 */
