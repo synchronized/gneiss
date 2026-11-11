@@ -29,7 +29,7 @@ Render 的 `reserve_mesh/texture/material()` 与 `create_*` 系列返回 `result
 
 ## 资源生命周期
 
-Mesh、Material 和 Texture 的 CPU 内容表由 Application 的 `render_service` 私有实现拥有。
+Mesh、Material 和 Texture 的 CPU 内容表由 Application 的 `render::service` 私有实现拥有。
 调用方通过 `application::render()` 使用 RID 接口，不能借用资源表。
 运行身份、元信息与材质依赖由 Application 的 `asset_manager` 维护，通过 `application::assets()` 借用。
 程序化纹理使用 `assets.create(texture_view)`，返回 `result<ref<const texture>>`；网格与材质使用对应的创建接口。
@@ -43,7 +43,7 @@ Mesh、Material 和 Texture 的 CPU 内容表由 Application 的 `render_service
 ImGui 适配器直接把自身持有的字体纹理引用写入 UI 绘制命令；当前只登记字体图集，未知纹理 ID 返回 unsupported。
 管理器位于 `engine/function/asset/asset_manager.hpp`；批次加载状态、资源工厂及销毁队列属于其私有实现；更新任务不属于对外接口。
 宿主先停止资产加载并销毁管理器，再关闭 Render；资源对象头不声明 Render 服务类型。
-原生 `render_service::create_mesh(mesh_view, ...)` 会在调用
+原生 `render::service::create_mesh(mesh_view, ...)` 会在调用
 期间复制顶点、可选法线、切线、UV1、顶点色及可选 UInt32 索引；调用返回后，调用方可以立即释放源数据。Mesh 至少需要
 三个有限值顶点。索引非空时数量必须至少为三个且为三的倍数，所有索引必须小于顶点数；索引为空时
 顶点按 Triangle List 顺序解释。法线必须与顶点一一对应、保持有限且归一化；不提供法线的旧 Mesh
@@ -169,16 +169,16 @@ GPU 失败不改变已经成功的 CPU 加载结果。UI 首次纹理未上传�
 
 ## 渲染服务对象边界
 
-Application 拥有 `gneiss::render_service`，用于设备初始化、帧/上传提交、完成回收及关闭。
+Application 拥有 `gneiss::render::service`，用于设备初始化、帧/上传提交、完成回收及关闭。
 RID 表位于私有 `resource_storage`，仅保存渲染内容。资源工厂独立持有弱引用身份关联和销毁队列。
 Loader 通过工厂更新资源：先提交 Render CPU 内容，成功后更新上层元信息和显式传入的纹理强引用。
 Render 不查找或修改上层资源；直接调用 RID 更新接口只改变渲染端数据。
 宿主每帧消费工厂销毁队列；关闭时先停止加载和释放场景/缓存，再关闭工厂，最后关闭 Render。
 工厂关闭会释放仍被上层引用的 RID 并断开删除器端点，残留引用晚释放只析构 CPU 外壳。
 独立使用时 Render 必须覆盖工厂的生命周期；不再由 Render 自动关闭上层资源端点。
-Application、Loader、UI 和帧构建使用 `render_service` 的 RID 操作及只读数据查询。
+Application、Loader、UI 和帧构建使用 `render::service` 的 RID 操作及只读数据查询。
 仅构造服务和操作 CPU 资源不会初始化 GPU；无窗口路径调用 shutdown 可关闭资源，重复关闭成功。
-`render_service.hpp` 不包含 Granit 头文件，也不暴露 Granit 类型；后端状态放在 `.cpp` 的 PImpl 中。
+`service.hpp` 不包含 Granit 头文件，也不暴露 Granit 类型；后端状态放在 `.cpp` 的 PImpl 中。
 关闭统计使用引擎值类型 `render_device_stats`，不返回设备或后端句柄。
 
 服务不可复制或移动；GPU 工作仍由原有渲染执行器调度。宿主必须在关闭平台前调用 shutdown，
@@ -194,7 +194,7 @@ Application、Loader、UI 和帧构建使用 `render_service` 的 RID 操作及�
 
 ## 持久场景更新与单窗口绘制
 
-`render_service::create_scene()` 创建独立 CPU 渲染场景，无需先初始化窗口或 GPU。
+`render::service::create_scene()` 创建独立 CPU 渲染场景，无需先初始化窗口或 GPU。
 `submit(render::scene_commands&&)` 接受自有命令列表，支持创建、变换、网格/材质换绑、
 层掩码/显隐/阴影标记和删除。成功清空列表并将其 scene 置零，返回失败时列表与场景均不变。
 `destroy_scene(scene)` 删除其全部实例，不删除其他场景。以上接口均在服务所属线程调用。
@@ -236,7 +236,7 @@ auto accepted = renderer.submit(std::move(commands));
 RID 表和 Service 接口仍限所属线程。初始化后，场景命令、资源版本发布及帧捕获共用有序执行器；
 捕获只读取已消费版本，后续提交不会提前影响较早的帧。未初始化执行器时，CPU 操作同步生效。
 
-`render_service::render(render::frame_request&&)` 接受零或一个窗口视图，视图给出 scene RID、view/projection
+`render::service::render(render::frame_request&&)` 接受零或一个窗口视图，视图给出 scene RID、view/projection
 矩阵、相机位置和层掩码。它将自有请求排入执行器，到达队列位置后才捕获场景及资源版本并交给 Granit；
 接受成功消费请求，接受失败保留请求；异步准备失败通过帧完成回执报告，不调用 GPU 绘制。
 零视图仅绘制 UI，不绘制场景。未初始化设备时不能提交绘制，接受成功不代表 GPU 完成。
@@ -253,7 +253,7 @@ UI 纹理尚未就绪返回 not_ready。Runtime/Editor 共用 Application 的普
 
 ## World 增量绑定
 
-`world_render_binding::create(world, render_service)` 创建绑定及其拥有的 Render 场景。
+`world_render_binding::create(world, render::service)` 创建绑定及其拥有的 Render 场景。
 两个对象均须覆盖绑定使用期；创建、同步和销毁限所属线程。`scene()` 返回借用 RID，
 调用方不能自行销毁该场景。销毁绑定释放渲染场景，不销毁 World 对象。
 

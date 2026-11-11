@@ -58,11 +58,11 @@ clang-format -i <files...>
 
 | 对象 | 规则 | 示例 |
 | --- | --- | --- |
-| 文件和目录 | 小写下划线 | `render_service.cpp` |
+| 文件和目录 | 小写下划线 | `service.cpp` |
 | C 函数和类型 | `gneiss_` 前缀、小写下划线 | `gneiss_world_create` |
 | C 宏 | `GNEISS_` 前缀、大写下划线 | `GNEISS_API` |
 | C++ 命名空间 | 小写 | `gneiss` |
-| C++ 类型 | 小写下划线 | `render_service` |
+| C++ 类型 | 小写下划线 | `render::service` |
 | 函数和变量 | 小写下划线 | `create_entity`、`entity_count` |
 | 枚举值 | C 使用大写前缀；C++ 使用小写 | `GNEISS_RESULT_OK`、`error::ok` |
 | 私有数据成员 | 小写下划线并带末尾下划线 | `world_id_` |
@@ -81,7 +81,7 @@ clang-format -i <files...>
   混合借用字段和自有快照的查询结果使用 `*_info`，逐项说明所有权。
 - `*_request` 表示请求及其观察状态；`*_metrics` 表示统计；`*_record` 表示一次操作记录。
 - `asset_manager` 统一负责描述加载与运行资源装配，
-  `render_service` 管理渲染后端；对应局部参数优先使用 `assets`、`renderer`。
+  `render::service` 管理渲染后端；对应局部参数优先使用 `assets`、`renderer`。
 - `render_resource_kind` 只描述渲染资源类别，不用于枚举所有 CPU 资产类型。
 - 文件名体现主要对象或职责；拆分实现优先沿用所属类前缀，如
   `asset_construction_loading.cpp`。相关小结构可以集中定义，不要求每个类型一个文件。

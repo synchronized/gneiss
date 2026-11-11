@@ -62,10 +62,10 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "Render 执行器不得泄漏到普通调用方：${source}")
   endif()
   if(content MATCHES "engine/function/render/detail/(resource_storage|service_impl)[.]hpp" AND
-      NOT source MATCHES "/src/engine/function/render/((render_service|render_service_resources)[.]cpp|detail/service_impl[.]hpp)$")
+      NOT source MATCHES "/src/engine/function/render/((service|service_resources)[.]cpp|detail/service_impl[.]hpp)$")
     message(FATAL_ERROR "Render 私有 RID 表不得泄漏到调用方：${source}")
   endif()
-  if(source MATCHES "/src/engine/function/render/render_service(_resources)?[.](cpp|hpp)$" AND
+  if(source MATCHES "/src/engine/function/render/service(_resources)?[.](cpp|hpp)$" AND
       content MATCHES "resource_bindings|render_resource_factory|resource_retirement_queue|resource_access")
     message(FATAL_ERROR "Render 服务不得反向管理上层资源对象：${source}")
   endif()
@@ -108,7 +108,7 @@ foreach(source IN LISTS sources)
   if(source MATCHES "/src/engine/(asset|function/(resource|application|game))/")
     message(FATAL_ERROR "旧模块目录已移除，请按职责使用 engine/function/asset、engine/resource 或 application：${source}")
   endif()
-  if(source MATCHES "/src/engine/function/render/render_service[.]hpp$" AND
+  if(source MATCHES "/src/engine/function/render/service[.]hpp$" AND
       content MATCHES "granit/|granit::|granit_[A-Za-z_]|engine/function/render/backend/")
     message(FATAL_ERROR "渲染服务接口不得泄漏后端头文件或类型：${source}")
   endif()
@@ -151,7 +151,7 @@ foreach(source IN LISTS sources)
        content MATCHES "gneiss/engine/render[.]h"))
     message(FATAL_ERROR "原生 World 组件不得存储 C 渲染布局：${source}")
   endif()
-  if(source MATCHES "/src/engine/(resource/(mesh|material|texture)/(mesh_data|material_description|texture_description|texture_data)|function/render/(render_resource_data|render_service|camera|render_asset_loader|texture_view))[.](hpp|cpp)$" AND
+  if(source MATCHES "/src/engine/(resource/(mesh|material|texture)/(mesh_data|material_description|texture_description|texture_data)|function/render/(render_resource_data|service|camera|render_asset_loader|texture_view))[.](hpp|cpp)$" AND
       (content MATCHES "gneiss_(mesh|material|texture)([^a-z_]|$)|gneiss_(mesh_vertex|mesh_normal|mesh_tangent|mesh_uv|mesh_color|texture_sampling)|GNEISS_(MATERIAL_ALPHA|TEXTURE_FILTER|TEXTURE_ADDRESS|TEXTURE_MIP|TEXTURE_FORMAT|TEXTURE_COLOR)_" OR
        content MATCHES "gneiss/engine/render[.]h"))
     message(FATAL_ERROR "原生资源接口不得依赖 Render C 值布局：${source}")
@@ -212,7 +212,7 @@ foreach(source IN LISTS sources)
     continue()
   endif()
   if(source MATCHES "(/src/engine/resource/(mesh/mesh_decoder|texture/texture_decoder)|/src/engine/function/(asset/detail/asset_decode|render/render_resource_data))\\.(cpp|hpp)$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_service)\\.(h|hpp)|engine/(function/asset/(resource_cache|asset_manager|detail/asset_construction)|core/rid_table)\\.hpp)[>\"]")
+      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|service)\\.(h|hpp)|engine/(function/asset/(resource_cache|asset_manager|detail/asset_construction)|core/rid_table)\\.hpp)[>\"]")
     message(FATAL_ERROR "CPU 准备与值类型不得包含资源发布、缓存或 RID 表：${source}")
   endif()
   if(source MATCHES "/src/engine/core/" AND

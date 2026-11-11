@@ -92,7 +92,7 @@ Application 的 can_load_assets() 只表示共享资源批次可提交；宿主�
 编辑器打开状态由 scene_open_state 表示 idle/loading/opened/failed/cancelled，active() 从状态推导。
 加载界面显示不定进度；不展示无法跨帧观察的实例化阶段、无效计数或旧清理等待状态。
 旧场景服务及其打开/激活/重载请求协议已删除。无待退休 World，也不提供专用场景退休统计；
-渲染资源数量通过 render_service::live_resource_count() 查询。
+渲染资源数量通过 render::service::live_resource_count() 查询。
 
 ### 来源重载基线
 

@@ -6,10 +6,10 @@
 #include "engine/function/render/detail/executor.hpp"
 #include "engine/function/render/detail/render_scene_state.hpp"
 #include "engine/function/render/detail/resource_storage.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include <deque>
-namespace gneiss {
-struct render_service::implementation final {
+namespace gneiss::render {
+struct service::implementation final {
 public:
   explicit implementation(std::uint64_t memory_limit)
       : resources(memory_limit),
@@ -71,4 +71,4 @@ private:
   std::deque<render_frame_completion> required_frame_completions_;
   bool pending_recreate_{};
 };
-} // namespace gneiss
+} // namespace gneiss::render

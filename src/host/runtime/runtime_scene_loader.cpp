@@ -5,7 +5,7 @@
 #include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/logging/logger.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/instantiation.hpp"
 

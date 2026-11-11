@@ -6,14 +6,16 @@
 #include <memory>
 namespace gneiss {
 class world;
-class render_service;
+namespace render {
+class service;
+}
 /** World 到持久渲染场景的单向同步。只在两个服务的所属线程使用。
  * 借用 World 和 Render，二者须覆盖使用期；析构释放拥有的渲染场景。
  * 不改变 World 的所有权，不负责窗口、相机或帧提交。 */
 class world_render_binding final {
 public:
   [[nodiscard]] static GNEISS_API result<std::unique_ptr<world_render_binding>>
-  create(world&, render_service&);
+  create(world&, gneiss::render::service&);
   GNEISS_API ~world_render_binding();
   world_render_binding(const world_render_binding&) = delete;
   world_render_binding& operator=(const world_render_binding&) = delete;

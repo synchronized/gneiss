@@ -167,7 +167,7 @@ foreach(header IN ITEMS "render/resource.hpp" "world/state.hpp" "scene/tree.hpp"
 endforeach()
 file(WRITE "${fixture}/src/engine/resource/probe.cpp" "#include <gneiss/core/result.h>\n")
 
-foreach(header IN ITEMS "engine/function/asset/detail/asset_construction.hpp" "engine/function/asset/asset_manager.hpp" "engine/function/render/render_service.hpp"
+foreach(header IN ITEMS "engine/function/asset/detail/asset_construction.hpp" "engine/function/asset/asset_manager.hpp" "engine/function/render/service.hpp"
     "engine/function/asset/resource_cache.hpp" "engine/core/rid_table.hpp")
   file(WRITE "${fixture}/src/engine/function/asset/detail/asset_decode.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
@@ -671,7 +671,7 @@ file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "// 已清理私有
 foreach(header IN ITEMS "engine/function/asset/detail/asset_construction.hpp"
     "engine/resource/resource_retirement_queue.hpp"
     "engine/resource/texture/detail/texture_resource_access.hpp")
-  file(WRITE "${fixture}/src/engine/function/render/render_service_resources.cpp" "#include <${header}>\n")
+  file(WRITE "${fixture}/src/engine/function/render/service_resources.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -679,7 +679,7 @@ foreach(header IN ITEMS "engine/function/asset/detail/asset_construction.hpp"
     message(FATAL_ERROR "边界检查未拒绝 Render 反向包含 ${header}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/engine/function/render/render_service_resources.cpp" "// 已清理反向依赖探针\n")
+file(WRITE "${fixture}/src/engine/function/render/service_resources.cpp" "// 已清理反向依赖探针\n")
 
 # Meta 默认注册表只能由 Meta 内部取得，业务侧使用无 registry 入口。
 foreach(content IN ITEMS "auto value = meta::default_registry();" "using namespace meta; auto value = default_registry();")

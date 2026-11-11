@@ -7,7 +7,7 @@
 
 #include "../support/async_application.hpp"
 #include "application/application.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX

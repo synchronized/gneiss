@@ -3,9 +3,9 @@
 
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
-#include "engine/function/render/render_service.hpp"
-#include "engine/function/render/ui_draw_list.hpp"
 #include "engine/function/asset/detail/asset_construction.hpp"
+#include "engine/function/render/service.hpp"
+#include "engine/function/render/ui_draw_list.hpp"
 
 #include <array>
 #include <cstdint>
@@ -19,7 +19,7 @@ static_assert(!can_adopt_texture<gneiss::detail::asset_construction>);
 static_assert(!std::is_constructible_v<gneiss::texture, gneiss::rid>);
 
 int main() {
-  gneiss::render_service resources;
+  gneiss::render::service resources;
   gneiss::detail::asset_construction resources_factory{resources};
   constexpr std::array<std::uint8_t, 4> pixels{255U, 255U, 255U, 255U};
   gneiss::texture_view texture_desc;
@@ -79,7 +79,7 @@ int main() {
   }
   commands[0].index_count = 3U;
 
-  gneiss::render_service other_resources;
+  gneiss::render::service other_resources;
   gneiss::detail::asset_construction other_resources_factory{other_resources};
   if (draw_list.replace(desc, other_resources) != gneiss::error::invalid_handle ||
       draw_list.commands().size() != 1U) {

@@ -22,18 +22,20 @@ struct render_memory_usage {
   std::uint64_t logical_bytes{};
   std::uint64_t cpu_data_bytes{};
 };
+} // namespace gneiss
+namespace gneiss::render {
 /** 渲染提交与设备生命周期服务；所属线程调用，GPU 操作由内部执行器调度。
  * 借用的日志队列必须覆盖 shutdown；宿主须先关闭本服务，再关闭窗口和平台。
  * 实现固定在堆上，不允许复制或移动。 */
-class render_service final {
+class service final {
 public:
   static constexpr std::uint64_t default_memory_limit = UINT64_C(4) * 1024U * 1024U * 1024U;
-  explicit GNEISS_API render_service(std::uint64_t memory_limit = default_memory_limit);
-  GNEISS_API ~render_service();
-  render_service(const render_service&) = delete;
-  render_service& operator=(const render_service&) = delete;
-  render_service(render_service&&) = delete;
-  render_service& operator=(render_service&&) = delete;
+  explicit GNEISS_API service(std::uint64_t memory_limit = default_memory_limit);
+  GNEISS_API ~service();
+  service(const service&) = delete;
+  service& operator=(const service&) = delete;
+  service(service&&) = delete;
+  service& operator=(service&&) = delete;
   [[nodiscard]] GNEISS_API error initialize(const native_window_info& window,
                                             std::span<const std::byte> environment_asset = {},
                                             float environment_intensity = 1.0F,
@@ -142,4 +144,4 @@ private:
   struct implementation;
   std::unique_ptr<implementation> impl_;
 };
-} // namespace gneiss
+} // namespace gneiss::render

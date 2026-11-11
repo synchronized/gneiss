@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render_service.hpp"
+#include "service.hpp"
 #include "engine/function/render/detail/service_impl.hpp"
 #include <cmath>
-namespace gneiss {
-gneiss::error render_service::implementation::initialize(
-    const native_window_info& window, std::span<const std::byte> environment_asset,
-    float environment_intensity, float environment_rotation_radians) {
+namespace gneiss::render {
+gneiss::error service::implementation::initialize(const native_window_info& window,
+                                                  std::span<const std::byte> environment_asset,
+                                                  float environment_intensity,
+                                                  float environment_rotation_radians) {
   const auto executor_result =
       executor_.initialize([this](render_frame_packet& packet, render_execution_result& output) {
         const auto result = backend_.draw(packet, output);
@@ -50,7 +51,7 @@ gneiss::error render_service::implementation::initialize(
   return initialize_result;
 }
 
-error render_service::implementation::request_environment(
+error service::implementation::request_environment(
     std::shared_ptr<const std::vector<std::byte>> bytes, float intensity, float rotation) {
   if (!bytes || bytes->empty() || !std::isfinite(intensity) || !std::isfinite(rotation))
     return error::invalid_argument;
@@ -61,7 +62,7 @@ error render_service::implementation::request_environment(
   return submitted ? error::success : submitted.error();
 }
 
-gneiss::error render_service::implementation::collect_completions() {
+gneiss::error service::implementation::collect_completions() {
   while (auto command = executor_.try_take_command_completion()) {
     if (command->status.failed())
       return command->status;
@@ -85,7 +86,7 @@ gneiss::error render_service::implementation::collect_completions() {
   return gneiss::error::success;
 }
 
-result<bool> render_service::implementation::can_prepare_frame() {
+result<bool> service::implementation::can_prepare_frame() {
   const auto completion_result = collect_completions();
   if (completion_result != gneiss::error::success) {
     return completion_result;
@@ -99,9 +100,8 @@ result<bool> render_service::implementation::can_prepare_frame() {
   }
   return true;
 }
-result<std::uint64_t>
-render_service::implementation::submit(render::detail::render_frame_prepare prepare,
-                                       render_frame_policy policy) {
+result<std::uint64_t> service::implementation::submit(render::detail::render_frame_prepare prepare,
+                                                      render_frame_policy policy) {
   const auto completion_result = collect_completions();
   if (completion_result != gneiss::error::success) {
     return completion_result;
@@ -121,7 +121,7 @@ render_service::implementation::submit(render::detail::render_frame_prepare prep
 }
 
 result<std::optional<render_frame_completion>>
-render_service::implementation::try_take_required_completion() {
+service::implementation::try_take_required_completion() {
   const auto status = collect_completions();
   if (status.failed())
     return status;
@@ -132,11 +132,11 @@ render_service::implementation::try_take_required_completion() {
   return std::optional<render_frame_completion>{std::move(completion)};
 }
 
-render_queue_stats render_service::implementation::query_performance_stats() const noexcept {
+render_queue_stats service::implementation::query_performance_stats() const noexcept {
   return executor_.query_stats();
 }
 
-gneiss::error render_service::implementation::finish_frames() {
+gneiss::error service::implementation::finish_frames() {
   const auto flushed = executor_.flush();
   if (flushed != gneiss::error::success) {
     return flushed;
@@ -151,7 +151,7 @@ gneiss::error render_service::implementation::finish_frames() {
   return result;
 }
 
-gneiss::error render_service::implementation::shutdown(render_device_stats& stats) {
+gneiss::error service::implementation::shutdown(render_device_stats& stats) {
   if (!executor_.is_running()) {
     stats = {};
     return gneiss::error::success;
@@ -184,37 +184,37 @@ gneiss::error render_service::implementation::shutdown(render_device_stats& stat
   return completion->status;
 }
 
-render_service::render_service(std::uint64_t memory_limit)
+service::service(std::uint64_t memory_limit)
     : impl_(std::make_unique<implementation>(memory_limit)) {}
-result<void> render_service::dispatch_render_work(std::function<void()> operation) {
+result<void> service::dispatch_render_work(std::function<void()> operation) {
   return impl_->dispatch(std::move(operation));
 }
-render_service::~render_service() = default;
-error render_service::request_environment(std::shared_ptr<const std::vector<std::byte>> bytes,
-                                          float intensity, float rotation) {
+service::~service() = default;
+error service::request_environment(std::shared_ptr<const std::vector<std::byte>> bytes,
+                                   float intensity, float rotation) {
   return impl_->request_environment(std::move(bytes), intensity, rotation);
 }
 
-error render_service::initialize(const native_window_info& window,
-                                 std::span<const std::byte> environment_asset,
-                                 float environment_intensity, float environment_rotation_radians) {
+error service::initialize(const native_window_info& window,
+                          std::span<const std::byte> environment_asset, float environment_intensity,
+                          float environment_rotation_radians) {
   if (!is_valid())
     return error::invalid_state;
   return impl_->initialize(window, environment_asset, environment_intensity,
                            environment_rotation_radians);
 }
-error render_service::shutdown(render_device_stats& stats) {
+error service::shutdown(render_device_stats& stats) {
   const auto status = impl_->shutdown(stats);
   if (status.ok())
     close_resources();
   return status;
 }
 
-error render_service::finish_frames() { return impl_->finish_frames(); }
-void render_service::set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept {
+error service::finish_frames() { return impl_->finish_frames(); }
+void service::set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept {
   impl_->set_completion_wakeup(std::move(notification));
 }
-result<void> render_service::render(render::frame_request&& request) {
+result<void> service::render(render::frame_request&& request) {
   auto ready = impl_->can_prepare_frame();
   if (!ready)
     return ready.error();
@@ -223,15 +223,15 @@ result<void> render_service::render(render::frame_request&& request) {
   auto submitted = submit_request(request, render_frame_policy::replaceable, {});
   return submitted ? result<void>{} : result<void>{submitted.error()};
 }
-result<std::uint64_t> render_service::request_capture(render::frame_request&& request,
-                                                      std::shared_ptr<frame_image> image) {
+result<std::uint64_t> service::request_capture(render::frame_request&& request,
+                                               std::shared_ptr<frame_image> image) {
   if (!image)
     return error::invalid_argument;
   return submit_request(request, render_frame_policy::required, std::move(image));
 }
-result<std::uint64_t> render_service::submit_request(render::frame_request& request,
-                                                     render_frame_policy policy,
-                                                     std::shared_ptr<frame_image> image) {
+result<std::uint64_t> service::submit_request(render::frame_request& request,
+                                              render_frame_policy policy,
+                                              std::shared_ptr<frame_image> image) {
   auto capture = impl_->scenes.prepare_capture(request);
   if (!capture)
     return capture.error();
@@ -269,14 +269,14 @@ result<std::uint64_t> render_service::submit_request(render::frame_request& requ
   request = {};
   return *accepted;
 }
-result<std::optional<render_frame_completion>> render_service::try_take_required_completion() {
+result<std::optional<render_frame_completion>> service::try_take_required_completion() {
   return impl_->try_take_required_completion();
 }
-render_queue_stats render_service::query_performance_stats() const noexcept {
+render_queue_stats service::query_performance_stats() const noexcept {
   return impl_->query_performance_stats();
 }
-texture_prepare_profile render_service::texture_profile() const noexcept {
+texture_prepare_profile service::texture_profile() const noexcept {
   return impl_->texture_profile();
 }
 
-} // namespace gneiss
+} // namespace gneiss::render

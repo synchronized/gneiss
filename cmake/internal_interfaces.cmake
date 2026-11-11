@@ -135,7 +135,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/mesh.hpp
   engine/resource/texture.hpp
   engine/resource/material.hpp
-  engine/function/render/render_service.hpp
+  engine/function/render/service.hpp
   engine/function/render/render_scene.hpp
   engine/function/render/commands.hpp
   engine/function/render/frame_request.hpp

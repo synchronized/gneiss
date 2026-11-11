@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "application/application.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/resource/texture/texture_view.hpp"
 #include "support/value_result.hpp"
 

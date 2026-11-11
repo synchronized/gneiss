@@ -13,7 +13,7 @@ struct material_data;
 
 struct detail::asset_construction final {
 public:
-  explicit GNEISS_API asset_construction(render_service& render);
+  explicit GNEISS_API asset_construction(gneiss::render::service& render);
   GNEISS_API ref<const gneiss::mesh> wrap_mesh(rid handle);
   GNEISS_API ref<const gneiss::texture> wrap_texture(rid handle);
   GNEISS_API ref<const gneiss::material> wrap_material(rid handle);
@@ -25,14 +25,14 @@ public:
 
   template <typename T> std::shared_ptr<T> make(rid handle);
   template <typename Ref, typename Create> result<Ref> create(Create create_rid);
-  render_service& render_;
+  gneiss::render::service& render_;
   resource_retirement_queue retirement_;
   // 仅索引本服务创建的对象；查询只锁定既有控制块，不接管外部 RID。
   std::unordered_map<rid, std::weak_ptr<const gneiss::mesh>> meshes_;
   std::unordered_map<rid, std::weak_ptr<const gneiss::texture>> textures_;
   std::unordered_map<rid, std::weak_ptr<const gneiss::material>> materials_;
   GNEISS_API ~asset_construction();
-  render_service& render() const noexcept { return render_; }
+  gneiss::render::service& render() const noexcept { return render_; }
   /** 创建新的渲染身份并返回唯一拥有者；失败返回错误，不接管外部 RID。 */
   GNEISS_API result<ref<const gneiss::mesh>> reserve_mesh();
   GNEISS_API result<ref<const gneiss::texture>> reserve_texture();

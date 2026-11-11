@@ -13,7 +13,7 @@
 #include "engine/core/type_id.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/platform/files/file_backend.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_file.hpp"
@@ -399,7 +399,7 @@ void decoder_selection() {
       gneiss::test_support::assign_decoded(gneiss::asset_file::serialize_bytes(description),
                                            source->contents, diagnostic) == error::success,
       "material fixture");
-  render_service material_render;
+  gneiss::render::service material_render;
   asset_manager material_assets(gneiss::test_support::test_files(files));
   check(material_assets.attach_render(material_render).ok(), "material render");
   ref<const gneiss::material> material;

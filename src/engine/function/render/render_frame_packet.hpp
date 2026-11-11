@@ -18,7 +18,9 @@
 #include <unordered_map>
 
 namespace gneiss {
-class render_service;
+namespace render {
+class service;
+}
 namespace render::detail {
 class render_scene_state;
 }
@@ -46,7 +48,7 @@ public:
 
 private:
   friend class gneiss::render::detail::render_scene_state;
-  friend class render_service;
+  friend class render::service;
 
   std::unordered_map<rid, std::shared_ptr<const mesh_data>> meshes_;
   std::unordered_map<rid, std::shared_ptr<const material_data>> materials_;

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/function/scene/detail/world_component_access.hpp"
 #include "engine/function/scene/rendering/world_render_binding.hpp"
 #include <cstdio>
@@ -16,7 +16,7 @@ int main() {
   };
   if (initialize_meta().failed())
     return fail("初始化类型注册");
-  render_service render;
+  gneiss::render::service render;
   detail::asset_construction assets{render};
   auto mesh = assets.reserve_mesh();
   auto material = assets.reserve_material();

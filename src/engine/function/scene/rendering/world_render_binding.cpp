@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/scene/rendering/world_render_binding.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/function/scene/detail/world_component_access.hpp"
 #include <limits>
 #include <map>
 namespace gneiss {
 struct world_render_binding::impl {
   world& source;
-  render_service& render;
+  gneiss::render::service& render;
   rid scene{};
   std::shared_ptr<detail::world_change_inbox> changes;
   std::map<entity_id, render::instance_key> instances;
   std::uint64_t last_key{};
-  impl(world& source, render_service& render) : source(source), render(render) {}
+  impl(world& source, gneiss::render::service& render) : source(source), render(render) {}
   ~impl() {
     if (scene)
       (void)render.destroy_scene(scene);
@@ -22,8 +22,8 @@ struct world_render_binding::impl {
 world_render_binding::world_render_binding(std::unique_ptr<impl> value) : impl_(std::move(value)) {}
 world_render_binding::~world_render_binding() = default;
 rid world_render_binding::scene() const noexcept { return impl_->scene; }
-result<std::unique_ptr<world_render_binding>> world_render_binding::create(world& source,
-                                                                           render_service& render) {
+result<std::unique_ptr<world_render_binding>>
+world_render_binding::create(world& source, gneiss::render::service& render) {
   auto state = detail::world_component_access::get(source);
   if (!state)
     return state.error();

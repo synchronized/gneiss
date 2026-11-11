@@ -15,7 +15,7 @@
 #include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/function/asset/resource_cache.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/material/material_description.hpp"
@@ -162,7 +162,7 @@ void add_indexed_mesh(memory_file_system& memory) {
 }
 
 [[nodiscard]] bool indexed_mesh_is_preserved(gneiss::asset_manager& loader,
-                                             const gneiss::render_service& resources) {
+                                             const gneiss::render::service& resources) {
   gneiss::render_resource_ref mesh;
   gneiss::asset_diagnostic diagnostic;
   if (gneiss::test_support::load_render(loader, gneiss::render_resource_kind::mesh,
@@ -278,7 +278,7 @@ void selected_variants() {
   memory->files["t.gneiss-texture"].back() ^= 1;
   const std::array requests{render_resource_source{.uri = "asset://t.texture.json",
                                                    .type = render_resource_kind::texture}};
-  render_service resources;
+  gneiss::render::service resources;
   gneiss::detail::asset_construction resources_factory{resources};
   auto& scheduler = gneiss::test_support::render_tasks();
   gneiss::asset_manager asset_owner(gneiss::test_support::test_files(files));
@@ -395,7 +395,7 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
     }
     return true;
   };
-  render_service resources;
+  gneiss::render::service resources;
   gneiss::detail::asset_construction resources_factory{resources};
   auto& scheduler = gneiss::test_support::render_tasks();
   gneiss::asset_manager asset_owner(gneiss::test_support::test_files(files));
@@ -589,7 +589,7 @@ bool verify_material_dependencies(const memory_file_system& fixture) {
   gneiss::test_support::fixture_files files;
   if (files.mount("asset://", memory).failed())
     return false;
-  render_service render;
+  gneiss::render::service render;
   asset_manager assets{files.service};
   auto& scheduler = gneiss::test_support::render_tasks();
   if (assets.configure(scheduler).failed() || assets.attach_render(render).failed())
@@ -767,7 +767,7 @@ int main() try {
     return 96;
 
   gneiss::test_support::fixture_files file_system;
-  gneiss::render_service resources;
+  gneiss::render::service resources;
   gneiss::detail::asset_construction resources_factory{resources};
   if (file_system.mount("asset://", memory).failed())
     return 1;
@@ -779,7 +779,7 @@ int main() try {
   if (loader.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   {
-    gneiss::render_service reference_render;
+    gneiss::render::service reference_render;
     gneiss::asset_manager reference_assets(gneiss::test_support::test_files(file_system));
     const auto reference_reads = memory->read_count;
     if (reference_assets.configure(scheduler).failed() ||
@@ -907,7 +907,7 @@ int main() try {
 
   // 同一资产管理器/来源下，归属只由 RID domain/type/generation 判定。
   {
-    gneiss::render_service other_render;
+    gneiss::render::service other_render;
 
     gneiss::asset_manager other_assets(asset_owner.async_files());
     auto& other_loader = other_assets;
@@ -1226,7 +1226,7 @@ int main() try {
     return 31;
   // 服务先销毁时外部引用只能释放 CPU 外壳，不再解引用服务裸指针。
   {
-    gneiss::render_service temporary_resources;
+    gneiss::render::service temporary_resources;
 
     gneiss::asset_manager temporary_assets(gneiss::test_support::test_files(file_system));
     auto& temporary_loader = temporary_assets;
@@ -1242,7 +1242,7 @@ int main() try {
   // 工作线程最后释放材质与网格，由所属线程释放 RID 并级联释放纹理。
   {
     using namespace gneiss;
-    render_service local;
+    gneiss::render::service local;
     gneiss::detail::asset_construction local_factory{local};
     gneiss::ref<const gneiss::mesh> mesh_ref;
     gneiss::ref<const gneiss::texture> texture_ref;
@@ -1277,7 +1277,7 @@ int main() try {
   }
   // 显式关闭也立即失效旧句柄；晚释放在任意线程不再访问资源表。
   {
-    gneiss::render_service closing;
+    gneiss::render::service closing;
     gneiss::detail::asset_construction closing_factory{closing};
     gneiss::ref<const gneiss::mesh> reference;
     if (gneiss::test_support::take_value(closing_factory.reserve_mesh(), reference).failed())

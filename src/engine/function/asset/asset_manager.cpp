@@ -14,7 +14,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/function/asset/detail/loader_factory.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/material/detail/material_resource_access.hpp"
@@ -334,7 +334,7 @@ error asset_manager::configure(gneiss::tasks::task_executor& executor, texture_p
   state.profile = profile;
   return error::success;
 }
-error asset_manager::attach_render(render_service& render) {
+error asset_manager::attach_render(gneiss::render::service& render) {
   if (resource_state_->stopped)
     return error::invalid_state;
   if (impl_)

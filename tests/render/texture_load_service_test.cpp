@@ -11,7 +11,7 @@
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/platform/files/file_backend.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/material/material_description.hpp"
@@ -147,7 +147,7 @@ void prepared_source_revisions() {
   }
 }
 void programmatic_texture_content() {
-  render_service render;
+  gneiss::render::service render;
   detail::asset_construction factory{render};
   std::array<std::uint8_t, 12> pixels{1, 2, 3, 4, 99, 99, 99, 99, 5, 6, 7, 8};
   texture_view view{.width = 1, .height = 2, .row_stride_bytes = 8, .pixels = pixels};
@@ -197,7 +197,7 @@ void mesh_data_lifetime() {
   auto mesh = std::make_shared<const mesh_data>(
       std::move(std::get<mesh_data>(first.assets.front().content)));
   check(mesh->vertices.data() == vertices);
-  render_service resources;
+  gneiss::render::service resources;
   gneiss::detail::asset_construction resources_factory{resources};
   {
     mesh_view view{.vertices = mesh->vertices,
@@ -235,7 +235,7 @@ void independent_resource_identity() {
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", std::make_shared<memory_files>()) ==
         gneiss::error::success);
-  render_service resources;
+  gneiss::render::service resources;
   gneiss::detail::asset_construction resources_factory{resources};
   gneiss::asset_manager asset_owner(gneiss::test_support::test_files(files));
   [[maybe_unused]] auto& cache = asset_owner;
@@ -291,7 +291,7 @@ void reserved_material_lifetime() {
   auto source = std::make_shared<memory_files>();
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == gneiss::error::success);
-  render_service resources;
+  gneiss::render::service resources;
   gneiss::detail::asset_construction resources_factory{resources};
   gneiss::asset_manager asset_owner(gneiss::test_support::test_files(files));
   [[maybe_unused]] auto& cache = asset_owner;
@@ -320,7 +320,7 @@ void cpu_loading(gneiss::tasks::execution_mode mode) {
   auto files = std::make_shared<gneiss::files::service>(
       gneiss::files::service_options{.max_file_bytes = 64U * 1024U * 1024U});
   check(files->mount({.prefix = "asset://", .readers = {backend}, .writer = {}}).ok());
-  render_service resources;
+  gneiss::render::service resources;
   gneiss::detail::asset_construction resources_factory{resources};
   asset_manager manager(gneiss::test_support::test_files(files));
   auto& loader = manager;
@@ -516,7 +516,7 @@ void independent_loads(gneiss::tasks::execution_mode mode) {
   test_support::fixture_files files;
   check(files.mount("asset://", source).ok());
   asset_manager manager(test_support::test_files(files));
-  render_service render;
+  gneiss::render::service render;
   auto& service = manager;
   // 配置与 Render 绑定顺序不影响加载，且两者都不能在停止后重新装配。
   if (mode == gneiss::tasks::execution_mode::cooperative) {

@@ -13,7 +13,9 @@
 #include <vector>
 
 namespace gneiss {
-class render_service;
+namespace render {
+class service;
+}
 
 /** 同步提交借用；成功后绘制列表拥有数组副本，失败保留上一份列表。 */
 struct ui_draw_view {
@@ -28,7 +30,7 @@ struct ui_draw_view {
 
 class ui_draw_list final {
 public:
-  [[nodiscard]] error replace(const ui_draw_view& desc, const render_service& resources);
+  [[nodiscard]] error replace(const ui_draw_view& desc, const gneiss::render::service& resources);
   void clear() noexcept;
 
   [[nodiscard]] float display_width() const noexcept { return display_width_; }

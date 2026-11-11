@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/render/detail/executor.hpp"
 #include "engine/function/render/detail/render_scene_state.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include <barrier>
 #include <iostream>
 #include <latch>
@@ -244,8 +244,8 @@ bool queued_scene_consumption() {
 bool service_lifetime() {
   render::scene_commands pending;
   {
-    render_service owner;
-    render_service foreign;
+    gneiss::render::service owner;
+    gneiss::render::service foreign;
     auto scene = owner.create_scene();
     CHECK(scene);
     auto mesh = owner.reserve_mesh();
@@ -445,7 +445,7 @@ bool frame_capture() {
   auto no_camera = state.capture(request);
   CHECK(no_camera && !no_camera->scene.has_camera && no_camera->scene.instances.empty());
   request.views.push_back({});
-  render_service renderer;
+  gneiss::render::service renderer;
   auto not_initialized = renderer.create_scene();
   CHECK(not_initialized);
   request.views.front().scene = *not_initialized;

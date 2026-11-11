@@ -10,7 +10,7 @@
 #include "engine/resource/mesh/detail/mesh_resource_access.hpp"
 #include "engine/resource/texture/detail/texture_resource_access.hpp"
 
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
@@ -29,14 +29,14 @@
 
 namespace gneiss::detail {
 
-asset_construction::asset_construction(render_service& render)
+asset_construction::asset_construction(gneiss::render::service& render)
     : render_(render), retirement_(&render) {}
 
 asset_construction::~asset_construction() { close(); }
 
 template <typename T> std::shared_ptr<T> asset_construction::make(rid handle) {
   auto finalize = [](rid& handle, void* owner) noexcept {
-    auto* render = static_cast<render_service*>(owner);
+    auto* render = static_cast<gneiss::render::service*>(owner);
     if (!render)
       return;
     if constexpr (std::is_same_v<T, gneiss::mesh>) {

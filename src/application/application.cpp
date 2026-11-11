@@ -13,7 +13,7 @@
 #include "engine/function/input/input_service.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/frame_result.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/function/scene/rendering/render_camera.hpp"
 #include "engine/function/scene/rendering/world_render_binding.hpp"
 #include "engine/function/scene/scene_types.hpp"
@@ -55,8 +55,8 @@ struct application::storage {
       : config_(config), owner_thread_(std::this_thread::get_id()) {}
   std::shared_ptr<gneiss::wakeup_signal> loop_wakeup_;
   runtime::application_configuration config_;
-  std::unique_ptr<gneiss::render_service> render_service_ =
-      std::make_unique<gneiss::render_service>();
+  std::unique_ptr<gneiss::render::service> render_service_ =
+      std::make_unique<gneiss::render::service>();
   gneiss::ui_draw_list ui_draw_list_;
   gneiss::debug_draw_list debug_draw_list_;
   std::optional<gneiss::view_camera> view_camera_;
@@ -1003,9 +1003,7 @@ bool application::accepts_requests() const noexcept {
 
 gneiss::world* application::native_world() const noexcept { return storage_->world_.get(); }
 
-gneiss::render_service& application::render() noexcept {
-  return *storage_->render_service_;
-}
+gneiss::render::service& application::render() noexcept { return *storage_->render_service_; }
 
 std::shared_ptr<gneiss::files::service> application::async_files() const noexcept {
   return storage_->files_;

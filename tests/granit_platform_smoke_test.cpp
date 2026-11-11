@@ -3,7 +3,7 @@
 
 #include "application/application.hpp"
 #include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/world.hpp"

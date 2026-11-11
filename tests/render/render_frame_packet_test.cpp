@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/render/detail/render_scene_state.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include <array>
 #include <iostream>
 #define CHECK(x)                                                                                   \
@@ -65,7 +65,7 @@ int main() {
                                     .width = 1,
                                     .depth_test = true}};
   CHECK(request.debug.replace(lines).ok());
-  render_service resources;
+  gneiss::render::service resources;
   std::array<ui_vertex, 3> ui_vertices{};
   const std::array<std::uint32_t, 3> ui_indices{0, 1, 2};
   CHECK(request.ui

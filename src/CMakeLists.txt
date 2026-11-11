@@ -190,8 +190,8 @@ target_sources(
   PRIVATE
     engine/function/render/backend/granit/backend.cpp
     engine/function/render/backend/granit/backend.hpp
-    engine/function/render/render_service.cpp
-    engine/function/render/render_service.hpp
+    engine/function/render/service.cpp
+    engine/function/render/service.hpp
     engine/function/render/backend/granit/pbr_shader_resolver.cpp
     engine/function/render/backend/granit/pbr_shader_resolver.hpp
     engine/function/render/render_frame_packet.cpp
@@ -205,7 +205,7 @@ target_sources(
     engine/function/render/ui_draw_list.cpp
     engine/function/render/ui_draw_list.hpp
     engine/function/render/detail/render_scene_state.cpp
-    engine/function/render/render_service_resources.cpp
+    engine/function/render/service_resources.cpp
     engine/function/render/detail/resource_storage.hpp
     engine/function/render/detail/service_impl.hpp
     engine/function/render/camera.hpp

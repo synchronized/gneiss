@@ -3,7 +3,7 @@
 
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 
 #include <array>
 #include <cstddef>
@@ -12,9 +12,9 @@
 #include <type_traits>
 
 int main() {
-  using gneiss::render_service;
-  render_service resources;
-  render_service other;
+  using gneiss::render::service;
+  gneiss::render::service resources;
+  gneiss::render::service other;
   // 原生路径同样拒绝非法枚举，不能依赖 C 入口代替服务校验。
   gneiss::material_data native;
   gneiss::rid native_handle{};

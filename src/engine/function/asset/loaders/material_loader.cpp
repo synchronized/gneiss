@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/asset/detail/asset_construction.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 namespace gneiss::detail {
 // 材质字段仍由通用对象解码器处理；此处只负责所属线程的内容采用。
 error asset_construction::adopt(asset_manager& assets, const material_description& description,

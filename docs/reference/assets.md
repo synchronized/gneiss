@@ -235,7 +235,7 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 相同配置可重复调用；更换执行器、profile 或通知对象返回 invalid_state，不改变已有配置。
 配置和停止请求状态只由管理器私有状态持有，渲染装配不保存配置副本。
 缓存定义与渲染构造实现不进入宿主可见头清单。
-Scene/Prefab/ActionMap 加载不要求 Render；三类渲染资产的身份创建通过 `attach_render(render_service&)` 接入，
+Scene/Prefab/ActionMap 加载不要求 Render；三类渲染资产的身份创建通过 `attach_render(render::service&)` 接入，
 可以先于或晚于异步配置。同一 Render 可重复绑定，替换 Render 被拒绝。
 `load<T>` 返回 `result<asset_request<T>>`，涵盖 Scene/Prefab/ActionMap 及纹理、网格、材质等资产对象。
 缓存查询统一为 `find<T>(uri)`，混合查询使用 `find(render_resource_source, profile)`；

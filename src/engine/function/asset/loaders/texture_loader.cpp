@@ -3,7 +3,7 @@
 #include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/function/asset/detail/asset_decode.hpp"
 #include "engine/function/asset/detail/loader_factory.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
 #include <optional>
 namespace gneiss::detail {

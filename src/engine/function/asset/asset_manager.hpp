@@ -25,7 +25,9 @@ class prefab;
 struct asset_loader;
 struct asset_dependency;
 class resource_cache;
-class render_service;
+namespace render {
+class service;
+}
 struct mesh_view;
 struct texture_view;
 
@@ -46,7 +48,7 @@ namespace gneiss {
 class asset_manager final {
 public:
   /** 绑定渲染服务；Render 必须覆盖本服务的运行与关闭阶段。 */
-  GNEISS_API error attach_render(render_service& render);
+  GNEISS_API error attach_render(gneiss::render::service& render);
   /** 配置 CPU 加载；scope 须独占且空闲；成功后接管关闭责任。省略时内部创建。
    * 首次配置后保留执行器与 profile，停止后拒绝重新装配。 */
   GNEISS_API error configure(gneiss::tasks::task_executor& executor, texture_prepare_profile profile,

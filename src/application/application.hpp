@@ -30,7 +30,9 @@ class asset_manager;
 namespace files {
 class service;
 }
-class render_service;
+namespace render {
+class service;
+}
 struct frame_image;
 }
 
@@ -93,7 +95,7 @@ public:
   [[nodiscard]] GNEISS_API bool accepts_requests() const noexcept;
   /** 借用宿主 World；普通场景切换保持地址稳定，关闭后禁止解引用。 */
   [[nodiscard]] GNEISS_API gneiss::world* native_world() const noexcept;
-  [[nodiscard]] GNEISS_API gneiss::render_service& render() noexcept;
+  [[nodiscard]] GNEISS_API gneiss::render::service& render() noexcept;
   /** 借用应用级资产管理器；仅所属线程使用，有效期不超过 Application。 */
   [[nodiscard]] GNEISS_API gneiss::asset_manager& assets() noexcept;
   /** 共享宿主文件服务；由 Application 分发和关闭，消费者只提交/取消自己的请求。 */

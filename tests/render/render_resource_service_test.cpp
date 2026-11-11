@@ -3,7 +3,7 @@
 
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/resource/texture/texture_view.hpp"
 
 #include <algorithm>
@@ -15,7 +15,7 @@
 namespace {
 bool verify_borrowed_inputs() {
   using namespace gneiss;
-  render_service resources;
+  gneiss::render::service resources;
   std::array<gneiss::mesh_vertex, 3> vertices{};
   gneiss::mesh_view mesh_source;
   mesh_source.vertices = vertices;
@@ -71,7 +71,7 @@ bool verify_borrowed_inputs() {
 
 bool verify_shared_budget() {
   using namespace gneiss;
-  render_service resources{32U};
+  gneiss::render::service resources{32U};
   const std::array<std::uint8_t, 16> pixels{};
   gneiss::texture_view desc;
   desc.width = 2U;
@@ -127,7 +127,7 @@ int main() {
   if (!verify_shared_budget()) {
     return 30;
   }
-  gneiss::render_service resources;
+  gneiss::render::service resources;
   constexpr std::array vertices{
       gneiss::mesh_vertex{.position = {0.0F, 0.0F, 0.0F}, .uv = {0.0F, 0.0F}},
       gneiss::mesh_vertex{.position = {1.0F, 0.0F, 0.0F}, .uv = {1.0F, 0.0F}},

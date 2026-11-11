@@ -20,8 +20,8 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
 2026-11-11：用户进一步确认统一命令输入，预览可以创建 World 并复用同一同步链路。
 保留 `gneiss::render`、单一 PImpl 与 Granit 私有后端边界；不再并列维护公开实例 setter 和命令接口。
 [复核记录](../records/2026-11-11-render-design-review.md)保留当时的分析与方案取舍。
-后续实施已以 `render::scene_commands` 替换公开 `scene_update`；服务仍名为 `render_service`，
-完整链路、单一 PImpl 和后端分离尚未迁移完成。
+后续实施已以 `render::scene_commands` 替换公开 `scene_update`；服务已迁入 `render::service`，单一 PImpl 和具体后端分离已落地；
+完整 GPU 链路与多视图等剩余验收仍待完成。
 
 - World 记录创建、删除和脏状态；绑定在更新结束后生成 Render 定义的命令列表，Service 统一接受。
 - 命令是数据，不持有服务，不预留后端对象，析构不撤销服务状态；队列实现仍私有。
@@ -39,7 +39,7 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
 - 既有 `render_resource_snapshot` 通过不可变共享 payload 保证旧帧数据不变；保留该能力。
   CPU 实例已改为身份 pin，可绑定未就绪资源并读取后续发布内容；材质身份保活纹理依赖。
   内部 capture 固定不可变内容，旧内容不受刷新影响；已连接现有帧执行器，但增量命令消费侧和资源发布队列尚未接入，P2 未完成。
-- `render_service` 已提供 create_scene/submit(render::scene_commands&&)/destroy_scene，删除 begin_update 和旧批次对象。
+- `render::service` 已提供 create_scene/submit(render::scene_commands&&)/destroy_scene，删除 begin_update 和旧批次对象。
   未初始化执行器时命令同线程生效，不需要窗口/GPU；初始化后按序消费。新增 render(frame_request&&) 捕获持久场景，提交到现有执行器和 Granit 绘制消费者。
 - 已采用场景内递增 instance_key 与列表全收或不收的 CPU 接受规则；不再预留实例 RID。
   提交前不保活服务/资源，不依赖析构回调；校验阶段只暂存触及实例，成功后消费列表。
@@ -426,7 +426,10 @@ PImpl 析构先排空停止执行器，再释放后端、场景及资源；普�
 Service/Application 改为包含 frame_result.hpp，完成回执与回读数据不再携带执行器或帧包定义。
 普通模块内部接口集合移除了执行器，分层检查拒绝非实现调用方包含该私有头。
 本次 Engine、Runtime、Editor 构建及三项渲染回归、两项分层检查通过；未运行 GPU 验收。
-P0 尚未整体完成：Service 等剩余命名仍需收敛。
+Service 已改名为 render::service，文件收敛为 service.hpp/.cpp 与 service_resources.cpp；
+Application、资产管理器、World 绑定和测试均使用新入口，不保留旧类型或路径别名。
+本次命名迁移已通过 Runtime、Editor、独立服务头文件构建，九项相关 CPU 行为测试及两项分层检查；未运行 GPU 验收。
+P0 的核心所有权与后端边界已落地；其余 Render 值类型命名及关闭/背压验收仍需复核。
 
 ## 实施顺序与完成条件
 

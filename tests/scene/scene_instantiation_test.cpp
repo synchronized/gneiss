@@ -17,7 +17,7 @@
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/composition.hpp"
 #include "engine/function/scene/instantiation.hpp"
@@ -92,7 +92,7 @@ void unified_resource_index() {
   source->files["same"] = "cpu";
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == error::success);
-  gneiss::render_service resources;
+  gneiss::render::service resources;
   gneiss::detail::asset_construction resources_factory{resources};
   asset_manager assets(gneiss::test_support::test_files(files));
   auto& render = assets;
@@ -137,7 +137,7 @@ void run() {
       R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,0,0,1]},"texture_uris":["","","","",""]})";
   gneiss::test_support::fixture_files vfs;
   check(vfs.mount("asset://", files) == gneiss::error::success);
-  gneiss::render_service resources;
+  gneiss::render::service resources;
   gneiss::detail::asset_construction resources_factory{resources};
   auto& executor = gneiss::test_support::render_tasks();
   gneiss::asset_manager active_assets(gneiss::test_support::test_files(vfs));
@@ -173,7 +173,7 @@ void run() {
     check(resources.get_mesh(gneiss::resource_rid(first)) != nullptr);
     gneiss::render_resource_ref invalid;
     check(!active_render.owns(invalid));
-    gneiss::render_service foreign_resources;
+    gneiss::render::service foreign_resources;
 
     gneiss::asset_manager foreign_owner(gneiss::test_support::test_files(vfs));
     auto& foreign_assets = foreign_owner;

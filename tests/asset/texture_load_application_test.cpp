@@ -8,7 +8,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/render/render_service.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/function/scene/components.hpp"
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/world.hpp"
