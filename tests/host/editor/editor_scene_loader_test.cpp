@@ -48,6 +48,7 @@ void run(gneiss::engine::execution_mode mode) {
   auto world = app->native_world();
   check(session.create_empty(*app, world) == gneiss::engine::error::success);
   check(camera.initialize() == gneiss::engine::error::success);
+  check(loader.state() == editor::scene_open_state::idle);
   const auto original = world;
   const auto initial_scene = session.scene_handle();
   constexpr std::string_view uri = "asset://scenes/triangle.scene.json";
@@ -68,12 +69,21 @@ void run(gneiss::engine::execution_mode mode) {
       tick();
     }
   };
+  // 尚未提交资产请求时也可以取消，不改变当前文档。
+  check(loader.request(*app, editing, uri).ok());
+  check(loader.cancel(*app).ok());
+  check(!loader.active() && loader.state() == editor::scene_open_state::cancelled);
+  check(session.scene_handle() == initial_scene);
+  loader.dismiss();
+  check(!loader.visible());
   check(loader.request(*app, editing, uri) == gneiss::engine::error::success);
   check(loader.active() && loader.visible() && world == original);
+  check(loader.state() == editor::scene_open_state::loading);
   check(loader.request(*app, editing, uri) == gneiss::engine::error::not_ready);
   drain();
   check(!loader.visible() && loader.operation() == gneiss::engine::error::success &&
         world == original);
+  check(loader.state() == editor::scene_open_state::opened);
   check(session.is_open() && !session.is_dirty() && session.uri() == uri);
   check(!engine::scene_instance::borrow(*world, initial_scene));
   check(gneiss::test_support::scene_query(session).nodes.size() == 2U && camera.is_valid());
@@ -94,6 +104,7 @@ void run(gneiss::engine::execution_mode mode) {
         gneiss::engine::error::success);
   drain();
   check(loader.visible() && loader.operation() != gneiss::engine::error::success);
+  check(loader.state() == editor::scene_open_state::failed);
   check(world == current && session.selection() == node && session.is_dirty());
   check(session.selected_node()->display_name == "Edited" && history.can_undo());
   loader.dismiss();
@@ -103,7 +114,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(loader.cancel(*app) == gneiss::engine::error::success);
   drain();
   check(world == current && session.selection() == node && history.can_undo());
-  check(loader.progress().phase == runtime::scene_load_phase::cancelled);
+  check(loader.state() == editor::scene_open_state::cancelled);
   check(loader.request(*app, editing, uri) == gneiss::engine::error::success);
   drain();
   check(world == current && !session.selection().is_valid() && !history.can_undo());

@@ -113,6 +113,8 @@ Application 的 visual_assets_loading() 仍表示迁移期 scene_service 的视�
 编辑器同样直接请求资产并实例化，将固定内容建立为文档快照，实例化回执交给编辑会话绑定。
 加载失败或取消保留原文档、选择及撤销历史；成功后关闭旧文档并采用新实例。
 编辑器通过 editor_scene_loader::visual_loading() 观察自己的视觉批次，不创建 Runtime 重载基线。
+编辑器打开状态由 scene_open_state 表示 idle/loading/opened/failed/cancelled，active() 从状态推导。
+加载界面显示不定进度；不展示无法跨帧观察的实例化阶段、无效计数或旧清理等待状态。
 scene_service 的旧请求协议仍待 PLAN-113 后续移除。无待退休 World，也不提供专用场景退休统计；
 渲染资源数量通过 render_service::live_resource_count() 查询。
 
@@ -123,6 +125,9 @@ Runtime 保存当前场景的基线；编辑器采用文档投影，不长期保
 重载显式传入该引用，scene_service 仅在请求期间持有它，不再保存最后激活场景的隐式来源。
 Runtime 生产路径已改用 runtime_scene_loader::reload：直接请求 Scene/Prefab 资产，收到完成通知
 后调用 rebase_scene_update/apply_scene。take_reload 只领取回执，不执行加载或更新。
+宿主的 scene_open_result、scene_reload_state、scene_reload_result 定义在
+host/runtime/runtime_scene_loader.hpp，只保存绑定检查器和来源更新所需的信息。
+不包含旧加载进度、退休统计或未采样的准备/激活耗时。
 新视觉依赖通过宿主持有的批次加载；旧 scene_service::reload 暂供未迁移的消费者使用。
 同一 World 的多个场景可以各自保留基线；当前协调器仍串行处理重载请求。
 空引用、跨 World 或已失去同步的基线被拒绝；已卸载的场景不能重载。

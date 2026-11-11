@@ -70,7 +70,7 @@ gneiss::engine::error runtime_scene_loader::cancel(const ipc_scene_request& sour
   return engine::error::success;
 }
 gneiss::engine::error
-runtime_scene_loader::activate(::gneiss::runtime::scene_load_completion& completion) {
+runtime_scene_loader::activate(::gneiss::host::scene_open_result& completion) {
   if (before_activate) {
     const auto stopped = before_activate();
     if (stopped != gneiss::engine::error::success) {
@@ -119,8 +119,7 @@ runtime_scene_loader::activate(::gneiss::runtime::scene_load_completion& complet
   }
   completion.scene = next->id();
   completion.objects = std::move(built->objects);
-  completion.bindings = std::move(bindings);
-  completion.reload_state = engine::make_ref<runtime::scene_reload_state>();
+  completion.reload_state = engine::make_ref<scene_reload_state>();
   auto& baseline = *completion.reload_state;
   baseline.owner = application_.native_world();
   baseline.instance = completion.scene;
@@ -135,10 +134,6 @@ runtime_scene_loader::activate(::gneiss::runtime::scene_load_completion& complet
       return unloaded;
     }
   }
-  completion.result = engine::error::success;
-  completion.progress.phase = runtime::scene_load_phase::applied;
-  completion.progress.completed = completion.objects.size();
-  completion.progress.total = completion.objects.size();
   current_ = *next;
   visuals_ = std::move(*visual_request);
   // 激活后的任意模块副作用不在场景事务的自动回滚承诺内。
@@ -165,14 +160,13 @@ gneiss::engine::error runtime_scene_loader::advance() {
   // 共享批次仍串行提交；只在资源批次可提交时构建运行实例。
   if (!application_.can_activate_scene())
     return engine::error::success;
-  runtime::scene_load_completion completion;
+  scene_open_result completion;
   completion.content = request_.snapshot();
   auto loaded = request_.take();
   if (!loaded) {
     result_ = loaded.error().error;
     progress_.message = loaded.error().message;
   } else {
-    completion.source = *loaded;
     if (!completion.content)
       completion.content = (*loaded)->content();
     result_ = activate(completion);
@@ -199,7 +193,7 @@ gneiss::engine::error runtime_scene_loader::advance() {
     return result_;
   return engine::error::success;
 }
-engine::error runtime_scene_loader::reload(engine::ref<runtime::scene_reload_state> source,
+engine::error runtime_scene_loader::reload(engine::ref<scene_reload_state> source,
                                            std::string_view uri, bool prefab) {
   if (!application_.is_owner_thread() || !application_.accepts_requests())
     return engine::error::invalid_state;
@@ -236,7 +230,7 @@ engine::error runtime_scene_loader::reload(engine::ref<runtime::scene_reload_sta
   reload_ = std::move(next);
   return engine::error::success;
 }
-engine::error runtime_scene_loader::apply_source(runtime::scene_reload_state& source,
+engine::error runtime_scene_loader::apply_source(scene_reload_state& source,
                                                  engine::ref<const engine::scene_content> content) {
   if (!source.synchronized || !content || !content->description ||
       content->description->uuid != source.content->description->uuid)
@@ -317,14 +311,14 @@ void runtime_scene_loader::advance_reload() {
         return apply_source(source, std::move(content));
       },
       task.request);
-  runtime::scene_reload_completion completion{result, {}};
+  scene_reload_result completion{result, {}};
   if (result.ok()) {
     for (const auto& [address, binding] : task.source->objects)
       completion.objects.push_back({address.object, address.source, binding.entity});
   }
   task.completion = std::move(completion);
 }
-engine::result<runtime::scene_reload_completion> runtime_scene_loader::take_reload() {
+engine::result<scene_reload_result> runtime_scene_loader::take_reload() {
   if (!reload_)
     return engine::error::invalid_state;
   if (!reload_->completion)

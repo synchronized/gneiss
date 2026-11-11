@@ -50,7 +50,7 @@ void run() {
   auto app = *created;
   check(app->attach_task_executor(scheduler).ok());
   host::runtime_scene_loader loader(*app);
-  engine::ref<runtime::scene_reload_state> source;
+  engine::ref<host::scene_reload_state> source;
   loader.after_activate = [&](const auto& completion) {
     source = completion.reload_state;
     return engine::error{engine::error::success};

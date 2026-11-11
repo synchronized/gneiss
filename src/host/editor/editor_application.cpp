@@ -1557,23 +1557,14 @@ gneiss::engine::error advance_editor_smoke(editor_state& state) {
 }
 
 void draw_scene_loading(editor_state& state) {
-  using phase = gneiss::runtime::scene_load_phase;
-  const auto& progress = state.scene_loader.progress();
-  const char* stage = "Preparing scene";
-  switch (progress.phase) {
-  case phase::preparing:
-    stage = "Preparing scene";
+  using phase = gneiss::editor::scene_open_state;
+  const auto phase_value = state.scene_loader.state();
+  const char* stage = "Opening scene";
+  switch (phase_value) {
+  case phase::idle:
+  case phase::loading:
     break;
-  case phase::assets:
-    stage = "Loading assets";
-    break;
-  case phase::instantiating:
-    stage = "Building scene";
-    break;
-  case phase::ready:
-    stage = "Activating scene";
-    break;
-  case phase::applied:
+  case phase::opened:
     stage = "Scene ready";
     break;
   case phase::failed:
@@ -1593,25 +1584,13 @@ void draw_scene_loading(editor_state& state) {
   const auto uri = state.scene_loader.uri();
   ImGui::TextWrapped("%.*s", static_cast<int>(uri.size()), uri.data());
   if (state.scene_loader.active()) {
-    if (progress.total != 0U) {
-      // 仅表示当前阶段，不把未知阶段时长伪装成总进度。
-      const auto fraction =
-          static_cast<float>(progress.completed) / static_cast<float>(progress.total);
-      ImGui::ProgressBar(std::clamp(fraction, 0.0F, 1.0F), {-1.0F, 0.0F});
-      ImGui::Text("Current stage: %zu / %zu", progress.completed, progress.total);
-    } else {
-      ImGui::ProgressBar(-static_cast<float>(ImGui::GetTime()), {-1.0F, 0.0F}, "Working...");
-    }
-    if (progress.cleanup_pending) {
-      ImGui::TextUnformatted("Finishing pending operations...");
-    }
-    ImGui::BeginDisabled(!progress.can_cancel);
+    // 文件大小和组合工作量不构成可靠总进度，只显示不定进度。
+    ImGui::ProgressBar(-static_cast<float>(ImGui::GetTime()), {-1.0F, 0.0F}, "Working...");
     if (ImGui::Button("Cancel")) {
       (void)state.scene_loader.cancel(*state.application);
     }
-    ImGui::EndDisabled();
   } else {
-    if (progress.phase == phase::failed) {
+    if (phase_value == phase::failed) {
       const auto message = state.scene_loader.operation().message();
       ImGui::TextWrapped("%.*s", static_cast<int>(message.size()), message.data());
     }

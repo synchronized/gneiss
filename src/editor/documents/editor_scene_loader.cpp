@@ -5,7 +5,6 @@
 #include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/render/render_service.hpp"
 #include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/world.hpp"
@@ -15,23 +14,22 @@ namespace gneiss::editor {
 gneiss::engine::error editor_scene_loader::request(runtime::application& application,
                                                    const document_editing& editing,
                                                    std::string_view uri) {
-  if (active_ || editing.active()) {
+  if (active() || editing.active()) {
     return gneiss::engine::error::not_ready;
   }
   if (!application.accepts_requests() || !application.is_owner_thread() || uri.empty()) {
     return gneiss::engine::error::invalid_argument;
   }
   uri_ = uri;
-  progress_ = {};
   operation_ = gneiss::engine::error::success;
-  active_ = true;
+  state_ = scene_open_state::loading;
   visible_ = true;
   queued_ = true;
   return gneiss::engine::error::success;
 }
 
 gneiss::engine::error editor_scene_loader::cancel(runtime::application& application) {
-  if (!active_) {
+  if (!active()) {
     return gneiss::engine::error::not_ready;
   }
   if (!application.accepts_requests() || !application.is_owner_thread())
@@ -39,11 +37,8 @@ gneiss::engine::error editor_scene_loader::cancel(runtime::application& applicat
   request_.cancel();
   ready_.reset();
   queued_ = false;
-  active_ = false;
   operation_ = engine::error::invalid_state;
-  progress_.phase = runtime::scene_load_phase::cancelled;
-  progress_.can_cancel = false;
-  progress_.cleanup_complete = true;
+  state_ = scene_open_state::cancelled;
   return engine::error::success;
 }
 
@@ -51,7 +46,6 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
                                                    document_editing& editing,
                                                    gneiss::engine::world*& world,
                                                    editor_camera& camera, bool& changed) {
-  using namespace runtime;
   changed = false;
   if (visuals_ && visuals_.ready()) {
     auto completed = visuals_.take();
@@ -68,16 +62,13 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
     visuals_.reset();
   }
   // 有编辑未结束时不切换文档，避免使编辑绑定失效。
-  if (editing.active() || !active_)
+  if (editing.active() || !active())
     return engine::error::success;
   const auto fail = [&](engine::error error) {
     request_.cancel();
     ready_.reset();
-    active_ = false;
     operation_ = error;
-    progress_.phase = scene_load_phase::failed;
-    progress_.can_cancel = false;
-    progress_.cleanup_complete = true;
+    state_ = scene_open_state::failed;
     return engine::error{engine::error::success};
   };
   if (queued_) {
@@ -91,7 +82,6 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
       if (auto value = ready.lock())
         value->store(true);
     });
-    progress_.can_cancel = true;
     return engine::error::success;
   }
   if (!ready_->load() || !application.can_activate_scene())
@@ -161,16 +151,8 @@ gneiss::engine::error editor_scene_loader::advance(runtime::application& applica
     operation = camera.initialize();
   }
   ready_.reset();
-  progress_.phase = operation.ok() ? scene_load_phase::applied : scene_load_phase::failed;
-  progress_.completed = built->node_count;
-  progress_.total = built->node_count;
-  progress_.can_cancel = false;
-  const auto usage = application.render().memory_usage();
-  progress_.application_logical_bytes = usage.logical_bytes;
-  progress_.application_cpu_data_bytes = usage.cpu_data_bytes;
-  progress_.available_bytes = application.render().available_memory_bytes();
+  state_ = operation.ok() ? scene_open_state::opened : scene_open_state::failed;
   operation_ = operation;
-  active_ = false;
   visible_ = operation.failed();
   changed = true;
   // 切换后的绑定错误交给宿主报告并退出，不能继续使用部分绑定状态。

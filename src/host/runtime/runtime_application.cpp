@@ -560,7 +560,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
   context.scene = scene;
   std::optional<gneiss::host::ipc_asset_revision> structural_reload;
   bool structural_ignored{};
-  gneiss::engine::ref<gneiss::runtime::scene_reload_state> scene_source;
+  gneiss::engine::ref<gneiss::host::scene_reload_state> scene_source;
   gneiss::host::runtime_scene_loader scene_loader(*application);
   context.scene_loader = &scene_loader;
   gneiss::host::runtime_asset_reloader asset_reloader(
@@ -685,7 +685,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
 
   context.smoke = options.smoke;
   scene_loader.after_activate =
-      [&](const gneiss::runtime::scene_load_completion& loaded) -> gneiss::engine::error {
+      [&](const gneiss::host::scene_open_result& loaded) -> gneiss::engine::error {
     const auto started = std::chrono::steady_clock::now();
     if (!loaded.content)
       return gneiss::engine::error::invalid_argument;
@@ -719,10 +719,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
     log.write("INFO", "startup_scene", gneiss::engine::error::success, "场景加载完成",
               active_scene_uri);
     log.write("INFO", "scene_load", gneiss::engine::error::success,
-              "prepare_ms=" + std::to_string(loaded.prepare_ms) +
-                  " asset_prepare_ms=" + std::to_string(loaded.asset_prepare_ms) +
-                  " activation_ms=" + std::to_string(loaded.activation_ms) +
-                  " inspection_rebind_ms=" +
+              "inspection_rebind_ms=" +
                   std::to_string(std::chrono::duration<double, std::milli>(
                                      std::chrono::steady_clock::now() - started)
                                      .count()));
