@@ -66,8 +66,6 @@ target_sources(
     engine/core/version.cpp
     engine/core/detail/canonical_type_name.hpp
     engine/core/input/input_types.hpp
-    engine/core/logging/validation.hpp
-    engine/core/logging/validation.cpp
     engine/core/logging/detail/async_queue.cpp
     engine/core/logging/runtime.cpp
     engine/core/logging/detail/async_queue.hpp

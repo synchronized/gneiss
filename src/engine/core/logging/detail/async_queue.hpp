@@ -27,6 +27,7 @@ public:
   async_queue(const async_queue&) = delete;
   async_queue& operator=(const async_queue&) = delete;
 
+  /** 内部可信记录入口；只复制并投递，文本与级别合法性由调用边界保证。 */
   [[nodiscard]] engine::error submit(const message_view& message);
   void flush() noexcept;
 

@@ -4,7 +4,6 @@
 #include "async_queue.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/fatal.hpp"
-#include "engine/core/logging/validation.hpp"
 
 #include <chrono>
 #include <functional>
@@ -55,9 +54,6 @@ async_queue::~async_queue() noexcept {
 engine::error async_queue::submit(const message_view& message) {
   if (is_in_log_callback) {
     return engine::error::invalid_state;
-  }
-  if (validate_message(message).failed()) {
-    return engine::error::invalid_argument;
   }
   {
     owned_record event;

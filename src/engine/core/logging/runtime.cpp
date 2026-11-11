@@ -65,7 +65,7 @@ void logger::submit(level severity, std::string_view text) const {
                                                  .category = channel_.view(),
                                                  .message = text});
   if (status.failed())
-    throw std::invalid_argument("invalid log message");
+    throw std::logic_error("log queue rejected submission");
 }
 runtime::runtime(std::vector<std::unique_ptr<sink>> outputs, std::size_t capacity)
     : state_(std::make_shared<detail::runtime_state>()) {

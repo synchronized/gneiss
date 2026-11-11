@@ -8,7 +8,7 @@
 日志类型统一位于 `gneiss::engine::logging`，与 `events` 同步通知独立。
 `core/logging/record.hpp` 定义 `level`、`message_view`、`record_view` 和迁移期 `record_callback`；
 `logger.hpp`、`runtime.hpp/.cpp`、`sink.hpp` 分别提供频道句柄、上下文和输出契约。
-`validation.hpp/.cpp` 负责消息校验；`detail/async_queue.hpp/.cpp` 是内部异步队列。
+`detail/async_queue.hpp/.cpp` 是内部异步队列，不单独提供 validation 模块。
 平台文件输出位于 `platform/logging/file_sink.hpp/.cpp`，不在 Core 引入 spdlog。
 Application/Render 尚有直接使用内部队列的迁移点，本次命名整理没有宣称其已完成解耦。
 
@@ -84,9 +84,10 @@ Application 已识别的运行时诊断会在调用原有诊断回调后转换�
 
 ## 校验
 
-原生 `engine::logging::validate_message` 校验严重级别、字符串边界和 UTF-8 编码；模块日志入口
-另外校验结构版本、指针长度和保留字段。校验不保存消息或字符串，不提交、排队或写出日志。
-日志校验 C 导出已删除，原生提交入口负责消息语义校验。
+迁移期 `application::submit_log` 在入口检查级别、非空类别及类别/正文的 UTF-8，
+无回调时也执行同一检查。队列只复制和投递，不重复校验。
+新 Logger 的频道在获取时检查一次，内部正文约定为合法 UTF-8，不逐条扫描；
+编译期格式检查不保证字符串内容的 UTF-8 合法性。外部 IPC 数据仍由协议解码入口检查。
 
 ## 原生 C++ 日志提交
 
@@ -98,7 +99,7 @@ Runtime 文件输出、IPC 编码与 Editor 控制台不依赖 C 日志事件布
 
 ```cpp
 const auto status = application.submit_log({
-    .severity = gneiss::engine::level::warning,
+    .severity = gneiss::engine::logging::level::warning,
     .source = "assets",
     .category = "loading",
     .message = "资源尚未就绪",
@@ -107,7 +108,7 @@ const auto status = application.submit_log({
 ```
 
 其中 application 是有效的原生 Application 对象，内部调用方填写来源。
-消息级别和 UTF-8 规则集中在 `engine::logging::validate_message`，不经过 C API。
+迁移期消息级别和 UTF-8 检查在 `application::submit_log` 内部，不经过 C API。
 旧 `log_message`、`log_event`、`log_severity` 包装和构造/转换辅助已删除，不安装公共 C++ 日志头。
 
 原生 `shutdown` 关闭运行服务；日志投递器在 Application 释放时排空并等待消费线程结束。

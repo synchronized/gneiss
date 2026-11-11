@@ -6,8 +6,8 @@
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/logging/detail/async_queue.hpp"
-#include "engine/core/logging/validation.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/utf8.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/asset/detail/resource_load_group.hpp"
 #include "engine/function/input/input_service.hpp"
@@ -523,8 +523,12 @@ void application::report(gneiss::engine::severity severity, gneiss::engine::cate
 
 gneiss::engine::error
 application::submit_log(const gneiss::engine::logging::message_view& message) {
-  return storage_->log_queue_ == nullptr ? gneiss::engine::logging::validate_message(message)
-                                              : storage_->log_queue_->submit(message);
+  using namespace gneiss::engine;
+  if (message.severity < logging::level::trace || message.severity > logging::level::fatal ||
+      message.category.empty() || !utf8::is_valid(message.category) ||
+      !utf8::is_valid(message.message))
+    return error::invalid_argument;
+  return storage_->log_queue_ ? storage_->log_queue_->submit(message) : error::success;
 }
 
 gneiss::engine::error application::set_view_camera(const gneiss::engine::view_camera* camera) {

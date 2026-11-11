@@ -87,7 +87,7 @@ bool verify_failure_and_shutdown() {
   return rejected == 2U && calls == 2U && valid;
 }
 
-bool verify_validation_and_concurrency() {
+bool verify_concurrency() {
   using namespace gneiss::engine;
   std::uint64_t received{};
   bool valid = true;
@@ -100,15 +100,6 @@ bool verify_validation_and_concurrency() {
                 event.message.message == "parallel";
       },
       512U);
-  if (dispatcher.submit({.severity = static_cast<logging::level>(0), .category = "test"}) !=
-          gneiss::engine::error::invalid_argument ||
-      dispatcher.submit({.severity = static_cast<logging::level>(7), .category = "test"}) !=
-          gneiss::engine::error::invalid_argument ||
-      dispatcher.submit({.category = ""}) != gneiss::engine::error::invalid_argument ||
-      dispatcher.submit({.category = "test", .message = "\xff"}) !=
-          gneiss::engine::error::invalid_argument) {
-    return false;
-  }
   std::atomic<bool> accepted{true};
   {
     std::array<std::jthread, 4> producers;
@@ -147,7 +138,7 @@ int main(int argc, char** argv) try {
     dispatcher.flush();
     return 0;
   }
-  if (!verify_failure_and_shutdown() || !verify_validation_and_concurrency()) {
+  if (!verify_failure_and_shutdown() || !verify_concurrency()) {
     return 5;
   }
   capture_state state;

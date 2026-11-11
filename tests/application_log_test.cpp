@@ -60,6 +60,13 @@ int main(int argc, char**) {
           .failed())
     return 1;
   state.application = application.get();
+  // 有消费队列时也必须在入口拒绝非法消息，不进入队列。
+  if (application->submit_log({}) != error::invalid_argument ||
+      application->submit_log({.severity = static_cast<logging::level>(7), .category = "test"}) !=
+          error::invalid_argument ||
+      application->submit_log({.category = "test", .message = "\xC0\x80"}) !=
+          error::invalid_argument)
+    return 15;
   std::string category = "game", text = "ready";
   if (application->submit_log({.source = "application", .category = category, .message = text})
           .failed())
