@@ -34,7 +34,6 @@ inline engine::error activate_scene_for_test(runtime::application& app,
       return engine::error::internal;
     std::this_thread::yield();
   }
-  (void)app.run(1); // 消费最后一次视觉完成产生的日志。
   return loader.last_result();
 }
 inline engine::error
@@ -66,7 +65,6 @@ reload_scene_for_test(runtime::application& app, engine::task_scheduler& tasks,
         (void)loader.advance();
         std::this_thread::yield();
       }
-      (void)app.run(1);
       if (objects)
         *objects = std::move(completed->objects);
       return completed->result;

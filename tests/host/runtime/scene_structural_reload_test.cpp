@@ -15,8 +15,10 @@
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/function/scene/world.hpp"
 
+#include <condition_variable>
 #include <filesystem>
 #include <fstream>
+#include <mutex>
 #include <string>
 #include <string_view>
 
@@ -55,10 +57,22 @@ int main() try {
 
   gneiss::runtime::application_configuration config;
   config.asset_root = root_text;
+  std::mutex log_mutex;
+  std::condition_variable log_received;
   unsigned visual_failures{};
   config.callbacks.log = [&](const auto& event) {
-    if (event.message.category == "scene_assets")
+    if (event.message.category == "scene_assets") {
+      const std::lock_guard lock(log_mutex);
       ++visual_failures;
+      log_received.notify_all();
+    }
+  };
+  // 日志在独立线程分发；视觉批次完成不等于日志回调已执行。
+  const auto received_failures = [&](unsigned expected) {
+    std::unique_lock lock(log_mutex);
+    return log_received.wait_for(lock, std::chrono::seconds(5), [&] {
+      return visual_failures >= expected;
+    }) && visual_failures == expected;
   };
   gneiss::engine::task_scheduler scheduler({.mode = gneiss::engine::execution_mode::cooperative});
   std::shared_ptr<gneiss::runtime::application> application;
@@ -187,7 +201,7 @@ int main() try {
     return 4;
   }
 
-  if (visual_failures != 1)
+  if (!received_failures(1))
     return 22;
   auto binding = gneiss::test_support::read_mesh(*application->native_world(), scene, new_child);
   if (!binding || !binding->mesh || !binding->material ||
@@ -227,7 +241,7 @@ int main() try {
     (void)reloader.advance();
   }
   (void)application->run(1);
-  if (visual_failures != 3)
+  if (!received_failures(3))
     return 29;
   // 描述本身损坏仍失败，不能把解析失败解释为缺失视觉内容。
   std::ofstream(scene_path) << "broken";
