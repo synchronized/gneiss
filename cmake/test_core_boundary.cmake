@@ -3,6 +3,8 @@
 
 cmake_minimum_required(VERSION 3.23)
 set(fixture "${GNEISS_BINARY_DIR}/asset-layout-v3-boundary-fixture")
+file(WRITE "${fixture}/src/engine/function/render/render_extraction.cpp" "")
+file(WRITE "${fixture}/src/engine/function/render/backend/probe.cpp" "")
 # 场景消费者反例中断后也必须恢复，避免污染下一次基线检查。
 foreach(name IN ITEMS scene_instance.hpp game_object.hpp instantiation.cpp scene_update.cpp)
   file(WRITE "${fixture}/src/engine/function/scene/${name}" "")
@@ -773,4 +775,33 @@ execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
 if(NOT status EQUAL 0)
   message(FATAL_ERROR "清理后的批次边界正例未通过")
+endif()
+
+# 渲染前端桥接允许读取场景，但不能访问 GPU 后端或绕行 C TRS。
+set(extraction_probe "${fixture}/src/engine/function/render/render_extraction.cpp")
+file(WRITE "${extraction_probe}" "#include <engine/function/scene/world.hpp>\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+  RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+file(WRITE "${extraction_probe}" "")
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "渲染提取前端读取 World 的正例未通过")
+endif()
+foreach(content IN ITEMS "#include <granit/device.hpp>" "#include <engine/function/render/backend/device.hpp>" "#include <engine/function/application/state.hpp>" "gneiss_transform value;")
+  file(WRITE "${extraction_probe}" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  file(WRITE "${extraction_probe}" "")
+  if(status EQUAL 0)
+    message(FATAL_ERROR "渲染前端边界未拒绝 ${content}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/function/render/backend/probe.cpp" "#include <engine/function/scene/world.hpp>\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+  RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+file(WRITE "${fixture}/src/engine/function/render/backend/probe.cpp" "")
+if(status EQUAL 0)
+  message(FATAL_ERROR "渲染后端包含 World 未被拒绝")
 endif()

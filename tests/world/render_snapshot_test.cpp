@@ -6,10 +6,10 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/detail/asset_construction.hpp"
 #include "engine/function/meta_registration.hpp"
+#include "engine/function/render/render_extraction.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/components.hpp"
-#include "engine/function/scene/render_extraction.hpp"
 #include "engine/function/scene/world.hpp"
 #include "runtime/application.hpp"
 #include <thread>

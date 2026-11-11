@@ -135,7 +135,7 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "输入服务不得依赖资源管理器、文件后端或 CAORS：${source}")
   endif()
 
-  if(source MATCHES "/src/engine/function/(scene/(scene_tree|scene_query|render_extraction|game_object|instantiation|scene_instance|scene_instances|scene_update|scene_instances_instantiation|world|world_types|detail/hierarchy))[.](hpp|cpp)$" AND
+  if(source MATCHES "/src/engine/function/(scene/(scene_tree|scene_query|game_object|instantiation|scene_instance|scene_instances|scene_update|scene_instances_instantiation|world|world_types|detail/hierarchy)|render/render_extraction)[.](hpp|cpp)$" AND
       content MATCHES "gneiss_transform|GNEISS_TRANSFORM_IDENTITY")
     message(FATAL_ERROR "原生场景树与快照不得使用 C TRS 布局：${source}")
   endif()
@@ -223,9 +223,17 @@ foreach(source IN LISTS sources)
   if(source MATCHES "/src/(engine/platform|runtime)/" AND content MATCHES "gneiss_application_desc")
     message(FATAL_ERROR "Platform/Application 实现只能接收语义配置，不得消费 Application ABI 描述：${source}")
   endif()
+  # 唯一的场景到渲染前端桥接；后端与其他渲染实现不能读取 World。
   if(source MATCHES "/src/(engine/function/)?render/" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"](engine/function/)?(world|scene|application)/")
-    message(FATAL_ERROR "Render 不得反向包含 World / Scene / Application：${source}")
+    if(NOT source MATCHES "/src/engine/function/render/render_extraction[.]cpp$" OR
+        content MATCHES "#[ \t]*include[ \t]*[<\"](engine/function/)?application/")
+      message(FATAL_ERROR "渲染后端不得反向包含 World / Scene / Application：${source}")
+    endif()
+  endif()
+  if(source MATCHES "/src/engine/function/render/render_extraction[.](cpp|hpp)$" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"](granit/|engine/function/render/backend/)")
+    message(FATAL_ERROR "渲染提取前端不得直接依赖 GPU 后端：${source}")
   endif()
   if(source MATCHES "/src/engine/resource/" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/)?(function|render|world|scene|application|editor|tooling|apps)/)")

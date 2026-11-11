@@ -350,3 +350,9 @@ ECS 组件保存有效值及资源强引用；运行实例不持有 Prefab 绑�
 保存与历史读取文档，不能从 World 自动还原作者意图。
 句柄失效和来源边界见[场景参考](../reference/scene-instance.md)与
 [ADR-110](../decisions/ADR-110-game-object-runtime-model.md)。
+
+### 渲染提取边界
+
+engine/function/render/render_extraction 在 World 所属线程提取渲染快照，是读取场景的渲染前端桥接。
+快照持有资源强引用，不借用 ECS 内存。该桥接不依赖 GPU 后端；其他渲染实现和后端不能反向
+包含 World/Scene。活动相机选择保留在 engine/function/scene/camera_selection，由 World 保存其状态。
