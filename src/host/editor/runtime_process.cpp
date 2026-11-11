@@ -29,7 +29,11 @@ namespace gneiss::host {
 
 struct runtime_process::implementation final {
   gneiss::child_process process;
-  gneiss::editor::console_model console;
+  std::unique_ptr<gneiss::editor::console_model> owned_console;
+  gneiss::editor::console_model& console;
+  explicit implementation(gneiss::editor::console_model* target)
+      : owned_console(target ? nullptr : std::make_unique<gneiss::editor::console_model>()),
+        console(target ? *target : *owned_console) {}
   gneiss::editor::runtime_scene_mirror scene_mirror;
   gneiss::editor::runtime_property_edits property_edits;
   ipc_runtime_statistics statistics;
@@ -263,8 +267,7 @@ struct runtime_process::implementation final {
       if (auto* value = std::get_if<runtime_property_result_event>(&decoded_event)) {
         const auto accepted =
             property_edits.accept(to_runtime_property_result(std::move(value->value)));
-        if (accepted != gneiss::error::success &&
-            accepted != gneiss::error::not_found &&
+        if (accepted != gneiss::error::success && accepted != gneiss::error::not_found &&
             accepted != gneiss::error::invalid_state) {
           last_result = accepted;
         }
@@ -440,7 +443,8 @@ struct runtime_process::implementation final {
   }
 };
 
-runtime_process::runtime_process() : implementation_(std::make_unique<implementation>()) {}
+runtime_process::runtime_process(gneiss::editor::console_model* console)
+    : implementation_(std::make_unique<implementation>(console)) {}
 
 runtime_process::~runtime_process() {
   if (!implementation_) {
@@ -463,9 +467,8 @@ runtime_process::~runtime_process() {
   implementation_->stop_ipc();
 }
 
-gneiss::error
-runtime_process::start(const std::filesystem::path& executable,
-                       const gneiss::editor::runtime_launch_request& request) {
+gneiss::error runtime_process::start(const std::filesystem::path& executable,
+                                     const gneiss::editor::runtime_launch_request& request) {
   if (!implementation_ || is_busy() || executable.empty() || request.project_root.empty()) {
     return gneiss::error::invalid_state;
   }
@@ -581,10 +584,9 @@ gneiss::error runtime_process::request_resume() {
   return implementation_->ipc_session.request_resume();
 }
 
-gneiss::error
-runtime_process::request_property_write(gneiss::editor::runtime_property_key key,
-                                        std::uint64_t expected_revision,
-                                        gneiss::value value) {
+gneiss::error runtime_process::request_property_write(gneiss::editor::runtime_property_key key,
+                                                      std::uint64_t expected_revision,
+                                                      gneiss::value value) {
   if (!implementation_ || !implementation_->ipc_session.is_authenticated() ||
       !implementation_->ipc_session.supports_property_editing() ||
       (implementation_->control_state != runtime_control_state::running &&
@@ -606,8 +608,7 @@ runtime_process::request_property_write(gneiss::editor::runtime_property_key key
   return operation;
 }
 
-gneiss::error
-runtime_process::publish_asset_revision(std::span<const std::string> output_uris) {
+gneiss::error runtime_process::publish_asset_revision(std::span<const std::string> output_uris) {
   if (!implementation_) {
     return gneiss::error::invalid_argument;
   }

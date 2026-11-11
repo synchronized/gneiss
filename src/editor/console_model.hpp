@@ -5,6 +5,7 @@
 #define GNEISS_APPS_EDITOR_CONSOLE_MODEL_H_
 
 #include "engine/core/error.hpp"
+#include "engine/core/events/signal.hpp"
 #include "engine/core/logging/record.hpp"
 
 #include <cstddef>
@@ -27,6 +28,7 @@ struct console_event final {
   std::uint64_t sequence = 0U;
   std::uint64_t timestamp_ns = 0U;
   std::uint64_t thread_id = 0U;
+  std::uint64_t context = 0U;
   std::string source;
   std::string category;
   std::string message;
@@ -54,14 +56,18 @@ struct console_filter final {
 
 class console_model final {
 public:
-  explicit console_model(std::size_t capacity = 4096U) noexcept;
+  explicit console_model(std::size_t capacity = 4096U);
 
+  /** 所属线程通知，提交已完成；监听者不得在回调中修改本模型。 */
+  events::sink<void()> changed() const { return changed_.sink(); }
+  /** Editor 本地记录使用保留会话零，不改变当前 Runtime 会话。 */
+  error append_local_event(console_event event);
   /** 开始新 Runtime 会话；已有记录保留原会话标识。 */
-  [[nodiscard]] std::uint64_t begin_session() noexcept;
+  [[nodiscard]] std::uint64_t begin_session();
   [[nodiscard]] gneiss::error append_event(std::uint64_t session_id, console_event event);
   [[nodiscard]] gneiss::error append_raw(std::uint64_t session_id, std::string_view text,
-                                                 bool was_truncated = false);
-  void clear() noexcept;
+                                         bool was_truncated = false);
+  void clear();
 
   [[nodiscard]] std::uint64_t current_session_id() const noexcept;
   [[nodiscard]] std::uint64_t dropped_count() const noexcept;
@@ -69,10 +75,12 @@ public:
   [[nodiscard]] bool matches(const console_entry& entry,
                              const console_filter& filter) const noexcept;
   [[nodiscard]] gneiss::error visible_indices(const console_filter& filter,
-                                                      std::vector<std::size_t>& output) const;
+                                              std::vector<std::size_t>& output) const;
 
 private:
+  error append_event_impl(std::uint64_t, console_event);
   void make_room() noexcept;
+  events::signal<void()> changed_;
 
   std::size_t capacity_;
   std::uint64_t current_session_id_ = 0U;

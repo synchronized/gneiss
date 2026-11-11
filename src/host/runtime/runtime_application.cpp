@@ -14,9 +14,10 @@
 #include "engine/function/scene/world.hpp"
 #include <gneiss/app/project_description.hpp>
 
+#include "engine/platform/logging/file_sink.hpp"
 #include "runtime_asset_reloader.hpp"
 #include "runtime_ipc_session.hpp"
-#include "runtime_log.hpp"
+#include "runtime_logging.hpp"
 #include "runtime_property_editor.hpp"
 #include "runtime_scene_inspection.hpp"
 #include "runtime_scene_loader.hpp"
@@ -51,7 +52,7 @@ struct runtime_options final {
 };
 
 struct runtime_context final {
-  gneiss::host::runtime_log* log = nullptr;
+  gneiss::logging::logger* log = nullptr;
   std::filesystem::path stop_file;
   std::uint64_t next_stop_check_ns = 0U;
   gneiss::runtime::application* application{};
@@ -172,14 +173,19 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
     if (ipc_result != gneiss::error::success) {
       context.ipc_failure = ipc_result;
       if (context.log != nullptr) {
-        context.log->write("ERROR", "ipc", ipc_result, "Editor IPC 会话失败");
+        context.log->write({.severity = gneiss::logging::level::error,
+                            .category = "ipc",
+                            .message = "Editor IPC 会话失败",
+                            .result = ipc_result});
       }
       return request_exit();
     }
     if (actions.request_exit) {
       if (context.log != nullptr) {
-        context.log->write("INFO", "ipc", gneiss::error::success,
-                           "收到 Editor IPC 停止请求");
+        context.log->write({.severity = gneiss::logging::level::info,
+                            .category = "ipc",
+                            .message = "收到 Editor IPC 停止请求",
+                            .result = gneiss::error::success});
       }
       return request_exit();
     }
@@ -236,8 +242,7 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
       if (context.asset_waiting && !context.pending_assets.empty()) {
         const auto& active = context.pending_assets.front().request;
         if (active.session_id == cancel.session_id && active.revision == cancel.revision &&
-            bool(context.asset_request) &&
-            context.asset_request.cancel() == gneiss::error::success)
+            bool(context.asset_request) && context.asset_request.cancel() == gneiss::error::success)
           context.asset_cancelled = true;
         context.next_asset_progress_ns = 0U;
       }
@@ -307,8 +312,10 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
       if (property_result != gneiss::error::success) {
         context.ipc_failure = property_result;
         if (context.log != nullptr) {
-          context.log->write("ERROR", "property_edit", property_result,
-                             "Runtime 属性写入命令执行失败");
+          context.log->write({.severity = gneiss::logging::level::error,
+                              .category = "property_edit",
+                              .message = "Runtime 属性写入命令执行失败",
+                              .result = property_result});
         }
         return request_exit();
       }
@@ -320,11 +327,15 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
     if (input_result != gneiss::error::not_ready) {
       context.input_pending = false;
       if (context.log)
-        context.log->write(input_result == gneiss::error::success ? "INFO" : "ERROR",
-                           "input_map", input_result,
-                           input_result == gneiss::error::success ? "输入映射加载完成"
-                                                                          : "输入映射加载失败",
-                           context.input_uri);
+        context.log->write(
+            {.severity = input_result == gneiss::error::success ? gneiss::logging::level::info
+                                                                : gneiss::logging::level::error,
+             .category = "input_map",
+             .message = std::format("{} ({})",
+                                    input_result == gneiss::error::success ? "输入映射加载完成"
+                                                                           : "输入映射加载失败",
+                                    context.input_uri),
+             .result = input_result});
       if (input_result != gneiss::error::success)
         return input_result;
     }
@@ -341,9 +352,12 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
       context.logged_scene_session = progress.source.session;
       context.logged_scene_revision = progress.source.revision;
       context.logged_scene_phase = phase;
-      context.log->write(progress.phase == gneiss::host::ipc_scene_phase::failed ? "ERROR" : "INFO",
-                         "scene_load", context.scene_loader->last_result(), progress.message,
-                         progress.source.uri);
+      context.log->write({.severity = progress.phase == gneiss::host::ipc_scene_phase::failed
+                                          ? gneiss::logging::level::error
+                                          : gneiss::logging::level::info,
+                          .category = "scene_load",
+                          .message = std::format("{} ({})", progress.message, progress.source.uri),
+                          .result = context.scene_loader->last_result()});
     }
     const bool terminal = gneiss::host::scene_phase_terminal(progress.phase);
     if (!terminal) {
@@ -373,11 +387,10 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
     context.has_logged_first_frame = true;
     constexpr std::string_view category = "lifecycle";
     constexpr std::string_view message = "Runtime 已进入首帧";
-    gneiss::logging::logger{"application"}.write(
-        {.severity = gneiss::logging::level::info,
-         .source = "application",
-         .category = category,
-         .message = message});
+    gneiss::logging::logger{"application"}.write({.severity = gneiss::logging::level::info,
+                                                  .source = "application",
+                                                  .category = category,
+                                                  .message = message});
   }
   if (context.ipc_session != nullptr && context.scene_inspection != nullptr &&
       context.scene != gneiss::scene_instance_id{} &&
@@ -447,8 +460,10 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
     if (std::filesystem::exists(context.stop_file, error) && !error) {
       std::filesystem::remove(context.stop_file, error);
       if (context.log != nullptr) {
-        context.log->write("INFO", "stop_request", gneiss::error::success,
-                           "收到 Editor 正常停止请求");
+        context.log->write({.severity = gneiss::logging::level::info,
+                            .category = "stop_request",
+                            .message = "收到 Editor 正常停止请求",
+                            .result = gneiss::error::success});
       }
       return request_exit();
     }
@@ -456,42 +471,45 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
   return gneiss::error::success;
 }
 
-class callback_log_sink final : public gneiss::logging::sink {
+class ipc_log_sink final : public gneiss::logging::sink {
 public:
-  explicit callback_log_sink(gneiss::logging::record_callback callback)
-      : callback_(std::move(callback)) {}
+  explicit ipc_log_sink(gneiss::host::runtime_ipc_session& session) : session_(session) {}
   gneiss::error write(const gneiss::logging::record_view& value) override {
-    callback_(value);
-    return gneiss::error::success;
+    return session_.notify_log_event(value);
   }
   gneiss::error flush() override { return gneiss::error::success; }
 
 private:
-  gneiss::logging::record_callback callback_;
+  gneiss::host::runtime_ipc_session& session_;
 };
 
-[[nodiscard]] int run_runtime(const runtime_options& options, gneiss::host::runtime_log& log) {
-  gneiss::logging::service logs;
-  logs.attach(std::make_unique<callback_log_sink>([&log](const auto& event) { log.write(event); }));
-  gneiss::logging::default_service_binding logging_binding{logs};
+[[nodiscard]] int run_runtime(const runtime_options& options, gneiss::logging::service& logs,
+                              gneiss::logging::logger& log) {
   gneiss::host::project_description project;
   gneiss::host::project_load_report project_report;
   const auto project_result =
       gneiss::host::load_project_description(options.project_root, project, project_report);
   if (project_result != gneiss::error::success) {
     const auto context = path_text(project_report.context);
-    log.write("ERROR", gneiss::host::project_load_stage_name(project_report.stage),
-              static_cast<gneiss::error>(project_result), "工程加载失败", context);
+    log.write({.severity = gneiss::logging::level::error,
+               .category = gneiss::host::project_load_stage_name(project_report.stage),
+               .message = std::format("{} ({})", "工程加载失败", context),
+               .result = static_cast<gneiss::error>(project_result)});
     return 2;
   }
   const auto asset_root = path_text(project.asset_root);
   if (project.name.size() > std::numeric_limits<std::uint32_t>::max() ||
       asset_root.size() > std::numeric_limits<std::uint32_t>::max()) {
-    log.write("ERROR", "project", gneiss::error::out_of_memory, "工程运行描述过长");
+    log.write({.severity = gneiss::logging::level::error,
+               .category = "project",
+               .message = "工程运行描述过长",
+               .result = gneiss::error::out_of_memory});
     return 2;
   }
-  log.write("INFO", "project", gneiss::error::success, "工程加载完成",
-            path_text(project.project_root));
+  log.write({.severity = gneiss::logging::level::info,
+             .category = "project",
+             .message = std::format("{} ({})", "工程加载完成", path_text(project.project_root)),
+             .result = gneiss::error::success});
 
   runtime_context context{&log, options.stop_file};
   if (!context.stop_file.empty()) {
@@ -521,16 +539,20 @@ private:
   context.tasks = &task_scheduler;
   std::shared_ptr<gneiss::runtime::application> application;
   auto created = gneiss::runtime::application::create(desc);
-  auto operation =
-      created ? gneiss::error{gneiss::error::success} : created.error();
+  auto operation = created ? gneiss::error{gneiss::error::success} : created.error();
   if (operation != gneiss::error::success) {
-    log.write("ERROR", "application_create", static_cast<gneiss::error>(operation),
-              "Application 创建失败", asset_root);
+    log.write({.severity = gneiss::logging::level::error,
+               .category = "application_create",
+               .message = std::format("{} ({})", "Application 创建失败", asset_root),
+               .result = static_cast<gneiss::error>(operation)});
     return 3;
   }
   application = std::move(*created);
   context.application = application.get();
-  log.write("INFO", "application_create", gneiss::error::success, "Application 创建完成");
+  log.write({.severity = gneiss::logging::level::info,
+             .category = "application_create",
+             .message = "Application 创建完成",
+             .result = gneiss::error::success});
   if (application->attach_task_executor(task_scheduler) != gneiss::error::success) {
     return 3;
   }
@@ -540,11 +562,16 @@ private:
     if (input_result == gneiss::error::success) {
       context.input_pending = true;
       context.input_uri = project.input_map;
-      log.write("INFO", "input_map_pending", gneiss::error::success, "正在异步加载输入映射",
-                project.input_map);
+      log.write({.severity = gneiss::logging::level::info,
+                 .category = "input_map_pending",
+                 .message = std::format("{} ({})", "正在异步加载输入映射", project.input_map),
+                 .result = gneiss::error::success});
     }
     if (input_result != gneiss::error::success) {
-      log.write("ERROR", "input_map", input_result, "输入映射加载失败", project.input_map);
+      log.write({.severity = gneiss::logging::level::error,
+                 .category = "input_map",
+                 .message = std::format("{} ({})", "输入映射加载失败", project.input_map),
+                 .result = input_result});
       return 4;
     }
   }
@@ -657,8 +684,12 @@ private:
                                  " prepared_bytes=" + std::to_string(completion.prepared_bytes) +
                                  " queue_ms=" + std::to_string(completion.queue_ms) + " " +
                                  completion.message;
-            log.write(completion.result == gneiss::error::success ? "INFO" : "ERROR",
-                      "texture_load", completion.result, metrics);
+            log.write({.severity = completion.result == gneiss::error::success
+                                       ? gneiss::logging::level::info
+                                       : gneiss::logging::level::error,
+                       .category = "texture_load",
+                       .message = metrics,
+                       .result = completion.result});
           }
           return gneiss::error{gneiss::error::success};
         } catch (...) {
@@ -679,7 +710,10 @@ private:
     operation = native_result;
   }
   if (operation != gneiss::error::success) {
-    log.write("ERROR", "property_edit", operation, "Runtime 属性写入执行器初始化失败");
+    log.write({.severity = gneiss::logging::level::error,
+               .category = "property_edit",
+               .message = "Runtime 属性写入执行器初始化失败",
+               .result = operation});
     if (auto instance = gneiss::scene_instance::borrow(*application->native_world(), scene))
       (void)instance->unload();
     return 5;
@@ -719,13 +753,17 @@ private:
         property_editor.initialize(*world, scene_inspection, context.inspection_session_id);
     if (initialized != gneiss::error::success)
       return initialized;
-    log.write("INFO", "startup_scene", gneiss::error::success, "场景加载完成",
-              active_scene_uri);
-    log.write("INFO", "scene_load", gneiss::error::success,
-              "inspection_rebind_ms=" +
-                  std::to_string(std::chrono::duration<double, std::milli>(
-                                     std::chrono::steady_clock::now() - started)
-                                     .count()));
+    log.write({.severity = gneiss::logging::level::info,
+               .category = "startup_scene",
+               .message = std::format("{} ({})", "场景加载完成", active_scene_uri),
+               .result = gneiss::error::success});
+    log.write({.severity = gneiss::logging::level::info,
+               .category = "scene_load",
+               .message = "inspection_rebind_ms=" +
+                          std::to_string(std::chrono::duration<double, std::milli>(
+                                             std::chrono::steady_clock::now() - started)
+                                             .count()),
+               .result = gneiss::error::success});
     return gneiss::error::success;
   };
 
@@ -749,19 +787,21 @@ private:
       operation = ipc_session->notify_running();
     }
     if (operation != gneiss::error::success) {
-      log.write("ERROR", "ipc", operation, "Editor IPC 会话启动失败");
+      log.write({.severity = gneiss::logging::level::error,
+                 .category = "ipc",
+                 .message = "Editor IPC 会话启动失败",
+                 .result = operation});
 
-      if (auto instance =
-              gneiss::scene_instance::borrow(*application->native_world(), scene))
+      if (auto instance = gneiss::scene_instance::borrow(*application->native_world(), scene))
         (void)instance->unload();
       return 11;
     }
     context.ipc_session = ipc_session.get();
-    ipc_logging.connection = logs.attach(
-        std::make_unique<callback_log_sink>([session = ipc_session.get()](const auto& event) {
-          (void)session->notify_log_event(event);
-        }));
-    log.write("INFO", "ipc", gneiss::error::success, "Editor IPC 会话正在连接");
+    ipc_logging.connection = logs.attach(std::make_unique<ipc_log_sink>(*ipc_session));
+    log.write({.severity = gneiss::logging::level::info,
+               .category = "ipc",
+               .message = "Editor IPC 会话正在连接",
+               .result = gneiss::error::success});
   }
 
   native_result =
@@ -770,10 +810,12 @@ private:
     return 4;
   operation = application->run(0U);
   const auto task_stats = task_scheduler.stats();
-  log.write("INFO", "task_statistics", gneiss::error::success,
-            "submitted=" + std::to_string(task_stats.submitted) +
-                " completed=" + std::to_string(task_stats.completed) +
-                " retained=" + std::to_string(task_stats.retained));
+  log.write({.severity = gneiss::logging::level::info,
+             .category = "task_statistics",
+             .message = "submitted=" + std::to_string(task_stats.submitted) +
+                        " completed=" + std::to_string(task_stats.completed) +
+                        " retained=" + std::to_string(task_stats.retained),
+             .result = gneiss::error::success});
   if (context.ipc_session != nullptr && context.ipc_failure == gneiss::error::success) {
     (void)context.ipc_session->notify_shutdown(
         operation == gneiss::error::success ? 0 : operation.code());
@@ -802,14 +844,23 @@ private:
     } while (shutdown_result == gneiss::error::not_ready);
   }
   if (shutdown_result.failed())
-    log.write("ERROR", "shutdown", shutdown_result, "Runtime 关闭失败");
+    log.write({.severity = gneiss::logging::level::error,
+               .category = "shutdown",
+               .message = "Runtime 关闭失败",
+               .result = shutdown_result});
   if (operation != gneiss::error::success) {
-    log.write("ERROR", "run", static_cast<gneiss::error>(operation), "Runtime 主循环失败");
+    log.write({.severity = gneiss::logging::level::error,
+               .category = "run",
+               .message = "Runtime 主循环失败",
+               .result = static_cast<gneiss::error>(operation)});
 
     return 7;
   }
   if (context.ipc_failure != gneiss::error::success) {
-    log.write("ERROR", "ipc", context.ipc_failure, "Runtime 因 Editor IPC 会话失败而退出");
+    log.write({.severity = gneiss::logging::level::error,
+               .category = "ipc",
+               .message = "Runtime 因 Editor IPC 会话失败而退出",
+               .result = context.ipc_failure});
 
     return 11;
   }
@@ -818,7 +869,10 @@ private:
     return 10;
   if (context.scene_failed && options.smoke)
     return 4;
-  log.write("INFO", "shutdown", gneiss::error::success, "Runtime 已正常退出");
+  log.write({.severity = gneiss::logging::level::info,
+             .category = "shutdown",
+             .message = "Runtime 已正常退出",
+             .result = gneiss::error::success});
   return 0;
 }
 
@@ -830,19 +884,32 @@ int gneiss::host::run_runtime_application(int argc, char** argv) {
     const auto has_valid_options = parse_options(argc, argv, options);
     const auto log_path =
         options.log_file.empty() ? gneiss::host::default_runtime_log_path() : options.log_file;
-    gneiss::host::runtime_log log(log_path);
-    if (!log.is_file_available()) {
-      log.write("WARNING", "log_file", gneiss::error::io,
-                "日志文件不可用，继续使用控制台日志", path_text(log.path()));
+    gneiss::logging::service logs;
+    logs.attach(gneiss::host::create_runtime_protocol_sink());
+    gneiss::logging::default_service_binding logging_binding{logs};
+    auto log = logs.get_logger("runtime");
+    auto file = gneiss::logging::create_rotating_file_sink(log_path);
+    if (file)
+      logs.attach(std::move(*file));
+    if (!file) {
+      log.write({.severity = gneiss::logging::level::warning,
+                 .category = "log_file",
+                 .message = std::format("{} ({})", "日志文件不可用，继续使用控制台日志",
+                                        path_text(log_path)),
+                 .result = gneiss::error::io});
     }
     if (!has_valid_options) {
-      log.write("ERROR", "arguments", gneiss::error::invalid_argument,
-                "用法：gneiss_runtime --project <工程根> [--smoke] [--hidden] [--log-file <路径>] "
-                "[--stop-file <路径>] [--ipc-address <地址> --ipc-port <端口> "
-                "--ipc-token <令牌>]");
+      log.write(
+          {.severity = gneiss::logging::level::error,
+           .category = "arguments",
+           .message =
+               "用法：gneiss_runtime --project <工程根> [--smoke] [--hidden] [--log-file <路径>] "
+               "[--stop-file <路径>] [--ipc-address <地址> --ipc-port <端口> "
+               "--ipc-token <令牌>]",
+           .result = gneiss::error::invalid_argument});
       return 64;
     }
-    return run_runtime(options, log);
+    return run_runtime(options, logs, log);
   } catch (...) {
     gneiss::fatal_current_exception();
   }

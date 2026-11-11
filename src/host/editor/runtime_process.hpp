@@ -55,23 +55,23 @@ struct runtime_asset_reload_status final {
 
 class runtime_process final {
 public:
-  runtime_process();
+  /** 非空 Console 由调用方拥有，必须覆盖本对象寿命。 */
+  explicit runtime_process(gneiss::editor::console_model* console = nullptr);
   ~runtime_process();
 
   runtime_process(const runtime_process&) = delete;
   runtime_process& operator=(const runtime_process&) = delete;
 
   [[nodiscard]] gneiss::error start(const std::filesystem::path& executable,
-                                            const gneiss::editor::runtime_launch_request& request);
+                                    const gneiss::editor::runtime_launch_request& request);
   [[nodiscard]] gneiss::error request_stop();
   [[nodiscard]] gneiss::error request_pause();
   [[nodiscard]] gneiss::error request_resume();
-  [[nodiscard]] gneiss::error
-  request_property_write(gneiss::editor::runtime_property_key key, std::uint64_t expected_revision,
-                         gneiss::value value);
+  [[nodiscard]] gneiss::error request_property_write(gneiss::editor::runtime_property_key key,
+                                                     std::uint64_t expected_revision,
+                                                     gneiss::value value);
   /** 发布已提交的派生资产；Runtime 未连接时保留到下次全量重同步。 */
-  [[nodiscard]] gneiss::error
-  publish_asset_revision(std::span<const std::string> output_uris);
+  [[nodiscard]] gneiss::error publish_asset_revision(std::span<const std::string> output_uris);
   /** 失败后全量同步已知资产；执行中或未连接时返回 not_ready。 */
   [[nodiscard]] gneiss::error cancel_asset_reload() noexcept;
   [[nodiscard]] gneiss::error retry_asset_reload();

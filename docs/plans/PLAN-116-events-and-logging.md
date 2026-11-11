@@ -5,10 +5,10 @@
 
 ## 状态
 
-2026-11-11：Signal 最小适配已实现并通过 Windows Clang 定向测试，尚未替换生产接口。承接用户优先整理日志与事件的要求，
-PLAN-115 渲染实现暂不开始；原有计划不标记完成。
-决策见 [ADR-119](../decisions/ADR-119-events-and-logging.md)，核查见[记录](../records/2026-11-11-event-log-feasibility.md)。
-以下业务接入及日志 API 为目标示意；已实现的 Signal 契约见[事件接口](../reference/events.md)。采用已有 C++20、result 和 PLAN-109 异常策略。
+2026-11-11：已完成实现、宿主迁移及本地定向验收。PLAN-115 仍待开始。
+决策见 [ADR-119](../decisions/ADR-119-events-and-logging.md)。当前 API 以
+[日志接口](../reference/logging.md)和[事件接口](../reference/events.md)为准。
+以下设计记录由本节验收状态约束，不将未验证平台列为已支持。
 
 ## 目标与非目标
 
@@ -17,14 +17,13 @@ PLAN-115 渲染实现暂不开始；原有计划不标记完成。
 不建立事件继承树、字符串事件名、反射事件注册、通用消息中间件，也不替换文件/任务/Render 的专用请求协议。
 不要求所有通知异步，不为每条日志返回 result，不引入第二个日志队列。
 
-## 当前基线
+## 当前实现
 
-- core/logging/detail/async_queue 拥有有界队列和专用消费线程，复制消息后交付 Application 配置回调。
-- Runtime 负责文本/IPC 输出和轮转，Editor Console 有界保留日志；结构化源数据不能退化成拼接文本再解析。
-- 现有 message_view 包含 context、source、category、result；record_view 含 sequence、timestamp_ns、thread_id。
-  迁移逐字段核查实际生产者/协议使用，不能假定所有字段已在 IPC 中传输。
-- EnTT 为仓库已有 3.15.0；spdlog 1.15.3 已用于独立同步文件 Sink，尚未替换宿主输出。
-  Ludens 代码仅作为参考，不复制其第三方依赖或全局对象。
+- Runtime/Editor 入口安装 logging::service 与默认绑定，Application/Render/Scene 只提交 Logger。
+- Runtime 文件/轮转使用 spdlog Sink，协议终端与 IPC 保留宿主适配；旧 runtime_log 类已删除。
+- Editor 宿主持有 Console；本地记录通过有界 UI 缓冲交接，Runtime 适配器借用 Console。
+- Console changed() 接入 events::signal，面板通过 scoped_connection 更新自动滚动状态。
+- 协议 v2 补齐 context，时间/线程/序号/来源/分类/正文/错误均直接传输；不维护旁路表。
 
 ## 事件模型
 
@@ -63,7 +62,7 @@ dispatch 只处理本轮开始时已有事件，回调新增事件留到下一�
 namespace 建议为 gneiss::logging，避免通用 level/record_view 与业务命名混淆。
 
 ```cpp
-auto log = logging::get_logger("asset");
+auto log = logging::logger{"asset"};
 log.info("加载资源：{}", uri);
 if (log.enabled(logging::level::debug))
   log.debug("资源详情：{}", expensive_description());
@@ -71,7 +70,7 @@ if (log.enabled(logging::level::debug))
 
 Logger 为可复制轻量句柄；channel 使用 string_name，正文拥有 UTF-8 字符串。
 格式参数编译期检查，先过滤再格式化；普通函数参数仍提前求值，昂贵参数必须显式 enabled 检查。
-源码位置使用单独验证过的包装或可选宏，确保记录调用点；不强迫所有调用方写宏。
+source 使用逻辑来源；文件/行号捕获留作按需扩展，不在本版引入额外包装或日志宏。
 普通日志返回 void；创建文件 Sink、初始化配置等可预期失败返回 result。
 critical 只是级别，panic/assert/OOM 使用独立 fatal 应急通道。
 
@@ -93,7 +92,7 @@ Application、工具、Render 和 Asset 只持 Logger，不需借 Application �
 - Console/IPC Sink 放宿主层，编码原生记录；UI 从有界缓冲读取，不由日志线程操作面板。
 - 支持连接句柄动态挂接 Sink，按分发时配置交付；不持配置锁调用输出端。
 - 不持队列或配置锁调用 Sink；Sink 禁止重入普通日志，错误报告走独立应急输出。
-- spdlog 仅用于同步输出，不启用 async_logger/thread_pool；旧 dispatcher 逐步成为唯一 runtime 的内部实现，
+- spdlog 仅用于同步输出，不启用 async_logger/thread_pool；async_queue 是唯一 service 的私有实现，
   完成迁移后删除旧 Application 专属装配，不能长期同时维护两个队列。
 
 ## 背压、关闭与异常
@@ -115,11 +114,9 @@ spdlog 的捕获/错误处理行为须核查，不能把 OOM 转成普通写失�
 ```text
 engine/core/events/
   signal.hpp
-  connection.hpp
-  detail/...
 engine/core/logging/
   logger.hpp
-  log_types.hpp
+  record.hpp
   service.hpp/.cpp
   default_service.hpp
   sink_connection.hpp
@@ -143,16 +140,16 @@ EnTT 复用仓库版本与 MIT 许可证；spdlog 已锁定 v1.15.3（MIT），�
 
 - [x] 阅读当前日志链与 Ludens，核查现有 EnTT，运行最小连接探针，记录 spdlog 数据模型差异。
 - [x] 固定 Signal 适配契约并实现小闭环：成员绑定、RAII 断开、源先销毁、线程/重入限制。
-- [ ] 核查实际订阅点，迁移一个对象级通知，不将任务完成、文件回调或渲染命令机械替换。
+- [x] 核查实际订阅点，迁移一个对象级通知，不将任务完成、文件回调或渲染命令机械替换。
 - [x] 引入经锁定的 spdlog，同步文件 Sink 通过原生字段保真、追加/截断、打开失败验证。
-- [ ] Logger 接入时验证格式检查、格式化前过滤及 PLAN-109 执行边界；补齐终端 Sink。
-- [x] 实现显式 Logger/runtime，复用 logging::detail::async_queue；验证频道过滤、并发投递、内存测试 Sink、关闭与上下文隔离。
+- [x] Logger 接入时验证格式检查、格式化前过滤及 PLAN-109 执行边界；补齐终端 Sink。
+- [x] 实现显式 Logger/service，复用 logging::detail::async_queue；验证频道过滤、并发投递、内存测试 Sink、关闭与上下文隔离。
 - [x] 实现默认路由绑定、静态频道 Logger、动态 Sink 连接及无线程同步模式。
 - [x] 删除 Application 队列、日志回调和 submit_log；Render/Scene 使用 Logger，Runtime 宿主安装服务并接收完整记录。
-- [ ] 接入 Editor 本地输出并收敛旧宿主文件实现与启动直接输出。
-- [ ] 接通 Runtime 文件/IPC、Editor Console、Application 创建前日志及关闭，逐字段核对现有协议。
-- [ ] 迁移真实业务调用、删除旧入口与重复装配，同步 Reference/Concept、依赖清单及构建边界。
-- [ ] 定向验收并记录浏览器、其他平台及尚未运行项目；不将源码审查写成平台验证通过。
+- [x] 接入 Editor 本地输出并收敛旧宿主文件实现与启动直接输出。
+- [x] 接通 Runtime 文件/IPC、Editor Console、Application 创建前日志及关闭，逐字段核对现有协议。
+- [x] 迁移真实业务调用、删除旧入口与重复装配，同步 Reference/Concept、依赖清单及构建边界。
+- [x] 定向验收并记录浏览器、其他平台及尚未运行项目；不将源码审查写成平台验证通过。
 
 ## 验收与待核查
 
@@ -162,9 +159,8 @@ Signal 检查单线程生命周期、参数借用、断开后不再交付、源�
 日志检查记录字段跨异步完整性、过滤、并发投递、队满统计、Sink 失败、重入与关闭、隔离上下文。
 本地优先编译、小型 CPU 验证；不运行大场景、GPU、远端 CI，也不触发崩溃弹窗测试。
 
-尚未验证：浏览器及 Linux 工具链、源位置捕获、Logger 的过滤和格式接口。
-Signal 和 spdlog 同步文件适配已通过 Windows Clang 定向构建与 CPU 测试。
-这些是后续实施门槛，不需要重新确认总体方向；若发现必须改变所有权或异常策略，再列出取舍。
+验收结果见文末。浏览器、Linux、MSVC 尚未运行；未运行 GPU、大场景或故意崩溃用例。
+源码位置捕获不属于本轮闭环：本版 source 为逻辑来源，不提供文件/行号，不宣称已验证。
 
 ## 已确认调整：Service 与默认频道
 
@@ -178,4 +174,16 @@ Signal 和 spdlog 同步文件适配已通过 Windows Clang 定向构建与 CPU 
 - 服务及 Sink 两级过滤，enabled 在格式化前判断是否存在接收者。
 - 分发时快照输出配置，不持配置锁调用 Sink；断开后已开始的分发允许完成。
 - close 停止接收、排空、flush、释放输出。连接和 Logger 不保活服务。
-- 本次先迁移新日志接口；Application/Render 旧队列与宿主 IPC 装配继续列为后续工作。
+- Application/Render 旧队列装配已删除；Runtime IPC 订阅在会话释放前断开并 flush。
+
+## 最终验收（2026-11-11）
+
+- Windows Clang Debug 完整默认目标构建通过，包含 Runtime、Editor、工具、示例和测试程序。
+- 15 项定向 CPU 测试全部通过：日志服务/队列/文件 Sink、Signal、Application 日志与诊断、
+  Runtime 协议及 IPC 会话、Runtime 文件和启动失败、Editor IPC/Console 模型与面板及启动失败。
+- 新增验证复用既有用例：context 往返、日志线程到 UI 的拥有型值交接、缓冲溢出、
+  通知/输出断开、启动失败排空与 1 MiB 轮转。
+- Core 边界检查及 git diff --check 通过。没有执行 GPU、真实窗口交互、浏览器、Linux、MSVC、
+  故意崩溃用例或远端 CI，不把这些项目记作验证通过。
+- Runtime 日志协议升级为 v2，Editor/Runtime 必须配套重编译；备份名改为 spdlog 的 runtime.1.log。
+- 终端和文件输出按 service 的 flush/close 刷新，不承诺进程崩溃时所有异步日志都能落盘。

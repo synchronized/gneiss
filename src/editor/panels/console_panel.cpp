@@ -62,7 +62,7 @@ void console_panel_state::set_paused(const console_model& model, bool value) noe
 }
 
 gneiss::error console_panel_state::visible_indices(const console_model& model,
-                                                           std::vector<std::size_t>& output) {
+                                                   std::vector<std::size_t>& output) {
   filter.search = search.data();
   filter.source = source.data();
   filter.category = category.data();
@@ -145,7 +145,7 @@ void draw_console_filters(console_panel_state& state) {
                            state.category.size());
 }
 
-void draw_console_lines(const console_model& model, const console_panel_state& state,
+void draw_console_lines(const console_model& model, console_panel_state& state,
                         const std::vector<std::size_t>& visible) {
   ImGui::BeginChild("ConsoleLog", ImVec2(0.0F, 0.0F), ImGuiChildFlags_Borders,
                     ImGuiWindowFlags_HorizontalScrollbar);
@@ -156,8 +156,7 @@ void draw_console_lines(const console_model& model, const console_panel_state& s
       const auto& entry = model.entries()[visible[static_cast<std::size_t>(row)]];
       const auto line = format_console_entry(entry);
       if (entry.kind == gneiss::editor::console_entry_kind::structured &&
-          entry.event.severity >=
-              static_cast<std::uint32_t>(gneiss::logging::level::error)) {
+          entry.event.severity >= static_cast<std::uint32_t>(gneiss::logging::level::error)) {
         ImGui::TextColored(gneiss::editor::theme_error_color(), "%s", line.c_str());
       } else if (entry.kind == gneiss::editor::console_entry_kind::structured &&
                  entry.event.severity ==
@@ -168,8 +167,9 @@ void draw_console_lines(const console_model& model, const console_panel_state& s
       }
     }
   }
-  if (state.auto_scroll && !state.paused) {
+  if (state.auto_scroll && !state.paused && state.scroll_pending) {
     ImGui::SetScrollHereY(1.0F);
+    state.scroll_pending = false;
   }
   ImGui::EndChild();
 }

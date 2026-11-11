@@ -48,7 +48,7 @@ Logger 提供 trace/debug/info/warning/error/critical，以 std::format_string �
 宿主停止生产者、解除 binding 后调用 close：停止接收、排空、flush、释放 Sink。
 flush/close 由宿主串行执行，禁止从 Sink 内调用；普通 Logger 重入被抑制。
 `metrics().output_failures` 统计 Sink 返回的失败，分配及未知异常仍遵循执行边界策略。
-Runtime 已接入默认服务；Editor 本地输出、旧宿主文件实现收敛仍待迁移，浏览器工具链尚未验证。
+Runtime 与 Editor 均在启动校验前安装默认服务；旧 Runtime 文件写入和轮转实现已移除。浏览器工具链尚未验证。
 
 ## 独立同步输出适配
 
@@ -57,14 +57,16 @@ Runtime 已接入默认服务；Editor 本地输出、旧宿主文件实现收�
 默认追加，可显式截断；宿主须在非实时线程串行调用 `write/flush`，正常关闭前显式 flush。
 文件失败返回 `error::io`，分配及其他异常向执行边界传播。实现不使用 spdlog 的 logger 异常吞并路径。
 文本包含原生单调时间、生产者线程、序号、上下文、级别、来源、分类、结果码和正文；不是 IPC 格式。
-Runtime 当前仍通过宿主适配 Sink 使用既有文件/标准输出实现；spdlog 文件实现的宿主替换尚未完成。
+`create_rotating_file_sink` 提供按容量轮转，默认 1 MiB、一个备份，备份名遵循 spdlog（如 runtime.1.log）。
+`console_sink.hpp` 的 `create_console_sink()` 提供同步 stderr 输出，复用同一原生字段格式。
+Runtime 使用轮转文件 Sink 与宿主协议终端 Sink；Editor 使用终端 Sink 与主线程交接缓冲。
 
 ## 字段与所有权
 
 - `severity` 必须是 `TRACE` 到 `FATAL` 之一。
 - `category` 是非空 UTF-8 筛选键；建议使用短小稳定的 ASCII 名称，例如 `game` 或 `asset`。
 - `message` 是 UTF-8 正文，可以为空。
-- `result` 可携带相关 Gneiss 结果码；没有相关操作时使用 `GNEISS_SUCCESS`。
+- `result` 可携带相关 Gneiss 结果码；没有相关操作时使用 `error::success`。
 - 字符串使用 string_view 借用，不要求 NUL 结尾。校验和提交接口均不取得调用方内存所有权。
 
 时间戳、线程标识和事件序号由投递器生成，来源由内部调用方填写。
@@ -79,9 +81,10 @@ IPC 关闭前断开日志连接并等待日志队列排空，接收对象保持�
 正常退出应先停止生产者，再解除默认路由、关闭服务，释放 Sink。
 
 Runtime 宿主 Sink 将记录接入标准流和单文件轮转输出。日志文件保持人类可读文本，
-标准输出则使用 `@gneiss-log-v1 ` 前缀加单行 JSON。协议字段包含版本、单调时间、序号、级别、来源、
-分类、线程、结果码和消息；字符串按 JSON 规则转义。Application 创建前的参数与工程加载失败，以及
-协议编码失败，仍使用原始文本降级通道。普通输出、未知协议版本和格式错误的协议行应由消费方保留为
+标准流使用 `@gneiss-log-v2 ` 前缀加单行 JSON。协议字段包含版本、单调时间、序号、级别、来源、
+分类、线程、context、结果码和消息；字符串按 JSON 规则转义。启动失败也提交相同记录，
+警告/错误写 stderr，其他级别写 stdout；IPC 和管道后备共用此编码，Console 按会话/序号去重。
+协议版本 2 补齐 context，消费端与生产端须一起更新，不保留旧格式兼容分支。普通输出、未知协议版本和格式错误的协议行应由消费方保留为
 Raw 输出，不能静默丢弃。
 
 共享行解码器允许消费方按任意字节块输入。单行默认最多保留 64 KiB；超限行会标记为截断并丢弃
@@ -116,3 +119,18 @@ log.write({
 
 结构化 write 保留 context/result/source/category；空来源和类别使用 Logger 频道。
 文本仅借用至 write 返回；异步模式复制完整记录。该接口不返回业务错误，普通日志用 info/error 等格式化入口即可。
+
+## Editor 本地日志与对象通知
+
+Editor 宿主持有 Console，Runtime 子进程适配器借用该模型；独立使用适配器时才创建私有 Console。
+本地记录保留 session_id=0，Runtime 会话使用非零 ID，当前会话筛选不混入 Editor 日志。
+`console_log_buffer` 是至多 1024 条记录的 UI 交接缓冲，无线程；满时淘汰最旧记录并累计提示。
+日志线程只复制拥有型记录，主线程 drain 解锁后再写入 Console，不从 Sink 操作 ImGui。
+
+Console 的 changed() 返回对象级 events::sink<void()>；追加、清空、切换会话后通知。
+面板通过 scoped_connection 标记待自动滚动，避免每帧强制滚到底部。监听者先断开再析构；
+通知中不得修改同一模型。它是 UI 模型变更通知，不是日志分发总线。
+
+正常关闭先停止应用/后台生产者，再排空日志与 UI 缓冲。提前退出时 service 析构仍排空已接收日志，
+Sink 只持共享缓冲，不引用已销毁的 Editor 状态。性能采样的 stdout 行保留为工具验收输出。
+本版不新增源文件/行号捕获包装；source 表示逻辑来源，不冒充调用点信息。

@@ -72,7 +72,7 @@ add_executable(
 )
 target_link_libraries(
   gneiss_editor
-  PRIVATE gneiss_editor_host gneiss_editor_ui gneiss_child_process gneiss_tasks
+  PRIVATE gneiss_file_log_sink gneiss_editor_host gneiss_editor_ui gneiss_child_process gneiss_tasks
 )
 if((WIN32 OR UNIX) AND TARGET gneiss_runtime)
   target_compile_definitions(
@@ -246,6 +246,7 @@ if(BUILD_TESTING)
   add_test(NAME gneiss.editor.ipc-event COMMAND gneiss_editor_ipc_event_test)
   add_executable(gneiss_editor_console_model_test "${PROJECT_SOURCE_DIR}/tests/host/editor/console_model_test.cpp")
   target_link_libraries(gneiss_editor_console_model_test PRIVATE gneiss_editor_model)
+  target_include_directories(gneiss_editor_console_model_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
   gneiss_target_compile_warnings(gneiss_editor_console_model_test)
   gneiss_target_output_directories(gneiss_editor_console_model_test)
   add_test(NAME gneiss.editor.console-model COMMAND gneiss_editor_console_model_test)

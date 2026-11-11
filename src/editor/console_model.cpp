@@ -9,20 +9,29 @@
 
 namespace gneiss::editor {
 
-console_model::console_model(std::size_t capacity) noexcept : capacity_(capacity) {}
+console_model::console_model(std::size_t capacity) : capacity_(capacity) {}
 
-std::uint64_t console_model::begin_session() noexcept {
+std::uint64_t console_model::begin_session() {
   if (current_session_id_ == std::numeric_limits<std::uint64_t>::max()) {
     clear();
     current_session_id_ = 1U;
   } else {
     ++current_session_id_;
   }
+  changed_.publish();
   return current_session_id_;
 }
 
 gneiss::error console_model::append_event(std::uint64_t session_id, console_event event) {
-  if (capacity_ == 0U || session_id == 0U) {
+  if (session_id == 0)
+    return error::invalid_argument;
+  return append_event_impl(session_id, std::move(event));
+}
+error console_model::append_local_event(console_event event) {
+  return append_event_impl(0, std::move(event));
+}
+error console_model::append_event_impl(std::uint64_t session_id, console_event event) {
+  if (capacity_ == 0U) {
     return gneiss::error::invalid_argument;
   }
   {
@@ -33,12 +42,13 @@ gneiss::error console_model::append_event(std::uint64_t session_id, console_even
     entry.session_id = session_id;
     entry.event = std::move(event);
     entries_.push_back(std::move(entry));
+    changed_.publish();
     return gneiss::error::success;
   }
 }
 
 gneiss::error console_model::append_raw(std::uint64_t session_id, std::string_view text,
-                                                bool was_truncated) {
+                                        bool was_truncated) {
   if (capacity_ == 0U || session_id == 0U) {
     return gneiss::error::invalid_argument;
   }
@@ -51,13 +61,15 @@ gneiss::error console_model::append_raw(std::uint64_t session_id, std::string_vi
     entry.raw_text = text;
     entry.was_truncated = was_truncated;
     entries_.push_back(std::move(entry));
+    changed_.publish();
     return gneiss::error::success;
   }
 }
 
-void console_model::clear() noexcept {
+void console_model::clear() {
   entries_.clear();
   dropped_count_ = 0U;
+  changed_.publish();
 }
 
 std::uint64_t console_model::current_session_id() const noexcept { return current_session_id_; }
@@ -87,7 +99,7 @@ bool console_model::matches(const console_entry& entry,
 }
 
 gneiss::error console_model::visible_indices(const console_filter& filter,
-                                                     std::vector<std::size_t>& output) const {
+                                             std::vector<std::size_t>& output) const {
   output.clear();
   {
     output.reserve(entries_.size());

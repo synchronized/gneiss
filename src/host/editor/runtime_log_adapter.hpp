@@ -18,6 +18,7 @@ to_console_event(gneiss::host::runtime_log_record&& record) noexcept {
           .sequence = record.sequence,
           .timestamp_ns = record.timestamp_ns,
           .thread_id = record.thread_id,
+          .context = record.context,
           .source = std::move(record.source),
           .category = std::move(record.category),
           .message = std::move(record.message),

@@ -36,7 +36,8 @@ int main() {
   constexpr std::string_view category = "测试";
   constexpr std::string_view message = "第一行\n\"第二行\"\\尾部";
   const gneiss::logging::record_view event{
-      .message = {.severity = gneiss::logging::level::warning,
+      .message = {.context = 55U,
+                  .severity = gneiss::logging::level::warning,
                   .source = source,
                   .category = category,
                   .message = message,
@@ -58,8 +59,8 @@ int main() {
           gneiss::host::runtime_log_parse_result::success ||
       parsed.severity != static_cast<std::uint32_t>(event.message.severity) ||
       parsed.sequence != event.sequence || parsed.timestamp_ns != event.timestamp_ns ||
-      parsed.thread_id != event.thread_id || parsed.source != source ||
-      parsed.category != category || parsed.message != message ||
+      parsed.thread_id != event.thread_id || parsed.context != event.message.context ||
+      parsed.source != source || parsed.category != category || parsed.message != message ||
       parsed.operation != event.message.result) {
     return 2;
   }
@@ -79,12 +80,12 @@ int main() {
     return 3;
   }
   auto unsupported = encoded;
-  unsupported.replace(unsupported.find("\"version\":1"), 11U, "\"version\":2");
+  unsupported.replace(unsupported.find("\"version\":2"), 11U, "\"version\":3");
   if (gneiss::host::parse_runtime_log_line(unsupported, parsed) !=
       gneiss::host::runtime_log_parse_result::unsupported_version) {
     return 4;
   }
-  return gneiss::host::parse_runtime_log_line("@gneiss-log-v1 {broken", parsed) ==
+  return gneiss::host::parse_runtime_log_line("@gneiss-log-v2 {broken", parsed) ==
                      gneiss::host::runtime_log_parse_result::invalid &&
                  validates_line_decoder()
              ? 0

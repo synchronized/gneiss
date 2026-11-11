@@ -94,7 +94,7 @@ runtime_log_line_decoder::runtime_log_line_decoder(std::size_t maximum_line_size
     : maximum_line_size_(maximum_line_size) {}
 
 gneiss::error runtime_log_line_decoder::append(std::string_view bytes,
-                                                       std::vector<runtime_log_line>& output) {
+                                               std::vector<runtime_log_line>& output) {
   if (maximum_line_size_ == 0U) {
     return gneiss::error::invalid_state;
   }
@@ -144,11 +144,11 @@ void runtime_log_line_decoder::append_segment(std::string_view segment) {
 }
 
 gneiss::error encode_runtime_log_event(const gneiss::logging::record_view& event,
-                                               std::string& output) {
+                                       std::string& output) {
   output.clear();
   {
     output.append(runtime_log_prefix);
-    output.append("{\"version\":1,\"sequence\":");
+    output.append("{\"version\":2,\"sequence\":");
     append_integer(output, event.sequence);
     output.append(",\"timestamp_ns\":");
     append_integer(output, event.timestamp_ns);
@@ -160,6 +160,8 @@ gneiss::error encode_runtime_log_event(const gneiss::logging::record_view& event
     append_json_string(output, event.message.category);
     output.append(",\"thread_id\":");
     append_integer(output, event.thread_id);
+    output.append(",\"context\":");
+    append_integer(output, event.message.context);
     output.append(",\"result\":");
     append_integer(output, event.message.result.code());
     output.append(",\"message\":");
@@ -181,7 +183,7 @@ runtime_log_parse_result parse_runtime_log_line(std::string_view line, runtime_l
     const document_ptr document(yyjson_read_opts(const_cast<char*>(line.data()), line.size(),
                                                  YYJSON_READ_NOFLAG, nullptr, nullptr));
     auto* root = document == nullptr ? nullptr : yyjson_doc_get_root(document.get());
-    if (!yyjson_is_obj(root) || yyjson_obj_size(root) != 9U) {
+    if (!yyjson_is_obj(root) || yyjson_obj_size(root) != 10U) {
       return runtime_log_parse_result::invalid;
     }
     std::uint64_t version = 0U;
@@ -190,7 +192,7 @@ runtime_log_parse_result parse_runtime_log_line(std::string_view line, runtime_l
     if (!read_unsigned(root, "version", version)) {
       return runtime_log_parse_result::invalid;
     }
-    if (version != 1U) {
+    if (version != 2U) {
       return runtime_log_parse_result::unsupported_version;
     }
     runtime_log_record parsed;
@@ -199,6 +201,7 @@ runtime_log_parse_result parse_runtime_log_line(std::string_view line, runtime_l
         !read_unsigned(root, "severity", severity) || severity > UINT32_MAX ||
         !read_string(root, "source", parsed.source) ||
         !read_string(root, "category", parsed.category) ||
+        !read_unsigned(root, "context", parsed.context) ||
         !read_unsigned(root, "thread_id", parsed.thread_id) || !yyjson_is_int(operation_value) ||
         !read_string(root, "message", parsed.message)) {
       return runtime_log_parse_result::invalid;
@@ -208,7 +211,7 @@ runtime_log_parse_result parse_runtime_log_line(std::string_view line, runtime_l
         operation > std::numeric_limits<std::int32_t>::max()) {
       return runtime_log_parse_result::invalid;
     }
-    parsed.version = 1U;
+    parsed.version = 2U;
     parsed.severity = static_cast<std::uint32_t>(severity);
     parsed.operation = gneiss::error{static_cast<std::int32_t>(operation)};
     output = std::move(parsed);

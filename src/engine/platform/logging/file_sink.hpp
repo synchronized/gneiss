@@ -11,4 +11,8 @@ namespace gneiss::logging {
  * 路径为空或含 NUL 返回 invalid_argument，打开失败返回 io。 */
 [[nodiscard]] result<std::unique_ptr<sink>> create_file_sink(const std::filesystem::path& path,
                                                              bool truncate = false);
+/** 同步轮转输出，达到容量时保留指定数量的备份；备份命名遵循 spdlog。 */
+[[nodiscard]] result<std::unique_ptr<sink>>
+create_rotating_file_sink(const std::filesystem::path&, std::size_t maximum_size = 1024 * 1024,
+                          std::size_t backup_count = 1);
 } // namespace gneiss::logging

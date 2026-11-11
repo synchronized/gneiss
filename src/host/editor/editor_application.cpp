@@ -18,13 +18,17 @@
 #include "commands/editor_prefab_edit.hpp"
 #include "commands/prefab_authoring.hpp"
 #include "commands/runtime_author_apply.hpp"
+#include "console_log_buffer.hpp"
 #include "documents/document_editing.hpp"
 #include "documents/editor_scene_loader.hpp"
 #include "documents/scene_document_edit.hpp"
 #include "editor_project.hpp"
 #include "editor_theme.hpp"
 #include "editor_ui.hpp"
+#include "engine/core/logging/default_service.hpp"
+#include "engine/core/logging/service.hpp"
 #include "engine/function/scene/component_registration.hpp"
+#include "engine/platform/logging/console_sink.hpp"
 #include "imgui_adapter.hpp"
 #include "native_dialog.hpp"
 #include "panels/author_hierarchy_panel.hpp"
@@ -140,7 +144,9 @@ struct editor_state {
   std::filesystem::path project_root;
   gneiss::error save_result = gneiss::error::success;
   bool save_attempted = false;
-  gneiss::host::runtime_process runtime;
+  gneiss::editor::console_model console;
+  gneiss::host::console_log_buffer* local_logs{};
+  gneiss::host::runtime_process runtime{&console};
   gneiss::error runtime_result = gneiss::error::success;
   bool runtime_attempted = false;
   gneiss::child_process package_process;
@@ -151,6 +157,9 @@ struct editor_state {
   int package_profile = 1;
   std::array<char, 512> package_output{};
   gneiss::editor::console_panel_state console_panel;
+  gneiss::events::scoped_connection console_changes{
+      console.changed().connect<&gneiss::editor::console_panel_state::on_console_changed>(
+          console_panel)};
   bool pending_save_and_run = false;
   bool show_imgui_demo = false;
   gneiss::editor::editor_panel_visibility panel_visibility;
@@ -211,9 +220,10 @@ void start_source_asset_watch(editor_state& state) {
     return;
   }
   state.asset_watch_failed = true;
-  const auto message = operation.message();
-  std::fprintf(stderr, "Gneiss Editor 资产监听启动失败：结果=%d，消息=%.*s\n", operation.code(),
-               static_cast<int>(message.size()), message.data());
+  gneiss::logging::logger{"editor"}.write({.severity = gneiss::logging::level::error,
+                                           .category = "editor",
+                                           .message = "资产监听启动失败",
+                                           .result = operation});
 }
 #endif
 
@@ -228,8 +238,7 @@ gneiss::error submit_editor_ui(editor_state& state) {
       .camera = {settings.fov, settings.near, settings.far},
       .transform = {transform.translation, transform.rotation, transform.scale}};
   const auto operation = state.application->set_view_camera(&view);
-  return operation == gneiss::error::success ? state.ui.submit(*state.application)
-                                                     : operation;
+  return operation == gneiss::error::success ? state.ui.submit(*state.application) : operation;
 }
 
 gneiss::error submit_editor_grid(const editor_state& state) {
@@ -315,14 +324,11 @@ bool parse_options(int argc, char** argv, launch_options& options) {
 
 void report_startup_failure(std::string_view stage, gneiss::error operation,
                             std::string_view path = {}) noexcept {
-  const auto message = operation.message();
-  std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=%.*s，结果=%d，消息=%.*s",
-               static_cast<int>(stage.size()), stage.data(), operation.code(),
-               static_cast<int>(message.size()), message.data());
-  if (!path.empty()) {
-    std::fprintf(stderr, "，路径=%.*s", static_cast<int>(path.size()), path.data());
-  }
-  std::fputc('\n', stderr);
+  gneiss::logging::logger{"editor"}.write(
+      {.severity = gneiss::logging::level::error,
+       .category = stage,
+       .message = std::format("{} ({})", operation.message(), path),
+       .result = operation});
 }
 
 gneiss::error undo_editor_command(editor_state& state) {
@@ -345,9 +351,8 @@ gneiss::error redo_editor_command(editor_state& state) {
   return {reinterpret_cast<const char*>(text.data()), text.size()};
 }
 
-[[nodiscard]] gneiss::error
-read_author_asset(editor_state& state, std::string uri,
-                  std::function<gneiss::error(std::string)> next) {
+[[nodiscard]] gneiss::error read_author_asset(editor_state& state, std::string uri,
+                                              std::function<gneiss::error(std::string)> next) {
   using namespace gneiss;
   if (state.pending_file_operation)
     return error::not_ready;
@@ -380,10 +385,8 @@ read_author_asset(editor_state& state, std::string uri,
 }
 
 void restore_author_selection(editor_state& state, const author_selection& selection) {
-  gneiss::result<gneiss::editor::scene_node_record> scene_node{
-      gneiss::error::not_found};
-  gneiss::result<gneiss::editor::prefab_node_record> prefab_node{
-      gneiss::error::not_found};
+  gneiss::result<gneiss::editor::scene_node_record> scene_node{gneiss::error::not_found};
+  gneiss::result<gneiss::editor::prefab_node_record> prefab_node{gneiss::error::not_found};
   switch (selection.kind) {
   case author_selection_kind::scene_node:
     scene_node = state.editing.document().find_node(selection.primary_uuid);
@@ -515,7 +518,7 @@ record_author_documents(editor_state& state, std::string label,
 }
 
 [[nodiscard]] gneiss::error current_author_scene(editor_state& state,
-                                                         author_scene_document& output) {
+                                                 author_scene_document& output) {
   const auto& uri = state.editing.document().uri();
   if (!std::string_view(uri).starts_with("asset://"))
     return gneiss::error::invalid_state;
@@ -528,8 +531,7 @@ record_author_documents(editor_state& state, std::string label,
 }
 
 gneiss::error restore_prefab_component(editor_state& state, gneiss::guid instance,
-                                               gneiss::guid source,
-                                               gneiss::guid component) {
+                                       gneiss::guid source, gneiss::guid component) {
   author_scene_document scene;
   auto status = current_author_scene(state, scene);
   if (status.failed())
@@ -661,10 +663,9 @@ bool has_prefab_overrides(editor_state& state, gneiss::guid instance) {
   return !prefab.overrides.empty() || !prefab.component_overrides.empty();
 }
 
-[[nodiscard]] gneiss::error
-apply_selected_prefab(editor_state& state, gneiss::guid instance_uuid,
-                      gneiss::guid source_uuid,
-                      std::optional<std::string> source_content = {}) {
+[[nodiscard]] gneiss::error apply_selected_prefab(editor_state& state, gneiss::guid instance_uuid,
+                                                  gneiss::guid source_uuid,
+                                                  std::optional<std::string> source_content = {}) {
   const auto selected = state.editing.document().find_prefab_source(instance_uuid, source_uuid);
   if (!selected || !has_prefab_overrides(state, instance_uuid) || state.runtime.is_busy()) {
     return gneiss::error::invalid_state;
@@ -699,9 +700,8 @@ apply_selected_prefab(editor_state& state, gneiss::guid instance_uuid,
   return operation;
 }
 
-[[nodiscard]] gneiss::error
-unpack_selected_prefab(editor_state& state, gneiss::guid instance_uuid,
-                       std::optional<std::string> source_content = {}) {
+[[nodiscard]] gneiss::error unpack_selected_prefab(editor_state& state, gneiss::guid instance_uuid,
+                                                   std::optional<std::string> source_content = {}) {
   const auto root = state.editing.document().find_prefab_root(instance_uuid);
   if (!root || state.runtime.is_busy()) {
     return gneiss::error::invalid_state;
@@ -762,9 +762,8 @@ unpack_selected_prefab(editor_state& state, gneiss::guid instance_uuid,
   return operation;
 }
 
-[[nodiscard]] gneiss::error create_prefab_from_selected(editor_state& state,
-                                                                gneiss::guid root_uuid,
-                                                                std::string_view prefab_path) {
+[[nodiscard]] gneiss::error create_prefab_from_selected(editor_state& state, gneiss::guid root_uuid,
+                                                        std::string_view prefab_path) {
   if (state.editing.document().find_node(root_uuid).failed() || state.runtime.is_busy() ||
       prefab_path.empty()) {
     return gneiss::error::invalid_state;
@@ -805,7 +804,7 @@ unpack_selected_prefab(editor_state& state, gneiss::guid instance_uuid,
 }
 
 gneiss::error begin_scene_save(editor_state& state, std::string_view uri,
-                                       gneiss::files::write_mode mode) {
+                               gneiss::files::write_mode mode) {
   if (state.pending_file_operation)
     return gneiss::error::not_ready;
   std::shared_ptr<gneiss::editor::scene_edit_session::save_receipt> receipt;
@@ -838,9 +837,8 @@ gneiss::error save_document_as(editor_state& state) {
   std::string uri;
   if (status.ok())
     status = gneiss::editor::make_asset_uri(state.asset_root, path, uri);
-  return status.failed()
-             ? status
-             : begin_scene_save(state, uri, gneiss::files::write_mode::create_new);
+  return status.failed() ? status
+                         : begin_scene_save(state, uri, gneiss::files::write_mode::create_new);
 }
 gneiss::error save_document(editor_state& state) {
   if (state.editing.document().uri().empty())
@@ -909,8 +907,7 @@ void begin_editor_exit(editor_state& state) {
 #endif
 }
 
-gneiss::error perform_document_action(editor_state& state,
-                                              gneiss::editor::document_action action) {
+gneiss::error perform_document_action(editor_state& state, gneiss::editor::document_action action) {
   gneiss::error operation = gneiss::error::success;
   switch (action) {
   case gneiss::editor::document_action::new_scene:
@@ -934,8 +931,7 @@ gneiss::error perform_document_action(editor_state& state,
   case gneiss::editor::document_action::none:
     return gneiss::error::success;
   }
-  if (operation == gneiss::error::success &&
-      action == gneiss::editor::document_action::new_scene) {
+  if (operation == gneiss::error::success && action == gneiss::editor::document_action::new_scene) {
     state.editing.history().clear();
   }
   return operation;
@@ -1135,8 +1131,7 @@ void draw_component_descriptions(editor_state& state) {
     auto view = component->view();
     auto type = meta::find_type(component->guid());
     if (!view || !type) {
-      state.inspector_error =
-          !view ? view.error() : gneiss::error{gneiss::error::not_found};
+      state.inspector_error = !view ? view.error() : gneiss::error{gneiss::error::not_found};
       continue;
     }
     std::optional<meta::const_instance> original;
@@ -1217,8 +1212,8 @@ void execute_asset_browser_request(editor_state& state,
   case action::none:
     break;
   case action::restart_source_watch: {
-    const auto stopped = state.asset_watcher.is_running() ? state.asset_watcher.stop()
-                                                          : gneiss::error::success;
+    const auto stopped =
+        state.asset_watcher.is_running() ? state.asset_watcher.stop() : gneiss::error::success;
     state.asset_watch_result =
         stopped.ok() ? state.asset_watcher.start(state.project_root / "sources", true) : stopped;
     if (state.asset_watch_result.ok()) {
@@ -1473,8 +1468,7 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVe
       minimum, size);
 }
 
-gneiss::error update_editor_camera(editor_state& state,
-                                           const gneiss::frame_time& time) {
+gneiss::error update_editor_camera(editor_state& state, const gneiss::frame_time& time) {
   auto& io = ImGui::GetIO();
   gneiss::editor::editor_camera_input input;
   constexpr double nanoseconds_per_second = 1'000'000'000.0;
@@ -1612,12 +1606,17 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       return gneiss::error::invalid_argument;
     }
     auto& state = *static_cast<editor_state*>(user_data);
+    if (state.local_logs)
+      state.local_logs->drain(state.console);
     state.runtime.update();
     if (state.layout.loading()) {
       const auto status = state.layout.advance(state.panel_visibility);
       if (status.failed() && status != gneiss::error::not_ready) {
         state.layout_status = status;
-        std::fprintf(stderr, "Gneiss Editor 布局读取失败：%d\n", status.code());
+        gneiss::logging::logger{"editor"}.write({.severity = gneiss::logging::level::error,
+                                                 .category = "layout",
+                                                 .message = "布局读取失败",
+                                                 .result = status});
       }
     }
     if (state.pending_file_operation) {
@@ -1687,8 +1686,8 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
 #endif
       if (!state.layout_save_started) {
         state.layout_save_started = true;
-        state.layout_status = state.smoke ? gneiss::error::success
-                                          : state.layout.save(state.panel_visibility);
+        state.layout_status =
+            state.smoke ? gneiss::error::success : state.layout.save(state.panel_visibility);
       }
       if (!state.smoke && !state.layout.saving() && state.layout_status.ok())
         state.layout_status = state.layout.save_result();
@@ -2573,8 +2572,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
                          static_cast<int>(message.size()), message.data());
       ImGui::End();
     }
-    if (state.prefab_author_attempted &&
-        state.prefab_author_result != gneiss::error::success) {
+    if (state.prefab_author_attempted && state.prefab_author_result != gneiss::error::success) {
       const auto message = state.prefab_author_result.message();
       ImGui::SetNextWindowPos(ImVec2(500.0F, 52.0F));
       ImGui::Begin("Prefab Author Error", nullptr,
@@ -2863,31 +2861,33 @@ uint8_t handle_close_requested(void* user_data) noexcept try {
 }
 
 int run_editor(int argc, char** argv) {
+  gneiss::host::console_log_buffer local_logs;
+  gneiss::logging::service logs;
+  logs.attach(gneiss::logging::create_console_sink());
+  logs.attach(local_logs.make_sink());
+  gneiss::logging::default_service_binding logging_binding{logs};
+  const auto log = logs.get_logger("editor");
   launch_options options;
   if (!parse_options(argc, argv, options)) {
-    std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=命令行解析，结果=%d，消息=参数无效\n",
-                 gneiss::error::invalid_argument.code());
+    report_startup_failure("命令行解析", gneiss::error::invalid_argument);
     return 64;
   }
   gneiss::host::editor_project project;
   if (options.project.empty()) {
     const auto operation = gneiss::host::run_project_manager(options.smoke, project);
     if (operation == gneiss::error::not_ready) {
+      log.info("Editor 已正常退出");
+      logs.flush();
       return 0;
     }
     if (operation != gneiss::error::success) {
-      const auto message = operation.message();
-      std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=Project Manager，结果=%d，消息=%.*s\n",
-                   operation.code(), static_cast<int>(message.size()), message.data());
+      report_startup_failure("Project Manager", operation);
       return 65;
     }
   } else {
     const auto operation = gneiss::host::load_editor_project(utf8_path(options.project), project);
     if (operation != gneiss::error::success) {
-      const auto message = operation.message();
-      std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=工程加载，结果=%d，消息=%.*s，路径=%s\n",
-                   operation.code(), static_cast<int>(message.size()), message.data(),
-                   options.project.c_str());
+      report_startup_failure("工程加载", operation, options.project);
       return 65;
     }
   }
@@ -2897,6 +2897,8 @@ int run_editor(int argc, char** argv) {
     return 64;
   }
   editor_state state(options.cooperative_tasks);
+  state.local_logs = &local_logs;
+  log.info("Editor 启动");
   std::shared_ptr<gneiss::runtime::application> application;
   state.smoke = options.smoke;
   state.smoke_frame_limit = options.smoke_frames;
@@ -2915,7 +2917,7 @@ int run_editor(int argc, char** argv) {
     std::error_code error;
     std::filesystem::create_directories(root, error);
     if (error)
-      std::fprintf(stderr, "Gneiss Editor 用户目录创建失败：%s\n", error.message().c_str());
+      log.error("Editor 用户目录创建失败：{}", error.message());
     user_root_text = path_utf8(root);
   }
   gneiss::runtime::application_configuration desc;
@@ -2939,8 +2941,7 @@ int run_editor(int argc, char** argv) {
       project.environment.rotation_degrees * 0.01745329251994329577F;
 
   auto created = gneiss::runtime::application::create(desc);
-  auto operation =
-      created ? gneiss::error{gneiss::error::success} : created.error();
+  auto operation = created ? gneiss::error{gneiss::error::success} : created.error();
   if (operation != gneiss::error::success) {
     report_startup_failure("Editor Application 创建", operation, path_utf8(project.project_root));
     return 1;
@@ -2953,16 +2954,12 @@ int run_editor(int argc, char** argv) {
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   const auto author_monitor_result = state.author_assets.initialize(application->async_files());
   if (author_monitor_result != gneiss::error::success) {
-    const auto message = author_monitor_result.message();
-    std::fprintf(stderr, "Gneiss Editor 作者资产监视初始化失败：结果=%d，消息=%.*s\n",
-                 author_monitor_result.code(), static_cast<int>(message.size()), message.data());
+    report_startup_failure("作者资产监视初始化", author_monitor_result);
   } else {
     const auto author_watcher_result = state.author_asset_watcher.start(state.asset_root);
     state.author_watch_result = author_watcher_result;
     if (author_watcher_result != gneiss::error::success) {
-      const auto message = author_watcher_result.message();
-      std::fprintf(stderr, "Gneiss Editor 作者资产监听启动失败：结果=%d，消息=%.*s\n",
-                   author_watcher_result.code(), static_cast<int>(message.size()), message.data());
+      report_startup_failure("作者资产监听启动", author_watcher_result);
     }
   }
 #endif
@@ -2977,9 +2974,7 @@ int run_editor(int argc, char** argv) {
         application->async_files(), path_utf8(project.project_root), state.panel_visibility);
     if (layout_result != gneiss::error::success &&
         layout_result != gneiss::error::invalid_argument) {
-      const auto message = layout_result.message();
-      std::fprintf(stderr, "Gneiss Editor 布局加载失败：结果=%d，消息=%.*s\n", layout_result.code(),
-                   static_cast<int>(message.size()), message.data());
+      report_startup_failure("布局加载", layout_result);
     }
   }
   state.world = application->native_world();
@@ -3042,7 +3037,10 @@ int run_editor(int argc, char** argv) {
     const auto status =
         state.layout_status.failed() ? state.layout_status : state.layout.save_result();
     if (status.failed())
-      std::fprintf(stderr, "Gneiss Editor 布局保存失败：%d\n", status.code());
+      gneiss::logging::logger{"editor"}.write({.severity = gneiss::logging::level::error,
+                                               .category = "layout",
+                                               .message = "布局保存失败",
+                                               .result = status});
   }
   state.ui.shutdown(*application);
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
@@ -3077,6 +3075,9 @@ int run_editor(int argc, char** argv) {
   if (run_result != gneiss::error::success) {
     report_startup_failure("Editor 运行时事件循环", run_result, path_utf8(project.project_root));
   }
+  log.info("Editor 已退出，结果={}", run_result.code());
+  logs.flush();
+  local_logs.drain(state.console);
   return run_result == gneiss::error::success ? 0 : 4;
 }
 

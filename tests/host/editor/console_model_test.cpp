@@ -1,13 +1,67 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "console_log_buffer.hpp"
 #include "console_model.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/logging/service.hpp"
+#include <thread>
 
 #include <utility>
 #include <vector>
 
+namespace {
+struct observer {
+  unsigned count{};
+  void changed() { ++count; }
+};
+bool check_local_logs() {
+  gneiss::host::console_log_buffer buffer;
+  gneiss::editor::console_model model;
+  observer listener;
+  gneiss::events::scoped_connection subscription =
+      model.changed().connect<&observer::changed>(listener);
+  gneiss::logging::service logs;
+  auto connection = logs.attach(buffer.make_sink());
+  auto log = logs.get_logger("editor");
+  std::thread worker([&] {
+    log.write({.context = 42,
+               .severity = gneiss::logging::level::warning,
+               .category = "test",
+               .message = "local",
+               .result = gneiss::error::io});
+  });
+  worker.join();
+  logs.flush();
+  if (!model.entries().empty() || listener.count != 0)
+    return false;
+  buffer.drain(model);
+  if (listener.count != 1 || model.entries().size() != 1 ||
+      model.entries().front().session_id != 0 || model.entries().front().event.context != 42 ||
+      model.entries().front().event.operation != gneiss::error::io)
+    return false;
+  connection.disconnect();
+  log.info("disconnected");
+  logs.close();
+  buffer.drain(model);
+  if (model.entries().size() != 1)
+    return false;
+  subscription.disconnect();
+  model.clear();
+  if (listener.count != 1)
+    return false;
+  auto sink = buffer.make_sink();
+  for (std::size_t i = 0; i < buffer.capacity + 2; ++i)
+    if (sink->write({.message = {.message = "bounded"}}).failed())
+      return false;
+  buffer.drain(model);
+  return model.entries().size() == buffer.capacity + 1 &&
+         model.entries().front().event.message.find("2") != std::string::npos;
+}
+}
 int main() {
+  if (!check_local_logs())
+    return 20;
   gneiss::editor::console_model model(2U);
   const auto first_session = model.begin_session();
   gneiss::editor::console_event event;
@@ -34,21 +88,18 @@ int main() {
   filter.current_session_only = true;
   filter.search = "truncated";
   std::vector<std::size_t> visible;
-  if (model.visible_indices(filter, visible) != gneiss::error::success ||
-      visible.size() != 1U || visible.front() != 1U) {
+  if (model.visible_indices(filter, visible) != gneiss::error::success || visible.size() != 1U ||
+      visible.front() != 1U) {
     return 4;
   }
   filter.source = "application";
-  if (model.visible_indices(filter, visible) != gneiss::error::success ||
-      !visible.empty()) {
+  if (model.visible_indices(filter, visible) != gneiss::error::success || !visible.empty()) {
     return 5;
   }
   filter = {};
   filter.include_raw = false;
-  filter.severity_mask = UINT32_C(1)
-                         << static_cast<std::uint32_t>(gneiss::logging::level::info);
-  if (model.visible_indices(filter, visible) != gneiss::error::success ||
-      !visible.empty()) {
+  filter.severity_mask = UINT32_C(1) << static_cast<std::uint32_t>(gneiss::logging::level::info);
+  if (model.visible_indices(filter, visible) != gneiss::error::success || !visible.empty()) {
     return 6;
   }
 
@@ -65,8 +116,7 @@ int main() {
   }
   filter = {};
   filter.include_raw = false;
-  filter.severity_mask = UINT32_C(1)
-                         << static_cast<std::uint32_t>(gneiss::logging::level::warning);
+  filter.severity_mask = UINT32_C(1) << static_cast<std::uint32_t>(gneiss::logging::level::warning);
   filter.source = "game";
   filter.category = "asset";
   filter.search = "texture";
@@ -76,8 +126,7 @@ int main() {
   }
 
   gneiss::editor::console_model disabled(0U);
-  if (disabled.append_event(disabled.begin_session(), {}) !=
-          gneiss::error::invalid_argument ||
+  if (disabled.append_event(disabled.begin_session(), {}) != gneiss::error::invalid_argument ||
       model.append_event(0U, {}) != gneiss::error::invalid_argument ||
       !disabled.entries().empty()) {
     return 9;
