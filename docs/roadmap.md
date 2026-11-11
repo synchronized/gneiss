@@ -21,7 +21,9 @@
 
 ## 阶段概览
 
-应用装配与场景模块职责重整已确认、待开始，见 [PLAN-113](plans/PLAN-113-application-scene-boundaries.md)。
+持久渲染场景与增量同步设计已确认、待实施，见 [PLAN-115](plans/PLAN-115-persistent-render-scene.md)。
+
+应用装配与场景模块代码迁移已清理旧服务，验收汇总待收尾，见 [PLAN-113](plans/PLAN-113-application-scene-boundaries.md)。
 
 World 对象入口与场景归属收敛开始实施，见 [PLAN-110](plans/PLAN-110-world-scene-ownership.md)。
 

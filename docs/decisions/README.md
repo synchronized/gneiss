@@ -125,3 +125,5 @@ Reference 和实现为准。
 - [ADR-115：World 运行对象入口与场景归属](ADR-115-world-scene-ownership.md)
 
 - [ADR-116：加载请求与执行推进分离](ADR-116-loading-request-api.md)
+
+- [ADR-118：持久渲染场景、增量同步与帧视图边界](ADR-118-persistent-render-scene.md)

@@ -678,6 +678,8 @@
 
 - [PLAN-113 应用装配与场景模块职责重整](plans/PLAN-113-application-scene-boundaries.md)
 - [PLAN-114 测试分层与维护规则收敛](plans/PLAN-114-test-maintenance.md)
+- [PLAN-115 持久渲染场景与增量同步（待实施）](plans/PLAN-115-persistent-render-scene.md)
+- [ADR-118 持久渲染场景、增量同步与帧视图边界](decisions/ADR-118-persistent-render-scene.md)
 - [ADR-117 应用装配、资产、运行世界与编辑文档边界](decisions/ADR-117-application-scene-boundaries.md)
 
 - [PLAN-113 编辑职责迁移记录](records/2026-11-11-plan113-editor-boundary.md)
