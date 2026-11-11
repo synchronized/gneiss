@@ -92,14 +92,6 @@ template <class T, class U> engine::error read_component_value(const T* value, U
 
 namespace gneiss::test_support {
 // 只适配测试断言的输出形式；不拥有请求、不推进加载。
-template <class Request, class Progress>
-bool observe_request(const Request& request, Progress& output) {
-  auto value = request.progress();
-  if (!value)
-    return false;
-  output = *value;
-  return true;
-}
 template <class Request, class Completion>
 engine::error receive_request(Request& request, Completion& output, bool& ready) {
   ready = false;

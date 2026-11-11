@@ -23,7 +23,7 @@
 
 - [x] 建立测试指南，AGENTS 和文档索引链接唯一来源。
 - [x] 取消由操作标记与观察者释放证明，允许零耗时；实例化预算改为显式选项并记录到报告。
-- [ ] 精简 scene_load_application_test，迁移必要覆盖后删除旧服务消费者；不原样保留旧状态机。
+- [x] 精简 scene_load_application_test，迁移必要覆盖后删除旧服务消费者；不原样保留旧状态机。
 - [x] 将异步关闭覆盖迁入 native_application，使用资产请求与批次，标注已核查的 cpu/integration 标签。
 - [ ] 清理仅为旧消费者服务的测试辅助，保留必要装配辅助但不复制生产服务。
 - [ ] 审核已配置测试的实际依赖，补齐用途标签和可靠的 CPU/GPU/子进程选择入口。
@@ -31,16 +31,16 @@
 
 ## 最后一个旧消费者的处置清单
 
-以下是函数级初审，不代表逐条断言已确认重复；删除前须核对实际覆盖。
+以下分组已完成首轮整理；验证结果见[执行记录](../records/2026-11-11-plan114-scene-tests.md)。
 
 | 原测试分组 | 处置方向 |
 | --- | --- |
-| run | 删除候选 ready/applied、清理进度与旧预算断言；请求移动/取消/关闭对照 native_application_test，场景追加与卸载对照 Scene/World 测试，缺口才补 |
+| run → scene_content_boundary | 删除候选 ready/applied、清理进度与旧预算断言；请求移动/取消/关闭对照 native_application_test，场景追加与卸载对照 Scene/World 测试，缺口才补 |
 | visual_failure | 保留缺失网格/材质/纹理的降级及重试后身份更新行为；结构重载已有缺失网格/材质覆盖，纹理细节仍需核查 |
 | shared_scene_assets | 删除候选内存去重统计；资产共享、重载身份及损坏文件缓存复用对照资产测试和 asset_pixel_test |
 | shared_texture_versions | 保留多个材质共享纹理及显式重载行为；删除 texture_payload_bytes 零值断言和旧阶段等待 |
 | asynchronous_shutdown | 已迁入 native_application：空闲/资产请求/批次三种输入，保留最终任务回收和关闭回调一次，不依赖旧场景阶段 |
-| source_reload_without_world_prefab_state | 对照 tests/host/runtime 的 scene/prefab 结构重载测试；增删对象、换根、运行变换保留等未覆盖差异迁入宿主测试 |
+| source_reload_without_world_prefab_state | 对照 tests/host/runtime 的 scene/prefab 结构重载测试；增删对象、换根、运行变换保留、失败重试及主相机选择已迁入宿主测试 |
 
 ## 完成边界与风险
 
