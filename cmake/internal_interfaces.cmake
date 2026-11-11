@@ -137,7 +137,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/material.hpp
   engine/function/render/render_service.hpp
   engine/function/render/render_scene.hpp
-  engine/function/render/scene_update.hpp
+  engine/function/render/commands.hpp
   engine/function/render/render_resource_data.hpp
   engine/function/render/render_snapshot.hpp
   engine/function/render/render_statistics.hpp

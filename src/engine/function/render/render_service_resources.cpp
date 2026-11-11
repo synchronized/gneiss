@@ -87,10 +87,7 @@ render_service::resource_storage::resource_storage(std::uint64_t memory_limit)
       });
 }
 result<rid> render_service::create_scene() { return storage_->scenes_->create_scene(); }
-result<scene_update> render_service::begin_update(rid scene) {
-  return storage_->scenes_->begin_update(scene);
-}
-result<void> render_service::submit(scene_update&& update) {
+result<void> render_service::submit(render::scene_commands&& update) {
   return storage_->scenes_->submit(std::move(update));
 }
 result<void> render_service::destroy_scene(rid scene) {

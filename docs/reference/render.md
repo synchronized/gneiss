@@ -186,14 +186,32 @@ Application、Loader、UI 和帧构建使用 `render_service` 的 RID 操作及�
 ## 持久场景更新（CPU 基础阶段）
 
 `render_service::create_scene()` 创建独立 CPU 渲染场景，无需先初始化窗口或 GPU。
-`begin_update(scene)` 返回不可复制的 `scene_update`，可录制实例创建、变换、网格/材质换绑、
-层掩码、显隐、阴影标记与删除；`submit(std::move(update))` 成功后批次被消费。
-`destroy_scene(scene)` 删除其全部已提交和预留实例，不删除其他场景。
-以上接口均在服务所属线程调用。
+`submit(render::scene_commands&&)` 接受自有命令列表，支持创建、变换、网格/材质换绑、
+层掩码/显隐/阴影标记和删除。成功清空列表并将其 scene 置零，返回失败时列表与场景均不变。
+`destroy_scene(scene)` 删除其全部实例，不删除其他场景。以上接口均在服务所属线程调用。
 
-实例创建返回带 generation 的 RID；提交前只允许所属批次使用。未提交批次析构会回收预留身份，
-已有实例的修改不生效。提交时重新校验目标；失败不会部分应用。跨服务/场景、重复删除、失效 RID
-被拒绝，关闭服务后的批次操作返回 invalid_state，批次析构不会访问已销毁服务。
+最小调用示例（所有操作均在服务所属线程）：
+
+```cpp
+auto scene = renderer.create_scene();
+if (!scene)
+  return scene.error();
+render::scene_commands commands{
+    *scene, {render::create_instance{{1}, {.mesh = mesh_rid, .material = material_rid}}}};
+auto accepted = renderer.submit(std::move(commands));
+// not_ready 时保留 commands 及资源引用，稍后重试；成功后不要再次发送。
+// 使用结束时调用 renderer.destroy_scene(*scene)。
+```
+
+实例由 `{scene RID, render::instance_key}` 定位。key 是生产者分配的非零 64 位值，
+每个场景的创建命令按 key 递增提交，删除后不复用；不同场景允许使用相同 key。
+场景 RID 校验所属服务和 generation，旧场景的命令不会作用于复用槽位的新场景。
+同列表可以先创建再更新/删除；重复删除、访问已删除 key、零 key 和重用旧 key 均拒绝。
+
+命令列表没有服务指针、预留资源或析构回调，允许晚于服务销毁；提交前须由生产者保活资源。
+校验时只暂存被触及实例，不复制全场景；全部通过后转移存储节点，发布阶段不分配实例存储。
+返回失败不会部分应用，关闭服务后提交返回 invalid_state。内存耗尽遵循项目致命错误策略，
+不作为可重试结果。
 
 变换保存完整仿射矩阵，允许剪切；非有限、非仿射或奇异矩阵返回 invalid_argument。
 本阶段创建/资源换绑仅支持已就绪的网格、材质和纹理；未就绪返回 not_ready。

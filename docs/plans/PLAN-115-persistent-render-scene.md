@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-2026-11-11：已开始实施。P0 接入核查与 P1 的 CPU 场景/更新批次基础已落地；绘制、World 同步及其余阶段尚未完成。
+2026-11-11：已开始实施。P0 接入核查与 P1 的 CPU 场景/命令输入基础已落地；绘制、World 同步及其余阶段尚未完成。
 除下节明确列出的实现外，本页接口、结构和目录仍为目标设计示意。
 长期边界见 [ADR-118](../decisions/ADR-118-persistent-render-scene.md)。当前接口与阶段限制见 [Render](../reference/render.md)。
 本计划独立跟踪，不将新能力写成 VER-052 已交付项，不延续旧版本的发布授权。
@@ -20,7 +20,8 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
 2026-11-11：用户进一步确认统一命令输入，预览可以创建 World 并复用同一同步链路。
 保留 `gneiss::render`、单一 PImpl 与 Granit 私有后端边界；不再并列维护公开实例 setter 和命令接口。
 [复核记录](../records/2026-11-11-render-design-review.md)保留当时的分析与方案取舍。
-本次只更新文档；现有代码仍使用 `render_service` 和公开 `scene_update`，不能描述为迁移完成。
+后续实施已以 `render::scene_commands` 替换公开 `scene_update`；服务仍名为 `render_service`，
+完整链路、单一 PImpl 和后端分离尚未迁移完成。
 
 - World 记录创建、删除和脏状态；绑定在更新结束后生成 Render 定义的命令列表，Service 统一接受。
 - 命令是数据，不持有服务，不预留后端对象，析构不撤销服务状态；队列实现仍私有。
@@ -37,12 +38,13 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
   使用一次执行命令；不能使用允许重新排队的 resumable 策略，也不能随可替换帧丢弃。
 - 既有 `render_resource_snapshot` 通过不可变共享 payload 保证旧帧数据不变；保留该能力。
   新增实例当前固定已就绪 payload，资源身份 pin、未就绪填充及热重载刷新仍属于 P2，不能标记完成。
-- `render_service` 已提供 create_scene/begin_update/submit(scene_update&&)/destroy_scene。
-  当前只管理 CPU 状态，不需要窗口/GPU，也尚未连接实际绘制。更新提交同线程生效。
-- `scene_update` 支持预留实例、变换/资源/层掩码/显隐/投影阴影标记与删除；预校验后发布整个批次。
-  放弃批次回收预留 RID，跨服务/场景和过期 generation 被拒绝；关闭后批次可安全销毁。
-- 定向 CPU 验证覆盖批次取消、旧批次失败不部分应用、独立字段更新、共享 payload 保活与关闭。
-  Windows Clang Debug 的 Engine、Runtime、Editor 与渲染测试目标构建通过；render_scene、render_frame_packet、render_executor 三项测试通过。
+- `render_service` 已提供 create_scene/submit(render::scene_commands&&)/destroy_scene，删除 begin_update 和旧批次对象。
+  当前只管理 CPU 状态，不需要窗口/GPU，也尚未连接实际绘制。命令提交同线程生效。
+- 已采用场景内递增 instance_key 与列表全收或不收的 CPU 接受规则；不再预留实例 RID。
+  提交前不保活服务/资源，不依赖析构回调；校验阶段只暂存触及实例，成功后消费列表。
+- 定向 CPU 验证覆盖创建后更新、丢弃列表、失败重试无部分应用、删除与 key 不复用、
+  跨服务/场景、场景 generation、共享 payload 保活与关闭。旧批次取消契约对应测试已替换。
+  本轮 Windows Clang Debug 的 Engine、Runtime、Editor 和三项渲染测试构建通过；render_scene、render_frame_packet、render_executor 测试通过。
   尚未验证 GPU、多视图、World 同步和其他平台。
 
 后续按已确认边界完成资源身份 pin 和持久场景绘制入口，再接 World 变化通知与绑定；
@@ -157,7 +159,7 @@ struct frame_request {
   std::vector<view> views;
   // 自有 UI/调试输入，明确关联视图或目标。
 };
-// instance_key 为下节建议的场景内生产者身份，尚待最终确定。
+// instance_key 为场景内生产者分配的身份。
 struct create_instance { instance_key id; mesh_instance_description description; };
 struct set_transform { instance_key id; math::matrix4 world_matrix; };
 struct set_resources { instance_key id; rid mesh; rid material; };
@@ -192,9 +194,9 @@ private:
 优先收敛既有 asset_construction，不新增公开资源 Manager。普通宿主不再调用 prepare_frame_packet_storage、
 capture_render_frame_packet 或完成领取来协调绘制；截图使用专门异步请求并获得唯一终态。
 
-## 创建命令身份（建议方案，尚未实施）
+## 创建命令身份
 
-推荐由绑定生成场景内单调递增的 `instance_key`（非零 64 位强类型值），Render 以
+采用由生产者（后续为绑定）生成场景内单调递增的 `instance_key`（非零 64 位强类型值），Render 以
 `{scene RID, instance_key}` 定位实例。场景 RID 继续由 Service 创建和校验 generation/所属服务。
 实例 key 不是资源 RID，不包含 entity_id、UUID 或 ECS 布局，也不能作为跨场景全局句柄。
 
@@ -206,15 +208,15 @@ capture_render_frame_packet 或完成领取来协调绘制；截图使用专门�
 - 删除后旧 key 不再代表有效实例；对象/组件重新加入得到新 key。拾取结果带 scene + key，
   绑定只解析仍存活的映射；底层若只能输出 32 位拾取值，后端做本帧映射，不截断 64 位身份。
 
-这是对旧“每个渲染实例必须使用 Service 分配 RID”的具体调整建议，尚未修改运行类型。
+本轮已将旧实例 RID 改为场景内 key；绑定分配器尚待随 World 同步实现。
 备选是 Service 预留实例 RID，但会重新引入预留、取消和失败清理；或使用列表局部 token + 返回 RID 映射，
-但会增加回执与待解析状态。推荐场景内 key，以保留队列协议简单性。实施实例身份前需确定该选择。
+但会增加回执与待解析状态。本轮采用场景内 key，以保留队列协议简单性。
 
 ## 命令接受与线程规则
 
 - 单生产者在服务所属逻辑线程提交，自有列表不借用 World/ECS 内存。GameObject setter 不调用 Render。
 - 列表只有值和资源 RID；没有服务指针、析构回调或后端预留。丢弃未提交列表不影响 Render。
-- 建议列表接受采用全收或不收的传输边界：校验场景、命令顺序、实例身份和资源引用并取得内部依赖后入队；
+- 列表接受采用全收或不收的传输边界（CPU 消费已实现，执行器队列待接入）：校验场景、命令顺序、实例身份和资源引用并取得内部依赖后入队；
   失败不消费调用方列表、不改变服务可见状态。校验允许列表中先创建再更新，不复制整个场景。
 - 这是有界队列的接受保证，不是 GPU 事务：接受后按序执行，不承诺异步后端失败能回滚整批。
   移除旧批次对象的价值在于删除预留/取消生命周期，不是取消必要的输入校验。
@@ -348,7 +350,7 @@ World 核心不依赖 Render，render 目录不反向包含 World/ECS。构建�
 
 - [ ] P0：收敛命名空间、单一 PImpl 和 Service/Backend 边界，明确资源身份/版本、背压和关闭语义。
   随首个实际调用链调整；不以只移动文件或增加空壳作为该阶段完成。
-- [ ] P1：确定实例命令身份，World 变化记录、最小绑定、统一命令输入与真实 Granit 绘制一起接通预览 World。
+- [ ] P1：实例命令身份、World 变化记录、最小绑定、统一命令输入与真实 Granit 绘制一起接通预览 World。
   覆盖 pending→ready、热重载、外部释放后的实例存活；删除被替代的公开 scene_update 与首次 payload 固定逻辑。
 - [ ] P2：接通有序资源版本、帧安全和 GPU 退休，复用执行器并验证设备失败关闭；
   上层退休只交还拥有权，不介入后端时序。P1 必要安全能力必须同时实现，不能以阶段编号推迟。
@@ -380,8 +382,7 @@ CPU/GPU 创建耗时优化不作为持久场景正确性闭环的前置条件；
 
 ## 未决实现项与建议
 
-统一命令输入、预览复用 World 与 Granit 私有后端边界已确认。场景内 instance_key 是具体身份建议，
-需在编码前确定；不再以无 World 预览为由增加一套直接实例 setter。实施需根据代码证据决定：命令容量与背压策略、
+统一命令输入、预览复用 World 与 Granit 私有后端边界已确认。场景内 instance_key 已用于 CPU 命令消费；不再以无 World 预览为由增加一套直接实例 setter。实施需根据代码证据决定：命令容量与背压策略、
 复用何种 Granit 队列/fence、资产适配具体落点、
 临时数据是否复用现有 draw list，以及后端 payload 的具体保活机制。默认复用已有机制，避免双队列和双退休系统。
 若必须改变已确认所有权、增加跨仓库能力或扩大非目标，先记录差异与建议，再与用户讨论。
