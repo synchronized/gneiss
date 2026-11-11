@@ -7,7 +7,7 @@
 #include <type_traits>
 static_assert(!std::is_copy_constructible_v<gneiss::render::service>);
 static_assert(!std::is_move_constructible_v<gneiss::render::service>);
-static_assert(std::is_default_constructible_v<gneiss::render_device_stats>);
+static_assert(std::is_default_constructible_v<gneiss::render::device_stats>);
 
 static_assert(!std::is_copy_constructible_v<gneiss::window_service>);
 static_assert(!std::is_move_constructible_v<gneiss::window_service>);

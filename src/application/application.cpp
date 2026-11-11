@@ -211,7 +211,7 @@ application::application(const runtime::application_configuration& config)
 
 application::~application() noexcept { static_cast<void>(shutdown()); }
 
-gneiss::render_queue_stats application::render_statistics() const {
+gneiss::render::queue_stats application::render_statistics() const {
   if (storage_->window_service_) {
     return storage_->render_service_->query_performance_stats();
   }
@@ -562,7 +562,7 @@ gneiss::error application::set_view_camera(const gneiss::view_camera* camera) {
 }
 
 gneiss::error application::capture_frame(std::uint32_t width, std::uint32_t height,
-                                                 gneiss::frame_image& output) {
+                                         gneiss::render::frame_image& output) {
   output = {};
   if (!is_owner_thread() || !accepts_requests())
     return gneiss::error::invalid_state;
@@ -580,7 +580,7 @@ gneiss::error application::capture_frame(std::uint32_t width, std::uint32_t heig
     auto request = storage_->make_render_request(window);
     if (!request)
       return request.error();
-    auto image = std::make_shared<gneiss::frame_image>();
+    auto image = std::make_shared<gneiss::render::frame_image>();
     auto submitted = storage_->render_service_->request_capture(std::move(*request), image);
     if (!submitted)
       return submitted.error();
@@ -848,7 +848,7 @@ gneiss::error application::shutdown() {
   }
   if (storage_->window_service_ != nullptr) {
     const auto render_stats = storage_->render_service_->query_performance_stats();
-    gneiss::render_device_stats stats;
+    gneiss::render::device_stats stats;
     const auto render_shutdown_result = storage_->render_service_->shutdown(stats);
     if (shutdown_result == gneiss::error::success) {
       shutdown_result = render_shutdown_result;

@@ -5,9 +5,9 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace gneiss {
+namespace gneiss::render {
 /** 单帧执行结果；后端填写绘制指标，执行器补充排队与线程耗时。 */
-struct render_execution_result final {
+struct execution_result final {
   bool needs_recreate{};
   bool presented{};
   float frame_capture_ms{};
@@ -32,7 +32,7 @@ struct render_execution_result final {
 };
 
 /** 设备关闭时的存活资源计数；由后端转换，不包含后端句柄。 */
-struct render_device_stats {
+struct device_stats {
   std::uint64_t total_live_count{};
   std::uint64_t buffer_count{};
   std::uint64_t texture_count{};
@@ -57,7 +57,7 @@ struct render_device_stats {
 };
 
 /** 渲染队列统计值快照，不暴露执行器或在途任务。 */
-struct render_queue_stats final {
+struct queue_stats final {
   std::size_t pending_tasks{};
   std::size_t pending_frames{};
   std::size_t pending_commands{};
@@ -94,4 +94,4 @@ struct render_queue_stats final {
   float environment_rotation_radians{};
 };
 
-} // namespace gneiss
+} // namespace gneiss::render

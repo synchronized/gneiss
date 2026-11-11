@@ -291,7 +291,7 @@ bool service_lifetime() {
     pending = {*scene, {render::set_visibility{{1}, {.visible = false}}}};
     CHECK(owner.submit(std::move(pending)));
     pending = {*scene, {render::destroy_instance{{1}}}};
-    render_device_stats stats{};
+    gneiss::render::device_stats stats{};
     CHECK(owner.shutdown(stats).ok());
     CHECK(!owner.is_valid());
     CHECK(!owner.create_scene() && !owner.reserve_mesh());
@@ -456,7 +456,7 @@ bool frame_capture() {
   CHECK(!renderer.render(std::move(request)) && request.views.size() == 1);
   auto no_image = renderer.request_capture(std::move(request), {});
   CHECK(!no_image && no_image.error() == error::invalid_argument && request.views.size() == 1);
-  auto image = std::make_shared<frame_image>();
+  auto image = std::make_shared<gneiss::render::frame_image>();
   image->width = 17;
   auto rejected = renderer.request_capture(std::move(request), image);
   CHECK(!rejected && request.views.size() == 1 && image->width == 17);

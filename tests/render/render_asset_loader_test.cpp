@@ -1284,7 +1284,7 @@ int main() try {
       return 38;
     const auto handle = resource_handle(reference);
     closing_factory.close();
-    gneiss::render_device_stats stats{};
+    gneiss::render::device_stats stats{};
     if (closing.texture_profile().generation != 0U || closing.shutdown(stats).failed() ||
         stats.total_live_count != 0U || closing.shutdown(stats).failed())
       return 64;

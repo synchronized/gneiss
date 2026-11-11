@@ -16,9 +16,9 @@
 #include "engine/core/logging/record.hpp"
 #include "engine/function/asset/asset_batch_request.hpp"
 #include "engine/function/asset/asset_batch_types.hpp"
-#include "engine/function/render/debug_draw_list.hpp"
 #include "engine/function/render/camera.hpp"
-#include "engine/function/render/render_statistics.hpp"
+#include "engine/function/render/debug_draw_list.hpp"
+#include "engine/function/render/statistics.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 
 #include <cstdint>
@@ -32,8 +32,8 @@ class service;
 }
 namespace render {
 class service;
-}
 struct frame_image;
+}
 }
 
 namespace gneiss {}
@@ -57,9 +57,9 @@ public:
   create(const application_configuration& config);
   [[nodiscard]] GNEISS_API gneiss::error
   set_view_camera(const gneiss::view_camera* camera);
-  [[nodiscard]] GNEISS_API gneiss::error
-  capture_frame(std::uint32_t width, std::uint32_t height, gneiss::frame_image& output);
-  [[nodiscard]] GNEISS_API gneiss::render_queue_stats render_statistics() const;
+  [[nodiscard]] GNEISS_API gneiss::error capture_frame(std::uint32_t width, std::uint32_t height,
+                                                       gneiss::render::frame_image& output);
+  [[nodiscard]] GNEISS_API gneiss::render::queue_stats render_statistics() const;
   [[nodiscard]] GNEISS_API gneiss::error
   attach_task_executor(gneiss::tasks::task_executor& executor);
   [[nodiscard]] GNEISS_API bool has_asset_loading_service() const noexcept;

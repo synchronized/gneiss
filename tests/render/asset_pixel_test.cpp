@@ -116,7 +116,7 @@ void run_asset_reload() {
   check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene, &scheduler)} ==
         gneiss::error::success);
   const auto pixel = [&] {
-    gneiss::frame_image image;
+    gneiss::render::frame_image image;
     check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
     constexpr auto offset = ((64U * 128U) + 64U) * 4U;
     return std::array{
@@ -198,7 +198,7 @@ void run_pending_resources() {
   check(target != nullptr);
   *target = binding;
   const auto pixel = [&] {
-    gneiss::frame_image image;
+    gneiss::render::frame_image image;
     check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
     constexpr auto offset = ((64U * 128U) + 64U) * 4U;
     return std::array{
@@ -256,7 +256,7 @@ void run_pending_resources() {
   check(pixel() == updated);
   check(gneiss::error{resources.destroy_texture(texture)} ==
         gneiss::error::success);
-  gneiss::frame_image invalid;
+  gneiss::render::frame_image invalid;
   check(app->capture_frame(128U, 128U, invalid) == gneiss::error::invalid_handle);
   check(!resources.replace_texture(texture, red));
   check(gneiss::error{
@@ -368,7 +368,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     check(bool(activated));
     scene = activated->instance.instance;
     // CPU 场景先实例化，随后分发视觉加载；两帧图像必须体现资源就绪后的变化。
-    gneiss::frame_image initial;
+    gneiss::render::frame_image initial;
     check(app->capture_frame(128U, 128U, initial).ok());
     while (activated->visuals && !activated->visuals.ready()) {
       check(std::chrono::steady_clock::now() < deadline);
@@ -378,7 +378,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     check(bool(activated->visuals));
     auto completed = activated->visuals.take();
     check(bool(completed) && completed->result.ok());
-    gneiss::frame_image loaded;
+    gneiss::render::frame_image loaded;
     check(app->capture_frame(128U, 128U, loaded).ok());
     check(initial.pixels != loaded.pixels);
   } else {
@@ -386,7 +386,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
           gneiss::error::success);
   }
   check(gneiss::error{app->run(3U)} == gneiss::error::success);
-  gneiss::frame_image image;
+  gneiss::render::frame_image image;
   check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
   const auto offset = (64U * 128U + 64U) * 4U;
   // LOD0 全蓝，缩小时应采样全红的较低分辨率层；阈值不依赖具体色调映射曲线。
@@ -461,7 +461,7 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene)} ==
         gneiss::error::success);
   check(gneiss::error{app->run(3U)} == gneiss::error::success);
-  gneiss::frame_image image;
+  gneiss::render::frame_image image;
   check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
   const auto offset = (64U * 128U + 64U) * 4U;
   return {std::to_integer<unsigned>(image.pixels[offset]),
@@ -583,7 +583,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene)} ==
         gneiss::error::success);
   check(gneiss::error{app->run(3U)} == gneiss::error::success);
-  gneiss::frame_image image;
+  gneiss::render::frame_image image;
   check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
   if (frame != nullptr)
     *frame = image.pixels;
@@ -662,7 +662,7 @@ void run(gneiss::tasks::execution_mode mode, bool pbr = false) {
         gneiss::error::success);
   check(gneiss::error{app->run(3U)} == gneiss::error::success);
   const auto capture = [&](unsigned width = 128U) {
-    gneiss::frame_image image;
+    gneiss::render::frame_image image;
     const auto result = app->capture_frame(width, 128U, image);
     if (result != gneiss::error::success) {
       std::fprintf(stderr, "capture=%d\n", result.code());
@@ -792,7 +792,7 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
         gneiss::error::success);
   check(gneiss::error{app->run(3U)} == gneiss::error::success);
   const auto capture = [&] {
-    gneiss::frame_image image;
+    gneiss::render::frame_image image;
     check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
     return image.pixels;
   };

@@ -10,7 +10,7 @@ gneiss::error service::implementation::initialize(const native_window_info& wind
                                                   float environment_intensity,
                                                   float environment_rotation_radians) {
   const auto executor_result =
-      executor_.initialize([this](render_frame_packet& packet, render_execution_result& output) {
+      executor_.initialize([this](render_frame_packet& packet, execution_result& output) {
         const auto result = backend_.draw(packet, output);
         output.needs_recreate = packet.window.needs_recreate;
         return result;
@@ -36,7 +36,7 @@ gneiss::error service::implementation::initialize(const native_window_info& wind
   auto completion = executor_.try_take_command_completion();
   if (!submit_result || !completion || completion->sequence != *submit_result ||
       completion->status != gneiss::error::success) {
-    render_device_stats ignored{};
+    device_stats ignored{};
     if (executor_
             .submit_command([this, &ignored](const render::detail::render_command_reporter&) {
               return backend_.shutdown(ignored);
@@ -68,7 +68,7 @@ gneiss::error service::implementation::collect_completions() {
       return command->status;
   }
   while (auto completion = executor_.try_take_frame_completion()) {
-    if (completion->policy == render_frame_policy::required) {
+    if (completion->policy == frame_policy::required) {
       required_frame_completions_.push_back({.sequence = completion->sequence,
                                              .status = completion->status,
                                              .execution = completion->execution,
@@ -101,7 +101,7 @@ result<bool> service::implementation::can_prepare_frame() {
   return true;
 }
 result<std::uint64_t> service::implementation::submit(render::detail::render_frame_prepare prepare,
-                                                      render_frame_policy policy) {
+                                                      frame_policy policy) {
   const auto completion_result = collect_completions();
   if (completion_result != gneiss::error::success) {
     return completion_result;
@@ -120,19 +120,18 @@ result<std::uint64_t> service::implementation::submit(render::detail::render_fra
   return accepted;
 }
 
-result<std::optional<render_frame_completion>>
-service::implementation::try_take_required_completion() {
+result<std::optional<frame_completion>> service::implementation::try_take_required_completion() {
   const auto status = collect_completions();
   if (status.failed())
     return status;
   if (required_frame_completions_.empty())
-    return std::optional<render_frame_completion>{};
+    return std::optional<frame_completion>{};
   auto completion = std::move(required_frame_completions_.front());
   required_frame_completions_.pop_front();
-  return std::optional<render_frame_completion>{std::move(completion)};
+  return std::optional<frame_completion>{std::move(completion)};
 }
 
-render_queue_stats service::implementation::query_performance_stats() const noexcept {
+queue_stats service::implementation::query_performance_stats() const noexcept {
   return executor_.query_stats();
 }
 
@@ -151,7 +150,7 @@ gneiss::error service::implementation::finish_frames() {
   return result;
 }
 
-gneiss::error service::implementation::shutdown(render_device_stats& stats) {
+gneiss::error service::implementation::shutdown(device_stats& stats) {
   if (!executor_.is_running()) {
     stats = {};
     return gneiss::error::success;
@@ -203,7 +202,7 @@ error service::initialize(const native_window_info& window,
   return impl_->initialize(window, environment_asset, environment_intensity,
                            environment_rotation_radians);
 }
-error service::shutdown(render_device_stats& stats) {
+error service::shutdown(device_stats& stats) {
   const auto status = impl_->shutdown(stats);
   // shutdown 已停止执行器；历史帧错误不应使 CPU 入口继续接受新资源和场景。
   close_resources();
@@ -220,17 +219,16 @@ result<void> service::render(render::frame_request&& request) {
     return ready.error();
   if (!*ready)
     return error::not_ready;
-  auto submitted = submit_request(request, render_frame_policy::replaceable, {});
+  auto submitted = submit_request(request, frame_policy::replaceable, {});
   return submitted ? result<void>{} : result<void>{submitted.error()};
 }
 result<std::uint64_t> service::request_capture(render::frame_request&& request,
                                                std::shared_ptr<frame_image> image) {
   if (!image)
     return error::invalid_argument;
-  return submit_request(request, render_frame_policy::required, std::move(image));
+  return submit_request(request, frame_policy::required, std::move(image));
 }
-result<std::uint64_t> service::submit_request(render::frame_request& request,
-                                              render_frame_policy policy,
+result<std::uint64_t> service::submit_request(render::frame_request& request, frame_policy policy,
                                               std::shared_ptr<frame_image> image) {
   auto capture = impl_->scenes.prepare_capture(request);
   if (!capture)
@@ -269,10 +267,10 @@ result<std::uint64_t> service::submit_request(render::frame_request& request,
   request = {};
   return *accepted;
 }
-result<std::optional<render_frame_completion>> service::try_take_required_completion() {
+result<std::optional<frame_completion>> service::try_take_required_completion() {
   return impl_->try_take_required_completion();
 }
-render_queue_stats service::query_performance_stats() const noexcept {
+queue_stats service::query_performance_stats() const noexcept {
   return impl_->query_performance_stats();
 }
 texture_prepare_profile service::texture_profile() const noexcept {

@@ -141,7 +141,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/render/frame_request.hpp
   engine/function/render/render_resource_data.hpp
   engine/function/render/camera.hpp
-  engine/function/render/render_statistics.hpp
+  engine/function/render/statistics.hpp
   engine/resource/texture/texture_view.hpp
   engine/function/render/ui_draw_list.hpp
   engine/resource/scene/prefab_property_data.hpp

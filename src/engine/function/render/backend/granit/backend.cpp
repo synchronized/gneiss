@@ -8,7 +8,7 @@
 #include "engine/function/render/backend/granit/pbr_shader_resolver.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
-#include "engine/function/render/render_statistics.hpp"
+#include "engine/function/render/statistics.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/platform/native_window_info.hpp"
 #include <array>
@@ -50,8 +50,8 @@
 namespace gneiss::render::backend::granit {
 struct backend::implementation final {
   error initialize_gpu(const native_window_info&, std::span<const std::byte>, float, float);
-  error shutdown_gpu(render_device_stats&);
-  error execute_frame(render_frame_packet&, render_execution_result&);
+  error shutdown_gpu(device_stats&);
+  error execute_frame(render_frame_packet&, execution_result&);
   error set_environment(std::span<const std::byte>, float, float);
   struct texture_mirror final {
     const texture_data* source{};
@@ -890,7 +890,7 @@ gneiss::error backend::implementation::initialize_gpu(const native_window_info& 
   return map_result(result);
 }
 
-gneiss::error backend::implementation::shutdown_gpu(render_device_stats& stats) {
+gneiss::error backend::implementation::shutdown_gpu(device_stats& stats) {
   static_cast<void>(pipeline_.reset());
   static_cast<void>(environment_.reset());
   environment_info_ = {};
@@ -966,8 +966,7 @@ gneiss::error backend::implementation::shutdown_gpu(render_device_stats& stats) 
 // 单帧资源准备与提交必须保持 Granit 调用和失败回滚的线性顺序。
 gneiss::error
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-backend::implementation::execute_frame(render_frame_packet& packet,
-                                       render_execution_result& output) {
+backend::implementation::execute_frame(render_frame_packet& packet, execution_result& output) {
   output.gpu_timing_supported = gpu_timing_supported_;
   output.environment_asset_requested = environment_asset_requested_;
   output.environment_fallback = environment_fallback_;
@@ -1368,8 +1367,8 @@ error backend::initialize(const native_window_info& window, std::span<const std:
                           float intensity, float rotation) {
   return impl_->initialize_gpu(window, bytes, intensity, rotation);
 }
-error backend::shutdown(render_device_stats& stats) { return impl_->shutdown_gpu(stats); }
-error backend::draw(render_frame_packet& packet, render_execution_result& result) {
+error backend::shutdown(device_stats& stats) { return impl_->shutdown_gpu(stats); }
+error backend::draw(render_frame_packet& packet, execution_result& result) {
   return impl_->execute_frame(packet, result);
 }
 error backend::set_environment(std::span<const std::byte> bytes, float intensity, float rotation) {

@@ -53,7 +53,7 @@ struct context {
   double commit_ms{};
   double max_update_ms{};
   std::size_t prepared_bytes{};
-  gneiss::render_queue_stats stats;
+  gneiss::render::queue_stats stats;
   std::vector<sample> samples;
 };
 gneiss::error native_update(runtime::application& app, context& state) {

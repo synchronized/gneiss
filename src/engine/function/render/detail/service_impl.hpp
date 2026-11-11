@@ -34,15 +34,14 @@ public:
                                          float environment_intensity = 1.0F,
                                          float environment_rotation_radians = 0.0F);
   error request_environment(std::shared_ptr<const std::vector<std::byte>>, float, float);
-  [[nodiscard]] gneiss::error shutdown(render_device_stats& stats);
+  [[nodiscard]] gneiss::error shutdown(device_stats& stats);
   [[nodiscard]] gneiss::error finish_frames();
   void set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept {
     executor_.set_completion_wakeup(std::move(notification));
   }
   [[nodiscard]] result<bool> can_prepare_frame();
-  [[nodiscard]] result<std::uint64_t>
-  submit(render::detail::render_frame_prepare prepare,
-         render_frame_policy policy = render_frame_policy::replaceable);
+  [[nodiscard]] result<std::uint64_t> submit(render::detail::render_frame_prepare prepare,
+                                             frame_policy policy = frame_policy::replaceable);
   result<void> dispatch(std::function<void()> operation) {
     if (!executor_.is_running()) {
       operation();
@@ -56,8 +55,8 @@ public:
         render::detail::render_command_policy::once);
     return accepted ? result<void>{} : result<void>{accepted.error()};
   }
-  [[nodiscard]] result<std::optional<render_frame_completion>> try_take_required_completion();
-  [[nodiscard]] render_queue_stats query_performance_stats() const noexcept;
+  [[nodiscard]] result<std::optional<frame_completion>> try_take_required_completion();
+  [[nodiscard]] queue_stats query_performance_stats() const noexcept;
   /** 仅在 initialize 完成后由宿主读取；设备重建必须重新发布。 */
   [[nodiscard]] texture_prepare_profile texture_profile() const noexcept {
     return backend_.texture_profile();
@@ -68,7 +67,7 @@ private:
   render::backend::granit::backend backend_;
   // 执行器先停止，后端及其资源才能析构。
   render::detail::threaded_render_executor executor_;
-  std::deque<render_frame_completion> required_frame_completions_;
+  std::deque<frame_completion> required_frame_completions_;
   bool pending_recreate_{};
 };
 } // namespace gneiss::render

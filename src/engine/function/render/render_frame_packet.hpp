@@ -85,7 +85,7 @@ struct render_frame_packet final {
   ui_draw_list ui;
   debug_draw_list debug;
   render_frame_capture_metrics capture;
-  std::shared_ptr<frame_image> readback;
+  std::shared_ptr<gneiss::render::frame_image> readback;
 };
 
 } // namespace gneiss

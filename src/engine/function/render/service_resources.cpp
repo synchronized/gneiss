@@ -34,13 +34,13 @@ bool valid_color(float value) noexcept {
 std::uint64_t saturated_add(std::uint64_t left, std::uint64_t right) noexcept {
   return right > UINT64_MAX - left ? UINT64_MAX : left + right;
 }
-render_memory_usage measure(const mesh_data& value) noexcept {
+memory_usage measure(const mesh_data& value) noexcept {
   return {.logical_bytes = value.data_bytes(), .cpu_data_bytes = value.data_bytes()};
 }
-render_memory_usage measure([[maybe_unused]] const material_data& value) noexcept {
+memory_usage measure([[maybe_unused]] const material_data& value) noexcept {
   return {.logical_bytes = sizeof(material_data), .cpu_data_bytes = sizeof(material_data)};
 }
-render_memory_usage measure(const texture_data& value) noexcept {
+memory_usage measure(const texture_data& value) noexcept {
   std::uint64_t bytes = value.payload.size();
   for (const auto& mip : value.levels) {
     bytes = saturated_add(bytes, mip.pixels.size());
@@ -128,8 +128,8 @@ gneiss::error service::texture_status(rid texture) const noexcept {
                : (slot->identity->read() ? gneiss::error::success : gneiss::error::not_ready);
 }
 
-render_memory_usage service::memory_usage() const noexcept {
-  render_memory_usage total;
+memory_usage service::memory_usage() const noexcept {
+  render::memory_usage total;
   const auto collect = [&](auto& history) {
     std::erase_if(history, [](const auto& item) { return item.expired(); });
     for (const auto& item : history) {

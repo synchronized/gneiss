@@ -167,7 +167,7 @@ int main(int argc, char** argv) try {
   gneiss::world* previous_world{};
   gneiss::test_support::scene_node_info camera;
   std::uint64_t previous_resources{};
-  gneiss::frame_image previous_image;
+  gneiss::render::frame_image previous_image;
   const bool preserve = scenario == "failure" || scenario.starts_with("cancel-");
   if (scenario != "initial") {
     const auto preload = preload_scene(app, scheduler, mode == "cooperative", uri, previous_scene);
@@ -510,7 +510,7 @@ int main(int argc, char** argv) try {
   const auto render_ms = milliseconds(rendering_start);
   const auto stats = app->render_statistics();
   const auto capture_start = clock_type::now();
-  gneiss::frame_image image;
+  gneiss::render::frame_image image;
   if (app->capture_frame(1024U, 768U, image) != gneiss::error::success) {
     return 8;
   }
@@ -531,7 +531,7 @@ int main(int argc, char** argv) try {
     }
     retry_ms = milliseconds(retry_start);
     live_resources = app->render().live_resource_count();
-    gneiss::frame_image retried_image;
+    gneiss::render::frame_image retried_image;
     if (app->capture_frame(1024U, 768U, retried_image) != gneiss::error::success ||
         retried_image.pixels != previous_image.pixels || live_resources != previous_resources) {
       return 17;

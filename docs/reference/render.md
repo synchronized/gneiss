@@ -14,7 +14,7 @@ Service 外壳仅拥有一个 PImpl。其资源存储与场景存储平级，资
 执行器及命令调度类型归入 `gneiss::render::detail`，定义在 `detail/executor.hpp/.cpp`。
 Service 和 Application 通过 `frame_result.hpp` 使用完成回执和截图数据，不包含执行器头；
 普通模块的内部头文件集合也不再导出执行器。
-设备计数和单帧执行指标定义于 `render_statistics.hpp`，不再要求后端依赖 Service 或执行器声明。
+设备计数和单帧执行指标定义于 `statistics.hpp`，不再要求后端依赖 Service 或执行器声明。
 
 Render 的 `reserve_mesh/texture/material()` 与 `create_*` 系列返回 `result<rid>`；
 失败结果不含 RID，调用方无需准备输出指针。销毁仍返回 `error`。
@@ -180,7 +180,7 @@ Application、Loader、UI 和帧构建使用 `render::service` 的 RID 操作及
 仅构造服务和操作 CPU 资源不会初始化 GPU；无窗口路径调用 shutdown 可关闭资源，重复关闭成功。
 shutdown 排空旧工作和完成回执后关闭设备；即使报告历史执行错误，CPU 场景和资源入口也会关闭，旧 RID 失效。
 `service.hpp` 不包含 Granit 头文件，也不暴露 Granit 类型；后端状态放在 `.cpp` 的 PImpl 中。
-关闭统计使用引擎值类型 `render_device_stats`，不返回设备或后端句柄。
+关闭统计使用引擎值类型 `render::device_stats`，不返回设备或后端句柄。
 
 服务不可复制或移动；GPU 工作仍由原有渲染执行器调度。宿主必须在关闭平台前调用 shutdown，
 借用的日志队列应覆盖服务关闭过程。当前仍只有 Granit 实现，PImpl 不代表已经支持运行时切换后端。
@@ -190,7 +190,7 @@ shutdown 排空旧工作和完成回执后关闭设备；即使报告历史执�
 执行器的 `try_take_frame_completion()`、`try_take_command_completion()` 返回 `std::optional`，
 空值表示尚无可领取记录；领取成功移出队列。执行失败仍返回包含序号、统计和 `status` 的记录。
 `query_command_status()` 返回可选的状态快照，不消费完成记录。
-服务的 `try_take_required_completion()` 返回 `result<std::optional<render_frame_completion>>`：
+服务的 `try_take_required_completion()` 返回 `result<std::optional<render::frame_completion>>`：
 失败表示收集过程出错，成功的空值表示暂无必需帧，成功的非空值表示领取到记录。
 
 ## 持久场景更新与单窗口绘制

@@ -27,8 +27,7 @@ void render_command_reporter::report(render_command_stage stage, std::uint64_t c
 inline_render_executor::inline_render_executor(render_frame_callback callback)
     : callback_(std::move(callback)) {}
 
-gneiss::error inline_render_executor::submit(render_frame_packet packet,
-                                             render_execution_result& output) {
+gneiss::error inline_render_executor::submit(render_frame_packet packet, execution_result& output) {
   output = {};
   packet.sequence = next_sequence_++;
   return callback_ ? callback_(packet, output) : gneiss::error::invalid_argument;
@@ -40,7 +39,7 @@ struct threaded_render_executor::state final {
   struct queued_task final {
     task_kind kind{task_kind::frame};
     std::uint64_t sequence{};
-    render_frame_policy frame_policy{render_frame_policy::replaceable};
+    frame_policy frame_policy{frame_policy::replaceable};
     render_frame_packet packet;
     render_frame_prepare prepare;
     render_command_callback command;
@@ -54,7 +53,7 @@ struct threaded_render_executor::state final {
   std::condition_variable idle;
   std::shared_ptr<wakeup_signal> notification;
   std::deque<queued_task> pending;
-  std::deque<render_frame_completion> completed_frames;
+  std::deque<frame_completion> completed_frames;
   std::deque<render_command_completion> completed_commands;
   std::thread worker;
   render_frame_callback frame_callback;
@@ -62,7 +61,7 @@ struct threaded_render_executor::state final {
   std::uint64_t next_sequence{1U};
   bool executing{};
   bool stopping{};
-  render_queue_stats stats;
+  queue_stats stats;
   render_command_status command_status;
   bool has_command_status{};
   std::chrono::steady_clock::time_point previous_frame_completed{};
@@ -84,7 +83,7 @@ void threaded_render_executor::state::run() noexcept try {
       executing = true;
     }
 
-    render_frame_completion frame_completion;
+    frame_completion frame_completion;
     render_command_completion command_completion;
     if (task.kind == task_kind::frame) {
       frame_completion.sequence = task.sequence;
@@ -177,7 +176,7 @@ void threaded_render_executor::state::run() noexcept try {
           ++stats.presented_frames;
         }
         ++stats.executed_frames;
-        if (frame_completion.policy == render_frame_policy::required) {
+        if (frame_completion.policy == frame_policy::required) {
           ++stats.executed_required_frames;
         }
         stats.latest_frame_queue_wait_ms = frame_completion.execution.queue_wait_ms;
@@ -249,7 +248,7 @@ gneiss::error threaded_render_executor::initialize(render_frame_callback callbac
 }
 
 result<std::uint64_t> threaded_render_executor::submit_frame(render_frame_packet packet,
-                                                             render_frame_policy policy,
+                                                             frame_policy policy,
                                                              render_frame_prepare prepare) {
   if (!state_) {
     return gneiss::error::not_ready;
@@ -264,20 +263,20 @@ result<std::uint64_t> threaded_render_executor::submit_frame(render_frame_packet
     if (frame_count >= state_->maximum_pending_frames) {
       const auto replace = std::ranges::find_if(state_->pending, [](const auto& task) {
         return task.kind == state::task_kind::frame &&
-               task.frame_policy == render_frame_policy::replaceable;
+               task.frame_policy == frame_policy::replaceable;
       });
-      if (policy == render_frame_policy::required || replace == state_->pending.end()) {
-        if (policy == render_frame_policy::required) {
+      if (policy == frame_policy::required || replace == state_->pending.end()) {
+        if (policy == frame_policy::required) {
           ++state_->stats.rejected_required_frames;
         }
         return gneiss::error::not_ready;
       }
       const auto dropped_sequence = replace->sequence;
-      render_frame_completion dropped_completion{.sequence = dropped_sequence,
-                                                 .status = gneiss::error::not_ready,
-                                                 .execution = {},
-                                                 .dropped = true,
-                                                 .policy = replace->frame_policy};
+      frame_completion dropped_completion{.sequence = dropped_sequence,
+                                          .status = gneiss::error::not_ready,
+                                          .execution = {},
+                                          .dropped = true,
+                                          .policy = replace->frame_policy};
       state_->pending.erase(replace);
       state_->completed_frames.push_back(std::move(dropped_completion));
       ++state_->stats.replaced_frames;
@@ -285,7 +284,7 @@ result<std::uint64_t> threaded_render_executor::submit_frame(render_frame_packet
     const auto sequence = state_->next_sequence++;
     packet.sequence = sequence;
     ++state_->stats.submitted_frames;
-    if (policy == render_frame_policy::required) {
+    if (policy == frame_policy::required) {
       ++state_->stats.submitted_required_frames;
     }
     state_->pending.push_back({.kind = state::task_kind::frame,
@@ -321,7 +320,7 @@ result<std::uint64_t> threaded_render_executor::submit_command(render_command_ca
     ++state_->stats.submitted_commands;
     state_->pending.push_back({.kind = state::task_kind::command,
                                .sequence = sequence,
-                               .frame_policy = render_frame_policy::replaceable,
+                               .frame_policy = frame_policy::replaceable,
                                .packet = {},
                                .prepare = {},
                                .command = std::move(command),
@@ -334,8 +333,7 @@ result<std::uint64_t> threaded_render_executor::submit_command(render_command_ca
   }
 }
 
-std::optional<render_frame_completion>
-threaded_render_executor::try_take_frame_completion() noexcept {
+std::optional<frame_completion> threaded_render_executor::try_take_frame_completion() noexcept {
   if (!state_) {
     return std::nullopt;
   }
@@ -374,7 +372,7 @@ threaded_render_executor::query_command_status() const noexcept {
   return state_->command_status;
 }
 
-render_queue_stats threaded_render_executor::query_stats() const noexcept {
+queue_stats threaded_render_executor::query_stats() const noexcept {
   if (!state_) {
     return {};
   }

@@ -17,13 +17,12 @@
 #include <span>
 #include <vector>
 
-namespace gneiss {
-struct render_memory_usage {
+namespace gneiss::render {
+struct memory_usage {
   std::uint64_t logical_bytes{};
   std::uint64_t cpu_data_bytes{};
 };
-} // namespace gneiss
-namespace gneiss::render {
+
 /** 渲染提交与设备生命周期服务；所属线程调用，GPU 操作由内部执行器调度。
  * 借用的日志队列必须覆盖 shutdown；宿主须先关闭本服务，再关闭窗口和平台。
  * 实现固定在堆上，不允许复制或移动。 */
@@ -46,13 +45,12 @@ public:
       std::shared_ptr<const std::vector<std::byte>> bytes, float intensity, float rotation);
   /** 排空并关闭设备及 CPU 场景/资源；即使返回历史执行错误，服务仍进入关闭状态。
    * 可重复调用；关闭后的 RID 失效，已捕获的自有内容按原有引用生命周期释放。 */
-  [[nodiscard]] GNEISS_API error shutdown(render_device_stats& stats);
+  [[nodiscard]] GNEISS_API error shutdown(device_stats& stats);
   [[nodiscard]] GNEISS_API error finish_frames();
   GNEISS_API void set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept;
   /** 领取必需帧完成记录；空值表示暂无记录，失败表示收集完成结果时出错。 */
-  [[nodiscard]] GNEISS_API result<std::optional<render_frame_completion>>
-  try_take_required_completion();
-  [[nodiscard]] GNEISS_API render_queue_stats query_performance_stats() const noexcept;
+  [[nodiscard]] GNEISS_API result<std::optional<frame_completion>> try_take_required_completion();
+  [[nodiscard]] GNEISS_API queue_stats query_performance_stats() const noexcept;
   /** initialize 完成后读取；设备重建后重新获取。 */
   [[nodiscard]] GNEISS_API texture_prepare_profile texture_profile() const noexcept;
 
@@ -74,7 +72,7 @@ public:
   /** 仅关闭 CPU 资源入口；设备关闭由 shutdown 完成。所属线程调用。 */
   GNEISS_API void close_resources() noexcept;
   /** 所属线程查询；跟踪共享对象，包含仍被旧帧持有的已销毁 RID 数据，不强持有对象。 */
-  [[nodiscard]] GNEISS_API render_memory_usage memory_usage() const noexcept;
+  [[nodiscard]] GNEISS_API memory_usage memory_usage() const noexcept;
   [[nodiscard]] GNEISS_API std::uint64_t available_memory_bytes() const noexcept;
 
   [[nodiscard]] GNEISS_API bool is_valid() const noexcept;
@@ -138,7 +136,7 @@ public:
 
 private:
   result<void> dispatch_render_work(std::function<void()>);
-  result<std::uint64_t> submit_request(render::frame_request&, render_frame_policy,
+  result<std::uint64_t> submit_request(render::frame_request&, frame_policy,
                                        std::shared_ptr<frame_image>);
   template <typename Resource>
   result<std::shared_ptr<const Resource>>

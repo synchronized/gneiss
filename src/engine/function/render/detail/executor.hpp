@@ -53,8 +53,7 @@ private:
 
 using render_frame_prepare = std::function<result<render_frame_packet>()>;
 
-using render_frame_callback =
-    std::function<gneiss::error(render_frame_packet&, render_execution_result&)>;
+using render_frame_callback = std::function<gneiss::error(render_frame_packet&, execution_result&)>;
 using render_command_callback = std::function<gneiss::error(const render_command_reporter&)>;
 
 enum class render_command_policy : std::uint8_t { once, resumable };
@@ -62,7 +61,7 @@ enum class render_command_policy : std::uint8_t { once, resumable };
 class inline_render_executor final {
 public:
   explicit inline_render_executor(render_frame_callback callback);
-  [[nodiscard]] error submit(render_frame_packet packet, render_execution_result& output);
+  [[nodiscard]] error submit(render_frame_packet packet, execution_result& output);
   [[nodiscard]] error flush() const noexcept { return error::success; }
 
 private:
@@ -79,10 +78,9 @@ public:
 
   [[nodiscard]] error initialize(render_frame_callback callback,
                                  std::size_t maximum_pending_frames = 3U);
-  [[nodiscard]] result<std::uint64_t>
-  submit_frame(render_frame_packet packet,
-               render_frame_policy policy = render_frame_policy::replaceable,
-               render_frame_prepare prepare = {});
+  [[nodiscard]] result<std::uint64_t> submit_frame(render_frame_packet packet,
+                                                   frame_policy policy = frame_policy::replaceable,
+                                                   render_frame_prepare prepare = {});
   /** resumable 命令返回 NOT_READY 时保留同一序号排到队尾，后续帧和命令可先执行。
    * 回调须自行保存进度并最终返回终态；flush/stop 会等它结束，不强制销毁在途资源。
    * once 的 NOT_READY 仍是一次完成结果。 */
@@ -90,10 +88,10 @@ public:
   submit_command(render_command_callback command,
                  render_command_policy policy = render_command_policy::once);
   /** 线程安全领取；空队列返回空值，执行错误保存在完成记录的 status 中。 */
-  [[nodiscard]] std::optional<render_frame_completion> try_take_frame_completion() noexcept;
+  [[nodiscard]] std::optional<frame_completion> try_take_frame_completion() noexcept;
   [[nodiscard]] std::optional<render_command_completion> try_take_command_completion() noexcept;
   [[nodiscard]] std::optional<render_command_status> query_command_status() const noexcept;
-  [[nodiscard]] render_queue_stats query_stats() const noexcept;
+  [[nodiscard]] queue_stats query_stats() const noexcept;
   void record_skipped_frame_build() noexcept;
   void set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept;
   [[nodiscard]] error flush() noexcept;
