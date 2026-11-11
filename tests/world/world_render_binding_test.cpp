@@ -28,8 +28,7 @@ int main() {
     return fail("创建场景");
   auto root = scene->create_object();
   auto child = root ? scene->create_object({}, *root) : result<game_object>{root.error()};
-  if (!child ||
-      child->add_component<mesh_renderer_component>(mesh_renderer{*mesh, *material}).failed())
+  if (!child || child->add_component<mesh_component>(mesh_component{*mesh, *material}).failed())
     return fail("创建带网格的子对象");
   auto state = detail::world_component_access::get(**owner);
   if (!state)
@@ -52,9 +51,9 @@ int main() {
     return fail("消费者独立确认");
   if (child->notify_component_modified<camera_component>() != error::not_found)
     return fail("缺失组件修改通知");
-  const auto type = runtime_type_of<mesh_renderer_component>();
-  if (child->remove_component<mesh_renderer_component>().failed() ||
-      child->add_component<mesh_renderer_component>(mesh_renderer{*mesh, *material}).failed() ||
+  const auto type = runtime_type_of<mesh_component>();
+  if (child->remove_component<mesh_component>().failed() ||
+      child->add_component<mesh_component>(mesh_component{*mesh, *material}).failed() ||
       !first->objects.at(child->entity()).components.at(type) || !(*binding)->synchronize())
     return fail("移除后重新添加保留身份失效信息");
   first->objects.clear();
@@ -66,13 +65,11 @@ int main() {
   auto invalid_mesh = assets.reserve_mesh();
   if (!invalid_mesh || render.destroy_mesh(resource_handle(*invalid_mesh)).failed())
     return fail("制造失效资源");
-  child->try_component<mesh_renderer_component>()->value.mesh = *invalid_mesh;
-  if (child->notify_component_modified<mesh_renderer_component>().failed() ||
-      (*binding)->synchronize())
+  child->try_component<mesh_component>()->mesh = *invalid_mesh;
+  if (child->notify_component_modified<mesh_component>().failed() || (*binding)->synchronize())
     return fail("失效资源提交拒绝");
-  child->try_component<mesh_renderer_component>()->value.mesh = *mesh;
-  if (child->notify_component_modified<mesh_renderer_component>().failed() ||
-      !(*binding)->synchronize())
+  child->try_component<mesh_component>()->mesh = *mesh;
+  if (child->notify_component_modified<mesh_component>().failed() || !(*binding)->synchronize())
     return fail("修复资源后重试");
   error wrong_thread;
   std::thread worker([&] {
@@ -88,14 +85,13 @@ int main() {
     return fail("删除对象与多绑定同步");
   auto replacement = scene->create_object();
   if (!replacement || replacement->entity() == old_id ||
-      replacement->add_component<mesh_renderer_component>(mesh_renderer{*mesh, *material})
-          .failed() ||
+      replacement->add_component<mesh_component>(mesh_component{*mesh, *material}).failed() ||
       !(*binding)->synchronize())
     return fail("实体槽位复用后新身份");
   // 提交前创建又删除，不能留下渲染实例；卸载同时处理已有成员。
   auto temporary = scene->create_object();
   if (!temporary ||
-      temporary->add_component<mesh_renderer_component>(mesh_renderer{*mesh, *material}).failed() ||
+      temporary->add_component<mesh_component>(mesh_component{*mesh, *material}).failed() ||
       temporary->destroy().failed() || scene->unload().failed() || !(*binding)->synchronize())
     return fail("未提交对象删除及场景卸载");
   const auto render_scene = (*binding)->scene();

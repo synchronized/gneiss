@@ -22,7 +22,7 @@ int main() try {
   auto transform_view = gneiss::meta::view(std::as_const(transform));
   if (!transform_view)
     return 8;
-  gneiss::mesh_renderer_description mesh{"asset://mesh.json", "asset://material.json"};
+  gneiss::mesh_component_description mesh{"asset://mesh.json", "asset://material.json"};
   auto mesh_view = gneiss::meta::view(std::as_const(mesh));
   if (!mesh_view)
     return 9;

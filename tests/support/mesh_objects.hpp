@@ -26,10 +26,10 @@ inline gneiss::result<editor::scene_mesh_binding> read_mesh(gneiss::world& owner
   auto object = mesh_target(owner, scene, id);
   if (!object)
     return object.error();
-  auto component = object->try_component<gneiss::mesh_renderer_component>();
+  auto component = object->try_component<gneiss::mesh_component>();
   if (!component)
     return editor::scene_mesh_binding{};
-  return editor::scene_mesh_binding{component->value.mesh, component->value.material};
+  return editor::scene_mesh_binding{component->mesh, component->material};
 }
 // 测试编排：显式查询缓存，再通过对象接口写入；不提供旧 expected/事务协议。
 inline gneiss::error assign_mesh(gneiss::world& owner, gneiss::asset_manager& assets,
@@ -51,12 +51,12 @@ inline gneiss::error assign_mesh(gneiss::world& owner, gneiss::asset_manager& as
     before->material = *loaded;
   }
   auto object = owner.find(id);
-  if (auto* component = object.try_component<gneiss::mesh_renderer_component>()) {
-    component->value = {before->mesh, before->material};
-    return object.notify_component_modified<gneiss::mesh_renderer_component>();
+  if (auto* component = object.try_component<gneiss::mesh_component>()) {
+    *component = {before->mesh, before->material};
+    return object.notify_component_modified<gneiss::mesh_component>();
   }
-  return object.add_component<gneiss::mesh_renderer_component>(
-      gneiss::mesh_renderer{before->mesh, before->material});
+  return object.add_component<gneiss::mesh_component>(
+      gneiss::mesh_component{before->mesh, before->material});
 }
 struct mesh_fixture {
   std::string_view name;
@@ -92,7 +92,7 @@ inline gneiss::result<entity_id> spawn_mesh(gneiss::world& owner, gneiss::asset_
     return gneiss::render_resource_ref{*value};
   };
   auto status = gneiss::add_component(
-      context, gneiss::make_component_description(gneiss::mesh_renderer_description{
+      context, gneiss::make_component_description(gneiss::mesh_component_description{
                    std::string(fixture.mesh_uri), std::string(fixture.material_uri)}));
   if (status.failed()) {
     (void)made->destroy();

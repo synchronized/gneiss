@@ -45,8 +45,7 @@ bool scene_object_storage() {
     return false;
   if (child->name() != "子节点" || child->set_name("新名称").failed() || child->name() != "新名称")
     return false;
-  if (owner.find(child->entity()).try_component<gneiss::mesh_renderer_component>() !=
-      nullptr)
+  if (owner.find(child->entity()).try_component<gneiss::mesh_component>() != nullptr)
     return false;
   auto objects = object_scene->objects();
   auto roots = object_scene->roots();
@@ -54,17 +53,15 @@ bool scene_object_storage() {
   if (!objects || objects->size() != 2 || !roots || roots->size() != 1 || roots->front() != *root ||
       !children || children->size() != 1 || children->front() != *child)
     return false;
-  if (child->try_component<mesh_renderer_component>() ||
-      child->add_component<mesh_renderer_component>().failed() ||
-      !child->try_component<mesh_renderer_component>() ||
-      child->add_component<mesh_renderer_component>() != error::invalid_state ||
-      child->remove_component<mesh_renderer_component>().failed() ||
-      child->try_component<mesh_renderer_component>() ||
-      child->remove_component<mesh_renderer_component>() != error::not_found)
+  if (child->try_component<mesh_component>() || child->add_component<mesh_component>().failed() ||
+      !child->try_component<mesh_component>() ||
+      child->add_component<mesh_component>() != error::invalid_state ||
+      child->remove_component<mesh_component>().failed() ||
+      child->try_component<mesh_component>() ||
+      child->remove_component<mesh_component>() != error::not_found)
     return false;
   error add_from_worker;
-  std::thread add_worker(
-      [&] { add_from_worker = child->add_component<mesh_renderer_component>(); });
+  std::thread add_worker([&] { add_from_worker = child->add_component<mesh_component>(); });
   add_worker.join();
   if (add_from_worker != error::invalid_state)
     return false;
@@ -87,8 +84,8 @@ bool scene_object_storage() {
   if (!count || *count != 0 || owner.find(child_entity).is_valid())
     return false;
   if (children->front().is_valid() ||
-      child->add_component<mesh_renderer_component>() != error::invalid_handle ||
-      child->is_valid() || (*root).destroy() != error::invalid_handle)
+      child->add_component<mesh_component>() != error::invalid_handle || child->is_valid() ||
+      (*root).destroy() != error::invalid_handle)
     return false;
   auto replacement = object_scene->create_object({"新节点", {}});
   return replacement && *replacement != *root && *replacement != *child;

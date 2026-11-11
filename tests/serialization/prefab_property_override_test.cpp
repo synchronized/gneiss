@@ -316,20 +316,20 @@ int main() {
   // 共享计算保留其他节点覆盖；恢复原值删除稀疏记录，失败不修改输入。
   {
     using namespace gneiss;
-    const mesh_renderer_description original{"asset://base.mesh", "asset://base.material"};
-    const mesh_renderer_description replacement{"asset://next.mesh", "asset://next.material"};
+    const mesh_component_description original{"asset://base.mesh", "asset://base.material"};
+    const mesh_component_description replacement{"asset://next.mesh", "asset://next.material"};
     const std::vector existing{make_translation(source_b, {1, 2, 3})};
-    auto changed = gneiss::editor::prepare_mesh_renderer_overrides(source_a, source_b, original,
-                                                                   replacement, existing);
+    auto changed = gneiss::editor::prepare_mesh_component_overrides(source_a, source_b, original,
+                                                                    replacement, existing);
     if (!changed || changed->size() != 3 || existing.size() != 1)
       return 20;
-    auto restored = gneiss::editor::prepare_mesh_renderer_overrides(source_a, source_b, original,
-                                                                    original, *changed);
+    auto restored = gneiss::editor::prepare_mesh_component_overrides(source_a, source_b, original,
+                                                                     original, *changed);
     if (!restored || restored->size() != 1 ||
         restored->front().key.target.source_node_uuid != source_b)
       return 21;
-    auto invalid = gneiss::editor::prepare_mesh_renderer_overrides({}, source_b, original,
-                                                                   replacement, existing);
+    auto invalid = gneiss::editor::prepare_mesh_component_overrides({}, source_b, original,
+                                                                    replacement, existing);
     if (invalid || invalid.error() != error::invalid_argument || existing.size() != 1)
       return 22;
   }

@@ -154,8 +154,8 @@ int main() {
   entity_id camera_entity{}, mesh_entity{}, plain_mesh_entity{};
   entity_id camera_node{}, mesh_node{}, plain_mesh_node{};
   const native::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  native::mesh_renderer mesh_renderer{.mesh = mesh_owner, .material = material_owner};
-  native::mesh_renderer plain_mesh_renderer{.mesh = mesh_owner, .material = plain_material_owner};
+  native::mesh_component component{.mesh = mesh_owner, .material = material_owner};
+  native::mesh_component plain_component{.mesh = mesh_owner, .material = plain_material_owner};
   native::math::transform camera_transform;
   camera_transform.translation[2] = 2.0F;
   native::math::transform near_transform;
@@ -188,17 +188,12 @@ int main() {
           .set_local_transform(plain_transform)
           .failed() ||
       world.find(camera_entity)
-          .add_component<gneiss::camera_component>(
-              *gneiss::camera_component::create(camera, true))
+          .add_component<gneiss::camera_component>(*gneiss::camera_component::create(camera, true))
           .failed() ||
       gneiss::set_active_camera(world, camera_entity).failed() ||
-      world.find(mesh_entity)
-          .add_component<gneiss::mesh_renderer_component>(
-              gneiss::mesh_renderer_component{mesh_renderer})
-          .failed() ||
+      world.find(mesh_entity).add_component<gneiss::mesh_component>(component).failed() ||
       world.find(plain_mesh_entity)
-          .add_component<gneiss::mesh_renderer_component>(
-              gneiss::mesh_renderer_component{plain_mesh_renderer})
+          .add_component<gneiss::mesh_component>(plain_component)
           .failed()) {
     std::fprintf(stderr, "测试场景构造失败\n");
     return 3;
@@ -214,18 +209,12 @@ int main() {
     return 5;
   }
   replacement_mesh = resource_handle(mesh_owner);
-  mesh_renderer.mesh = mesh_owner;
-  plain_mesh_renderer.mesh = mesh_owner;
-  world.find(mesh_entity).try_component<gneiss::mesh_renderer_component>()->value =
-      mesh_renderer;
-  world.find(plain_mesh_entity).try_component<gneiss::mesh_renderer_component>()->value =
-      plain_mesh_renderer;
-  if (world.find(mesh_entity)
-          .notify_component_modified<gneiss::mesh_renderer_component>()
-          .failed() ||
-      world.find(plain_mesh_entity)
-          .notify_component_modified<gneiss::mesh_renderer_component>()
-          .failed())
+  component.mesh = mesh_owner;
+  plain_component.mesh = mesh_owner;
+  *world.find(mesh_entity).try_component<gneiss::mesh_component>() = component;
+  *world.find(plain_mesh_entity).try_component<gneiss::mesh_component>() = plain_component;
+  if (world.find(mesh_entity).notify_component_modified<gneiss::mesh_component>().failed() ||
+      world.find(plain_mesh_entity).notify_component_modified<gneiss::mesh_component>().failed())
     return 7;
   run_result = application->run(1);
   if (run_result.failed()) {

@@ -35,9 +35,8 @@ prepare_prefab_transform_edit(const gneiss::prefab_description&,
                               const gneiss::math::transform& replacement);
 /** 计算网格组件的 URI 覆盖；保留其他对象/属性记录。失败不改变输入，不访问 World 或资源服务。 */
 [[nodiscard]] gneiss::result<std::vector<gneiss::prefab_property_override>>
-prepare_mesh_renderer_overrides(gneiss::guid source_node, gneiss::guid component_uuid,
-                                const gneiss::mesh_renderer_description& original,
-                                const gneiss::mesh_renderer_description& replacement,
-                                std::span<const gneiss::prefab_property_override> existing = {});
-
+prepare_mesh_component_overrides(gneiss::guid source_node, gneiss::guid component_uuid,
+                                 const gneiss::mesh_component_description& original,
+                                 const gneiss::mesh_component_description& replacement,
+                                 std::span<const gneiss::prefab_property_override> existing = {});
 }

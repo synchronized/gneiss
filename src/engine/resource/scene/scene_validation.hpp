@@ -25,7 +25,7 @@ validate_prefab_reference_description(const prefab_reference_description&);
 GNEISS_API serialization::diagnostic
 validate_game_object_description(const game_object_description&);
 GNEISS_API serialization::diagnostic
-validate_mesh_renderer_description(const mesh_renderer_description&);
+validate_mesh_component_description(const mesh_component_description&);
 /** 文件与文档恢复边界递归校验对象和 Prefab 引用，再检查整体层级及组件领域规则。 */
 GNEISS_API serialization::diagnostic validate_scene_description(const scene_description&);
 GNEISS_API serialization::diagnostic validate_prefab_description(const prefab_description&);

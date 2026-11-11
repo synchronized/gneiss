@@ -218,9 +218,8 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
       .uuid = created->uuid,
       .parent = {},
       .display_name = created->display_name,
-      .mesh_uri = created->components.get<gneiss::mesh_renderer_description>()->mesh_uri,
-      .material_uri =
-          created->components.get<gneiss::mesh_renderer_description>()->material_uri};
+      .mesh_uri = created->components.get<gneiss::mesh_component_description>()->mesh_uri,
+      .material_uri = created->components.get<gneiss::mesh_component_description>()->material_uri};
   if (history.undo() != gneiss::error::success || session.find_node(snapshot.uuid).ok() ||
       history.redo() != gneiss::error::success ||
       session.find_node(snapshot.uuid).failed() ||

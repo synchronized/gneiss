@@ -108,7 +108,7 @@ template <class Bytes> bool write_bytes(const std::filesystem::path& path, const
   scene.uuid = *gneiss::guid::parse("00000000-0000-4000-8000-000000000000");
   scene.objects.resize(data.nodes.size());
   auto renderer = [&](std::size_t mesh, std::size_t primitive) {
-    return gneiss::mesh_renderer_description{
+    return gneiss::mesh_component_description{
         std::string(asset_uri_prefix) + "models/" + mesh_name(mesh, primitive),
         std::string(asset_uri_prefix) + "materials/" +
             material_name(data.meshes[mesh].primitives[primitive])};

@@ -59,7 +59,8 @@ gneiss::result<scene_subtree_snapshot> freeze_prefab_snapshot(
     return gneiss::error::success;
   };
   for (std::size_t i = 0; i < binding.source_nodes.size(); ++i) {
-    const auto* renderer = effective.objects[i].components.get<gneiss::mesh_renderer_description>();
+    const auto* renderer =
+        effective.objects[i].components.get<gneiss::mesh_component_description>();
     if (!renderer)
       continue;
     gneiss::render_resource_ref mesh, material;

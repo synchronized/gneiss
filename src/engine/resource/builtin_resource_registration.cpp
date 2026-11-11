@@ -121,14 +121,14 @@ error register_component_descriptions() {
                .commit();
   if (status.failed())
     return status;
-  return meta::registration::type<mesh_renderer_description>()
+  return meta::registration::type<mesh_component_description>()
       .base<component_description_base>()
-      .property<&mesh_renderer_description::mesh_uri>(meta::property_id{1}, "mesh")(
+      .property<&mesh_component_description::mesh_uri>(meta::property_id{1}, "mesh")(
           gneiss::serialization::field_policy{.required = true})
-      .property<&mesh_renderer_description::material_uri>(meta::property_id{2}, "material")(
+      .property<&mesh_component_description::material_uri>(meta::property_id{2}, "material")(
           gneiss::serialization::field_policy{.required = true})
       .metadata(
-          component_validation<mesh_renderer_description, &validate_mesh_renderer_description>)
+          component_validation<mesh_component_description, &validate_mesh_component_description>)
       .commit();
 }
 error register_builtin_resource_types() {

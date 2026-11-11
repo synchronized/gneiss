@@ -70,10 +70,10 @@ result<std::optional<camera_description>> camera_capture(game_object target) {
     return std::optional<camera_description>{};
   return std::optional<camera_description>{{camera->settings(), camera->primary_hint}};
 }
-error mesh_valid(const mesh_renderer_description& value) {
-  return validate_mesh_renderer_description(value).error;
+error mesh_valid(const mesh_component_description& value) {
+  return validate_mesh_component_description(value).error;
 }
-error mesh_install(component_context& context, const mesh_renderer_description& value) {
+error mesh_install(component_context& context, const mesh_component_description& value) {
   const auto resolve = [&]<class T>(std::string_view uri) -> result<ref<const T>> {
     if (uri.empty())
       return ref<const T>{};
@@ -87,13 +87,13 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
       return typed;
     }
     // 普通属性编辑保留当前资源；固定文档引用由上面的 lookup 明确提供。
-    auto current = context.target.try_component<gneiss::mesh_renderer_component>();
+    auto current = context.target.try_component<gneiss::mesh_component>();
     if (current) {
       ref<const T> existing;
       if constexpr (std::same_as<T, gneiss::mesh>)
-        existing = current->value.mesh;
+        existing = current->mesh;
       else
-        existing = current->value.material;
+        existing = current->material;
       if (resource_uri(existing) == uri)
         return existing;
     }
@@ -112,19 +112,18 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
   if (context.resources && ((*mesh && !context.resources->owns(*mesh)) ||
                             (*material && !context.resources->owns(*material))))
     return error::invalid_argument;
-  if (auto* current = context.target.try_component<mesh_renderer_component>()) {
-    current->value = {*mesh, *material};
-    return context.target.notify_component_modified<mesh_renderer_component>();
+  if (auto* current = context.target.try_component<mesh_component>()) {
+    *current = {*mesh, *material};
+    return context.target.notify_component_modified<mesh_component>();
   }
-  return context.target.add_component<mesh_renderer_component>(mesh_renderer{*mesh, *material});
+  return context.target.add_component<mesh_component>(mesh_component{*mesh, *material});
 }
-result<std::optional<mesh_renderer_description>> mesh_capture(game_object target) {
-  auto value = target.try_component<gneiss::mesh_renderer_component>();
+result<std::optional<mesh_component_description>> mesh_capture(game_object target) {
+  auto value = target.try_component<gneiss::mesh_component>();
   if (!value)
-    return std::optional<mesh_renderer_description>{};
-  return std::optional<mesh_renderer_description>{
-      {std::string(resource_uri(value->value.mesh)),
-       std::string(resource_uri(value->value.material))}};
+    return std::optional<mesh_component_description>{};
+  return std::optional<mesh_component_description>{
+      {std::string(resource_uri(value->mesh)), std::string(resource_uri(value->material))}};
 }
 struct adapter_registry {
   std::mutex mutex;
@@ -145,20 +144,18 @@ struct adapter_registry {
                       a.settings.far == b.settings.far && a.is_primary == b.is_primary;
              },
          .properties = component_property_operations<camera_description>{}}));
-    values.push_back(make_component_adapter<mesh_renderer_description>(
+    values.push_back(make_component_adapter<mesh_component_description>(
         {.validate = mesh_valid,
          .install = mesh_install,
          .capture = mesh_capture,
          .remove =
-             [](game_object target) {
-               return target.remove_component<gneiss::mesh_renderer_component>();
-             },
+             [](game_object target) { return target.remove_component<gneiss::mesh_component>(); },
          .equal =
-             [](const mesh_renderer_description& a, const mesh_renderer_description& b) {
+             [](const mesh_component_description& a, const mesh_component_description& b) {
                return a.mesh_uri == b.mesh_uri && a.material_uri == b.material_uri;
              },
          .dependencies =
-             [](const mesh_renderer_description& value) {
+             [](const mesh_component_description& value) {
                std::vector<render_resource_source> result;
                if (!value.mesh_uri.empty())
                  result.push_back({value.mesh_uri, render_resource_kind::mesh});
@@ -166,7 +163,7 @@ struct adapter_registry {
                  result.push_back({value.material_uri, render_resource_kind::material});
                return result;
              },
-         .properties = component_property_operations<mesh_renderer_description>{}}));
+         .properties = component_property_operations<mesh_component_description>{}}));
   }
 };
 adapter_registry& registry() {
@@ -532,16 +529,15 @@ error write_component_property(world& world, std::uint64_t entity, guid type,
 
 namespace gneiss {
 template camera_component* game_object::try_component<camera_component>() const;
-template mesh_renderer_component* game_object::try_component<mesh_renderer_component>() const;
+template mesh_component* game_object::try_component<mesh_component>() const;
 template error game_object::insert_component<camera_component>(camera_component) const;
-template error
-    game_object::insert_component<mesh_renderer_component>(mesh_renderer_component) const;
+template error game_object::insert_component<mesh_component>(mesh_component) const;
 
 template error game_object::remove_component<camera_component>() const;
-template error game_object::remove_component<mesh_renderer_component>() const;
+template error game_object::remove_component<mesh_component>() const;
 }
 
 namespace gneiss {
 template error game_object::notify_component_modified<camera_component>() const;
-template error game_object::notify_component_modified<mesh_renderer_component>() const;
+template error game_object::notify_component_modified<mesh_component>() const;
 }

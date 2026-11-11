@@ -24,12 +24,12 @@ struct camera_description final
   bool is_primary = false;
 };
 
-struct mesh_renderer_description final
-    : meta::object_type<mesh_renderer_description, component_description_base> {
-  mesh_renderer_description() = default;
-  mesh_renderer_description(std::string mesh, std::string material)
+struct mesh_component_description final
+    : meta::object_type<mesh_component_description, component_description_base> {
+  mesh_component_description() = default;
+  mesh_component_description(std::string mesh, std::string material)
       : mesh_uri(std::move(mesh)), material_uri(std::move(material)) {}
-  inline static constexpr std::string_view type_name = "mesh_renderer_description";
+  inline static constexpr std::string_view type_name = "mesh_component_description";
   inline static constexpr gneiss::guid type_guid =
       gneiss::guid::literal("11a0217a-2eab-4f61-8011-4a63a26e0102");
   std::string mesh_uri;

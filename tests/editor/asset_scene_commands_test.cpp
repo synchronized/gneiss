@@ -115,7 +115,7 @@ int main() try {
     return 2;
   }
   const auto uuid = session.selected_node()->uuid;
-  const auto component_type = gneiss::mesh_renderer_description::type_guid;
+  const auto component_type = gneiss::mesh_component_description::type_guid;
   const auto component_uuid = session.selected_node()->components.identity(component_type);
   const auto projected_identity = [&] {
     auto object = session.find_node(uuid);
@@ -138,9 +138,8 @@ int main() try {
           {.mesh_uri = mesh, .material_uri = "asset://materials/missing.material.json"})
           .ok() ||
       history.size() != 1U ||
-      session.find_node(uuid)
-              ->components.get<gneiss::mesh_renderer_description>()
-              ->material_uri != material ||
+      session.find_node(uuid)->components.get<gneiss::mesh_component_description>()->material_uri !=
+          material ||
       replace_mesh_assets(
           session, history, *gneiss::guid::parse("ffffffff-ffff-4fff-8fff-ffffffffffff"),
           {.mesh_uri = mesh, .material_uri = material}) != gneiss::error::not_found) {
@@ -193,9 +192,8 @@ int main() try {
   if (replace_mesh_assets(session, full, uuid, {.mesh_uri = mesh, .material_uri = material}) !=
           gneiss::error::success ||
       session.is_dirty() ||
-      session.find_node(uuid)
-              ->components.get<gneiss::mesh_renderer_description>()
-              ->material_uri != material) {
+      session.find_node(uuid)->components.get<gneiss::mesh_component_description>()->material_uri !=
+          material) {
     return 9;
   }
   editor_asset_edit removal;
@@ -204,14 +202,12 @@ int main() try {
                                        removed_binding)
           .failed() ||
       removal.request_remove(session, history, uuid).failed() ||
-      session.find_node(uuid)->components.get<gneiss::mesh_renderer_description>() !=
-          nullptr ||
+      session.find_node(uuid)->components.get<gneiss::mesh_component_description>() != nullptr ||
       run_history(true).failed() ||
       gneiss::test_support::take_value(session.capture_mesh_binding(session.find_node(uuid)->node),
                                        restored_binding)
           .failed() ||
-      session.find_node(uuid)->components.get<gneiss::mesh_renderer_description>() ==
-          nullptr ||
+      session.find_node(uuid)->components.get<gneiss::mesh_component_description>() == nullptr ||
       removed_binding.mesh != restored_binding.mesh ||
       removed_binding.material != restored_binding.material || run_history(false).failed() ||
       run_history(true).failed())
@@ -234,7 +230,7 @@ int main() try {
   mesh_prefab->root_uuid = gneiss::guid::from_bytes({88, 2});
   gneiss::game_object_description mesh_root;
   mesh_root.uuid = mesh_prefab->root_uuid;
-  mesh_root.components.set(gneiss::mesh_renderer_description{mesh, material});
+  mesh_root.components.set(gneiss::mesh_component_description{mesh, material});
   mesh_prefab->objects.push_back(mesh_root);
   gneiss::game_object_description mesh_instance;
   mesh_instance.uuid = gneiss::guid::from_bytes({88, 3});
@@ -251,7 +247,8 @@ int main() try {
     return 20;
   component_edit_target mesh_target{.instance_uuid = mesh_instance.uuid,
                                     .source_uuid = mesh_root.uuid,
-                                    .component_type = gneiss::mesh_renderer_description::type_guid};
+                                    .component_type =
+                                        gneiss::mesh_component_description::type_guid};
   if (edit_prefab_component_structure(session, history, mesh_target,
                                       prefab_component_action::remove)
           .failed() ||

@@ -216,13 +216,13 @@ int main() try {
   // 缺少来源网格时仅返回依赖清单；调用方补齐后才能采用，现有场景不变。
   auto needs_assets = before;
   auto mesh_source = std::make_shared<e::prefab_description>(source);
-  mesh_source->objects[0].components.set(e::mesh_renderer_description{
+  mesh_source->objects[0].components.set(e::mesh_component_description{
       "asset://meshes/missing.gneiss-mesh", "asset://materials/missing.material.json"});
   auto frozen_source = e::capture_prefab_record(*mesh_source);
   check(frozen_source.has_value());
   needs_assets.prefabs.at(first.prefab->uri).content = std::move(*frozen_source);
   // 冻结后修改源内存不能改变历史版本。
-  mesh_source->objects[0].components.erase(e::mesh_renderer_description::type_guid);
+  mesh_source->objects[0].components.erase(e::mesh_component_description::type_guid);
   auto unresolved = ed::prepare_scene_document(needs_assets, *restore_all);
   check(unresolved && unresolved->missing.size() == 2 && unresolved->snapshot.assets.empty());
   check(bool(editing.document.find_prefab_root(first.uuid)));

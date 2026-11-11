@@ -159,7 +159,7 @@ int main() try {
   e::game_object_description first;
   first.uuid = e::guid::from_bytes({2});
   first.components.set(movement_description{2});
-  first.components.set(e::mesh_renderer_description{});
+  first.components.set(e::mesh_component_description{});
   source.objects.push_back(first);
   auto second = first;
   second.uuid = e::guid::from_bytes({3});

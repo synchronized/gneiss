@@ -192,13 +192,11 @@ void run_pending_resources() {
   check(gneiss::error{gneiss::test_support::take_value(
             gneiss::test_support::scene_access{*app}->get_node_info(scene, 1U), info)} ==
         gneiss::error::success);
-  check(info.components.get<gneiss::mesh_renderer_description>() != nullptr);
-  const gneiss::mesh_renderer binding{.mesh = mesh_ref, .material = material_ref};
-  auto* target = native->native_world()
-                     ->find(info.entity)
-                     .try_component<gneiss::mesh_renderer_component>();
+  check(info.components.get<gneiss::mesh_component_description>() != nullptr);
+  const gneiss::mesh_component binding{.mesh = mesh_ref, .material = material_ref};
+  auto* target = native->native_world()->find(info.entity).try_component<gneiss::mesh_component>();
   check(target != nullptr);
-  target->value = binding;
+  *target = binding;
   const auto pixel = [&] {
     gneiss::frame_image image;
     check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
@@ -261,9 +259,8 @@ void run_pending_resources() {
   gneiss::frame_image invalid;
   check(app->capture_frame(128U, 128U, invalid) == gneiss::error::invalid_handle);
   check(!resources.replace_texture(texture, red));
-  check(gneiss::error{native->native_world()
-                                  ->find(info.entity)
-                                  .remove_component<gneiss::mesh_renderer_component>()} ==
+  check(gneiss::error{
+            native->native_world()->find(info.entity).remove_component<gneiss::mesh_component>()} ==
         gneiss::error::success);
   check(pixel() == hidden);
   check(gneiss::error{resources.destroy_material(resource_handle(material_ref))} ==

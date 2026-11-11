@@ -182,9 +182,9 @@ public:
   [[nodiscard]] gneiss::error set_camera(entity_id node,
                                                  const gneiss::camera_description& desc);
   [[nodiscard]] gneiss::error remove_camera(entity_id node);
-  [[nodiscard]] gneiss::error remove_mesh_renderer(entity_id node);
-  [[nodiscard]] gneiss::error set_mesh_renderer(entity_id node, std::string_view mesh_uri,
-                                                        std::string_view material_uri);
+  [[nodiscard]] gneiss::error remove_mesh_component(entity_id node);
+  [[nodiscard]] gneiss::error set_mesh_component(entity_id node, std::string_view mesh_uri,
+                                                 std::string_view material_uri);
   [[nodiscard]] gneiss::error destroy_node(entity_id node);
   /** 保存回执独立于文档生命周期；完成只写回执，宿主推进后显式接收。 */
   struct save_receipt {

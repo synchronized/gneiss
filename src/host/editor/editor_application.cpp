@@ -1309,7 +1309,7 @@ void execute_asset_browser_request(editor_state& state,
     break;
   case action::apply_to_node: {
     gneiss::editor::component_edit_target target;
-    target.component_type = gneiss::mesh_renderer_description::type_guid;
+    target.component_type = gneiss::mesh_component_description::type_guid;
     if (const auto node = state.editing.document().selected_prefab_node()) {
       target.instance_uuid = node->instance_uuid;
       target.source_uuid = node->source_node_uuid;
@@ -1432,7 +1432,7 @@ void draw_asset_browser(editor_state& state) {
     selected_node = ordinary_node->node;
   const bool has_renderer =
       selected_node && state.world->find(selected_node).is_valid() &&
-      state.world->find(selected_node).try_component<gneiss::mesh_renderer_component>();
+      state.world->find(selected_node).try_component<gneiss::mesh_component>();
   if (selected != state.assets.entries().end()) {
     view.can_add_mesh = is_mesh_asset(*selected) &&
                         find_material_for_mesh(state.assets.entries(), *selected) != nullptr;
@@ -2743,7 +2743,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       ImGui::Separator();
       const auto uuid = selected->uuid;
       const auto has_mesh =
-          selected->components.get<gneiss::mesh_renderer_description>() != nullptr;
+          selected->components.get<gneiss::mesh_component_description>() != nullptr;
       auto current = state.editing.document().components(selected->node);
       auto choices = gneiss::editor::component_editor_types();
       ImGui::BeginDisabled(state.editing.assets().active() || state.editing.history().is_pending());

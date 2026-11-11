@@ -216,7 +216,7 @@ void run() {
     gneiss::composed_scene target;
     gneiss::composed_object object;
     object.address.object = gneiss::guid::generate();
-    object.effective.components.set(gneiss::mesh_renderer_description{
+    object.effective.components.set(gneiss::mesh_component_description{
         "asset://not-requested.mesh", "asset://not-requested.material"});
     target.objects.push_back(object);
     const auto cached = active_assets.cached_count();
@@ -437,13 +437,12 @@ void run() {
   check(gneiss::test_support::take_value(
             candidate_render.find<gneiss::mesh>("asset://m.mesh"), current_mesh)
             .ok());
-  const gneiss::mesh_renderer expected{
-      .mesh = current_mesh, .material = next_version.as<gneiss::material>()};
-  auto matches = [&](const gneiss::mesh_renderer& expected_value) {
-    auto current =
-        candidate->find(ordinary.entity).try_component<gneiss::mesh_renderer_component>();
-    return current && current->value.mesh == expected_value.mesh &&
-           current->value.material == expected_value.material;
+  const gneiss::mesh_component expected{.mesh = current_mesh,
+                                        .material = next_version.as<gneiss::material>()};
+  auto matches = [&](const gneiss::mesh_component& expected_value) {
+    auto current = candidate->find(ordinary.entity).try_component<gneiss::mesh_component>();
+    return current && current->mesh == expected_value.mesh &&
+           current->material == expected_value.material;
   };
   const auto edit_reads = files->reads;
   check(gneiss::test_support::assign_mesh(*candidate.get(), candidate_assets, new_scene,
@@ -464,8 +463,8 @@ void run() {
   check(gneiss::test_support::assign_mesh(
             *candidate.get(), candidate_assets, new_scene, ordinary.node, "asset://m.mesh",
             "asset://other.material") == gneiss::error::success);
-  const gneiss::mesh_renderer edited{
-      .mesh = current_mesh, .material = edited_material.as<gneiss::material>()};
+  const gneiss::mesh_component edited{.mesh = current_mesh,
+                                      .material = edited_material.as<gneiss::material>()};
   check(matches(edited));
   check(resources.get_material(gneiss::resource_rid(old_material))->parameters.color[0] ==
         1.0F);
@@ -475,30 +474,28 @@ void run() {
   check(resources.get_material(selected_material) != nullptr);
   {
     auto object = candidate->find(ordinary.entity);
-    auto* borrowed = object.try_component<gneiss::mesh_renderer_component>();
+    auto* borrowed = object.try_component<gneiss::mesh_component>();
     check(borrowed != nullptr);
     const auto before = *borrowed;
     const auto binding_reads = files->reads;
     auto cleared = before;
-    cleared.value.material = {};
+    cleared.material = {};
     *borrowed = cleared;
-    check(object.notify_component_modified<gneiss::mesh_renderer_component>().ok());
-    auto* empty = object.try_component<gneiss::mesh_renderer_component>();
-    check(empty && empty->value.mesh == before.value.mesh && !empty->value.material);
+    check(object.notify_component_modified<gneiss::mesh_component>().ok());
+    auto* empty = object.try_component<gneiss::mesh_component>();
+    check(empty && empty->mesh == before.mesh && !empty->material);
     gneiss::error worker_result;
-    std::thread worker([&] {
-      worker_result = object.add_component<gneiss::mesh_renderer_component>(before);
-    });
+    std::thread worker(
+        [&] { worker_result = object.add_component<gneiss::mesh_component>(before); });
     worker.join();
     check(worker_result == gneiss::error::invalid_state);
-    *object.try_component<gneiss::mesh_renderer_component>() = before;
-    check(object.notify_component_modified<gneiss::mesh_renderer_component>().ok());
+    *object.try_component<gneiss::mesh_component>() = before;
+    check(object.notify_component_modified<gneiss::mesh_component>().ok());
     check(files->reads == binding_reads);
   }
   check(candidate.get()
             ->find(gneiss::entity_id{ordinary.node.get()})
-            .remove_component<gneiss::mesh_renderer_component>() ==
-        gneiss::error::success);
+            .remove_component<gneiss::mesh_component>() == gneiss::error::success);
   const auto snapshot_reads = files->reads;
   check(files->reads == snapshot_reads);
   active.swap(candidate);
@@ -530,7 +527,7 @@ void run() {
   auto invalid_description = gneiss::make_ref<gneiss::scene_description>(*prepared.description);
   prepared.description = invalid_description;
   for (auto& description : invalid_description->objects) {
-    if (auto* renderer = description.components.get<gneiss::mesh_renderer_description>()) {
+    if (auto* renderer = description.components.get<gneiss::mesh_component_description>()) {
       auto missing = *renderer;
       missing.mesh_uri = "invalid-uri";
       description.components.set(std::move(missing));

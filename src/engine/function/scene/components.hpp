@@ -36,11 +36,8 @@ private:
   math::camera_settings settings_{1.04719755F, 0.1F, 1000.0F};
 };
 /** 组件直接保活运行资源，必须执行正常的构造、移动和析构。 */
-struct mesh_renderer {
+struct mesh_component {
   ref<const gneiss::mesh> mesh{};
   ref<const gneiss::material> material{};
-};
-struct mesh_renderer_component {
-  mesh_renderer value;
 };
 } // namespace gneiss

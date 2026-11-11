@@ -232,26 +232,23 @@ void run(gneiss::tasks::execution_mode mode) {
   const auto world = app->native_world();
   check(gneiss::test_support::take_value(app->load_assets(uris, true), assets_request) ==
         gneiss::error::success);
-  gneiss::mesh_renderer external;
+  gneiss::mesh_component external;
   const std::array<gneiss::mesh_vertex, 3> vertices{
       {{.position = {0, 0, 0}}, {.position = {1, 0, 0}}, {.position = {0, 1, 0}}}};
   gneiss::mesh_view view{};
   view.vertices = vertices;
   check(gneiss::test_support::take_value(app->assets().create(view), external.mesh).ok());
   check(gneiss::test_support::take_value(app->assets().create({}, {}), external.material).ok());
-  auto* external_target = app->native_world()
-                              ->find(node.entity)
-                              .try_component<gneiss::mesh_renderer_component>();
+  auto* external_target =
+      app->native_world()->find(node.entity).try_component<gneiss::mesh_component>();
   check(external_target != nullptr);
-  external_target->value = external;
+  *external_target = external;
   wait();
   check(completion.result == gneiss::error::success &&
         completion.state == gneiss::asset_load_state::completed &&
         completion.assets.size() == 1U);
-  auto unchanged =
-      world->find(node.entity).try_component<gneiss::mesh_renderer_component>();
-  check(unchanged && unchanged->value.mesh == external.mesh &&
-        unchanged->value.material == external.material);
+  auto unchanged = world->find(node.entity).try_component<gneiss::mesh_component>();
+  check(unchanged && unchanged->mesh == external.mesh && unchanged->material == external.material);
   // 卸载冲突使用者后可重试；完成后释放租约，Application 仍可正常关闭。
   check(gneiss::error{gneiss::test_support::scene_access{*app}->unload(scene)} ==
         gneiss::error::success);

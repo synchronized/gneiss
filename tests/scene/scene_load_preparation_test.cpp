@@ -312,11 +312,11 @@ void run() {
   for (auto& node : overridden->objects) {
     node.prefab->overrides.push_back(
         {.key = {.target = {.source_node_uuid = source_uuid,
-                            .target_type_guid = mesh_renderer_description::type_guid,
+                            .target_type_guid = mesh_component_description::type_guid,
                             .component_uuid =
                                 inputs.prefabs.at("asset://p.prefab")
                                     .description->objects.front()
-                                    .components.identity(mesh_renderer_description::type_guid)},
+                                    .components.identity(mesh_component_description::type_guid)},
                  .path = {meta::property_id{2}}},
          .operation = value{std::string("asset://override.material")}});
   }

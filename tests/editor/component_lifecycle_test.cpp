@@ -44,16 +44,16 @@ int main() try {
   auto choices = gneiss::editor::component_editor_types();
   check(choices && choices->size() == 3);
   check(ed::register_component_editor({.type = e::guid::generate()}) == e::error::invalid_state);
-  check(ed::component_editor(e::mesh_renderer_description::type_guid)->route ==
+  check(ed::component_editor(e::mesh_component_description::type_guid)->route ==
         ed::component_editor_route::mesh_assets);
   check(ed::component_editor(movement_description::type_guid)->route ==
         ed::component_editor_route::reflected);
   for (const auto& choice : *choices) {
     check(choice.removable);
-    check(choice.addable == (choice.type != e::mesh_renderer_description::type_guid));
+    check(choice.addable == (choice.type != e::mesh_component_description::type_guid));
   }
   check(!gneiss::editor::default_component_description({}));
-  check(gneiss::editor::default_component_description(e::mesh_renderer_description::type_guid)
+  check(gneiss::editor::default_component_description(e::mesh_component_description::type_guid)
             .error() == e::error::unsupported);
   std::shared_ptr<gneiss::runtime::application> app;
   check(gneiss::test_support::assign_value(gneiss::runtime::application::create({}), app).ok());

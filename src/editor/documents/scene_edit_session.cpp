@@ -71,7 +71,7 @@ gneiss::result<entity_id> document_node(const scene_edit_session& session,
 scene_mesh_binding binding_for(const gneiss::component_descriptions& components,
                                const scene_document_snapshot& snapshot) {
   scene_mesh_binding result;
-  const auto* renderer = components.get<gneiss::mesh_renderer_description>();
+  const auto* renderer = components.get<gneiss::mesh_component_description>();
   if (!renderer)
     return result;
   if (auto found = snapshot.assets.find(renderer->mesh_uri); found != snapshot.assets.end())
@@ -773,7 +773,7 @@ scene_edit_session::capture_component_override(entity_id node, gneiss::guid type
       if (item.key.target.source_node_uuid == target->source &&
           item.key.target.target_type_guid == type)
         result.properties.push_back(item);
-    if (type == gneiss::mesh_renderer_description::type_guid) {
+    if (type == gneiss::mesh_component_description::type_guid) {
       auto binding = capture_mesh_binding(node);
       if (!binding)
         return binding.error();
@@ -853,8 +853,8 @@ gneiss::error scene_edit_session::remove_camera(entity_id node) {
   return remove_component_description(node, gneiss::camera_description::type_guid);
 }
 
-gneiss::error scene_edit_session::remove_mesh_renderer(entity_id node) {
-  return remove_component_description(node, gneiss::mesh_renderer_description::type_guid);
+gneiss::error scene_edit_session::remove_mesh_component(entity_id node) {
+  return remove_component_description(node, gneiss::mesh_component_description::type_guid);
 }
 
 void scene_edit_session::close() noexcept {
@@ -958,7 +958,7 @@ gneiss::result<scene_mesh_binding> scene_edit_session::capture_mesh_binding(enti
     auto values = components(node);
     if (!values)
       return values.error();
-    const auto* renderer = values->get<gneiss::mesh_renderer_description>();
+    const auto* renderer = values->get<gneiss::mesh_component_description>();
     if (!renderer)
       return scene_mesh_binding{};
     scene_mesh_binding result;
@@ -992,7 +992,7 @@ scene_edit_session::create_mesh_node(const mesh_node_creation& snapshot,
         object.parent = snapshot.parent;
         object.name = snapshot.display_name;
         object.components.set(
-            gneiss::mesh_renderer_description{snapshot.mesh_uri, snapshot.material_uri});
+            gneiss::mesh_component_description{snapshot.mesh_uri, snapshot.material_uri});
         description.objects.push_back(std::move(object));
         retain(next, resources);
         return gneiss::error::success;
@@ -1022,17 +1022,16 @@ gneiss::error scene_edit_session::destroy_node(entity_id node) {
   return destroy_subtree(node, ignored);
 }
 
-gneiss::error scene_edit_session::set_mesh_renderer(entity_id node,
-                                                            std::string_view mesh_uri,
-                                                            std::string_view material_uri) {
+gneiss::error scene_edit_session::set_mesh_component(entity_id node, std::string_view mesh_uri,
+                                                     std::string_view material_uri) {
   {
     auto current = components(node);
     if (!current)
       return current.error();
-    return edit_component(node, gneiss::mesh_renderer_description::type_guid,
-                          gneiss::make_component_description(gneiss::mesh_renderer_description{
+    return edit_component(node, gneiss::mesh_component_description::type_guid,
+                          gneiss::make_component_description(gneiss::mesh_component_description{
                               std::string(mesh_uri), std::string(material_uri)}),
-                          current->get<gneiss::mesh_renderer_description>() ? 0 : 1);
+                          current->get<gneiss::mesh_component_description>() ? 0 : 1);
   }
 }
 
@@ -1052,9 +1051,9 @@ gneiss::error scene_edit_session::replace_mesh_binding(entity_id node,
   return edit_content([&](auto& description, auto& next) -> gneiss::error {
     auto object = std::ranges::find(description.objects, target->object,
                                     &gneiss::game_object_description::uuid);
-    object->components.set(
-        gneiss::mesh_renderer_description{std::string(gneiss::resource_uri(replacement.mesh)),
-                                          std::string(gneiss::resource_uri(replacement.material))});
+    object->components.set(gneiss::mesh_component_description{
+        std::string(gneiss::resource_uri(replacement.mesh)),
+        std::string(gneiss::resource_uri(replacement.material))});
     retain(next, replacement);
     return gneiss::error::success;
   });
@@ -1272,7 +1271,7 @@ gneiss::result<scene_subtree_snapshot> scene_edit_session::capture_subtree(entit
       result.parent = object.parent;
       object.parent = {};
     }
-    if (!object.prefab && !object.components.template get<gneiss::mesh_renderer_description>())
+    if (!object.prefab && !object.components.template get<gneiss::mesh_component_description>())
       continue;
     auto& resources = result.resources[object.uuid];
     if (object.prefab) {

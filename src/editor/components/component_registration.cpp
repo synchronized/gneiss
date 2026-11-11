@@ -31,7 +31,7 @@ struct editor_registry {
          next.is_primary = camera->is_primary;
          return make_component_description(std::move(next));
        }},
-      {.type = mesh_renderer_description::type_guid,
+      {.type = mesh_component_description::type_guid,
        .removable = true,
        .route = component_editor_route::mesh_assets}};
 };

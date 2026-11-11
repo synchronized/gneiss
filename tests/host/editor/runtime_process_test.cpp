@@ -52,11 +52,10 @@ bool test_scene_adapter() {
         *gneiss::guid::parse("6e84ea5f-f59e-52d7-8b4f-f0488bb637c6");
     change.node.name = std::string(512U, 's');
     change.node.local_transform.translation[1] = 7.0F;
-    change.node.components = {
-        gneiss::make_component_description(
-            gneiss::camera_description{{1.04719755F, 0.75F, 1000.0F}}),
-        gneiss::make_component_description(
-            gneiss::mesh_renderer_description{"asset://mesh", "asset://material"})};
+    change.node.components = {gneiss::make_component_description(
+                                  gneiss::camera_description{{1.04719755F, 0.75F, 1000.0F}}),
+                              gneiss::make_component_description(gneiss::mesh_component_description{
+                                  "asset://mesh", "asset://material"})};
     input.changes.push_back(std::move(change));
     input.changes.push_back(
         {.type = gneiss::host::ipc_inspection_change_type::remove, .id = {51U, 52U}, .node = {}});
@@ -75,16 +74,14 @@ bool test_scene_adapter() {
       change.id.generation != 42U || node.id != change.id || node.parent.value != 43U ||
       node.parent.generation != 44U ||
       node.uuid != *gneiss::guid::parse("966c5e1d-5c70-56c7-bdd2-20d127371719") ||
-      node.prefab_instance_uuid !=
-          *gneiss::guid::parse("4a17145a-60eb-5fbd-874f-3b2656ced92f") ||
+      node.prefab_instance_uuid != *gneiss::guid::parse("4a17145a-60eb-5fbd-874f-3b2656ced92f") ||
       node.prefab_source_node_uuid !=
           *gneiss::guid::parse("6e84ea5f-f59e-52d7-8b4f-f0488bb637c6") ||
       node.name != std::string(512U, 's') || node.local_transform.translation[1] != 7.0F ||
       node.components.size() != 2U ||
       node.components.get<gneiss::camera_description>()->settings.near != 0.75F ||
-      node.components.get<gneiss::mesh_renderer_description>()->mesh_uri !=
-          "asset://mesh" ||
-      node.components.get<gneiss::mesh_renderer_description>()->material_uri !=
+      node.components.get<gneiss::mesh_component_description>()->mesh_uri != "asset://mesh" ||
+      node.components.get<gneiss::mesh_component_description>()->material_uri !=
           "asset://material" ||
       output.changes[1].type != gneiss::editor::runtime_scene_change_type::remove ||
       output.changes[1].id.value != 51U || output.changes[1].id.generation != 52U) {

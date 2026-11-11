@@ -33,7 +33,7 @@ mesh/material 为资源 URI，修改后按 Enter 提交。也可以在 Asset Bro
 作者描述和撤销历史。失败或取消不改变绑定；编辑目标已删除、场景已切换或原绑定已改变时，
 迟到结果不会覆盖当前状态。重复设置相同资源不增加历史。
 
-普通节点保存组件 URI。Prefab 实例保存 mesh_renderer_description 的稀疏字符串覆盖，
+普通节点保存组件 URI。Prefab 实例保存 mesh_component_description 的稀疏字符串覆盖，
 恢复源 URI 自动移除该项；其他实例及共享源 Prefab 不变。场景依赖根据实例最终生效的描述收集，
 保存重开后恢复覆盖资源。资源替换历史及 Prefab 刷新快照强持有资源，撤销不重新读取文件。
 

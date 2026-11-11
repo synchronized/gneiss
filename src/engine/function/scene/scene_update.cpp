@@ -220,8 +220,8 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
     }
   }
   const auto prepared_binding = [&](const composed_object& object) {
-    mesh_renderer binding;
-    if (const auto* renderer = object.effective.components.get<mesh_renderer_description>()) {
+    mesh_component binding;
+    if (const auto* renderer = object.effective.components.get<mesh_component_description>()) {
       if (auto found = assets.find(renderer->mesh_uri); found != assets.end())
         binding.mesh = resource_cast<mesh>(found->second);
       if (auto found = assets.find(renderer->material_uri); found != assets.end())
@@ -248,7 +248,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
   }
   // 使用调用方提供的资源身份，不用当前缓存替换同 URI 引用。
   for (const auto& object : next.objects) {
-    const auto* renderer = object.effective.components.get<mesh_renderer_description>();
+    const auto* renderer = object.effective.components.get<mesh_component_description>();
     if (!renderer)
       continue;
     const auto target_binding = prepared_binding(object);
@@ -259,16 +259,16 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
       return member.error();
     if (!*member)
       return error::invalid_handle;
-    auto current = target.try_component<mesh_renderer_component>();
-    if (current && current->value.mesh == target_binding.mesh &&
-        current->value.material == target_binding.material)
+    auto current = target.try_component<mesh_component>();
+    if (current && current->mesh == target_binding.mesh &&
+        current->material == target_binding.material)
       continue;
     // 运行实体已通过本次场景归属检查；资源身份来自调用方固定内容。
     // 已有组件只更新资源引用，保留组件身份；缺失组件走通用装配入口。
     error status;
     if (current) {
-      current->value = target_binding;
-      status = target.notify_component_modified<mesh_renderer_component>();
+      *current = target_binding;
+      status = target.notify_component_modified<mesh_component>();
     } else {
       component_context context{
           target, [&](const render_resource_source& source) -> result<render_resource_ref> {
@@ -276,9 +276,9 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
             return found == assets.end() ? result<render_resource_ref>{error::not_ready}
                                          : result<render_resource_ref>{found->second};
           }};
-      status =
-          add_component(context, make_component_description(*renderer),
-                        object.effective.components.identity(mesh_renderer_description::type_guid));
+      status = add_component(
+          context, make_component_description(*renderer),
+          object.effective.components.identity(mesh_component_description::type_guid));
     }
     if (status.failed())
       return status;

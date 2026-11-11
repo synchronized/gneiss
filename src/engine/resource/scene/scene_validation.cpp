@@ -132,7 +132,7 @@ serialization::diagnostic validate_game_object_description(const game_object_des
   return {};
 }
 serialization::diagnostic
-validate_mesh_renderer_description(const mesh_renderer_description& value) {
+validate_mesh_component_description(const mesh_component_description& value) {
   if ((!value.mesh_uri.empty() && validate_uri(value.mesh_uri).failed()) ||
       (!value.material_uri.empty() && validate_uri(value.material_uri).failed()))
     return {.message = "资源引用必须是规范 asset URI", .error = error::invalid_argument};

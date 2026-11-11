@@ -190,11 +190,10 @@ int main() try {
           triangle_info) != gneiss::error::success ||
       triangle_info.node != triangle || triangle_info.parent != camera_node || triangle_info.uuid ||
       !triangle_info.name.empty() ||
-      triangle_info.components.get<gneiss::mesh_renderer_description>()->mesh_uri !=
-          mesh_uri ||
-      triangle_info.components.get<gneiss::mesh_renderer_description>()->material_uri !=
+      triangle_info.components.get<gneiss::mesh_component_description>()->mesh_uri != mesh_uri ||
+      triangle_info.components.get<gneiss::mesh_component_description>()->material_uri !=
           material_uri ||
-      !triangle_info.components.get<gneiss::mesh_renderer_description>() ||
+      !triangle_info.components.get<gneiss::mesh_component_description>() ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->get_node_info(scene, 2U),
           triangle_info) != gneiss::error::not_found ||
@@ -295,7 +294,7 @@ int main() try {
   {
     auto renderer = application->native_world()
                         ->find(gneiss::entity_id{(created_node).get()})
-                        .try_component<gneiss::mesh_renderer_component>();
+                        .try_component<gneiss::mesh_component>();
     if (!renderer)
       return 40;
     const auto saved_renderer = *renderer;
@@ -307,7 +306,7 @@ int main() try {
             .failed() ||
         application->native_world()
             ->find(entity)
-            .remove_component<gneiss::mesh_renderer_component>()
+            .remove_component<gneiss::mesh_component>()
             .failed() ||
         gneiss::test_support::assign_value(
             gneiss::test_support::read_mesh(*application->native_world(), scene, created_node),
@@ -316,7 +315,7 @@ int main() try {
         binding.mesh || binding.material ||
         application->native_world()
             ->find(entity)
-            .add_component<gneiss::mesh_renderer_component>(saved_renderer)
+            .add_component<gneiss::mesh_component>(saved_renderer)
             .failed())
       return 40;
   }
@@ -335,20 +334,16 @@ int main() try {
           gneiss::error::success ||
       application->native_world()
               ->find(gneiss::entity_id{created_node.get()})
-              .remove_component<gneiss::camera_component>() !=
-          gneiss::error::success ||
+              .remove_component<gneiss::camera_component>() != gneiss::error::success ||
       application->native_world()
               ->find(gneiss::entity_id{created_node.get()})
-              .remove_component<gneiss::camera_component>() !=
-          gneiss::error::not_found ||
+              .remove_component<gneiss::camera_component>() != gneiss::error::not_found ||
       application->native_world()
               ->find(gneiss::entity_id{created_node.get()})
-              .remove_component<gneiss::mesh_renderer_component>() !=
-          gneiss::error::success ||
+              .remove_component<gneiss::mesh_component>() != gneiss::error::success ||
       application->native_world()
               ->find(gneiss::entity_id{created_node.get()})
-              .remove_component<gneiss::mesh_renderer_component>() !=
-          gneiss::error::not_found) {
+              .remove_component<gneiss::mesh_component>() != gneiss::error::not_found) {
     return 27;
   }
   if (gneiss::test_support::assign_mesh(*application->native_world(), application->assets(), scene,

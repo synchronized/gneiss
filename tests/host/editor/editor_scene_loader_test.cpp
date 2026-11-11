@@ -164,7 +164,7 @@ void run(gneiss::tasks::execution_mode mode) {
   check(gneiss::test_support::scene_query(session).nodes.front().display_name == original_name &&
         gneiss::test_support::scene_query(session).prefab_nodes.size() == 2U);
   // 引入未准备依赖时返回清单，保留原快照与当前实例，不触发加载。
-  changed_description.objects.front().components.set(gneiss::mesh_renderer_description{
+  changed_description.objects.front().components.set(gneiss::mesh_component_description{
       "asset://missing.mesh.json", "asset://missing.material.json"});
   check(encode().ok());
   const editor::author_document_change missing{

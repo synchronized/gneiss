@@ -82,7 +82,7 @@ void run(gneiss::tasks::execution_mode mode) {
   const auto request = [&](std::string_view material) {
     return edit.request_property(
         *app, session, history,
-        {.object_uuid = uuid, .component_type = gneiss::mesh_renderer_description::type_guid},
+        {.object_uuid = uuid, .component_type = gneiss::mesh_component_description::type_guid},
         {.path = {gneiss::meta::property_id{2}}, .data = gneiss::value{std::string(material)}});
   };
   const auto binding = [&] {
@@ -95,18 +95,17 @@ void run(gneiss::tasks::execution_mode mode) {
   const auto initial_binding = binding();
   check(request("asset://b.json") == gneiss::error::success && edit.active() &&
         edit.visible());
-  check(history.size() == 0U &&
-        gneiss::test_support::scene_query(session)
-                .nodes.front()
-                .components.get<gneiss::mesh_renderer_description>()
-                ->material_uri == "asset://a.json");
+  check(history.size() == 0U && gneiss::test_support::scene_query(session)
+                                        .nodes.front()
+                                        .components.get<gneiss::mesh_component_description>()
+                                        ->material_uri == "asset://a.json");
   check(request("asset://b.json") == gneiss::error::not_ready);
   drive();
   check(edit.operation() == gneiss::error::success && !edit.visible() &&
         history.size() == 1U);
   check(gneiss::test_support::scene_query(session)
             .nodes.front()
-            .components.get<gneiss::mesh_renderer_description>()
+            .components.get<gneiss::mesh_component_description>()
             ->material_uri == "asset://b.json");
   const auto changed_binding = binding();
   check(initial_binding.material != changed_binding.material);
@@ -131,13 +130,13 @@ void run(gneiss::tasks::execution_mode mode) {
   check(history.undo() == gneiss::error::success &&
         gneiss::test_support::scene_query(session)
                 .nodes.front()
-                .components.get<gneiss::mesh_renderer_description>()
+                .components.get<gneiss::mesh_component_description>()
                 ->material_uri == "asset://a.json");
   check(binding().material == initial_binding.material);
   check(history.redo() == gneiss::error::success &&
         gneiss::test_support::scene_query(session)
                 .nodes.front()
-                .components.get<gneiss::mesh_renderer_description>()
+                .components.get<gneiss::mesh_component_description>()
                 ->material_uri == "asset://b.json");
   check(binding().material == changed_binding.material);
   // 新材质准备期间撤销前一次编辑；迟到结果不得覆盖撤销后的确切版本。
@@ -160,7 +159,7 @@ void run(gneiss::tasks::execution_mode mode) {
   check(edit.operation().failed() && history.size() == count &&
         gneiss::test_support::scene_query(session)
                 .nodes.front()
-                .components.get<gneiss::mesh_renderer_description>()
+                .components.get<gneiss::mesh_component_description>()
                 ->material_uri == "asset://b.json");
   edit.dismiss();
   check(request("asset://missing.json") == gneiss::error::success);
@@ -304,7 +303,7 @@ void prefab_edits(gneiss::tasks::execution_mode mode) {
   e::game_object_description source;
   source.uuid = prefab.root_uuid;
   source.name = "root";
-  source.components.set(e::mesh_renderer_description{"asset://mesh.json", "asset://a.json"});
+  source.components.set(e::mesh_component_description{"asset://mesh.json", "asset://a.json"});
   prefab.objects.push_back(source);
   source.uuid = uuid(3);
   source.parent.object = prefab.root_uuid;
@@ -332,7 +331,7 @@ void prefab_edits(gneiss::tasks::execution_mode mode) {
   const editor::component_edit_target child{.instance_uuid = uuid(5),
                                             .source_uuid = uuid(3),
                                             .component_type =
-                                                e::mesh_renderer_description::type_guid};
+                                                e::mesh_component_description::type_guid};
   auto root = child;
   root.source_uuid = prefab.root_uuid;
   const auto binding = [&](const editor::component_edit_target& target) {
@@ -411,7 +410,7 @@ void prefab_edits(gneiss::tasks::execution_mode mode) {
   auto source_snapshot = captured->resources.at(uuid(5)).prefab_source();
   check(source_snapshot.has_value());
   const auto captured_source = *source_snapshot;
-  check(captured_source->objects[1].components.get<e::mesh_renderer_description>()->material_uri ==
+  check(captured_source->objects[1].components.get<e::mesh_component_description>()->material_uri ==
         "asset://a.json");
   // 来源刷新快照必须持有覆盖资源，撤销/重做不依赖文件或弱缓存。
   editor::prefab_header_snapshot frozen_source{captured_author, captured_source,

@@ -66,16 +66,16 @@ gneiss::error editor_asset_edit::commit(runtime::application& application,
                                       &gneiss::game_object_description::uuid);
       if (object == source->objects.end())
         return gneiss::error::not_found;
-      const auto* original = object->components.get<gneiss::mesh_renderer_description>();
-      gneiss::mesh_renderer_description description{mesh_, material_};
+      const auto* original = object->components.get<gneiss::mesh_component_description>();
+      gneiss::mesh_component_description description{mesh_, material_};
       if (!original) {
         after.added = gneiss::make_component_description(description);
         after.component_uuid = prefab_before_->component_uuid ? prefab_before_->component_uuid
                                                               : gneiss::guid::generate();
       } else {
-        auto overrides = prepare_mesh_renderer_overrides(
+        auto overrides = prepare_mesh_component_overrides(
             target_.source_uuid,
-            object->components.identity(gneiss::mesh_renderer_description::type_guid), *original,
+            object->components.identity(gneiss::mesh_component_description::type_guid), *original,
             description);
         if (!overrides)
           return overrides.error();
@@ -87,7 +87,7 @@ gneiss::error editor_asset_edit::commit(runtime::application& application,
         return gneiss::error{gneiss::error::invalid_state};
       auto node = locate(session, target);
       return node ? session.set_component_override(
-                        node, gneiss::mesh_renderer_description::type_guid, value)
+                        node, gneiss::mesh_component_description::type_guid, value)
                   : gneiss::error{gneiss::error::not_found};
     };
     return execute_scene_edit(history, session, "修改实例网格组件", [&] { return apply(after); });
@@ -120,11 +120,11 @@ gneiss::error editor_asset_edit::request_remove(scene_edit_session& session,
   const auto node = session.find_node(uuid);
   if (!node)
     return gneiss::error::not_found;
-  if (!node->components.get<gneiss::mesh_renderer_description>())
+  if (!node->components.get<gneiss::mesh_component_description>())
     return gneiss::error::not_found;
   const auto was_dirty = session.is_dirty();
   auto status = execute_scene_edit(history, session, "移除 Mesh Renderer",
-                                   [&] { return session.remove_mesh_renderer(node->node); });
+                                   [&] { return session.remove_mesh_component(node->node); });
   if (status.failed() && !was_dirty)
     session.clear_dirty();
   return status;
@@ -151,7 +151,7 @@ gneiss::error editor_asset_edit::request_property(runtime::application& app,
   using namespace gneiss;
   if (active_ || history.is_pending())
     return error::not_ready;
-  if (target.component_type != mesh_renderer_description::type_guid || edit.object ||
+  if (target.component_type != mesh_component_description::type_guid || edit.object ||
       edit.path.size() != 1 || !std::holds_alternative<meta::property_id>(edit.path.front()))
     return error::invalid_argument;
   auto captured = document.capture_mesh_binding(locate(document, target));
@@ -161,12 +161,12 @@ gneiss::error editor_asset_edit::request_property(runtime::application& app,
   auto present = document.components(locate(document, target));
   if (!present)
     return present.error();
-  if (!present->get<mesh_renderer_description>())
+  if (!present->get<mesh_component_description>())
     return error::not_found;
-  mesh_renderer_description description{std::string(resource_uri(binding.mesh)),
-                                        std::string(resource_uri(binding.material))};
+  mesh_component_description description{std::string(resource_uri(binding.mesh)),
+                                         std::string(resource_uri(binding.material))};
   auto status =
-      meta::write_property(mesh_renderer_description::type_guid,
+      meta::write_property(mesh_component_description::type_guid,
                            std::get<meta::property_id>(edit.path.front()), &description, edit.data);
   if (status.failed())
     return status;
@@ -254,7 +254,7 @@ editor_asset_edit::request_impl(runtime::application& application, scene_edit_se
     if (!application.is_owner_thread() || !application.accepts_requests())
       return operation_ = gneiss::error::invalid_state;
     auto captured =
-        session.capture_component_override(node_, gneiss::mesh_renderer_description::type_guid);
+        session.capture_component_override(node_, gneiss::mesh_component_description::type_guid);
     if (!captured)
       return operation_ = captured.error();
     prefab_before_ = std::move(*captured);
@@ -268,8 +268,7 @@ editor_asset_edit::request_impl(runtime::application& application, scene_edit_se
   const auto runtime_object =
       application.native_world() ? application.native_world()->find(node_) : gneiss::game_object{};
   if (!creating_ && !target.instance_uuid &&
-      (!runtime_object.is_valid() ||
-       !runtime_object.try_component<gneiss::mesh_renderer_component>())) {
+      (!runtime_object.is_valid() || !runtime_object.try_component<gneiss::mesh_component>())) {
     previous_ = {};
     return operation_ = gneiss::error::invalid_state;
   }

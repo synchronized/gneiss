@@ -116,9 +116,10 @@ GPU 在途安全回收仍由 Render 及后端负责，RID 释放队列不替代 
 没有活动相机时返回空值，不枚举网格对象。矩阵遵循
 [ADR-012](../decisions/ADR-012-3d-camera-coordinate-boundary.md)。相机值类型位于 Render 的 `camera.hpp`。
 
-使用 add_component<mesh_renderer_component>(renderer) 新增网格渲染组件；已有组件通过借用指针修改后，
-调用 notify_component_modified<mesh_renderer_component>() 通知绑定。组件持有 Mesh 与 Material 强引用，
-执行正常的 C++ 构造、复制和析构，不保存 Granit 类型。World 侧绑定将变化同步至持久渲染场景，
+使用 add_component<mesh_component>(mesh_component{mesh, material}) 新增网格渲染组件；已有组件通过借用指针修改后，
+调用 notify_component_modified<mesh_component>() 通知绑定。组件持有 Mesh 与 Material 强引用，
+直接通过组件的 mesh/material 字段访问，执行正常的 C++ 构造、复制和析构，不保存 Granit 类型。
+持久化描述使用 mesh_component_description，保持原有类型 GUID、属性 ID 及 mesh/material 文件字段。World 侧绑定将变化同步至持久渲染场景，
 帧捕获固定资源内容版本；无资源的对象暂不创建实例，非法资源 RID 在提交时拒绝。
 
 ## 当前渲染路径

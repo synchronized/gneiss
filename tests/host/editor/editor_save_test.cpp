@@ -97,8 +97,7 @@ int main() try {
                                                  material_uri,
                                                  created_node) != gneiss::error::success ||
       !created_node.is_valid() || gneiss::test_support::scene_query(session).nodes.size() != 3U ||
-      session.set_mesh_renderer(created_node, mesh_uri, material_uri) !=
-          gneiss::error::success) {
+      session.set_mesh_component(created_node, mesh_uri, material_uri) != gneiss::error::success) {
     return 5;
   }
   const auto created_uuid = session.selected_node()->uuid;
@@ -114,15 +113,12 @@ int main() try {
   const auto child_uuid = session.find_node(session.selected_node()->uuid)->uuid;
   gneiss::camera_description author_camera{{1.04719755F, 0.1F, 1000.0F}, false};
   if (session.set_camera(empty_child, author_camera) != gneiss::error::success ||
-      session.find_node(child_uuid)->components.get<gneiss::camera_description>() ==
-          nullptr ||
-      session.remove_camera(session.find_node(child_uuid)->node) !=
+      session.find_node(child_uuid)->components.get<gneiss::camera_description>() == nullptr ||
+      session.remove_camera(session.find_node(child_uuid)->node) != gneiss::error::success ||
+      session.find_node(child_uuid)->components.get<gneiss::camera_description>() != nullptr ||
+      session.remove_mesh_component(session.find_node(created_uuid)->node) !=
           gneiss::error::success ||
-      session.find_node(child_uuid)->components.get<gneiss::camera_description>() !=
-          nullptr ||
-      session.remove_mesh_renderer(session.find_node(created_uuid)->node) !=
-          gneiss::error::success ||
-      session.set_mesh_renderer(session.find_node(created_uuid)->node, mesh_uri, material_uri) !=
+      session.set_mesh_component(session.find_node(created_uuid)->node, mesh_uri, material_uri) !=
           gneiss::error::success) {
     return 16;
   }

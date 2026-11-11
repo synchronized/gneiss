@@ -250,10 +250,10 @@ prepare_prefab_transform_edit(const prefab_description& source,
                                *now, *after);
 }
 result<std::vector<prefab_property_override>>
-prepare_mesh_renderer_overrides(guid source_node, guid component_uuid,
-                                const mesh_renderer_description& original,
-                                const mesh_renderer_description& replacement,
-                                std::span<const prefab_property_override> existing) {
+prepare_mesh_component_overrides(guid source_node, guid component_uuid,
+                                 const mesh_component_description& original,
+                                 const mesh_component_description& replacement,
+                                 std::span<const prefab_property_override> existing) {
   std::vector<prefab_property_override> pending(existing.begin(), existing.end());
   const std::array originals{original.mesh_uri, original.material_uri};
   const std::array replacements{replacement.mesh_uri, replacement.material_uri};
@@ -261,7 +261,7 @@ prepare_mesh_renderer_overrides(guid source_node, guid component_uuid,
     auto status = set_prefab_property_override(
         pending,
         {.key = {.target = {.source_node_uuid = source_node,
-                            .target_type_guid = mesh_renderer_description::type_guid,
+                            .target_type_guid = mesh_component_description::type_guid,
                             .component_uuid = component_uuid},
                  .path = {meta::property_id{static_cast<std::uint32_t>(i + 1)}}},
          .operation = gneiss::value{replacements[i]}},
@@ -271,5 +271,4 @@ prepare_mesh_renderer_overrides(guid source_node, guid component_uuid,
   }
   return pending;
 }
-
 }

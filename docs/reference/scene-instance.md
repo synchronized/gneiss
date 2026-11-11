@@ -100,7 +100,7 @@ removable 仅控制编辑命令与文档删除入口，不限制引擎 remove_co
 宿主通过 `editor_command_history` 持有局部差异历史；纯文档不维护另一份撤销栈。
 
 Prefab 编辑开始时从组件覆盖快照取得原资源引用；异步加载完成后的冲突检查继续执行。
-网格/材质 URI 覆盖由 `prepare_mesh_renderer_overrides` 统一计算，保留其他覆盖记录，
+网格/材质 URI 覆盖由 `prepare_mesh_component_overrides` 统一计算，保留其他覆盖记录，
 恢复来源值时删除对应稀疏覆盖。该函数不应用资源、不写历史、不改变输入；成功后由调用方提交。
 
 ## 组合与加载边界

@@ -62,25 +62,19 @@ bool test_full_and_incremental_snapshot() {
   nodes[1].name = "Renamed";
   nodes[1].local_transform.translation[0] = 2.0F;
   nodes[1].components = {
-      gneiss::make_component_description(
-          gneiss::camera_description{{1.04719755F, 0.25F, 1000.0F}}),
-      gneiss::make_component_description(gneiss::mesh_renderer_description{
+      gneiss::make_component_description(gneiss::camera_description{{1.04719755F, 0.25F, 1000.0F}}),
+      gneiss::make_component_description(gneiss::mesh_component_description{
           "asset:///meshes/child.gneiss-mesh", "asset:///materials/child.material.json"})};
-  if (inspection.capture(nodes, false, snapshot) != gneiss::error::success ||
-      snapshot.is_full || snapshot.stamp.sequence != 2U || snapshot.changes.size() != 1U ||
+  if (inspection.capture(nodes, false, snapshot) != gneiss::error::success || snapshot.is_full ||
+      snapshot.stamp.sequence != 2U || snapshot.changes.size() != 1U ||
       snapshot.changes[0].type != runtime_scene_change_type::upsert ||
       snapshot.changes[0].id != old_child_id || snapshot.changes[0].node.name != "Renamed" ||
-      snapshot.changes[0]
-              .node.components.get<gneiss::camera_description>()
-              ->settings.near != 0.25F ||
-      snapshot.changes[0]
-              .node.components.get<gneiss::mesh_renderer_description>()
-              ->mesh_uri !=
-          nodes[1].components.get<gneiss::mesh_renderer_description>()->mesh_uri ||
-      snapshot.changes[0]
-              .node.components.get<gneiss::mesh_renderer_description>()
-              ->material_uri !=
-          nodes[1].components.get<gneiss::mesh_renderer_description>()->material_uri) {
+      snapshot.changes[0].node.components.get<gneiss::camera_description>()->settings.near !=
+          0.25F ||
+      snapshot.changes[0].node.components.get<gneiss::mesh_component_description>()->mesh_uri !=
+          nodes[1].components.get<gneiss::mesh_component_description>()->mesh_uri ||
+      snapshot.changes[0].node.components.get<gneiss::mesh_component_description>()->material_uri !=
+          nodes[1].components.get<gneiss::mesh_component_description>()->material_uri) {
     return false;
   }
 
@@ -261,11 +255,11 @@ bool test_registered_component_inspection() {
   if (!node ||
       e::replace_components({*world.object(gneiss::entity_id{node->entity().get()})},
                             {e::make_component_description(movement_description{3}),
-                             e::make_component_description(e::mesh_renderer_description{})})
+                             e::make_component_description(e::mesh_component_description{})})
           .failed())
     return false;
   auto components = e::capture_components(world, gneiss::entity_id{node->entity().get()});
-  if (!components || components->size() != 2 || !components->get<e::mesh_renderer_description>())
+  if (!components || components->size() != 2 || !components->get<e::mesh_component_description>())
     return false;
   auto dependencies = e::component_dependencies(*components);
   if (!dependencies || !dependencies->empty())
@@ -304,8 +298,8 @@ bool test_registered_component_inspection() {
     return false;
   const auto& received = decoded.changes.front().node.components;
   if (!received.get<movement_description>() || received.get<movement_description>()->speed != 3 ||
-      !received.get<e::mesh_renderer_description>() ||
-      !received.get<e::mesh_renderer_description>()->mesh_uri.empty())
+      !received.get<e::mesh_component_description>() ||
+      !received.get<e::mesh_component_description>()->mesh_uri.empty())
     return false;
   auto reflected = (*received.find(movement_description::type_guid))->view();
   if (!reflected || !reflected->member("speed"))
@@ -332,11 +326,11 @@ bool test_registered_component_inspection() {
       state(world).get<movement_component>(source.native_entity)->data.speed != 6)
     return false;
   if (e::remove_component({*world.object(gneiss::entity_id{node->entity().get()})},
-                          e::mesh_renderer_description::type_guid)
+                          e::mesh_component_description::type_guid)
           .failed())
     return false;
   components = e::capture_components(world, gneiss::entity_id{node->entity().get()});
-  return components && !components->get<e::mesh_renderer_description>();
+  return components && !components->get<e::mesh_component_description>();
 }
 
 } // namespace

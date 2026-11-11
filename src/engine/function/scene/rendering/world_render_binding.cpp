@@ -30,7 +30,7 @@ result<std::unique_ptr<world_render_binding>> world_render_binding::create(world
   auto value = std::make_unique<impl>(source, render);
   value->changes = (*state)->changes.subscribe();
   // 只在建立绑定时全量枚举；后续订阅记录不会被其他消费者清空。
-  (*state)->each<detail::object_state, mesh_renderer_component>(
+  (*state)->each<detail::object_state, mesh_component>(
       [&](entt::entity entity, const auto&, const auto&) {
         value->changes->objects[entity_id{(*state)->encode_entity(entity)}].transform = true;
       });
@@ -47,17 +47,17 @@ result<void> world_render_binding::synchronize() {
   render::scene_commands commands{impl_->scene, {}};
   std::map<entity_id, render::instance_key> updates;
   auto last_key = impl_->last_key;
-  const auto mesh_type = runtime_type_of<mesh_renderer_component>();
+  const auto mesh_type = runtime_type_of<mesh_component>();
   for (const auto& [id, change] : impl_->changes->objects) {
     const auto existing = impl_->instances.find(id);
     auto key = existing == impl_->instances.end() ? render::instance_key{} : existing->second;
     const auto changed_component = change.components.find(mesh_type);
     if (!change.transform && !change.destroyed && changed_component == change.components.end())
       continue;
-    const auto* component = (*state)->get<mesh_renderer_component>(id.get());
+    const auto* component = (*state)->get<mesh_component>(id.get());
     const auto* object = (*state)->get<detail::object_state>(id.get());
-    const bool ready = !change.destroyed && object && component && component->value.mesh &&
-                       component->value.material;
+    const bool ready =
+        !change.destroyed && object && component && component->mesh && component->material;
     if (key &&
         (!ready || (changed_component != change.components.end() && changed_component->second))) {
       commands.entries.emplace_back(render::destroy_instance{key});
@@ -69,8 +69,8 @@ result<void> world_render_binding::synchronize() {
     auto matrix = impl_->source.find(id).world_matrix();
     if (!matrix)
       return matrix.error();
-    const auto mesh = resource_handle(component->value.mesh);
-    const auto material = resource_handle(component->value.material);
+    const auto mesh = resource_handle(component->mesh);
+    const auto material = resource_handle(component->material);
     if (!key) {
       if (last_key == std::numeric_limits<std::uint64_t>::max())
         return error::invalid_state;

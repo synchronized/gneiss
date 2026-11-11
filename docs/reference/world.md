@@ -39,7 +39,7 @@ size 和枚举不再返回已经失效的成员。存活实体仍以 World 的 g
 普通对象统一通过 scene_instance::create_object 创建并返回 game_object，创建成功即具有场景归属。
 普通组件通过有效 game_object 的 try_component<T>() 借用，
 add_component<T>() 新增、remove_component<T>() 删除。
-当前内置实例化支持 camera_component 和 mesh_renderer_component。需要副本时显式复制借用对象；
+当前内置实例化支持 camera_component 和 mesh_component。需要副本时显式复制借用对象；
 资源强引用正常保活，修改副本不改变 ECS。普通组件可以直接赋值，受约束组件通过自身方法修改；
 修改 ECS 中的借用组件后调用 notify_component_modified<T>()。
 新增和删除对跨 World 或失效实体返回 invalid_handle，错误线程返回 invalid_state。

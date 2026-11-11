@@ -130,7 +130,7 @@ bool component_validation_contract() {
     return e::validate_component_override(added).error == e::error::invalid_argument;
   };
   return rejects_domain(e::make_component_description(e::camera_description{{1, 10, 1}})) &&
-         rejects_domain(e::make_component_description(e::mesh_renderer_description{"bad", ""}));
+         rejects_domain(e::make_component_description(e::mesh_component_description{"bad", ""}));
 }
 bool save_validation_contract() {
   namespace e = gneiss;
@@ -159,7 +159,7 @@ bool save_validation_contract() {
         scene.objects[0].components.set(std::move(camera));
       }) ||
       !rejects([](auto& scene) {
-        auto mesh = *scene.objects[1].components.template get<e::mesh_renderer_description>();
+        auto mesh = *scene.objects[1].components.template get<e::mesh_component_description>();
         mesh.mesh_uri = "bad";
         scene.objects[1].components.set(std::move(mesh));
       }))
@@ -442,13 +442,13 @@ int main() try {
   gneiss::serialization::diagnostic diagnostic;
   std::string serialized;
   if (gneiss::test_support::assign_decoded(
-          gneiss::asset_file::deserialize<gneiss::scene_description>(valid_scene),
-          scene, diagnostic) != gneiss::error::success ||
+          gneiss::asset_file::deserialize<gneiss::scene_description>(valid_scene), scene,
+          diagnostic) != gneiss::error::success ||
       scene.objects.size() != 2U ||
       !scene.objects[0].components.template get<gneiss::camera_description>() ||
-      !scene.objects[1].components.template get<gneiss::mesh_renderer_description>() ||
-      gneiss::test_support::assign_value(gneiss::asset_file::serialize(scene),
-                                         serialized) != gneiss::error::success ||
+      !scene.objects[1].components.template get<gneiss::mesh_component_description>() ||
+      gneiss::test_support::assign_value(gneiss::asset_file::serialize(scene), serialized) !=
+          gneiss::error::success ||
       serialized.find(R"("unknown":true)") != std::string::npos) {
     return 1;
   }

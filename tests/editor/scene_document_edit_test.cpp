@@ -52,7 +52,7 @@ void run(scenario mode) {
   e::game_object_description root;
   root.uuid = source.root_uuid;
   root.name = "Root";
-  root.components.set(e::mesh_renderer_description{
+  root.components.set(e::mesh_component_description{
       "asset://mesh.json",
       mode == scenario::failure ? "asset://missing.json" : "asset://material.json"});
   source.objects.push_back(root);
@@ -67,16 +67,16 @@ void run(scenario mode) {
   instance.prefab->uri = "asset://source.prefab.json";
   instance.prefab->component_overrides.push_back(
       {root.uuid,
-       e::mesh_renderer_description::type_guid,
+       e::mesh_component_description::type_guid,
        {},
-       root.components.identity(e::mesh_renderer_description::type_guid)});
+       root.components.identity(e::mesh_component_description::type_guid)});
   scene.objects.push_back(instance);
   const auto json = text(*gneiss::asset_file::serialize_bytes(scene));
   write(files.path / "scene.json", json);
   author_scene editing;
   check(editing.open(files.path, "asset://scene.json"));
   auto changes = ed::prepare_restore_prefab_component(json, "scene.json", instance.uuid, root.uuid,
-                                                      e::mesh_renderer_description::type_guid);
+                                                      e::mesh_component_description::type_guid);
   check(bool(changes));
   ed::editor_command_history history;
   ed::scene_document_edit operation;
@@ -134,7 +134,7 @@ void run(scenario mode) {
   if (mode == scenario::success || mode == scenario::failure || mode == scenario::world_modified) {
     check(status.ok() && history.size() == 1 && redo_count == 1);
     auto node = editing.document.find_prefab_root(instance.uuid);
-    check(node && editing.document.components(node->node)->get<e::mesh_renderer_description>());
+    check(node && editing.document.components(node->node)->get<e::mesh_component_description>());
     auto snapshot = ed::capture_scene_document(*editing.application, editing.document);
     check(snapshot && snapshot->assets.size() == 2);
     std::string saved;
@@ -158,10 +158,10 @@ void run(scenario mode) {
     write(files.path / "material.json", "broken");
     check(history.undo().ok() && undo_count == 0);
     node = editing.document.find_prefab_root(instance.uuid);
-    check(node && !editing.document.components(node->node)->get<e::mesh_renderer_description>());
+    check(node && !editing.document.components(node->node)->get<e::mesh_component_description>());
     check(history.redo().ok() && redo_count == 1);
     node = editing.document.find_prefab_root(instance.uuid);
-    check(node && editing.document.components(node->node)->get<e::mesh_renderer_description>());
+    check(node && editing.document.components(node->node)->get<e::mesh_component_description>());
   } else {
     check(status.failed() && history.size() == 0 && redo_count == 0 && undo_count == 0);
     if (mode == scenario::cancelled)
@@ -170,7 +170,7 @@ void run(scenario mode) {
       check(status == e::error::invalid_state);
     if (editing.document.is_open()) {
       const auto node = editing.document.find_prefab_root(instance.uuid);
-      check(node && !editing.document.components(node->node)->get<e::mesh_renderer_description>());
+      check(node && !editing.document.components(node->node)->get<e::mesh_component_description>());
       if (mode == scenario::modified)
         check(node->display_name == "Changed");
       if (mode == scenario::world_modified)
