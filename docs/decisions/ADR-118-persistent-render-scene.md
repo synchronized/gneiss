@@ -19,7 +19,9 @@
 
 1. World 唯一拥有游戏状态；Render 唯一拥有持久渲染状态。渲染场景不复制父子树、Prefab 或文档。
 2. Render Scene 独立于场景文件和 SceneInstance，可用于无 World 预览；多个 View 可观察同一场景。
-3. 渲染同步桥是唯一同时认识 World 与 Render 的集成点；通过可观察组件变化维护实体到实例 RID。
+3. 渲染同步桥归属场景逻辑侧，是唯一同时认识 World 与 Render 的集成点；通过可观察组件变化维护实体到实例 RID。
+   由 Application 或实际宿主创建并拥有；World 核心不持有 Render 或绑定，Render 不反向依赖 World/ECS。
+   无渲染 World 不创建绑定，独立渲染预览不需要 World；具体目录与生命周期见实施计划。
 4. 服务前端接收类型明确的更新批次，队列和后端协议为私有实现；不以通用 value 或反射路径更新渲染实例。
 5. Render 不回查 ECS/资产管理器，不持有上层资源对象；资源适配负责提交 CPU 内容，资产层仍负责 I/O。
 6. Render 内部管理外部所有权、队列保活、实例依赖及在途 GPU 使用，RID 本身不承担保活。

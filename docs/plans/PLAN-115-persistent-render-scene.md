@@ -146,9 +146,15 @@ destroy_scene 有序删除全部所属实例和灯光，释放其依赖，不删
 关闭顺序：停止宿主同步和新提交 → 放弃未提交批次/释放桥 → 排空或明确终止已接受工作 → 等待 GPU 安全点
 → 回收场景及资源 → 销毁服务。设备丢失不允许无限等待 fence；必须明确进入失败关闭路径。
 批次不得在服务销毁后悬空回调；使用可失效的控制状态清理预留记录，不以强引用永久保活服务。
-桥不得在 World 或 Render 销毁后访问借用对象；Application 负责确定装配析构顺序。
+桥不得在 World 或 Render 销毁后访问借用对象；Application 或实际宿主创建并拥有绑定，确定装配析构顺序。
+宿主先解除绑定并提交所属渲染实例的删除，再销毁 World 和 Render；异步后端回收仍归 Render。
 
 ## World 变化同步
+
+world_render_binding 归属 function/scene/rendering，因为它理解 ECS、层级与实体生命周期。
+World 核心不持有 render_service、不自动创建 Render Scene，也不拥有绑定；映射和同步进度不放入
+world_state 或普通组件。无渲染运行不创建绑定；独立预览直接使用 Render。
+暂不为该绑定建立通用 System 框架。
 
 普通 mesh_renderer 仍持有 mesh/material 强引用，业务不接触 Render RID。
 所有渲染相关组件增删改必须可观察；优先沿用受控 update_component 或 ECS 显式修改通知。
@@ -177,13 +183,16 @@ Render 按 View/层掩码剔除；主相机不可见不代表阴影、反射或�
 ## 目标目录与 Granit 边界
 
 ```text
+engine/function/scene/
+  world.hpp/.cpp
+  rendering/world_render_binding.hpp/.cpp
+
 engine/function/render/
   render_service.hpp/.cpp
   render_scene.hpp
   scene_update.hpp/.cpp
   render_view.hpp
   frame_submission.hpp
-  integration/world_render_binding.hpp/.cpp
   detail/
     render_scene_state.hpp/.cpp
     render_commands.hpp
@@ -194,7 +203,8 @@ engine/function/render/
   backend/...
 ```
 
-这是职责布局，不强制提前创建每个文件。只有 integration 能包含 World/ECS；detail/backend 不反向依赖。
+这是职责布局，不强制提前创建每个文件。scene/rendering 同时依赖 World 与 Render 公共入口；
+World 核心不依赖 Render，render 目录不反向包含 World/ECS。构建目标和头文件可见性也须遵循该方向。
 资源适配按真实资产构建入口实现，不借目录重组创建第二套资产记录。
 先核查 Granit 线程约束、资源更新、frame/fence、场景输入和剔除能力；现有 snapshot 接口可作为临时适配。
 即使 Gneiss 增量同步，适配层仍可能全量生成 Granit 输入，应分别测量两层成本，不声称已消除所有全量工作。
@@ -205,7 +215,8 @@ engine/function/render/
 - [ ] P0：核查现有资源、RID、线程/帧队列和 Granit 能力；固定错误语义、销毁依赖和后端接入方案。
 - [ ] P1：同线程持久 Render Scene/实例、预留 RID、更新批次、独立多视图；接通无 World 的模型预览闭环。
 - [ ] P2：内部资源依赖保活、帧 payload 安全、显式场景销毁和失败关闭；消除上层销毁队列对后端时序的介入。
-- [ ] P3：world_render_binding 和受控组件变化通知；接通层级、增删、换绑、资源重载及卸载。
+- [ ] P3：在 scene/rendering 实现宿主拥有的 world_render_binding 和受控组件变化通知；
+  接通层级、增删、换绑、资源重载及卸载，验证无渲染 World 不需要该绑定。
 - [ ] P4：按视图视锥剔除，正确更新包围体；接入 Runtime、Editor、示例及捕获/拾取入口。
 - [ ] P5：有序队列、背压及独立执行线程；无独立线程平台复用同一消费器，不另设对象模型。
 - [ ] P6：删除每帧全量提取协议及旧适配；迁移帧资源安全能力，不机械删除仍必要的 payload 保活。
