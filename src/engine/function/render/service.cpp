@@ -9,8 +9,8 @@ gneiss::error service::implementation::initialize(const native_window_info& wind
                                                   std::span<const std::byte> environment_asset,
                                                   float environment_intensity,
                                                   float environment_rotation_radians) {
-  const auto executor_result =
-      executor_.initialize([this](render_frame_packet& packet, execution_result& output) {
+  const auto executor_result = executor_.initialize(
+      [this](gneiss::render::detail::frame_packet& packet, execution_result& output) {
         const auto result = backend_.draw(packet, output);
         output.needs_recreate = packet.window.needs_recreate;
         return result;
@@ -107,14 +107,16 @@ result<std::uint64_t> service::implementation::submit(render::detail::render_fra
     return completion_result;
   }
   const bool recreate = pending_recreate_;
-  auto accepted = executor_.submit_frame(
-      {}, policy,
-      [prepare = std::move(prepare), recreate]() mutable -> result<render_frame_packet> {
-        auto packet = prepare();
-        if (packet)
-          packet->window.needs_recreate = packet->window.needs_recreate || recreate;
-        return packet;
-      });
+  auto accepted =
+      executor_.submit_frame({}, policy,
+                             [prepare = std::move(prepare),
+                              recreate]() mutable -> result<gneiss::render::detail::frame_packet> {
+                               auto packet = prepare();
+                               if (packet)
+                                 packet->window.needs_recreate =
+                                     packet->window.needs_recreate || recreate;
+                               return packet;
+                             });
   if (accepted)
     pending_recreate_ = false;
   return accepted;
@@ -234,7 +236,7 @@ result<std::uint64_t> service::submit_request(render::frame_request& request, fr
   if (!capture)
     return capture.error();
   // UI 是独立逐帧输入，接受时固定其纹理版本，不在消费者访问资源 RID 表。
-  render_resource_snapshot ui_resources;
+  gneiss::render::detail::resource_snapshot ui_resources;
   for (const auto& command : request.ui.commands()) {
     const auto handle = resource_handle(command.texture);
     const auto status = texture_status(handle);
@@ -247,7 +249,7 @@ result<std::uint64_t> service::submit_request(render::frame_request& request, fr
   }
   auto accepted = impl_->submit(
       [capture = std::move(*capture), ui_resources = std::move(ui_resources),
-       image = std::move(image)]() mutable -> result<render_frame_packet> {
+       image = std::move(image)]() mutable -> result<gneiss::render::detail::frame_packet> {
         auto packet = capture();
         if (!packet)
           return packet.error();

@@ -194,8 +194,8 @@ target_sources(
     engine/function/render/service.hpp
     engine/function/render/backend/granit/pbr_shader_resolver.cpp
     engine/function/render/backend/granit/pbr_shader_resolver.hpp
-    engine/function/render/render_frame_packet.cpp
-    engine/function/render/render_frame_packet.hpp
+    engine/function/render/detail/frame_packet.cpp
+    engine/function/render/detail/frame_packet.hpp
     engine/function/render/detail/executor.cpp
     engine/function/render/detail/executor.hpp
     engine/function/render/frame_result.hpp

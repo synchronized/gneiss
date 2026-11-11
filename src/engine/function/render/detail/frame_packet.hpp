@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_RENDER_RENDER_FRAME_PACKET_HPP_
-#define GNEISS_RENDER_RENDER_FRAME_PACKET_HPP_
+#ifndef GNEISS_RENDER_DETAIL_FRAME_PACKET_HPP_
+#define GNEISS_RENDER_DETAIL_FRAME_PACKET_HPP_
 
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
@@ -17,15 +17,13 @@
 #include <cstdint>
 #include <unordered_map>
 
-namespace gneiss {
-namespace render {
+namespace gneiss::render {
 class service;
 }
-namespace render::detail {
+namespace gneiss::render::detail {
 class render_scene_state;
-}
 
-class render_resource_snapshot final {
+class resource_snapshot final {
 public:
   [[nodiscard]] const mesh_data* get_mesh(rid mesh) const noexcept;
   /** 已捕获的预留材质返回中性缺省参数；未捕获或无效句柄仍返回空。 */
@@ -55,39 +53,39 @@ private:
   std::unordered_map<rid, std::shared_ptr<const texture_data>> textures_;
 };
 
-struct render_frame_capture_metrics final {
+struct frame_capture_metrics final {
   float capture_ms{};
   std::size_t copied_payload_bytes{};
 };
 
 /** 绘制消费者的纯值输入，不持有上层资产或 ECS 对象。 */
-struct render_draw_instance {
+struct draw_instance {
   rid mesh{};
   rid material{};
   math::matrix4 world_matrix{1.F};
   math::matrix4 normal_matrix{1.F};
   std::uint64_t layers{~UINT64_C(0)};
 };
-struct render_draw_scene {
+struct draw_scene {
   render_camera_snapshot camera{};
   bool has_camera{};
   std::uint64_t layers{~UINT64_C(0)};
-  std::vector<render_draw_instance> instances;
+  std::vector<draw_instance> instances;
 };
 
 /** 已提交帧的自有数据；移动后不再借用主线程的逐帧可变内存。 */
-struct render_frame_packet final {
+struct frame_packet final {
   /** 由执行器在接受帧时写入，用于关联延迟返回的渲染结果。 */
   std::uint64_t sequence{};
   native_window_info window;
-  render_draw_scene scene;
-  render_resource_snapshot resources;
+  draw_scene scene;
+  resource_snapshot resources;
   ui_draw_list ui;
   debug_draw_list debug;
-  render_frame_capture_metrics capture;
+  frame_capture_metrics capture;
   std::shared_ptr<gneiss::render::frame_image> readback;
 };
 
-} // namespace gneiss
+} // namespace gneiss::render::detail
 
 #endif

@@ -310,3 +310,6 @@ Application 的 capture_frame 暂保持同步诊断接口，通过 finish_frames
 命令先校验并取得资源依赖，再交给可靠、有序且仅执行一次的调度回调；拒绝时保留原命令和接受记录。
 帧捕获任务绑定场景内容，不访问接受侧 RID 表。生产 Service 已将命令、资源发布与帧准备接入同一执行器。
 关闭设备时停止提交并排空任务；CPU-only 路径无需创建执行线程或初始化 GPU。
+
+帧消费数据位于 `render::detail::frame_packet`，定义在 `detail/frame_packet.hpp`。
+资源快照及绘制实例列表只供 Service、执行器和后端消费，不属于宿主调用接口或普通模块共享头文件。

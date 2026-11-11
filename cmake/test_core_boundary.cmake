@@ -649,6 +649,18 @@ foreach(header IN ITEMS engine/resource/texture/texture_ktx2.hpp engine/resource
   endif()
 endforeach()
 
+# 宿主只提交请求，不依赖渲染消费帧包。
+file(MAKE_DIRECTORY "${fixture}/src/application")
+file(WRITE "${fixture}/src/application/frame_probe.cpp"
+  "#include <engine/function/render/detail/frame_packet.hpp>\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+  RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+if(status EQUAL 0)
+  message(FATAL_ERROR "边界检查未拒绝宿主包含私有帧包")
+endif()
+file(WRITE "${fixture}/src/application/frame_probe.cpp" "// 已清理帧包探针\n")
+
 # Render 只开放服务接口，不开放 RID 表与引用关联实现。
 foreach(header IN ITEMS "engine/function/render/detail/executor.hpp"
     "engine/function/render/detail/resource_storage.hpp"

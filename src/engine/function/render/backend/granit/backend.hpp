@@ -12,7 +12,9 @@ namespace render {
 struct device_stats;
 struct execution_result;
 }
-struct render_frame_packet;
+namespace render::detail {
+struct frame_packet;
+}
 
 namespace render::backend::granit {
 /** Granit 设备和 GPU 表示的唯一所有者；全部操作由 Service 的消费线程串行调用。
@@ -26,7 +28,7 @@ public:
   backend& operator=(const backend&) = delete;
   error initialize(const native_window_info&, std::span<const std::byte>, float, float);
   error shutdown(gneiss::render::device_stats&);
-  error draw(render_frame_packet&, gneiss::render::execution_result&);
+  error draw(gneiss::render::detail::frame_packet&, gneiss::render::execution_result&);
   error set_environment(std::span<const std::byte>, float, float);
   /** initialize 完成后可读；不与设备初始化/关闭并发。 */
   texture_prepare_profile texture_profile() const noexcept;

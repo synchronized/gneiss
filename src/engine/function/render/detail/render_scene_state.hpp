@@ -4,9 +4,9 @@
 
 #include "engine/core/rid_table.hpp"
 #include "engine/function/render/commands.hpp"
+#include "engine/function/render/detail/frame_packet.hpp"
 #include "engine/function/render/detail/resource_identity.hpp"
 #include "engine/function/render/frame_request.hpp"
-#include "engine/function/render/render_frame_packet.hpp"
 #include <functional>
 #include <map>
 #include <set>
@@ -24,10 +24,10 @@ public:
   result<void> submit(render::scene_commands&& commands);
   result<void> destroy_scene(rid scene);
   /** 同步消费适配；异步模式须改用 prepare_capture 并有序调度，不可并发直读。 */
-  result<render_frame_packet> capture(const render::frame_request& request) const;
+  result<frame_packet> capture(const render::frame_request& request) const;
   /** 接受侧校验视图并绑定场景内容；返回任务须与场景命令在同一消费者按序调用。
    * 不捕获接受侧 this 或 RID 表，先准备的任务可在外部场景句柄释放后执行。 */
-  using capture_operation = std::function<result<render_frame_packet>()>;
+  using capture_operation = std::function<result<frame_packet>()>;
   result<capture_operation> prepare_capture(const render::frame_request& request) const;
   void close() noexcept;
   struct instance {
@@ -42,8 +42,8 @@ private:
   struct scene_content {
     std::map<std::uint64_t, instance> instances;
   };
-  static result<render_frame_packet> capture_content(const render::frame_request& request,
-                                                     const scene_content* content);
+  static result<frame_packet> capture_content(const render::frame_request& request,
+                                              const scene_content* content);
   struct scene {
     // 接受侧只管理身份，不复制消费者的变换、可见性和资源状态。
     std::set<std::uint64_t> accepted;

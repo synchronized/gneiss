@@ -366,7 +366,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/ui_draw_list.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/detail/render_scene_state.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/debug_draw_list.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_frame_packet.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/detail/frame_packet.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/math/transform.cpp"
 )
 target_include_directories(gneiss_render_frame_packet_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

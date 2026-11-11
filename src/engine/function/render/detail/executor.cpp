@@ -27,7 +27,7 @@ void render_command_reporter::report(render_command_stage stage, std::uint64_t c
 inline_render_executor::inline_render_executor(render_frame_callback callback)
     : callback_(std::move(callback)) {}
 
-gneiss::error inline_render_executor::submit(render_frame_packet packet, execution_result& output) {
+gneiss::error inline_render_executor::submit(frame_packet packet, execution_result& output) {
   output = {};
   packet.sequence = next_sequence_++;
   return callback_ ? callback_(packet, output) : gneiss::error::invalid_argument;
@@ -40,7 +40,7 @@ struct threaded_render_executor::state final {
     task_kind kind{task_kind::frame};
     std::uint64_t sequence{};
     frame_policy frame_policy{frame_policy::replaceable};
-    render_frame_packet packet;
+    frame_packet packet;
     render_frame_prepare prepare;
     render_command_callback command;
     render_command_policy command_policy{render_command_policy::once};
@@ -247,7 +247,7 @@ gneiss::error threaded_render_executor::initialize(render_frame_callback callbac
   }
 }
 
-result<std::uint64_t> threaded_render_executor::submit_frame(render_frame_packet packet,
+result<std::uint64_t> threaded_render_executor::submit_frame(frame_packet packet,
                                                              frame_policy policy,
                                                              render_frame_prepare prepare) {
   if (!state_) {

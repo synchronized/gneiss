@@ -7,7 +7,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/render/backend/granit/pbr_shader_resolver.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
-#include "engine/function/render/render_frame_packet.hpp"
+#include "engine/function/render/detail/frame_packet.hpp"
 #include "engine/function/render/statistics.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/platform/native_window_info.hpp"
@@ -51,7 +51,7 @@ namespace gneiss::render::backend::granit {
 struct backend::implementation final {
   error initialize_gpu(const native_window_info&, std::span<const std::byte>, float, float);
   error shutdown_gpu(device_stats&);
-  error execute_frame(render_frame_packet&, execution_result&);
+  error execute_frame(gneiss::render::detail::frame_packet&, execution_result&);
   error set_environment(std::span<const std::byte>, float, float);
   struct texture_mirror final {
     const texture_data* source{};
@@ -104,12 +104,14 @@ struct backend::implementation final {
                          const std::array<granit_texture_view, 5>& textures,
                          material_mirror& output);
   [[nodiscard]] ::granit::result ensure_default_textures();
-  [[nodiscard]] ::granit::result prepare_ui_draw_list(const ui_draw_list& ui,
-                                                      const render_resource_snapshot& resources,
-                                                      std::uint32_t width, std::uint32_t height);
-  void release_invalid_textures(const render_resource_snapshot& resources);
-  void release_invalid_meshes(const render_resource_snapshot& resources) noexcept;
-  void release_invalid_materials(const render_resource_snapshot& resources) noexcept;
+  [[nodiscard]] ::granit::result
+  prepare_ui_draw_list(const ui_draw_list& ui,
+                       const gneiss::render::detail::resource_snapshot& resources,
+                       std::uint32_t width, std::uint32_t height);
+  void release_invalid_textures(const gneiss::render::detail::resource_snapshot& resources);
+  void release_invalid_meshes(const gneiss::render::detail::resource_snapshot& resources) noexcept;
+  void
+  release_invalid_materials(const gneiss::render::detail::resource_snapshot& resources) noexcept;
 
   ::granit::renderer renderer_;
   texture_prepare_profile texture_profile_{};
@@ -658,10 +660,9 @@ backend::implementation::create_material_mirror(const material_data& source,
   }
 }
 
-::granit::result
-backend::implementation::prepare_ui_draw_list(const ui_draw_list& ui,
-                                              const render_resource_snapshot& resources,
-                                              std::uint32_t width, std::uint32_t height) {
+::granit::result backend::implementation::prepare_ui_draw_list(
+    const ui_draw_list& ui, const gneiss::render::detail::resource_snapshot& resources,
+    std::uint32_t width, std::uint32_t height) {
   auto result = ui_canvas_.clear();
   if (result.failed() || ui.commands().empty()) {
     return result;
@@ -750,7 +751,8 @@ void backend::implementation::refresh_texture(rid handle,
     texture_mirrors_.insert_or_assign(handle, std::move(next.mirror));
 }
 
-void backend::implementation::release_invalid_textures(const render_resource_snapshot& resources) {
+void backend::implementation::release_invalid_textures(
+    const gneiss::render::detail::resource_snapshot& resources) {
   for (auto iterator = pending_textures_.begin(); iterator != pending_textures_.end();) {
     ::granit::async_operation_status status;
     const auto result = iterator->second.operation.get_status(status);
@@ -770,7 +772,7 @@ void backend::implementation::release_invalid_textures(const render_resource_sna
 }
 
 void backend::implementation::release_invalid_meshes(
-    const render_resource_snapshot& resources) noexcept {
+    const gneiss::render::detail::resource_snapshot& resources) noexcept {
   for (auto iterator = mesh_mirrors_.begin(); iterator != mesh_mirrors_.end();) {
     if (resources.get_mesh(iterator->first) == nullptr) {
       iterator = mesh_mirrors_.erase(iterator);
@@ -781,7 +783,7 @@ void backend::implementation::release_invalid_meshes(
 }
 
 void backend::implementation::release_invalid_materials(
-    const render_resource_snapshot& resources) noexcept {
+    const gneiss::render::detail::resource_snapshot& resources) noexcept {
   for (auto iterator = material_mirrors_.begin(); iterator != material_mirrors_.end();) {
     if (resources.get_material(iterator->first) == nullptr) {
       iterator = material_mirrors_.erase(iterator);
@@ -966,7 +968,8 @@ gneiss::error backend::implementation::shutdown_gpu(device_stats& stats) {
 // 单帧资源准备与提交必须保持 Granit 调用和失败回滚的线性顺序。
 gneiss::error
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-backend::implementation::execute_frame(render_frame_packet& packet, execution_result& output) {
+backend::implementation::execute_frame(gneiss::render::detail::frame_packet& packet,
+                                       execution_result& output) {
   output.gpu_timing_supported = gpu_timing_supported_;
   output.environment_asset_requested = environment_asset_requested_;
   output.environment_fallback = environment_fallback_;
@@ -1368,7 +1371,7 @@ error backend::initialize(const native_window_info& window, std::span<const std:
   return impl_->initialize_gpu(window, bytes, intensity, rotation);
 }
 error backend::shutdown(device_stats& stats) { return impl_->shutdown_gpu(stats); }
-error backend::draw(render_frame_packet& packet, execution_result& result) {
+error backend::draw(gneiss::render::detail::frame_packet& packet, execution_result& result) {
   return impl_->execute_frame(packet, result);
 }
 error backend::set_environment(std::span<const std::byte> bytes, float intensity, float rotation) {

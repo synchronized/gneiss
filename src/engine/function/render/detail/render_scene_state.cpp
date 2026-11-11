@@ -168,17 +168,15 @@ render_scene_state::prepare_capture(const render::frame_request& request) const 
   return capture_operation{
       [request, content = std::move(content)] { return capture_content(request, content.get()); }};
 }
-result<render_frame_packet>
-render_scene_state::capture(const render::frame_request& request) const {
+result<frame_packet> render_scene_state::capture(const render::frame_request& request) const {
   auto operation = prepare_capture(request);
   if (!operation)
     return operation.error();
   return (*operation)();
 }
-result<render_frame_packet>
-render_scene_state::capture_content(const render::frame_request& request,
-                                    const scene_content* content) {
-  render_frame_packet packet;
+result<frame_packet> render_scene_state::capture_content(const render::frame_request& request,
+                                                         const scene_content* content) {
+  frame_packet packet;
   packet.window = request.window;
   packet.ui = request.ui;
   packet.debug = request.debug;
@@ -213,8 +211,7 @@ render_scene_state::capture_content(const render::frame_request& request,
     packet.scene.instances.push_back(
         {value.mesh, value.material, value.world_matrix, entry.normal_matrix, value.layers});
   }
-  packet.capture.copied_payload_bytes =
-      packet.scene.instances.size() * sizeof(render_draw_instance);
+  packet.capture.copied_payload_bytes = packet.scene.instances.size() * sizeof(draw_instance);
   return packet;
 }
 result<void> render_scene_state::destroy_scene(rid handle) {

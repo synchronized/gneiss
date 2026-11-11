@@ -6,7 +6,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/core/wakeup_signal.hpp"
-#include "engine/function/render/render_frame_packet.hpp"
+#include "engine/function/render/detail/frame_packet.hpp"
 #include "engine/function/render/frame_result.hpp"
 
 #include <cstddef>
@@ -51,9 +51,9 @@ private:
   std::function<void(render_command_stage, std::uint64_t, std::uint64_t)> publish_;
 };
 
-using render_frame_prepare = std::function<result<render_frame_packet>()>;
+using render_frame_prepare = std::function<result<frame_packet>()>;
 
-using render_frame_callback = std::function<gneiss::error(render_frame_packet&, execution_result&)>;
+using render_frame_callback = std::function<gneiss::error(frame_packet&, execution_result&)>;
 using render_command_callback = std::function<gneiss::error(const render_command_reporter&)>;
 
 enum class render_command_policy : std::uint8_t { once, resumable };
@@ -61,7 +61,7 @@ enum class render_command_policy : std::uint8_t { once, resumable };
 class inline_render_executor final {
 public:
   explicit inline_render_executor(render_frame_callback callback);
-  [[nodiscard]] error submit(render_frame_packet packet, execution_result& output);
+  [[nodiscard]] error submit(frame_packet packet, execution_result& output);
   [[nodiscard]] error flush() const noexcept { return error::success; }
 
 private:
@@ -78,7 +78,7 @@ public:
 
   [[nodiscard]] error initialize(render_frame_callback callback,
                                  std::size_t maximum_pending_frames = 3U);
-  [[nodiscard]] result<std::uint64_t> submit_frame(render_frame_packet packet,
+  [[nodiscard]] result<std::uint64_t> submit_frame(frame_packet packet,
                                                    frame_policy policy = frame_policy::replaceable,
                                                    render_frame_prepare prepare = {});
   /** resumable 命令返回 NOT_READY 时保留同一序号排到队尾，后续帧和命令可先执行。

@@ -57,6 +57,10 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "资产加载私有实现不得泄漏到普通调用方：${source}")
   endif()
 
+  if(content MATCHES "engine/function/render/detail/frame_packet[.]hpp" AND
+      NOT source MATCHES "/src/engine/function/render/")
+    message(FATAL_ERROR "Render 帧消费数据不得泄漏到宿主或其他模块：${source}")
+  endif()
   if(content MATCHES "engine/function/render/detail/executor[.]hpp" AND
       NOT source MATCHES "/src/engine/function/render/detail/(executor[.]cpp|service_impl[.]hpp)$")
     message(FATAL_ERROR "Render 执行器不得泄漏到普通调用方：${source}")

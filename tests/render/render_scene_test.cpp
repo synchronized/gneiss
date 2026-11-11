@@ -192,7 +192,7 @@ bool queued_scene_consumption() {
   CHECK(!state.find(*scene, {1})); // 已接受但尚未执行。
   render::frame_request request{.window = {.width = 64, .height = 64},
                                 .views = {{.scene = *scene}}};
-  std::vector<result<render_frame_packet>> frames;
+  std::vector<result<gneiss::render::detail::frame_packet>> frames;
   auto first = state.prepare_capture(request);
   CHECK(first);
   CHECK(enqueue([operation = std::move(*first), &frames] { frames.push_back(operation()); }));
