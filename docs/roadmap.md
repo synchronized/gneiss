@@ -21,6 +21,8 @@
 
 ## 阶段概览
 
+优先整理事件与日志，当前完成初步适配核查，生产实现待开始，见 [PLAN-116](plans/PLAN-116-events-and-logging.md)。
+
 持久渲染场景与增量同步设计已确认、待实施，见 [PLAN-115](plans/PLAN-115-persistent-render-scene.md)。
 
 应用装配与场景模块代码迁移已清理旧服务，验收汇总待收尾，见 [PLAN-113](plans/PLAN-113-application-scene-boundaries.md)。

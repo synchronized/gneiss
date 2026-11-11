@@ -687,3 +687,7 @@
 - [PLAN-113 资产批次迁移记录](records/2026-11-11-plan113-asset-batch.md)
 
 - [PLAN-113 World 所有权迁移记录](records/2026-11-11-plan113-world-owner.md)
+
+- [PLAN-116 强类型通知与独立日志系统](plans/PLAN-116-events-and-logging.md)
+- [ADR-119 对象级通知与独立结构化日志](decisions/ADR-119-events-and-logging.md)
+- [事件与日志适配核查](records/2026-11-11-event-log-feasibility.md)
