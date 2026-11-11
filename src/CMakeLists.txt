@@ -205,7 +205,8 @@ target_sources(
     engine/function/render/ui_draw_list.hpp
     engine/function/render/detail/render_scene_state.cpp
     engine/function/render/render_service_resources.cpp
-    engine/function/render/render_resource_storage.hpp
+    engine/function/render/detail/resource_storage.hpp
+    engine/function/render/detail/service_impl.hpp
     engine/function/render/camera.hpp
     ${gneiss_pbr_embedded_sources}
 )

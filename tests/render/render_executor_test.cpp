@@ -28,7 +28,7 @@ bool ordered_commands_survive_frame_replacement() {
   int discarded_prepares = 0;
   bool captured_in_order = false;
   const auto producer = std::this_thread::get_id();
-  auto identity = std::make_shared<detail::resource_identity<mesh_data>>();
+  auto identity = std::make_shared<gneiss::render::detail::resource_identity<mesh_data>>();
   auto old_version = std::make_shared<mesh_data>();
   auto future_version = std::make_shared<mesh_data>();
   identity->publish(old_version);

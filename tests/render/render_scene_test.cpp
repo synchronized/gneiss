@@ -16,16 +16,17 @@ using namespace gneiss;
     }                                                                                              \
   } while (false)
 bool commands() {
-  auto mesh = std::make_shared<detail::resource_identity<mesh_data>>();
-  auto material = std::make_shared<detail::resource_identity<material_data>>();
+  auto mesh = std::make_shared<gneiss::render::detail::resource_identity<mesh_data>>();
+  auto material = std::make_shared<gneiss::render::detail::resource_identity<material_data>>();
   bool ready = true;
-  auto pin = [&](const mesh_instance_description&) -> result<detail::scene_resource_pin> {
+  auto pin =
+      [&](const mesh_instance_description&) -> result<gneiss::render::detail::scene_resource_pin> {
     if (!ready)
       return error::not_ready;
-    return detail::scene_resource_pin{mesh, material};
+    return gneiss::render::detail::scene_resource_pin{mesh, material};
   };
-  detail::render_scene_state state{65000, pin};
-  detail::render_scene_state other{65001, pin};
+  gneiss::render::detail::render_scene_state state{65000, pin};
+  gneiss::render::detail::render_scene_state other{65001, pin};
   auto scene = state.create_scene();
   auto second = state.create_scene();
   CHECK(scene && second);
@@ -83,8 +84,9 @@ bool commands() {
   CHECK(state.submit(std::move(invalid)));
   CHECK(!state.find(*scene, id)->description.visible && state.find(*scene, {2}));
   // 换绑失败不释放旧依赖；成功后新依赖存活，字段更新不覆盖矩阵。
-  auto old_material = std::weak_ptr<detail::resource_identity<material_data>>{material};
-  material = std::make_shared<detail::resource_identity<material_data>>();
+  auto old_material =
+      std::weak_ptr<gneiss::render::detail::resource_identity<material_data>>{material};
+  material = std::make_shared<gneiss::render::detail::resource_identity<material_data>>();
   render::scene_commands rebind{*scene, {render::set_resources{id, 4, 5}}};
   ready = false;
   CHECK(!state.submit(std::move(rebind)));
@@ -121,7 +123,7 @@ bool commands() {
   render::scene_commands wrapped{*second,
                                  {render::create_instance{{2}, {.mesh = 1, .material = 2}}}};
   CHECK(!state.submit(std::move(wrapped)));
-  auto held = std::weak_ptr<detail::resource_identity<mesh_data>>{mesh};
+  auto held = std::weak_ptr<gneiss::render::detail::resource_identity<mesh_data>>{mesh};
   mesh.reset();
   CHECK(!held.expired());
   CHECK(state.destroy_scene(*scene));
@@ -138,8 +140,8 @@ bool commands() {
   return true;
 }
 bool queued_scene_consumption() {
-  auto mesh = std::make_shared<detail::resource_identity<mesh_data>>();
-  auto material = std::make_shared<detail::resource_identity<material_data>>();
+  auto mesh = std::make_shared<gneiss::render::detail::resource_identity<mesh_data>>();
+  auto material = std::make_shared<gneiss::render::detail::resource_identity<material_data>>();
   std::weak_ptr retained_mesh = mesh;
   threaded_render_executor executor;
   CHECK(executor.initialize([](auto&, auto&) { return error::success; }).ok());
@@ -169,12 +171,12 @@ bool queued_scene_consumption() {
   };
   bool accepting = true;
   const auto producer = std::this_thread::get_id();
-  detail::render_scene_state state{
+  gneiss::render::detail::render_scene_state state{
       64997,
-      [&](const mesh_instance_description&) -> result<detail::scene_resource_pin> {
+      [&](const mesh_instance_description&) -> result<gneiss::render::detail::scene_resource_pin> {
         if (std::this_thread::get_id() != producer)
           return error::invalid_state;
-        return detail::scene_resource_pin{mesh, material};
+        return gneiss::render::detail::scene_resource_pin{mesh, material};
       },
       [&](std::function<void()> operation) -> result<void> {
         if (!accepting)
@@ -296,12 +298,13 @@ bool service_lifetime() {
   return true;
 }
 bool identity_versions() {
-  auto mesh = std::make_shared<detail::resource_identity<mesh_data>>();
-  auto material = std::make_shared<detail::resource_identity<material_data>>();
-  auto texture = std::make_shared<detail::resource_identity<texture_data>>();
-  detail::render_scene_state state{
-      64999, [&](const mesh_instance_description&) -> result<detail::scene_resource_pin> {
-        return detail::scene_resource_pin{mesh, material};
+  auto mesh = std::make_shared<gneiss::render::detail::resource_identity<mesh_data>>();
+  auto material = std::make_shared<gneiss::render::detail::resource_identity<material_data>>();
+  auto texture = std::make_shared<gneiss::render::detail::resource_identity<texture_data>>();
+  gneiss::render::detail::render_scene_state state{
+      64999,
+      [&](const mesh_instance_description&) -> result<gneiss::render::detail::scene_resource_pin> {
+        return gneiss::render::detail::scene_resource_pin{mesh, material};
       }};
   auto scene = state.create_scene();
   CHECK(scene);
@@ -333,22 +336,23 @@ bool identity_versions() {
   return true;
 }
 bool concurrent_material_publication() {
-  auto material = std::make_shared<detail::resource_identity<material_data>>();
+  auto material = std::make_shared<gneiss::render::detail::resource_identity<material_data>>();
   auto left = std::make_shared<material_data>();
   auto right = std::make_shared<material_data>();
   left->base_color_texture = 3;
   right->normal_texture = 4;
-  auto left_texture = std::make_shared<detail::resource_identity<texture_data>>();
-  auto right_texture = std::make_shared<detail::resource_identity<texture_data>>();
+  auto left_texture = std::make_shared<gneiss::render::detail::resource_identity<texture_data>>();
+  auto right_texture = std::make_shared<gneiss::render::detail::resource_identity<texture_data>>();
   auto left_pixels = std::make_shared<texture_data>();
   auto right_pixels = std::make_shared<texture_data>();
   left_texture->publish(left_pixels);
   right_texture->publish(right_pixels);
-  detail::resource_identity<material_data>::dependencies left_dependencies{left_texture};
-  detail::resource_identity<material_data>::dependencies right_dependencies{};
+  gneiss::render::detail::resource_identity<material_data>::dependencies left_dependencies{
+      left_texture};
+  gneiss::render::detail::resource_identity<material_data>::dependencies right_dependencies{};
   right_dependencies[2] = right_texture;
   material->publish(left, left_dependencies);
-  detail::scene_resource_pin pin{{}, material};
+  gneiss::render::detail::scene_resource_pin pin{{}, material};
   const auto retained = pin.capture();
   std::barrier start{2};
   bool consistent = true;
@@ -378,12 +382,13 @@ bool concurrent_material_publication() {
 }
 
 bool frame_capture() {
-  auto mesh = std::make_shared<detail::resource_identity<mesh_data>>();
-  auto material = std::make_shared<detail::resource_identity<material_data>>();
-  auto texture = std::make_shared<detail::resource_identity<texture_data>>();
-  detail::render_scene_state state{
-      64998, [&](const mesh_instance_description&) -> result<detail::scene_resource_pin> {
-        return detail::scene_resource_pin{mesh, material};
+  auto mesh = std::make_shared<gneiss::render::detail::resource_identity<mesh_data>>();
+  auto material = std::make_shared<gneiss::render::detail::resource_identity<material_data>>();
+  auto texture = std::make_shared<gneiss::render::detail::resource_identity<texture_data>>();
+  gneiss::render::detail::render_scene_state state{
+      64998,
+      [&](const mesh_instance_description&) -> result<gneiss::render::detail::scene_resource_pin> {
+        return gneiss::render::detail::scene_resource_pin{mesh, material};
       }};
   auto scene = state.create_scene();
   CHECK(scene);

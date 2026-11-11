@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
-#include "engine/function/render/render_resource_storage.hpp"
+#include "engine/function/render/detail/service_impl.hpp"
 #include "engine/function/render/render_service.hpp"
 
 #include "engine/resource/mesh/mesh_data.hpp"
@@ -50,28 +50,16 @@ render_memory_usage measure(const texture_data& value) noexcept {
 }
 } // namespace
 
-render_service::resource_storage::resource_storage(
-    std::uint64_t memory_limit, detail::render_scene_state::dispatch_callback dispatch)
+render::detail::resource_storage::resource_storage(std::uint64_t memory_limit)
     : memory_limit_(memory_limit), domain_(allocate_domain()), meshes_(domain_),
-      materials_(domain_), textures_(domain_) {
-  scenes_ = std::make_shared<detail::render_scene_state>(
-      domain_,
-      [this](const mesh_instance_description& description) -> result<detail::scene_resource_pin> {
-        detail::scene_resource_pin pin;
-        const auto* mesh = meshes_.get(description.mesh, resource_type::mesh);
-        const auto* material = materials_.get(description.material, resource_type::material);
-        if (!mesh || !material)
-          return error::invalid_handle;
-        pin.mesh = mesh->identity;
-        pin.material = material->identity;
-        return pin;
-      },
-      std::move(dispatch));
-}
-result<std::array<std::shared_ptr<const detail::resource_identity<texture_data>>, 5>>
-render_service::resource_storage::material_dependencies(
-    const material_data& value, const detail::resource_identity<material_data>* previous) const {
-  std::array<std::shared_ptr<const detail::resource_identity<texture_data>>, 5> dependencies{};
+      materials_(domain_), textures_(domain_) {}
+result<
+    std::array<std::shared_ptr<const gneiss::render::detail::resource_identity<texture_data>>, 5>>
+render::detail::resource_storage::material_dependencies(
+    const material_data& value,
+    const gneiss::render::detail::resource_identity<material_data>* previous) const {
+  std::array<std::shared_ptr<const gneiss::render::detail::resource_identity<texture_data>>, 5>
+      dependencies{};
   const auto handles = value.texture_handles();
   const auto previous_version = previous ? previous->snapshot() : nullptr;
   for (std::size_t index = 0; index < handles.size(); ++index) {
@@ -96,47 +84,46 @@ render_service::resource_storage::material_dependencies(
   }
   return dependencies;
 }
-result<rid> render_service::create_scene() { return storage_->scenes_->create_scene(); }
+result<rid> render_service::create_scene() { return impl_->scenes.create_scene(); }
 result<void> render_service::submit(render::scene_commands&& update) {
-  return storage_->scenes_->submit(std::move(update));
+  return impl_->scenes.submit(std::move(update));
 }
-result<void> render_service::destroy_scene(rid scene) {
-  return storage_->scenes_->destroy_scene(scene);
-}
+result<void> render_service::destroy_scene(rid scene) { return impl_->scenes.destroy_scene(scene); }
 
-bool render_service::is_valid() const noexcept { return storage_->domain_ != 0U; }
+bool render_service::is_valid() const noexcept { return impl_->resources.domain_ != 0U; }
 void render_service::close_resources() noexcept {
-  storage_->scenes_->close();
-  storage_->meshes_.close();
-  storage_->materials_.close();
-  storage_->textures_.close();
-  storage_->domain_ = 0U;
+  impl_->scenes.close();
+  impl_->resources.meshes_.close();
+  impl_->resources.materials_.close();
+  impl_->resources.textures_.close();
+  impl_->resources.domain_ = 0U;
 }
 
 result<rid> render_service::reserve_mesh() {
-  return storage_->meshes_.create(resource_type::mesh, std::shared_ptr<const mesh_data>{});
+  return impl_->resources.meshes_.create(resource_type::mesh, std::shared_ptr<const mesh_data>{});
 }
 result<rid> render_service::reserve_texture() {
-  return storage_->textures_.create(resource_type::texture, std::shared_ptr<const texture_data>{});
+  return impl_->resources.textures_.create(resource_type::texture,
+                                           std::shared_ptr<const texture_data>{});
 }
 gneiss::error render_service::mesh_status(rid mesh) const noexcept {
-  const auto* slot = storage_->meshes_.get(mesh, resource_type::mesh);
+  const auto* slot = impl_->resources.meshes_.get(mesh, resource_type::mesh);
   return !slot ? gneiss::error::invalid_handle
                : (slot->identity->read() ? gneiss::error::success : gneiss::error::not_ready);
 }
 result<rid> render_service::reserve_material() {
-  return storage_->materials_.create(resource_type::material,
-                                     std::shared_ptr<const material_data>{});
+  return impl_->resources.materials_.create(resource_type::material,
+                                            std::shared_ptr<const material_data>{});
 }
 gneiss::error render_service::material_status(rid material) const noexcept {
-  const auto* slot = storage_->materials_.get(material, resource_type::material);
+  const auto* slot = impl_->resources.materials_.get(material, resource_type::material);
   if (slot == nullptr) {
     return gneiss::error::invalid_handle;
   }
   return slot->identity->read() ? gneiss::error::success : gneiss::error::not_ready;
 }
 gneiss::error render_service::texture_status(rid texture) const noexcept {
-  const auto* slot = storage_->textures_.get(texture, resource_type::texture);
+  const auto* slot = impl_->resources.textures_.get(texture, resource_type::texture);
   return !slot ? gneiss::error::invalid_handle
                : (slot->identity->read() ? gneiss::error::success : gneiss::error::not_ready);
 }
@@ -153,15 +140,16 @@ render_memory_usage render_service::memory_usage() const noexcept {
       }
     }
   };
-  collect(storage_->mesh_history_);
-  collect(storage_->material_history_);
-  collect(storage_->texture_history_);
+  collect(impl_->resources.mesh_history_);
+  collect(impl_->resources.material_history_);
+  collect(impl_->resources.texture_history_);
   return total;
 }
 std::uint64_t render_service::available_memory_bytes() const noexcept {
   const auto usage = memory_usage();
-  return storage_->memory_limit_ -
-         std::min(storage_->memory_limit_, std::max(usage.logical_bytes, usage.cpu_data_bytes));
+  return impl_->resources.memory_limit_ -
+         std::min(impl_->resources.memory_limit_,
+                  std::max(usage.logical_bytes, usage.cpu_data_bytes));
 }
 template <typename Resource>
 result<std::shared_ptr<const Resource>>
@@ -172,10 +160,10 @@ render_service::track(std::shared_ptr<const Resource> resource,
   }
   const auto usage = measure(*resource);
   const auto current = memory_usage();
-  if (usage.logical_bytes >
-          storage_->memory_limit_ - std::min(storage_->memory_limit_, current.logical_bytes) ||
-      usage.cpu_data_bytes >
-          storage_->memory_limit_ - std::min(storage_->memory_limit_, current.cpu_data_bytes)) {
+  if (usage.logical_bytes > impl_->resources.memory_limit_ -
+                                std::min(impl_->resources.memory_limit_, current.logical_bytes) ||
+      usage.cpu_data_bytes > impl_->resources.memory_limit_ -
+                                 std::min(impl_->resources.memory_limit_, current.cpu_data_bytes)) {
     return error::out_of_memory; // 显式预算拒绝，非进程堆耗尽。
   }
   history.push_back(resource);
@@ -238,7 +226,7 @@ result<rid> render_service::create_mesh(const mesh_view& desc) {
   auto data = prepare_mesh_data(desc);
   if (!data)
     return data.error();
-  return storage_->meshes_.create(resource_type::mesh, std::move(*data));
+  return impl_->resources.meshes_.create(resource_type::mesh, std::move(*data));
 }
 
 result<std::shared_ptr<const mesh_data>> render_service::prepare_mesh_data(const mesh_view& desc) {
@@ -299,19 +287,19 @@ result<rid> render_service::create_prepared_mesh(std::shared_ptr<const mesh_data
     return gneiss::error::invalid_argument;
   }
   {
-    auto tracked = track(std::move(resource), storage_->mesh_history_);
+    auto tracked = track(std::move(resource), impl_->resources.mesh_history_);
     if (!tracked)
       return tracked.error();
-    return storage_->meshes_.create(resource_type::mesh, std::move(*tracked));
+    return impl_->resources.meshes_.create(resource_type::mesh, std::move(*tracked));
   }
 }
 result<void> render_service::replace_mesh(rid rid, std::shared_ptr<const mesh_data> data) {
-  auto* slot = storage_->meshes_.get(rid, resource_type::mesh);
+  auto* slot = impl_->resources.meshes_.get(rid, resource_type::mesh);
   if (!slot || !data) {
     return error::invalid_argument;
   }
   {
-    auto tracked = track(std::move(data), storage_->mesh_history_);
+    auto tracked = track(std::move(data), impl_->resources.mesh_history_);
     if (!tracked)
       return tracked.error();
     auto identity = slot->identity;
@@ -323,17 +311,17 @@ result<void> render_service::replace_mesh(rid rid, std::shared_ptr<const mesh_da
   return {};
 }
 result<void> render_service::replace_material(rid rid, std::shared_ptr<const material_data> data) {
-  auto* slot = storage_->materials_.get(rid, resource_type::material);
+  auto* slot = impl_->resources.materials_.get(rid, resource_type::material);
   if (!slot || !data)
     return error::invalid_argument;
-  auto dependencies = storage_->material_dependencies(*data, slot->identity.get());
+  auto dependencies = impl_->resources.material_dependencies(*data, slot->identity.get());
   if (!dependencies)
     return dependencies.error();
-  auto tracked = track(std::move(data), storage_->material_history_);
+  auto tracked = track(std::move(data), impl_->resources.material_history_);
   if (!tracked)
     return tracked.error();
   // 所属线程一次发布内容和依赖；失败时旧版本不变。
-  using identity_type = detail::resource_identity<material_data>;
+  using identity_type = gneiss::render::detail::resource_identity<material_data>;
   auto next = std::make_shared<const identity_type::version>(
       identity_type::version{std::move(*tracked), std::move(*dependencies)});
   auto identity = slot->identity;
@@ -344,7 +332,7 @@ result<void> render_service::replace_material(rid rid, std::shared_ptr<const mat
 }
 
 gneiss::error render_service::destroy_mesh(rid mesh) noexcept {
-  const auto status = storage_->meshes_.destroy(mesh, resource_type::mesh);
+  const auto status = impl_->resources.meshes_.destroy(mesh, resource_type::mesh);
   return status;
 }
 
@@ -353,7 +341,7 @@ render_service::prepare_mesh_data(std::shared_ptr<const mesh_data> resource) {
   if (!is_valid() || !resource)
     return gneiss::error::invalid_argument;
   {
-    return track(std::move(resource), storage_->mesh_history_);
+    return track(std::move(resource), impl_->resources.mesh_history_);
   }
 }
 
@@ -370,7 +358,7 @@ render_service::prepare_material_data(const material_data& value) {
     }
   }
   {
-    return track(std::make_shared<const material_data>(value), storage_->material_history_);
+    return track(std::make_shared<const material_data>(value), impl_->resources.material_history_);
   }
 }
 
@@ -378,16 +366,16 @@ result<rid> render_service::create_material(const material_data& value) {
   auto data = prepare_material_data(value);
   if (!data)
     return data.error();
-  auto dependencies = storage_->material_dependencies(value);
+  auto dependencies = impl_->resources.material_dependencies(value);
   if (!dependencies)
     return dependencies.error();
-  auto identity = std::make_shared<detail::resource_identity<material_data>>();
+  auto identity = std::make_shared<gneiss::render::detail::resource_identity<material_data>>();
   identity->publish(std::move(*data), std::move(*dependencies));
-  return storage_->materials_.create(resource_type::material, std::move(identity));
+  return impl_->resources.materials_.create(resource_type::material, std::move(identity));
 }
 
 gneiss::error render_service::destroy_material(rid material) noexcept {
-  const auto status = storage_->materials_.destroy(material, resource_type::material);
+  const auto status = impl_->resources.materials_.destroy(material, resource_type::material);
   return status;
 }
 
@@ -395,7 +383,7 @@ result<rid> render_service::create_texture(const texture_view& desc) {
   auto data = prepare_texture_data(desc);
   if (!data)
     return data.error();
-  return storage_->textures_.create(resource_type::texture, std::move(*data));
+  return impl_->resources.textures_.create(resource_type::texture, std::move(*data));
 }
 
 result<std::shared_ptr<const texture_data>>
@@ -477,7 +465,7 @@ render_service::prepare_texture_data(std::shared_ptr<const texture_data> owner) 
     }
   }
   {
-    return track(std::move(owner), storage_->texture_history_);
+    return track(std::move(owner), impl_->resources.texture_history_);
   }
 }
 
@@ -487,7 +475,7 @@ result<rid> render_service::create_texture(texture_data resource) {
   auto data = prepare_texture_data(std::move(resource));
   if (!data)
     return data.error();
-  return storage_->textures_.create(resource_type::texture, std::move(*data));
+  return impl_->resources.textures_.create(resource_type::texture, std::move(*data));
 }
 
 result<rid> render_service::create_packaged_texture(texture_data resource) {
@@ -496,22 +484,22 @@ result<rid> render_service::create_packaged_texture(texture_data resource) {
   auto data = prepare_texture_data(std::move(resource));
   if (!data)
     return data.error();
-  return storage_->textures_.create(resource_type::texture, std::move(*data));
+  return impl_->resources.textures_.create(resource_type::texture, std::move(*data));
 }
 
 gneiss::error render_service::destroy_texture(rid texture) noexcept {
-  const auto status = storage_->textures_.destroy(texture, resource_type::texture);
+  const auto status = impl_->resources.textures_.destroy(texture, resource_type::texture);
   return status;
 }
 
 result<void> render_service::replace_texture(rid texture,
                                              std::shared_ptr<const texture_data> prepared) {
-  auto* slot = storage_->textures_.get(texture, resource_type::texture);
+  auto* slot = impl_->resources.textures_.get(texture, resource_type::texture);
   if (slot == nullptr || !prepared) {
     return error::invalid_argument;
   }
   {
-    auto tracked = track(std::move(prepared), storage_->texture_history_);
+    auto tracked = track(std::move(prepared), impl_->resources.texture_history_);
     if (!tracked)
       return tracked.error();
     auto identity = slot->identity;
@@ -524,38 +512,38 @@ result<void> render_service::replace_texture(rid texture,
 }
 
 const mesh_data* render_service::get_mesh(rid mesh) const noexcept {
-  const auto* resource = storage_->meshes_.get(mesh, resource_type::mesh);
+  const auto* resource = impl_->resources.meshes_.get(mesh, resource_type::mesh);
   return resource == nullptr ? nullptr : resource->identity->read().get();
 }
 
 const material_data* render_service::get_material(rid material) const noexcept {
-  const auto* resource = storage_->materials_.get(material, resource_type::material);
+  const auto* resource = impl_->resources.materials_.get(material, resource_type::material);
   return resource == nullptr ? nullptr : resource->identity->read().get();
 }
 
 const texture_data* render_service::get_texture(rid texture) const noexcept {
-  const auto* resource = storage_->textures_.get(texture, resource_type::texture);
+  const auto* resource = impl_->resources.textures_.get(texture, resource_type::texture);
   return resource == nullptr ? nullptr : resource->identity->read().get();
 }
 
 std::shared_ptr<const mesh_data> render_service::share_mesh(rid mesh) const noexcept {
-  const auto* resource = storage_->meshes_.get(mesh, resource_type::mesh);
+  const auto* resource = impl_->resources.meshes_.get(mesh, resource_type::mesh);
   return resource == nullptr ? nullptr : resource->identity->read();
 }
 
 std::shared_ptr<const material_data> render_service::share_material(rid material) const noexcept {
-  const auto* resource = storage_->materials_.get(material, resource_type::material);
+  const auto* resource = impl_->resources.materials_.get(material, resource_type::material);
   return resource == nullptr ? nullptr : resource->identity->read();
 }
 
 std::shared_ptr<const texture_data> render_service::share_texture(rid texture) const noexcept {
-  const auto* resource = storage_->textures_.get(texture, resource_type::texture);
+  const auto* resource = impl_->resources.textures_.get(texture, resource_type::texture);
   return resource == nullptr ? nullptr : resource->identity->read();
 }
 
 std::size_t render_service::live_resource_count() const noexcept {
-  return storage_->meshes_.live_count() + storage_->materials_.live_count() +
-         storage_->textures_.live_count();
+  return impl_->resources.meshes_.live_count() + impl_->resources.materials_.live_count() +
+         impl_->resources.textures_.live_count();
 }
 
 } // namespace gneiss

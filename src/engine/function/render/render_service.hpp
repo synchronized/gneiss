@@ -133,13 +133,10 @@ private:
   result<void> dispatch_render_work(std::function<void()>);
   result<std::uint64_t> submit_request(render::frame_request&, render_frame_policy,
                                        std::shared_ptr<frame_image>);
-  struct resource_storage;
   template <typename Resource>
   result<std::shared_ptr<const Resource>>
   track(std::shared_ptr<const Resource> resource,
         std::vector<std::weak_ptr<const Resource>>& history);
-  // 后端先析构，再释放 CPU 内容表；上层资源端点由宿主提前关闭。
-  std::unique_ptr<resource_storage> storage_;
   struct implementation;
   std::unique_ptr<implementation> impl_;
 };

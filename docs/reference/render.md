@@ -7,6 +7,10 @@
 `backend/granit/backend.hpp/.cpp`，命名空间为 `gneiss::render::backend::granit`。
 后端独占设备、交换链、管线及 GPU 资源镜像，在 Service 消费线程串行执行；不拥有另一套队列，
 不访问 World、资产管理器或 Service 的 RID 表。后端接口只使用引擎值类型，Granit 类型隐藏在实现中。
+Service 外壳仅拥有一个 PImpl。其资源存储与场景存储平级，资源存储不拥有场景；
+私有定义集中于 `detail/service_impl.hpp` 和 `detail/resource_storage.hpp`。
+资源身份与场景消费状态位于 `gneiss::render::detail`。析构先排空并停止执行器，
+再按成员顺序释放后端、场景和资源；已接受任务使用期间不会提前销毁这些状态。
 设备计数和单帧执行指标定义于 `render_statistics.hpp`，不再要求后端依赖 Service 或执行器声明。
 
 Render 的 `reserve_mesh/texture/material()` 与 `create_*` 系列返回 `result<rid>`；

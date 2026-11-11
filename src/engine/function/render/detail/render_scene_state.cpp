@@ -4,7 +4,7 @@
 #include <cmath>
 #include <set>
 #include <type_traits>
-namespace gneiss::detail {
+namespace gneiss::render::detail {
 namespace {
 result<math::matrix4> prepare_normal_matrix(const math::matrix4& value) {
   for (auto element : math::matrix_elements(value))

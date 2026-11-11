@@ -13,14 +13,15 @@
   } while (false)
 int main() {
   using namespace gneiss;
-  auto mesh = std::make_shared<detail::resource_identity<mesh_data>>();
-  auto material = std::make_shared<detail::resource_identity<material_data>>();
-  std::array<std::shared_ptr<detail::resource_identity<texture_data>>, 5> textures;
+  auto mesh = std::make_shared<gneiss::render::detail::resource_identity<mesh_data>>();
+  auto material = std::make_shared<gneiss::render::detail::resource_identity<material_data>>();
+  std::array<std::shared_ptr<gneiss::render::detail::resource_identity<texture_data>>, 5> textures;
   for (auto& texture : textures)
-    texture = std::make_shared<detail::resource_identity<texture_data>>();
-  detail::render_scene_state state{
-      64001, [&](const mesh_instance_description&) -> result<detail::scene_resource_pin> {
-        return detail::scene_resource_pin{mesh, material};
+    texture = std::make_shared<gneiss::render::detail::resource_identity<texture_data>>();
+  gneiss::render::detail::render_scene_state state{
+      64001,
+      [&](const mesh_instance_description&) -> result<gneiss::render::detail::scene_resource_pin> {
+        return gneiss::render::detail::scene_resource_pin{mesh, material};
       }};
   auto scene = state.create_scene();
   CHECK(scene);
@@ -39,7 +40,7 @@ int main() {
   description->normal_texture = 5;
   description->occlusion_texture = 6;
   description->emissive_texture = 7;
-  detail::resource_identity<material_data>::dependencies dependencies;
+  gneiss::render::detail::resource_identity<material_data>::dependencies dependencies;
   for (std::size_t i = 0; i < textures.size(); ++i)
     dependencies[i] = textures[i];
   material->publish(description, std::move(dependencies));

@@ -10,7 +10,7 @@
 #include <functional>
 #include <map>
 #include <set>
-namespace gneiss::detail {
+namespace gneiss::render::detail {
 class render_scene_state final {
 public:
   using pin_callback = std::function<result<scene_resource_pin>(const mesh_instance_description&)>;

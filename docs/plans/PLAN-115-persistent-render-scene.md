@@ -418,7 +418,11 @@ Service 保留执行器、可靠命令调度、背压和完成回执；后端不
 本次不改变 GPU 提交和退休顺序；后端仍逐帧将输入转换为 Granit 快照。
 Windows Clang Debug 的 Engine、Runtime、Editor 构建通过，四项 Render 回归及两项分层检查通过；
 未运行真实 GPU 验收。
-P0 尚未整体完成：Service 单一 PImpl、资源/场景存储平级及其余命名空间收敛仍需推进。
+Service 单一 PImpl 和资源/场景存储平级已落地；实现装配集中在 detail/service_impl.hpp。
+资源表移至 detail/resource_storage.hpp，不再依赖 Service 声明或持有场景；资源身份和场景状态归入 render::detail。
+PImpl 析构先排空停止执行器，再释放后端、场景及资源；普通调用接口不增加关闭协调步骤。
+本次 Engine、Runtime、Editor 构建及四项渲染回归、两项分层检查通过；未运行 GPU 验收。
+P0 尚未整体完成：Service 与执行器等剩余命名/头文件边界仍需收敛。
 
 ## 实施顺序与完成条件
 

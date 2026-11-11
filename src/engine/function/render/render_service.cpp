@@ -2,55 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "render_service.hpp"
-#include "backend/granit/backend.hpp"
-#include "render_resource_storage.hpp"
+#include "engine/function/render/detail/service_impl.hpp"
 #include <cmath>
-#include <deque>
 namespace gneiss {
-struct render_service::implementation final {
-public:
-  [[nodiscard]] gneiss::error initialize(const native_window_info& window,
-                                         std::span<const std::byte> environment_asset = {},
-                                         float environment_intensity = 1.0F,
-                                         float environment_rotation_radians = 0.0F);
-  error request_environment(std::shared_ptr<const std::vector<std::byte>>, float, float);
-  [[nodiscard]] gneiss::error shutdown(render_device_stats& stats);
-  [[nodiscard]] gneiss::error finish_frames();
-  void set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept {
-    executor_.set_completion_wakeup(std::move(notification));
-  }
-  [[nodiscard]] result<bool> can_prepare_frame();
-  [[nodiscard]] result<std::uint64_t>
-  submit(render_frame_prepare prepare,
-         render_frame_policy policy = render_frame_policy::replaceable);
-  result<void> dispatch(std::function<void()> operation) {
-    if (!executor_.is_running()) {
-      operation();
-      return {};
-    }
-    auto accepted = executor_.submit_command(
-        [operation = std::move(operation)](const render_command_reporter&) {
-          operation();
-          return error::success;
-        },
-        render_command_policy::once);
-    return accepted ? result<void>{} : result<void>{accepted.error()};
-  }
-  [[nodiscard]] result<std::optional<render_frame_completion>> try_take_required_completion();
-  [[nodiscard]] render_queue_stats query_performance_stats() const noexcept;
-  /** 仅在 initialize 完成后由宿主读取；设备重建必须重新发布。 */
-  [[nodiscard]] texture_prepare_profile texture_profile() const noexcept {
-    return backend_.texture_profile();
-  }
-
-private:
-  error collect_completions();
-  render::backend::granit::backend backend_;
-  // 执行器先停止，后端及其资源才能析构。
-  threaded_render_executor executor_;
-  std::deque<render_frame_completion> required_frame_completions_;
-  bool pending_recreate_{};
-};
 gneiss::error render_service::implementation::initialize(
     const native_window_info& window, std::span<const std::byte> environment_asset,
     float environment_intensity, float environment_rotation_radians) {
@@ -230,19 +184,11 @@ gneiss::error render_service::implementation::shutdown(render_device_stats& stat
 }
 
 render_service::render_service(std::uint64_t memory_limit)
-    : storage_(std::make_unique<resource_storage>(memory_limit,
-                                                  [this](std::function<void()> operation) {
-                                                    return dispatch_render_work(
-                                                        std::move(operation));
-                                                  })),
-      impl_(std::make_unique<implementation>()) {}
+    : impl_(std::make_unique<implementation>(memory_limit)) {}
 result<void> render_service::dispatch_render_work(std::function<void()> operation) {
   return impl_->dispatch(std::move(operation));
 }
-render_service::~render_service() {
-  impl_.reset();
-  close_resources();
-}
+render_service::~render_service() = default;
 error render_service::request_environment(std::shared_ptr<const std::vector<std::byte>> bytes,
                                           float intensity, float rotation) {
   return impl_->request_environment(std::move(bytes), intensity, rotation);
@@ -285,7 +231,7 @@ result<std::uint64_t> render_service::request_capture(render::frame_request&& re
 result<std::uint64_t> render_service::submit_request(render::frame_request& request,
                                                      render_frame_policy policy,
                                                      std::shared_ptr<frame_image> image) {
-  auto capture = storage_->scenes_->prepare_capture(request);
+  auto capture = impl_->scenes.prepare_capture(request);
   if (!capture)
     return capture.error();
   // UI 是独立逐帧输入，接受时固定其纹理版本，不在消费者访问资源 RID 表。

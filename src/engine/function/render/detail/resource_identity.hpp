@@ -5,7 +5,7 @@
 #include "engine/function/render/render_resource_data.hpp"
 #include <atomic>
 
-namespace gneiss::detail {
+namespace gneiss::render::detail {
 /** 资源身份原子发布不可变内容；读取者持有版本，不借用发布中的可变记录。
  * accept/read 是所属线程的已接受版本；consume/read_consumed 是队列消费版本。
  * publish 仅用于尚未暴露的新身份或同步消费；跨资源顺序由 Render 执行器保证。 */
