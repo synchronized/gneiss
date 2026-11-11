@@ -356,44 +356,34 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance_id scene{};
   if (async) {
-    using namespace runtime;
-    check(app->attach_task_executor(scheduler) == gneiss::engine::error::success);
-    gneiss::runtime::scene_open_request request;
-    check(gneiss::test_support::take_value(app->scenes().open(uri), request) ==
-          gneiss::engine::error::success);
+    check(app->attach_task_executor(scheduler).ok());
+    auto request = app->assets().load<engine::scene>(uri);
+    check(bool(request));
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
-    while (true) {
+    while (request->status() == engine::error::not_ready) {
       check(std::chrono::steady_clock::now() < deadline);
-      scene_load_completion completion;
-      bool terminal{};
       check(app->run(1).ok());
-      check(gneiss::test_support::receive_request(request, completion, terminal) ==
-            gneiss::engine::error::success);
-      if (terminal)
-        std::fprintf(stderr, "scene result %d: %s\n", completion.result.code(),
-                     completion.message.c_str());
-      check(!terminal);
-      scene_load_progress progress;
-      check(gneiss::test_support::observe_request(request, progress));
-      if (progress.phase == scene_load_phase::ready) {
-        check(gneiss::test_support::assign_value(app->scenes().activate(std::move(request)),
-                                                 completion) == gneiss::engine::error::success);
-        check(completion.progress.texture_payload_bytes == 0U);
-        auto native = app;
-        gneiss::engine::frame_image initial;
-        check(app->capture_frame(128U, 128U, initial) == gneiss::engine::error::success);
-        while (native->visual_assets_loading()) {
-          check(std::chrono::steady_clock::now() < deadline);
-          check(gneiss::engine::error{app->run(1U)} == gneiss::engine::error::success);
-          std::this_thread::yield();
-        }
-        gneiss::engine::frame_image loaded;
-        check(app->capture_frame(128U, 128U, loaded) == gneiss::engine::error::success);
-        check(initial.pixels != loaded.pixels);
-        break;
-      }
       std::this_thread::yield();
     }
+    auto content = request->snapshot();
+    check(bool(request->take()) && bool(content));
+    auto activated = test_support::activate_scene(*app, *content);
+    check(bool(activated));
+    scene = activated->instance.instance;
+    // CPU 场景先实例化，随后分发视觉加载；两帧图像必须体现资源就绪后的变化。
+    engine::frame_image initial;
+    check(app->capture_frame(128U, 128U, initial).ok());
+    while (activated->visuals && !activated->visuals.ready()) {
+      check(std::chrono::steady_clock::now() < deadline);
+      check(app->run(1).ok());
+      std::this_thread::yield();
+    }
+    check(bool(activated->visuals));
+    auto completed = activated->visuals.take();
+    check(bool(completed) && completed->result.ok());
+    engine::frame_image loaded;
+    check(app->capture_frame(128U, 128U, loaded).ok());
+    check(initial.pixels != loaded.pixels);
   } else {
     check(gneiss::engine::error{gneiss::test_support::load_scene(*app, uri, &scene, &scheduler)} ==
           gneiss::engine::error::success);
@@ -813,62 +803,44 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
   // 打开场景只复用已有成功内容；外部文件更新由显式重载处理。
   const auto load = [&](std::uint64_t, bool cancel) {
     const auto old_scene = scene;
-    gneiss::runtime::scene_open_request request;
-    check(gneiss::test_support::take_value(app->scenes().open(uri), request) ==
-          gneiss::engine::error::success);
+    auto request = app->assets().load<engine::scene>(uri);
+    check(bool(request));
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-    bool requested_cancel{};
-    scene_load_completion completion;
-    while (true) {
+    const auto step = [&] {
       check(std::chrono::steady_clock::now() < deadline);
-      if (mode == gneiss::engine::execution_mode::cooperative)
+      if (mode == engine::execution_mode::cooperative)
         (void)scheduler.run_ready();
-      bool terminal{};
       check(app->run(1).ok());
-      check(gneiss::test_support::receive_request(request, completion, terminal) ==
-            gneiss::engine::error::success);
-      if (terminal) {
-        check(requested_cancel && completion.progress.phase == scene_load_phase::cancelled);
-        check(capture() == active_pixels);
-        break;
-      }
-      scene_load_progress progress;
-      check(gneiss::test_support::observe_request(request, progress));
-      if (progress.phase == scene_load_phase::ready) {
-        const auto ready_pixels = capture();
-        check(ready_pixels == active_pixels);
-        active_pixels = ready_pixels;
-        if (cancel) {
-          check(request.cancel() == gneiss::engine::error::success);
-          requested_cancel = true;
-        } else {
-          check(gneiss::test_support::assign_value(app->scenes().activate(std::move(request)),
-                                                   completion) == gneiss::engine::error::success);
-          check(gneiss::test_support::scene_access{*app}.unload(old_scene).ok());
-          scene = completion.scene;
-          auto native = app;
-          while (native->visual_assets_loading()) {
-            check(std::chrono::steady_clock::now() < deadline);
-            if (mode == gneiss::engine::execution_mode::cooperative) {
-              (void)scheduler.run_ready();
-            }
-            check(app->run(1).ok());
-          }
-          check(app->run(1).ok());
-          check(gneiss::test_support::receive_request(request, completion, terminal) ==
-                gneiss::engine::error::success);
-          check(gneiss::engine::error{app->run(3U)} == gneiss::engine::error::success);
-          const auto changed = capture();
-          check(changed == active_pixels);
-          active_pixels = changed;
-          std::uint64_t count{};
-          check(gneiss::engine::error{gneiss::test_support::take_value(
-                    gneiss::test_support::scene_access{*app}->get_node_count(old_scene), count)} ==
-                gneiss::engine::error::invalid_handle);
-          break;
-        }
-      }
       std::this_thread::yield();
+    };
+    while (request->status() == engine::error::not_ready)
+      step();
+    check(request->status().ok());
+    check(capture() == active_pixels);
+    if (cancel) {
+      request->cancel();
+      check(!bool(*request));
+      check(capture() == active_pixels);
+      check(bool(test_support::scene_access{*app}.get_node_count(old_scene)));
+    } else {
+      auto content = request->snapshot();
+      check(bool(request->take()) && bool(content));
+      auto activated = test_support::activate_scene(*app, *content);
+      check(bool(activated));
+      check(test_support::scene_access{*app}.unload(old_scene).ok());
+      scene = activated->instance.instance;
+      while (activated->visuals && !activated->visuals.ready())
+        step();
+      if (activated->visuals) {
+        auto completed = activated->visuals.take();
+        check(bool(completed) && completed->result.ok());
+      }
+      check(app->run(3U).ok());
+      const auto changed = capture();
+      check(changed == active_pixels);
+      active_pixels = changed;
+      auto old_count = test_support::scene_access{*app}.get_node_count(old_scene);
+      check(!old_count && old_count.error() == engine::error::invalid_handle);
     }
     check(app->render().live_resource_count() == 3U);
   };

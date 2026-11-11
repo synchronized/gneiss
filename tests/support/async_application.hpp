@@ -4,6 +4,7 @@
 #include "application/application.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/asset/asset_manager.hpp"
+#include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/instantiation.hpp"
 #include "engine/resource/scene.hpp"
 #include "scene_access.hpp"
@@ -13,6 +14,57 @@
 #include <cstdio>
 #include <thread>
 namespace gneiss::test_support {
+/** 测试宿主的实例化回执；视觉批次由调用方驱动和领取，不隐藏等待或场景替换。 */
+struct scene_activation {
+  engine::scene_instantiation_result instance;
+  engine::asset_batch_request visuals;
+};
+inline engine::result<scene_activation> activate_scene(runtime::application& app,
+                                                       const engine::scene_content& content) {
+  auto composed = compose(content);
+  if (!composed)
+    return composed.error();
+  auto dependencies = engine::scene_dependencies(*composed);
+  if (!dependencies)
+    return dependencies.error();
+  scene_activation output;
+  if (!dependencies->empty()) {
+    auto submitted = app.load_assets(*dependencies);
+    if (!submitted)
+      return submitted.error();
+    output.visuals = std::move(*submitted);
+  }
+  engine::scene_resource_bindings bindings;
+  for (const auto& dependency : *dependencies) {
+    auto request = app.assets().load(dependency);
+    if (!request)
+      return request.error();
+    bindings.emplace(dependency.uri, request->resource());
+  }
+  auto destination = app.native_world()->create_scene();
+  if (!destination)
+    return destination.error();
+  auto built = engine::instantiate(*destination, *composed, bindings);
+  if (!built) {
+    (void)destination->unload();
+    return built.error();
+  }
+  entity_id camera;
+  for (std::size_t i = 0; i < composed->objects.size(); ++i) {
+    auto* description = composed->objects[i].effective.components.get<engine::camera_description>();
+    if (description && description->is_primary)
+      camera = built->objects[i].entity;
+  }
+  if (camera) {
+    auto selected = engine::set_active_camera(*app.native_world(), camera);
+    if (selected.failed()) {
+      (void)destination->unload();
+      return selected;
+    }
+  }
+  output.instance = std::move(*built);
+  return output;
+}
 // 仅测试使用的宿主驱动器；生产库不提供阻塞包装。应用须在测试退出前释放。
 inline engine::task_scheduler& application_tasks() {
   static engine::task_scheduler tasks({.workers = 1U});

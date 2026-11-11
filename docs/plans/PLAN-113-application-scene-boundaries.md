@@ -148,7 +148,8 @@ Prefab 回放若是编辑器仍需直接调用的契约，应保留公开内部�
   - [x] 宿主回执收回 host/runtime；编辑器使用本地打开状态，不直接引用旧加载类型。
   - [x] Scene/Prefab 结构重载回归迁入 Runtime 宿主测试，使用新加载器及宿主回执。
   - [x] Application 生命周期测试改用资产批次，覆盖线程、移动、取消及关闭失效边界。
-  - [ ] 迁移 scene_load_application、scene_load_baseline、main_loop_response、asset_pixel，删除旧服务实现。
+  - [x] 像素测试及主循环响应基准直接加载资产并实例化，显式领取视觉批次。
+  - [ ] 迁移 scene_load_application、scene_load_baseline，删除旧服务实现。
 
 ### 4. 整理算法与目录
 

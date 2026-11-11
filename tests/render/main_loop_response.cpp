@@ -5,7 +5,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 
-#include "../support/scene_access.hpp"
+#include "../support/async_application.hpp"
 #include "application/application.hpp"
 #include "engine/function/render/render_service.hpp"
 
@@ -93,7 +93,8 @@ struct response_context {
   probe_trace key_trace, task_trace, scene_trace;
   unsigned scene_updates{};
   std::atomic_bool scene_ready{true};
-  gneiss::runtime::scene_open_request scene_request;
+  gneiss::engine::asset_request<gneiss::engine::scene> scene_request;
+  gneiss::engine::asset_batch_request visuals;
   std::uint64_t nodes{}, resources{};
   clock_type::time_point deadline = clock_type::now() + 10s;
   // 调度器先于被探针任务引用的状态销毁，异常退出也会先等待任务结束。
@@ -101,33 +102,40 @@ struct response_context {
   gneiss::engine::task_scope scope = scheduler.make_scope();
 };
 gneiss::engine::error advance_scene(gneiss::runtime::application& app, response_context& state) {
-  using namespace gneiss::runtime;
-  if (state.scene_ready) {
-    return gneiss::engine::error::success;
+  using namespace gneiss::engine;
+  if (state.scene_ready)
+    return error::success;
+  if (state.scene_request) {
+    const auto status = state.scene_request.status();
+    if (status == error::not_ready)
+      return error::success;
+    if (status.failed())
+      return status;
+    auto content = state.scene_request.snapshot();
+    auto loaded = state.scene_request.take();
+    if (!loaded)
+      return loaded.error().error;
+    if (!content)
+      return error::invalid_state;
+    auto activated = gneiss::test_support::activate_scene(app, *content);
+    if (!activated)
+      return activated.error();
+    state.nodes = activated->instance.node_count;
+    state.visuals = std::move(activated->visuals);
   }
-  scene_load_completion completion;
-  bool terminal{};
-  auto result = gneiss::test_support::receive_request(state.scene_request, completion, terminal);
-  if (result != gneiss::engine::error::success || terminal) {
-    return result != gneiss::engine::error::success ? result : completion.result;
+  // 探针覆盖视觉加载全过程；实例化完成不代表依赖批次已完成。
+  if (state.visuals) {
+    if (!state.visuals.ready())
+      return error::success;
+    auto completed = state.visuals.take();
+    if (!completed)
+      return completed.error();
+    if (completed->result.failed())
+      return completed->result;
   }
-  scene_load_progress progress;
-  bool active{};
-  active = gneiss::test_support::observe_request(state.scene_request, progress);
-  if (result == gneiss::engine::error::success && active &&
-      progress.phase == scene_load_phase::ready) {
-    result = gneiss::test_support::assign_value(
-        app.scenes().activate(std::move(state.scene_request)), completion);
-    if (result == gneiss::engine::error::success) {
-      result = gneiss::engine::error{gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{app}->get_node_count(completion.scene), state.nodes)};
-      if (result == gneiss::engine::error::success) {
-        state.resources = app.render().live_resource_count();
-      }
-      state.scene_ready = result == gneiss::engine::error::success;
-    }
-  }
-  return result;
+  state.resources = app.render().live_resource_count();
+  state.scene_ready = true;
+  return error::success;
 }
 
 gneiss::engine::error advance_scene_observed(gneiss::runtime::application& app,
@@ -313,8 +321,9 @@ int main(int argc, char** argv) try {
     return 1;
   }
   if (!asset_root.empty() &&
-      gneiss::test_support::take_value(app->scenes().open("asset://scenes/scene.scene.json"),
-                                       state.scene_request) != gneiss::engine::error::success) {
+      gneiss::test_support::take_value(
+          app->assets().load<gneiss::engine::scene>("asset://scenes/scene.scene.json"),
+          state.scene_request) != gneiss::engine::error::success) {
     return 1;
   }
   auto* const window = FindWindowA(nullptr, title.c_str());
