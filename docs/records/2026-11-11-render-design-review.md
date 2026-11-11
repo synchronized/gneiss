@@ -5,9 +5,11 @@
 
 ## 后续状态
 
-本记录保存复核当时的分析，下文“待确认”是当时状态。用户随后确认直接业务 API、render 命名空间、
-单一 PImpl 与 Granit 私有后端边界；已统一写入 [PLAN-115](../plans/PLAN-115-persistent-render-scene.md)
-及 [ADR-118](../decisions/ADR-118-persistent-render-scene.md)。后续以两者为准，不将历史草案当作当前实现。
+本记录保存复核当时的分析，下文“待确认”及直接业务 API 是当时的方案。
+用户后续确认 render 命名空间、单一 PImpl 与 Granit 私有后端边界，并进一步调整为
+World 记录变化、绑定生成统一命令、Service 接受命令；预览复用 World，不再并列提供直接实例 setter。
+当前目标以 [PLAN-115](../plans/PLAN-115-persistent-render-scene.md)
+及 [ADR-118](../decisions/ADR-118-persistent-render-scene.md) 为准，不将历史草案当作当前实现。
 
 ## 结论与状态
 
