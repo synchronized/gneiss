@@ -182,3 +182,23 @@ Application、Loader、UI 和帧构建使用 `render_service` 的 RID 操作及�
 `query_command_status()` 返回可选的状态快照，不消费完成记录。
 服务的 `try_take_required_completion()` 返回 `result<std::optional<render_frame_completion>>`：
 失败表示收集过程出错，成功的空值表示暂无必需帧，成功的非空值表示领取到记录。
+
+## 持久场景更新（CPU 基础阶段）
+
+`render_service::create_scene()` 创建独立 CPU 渲染场景，无需先初始化窗口或 GPU。
+`begin_update(scene)` 返回不可复制的 `scene_update`，可录制实例创建、变换、网格/材质换绑、
+层掩码、显隐、阴影标记与删除；`submit(std::move(update))` 成功后批次被消费。
+`destroy_scene(scene)` 删除其全部已提交和预留实例，不删除其他场景。
+以上接口均在服务所属线程调用。
+
+实例创建返回带 generation 的 RID；提交前只允许所属批次使用。未提交批次析构会回收预留身份，
+已有实例的修改不生效。提交时重新校验目标；失败不会部分应用。跨服务/场景、重复删除、失效 RID
+被拒绝，关闭服务后的批次操作返回 invalid_state，批次析构不会访问已销毁服务。
+
+变换保存完整仿射矩阵，允许剪切；非有限、非仿射或奇异矩阵返回 invalid_argument。
+本阶段创建/资源换绑仅支持已就绪的网格、材质和纹理；未就绪返回 not_ready。
+实例固定不可变 payload，释放外部资源 RID 不会释放实例持有的数据。
+异步就绪和热重载的自动刷新尚未接入，不能将该固定 payload 语义当作最终资源身份绑定。
+
+**当前限制**：这组 CPU 接口尚未驱动绘制；Runtime/Editor 仍使用原有帧快照。
+多视图、World 增量绑定与队列消费按 [PLAN-115](../plans/PLAN-115-persistent-render-scene.md) 继续实施。

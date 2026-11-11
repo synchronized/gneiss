@@ -6,6 +6,7 @@
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_resource_data.hpp"
+#include "engine/function/render/scene_update.hpp"
 #include "engine/platform/native_window_info.hpp"
 #include "engine/resource/texture/texture_view.hpp"
 #include <memory>
@@ -75,6 +76,12 @@ public:
   [[nodiscard]] GNEISS_API render_queue_stats query_performance_stats() const noexcept;
   /** initialize 完成后读取；设备重建后重新获取。 */
   [[nodiscard]] GNEISS_API texture_prepare_profile texture_profile() const noexcept;
+
+  /** CPU 持久场景；不需要初始化窗口或 GPU。当前批次在所属线程提交生效。 */
+  [[nodiscard]] GNEISS_API result<rid> create_scene();
+  [[nodiscard]] GNEISS_API result<scene_update> begin_update(rid scene);
+  [[nodiscard]] GNEISS_API result<void> submit(scene_update&&);
+  [[nodiscard]] GNEISS_API result<void> destroy_scene(rid scene);
 
   /** 仅关闭 CPU 资源入口；设备关闭由 shutdown 完成。所属线程调用。 */
   GNEISS_API void close_resources() noexcept;

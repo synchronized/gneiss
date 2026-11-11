@@ -5,8 +5,9 @@
 
 ## 状态与范围
 
-2026-11-11：方案已确认，待开始实现。本页中的接口、结构和目录均为目标设计示意，不是当前 API。
-长期边界见 [ADR-118](../decisions/ADR-118-persistent-render-scene.md)。本次先整理文档，不修改运行代码。
+2026-11-11：已开始实施。P0 接入核查与 P1 的 CPU 场景/更新批次基础已落地；绘制、World 同步及其余阶段尚未完成。
+除下节明确列出的实现外，本页接口、结构和目录仍为目标设计示意。
+长期边界见 [ADR-118](../decisions/ADR-118-persistent-render-scene.md)。当前接口与阶段限制见 [Render](../reference/render.md)。
 本计划独立跟踪，不将新能力写成 VER-052 已交付项，不延续旧版本的发布授权。
 PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
 
@@ -14,7 +15,26 @@ PLAN-113 的验收收尾和 PLAN-114 的测试维护仍按各自清单处理。
 采用持久实例、增量更新与每帧临时数据结合的方案，不受现有接口和改动规模约束。
 不以新增 Manager 或跨层转发包装实现分层，不维护两套长期权威数据。
 
-## 当前基线
+## 本轮实现与接入核查
+
+- Granit 锁定版本的 `pipeline/scene.hpp`/`scene.h` 只有快照创建与销毁；创建会校验并复制输入，
+  没有持久实例修改入口。初期由 Gneiss 保存实例，后端临时生成 Granit 快照；暂不要求跨仓库修改。
+- 既有 `threaded_render_executor` 已负责线程、帧/命令序号和可替换帧。后续可靠场景更新复用这一执行器，
+  使用一次执行命令；不能使用允许重新排队的 resumable 策略，也不能随可替换帧丢弃。
+- 既有 `render_resource_snapshot` 通过不可变共享 payload 保证旧帧数据不变；保留该能力。
+  新增实例当前固定已就绪 payload，资源身份 pin、未就绪填充及热重载刷新仍属于 P2，不能标记完成。
+- `render_service` 已提供 create_scene/begin_update/submit(scene_update&&)/destroy_scene。
+  当前只管理 CPU 状态，不需要窗口/GPU，也尚未连接实际绘制。更新提交同线程生效。
+- `scene_update` 支持预留实例、变换/资源/层掩码/显隐/投影阴影标记与删除；预校验后发布整个批次。
+  放弃批次回收预留 RID，跨服务/场景和过期 generation 被拒绝；关闭后批次可安全销毁。
+- 定向 CPU 验证覆盖批次取消、旧批次失败不部分应用、独立字段更新、共享 payload 保活与关闭。
+  Windows Clang Debug 的 Engine、Runtime、Editor 与渲染测试目标构建通过；render_scene、render_frame_packet、render_executor 三项测试通过。
+  尚未验证 GPU、多视图、World 同步和其他平台。
+
+下一步顺序不变：先完成资源身份 pin 和持久场景绘制入口，再接 World 变化通知与绑定；
+不能把当前 CPU 批次基础视为 P1 模型预览闭环或 P3 增量同步完成。
+
+## 迁移基线
 
 - `render_extraction.cpp` 每帧遍历 mesh_renderer_component，复制资源强引用与世界变换；不是复制整个 World。
 - `render_snapshot` 包含相机和实例列表；`render_frame_packet` 固定本帧使用的资源数据。

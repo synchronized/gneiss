@@ -201,6 +201,7 @@ target_sources(
     engine/function/render/debug_draw_list.hpp
     engine/function/render/ui_draw_list.cpp
     engine/function/render/ui_draw_list.hpp
+    engine/function/render/scene_update.cpp
     engine/function/render/render_service_resources.cpp
     engine/function/render/render_resource_storage.hpp
     engine/function/render/render_snapshot.hpp

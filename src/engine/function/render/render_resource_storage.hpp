@@ -3,6 +3,7 @@
 
 #pragma once
 #include "engine/core/rid_table.hpp"
+#include "engine/function/render/detail/render_scene_state.hpp"
 #include "engine/function/render/render_service.hpp"
 #include <memory>
 #include <vector>
@@ -21,5 +22,6 @@ struct render_service::resource_storage {
   rid_table<record<mesh_data>> meshes_;
   rid_table<record<material_data>> materials_;
   rid_table<record<texture_data>> textures_;
+  std::shared_ptr<detail::render_scene_state> scenes_;
 };
 } // namespace gneiss

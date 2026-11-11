@@ -52,10 +52,54 @@ render_memory_usage measure(const texture_data& value) noexcept {
 
 render_service::resource_storage::resource_storage(std::uint64_t memory_limit)
     : memory_limit_(memory_limit), domain_(allocate_domain()), meshes_(domain_),
-      materials_(domain_), textures_(domain_) {}
+      materials_(domain_), textures_(domain_) {
+  scenes_ = std::make_shared<detail::render_scene_state>(
+      domain_,
+      [this](const mesh_instance_description& description) -> result<detail::scene_resource_pin> {
+        detail::scene_resource_pin pin;
+        if (description.mesh != null_rid) {
+          const auto* mesh = meshes_.get(description.mesh, resource_type::mesh);
+          if (!mesh)
+            return error::invalid_handle;
+          if (!mesh->data)
+            return error::not_ready;
+          pin.mesh = mesh->data;
+        }
+        if (description.material != null_rid) {
+          const auto* material = materials_.get(description.material, resource_type::material);
+          if (!material)
+            return error::invalid_handle;
+          if (!material->data)
+            return error::not_ready;
+          pin.material = material->data;
+          for (auto texture : material->data->texture_handles()) {
+            if (texture == null_rid)
+              continue;
+            const auto* value = textures_.get(texture, resource_type::texture);
+            if (!value)
+              return error::invalid_handle;
+            if (!value->data)
+              return error::not_ready;
+            pin.textures.push_back(value->data);
+          }
+        }
+        return pin;
+      });
+}
+result<rid> render_service::create_scene() { return storage_->scenes_->create_scene(); }
+result<scene_update> render_service::begin_update(rid scene) {
+  return storage_->scenes_->begin_update(scene);
+}
+result<void> render_service::submit(scene_update&& update) {
+  return storage_->scenes_->submit(std::move(update));
+}
+result<void> render_service::destroy_scene(rid scene) {
+  return storage_->scenes_->destroy_scene(scene);
+}
 
 bool render_service::is_valid() const noexcept { return storage_->domain_ != 0U; }
 void render_service::close_resources() noexcept {
+  storage_->scenes_->close();
   storage_->meshes_.close();
   storage_->materials_.close();
   storage_->textures_.close();
