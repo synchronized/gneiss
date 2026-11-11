@@ -27,18 +27,31 @@ result<rid> render_scene_state::create_scene() {
     return error::invalid_state;
   return scenes_.create(resource_type::render_scene, scene{});
 }
+result<void> render_scene_state::dispatch(std::function<void()> operation) {
+  if (dispatch_)
+    return dispatch_(std::move(operation));
+  operation();
+  return {};
+}
 result<void> render_scene_state::submit(render::scene_commands&& commands) {
   if (closed_)
     return error::invalid_state;
   auto* group = scenes_.get(commands.scene, resource_type::render_scene);
   if (!group)
     return error::invalid_handle;
-  // 仅暂存本次触及的实例。返回错误前不发布状态，也不消费调用方命令。
-  std::map<std::uint64_t, instance> changed;
+  struct prepared_command {
+    render::command input;
+    scene_resource_pin resources;
+    math::matrix4 normal{1.F};
+  };
+  std::vector<prepared_command> prepared;
+  prepared.reserve(commands.entries.size());
+  std::set<std::uint64_t> added;
   std::set<std::uint64_t> removed;
   auto last_key = group->last_key;
   for (const auto& command : commands.entries) {
-    auto applied = std::visit(
+    prepared_command next{command, {}, math::matrix4{1.F}};
+    auto checked = std::visit(
         [&](const auto& update) -> result<void> {
           using T = std::decay_t<decltype(update)>;
           const auto key = update.id.value;
@@ -47,81 +60,124 @@ result<void> render_scene_state::submit(render::scene_commands&& commands) {
           if constexpr (std::is_same_v<T, render::create_instance>) {
             if (key <= last_key)
               return error::invalid_argument;
-            const auto& value = update.description;
-            if (value.mesh == null_rid || value.material == null_rid)
+            if (update.description.mesh == null_rid || update.description.material == null_rid)
               return error::invalid_argument;
-            auto normal = prepare_normal_matrix(value.world_matrix);
+            auto normal = prepare_normal_matrix(update.description.world_matrix);
             if (!normal)
               return normal.error();
-            auto pinned = pin_(value);
+            auto pinned = pin_(update.description);
             if (!pinned)
               return pinned.error();
-            changed.emplace(key, instance{value, std::move(*pinned), *normal});
+            next.normal = *normal;
+            next.resources = std::move(*pinned);
+            added.insert(key);
             last_key = key;
           } else {
-            if (removed.contains(key))
+            if (removed.contains(key) || (!added.contains(key) && !group->accepted.contains(key)))
               return error::invalid_handle;
-            auto found = changed.find(key);
-            if (found == changed.end()) {
-              const auto previous = group->instances.find(key);
-              if (previous == group->instances.end())
-                return error::invalid_handle;
-              found = changed.emplace(key, previous->second).first;
-            }
-            auto& entry = found->second;
             if constexpr (std::is_same_v<T, render::set_transform>) {
               auto normal = prepare_normal_matrix(update.world_matrix);
               if (!normal)
                 return normal.error();
-              entry.description.world_matrix = update.world_matrix;
-              entry.normal_matrix = *normal;
+              next.normal = *normal;
             } else if constexpr (std::is_same_v<T, render::set_resources>) {
               if (update.mesh == null_rid || update.material == null_rid)
                 return error::invalid_handle;
-              auto value = entry.description;
-              value.mesh = update.mesh;
-              value.material = update.material;
-              auto pinned = pin_(value);
+              auto pinned = pin_({.mesh = update.mesh, .material = update.material});
               if (!pinned)
                 return pinned.error();
-              entry.description = value;
-              entry.resources = std::move(*pinned);
-            } else if constexpr (std::is_same_v<T, render::set_visibility>) {
-              entry.description.layers = update.visibility.layers;
-              entry.description.visible = update.visibility.visible;
-              entry.description.casts_shadows = update.visibility.casts_shadows;
+              next.resources = std::move(*pinned);
             } else if constexpr (std::is_same_v<T, render::destroy_instance>) {
-              changed.erase(found);
+              added.erase(key);
               removed.insert(key);
             }
           }
           return {};
         },
         command);
-    if (!applied)
-      return applied.error();
+    if (!checked)
+      return checked.error();
+    prepared.push_back(std::move(next));
   }
-  // 校验及依赖固定完成后转移节点；发布阶段不再分配实例存储。
+  // 执行数据保活依赖，不捕获接受侧、RID 表或调用方内存。
+  auto accepted = dispatch([content = group->content, prepared = std::move(prepared)]() mutable {
+    for (auto& next : prepared) {
+      std::visit(
+          [&](const auto& update) {
+            using T = std::decay_t<decltype(update)>;
+            const auto key = update.id.value;
+            if constexpr (std::is_same_v<T, render::create_instance>) {
+              content->instances.emplace(
+                  key, instance{update.description, std::move(next.resources), next.normal});
+            } else if constexpr (std::is_same_v<T, render::destroy_instance>) {
+              content->instances.erase(key);
+            } else {
+              auto& entry = content->instances.at(key);
+              if constexpr (std::is_same_v<T, render::set_transform>) {
+                entry.description.world_matrix = update.world_matrix;
+                entry.normal_matrix = next.normal;
+              } else if constexpr (std::is_same_v<T, render::set_resources>) {
+                entry.description.mesh = update.mesh;
+                entry.description.material = update.material;
+                entry.resources = std::move(next.resources);
+              } else if constexpr (std::is_same_v<T, render::set_visibility>) {
+                entry.description.layers = update.visibility.layers;
+                entry.description.visible = update.visibility.visible;
+                entry.description.casts_shadows = update.visibility.casts_shadows;
+              }
+            }
+          },
+          next.input);
+    }
+  });
+  if (!accepted)
+    return accepted.error();
   for (auto key : removed)
-    group->instances.erase(key);
-  while (!changed.empty()) {
-    auto node = changed.extract(changed.begin());
-    group->instances.erase(node.key());
-    group->instances.insert(std::move(node));
-  }
+    group->accepted.erase(key);
+  group->accepted.merge(added);
   group->last_key = last_key;
   commands.entries.clear();
   commands.scene = null_rid;
   return {};
 }
-result<render_frame_packet>
-render_scene_state::capture(const render::frame_request& request) const {
+result<render_scene_state::capture_operation>
+render_scene_state::prepare_capture(const render::frame_request& request) const {
   if (closed_)
     return error::invalid_state;
   if (request.views.size() > 1)
     return error::unsupported;
   if (request.window.width == 0 || request.window.height == 0)
     return error::invalid_argument;
+  std::shared_ptr<scene_content> content;
+  if (!request.views.empty()) {
+    const auto& view = request.views.front();
+    for (auto element : math::matrix_elements(view.view_matrix))
+      if (!std::isfinite(element))
+        return error::invalid_argument;
+    for (auto element : math::matrix_elements(view.projection_matrix))
+      if (!std::isfinite(element))
+        return error::invalid_argument;
+    for (auto element : math::components(view.camera_position))
+      if (!std::isfinite(element))
+        return error::invalid_argument;
+    const auto* group = scenes_.get(view.scene, resource_type::render_scene);
+    if (!group)
+      return error::invalid_handle;
+    content = group->content;
+  }
+  return capture_operation{
+      [request, content = std::move(content)] { return capture_content(request, content.get()); }};
+}
+result<render_frame_packet>
+render_scene_state::capture(const render::frame_request& request) const {
+  auto operation = prepare_capture(request);
+  if (!operation)
+    return operation.error();
+  return (*operation)();
+}
+result<render_frame_packet>
+render_scene_state::capture_content(const render::frame_request& request,
+                                    const scene_content* content) {
   render_frame_packet packet;
   packet.window = request.window;
   packet.ui = request.ui;
@@ -129,18 +185,6 @@ render_scene_state::capture(const render::frame_request& request) const {
   if (request.views.empty())
     return packet;
   const auto& view = request.views.front();
-  for (auto element : math::matrix_elements(view.view_matrix))
-    if (!std::isfinite(element))
-      return error::invalid_argument;
-  for (auto element : math::matrix_elements(view.projection_matrix))
-    if (!std::isfinite(element))
-      return error::invalid_argument;
-  for (auto element : math::components(view.camera_position))
-    if (!std::isfinite(element))
-      return error::invalid_argument;
-  const auto* group = scenes_.get(view.scene, resource_type::render_scene);
-  if (!group)
-    return error::invalid_handle;
   packet.scene.has_camera = true;
   packet.scene.layers = view.layers;
   packet.scene.camera.view = view.view_matrix;
@@ -148,8 +192,8 @@ render_scene_state::capture(const render::frame_request& request) const {
   packet.scene.camera.transform.translation = view.camera_position;
   packet.scene.camera.viewport_width = request.window.width;
   packet.scene.camera.viewport_height = request.window.height;
-  packet.scene.instances.reserve(group->instances.size());
-  for (const auto& [key, entry] : group->instances) {
+  packet.scene.instances.reserve(content->instances.size());
+  for (const auto& [key, entry] : content->instances) {
     (void)key;
     const auto& value = entry.description;
     if (!value.visible || (value.layers & view.layers) == 0)
@@ -176,8 +220,12 @@ render_scene_state::capture(const render::frame_request& request) const {
 result<void> render_scene_state::destroy_scene(rid handle) {
   if (closed_)
     return error::invalid_state;
-  if (!scenes_.get(handle, resource_type::render_scene))
+  auto* group = scenes_.get(handle, resource_type::render_scene);
+  if (!group)
     return error::invalid_handle;
+  auto accepted = dispatch([content = group->content] { content->instances.clear(); });
+  if (!accepted)
+    return accepted.error();
   (void)scenes_.destroy(handle, resource_type::render_scene);
   return {};
 }
@@ -191,7 +239,7 @@ render_scene_state::find(rid handle, render::instance_key key) const noexcept {
   const auto* group = scenes_.get(handle, resource_type::render_scene);
   if (!group)
     return nullptr;
-  const auto found = group->instances.find(key.value);
-  return found == group->instances.end() ? nullptr : &found->second;
+  const auto found = group->content->instances.find(key.value);
+  return found == group->content->instances.end() ? nullptr : &found->second;
 }
 }

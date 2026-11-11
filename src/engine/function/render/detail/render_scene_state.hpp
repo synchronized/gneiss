@@ -9,33 +9,51 @@
 #include "engine/function/render/render_frame_packet.hpp"
 #include <functional>
 #include <map>
+#include <set>
 namespace gneiss::detail {
 class render_scene_state final {
 public:
   using pin_callback = std::function<result<scene_resource_pin>(const mesh_instance_description&)>;
-  explicit render_scene_state(std::uint16_t domain, pin_callback pin)
-      : scenes_(domain), pin_(std::move(pin)) {}
+  using dispatch_callback = std::function<result<void>(std::function<void()>)>;
+  /** dispatch 必须可靠、有序且执行一次；失败不得执行或保留任务。空回调同步消费。
+   * 异步模式下销毁前调用方须停止提交并排空消费者。 */
+  explicit render_scene_state(std::uint16_t domain, pin_callback pin,
+                              dispatch_callback dispatch = {})
+      : scenes_(domain), pin_(std::move(pin)), dispatch_(std::move(dispatch)) {}
   result<rid> create_scene();
   result<void> submit(render::scene_commands&& commands);
   result<void> destroy_scene(rid scene);
-  /** 所属线程固定本次绘制内容；返回失败不修改场景。单窗口视图过渡适配。 */
+  /** 同步消费适配；异步模式须改用 prepare_capture 并有序调度，不可并发直读。 */
   result<render_frame_packet> capture(const render::frame_request& request) const;
+  /** 接受侧校验视图并绑定场景内容；返回任务须与场景命令在同一消费者按序调用。
+   * 不捕获接受侧 this 或 RID 表，先准备的任务可在外部场景句柄释放后执行。 */
+  using capture_operation = std::function<result<render_frame_packet>()>;
+  result<capture_operation> prepare_capture(const render::frame_request& request) const;
   void close() noexcept;
   struct instance {
     mesh_instance_description description;
     scene_resource_pin resources;
     math::matrix4 normal_matrix{1.F};
   };
-  /** 只借用已接受实例；下一次提交或场景销毁后重新获取。 */
+  /** 同步消费模式查询；异步模式仅在消费者排空后借用，不能并发读取。 */
   const instance* find(rid scene, render::instance_key key) const noexcept;
 
 private:
-  struct scene {
+  struct scene_content {
     std::map<std::uint64_t, instance> instances;
-    std::uint64_t last_key{};
   };
+  static result<render_frame_packet> capture_content(const render::frame_request& request,
+                                                     const scene_content* content);
+  struct scene {
+    // 接受侧只管理身份，不复制消费者的变换、可见性和资源状态。
+    std::set<std::uint64_t> accepted;
+    std::uint64_t last_key{};
+    std::shared_ptr<scene_content> content = std::make_shared<scene_content>();
+  };
+  result<void> dispatch(std::function<void()> operation);
   rid_table<scene> scenes_;
   pin_callback pin_;
+  dispatch_callback dispatch_;
   bool closed_{};
 };
 }

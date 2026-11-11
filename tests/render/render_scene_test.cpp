@@ -136,6 +136,83 @@ bool commands() {
   CHECK(!state.submit(std::move(wrapped)));
   return true;
 }
+bool queued_scene_consumption() {
+  auto mesh = std::make_shared<detail::resource_identity<mesh_data>>();
+  auto material = std::make_shared<detail::resource_identity<material_data>>();
+  std::weak_ptr retained_mesh = mesh;
+  std::vector<std::function<void()>> queue;
+  bool accepting = true;
+  const auto producer = std::this_thread::get_id();
+  detail::render_scene_state state{
+      64997,
+      [&](const mesh_instance_description&) -> result<detail::scene_resource_pin> {
+        if (std::this_thread::get_id() != producer)
+          return error::invalid_state;
+        return detail::scene_resource_pin{mesh, material};
+      },
+      [&](std::function<void()> operation) -> result<void> {
+        if (!accepting)
+          return error::not_ready;
+        queue.push_back(std::move(operation));
+        return {};
+      }};
+  auto scene = state.create_scene();
+  CHECK(scene);
+  render::scene_commands create{*scene, {render::create_instance{{1}, {.mesh = 1, .material = 2}}}};
+  CHECK(state.submit(std::move(create)));
+  CHECK(!state.find(*scene, {1})); // 已接受但尚未执行。
+  render::frame_request request{.window = {.width = 64, .height = 64},
+                                .views = {{.scene = *scene}}};
+  std::vector<result<render_frame_packet>> frames;
+  auto first = state.prepare_capture(request);
+  CHECK(first);
+  queue.push_back([operation = std::move(*first), &frames] { frames.push_back(operation()); });
+  math::matrix4 moved{1.F};
+  moved[3][0] = 5.F;
+  render::scene_commands update{*scene, {render::set_transform{{1}, moved}}};
+  accepting = false;
+  CHECK(state.submit(std::move(update)).error() == error::not_ready);
+  CHECK(update.entries.size() == 1);
+  accepting = true;
+  CHECK(state.submit(std::move(update))); // 按已接受身份验证，不要求创建已执行。
+  auto second = state.prepare_capture(request);
+  CHECK(second);
+  queue.push_back([operation = std::move(*second), &frames] { frames.push_back(operation()); });
+  accepting = false;
+  CHECK(state.destroy_scene(*scene).error() == error::not_ready);
+  CHECK(state.prepare_capture(request));
+  accepting = true;
+  CHECK(state.destroy_scene(*scene));
+  CHECK(!state.prepare_capture(request));
+  auto replacement = state.create_scene();
+  CHECK(replacement && *replacement != *scene);
+  render::scene_commands recreate{*replacement,
+                                  {render::create_instance{{1}, {.mesh = 1, .material = 2}}}};
+  CHECK(state.submit(std::move(recreate)));
+  request.views.front().scene = *replacement;
+  auto third = state.prepare_capture(request);
+  CHECK(third);
+  queue.push_back([operation = std::move(*third), &frames] { frames.push_back(operation()); });
+  mesh.reset();
+  material.reset();
+  CHECK(!retained_mesh.expired());
+  // 同一有序消费者独占实际场景数据；任务不读取接受侧 RID 表或调用方命令。
+  std::thread consumer([tasks = std::move(queue)]() mutable {
+    for (auto& task : tasks)
+      task();
+  });
+  consumer.join();
+  CHECK(frames.size() == 3 && frames[0] && frames[1] && frames[2]);
+  CHECK(frames[0]->scene.instances.size() == 1 && frames[1]->scene.instances.size() == 1 &&
+        frames[2]->scene.instances.size() == 1);
+  CHECK(frames[0]->scene.instances[0].world_matrix[3][0] == 0.F);
+  CHECK(frames[1]->scene.instances[0].world_matrix[3][0] == 5.F);
+  CHECK(frames[2]->scene.instances[0].world_matrix[3][0] == 0.F);
+  state.close();
+  CHECK(retained_mesh.expired());
+  return true;
+}
+
 bool service_lifetime() {
   render::scene_commands pending;
   {
@@ -351,7 +428,7 @@ bool frame_capture() {
   return true;
 }
 int main() {
-  return commands() && service_lifetime() && identity_versions() &&
+  return commands() && queued_scene_consumption() && service_lifetime() && identity_versions() &&
                  concurrent_material_publication() && frame_capture()
              ? 0
              : 1;
