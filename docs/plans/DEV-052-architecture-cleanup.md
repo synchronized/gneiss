@@ -519,3 +519,10 @@ A52-05：本批只验证 Windows 默认构建和相关 CPU 回归。
 本轮未执行 GPU 画面与跨平台/静态库矩阵。场景句柄依旧要求 World 覆盖其使用期。
 
 接口和生命周期见[场景实例参考](../reference/scene-instance.md#运行期身份与所有权)。
+
+## 应用与场景边界收尾
+
+[PLAN-113](PLAN-113-application-scene-boundaries.md) 的实现与 Windows CPU 验收已完成，
+包括多场景隔离、宿主重载、编辑投影、取消/关闭及依赖边界。
+验证证据与迁移差异见[收尾记录](../records/2026-11-12-plan113-completion.md)。
+本轮不修改运行代码；版本 GPU、跨平台及共享/静态完整矩阵仍未完成。

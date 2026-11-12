@@ -5,8 +5,10 @@
 
 ## 状态
 
-2026-11-11：实施中，代码迁移已移除旧场景服务及 runtime/loading，Application 直接拥有 World，
-宿主负责场景打开、替换和重载。CMake、接口清单及当前行为文档同步完成；仍需汇总计划验收与版本状态。
+2026-11-12：本计划实现与 Windows CPU 验收完成。旧场景服务及 runtime/loading 已删除，
+Application 直接拥有 World，宿主负责场景打开、替换和重载；原生调用统一使用借用的 scene_instance。
+验收证据、迁移差异及未验证项见[收尾记录](../records/2026-11-12-plan113-completion.md)。
+GPU 与跨平台完整矩阵仍属于版本验收，不计为本计划已验证能力。
 本次删除与验证见[服务清理记录](../records/2026-11-11-plan113-scene-service-removal.md)。
 此前结果见[第一组记录](../records/2026-11-11-plan113-editor-boundary.md)和
 [资产批次记录](../records/2026-11-11-plan113-asset-batch.md)。
@@ -15,7 +17,7 @@
 
 ## 背景与目标
 
-当前 application 私有存储拥有 scene_service，而后者拥有 active_/retired_ World，
+迁移前 application 私有存储拥有 scene_service，而后者拥有 active_/retired_ World，
 同时处理加载、来源重载和视觉资源。resource_load_group 汇总渲染资产请求，但携带
 session/revision、批次数量限制和多套准备入口。scene 目录又混合运行回放与编辑辅助。
 
@@ -100,7 +102,7 @@ src/
         instantiation.hpp/.cpp
         scene_update.hpp/.cpp
         detail/
-          world_state.hpp
+          world_impl.hpp
           hierarchy.hpp/.cpp
           component_storage.hpp
           prefab_replay.hpp/.cpp
@@ -164,8 +166,8 @@ Prefab 回放若是编辑器仍需直接调用的契约，应保留公开内部�
 
 ### 5. 验收与文档收尾
 
-- [ ] 完成下列行为与边界验收，更新 Reference/Concept 的当前事实。
-- [ ] 记录迁移差异、未验证平台和剩余风险，更新版本计划状态。
+- [x] 完成下列行为与边界验收，更新 Reference/Concept 的当前事实。
+- [x] 记录迁移差异、未验证平台和剩余风险，更新版本计划状态。
 
 ## 测试与验收
 

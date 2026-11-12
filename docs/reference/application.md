@@ -96,7 +96,7 @@ Application 的 can_load_assets() 只表示共享资源批次可提交；宿主�
 
 ### 来源重载基线
 
-激活回执的 reload_state 由调用方按需保留，包含 World 借用、场景 ID、不可变来源及对象地址关联。
+激活回执的 reload_state 由调用方按需保留，包含借用的 scene_instance、不可变来源及对象地址关联；World 从场景句柄取得。
 Runtime 保存当前场景的基线；编辑器采用文档投影，不长期保留此基线。
 重载显式传入该引用，Application 不保存最后激活场景的隐式来源。
 Runtime 生产路径已改用 runtime_scene_loader::reload：直接请求 Scene/Prefab 资产，收到完成通知
