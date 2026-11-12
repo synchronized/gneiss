@@ -18,6 +18,23 @@ int main() try {
     return 1;
   auto& resources = first->render();
   auto& other = second->render();
+  // 宿主视图校验：拒绝重复输出、跨服务目标及非法相机。
+  auto target = resources.create_target({320, 240});
+  if (!target)
+    return 31;
+  const std::array views{gneiss::runtime::application_view{.target = *target},
+                         gneiss::runtime::application_view{}};
+  if (!first->set_views(views) || second->set_views(views).error() != native::error::invalid_handle)
+    return 32;
+  const std::array duplicate{views[0], views[0]};
+  if (first->set_views(duplicate).error() != native::error::invalid_argument)
+    return 33;
+  auto invalid = views;
+  invalid[1].camera.emplace();
+  invalid[1].camera->camera.near = -1.0F;
+  if (first->set_views(invalid).error() != native::error::invalid_argument ||
+      !first->set_views({}) || !resources.destroy_target(*target))
+    return 34;
   auto completion = resources.try_take_required_completion();
   if (!completion || completion->has_value())
     return 30;

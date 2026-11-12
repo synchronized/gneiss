@@ -22,6 +22,8 @@ if(BUILD_TESTING)
   set_tests_properties(gneiss.minimal-example PROPERTIES LABELS "cpu")
   add_test(NAME gneiss.scene-viewer COMMAND gneiss_scene_viewer --smoke)
   set_tests_properties(gneiss.scene-viewer PROPERTIES LABELS "gpu;integration" TIMEOUT 60)
+  add_test(NAME gneiss.scene-viewer-dual COMMAND gneiss_scene_viewer --smoke --dual-view)
+  set_tests_properties(gneiss.scene-viewer-dual PROPERTIES LABELS "gpu;integration" TIMEOUT 60)
 endif()
 
 if(TARGET gneiss_assetc)

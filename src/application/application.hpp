@@ -23,6 +23,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 
 namespace gneiss {
@@ -47,6 +48,13 @@ class resource_load_group;
 
 namespace gneiss::runtime {
 
+/** 一个宿主视图；省略相机时选用 World 主相机。目标为零表示窗口。
+ * 相机按值保存，目标 RID 借用，调用方须先移除视图再销毁目标。 */
+struct application_view {
+  rid target{};
+  std::optional<view_camera> camera{};
+};
+
 /** 内部真实运行对象；仅所属线程操作和释放最后一个持有引用。
  * 私有装配存储位于实现文件；此内部模块接口随源码构建，不属于安装 SDK。 */
 class application final {
@@ -55,9 +63,14 @@ public:
    * 创建、运行及最后释放均限所属线程，不创建对外句柄。 */
   [[nodiscard]] static GNEISS_API gneiss::result<std::shared_ptr<application>>
   create(const application_configuration& config);
+  /** 原子替换视图列表；目标不可重复，最多一个窗口视图。
+   * 空列表恢复默认主相机窗口视图；全部离屏时自动追加 UI 窗口。
+   * 失败保留旧列表；与单视图便捷接口共享同一份状态。 */
+  [[nodiscard]] GNEISS_API result<void> set_views(std::span<const application_view> views);
+  /** 修改首个视图的相机；空指针恢复 World 主相机。 */
   [[nodiscard]] GNEISS_API gneiss::error
   set_view_camera(const gneiss::view_camera* camera);
-  /** 借用本应用 Render 目标；零恢复窗口直绘。调用方负责目标生命周期。 */
+  /** 修改首个视图的借用目标；零表示窗口。调用方负责目标生命周期。 */
   [[nodiscard]] GNEISS_API gneiss::error set_view_target(gneiss::rid target);
   [[nodiscard]] GNEISS_API gneiss::error capture_frame(std::uint32_t width, std::uint32_t height,
                                                        gneiss::render::frame_image& output);

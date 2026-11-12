@@ -11,6 +11,7 @@
 ```powershell
 ./build/windows-clang-debug/bin/gneiss_scene_viewer.exe
 ./build/windows-clang-debug/bin/gneiss_scene_viewer.exe --smoke
+./build/windows-clang-debug/bin/gneiss_scene_viewer.exe --dual-view --smoke
 ./build/windows-clang-debug/bin/gneiss_scene_viewer.exe --assets build/windows-clang-debug/examples/lantern_gallery/assets --scene asset://scenes/gallery.scene.json
 ```
 
@@ -21,7 +22,10 @@ A/D 环绕相机，Esc 退出。场景须指定主相机；输入映射默认 `a
 
 `--smoke` 加载完成后运行三帧；`--measure` 预热 60 帧、采样 300 帧并输出启动、运行和关闭耗时 JSON。
 两者互斥。测量值是宿主更新间隔，不是 GPU 时长，不作为跨机器性能门槛。
-双视图、尺寸切换和压力恢复的统一验收仍按 PLAN-115 推进，目前未作为查看器功能提供。
+`--dual-view` 将同一 World 显示为左右两个离屏视图，左侧跟随主相机，右侧固定独立相机。
+与 `--smoke` 一起使用时，两轮各运行三帧，目标从 320×240/320×384 更换为
+512×240/512×384，每轮回读窗口合成图，检查两侧图像有变化且不同，再释放目标。
+这是 GPU 功能验收；压力恢复与默认预算测量仍按 PLAN-115 推进。
 
 `temple/assets` 是神庙数据，来源及许可见 [资产说明](temple/assets/ASSET_ORIGINS.md)。
 `lantern_gallery` 保留 GLB 导入和编辑工作流夹具；`editor_demo` 保留安装项目数据，均不是额外可执行示例。

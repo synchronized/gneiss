@@ -7,6 +7,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/fatal.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/world.hpp"
@@ -33,6 +34,8 @@ struct sample_state {
   gneiss::action_id quit;
   double angle = 0.0;
   bool measure = false;
+  std::array<gneiss::rid, 2> targets{};
+  bool captured_dual{};
   std::uint64_t measured_updates{};
   std::chrono::steady_clock::time_point previous_update;
   std::array<double, measure_sample_frames> frame_times_ms{};
@@ -98,6 +101,63 @@ gneiss::error update_sample(gneiss::runtime::application& application,
       .set_local_transform(transform);
 }
 
+// 两个视图共享应用的 World；右侧固定独立相机，左侧继续使用场景主相机。
+gneiss::result<void> configure_dual_view(gneiss::runtime::application& application,
+                                         const std::array<gneiss::rid, 2>& targets) {
+  using namespace gneiss;
+  view_camera camera;
+  camera.transform.translation = {0.0F, 3.0F, 9.0F};
+  const float half_pitch = std::atan2(-3.0F, 9.0F) * 0.5F;
+  camera.transform.rotation = math::quaternion{std::cos(half_pitch), std::sin(half_pitch), 0, 0};
+  const std::array views{runtime::application_view{.target = targets[0]},
+                         runtime::application_view{.target = targets[1], .camera = camera}};
+  auto status = application.set_views(views);
+  if (!status)
+    return status;
+  std::uint32_t width{}, height{};
+  auto size_status = application.get_window_size(width, height);
+  if (size_status.failed())
+    return size_status;
+  const float w = static_cast<float>(width), h = static_cast<float>(height);
+  const std::array vertices{
+      ui_vertex{{0, 0}, {0, 0}, 0xffffffffU},     ui_vertex{{w / 2, 0}, {1, 0}, 0xffffffffU},
+      ui_vertex{{w / 2, h}, {1, 1}, 0xffffffffU}, ui_vertex{{0, h}, {0, 1}, 0xffffffffU},
+      ui_vertex{{w / 2, 0}, {0, 0}, 0xffffffffU}, ui_vertex{{w, 0}, {1, 0}, 0xffffffffU},
+      ui_vertex{{w, h}, {1, 1}, 0xffffffffU},     ui_vertex{{w / 2, h}, {0, 1}, 0xffffffffU}};
+  const std::array<std::uint32_t, 12> indices{0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7};
+  const std::array commands{
+      ui_draw_command{.texture = ui_target_image{targets[0]}, .clip_max = {w, h}, .index_count = 6},
+      ui_draw_command{.texture = ui_target_image{targets[1]},
+                      .clip_max = {w, h},
+                      .first_index = 6,
+                      .index_count = 6}};
+  auto drawn = application.submit_ui_draw_list({.display_width = w,
+                                                .display_height = h,
+                                                .vertices = vertices,
+                                                .indices = indices,
+                                                .commands = commands});
+  return drawn.failed() ? result<void>{drawn} : result<void>{};
+}
+
+// 回读窗口合成结果：两侧均须存在图像变化，且两个相机不能产生相同画面。
+bool has_distinct_views(const gneiss::render::frame_image& image) {
+  if (image.width != 512U || image.height != 256U || image.pixels.size() != 512U * 256U * 4U)
+    return false;
+  bool left_varies = false, right_varies = false, differs = false;
+  for (std::size_t y = 1; y < image.height - 1U; ++y) {
+    for (std::size_t x = 1; x < image.width / 2U - 1U; ++x) {
+      const auto left = (y * image.width + x) * 4U;
+      const auto right = left + image.width / 2U * 4U;
+      for (std::size_t c = 0; c < 3U; ++c) {
+        left_varies |= image.pixels[left + c] != image.pixels[c];
+        right_varies |= image.pixels[right + c] != image.pixels[image.width / 2U * 4U + c];
+        differs |= image.pixels[left + c] != image.pixels[right + c];
+      }
+    }
+  }
+  return left_varies && right_varies && differs;
+}
+
 double milliseconds(std::chrono::steady_clock::time_point begin,
                     std::chrono::steady_clock::time_point end) {
   return std::chrono::duration<double, std::milli>(end - begin).count();
@@ -111,7 +171,7 @@ double percentile(const std::array<double, measure_sample_frames>& samples, std:
   return sorted[index];
 }
 
-int run_sample(std::string_view executable_path, bool smoke, bool measure,
+int run_sample(std::string_view executable_path, bool smoke, bool measure, bool dual_view,
                const std::string& asset_override, const std::string& scene_uri,
                const std::string& input_map_uri) {
   constexpr std::string_view title = "Gneiss Scene Viewer";
@@ -143,7 +203,24 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure,
     (void)scheduler.run_ready();
     if (!can_update)
       return gneiss::error::success;
-    return update_sample(*native_application, time, &state);
+    auto updated = update_sample(*native_application, time, &state);
+    if (updated.failed() || !state.targets[0])
+      return updated;
+    auto configured = configure_dual_view(*native_application, state.targets);
+    if (!configured)
+      return configured.error();
+    if (smoke && !state.captured_dual) {
+      gneiss::render::frame_image image;
+      auto captured = native_application->capture_frame(512, 256, image);
+      if (captured == gneiss::error::not_ready)
+        return gneiss::error{gneiss::error::success};
+      if (captured.failed())
+        return captured;
+      if (!has_distinct_views(image))
+        return gneiss::error{gneiss::error::internal};
+      state.captured_dual = true;
+    }
+    return gneiss::error{gneiss::error::success};
   };
   example::scope_exit close{[&] {
     if (native_application && native_application->accepts_requests())
@@ -224,10 +301,45 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure,
   if (measure) {
     frame_count = measure_warmup_frames + measure_sample_frames;
   }
-  result = native_application->run(frame_count);
-  if (result != gneiss::error::success) {
-    report_failure("运行主循环", result);
-    return 7;
+  // 冒烟模式更换一组不同宽高比目标，验证同一场景的双视图与目标释放。
+  const unsigned rounds = dual_view && smoke ? 2U : 1U;
+  for (unsigned round = 0; round < rounds; ++round) {
+    std::array<gneiss::rid, 2> targets{};
+    if (dual_view) {
+      for (std::size_t i = 0; i < targets.size(); ++i) {
+        auto target = native_application->render().create_target(
+            {.width = round == 0 ? 320U : 512U, .height = i == 0 ? 240U : 384U});
+        if (!target)
+          return 7;
+        targets[i] = *target;
+      }
+      state.targets = targets;
+      state.captured_dual = false;
+    }
+    result = native_application->run(frame_count);
+    if (result.failed()) {
+      report_failure("运行主循环", result);
+      return 7;
+    }
+    if (dual_view) {
+      if (smoke && !state.captured_dual) {
+        report_failure("双视图回读未完成", gneiss::error::not_ready);
+        return 7;
+      }
+      result = native_application->render().finish_frames();
+      if (result.failed())
+        return 7;
+      state.targets = {};
+      if (!native_application->set_views({}))
+        return 7;
+      for (auto target : targets) {
+        auto released = native_application->render().destroy_target(target);
+        if (!released) {
+          report_failure("释放双视图目标", released.error());
+          return 7;
+        }
+      }
+    }
   }
   const auto run_finished = clock::now();
   result = ([&] {
@@ -280,6 +392,7 @@ int main(int argc, char** argv) {
   try {
     bool smoke = false;
     bool measure = false;
+    bool dual_view = false;
     std::string assets;
     std::string scene = "asset://scenes/temple.scene.json";
     std::string input = "asset://input/default.input-map.json";
@@ -287,6 +400,8 @@ int main(int argc, char** argv) {
       const std::string_view option{argv[i]};
       if (option == "--smoke")
         smoke = true;
+      else if (option == "--dual-view")
+        dual_view = true;
       else if (option == "--measure")
         measure = true;
       else if ((option == "--assets" || option == "--scene" || option == "--input") &&
@@ -294,15 +409,16 @@ int main(int argc, char** argv) {
         auto& destination = option == "--assets" ? assets : option == "--scene" ? scene : input;
         destination = argv[++i];
       } else {
-        std::fprintf(stderr,
-                     "用法：gneiss_scene_viewer [--smoke|--measure] [--assets 路径] [--scene "
-                     "URI] [--input URI]\n");
+        std::fprintf(
+            stderr,
+            "用法：gneiss_scene_viewer [--smoke|--measure] [--dual-view] [--assets 路径] [--scene "
+            "URI] [--input URI]\n");
         return option == "--help" ? 0 : 64;
       }
     }
     if (smoke && measure)
       return 64;
-    return run_sample(argv[0], smoke, measure, assets, scene, input);
+    return run_sample(argv[0], smoke, measure, dual_view, assets, scene, input);
   } catch (...) {
     gneiss::fatal_current_exception();
   }

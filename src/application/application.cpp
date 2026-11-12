@@ -59,8 +59,7 @@ struct application::storage {
       std::make_unique<gneiss::render::service>();
   gneiss::ui_draw_list ui_draw_list_;
   gneiss::debug_draw_list debug_draw_list_;
-  std::optional<gneiss::view_camera> view_camera_;
-  rid view_target_{};
+  std::vector<application_view> views_{application_view{}};
 #ifdef GNEISS_ASSET_LIBUV
   std::unique_ptr<gneiss::uv_loop_executor> asset_io_executor_;
 #endif
@@ -110,32 +109,36 @@ struct application::storage {
     auto synced = render_binding_->synchronize();
     if (!synced)
       return synced.error();
-    render::target_description extent{window.width, window.height};
-    if (view_target_) {
-      auto target = render_service_->describe_target(view_target_);
-      if (!target)
-        return target.error();
-      extent = *target;
-    }
-    auto camera = select_render_camera(*world_, extent.width, extent.height,
-                                       view_camera_ ? &*view_camera_ : nullptr);
-    if (!camera)
-      return camera.error();
     render::frame_request request;
     request.window = window;
-    if (*camera) {
-      const auto& selected = **camera;
-      request.views.push_back({.scene = render_binding_->scene(),
-                               .target = view_target_,
-                               .view_matrix = selected.view,
-                               .projection_matrix = selected.projection,
-                               .camera_position = selected.transform.translation});
+    bool has_window = false;
+    for (const auto& view : views_) {
+      render::target_description extent{window.width, window.height};
+      if (view.target) {
+        auto target = render_service_->describe_target(view.target);
+        if (!target)
+          return target.error();
+        extent = *target;
+      } else {
+        has_window = true;
+      }
+      auto camera = select_render_camera(*world_, extent.width, extent.height,
+                                         view.camera ? &*view.camera : nullptr);
+      if (!camera)
+        return camera.error();
+      if (*camera) {
+        const auto& selected = **camera;
+        request.views.push_back({.scene = render_binding_->scene(),
+                                 .target = view.target,
+                                 .view_matrix = selected.view,
+                                 .projection_matrix = selected.projection,
+                                 .camera_position = selected.transform.translation});
+      } else {
+        request.views.push_back({.target = view.target});
+      }
     }
-    if (view_target_) {
-      if (!*camera)
-        request.views.push_back({.target = view_target_});
+    if (!has_window)
       request.views.push_back({});
-    }
     request.ui = ui_draw_list_;
     request.debug = debug_draw_list_;
     return request;
@@ -557,30 +560,50 @@ void application::report(gneiss::severity severity, gneiss::category category,
   }));
 }
 
+result<void> application::set_views(std::span<const application_view> views) {
+  if (!is_owner_thread() || !accepts_requests())
+    return error::invalid_state;
+  for (std::size_t i = 0; i < views.size(); ++i) {
+    const auto& view = views[i];
+    if (view.target && !render().is_target(view.target))
+      return error::invalid_handle;
+    for (std::size_t j = 0; j < i; ++j) {
+      if (views[j].target == view.target)
+        return error::invalid_argument;
+    }
+    if (view.camera) {
+      math::matrix4 matrix;
+      auto status = math::view_matrix_rh(view.camera->transform, matrix);
+      if (status.failed())
+        return status;
+      status = math::perspective_rh_zo(view.camera->camera, 1.0F, matrix);
+      if (status.failed())
+        return status;
+    }
+  }
+  std::vector<application_view> replacement(views.begin(), views.end());
+  if (replacement.empty())
+    replacement.emplace_back();
+  storage_->views_ = std::move(replacement);
+  return {};
+}
+
 gneiss::error application::set_view_target(rid target) {
   if (!is_owner_thread() || !accepts_requests())
     return error::invalid_state;
-  if (target && !render().is_target(target))
-    return error::invalid_handle;
-  storage_->view_target_ = target;
-  return error::success;
+  auto views = storage_->views_;
+  views.front().target = target;
+  auto status = set_views(views);
+  return status ? error::success : status.error();
 }
+
 gneiss::error application::set_view_camera(const gneiss::view_camera* camera) {
   if (!is_owner_thread() || !accepts_requests())
-    return gneiss::error::invalid_state;
-  if (camera == nullptr) {
-    storage_->view_camera_.reset();
-    return gneiss::error::success;
-  }
-  gneiss::math::matrix4 matrix;
-  auto result = gneiss::math::view_matrix_rh(camera->transform, matrix);
-  if (result == gneiss::error::success) {
-    result = gneiss::math::perspective_rh_zo(camera->camera, 1.0F, matrix);
-  }
-  if (result == gneiss::error::success) {
-    storage_->view_camera_ = *camera;
-  }
-  return result;
+    return error::invalid_state;
+  auto views = storage_->views_;
+  views.front().camera = camera ? std::optional{*camera} : std::nullopt;
+  auto status = set_views(views);
+  return status ? error::success : status.error();
 }
 
 gneiss::error application::capture_frame(std::uint32_t width, std::uint32_t height,
