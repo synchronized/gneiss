@@ -3,9 +3,11 @@
 
 #pragma once
 #include "engine/core/entity_id.hpp"
+#include "engine/core/events/signal.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/game_object.hpp"
+#include "engine/function/scene/object_change.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_types.hpp"
 #include <memory>
@@ -28,6 +30,10 @@ public:
   world(const world&) = delete;
   world& operator=(const world&) = delete;
   [[nodiscard]] GNEISS_API bool is_owner_thread() const noexcept;
+  /** 批次仅在回调期间借用；回调只接收记录，不得修改 World。 */
+  [[nodiscard]] GNEISS_API events::sink<void(const object_changes&)> changes() const;
+  /** 宿主在本轮修改后调用；独立于 Render，异常不作为可重试广播事务。 */
+  [[nodiscard]] GNEISS_API result<void> flush_changes();
   /** 创建空运行场景；不需要描述身份，返回非拥有句柄。 */
   [[nodiscard]] GNEISS_API result<scene_instance> create_scene();
   /** 将整棵对象子树移入本 World 的目标场景；保持局部变换与实体身份。

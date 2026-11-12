@@ -162,6 +162,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/scene/game_object.hpp
   engine/function/scene/rendering/world_render_binding.hpp
   engine/function/scene/rendering/render_camera.hpp
+  engine/function/scene/object_change.hpp
   engine/function/scene/world.hpp
   engine/function/scene/components.hpp
   engine/platform/native_window_info.hpp
@@ -190,5 +191,5 @@ gneiss_internal_headers(gneiss_tooling_interface "${PROJECT_SOURCE_DIR}/src"
 )
 
 target_link_libraries(gneiss_value_interface INTERFACE gneiss_math_dependency)
-target_link_libraries(gneiss_native_interface INTERFACE gneiss_value_interface)
+target_link_libraries(gneiss_native_interface INTERFACE gneiss_value_interface gneiss_events)
 target_link_libraries(gneiss_tooling_interface INTERFACE gneiss_value_interface)

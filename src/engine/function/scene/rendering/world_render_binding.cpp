@@ -6,51 +6,61 @@
 #include <limits>
 #include <map>
 namespace gneiss {
-struct world_render_binding::impl {
-  world& source;
-  gneiss::render::service& render;
-  rid scene{};
-  std::shared_ptr<detail::world_change_inbox> changes;
-  std::map<entity_id, render::instance_key> instances;
-  std::uint64_t last_key{};
-  impl(world& source, gneiss::render::service& render) : source(source), render(render) {}
-  ~impl() {
-    if (scene)
-      (void)render.destroy_scene(scene);
+world_render_binding::world_render_binding(world& source, render::service& render)
+    : source_(source), render_(render) {}
+world_render_binding::~world_render_binding() {
+  subscription_.disconnect();
+  if (scene_)
+    (void)render_.destroy_scene(scene_);
+}
+rid world_render_binding::scene() const noexcept { return scene_; }
+void world_render_binding::on_changed(const object_changes& batch) {
+  const auto mesh_type = runtime_type_of<mesh_component>();
+  for (const auto& [id, change] : batch) {
+    const auto component = change.components.find(mesh_type);
+    if (!change.transform && !change.destroyed && component == change.components.end())
+      continue;
+    auto& pending = pending_[id];
+    if (change.destroyed) {
+      pending = {.destroyed = true, .components = {}};
+      continue;
+    }
+    if (pending.destroyed)
+      continue;
+    pending.transform |= change.transform;
+    if (component != change.components.end())
+      pending.components[mesh_type] |= component->second;
   }
-};
-world_render_binding::world_render_binding(std::unique_ptr<impl> value) : impl_(std::move(value)) {}
-world_render_binding::~world_render_binding() = default;
-rid world_render_binding::scene() const noexcept { return impl_->scene; }
+}
 result<std::unique_ptr<world_render_binding>>
 world_render_binding::create(world& source, gneiss::render::service& render) {
   auto state = detail::world_component_access::get(source);
   if (!state)
     return state.error();
-  auto value = std::make_unique<impl>(source, render);
-  value->changes = (*state)->changes.subscribe();
+  auto value = std::unique_ptr<world_render_binding>(new world_render_binding(source, render));
+  value->subscription_ = source.changes().connect<&world_render_binding::on_changed>(*value);
   // 只在建立绑定时全量枚举；后续订阅记录不会被其他消费者清空。
   (*state)->each<detail::object_state, mesh_component>(
       [&](entt::entity entity, const auto&, const auto&) {
-        value->changes->objects[entity_id{(*state)->encode_entity(entity)}].transform = true;
+        value->pending_[entity_id{(*state)->encode_entity(entity)}].transform = true;
       });
   auto scene = render.create_scene();
   if (!scene)
     return scene.error();
-  value->scene = *scene;
-  return std::unique_ptr<world_render_binding>(new world_render_binding(std::move(value)));
+  value->scene_ = *scene;
+  return value;
 }
 result<void> world_render_binding::synchronize() {
-  auto state = detail::world_component_access::get(impl_->source);
+  auto state = detail::world_component_access::get(source_);
   if (!state)
     return state.error();
-  render::scene_commands commands{impl_->scene, {}};
+  render::scene_commands commands{scene_, {}};
   std::map<entity_id, render::instance_key> updates;
-  auto last_key = impl_->last_key;
+  auto last_key = last_key_;
   const auto mesh_type = runtime_type_of<mesh_component>();
-  for (const auto& [id, change] : impl_->changes->objects) {
-    const auto existing = impl_->instances.find(id);
-    auto key = existing == impl_->instances.end() ? render::instance_key{} : existing->second;
+  for (const auto& [id, change] : pending_) {
+    const auto existing = instances_.find(id);
+    auto key = existing == instances_.end() ? render::instance_key{} : existing->second;
     const auto changed_component = change.components.find(mesh_type);
     if (!change.transform && !change.destroyed && changed_component == change.components.end())
       continue;
@@ -66,7 +76,7 @@ result<void> world_render_binding::synchronize() {
     }
     if (!ready)
       continue;
-    auto matrix = impl_->source.find(id).world_matrix();
+    auto matrix = source_.find(id).world_matrix();
     if (!matrix)
       return matrix.error();
     const auto mesh = resource_handle(component->mesh);
@@ -85,21 +95,21 @@ result<void> world_render_binding::synchronize() {
     }
   }
   if (!commands.entries.empty()) {
-    auto submitted = impl_->render.submit(std::move(commands));
+    auto submitted = render_.submit(std::move(commands));
     if (!submitted)
       return submitted.error();
   }
   // 所有分配在接受前完成；成功后通过节点转移提交身份，避免再次分配。
   for (auto it = updates.begin(); it != updates.end();) {
-    impl_->instances.erase(it->first);
+    instances_.erase(it->first);
     if (!it->second)
       it = updates.erase(it);
     else
       ++it;
   }
-  impl_->instances.merge(updates);
-  impl_->last_key = last_key;
-  impl_->changes->objects.clear();
+  instances_.merge(updates);
+  last_key_ = last_key;
+  pending_.clear();
   return {};
 }
 }

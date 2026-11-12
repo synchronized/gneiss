@@ -599,6 +599,9 @@ gneiss::error application::capture_frame(std::uint32_t width, std::uint32_t heig
     window.width = width;
     window.height = height;
     window.needs_recreate = false;
+    auto changes = storage_->world_->flush_changes();
+    if (!changes)
+      return changes.error();
     auto request = storage_->make_render_request(window);
     if (!request)
       return request.error();
@@ -742,6 +745,9 @@ gneiss::error application::run(std::uint64_t max_frame_count) try {
         return update_result;
       }
     }
+    auto changes = storage_->world_->flush_changes();
+    if (!changes)
+      return changes.error();
     const auto render_result =
         gneiss::measure(gneiss::loop_stage::render, [&] { return render_frame(); });
     // 渲染队列、交换链或后端资源可能暂时未就绪；跳过本帧并在下一帧重试。

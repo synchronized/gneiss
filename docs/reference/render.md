@@ -267,6 +267,9 @@ if (!created)
 auto binding = std::move(*created);
 
 // 逻辑更新结束后调用。借用组件修改后需 notify_component_modified<T>()。
+auto published = owner.flush_changes(); // 所有消费者共享一次合并后的通知。
+if (!published)
+  return published.error();
 auto synced = binding->synchronize();
 if (!synced)
   return synced.error(); // 状态仍在绑定中，下次可重试。
@@ -276,7 +279,10 @@ if (!synced)
 binding.reset();
 ```
 
-首次同步枚举已有网格对象，后续只处理变化。父变换、改父节点、网格组件增删/换绑、
+创建绑定时枚举已有网格对象，后续订阅 world.changes()，只处理变化。
+World 合并重复修改，在宿主调用 flush_changes() 时广播借用批次；回调只能记录待办，不能修改 World。
+消费者分别保存自己的待办，绑定同步不触发广播；没有订阅时 World 不积累通知。
+父变换、改父节点、网格组件增删/换绑、
 对象删除和场景卸载均生成相应命令。矩阵使用完整 world_matrix，保留层级剪切。
 组件缺少 mesh/material 引用时暂不创建实例；拥有尚未发布内容的有效资源身份仍可创建，
 内容随后通过 Render 资源身份发布。一个绑定覆盖一个 World 的所有可渲染对象。
@@ -285,7 +291,8 @@ binding.reset();
 不清空变化，下次从 World 当前状态重新生成命令；创建后未同步就删除不会留下实例。
 多个绑定独立消费；静态 World 不逐帧枚举全部对象。当前不提供 World 侧显隐/层掩码组件。
 
-Application 在有窗口时创建绑定，普通帧依次同步变化、查询所选相机、提交 frame_request。
+Application 在逻辑更新回调结束后统一发布 World 变化；截图入口也先发布。
+有窗口时创建绑定，普通帧依次同步变化、查询所选相机、提交 frame_request。
 没有相机仍可显示 UI；最小化时仍同步对象变化。无窗口运行不创建绑定。
 关闭先销毁绑定，再释放 World 和 Render。背压与完成回执由 Render 内部处理，
 普通帧 not_ready 时宿主保留窗口重建标记，稍后以最新输入再提交。

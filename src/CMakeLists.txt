@@ -270,6 +270,7 @@ target_sources(
     engine/function/scene/rendering/render_camera.hpp
     engine/function/scene/rendering/render_camera.cpp
     engine/function/scene/detail/world_changes.hpp
+    engine/function/scene/object_change.hpp
     engine/function/scene/world.hpp
     engine/function/scene/detail/world_factory.cpp
     engine/function/scene/detail/world_state.hpp
@@ -379,7 +380,7 @@ if(WIN32 AND granit_runtime_is_imported AND granit_runtime_type STREQUAL "SHARED
 endif()
 
 target_compile_features(gneiss_engine PRIVATE cxx_std_20)
-target_link_libraries(gneiss_engine PUBLIC $<BUILD_INTERFACE:gneiss_value_interface>)
+target_link_libraries(gneiss_engine PUBLIC $<BUILD_INTERFACE:gneiss_value_interface> $<BUILD_INTERFACE:gneiss_events>)
 gneiss_target_compile_warnings(gneiss_engine)
 target_link_libraries(
   gneiss_engine

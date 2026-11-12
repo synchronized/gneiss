@@ -97,6 +97,10 @@ public:
     check_thread();
     return events::sink<void(Args...)>{lifetime_};
   }
+  [[nodiscard]] bool empty() const {
+    check_thread();
+    return subscriptions_.empty();
+  }
   void publish(Args... args) {
     check_idle();
     struct publish_guard {

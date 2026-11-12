@@ -21,6 +21,13 @@ world::~world() noexcept try {
 } catch (...) {
   fatal_current_exception();
 }
+events::sink<void(const object_changes&)> world::changes() const { return state_->changes.changed(); }
+result<void> world::flush_changes() {
+  if (!is_owner_thread())
+    return error::invalid_state;
+  state_->changes.flush();
+  return {};
+}
 result<scene_instance> world::create_scene() {
   if (!is_owner_thread())
     return error::invalid_state;
