@@ -19,6 +19,7 @@ set_target_properties(
     C_EXTENSIONS NO
     POSITION_INDEPENDENT_CODE YES
 )
+set_target_properties(gneiss_yyjson PROPERTIES FOLDER "ThirdParty/yyjson")
 
 # PNG 解码器作为对象直接并入 Gneiss，不向安装 package 传播第三方目标。
 configure_file(
@@ -53,3 +54,4 @@ set_target_properties(
     C_EXTENSIONS NO
     POSITION_INDEPENDENT_CODE YES
 )
+set_target_properties(gneiss_png PROPERTIES FOLDER "ThirdParty/PNG")

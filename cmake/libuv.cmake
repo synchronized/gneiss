@@ -38,6 +38,29 @@ function(gneiss_resolve_libuv)
   add_library(gneiss::libuv ALIAS gneiss_libuv)
   target_link_libraries(gneiss_libuv INTERFACE uv_a)
   set(GNEISS_LIBUV_SOURCE_DIR "${gneiss_libuv_source_SOURCE_DIR}" PARENT_SCOPE)
+  if(TARGET uv_a)
+    set_target_properties(uv_a PROPERTIES FOLDER "ThirdParty/Libuv")
+  endif()
+
+  get_target_property(LIBUV_UV_SOURCES uv_a SOURCES)
+  foreach(SOURCE_FILE ${LIBUV_UV_SOURCES})
+    # Create a clean target name
+    string(REPLACE "/" "-" TARGET_NAME ${SOURCE_FILE})
+    string(REGEX REPLACE "\\.[^.]*$" "" TARGET_NAME ${TARGET_NAME})
+    set(FULL_TARGET_NAME "tidy-${TARGET_NAME}")
+
+    # Create individual target for this source file
+    if(TARGET ${FULL_TARGET_NAME})
+      set_target_properties(${FULL_TARGET_NAME} PROPERTIES FOLDER "ThirdParty/Libuv/Tidy")
+    endif()
+  endforeach()
+  set(libuv_target_list tidy tidy-src)
+  foreach(tidy_target IN LISTS libuv_target_list)
+    if(TARGET ${tidy_target})
+      set_target_properties(${tidy_target} PROPERTIES FOLDER "ThirdParty/Libuv/Tidy")
+    endif()
+  endforeach()
+
 endfunction()
 
 # 核心静态安装包内嵌 libuv 对象，避免向消费者泄漏未安装的第三方目标。

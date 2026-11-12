@@ -3,12 +3,14 @@
 
 if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   add_executable(gneiss_texture_mip_generator_test "${PROJECT_SOURCE_DIR}/tests/tooling/texture_mip_generator_test.cpp")
+  set_target_properties(gneiss_texture_mip_generator_test PROPERTIES FOLDER "Tests")
   target_link_libraries(gneiss_texture_mip_generator_test PRIVATE gneiss_asset_import_sdk)
   target_compile_features(gneiss_texture_mip_generator_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_texture_mip_generator_test)
   gneiss_target_output_directories(gneiss_texture_mip_generator_test)
   add_test(NAME gneiss.texture-mip-generator COMMAND gneiss_texture_mip_generator_test)
   add_executable(gneiss_tangent_generation_test "${PROJECT_SOURCE_DIR}/tests/tooling/tangent_generation_test.cpp")
+  set_target_properties(gneiss_tangent_generation_test PROPERTIES FOLDER "Tests")
   target_link_libraries(gneiss_tangent_generation_test PRIVATE gneiss_asset_import_sdk)
   target_compile_features(gneiss_tangent_generation_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_tangent_generation_test)
@@ -19,6 +21,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
     gneiss_corrupt_texture_fixture
     "${PROJECT_SOURCE_DIR}/tests/tooling/corrupt_texture_fixture.cpp"
   )
+  set_target_properties(gneiss_corrupt_texture_fixture PROPERTIES FOLDER "Tests")
   target_link_libraries(gneiss_corrupt_texture_fixture PRIVATE gneiss_asset_import_sdk granit::granit)
   target_compile_features(gneiss_corrupt_texture_fixture PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_corrupt_texture_fixture)
@@ -28,6 +31,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
     gneiss_asset_build_test
     "${PROJECT_SOURCE_DIR}/tests/tooling/asset_build_test.cpp"
   )
+  set_target_properties(gneiss_asset_build_test PROPERTIES FOLDER "Tests")
   target_include_directories(gneiss_asset_build_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(gneiss_asset_build_test PRIVATE gneiss_asset_import_sdk granit::granit)
   target_compile_features(gneiss_asset_build_test PRIVATE cxx_std_20)
@@ -36,6 +40,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   add_test(NAME gneiss.tooling.asset_build COMMAND gneiss_asset_build_test)
 
   add_executable(gneiss_bc7_encoder_test "${PROJECT_SOURCE_DIR}/tests/tooling/bc7_encoder_test.cpp")
+  set_target_properties(gneiss_bc7_encoder_test PROPERTIES FOLDER "Tests")
   target_include_directories(gneiss_bc7_encoder_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(gneiss_bc7_encoder_test PRIVATE gneiss_asset_import_sdk gneiss_bc7enc)
   target_compile_features(gneiss_bc7_encoder_test PRIVATE cxx_std_20)
@@ -44,6 +49,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   add_test(NAME gneiss.tooling.bc7_encoder COMMAND gneiss_bc7_encoder_test)
 
   add_executable(gneiss_sha256_test "${PROJECT_SOURCE_DIR}/tests/tooling/sha256_test.cpp")
+  set_target_properties(gneiss_sha256_test PROPERTIES FOLDER "Tests")
   target_include_directories(gneiss_sha256_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(gneiss_sha256_test PRIVATE gneiss_asset_import_sdk)
   target_compile_features(gneiss_sha256_test PRIVATE cxx_std_20)
@@ -55,6 +61,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
     gneiss_runtime_texture_builder_test
     "${PROJECT_SOURCE_DIR}/tests/tooling/runtime_texture_builder_test.cpp"
   )
+  set_target_properties(gneiss_runtime_texture_builder_test PROPERTIES FOLDER "Tests")
   target_include_directories(
     gneiss_runtime_texture_builder_test PRIVATE "${PROJECT_SOURCE_DIR}/src"
   )
@@ -70,6 +77,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
     gneiss_ktx2_probe_test
     "${PROJECT_SOURCE_DIR}/tests/tooling/ktx2_probe_test.cpp"
   )
+  set_target_properties(gneiss_ktx2_probe_test PROPERTIES FOLDER "Tests")
   target_include_directories(gneiss_ktx2_probe_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(gneiss_ktx2_probe_test PRIVATE gneiss_asset_import_sdk)
   target_compile_features(gneiss_ktx2_probe_test PRIVATE cxx_std_20)
@@ -81,6 +89,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
     gneiss_gltf_importer_test
     "${PROJECT_SOURCE_DIR}/tests/tooling/gltf_importer_test.cpp"
   )
+  set_target_properties(gneiss_gltf_importer_test PROPERTIES FOLDER "Tests")
   target_include_directories(gneiss_gltf_importer_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(gneiss_gltf_importer_test PRIVATE gneiss_asset_import_sdk)
   target_compile_definitions(
@@ -96,6 +105,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
     gneiss_asset_writer_test
     "${PROJECT_SOURCE_DIR}/tests/tooling/asset_writer_test.cpp"
   )
+  set_target_properties(gneiss_asset_writer_test PROPERTIES FOLDER "Tests")
   target_include_directories(gneiss_asset_writer_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(
     gneiss_asset_writer_test PRIVATE gneiss_asset_import_sdk gneiss::engine
@@ -113,6 +123,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
     gneiss_asset_import_sdk_test
     "${PROJECT_SOURCE_DIR}/tests/tooling/asset_import_sdk_test.cpp"
   )
+  set_target_properties(gneiss_asset_import_sdk_test PROPERTIES FOLDER "Tests")
   target_include_directories(gneiss_asset_import_sdk_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(gneiss_asset_import_sdk_test PRIVATE gneiss_asset_import_sdk)
   target_compile_definitions(
@@ -128,6 +139,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
     gneiss_asset_index_test
     "${PROJECT_SOURCE_DIR}/tests/tooling/asset_index_test.cpp"
   )
+  set_target_properties(gneiss_asset_index_test PROPERTIES FOLDER "Tests")
   target_include_directories(gneiss_asset_index_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(gneiss_asset_index_test PRIVATE gneiss_asset_import_sdk)
   target_compile_features(gneiss_asset_index_test PRIVATE cxx_std_20)
@@ -139,6 +151,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
     gneiss_gltf_container_test
     "${PROJECT_SOURCE_DIR}/tests/tooling/gltf_container_test.cpp"
   )
+  set_target_properties(gneiss_gltf_container_test PROPERTIES FOLDER "Tests")
   target_include_directories(gneiss_gltf_container_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(gneiss_gltf_container_test PRIVATE gneiss_asset_import_sdk)
   target_compile_definitions(
