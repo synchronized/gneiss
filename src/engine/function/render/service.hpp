@@ -63,6 +63,7 @@ public:
   [[nodiscard]] GNEISS_API result<void> destroy_target(rid target);
   /** 所属线程查询目标身份是否仍有效，不表示 GPU 内容已生成。 */
   [[nodiscard]] GNEISS_API bool is_target(rid target) const noexcept;
+  [[nodiscard]] GNEISS_API result<target_description> describe_target(rid target) const;
   [[nodiscard]] GNEISS_API result<rid> create_scene();
   [[nodiscard]] GNEISS_API result<void> submit(render::scene_commands&&);
   /** 立即使场景 RID 失效，不受命令队列容量限制；在途任务保活内容直至消费完成。 */
@@ -71,7 +72,7 @@ public:
    * 成功后消费请求，不代表 GPU 完成；UI 纹理与场景资源固定为不可变版本。
    * 支持多个离屏视图和最多一个窗口视图；帧级 UI 只绘制到窗口。 */
   [[nodiscard]] GNEISS_API result<void> render(render::frame_request&& request);
-  /** 异步提交必达截图，返回既有完成回执序号；失败不消费请求。
+  /** 异步提交必达截图；多视图返回窗口合成结果，无窗口则 unsupported；失败不消费请求。
    * image 必须非空，成功接受后至对应完成回执前不得读写或复用于其他请求。
    * 暂复用 required completion，未来统一为独立回读请求。 */
   [[nodiscard]] GNEISS_API result<std::uint64_t>

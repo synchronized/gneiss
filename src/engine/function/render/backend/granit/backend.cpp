@@ -1116,6 +1116,9 @@ gneiss::error
 backend::implementation::execute_view(gneiss::render::detail::frame_packet& packet,
                                       const gneiss::render::detail::draw_view& view_input,
                                       execution_result& output) {
+  const auto readback = packet.readback && (packet.views.size() == 1 || !view_input.target)
+                            ? packet.readback
+                            : nullptr;
   output.gpu_timing_supported = gpu_timing_supported_;
   output.environment_asset_requested = environment_asset_requested_;
   output.environment_fallback = environment_fallback_;
@@ -1155,7 +1158,7 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
   auto result = debug_draw_.clear();
   if (result.failed())
     return map_result(result);
-  {
+  if (snapshot.has_camera) {
     std::vector<::granit::debug_draw_line> lines;
     lines.reserve(packet.debug.lines().size());
     for (const auto& line : packet.debug.lines()) {
@@ -1254,7 +1257,7 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
                                    std::chrono::steady_clock::now() - resource_prepare_started)
                                    .count();
 
-  if (packet.readback || view_input.target) {
+  if (readback || view_input.target) {
     {
       target_mirror temporary;
       auto& destination = view_input.target ? targets_[view_input.target] : temporary;
@@ -1287,7 +1290,7 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
         desc.environment = &environment_info_.environment;
         captured = pipeline_.render(desc);
       }
-      if (!packet.readback)
+      if (!readback)
         return map_result(captured);
       ::granit::readback_batch batch;
       const auto byte_count = static_cast<std::uint64_t>(window.width) * window.height * 4U;
@@ -1331,15 +1334,14 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
           info.format != ::granit::texture_format::rgba8_unorm) {
         return gneiss::error::internal;
       }
-      packet.readback->pixels.resize(static_cast<std::size_t>(byte_count));
+      readback->pixels.resize(static_cast<std::size_t>(byte_count));
       std::uint64_t required{};
-      captured =
-          ::granit::copy_readback_result(operation, index, packet.readback->pixels, required);
+      captured = ::granit::copy_readback_result(operation, index, readback->pixels, required);
       if (captured.failed()) {
         return map_result(captured);
       }
-      packet.readback->width = window.width;
-      packet.readback->height = window.height;
+      readback->width = window.width;
+      readback->height = window.height;
       return gneiss::error::success;
     }
   }

@@ -69,16 +69,14 @@ bool draw_transform_gizmo(const transform_gizmo_context& context, const ImVec2& 
     return false;
   }
 
-  const auto* viewport = ImGui::GetMainViewport();
-  if (!viewport || viewport->Size.x <= 1.0F || viewport->Size.y <= 1.0F) {
+  if (size.x <= 1.0F || size.y <= 1.0F) {
     return false;
   }
   auto view = gneiss::editor::build_gizmo_view_matrix(context.camera);
-  auto projection =
-      gneiss::editor::build_gizmo_projection_matrix(viewport->Size.x / viewport->Size.y);
+  auto projection = gneiss::editor::build_gizmo_projection_matrix(size.x / size.y);
   ImGuizmo::SetOrthographic(false);
   ImGuizmo::SetDrawlist(ImGui::GetWindowDrawList());
-  ImGuizmo::SetRect(viewport->Pos.x, viewport->Pos.y, viewport->Size.x, viewport->Size.y);
+  ImGuizmo::SetRect(minimum.x, minimum.y, size.x, size.y);
   ImGui::GetWindowDrawList()->AddText(
       ImVec2(minimum.x + 8.0F, minimum.y + size.y - ImGui::GetTextLineHeight() - 8.0F),
       IM_COL32(205, 214, 244, 210), "Grid: 1 unit = 1 m | adaptive spacing");

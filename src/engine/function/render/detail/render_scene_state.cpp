@@ -166,6 +166,10 @@ render_scene_state::prepare_capture(const render::frame_request& request,
     for (auto element : math::components(view.camera_position))
       if (!std::isfinite(element))
         return error::invalid_argument;
+    if (!view.scene) {
+      contents.push_back({});
+      continue;
+    }
     const auto* group = scenes_.get(view.scene, resource_type::render_scene);
     if (!group)
       return error::invalid_handle;
@@ -200,6 +204,10 @@ render_scene_state::capture_content(const render::frame_request& request,
                      .width = sizes[index].width,
                      .height = sizes[index].height,
                      .scene = {}};
+    if (!contents[index]) {
+      packet.views.push_back(std::move(output));
+      continue;
+    }
     const auto& view = request.views[index];
     output.scene.has_camera = true;
     output.scene.layers = view.layers;

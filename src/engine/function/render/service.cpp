@@ -235,8 +235,9 @@ result<std::uint64_t> service::request_capture(render::frame_request&& request,
 }
 result<std::uint64_t> service::submit_request(render::frame_request& request, frame_policy policy,
                                               std::shared_ptr<frame_image> image) {
-  if (image && request.views.size() > 1)
-    return error::unsupported; // 单个回读结果不能隐式选择多个输出中的一个。
+  if (image && request.views.size() > 1 &&
+      std::ranges::none_of(request.views, [](const auto& view) { return !view.target; }))
+    return error::unsupported; // 多视图截图明确返回窗口合成结果。
   std::vector<target_description> sizes;
   sizes.reserve(request.views.size());
   for (const auto& view : request.views) {

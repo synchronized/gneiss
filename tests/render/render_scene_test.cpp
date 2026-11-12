@@ -462,6 +462,12 @@ bool frame_capture() {
   CHECK(no_camera && !no_camera->views.front().scene.has_camera &&
         no_camera->views.front().scene.instances.empty());
   request.views.push_back({});
+  auto ui_only = state.capture(request);
+  CHECK(ui_only && ui_only->views.size() == 1 && !ui_only->views[0].scene.has_camera);
+  request.views.push_back({.target = 101});
+  auto empty_outputs = state.capture(request);
+  CHECK(empty_outputs && empty_outputs->views.size() == 2);
+  request.views.pop_back();
   gneiss::render::service renderer;
   auto not_initialized = renderer.create_scene();
   CHECK(not_initialized);

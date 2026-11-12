@@ -60,6 +60,7 @@ struct application::storage {
   gneiss::ui_draw_list ui_draw_list_;
   gneiss::debug_draw_list debug_draw_list_;
   std::optional<gneiss::view_camera> view_camera_;
+  rid view_target_{};
 #ifdef GNEISS_ASSET_LIBUV
   std::unique_ptr<gneiss::uv_loop_executor> asset_io_executor_;
 #endif
@@ -109,7 +110,14 @@ struct application::storage {
     auto synced = render_binding_->synchronize();
     if (!synced)
       return synced.error();
-    auto camera = select_render_camera(*world_, window.width, window.height,
+    render::target_description extent{window.width, window.height};
+    if (view_target_) {
+      auto target = render_service_->describe_target(view_target_);
+      if (!target)
+        return target.error();
+      extent = *target;
+    }
+    auto camera = select_render_camera(*world_, extent.width, extent.height,
                                        view_camera_ ? &*view_camera_ : nullptr);
     if (!camera)
       return camera.error();
@@ -118,9 +126,15 @@ struct application::storage {
     if (*camera) {
       const auto& selected = **camera;
       request.views.push_back({.scene = render_binding_->scene(),
+                               .target = view_target_,
                                .view_matrix = selected.view,
                                .projection_matrix = selected.projection,
                                .camera_position = selected.transform.translation});
+    }
+    if (view_target_) {
+      if (!*camera)
+        request.views.push_back({.target = view_target_});
+      request.views.push_back({});
     }
     request.ui = ui_draw_list_;
     request.debug = debug_draw_list_;
@@ -543,6 +557,14 @@ void application::report(gneiss::severity severity, gneiss::category category,
   }));
 }
 
+gneiss::error application::set_view_target(rid target) {
+  if (!is_owner_thread() || !accepts_requests())
+    return error::invalid_state;
+  if (target && !render().is_target(target))
+    return error::invalid_handle;
+  storage_->view_target_ = target;
+  return error::success;
+}
 gneiss::error application::set_view_camera(const gneiss::view_camera* camera) {
   if (!is_owner_thread() || !accepts_requests())
     return gneiss::error::invalid_state;

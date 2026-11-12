@@ -14,6 +14,7 @@ struct target_description {
   std::uint32_t height{};
 };
 struct view {
+  /** 零表示空输出，可用于只合成窗口 UI。 */
   rid scene{};
   /** 零表示当前窗口；非零必须是本服务创建的离屏目标。 */
   rid target{};

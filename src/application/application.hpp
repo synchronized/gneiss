@@ -57,6 +57,8 @@ public:
   create(const application_configuration& config);
   [[nodiscard]] GNEISS_API gneiss::error
   set_view_camera(const gneiss::view_camera* camera);
+  /** 借用本应用 Render 目标；零恢复窗口直绘。调用方负责目标生命周期。 */
+  [[nodiscard]] GNEISS_API gneiss::error set_view_target(gneiss::rid target);
   [[nodiscard]] GNEISS_API gneiss::error capture_frame(std::uint32_t width, std::uint32_t height,
                                                        gneiss::render::frame_image& output);
   [[nodiscard]] GNEISS_API gneiss::render::queue_stats render_statistics() const;

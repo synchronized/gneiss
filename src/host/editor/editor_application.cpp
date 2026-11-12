@@ -27,6 +27,7 @@
 #include "editor_ui.hpp"
 #include "engine/core/logging/default_service.hpp"
 #include "engine/core/logging/service.hpp"
+#include "engine/function/render/service.hpp"
 #include "engine/function/scene/component_registration.hpp"
 #include "engine/platform/logging/console_sink.hpp"
 #include "imgui_adapter.hpp"
@@ -109,6 +110,9 @@ struct editor_state {
       : task_scheduler({.mode = cooperative ? gneiss::tasks::execution_mode::cooperative
                                             : gneiss::tasks::execution_mode::thread_pool}) {}
   gneiss::editor::imgui_adapter ui;
+  gneiss::rid scene_target{};
+  gneiss::rid retired_scene_target{};
+  gneiss::render::target_description scene_extent{};
   gneiss::editor::editor_camera camera;
   gneiss::tasks::task_scheduler task_scheduler;
   gneiss::editor::editor_scene_loader scene_loader;
@@ -231,6 +235,34 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
   return (column * 4U) + row;
 }
 
+// 最多保留一个待退休目标；背压期间继续显示旧尺寸，不阻塞主线程。
+gneiss::error resize_scene_target(editor_state& state, const ImVec2& size) {
+  auto& renderer = state.application->render();
+  if (state.retired_scene_target) {
+    auto retired = renderer.destroy_target(state.retired_scene_target);
+    if (!retired)
+      return retired.error() == gneiss::error::not_ready ? gneiss::error::success : retired.error();
+    state.retired_scene_target = {};
+  }
+  const auto scale = ImGui::GetIO().DisplayFramebufferScale;
+  const auto width = static_cast<std::uint32_t>(std::clamp(size.x * scale.x, 1.F, 16384.F));
+  const auto height = static_cast<std::uint32_t>(std::clamp(size.y * scale.y, 1.F, 16384.F));
+  if (state.scene_target && state.scene_extent.width == width &&
+      state.scene_extent.height == height)
+    return gneiss::error::success;
+  auto target = renderer.create_target({width, height});
+  if (!target)
+    return target.error();
+  const auto bound = state.application->set_view_target(*target);
+  if (bound.failed()) {
+    (void)renderer.destroy_target(*target);
+    return bound;
+  }
+  state.retired_scene_target = state.scene_target;
+  state.scene_target = *target;
+  state.scene_extent = {width, height};
+  return gneiss::error::success;
+}
 gneiss::error submit_editor_ui(editor_state& state) {
   const auto& settings = state.camera.settings();
   const auto& transform = state.camera.current_transform();
@@ -244,9 +276,10 @@ gneiss::error submit_editor_ui(editor_state& state) {
 gneiss::error submit_editor_grid(const editor_state& state) {
   const auto* viewport = ImGui::GetMainViewport();
   const auto& camera = state.camera.current_transform();
-  auto lines =
-      gneiss::editor::build_editor_grid(camera, gneiss::editor::build_gizmo_view_matrix(camera),
-                                        bool(viewport) ? viewport->Size.y : 0.0F);
+  auto lines = gneiss::editor::build_editor_grid(
+      camera, gneiss::editor::build_gizmo_view_matrix(camera),
+      state.scene_target ? static_cast<float>(state.scene_extent.height)
+                         : (bool(viewport) ? viewport->Size.y : 0.0F));
   lines.push_back({.start = {0.0F, 0.0F, 0.0F},
                    .end = {2.0F, 0.0F, 0.0F},
                    .color_rgba8 = IM_COL32(243, 139, 168, 255),
@@ -2585,8 +2618,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
     ImGui::SetNextWindowSizeConstraints(ImVec2(400.0F, 280.0F), ImVec2(FLT_MAX, FLT_MAX));
     const auto scene_view_begun = state.panel_visibility.scene_view;
     const auto scene_view_visible =
-        scene_view_begun && ImGui::Begin("Scene View", &state.panel_visibility.scene_view,
-                                         ImGuiWindowFlags_NoBackground);
+        scene_view_begun && ImGui::Begin("Scene View", &state.panel_visibility.scene_view);
     if (!scene_view_visible && state.gizmo_drag.is_active()) {
       state.history_error =
           state.gizmo_drag.finish(state.editing.document(), state.editing.history());
@@ -2594,7 +2626,6 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       gneiss::editor::reset_transform_gizmo();
     }
     if (scene_view_visible) {
-      const auto scene_view_hovered = ImGui::IsWindowHovered();
       ImGui::TextUnformatted("Scene View");
       if (ImGui::RadioButton("Move", state.gizmo_mode == gizmo_operation::translate)) {
         state.gizmo_mode = gizmo_operation::translate;
@@ -2625,16 +2656,28 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
             ImDrawFlags_None, 2.0F);
       }
       const auto gizmo_minimum = ImGui::GetCursorScreenPos();
-      const auto gizmo_size = ImGui::GetContentRegionAvail();
-      const auto gizmo_owns_pointer = draw_transform_gizmo(state, gizmo_minimum, gizmo_size);
-      draw_view_axis(state, gizmo_minimum, gizmo_size);
-      if (scene_view_hovered && !gizmo_owns_pointer) {
+      auto gizmo_size = ImGui::GetContentRegionAvail();
+      const auto resized = resize_scene_target(state, gizmo_size);
+      if (resized.failed()) {
+        ImGui::End();
+        return resized;
+      }
+      // 背压延迟缩放时保持图像比例，使相机和 Gizmo 使用同一投影比例。
+      const auto aspect = static_cast<float>(state.scene_extent.width) / state.scene_extent.height;
+      gizmo_size.x = std::max(1.F, std::min(gizmo_size.x, gizmo_size.y * aspect));
+      gizmo_size.y = gizmo_size.x / aspect;
+      ImGui::Image(static_cast<ImTextureID>(state.scene_target), gizmo_size);
+      const auto scene_view_hovered = ImGui::IsItemHovered();
+      if (scene_view_hovered && !state.gizmo_drag.is_active() &&
+          !ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         const auto camera_result = update_editor_camera(state, *time);
         if (camera_result != gneiss::error::success) {
           ImGui::End();
           return camera_result;
         }
       }
+      (void)draw_transform_gizmo(state, gizmo_minimum, gizmo_size);
+      draw_view_axis(state, gizmo_minimum, gizmo_size);
     }
     if (scene_view_begun) {
       ImGui::End();

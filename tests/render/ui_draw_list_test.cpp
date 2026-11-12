@@ -110,6 +110,10 @@ int main() {
   auto ready = resources.render(std::move(request));
   if (ready || ready.error() != gneiss::error::not_ready)
     return fail_target("valid request reaches executor readiness check");
+  auto image = std::make_shared<gneiss::render::frame_image>();
+  auto capture = resources.request_capture(std::move(request), image);
+  if (capture || capture.error() != gneiss::error::not_ready)
+    return fail_target("window composite capture reaches executor readiness check");
   if (!resources.destroy_target(*target))
     return fail_target("destroy target");
   auto stale = resources.render(std::move(request));

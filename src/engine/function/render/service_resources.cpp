@@ -92,6 +92,12 @@ result<rid> service::create_target(target_description description) {
     return error::invalid_argument;
   return impl_->targets.create(resource_type::render_target, description);
 }
+result<target_description> service::describe_target(rid target) const {
+  const auto* value = impl_->targets.get(target, resource_type::render_target);
+  if (!value)
+    return error::invalid_handle;
+  return *value;
+}
 bool service::is_target(rid target) const noexcept {
   return impl_->targets.get(target, resource_type::render_target) != nullptr;
 }
