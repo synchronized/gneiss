@@ -244,7 +244,6 @@ private:
   result<render_resource_ref> acquire_resource(const render_resource_source&);
   friend struct detail::asset_construction;
   friend struct detail::render_load_operation;
-  std::unique_ptr<detail::asset_construction> impl_;
   resource_cache& cache() noexcept;
   const resource_cache& cache() const noexcept;
   bool stop_requested() const noexcept;
@@ -295,8 +294,9 @@ private:
                                asset_load_options) const;
   GNEISS_API error store_erased(type_id, std::string_view, std::shared_ptr<const asset>,
                                 std::shared_ptr<const asset>&, asset_load_options);
-  struct resource_state;
-  std::unique_ptr<resource_state> resource_state_;
+  detail::asset_construction* construction() noexcept;
+  struct implementation;
+  std::unique_ptr<implementation> impl_;
 };
 }
 

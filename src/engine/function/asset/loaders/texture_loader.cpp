@@ -48,18 +48,18 @@ std::shared_ptr<asset_loader> make_texture_loader(std::string uri,
 error asset_construction::adopt(asset_manager& assets, std::shared_ptr<const texture_data> content,
                                 const ref<const gneiss::texture>& target,
                                 std::span<const asset_read_record> sources) {
-  if (!assets.impl_ || assets.stop_requested())
+  if (!assets.construction() || assets.stop_requested())
     return error::invalid_state;
   if (!assets.owns(target))
     return error::invalid_argument;
   const auto valid = validate_sources(assets, sources);
   if (valid.failed())
     return valid;
-  auto prepared = assets.impl_->render().prepare_texture_data(std::move(content));
+  auto prepared = assets.construction()->render().prepare_texture_data(std::move(content));
   if (!prepared)
     return prepared.error();
   auto data = std::move(*prepared);
-  auto status = assets.impl_->update_texture(target, std::move(data));
+  auto status = assets.construction()->update_texture(target, std::move(data));
   return status ? error::success : status.error();
 }
 }

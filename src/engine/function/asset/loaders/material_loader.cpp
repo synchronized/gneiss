@@ -7,7 +7,7 @@ namespace gneiss::detail {
 error asset_construction::adopt(asset_manager& assets, const material_description& description,
                                 const ref<const gneiss::material>& target,
                                 std::array<ref<const gneiss::texture>, 5> dependencies) {
-  if (!assets.impl_ || assets.stop_requested())
+  if (!assets.construction() || assets.stop_requested())
     return error::invalid_state;
   if (!assets.owns(target))
     return error::invalid_argument;
@@ -16,11 +16,12 @@ error asset_construction::adopt(asset_manager& assets, const material_descriptio
         (!dependencies[slot] || resource_uri(dependencies[slot]) != description.texture_uris[slot]))
       return error::invalid_argument;
   }
-  auto prepared = assets.impl_->prepare_material(description.parameters, dependencies);
+  auto prepared = assets.construction()->prepare_material(description.parameters, dependencies);
   if (!prepared)
     return prepared.error();
   auto data = std::move(*prepared);
-  auto status = assets.impl_->update_material(target, std::move(data), std::move(dependencies));
+  auto status =
+      assets.construction()->update_material(target, std::move(data), std::move(dependencies));
   return status ? error::success : status.error();
 }
 }

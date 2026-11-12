@@ -481,3 +481,16 @@ A52-05：本批只验证 Windows 默认构建和相关 CPU 回归。
 [PLAN-107](PLAN-107-asset-model-loading-protocol.md) 承接 PLAN-102 的依赖协议与资产内容边界，按
 [ADR-112](../decisions/ADR-112-asset-loading-protocol.md) 完成统一调度、依赖环检查、类型化入口和 CPU/后端析构分离。
 验证范围见[收尾记录](../records/2026-11-08-asset-loading-protocol-completion.md)。
+
+
+## 资产管理器实现所有权收敛
+
+本轮限定为内部封装整理，不更改 PLAN-107 的加载协议或增加缓存。
+
+- [x] resource_state 收敛为唯一 implementation；构造适配器作为 construction 成员归入其中。
+- [x] 归拢读取、任务调度、完成推进、回收与停止收尾，析构复用完整收尾入口。
+- [x] 删除 render_load_operation::advance 未使用的构造适配器参数。
+- [x] 运行资产缓存、依赖、重载、停止及内容发布的已有定向回归；6 项测试/边界检查通过。
+
+不新增只验证成员名称或 PImpl 布局的测试；接口与所有权见
+[资产参考](../reference/assets.md#管理器内部所有权)。CPU 与渲染装配操作统一另行评估。

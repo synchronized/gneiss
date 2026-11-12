@@ -9,7 +9,7 @@
 #include <type_traits>
 
 namespace gneiss::detail {
-void render_load_operation::advance(asset_manager& service, asset_construction&) {
+void render_load_operation::advance(asset_manager& service) {
   auto& state = *observer;
   if (!has_observers() || state.status != error::not_ready)
     return;

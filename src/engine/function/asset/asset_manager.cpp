@@ -52,8 +52,12 @@ gneiss::type_id cache_type(gneiss::render_resource_kind type) noexcept {
 } // namespace
 
 namespace gneiss {
-// 移植示例的类型/位置请求表、合并与只读发布；接入已有执行器，不创建私有线程池。
-struct asset_manager::resource_state {
+// 管理器唯一实现：拥有缓存、加载调度及构造适配器；接入宿主执行器，不创建私有线程池。
+struct asset_manager::implementation {
+  // 构造适配器最后析构，覆盖加载操作及缓存的成员析构期。
+  std::unique_ptr<detail::asset_construction> construction;
+  void advance(asset_manager& owner);
+  void collect_unused();
   resource_cache cache;
   struct operation : detail::load_operation {
     cache_conversion conversion;
@@ -194,7 +198,7 @@ struct asset_manager::resource_state {
       tasks.emplace(work->task.id, work);
     return true;
   }
-  ~resource_state() { stop(); }
+  ~implementation() { stop(); }
   void request_stop() {
     if (stopped)
       return;
@@ -239,19 +243,22 @@ struct asset_manager::resource_state {
       executor = nullptr;
     }
     (void)finish_stop();
+    collect_unused();
+    if (construction)
+      construction->close();
   } catch (...) {
     gneiss::fatal_current_exception();
   }
 };
 std::shared_ptr<gneiss::files::service> asset_manager::async_files() const noexcept {
-  return resource_state_->files;
+  return impl_->files;
 }
 result<asset_identity> asset_manager::identify(std::string_view uri, std::uint32_t type) const {
-  if (!resource_state_->files || type == 0U)
+  if (!impl_->files || type == 0U)
     return error::invalid_state;
   {
     std::shared_ptr<const gneiss::files::source_domain> domain;
-    const auto status = resource_state_->files->resolve_source(uri, domain);
+    const auto status = impl_->files->resolve_source(uri, domain);
     if (status.failed())
       return status;
     return asset_identity{.source = std::move(domain), .uri = std::string(uri), .type = type};
@@ -259,12 +266,12 @@ result<asset_identity> asset_manager::identify(std::string_view uri, std::uint32
 }
 
 asset_manager::asset_manager(std::shared_ptr<gneiss::files::service> files)
-    : resource_state_(std::make_unique<resource_state>()) {
+    : impl_(std::make_unique<implementation>()) {
   if (!files)
     throw std::invalid_argument("文件服务不能为空");
-  resource_state_->files = std::move(files);
+  impl_->files = std::move(files);
   const auto bind = [&]<class T>() {
-    resource_state_->references.emplace(runtime_type_of<T>(), reference_factory_for<T>());
+    impl_->references.emplace(runtime_type_of<T>(), reference_factory_for<T>());
   };
   bind.template operator()<texture>();
   bind.template operator()<mesh>();
@@ -280,7 +287,7 @@ error asset_manager::store_erased(type_id type, std::string_view uri,
                                   std::shared_ptr<const asset> value,
                                   std::shared_ptr<const asset>& output,
                                   asset_load_options options) {
-  auto& state = *resource_state_;
+  auto& state = *impl_;
   if (state.stopped)
     return error::invalid_state;
   if (!value || validate_uri(uri).failed())
@@ -301,20 +308,23 @@ error asset_manager::store_erased(type_id type, std::string_view uri,
   output = stored->resource;
   return error::success;
 }
-asset_manager::~asset_manager() { stop(); }
-resource_cache& asset_manager::cache() noexcept { return resource_state_->cache; }
-const resource_cache& asset_manager::cache() const noexcept { return resource_state_->cache; }
+asset_manager::~asset_manager() = default;
+detail::asset_construction* asset_manager::construction() noexcept {
+  return impl_->construction.get();
+}
+resource_cache& asset_manager::cache() noexcept { return impl_->cache; }
+const resource_cache& asset_manager::cache() const noexcept { return impl_->cache; }
 std::size_t asset_manager::cached_count() const noexcept { return cache().size(); }
-bool asset_manager::stop_requested() const noexcept { return resource_state_->stopped; }
+bool asset_manager::stop_requested() const noexcept { return impl_->stopped; }
 bool asset_manager::loading_configured() const noexcept {
-  return resource_state_->executor && !stop_requested();
+  return impl_->executor && !stop_requested();
 }
 error asset_manager::configure(gneiss::tasks::task_executor& executor) {
-  return configure(executor, resource_state_->profile, resource_state_->scope);
+  return configure(executor, impl_->profile, impl_->scope);
 }
 error asset_manager::configure(gneiss::tasks::task_executor& executor, texture_prepare_profile profile,
                                gneiss::tasks::task_scope scope) {
-  auto& state = *resource_state_;
+  auto& state = *impl_;
   if (state.stopped)
     return error::invalid_state;
   if (state.executor) {
@@ -335,25 +345,25 @@ error asset_manager::configure(gneiss::tasks::task_executor& executor, texture_p
   return error::success;
 }
 error asset_manager::attach_render(gneiss::render::service& render) {
-  if (resource_state_->stopped)
+  if (impl_->stopped)
     return error::invalid_state;
-  if (impl_)
-    return &impl_->render() == &render ? error::success : error::invalid_state;
+  if (impl_->construction)
+    return &impl_->construction->render() == &render ? error::success : error::invalid_state;
   auto next = std::make_unique<detail::asset_construction>(render);
-  impl_ = std::move(next);
+  impl_->construction = std::move(next);
   return error::success;
 }
-texture_prepare_profile asset_manager::profile() const noexcept { return resource_state_->profile; }
+texture_prepare_profile asset_manager::profile() const noexcept { return impl_->profile; }
 result<asset_request<asset>> asset_manager::load(type_id type, std::string_view uri,
                                                  asset_load_options options) {
-  const auto found = resource_state_->references.find(type);
-  if (found == resource_state_->references.end())
+  const auto found = impl_->references.find(type);
+  if (found == impl_->references.end())
     return error::unsupported;
   return found->second(*this, uri, options);
 }
 error asset_manager::register_loader(type_id type, loader_factory factory,
                                      reference_factory reference) {
-  auto& state = *resource_state_;
+  auto& state = *impl_;
   if (state.stopped || state.frozen)
     return error::invalid_state;
   if (!factory || type == runtime_type_of<void>() || type == runtime_type_of<scene>() ||
@@ -373,7 +383,7 @@ error asset_manager::register_loader(type_id type, loader_factory factory,
   return error::success;
 }
 error asset_manager::register_decoder(const std::shared_ptr<const asset_decoder>& loader) {
-  auto& state = *resource_state_;
+  auto& state = *impl_;
   if (state.stopped || state.frozen) {
     return error::invalid_state;
   }
@@ -392,7 +402,7 @@ error asset_manager::register_decoder(const std::shared_ptr<const asset_decoder>
 }
 error asset_manager::resolve_decoder(type_id type, decoder_factory fallback,
                                      std::shared_ptr<const asset_decoder>& output) {
-  auto& state = *resource_state_;
+  auto& state = *impl_;
   state.frozen = true;
   const auto found = state.decoders.find(type);
   if (found != state.decoders.end()) {
@@ -410,7 +420,7 @@ error asset_manager::resolve_decoder(type_id type, decoder_factory fallback,
 error asset_manager::request(type_id type, std::string_view uri, asset_load_options options,
                              std::shared_ptr<detail::asset_state>& output, decoder_factory fallback,
                              cache_conversion conversion) {
-  auto& state = *resource_state_;
+  auto& state = *impl_;
   if (state.stopped) {
     return error::invalid_state;
   }
@@ -471,7 +481,7 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
     }
   }
   // 内部解码由父资产操作持有；不另建身份、弱缓存或在途索引。
-  auto work = std::make_shared<resource_state::operation>(std::move(*task));
+  auto work = std::make_shared<implementation::operation>(std::move(*task));
   work->entry = entry;
   work->conversion = conversion;
   work->previous = cached ? conversion.to_value(cached->resource) : nullptr;
@@ -512,12 +522,12 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
 error asset_manager::find_erased(type_id type, std::string_view uri,
                                  std::shared_ptr<const asset>& output,
                                  asset_load_options options) const {
-  if (resource_state_->stopped || !resource_state_->files)
+  if (impl_->stopped || !impl_->files)
     return error::invalid_state;
   if (validate_uri(uri).failed())
     return error::invalid_argument;
   std::shared_ptr<const gneiss::files::source_domain> source;
-  const auto status = resource_state_->files->resolve_source(uri, source);
+  const auto status = impl_->files->resolve_source(uri, source);
   if (status.failed())
     return status;
   const auto entry = cache().lookup(uri, type, std::move(source), asset_load_parameters(options));
@@ -541,7 +551,7 @@ asset_diagnostic asset_manager::advance_dependencies(
         dependency->options.texture_profile = profile();
     if (owner) {
       std::shared_ptr<const files::source_domain> domain;
-      auto resolved = resource_state_->files->resolve_source(dependency->uri, domain);
+      auto resolved = impl_->files->resolve_source(dependency->uri, domain);
       if (resolved.failed())
         return {resolved, 0, dependency->path, dependency->uri};
       auto target = cache().acquire(
@@ -558,13 +568,15 @@ asset_diagnostic asset_manager::advance_dependencies(
   }
   return {waiting ? error::not_ready : error::success, 0, {}, {}};
 }
-void asset_manager::advance() {
-  auto& state = *resource_state_;
-  if (impl_) {
-    (void)impl_->drain();
+void asset_manager::advance() { impl_->advance(*this); }
+void asset_manager::collect_unused() { impl_->collect_unused(); }
+void asset_manager::implementation::advance(asset_manager& owner) {
+  auto& state = *this;
+  if (construction) {
+    (void)construction->drain();
     detail::advance_load_operations(
-        state.rendering, *state.render_ready,
-        [&](const auto& work) { work->advance(*this, *impl_); }, [](const auto&) {});
+        state.rendering, *state.render_ready, [&](const auto& work) { work->advance(owner); },
+        [](const auto&) {});
   }
   if (state.stopped) {
     (void)state.finish_stop();
@@ -647,7 +659,7 @@ void asset_manager::advance() {
             for (const auto& dependency : work->loader->dependencies)
               dependency->notify = work->notify;
             auto dependencies =
-                advance_dependencies(work->entry.lock(), work->loader->dependencies);
+                owner.advance_dependencies(work->entry.lock(), work->loader->dependencies);
             if (dependencies.error == error::not_ready)
               return;
             if (dependencies.error.failed()) {
@@ -668,7 +680,7 @@ void asset_manager::advance() {
             work->loader->adopt(work->previous);
             work->value = work->loader->value;
             const auto& [domain, uri, type, parameters] = entry->identity;
-            auto cached = cache().load(
+            auto cached = cache.load(
                 uri, type,
                 [&]() -> result<std::shared_ptr<const asset>> {
                   return work->conversion.to_asset(work->value);
@@ -691,35 +703,26 @@ void asset_manager::advance() {
           (void)state.files->cancel(work->read_request);
       });
 }
-void asset_manager::collect_unused() {
+void asset_manager::implementation::collect_unused() {
   // 资源强引用的最后释放不属于请求完成通知；回收入口只检查拥有权，不推进加载。
-  for (auto iterator = resource_state_->rendering.begin();
-       iterator != resource_state_->rendering.end();) {
+  for (auto iterator = rendering.begin(); iterator != rendering.end();) {
     auto work = iterator->second;
     if (work->has_observers()) {
       ++iterator;
       continue;
     }
     work->stop();
-    iterator = resource_state_->rendering.erase(iterator);
+    iterator = rendering.erase(iterator);
   }
   do {
-    cache().release_unused();
-  } while (impl_ && impl_->drain() != 0U);
+    cache.release_unused();
+  } while (construction && construction->drain() != 0U);
 }
-void asset_manager::request_stop() { resource_state_->request_stop(); }
+void asset_manager::request_stop() { impl_->request_stop(); }
 bool asset_manager::stopped() const noexcept {
-  return resource_state_->stopped && !resource_state_->executor && !resource_state_->files;
+  return impl_->stopped && !impl_->executor && !impl_->files;
 }
-void asset_manager::stop() noexcept try {
-  request_stop();
-  resource_state_->stop();
-  collect_unused();
-  if (impl_)
-    impl_->close();
-} catch (...) {
-  gneiss::fatal_current_exception();
-}
+void asset_manager::stop() noexcept { impl_->stop(); }
 
 result<asset_request<render_resource_ref>> asset_manager::load(const render_resource_source& source,
                                                                asset_load_options options) {
@@ -727,7 +730,7 @@ result<asset_request<render_resource_ref>> asset_manager::load(const render_reso
   if (options.texture_profile != texture_prepare_profile{} && options.texture_profile != profile())
     return error::invalid_argument;
   asset_request<render_resource_ref> output;
-  if (!impl_ || !loading_configured())
+  if (!impl_->construction || !loading_configured())
     return error::invalid_state;
   auto reserved = acquire_resource(source);
   if (!reserved)
@@ -761,8 +764,8 @@ result<asset_request<render_resource_ref>> asset_manager::load(const render_reso
   work->entry = entry;
   work->source = source;
   work->reload = reload;
-  detail::connect_operation(work, resource_state_->render_ready);
-  resource_state_->rendering.emplace(work.get(), work);
+  detail::connect_operation(work, impl_->render_ready);
+  impl_->rendering.emplace(work.get(), work);
   work->notify();
   entry->pending_dependencies.clear();
   entry->loading = work;
@@ -771,21 +774,21 @@ result<asset_request<render_resource_ref>> asset_manager::load(const render_reso
 }
 
 result<ref<const gneiss::mesh>> asset_manager::create(const mesh_view& data) {
-  if (!impl_ || stop_requested())
+  if (!impl_->construction || stop_requested())
     return error::invalid_state;
-  return impl_->create_mesh(data);
+  return impl_->construction->create_mesh(data);
 }
 result<ref<const gneiss::texture>> asset_manager::create(const texture_view& data) {
-  if (!impl_ || stop_requested())
+  if (!impl_->construction || stop_requested())
     return error::invalid_state;
-  return impl_->create_texture(data);
+  return impl_->construction->create_texture(data);
 }
 result<ref<const gneiss::material>>
 asset_manager::create(const material_parameters& data,
                       std::array<ref<const gneiss::texture>, 5> deps) {
-  if (!impl_ || stop_requested())
+  if (!impl_->construction || stop_requested())
     return error::invalid_state;
-  return impl_->create_material(data, std::move(deps));
+  return impl_->construction->create_material(data, std::move(deps));
 }
 
 result<ref<const scene>> asset_manager::create(scene_content content) {
@@ -845,7 +848,7 @@ render_resource_ref cached_resource(const detail::cached_asset& entry) noexcept 
 
 result<render_resource_ref> asset_manager::find(const render_resource_source& source,
                                                 texture_prepare_profile profile) const {
-  if (!impl_ || stop_requested())
+  if (!impl_->construction || stop_requested())
     return error::invalid_state;
   {
     auto identity = identify(source.uri, static_cast<std::uint32_t>(source.type));
@@ -891,7 +894,7 @@ result<render_resource_ref> asset_manager::find(const render_resource_source& so
 }
 
 result<render_resource_ref> asset_manager::acquire_resource(const render_resource_source& source) {
-  if (!impl_ || stop_requested())
+  if (!impl_->construction || stop_requested())
     return error::invalid_state;
   {
     if (gneiss::validate_uri(source.uri) != gneiss::error::success) {
@@ -906,21 +909,21 @@ result<render_resource_ref> asset_manager::acquire_resource(const render_resourc
         [&]() -> result<std::shared_ptr<const asset>> {
           switch (source.type) {
           case render_resource_kind::mesh: {
-            auto value = impl_->reserve_mesh();
+            auto value = impl_->construction->reserve_mesh();
             if (!value)
               return value.error();
             detail::mesh_resource_access::set_source(**value, identity);
             return std::shared_ptr<const asset>(value->shared());
           }
           case render_resource_kind::texture: {
-            auto value = impl_->reserve_texture();
+            auto value = impl_->construction->reserve_texture();
             if (!value)
               return value.error();
             detail::texture_resource_access::set_source(**value, identity);
             return std::shared_ptr<const asset>(value->shared());
           }
           case render_resource_kind::material: {
-            auto value = impl_->reserve_material();
+            auto value = impl_->construction->reserve_material();
             if (!value)
               return value.error();
             detail::material_resource_access::set_source(**value, identity);
@@ -941,9 +944,10 @@ result<render_resource_ref> asset_manager::acquire_resource(const render_resourc
 }
 
 bool asset_manager::owns(const ref<const gneiss::mesh>& value) const {
-  if (!impl_)
+  if (!impl_->construction)
     return false;
-  if (!value || impl_->render().mesh_status(resource_handle(value)) == error::invalid_handle)
+  if (!value ||
+      impl_->construction->render().mesh_status(resource_handle(value)) == error::invalid_handle)
     return false;
   auto identity =
       identify(value->source().uri, static_cast<std::uint32_t>(render_resource_kind::mesh));
@@ -951,9 +955,10 @@ bool asset_manager::owns(const ref<const gneiss::mesh>& value) const {
 }
 
 bool asset_manager::owns(const ref<const gneiss::texture>& value) const {
-  if (!impl_)
+  if (!impl_->construction)
     return false;
-  if (!value || impl_->render().texture_status(resource_handle(value)) == error::invalid_handle)
+  if (!value ||
+      impl_->construction->render().texture_status(resource_handle(value)) == error::invalid_handle)
     return false;
   auto identity =
       identify(value->source().uri, static_cast<std::uint32_t>(render_resource_kind::texture));
@@ -961,9 +966,10 @@ bool asset_manager::owns(const ref<const gneiss::texture>& value) const {
 }
 
 bool asset_manager::owns(const ref<const gneiss::material>& value) const {
-  if (!impl_)
+  if (!impl_->construction)
     return false;
-  if (!value || impl_->render().material_status(resource_handle(value)) == error::invalid_handle)
+  if (!value || impl_->construction->render().material_status(resource_handle(value)) ==
+                    error::invalid_handle)
     return false;
   auto identity =
       identify(value->source().uri, static_cast<std::uint32_t>(render_resource_kind::material));
