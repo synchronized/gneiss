@@ -696,4 +696,5 @@
 - [Render 多视图接入核查](records/2026-11-12-render-multiview-feasibility.md)
 
 - [PLAN-117 功能命名空间收敛](plans/PLAN-117-domain-namespaces.md)
+- [PLAN-118 错误返回与内部契约收敛](plans/PLAN-118-error-contracts.md)
 - [ADR-120 领域命名空间](decisions/ADR-120-domain-namespaces.md)
