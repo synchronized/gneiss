@@ -17,6 +17,49 @@
 #include <vector>
 
 namespace {
+// 捕获资源的析构也是命令完成的一部分；未释放前不得归还容量或发布完成。
+bool command_retirement_precedes_completion(gneiss::error terminal) {
+  using namespace gneiss;
+  using namespace gneiss::render::detail;
+  std::mutex mutex;
+  std::condition_variable ready;
+  bool retiring = false;
+  bool release = false;
+  threaded_render_executor executor;
+  if (executor.initialize([](auto&, auto&) { return error::success; }, {.commands = 1}).failed())
+    return false;
+  auto payload = std::shared_ptr<int>(new int{}, [&](int* value) {
+    std::unique_lock lock(mutex);
+    retiring = true;
+    ready.notify_all();
+    ready.wait(lock, [&] { return release; });
+    delete value;
+  });
+  const auto submitted = executor.submit_command(
+      [payload = std::move(payload), terminal](const auto&) { return terminal; });
+  if (!submitted)
+    return false;
+  {
+    std::unique_lock lock(mutex);
+    ready.wait(lock, [&] { return retiring; });
+  }
+  const auto premature = executor.try_take_command_completion();
+  const auto saturated = executor.submit_command([](const auto&) { return error::success; });
+  {
+    std::lock_guard lock(mutex);
+    release = true;
+  }
+  ready.notify_all();
+  const auto flushed = executor.flush();
+  const auto completed = executor.try_take_command_completion();
+  const auto retried = executor.submit_command([](const auto&) { return error::success; });
+  const auto retry_flushed = executor.flush();
+  executor.stop();
+  return !premature && !saturated && saturated.error() == error::not_ready && flushed.ok() &&
+         completed && completed->sequence == *submitted && completed->status == terminal &&
+         retried && retry_flushed.ok();
+}
+
 // 帧可以替换，夹在帧之间的状态命令必须按序且仅执行一次。
 bool ordered_commands_survive_frame_replacement() {
   using namespace gneiss;
@@ -209,6 +252,11 @@ int main(int argc, char** argv) {
     if (invalid.initialize(draw, {.pending_frames = 0}) != gneiss::error::invalid_argument ||
         invalid.initialize(draw, {.commands = 0}) != gneiss::error::invalid_argument)
       return 30;
+  }
+  if (!command_retirement_precedes_completion(gneiss::error::success) ||
+      !command_retirement_precedes_completion(gneiss::error::io)) {
+    std::fputs("命令资源释放前不应发布完成或归还队列容量\n", stderr);
+    return 30;
   }
   if (!ordered_commands_survive_frame_replacement())
     return 93;

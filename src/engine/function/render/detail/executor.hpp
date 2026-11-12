@@ -94,6 +94,7 @@ public:
   [[nodiscard]] queue_stats query_stats() const noexcept;
   void record_skipped_frame_build() noexcept;
   void set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept;
+  /** 等待已提交工作执行及其捕获数据释放；不等同于 GPU 空闲。 */
   [[nodiscard]] error flush() noexcept;
   void stop() noexcept;
   [[nodiscard]] bool is_running() const noexcept;

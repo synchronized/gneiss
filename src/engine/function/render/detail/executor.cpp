@@ -153,6 +153,9 @@ void threaded_render_executor::state::run() noexcept try {
         }
         continue;
       }
+      // 捕获数据在执行线程、锁外释放；完成回执和容量回收必须晚于此次释放。
+      // 可恢复命令的中间 NOT_READY 已在上方重新入队，继续持有原捕获数据。
+      task.command = {};
       {
         std::lock_guard lock(mutex);
         command_completion.progress = command_status.progress;
