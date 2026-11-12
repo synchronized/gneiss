@@ -282,3 +282,25 @@ docs/                   项目文档
 
 评审用初始化、使用、失败与销毁的完整调用链验证收益，不以文件数量、类数量或行数作为目标。
 例如 Render 的后端依赖适合隐藏；Signal 的订阅列表可直接属于 Signal，连接失效检测另用轻量控制块。
+
+## 运行时断言
+
+内部实现通过 `engine/core/assert.hpp` 使用 libassert；CMake 目标私有链接 `gneiss_libassert`。
+不要在普通接口中暴露 libassert 类型，也不要向公共值头批量引入该依赖。
+
+```cpp
+GNEISS_ASSERT(index < entries.size(), "内部索引越界", index, entries.size());
+GNEISS_DEBUG_ASSERT(object.is_valid(), "借用句柄失效");
+GNEISS_PANIC("到达不可执行的状态分支");
+```
+
+- `GNEISS_ASSERT` 与 `GNEISS_PANIC` 在 Debug/Release 均有效。
+- `GNEISS_DEBUG_ASSERT` 在定义 `NDEBUG` 时不求值；断言和诊断参数不要包含业务必需的副作用。
+- 断言用于编程错误与内部不变量；文件损坏、用户输入、队满、取消等仍通过 `result/error` 表达。
+- 沿用 libassert 默认失败处理：输出诊断并 abort，不抛异常、不调用业务日志队列。
+  诊断可能分配内存；OOM 继续走现有无分配 fatal 路径。
+- 不提供具有 Release 未定义行为假设的 ASSUME 包装，不替换标准 assert 宏。
+- 子进程断言测试覆盖 Debug/Release 求值与诊断；测试专用 handler 退出，避免系统崩溃弹窗。
+  生产默认 abort 是否产生系统报告由运行环境决定。
+
+依赖版本、平台差异和安装影响见[第三方声明](../../THIRD_PARTY_NOTICES.md)。

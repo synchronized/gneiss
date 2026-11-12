@@ -13,6 +13,8 @@ Editor。
 ## 前置条件
 
 - CMake 3.23 或更高版本。
+- libassert/cpptrace 通过锁定归档自动获取，支持 `GNEISS_DEPENDENCY_OFFLINE=ON` 复用缓存。
+  桌面 Unix 的断言符号解析使用运行时 PATH 中的 addr2line（macOS 为 atos）；Windows 使用 DbgHelp。
 - 支持 C++20 的 C/C++ 编译器。
 - 使用 Ninja preset 时需要安装 Ninja。
 - GLM 1.0.1 为内部头文件依赖，由 CMake 获取锁定归档并校验 SHA-256；已有依赖缓存时可离线复用，无需单独安装 GLM。

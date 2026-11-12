@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/scene/game_object.hpp"
+#include "engine/core/assert.hpp"
 #include "engine/function/scene/detail/world_component_access.hpp"
 #include "engine/function/scene/detail/world_impl.hpp"
 #include "engine/function/scene/world.hpp"
-#include <cassert>
 #include <string>
 #include <utility>
 
@@ -30,7 +30,7 @@ bool game_object::is_valid() const noexcept {
   return owner_ && owner_->object(entity_).has_value();
 }
 std::string_view game_object::name() const {
-  assert(is_valid());
+  GNEISS_DEBUG_ASSERT(is_valid(), "GameObject 借用句柄必须有效");
   auto state = detail::world_component_access::get(*owner_);
   return (*state)->get<detail::object_state>(entity_.get())->name;
 }

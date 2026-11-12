@@ -9,7 +9,11 @@ endif()
 
 add_library(gneiss_engine)
 add_library(gneiss::engine ALIAS gneiss_engine)
-target_link_libraries(gneiss_engine PRIVATE gneiss_fatal)
+target_link_libraries(gneiss_engine PRIVATE $<BUILD_INTERFACE:gneiss_fatal> gneiss_libassert)
+if(NOT BUILD_SHARED_LIBS)
+  # 静态安装包直接包含 fatal 实现，不留下未导出的内部目标依赖。
+  target_sources(gneiss_engine PRIVATE engine/core/fatal.cpp)
+endif()
 if(COMMAND gneiss_enable_asset_libuv)
   gneiss_enable_asset_libuv(gneiss_engine)
 endif()
@@ -210,7 +214,6 @@ target_sources(
     engine/function/render/detail/resource_storage.hpp
     engine/function/render/detail/service_impl.hpp
     engine/function/render/camera.hpp
-    ${gneiss_pbr_embedded_sources}
 )
 
 target_sources(
@@ -344,6 +347,7 @@ add_custom_command(
   VERBATIM
 )
 list(APPEND gneiss_pbr_embedded_sources "${gneiss_pbr_material_include}")
+target_sources(gneiss_engine PRIVATE ${gneiss_pbr_embedded_sources})
 if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
   target_compile_definitions(gneiss_engine PRIVATE GNEISS_NATIVE_LOOP_WAIT)
 endif()

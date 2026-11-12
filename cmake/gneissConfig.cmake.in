@@ -6,6 +6,7 @@
 # 共享模块消费者只链接 Engine 导入库；静态链接仍需后端依赖。
 if(NOT @BUILD_SHARED_LIBS@)
   include(CMakeFindDependencyMacro)
+  find_dependency(libassert 2.2.1 CONFIG)
   find_dependency(granit 0.67.0 CONFIG COMPONENTS Window RenderPipeline)
 endif()
 
