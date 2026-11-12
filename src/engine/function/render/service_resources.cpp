@@ -84,6 +84,24 @@ render::detail::resource_storage::material_dependencies(
   }
   return dependencies;
 }
+result<rid> service::create_target(target_description description) {
+  if (!is_valid())
+    return error::invalid_state;
+  if (!description.width || !description.height || description.width > 16384 ||
+      description.height > 16384)
+    return error::invalid_argument;
+  return impl_->targets.create(resource_type::render_target, description);
+}
+result<void> service::destroy_target(rid target) {
+  if (!impl_->targets.get(target, resource_type::render_target))
+    return error::invalid_handle;
+  auto accepted = impl_->retire_target(target);
+  if (!accepted)
+    return accepted.error();
+  (void)impl_->targets.destroy(target, resource_type::render_target);
+  return {};
+}
+
 result<rid> service::create_scene() { return impl_->scenes.create_scene(); }
 result<void> service::submit(render::scene_commands&& update) {
   return impl_->scenes.submit(std::move(update));
@@ -93,6 +111,7 @@ result<void> service::destroy_scene(rid scene) { return impl_->scenes.destroy_sc
 bool service::is_valid() const noexcept { return impl_->resources.domain_ != 0U; }
 void service::close_resources() noexcept {
   impl_->scenes.close();
+  impl_->targets.close();
   impl_->resources.meshes_.close();
   impl_->resources.materials_.close();
   impl_->resources.textures_.close();

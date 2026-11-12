@@ -462,9 +462,37 @@ bool frame_capture() {
   CHECK(!rejected && request.views.size() == 1 && image->width == 17);
   return true;
 }
+bool target_lifetime() {
+  render::service owner;
+  render::service foreign;
+  CHECK(!owner.create_target({0, 64}));
+  CHECK(!owner.create_target({64, 16385}));
+  auto target = owner.create_target({64, 32});
+  auto scene = owner.create_scene();
+  CHECK(target && scene);
+  CHECK(!foreign.destroy_target(*target));
+  CHECK(!owner.destroy_target(*scene));
+  render::frame_request request;
+  request.views.push_back({.scene = *scene, .target = *target});
+  auto image = std::make_shared<render::frame_image>();
+  // 目标提供输出尺寸；尚未初始化设备会拒绝接受，保留输入。
+  auto pending = owner.request_capture(std::move(request), image);
+  CHECK(!pending && pending.error() == error::not_ready && request.views.size() == 1);
+  CHECK(owner.destroy_target(*target));
+  CHECK(!owner.destroy_target(*target));
+  auto replacement = owner.create_target({64, 32});
+  CHECK(replacement && *replacement != *target);
+  auto stale = owner.request_capture(std::move(request), image);
+  CHECK(!stale && stale.error() == error::invalid_handle && request.views.size() == 1);
+  render::device_stats stats;
+  CHECK(owner.shutdown(stats).ok());
+  CHECK(!owner.create_target({64, 32}));
+  CHECK(!owner.destroy_target(*replacement));
+  return true;
+}
 int main() {
   return commands() && queued_scene_consumption() && service_lifetime() && identity_versions() &&
-                 concurrent_material_publication() && frame_capture()
+                 concurrent_material_publication() && frame_capture() && target_lifetime()
              ? 0
              : 1;
 }

@@ -8,15 +8,22 @@
 #include "engine/platform/native_window_info.hpp"
 #include <vector>
 namespace gneiss::render {
+/** 固定尺寸 RGBA8 离屏输出；改变尺寸通过创建新目标替换，旧帧继续使用旧目标。 */
+struct target_description {
+  std::uint32_t width{};
+  std::uint32_t height{};
+};
 struct view {
   rid scene{};
+  /** 零表示当前窗口；非零必须是本服务创建的离屏目标。 */
+  rid target{};
   math::matrix4 view_matrix{1.F};
   math::matrix4 projection_matrix{1.F};
   math::vector3 camera_position{};
   std::uint64_t layers{~UINT64_C(0)};
 };
-/** 当前支持零或一个窗口视图；零视图只绘制 UI/调试输入；多视图返回 unsupported，不静默忽略。
- * window 暂沿用窗口输入，待目标资源接口落地后迁移为 target RID。 */
+/** 当前支持零或一个视图；零视图绘制窗口 UI/调试输入；多视图返回 unsupported。
+ * 离屏视图使用目标尺寸，window 只为窗口输出提供输入。 */
 struct frame_request {
   native_window_info window;
   std::vector<view> views;

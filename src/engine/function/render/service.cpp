@@ -234,7 +234,18 @@ result<std::uint64_t> service::request_capture(render::frame_request&& request,
 }
 result<std::uint64_t> service::submit_request(render::frame_request& request, frame_policy policy,
                                               std::shared_ptr<frame_image> image) {
-  auto capture = impl_->scenes.prepare_capture(request);
+  auto prepared_request = request;
+  rid target{};
+  if (request.views.size() == 1 && request.views.front().target) {
+    target = request.views.front().target;
+    const auto* description = impl_->targets.get(target, resource_type::render_target);
+    if (!description)
+      return error::invalid_handle;
+    prepared_request.window.width = description->width;
+    prepared_request.window.height = description->height;
+    prepared_request.window.needs_recreate = false;
+  }
+  auto capture = impl_->scenes.prepare_capture(prepared_request);
   if (!capture)
     return capture.error();
   // UI 是独立逐帧输入，接受时固定其纹理版本，不在消费者访问资源 RID 表。
@@ -251,7 +262,7 @@ result<std::uint64_t> service::submit_request(render::frame_request& request, fr
   }
   auto accepted = impl_->submit(
       [capture = std::move(*capture), ui_resources = std::move(ui_resources),
-       image = std::move(image)]() mutable -> result<gneiss::render::detail::frame_packet> {
+       image = std::move(image), target]() mutable -> result<gneiss::render::detail::frame_packet> {
         auto packet = capture();
         if (!packet)
           return packet.error();
@@ -263,6 +274,7 @@ result<std::uint64_t> service::submit_request(render::frame_request& request, fr
             packet->ui.commands().size() * sizeof(ui_draw_command) +
             packet->debug.lines().size() * sizeof(debug_line);
         packet->readback = std::move(image);
+        packet->target = target;
         return packet;
       },
       policy);

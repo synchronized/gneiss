@@ -81,6 +81,7 @@ struct frame_packet final {
   /** 由执行器在接受帧时写入，用于关联延迟返回的渲染结果。 */
   std::uint64_t sequence{};
   native_window_info window;
+  rid target{};
   draw_scene scene;
   resource_snapshot resources;
   ui_draw_list ui;

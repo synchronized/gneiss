@@ -57,13 +57,17 @@ public:
   [[nodiscard]] GNEISS_API texture_prepare_profile texture_profile() const noexcept;
 
   /** CPU 持久场景；不需要初始化窗口或 GPU。初始化执行器后命令按序入队；未初始化时同步生效。 */
+  /** 创建 CPU 目标身份，GPU 表示首次绘制时建立；返回的 RID 由调用方负责销毁。 */
+  [[nodiscard]] GNEISS_API result<rid> create_target(target_description description);
+  /** 按序释放后端目标；队满返回 not_ready，身份保留供重试。成功后旧 RID 失效。 */
+  [[nodiscard]] GNEISS_API result<void> destroy_target(rid target);
   [[nodiscard]] GNEISS_API result<rid> create_scene();
   [[nodiscard]] GNEISS_API result<void> submit(render::scene_commands&&);
   /** 立即使场景 RID 失效，不受命令队列容量限制；在途任务保活内容直至消费完成。 */
   [[nodiscard]] GNEISS_API result<void> destroy_scene(rid scene);
   /** 所属线程提交普通帧；内部处理完成回执和背压，not_ready 时保留请求供重试。
    * 成功后消费请求，不代表 GPU 完成；UI 纹理与场景资源固定为不可变版本。
-   * 当前支持零或一个窗口视图，零视图只显示 UI。 */
+   * 当前支持零或一个窗口/离屏视图，零视图只显示窗口 UI。 */
   [[nodiscard]] GNEISS_API result<void> render(render::frame_request&& request);
   /** 异步提交必达截图，返回既有完成回执序号；失败不消费请求。
    * image 必须非空，成功接受后至对应完成回执前不得读写或复用于其他请求。

@@ -3,6 +3,7 @@
 
 #pragma once
 #include "engine/core/error.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/resource/texture/texture_data.hpp"
 #include <memory>
 #include <span>
@@ -28,6 +29,7 @@ public:
   backend& operator=(const backend&) = delete;
   error initialize(const native_window_info&, std::span<const std::byte>, float, float);
   error shutdown(gneiss::render::device_stats&);
+  void destroy_target(rid target);
   error draw(gneiss::render::detail::frame_packet&, gneiss::render::execution_result&);
   error set_environment(std::span<const std::byte>, float, float);
   /** initialize 完成后可读；不与设备初始化/关闭并发。 */

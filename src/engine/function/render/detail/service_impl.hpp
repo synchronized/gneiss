@@ -12,7 +12,7 @@ namespace gneiss::render {
 struct service::implementation final {
 public:
   explicit implementation(std::uint64_t memory_limit)
-      : resources(memory_limit),
+      : resources(memory_limit), targets(resources.domain_),
         scenes(
             resources.domain_,
             [this](const mesh_instance_description& description)
@@ -28,6 +28,10 @@ public:
   ~implementation() { executor_.stop(); }
   // 接受侧资源与场景平级，由同一个实现拥有；回调只在实现存活期内使用。
   render::detail::resource_storage resources;
+  rid_table<target_description> targets;
+  result<void> retire_target(rid id) {
+    return dispatch([this, id] { backend_.destroy_target(id); });
+  }
   gneiss::render::detail::render_scene_state scenes;
   [[nodiscard]] gneiss::error initialize(const native_window_info& window,
                                          std::span<const std::byte> environment_asset = {},

@@ -65,6 +65,11 @@ struct backend::implementation final {
     std::uint32_t mips{};
     std::uint64_t bytes{};
   };
+  struct target_mirror {
+    ::granit::texture texture;
+    ::granit::texture_view view;
+  };
+  std::unordered_map<rid, target_mirror> targets_;
   struct pending_texture {
     std::shared_ptr<texture_mirror> mirror;
     ::granit::async_operation operation;
@@ -899,6 +904,7 @@ gneiss::error backend::implementation::shutdown_gpu(device_stats& stats) {
   environment_info_ = {};
   material_mirrors_.clear();
   mesh_mirrors_.clear();
+  targets_.clear();
   texture_mirrors_.clear();
   for (auto& [handle, pending] : pending_textures_) {
     (void)handle;
@@ -1063,7 +1069,7 @@ backend::implementation::execute_frame(gneiss::render::detail::frame_packet& pac
     return gneiss::error::success;
 
   const auto resource_prepare_started = std::chrono::steady_clock::now();
-  if (window.needs_recreate) {
+  if (!packet.target && window.needs_recreate) {
     const auto recreate = swapchain_.recreate({.width = window.width, .height = window.height});
     if (recreate == ::granit::result::not_ready)
       return gneiss::error::success;
@@ -1186,17 +1192,21 @@ backend::implementation::execute_frame(gneiss::render::detail::frame_packet& pac
                                    std::chrono::steady_clock::now() - resource_prepare_started)
                                    .count();
 
-  if (packet.readback) {
+  if (packet.readback || packet.target) {
     {
-      ::granit::texture target;
+      target_mirror temporary;
+      auto& destination = packet.target ? targets_[packet.target] : temporary;
+      auto& target = destination.texture;
       auto captured =
-          target.initialize(renderer_, {.format = ::granit::texture_format::rgba8_unorm,
-                                        .usage = ::granit::texture_usage::color_attachment |
-                                                 ::granit::texture_usage::transfer_source,
-                                        .width = window.width,
-                                        .height = window.height});
-      ::granit::texture_view target_view;
-      if (captured.ok()) {
+          target.ref()
+              ? ::granit::result::success
+              : target.initialize(renderer_, {.format = ::granit::texture_format::rgba8_unorm,
+                                              .usage = ::granit::texture_usage::color_attachment |
+                                                       ::granit::texture_usage::transfer_source,
+                                              .width = window.width,
+                                              .height = window.height});
+      auto& target_view = destination.view;
+      if (captured.ok() && !target_view.ref()) {
         captured = target_view.initialize(renderer_, target,
                                           {.format = ::granit::texture_format::rgba8_unorm});
       }
@@ -1214,6 +1224,8 @@ backend::implementation::execute_frame(gneiss::render::detail::frame_packet& pac
         desc.environment = &environment_info_.environment;
         captured = pipeline_.render(desc);
       }
+      if (!packet.readback)
+        return map_result(captured);
       ::granit::readback_batch batch;
       const auto byte_count = static_cast<std::uint64_t>(window.width) * window.height * 4U;
       if (captured.ok()) {
@@ -1377,6 +1389,7 @@ error backend::initialize(const native_window_info& window, std::span<const std:
                           float intensity, float rotation) {
   return impl_->initialize_gpu(window, bytes, intensity, rotation);
 }
+void backend::destroy_target(rid target) { impl_->targets_.erase(target); }
 error backend::shutdown(device_stats& stats) { return impl_->shutdown_gpu(stats); }
 error backend::draw(gneiss::render::detail::frame_packet& packet, execution_result& result) {
   return impl_->execute_frame(packet, result);
