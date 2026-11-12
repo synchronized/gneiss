@@ -17,17 +17,16 @@ instantiate_effective(world& world, scene_access scenes, guid uuid, const compos
     return created.error();
   struct creation_guard {
     scene_access owner;
-    scene_instance_id instance;
+    scene_instance instance;
     ~creation_guard() {
-      if (instance) {
+      if (instance.id()) {
         (void)owner.unload(instance);
       }
     }
   } guard{scenes, *created};
-  auto destination = scene_instance::borrow(world, *created);
-  if (!destination)
-    return destination.error();
-  auto receipt = instantiate(*destination, composed, assets);
+  if (created->owner() != &world)
+    return error::invalid_handle;
+  auto receipt = instantiate(*created, composed, assets);
   if (!receipt)
     return receipt.error();
   guard.instance = {};

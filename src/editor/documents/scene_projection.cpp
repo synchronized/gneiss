@@ -21,10 +21,13 @@ gneiss::error scene_projection::reset(std::span<const gneiss::scene_object_bindi
   objects_.swap(next);
   return gneiss::error::success;
 }
-gneiss::error project_scene_document(gneiss::world& world, scene_instance_id& scene,
-                                     scene_projection& projection,
+gneiss::error project_scene_document(scene_instance& scene, scene_projection& projection,
                                      const scene_document_snapshot* baseline,
                                      const scene_document_snapshot& target, bool prepare_editor) {
+  auto valid = scene.size();
+  if (!valid)
+    return valid.error();
+  auto& world = *scene.owner();
   if (baseline) {
     auto associations = projection.objects();
     auto previous = compose_scene_document(*baseline);
@@ -37,7 +40,7 @@ gneiss::error project_scene_document(gneiss::world& world, scene_instance_id& sc
         baseline->content.get().uuid != target.content.get().uuid
             ? gneiss::result<bool>{false}
             : gneiss::apply_scene(
-                  world, scene, associations, *previous, *next, target.assets,
+                  scene, associations, *previous, *next, target.assets,
                   [&](const gneiss::composed_object& object, entity_id node,
                       const gneiss::component_description& component) {
                     return !prepare_editor && !object.address.source
@@ -54,9 +57,6 @@ gneiss::error project_scene_document(gneiss::world& world, scene_instance_id& sc
   auto composed = compose_scene_document(target);
   if (!composed)
     return composed.error();
-  auto current = gneiss::scene_instance::borrow(world, scene);
-  if (!current)
-    return current.error();
   entity_id previous_camera;
   auto status = gneiss::get_active_camera(world, previous_camera);
   if (status.failed() && status != gneiss::error::not_ready)
@@ -84,7 +84,7 @@ gneiss::error project_scene_document(gneiss::world& world, scene_instance_id& sc
   if (status.failed())
     return status;
   auto associations = replacement.objects();
-  status = current->unload();
+  status = scene.unload();
   if (status.failed())
     return status;
   scene = rebuilt->instance;

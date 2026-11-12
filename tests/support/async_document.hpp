@@ -27,7 +27,7 @@ inline gneiss::error open_document(editor::scene_edit_session& document, runtime
   if (!created)
     return created.error();
   const auto instance = created->instance;
-  status = document.adopt(app, world, instance, *initial, created->objects);
+  status = document.adopt(app, instance, *initial, created->objects);
   if (status.failed())
     (void)gneiss::test_support::scene_access{app}->unload(instance);
   return status;

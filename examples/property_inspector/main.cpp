@@ -28,8 +28,7 @@ namespace {
 constexpr std::string_view scene_uri = "asset://scenes/property.scene.json";
 const auto camera_uuid = *gneiss::guid::parse("37cff772-2e8d-4bc7-9ed2-f94435926d4e");
 bool open_scene(gneiss::tasks::task_scheduler& scheduler, std::string_view root,
-                std::shared_ptr<gneiss::runtime::application>& app,
-                gneiss::scene_instance_id& scene,
+                std::shared_ptr<gneiss::runtime::application>& app, gneiss::scene_instance& scene,
                 std::vector<gneiss::scene_object_binding>& bindings,
                 gneiss::scene_description* description = nullptr) {
   gneiss::runtime::application_configuration config;
@@ -101,15 +100,12 @@ int main() try {
   gneiss::tasks::task_scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   std::shared_ptr<gneiss::runtime::application> app;
-  gneiss::scene_instance_id scene{};
+  gneiss::scene_instance scene{};
   std::vector<gneiss::scene_object_binding> bindings;
   example::scope_exit close{[&] {
     if (app) {
-      if (scene) {
-        auto instance = gneiss::scene_instance::borrow(*app->native_world(), scene);
-        if (instance)
-          (void)instance->unload();
-      }
+      if (scene.is_valid())
+        (void)scene.unload();
       (void)app->shutdown();
     }
   }};
@@ -162,8 +158,7 @@ int main() try {
   author->transform = *transform;
   author->components = *components;
   auto serialized = gneiss::asset_file::serialize(description);
-  auto instance = gneiss::scene_instance::borrow(*app->native_world(), scene);
-  if (!serialized || !instance || instance->unload().failed())
+  if (!serialized || !scene.is_valid() || scene.unload().failed())
     return 4;
   auto json = std::move(*serialized);
   scene = {};
@@ -195,8 +190,7 @@ int main() try {
       app->native_world()->find(target).try_component<gneiss::camera_component>();
   if (!runtime_camera || std::abs(runtime_camera->settings().near - 0.25F) > 0.0001F)
     return 6;
-  instance = gneiss::scene_instance::borrow(*app->native_world(), scene);
-  if (!instance || instance->unload().failed())
+  if (!scene.is_valid() || scene.unload().failed())
     return 6;
   scene = {};
   if (app->shutdown().failed())

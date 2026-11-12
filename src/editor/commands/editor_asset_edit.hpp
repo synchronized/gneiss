@@ -10,7 +10,7 @@
 #include "engine/function/asset/asset_batch_request.hpp"
 #include "engine/function/asset/asset_batch_types.hpp"
 #include "engine/function/asset/render_resource.hpp"
-#include "engine/function/scene/scene_types.hpp"
+#include "engine/function/scene/scene_instance.hpp"
 
 namespace gneiss::editor {
 /** 提交期间借用的资源地址；请求接收后自行复制 URI。 */
@@ -69,7 +69,7 @@ private:
   gneiss::error commit(runtime::application& application, scene_edit_session& session,
                                editor_command_history& history);
   scene_mesh_binding previous_, next_;
-  gneiss::scene_instance_id scene_{};
+  gneiss::scene_instance scene_{};
   entity_id node_;
   component_edit_target target_;
   std::string mesh_, material_;

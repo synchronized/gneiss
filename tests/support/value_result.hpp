@@ -7,8 +7,8 @@
 #include "engine/function/scene/instantiation.hpp"
 namespace gneiss::test_support {
 inline gneiss::error take_value(gneiss::result<gneiss::scene_instantiation_result> value,
-                                scene_instance_id& output) {
-  output = value ? value->instance : scene_instance_id{};
+                                scene_instance& output) {
+  output = value ? value->instance : scene_instance{};
   return value ? gneiss::error{gneiss::error::success} : value.error();
 }
 inline gneiss::error assign_value(gneiss::result<gneiss::game_object> value, entity_id& output) {

@@ -149,8 +149,8 @@ prepare_scene(runtime::application& app, std::string_view uri, gneiss::scene_con
   return gneiss::error::success;
 }
 inline gneiss::error load_scene(runtime::application& app, std::string_view uri,
-                                scene_instance_id* output, gneiss::tasks::task_scheduler* tasks = nullptr,
-                                bool reload = false,
+                                scene_instance* output,
+                                gneiss::tasks::task_scheduler* tasks = nullptr, bool reload = false,
                                 std::vector<gneiss::scene_object_binding>* objects = nullptr) {
   if (!output)
     return gneiss::error::invalid_argument;

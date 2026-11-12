@@ -7,7 +7,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/scene/composition.hpp"
-#include "engine/function/scene/scene_types.hpp"
+#include "engine/function/scene/scene_instance.hpp"
 #include <algorithm>
 
 namespace gneiss::editor {
@@ -29,7 +29,7 @@ gneiss::error capture_document_prefab(scene_edit_session& document, gneiss::guid
 struct editor_prefab_edit::state {
   explicit state(runtime::application& host) : application(host) {}
   runtime::application& application;
-  gneiss::scene_instance_id scene{};
+  gneiss::scene_instance scene{};
   scene_edit_session* session{};
   editor_command_history* history{};
   gneiss::asset_request<gneiss::prefab> preparation;

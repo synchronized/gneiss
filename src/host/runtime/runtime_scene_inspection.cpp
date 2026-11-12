@@ -6,7 +6,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/component_registration.hpp"
-#include "engine/function/scene/scene_types.hpp"
+#include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/world.hpp"
 
 #include <algorithm>
@@ -205,26 +205,23 @@ runtime_scene_inspection::capture(std::span<const runtime_scene_source_node> nod
   }
 }
 
-gneiss::error
-runtime_scene_inspection::capture_scene(::gneiss::runtime::application& application,
-                                        gneiss::scene_instance_id scene, bool force_full,
-                                        runtime_scene_snapshot& output) {
+gneiss::error runtime_scene_inspection::capture_scene(::gneiss::runtime::application& application,
+                                                      gneiss::scene_instance scene, bool force_full,
+                                                      runtime_scene_snapshot& output) {
   if (!application.is_owner_thread() || !application.accepts_requests())
     return gneiss::error::invalid_state;
-  if (!scene.is_valid()) {
+  if (!scene.id())
     return gneiss::error::invalid_argument;
-  }
-  auto instance = gneiss::scene_instance::borrow(*application.native_world(), scene);
-  if (!instance)
-    return instance.error();
-  auto count = instance->size();
+  if (scene.owner() != application.native_world())
+    return gneiss::error::invalid_handle;
+  auto count = scene.size();
   if (!count)
     return count.error();
   if (*count > runtime_inspection_max_nodes)
     return gneiss::error::out_of_memory;
   std::vector<runtime_scene_source_node> nodes;
   nodes.reserve(static_cast<std::size_t>(*count));
-  auto status = instance->visit_objects([&](gneiss::game_object object) -> gneiss::error {
+  auto status = scene.visit_objects([&](gneiss::game_object object) -> gneiss::error {
     const std::string name(object.name());
     if (name.size() > runtime_inspection_max_string_size)
       return gneiss::error::invalid_argument;

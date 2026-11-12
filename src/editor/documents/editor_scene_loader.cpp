@@ -143,8 +143,7 @@ gneiss::error editor_scene_loader::advance(runtime::application& application,
   }
   camera.shutdown();
   world = application.native_world();
-  auto operation =
-      editing.document().adopt(application, world, next->id(), *initial, built->objects);
+  auto operation = editing.document().adopt(application, *next, *initial, built->objects);
   if (operation.failed())
     (void)next->unload();
   else {

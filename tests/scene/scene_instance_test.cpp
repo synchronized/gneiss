@@ -20,9 +20,8 @@
 #include <string_view>
 
 namespace {
-gneiss::error set_camera(gneiss::world& owner, gneiss::scene_instance_id scene,
-                                 gneiss::entity_id node,
-                                 const gneiss::camera_description& desc) {
+gneiss::error set_camera(gneiss::world& owner, gneiss::scene_instance scene, gneiss::entity_id node,
+                         const gneiss::camera_description& desc) {
   auto status = gneiss::test_support::scene_access{owner}->validate_editable_node(scene, node);
   if (status.failed())
     return status;
@@ -40,7 +39,7 @@ gneiss::error set_camera(gneiss::world& owner, gneiss::scene_instance_id scene,
 }
 
 gneiss::result<gneiss::test_support::scene_node_info>
-find_info(gneiss::test_support::scene_access scenes, gneiss::scene_instance_id scene,
+find_info(gneiss::test_support::scene_access scenes, gneiss::scene_instance scene,
           gneiss::entity_id node) {
   auto count = scenes.get_node_count(scene);
   if (!count)
@@ -81,7 +80,7 @@ int main() try {
   const auto application = create_application(asset_root);
   const auto second_application = create_application(asset_root);
   std::vector<gneiss::scene_object_binding> scene_objects;
-  gneiss::scene_instance_id scene = {};
+  gneiss::scene_instance scene = {};
   gneiss::entity_id triangle;
   gneiss::entity_id camera_node;
   std::uint64_t entity_count = 0;
@@ -89,7 +88,7 @@ int main() try {
   if (application == nullptr || second_application == nullptr ||
       gneiss::test_support::load_scene(*application, scene_uri, &scene, nullptr, false,
                                        &scene_objects) != gneiss::error::success ||
-      scene == gneiss::scene_instance_id{} ||
+      scene == gneiss::scene_instance{} ||
       gneiss::test_support::assign_value(application->native_world()->entity_count(),
                                          entity_count) != gneiss::error::success ||
       entity_count != 2U ||
@@ -120,7 +119,7 @@ int main() try {
     child.effective.name = "child";
     // 输入无需父先子后。
     initial.objects = {child, parent};
-    auto applied = e::apply_scene(world, *empty, bindings, {}, initial, {});
+    auto applied = e::apply_scene(*empty, bindings, {}, initial, {});
     if (!applied || !*applied || bindings.size() != 2)
       return 101;
     const auto child_id = bindings.at(child.address).entity;
@@ -130,7 +129,7 @@ int main() try {
     next.objects[0].effective.name = "renamed";
     next.objects[0].effective.transform.translation.x = 3;
     next.objects[1].parent = child.address;
-    applied = e::apply_scene(world, *empty, bindings, initial, next, {});
+    applied = e::apply_scene(*empty, bindings, initial, next, {});
     if (!applied || !*applied || bindings.at(child.address).entity != child_id ||
         bindings.at(parent.address).entity != parent_id)
       return 102;
@@ -139,33 +138,37 @@ int main() try {
       return 103;
     auto cyclic = next;
     cyclic.objects[0].parent = parent.address;
-    applied = e::apply_scene(world, *empty, bindings, next, cyclic, {});
+    applied = e::apply_scene(*empty, bindings, next, cyclic, {});
     if (applied || applied.error() != e::error::invalid_argument)
       return 104;
     e::error threaded;
     std::thread worker([&] {
-      auto result = e::apply_scene(world, *empty, bindings, next, next, {});
+      auto result = e::apply_scene(*empty, bindings, next, next, {});
       threaded = result ? e::error::success : result.error();
     });
     worker.join();
     if (threaded != e::error::invalid_state)
       return 105;
-    applied = e::apply_scene(*second_application->native_world(), *empty, bindings, next, next, {});
-    if (applied || applied.error() != e::error::invalid_handle)
+    auto foreign_scene = second_application->native_world()->create_scene();
+    if (!foreign_scene)
+      return 106;
+    applied = e::apply_scene(*foreign_scene, bindings, next, next, {});
+    // 其他 World 的关联不匹配目标场景；不创建或删除对象。
+    if (!applied || *applied || *foreign_scene->size() != 0)
       return 106;
     auto invalid_bindings = bindings;
     invalid_bindings.at(parent.address) = invalid_bindings.at(child.address);
-    applied = e::apply_scene(world, *empty, invalid_bindings, next, next, {});
+    applied = e::apply_scene(*empty, invalid_bindings, next, next, {});
     if (applied || applied.error() != e::error::invalid_argument)
       return 109;
     auto stale = next;
     stale.objects[0].effective.transform.translation.x = 99;
-    applied = e::apply_scene(world, *empty, bindings, stale, next, {});
+    applied = e::apply_scene(*empty, bindings, stale, next, {});
     if (!applied || *applied || actual->local_transform()->translation.x != 3)
       return 110;
     auto reduced = next;
     reduced.objects.pop_back();
-    applied = e::apply_scene(world, *empty, bindings, next, reduced, {});
+    applied = e::apply_scene(*empty, bindings, next, reduced, {});
     if (!applied || !*applied || bindings.size() != 1 || world.object(parent_id) ||
         bindings.at(child.address).entity != child_id)
       return 107;
@@ -204,8 +207,8 @@ int main() try {
   }
   gneiss::test_support::scene_node_info invalid_info;
   if (gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*application}->get_node_info(
-              gneiss::scene_instance_id{}, 0U),
+          gneiss::test_support::scene_access{*application}->get_node_info(gneiss::scene_instance{},
+                                                                          0U),
           invalid_info) != gneiss::error::invalid_handle) {
     return 3;
   }
@@ -223,8 +226,7 @@ int main() try {
       after_binding->material != accepted_binding->material)
     return 30;
   // 场景入口创建子对象，归属必须与父对象一致。
-  auto temporary_scene =
-      gneiss::scene_instance::borrow(*application->native_world(), scene);
+  auto temporary_scene = gneiss::scene_instance::borrow(*application->native_world(), (scene).id());
   if (!temporary_scene)
     return 31;
   auto temporary = temporary_scene->create_object(
@@ -246,7 +248,7 @@ int main() try {
       application->native_world()->find(gneiss::entity_id{(camera_node).get()}).name();
   const std::string camera_name{camera_before};
   std::vector<gneiss::scene_object_binding> play_objects;
-  gneiss::scene_instance_id play_scene;
+  gneiss::scene_instance play_scene;
   gneiss::entity_id play_camera;
   if (gneiss::test_support::load_scene(*second_application, scene_uri, &play_scene, nullptr, false,
                                        &play_objects)
@@ -323,7 +325,7 @@ int main() try {
   author_camera.settings.near = -1.0F;
   if (set_camera(*application->native_world(), scene, created_node, author_camera) !=
           gneiss::error::invalid_argument ||
-      set_camera(*application->native_world(), gneiss::scene_instance_id{}, created_node,
+      set_camera(*application->native_world(), gneiss::scene_instance{}, created_node,
                  author_camera) != gneiss::error::invalid_handle ||
       set_camera(*application->native_world(), scene, gneiss::entity_id{UINT64_MAX},
                  author_camera) != gneiss::error::invalid_handle) {
@@ -351,7 +353,7 @@ int main() try {
                                         material_uri) != gneiss::error::success) {
     return 28;
   }
-  auto destination = gneiss::scene_instance::borrow(*application->native_world(), scene);
+  auto destination = gneiss::scene_instance::borrow(*application->native_world(), (scene).id());
   if (!destination)
     return 13;
   gneiss::math::transform generic_transform;
@@ -486,8 +488,7 @@ int main() try {
     if (!instance || !instance->is_valid() || *instance->size() != 0U)
       return 16;
     std::map<gneiss::object_address, gneiss::scene_object_association> mapping;
-    auto applied_native =
-        gneiss::apply_scene(**native, instance->id(), mapping, {}, {}, {});
+    auto applied_native = gneiss::apply_scene(*instance, mapping, {}, {}, {});
     if (!applied_native || !*applied_native)
       return 19;
     auto object = instance->create_object({"Direct", {}});
@@ -553,12 +554,12 @@ int main() try {
   }
   const gneiss::guid empty_uuid =
       *gneiss::guid::parse("00000000-0000-4000-8000-000000000099");
-  gneiss::scene_instance_id empty_scene = gneiss::scene_instance_id{};
+  gneiss::scene_instance empty_scene = gneiss::scene_instance{};
   std::uint64_t empty_count = 1U;
   if (gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->create_empty({}), empty_scene) !=
           gneiss::error::invalid_argument ||
-      empty_scene != gneiss::scene_instance_id{} ||
+      empty_scene != gneiss::scene_instance{} ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*application}->create_empty(empty_uuid),
           empty_scene) != gneiss::error::success ||
@@ -598,14 +599,14 @@ int main() try {
   }
 
   const auto failing_application = create_application(failure_root);
-  scene = gneiss::scene_instance_id{};
+  scene = gneiss::scene_instance{};
   if (failing_application == nullptr ||
       gneiss::test_support::load_scene(*failing_application, missing_uri, &scene) !=
           gneiss::error::not_found ||
-      scene != gneiss::scene_instance_id{} ||
+      scene != gneiss::scene_instance{} ||
       gneiss::test_support::load_scene(*failing_application, corrupt_uri, &scene) !=
           gneiss::error::invalid_argument ||
-      scene != gneiss::scene_instance_id{} ||
+      scene != gneiss::scene_instance{} ||
       gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*failing_application}->create_empty(empty_uuid),
           scene) != gneiss::error::success ||

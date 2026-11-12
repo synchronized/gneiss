@@ -77,7 +77,7 @@ int main() try {
   };
   gneiss::tasks::task_scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss::scene_instance_id scene = {};
+  gneiss::scene_instance scene = {};
   gneiss::host::scene_open_result loaded;
   gneiss::entity_id camera_before;
   gneiss::entity_id old_child;

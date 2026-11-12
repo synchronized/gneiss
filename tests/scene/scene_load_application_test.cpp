@@ -253,7 +253,7 @@ void scene_content_boundary(gneiss::tasks::execution_mode mode) {
     check(completed && completed->result.ok());
   }
   check(app->native_world() == world && object->is_valid());
-  auto current = e::scene_instance::borrow(*world, activated->instance.instance);
+  auto current = e::scene_instance::borrow(*world, (activated->instance.instance).id());
   check(current && *current->size() == content->description->objects.size());
   check(original->unload().ok() && !object->is_valid() && current->is_valid());
   auto reload = app->assets().load<e::scene>("asset://scene.json", {.reload = true});
@@ -266,7 +266,7 @@ void scene_content_boundary(gneiss::tasks::execution_mode mode) {
   empty.description = e::make_ref<e::scene_description>();
   auto empty_scene = gneiss::test_support::activate_scene(*app, empty);
   check(bool(empty_scene) && !empty_scene->visuals);
-  auto empty_instance = e::scene_instance::borrow(*world, empty_scene->instance.instance);
+  auto empty_instance = e::scene_instance::borrow(*world, (empty_scene->instance.instance).id());
   check(empty_instance && *empty_instance->size() == 0 && current->is_valid());
 }
 
@@ -280,9 +280,9 @@ void shared_scene_assets(gneiss::tasks::execution_mode mode) {
   check(bool(created));
   auto app = *created;
   auto load = [&] {
-    scene_instance_id id;
+    scene_instance id;
     check(test_support::load_scene(*app, "asset://scene.json", &id, &scheduler).ok());
-    auto scene = gneiss::scene_instance::borrow(*app->native_world(), id);
+    auto scene = gneiss::scene_instance::borrow(*app->native_world(), (id).id());
     check(bool(scene));
     return *scene;
   };
@@ -342,7 +342,7 @@ void shared_texture_versions(gneiss::tasks::execution_mode mode) {
   check(gneiss::test_support::assign_value(application::create(desc), app) ==
         gneiss::error::success);
   check(app->attach_task_executor(scheduler) == gneiss::error::success);
-  scene_instance_id scene_id;
+  scene_instance scene_id;
   check(test_support::load_scene(*app, "asset://scene.json", &scene_id, &scheduler).ok());
   auto first = app->assets().find<gneiss::material>("asset://material.json");
   auto second = app->assets().find<gneiss::material>("asset://other.json");

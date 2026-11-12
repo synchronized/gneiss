@@ -164,15 +164,15 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   if (!submitted)
     return 2;
   auto scene_request = std::move(*submitted);
-  gneiss::scene_instance_id scene{};
+  gneiss::scene_instance scene{};
   example::scene_activation completion;
   // 启动阶段继续处理窗口事件和文件完成；不调用同步场景加载。
-  while (!scene || native_application->action_map_status() == gneiss::error::not_ready ||
+  while (!scene.id() || native_application->action_map_status() == gneiss::error::not_ready ||
          (completion.visuals && !completion.visuals.ready())) {
     (void)scheduler.run_ready();
     if (native_application->run(1).failed())
       return 2;
-    if (!scene) {
+    if (!scene.id()) {
       const auto status = scene_request.status();
       if (status.failed() && status != gneiss::error::not_ready)
         return 2;
@@ -193,11 +193,8 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   if (native_application->action_map_status().failed())
     return 2;
   example::scope_exit unload{[&] {
-    if (scene) {
-      auto borrowed =
-          gneiss::scene_instance::borrow(*native_application->native_world(), scene);
-      if (borrowed)
-        (void)borrowed->unload();
+    if (scene.is_valid()) {
+      (void)scene.unload();
     }
   }};
   const auto scene_ready = clock::now();
@@ -214,9 +211,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
     report_failure("查找输入动作", result);
     return 5;
   }
-  auto instance =
-      gneiss::scene_instance::borrow(*native_application->native_world(), scene);
-  if (!instance)
+  if (!scene.is_valid())
     return 2;
   auto binding =
       std::ranges::find_if(completion.instance.objects, [camera_uuid](const auto& object) {
@@ -242,7 +237,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   }
   const auto run_finished = clock::now();
   result = ([&] {
-    auto status = instance->unload();
+    auto status = scene.unload();
     if (status == gneiss::error::success)
       scene = {};
     return gneiss::error{status};

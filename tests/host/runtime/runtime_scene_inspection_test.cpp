@@ -188,7 +188,7 @@ bool test_capture_prefab_scene() {
   gneiss::runtime::application_configuration desc;
   desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss::scene_instance_id scene = {};
+  gneiss::scene_instance scene = {};
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), application)
           .failed())
     return false;

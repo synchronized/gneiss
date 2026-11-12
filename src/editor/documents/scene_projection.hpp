@@ -51,8 +51,7 @@ private:
  * 完整重建成功时更新 scene，旧场景及对象句柄失效。
  * 失败不表示目标已同步。
  */
-[[nodiscard]] gneiss::error project_scene_document(gneiss::world&, scene_instance_id&,
-                                                   scene_projection&,
+[[nodiscard]] gneiss::error project_scene_document(scene_instance&, scene_projection&,
                                                    const scene_document_snapshot* baseline,
                                                    const scene_document_snapshot& target,
                                                    bool prepare_editor = true);

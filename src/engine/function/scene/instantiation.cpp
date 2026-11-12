@@ -58,7 +58,7 @@ result<scene_instantiation_result> instantiate(scene_instance destination,
     }
   } guard{created};
   scene_instantiation_result receipt;
-  receipt.instance = destination.id();
+  receipt.instance = destination;
   receipt.node_count = composed.objects.size();
   receipt.objects.reserve(composed.objects.size());
   receipt.roots.reserve(composed.objects.size());

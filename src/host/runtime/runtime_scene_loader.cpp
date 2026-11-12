@@ -118,11 +118,10 @@ runtime_scene_loader::activate(::gneiss::host::scene_open_result& completion) {
       return selected;
     }
   }
-  completion.scene = next->id();
+  completion.scene = *next;
   completion.objects = std::move(built->objects);
   completion.reload_state = gneiss::make_ref<scene_reload_state>();
   auto& baseline = *completion.reload_state;
-  baseline.owner = application_.native_world();
   baseline.instance = completion.scene;
   baseline.content = completion.content;
   for (const auto& binding : completion.objects)
@@ -190,7 +189,7 @@ gneiss::error runtime_scene_loader::advance() {
   if (progress_.message.empty() || result_.ok())
     progress_.message = phase_message(progress_.phase);
   // 已替换场景后的宿主回调失败不能伪装成保留旧场景的加载失败。
-  if (result_.failed() && current_.is_valid() && current_.id() == completion.scene)
+  if (result_.failed() && current_.is_valid() && current_ == completion.scene)
     return result_;
   return gneiss::error::success;
 }
@@ -198,12 +197,12 @@ gneiss::error runtime_scene_loader::reload(gneiss::ref<scene_reload_state> sourc
                                            std::string_view uri, bool prefab) {
   if (!application_.is_owner_thread() || !application_.accepts_requests())
     return gneiss::error::invalid_state;
-  if (!source || source->owner != application_.native_world() || !source->synchronized ||
+  if (!source || source->instance.owner() != application_.native_world() || !source->synchronized ||
       !source->content || !source->content->description)
     return gneiss::error::invalid_state;
-  auto instance = gneiss::scene_instance::borrow(*application_.native_world(), source->instance);
-  if (!instance)
-    return instance.error();
+  auto count = source->instance.size();
+  if (!count)
+    return count.error();
   if (active_ || reload_ || visuals_ || !application_.can_load_assets())
     return gneiss::error::not_ready;
   reload_task next;
@@ -266,8 +265,7 @@ gneiss::error runtime_scene_loader::apply_source(scene_reload_state& source,
     bindings.emplace(request.uri, resource->resource());
   }
   source.synchronized = false;
-  auto applied = gneiss::apply_scene(*application_.native_world(), source.instance, source.objects,
-                                     *previous, *next, bindings);
+  auto applied = gneiss::apply_scene(source.instance, source.objects, *previous, *next, bindings);
   if (!applied)
     return applied.error();
   if (!*applied)
@@ -290,11 +288,11 @@ void runtime_scene_loader::advance_reload() {
         if (!loaded)
           return loaded.error().error;
         auto& source = *task.source;
-        if (!source.synchronized || source.owner != application_.native_world())
+        if (!source.synchronized || source.instance.owner() != application_.native_world())
           return gneiss::error::invalid_state;
-        auto instance = gneiss::scene_instance::borrow(*source.owner, source.instance);
-        if (!instance)
-          return instance.error();
+        auto count = source.instance.size();
+        if (!count)
+          return count.error();
         gneiss::ref<const gneiss::scene_content> content;
         if constexpr (std::is_same_v<typename std::remove_cvref_t<decltype(request)>::value_type,
                                      gneiss::scene>) {

@@ -22,15 +22,14 @@ class application;
 namespace gneiss::host {
 /** Runtime 来源重载基线；仅所属线程操作，不保活 World，须先于 Application 释放。 */
 struct scene_reload_state {
-  gneiss::world* owner{};
-  scene_instance_id instance;
+  scene_instance instance;
   gneiss::ref<const gneiss::scene_content> content;
   std::map<gneiss::object_address, gneiss::scene_object_association> objects;
   bool synchronized = true;
 };
 /** 打开场景后交给宿主绑定检查器的回执，不包含加载进度或退休统计。 */
 struct scene_open_result {
-  scene_instance_id scene;
+  scene_instance scene;
   std::vector<gneiss::scene_object_binding> objects;
   gneiss::ref<const gneiss::scene_content> content;
   gneiss::ref<scene_reload_state> reload_state;

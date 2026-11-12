@@ -179,7 +179,7 @@ int main() try {
   check(created->objects[0].object == first.uuid && !created->objects[0].source);
   check(world.find(created->objects[0].entity).is_valid());
   auto instance = created->instance;
-  auto borrowed = e::scene_instance::borrow(world, instance);
+  auto borrowed = e::scene_instance::borrow(world, (instance).id());
   check(borrowed && borrowed->is_valid());
   auto member_count = borrowed->size();
   check(member_count && *member_count == 2);
@@ -187,7 +187,7 @@ int main() try {
   auto another_scene =
       gneiss::test_support::scene_fixture::instantiate_scene(world, prepare(source), {});
   check(another_scene.has_value());
-  auto another_handle = e::scene_instance::borrow(world, another_scene->instance);
+  auto another_handle = e::scene_instance::borrow(world, (another_scene->instance).id());
   check(another_handle.has_value());
   auto first_object = scenes.find_object(created->objects, first.uuid);
   auto foreign_parent = scenes.find_object(another_scene->objects, first.uuid);
@@ -217,7 +217,7 @@ int main() try {
   check(first_object->is_valid());
   auto other_world = e::create_native();
   check(other_world.has_value());
-  check(!e::scene_instance::borrow(**other_world, instance));
+  check(!e::scene_instance::borrow(**other_world, (instance).id()));
   e::error wrong_thread;
   std::thread scene_worker([&] { wrong_thread = borrowed_copy.unload(); });
   scene_worker.join();
@@ -276,7 +276,7 @@ int main() try {
     auto next = e::compose_scene(description, {});
     if (!next)
       return next.error();
-    auto result = e::apply_scene(world, instance, mapping, *baseline, *next, {});
+    auto result = e::apply_scene(instance, mapping, *baseline, *next, {});
     if (!result)
       return result.error();
     if (!*result)
@@ -332,7 +332,7 @@ int main() try {
   // 动态成员经借用场景创建，直接 World 删除后查询清理失效索引。
   auto dynamic_scene = scenes.create_empty(e::guid::from_bytes({20}));
   check(dynamic_scene.has_value());
-  auto dynamic = e::scene_instance::borrow(world, *dynamic_scene);
+  auto dynamic = e::scene_instance::borrow(world, (*dynamic_scene).id());
   check(dynamic.has_value());
   auto dynamic_root = dynamic->create_object({"dynamic root", {}});
   check(dynamic_root.has_value());
@@ -437,7 +437,7 @@ int main() try {
         camera_after_failure == active_camera);
   check(*world.entity_count() == entities_before_failure);
   // 同一组合结果重复追加到非空场景，保留旧对象并提供各自的来源回执。
-  auto destination = e::scene_instance::borrow(world, camera_instance->instance);
+  auto destination = e::scene_instance::borrow(world, (camera_instance->instance).id());
   check(destination.has_value());
   auto existing_parent = scenes.find_object(camera_instance->objects, camera_object.uuid);
   check(existing_parent.has_value());
@@ -497,7 +497,7 @@ int main() try {
   check(!e::instantiate(e::scene_instance{}, *append_composed, {}));
   auto foreign_scene_id = scenes.create_empty(e::guid::generate());
   check(foreign_scene_id.has_value());
-  auto foreign_scene = e::scene_instance::borrow(world, *foreign_scene_id);
+  auto foreign_scene = e::scene_instance::borrow(world, (*foreign_scene_id).id());
   check(foreign_scene.has_value());
   auto append_foreign_parent = foreign_scene->create_object({"foreign", {}});
   check(append_foreign_parent.has_value());
@@ -539,8 +539,7 @@ int main() try {
   auto next_composition = e::compose_scene(source, {{"asset://test.prefab", next.get()}});
   check(bool(old_composition) && bool(next_composition));
   auto prefab_mapping = associations(prefab_created->objects);
-  auto applied =
-      e::apply_scene(world, instance, prefab_mapping, *old_composition, *next_composition, {});
+  auto applied = e::apply_scene(instance, prefab_mapping, *old_composition, *next_composition, {});
   check(applied && *applied);
   check(state(world).get<movement_component>(id)->data.speed == 9);
   check(source.objects[0].components.empty());
@@ -549,7 +548,7 @@ int main() try {
   auto empty_reload = scenes.create_empty(e::guid::generate());
   check(empty_reload.has_value());
   std::map<e::object_address, e::scene_object_association> empty_mapping;
-  auto empty_applied = e::apply_scene(world, *empty_reload, empty_mapping, {}, {}, {});
+  auto empty_applied = e::apply_scene(*empty_reload, empty_mapping, {}, {}, {});
   check(empty_applied && *empty_applied);
   check(*scenes.get_node_count(*empty_reload) == 0U);
   // 替换保留场景句柄，但旧实体释放，归属不能停留在临时实例 ID 上。
@@ -561,8 +560,8 @@ int main() try {
   auto independent = gneiss::test_support::scene_fixture::instantiate_scene(
       world, prepare(replacement_source), {});
   check(replacing && independent);
-  auto stable = e::scene_instance::borrow(world, replacing->instance);
-  auto other = e::scene_instance::borrow(world, independent->instance);
+  auto stable = e::scene_instance::borrow(world, (replacing->instance).id());
+  auto other = e::scene_instance::borrow(world, (independent->instance).id());
   check(stable && other);
   auto old_object = scenes.find_object(replacing->objects, first.uuid);
   auto other_object = scenes.find_object(independent->objects, first.uuid);
@@ -574,7 +573,7 @@ int main() try {
   check(scenes.unload(replacing->instance).ok());
   check(!stable->is_valid());
   check(replaced->instance != replacing->instance);
-  stable = e::scene_instance::borrow(world, replaced->instance);
+  stable = e::scene_instance::borrow(world, (replaced->instance).id());
   check(stable && stable->is_valid());
   check(!old_object->is_valid() && other_object->is_valid());
   auto new_object = scenes.find_object(replaced->objects, first.uuid);

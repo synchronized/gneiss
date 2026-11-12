@@ -15,6 +15,8 @@ public:
   scene_instance() noexcept = default;
   /** 借用既有场景；拒绝失效、跨 World 或跨线程访问。 */
   [[nodiscard]] static GNEISS_API result<scene_instance> borrow(world&, scene_instance_id) noexcept;
+  /** 比较借用身份，不访问 World，也不判断场景是否仍存活。 */
+  friend bool operator==(scene_instance, scene_instance) noexcept = default;
   [[nodiscard]] world* owner() const noexcept { return owner_; }
   [[nodiscard]] scene_instance_id id() const noexcept { return id_; }
   [[nodiscard]] GNEISS_API bool is_valid() const noexcept;

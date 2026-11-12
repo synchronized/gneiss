@@ -123,15 +123,15 @@ int run_example(int argc, char** argv) {
   if (!submitted)
     return 2;
   auto scene_request = std::move(*submitted);
-  gneiss::scene_instance_id scene{};
+  gneiss::scene_instance scene{};
   example::scene_activation completion;
   // 启动阶段继续处理窗口事件和文件完成；不调用同步场景加载。
-  while (!scene || native_application->action_map_status() == gneiss::error::not_ready ||
+  while (!scene.id() || native_application->action_map_status() == gneiss::error::not_ready ||
          (completion.visuals && !completion.visuals.ready())) {
     (void)scheduler.run_ready();
     if (native_application->run(1).failed())
       return 2;
-    if (!scene) {
+    if (!scene.id()) {
       const auto status = scene_request.status();
       if (status.failed() && status != gneiss::error::not_ready)
         return 2;
@@ -159,9 +159,7 @@ int run_example(int argc, char** argv) {
     return 2;
   }
   const auto input_ready = clock::now();
-  auto instance =
-      gneiss::scene_instance::borrow(*native_application->native_world(), scene);
-  if (!instance)
+  if (!scene.is_valid())
     return 2;
   auto binding =
       std::ranges::find_if(completion.instance.objects, [camera_uuid](const auto& object) {
@@ -184,7 +182,7 @@ int run_example(int argc, char** argv) {
               << "输入初始化：" << milliseconds(scene_ready, input_ready) << " ms\n"
               << "运行阶段：" << milliseconds(input_ready, run_finished) << " ms\n";
   }
-  return instance->unload() == gneiss::error::success ? 0 : 4;
+  return scene.unload() == gneiss::error::success ? 0 : 4;
 }
 
 int main(int argc, char** argv) {

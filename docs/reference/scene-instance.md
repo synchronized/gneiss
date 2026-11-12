@@ -6,7 +6,10 @@
 ## 运行期身份与所有权
 
 World 私有状态直接拥有场景槽位表；`scene_instance` 是借用句柄，
-`scene_instance_id` 是非拥有的集合标识。
+`scene_instance_id` 仅用于内部槽位、ECS 归属和显式身份边界。
+普通 C++ 调用、实例化回执、宿主重载及编辑器会话统一使用 `scene_instance`，无需再单独传 World。
+句柄复制不保活场景，比较只检查 World 与 ID；卸载后操作返回失效错误。World 销毁后不得再
+调用借用句柄的查询或操作，包括 `is_valid()`。
 节点统一使用 `entity_id`，校验所属域和槽位代次；不能跨 World 使用，也不保活对象。
 持久化身份使用 UUID，文件不保存运行期 ID。
 
@@ -376,9 +379,9 @@ Runtime 宿主保存 IPC 会话/修订及对应的 asset_batch_request，通过�
 相邻同合并键且版本连续的编辑可合并；保存点阻止跨点合并，新编辑清除 redo 分支，历史保留既有条数限制。
 文档必须比历史活得更久；关闭/切换文档时所属编辑会话清理历史。清理后不再持有历史专有资源引用。
 
-`apply_scene(world, scene_id, ...)` 与 `project_scene_document` 不再接收场景集合。
-内部借用 scene_instance 校验归属并创建成员，原生 World 无需初始化旧集合即可执行增量投影。
-失效或跨 World 场景 ID 返回 invalid_handle，跨线程调用返回 invalid_state。
+`apply_scene(scene_instance, ...)` 与 `project_scene_document(scene_instance&, ...)` 从句柄取得 World。
+场景参数不再独立提供 World，避免两者组合错误；空或已卸载句柄返回 invalid_handle，
+跨线程调用返回 invalid_state。关联中的对象仍须属于目标场景。
 scene_instance::contains 查询 ECS 成员归属，空、失效或其他 World 的对象返回 false；
 场景句柄本身失效则返回错误。
 
@@ -393,7 +396,7 @@ scene_instance::contains 查询 ECS 成员归属，空、失效或其他 World �
 同一文档地址继续存在时保留 node/entity；删除后恢复会创建新实体，无关对象保持身份。
 Prefab 来源刷新不再调用专用替换路径或刷新后强制重建；更换来源时同样按最终对象地址计算差异。
 资源绑定按文档中的强引用恢复，不等待纹理或网格 GPU 上传完成。
-缺少同步基线、外部直接修改及部分失败后的恢复仍可完整重建；scene_instance_id 保持，node/entity 可能改变。
+缺少同步基线、外部直接修改及部分失败后的恢复仍可完整重建；投影成功后替换会话的 scene_instance，原场景卸载，node/entity 可能改变。
 同步失败仍完成文档撤销/重做，通过 `projection_status()` 报告，并可重试同步；保存读取文档。
 组件覆盖快照 prefab_component_state 属于 editor，Engine 不再定义该编辑历史类型。
 局部历史的目标与阶段见 [PLAN-106](../plans/PLAN-106-document-history-projection.md)。

@@ -7,7 +7,7 @@
 namespace gneiss {
 /** 已创建的场景及其视觉加载清单；资源身份已预留，内容加载由调用方调度。 */
 struct scene_instantiation_result {
-  scene_instance_id instance;
+  scene_instance instance;
   std::size_t node_count{};
   std::vector<game_object> roots;
   std::vector<scene_object_binding> objects;

@@ -9,7 +9,7 @@
 #include "engine/core/math/camera.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_types.hpp"
+#include "engine/function/scene/scene_instance.hpp"
 #include "engine/resource/scene/component_description.hpp"
 #include "ipc_inspection_protocol.hpp"
 
@@ -56,9 +56,8 @@ public:
   [[nodiscard]] gneiss::error capture(std::span<const runtime_scene_source_node> nodes,
                                               bool force_full, runtime_scene_snapshot& output);
   [[nodiscard]] gneiss::error capture_scene(::gneiss::runtime::application& application,
-                                                    gneiss::scene_instance_id scene,
-                                                    bool force_full,
-                                                    runtime_scene_snapshot& output);
+                                            gneiss::scene_instance scene, bool force_full,
+                                            runtime_scene_snapshot& output);
   [[nodiscard]] gneiss::error resolve_entity(ipc_runtime_object_id object,
                                                      std::uint64_t& output) const noexcept;
   /** 接收加载/重载协调方的地址回执；只保存身份，不从运行节点反推 Prefab 来源。 */

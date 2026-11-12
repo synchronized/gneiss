@@ -83,7 +83,7 @@ void run(gneiss::tasks::execution_mode mode) {
         world == original);
   check(loader.state() == editor::scene_open_state::opened);
   check(session.is_open() && !session.is_dirty() && session.uri() == uri);
-  check(!gneiss::scene_instance::borrow(*world, initial_scene));
+  check(!gneiss::scene_instance::borrow(*world, (initial_scene).id()));
   check(gneiss::test_support::scene_query(session).nodes.size() == 2U && camera.is_valid());
   const auto current = world;
   const auto node = gneiss::test_support::scene_query(session).nodes[1].node;
@@ -176,7 +176,7 @@ void run(gneiss::tasks::execution_mode mode) {
         after.description()->objects.front().name == "Snapshot edit");
   // 无效场景的原生查询拒绝，不影响活动场景。
   check(gneiss::error{gneiss::test_support::take_value(
-            gneiss::test_support::scene_access{*app}->get_node_count(gneiss::scene_instance_id{}),
+            gneiss::test_support::scene_access{*app}->get_node_count(gneiss::scene_instance{}),
             count)} == gneiss::error::invalid_handle);
   camera.shutdown();
   session.close();

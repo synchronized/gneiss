@@ -46,7 +46,7 @@ int main() try {
   auto effective = e::compose_scene(author, {{"asset://source", source.get()}});
   check(effective && effective->objects.size() == 4);
   std::map<e::object_address, e::scene_object_association> mapping;
-  auto applied = e::apply_scene(world, instance->id(), mapping, {}, *effective, {});
+  auto applied = e::apply_scene(*instance, mapping, {}, *effective, {});
   check(applied && *applied);
   const e::object_address first_root{first.uuid, root.uuid}, first_child{first.uuid, child.uuid};
   const e::object_address second_root{second.uuid, root.uuid};
@@ -75,7 +75,7 @@ int main() try {
       object.parent = second_root;
     }
   }
-  applied = e::apply_scene(world, instance->id(), mapping, *effective, next, {});
+  applied = e::apply_scene(*instance, mapping, *effective, next, {});
   check(applied && *applied && mapping.at(first_child).entity == child_node);
   check(gneiss::test_support::assign_value(
             world.find(gneiss::entity_id{(child_node).get()}).parent(), parent)
@@ -87,7 +87,7 @@ int main() try {
   for (auto& object : cycle.objects)
     if (object.address == second_root)
       object.parent = first_child;
-  applied = e::apply_scene(world, instance->id(), mapping, next, cycle, {});
+  applied = e::apply_scene(*instance, mapping, next, cycle, {});
   check(!applied && applied.error() == e::error::invalid_argument);
   check(gneiss::test_support::assign_value(
             world.find(gneiss::entity_id{(child_node).get()}).parent(), parent)
@@ -95,7 +95,7 @@ int main() try {
         parent == mapping.at(second_root).entity);
   e::error foreign;
   std::thread worker([&] {
-    auto result = e::apply_scene(world, instance->id(), mapping, next, next, {});
+    auto result = e::apply_scene(*instance, mapping, next, next, {});
     foreign = result ? e::error::success : result.error();
   });
   worker.join();
@@ -103,13 +103,13 @@ int main() try {
   // 移除单个地址只销毁该成员，另一个实例的同源对象保留。
   auto removed = next;
   std::erase_if(removed.objects, [&](const auto& object) { return object.address == first_child; });
-  applied = e::apply_scene(world, instance->id(), mapping, next, removed, {});
+  applied = e::apply_scene(*instance, mapping, next, removed, {});
   check(applied && *applied && !mapping.contains(first_child));
   check(!world.object(gneiss::entity_id{child_node.get()}));
   check(mapping.at(first_root).entity == root_node && *instance->size() == 3);
   // 外部直接销毁导致失步，不得误用旧实体或静默部分更新。
   check(world.find(gneiss::entity_id{(root_node).get()}).destroy().ok());
-  applied = e::apply_scene(world, instance->id(), mapping, removed, removed, {});
+  applied = e::apply_scene(*instance, mapping, removed, removed, {});
   check(applied && !*applied);
   check(instance->unload().ok() && *world.entity_count() == 0);
   return 0;

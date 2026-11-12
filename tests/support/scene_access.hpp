@@ -16,21 +16,25 @@ struct scene_access {
   scene_access* operator->() { return this; }
   scene_access operator*() { return *this; }
   bool is_valid() const { return owner.is_owner_thread(); }
-  gneiss::result<scene_instance_id> create_empty(gneiss::guid uuid) {
+  gneiss::result<scene_instance> create_empty(gneiss::guid uuid) {
     if (!uuid)
       return gneiss::error::invalid_argument;
     auto created = owner.create_scene();
     if (!created)
       return created.error();
-    return created->id();
+    return *created;
   }
-  gneiss::error unload(scene_instance_id id) {
-    auto scene = gneiss::scene_instance::borrow(owner, id);
-    return scene ? scene->unload() : scene.error();
+  gneiss::error unload(scene_instance id) {
+    if (id.owner() != &owner)
+      return gneiss::error::invalid_handle;
+    auto scene = id;
+    return scene.unload();
   }
-  gneiss::result<std::uint64_t> get_node_count(scene_instance_id id) {
-    auto scene = gneiss::scene_instance::borrow(owner, id);
-    return scene ? scene->size() : gneiss::result<std::uint64_t>{scene.error()};
+  gneiss::result<std::uint64_t> get_node_count(scene_instance id) {
+    if (id.owner() != &owner)
+      return gneiss::error::invalid_handle;
+    auto scene = id;
+    return scene.size();
   }
   // 来源查找只使用调用方保存的本次回执，不扫描运行对象的属性。
   gneiss::result<gneiss::game_object>
@@ -46,19 +50,19 @@ struct scene_access {
     return object ? gneiss::result<entity_id>{entity_id{object->entity().get()}}
                   : gneiss::result<entity_id>{object.error()};
   }
-  gneiss::error validate_editable_node(scene_instance_id id, entity_id node) {
-    auto scene = gneiss::scene_instance::borrow(owner, id);
-    if (!scene)
-      return scene.error();
+  gneiss::error validate_editable_node(scene_instance id, entity_id node) {
+    if (id.owner() != &owner)
+      return gneiss::error::invalid_handle;
+    auto scene = id;
     auto object = owner.object(entity_id{node.get()});
     if (!object)
       return object.error();
-    auto member = scene->contains(*object);
+    auto member = scene.contains(*object);
     if (!member)
       return member.error();
     return *member ? gneiss::error::success : gneiss::error::invalid_handle;
   }
-  gneiss::error reparent_node(scene_instance_id id, entity_id node, entity_id parent) {
+  gneiss::error reparent_node(scene_instance id, entity_id node, entity_id parent) {
     auto status = validate_editable_node(id, node);
     if (status.failed())
       return status;
@@ -69,19 +73,21 @@ struct scene_access {
                          : gneiss::result<gneiss::game_object>{gneiss::game_object{}};
     return object->reparent(*target);
   }
-  gneiss::error destroy_subtree(scene_instance_id id, entity_id node) {
+  gneiss::error destroy_subtree(scene_instance id, entity_id node) {
     auto status = validate_editable_node(id, node);
     if (status.failed())
       return status;
     return owner.object(entity_id{node.get()})->destroy();
   }
-  gneiss::error destroy_node(scene_instance_id id, entity_id node) {
+  gneiss::error destroy_node(scene_instance id, entity_id node) {
     auto status = validate_editable_node(id, node);
     if (status.failed())
       return status;
-    auto scene = gneiss::scene_instance::borrow(owner, id);
+    if (id.owner() != &owner)
+      return gneiss::error::invalid_handle;
+    auto scene = id;
     bool has_children = false;
-    status = scene->visit_objects([&](gneiss::game_object object) {
+    status = scene.visit_objects([&](gneiss::game_object object) {
       auto parent = object.parent();
       if (!parent)
         return parent.error();
@@ -93,13 +99,13 @@ struct scene_access {
     return has_children ? gneiss::error::invalid_state : destroy_subtree(id, node);
   }
   gneiss::result<test_support::scene_node_info> get_node_info(
-      scene_instance_id id, std::uint64_t index,
+      scene_instance id, std::uint64_t index,
       test_support::node_query_detail detail = test_support::node_query_detail::components) {
-    auto scene = gneiss::scene_instance::borrow(owner, id);
-    if (!scene)
-      return scene.error();
+    if (id.owner() != &owner)
+      return gneiss::error::invalid_handle;
+    auto scene = id;
     std::vector<gneiss::game_object> objects;
-    auto status = scene->visit_objects([&](auto object) {
+    auto status = scene.visit_objects([&](auto object) {
       objects.push_back(object);
       return gneiss::error{gneiss::error::success};
     });

@@ -9,7 +9,7 @@
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/serialization/json.hpp"
 #include "engine/function/scene/component_registration.hpp"
-#include "engine/function/scene/scene_types.hpp"
+#include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/resource/asset_file.hpp"
 
@@ -159,12 +159,11 @@ gneiss::error make_asset_uri(const std::filesystem::path& asset_root,
 }
 
 bool scene_edit_session::is_open() const noexcept {
-  if (!application_ || !scene_ || !application_->is_owner_thread() ||
+  if (!application_ || !scene_.id() || !application_->is_owner_thread() ||
       !application_->accepts_requests() || application_->native_world() != world_)
     return false;
   // World 地址可能复用，必须同时校验实例 ID 的所属域及代次。
-  return document_ && bool(document_->current()) &&
-         bool(gneiss::scene_instance::borrow(*world_, scene_));
+  return document_ && bool(document_->current()) && scene_.is_valid();
 }
 
 scene_edit_session::scene_edit_session(scene_edit_session&& other) noexcept {
@@ -177,26 +176,24 @@ scene_edit_session& scene_edit_session::operator=(scene_edit_session&& other) no
     projection_ = std::move(other.projection_);
     application_ = std::exchange(other.application_, nullptr);
     world_ = std::exchange(other.world_, nullptr);
-    scene_ = std::exchange(other.scene_, scene_instance_id{});
+    scene_ = std::exchange(other.scene_, scene_instance{});
     selection_ = std::exchange(other.selection_, {});
     uri_ = std::move(other.uri_);
   }
   return *this;
 }
 
-gneiss::error
-scene_edit_session::adopt(runtime::application& application, gneiss::world* world,
-                          gneiss::scene_instance_id scene, const scene_document_snapshot& initial,
-                          std::span<const gneiss::scene_object_binding> objects) {
+gneiss::error scene_edit_session::adopt(runtime::application& application,
+                                        gneiss::scene_instance scene,
+                                        const scene_document_snapshot& initial,
+                                        std::span<const gneiss::scene_object_binding> objects) {
   if (edit_base_ || !application.is_owner_thread() || !application.accepts_requests())
     return gneiss::error::invalid_state;
-  if (!world || world != application.native_world() || initial.uri.empty() || !scene)
+  auto* world = scene.owner();
+  if (!world || world != application.native_world() || initial.uri.empty() || !scene.id())
     return gneiss::error::invalid_argument;
   {
-    auto instance = gneiss::scene_instance::borrow(*world, scene);
-    if (!instance)
-      return instance.error();
-    const auto count = instance->size();
+    const auto count = scene.size();
     if (!count)
       return count.error();
     if (*count != objects.size())
@@ -205,7 +202,7 @@ scene_edit_session::adopt(runtime::application& application, gneiss::world* worl
       auto object = world->object(binding.entity);
       if (!object)
         return object.error();
-      auto member = instance->contains(*object);
+      auto member = scene.contains(*object);
       if (!member)
         return member.error();
       if (!*member)
@@ -267,7 +264,7 @@ gneiss::error scene_edit_session::create_empty(runtime::application& application
   close();
   document_ = std::move(versions);
   application_ = &application;
-  scene_ = created->id();
+  scene_ = *created;
   world_ = world;
   const auto projected = report_projection(document_->current(), gneiss::error::success);
   if (projected.failed()) {
@@ -306,8 +303,8 @@ gneiss::error scene_edit_session::accept_content(const scene_document_snapshot& 
   auto status = document_->accept(before, snapshot);
   if (status.failed())
     return status;
-  status = project_scene_document(*world_, scene_, projection_,
-                                  synchronized ? &before.content() : nullptr, snapshot);
+  status = project_scene_document(scene_, projection_, synchronized ? &before.content() : nullptr,
+                                  snapshot);
   (void)report_projection(document_->current(), status);
   if (selected) {
     auto found = projection_.objects().find(*selected);
@@ -320,7 +317,7 @@ gneiss::error scene_edit_session::synchronize() try {
     return gneiss::error::invalid_state;
   const auto version = document_->current();
   auto selected = locate(selection_);
-  auto status = project_scene_document(*world_, scene_, projection_, nullptr, version.content());
+  auto status = project_scene_document(scene_, projection_, nullptr, version.content());
   if (status.ok()) {
     selection_ = {};
     if (selected) {
@@ -373,9 +370,9 @@ scene_edit_session::edit_content(const content_edit& edit,
   status = document_->accept(before, prepared->snapshot);
   if (status.failed())
     return status;
-  auto projection = project_scene_document(*world_, scene_, projection_,
-                                           synchronized ? &before.content() : nullptr,
-                                           document_->current().content(), false);
+  auto projection =
+      project_scene_document(scene_, projection_, synchronized ? &before.content() : nullptr,
+                             document_->current().content(), false);
   if (projection.ok()) {
     if (selected) {
       if (selected->source) {
@@ -861,8 +858,7 @@ void scene_edit_session::close() noexcept {
   selection_ = {};
   uri_.clear();
   if (is_open())
-    if (auto instance = gneiss::scene_instance::borrow(*world_, scene_))
-      (void)instance->unload();
+    (void)scene_.unload();
   document_.reset();
   projection_ = {};
   scene_ = {};
@@ -1147,8 +1143,8 @@ gneiss::error scene_edit_session::restore_changes(const scene_document::revision
   auto status = document_->checkout(expected, target, next);
   if (status.failed())
     return status;
-  status = project_scene_document(*world_, scene_, projection_,
-                                  synchronized ? &before.content() : nullptr, next);
+  status =
+      project_scene_document(scene_, projection_, synchronized ? &before.content() : nullptr, next);
   (void)report_projection(document_->current(), status);
   (void)validate_selection();
   return gneiss::error::success;
@@ -1162,8 +1158,7 @@ gneiss::error scene_edit_session::restore_version(const version& expected, const
   if (status.failed())
     return status;
   if (synchronized) {
-    status =
-        project_scene_document(*world_, scene_, projection_, &expected.content(), target.content());
+    status = project_scene_document(scene_, projection_, &expected.content(), target.content());
     (void)report_projection(target, status);
     (void)validate_selection();
   } else {

@@ -6,7 +6,7 @@
 #include "engine/core/logging/default_service.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/scene/scene_types.hpp"
+#include "engine/function/scene/scene_instance.hpp"
 #include <deque>
 
 #include "application/application.hpp"
@@ -63,7 +63,7 @@ struct runtime_context final {
   gneiss::host::runtime_scene_inspection* scene_inspection = nullptr;
   gneiss::host::runtime_property_editor* property_editor = nullptr;
   gneiss::host::runtime_asset_reloader* asset_reloader = nullptr;
-  gneiss::scene_instance_id scene = {};
+  gneiss::scene_instance scene = {};
   std::uint64_t next_inspection_ns = 0U;
   std::uint64_t inspection_session_id = 0U;
   std::uint64_t next_statistics_ns = 0U;
@@ -393,8 +393,7 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
                                                   .message = message});
   }
   if (context.ipc_session != nullptr && context.scene_inspection != nullptr &&
-      context.scene != gneiss::scene_instance_id{} &&
-      time->elapsed_ns >= context.next_inspection_ns &&
+      context.scene != gneiss::scene_instance{} && time->elapsed_ns >= context.next_inspection_ns &&
       context.ipc_session->supports_domain(gneiss::ipc_domain::inspection)) {
     context.next_inspection_ns = time->elapsed_ns + UINT64_C(100000000);
     gneiss::host::runtime_scene_snapshot snapshot;
@@ -415,15 +414,12 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
       return request_exit();
     }
   }
-  if (context.ipc_session != nullptr && context.scene != gneiss::scene_instance_id{} &&
+  if (context.ipc_session != nullptr && context.scene != gneiss::scene_instance{} &&
       context.inspection_session_id != 0U && time->elapsed_ns >= context.next_statistics_ns) {
     context.next_statistics_ns = time->elapsed_ns + UINT64_C(250000000);
     std::uint64_t scene_node_count = 0U;
     std::uint64_t entity_count = 0U;
-    auto instance =
-        gneiss::scene_instance::borrow(*context.application->native_world(), context.scene);
-    auto scenes_result =
-        instance ? instance->size() : gneiss::result<std::uint64_t>{instance.error()};
+    auto scenes_result = context.scene.size();
     auto operation = scenes_result ? gneiss::error::success : scenes_result.error();
     if (scenes_result) {
       scene_node_count = std::move(*scenes_result);
@@ -576,7 +572,7 @@ private:
     }
   }
 
-  gneiss::scene_instance_id scene = {};
+  gneiss::scene_instance scene = {};
   auto native_result = gneiss::error::success;
   std::string active_scene_uri = project.startup_scene;
   // 宿主只记录加载回执的依赖 URI，不从运行对象反推作者描述。
@@ -714,8 +710,8 @@ private:
                .category = "property_edit",
                .message = "Runtime 属性写入执行器初始化失败",
                .result = operation});
-    if (auto instance = gneiss::scene_instance::borrow(*application->native_world(), scene))
-      (void)instance->unload();
+    if (scene.is_valid())
+      (void)scene.unload();
     return 5;
   }
   context.property_editor = &property_editor;
@@ -792,8 +788,8 @@ private:
                  .message = "Editor IPC 会话启动失败",
                  .result = operation});
 
-      if (auto instance = gneiss::scene_instance::borrow(*application->native_world(), scene))
-        (void)instance->unload();
+      if (scene.is_valid())
+        (void)scene.unload();
       return 11;
     }
     context.ipc_session = ipc_session.get();
@@ -829,7 +825,7 @@ private:
   context.asset_reloader = nullptr;
   context.property_editor = nullptr;
   context.scene_inspection = nullptr;
-  context.scene = gneiss::scene_instance_id{};
+  context.scene = gneiss::scene_instance{};
   if (ipc_session) {
     (void)ipc_session->stop();
   }

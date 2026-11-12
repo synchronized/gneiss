@@ -508,3 +508,14 @@ A52-05：本批只验证 Windows 默认构建和相关 CPU 回归。
 本轮未执行 GPU 运行和跨平台/静态库完整矩阵，不作为版本发布验收。
 
 实现职责与调用边界见[场景树参考](../reference/scene-tree.md#内部实现归属)。
+
+## 场景借用句柄贯通
+
+- [x] 实例化回执、Runtime 加载/重载、编辑器会话及异步回执保存 scene_instance。
+- [x] apply_scene、编辑器投影和 adopt 移除重复 World 参数；句柄统一提供所属 World。
+- [x] scene_instance_id 保留于 World 内部存储及 id/borrow 身份边界；句柄仍不拥有场景。
+- [x] Windows Clang Debug 默认构建通过；21 项定向回归通过，覆盖实例化、跨 World、卸载失效、Runtime 重载和编辑器历史/保存。
+
+本轮未执行 GPU 画面与跨平台/静态库矩阵。场景句柄依旧要求 World 覆盖其使用期。
+
+接口和生命周期见[场景实例参考](../reference/scene-instance.md#运行期身份与所有权)。

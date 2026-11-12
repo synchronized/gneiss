@@ -50,11 +50,10 @@ void write_prefab(const std::filesystem::path& path, gneiss::guid root_uuid,
 }
 
 gneiss::error find_source(const std::shared_ptr<gneiss::runtime::application>& application,
-                                  gneiss::scene_instance_id scene,
-                                  const std::vector<gneiss::scene_object_binding>& objects,
-                                  gneiss::guid instance_uuid,
-                                  gneiss::guid source_uuid,
-                                  gneiss::test_support::scene_node_info& output) {
+                          gneiss::scene_instance scene,
+                          const std::vector<gneiss::scene_object_binding>& objects,
+                          gneiss::guid instance_uuid, gneiss::guid source_uuid,
+                          gneiss::test_support::scene_node_info& output) {
   const auto binding = std::ranges::find_if(objects, [&](const auto& object) {
     return object.object == instance_uuid && object.source == source_uuid;
   });
@@ -86,7 +85,7 @@ int main() try {
   config.asset_root = root_text;
   gneiss::tasks::task_scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss::scene_instance_id scene = {};
+  gneiss::scene_instance scene = {};
   constexpr std::string_view scene_uri = "asset://scenes/prefab.scene.json";
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
           .failed())

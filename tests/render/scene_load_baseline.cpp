@@ -71,8 +71,8 @@ std::uint64_t peak_resident_bytes() {
 }
 // 场景切换的预载也走设备变体选择和 CPU 准备，不能用同步预载阻断被测异步路径。
 gneiss::error preload_scene(const std::shared_ptr<gneiss::runtime::application>& app,
-                                    gneiss::tasks::task_scheduler& scheduler, bool cooperative,
-                                    std::string_view uri, gneiss::scene_instance_id& scene) {
+                            gneiss::tasks::task_scheduler& scheduler, bool cooperative,
+                            std::string_view uri, gneiss::scene_instance& scene) {
   auto request = app->assets().load<gneiss::scene>(uri);
   if (!request)
     return request.error();
@@ -161,9 +161,9 @@ int main(int argc, char** argv) try {
   if (app->attach_task_executor(scheduler) != gneiss::error::success) {
     return 3;
   }
-  gneiss::scene_instance_id scene{};
+  gneiss::scene_instance scene{};
   constexpr std::string_view uri = "asset://scenes/scene.scene.json";
-  gneiss::scene_instance_id previous_scene{};
+  gneiss::scene_instance previous_scene{};
   gneiss::world* previous_world{};
   gneiss::test_support::scene_node_info camera;
   std::uint64_t previous_resources{};
@@ -175,7 +175,7 @@ int main(int argc, char** argv) try {
       std::fprintf(stderr, "异步预载失败：结果=%d\n", preload.code());
       return 11;
     }
-    if (previous_scene == gneiss::scene_instance_id{} ||
+    if (previous_scene == gneiss::scene_instance{} ||
         (previous_world = app->native_world()) == nullptr ||
         gneiss::error{app->run(10U)} != gneiss::error::success) {
       return 11;
@@ -302,7 +302,7 @@ int main(int argc, char** argv) try {
         sampled_frame = render_stats.presented_frames;
       }
       const auto elapsed = milliseconds(start);
-      if (scenario == "interact" && scene == gneiss::scene_instance_id{}) {
+      if (scenario == "interact" && scene == gneiss::scene_instance{}) {
         if (camera.node.is_valid()) {
           auto transform = camera.local_transform;
           transform.translation[0] += static_cast<float>(std::sin(elapsed / 1000.0) * 0.1);
@@ -393,7 +393,7 @@ int main(int argc, char** argv) try {
           auto built = gneiss::test_support::activate_scene(*handle, *content);
           if (!built)
             return built.error();
-          if (previous_scene) {
+          if (previous_scene.id()) {
             auto unloaded = gneiss::test_support::scene_access{*handle}.unload(previous_scene);
             if (unloaded.failed())
               return unloaded;
@@ -407,7 +407,7 @@ int main(int argc, char** argv) try {
           activation_elapsed_ms = milliseconds(start);
           previous_phase = load_stage::visuals;
         }
-        if (scene) {
+        if (scene.id()) {
           if (visuals && !visuals.ready())
             return gneiss::error::success;
           if (visuals) {
@@ -447,8 +447,7 @@ int main(int argc, char** argv) try {
       if (run_result != gneiss::error::success) {
         result = run_result;
       }
-      if (!closed && scene == gneiss::scene_instance_id{} &&
-          result == gneiss::error::success) {
+      if (!closed && scene == gneiss::scene_instance{} && result == gneiss::error::success) {
         result = gneiss::error::invalid_state;
       }
     }

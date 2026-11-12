@@ -87,7 +87,7 @@ int main() try {
             .failed())
       return 35;
     const auto uuid = gneiss::guid::from_bytes({72, 93});
-    auto destination = gneiss::scene_instance::borrow(*world, session.scene_handle());
+    auto destination = gneiss::scene_instance::borrow(*world, session.scene_handle().id());
     if (!destination)
       return 36;
     auto created = destination->create_object({"Direct child", {}}, world->find(original.node));
@@ -115,7 +115,7 @@ int main() try {
     const gneiss::scene_object_binding wrong{
         foreign_object.uuid, {}, foreign_object.entity};
     auto before = session.scene_handle();
-    if (session.adopt(*application, world, target->id(), *content, {&wrong, 1}) !=
+    if (session.adopt(*application, *target, *content, {&wrong, 1}) !=
             gneiss::error::invalid_handle ||
         session.scene_handle() != before || !session.is_open() || !member->is_valid())
       return 102;
@@ -127,7 +127,7 @@ int main() try {
     gneiss::editor::scene_edit_session transient;
     if (transient.create_empty(*application, world, gneiss::guid::generate()).failed())
       return 104;
-    auto instance = gneiss::scene_instance::borrow(*world, transient.scene_handle());
+    auto instance = gneiss::scene_instance::borrow(*world, transient.scene_handle().id());
     if (!instance || instance->unload().failed() || transient.is_open())
       return 105;
     transient.close();
@@ -150,8 +150,7 @@ int main() try {
   if (foreign != gneiss::error::invalid_state || session.is_dirty())
     return 22;
   auto native = application;
-  if (session.adopt(*native, world, gneiss::scene_instance_id{}, {}, {}) !=
-          gneiss::error::invalid_argument ||
+  if (session.adopt(*native, gneiss::scene_instance{}, {}, {}) != gneiss::error::invalid_argument ||
       session.scene_handle() != original_scene)
     return 23;
   if (session.select(gneiss::test_support::scene_query(session).nodes[1].node) !=

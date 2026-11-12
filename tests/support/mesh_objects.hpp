@@ -6,15 +6,15 @@
 #include "engine/function/scene/component_registration.hpp"
 #include "engine/function/scene/components.hpp"
 namespace gneiss::test_support {
-inline gneiss::result<gneiss::game_object> mesh_target(gneiss::world& owner,
-                                                       scene_instance_id scene, entity_id id) {
-  auto destination = gneiss::scene_instance::borrow(owner, scene);
-  if (!destination)
-    return destination.error();
+inline gneiss::result<gneiss::game_object> mesh_target(gneiss::world& owner, scene_instance scene,
+                                                       entity_id id) {
+  if (scene.owner() != &owner)
+    return gneiss::error::invalid_handle;
+  auto destination = scene;
   auto object = owner.object(id);
   if (!object)
     return object.error();
-  auto member = destination->contains(*object);
+  auto member = destination.contains(*object);
   if (!member)
     return member.error();
   if (!*member)
@@ -22,7 +22,7 @@ inline gneiss::result<gneiss::game_object> mesh_target(gneiss::world& owner,
   return *object;
 }
 inline gneiss::result<editor::scene_mesh_binding> read_mesh(gneiss::world& owner,
-                                                            scene_instance_id scene, entity_id id) {
+                                                            scene_instance scene, entity_id id) {
   auto object = mesh_target(owner, scene, id);
   if (!object)
     return object.error();
@@ -33,7 +33,7 @@ inline gneiss::result<editor::scene_mesh_binding> read_mesh(gneiss::world& owner
 }
 // 测试编排：显式查询缓存，再通过对象接口写入；不提供旧 expected/事务协议。
 inline gneiss::error assign_mesh(gneiss::world& owner, gneiss::asset_manager& assets,
-                                 scene_instance_id scene, entity_id id, std::string_view mesh_uri,
+                                 scene_instance scene, entity_id id, std::string_view mesh_uri,
                                  std::string_view material_uri) {
   auto before = read_mesh(owner, scene, id);
   if (!before)
@@ -64,12 +64,12 @@ struct mesh_fixture {
   std::string_view mesh_uri, material_uri;
 };
 inline gneiss::result<entity_id> spawn_mesh(gneiss::world& owner, gneiss::asset_manager& assets,
-                                            scene_instance_id scene, const mesh_fixture& fixture,
+                                            scene_instance scene, const mesh_fixture& fixture,
                                             const editor::scene_mesh_binding* retained = nullptr) {
-  auto destination = gneiss::scene_instance::borrow(owner, scene);
-  if (!destination)
-    return destination.error();
-  auto made = destination->create_object({fixture.name, {}}, owner.find(fixture.parent));
+  if (scene.owner() != &owner)
+    return gneiss::error::invalid_handle;
+  auto destination = scene;
+  auto made = destination.create_object({fixture.name, {}}, owner.find(fixture.parent));
   if (!made)
     return made.error();
   gneiss::component_context context{*made};

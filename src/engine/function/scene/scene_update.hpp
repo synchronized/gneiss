@@ -26,8 +26,7 @@ using scene_component_preparer = std::function<result<component_description>(
  * 只允许 World 所在线程；关联及资源仅在调用期间借用。
  */
 [[nodiscard]] GNEISS_API result<bool>
-apply_scene(world&, scene_instance_id,
-            std::map<object_address, scene_object_association>& associations,
+apply_scene(scene_instance, std::map<object_address, scene_object_association>& associations,
             const composed_scene& previous, const composed_scene& next,
             const scene_resource_bindings& assets, const scene_component_preparer& prepare = {});
 } // namespace gneiss

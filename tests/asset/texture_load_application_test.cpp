@@ -121,7 +121,7 @@ void run(gneiss::tasks::execution_mode mode) {
   std::ofstream(files.root / "s.scene")
       << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":{"object":null,"source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://m.mesh","material":"asset://m.material","uuid":"156c772a-1a1d-4eae-83df-5de0465c4534"}}]},{"uuid":"00000000-0000-4000-8000-000000000003","parent":{"object":null,"source":null},"transform":{"translation":[2,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://m.mesh","material":"asset://m.material","uuid":"15e8daeb-ec91-4d5f-98b9-095db06f7148"}}]}]})";
   constexpr std::string_view scene_uri = "asset://s.scene";
-  gneiss::scene_instance_id scene{};
+  gneiss::scene_instance scene{};
   check(gneiss::error{gneiss::test_support::load_scene(
             *app, scene_uri, &scene, &scheduler)} == gneiss::error::success);
   const auto capture = [&](std::uint64_t index) {

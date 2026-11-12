@@ -13,7 +13,6 @@
 #include "engine/core/math/transform.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instance.hpp"
-#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/world.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/scene/scene_description.hpp"
@@ -116,14 +115,11 @@ public:
   scene_edit_session(scene_edit_session&& other) noexcept;
   scene_edit_session& operator=(scene_edit_session&& other) noexcept;
   /** 接收场景与本次加载的固定文档快照；成功后拥有句柄，不从 World 反推描述。所属线程调用。 */
-  [[nodiscard]] gneiss::error adopt(runtime::application& application,
-                                            gneiss::world* world,
-                                            gneiss::scene_instance_id scene,
-                                            const scene_document_snapshot& initial,
-                                            std::span<const gneiss::scene_object_binding> objects);
-  [[nodiscard]] gneiss::error create_empty(runtime::application& application,
-                                                   gneiss::world* world,
-                                                   gneiss::guid scene_uuid);
+  [[nodiscard]] gneiss::error adopt(runtime::application& application, gneiss::scene_instance scene,
+                                    const scene_document_snapshot& initial,
+                                    std::span<const gneiss::scene_object_binding> objects);
+  [[nodiscard]] gneiss::error create_empty(runtime::application& application, gneiss::world* world,
+                                           gneiss::guid scene_uuid);
   [[nodiscard]] gneiss::error create_empty(runtime::application& application,
                                                    gneiss::world* world);
   void close() noexcept;
@@ -134,7 +130,7 @@ public:
                                                            const scene_mesh_binding& resources);
   /** 捕获当前文档节点的资源强引用；文档关闭或应用停止后拒绝调用。 */
   [[nodiscard]] gneiss::result<scene_mesh_binding> capture_mesh_binding(entity_id node) const;
-  [[nodiscard]] gneiss::scene_instance_id scene_handle() const noexcept { return scene_; }
+  [[nodiscard]] gneiss::scene_instance scene_handle() const noexcept { return scene_; }
   /** 替换已准备资源；当前绑定不匹配 expected 时拒绝，成功后标脏，不加载资产。 */
   [[nodiscard]] gneiss::error replace_mesh_binding(entity_id node,
                                                    const scene_mesh_binding& expected,
@@ -188,7 +184,7 @@ public:
   [[nodiscard]] gneiss::error destroy_node(entity_id node);
   /** 保存回执独立于文档生命周期；完成只写回执，宿主推进后显式接收。 */
   struct save_receipt {
-    gneiss::scene_instance_id scene;
+    gneiss::scene_instance scene;
     scene_document::version version;
     std::string uri, content;
     gneiss::error status{gneiss::error::not_ready};
@@ -263,7 +259,7 @@ private:
   // 借用宿主；宿主必须在关闭/销毁 Application 前关闭编辑文档。
   gneiss::error report_projection(const version&, gneiss::error) noexcept;
   runtime::application* application_{};
-  gneiss::scene_instance_id scene_{};
+  gneiss::scene_instance scene_{};
   entity_id selection_;
   std::string uri_;
 };

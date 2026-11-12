@@ -188,7 +188,7 @@ void run() {
   auto active_result = gneiss::create_native();
   check(bool(active_result));
   auto active = std::move(*active_result);
-  gneiss::scene_instance_id old_scene{};
+  gneiss::scene_instance old_scene{};
   gneiss::scene_content initial;
   gneiss::ref<const gneiss::scene> initial_asset;
   gneiss::scene_diagnostic initial_error;
@@ -222,7 +222,7 @@ void run() {
     const auto cached = active_assets.cached_count();
     const auto before_reads = files->reads;
     std::map<gneiss::object_address, gneiss::scene_object_association> associations;
-    auto applied = gneiss::apply_scene(*active.get(), *empty, associations, {}, target, {});
+    auto applied = gneiss::apply_scene(*empty, associations, {}, target, {});
     check(!applied && applied.error() == gneiss::error::not_ready);
     check(active_assets.cached_count() == cached && files->reads == before_reads);
     check(gneiss::test_support::scene_access{*active}->unload(*empty).ok());
@@ -245,17 +245,15 @@ void run() {
   auto baseline = gneiss::test_support::compose(initial);
   check(bool(baseline));
   auto mapping = gneiss::test_support::associations(direct->objects);
-  auto scene_reloaded = gneiss::apply_scene(*active.get(), old_scene, mapping, *baseline, *baseline,
-                                            initial_bindings);
+  auto scene_reloaded =
+      gneiss::apply_scene(old_scene, mapping, *baseline, *baseline, initial_bindings);
   check(scene_reloaded && *scene_reloaded);
   check(files->reads == reads_before_instantiation);
-  auto invalid_apply =
-      gneiss::apply_scene(*active.get(), {}, mapping, *baseline, *baseline, initial_bindings);
+  auto invalid_apply = gneiss::apply_scene({}, mapping, *baseline, *baseline, initial_bindings);
   check(!invalid_apply && invalid_apply.error() == gneiss::error::invalid_handle);
   gneiss::error foreign_reload;
   std::thread foreign_thread([&] {
-    auto result = gneiss::apply_scene(*active.get(), old_scene, mapping, *baseline, *baseline,
-                                      initial_bindings);
+    auto result = gneiss::apply_scene(old_scene, mapping, *baseline, *baseline, initial_bindings);
     foreign_reload = result ? gneiss::error::success : result.error();
   });
   foreign_thread.join();
@@ -323,23 +321,23 @@ void run() {
             "asset://blue.material", unrelated, diagnostic) == gneiss::error::success);
   check(gneiss::resource_rid(unrelated) != gneiss::resource_rid(material));
   const auto reads = files->reads;
-  gneiss::scene_instance_id new_scene{};
+  gneiss::scene_instance new_scene{};
   const auto instantiation_input = prepared;
   auto expected_prefab_asset = prepared.prefabs.begin()->second.resource;
   check(bool(expected_prefab_asset));
   // 缺少来源引用必须拒绝，不能通过临时描述回写缓存。
   auto missing_source = prepared;
   missing_source.prefabs.begin()->second.description.reset();
-  gneiss::scene_instance_id rejected_scene{};
+  gneiss::scene_instance rejected_scene{};
   check(gneiss::test_support::take_value(gneiss::test_support::scene_fixture::instantiate_scene(
                                              *candidate.get(), std::move(missing_source), bindings),
                                          rejected_scene) == gneiss::error::not_found &&
-        rejected_scene == gneiss::scene_instance_id{});
+        rejected_scene == gneiss::scene_instance{});
   auto created = gneiss::test_support::scene_fixture::instantiate_scene(
       *candidate.get(), std::move(prepared), bindings);
   check(bool(created));
   new_scene = created->instance;
-  check(new_scene != gneiss::scene_instance_id{});
+  check(new_scene != gneiss::scene_instance{});
   // 投影重建使用通用应用：即使输入包含 Prefab，运行节点也不持有来源绑定。
   {
     auto empty =
@@ -392,13 +390,13 @@ void run() {
   }
   const auto selected_material = gneiss::resource_rid(material);
   // 多个场景共享相同 URI 的资源身份。
-  gneiss::scene_instance_id additional{};
+  gneiss::scene_instance additional{};
   prepared = instantiation_input;
   check(gneiss::test_support::take_value(gneiss::test_support::scene_fixture::instantiate_scene(
                                              *candidate.get(), std::move(prepared), bindings),
                                          additional)
             .ok());
-  gneiss::scene_instance_id duplicate_scene{};
+  gneiss::scene_instance duplicate_scene{};
   prepared = instantiation_input;
   check(gneiss::test_support::take_value(gneiss::test_support::scene_fixture::instantiate_scene(
                                              *candidate.get(), std::move(prepared), bindings),
@@ -537,12 +535,12 @@ void run() {
   }
   check(invalid_dependency);
   const auto failure_reads = files->reads;
-  gneiss::scene_instance_id failed_instance{};
+  gneiss::scene_instance failed_instance{};
   check(gneiss::test_support::take_value(gneiss::test_support::scene_fixture::instantiate_scene(
                                              *candidate.get(), std::move(prepared), {}),
                                          failed_instance) ==
         gneiss::error::invalid_argument);
-  check(failed_instance == gneiss::scene_instance_id{});
+  check(failed_instance == gneiss::scene_instance{});
   check(files->reads == failure_reads);
   check(gneiss::error{gneiss::test_support::assign_value(
             candidate.get()->entity_count(), count)} == gneiss::error::success &&

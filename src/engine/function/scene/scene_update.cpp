@@ -56,16 +56,17 @@ rebase_scene_update(world& world,
   }
   return {};
 }
-result<bool> apply_scene(world& world, scene_instance_id scene,
+result<bool> apply_scene(scene_instance destination,
                          std::map<object_address, scene_object_association>& associations,
                          const composed_scene& previous, const composed_scene& next,
                          const scene_resource_bindings& assets,
                          const scene_component_preparer& prepare) {
-  if (!world.is_owner_thread())
-    return error::invalid_state;
-  auto destination = scene_instance::borrow(world, scene);
-  if (!destination)
-    return destination.error();
+  if (!destination.owner())
+    return error::invalid_handle;
+  auto& world = *destination.owner();
+  auto count = destination.size();
+  if (!count)
+    return count.error();
   std::map<object_address, const composed_object*> old;
   for (const auto& object : previous.objects)
     if (!old.emplace(object.address, &object).second)
@@ -92,9 +93,6 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
     math::transform local_transform;
   };
   std::map<object_address, projected_object> nodes;
-  auto count = destination->size();
-  if (!count)
-    return count.error();
   std::set<std::uint64_t> entities;
   for (const auto& [address, binding] : associations) {
     if (!entities.insert(binding.entity.get()).second)
@@ -102,7 +100,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
     auto borrowed = world.object(binding.entity);
     if (!borrowed)
       return false;
-    auto member = destination->contains(*borrowed);
+    auto member = destination.contains(*borrowed);
     if (!member)
       return member.error();
     if (!*member)
@@ -193,7 +191,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
   for (const auto& object : next.objects) {
     if (old.contains(object.address))
       continue;
-    auto created = destination->create_object({object.effective.name, object.effective.transform});
+    auto created = destination.create_object({object.effective.name, object.effective.transform});
     if (!created)
       return created.error();
     projected_object info;
@@ -254,7 +252,7 @@ result<bool> apply_scene(world& world, scene_instance_id scene,
     const auto target_binding = prepared_binding(object);
     const auto node = nodes.at(object.address).node;
     auto target = world.find(node);
-    auto member = destination->contains(target);
+    auto member = destination.contains(target);
     if (!member)
       return member.error();
     if (!*member)

@@ -39,7 +39,7 @@ struct context {
   bool model{};
   std::vector<gneiss::render_resource_source> assets;
   bool close_during_load{};
-  gneiss::scene_instance_id scene{};
+  gneiss::scene_instance scene{};
   gneiss::entity_id camera{};
   gneiss::entity_id mesh{};
   std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();

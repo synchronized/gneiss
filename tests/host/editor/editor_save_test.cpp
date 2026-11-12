@@ -210,7 +210,7 @@ int main() try {
 
   std::shared_ptr<gneiss::runtime::application> reloaded_application;
   std::vector<gneiss::scene_object_binding> reloaded_objects;
-  gneiss::scene_instance_id reloaded_scene{};
+  gneiss::scene_instance reloaded_scene{};
   if (create_application(root, reloaded_application) != gneiss::error::success ||
       gneiss::test_support::load_scene(*reloaded_application, scene_uri, &reloaded_scene, nullptr,
                                        false,
