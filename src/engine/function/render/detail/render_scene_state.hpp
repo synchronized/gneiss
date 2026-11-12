@@ -28,7 +28,8 @@ public:
   /** 接受侧校验视图并绑定场景内容；返回任务须与场景命令在同一消费者按序调用。
    * 不捕获接受侧 this 或 RID 表，先准备的任务可在外部场景句柄释放后执行。 */
   using capture_operation = std::function<result<frame_packet>()>;
-  result<capture_operation> prepare_capture(const render::frame_request& request) const;
+  result<capture_operation> prepare_capture(const render::frame_request& request,
+                                            std::vector<target_description> sizes = {}) const;
   void close() noexcept;
   struct instance {
     mesh_instance_description description;
@@ -42,8 +43,10 @@ private:
   struct scene_content {
     std::map<std::uint64_t, instance> instances;
   };
-  static result<frame_packet> capture_content(const render::frame_request& request,
-                                              const scene_content* content);
+  static result<frame_packet>
+  capture_content(const render::frame_request& request,
+                  const std::vector<std::shared_ptr<scene_content>>& contents,
+                  const std::vector<target_description>& sizes);
   struct scene {
     // 接受侧只管理身份，不复制消费者的变换、可见性和资源状态。
     std::set<std::uint64_t> accepted;

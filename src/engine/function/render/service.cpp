@@ -13,7 +13,7 @@ gneiss::error service::implementation::initialize(const native_window_info& wind
   const auto executor_result = executor_.initialize(
       [this](gneiss::render::detail::frame_packet& packet, execution_result& output) {
         const auto result = backend_.draw(packet, output);
-        output.needs_recreate = packet.window.needs_recreate;
+        output.needs_recreate = output.needs_recreate || packet.window.needs_recreate;
         return result;
       },
       queues);
@@ -234,18 +234,21 @@ result<std::uint64_t> service::request_capture(render::frame_request&& request,
 }
 result<std::uint64_t> service::submit_request(render::frame_request& request, frame_policy policy,
                                               std::shared_ptr<frame_image> image) {
-  auto prepared_request = request;
-  rid target{};
-  if (request.views.size() == 1 && request.views.front().target) {
-    target = request.views.front().target;
-    const auto* description = impl_->targets.get(target, resource_type::render_target);
+  if (image && request.views.size() > 1)
+    return error::unsupported; // 单个回读结果不能隐式选择多个输出中的一个。
+  std::vector<target_description> sizes;
+  sizes.reserve(request.views.size());
+  for (const auto& view : request.views) {
+    if (!view.target) {
+      sizes.push_back({request.window.width, request.window.height});
+      continue;
+    }
+    const auto* description = impl_->targets.get(view.target, resource_type::render_target);
     if (!description)
       return error::invalid_handle;
-    prepared_request.window.width = description->width;
-    prepared_request.window.height = description->height;
-    prepared_request.window.needs_recreate = false;
+    sizes.push_back(*description);
   }
-  auto capture = impl_->scenes.prepare_capture(prepared_request);
+  auto capture = impl_->scenes.prepare_capture(request, std::move(sizes));
   if (!capture)
     return capture.error();
   // UI 是独立逐帧输入，接受时固定其纹理版本，不在消费者访问资源 RID 表。
@@ -262,7 +265,7 @@ result<std::uint64_t> service::submit_request(render::frame_request& request, fr
   }
   auto accepted = impl_->submit(
       [capture = std::move(*capture), ui_resources = std::move(ui_resources),
-       image = std::move(image), target]() mutable -> result<gneiss::render::detail::frame_packet> {
+       image = std::move(image)]() mutable -> result<gneiss::render::detail::frame_packet> {
         auto packet = capture();
         if (!packet)
           return packet.error();
@@ -274,7 +277,6 @@ result<std::uint64_t> service::submit_request(render::frame_request& request, fr
             packet->ui.commands().size() * sizeof(ui_draw_command) +
             packet->debug.lines().size() * sizeof(debug_line);
         packet->readback = std::move(image);
-        packet->target = target;
         return packet;
       },
       policy);

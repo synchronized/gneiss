@@ -76,13 +76,19 @@ struct draw_scene {
   std::vector<draw_instance> instances;
 };
 
+struct draw_view {
+  rid target{};
+  std::uint32_t width{};
+  std::uint32_t height{};
+  draw_scene scene;
+};
+
 /** 已提交帧的自有数据；移动后不再借用主线程的逐帧可变内存。 */
 struct frame_packet final {
   /** 由执行器在接受帧时写入，用于关联延迟返回的渲染结果。 */
   std::uint64_t sequence{};
   native_window_info window;
-  rid target{};
-  draw_scene scene;
+  std::vector<draw_view> views;
   resource_snapshot resources;
   ui_draw_list ui;
   debug_draw_list debug;

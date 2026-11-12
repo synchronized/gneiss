@@ -77,7 +77,8 @@ int main() {
                      resources)
             .ok());
   auto captured = state.capture(request);
-  CHECK(captured && captured->window.width == 640 && captured->scene.instances.size() == 1 &&
+  CHECK(captured && captured->window.width == 640 &&
+        captured->views.front().scene.instances.size() == 1 &&
         captured->debug.lines().size() == 1 && captured->resources.get_mesh(1) == vertices.get() &&
         captured->resources.get_material(2) == description.get() &&
         !captured->resources.mesh_pending(1));

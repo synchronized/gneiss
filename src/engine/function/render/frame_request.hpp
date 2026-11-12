@@ -22,8 +22,8 @@ struct view {
   math::vector3 camera_position{};
   std::uint64_t layers{~UINT64_C(0)};
 };
-/** 当前支持零或一个视图；零视图绘制窗口 UI/调试输入；多视图返回 unsupported。
- * 离屏视图使用目标尺寸，window 只为窗口输出提供输入。 */
+/** 支持多个独立目标视图，目标不得重复（窗口最多一个）；零视图绘制窗口 UI/调试输入。
+ * 离屏视图使用目标尺寸，window 只为窗口输出提供输入。UI/调试输入应用于每个视图。 */
 struct frame_request {
   native_window_info window;
   std::vector<view> views;

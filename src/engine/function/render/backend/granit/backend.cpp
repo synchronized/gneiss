@@ -52,6 +52,8 @@ struct backend::implementation final {
   error initialize_gpu(const native_window_info&, std::span<const std::byte>, float, float);
   error shutdown_gpu(device_stats&);
   error execute_frame(gneiss::render::detail::frame_packet&, execution_result&);
+  error execute_view(gneiss::render::detail::frame_packet&,
+                     const gneiss::render::detail::draw_view&, execution_result&);
   error prepare_resources(const gneiss::render::detail::resource_snapshot&);
   error set_environment(std::span<const std::byte>, float, float);
   struct texture_mirror final {
@@ -1052,24 +1054,76 @@ error backend::implementation::prepare_resources(
   return error::success;
 }
 
+error backend::implementation::execute_frame(gneiss::render::detail::frame_packet& packet,
+                                             execution_result& output) {
+  const auto started = std::chrono::steady_clock::now();
+  auto prepared = prepare_resources(packet.resources);
+  if (prepared.failed())
+    return prepared;
+  output.resource_prepare_ms =
+      std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - started).count();
+  std::vector<const detail::draw_view*> ordered_views;
+  for (const auto& view : packet.views)
+    if (view.target)
+      ordered_views.push_back(&view);
+  for (const auto& view : packet.views)
+    if (!view.target)
+      ordered_views.push_back(&view);
+  output.needs_recreate = packet.window.needs_recreate;
+  for (const auto* input : ordered_views) {
+    const auto& view = *input;
+    execution_result current;
+    auto status = execute_view(packet, view, current);
+    output.presented = output.presented || current.presented;
+    if (!view.target)
+      output.needs_recreate = current.needs_recreate;
+    output.resource_prepare_ms += current.resource_prepare_ms;
+    output.acquire_wait_ms += current.acquire_wait_ms;
+    output.record_submit_ms += current.record_submit_ms;
+    output.present_wait_ms += current.present_wait_ms;
+    output.gpu_timing_supported = current.gpu_timing_supported;
+    output.environment_asset_requested = current.environment_asset_requested;
+    output.environment_fallback = current.environment_fallback;
+    output.environment_intensity = current.environment_intensity;
+    output.environment_rotation_radians = current.environment_rotation_radians;
+    if (current.gpu_timing_valid) {
+      output.gpu_timing_valid = true;
+      output.gpu_timing_sample_sequence = current.gpu_timing_sample_sequence;
+      output.gpu_frame_ms = current.gpu_frame_ms;
+      output.gpu_shadow_ms = current.gpu_shadow_ms;
+      output.gpu_opaque_ms = current.gpu_opaque_ms;
+      output.gpu_tone_mapping_ms = current.gpu_tone_mapping_ms;
+    }
+    if (status.failed())
+      return status;
+  }
+  packet.window.needs_recreate = output.needs_recreate;
+  return error::success;
+}
+
 // 单帧资源准备与提交必须保持 Granit 调用和失败回滚的线性顺序。
 gneiss::error
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-backend::implementation::execute_frame(gneiss::render::detail::frame_packet& packet,
-                                       execution_result& output) {
+backend::implementation::execute_view(gneiss::render::detail::frame_packet& packet,
+                                      const gneiss::render::detail::draw_view& view_input,
+                                      execution_result& output) {
   output.gpu_timing_supported = gpu_timing_supported_;
   output.environment_asset_requested = environment_asset_requested_;
   output.environment_fallback = environment_fallback_;
   output.environment_intensity = environment_intensity_;
   output.environment_rotation_radians = environment_rotation_radians_;
-  auto& window = packet.window;
-  const auto& snapshot = packet.scene;
+  auto window = packet.window;
+  if (!view_input.target)
+    output.needs_recreate = window.needs_recreate;
+  window.width = view_input.width;
+  window.height = view_input.height;
+  const auto& snapshot = view_input.scene;
   const auto& resources = packet.resources;
   if (window.width == 0U || window.height == 0U)
     return gneiss::error::success;
 
   const auto resource_prepare_started = std::chrono::steady_clock::now();
-  if (!packet.target && window.needs_recreate) {
+  if (!view_input.target && window.needs_recreate) {
     const auto recreate = swapchain_.recreate({.width = window.width, .height = window.height});
     if (recreate == ::granit::result::not_ready)
       return gneiss::error::success;
@@ -1081,11 +1135,8 @@ backend::implementation::execute_frame(gneiss::render::detail::frame_packet& pac
       return map_result(query);
     swapchain_format_ = info.format;
     window.needs_recreate = false;
+    output.needs_recreate = false;
   }
-
-  const auto prepared = prepare_resources(resources);
-  if (prepared.failed())
-    return prepared;
 
   const auto ui_result = prepare_ui_draw_list(packet.ui, resources, window.width, window.height);
   if (ui_result.failed())
@@ -1192,10 +1243,10 @@ backend::implementation::execute_frame(gneiss::render::detail::frame_packet& pac
                                    std::chrono::steady_clock::now() - resource_prepare_started)
                                    .count();
 
-  if (packet.readback || packet.target) {
+  if (packet.readback || view_input.target) {
     {
       target_mirror temporary;
-      auto& destination = packet.target ? targets_[packet.target] : temporary;
+      auto& destination = view_input.target ? targets_[view_input.target] : temporary;
       auto& target = destination.texture;
       auto captured =
           target.ref()
@@ -1288,7 +1339,7 @@ backend::implementation::execute_frame(gneiss::render::detail::frame_packet& pac
       std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - acquire_started)
           .count();
   if (result == ::granit::result::out_of_date) {
-    window.needs_recreate = true;
+    output.needs_recreate = true;
     return gneiss::error::success;
   }
   if (result.failed())

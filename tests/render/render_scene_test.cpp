@@ -230,11 +230,12 @@ bool queued_scene_consumption() {
   CHECK(executor.flush().ok());
   executor.stop();
   CHECK(frames.size() == 3 && frames[0] && frames[1] && frames[2]);
-  CHECK(frames[0]->scene.instances.size() == 1 && frames[1]->scene.instances.size() == 1 &&
-        frames[2]->scene.instances.size() == 1);
-  CHECK(frames[0]->scene.instances[0].world_matrix[3][0] == 0.F);
-  CHECK(frames[1]->scene.instances[0].world_matrix[3][0] == 5.F);
-  CHECK(frames[2]->scene.instances[0].world_matrix[3][0] == 0.F);
+  CHECK(frames[0]->views.front().scene.instances.size() == 1 &&
+        frames[1]->views.front().scene.instances.size() == 1 &&
+        frames[2]->views.front().scene.instances.size() == 1);
+  CHECK(frames[0]->views.front().scene.instances[0].world_matrix[3][0] == 0.F);
+  CHECK(frames[1]->views.front().scene.instances[0].world_matrix[3][0] == 5.F);
+  CHECK(frames[2]->views.front().scene.instances[0].world_matrix[3][0] == 0.F);
   state.close();
   CHECK(retained_mesh.expired());
   return true;
@@ -410,7 +411,7 @@ bool frame_capture() {
   render::frame_request request{.window = {.width = 64, .height = 64},
                                 .views = {{.scene = *scene, .layers = 2}}};
   auto pending = state.capture(request);
-  CHECK(pending && pending->scene.instances.size() == 1);
+  CHECK(pending && pending->views.front().scene.instances.size() == 1);
   CHECK(!pending->resources.share_mesh(1));
   mesh->publish(std::make_shared<mesh_data>());
   auto description = std::make_shared<material_data>();
@@ -418,11 +419,12 @@ bool frame_capture() {
   material->publish(description, {texture});
   texture->publish(std::make_shared<texture_data>());
   auto before = state.capture(request);
-  CHECK(before && before->scene.instances.size() == 1);
-  CHECK(before->scene.instances[0].world_matrix == model);
+  CHECK(before && before->views.front().scene.instances.size() == 1);
+  CHECK(before->views.front().scene.instances[0].world_matrix == model);
   const auto expected_normal = math::matrix4{glm::transpose(glm::inverse(math::matrix3{model}))};
-  CHECK(before->scene.instances[0].normal_matrix == expected_normal);
-  CHECK(before->scene.instances[0].layers == 2 && before->scene.layers == 2);
+  CHECK(before->views.front().scene.instances[0].normal_matrix == expected_normal);
+  CHECK(before->views.front().scene.instances[0].layers == 2 &&
+        before->views.front().scene.layers == 2);
   CHECK(before->resources.share_mesh(1) == mesh->read());
   CHECK(before->resources.share_texture(3) == texture->read());
   mesh->publish(std::make_shared<mesh_data>());
@@ -432,9 +434,19 @@ bool frame_capture() {
   auto after = state.capture(request);
   CHECK(after && after->resources.share_mesh(1) != before->resources.share_mesh(1));
   CHECK(after->resources.share_texture(3) != before->resources.share_texture(3));
-  CHECK(before->scene.instances[0].world_matrix == model);
+  CHECK(before->views.front().scene.instances[0].world_matrix == model);
   request.views.push_back(request.views.front());
   CHECK(!state.capture(request));
+  request.views.back().target = 101;
+  request.views.back().layers = 4;
+  auto multi_capture = state.prepare_capture(request, {{64, 64}, {128, 32}});
+  CHECK(multi_capture);
+  auto multi = (*multi_capture)();
+  CHECK(multi && multi->views.size() == 2);
+  CHECK(multi->views[1].width == 128 && multi->views[1].height == 32);
+  CHECK(multi->views[0].scene.layers == 2 && multi->views[1].scene.layers == 4);
+  CHECK(multi->views[0].scene.instances.size() == 1 && multi->views[1].scene.instances.size() == 1);
+  CHECK(multi->resources.meshes().size() == 1 && multi->resources.materials().size() == 1);
   request.views.pop_back();
   render::scene_commands no_shadow{
       *scene, {render::set_visibility{{1}, {.layers = 2, .casts_shadows = false}}}};
@@ -447,7 +459,8 @@ bool frame_capture() {
   // 没有活动相机时允许零视图，窗口仍可提交 UI。
   request.views.clear();
   auto no_camera = state.capture(request);
-  CHECK(no_camera && !no_camera->scene.has_camera && no_camera->scene.instances.empty());
+  CHECK(no_camera && !no_camera->views.front().scene.has_camera &&
+        no_camera->views.front().scene.instances.empty());
   request.views.push_back({});
   gneiss::render::service renderer;
   auto not_initialized = renderer.create_scene();
