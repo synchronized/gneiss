@@ -38,5 +38,5 @@ constexpr create_entity_fn create_entity = &gneiss::world_ref::create_entity;
 创建实体不会自动建立场景节点，读写实体变换前先关联节点，见
 [最小应用示例](application-world-example.md)。
 
-[稳定运行时示例](../../examples/stable_runtime/main.cpp)展示 Application、Scene、输入动作与
+[场景查看器](../../examples/scene_viewer/main.cpp)展示 Application、Scene、输入动作与
 相机变换的组合使用。场景在 Application 之前关闭，回调状态活到 Application 关闭完成。

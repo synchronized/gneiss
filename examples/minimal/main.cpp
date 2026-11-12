@@ -2,15 +2,25 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "application/application.hpp"
 #include "engine/core/fatal.hpp"
+#include "engine/function/scene/game_object.hpp"
 #include "engine/function/scene/world.hpp"
-#include "scene_update.hpp"
 #include <cstdio>
 int main() try {
   gneiss::install_fatal_handler();
-  example::scene_state state;
+  gneiss::game_object moving;
+  unsigned updates{};
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::runtime::application_configuration desc;
-  desc.callbacks.update = [&](const auto&) { return example::update(*app, state); };
+  desc.callbacks.update = [&](const auto&) {
+    auto transform = moving.local_transform();
+    if (!transform)
+      return transform.error();
+    transform->translation.x += 1;
+    auto status = moving.set_local_transform(*transform);
+    if (++updates == 3)
+      app->request_exit();
+    return status;
+  };
   auto created = gneiss::runtime::application::create(desc);
   if (!created)
     return 1;
@@ -22,16 +32,16 @@ int main() try {
   auto object = object_scene->create_object({"example", {}});
   if (!object)
     return 2;
-  state.entity = object->entity();
+  moving = *object;
   gneiss::math::transform initial;
   initial.translation = {1, 2, 3};
   if (object->set_local_transform(initial).failed() || app->run(8).failed())
     return 3;
   auto final = object->local_transform();
-  if (!final || state.updates != 3 || final->translation[0] != 4 || final->translation[1] != 2 ||
+  if (!final || updates != 3 || final->translation[0] != 4 || final->translation[1] != 2 ||
       final->translation[2] != 3)
     return 4;
-  std::printf("updates=%u, x=%g\n", state.updates, static_cast<double>(final->translation[0]));
+  std::printf("updates=%u, x=%g\n", updates, static_cast<double>(final->translation[0]));
   return app->shutdown().failed() ? 5 : 0;
 } catch (...) {
   gneiss::fatal_current_exception();

@@ -41,18 +41,17 @@ ctest --preset windows-clang-debug
 运行 version 示例：
 
 ```powershell
-./build/windows-clang-debug/bin/gneiss_version_example.exe
+./build/windows-clang-debug/bin/gneiss_version_test.exe
 ```
 
 运行无 UI 的属性检查示例：
 
 ```powershell
-./build/windows-clang-debug/bin/gneiss_property_inspector_example.exe
+./build/windows-clang-debug/bin/gneiss_property_inspector_test.exe
 ```
 
-该示例使用公共 C ABI，可由 C++20 消费：枚举 Transform 与 Camera 元数据，通过稳定 Type ID 和 Field ID
-修改场景实体属性，将当前场景序列化到临时目录，再创建新的 Application 重新加载并校验。它不依赖
-EnTT、Granit 类型或私有组件头，运行完成后会清理自己创建的临时目录。
+该检查程序使用仓内 C++20 原生接口：枚举 Transform 与 Camera 元数据，通过稳定 Type ID 和 Field ID
+修改场景实体属性，将当前场景序列化到临时目录，再创建新的 Application 重新加载并校验。它使用仓内反射与场景接口，运行完成后会清理自己创建的临时目录。
 
 Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不带 `.exe` 后缀。
 
@@ -156,20 +155,16 @@ Gneiss 当前使用 Granit 原生 Window 后端，未接入 0.30 的可选 SDL3 
 刻意固定旧默认提交，同时设置 `GNEISS_GRANIT_UPDATE_DEFAULTS=OFF`。Windows 使用共享库 package
 时，构建会把 Granit 的运行时 DLL 自动复制到 Gneiss 的运行时输出目录，无需手动修改 `PATH`。
 
-启用 Granit 适配并完成构建后，可以运行交互神殿或 Lantern 灯廊示例；按 `A`/`D` 绕场景旋转
-观察视角，按 `Esc` 或关闭窗口正常退出：
+启用 Granit 适配并完成构建后，统一使用场景查看器。默认显示神庙，A/D 环绕相机、Esc 退出：
 
 ```powershell
-./build/granit-platform/bin/gneiss_temple_example.exe
-./build/granit-platform/bin/gneiss_lantern_gallery_example.exe
+./build/windows-clang-debug/bin/gneiss_scene_viewer.exe
+./build/windows-clang-debug/bin/gneiss_scene_viewer.exe --smoke
+./build/windows-clang-release/bin/gneiss_scene_viewer.exe --measure
+./build/windows-clang-debug/bin/gneiss_scene_viewer.exe --assets build/windows-clang-debug/examples/lantern_gallery/assets --scene asset://scenes/gallery.scene.json
 ```
 
-稳定运行时样例保留为仓内目标：
-
-```powershell
-./build/windows-clang-debug/bin/gneiss_stable_runtime_example.exe --smoke
-./build/windows-clang-release/bin/gneiss_stable_runtime_example.exe --measure
-```
+两个示例及参数说明见[示例入口](../../examples/README.md)。
 
 动态模块模板编译检查已撤销；场景模板与 Runtime 的安装检查保留。
 
@@ -191,18 +186,14 @@ ASan/UBSan，并关闭 LSan。图形 Application 销毁时会先释放 Gneiss �
 后端无关的逻辑资源退出检查；仍有存活资源时，销毁返回 `invalid state`，诊断输出各资源类型数量。
 Granit 的后端待回收数量只用于诊断，不视为调用方泄漏。
 
-Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `main` 位于
-`examples/temple/main.cpp`，只使用 Gneiss 公共接口创建 Application、加载场景实例并按对象 UUID
-更新 Camera Scene Node，并通过动作映射消费输入。示例资产完整位于
-`examples/temple/assets`，因此从任意工作目录启动构建产物都能运行；安装后的可执行文件会从
-`share/gneiss/examples/temple/assets` 定位配套资产。场景入口是
-`examples/temple/assets/scenes/temple.scene.json`。
+Linux 下运行同名且不带 `.exe` 后缀的可执行文件。查看器使用仓内原生接口，
+神庙数据及来源见[示例资产](../../examples/temple/assets/ASSET_ORIGINS.md)。
+安装路径为 `share/gneiss/examples/scene-viewer/assets`。
 
-Lantern 灯廊示例在构建时使用 `gneiss_assetc` 把 CC0 `Lantern.glb` 导入构建目录，再叠加项目原创
-的地面、石柱、相机和场景描述。源码只保留原始 GLB、上游许可和原创资产，避免同时维护生成文件。
-来源与校验值见 `examples/lantern_gallery/assets/ASSET_ORIGINS.md`；该示例因此要求
-`GNEISS_BUILD_TOOLS=ON`。使用 `--smoke --profile` 可以固定运行 3 帧，并输出 Application、Scene
-与资产、输入和运行阶段的耗时；示例使用 512×512 派生基础色纹理控制启动成本。
+Lantern 工作流夹具由 `gneiss_assetc` 导入 CC0 GLB，再叠加原创场景数据；
+要求 `GNEISS_BUILD_TOOLS=ON`。来源与许可见
+[Lantern 资产说明](../../examples/lantern_gallery/assets/ASSET_ORIGINS.md)。
+同样使用查看器打开，不再构建独立灯廊程序。
 
 ### 构建 Runtime 宿主
 

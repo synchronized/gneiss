@@ -6,8 +6,8 @@
 #include "application/application.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/fatal.hpp"
-#include "engine/core/guid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/scene/camera_selection.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/world.hpp"
 
@@ -40,14 +40,13 @@ struct sample_state {
 };
 
 void report_failure(std::string_view stage, gneiss::error result) {
-  std::fprintf(stderr, "稳定运行时样例失败：阶段=%.*s，结果=%d，消息=%.*s\n",
+  std::fprintf(stderr, "场景查看器失败：阶段=%.*s，结果=%d，消息=%.*s\n",
                static_cast<int>(stage.size()), stage.data(), result.code(),
                static_cast<int>(result.message().size()), result.message().data());
 }
 
 gneiss::error update_sample(gneiss::runtime::application& application,
-                                    const gneiss::frame_time& time,
-                                    void* user_data) noexcept {
+                            const gneiss::frame_time& time, void* user_data) noexcept {
   if (user_data == nullptr) {
     return gneiss::error::invalid_argument;
   }
@@ -112,21 +111,21 @@ double percentile(const std::array<double, measure_sample_frames>& samples, std:
   return sorted[index];
 }
 
-int run_sample(std::string_view executable_path, bool smoke, bool measure) {
-  constexpr std::string_view title = "Gneiss Stable Runtime Sample";
-  constexpr std::string_view scene_uri = "asset://scenes/temple.scene.json";
-  constexpr std::string_view input_map_uri = "asset://input/default.input-map.json";
-  const auto camera_uuid = *gneiss::guid::parse("10000000-0000-4000-8000-000000000002");
+int run_sample(std::string_view executable_path, bool smoke, bool measure,
+               const std::string& asset_override, const std::string& scene_uri,
+               const std::string& input_map_uri) {
+  constexpr std::string_view title = "Gneiss Scene Viewer";
 
   std::error_code path_error;
   const auto executable = std::filesystem::absolute(executable_path, path_error);
   const auto installed_asset_root =
-      executable.parent_path().parent_path() / "share/gneiss/examples/stable-runtime/assets";
+      executable.parent_path().parent_path() / "share/gneiss/examples/scene-viewer/assets";
   const auto has_installed_assets =
       !path_error && std::filesystem::is_directory(installed_asset_root, path_error);
-  const auto asset_root = has_installed_assets && !path_error
+  const auto asset_root = !asset_override.empty() ? asset_override
+                          : has_installed_assets && !path_error
                               ? installed_asset_root.string()
-                              : std::string{GNEISS_STABLE_RUNTIME_ASSET_ROOT};
+                              : std::string{GNEISS_VIEWER_ASSET_ROOT};
 
   using clock = std::chrono::steady_clock;
   const auto started = clock::now();
@@ -213,15 +212,10 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   }
   if (!scene.is_valid())
     return 2;
-  auto binding =
-      std::ranges::find_if(completion.instance.objects, [camera_uuid](const auto& object) {
-        return object.object == camera_uuid && !object.source;
-      });
-  if (binding == completion.instance.objects.end()) {
-    report_failure("查找 Camera", gneiss::error::not_found);
+  if (gneiss::get_active_camera(*native_application->native_world(), state.camera_node).failed()) {
+    report_failure("场景需要一个主相机", gneiss::error::not_found);
     return 6;
   }
-  state.camera_node = binding->entity;
   const auto setup_ready = clock::now();
 
   can_update = true;
@@ -283,14 +277,32 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
 
 int main(int argc, char** argv) {
   gneiss::install_fatal_handler();
-  if (argc > 2 || (argc == 2 && std::string_view{argv[1]} != "--smoke" &&
-                   std::string_view{argv[1]} != "--measure")) {
-    std::fprintf(stderr, "用法：gneiss_stable_runtime_consumer [--smoke|--measure]\n");
-    return 64;
-  }
   try {
-    const auto argument = argc == 2 ? std::string_view{argv[1]} : std::string_view{};
-    return run_sample(argv[0], argument == "--smoke", argument == "--measure");
+    bool smoke = false;
+    bool measure = false;
+    std::string assets;
+    std::string scene = "asset://scenes/temple.scene.json";
+    std::string input = "asset://input/default.input-map.json";
+    for (int i = 1; i < argc; ++i) {
+      const std::string_view option{argv[i]};
+      if (option == "--smoke")
+        smoke = true;
+      else if (option == "--measure")
+        measure = true;
+      else if ((option == "--assets" || option == "--scene" || option == "--input") &&
+               i + 1 < argc) {
+        auto& destination = option == "--assets" ? assets : option == "--scene" ? scene : input;
+        destination = argv[++i];
+      } else {
+        std::fprintf(stderr,
+                     "用法：gneiss_scene_viewer [--smoke|--measure] [--assets 路径] [--scene "
+                     "URI] [--input URI]\n");
+        return option == "--help" ? 0 : 64;
+      }
+    }
+    if (smoke && measure)
+      return 64;
+    return run_sample(argv[0], smoke, measure, assets, scene, input);
   } catch (...) {
     gneiss::fatal_current_exception();
   }

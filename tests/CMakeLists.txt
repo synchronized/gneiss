@@ -804,13 +804,22 @@ gneiss_target_output_directories(gneiss_scene_prefab_instance_test)
 add_test(NAME gneiss.scene_prefab_instance COMMAND gneiss_scene_prefab_instance_test)
 
 
-if(TARGET gneiss_version_example)
-  add_test(NAME gneiss.version_example COMMAND gneiss_version_example)
-  set_tests_properties(
-    gneiss.version_example
-    PROPERTIES PASS_REGULAR_EXPRESSION "gneiss ${PROJECT_VERSION_MAJOR}\\.${PROJECT_VERSION_MINOR}\\.${PROJECT_VERSION_PATCH}"
-  )
-endif()
+add_executable(gneiss_version_test core/version_test.cpp)
+target_link_libraries(gneiss_version_test PRIVATE gneiss::engine gneiss_value_interface)
+gneiss_target_compile_warnings(gneiss_version_test)
+gneiss_target_output_directories(gneiss_version_test)
+add_test(NAME gneiss.version COMMAND gneiss_version_test)
+set_tests_properties(gneiss.version PROPERTIES
+  PASS_REGULAR_EXPRESSION "gneiss ${PROJECT_VERSION_MAJOR}\\.${PROJECT_VERSION_MINOR}\\.${PROJECT_VERSION_PATCH}")
+
+add_executable(gneiss_property_inspector_test scene/property_inspector_test.cpp)
+target_link_libraries(gneiss_property_inspector_test PRIVATE gneiss_fatal gneiss::engine gneiss_native_interface gneiss_tasks)
+target_compile_definitions(gneiss_property_inspector_test PRIVATE
+  GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/fixtures/property_inspector")
+gneiss_target_compile_warnings(gneiss_property_inspector_test)
+gneiss_target_output_directories(gneiss_property_inspector_test)
+add_test(NAME gneiss.property-inspector COMMAND gneiss_property_inspector_test)
+
 
 
 

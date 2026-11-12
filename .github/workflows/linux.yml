@@ -242,7 +242,7 @@ jobs:
             -DGNEISS_ENABLE_SANITIZERS=ON \
             -DGNEISS_GRANIT_PROVIDER=FETCH
           cmake --build --preset linux-gcc-debug \
-            --target gneiss_stable_runtime_example gneiss_scene_instance_test gneiss_native_application_test \
+            --target gneiss_scene_viewer gneiss_scene_instance_test gneiss_native_application_test \
               gneiss_scene_load_application_test gneiss_scene_load_preparation_test \
               gneiss_scene_instantiation_test \
               gneiss_texture_load_service_test gneiss_render_asset_loader_test gneiss_prefab_runtime_instance_test
@@ -270,7 +270,7 @@ jobs:
           set +e
           device_failure_output=$(
             VK_ICD_FILENAMES="$RUNNER_TEMP/missing-vulkan-icd.json" \
-              "$PWD/build/linux-gcc-debug/bin/gneiss_stable_runtime_example" --smoke 2>&1
+              "$PWD/build/linux-gcc-debug/bin/gneiss_scene_viewer" --smoke 2>&1
           )
           device_failure_status=$?
           set -e
@@ -281,4 +281,4 @@ jobs:
             -R '^gneiss\.(native-application|scene_instance|scene-load-application|scene-load-preparation|scene-instantiation|texture-load-service|render_asset_loader|prefab_binding)$'
           ASAN_OPTIONS=detect_leaks=0:halt_on_error=1:strict_string_checks=1 \
             xvfb-run -a ctest --preset linux-gcc-debug \
-            -R '^gneiss\.stable_runtime_example$'
+            -R '^gneiss\.scene-viewer$'

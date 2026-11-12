@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "../support/scene_activation.hpp"
-#include "../support/scope_exit.hpp"
+#include "../../examples/support/scene_activation.hpp"
+#include "../../examples/support/scope_exit.hpp"
 #include "application/application.hpp"
 #include "engine/core/fatal.hpp"
 #include "engine/core/guid.hpp"
