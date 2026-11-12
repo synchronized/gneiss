@@ -6,7 +6,7 @@
 #include "engine/function/scene/scene_types.hpp"
 
 #include "engine/core/identifier_conversion.hpp"
-#include "engine/function/scene/detail/world_state.hpp"
+#include "engine/function/scene/detail/world_impl.hpp"
 #include "engine/function/scene/world.hpp"
 
 #include <algorithm>
@@ -17,15 +17,15 @@ namespace gneiss {
 error world::validate_scene(scene_instance_id id) const noexcept {
   if (!is_owner_thread())
     return error::invalid_state;
-  return state_->scene_slots.get(id, resource_type::scene_instance) ? error::success
-                                                                    : error::invalid_handle;
+  return impl_->scene_slots.get(id, resource_type::scene_instance) ? error::success
+                                                                   : error::invalid_handle;
 }
 error world::unload_scene(scene_instance_id id) noexcept try {
   auto status = validate_scene(id);
   if (status.failed())
     return status;
-  state_->destroy_scene_members(id);
-  return state_->scene_slots.destroy(id, resource_type::scene_instance);
+  impl_->destroy_scene_members(id);
+  return impl_->scene_slots.destroy(id, resource_type::scene_instance);
 } catch (...) {
   fatal_current_exception();
 }
@@ -76,8 +76,9 @@ error scene_instance::visit_objects(const std::function<error(game_object)>& vis
     return status;
   if (!visitor)
     return error::invalid_argument;
-  owner_->state_->each_scene_member(id_, [&](entity_id node) {
-    if (status.failed() || (roots_only && owner_->state_->scene().get_parent(node)))
+  owner_->impl_->each_scene_member(id_, [&](entity_id node) {
+    const auto* data = owner_->impl_->get<detail::object_state>(node.get());
+    if (status.failed() || (roots_only && data && data->parent))
       return;
     auto object = owner_->object(entity_id{node.get()});
     if (!object && object.error() == error::not_found)
@@ -113,9 +114,10 @@ error world::transfer_subtree(game_object root, scene_instance destination, game
   for (std::size_t i = 0; i < nodes.size(); ++i) {
     if (parent.owner() && nodes[i].get() == parent.entity().get())
       return error::invalid_argument;
-    if (state_->scene_of(nodes[i]) != source->id())
+    if (impl_->scene_of(nodes[i]) != source->id())
       return error::invalid_state;
-    auto children = state_->scene().children(nodes[i]);
+    const auto* object = impl_->get<detail::object_state>(nodes[i].get());
+    const auto* children = object ? &object->children : nullptr;
     if (!children)
       return error::invalid_handle;
     nodes.insert(nodes.end(), children->begin(), children->end());
@@ -123,7 +125,7 @@ error world::transfer_subtree(game_object root, scene_instance destination, game
   // 已有归属组件原位更新，不在提交阶段分配组件存储。
   auto assign = [&](scene_instance_id id) {
     for (auto node : nodes)
-      state_->assign_scene(node, id);
+      impl_->assign_scene(node, id);
   };
   assign(destination.id());
   try {
@@ -144,8 +146,8 @@ result<bool> scene_instance::contains(game_object object) const noexcept {
     return status;
   if (object.owner() != owner_)
     return false;
-  return owner_->state_->is_alive(object.entity().get()) &&
-         owner_->state_->scene_of(object.entity()) == id_;
+  return owner_->impl_->is_alive(object.entity().get()) &&
+         owner_->impl_->scene_of(object.entity()) == id_;
 }
 
 error scene_instance::unload() const noexcept {
@@ -159,7 +161,7 @@ result<std::uint64_t> world::scene_size(scene_instance_id instance) const {
   if (status.failed())
     return status;
   std::uint64_t count{};
-  state_->each_scene_member(instance, [&](entity_id) { ++count; });
+  impl_->each_scene_member(instance, [&](entity_id) { ++count; });
   return count;
 }
 
@@ -179,14 +181,14 @@ result<game_object> scene_instance::create_object(const object_options& options,
   }
   // 创建实体可能移动层级组件；先复制可能借自已有对象的名称。
   std::string name(options.name);
-  auto& state = *owner_->state_;
-  auto created = state.scene().create(parent.entity(), 0);
+  auto& state = *owner_->impl_;
+  auto created = state.create_object(parent.entity());
   if (!created)
     return created.error();
   try {
-    status = state.scene().set_local(*created, options.transform);
+    status = owner_->find(*created).set_local_transform(options.transform);
     if (status.ok())
-      status = state.scene().set_name(*created, std::move(name));
+      status = owner_->find(*created).set_name(name);
     if (status.failed()) {
       (void)state.destroy_entity(created->get());
       return status;

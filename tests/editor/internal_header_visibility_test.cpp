@@ -37,7 +37,7 @@
 #if __has_include("engine/core/meta/registration.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("engine/function/scene/detail/world_state.hpp") ||                               \
+#if __has_include("engine/function/scene/detail/world_impl.hpp") ||                                \
                   __has_include(                                                                   \
                       "engine/function/scene/detail/object_state.hpp") ||                          \
                       __has_include("engine/function/scene/detail/camera_selection_state.hpp")
@@ -64,8 +64,8 @@ concept exposes_entity_lifecycle =
     requires(T& value, gneiss::entity_id id) { value.entity_destroy(id); };
 static_assert(!exposes_entity_lifecycle<gneiss::world>);
 
-static_assert(std::is_same_v<decltype(gneiss::prefab_property_target::target_type_guid),
-                             gneiss::guid>);
+static_assert(
+    std::is_same_v<decltype(gneiss::prefab_property_target::target_type_guid), gneiss::guid>);
 static_assert(std::is_same_v<decltype(gneiss::prefab_property_override_key::path),
                              gneiss::meta::property_path>);
 template <typename T>

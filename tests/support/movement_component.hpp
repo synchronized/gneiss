@@ -52,7 +52,7 @@ struct movement_component {
   movement_description data;
   std::shared_ptr<int> lifetime = std::make_shared<int>(0);
 };
-inline e::world_state& state(e::world& world) {
+inline auto& state(e::world& world) {
   auto access = e::detail::world_component_access::get(world);
   if (!access)
     throw std::runtime_error("World 访问失败");

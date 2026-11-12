@@ -25,7 +25,7 @@ result<std::optional<render_camera_snapshot>> select_render_camera(world& owner,
     if (const auto* component = world.get<camera_component>(active_camera); component != nullptr) {
       selected.camera = {component->settings().fov, component->settings().near,
                          component->settings().far};
-      auto transform = world.scene().get_world(entity_id{active_camera});
+      auto transform = owner.find(entity_id{active_camera}).world_transform();
       has_camera = transform.ok();
       if (transform)
         selected.transform = *transform;

@@ -243,7 +243,6 @@ target_sources(
     engine/function/scene/detail/hierarchy.cpp
     engine/function/scene/detail/camera_selection_state.hpp
     engine/function/scene/detail/object_state.hpp
-    engine/function/scene/detail/hierarchy.hpp
     engine/function/scene/scene_update.cpp
     engine/function/scene/scene_update.hpp
     engine/function/scene/composition.cpp
@@ -274,7 +273,7 @@ target_sources(
     engine/function/scene/object_change.hpp
     engine/function/scene/world.hpp
     engine/function/scene/detail/world_factory.cpp
-    engine/function/scene/detail/world_state.hpp
+    engine/function/scene/detail/world_impl.hpp
     engine/function/meta_registration.cpp
     engine/function/meta_registration.hpp
 )

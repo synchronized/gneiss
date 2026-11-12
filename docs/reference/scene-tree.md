@@ -48,10 +48,14 @@ World 的层级组件是 Transform 的唯一权威存储：
 
 当前实现按查询即时计算世界 Transform；脏标记缓存应在真实性能数据证明必要后再加入。
 
-## 内部层级访问
+## 内部实现归属
 
-`world_hierarchy::create(parent, entity)` 返回 `result<entity_id>`；
-`get_world(node)` 和 `get_world_for_entity(entity)` 返回 `result<math::transform>`。
-创建不再接收输出指针，失败不产生节点 ID；变换查询返回副本，失效节点返回 invalid_handle，
-非零实体未关联节点返回 not_ready。World 外层接口按其声明保留线程校验。
-world_hierarchy 位于 function/scene/detail/hierarchy.hpp，只借用 world_state，不拥有节点存储。
+World 通过私有 `world::implementation` 持有唯一 ECS、场景槽位和变更记录，定义位于
+`function/scene/detail/world_impl.hpp`。场景槽位仅由 World 与 SceneInstance 操作。
+
+对象名称、变换查询/修改和重挂接直接实现在 `game_object.cpp`；不再维护独立的
+`world_hierarchy` 对象或公开层级视图。`detail/hierarchy.cpp` 只实现共享的对象创建与父子解绑算法。
+组件适配和内部系统通过 `detail/world_component_access.hpp` 借用 ECS，不能保存超出 World 生命周期的引用。
+
+场景卸载先收集全部成员的稳定实体 ID，再逐个销毁；已随父节点删除的子实体会被跳过。
+辅助实体也按场景归属参与卸载，不在删除每个成员后重新扫描整张 ECS 表。

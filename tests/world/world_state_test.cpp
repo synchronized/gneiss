@@ -5,7 +5,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/detail/system_scheduler.hpp"
-#include "engine/function/scene/detail/world_state.hpp"
+#include "engine/function/scene/detail/world_component_access.hpp"
 
 #include <array>
 #include <cstddef>
@@ -23,8 +23,8 @@ struct system_context {
   int delta = 0;
 };
 
-gneiss::error update_position(gneiss::world_state& world,
-                                      void* user_data) noexcept {
+gneiss::error update_position(gneiss::detail::world_component_access::storage& world,
+                              void* user_data) noexcept {
   auto& context = *static_cast<system_context*>(user_data);
   context.events[context.count++] = 1;
   try {
@@ -37,15 +37,15 @@ gneiss::error update_position(gneiss::world_state& world,
   }
 }
 
-gneiss::error fail_system(gneiss::world_state& /*world*/,
-                                  void* user_data) noexcept {
+gneiss::error fail_system(gneiss::detail::world_component_access::storage& /*world*/,
+                          void* user_data) noexcept {
   auto& context = *static_cast<system_context*>(user_data);
   context.events[context.count++] = 2;
   return gneiss::error::invalid_state;
 }
 
-gneiss::error skipped_system(gneiss::world_state& /*world*/,
-                                     void* user_data) noexcept {
+gneiss::error skipped_system(gneiss::detail::world_component_access::storage& /*world*/,
+                             void* user_data) noexcept {
   auto& context = *static_cast<system_context*>(user_data);
   context.events[context.count++] = 3;
   return gneiss::error::success;
@@ -54,8 +54,8 @@ gneiss::error skipped_system(gneiss::world_state& /*world*/,
 } // namespace
 
 int run_tests() {
-  gneiss::world_state first{1};
-  gneiss::world_state second{2};
+  gneiss::detail::world_component_access::storage first{1};
+  gneiss::detail::world_component_access::storage second{2};
   const auto entity = first.create_entity();
   first.emplace<position>(entity, 10);
   if (!first.is_alive(entity) || second.is_alive(entity) || first.entity_count() != 1U) {
@@ -91,49 +91,32 @@ int run_tests() {
   if (!first.is_alive(visible) || first.entity_count() != 2U || visited != 1)
     return 6;
   gneiss::entity_id parent{}, child{};
-  auto& tree = first.scene();
-  if (gneiss::test_support::assign_value(tree.create({}, replacement), parent).failed() ||
-      gneiss::test_support::assign_value(tree.create(parent, visible), child).failed() ||
-      child.get() != visible || tree.destroy(parent).failed() || tree.get_local(child) != nullptr ||
+  if (gneiss::test_support::assign_value(first.create_object({}, replacement), parent).failed() ||
+      gneiss::test_support::assign_value(first.create_object(parent, visible), child).failed() ||
+      child.get() != visible || !first.destroy_entity(parent.get()) ||
       first.is_alive(replacement) || first.destroy_entity(visible) || first.entity_count() != 0U)
     return 7;
-  // 节点和实体共用身份；跨 World、generation 和重复删除同时失效。
-  const auto root = tree.create({}, 0);
-  const auto leaf =
-      root ? tree.create(*root, 0)
-           : gneiss::result<gneiss::entity_id>{gneiss::error::internal};
-  if (!root || !leaf || !tree.get_local(*root) || second.scene().get_local(*root) ||
-      second.scene().create(*root, 0).error() != gneiss::error::invalid_handle ||
-      tree.reparent(*leaf, *root).failed() || tree.children(*root)->size() != 1 ||
-      tree.reparent(*root, *leaf) != gneiss::error::invalid_argument)
-    return 8;
-  // 先建子节点，再挂父节点，删除时会触发 EnTT 紧凑组件存储移动。
-  const auto earlier = tree.create({}, 0);
-  const auto later = tree.create({}, 0);
-  if (!earlier || !later || tree.reparent(*earlier, *later).failed() ||
-      !first.destroy_entity(later->get()) || first.is_alive(earlier->get()) ||
-      tree.get_local(*later) || tree.get_local(*earlier))
-    return 9;
-  if (!first.destroy_entity(root->get()) || first.is_alive(leaf->get()) ||
-      tree.destroy(*root) != gneiss::error::invalid_handle || first.entity_count() != 0)
-    return 10;
-  const auto reused = tree.create({}, 0);
-  if (!reused || *reused == *root || *reused == *leaf || tree.get_local(*root) ||
-      tree.get_local(*leaf))
-    return 11;
   // 辅助实体转为对象后只有一份场景归属，卸载仍覆盖全部成员。
   const gneiss::scene_instance_id scene{42};
   const auto auxiliary = first.create_entity();
   first.assign_scene(gneiss::entity_id{auxiliary}, scene);
-  auto adopted = tree.create({}, auxiliary);
+  auto adopted = first.create_object({}, auxiliary);
   if (!adopted || first.scene_of(*adopted) != scene)
     return 12;
   std::size_t members = 0;
   first.each_scene_member(scene, [&](gneiss::entity_id) { ++members; });
   if (members != 1)
     return 13;
+  const auto sibling = first.create_object({});
+  const auto child_object = sibling ? first.create_object(*sibling) : sibling;
+  const auto extra = first.create_entity();
+  if (!sibling || !child_object)
+    return 15;
+  first.assign_scene(*sibling, scene);
+  first.assign_scene(*child_object, scene);
+  first.assign_scene(gneiss::entity_id{extra}, scene);
   first.destroy_scene_members(scene);
-  if (first.is_alive(auxiliary))
+  if (first.is_alive(auxiliary) || first.entity_count() != 0)
     return 14;
   return 0;
 }

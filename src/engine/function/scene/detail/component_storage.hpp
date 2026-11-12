@@ -9,9 +9,9 @@
 namespace gneiss::detail {
 // 仅在组件实现单元实例化，不把 EnTT 传播到对象使用方。
 template <class T> struct component_policy {
-  static void removed(world_state&, entity_id) {}
+  static void removed(detail::world_component_access::storage&, entity_id) {}
 };
-inline result<world_state*> component_state(game_object object) {
+inline result<detail::world_component_access::storage*> component_state(game_object object) {
   if (!object.owner())
     return error::invalid_handle;
   auto state = world_component_access::get(*object.owner());

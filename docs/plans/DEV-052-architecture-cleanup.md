@@ -494,3 +494,17 @@ A52-05：本批只验证 Windows 默认构建和相关 CPU 回归。
 
 不新增只验证成员名称或 PImpl 布局的测试；接口与所有权见
 [资产参考](../reference/assets.md#管理器内部所有权)。CPU 与渲染装配操作统一另行评估。
+
+## World 内部封装收敛
+
+本轮保持 GameObject、SceneInstance 与 World 的外部接口及所有权不变。
+
+- [x] world_state 改为 World 私有 implementation；场景槽位限制为 World/SceneInstance 管理。
+- [x] 对象名称、变换和重挂接归入 game_object.cpp，删除 world_hierarchy 类及其常驻成员。
+- [x] 场景卸载一次收集成员 ID，覆盖对象子树和辅助实体。
+- [x] 变换测试迁移到正式对象 API；删除 Prefab 编解码测试中的重复层级运算检查。
+- [x] Windows Clang Debug 定向构建及 9 项回归通过，覆盖层级变换、场景卸载、组件、Prefab、渲染同步与头文件边界。
+
+本轮未执行 GPU 运行和跨平台/静态库完整矩阵，不作为版本发布验收。
+
+实现职责与调用边界见[场景树参考](../reference/scene-tree.md#内部实现归属)。

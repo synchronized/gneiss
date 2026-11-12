@@ -11,7 +11,6 @@
 #include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/asset/resource_cache.hpp"
 #include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/detail/world_state.hpp"
 #include "engine/resource/asset_file.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
@@ -328,31 +327,6 @@ int main() try {
           prefab, diagnostic) != gneiss::error::unsupported ||
       diagnostic.path != "/version") {
     return 4;
-  }
-
-  // 实例根作为源根的父节点，沿用 Scene Tree 的父子变换组合约定。
-  gneiss::world_state owner(1U);
-  auto& tree = owner.scene();
-  gneiss::entity_id instance_root = gneiss::entity_id{};
-  gneiss::entity_id source_root = gneiss::null_entity_id;
-  gneiss::math::transform instance_transform = gneiss::math::transform{};
-  instance_transform.translation[0] = 10.0F;
-  instance_transform.scale[0] = 2.0F;
-  gneiss::math::transform source_transform = gneiss::math::transform{};
-  source_transform.translation[0] = 3.0F;
-  if (gneiss::test_support::assign_value(tree.create(gneiss::null_entity_id, UINT64_C(0)),
-                                         instance_root) != gneiss::error::success ||
-      gneiss::test_support::assign_value(tree.create(instance_root, UINT64_C(0)), source_root) !=
-          gneiss::error::success ||
-      tree.set_local(instance_root, instance_transform) != gneiss::error::success ||
-      tree.set_local(source_root, source_transform) != gneiss::error::success) {
-    return 5;
-  }
-  gneiss::math::transform world = gneiss::math::transform{};
-  if (gneiss::test_support::assign_value(tree.get_world(source_root), world) !=
-          gneiss::error::success ||
-      world.translation[0] != 16.0F || world.scale[0] != 2.0F) {
-    return 6;
   }
 
   auto mounted = std::make_shared<memory_file_system>(std::string(valid_prefab));

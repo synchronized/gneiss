@@ -307,7 +307,6 @@ add_test(NAME gneiss.native-scene-lifecycle COMMAND gneiss_native_scene_lifecycl
 add_executable(
   gneiss_scene_tree_transform_test
   scene/scene_tree_transform_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/detail/hierarchy.cpp"
 )
 target_include_directories(gneiss_scene_tree_transform_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_scene_tree_transform_test PRIVATE gneiss::engine EnTT::EnTT)
@@ -522,7 +521,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/function/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/detail/hierarchy.cpp"
 )
 target_include_directories(gneiss_prefab_description_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_prefab_description_test PRIVATE GNEISS_BUILDING_LIBRARY)

@@ -15,7 +15,6 @@
 #include <vector>
 
 namespace gneiss {
-class world_state;
 struct world_factory;
 namespace detail {
 struct world_component_access;
@@ -56,7 +55,8 @@ private:
   [[nodiscard]] result<std::uint64_t> scene_size(scene_instance_id) const;
   friend struct detail::world_component_access;
   explicit GNEISS_API world(std::uint32_t domain);
-  std::unique_ptr<gneiss::world_state> state_;
+  struct implementation;
+  std::unique_ptr<implementation> impl_;
 };
 }
 

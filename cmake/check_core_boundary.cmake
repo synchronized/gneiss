@@ -150,7 +150,7 @@ foreach(source IN LISTS sources)
       content MATCHES "gneiss_transform|GNEISS_TRANSFORM_IDENTITY")
     message(FATAL_ERROR "原生场景树与快照不得使用 C TRS 布局：${source}")
   endif()
-  if(source MATCHES "/src/engine/function/scene/(components|detail/world_state)[.]hpp$" AND
+  if(source MATCHES "/src/engine/function/scene/(components|detail/world_impl)[.]hpp$" AND
       (content MATCHES "gneiss_(camera|mesh_renderer)|GNEISS_CAMERA_" OR
        content MATCHES "gneiss/engine/render[.]h"))
     message(FATAL_ERROR "原生 World 组件不得存储 C 渲染布局：${source}")

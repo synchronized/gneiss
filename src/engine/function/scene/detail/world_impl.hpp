@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_WORLD_WORLD_STATE_HPP_
-#define GNEISS_WORLD_WORLD_STATE_HPP_
+#ifndef GNEISS_WORLD_IMPLEMENTATION_HPP_
+#define GNEISS_WORLD_IMPLEMENTATION_HPP_
 
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
@@ -11,8 +11,9 @@
 #include <atomic>
 #include <limits>
 
-#include "engine/function/scene/detail/hierarchy.hpp"
+#include "engine/function/scene/detail/object_state.hpp"
 #include "engine/function/scene/detail/world_changes.hpp"
+#include "engine/function/scene/world.hpp"
 
 #include <entt/entity/entity.hpp>
 #include <entt/entity/registry.hpp>
@@ -29,7 +30,7 @@
 
 namespace gneiss {
 
-class world_state final {
+struct world::implementation final {
 public:
   static std::uint16_t allocate_scene_domain() noexcept {
     static std::atomic_uint32_t next{1024U};
@@ -37,15 +38,21 @@ public:
     return value <= std::numeric_limits<std::uint16_t>::max() ? static_cast<std::uint16_t>(value)
                                                               : 0U;
   }
+
+private:
+  friend class world;
+  friend class scene_instance;
   const std::uint16_t scene_domain = allocate_scene_domain();
   rid_table<scene_instance_id, scene_instance_id> scene_slots{scene_domain};
-  explicit world_state(std::uint32_t domain) noexcept
-      : scene_(*this), domain_(domain), owner_thread_(std::this_thread::get_id()) {}
 
-  world_state(const world_state&) = delete;
-  world_state& operator=(const world_state&) = delete;
-  world_state(world_state&&) = delete;
-  world_state& operator=(world_state&&) = delete;
+public:
+  explicit implementation(std::uint32_t domain) noexcept
+      : domain_(domain), owner_thread_(std::this_thread::get_id()) {}
+
+  implementation(const implementation&) = delete;
+  implementation& operator=(const implementation&) = delete;
+  implementation(implementation&&) = delete;
+  implementation& operator=(implementation&&) = delete;
 
   [[nodiscard]] bool is_owner_thread() const noexcept {
     return owner_thread_ == std::this_thread::get_id();
@@ -82,12 +89,12 @@ public:
       return false;
     }
     // 层级组件与实体同寿命。删除子节点时 EnTT 可能移动父组件，不能保存其地址。
-    while (const auto* children = scene_.children(entity_id{entity})) {
-      if (children->empty())
+    while (const auto* object = get<detail::object_state>(entity)) {
+      if (object->children.empty())
         break;
-      (void)destroy_entity(children->back().get());
+      (void)destroy_entity(object->children.back().get());
     }
-    scene_.detach(entity_id{entity});
+    detach(entity_id{entity});
 
     changes.destroyed(entity_id{entity});
     registry_.destroy(native);
@@ -193,21 +200,15 @@ public:
             function(entity_id{encode(entity)});
         });
   }
-  /** 不保存查询快照；每次删除后重新取成员，避免 EnTT 删除使迭代器失效。 */
+  /** 仅收集稳定 ID；父节点删除过的子节点会在随后校验时跳过。 */
   void destroy_scene_members(scene_instance_id scene) {
-    for (;;) {
-      entity_id first;
-      each_scene_member(scene, [&](entity_id node) {
-        if (!first)
-          first = node;
-      });
-      if (!first)
-        break;
-      (void)destroy_entity(first.get());
-    }
+    std::vector<entity_id> members;
+    each_scene_member(scene, [&](entity_id id) { members.push_back(id); });
+    for (auto id : members)
+      (void)destroy_entity(id.get());
   }
-  [[nodiscard]] world_hierarchy& scene() noexcept { return scene_; }
-  [[nodiscard]] const world_hierarchy& scene() const noexcept { return scene_; }
+  result<entity_id> create_object(entity_id parent, std::uint64_t entity = 0);
+  void detach(entity_id id) noexcept;
   [[nodiscard]] std::uint64_t encode_entity(entt::entity entity) const noexcept {
     return encode(entity);
   }
@@ -230,7 +231,6 @@ private:
   }
 
   entt::registry registry_;
-  world_hierarchy scene_;
   std::uint32_t domain_;
   std::thread::id owner_thread_;
   std::size_t entity_count_ = 0;
