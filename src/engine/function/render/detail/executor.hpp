@@ -8,6 +8,7 @@
 #include "engine/core/wakeup_signal.hpp"
 #include "engine/function/render/detail/frame_packet.hpp"
 #include "engine/function/render/frame_result.hpp"
+#include "engine/function/render/queue_options.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -76,8 +77,7 @@ public:
   threaded_render_executor(const threaded_render_executor&) = delete;
   threaded_render_executor& operator=(const threaded_render_executor&) = delete;
 
-  [[nodiscard]] error initialize(render_frame_callback callback,
-                                 std::size_t maximum_pending_frames = 3U);
+  [[nodiscard]] error initialize(render_frame_callback callback, queue_options options = {});
   [[nodiscard]] result<std::uint64_t> submit_frame(frame_packet packet,
                                                    frame_policy policy = frame_policy::replaceable,
                                                    render_frame_prepare prepare = {});

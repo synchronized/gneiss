@@ -137,6 +137,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/render/service.hpp
   engine/function/render/render_scene.hpp
   engine/function/render/commands.hpp
+  engine/function/render/queue_options.hpp
   engine/function/render/frame_request.hpp
   engine/function/render/render_resource_data.hpp
   engine/function/render/camera.hpp

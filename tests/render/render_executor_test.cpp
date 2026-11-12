@@ -41,7 +41,7 @@ bool ordered_commands_survive_frame_replacement() {
                 observed.push_back(scene_state);
                 return error::success;
               },
-              1)
+              {.pending_frames = 1})
           .failed())
     return false;
   auto gate = executor.submit_command([&](const auto&) {
@@ -120,10 +120,12 @@ bool resumable_command_allows_frames(gneiss::error terminal) {
   auto lifetime = std::make_shared<int>(7);
   std::weak_ptr<int> retained = lifetime;
   threaded_render_executor executor;
-  if (executor.initialize([&](auto&, auto&) {
-        frame_executed.store(true);
-        return gneiss::error::success;
-      }) != gneiss::error::success) {
+  if (executor.initialize(
+          [&](auto&, auto&) {
+            frame_executed.store(true);
+            return gneiss::error::success;
+          },
+          {.pending_frames = 1, .commands = 1}) != gneiss::error::success) {
     return false;
   }
   const auto observed = started->snapshot();
@@ -144,6 +146,14 @@ bool resumable_command_allows_frames(gneiss::error terminal) {
   std::optional<render_command_completion> premature;
   const bool no_completion = !(premature = executor.try_take_command_completion());
   const bool alive = !retained.expired();
+  // 可恢复命令让出执行权仍占容量；拒绝的命令不得执行，帧有独立名额。
+  unsigned retry_calls{};
+  auto retry = [&](const auto&) {
+    ++retry_calls;
+    return error::success;
+  };
+  auto rejected = executor.submit_command(retry);
+  const bool backpressure = !rejected && rejected.error() == error::not_ready;
   std::uint64_t frame{};
   const auto submitted =
       gneiss::test_support::assign_value(executor.submit_frame({}, gneiss::render::frame_policy::required), frame);
@@ -156,9 +166,15 @@ bool resumable_command_allows_frames(gneiss::error terminal) {
   std::optional<gneiss::render::frame_completion> drawn;
   const bool rendered = (drawn = executor.try_take_frame_completion()).has_value();
   const auto stats = executor.query_stats();
+  auto retried = executor.submit_command(retry);
+  const bool retry_completed = retried && executor.flush().ok() && retry_calls == 1;
+  auto retry_completion = executor.try_take_command_completion();
+  const bool retry_reported = retry_completion && retried &&
+                              retry_completion->sequence == *retried &&
+                              retry_completion->status.ok();
   executor.stop();
-  return began && no_completion && alive && submitted == gneiss::error::success &&
-         flushed == gneiss::error::success && completed &&
+  return backpressure && retry_completed && retry_reported && began && no_completion && alive &&
+         submitted == gneiss::error::success && flushed == gneiss::error::success && completed &&
          completion->sequence == command && completion->status == terminal && rendered &&
          drawn->sequence == frame && drawn->status == gneiss::error::success &&
          stats.submitted_commands == 1U && stats.executed_commands == 1U && retained.expired() &&
@@ -186,6 +202,13 @@ int main(int argc, char** argv) {
     }
     static_cast<void>(fatal_executor.flush());
     return 0;
+  }
+  {
+    gneiss::render::detail::threaded_render_executor invalid;
+    auto draw = [](auto&, auto&) { return gneiss::error::success; };
+    if (invalid.initialize(draw, {.pending_frames = 0}) != gneiss::error::invalid_argument ||
+        invalid.initialize(draw, {.commands = 0}) != gneiss::error::invalid_argument)
+      return 30;
   }
   if (!ordered_commands_survive_frame_replacement())
     return 93;
@@ -246,7 +269,7 @@ int main(int argc, char** argv) {
         }
         return gneiss::error::success;
       },
-      1U);
+      {.pending_frames = 1});
   if (initialize_result != gneiss::error::success || !executor.is_running()) {
     return 2;
   }
@@ -413,7 +436,7 @@ int main(int argc, char** argv) {
               packet.readback->width = packet.window.width;
             return gneiss::error::success;
           },
-          1U) != gneiss::error::success) {
+          {.pending_frames = 1}) != gneiss::error::success) {
     return 16;
   }
   gneiss::render::detail::frame_packet blocking_packet;

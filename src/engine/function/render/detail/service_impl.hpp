@@ -32,7 +32,8 @@ public:
   [[nodiscard]] gneiss::error initialize(const native_window_info& window,
                                          std::span<const std::byte> environment_asset = {},
                                          float environment_intensity = 1.0F,
-                                         float environment_rotation_radians = 0.0F);
+                                         float environment_rotation_radians = 0.0F,
+                                         queue_options queues = {});
   error request_environment(std::shared_ptr<const std::vector<std::byte>>, float, float);
   [[nodiscard]] gneiss::error shutdown(device_stats& stats);
   [[nodiscard]] gneiss::error finish_frames();

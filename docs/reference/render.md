@@ -313,3 +313,12 @@ Application 的 capture_frame 暂保持同步诊断接口，通过 finish_frames
 
 帧消费数据位于 `render::detail::frame_packet`，定义在 `detail/frame_packet.hpp`。
 资源快照及绘制实例列表只供 Service、执行器和后端消费，不属于宿主调用接口或普通模块共享头文件。
+
+## 队列容量
+
+`service::initialize` 最后一个参数 `render::queue_options` 在初始化时固定容量。
+`pending_frames` 默认 3，限制等待消费的帧，不含正在绘制的帧；
+`commands` 默认 12，限制所有已接受但未完成的命令，包含正在执行及可恢复重排的命令。
+两者必须非零，否则返回 invalid_argument。命令满时返回 not_ready 且不执行；完成后可重试。
+帧和命令独立计数，命令饱和不会占用帧名额；必达帧不替换，普通帧沿用替换策略。
+这些是任务数上限，不限制单个任务或共享 payload 的字节数。Service 普通交互帧仍采用最多一个等待帧的低延迟策略。

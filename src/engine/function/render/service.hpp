@@ -8,6 +8,7 @@
 #include "engine/function/render/commands.hpp"
 #include "engine/function/render/frame_request.hpp"
 #include "engine/function/render/frame_result.hpp"
+#include "engine/function/render/queue_options.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/platform/native_window_info.hpp"
 #include "engine/resource/texture/texture_view.hpp"
@@ -38,7 +39,8 @@ public:
   [[nodiscard]] GNEISS_API error initialize(const native_window_info& window,
                                             std::span<const std::byte> environment_asset = {},
                                             float environment_intensity = 1.0F,
-                                            float environment_rotation_radians = 0.0F);
+                                            float environment_rotation_radians = 0.0F,
+                                            queue_options queues = {});
   /** 异步提交已读取的环境字节；接受后执行器持有引用，调用方不等待 GPU。
    * 队列满返回 not_ready；解析失败沿用内置环境，执行失败由正常帧完成分发返回。 */
   [[nodiscard]] GNEISS_API error request_environment(

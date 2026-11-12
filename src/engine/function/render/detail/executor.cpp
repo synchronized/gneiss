@@ -57,7 +57,8 @@ struct threaded_render_executor::state final {
   std::deque<render_command_completion> completed_commands;
   std::thread worker;
   render_frame_callback frame_callback;
-  std::size_t maximum_pending_frames{3U};
+  queue_options options;
+  std::size_t outstanding_commands{};
   std::uint64_t next_sequence{1U};
   bool executing{};
   bool stopping{};
@@ -205,6 +206,7 @@ void threaded_render_executor::state::run() noexcept try {
         completed_frames.push_back(std::move(frame_completion));
       } else {
         ++stats.executed_commands;
+        --outstanding_commands;
         completed_commands.push_back(std::move(command_completion));
       }
       executing = false;
@@ -233,14 +235,14 @@ threaded_render_executor::threaded_render_executor() = default;
 threaded_render_executor::~threaded_render_executor() { stop(); }
 
 gneiss::error threaded_render_executor::initialize(render_frame_callback callback,
-                                                   std::size_t maximum_pending_frames) {
-  if (!callback || maximum_pending_frames == 0U || state_) {
+                                                   queue_options options) {
+  if (!callback || (options.pending_frames == 0U || options.commands == 0U) || state_) {
     return gneiss::error::invalid_argument;
   }
   {
     auto candidate = std::make_unique<state>();
     candidate->frame_callback = std::move(callback);
-    candidate->maximum_pending_frames = maximum_pending_frames;
+    candidate->options = options;
     candidate->worker = std::thread(&state::run, candidate.get());
     state_ = std::move(candidate);
     return gneiss::error::success;
@@ -260,7 +262,7 @@ result<std::uint64_t> threaded_render_executor::submit_frame(frame_packet packet
     }
     const auto frame_count = static_cast<std::size_t>(std::ranges::count_if(
         state_->pending, [](const auto& task) { return task.kind == state::task_kind::frame; }));
-    if (frame_count >= state_->maximum_pending_frames) {
+    if (frame_count >= state_->options.pending_frames) {
       const auto replace = std::ranges::find_if(state_->pending, [](const auto& task) {
         return task.kind == state::task_kind::frame &&
                task.frame_policy == frame_policy::replaceable;
@@ -311,13 +313,13 @@ result<std::uint64_t> threaded_render_executor::submit_command(render_command_ca
   }
   {
     std::lock_guard lock(state_->mutex);
-    if (state_->stopping ||
-        state_->pending.size() >= state_->maximum_pending_frames + std::size_t{8U}) {
+    if (state_->stopping || state_->outstanding_commands >= state_->options.commands) {
       ++state_->stats.rejected_commands;
       return gneiss::error::not_ready;
     }
     const auto sequence = state_->next_sequence++;
     ++state_->stats.submitted_commands;
+    ++state_->outstanding_commands;
     state_->pending.push_back({.kind = state::task_kind::command,
                                .sequence = sequence,
                                .frame_policy = frame_policy::replaceable,

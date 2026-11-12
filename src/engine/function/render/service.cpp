@@ -8,13 +8,15 @@ namespace gneiss::render {
 gneiss::error service::implementation::initialize(const native_window_info& window,
                                                   std::span<const std::byte> environment_asset,
                                                   float environment_intensity,
-                                                  float environment_rotation_radians) {
+                                                  float environment_rotation_radians,
+                                                  queue_options queues) {
   const auto executor_result = executor_.initialize(
       [this](gneiss::render::detail::frame_packet& packet, execution_result& output) {
         const auto result = backend_.draw(packet, output);
         output.needs_recreate = packet.window.needs_recreate;
         return result;
-      });
+      },
+      queues);
   if (executor_result != gneiss::error::success) {
     return executor_result;
   }
@@ -198,11 +200,11 @@ error service::request_environment(std::shared_ptr<const std::vector<std::byte>>
 
 error service::initialize(const native_window_info& window,
                           std::span<const std::byte> environment_asset, float environment_intensity,
-                          float environment_rotation_radians) {
+                          float environment_rotation_radians, queue_options queues) {
   if (!is_valid())
     return error::invalid_state;
   return impl_->initialize(window, environment_asset, environment_intensity,
-                           environment_rotation_radians);
+                           environment_rotation_radians, queues);
 }
 error service::shutdown(device_stats& stats) {
   const auto status = impl_->shutdown(stats);
