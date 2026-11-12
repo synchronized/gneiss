@@ -238,7 +238,7 @@ auto accepted = renderer.submit(std::move(commands));
 RID 表和 Service 接口仍限所属线程。初始化后，场景命令、资源版本发布及帧捕获共用有序执行器；
 捕获只读取已消费版本，后续提交不会提前影响较早的帧。未初始化执行器时，CPU 操作同步生效。
 
-`render::service::render(render::frame_request&&)` 接受零或一个窗口视图，视图给出 scene RID、view/projection
+`render::service::render(render::frame_request&&)` 接受多个离屏视图和最多一个窗口视图，视图给出 scene RID、view/projection
 矩阵、相机位置和层掩码。它将自有请求排入执行器，到达队列位置后才捕获场景及资源版本并交给 Granit；
 接受成功消费请求，接受失败保留请求；异步准备失败通过帧完成回执报告，不调用 GPU 绘制。
 零视图仅绘制 UI，不绘制场景。未初始化设备时不能提交绘制，接受成功不代表 GPU 完成。
@@ -335,4 +335,27 @@ GPU 表示在首次绘制时创建并复用。`view.target` 为零表示窗口�
 已接受的旧帧在释放命令前完成消费，后端继续负责 GPU 退休。服务关闭统一释放目标。
 该接口不是可忽略错误的析构入口。此路径已编译，尚未完成真实 GPU 验收。
 
-同帧视图共享一份去重资源快照，消费端统一准备资源，先绘制离屏目标再呈现窗口。UI/调试输入应用于每个视图。单次截图仍只接受零或一个视图，多视图回读返回 unsupported。执行失败不会撤销已经完成的离屏输出。GPU 计时沿用最近有效的窗口样本，不表示所有输出耗时之和。此链路已通过编译和 CPU 捕获测试，GPU 多视图显示尚待验收。
+同帧视图共享一份去重资源快照，消费端统一准备资源，先绘制离屏目标再呈现窗口。帧级 UI 只应用于窗口输出，调试输入应用于每个视图。单次截图仍只接受零或一个视图，多视图回读返回 unsupported。执行失败不会撤销已经完成的离屏输出。GPU 计时沿用最近有效的窗口样本，不表示所有输出耗时之和。此链路已通过编译和 CPU 捕获测试，GPU 多视图显示尚待验收。
+
+
+### 在 UI 中显示离屏目标
+
+`ui_draw_command::texture` 使用 `ui_image`，可保存纹理资产强引用或 `ui_target_image{target}`。
+后者借用本服务目标 RID，不伪造 CPU 纹理资产。ImGui 适配器将字体以外的 TexID 作为目标 RID，
+由 Render 检查类型、所属服务和存活状态。
+
+目标图像必须在同一 `frame_request.views` 中有生产视图，并存在窗口视图作为 UI 消费者；
+缺少生产者/窗口返回 `invalid_argument`，失效或跨服务目标返回 `invalid_handle`，请求不被消费。
+帧接受后通过有序执行保证先绘制目标、再由窗口 UI 采样，后续目标销毁排在旧帧之后。
+UI 不绘制到离屏目标，避免目标反馈读取；单纯的离屏截图也不包含帧级 UI。
+改变尺寸应创建新目标并更新后续 UI/视图，再按销毁接口处理旧目标。
+
+```cpp
+command.texture = ui_target_image{target};
+// draw_list.replace(...) 成功后装入 request.ui。
+request.views = {{.scene = scene, .target = target}, {.scene = scene}};
+auto submitted = renderer.render(std::move(request));
+// not_ready 保留请求供重试；target 仍由调用方负责销毁。
+```
+
+当前已接通 UI 图像转换与后端采样路径；编辑器视口窗口布局仍未使用该路径，GPU 显示待验收。

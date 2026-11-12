@@ -700,18 +700,27 @@ backend::implementation::create_material_mirror(const material_data& source,
       if (left >= right || top >= bottom || command.index_count == 0U) {
         continue;
       }
-      refresh_texture(resource_handle(command.texture),
-                      resources.share_texture(resource_handle(command.texture)));
-      const auto found = texture_mirrors_.find(resource_handle(command.texture));
-      if (found == texture_mirrors_.end())
-        continue;
+      ::granit::texture_view_ref image;
+      if (const auto* target = std::get_if<ui_target_image>(&command.texture)) {
+        const auto found = targets_.find(target->target);
+        if (found == targets_.end())
+          return ::granit::result::invalid_argument;
+        image = found->second.view.ref();
+      } else {
+        const auto handle = resource_handle(std::get<ref<const texture>>(command.texture));
+        refresh_texture(handle, resources.share_texture(handle));
+        const auto found = texture_mirrors_.find(handle);
+        if (found == texture_mirrors_.end())
+          continue;
+        image = found->second->view.ref();
+      }
       const auto first_index = static_cast<std::uint32_t>(indices.size());
       for (std::uint32_t item = 0; item < command.index_count; ++item) {
         indices.push_back(ui.indices()[command.first_index + item] + command.vertex_offset);
       }
       ranges.push_back({.first_index = first_index,
                         .index_count = command.index_count,
-                        .state = {.texture = found->second->view.ref(),
+                        .state = {.texture = image,
                                   .sampler = ui_sampler_.ref(),
                                   .clip = {.x = static_cast<std::int32_t>(left),
                                            .y = static_cast<std::int32_t>(top),
@@ -1138,7 +1147,9 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
     output.needs_recreate = false;
   }
 
-  const auto ui_result = prepare_ui_draw_list(packet.ui, resources, window.width, window.height);
+  const auto ui_result =
+      view_input.target ? ui_canvas_.clear()
+                        : prepare_ui_draw_list(packet.ui, resources, window.width, window.height);
   if (ui_result.failed())
     return map_result(ui_result);
   auto result = debug_draw_.clear();
@@ -1253,7 +1264,8 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
               ? ::granit::result::success
               : target.initialize(renderer_, {.format = ::granit::texture_format::rgba8_unorm,
                                               .usage = ::granit::texture_usage::color_attachment |
-                                                       ::granit::texture_usage::transfer_source,
+                                                       ::granit::texture_usage::transfer_source |
+                                                       ::granit::texture_usage::sampled,
                                               .width = window.width,
                                               .height = window.height});
       auto& target_view = destination.view;

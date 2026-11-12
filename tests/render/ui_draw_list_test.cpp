@@ -9,6 +9,7 @@
 
 #include <array>
 #include <cstdint>
+#include <iostream>
 #include <thread>
 #include <type_traits>
 
@@ -86,6 +87,38 @@ int main() {
     return 6;
   }
 
+  const auto fail_target = [](const char* message) {
+    std::cerr << "UI target: " << message << "\n";
+    return 1;
+  };
+  // 目标图像必须来自同服务，提交时必须有同帧生产视图和窗口消费者。
+  auto target = resources.create_target({64, 64});
+  auto scene = resources.create_scene();
+  if (!target || !scene)
+    return fail_target("create target and scene");
+  commands[0].texture = gneiss::ui_target_image{*target};
+  if (draw_list.replace(desc, resources).failed() ||
+      draw_list.replace(desc, other_resources) != gneiss::error::invalid_handle)
+    return fail_target("accept local target, reject foreign service");
+  gneiss::render::frame_request request{
+      .window = {.width = 64, .height = 64}, .views = {{.scene = *scene}}, .ui = draw_list};
+  auto missing_producer = resources.render(std::move(request));
+  if (missing_producer || missing_producer.error() != gneiss::error::invalid_argument ||
+      request.ui.commands().size() != 1)
+    return fail_target("reject missing producer without consuming request");
+  request.views.push_back({.scene = *scene, .target = *target});
+  auto ready = resources.render(std::move(request));
+  if (ready || ready.error() != gneiss::error::not_ready)
+    return fail_target("valid request reaches executor readiness check");
+  if (!resources.destroy_target(*target))
+    return fail_target("destroy target");
+  auto stale = resources.render(std::move(request));
+  if (stale || stale.error() != gneiss::error::invalid_handle ||
+      draw_list.replace(desc, resources) != gneiss::error::invalid_handle)
+    return fail_target("reject retired target");
+  if (!resources.destroy_scene(*scene))
+    return fail_target("destroy scene");
+  commands[0].texture = texture;
   draw_list.clear();
   if (!draw_list.vertices().empty() || !draw_list.indices().empty() ||
       !draw_list.commands().empty() || draw_list.display_width() != 0.0F) {

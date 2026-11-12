@@ -61,13 +61,15 @@ public:
   [[nodiscard]] GNEISS_API result<rid> create_target(target_description description);
   /** 按序释放后端目标；队满返回 not_ready，身份保留供重试。成功后旧 RID 失效。 */
   [[nodiscard]] GNEISS_API result<void> destroy_target(rid target);
+  /** 所属线程查询目标身份是否仍有效，不表示 GPU 内容已生成。 */
+  [[nodiscard]] GNEISS_API bool is_target(rid target) const noexcept;
   [[nodiscard]] GNEISS_API result<rid> create_scene();
   [[nodiscard]] GNEISS_API result<void> submit(render::scene_commands&&);
   /** 立即使场景 RID 失效，不受命令队列容量限制；在途任务保活内容直至消费完成。 */
   [[nodiscard]] GNEISS_API result<void> destroy_scene(rid scene);
   /** 所属线程提交普通帧；内部处理完成回执和背压，not_ready 时保留请求供重试。
    * 成功后消费请求，不代表 GPU 完成；UI 纹理与场景资源固定为不可变版本。
-   * 当前支持零或一个窗口/离屏视图，零视图只显示窗口 UI。 */
+   * 支持多个离屏视图和最多一个窗口视图；帧级 UI 只绘制到窗口。 */
   [[nodiscard]] GNEISS_API result<void> render(render::frame_request&& request);
   /** 异步提交必达截图，返回既有完成回执序号；失败不消费请求。
    * image 必须非空，成功接受后至对应完成回执前不得读写或复用于其他请求。

@@ -3,6 +3,7 @@
 
 #include "service.hpp"
 #include "engine/function/render/detail/service_impl.hpp"
+#include <algorithm>
 #include <cmath>
 namespace gneiss::render {
 gneiss::error service::implementation::initialize(const native_window_info& window,
@@ -254,7 +255,19 @@ result<std::uint64_t> service::submit_request(render::frame_request& request, fr
   // UI 是独立逐帧输入，接受时固定其纹理版本，不在消费者访问资源 RID 表。
   gneiss::render::detail::resource_snapshot ui_resources;
   for (const auto& command : request.ui.commands()) {
-    const auto handle = resource_handle(command.texture);
+    if (const auto* target = std::get_if<ui_target_image>(&command.texture)) {
+      if (!is_target(target->target))
+        return error::invalid_handle;
+      const bool produced = std::ranges::any_of(
+          request.views, [&](const auto& view) { return view.target == target->target; });
+      const bool window_output =
+          request.views.empty() ||
+          std::ranges::any_of(request.views, [](const auto& view) { return !view.target; });
+      if (!produced || !window_output)
+        return error::invalid_argument;
+      continue;
+    }
+    const auto handle = resource_handle(std::get<ref<const texture>>(command.texture));
     const auto status = texture_status(handle);
     if (status.failed())
       return status;

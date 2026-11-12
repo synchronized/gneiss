@@ -37,18 +37,23 @@ error ui_draw_list::replace(const ui_draw_view& desc, const gneiss::render::serv
     }
   }
   for (const auto& command : desc.commands) {
-    if (resource_handle(command.texture) == null_rid ||
-        resources.get_texture(resource_handle(command.texture)) == nullptr ||
-        !is_finite(command.clip_min[0]) || !is_finite(command.clip_min[1]) ||
+    if (const auto* target = std::get_if<ui_target_image>(&command.texture)) {
+      if (!resources.is_target(target->target))
+        return error::invalid_handle;
+    } else {
+      const auto handle = resource_handle(std::get<ref<const texture>>(command.texture));
+      if (!handle)
+        return error::invalid_argument;
+      if (!resources.get_texture(handle))
+        return error::invalid_handle;
+    }
+    if (!is_finite(command.clip_min[0]) || !is_finite(command.clip_min[1]) ||
         !is_finite(command.clip_max[0]) || !is_finite(command.clip_max[1]) ||
         command.clip_min[0] >= command.clip_max[0] || command.clip_min[1] >= command.clip_max[1] ||
         command.first_index > desc.indices.size() ||
         command.index_count > desc.indices.size() - command.first_index ||
         command.index_count % 3U != 0U) {
-      return resource_handle(command.texture) != null_rid &&
-                     resources.get_texture(resource_handle(command.texture)) == nullptr
-                 ? error::invalid_handle
-                 : error::invalid_argument;
+      return error::invalid_argument;
     }
     for (std::uint32_t item = 0; item < command.index_count; ++item) {
       const auto source_index = desc.indices[command.first_index + item];

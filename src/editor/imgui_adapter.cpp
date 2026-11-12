@@ -376,10 +376,11 @@ gneiss::error imgui_adapter::submit(runtime::application& application) {
       }
       const auto texture = static_cast<gneiss::rid>(command.GetTexID());
       gneiss::ui_draw_command converted{};
-      // 当前适配器只登记字体图集；绘制命令直接共享已有资源，不通过 RID 重建引用。
-      if (texture != gneiss::resource_handle(font_texture_))
-        return gneiss::error::unsupported;
-      converted.texture = font_texture_;
+      // 字体保留资源强引用；其他图像由 Render 校验为离屏目标，不重建资产引用。
+      if (texture == gneiss::resource_handle(font_texture_))
+        converted.texture = font_texture_;
+      else
+        converted.texture = gneiss::ui_target_image{texture};
       converted.clip_min[0] = command.ClipRect.x - draw_data->DisplayPos.x;
       converted.clip_min[1] = command.ClipRect.y - draw_data->DisplayPos.y;
       converted.clip_max[0] = command.ClipRect.z - draw_data->DisplayPos.x;
