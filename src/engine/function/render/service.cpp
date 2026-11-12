@@ -5,6 +5,7 @@
 #include "engine/function/render/detail/service_impl.hpp"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 namespace gneiss::render {
 gneiss::error service::implementation::initialize(const native_window_info& window,
                                                   std::span<const std::byte> environment_asset,
@@ -108,22 +109,23 @@ result<bool> service::implementation::can_prepare_frame() {
   return true;
 }
 result<std::uint64_t> service::implementation::submit(render::detail::render_frame_prepare prepare,
-                                                      frame_policy policy) {
+                                                      frame_policy policy,
+                                                      std::size_t input_bytes) {
   const auto completion_result = collect_completions();
   if (completion_result != gneiss::error::success) {
     return completion_result;
   }
   const bool recreate = pending_recreate_;
-  auto accepted =
-      executor_.submit_frame({}, policy,
-                             [prepare = std::move(prepare),
-                              recreate]() mutable -> result<gneiss::render::detail::frame_packet> {
-                               auto packet = prepare();
-                               if (packet)
-                                 packet->window.needs_recreate =
-                                     packet->window.needs_recreate || recreate;
-                               return packet;
-                             });
+  auto accepted = executor_.submit_frame(
+      {}, policy,
+      [prepare = std::move(prepare),
+       recreate]() mutable -> result<gneiss::render::detail::frame_packet> {
+        auto packet = prepare();
+        if (packet)
+          packet->window.needs_recreate = packet->window.needs_recreate || recreate;
+        return packet;
+      },
+      input_bytes);
   if (accepted)
     pending_recreate_ = false;
   return accepted;
@@ -282,6 +284,21 @@ result<std::uint64_t> service::submit_request(render::frame_request& request, fr
       return error::invalid_handle;
     ui_resources.textures_.insert_or_assign(handle, std::move(texture));
   }
+  // 只计队列直接复制的逐帧输入，不递归计算资源/场景，生成的绘制快照另属执行阶段。
+  std::size_t input_bytes{};
+  const auto account = [&](std::size_t count, std::size_t element) {
+    const auto available = std::numeric_limits<std::size_t>::max() - input_bytes;
+    if (count > available / element)
+      return false;
+    input_bytes += count * element;
+    return true;
+  };
+  if (!account(request.views.size(), sizeof(view)) ||
+      !account(request.ui.vertices().size(), sizeof(ui_vertex)) ||
+      !account(request.ui.indices().size(), sizeof(std::uint32_t)) ||
+      !account(request.ui.commands().size(), sizeof(ui_draw_command)) ||
+      !account(request.debug.lines().size(), sizeof(debug_line)))
+    return error::out_of_memory;
   auto accepted = impl_->submit(
       [capture = std::move(*capture), ui_resources = std::move(ui_resources),
        image = std::move(image)]() mutable -> result<gneiss::render::detail::frame_packet> {
@@ -298,7 +315,7 @@ result<std::uint64_t> service::submit_request(render::frame_request& request, fr
         packet->readback = std::move(image);
         return packet;
       },
-      policy);
+      policy, input_bytes);
   if (!accepted)
     return accepted.error();
   request = {};

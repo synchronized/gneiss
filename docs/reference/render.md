@@ -351,6 +351,13 @@ queue_stats 的 command_payload_bytes 与 command_payload_high_watermark 分别�
 计费包含 Mesh/Texture 发布数据、Material 发布版本及直接内容、场景命令数组容量和环境字节数据。
 这是逻辑 payload 预算，不递归计入资源引用图，不计算分配器开销、常驻资源、捕获帧或 GPU 内存。
 初始化同步借用的环境数据不进入异步积压计费。无执行器的同步路径不形成队列，也不应用该预算。
+`frame_input_bytes` 独立限制已接受帧的视图、UI 顶点/索引/命令和调试线段输入总字节数，
+默认零表示不限制。等待、执行和替换回收中的输入均计费，释放后才归还额度。
+统计通过 frame_input_bytes / frame_input_high_watermark 查询。
+单帧超过整个预算返回 out_of_memory；临时满额返回 not_ready，拒绝保留调用方请求和原等待帧。
+替换不提前扣除旧帧额度，新旧输入共存时也必须满足上限。
+这不是总内存硬上限：不含调用方原输入、提交时临时副本、分配器开销、场景常驻数据、
+渲染线程执行时生成的绘制快照和 GPU 数据。
 Service 普通交互帧仍采用最多一个等待帧的低延迟策略。
 
 ## 离屏目标

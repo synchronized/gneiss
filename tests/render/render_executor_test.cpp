@@ -17,6 +17,67 @@
 #include <vector>
 
 namespace {
+// 执行中的输入继续计费；预算拒绝不能丢弃旧帧，替换回收后才归还额度。
+bool frame_input_budget() {
+  using namespace gneiss;
+  using namespace gneiss::render::detail;
+  std::mutex mutex;
+  std::condition_variable ready;
+  bool started = false;
+  bool release = false;
+  std::vector<unsigned> drawn;
+  threaded_render_executor executor;
+  if (executor
+          .initialize(
+              [&](auto& packet, auto&) {
+                if (packet.window.width == 1) {
+                  std::unique_lock lock(mutex);
+                  started = true;
+                  ready.notify_all();
+                  ready.wait(lock, [&] { return release; });
+                }
+                drawn.push_back(packet.window.width);
+                return error::success;
+              },
+              {.pending_frames = 1, .frame_input_bytes = 12})
+          .failed())
+    return false;
+  frame_packet first;
+  first.window.width = 1;
+  auto running = executor.submit_frame(std::move(first), render::frame_policy::replaceable, {}, 8);
+  if (!running)
+    return false;
+  {
+    std::unique_lock lock(mutex);
+    ready.wait(lock, [&] { return started; });
+  }
+  frame_packet second;
+  second.window.width = 2;
+  auto waiting = executor.submit_frame(std::move(second), render::frame_policy::replaceable, {}, 3);
+  auto full = executor.submit_frame({}, render::frame_policy::required, {}, 2);
+  auto large = executor.submit_frame({}, render::frame_policy::replaceable, {}, 13);
+  const bool preserved = !executor.try_take_frame_completion();
+  frame_packet latest;
+  latest.window.width = 4;
+  auto replacement =
+      executor.submit_frame(std::move(latest), render::frame_policy::replaceable, {}, 1);
+  auto dropped = executor.try_take_frame_completion();
+  auto busy = executor.query_stats();
+  {
+    std::lock_guard lock(mutex);
+    release = true;
+  }
+  ready.notify_all();
+  const auto flushed = executor.flush();
+  auto empty = executor.query_stats();
+  executor.stop();
+  return waiting && !full && full.error() == error::not_ready && !large &&
+         large.error() == error::out_of_memory && preserved && replacement && dropped &&
+         dropped->sequence == *waiting && dropped->dropped && busy.frame_input_bytes == 9 &&
+         busy.frame_input_high_watermark == 12 && flushed.ok() && empty.frame_input_bytes == 0 &&
+         drawn == std::vector<unsigned>{1, 4};
+}
+
 // 被替换帧的捕获析构可查询执行器；丢帧完成必须晚于捕获释放。
 bool replaced_frame_releases_outside_lock() {
   using namespace gneiss;
@@ -362,6 +423,10 @@ int main(int argc, char** argv) {
     if (invalid.initialize(draw, {.pending_frames = 0}) != gneiss::error::invalid_argument ||
         invalid.initialize(draw, {.commands = 0}) != gneiss::error::invalid_argument)
       return 30;
+  }
+  if (!frame_input_budget()) {
+    std::fputs("帧输入预算与替换回收验证失败\n", stderr);
+    return 33;
   }
   if (!replaced_frame_releases_outside_lock()) {
     std::fputs("被替换帧的锁外回收与完成顺序验证失败\n", stderr);

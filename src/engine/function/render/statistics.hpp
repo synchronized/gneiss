@@ -64,6 +64,8 @@ struct queue_stats final {
   std::size_t pending_high_watermark{};
   std::size_t command_payload_bytes{};
   std::size_t command_payload_high_watermark{};
+  std::size_t frame_input_bytes{};
+  std::size_t frame_input_high_watermark{};
   std::uint64_t submitted_frames{};
   std::uint64_t executed_frames{};
   std::uint64_t presented_frames{};

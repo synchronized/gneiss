@@ -47,7 +47,8 @@ public:
   }
   [[nodiscard]] result<bool> can_prepare_frame();
   [[nodiscard]] result<std::uint64_t> submit(render::detail::render_frame_prepare prepare,
-                                             frame_policy policy = frame_policy::replaceable);
+                                             frame_policy policy = frame_policy::replaceable,
+                                             std::size_t input_bytes = 0);
   result<void> dispatch(std::function<void()> operation, std::size_t bytes = 0,
                         std::weak_ptr<const void> payload = {}) {
     if (!executor_.is_running()) {

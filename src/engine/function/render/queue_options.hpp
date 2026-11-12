@@ -11,5 +11,7 @@ struct queue_options {
   std::size_t commands{12};
   /** 在途命令直接携带的数据预算；共享所有者去重，零表示不限制。不包含帧和 GPU 内存。 */
   std::size_t command_payload_bytes{};
+  /** 已接受帧的视图/UI/调试输入预算，含执行及替换回收；零表示不限制。 */
+  std::size_t frame_input_bytes{};
 };
 }

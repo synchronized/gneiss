@@ -80,7 +80,8 @@ public:
   [[nodiscard]] error initialize(render_frame_callback callback, queue_options options = {});
   [[nodiscard]] result<std::uint64_t> submit_frame(frame_packet packet,
                                                    frame_policy policy = frame_policy::replaceable,
-                                                   render_frame_prepare prepare = {});
+                                                   render_frame_prepare prepare = {},
+                                                   std::size_t input_bytes = 0);
   /** resumable 命令返回 NOT_READY 时保留同一序号排到队尾，后续帧和命令可先执行。
    * 回调须自行保存进度并最终返回终态；flush/stop 会等它结束，不强制销毁在途资源。
    * once 的 NOT_READY 仍是一次完成结果。

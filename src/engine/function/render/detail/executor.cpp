@@ -48,6 +48,7 @@ struct threaded_render_executor::state final {
     render_command_policy command_policy{render_command_policy::once};
     double execution_ms{};
     std::size_t payload_bytes{};
+    std::size_t input_bytes{};
     std::weak_ptr<const void> payload{};
     bool shared_payload{};
     std::chrono::steady_clock::time_point enqueued_at;
@@ -190,6 +191,7 @@ void threaded_render_executor::state::run() noexcept try {
           previous_frame_completed = completed_at;
           ++stats.presented_frames;
         }
+        stats.frame_input_bytes -= task.input_bytes;
         ++stats.executed_frames;
         if (frame_completion.policy == frame_policy::required) {
           ++stats.executed_required_frames;
@@ -274,7 +276,8 @@ gneiss::error threaded_render_executor::initialize(render_frame_callback callbac
 
 result<std::uint64_t> threaded_render_executor::submit_frame(frame_packet packet,
                                                              frame_policy policy,
-                                                             render_frame_prepare prepare) {
+                                                             render_frame_prepare prepare,
+                                                             std::size_t input_bytes) {
   if (!state_) {
     return gneiss::error::not_ready;
   }
@@ -285,6 +288,16 @@ result<std::uint64_t> threaded_render_executor::submit_frame(frame_packet packet
     std::lock_guard lock(state_->mutex);
     if (state_->stopping) {
       return gneiss::error::not_ready;
+    }
+    const auto limit = state_->options.frame_input_bytes;
+    if (limit && input_bytes > limit)
+      return error::out_of_memory;
+    const auto ceiling = limit ? limit : std::numeric_limits<std::size_t>::max();
+    // 旧帧尚未释放时不能提前归还额度；拒绝保持原排队帧不变。
+    if (input_bytes > ceiling - state_->stats.frame_input_bytes) {
+      if (policy == frame_policy::required)
+        ++state_->stats.rejected_required_frames;
+      return error::not_ready;
     }
     const auto frame_count = static_cast<std::size_t>(std::ranges::count_if(
         state_->pending, [](const auto& task) { return task.kind == state::task_kind::frame; }));
@@ -314,6 +327,9 @@ result<std::uint64_t> threaded_render_executor::submit_frame(frame_packet packet
     sequence = state_->next_sequence++;
     packet.sequence = sequence;
     ++state_->stats.submitted_frames;
+    state_->stats.frame_input_bytes += input_bytes;
+    state_->stats.frame_input_high_watermark =
+        std::max(state_->stats.frame_input_high_watermark, state_->stats.frame_input_bytes);
     if (policy == frame_policy::required) {
       ++state_->stats.submitted_required_frames;
     }
@@ -323,6 +339,7 @@ result<std::uint64_t> threaded_render_executor::submit_frame(frame_packet packet
                                .packet = std::move(packet),
                                .prepare = std::move(prepare),
                                .command = {},
+                               .input_bytes = input_bytes,
                                .enqueued_at = std::chrono::steady_clock::now()});
     state_->stats.pending_high_watermark =
         std::max(state_->stats.pending_high_watermark, state_->pending.size());
@@ -330,9 +347,11 @@ result<std::uint64_t> threaded_render_executor::submit_frame(frame_packet packet
   }
   if (retired) {
     // 任意捕获数据的析构不能发生在队列锁内；先释放，再公布丢帧完成。
+    const auto retired_bytes = retired->input_bytes;
     retired.reset();
     std::lock_guard lock(state_->mutex);
     state_->completed_frames.push_back(std::move(*dropped));
+    state_->stats.frame_input_bytes -= retired_bytes;
     --state_->retiring_frames;
     if (state_->notification)
       state_->notification->notify();
