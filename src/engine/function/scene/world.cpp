@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/scene/world.hpp"
+#include "engine/core/assert.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/fatal.hpp"
 #include "engine/core/meta/registry.hpp"
@@ -25,11 +26,9 @@ world::~world() noexcept try {
 events::sink<void(const object_changes&)> world::changes() const {
   return impl_->changes.changed();
 }
-result<void> world::flush_changes() {
-  if (!is_owner_thread())
-    return error::invalid_state;
+void world::flush_changes() {
+  GNEISS_ASSERT(is_owner_thread(), "World 变化通知必须在所属线程派发");
   impl_->changes.flush();
-  return {};
 }
 result<scene_instance> world::create_scene() {
   if (!is_owner_thread())

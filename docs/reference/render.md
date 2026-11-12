@@ -277,9 +277,7 @@ if (!created)
 auto binding = std::move(*created);
 
 // 逻辑更新结束后调用。借用组件修改后需 notify_component_modified<T>()。
-auto published = owner.flush_changes(); // 所有消费者共享一次合并后的通知。
-if (!published)
-  return published.error();
+owner.flush_changes(); // 所属线程调用；所有消费者共享一次合并后的通知。
 auto synced = binding->synchronize();
 if (!synced)
   return synced.error(); // 状态仍在绑定中，下次可重试。
@@ -291,6 +289,7 @@ binding.reset();
 
 创建绑定时枚举已有网格对象，后续订阅 world.changes()，只处理变化。
 World 合并重复修改，在宿主调用 flush_changes() 时广播借用批次；回调只能记录待办，不能修改 World。
+该调用返回 void，所属线程是调用前置条件，违例在 Debug/Release 均断言终止；回调异常沿原有异常边界处理，不能当作可重试广播。
 消费者分别保存自己的待办，绑定同步不触发广播；没有订阅时 World 不积累通知。
 父变换、改父节点、网格组件增删/换绑、
 对象删除和场景卸载均生成相应命令。矩阵使用完整 world_matrix，保留层级剪切。

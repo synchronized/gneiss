@@ -5,7 +5,11 @@
 
 ## 状态与范围
 
-2026-11-12：规则已整理，代码迁移待开始。本轮仅更新文档，不改变现有 API 行为。
+2026-11-12：P1 进行中。已将 World::flush_changes 改为 void，并以全配置断言检查所属线程；
+Application 与增量同步测试已迁移，变化合并、回调异常边界和渲染重试语义不变。
+entity_count、内部访问及 GameObject 查询尚未迁移，P1 未完成。
+本组 Windows Clang Debug 构建通过；World 服务、增量同步、minimal 示例与断言 Debug/Release
+探针共 5 项通过。未单独执行 World 错线程终止分支及其他平台验证。
 权威规则见[代码规范](../guides/coding-style.md#返回值契约与终止的选择)。
 本计划延续已完成的 [PLAN-109](PLAN-109-exception-boundaries.md) 与
 [ADR-114](../decisions/ADR-114-exception-boundaries.md)，不重新实施异常捕获清理。

@@ -52,8 +52,10 @@ int main() {
   math::transform transform;
   transform.translation.x = 5;
   if (root->set_local_transform(transform).failed() ||
-      root->set_local_transform(transform).failed() || !first.objects.empty() ||
-      !(*owner)->flush_changes() || !first.objects.at(child->entity()).transform ||
+      root->set_local_transform(transform).failed() || !first.objects.empty())
+    return fail("父变换传播至子对象");
+  (*owner)->flush_changes();
+  if (!first.objects.at(child->entity()).transform ||
       !second.objects.at(child->entity()).transform || first.batches != 1 || second.batches != 1)
     return fail("父变换传播至子对象");
   // 重复修改合并；一个消费者确认不影响另一个。
@@ -64,25 +66,31 @@ int main() {
     return fail("缺失组件修改通知");
   const auto type = runtime_type_of<mesh_component>();
   if (child->remove_component<mesh_component>().failed() ||
-      child->add_component<mesh_component>(mesh_component{*mesh, *material}).failed() ||
-      !(*owner)->flush_changes() || !first.objects.at(child->entity()).components.at(type) ||
-      !(*binding)->synchronize())
+      child->add_component<mesh_component>(mesh_component{*mesh, *material}).failed())
+    return fail("移除后重新添加保留身份失效信息");
+  (*owner)->flush_changes();
+  if (!first.objects.at(child->entity()).components.at(type) || !(*binding)->synchronize())
     return fail("移除后重新添加保留身份失效信息");
   first.objects.clear();
   second.objects.clear();
-  if (child->reparent({}).failed() || !(*owner)->flush_changes() ||
-      !first.objects.at(child->entity()).transform || !(*binding)->synchronize())
+  if (child->reparent({}).failed())
+    return fail("改父节点同步");
+  (*owner)->flush_changes();
+  if (!first.objects.at(child->entity()).transform || !(*binding)->synchronize())
     return fail("改父节点同步");
   // 失效资源使提交失败；修复后不重复创建已接受实例，也不丢弃变化。
   auto invalid_mesh = assets.reserve_mesh();
   if (!invalid_mesh || render.destroy_mesh(resource_handle(*invalid_mesh)).failed())
     return fail("制造失效资源");
   child->try_component<mesh_component>()->mesh = *invalid_mesh;
-  if (child->notify_component_modified<mesh_component>().failed() || !(*owner)->flush_changes() ||
-      (*binding)->synchronize())
+  if (child->notify_component_modified<mesh_component>().failed())
+    return fail("失效资源提交拒绝");
+  (*owner)->flush_changes();
+  if ((*binding)->synchronize())
     return fail("失效资源提交拒绝");
   child->try_component<mesh_component>()->mesh = *mesh;
-  if (!(*owner)->flush_changes() || !(*binding)->synchronize())
+  (*owner)->flush_changes();
+  if (!(*binding)->synchronize())
     return fail("无新通知时使用保留待办重试");
   error wrong_thread;
   std::thread worker([&] {
@@ -93,21 +101,27 @@ int main() {
   if (wrong_thread != error::invalid_state)
     return fail("拒绝其他线程同步");
   const auto old_id = child->entity();
-  if (child->destroy().failed() || !(*owner)->flush_changes() ||
-      !first.objects.at(old_id).destroyed || !(*binding)->synchronize() ||
+  if (child->destroy().failed())
+    return fail("删除对象与多绑定同步");
+  (*owner)->flush_changes();
+  if (!first.objects.at(old_id).destroyed || !(*binding)->synchronize() ||
       !(*other_binding)->synchronize())
     return fail("删除对象与多绑定同步");
   auto replacement = scene->create_object();
   if (!replacement || replacement->entity() == old_id ||
-      replacement->add_component<mesh_component>(mesh_component{*mesh, *material}).failed() ||
-      !(*owner)->flush_changes() || !(*binding)->synchronize())
+      replacement->add_component<mesh_component>(mesh_component{*mesh, *material}).failed())
+    return fail("实体槽位复用后新身份");
+  (*owner)->flush_changes();
+  if (!(*binding)->synchronize())
     return fail("实体槽位复用后新身份");
   // 提交前创建又删除，不能留下渲染实例；卸载同时处理已有成员。
   auto temporary = scene->create_object();
   if (!temporary ||
       temporary->add_component<mesh_component>(mesh_component{*mesh, *material}).failed() ||
-      temporary->destroy().failed() || scene->unload().failed() || !(*owner)->flush_changes() ||
-      !(*binding)->synchronize())
+      temporary->destroy().failed() || scene->unload().failed())
+    return fail("未提交对象删除及场景卸载");
+  (*owner)->flush_changes();
+  if (!(*binding)->synchronize())
     return fail("未提交对象删除及场景卸载");
   const auto render_scene = (*binding)->scene();
   binding->reset();
