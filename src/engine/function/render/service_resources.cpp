@@ -327,7 +327,10 @@ result<void> service::replace_mesh(rid rid, std::shared_ptr<const mesh_data> dat
       return tracked.error();
     auto identity = slot->identity;
     auto data = *tracked;
-    if (auto status = dispatch_render_work([identity, data] { identity->consume(data); }); !status)
+    if (auto status =
+            dispatch_render_work([identity, data] { identity->consume(data); },
+                                 static_cast<std::size_t>(measure(*data).cpu_data_bytes), data);
+        !status)
       return status.error();
     identity->accept(std::move(data));
   }
@@ -348,7 +351,10 @@ result<void> service::replace_material(rid rid, std::shared_ptr<const material_d
   auto next = std::make_shared<const identity_type::version>(
       identity_type::version{std::move(*tracked), std::move(*dependencies)});
   auto identity = slot->identity;
-  if (auto status = dispatch_render_work([identity, next] { identity->consume(next); }); !status)
+  if (auto status =
+          dispatch_render_work([identity, next] { identity->consume(next); },
+                               sizeof(identity_type::version) + sizeof(material_data), next);
+      !status)
     return status.error();
   identity->accept(std::move(next));
   return {};
@@ -525,7 +531,10 @@ result<void> service::replace_texture(rid texture, std::shared_ptr<const texture
       return tracked.error();
     auto identity = slot->identity;
     auto data = *tracked;
-    if (auto status = dispatch_render_work([identity, data] { identity->consume(data); }); !status)
+    if (auto status =
+            dispatch_render_work([identity, data] { identity->consume(data); },
+                                 static_cast<std::size_t>(measure(*data).cpu_data_bytes), data);
+        !status)
       return status.error();
     identity->accept(std::move(data));
   }

@@ -17,6 +17,65 @@
 #include <vector>
 
 namespace {
+// 同一共享所有者只计费一次；容量拒绝不执行，零数据销毁命令仍可进入。
+bool command_payload_budget() {
+  using namespace gneiss;
+  using namespace gneiss::render::detail;
+  std::mutex mutex;
+  std::condition_variable ready;
+  bool started = false;
+  bool release = false;
+  threaded_render_executor executor;
+  if (executor
+          .initialize([](auto&, auto&) { return error::success; },
+                      {.commands = 8, .command_payload_bytes = 12})
+          .failed())
+    return false;
+  auto data = std::make_shared<int>();
+  auto blocker = executor.submit_command(
+      [&, data](const auto&) {
+        std::unique_lock lock(mutex);
+        started = true;
+        ready.notify_all();
+        ready.wait(lock, [&] { return release; });
+        return error::success;
+      },
+      render_command_policy::once, 8, data);
+  if (!blocker)
+    return false;
+  {
+    std::unique_lock lock(mutex);
+    ready.wait(lock, [&] { return started; });
+  }
+  unsigned calls{};
+  auto work = [data, &calls](const auto&) {
+    ++calls;
+    return error::success;
+  };
+  auto shared = executor.submit_command(work, render_command_policy::once, 8, data);
+  auto inconsistent = executor.submit_command(work, render_command_policy::once, 7, data);
+  auto owned = executor.submit_command(work, render_command_policy::once, 4);
+  auto full = executor.submit_command(work, render_command_policy::once, 1);
+  auto oversized = executor.submit_command(work, render_command_policy::once, 13);
+  auto retirement = executor.submit_command(work);
+  const auto busy = executor.query_stats();
+  {
+    std::lock_guard lock(mutex);
+    release = true;
+  }
+  ready.notify_all();
+  const auto drained = executor.flush();
+  const auto empty = executor.query_stats();
+  auto retry = executor.submit_command(work, render_command_policy::once, 12);
+  const auto retried = executor.flush();
+  executor.stop();
+  return shared && !inconsistent && inconsistent.error() == error::invalid_argument && owned &&
+         !full && full.error() == error::not_ready && !oversized &&
+         oversized.error() == error::out_of_memory && retirement &&
+         busy.command_payload_bytes == 12 && busy.command_payload_high_watermark == 12 &&
+         drained.ok() && empty.command_payload_bytes == 0 && retry && retried.ok() && calls == 4;
+}
+
 // 捕获资源的析构也是命令完成的一部分；未释放前不得归还容量或发布完成。
 bool command_retirement_precedes_completion(gneiss::error terminal) {
   using namespace gneiss;
@@ -168,7 +227,8 @@ bool resumable_command_allows_frames(gneiss::error terminal) {
             frame_executed.store(true);
             return gneiss::error::success;
           },
-          {.pending_frames = 1, .commands = 1}) != gneiss::error::success) {
+          {.pending_frames = 1, .commands = 1, .command_payload_bytes = 8}) !=
+      gneiss::error::success) {
     return false;
   }
   const auto observed = started->snapshot();
@@ -180,7 +240,7 @@ bool resumable_command_allows_frames(gneiss::error terminal) {
                 started->notify();
                 return frame_executed.load() ? terminal : gneiss::error::not_ready;
               },
-              render_command_policy::resumable),
+              render_command_policy::resumable, 8, lifetime),
           command) != gneiss::error::success) {
     return false;
   }
@@ -188,7 +248,7 @@ bool resumable_command_allows_frames(gneiss::error terminal) {
   const bool began = started->wait(observed, std::chrono::seconds(2));
   std::optional<render_command_completion> premature;
   const bool no_completion = !(premature = executor.try_take_command_completion());
-  const bool alive = !retained.expired();
+  const bool alive = !retained.expired() && executor.query_stats().command_payload_bytes == 8;
   // 可恢复命令让出执行权仍占容量；拒绝的命令不得执行，帧有独立名额。
   unsigned retry_calls{};
   auto retry = [&](const auto&) {
@@ -220,7 +280,8 @@ bool resumable_command_allows_frames(gneiss::error terminal) {
          submitted == gneiss::error::success && flushed == gneiss::error::success && completed &&
          completion->sequence == command && completion->status == terminal && rendered &&
          drawn->sequence == frame && drawn->status == gneiss::error::success &&
-         stats.submitted_commands == 1U && stats.executed_commands == 1U && retained.expired() &&
+         stats.command_payload_bytes == 0 && stats.submitted_commands == 1U &&
+         stats.executed_commands == 1U && retained.expired() &&
          !(completion = executor.try_take_command_completion());
 }
 } // namespace
@@ -252,6 +313,10 @@ int main(int argc, char** argv) {
     if (invalid.initialize(draw, {.pending_frames = 0}) != gneiss::error::invalid_argument ||
         invalid.initialize(draw, {.commands = 0}) != gneiss::error::invalid_argument)
       return 30;
+  }
+  if (!command_payload_budget()) {
+    std::fputs("命令共享数据预算、拒绝及回收验证失败\n", stderr);
+    return 31;
   }
   if (!command_retirement_precedes_completion(gneiss::error::success) ||
       !command_retirement_precedes_completion(gneiss::error::io)) {

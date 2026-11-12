@@ -144,7 +144,8 @@ public:
   [[nodiscard]] GNEISS_API std::size_t live_resource_count() const noexcept;
 
 private:
-  result<void> dispatch_render_work(std::function<void()>);
+  result<void> dispatch_render_work(std::function<void()>, std::size_t bytes = 0,
+                                    std::weak_ptr<const void> payload = {});
   result<std::uint64_t> submit_request(render::frame_request&, frame_policy,
                                        std::shared_ptr<frame_image>);
   template <typename Resource>

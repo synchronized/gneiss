@@ -48,7 +48,8 @@ public:
   [[nodiscard]] result<bool> can_prepare_frame();
   [[nodiscard]] result<std::uint64_t> submit(render::detail::render_frame_prepare prepare,
                                              frame_policy policy = frame_policy::replaceable);
-  result<void> dispatch(std::function<void()> operation) {
+  result<void> dispatch(std::function<void()> operation, std::size_t bytes = 0,
+                        std::weak_ptr<const void> payload = {}) {
     if (!executor_.is_running()) {
       operation();
       return {};
@@ -58,7 +59,7 @@ public:
           operation();
           return error::success;
         },
-        render::detail::render_command_policy::once);
+        render::detail::render_command_policy::once, bytes, std::move(payload));
     return accepted ? result<void>{} : result<void>{accepted.error()};
   }
   [[nodiscard]] result<std::optional<frame_completion>> try_take_required_completion();

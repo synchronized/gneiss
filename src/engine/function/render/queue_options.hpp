@@ -3,11 +3,13 @@
 #pragma once
 #include <cstddef>
 namespace gneiss::render {
-/** 初始化时固定的任务数上限；不是 CPU/GPU 字节预算，两个字段必须非零。 */
+/** 初始化时固定的队列容量；任务数必须非零，字节预算可选。 */
 struct queue_options {
   /** 等待消费的帧数，不包含正在执行的帧。 */
   std::size_t pending_frames{3};
   /** 已接受但未完成的命令数，包含正在执行及让出执行权的命令。 */
   std::size_t commands{12};
+  /** 在途命令直接携带的数据预算；共享所有者去重，零表示不限制。不包含帧和 GPU 内存。 */
+  std::size_t command_payload_bytes{};
 };
 }

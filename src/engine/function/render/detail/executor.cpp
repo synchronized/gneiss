@@ -9,6 +9,8 @@
 #include <chrono>
 #include <condition_variable>
 #include <deque>
+#include <limits>
+#include <map>
 #include <mutex>
 #include <new>
 #include <ranges>
@@ -45,6 +47,9 @@ struct threaded_render_executor::state final {
     render_command_callback command;
     render_command_policy command_policy{render_command_policy::once};
     double execution_ms{};
+    std::size_t payload_bytes{};
+    std::weak_ptr<const void> payload{};
+    bool shared_payload{};
     std::chrono::steady_clock::time_point enqueued_at;
   };
 
@@ -59,6 +64,11 @@ struct threaded_render_executor::state final {
   render_frame_callback frame_callback;
   queue_options options;
   std::size_t outstanding_commands{};
+  struct payload_usage {
+    std::size_t bytes{};
+    std::size_t commands{};
+  };
+  std::map<std::weak_ptr<const void>, payload_usage, std::owner_less<>> payloads;
   std::uint64_t next_sequence{1U};
   bool executing{};
   bool stopping{};
@@ -210,6 +220,15 @@ void threaded_render_executor::state::run() noexcept try {
       } else {
         ++stats.executed_commands;
         --outstanding_commands;
+        if (task.shared_payload) {
+          auto item = payloads.find(task.payload);
+          if (--item->second.commands == 0) {
+            stats.command_payload_bytes -= item->second.bytes;
+            payloads.erase(item);
+          }
+        } else {
+          stats.command_payload_bytes -= task.payload_bytes;
+        }
         completed_commands.push_back(std::move(command_completion));
       }
       executing = false;
@@ -307,7 +326,9 @@ result<std::uint64_t> threaded_render_executor::submit_frame(frame_packet packet
 }
 
 result<std::uint64_t> threaded_render_executor::submit_command(render_command_callback command,
-                                                               render_command_policy policy) {
+                                                               render_command_policy policy,
+                                                               std::size_t payload_bytes,
+                                                               std::weak_ptr<const void> payload) {
   if (!state_) {
     return gneiss::error::not_ready;
   }
@@ -316,6 +337,23 @@ result<std::uint64_t> threaded_render_executor::submit_command(render_command_ca
   }
   {
     std::lock_guard lock(state_->mutex);
+    const std::weak_ptr<const void> empty;
+    const bool shared = payload.owner_before(empty) || empty.owner_before(payload);
+    auto existing = state_->payloads.find(payload);
+    if (shared && (payload.expired() ||
+                   (existing != state_->payloads.end() && existing->second.bytes != payload_bytes)))
+      return error::invalid_argument;
+    const auto limit = state_->options.command_payload_bytes;
+    if (limit && payload_bytes > limit) {
+      ++state_->stats.rejected_commands;
+      return error::out_of_memory; // 单份数据永远无法进入该预算，不能要求调用方无限重试。
+    }
+    const auto additional = shared && existing != state_->payloads.end() ? 0U : payload_bytes;
+    const auto ceiling = limit ? limit : std::numeric_limits<std::size_t>::max();
+    if (additional > ceiling - state_->stats.command_payload_bytes) {
+      ++state_->stats.rejected_commands;
+      return error::not_ready;
+    }
     if (state_->stopping || state_->outstanding_commands >= state_->options.commands) {
       ++state_->stats.rejected_commands;
       return gneiss::error::not_ready;
@@ -323,6 +361,14 @@ result<std::uint64_t> threaded_render_executor::submit_command(render_command_ca
     const auto sequence = state_->next_sequence++;
     ++state_->stats.submitted_commands;
     ++state_->outstanding_commands;
+    if (shared) {
+      auto& usage = state_->payloads[payload];
+      usage.bytes = payload_bytes;
+      ++usage.commands;
+    }
+    state_->stats.command_payload_bytes += additional;
+    state_->stats.command_payload_high_watermark =
+        std::max(state_->stats.command_payload_high_watermark, state_->stats.command_payload_bytes);
     state_->pending.push_back({.kind = state::task_kind::command,
                                .sequence = sequence,
                                .frame_policy = frame_policy::replaceable,
@@ -330,6 +376,9 @@ result<std::uint64_t> threaded_render_executor::submit_command(render_command_ca
                                .prepare = {},
                                .command = std::move(command),
                                .command_policy = policy,
+                               .payload_bytes = payload_bytes,
+                               .payload = std::move(payload),
+                               .shared_payload = shared,
                                .enqueued_at = std::chrono::steady_clock::now()});
     state_->stats.pending_high_watermark =
         std::max(state_->stats.pending_high_watermark, state_->pending.size());

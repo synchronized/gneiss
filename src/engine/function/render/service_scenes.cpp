@@ -103,9 +103,11 @@ result<void> service::implementation::submit_scene(render::scene_commands&& comm
     prepared.push_back(std::move(next));
   }
   // 执行数据保活依赖，不捕获接受侧、RID 表或调用方内存。
-  auto accepted = dispatch([content = group->content, prepared = std::move(prepared)]() mutable {
-    content->apply(std::move(prepared));
-  });
+  const auto bytes = prepared.capacity() * sizeof(prepared_scene_command);
+  auto accepted =
+      dispatch([content = group->content,
+                prepared = std::move(prepared)]() mutable { content->apply(std::move(prepared)); },
+               bytes);
   if (!accepted)
     return accepted.error();
   for (auto key : removed)

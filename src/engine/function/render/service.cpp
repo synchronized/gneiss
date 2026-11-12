@@ -58,10 +58,14 @@ error service::implementation::request_environment(
     std::shared_ptr<const std::vector<std::byte>> bytes, float intensity, float rotation) {
   if (!bytes || bytes->empty() || !std::isfinite(intensity) || !std::isfinite(rotation))
     return error::invalid_argument;
-  auto submitted = executor_.submit_command([this, bytes = std::move(bytes), intensity, rotation](
-                                                const render::detail::render_command_reporter&) {
-    return backend_.set_environment(*bytes, intensity, rotation);
-  });
+  const auto payload_bytes = bytes->size();
+  const std::weak_ptr<const void> payload = bytes;
+  auto submitted = executor_.submit_command(
+      [this, bytes = std::move(bytes), intensity,
+       rotation](const render::detail::render_command_reporter&) {
+        return backend_.set_environment(*bytes, intensity, rotation);
+      },
+      render::detail::render_command_policy::once, payload_bytes, payload);
   return submitted ? error::success : submitted.error();
 }
 
@@ -190,8 +194,9 @@ gneiss::error service::implementation::shutdown(device_stats& stats) {
 
 service::service(std::uint64_t memory_limit)
     : impl_(std::make_unique<implementation>(memory_limit)) {}
-result<void> service::dispatch_render_work(std::function<void()> operation) {
-  return impl_->dispatch(std::move(operation));
+result<void> service::dispatch_render_work(std::function<void()> operation, std::size_t bytes,
+                                           std::weak_ptr<const void> payload) {
+  return impl_->dispatch(std::move(operation), bytes, std::move(payload));
 }
 service::~service() = default;
 error service::request_environment(std::shared_ptr<const std::vector<std::byte>> bytes,
