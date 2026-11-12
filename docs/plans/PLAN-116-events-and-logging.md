@@ -187,3 +187,16 @@ Signal 检查单线程生命周期、参数借用、断开后不再交付、源�
   故意崩溃用例或远端 CI，不把这些项目记作验证通过。
 - Runtime 日志协议升级为 v2，Editor/Runtime 必须配套重编译；备份名改为 spdlog 的 runtime.1.log。
 - 终端和文件输出按 service 的 flush/close 刷新，不承诺进程崩溃时所有异步日志都能落盘。
+
+
+## 后续收敛：直接对象与轻量寿命控制块
+
+范围仅为 Signal 内部实现与封装规范，不重做日志或 Render，也不改变既有通知契约。
+
+- Signal 直接维护唯一订阅列表，删除 signal_state、虚连接源与逐订阅堆分配。
+- 保留弱引用寿命检测、独立订阅 ID、线程与发布期间操作约束；EnTT 仅复用 delegate。
+- 复用 Signal 契约测试以及 Console 消费者测试，验证重复订阅、移动、源先销毁、异常恢复与线程错误。
+- 代码规范作为封装规则唯一来源，AGENTS 只引用；ADR-119 补充实现取舍。
+
+本轮已完成：Windows Clang Debug 的 Signal 与 Console 面板两项 CPU 测试通过，
+Editor 编译通过；补充列表扩容、删除后新增订阅的身份回归。未运行其他平台或性能基准。

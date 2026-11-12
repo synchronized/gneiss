@@ -35,3 +35,12 @@ Ludens 作为频道式调用参考，不直接复制其未同步频道表、仅�
 以专用 default_service_binding 管理安装，不引入通用 locator 框架。
 允许通过连接句柄动态 attach/detach Sink，按分发时配置交付；保留同步 Sink 协议，不使用 Signal 分发日志。
 这一决策取代启动后固定 Sink 列表和所有 Logger 都固定绑定的初始约束。
+
+
+## Signal 实现收敛（2026-11-12）
+
+保留现有源销毁安全、独立订阅身份和所属线程契约。Signal 直接拥有订阅列表，
+EnTT 仅复用 delegate；不再叠加 EnTT sigh/connection 与自有订阅表。
+非拥有 Connection/Sink 通过轻量寿命控制块检测源失效，控制块不拥有订阅与监听者。
+查询和断开采用线性扫描，适用于当前对象级少量监听者；不承诺大规模订阅性能提升。
+该调整不引入发布期间修改或递归发布能力，也不改变调用 API。

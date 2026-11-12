@@ -5,6 +5,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <thread>
+#include <vector>
 
 namespace {
 namespace events = gneiss::events;
@@ -58,6 +59,22 @@ void test() {
   }
   source.publish(9);
   require(target.total == 7);
+  // 列表扩容或删除其他订阅不能改变连接身份；旧连接也不能误断新订阅。
+  {
+    std::vector<events::connection> subscriptions;
+    for (int index = 0; index < 64; ++index)
+      subscriptions.push_back(source.sink().connect<&receiver::receive>(target));
+    const auto removed = subscriptions.front();
+    removed.disconnect();
+    const auto newest = source.sink().connect<&receiver::receive>(target);
+    removed.disconnect();
+    require(newest.connected() && subscriptions.back().connected());
+    source.publish(1);
+    require(target.total == 71);
+    for (const auto& subscription : subscriptions)
+      subscription.disconnect();
+    newest.disconnect();
+  }
   events::scoped_connection expired;
   auto old_sink = [&] {
     events::signal<void(int)> temporary;

@@ -2,80 +2,27 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
-#include <entt/signal/sigh.hpp>
+#include <entt/signal/delegate.hpp>
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <thread>
-#include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace gneiss::events {
 namespace detail {
-struct connection_source {
-  virtual ~connection_source() = default;
-  virtual void disconnect(std::uint64_t id) = 0;
-  virtual bool connected(std::uint64_t id) const = 0;
-};
-
-template <class Signature> struct signal_state;
-
-template <class... Args> struct signal_state<void(Args...)> final : connection_source {
-  struct subscription {
-    entt::delegate<void(Args...)> callback;
-    entt::connection connection;
-    void invoke(Args... args) { callback(args...); }
-  };
-
-  std::thread::id owner{std::this_thread::get_id()};
-  bool publishing{};
-  std::uint64_t next_id{1};
-  entt::sigh<void(Args...)> signal;
-  std::unordered_map<std::uint64_t, std::unique_ptr<subscription>> subscriptions;
-
-  void check_thread() const {
-    if (owner != std::this_thread::get_id())
-      throw std::logic_error("signal must be accessed on its owner thread");
-  }
-  void check_idle() const {
-    check_thread();
-    if (publishing)
-      throw std::logic_error("signal cannot be modified or recursively published during publish");
-  }
-  void disconnect(std::uint64_t id) override {
-    check_idle();
-    const auto found = subscriptions.find(id);
-    if (found != subscriptions.end()) {
-      found->second->connection.release();
-      subscriptions.erase(found);
-    }
-  }
-  bool connected(std::uint64_t id) const override {
-    check_thread();
-    return subscriptions.contains(id);
-  }
-  template <auto Candidate, class... Instance> std::uint64_t connect(Instance&... instance) {
-    check_idle();
-    if (next_id == 0)
-      throw std::overflow_error("signal connection identity exhausted");
-    auto entry = std::make_unique<subscription>();
-    entry->callback.template connect<Candidate>(instance...);
-    const auto id = next_id++;
-    auto [position, inserted] = subscriptions.emplace(id, std::move(entry));
-    (void)inserted;
-    // 每次订阅使用独立地址，避免 EnTT 的目标去重使旧连接断开新订阅。
-    try {
-      position->second->connection =
-          entt::sink{signal}.template connect<&subscription::invoke>(*position->second);
-    } catch (...) {
-      subscriptions.erase(position);
-      throw;
-    }
-    return id;
-  }
+// 只检测发布者寿命，不拥有订阅或监听对象；所有访问仍限发布者线程。
+struct signal_lifetime {
+  void* owner;
+  void (*disconnect)(void*, std::uint64_t);
+  bool (*connected)(const void*, std::uint64_t);
 };
 } // namespace detail
+
+template <class Signature> class signal;
 
 /** 非拥有连接；复制共享同一订阅身份，析构不自动断开。源销毁后断开为空操作。 */
 class connection {
@@ -83,18 +30,18 @@ public:
   connection() = default;
   void disconnect() const {
     if (const auto source = source_.lock())
-      source->disconnect(id_);
+      source->disconnect(source->owner, id_);
   }
   [[nodiscard]] bool connected() const {
     const auto source = source_.lock();
-    return source && source->connected(id_);
+    return source && source->connected(source->owner, id_);
   }
 
 private:
   template <class> friend class sink;
-  connection(std::weak_ptr<detail::connection_source> source, std::uint64_t id)
+  connection(std::weak_ptr<detail::signal_lifetime> source, std::uint64_t id)
       : source_(std::move(source)), id_(id) {}
-  std::weak_ptr<detail::connection_source> source_;
+  std::weak_ptr<detail::signal_lifetime> source_;
   std::uint64_t id_{};
 };
 
@@ -126,19 +73,18 @@ private:
 template <class Signature> class sink {
 public:
   template <auto Candidate, class... Instance> connection connect(Instance&... instance) const {
-    const auto state = state_.lock();
-    if (!state)
+    const auto lifetime = lifetime_.lock();
+    if (!lifetime)
       throw std::logic_error("cannot connect to an expired signal");
-    return {state, state->template connect<Candidate>(instance...)};
+    auto& source = *static_cast<signal<Signature>*>(lifetime->owner);
+    return {lifetime, source.template connect<Candidate>(instance...)};
   }
 
 private:
   template <class> friend class signal;
-  explicit sink(std::weak_ptr<detail::signal_state<Signature>> state) : state_(std::move(state)) {}
-  std::weak_ptr<detail::signal_state<Signature>> state_;
+  explicit sink(std::weak_ptr<detail::signal_lifetime> lifetime) : lifetime_(std::move(lifetime)) {}
+  std::weak_ptr<detail::signal_lifetime> lifetime_;
 };
-
-template <class Signature> class signal;
 
 /** 所属线程上的同步通知；不保证顺序，参数仅在调用期间有效。回调异常原样传播。 */
 template <class... Args> class signal<void(Args...)> {
@@ -146,23 +92,65 @@ public:
   signal() = default;
   signal(const signal&) = delete;
   signal& operator=(const signal&) = delete;
-  ~signal() { state_->check_idle(); }
+  ~signal() { check_idle(); }
   [[nodiscard]] events::sink<void(Args...)> sink() const {
-    state_->check_thread();
-    return events::sink<void(Args...)>{state_};
+    check_thread();
+    return events::sink<void(Args...)>{lifetime_};
   }
   void publish(Args... args) {
-    state_->check_idle();
+    check_idle();
     struct publish_guard {
       bool& active;
       ~publish_guard() { active = false; }
-    } guard{state_->publishing};
-    state_->publishing = true;
-    state_->signal.publish(args...);
+    } guard{publishing_};
+    publishing_ = true;
+    for (const auto& entry : subscriptions_)
+      entry.callback(args...);
   }
 
 private:
-  std::shared_ptr<detail::signal_state<void(Args...)>> state_ =
-      std::make_shared<detail::signal_state<void(Args...)>>();
+  template <class> friend class sink;
+  struct subscription {
+    std::uint64_t id;
+    entt::delegate<void(Args...)> callback;
+  };
+  void check_thread() const {
+    if (owner_ != std::this_thread::get_id())
+      throw std::logic_error("signal must be accessed on its owner thread");
+  }
+  void check_idle() const {
+    check_thread();
+    if (publishing_)
+      throw std::logic_error("signal cannot be modified or recursively published during publish");
+  }
+  void disconnect(std::uint64_t id) {
+    check_idle();
+    std::erase_if(subscriptions_, [id](const auto& entry) { return entry.id == id; });
+  }
+  bool connected(std::uint64_t id) const {
+    check_thread();
+    return std::ranges::any_of(subscriptions_, [id](const auto& entry) { return entry.id == id; });
+  }
+  template <auto Candidate, class... Instance> std::uint64_t connect(Instance&... instance) {
+    check_idle();
+    if (next_id_ == 0)
+      throw std::overflow_error("signal connection identity exhausted");
+    entt::delegate<void(Args...)> callback;
+    callback.template connect<Candidate>(instance...);
+    const auto id = next_id_++;
+    subscriptions_.push_back({id, callback});
+    return id;
+  }
+
+  std::thread::id owner_{std::this_thread::get_id()};
+  bool publishing_{};
+  std::uint64_t next_id_{1};
+  std::vector<subscription> subscriptions_;
+  std::shared_ptr<detail::signal_lifetime> lifetime_ =
+      std::make_shared<detail::signal_lifetime>(detail::signal_lifetime{
+          this, [](void* owner, std::uint64_t id) { static_cast<signal*>(owner)->disconnect(id); },
+          [](const void* owner, std::uint64_t id) {
+            return static_cast<const signal*>(owner)->connected(id);
+          }});
 };
 } // namespace gneiss::events
