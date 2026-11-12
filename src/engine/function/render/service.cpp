@@ -250,7 +250,7 @@ result<std::uint64_t> service::submit_request(render::frame_request& request, fr
       return error::invalid_handle;
     sizes.push_back(*description);
   }
-  auto capture = impl_->scenes.prepare_capture(request, std::move(sizes));
+  auto capture = impl_->prepare_capture(request, std::move(sizes));
   if (!capture)
     return capture.error();
   // UI 是独立逐帧输入，接受时固定其纹理版本，不在消费者访问资源 RID 表。

@@ -4,35 +4,36 @@
 #pragma once
 #include "engine/function/render/backend/granit/backend.hpp"
 #include "engine/function/render/detail/executor.hpp"
-#include "engine/function/render/detail/render_scene_state.hpp"
 #include "engine/function/render/detail/resource_storage.hpp"
+#include "engine/function/render/detail/scene.hpp"
 #include "engine/function/render/service.hpp"
 #include <deque>
+#include <set>
 namespace gneiss::render {
 struct service::implementation final {
 public:
   explicit implementation(std::uint64_t memory_limit)
-      : resources(memory_limit), targets(resources.domain_),
-        scenes(
-            resources.domain_,
-            [this](const mesh_instance_description& description)
-                -> result<gneiss::render::detail::scene_resource_pin> {
-              const auto* mesh = resources.meshes_.get(description.mesh, resource_type::mesh);
-              const auto* material =
-                  resources.materials_.get(description.material, resource_type::material);
-              if (!mesh || !material)
-                return error::invalid_handle;
-              return gneiss::render::detail::scene_resource_pin{mesh->identity, material->identity};
-            },
-            [this](std::function<void()> operation) { return dispatch(std::move(operation)); }) {}
+      : resources(memory_limit), targets(resources.domain_), scenes(resources.domain_) {}
   ~implementation() { executor_.stop(); }
-  // 接受侧资源与场景平级，由同一个实现拥有；回调只在实现存活期内使用。
+  // 接受侧资源与场景平级，由服务唯一实现拥有。
   render::detail::resource_storage resources;
   rid_table<target_description> targets;
   result<void> retire_target(rid id) {
     return dispatch([this, id] { backend_.destroy_target(id); });
   }
-  gneiss::render::detail::render_scene_state scenes;
+  struct scene_slot {
+    std::set<std::uint64_t> accepted;
+    std::uint64_t last_key{};
+    std::shared_ptr<render::scene> content = std::make_shared<render::scene>();
+  };
+  rid_table<scene_slot> scenes;
+  bool scenes_closed{};
+  result<rid> create_scene();
+  result<void> submit_scene(scene_commands&&);
+  result<void> destroy_scene(rid);
+  using capture_operation = std::function<result<detail::frame_packet>()>;
+  result<capture_operation> prepare_capture(const frame_request&, std::vector<target_description>);
+  result<detail::scene_resource_pin> pin(const mesh_instance_description&);
   [[nodiscard]] gneiss::error initialize(const native_window_info& window,
                                          std::span<const std::byte> environment_asset = {},
                                          float environment_intensity = 1.0F,

@@ -66,10 +66,10 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "Render 执行器不得泄漏到普通调用方：${source}")
   endif()
   if(content MATCHES "engine/function/render/detail/(resource_storage|service_impl)[.]hpp" AND
-      NOT source MATCHES "/src/engine/function/render/((service|service_resources)[.]cpp|detail/service_impl[.]hpp)$")
+      NOT source MATCHES "/src/engine/function/render/((service|service_resources|service_scenes)[.]cpp|detail/service_impl[.]hpp)$")
     message(FATAL_ERROR "Render 私有 RID 表不得泄漏到调用方：${source}")
   endif()
-  if(source MATCHES "/src/engine/function/render/service(_resources)?[.](cpp|hpp)$" AND
+  if(source MATCHES "/src/engine/function/render/service(_resources|_scenes)?[.](cpp|hpp)$" AND
       content MATCHES "resource_bindings|render_resource_factory|resource_retirement_queue|resource_access")
     message(FATAL_ERROR "Render 服务不得反向管理上层资源对象：${source}")
   endif()

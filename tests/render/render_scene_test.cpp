@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/render/detail/executor.hpp"
-#include "engine/function/render/detail/render_scene_state.hpp"
+#include "engine/function/render/detail/scene.hpp"
 #include "engine/function/render/service.hpp"
 #include <barrier>
 #include <iostream>
@@ -18,137 +18,64 @@ using namespace gneiss::render::detail;
     }                                                                                              \
   } while (false)
 bool commands() {
-  auto mesh = std::make_shared<gneiss::render::detail::resource_identity<mesh_data>>();
-  auto material = std::make_shared<gneiss::render::detail::resource_identity<material_data>>();
-  bool ready = true;
-  auto pin =
-      [&](const mesh_instance_description&) -> result<gneiss::render::detail::scene_resource_pin> {
-    if (!ready)
-      return error::not_ready;
-    return gneiss::render::detail::scene_resource_pin{mesh, material};
-  };
-  gneiss::render::detail::render_scene_state state{65000, pin};
-  gneiss::render::detail::render_scene_state other{65001, pin};
-  auto scene = state.create_scene();
-  auto second = state.create_scene();
-  CHECK(scene && second);
-  const render::instance_key id{1};
-  math::matrix4 model{1.F};
-  model[1][0] = .5F;
-  model[3][0] = 3.F;
+  render::service owner, foreign;
+  auto group = owner.create_scene();
+  auto mesh = owner.reserve_mesh();
+  auto material = owner.reserve_material();
+  CHECK(group && mesh && material);
   render::scene_commands batch{
-      *scene,
-      {render::create_instance{id, {.mesh = 1, .material = 2}}, render::set_transform{id, model}}};
-  CHECK(!state.find(*scene, id));
-  CHECK(!other.submit(std::move(batch)));
-  CHECK(batch.entries.size() == 2);
-  CHECK(state.submit(std::move(batch)));
-  CHECK(batch.entries.empty() && batch.scene == null_rid);
-  CHECK(!state.submit(std::move(batch)));
-  CHECK(state.find(*scene, id)->description.world_matrix == model);
-  const auto expected_normal = math::matrix4{glm::transpose(glm::inverse(math::matrix3{model}))};
-  CHECK(state.find(*scene, id)->normal_matrix == expected_normal);
-  // 矩阵元素有限且行列式非零，逆矩阵仍可能溢出；应在接受时拒绝。
-  math::matrix4 overflow{1.F};
-  overflow[0][0] = std::numeric_limits<float>::denorm_min();
-  render::scene_commands invalid_normal{*scene, {render::set_transform{id, overflow}}};
-  auto rejected_normal = state.submit(std::move(invalid_normal));
-  CHECK(!rejected_normal && rejected_normal.error() == error::invalid_argument);
-  CHECK(invalid_normal.entries.size() == 1 &&
-        state.find(*scene, id)->description.world_matrix == model);
-  CHECK(state.find(*scene, id)->normal_matrix == expected_normal);
-  render::scene_commands invalid_create{
-      *scene, {render::create_instance{{2}, {.mesh = 1, .material = 2, .world_matrix = overflow}}}};
-  CHECK(!state.submit(std::move(invalid_create)) && invalid_create.entries.size() == 1);
-  CHECK(!state.find(*scene, {2}));
-  render::scene_commands wrong_scene{*second, {render::destroy_instance{id}}};
-  CHECK(!state.submit(std::move(wrong_scene)));
-  {
-    render::scene_commands abandoned{*scene,
-                                     {render::create_instance{{2}, {.mesh = 1, .material = 2}},
-                                      render::set_visibility{id, {.visible = false}}}};
-  }
-  CHECK(!state.find(*scene, {2}) && state.find(*scene, id)->description.visible);
-  // 后一个无效命令使整个列表拒绝；已有状态、创建身份和调用方列表保持原样。
-  render::scene_commands invalid{*scene,
-                                 {render::set_visibility{id, {.visible = false}},
-                                  render::create_instance{{2}, {.mesh = 1, .material = 2}},
-                                  render::set_transform{id, math::matrix4{0.F}}}};
-  CHECK(!state.submit(std::move(invalid)));
-  CHECK(invalid.entries.size() == 3 && state.find(*scene, id)->description.visible);
-  CHECK(!state.find(*scene, {2}));
-  invalid.entries.pop_back();
-  ready = false;
-  auto pending = state.submit(std::move(invalid));
-  CHECK(!pending && pending.error() == error::not_ready);
-  CHECK(state.find(*scene, id)->description.visible);
-  ready = true;
-  CHECK(state.submit(std::move(invalid)));
-  CHECK(!state.find(*scene, id)->description.visible && state.find(*scene, {2}));
-  // 换绑失败不释放旧依赖；成功后新依赖存活，字段更新不覆盖矩阵。
-  auto old_material =
-      std::weak_ptr<gneiss::render::detail::resource_identity<material_data>>{material};
-  material = std::make_shared<gneiss::render::detail::resource_identity<material_data>>();
-  render::scene_commands rebind{*scene, {render::set_resources{id, 4, 5}}};
-  ready = false;
-  CHECK(!state.submit(std::move(rebind)));
-  CHECK(state.find(*scene, id)->description.mesh == 1);
-  ready = true;
-  CHECK(state.submit(std::move(rebind)));
-  CHECK(state.find(*scene, id)->resources.material == material);
-  CHECK(state.find(*scene, id)->description.world_matrix == model);
-  CHECK(!old_material.expired()); // 第二个实例仍持有旧材质。
-  // 删除、同列表创建再删除与旧 key 重用。
-  render::scene_commands deletion{*scene,
-                                  {render::destroy_instance{{2}},
-                                   render::create_instance{{3}, {.mesh = 1, .material = 2}},
-                                   render::destroy_instance{{3}}}};
-  CHECK(state.submit(std::move(deletion)));
-  CHECK(!state.find(*scene, {2}) && !state.find(*scene, {3}));
-  render::scene_commands stale{*scene, {render::destroy_instance{{2}}}};
-  CHECK(!state.submit(std::move(stale)));
-  render::scene_commands reuse{*scene, {render::create_instance{{3}, {.mesh = 1, .material = 2}}}};
-  CHECK(!state.submit(std::move(reuse)));
-  render::scene_commands zero{*scene, {render::create_instance{{}, {.mesh = 1, .material = 2}}}};
-  CHECK(!state.submit(std::move(zero)));
-  render::scene_commands duplicate{*scene,
-                                   {render::destroy_instance{id}, render::destroy_instance{id}}};
-  CHECK(!state.submit(std::move(duplicate)) && state.find(*scene, id));
-  // 不同场景可以复用局部 key；最大 key 不允许回绕。
-  render::scene_commands another{
-      *second,
-      {render::create_instance{id, {.mesh = 1, .material = 2}},
-       render::create_instance{{std::numeric_limits<std::uint64_t>::max()},
-                               {.mesh = 1, .material = 2}}}};
-  CHECK(state.submit(std::move(another)));
-  CHECK(state.find(*second, id));
-  render::scene_commands wrapped{*second,
-                                 {render::create_instance{{2}, {.mesh = 1, .material = 2}}}};
-  CHECK(!state.submit(std::move(wrapped)));
-  auto held = std::weak_ptr<gneiss::render::detail::resource_identity<mesh_data>>{mesh};
-  mesh.reset();
-  CHECK(!held.expired());
-  CHECK(state.destroy_scene(*scene));
-  CHECK(!state.find(*scene, id) && state.find(*second, id));
-  CHECK(!held.expired());
-  CHECK(!state.destroy_scene(*scene));
-  auto replacement = state.create_scene();
-  CHECK(replacement && *replacement != *scene);
-  CHECK(!state.submit(std::move(stale)));
-  state.close();
-  CHECK(held.expired());
-  CHECK(!state.create_scene());
-  CHECK(!state.submit(std::move(wrapped)));
+      *group,
+      {render::create_instance{{1}, {.mesh = *mesh, .material = *material}},
+       render::set_transform{{1}, math::matrix4{1.F}}}};
+  CHECK(!foreign.submit(std::move(batch)) && batch.entries.size() == 2);
+  CHECK(owner.submit(std::move(batch)) && batch.entries.empty() && !batch.scene);
+  batch = {*group, {render::create_instance{{1}, {.mesh = *mesh, .material = *material}}}};
+  CHECK(!owner.submit(std::move(batch)));
+  auto singular = math::matrix4{0.F};
+  batch = {*group,
+           {render::create_instance{{2}, {.mesh = *mesh, .material = *material}},
+            render::set_transform{{2}, singular}}};
+  CHECK(!owner.submit(std::move(batch)) && batch.entries.size() == 2);
+  // 拒绝整批不得占用新身份，修正后可以重试。
+  batch.entries.back() = render::set_transform{{2}, math::matrix4{1.F}};
+  CHECK(owner.submit(std::move(batch)));
+  batch = {*group, {render::destroy_instance{{2}}, render::set_transform{{2}, math::matrix4{1.F}}}};
+  CHECK(!owner.submit(std::move(batch)));
+  batch.entries.pop_back();
+  CHECK(owner.submit(std::move(batch)));
+  batch = {*group, {render::set_transform{{2}, math::matrix4{1.F}}}};
+  CHECK(!owner.submit(std::move(batch)));
+  auto invalid = math::matrix4{1.F};
+  invalid[0][0] = std::numeric_limits<float>::quiet_NaN();
+  batch = {*group, {render::set_transform{{1}, invalid}}};
+  CHECK(!owner.submit(std::move(batch)));
+  // 未初始化 GPU 也能验证视图参数；有效请求才到设备就绪检查。
+  render::frame_request request{.window = {.width = 64, .height = 32},
+                                .views = {{.scene = *group}}};
+  request.views[0].projection_matrix = invalid;
+  CHECK(owner.render(std::move(request)).error() == error::invalid_argument &&
+        request.views.size() == 1);
+  request.views[0].projection_matrix = math::matrix4{1.F};
+  request.views.push_back(request.views[0]);
+  CHECK(owner.render(std::move(request)).error() == error::invalid_argument);
+  request.views.pop_back();
+  CHECK(owner.render(std::move(request)).error() == error::not_ready);
+  CHECK(owner.destroy_scene(*group) && !owner.destroy_scene(*group));
+  CHECK(owner.render(std::move(request)).error() == error::invalid_handle);
+  auto replacement = owner.create_scene();
+  CHECK(replacement && *replacement != *group && !owner.submit(std::move(batch)));
   return true;
 }
 bool queued_scene_consumption() {
-  auto mesh = std::make_shared<gneiss::render::detail::resource_identity<mesh_data>>();
-  auto material = std::make_shared<gneiss::render::detail::resource_identity<material_data>>();
-  std::weak_ptr retained_mesh = mesh;
+  std::vector<float> positions;
   threaded_render_executor executor;
-  CHECK(executor.initialize([](auto&, auto&) { return error::success; }).ok());
-  std::latch entered{1};
-  std::latch release{1};
+  CHECK(executor
+            .initialize([&](frame_packet& packet, render::execution_result&) {
+              positions.push_back(packet.views.front().scene.instances.front().world_matrix[3][0]);
+              return error::success;
+            })
+            .ok());
+  std::latch entered{1}, release{1};
   bool released = false;
   struct unblock {
     std::latch& gate;
@@ -164,83 +91,64 @@ bool queued_scene_consumption() {
     return error::success;
   }));
   entered.wait();
-  auto enqueue = [&](std::function<void()> operation) -> result<void> {
-    auto accepted = executor.submit_command([operation = std::move(operation)](const auto&) {
-      operation();
-      return error::success;
-    });
-    return accepted ? result<void>{} : result<void>{accepted.error()};
+  auto content = std::make_shared<render::scene>();
+  auto mesh = std::make_shared<resource_identity<mesh_data>>();
+  auto material = std::make_shared<resource_identity<material_data>>();
+  std::weak_ptr<render::scene> lifetime = content;
+  auto enqueue = [&](std::vector<render::prepared_scene_command> commands) {
+    return executor.submit_command(
+        [content, commands = std::move(commands)](const render_command_reporter&) mutable {
+          content->apply(std::move(commands));
+          return error::success;
+        },
+        render_command_policy::once);
   };
-  bool accepting = true;
-  const auto producer = std::this_thread::get_id();
-  gneiss::render::detail::render_scene_state state{
-      64997,
-      [&](const mesh_instance_description&) -> result<gneiss::render::detail::scene_resource_pin> {
-        if (std::this_thread::get_id() != producer)
-          return error::invalid_state;
-        return gneiss::render::detail::scene_resource_pin{mesh, material};
-      },
-      [&](std::function<void()> operation) -> result<void> {
-        if (!accepting)
-          return error::not_ready;
-        return enqueue(std::move(operation));
-      }};
-  auto scene = state.create_scene();
-  CHECK(scene);
-  render::scene_commands create{*scene, {render::create_instance{{1}, {.mesh = 1, .material = 2}}}};
-  CHECK(state.submit(std::move(create)));
-  CHECK(!state.find(*scene, {1})); // 已接受但尚未执行。
-  render::frame_request request{.window = {.width = 64, .height = 64},
-                                .views = {{.scene = *scene}}};
-  std::vector<result<gneiss::render::detail::frame_packet>> frames;
-  auto first = state.prepare_capture(request);
-  CHECK(first);
-  CHECK(enqueue([operation = std::move(*first), &frames] { frames.push_back(operation()); }));
-  math::matrix4 moved{1.F};
-  moved[3][0] = 5.F;
-  render::scene_commands update{*scene, {render::set_transform{{1}, moved}}};
-  accepting = false;
-  CHECK(state.submit(std::move(update)).error() == error::not_ready);
-  CHECK(update.entries.size() == 1);
-  accepting = true;
-  CHECK(state.submit(std::move(update))); // 按已接受身份验证，不要求创建已执行。
-  auto second = state.prepare_capture(request);
-  CHECK(second);
-  CHECK(enqueue([operation = std::move(*second), &frames] { frames.push_back(operation()); }));
-  accepting = false;
-  CHECK(state.destroy_scene(*scene)); // 队列拒绝新任务仍能交还场景所有权。
-  CHECK(!state.destroy_scene(*scene));
-  accepting = true;
-  CHECK(!state.prepare_capture(request));
-  auto replacement = state.create_scene();
-  CHECK(replacement && *replacement != *scene);
-  render::scene_commands recreate{*replacement,
-                                  {render::create_instance{{1}, {.mesh = 1, .material = 2}}}};
-  CHECK(state.submit(std::move(recreate)));
-  request.views.front().scene = *replacement;
-  auto third = state.prepare_capture(request);
-  CHECK(third);
-  CHECK(enqueue([operation = std::move(*third), &frames] { frames.push_back(operation()); }));
-  mesh.reset();
-  material.reset();
-  CHECK(!retained_mesh.expired());
-  // 同一有序消费者独占实际场景数据；任务不读取接受侧 RID 表或调用方命令。
+  render_frame_prepare capture = [content]() -> result<frame_packet> {
+    frame_packet packet;
+    auto status = content->extract({}, {64, 64}, packet);
+    if (!status)
+      return status.error();
+    return packet;
+  };
+  CHECK(enqueue({{render::create_instance{{1}, {.mesh = 1, .material = 2}}, {mesh, material}}}));
+  CHECK(executor.submit_frame({}, render::frame_policy::required, capture));
+  auto matrix = math::matrix4{1.F};
+  matrix[3][0] = 5;
+  CHECK(enqueue({{render::set_transform{{1}, matrix}, {}, math::matrix4{1.F}}}));
+  CHECK(executor.submit_frame({}, render::frame_policy::required, capture));
+  content.reset();
+  capture = {};
+  CHECK(!lifetime.expired());
   released = true;
   release.count_down();
   CHECK(executor.flush().ok());
   executor.stop();
-  CHECK(frames.size() == 3 && frames[0] && frames[1] && frames[2]);
-  CHECK(frames[0]->views.front().scene.instances.size() == 1 &&
-        frames[1]->views.front().scene.instances.size() == 1 &&
-        frames[2]->views.front().scene.instances.size() == 1);
-  CHECK(frames[0]->views.front().scene.instances[0].world_matrix[3][0] == 0.F);
-  CHECK(frames[1]->views.front().scene.instances[0].world_matrix[3][0] == 5.F);
-  CHECK(frames[2]->views.front().scene.instances[0].world_matrix[3][0] == 0.F);
-  state.close();
-  CHECK(retained_mesh.expired());
+  CHECK(positions.size() == 2 && positions[0] == 0 && positions[1] == 5);
+  CHECK(lifetime.expired());
   return true;
 }
-
+bool scene_extraction() {
+  render::scene content;
+  auto mesh = std::make_shared<resource_identity<mesh_data>>();
+  auto material = std::make_shared<resource_identity<material_data>>();
+  content.apply({{render::create_instance{{1}, {.mesh = 1, .material = 2}}, {mesh, material}}});
+  frame_packet packet;
+  CHECK(content.extract({}, {64, 32}, packet));
+  CHECK(packet.views.size() == 1 && packet.views[0].scene.instances.size() == 1);
+  content.apply({{render::set_visibility{{1}, {.layers = 2}}, {}}});
+  packet = {};
+  CHECK(content.extract({.layers = 1}, {64, 32}, packet) &&
+        packet.views[0].scene.instances.empty());
+  CHECK(content.extract({.layers = 2}, {128, 64}, packet) &&
+        packet.views[1].scene.instances.size() == 1);
+  CHECK(packet.views[1].width == 128);
+  content.apply({{render::set_visibility{{1}, {.casts_shadows = false}}, {}}});
+  packet = {};
+  CHECK(content.extract({}, {64, 32}, packet).error() == error::unsupported);
+  content.apply({{render::destroy_instance{{1}}, {}}});
+  CHECK(content.extract({}, {64, 32}, packet) && packet.views[0].scene.instances.empty());
+  return true;
+}
 bool service_lifetime() {
   render::scene_commands pending;
   {
@@ -308,16 +216,8 @@ bool identity_versions() {
   auto mesh = std::make_shared<gneiss::render::detail::resource_identity<mesh_data>>();
   auto material = std::make_shared<gneiss::render::detail::resource_identity<material_data>>();
   auto texture = std::make_shared<gneiss::render::detail::resource_identity<texture_data>>();
-  gneiss::render::detail::render_scene_state state{
-      64999,
-      [&](const mesh_instance_description&) -> result<gneiss::render::detail::scene_resource_pin> {
-        return gneiss::render::detail::scene_resource_pin{mesh, material};
-      }};
-  auto scene = state.create_scene();
-  CHECK(scene);
-  render::scene_commands create{*scene, {render::create_instance{{1}, {.mesh = 1, .material = 2}}}};
-  CHECK(state.submit(std::move(create)));
-  auto capture = [&] { return state.find(*scene, {1})->resources.capture(); };
+  scene_resource_pin pin{mesh, material};
+  auto capture = [&] { return pin.capture(); };
   CHECK(!capture().mesh && !capture().material);
   mesh->publish(std::make_shared<mesh_data>());
   auto first = std::make_shared<material_data>();
@@ -338,7 +238,7 @@ bool identity_versions() {
   CHECK(!capture().textures[0] && before.textures[0] && after.textures[0]);
   before = {};
   CHECK(old_texture.expired() && old_mesh.expired());
-  CHECK(state.destroy_scene(*scene));
+  pin = {};
   CHECK(after.mesh && after.material && after.textures[0]); // 已捕获内容跨场景卸载存活。
   return true;
 }
@@ -388,99 +288,6 @@ bool concurrent_material_publication() {
   return true;
 }
 
-bool frame_capture() {
-  auto mesh = std::make_shared<gneiss::render::detail::resource_identity<mesh_data>>();
-  auto material = std::make_shared<gneiss::render::detail::resource_identity<material_data>>();
-  auto texture = std::make_shared<gneiss::render::detail::resource_identity<texture_data>>();
-  gneiss::render::detail::render_scene_state state{
-      64998,
-      [&](const mesh_instance_description&) -> result<gneiss::render::detail::scene_resource_pin> {
-        return gneiss::render::detail::scene_resource_pin{mesh, material};
-      }};
-  auto scene = state.create_scene();
-  CHECK(scene);
-  math::matrix4 model{1.F};
-  model[1][0] = 0.5F;
-  model[3][0] = 4.F;
-  render::scene_commands create{
-      *scene,
-      {render::create_instance{{1}, {.mesh = 1, .material = 2, .world_matrix = model, .layers = 2}},
-       render::create_instance{{2}, {.mesh = 1, .material = 2, .visible = false}},
-       render::create_instance{{3}, {.mesh = 1, .material = 2, .layers = 4}}}};
-  CHECK(state.submit(std::move(create)));
-  render::frame_request request{.window = {.width = 64, .height = 64},
-                                .views = {{.scene = *scene, .layers = 2}}};
-  auto pending = state.capture(request);
-  CHECK(pending && pending->views.front().scene.instances.size() == 1);
-  CHECK(!pending->resources.share_mesh(1));
-  mesh->publish(std::make_shared<mesh_data>());
-  auto description = std::make_shared<material_data>();
-  description->base_color_texture = 3;
-  material->publish(description, {texture});
-  texture->publish(std::make_shared<texture_data>());
-  auto before = state.capture(request);
-  CHECK(before && before->views.front().scene.instances.size() == 1);
-  CHECK(before->views.front().scene.instances[0].world_matrix == model);
-  const auto expected_normal = math::matrix4{glm::transpose(glm::inverse(math::matrix3{model}))};
-  CHECK(before->views.front().scene.instances[0].normal_matrix == expected_normal);
-  CHECK(before->views.front().scene.instances[0].layers == 2 &&
-        before->views.front().scene.layers == 2);
-  CHECK(before->resources.share_mesh(1) == mesh->read());
-  CHECK(before->resources.share_texture(3) == texture->read());
-  mesh->publish(std::make_shared<mesh_data>());
-  texture->publish(std::make_shared<texture_data>());
-  render::scene_commands update{*scene, {render::set_transform{{1}, math::matrix4{1.F}}}};
-  CHECK(state.submit(std::move(update)));
-  auto after = state.capture(request);
-  CHECK(after && after->resources.share_mesh(1) != before->resources.share_mesh(1));
-  CHECK(after->resources.share_texture(3) != before->resources.share_texture(3));
-  CHECK(before->views.front().scene.instances[0].world_matrix == model);
-  request.views.push_back(request.views.front());
-  CHECK(!state.capture(request));
-  request.views.back().target = 101;
-  request.views.back().layers = 4;
-  auto multi_capture = state.prepare_capture(request, {{64, 64}, {128, 32}});
-  CHECK(multi_capture);
-  auto multi = (*multi_capture)();
-  CHECK(multi && multi->views.size() == 2);
-  CHECK(multi->views[1].width == 128 && multi->views[1].height == 32);
-  CHECK(multi->views[0].scene.layers == 2 && multi->views[1].scene.layers == 4);
-  CHECK(multi->views[0].scene.instances.size() == 1 && multi->views[1].scene.instances.size() == 1);
-  CHECK(multi->resources.meshes().size() == 1 && multi->resources.materials().size() == 1);
-  request.views.pop_back();
-  render::scene_commands no_shadow{
-      *scene, {render::set_visibility{{1}, {.layers = 2, .casts_shadows = false}}}};
-  CHECK(state.submit(std::move(no_shadow)));
-  auto unsupported = state.capture(request);
-  CHECK(!unsupported && unsupported.error() == error::unsupported);
-  CHECK(state.destroy_scene(*scene));
-  CHECK(!state.capture(request));
-  CHECK(before->resources.share_mesh(1) && before->resources.share_texture(3));
-  // 没有活动相机时允许零视图，窗口仍可提交 UI。
-  request.views.clear();
-  auto no_camera = state.capture(request);
-  CHECK(no_camera && !no_camera->views.front().scene.has_camera &&
-        no_camera->views.front().scene.instances.empty());
-  request.views.push_back({});
-  auto ui_only = state.capture(request);
-  CHECK(ui_only && ui_only->views.size() == 1 && !ui_only->views[0].scene.has_camera);
-  request.views.push_back({.target = 101});
-  auto empty_outputs = state.capture(request);
-  CHECK(empty_outputs && empty_outputs->views.size() == 2);
-  request.views.pop_back();
-  gneiss::render::service renderer;
-  auto not_initialized = renderer.create_scene();
-  CHECK(not_initialized);
-  request.views.front().scene = *not_initialized;
-  CHECK(!renderer.render(std::move(request)) && request.views.size() == 1);
-  auto no_image = renderer.request_capture(std::move(request), {});
-  CHECK(!no_image && no_image.error() == error::invalid_argument && request.views.size() == 1);
-  auto image = std::make_shared<gneiss::render::frame_image>();
-  image->width = 17;
-  auto rejected = renderer.request_capture(std::move(request), image);
-  CHECK(!rejected && request.views.size() == 1 && image->width == 17);
-  return true;
-}
 bool target_lifetime() {
   render::service owner;
   render::service foreign;
@@ -510,8 +317,8 @@ bool target_lifetime() {
   return true;
 }
 int main() {
-  return commands() && queued_scene_consumption() && service_lifetime() && identity_versions() &&
-                 concurrent_material_publication() && frame_capture() && target_lifetime()
+  return commands() && queued_scene_consumption() && scene_extraction() && service_lifetime() &&
+                 identity_versions() && concurrent_material_publication() && target_lifetime()
              ? 0
              : 1;
 }

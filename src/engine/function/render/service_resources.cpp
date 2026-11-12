@@ -111,14 +111,9 @@ result<void> service::destroy_target(rid target) {
   return {};
 }
 
-result<rid> service::create_scene() { return impl_->scenes.create_scene(); }
-result<void> service::submit(render::scene_commands&& update) {
-  return impl_->scenes.submit(std::move(update));
-}
-result<void> service::destroy_scene(rid scene) { return impl_->scenes.destroy_scene(scene); }
-
 bool service::is_valid() const noexcept { return impl_->resources.domain_ != 0U; }
 void service::close_resources() noexcept {
+  impl_->scenes_closed = true;
   impl_->scenes.close();
   impl_->targets.close();
   impl_->resources.meshes_.close();

@@ -253,6 +253,16 @@ UI 纹理尚未就绪返回 not_ready。Runtime/Editor 共用 Application 的普
 截图也使用 frame_request，执行策略为必达帧。当前实现仍逐帧捕获持久场景；后端拆分、目标视图及 GPU 验收按
 [PLAN-115](../plans/PLAN-115-persistent-render-scene.md) 继续实施。
 
+## 内部场景对象
+
+Service 的私有实现直接持有场景 RID 表。每个槽位保存提交侧已接受身份与消费侧
+render::scene 引用；Scene 自己保存实例变换、可见性及资源身份，不访问 World 或执行器。
+
+提交时先校验整批命令并固定资源引用，队列接受成功后才更新身份记录。
+消费侧依次应用命令、按视图提取帧数据，再交由后端绘制。
+销毁场景立即使 RID 失效，在途任务仍保活 Scene；内部共享引用不表示 Scene 可并发修改。
+当前提取仍遍历实例并过滤可见性/层掩码，不新增空间索引或视锥剔除能力。
+
 ## World 增量绑定
 
 `world_render_binding::create(world, render::service)` 创建绑定及其拥有的 Render 场景。

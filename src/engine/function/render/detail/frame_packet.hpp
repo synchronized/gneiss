@@ -19,9 +19,9 @@
 
 namespace gneiss::render {
 class service;
+class scene;
 }
 namespace gneiss::render::detail {
-class render_scene_state;
 
 class resource_snapshot final {
 public:
@@ -48,7 +48,7 @@ public:
   [[nodiscard]] bool texture_pending(rid texture) const noexcept;
 
 private:
-  friend class gneiss::render::detail::render_scene_state;
+  friend class render::scene;
   friend class render::service;
 
   std::unordered_map<rid, std::shared_ptr<const mesh_data>> meshes_;

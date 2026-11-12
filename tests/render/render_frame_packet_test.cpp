@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/function/render/detail/render_scene_state.hpp"
+#include "engine/function/render/detail/scene.hpp"
 #include "engine/function/render/service.hpp"
 #include <array>
 #include <iostream>
@@ -18,19 +18,20 @@ int main() {
   std::array<std::shared_ptr<gneiss::render::detail::resource_identity<texture_data>>, 5> textures;
   for (auto& texture : textures)
     texture = std::make_shared<gneiss::render::detail::resource_identity<texture_data>>();
-  gneiss::render::detail::render_scene_state state{
-      64001,
-      [&](const mesh_instance_description&) -> result<gneiss::render::detail::scene_resource_pin> {
-        return gneiss::render::detail::scene_resource_pin{mesh, material};
-      }};
-  auto scene = state.create_scene();
-  CHECK(scene);
-  render::scene_commands commands{*scene,
-                                  {render::create_instance{{1}, {.mesh = 1, .material = 2}}}};
-  CHECK(state.submit(std::move(commands)));
-  render::frame_request request{.window = {.width = 640, .height = 480},
-                                .views = {{.scene = *scene}}};
-  auto pending = state.capture(request);
+  auto scene = std::make_unique<render::scene>();
+  scene->apply({{render::create_instance{{1}, {.mesh = 1, .material = 2}}, {mesh, material}}});
+  render::frame_request request{.window = {.width = 640, .height = 480}, .views = {{}}};
+  auto capture = [&](const render::frame_request& input) -> result<render::detail::frame_packet> {
+    render::detail::frame_packet packet;
+    packet.window = input.window;
+    packet.ui = input.ui;
+    packet.debug = input.debug;
+    auto status = scene->extract(input.views.front(), {640, 480}, packet);
+    if (!status)
+      return status.error();
+    return packet;
+  };
+  auto pending = capture(request);
   CHECK(pending && pending->resources.mesh_pending(1) && !pending->resources.mesh_pending(0));
   const auto* fallback = pending->resources.get_material(2);
   CHECK(fallback && !pending->resources.get_material(0) && !pending->resources.get_mesh(1));
@@ -44,7 +45,7 @@ int main() {
   for (std::size_t i = 0; i < textures.size(); ++i)
     dependencies[i] = textures[i];
   material->publish(description, std::move(dependencies));
-  auto waiting_textures = state.capture(request);
+  auto waiting_textures = capture(request);
   CHECK(waiting_textures && waiting_textures->resources.texture_pending(3) &&
         !waiting_textures->resources.texture_pending(0));
   auto vertices = std::make_shared<mesh_data>();
@@ -76,7 +77,7 @@ int main() {
                       .commands = {}},
                      resources)
             .ok());
-  auto captured = state.capture(request);
+  auto captured = capture(request);
   CHECK(captured && captured->window.width == 640 &&
         captured->views.front().scene.instances.size() == 1 &&
         captured->debug.lines().size() == 1 && captured->resources.get_mesh(1) == vertices.get() &&
@@ -94,7 +95,7 @@ int main() {
   }
   mesh->publish(std::make_shared<mesh_data>());
   material->publish(std::make_shared<material_data>());
-  CHECK(state.destroy_scene(*scene));
+  scene.reset();
   mesh.reset();
   material.reset();
   textures = {};
