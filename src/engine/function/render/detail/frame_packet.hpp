@@ -25,6 +25,9 @@ class render_scene_state;
 
 class resource_snapshot final {
 public:
+  /** 消费端按整帧去重后的资源集合准备镜像；借用不超过当前快照生命周期。 */
+  [[nodiscard]] const auto& meshes() const noexcept { return meshes_; }
+  [[nodiscard]] const auto& materials() const noexcept { return materials_; }
   [[nodiscard]] const mesh_data* get_mesh(rid mesh) const noexcept;
   /** 已捕获的预留材质返回中性缺省参数；未捕获或无效句柄仍返回空。 */
   [[nodiscard]] const material_data* get_material(rid material) const noexcept;

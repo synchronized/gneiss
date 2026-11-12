@@ -52,6 +52,7 @@ struct backend::implementation final {
   error initialize_gpu(const native_window_info&, std::span<const std::byte>, float, float);
   error shutdown_gpu(device_stats&);
   error execute_frame(gneiss::render::detail::frame_packet&, execution_result&);
+  error prepare_resources(const gneiss::render::detail::resource_snapshot&);
   error set_environment(std::span<const std::byte>, float, float);
   struct texture_mirror final {
     const texture_data* source{};
@@ -965,6 +966,86 @@ gneiss::error backend::implementation::shutdown_gpu(device_stats& stats) {
   return result;
 }
 
+// 每帧按快照中的资源集合准备一次，不依赖相机或实例列表。
+error backend::implementation::prepare_resources(
+    const gneiss::render::detail::resource_snapshot& resources) {
+  release_invalid_textures(resources);
+  release_invalid_materials(resources);
+  release_invalid_meshes(resources);
+  {
+    for (const auto& [handle, payload] : resources.meshes()) {
+      if (!payload)
+        continue;
+      auto source = payload;
+      const auto current = mesh_mirrors_.find(handle);
+      if (source && (current == mesh_mirrors_.end() || current->second.data != source)) {
+        mesh_mirror replacement;
+        const auto created = create_mesh_mirror(*source, replacement);
+        if (created.ok()) {
+          replacement.data = std::move(source);
+          mesh_mirrors_.insert_or_assign(handle, std::move(replacement));
+        } else {
+          (void)log_.write({.severity = logging::level::error,
+                            .source = "render.mesh",
+                            .category = "render.resource",
+                            .message = "网格上传失败，保留当前可用内容",
+                            .result = map_result(created)});
+        }
+      }
+    }
+
+    for (const auto& [handle, payload] : resources.materials()) {
+      (void)payload;
+      const auto* material = resources.get_material(handle);
+      if (material == nullptr)
+        return gneiss::error::invalid_handle;
+      std::array textures{
+          default_white_srgb_.view.native_handle(), default_white_linear_.view.native_handle(),
+          default_normal_linear_.view.native_handle(), default_white_linear_.view.native_handle(),
+          default_white_srgb_.view.native_handle()};
+      const auto handles = material->texture_handles();
+      for (std::size_t slot = 0; slot < handles.size(); ++slot) {
+        const auto handle = handles[slot];
+        if (handle == null_rid)
+          continue;
+        const auto* texture = resources.get_texture(handle);
+        if (resources.texture_pending(handle)) {
+          continue;
+        }
+        if (texture == nullptr)
+          return gneiss::error::invalid_handle;
+        refresh_texture(handle, resources.share_texture(handle));
+        const auto found = texture_mirrors_.find(handle);
+        if (found != texture_mirrors_.end())
+          textures[slot] = found->second->view.native_handle();
+      }
+      auto found = material_mirrors_.find(handle);
+      if (found == material_mirrors_.end() || found->second.source != material ||
+          found->second.textures != textures) {
+        material_mirror replacement;
+        const auto created = create_material_mirror(*material, textures, replacement);
+        if (created.ok()) {
+          replacement.data = resources.share_material(handle);
+          for (std::size_t slot = 0; slot < handles.size(); ++slot) {
+            const auto dependency = texture_mirrors_.find(handles[slot]);
+            if (dependency != texture_mirrors_.end())
+              replacement.dependencies[slot] = dependency->second;
+          }
+          material_mirrors_.insert_or_assign(handle, std::move(replacement));
+        } else {
+          (void)log_.write({.severity = logging::level::error,
+                            .source = "render.material",
+                            .category = "render.resource",
+                            .message = "材质更新失败，保留当前可用内容",
+                            .result = map_result(created)});
+        }
+      }
+    }
+  }
+
+  return error::success;
+}
+
 // 单帧资源准备与提交必须保持 Granit 调用和失败回滚的线性顺序。
 gneiss::error
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -996,83 +1077,9 @@ backend::implementation::execute_frame(gneiss::render::detail::frame_packet& pac
     window.needs_recreate = false;
   }
 
-  release_invalid_textures(resources);
-  release_invalid_materials(resources);
-  release_invalid_meshes(resources);
-  {
-    for (const auto& instance : snapshot.instances) {
-      if (resources.mesh_pending(instance.mesh)) {
-        continue;
-      }
-      const auto handle = instance.mesh;
-      auto source = resources.share_mesh(handle);
-      const auto current = mesh_mirrors_.find(handle);
-      if (source && (current == mesh_mirrors_.end() || current->second.data != source)) {
-        mesh_mirror replacement;
-        const auto created = create_mesh_mirror(*source, replacement);
-        if (created.ok()) {
-          replacement.data = std::move(source);
-          mesh_mirrors_.insert_or_assign(handle, std::move(replacement));
-        } else {
-          (void)log_.write({.severity = logging::level::error,
-                            .source = "render.mesh",
-                            .category = "render.resource",
-                            .message = "网格上传失败，保留当前可用内容",
-                            .result = map_result(created)});
-        }
-      }
-    }
-
-    for (const auto& instance : snapshot.instances) {
-      if (resources.mesh_pending(instance.mesh)) {
-        continue;
-      }
-      const auto* material = resources.get_material(instance.material);
-      if (material == nullptr)
-        return gneiss::error::invalid_handle;
-      std::array textures{
-          default_white_srgb_.view.native_handle(), default_white_linear_.view.native_handle(),
-          default_normal_linear_.view.native_handle(), default_white_linear_.view.native_handle(),
-          default_white_srgb_.view.native_handle()};
-      const auto handles = material->texture_handles();
-      for (std::size_t slot = 0; slot < handles.size(); ++slot) {
-        const auto handle = handles[slot];
-        if (handle == null_rid)
-          continue;
-        const auto* texture = resources.get_texture(handle);
-        if (resources.texture_pending(handle)) {
-          continue;
-        }
-        if (texture == nullptr)
-          return gneiss::error::invalid_handle;
-        refresh_texture(handle, resources.share_texture(handle));
-        const auto found = texture_mirrors_.find(handle);
-        if (found != texture_mirrors_.end())
-          textures[slot] = found->second->view.native_handle();
-      }
-      auto found = material_mirrors_.find(instance.material);
-      if (found == material_mirrors_.end() || found->second.source != material ||
-          found->second.textures != textures) {
-        material_mirror replacement;
-        const auto created = create_material_mirror(*material, textures, replacement);
-        if (created.ok()) {
-          replacement.data = resources.share_material(instance.material);
-          for (std::size_t slot = 0; slot < handles.size(); ++slot) {
-            const auto dependency = texture_mirrors_.find(handles[slot]);
-            if (dependency != texture_mirrors_.end())
-              replacement.dependencies[slot] = dependency->second;
-          }
-          material_mirrors_.insert_or_assign(instance.material, std::move(replacement));
-        } else {
-          (void)log_.write({.severity = logging::level::error,
-                            .source = "render.material",
-                            .category = "render.resource",
-                            .message = "材质更新失败，保留当前可用内容",
-                            .result = map_result(created)});
-        }
-      }
-    }
-  }
+  const auto prepared = prepare_resources(resources);
+  if (prepared.failed())
+    return prepared;
 
   const auto ui_result = prepare_ui_draw_list(packet.ui, resources, window.width, window.height);
   if (ui_result.failed())
