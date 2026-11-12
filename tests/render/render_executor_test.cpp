@@ -17,6 +17,55 @@
 #include <vector>
 
 namespace {
+// 被替换帧的捕获析构可查询执行器；丢帧完成必须晚于捕获释放。
+bool replaced_frame_releases_outside_lock() {
+  using namespace gneiss;
+  using namespace gneiss::render::detail;
+  std::mutex mutex;
+  std::condition_variable ready;
+  bool started = false;
+  bool release = false;
+  bool released = false;
+  bool premature = false;
+  threaded_render_executor executor;
+  if (executor.initialize([](auto&, auto&) { return error::success; }, {.pending_frames = 1})
+          .failed())
+    return false;
+  auto blocker = executor.submit_command([&](const auto&) {
+    std::unique_lock lock(mutex);
+    started = true;
+    ready.notify_all();
+    ready.wait(lock, [&] { return release; });
+    return error::success;
+  });
+  if (!blocker)
+    return false;
+  {
+    std::unique_lock lock(mutex);
+    ready.wait(lock, [&] { return started; });
+  }
+  auto payload = std::shared_ptr<int>(new int{}, [&](int* value) {
+    (void)executor.query_stats();
+    premature = executor.try_take_frame_completion().has_value();
+    delete value;
+    released = true;
+  });
+  auto old = executor.submit_frame(
+      {}, render::frame_policy::replaceable,
+      [payload = std::move(payload)]() -> result<frame_packet> { return frame_packet{}; });
+  auto replacement = executor.submit_frame({});
+  auto dropped = executor.try_take_frame_completion();
+  {
+    std::lock_guard lock(mutex);
+    release = true;
+  }
+  ready.notify_all();
+  const auto flushed = executor.flush();
+  executor.stop();
+  return old && replacement && released && !premature && dropped && dropped->sequence == *old &&
+         dropped->dropped && flushed.ok();
+}
+
 // 同一共享所有者只计费一次；容量拒绝不执行，零数据销毁命令仍可进入。
 bool command_payload_budget() {
   using namespace gneiss;
@@ -313,6 +362,10 @@ int main(int argc, char** argv) {
     if (invalid.initialize(draw, {.pending_frames = 0}) != gneiss::error::invalid_argument ||
         invalid.initialize(draw, {.commands = 0}) != gneiss::error::invalid_argument)
       return 30;
+  }
+  if (!replaced_frame_releases_outside_lock()) {
+    std::fputs("被替换帧的锁外回收与完成顺序验证失败\n", stderr);
+    return 32;
   }
   if (!command_payload_budget()) {
     std::fputs("命令共享数据预算、拒绝及回收验证失败\n", stderr);

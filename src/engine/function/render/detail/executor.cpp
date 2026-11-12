@@ -64,6 +64,7 @@ struct threaded_render_executor::state final {
   render_frame_callback frame_callback;
   queue_options options;
   std::size_t outstanding_commands{};
+  std::size_t retiring_frames{};
   struct payload_usage {
     std::size_t bytes{};
     std::size_t commands{};
@@ -277,6 +278,9 @@ result<std::uint64_t> threaded_render_executor::submit_frame(frame_packet packet
   if (!state_) {
     return gneiss::error::not_ready;
   }
+  std::optional<state::queued_task> retired;
+  std::optional<frame_completion> dropped;
+  std::uint64_t sequence{};
   {
     std::lock_guard lock(state_->mutex);
     if (state_->stopping) {
@@ -301,11 +305,13 @@ result<std::uint64_t> threaded_render_executor::submit_frame(frame_packet packet
                                           .execution = {},
                                           .dropped = true,
                                           .policy = replace->frame_policy};
+      retired.emplace(std::move(*replace));
       state_->pending.erase(replace);
-      state_->completed_frames.push_back(std::move(dropped_completion));
+      dropped = std::move(dropped_completion);
+      ++state_->retiring_frames;
       ++state_->stats.replaced_frames;
     }
-    const auto sequence = state_->next_sequence++;
+    sequence = state_->next_sequence++;
     packet.sequence = sequence;
     ++state_->stats.submitted_frames;
     if (policy == frame_policy::required) {
@@ -321,8 +327,19 @@ result<std::uint64_t> threaded_render_executor::submit_frame(frame_packet packet
     state_->stats.pending_high_watermark =
         std::max(state_->stats.pending_high_watermark, state_->pending.size());
     state_->work_ready.notify_one();
-    return sequence;
   }
+  if (retired) {
+    // 任意捕获数据的析构不能发生在队列锁内；先释放，再公布丢帧完成。
+    retired.reset();
+    std::lock_guard lock(state_->mutex);
+    state_->completed_frames.push_back(std::move(*dropped));
+    --state_->retiring_frames;
+    if (state_->notification)
+      state_->notification->notify();
+    if (state_->pending.empty() && !state_->executing && state_->retiring_frames == 0)
+      state_->idle.notify_all();
+  }
+  return sequence;
 }
 
 result<std::uint64_t> threaded_render_executor::submit_command(render_command_callback command,
@@ -452,7 +469,9 @@ gneiss::error threaded_render_executor::flush() noexcept {
     return gneiss::error::not_ready;
   }
   std::unique_lock lock(state_->mutex);
-  state_->idle.wait(lock, [&] { return state_->pending.empty() && !state_->executing; });
+  state_->idle.wait(lock, [&] {
+    return state_->pending.empty() && !state_->executing && state_->retiring_frames == 0;
+  });
   return gneiss::error::success;
 }
 
