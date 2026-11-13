@@ -6,7 +6,7 @@ target_link_libraries(gneiss_editor_runtime_panels_test PRIVATE gneiss_editor_ui
 target_compile_features(gneiss_editor_runtime_panels_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_runtime_panels_test)
 gneiss_target_output_directories(gneiss_editor_runtime_panels_test)
-set_target_properties(gneiss_editor_runtime_panels_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_editor_runtime_panels_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.runtime-panels COMMAND gneiss_editor_runtime_panels_test)
 
 add_executable(gneiss_editor_console_panel_test console_panel_test.cpp)
@@ -14,7 +14,7 @@ target_link_libraries(gneiss_editor_console_panel_test PRIVATE gneiss_editor_ui 
 target_compile_features(gneiss_editor_console_panel_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_console_panel_test)
 gneiss_target_output_directories(gneiss_editor_console_panel_test)
-set_target_properties(gneiss_editor_console_panel_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_editor_console_panel_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.console-panel COMMAND gneiss_editor_console_panel_test)
 
 add_executable(gneiss_editor_author_property_edit_test author_property_edit_test.cpp)
@@ -22,7 +22,7 @@ target_link_libraries(gneiss_editor_author_property_edit_test PRIVATE gneiss_sce
 target_compile_features(gneiss_editor_author_property_edit_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_author_property_edit_test)
 gneiss_target_output_directories(gneiss_editor_author_property_edit_test)
-set_target_properties(gneiss_editor_author_property_edit_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_editor_author_property_edit_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.author-property-edit COMMAND gneiss_editor_author_property_edit_test)
 
 add_executable(gneiss_editor_reflected_property_panel_test reflected_property_panel_test.cpp)
@@ -30,7 +30,7 @@ target_link_libraries(gneiss_editor_reflected_property_panel_test PRIVATE gneiss
 target_compile_features(gneiss_editor_reflected_property_panel_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_reflected_property_panel_test)
 gneiss_target_output_directories(gneiss_editor_reflected_property_panel_test)
-set_target_properties(gneiss_editor_reflected_property_panel_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_editor_reflected_property_panel_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.reflected-property-panel COMMAND gneiss_editor_reflected_property_panel_test)
 
 add_executable(gneiss_editor_asset_scene_commands_test asset_scene_commands_test.cpp)
@@ -40,7 +40,7 @@ target_compile_definitions(gneiss_editor_asset_scene_commands_test
   PRIVATE GNEISS_EDITOR_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
 gneiss_target_compile_warnings(gneiss_editor_asset_scene_commands_test)
 gneiss_target_output_directories(gneiss_editor_asset_scene_commands_test)
-set_target_properties(gneiss_editor_asset_scene_commands_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_editor_asset_scene_commands_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.asset-scene-commands COMMAND gneiss_editor_asset_scene_commands_test)
 
 if(TARGET gneiss_editor_assets)
@@ -51,7 +51,7 @@ if(TARGET gneiss_editor_assets)
     PRIVATE GNEISS_EDITOR_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
   gneiss_target_compile_warnings(gneiss_editor_asset_browser_panel_test)
   gneiss_target_output_directories(gneiss_editor_asset_browser_panel_test)
-  set_target_properties(gneiss_editor_asset_browser_panel_test PROPERTIES FOLDER "Tools")
+  set_target_properties(gneiss_editor_asset_browser_panel_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.editor.asset-browser-panel COMMAND gneiss_editor_asset_browser_panel_test)
 endif()
 
@@ -60,7 +60,7 @@ target_link_libraries(gneiss_editor_author_hierarchy_panel_test PRIVATE gneiss_e
 target_compile_features(gneiss_editor_author_hierarchy_panel_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_author_hierarchy_panel_test)
 gneiss_target_output_directories(gneiss_editor_author_hierarchy_panel_test)
-set_target_properties(gneiss_editor_author_hierarchy_panel_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_editor_author_hierarchy_panel_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.author-hierarchy-panel COMMAND gneiss_editor_author_hierarchy_panel_test)
 
 add_executable(gneiss_editor_transform_gizmo_view_test transform_gizmo_view_test.cpp)
@@ -68,7 +68,7 @@ target_link_libraries(gneiss_editor_transform_gizmo_view_test PRIVATE gneiss_edi
 target_compile_features(gneiss_editor_transform_gizmo_view_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_transform_gizmo_view_test)
 gneiss_target_output_directories(gneiss_editor_transform_gizmo_view_test)
-set_target_properties(gneiss_editor_transform_gizmo_view_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_editor_transform_gizmo_view_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.transform-gizmo-view COMMAND gneiss_editor_transform_gizmo_view_test)
 
 # 白盒测试验证兼容句柄桥；普通 Editor 消费者不能访问注册表。
@@ -78,7 +78,7 @@ add_executable(gneiss_internal_header_visibility_test internal_header_visibility
 target_link_libraries(gneiss_internal_header_visibility_test PRIVATE gneiss_editor_host gneiss_editor_ui)
 gneiss_target_compile_warnings(gneiss_internal_header_visibility_test)
 gneiss_target_output_directories(gneiss_internal_header_visibility_test)
-set_target_properties(gneiss_internal_header_visibility_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_internal_header_visibility_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.internal-header-visibility COMMAND gneiss_internal_header_visibility_test)
 
 foreach(test IN ITEMS gneiss_editor_asset_scene_commands_test gneiss_editor_transform_gizmo_view_test)
@@ -93,7 +93,7 @@ target_link_libraries(gneiss_editor_document_editing_test PRIVATE gneiss_scene_d
 target_compile_features(gneiss_editor_document_editing_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_document_editing_test)
 gneiss_target_output_directories(gneiss_editor_document_editing_test)
-set_target_properties(gneiss_editor_document_editing_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_editor_document_editing_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.document-editing COMMAND gneiss_editor_document_editing_test)
 
 add_executable(gneiss_editor_document_actions_test document_actions_test.cpp)
@@ -101,7 +101,7 @@ target_link_libraries(gneiss_editor_document_actions_test PRIVATE gneiss_scene_d
 target_compile_features(gneiss_editor_document_actions_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_document_actions_test)
 gneiss_target_output_directories(gneiss_editor_document_actions_test)
-set_target_properties(gneiss_editor_document_actions_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_editor_document_actions_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.document-actions COMMAND gneiss_editor_document_actions_test)
 
 add_executable(gneiss_editor_component_edit_test component_edit_test.cpp)
@@ -110,7 +110,7 @@ target_link_libraries(gneiss_editor_component_edit_test PRIVATE gneiss_scene_doc
 target_compile_features(gneiss_editor_component_edit_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_component_edit_test)
 gneiss_target_output_directories(gneiss_editor_component_edit_test)
-set_target_properties(gneiss_editor_component_edit_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_editor_component_edit_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.component-edit COMMAND gneiss_editor_component_edit_test)
 
 add_executable(gneiss_editor_component_lifecycle_test component_lifecycle_test.cpp)
@@ -119,7 +119,7 @@ target_link_libraries(gneiss_editor_component_lifecycle_test PRIVATE gneiss_scen
 target_compile_features(gneiss_editor_component_lifecycle_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_component_lifecycle_test)
 gneiss_target_output_directories(gneiss_editor_component_lifecycle_test)
-set_target_properties(gneiss_editor_component_lifecycle_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_editor_component_lifecycle_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.component-lifecycle COMMAND gneiss_editor_component_lifecycle_test)
 
 add_executable(gneiss_editor_prefab_component_test prefab_component_test.cpp)
@@ -128,7 +128,7 @@ target_link_libraries(gneiss_editor_prefab_component_test PRIVATE gneiss_scene_d
 target_compile_features(gneiss_editor_prefab_component_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_prefab_component_test)
 gneiss_target_output_directories(gneiss_editor_prefab_component_test)
-set_target_properties(gneiss_editor_prefab_component_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_editor_prefab_component_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.prefab-component COMMAND gneiss_editor_prefab_component_test)
 
 add_executable(gneiss_editor_prefab_author_operations_test prefab_author_operations_test.cpp)
@@ -137,7 +137,7 @@ target_link_libraries(gneiss_editor_prefab_author_operations_test PRIVATE gneiss
 target_compile_features(gneiss_editor_prefab_author_operations_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_prefab_author_operations_test)
 gneiss_target_output_directories(gneiss_editor_prefab_author_operations_test)
-set_target_properties(gneiss_editor_prefab_author_operations_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_editor_prefab_author_operations_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.prefab-author-operations COMMAND gneiss_editor_prefab_author_operations_test)
 
 add_executable(gneiss_editor_scene_document_edit_test scene_document_edit_test.cpp)
@@ -146,7 +146,7 @@ target_link_libraries(gneiss_editor_scene_document_edit_test PRIVATE gneiss_scen
 target_compile_features(gneiss_editor_scene_document_edit_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_scene_document_edit_test)
 gneiss_target_output_directories(gneiss_editor_scene_document_edit_test)
-set_target_properties(gneiss_editor_scene_document_edit_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_editor_scene_document_edit_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.scene-document-edit COMMAND gneiss_editor_scene_document_edit_test)
 
 add_executable(gneiss_editor_scene_document_snapshot_test scene_document_snapshot_test.cpp)
@@ -155,7 +155,7 @@ target_link_libraries(gneiss_editor_scene_document_snapshot_test PRIVATE gneiss_
 target_compile_features(gneiss_editor_scene_document_snapshot_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_scene_document_snapshot_test)
 gneiss_target_output_directories(gneiss_editor_scene_document_snapshot_test)
-set_target_properties(gneiss_editor_scene_document_snapshot_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_editor_scene_document_snapshot_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.scene-document-snapshot COMMAND gneiss_editor_scene_document_snapshot_test)
 
 add_executable(gneiss_editor_scene_document_versions_test scene_document_versions_test.cpp)
@@ -164,7 +164,7 @@ target_link_libraries(gneiss_editor_scene_document_versions_test PRIVATE gneiss_
 target_compile_features(gneiss_editor_scene_document_versions_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_scene_document_versions_test)
 gneiss_target_output_directories(gneiss_editor_scene_document_versions_test)
-set_target_properties(gneiss_editor_scene_document_versions_test PROPERTIES FOLDER "Tools")
+set_target_properties(gneiss_editor_scene_document_versions_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.scene-document-versions COMMAND gneiss_editor_scene_document_versions_test)
 
 target_link_libraries(gneiss_editor_scene_document_versions_test PRIVATE gneiss_fatal)
