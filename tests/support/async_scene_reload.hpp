@@ -3,7 +3,7 @@
 #pragma once
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include "host/runtime/runtime_scene_loader.hpp"
+#include "scene/runtime_scene_loader.hpp"
 #include <chrono>
 #include <thread>
 namespace gneiss::test_support {

@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#ifndef GNEISS_APPS_RUNTIME_IPC_RUNTIME_COMMANDS_H_
+#define GNEISS_APPS_RUNTIME_IPC_RUNTIME_COMMANDS_H_
+
+#include <gneiss/engine/error.hpp>
+#include <gneiss/protocol/ipc_router.hpp>
+#include "ipc/runtime_command_context.hpp"
+
+namespace gneiss::host {
+
+using runtime_command_router = ipc_operation_router<runtime_command_context>;
+
+[[nodiscard]] gneiss::error
+register_runtime_asset_commands(runtime_command_router& router) noexcept;
+[[nodiscard]] gneiss::error
+register_runtime_scene_commands(runtime_command_router& router) noexcept;
+[[nodiscard]] gneiss::error
+register_runtime_session_commands(runtime_command_router& router) noexcept;
+[[nodiscard]] gneiss::error
+register_runtime_control_commands(runtime_command_router& router) noexcept;
+[[nodiscard]] gneiss::error
+register_runtime_inspection_commands(runtime_command_router& router) noexcept;
+[[nodiscard]] gneiss::error
+register_runtime_property_commands(runtime_command_router& router) noexcept;
+[[nodiscard]] gneiss::error
+register_runtime_commands(runtime_command_router& router) noexcept;
+
+} // namespace gneiss::host
+
+#endif

@@ -309,6 +309,16 @@ Windows Clang Debug：完整 Editor 与工程 CLI 构建通过；8 项定向回�
 文档编辑、工作区、保存、相机、资产导入、IPC 事件与 Prefab 覆盖；未运行 GUI/GPU smoke。
 本批修复 Editor 的旧 console_sink 包含路径，未改变编辑操作、协议或资源所有权。
 
+Runtime 源码及入口已归入根 runtime：application/main 就近放置，scene 负责场景加载，
+assets 负责来源重载，inspection 负责对象检查与属性编辑，ipc 收纳会话及消息处理。
+原 src/host/runtime 和 apps/runtime 路径退出；对应测试源码、脚本与 CMake 归 tests/runtime。
+生产目标直接依赖 Engine、Project、Protocol，移除 Runtime 的 native_interface 间接入口；
+日志测试修正为依赖日志协议所属 Protocol，测试定义不再混入生产 CMake。
+Windows Clang Debug：完整 Runtime 与 9 个测试目标构建通过，10 项定向测试通过，覆盖
+IPC、检查、加载、属性、资产重载、日志、启动诊断及 Scene/Prefab 结构重载。
+自定义组件测试局部申请 engine/src；共享网格夹具仍使用 Editor 绑定值类型，局部申请 editor，
+该测试耦合及 runtime_logging 的重复编译留待 P3/P4 收敛。未验证 GPU、安装与其他平台。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。

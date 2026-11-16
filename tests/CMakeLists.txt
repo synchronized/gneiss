@@ -1108,7 +1108,7 @@ gneiss_target_compile_warnings(gneiss_render_service_header_check)
 set_target_properties(gneiss_render_service_header_check PROPERTIES FOLDER "Tests")
 
 # 异步场景测试由宿主驱动任务，不使用生产同步加载入口。
-foreach(test IN ITEMS gneiss_texture_load_application_test gneiss_asset_pixel_test gneiss_scene_load_baseline gneiss_texture_load_window_benchmark gneiss_scene_instance_test gneiss_scene_structural_reload_test gneiss_scene_instantiation_test gneiss_scene_prefab_instance_test gneiss_prefab_structural_reload_test)
+foreach(test IN ITEMS gneiss_texture_load_application_test gneiss_asset_pixel_test gneiss_scene_load_baseline gneiss_texture_load_window_benchmark gneiss_scene_instance_test gneiss_scene_instantiation_test gneiss_scene_prefab_instance_test)
   if(TARGET ${test})
     target_link_libraries(${test} PRIVATE gneiss_tasks)
     target_include_directories(${test} PRIVATE "${PROJECT_SOURCE_DIR}/src")
