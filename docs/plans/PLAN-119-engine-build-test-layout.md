@@ -383,6 +383,15 @@ auto status = object.modify_component<mesh_component>([&](auto& component) noexc
 
 本轮仅完成源码审查和方案记录。重复编译、旧场景包装及候选修改接口均未完成。
 
+组件读取与场景查询首条链路已迁移：scene_structural_reload_test 直接保留 GameObject，
+通过 parent、try_component、SceneInstance::size/unload 验证重载，不再使用 scene_access、
+read_mesh、read_component_value 和 result 输出参数适配。来源查询限当前加载回执的局部查找，
+没有新增运行身份或通用查询包装。保留身份不变、退役句柄、跨应用拒绝、缺失视觉内容、
+损坏描述及卸载后的行为检查。
+scene_load_application_test 同步直接查回执、借用组件、显式复制资源引用，更新后重新借用；
+解除 scene_access/mesh_objects 依赖。两项目标 Windows Clang Debug 构建及定向回归通过。
+共享包装仍有其他消费者，本轮未删除其定义，也未新增候选 modify_component API。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。

@@ -1,21 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../support/async_application.hpp"
 #include "../support/async_scene_reload.hpp"
 #include "../support/logging.hpp"
-#include "../support/mesh_objects.hpp"
-#include "../support/scene_access.hpp"
-#include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 
+#include <algorithm>
 #include <condition_variable>
 #include <filesystem>
 #include <fstream>
@@ -25,14 +22,10 @@
 
 namespace {
 
-const gneiss::guid scene_uuid =
-    *gneiss::guid::parse("00000000-0000-4000-8000-000000000001");
-const gneiss::guid camera_uuid =
-    *gneiss::guid::parse("00000000-0000-4000-8000-000000000002");
-const gneiss::guid old_child_uuid =
-    *gneiss::guid::parse("00000000-0000-4000-8000-000000000003");
-const gneiss::guid new_child_uuid =
-    *gneiss::guid::parse("00000000-0000-4000-8000-000000000004");
+const gneiss::guid scene_uuid = *gneiss::guid::parse("00000000-0000-4000-8000-000000000001");
+const gneiss::guid camera_uuid = *gneiss::guid::parse("00000000-0000-4000-8000-000000000002");
+const gneiss::guid old_child_uuid = *gneiss::guid::parse("00000000-0000-4000-8000-000000000003");
+const gneiss::guid new_child_uuid = *gneiss::guid::parse("00000000-0000-4000-8000-000000000004");
 
 void write_scene(const std::filesystem::path& path, std::string_view child_components) {
   const std::string json =
@@ -76,30 +69,28 @@ int main() try {
     }) && visual_failures == expected;
   };
   gneiss::tasks::task_scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
-  std::shared_ptr<gneiss::runtime::application> application;
-  gneiss::scene_instance scene = {};
-  gneiss::host::scene_open_result loaded;
-  gneiss::entity_id camera_before;
-  gneiss::entity_id old_child;
-  gneiss::entity_id camera_entity_before;
-  constexpr std::string_view uri = "asset://scenes/triangle.scene.json";
-  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config),
-                                         application) != gneiss::error::success ||
-      gneiss::test_support::activate_scene_for_test(*application, scheduler, uri, loaded) !=
-          gneiss::error::success ||
-      gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*application}->find_node(loaded.objects, camera_uuid),
-          camera_before) != gneiss::error::success ||
-      gneiss::test_support::take_value(gneiss::test_support::scene_access{*application}->find_node(
-                                           loaded.objects, old_child_uuid),
-                                       old_child) != gneiss::error::success ||
-      gneiss::test_support::assign_value(
-          application->native_world()->object(gneiss::entity_id{(camera_before).get()}),
-          camera_entity_before) != gneiss::error::success) {
+  auto created = gneiss::runtime::application::create(config);
+  if (!created)
     return 1;
-  }
+  auto application = *created;
+  auto& world = *application->native_world();
+  gneiss::host::scene_open_result loaded;
+  constexpr std::string_view uri = "asset://scenes/triangle.scene.json";
+  if (gneiss::test_support::activate_scene_for_test(*application, scheduler, uri, loaded).failed())
+    return 1;
+  auto scene = loaded.scene;
+  // 来源 UUID 只查询本次实例化回执；运行对象不保存文档身份。
+  const auto find_object = [&](gneiss::guid source) {
+    const auto found = std::ranges::find_if(loaded.objects, [&](const auto& binding) {
+      return binding.object == source && !binding.source;
+    });
+    return found == loaded.objects.end() ? gneiss::game_object{} : world.find(found->entity);
+  };
+  const auto camera_before = find_object(camera_uuid);
+  const auto old_child = find_object(old_child_uuid);
+  if (!camera_before || !old_child)
+    return 1;
 
-  scene = loaded.scene;
   // 新的加载不能覆盖调用方保留的旧场景基线。
   gneiss::host::scene_open_result second;
   if (gneiss::test_support::activate_scene_for_test(*application, scheduler, uri, second)
@@ -117,99 +108,54 @@ int main() try {
     return 23;
 
   // 直接修改 World 后重载同一文件，差异必须基于当前对象而非加载时描述。
-  if (application->native_world()
-          ->find(gneiss::entity_id{(camera_before).get()})
-          .set_name("Edited")
-          .failed() ||
-      application->native_world()
-          ->find(camera_entity_before)
-          .remove_component<gneiss::camera_component>()
-          .failed() ||
-      application->native_world()
-          ->find(gneiss::entity_id{(old_child).get()})
-          .reparent(gneiss::game_object{})
-          .failed() ||
+  if (camera_before.set_name("Edited").failed() ||
+      camera_before.remove_component<gneiss::camera_component>().failed() ||
+      old_child.reparent({}).failed() ||
       gneiss::test_support::reload_scene_for_test(*application, scheduler, loaded.reload_state, uri,
                                                   false, &loaded.objects)
           .failed())
     return 20;
-  auto restored_identity =
-      application->native_world()->find(gneiss::entity_id{(camera_before).get()}).name();
-  gneiss::math::camera_settings restored_camera;
-  gneiss::entity_id restored_parent;
-  if (restored_identity != "Camera" ||
-      gneiss::test_support::read_component_value(
-          application->native_world()
-              ->find(camera_entity_before)
-              .try_component<gneiss::camera_component>(),
-          restored_camera)
-          .failed() ||
-      gneiss::test_support::assign_value(
-          application->native_world()->find(gneiss::entity_id{(old_child).get()}).parent(),
-          restored_parent)
-          .failed() ||
-      restored_parent != camera_before)
+  const auto* restored_camera = camera_before.try_component<gneiss::camera_component>();
+  auto restored_parent = old_child.parent();
+  if (camera_before.name() != "Camera" || !restored_camera || !restored_parent ||
+      *restored_parent != camera_before)
     return 21;
 
   const auto retired_child = old_child;
   write_scene(scene_path, "[]");
   if (gneiss::test_support::reload_scene_for_test(*application, scheduler, loaded.reload_state, uri,
-                                                  false, &loaded.objects) !=
-      gneiss::error::success) {
+                                                  false,
+                                                  &loaded.objects) != gneiss::error::success) {
     return 2;
   }
-  gneiss::entity_id camera_after;
-  gneiss::entity_id new_child;
-  gneiss::entity_id camera_entity_after;
-  std::uint64_t count = 0U;
-  if (gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*application}->find_node(loaded.objects, camera_uuid),
-          camera_after) != gneiss::error::success ||
-      camera_after != camera_before ||
-      gneiss::test_support::assign_value(
-          application->native_world()->object(gneiss::entity_id{(camera_after).get()}),
-          camera_entity_after) != gneiss::error::success ||
-      camera_entity_after != camera_entity_before ||
-      gneiss::test_support::take_value(gneiss::test_support::scene_access{*application}->find_node(
-                                           loaded.objects, new_child_uuid),
-                                       new_child) != gneiss::error::success ||
-      gneiss::test_support::take_value(gneiss::test_support::scene_access{*application}->find_node(
-                                           loaded.objects, old_child_uuid),
-                                       old_child) != gneiss::error::not_found ||
-      gneiss::test_support::assign_value(
-          application->native_world()->find(gneiss::entity_id{(retired_child).get()}).parent(),
-          camera_after) != gneiss::error::invalid_handle ||
-      gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*application}->get_node_count(scene), count) !=
-          gneiss::error::success ||
-      count != 2U) {
+  auto camera_after = find_object(camera_uuid);
+  auto new_child = find_object(new_child_uuid);
+  auto retired_parent = retired_child.parent();
+  auto count = scene.size();
+  if (!camera_after || camera_after != camera_before || !new_child || find_object(old_child_uuid) ||
+      retired_child.is_valid() || retired_parent ||
+      retired_parent.error() != gneiss::error::invalid_handle || !count || *count != 2U)
     return 3;
-  }
 
   write_scene(
       scene_path,
       R"([{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/triangle.material.json","uuid":"6ac36c36-95c2-4975-9b2a-4fbcc4c7bca1"}}])");
   if (gneiss::test_support::reload_scene_for_test(*application, scheduler, loaded.reload_state, uri,
-                                                  false, &loaded.objects) !=
-          gneiss::error::success ||
-      gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*application}->find_node(loaded.objects, camera_uuid),
-          camera_after) != gneiss::error::success ||
-      camera_after != camera_before ||
-      gneiss::test_support::take_value(gneiss::test_support::scene_access{*application}->find_node(
-                                           loaded.objects, new_child_uuid),
-                                       new_child) != gneiss::error::success) {
+                                                  false, &loaded.objects)
+          .failed())
     return 4;
-  }
+  camera_after = find_object(camera_uuid);
+  new_child = find_object(new_child_uuid);
+  if (!camera_after || camera_after != camera_before || !new_child)
+    return 4;
 
   if (!received_failures(1))
     return 22;
-  auto binding = gneiss::test_support::read_mesh(*application->native_world(), scene, new_child);
+  const auto* binding = new_child.try_component<gneiss::mesh_component>();
   if (!binding || !binding->mesh || !binding->material ||
-      !application->assets().find<gneiss::material>(
-          "asset://materials/triangle.material.json"))
+      !application->assets().find<gneiss::material>("asset://materials/triangle.material.json"))
     return 23;
-  binding = gneiss::error::not_found;
+  binding = nullptr; // 后续重载可能替换组件，不跨结构修改保留借用。
 
   // 缺失材质也不阻断结构回执；回执到达时视觉加载仍未结束。
   write_scene(
@@ -252,8 +198,7 @@ int main() try {
     return 30;
 
   const bool destroyed =
-      gneiss::test_support::scene_access{*application}->unload(scene) ==
-          gneiss::error::success &&
+      scene.unload() == gneiss::error::success &&
       reloader.reload(loaded.reload_state, uri, false) == gneiss::error::invalid_handle &&
       application->native_world()->object(second.objects.front().entity).has_value() &&
       application->shutdown() == gneiss::error::success;

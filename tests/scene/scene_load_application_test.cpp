@@ -3,22 +3,21 @@
 
 #include "../support/async_application.hpp"
 #include "../support/codec_result.hpp"
-#include "../support/mesh_objects.hpp"
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
 #include "core/identifier_conversion.hpp"
-#include <gneiss/engine/core/types/rid.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/mesh/mesh_binary.hpp>
 #include <gneiss/engine/resource/texture/texture_ktx2.hpp>
 
-#include "../support/scene_access.hpp"
 #include <gneiss/engine/function/scene/world.hpp>
 
 #include <algorithm>
@@ -53,8 +52,8 @@ struct fixture {
     mesh.colors.assign(3, {1, 1, 1, 1});
     std::vector<std::byte> bytes;
     gneiss::mesh_binary_diagnostic diagnostic;
-    check(gneiss::test_support::take_codec(gneiss::encode_mesh_binary(mesh), bytes,
-                                           diagnostic) == std::nullopt);
+    check(gneiss::test_support::take_codec(gneiss::encode_mesh_binary(mesh), bytes, diagnostic) ==
+          std::nullopt);
     std::ofstream output(root / "mesh.json", std::ios::binary);
     output.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
@@ -123,17 +122,15 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
   auto activated = test_support::activate_scene(*app, *content);
   check(bool(activated));
   const auto& completion = activated->instance;
-  entity_id node;
-  check(gneiss::test_support::take_value(
-            gneiss::test_support::scene_access{*app}->find_node(
-                completion.objects,
-                *gneiss::guid::parse("00000000-0000-4000-8000-000000000002")),
-            node) == gneiss::error::success);
-  gneiss::mesh_component binding;
-  check(gneiss::test_support::take_value(
-            gneiss::test_support::read_mesh(*app->native_world(), completion.instance, node),
-            binding) == gneiss::error::success);
-  check(binding.mesh && binding.material);
+  check(completion.objects.size() == 1);
+  const auto& source = completion.objects.front();
+  check(source.object == *guid::parse("00000000-0000-4000-8000-000000000002") && !source.source);
+  const auto object = app->native_world()->find(source.entity);
+  check(bool(object));
+  const auto* component = object.try_component<mesh_component>();
+  check(component && component->mesh && component->material);
+  // 保存资源引用副本，不跨异步推进保留组件借用。
+  auto binding = *component;
   auto material = binding.material;
   auto visual_result = drain_visuals(app, scheduler, mode, activated->visuals);
   check(visual_result.result.ok() == missing_texture);
@@ -144,9 +141,8 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
             ready) == gneiss::error::success);
   check(gneiss::resource_cast<gneiss::mesh>(ready) == binding.mesh);
   check(gneiss::test_support::take_value(
-            app->assets().find(
-                {"asset://material.json", gneiss::render_resource_kind::material},
-                app->assets().profile()),
+            app->assets().find({"asset://material.json", gneiss::render_resource_kind::material},
+                               app->assets().profile()),
             ready) == (missing_texture ? gneiss::error::success : gneiss::error::not_ready));
   if (missing_texture) {
     const auto* data = app->render().get_material(gneiss::resource_handle(material));
@@ -155,15 +151,12 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
     check(app->render().texture_status(gneiss::resource_handle(material->textures()[0])) ==
           gneiss::error::not_ready);
   }
-  std::uint64_t nodes{};
-  check(gneiss::test_support::take_value(
-            gneiss::test_support::scene_access{*app}->get_node_count(completion.instance), nodes) ==
-            gneiss::error::success &&
-        nodes == 1U);
+  auto nodes = completion.instance.size();
+  check(nodes && *nodes == 1U);
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,1,0,1]},"texture_uris":["","","","",""]})";
-  const std::array sources{gneiss::render_resource_source{
-      "asset://material.json", gneiss::render_resource_kind::material}};
+  const std::array sources{gneiss::render_resource_source{"asset://material.json",
+                                                          gneiss::render_resource_kind::material}};
   gneiss::asset_batch_request assets_request;
   check(gneiss::test_support::take_value(app->load_assets(sources, true), assets_request) ==
         gneiss::error::success);
@@ -177,10 +170,8 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
   });
   check(loaded.result == gneiss::error::success &&
         gneiss::resource_cast<gneiss::material>(loaded.assets.front()) == material);
-  check(gneiss::test_support::take_value(
-            gneiss::test_support::read_mesh(*app->native_world(), completion.instance, node),
-            binding) == gneiss::error::success &&
-        binding.material == material);
+  const auto* updated = object.try_component<mesh_component>();
+  check(updated && updated->material == material);
   // 引用型纹理依赖不阻止材质完成；旧后端快照保持可用。
   const auto old_data = app->render().share_material(gneiss::resource_handle(material));
   std::ofstream(files.root / "material.json")
