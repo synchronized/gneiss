@@ -284,23 +284,20 @@ void selected_variants() {
   auto& scheduler = gneiss::test_support::render_tasks();
   gneiss::asset_manager asset_owner(gneiss::test_support::test_files(files));
   asset_owner.configure(scheduler);
-  prepared_batch batch;
-  require(gneiss::test_support::prepare_render_for_test(asset_owner, files, requests, batch,
-                                                        diagnostic, {}, 1U, limit, compressed) ==
-          gneiss::error::success);
-  require(batch.bytes == limit &&
-          std::get<texture_data>(batch.assets.front().content).profile == compressed);
-  const auto* prepared_payload =
-      std::get<texture_data>(batch.assets.front().content).payload.data();
-  const auto* prepared_manifest =
-      std::get<texture_data>(batch.assets.front().content).manifest.data();
+  decoded_asset decoded;
+  require(gneiss::test_support::decode_fixture(files, requests.front(), decoded, diagnostic,
+                                               binary.size(), limit, compressed)
+              .ok());
+  require(decoded.bytes == limit && std::get<texture_data>(decoded.content).profile == compressed);
+  const auto* prepared_payload = std::get<texture_data>(decoded.content).payload.data();
+  const auto* prepared_manifest = std::get<texture_data>(decoded.content).manifest.data();
 
   auto& loader = asset_owner;
   [[maybe_unused]] const auto& cache = loader;
   if (loader.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   render_resource_ref candidate;
-  require(gneiss::test_support::adopt_render_for_test(loader, std::move(batch.assets.front()),
+  require(gneiss::test_support::adopt_render_for_test(loader, std::move(decoded),
                                                       candidate)
               .ok());
   const auto old_frame = resources.share_texture(resource_rid(candidate));
@@ -319,28 +316,19 @@ void selected_variants() {
   require(gneiss::test_support::take_value(loader.find(requests.front(), fallback), lease) ==
               gneiss::error::not_found &&
           !lease);
-  require(gneiss::test_support::prepare_render_for_test(
-              asset_owner, files, requests, batch, diagnostic, [] { return true; }, 1U, limit,
-              compressed) == gneiss::error::invalid_state &&
-          batch.assets.empty());
-  // 描述和负载各扫描一次；后续整文件读取会变化，但不会再发起来源复验。
+  // 解码读取的内容快照不通过后续重新读取替换；取消行为由真实请求测试覆盖。
   memory->full_reads = 0U;
   memory->change_on_reread = true;
-  require(gneiss::test_support::prepare_render_for_test(asset_owner, files, requests, batch,
-                                                        diagnostic, {}, 1U, limit, compressed) ==
-              gneiss::error::success &&
-          batch.assets.size() == 1U && memory->full_reads == 2U);
+  decoded_asset reread;
+  require(gneiss::test_support::decode_fixture(files, requests.front(), reread, diagnostic,
+                                               binary.size(), limit, compressed)
+              .ok());
+  require(std::get<texture_data>(reread.content).payload == payload_before);
   memory->change_on_reread = false;
-  unsigned cancellation_checks{};
-  require(gneiss::test_support::prepare_render_for_test(
-              asset_owner, files, requests, batch, diagnostic,
-              [&] { return ++cancellation_checks == 2U; }, 1U, limit,
-              compressed) == gneiss::error::invalid_state &&
-          batch.assets.empty());
   // 单纹理也走通用候选入口；移动后仍保留负载与设备身份。
-  require(gneiss::test_support::decode_texture_fixture(
-              files, "asset://t.texture.json", texture, diagnostic, binary.size(), binary.size(),
-              compressed) == gneiss::error::success);
+  require(gneiss::test_support::decode_texture_fixture(files, "asset://t.texture.json", texture,
+                                                       diagnostic, binary.size(), binary.size(),
+                                                       compressed) == gneiss::error::success);
   const auto* single_payload = texture.payload.data();
   decoded_asset single_prepared;
   single_prepared.uri = "asset://single.texture.json";

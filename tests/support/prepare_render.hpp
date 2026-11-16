@@ -9,15 +9,6 @@
 #include <gneiss/engine/resource/texture/texture_decoder.hpp>
 #include "value_result.hpp"
 #include <algorithm>
-#include <set>
-namespace gneiss {
-struct prepared_batch {
-  std::vector<decoded_asset> assets;
-  std::size_t bytes{};
-  /** 整文件快照持有的输入字节；区间读取没有源副本，不计入此值。 */
-  std::size_t input_bytes{};
-};
-}
 namespace gneiss::test_support {
 using namespace gneiss;
 inline error adopt_render_for_test(asset_manager& service, decoded_asset decoded,
@@ -132,73 +123,5 @@ inline error decode_texture_fixture(const gneiss::test_support::fixture_files& f
   if (status.ok())
     output = std::move(std::get<texture_data>(decoded.content));
   return status;
-}
-inline error prepare_render_for_test(asset_manager&,
-                                     const gneiss::test_support::fixture_files& files,
-                                     std::span<const render_resource_source> requested,
-                                     prepared_batch& output, asset_diagnostic& diagnostic,
-                                     const std::function<bool()>& cancelled,
-                                     std::size_t maximum_assets = 256U,
-                                     std::size_t maximum_bytes = 256U * 1024U * 1024U,
-                                     texture_prepare_profile profile = {}, bool = false) {
-  output = {};
-  diagnostic = {};
-  if (requested.empty() || requested.size() > maximum_assets)
-    return error::invalid_argument;
-  prepared_batch batch;
-  std::vector<render_resource_source> pending(requested.begin(), requested.end());
-  std::set<std::pair<std::string, render_resource_kind>> seen;
-  for (std::size_t index = 0; index < pending.size(); ++index) {
-    if (cancelled && cancelled())
-      return error::invalid_state;
-    const auto source = pending[index];
-    if (!seen.emplace(source.uri, source.type).second)
-      continue;
-    if (seen.size() > maximum_assets)
-      return error::out_of_memory;
-    decoded_asset decoded;
-    error status;
-    if (source.type == render_resource_kind::material) {
-      // 内存夹具直接走格式解码，不通过资产管理器创建描述缓存。
-      std::vector<std::byte> bytes;
-      status = files.read_bounded(source.uri, 64U * 1024U * 1024U, bytes);
-      if (status.failed())
-        return status;
-      auto parsed = asset_file::deserialize<material_description>(bytes);
-      if (!parsed) {
-        const auto& failure = parsed.error();
-        diagnostic = {failure.error, failure.byte_offset, failure.path, failure.message};
-        return failure.error;
-      }
-      asset_ref<const material_description> material{
-          std::make_shared<const material_description>(std::move(*parsed))};
-      status = gneiss::test_support::assign_decoded(
-          adopt_material_asset(source.uri, std::move(material), sizeof(material_data)), decoded,
-          diagnostic);
-    } else {
-      status = decode_fixture(files, source, decoded, diagnostic, 64U * 1024U * 1024U,
-                              maximum_bytes, profile);
-    }
-    if (status.failed())
-      return status;
-    if (cancelled && cancelled())
-      return error::invalid_state;
-    if (decoded.bytes > maximum_bytes - batch.bytes)
-      return error::out_of_memory;
-    batch.bytes += decoded.bytes;
-    if (const auto* material = std::get_if<asset_ref<const material_description>>(&decoded.content))
-      for (const auto& uri : (*material)->texture_uris)
-        if (!uri.empty())
-          pending.push_back({uri, render_resource_kind::texture});
-    batch.assets.push_back(std::move(decoded));
-  }
-  std::stable_sort(batch.assets.begin(), batch.assets.end(), [](const auto& a, const auto& b) {
-    const auto order = [](render_resource_kind type) {
-      return type == render_resource_kind::texture ? 0 : type == render_resource_kind::mesh ? 1 : 2;
-    };
-    return order(a.kind()) < order(b.kind());
-  });
-  output = std::move(batch);
-  return error::success;
 }
 }

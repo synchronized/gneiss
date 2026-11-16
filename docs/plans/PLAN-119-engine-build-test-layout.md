@@ -419,6 +419,14 @@ Windows Clang Debug 构建及 render_asset_loader 回归通过。纹理编解码
 修正该目标旧私有包含根。Windows Clang Debug 构建及 texture-load-service 回归通过。
 prepare_render.hpp 的 decode/adopt 白盒辅助及其他消费者仍存在；未宣称辅助层已全部删除。
 
+最后一个批量准备消费者已退出：删除测试专用 prepared_batch 和 prepare_render_for_test，
+不再在测试辅助层递归加载材质依赖、排序、累计预算或维护取消状态。纹理变体用例直接验证
+解码结果及接入后的缓冲身份、内容快照；移除测试辅助函数自己的取消回调次数和精确读取次数
+断言。正式请求取消仍由 texture_load_service_test 的共享请求、放弃和取消用例覆盖。
+Windows Clang Debug 两个目标构建、render_asset_loader 与 texture-load-service 回归通过。
+prepare_render.hpp 暂仍承载 decode/adopt 白盒辅助，未删除该文件；旧场景包装与重复编译生产
+源码仍待后续处理。未运行 GPU、静态库及跨平台配置。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。
