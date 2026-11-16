@@ -21,6 +21,9 @@
 
 ## 阶段概览
 
+根目录 Engine 的头文件、CMake 目标及测试组织整理已形成计划，实施待开始，见
+[PLAN-119](plans/PLAN-119-engine-build-test-layout.md)。
+
 错误返回与内部契约收敛规则已整理，代码迁移待开始，见 [PLAN-118](plans/PLAN-118-error-contracts.md)。
 
 优先整理事件与日志，当前完成初步适配核查，生产实现待开始，见 [PLAN-116](plans/PLAN-116-events-and-logging.md)。
