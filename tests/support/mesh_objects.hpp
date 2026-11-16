@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "documents/mesh_binding.hpp"
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
@@ -21,15 +20,15 @@ inline gneiss::result<gneiss::game_object> mesh_target(gneiss::world& owner, sce
     return gneiss::error::invalid_handle;
   return *object;
 }
-inline gneiss::result<editor::scene_mesh_binding> read_mesh(gneiss::world& owner,
+inline gneiss::result<gneiss::mesh_component> read_mesh(gneiss::world& owner,
                                                             scene_instance scene, entity_id id) {
   auto object = mesh_target(owner, scene, id);
   if (!object)
     return object.error();
   auto component = object->try_component<gneiss::mesh_component>();
   if (!component)
-    return editor::scene_mesh_binding{};
-  return editor::scene_mesh_binding{component->mesh, component->material};
+    return gneiss::mesh_component{};
+  return gneiss::mesh_component{component->mesh, component->material};
 }
 // 测试编排：显式查询缓存，再通过对象接口写入；不提供旧 expected/事务协议。
 inline gneiss::error assign_mesh(gneiss::world& owner, gneiss::asset_manager& assets,
@@ -65,7 +64,7 @@ struct mesh_fixture {
 };
 inline gneiss::result<entity_id> spawn_mesh(gneiss::world& owner, gneiss::asset_manager& assets,
                                             scene_instance scene, const mesh_fixture& fixture,
-                                            const editor::scene_mesh_binding* retained = nullptr) {
+                                            const gneiss::mesh_component* retained = nullptr) {
   if (scene.owner() != &owner)
     return gneiss::error::invalid_handle;
   auto destination = scene;

@@ -129,7 +129,7 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
                 completion.objects,
                 *gneiss::guid::parse("00000000-0000-4000-8000-000000000002")),
             node) == gneiss::error::success);
-  gneiss::editor::scene_mesh_binding binding;
+  gneiss::mesh_component binding;
   check(gneiss::test_support::take_value(
             gneiss::test_support::read_mesh(*app->native_world(), completion.instance, node),
             binding) == gneiss::error::success);

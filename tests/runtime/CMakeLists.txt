@@ -136,8 +136,6 @@ endforeach()
 # 来源重载策略属于 Runtime 宿主；纯组合与实例化仍由 Engine 测试覆盖。
 if(BUILD_TESTING)
   add_executable(gneiss_scene_structural_reload_test "${PROJECT_SOURCE_DIR}/tests/runtime/scene_structural_reload_test.cpp")
-  # 共享网格夹具暂使用 Editor 的绑定值类型，后续测试整理中解除。
-  target_include_directories(gneiss_scene_structural_reload_test PRIVATE "${PROJECT_SOURCE_DIR}/editor")
   target_link_libraries(gneiss_scene_structural_reload_test PRIVATE gneiss::engine gneiss_tasks gneiss_runtime_ipc)
   target_compile_definitions(
     gneiss_scene_structural_reload_test

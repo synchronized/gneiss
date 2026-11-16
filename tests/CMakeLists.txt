@@ -504,7 +504,7 @@ set_target_properties(gneiss_json_format_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.json_format COMMAND gneiss_json_format_test)
 
 add_executable(gneiss_scene_load_application_test scene/scene_load_application_test.cpp)
-target_include_directories(gneiss_scene_load_application_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_scene_load_application_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_link_libraries(gneiss_scene_load_application_test PRIVATE gneiss::engine gneiss_tasks)
 gneiss_target_compile_warnings(gneiss_scene_load_application_test)
 gneiss_target_output_directories(gneiss_scene_load_application_test)
@@ -844,7 +844,7 @@ target_sources(gneiss_scene_instantiation_test PRIVATE
   "${PROJECT_SOURCE_DIR}/engine/src/resource/scene/scene_validation.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/asset_manager.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/resource/input/action_map_validation.cpp")
-target_include_directories(gneiss_scene_instantiation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_scene_instantiation_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_scene_instantiation_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_scene_instantiation_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit EnTT::EnTT)
 target_compile_features(gneiss_scene_instantiation_test PRIVATE cxx_std_20)

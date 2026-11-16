@@ -294,7 +294,7 @@ int main() try {
       return 40;
     const auto saved_renderer = *renderer;
     gneiss::entity_id entity;
-    gneiss::editor::scene_mesh_binding binding;
+    gneiss::mesh_component binding;
     if (!renderer ||
         gneiss::test_support::assign_value(
             application->native_world()->object(gneiss::entity_id{(created_node).get()}), entity)
@@ -434,7 +434,7 @@ int main() try {
           camera_entity) != gneiss::error::success ||
       camera_object.set_local_transform(transform) !=
           gneiss::error::success ||
-      (camera_object.try_component<gneiss::camera_component>()->settings = camera).valid() ||
+      !(camera_object.try_component<gneiss::camera_component>()->settings = camera).valid() ||
       camera_object.set_name("Runtime Camera").failed() ||
       !world->find(gneiss::entity_id{(camera_node).get()}).is_valid()) {
     return 7;
