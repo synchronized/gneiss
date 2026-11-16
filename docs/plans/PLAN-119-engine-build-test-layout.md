@@ -9,7 +9,7 @@
 已恢复离线配置、Engine/minimal/World/反射边界目标编译；4 项定向回归通过。
 其余宿主、工具、私有测试及静态/安装配置尚未验收，不将当前结构视为最终边界。
 
-目标：明确 engine/include 与 engine/src 的边界，消除 CMake 旧路径和重复维护，
+目标：明确 Engine 与其余仓内模块的目录和契约边界，消除 CMake 旧路径和重复维护，
 使目标依赖与代码所有权一致，降低测试对实现布局的耦合。
 非目标：重新设计 World/Render/资产协议、恢复稳定 C++ SDK、全仓改命名空间、引入测试框架、
 为目录各建一个库、修改第三方仓库。本计划暂时优先于 PLAN-118 的接口继续迁移。
@@ -110,6 +110,80 @@ tests/
 初始化仍调用既有初始化/创建入口，正常使用保持原 API，业务失败仍由既有 result 表达，
 关闭仍按现有所有者顺序执行；本计划不改变资源保活和销毁语义。
 
+## 扩展范围：剩余模块与应用入口（已确认，待实施）
+
+用户确认本计划同时整理剩余 src 与 apps，不受现有目录限制。按职责迁移，
+不把目录迁移扩展为业务协议或运行时所有权重设计。目标结构如下：
+
+```text
+tooling/
+  include/gneiss/tooling/{import,build}/
+  src/{import,build}/
+  assetc/main.cpp             # 与 assetc 应用装配及目标定义放在一起
+  CMakeLists.txt
+editor/
+  main.cpp
+  application.hpp/.cpp
+  documents/
+  assets/
+  inspection/
+  project/
+    project_manager.hpp/.cpp # 未打开项目时的选择、最近项目及创建界面
+    cli/main.cpp             # 独立工程命令行入口与命令处理
+  runtime/                   # 子进程管理、编辑器侧会话和协议适配
+  ui/{panels,viewport,dialogs}/
+  resources/
+  CMakeLists.txt
+runtime/
+  main.cpp
+  application.hpp/.cpp
+  scene/
+  assets/
+  inspection/
+  ipc/
+  CMakeLists.txt
+project/
+  include/gneiss/project/
+  src/                       # Editor/Runtime 共用的项目配置契约与读写
+  CMakeLists.txt
+protocol/
+  include/gneiss/protocol/
+  src/                       # 双方共享消息及编解码，不含应用命令执行
+  CMakeLists.txt
+tests/
+  engine/ tooling/ editor/ runtime/ project/ protocol/ integration/ support/
+```
+
+Engine 及 cmake 布局沿用上节。Editor/Runtime 是应用，内部头就近放置，不强行建立
+include/src；内部模型库按真实复用和测试需求保留，不按每个文件夹建立目标。
+Tooling、Project、Protocol 被多个模块使用，提供明确 include/src 边界。
+完成全部消费者迁移后删除空的根 src、apps 和泛化 host 层，不保留转发头。
+
+入口核查事实：apps/project/main.cpp 调用 run_project_cli，当前支持 create、export、
+package、verify，无参数打印用法；它不是项目选择窗口。选择窗口由
+src/host/editor/project_manager.cpp 实现，editor_application.cpp 在未指定项目时调用
+run_project_manager。两者均属于编辑器的项目工具，但保持独立入口和职责。
+
+目标依赖与命名：
+
+- gneiss_tooling / gneiss::tooling 替代 gneiss_asset_import_sdk，暴露真实 include；
+  对外头依赖 Engine 类型时 PUBLIC 链接 gneiss::engine，导入器第三方依赖 PRIVATE。
+- gneiss_assetc 只链接所需实际库，删除 gneiss_tooling_interface 及复制清单。
+- gneiss_project_config / gneiss::project_config 承担共享配置；保留 gneiss_project
+  可执行名称及命令行为，避免此前建议的共享库同名冲突。
+- gneiss_protocol / gneiss::protocol 承担共享协议；允许依赖当前 Engine 值与描述类型，
+  不依赖 Editor/Runtime 的实现，不额外复制一套协议对象模型。
+- gneiss_editor、gneiss_runtime 维持可执行目标；编辑模型、UI、工程操作和 Runtime 协议处理
+  的内部库仅在真实多消费者或测试需要时保留，不强制合成一个库。
+- 项目选择 UI 与 CLI 共用的工程操作可归 editor/project 内部库；共享配置库不能反向依赖
+  编辑器 UI、Tooling 或进程启动流程。平台 IPC 传输和进程能力仍归 Engine。
+- 应用库不编译 main.cpp、不反向依赖可执行目标；安装、资源复制和打包规则随可执行目标移动。
+
+迁移顺序：Tooling 契约与 assetc → 共享配置/协议 → Editor 与工程 CLI → Runtime →
+测试分组与旧路径清理。每组先迁移源码和全部消费者，再验证对应实际目标及行为测试。
+CMake PRIVATE/PUBLIC 依据头依赖判断；测试不得通过全局 src 包含路径穿透边界。
+P2/P3/P4/P5 按此扩展范围验收；本文新增目录尚未实施，之前的 Engine 局部验收不代表它们完成。
+
 ## CMake 目标与职责
 
 | 层次 | 目标处理 |
@@ -119,7 +193,7 @@ tests/
 | 已有独立能力 | tasks、events、IPC、I/O、process、dynamic_library 按实际独立消费保留；不是每个命名空间都建库 |
 | 日志后端 | 文件输出实现与 logging 服务契约分开；spdlog 只属于实际输出实现，不让所有消费者链接它 |
 | 平台/依赖 | Granit、libuv、libassert、GLM 等由依赖脚本提供目标，各实现目标声明 PRIVATE/PUBLIC，不全局传播 |
-| 宿主和工具 | root 只装配 engine、Editor/Runtime/Tooling、示例和测试；src 保留现有宿主代码，不借此次任务整体改名 |
+| 宿主和工具 | 根目录按 Engine、Tooling、Editor、Runtime、Project、Protocol 装配；按下述已确认布局迁移 src/host 与 apps，入口随可执行目标归属 |
 | 共享内部编译单元 | 仅在两个以上实际构建消费者需要时考虑 OBJECT/STATIC；先证明避免重复状态，不为缩短清单随意拆库 |
 
 每份生产 .cpp 有一个明确的编译归属；不得在同一最终进程中既从 DLL 又从测试副本拥有 registry、
