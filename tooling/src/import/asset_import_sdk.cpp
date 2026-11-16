@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "tooling/asset_import/asset_import_sdk.hpp"
+#include <gneiss/tooling/import/asset_import_sdk.hpp>
 
-#include "tooling/asset_import/asset_index.hpp"
-#include "tooling/asset_import/asset_writer.hpp"
-#include "tooling/asset_import/gltf_importer.hpp"
+#include <gneiss/tooling/import/asset_index.hpp>
+#include <gneiss/tooling/import/asset_writer.hpp>
+#include <gneiss/tooling/import/gltf_importer.hpp>
 
 #include <algorithm>
 #include <array>

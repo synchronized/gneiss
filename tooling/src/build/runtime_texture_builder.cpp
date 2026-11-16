@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "tooling/asset_build/runtime_texture_builder.hpp"
+#include "build/runtime_texture_builder.hpp"
 
-#include "tooling/asset_build/bc7_encoder.hpp"
+#include "build/bc7_encoder.hpp"
 
 #include <gneiss/engine/resource/texture/texture_binary.hpp>
 

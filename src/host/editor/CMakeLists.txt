@@ -56,8 +56,8 @@ target_compile_definitions(
 gneiss_target_compile_warnings(gneiss_editor_host)
 gneiss_target_output_directories(gneiss_editor_host)
 
-if(TARGET gneiss_asset_import_sdk)
-  target_link_libraries(gneiss_editor_host PRIVATE gneiss_asset_import_sdk)
+if(TARGET gneiss_tooling)
+  target_link_libraries(gneiss_editor_host PRIVATE gneiss_tooling)
 endif()
 
 add_executable(

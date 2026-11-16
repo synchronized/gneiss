@@ -8,8 +8,8 @@
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
 #include <gneiss/engine/resource/texture/texture_decoder.hpp>
-#include "tooling/asset_import/asset_writer.hpp"
-#include "tooling/asset_import/gltf_importer.hpp"
+#include <gneiss/tooling/import/asset_writer.hpp>
+#include <gneiss/tooling/import/gltf_importer.hpp>
 
 #include "../support/scene_access.hpp"
 #include <gneiss/engine/function/application/application.hpp>

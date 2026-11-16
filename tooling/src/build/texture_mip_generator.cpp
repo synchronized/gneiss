@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "tooling/asset_build/texture_mip_generator.hpp"
+#include "build/texture_mip_generator.hpp"
 
 #include <algorithm>
 #include <array>

@@ -6,7 +6,7 @@
 
 #include "package_archive.hpp"
 
-#include "tooling/asset_build/asset_build.hpp"
+#include <gneiss/tooling/build/asset_build.hpp>
 
 #include <yyjson.h>
 

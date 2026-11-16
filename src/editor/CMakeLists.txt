@@ -37,7 +37,7 @@ target_compile_definitions(
 gneiss_target_compile_warnings(gneiss_editor_ui)
 gneiss_target_output_directories(gneiss_editor_ui)
 
-if(TARGET gneiss_asset_import_sdk)
+if(TARGET gneiss_tooling)
   add_library(
     gneiss_editor_assets STATIC
     author_asset_service.cpp
@@ -59,9 +59,12 @@ if(TARGET gneiss_asset_import_sdk)
     gneiss_editor_assets
     PRIVATE gneiss_io_uv gneiss::libuv
     PUBLIC gneiss_native_interface
-    PUBLIC gneiss::engine gneiss_asset_import_sdk gneiss_tasks
+    PUBLIC gneiss::engine gneiss_tooling gneiss_tasks
   )
-  target_include_directories(gneiss_editor_assets PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+  target_include_directories(gneiss_editor_assets
+    PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
+    PRIVATE "${PROJECT_SOURCE_DIR}/engine/src"
+  )
   target_compile_features(gneiss_editor_assets PUBLIC cxx_std_20)
   gneiss_target_compile_warnings(gneiss_editor_assets)
   gneiss_target_output_directories(gneiss_editor_assets)

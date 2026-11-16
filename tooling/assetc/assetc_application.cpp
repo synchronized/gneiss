@@ -2,11 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "assetc_application.hpp"
-#include "tooling/asset_build/asset_build.hpp"
-#include "tooling/asset_build/ktx2_probe.hpp"
-#include "tooling/asset_build/runtime_texture_probe.hpp"
-#include "tooling/asset_import/asset_writer.hpp"
-#include "tooling/asset_import/gltf_importer.hpp"
+#include <gneiss/tooling/build/asset_build.hpp>
+#include <gneiss/tooling/build/ktx2_probe.hpp>
+#include <gneiss/tooling/build/runtime_texture_probe.hpp>
+#include <gneiss/tooling/import/asset_writer.hpp>
+#include <gneiss/tooling/import/gltf_importer.hpp>
 
 #include <gneiss/engine/resource/mesh/mesh_binary.hpp>
 

@@ -4,7 +4,7 @@
 #pragma once
 
 #include <gneiss/engine/error.hpp>
-#include "tooling/asset_import/import_ir.hpp"
+#include <gneiss/tooling/import/import_ir.hpp>
 
 #include <filesystem>
 #include <functional>

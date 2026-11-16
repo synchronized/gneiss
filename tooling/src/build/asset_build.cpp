@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "tooling/asset_build/asset_build.hpp"
+#include <gneiss/tooling/build/asset_build.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/texture/texture_decoder.hpp>
-#include "tooling/asset_build/texture_mip_generator.hpp"
+#include "build/texture_mip_generator.hpp"
 
-#include "tooling/asset_build/ktx2_probe.hpp"
-#include "tooling/asset_build/runtime_texture_builder.hpp"
+#include <gneiss/tooling/build/ktx2_probe.hpp>
+#include "build/runtime_texture_builder.hpp"
 
 #include <gneiss/engine/resource/mesh/mesh_binary.hpp>
 #include <gneiss/engine/resource/texture/png_decoder.hpp>

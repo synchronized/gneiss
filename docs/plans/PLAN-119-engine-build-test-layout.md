@@ -271,10 +271,21 @@ Host 自身负责嵌入已编码片段；读取 DOM 片段时转为文本再解�
 - gneiss.minimal-example、gneiss.world-service-boundary、gneiss.world-thread-contract、
   gneiss.reflection-boundary 共 4 项通过。
 - 引擎接口已直接使用 engine/include，原 value/native/result 目标名暂时保留为直接包含的 INTERFACE；
-  Tooling 的独立契约复制清单仍保留，P2/P3 再处理，不宣称复制机制全部删除。
+  Tooling 已改为真实 include 契约，头复制脚本及 gneiss_tooling_interface 已删除；其余接口目标继续在 P3 审计。
 - 旧 core-boundary 等路径扫描规则仍需迁移；本轮未运行它们，不用空扫描声称边界验收通过。
 - 其余目标的私有头访问、模板闭包、重复实现与共享/静态安装验收留待 P2/P3。
 - 本轮纳入用户已有目录迁移及必要包含修复；没有回退用户的相机数据结构调整。
+
+Tooling/assetc 已迁移：对外头位于 tooling/include/gneiss/tooling/{import,build}，
+实现及私有头位于 tooling/src；assetc 的 main、装配与 CMake 合并到 tooling/assetc。
+gneiss_tooling（别名 gneiss::tooling）PUBLIC 依赖 Engine，第三方导入与编码库保持 PRIVATE。
+Editor 及测试消费者同步更新；普通 Tooling 测试不再添加仓库 src 根，白盒测试局部申请 tooling/src。
+删除 internal_headers.cmake 复制机制，不保留旧路径转发头。修复原私有 sha256 转发头中的
+既有 gniess 包含拼写错误。本次不改变导入格式或业务 API，asset_import_sdk 类型名仍保留。
+Windows Clang Debug 下 assetc 与相关目标构建通过，14 项定向回归通过，包含 assetc inspect/cook。
+Editor 的 gneiss_editor_assets、gneiss_editor_host 实际消费者构建通过，尚未验证完整图形界面。
+资产监视器既有 uv_loop_access 依赖已修正为该目标 PRIVATE engine/src；该跨模块私有依赖
+须在后续 Editor/平台边界整理中收敛，不能据此宣称所有消费者已摆脱引擎私有头。
 
 ## 决策边界
 

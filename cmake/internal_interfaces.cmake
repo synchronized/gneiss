@@ -9,19 +9,6 @@ endforeach()
 target_link_libraries(gneiss_value_interface INTERFACE gneiss_math_dependency)
 target_link_libraries(gneiss_native_interface INTERFACE gneiss_value_interface gneiss_events)
 
-# 工具契约仍使用已有显式清单，避免公开整个 tooling 实现目录。
-include(internal_headers)
-gneiss_internal_headers(gneiss_tooling_interface "${PROJECT_SOURCE_DIR}/src"
-  tooling/asset_build/asset_build.hpp
-  tooling/asset_build/ktx2_probe.hpp
-  tooling/asset_build/runtime_texture_probe.hpp
-  tooling/asset_import/asset_import_sdk.hpp
-  tooling/asset_import/asset_index.hpp
-  tooling/asset_import/asset_writer.hpp
-  tooling/asset_import/gltf_importer.hpp
-  tooling/asset_import/import_ir.hpp)
-target_link_libraries(gneiss_tooling_interface INTERFACE gneiss_value_interface)
-
 add_library(gneiss_fatal STATIC "${PROJECT_SOURCE_DIR}/engine/src/fatal.cpp")
 target_link_libraries(gneiss_fatal PUBLIC gneiss_result_interface)
 set_target_properties(gneiss_fatal PROPERTIES POSITION_INDEPENDENT_CODE ON)

@@ -4,7 +4,7 @@
 #include "asset_background_worker.hpp"
 #include "asset_reimport_queue.hpp"
 #include <gneiss/engine/error.hpp>
-#include "tooling/asset_import/asset_index.hpp"
+#include <gneiss/tooling/import/asset_index.hpp>
 
 #include <algorithm>
 #include <chrono>

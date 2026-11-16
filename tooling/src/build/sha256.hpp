@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gniess/engine/core/sha256.hpp>
+#include <gneiss/engine/core/sha256.hpp>
 
 namespace gneiss::tooling {
 using gneiss::sha256;

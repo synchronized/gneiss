@@ -3,7 +3,7 @@
 
 #include "asset_background_worker.hpp"
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include "tooling/asset_import/asset_index.hpp"
+#include <gneiss/tooling/import/asset_index.hpp>
 
 #include <atomic>
 #include <chrono>

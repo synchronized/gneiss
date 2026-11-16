@@ -4,7 +4,7 @@
 #pragma once
 
 #include <gneiss/engine/error.hpp>
-#include "tooling/asset_import/asset_import_sdk.hpp"
+#include <gneiss/tooling/import/asset_import_sdk.hpp>
 
 #include <filesystem>
 #include <string>
