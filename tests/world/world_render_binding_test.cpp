@@ -62,8 +62,10 @@ int main() {
   first.objects.clear();
   if (!(*binding)->synchronize() || !(*other_binding)->synchronize() || second.objects.empty())
     return fail("消费者独立确认");
-  if (child->notify_component_modified<camera_component>() != error::not_found)
-    return fail("缺失组件修改通知");
+  bool called = false;
+  if (child->modify_component<camera_component>([&](auto&) noexcept { called = true; }) !=
+          error::not_found || called)
+    return fail("缺失组件不得调用修改回调");
   const auto type = runtime_type_of<mesh_component>();
   if (child->remove_component<mesh_component>().failed() ||
       child->add_component<mesh_component>(mesh_component{*mesh, *material}).failed())
@@ -82,8 +84,8 @@ int main() {
   auto invalid_mesh = assets.reserve_mesh();
   if (!invalid_mesh || render.destroy_mesh(resource_handle(*invalid_mesh)).failed())
     return fail("制造失效资源");
-  child->try_component<mesh_component>()->mesh = *invalid_mesh;
-  if (child->notify_component_modified<mesh_component>().failed())
+  if (child->modify_component<mesh_component>(
+          [&](auto& component) noexcept { component.mesh = *invalid_mesh; }).failed())
     return fail("失效资源提交拒绝");
   (*owner)->flush_changes();
   if ((*binding)->synchronize())

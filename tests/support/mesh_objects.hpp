@@ -20,42 +20,34 @@ inline gneiss::result<gneiss::game_object> mesh_target(gneiss::world& owner, sce
     return gneiss::error::invalid_handle;
   return *object;
 }
-inline gneiss::result<gneiss::mesh_component> read_mesh(gneiss::world& owner,
-                                                            scene_instance scene, entity_id id) {
-  auto object = mesh_target(owner, scene, id);
-  if (!object)
-    return object.error();
-  auto component = object->try_component<gneiss::mesh_component>();
-  if (!component)
-    return gneiss::mesh_component{};
-  return gneiss::mesh_component{component->mesh, component->material};
-}
 // 测试编排：显式查询缓存，再通过对象接口写入；不提供旧 expected/事务协议。
 inline gneiss::error assign_mesh(gneiss::world& owner, gneiss::asset_manager& assets,
                                  scene_instance scene, entity_id id, std::string_view mesh_uri,
                                  std::string_view material_uri) {
-  auto before = read_mesh(owner, scene, id);
-  if (!before)
-    return before.error();
-  if (gneiss::resource_uri(before->mesh) != mesh_uri) {
+  auto target = mesh_target(owner, scene, id);
+  if (!target)
+    return target.error();
+  auto* current = target->try_component<gneiss::mesh_component>();
+  auto before = current ? *current : gneiss::mesh_component{};
+  if (gneiss::resource_uri(before.mesh) != mesh_uri) {
     auto loaded = assets.find<gneiss::mesh>(mesh_uri);
     if (!loaded)
       return loaded.error();
-    before->mesh = *loaded;
+    before.mesh = *loaded;
   }
-  if (gneiss::resource_uri(before->material) != material_uri) {
+  if (gneiss::resource_uri(before.material) != material_uri) {
     auto loaded = assets.find<gneiss::material>(material_uri);
     if (!loaded)
       return loaded.error();
-    before->material = *loaded;
+    before.material = *loaded;
   }
   auto object = owner.find(id);
-  if (auto* component = object.try_component<gneiss::mesh_component>()) {
-    *component = {before->mesh, before->material};
-    return object.notify_component_modified<gneiss::mesh_component>();
+  if (current) {
+    return object.modify_component<gneiss::mesh_component>(
+        [&](auto& component) noexcept { component = before; });
   }
   return object.add_component<gneiss::mesh_component>(
-      gneiss::mesh_component{before->mesh, before->material});
+      gneiss::mesh_component{before.mesh, before.material});
 }
 struct mesh_fixture {
   std::string_view name;

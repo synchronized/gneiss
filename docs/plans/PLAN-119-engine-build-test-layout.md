@@ -392,6 +392,19 @@ scene_load_application_test 同步直接查回执、借用组件、显式复制�
 解除 scene_access/mesh_objects 依赖。两项目标 Windows Clang Debug 构建及定向回归通过。
 共享包装仍有其他消费者，本轮未删除其定义，也未新增候选 modify_component API。
 
+2026-11-17 后续实施：read_mesh 已删除，消费者直接借用 mesh_component，需要跨对象销毁
+保留资源时显式复制。assign_mesh/spawn_mesh 和旧场景查询仍有消费者，第一项尚未全部结束。
+game_object::modify_component<T> 已实现 noexcept/void 回调契约，缺失组件返回 not_found，
+不执行回调；成功后通知。相机/网格装配与场景更新生产路径已迁移；裸借用与显式通知仍保留，
+用于既有调用和重试行为，不扩大到结构修改或事务。渲染同步测试验证通知实际到达消费者。
+场景实例化测试改为正式资产加载，不再依赖 prepare_render；其 CMake 不再复制另一个测试
+的 SOURCES、不编译生产实现、不定义 GNEISS_BUILDING_LIBRARY，直接链接 Engine。
+async_render 仅驱动和等待正式单资源请求，移除私有 resource_load_group 依赖；另一个
+重载批次白盒测试仍直接使用该组并显式包含私有头，不以传递包含隐藏依赖。
+Windows Clang Debug：场景实例、实例化、结构重载、纹理加载、资产加载、World 渲染绑定
+共 6 项回归通过。未运行 GPU、静态库和跨平台配置。prepare_render 的其余渲染测试消费者
+及旧 scene_access 包装尚待迁移，三项整体工作未全部完成。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。

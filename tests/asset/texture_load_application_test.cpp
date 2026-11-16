@@ -3,7 +3,7 @@
 
 #include "../support/async_application.hpp"
 #include "../support/codec_result.hpp"
-#include "../support/mesh_objects.hpp"
+#include <gneiss/engine/function/scene/components.hpp>
 #include "../support/value_result.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
@@ -129,11 +129,10 @@ void run(gneiss::tasks::execution_mode mode) {
     check(gneiss::error{gneiss::test_support::take_value(
               gneiss::test_support::scene_access{*app}->get_node_info(scene, index), info)} ==
           gneiss::error::success);
-    gneiss::mesh_component value;
-    check(gneiss::test_support::take_value(
-              gneiss::test_support::read_mesh(*app->native_world(), scene, info.node), value) ==
-          gneiss::error::success);
-    return value;
+    const auto object = app->native_world()->find(info.node);
+    const auto* component = object.try_component<gneiss::mesh_component>();
+    check(component != nullptr);
+    return *component;
   };
   const auto initial = capture(0);
   check(initial.material == capture(1).material);

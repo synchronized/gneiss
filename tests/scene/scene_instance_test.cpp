@@ -209,17 +209,18 @@ int main() try {
     return 3;
   }
   // 失败的资源选择不提交；检查实际引用和组件，而不是将 World 编码成文件。
-  auto accepted_binding =
-      gneiss::test_support::read_mesh(*application->native_world(), scene, triangle);
-  if (!accepted_binding ||
-      gneiss::test_support::assign_mesh(*application->native_world(), application->assets(), scene,
+  const auto triangle_object = application->native_world()->find(triangle);
+  const auto* accepted = triangle_object.try_component<gneiss::mesh_component>();
+  if (!accepted)
+    return 30;
+  const auto accepted_binding = *accepted;
+  if (      gneiss::test_support::assign_mesh(*application->native_world(), application->assets(), scene,
                                         triangle, missing_mesh_uri, material_uri)
           .ok())
     return 30;
-  auto after_binding =
-      gneiss::test_support::read_mesh(*application->native_world(), scene, triangle);
-  if (!after_binding || after_binding->mesh != accepted_binding->mesh ||
-      after_binding->material != accepted_binding->material)
+  const auto* after_binding = triangle_object.try_component<gneiss::mesh_component>();
+  if (!after_binding || after_binding->mesh != accepted_binding.mesh ||
+      after_binding->material != accepted_binding.material)
     return 30;
   // 场景入口创建子对象，归属必须与父对象一致。
   auto temporary_scene = gneiss::scene_instance::borrow(*application->native_world(), (scene).id());
@@ -294,7 +295,6 @@ int main() try {
       return 40;
     const auto saved_renderer = *renderer;
     gneiss::entity_id entity;
-    gneiss::mesh_component binding;
     if (!renderer ||
         gneiss::test_support::assign_value(
             application->native_world()->object(gneiss::entity_id{(created_node).get()}), entity)
@@ -303,11 +303,7 @@ int main() try {
             ->find(entity)
             .remove_component<gneiss::mesh_component>()
             .failed() ||
-        gneiss::test_support::assign_value(
-            gneiss::test_support::read_mesh(*application->native_world(), scene, created_node),
-            binding)
-            .failed() ||
-        binding.mesh || binding.material ||
+        application->native_world()->find(entity).try_component<gneiss::mesh_component>() ||
         application->native_world()
             ->find(entity)
             .add_component<gneiss::mesh_component>(saved_renderer)
@@ -373,9 +369,10 @@ int main() try {
           ->reparent_node(scene, generic_node, camera_node)
           .failed())
     return 29;
-  auto retained = gneiss::test_support::read_mesh(*application->native_world(), scene, triangle);
-  if (!retained)
+  const auto* retained_component = application->native_world()->find(triangle).try_component<gneiss::mesh_component>();
+  if (!retained_component)
     return 15;
+  const auto retained = *retained_component;
   const auto old_generic_node = generic_node;
   const auto old_triangle_node = triangle;
   if (gneiss::test_support::scene_access{*application}
@@ -394,14 +391,13 @@ int main() try {
   child_desc.name = "Triangle";
   child_desc.parent = generic_node;
   auto rebuilt = gneiss::test_support::spawn_mesh(
-      *application->native_world(), application->assets(), scene, child_desc, &*retained);
+      *application->native_world(), application->assets(), scene, child_desc, &retained);
   if (!rebuilt || *rebuilt == old_triangle_node)
     return 20;
   triangle = *rebuilt;
-  auto rebuilt_binding =
-      gneiss::test_support::read_mesh(*application->native_world(), scene, triangle);
-  if (!rebuilt_binding || rebuilt_binding->mesh != retained->mesh ||
-      rebuilt_binding->material != retained->material)
+  const auto* rebuilt_binding = application->native_world()->find(triangle).try_component<gneiss::mesh_component>();
+  if (!rebuilt_binding || rebuilt_binding->mesh != retained.mesh ||
+      rebuilt_binding->material != retained.material)
     return 21;
   if (gneiss::test_support::scene_access{*application}->reparent_node(
           scene, triangle, camera_node) != gneiss::error::success) {

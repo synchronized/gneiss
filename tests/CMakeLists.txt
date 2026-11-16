@@ -830,23 +830,10 @@ gneiss_target_output_directories(gneiss_prefab_runtime_instance_test)
 set_target_properties(gneiss_prefab_runtime_instance_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.prefab-runtime-application COMMAND gneiss_prefab_runtime_instance_test)
 
-get_target_property(gneiss_scene_fixture_sources gneiss_prefab_runtime_instance_test SOURCES)
-list(REMOVE_ITEM gneiss_scene_fixture_sources scene/prefab_runtime_instance_test.cpp)
-add_executable(gneiss_scene_instantiation_test scene/scene_instantiation_test.cpp
-  ${gneiss_scene_fixture_sources}
-  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/scene_instance.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/instantiation.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/composition.cpp"
-)
-# 测试直接构造私有 manager，编译其实现而不向 DLL 公共 ABI 导出内部类型。
-target_sources(gneiss_scene_instantiation_test PRIVATE
-  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/hierarchy.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/scene/scene_validation.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/asset_manager.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/input/action_map_validation.cpp")
+add_executable(gneiss_scene_instantiation_test scene/scene_instantiation_test.cpp)
+# 场景夹具使用真实加载入口；资源构造白盒仍局部包含私有头。
 target_include_directories(gneiss_scene_instantiation_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_compile_definitions(gneiss_scene_instantiation_test PRIVATE GNEISS_BUILDING_LIBRARY)
-target_link_libraries(gneiss_scene_instantiation_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit EnTT::EnTT)
+target_link_libraries(gneiss_scene_instantiation_test PRIVATE gneiss::engine gneiss_tasks EnTT::EnTT)
 target_compile_features(gneiss_scene_instantiation_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_scene_instantiation_test)
 gneiss_target_output_directories(gneiss_scene_instantiation_test)
@@ -900,7 +887,7 @@ add_test(NAME gneiss.public-api
 
 add_executable(gneiss_world_render_binding_test world/world_render_binding_test.cpp)
 target_link_libraries(gneiss_world_render_binding_test PRIVATE gneiss::engine EnTT::EnTT)
-target_include_directories(gneiss_world_render_binding_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_world_render_binding_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_features(gneiss_world_render_binding_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_world_render_binding_test)
 gneiss_target_output_directories(gneiss_world_render_binding_test)

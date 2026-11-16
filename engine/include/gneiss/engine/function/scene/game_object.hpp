@@ -5,6 +5,8 @@
 #include <gneiss/engine/core/math/transform.hpp>
 #include <gneiss/engine/result.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
+#include <functional>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -48,6 +50,20 @@ public:
     return insert_component<T>(T{std::forward<Args>(args)...});
   }
   template <class T> [[nodiscard]] GNEISS_API error remove_component() const;
+  /** 修改普通组件并通知同步消费者；对象有效且限所属线程，缺失返回 not_found。
+   * 回调必须 noexcept、返回 void，只修改当前组件，不得增删组件、销毁对象或重入结构操作。
+   * 不提供回滚；可能失败的校验须在调用前完成。 */
+  template <class T, class F>
+    requires(std::is_nothrow_invocable_v<F, T&> &&
+             std::is_same_v<std::invoke_result_t<F, T&>, void>)
+  [[nodiscard]] error modify_component(F&& modify) const {
+    auto* component = try_component<T>();
+    if (!component)
+      return error::not_found;
+    std::invoke(std::forward<F>(modify), *component);
+    return notify_component_modified<T>();
+  }
+
   /** 借用修改后显式通知同步消费者；组件缺失返回 not_found，增删已自动通知。 */
   template <class T> [[nodiscard]] GNEISS_API error notify_component_modified() const;
   friend bool operator==(game_object, game_object) noexcept = default;

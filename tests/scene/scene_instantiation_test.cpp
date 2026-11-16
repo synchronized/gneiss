@@ -5,7 +5,6 @@
 #include "../support/async_scene.hpp"
 #include "../support/memory_file_fixture.hpp"
 #include "../support/mesh_objects.hpp"
-#include "../support/prepare_render.hpp"
 #include "../support/scene_access.hpp"
 #include "../support/scene_application.hpp"
 #include "../support/scene_instantiation.hpp"
@@ -290,16 +289,12 @@ void run() {
                                              gneiss::render_resource_kind::mesh},
       gneiss::render_resource_source{"asset://m.material",
                                              gneiss::render_resource_kind::material}};
-  gneiss::prepared_batch batch;
-  check(gneiss::test_support::prepare_render_for_test(candidate_assets, vfs, requests, batch,
-                                                      diagnostic,
-                                                      {}) == gneiss::error::success);
   gneiss::scene_resource_bindings bindings;
-  for (auto& asset : batch.assets) {
+  for (const auto& request : requests) {
     gneiss::render_resource_ref target;
-    check(gneiss::test_support::adopt_render_for_test(candidate_render, std::move(asset), target)
-              .ok());
-    bindings.emplace(std::string(gneiss::resource_uri(target)), target);
+    check(gneiss::test_support::load_render(candidate_render, request.type, request.uri,
+                                           target, diagnostic).ok());
+    bindings.emplace(request.uri, target);
   }
   auto material =
       gneiss::resource_cast<gneiss::material>(bindings.at("asset://m.material"));
@@ -475,8 +470,8 @@ void run() {
     const auto binding_reads = files->reads;
     auto cleared = before;
     cleared.material = {};
-    *borrowed = cleared;
-    check(object.notify_component_modified<gneiss::mesh_component>().ok());
+    check(object.modify_component<gneiss::mesh_component>(
+        [&](auto& component) noexcept { component = cleared; }).ok());
     auto* empty = object.try_component<gneiss::mesh_component>();
     check(empty && empty->mesh == before.mesh && !empty->material);
     gneiss::error worker_result;
@@ -484,13 +479,17 @@ void run() {
         [&] { worker_result = object.add_component<gneiss::mesh_component>(before); });
     worker.join();
     check(worker_result == gneiss::error::invalid_state);
-    *object.try_component<gneiss::mesh_component>() = before;
-    check(object.notify_component_modified<gneiss::mesh_component>().ok());
+    check(object.modify_component<gneiss::mesh_component>(
+        [&](auto& component) noexcept { component = before; }).ok());
     check(files->reads == binding_reads);
   }
   check(candidate.get()
             ->find(gneiss::entity_id{ordinary.node.get()})
             .remove_component<gneiss::mesh_component>() == gneiss::error::success);
+  bool modified_missing = false;
+  check(candidate->find(ordinary.entity).modify_component<gneiss::mesh_component>(
+            [&](auto&) noexcept { modified_missing = true; }) == gneiss::error::not_found);
+  check(!modified_missing);
   const auto snapshot_reads = files->reads;
   check(files->reads == snapshot_reads);
   active.swap(candidate);

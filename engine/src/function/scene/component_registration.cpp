@@ -56,9 +56,9 @@ error camera_valid(const camera_description& value) {
 }
 error camera_install(component_context& context, const camera_description& value) {
   auto candidate = camera_component{value.settings, value.is_primary};
-  if (auto* camera = context.target.try_component<camera_component>()) {
-    *camera = std::move(candidate);
-    return context.target.notify_component_modified<camera_component>();
+  if (context.target.try_component<camera_component>()) {
+    return context.target.modify_component<camera_component>(
+        [&](auto& camera) noexcept { camera = std::move(candidate); });
   }
   return context.target.add_component<camera_component>(std::move(candidate));
 }
@@ -110,9 +110,9 @@ error mesh_install(component_context& context, const mesh_component_description&
   if (context.resources && ((*mesh && !context.resources->owns(*mesh)) ||
                             (*material && !context.resources->owns(*material))))
     return error::invalid_argument;
-  if (auto* current = context.target.try_component<mesh_component>()) {
-    *current = {*mesh, *material};
-    return context.target.notify_component_modified<mesh_component>();
+  if (context.target.try_component<mesh_component>()) {
+    return context.target.modify_component<mesh_component>(
+        [&](auto& current) noexcept { current = {*mesh, *material}; });
   }
   return context.target.add_component<mesh_component>(mesh_component{*mesh, *material});
 }

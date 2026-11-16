@@ -265,8 +265,8 @@ result<bool> apply_scene(scene_instance destination,
     // 已有组件只更新资源引用，保留组件身份；缺失组件走通用装配入口。
     error status;
     if (current) {
-      *current = target_binding;
-      status = target.notify_component_modified<mesh_component>();
+      status = target.modify_component<mesh_component>(
+          [&](auto& component) noexcept { component = target_binding; });
     } else {
       component_context context{
           target, [&](const render_resource_source& source) -> result<render_resource_ref> {
