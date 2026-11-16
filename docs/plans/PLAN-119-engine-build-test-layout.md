@@ -335,6 +335,54 @@ Windows Clang Debug 下 5 个受影响目标构建及回归通过，覆盖场景
 解码器；直接改为链接库会失败，混合编译又会产生导出符号冲突。本轮保留原编译策略，
 后续须先让夹具通过实际加载/覆盖入口验证，不能用扩大 DLL 导出或删除断言绕过。
 
+## 测试辅助层与正式 API 审查（2026-11-17）
+
+本节补充 P3/P4 的实施顺序：先消除测试中的业务替身和旧接口适配，再收敛重复编译；
+不为维持旧夹具扩大 DLL 导出。下面是源码审查结论与待实施方案，不表示 API 已经落地。
+
+| 现有辅助 | 源码事实 | 处理方案 |
+| --- | --- | --- |
+| mesh_objects.hpp：read_mesh / mesh_target | World、Scene、entity 三项定位后借用组件，再构造副本；组件缺失被转换为空组件 | 调用方保留 game_object，直接 try_component；需要副本时显式复制。缺失组件与资源为空分别断言，不新增读取副本 API |
+| mesh_objects.hpp：assign_mesh / spawn_mesh | 前者混合缓存查找、更新与通知；后者经过描述构造和组件装配 | 普通运行对象测试直接加载资源并 add/修改组件；组件装配测试才使用 component_context 和描述，不把两种目的混在通用工具里 |
+| scene_access.hpp / scene_node_info.hpp | 包装 create_empty、get_node_count、find_node、reparent_node 等旧调用；create_empty 校验 UUID 后不保存它 | 创建、数量、层级操作直接使用 World、SceneInstance、GameObject；来源定位只保留实例化回执的查询，不重新给运行对象添加描述身份 |
+| value_result.hpp / codec_result.hpp | 将 result 转成输出参数和错误码，还适配 entity_id | 触及的测试改为直接断言 result 并取值；保留有明确断言语义的辅助，不将输出参数适配搬进正式 API |
+| prepare_render.hpp | 自定义 prepared_batch，调用私有 decode/adopt，并手动解析材质依赖 | 加载行为测试使用内存文件后端与正式 Asset Manager；编解码单测直接测编解码，不复制完整加载流程 |
+| scene_instantiation.hpp / scene_application.hpp | 组合、创建场景、失败清理等测试编排混在便捷入口 | 先区分实例化契约测试和 Application 装配测试，分别调用对应入口；清理使用测试作用域工具，不恢复另一套场景服务 |
+| async_asset / async_document / async_editor_save 等 | 等待请求、驱动宿主执行器与完成队列 | 保留测试驱动，但等待目标必须是明确请求完成；底层服务测试可以显式驱动，Application 测试应使用宿主 update，不让每个用例协调内部阶段 |
+| memory_file_fixture、throws、terminate_process、logging | 提供可控环境、异常退出和日志捕获 | 保留；只有实际重复与无调用时再合并或删除 |
+
+### 组件修改入口的候选契约
+
+现状：game_object 已提供 try/add/remove_component 和 notify_component_modified；
+component_registration.cpp、scene_update.cpp 的生产路径也存在赋值后手动通知。
+因此这是真实使用问题，不只是测试语法偏好。候选调用：
+
+```cpp
+if (const auto* component = object.try_component<mesh_component>()) {
+  auto saved = *component; // 需要独立值时显式复制，资源引用仍共享。
+}
+// 待实施 API；不在本次审查中新增。
+auto status = object.modify_component<mesh_component>([&](auto& component) noexcept {
+  component.material = material;
+});
+```
+
+建议约束：对象有效、所属线程为前置条件；缺失组件返回 not_found 且不调用回调；
+回调只修改当前组件，不增删组件、不销毁对象、不重入结构操作；正常完成统一发出修改通知。
+先评估 noexcept 且返回 void 的回调能否覆盖实际调用，以避免异常后部分修改与漏通知；
+需返回错误的校验应在写入前完成，不承诺复制回滚或事务。原裸借用通知入口是否保留，
+须检查所有生产消费者，不能仅根据测试删掉。正式实现前补充新增、修改、失败、销毁完整用例。
+
+### 实施与退出条件
+
+1. 先迁移组件读取和场景查询的一条完整测试链路，不增加新业务 API；删除已无消费者的包装。
+2. 再收敛生产组件修改与通知入口，测试验证实际同步消费者可见的结果，不固定内部调用次数。
+3. 将 prepare_render 的加载行为消费者改为内存后端加正式加载；逐个删除私有 decode/adopt 依赖。
+4. 上述依赖退出后，删除测试重复编译生产源码与 GNEISS_BUILDING_LIBRARY，验证真实库链接。
+5. 每批记录保留的白盒理由、行为覆盖、未运行项；不以辅助函数或测试数量作为验收指标。
+
+本轮仅完成源码审查和方案记录。重复编译、旧场景包装及候选修改接口均未完成。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。
