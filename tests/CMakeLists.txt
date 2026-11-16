@@ -728,7 +728,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/png_decoder.cpp"
 )
-target_include_directories(gneiss_texture_load_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_texture_load_service_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_texture_load_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(
   gneiss_texture_load_service_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit

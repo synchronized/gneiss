@@ -16,6 +16,7 @@
 #include <gneiss/engine/platform/files/file_service.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
 #include <gneiss/engine/resource/texture/texture_ktx2.hpp>
+#include <gneiss/engine/resource/mesh/mesh_decoder.hpp>
 #include <algorithm>
 #include <stdexcept>
 
@@ -92,59 +93,40 @@ public:
     completed({.status = status, .data = std::move(bytes)});
   }
 };
-void prepared_source_revisions() {
+void texture_source_revisions() {
   auto source = std::make_shared<memory_files>();
   source->pixel(std::byte{10});
   source->files["payload/image.ktx2"] = source->files.at("image.ktx2");
   source->text(
       "texture",
       R"({"format":"gneiss.texture","version":2,"source":"asset://payload/image.ktx2","color_space":"srgb","usage":"default"})");
-  source->text(
-      "material",
-      R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,1,1,1]},"texture_uris":["asset://texture","","","",""]})");
   gneiss::test_support::fixture_files files;
-  check(files.mount("asset://", source) == gneiss::error::success);
-  const std::array requests{
-      render_resource_source{"asset://material", render_resource_kind::material}};
-  asset_manager owner(gneiss::test_support::test_files(files));
-  prepared_batch before;
-  prepared_batch after;
+  check(files.mount("asset://", source).ok());
+  // 来源摘要属于解码记录；直接验证纹理描述及载荷，不构造递归依赖批次。
+  const render_resource_source request{"asset://texture", render_resource_kind::texture};
+  decoded_asset before, repeated, after;
   asset_diagnostic diagnostic;
-  check(gneiss::test_support::prepare_render_for_test(owner, files, requests, before, diagnostic,
-                                                      {}) == gneiss::error::success);
-  prepared_batch repeated;
-  check(gneiss::test_support::prepare_render_for_test(owner, files, requests, repeated, diagnostic,
-                                                      {}) == gneiss::error::success);
+  check(gneiss::test_support::decode_fixture(files, request, before, diagnostic, SIZE_MAX,
+                                             SIZE_MAX, {}).ok());
+  check(gneiss::test_support::decode_fixture(files, request, repeated, diagnostic, SIZE_MAX,
+                                             SIZE_MAX, {}).ok());
+  check(before.sources.size() == 2 && repeated.sources.size() == 2);
+  check(before.sources.back().digest == repeated.sources.back().digest);
   source->pixel(std::byte{20});
   source->files["payload/image.ktx2"] = source->files.at("image.ktx2");
-  check(gneiss::test_support::prepare_render_for_test(owner, files, requests, after, diagnostic,
-                                                      {}) == gneiss::error::success);
-  check(before.assets.size() == 2U && after.assets.size() == 2U);
-  for (std::size_t index = 0; index < before.assets.size(); ++index) {
-    const auto& old_asset = before.assets[index];
-    const auto& new_asset = after.assets[index];
-    check(old_asset.uri == new_asset.uri);
-    if (!old_asset.sources.empty()) {
-      check(old_asset.sources.front().identity == new_asset.sources.front().identity);
-      check(old_asset.sources.front().digest == new_asset.sources.front().digest);
-    }
-    if (old_asset.kind() == render_resource_kind::texture) {
-      check(old_asset.sources.size() == 2U && new_asset.sources.size() == 2U);
-      const auto& payload = new_asset.sources.back();
-      asset_identity expected;
-      check(files.identify("asset://payload/image.ktx2",
-                           static_cast<std::uint32_t>(render_resource_kind::texture),
-                           expected) == gneiss::error::success);
-      check(payload.identity == expected && payload.identity == old_asset.sources.back().identity);
-      check(payload.bytes == source->files.at("image.ktx2").size());
-      check(payload.digest == gneiss::sha256(source->files.at("image.ktx2")));
-      check(payload.digest != old_asset.sources.back().digest);
-    } else {
-      check(old_asset.sources.empty() && new_asset.sources.empty());
-      check(std::get<asset_ref<const material_description>>(new_asset.content)->texture_uris[0] ==
-            "asset://texture");
-    }
-  }
+  check(gneiss::test_support::decode_fixture(files, request, after, diagnostic, SIZE_MAX,
+                                             SIZE_MAX, {}).ok());
+  check(after.sources.size() == 2);
+  check(before.uri == after.uri && before.sources.front().identity == after.sources.front().identity);
+  check(before.sources.front().digest == after.sources.front().digest);
+  const auto& payload = after.sources.back();
+  asset_identity expected;
+  check(files.identify("asset://payload/image.ktx2",
+                       static_cast<std::uint32_t>(render_resource_kind::texture), expected).ok());
+  check(payload.identity == expected && payload.identity == before.sources.back().identity);
+  check(payload.bytes == source->files.at("image.ktx2").size());
+  check(payload.digest == gneiss::sha256(source->files.at("image.ktx2")));
+  check(payload.digest != before.sources.back().digest);
 }
 void programmatic_texture_content() {
   gneiss::render::service render;
@@ -181,21 +163,11 @@ void mesh_data_lifetime() {
   const std::string text =
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[1,0],[0,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
   source->text("mesh", text);
-  gneiss::test_support::fixture_files files;
-  check(files.mount("asset://", source) == gneiss::error::success);
-  const std::array requests{render_resource_source{"asset://mesh", render_resource_kind::mesh}};
-  auto prepare = [&](const gneiss::test_support::fixture_files& vfs) {
-    prepared_batch batch;
-    asset_diagnostic diagnostic;
-    asset_manager owner(gneiss::test_support::test_files(vfs));
-    check(gneiss::test_support::prepare_render_for_test(owner, vfs, requests, batch, diagnostic,
-                                                        {}) == gneiss::error::success);
-    return batch;
-  };
-  auto first = prepare(files);
-  const auto* vertices = std::get<mesh_data>(first.assets.front().content).vertices.data();
-  auto mesh = std::make_shared<const mesh_data>(
-      std::move(std::get<mesh_data>(first.assets.front().content)));
+  // 这是 CPU 数据移动与渲染快照生命周期测试，直接解码，不构造资产加载批次。
+  auto decoded = gneiss::detail::parse_mesh(source->files.at("mesh"));
+  check(bool(decoded));
+  const auto* vertices = decoded->vertices.data();
+  auto mesh = std::make_shared<const mesh_data>(std::move(*decoded));
   check(mesh->vertices.data() == vertices);
   gneiss::render::service resources;
   gneiss::detail::asset_construction resources_factory{resources};
@@ -225,7 +197,6 @@ void mesh_data_lifetime() {
   check(resources.destroy_mesh(rid) == gneiss::error::success &&
         !resources.share_mesh(rid));
   std::weak_ptr<const mesh_data> lifetime = mesh;
-  first = {};
   mesh.reset();
   check(!lifetime.expired() && frame->vertices[1].position.x == 1.0F);
   frame.reset();
@@ -299,17 +270,28 @@ void reserved_material_lifetime() {
   if (loader.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   const render_resource_source request{"asset://material", render_resource_kind::material};
-  render_resource_ref target;
-  check(gneiss::test_support::take_value(gneiss::test_support::request_resource(loader, request),
-                                         target) == gneiss::error::success);
+  source->text("material",
+      R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,1,1,1]},"texture_uris":["","","","",""]})");
+  auto& tasks = gneiss::test_support::asset_tasks();
+  check(loader.configure(tasks).ok());
+  auto pending = loader.load(request);
+  check(bool(pending));
+  auto target = pending->resource();
   const auto rid = gneiss::resource_rid(target);
-  decoded_asset prepared;
-  prepared.uri = request.uri;
-  prepared.content =
-      asset_ref<const material_description>{std::make_shared<const material_description>()};
   check(resources.material_status(rid) == error::not_ready);
-  check(gneiss::test_support::adopt_render_for_test(loader, std::move(prepared), target).ok());
-  check(resources.material_status(rid) == gneiss::error::success);
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (pending->status() == error::not_ready) {
+    check(std::chrono::steady_clock::now() < deadline);
+    (void)tasks.run_ready();
+    (void)loader.async_files()->dispatch_completions(64);
+    loader.advance();
+  }
+  {
+    auto completed = pending->take();
+    check(completed && *completed == target);
+    check(resources.material_status(rid) == gneiss::error::success);
+  } // 释放领取结果；成功领取已释放请求持有的引用。
+
   target = {};
   loader.collect_unused();
   check(resources.material_status(rid) == gneiss::error::invalid_handle);
@@ -615,7 +597,7 @@ void independent_loads(gneiss::tasks::execution_mode mode) {
 int main() try {
   if (gneiss::initialize_meta().failed())
     return 99;
-  prepared_source_revisions();
+  texture_source_revisions();
   programmatic_texture_content();
   mesh_data_lifetime();
   independent_resource_identity();
