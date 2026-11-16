@@ -114,7 +114,7 @@ if(TARGET gneiss_assetc)
       )
       add_executable(
         gneiss_editor_lantern_workflow_test
-        "${PROJECT_SOURCE_DIR}/tests/host/editor/lantern_workflow_test.cpp"
+        "${PROJECT_SOURCE_DIR}/tests/editor/lantern_workflow_test.cpp"
       )
       target_link_libraries(
         gneiss_editor_lantern_workflow_test
@@ -134,7 +134,7 @@ if(TARGET gneiss_assetc)
       add_test(NAME gneiss.editor.lantern-workflow COMMAND gneiss_editor_lantern_workflow_test)
       add_executable(
         gneiss_editor_lantern_prefab_authoring_workflow_test
-        "${PROJECT_SOURCE_DIR}/tests/host/editor/lantern_prefab_authoring_workflow_test.cpp"
+        "${PROJECT_SOURCE_DIR}/tests/editor/lantern_prefab_authoring_workflow_test.cpp"
       )
       target_link_libraries(
         gneiss_editor_lantern_prefab_authoring_workflow_test PRIVATE gneiss_editor_host
@@ -156,7 +156,7 @@ if(TARGET gneiss_assetc)
       if(TARGET gneiss_runtime AND TARGET gneiss_lantern_gallery_game)
         add_executable(
           gneiss_editor_lantern_runtime_workflow_test
-          "${PROJECT_SOURCE_DIR}/tests/host/editor/lantern_runtime_workflow_test.cpp"
+          "${PROJECT_SOURCE_DIR}/tests/editor/lantern_runtime_workflow_test.cpp"
         )
         target_link_libraries(
           gneiss_editor_lantern_runtime_workflow_test PRIVATE gneiss_editor_host

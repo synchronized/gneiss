@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../support/async_document.hpp"
-#include "../../support/async_editor_save.hpp"
-#include "../../support/async_mesh_edit.hpp"
-#include "../../support/scene_query.hpp"
-#include "../../support/value_result.hpp"
+#include "../support/async_document.hpp"
+#include "../support/async_editor_save.hpp"
+#include "../support/async_mesh_edit.hpp"
+#include "../support/scene_query.hpp"
+#include "../support/value_result.hpp"
 #include "documents/scene_edit_session.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 
-#include "../../support/scene_access.hpp"
+#include "../support/scene_access.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 

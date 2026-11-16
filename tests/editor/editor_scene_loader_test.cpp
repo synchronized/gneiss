@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../support/scene_query.hpp"
-#include "../../support/value_result.hpp"
+#include "../support/scene_query.hpp"
+#include "../support/value_result.hpp"
 #include "documents/editor_scene_loader.hpp"
 #include "documents/scene_document_edit.hpp"
 #include <gneiss/engine/error.hpp>
@@ -12,7 +12,7 @@
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/builtin_resource_registration.hpp>
 
-#include "../../support/scene_access.hpp"
+#include "../support/scene_access.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 

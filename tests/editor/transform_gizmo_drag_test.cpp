@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../support/async_document.hpp"
-#include "../../support/scene_query.hpp"
-#include "../../support/value_result.hpp"
+#include "../support/async_document.hpp"
+#include "../support/scene_query.hpp"
+#include "../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include "documents/scene_document_edit.hpp"
 #include <gneiss/engine/error.hpp>

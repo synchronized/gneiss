@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../support/async_document.hpp"
-#include "../../support/async_editor_save.hpp"
-#include "../../support/async_mesh_edit.hpp"
-#include "../../support/value_result.hpp"
+#include "../support/async_document.hpp"
+#include "../support/async_editor_save.hpp"
+#include "../support/async_mesh_edit.hpp"
+#include "../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include "assets/asset_reimport_queue.hpp"
 #include "documents/scene_edit_session.hpp"

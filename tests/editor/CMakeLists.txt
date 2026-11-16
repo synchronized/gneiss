@@ -71,9 +71,6 @@ gneiss_target_output_directories(gneiss_editor_transform_gizmo_view_test)
 set_target_properties(gneiss_editor_transform_gizmo_view_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.transform-gizmo-view COMMAND gneiss_editor_transform_gizmo_view_test)
 
-# 白盒测试验证兼容句柄桥；普通 Editor 消费者不能访问注册表。
-target_include_directories(gneiss_editor_author_property_edit_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-
 add_executable(gneiss_internal_header_visibility_test internal_header_visibility_test.cpp)
 target_link_libraries(gneiss_internal_header_visibility_test PRIVATE gneiss_editor_host gneiss_editor_ui)
 gneiss_target_compile_warnings(gneiss_internal_header_visibility_test)
@@ -81,14 +78,7 @@ gneiss_target_output_directories(gneiss_internal_header_visibility_test)
 set_target_properties(gneiss_internal_header_visibility_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.internal-header-visibility COMMAND gneiss_internal_header_visibility_test)
 
-foreach(test IN ITEMS gneiss_editor_asset_scene_commands_test gneiss_editor_transform_gizmo_view_test)
-  if(TARGET ${test})
-    target_include_directories(${test} PRIVATE "${PROJECT_SOURCE_DIR}/src")
-  endif()
-endforeach()
-
 add_executable(gneiss_editor_document_editing_test document_editing_test.cpp)
-target_include_directories(gneiss_editor_document_editing_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_editor_document_editing_test PRIVATE gneiss_scene_document)
 target_compile_features(gneiss_editor_document_editing_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_document_editing_test)
@@ -105,7 +95,6 @@ set_target_properties(gneiss_editor_document_actions_test PROPERTIES FOLDER "Tes
 add_test(NAME gneiss.editor.document-actions COMMAND gneiss_editor_document_actions_test)
 
 add_executable(gneiss_editor_component_edit_test component_edit_test.cpp)
-target_include_directories(gneiss_editor_component_edit_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_editor_component_edit_test PRIVATE gneiss_scene_document gneiss_editor_ui EnTT::EnTT)
 target_compile_features(gneiss_editor_component_edit_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_component_edit_test)
@@ -114,7 +103,6 @@ set_target_properties(gneiss_editor_component_edit_test PROPERTIES FOLDER "Tests
 add_test(NAME gneiss.editor.component-edit COMMAND gneiss_editor_component_edit_test)
 
 add_executable(gneiss_editor_component_lifecycle_test component_lifecycle_test.cpp)
-target_include_directories(gneiss_editor_component_lifecycle_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_editor_component_lifecycle_test PRIVATE gneiss_scene_document gneiss_editor_ui EnTT::EnTT)
 target_compile_features(gneiss_editor_component_lifecycle_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_component_lifecycle_test)
@@ -123,7 +111,6 @@ set_target_properties(gneiss_editor_component_lifecycle_test PROPERTIES FOLDER "
 add_test(NAME gneiss.editor.component-lifecycle COMMAND gneiss_editor_component_lifecycle_test)
 
 add_executable(gneiss_editor_prefab_component_test prefab_component_test.cpp)
-target_include_directories(gneiss_editor_prefab_component_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_editor_prefab_component_test PRIVATE gneiss_scene_document gneiss_editor_ui EnTT::EnTT)
 target_compile_features(gneiss_editor_prefab_component_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_prefab_component_test)
@@ -132,7 +119,6 @@ set_target_properties(gneiss_editor_prefab_component_test PROPERTIES FOLDER "Tes
 add_test(NAME gneiss.editor.prefab-component COMMAND gneiss_editor_prefab_component_test)
 
 add_executable(gneiss_editor_prefab_author_operations_test prefab_author_operations_test.cpp)
-target_include_directories(gneiss_editor_prefab_author_operations_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_editor_prefab_author_operations_test PRIVATE gneiss_scene_document gneiss_editor_ui EnTT::EnTT)
 target_compile_features(gneiss_editor_prefab_author_operations_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_prefab_author_operations_test)
@@ -141,7 +127,6 @@ set_target_properties(gneiss_editor_prefab_author_operations_test PROPERTIES FOL
 add_test(NAME gneiss.editor.prefab-author-operations COMMAND gneiss_editor_prefab_author_operations_test)
 
 add_executable(gneiss_editor_scene_document_edit_test scene_document_edit_test.cpp)
-target_include_directories(gneiss_editor_scene_document_edit_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_editor_scene_document_edit_test PRIVATE gneiss_scene_document gneiss_editor_ui EnTT::EnTT)
 target_compile_features(gneiss_editor_scene_document_edit_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_scene_document_edit_test)
@@ -150,7 +135,6 @@ set_target_properties(gneiss_editor_scene_document_edit_test PROPERTIES FOLDER "
 add_test(NAME gneiss.editor.scene-document-edit COMMAND gneiss_editor_scene_document_edit_test)
 
 add_executable(gneiss_editor_scene_document_snapshot_test scene_document_snapshot_test.cpp)
-target_include_directories(gneiss_editor_scene_document_snapshot_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_editor_scene_document_snapshot_test PRIVATE gneiss_scene_document)
 target_compile_features(gneiss_editor_scene_document_snapshot_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_scene_document_snapshot_test)
@@ -159,7 +143,6 @@ set_target_properties(gneiss_editor_scene_document_snapshot_test PROPERTIES FOLD
 add_test(NAME gneiss.editor.scene-document-snapshot COMMAND gneiss_editor_scene_document_snapshot_test)
 
 add_executable(gneiss_editor_scene_document_versions_test scene_document_versions_test.cpp)
-target_include_directories(gneiss_editor_scene_document_versions_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_editor_scene_document_versions_test PRIVATE gneiss_scene_document)
 target_compile_features(gneiss_editor_scene_document_versions_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_scene_document_versions_test)
