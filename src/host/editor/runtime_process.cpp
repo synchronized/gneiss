@@ -7,8 +7,8 @@
 #include <gneiss/engine/platform/process/child_process.hpp>
 #include "editor_ipc_event.hpp"
 #include "editor_ipc_session.hpp"
-#include "ipc_asset_protocol.hpp"
-#include "ipc_statistics_protocol.hpp"
+#include <gneiss/protocol/ipc_asset_protocol.hpp>
+#include <gneiss/protocol/ipc_statistics_protocol.hpp>
 #include "runtime_log_adapter.hpp"
 #include "runtime_property_adapter.hpp"
 #include "runtime_scene_adapter.hpp"

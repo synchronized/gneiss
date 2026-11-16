@@ -5,7 +5,7 @@
 #define GNEISS_APPS_RUNTIME_RUNTIME_ASSET_RELOADER_H_
 
 #include <gneiss/engine/error.hpp>
-#include "ipc_asset_protocol.hpp"
+#include <gneiss/protocol/ipc_asset_protocol.hpp>
 
 #include <functional>
 #include <optional>

@@ -4,9 +4,9 @@
 #include <gneiss/engine/error.hpp>
 #include "ipc/runtime_commands.hpp"
 
-#include "ipc_asset_protocol.hpp"
-#include "ipc_inspection_protocol.hpp"
-#include "ipc_property_protocol.hpp"
+#include <gneiss/protocol/ipc_asset_protocol.hpp>
+#include <gneiss/protocol/ipc_inspection_protocol.hpp>
+#include <gneiss/protocol/ipc_property_protocol.hpp>
 
 #include <array>
 #include <vector>

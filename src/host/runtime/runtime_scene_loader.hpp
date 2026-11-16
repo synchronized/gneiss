@@ -8,7 +8,7 @@
 #include <gneiss/engine/function/asset/asset_request.hpp>
 #include <gneiss/engine/function/scene/scene_update.hpp>
 #include <gneiss/engine/resource/scene.hpp>
-#include "ipc_scene_protocol.hpp"
+#include <gneiss/protocol/ipc_scene_protocol.hpp>
 #include <atomic>
 
 #include <functional>

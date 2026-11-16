@@ -4,7 +4,7 @@
 #include <gneiss/engine/error.hpp>
 #include "ipc/runtime_commands.hpp"
 
-#include "ipc_inspection_protocol.hpp"
+#include <gneiss/protocol/ipc_inspection_protocol.hpp>
 
 namespace gneiss::host {
 namespace {

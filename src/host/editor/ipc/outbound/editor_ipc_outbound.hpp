@@ -5,9 +5,9 @@
 #define GNEISS_APPS_EDITOR_IPC_OUTBOUND_EDITOR_IPC_OUTBOUND_H_
 
 #include <gneiss/engine/error.hpp>
-#include "ipc_asset_protocol.hpp"
+#include <gneiss/protocol/ipc_asset_protocol.hpp>
 #include <gneiss/engine/platform/ipc/ipc_envelope.hpp>
-#include "ipc_property_protocol.hpp"
+#include <gneiss/protocol/ipc_property_protocol.hpp>
 
 namespace gneiss::host {
 

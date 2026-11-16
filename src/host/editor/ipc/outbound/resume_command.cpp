@@ -4,7 +4,7 @@
 #include "editor_ipc_outbound.hpp"
 #include <gneiss/engine/error.hpp>
 
-#include "ipc_control_protocol.hpp"
+#include <gneiss/protocol/ipc_control_protocol.hpp>
 
 namespace gneiss::host {
 

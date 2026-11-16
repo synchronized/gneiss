@@ -6,8 +6,8 @@
 
 #include "editor_ipc_outbound.hpp"
 #include "editor_ipc_router.hpp"
-#include "ipc_protocol_domains.hpp"
-#include "ipc_session_protocol.hpp"
+#include <gneiss/protocol/ipc_protocol_domains.hpp>
+#include <gneiss/protocol/ipc_session_protocol.hpp>
 
 #include <algorithm>
 #include <array>

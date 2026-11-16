@@ -6,7 +6,7 @@
 
 #include "ipc/outbound/runtime_ipc_outbound.hpp"
 
-#include "ipc_property_protocol.hpp"
+#include <gneiss/protocol/ipc_property_protocol.hpp>
 
 namespace gneiss::host {
 namespace {

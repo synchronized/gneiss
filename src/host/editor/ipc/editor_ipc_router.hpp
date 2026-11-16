@@ -7,8 +7,8 @@
 #include "editor_ipc_event.hpp"
 #include <gneiss/engine/error.hpp>
 
-#include "ipc_protocol_domains.hpp"
-#include "ipc_router.hpp"
+#include <gneiss/protocol/ipc_protocol_domains.hpp>
+#include <gneiss/protocol/ipc_router.hpp>
 
 #include <vector>
 

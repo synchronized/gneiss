@@ -12,9 +12,9 @@
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include <gneiss/app/project_description.hpp>
+#include <gneiss/project/project_description.hpp>
 
-#include "core/logging/file_sink.hpp"
+#include "file_sink.hpp"
 #include "runtime_asset_reloader.hpp"
 #include "runtime_ipc_session.hpp"
 #include "runtime_logging.hpp"

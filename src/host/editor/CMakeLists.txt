@@ -39,7 +39,7 @@ add_library(
 target_link_libraries(
   gneiss_editor_host
   PRIVATE gneiss_yyjson gneiss_child_process
-  PUBLIC gneiss::engine gneiss_scene_document gneiss_app_project gneiss_app_ipc_protocol
+  PUBLIC gneiss::engine gneiss_scene_document gneiss_project_config gneiss_protocol
 )
 target_include_directories(
   gneiss_editor_host

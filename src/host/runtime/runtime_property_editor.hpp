@@ -6,7 +6,7 @@
 
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
-#include "ipc_property_protocol.hpp"
+#include <gneiss/protocol/ipc_property_protocol.hpp>
 #include "runtime_scene_inspection.hpp"
 
 #include <gneiss/engine/function/scene/world.hpp>

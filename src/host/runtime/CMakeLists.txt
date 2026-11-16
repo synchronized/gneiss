@@ -37,7 +37,7 @@
   runtime_scene_loader.hpp
 )
 target_link_libraries(
-  gneiss_runtime_ipc PUBLIC gneiss_app_ipc_protocol PRIVATE gneiss_app_project gneiss::engine
+  gneiss_runtime_ipc PUBLIC gneiss_protocol PRIVATE gneiss_project_config gneiss::engine
 )
 target_include_directories(gneiss_runtime_ipc PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(gneiss_runtime_ipc PUBLIC gneiss_native_interface)
@@ -48,7 +48,7 @@ gneiss_target_output_directories(gneiss_runtime_ipc)
 add_executable(gneiss_runtime "${PROJECT_SOURCE_DIR}/apps/runtime/main.cpp" runtime_application.cpp runtime_application.hpp runtime_logging.cpp runtime_logging.hpp)
 target_link_libraries(
   gneiss_runtime
-  PRIVATE gneiss_file_log_sink gneiss_app_project gneiss::engine gneiss_runtime_ipc gneiss_tasks
+  PRIVATE gneiss_file_log_sink gneiss_project_config gneiss::engine gneiss_runtime_ipc gneiss_tasks
 )
 target_link_libraries(gneiss_runtime PRIVATE gneiss_native_interface)
 target_compile_features(gneiss_runtime PRIVATE cxx_std_20)
@@ -116,7 +116,7 @@ if(BUILD_TESTING)
 
   add_executable(gneiss_runtime_log_test "${PROJECT_SOURCE_DIR}/tests/host/runtime/runtime_log_test.cpp" runtime_logging.cpp runtime_logging.hpp)
   target_include_directories(gneiss_runtime_log_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-  target_link_libraries(gneiss_runtime_log_test PRIVATE gneiss_file_log_sink gneiss_app_project gneiss::engine)
+  target_link_libraries(gneiss_runtime_log_test PRIVATE gneiss_file_log_sink gneiss_project_config gneiss::engine)
   target_compile_features(gneiss_runtime_log_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_runtime_log_test)
   gneiss_target_output_directories(gneiss_runtime_log_test)

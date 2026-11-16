@@ -11,7 +11,7 @@
 #include <gneiss/engine/core/types/rid.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <gneiss/engine/resource/scene/component_description.hpp>
-#include "ipc_inspection_protocol.hpp"
+#include <gneiss/protocol/ipc_inspection_protocol.hpp>
 
 #include <gneiss/engine/core/types/rid.hpp>
 

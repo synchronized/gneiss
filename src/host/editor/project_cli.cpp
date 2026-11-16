@@ -9,7 +9,7 @@
 
 #include <gneiss/engine/platform/process/child_process.hpp>
 
-#include <gneiss/app/project_description.hpp>
+#include <gneiss/project/project_description.hpp>
 
 #include <chrono>
 #include <filesystem>

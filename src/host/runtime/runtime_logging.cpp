@@ -3,7 +3,7 @@
 #include "runtime_logging.hpp"
 #include <cstdio>
 #include <cstdlib>
-#include <gneiss/app/runtime_log_protocol.hpp>
+#include <gneiss/protocol/runtime_log_protocol.hpp>
 #include <system_error>
 namespace gneiss::host {
 namespace {

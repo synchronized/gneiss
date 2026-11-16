@@ -287,6 +287,16 @@ Editor 的 gneiss_editor_assets、gneiss_editor_host 实际消费者构建通过
 资产监视器既有 uv_loop_access 依赖已修正为该目标 PRIVATE engine/src；该跨模块私有依赖
 须在后续 Editor/平台边界整理中收敛，不能据此宣称所有消费者已摆脱引擎私有头。
 
+共享配置与协议已拆分：原 host/common 的项目配置归 project，运行日志协议与 IPC 契约归
+protocol；后者不再通过项目配置库提供。目标分别为 gneiss_project_config、gneiss_protocol，
+提供 gneiss::project_config、gneiss::protocol 别名，只公开各自 include 根，不公开实现目录。
+公开头统一使用 gneiss/project、gneiss/protocol 前缀；本批保留现有 gneiss::host 命名空间，
+不改变消息格式或函数签名。反射 JSON 拼接辅助仍私有。原 host/common 的源码及 CMake 已退出。
+测试定义与源码分别迁到 tests/project、tests/protocol，保留原测试名与覆盖，移除多余 src 根包含。
+Windows Clang Debug：10 项配置/协议回归通过；Editor 宿主、Runtime IPC、完整 Runtime 与
+工程 CLI 构建通过。Runtime 日志头的旧包含路径同步修正；未启动图形界面或验证跨平台安装。
+旧 core-boundary 文本规则仍待 P5 整体更新，本批不以旧规则扫描作为验收依据。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。

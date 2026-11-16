@@ -5,14 +5,14 @@
 #define GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_EVENT_H_
 
 #include <gneiss/engine/error.hpp>
-#include "ipc_asset_protocol.hpp"
-#include "ipc_control_protocol.hpp"
-#include "ipc_inspection_protocol.hpp"
-#include "ipc_log_protocol.hpp"
-#include "ipc_property_protocol.hpp"
-#include "ipc_scene_protocol.hpp"
-#include "ipc_session_protocol.hpp"
-#include "ipc_statistics_protocol.hpp"
+#include <gneiss/protocol/ipc_asset_protocol.hpp>
+#include <gneiss/protocol/ipc_control_protocol.hpp>
+#include <gneiss/protocol/ipc_inspection_protocol.hpp>
+#include <gneiss/protocol/ipc_log_protocol.hpp>
+#include <gneiss/protocol/ipc_property_protocol.hpp>
+#include <gneiss/protocol/ipc_scene_protocol.hpp>
+#include <gneiss/protocol/ipc_session_protocol.hpp>
+#include <gneiss/protocol/ipc_statistics_protocol.hpp>
 
 #include <variant>
 

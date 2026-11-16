@@ -7,12 +7,12 @@
 #include <gneiss/engine/error.hpp>
 #include "ipc/runtime_command_context.hpp"
 
-#include "ipc_inspection_protocol.hpp"
-#include "ipc_property_protocol.hpp"
-#include "ipc_protocol_domains.hpp"
-#include "ipc_router.hpp"
-#include "ipc_session_protocol.hpp"
-#include "ipc_statistics_protocol.hpp"
+#include <gneiss/protocol/ipc_inspection_protocol.hpp>
+#include <gneiss/protocol/ipc_property_protocol.hpp>
+#include <gneiss/protocol/ipc_protocol_domains.hpp>
+#include <gneiss/protocol/ipc_router.hpp>
+#include <gneiss/protocol/ipc_session_protocol.hpp>
+#include <gneiss/protocol/ipc_statistics_protocol.hpp>
 #include <gneiss/engine/platform/ipc/ipc_transport.hpp>
 
 #include <gneiss/engine/core/logging/record.hpp>

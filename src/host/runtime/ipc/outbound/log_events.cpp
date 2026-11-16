@@ -4,9 +4,9 @@
 #include <gneiss/engine/error.hpp>
 #include "runtime_ipc_outbound.hpp"
 
-#include "ipc_log_protocol.hpp"
+#include <gneiss/protocol/ipc_log_protocol.hpp>
 
-#include <gneiss/app/runtime_log_protocol.hpp>
+#include <gneiss/protocol/runtime_log_protocol.hpp>
 
 #include <new>
 #include <string>

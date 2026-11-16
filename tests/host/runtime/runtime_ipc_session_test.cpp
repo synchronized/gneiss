@@ -4,11 +4,11 @@
 #include <gneiss/engine/error.hpp>
 #include "runtime_ipc_session.hpp"
 
-#include "ipc_control_protocol.hpp"
-#include "ipc_inspection_protocol.hpp"
-#include "ipc_log_protocol.hpp"
-#include "ipc_property_protocol.hpp"
-#include "ipc_session_protocol.hpp"
+#include <gneiss/protocol/ipc_control_protocol.hpp>
+#include <gneiss/protocol/ipc_inspection_protocol.hpp>
+#include <gneiss/protocol/ipc_log_protocol.hpp>
+#include <gneiss/protocol/ipc_property_protocol.hpp>
+#include <gneiss/protocol/ipc_session_protocol.hpp>
 
 #include <chrono>
 #include <cstdio>

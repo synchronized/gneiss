@@ -8,14 +8,14 @@
 #include "runtime_launch.hpp"
 
 #include "console_model.hpp"
-#include "ipc_asset_protocol.hpp"
-#include "ipc_property_protocol.hpp"
-#include "ipc_scene_protocol.hpp"
-#include "ipc_statistics_protocol.hpp"
+#include <gneiss/protocol/ipc_asset_protocol.hpp>
+#include <gneiss/protocol/ipc_property_protocol.hpp>
+#include <gneiss/protocol/ipc_scene_protocol.hpp>
+#include <gneiss/protocol/ipc_statistics_protocol.hpp>
 #include "runtime_property_edits.hpp"
 #include "runtime_scene_mirror.hpp"
 
-#include <gneiss/app/project_description.hpp>
+#include <gneiss/project/project_description.hpp>
 
 #include <cstdint>
 #include <memory>

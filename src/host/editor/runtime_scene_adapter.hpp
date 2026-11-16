@@ -4,7 +4,7 @@
 #pragma once
 
 #include <gneiss/engine/error.hpp>
-#include "ipc_inspection_protocol.hpp"
+#include <gneiss/protocol/ipc_inspection_protocol.hpp>
 #include "runtime_scene_data.hpp"
 
 #include <new>
